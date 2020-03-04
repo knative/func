@@ -37,7 +37,10 @@ func create(cmd *cobra.Command, args []string) (err error) {
 	)
 
 	// Instantiate a client, specifying optional verbosity.
-	client := client.New(client.WithVerbose(verbose))
+	client, err := client.New(client.WithVerbose(verbose))
+	if err != nil {
+		return
+	}
 
 	// Invoke Service Funcation creation.
 	if err = client.Create(language); err != nil {

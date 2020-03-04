@@ -149,19 +149,6 @@ func (c *Client) Create(language string) (err error) {
 		return
 	}
 
-	// Deploy the initialized service function, returning its publicly
-	// addressible name for possible registration.
-	address, err := c.deployer.Deploy(c.name, c.root)
-	if err != nil {
-		return
-	}
-
-	// TODO
-	// Dervive the cluster address of the service.
-	// Derive the public domain of the service from the directory path.
-	c.dnsProvider.Provide(c.name, address)
-
-	// Associate the public domain to the cluster-defined address.
 	return
 }
 
@@ -245,8 +232,22 @@ func pathToDomain(path string, maxLevels int) string {
 	return domain
 }
 
-func (c *Client) Deploy() error {
-	return errors.New("Not Implemented")
+// Deploy the code at root, using the derived name, using the configured deployer.
+func (c *Client) Deploy() (err error) {
+	// Deploy the initialized service function, returning its publicly
+	// addressible name for possible registration.
+	address, err := c.deployer.Deploy(c.name, c.root)
+	if err != nil {
+		return
+	}
+
+	// TODO
+	// Dervive the cluster address of the service.
+	// Derive the public domain of the service from the directory path.
+	c.dnsProvider.Provide(c.name, address)
+
+	// Associate the public domain to the cluster-defined address.
+	return
 }
 
 // Manual implementations (noops) of required interfaces.

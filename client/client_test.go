@@ -8,6 +8,20 @@ import (
 	"github.com/lkingland/faas/client/mock"
 )
 
+// TestInvalidDomain ensures that creating from a directory strucutre
+// where the domain can not be derived while simultaneously failing to provide
+// an explicit name fails.
+func TestInvalidDomain(t *testing.T) {
+	_, err := client.New(
+		// Ensure no domain is found even if we are actually running within a path
+		// from which a domain could be derived.
+		client.WithDomainSearchLimit(0),
+	)
+	if err == nil {
+		t.Fatal("no error generated for unspecified and underivable name")
+	}
+}
+
 // TestCreate ensures that instantiation completes without error when provided with a
 // language.  A single client instance services a single Service Function instance
 // and as such requires the desired effective DNS for the function.  This is an optional
@@ -25,72 +39,6 @@ func TestCreate(t *testing.T) {
 	// of the initializer being the decider if the language provided is supported.
 	if err := client.Create("go"); err != nil {
 		t.Fatal(err)
-	}
-}
-
-// TestCreateInvalidName ensures that creating from a directory strucutre
-// where the domain can not be derived while simultaneously failing to provide
-// an explicit name fails.
-func TestCreateDomainInvalid(t *testing.T) {
-	_, err := client.New(
-		// Ensure no domain is found even if we are actually running within a path
-		// from which a domain could be derived.
-		client.WithDomainSearchLimit(0),
-	)
-	if err == nil {
-		t.Fatal("no error generated for unspecified and underivable name")
-	}
-}
-
-// TestCreateDomain ensures that the effective domain is dervied from
-// directory structure.  See the unit tests for pathToDomain for details.
-func TestCreateDomain(t *testing.T) {
-	// the mock dns provider does nothing but receive the caluclated
-	// domain name via it's Provide(domain) method, which is the value
-	// being tested here.
-	dnsProvider := mock.NewDNSProvider()
-
-	client, err := client.New(
-		client.WithRoot("./testdata/example.com"), // set function root
-		client.WithDomainSearchLimit(1),           // Limit recursion to one level
-		client.WithDNSProvider(dnsProvider),       // will receive the final value
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := client.Create("go"); err != nil {
-		t.Fatal(err)
-	}
-	if !dnsProvider.ProvideInvoked {
-		t.Fatal("dns provider was not invoked")
-	}
-	if dnsProvider.NameRequested != "example.com" {
-		t.Fatalf("expected 'example.com', got '%v'", dnsProvider.NameRequested)
-	}
-}
-
-// TestCreateSubdomain ensures that a subdirectory is interpreted as a subdomain
-// when calculating final domain.  See the unit tests for pathToDomain for the
-// details and edge cases of this caluclation.
-func TestCreateSubdomain(t *testing.T) {
-	dnsProvider := mock.NewDNSProvider()
-	client, err := client.New(
-		client.WithRoot("./testdata/example.com/admin"),
-		client.WithDomainSearchLimit(2),
-		client.WithDNSProvider(dnsProvider),
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := client.Create("go"); err != nil {
-		t.Fatal(err)
-	}
-	if !dnsProvider.ProvideInvoked {
-		t.Fatal("dns provider was not invoked")
-	}
-	if dnsProvider.NameRequested != "admin.example.com" {
-		t.Fatalf("expected 'admin.example.com', got '%v'", dnsProvider.NameRequested)
 	}
 }
 
@@ -129,9 +77,9 @@ func TestCreateInitializes(t *testing.T) {
 	}
 }
 
-// TestCreateDeploys ensures that a call to Create invokes the Sevice Function
+// TestDeploy ensures that a call to Deploy invokes the Sevice Function
 // Deployer with the correct parameters.
-func TestCreateDeploys(t *testing.T) {
+func TestDeploy(t *testing.T) {
 	deployer := mock.NewDeployer()
 	client, err := client.New(
 		client.WithRoot("./testdata/example.com/admin"), // set function root
@@ -153,10 +101,62 @@ func TestCreateDeploys(t *testing.T) {
 		}
 		return
 	}
-	if err := client.Create("go"); err != nil {
+	if err := client.Deploy(); err != nil {
 		t.Fatal(err)
 	}
 	if !deployer.DeployInvoked {
 		t.Fatal("deployer was not invoked")
+	}
+}
+
+// TestDeployDomain ensures that the effective domain is dervied from
+// directory structure.  See the unit tests for pathToDomain for details.
+func TestDeployDomain(t *testing.T) {
+	// the mock dns provider does nothing but receive the caluclated
+	// domain name via it's Provide(domain) method, which is the value
+	// being tested here.
+	dnsProvider := mock.NewDNSProvider()
+
+	client, err := client.New(
+		client.WithRoot("./testdata/example.com"), // set function root
+		client.WithDomainSearchLimit(1),           // Limit recursion to one level
+		client.WithDNSProvider(dnsProvider),       // will receive the final value
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := client.Deploy(); err != nil {
+		t.Fatal(err)
+	}
+	if !dnsProvider.ProvideInvoked {
+		t.Fatal("dns provider was not invoked")
+	}
+	if dnsProvider.NameRequested != "example.com" {
+		t.Fatalf("expected 'example.com', got '%v'", dnsProvider.NameRequested)
+	}
+}
+
+// TestDeploySubdomain ensures that a subdirectory is interpreted as a subdomain
+// when calculating final domain.  See the unit tests for pathToDomain for the
+// details and edge cases of this caluclation.
+func TestDeploySubdomain(t *testing.T) {
+	dnsProvider := mock.NewDNSProvider()
+	client, err := client.New(
+		client.WithRoot("./testdata/example.com/admin"),
+		client.WithDomainSearchLimit(2),
+		client.WithDNSProvider(dnsProvider),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := client.Deploy(); err != nil {
+		t.Fatal(err)
+	}
+	if !dnsProvider.ProvideInvoked {
+		t.Fatal("dns provider was not invoked")
+	}
+	if dnsProvider.NameRequested != "admin.example.com" {
+		t.Fatalf("expected 'admin.example.com', got '%v'", dnsProvider.NameRequested)
 	}
 }
