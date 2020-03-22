@@ -12,9 +12,8 @@ import (
 // Version of this command
 const Version = "v0.0.1"
 
-// Global variables accessible to all commands.
 var (
-	// Location of an optional config file.
+	// Location of the optional config file.
 	config = "~/.faas/config"
 
 	// Enable verbose logging (debug).
