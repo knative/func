@@ -1,12 +1,15 @@
 package cmd
 
 import (
-	"errors"
-
+	"github.com/ory/viper"
 	"github.com/spf13/cobra"
+
+	"github.com/lkingland/faas/appsody"
+	"github.com/lkingland/faas/client"
 )
 
 func init() {
+	// Add the run command as a subcommand of root.
 	root.AddCommand(runCmd)
 }
 
@@ -17,6 +20,18 @@ var runCmd = &cobra.Command{
 	RunE:  run,
 }
 
-func run(cmd *cobra.Command, args []string) error {
-	return errors.New("Run not implemented.")
+func run(cmd *cobra.Command, args []string) (err error) {
+	var verbose = viper.GetBool("verbose")
+
+	runner := appsody.NewRunner()
+	runner.Verbose = verbose
+
+	client, err := client.New(
+		client.WithRunner(runner),
+		client.WithVerbose(verbose))
+	if err != nil {
+		return
+	}
+
+	return client.Run()
 }

@@ -18,13 +18,13 @@ import (
 //
 // For development of this package in particualr, the flag will need to be
 // either manually set, or ones IDE set to add the flag such that the tests run.
-var enableTestAppsodyInitializer = flag.Bool("enable-test-appsody-initializer", false, "Enable initializer tests requiring local appsody binary.")
+var enableTestAppsodyIntegration = flag.Bool("enable-test-appsody-integration", false, "Enable tests requiring local appsody binary.")
 
 // TestInitialize ensures that the local appsody binary initializes a stack as expected.
 func TestInitialize(t *testing.T) {
 	// Abort if not explicitly enabled.
-	if !*enableTestAppsodyInitializer {
-		fmt.Fprintln(os.Stdout, "Skipping tests which require 'appsody' binary.  enable with --enable-test-appsody-initializer")
+	if !*enableTestAppsodyIntegration {
+		fmt.Fprintln(os.Stdout, "Skipping tests which require 'appsody' binary.  enable with --enable-test-appsody-integration")
 		t.Skip()
 	}
 

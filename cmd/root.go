@@ -26,7 +26,7 @@ var (
 var root = &cobra.Command{
 	Use:   "faas",
 	Short: "Function as a Service Manager",
-	Long: `Funcion as a Service Manager
+	Long: `Function as a Service Manager
 
 Create, run and deploy.`,
 	Version:       Version,

@@ -160,3 +160,30 @@ func TestDeploySubdomain(t *testing.T) {
 		t.Fatalf("expected 'admin.example.com', got '%v'", dnsProvider.NameRequested)
 	}
 }
+
+// TestRun ensures that the runner is invoked with the absolute path requested.
+func TestRun(t *testing.T) {
+	root := "./testdata/example.com/admin"
+	runner := mock.NewRunner()
+	client, err := client.New(
+		client.WithRoot(root),
+		client.WithRunner(runner),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := client.Run(); err != nil {
+		t.Fatal(err)
+	}
+	if !runner.RunInvoked {
+		t.Fatal("run did not invoke the runner")
+	}
+	absRoot, err := filepath.Abs(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runner.RootRequested != absRoot {
+		t.Fatalf("expected path '%v', got '%v'", absRoot, runner.RootRequested)
+	}
+
+}

@@ -20,6 +20,7 @@ type Client struct {
 	dnsProvider       DNSProvider // Provider of DNS services
 	initializer       Initializer // Creates initial local function implementation
 	deployer          Deployer    // Deploys a Service Function
+	runner            Runner      // Runs the function locally
 }
 
 // DNSProvider exposes DNS services necessary for serving the Service Function.
@@ -39,6 +40,12 @@ type Deployer interface {
 	// Deploy a function of the given name whose source is located at path,
 	// returning an address.
 	Deploy(name, path string) (address string, err error)
+}
+
+// Runner runs the function locally.
+type Runner interface {
+	// Run the function locally.
+	Run(path string) error
 }
 
 // Option defines a function which when passed to the Client constructor optionally
@@ -103,6 +110,13 @@ func WithDeployer(d Deployer) Option {
 	}
 }
 
+// WithRunner provides the concrete implementation of a deployer.
+func WithRunner(r Runner) Option {
+	return func(c *Client) {
+		c.runner = r
+	}
+}
+
 func New(options ...Option) (c *Client, err error) {
 	// Client with defaults overridden by optional parameters
 	c = &Client{
@@ -110,6 +124,7 @@ func New(options ...Option) (c *Client, err error) {
 		dnsProvider:       &manualDNSProvider{output: os.Stdout},
 		initializer:       &manualInitializer{output: os.Stdout},
 		deployer:          &manualDeployer{output: os.Stdout},
+		runner:            &manualRunner{output: os.Stdout},
 	}
 	for _, o := range options {
 		o(c)
@@ -250,6 +265,12 @@ func (c *Client) Deploy() (err error) {
 	return
 }
 
+// Run the function whose code resides at root.
+func (c *Client) Run() error {
+	// delegate to concrete implementation of runner entirely.
+	return c.runner.Run(c.root)
+}
+
 // Manual implementations (noops) of required interfaces.
 // In practice, the user of this client package (for example the CLI) will
 // provide a concrete implementation for all of the interfaces.  For testing or
@@ -285,4 +306,13 @@ type manualDeployer struct {
 func (i *manualDeployer) Deploy(name, root string) (string, error) {
 	fmt.Fprintf(i.output, "Please manually deploy '%v' using code at '%v'\n", name, root)
 	return "", nil
+}
+
+type manualRunner struct {
+	output io.Writer
+}
+
+func (i *manualRunner) Run(root string) error {
+	fmt.Fprintf(i.output, "Please manually run using code at '%v'\n", root)
+	return nil
 }

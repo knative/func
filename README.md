@@ -7,18 +7,23 @@ Function as a Service CLI
 Go 1.13+
 
 ## Install
+
+Build and install the resultant binary.
 ```
 go install
 ```
 ## Build
+
+Build binary into the local directory.
 ```shell
 go build
 ```
 ## Usage
+
+See help:
 ```shell
 faas
 ```
-
 ## Examples
 ```shell
 > mkdir -p example.com/www
