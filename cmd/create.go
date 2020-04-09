@@ -15,8 +15,14 @@ func init() {
 	root.AddCommand(createCmd)
 
 	// register command flags and bind them to environment variables.
-	createCmd.Flags().BoolP("local", "", false, "create the function service locally only.")
+	createCmd.Flags().BoolP("local", "l", false, "create the function service locally only.")
 	viper.BindPFlag("local", createCmd.Flags().Lookup("local"))
+
+	createCmd.Flags().StringP("registry", "r", "quay.io", "image registry.")
+	viper.BindPFlag("registry", createCmd.Flags().Lookup("registry"))
+
+	createCmd.Flags().StringP("namespace", "n", "", "namespace at image registry (usually username or org name). $FAAS_NAMESPACE")
+	viper.BindPFlag("namespace", createCmd.Flags().Lookup("namespace"))
 }
 
 // The create command invokes the Service Funciton Client to create a new,
@@ -30,41 +36,55 @@ var createCmd = &cobra.Command{
 }
 
 func create(cmd *cobra.Command, args []string) (err error) {
-	// Preconditions ensure the command is well-formed.
+	// Assert a language parameter was provided
 	if len(args) == 0 {
 		return errors.New("'faas create' requires a language argument.")
 	}
 
 	// Assemble parameters for use in client method invocation.
 	var (
-		language = args[0]                  // language is the first argument
-		local    = viper.GetBool("local")   // Only perform local creation steps
-		verbose  = viper.GetBool("verbose") // Verbose logging
+		language  = args[0]                      // language is the first argument
+		local     = viper.GetBool("local")       // Only perform local creation steps
+		verbose   = viper.GetBool("verbose")     // Verbose logging
+		registry  = viper.GetString("registry")  // Registry (ex: docker.io)
+		namespace = viper.GetString("namespace") // namespace at registry (user or org name)
 	)
 
-	// The function initializer is presently implemented using appsody.
+	if namespace == "" {
+		return errors.New("image registry namespace (--namespace or FAAS_NAMESPACE is required)")
+	}
+
+	// Initializer creates a deployable noop function implementation in the
+	// configured path.
 	initializer := appsody.NewInitializer()
 	initializer.Verbose = verbose
+
+	// Builder creates images from function source.
+	builder := appsody.NewBuilder(registry, namespace)
+	builder.Verbose = verbose
+
+	// Pusher of images to a registry
+	// pusher := appsody.NewPusher()
+	// pusher.Verbose = verbose
+
+	// Deployer of built images.
+	// deployer := kn.NewDeployer()
+	// deployer.Verbose = verbose
 
 	// Instantiate a client, specifying concrete implementations for
 	// Initializer and Deployer, as well as setting the optional verbosity param.
 	client, err := client.New(
 		client.WithInitializer(initializer),
-		client.WithVerbose(verbose))
+		client.WithBuilder(builder),
+		client.WithVerbose(verbose),
+	)
 	if err != nil {
 		return
 	}
 
+	// Set the client to be local-only (default false)
+	client.SetLocal(local)
+
 	// Invoke the creation of the new Service Function locally.
-	if err = client.Create(language); err != nil {
-		return
-	}
-
-	// If running in local-only mode, execution is complete.
-	if local {
-		return
-	}
-
-	// Deploy the newly initialized Service Function.
-	return client.Deploy()
+	return client.Create(language)
 }
