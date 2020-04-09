@@ -14,11 +14,14 @@ import (
 // Client for a given Service Function.
 type Client struct {
 	verbose           bool        // print verbose logs
+	local             bool        // Run in local-only mode
 	name              string      // Service function DNS address
 	root              string      // root path of function on which to operate
 	domainSearchLimit int         // max dirs to recurse up when deriving domain
 	dnsProvider       DNSProvider // Provider of DNS services
 	initializer       Initializer // Creates initial local function implementation
+	builder           Builder     // Builds a runnable image from function source
+	pusher            Pusher      // Pushes a built image to a registry
 	deployer          Deployer    // Deploys a Service Function
 	runner            Runner      // Runs the function locally
 }
@@ -33,6 +36,19 @@ type DNSProvider interface {
 type Initializer interface {
 	// Initialize a Service Function of the given language, in root, with name.
 	Initialize(name, language, path string) error
+}
+
+// Builder of function source to runnable image.
+type Builder interface {
+	// Build a runnable image of the function whose source is located at path,
+	// returning an image.
+	Build(name, path string) (image string, err error)
+}
+
+// Pusher of function image to a registry.
+type Pusher interface {
+	// Push a runnable image of the function to a registry.
+	Push(image string) error
 }
 
 // Deployer of function source to running status.
@@ -103,6 +119,20 @@ func WithInitializer(i Initializer) Option {
 	}
 }
 
+// WithBuilder provides the concrete implementation of a builder.
+func WithBuilder(d Builder) Option {
+	return func(c *Client) {
+		c.builder = d
+	}
+}
+
+// WithPusher provides the concrete implementation of a pusher.
+func WithPusher(d Pusher) Option {
+	return func(c *Client) {
+		c.pusher = d
+	}
+}
+
 // WithDeployer provides the concrete implementation of a deployer.
 func WithDeployer(d Deployer) Option {
 	return func(c *Client) {
@@ -123,6 +153,8 @@ func New(options ...Option) (c *Client, err error) {
 		domainSearchLimit: -1, // no recursion limit deriving domain by default.
 		dnsProvider:       &manualDNSProvider{output: os.Stdout},
 		initializer:       &manualInitializer{output: os.Stdout},
+		builder:           &manualBuilder{output: os.Stdout},
+		pusher:            &manualPusher{output: os.Stdout},
 		deployer:          &manualDeployer{output: os.Stdout},
 		runner:            &manualRunner{output: os.Stdout},
 	}
@@ -150,6 +182,11 @@ func New(options ...Option) (c *Client, err error) {
 	return
 }
 
+// SetLocal mode (skips push, deploy, etc.)
+func (c *Client) SetLocal(local bool) {
+	c.local = local
+}
+
 func (c *Client) Create(language string) (err error) {
 	// Language is required
 	// Whether or not the given language is supported is dependant on
@@ -164,6 +201,35 @@ func (c *Client) Create(language string) (err error) {
 		return
 	}
 
+	// Build the now-initialized service function
+	image, err := c.builder.Build(c.name, c.root)
+	if err != nil {
+		return
+	}
+
+	// If running local-only, we're done.
+	if c.local {
+		return
+	}
+
+	// Push the image to the configured registry
+	if err = c.pusher.Push(image); err != nil {
+		return
+	}
+
+	// Deploy the initialized service function, returning its publicly
+	// addressible name for possible registration.
+	address, err := c.deployer.Deploy(c.name, image)
+	if err != nil {
+		return
+	}
+
+	// TODO
+	// Dervive the cluster address of the service.
+	// Derive the public domain of the service from the directory path.
+	c.dnsProvider.Provide(c.name, address)
+
+	// Associate the public domain to the cluster-defined address.
 	return
 }
 
@@ -247,24 +313,6 @@ func pathToDomain(path string, maxLevels int) string {
 	return domain
 }
 
-// Deploy the code at root, using the derived name, using the configured deployer.
-func (c *Client) Deploy() (err error) {
-	// Deploy the initialized service function, returning its publicly
-	// addressible name for possible registration.
-	address, err := c.deployer.Deploy(c.name, c.root)
-	if err != nil {
-		return
-	}
-
-	// TODO
-	// Dervive the cluster address of the service.
-	// Derive the public domain of the service from the directory path.
-	c.dnsProvider.Provide(c.name, address)
-
-	// Associate the public domain to the cluster-defined address.
-	return
-}
-
 // Run the function whose code resides at root.
 func (c *Client) Run() error {
 	// delegate to concrete implementation of runner entirely.
@@ -296,6 +344,24 @@ type manualInitializer struct {
 
 func (i *manualInitializer) Initialize(name, language, root string) error {
 	fmt.Fprintf(i.output, "Please create a base function for '%v' (language '%v') at path '%v'\n", name, language, root)
+	return nil
+}
+
+type manualBuilder struct {
+	output io.Writer
+}
+
+func (i *manualBuilder) Build(name, root string) (string, error) {
+	fmt.Fprintf(i.output, "Please manually build image for '%v' using code at '%v'\n", name, root)
+	return "", nil
+}
+
+type manualPusher struct {
+	output io.Writer
+}
+
+func (i *manualPusher) Push(image string) error {
+	fmt.Fprintf(i.output, "Please manually push image '%v'", image)
 	return nil
 }
 
