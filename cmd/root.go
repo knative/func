@@ -9,30 +9,27 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Version of this command
+// Version
+// Printed on subcommand `version` or flag `--version`
 const Version = "v0.0.1"
 
 var (
-	// Location of the optional config file.
-	config = "~/.faas/config"
-
-	// Enable verbose logging (debug).
-	verbose = false
+	config  = "~/.faas/config" // Location of the optional config file.
+	verbose = false            // Enable verbose logging (debug).
 )
 
 // The root of the command tree defines the command name, descriotion, globally
 // available flags, etc.  It has no action of its own, such that running the
 // resultant binary with no arguments prints the help/usage text.
 var root = &cobra.Command{
-	Use:   "faas",
-	Short: "Function as a Service Manager",
-	Long: `Function as a Service Manager
-
-Create, run and deploy.`,
+	Use:           "faas",
+	Short:         "Function as a Service Manager",
 	Version:       Version,
 	SilenceErrors: true, // we explicitly handle errors in Execute()
 	SilenceUsage:  true, // no usage dump on error
+	Long: `Function as a Service Manager
 
+Create, run and deploy.`,
 }
 
 // When the code is loaded into memory upon invocation, the cobra/viper packages
@@ -50,6 +47,13 @@ func init() {
 	// config file (i.e. flags always take highest precidence).
 	root.PersistentFlags().BoolVarP(&verbose, "verbose", "v", verbose, "print verbose logs")
 	viper.BindPFlag("verbose", root.PersistentFlags().Lookup("verbose"))
+
+	// Override the --version template to match the output format from the
+	// version subcommand: nothing but the version.
+	root.SetVersionTemplate(`{{printf "%s\n" .Version}}`)
+
+	// Prefix all environment variables with "FAAS_" to avoid collisions with other apps.
+	viper.SetEnvPrefix("faas")
 }
 
 // readConfig populates variables (overriding defaults) from the config file
@@ -73,5 +77,17 @@ func readConfig() {
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
 		fmt.Println("Using config file:", viper.ConfigFileUsed())
+	}
+}
+
+// Execute the command tree by executing the root command, which runs
+// according to the context defined by:  the optional config file,
+// Environment Variables, command arguments and flags.
+func Execute() {
+	// Execute the root of the command tree.
+	if err := root.Execute(); err != nil {
+		// Errors are printed to STDERR output and the process exits with code of 1.
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
 	}
 }
