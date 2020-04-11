@@ -34,28 +34,28 @@ type DNSProvider interface {
 
 // Initializer creates the initial/stub Service Function code on first create.
 type Initializer interface {
-	// Initialize a Service Function of the given language, in root, with name.
+	// Initialize a Service Function of the given name, using the templates for
+	// the given language, written into the given path.
 	Initialize(name, language, path string) error
 }
 
 // Builder of function source to runnable image.
 type Builder interface {
-	// Build a runnable image of the function whose source is located at path,
-	// returning an image.
+	// Build a function service of the given name with source located at path.
+	// returns the image name built.
 	Build(name, path string) (image string, err error)
 }
 
 // Pusher of function image to a registry.
 type Pusher interface {
-	// Push a runnable image of the function to a registry.
+	// Push the image of the function service.
 	Push(image string) error
 }
 
 // Deployer of function source to running status.
 type Deployer interface {
-	// Deploy a function of the given name whose source is located at path,
-	// returning an address.
-	Deploy(name, path string) (address string, err error)
+	// Deploy a service function of given name, using given backing image.
+	Deploy(name, image string) (address string, err error)
 }
 
 // Runner runs the function locally.
@@ -212,7 +212,7 @@ func (c *Client) Create(language string) (err error) {
 		return
 	}
 
-	// Push the image to the configured registry
+	// Push the image for the names service to the configured registry
 	if err = c.pusher.Push(image); err != nil {
 		return
 	}
@@ -351,7 +351,7 @@ type manualBuilder struct {
 	output io.Writer
 }
 
-func (i *manualBuilder) Build(name, root string) (string, error) {
+func (i *manualBuilder) Build(name, root string) (image string, err error) {
 	fmt.Fprintf(i.output, "Please manually build image for '%v' using code at '%v'\n", name, root)
 	return "", nil
 }
@@ -361,7 +361,7 @@ type manualPusher struct {
 }
 
 func (i *manualPusher) Push(image string) error {
-	fmt.Fprintf(i.output, "Please manually push image '%v'", image)
+	fmt.Fprintf(i.output, "Please manually push image '%v'\n", image)
 	return nil
 }
 
@@ -369,8 +369,8 @@ type manualDeployer struct {
 	output io.Writer
 }
 
-func (i *manualDeployer) Deploy(name, root string) (string, error) {
-	fmt.Fprintf(i.output, "Please manually deploy '%v' using code at '%v'\n", name, root)
+func (i *manualDeployer) Deploy(name, image string) (string, error) {
+	fmt.Fprintf(i.output, "Please manually deploy '%v'\n", name)
 	return "", nil
 }
 

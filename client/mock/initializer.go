@@ -20,6 +20,7 @@ func NewInitializer() *Initializer {
 }
 
 func (i *Initializer) Initialize(name, language, path string) error {
+	fmt.Printf("Validating language supported: %v\n", language)
 	i.InitializeInvoked = true
 	if !i.supportsLanguage(language) {
 		return errors.New(fmt.Sprintf("unsupported language '%v'", language))

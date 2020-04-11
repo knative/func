@@ -11,7 +11,7 @@ func NewBuilder() *Builder {
 	}
 }
 
-func (i *Builder) Build(name, path string) (image string, err error) {
+func (i *Builder) Build(name, path string) (string, error) {
 	i.BuildInvoked = true
 	return i.BuildFn(name, path)
 }
