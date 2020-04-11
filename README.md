@@ -12,6 +12,7 @@ Build and install the resultant binary.
 ```
 go install
 ```
+
 ## Build
 
 Build binary into the local directory.
@@ -25,17 +26,32 @@ See help:
 faas
 ```
 
+## Configuration
 
-### Configuration
+### Knative Serving Network Configuraiton
 
-A public repository is presently required for the intermediate container.  As such, one's local
-docker (or podman) should be logged in, and an environment variable set to the user or organization
-name to which images should be deployed:
+Patch the Knative Network Config to enable subdomains:
 ```
-export FAAS_NAMESPACE=johndoe
+kubectl apply -f ./k8s/config-network.yaml`
 ```
 
-### Examples
+Patch the Knative Domains Config to set a default domain:
+```
+kubectl apply -f ./k8s/config-domain.yaml`
+```
+
+### Public Container Registry and Namespace
+
+Both the image registry and user/org namespace need to be defined either by
+using the --registry and --namespace flags on the `create` command, or by
+configuring as environment variables.  For example to configure all images
+to be pushed to `quay.io/alice`, use:
+```
+export FAAS_REGISTRY=quay.io
+export FAAS_NAMESPACE=alice
+```
+
+## Examples
 
 Create a new Function Service:
 
