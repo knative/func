@@ -8,6 +8,8 @@ import (
 
 	"github.com/lkingland/faas/appsody"
 	"github.com/lkingland/faas/client"
+	"github.com/lkingland/faas/docker"
+	"github.com/lkingland/faas/kubectl"
 )
 
 func init() {
@@ -18,7 +20,7 @@ func init() {
 	createCmd.Flags().BoolP("local", "l", false, "create the function service locally only.")
 	viper.BindPFlag("local", createCmd.Flags().Lookup("local"))
 
-	createCmd.Flags().StringP("registry", "r", "quay.io", "image registry.")
+	createCmd.Flags().StringP("registry", "r", "quay.io", "image registry (ex: quay.io). $FAAS_REGISTRY")
 	viper.BindPFlag("registry", createCmd.Flags().Lookup("registry"))
 
 	createCmd.Flags().StringP("namespace", "n", "", "namespace at image registry (usually username or org name). $FAAS_NAMESPACE")
@@ -50,6 +52,7 @@ func create(cmd *cobra.Command, args []string) (err error) {
 		namespace = viper.GetString("namespace") // namespace at registry (user or org name)
 	)
 
+	// Namespace can not be defaulted.
 	if namespace == "" {
 		return errors.New("image registry namespace (--namespace or FAAS_NAMESPACE is required)")
 	}
@@ -63,20 +66,22 @@ func create(cmd *cobra.Command, args []string) (err error) {
 	builder := appsody.NewBuilder(registry, namespace)
 	builder.Verbose = verbose
 
-	// Pusher of images to a registry
-	// pusher := appsody.NewPusher()
-	// pusher.Verbose = verbose
+	// Pusher of images
+	pusher := docker.NewPusher()
+	pusher.Verbose = verbose
 
 	// Deployer of built images.
-	// deployer := kn.NewDeployer()
-	// deployer.Verbose = verbose
+	deployer := kubectl.NewDeployer()
+	deployer.Verbose = verbose
 
 	// Instantiate a client, specifying concrete implementations for
 	// Initializer and Deployer, as well as setting the optional verbosity param.
 	client, err := client.New(
+		client.WithVerbose(verbose),
 		client.WithInitializer(initializer),
 		client.WithBuilder(builder),
-		client.WithVerbose(verbose),
+		client.WithPusher(pusher),
+		client.WithDeployer(deployer),
 	)
 	if err != nil {
 		return
