@@ -7,6 +7,8 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+
+	"github.com/lkingland/faas/k8s"
 )
 
 // NameMappings are short-name to repository full name mappings,
@@ -39,11 +41,14 @@ func (n *Initializer) Initialize(name, language, path string) error {
 
 	// Appsody does not support domain names as the project name
 	// (ex: www.example.com), and has extremely strict naming requirements
-	// (only lower case letters, numbers and dashes).  So for now replace
-	// any dots with dashes.
-	name = strings.ReplaceAll(name, ".", "-")
+	// (subdomains per rfc 1035).  So let's just assume its name must be a valid domain, and
+	// encode it as a 1035 domain by doubling down on hyphens.
+	project, err := k8s.ToSubdomain(name)
+	if err != nil {
+		return err
+	}
 
-	// Dereference stack short name
+	// Dereference stack short name.  ex. "go" -> "go-ce-functions"
 	stackName, ok := stackShortNames[language]
 	if !ok {
 		languages := []string{}
@@ -56,13 +61,12 @@ func (n *Initializer) Initialize(name, language, path string) error {
 
 	// set up the command, specifying a sanitized project name and connecting
 	// standard output and error.
-	cmd := exec.Command("appsody", "init", "boson/"+stackName, "--project-name", name)
+	cmd := exec.Command("appsody", "init", "boson/"+stackName, "--project-name", project)
 	cmd.Dir = path
-
-	fmt.Println(cmd)
 
 	// If verbose logging is enabled, echo appsody's chatty stdout.
 	if n.Verbose {
+		fmt.Println(cmd)
 		cmd.Stdout = os.Stdout
 	}
 
