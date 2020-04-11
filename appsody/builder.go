@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"strings"
-	"time"
 )
 
 // Builder of images from function source using appsody.
@@ -36,26 +34,21 @@ func (n *Builder) Build(name, path string) (image string, err error) {
 		return
 	}
 
-	// Appsody does not support domain names as the project name
-	// (ex: www.example.com), and has extremely strict naming requirements
-	// (only lower case letters, numbers and dashes).  So for now replace
-	// any dots with dashes.
-	name = strings.ReplaceAll(name, ".", "-")
-
 	// Fully qualified image name.  Ex quay.io/user/www-example-com:20200102T1234
-	timestamp := time.Now().Format("20060102T150405")
-	image = fmt.Sprintf("%v/%v/%v:%v", n.registry, n.namespace, name, timestamp)
+	// timestamp := time.Now().Format("20060102T150405")
+	// image = fmt.Sprintf("%v/%v/%v:%v", n.registry, n.namespace, name, timestamp)
+
+	// Simple image name, which uses :latest
+	image = fmt.Sprintf("%v/%v/%v", n.registry, n.namespace, name)
 
 	// set up the command, specifying a sanitized project name and connecting
 	// standard output and error.
-	cmd := exec.Command("appsody", "build", "--knative", "-t", image)
+	cmd := exec.Command("appsody", "build", "-t", image)
 	cmd.Dir = path
-
-	fmt.Println("***** RUNNING *****")
-	fmt.Println(cmd)
 
 	// If verbose logging is enabled, echo appsody's chatty stdout.
 	if n.Verbose {
+		fmt.Println(cmd)
 		cmd.Stdout = os.Stdout
 	}
 
