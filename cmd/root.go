@@ -9,10 +9,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Version
-// Printed on subcommand `version` or flag `--version`
-const Version = "v0.0.1"
-
 var (
 	config  = "~/.faas/config" // Location of the optional config file.
 	verbose = false            // Enable verbose logging (debug).
