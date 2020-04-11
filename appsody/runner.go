@@ -39,7 +39,12 @@ func (n *Runner) Run(path string) error {
 	cmd := exec.Command("appsody", args...)
 	cmd.Dir = path
 
-	// We really need to show the user all output, so a method to squelch
+	// If verbose logging is enabled, echo command
+	if n.Verbose {
+		fmt.Println(cmd)
+	}
+
+	// We need to show the user all output, so a method to squelch
 	// appsody's chattiness is not immediately apparent.
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
