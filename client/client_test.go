@@ -12,14 +12,14 @@ import (
 func TestNew(t *testing.T) {
 	// Instantiation with optional explicit service name should succeed.
 	_, err := client.New(
-		client.WithName("my.example.com")) // be explicit rather than path-derive
+		client.WithRoot("./testdata/example.com/admin"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Instantiation with optional verbosity should succeed.
 	_, err = client.New(
-		client.WithName("my.example.com"),
+		client.WithRoot("./testdata/example.com/admin"),
 		client.WithVerbose(true),
 	)
 	if err != nil {
@@ -36,13 +36,19 @@ func TestNew(t *testing.T) {
 	}
 }
 
+// TestNewWithInterferingFiles asserts that attempting to create a new client rooted
+// to a directory with any visible files or any known contentious files (configs) fails.
+func TestNewWithInterferingFiles(t *testing.T) {
+	// TODO
+}
+
 // TestCreate ensures that instantiation completes without error when provided with a
 // valid language.  A single client instance services a single Service Function instance
 // and as such requires the desired effective DNS for the function.  This is an optional
 // parameter, as it is derived from path by default.
 func TestCreate(t *testing.T) {
 	client, err := client.New(
-		client.WithName("my.example.com"),
+		client.WithRoot("./testdata/example.com/admin"),
 		client.WithInitializer(mock.NewInitializer()),
 	) // be explicit rather than path-derive
 	if err != nil {
@@ -144,9 +150,12 @@ func TestCreateDelegates(t *testing.T) {
 
 	// The deployer should be invoked with the service name and image, and return
 	// the final accessible address.
-	deployer.DeployFn = func(name2 string) (address string, err error) {
+	deployer.DeployFn = func(name2, image2 string) (address string, err error) {
 		if name2 != name {
 			t.Fatalf("deployer expected name '%v', got '%v'", name, name2)
+		}
+		if image2 != image {
+			t.Fatalf("deployer expected image '%v', got '%v'", image, image2)
 		}
 		// service of given name would be deployed using the given image and
 		// allocated route returned.
@@ -229,9 +238,9 @@ func TestCreateDomain(t *testing.T) {
 	dnsProvider := mock.NewDNSProvider()
 
 	client, err := client.New(
-		client.WithRoot("./testdata/example.com"), // set function root
-		client.WithDomainSearchLimit(1),           // Limit recursion to one level
-		client.WithDNSProvider(dnsProvider),       // will receive the final value
+		client.WithRoot("./testdata/example.com/admin"), // set function root
+		client.WithDomainSearchLimit(1),                 // Limit recursion to one level
+		client.WithDNSProvider(dnsProvider),             // will receive the final value
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -243,7 +252,7 @@ func TestCreateDomain(t *testing.T) {
 	if !dnsProvider.ProvideInvoked {
 		t.Fatal("dns provider was not invoked")
 	}
-	if dnsProvider.NameRequested != "example.com" {
+	if dnsProvider.NameRequested != "admin.example.com" {
 		t.Fatalf("expected 'example.com', got '%v'", dnsProvider.NameRequested)
 	}
 }
@@ -295,5 +304,60 @@ func TestRun(t *testing.T) {
 	}
 	if runner.RootRequested != absRoot {
 		t.Fatalf("expected path '%v', got '%v'", absRoot, runner.RootRequested)
+	}
+}
+
+// TestRemove ensures that the remover is invoked with the name of the
+// client's associated service function.
+func TestRemove(t *testing.T) {
+	var (
+		root    = "./testdata/example.com/admin"
+		name    = "admin.example.com"
+		remover = mock.NewRemover()
+	)
+	client, err := client.New(
+		client.WithRoot(root),
+		client.WithRemover(remover))
+	if err != nil {
+		t.Fatal(err)
+	}
+	remover.RemoveFn = func(name2 string) error {
+		if name2 != name {
+			t.Fatalf("remover expected name '%v' got '%v'", name, name2)
+		}
+		return nil
+	}
+	// Call remove with no explicit name, expecting default to be the
+	// assocaite of the client instance
+	if err := client.Remove(""); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestRemoveExplicit ensures that a call to remove an explicit name, which
+// may differ from the service function the client is associated wtith, is
+// respected and passed along to the concrete remover implementation.
+func TestRemoveExplicit(t *testing.T) {
+	var (
+		root    = "./testdata/example.com/admin"
+		name    = "www.example.com" // Differs from that derived from root.
+		remover = mock.NewRemover()
+	)
+	client, err := client.New(
+		client.WithRoot(root),
+		client.WithRemover(remover))
+	if err != nil {
+		t.Fatal(err)
+	}
+	remover.RemoveFn = func(name2 string) error {
+		if name2 != name {
+			t.Fatalf("remover expected name '%v' got '%v'", name, name2)
+		}
+		return nil
+	}
+	// Call remove with an explicit name which differs from that associated
+	// to the current client instance.
+	if err := client.Remove(name); err != nil {
+		t.Fatal(err)
 	}
 }

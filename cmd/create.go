@@ -20,10 +20,13 @@ func init() {
 	createCmd.Flags().BoolP("local", "l", false, "create the function service locally only.")
 	viper.BindPFlag("local", createCmd.Flags().Lookup("local"))
 
+	createCmd.Flags().StringP("name", "n", "", "optionally specify an explicit name for the serive, overriding path-derivation. $FAAS_NAME")
+	viper.BindPFlag("name", createCmd.Flags().Lookup("name"))
+
 	createCmd.Flags().StringP("registry", "r", "quay.io", "image registry (ex: quay.io). $FAAS_REGISTRY")
 	viper.BindPFlag("registry", createCmd.Flags().Lookup("registry"))
 
-	createCmd.Flags().StringP("namespace", "n", "", "namespace at image registry (usually username or org name). $FAAS_NAMESPACE")
+	createCmd.Flags().StringP("namespace", "s", "", "namespace at image registry (usually username or org name). $FAAS_NAMESPACE")
 	viper.BindPFlag("namespace", createCmd.Flags().Lookup("namespace"))
 }
 
@@ -43,10 +46,11 @@ func create(cmd *cobra.Command, args []string) (err error) {
 		return errors.New("'faas create' requires a language argument.")
 	}
 
-	// Assemble parameters for use in client method invocation.
+	// Assemble parameters for use in client's 'create' invocation.
 	var (
 		language  = args[0]                      // language is the first argument
 		local     = viper.GetBool("local")       // Only perform local creation steps
+		name      = viper.GetString("name")      // Explicit name override (by default path-derives)
 		verbose   = viper.GetBool("verbose")     // Verbose logging
 		registry  = viper.GetString("registry")  // Registry (ex: docker.io)
 		namespace = viper.GetString("namespace") // namespace at registry (user or org name)
@@ -78,6 +82,7 @@ func create(cmd *cobra.Command, args []string) (err error) {
 	// Initializer and Deployer, as well as setting the optional verbosity param.
 	client, err := client.New(
 		client.WithVerbose(verbose),
+		client.WithName(name),
 		client.WithInitializer(initializer),
 		client.WithBuilder(builder),
 		client.WithPusher(pusher),
@@ -87,9 +92,10 @@ func create(cmd *cobra.Command, args []string) (err error) {
 		return
 	}
 
-	// Set the client to be local-only (default false)
+	// Set the client to potentially be local-only (default false)
 	client.SetLocal(local)
 
 	// Invoke the creation of the new Service Function locally.
+	// Returns the final address.
 	return client.Create(language)
 }

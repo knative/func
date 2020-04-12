@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,6 +25,7 @@ type Client struct {
 	pusher            Pusher      // Pushes a built image to a registry
 	deployer          Deployer    // Deploys a Service Function
 	runner            Runner      // Runs the function locally
+	remover           Remover     // Removes remote services.
 }
 
 // DNSProvider exposes DNS services necessary for serving the Service Function.
@@ -64,6 +66,12 @@ type Runner interface {
 	Run(path string) error
 }
 
+// Remover of deployed services.
+type Remover interface {
+	// Remove the service function from remote.
+	Remove(name string) error
+}
+
 // Option defines a function which when passed to the Client constructor optionally
 // mutates private members at time of instantiation.
 type Option func(*Client)
@@ -75,18 +83,18 @@ func WithVerbose(v bool) Option {
 	}
 }
 
-// WithName sets the explicit DNS name for the Service Function, disabling
+// WithName sets the explicit name for the Service Function, disabling
 // name inference from path.
-func WithName(dns string) Option {
+func WithName(name string) Option {
 	return func(c *Client) {
-		c.name = dns
+		c.name = name
 	}
 }
 
 // WithRoot explicitly sets the root effective path for the client, which is used
-// to write new Service Function shell files, and for determinging effective DNS
-// name (unless WithName was explicitly provided).  By default this is the current
-// working directory of the process.
+// to write new Service Function shell files, for determinging effective DNS
+// name (unless WithName was explicitly provided), for reading and writing
+// config, etc.  By default this is the current working directory of the process.
 func WithRoot(path string) Option {
 	return func(c *Client) {
 		c.root = path
@@ -147,6 +155,16 @@ func WithRunner(r Runner) Option {
 	}
 }
 
+// WithRemover provides the concrete implementation of a remover.
+func WithRemover(r Remover) Option {
+	return func(c *Client) {
+		c.remover = r
+	}
+}
+
+// New client for a function service rooted at the current working directory or
+// that explicitly set via the option.  Will fail if the directory already contains
+// config files or other non-hidden files.
 func New(options ...Option) (c *Client, err error) {
 	// Client with defaults overridden by optional parameters
 	c = &Client{
@@ -157,6 +175,7 @@ func New(options ...Option) (c *Client, err error) {
 		pusher:            &manualPusher{output: os.Stdout},
 		deployer:          &manualDeployer{output: os.Stdout},
 		runner:            &manualRunner{output: os.Stdout},
+		remover:           &manualRemover{output: os.Stdout},
 	}
 	for _, o := range options {
 		o(c)
@@ -187,12 +206,32 @@ func (c *Client) SetLocal(local bool) {
 	c.local = local
 }
 
+// Create a service function
 func (c *Client) Create(language string) (err error) {
 	// Language is required
 	// Whether or not the given language is supported is dependant on
 	// the implementation of the initializer.
 	if language == "" {
 		return errors.New("language not specified")
+	}
+
+	// Assert the root does not contain contentious hidden files (configs).
+	var files []string
+	if files, err = contentiousFilesIn(c.root); err != nil {
+		return
+	} else if len(files) > 0 {
+		err = errors.New(fmt.Sprintf("The directory has extant faas config files.  Has the service funciton already been created?  Either use a different directory, delete the service function if it exists, or remove the files manually: %v", files))
+		return
+	}
+
+	// Assert the local directory is empty of all non-hidden files/dirs, and of
+	// the hidden files .appsody-config.yaml and .faas.yaml.
+	var empty bool
+	if empty, err = isEffectivelyEmpty(c.root); err != nil {
+		return
+	} else if !empty {
+		err = errors.New("The directory contains visible and/or recognized config files.")
+		return
 	}
 
 	// Initialize the specified root with a function template.
@@ -319,6 +358,20 @@ func (c *Client) Run() error {
 	return c.runner.Run(c.root)
 }
 
+// Remove a function from remote, bringing the service funciton
+// to the same state as if it had been created --local only.
+// Name is optional, as the presently associated service function
+// is inferred, but a client is allowed to remove any service
+// function for which the user has permission to remove, as this
+// is used for repairing broken local->remote associations.
+func (c *Client) Remove(name string) error {
+	if name == "" {
+		name = c.name
+	}
+	// delegate to concrete implementation of remover entirely.
+	return c.remover.Remove(name)
+}
+
 // Manual implementations (noops) of required interfaces.
 // In practice, the user of this client package (for example the CLI) will
 // provide a concrete implementation for all of the interfaces.  For testing or
@@ -381,4 +434,49 @@ type manualRunner struct {
 func (i *manualRunner) Run(root string) error {
 	fmt.Fprintf(i.output, "Please manually run using code at '%v'\n", root)
 	return nil
+}
+
+type manualRemover struct {
+	output io.Writer
+}
+
+func (i *manualRemover) Remove(name string) error {
+	fmt.Fprintf(i.output, "Please manually remove service '%v'\n", name)
+	return nil
+}
+
+// contentiousFiles are files which, if extant, preclude the creation of a
+// service function rooted in the given directory.
+var contentiousFiles = []string{
+	".faas.yaml",
+	".appsody-config.yaml",
+}
+
+// contentiousFilesIn the given directoy
+func contentiousFilesIn(dir string) (contentious []string, err error) {
+	files, err := ioutil.ReadDir(dir)
+	for _, file := range files {
+		for _, name := range contentiousFiles {
+			if file.Name() == name {
+				contentious = append(contentious, name)
+			}
+		}
+	}
+	return
+}
+
+// effectivelyEmpty directories are those which have no visible files,
+// and no explicitly enumerated contentious files.
+func isEffectivelyEmpty(dir string) (empty bool, err error) {
+	var contentious []string
+	if contentious, err = contentiousFilesIn(dir); len(contentious) > 0 {
+		return
+	}
+	files, err := ioutil.ReadDir(dir)
+	for _, file := range files {
+		if !strings.HasPrefix(file.Name(), ".") {
+			return
+		}
+	}
+	return true, nil
 }

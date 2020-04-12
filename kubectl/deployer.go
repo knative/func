@@ -67,7 +67,7 @@ func (d *Deployer) Deploy(name, image string) (address string, err error) {
 	if err != nil {
 		log.Fatal(err)
 	}
-	// defer os.Remove(file.Name())
+	defer os.Remove(f.Name())
 
 	// Convert the project name proper (a valid domain) to how it is being
 	// represented by appsody:  as a kubernetes and docker valid name (RFC1035 label)
