@@ -28,19 +28,16 @@ faas
 
 ## Configuration
 
-### Knative Serving Network Configuraiton
+### Cluster Prerequisites
 
-Patch the Knative Network Config to enable subdomains:
-```
-kubectl apply -f ./k8s/config-network.yaml`
-```
+see https://github.com/lkingland/config for cluster setup and configuration.  Broadly, requirements are:
+* Kubernetes
+* Knative Serving and Eventing
+* Knative Domains patched to enable domains
+* Knative Network patched to enable subdomains
+* Kourier
 
-Patch the Knative Domains Config to set a default domain:
-```
-kubectl apply -f ./k8s/config-domain.yaml`
-```
-
-### Public Container Registry and Namespace
+### Container Registry
 
 Both the image registry and user/org namespace need to be defined either by
 using the --registry and --namespace flags on the `create` command, or by
