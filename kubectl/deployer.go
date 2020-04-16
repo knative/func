@@ -20,10 +20,11 @@ kind: Service
 metadata:
  name: {{ .Project }}
  namespace: default
- annotations: 
+ labels:
    # Will be exposed as this domain as per the knative service domains config.
    #  Configured in config-domain
    faas.domain: {{ .Domain }}
+ annotations: 
    # Will be exposed as this specific subdomain rather than the autogernerated
    # name.namespace.
    # Configured in config-network
