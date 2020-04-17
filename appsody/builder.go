@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 )
 
 // Builder of images from function source using appsody.
@@ -24,7 +25,7 @@ func NewBuilder(registry, namespace string) *Builder {
 		namespace: namespace}
 }
 
-// Build an image from the funciton source at path.
+// Build an image from the function source at path.
 func (n *Builder) Build(name, path string) (image string, err error) {
 	// Check for the appsody binary explicitly so that we can return
 	// an extra-friendly error message.
@@ -61,6 +62,15 @@ func (n *Builder) Build(name, path string) (image string, err error) {
 	if err != nil {
 		// TODO: sanitize stderr from appsody, or submit a PR to remove duplicates etc.
 		err = errors.New(fmt.Sprintf("%v. %v", string(stderr.Bytes()), err.Error()))
+	}
+
+	// remove the superfluous app-deploy.yaml
+	cfg := filepath.Join(path, "app-deploy.yaml")
+	if _, err = os.Stat(cfg); err == nil {
+		err = os.Remove(cfg)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, fmt.Sprintf("unable to remove superfluous appsody config: %v\n", err))
+		}
 	}
 	return
 }
