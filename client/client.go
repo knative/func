@@ -24,8 +24,9 @@ type Client struct {
 	builder           Builder     // Builds a runnable image from function source
 	pusher            Pusher      // Pushes a built image to a registry
 	deployer          Deployer    // Deploys a Service Function
+	updater           Updater     // Updates a deployed Service Function
 	runner            Runner      // Runs the function locally
-	remover           Remover     // Removes remote services.
+	remover           Remover     // Removes remote services
 }
 
 // DNSProvider exposes DNS services necessary for serving the Service Function.
@@ -43,14 +44,14 @@ type Initializer interface {
 
 // Builder of function source to runnable image.
 type Builder interface {
-	// Build a function service of the given name with source located at path.
+	// Build a service function of the given name with source located at path.
 	// returns the image name built.
 	Build(name, path string) (image string, err error)
 }
 
 // Pusher of function image to a registry.
 type Pusher interface {
-	// Push the image of the function service.
+	// Push the image of the service function.
 	Push(image string) error
 }
 
@@ -58,6 +59,12 @@ type Pusher interface {
 type Deployer interface {
 	// Deploy a service function of given name, using given backing image.
 	Deploy(name, image string) (address string, err error)
+}
+
+// Updater of a deployed service function with new image.
+type Updater interface {
+	// Deploy a service function of given name, using given backing image.
+	Update(name, image string) error
 }
 
 // Runner runs the function locally.
@@ -148,6 +155,13 @@ func WithDeployer(d Deployer) Option {
 	}
 }
 
+// WithUpdater provides the concrete implementation of an updater.
+func WithUpdater(u Updater) Option {
+	return func(c *Client) {
+		c.updater = u
+	}
+}
+
 // WithRunner provides the concrete implementation of a deployer.
 func WithRunner(r Runner) Option {
 	return func(c *Client) {
@@ -168,27 +182,29 @@ func WithRemover(r Remover) Option {
 func New(options ...Option) (c *Client, err error) {
 	// Client with defaults overridden by optional parameters
 	c = &Client{
+		dnsProvider:       &noopDNSProvider{output: os.Stdout},
+		initializer:       &noopInitializer{output: os.Stdout},
+		builder:           &noopBuilder{output: os.Stdout},
+		pusher:            &noopPusher{output: os.Stdout},
+		deployer:          &noopDeployer{output: os.Stdout},
+		updater:           &noopUpdater{output: os.Stdout},
+		runner:            &noopRunner{output: os.Stdout},
+		remover:           &noopRemover{output: os.Stdout},
 		domainSearchLimit: -1, // no recursion limit deriving domain by default.
-		dnsProvider:       &manualDNSProvider{output: os.Stdout},
-		initializer:       &manualInitializer{output: os.Stdout},
-		builder:           &manualBuilder{output: os.Stdout},
-		pusher:            &manualPusher{output: os.Stdout},
-		deployer:          &manualDeployer{output: os.Stdout},
-		runner:            &manualRunner{output: os.Stdout},
-		remover:           &manualRemover{output: os.Stdout},
 	}
 	for _, o := range options {
 		o(c)
 	}
 
-	// Convert the specified root to an absolute path.
-	// If no root is provided, the root is the current working directory.
+	// Working Directory
+	// Convert the specified root to an absolute path.  If no root is provided,
+	// the root is the current working directory.
 	c.root, err = filepath.Abs(c.root)
 	if err != nil {
 		return
 	}
 
-	// Derive name
+	// Service Name
 	// If not explicity set via the WithName option, we attempt to derive the
 	// name from the effective root path.
 	if c.name == "" {
@@ -263,13 +279,58 @@ func (c *Client) Create(language string) (err error) {
 		return
 	}
 
-	// TODO
-	// Dervive the cluster address of the service.
-	// Derive the public domain of the service from the directory path.
+	// Ensure that the allocated final address is enabled with the
+	// configured DNS provider.
+	// NOTE:
+	// DNS and TLS are provisioned by Knative Serving + cert-manager,
+	// but DNS subdomain CNAME to the Kourier Load Balancer is
+	// still manual, and the initial cluster config to suppot the TLD
+	// is still manual.
 	c.dnsProvider.Provide(c.name, address)
 
-	// Associate the public domain to the cluster-defined address.
 	return
+}
+
+// Update a previously created service function.
+func (c *Client) Update() (err error) {
+
+	// TODO: detect and error if `create` was never run, failed, or the
+	// service is othewise un-updatable.
+
+	// Build an image from the current state of the service function's codebase.
+	image, err := c.builder.Build(c.name, c.root)
+	if err != nil {
+		return
+	}
+
+	// Push the image for the named service to the configured registry
+	if err = c.pusher.Push(image); err != nil {
+		return
+	}
+
+	// Update the previously-deployed service function, returning its publicly
+	// addressible name for possible registration.
+	return c.updater.Update(c.name, image)
+}
+
+// Run the function whose code resides at root.
+func (c *Client) Run() error {
+	// delegate to concrete implementation of runner entirely.
+	return c.runner.Run(c.root)
+}
+
+// Remove a function from remote, bringing the service funciton
+// to the same state as if it had been created --local only.
+// Name is optional, as the presently associated service function
+// is inferred, but a client is allowed to remove any service
+// function for which the user has permission to remove, as this
+// is used for repairing broken local->remote associations.
+func (c *Client) Remove(name string) error {
+	if name == "" {
+		name = c.name
+	}
+	// delegate to concrete implementation of remover entirely.
+	return c.remover.Remove(name)
 }
 
 // Convert a path to a domain.
@@ -352,26 +413,6 @@ func pathToDomain(path string, maxLevels int) string {
 	return domain
 }
 
-// Run the function whose code resides at root.
-func (c *Client) Run() error {
-	// delegate to concrete implementation of runner entirely.
-	return c.runner.Run(c.root)
-}
-
-// Remove a function from remote, bringing the service funciton
-// to the same state as if it had been created --local only.
-// Name is optional, as the presently associated service function
-// is inferred, but a client is allowed to remove any service
-// function for which the user has permission to remove, as this
-// is used for repairing broken local->remote associations.
-func (c *Client) Remove(name string) error {
-	if name == "" {
-		name = c.name
-	}
-	// delegate to concrete implementation of remover entirely.
-	return c.remover.Remove(name)
-}
-
 // Manual implementations (noops) of required interfaces.
 // In practice, the user of this client package (for example the CLI) will
 // provide a concrete implementation for all of the interfaces.  For testing or
@@ -380,68 +421,58 @@ func (c *Client) Remove(name string) error {
 // serve to keep the core logic here separate from the imperitive.
 // -----------------------------------------------------
 
-type manualDNSProvider struct {
-	output io.Writer
+type noopDNSProvider struct{ output io.Writer }
+
+func (p *noopDNSProvider) Provide(name, address string) {
+	fmt.Fprintln(p.output, "skipping DNS update: client not initialized WithDNSProvider")
 }
 
-func (p *manualDNSProvider) Provide(name, address string) {
-	if address == "" {
-		address = "[manually configured address]"
-	}
-	fmt.Fprintf(p.output, "Please manually configure '%v' to route requests to '%v' \n", name, address)
-}
+type noopInitializer struct{ output io.Writer }
 
-type manualInitializer struct {
-	output io.Writer
-}
-
-func (i *manualInitializer) Initialize(name, language, root string) error {
-	fmt.Fprintf(i.output, "Please create a base function for '%v' (language '%v') at path '%v'\n", name, language, root)
+func (i *noopInitializer) Initialize(name, language, root string) error {
+	fmt.Fprintln(i.output, "skipping initialize: client not initialized WithInitializer")
 	return nil
 }
 
-type manualBuilder struct {
-	output io.Writer
-}
+type noopBuilder struct{ output io.Writer }
 
-func (i *manualBuilder) Build(name, root string) (image string, err error) {
-	fmt.Fprintf(i.output, "Please manually build image for '%v' using code at '%v'\n", name, root)
+func (i *noopBuilder) Build(name, root string) (image string, err error) {
+	fmt.Fprintln(i.output, "skipping build: client not initialized WithBuilder")
 	return "", nil
 }
 
-type manualPusher struct {
-	output io.Writer
-}
+type noopPusher struct{ output io.Writer }
 
-func (i *manualPusher) Push(image string) error {
-	fmt.Fprintf(i.output, "Please manually push image '%v'\n", image)
+func (i *noopPusher) Push(image string) error {
+	fmt.Fprintln(i.output, "skipping push: client not initialized WithPusher")
 	return nil
 }
 
-type manualDeployer struct {
-	output io.Writer
-}
+type noopDeployer struct{ output io.Writer }
 
-func (i *manualDeployer) Deploy(name, image string) (string, error) {
-	fmt.Fprintf(i.output, "Please manually deploy '%v'\n", name)
+func (i *noopDeployer) Deploy(name, image string) (string, error) {
+	fmt.Fprintln(i.output, "skipping deploy: client not initialized WithDeployer")
 	return "", nil
 }
 
-type manualRunner struct {
-	output io.Writer
-}
+type noopUpdater struct{ output io.Writer }
 
-func (i *manualRunner) Run(root string) error {
-	fmt.Fprintf(i.output, "Please manually run using code at '%v'\n", root)
+func (i *noopUpdater) Update(name, image string) error {
+	fmt.Fprintln(i.output, "skipping deploy: client not initialized WithDeployer")
 	return nil
 }
 
-type manualRemover struct {
-	output io.Writer
+type noopRunner struct{ output io.Writer }
+
+func (i *noopRunner) Run(root string) error {
+	fmt.Fprintln(i.output, "skipping run: client not initialized WithRunner")
+	return nil
 }
 
-func (i *manualRemover) Remove(name string) error {
-	fmt.Fprintf(i.output, "Please manually remove service '%v'\n", name)
+type noopRemover struct{ output io.Writer }
+
+func (i *noopRemover) Remove(name string) error {
+	fmt.Fprintln(i.output, "skipping remove: client not initialized WithRemover")
 	return nil
 }
 

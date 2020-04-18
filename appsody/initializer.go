@@ -30,7 +30,7 @@ func NewInitializer() *Initializer {
 	return &Initializer{}
 }
 
-// Initialize a new funciton of the given name, of the given language, at the given path.
+// Initialize a new function of the given name, of the given language, at the given path.
 func (n *Initializer) Initialize(name, language, path string) error {
 	// Check for the appsody binary explicitly so that we can return
 	// an extra-friendly error message.

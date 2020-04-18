@@ -17,7 +17,7 @@ func init() {
 	root.AddCommand(createCmd)
 
 	// register command flags and bind them to environment variables.
-	createCmd.Flags().BoolP("local", "l", false, "create the function service locally only.")
+	createCmd.Flags().BoolP("local", "l", false, "create the service function locally only.")
 	viper.BindPFlag("local", createCmd.Flags().Lookup("local"))
 
 	createCmd.Flags().StringP("name", "n", "", "optionally specify an explicit name for the serive, overriding path-derivation. $FAAS_NAME")
