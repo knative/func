@@ -24,6 +24,7 @@ metadata:
    # Will be exposed as this domain as per the knative service domains config.
    #  Configured in config-domain
    faas.domain: {{ .Domain }}
+   bosonFunction: "True"
  annotations: 
    # Will be exposed as this specific subdomain rather than the autogernerated
    # name.namespace.
