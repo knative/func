@@ -11,9 +11,15 @@ go install
 
 Install dependent binaries:
 
+* `appsody` https://appsody.dev/docs/installing/installing-appsody
 * `kn`  https://github.com/knative/client/releases
 * `kubectl` https://kubernetes.io/docs/tasks/tools/install-kubectl/
 * `docker` https://docs.docker.com/get-docker/
+
+Configure Boson appsody stack repository:
+```
+appsody repo add boson https://github.com/boson-project/stacks/releases/latest/download/boson-index.yaml
+```
 
 Configure Image repository:
 
