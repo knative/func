@@ -26,7 +26,7 @@ func run(cmd *cobra.Command, args []string) (err error) {
 	runner := appsody.NewRunner()
 	runner.Verbose = verbose
 
-	client, err := client.New(
+	client, err := client.New(".",
 		client.WithRunner(runner),
 		client.WithVerbose(verbose))
 	if err != nil {

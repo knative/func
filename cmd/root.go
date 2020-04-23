@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/mitchellh/go-homedir"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 )
@@ -35,8 +34,8 @@ func init() {
 	// Populate `config` var with the value of --config flag, if provided.
 	root.PersistentFlags().StringVar(&config, "config", config, "config file path")
 
-	// Read in the config file specified by `config`, overriding defaults.
-	cobra.OnInitialize(readConfig)
+	// read in environment variables that match
+	viper.AutomaticEnv()
 
 	// Populate the `verbose` flag with the value of --verbose, if provided,
 	// which thus overrides both the default and the value read in from the
@@ -50,30 +49,6 @@ func init() {
 
 	// Prefix all environment variables with "FAAS_" to avoid collisions with other apps.
 	viper.SetEnvPrefix("faas")
-}
-
-// readConfig populates variables (overriding defaults) from the config file
-// and environment variables.
-func readConfig() {
-	if config != "" {
-		viper.SetConfigFile(config) // Use config file from the flag.
-	} else {
-		home, err := homedir.Dir() // Find home directory.
-		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
-		}
-		viper.AddConfigPath(home) // Search for cconfig in home
-		viper.SetConfigName(".faascfg")
-	}
-
-	// read in environment variables that match
-	viper.AutomaticEnv()
-
-	// If a config file is found, read it in.
-	if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Using config file:", viper.ConfigFileUsed())
-	}
 }
 
 // Execute the command tree by executing the root command, which runs

@@ -81,6 +81,7 @@ func create(cmd *cobra.Command, args []string) (err error) {
 	// Instantiate a client, specifying concrete implementations for
 	// Initializer and Deployer, as well as setting the optional verbosity param.
 	client, err := client.New(
+		".",
 		client.WithVerbose(verbose),
 		client.WithName(name),
 		client.WithInitializer(initializer),

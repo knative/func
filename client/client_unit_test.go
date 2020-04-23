@@ -1,6 +1,11 @@
 package client
 
-import "testing"
+import (
+	"io/ioutil"
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 // TestPathToDomain validatest the calculation used to derive a default domain
 // for a Service Function from the current directory path (used as a default
@@ -69,5 +74,64 @@ func TestPathToDomain(t *testing.T) {
 		if domain != test.Domain {
 			t.Fatalf("expected path '%v' (limit %v) to yield domain '%v', got '%v'", test.Path, test.Limit, test.Domain, domain)
 		}
+	}
+}
+
+// TestApplyConfig ensures that
+// - a directory with no config has nothing applied without error.
+// - a directory with an invalid config errors.
+// - a directory with a valid config has it applied.
+func TestApplyConfig(t *testing.T) {
+	// Create a temporary directory
+	root := "./testdata/example.com/cfgtest"
+	cfgFile := filepath.Join(root, ConfigFileName)
+	os.MkdirAll(root, 0700)
+	defer os.RemoveAll(root)
+
+	c := Client{name: "staticDefault"}
+
+	// Assert config optional.
+	// Ensure that applying a directory with no config does not error.
+	if err := applyConfig(&c, root); err != nil {
+		t.Fatalf("unexpected error applying a nonexistent config: %v", err)
+	}
+
+	// Assert an extant, but empty config file causes no errors,
+	// and leaves data intact on the client instance.
+	if err := ioutil.WriteFile(cfgFile, []byte(""), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := applyConfig(&c, root); err != nil {
+		t.Fatalf("unexpected error applying an empty config: %v", err)
+	}
+
+	// Assert an unparseable config file errors
+	if err := ioutil.WriteFile(cfgFile, []byte("=invalid="), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := applyConfig(&c, root); err == nil {
+		t.Fatal("Did not receive expected error from invalid config.")
+	}
+
+	// Assert a valid config with no value zeroes out the default
+	if err := ioutil.WriteFile(cfgFile, []byte("name:"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := applyConfig(&c, root); err != nil {
+		t.Fatal(err)
+	}
+	if c.name != "" {
+		t.Fatalf("Expected name to be zeroed by config, but got '%v'", c.name)
+	}
+
+	// Assert a valid config with a value for name is applied.
+	if err := ioutil.WriteFile(cfgFile, []byte("name: www.example.com"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	if err := applyConfig(&c, root); err != nil {
+		t.Fatal(err)
+	}
+	if c.name != "www.example.com" {
+		t.Fatalf("Expected name 'www.example.com', got '%v'", c.name)
 	}
 }

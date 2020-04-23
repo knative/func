@@ -10,13 +10,14 @@ import (
 	"strings"
 
 	"golang.org/x/net/publicsuffix"
+	"gopkg.in/yaml.v3"
 )
 
 // Client for a given Service Function.
 type Client struct {
 	verbose           bool        // print verbose logs
 	local             bool        // Run in local-only mode
-	name              string      // Service function DNS address
+	name              string      // Service function DNS address (configurable)
 	root              string      // root path of function on which to operate
 	domainSearchLimit int         // max dirs to recurse up when deriving domain
 	dnsProvider       DNSProvider // Provider of DNS services
@@ -27,6 +28,21 @@ type Client struct {
 	updater           Updater     // Updates a deployed Service Function
 	runner            Runner      // Runs the function locally
 	remover           Remover     // Removes remote services
+}
+
+// ConfigFileName is an optional file checked for in the function root.
+const ConfigFileName = ".faas.yaml"
+
+// Config object which provides another mechanism for overriding client static
+// defaults.  Applied prior to the WithX options, such that the options take
+// precedence if they are provided.
+type Config struct {
+	// Name specifies the name to be used for this function. As a config option,
+	// this value, if provided, takes precidence over the path-derived name but
+	// not over the Option WithName, if provided.
+	Name string `yaml:"name"`
+
+	// Add new values to the applyConfig function as necessary.
 }
 
 // DNSProvider exposes DNS services necessary for serving the Service Function.
@@ -98,16 +114,6 @@ func WithName(name string) Option {
 	}
 }
 
-// WithRoot explicitly sets the root effective path for the client, which is used
-// to write new Service Function shell files, for determinging effective DNS
-// name (unless WithName was explicitly provided), for reading and writing
-// config, etc.  By default this is the current working directory of the process.
-func WithRoot(path string) Option {
-	return func(c *Client) {
-		c.root = path
-	}
-}
-
 // WithDomainSearchLimit sets the maximum levels of upward recursion used when
 // attempting to derive effective DNS name from root path.  Ignored if DNS was
 // explicitly set via WithName.
@@ -176,12 +182,16 @@ func WithRemover(r Remover) Option {
 	}
 }
 
-// New client for a function service rooted at the current working directory or
+// New client for a function service rooted at the given directory (default .) or
 // that explicitly set via the option.  Will fail if the directory already contains
 // config files or other non-hidden files.
-func New(options ...Option) (c *Client, err error) {
-	// Client with defaults overridden by optional parameters
+func New(root string, options ...Option) (c *Client, err error) {
+	if root == "" {
+		root = "."
+	}
+	// Instantiate client with static defaults.
 	c = &Client{
+		root:              root,
 		dnsProvider:       &noopDNSProvider{output: os.Stdout},
 		initializer:       &noopInitializer{output: os.Stdout},
 		builder:           &noopBuilder{output: os.Stdout},
@@ -192,6 +202,13 @@ func New(options ...Option) (c *Client, err error) {
 		remover:           &noopRemover{output: os.Stdout},
 		domainSearchLimit: -1, // no recursion limit deriving domain by default.
 	}
+
+	// Apply config file in the given path if it exists, overriding static defaults above.
+	if err = applyConfig(c, c.root); err != nil {
+		return
+	}
+
+	// Apply passed options, which take ultimate precidence.
 	for _, o := range options {
 		o(c)
 	}
@@ -253,6 +270,11 @@ func (c *Client) Create(language string) (err error) {
 	// Initialize the specified root with a function template.
 	// TODO: detect extant and abort.
 	if err = c.initializer.Initialize(c.name, language, c.root); err != nil {
+		return
+	}
+
+	// Write the effective config once initialization was successful.
+	if err = writeConfig(c); err != nil {
 		return
 	}
 
@@ -321,16 +343,12 @@ func (c *Client) Run() error {
 
 // Remove a function from remote, bringing the service funciton
 // to the same state as if it had been created --local only.
-// Name is optional, as the presently associated service function
-// is inferred, but a client is allowed to remove any service
-// function for which the user has permission to remove, as this
-// is used for repairing broken local->remote associations.
-func (c *Client) Remove(name string) error {
-	if name == "" {
-		name = c.name
-	}
+// Name is the presently configured client's name, which was
+// either derived from the path, specified by the extant config,
+// or provided as an option (in ascending precedence).
+func (c *Client) Remove() error {
 	// delegate to concrete implementation of remover entirely.
-	return c.remover.Remove(name)
+	return c.remover.Remove(c.name)
 }
 
 // Convert a path to a domain.
@@ -510,4 +528,62 @@ func isEffectivelyEmpty(dir string) (empty bool, err error) {
 		}
 	}
 	return true, nil
+}
+
+// Apply the config, if it exists, to the client.
+// if an entry exists in the config file and is empty, this is interpreted as
+// the intent to zero-value that field.
+func applyConfig(c *Client, root string) error {
+	// abort if the config file does not exist.
+	filename := filepath.Join(root, ConfigFileName)
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		return nil
+	}
+
+	// Read in as bytes
+	bb, err := ioutil.ReadFile(filepath.Join(root, ConfigFileName))
+	if err != nil {
+		return err
+	}
+
+	// Create a config with defaults set to the current value of the Client object.
+	// These gymnastics are necessary because we want the Client's members to be
+	// private to disallow mutation post instantiation, and thus they are unavailable
+	// to be set automatically
+	cfg := newConfig(c)
+
+	// Decode yaml, overriding values in the config if they were defined in the yaml.
+	if err := yaml.Unmarshal(bb, &cfg); err != nil {
+		return err
+	}
+
+	// Apply the config to the client object, which effectiely writes back the default
+	// if it was not defined in the yaml.
+	c.name = cfg.Name
+
+	// NOTE: cleverness < clarity
+
+	return nil
+}
+
+// newConfig creates a config object from a client, effectively exporting mutable
+// fields for the config file while preserving the immutability of the client
+// post-instantiation.
+func newConfig(c *Client) Config {
+	return Config{
+		Name: c.name,
+	}
+}
+
+// writeConfig out to disk.
+func writeConfig(c *Client) (err error) {
+	var (
+		cfg     = newConfig(c)
+		cfgFile = filepath.Join(c.root, ConfigFileName)
+		bb      []byte
+	)
+	if bb, err = yaml.Marshal(&cfg); err != nil {
+		return
+	}
+	return ioutil.WriteFile(cfgFile, bb, 0644)
 }

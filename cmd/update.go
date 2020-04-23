@@ -48,7 +48,7 @@ func update(cmd *cobra.Command, args []string) (err error) {
 	updater := kn.NewUpdater()
 	updater.Verbose = verbose
 
-	client, err := client.New(
+	client, err := client.New(".",
 		client.WithVerbose(verbose),
 		client.WithBuilder(builder),
 		client.WithPusher(pusher),
