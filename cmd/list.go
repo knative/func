@@ -52,7 +52,7 @@ func list(cmd *cobra.Command, args []string) (err error) {
 		return
 	}
 	for _, name := range names {
-		fmt.Printf("%s/%s", namespace, name)
+		fmt.Printf("%s\n", name)
 	}
 	return
 }
