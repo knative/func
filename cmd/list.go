@@ -2,11 +2,11 @@ package cmd
 
 import (
 	"fmt"
+
+	"github.com/lkingland/faas/client"
+	"github.com/lkingland/faas/knative"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/clientcmd"
-	servingv1client "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1"
 )
 
 const (
@@ -21,31 +21,38 @@ func init() {
 
 var listCmd = &cobra.Command{
 	Use:        "list",
-	Short:      "Lists deployed Service Function",
-	Long:       `Lists deployed Service Function`,
+	Short:      "Lists deployed Service Functions",
+	Long:       `Lists deployed Service Functions`,
 	SuggestFor: []string{"ls"},
 	RunE:       list,
 }
 
 func list(cmd *cobra.Command, args []string) (err error) {
-	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
-	config, err := clientConfig.ClientConfig()
+	var (
+		namespace = viper.GetString(nsFlag)
+		verbose   = viper.GetBool("verbose")
+	)
+
+	lister, err := knative.NewLister(namespace)
 	if err != nil {
 		return
 	}
-	client, err := servingv1client.NewForConfig(config)
+	lister.Verbose = verbose
+
+	client, err := client.New(".",
+		client.WithVerbose(verbose),
+		client.WithLister(lister),
+	)
 	if err != nil {
 		return
 	}
-	opts := metav1.ListOptions{LabelSelector: "bosonFunction"}
-	ns := viper.GetString(nsFlag)
-	lst, err := client.Services(ns).List(opts)
+
+	names, err := client.List()
 	if err != nil {
 		return
 	}
-	for _, service := range lst.Items {
-		fmt.Printf("%s/%s", service.Namespace, service.Name)
+	for _, name := range names {
+		fmt.Printf("%s/%s", namespace, name)
 	}
-	return nil
+	return
 }
