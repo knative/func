@@ -8,7 +8,7 @@ import (
 
 // Version
 // Printed on subcommand `version` or flag `--version`
-const Version = "v0.0.15"
+const Version = "v0.0.16"
 
 func init() {
 	root.AddCommand(versionCmd)
