@@ -483,38 +483,6 @@ func TestRemove(t *testing.T) {
 	}
 }
 
-// TestRemoveExplicit ensures that a call to remove an explicit name, which
-// may differ from the service function the client is associated wtith, is
-// respected and passed along to the concrete remover implementation.
-func TestRemoveExplicit(t *testing.T) {
-	var (
-		root    = "./testdata/example.com/admin"
-		name    = "www.example.com" // Differs from that derived from root.
-		remover = mock.NewRemover()
-	)
-
-	// Create the test function root
-	os.MkdirAll(root, 0700)
-	defer os.RemoveAll(root)
-
-	client, err := client.New(root,
-		client.WithRemover(remover))
-	if err != nil {
-		t.Fatal(err)
-	}
-	remover.RemoveFn = func(name2 string) error {
-		if name2 != name {
-			t.Fatalf("remover expected name '%v' got '%v'", name, name2)
-		}
-		return nil
-	}
-	// Call remove with an explicit name which differs from that associated
-	// to the current client instance.
-	if err := client.Remove(name); err != nil {
-		t.Fatal(err)
-	}
-}
-
 // TestWithName ensures that an explicitly passed name is used in leau of the
 // path derived name when provide, and persists through instantiations.
 // This also ensures that an initialized service function's name persists if
@@ -569,4 +537,25 @@ func TestWithName(t *testing.T) {
 		t.Fatal(err)
 	}
 
+}
+
+// TestList ensures that the client invokes the configured lister.
+func TestList(t *testing.T) {
+	var lister = mock.NewLister()
+
+	client, err := client.New("",
+		client.WithLister(lister), // lists deployed service functions.
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = client.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !lister.ListInvoked {
+		t.Fatal("list did not invoke lister implementation")
+	}
 }

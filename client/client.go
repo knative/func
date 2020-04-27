@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"golang.org/x/net/publicsuffix"
-	"gopkg.in/yaml.v3"
+	"gopkg.in/yaml.v2"
 )
 
 // Client for a given Service Function.
@@ -28,6 +28,7 @@ type Client struct {
 	updater           Updater     // Updates a deployed Service Function
 	runner            Runner      // Runs the function locally
 	remover           Remover     // Removes remote services
+	lister            Lister      // Lists remote services
 }
 
 // ConfigFileName is an optional file checked for in the function root.
@@ -93,6 +94,12 @@ type Runner interface {
 type Remover interface {
 	// Remove the service function from remote.
 	Remove(name string) error
+}
+
+// Lister of deployed services.
+type Lister interface {
+	// List the service functions currently deployed.
+	List() ([]string, error)
 }
 
 // Option defines a function which when passed to the Client constructor optionally
@@ -179,6 +186,13 @@ func WithRunner(r Runner) Option {
 func WithRemover(r Remover) Option {
 	return func(c *Client) {
 		c.remover = r
+	}
+}
+
+// WithLister provides the concrete implementation of a lister.
+func WithLister(l Lister) Option {
+	return func(c *Client) {
+		c.lister = l
 	}
 }
 
@@ -339,6 +353,12 @@ func (c *Client) Update() (err error) {
 func (c *Client) Run() error {
 	// delegate to concrete implementation of runner entirely.
 	return c.runner.Run(c.root)
+}
+
+// List currently deployed service functions.
+func (c *Client) List() ([]string, error) {
+	// delegate to concrete implementation of lister entirely.
+	return c.lister.List()
 }
 
 // Remove a function from remote, bringing the service funciton

@@ -12,7 +12,7 @@ require (
 	github.com/spf13/cobra v1.0.0
 	golang.org/x/net v0.0.0-20200421231249-e086a090c8fd
 	gomodules.xyz/jsonpatch/v2 v2.1.0 // indirect
-	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
+	gopkg.in/yaml.v2 v2.2.8
 	k8s.io/apimachinery v0.17.4
 	k8s.io/client-go v0.17.4
 	knative.dev/pkg v0.0.0-20200414233146-0eed424fa4ee // indirect
