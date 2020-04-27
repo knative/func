@@ -42,7 +42,7 @@ It is expected that kubectl and kn be configured to connect to a kubernetes clus
 * Kourier
 * Cert-manager
 
-see https://github.com/lkingland/config for cluster setup and configuration details.
+see https://github.com/boson-project/config for cluster setup and configuration details.
 
 ## Usage
 

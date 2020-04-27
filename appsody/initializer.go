@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/lkingland/faas/k8s"
+	"github.com/boson-project/faas/k8s"
 )
 
 // NameMappings are short-name to repository full name mappings,

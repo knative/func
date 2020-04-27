@@ -7,7 +7,7 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/lkingland/faas/k8s"
+	"github.com/boson-project/faas/k8s"
 )
 
 // Remover implemented using the kubectl binary.

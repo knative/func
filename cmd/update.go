@@ -6,10 +6,10 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
-	"github.com/lkingland/faas/appsody"
-	"github.com/lkingland/faas/client"
-	"github.com/lkingland/faas/docker"
-	"github.com/lkingland/faas/kn"
+	"github.com/boson-project/faas/appsody"
+	"github.com/boson-project/faas/client"
+	"github.com/boson-project/faas/docker"
+	"github.com/boson-project/faas/kn"
 )
 
 func init() {

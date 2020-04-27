@@ -1,4 +1,4 @@
-module github.com/lkingland/faas
+module github.com/boson-project/faas
 
 go 1.13
 

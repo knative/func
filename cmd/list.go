@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/lkingland/faas/client"
-	"github.com/lkingland/faas/knative"
+	"github.com/boson-project/faas/client"
+	"github.com/boson-project/faas/knative"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 )

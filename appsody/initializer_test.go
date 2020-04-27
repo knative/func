@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/lkingland/faas/appsody"
+	"github.com/boson-project/faas/appsody"
 )
 
 // Enabling Appsody Binary Integration Tests

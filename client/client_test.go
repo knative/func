@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/lkingland/faas/client"
-	"github.com/lkingland/faas/client/mock"
+	"github.com/boson-project/faas/client"
+	"github.com/boson-project/faas/client/mock"
 )
 
 // TestNew ensures that instantiation succeeds or fails as expected.

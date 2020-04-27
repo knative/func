@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"github.com/lkingland/faas/client"
-	"github.com/lkingland/faas/kubectl"
+	"github.com/boson-project/faas/client"
+	"github.com/boson-project/faas/kubectl"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 )
