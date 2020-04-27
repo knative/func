@@ -30,7 +30,7 @@ func NewLister(namespace string) (l *Lister, err error) {
 }
 
 func (l *Lister) List() (names []string, err error) {
-	opts := metav1.ListOptions{LabelSelector: "bosonFunction"}
+	opts := metav1.ListOptions{LabelSelector: labelSelector}
 	lst, err := l.client.Services(l.namespace).List(opts)
 	if err != nil {
 		return
