@@ -3,7 +3,7 @@ package cmd_test
 import (
 	"testing"
 
-	"github.com/lkingland/faas/cmd"
+	"github.com/boson-project/faas/cmd"
 )
 
 // TestNewRoot ensures that NewRoot returns a non-nil command with at least a name that

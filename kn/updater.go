@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/lkingland/faas/k8s"
+	"github.com/boson-project/faas/k8s"
 )
 
 // Updater implemented using the kn binary.
