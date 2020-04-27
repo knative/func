@@ -9,14 +9,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-const (
-	nsFlag = "namespace"
-)
-
 func init() {
 	root.AddCommand(listCmd)
-	listCmd.Flags().StringP(nsFlag, "n", "", "optionally specify a namespace")
-	viper.BindPFlag(nsFlag, listCmd.Flags().Lookup(nsFlag))
 }
 
 var listCmd = &cobra.Command{
@@ -29,11 +23,10 @@ var listCmd = &cobra.Command{
 
 func list(cmd *cobra.Command, args []string) (err error) {
 	var (
-		namespace = viper.GetString(nsFlag)
 		verbose   = viper.GetBool("verbose")
 	)
 
-	lister, err := knative.NewLister(namespace)
+	lister, err := knative.NewLister(client.FaasNamespace)
 	if err != nil {
 		return
 	}
