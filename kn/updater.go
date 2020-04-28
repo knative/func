@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"time"
 
+	faasclient "github.com/boson-project/faas/client"
 	"github.com/boson-project/faas/k8s"
 )
 
@@ -41,7 +42,7 @@ func (d *Updater) Update(name, image string) (err error) {
 
 	// TODO: use knative client directly.
 	// TODO: use tags and traffic splitting.
-	cmd := exec.Command("kn", "service", "update", project, "--env", timestamp)
+	cmd := exec.Command("kn", "service", "update", project, "--env", timestamp, "--namespace", faasclient.FaasNamespace)
 
 	// If verbose logging is enabled, echo appsody's chatty stdout.
 	if d.Verbose {

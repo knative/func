@@ -11,6 +11,7 @@ import (
 	"os/exec"
 	"strings"
 
+	faasclient "github.com/boson-project/faas/client"
 	"github.com/boson-project/faas/k8s"
 )
 
@@ -19,7 +20,7 @@ apiVersion: serving.knative.dev/v1
 kind: Service
 metadata:
  name: {{ .Project }}
- namespace: default
+ namespace: {{ .Namespace }}
  labels:
    # Will be exposed as this domain as per the knative service domains config.
    #  Configured in config-domain
@@ -96,6 +97,7 @@ func (d *Deployer) Deploy(name, image string) (address string, err error) {
 	// Write out the final service yaml
 	err = t.Execute(f, map[string]string{
 		"Project":   project,
+		"Namespace": faasclient.FaasNamespace,
 		"Subdomain": subdomain,
 		"Domain":    domain,
 		"Image":     image,
