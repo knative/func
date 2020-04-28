@@ -18,13 +18,13 @@ var (
 // resultant binary with no arguments prints the help/usage text.
 var root = &cobra.Command{
 	Use:           "faas",
-	Short:         "Function as a Service Manager",
+	Short:         "Function as a Service",
 	Version:       Version,
 	SilenceErrors: true, // we explicitly handle errors in Execute()
 	SilenceUsage:  true, // no usage dump on error
-	Long: `Function as a Service Manager
+	Long: `Function as a Service
 
-Create, run and deploy.`,
+Manage your Service Functions.`,
 }
 
 // When the code is loaded into memory upon invocation, the cobra/viper packages
