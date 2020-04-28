@@ -1,6 +1,7 @@
 package client_test
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -279,6 +280,11 @@ func TestCreateLocal(t *testing.T) {
 		t.Fatal("DNS provider invoked in local mode.")
 	}
 
+}
+
+// TestCreateInternal ensures that when set to internal mode, Creation invokes the deployer with the "no public route" option and subsequent updates also are flagged to not create the route.
+func TestCreateInternal(t *testing.T) {
+	fmt.Printf("TODO: TestCreateInternal")
 }
 
 // TestCreateDomain ensures that the effective domain is dervied from

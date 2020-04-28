@@ -17,6 +17,7 @@ import (
 type Client struct {
 	verbose           bool        // print verbose logs
 	local             bool        // Run in local-only mode
+	internal          bool        // Internal service flag (no public route)
 	name              string      // Service function DNS address (configurable)
 	root              string      // root path of function on which to operate
 	domainSearchLimit int         // max dirs to recurse up when deriving domain
@@ -251,6 +252,12 @@ func New(root string, options ...Option) (c *Client, err error) {
 // SetLocal mode (skips push, deploy, etc.)
 func (c *Client) SetLocal(local bool) {
 	c.local = local
+}
+
+// SetInternal mode skips creation of a publicly accessible route to the
+// function, making it available only to other services in the cluster.
+func (c *Client) SetInternal(internal bool) {
+	c.internal = internal
 }
 
 // Create a service function

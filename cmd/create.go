@@ -20,6 +20,9 @@ func init() {
 	createCmd.Flags().BoolP("local", "l", false, "create the service function locally only.")
 	viper.BindPFlag("local", createCmd.Flags().Lookup("local"))
 
+	createCmd.Flags().BoolP("internal", "i", false, "Create a cluster-local service without a publicly accessible route. $FAAS_INTERNAL")
+	viper.BindPFlag("internal", createCmd.Flags().Lookup("internal"))
+
 	createCmd.Flags().StringP("name", "n", "", "optionally specify an explicit name for the serive, overriding path-derivation. $FAAS_NAME")
 	viper.BindPFlag("name", createCmd.Flags().Lookup("name"))
 
@@ -28,6 +31,7 @@ func init() {
 
 	createCmd.Flags().StringP("namespace", "s", "", "namespace at image registry (usually username or org name). $FAAS_NAMESPACE")
 	viper.BindPFlag("namespace", createCmd.Flags().Lookup("namespace"))
+
 }
 
 // The create command invokes the Service Funciton Client to create a new,
@@ -50,6 +54,7 @@ func create(cmd *cobra.Command, args []string) (err error) {
 	var (
 		language  = args[0]                      // language is the first argument
 		local     = viper.GetBool("local")       // Only perform local creation steps
+		internal  = viper.GetBool("internal")    // Do not expose publicly (internal route only)
 		name      = viper.GetString("name")      // Explicit name override (by default path-derives)
 		verbose   = viper.GetBool("verbose")     // Verbose logging
 		registry  = viper.GetString("registry")  // Registry (ex: docker.io)
@@ -95,6 +100,12 @@ func create(cmd *cobra.Command, args []string) (err error) {
 
 	// Set the client to potentially be local-only (default false)
 	client.SetLocal(local)
+
+	// Set the client to potentially be cluster-local (no public route)
+	client.SetInternal(internal)
+	if internal {
+		return errors.New("Internal (cluster local) services feature is not yet available.")
+	}
 
 	// Invoke the creation of the new Service Function locally.
 	// Returns the final address.
