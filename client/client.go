@@ -331,7 +331,8 @@ func (c *Client) Create(language string) (err error) {
 	// but DNS subdomain CNAME to the Kourier Load Balancer is
 	// still manual, and the initial cluster config to suppot the TLD
 	// is still manual.
-	c.dnsProvider.Provide(c.name, address)
+	// c.dnsProvider.Provide(c.name, address)
+	fmt.Printf("%v\n", address)
 
 	return
 }
