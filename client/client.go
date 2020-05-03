@@ -13,6 +13,8 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+const FaasNamespace = "faas"
+
 // Client for a given Service Function.
 type Client struct {
 	verbose           bool        // print verbose logs
