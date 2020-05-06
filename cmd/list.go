@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/boson-project/faas/client"
+	"github.com/boson-project/faas"
 	"github.com/boson-project/faas/knative"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
@@ -32,9 +32,9 @@ func list(cmd *cobra.Command, args []string) (err error) {
 	}
 	lister.Verbose = verbose
 
-	client, err := client.New(".",
-		client.WithVerbose(verbose),
-		client.WithLister(lister),
+	client, err := faas.New(".",
+		faas.WithVerbose(verbose),
+		faas.WithLister(lister),
 	)
 	if err != nil {
 		return

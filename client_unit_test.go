@@ -1,4 +1,4 @@
-package client
+package faas
 
 import (
 	"io/ioutil"

@@ -6,8 +6,8 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
+	"github.com/boson-project/faas"
 	"github.com/boson-project/faas/appsody"
-	"github.com/boson-project/faas/client"
 	"github.com/boson-project/faas/docker"
 	"github.com/boson-project/faas/kubectl"
 )
@@ -85,14 +85,14 @@ func create(cmd *cobra.Command, args []string) (err error) {
 
 	// Instantiate a client, specifying concrete implementations for
 	// Initializer and Deployer, as well as setting the optional verbosity param.
-	client, err := client.New(
+	client, err := faas.New(
 		".",
-		client.WithVerbose(verbose),
-		client.WithName(name),
-		client.WithInitializer(initializer),
-		client.WithBuilder(builder),
-		client.WithPusher(pusher),
-		client.WithDeployer(deployer),
+		faas.WithVerbose(verbose),
+		faas.WithName(name),
+		faas.WithInitializer(initializer),
+		faas.WithBuilder(builder),
+		faas.WithPusher(pusher),
+		faas.WithDeployer(deployer),
 	)
 	if err != nil {
 		return

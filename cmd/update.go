@@ -6,8 +6,8 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
+	"github.com/boson-project/faas"
 	"github.com/boson-project/faas/appsody"
-	"github.com/boson-project/faas/client"
 	"github.com/boson-project/faas/docker"
 	"github.com/boson-project/faas/kn"
 )
@@ -48,11 +48,11 @@ func update(cmd *cobra.Command, args []string) (err error) {
 	updater := kn.NewUpdater()
 	updater.Verbose = verbose
 
-	client, err := client.New(".",
-		client.WithVerbose(verbose),
-		client.WithBuilder(builder),
-		client.WithPusher(pusher),
-		client.WithUpdater(updater),
+	client, err := faas.New(".",
+		faas.WithVerbose(verbose),
+		faas.WithBuilder(builder),
+		faas.WithPusher(pusher),
+		faas.WithUpdater(updater),
 	)
 	if err != nil {
 		return

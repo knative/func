@@ -4,8 +4,8 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
+	"github.com/boson-project/faas"
 	"github.com/boson-project/faas/appsody"
-	"github.com/boson-project/faas/client"
 )
 
 func init() {
@@ -26,9 +26,9 @@ func run(cmd *cobra.Command, args []string) (err error) {
 	runner := appsody.NewRunner()
 	runner.Verbose = verbose
 
-	client, err := client.New(".",
-		client.WithRunner(runner),
-		client.WithVerbose(verbose))
+	client, err := faas.New(".",
+		faas.WithRunner(runner),
+		faas.WithVerbose(verbose))
 	if err != nil {
 		return
 	}

@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/boson-project/faas/client"
+	"github.com/boson-project/faas"
 	"github.com/boson-project/faas/kubectl"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
@@ -29,9 +29,9 @@ func delete(cmd *cobra.Command, args []string) (err error) {
 		remover = kubectl.NewRemover()
 	)
 
-	client, err := client.New(".",
-		client.WithVerbose(verbose),
-		client.WithRemover(remover),
+	client, err := faas.New(".",
+		faas.WithVerbose(verbose),
+		faas.WithRemover(remover),
 	)
 	if err != nil {
 		return

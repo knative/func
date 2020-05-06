@@ -1,4 +1,4 @@
-package client_test
+package faas_test
 
 import (
 	"fmt"
@@ -6,8 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/boson-project/faas/client"
-	"github.com/boson-project/faas/client/mock"
+	"github.com/boson-project/faas/mock"
 )
 
 // TestNew ensures that instantiation succeeds or fails as expected.
