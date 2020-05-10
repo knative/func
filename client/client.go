@@ -32,6 +32,7 @@ type Client struct {
 	runner            Runner      // Runs the function locally
 	remover           Remover     // Removes remote services
 	lister            Lister      // Lists remote services
+	describer         Describer
 }
 
 // ConfigFileName is an optional file checked for in the function root.
@@ -103,6 +104,22 @@ type Remover interface {
 type Lister interface {
 	// List the service functions currently deployed.
 	List() ([]string, error)
+}
+
+type Subscription struct {
+	Source string `json:"source" yaml:"source"`
+	Type string `json:"type" yaml:"type"`
+	Broker string `json:"broker" yaml:"broker"`
+}
+
+type FunctionDescription struct {
+	Name          string `json:"name" yaml:"name"`
+	Routes        []string `json:"routes" yaml:"routes"`
+	Subscriptions []Subscription `json:"subscriptions" yaml:"subscriptions"`
+}
+
+type Describer interface {
+	Describe(name string) (description FunctionDescription, err error)
 }
 
 // Option defines a function which when passed to the Client constructor optionally
@@ -196,6 +213,12 @@ func WithRemover(r Remover) Option {
 func WithLister(l Lister) Option {
 	return func(c *Client) {
 		c.lister = l
+	}
+}
+
+func WithDescriber(describer Describer) Option {
+	return func(c *Client) {
+		c.describer = describer
 	}
 }
 
@@ -369,6 +392,10 @@ func (c *Client) Run() error {
 func (c *Client) List() ([]string, error) {
 	// delegate to concrete implementation of lister entirely.
 	return c.lister.List()
+}
+
+func (c *Client) Describe(name string) (FunctionDescription, error) {
+	return c.describer.Describe(name)
 }
 
 // Remove a function from remote, bringing the service funciton
