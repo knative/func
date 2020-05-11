@@ -43,7 +43,7 @@ func describe(cmd *cobra.Command, args []string) (err error) {
 	}
 	describer.Verbose = verbose
 
-	client, err := faas.New(".",
+	client, err := faas.New(
 		faas.WithVerbose(verbose),
 		faas.WithDescriber(describer),
 	)

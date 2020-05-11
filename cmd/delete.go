@@ -10,8 +10,8 @@ import (
 func init() {
 	root.AddCommand(deleteCmd)
 
-	createCmd.Flags().StringP("name", "n", "", "optionally specify an explicit name to remove, overriding path-derivation. $FAAS_NAME")
-	viper.BindPFlag("name", createCmd.Flags().Lookup("name"))
+	deleteCmd.Flags().StringP("name", "n", "", "optionally specify an explicit name to remove, overriding path-derivation. $FAAS_NAME")
+	viper.BindPFlag("name", deleteCmd.Flags().Lookup("name"))
 }
 
 var deleteCmd = &cobra.Command{

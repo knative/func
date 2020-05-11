@@ -22,17 +22,15 @@ var listCmd = &cobra.Command{
 }
 
 func list(cmd *cobra.Command, args []string) (err error) {
-	var (
-		verbose   = viper.GetBool("verbose")
-	)
+	verbose := viper.GetBool("verbose")
 
-	lister, err := knative.NewLister(client.DefaultNamespace)
+	lister, err := knative.NewLister(faas.DefaultNamespace)
 	if err != nil {
 		return
 	}
 	lister.Verbose = verbose
 
-	client, err := faas.New(".",
+	client, err := faas.New(
 		faas.WithVerbose(verbose),
 		faas.WithLister(lister),
 	)

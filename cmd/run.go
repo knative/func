@@ -21,17 +21,24 @@ var runCmd = &cobra.Command{
 }
 
 func run(cmd *cobra.Command, args []string) (err error) {
-	var verbose = viper.GetBool("verbose")
+	var (
+		path    = "" // defaults to current working directory
+		verbose = viper.GetBool("verbose")
+	)
+
+	if len(args) == 1 {
+		path = args[0]
+	}
 
 	runner := appsody.NewRunner()
 	runner.Verbose = verbose
 
-	client, err := faas.New(".",
+	client, err := faas.New(
 		faas.WithRunner(runner),
 		faas.WithVerbose(verbose))
 	if err != nil {
 		return
 	}
 
-	return client.Run()
+	return client.Run(path)
 }

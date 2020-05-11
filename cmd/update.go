@@ -26,10 +26,15 @@ var updateCmd = &cobra.Command{
 
 func update(cmd *cobra.Command, args []string) (err error) {
 	var (
+		path      = ""                           // defaults to current working directory
 		verbose   = viper.GetBool("verbose")     // Verbose logging
 		registry  = viper.GetString("registry")  // Registry (ex: docker.io)
 		namespace = viper.GetString("namespace") // namespace at registry (user or org name)
 	)
+
+	if len(args) == 1 {
+		path = args[0]
+	}
 
 	// Namespace can not be defaulted.
 	if namespace == "" {
@@ -48,7 +53,7 @@ func update(cmd *cobra.Command, args []string) (err error) {
 	updater := kn.NewUpdater()
 	updater.Verbose = verbose
 
-	client, err := faas.New(".",
+	client, err := faas.New(
 		faas.WithVerbose(verbose),
 		faas.WithBuilder(builder),
 		faas.WithPusher(pusher),
@@ -58,5 +63,5 @@ func update(cmd *cobra.Command, args []string) (err error) {
 		return
 	}
 
-	return client.Update()
+	return client.Update(path)
 }

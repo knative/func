@@ -53,6 +53,7 @@ func create(cmd *cobra.Command, args []string) (err error) {
 	// Assemble parameters for use in client's 'create' invocation.
 	var (
 		language  = args[0]                      // language is the first argument
+		path      = ""                           // path is defaulted to current working directory.
 		local     = viper.GetBool("local")       // Only perform local creation steps
 		internal  = viper.GetBool("internal")    // Do not expose publicly (internal route only)
 		name      = viper.GetString("name")      // Explicit name override (by default path-derives)
@@ -60,6 +61,11 @@ func create(cmd *cobra.Command, args []string) (err error) {
 		registry  = viper.GetString("registry")  // Registry (ex: docker.io)
 		namespace = viper.GetString("namespace") // namespace at registry (user or org name)
 	)
+
+	// If path is provided
+	if len(args) == 2 {
+		path = args[1]
+	}
 
 	// Namespace can not be defaulted.
 	if namespace == "" {
@@ -100,5 +106,8 @@ func create(cmd *cobra.Command, args []string) (err error) {
 
 	// Invoke the creation of the new Service Function locally.
 	// Returns the final address.
-	return client.Create(language)
+	// Name can be empty string (path-dervation will be attempted)
+	// Path can be empty, defaulting to current working directory.
+	return client.Create(language, name, path)
+
 }
