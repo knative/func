@@ -10,9 +10,8 @@ import (
 func init() {
 	root.AddCommand(deleteCmd)
 
-	deleteCmd.Flags().StringP("name", "n", "",
-		"Optionally specify the name of the Service Function to remove.")
-
+	createCmd.Flags().StringP("name", "n", "", "optionally specify an explicit name to remove, overriding path-derivation. $FAAS_NAME")
+	viper.BindPFlag("name", createCmd.Flags().Lookup("name"))
 }
 
 var deleteCmd = &cobra.Command{
@@ -27,9 +26,15 @@ func delete(cmd *cobra.Command, args []string) (err error) {
 	var (
 		verbose = viper.GetBool("verbose")
 		remover = kubectl.NewRemover()
+		name    = viper.GetString("name") // Explicit name override (by default uses path argument)
+		path    = ""                      // defaults to current working directory
 	)
+	// If provided use the path provided as the first argument.
+	if len(args) == 1 {
+		name = args[0]
+	}
 
-	client, err := faas.New(".",
+	client, err := faas.New(
 		faas.WithVerbose(verbose),
 		faas.WithRemover(remover),
 	)
@@ -37,6 +42,6 @@ func delete(cmd *cobra.Command, args []string) (err error) {
 		return
 	}
 
-	// Remove the service specified by the current direcory's config.
-	return client.Remove()
+	// Remove name (if provided), or the (initialized) function at path.
+	return client.Remove(name, path)
 }

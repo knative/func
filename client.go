@@ -344,10 +344,23 @@ func (c *Client) Describe(name string) (FunctionDescription, error) {
 	return c.describer.Describe(name)
 }
 
-// Remove a function from remote.  No local files are affected.
-func (c *Client) Remove(name string) error {
-	// delegate to concrete implementation of remover entirely.
-	return c.remover.Remove(name)
+// Remove a function.  Name takes precidence.  If no name is provided,
+// the function defined at root is used.
+func (c *Client) Remove(name, root string) error {
+	// If name is provided, it takes precidence.
+	// Otherwise load the function deined at root.
+	if name != "" {
+		return c.remover.Remove(name)
+	}
+
+	f, err := NewFunction(root)
+	if err != nil {
+		return err
+	}
+	if !f.Initialized() {
+		return errors.New(fmt.Sprintf("%v is not initialized", f.name))
+	}
+	return c.remover.Remove(f.name)
 }
 
 // Manual implementations (noops) of required interfaces.

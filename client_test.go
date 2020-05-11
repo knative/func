@@ -1,6 +1,7 @@
 package faas_test
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -446,16 +447,14 @@ func TestUpdate(t *testing.T) {
 	}
 }
 
-// TestRemove ensures that the remover is invoked with the name of the
-// client's associated service function.
+// TestRemove ensures that the remover is invoked with the name provided, and that
 func TestRemove(t *testing.T) {
 	var (
 		name    = "admin.example.com"
 		remover = mock.NewRemover()
 	)
 
-	client, err := faas.New(
-		faas.WithRemover(remover))
+	client, err := faas.New(faas.WithRemover(remover))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -465,9 +464,76 @@ func TestRemove(t *testing.T) {
 		}
 		return nil
 	}
-	// Call remove with no explicit name, expecting default to be the
-	// assocaite of the client instance
-	if err := client.Remove(name); err != nil {
+
+	// Call with explicit name and no root.
+	if err := client.Remove(name, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	// Call with explicit name and root; name should take precidence.
+	if err := client.Remove(name, "testdata/example.com/www"); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestRemoveUninitializedFailes ensures that attempting to remove a function
+// by path only (no name) fails unless the funciton has been initialized.  I.e.
+// the name will not be derived from path and the function removed by thi
+// derived name; that could be unexpected and destructive.
+func TestRemoveUninitializedFails(t *testing.T) {
+	var (
+		root    = "testdata/example.com/admin"
+		remover = mock.NewRemover()
+	)
+	os.MkdirAll(root, 0700)
+	defer os.RemoveAll(root)
+
+	// Create a remover delegate which fails if invoked.
+	remover.RemoveFn = func(name string) error {
+		return errors.New(fmt.Sprintf("remove invoked for unitialized function %v", name))
+	}
+
+	// Instantiate the client with the failing remover.
+	client, err := faas.New(faas.WithRemover(remover))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Attempt to remove by path, expecting an error.
+	if err := client.Remove("", root); err == nil {
+		t.Fatalf("did not received expeced error removing an uninitialized func")
+	}
+}
+
+// TestRemoveDefaultCurrent ensures that, if a name is not provided but a path is,
+// the funciton defined by path will be removed.
+// Note that the prior test RemoveUninitializedFails ensures that only
+// initialized functions are removed, which prevents the case of a function
+// being removed by path-derived name without having been initialized (an
+// easily destrcutive and likely unwanted behavior)
+func TestRemoveDefaultCurrent(t *testing.T) {
+	var (
+		root    = "testdata/example.com/www" // an initialized function (has config)
+		remover = mock.NewRemover()
+	)
+
+	// remover delegate which ensures the correct name is received.
+	remover.RemoveFn = func(name2 string) error {
+		if name2 != "www.example.com" {
+			t.Fatalf("remover expected name 'www.example.com' got '%v'", name2)
+		}
+		return nil
+	}
+
+	client, err := faas.New(faas.WithRemover(remover))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Without a name provided, but with a path, the function will be loaded and
+	// its name used by default.  Note that it will fail if uninitialized (no path
+	// derivation for removal.)
+	if err := client.Remove("", root); err != nil {
 		t.Fatal(err)
 	}
 }
