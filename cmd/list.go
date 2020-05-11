@@ -26,7 +26,7 @@ func list(cmd *cobra.Command, args []string) (err error) {
 		verbose   = viper.GetBool("verbose")
 	)
 
-	lister, err := knative.NewLister(client.FaasNamespace)
+	lister, err := knative.NewLister(client.DefaultNamespace)
 	if err != nil {
 		return
 	}

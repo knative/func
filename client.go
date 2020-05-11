@@ -7,7 +7,7 @@ import (
 	"os"
 )
 
-const FaasNamespace = "faas"
+const DefaultNamespace = "faas"
 
 // Client for a given Service Function.
 type Client struct {
@@ -224,7 +224,7 @@ func WithDomainSearchLimit(limit int) Option {
 // Name and Root are optional:
 // Name is derived from root if possible.
 // Root is defaulted to the current working directory.
-func (c *Client) Create(language string) (err error) {
+func (c *Client) Create(language, name, root string) (err error) {
 	// Create an instance of a function representation at the given root.
 	f, err := NewFunction(root)
 	if err != nil {

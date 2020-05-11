@@ -5,6 +5,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
+
 	"gopkg.in/yaml.v2"
 
 	"github.com/boson-project/faas/client"
@@ -25,18 +26,18 @@ var describeCmd = &cobra.Command{
 	Short:      "Describe Service Function",
 	Long:       `Describe Service Function`,
 	SuggestFor: []string{"desc"},
-	Args: 		cobra.ExactArgs(1),
+	Args:       cobra.ExactArgs(1),
 	RunE:       describe,
 }
 
 func describe(cmd *cobra.Command, args []string) (err error) {
 	var (
-		verbose      = viper.GetBool("verbose")
-		format 		 = viper.GetString("output")
+		verbose = viper.GetBool("verbose")
+		format  = viper.GetString("output")
 	)
 	name := args[0]
 
-	describer, err := knative.NewDescriber(client.FaasNamespace)
+	describer, err := knative.NewDescriber(client.DefaultNamespace)
 	if err != nil {
 		return
 	}
@@ -55,11 +56,10 @@ func describe(cmd *cobra.Command, args []string) (err error) {
 		return
 	}
 
-
-	formatFunctions := map[string] func(interface{})([]byte, error) {
-		"json" : json.Marshal,
-		"yaml" : yaml.Marshal,
-		"xml"  : xml.Marshal,
+	formatFunctions := map[string]func(interface{}) ([]byte, error){
+		"json": json.Marshal,
+		"yaml": yaml.Marshal,
+		"xml":  xml.Marshal,
 	}
 
 	formatFun, found := formatFunctions[format]
@@ -71,6 +71,6 @@ func describe(cmd *cobra.Command, args []string) (err error) {
 		return
 	}
 	fmt.Println(string(data))
-	
+
 	return
 }

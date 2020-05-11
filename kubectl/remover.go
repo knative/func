@@ -39,7 +39,7 @@ func (d *Remover) Remove(name string) (err error) {
 	}
 
 	// Command to run
-	cmd := exec.Command("kubectl", "delete", "kservice", serviceName, "--namespace", faasclient.FaasNamespace)
+	cmd := exec.Command("kubectl", "delete", "kservice", serviceName, "--namespace", faasclient.DefaultNamespace)
 
 	// If verbose logging is enabled, echo appsody's chatty stdout.
 	if d.Verbose {

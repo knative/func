@@ -42,7 +42,7 @@ func (d *Updater) Update(name, image string) (err error) {
 
 	// TODO: use knative client directly.
 	// TODO: use tags and traffic splitting.
-	cmd := exec.Command("kn", "service", "update", project, "--env", timestamp, "--namespace", faasclient.FaasNamespace)
+	cmd := exec.Command("kn", "service", "update", project, "--env", timestamp, "--namespace", faasclient.DefaultNamespace)
 
 	// If verbose logging is enabled, echo appsody's chatty stdout.
 	if d.Verbose {

@@ -97,7 +97,7 @@ func (d *Deployer) Deploy(name, image string) (address string, err error) {
 	// Write out the final service yaml
 	err = t.Execute(f, map[string]string{
 		"Project":   project,
-		"Namespace": faasclient.FaasNamespace,
+		"Namespace": faasclient.DefaultNamespace,
 		"Subdomain": subdomain,
 		"Domain":    domain,
 		"Image":     image,
