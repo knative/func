@@ -3,13 +3,15 @@ package knative
 import (
 	"fmt"
 
-	"github.com/boson-project/faas"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"knative.dev/eventing/pkg/apis/eventing/v1alpha1"
 	eventingv1client "knative.dev/eventing/pkg/client/clientset/versioned/typed/eventing/v1alpha1"
 	servingv1client "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
+
+	"github.com/boson-project/faas"
+	"github.com/boson-project/faas/k8s"
 )
 
 type Describer struct {
@@ -46,18 +48,27 @@ func NewDescriber(namespace string) (describer *Describer, err error) {
 	return
 }
 
+// Describe by name. Note that the consuming API uses domain style notation, whereas Kubernetes
+// restricts to label-syntax, which is thus escaped. Therefore as a knative (kube) implementation
+// detal proper full names have to be escaped on the way in and unescaped on the way out. ex:
+// www.example-site.com -> www-example--site-com
 func (describer *Describer) Describe(name string) (description faas.FunctionDescription, err error) {
 
 	namespace := describer.namespace
 	servingClient := describer.servingClient
 	eventingClient := describer.eventingClient
 
-	service, err := servingClient.Services(namespace).Get(name, metav1.GetOptions{})
+	serviceName, err := k8s.ToSubdomain(name)
 	if err != nil {
 		return
 	}
 
-	serviceLabel := fmt.Sprintf("serving.knative.dev/service=%s", name)
+	service, err := servingClient.Services(namespace).Get(serviceName, metav1.GetOptions{})
+	if err != nil {
+		return
+	}
+
+	serviceLabel := fmt.Sprintf("serving.knative.dev/service=%s", serviceName)
 	routes, err := servingClient.Routes(namespace).List(metav1.ListOptions{LabelSelector: serviceLabel})
 	if err != nil {
 		return
@@ -93,9 +104,9 @@ func (describer *Describer) Describe(name string) (description faas.FunctionDesc
 		}
 	}
 
-	description.Name = service.Name
 	description.Routes = routeURLs
 	description.Subscriptions = subscriptions
+	description.Name, err = k8s.FromSubdomain(service.Name)
 
 	return
 }
