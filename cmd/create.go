@@ -86,20 +86,16 @@ func create(cmd *cobra.Command, args []string) (err error) {
 	// Instantiate a client, specifying concrete implementations for
 	// Initializer and Deployer, as well as setting the optional verbosity param.
 	client, err := faas.New(
-		".",
 		faas.WithVerbose(verbose),
-		faas.WithName(name),
 		faas.WithInitializer(initializer),
 		faas.WithBuilder(builder),
 		faas.WithPusher(pusher),
 		faas.WithDeployer(deployer),
+		faas.WithLocal(local),
 	)
 	if err != nil {
 		return
 	}
-
-	// Set the client to potentially be local-only (default false)
-	client.SetLocal(local)
 
 	// Set the client to potentially be cluster-local (no public route)
 	client.SetInternal(internal)
