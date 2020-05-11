@@ -19,6 +19,9 @@ func init() {
 
 	describeCmd.Flags().StringP("output", "o", "yaml", "optionally specify output format (yaml,xml,json).")
 	viper.BindPFlag("output", describeCmd.Flags().Lookup("output"))
+
+	describeCmd.Flags().StringP("name", "n", "", "optionally specify an explicit name for the serive, overriding path-derivation. $FAAS_NAME")
+	viper.BindPFlag("name", describeCmd.Flags().Lookup("name"))
 }
 
 var describeCmd = &cobra.Command{
@@ -26,7 +29,6 @@ var describeCmd = &cobra.Command{
 	Short:      "Describe Service Function",
 	Long:       `Describe Service Function`,
 	SuggestFor: []string{"desc"},
-	Args:       cobra.ExactArgs(1),
 	RunE:       describe,
 }
 
@@ -34,8 +36,13 @@ func describe(cmd *cobra.Command, args []string) (err error) {
 	var (
 		verbose = viper.GetBool("verbose")
 		format  = viper.GetString("output")
+		name    = viper.GetString("name")
+		path    = "" // default to current working directory
 	)
-	name := args[0]
+	// If provided use the path as the first argument
+	if len(args) == 1 {
+		name = args[0]
+	}
 
 	describer, err := knative.NewDescriber(faas.DefaultNamespace)
 	if err != nil {
@@ -51,7 +58,8 @@ func describe(cmd *cobra.Command, args []string) (err error) {
 		return
 	}
 
-	description, err := client.Describe(name)
+	// describe the given name, or path if not provided.
+	description, err := client.Describe(name, path)
 	if err != nil {
 		return
 	}

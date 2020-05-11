@@ -339,9 +339,23 @@ func (c *Client) List() ([]string, error) {
 	return c.lister.List()
 }
 
-func (c *Client) Describe(name string) (FunctionDescription, error) {
-	// delegate to concrete implementation of describer entirely.
-	return c.describer.Describe(name)
+// Describe a function.  Name takes precidence.  If no name is provided,
+// the function defined at root is used.
+func (c *Client) Describe(name, root string) (fd FunctionDescription, err error) {
+	// If name is provided, it takes precidence.
+	// Otherwise load the function defined at root.
+	if name != "" {
+		return c.describer.Describe(name)
+	}
+
+	f, err := NewFunction(root)
+	if err != nil {
+		return fd, err
+	}
+	if !f.Initialized() {
+		return fd, errors.New(fmt.Sprintf("%v is not initialized", f.name))
+	}
+	return c.describer.Describe(f.name)
 }
 
 // Remove a function.  Name takes precidence.  If no name is provided,
@@ -370,12 +384,6 @@ func (c *Client) Remove(name, root string) error {
 // provded only when necessary.  Unit tests for the concrete implementations
 // serve to keep the core logic here separate from the imperitive.
 // -----------------------------------------------------
-
-type noopDNSProvider struct{ output io.Writer }
-
-func (n *noopDNSProvider) Provide(name, address string) {
-	fmt.Fprintln(n.output, "skipping DNS update: client not initialized WithDNSProvider")
-}
 
 type noopInitializer struct{ output io.Writer }
 
@@ -431,4 +439,10 @@ type noopLister struct{ output io.Writer }
 func (n *noopLister) List() ([]string, error) {
 	fmt.Fprintln(n.output, "skipping list: client not initialized WithLister")
 	return []string{}, nil
+}
+
+type noopDNSProvider struct{ output io.Writer }
+
+func (n *noopDNSProvider) Provide(name, address string) {
+	fmt.Fprintf(n.output, "Note: manual DNS provisioning may be required name=%v address%v\n", name, address)
 }

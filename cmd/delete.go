@@ -29,7 +29,7 @@ func delete(cmd *cobra.Command, args []string) (err error) {
 		name    = viper.GetString("name") // Explicit name override (by default uses path argument)
 		path    = ""                      // defaults to current working directory
 	)
-	// If provided use the path provided as the first argument.
+	// If provided use the path as the first argument.
 	if len(args) == 1 {
 		name = args[0]
 	}
