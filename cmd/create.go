@@ -91,16 +91,11 @@ func create(cmd *cobra.Command, args []string) (err error) {
 		faas.WithBuilder(builder),
 		faas.WithPusher(pusher),
 		faas.WithDeployer(deployer),
-		faas.WithLocal(local),
+		faas.WithLocal(local),       // local template only (no cluster deployment)
+		faas.WithInternal(internal), // if deployed, no publicly accessible route.
 	)
 	if err != nil {
 		return
-	}
-
-	// Set the client to potentially be cluster-local (no public route)
-	client.SetInternal(internal)
-	if internal {
-		return errors.New("Internal (cluster local) services feature is not yet available.")
 	}
 
 	// Invoke the creation of the new Service Function locally.

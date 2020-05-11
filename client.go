@@ -13,6 +13,7 @@ const DefaultNamespace = "faas"
 type Client struct {
 	verbose           bool        // print verbose logs
 	local             bool        // Run in local-only mode
+	internal          bool        // Deploy without publicly accessible route
 	initializer       Initializer // Creates initial local function implementation
 	builder           Builder     // Builds a runnable image from function source
 	pusher            Pusher      // Pushes a built image to a registry
@@ -139,6 +140,13 @@ func WithLocal(l bool) Option {
 	}
 }
 
+// WithInternal sets the internal (no public route) mode for deployed function.
+func WithInternal(i bool) Option {
+	return func(c *Client) {
+		c.internal = i
+	}
+}
+
 // WithInitializer provides the concrete implementation of the Service Function
 // initializer (generates stub code on initial create).
 func WithInitializer(i Initializer) Option {
@@ -251,6 +259,11 @@ func (c *Client) Create(language, name, root string) (err error) {
 	// Push the image for the names service to the configured registry
 	if err = c.pusher.Push(image); err != nil {
 		return
+	}
+
+	// TODO: cluster-local deploy mode
+	if c.internal {
+		return errors.New("Deploying in cluster-internal mode (no public route) not yet available.")
 	}
 
 	// Deploy the initialized service function, returning its publicly
