@@ -2,7 +2,8 @@ package knative
 
 import (
 	"fmt"
-	"github.com/boson-project/faas/client"
+
+	"github.com/boson-project/faas"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -16,7 +17,7 @@ type Describer struct {
 	namespace      string
 	servingClient  *servingv1client.ServingV1alpha1Client
 	eventingClient *eventingv1client.EventingV1alpha1Client
-	config 		   *rest.Config
+	config         *rest.Config
 }
 
 func NewDescriber(namespace string) (describer *Describer, err error) {
@@ -45,7 +46,7 @@ func NewDescriber(namespace string) (describer *Describer, err error) {
 	return
 }
 
-func (describer *Describer) Describe(name string) (description client.FunctionDescription, err error) {
+func (describer *Describer) Describe(name string) (description faas.FunctionDescription, err error) {
 
 	namespace := describer.namespace
 	servingClient := describer.servingClient
@@ -79,11 +80,11 @@ func (describer *Describer) Describe(name string) (description client.FunctionDe
 
 	}
 
-	subscriptions := make([]client.Subscription, 0, len(triggers.Items))
+	subscriptions := make([]faas.Subscription, 0, len(triggers.Items))
 	for _, trigger := range triggers.Items {
 		if triggerMatches(&trigger) {
 			filterAttrs := *trigger.Spec.Filter.Attributes
-			subscription := client.Subscription{
+			subscription := faas.Subscription{
 				Source: filterAttrs["source"],
 				Type:   filterAttrs["type"],
 				Broker: trigger.Spec.Broker,

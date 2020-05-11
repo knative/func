@@ -7,7 +7,7 @@ import (
 	"os"
 	"os/exec"
 
-	faasclient "github.com/boson-project/faas/client"
+	"github.com/boson-project/faas"
 	"github.com/boson-project/faas/k8s"
 )
 
@@ -39,7 +39,7 @@ func (d *Remover) Remove(name string) (err error) {
 	}
 
 	// Command to run
-	cmd := exec.Command("kubectl", "delete", "kservice", serviceName, "--namespace", faasclient.DefaultNamespace)
+	cmd := exec.Command("kubectl", "delete", "kservice", serviceName, "--namespace", faas.DefaultNamespace)
 
 	// If verbose logging is enabled, echo appsody's chatty stdout.
 	if d.Verbose {

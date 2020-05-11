@@ -8,7 +8,7 @@ import (
 
 	"gopkg.in/yaml.v2"
 
-	"github.com/boson-project/faas/client"
+	"github.com/boson-project/faas"
 	"github.com/boson-project/faas/knative"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
@@ -37,15 +37,15 @@ func describe(cmd *cobra.Command, args []string) (err error) {
 	)
 	name := args[0]
 
-	describer, err := knative.NewDescriber(client.DefaultNamespace)
+	describer, err := knative.NewDescriber(faas.DefaultNamespace)
 	if err != nil {
 		return
 	}
 	describer.Verbose = verbose
 
-	client, err := client.New(".",
-		client.WithVerbose(verbose),
-		client.WithDescriber(describer),
+	client, err := faas.New(".",
+		faas.WithVerbose(verbose),
+		faas.WithDescriber(describer),
 	)
 	if err != nil {
 		return

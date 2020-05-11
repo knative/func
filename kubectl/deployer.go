@@ -11,7 +11,7 @@ import (
 	"os/exec"
 	"strings"
 
-	faasclient "github.com/boson-project/faas/client"
+	"github.com/boson-project/faas"
 	"github.com/boson-project/faas/k8s"
 )
 
@@ -97,7 +97,7 @@ func (d *Deployer) Deploy(name, image string) (address string, err error) {
 	// Write out the final service yaml
 	err = t.Execute(f, map[string]string{
 		"Project":   project,
-		"Namespace": faasclient.DefaultNamespace,
+		"Namespace": faas.DefaultNamespace,
 		"Subdomain": subdomain,
 		"Domain":    domain,
 		"Image":     image,
