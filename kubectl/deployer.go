@@ -15,6 +15,9 @@ import (
 	"github.com/boson-project/faas/k8s"
 )
 
+// TODO: Replace this implementation with an implementation which
+// directly uses the client, using this as a reference.
+
 const service = `
 apiVersion: serving.knative.dev/v1
 kind: Service
@@ -123,6 +126,6 @@ func (d *Deployer) Deploy(name, image string) (address string, err error) {
 		return
 	}
 
-	// TODO: explicitly pull address:
-	return "https://faas.example.com/", nil
+	// TODO: explicitly pull address from API.  The Knative Serving Networking LB.
+	return "[cluster-address]", nil
 }

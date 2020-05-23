@@ -282,6 +282,10 @@ func (c *Client) Create(language, name, root string) (err error) {
 	// is still manual.
 	c.dnsProvider.Provide(f.name, address)
 
+	// TODO: Create a status structure and return it for clients to use
+	// for output, such as from the CLI.
+	fmt.Printf("https://%v/\n", f.name)
+
 	return
 }
 
@@ -444,5 +448,5 @@ func (n *noopLister) List() ([]string, error) {
 type noopDNSProvider struct{ output io.Writer }
 
 func (n *noopDNSProvider) Provide(name, address string) {
-	fmt.Fprintf(n.output, "Note: manual DNS provisioning may be required name=%v address%v\n", name, address)
+	// Note: at this time manual DNS provisioning required for name -> knative serving netowrk load-balancer
 }

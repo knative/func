@@ -1,7 +1,6 @@
 package faas
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -39,7 +38,6 @@ func newConfig(f *Function) Config {
 
 // writeConfig out to disk.
 func writeConfig(f *Function) (err error) {
-	fmt.Printf("Writing config for function: %#v\n", f)
 	var (
 		cfg     = newConfig(f)
 		cfgFile = filepath.Join(f.root, ConfigFileName)
