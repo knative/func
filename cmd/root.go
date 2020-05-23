@@ -62,3 +62,11 @@ func Execute() {
 		os.Exit(1)
 	}
 }
+
+// isInteractive returns whether or not the currently attached process terminal
+// is interactive.  Used for determining whether or not to interactively prompt
+// the user to confirm default choices, etc.
+func isInteractive() bool {
+	fi, err := os.Stdin.Stat()
+	return err == nil && ((fi.Mode() & os.ModeCharDevice) != 0)
+}
