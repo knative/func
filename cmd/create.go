@@ -2,6 +2,8 @@ package cmd
 
 import (
 	"errors"
+	"fmt"
+	"regexp"
 
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
@@ -10,7 +12,18 @@ import (
 	"github.com/boson-project/faas/appsody"
 	"github.com/boson-project/faas/docker"
 	"github.com/boson-project/faas/kubectl"
+	"github.com/boson-project/faas/prompt"
 )
+
+func init() {
+	// Add the `create` command as a subcommand to root.
+	root.AddCommand(createCmd)
+	createCmd.Flags().BoolP("local", "l", false, "create the service function locally only.")
+	createCmd.Flags().BoolP("internal", "i", false, "Create a cluster-local service without a publicly accessible route. $FAAS_INTERNAL")
+	createCmd.Flags().StringP("name", "n", "", "optionally specify an explicit name for the serive, overriding path-derivation. $FAAS_NAME")
+	createCmd.Flags().StringP("registry", "r", "quay.io", "image registry (ex: quay.io). $FAAS_REGISTRY")
+	createCmd.Flags().StringP("namespace", "s", "", "namespace at image registry (usually username or org name). $FAAS_NAMESPACE")
+}
 
 // The create command invokes the Service Funciton Client to create a new,
 // functional, deployed service function with a noop implementation.  It
@@ -20,28 +33,13 @@ var createCmd = &cobra.Command{
 	Short:      "Create a Service Function",
 	SuggestFor: []string{"init", "new"},
 	RunE:       create,
-}
-
-func init() {
-	// Add the `create` command as a subcommand to root.
-	root.AddCommand(createCmd)
-
-	// register command flags and bind them to environment variables.
-	createCmd.Flags().BoolP("local", "l", false, "create the service function locally only.")
-	viper.BindPFlag("local", createCmd.Flags().Lookup("local"))
-
-	createCmd.Flags().BoolP("internal", "i", false, "Create a cluster-local service without a publicly accessible route. $FAAS_INTERNAL")
-	viper.BindPFlag("internal", createCmd.Flags().Lookup("internal"))
-
-	createCmd.Flags().StringP("name", "n", "", "optionally specify an explicit name for the serive, overriding path-derivation. $FAAS_NAME")
-	viper.BindPFlag("name", createCmd.Flags().Lookup("name"))
-
-	createCmd.Flags().StringP("registry", "r", "quay.io", "image registry (ex: quay.io). $FAAS_REGISTRY")
-	viper.BindPFlag("registry", createCmd.Flags().Lookup("registry"))
-
-	createCmd.Flags().StringP("namespace", "s", "", "namespace at image registry (usually username or org name). $FAAS_NAMESPACE")
-	viper.BindPFlag("namespace", createCmd.Flags().Lookup("namespace"))
-
+	PreRun: func(cmd *cobra.Command, args []string) {
+		viper.BindPFlag("local", cmd.Flags().Lookup("local"))
+		viper.BindPFlag("internal", cmd.Flags().Lookup("internal"))
+		viper.BindPFlag("name", cmd.Flags().Lookup("name"))
+		viper.BindPFlag("registry", cmd.Flags().Lookup("registry"))
+		viper.BindPFlag("namespace", cmd.Flags().Lookup("namespace"))
+	},
 }
 
 // The create command expects several parameters, most of which can be
@@ -113,8 +111,15 @@ func create(cmd *cobra.Command, args []string) (err error) {
 	// If we are running as an interactive terminal, allow the user
 	// to mutate default config prior to execution.
 	if isInteractive() {
-		config = gatherFromUser(config)
+		fmt.Printf("Initial Config: \n%#v\n", config)
+		config, err = gatherFromUser(config)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("Final Config: \n%#v", config)
 	}
+
+	return
 
 	// Initializer creates a deployable noop function implementation in the
 	// configured path.
@@ -155,7 +160,44 @@ func create(cmd *cobra.Command, args []string) (err error) {
 	return client.Create(config.Language, config.Name, config.Path)
 }
 
-func gatherFromUser(config createConfig) createConfig {
-	// TODO
-	return config
+func gatherFromUser(config createConfig) (c createConfig, err error) {
+	config.Path = prompt.ForString("Local source path", config.Path)
+	config.Name, err = promptForName("name of service function", config)
+	if err != nil {
+		return config, err
+	}
+	config.Local = prompt.ForBool("Local; no remote deployment", config.Local)
+	config.Internal = prompt.ForBool("Internal; no public route", config.Internal)
+	config.Registry = prompt.ForString("Image registry", config.Registry)
+	config.Namespace = prompt.ForString("Namespace at registry", config.Namespace)
+	config.Language = prompt.ForString("Language of source", config.Language)
+	return config, nil
+}
+
+// Prompting for Service Name with Default
+// Early calclation of service function name is required to provide a sensible
+// default.  If the user did not provide a --name parameter or FAAS_NAME,
+// this funciton sets the default to the value that the client would have done
+// on its own if non-interactive: by creating a new function rooted at config.Path
+// and then calculate from that path.
+func promptForName(label string, config createConfig) (string, error) {
+	// Pre-calculate the function name derived from path
+	if config.Name == "" {
+		f, err := faas.NewFunction(config.Path)
+		if err != nil {
+			return "", err
+		}
+		maxRecursion := 5 // TODO synchronize with that used in actual initialize step.
+		return prompt.ForString("Name of service function", f.DerivedName(maxRecursion), prompt.WithRequired(true)), nil
+	}
+
+	// The user provided a --name or FAAS_NAME; just confirm it.
+	return prompt.ForString("Name of service function", config.Name, prompt.WithRequired(true)), nil
+}
+
+// acceptable answers: y,yes,Y,YES,1
+var confirmExp = regexp.MustCompile("(?i)y(?:es)?|1")
+
+func fromYN(s string) bool {
+	return confirmExp.MatchString(s)
 }
