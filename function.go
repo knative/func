@@ -37,6 +37,12 @@ func NewFunction(root string) (f *Function, err error) {
 	return
 }
 
+// DerivedName returns the name that will be used if path derivation is choosen, limited in its upward recursion.
+// This is exposed for preemptive calculation for interactive confirmation, such as via a CLI.
+func (f *Function) DerivedName(searchLimit int) string {
+	return pathToDomain(f.root, searchLimit)
+}
+
 func (f *Function) Initialize(language, name string, domainSearchLimit int, initializer Initializer) (err error) {
 	// Assert language is provided
 	if language == "" {
