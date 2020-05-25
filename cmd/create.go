@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"errors"
-	"fmt"
 	"regexp"
 
 	"github.com/ory/viper"
@@ -111,15 +110,11 @@ func create(cmd *cobra.Command, args []string) (err error) {
 	// If we are running as an interactive terminal, allow the user
 	// to mutate default config prior to execution.
 	if isInteractive() {
-		fmt.Printf("Initial Config: \n%#v\n", config)
 		config, err = gatherFromUser(config)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("Final Config: \n%#v", config)
 	}
-
-	return
 
 	// Initializer creates a deployable noop function implementation in the
 	// configured path.

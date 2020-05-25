@@ -6,7 +6,6 @@ require (
 	contrib.go.opencensus.io/exporter/ocagent v0.6.0 // indirect
 	contrib.go.opencensus.io/exporter/prometheus v0.1.0 // indirect
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.1 // indirect
-	github.com/docker/docker-credential-helpers v0.6.3
 	github.com/google/go-containerregistry v0.0.0-20200423114255-8f808463544c // indirect
 	github.com/openzipkin/zipkin-go v0.2.2 // indirect
 	github.com/ory/viper v1.7.4
