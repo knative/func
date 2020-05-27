@@ -13,7 +13,7 @@ func init() {
 // completionCmd represents the completion command
 var completionCmd = &cobra.Command{
 	Use:   "completion",
-	Short: "Generates bash completion scripts",
+	Short: "Generates bash/zsh completion scripts",
 	Long: `To load completion run
 
 For zsh:
@@ -56,7 +56,7 @@ function _faas {
   case $state in
   cmnds)
     commands=(
-      "completion:Generates bash completion scripts"
+      "completion:Generates bash/zsh completion scripts"
       "create:Create a Service Function"
       "delete:Delete deployed Service Function"
       "describe:Describe Service Function"
@@ -118,6 +118,14 @@ function _list_regs() {
     if command -v yq >/dev/null && test -f "$config";  then
 		compadd $(jq -r ".auths | keys[] " "$config")
 	fi
+}
+
+function _faas_completion {
+  _arguments \
+    '(-h --help)'{-h,--help}'[help for completion]' \
+    '--config[config file path]:file:_files' \
+    '(-v --verbose)'{-v,--verbose}'[print verbose logs]' \
+    '1: :("bash" "zsh")'
 }
 
 function _faas_create {
