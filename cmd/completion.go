@@ -48,7 +48,7 @@ function _faas {
   local -a commands
 
   _arguments -C \
-    '--config[config file path]:' \
+    '--config[config file path]:file:_files' \
     '(-v --verbose)'{-v,--verbose}'[print verbose logs]' \
     "1: :->cmnds" \
     "*::arg:->args"
@@ -113,6 +113,13 @@ function _list_fmts() {
     compadd yaml xml json
 }
 
+function _list_regs() {
+    local config="${HOME}/.docker/config.json"
+    if command -v yq >/dev/null && test -f "$config";  then
+		compadd $(jq -r ".auths | keys[] " "$config")
+	fi
+}
+
 function _faas_create {
   _arguments \
     '1:string:_list_langs' \
@@ -120,15 +127,15 @@ function _faas_create {
     '(-l --local)'{-l,--local}'[create the service function locally only.]' \
     '(-n --name)'{-n,--name}'[optionally specify an explicit name for the serive, overriding path-derivation. $FAAS_NAME]:' \
     '(-s --namespace)'{-s,--namespace}'[namespace at image registry (usually username or org name). $FAAS_NAMESPACE]:' \
-    '(-r --registry)'{-r,--registry}'[image registry (ex: quay.io). $FAAS_REGISTRY]:' \
-    '--config[config file path]:' \
+    '(-r --registry)'{-r,--registry}'[image registry (ex: quay.io). $FAAS_REGISTRY]:string:_list_regs' \
+    '--config[config file path]:file:_files' \
     '(-v --verbose)'{-v,--verbose}'[print verbose logs]'
 }
 
 function _faas_delete {
   _arguments \
     '(-n --name)'{-n,--name}'[optionally specify an explicit name to remove, overriding path-derivation. $FAAS_NAME]:string:_list_funs' \
-    '--config[config file path]:' \
+    '--config[config file path]:file:_files' \
     '(-v --verbose)'{-v,--verbose}'[print verbose logs]'
 }
 
@@ -137,37 +144,37 @@ function _faas_describe {
     '1:string:_list_funs' \
     '(-n --name)'{-n,--name}'[optionally specify an explicit name for the serive, overriding path-derivation. $FAAS_NAME]:string:_list_funs' \
     '(-o --output)'{-o,--output}'[optionally specify output format (yaml,xml,json).]:string:_list_fmts' \
-    '--config[config file path]:' \
+    '--config[config file path]:file:_files' \
     '(-v --verbose)'{-v,--verbose}'[print verbose logs]'
 }
 
 function _faas_help {
   _arguments \
-    '--config[config file path]:' \
+    '--config[config file path]:file:_files' \
     '(-v --verbose)'{-v,--verbose}'[print verbose logs]'
 }
 
 function _faas_list {
   _arguments \
-    '--config[config file path]:' \
+    '--config[config file path]:file:_files' \
     '(-v --verbose)'{-v,--verbose}'[print verbose logs]'
 }
 
 function _faas_run {
   _arguments \
-    '--config[config file path]:' \
+    '--config[config file path]:file:_files' \
     '(-v --verbose)'{-v,--verbose}'[print verbose logs]'
 }
 
 function _faas_update {
   _arguments \
-    '--config[config file path]:' \
+    '--config[config file path]:file:_files' \
     '(-v --verbose)'{-v,--verbose}'[print verbose logs]'
 }
 
 function _faas_version {
   _arguments \
-    '--config[config file path]:' \
+    '--config[config file path]:file:_files' \
     '(-v --verbose)'{-v,--verbose}'[print verbose logs]'
 }
 
