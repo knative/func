@@ -16,7 +16,15 @@ var completionCmd = &cobra.Command{
 	Short: "Generates bash completion scripts",
 	Long: `To load completion run
 
+For zsh:
 source <(faas completion zsh)
+
+If you would like to use alias:
+alias f=faas
+compdef _faas f
+
+For bash:
+source <(faas completion bash)
 
 `,
     ValidArgs: []string{"bash", "zsh"},
@@ -30,13 +38,11 @@ source <(faas completion zsh)
 			return nil
 		}
 		if args[0] == "zsh" {
-			// manually edited script based on `root.GenBashCompletion(os.Stdout)`
+			// manually edited script based on `root.GenZshCompletion(os.Stdout)`
 			// unfortunately it doesn't support completion so well as for bash
 			// some manual edits had to be done
 			os.Stdout.WriteString(`
-
-#compdef _faas faas
-
+compdef _faas faas
 
 function _faas {
   local -a commands

@@ -31,7 +31,7 @@ var createCmd = &cobra.Command{
 	Use:        "create <language>",
 	Short:      "Create a Service Function",
 	SuggestFor: []string{"init", "new"},
-	ValidArgs: []string {"java", "go", "js"},
+	ValidArgsFunction: CompleteLanguageList,
 	Args:      cobra.ExactArgs(1),
 	RunE:       create,
 	PreRun: func(cmd *cobra.Command, args []string) {

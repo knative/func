@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"github.com/boson-project/faas"
-	"github.com/boson-project/faas/knative"
 	"github.com/boson-project/faas/kubectl"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
@@ -11,21 +10,7 @@ import (
 func init() {
 	root.AddCommand(deleteCmd)
 	deleteCmd.Flags().StringP("name", "n", "", "optionally specify an explicit name to remove, overriding path-derivation. $FAAS_NAME")
-	deleteCmd.RegisterFlagCompletionFunc("name", func(cmd *cobra.Command, args []string, toComplete string) (strings []string, directive cobra.ShellCompDirective) {
-		lister, err := knative.NewLister(faas.DefaultNamespace)
-		if err != nil {
-			directive = cobra.ShellCompDirectiveError
-			return
-		}
-		s, err := lister.List()
-		if err != nil {
-			directive = cobra.ShellCompDirectiveError
-			return
-		}
-		strings = s
-		directive = cobra.ShellCompDirectiveDefault
-		return
-	})
+	deleteCmd.RegisterFlagCompletionFunc("name", CompleteFunctionList)
 }
 
 var deleteCmd = &cobra.Command{

@@ -13,7 +13,7 @@ import (
 
 // NameMappings are short-name to repository full name mappings,
 // enabling shorthand `faas create go` rather than `faas create go-ce-functions`
-var stackShortNames = map[string]string{
+var StackShortNames = map[string]string{
 	"go":   "go-ce-functions",
 	"js":   "node-ce-functions",
 	"java": "quarkus-ce-functions",
@@ -49,10 +49,10 @@ func (n *Initializer) Initialize(name, language, path string) error {
 	}
 
 	// Dereference stack short name.  ex. "go" -> "go-ce-functions"
-	stackName, ok := stackShortNames[language]
+	stackName, ok := StackShortNames[language]
 	if !ok {
 		languages := []string{}
-		for k, _ := range stackShortNames {
+		for k, _ := range StackShortNames {
 			languages = append(languages, k)
 		}
 
