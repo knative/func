@@ -188,4 +188,5 @@ func (b *Bar) overwrite(prefix string) {
 		clear = "\033[K"
 	)
 	fmt.Fprintf(b.out, "\r%v%v%v%v/%v %v\n", up, clear, prefix, b.i, b.n, b.t)
+	// fmt.Fprintf(b.out, "\r%v%v/%v %v\033[K", prefix, b.i, b.n, b.t)
 }

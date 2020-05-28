@@ -135,7 +135,7 @@ func create(cmd *cobra.Command, args []string) (err error) {
 	deployer.Verbose = config.Verbose
 
 	// Progress bar
-	listener := progress.New()
+	listener := progress.New(progress.WithVerbose(config.Verbose))
 
 	// Instantiate a client, specifying concrete implementations for
 	// Initializer and Deployer, as well as setting the optional verbosity param.
