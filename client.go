@@ -23,8 +23,9 @@ type Client struct {
 	remover           Remover     // Removes remote services
 	lister            Lister      // Lists remote services
 	describer         Describer
-	dnsProvider       DNSProvider // Provider of DNS services
-	domainSearchLimit int         // max dirs to recurse up when deriving domain
+	dnsProvider       DNSProvider      // Provider of DNS services
+	domainSearchLimit int              // max dirs to recurse up when deriving domain
+	progressListener  ProgressListener // progress listener
 }
 
 // Initializer creates the initial/stub Service Function code on first create.
@@ -77,6 +78,18 @@ type Lister interface {
 	List() ([]string, error)
 }
 
+// ProgressListener is notified of task progress.
+type ProgressListener interface {
+	// SetTotal steps of the given task.
+	SetTotal(int)
+
+	// Increment to the next step with the given message.
+	Increment(message string)
+
+	// Complete marks the overall task as complete with the given message.
+	Complete(message string)
+}
+
 type Subscription struct {
 	Source string `json:"source" yaml:"source"`
 	Type   string `json:"type" yaml:"type"`
@@ -112,6 +125,7 @@ func New(options ...Option) (c *Client, err error) {
 		remover:           &noopRemover{output: os.Stdout},
 		lister:            &noopLister{output: os.Stdout},
 		dnsProvider:       &noopDNSProvider{output: os.Stdout},
+		progressListener:  &noopProgressListener{},
 		domainSearchLimit: -1, // no recursion limit deriving domain by default.
 	}
 
@@ -204,9 +218,18 @@ func WithLister(l Lister) Option {
 	}
 }
 
+// WithDescriber provides a concrete implementation of a function describer.
 func WithDescriber(describer Describer) Option {
 	return func(c *Client) {
 		c.describer = describer
+	}
+}
+
+// WithProgressListener provides a concrete implementation of a listener to
+// be notified of progress updates.
+func WithProgressListener(p ProgressListener) Option {
+	return func(c *Client) {
+		c.progressListener = p
 	}
 }
 
@@ -233,6 +256,8 @@ func WithDomainSearchLimit(limit int) Option {
 // Name is derived from root if possible.
 // Root is defaulted to the current working directory.
 func (c *Client) Create(language, name, root string) (err error) {
+	c.progressListener.SetTotal(5)
+
 	// Create an instance of a function representation at the given root.
 	f, err := NewFunction(root)
 	if err != nil {
@@ -240,12 +265,14 @@ func (c *Client) Create(language, name, root string) (err error) {
 	}
 
 	// Initialize, writing out a template implementation and a config file.
+	c.progressListener.Increment("Initializing")
 	err = f.Initialize(language, name, c.domainSearchLimit, c.initializer)
 	if err != nil {
 		return
 	}
 
 	// Build the now-initialized service function
+	c.progressListener.Increment("Building")
 	image, err := c.builder.Build(f.name, f.root)
 	if err != nil {
 		return
@@ -253,10 +280,12 @@ func (c *Client) Create(language, name, root string) (err error) {
 
 	// If running local-only, we're done.
 	if c.local {
+		c.progressListener.Complete("Created (local only)")
 		return
 	}
 
 	// Push the image for the names service to the configured registry
+	c.progressListener.Increment("Pushing image")
 	if err = c.pusher.Push(image); err != nil {
 		return
 	}
@@ -268,6 +297,7 @@ func (c *Client) Create(language, name, root string) (err error) {
 
 	// Deploy the initialized service function, returning its publicly
 	// addressible name for possible registration.
+	c.progressListener.Increment("Deploying")
 	address, err := c.deployer.Deploy(f.name, image)
 	if err != nil {
 		return
@@ -280,7 +310,10 @@ func (c *Client) Create(language, name, root string) (err error) {
 	// but DNS subdomain CNAME to the Kourier Load Balancer is
 	// still manual, and the initial cluster config to suppot the TLD
 	// is still manual.
+	c.progressListener.Increment("Routing")
 	c.dnsProvider.Provide(f.name, address)
+
+	c.progressListener.Complete("Create complete")
 
 	// TODO: Create a status structure and return it for clients to use
 	// for output, such as from the CLI.
@@ -450,3 +483,9 @@ type noopDNSProvider struct{ output io.Writer }
 func (n *noopDNSProvider) Provide(name, address string) {
 	// Note: at this time manual DNS provisioning required for name -> knative serving netowrk load-balancer
 }
+
+type noopProgressListener struct{}
+
+func (p *noopProgressListener) SetTotal(i int)     {}
+func (p *noopProgressListener) Increment(m string) {}
+func (p *noopProgressListener) Complete(m string)  {}

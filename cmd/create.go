@@ -11,6 +11,7 @@ import (
 	"github.com/boson-project/faas/appsody"
 	"github.com/boson-project/faas/docker"
 	"github.com/boson-project/faas/kubectl"
+	"github.com/boson-project/faas/progress"
 	"github.com/boson-project/faas/prompt"
 )
 
@@ -109,7 +110,7 @@ func create(cmd *cobra.Command, args []string) (err error) {
 
 	// If we are running as an interactive terminal, allow the user
 	// to mutate default config prior to execution.
-	if isInteractive() {
+	if interactiveTerminal() {
 		config, err = gatherFromUser(config)
 		if err != nil {
 			return err
@@ -133,6 +134,9 @@ func create(cmd *cobra.Command, args []string) (err error) {
 	deployer := kubectl.NewDeployer()
 	deployer.Verbose = config.Verbose
 
+	// Progress bar
+	listener := progress.New()
+
 	// Instantiate a client, specifying concrete implementations for
 	// Initializer and Deployer, as well as setting the optional verbosity param.
 	client, err := faas.New(
@@ -143,6 +147,7 @@ func create(cmd *cobra.Command, args []string) (err error) {
 		faas.WithDeployer(deployer),
 		faas.WithLocal(config.Local),       // local template only (no cluster deployment)
 		faas.WithInternal(config.Internal), // if deployed, no publicly accessible route.
+		faas.WithProgressListener(listener),
 	)
 	if err != nil {
 		return
