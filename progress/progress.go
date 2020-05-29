@@ -149,8 +149,7 @@ func (b *Bar) Complete(text string) {
 
 	// Otherwise we are in non-verbose mode with an interactive terminal.
 	// We should stop the spinner and write an unindented line.
-	b.Done()        // stop spinner
-	b.overwrite("") // Write an unindented version of the line.
+	b.Done() // stop spinner
 }
 
 // Done cancels the write loop if being used.
@@ -158,6 +157,8 @@ func (b *Bar) Complete(text string) {
 func (b *Bar) Done() {
 	if b.ticker != nil {
 		b.ticker.Stop()
+		b.ticker = nil
+		b.overwrite("") // write unindented
 	}
 }
 
