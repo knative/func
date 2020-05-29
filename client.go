@@ -86,8 +86,12 @@ type ProgressListener interface {
 	// Increment to the next step with the given message.
 	Increment(message string)
 
-	// Complete marks the overall task as complete with the given message.
+	// Complete signals completion, which is expected to be somewhat different than a step increment.
 	Complete(message string)
+
+	// Done signals a cessation of progress updates.  Should be called in a defer statement to ensure
+	// the progress listener can stop any outstanding tasks such as synchronous user updates.
+	Done()
 }
 
 type Subscription struct {
@@ -257,6 +261,8 @@ func WithDomainSearchLimit(limit int) Option {
 // Root is defaulted to the current working directory.
 func (c *Client) Create(language, name, root string) (err error) {
 	c.progressListener.SetTotal(5)
+	c.progressListener.Increment("Initializing")
+	defer c.progressListener.Done()
 
 	// Create an instance of a function representation at the given root.
 	f, err := NewFunction(root)
@@ -265,7 +271,6 @@ func (c *Client) Create(language, name, root string) (err error) {
 	}
 
 	// Initialize, writing out a template implementation and a config file.
-	c.progressListener.Increment("Initializing")
 	err = f.Initialize(language, name, c.domainSearchLimit, c.initializer)
 	if err != nil {
 		return
@@ -489,3 +494,4 @@ type noopProgressListener struct{}
 func (p *noopProgressListener) SetTotal(i int)     {}
 func (p *noopProgressListener) Increment(m string) {}
 func (p *noopProgressListener) Complete(m string)  {}
+func (p *noopProgressListener) Done()              {}

@@ -9,6 +9,15 @@ import (
 )
 
 // Bar - a simple, unobtrusive progress indicator
+// Usage:
+//   bar := New()
+//   bar.SetTotal(3)
+//   defer bar.Done()
+//   bar.Increment("Step 1")
+//   bar.Increment("Step 2")
+//   bar.Increment("Step 3")
+//   bar.Complete("Done")
+//
 // Instantiation creates a progress bar consisiting of an optional spinner
 // prefix followed by an indicator of the current step, the total steps, and a
 // trailing message The behavior differs substantially if verbosity is enbled
@@ -27,10 +36,10 @@ import (
 // Format:
 //   [spinner] i/n t
 type Bar struct {
-	out io.Writer
-	i   int    // Current step index
-	n   int    // Total steps
-	t   string // Current display text
+	out   io.Writer
+	index int    // Current step index
+	total int    // Total steps
+	text  string // Current display text
 	sync.Mutex
 
 	// verbose mode disables progress spinner and line overwrites, instead
@@ -82,17 +91,17 @@ func New(options ...Option) *Bar {
 
 // SetTotal number of steps.
 func (b *Bar) SetTotal(n int) {
-	b.n = n
+	b.total = n
 }
 
 // Increment the currenly active step, including beginning printing on first call.
 func (b *Bar) Increment(text string) {
 	b.Lock()
 	defer b.Unlock()
-	if b.i < b.n {
-		b.i++
+	if b.index < b.total {
+		b.index++
 	}
-	b.t = text
+	b.text = text
 
 	// If this is not an interactive terminal, only print if explicitly set to
 	// print while headless, and even then, only a simple line write.
@@ -116,16 +125,15 @@ func (b *Bar) Increment(text string) {
 	}
 }
 
-// Complete the spinner by advancing to the last step and printing the final
-// text.
+// Complete the spinner by advancing to the last step, printing the final text and stopping the write loop.
 func (b *Bar) Complete(text string) {
 	b.Lock()
 	defer b.Unlock()
 	if !interactiveTerminal() && !b.printWhileHeadless {
 		return
 	}
-	b.i = b.n // Skip to last step
-	b.t = text
+	b.index = b.total // Skip to last step
+	b.text = text
 
 	// If this is not an interactive terminal, only print if explicitly set to
 	// print while headless, and even then, only a simple line write.
@@ -143,9 +151,18 @@ func (b *Bar) Complete(text string) {
 	}
 
 	// If there is an animated line-overwriting progress indicator running,
-	// stop its updating by closing the channel it's listeining on.
+	// explicitly stop and then unindent by writing without a spinner prefix.
 	if b.ticker != nil {
-		// close(b.ticker)
+		b.Done()
+		b.overwrite("")
+	}
+}
+
+// Done cancels the write loop if being used.
+// Call in a defer statement after creation to ensure that the bar stops if a
+// return is encountered prior to calling the Complete step.
+func (b *Bar) Done() {
+	if b.ticker != nil {
 		b.ticker.Stop()
 		b.overwrite("")
 	}
@@ -153,7 +170,7 @@ func (b *Bar) Complete(text string) {
 
 // Write a simple line status update.
 func (b *Bar) write() {
-	fmt.Fprintf(b.out, "%v/%v %v\n", b.i, b.n, b.t)
+	fmt.Fprintf(b.out, "%v/%v %v\n", b.index, b.total, b.text)
 }
 
 // interactiveTerminal returns whether or not the currently attached process
@@ -187,6 +204,5 @@ func (b *Bar) overwrite(prefix string) {
 		up    = "\033[1A"
 		clear = "\033[K"
 	)
-	fmt.Fprintf(b.out, "\r%v%v%v%v/%v %v\n", up, clear, prefix, b.i, b.n, b.t)
-	// fmt.Fprintf(b.out, "\r%v%v/%v %v\033[K", prefix, b.i, b.n, b.t)
+	fmt.Fprintf(b.out, "\r%v%v%v%v/%v %v\n", up, clear, prefix, b.index, b.total, b.text)
 }
