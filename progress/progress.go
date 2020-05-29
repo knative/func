@@ -158,7 +158,6 @@ func (b *Bar) Complete(text string) {
 func (b *Bar) Done() {
 	if b.ticker != nil {
 		b.ticker.Stop()
-		b.overwrite("") // write unindented
 	}
 }
 
@@ -175,19 +174,11 @@ func interactiveTerminal() bool {
 	return err == nil && ((fi.Mode() & os.ModeCharDevice) != 0)
 }
 
-// Whenever the bar ticks, overwrite the prompt with a bar prefixed by the next
-// frame of the spinner.
-func (b *Bar) spin() {
-	spinner := []string{"|", "/", "-", "\\"}
-	idx := 0
-	for _ = range b.ticker.C {
-		// Writes the spinner frame at the beginning of the previous line, moving
-		// the cursor back to the beginning of the current line for any errors or
-		// informative messages.
-		fmt.Fprintf(b.out, "\r\033[1A%v\033[1B\r", spinner[idx])
-		idx = (idx + 1) % 4
-	}
-}
+const (
+	up    = "\033[1A"
+	down  = "\033[1B"
+	clear = "\033[K"
+)
 
 // overwrite the line prior with the bar text, optional prefix, creating an empty
 // current line for potential errors/warnings.
@@ -197,9 +188,18 @@ func (b *Bar) overwrite(prefix string) {
 	//  3 Clear to the end of the line
 	//  4 Print status text with optional prefix (spinner)
 	//  5 Print linebreak such that subsequent messaes print correctly.
-	var (
-		up    = "\033[1A"
-		clear = "\033[K"
-	)
 	fmt.Fprintf(b.out, "\r%v%v%v%v/%v %v\n", up, clear, prefix, b.index, b.total, b.text)
+}
+
+// Write a spinner at the beginning of the previous line.
+func (b *Bar) spin() {
+	spinner := []string{"|", "/", "-", "\\"}
+	idx := 0
+	for _ = range b.ticker.C {
+		// Writes the spinner frame at the beginning of the previous line, moving
+		// the cursor back to the beginning of the current line for any errors or
+		// informative messages.
+		fmt.Fprintf(b.out, "\r%v%v%v\r", up, spinner[idx], down)
+		idx = (idx + 1) % 4
+	}
 }
