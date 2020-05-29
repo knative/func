@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"sync"
 	"time"
 )
 
@@ -40,7 +39,6 @@ type Bar struct {
 	index int    // Current step index
 	total int    // Total steps
 	text  string // Current display text
-	sync.Mutex
 
 	// verbose mode disables progress spinner and line overwrites, instead
 	// printing single, full line updates.
@@ -96,8 +94,6 @@ func (b *Bar) SetTotal(n int) {
 
 // Increment the currenly active step, including beginning printing on first call.
 func (b *Bar) Increment(text string) {
-	b.Lock()
-	defer b.Unlock()
 	if b.index < b.total {
 		b.index++
 	}
@@ -118,17 +114,18 @@ func (b *Bar) Increment(text string) {
 		return
 	}
 
+	// Otherwise we are in non-verbose, interactive mode.  Do a line-overwrite.
+	b.overwrite("  ") // Write with space for the spinner
+
 	// Start the spinner if not already started
 	if b.ticker == nil {
 		b.ticker = time.NewTicker(100 * time.Millisecond)
-		go b.writeOnTick()
+		go b.spin()
 	}
 }
 
 // Complete the spinner by advancing to the last step, printing the final text and stopping the write loop.
 func (b *Bar) Complete(text string) {
-	b.Lock()
-	defer b.Unlock()
 	if !interactiveTerminal() && !b.printWhileHeadless {
 		return
 	}
@@ -150,21 +147,18 @@ func (b *Bar) Complete(text string) {
 		return
 	}
 
-	// If there is an animated line-overwriting progress indicator running,
-	// explicitly stop and then unindent by writing without a spinner prefix.
-	if b.ticker != nil {
-		b.Done()
-		b.overwrite("")
-	}
+	// Otherwise we are in non-verbose mode with an interactive terminal.
+	// We should stop the spinner and write an unindented line.
+	b.Done()        // stop spinner
+	b.overwrite("") // Write an unindented version of the line.
 }
 
 // Done cancels the write loop if being used.
-// Call in a defer statement after creation to ensure that the bar stops if a
-// return is encountered prior to calling the Complete step.
+// Call in a defer statement after creation to ensure that the spinner stops
 func (b *Bar) Done() {
 	if b.ticker != nil {
 		b.ticker.Stop()
-		b.overwrite("")
+		b.overwrite("") // write unindented
 	}
 }
 
@@ -183,11 +177,14 @@ func interactiveTerminal() bool {
 
 // Whenever the bar ticks, overwrite the prompt with a bar prefixed by the next
 // frame of the spinner.
-func (b *Bar) writeOnTick() {
+func (b *Bar) spin() {
 	spinner := []string{"|", "/", "-", "\\"}
 	idx := 0
 	for _ = range b.ticker.C {
-		b.overwrite(spinner[idx] + " ")
+		// Writes the spinner frame at the beginning of the previous line, moving
+		// the cursor back to the beginning of the current line for any errors or
+		// informative messages.
+		fmt.Fprintf(b.out, "\r\033[1A%v\033[1B\r", spinner[idx])
 		idx = (idx + 1) % 4
 	}
 }
