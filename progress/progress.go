@@ -120,7 +120,7 @@ func (b *Bar) Increment(text string) {
 	// Start the spinner if not already started
 	if b.ticker == nil {
 		b.ticker = time.NewTicker(100 * time.Millisecond)
-		go b.spin()
+		go b.spin(b.ticker.C)
 	}
 }
 
@@ -193,10 +193,10 @@ func (b *Bar) overwrite(prefix string) {
 }
 
 // Write a spinner at the beginning of the previous line.
-func (b *Bar) spin() {
+func (b *Bar) spin(ch <-chan time.Time) {
 	spinner := []string{"|", "/", "-", "\\"}
 	idx := 0
-	for _ = range b.ticker.C {
+	for _ = range ch {
 		// Writes the spinner frame at the beginning of the previous line, moving
 		// the cursor back to the beginning of the current line for any errors or
 		// informative messages.
