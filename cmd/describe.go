@@ -20,6 +20,10 @@ func init() {
 	describeCmd.Flags().StringP("output", "o", "yaml", "optionally specify output format (yaml,xml,json).")
 
 	describeCmd.Flags().StringP("name", "n", "", "optionally specify an explicit name for the serive, overriding path-derivation. $FAAS_NAME")
+
+	describeCmd.RegisterFlagCompletionFunc("name", CompleteFunctionList)
+
+	describeCmd.RegisterFlagCompletionFunc("output", CompleteOutputFormatList)
 }
 
 var describeCmd = &cobra.Command{
@@ -27,6 +31,8 @@ var describeCmd = &cobra.Command{
 	Short:      "Describe Service Function",
 	Long:       `Describe Service Function`,
 	SuggestFor: []string{"desc"},
+	ValidArgsFunction: CompleteFunctionList,
+	Args:      cobra.ExactArgs(1),
 	RunE:       describe,
 	PreRun: func(cmd *cobra.Command, args []string) {
 		viper.BindPFlag("output", cmd.Flags().Lookup("output"))

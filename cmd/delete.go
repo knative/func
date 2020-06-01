@@ -10,6 +10,7 @@ import (
 func init() {
 	root.AddCommand(deleteCmd)
 	deleteCmd.Flags().StringP("name", "n", "", "optionally specify an explicit name to remove, overriding path-derivation. $FAAS_NAME")
+	deleteCmd.RegisterFlagCompletionFunc("name", CompleteFunctionList)
 }
 
 var deleteCmd = &cobra.Command{

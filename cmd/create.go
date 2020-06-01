@@ -23,6 +23,7 @@ func init() {
 	createCmd.Flags().StringP("name", "n", "", "optionally specify an explicit name for the serive, overriding path-derivation. $FAAS_NAME")
 	createCmd.Flags().StringP("registry", "r", "quay.io", "image registry (ex: quay.io). $FAAS_REGISTRY")
 	createCmd.Flags().StringP("namespace", "s", "", "namespace at image registry (usually username or org name). $FAAS_NAMESPACE")
+	createCmd.RegisterFlagCompletionFunc("registry", CompleteRegistryList)
 }
 
 // The create command invokes the Service Funciton Client to create a new,
@@ -32,6 +33,8 @@ var createCmd = &cobra.Command{
 	Use:        "create <language>",
 	Short:      "Create a Service Function",
 	SuggestFor: []string{"init", "new"},
+	ValidArgsFunction: CompleteLanguageList,
+	Args:      cobra.ExactArgs(1),
 	RunE:       create,
 	PreRun: func(cmd *cobra.Command, args []string) {
 		viper.BindPFlag("local", cmd.Flags().Lookup("local"))
