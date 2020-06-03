@@ -2,12 +2,12 @@ package cmd
 
 import (
 	"errors"
+	"github.com/boson-project/faas/buildpacks"
 
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
 	"github.com/boson-project/faas"
-	"github.com/boson-project/faas/appsody"
 	"github.com/boson-project/faas/docker"
 	"github.com/boson-project/faas/kn"
 )
@@ -42,7 +42,7 @@ func update(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// Builder creates images from function source.
-	builder := appsody.NewBuilder(registry, namespace)
+	builder := buildpacks.NewBuilder(registry, namespace)
 	builder.Verbose = verbose
 
 	// Pusher of images

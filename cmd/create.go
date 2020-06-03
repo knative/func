@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"errors"
+	"github.com/boson-project/faas/buildpacks"
 	"regexp"
 
 	"github.com/ory/viper"
@@ -126,7 +127,7 @@ func create(cmd *cobra.Command, args []string) (err error) {
 	initializer.Verbose = config.Verbose
 
 	// Builder creates images from function source.
-	builder := appsody.NewBuilder(config.Registry, config.Namespace)
+	builder := buildpacks.NewBuilder(config.Registry, config.Namespace)
 	builder.Verbose = config.Verbose
 
 	// Pusher of images
