@@ -24,7 +24,7 @@ func NewUpdater() *Updater {
 }
 
 // Update the named service with the new image.
-func (d *Updater) Update(name, language, image string) (err error) {
+func (d *Updater) Update(name, image string) (err error) {
 	// assert kubectl
 	if _, err = exec.LookPath("kn"); err != nil {
 		return errors.New("please install 'kn'")

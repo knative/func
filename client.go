@@ -57,7 +57,7 @@ type Deployer interface {
 // Updater of a deployed service function with new image.
 type Updater interface {
 	// Deploy a service function of given name, using given backing image.
-	Update(name, language, image string) error
+	Update(name, image string) error
 }
 
 // Runner runs the function locally.
@@ -354,7 +354,7 @@ func (c *Client) Update(root string) (err error) {
 
 	// Update the previously-deployed service function, returning its publicly
 	// addressible name for possible registration.
-	return c.updater.Update(f.name, f.language, image)
+	return c.updater.Update(f.name, image)
 }
 
 // Run the function whose code resides at root.
@@ -457,7 +457,7 @@ func (n *noopDeployer) Deploy(name, image string) (string, error) {
 
 type noopUpdater struct{ output io.Writer }
 
-func (n *noopUpdater) Update(name, language, image string) error {
+func (n *noopUpdater) Update(name, image string) error {
 	fmt.Fprintln(n.output, "skipping deploy: client not initialized WithDeployer")
 	return nil
 }

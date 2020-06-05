@@ -11,7 +11,7 @@ func NewUpdater() *Updater {
 	}
 }
 
-func (i *Updater) Update(name, language, image string) error {
+func (i *Updater) Update(name, image string) error {
 	i.UpdateInvoked = true
 	return i.UpdateFn(name, image)
 }
