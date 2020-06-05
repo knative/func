@@ -177,6 +177,8 @@ function _faas_run {
 function _faas_update {
   _arguments \
     '--config[config file path]:file:_files' \
+    '(-s --namespace)'{-s,--namespace}'[namespace at image registry (usually username or org name). $FAAS_NAMESPACE]:' \
+    '(-r --registry)'{-r,--registry}'[image registry (ex: quay.io). $FAAS_REGISTRY]:string:_list_regs' \
     '(-v --verbose)'{-v,--verbose}'[print verbose logs]'
 }
 
