@@ -43,7 +43,7 @@ func (f *Function) DerivedName(searchLimit int) string {
 	return pathToDomain(f.root, searchLimit)
 }
 
-func (f *Function) Initialize(language, name string, domainSearchLimit int, initializer Initializer) (err error) {
+func (f *Function) Initialize(language, context, name string, domainSearchLimit int, initializer Initializer) (err error) {
 	// Assert language is provided
 	if language == "" {
 		err = errors.New("language not specified")
@@ -78,7 +78,7 @@ func (f *Function) Initialize(language, name string, domainSearchLimit int, init
 	f.name = name
 
 	// Write the template implementation in the appropriate language
-	if err = initializer.Initialize(name, language, f.root); err != nil {
+	if err = initializer.Initialize(language, context, f.root); err != nil {
 		return
 	}
 	// language was validated

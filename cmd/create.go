@@ -2,15 +2,16 @@ package cmd
 
 import (
 	"errors"
-	"github.com/boson-project/faas/buildpacks"
 	"regexp"
+
+	"github.com/boson-project/faas/buildpacks"
 
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
 	"github.com/boson-project/faas"
-	"github.com/boson-project/faas/appsody"
 	"github.com/boson-project/faas/docker"
+	"github.com/boson-project/faas/embedded"
 	"github.com/boson-project/faas/kubectl"
 	"github.com/boson-project/faas/progress"
 	"github.com/boson-project/faas/prompt"
@@ -24,6 +25,7 @@ func init() {
 	createCmd.Flags().StringP("name", "n", "", "optionally specify an explicit name for the serive, overriding path-derivation. $FAAS_NAME")
 	createCmd.Flags().StringP("registry", "r", "quay.io", "image registry (ex: quay.io). $FAAS_REGISTRY")
 	createCmd.Flags().StringP("namespace", "s", "", "namespace at image registry (usually username or org name). $FAAS_NAMESPACE")
+	createCmd.Flags().StringP("context", "x", embedded.DefaultContext, "Function context (ex: 'http','events'). $FAAS_CONTEXT")
 	createCmd.RegisterFlagCompletionFunc("registry", CompleteRegistryList)
 }
 
@@ -31,18 +33,19 @@ func init() {
 // functional, deployed service function with a noop implementation.  It
 // can be optionally created only locally (no deploy) using --local.
 var createCmd = &cobra.Command{
-	Use:        "create <language>",
-	Short:      "Create a Service Function",
-	SuggestFor: []string{"init", "new"},
+	Use:               "create <language>",
+	Short:             "Create a Service Function",
+	SuggestFor:        []string{"init", "new"},
 	ValidArgsFunction: CompleteLanguageList,
-	Args:      cobra.ExactArgs(1),
-	RunE:       create,
+	Args:              cobra.ExactArgs(1),
+	RunE:              create,
 	PreRun: func(cmd *cobra.Command, args []string) {
 		viper.BindPFlag("local", cmd.Flags().Lookup("local"))
 		viper.BindPFlag("internal", cmd.Flags().Lookup("internal"))
 		viper.BindPFlag("name", cmd.Flags().Lookup("name"))
 		viper.BindPFlag("registry", cmd.Flags().Lookup("registry"))
 		viper.BindPFlag("namespace", cmd.Flags().Lookup("namespace"))
+		viper.BindPFlag("context", cmd.Flags().Lookup("context"))
 	},
 }
 
@@ -73,6 +76,12 @@ type createConfig struct {
 	// images will be stored by their canonical name.
 	Namespace string
 
+	// Context is the form of the resultant function, i.e. the function signature
+	// and contextually avaialable resources.  For example 'http' for a funciton
+	// expected to be invoked via straight HTTP requests, or 'events' for a
+	// function which will be invoked with CloudEvents.
+	Context string
+
 	// Language is the first argument, and specifies the resultant Function
 	// implementation language.
 	Language string
@@ -98,6 +107,7 @@ func create(cmd *cobra.Command, args []string) (err error) {
 		Name:      viper.GetString("name"),
 		Registry:  viper.GetString("registry"),
 		Namespace: viper.GetString("namespace"),
+		Context:   viper.GetString("context"),
 		Language:  args[0],
 		Path:      ".", // will be expanded to process current working dir.
 	}
@@ -123,7 +133,7 @@ func create(cmd *cobra.Command, args []string) (err error) {
 
 	// Initializer creates a deployable noop function implementation in the
 	// configured path.
-	initializer := appsody.NewInitializer()
+	initializer := embedded.NewInitializer()
 	initializer.Verbose = config.Verbose
 
 	// Builder creates images from function source.
@@ -161,7 +171,7 @@ func create(cmd *cobra.Command, args []string) (err error) {
 	// Returns the final address.
 	// Name can be empty string (path-dervation will be attempted)
 	// Path can be empty, defaulting to current working directory.
-	return client.Create(config.Language, config.Name, config.Path)
+	return client.Create(config.Language, config.Context, config.Name, config.Path)
 }
 
 func gatherFromUser(config createConfig) (c createConfig, err error) {
@@ -175,6 +185,7 @@ func gatherFromUser(config createConfig) (c createConfig, err error) {
 	config.Registry = prompt.ForString("Image registry", config.Registry)
 	config.Namespace = prompt.ForString("Namespace at registry", config.Namespace)
 	config.Language = prompt.ForString("Language of source", config.Language)
+	config.Context = prompt.ForString("Function Context", config.Context)
 	return config, nil
 }
 

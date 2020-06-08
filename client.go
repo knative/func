@@ -30,9 +30,9 @@ type Client struct {
 
 // Initializer creates the initial/stub Service Function code on first create.
 type Initializer interface {
-	// Initialize a Service Function of the given name, using the templates for
-	// the given language, written into the given path.
-	Initialize(name, language, path string) error
+	// Initialize a Service Function of the given name, context configuration `
+	// (expected signature) using a template.
+	Initialize(language, context, path string) error
 }
 
 // Builder of function source to runnable image.
@@ -259,7 +259,7 @@ func WithDomainSearchLimit(limit int) Option {
 // Name and Root are optional:
 // Name is derived from root if possible.
 // Root is defaulted to the current working directory.
-func (c *Client) Create(language, name, root string) (err error) {
+func (c *Client) Create(language, context, name, root string) (err error) {
 	c.progressListener.SetTotal(5)
 	c.progressListener.Increment("Initializing")
 	defer c.progressListener.Done()
@@ -271,10 +271,12 @@ func (c *Client) Create(language, name, root string) (err error) {
 	}
 
 	// Initialize, writing out a template implementation and a config file.
-	err = f.Initialize(language, name, c.domainSearchLimit, c.initializer)
+	err = f.Initialize(language, context, name, c.domainSearchLimit, c.initializer)
 	if err != nil {
 		return
 	}
+
+	return
 
 	// Build the now-initialized service function
 	c.progressListener.Increment("Building")
@@ -429,7 +431,7 @@ func (c *Client) Remove(name, root string) error {
 
 type noopInitializer struct{ output io.Writer }
 
-func (n *noopInitializer) Initialize(name, language, root string) error {
+func (n *noopInitializer) Initialize(language, context, root string) error {
 	fmt.Fprintln(n.output, "skipping initialize: client not initialized WithInitializer")
 	return nil
 }
