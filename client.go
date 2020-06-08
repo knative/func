@@ -39,7 +39,7 @@ type Initializer interface {
 type Builder interface {
 	// Build a service function of the given name with source located at path.
 	// returns the image name built.
-	Build(name, path string) (image string, err error)
+	Build(name, language, path string) (image string, err error)
 }
 
 // Pusher of function image to a registry.
@@ -278,7 +278,7 @@ func (c *Client) Create(language, name, root string) (err error) {
 
 	// Build the now-initialized service function
 	c.progressListener.Increment("Building")
-	image, err := c.builder.Build(f.name, f.root)
+	image, err := c.builder.Build(f.name, language, f.root)
 	if err != nil {
 		return
 	}
@@ -342,7 +342,7 @@ func (c *Client) Update(root string) (err error) {
 	}
 
 	// Build an image from the current state of the service function's implementation.
-	image, err := c.builder.Build(f.name, f.root)
+	image, err := c.builder.Build(f.name, f.language, f.root)
 	if err != nil {
 		return
 	}
@@ -436,7 +436,7 @@ func (n *noopInitializer) Initialize(name, language, root string) error {
 
 type noopBuilder struct{ output io.Writer }
 
-func (n *noopBuilder) Build(name, root string) (image string, err error) {
+func (n *noopBuilder) Build(name, language, path string) (image string, err error) {
 	fmt.Fprintln(n.output, "skipping build: client not initialized WithBuilder")
 	return "", nil
 }
