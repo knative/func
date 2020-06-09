@@ -1,0 +1,21 @@
+{
+  "name": "event-handler",
+  "version": "0.1.0",
+  "description": "Node.js CloudEvent Handler",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "scripts": {
+    "test": "node test/unit.js && node test/integration.js",
+    "local": "node local.js"
+  },
+  "devDependencies": {
+    "@redhat/faas-js-runtime": "0.2.0",
+    "cloudevents-sdk": "^1.0.0",
+    "death": "^1.1.0",
+    "supertest": "^4.0.2",
+    "tape": "^4.13.0"
+  }
+}
