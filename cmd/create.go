@@ -2,14 +2,17 @@ package cmd
 
 import (
 	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
 	"regexp"
 
-	"github.com/boson-project/faas/buildpacks"
-
+	"github.com/mitchellh/go-homedir"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
 	"github.com/boson-project/faas"
+	"github.com/boson-project/faas/buildpacks"
 	"github.com/boson-project/faas/docker"
 	"github.com/boson-project/faas/embedded"
 	"github.com/boson-project/faas/kubectl"
@@ -26,6 +29,7 @@ func init() {
 	createCmd.Flags().StringP("registry", "r", "quay.io", "image registry (ex: quay.io). $FAAS_REGISTRY")
 	createCmd.Flags().StringP("namespace", "s", "", "namespace at image registry (usually username or org name). $FAAS_NAMESPACE")
 	createCmd.Flags().StringP("context", "x", embedded.DefaultContext, "Function context (ex: 'http','events'). $FAAS_CONTEXT")
+	createCmd.Flags().StringP("templates", "", filepath.Join(configPath(), "faas", "templates"), "Extensible templates path. $FAAS_TEMPLATES")
 	createCmd.RegisterFlagCompletionFunc("registry", CompleteRegistryList)
 }
 
@@ -46,6 +50,7 @@ var createCmd = &cobra.Command{
 		viper.BindPFlag("registry", cmd.Flags().Lookup("registry"))
 		viper.BindPFlag("namespace", cmd.Flags().Lookup("namespace"))
 		viper.BindPFlag("context", cmd.Flags().Lookup("context"))
+		viper.BindPFlag("templates", cmd.Flags().Lookup("templates"))
 	},
 }
 
@@ -82,6 +87,12 @@ type createConfig struct {
 	// function which will be invoked with CloudEvents.
 	Context string
 
+	// Templates is an optional path that, if it exists, will be used as a source
+	// for additional templates not included in the binary.  If not provided
+	// explicitly as a flag (--templates) or env (FAAS_TEMPLATES), the default
+	// location is $XDG_CONFIG_HOME/templates ($HOME/.config/faas/templates)
+	Templates string
+
 	// Language is the first argument, and specifies the resultant Function
 	// implementation language.
 	Language string
@@ -108,8 +119,9 @@ func create(cmd *cobra.Command, args []string) (err error) {
 		Registry:  viper.GetString("registry"),
 		Namespace: viper.GetString("namespace"),
 		Context:   viper.GetString("context"),
+		Templates: viper.GetString("templates"),
 		Language:  args[0],
-		Path:      ".", // will be expanded to process current working dir.
+		Path:      ".", // will be expanded to current working dir.
 	}
 
 	// If path is provided
@@ -131,9 +143,11 @@ func create(cmd *cobra.Command, args []string) (err error) {
 		}
 	}
 
+	//
+
 	// Initializer creates a deployable noop function implementation in the
 	// configured path.
-	initializer := embedded.NewInitializer()
+	initializer := embedded.NewInitializer(config.Templates)
 	initializer.Verbose = config.Verbose
 
 	// Builder creates images from function source.
@@ -215,4 +229,16 @@ var confirmExp = regexp.MustCompile("(?i)y(?:es)?|1")
 
 func fromYN(s string) bool {
 	return confirmExp.MatchString(s)
+}
+
+func configPath() (path string) {
+	if path = os.Getenv("XDG_CONFIG_HOME"); path != "" {
+		return
+	}
+
+	path, err := homedir.Expand("~/.config")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "could not derive home directory for use as default templates path: %v", err)
+	}
+	return
 }

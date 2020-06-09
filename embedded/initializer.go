@@ -43,14 +43,14 @@ func init() {
 }
 
 type Initializer struct {
-	Verbose bool
-	repos   string
+	Verbose   bool
+	templates string
 }
 
 // NewInitializer with an optional path to extended repositories directory
 // (by default only internally embedded templates are used)
-func NewInitializer(templateRepos string) *Initializer {
-	return &Initializer{repos: templateRepos}
+func NewInitializer(templates string) *Initializer {
+	return &Initializer{templates: templates}
 }
 
 func (n *Initializer) Initialize(language, context string, dest string) error {
@@ -65,8 +65,8 @@ func (n *Initializer) Initialize(language, context string, dest string) error {
 	if isEmbedded(language, context) {
 		return copyEmbedded(language, context, dest)
 	}
-	if n.repos != "" {
-		return copyFilesystem(n.repos, language, context, dest)
+	if n.templates != "" {
+		return copyFilesystem(n.templates, language, context, dest)
 	}
 	return errors.New(fmt.Sprintf("A template for language '%v' context '%v' was not found internally and no extended repository path was defined.", language, context))
 }
