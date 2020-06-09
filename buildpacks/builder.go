@@ -22,8 +22,8 @@ func NewBuilder(registry, namespace string) *Builder {
 }
 
 var lang2pack = map[string]string{
-	"java": "quay.io/mvasek/faas-quarkus-builder",
-	"js":   "quay.io/mvasek/faas-nodejs-builder",
+	"java": "quay.io/boson/faas-quarkus-builder",
+	"js":   "quay.io/boson/faas-nodejs-builder",
 }
 
 func (builder *Builder) Build(name, language, path string) (image string, err error) {
