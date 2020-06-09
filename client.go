@@ -276,8 +276,6 @@ func (c *Client) Create(language, context, name, root string) (err error) {
 		return
 	}
 
-	return
-
 	// Build the now-initialized service function
 	c.progressListener.Increment("Building")
 	image, err := c.builder.Build(f.name, language, f.root)
