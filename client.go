@@ -31,7 +31,7 @@ type Client struct {
 // Initializer creates the initial/stub Service Function code on first create.
 type Initializer interface {
 	// Initialize a Service Function of the given name, context configuration `
-	// (expected signature) using a template.
+	// (expected signature) using a context template.
 	Initialize(language, context, path string) error
 }
 
@@ -270,7 +270,12 @@ func (c *Client) Create(language, context, name, root string) (err error) {
 		return
 	}
 
-	// Initialize, writing out a template implementation and a config file.
+	// Initialize, writing out a context implementation and a config file.
+	// TODO: the function's Initialize parameters are slightly different than
+	// the Initializer interface, and can thus cause confusion (one passes an
+	// optional name the other passes root path).  This could easily cause
+	// confusion and thus we may want to rename Initalizer to the more specific
+	// task it performs: ContextTemplateWriter or similar.
 	err = f.Initialize(language, context, name, c.domainSearchLimit, c.initializer)
 	if err != nil {
 		return
