@@ -2,14 +2,15 @@ package cmd
 
 import (
 	"errors"
+	"fmt"
 	"github.com/boson-project/faas/buildpacks"
+	"github.com/boson-project/faas/knative"
 
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
 	"github.com/boson-project/faas"
 	"github.com/boson-project/faas/docker"
-	"github.com/boson-project/faas/kn"
 )
 
 func init() {
@@ -57,7 +58,10 @@ func update(cmd *cobra.Command, args []string) (err error) {
 	pusher.Verbose = verbose
 
 	// Deployer of built images.
-	updater := kn.NewUpdater()
+	updater,err := knative.NewUpdater(faas.DefaultNamespace)
+	if err != nil {
+		return fmt.Errorf("couldn't create updater: %v", err)
+	}
 	updater.Verbose = verbose
 
 	client, err := faas.New(

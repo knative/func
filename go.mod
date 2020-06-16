@@ -18,6 +18,7 @@ require (
 	golang.org/x/net v0.0.0-20200520004742-59133d7f0dd7
 	gomodules.xyz/jsonpatch/v2 v2.1.0 // indirect
 	gopkg.in/yaml.v2 v2.3.0
+	k8s.io/api v0.17.4
 	k8s.io/apimachinery v0.17.4
 	k8s.io/client-go v0.17.4
 	knative.dev/eventing v0.14.1
