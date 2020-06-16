@@ -122,7 +122,7 @@ func TestForStringRequired(t *testing.T) {
 	output := string(out.Bytes())
 	expected := ": \nplease enter a value\n: "
 	if output != expected {
-		t.Fatalf("Unexpected prompt received for a required value.", expected, output)
+		t.Fatalf("Unexpected prompt received for a required value. expected '%v', got '%v'", expected, output)
 	}
 }
 
