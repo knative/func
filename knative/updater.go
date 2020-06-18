@@ -2,13 +2,15 @@ package knative
 
 import (
 	"fmt"
-	"github.com/boson-project/faas/k8s"
+	"sort"
+	"time"
+
 	apiCoreV1 "k8s.io/api/core/v1"
 	apiMachineryV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"
 	servingV1client "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1"
-	"sort"
-	"time"
+
+	"github.com/boson-project/faas/k8s"
 )
 
 type Updater struct {
@@ -17,7 +19,7 @@ type Updater struct {
 	client    *servingV1client.ServingV1Client
 }
 
-func NewUpdater(namespace string) (updater *Updater, err error){
+func NewUpdater(namespace string) (updater *Updater, err error) {
 	updater = &Updater{}
 	updater.namespace = namespace
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
@@ -33,9 +35,8 @@ func NewUpdater(namespace string) (updater *Updater, err error){
 	return
 }
 
-
 func (updater *Updater) Update(name, image string) error {
-	client, namespace := updater.client,  updater.namespace
+	client, namespace := updater.client, updater.namespace
 
 	project, err := k8s.ToSubdomain(name)
 	if err != nil {
@@ -72,7 +73,6 @@ func (updater *Updater) Update(name, image string) error {
 		return envs[i].Name <= envs[j].Name
 	})
 	container.Env = envs
-
 
 	_, err = client.Services(namespace).Update(service)
 	if err != nil {
