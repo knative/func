@@ -28,7 +28,7 @@ func init() {
 	createCmd.Flags().StringP("name", "n", "", "optionally specify an explicit name for the serive, overriding path-derivation. $FAAS_NAME")
 	createCmd.Flags().StringP("registry", "r", "quay.io", "image registry (ex: quay.io). $FAAS_REGISTRY")
 	createCmd.Flags().StringP("namespace", "s", "", "namespace at image registry (usually username or org name). $FAAS_NAMESPACE")
-	createCmd.Flags().StringP("context", "x", embedded.DefaultContext, "Function context (ex: 'http','events'). $FAAS_CONTEXT")
+	createCmd.Flags().StringP("template", "t", embedded.DefaultTemplate, "Function template (ex: 'http','events'). $FAAS_TEMPLATE")
 	createCmd.Flags().StringP("templates", "", filepath.Join(configPath(), "faas", "templates"), "Extensible templates path. $FAAS_TEMPLATES")
 	createCmd.RegisterFlagCompletionFunc("registry", CompleteRegistryList)
 }
@@ -49,7 +49,7 @@ var createCmd = &cobra.Command{
 		viper.BindPFlag("name", cmd.Flags().Lookup("name"))
 		viper.BindPFlag("registry", cmd.Flags().Lookup("registry"))
 		viper.BindPFlag("namespace", cmd.Flags().Lookup("namespace"))
-		viper.BindPFlag("context", cmd.Flags().Lookup("context"))
+		viper.BindPFlag("template", cmd.Flags().Lookup("template"))
 		viper.BindPFlag("templates", cmd.Flags().Lookup("templates"))
 	},
 }
@@ -81,11 +81,11 @@ type createConfig struct {
 	// images will be stored by their canonical name.
 	Namespace string
 
-	// Context is the form of the resultant function, i.e. the function signature
+	// Template is the form of the resultant function, i.e. the function signature
 	// and contextually avaialable resources.  For example 'http' for a funciton
 	// expected to be invoked via straight HTTP requests, or 'events' for a
 	// function which will be invoked with CloudEvents.
-	Context string
+	Template string
 
 	// Templates is an optional path that, if it exists, will be used as a source
 	// for additional templates not included in the binary.  If not provided
@@ -118,8 +118,8 @@ func create(cmd *cobra.Command, args []string) (err error) {
 		Name:      viper.GetString("name"),
 		Registry:  viper.GetString("registry"),
 		Namespace: viper.GetString("namespace"),
-		Context:   viper.GetString("context"),
-		Templates: viper.GetString("templates"),
+		Template:  viper.GetString("template"),  // to use
+		Templates: viper.GetString("templates"), // extendex repos
 		Language:  args[0],
 		Path:      ".", // will be expanded to current working dir.
 	}
@@ -185,7 +185,7 @@ func create(cmd *cobra.Command, args []string) (err error) {
 	// Returns the final address.
 	// Name can be empty string (path-dervation will be attempted)
 	// Path can be empty, defaulting to current working directory.
-	return client.Create(config.Language, config.Context, config.Name, config.Path)
+	return client.Create(config.Language, config.Template, config.Name, config.Path)
 }
 
 func gatherFromUser(config createConfig) (c createConfig, err error) {
@@ -199,7 +199,7 @@ func gatherFromUser(config createConfig) (c createConfig, err error) {
 	config.Registry = prompt.ForString("Image registry", config.Registry)
 	config.Namespace = prompt.ForString("Namespace at registry", config.Namespace)
 	config.Language = prompt.ForString("Language of source", config.Language)
-	config.Context = prompt.ForString("Function Context", config.Context)
+	config.Template = prompt.ForString("Function Template", config.Template)
 	return config, nil
 }
 
