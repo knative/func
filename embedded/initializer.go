@@ -16,10 +16,10 @@ import (
 // See documentation in faas/templates for instructions on including template
 // updates in the binary for access by pkger.
 
-// DefautlContext is the default function signature / environmental context
+// DefautlTemplate is the default function signature / environmental context
 // of the resultant template.  All languages are expected to have at least
 // an HTTP Handler ("http") and Cloud Events ("events")
-const DefaultContext = "events"
+const DefaultTemplate = "events"
 
 // FileAccessor encapsulates methods for accessing template files.
 type FileAccessor interface {
@@ -53,49 +53,49 @@ func NewInitializer(templates string) *Initializer {
 	return &Initializer{templates: templates}
 }
 
-func (n *Initializer) Initialize(language, context string, dest string) error {
-	if context == "" {
-		context = DefaultContext
+func (n *Initializer) Initialize(language, template string, dest string) error {
+	if template == "" {
+		template = DefaultTemplate
 	}
 
 	// TODO: Confirm the dest path is empty?  This is currently in an earlier
 	// step of the create process but future calls directly to initialize would
 	// be better off being made safe.
 
-	if isEmbedded(language, context) {
-		return copyEmbedded(language, context, dest)
+	if isEmbedded(language, template) {
+		return copyEmbedded(language, template, dest)
 	}
 	if n.templates != "" {
-		return copyFilesystem(n.templates, language, context, dest)
+		return copyFilesystem(n.templates, language, template, dest)
 	}
-	return errors.New(fmt.Sprintf("A template for language '%v' context '%v' was not found internally and no extended repository path was defined.", language, context))
+	return errors.New(fmt.Sprintf("A template for language '%v' template '%v' was not found internally and no extended repository path was defined.", language, template))
 }
 
-func copyEmbedded(language, context, dest string) error {
+func copyEmbedded(language, template, dest string) error {
 	// Copy files to the destination
 	// Example embedded path:
 	//   /templates/go/http
-	src := filepath.Join("/templates", language, context)
+	src := filepath.Join("/templates", language, template)
 	return copy(src, dest, embeddedAccessor{})
 }
 
-func copyFilesystem(templatesPath, language, contextFullName, dest string) error {
-	// ensure that the contextFullName is of the format "repoName/contextName"
-	cc := strings.Split(contextFullName, "/")
+func copyFilesystem(templatesPath, language, templateFullName, dest string) error {
+	// ensure that the templateFullName is of the format "repoName/templateName"
+	cc := strings.Split(templateFullName, "/")
 	if len(cc) != 2 {
-		return errors.New("Context name must be in the format 'REPO/NAME'")
+		return errors.New("Template name must be in the format 'REPO/NAME'")
 	}
 	repo := cc[0]
-	context := cc[1]
+	template := cc[1]
 
 	// Example FileSystem path:
 	//   /home/alice/.config/faas/templates/boson-experimental/go/json
-	src := filepath.Join(templatesPath, repo, language, context)
+	src := filepath.Join(templatesPath, repo, language, template)
 	return copy(src, dest, filesystemAccessor{})
 }
 
-func isEmbedded(language, context string) bool {
-	_, err := pkger.Stat(filepath.Join("/templates", language, context))
+func isEmbedded(language, template string) bool {
+	_, err := pkger.Stat(filepath.Join("/templates", language, template))
 	return err == nil
 }
 
@@ -175,7 +175,12 @@ func copyLeaf(src, dest string, accessor FileAccessor) (err error) {
 	}
 	defer srcFile.Close()
 
-	destFile, err := os.Create(dest)
+	srcFileInfo, err := accessor.Stat(src)
+	if err != nil {
+		return
+	}
+
+	destFile, err := os.OpenFile(dest, os.O_RDWR|os.O_CREATE|os.O_TRUNC, srcFileInfo.Mode())
 	if err != nil {
 		return
 	}
