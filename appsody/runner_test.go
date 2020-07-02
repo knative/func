@@ -14,7 +14,7 @@ func TestRun(t *testing.T) {
 		t.Skip()
 	}
 
-	// Testdata Service Function
+	// Testdata Function
 	//
 	// The directory has been pre-populated with a runnable base function by running
 	// init and committing the result, such that this test is not dependent on a

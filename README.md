@@ -52,7 +52,7 @@ faas
 ```
 ## Examples
 
-Create a new Service Function:
+Create a new Function:
 
 ```shell
 > mkdir -p example.com/www

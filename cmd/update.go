@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"errors"
+
 	"github.com/boson-project/faas/buildpacks"
 
 	"github.com/ory/viper"
@@ -21,7 +22,7 @@ func init() {
 
 var updateCmd = &cobra.Command{
 	Use:        "update",
-	Short:      "Update or create a deployed Service Function",
+	Short:      "Update or create a deployed Function",
 	Long:       `Update deployed function to match the current local state.`,
 	SuggestFor: []string{"push", "deploy"},
 	RunE:       update,

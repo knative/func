@@ -24,7 +24,7 @@ var root = &cobra.Command{
 	SilenceUsage:  true, // no usage dump on error
 	Long: `Function as a Service
 
-Manage your Service Functions.`,
+Create and run Functions as a Service.`,
 }
 
 // When the code is loaded into memory upon invocation, the cobra/viper packages

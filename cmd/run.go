@@ -15,7 +15,7 @@ func init() {
 
 var runCmd = &cobra.Command{
 	Use:   "run",
-	Short: "Run Service Function locally",
+	Short: "Run Function locally",
 	Long:  "Runs the function locally within an isolated environment.  Modifications to the function trigger a reload.  This holds open the current window with the logs from the running function, and the run is canceled on interrupt.",
 	RunE:  run,
 }

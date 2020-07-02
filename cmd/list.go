@@ -15,8 +15,8 @@ func init() {
 
 var listCmd = &cobra.Command{
 	Use:        "list",
-	Short:      "Lists deployed Service Functions",
-	Long:       `Lists deployed Service Functions`,
+	Short:      "Lists deployed Functions",
+	Long:       `Lists deployed Functions`,
 	SuggestFor: []string{"ls"},
 	RunE:       list,
 }

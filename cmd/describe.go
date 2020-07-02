@@ -27,13 +27,13 @@ func init() {
 }
 
 var describeCmd = &cobra.Command{
-	Use:        "describe",
-	Short:      "Describe Service Function",
-	Long:       `Describe Service Function`,
-	SuggestFor: []string{"desc"},
+	Use:               "describe",
+	Short:             "Describe Function",
+	Long:              `Describe Function`,
+	SuggestFor:        []string{"desc"},
 	ValidArgsFunction: CompleteFunctionList,
-	Args:      cobra.ExactArgs(1),
-	RunE:       describe,
+	Args:              cobra.ExactArgs(1),
+	RunE:              describe,
 	PreRun: func(cmd *cobra.Command, args []string) {
 		viper.BindPFlag("output", cmd.Flags().Lookup("output"))
 		viper.BindPFlag("name", cmd.Flags().Lookup("name"))

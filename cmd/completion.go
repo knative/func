@@ -58,13 +58,13 @@ function _faas {
   cmnds)
     commands=(
       "completion:Generates bash/zsh completion scripts"
-      "create:Create a Service Function"
-      "delete:Delete deployed Service Function"
-      "describe:Describe Service Function"
+      "create:Create a Function"
+      "delete:Delete deployed Function"
+      "describe:Describe Function"
       "help:Help about any command"
-      "list:Lists deployed Service Functions"
-      "run:Run Service Function locally"
-      "update:Update or create a deployed Service Function"
+      "list:Lists deployed Functions"
+      "run:Run Function locally"
+      "update:Update or create a deployed Function"
       "version:Print version"
     )
     _describe "command" commands

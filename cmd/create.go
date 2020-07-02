@@ -33,12 +33,12 @@ func init() {
 	createCmd.RegisterFlagCompletionFunc("registry", CompleteRegistryList)
 }
 
-// The create command invokes the Service Funciton Client to create a new,
+// The create command invokes the Funciton Client to create a new,
 // functional, deployed service function with a noop implementation.  It
 // can be optionally created only locally (no deploy) using --local.
 var createCmd = &cobra.Command{
 	Use:               "create <runtime>",
-	Short:             "Create a Service Function",
+	Short:             "Create a Function",
 	SuggestFor:        []string{"init", "new"},
 	ValidArgsFunction: CompleteRuntimeList,
 	Args:              cobra.ExactArgs(1),
@@ -181,7 +181,7 @@ func create(cmd *cobra.Command, args []string) (err error) {
 		return
 	}
 
-	// Invoke the creation of the new Service Function locally.
+	// Invoke the creation of the new Function locally.
 	// Returns the final address.
 	// Name can be empty string (path-dervation will be attempted)
 	// Path can be empty, defaulting to current working directory.
@@ -203,7 +203,7 @@ func gatherFromUser(config createConfig) (c createConfig, err error) {
 	return config, nil
 }
 
-// Prompting for Service Name with Default
+// Prompting for Name with Default
 // Early calclation of service function name is required to provide a sensible
 // default.  If the user did not provide a --name parameter or FAAS_NAME,
 // this funciton sets the default to the value that the client would have done

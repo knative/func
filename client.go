@@ -9,7 +9,7 @@ import (
 
 const DefaultNamespace = "faas"
 
-// Client for a given Service Function.
+// Client for a given Function.
 type Client struct {
 	verbose           bool        // print verbose logs
 	local             bool        // Run in local-only mode
@@ -17,8 +17,8 @@ type Client struct {
 	initializer       Initializer // Creates initial local function implementation
 	builder           Builder     // Builds a runnable image from function source
 	pusher            Pusher      // Pushes a built image to a registry
-	deployer          Deployer    // Deploys a Service Function
-	updater           Updater     // Updates a deployed Service Function
+	deployer          Deployer    // Deploys a Function
+	updater           Updater     // Updates a deployed Function
 	runner            Runner      // Runs the function locally
 	remover           Remover     // Removes remote services
 	lister            Lister      // Lists remote services
@@ -28,9 +28,9 @@ type Client struct {
 	progressListener  ProgressListener // progress listener
 }
 
-// Initializer creates the initial/stub Service Function code on first create.
+// Initializer creates the initial/stub Function code on first create.
 type Initializer interface {
-	// Initialize a Service Function of the given name, template configuration `
+	// Initialize a Function of the given name, template configuration `
 	// (expected signature) using a context template.
 	Initialize(runtime, template, path string) error
 }
@@ -110,13 +110,13 @@ type Describer interface {
 	Describe(name string) (description FunctionDescription, err error)
 }
 
-// DNSProvider exposes DNS services necessary for serving the Service Function.
+// DNSProvider exposes DNS services necessary for serving the Function.
 type DNSProvider interface {
 	// Provide the given name by routing requests to address.
 	Provide(name, address string)
 }
 
-// New client for Service Function management.
+// New client for Function management.
 func New(options ...Option) (c *Client, err error) {
 	// Instantiate client with static defaults.
 	c = &Client{
@@ -165,7 +165,7 @@ func WithInternal(i bool) Option {
 	}
 }
 
-// WithInitializer provides the concrete implementation of the Service Function
+// WithInitializer provides the concrete implementation of the Function
 // initializer (generates stub code on initial create).
 func WithInitializer(i Initializer) Option {
 	return func(c *Client) {
@@ -343,7 +343,7 @@ func (c *Client) Update(root string) (err error) {
 
 	if !f.Initialized() {
 		// TODO: this needs a test.
-		return errors.New(fmt.Sprintf("the given path '%v' does not contain an initialized Service Function.  Please create one at this path before updating.", root))
+		return errors.New(fmt.Sprintf("the given path '%v' does not contain an initialized Function.  Please create one at this path before updating.", root))
 	}
 
 	// Build an image from the current state of the service function's implementation.
@@ -373,7 +373,7 @@ func (c *Client) Run(root string) error {
 
 	if !f.Initialized() {
 		// TODO: this needs a test.
-		return errors.New(fmt.Sprintf("the given path '%v' does not contain an initialized Service Function.  Please create one at this path in order to run.", root))
+		return errors.New(fmt.Sprintf("the given path '%v' does not contain an initialized Function.  Please create one at this path in order to run.", root))
 	}
 
 	// delegate to concrete implementation of runner entirely.
