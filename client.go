@@ -32,14 +32,14 @@ type Client struct {
 type Initializer interface {
 	// Initialize a Service Function of the given name, context configuration `
 	// (expected signature) using a context template.
-	Initialize(language, context, path string) error
+	Initialize(runtime, context, path string) error
 }
 
 // Builder of function source to runnable image.
 type Builder interface {
 	// Build a service function of the given name with source located at path.
 	// returns the image name built.
-	Build(name, language, path string) (image string, err error)
+	Build(name, runtime, path string) (image string, err error)
 }
 
 // Pusher of function image to a registry.
@@ -255,11 +255,11 @@ func WithDomainSearchLimit(limit int) Option {
 	}
 }
 
-// Create a service function of the given language.
+// Create a service function of the given runtime.
 // Name and Root are optional:
 // Name is derived from root if possible.
 // Root is defaulted to the current working directory.
-func (c *Client) Create(language, context, name, root string) (err error) {
+func (c *Client) Create(runtime, context, name, root string) (err error) {
 	c.progressListener.SetTotal(5)
 	c.progressListener.Increment("Initializing")
 	defer c.progressListener.Done()
@@ -276,14 +276,14 @@ func (c *Client) Create(language, context, name, root string) (err error) {
 	// optional name the other passes root path).  This could easily cause
 	// confusion and thus we may want to rename Initalizer to the more specific
 	// task it performs: ContextTemplateWriter or similar.
-	err = f.Initialize(language, context, name, c.domainSearchLimit, c.initializer)
+	err = f.Initialize(runtime, context, name, c.domainSearchLimit, c.initializer)
 	if err != nil {
 		return
 	}
 
 	// Build the now-initialized service function
 	c.progressListener.Increment("Building")
-	image, err := c.builder.Build(f.name, language, f.root)
+	image, err := c.builder.Build(f.name, runtime, f.root)
 	if err != nil {
 		return
 	}
@@ -347,7 +347,7 @@ func (c *Client) Update(root string) (err error) {
 	}
 
 	// Build an image from the current state of the service function's implementation.
-	image, err := c.builder.Build(f.name, f.language, f.root)
+	image, err := c.builder.Build(f.name, f.runtime, f.root)
 	if err != nil {
 		return
 	}
@@ -434,14 +434,14 @@ func (c *Client) Remove(name, root string) error {
 
 type noopInitializer struct{ output io.Writer }
 
-func (n *noopInitializer) Initialize(language, context, root string) error {
+func (n *noopInitializer) Initialize(runtime, context, root string) error {
 	fmt.Fprintln(n.output, "skipping initialize: client not initialized WithInitializer")
 	return nil
 }
 
 type noopBuilder struct{ output io.Writer }
 
-func (n *noopBuilder) Build(name, language, path string) (image string, err error) {
+func (n *noopBuilder) Build(name, runtime, path string) (image string, err error) {
 	fmt.Fprintln(n.output, "skipping build: client not initialized WithBuilder")
 	return "", nil
 }

@@ -12,9 +12,9 @@ import (
 )
 
 type Function struct {
-	root     string
-	language string // will be empty unless initialized/until initialized
-	name     string // will be empty unless initialized/until initialized.
+	root    string
+	runtime string // will be empty unless initialized/until initialized
+	name    string // will be empty unless initialized/until initialized.
 
 	initializer Initializer
 }
@@ -43,10 +43,10 @@ func (f *Function) DerivedName(searchLimit int) string {
 	return pathToDomain(f.root, searchLimit)
 }
 
-func (f *Function) Initialize(language, context, name string, domainSearchLimit int, initializer Initializer) (err error) {
-	// Assert language is provided
-	if language == "" {
-		err = errors.New("language not specified")
+func (f *Function) Initialize(runtime, context, name string, domainSearchLimit int, initializer Initializer) (err error) {
+	// Assert runtime is provided
+	if runtime == "" {
+		err = errors.New("runtime not specified")
 		return
 	}
 
@@ -77,12 +77,12 @@ func (f *Function) Initialize(language, context, name string, domainSearchLimit 
 	}
 	f.name = name
 
-	// Write the template implementation in the appropriate language
-	if err = initializer.Initialize(language, context, f.root); err != nil {
+	// Write the template implementation in the appropriate runtime
+	if err = initializer.Initialize(runtime, context, f.root); err != nil {
 		return
 	}
-	// language was validated
-	f.language = language
+	// runtime was validated
+	f.runtime = runtime
 
 	// Write out the state as a config file and return.
 	return writeConfig(f)
@@ -91,7 +91,7 @@ func (f *Function) Initialize(language, context, name string, domainSearchLimit 
 func (f *Function) Initialized() bool {
 	// TODO: this should probably be more robust than checking what amounts to a
 	// side-effect of the initialization process.
-	return (f.language != "" && f.name != "")
+	return (f.runtime != "" && f.name != "")
 }
 
 // contentiousFiles are files which, if extant, preclude the creation of a

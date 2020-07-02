@@ -5,10 +5,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/buildpacks/pack"
-	"github.com/buildpacks/pack/logging"
 	"io"
 	"os"
+
+	"github.com/buildpacks/pack"
+	"github.com/buildpacks/pack/logging"
 )
 
 type Builder struct {
@@ -26,13 +27,13 @@ var lang2pack = map[string]string{
 	"js":   "quay.io/boson/faas-nodejs-builder",
 }
 
-func (builder *Builder) Build(name, language, path string) (image string, err error) {
+func (builder *Builder) Build(name, runtime, path string) (image string, err error) {
 
 	registry := fmt.Sprintf("%s/%s", builder.registry, builder.namespace)
 	image = fmt.Sprintf("%s/%s", registry, name)
-	packBuilder, ok := lang2pack[language]
+	packBuilder, ok := lang2pack[runtime]
 	if !ok {
-		err = errors.New(fmt.Sprint("unsupported language: ", language))
+		err = errors.New(fmt.Sprint("unsupported runtime: ", runtime))
 		return
 	}
 

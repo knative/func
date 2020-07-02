@@ -20,8 +20,8 @@ type Config struct {
 	// not over the Option WithName, if provided.
 	Name string `yaml:"name"`
 
-	// Language of the implementation.
-	Language string `yaml:"language"`
+	// Runtime of the implementation.
+	Runtime string `yaml:"runtime"`
 
 	// Add new values to the applyConfig function as necessary.
 }
@@ -31,8 +31,8 @@ type Config struct {
 // post-instantiation.
 func newConfig(f *Function) Config {
 	return Config{
-		Name:     f.name,
-		Language: f.language,
+		Name:    f.name,
+		Runtime: f.runtime,
 	}
 }
 
@@ -79,7 +79,7 @@ func applyConfig(f *Function, root string) error {
 	// Apply the config to the client object, which effectiely writes back the default
 	// if it was not defined in the yaml.
 	f.name = cfg.Name
-	f.language = cfg.Language
+	f.runtime = cfg.Runtime
 
 	// NOTE: cleverness < clarity
 

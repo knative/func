@@ -17,7 +17,7 @@ import (
 // updates in the binary for access by pkger.
 
 // DefautlTemplate is the default function signature / environmental context
-// of the resultant template.  All languages are expected to have at least
+// of the resultant template.  All runtimes are expected to have at least
 // an HTTP Handler ("http") and Cloud Events ("events")
 const DefaultTemplate = "events"
 
@@ -53,7 +53,7 @@ func NewInitializer(templates string) *Initializer {
 	return &Initializer{templates: templates}
 }
 
-func (n *Initializer) Initialize(language, template string, dest string) error {
+func (n *Initializer) Initialize(runtime, template string, dest string) error {
 	if template == "" {
 		template = DefaultTemplate
 	}
@@ -62,24 +62,24 @@ func (n *Initializer) Initialize(language, template string, dest string) error {
 	// step of the create process but future calls directly to initialize would
 	// be better off being made safe.
 
-	if isEmbedded(language, template) {
-		return copyEmbedded(language, template, dest)
+	if isEmbedded(runtime, template) {
+		return copyEmbedded(runtime, template, dest)
 	}
 	if n.templates != "" {
-		return copyFilesystem(n.templates, language, template, dest)
+		return copyFilesystem(n.templates, runtime, template, dest)
 	}
-	return errors.New(fmt.Sprintf("A template for language '%v' template '%v' was not found internally and no extended repository path was defined.", language, template))
+	return errors.New(fmt.Sprintf("A template for runtime '%v' template '%v' was not found internally and no extended repository path was defined.", runtime, template))
 }
 
-func copyEmbedded(language, template, dest string) error {
+func copyEmbedded(runtime, template, dest string) error {
 	// Copy files to the destination
 	// Example embedded path:
 	//   /templates/go/http
-	src := filepath.Join("/templates", language, template)
+	src := filepath.Join("/templates", runtime, template)
 	return copy(src, dest, embeddedAccessor{})
 }
 
-func copyFilesystem(templatesPath, language, templateFullName, dest string) error {
+func copyFilesystem(templatesPath, runtime, templateFullName, dest string) error {
 	// ensure that the templateFullName is of the format "repoName/templateName"
 	cc := strings.Split(templateFullName, "/")
 	if len(cc) != 2 {
@@ -90,12 +90,12 @@ func copyFilesystem(templatesPath, language, templateFullName, dest string) erro
 
 	// Example FileSystem path:
 	//   /home/alice/.config/faas/templates/boson-experimental/go/json
-	src := filepath.Join(templatesPath, repo, language, template)
+	src := filepath.Join(templatesPath, repo, runtime, template)
 	return copy(src, dest, filesystemAccessor{})
 }
 
-func isEmbedded(language, template string) bool {
-	_, err := pkger.Stat(filepath.Join("/templates", language, template))
+func isEmbedded(runtime, template string) bool {
+	_, err := pkger.Stat(filepath.Join("/templates", runtime, template))
 	return err == nil
 }
 

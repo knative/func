@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// TestInitialize ensures that on initialization of a the reference language
+// TestInitialize ensures that on initialization of a the reference runtime
 // (Go), the template is written.
 func TestInitialize(t *testing.T) {
 	var (
@@ -67,10 +67,10 @@ func TestCustom(t *testing.T) {
 	os.MkdirAll(path, 0744)
 	defer os.RemoveAll(path)
 
-	// Unrecognized language/template should error
+	// Unrecognized runtime/template should error
 	err := NewInitializer("").Initialize("go", template, path)
 	if err == nil {
-		t.Fatal("An unrecognized language/template should generate an error")
+		t.Fatal("An unrecognized runtime/template should generate an error")
 	}
 
 	// Recognized external (non-embedded) path should succeed
