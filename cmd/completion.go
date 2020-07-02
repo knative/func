@@ -2,8 +2,9 @@ package cmd
 
 import (
 	"errors"
-	"github.com/spf13/cobra"
 	"os"
+
+	"github.com/spf13/cobra"
 )
 
 func init() {
@@ -27,7 +28,7 @@ For bash:
 source <(faas completion bash)
 
 `,
-    ValidArgs: []string{"bash", "zsh"},
+	ValidArgs: []string{"bash", "zsh"},
 	Args:      cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		if len(args) < 1 {
@@ -106,7 +107,7 @@ function _list_funs() {
 }
 
 function _list_langs() {
-    compadd js go java
+		compadd node go quarkus
 }
 
 function _list_fmts() {

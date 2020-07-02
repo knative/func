@@ -14,9 +14,9 @@ import (
 // NameMappings are short-name to repository full name mappings,
 // enabling shorthand `faas create go` rather than `faas create go-ce-functions`
 var StackShortNames = map[string]string{
-	"go":   "go-ce-functions",
-	"js":   "node-ce-functions",
-	"java": "quarkus-ce-functions",
+	"go":      "go-ce-functions",
+	"node":    "node-ce-functions",
+	"quarkus": "quarkus-ce-functions",
 }
 
 // Initializer of functions using the appsody binary.
@@ -51,7 +51,7 @@ func (n *Initializer) Initialize(name, runtime, path string) error {
 	// Dereference stack short name.  ex. "go" -> "go-ce-functions"
 	stackName, ok := StackShortNames[runtime]
 	if !ok {
-		runtime := []string{}
+		runtimes := []string{}
 		for k, _ := range StackShortNames {
 			runtimes = append(runtimes, k)
 		}

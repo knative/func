@@ -94,13 +94,13 @@ func TestEmbeddedFileMode(t *testing.T) {
 	os.MkdirAll(path, 0744)
 	defer os.RemoveAll(path)
 
-	// Initialize a java app from the embedded templates.
-	if err := NewInitializer("").Initialize("java", "events", path); err != nil {
+	// Initialize a quarkus app from the embedded templates.
+	if err := NewInitializer("").Initialize("quarkus", "events", path); err != nil {
 		t.Fatal(err)
 	}
 
 	// The file mode of the embedded mvnw should be -rwxr-xr-x
-	// See source file at: templates/java/events/mvnw
+	// See source file at: templates/quarkus/events/mvnw
 	// Assert mode is preserved
 	sourceMode := os.FileMode(0755)
 	dest, err := os.Stat(filepath.Join(path, "mvnw"))
@@ -122,13 +122,13 @@ func TestFileMode(t *testing.T) {
 	os.MkdirAll(path, 0744)
 	defer os.RemoveAll(path)
 
-	// Initialize a java app from the custom repo in ./testdata
-	if err := NewInitializer("testdata/templates").Initialize("java", template, path); err != nil {
+	// Initialize a quarkus app from the custom repo in ./testdata
+	if err := NewInitializer("testdata/templates").Initialize("quarkus", template, path); err != nil {
 		t.Fatal(err)
 	}
 
 	// Assert mode is preserved
-	source, err := os.Stat(filepath.Join("testdata/templates/boson-experimental/java/http/mvnw"))
+	source, err := os.Stat(filepath.Join("testdata/templates/boson-experimental/quarkus/http/mvnw"))
 	if err != nil {
 		t.Fatal(err)
 	}
