@@ -30,9 +30,9 @@ type Client struct {
 
 // Initializer creates the initial/stub Service Function code on first create.
 type Initializer interface {
-	// Initialize a Service Function of the given name, context configuration `
+	// Initialize a Service Function of the given name, template configuration `
 	// (expected signature) using a context template.
-	Initialize(runtime, context, path string) error
+	Initialize(runtime, template, path string) error
 }
 
 // Builder of function source to runnable image.
@@ -259,7 +259,7 @@ func WithDomainSearchLimit(limit int) Option {
 // Name and Root are optional:
 // Name is derived from root if possible.
 // Root is defaulted to the current working directory.
-func (c *Client) Create(runtime, context, name, root string) (err error) {
+func (c *Client) Create(runtime, template, name, root string) (err error) {
 	c.progressListener.SetTotal(5)
 	c.progressListener.Increment("Initializing")
 	defer c.progressListener.Done()
@@ -270,13 +270,13 @@ func (c *Client) Create(runtime, context, name, root string) (err error) {
 		return
 	}
 
-	// Initialize, writing out a context implementation and a config file.
+	// Initialize, writing out a template implementation and a config file.
 	// TODO: the function's Initialize parameters are slightly different than
 	// the Initializer interface, and can thus cause confusion (one passes an
 	// optional name the other passes root path).  This could easily cause
 	// confusion and thus we may want to rename Initalizer to the more specific
 	// task it performs: ContextTemplateWriter or similar.
-	err = f.Initialize(runtime, context, name, c.domainSearchLimit, c.initializer)
+	err = f.Initialize(runtime, template, name, c.domainSearchLimit, c.initializer)
 	if err != nil {
 		return
 	}
@@ -434,7 +434,7 @@ func (c *Client) Remove(name, root string) error {
 
 type noopInitializer struct{ output io.Writer }
 
-func (n *noopInitializer) Initialize(runtime, context, root string) error {
+func (n *noopInitializer) Initialize(runtime, template, root string) error {
 	fmt.Fprintln(n.output, "skipping initialize: client not initialized WithInitializer")
 	return nil
 }

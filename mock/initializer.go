@@ -9,7 +9,7 @@ import (
 type Initializer struct {
 	SupportedRuntimes []string
 	InitializeInvoked bool
-	InitializeFn      func(name, runtime, path string) error
+	InitializeFn      func(runtime, template, path string) error
 }
 
 func NewInitializer() *Initializer {
@@ -19,13 +19,12 @@ func NewInitializer() *Initializer {
 	}
 }
 
-func (i *Initializer) Initialize(name, runtime, path string) error {
-	fmt.Printf("Validating runtime supported: %v\n", runtime)
+func (i *Initializer) Initialize(runtime, template, path string) error {
 	i.InitializeInvoked = true
 	if !i.supportsRuntime(runtime) {
 		return errors.New(fmt.Sprintf("unsupported runtime '%v'", runtime))
 	}
-	return i.InitializeFn(name, runtime, path)
+	return i.InitializeFn(runtime, template, path)
 }
 
 func (i *Initializer) supportsRuntime(runtime string) bool {
