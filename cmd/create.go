@@ -15,7 +15,7 @@ import (
 	"github.com/boson-project/faas/buildpacks"
 	"github.com/boson-project/faas/docker"
 	"github.com/boson-project/faas/embedded"
-	"github.com/boson-project/faas/kubectl"
+	"github.com/boson-project/faas/knative"
 	"github.com/boson-project/faas/progress"
 	"github.com/boson-project/faas/prompt"
 )
@@ -159,7 +159,7 @@ func create(cmd *cobra.Command, args []string) (err error) {
 	pusher.Verbose = config.Verbose
 
 	// Deployer of built images.
-	deployer := kubectl.NewDeployer()
+	deployer := knative.NewDeployer()
 	deployer.Verbose = config.Verbose
 
 	// Progress bar
