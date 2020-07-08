@@ -1,0 +1,17 @@
+name: Build Pull Request
+on: 
+  pull_request:
+    branches:
+      - develop
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+      - name: Test
+        run:  make test
+      - name: Build
+        run:  make build

@@ -1,0 +1,24 @@
+name: Build
+on: 
+  push:
+    branches:
+      - main
+      - develop
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+      - name: Test
+        run:  make test
+      - name: Build
+        run:  make build
+      - name: Image
+        run:  make image
+      - name: Deploy
+        env:
+          USER: ${{ secrets.QUAY_USERNAME }}
+          PASS: ${{ secrets.QUAY_PASSWORD }}
+        run: docker login -u "$USER" -p "$PASS" && make deploy
