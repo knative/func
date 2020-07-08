@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"github.com/boson-project/faas"
-	"github.com/boson-project/faas/kubectl"
+	"github.com/boson-project/faas/knative"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 )
@@ -27,10 +27,11 @@ var deleteCmd = &cobra.Command{
 func delete(cmd *cobra.Command, args []string) (err error) {
 	var (
 		verbose = viper.GetBool("verbose")
-		remover = kubectl.NewRemover()
+		remover = knative.NewRemover()
 		name    = viper.GetString("name") // Explicit name override (by default uses path argument)
 		path    = ""                      // defaults to current working directory
 	)
+	remover.Verbose = verbose
 	// If provided use the path as the first argument.
 	if len(args) == 1 {
 		name = args[0]
