@@ -1,5 +1,9 @@
 # faas
 
+![Main Build Status](https://github.com/boson-project/faas/workflows/Build/badge.svg?branch=main)
+
+![Development Build Status](https://github.com/boson-project/faas/workflows/Build/badge.svg?branch=develop)
+
 Function as a Service CLI
 
 ## Setup and Configuration
