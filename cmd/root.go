@@ -19,7 +19,7 @@ var (
 var root = &cobra.Command{
 	Use:           "faas",
 	Short:         "Function as a Service",
-	Version:       Version,
+	Version:       verboseVersion(),
 	SilenceErrors: true, // we explicitly handle errors in Execute()
 	SilenceUsage:  true, // no usage dump on error
 	Long: `Function as a Service
