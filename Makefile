@@ -1,4 +1,4 @@
-REPO := boson-project/faas
+REPO := quay.io/boson/faas
 BIN  := faas
 
 CODE := $(shell find . -name '*.go')
@@ -16,13 +16,13 @@ $(BIN): $(CODE)
 test:
 	go test -cover -coverprofile=coverage.out ./...
 
-build: Dockerfile
+image: Dockerfile
 	docker build -t $(REPO):$(BRCH) \
 	             -t $(REPO):$(VERS) \
 	             -t $(REPO):$(HASH) \
 	             -t $(REPO):$(BRCH)-$(DATE)-$(VERS)-$(HASH) .
 
-push: build
+push: image
 	docker push $(REPO):$(BRCH)
 	docker push $(REPO):$(VERS)
 	docker push $(REPO):$(HASH)
