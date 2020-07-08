@@ -26,7 +26,7 @@ func NewBuilder(registry, namespace string) *Builder {
 }
 
 // Build an image from the function source at path.
-func (n *Builder) Build(name, language, path string) (image string, err error) {
+func (n *Builder) Build(name, runtime, path string) (image string, err error) {
 	// Check for the appsody binary explicitly so that we can return
 	// an extra-friendly error message.
 	_, err = exec.LookPath("appsody")

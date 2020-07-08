@@ -3,14 +3,14 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"github.com/boson-project/faas/buildpacks"
-	"github.com/boson-project/faas/knative"
 
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
 	"github.com/boson-project/faas"
+	"github.com/boson-project/faas/buildpacks"
 	"github.com/boson-project/faas/docker"
+	"github.com/boson-project/faas/knative"
 )
 
 func init() {
@@ -22,7 +22,7 @@ func init() {
 
 var updateCmd = &cobra.Command{
 	Use:        "update",
-	Short:      "Update or create a deployed Service Function",
+	Short:      "Update or create a deployed Function",
 	Long:       `Update deployed function to match the current local state.`,
 	SuggestFor: []string{"push", "deploy"},
 	RunE:       update,
@@ -58,7 +58,7 @@ func update(cmd *cobra.Command, args []string) (err error) {
 	pusher.Verbose = verbose
 
 	// Deployer of built images.
-	updater,err := knative.NewUpdater(faas.DefaultNamespace)
+	updater, err := knative.NewUpdater(faas.DefaultNamespace)
 	if err != nil {
 		return fmt.Errorf("couldn't create updater: %v", err)
 	}

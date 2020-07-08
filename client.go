@@ -9,7 +9,7 @@ import (
 
 const DefaultNamespace = "faas"
 
-// Client for a given Service Function.
+// Client for a given Function.
 type Client struct {
 	verbose           bool        // print verbose logs
 	local             bool        // Run in local-only mode
@@ -17,8 +17,8 @@ type Client struct {
 	initializer       Initializer // Creates initial local function implementation
 	builder           Builder     // Builds a runnable image from function source
 	pusher            Pusher      // Pushes a built image to a registry
-	deployer          Deployer    // Deploys a Service Function
-	updater           Updater     // Updates a deployed Service Function
+	deployer          Deployer    // Deploys a Function
+	updater           Updater     // Updates a deployed Function
 	runner            Runner      // Runs the function locally
 	remover           Remover     // Removes remote services
 	lister            Lister      // Lists remote services
@@ -28,18 +28,18 @@ type Client struct {
 	progressListener  ProgressListener // progress listener
 }
 
-// Initializer creates the initial/stub Service Function code on first create.
+// Initializer creates the initial/stub Function code on first create.
 type Initializer interface {
-	// Initialize a Service Function of the given name, using the templates for
-	// the given language, written into the given path.
-	Initialize(name, language, path string) error
+	// Initialize a Function of the given name, template configuration `
+	// (expected signature) using a context template.
+	Initialize(runtime, template, path string) error
 }
 
 // Builder of function source to runnable image.
 type Builder interface {
 	// Build a service function of the given name with source located at path.
 	// returns the image name built.
-	Build(name, language, path string) (image string, err error)
+	Build(name, runtime, path string) (image string, err error)
 }
 
 // Pusher of function image to a registry.
@@ -110,13 +110,13 @@ type Describer interface {
 	Describe(name string) (description FunctionDescription, err error)
 }
 
-// DNSProvider exposes DNS services necessary for serving the Service Function.
+// DNSProvider exposes DNS services necessary for serving the Function.
 type DNSProvider interface {
 	// Provide the given name by routing requests to address.
 	Provide(name, address string)
 }
 
-// New client for Service Function management.
+// New client for Function management.
 func New(options ...Option) (c *Client, err error) {
 	// Instantiate client with static defaults.
 	c = &Client{
@@ -165,7 +165,7 @@ func WithInternal(i bool) Option {
 	}
 }
 
-// WithInitializer provides the concrete implementation of the Service Function
+// WithInitializer provides the concrete implementation of the Function
 // initializer (generates stub code on initial create).
 func WithInitializer(i Initializer) Option {
 	return func(c *Client) {
@@ -255,11 +255,11 @@ func WithDomainSearchLimit(limit int) Option {
 	}
 }
 
-// Create a service function of the given language.
+// Create a service function of the given runtime.
 // Name and Root are optional:
 // Name is derived from root if possible.
 // Root is defaulted to the current working directory.
-func (c *Client) Create(language, name, root string) (err error) {
+func (c *Client) Create(runtime, template, name, root string) (err error) {
 	c.progressListener.SetTotal(5)
 	c.progressListener.Increment("Initializing")
 	defer c.progressListener.Done()
@@ -271,14 +271,19 @@ func (c *Client) Create(language, name, root string) (err error) {
 	}
 
 	// Initialize, writing out a template implementation and a config file.
-	err = f.Initialize(language, name, c.domainSearchLimit, c.initializer)
+	// TODO: the function's Initialize parameters are slightly different than
+	// the Initializer interface, and can thus cause confusion (one passes an
+	// optional name the other passes root path).  This could easily cause
+	// confusion and thus we may want to rename Initalizer to the more specific
+	// task it performs: ContextTemplateWriter or similar.
+	err = f.Initialize(runtime, template, name, c.domainSearchLimit, c.initializer)
 	if err != nil {
 		return
 	}
 
 	// Build the now-initialized service function
 	c.progressListener.Increment("Building")
-	image, err := c.builder.Build(f.name, language, f.root)
+	image, err := c.builder.Build(f.name, runtime, f.root)
 	if err != nil {
 		return
 	}
@@ -338,11 +343,11 @@ func (c *Client) Update(root string) (err error) {
 
 	if !f.Initialized() {
 		// TODO: this needs a test.
-		return errors.New(fmt.Sprintf("the given path '%v' does not contain an initialized Service Function.  Please create one at this path before updating.", root))
+		return errors.New(fmt.Sprintf("the given path '%v' does not contain an initialized Function.  Please create one at this path before updating.", root))
 	}
 
 	// Build an image from the current state of the service function's implementation.
-	image, err := c.builder.Build(f.name, f.language, f.root)
+	image, err := c.builder.Build(f.name, f.runtime, f.root)
 	if err != nil {
 		return
 	}
@@ -368,7 +373,7 @@ func (c *Client) Run(root string) error {
 
 	if !f.Initialized() {
 		// TODO: this needs a test.
-		return errors.New(fmt.Sprintf("the given path '%v' does not contain an initialized Service Function.  Please create one at this path in order to run.", root))
+		return errors.New(fmt.Sprintf("the given path '%v' does not contain an initialized Function.  Please create one at this path in order to run.", root))
 	}
 
 	// delegate to concrete implementation of runner entirely.
@@ -429,14 +434,14 @@ func (c *Client) Remove(name, root string) error {
 
 type noopInitializer struct{ output io.Writer }
 
-func (n *noopInitializer) Initialize(name, language, root string) error {
+func (n *noopInitializer) Initialize(runtime, template, root string) error {
 	fmt.Fprintln(n.output, "skipping initialize: client not initialized WithInitializer")
 	return nil
 }
 
 type noopBuilder struct{ output io.Writer }
 
-func (n *noopBuilder) Build(name, language, path string) (image string, err error) {
+func (n *noopBuilder) Build(name, runtime, path string) (image string, err error) {
 	fmt.Fprintln(n.output, "skipping build: client not initialized WithBuilder")
 	return "", nil
 }

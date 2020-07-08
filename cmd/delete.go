@@ -15,8 +15,8 @@ func init() {
 
 var deleteCmd = &cobra.Command{
 	Use:        "delete",
-	Short:      "Delete deployed Service Function",
-	Long:       `Removes the deployed Service Function for the current directory, but does not delete anything locally.  If no code updates have been made beyond the defaults, this would bring the current codebase back to a state equivalent to having run "create --local".`,
+	Short:      "Delete deployed Function",
+	Long:       `Removes the deployed Function for the current directory, but does not delete anything locally.  If no code updates have been made beyond the defaults, this would bring the current codebase back to a state equivalent to having run "create --local".`,
 	SuggestFor: []string{"remove", "rm"},
 	RunE:       delete,
 	PreRun: func(cmd *cobra.Command, args []string) {

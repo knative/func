@@ -8,7 +8,7 @@ import (
 )
 
 // TestPathToDomain validatest the calculation used to derive a default domain
-// for a Service Function from the current directory path (used as a default
+// for a Function from the current directory path (used as a default
 // in the absence of an explicit setting).
 // NOTE: although the implementation uses os.PathSeparator and is developed with
 // non-unix platforms in mind, these tests are written using unix-style paths.

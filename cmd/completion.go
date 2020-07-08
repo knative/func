@@ -2,8 +2,9 @@ package cmd
 
 import (
 	"errors"
-	"github.com/spf13/cobra"
 	"os"
+
+	"github.com/spf13/cobra"
 )
 
 func init() {
@@ -27,7 +28,7 @@ For bash:
 source <(faas completion bash)
 
 `,
-    ValidArgs: []string{"bash", "zsh"},
+	ValidArgs: []string{"bash", "zsh"},
 	Args:      cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		if len(args) < 1 {
@@ -57,13 +58,13 @@ function _faas {
   cmnds)
     commands=(
       "completion:Generates bash/zsh completion scripts"
-      "create:Create a Service Function"
-      "delete:Delete deployed Service Function"
-      "describe:Describe Service Function"
+      "create:Create a Function"
+      "delete:Delete deployed Function"
+      "describe:Describe Function"
       "help:Help about any command"
-      "list:Lists deployed Service Functions"
-      "run:Run Service Function locally"
-      "update:Update or create a deployed Service Function"
+      "list:Lists deployed Functions"
+      "run:Run Function locally"
+      "update:Update or create a deployed Function"
       "version:Print version"
     )
     _describe "command" commands
@@ -106,7 +107,7 @@ function _list_funs() {
 }
 
 function _list_langs() {
-    compadd js go java
+		compadd node go quarkus
 }
 
 function _list_fmts() {

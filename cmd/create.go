@@ -2,15 +2,19 @@ package cmd
 
 import (
 	"errors"
-	"github.com/boson-project/faas/buildpacks"
+	"fmt"
+	"os"
+	"path/filepath"
 	"regexp"
 
+	"github.com/mitchellh/go-homedir"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
 	"github.com/boson-project/faas"
-	"github.com/boson-project/faas/appsody"
+	"github.com/boson-project/faas/buildpacks"
 	"github.com/boson-project/faas/docker"
+	"github.com/boson-project/faas/embedded"
 	"github.com/boson-project/faas/kubectl"
 	"github.com/boson-project/faas/progress"
 	"github.com/boson-project/faas/prompt"
@@ -24,25 +28,29 @@ func init() {
 	createCmd.Flags().StringP("name", "n", "", "optionally specify an explicit name for the serive, overriding path-derivation. $FAAS_NAME")
 	createCmd.Flags().StringP("registry", "r", "quay.io", "image registry (ex: quay.io). $FAAS_REGISTRY")
 	createCmd.Flags().StringP("namespace", "s", "", "namespace at image registry (usually username or org name). $FAAS_NAMESPACE")
+	createCmd.Flags().StringP("template", "t", embedded.DefaultTemplate, "Function template (ex: 'http','events'). $FAAS_TEMPLATE")
+	createCmd.Flags().StringP("templates", "", filepath.Join(configPath(), "faas", "templates"), "Extensible templates path. $FAAS_TEMPLATES")
 	createCmd.RegisterFlagCompletionFunc("registry", CompleteRegistryList)
 }
 
-// The create command invokes the Service Funciton Client to create a new,
+// The create command invokes the Funciton Client to create a new,
 // functional, deployed service function with a noop implementation.  It
 // can be optionally created only locally (no deploy) using --local.
 var createCmd = &cobra.Command{
-	Use:        "create <language>",
-	Short:      "Create a Service Function",
-	SuggestFor: []string{"init", "new"},
-	ValidArgsFunction: CompleteLanguageList,
-	Args:      cobra.ExactArgs(1),
-	RunE:       create,
+	Use:               "create <runtime>",
+	Short:             "Create a Function",
+	SuggestFor:        []string{"init", "new"},
+	ValidArgsFunction: CompleteRuntimeList,
+	Args:              cobra.ExactArgs(1),
+	RunE:              create,
 	PreRun: func(cmd *cobra.Command, args []string) {
 		viper.BindPFlag("local", cmd.Flags().Lookup("local"))
 		viper.BindPFlag("internal", cmd.Flags().Lookup("internal"))
 		viper.BindPFlag("name", cmd.Flags().Lookup("name"))
 		viper.BindPFlag("registry", cmd.Flags().Lookup("registry"))
 		viper.BindPFlag("namespace", cmd.Flags().Lookup("namespace"))
+		viper.BindPFlag("template", cmd.Flags().Lookup("template"))
+		viper.BindPFlag("templates", cmd.Flags().Lookup("templates"))
 	},
 }
 
@@ -73,9 +81,21 @@ type createConfig struct {
 	// images will be stored by their canonical name.
 	Namespace string
 
-	// Language is the first argument, and specifies the resultant Function
-	// implementation language.
-	Language string
+	// Template is the form of the resultant function, i.e. the function signature
+	// and contextually avaialable resources.  For example 'http' for a funciton
+	// expected to be invoked via straight HTTP requests, or 'events' for a
+	// function which will be invoked with CloudEvents.
+	Template string
+
+	// Templates is an optional path that, if it exists, will be used as a source
+	// for additional templates not included in the binary.  If not provided
+	// explicitly as a flag (--templates) or env (FAAS_TEMPLATES), the default
+	// location is $XDG_CONFIG_HOME/templates ($HOME/.config/faas/templates)
+	Templates string
+
+	// Runtime is the first argument, and specifies the resultant Function
+	// implementation runtime.
+	Runtime string
 
 	// Path of the Function implementation on local disk. Defaults to current
 	// working directory of the process.
@@ -84,9 +104,9 @@ type createConfig struct {
 
 // create a new service function using the client about config.
 func create(cmd *cobra.Command, args []string) (err error) {
-	// Assert a language parameter was provided
+	// Assert a runtime parameter was provided
 	if len(args) == 0 {
-		return errors.New("'faas create' requires a language argument.")
+		return errors.New("'faas create' requires a runtime argument.")
 	}
 
 	// Create a deafult configuration populated first with environment variables,
@@ -98,8 +118,10 @@ func create(cmd *cobra.Command, args []string) (err error) {
 		Name:      viper.GetString("name"),
 		Registry:  viper.GetString("registry"),
 		Namespace: viper.GetString("namespace"),
-		Language:  args[0],
-		Path:      ".", // will be expanded to process current working dir.
+		Template:  viper.GetString("template"),  // to use
+		Templates: viper.GetString("templates"), // extendex repos
+		Runtime:   args[0],
+		Path:      ".", // will be expanded to current working dir.
 	}
 
 	// If path is provided
@@ -121,9 +143,11 @@ func create(cmd *cobra.Command, args []string) (err error) {
 		}
 	}
 
+	//
+
 	// Initializer creates a deployable noop function implementation in the
 	// configured path.
-	initializer := appsody.NewInitializer()
+	initializer := embedded.NewInitializer(config.Templates)
 	initializer.Verbose = config.Verbose
 
 	// Builder creates images from function source.
@@ -157,11 +181,11 @@ func create(cmd *cobra.Command, args []string) (err error) {
 		return
 	}
 
-	// Invoke the creation of the new Service Function locally.
+	// Invoke the creation of the new Function locally.
 	// Returns the final address.
 	// Name can be empty string (path-dervation will be attempted)
 	// Path can be empty, defaulting to current working directory.
-	return client.Create(config.Language, config.Name, config.Path)
+	return client.Create(config.Runtime, config.Template, config.Name, config.Path)
 }
 
 func gatherFromUser(config createConfig) (c createConfig, err error) {
@@ -174,11 +198,12 @@ func gatherFromUser(config createConfig) (c createConfig, err error) {
 	config.Internal = prompt.ForBool("Internal; no public route", config.Internal)
 	config.Registry = prompt.ForString("Image registry", config.Registry)
 	config.Namespace = prompt.ForString("Namespace at registry", config.Namespace)
-	config.Language = prompt.ForString("Language of source", config.Language)
+	config.Runtime = prompt.ForString("Runtime of source", config.Runtime)
+	config.Template = prompt.ForString("Function Template", config.Template)
 	return config, nil
 }
 
-// Prompting for Service Name with Default
+// Prompting for Name with Default
 // Early calclation of service function name is required to provide a sensible
 // default.  If the user did not provide a --name parameter or FAAS_NAME,
 // this funciton sets the default to the value that the client would have done
@@ -204,4 +229,16 @@ var confirmExp = regexp.MustCompile("(?i)y(?:es)?|1")
 
 func fromYN(s string) bool {
 	return confirmExp.MatchString(s)
+}
+
+func configPath() (path string) {
+	if path = os.Getenv("XDG_CONFIG_HOME"); path != "" {
+		return
+	}
+
+	path, err := homedir.Expand("~/.config")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "could not derive home directory for use as default templates path: %v", err)
+	}
+	return
 }

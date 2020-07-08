@@ -14,9 +14,9 @@ import (
 // NameMappings are short-name to repository full name mappings,
 // enabling shorthand `faas create go` rather than `faas create go-ce-functions`
 var StackShortNames = map[string]string{
-	"go":   "go-ce-functions",
-	"js":   "node-ce-functions",
-	"java": "quarkus-ce-functions",
+	"go":      "go-ce-functions",
+	"node":    "node-ce-functions",
+	"quarkus": "quarkus-ce-functions",
 }
 
 // Initializer of functions using the appsody binary.
@@ -30,8 +30,8 @@ func NewInitializer() *Initializer {
 	return &Initializer{}
 }
 
-// Initialize a new function of the given name, of the given language, at the given path.
-func (n *Initializer) Initialize(name, language, path string) error {
+// Initialize a new function of the given name, of the given runtime, at the given path.
+func (n *Initializer) Initialize(name, runtime, path string) error {
 	// Check for the appsody binary explicitly so that we can return
 	// an extra-friendly error message.
 	_, err := exec.LookPath("appsody")
@@ -49,14 +49,14 @@ func (n *Initializer) Initialize(name, language, path string) error {
 	}
 
 	// Dereference stack short name.  ex. "go" -> "go-ce-functions"
-	stackName, ok := StackShortNames[language]
+	stackName, ok := StackShortNames[runtime]
 	if !ok {
-		languages := []string{}
+		runtimes := []string{}
 		for k, _ := range StackShortNames {
-			languages = append(languages, k)
+			runtimes = append(runtimes, k)
 		}
 
-		return errors.New(fmt.Sprintf("Unrecognized lanugage '%v'.  Please choose one: %v.", language, strings.Join(languages, ", ")))
+		return errors.New(fmt.Sprintf("Unrecognized runtime '%v'.  Please choose one: %v.", runtime, strings.Join(runtimes, ", ")))
 	}
 
 	// set up the command, specifying a sanitized project name and connecting

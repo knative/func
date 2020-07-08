@@ -1,1 +1,3 @@
 /faas
+/templates/go/events/go.sum
+/templates/go/http/go.sum

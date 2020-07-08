@@ -2,13 +2,14 @@ package cmd
 
 import (
 	"encoding/json"
+	"os"
+	"os/user"
+	"path"
+
 	"github.com/boson-project/faas"
 	"github.com/boson-project/faas/appsody"
 	"github.com/boson-project/faas/knative"
 	"github.com/spf13/cobra"
-	"os"
-	"os/user"
-	"path"
 )
 
 func CompleteFunctionList(cmd *cobra.Command, args []string, toComplete string) (strings []string, directive cobra.ShellCompDirective) {
@@ -26,7 +27,7 @@ func CompleteFunctionList(cmd *cobra.Command, args []string, toComplete string) 
 	directive = cobra.ShellCompDirectiveDefault
 	return
 }
-func CompleteLanguageList(cmd *cobra.Command, args []string, toComplete string) (strings []string, directive cobra.ShellCompDirective) {
+func CompleteRuntimeList(cmd *cobra.Command, args []string, toComplete string) (strings []string, directive cobra.ShellCompDirective) {
 	strings = make([]string, 0, len(appsody.StackShortNames))
 	for lang, _ := range appsody.StackShortNames {
 		strings = append(strings, lang)

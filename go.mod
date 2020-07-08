@@ -9,7 +9,8 @@ require (
 	github.com/buildpacks/pack v0.11.0
 	github.com/golang/mock v1.4.3 // indirect
 	github.com/google/go-containerregistry v0.0.0-20200423114255-8f808463544c // indirect
-	github.com/onsi/gomega v1.10.1 // indirect
+	github.com/markbates/pkger v0.17.0
+	github.com/mitchellh/go-homedir v1.1.0
 	github.com/openzipkin/zipkin-go v0.2.2 // indirect
 	github.com/ory/viper v1.7.4
 	github.com/robfig/cron v1.2.0 // indirect
