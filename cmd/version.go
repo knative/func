@@ -23,15 +23,13 @@ func version(cmd *cobra.Command, args []string) {
 // Populated at build time by `make build`, plumbed through
 // main using SetMeta()
 var (
-	brch string // the branch built from
 	date string // datestamp
 	vers string // verstionof git commit or `tip`
 	hash string // git hash built from
 )
 
 // SetMeta from the build process, used for verbose version tagging.
-func SetMeta(buildBranch, buildTimestamp, commitVersionTag, commitHash string) {
-	brch = buildBranch
+func SetMeta(buildTimestamp, commitVersionTag, commitHash string) {
 	date = buildTimestamp
 	vers = commitVersionTag
 	hash = commitHash
@@ -44,5 +42,5 @@ func verboseVersion() string {
 	if vers == "" { // not statically populatd
 		return "v0.0.0-source"
 	}
-	return fmt.Sprintf("%s-%s-%s-%s", brch, date, vers, hash)
+	return fmt.Sprintf("%s-%s-%s", date, vers, hash)
 }

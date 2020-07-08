@@ -6,9 +6,9 @@ import (
 
 // Statically-populated build metadata set
 // by `make build`.
-var brch, date, vers, hash string
+var date, vers, hash string
 
 func main() {
-	cmd.SetMeta(brch, date, vers, hash)
+	cmd.SetMeta(date, vers, hash)
 	cmd.Execute()
 }
