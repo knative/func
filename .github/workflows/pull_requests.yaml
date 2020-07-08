@@ -1,0 +1,15 @@
+# Build and test all pull requests
+name: Pull Requests
+
+on: [pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+      - name: Test
+        run:  make test
+      - name: Build
+        run:  make build

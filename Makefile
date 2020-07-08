@@ -9,6 +9,7 @@ VTAG := $(shell git tag --points-at HEAD)
 VERS := $(shell [ -z $(VTAG) ] && echo 'tip' || echo $(VTAG) )
 
 all: $(BIN)
+build: all
 
 $(BIN): $(CODE)
 	go build -ldflags "-X main.brch=$(BRCH) -X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)" ./cmd/$(BIN)

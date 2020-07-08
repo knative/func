@@ -1,25 +1,21 @@
 # faas
 
+![Main Build Status](https://github.com/boson-project/faas/workflows/Build/badge.svg?branch=main)
+
+![Development Build Status](https://github.com/boson-project/faas/workflows/Build/badge.svg?branch=develop)
+
 Function as a Service CLI
 
 ## Setup and Configuration
 
 With Go 1.13+ installed, build and install the binary to your path:
 ```
-go install
+go install ./cmd/faas
 ```
 
-Install dependent binaries:
+Install Docker
 
-* `appsody` https://appsody.dev/docs/installing/installing-appsody
-* `kn`  https://github.com/knative/client/releases
-* `kubectl` https://kubernetes.io/docs/tasks/tools/install-kubectl/
 * `docker` https://docs.docker.com/get-docker/
-
-Configure Boson appsody stack repository:
-```
-appsody repo add boson https://github.com/boson-project/stacks/releases/latest/download/boson-index.yaml
-```
 
 Configure Image repository:
 

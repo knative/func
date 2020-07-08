@@ -1,0 +1,30 @@
+# Deploy artifacts for any pushes with a version tag (releases).
+name: Releases
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+      - name: Test
+        run:  make test
+      - name: Build
+        run:  make build
+      - name: Image
+        run:  make image
+      - name: Push Image
+        env:
+          USER: ${{ secrets.QUAY_USERNAME }}
+          PASS: ${{ secrets.QUAY_PASSWORD }}
+        run: docker login -u "$USER" -p "$PASS" quay.io && make push
+
+        # TODO: make release
+        # - build cross-platform binaries
+        # - create a release with assets
