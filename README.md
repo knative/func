@@ -1,8 +1,9 @@
 # faas
 
-![Main Build Status](https://github.com/boson-project/faas/workflows/Build/badge.svg?branch=main&label=main)
-
+![Main Build Status](https://github.com/boson-project/faas/workflows/Build/badge.svg?branch=main&label=main) 
 ![Development Build Status](https://github.com/boson-project/faas/workflows/Build/badge.svg?branch=develop&label=develop)
+![Go Report Card](https://goreportcard.com/badge/github.com/boson-project/faas)
+
 
 Function as a Service CLI
 
