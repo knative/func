@@ -4,7 +4,7 @@
 [![Develop Build Status](https://github.com/boson-project/faas/workflows/Develop/badge.svg?branch=develop&label=develop)](https://github.com/boson-project/faas/actions?query=workflow%3ADevelop+branch%3Adevelop)
 [![Documentation](https://godoc.org/github.com/boson-project/faas?status.svg)](http://godoc.org/github.com/boson-project/faas)
 [![GitHub Issues](https://img.shields.io/github/issues/boson-project/faas.svg)](https://github.com/boson-project/faas/issues)
-[![License](https://img.shields.io/github/license/boson-project/faas.svg?maxAge=2592000)](https://github.com/boson-project/faas/blob/main/LICENSE)
+[![License](https://img.shields.io/github/license/boson-project/faas)](https://github.com/boson-project/faas/blob/main/LICENSE)
 [![Release](https://img.shields.io/github/release/boson-project/faas.svg?label=Release)](https://github.com/boson-project/faas/releases)
 
 
