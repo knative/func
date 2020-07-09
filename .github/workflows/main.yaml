@@ -1,0 +1,25 @@
+# Build and test every push to the main branch.
+#
+# NOTE: Seprate workflows per Branch
+# The README contains a build status badge for each of the two primary branches
+# main and develop.  However, since the badge does not support unique labels
+# (though it does support `?branch`) it appears to the reader as a duplicate
+# status badge.  We therefore separate the workflows entirely such that they
+# have unique names:  'Main', 'Develop'
+name: Main
+
+on: 
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+      - name: Test
+        run:  make test
+      - name: Build
+        run:  make build
