@@ -1,0 +1,21 @@
+{
+  "name": "http-handler",
+  "version": "0.1.0",
+  "description": "A function which responds to HTTP requests",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test/unit.js && node test/integration.js",
+    "local": "node local.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "@redhat/faas-js-runtime": "boson-project/faas-js-runtime",
+    "supertest": "^4.0.2",
+    "tape": "^5.0.1"
+  },
+  "dependencies": {
+    "death": "^1.1.0"
+  }
+}

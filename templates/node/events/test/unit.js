@@ -5,7 +5,7 @@ const test = require('tape');
 const cloudevents = require('cloudevents-sdk/v1');
 
 // Ensure that the function completes cleanly when passed a valid event.
-test('Unit: andles a valid event', t => {
+test('Unit: handles a valid event', t => {
   t.plan(1);
   // A valid event includes id, type and source at a minimum.
   const cloudevent = cloudevents.event()
