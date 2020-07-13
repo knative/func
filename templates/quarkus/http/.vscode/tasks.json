@@ -1,0 +1,47 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Appsody: run",
+            "type": "shell",
+            "command": "appsody run",
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Appsody: debug",
+            "type": "shell",
+            "command": "appsody debug",
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Appsody: test",
+            "type": "shell",
+            "command": "appsody test",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "Appsody: build",
+            "type": "shell",
+            "command": "appsody build",
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Appsody: deploy",
+            "type": "shell",
+            "command": "appsody deploy",
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Appsody: stop",
+            "type": "shell",
+            "command": "appsody stop",
+            "group": "build",
+            "problemMatcher": []
+        }
+    ]
+}
