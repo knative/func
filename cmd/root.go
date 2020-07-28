@@ -19,7 +19,6 @@ var (
 var root = &cobra.Command{
 	Use:           "faas",
 	Short:         "Function as a Service",
-	Version:       verboseVersion(),
 	SilenceErrors: true, // we explicitly handle errors in Execute()
 	SilenceUsage:  true, // no usage dump on error
 	Long: `Function as a Service
@@ -55,6 +54,9 @@ func init() {
 // according to the context defined by:  the optional config file,
 // Environment Variables, command arguments and flags.
 func Execute() {
+	// Sets version to a string partially populated by compile-time flags.
+	root.Version = verboseVersion()
+
 	// Execute the root of the command tree.
 	if err := root.Execute(); err != nil {
 		// Errors are printed to STDERR output and the process exits with code of 1.
