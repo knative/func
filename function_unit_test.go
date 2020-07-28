@@ -23,50 +23,50 @@ func TestPathToDomain(t *testing.T) {
 		{"", noLimit, ""},
 
 		// trailing slashes ignored
-		{"/home/user/example.com/admin/", noLimit, "admin.example.com"},
+		{"/home" + string(os.PathSeparator) + "user" + string(os.PathSeparator) + "example.com" + string(os.PathSeparator) + "admin/", noLimit, "admin.example.com"},
 
 		// root path should not find a domain.
 		{"/", noLimit, ""},
 
 		// valid path but without a domain should find no domain.
-		{"/home/user", noLimit, ""},
+		{"/home" + string(os.PathSeparator) + "user", noLimit, ""},
 
 		// valid domain as the current directory should be found.
-		{"/home/user/example.com", noLimit, "example.com"},
+		{"/home" + string(os.PathSeparator) + "user" + string(os.PathSeparator) + "example.com", noLimit, "example.com"},
 
 		// valid domain as the current directory should be found even with recursion disabled.
-		{"/home/user/example.com", 0, "example.com"},
+		{"/home" + string(os.PathSeparator) + "user" + string(os.PathSeparator) + "example.com", 0, "example.com"},
 
 		// Subdomain
-		{"/src/example.com/www", noLimit, "www.example.com"},
+		{"/src" + string(os.PathSeparator) + "example.com" + string(os.PathSeparator) + "www", noLimit, "www.example.com"},
 
 		// Subdomain with recursion disabled should not find the domain.
-		{"/src/example.com/www", 0, ""},
+		{"/src" + string(os.PathSeparator) + "example.com" + string(os.PathSeparator) + "www", 0, ""},
 
 		// Sub-subdomain
-		{"/src/example.com/www/test1", noLimit, "test1.www.example.com"},
+		{"/src" + string(os.PathSeparator) + "example.com" + string(os.PathSeparator) + "www" + string(os.PathSeparator) + "test1", noLimit, "test1.www.example.com"},
 
 		// Sub-subdomain with exact recursion limit to catch the domain
-		{"/src/example.com/www/test1", 2, "test1.www.example.com"},
+		{"/src" + string(os.PathSeparator) + "example.com" + string(os.PathSeparator) + "www" + string(os.PathSeparator) + "test1", 2, "test1.www.example.com"},
 
 		// CWD a valid TLD+1 (not suggested, but supported)
-		{"/src/my.example.com", noLimit, "my.example.com"},
+		{"/src" + string(os.PathSeparator) + "my.example.com", noLimit, "my.example.com"},
 
 		// Multi-level TLDs
-		{"/src/example.co.uk", noLimit, "example.co.uk"},
+		{"/src" + string(os.PathSeparator) + "example.co.uk", noLimit, "example.co.uk"},
 
 		// Multi-level TLDs with sub
-		{"/src/example.co.uk/www", noLimit, "www.example.co.uk"},
+		{"/src" + string(os.PathSeparator) + "example.co.uk" + string(os.PathSeparator) + "www", noLimit, "www.example.co.uk"},
 
 		// Expected behavior is `test1.my.example.com` but will yield `test1.my`
 		// because .my is a TLD hence the reason why dots in directories to denote
 		// multiple levels of subdomain are technically supported but not
 		// recommended: unexpected behavior because the public suffices list is
 		// shifty.
-		{"/src/example.com/test1.my", noLimit, "test1.my"},
+		{"/src" + string(os.PathSeparator) + "example.com" + string(os.PathSeparator) + "test1.my", noLimit, "test1.my"},
 
 		// Ensure that cluster.local is explicitly allowed.
-		{"/src/cluster.local/www", noLimit, "www.cluster.local"},
+		{"/src" + string(os.PathSeparator) + "cluster.local" + string(os.PathSeparator) + "www", noLimit, "www.cluster.local"},
 	}
 
 	for _, test := range tests {
@@ -83,7 +83,7 @@ func TestPathToDomain(t *testing.T) {
 // - a directory with a valid config has it applied.
 func TestApplyConfig(t *testing.T) {
 	// Create a temporary directory
-	root := "./testdata/example.com/cfgtest"
+	root := "." + string(os.PathSeparator) + "testdata" + string(os.PathSeparator) + "example.com" + string(os.PathSeparator) + "cfgtest"
 	cfgFile := filepath.Join(root, ConfigFileName)
 	os.MkdirAll(root, 0700)
 	defer os.RemoveAll(root)
