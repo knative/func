@@ -26,6 +26,12 @@ push: image
 	docker push $(REPO):$(HASH)
 	docker push $(REPO):$(DATE)-$(VERS)-$(HASH)
 
+release: build test
+	go get -u github.com/git-chglog/git-chglog/cmd/git-chglog
+	git-chglog --next-tag $(VTAG) -o CHANGELOG.md
+	git commit -am "release: $(VTAG)"
+	git tag $(VTAG)
+
 clean:
 	-@rm -f $(BIN)
 	-@rm -f coverage.out
