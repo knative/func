@@ -23,7 +23,9 @@ jobs:
         env:
           USER: ${{ secrets.QUAY_USERNAME }}
           PASS: ${{ secrets.QUAY_PASSWORD }}
-        run: docker login -u "$USER" -p "$PASS" quay.io && make push
+        run: |
+          docker login -u "$USER" -p "$PASS" quay.io 
+          make push && make latest
       - name: Compress Release Binary
         run: gzip ./faas
       - name: Create Release

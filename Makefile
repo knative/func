@@ -17,20 +17,26 @@ test:
 	go test -cover -coverprofile=coverage.out ./...
 
 image: Dockerfile
-	docker build -t $(REPO):$(VERS) \
+	docker build -t $(REPO):latest  \
+	             -t $(REPO):$(VERS) \
 	             -t $(REPO):$(HASH) \
 	             -t $(REPO):$(DATE)-$(VERS)-$(HASH) .
-
-push: image
-	docker push $(REPO):$(VERS)
-	docker push $(REPO):$(HASH)
-	docker push $(REPO):$(DATE)-$(VERS)-$(HASH)
 
 release: build test
 	go get -u github.com/git-chglog/git-chglog/cmd/git-chglog
 	git-chglog --next-tag $(VTAG) -o CHANGELOG.md
 	git commit -am "release: $(VTAG)"
 	git tag $(VTAG)
+
+push: image
+	docker push $(REPO):$(VERS)
+	docker push $(REPO):$(HASH)
+	docker push $(REPO):$(DATE)-$(VERS)-$(HASH)
+
+latest:
+	# push the local 'latest' tag as the new public latest version
+	# (run by CI only for releases)
+	docker push $(REPO):latest
 
 clean:
 	-@rm -f $(BIN)
