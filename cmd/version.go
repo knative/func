@@ -42,5 +42,5 @@ func verboseVersion() string {
 	if vers == "" { // not statically populatd
 		return "v0.0.0-source"
 	}
-	return fmt.Sprintf("%s-%s-%s", date, vers, hash)
+	return fmt.Sprintf("%s-%s-%s", vers, date, hash)
 }
