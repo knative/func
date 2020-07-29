@@ -1,4 +1,5 @@
 /faas
+/faas_*
 /templates/go/events/go.sum
 /templates/go/http/go.sum
 node_modules

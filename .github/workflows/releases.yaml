@@ -16,7 +16,7 @@ jobs:
       - name: Test
         run:  make test
       - name: Build
-        run:  make build
+        run:  make cross-platform
       - name: Image
         run:  make image
       - name: Push Image
@@ -26,8 +26,8 @@ jobs:
         run: |
           docker login -u "$USER" -p "$PASS" quay.io 
           make push && make latest
-      - name: Compress Release Binary
-        run: gzip ./faas
+      - name: Compress Binaries
+        run: gzip faas_darwin_amd64 faas_linux_amd64 faas_windows_amd64.exe
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -38,15 +38,30 @@ jobs:
           release_name: Release ${{ github.ref }}
           draft: false
           prerelease: false
-      - name: Upload Release Binary
+      - name: Upload Darwin Binary
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./faas.gz
-          asset_name: faas.gz
+          asset_path: ./faas_darwin_amd64.gz
+          asset_name: faas_darwin_amd64.gz
           asset_content_type: application/x-gzip
-
-        # TODO:
-        # - build cross-platform binaries (make release)
+      - name: Upload Linux Binary
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./faas_linux_amd64.gz
+          asset_name: faas_linux_amd64.gz
+          asset_content_type: application/x-gzip
+      - name: Upload Windows Binary
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./faas_windows_amd64.exe.gz
+          asset_name: faas_windows_amd64.exe.gz
+          asset_content_type: application/x-gzip
