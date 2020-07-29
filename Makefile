@@ -26,13 +26,13 @@ $(BIN): $(CODE)  ## Build using environment defaults
 	go build -ldflags "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)" ./cmd/$(BIN)
 
 $(DARWIN):
-	env GOOS=darwin GOARCH=amd64 go build -v -o $(DARWIN) -ldflags "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)" ./cmd/$(BIN)
+	env GOOS=darwin GOARCH=amd64 go build -o $(DARWIN) -ldflags "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)" ./cmd/$(BIN)
 
 $(LINUX):
-	env GOOS=linux GOARCH=amd64 go build -v -o $(LINUX) -ldflags "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)" ./cmd/$(BIN)
+	env GOOS=linux GOARCH=amd64 go build -o $(LINUX) -ldflags "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)" ./cmd/$(BIN)
 
 $(WINDOWS):
-	env GOOS=windows GOARCH=amd64 go build -v -o $(WINDOWS) -ldflags "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)" ./cmd/$(BIN)
+	env GOOS=windows GOARCH=amd64 go build -o $(WINDOWS) -ldflags "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)" ./cmd/$(BIN)
 
 test:
 	go test -cover -coverprofile=coverage.out ./...
@@ -42,12 +42,6 @@ image: Dockerfile
 	             -t $(REPO):$(VERS) \
 	             -t $(REPO):$(HASH) \
 	             -t $(REPO):$(DATE)-$(VERS)-$(HASH) .
-
-release: build test
-	go get -u github.com/git-chglog/git-chglog/cmd/git-chglog
-	git-chglog --next-tag $(VTAG) -o CHANGELOG.md
-	git commit -am "release: $(VTAG)"
-	git tag $(VTAG)
 
 push: image
 	docker push $(REPO):$(VERS)
@@ -64,6 +58,12 @@ bin/golangci-lint:
 
 check: bin/golangci-lint
 	./bin/golangci-lint run --enable=unconvert,prealloc,bodyclose
+
+release: build test
+	go get -u github.com/git-chglog/git-chglog/cmd/git-chglog
+	git-chglog --next-tag $(VTAG) -o CHANGELOG.md
+	git commit -am "release: $(VTAG)"
+	git tag $(VTAG)
 
 clean:
 	rm -f $(WINDOWS) $(LINUX) $(DARWIN)
