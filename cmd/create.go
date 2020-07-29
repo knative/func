@@ -3,13 +3,11 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
-	"regexp"
-
 	"github.com/mitchellh/go-homedir"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
+	"os"
+	"path/filepath"
 
 	"github.com/boson-project/faas"
 	"github.com/boson-project/faas/buildpacks"
@@ -30,7 +28,10 @@ func init() {
 	createCmd.Flags().StringP("namespace", "s", "", "namespace at image registry (usually username or org name). $FAAS_NAMESPACE")
 	createCmd.Flags().StringP("template", "t", embedded.DefaultTemplate, "Function template (ex: 'http','events'). $FAAS_TEMPLATE")
 	createCmd.Flags().StringP("templates", "", filepath.Join(configPath(), "faas", "templates"), "Extensible templates path. $FAAS_TEMPLATES")
-	createCmd.RegisterFlagCompletionFunc("registry", CompleteRegistryList)
+	err := createCmd.RegisterFlagCompletionFunc("registry", CompleteRegistryList)
+	if err != nil {
+		fmt.Println("Error while calling RegisterFlagCompletionFunc: ", err)
+	}
 }
 
 // The create command invokes the Funciton Client to create a new,
@@ -44,13 +45,13 @@ var createCmd = &cobra.Command{
 	Args:              cobra.ExactArgs(1),
 	RunE:              create,
 	PreRun: func(cmd *cobra.Command, args []string) {
-		viper.BindPFlag("local", cmd.Flags().Lookup("local"))
-		viper.BindPFlag("internal", cmd.Flags().Lookup("internal"))
-		viper.BindPFlag("name", cmd.Flags().Lookup("name"))
-		viper.BindPFlag("registry", cmd.Flags().Lookup("registry"))
-		viper.BindPFlag("namespace", cmd.Flags().Lookup("namespace"))
-		viper.BindPFlag("template", cmd.Flags().Lookup("template"))
-		viper.BindPFlag("templates", cmd.Flags().Lookup("templates"))
+		flags := []string{"local", "internal", "name", "registry", "namespace", "template", "templates"}
+		for _, f := range flags {
+			err := viper.BindPFlag(f, cmd.Flags().Lookup(f))
+			if err != nil {
+				panic(err)
+			}
+		}
 	},
 }
 
@@ -222,13 +223,6 @@ func promptForName(label string, config createConfig) (string, error) {
 
 	// The user provided a --name or FAAS_NAME; just confirm it.
 	return prompt.ForString("Name of service function", config.Name, prompt.WithRequired(true)), nil
-}
-
-// acceptable answers: y,yes,Y,YES,1
-var confirmExp = regexp.MustCompile("(?i)y(?:es)?|1")
-
-func fromYN(s string) bool {
-	return confirmExp.MatchString(s)
 }
 
 func configPath() (path string) {

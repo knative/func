@@ -52,11 +52,11 @@ func (n *Initializer) Initialize(name, runtime, path string) error {
 	stackName, ok := StackShortNames[runtime]
 	if !ok {
 		runtimes := []string{}
-		for k, _ := range StackShortNames {
+		for k := range StackShortNames {
 			runtimes = append(runtimes, k)
 		}
 
-		return errors.New(fmt.Sprintf("Unrecognized runtime '%v'.  Please choose one: %v.", runtime, strings.Join(runtimes, ", ")))
+		return fmt.Errorf("Unrecognized runtime '%v'.  Please choose one: %v.", runtime, strings.Join(runtimes, ", "))
 	}
 
 	// set up the command, specifying a sanitized project name and connecting
@@ -78,7 +78,7 @@ func (n *Initializer) Initialize(name, runtime, path string) error {
 	err = cmd.Run()
 	if err != nil {
 		// TODO: sanitize stderr from appsody, or submit a PR to remove duplicates etc.
-		err = errors.New(fmt.Sprintf("%v. %v", string(stderr.Bytes()), err.Error()))
+		err = fmt.Errorf("%v. %v", stderr.String(), err.Error())
 	}
 	return err
 }

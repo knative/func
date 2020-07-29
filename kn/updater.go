@@ -57,7 +57,7 @@ func (d *Updater) Update(name, image string) (err error) {
 	// Run the command, echoing captured stderr as well ass the cmd internal error.
 	if err = cmd.Run(); err != nil {
 		// TODO: sanitize stderr from appsody, or submit a PR to remove duplicates etc.
-		return errors.New(fmt.Sprintf("%v. %v", string(stderr.Bytes()), err.Error()))
+		return fmt.Errorf("%v. %v", stderr.String(), err.Error())
 	}
 
 	// TODO: explicitly pull address:

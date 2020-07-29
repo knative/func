@@ -21,9 +21,15 @@ func init() {
 
 	describeCmd.Flags().StringP("name", "n", "", "optionally specify an explicit name for the serive, overriding path-derivation. $FAAS_NAME")
 
-	describeCmd.RegisterFlagCompletionFunc("name", CompleteFunctionList)
+	err := describeCmd.RegisterFlagCompletionFunc("name", CompleteFunctionList)
+	if err != nil {
+		fmt.Println("Error while calling RegisterFlagCompletionFunc: ", err)
+	}
 
-	describeCmd.RegisterFlagCompletionFunc("output", CompleteOutputFormatList)
+	err = describeCmd.RegisterFlagCompletionFunc("output", CompleteOutputFormatList)
+	if err != nil {
+		fmt.Println("Error while calling RegisterFlagCompletionFunc: ", err)
+	}
 }
 
 var describeCmd = &cobra.Command{
@@ -35,8 +41,14 @@ var describeCmd = &cobra.Command{
 	Args:              cobra.ExactArgs(1),
 	RunE:              describe,
 	PreRun: func(cmd *cobra.Command, args []string) {
-		viper.BindPFlag("output", cmd.Flags().Lookup("output"))
-		viper.BindPFlag("name", cmd.Flags().Lookup("name"))
+		err := viper.BindPFlag("output", cmd.Flags().Lookup("output"))
+		if err != nil {
+			panic(err)
+		}
+		err = viper.BindPFlag("name", cmd.Flags().Lookup("name"))
+		if err != nil {
+			panic(err)
+		}
 	},
 }
 

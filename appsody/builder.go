@@ -61,7 +61,8 @@ func (n *Builder) Build(name, runtime, path string) (image string, err error) {
 	err = cmd.Run()
 	if err != nil {
 		// TODO: sanitize stderr from appsody, or submit a PR to remove duplicates etc.
-		err = errors.New(fmt.Sprintf("%v. %v", string(stderr.Bytes()), err.Error()))
+		err = fmt.Errorf("%v. %v", stderr.String(), err.Error())
+		return
 	}
 
 	// remove the superfluous app-deploy.yaml
@@ -69,7 +70,7 @@ func (n *Builder) Build(name, runtime, path string) (image string, err error) {
 	if _, err = os.Stat(cfg); err == nil {
 		err = os.Remove(cfg)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, fmt.Sprintf("unable to remove superfluous appsody config: %v\n", err))
+			fmt.Fprintf(os.Stderr,"unable to remove superfluous appsody config: %v\n", err)
 		}
 	}
 	return

@@ -58,6 +58,12 @@ latest:
 	# (run by CI only for releases)
 	docker push $(REPO):latest
 
+bin/golangci-lint:
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./bin v1.27.0
+
+check: bin/golangci-lint
+	./bin/golangci-lint run --enable=unconvert,prealloc,bodyclose
+
 clean:
 	rm -f $(WINDOWS) $(LINUX) $(DARWIN)
 	-@rm -f coverage.out

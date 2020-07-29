@@ -15,8 +15,6 @@ type Function struct {
 	root    string
 	runtime string // will be empty unless initialized/until initialized
 	name    string // will be empty unless initialized/until initialized.
-
-	initializer Initializer
 }
 
 func NewFunction(root string) (f *Function, err error) {
@@ -55,7 +53,7 @@ func (f *Function) Initialize(runtime, context, name string, domainSearchLimit i
 	if err != nil {
 		return
 	} else if len(files) > 0 {
-		return errors.New(fmt.Sprintf("The chosen directory '%v' contains contentious files: %v.  Has the Service Function already been created?  Try either using a different directory, deleting the service function if it exists, or manually removing the files.", f.root, files))
+		return fmt.Errorf("The chosen directory '%v' contains contentious files: %v.  Has the Service Function already been created?  Try either using a different directory, deleting the service function if it exists, or manually removing the files.", f.root, files)
 	}
 
 	// Ensure there are no non-hidden files, and again none of the aforementioned contentious files.

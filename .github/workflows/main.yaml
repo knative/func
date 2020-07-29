@@ -23,3 +23,5 @@ jobs:
         run:  make test
       - name: Build
         run:  make build
+      - name: Lint
+        run: make check

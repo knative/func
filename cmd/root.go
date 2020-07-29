@@ -40,7 +40,10 @@ func init() {
 	// which thus overrides both the default and the value read in from the
 	// config file (i.e. flags always take highest precidence).
 	root.PersistentFlags().BoolVarP(&verbose, "verbose", "v", verbose, "print verbose logs")
-	viper.BindPFlag("verbose", root.PersistentFlags().Lookup("verbose"))
+	err := viper.BindPFlag("verbose", root.PersistentFlags().Lookup("verbose"))
+	if err != nil {
+		panic(err)
+	}
 
 	// Override the --version template to match the output format from the
 	// version subcommand: nothing but the version.

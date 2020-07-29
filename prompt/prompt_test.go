@@ -18,8 +18,8 @@ func TestForStringLabel(t *testing.T) {
 	// Empty label
 	_ = prompt.ForString("", "",
 		prompt.WithInput(&in), prompt.WithOutput(&out))
-	if string(out.Bytes()) != ": " {
-		t.Fatalf("expected output to be ': ', got '%v'\n", string(out.Bytes()))
+	if out.String() != ": " {
+		t.Fatalf("expected output to be ': ', got '%v'\n", out.String())
 	}
 
 	out.Reset()
@@ -30,8 +30,8 @@ func TestForStringLabel(t *testing.T) {
 	// Populated lable
 	_ = prompt.ForString("Name", "",
 		prompt.WithInput(&in), prompt.WithOutput(&out))
-	if string(out.Bytes()) != "Name: " {
-		t.Fatalf("expected 'Name', got '%v'\n", string(out.Bytes()))
+	if out.String() != "Name: " {
+		t.Fatalf("expected 'Name', got '%v'\n", out.String())
 	}
 }
 
@@ -45,8 +45,8 @@ func TestForStringLabelDefault(t *testing.T) {
 	// No lablel but a default
 	_ = prompt.ForString("", "Alice",
 		prompt.WithInput(&in), prompt.WithOutput(&out))
-	if string(out.Bytes()) != "(Alice): " {
-		t.Fatalf("expected '(Alice): ', got '%v'\n", string(out.Bytes()))
+	if out.String() != "(Alice): " {
+		t.Fatalf("expected '(Alice): ', got '%v'\n", out.String())
 	}
 
 	out.Reset()
@@ -56,8 +56,8 @@ func TestForStringLabelDefault(t *testing.T) {
 	// Label with default
 	_ = prompt.ForString("Name", "Alice",
 		prompt.WithInput(&in), prompt.WithOutput(&out))
-	if string(out.Bytes()) != "Name (Alice): " {
-		t.Fatalf("expected 'Name (Alice): ', got '%v'\n", string(out.Bytes()))
+	if out.String()!= "Name (Alice): " {
+		t.Fatalf("expected 'Name (Alice): ', got '%v'\n", out.String())
 	}
 }
 
@@ -71,8 +71,8 @@ func TestWithDelimiter(t *testing.T) {
 		prompt.WithInput(&in),
 		prompt.WithOutput(&out),
 		prompt.WithDelimiter("Δ"))
-	if string(out.Bytes()) != "Δ" {
-		t.Fatalf("expected output to be 'Δ', got '%v'\n", string(out.Bytes()))
+	if out.String() != "Δ" {
+		t.Fatalf("expected output to be 'Δ', got '%v'\n", out.String())
 	}
 }
 
@@ -119,7 +119,7 @@ func TestForStringRequired(t *testing.T) {
 		prompt.WithRequired(true),
 		prompt.WithRetryLimit(1)) // makes the output buffer easier to confirm
 
-	output := string(out.Bytes())
+	output := out.String()
 	expected := ": \nplease enter a value\n: "
 	if output != expected {
 		t.Fatalf("Unexpected prompt received for a required value. expected '%v', got '%v'", expected, output)
@@ -150,8 +150,8 @@ func TestForBoolLabel(t *testing.T) {
 	// Empty label, default false
 	_ = prompt.ForBool("", false,
 		prompt.WithInput(&in), prompt.WithOutput(&out))
-	if string(out.Bytes()) != "(y/N): " {
-		t.Fatalf("expected output to be '(y/N): ', got '%v'\n", string(out.Bytes()))
+	if out.String() != "(y/N): " {
+		t.Fatalf("expected output to be '(y/N): ', got '%v'\n", out.String())
 	}
 
 	out.Reset()
@@ -162,8 +162,8 @@ func TestForBoolLabel(t *testing.T) {
 	// Empty label, default true
 	_ = prompt.ForBool("", true,
 		prompt.WithInput(&in), prompt.WithOutput(&out))
-	if string(out.Bytes()) != "(Y/n): " {
-		t.Fatalf("expected output to be '(Y/n): ', got '%v'\n", string(out.Bytes()))
+	if out.String() != "(Y/n): " {
+		t.Fatalf("expected output to be '(Y/n): ', got '%v'\n", out.String())
 	}
 
 	out.Reset()
@@ -174,8 +174,8 @@ func TestForBoolLabel(t *testing.T) {
 	// Populated lablel default false
 	_ = prompt.ForBool("Local", false,
 		prompt.WithInput(&in), prompt.WithOutput(&out))
-	if string(out.Bytes()) != "Local (y/N): " {
-		t.Fatalf("expected 'Local (y/N): ', got '%v'\n", string(out.Bytes()))
+	if out.String() != "Local (y/N): " {
+		t.Fatalf("expected 'Local (y/N): ', got '%v'\n", out.String())
 	}
 }
 

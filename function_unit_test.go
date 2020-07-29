@@ -1,6 +1,7 @@
 package faas
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -85,7 +86,11 @@ func TestApplyConfig(t *testing.T) {
 	// Create a temporary directory
 	root := "./testdata/example.com/cfgtest"
 	cfgFile := filepath.Join(root, ConfigFileName)
-	os.MkdirAll(root, 0700)
+	err := os.MkdirAll(root, 0700)
+	if err != nil {
+		fmt.Println("Error on TestApplyConfig: ", err)
+		return
+	}
 	defer os.RemoveAll(root)
 
 	c := Function{name: "staticDefault"}

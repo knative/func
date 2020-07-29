@@ -1,7 +1,6 @@
 package mock
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 )
@@ -22,7 +21,7 @@ func NewInitializer() *Initializer {
 func (i *Initializer) Initialize(runtime, template, path string) error {
 	i.InitializeInvoked = true
 	if !i.supportsRuntime(runtime) {
-		return errors.New(fmt.Sprintf("unsupported runtime '%v'", runtime))
+		return fmt.Errorf("unsupported runtime '%v'", runtime)
 	}
 	return i.InitializeFn(runtime, template, path)
 }

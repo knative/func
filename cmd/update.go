@@ -17,7 +17,10 @@ func init() {
 	root.AddCommand(updateCmd)
 	updateCmd.Flags().StringP("registry", "r", "quay.io", "image registry (ex: quay.io). $FAAS_REGISTRY")
 	updateCmd.Flags().StringP("namespace", "s", "", "namespace at image registry (usually username or org name). $FAAS_NAMESPACE")
-	updateCmd.RegisterFlagCompletionFunc("registry", CompleteRegistryList)
+	err := updateCmd.RegisterFlagCompletionFunc("registry", CompleteRegistryList)
+	if err != nil {
+		fmt.Println("Error while calling RegisterFlagCompletionFunc: ", err)
+	}
 }
 
 var updateCmd = &cobra.Command{
@@ -27,8 +30,14 @@ var updateCmd = &cobra.Command{
 	SuggestFor: []string{"push", "deploy"},
 	RunE:       update,
 	PreRun: func(cmd *cobra.Command, args []string) {
-		viper.BindPFlag("registry", cmd.Flags().Lookup("registry"))
-		viper.BindPFlag("namespace", cmd.Flags().Lookup("namespace"))
+		err := viper.BindPFlag("registry", cmd.Flags().Lookup("registry"))
+		if err != nil {
+			panic(err)
+		}
+		err = viper.BindPFlag("namespace", cmd.Flags().Lookup("namespace"))
+		if err != nil {
+			panic(err)
+		}
 	},
 }
 
