@@ -35,8 +35,8 @@ source <(faas completion bash)
 			return errors.New("missing argument")
 		}
 		if args[0] == "bash" {
-			root.GenBashCompletion(os.Stdout)
-			return nil
+			err = root.GenBashCompletion(os.Stdout)
+			return err
 		}
 		if args[0] == "zsh" {
 			// manually edited script based on `root.GenZshCompletion(os.Stdout)`

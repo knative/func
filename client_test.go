@@ -1,7 +1,6 @@
 package faas_test
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -45,7 +44,10 @@ func TestCreate(t *testing.T) {
 
 	// Create the test function root
 	root := "testdata/example.com/admin"
-	os.MkdirAll(root, 0700)
+	err = os.MkdirAll(root, 0700)
+	if err != nil {
+		panic(err)
+	}
 	defer os.RemoveAll(root)
 
 	// A supported langauge should not error
@@ -61,7 +63,10 @@ func TestCreateUnderivableName(t *testing.T) {
 
 	// Create the test function root
 	root := "testdata/example.com/admin"
-	os.MkdirAll(root, 0700)
+	err := os.MkdirAll(root, 0700)
+	if err != nil {
+		panic(err)
+	}
 	defer os.RemoveAll(root)
 
 	// Instantiation without an explicit service name, but no derivable service
@@ -127,7 +132,10 @@ func TestCreateDelegates(t *testing.T) {
 	)
 
 	// Create the test function root
-	os.MkdirAll(root, 0700)
+	err := os.MkdirAll(root, 0700)
+	if err != nil {
+		panic(err)
+	}
 	defer os.RemoveAll(root)
 
 	client, err := faas.New(
@@ -166,7 +174,7 @@ func TestCreateDelegates(t *testing.T) {
 	// function code.  For this test, it is a name derived from the test path.
 	// An example image name is returned.
 	builder.BuildFn = func(name2, path2 string) (string, error) {
-		if name != name {
+		if name != name2 {
 			t.Fatalf("builder expected name %v, got '%v'", name, name2)
 		}
 		expectedPath, err := filepath.Abs(root)
@@ -242,11 +250,17 @@ func TestCreateLocal(t *testing.T) {
 	)
 
 	// Create the test function root
-	os.MkdirAll(root, 0700)
+	err := os.MkdirAll(root, 0700)
+	if err != nil {
+		panic(err)
+	}
 	defer os.RemoveAll(root)
 
 	// Create the test function root
-	os.MkdirAll(root, 0700)
+	err = os.MkdirAll(root, 0700)
+	if err != nil {
+		panic(err)
+	}
 	defer os.RemoveAll(root)
 
 	client, err := faas.New(
@@ -288,7 +302,10 @@ func TestCreateInternal(t *testing.T) {
 func TestCreateDomain(t *testing.T) {
 	// Create the test function root
 	root := "testdata/example.com/admin"
-	os.MkdirAll(root, 0700)
+	err := os.MkdirAll(root, 0700)
+	if err != nil {
+		panic(err)
+	}
 	defer os.RemoveAll(root)
 
 	// the mock dns provider does nothing but receive the caluclated
@@ -321,7 +338,10 @@ func TestCreateDomain(t *testing.T) {
 func TestCreateSubdomain(t *testing.T) {
 	// Create the test function root
 	root := "testdata/example.com/admin"
-	os.MkdirAll(root, 0700)
+	err := os.MkdirAll(root, 0700)
+	if err != nil {
+		panic(err)
+	}
 	defer os.RemoveAll(root)
 
 	dnsProvider := mock.NewDNSProvider()
@@ -397,7 +417,7 @@ func TestUpdate(t *testing.T) {
 	// function code.  For this test, it is a name derived from the test path.
 	// An example image name is returned.
 	builder.BuildFn = func(name2, path2 string) (string, error) {
-		if name != name {
+		if name != name2 {
 			t.Fatalf("builder expected name %v, got '%v'", name, name2)
 		}
 		// The final image name will be determined by the builder implementation,
@@ -485,12 +505,15 @@ func TestRemoveUninitializedFails(t *testing.T) {
 		root    = "testdata/example.com/admin"
 		remover = mock.NewRemover()
 	)
-	os.MkdirAll(root, 0700)
+	err := os.MkdirAll(root, 0700)
+	if err != nil {
+		panic(err)
+	}
 	defer os.RemoveAll(root)
 
 	// Create a remover delegate which fails if invoked.
 	remover.RemoveFn = func(name string) error {
-		return errors.New(fmt.Sprintf("remove invoked for unitialized function %v", name))
+		return fmt.Errorf("remove invoked for unitialized function %v", name)
 	}
 
 	// Instantiate the client with the failing remover.
@@ -549,7 +572,10 @@ func TestWithName(t *testing.T) {
 	// Path which would derive to service.groupA.example.com were it not for the
 	// explicitly provided name.
 	path := "testdata/example.com/groupA/service"
-	os.MkdirAll(path, 0700)
+	err := os.MkdirAll(path, 0700)
+	if err != nil {
+		panic(err)
+	}
 	defer os.RemoveAll(path)
 
 	initializer := mock.NewInitializer()

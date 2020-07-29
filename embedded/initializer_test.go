@@ -14,10 +14,13 @@ func TestInitialize(t *testing.T) {
 		testFile = "handle.go"
 		template = "http"
 	)
-	os.MkdirAll(path, 0744)
+	err := os.MkdirAll(path, 0744)
+	if err != nil {
+		panic(err)
+	}
 	defer os.RemoveAll(path)
 
-	err := NewInitializer("").Initialize("go", template, path)
+	err = NewInitializer("").Initialize("go", template, path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,10 +38,13 @@ func TestDefaultTemplate(t *testing.T) {
 		testFile = "handle.go"
 		template = ""
 	)
-	os.MkdirAll(path, 0744)
+	err := os.MkdirAll(path, 0744)
+	if err != nil {
+		panic(err)
+	}
 	defer os.RemoveAll(path)
 
-	err := NewInitializer("").Initialize("go", template, path)
+	err = NewInitializer("").Initialize("go", template, path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -64,11 +70,14 @@ func TestCustom(t *testing.T) {
 		template = "boson-experimental/json"
 		// repos    = "testdata/templates"
 	)
-	os.MkdirAll(path, 0744)
+	err := os.MkdirAll(path, 0744)
+	if err != nil {
+		panic(err)
+	}
 	defer os.RemoveAll(path)
 
 	// Unrecognized runtime/template should error
-	err := NewInitializer("").Initialize("go", template, path)
+	err = NewInitializer("").Initialize("go", template, path)
 	if err == nil {
 		t.Fatal("An unrecognized runtime/template should generate an error")
 	}
@@ -91,7 +100,10 @@ func TestCustom(t *testing.T) {
 // written with the same mode from whence they came
 func TestEmbeddedFileMode(t *testing.T) {
 	var path = "testdata/example.com/www"
-	os.MkdirAll(path, 0744)
+	err := os.MkdirAll(path, 0744)
+	if err != nil {
+		panic(err)
+	}
 	defer os.RemoveAll(path)
 
 	// Initialize a quarkus app from the embedded templates.
@@ -119,11 +131,14 @@ func TestFileMode(t *testing.T) {
 		path     = "testdata/example.com/www"
 		template = "boson-experimental/http"
 	)
-	os.MkdirAll(path, 0744)
+	err := os.MkdirAll(path, 0744)
+	if err != nil {
+		panic(err)
+	}
 	defer os.RemoveAll(path)
 
 	// Initialize a quarkus app from the custom repo in ./testdata
-	if err := NewInitializer("testdata/templates").Initialize("quarkus", template, path); err != nil {
+	if err = NewInitializer("testdata/templates").Initialize("quarkus", template, path); err != nil {
 		t.Fatal(err)
 	}
 

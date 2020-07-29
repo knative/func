@@ -343,7 +343,7 @@ func (c *Client) Update(root string) (err error) {
 
 	if !f.Initialized() {
 		// TODO: this needs a test.
-		return errors.New(fmt.Sprintf("the given path '%v' does not contain an initialized Function.  Please create one at this path before updating.", root))
+		return fmt.Errorf("the given path '%v' does not contain an initialized Function.  Please create one at this path before updating.", root)
 	}
 
 	// Build an image from the current state of the service function's implementation.
@@ -373,7 +373,7 @@ func (c *Client) Run(root string) error {
 
 	if !f.Initialized() {
 		// TODO: this needs a test.
-		return errors.New(fmt.Sprintf("the given path '%v' does not contain an initialized Function.  Please create one at this path in order to run.", root))
+		return fmt.Errorf("the given path '%v' does not contain an initialized Function.  Please create one at this path in order to run.", root)
 	}
 
 	// delegate to concrete implementation of runner entirely.
@@ -400,7 +400,7 @@ func (c *Client) Describe(name, root string) (fd FunctionDescription, err error)
 		return fd, err
 	}
 	if !f.Initialized() {
-		return fd, errors.New(fmt.Sprintf("%v is not initialized", f.name))
+		return fd, fmt.Errorf("%v is not initialized", f.name)
 	}
 	return c.describer.Describe(f.name)
 }
@@ -419,7 +419,7 @@ func (c *Client) Remove(name, root string) error {
 		return err
 	}
 	if !f.Initialized() {
-		return errors.New(fmt.Sprintf("%v is not initialized", f.name))
+		return fmt.Errorf("%v is not initialized", f.name)
 	}
 	return c.remover.Remove(f.name)
 }

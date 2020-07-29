@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"github.com/boson-project/faas"
 	"github.com/boson-project/faas/knative"
 	"github.com/ory/viper"
@@ -10,7 +11,10 @@ import (
 func init() {
 	root.AddCommand(deleteCmd)
 	deleteCmd.Flags().StringP("name", "n", "", "optionally specify an explicit name to remove, overriding path-derivation. $FAAS_NAME")
-	deleteCmd.RegisterFlagCompletionFunc("name", CompleteFunctionList)
+	err := deleteCmd.RegisterFlagCompletionFunc("name", CompleteFunctionList)
+	if err != nil {
+		fmt.Println("Error while calling RegisterFlagCompletionFunc: ", err)
+	}
 }
 
 var deleteCmd = &cobra.Command{
@@ -20,7 +24,10 @@ var deleteCmd = &cobra.Command{
 	SuggestFor: []string{"remove", "rm"},
 	RunE:       delete,
 	PreRun: func(cmd *cobra.Command, args []string) {
-		viper.BindPFlag("name", cmd.Flags().Lookup("name"))
+		err := viper.BindPFlag("name", cmd.Flags().Lookup("name"))
+		if err != nil {
+			panic(err)
+		}
 	},
 }
 

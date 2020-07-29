@@ -29,7 +29,7 @@ func CompleteFunctionList(cmd *cobra.Command, args []string, toComplete string) 
 }
 func CompleteRuntimeList(cmd *cobra.Command, args []string, toComplete string) (strings []string, directive cobra.ShellCompDirective) {
 	strings = make([]string, 0, len(appsody.StackShortNames))
-	for lang, _ := range appsody.StackShortNames {
+	for lang := range appsody.StackShortNames {
 		strings = append(strings, lang)
 	}
 	directive = cobra.ShellCompDirectiveDefault
@@ -62,7 +62,7 @@ func CompleteRegistryList(cmd *cobra.Command, args []string, toComplete string) 
 		return
 	}
 	strings = make([]string, len(auth))
-	for reg, _ := range auth {
+	for reg := range auth {
 		strings = append(strings, reg)
 	}
 	directive = cobra.ShellCompDirectiveDefault

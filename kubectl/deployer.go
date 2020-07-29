@@ -85,7 +85,7 @@ func (d *Deployer) Deploy(name, image string) (address string, err error) {
 
 	nn := strings.Split(name, ".")
 	if len(nn) < 3 {
-		err = errors.New(fmt.Sprintf("invalid service name '%v', must be at least three parts.\n", name))
+		err = fmt.Errorf("invalid service name '%v', must be at least three parts.\n", name)
 	}
 	subdomain := nn[0]
 	domain := strings.Join(nn[1:], ".")
@@ -122,7 +122,7 @@ func (d *Deployer) Deploy(name, image string) (address string, err error) {
 	err = cmd.Run()
 	if err != nil {
 		// TODO: sanitize stderr from appsody, or submit a PR to remove duplicates etc.
-		err = errors.New(fmt.Sprintf("%v. %v", string(stderr.Bytes()), err.Error()))
+		err = fmt.Errorf("%v. %v", stderr.String(), err.Error())
 		return
 	}
 

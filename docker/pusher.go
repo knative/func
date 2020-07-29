@@ -47,7 +47,7 @@ func (n *Pusher) Push(image string) (err error) {
 	err = cmd.Run()
 	if err != nil {
 		// TODO: sanitize stderr from appsody, or submit a PR to remove duplicates etc.
-		err = errors.New(fmt.Sprintf("%v. %v", string(stderr.Bytes()), err.Error()))
+		err = fmt.Errorf("%v. %v", stderr.String(), err.Error())
 	}
 	return
 }

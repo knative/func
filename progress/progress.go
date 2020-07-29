@@ -196,7 +196,7 @@ func (b *Bar) overwrite(prefix string) {
 func (b *Bar) spin(ch <-chan time.Time) {
 	spinner := []string{"|", "/", "-", "\\"}
 	idx := 0
-	for _ = range ch {
+	for range ch {
 		// Writes the spinner frame at the beginning of the previous line, moving
 		// the cursor back to the beginning of the current line for any errors or
 		// informative messages.

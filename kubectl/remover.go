@@ -54,7 +54,7 @@ func (d *Remover) Remove(name string) (err error) {
 	// Run the command, echoing captured stderr as well as the cmd internal error.
 	err = cmd.Run()
 	if err != nil {
-		err = errors.New(fmt.Sprintf("%v. %v", string(stderr.Bytes()), err.Error()))
+		err = fmt.Errorf("%v. %v", stderr.String(), err.Error())
 	}
 	return
 }

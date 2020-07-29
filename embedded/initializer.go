@@ -39,7 +39,7 @@ type file interface {
 // a pkger FileAccessor.
 // Path is relative to the go module root.
 func init() {
-	pkger.Include("/templates")
+	_ = pkger.Include("/templates")
 }
 
 type Initializer struct {
@@ -68,7 +68,7 @@ func (n *Initializer) Initialize(runtime, template string, dest string) error {
 	if n.templates != "" {
 		return copyFilesystem(n.templates, runtime, template, dest)
 	}
-	return errors.New(fmt.Sprintf("A template for runtime '%v' template '%v' was not found internally and no extended repository path was defined.", runtime, template))
+	return fmt.Errorf("A template for runtime '%v' template '%v' was not found internally and no extended repository path was defined.", runtime, template)
 }
 
 func copyEmbedded(runtime, template, dest string) error {

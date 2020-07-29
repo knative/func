@@ -27,7 +27,7 @@ func (remover *Remover) Remove(name string) (err error) {
 		return
 	}
 
-	output := io.Writer(nil)
+	var output io.Writer
 	if remover.Verbose {
 		output = os.Stdout
 	} else {

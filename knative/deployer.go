@@ -2,7 +2,6 @@ package knative
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"github.com/boson-project/faas"
 	"github.com/boson-project/faas/k8s"
@@ -30,13 +29,14 @@ func (deployer *Deployer) Deploy(name, image string) (address string, err error)
 	}
 	nn := strings.Split(name, ".")
 	if len(nn) < 3 {
-		err = errors.New(fmt.Sprintf("invalid service name '%v', must be at least three parts.\n", name))
+		err = fmt.Errorf("invalid service name '%v', must be at least three parts.\n", name)
+		return
 	}
 
 	subDomain := nn[0]
 	domain := strings.Join(nn[1:], ".")
 
-	output := io.Writer(nil)
+	var output io.Writer
 	if deployer.Verbose {
 		output = os.Stdout
 	} else {

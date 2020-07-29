@@ -98,14 +98,23 @@ func ForString(label string, dflt string, options ...Option) string {
 }
 
 func writeStringLabel(p *stringPrompt) {
-	p.out.Write([]byte(p.label))
+	_, err := p.out.Write([]byte(p.label))
+	if err != nil {
+		panic(err)
+	}
 	if p.dflt != "" {
 		if p.label != "" {
-			p.out.Write([]byte(" "))
+			_, err = p.out.Write([]byte(" "))
+			if err != nil {
+				panic(err)
+			}
 		}
 		fmt.Fprintf(p.out, "(%v)", p.dflt)
 	}
-	p.out.Write([]byte(p.delim))
+	_, err = p.out.Write([]byte(p.delim))
+	if err != nil {
+		panic(err)
+	}
 }
 
 func readString(p *stringPrompt) (s string, err error) {
@@ -151,16 +160,25 @@ func ForBool(label string, dflt bool, options ...Option) bool {
 }
 
 func writeBoolLabel(p *boolPrompt) {
-	p.out.Write([]byte(p.label))
-	if p.label != "" {
-		p.out.Write([]byte(" "))
+	_, err := p.out.Write([]byte(p.label))
+	if err != nil {
+		panic(err)
 	}
-	if p.dflt == true {
+	if p.label != "" {
+		_, err = p.out.Write([]byte(" "))
+		if err != nil {
+			panic(err)
+		}
+	}
+	if p.dflt {
 		fmt.Fprint(p.out, "(Y/n)")
 	} else {
 		fmt.Fprint(p.out, "(y/N)")
 	}
-	p.out.Write([]byte(p.delim))
+	_, err = p.out.Write([]byte(p.delim))
+	if err != nil {
+		panic(err)
+	}
 }
 
 func readBool(p *boolPrompt) (bool, error) {
@@ -194,6 +212,9 @@ func isFalsy(confirm string) bool {
 }
 
 func writeError(err error, p *prompt) {
-	p.out.Write([]byte("\n"))
+	_, _err := p.out.Write([]byte("\n"))
+	if _err != nil {
+		panic(_err)
+	}
 	fmt.Fprintln(p.out, err)
 }
