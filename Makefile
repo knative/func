@@ -12,7 +12,8 @@ VTAG := $(shell git tag --points-at HEAD)
 VERS := $(shell [ -z $(VTAG) ] && echo 'tip' || echo $(VTAG) )
 
 build: all
-all: $(LINUX)
+all: $(BIN)
+
 cross-platform: $(DARWIN) $(LINUX) $(WINDOWS)
 
 darwin: $(DARWIN) ## Build for Darwin (macOS)
@@ -20,6 +21,9 @@ darwin: $(DARWIN) ## Build for Darwin (macOS)
 linux: $(LINUX) ## Build for Linux
 
 windows: $(WINDOWS) ## Build for Windows
+
+$(BIN): $(CODE)  ## Build using environment defaults
+	go build -ldflags "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)" ./cmd/$(BIN)
 
 $(DARWIN):
 	env GOOS=darwin GOARCH=amd64 go build -v -o $(DARWIN) -ldflags "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)" ./cmd/$(BIN)
@@ -29,9 +33,6 @@ $(LINUX):
 
 $(WINDOWS):
 	env GOOS=windows GOARCH=amd64 go build -v -o $(WINDOWS) -ldflags "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)" ./cmd/$(BIN)
-
-# $(BIN): $(CODE)
-# 	go build -ldflags "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)" ./cmd/$(BIN)
 
 test:
 	go test -cover -coverprofile=coverage.out ./...
