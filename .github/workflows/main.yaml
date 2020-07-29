@@ -23,3 +23,7 @@ jobs:
         run:  make test
       - name: Build
         run:  make build
+      - name: Lint
+        run: |
+          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.27.0
+          PATH=$PATH:$(go env GOPATH)/bin make check

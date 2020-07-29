@@ -58,6 +58,9 @@ latest:
 	# (run by CI only for releases)
 	docker push $(REPO):latest
 
+check:
+	golangci-lint run --enable=unconvert,prealloc,bodyclose
+
 clean:
 	rm -f $(WINDOWS) $(LINUX) $(DARWIN)
 	-@rm -f coverage.out
