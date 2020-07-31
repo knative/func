@@ -4,16 +4,27 @@
 ## [Unreleased]
 
 
-<a name="v0.4.1"></a>
-## [v0.4.1] - 2020-07-22
+<a name="v0.5.0"></a>
+## [v0.5.0] - 2020-07-30
 ### Actions
-- add release target to Makefile
+- add CHANGELOG.md and a release target to Makefile ([#45](https://github.com/boson-project/faas/issues/45))
 
-### Fixup
-- release commit message
+### Build
+- reduce build verbosity for cross-platform compilations
+- update container latest tag when releasing
 
-### Release
-- v0.4.1
+### Chore
+- add `-race` flag for tests
+- add lint to GH actions CI
+
+### Feat
+- build and release cross-platform binaries
+- version prints semver first
+- http template for Quarkus stack
+
+### Fix
+- build using environmentally-defined settings for GOOS and GOARCH by default
+- version flag
 
 
 <a name="v0.4.0"></a>
@@ -99,8 +110,8 @@
 - add kn-based implementation
 
 
-[Unreleased]: https://github.com/boson-project/faas/compare/v0.4.1...HEAD
-[v0.4.1]: https://github.com/boson-project/faas/compare/v0.4.0...v0.4.1
+[Unreleased]: https://github.com/boson-project/faas/compare/v0.5.0...HEAD
+[v0.5.0]: https://github.com/boson-project/faas/compare/v0.4.0...v0.5.0
 [v0.4.0]: https://github.com/boson-project/faas/compare/v0.3.0...v0.4.0
 [v0.3.0]: https://github.com/boson-project/faas/compare/v0.2.2...v0.3.0
 [v0.2.2]: https://github.com/boson-project/faas/compare/v0.2.1...v0.2.2
