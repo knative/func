@@ -2,114 +2,70 @@
 
 [![Main Build Status](https://github.com/boson-project/faas/workflows/Main/badge.svg?branch=main)](https://github.com/boson-project/faas/actions?query=workflow%3AMain+branch%3Amain)
 [![Develop Build Status](https://github.com/boson-project/faas/workflows/Develop/badge.svg?branch=develop&label=develop)](https://github.com/boson-project/faas/actions?query=workflow%3ADevelop+branch%3Adevelop)
-[![Documentation](https://godoc.org/github.com/boson-project/faas?status.svg)](http://godoc.org/github.com/boson-project/faas)
+[![Client API Documentation](https://godoc.org/github.com/boson-project/faas?status.svg)](http://godoc.org/github.com/boson-project/faas)
 [![GitHub Issues](https://img.shields.io/github/issues/boson-project/faas.svg)](https://github.com/boson-project/faas/issues)
 [![License](https://img.shields.io/github/license/boson-project/faas)](https://github.com/boson-project/faas/blob/main/LICENSE)
 [![Release](https://img.shields.io/github/release/boson-project/faas.svg?label=Release)](https://github.com/boson-project/faas/releases)
 
+[Demo Screencast]
 
-Function as a Service CLI and Client Library for KNative-enabled Kubernetes Clusters.
+faas is a "Function as a Service" Client Library and CLI for enabling the development of implicitly deployed, platform agnostic code.
 
-## Local Setup and Configuration
+For examples of what's possible, see the [Screencast Series](docs/getting_started_screencast.md) or the [Functions Cookbook](docs/functions_cookbook.md).
 
-Docker is required unless the --local flag is explicitly provided on creation
-of a new function.
+Functions can be written in the following languages:
 
-It is recommended to set your preferred image registry for publishing Functions
-by setting the following environment variables:
-```
-export FAAS_REGISTRY=quay.io
-export FAAS_NAMESPACE=alice
-```
-Alternately, these values can be provided using the --namespace and --registry 
-flags when running the CLI.
+* Go (Golang)
+* Node.js (JavaScript)
+* Quarkus (Java)
+* Rust
 
-## Cluster Setup and Configuration
+Functions can be deployed on the following platforms:
 
-It is assumed that the local system has a kubectl configuration set up to 
-connect to a Kubernetes cluster with the following configuration:
+* Kubernetes
+* OpenShift
+* Localhost
 
-* Knative Serving and Eventing Installed
-* Knative Domains patched to enable your chosen domain
-* Knative Network patched to enable subdomains
-* Kourier 
-* (optionally) Cert-manager for HTTPS routes
+[Quickstart Video]
 
-See https://github.com/boson-project/config for cluster setup and configuration notes.
+## Client Installation
 
-## Running the CLI
+[Install the latest CLI](docs/installing_cli.md)
 
-The CLI can be run either by building and installing manually, by running
-one of the published containers, or using the appropriate pre-built binary
-releases.
+[Install the VS Code Plugin](docs/installing_vscode.md)
 
-## Build and Install
+[Install the VIM Plugin](docs/installing_vim.md)
 
-With Go 1.13+ installed, build and install the binary to your path:
-```
-go install ./cmd/faas
-```
-### Docker 
+[Install the Emacs Extension](docs/installing_emacs.md)
 
-Each tag has an assoicated container which can be run via:
-```
-docker run quay.io/boson/faas:v0.2.2
-```
+Functions can be created and managed using the CLI interactively, scripted, using one of the IDE plugins, or by direct integration with the client library.   The [Function Developer's Guide](docs/developers_guide.md)and examples herein demonstrate the CLI-based approach.  
 
-### Pre-built Binary Releases
+For direct integration using the Go client library, it is advisible to first follow these CLI-based guides to become familiar with creating and deploying software in this way, and then proceed to the [Function Integrator's Guide](docs/integrators_guide.md).
 
-Coming soon.
+## Platform Configuration
 
-## Usage
+[Getting Started with Kubernetes](docs/getting_started_kubernetes.md)
 
-See help:
-```shell
-faas
-```
-## Examples
+[Getting Started with OpenShift](docs/getting_started_openshift.md)
 
-Create a new Function:
+[Getting Started on Localhost](docs/getting_started_localhost.md)
 
-```shell
-> mkdir -p example.com/www
-> cd example.com/www
-> faas create go
-https://www.example.com
-> curl https://www.example.com
-OK
-```
-## Using the Client Library
+Functions are portable between different infrastructure configurations.  While your Funciton itself remains the same, the platform upon which it is deployed will provide different services and guarantees.  For instance, a Function deployed to localhost will not autoscale, nor be either highly available or externally routable.  Deploying to a properly configured Kubernetes cluster would however provide these features.  There is also variance within infrastrucutre types.  For instance, a small kubernetes cluster will be limited in the amount of resources which will be ultimately available for allocation to your Function. 
 
-To create a Client which uses the included buildpacks-based function builder, pushes to a Quay.io repository function container artifacts and deploys to a Knative enabled cluster: 
-```go
-package main
+## Function Development
 
-import (
-  "log"
+[Function Developer's Guide](docs/developers_guide.md)
 
-  "github.com/boson-project/faas"
-  "github.com/boson-project/faas/buildpacks"
-  "github.com/boson-project/faas/docker"
-  "github.com/boson-project/faas/embedded"
-  "github.com/boson-project/faas/knative"
-)
+Any code which provides one of a set of supported function signatures can be deployed to any of the supported platforms using this client library.  No process boundary code, container, or configuration outside of the function itself is required.
 
-func main() {
-  // A client which uses embedded function templates,
-  // Quay.io/alice for interstitial build artifacts.
-  // Docker to build and push, and a Knative client for deployment.
-  client, err := faas.New(
-    faas.WithInitializer(embedded.NewInitializer("")),
-    faas.WithBuilder(buildpacks.NewBuilder("quay.io", "alice")),
-    faas.WithPusher(docker.NewPusher()),
-    faas.WithDeployer(knative.NewDeployer()))
+At their most fundamental, a Function is a set of instructions which export a public function whose method signature conforms to one of the supported forms.  It is implicitly deployed to a supported platform when created using the client library, and can be migrated between platforms without code changes.  Runtime execution is handled by the platform, which may offer guarantees such as autoscaling and load balancing.  For more, continue with the Developer's Guide
 
-  // Create a Go function which listens for CloudEvents.
-  // Publicly routable as https://www.example.com.
-  // Local implementation is written to the current working directory.
-  if err := client.Create("go", "events", "www.example.com", "."); err != nil {
-    log.Fatal(err)
-  }
-}
-```
+
+## Learn More
+
+[Function Architecture](docs/architecture.md)
+
+## Contributing
+
+We are always looking for contributions from the Function Developer community.  For more information on how to participate, see the [Contributor's Guide](docs/contributors_guide.md)
 

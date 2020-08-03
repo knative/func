@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-network
+  namespace: knative-serving
+data:
+  # Use Kourier for the networking layer
+  ingress.class: kourier.ingress.networking.knative.dev
+  # Enable AutoTLS
+  autoTLS: Enabled
+  # Redirect HTTP requests to HTTPS
+  httpProtocol: Redirected
+  # If there exists an annotation `faas.subdomain` on the service,
+  # use it instead of the default name.namespace
+  domainTemplate: |-
+    {{if index .Annotations "faas.subdomain" -}}
+      {{- index .Annotations "faas.subdomain" -}}
+    {{else -}}
+      {{- .Name}}.{{.Namespace -}}
+    {{end -}}
+    .{{.Domain}}
