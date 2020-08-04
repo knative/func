@@ -27,3 +27,4 @@ To build and install from source check out the repository, run `make`, and insta
 make
 mv faas /usr/local/bin/
 ```
+

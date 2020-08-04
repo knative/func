@@ -6,10 +6,11 @@ This guide was developed using the dependency versions listed in their requisite
 
 Any Kubernetes-compatible API should be capable.  Included herein are instructions for two popular variants: Kind and EKS.
 
-## Local dependencies
+[Provision using Kind](provision_kind.md)
 
-This guide assumes the following local shared dependncies:
-* Kubectl v1.17.3 - [Install `kubectl`](https://kubernetes.io/docs/tasks/tools/install-kubectl) 
+[Provision using Minikube](provision_minikube.md)
+
+[Provision using Amazon EKS](provision_eks.md)
 
 ## Provisioning a Kind (Kubernetes in Docker) Cluster
 
@@ -17,6 +18,7 @@ This guide assumes the following local shared dependncies:
 
 This guide walks through the process of configuring a kind cluster to run Functions with the following vserions:
 * kind   v0.8.1 - [Install Kind](https://kind.sigs.k8s.io/docs/user/quick-start/#installation)
+* Kubectl v1.17.3 - [Install kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl) 
 
 Start a new cluster:
 ```
