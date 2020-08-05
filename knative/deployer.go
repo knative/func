@@ -3,14 +3,19 @@ package knative
 import (
 	"bytes"
 	"fmt"
-	"github.com/boson-project/faas"
-	"github.com/boson-project/faas/k8s"
 	"io"
-	commands "knative.dev/client/pkg/kn/commands"
-	"knative.dev/client/pkg/kn/core"
 	"os"
 	"strings"
+
+	"github.com/boson-project/faas"
+	"github.com/boson-project/faas/k8s"
+	commands "knative.dev/client/pkg/kn/commands"
+	"knative.dev/client/pkg/kn/core"
 )
+
+// TODO: Use knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1
+// NewForConfig gives you the client, and then you can do
+// client.Services("ns").Get("name")
 
 func NewDeployer() *Deployer {
 	return &Deployer{Namespace: faas.DefaultNamespace}
@@ -67,6 +72,8 @@ func (deployer *Deployer) Deploy(name, image string) (address string, err error)
 		}
 		return
 	}
-
-	return "[cluster-address]", nil
+	// This does not actually return the service URL
+	// To do this, we need to be using the kn services client
+	// noted above
+	return project, nil
 }

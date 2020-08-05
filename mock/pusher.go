@@ -2,16 +2,16 @@ package mock
 
 type Pusher struct {
 	PushInvoked bool
-	PushFn      func(image string) error
+	PushFn      func(tag string) error
 }
 
 func NewPusher() *Pusher {
 	return &Pusher{
-		PushFn: func(string) error { return nil },
+		PushFn: func(tag string) error { return nil },
 	}
 }
 
-func (i *Pusher) Push(image string) error {
+func (i *Pusher) Push(tag string) error {
 	i.PushInvoked = true
-	return i.PushFn(image)
+	return i.PushFn(tag)
 }

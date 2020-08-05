@@ -93,7 +93,7 @@ func TestApplyConfig(t *testing.T) {
 	}
 	defer os.RemoveAll(root)
 
-	c := Function{name: "staticDefault"}
+	c := Function{Name: "staticDefault"}
 
 	// Assert config optional.
 	// Ensure that applying a directory with no config does not error.
@@ -125,8 +125,8 @@ func TestApplyConfig(t *testing.T) {
 	if err := applyConfig(&c, root); err != nil {
 		t.Fatal(err)
 	}
-	if c.name != "" {
-		t.Fatalf("Expected name to be zeroed by config, but got '%v'", c.name)
+	if c.Name != "" {
+		t.Fatalf("Expected name to be zeroed by config, but got '%v'", c.Name)
 	}
 
 	// Assert a valid config with a value for name is applied.
@@ -136,7 +136,7 @@ func TestApplyConfig(t *testing.T) {
 	if err := applyConfig(&c, root); err != nil {
 		t.Fatal(err)
 	}
-	if c.name != "www.example.com" {
-		t.Fatalf("Expected name 'www.example.com', got '%v'", c.name)
+	if c.Name != "www.example.com" {
+		t.Fatalf("Expected name 'www.example.com', got '%v'", c.Name)
 	}
 }
