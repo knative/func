@@ -324,7 +324,6 @@ func (c *Client) Create(runtime, template, name, tag, root string) (err error) {
 	if f == nil || !f.Initialized() {
 		return fmt.Errorf("Unable to initialize function")
 	}
-	name = f.Name
 	if err != nil {
 		return err
 	}

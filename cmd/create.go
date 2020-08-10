@@ -34,7 +34,10 @@ func init() {
 	createCmd.Flags().StringP("trigger", "g", embedded.DefaultTemplate, "Function template (ex: 'http','events') - $FAAS_TEMPLATE")
 	createCmd.Flags().BoolP("local", "l", false, "Create the function locally only. Do not push to a cluster")
 
-	createCmd.MarkFlagRequired("tag")
+	err = createCmd.MarkFlagRequired("tag")
+	if err != nil {
+		fmt.Println("Error while marking 'tag' required")
+	}
 	err = createCmd.RegisterFlagCompletionFunc("tag", CompleteRegistryList)
 	if err != nil {
 		fmt.Println("Error while calling RegisterFlagCompletionFunc: ", err)

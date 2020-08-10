@@ -26,7 +26,10 @@ func init() {
 	initCmd.Flags().StringP("tag", "t", "", "Specify an image tag, for example quay.io/myrepo/project.name:latest")
 	initCmd.Flags().StringP("trigger", "g", embedded.DefaultTemplate, "Function trigger (ex: 'http','events')")
 	initCmd.Flags().StringP("templates", "", filepath.Join(configPath(), "faas", "templates"), "Extensible templates path")
-	initCmd.MarkFlagRequired("tag")
+	err = initCmd.MarkFlagRequired("tag")
+	if err != nil {
+		fmt.Println("Error marking 'tag' flag required")
+	}
 }
 
 // The init command creates a new function project with a noop implementation.

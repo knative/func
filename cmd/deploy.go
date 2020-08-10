@@ -70,6 +70,9 @@ func deployImage(cmd *cobra.Command, args []string) (err error) {
 		faas.WithDeployer(deployer),
 		faas.WithPusher(docker.NewPusher()),
 	)
+	if err != nil {
+		return err
+	}
 	// TODO: Handle -e flag
 	_, err = client.Deploy(f.Name, f.Tag)
 	return err
