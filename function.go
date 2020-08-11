@@ -102,6 +102,40 @@ func (f *Function) Initialized() bool {
 	return (f.Runtime != "" && f.Name != "")
 }
 
+// FunctionConfiguration accepts a path to a function project
+// and an image tag. It loads the existing function configuration
+// from disk at path. If the image tag parameter is not empty,
+// this will be used to update the function config file.
+// TODO: This should probably be changed to take a path
+// with optional overrides for both tag and name
+func FunctionConfiguration(path, tag string) (f *Function, err error) {
+	f, err = NewFunction(path)
+	if err != nil {
+		return nil, err
+	}
+
+	if f.Name == "" || f.Runtime == "" {
+		return nil, fmt.Errorf("Unable to find a function project at %s", path)
+	}
+
+	// Allow caller to override pre-configured t name
+	if tag != "" {
+		f.Tag = tag
+	}
+	if f.Tag == "" {
+		f.Tag = fmt.Sprintf("quay.io/%s:latest", f.Name)
+		fmt.Printf("No tag provided, using %s\n", f.Tag)
+	}
+
+	// Write the image tag to the function configuration
+	if err = f.WriteConfig(); err != nil {
+		fmt.Printf("Error writing configuration %v\n", err)
+		return nil, err
+	}
+
+	return f, nil
+}
+
 // contentiousFiles are files which, if extant, preclude the creation of a
 // service function rooted in the given directory.
 var contentiousFiles = []string{

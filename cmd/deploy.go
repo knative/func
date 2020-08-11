@@ -48,7 +48,7 @@ func deployImage(cmd *cobra.Command, args []string) (err error) {
 		Push:    true,
 	}
 
-	f, err := FunctionConfigForBuild(config)
+	f, err := faas.FunctionConfiguration(config.Path, config.Tag)
 	if err != nil {
 		return err
 	}

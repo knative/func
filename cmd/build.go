@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/boson-project/faas"
@@ -56,46 +55,10 @@ func buildImage(cmd *cobra.Command, args []string) (err error) {
 	return Build(config)
 }
 
-// FunctionConfigForBuild accepts a buildConfig and
-// uses this to load a faas.Function. If the config contains
-// a value for the image tag, this will be used and
-// subsequently written to the config file.
-func FunctionConfigForBuild(config buildConfig) (f *faas.Function, err error) {
-	f, err = faas.NewFunction(config.Path)
-	if err != nil {
-		return nil, err
-	}
-
-	if f.Name == "" || f.Runtime == "" {
-		return nil, fmt.Errorf("Unable to find a function project at %s", config.Path)
-	}
-
-	// Allow CLI to override pre-configured tag name
-	var tag = config.Tag
-	if tag == "" {
-		// get tag from config file
-		tag = f.Tag
-
-		if tag == "" {
-			tag = fmt.Sprintf("quay.io/%s:latest", f.Name)
-			fmt.Printf("No tag provided, using %s\n", tag)
-		}
-	}
-
-	// Write the image tag to the function configuration
-	f.Tag = tag
-	if err = f.WriteConfig(); err != nil {
-		fmt.Printf("Error writing configuration %v\n", err)
-		return nil, err
-	}
-
-	return f, nil
-}
-
 // Build will build a function project image and optionally
 // push it to a remote registry
 func Build(config buildConfig) (err error) {
-	f, err := FunctionConfigForBuild(config)
+	f, err := faas.FunctionConfiguration(config.Path, config.Tag)
 	if err != nil {
 		return err
 	}
