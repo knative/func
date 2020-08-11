@@ -10,8 +10,9 @@ func NewDNSProvider() *DNSProvider {
 	return &DNSProvider{}
 }
 
-func (d *DNSProvider) Provide(name, address string) {
+func (d *DNSProvider) Provide(name, address string) string {
 	d.ProvideInvoked = true
 	d.NameRequested = name
 	d.AddressRequested = address
+	return name
 }

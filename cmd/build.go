@@ -21,8 +21,7 @@ var buildCmd = &cobra.Command{
 	PreRunE: func(cmd *cobra.Command, args []string) (err error) {
 		flags := []string{"path", "tag", "push"}
 		for _, f := range flags {
-			err = viper.BindPFlag(f, cmd.Flags().Lookup(f))
-			if err != nil {
+			if err = viper.BindPFlag(f, cmd.Flags().Lookup(f)); err != nil {
 				return err
 			}
 		}

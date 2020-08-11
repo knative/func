@@ -57,8 +57,7 @@ var createCmd = &cobra.Command{
 	PreRun: func(cmd *cobra.Command, args []string) {
 		flags := []string{"local", "name", "namespace", "tag", "path", "trigger", "templates"}
 		for _, f := range flags {
-			err := viper.BindPFlag(f, cmd.Flags().Lookup(f))
-			if err != nil {
+			if err := viper.BindPFlag(f, cmd.Flags().Lookup(f)); err != nil {
 				panic(err)
 			}
 		}

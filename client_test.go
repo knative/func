@@ -409,14 +409,16 @@ func TestUpdate(t *testing.T) {
 	// Register function delegates on the mocks which validate assertions
 	// -------------
 
-	// The builder should be invoked with a service name and path to its source
-	// function code.  For this test, it is a name derived from the test path.
+	// The builder should be invoked with a path to the function source.
 	// An example image name is returned.
-	// TODO: FIX ME UNDERSTAND ME
-	builder.BuildFn = func(tag string) (string, error) {
-		// if name != name2 {
-		// 	t.Fatalf("builder expected name %v, got '%v'", name, name2)
-		// }
+	builder.BuildFn = func(expectedPath string) (string, error) {
+		rootPath, err := filepath.Abs(root)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if expectedPath != rootPath {
+			t.Fatalf("builder expected path %v, got '%v'", expectedPath, rootPath)
+		}
 		// The final image name will be determined by the builder implementation,
 		// but whatever it is (in this case fabricated); it should be returned
 		// and later provided to the pusher.

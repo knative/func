@@ -18,11 +18,9 @@ var deployCmd = &cobra.Command{
 	PreRunE: func(cmd *cobra.Command, args []string) (err error) {
 		flags := []string{"build", "namespace", "path", "tag"}
 		for _, f := range flags {
-			err = viper.BindPFlag(f, cmd.Flags().Lookup(f))
-			if err != nil {
+			if err = viper.BindPFlag(f, cmd.Flags().Lookup(f)); err != nil {
 				return err
 			}
-
 		}
 		return
 	},

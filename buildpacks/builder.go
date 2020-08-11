@@ -31,14 +31,14 @@ var runtime2pack = map[string]string{
 func (builder *Builder) Build(path string) (image string, err error) {
 	f, err := faas.NewFunction(path)
 	if err != nil {
-		return "", err
+		return
 	}
 
 	runtime := f.Runtime
 	packBuilder, ok := runtime2pack[runtime]
 	if !ok {
 		err = errors.New(fmt.Sprint("unsupported runtime: ", runtime))
-		return "", err
+		return
 	}
 
 	var logWriter io.Writer
@@ -51,7 +51,7 @@ func (builder *Builder) Build(path string) (image string, err error) {
 	logger := logging.New(logWriter)
 	packClient, err := pack.NewClient(pack.WithLogger(logger))
 	if err != nil {
-		return "", err
+		return
 	}
 
 	packOpts := pack.BuildOptions{

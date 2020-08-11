@@ -112,7 +112,7 @@ type Describer interface {
 // DNSProvider exposes DNS services necessary for serving the Function.
 type DNSProvider interface {
 	// Provide the given name by routing requests to address.
-	Provide(name, address string)
+	Provide(name, address string) (n string)
 }
 
 // New client for Function management.
@@ -280,14 +280,13 @@ func (c *Client) Initialize(runtime, template, name, tag, root string) (f *Funct
 }
 
 func (c *Client) Build(path string) (image string, err error) {
-	image, err = c.builder.Build(path)
-	return image, err
+	return c.builder.Build(path)
 }
 
 func (c *Client) Deploy(name, tag string) (address string, err error) {
 	err = c.pusher.Push(tag) // First push the image to an image registry
 	if err != nil {
-		return "", err
+		return
 	}
 	address, err = c.deployer.Deploy(name, tag)
 	return address, err
@@ -301,8 +300,7 @@ func (c *Client) Route(name, address string) (route string) {
 	// but DNS subdomain CNAME to the Kourier Load Balancer is
 	// still manual, and the initial cluster config to suppot the TLD
 	// is still manual.
-	c.dnsProvider.Provide(name, address)
-	return name
+	return c.dnsProvider.Provide(name, address)
 }
 
 // Create a service function of the given runtime.
@@ -524,8 +522,9 @@ func (n *noopLister) List() ([]string, error) {
 
 type noopDNSProvider struct{ output io.Writer }
 
-func (n *noopDNSProvider) Provide(name, address string) {
+func (n *noopDNSProvider) Provide(name, address string) string {
 	// Note: at this time manual DNS provisioning required for name -> knative serving netowrk load-balancer
+	return ""
 }
 
 type noopProgressListener struct{}
