@@ -1,7 +1,6 @@
 package faas
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -37,15 +36,15 @@ type Initializer interface {
 
 // Builder of function source to runnable image.
 type Builder interface {
-	// Build a service function of the given name with source located at path.
+	// Build a function project with source located at path.
 	// returns the image name built.
-	Build(name, runtime, path string) (image string, err error)
+	Build(path string) (image string, err error)
 }
 
 // Pusher of function image to a registry.
 type Pusher interface {
 	// Push the image of the service function.
-	Push(image string) error
+	Push(tag string) error
 }
 
 // Deployer of function source to running status.
@@ -113,7 +112,7 @@ type Describer interface {
 // DNSProvider exposes DNS services necessary for serving the Function.
 type DNSProvider interface {
 	// Provide the given name by routing requests to address.
-	Provide(name, address string)
+	Provide(name, address string) (n string)
 }
 
 // New client for Function management.
@@ -255,19 +254,12 @@ func WithDomainSearchLimit(limit int) Option {
 	}
 }
 
-// Create a service function of the given runtime.
-// Name and Root are optional:
-// Name is derived from root if possible.
-// Root is defaulted to the current working directory.
-func (c *Client) Create(runtime, template, name, root string) (err error) {
-	c.progressListener.SetTotal(5)
-	c.progressListener.Increment("Initializing")
-	defer c.progressListener.Done()
-
+// Initialize creates a new function project locally
+func (c *Client) Initialize(runtime, template, name, tag, root string) (f *Function, err error) {
 	// Create an instance of a function representation at the given root.
-	f, err := NewFunction(root)
+	f, err = NewFunction(root)
 	if err != nil {
-		return
+		return nil, err
 	}
 
 	// Initialize, writing out a template implementation and a config file.
@@ -276,43 +268,31 @@ func (c *Client) Create(runtime, template, name, root string) (err error) {
 	// optional name the other passes root path).  This could easily cause
 	// confusion and thus we may want to rename Initalizer to the more specific
 	// task it performs: ContextTemplateWriter or similar.
-	err = f.Initialize(runtime, template, name, c.domainSearchLimit, c.initializer)
+	err = f.Initialize(runtime, template, name, tag, c.domainSearchLimit, c.initializer)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: Create a status structure and return it for clients to use
+	// for output, such as from the CLI.
+	fmt.Printf("Created function project %v in %v\n", f.Name, root)
+	return f, nil
+}
+
+func (c *Client) Build(path string) (image string, err error) {
+	return c.builder.Build(path)
+}
+
+func (c *Client) Deploy(name, tag string) (address string, err error) {
+	err = c.pusher.Push(tag) // First push the image to an image registry
 	if err != nil {
 		return
 	}
+	address, err = c.deployer.Deploy(name, tag)
+	return address, err
+}
 
-	// Build the now-initialized service function
-	c.progressListener.Increment("Building")
-	image, err := c.builder.Build(f.name, runtime, f.root)
-	if err != nil {
-		return
-	}
-
-	// If running local-only, we're done.
-	if c.local {
-		c.progressListener.Complete("Created (local only)")
-		return
-	}
-
-	// Push the image for the names service to the configured registry
-	c.progressListener.Increment("Pushing image")
-	if err = c.pusher.Push(image); err != nil {
-		return
-	}
-
-	// TODO: cluster-local deploy mode
-	if c.internal {
-		return errors.New("Deploying in cluster-internal mode (no public route) not yet available.")
-	}
-
-	// Deploy the initialized service function, returning its publicly
-	// addressible name for possible registration.
-	c.progressListener.Increment("Deploying")
-	address, err := c.deployer.Deploy(f.name, image)
-	if err != nil {
-		return
-	}
-
+func (c *Client) Route(name, address string) (route string) {
 	// Ensure that the allocated final address is enabled with the
 	// configured DNS provider.
 	// NOTE:
@@ -320,14 +300,66 @@ func (c *Client) Create(runtime, template, name, root string) (err error) {
 	// but DNS subdomain CNAME to the Kourier Load Balancer is
 	// still manual, and the initial cluster config to suppot the TLD
 	// is still manual.
-	c.progressListener.Increment("Routing")
-	c.dnsProvider.Provide(f.name, address)
+	return c.dnsProvider.Provide(name, address)
+}
+
+// Create a service function of the given runtime.
+// Name and Root are optional:
+// Name is derived from root if possible.
+// Root is defaulted to the current working directory.
+func (c *Client) Create(runtime, template, name, tag, root string) (err error) {
+	c.progressListener.SetTotal(4)
+	defer c.progressListener.Done()
+
+	// Initialize, writing out a template implementation and a config file.
+	// TODO: the function's Initialize parameters are slightly different than
+	// the Initializer interface, and can thus cause confusion (one passes an
+	// optional name the other passes root path).  This could easily cause
+	// confusion and thus we may want to rename Initalizer to the more specific
+	// task it performs: ContextTemplateWriter or similar.
+	c.progressListener.Increment("Initializing new function project")
+	f, err := c.Initialize(runtime, template, name, tag, root)
+	if f == nil || !f.Initialized() {
+		return fmt.Errorf("Unable to initialize function")
+	}
+	if err != nil {
+		return err
+	}
+
+	// Build the now-initialized service function
+	c.progressListener.Increment("Building container image")
+	_, err = c.Build(f.Root)
+	if err != nil {
+		return
+	}
+
+	if c.local {
+		c.progressListener.Complete("Created function project (local only)")
+		return
+	}
+
+	// TODO: cluster-local deploy mode
+	// if c.internal {
+	// 	return errors.New("Deploying in cluster-internal mode (no public route) not yet available.")
+	// }
+
+	// Deploy the initialized service function, returning its publicly
+	// addressible name for possible registration.
+	c.progressListener.Increment("Deploying function to cluster")
+	address, err := c.Deploy(f.Name, f.Tag)
+	if err != nil {
+		return
+	}
+
+	// Create an external route to the function
+	c.progressListener.Increment("Creating route to function")
+	c.Route(f.Name, address)
 
 	c.progressListener.Complete("Create complete")
 
 	// TODO: Create a status structure and return it for clients to use
 	// for output, such as from the CLI.
-	fmt.Printf("https://%v/\n", f.name)
+	fmt.Printf("https://%v/\n", address)
 
 	return
 }
@@ -347,7 +379,7 @@ func (c *Client) Update(root string) (err error) {
 	}
 
 	// Build an image from the current state of the service function's implementation.
-	image, err := c.builder.Build(f.name, f.runtime, f.root)
+	image, err := c.builder.Build(f.Root)
 	if err != nil {
 		return
 	}
@@ -359,7 +391,7 @@ func (c *Client) Update(root string) (err error) {
 
 	// Update the previously-deployed service function, returning its publicly
 	// addressible name for possible registration.
-	return c.updater.Update(f.name, image)
+	return c.updater.Update(f.Name, image)
 }
 
 // Run the function whose code resides at root.
@@ -377,7 +409,7 @@ func (c *Client) Run(root string) error {
 	}
 
 	// delegate to concrete implementation of runner entirely.
-	return c.runner.Run(f.root)
+	return c.runner.Run(f.Root)
 }
 
 // List currently deployed service functions.
@@ -400,9 +432,9 @@ func (c *Client) Describe(name, root string) (fd FunctionDescription, err error)
 		return fd, err
 	}
 	if !f.Initialized() {
-		return fd, fmt.Errorf("%v is not initialized", f.name)
+		return fd, fmt.Errorf("%v is not initialized", f.Name)
 	}
-	return c.describer.Describe(f.name)
+	return c.describer.Describe(f.Name)
 }
 
 // Remove a function.  Name takes precidence.  If no name is provided,
@@ -419,9 +451,9 @@ func (c *Client) Remove(name, root string) error {
 		return err
 	}
 	if !f.Initialized() {
-		return fmt.Errorf("%v is not initialized", f.name)
+		return fmt.Errorf("%v is not initialized", f.Name)
 	}
-	return c.remover.Remove(f.name)
+	return c.remover.Remove(f.Name)
 }
 
 // Manual implementations (noops) of required interfaces.
@@ -441,14 +473,14 @@ func (n *noopInitializer) Initialize(runtime, template, root string) error {
 
 type noopBuilder struct{ output io.Writer }
 
-func (n *noopBuilder) Build(name, runtime, path string) (image string, err error) {
+func (n *noopBuilder) Build(path string) (image string, err error) {
 	fmt.Fprintln(n.output, "skipping build: client not initialized WithBuilder")
 	return "", nil
 }
 
 type noopPusher struct{ output io.Writer }
 
-func (n *noopPusher) Push(image string) error {
+func (n *noopPusher) Push(tag string) error {
 	fmt.Fprintln(n.output, "skipping push: client not initialized WithPusher")
 	return nil
 }
@@ -490,8 +522,9 @@ func (n *noopLister) List() ([]string, error) {
 
 type noopDNSProvider struct{ output io.Writer }
 
-func (n *noopDNSProvider) Provide(name, address string) {
+func (n *noopDNSProvider) Provide(name, address string) string {
 	// Note: at this time manual DNS provisioning required for name -> knative serving netowrk load-balancer
+	return ""
 }
 
 type noopProgressListener struct{}

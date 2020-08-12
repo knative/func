@@ -9,7 +9,6 @@ import (
 
 	"github.com/boson-project/faas"
 	"github.com/boson-project/faas/buildpacks"
-	"github.com/boson-project/faas/docker"
 	"github.com/boson-project/faas/knative"
 )
 
@@ -59,12 +58,13 @@ func update(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// Builder creates images from function source.
-	builder := buildpacks.NewBuilder(registry, namespace)
+	// TODO: FIX ME - param should be an image tag
+	builder := buildpacks.NewBuilder(registry)
 	builder.Verbose = verbose
 
 	// Pusher of images
-	pusher := docker.NewPusher()
-	pusher.Verbose = verbose
+	// pusher := docker.NewPusher()
+	// pusher.Verbose = verbose
 
 	// Deployer of built images.
 	updater, err := knative.NewUpdater(faas.DefaultNamespace)
@@ -76,7 +76,8 @@ func update(cmd *cobra.Command, args []string) (err error) {
 	client, err := faas.New(
 		faas.WithVerbose(verbose),
 		faas.WithBuilder(builder),
-		faas.WithPusher(pusher),
+		// TODO: FIX ME
+		// faas.WithPusher(pusher),
 		faas.WithUpdater(updater),
 	)
 	if err != nil {

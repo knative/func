@@ -20,7 +20,7 @@ func NewPusher() *Pusher {
 }
 
 // Push an image by name.  Docker is expected to be already authenticated.
-func (n *Pusher) Push(image string) (err error) {
+func (n *Pusher) Push(tag string) (err error) {
 	// Check for the docker binary explicitly so that we can return
 	// an extra-friendly error message.
 	_, err = exec.LookPath("docker")
@@ -31,7 +31,7 @@ func (n *Pusher) Push(image string) (err error) {
 
 	// set up the command, specifying a sanitized project name and connecting
 	// standard output and error.
-	cmd := exec.Command("docker", "push", image)
+	cmd := exec.Command("docker", "push", tag)
 
 	// If verbose logging is enabled, echo appsody's chatty stdout.
 	if n.Verbose {

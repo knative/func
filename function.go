@@ -12,9 +12,10 @@ import (
 )
 
 type Function struct {
-	root    string
-	runtime string // will be empty unless initialized/until initialized
-	name    string // will be empty unless initialized/until initialized.
+	Root    string
+	Runtime string // will be empty unless initialized/until initialized
+	Name    string // will be empty unless initialized/until initialized
+	Tag     string // will be empty unless initialized/until initialized
 }
 
 func NewFunction(root string) (f *Function, err error) {
@@ -27,7 +28,7 @@ func NewFunction(root string) (f *Function, err error) {
 	if root, err = filepath.Abs(root); err != nil {
 		return
 	}
-	f.root = root
+	f.Root = root
 
 	// Populate with data from config if it exists.
 	err = applyConfig(f, root)
@@ -38,10 +39,10 @@ func NewFunction(root string) (f *Function, err error) {
 // DerivedName returns the name that will be used if path derivation is choosen, limited in its upward recursion.
 // This is exposed for preemptive calculation for interactive confirmation, such as via a CLI.
 func (f *Function) DerivedName(searchLimit int) string {
-	return pathToDomain(f.root, searchLimit)
+	return pathToDomain(f.Root, searchLimit)
 }
 
-func (f *Function) Initialize(runtime, context, name string, domainSearchLimit int, initializer Initializer) (err error) {
+func (f *Function) Initialize(runtime, context, name, tag string, domainSearchLimit int, initializer Initializer) (err error) {
 	// Assert runtime is provided
 	if runtime == "" {
 		err = errors.New("runtime not specified")
@@ -49,15 +50,15 @@ func (f *Function) Initialize(runtime, context, name string, domainSearchLimit i
 	}
 
 	// If there exists contentious files (congig files for instance), this function may have already been initialized.
-	files, err := contentiousFilesIn(f.root)
+	files, err := contentiousFilesIn(f.Root)
 	if err != nil {
 		return
 	} else if len(files) > 0 {
-		return fmt.Errorf("The chosen directory '%v' contains contentious files: %v.  Has the Service Function already been created?  Try either using a different directory, deleting the service function if it exists, or manually removing the files.", f.root, files)
+		return fmt.Errorf("The chosen directory '%v' contains contentious files: %v.  Has the Service Function already been created?  Try either using a different directory, deleting the service function if it exists, or manually removing the files.", f.Root, files)
 	}
 
 	// Ensure there are no non-hidden files, and again none of the aforementioned contentious files.
-	empty, err := isEffectivelyEmpty(f.root)
+	empty, err := isEffectivelyEmpty(f.Root)
 	if err != nil {
 		return
 	} else if !empty {
@@ -67,29 +68,72 @@ func (f *Function) Initialize(runtime, context, name string, domainSearchLimit i
 
 	// Derive a name if not provided
 	if name == "" {
-		name = pathToDomain(f.root, domainSearchLimit)
+		name = pathToDomain(f.Root, domainSearchLimit)
 	}
 	if name == "" {
 		err = errors.New("Function name must be provided or be derivable from path")
 		return
 	}
-	f.name = name
+	f.Name = name
 
 	// Write the template implementation in the appropriate runtime
-	if err = initializer.Initialize(runtime, context, f.root); err != nil {
+	if err = initializer.Initialize(runtime, context, f.Root); err != nil {
 		return
 	}
 	// runtime was validated
-	f.runtime = runtime
+	f.Runtime = runtime
+
+	// An image tag for the function
+	f.Tag = tag
 
 	// Write out the state as a config file and return.
 	return writeConfig(f)
 }
 
+// WriteConfig writes this function's configuration to disk.
+func (f *Function) WriteConfig() (err error) {
+	return writeConfig(f)
+}
+
+// Initialized returns true if the function has been initialized with a name and a runtime
 func (f *Function) Initialized() bool {
 	// TODO: this should probably be more robust than checking what amounts to a
 	// side-effect of the initialization process.
-	return (f.runtime != "" && f.name != "")
+	return (f.Runtime != "" && f.Name != "")
+}
+
+// FunctionConfiguration accepts a path to a function project
+// and an image tag. It loads the existing function configuration
+// from disk at path. If the image tag parameter is not empty,
+// this will be used to update the function config file.
+// TODO: This should probably be changed to take a path
+// with optional overrides for both tag and name
+func FunctionConfiguration(path, tag string) (f *Function, err error) {
+	f, err = NewFunction(path)
+	if err != nil {
+		return nil, err
+	}
+
+	if f.Name == "" || f.Runtime == "" {
+		return nil, fmt.Errorf("Unable to find a function project at %s", path)
+	}
+
+	// Allow caller to override pre-configured t name
+	if tag != "" {
+		f.Tag = tag
+	}
+	if f.Tag == "" {
+		f.Tag = fmt.Sprintf("quay.io/%s:latest", f.Name)
+		fmt.Printf("No tag provided, using %s\n", f.Tag)
+	}
+
+	// Write the image tag to the function configuration
+	if err = f.WriteConfig(); err != nil {
+		fmt.Printf("Error writing configuration %v\n", err)
+		return nil, err
+	}
+
+	return f, nil
 }
 
 // contentiousFiles are files which, if extant, preclude the creation of a

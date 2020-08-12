@@ -23,6 +23,10 @@ type Config struct {
 	// Runtime of the implementation.
 	Runtime string `yaml:"runtime"`
 
+	// OCI image tag for the function
+	// typically of the form "registry/namespace/repository:tag"
+	Tag string `yaml:"tag"`
+
 	// Add new values to the applyConfig function as necessary.
 }
 
@@ -31,8 +35,9 @@ type Config struct {
 // post-instantiation.
 func newConfig(f *Function) Config {
 	return Config{
-		Name:    f.name,
-		Runtime: f.runtime,
+		Name:    f.Name,
+		Runtime: f.Runtime,
+		Tag:     f.Tag,
 	}
 }
 
@@ -40,7 +45,7 @@ func newConfig(f *Function) Config {
 func writeConfig(f *Function) (err error) {
 	var (
 		cfg     = newConfig(f)
-		cfgFile = filepath.Join(f.root, ConfigFileName)
+		cfgFile = filepath.Join(f.Root, ConfigFileName)
 		bb      []byte
 	)
 	if bb, err = yaml.Marshal(&cfg); err != nil {
@@ -78,8 +83,9 @@ func applyConfig(f *Function, root string) error {
 
 	// Apply the config to the client object, which effectiely writes back the default
 	// if it was not defined in the yaml.
-	f.name = cfg.Name
-	f.runtime = cfg.Runtime
+	f.Name = cfg.Name
+	f.Runtime = cfg.Runtime
+	f.Tag = cfg.Tag
 
 	// NOTE: cleverness < clarity
 

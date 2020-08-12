@@ -8,18 +8,18 @@ import (
 	"io"
 	"os"
 
+	"github.com/boson-project/faas"
 	"github.com/buildpacks/pack"
 	"github.com/buildpacks/pack/logging"
 )
 
 type Builder struct {
-	Verbose   bool
-	registry  string
-	namespace string
+	Verbose bool
+	Tag     string
 }
 
-func NewBuilder(registry, namespace string) *Builder {
-	return &Builder{registry: registry, namespace: namespace}
+func NewBuilder(tag string) *Builder {
+	return &Builder{Tag: tag}
 }
 
 var runtime2pack = map[string]string{
@@ -28,10 +28,13 @@ var runtime2pack = map[string]string{
 	"go":      "quay.io/boson/faas-go-builder",
 }
 
-func (builder *Builder) Build(name, runtime, path string) (image string, err error) {
+func (builder *Builder) Build(path string) (image string, err error) {
+	f, err := faas.NewFunction(path)
+	if err != nil {
+		return
+	}
 
-	registry := fmt.Sprintf("%s/%s", builder.registry, builder.namespace)
-	image = fmt.Sprintf("%s/%s", registry, name)
+	runtime := f.Runtime
 	packBuilder, ok := runtime2pack[runtime]
 	if !ok {
 		err = errors.New(fmt.Sprint("unsupported runtime: ", runtime))
@@ -52,10 +55,9 @@ func (builder *Builder) Build(name, runtime, path string) (image string, err err
 	}
 
 	packOpts := pack.BuildOptions{
-		AppPath:  path,
-		Image:    image,
-		Builder:  packBuilder,
-		Registry: registry,
+		AppPath: path,
+		Image:   builder.Tag,
+		Builder: packBuilder,
 	}
 
 	err = packClient.Build(context.Background(), packOpts)
@@ -65,5 +67,5 @@ func (builder *Builder) Build(name, runtime, path string) (image string, err err
 		}
 	}
 
-	return
+	return builder.Tag, err
 }
