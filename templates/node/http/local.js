@@ -14,8 +14,8 @@ The server has started.
 
 You can use curl to GET or POST an event to the endpoint:
 
-curl -X GET http://localhost:8080?name=tiger
+curl -X GET "http://localhost:8080?name=tiger"
 
-curl -X POST -d '{"name": "tiger"}' http://localhost:8080 -H'Content-type: application/json'
+curl -X POST -d '{"name": "tiger"}' "http://localhost:8080" -H'Content-type: application/json'
 `);
 });

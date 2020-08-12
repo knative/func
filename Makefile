@@ -34,8 +34,14 @@ $(LINUX):
 $(WINDOWS):
 	env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o $(WINDOWS) -ldflags "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)" ./cmd/$(BIN)
 
-test:
+test: test-binary test-node
+
+test-binary:
 	go test -race -cover -coverprofile=coverage.out ./...
+
+test-node:
+	cd templates/node/events && npm install && npm test && rm -rf node_modules
+	cd templates/node/http && npm install && npm test && rm -rf node_modules
 
 image: Dockerfile
 	docker build -t $(REPO):latest  \

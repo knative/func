@@ -11,10 +11,12 @@
     "test": "node test/unit.js && node test/integration.js",
     "local": "node local.js"
   },
-  "devDependencies": {
-    "@redhat/faas-js-runtime": "0.2.0",
-    "cloudevents-sdk": "^1.0.0",
+  "dependencies": {
     "death": "^1.1.0",
+    "@redhat/faas-js-runtime": "0.2.1"
+  },
+  "devDependencies": {
+    "cloudevents": "^3.1.0",
     "supertest": "^4.0.2",
     "tape": "^4.13.0"
   }

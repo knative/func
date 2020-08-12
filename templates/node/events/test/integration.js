@@ -5,7 +5,6 @@ const request = require('supertest');
 
 const func = require('..');
 const test = require('tape');
-const cloudevents = require('cloudevents-sdk/v1');
 
 const Spec = {
   version: 'ce-specversion',
