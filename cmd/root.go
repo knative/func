@@ -58,7 +58,7 @@ func init() {
 // Environment Variables, command arguments and flags.
 func Execute() {
 	// Sets version to a string partially populated by compile-time flags.
-	root.Version = verboseVersion()
+	root.Version = version(verbose)
 
 	// Execute the root of the command tree.
 	if err := root.Execute(); err != nil {
