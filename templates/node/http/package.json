@@ -11,11 +11,11 @@
   "author": "",
   "license": "Apache-2.0",
   "devDependencies": {
-    "@redhat/faas-js-runtime": "boson-project/faas-js-runtime",
     "supertest": "^4.0.2",
     "tape": "^5.0.1"
   },
   "dependencies": {
-    "death": "^1.1.0"
+    "death": "^1.1.0",
+    "@redhat/faas-js-runtime": "0.2.1"
   }
 }
