@@ -148,10 +148,7 @@ Note that on local clusters such as Kind, it is necessary to add the following a
 Get the installed KNative serving and Eventing versions
 ```
 kubectl get namespace knative-serving -o 'go-template={{index .metadata.labels "serving.knative.dev/release"}}'
-```
-```
 kubectl get namespace knative-eventing -o 'go-template={{index .metadata.labels "eventing.knative.dev/release"}}'
 ```
-
 
 

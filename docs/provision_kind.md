@@ -43,9 +43,10 @@ wg genkey | tee host.key | wg pubkey > host.pub
 wg genkey | tee client.key | wg pubkey > client.pub
 chmod 600 host.key client.key
 ```
+
 Assuming IPv4 addresses, with the wireguard-protected network 10.10.10.0/24, the host being 10.10.10.1 and the client 10.10.10.2
 
-Create a Wireguard Network Device on both the Host and the Client using the following configuration files (Replace HOST_KEY HOST_PUB, CLIENT_KEY and CLIENT_PUB with the keypairs created in the previous step):
+For linux hosts running systemd, create a Wireguard Network Device on both the Host and the Client using the following configuration files (Replace HOST_KEY HOST_PUB, CLIENT_KEY and CLIENT_PUB with the keypairs created in the previous step).  For OS X Clients, skip the client configuration and see the section on OS X below.
 
 On the Kind cluster host:
 `/etc/systemd/network/99-wg0.netdev`
@@ -74,7 +75,7 @@ Name=wg0
 Address=10.10.10.1/24
 ```
 
-On the client:
+On a client (For OS X, see below):
 
 `/etc/systemd/network/99-wg0.netdev`
 ```
@@ -114,6 +115,20 @@ The nodes should now be able to ping each other using their wireguard-protected 
 ```
 wg show
 ```
+For OS X hosts, skip the aforementioned systemd configuraiton, and instead install the Wireguard app from the App store, and then import the following configuration file.
+```
+[Interface]
+Address=10.10.10.2/32
+ListenPort=51871
+PrivateKey=CLIENT_KEY
+
+[Peer]
+PublicKey=HOST_PUB
+AllowedIPs=10.10.10.0/24
+Endpoint=HOST_ADDRESS:51111
+PersistentKeepalive=25
+```
+Note that in order to import the config, it should be in a file with 0600 permissions and the .conf suffix.
 
 ### Provision the Cluster
 
@@ -124,7 +139,7 @@ kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 networking:
   apiServerAddress: "10.10.10.1" # default is 127.0.0.1 (local only)
-  apiServerPort: 6443 # default is random. Note this must be unique per cluster.
+  apiServerPort: 6443            # default is random. 
 ```
 
 Delete the current cluster if necessary:
@@ -145,7 +160,7 @@ kubectl get po --all-namespaces --kubeconfig kind-kubeconfig.yaml
 ```
 ### Verify Cluster Provisioned
 
-You should be able to retrieve nodes from the cluster, which should include coredns, kube-proxy, etc.
+You should be able to retrieve a pods list from the cluster, which should include coredns, kube-proxy, etc.
 ```
 kubectl get po --all-namespaces
 ```
