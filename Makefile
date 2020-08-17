@@ -34,7 +34,7 @@ $(LINUX):
 $(WINDOWS):
 	env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o $(WINDOWS) -ldflags "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)" ./cmd/$(BIN)
 
-test: test-binary test-node
+test: test-binary test-node test-quarkus test-go
 
 test-binary:
 	go test -race -cover -coverprofile=coverage.out ./...
@@ -42,6 +42,14 @@ test-binary:
 test-node:
 	cd templates/node/events && npm install && npm test && rm -rf node_modules
 	cd templates/node/http && npm install && npm test && rm -rf node_modules
+
+test-quarkus:
+	cd templates/quarkus/events && mvn test
+	cd templates/quarkus/http && mvn test
+
+test-go:
+	cd templates/go/events && go test
+	cd templates/go/http && go test
 
 image: Dockerfile
 	docker build -t $(REPO):latest  \
