@@ -10,8 +10,6 @@ Any Kubernetes-compatible API should be capable.  Included herein are instructio
 
 [Provision using Kind](provision_kind.md)
 
-[Provision using Minikube](provision_minikube.md)
-
 [Provision using Amazon EKS](provision_eks.md)
 
 ## Configuring the Cluster
@@ -22,7 +20,7 @@ Create a namespace for your Functions:
 ```
 kubectl create namespace faas
 ```
-Optionally set the default namespace for kubetl commands:
+Set the default namespace for subsequent commands:
 ```
 kubectl config set-context --current --namespace=faas
 ```
@@ -46,16 +44,14 @@ Update the networking layer to
 kubectl apply -f knative/config-network.yaml
 ```
 
-Note: for environments where Load Balancers are not supported (such as local Kind or Minikube clusters), the Kourier service should be updated to be of type IP instead of LoadBalancer.  This configuration patches the kourier service to be of type NodePort with its networking service attached to the host at ports HTTP 30080 and HTTPS 30443.
+Note: for environments where Load Balancers are not supported (such as local Kind clusters), the Kourier service will be stuck in a pending state as it is awaiting the underlying infrastructure to provision a load-balancer.  This can be solved by updating the Kourier configuration to type NodePort with its networking service attached to the host at ports HTTP 30080 and HTTPS 30443, you can use the following patch file:
 ```
 kubectl patch -n kourier-system services/kourier -p "$(cat knative/config-kourier-nodeport.yaml)"
 ```
-For bare metal clusters, installing the [MetalLB LoadBalancer](https://metallb.universe.tf/) is also an option.
-
 ### Domains
 
 Configure cluster-wide domain TLD+1 by editing k8s/config-domain.yaml to include supported domains.
-Update the `knative/config-domain.yaml` to contain your domain of choice and then apply:
+First edit `knative/config-domain.yaml` to contain your domain of choice and then apply:
 ```
 kubectl apply -f knative/config-domain.yaml
 ```
@@ -63,11 +59,12 @@ Note that this step is [pending automation](https://github.com/boson-project/faa
 
 ### DNS 
 
-Register domain(s) to be used, configuring a CNAME to the DNS or IP returned from:
+For external routing to the cluster, register domain(s) to be used with a registrar and configure a DNS CNAME to the DNS or IP returned from:
+(May also register a wildcard subdomain match).
 ```
 kubectl --namespace kourier-system get service kourier
 ```
-May also register a wildcard subdomain match.
+For local installations such as Kind, the Kourier networking layer is configured as a local port, so DNS can be resolved by modifying one's local DNS resolver, or /etc/hosts, to point to the local host.
 
 ### TLS
 
@@ -90,7 +87,7 @@ Generate a token with CloudFlare with the following settings:
 
 Base64 encode the token:
 ```
-echo -n 'CLOUDFLARE_TOKEN' | base64
+echo -n "$CLOUDFLARE_TOKEN" | base64
 ```
 Update the `tls/cloudflare-secret.yaml` with the base64-encoded token value and create the secret:
 ```
@@ -123,7 +120,7 @@ GitHub events source:
 ```
 kubectl apply --filename https://github.com/knative/eventing-contrib/releases/download/v0.16.0/github.yaml
 ```
-Learn more about the Github source at https://knative.dev/docs/eventing/samples/github-source/index.html
+Learn more about the GitHub source at https://knative.dev/docs/eventing/samples/github-source/index.html
 
 Enable Broker for faas namespace:
 ```

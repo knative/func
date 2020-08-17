@@ -24,14 +24,14 @@ func main() {
   // Docker to build and push, and a Knative client for deployment.
   client, err := faas.New(
     faas.WithInitializer(embedded.NewInitializer("")),
-    faas.WithBuilder(buildpacks.NewBuilder("quay.io", "alice")),
+    faas.WithBuilder(buildpacks.NewBuilder("quay.io/alice/my-function")),
     faas.WithPusher(docker.NewPusher()),
     faas.WithDeployer(knative.NewDeployer()))
 
   // Create a Go function which listens for CloudEvents.
   // Publicly routable as https://www.example.com.
   // Local implementation is written to the current working directory.
-  if err := client.Create("go", "events", "www.example.com", "."); err != nil {
+  if err := client.Create("go", "events", "my-function", "quay.io/alice/my-function:v1.0"); err != nil {
     log.Fatal(err)
   }
 }

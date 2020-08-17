@@ -6,34 +6,27 @@ This guide walks through the process of configuring a kind cluster to run Functi
 * kind   v0.8.1 - [Install Kind](https://kind.sigs.k8s.io/docs/user/quick-start/#installation)
 * Kubectl v1.17.3 - [Install kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl) 
 
-## Quickstart
+Follow either the Local Access configuraiton step or the (optional) more lengthy remote configuration section.
 
-Starting a new cluster with all defaults is as simple as:
+## Configuring for local access
+
+Create a two node cluster (control plane with one worker), mapping ports 30443 and 30080 to the host's port 80 and 443 (will be used during Kubernetes configuration for the Kourier networking layer).
 ```
-kind create cluster
+kind create cluster --config kind/config-local.yaml
 ```
-List available clusters:
-```
-kind get clusters
-```
-List running containers will now show a kind process:
-```
-docker ps
-```
+
 Confirm core services are running:
 ```
 kubectl get po --all-namespaces
 ```
-You should see
-
 
 ## Configure With Remote Access
 
 This section is optional.
 
-Kind is intended to be a locally-running service, and exposing externally is not recommended.  However, a fully configured kubernetes cluster can often quickly outstrip the resources available on even a well-specd development workstation.  Therefore, creating a Kind cluster network appliance of sorts can be helpful.  One possible way to connect to your kind cluster remotely would be to create a [wireguard](https://www.wireguard.com/) interface upon which to expose the API.  Following is an example assuming linux hosts with systemd:
+Kind is intended to be a locally-running service, and exposing externally is not recommended.  However, a fully configured kubernetes cluster can often quickly outstrip the resources available on even a well-specd development workstation.  Therefore, creating a Kind cluster network appliance of sorts on our LAN can be helpful.  In order to administer the server, the API must be exposed.  This should not be exposed publicly, so choose to either listen on a local LAN-only interface, or connect to your kind cluster remotely by creating a [wireguard](https://www.wireguard.com/) interface upon which to expose the API.  Following is an example assuming linux hosts with systemd for the latter:
 
-### Create a Secure Tunnel
+### Create the Secure Tunnel
 
 [Install Wireguard](https://www.wireguard.com/install/)
 
@@ -132,23 +125,10 @@ Note that in order to import the config, it should be in a file with 0600 permis
 
 ### Provision the Cluster
 
-Create a Kind configuration file which instructs the API server to listen on the Wireguard interface and a known port:
-`kind-config.yaml`
+Create a Kind configuration file which, in addition to mapping the HTTP and HTTPS ports to the host (as in the local config), also instructs the API server to listen on the Wireguard interface and a known port:
+`kind/config-remote.yaml`
 ```
-kind: Cluster
-apiVersion: kind.x-k8s.io/v1alpha4
-networking:
-  apiServerAddress: "10.10.10.1" # default is 127.0.0.1 (local only)
-  apiServerPort: 6443            # default is random. 
-```
-
-Delete the current cluster if necessary:
-```
-kind delete cluster --name kind
-```
-Start a new cluster using the config:
-```
-kind create cluster --config kind-config.yaml
+kind create cluster --config kind/config-remote.yaml
 ```
 Export a kubeconfig and move it to the client machine:
 ```
@@ -158,7 +138,8 @@ From the client, confirm that pods can be listed:
 ```
 kubectl get po --all-namespaces --kubeconfig kind-kubeconfig.yaml
 ```
-### Verify Cluster Provisioned
+
+## Verify Cluster Provisioned
 
 You should be able to retrieve a pods list from the cluster, which should include coredns, kube-proxy, etc.
 ```

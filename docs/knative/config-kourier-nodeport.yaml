@@ -1,9 +1,9 @@
 # Patch for changing kourier to a NodePort for installations where a 
-# LoadBalancer is not available (for example local Minikube or Kind clusters)
+# LoadBalancer is not available (for example local Kind clusters)
 spec:
   ports:
   - name: http2
-    nodePort: 32080
+    nodePort: 30080
     port: 80
     protocol: TCP
     targetPort: 8080

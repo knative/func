@@ -2,7 +2,7 @@
 
 [Demo Screencast]
 
-faas is a "Function as a Service" Client Library and CLI for enabling the development of implicitly deployed, platform agnostic code.
+`faas` is a "Function as a Service" Client Library and CLI for enabling the development of implicitly deployed, platform agnostic code.
 
 For examples of what's possible, see the [Screencast Series](getting_started_screencast.md) or the [Functions Cookbook](functions_cookbook.md).
 
@@ -11,7 +11,7 @@ Functions can be written in the following languages:
 * Go (Golang)
 * Node.js (JavaScript)
 * Quarkus (Java)
-* Rust
+* Rust (Coming Soon)
 
 Functions can be deployed on the following platforms:
 
@@ -25,13 +25,15 @@ Functions can be deployed on the following platforms:
 
 [Install the latest CLI](installing_cli.md)
 
+<!-- Plugins coming soon
 [Install the VS Code Plugin](installing_vscode.md)
 
 [Install the VIM Plugin](installing_vim.md)
 
 [Install the Emacs Extension](installing_emacs.md)
+-->
 
-Functions can be created and managed using the CLI interactively, scripted, using one of the IDE plugins, or by direct integration with the client library.   The [Function Developer's Guide](developers_guide.md)and examples herein demonstrate the CLI-based approach.  
+Functions can be created and managed using the CLI interactively, scripted, or by direct integration with the client library.   The [Function Developer's Guide](developers_guide.md)and examples herein demonstrate the CLI-based approach.  
 
 For direct integration using the Go client library, it is advisible to first follow these CLI-based guides to become familiar with creating and deploying software in this way, and then proceed to the [Function Integrator's Guide](integrators_guide.md).
 
