@@ -27,7 +27,7 @@ func init() {
 	root.AddCommand(createCmd)
 	// createCmd.Flags().BoolP("internal", "i", false, "Create a cluster-local function without a publicly accessible route - $FAAS_INTERNAL")
 	createCmd.Flags().StringP("name", "n", "", "Specify an explicit name for the serive, overriding path-derivation - $FAAS_NAME")
-	createCmd.Flags().StringP("namespace", "s", "default", "namespace at image registry (usually username or org name) - $FAAS_NAMESPACE")
+	createCmd.Flags().StringP("namespace", "s", "faas", "namespace in underlying platform within which to deploy the Function - $FAAS_NAMESPACE")
 	createCmd.Flags().StringP("path", "p", cwd, "Path to the new project directory")
 	createCmd.Flags().StringP("tag", "t", "", "Specify an image tag, for example quay.io/myrepo/project.name:latest")
 	createCmd.Flags().StringP("templates", "", filepath.Join(configPath(), "faas", "templates"), "Extensible templates path. $FAAS_TEMPLATES")
