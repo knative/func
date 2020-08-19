@@ -1,4 +1,4 @@
-# Node.js Cloud Events Function
+# Node.js HTTP Function
 
 Welcome to your new Node.js function project! The boilerplate function code can be found in [`index.js`](./index.js). This function will respond to incoming HTTP GET and POST requests. This example function is written synchronously, returning a raw value. If your function performs any asynchronous execution, you can safely add the `async` keyword to the function, and return a `Promise`.
 
