@@ -39,7 +39,7 @@ func (n *Pusher) Push(f faas.Function) (err error) {
 	// standard output and error.
 	cmd := exec.Command("docker", "push", f.Image)
 
-	// If verbose logging is enabled, echo appsody's chatty stdout.
+	// If verbose logging is enabled, echo chatty stdout.
 	if n.Verbose {
 		fmt.Println(cmd)
 		cmd.Stdout = os.Stdout
@@ -52,7 +52,7 @@ func (n *Pusher) Push(f faas.Function) (err error) {
 	// Run the command, echoing captured stderr as well ass the cmd internal error.
 	err = cmd.Run()
 	if err != nil {
-		// TODO: sanitize stderr from appsody, or submit a PR to remove duplicates etc.
+		// TODO: sanitize stderr from docker?
 		err = fmt.Errorf("%v. %v", stderr.String(), err.Error())
 	}
 	return

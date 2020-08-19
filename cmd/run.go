@@ -5,7 +5,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/boson-project/faas"
-	"github.com/boson-project/faas/appsody"
+	"github.com/boson-project/faas/docker"
 )
 
 func init() {
@@ -17,10 +17,10 @@ var runCmd = &cobra.Command{
 	Use:   "run",
 	Short: "Run Function locally",
 	Long:  "Runs the function locally within an isolated environment.  Modifications to the Function trigger a reload.  This holds open the current window with the logs from the running Function, and the run is canceled on interrupt.",
-	RunE:  run,
+	RunE:  runRun,
 }
 
-func run(cmd *cobra.Command, args []string) (err error) {
+func runRun(cmd *cobra.Command, args []string) (err error) {
 	var (
 		path    = "" // defaults to current working directory
 		verbose = viper.GetBool("verbose")
@@ -30,7 +30,7 @@ func run(cmd *cobra.Command, args []string) (err error) {
 		path = args[0]
 	}
 
-	runner := appsody.NewRunner()
+	runner := docker.NewRunner()
 	runner.Verbose = verbose
 
 	client := faas.New(

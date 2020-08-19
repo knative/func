@@ -22,7 +22,7 @@ func NewBuilder() *Builder {
 	return &Builder{}
 }
 
-var runtime2pack = map[string]string{
+var Runtimes = map[string]string{
 	"quarkus": "quay.io/boson/faas-quarkus-builder",
 	"node":    "quay.io/boson/faas-nodejs-builder",
 	"go":      "quay.io/boson/faas-go-builder",
@@ -31,7 +31,7 @@ var runtime2pack = map[string]string{
 // Build the Function at path.
 func (builder *Builder) Build(f faas.Function) (err error) {
 	// dervive the builder from the specificed runtime
-	packBuilder, ok := runtime2pack[f.Runtime]
+	packBuilder, ok := Runtimes[f.Runtime]
 	if !ok {
 		return errors.New(fmt.Sprint("unsupported runtime: ", f.Runtime))
 	}

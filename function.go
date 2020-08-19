@@ -179,7 +179,6 @@ func assertEmptyRoot(path string) (err error) {
 // Function rooted in the given directory.
 var contentiousFiles = []string{
 	ConfigFile,
-	".appsody-config.yaml",
 }
 
 // contentiousFilesIn the given directoy

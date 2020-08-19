@@ -7,7 +7,7 @@ import (
 	"path"
 
 	"github.com/boson-project/faas"
-	"github.com/boson-project/faas/appsody"
+	"github.com/boson-project/faas/buildpacks"
 	"github.com/boson-project/faas/knative"
 	"github.com/spf13/cobra"
 )
@@ -28,8 +28,8 @@ func CompleteFunctionList(cmd *cobra.Command, args []string, toComplete string) 
 	return
 }
 func CompleteRuntimeList(cmd *cobra.Command, args []string, toComplete string) (strings []string, directive cobra.ShellCompDirective) {
-	strings = make([]string, 0, len(appsody.StackShortNames))
-	for lang := range appsody.StackShortNames {
+	strings = []string{}
+	for lang := range buildpacks.Runtimes {
 		strings = append(strings, lang)
 	}
 	directive = cobra.ShellCompDirectiveDefault
