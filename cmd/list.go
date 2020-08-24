@@ -34,6 +34,7 @@ func init() {
 		validFormats = append(validFormats, name)
 	}
 
+	listCmd.Flags().StringP("namespace", "s", "", "cluster namespace to list functions from")
 	listCmd.Flags().StringP("output", "o", "plain", "optionally specify output format (plain,json,yaml)")
 	err := listCmd.RegisterFlagCompletionFunc("output", completeFormats)
 	if err != nil {
@@ -83,7 +84,12 @@ func list(cmd *cobra.Command, args []string) (err error) {
 		return
 	}
 
-	lister, err := knative.NewLister("")
+	namespace, err := cmd.Flags().GetString("namespace")
+	if err != nil {
+		return
+	}
+
+	lister, err := knative.NewLister(namespace)
 	if err != nil {
 		return
 	}
