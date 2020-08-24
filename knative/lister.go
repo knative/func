@@ -18,9 +18,12 @@ type Lister struct {
 
 func NewLister(namespace string) (l *Lister, err error) {
 	l = &Lister{}
-	l.namespace = namespace
 	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
 	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
+	if namespace == "" {
+		namespace, _, _ = clientConfig.Namespace()
+	}
+	l.namespace = namespace
 	config, err := clientConfig.ClientConfig()
 	if err != nil {
 		return
