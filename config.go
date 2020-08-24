@@ -8,86 +8,66 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// ConfigFileName is an optional file checked for in the function root.
-const ConfigFileName = ".faas.yaml"
+// ConfigFileName is the name of the config's serialized form.
+const ConfigFileName = ".faas.config"
 
-// Config object which provides another mechanism for overriding client static
-// defaults.  Applied prior to the WithX options, such that the options take
-// precedence if they are provided.
+// Config represents the serialized state of a Function's metadata.
+// See the Function struct for attribute documentation.
 type Config struct {
-	// Name specifies the name to be used for this function. As a config option,
-	// this value, if provided, takes precidence over the path-derived name but
-	// not over the Option WithName, if provided.
-	Name string `yaml:"name"`
-
-	// Runtime of the implementation.
-	Runtime string `yaml:"runtime"`
-
-	// OCI image tag for the function
-	// typically of the form "registry/namespace/repository:tag"
-	Tag string `yaml:"tag"`
-
-	// Add new values to the applyConfig function as necessary.
+	Name      string `yaml:"name"`
+	Namespace string `yaml:"namespace"`
+	Runtime   string `yaml:"runtime"`
+	Image     string `yaml:"image"`
+	// Add new values to the toConfig/fromConfig functions.
 }
 
-// newConfig creates a config object from a function, effectively exporting mutable
-// fields for the config file while preserving the immutability of the client
-// post-instantiation.
-func newConfig(f *Function) Config {
-	return Config{
-		Name:    f.Name,
-		Runtime: f.Runtime,
-		Tag:     f.Tag,
+// newConfig returns a Config populated from data serialized to disk if it is
+// available.  Errors are returned if the path is not valid, if there are
+// errors accessing an extant config file, or the contents of the file do not
+// unmarshall.  A missing file at a valid path does not error but returns the
+// empty value of Config.
+func newConfig(root string) (c Config, err error) {
+	filename := filepath.Join(root, ConfigFileName)
+	if _, err = os.Stat(filename); os.IsNotExist(err) {
+		err = nil // do not consider a missing config file an error
+		return    // return the zero value of the config
 	}
-}
-
-// writeConfig out to disk.
-func writeConfig(f *Function) (err error) {
-	var (
-		cfg     = newConfig(f)
-		cfgFile = filepath.Join(f.Root, ConfigFileName)
-		bb      []byte
-	)
-	if bb, err = yaml.Marshal(&cfg); err != nil {
+	bb, err := ioutil.ReadFile(filename)
+	if err != nil {
 		return
 	}
-	return ioutil.WriteFile(cfgFile, bb, 0644)
+	err = yaml.Unmarshal(bb, &c)
+	return
 }
 
-// Apply the config, if it exists, to the function struct.
-// if an entry exists in the config file and is empty, this is interpreted as
-// the intent to zero-value that field.
-func applyConfig(f *Function, root string) error {
-	// abort if the config file does not exist.
-	filename := filepath.Join(root, ConfigFileName)
-	if _, err := os.Stat(filename); os.IsNotExist(err) {
-		return nil
+// fromConfig returns a Function populated from config.
+// Note that config does not include ancillary fields not serialized, such as Root.
+func fromConfig(c Config) (f Function) {
+	return Function{
+		Name:      c.Name,
+		Namespace: c.Namespace,
+		Runtime:   c.Runtime,
+		Image:     c.Image,
 	}
+}
 
-	// Read in as bytes
-	bb, err := ioutil.ReadFile(filepath.Join(root, ConfigFileName))
-	if err != nil {
-		return err
+// toConfig serializes a Function to a config object.
+func toConfig(f Function) Config {
+	return Config{
+		Name:      f.Name,
+		Namespace: f.Namespace,
+		Runtime:   f.Runtime,
+		Image:     f.Image,
 	}
+}
 
-	// Create a config with defaults set to the current value of the Client object.
-	// These gymnastics are necessary because we want the Client's members to be
-	// private to disallow mutation post instantiation, and thus they are unavailable
-	// to be set automatically
-	cfg := newConfig(f)
-
-	// Decode yaml, overriding values in the config if they were defined in the yaml.
-	if err := yaml.Unmarshal(bb, &cfg); err != nil {
-		return err
+// writeConfig for the given Function out to disk at root.
+func writeConfig(f Function) (err error) {
+	path := filepath.Join(f.Root, ConfigFileName)
+	c := toConfig(f)
+	bb := []byte{}
+	if bb, err = yaml.Marshal(&c); err != nil {
+		return
 	}
-
-	// Apply the config to the client object, which effectiely writes back the default
-	// if it was not defined in the yaml.
-	f.Name = cfg.Name
-	f.Runtime = cfg.Runtime
-	f.Tag = cfg.Tag
-
-	// NOTE: cleverness < clarity
-
-	return nil
+	return ioutil.WriteFile(path, bb, 0644)
 }

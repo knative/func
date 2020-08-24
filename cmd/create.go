@@ -1,151 +1,124 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 
-	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
 	"github.com/boson-project/faas"
 	"github.com/boson-project/faas/buildpacks"
 	"github.com/boson-project/faas/docker"
-	"github.com/boson-project/faas/embedded"
 	"github.com/boson-project/faas/knative"
 	"github.com/boson-project/faas/progress"
+	"github.com/boson-project/faas/prompt"
 )
 
 func init() {
-	cwd, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
-
-	// Add the `create` command as a subcommand to root.
 	root.AddCommand(createCmd)
-	// createCmd.Flags().BoolP("internal", "i", false, "Create a cluster-local function without a publicly accessible route - $FAAS_INTERNAL")
-	createCmd.Flags().StringP("name", "n", "", "Specify an explicit name for the serive, overriding path-derivation - $FAAS_NAME")
-	createCmd.Flags().StringP("namespace", "s", "faas", "namespace in underlying platform within which to deploy the Function - $FAAS_NAMESPACE")
-	createCmd.Flags().StringP("path", "p", cwd, "Path to the new project directory")
-	createCmd.Flags().StringP("tag", "t", "", "Specify an image tag, for example quay.io/myrepo/project.name:latest")
-	createCmd.Flags().StringP("templates", "", filepath.Join(configPath(), "faas", "templates"), "Extensible templates path. $FAAS_TEMPLATES")
-	createCmd.Flags().StringP("trigger", "g", embedded.DefaultTemplate, "Function template (ex: 'http','events') - $FAAS_TEMPLATE")
-	createCmd.Flags().BoolP("local", "l", false, "Create the function locally only. Do not push to a cluster")
+	createCmd.Flags().StringP("image", "i", "", "Optional full image name, in form [registry]/[namespace]/[name]:[tag] for example quay.io/myrepo/project.name:latest (overrides --repository) - $FAAS_IMAGE")
+	createCmd.Flags().StringP("namespace", "n", "", "Override namespace into which the funciton is deployed (on supported platforms).  Default is to use currently active underlying platform setting - $FAAS_NAMESPACE")
+	createCmd.Flags().StringP("path", "p", cwd(), "Path to the new project directory - $FAAS_PATH")
+	createCmd.Flags().StringP("repository", "r", "", "Repository for built images, ex 'docker.io/myuser' or just 'myuser'.  Optional if --image provided. - $FAAS_REPOSITORY")
+	createCmd.Flags().StringP("runtime", "l", faas.DefaultRuntime, "Function runtime language/framework. - $FAAS_RUNTIME")
+	createCmd.Flags().StringP("templates", "", filepath.Join(configPath(), "faas", "templates"), "Extensible templates path. - $FAAS_TEMPLATES")
+	createCmd.Flags().StringP("trigger", "t", faas.DefaultTrigger, "Function trigger (ex: 'http','events') - $FAAS_TRIGGER")
+	createCmd.Flags().BoolP("yes", "y", false, "When in interactive mode (attached to a TTY) skip prompts. - $FAAS_YES")
 
-	err = createCmd.MarkFlagRequired("tag")
+	var err error
+	err = createCmd.RegisterFlagCompletionFunc("image", CompleteRegistryList)
 	if err != nil {
-		fmt.Println("Error while marking 'tag' required")
+		fmt.Println("Error while calling RegisterFlagCompletionFunc: ", err)
 	}
-	err = createCmd.RegisterFlagCompletionFunc("tag", CompleteRegistryList)
+	err = createCmd.RegisterFlagCompletionFunc("runtime", CompleteRuntimeList)
 	if err != nil {
 		fmt.Println("Error while calling RegisterFlagCompletionFunc: ", err)
 	}
 }
 
-// The create command invokes the Funciton Client to create a new,
-// functional, deployed service function with a noop implementation.  It
-// can be optionally created only locally (no deploy) using --local.
 var createCmd = &cobra.Command{
-	Use:               "create <runtime>",
-	Short:             "Create a new Function project, build it, and push it to a cluster",
-	SuggestFor:        []string{"cerate", "new"},
-	ValidArgsFunction: CompleteRuntimeList,
-	Args:              cobra.ExactArgs(1),
-	RunE:              create,
-	PreRun: func(cmd *cobra.Command, args []string) {
-		flags := []string{"local", "name", "namespace", "tag", "path", "trigger", "templates"}
-		for _, f := range flags {
-			if err := viper.BindPFlag(f, cmd.Flags().Lookup(f)); err != nil {
-				panic(err)
-			}
-		}
-	},
+	Use:        "create <name> [options]",
+	Short:      "Create a new Function, including initialization of local files and deployment.",
+	SuggestFor: []string{"cerate", "new"},
+	PreRunE:    bindEnv("image", "namespace", "path", "repository", "runtime", "templates", "trigger", "yes"),
+	RunE:       runCreate,
 }
 
-// The create command expects several parameters, most of which can be
-// defaulted.  When an interactive terminal is detected, these parameters,
-// which are gathered into this config object, are passed through the shell
-// allowing the user to interactively confirm and optionally modify values.
-type createConfig struct {
-	initConfig
-	// Namespace on the cluster where the function will be deployed
-	Namespace string
+func runCreate(cmd *cobra.Command, args []string) (err error) {
+	config := newCreateConfig(args).Prompt()
 
-	// Local mode flag only builds a function locally, with no deployed counterpart
-	Local bool
-}
-
-// create a new service function using the client about config.
-func create(cmd *cobra.Command, args []string) (err error) {
-	// Assert a runtime parameter was provided
-	if len(args) == 0 {
-		return errors.New("'faas create' requires a runtime argument")
+	function := faas.Function{
+		Name:    config.Name,
+		Root:    config.initConfig.Path,
+		Runtime: config.initConfig.Runtime,
+		Trigger: config.Trigger,
 	}
 
-	// Create a deafult configuration populated first with environment variables,
-	// followed by overrides by flags.
-	var config = createConfig{
-		Namespace: viper.GetString("namespace"),
-	}
-	config.Verbose = viper.GetBool("verbose")
-	config.Local = viper.GetBool("local")
-	config.Name = viper.GetString("name")
-	config.Tag = viper.GetString("tag")
-	config.Trigger = viper.GetString("trigger")
-	config.Templates = viper.GetString("templates")
-	config.Path = viper.GetString("path")
-	config.Runtime = args[0]
+	builder := buildpacks.NewBuilder()
+	builder.Verbose = config.initConfig.Verbose
 
-	// If we are running as an interactive terminal, allow the user
-	// to mutate default config prior to execution.
-	if interactiveTerminal() {
-		config.initConfig, err = promptWithDefaults(config.initConfig)
-		if err != nil {
-			return err
-		}
-	}
-
-	// Initializer creates a deployable noop function implementation in the
-	// configured path.
-	initializer := embedded.NewInitializer(config.Templates)
-	initializer.Verbose = config.Verbose
-
-	// Builder creates images from function source.
-	builder := buildpacks.NewBuilder(config.Tag)
-	builder.Verbose = config.Verbose
-
-	// Pusher of images
 	pusher := docker.NewPusher()
-	pusher.Verbose = config.Verbose
+	pusher.Verbose = config.initConfig.Verbose
 
-	// Deployer of built images.
 	deployer := knative.NewDeployer()
-	deployer.Verbose = config.Verbose
-	deployer.Namespace = config.Namespace
+	deployer.Verbose = config.initConfig.Verbose
 
-	// Progress bar
-	listener := progress.New(progress.WithVerbose(config.Verbose))
+	listener := progress.New()
+	listener.Verbose = config.initConfig.Verbose
 
-	// Instantiate a client, specifying concrete implementations for
-	// Initializer and Deployer, as well as setting the optional verbosity param.
-	client, err := faas.New(
-		faas.WithVerbose(config.Verbose),
-		faas.WithInitializer(initializer),
+	client := faas.New(
+		faas.WithVerbose(config.initConfig.Verbose),
+		faas.WithTemplates(config.Templates),
+		faas.WithRepository(config.Repository), // for deriving image name when --image not provided explicitly.
 		faas.WithBuilder(builder),
 		faas.WithPusher(pusher),
 		faas.WithDeployer(deployer),
-		faas.WithLocal(config.Local),
-		faas.WithProgressListener(listener),
-	)
-	if err != nil {
+		faas.WithProgressListener(listener))
+
+	// overrideImage name for built images, if --image provided.
+	if err = overrideImage(config.initConfig.Path, config.Image); err != nil {
 		return
 	}
 
-	// Invoke the creation of the new Function locally.
-	// Returns the final address.
-	// Name can be empty string (path-dervation will be attempted)
-	// Path can be empty, defaulting to current working directory.
-	return client.Create(config.Runtime, config.Trigger, config.Name, config.Tag, config.Path)
+	return client.Create(function)
+}
+
+type createConfig struct {
+	initConfig
+	buildConfig
+	deployConfig
+	// Note that ambiguous references set to assume .initConfig
+}
+
+func newCreateConfig(args []string) createConfig {
+	return createConfig{
+		initConfig:   newInitConfig(args),
+		buildConfig:  newBuildConfig(),
+		deployConfig: newDeployConfig(),
+	}
+}
+
+// Prompt the user with value of config members, allowing for interaractive changes.
+// Skipped if not in an interactive terminal (non-TTY), or if --yes (agree to
+// all prompts) was explicitly set.
+func (c createConfig) Prompt() createConfig {
+	if !interactiveTerminal() || c.initConfig.Yes {
+		return c
+	}
+	return createConfig{
+		initConfig: initConfig{
+			Path:    prompt.ForString("Path to project directory", c.initConfig.Path),
+			Name:    prompt.ForString("Function project name", deriveName(c.Name, c.initConfig.Path), prompt.WithRequired(true)),
+			Verbose: prompt.ForBool("Verbose logging", c.initConfig.Verbose),
+			Runtime: prompt.ForString("Runtime of source", c.Runtime),
+			Trigger: prompt.ForString("Function Trigger", c.Trigger),
+			// Templates intentiopnally omitted from prompt for being an edge case.
+		},
+		buildConfig: buildConfig{
+			Repository: prompt.ForString("Repository for Function images", c.buildConfig.Repository),
+		},
+		deployConfig: deployConfig{
+			Namespace: prompt.ForString("Override default deploy namespace", c.Namespace),
+		},
+	}
 }

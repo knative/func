@@ -1,4 +1,4 @@
-package embedded
+package faas
 
 import (
 	"errors"
@@ -13,13 +13,12 @@ import (
 )
 
 // Updating Templates:
-// See documentation in faas/templates for instructions on including template
-// updates in the binary for access by pkger.
+// See documentation in ./templates/README.md
 
-// DefautlTemplate is the default function signature / environmental context
+// DefautlTemplate is the default Function signature / environmental context
 // of the resultant template.  All runtimes are expected to have at least
 // an HTTP Handler ("http") and Cloud Events ("events")
-const DefaultTemplate = "events"
+const DefaultTemplate = "http"
 
 // FileAccessor encapsulates methods for accessing template files.
 type FileAccessor interface {
@@ -42,18 +41,12 @@ func init() {
 	_ = pkger.Include("/templates")
 }
 
-type Initializer struct {
-	Verbose   bool
+type templateWriter struct {
+	verbose   bool
 	templates string
 }
 
-// NewInitializer with an optional path to extended repositories directory
-// (by default only internally embedded templates are used)
-func NewInitializer(templates string) *Initializer {
-	return &Initializer{templates: templates}
-}
-
-func (n *Initializer) Initialize(runtime, template string, dest string) error {
+func (n templateWriter) Write(runtime, template string, dest string) error {
 	if template == "" {
 		template = DefaultTemplate
 	}

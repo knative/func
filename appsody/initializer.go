@@ -19,7 +19,7 @@ var StackShortNames = map[string]string{
 	"quarkus": "quarkus-ce-functions",
 }
 
-// Initializer of functions using the appsody binary.
+// Initializer of Functions using the appsody binary.
 type Initializer struct {
 	// Verbose logging flag.
 	Verbose bool
@@ -30,7 +30,7 @@ func NewInitializer() *Initializer {
 	return &Initializer{}
 }
 
-// Initialize a new function of the given name, of the given runtime, at the given path.
+// Initialize a new Function of the given name, of the given runtime, at the given path.
 func (n *Initializer) Initialize(name, runtime, path string) error {
 	// Check for the appsody binary explicitly so that we can return
 	// an extra-friendly error message.

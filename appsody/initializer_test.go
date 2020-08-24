@@ -28,7 +28,7 @@ func TestInitialize(t *testing.T) {
 		t.Skip()
 	}
 
-	// Create the directory in which the service function will be initialized,
+	// Create the directory in which the Function will be initialized,
 	// removing it on test completion.
 	if err := os.Mkdir("testdata/example.com/www", 0700); err != nil {
 		t.Fatal(err)

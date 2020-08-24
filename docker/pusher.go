@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+
+	"github.com/boson-project/faas"
 )
 
 // Pusher of images from local to remote registry.
@@ -19,8 +21,8 @@ func NewPusher() *Pusher {
 	return &Pusher{}
 }
 
-// Push an image by name.  Docker is expected to be already authenticated.
-func (n *Pusher) Push(tag string) (err error) {
+// Push the image of the Function.
+func (n *Pusher) Push(f faas.Function) (err error) {
 	// Check for the docker binary explicitly so that we can return
 	// an extra-friendly error message.
 	_, err = exec.LookPath("docker")
@@ -29,9 +31,13 @@ func (n *Pusher) Push(tag string) (err error) {
 		return
 	}
 
+	if f.Image == "" {
+		return errors.New("Function has no associated image.  Has it been built?")
+	}
+
 	// set up the command, specifying a sanitized project name and connecting
 	// standard output and error.
-	cmd := exec.Command("docker", "push", tag)
+	cmd := exec.Command("docker", "push", f.Image)
 
 	// If verbose logging is enabled, echo appsody's chatty stdout.
 	if n.Verbose {

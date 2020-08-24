@@ -1,57 +1,74 @@
 package cmd
 
 import (
-	"fmt"
-	"github.com/boson-project/faas"
-	"github.com/boson-project/faas/knative"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
+
+	"github.com/boson-project/faas"
+	"github.com/boson-project/faas/knative"
+	"github.com/boson-project/faas/prompt"
 )
 
 func init() {
 	root.AddCommand(deleteCmd)
-	deleteCmd.Flags().StringP("name", "n", "", "optionally specify an explicit name to remove, overriding path-derivation. $FAAS_NAME")
-	err := deleteCmd.RegisterFlagCompletionFunc("name", CompleteFunctionList)
-	if err != nil {
-		fmt.Println("Error while calling RegisterFlagCompletionFunc: ", err)
-	}
+	deleteCmd.Flags().StringP("path", "p", cwd(), "Path to the project which should be deleted - $FAAS_PATH")
+	deleteCmd.Flags().BoolP("yes", "y", false, "When in interactive mode (attached to a TTY), skip prompting the user. - $FAAS_YES")
 }
 
 var deleteCmd = &cobra.Command{
-	Use:        "delete",
-	Short:      "Delete deployed Function",
-	Long:       `Removes the deployed Function for the current directory, but does not delete anything locally.  If no code updates have been made beyond the defaults, this would bring the current codebase back to a state equivalent to having run "create --local".`,
-	SuggestFor: []string{"remove", "rm"},
-	RunE:       delete,
-	PreRun: func(cmd *cobra.Command, args []string) {
-		err := viper.BindPFlag("name", cmd.Flags().Lookup("name"))
-		if err != nil {
-			panic(err)
-		}
-	},
+	Use:               "delete <name>",
+	Short:             "Delete a Function deployment",
+	Long:              `Removes the deployed Function by name, by explicit path, or by default for the current directory.  No local files are deleted.`,
+	SuggestFor:        []string{"remove", "rm", "del"},
+	ValidArgsFunction: CompleteFunctionList,
+	PreRunE:           bindEnv("path", "yes"),
+	RunE:              runDelete,
 }
 
-func delete(cmd *cobra.Command, args []string) (err error) {
-	var (
-		verbose = viper.GetBool("verbose")
-		remover = knative.NewRemover()
-		name    = viper.GetString("name") // Explicit name override (by default uses path argument)
-		path    = ""                      // defaults to current working directory
-	)
-	remover.Verbose = verbose
-	// If provided use the path as the first argument.
-	if len(args) == 1 {
+func runDelete(cmd *cobra.Command, args []string) (err error) {
+	config := newDeleteConfig(args).Prompt()
+
+	remover := knative.NewRemover()
+	remover.Verbose = config.Verbose
+
+	client := faas.New(
+		faas.WithVerbose(verbose),
+		faas.WithRemover(remover))
+
+	return client.Remove(config.Name, config.Path)
+}
+
+type deleteConfig struct {
+	Name    string
+	Path    string
+	Verbose bool
+	Yes     bool
+}
+
+// newDeleteConfig returns a config populated from the current execution context
+// (args, flags and environment variables)
+func newDeleteConfig(args []string) deleteConfig {
+	var name string
+	if len(args) > 0 {
 		name = args[0]
 	}
-
-	client, err := faas.New(
-		faas.WithVerbose(verbose),
-		faas.WithRemover(remover),
-	)
-	if err != nil {
-		return
+	return deleteConfig{
+		Path:    viper.GetString("path"),
+		Name:    deriveName(name, viper.GetString("path")), // args[0] or derived
+		Verbose: viper.GetBool("verbose"),                  // defined on root
+		Yes:     viper.GetBool("yes"),
 	}
+}
 
-	// Remove name (if provided), or the (initialized) function at path.
-	return client.Remove(name, path)
+// Prompt the user with value of config members, allowing for interaractive changes.
+// Skipped if not in an interactive terminal (non-TTY), or if --yes (agree to
+// all prompts) was explicitly set.
+func (c deleteConfig) Prompt() deleteConfig {
+	if !interactiveTerminal() || c.Yes {
+		return c
+	}
+	return deleteConfig{
+		// TODO: Path should be prompted for and set prior to name attempting path derivation.  Test/fix this if necessary.
+		Name: prompt.ForString("Function to remove", deriveName(c.Name, c.Path), prompt.WithRequired(true)),
+	}
 }

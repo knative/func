@@ -16,16 +16,16 @@ func TestRun(t *testing.T) {
 
 	// Testdata Function
 	//
-	// The directory has been pre-populated with a runnable base function by running
+	// The directory has been pre-populated with a runnable base Function by running
 	// init and committing the result, such that this test is not dependent on a
 	// functioning creation step.  This code will need to be updated for any
 	// backwards incompatible changes to the templated base go func.
 
-	// Run the function
+	// Run the Function
 
 	// TODO: in a separate goroutine, submit an HTTP or CloudEvent request to the
-	// running function, and confirm expected OK response, then close down the
-	// running function by interrupting/canceling run.  This may requre an update
+	// running Function, and confirm expected OK response, then close down the
+	// running Function by interrupting/canceling run.  This may requre an update
 	// to the runner to run the command with a cancelable context, and cancel on
 	// normal signals as well as a signal specific to these tests such as SIGUSR1.
 

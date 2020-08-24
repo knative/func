@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+
+	"github.com/boson-project/faas"
 )
 
-// Runner of functions using the appsody binary.
+// Runner of Functions using the appsody binary.
 type Runner struct {
 	// Verbose logging flag.
 	Verbose bool
@@ -18,8 +20,8 @@ func NewRunner() *Runner {
 	return &Runner{}
 }
 
-// Run the function at path
-func (n *Runner) Run(path string) error {
+// Run the Function at path
+func (n *Runner) Run(f faas.Function) error {
 	// Check for the appsody binary explicitly so that we can return
 	// an extra-friendly error message.
 	_, err := exec.LookPath("appsody")
@@ -30,14 +32,14 @@ func (n *Runner) Run(path string) error {
 	// Extra arguments to appsody
 	args := []string{"run"}
 
-	// If verbosity is enabled, pass along as an environment variable to the function.
+	// If verbosity is enabled, pass along as an environment variable to the Function.
 	if n.Verbose {
 		args = append(args, []string{"--docker-options", "-e VERBOSE=true"}...)
 	}
 
 	// Set up the command with extra arguments and to run rooted at path
 	cmd := exec.Command("appsody", args...)
-	cmd.Dir = path
+	cmd.Dir = f.Root
 
 	// If verbose logging is enabled, echo command
 	if n.Verbose {

@@ -1,79 +1,79 @@
 package faas
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"os"
 )
 
-const DefaultNamespace = "faas"
+const (
+	DefaultNamespace    = "faas"
+	DefaultRegistry     = "docker.io"
+	DefaultRuntime      = "go"
+	DefaultTrigger      = "http"
+	DefaultMaxRecursion = 5 // when determining a name from path
+)
 
-// Client for a given Function.
+// Client for managing Function instances.
 type Client struct {
-	verbose           bool        // print verbose logs
-	local             bool        // Run in local-only mode
-	internal          bool        // Deploy without publicly accessible route
-	initializer       Initializer // Creates initial local function implementation
-	builder           Builder     // Builds a runnable image from function source
-	pusher            Pusher      // Pushes a built image to a registry
-	deployer          Deployer    // Deploys a Function
-	updater           Updater     // Updates a deployed Function
-	runner            Runner      // Runs the function locally
-	remover           Remover     // Removes remote services
-	lister            Lister      // Lists remote services
+	verbose           bool     // print verbose logs
+	local             bool     // Run in local-only mode
+	internal          bool     // Deploy without publicly accessible route
+	builder           Builder  // Builds a runnable image from Function source
+	pusher            Pusher   // Pushes the image assocaited with a Function.
+	deployer          Deployer // Deploys a Function
+	updater           Updater  // Updates a deployed Function
+	runner            Runner   // Runs the Function locally
+	remover           Remover  // Removes remote services
+	lister            Lister   // Lists remote services
 	describer         Describer
 	dnsProvider       DNSProvider      // Provider of DNS services
-	domainSearchLimit int              // max dirs to recurse up when deriving domain
+	templates         string           // path to extensible templates
+	repository        string           // default repo for OCI image tags
+	domainSearchLimit int              // max recursion when deriving domain
 	progressListener  ProgressListener // progress listener
 }
 
-// Initializer creates the initial/stub Function code on first create.
-type Initializer interface {
-	// Initialize a Function of the given name, template configuration `
-	// (expected signature) using a context template.
-	Initialize(runtime, template, path string) error
-}
-
-// Builder of function source to runnable image.
+// Builder of Function source to runnable image.
 type Builder interface {
-	// Build a function project with source located at path.
-	// returns the image name built.
-	Build(path string) (image string, err error)
+	// Build a Function project with source located at path.
+	Build(Function) error
 }
 
-// Pusher of function image to a registry.
+// Pusher of Function image to a registry.
 type Pusher interface {
-	// Push the image of the service function.
-	Push(tag string) error
+	// Push the image of the Function.
+	Push(Function) error
 }
 
-// Deployer of function source to running status.
+// Deployer of Function source to running status.
 type Deployer interface {
-	// Deploy a service function of given name, using given backing image.
-	Deploy(name, image string) (address string, err error)
+	// Deploy a Function of given name, using given backing image.
+	Deploy(Function) error
 }
 
-// Updater of a deployed service function with new image.
+// Updater of a deployed Function with new image.
 type Updater interface {
-	// Deploy a service function of given name, using given backing image.
-	Update(name, image string) error
+	// Update a Function
+	Update(Function) error
 }
 
-// Runner runs the function locally.
+// Runner runs the Function locally.
 type Runner interface {
-	// Run the function locally.
-	Run(path string) error
+	// Run the Function locally.
+	Run(Function) error
 }
 
 // Remover of deployed services.
 type Remover interface {
-	// Remove the service function from remote.
+	// Remove the Function from remote.
 	Remove(name string) error
 }
 
 // Lister of deployed services.
 type Lister interface {
-	// List the service functions currently deployed.
+	// List the Functions currently deployed.
 	List() ([]string, error)
 }
 
@@ -93,10 +93,10 @@ type ProgressListener interface {
 	Done()
 }
 
-type Subscription struct {
-	Source string `json:"source" yaml:"source"`
-	Type   string `json:"type" yaml:"type"`
-	Broker string `json:"broker" yaml:"broker"`
+// Describer of Functions' remote deployed aspect.
+type Describer interface {
+	// Describe the running state of the service as reported by the underlyng platform.
+	Describe(name string) (description FunctionDescription, err error)
 }
 
 type FunctionDescription struct {
@@ -105,21 +105,22 @@ type FunctionDescription struct {
 	Subscriptions []Subscription `json:"subscriptions" yaml:"subscriptions"`
 }
 
-type Describer interface {
-	Describe(name string) (description FunctionDescription, err error)
+type Subscription struct {
+	Source string `json:"source" yaml:"source"`
+	Type   string `json:"type" yaml:"type"`
+	Broker string `json:"broker" yaml:"broker"`
 }
 
 // DNSProvider exposes DNS services necessary for serving the Function.
 type DNSProvider interface {
 	// Provide the given name by routing requests to address.
-	Provide(name, address string) (n string)
+	Provide(Function) error
 }
 
 // New client for Function management.
-func New(options ...Option) (c *Client, err error) {
+func New(options ...Option) *Client {
 	// Instantiate client with static defaults.
-	c = &Client{
-		initializer:       &noopInitializer{output: os.Stdout},
+	c := &Client{
 		builder:           &noopBuilder{output: os.Stdout},
 		pusher:            &noopPusher{output: os.Stdout},
 		deployer:          &noopDeployer{output: os.Stdout},
@@ -129,17 +130,17 @@ func New(options ...Option) (c *Client, err error) {
 		lister:            &noopLister{output: os.Stdout},
 		dnsProvider:       &noopDNSProvider{output: os.Stdout},
 		progressListener:  &noopProgressListener{},
-		domainSearchLimit: -1, // no recursion limit deriving domain by default.
+		domainSearchLimit: DefaultMaxRecursion, // no recursion limit deriving domain by default.
 	}
 
 	// Apply passed options, which take ultimate precidence.
 	for _, o := range options {
 		o(c)
 	}
-	return
+	return c
 }
 
-// Option defines a function which when passed to the Client constructor optionally
+// Option defines a Function which when passed to the Client constructor optionally
 // mutates private members at time of instantiation.
 type Option func(*Client)
 
@@ -157,18 +158,10 @@ func WithLocal(l bool) Option {
 	}
 }
 
-// WithInternal sets the internal (no public route) mode for deployed function.
+// WithInternal sets the internal (no public route) mode for deployed Function.
 func WithInternal(i bool) Option {
 	return func(c *Client) {
 		c.internal = i
-	}
-}
-
-// WithInitializer provides the concrete implementation of the Function
-// initializer (generates stub code on initial create).
-func WithInitializer(i Initializer) Option {
-	return func(c *Client) {
-		c.initializer = i
 	}
 }
 
@@ -221,7 +214,7 @@ func WithLister(l Lister) Option {
 	}
 }
 
-// WithDescriber provides a concrete implementation of a function describer.
+// WithDescriber provides a concrete implementation of a Function describer.
 func WithDescriber(describer Describer) Option {
 	return func(c *Client) {
 		c.describer = describer
@@ -254,45 +247,149 @@ func WithDomainSearchLimit(limit int) Option {
 	}
 }
 
-// Initialize creates a new function project locally
-func (c *Client) Initialize(runtime, template, name, tag, root string) (f *Function, err error) {
-	// Create an instance of a function representation at the given root.
-	f, err = NewFunction(root)
+// WithTemplates sets the location to use for extensible templates.
+// Extensible templates are additional templates that exist on disk and are
+// not built into the binary.
+func WithTemplates(templates string) Option {
+	return func(c *Client) {
+		c.templates = templates
+	}
+}
+
+// WithRepository sets the default registry which is consulted when an image name/tag
+// is not explocitly provided.  Can be fully qualified, including the registry
+// (ex: 'quay.io/myname') or simply the namespace 'myname' which indicates the
+// the use of the default registry.
+func WithRepository(repository string) Option {
+	return func(c *Client) {
+		c.repository = repository
+	}
+}
+
+// Initialize creates a new Function project locally using the settings
+// provided on a Function object.
+func (c *Client) Initialize(cfg Function) (err error) {
+	// Create Function of the given root path.
+	f, err := NewFunction(cfg.Root)
 	if err != nil {
-		return nil, err
+		return
 	}
 
-	// Initialize, writing out a template implementation and a config file.
-	// TODO: the function's Initialize parameters are slightly different than
-	// the Initializer interface, and can thus cause confusion (one passes an
-	// optional name the other passes root path).  This could easily cause
-	// confusion and thus we may want to rename Initalizer to the more specific
-	// task it performs: ContextTemplateWriter or similar.
-	err = f.Initialize(runtime, template, name, tag, c.domainSearchLimit, c.initializer)
-	if err != nil {
-		return nil, err
+	// Do not initialize if already initialized.
+	if f.Initialized() {
+		err = fmt.Errorf("Function at '%v' already initialized.", cfg.Root)
+		return
+	}
+
+	// Do not re-initialize unless the directory is empty This is to protect the
+	// user from inadvertently overwriting local files which share the same name
+	// as those in the applied template if, for instance, an incorrect path is
+	// supplied for the new Function. This assertion is that the target path is
+	// empty of all but unrelated hidden files.
+	if err = assertEmptyRoot(f.Root); err != nil {
+		return
+	}
+
+	// Set the name to that provided, defaulting to path derivation if empty.
+	f.Name = cfg.Name
+	if cfg.Name == "" {
+		f.Name = pathToDomain(f.Root, c.domainSearchLimit)
+		if f.Name == "" {
+			err = errors.New("Function name must be deriveable from path or explicitly provided")
+			return
+		}
+	}
+
+	// Assert runtime was provided, or default.
+	f.Runtime = cfg.Runtime
+	if f.Runtime == "" {
+		f.Runtime = DefaultRuntime
+	} else {
+		f.Runtime = cfg.Runtime
+	}
+
+	// Assert trigger was provided, or default.
+	f.Trigger = cfg.Trigger
+	if f.Trigger == "" {
+		f.Trigger = DefaultTrigger
+	}
+
+	// Write out a template.
+	w := templateWriter{templates: c.templates, verbose: c.verbose}
+	if err = w.Write(f.Runtime, f.Trigger, f.Root); err != nil {
+		return
+	}
+
+	// Write out the config.
+	if err = writeConfig(f); err != nil {
+		return
 	}
 
 	// TODO: Create a status structure and return it for clients to use
 	// for output, such as from the CLI.
-	fmt.Printf("Created function project %v in %v\n", f.Name, root)
-	return f, nil
+	if c.verbose {
+		fmt.Printf("OK %v %v\n", f.Name, f.Root)
+	}
+	return
 }
 
-func (c *Client) Build(path string) (image string, err error) {
-	return c.builder.Build(path)
-}
-
-func (c *Client) Deploy(name, tag string) (address string, err error) {
-	err = c.pusher.Push(tag) // First push the image to an image registry
+// Build the Function at path.  Errors if the funciton is either unloadable or does
+// not contain a populated Image.
+func (c *Client) Build(path string) (err error) {
+	f, err := NewFunction(path)
 	if err != nil {
 		return
 	}
-	address, err = c.deployer.Deploy(name, tag)
-	return address, err
+
+	// Derive Image from the path (preceidence is given to extant config)
+	if f.Image, err = DerivedImage(path, c.repository); err != nil {
+		return
+	}
+
+	if err = c.builder.Build(f); err != nil {
+		return
+	}
+
+	// Write out config, which will now contain a populated image tag
+	// if it had not already
+	if err = writeConfig(f); err != nil {
+		return
+	}
+
+	// TODO: create a statu structure and return it here for optional
+	// use by the cli for user echo (rather than rely on verbose mode here)
+	if c.verbose {
+		fmt.Printf("OK %v\n", f.Image)
+	}
+	return
 }
 
-func (c *Client) Route(name, address string) (route string) {
+// Deploy the Function at path.  Errors if the Function has not been
+// initialized with an image tag.
+func (c *Client) Deploy(path string) (err error) {
+	f, err := NewFunction(path)
+	if err != nil {
+		return
+	}
+	if f.Image == "" {
+		return errors.New("Function needs to have Image tag calculated prior to building.")
+	}
+
+	err = c.pusher.Push(f) // First push the image to an image registry
+	if err != nil {
+		return
+	}
+	if err = c.deployer.Deploy(f); err != nil {
+		return
+	}
+	if c.verbose {
+		// TODO: aspirational.  Should be an actual route echo.
+		fmt.Printf("OK https://%v/\n", f.Image)
+	}
+	return
+}
+
+func (c *Client) Route(path string) (err error) {
 	// Ensure that the allocated final address is enabled with the
 	// configured DNS provider.
 	// NOTE:
@@ -300,74 +397,72 @@ func (c *Client) Route(name, address string) (route string) {
 	// but DNS subdomain CNAME to the Kourier Load Balancer is
 	// still manual, and the initial cluster config to suppot the TLD
 	// is still manual.
-	return c.dnsProvider.Provide(name, address)
+	f, err := NewFunction(path)
+	if err != nil {
+		return
+	}
+	return c.dnsProvider.Provide(f)
 }
 
-// Create a service function of the given runtime.
+// Create a Function of the given runtime.
 // Name and Root are optional:
 // Name is derived from root if possible.
 // Root is defaulted to the current working directory.
-func (c *Client) Create(runtime, template, name, tag, root string) (err error) {
+func (c *Client) Create(cfg Function) (err error) {
 	c.progressListener.SetTotal(4)
 	defer c.progressListener.Done()
 
 	// Initialize, writing out a template implementation and a config file.
-	// TODO: the function's Initialize parameters are slightly different than
+	// TODO: the Function's Initialize parameters are slightly different than
 	// the Initializer interface, and can thus cause confusion (one passes an
 	// optional name the other passes root path).  This could easily cause
 	// confusion and thus we may want to rename Initalizer to the more specific
 	// task it performs: ContextTemplateWriter or similar.
-	c.progressListener.Increment("Initializing new function project")
-	f, err := c.Initialize(runtime, template, name, tag, root)
-	if f == nil || !f.Initialized() {
-		return fmt.Errorf("Unable to initialize function")
-	}
+	c.progressListener.Increment("Initializing new Function project")
+	err = c.Initialize(cfg)
 	if err != nil {
-		return err
+		return
 	}
 
-	// Build the now-initialized service function
+	// Load the now-initialized Function.
+	f, err := NewFunction(cfg.Root)
+	if err != nil {
+		return
+	}
+
+	// Build the now-initialized Function
 	c.progressListener.Increment("Building container image")
-	_, err = c.Build(f.Root)
+	err = c.Build(f.Root)
 	if err != nil {
 		return
 	}
 
-	if c.local {
-		c.progressListener.Complete("Created function project (local only)")
-		return
-	}
-
-	// TODO: cluster-local deploy mode
-	// if c.internal {
-	// 	return errors.New("Deploying in cluster-internal mode (no public route) not yet available.")
-	// }
-
-	// Deploy the initialized service function, returning its publicly
+	// Deploy the initialized Function, returning its publicly
 	// addressible name for possible registration.
-	c.progressListener.Increment("Deploying function to cluster")
-	address, err := c.Deploy(f.Name, f.Tag)
-	if err != nil {
+	c.progressListener.Increment("Deploying Function to cluster")
+	if err = c.Deploy(f.Root); err != nil {
 		return
 	}
 
-	// Create an external route to the function
-	c.progressListener.Increment("Creating route to function")
-	c.Route(f.Name, address)
+	// Create an external route to the Function
+	c.progressListener.Increment("Creating route to Function")
+	if err = c.Route(f.Root); err != nil {
+		return
+	}
 
 	c.progressListener.Complete("Create complete")
 
-	// TODO: Create a status structure and return it for clients to use
-	// for output, such as from the CLI.
-	fmt.Printf("https://%v/\n", address)
-
+	// TODO: use the knative client during deployment such that the actual final
+	// route can be returned from the deployment step, passed to the DNS Router
+	// for routing actual traffic, and returned here.
+	fmt.Printf("https://%v/\n", f.Name)
 	return
 }
 
-// Update a previously created service function.
+// Update a previously created Function.
 func (c *Client) Update(root string) (err error) {
 
-	// Create an instance of a function representation at the given root.
+	// Create an instance of a Function representation at the given root.
 	f, err := NewFunction(root)
 	if err != nil {
 		return
@@ -378,26 +473,32 @@ func (c *Client) Update(root string) (err error) {
 		return fmt.Errorf("the given path '%v' does not contain an initialized Function.  Please create one at this path before updating.", root)
 	}
 
-	// Build an image from the current state of the service function's implementation.
-	image, err := c.builder.Build(f.Root)
+	// Build an image from the current state of the Function's implementation.
+	err = c.Build(f.Root)
+	if err != nil {
+		return
+	}
+
+	// reload the Function as it will now have the Image populated if it had not yet been set.
+	f, err = NewFunction(f.Root)
 	if err != nil {
 		return
 	}
 
 	// Push the image for the named service to the configured registry
-	if err = c.pusher.Push(image); err != nil {
+	if err = c.pusher.Push(f); err != nil {
 		return
 	}
 
-	// Update the previously-deployed service function, returning its publicly
+	// Update the previously-deployed Function, returning its publicly
 	// addressible name for possible registration.
-	return c.updater.Update(f.Name, image)
+	return c.updater.Update(f)
 }
 
-// Run the function whose code resides at root.
+// Run the Function whose code resides at root.
 func (c *Client) Run(root string) error {
 
-	// Create an instance of a function representation at the given root.
+	// Create an instance of a Function representation at the given root.
 	f, err := NewFunction(root)
 	if err != nil {
 		return err
@@ -409,20 +510,20 @@ func (c *Client) Run(root string) error {
 	}
 
 	// delegate to concrete implementation of runner entirely.
-	return c.runner.Run(f.Root)
+	return c.runner.Run(f)
 }
 
-// List currently deployed service functions.
+// List currently deployed Functions.
 func (c *Client) List() ([]string, error) {
 	// delegate to concrete implementation of lister entirely.
 	return c.lister.List()
 }
 
-// Describe a function.  Name takes precidence.  If no name is provided,
-// the function defined at root is used.
+// Describe a Function.  Name takes precidence.  If no name is provided,
+// the Function defined at root is used.
 func (c *Client) Describe(name, root string) (fd FunctionDescription, err error) {
 	// If name is provided, it takes precidence.
-	// Otherwise load the function defined at root.
+	// Otherwise load the Function defined at root.
 	if name != "" {
 		return c.describer.Describe(name)
 	}
@@ -437,11 +538,11 @@ func (c *Client) Describe(name, root string) (fd FunctionDescription, err error)
 	return c.describer.Describe(f.Name)
 }
 
-// Remove a function.  Name takes precidence.  If no name is provided,
-// the function defined at root is used.
+// Remove a Function.  Name takes precidence.  If no name is provided,
+// the Function defined at root is used.
 func (c *Client) Remove(name, root string) error {
 	// If name is provided, it takes precidence.
-	// Otherwise load the function deined at root.
+	// Otherwise load the Function deined at root.
 	if name != "" {
 		return c.remover.Remove(name)
 	}
@@ -464,51 +565,44 @@ func (c *Client) Remove(name, root string) error {
 // serve to keep the core logic here separate from the imperitive.
 // -----------------------------------------------------
 
-type noopInitializer struct{ output io.Writer }
-
-func (n *noopInitializer) Initialize(runtime, template, root string) error {
-	fmt.Fprintln(n.output, "skipping initialize: client not initialized WithInitializer")
-	return nil
-}
-
 type noopBuilder struct{ output io.Writer }
 
-func (n *noopBuilder) Build(path string) (image string, err error) {
+func (n *noopBuilder) Build(_ Function) error {
 	fmt.Fprintln(n.output, "skipping build: client not initialized WithBuilder")
-	return "", nil
+	return nil
 }
 
 type noopPusher struct{ output io.Writer }
 
-func (n *noopPusher) Push(tag string) error {
+func (n *noopPusher) Push(_ Function) error {
 	fmt.Fprintln(n.output, "skipping push: client not initialized WithPusher")
 	return nil
 }
 
 type noopDeployer struct{ output io.Writer }
 
-func (n *noopDeployer) Deploy(name, image string) (string, error) {
+func (n *noopDeployer) Deploy(_ Function) error {
 	fmt.Fprintln(n.output, "skipping deploy: client not initialized WithDeployer")
-	return "", nil
+	return nil
 }
 
 type noopUpdater struct{ output io.Writer }
 
-func (n *noopUpdater) Update(name, image string) error {
+func (n *noopUpdater) Update(_ Function) error {
 	fmt.Fprintln(n.output, "skipping deploy: client not initialized WithDeployer")
 	return nil
 }
 
 type noopRunner struct{ output io.Writer }
 
-func (n *noopRunner) Run(root string) error {
+func (n *noopRunner) Run(_ Function) error {
 	fmt.Fprintln(n.output, "skipping run: client not initialized WithRunner")
 	return nil
 }
 
 type noopRemover struct{ output io.Writer }
 
-func (n *noopRemover) Remove(name string) error {
+func (n *noopRemover) Remove(string) error {
 	fmt.Fprintln(n.output, "skipping remove: client not initialized WithRemover")
 	return nil
 }
@@ -522,9 +616,9 @@ func (n *noopLister) List() ([]string, error) {
 
 type noopDNSProvider struct{ output io.Writer }
 
-func (n *noopDNSProvider) Provide(name, address string) string {
+func (n *noopDNSProvider) Provide(_ Function) error {
 	// Note: at this time manual DNS provisioning required for name -> knative serving netowrk load-balancer
-	return ""
+	return nil
 }
 
 type noopProgressListener struct{}

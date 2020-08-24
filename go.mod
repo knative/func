@@ -4,9 +4,6 @@ go 1.13
 
 require (
 	github.com/buildpacks/pack v0.11.0
-	github.com/docker/cli v0.0.0-20200312141509-ef2f64abbd37
-	github.com/fatih/color v1.9.0 // indirect
-	github.com/git-chglog/git-chglog v0.0.0-20200414013904-db796966b373 // indirect
 	github.com/golang/mock v1.4.3 // indirect
 	github.com/google/go-containerregistry v0.0.0-20200423114255-8f808463544c // indirect
 	github.com/imdario/mergo v0.3.10 // indirect

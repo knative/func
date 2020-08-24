@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 )
 
-// Builder of images from function source using appsody.
+// Builder of images from Function source using appsody.
 type Builder struct {
 	// Verbose logging flag.
 	Verbose bool
@@ -25,7 +25,7 @@ func NewBuilder(registry, namespace string) *Builder {
 		namespace: namespace}
 }
 
-// Build an image from the function source at path.
+// Build an image from the Function source at path.
 func (n *Builder) Build(name, runtime, path string) (image string, err error) {
 	// Check for the appsody binary explicitly so that we can return
 	// an extra-friendly error message.
@@ -70,7 +70,7 @@ func (n *Builder) Build(name, runtime, path string) (image string, err error) {
 	if _, err = os.Stat(cfg); err == nil {
 		err = os.Remove(cfg)
 		if err != nil {
-			fmt.Fprintf(os.Stderr,"unable to remove superfluous appsody config: %v\n", err)
+			fmt.Fprintf(os.Stderr, "unable to remove superfluous appsody config: %v\n", err)
 		}
 	}
 	return

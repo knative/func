@@ -80,5 +80,5 @@ release: build test
 	git tag $(VTAG)
 
 clean:
-	rm -f $(WINDOWS) $(LINUX) $(DARWIN)
-	-@rm -f coverage.out
+	rm -f $(BIN) $(WINDOWS) $(LINUX) $(DARWIN)
+	-rm -f coverage.out

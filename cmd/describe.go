@@ -3,102 +3,107 @@ package cmd
 import (
 	"encoding/json"
 	"encoding/xml"
-	"errors"
 	"fmt"
 
+	"github.com/ory/viper"
+	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
 	"github.com/boson-project/faas"
 	"github.com/boson-project/faas/knative"
-	"github.com/ory/viper"
-	"github.com/spf13/cobra"
 )
 
 func init() {
 	root.AddCommand(describeCmd)
+	describeCmd.Flags().StringP("namespace", "n", "", "Override namespace in which to search for the Function.  Default is to use currently active underlying platform setting - $FAAS_NAMESPACE")
+	describeCmd.Flags().StringP("output", "o", "yaml", "optionally specify output format (yaml,xml,json). - $FAAS_OUTPUT")
+	describeCmd.Flags().StringP("path", "p", cwd(), "Path to the project which should be described - $FAAS_PATH")
 
-	describeCmd.Flags().StringP("output", "o", "yaml", "optionally specify output format (yaml,xml,json).")
-
-	describeCmd.Flags().StringP("name", "n", "", "optionally specify an explicit name for the serive, overriding path-derivation. $FAAS_NAME")
-
-	err := describeCmd.RegisterFlagCompletionFunc("name", CompleteFunctionList)
-	if err != nil {
-		fmt.Println("Error while calling RegisterFlagCompletionFunc: ", err)
-	}
-
-	err = describeCmd.RegisterFlagCompletionFunc("output", CompleteOutputFormatList)
+	err := describeCmd.RegisterFlagCompletionFunc("output", CompleteOutputFormatList)
 	if err != nil {
 		fmt.Println("Error while calling RegisterFlagCompletionFunc: ", err)
 	}
 }
 
 var describeCmd = &cobra.Command{
-	Use:               "describe",
+	Use:               "describe <name> [options]",
 	Short:             "Describe Function",
-	Long:              `Describe Function`,
-	SuggestFor:        []string{"desc"},
+	Long:              `Describes the Function by name, by explicit path, or by default the current directory.`,
+	SuggestFor:        []string{"desc", "get"},
 	ValidArgsFunction: CompleteFunctionList,
-	Args:              cobra.ExactArgs(1),
-	RunE:              describe,
-	PreRun: func(cmd *cobra.Command, args []string) {
-		err := viper.BindPFlag("output", cmd.Flags().Lookup("output"))
-		if err != nil {
-			panic(err)
-		}
-		err = viper.BindPFlag("name", cmd.Flags().Lookup("name"))
-		if err != nil {
-			panic(err)
-		}
-	},
+	PreRunE:           bindEnv("namespace", "output", "path"),
+	RunE:              runDescribe,
 }
 
-func describe(cmd *cobra.Command, args []string) (err error) {
-	var (
-		verbose = viper.GetBool("verbose")
-		format  = viper.GetString("output")
-		name    = viper.GetString("name")
-		path    = "" // default to current working directory
-	)
-	// If provided use the path as the first argument
-	if len(args) == 1 {
+func runDescribe(cmd *cobra.Command, args []string) (err error) {
+	config := newDescribeConfig(args)
+
+	describer, err := knative.NewDescriber(config.Namespace)
+	if err != nil {
+		return
+	}
+	describer.Verbose = config.Verbose
+
+	client := faas.New(
+		faas.WithVerbose(verbose),
+		faas.WithDescriber(describer))
+
+	description, err := client.Describe(config.Name, config.Path)
+	if err != nil {
+		return
+	}
+
+	formatted, err := formatDescription(description, config.Output)
+	if err != nil {
+		return
+	}
+
+	fmt.Println(formatted)
+	return
+}
+
+// TODO: Placeholder.  Create a fit-for-purpose Description plaintext formatter.
+func fmtDescriptionPlain(i interface{}) ([]byte, error) {
+	return []byte(fmt.Sprintf("%v", i)), nil
+}
+
+// format the description as json|yaml|xml
+func formatDescription(desc faas.FunctionDescription, format string) (string, error) {
+	formatters := map[string]func(interface{}) ([]byte, error){
+		"plain": fmtDescriptionPlain,
+		"json":  json.Marshal,
+		"yaml":  yaml.Marshal,
+		"xml":   xml.Marshal,
+	}
+	formatFn, ok := formatters[format]
+	if !ok {
+		return "", fmt.Errorf("unknown format '%s'", format)
+	}
+	bytes, err := formatFn(desc)
+	if err != nil {
+		return "", err
+	}
+	return string(bytes), nil
+}
+
+type describeConfig struct {
+	Name      string
+	Namespace string
+	Output    string
+	Path      string
+	Verbose   bool
+}
+
+func newDescribeConfig(args []string) describeConfig {
+	var name string
+	if len(args) > 0 {
 		name = args[0]
 	}
-
-	describer, err := knative.NewDescriber(faas.DefaultNamespace)
-	if err != nil {
-		return
+	return describeConfig{
+		Name:      deriveName(name, viper.GetString("path")),
+		Namespace: viper.GetString("namespace"),
+		Output:    viper.GetString("output"),
+		Path:      viper.GetString("path"),
+		Verbose:   viper.GetBool("verbose"),
 	}
-	describer.Verbose = verbose
-
-	client, err := faas.New(
-		faas.WithVerbose(verbose),
-		faas.WithDescriber(describer),
-	)
-	if err != nil {
-		return
-	}
-
-	// describe the given name, or path if not provided.
-	description, err := client.Describe(name, path)
-	if err != nil {
-		return
-	}
-
-	formatFunctions := map[string]func(interface{}) ([]byte, error){
-		"json": json.Marshal,
-		"yaml": yaml.Marshal,
-		"xml":  xml.Marshal,
-	}
-
-	formatFun, found := formatFunctions[format]
-	if !found {
-		return errors.New("unknown output format")
-	}
-	data, err := formatFun(description)
-	if err != nil {
-		return
-	}
-	fmt.Println(string(data))
-
-	return
 }

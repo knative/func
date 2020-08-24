@@ -56,7 +56,7 @@ func TestForStringLabelDefault(t *testing.T) {
 	// Label with default
 	_ = prompt.ForString("Name", "Alice",
 		prompt.WithInput(&in), prompt.WithOutput(&out))
-	if out.String()!= "Name (Alice): " {
+	if out.String() != "Name (Alice): " {
 		t.Fatalf("expected 'Name (Alice): ', got '%v'\n", out.String())
 	}
 }

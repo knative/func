@@ -12,132 +12,158 @@ import (
 )
 
 type Function struct {
-	Root    string
-	Runtime string // will be empty unless initialized/until initialized
-	Name    string // will be empty unless initialized/until initialized
-	Tag     string // will be empty unless initialized/until initialized
+	// Root on disk at which to find/create source and config files.
+	Root string
+
+	// Name of the Function.  If not provided, path derivation is attempted when
+	// requried (such as for initialization).
+	Name string
+
+	// Namespace into which the Function is deployed on supported platforms.
+	Namespace string
+
+	// Runtime is the language plus context.  nodejs|go|quarkus|rust etc.
+	Runtime string
+
+	// Trigger of the Function.  http|events etc.
+	Trigger string
+
+	// Repository at which to store interstitial containers, in the form
+	// [registry]/[user]. If omitted, "Image" must be provided.
+	Repo string
+
+	// Optional full OCI image tag in form:
+	//   [registry]/[namespace]/[name]:[tag]
+	// example:
+	//   quay.io/alice/my.function.name
+	// Registry is optional and is defaulted to DefaultRegistry
+	// example:
+	//   alice/my.function.name
+	// If Image is provided, it overrides the default of concatenating
+	// "Repo+Name:latest" to derive the Image.
+	Image string
 }
 
-func NewFunction(root string) (f *Function, err error) {
-	f = &Function{}
-
-	// Default root to current directory, as an absolute path.
-	if root == "" {
-		root = "."
-	}
+// NewFunction loads a Function from a path on disk. use .Initialized() to determine if
+// the path contained an initialized Function.
+// NewFunction creates a funciton struct whose attributes are loaded from the
+// configuraiton located at path.
+func NewFunction(root string) (f Function, err error) {
+	// Expand the passed root to its absolute path (default current dir)
 	if root, err = filepath.Abs(root); err != nil {
 		return
 	}
+
+	// Load a Config from the given absolute path
+	c, err := newConfig(root)
+	if err != nil {
+		return
+	}
+
+	// set Function to the value of the config loaded from disk.
+	f = fromConfig(c)
+
+	// The only value not included in the config is the effective path on disk
 	f.Root = root
-
-	// Populate with data from config if it exists.
-	err = applyConfig(f, root)
-
 	return
 }
 
-// DerivedName returns the name that will be used if path derivation is choosen, limited in its upward recursion.
-// This is exposed for preemptive calculation for interactive confirmation, such as via a CLI.
-func (f *Function) DerivedName(searchLimit int) string {
-	return pathToDomain(f.Root, searchLimit)
+// WriteConfig writes this Function's configuration to disk.
+func (f Function) WriteConfig() (err error) {
+	return writeConfig(f)
 }
 
-func (f *Function) Initialize(runtime, context, name, tag string, domainSearchLimit int, initializer Initializer) (err error) {
-	// Assert runtime is provided
-	if runtime == "" {
-		err = errors.New("runtime not specified")
+// Initialized returns if the Function has been initialized.
+// Any errors are considered failure (invalid or inaccessible root, config file, etc).
+func (f Function) Initialized() bool {
+	// Load the Function's configuration from disk and check if the (required) value Runtime is populated.
+	c, err := newConfig(f.Root)
+	if err != nil {
+		return false
+	}
+	return c.Name != "" // TODO: use a dedicated initialized bool?
+}
+
+// DerivedImage returns the derived image name (OCI container tag) of the
+// Function whose source is at root, with the default repository for when
+// the image has to be calculated (derived).
+// repository can be either with or without prefixed registry.
+// The following are eqivalent due to the use of DefaultRegistry:
+// repository:  docker.io/myname
+//              myname
+// A full image name consists of registry, repository, name and tag.
+// in form [registry]/[repository]/[name]:[tag]
+// example docker.io/alice/my.example.func:latest
+// Default if not provided is --repository (a required global setting)
+// followed by the provided (or derived) image name.
+func DerivedImage(root, repository string) (image string, err error) {
+	f, err := NewFunction(root)
+	if err != nil {
+		// an inability to load the funciton means it is not yet initialized
+		// We could try to be smart here and fall through to the Function name
+		// deriviation logic, but that's likely to be confusing.  Better to
+		// stay simple and say that derivation of Image depends on first having
+		// the funciton initialized.
 		return
 	}
 
-	// If there exists contentious files (congig files for instance), this function may have already been initialized.
-	files, err := contentiousFilesIn(f.Root)
+	// If the Function has already had image populated, use this pre-calculated value.
+	if f.Image != "" {
+		image = f.Image
+		return
+	}
+
+	// If the funciton loaded, and there is not yet an Image set, then this is
+	// the first build and no explicit image override was specified.  We should
+	// therefore derive the image tag from the defined repository and name.
+	// form:    [registry]/[user]/[function]:latest
+	// example: quay.io/alice/my.function.name:latest
+	repository = strings.Trim(repository, "/") // too defensive?
+	repositoryTokens := strings.Split(repository, "/")
+	if len(repositoryTokens) == 1 {
+		image = DefaultRegistry + "/" + repository + "/" + f.Name
+	} else if len(repositoryTokens) == 2 {
+		image = repository + "/" + f.Name
+	} else {
+		err = fmt.Errorf("repository should be either 'namespace' or 'registry/namespace'")
+	}
+	return
+}
+
+// DerivedName returns a name derived from the path, limited in its upward
+// recursion along path to searchLimit.
+func DerivedName(root string, searchLimit int) (string, error) {
+	root, err := filepath.Abs(root)
+	if err != nil {
+		return "", err
+	}
+	return pathToDomain(root, searchLimit), nil
+}
+
+// assertEmptyRoot ensures that the directory is empty enough to be used for
+// initializing a new Function.
+func assertEmptyRoot(path string) (err error) {
+	// If there exists contentious files (congig files for instance), this Function may have already been initialized.
+	files, err := contentiousFilesIn(path)
 	if err != nil {
 		return
 	} else if len(files) > 0 {
-		return fmt.Errorf("The chosen directory '%v' contains contentious files: %v.  Has the Service Function already been created?  Try either using a different directory, deleting the service function if it exists, or manually removing the files.", f.Root, files)
+		return fmt.Errorf("The chosen directory '%v' contains contentious files: %v.  Has the Service Function already been created?  Try either using a different directory, deleting the Function if it exists, or manually removing the files.", path, files)
 	}
 
 	// Ensure there are no non-hidden files, and again none of the aforementioned contentious files.
-	empty, err := isEffectivelyEmpty(f.Root)
+	empty, err := isEffectivelyEmpty(path)
 	if err != nil {
 		return
 	} else if !empty {
 		err = errors.New("The directory must be empty of visible files and recognized config files before it can be initialized.")
 		return
 	}
-
-	// Derive a name if not provided
-	if name == "" {
-		name = pathToDomain(f.Root, domainSearchLimit)
-	}
-	if name == "" {
-		err = errors.New("Function name must be provided or be derivable from path")
-		return
-	}
-	f.Name = name
-
-	// Write the template implementation in the appropriate runtime
-	if err = initializer.Initialize(runtime, context, f.Root); err != nil {
-		return
-	}
-	// runtime was validated
-	f.Runtime = runtime
-
-	// An image tag for the function
-	f.Tag = tag
-
-	// Write out the state as a config file and return.
-	return writeConfig(f)
-}
-
-// WriteConfig writes this function's configuration to disk.
-func (f *Function) WriteConfig() (err error) {
-	return writeConfig(f)
-}
-
-// Initialized returns true if the function has been initialized with a name and a runtime
-func (f *Function) Initialized() bool {
-	// TODO: this should probably be more robust than checking what amounts to a
-	// side-effect of the initialization process.
-	return (f.Runtime != "" && f.Name != "")
-}
-
-// FunctionConfiguration accepts a path to a function project
-// and an image tag. It loads the existing function configuration
-// from disk at path. If the image tag parameter is not empty,
-// this will be used to update the function config file.
-// TODO: This should probably be changed to take a path
-// with optional overrides for both tag and name
-func FunctionConfiguration(path, tag string) (f *Function, err error) {
-	f, err = NewFunction(path)
-	if err != nil {
-		return nil, err
-	}
-
-	if f.Name == "" || f.Runtime == "" {
-		return nil, fmt.Errorf("Unable to find a function project at %s", path)
-	}
-
-	// Allow caller to override pre-configured t name
-	if tag != "" {
-		f.Tag = tag
-	}
-	if f.Tag == "" {
-		f.Tag = fmt.Sprintf("quay.io/%s:latest", f.Name)
-		fmt.Printf("No tag provided, using %s\n", f.Tag)
-	}
-
-	// Write the image tag to the function configuration
-	if err = f.WriteConfig(); err != nil {
-		fmt.Printf("Error writing configuration %v\n", err)
-		return nil, err
-	}
-
-	return f, nil
+	return
 }
 
 // contentiousFiles are files which, if extant, preclude the creation of a
-// service function rooted in the given directory.
+// Function rooted in the given directory.
 var contentiousFiles = []string{
 	".faas.yaml",
 	".appsody-config.yaml",

@@ -42,7 +42,7 @@ func TestCreate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Create the test function root
+	// Create the test Function root
 	root := "testdata/example.com/admin"
 	err = os.MkdirAll(root, 0700)
 	if err != nil {
@@ -56,12 +56,12 @@ func TestCreate(t *testing.T) {
 	}
 }
 
-// TestCreateUnderivableName ensures that attempting to create a new function
+// TestCreateUnderivableName ensures that attempting to create a new Function
 // when the name is underivable (and no explicit name is provided) generates
 // an error.
 func TestCreateUnderivableName(t *testing.T) {
 
-	// Create the test function root
+	// Create the test Function root
 	root := "testdata/example.com/admin"
 	err := os.MkdirAll(root, 0700)
 	if err != nil {
@@ -131,7 +131,7 @@ func TestCreateDelegates(t *testing.T) {
 		deployer    = mock.NewDeployer()
 	)
 
-	// Create the test function root
+	// Create the test Function root
 	err := os.MkdirAll(root, 0700)
 	if err != nil {
 		panic(err)
@@ -148,7 +148,7 @@ func TestCreateDelegates(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Register function delegates on the mocks which validate assertions
+	// Register Function delegates on the mocks which validate assertions
 	// -------------
 
 	// The initializer should receive the name expected from the path,
@@ -170,7 +170,7 @@ func TestCreateDelegates(t *testing.T) {
 		return nil
 	}
 
-	// The builder should be invoked with a path to a function project's source
+	// The builder should be invoked with a path to a Function project's source
 	// An example image name is returned.
 	builder.BuildFn = func(name2 string) (string, error) {
 		expectedPath, err := filepath.Abs(root)
@@ -212,8 +212,8 @@ func TestCreateDelegates(t *testing.T) {
 	// Invocation
 	// -------------
 
-	// Invoke the creation, triggering the function delegates, and
-	// perform follow-up assertions that the functions were indeed invoked.
+	// Invoke the creation, triggering the Function delegates, and
+	// perform follow-up assertions that the Functions were indeed invoked.
 	if err := client.Create("go", "", name, image, root); err != nil {
 		t.Fatal(err)
 	}
@@ -245,14 +245,14 @@ func TestCreateLocal(t *testing.T) {
 		dnsProvider = mock.NewDNSProvider()
 	)
 
-	// Create the test function root
+	// Create the test Function root
 	err := os.MkdirAll(root, 0700)
 	if err != nil {
 		panic(err)
 	}
 	defer os.RemoveAll(root)
 
-	// Create the test function root
+	// Create the test Function root
 	err = os.MkdirAll(root, 0700)
 	if err != nil {
 		panic(err)
@@ -265,7 +265,7 @@ func TestCreateLocal(t *testing.T) {
 		faas.WithPusher(pusher),           // pushes images to a registry
 		faas.WithDeployer(deployer),       // deploys images as a running service
 		faas.WithDNSProvider(dnsProvider), // will receive the final value
-		faas.WithLocal(true),              // set to local function mode.
+		faas.WithLocal(true),              // set to local Function mode.
 	)
 	if err != nil {
 		t.Fatal(err)
@@ -332,7 +332,7 @@ func TestCreateDomain(t *testing.T) {
 // when calculating final domain.  See the unit tests for pathToDomain for the
 // details and edge cases of this caluclation.
 func TestCreateSubdomain(t *testing.T) {
-	// Create the test function root
+	// Create the test Function root
 	root := "testdata/example.com/admin"
 	err := os.MkdirAll(root, 0700)
 	if err != nil {
@@ -361,7 +361,7 @@ func TestCreateSubdomain(t *testing.T) {
 
 // TestRun ensures that the runner is invoked with the absolute path requested.
 func TestRun(t *testing.T) {
-	// a previously-initilized function's root
+	// a previously-initilized Function's root
 	root := "testdata/example.com/www"
 
 	runner := mock.NewRunner()
@@ -406,10 +406,10 @@ func TestUpdate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Register function delegates on the mocks which validate assertions
+	// Register Function delegates on the mocks which validate assertions
 	// -------------
 
-	// The builder should be invoked with a path to the function source.
+	// The builder should be invoked with a path to the Function source.
 	// An example image name is returned.
 	builder.BuildFn = func(expectedPath string) (string, error) {
 		rootPath, err := filepath.Abs(root)
@@ -449,8 +449,8 @@ func TestUpdate(t *testing.T) {
 	// Invocation
 	// -------------
 
-	// Invoke the creation, triggering the function delegates, and
-	// perform follow-up assertions that the functions were indeed invoked.
+	// Invoke the creation, triggering the Function delegates, and
+	// perform follow-up assertions that the Functions were indeed invoked.
 	if err := client.Update(root); err != nil {
 		t.Fatal(err)
 	}
@@ -495,9 +495,9 @@ func TestRemove(t *testing.T) {
 	}
 }
 
-// TestRemoveUninitializedFailes ensures that attempting to remove a function
+// TestRemoveUninitializedFailes ensures that attempting to remove a Function
 // by path only (no name) fails unless the funciton has been initialized.  I.e.
-// the name will not be derived from path and the function removed by thi
+// the name will not be derived from path and the Function removed by thi
 // derived name; that could be unexpected and destructive.
 func TestRemoveUninitializedFails(t *testing.T) {
 	var (
@@ -512,7 +512,7 @@ func TestRemoveUninitializedFails(t *testing.T) {
 
 	// Create a remover delegate which fails if invoked.
 	remover.RemoveFn = func(name string) error {
-		return fmt.Errorf("remove invoked for unitialized function %v", name)
+		return fmt.Errorf("remove invoked for unitialized Function %v", name)
 	}
 
 	// Instantiate the client with the failing remover.
@@ -530,12 +530,12 @@ func TestRemoveUninitializedFails(t *testing.T) {
 // TestRemoveDefaultCurrent ensures that, if a name is not provided but a path is,
 // the funciton defined by path will be removed.
 // Note that the prior test RemoveUninitializedFails ensures that only
-// initialized functions are removed, which prevents the case of a function
+// initialized Functions are removed, which prevents the case of a Function
 // being removed by path-derived name without having been initialized (an
 // easily destrcutive and likely unwanted behavior)
 func TestRemoveDefaultCurrent(t *testing.T) {
 	var (
-		root    = "testdata/example.com/www" // an initialized function (has config)
+		root    = "testdata/example.com/www" // an initialized Function (has config)
 		remover = mock.NewRemover()
 	)
 
@@ -552,7 +552,7 @@ func TestRemoveDefaultCurrent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Without a name provided, but with a path, the function will be loaded and
+	// Without a name provided, but with a path, the Function will be loaded and
 	// its name used by default.  Note that it will fail if uninitialized (no path
 	// derivation for removal.)
 	if err := client.Remove("", root); err != nil {
@@ -562,7 +562,7 @@ func TestRemoveDefaultCurrent(t *testing.T) {
 
 // TestWithName ensures that an explicitly passed name is used in leau of the
 // path derived name when provided, and persists through instantiations.
-// This also ensures that an initialized service function's name persists if
+// This also ensures that an initialized Function's name persists if
 // the path is changed after creation.
 func TestWithName(t *testing.T) {
 	// Explicit name to use
@@ -633,7 +633,7 @@ func TestList(t *testing.T) {
 	var lister = mock.NewLister()
 
 	client, err := faas.New(
-		faas.WithLister(lister)) // lists deployed service functions.
+		faas.WithLister(lister)) // lists deployed Functions.
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -648,10 +648,10 @@ func TestList(t *testing.T) {
 	}
 }
 
-// TestListOutsideRoot ensures that a call to a function (in this case list)
-// that is not contextually dependent on being associated with a function,
+// TestListOutsideRoot ensures that a call to a Function (in this case list)
+// that is not contextually dependent on being associated with a Function,
 // can be run from anywhere, thus ensuring that the client itself makes
-// a distinction between function-scoped methods and not.
+// a distinction between Function-scoped methods and not.
 func TestListOutsideRoot(t *testing.T) {
 	var lister = mock.NewLister()
 

@@ -15,6 +15,7 @@ import (
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingV1client "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1"
 
+	"github.com/boson-project/faas"
 	"github.com/boson-project/faas/k8s"
 )
 
@@ -22,7 +23,6 @@ type Updater struct {
 	Verbose   bool
 	namespace string
 	client    *servingV1client.ServingV1Client
-
 }
 
 func NewUpdater(namespace string) (updater *Updater, err error) {
@@ -38,10 +38,10 @@ func NewUpdater(namespace string) (updater *Updater, err error) {
 	return
 }
 
-func (updater *Updater) Update(name, image string) error {
+func (updater *Updater) Update(f faas.Function) error {
 	client, namespace := updater.client, updater.namespace
 
-	project, err := k8s.ToSubdomain(name)
+	project, err := k8s.ToSubdomain(f.Name)
 	if err != nil {
 		return fmt.Errorf("updater call to k8s.ToSubdomain failed: %v", err)
 	}
@@ -63,7 +63,6 @@ func (updater *Updater) Update(name, image string) error {
 		return fmt.Errorf("updater failed to generate revision name: %v", err)
 	}
 
-
 	_, err = client.Services(namespace).Update(service)
 	if err != nil {
 		return fmt.Errorf("updater failed to update the service: %v", err)
@@ -78,7 +77,7 @@ func updateBuiltTimeStampEnvVar(container *Container) {
 
 	builtEnvVar := findEnvVar(builtEnvVarName, envs)
 	if builtEnvVar == nil {
-		envs = append(envs, EnvVar{Name: builtEnvVarName, })
+		envs = append(envs, EnvVar{Name: builtEnvVarName})
 		builtEnvVar = &envs[len(envs)-1]
 	}
 

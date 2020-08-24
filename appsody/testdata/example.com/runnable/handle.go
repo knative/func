@@ -9,7 +9,7 @@ import (
 )
 
 // Handle a CloudEvent.
-// Supported function signatures:
+// Supported Function signatures:
 //   func()
 //   func() error
 //   func(context.Context)

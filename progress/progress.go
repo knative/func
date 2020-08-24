@@ -42,7 +42,7 @@ type Bar struct {
 
 	// verbose mode disables progress spinner and line overwrites, instead
 	// printing single, full line updates.
-	verbose bool
+	Verbose bool
 
 	// print verbose-style updates even when not attached to an interactive terminal.
 	printWhileHeadless bool
@@ -64,7 +64,7 @@ func WithOutput(w io.Writer) Option {
 // When in verbose mode, the bar will print simple status update lines.
 func WithVerbose(v bool) Option {
 	return func(b *Bar) {
-		b.verbose = v
+		b.Verbose = v
 	}
 }
 
@@ -109,7 +109,7 @@ func (b *Bar) Increment(text string) {
 	}
 
 	// If we're in verbose mode, do a simple write
-	if b.verbose {
+	if b.Verbose {
 		b.write()
 		return
 	}
@@ -142,7 +142,7 @@ func (b *Bar) Complete(text string) {
 	}
 
 	// If we're interactive, but in verbose mode do a simple write
-	if b.verbose {
+	if b.Verbose {
 		b.write()
 		return
 	}

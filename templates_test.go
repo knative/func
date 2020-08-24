@@ -1,4 +1,4 @@
-package embedded
+package faas
 
 import (
 	"os"
@@ -10,7 +10,7 @@ import (
 // (Go), the template is written.
 func TestInitialize(t *testing.T) {
 	var (
-		path     = "testdata/example.com/www"
+		path     = "testdata/example.org/www"
 		testFile = "handle.go"
 		template = "http"
 	)
@@ -34,7 +34,7 @@ func TestInitialize(t *testing.T) {
 // TestDefaultTemplate ensures that if no template is provided, files are still written.
 func TestDefaultTemplate(t *testing.T) {
 	var (
-		path     = "testdata/example.com/www"
+		path     = "testdata/example.org/www"
 		testFile = "handle.go"
 		template = ""
 	)
@@ -65,7 +65,7 @@ func TestDefaultTemplate(t *testing.T) {
 // $HOME/.config/templates/boson-experimental/go/json
 func TestCustom(t *testing.T) {
 	var (
-		path     = "testdata/example.com/www"
+		path     = "testdata/example.org/www"
 		testFile = "handle.go"
 		template = "boson-experimental/json"
 		// repos    = "testdata/templates"
@@ -99,7 +99,7 @@ func TestCustom(t *testing.T) {
 // TestEmbeddedFileMode ensures that files from the embedded templates are
 // written with the same mode from whence they came
 func TestEmbeddedFileMode(t *testing.T) {
-	var path = "testdata/example.com/www"
+	var path = "testdata/example.org/www"
 	err := os.MkdirAll(path, 0744)
 	if err != nil {
 		panic(err)
@@ -128,7 +128,7 @@ func TestEmbeddedFileMode(t *testing.T) {
 // of templates are written with the same mode from whence they came
 func TestFileMode(t *testing.T) {
 	var (
-		path     = "testdata/example.com/www"
+		path     = "testdata/example.org/www"
 		template = "boson-experimental/http"
 	)
 	err := os.MkdirAll(path, 0744)

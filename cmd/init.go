@@ -1,71 +1,66 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 
-	"github.com/boson-project/faas"
-	"github.com/boson-project/faas/embedded"
-	"github.com/boson-project/faas/prompt"
-	"github.com/mitchellh/go-homedir"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
+
+	"github.com/boson-project/faas"
+	"github.com/boson-project/faas/prompt"
 )
 
 func init() {
-	cwd, err := os.Getwd()
-	if err != nil {
-		panic(err)
-	}
-
 	root.AddCommand(initCmd)
-	initCmd.Flags().StringP("name", "n", "", "A name for the project, overriding the default path based name")
-	initCmd.Flags().StringP("path", "p", cwd, "Path to the new project directory")
-	initCmd.Flags().StringP("tag", "t", "", "Specify an image tag, for example quay.io/myrepo/project.name:latest")
-	initCmd.Flags().StringP("trigger", "g", embedded.DefaultTemplate, "Function trigger (ex: 'http','events')")
-	initCmd.Flags().StringP("templates", "", filepath.Join(configPath(), "faas", "templates"), "Extensible templates path")
-	if err = initCmd.MarkFlagRequired("tag"); err != nil {
-		fmt.Println("Error marking 'tag' flag required")
+	initCmd.Flags().StringP("path", "p", cwd(), "Path to the new project directory - $FAAS_PATH")
+	initCmd.Flags().StringP("runtime", "l", faas.DefaultRuntime, "Function runtime language/framework. - $FAAS_RUNTIME")
+	initCmd.Flags().StringP("templates", "", filepath.Join(configPath(), "faas", "templates"), "Extensible templates path. - $FAAS_TEMPLATES")
+	initCmd.Flags().StringP("trigger", "t", faas.DefaultTrigger, "Function trigger (ex: 'http','events') - $FAAS_TRIGGER")
+	initCmd.Flags().BoolP("yes", "y", false, "When in interactive mode (attached to a TTY), skip prompts. - $FAAS_YES")
+
+	var err error
+	err = initCmd.RegisterFlagCompletionFunc("runtime", CompleteRuntimeList)
+	if err != nil {
+		fmt.Println("Error while calling RegisterFlagCompletionFunc: ", err)
 	}
 }
 
-// The init command creates a new function project with a noop implementation.
 var initCmd = &cobra.Command{
-	Use:        "init <runtime> --tag=\"image tag\"",
-	Short:      "Create a new function project",
+	Use:        "init <name> [options]",
+	Short:      "Initialize a new Function project",
 	SuggestFor: []string{"inti", "new"},
-	// TODO: Add completions for init
-	// ValidArgsFunction: CompleteRuntimeList,
-	RunE: initializeProject,
-	PreRunE: func(cmd *cobra.Command, args []string) (err error) {
-		flags := []string{"name", "path", "tag", "trigger", "templates"}
-		for _, f := range flags {
-			err := viper.BindPFlag(f, cmd.Flags().Lookup(f))
-			if err != nil {
-				return err
-			}
-		}
-		return
-	},
+	PreRunE:    bindEnv("path", "runtime", "templates", "trigger", "yes"),
+	RunE:       runInit,
+	// TODO: autocomplate Functions for runtime and trigger.
 }
 
-// The init command expects a runtime language/framework, and optionally
-// a couple of flags.
-type initConfig struct {
-	// Verbose mode instructs the system to output detailed logs as the command
-	// progresses.
-	Verbose bool
+func runInit(cmd *cobra.Command, args []string) error {
+	config := newInitConfig(args).Prompt()
 
+	function := faas.Function{
+		Name:    config.Name,
+		Root:    config.Path,
+		Runtime: config.Runtime,
+		Trigger: config.Trigger,
+	}
+
+	client := faas.New(
+		faas.WithVerbose(config.Verbose),
+		faas.WithTemplates(config.Templates))
+
+	return client.Initialize(function)
+}
+
+type initConfig struct {
 	// Name of the service in DNS-compatible format (ex myfunc.example.com)
 	Name string
 
-	// Trigger is the form of the resultant function, i.e. the function signature
-	// and contextually avaialable resources.  For example 'http' for a funciton
-	// expected to be invoked via straight HTTP requests, or 'events' for a
-	// function which will be invoked with CloudEvents.
-	Trigger string
+	// Path to files on disk.  Defaults to current working directory.
+	Path string
+
+	// Runtime language/framework.
+	Runtime string
 
 	// Templates is an optional path that, if it exists, will be used as a source
 	// for additional templates not included in the binary.  If not provided
@@ -73,106 +68,52 @@ type initConfig struct {
 	// location is $XDG_CONFIG_HOME/templates ($HOME/.config/faas/templates)
 	Templates string
 
-	// Runtime is the first argument, and specifies the resultant Function
-	// implementation runtime.
-	Runtime string
+	// Trigger is the form of the resultant Function, i.e. the Function signature
+	// and contextually avaialable resources.  For example 'http' for a funciton
+	// expected to be invoked via straight HTTP requests, or 'events' for a
+	// Function which will be invoked with CloudEvents.
+	Trigger string
 
-	// Path of the Function implementation on local disk. Defaults to current
-	// working directory of the process.
-	Path string
+	// Verbose logging enabled.
+	Verbose bool
 
-	// Image tag for the resulting Function
-	Tag string
+	// Yes: agree to values arrived upon from environment plus flags plus defaults,
+	// and skip the interactive prompting (only applicable when attached to a TTY).
+	Yes bool
 }
 
-func initializeProject(cmd *cobra.Command, args []string) (err error) {
-	if len(args) == 0 {
-		return errors.New("'faas init' requires a runtime argument")
+// newInitConfig returns a config populated from the current execution context
+// (args, flags and environment variables)
+func newInitConfig(args []string) initConfig {
+	var name string
+	if len(args) > 0 {
+		name = args[0] // If explicitly provided, use.
 	}
-
-	var config = initConfig{
-		Runtime:   args[0],
-		Verbose:   viper.GetBool("verbose"),
-		Name:      viper.GetString("name"),
+	return initConfig{
+		Name:      deriveName(name, viper.GetString("path")), // args[0] or derived
 		Path:      viper.GetString("path"),
-		Trigger:   viper.GetString("trigger"),
+		Runtime:   viper.GetString("runtime"),
 		Templates: viper.GetString("templates"),
-		Tag:       viper.GetString("tag"),
+		Trigger:   viper.GetString("trigger"),
+		Verbose:   viper.GetBool("verbose"), // defined on root
+		Yes:       viper.GetBool("yes"),
 	}
-
-	// If we are running as an interactive terminal, allow the user
-	// to mutate default config prior to execution.
-	if interactiveTerminal() {
-		config, err = promptWithDefaults(config)
-		if err != nil {
-			return err
-		}
-	}
-
-	// Initializer creates a deployable noop function implementation in the
-	// configured path.
-	initializer := embedded.NewInitializer(config.Templates)
-	initializer.Verbose = config.Verbose
-
-	client, err := faas.New(
-		faas.WithVerbose(config.Verbose),
-		faas.WithInitializer(initializer),
-	)
-	if err != nil {
-		return err
-	}
-
-	// Invoke the creation of the new Function locally.
-	// Returns the final address.
-	// Name can be empty string (path-dervation will be attempted)
-	// Path can be empty, defaulting to current working directory.
-	_, err = client.Initialize(config.Runtime, config.Trigger, config.Name, config.Tag, config.Path)
-
-	// If no error this returns nil
-	return err
 }
 
-func promptWithDefaults(config initConfig) (c initConfig, err error) {
-	config.Path = prompt.ForString("Path to project directory", config.Path)
-	config.Name, err = promptForName("Function project name", config)
-	if err != nil {
-		return config, err
+// Prompt the user with value of config members, allowing for interaractive changes.
+// Skipped if not in an interactive terminal (non-TTY), or if --yes (agree to
+// all prompts) was explicitly set.
+func (c initConfig) Prompt() initConfig {
+	if !interactiveTerminal() || c.Yes {
+		return c
 	}
-	config.Runtime = prompt.ForString("Runtime of source", config.Runtime)
-	config.Trigger = prompt.ForString("Function Template", config.Trigger)
-	config.Tag = prompt.ForString("Image tag", config.Tag)
-	return config, nil
-}
-
-// Prompting for Name with Default
-// Early calclation of service function name is required to provide a sensible
-// default.  If the user did not provide a --name parameter or FAAS_NAME,
-// this funciton sets the default to the value that the client would have done
-// on its own if non-interactive: by creating a new function rooted at config.Path
-// and then calculate from that path.
-func promptForName(label string, config initConfig) (string, error) {
-	// Pre-calculate the function name derived from path
-	if config.Name == "" {
-		f, err := faas.NewFunction(config.Path)
-		if err != nil {
-			return "", err
-		}
-		maxRecursion := 5 // TODO synchronize with that used in actual initialize step.
-		return prompt.ForString("Name of service function", f.DerivedName(maxRecursion), prompt.WithRequired(true)), nil
+	return initConfig{
+		// TODO: Path should be prompted for and set prior to name attempting path derivation.  Test/fix this if necessary.
+		Path:    prompt.ForString("Path to project directory", c.Path),
+		Name:    prompt.ForString("Function project name", deriveName(c.Name, c.Path), prompt.WithRequired(true)),
+		Verbose: prompt.ForBool("Verbose logging", c.Verbose),
+		Runtime: prompt.ForString("Runtime of source", c.Runtime),
+		Trigger: prompt.ForString("Function Trigger", c.Trigger),
+		// Templates intentiopnally omitted from prompt for being an edge case.
 	}
-
-	// The user provided a --name or FAAS_NAME; just confirm it.
-	return prompt.ForString("Name of service function", config.Name, prompt.WithRequired(true)), nil
-}
-
-func configPath() (path string) {
-	if path = os.Getenv("XDG_CONFIG_HOME"); path != "" {
-		return
-	}
-
-	path, err := homedir.Expand("~/.config")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "could not derive home directory for use as default templates path: %v", err)
-	}
-	return
 }

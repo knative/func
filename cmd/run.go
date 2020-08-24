@@ -16,7 +16,7 @@ func init() {
 var runCmd = &cobra.Command{
 	Use:   "run",
 	Short: "Run Function locally",
-	Long:  "Runs the function locally within an isolated environment.  Modifications to the function trigger a reload.  This holds open the current window with the logs from the running function, and the run is canceled on interrupt.",
+	Long:  "Runs the function locally within an isolated environment.  Modifications to the Function trigger a reload.  This holds open the current window with the logs from the running Function, and the run is canceled on interrupt.",
 	RunE:  run,
 }
 
@@ -33,12 +33,9 @@ func run(cmd *cobra.Command, args []string) (err error) {
 	runner := appsody.NewRunner()
 	runner.Verbose = verbose
 
-	client, err := faas.New(
+	client := faas.New(
 		faas.WithRunner(runner),
 		faas.WithVerbose(verbose))
-	if err != nil {
-		return
-	}
 
 	return client.Run(path)
 }

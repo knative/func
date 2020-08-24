@@ -6,7 +6,7 @@ When any templates are modified, `../pkged.go` should be regenerated.
 
 ```
 go get github.com/markbates/pkger/cmd/pkger
-cd embedded && pkger
+pkger
 ```
 Generates a pkged.go containing serialized versions of the contents of 
 the templates directory, made accessible at runtime. 
