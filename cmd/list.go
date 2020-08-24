@@ -83,7 +83,7 @@ func list(cmd *cobra.Command, args []string) (err error) {
 		return
 	}
 
-	lister, err := knative.NewLister(faas.DefaultNamespace)
+	lister, err := knative.NewLister("")
 	if err != nil {
 		return
 	}
