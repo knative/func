@@ -11,7 +11,6 @@ import (
 
 	. "k8s.io/api/core/v1"
 	apiMachineryV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/clientcmd"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	servingV1client "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1"
 
@@ -25,15 +24,13 @@ type Updater struct {
 	client    *servingV1client.ServingV1Client
 }
 
-func NewUpdater(namespace string) (updater *Updater, err error) {
+func NewUpdater(namespaceOverride string) (updater *Updater, err error) {
 	updater = &Updater{}
-	updater.namespace = namespace
-	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
-	config, err := clientConfig.ClientConfig()
+	config, namespace, err := newClientConfig(namespaceOverride)
 	if err != nil {
 		return
 	}
+	updater.namespace = namespace
 	updater.client, err = servingV1client.NewForConfig(config)
 	return
 }

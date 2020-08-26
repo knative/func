@@ -5,7 +5,6 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	"knative.dev/eventing/pkg/apis/eventing/v1alpha1"
 	eventingv1client "knative.dev/eventing/pkg/client/clientset/versioned/typed/eventing/v1alpha1"
 	servingv1client "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
@@ -22,20 +21,14 @@ type Describer struct {
 	config         *rest.Config
 }
 
-func NewDescriber(namespace string) (describer *Describer, err error) {
-	describer = &Describer{namespace: namespace}
-	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
-	if describer.namespace == "" {
-		namespace, _, err := clientConfig.Namespace()
-		if err == nil {
-			describer.namespace = namespace
-		}
-	}
-	config, err := clientConfig.ClientConfig()
+func NewDescriber(namespaceOverride string) (describer *Describer, err error) {
+	describer = &Describer{}
+	config, namespace, err := newClientConfig(namespaceOverride)
 	if err != nil {
 		return
 	}
+	describer.namespace = namespace
+
 	describer.servingClient, err = servingv1client.NewForConfig(config)
 	if err != nil {
 		return

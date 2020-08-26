@@ -2,7 +2,8 @@ package knative
 
 import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/clientcmd"
+	restclient "k8s.io/client-go/rest"
+	clientcmd "k8s.io/client-go/tools/clientcmd"
 	servingv1client "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1"
 
 	"github.com/boson-project/faas/k8s"
@@ -16,22 +17,15 @@ type Lister struct {
 	client    *servingv1client.ServingV1Client
 }
 
-func NewLister(namespace string) (l *Lister, err error) {
+func NewLister(namespaceOverride string) (l *Lister, err error) {
 	l = &Lister{}
-	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
-	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
-	if namespace == "" {
-		namespace, _, _ = clientConfig.Namespace()
+
+	config, namespace, err := newClientConfig(namespaceOverride)
+	if err != nil {
+		return
 	}
 	l.namespace = namespace
-	config, err := clientConfig.ClientConfig()
-	if err != nil {
-		return
-	}
 	l.client, err = servingv1client.NewForConfig(config)
-	if err != nil {
-		return
-	}
 	return
 }
 
@@ -50,5 +44,19 @@ func (l *Lister) List() (names []string, err error) {
 		}
 		names = append(names, n)
 	}
+	return
+}
+
+func newClientConfig(defaultNamespace string) (c *restclient.Config, namespace string, err error) {
+	loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+	clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
+	namespace = defaultNamespace
+	if defaultNamespace == "" {
+		namespace, _, err = clientConfig.Namespace()
+		if err != nil {
+			return
+		}
+	}
+	c, err = clientConfig.ClientConfig()
 	return
 }
