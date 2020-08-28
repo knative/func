@@ -19,9 +19,7 @@ func init() {
 	initCmd.Flags().StringP("trigger", "t", faas.DefaultTrigger, "Function trigger (ex: 'http','events') - $FAAS_TRIGGER")
 	initCmd.Flags().BoolP("yes", "y", false, "When in interactive mode (attached to a TTY), skip prompts. - $FAAS_YES")
 
-	var err error
-	err = initCmd.RegisterFlagCompletionFunc("runtime", CompleteRuntimeList)
-	if err != nil {
+	if err := initCmd.RegisterFlagCompletionFunc("runtime", CompleteRuntimeList); err != nil {
 		fmt.Println("Error while calling RegisterFlagCompletionFunc: ", err)
 	}
 }

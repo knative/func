@@ -31,11 +31,13 @@ func runDelete(cmd *cobra.Command, args []string) (err error) {
 	remover := knative.NewRemover()
 	remover.Verbose = config.Verbose
 
+	function := faas.Function{Root: config.Path, Name: config.Name}
+
 	client := faas.New(
 		faas.WithVerbose(verbose),
 		faas.WithRemover(remover))
 
-	return client.Remove(config.Name, config.Path)
+	return client.Remove(function)
 }
 
 type deleteConfig struct {

@@ -18,8 +18,6 @@ const (
 // Client for managing Function instances.
 type Client struct {
 	verbose           bool     // print verbose logs
-	local             bool     // Run in local-only mode
-	internal          bool     // Deploy without publicly accessible route
 	builder           Builder  // Builds a runnable image from Function source
 	pusher            Pusher   // Pushes the image assocaited with a Function.
 	deployer          Deployer // Deploys a Function
@@ -151,20 +149,6 @@ func WithVerbose(v bool) Option {
 	}
 }
 
-// WithLocal sets the local mode
-func WithLocal(l bool) Option {
-	return func(c *Client) {
-		c.local = l
-	}
-}
-
-// WithInternal sets the internal (no public route) mode for deployed Function.
-func WithInternal(i bool) Option {
-	return func(c *Client) {
-		c.internal = i
-	}
-}
-
 // WithBuilder provides the concrete implementation of a builder.
 func WithBuilder(d Builder) Option {
 	return func(c *Client) {
@@ -266,6 +250,60 @@ func WithRepository(repository string) Option {
 	}
 }
 
+// Create a Function.
+// Includes Initialization, Building, and Deploying.
+func (c *Client) Create(cfg Function) (err error) {
+	c.progressListener.SetTotal(4)
+	defer c.progressListener.Done()
+
+	// Initialize, writing out a template implementation and a config file.
+	// TODO: the Function's Initialize parameters are slightly different than
+	// the Initializer interface, and can thus cause confusion (one passes an
+	// optional name the other passes root path).  This could easily cause
+	// confusion and thus we may want to rename Initalizer to the more specific
+	// task it performs: ContextTemplateWriter or similar.
+	c.progressListener.Increment("Initializing new Function project")
+	err = c.Initialize(cfg)
+	if err != nil {
+		return
+	}
+
+	// Load the now-initialized Function.
+	f, err := NewFunction(cfg.Root)
+	if err != nil {
+		return
+	}
+
+	// Build the now-initialized Function
+	c.progressListener.Increment("Building container image")
+	if err = c.Build(f.Root); err != nil {
+		return
+	}
+
+	// Deploy the initialized Function, returning its publicly
+	// addressible name for possible registration.
+	c.progressListener.Increment("Deploying Function to cluster")
+	if err = c.Deploy(f.Root); err != nil {
+		return
+	}
+
+	// Create an external route to the Function
+	c.progressListener.Increment("Creating route to Function")
+	if err = c.Route(f.Root); err != nil {
+		return
+	}
+
+	c.progressListener.Complete("Create complete")
+
+	// TODO: use the knative client during deployment such that the actual final
+	// route can be returned from the deployment step, passed to the DNS Router
+	// for routing actual traffic, and returned here.
+	if c.verbose {
+		fmt.Printf("https://%v/\n", f.Name)
+	}
+	return
+}
+
 // Initialize creates a new Function project locally using the settings
 // provided on a Function object.
 func (c *Client) Initialize(cfg Function) (err error) {
@@ -275,17 +313,8 @@ func (c *Client) Initialize(cfg Function) (err error) {
 		return
 	}
 
-	// Do not initialize if already initialized.
-	if f.Initialized() {
-		err = fmt.Errorf("Function at '%v' already initialized.", cfg.Root)
-		return
-	}
-
-	// Do not re-initialize unless the directory is empty This is to protect the
-	// user from inadvertently overwriting local files which share the same name
-	// as those in the applied template if, for instance, an incorrect path is
-	// supplied for the new Function. This assertion is that the target path is
-	// empty of all but unrelated hidden files.
+	// Assert the specified root is free of visible files and contentious
+	// hidden files (the ConfigFile, which indicates it is already initialized)
 	if err = assertEmptyRoot(f.Root); err != nil {
 		return
 	}
@@ -304,8 +333,6 @@ func (c *Client) Initialize(cfg Function) (err error) {
 	f.Runtime = cfg.Runtime
 	if f.Runtime == "" {
 		f.Runtime = DefaultRuntime
-	} else {
-		f.Runtime = cfg.Runtime
 	}
 
 	// Assert trigger was provided, or default.
@@ -404,61 +431,6 @@ func (c *Client) Route(path string) (err error) {
 	return c.dnsProvider.Provide(f)
 }
 
-// Create a Function of the given runtime.
-// Name and Root are optional:
-// Name is derived from root if possible.
-// Root is defaulted to the current working directory.
-func (c *Client) Create(cfg Function) (err error) {
-	c.progressListener.SetTotal(4)
-	defer c.progressListener.Done()
-
-	// Initialize, writing out a template implementation and a config file.
-	// TODO: the Function's Initialize parameters are slightly different than
-	// the Initializer interface, and can thus cause confusion (one passes an
-	// optional name the other passes root path).  This could easily cause
-	// confusion and thus we may want to rename Initalizer to the more specific
-	// task it performs: ContextTemplateWriter or similar.
-	c.progressListener.Increment("Initializing new Function project")
-	err = c.Initialize(cfg)
-	if err != nil {
-		return
-	}
-
-	// Load the now-initialized Function.
-	f, err := NewFunction(cfg.Root)
-	if err != nil {
-		return
-	}
-
-	// Build the now-initialized Function
-	c.progressListener.Increment("Building container image")
-	err = c.Build(f.Root)
-	if err != nil {
-		return
-	}
-
-	// Deploy the initialized Function, returning its publicly
-	// addressible name for possible registration.
-	c.progressListener.Increment("Deploying Function to cluster")
-	if err = c.Deploy(f.Root); err != nil {
-		return
-	}
-
-	// Create an external route to the Function
-	c.progressListener.Increment("Creating route to Function")
-	if err = c.Route(f.Root); err != nil {
-		return
-	}
-
-	c.progressListener.Complete("Create complete")
-
-	// TODO: use the knative client during deployment such that the actual final
-	// route can be returned from the deployment step, passed to the DNS Router
-	// for routing actual traffic, and returned here.
-	fmt.Printf("https://%v/\n", f.Name)
-	return
-}
-
 // Update a previously created Function.
 func (c *Client) Update(root string) (err error) {
 
@@ -539,20 +511,20 @@ func (c *Client) Describe(name, root string) (fd FunctionDescription, err error)
 }
 
 // Remove a Function.  Name takes precidence.  If no name is provided,
-// the Function defined at root is used.
-func (c *Client) Remove(name, root string) error {
+// the Function defined at root is used if it exists.
+func (c *Client) Remove(cfg Function) error {
 	// If name is provided, it takes precidence.
 	// Otherwise load the Function deined at root.
-	if name != "" {
-		return c.remover.Remove(name)
+	if cfg.Name != "" {
+		return c.remover.Remove(cfg.Name)
 	}
 
-	f, err := NewFunction(root)
+	f, err := NewFunction(cfg.Root)
 	if err != nil {
 		return err
 	}
 	if !f.Initialized() {
-		return fmt.Errorf("%v is not initialized", f.Name)
+		return fmt.Errorf("Function at %v can not be removed unless initialized.  Try removing by name.", f.Root)
 	}
 	return c.remover.Remove(f.Name)
 }
@@ -567,59 +539,35 @@ func (c *Client) Remove(name, root string) error {
 
 type noopBuilder struct{ output io.Writer }
 
-func (n *noopBuilder) Build(_ Function) error {
-	fmt.Fprintln(n.output, "skipping build: client not initialized WithBuilder")
-	return nil
-}
+func (n *noopBuilder) Build(_ Function) error { return nil }
 
 type noopPusher struct{ output io.Writer }
 
-func (n *noopPusher) Push(_ Function) error {
-	fmt.Fprintln(n.output, "skipping push: client not initialized WithPusher")
-	return nil
-}
+func (n *noopPusher) Push(_ Function) error { return nil }
 
 type noopDeployer struct{ output io.Writer }
 
-func (n *noopDeployer) Deploy(_ Function) error {
-	fmt.Fprintln(n.output, "skipping deploy: client not initialized WithDeployer")
-	return nil
-}
+func (n *noopDeployer) Deploy(_ Function) error { return nil }
 
 type noopUpdater struct{ output io.Writer }
 
-func (n *noopUpdater) Update(_ Function) error {
-	fmt.Fprintln(n.output, "skipping deploy: client not initialized WithDeployer")
-	return nil
-}
+func (n *noopUpdater) Update(_ Function) error { return nil }
 
 type noopRunner struct{ output io.Writer }
 
-func (n *noopRunner) Run(_ Function) error {
-	fmt.Fprintln(n.output, "skipping run: client not initialized WithRunner")
-	return nil
-}
+func (n *noopRunner) Run(_ Function) error { return nil }
 
 type noopRemover struct{ output io.Writer }
 
-func (n *noopRemover) Remove(string) error {
-	fmt.Fprintln(n.output, "skipping remove: client not initialized WithRemover")
-	return nil
-}
+func (n *noopRemover) Remove(string) error { return nil }
 
 type noopLister struct{ output io.Writer }
 
-func (n *noopLister) List() ([]string, error) {
-	fmt.Fprintln(n.output, "skipping list: client not initialized WithLister")
-	return []string{}, nil
-}
+func (n *noopLister) List() ([]string, error) { return []string{}, nil }
 
 type noopDNSProvider struct{ output io.Writer }
 
-func (n *noopDNSProvider) Provide(_ Function) error {
-	// Note: at this time manual DNS provisioning required for name -> knative serving netowrk load-balancer
-	return nil
-}
+func (n *noopDNSProvider) Provide(_ Function) error { return nil }
 
 type noopProgressListener struct{}
 

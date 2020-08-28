@@ -97,6 +97,13 @@ func (f Function) Initialized() bool {
 // Default if not provided is --repository (a required global setting)
 // followed by the provided (or derived) image name.
 func DerivedImage(root, repository string) (image string, err error) {
+	// Repository is currently required until such time as we support
+	// pushing to an implicitly-available in-cluster registry by default.
+	if repository == "" {
+		err = errors.New("Repository name is required.")
+		return
+	}
+
 	f, err := NewFunction(root)
 	if err != nil {
 		// an inability to load the funciton means it is not yet initialized
@@ -127,6 +134,12 @@ func DerivedImage(root, repository string) (image string, err error) {
 	} else {
 		err = fmt.Errorf("repository should be either 'namespace' or 'registry/namespace'")
 	}
+
+	// Explicitly append :latest.  We currently expect source control to drive
+	// versioning, rather than rely on Docker Hub tags with explicit version
+	// numbers, as is seen in many serverless solutions.  This will be updated
+	// to branch name when we add source-driven canary/ bluegreen deployments.
+	image = image + ":latest"
 	return
 }
 
@@ -165,7 +178,7 @@ func assertEmptyRoot(path string) (err error) {
 // contentiousFiles are files which, if extant, preclude the creation of a
 // Function rooted in the given directory.
 var contentiousFiles = []string{
-	".faas.yaml",
+	ConfigFile,
 	".appsody-config.yaml",
 }
 
@@ -182,14 +195,8 @@ func contentiousFilesIn(dir string) (contentious []string, err error) {
 	return
 }
 
-// effectivelyEmpty directories are those which have no visible files,
-// and none of the explicitly enumerated contentious files.
+// effectivelyEmpty directories are those which have no visible files
 func isEffectivelyEmpty(dir string) (bool, error) {
-	// Check for contentious files
-	if contentious, err := contentiousFilesIn(dir); len(contentious) > 0 {
-		return false, err
-	}
-
 	// Check for any non-hidden files
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {

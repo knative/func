@@ -2,6 +2,7 @@ package faas_test
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -10,48 +11,161 @@ import (
 	"github.com/boson-project/faas/mock"
 )
 
-// TestNew ensures that instantiation succeeds or fails as expected.
-func TestNew(t *testing.T) {
-	// New client with all defaults
-	_, err := faas.New()
-	if err != nil {
-		t.Fatal(err)
-	}
+// TestRepository for calculating destination image during tests.
+// Will be optional once we support in-cluster container registries
+// by default.  See TestRepositoryRequired for details.
+const TestRepository = "quay.io/alice"
 
-	// New client with optional verbosity enabled
-	_, err = faas.New(faas.WithVerbose(true))
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
-// TestNewWithInterferingFiles asserts that attempting to create a new client rooted
-// to a directory with any visible files or any known contentious files (configs) fails.
-func TestNewWithInterferingFiles(t *testing.T) {
-	// TODO
-}
-
-// TestCreate ensures that creation of a supported runtime succeeds with all
-// defaults (base case).
+// TestCreate completes without error using all defaults and zero values.  The base case.
 func TestCreate(t *testing.T) {
-	// Client with all defaults other than an initializer that verifies the
-	// specified runtime.
-	client, err := faas.New(
-		faas.WithInitializer(mock.NewInitializer()))
-	if err != nil {
-		t.Fatal(err)
-	}
+	root := "testdata/example.com/testCreate" // Root from which to run the test
 
-	// Create the test Function root
-	root := "testdata/example.com/admin"
-	err = os.MkdirAll(root, 0700)
-	if err != nil {
-		panic(err)
+	if err := os.MkdirAll(root, 0700); err != nil {
+		t.Fatal(err)
 	}
 	defer os.RemoveAll(root)
 
-	// A supported langauge should not error
-	if err := client.Create("go", "", "", "", root); err != nil {
+	client := faas.New(faas.WithRepository(TestRepository))
+
+	if err := client.Create(faas.Function{Root: root}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestCreateWritesTemplate to disk at root.
+func TestCreateWritesTemplate(t *testing.T) {
+	// Create the root path for the function
+	root := "testdata/example.com/testCreateWrites"
+	if err := os.MkdirAll(root, 0744); err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(root)
+
+	// Create the function at root
+	client := faas.New(faas.WithRepository(TestRepository))
+	if err := client.Create(faas.Function{Root: root}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Test that the config file was written
+	if _, err := os.Stat(filepath.Join(root, faas.ConfigFile)); os.IsNotExist(err) {
+		t.Fatalf("Initialize did not result in '%v' being written to '%v'", faas.ConfigFile, root)
+	}
+}
+
+// TestCreateInitializedAborts ensures that a directory which contains an initialized
+// function does not reinitialize
+func TestCreateInitializedAborts(t *testing.T) {
+	root := "testdata/example.com/testCreateInitializedAborts" // contains only a .faas.config
+	client := faas.New()
+	if err := client.Initialize(faas.Function{Root: root}); err == nil {
+		t.Fatal("error expected initilizing a path already containing an initialized Funciton")
+	}
+}
+
+// TestCreateNonemptyDirectoryAborts ensures that a directory which contains any visible
+// files aborts.
+func TestCreateNonemptyDirectoryAborts(t *testing.T) {
+	root := "testdata/example.com/testCreateNonemptyDirectoryAborts" // contains only a single visible file.
+	client := faas.New()
+	if err := client.Initialize(faas.Function{Root: root}); err == nil {
+		t.Fatal("error expected initilizing a Function in a nonempty directory")
+	}
+}
+
+// TestCreateHiddenFilesIgnored ensures that initializing in a directory that
+// only contains hidden files does not error, protecting against the naieve
+// implementation of aborting initialization if any files exist, which would
+// break functions tracked in source control (.git), or when used in
+// conjunction with other tools (.envrc, etc)
+func TestCreateHiddenFilesIgnored(t *testing.T) {
+	// Create a directory for the Function
+	root := "testdata/example.com/testCreateHiddenFilesIgnored"
+	if err := os.MkdirAll(root, 0744); err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(root)
+
+	// Create a hidden file that should be ignored.
+	hiddenFile := filepath.Join(root, ".envrc")
+	if err := ioutil.WriteFile(hiddenFile, []byte{}, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	client := faas.New()
+	var err error
+	if err = client.Initialize(faas.Function{Root: root}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestCreateDefaultRuntime ensures that the default runtime is applied to new
+// Functions and persisted.
+func TestCreateDefaultRuntime(t *testing.T) {
+	// Create a root for the new Function
+	root := "testdata/example.com/testCreateDefaultRuntime"
+	if err := os.MkdirAll(root, 0744); err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(root)
+
+	// Create a new function at root with all defaults.
+	client := faas.New(faas.WithRepository(TestRepository))
+	if err := client.Create(faas.Function{Root: root}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Load the function
+	f, err := faas.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Ensure it has defaulted runtime
+	if f.Runtime != faas.DefaultRuntime {
+		t.Fatal("The default runtime was not applied or persisted.")
+	}
+}
+
+// TestCreateDefaultTemplate ensures that the default template is
+// applied when not provided.
+func TestCreateDefaultTrigger(t *testing.T) {
+	// TODO: need to either expose accessor for introspection, or compare
+	// the files written to those in the embedded repisotory?
+}
+
+// TestExtensibleTemplates templates.  Ensures that templates are extensible
+// using a custom path to a template repository on disk.  Custom repository
+// location is not defined herein but expected to be provided because, for
+// example, a CLI may want to use XDG_CONFIG_HOME.  Assuming a repository path
+// $FAAS_TEMPLATES, a Go template named 'json' which is provided in the
+// repository repository 'boson-experimental', would be expected to be in the
+// location:
+// $FAAS_TEMPLATES/boson-experimental/go/json
+// See the CLI for full details, but a standard default location is
+// $HOME/.config/templates/boson-experimental/go/json
+func TestExtensibleTemplates(t *testing.T) {
+	// Create a directory for the new Function
+	root := "testdata/example.com/testExtensibleTemplates"
+	if err := os.MkdirAll(root, 0744); err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(root)
+
+	// Create a new client with a path to the extensible templates
+	client := faas.New(
+		faas.WithTemplates("testdata/templates"),
+		faas.WithRepository(TestRepository))
+
+	// Create a Function specifying a template, 'json' that only exists in the extensible set
+	if err := client.Create(faas.Function{Root: root, Trigger: "boson-experimental/json"}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Ensure that a file from that only exists in that template set was actually written 'json.go'
+	if _, err := os.Stat(filepath.Join(root, "json.go")); os.IsNotExist(err) {
+		t.Fatalf("Initializing a custom did not result in json.go being written to '%v'", root)
+	} else if err != nil {
 		t.Fatal(err)
 	}
 }
@@ -59,154 +173,272 @@ func TestCreate(t *testing.T) {
 // TestCreateUnderivableName ensures that attempting to create a new Function
 // when the name is underivable (and no explicit name is provided) generates
 // an error.
-func TestCreateUnderivableName(t *testing.T) {
-
-	// Create the test Function root
-	root := "testdata/example.com/admin"
-	err := os.MkdirAll(root, 0700)
-	if err != nil {
-		panic(err)
+func TestUnderivableName(t *testing.T) {
+	// Create a directory for the Function
+	root := "testdata/example.com/testUnderivableName"
+	if err := os.MkdirAll(root, 0700); err != nil {
+		t.Fatal(err)
 	}
 	defer os.RemoveAll(root)
 
 	// Instantiation without an explicit service name, but no derivable service
 	// name (because of limiting path recursion) should fail.
-	client, err := faas.New(
-		faas.WithDomainSearchLimit(0)) // limit ability to derive from path.
-	if err != nil {
-		t.Fatal(err)
-	}
+	client := faas.New(faas.WithDomainSearchLimit(0))
 
 	// create a Function with a missing name, but when the name is
 	// underivable (in this case due to limited recursion, but would equally
 	// apply if run from /tmp or similar)
-	if err := client.Create("go", "", "", "", ""); err == nil {
-		t.Fatal("did not receive expected error")
-	}
-
-}
-
-// TestCreateMissingRuntime ensures that instantiation fails if the required
-// runtime parameter is not passed to Create.
-func TestCreateMissingRuntime(t *testing.T) {
-	client, err := faas.New(
-		faas.WithInitializer(mock.NewInitializer()))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// create a Function call missing runtime should error
-	if err := client.Create("", "", "", "", ""); err == nil {
-		t.Fatal("missing runtime did not generate error")
+	if err := client.Create(faas.Function{Root: root}); err == nil {
+		t.Fatal("did not receive error creating with underivable name")
 	}
 }
 
-// TestCreateUnsupportedRuntime ensures that instantiation fails if the required
-// runtime parameter is of an unsupported runtime.
-func TestCreateUnsupportedRuntime(t *testing.T) {
-	client, err := faas.New(
-		faas.WithInitializer(mock.NewInitializer())) // validtes runtime passed
-	if err != nil {
+// TestUnsupportedRuntime generates an error.
+func TestUnsupportedRuntime(t *testing.T) {
+	// Create a directory for the Function
+	root := "testdata/example.com/testUnsupportedRuntime"
+	if err := os.MkdirAll(root, 0700); err != nil {
 		t.Fatal(err)
 	}
+	defer os.RemoveAll(root)
+
+	client := faas.New()
 
 	// create a Function call witn an unsupported runtime should bubble
 	// the error generated by the underlying initializer.
-	if err := client.Create("cobol", "", "", "", ""); err == nil {
+	var err error
+	if err = client.Create(faas.Function{Root: root, Runtime: "invalid"}); err == nil {
 		t.Fatal("unsupported runtime did not generate error")
 	}
 }
 
-// TestCreateDelegeates ensures that a call to Create invokes the Function
-// Initializer, Builder, Pusher and Deployer with expected parameters.
-func TestCreateDelegates(t *testing.T) {
-	var (
-		root        = "testdata/example.com/admin" // .. in which to initialize
-		name        = "admin.example.com"          // expected to be derived
-		image       = "my.hub/user/imagestamp"     // expected image
-		route       = "https://admin.example.com/" // expected final route
-		initializer = mock.NewInitializer()
-		builder     = mock.NewBuilder()
-		pusher      = mock.NewPusher()
-		deployer    = mock.NewDeployer()
-	)
-
-	// Create the test Function root
-	err := os.MkdirAll(root, 0700)
-	if err != nil {
-		panic(err)
+// TestDeriveDomain ensures that the name of the service is a domain derived
+// from the current path if possible.
+// see unit tests on the pathToDomain for more detailed logic.
+func TestDeriveName(t *testing.T) {
+	// Create the root Function directory
+	root := "testdata/example.com/testDeriveDomain"
+	if err := os.MkdirAll(root, 0700); err != nil {
+		t.Fatal(err)
 	}
 	defer os.RemoveAll(root)
 
-	client, err := faas.New(
-		faas.WithInitializer(initializer), // will receive the final value
-		faas.WithBuilder(builder),         // builds an image
-		faas.WithPusher(pusher),           // pushes images to a registry
-		faas.WithDeployer(deployer),       // deploys images as a running service
-	)
+	client := faas.New(faas.WithRepository(TestRepository))
+	if err := client.Create(faas.Function{Root: root}); err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := faas.NewFunction(root)
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	if f.Name != "testDeriveDomain.example.com" {
+		t.Fatalf("unexpected function name '%v'", f.Name)
+	}
+}
+
+// TestDeriveSubdomans ensures that a subdirectory structure is interpreted as
+// multilevel subdomains when calculating a derived name for a service.
+func TestDeriveSubdomains(t *testing.T) {
+	// Create the test Function root
+	root := "testdata/example.com/region1/testDeriveSubdomains"
+	if err := os.MkdirAll(root, 0700); err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(root)
+
+	client := faas.New(faas.WithRepository(TestRepository))
+	if err := client.Create(faas.Function{Root: root}); err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := faas.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if f.Name != "testDeriveSubdomains.region1.example.com" {
+		t.Fatalf("unexpected function name '%v'", f.Name)
+	}
+}
+
+// TestNamed ensures that an explicitly passed name is used in leau of the
+// path derived name when provided, and persists through instantiations.
+func TestNamed(t *testing.T) {
+	// Explicit name to use
+	name := "service.example.com"
+
+	// Path which would derive to testWithHame.example.com were it not for the
+	// explicitly provided name.
+	root := "testdata/example.com/testWithName"
+
+	// Create a root directory for the Function
+	if err := os.MkdirAll(root, 0700); err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(root)
+
+	client := faas.New(faas.WithRepository(TestRepository))
+
+	if err := client.Create(faas.Function{Root: root, Name: name}); err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := faas.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if f.Name != name {
+		t.Fatalf("expected name '%v' got '%v", name, f.Name)
+	}
+}
+
+// TestRepository ensures that a repository is required, and is
+// prepended with the DefaultRegistry if a single token.
+// Repository is the namespace at the container image registry.
+// If not prepended with the registry, it will be defaulted:
+// Examples:  "docker.io/alice"
+//            "quay.io/bob"
+//            "charlie" (becomes [DefaultRegistry]/charlie
+// At this time a repository namespace is required as we rely on a third-party
+// registry in all cases.  When we support in-cluster container registries,
+// this configuration parameter will become optional.
+func TestRepositoryRequired(t *testing.T) {
+	// Create a root for the Function
+	root := "testdata/example.com/testRepository"
+	if err := os.MkdirAll(root, 0700); err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(root)
+
+	client := faas.New()
+	if err := client.Create(faas.Function{Root: root}); err == nil {
+		t.Fatal("did not receive expected error creating a Function without specifying Registry")
+	}
+
+}
+
+// TestDeriveImage ensures that the full image (tag) of the resultant OCI
+// container is populated based of a derivation using configured repository
+// plus the service name.
+func TestDeriveImage(t *testing.T) {
+	// Create the root Function directory
+	root := "testdata/example.com/testDeriveImage"
+	if err := os.MkdirAll(root, 0700); err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(root)
+
+	// Create the function which calculates fields such as name and image.
+	client := faas.New(faas.WithRepository(TestRepository))
+	if err := client.Create(faas.Function{Root: root}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Load the function with the now-populated fields.
+	f, err := faas.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// In form: [Default Registry]/[Repository Namespace]/[Service Name]:latest
+	expected := TestRepository + "/" + f.Name + ":latest"
+	if f.Image != expected {
+		t.Fatalf("expected image '%v' got '%v'", expected, f.Image)
+	}
+}
+
+// TestDeriveImageDefaultRegistry ensures that a Repository which does not have
+// a registry prefix has the DefaultRegistry prepended.
+// For example "alice" becomes "docker.io/alice"
+func TestDeriveImageDefaultRegistry(t *testing.T) {
+	// Create the root Function directory
+	root := "testdata/example.com/testDeriveImageDefaultRegistry"
+	if err := os.MkdirAll(root, 0700); err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(root)
+
+	// Create the function which calculates fields such as name and image.
+	// Rather than use TestRepository, use a single-token name and expect
+	// the DefaultRegistry to be prepended.
+	client := faas.New(faas.WithRepository("alice"))
+	if err := client.Create(faas.Function{Root: root}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Load the function with the now-populated fields.
+	f, err := faas.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Expected image is [DefaultRegistry]/[namespace]/[servicename]:latest
+	expected := faas.DefaultRegistry + "/alice/" + f.Name + ":latest"
+	if f.Image != expected {
+		t.Fatalf("expected image '%v' got '%v'", expected, f.Image)
+	}
+}
+
+// TestDelegation ensures that Create invokes each of the individual
+// subcomponents via delegation through Build, Push and
+// Deploy (and confirms expected fields calculated).
+func TestCreateDelegates(t *testing.T) {
+	var (
+		root          = "testdata/example.com/testCreateDelegates" // .. in which to initialize
+		expectedName  = "testCreateDelegates.example.com"          // expected to be derived
+		expectedImage = "quay.io/alice/testCreateDelegates.example.com:latest"
+		builder       = mock.NewBuilder()
+		pusher        = mock.NewPusher()
+		deployer      = mock.NewDeployer()
+	)
+
+	// Create a directory for the new Function
+	if err := os.MkdirAll(root, 0700); err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(root)
+
+	// Create a client with mocks for each of the subcomponents.
+	client := faas.New(
+		faas.WithRepository(TestRepository),
+		faas.WithBuilder(builder),   // builds an image
+		faas.WithPusher(pusher),     // pushes images to a registry
+		faas.WithDeployer(deployer), // deploys images as a running service
+	)
+
 	// Register Function delegates on the mocks which validate assertions
 	// -------------
 
-	// The initializer should receive the name expected from the path,
-	// the passed runtime, and an absolute path to the funciton soruce.
-	initializer.InitializeFn = func(runtime, context, path string) error {
-		if runtime != "go" {
-			t.Fatalf("initializer expected runtime 'go', got '%v'", runtime)
-		}
-		if context != "" {
-			t.Fatalf("initializer expected empty context template name, got '%v'", name)
-		}
-		expectedPath, err := filepath.Abs("./testdata/example.com/admin")
-		if err != nil {
-			t.Fatal(err)
-		}
-		if path != expectedPath {
-			t.Fatalf("initializer expected path '%v', got '%v'", expectedPath, path)
-		}
-		return nil
-	}
-
 	// The builder should be invoked with a path to a Function project's source
 	// An example image name is returned.
-	builder.BuildFn = func(name2 string) (string, error) {
+	builder.BuildFn = func(f faas.Function) error {
 		expectedPath, err := filepath.Abs(root)
-		if expectedPath != name2 {
-			t.Fatalf("builder expected path %v, got '%v'", expectedPath, name2)
-		}
 		if err != nil {
 			t.Fatal(err)
 		}
-		// The final image name will be determined by the builder implementation,
-		// but whatever it is (in this case fabricated); it should be returned
-		// and later provided to the pusher.
-		return image, nil
-	}
-
-	// The pusher should be invoked with the image to push.
-	pusher.PushFn = func(image2 string) error {
-		if image2 != image {
-			t.Fatalf("pusher expected image '%v', got '%v'", image, image2)
+		if expectedPath != f.Root {
+			t.Fatalf("builder expected path %v, got '%v'", expectedPath, f.Root)
 		}
-		// image of given name wouold be pushed to the configured registry.
 		return nil
 	}
 
-	// The deployer should be invoked with the service name and image, and return
-	// the final accessible address.
-	deployer.DeployFn = func(name2, image2 string) (address string, err error) {
-		if name2 != name {
-			t.Fatalf("deployer expected name '%v', got '%v'", name, name2)
+	pusher.PushFn = func(f faas.Function) error {
+		if f.Image != expectedImage {
+			t.Fatalf("pusher expected image '%v', got '%v'", expectedImage, f.Image)
 		}
-		if image2 != image {
-			t.Fatalf("deployer expected image '%v', got '%v'", image, image2)
+		return nil
+	}
+
+	deployer.DeployFn = func(f faas.Function) error {
+		if f.Name != expectedName {
+			t.Fatalf("deployer expected name '%v', got '%v'", expectedName, f.Name)
 		}
-		// service of given name would be deployed using the given image and
-		// allocated route returned.
-		return route, nil
+		if f.Image != expectedImage {
+			t.Fatalf("deployer expected image '%v', got '%v'", expectedImage, f.Image)
+		}
+		return nil
 	}
 
 	// Invocation
@@ -214,14 +446,11 @@ func TestCreateDelegates(t *testing.T) {
 
 	// Invoke the creation, triggering the Function delegates, and
 	// perform follow-up assertions that the Functions were indeed invoked.
-	if err := client.Create("go", "", name, image, root); err != nil {
+	if err := client.Create(faas.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
 	// Confirm that each delegate was invoked.
-	if !initializer.InitializeInvoked {
-		t.Fatal("initializer was not invoked")
-	}
 	if !builder.BuildInvoked {
 		t.Fatal("builder was not invoked")
 	}
@@ -233,146 +462,28 @@ func TestCreateDelegates(t *testing.T) {
 	}
 }
 
-// TestCreateLocal ensures that when set to local-only mode, Create only invokes
-// the initializer and builder.
-func TestCreateLocal(t *testing.T) {
-	var (
-		root        = "testdata/example.com/admin"
-		initializer = mock.NewInitializer()
-		builder     = mock.NewBuilder()
-		pusher      = mock.NewPusher()
-		deployer    = mock.NewDeployer()
-		dnsProvider = mock.NewDNSProvider()
-	)
-
-	// Create the test Function root
-	err := os.MkdirAll(root, 0700)
-	if err != nil {
-		panic(err)
-	}
-	defer os.RemoveAll(root)
-
-	// Create the test Function root
-	err = os.MkdirAll(root, 0700)
-	if err != nil {
-		panic(err)
-	}
-	defer os.RemoveAll(root)
-
-	client, err := faas.New(
-		faas.WithInitializer(initializer), // will receive the final value
-		faas.WithBuilder(builder),         // builds an image
-		faas.WithPusher(pusher),           // pushes images to a registry
-		faas.WithDeployer(deployer),       // deploys images as a running service
-		faas.WithDNSProvider(dnsProvider), // will receive the final value
-		faas.WithLocal(true),              // set to local Function mode.
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Create a new Function
-	if err := client.Create("go", "", "", "", root); err != nil {
-		t.Fatal(err)
-	}
-	// Ensure that none of the remote delegates were invoked
-	if pusher.PushInvoked {
-		t.Fatal("Push invoked in local mode.")
-	}
-	if deployer.DeployInvoked {
-		t.Fatal("Deploy invoked in local mode.")
-	}
-	if dnsProvider.ProvideInvoked {
-		t.Fatal("DNS provider invoked in local mode.")
-	}
-
-}
-
-// TestCreateInternal ensures that when set to internal mode, Creation invokes the deployer with the "no public route" option and subsequent updates also are flagged to not create the route.
-func TestCreateInternal(t *testing.T) {
-	fmt.Printf("TODO: TestCreateInternal")
-}
-
-// TestCreateDomain ensures that the effective domain is dervied from
-// directory structure.  See the unit tests for pathToDomain for details.
-func TestCreateDomain(t *testing.T) {
-	// Create the test function root
-	root := "testdata/example.com/admin"
-	err := os.MkdirAll(root, 0700)
-	if err != nil {
-		panic(err)
-	}
-	defer os.RemoveAll(root)
-
-	// the mock dns provider does nothing but receive the caluclated
-	// domain name via it's Provide(domain) method, which is the value
-	// being tested here.
-	dnsProvider := mock.NewDNSProvider()
-
-	client, err := faas.New(
-		faas.WithDomainSearchLimit(1),     // Limit recursion to one level
-		faas.WithDNSProvider(dnsProvider), // will receive the final value
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if err := client.Create("go", "", "", "", root); err != nil {
-		t.Fatal(err)
-	}
-	if !dnsProvider.ProvideInvoked {
-		t.Fatal("dns provider was not invoked")
-	}
-	if dnsProvider.NameRequested != "admin.example.com" {
-		t.Fatalf("expected 'example.com', got '%v'", dnsProvider.NameRequested)
-	}
-}
-
-// TestCreateSubdomain ensures that a subdirectory is interpreted as a subdomain
-// when calculating final domain.  See the unit tests for pathToDomain for the
-// details and edge cases of this caluclation.
-func TestCreateSubdomain(t *testing.T) {
-	// Create the test Function root
-	root := "testdata/example.com/admin"
-	err := os.MkdirAll(root, 0700)
-	if err != nil {
-		panic(err)
-	}
-	defer os.RemoveAll(root)
-
-	dnsProvider := mock.NewDNSProvider()
-	client, err := faas.New(
-		faas.WithDomainSearchLimit(2),
-		faas.WithDNSProvider(dnsProvider),
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := client.Create("go", "", "", "", root); err != nil {
-		t.Fatal(err)
-	}
-	if !dnsProvider.ProvideInvoked {
-		t.Fatal("dns provider was not invoked")
-	}
-	if dnsProvider.NameRequested != "admin.example.com" {
-		t.Fatalf("expected 'admin.example.com', got '%v'", dnsProvider.NameRequested)
-	}
-}
-
 // TestRun ensures that the runner is invoked with the absolute path requested.
 func TestRun(t *testing.T) {
-	// a previously-initilized Function's root
-	root := "testdata/example.com/www"
-
-	runner := mock.NewRunner()
-	client, err := faas.New(
-		faas.WithRunner(runner))
-	if err != nil {
+	// Create the root Function directory
+	root := "testdata/example.com/testRun"
+	if err := os.MkdirAll(root, 0700); err != nil {
 		t.Fatal(err)
 	}
+	defer os.RemoveAll(root)
+
+	// Create a client with the mock runner and the new test Function
+	runner := mock.NewRunner()
+	client := faas.New(faas.WithRepository(TestRepository), faas.WithRunner(runner))
+	if err := client.Create(faas.Function{Root: root}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Run the newly created function
 	if err := client.Run(root); err != nil {
 		t.Fatal(err)
 	}
+
+	// Assert the runner was invoked, and with the expected root.
 	if !runner.RunInvoked {
 		t.Fatal("run did not invoke the runner")
 	}
@@ -389,65 +500,63 @@ func TestRun(t *testing.T) {
 // process, erroring if run on a directory uncreated.
 func TestUpdate(t *testing.T) {
 	var (
-		root    = "testdata/example.com/www"     // .. expected to be initialized
-		name    = "www.example.com"              // expected to be derived
-		image   = "my.hub/user/admin.exampe.com" // expected image
-		builder = mock.NewBuilder()
-		pusher  = mock.NewPusher()
-		updater = mock.NewUpdater()
+		root          = "testdata/example.com/testUpdate"
+		expectedName  = "testUpdate.example.com"
+		expectedImage = "quay.io/alice/testUpdate.example.com:latest"
+		builder       = mock.NewBuilder()
+		pusher        = mock.NewPusher()
+		updater       = mock.NewUpdater()
 	)
 
-	client, err := faas.New(
-		faas.WithBuilder(builder), // builds an image
-		faas.WithPusher(pusher),   // pushes images to a registry
-		faas.WithUpdater(updater), // updates deployed image
-	)
-	if err != nil {
+	// Create the root Function directory
+	if err := os.MkdirAll(root, 0700); err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(root)
+
+	// A client with mocks whose implementaton will validate input.
+	client := faas.New(
+		faas.WithRepository(TestRepository),
+		faas.WithBuilder(builder),
+		faas.WithPusher(pusher),
+		faas.WithUpdater(updater))
+
+	// create the new Function which will be updated
+	if err := client.Create(faas.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
-	// Register Function delegates on the mocks which validate assertions
-	// -------------
-
-	// The builder should be invoked with a path to the Function source.
-	// An example image name is returned.
-	builder.BuildFn = func(expectedPath string) (string, error) {
+	// Builder whose implementation verifies the expected root
+	builder.BuildFn = func(f faas.Function) error {
 		rootPath, err := filepath.Abs(root)
 		if err != nil {
 			t.Fatal(err)
 		}
-		if expectedPath != rootPath {
-			t.Fatalf("builder expected path %v, got '%v'", expectedPath, rootPath)
+		if f.Root != rootPath {
+			t.Fatalf("builder expected path %v, got '%v'", rootPath, f.Root)
 		}
-		// The final image name will be determined by the builder implementation,
-		// but whatever it is (in this case fabricated); it should be returned
-		// and later provided to the pusher.
-		return image, nil
+		return nil
 	}
 
-	// The pusher should be invoked with the image to push.
-	pusher.PushFn = func(image2 string) error {
-		if image2 != image {
-			t.Fatalf("pusher expected image '%v', got '%v'", image, image2)
+	// Pusher whose implementaiton verifies the expected image
+	pusher.PushFn = func(f faas.Function) error {
+		if f.Image != expectedImage {
+			t.Fatalf("pusher expected image '%v', got '%v'", expectedImage, f.Image)
 		}
 		// image of given name wouold be pushed to the configured registry.
 		return nil
 	}
 
-	// The updater should be invoked with the service name and image.
-	// Actual logic of updating is an implementation detail.
-	updater.UpdateFn = func(name2, image2 string) error {
-		if name2 != name {
-			t.Fatalf("updater expected name '%v', got '%v'", name, name2)
+	// Update whose implementaiton verifed the expected name and image
+	updater.UpdateFn = func(f faas.Function) error {
+		if f.Name != expectedName {
+			t.Fatalf("updater expected name '%v', got '%v'", expectedName, f.Name)
 		}
-		if image2 != image {
-			t.Fatalf("updater expected image '%v', got '%v'", image, image2)
+		if f.Image != expectedImage {
+			t.Fatalf("updater expected image '%v', got '%v'", expectedImage, f.Image)
 		}
 		return nil
 	}
-
-	// Invocation
-	// -------------
 
 	// Invoke the creation, triggering the Function delegates, and
 	// perform follow-up assertions that the Functions were indeed invoked.
@@ -466,42 +575,96 @@ func TestUpdate(t *testing.T) {
 	}
 }
 
-// TestRemove ensures that the remover is invoked with the name provided, and that
-func TestRemove(t *testing.T) {
+// TestRemoveByPath ensures that the remover is invoked to remove
+// the funciton with the name of the function at the provided root.
+func TestRemoveByPath(t *testing.T) {
 	var (
-		name    = "admin.example.com"
-		remover = mock.NewRemover()
+		root         = "testdata/example.com/testRemoveByPath"
+		expectedName = "testRemoveByPath.example.com"
+		remover      = mock.NewRemover()
 	)
 
-	client, err := faas.New(faas.WithRemover(remover))
-	if err != nil {
+	if err := os.MkdirAll(root, 0700); err != nil {
 		t.Fatal(err)
 	}
-	remover.RemoveFn = func(name2 string) error {
-		if name2 != name {
-			t.Fatalf("remover expected name '%v' got '%v'", name, name2)
+	defer os.RemoveAll(root)
+
+	client := faas.New(
+		faas.WithRepository(TestRepository),
+		faas.WithRemover(remover))
+
+	if err := client.Create(faas.Function{Root: root}); err != nil {
+		t.Fatal(err)
+	}
+
+	remover.RemoveFn = func(name string) error {
+		if name != expectedName {
+			t.Fatalf("Expected to remove '%v', got '%v'", expectedName, name)
 		}
 		return nil
 	}
 
-	// Call with explicit name and no root.
-	if err := client.Remove(name, ""); err != nil {
+	if err := client.Remove(faas.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
-	// Call with explicit name and root; name should take precidence.
-	if err := client.Remove(name, "testdata/example.com/www"); err != nil {
+	if !remover.RemoveInvoked {
+		t.Fatal("remover was not invoked")
+	}
+
+}
+
+// TestRemoveByName ensures that the remover is invoked to remove the function
+// of the name provided, with precidence over a provided root path.
+func TestRemoveByName(t *testing.T) {
+	var (
+		root         = "testdata/example.com/testRemoveByPath"
+		expectedName = "explicitName.example.com"
+		remover      = mock.NewRemover()
+	)
+
+	if err := os.MkdirAll(root, 0700); err != nil {
 		t.Fatal(err)
+	}
+	defer os.RemoveAll(root)
+
+	client := faas.New(
+		faas.WithRepository(TestRepository),
+		faas.WithRemover(remover))
+
+	if err := client.Create(faas.Function{Root: root}); err != nil {
+		t.Fatal(err)
+	}
+
+	remover.RemoveFn = func(name string) error {
+		if name != expectedName {
+			t.Fatalf("Expected to remove '%v', got '%v'", expectedName, name)
+		}
+		return nil
+	}
+
+	// Run remove with only a name
+	if err := client.Remove(faas.Function{Name: expectedName}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Run remove with a name and a root, which should be ignored in favor of the name.
+	if err := client.Remove(faas.Function{Name: expectedName, Root: root}); err != nil {
+		t.Fatal(err)
+	}
+
+	if !remover.RemoveInvoked {
+		t.Fatal("remover was not invoked")
 	}
 }
 
-// TestRemoveUninitializedFailes ensures that attempting to remove a Function
+// TestRemoveUninitializedFails ensures that attempting to remove a Function
 // by path only (no name) fails unless the funciton has been initialized.  I.e.
-// the name will not be derived from path and the Function removed by thi
-// derived name; that could be unexpected and destructive.
+// the name will not be derived from path and the Function removed by this
+// derived name; which could be unexpected and destructive.
 func TestRemoveUninitializedFails(t *testing.T) {
 	var (
-		root    = "testdata/example.com/admin"
+		root    = "testdata/example.com/testRemoveUninitializedFails"
 		remover = mock.NewRemover()
 	)
 	err := os.MkdirAll(root, 0700)
@@ -510,136 +673,29 @@ func TestRemoveUninitializedFails(t *testing.T) {
 	}
 	defer os.RemoveAll(root)
 
-	// Create a remover delegate which fails if invoked.
+	// remover fails if invoked
 	remover.RemoveFn = func(name string) error {
 		return fmt.Errorf("remove invoked for unitialized Function %v", name)
 	}
 
 	// Instantiate the client with the failing remover.
-	client, err := faas.New(faas.WithRemover(remover))
-	if err != nil {
-		t.Fatal(err)
-	}
+	client := faas.New(
+		faas.WithRepository(TestRepository),
+		faas.WithRemover(remover))
 
-	// Attempt to remove by path, expecting an error.
-	if err := client.Remove("", root); err == nil {
+	// Attempt to remove by path (uninitialized), expecting an error.
+	if err := client.Remove(faas.Function{Root: root}); err == nil {
 		t.Fatalf("did not received expeced error removing an uninitialized func")
 	}
 }
 
-// TestRemoveDefaultCurrent ensures that, if a name is not provided but a path is,
-// the funciton defined by path will be removed.
-// Note that the prior test RemoveUninitializedFails ensures that only
-// initialized Functions are removed, which prevents the case of a Function
-// being removed by path-derived name without having been initialized (an
-// easily destrcutive and likely unwanted behavior)
-func TestRemoveDefaultCurrent(t *testing.T) {
-	var (
-		root    = "testdata/example.com/www" // an initialized Function (has config)
-		remover = mock.NewRemover()
-	)
-
-	// remover delegate which ensures the correct name is received.
-	remover.RemoveFn = func(name2 string) error {
-		if name2 != "www.example.com" {
-			t.Fatalf("remover expected name 'www.example.com' got '%v'", name2)
-		}
-		return nil
-	}
-
-	client, err := faas.New(faas.WithRemover(remover))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Without a name provided, but with a path, the Function will be loaded and
-	// its name used by default.  Note that it will fail if uninitialized (no path
-	// derivation for removal.)
-	if err := client.Remove("", root); err != nil {
-		t.Fatal(err)
-	}
-}
-
-// TestWithName ensures that an explicitly passed name is used in leau of the
-// path derived name when provided, and persists through instantiations.
-// This also ensures that an initialized Function's name persists if
-// the path is changed after creation.
-func TestWithName(t *testing.T) {
-	// Explicit name to use
-	name := "service.example.com"
-
-	// Path which would derive to service.groupA.example.com were it not for the
-	// explicitly provided name.
-	path := "testdata/example.com/groupA/service"
-	err := os.MkdirAll(path, 0700)
-	if err != nil {
-		panic(err)
-	}
-	defer os.RemoveAll(path)
-
-	initializer := mock.NewInitializer()
-	c, err := faas.New(
-		faas.WithInitializer(initializer))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Ensure that initializing receives the specified path.
-	initializer.InitializeFn = func(runtime, context, path2 string) error {
-		expectedPath, err := filepath.Abs(path)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if path2 != expectedPath {
-			t.Fatalf("initializer expected path '%v', got '%v'", expectedPath, path2)
-		}
-		return nil
-	}
-
-	// Create the service with the explict name at the non-matching path.
-	if err := c.Create("go", "", name, "", path); err != nil {
-		t.Fatal(err)
-	}
-
-	// TODO: create a Function about the path and check the name is loaded.
-
-	// Create a new client about the now initialized path and test that
-	// the explicitly-provided name is sent to the updater, proving that
-	// it was
-	updater := mock.NewUpdater()
-	c, err = faas.New(
-		faas.WithUpdater(updater))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Ensure that updating takes place using the previously initialized name
-	updater.UpdateFn = func(name2, image string) error {
-		if name2 != name {
-			t.Fatalf("updater expected name '%v', got '%v'", name, name2)
-		}
-		return nil
-	}
-
-	// Invoke update
-	if err := c.Update(path); err != nil {
-		t.Fatal(err)
-	}
-
-}
-
-// TestList ensures that the client invokes the configured lister.
+// TestList merely ensures that the client invokes the configured lister.
 func TestList(t *testing.T) {
-	var lister = mock.NewLister()
+	lister := mock.NewLister()
 
-	client, err := faas.New(
-		faas.WithLister(lister)) // lists deployed Functions.
-	if err != nil {
-		t.Fatal(err)
-	}
+	client := faas.New(faas.WithLister(lister)) // lists deployed Functions.
 
-	_, err = client.List()
-	if err != nil {
+	if _, err := client.List(); err != nil {
 		t.Fatal(err)
 	}
 
@@ -653,22 +709,17 @@ func TestList(t *testing.T) {
 // can be run from anywhere, thus ensuring that the client itself makes
 // a distinction between Function-scoped methods and not.
 func TestListOutsideRoot(t *testing.T) {
-	var lister = mock.NewLister()
+	lister := mock.NewLister()
 
 	// Instantiate in the current working directory, with no name, and explicitly
 	// disallowing name path inferrence by limiting recursion.  This emulates
 	// running the client (and subsequently list) from some arbitrary location
 	// without a derivable funciton context.
-	client, err := faas.New(
+	client := faas.New(
 		faas.WithDomainSearchLimit(0),
-		faas.WithLister(lister),
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
+		faas.WithLister(lister))
 
-	_, err = client.List()
-	if err != nil {
+	if _, err := client.List(); err != nil {
 		t.Fatal(err)
 	}
 

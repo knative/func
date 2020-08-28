@@ -1,17 +1,19 @@
 package mock
 
+import "github.com/boson-project/faas"
+
 type Deployer struct {
 	DeployInvoked bool
-	DeployFn      func(name, image string) (address string, err error)
+	DeployFn      func(faas.Function) error
 }
 
 func NewDeployer() *Deployer {
 	return &Deployer{
-		DeployFn: func(string, string) (string, error) { return "", nil },
+		DeployFn: func(faas.Function) error { return nil },
 	}
 }
 
-func (i *Deployer) Deploy(name, image string) (address string, err error) {
+func (i *Deployer) Deploy(f faas.Function) error {
 	i.DeployInvoked = true
-	return i.DeployFn(name, image)
+	return i.DeployFn(f)
 }

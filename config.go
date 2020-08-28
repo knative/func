@@ -8,12 +8,12 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// ConfigFileName is the name of the config's serialized form.
-const ConfigFileName = ".faas.config"
+// ConfigFile is the name of the config's serialized form.
+const ConfigFile = ".faas.yaml"
 
 // Config represents the serialized state of a Function's metadata.
 // See the Function struct for attribute documentation.
-type Config struct {
+type config struct {
 	Name      string `yaml:"name"`
 	Namespace string `yaml:"namespace"`
 	Runtime   string `yaml:"runtime"`
@@ -26,8 +26,8 @@ type Config struct {
 // errors accessing an extant config file, or the contents of the file do not
 // unmarshall.  A missing file at a valid path does not error but returns the
 // empty value of Config.
-func newConfig(root string) (c Config, err error) {
-	filename := filepath.Join(root, ConfigFileName)
+func newConfig(root string) (c config, err error) {
+	filename := filepath.Join(root, ConfigFile)
 	if _, err = os.Stat(filename); os.IsNotExist(err) {
 		err = nil // do not consider a missing config file an error
 		return    // return the zero value of the config
@@ -42,7 +42,7 @@ func newConfig(root string) (c Config, err error) {
 
 // fromConfig returns a Function populated from config.
 // Note that config does not include ancillary fields not serialized, such as Root.
-func fromConfig(c Config) (f Function) {
+func fromConfig(c config) (f Function) {
 	return Function{
 		Name:      c.Name,
 		Namespace: c.Namespace,
@@ -52,8 +52,8 @@ func fromConfig(c Config) (f Function) {
 }
 
 // toConfig serializes a Function to a config object.
-func toConfig(f Function) Config {
-	return Config{
+func toConfig(f Function) config {
+	return config{
 		Name:      f.Name,
 		Namespace: f.Namespace,
 		Runtime:   f.Runtime,
@@ -63,9 +63,9 @@ func toConfig(f Function) Config {
 
 // writeConfig for the given Function out to disk at root.
 func writeConfig(f Function) (err error) {
-	path := filepath.Join(f.Root, ConfigFileName)
+	path := filepath.Join(f.Root, ConfigFile)
 	c := toConfig(f)
-	bb := []byte{}
+	var bb []byte
 	if bb, err = yaml.Marshal(&c); err != nil {
 		return
 	}

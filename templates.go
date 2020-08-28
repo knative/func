@@ -20,8 +20,8 @@ import (
 // an HTTP Handler ("http") and Cloud Events ("events")
 const DefaultTemplate = "http"
 
-// FileAccessor encapsulates methods for accessing template files.
-type FileAccessor interface {
+// fileAccessor encapsulates methods for accessing template files.
+type fileAccessor interface {
 	Stat(name string) (os.FileInfo, error)
 	Open(p string) (file, error)
 }
@@ -35,7 +35,7 @@ type file interface {
 // When pkger is run, code analysis detects this Include statement,
 // triggering the serializaation of the templates directory and all
 // its contents into pkged.go, which is then made available via
-// a pkger FileAccessor.
+// a pkger fileAccessor.
 // Path is relative to the go module root.
 func init() {
 	_ = pkger.Include("/templates")
@@ -112,7 +112,7 @@ func (a filesystemAccessor) Open(path string) (file, error) {
 	return os.Open(path)
 }
 
-func copy(src, dest string, accessor FileAccessor) (err error) {
+func copy(src, dest string, accessor fileAccessor) (err error) {
 	node, err := accessor.Stat(src)
 	if err != nil {
 		return
@@ -124,7 +124,7 @@ func copy(src, dest string, accessor FileAccessor) (err error) {
 	}
 }
 
-func copyNode(src, dest string, accessor FileAccessor) (err error) {
+func copyNode(src, dest string, accessor fileAccessor) (err error) {
 	node, err := accessor.Stat(src)
 	if err != nil {
 		return
@@ -135,7 +135,7 @@ func copyNode(src, dest string, accessor FileAccessor) (err error) {
 		return
 	}
 
-	children, err := ReadDir(src, accessor)
+	children, err := readDir(src, accessor)
 	if err != nil {
 		return
 	}
@@ -147,7 +147,7 @@ func copyNode(src, dest string, accessor FileAccessor) (err error) {
 	return
 }
 
-func ReadDir(src string, accessor FileAccessor) ([]os.FileInfo, error) {
+func readDir(src string, accessor fileAccessor) ([]os.FileInfo, error) {
 	f, err := accessor.Open(src)
 	if err != nil {
 		return nil, err
@@ -161,7 +161,7 @@ func ReadDir(src string, accessor FileAccessor) ([]os.FileInfo, error) {
 	return list, nil
 }
 
-func copyLeaf(src, dest string, accessor FileAccessor) (err error) {
+func copyLeaf(src, dest string, accessor fileAccessor) (err error) {
 	srcFile, err := accessor.Open(src)
 	if err != nil {
 		return

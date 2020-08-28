@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
-	"io"
 
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
@@ -99,6 +98,8 @@ func newListConfig() listConfig {
 }
 
 // DEPRECATED BELOW (?):
+// TODO: regenerate completions, which may necessitate the below change:
+/*
 
 var validFormats []string
 
@@ -129,3 +130,4 @@ func fmtYAML(writer io.Writer, names []string) error {
 	encoder := yaml.NewEncoder(writer)
 	return encoder.Encode(names)
 }
+*/

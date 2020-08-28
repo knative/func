@@ -6,108 +6,19 @@ import (
 	"testing"
 )
 
-// TestInitialize ensures that on initialization of a the reference runtime
-// (Go), the template is written.
-func TestInitialize(t *testing.T) {
-	var (
-		path     = "testdata/example.org/www"
-		testFile = "handle.go"
-		template = "http"
-	)
-	err := os.MkdirAll(path, 0744)
-	if err != nil {
-		panic(err)
-	}
-	defer os.RemoveAll(path)
-
-	err = NewInitializer("").Initialize("go", template, path)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Test that the directory is not empty
-	if _, err := os.Stat(filepath.Join(path, testFile)); os.IsNotExist(err) {
-		t.Fatalf("Initialize did not result in '%v' being written to '%v'", testFile, path)
-	}
-}
-
-// TestDefaultTemplate ensures that if no template is provided, files are still written.
-func TestDefaultTemplate(t *testing.T) {
-	var (
-		path     = "testdata/example.org/www"
-		testFile = "handle.go"
-		template = ""
-	)
-	err := os.MkdirAll(path, 0744)
-	if err != nil {
-		panic(err)
-	}
-	defer os.RemoveAll(path)
-
-	err = NewInitializer("").Initialize("go", template, path)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if _, err := os.Stat(filepath.Join(path, testFile)); os.IsNotExist(err) {
-		t.Fatalf("Initializing without providing a template did not result in '%v' being written to '%v'", testFile, path)
-	}
-}
-
-// TestCustom ensures that a custom repository can be used as a template.
-// Custom repository location is not defined herein but expected to be
-// provided because, for example, a CLI may want to use XDG_CONFIG_HOME.
-// Assuming a repository path $FAAS_TEMPLATES, a Go template named 'json'
-// which is provided in the repository repository 'boson-experimental',
-// would be expected to be in the location:
-// $FAAS_TEMPLATES/boson-experimental/go/json
-// See the CLI for full details, but a standard default location is
-// $HOME/.config/templates/boson-experimental/go/json
-func TestCustom(t *testing.T) {
-	var (
-		path     = "testdata/example.org/www"
-		testFile = "handle.go"
-		template = "boson-experimental/json"
-		// repos    = "testdata/templates"
-	)
-	err := os.MkdirAll(path, 0744)
-	if err != nil {
-		panic(err)
-	}
-	defer os.RemoveAll(path)
-
-	// Unrecognized runtime/template should error
-	err = NewInitializer("").Initialize("go", template, path)
-	if err == nil {
-		t.Fatal("An unrecognized runtime/template should generate an error")
-	}
-
-	// Recognized external (non-embedded) path should succeed
-	err = NewInitializer("testdata/templates").Initialize("go", template, path)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// The template should have been written to the given path.
-	if _, err := os.Stat(filepath.Join(path, testFile)); os.IsNotExist(err) {
-		t.Fatalf("Initializing a custom did not result in the expected '%v' being written to '%v'", testFile, path)
-	} else if err != nil {
-		t.Fatal(err)
-	}
-}
-
-// TestEmbeddedFileMode ensures that files from the embedded templates are
+// TestTemplatesEmbeddedFileMode ensures that files from the embedded templates are
 // written with the same mode from whence they came
-func TestEmbeddedFileMode(t *testing.T) {
-	var path = "testdata/example.org/www"
+func TestTemplatesEmbeddedFileMode(t *testing.T) {
+	var path = "testdata/example.com/www"
 	err := os.MkdirAll(path, 0744)
 	if err != nil {
 		panic(err)
 	}
 	defer os.RemoveAll(path)
 
-	// Initialize a quarkus app from the embedded templates.
-	if err := NewInitializer("").Initialize("quarkus", "events", path); err != nil {
+	client := New()
+	function := Function{Root: path, Runtime: "quarkus", Trigger: "events"}
+	if err := client.Initialize(function); err != nil {
 		t.Fatal(err)
 	}
 
@@ -124,12 +35,13 @@ func TestEmbeddedFileMode(t *testing.T) {
 	}
 }
 
-// TestCustomFileMode ensures that files from a file-system derived repository
-// of templates are written with the same mode from whence they came
-func TestFileMode(t *testing.T) {
+// TestTemplatesExtensibleFileMode ensures that files from a file-system
+// derived template is written with mode retained.
+func TestTemplatesExtensibleFileMode(t *testing.T) {
 	var (
-		path     = "testdata/example.org/www"
-		template = "boson-experimental/http"
+		path      = "testdata/example.com/www"
+		template  = "boson-experimental/http"
+		templates = "testdata/templates"
 	)
 	err := os.MkdirAll(path, 0744)
 	if err != nil {
@@ -137,8 +49,9 @@ func TestFileMode(t *testing.T) {
 	}
 	defer os.RemoveAll(path)
 
-	// Initialize a quarkus app from the custom repo in ./testdata
-	if err = NewInitializer("testdata/templates").Initialize("quarkus", template, path); err != nil {
+	client := New(WithTemplates(templates))
+	function := Function{Root: path, Runtime: "quarkus", Trigger: template}
+	if err := client.Initialize(function); err != nil {
 		t.Fatal(err)
 	}
 

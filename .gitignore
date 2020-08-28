@@ -7,3 +7,5 @@
 
 target
 node_modules
+/coverage.out
+/bin
