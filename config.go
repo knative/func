@@ -29,9 +29,12 @@ type config struct {
 // empty value of Config.
 func newConfig(root string) (c config, err error) {
 	filename := filepath.Join(root, ConfigFile)
-	if _, err = os.Stat(filename); os.IsNotExist(err) {
-		err = nil // do not consider a missing config file an error
-		return    // return the zero value of the config
+	if _, err = os.Stat(filename); err != nil {
+		// do not consider a missing config file an error.  Just return.
+		if os.IsNotExist(err) {
+			err = nil
+		}
+		return
 	}
 	bb, err := ioutil.ReadFile(filename)
 	if err != nil {
