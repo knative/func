@@ -18,6 +18,7 @@ type config struct {
 	Namespace string `yaml:"namespace"`
 	Runtime   string `yaml:"runtime"`
 	Image     string `yaml:"image"`
+	Trigger   string `yaml:"trigger"`
 	// Add new values to the toConfig/fromConfig functions.
 }
 
@@ -48,6 +49,7 @@ func fromConfig(c config) (f Function) {
 		Namespace: c.Namespace,
 		Runtime:   c.Runtime,
 		Image:     c.Image,
+		Trigger:   c.Trigger,
 	}
 }
 
@@ -58,6 +60,7 @@ func toConfig(f Function) config {
 		Namespace: f.Namespace,
 		Runtime:   f.Runtime,
 		Image:     f.Image,
+		Trigger:   f.Trigger,
 	}
 }
 
