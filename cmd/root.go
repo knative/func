@@ -121,7 +121,7 @@ func bindEnv(flags ...string) bindFunc {
 }
 
 // overrideImage overwrites (or sets) the value of the Function's .Image
-// property, which preempts the default funcitonality of deriving the value as:
+// property, which preempts the default functionality of deriving the value as:
 // Deafult:  [config.Repository]/[config.Name]:latest
 func overrideImage(root, override string) (err error) {
 	if override == "" {
@@ -160,7 +160,7 @@ func deriveName(explicitName string, path string) string {
 	if explicitName != "" {
 		return explicitName
 	}
-	// If the directory at path contains an initialized funciton, use the name therein
+	// If the directory at path contains an initialized Function, use the name therein
 	f, err := faas.NewFunction(path)
 	if err == nil && f.Name != "" {
 		return f.Name

@@ -360,7 +360,7 @@ func (c *Client) Initialize(cfg Function) (err error) {
 	return
 }
 
-// Build the Function at path.  Errors if the funciton is either unloadable or does
+// Build the Function at path.  Errors if the Function is either unloadable or does
 // not contain a populated Image.
 func (c *Client) Build(path string) (err error) {
 	f, err := NewFunction(path)

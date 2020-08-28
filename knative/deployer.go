@@ -89,7 +89,7 @@ func (d *Deployer) Deploy(f faas.Function) (err error) {
 		return
 	}
 	// TODO: use the KN service client noted above, such that we can return the
-	// final path/route of the final deployed funciton.  While it can be assumed
+	// final path/route of the final deployed Function.  While it can be assumed
 	// due to being deterministic, new users would be aided by having it echoed.
 	return
 }

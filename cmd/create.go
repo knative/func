@@ -17,7 +17,7 @@ import (
 func init() {
 	root.AddCommand(createCmd)
 	createCmd.Flags().StringP("image", "i", "", "Optional full image name, in form [registry]/[namespace]/[name]:[tag] for example quay.io/myrepo/project.name:latest (overrides --repository) - $FAAS_IMAGE")
-	createCmd.Flags().StringP("namespace", "n", "", "Override namespace into which the funciton is deployed (on supported platforms).  Default is to use currently active underlying platform setting - $FAAS_NAMESPACE")
+	createCmd.Flags().StringP("namespace", "n", "", "Override namespace into which the Function is deployed (on supported platforms).  Default is to use currently active underlying platform setting - $FAAS_NAMESPACE")
 	createCmd.Flags().StringP("path", "p", cwd(), "Path to the new project directory - $FAAS_PATH")
 	createCmd.Flags().StringP("repository", "r", "", "Repository for built images, ex 'docker.io/myuser' or just 'myuser'.  Optional if --image provided. - $FAAS_REPOSITORY")
 	createCmd.Flags().StringP("runtime", "l", faas.DefaultRuntime, "Function runtime language/framework. - $FAAS_RUNTIME")

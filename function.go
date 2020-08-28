@@ -46,7 +46,7 @@ type Function struct {
 
 // NewFunction loads a Function from a path on disk. use .Initialized() to determine if
 // the path contained an initialized Function.
-// NewFunction creates a funciton struct whose attributes are loaded from the
+// NewFunction creates a Function struct whose attributes are loaded from the
 // configuraiton located at path.
 func NewFunction(root string) (f Function, err error) {
 	// Expand the passed root to its absolute path (default current dir)
@@ -106,11 +106,11 @@ func DerivedImage(root, repository string) (image string, err error) {
 
 	f, err := NewFunction(root)
 	if err != nil {
-		// an inability to load the funciton means it is not yet initialized
+		// an inability to load the Function means it is not yet initialized
 		// We could try to be smart here and fall through to the Function name
 		// deriviation logic, but that's likely to be confusing.  Better to
 		// stay simple and say that derivation of Image depends on first having
-		// the funciton initialized.
+		// the Function initialized.
 		return
 	}
 
@@ -120,7 +120,7 @@ func DerivedImage(root, repository string) (image string, err error) {
 		return
 	}
 
-	// If the funciton loaded, and there is not yet an Image set, then this is
+	// If the Function loaded, and there is not yet an Image set, then this is
 	// the first build and no explicit image override was specified.  We should
 	// therefore derive the image tag from the defined repository and name.
 	// form:    [registry]/[user]/[function]:latest

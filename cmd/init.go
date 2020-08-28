@@ -67,7 +67,7 @@ type initConfig struct {
 	Templates string
 
 	// Trigger is the form of the resultant Function, i.e. the Function signature
-	// and contextually avaialable resources.  For example 'http' for a funciton
+	// and contextually avaialable resources.  For example 'http' for a Function
 	// expected to be invoked via straight HTTP requests, or 'events' for a
 	// Function which will be invoked with CloudEvents.
 	Trigger string

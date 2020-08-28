@@ -59,7 +59,7 @@ func TestCreateInitializedAborts(t *testing.T) {
 	root := "testdata/example.com/testCreateInitializedAborts" // contains only a .faas.config
 	client := faas.New()
 	if err := client.Initialize(faas.Function{Root: root}); err == nil {
-		t.Fatal("error expected initilizing a path already containing an initialized Funciton")
+		t.Fatal("error expected initilizing a path already containing an initialized Function")
 	}
 }
 
@@ -576,7 +576,7 @@ func TestUpdate(t *testing.T) {
 }
 
 // TestRemoveByPath ensures that the remover is invoked to remove
-// the funciton with the name of the function at the provided root.
+// the Function with the name of the function at the provided root.
 func TestRemoveByPath(t *testing.T) {
 	var (
 		root         = "testdata/example.com/testRemoveByPath"
@@ -659,7 +659,7 @@ func TestRemoveByName(t *testing.T) {
 }
 
 // TestRemoveUninitializedFails ensures that attempting to remove a Function
-// by path only (no name) fails unless the funciton has been initialized.  I.e.
+// by path only (no name) fails unless the Function has been initialized.  I.e.
 // the name will not be derived from path and the Function removed by this
 // derived name; which could be unexpected and destructive.
 func TestRemoveUninitializedFails(t *testing.T) {

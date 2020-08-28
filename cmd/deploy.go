@@ -12,7 +12,7 @@ import (
 
 func init() {
 	root.AddCommand(deployCmd)
-	deployCmd.Flags().StringP("namespace", "n", "", "Override namespace into which the funciton is deployed (on supported platforms).  Default is to use currently active underlying platform setting - $FAAS_NAMESPACE")
+	deployCmd.Flags().StringP("namespace", "n", "", "Override namespace into which the Function is deployed (on supported platforms).  Default is to use currently active underlying platform setting - $FAAS_NAMESPACE")
 	deployCmd.Flags().StringP("path", "p", cwd(), "Path to the function project directory - $FAAS_PATH")
 	deployCmd.Flags().BoolP("yes", "y", false, "When in interactive mode (attached to a TTY) skip prompts. - $FAAS_YES")
 }
