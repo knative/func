@@ -59,15 +59,6 @@ func WithOutput(w io.Writer) Option {
 	}
 }
 
-// WithVerbose indicates the system is in verbose mode, and writing an
-// animated line via terminal codes would interrupt the flow of logs.
-// When in verbose mode, the bar will print simple status update lines.
-func WithVerbose(v bool) Option {
-	return func(b *Bar) {
-		b.Verbose = v
-	}
-}
-
 // WithPrintHeadless allows for overriding the default behavior of
 // squelching all output when the terminal is detected as headless
 // (noninteractive)
