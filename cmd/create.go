@@ -52,6 +52,7 @@ func runCreate(cmd *cobra.Command, args []string) (err error) {
 		Root:    config.initConfig.Path,
 		Runtime: config.initConfig.Runtime,
 		Trigger: config.Trigger,
+		Image:   config.Image,
 	}
 
 	builder := buildpacks.NewBuilder()
@@ -74,11 +75,6 @@ func runCreate(cmd *cobra.Command, args []string) (err error) {
 		faas.WithPusher(pusher),
 		faas.WithDeployer(deployer),
 		faas.WithProgressListener(listener))
-
-	// overrideImage name for built images, if --image provided.
-	if err = overrideImage(config.initConfig.Path, config.Image); err != nil {
-		return
-	}
 
 	return client.Create(function)
 }
