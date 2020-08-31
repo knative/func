@@ -94,10 +94,10 @@ type ProgressListener interface {
 // Describer of Functions' remote deployed aspect.
 type Describer interface {
 	// Describe the running state of the service as reported by the underlyng platform.
-	Describe(name string) (description FunctionDescription, err error)
+	Describe(name string) (description Description, err error)
 }
 
-type FunctionDescription struct {
+type Description struct {
 	Name          string         `json:"name" yaml:"name"`
 	Routes        []string       `json:"routes" yaml:"routes"`
 	Subscriptions []Subscription `json:"subscriptions" yaml:"subscriptions"`
@@ -493,7 +493,7 @@ func (c *Client) List() ([]string, error) {
 
 // Describe a Function.  Name takes precidence.  If no name is provided,
 // the Function defined at root is used.
-func (c *Client) Describe(name, root string) (fd FunctionDescription, err error) {
+func (c *Client) Describe(name, root string) (d Description, err error) {
 	// If name is provided, it takes precidence.
 	// Otherwise load the Function defined at root.
 	if name != "" {
@@ -502,10 +502,10 @@ func (c *Client) Describe(name, root string) (fd FunctionDescription, err error)
 
 	f, err := NewFunction(root)
 	if err != nil {
-		return fd, err
+		return d, err
 	}
 	if !f.Initialized() {
-		return fd, fmt.Errorf("%v is not initialized", f.Name)
+		return d, fmt.Errorf("%v is not initialized", f.Name)
 	}
 	return c.describer.Describe(f.Name)
 }

@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"io"
+	"os"
 
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
@@ -16,10 +18,10 @@ import (
 func init() {
 	root.AddCommand(describeCmd)
 	describeCmd.Flags().StringP("namespace", "n", "", "Override namespace in which to search for the Function.  Default is to use currently active underlying platform setting - $FAAS_NAMESPACE")
-	describeCmd.Flags().StringP("output", "o", "yaml", "optionally specify output format (yaml,xml,json). - $FAAS_OUTPUT")
+	describeCmd.Flags().StringP("format", "f", "human", "optionally specify output format (human|plain|json|xml|yaml) $FAAS_FORMAT")
 	describeCmd.Flags().StringP("path", "p", cwd(), "Path to the project which should be described - $FAAS_PATH")
 
-	err := describeCmd.RegisterFlagCompletionFunc("output", CompleteOutputFormatList)
+	err := describeCmd.RegisterFlagCompletionFunc("format", CompleteOutputFormatList)
 	if err != nil {
 		fmt.Println("Error while calling RegisterFlagCompletionFunc: ", err)
 	}
@@ -28,10 +30,10 @@ func init() {
 var describeCmd = &cobra.Command{
 	Use:               "describe <name> [options]",
 	Short:             "Describe Function",
-	Long:              `Describes the Function by name, by explicit path, or by default the current directory.`,
+	Long:              `Describes the Function initialized in the current directory, or by passed name argument.`,
 	SuggestFor:        []string{"desc", "get"},
 	ValidArgsFunction: CompleteFunctionList,
-	PreRunE:           bindEnv("namespace", "output", "path"),
+	PreRunE:           bindEnv("namespace", "format", "path"),
 	RunE:              runDescribe,
 }
 
@@ -45,51 +47,25 @@ func runDescribe(cmd *cobra.Command, args []string) (err error) {
 	describer.Verbose = config.Verbose
 
 	client := faas.New(
-		faas.WithVerbose(verbose),
+		faas.WithVerbose(config.Verbose),
 		faas.WithDescriber(describer))
 
-	description, err := client.Describe(config.Name, config.Path)
+	d, err := client.Describe(config.Name, config.Path)
 	if err != nil {
 		return
 	}
 
-	formatted, err := formatDescription(description, config.Output)
-	if err != nil {
-		return
-	}
-
-	fmt.Println(formatted)
+	write(os.Stdout, description(d), config.Format)
 	return
 }
 
-// TODO: Placeholder.  Create a fit-for-purpose Description plaintext formatter.
-func fmtDescriptionPlain(i interface{}) ([]byte, error) {
-	return []byte(fmt.Sprintf("%v", i)), nil
-}
-
-// format the description as json|yaml|xml
-func formatDescription(desc faas.FunctionDescription, format string) (string, error) {
-	formatters := map[string]func(interface{}) ([]byte, error){
-		"plain": fmtDescriptionPlain,
-		"json":  json.Marshal,
-		"yaml":  yaml.Marshal,
-		"xml":   xml.Marshal,
-	}
-	formatFn, ok := formatters[format]
-	if !ok {
-		return "", fmt.Errorf("unknown format '%s'", format)
-	}
-	bytes, err := formatFn(desc)
-	if err != nil {
-		return "", err
-	}
-	return string(bytes), nil
-}
+// CLI Configuration (parameters)
+// ------------------------------
 
 type describeConfig struct {
 	Name      string
 	Namespace string
-	Output    string
+	Format    string
 	Path      string
 	Verbose   bool
 }
@@ -102,8 +78,49 @@ func newDescribeConfig(args []string) describeConfig {
 	return describeConfig{
 		Name:      deriveName(name, viper.GetString("path")),
 		Namespace: viper.GetString("namespace"),
-		Output:    viper.GetString("output"),
+		Format:    viper.GetString("format"),
 		Path:      viper.GetString("path"),
 		Verbose:   viper.GetBool("verbose"),
 	}
+}
+
+// Output Formatting (serializers)
+// -------------------------------
+
+type description faas.Description
+
+func (d description) Human(w io.Writer) error {
+	fmt.Fprintln(w, d.Name)
+	fmt.Fprintln(w, "Routes:")
+	for _, route := range d.Routes {
+		fmt.Fprintf(w, "  %v\n", route)
+	}
+	fmt.Fprintln(w, "Subscriptions (Source, Type, Broker):")
+	for _, s := range d.Subscriptions {
+		fmt.Fprintf(w, "  %v %v %v\n", s.Source, s.Type, s.Broker)
+	}
+	return d.Plain(w)
+}
+
+func (d description) Plain(w io.Writer) error {
+	fmt.Fprintf(w, "NAME %v\n", d.Name)
+	for _, route := range d.Routes {
+		fmt.Fprintf(w, "ROUTE %v\n", route)
+	}
+	for _, s := range d.Subscriptions {
+		fmt.Fprintf(w, "SUBSCRIPTION %v %v %v\n", s.Source, s.Type, s.Broker)
+	}
+	return nil
+}
+
+func (d description) JSON(w io.Writer) error {
+	return json.NewEncoder(w).Encode(d)
+}
+
+func (d description) XML(w io.Writer) error {
+	return xml.NewEncoder(w).Encode(d)
+}
+
+func (d description) YAML(w io.Writer) error {
+	return yaml.NewEncoder(w).Encode(d)
 }

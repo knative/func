@@ -34,7 +34,7 @@ func runDelete(cmd *cobra.Command, args []string) (err error) {
 	function := faas.Function{Root: config.Path, Name: config.Name}
 
 	client := faas.New(
-		faas.WithVerbose(verbose),
+		faas.WithVerbose(config.Verbose),
 		faas.WithRemover(remover))
 
 	return client.Remove(function)

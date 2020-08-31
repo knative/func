@@ -30,7 +30,7 @@ func runUpdate(cmd *cobra.Command, args []string) (err error) {
 	config := newUpdateConfig()
 
 	builder := buildpacks.NewBuilder()
-	builder.Verbose = verbose
+	builder.Verbose = config.Verbose
 
 	pusher := docker.NewPusher()
 	pusher.Verbose = config.Verbose
@@ -39,10 +39,10 @@ func runUpdate(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return
 	}
-	updater.Verbose = verbose
+	updater.Verbose = config.Verbose
 
 	client := faas.New(
-		faas.WithVerbose(verbose),
+		faas.WithVerbose(config.Verbose),
 		faas.WithBuilder(builder),
 		faas.WithPusher(pusher),
 		faas.WithUpdater(updater))

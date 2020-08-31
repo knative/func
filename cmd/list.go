@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"io"
+	"os"
 
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
@@ -16,9 +18,9 @@ import (
 func init() {
 	root.AddCommand(listCmd)
 	listCmd.Flags().StringP("namespace", "n", "", "Override namespace in which to search for Functions.  Default is to use currently active underlying platform setting - $FAAS_NAMESPACE")
-	listCmd.Flags().StringP("output", "o", "plain", "optionally specify output format (plain,json,yaml)")
+	listCmd.Flags().StringP("format", "f", "human", "optionally specify output format (human|plain|json|xml|yaml) $FAAS_FORMAT")
 
-	err := listCmd.RegisterFlagCompletionFunc("output", CompleteOutputFormatList)
+	err := listCmd.RegisterFlagCompletionFunc("format", CompleteOutputFormatList)
 	if err != nil {
 		fmt.Println("Error while calling RegisterFlagCompletionFunc: ", err)
 	}
@@ -29,7 +31,7 @@ var listCmd = &cobra.Command{
 	Short:      "Lists deployed Functions",
 	Long:       `Lists deployed Functions`,
 	SuggestFor: []string{"ls", "lsit"},
-	PreRunE:    bindEnv("namespace", "output"),
+	PreRunE:    bindEnv("namespace", "format"),
 	RunE:       runList,
 }
 
@@ -43,91 +45,62 @@ func runList(cmd *cobra.Command, args []string) (err error) {
 	lister.Verbose = config.Verbose
 
 	client := faas.New(
-		faas.WithVerbose(verbose),
+		faas.WithVerbose(config.Verbose),
 		faas.WithLister(lister))
 
-	names, err := client.List()
+	nn, err := client.List()
 	if err != nil {
 		return
 	}
 
-	formatted, err := formatNames(names, config.Output)
-	if err != nil {
-		return
-	}
-
-	fmt.Println(formatted)
+	write(os.Stdout, names(nn), config.Format)
 	return
 }
 
-// TODO: placeholder. Create a fit-for-purpose Names plaintext formatter
-func fmtNamesPlain(i interface{}) ([]byte, error) {
-	return []byte(fmt.Sprintf("%v", i)), nil
-}
-
-func formatNames(names []string, format string) (string, error) {
-	formatters := map[string]func(interface{}) ([]byte, error){
-		"plain": fmtNamesPlain,
-		"json":  json.Marshal,
-		"yaml":  yaml.Marshal,
-		"xml":   xml.Marshal,
-	}
-	formatFn, ok := formatters[format]
-	if !ok {
-		return "", fmt.Errorf("Unknown format '%v'", format)
-	}
-	bytes, err := formatFn(names)
-	if err != nil {
-		return "", err
-	}
-	return string(bytes), nil
-}
+// CLI Configuration (parameters)
+// ------------------------------
 
 type listConfig struct {
 	Namespace string
-	Output    string
+	Format    string
 	Verbose   bool
 }
 
 func newListConfig() listConfig {
 	return listConfig{
 		Namespace: viper.GetString("namespace"),
-		Output:    viper.GetString("output"),
+		Format:    viper.GetString("format"),
 		Verbose:   viper.GetBool("verbose"),
 	}
 }
 
-// DEPRECATED BELOW (?):
-// TODO: regenerate completions, which may necessitate the below change:
-/*
+// Output Formatting (serializers)
+// -------------------------------
 
-var validFormats []string
+type names []string
 
-func completeFormats(cmd *cobra.Command, args []string, toComplete string) (formats []string, directive cobra.ShellCompDirective) {
-	formats = validFormats
-	directive = cobra.ShellCompDirectiveDefault
-	return
+func (nn names) Human(w io.Writer) error {
+	return nn.Plain(w)
 }
 
-type fmtFn func(writer io.Writer, names []string) error
-
-func fmtPlain(writer io.Writer, names []string) error {
-	for _, name := range names {
-		_, err := fmt.Fprintf(writer, "%s\n", name)
-		if err != nil {
-			return err
-		}
+func (nn names) Plain(w io.Writer) error {
+	for _, name := range nn {
+		fmt.Fprintln(w, name)
 	}
 	return nil
 }
 
-func fmtJSON(writer io.Writer, names []string) error {
-	encoder := json.NewEncoder(writer)
-	return encoder.Encode(names)
+func (nn names) JSON(w io.Writer) error {
+	return json.NewEncoder(w).Encode(nn)
 }
 
-func fmtYAML(writer io.Writer, names []string) error {
-	encoder := yaml.NewEncoder(writer)
-	return encoder.Encode(names)
+func (nn names) XML(w io.Writer) error {
+	return xml.NewEncoder(w).Encode(nn)
 }
-*/
+
+func (nn names) YAML(w io.Writer) error {
+	// the yaml.v2 package refuses to directly serialize a []string unless
+	// exposed as a public struct member; so an inline anonymous is used.
+	ff := struct{ Names []string }{nn}
+	return yaml.NewEncoder(w).Encode(ff.Names)
+}

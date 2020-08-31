@@ -59,7 +59,7 @@ func (v Version) String() string {
 	// directly from source (set semver to v0.0.0-source).
 	if strings.HasPrefix(v.Vers, "v") {
 		// Was built via make with a tagged commit
-		if verbose {
+		if v.Verbose {
 			return fmt.Sprintf("%s-%s-%s", v.Vers, v.Hash, v.Date)
 		} else {
 			return v.Vers
@@ -67,7 +67,7 @@ func (v Version) String() string {
 	} else if v.Vers == "tip" {
 		// Was built via make from an untagged commit
 		v.Vers = "v0.0.0"
-		if verbose {
+		if v.Verbose {
 			return fmt.Sprintf("%s-%s-%s", v.Vers, v.Hash, v.Date)
 		} else {
 			return v.Vers
@@ -76,7 +76,7 @@ func (v Version) String() string {
 		// Was likely built from source
 		v.Vers = "v0.0.0"
 		v.Hash = "source"
-		if verbose {
+		if v.Verbose {
 			return fmt.Sprintf("%s-%s", v.Vers, v.Hash)
 		} else {
 			return v.Vers

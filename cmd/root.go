@@ -11,10 +11,7 @@ import (
 	"github.com/boson-project/faas"
 )
 
-var (
-	config  = "~/.faas/config" // Location of the optional config file.
-	verbose = false            // Enable verbose logging (debug).
-)
+var config = "~/.faas/config" // Location of the optional system-wide config file.
 
 // The root of the command tree defines the command name, descriotion, globally
 // available flags, etc.  It has no action of its own, such that running the
@@ -38,6 +35,8 @@ func init() {
 
 	// read in environment variables that match
 	viper.AutomaticEnv()
+
+	verbose := viper.GetBool("verbose")
 
 	// Populate the `verbose` flag with the value of --verbose, if provided,
 	// which thus overrides both the default and the value read in from the
