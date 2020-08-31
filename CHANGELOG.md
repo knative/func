@@ -4,8 +4,44 @@
 ## [Unreleased]
 
 
+<a name="v0.6.0"></a>
+## [v0.6.0] - 2020-08-31
+### Chore
+- build static binary
+
+### Docs
+- fix function typos
+- setting up remote access to kind clusters
+- wireguard configuraiton for OS X
+- Kind cluster provisioning and TLS
+- separate repository and system docs
+- getting started with kubernetes, reorganization.
+
+### Feat
+- golangci-lint allow enum shorthand, use config file
+- consolidate formatters - Replaces globally-scoped formatter function with methods - Defines enumerated Format types - Renames the 'output' flag 'format' due to confusion with command file descriptors - FunctionDescription now Function - Global verbose flag replaced with config struct based value throughout
+- test suite
+- consolidate knative client config construction
+- cli usability enhancements and API simplification
+- the `list` sub-command uses namespace
+- version command respects verbose flag ([#61](https://github.com/boson-project/faas/issues/61))
+- add init/build/deploy commands and customizable namespace ([#65](https://github.com/boson-project/faas/issues/65))
+- JSON output for the `list` sub-command
+
+### Fix
+- return fs errors on config creation
+- serialize trigger on faas.config
+- default k8s namespace to 'faas' per documentation
+
+### Fixup
+- remove unnecessary WithVerbose option from progressListener
+
+### Test
+- add test targets for go and quarkus templates ([#72](https://github.com/boson-project/faas/issues/72))
+
+
 <a name="v0.5.0"></a>
-## [v0.5.0] - 2020-07-30
+## [v0.5.0] - 2020-07-31
 ### Actions
 - add CHANGELOG.md and a release target to Makefile ([#45](https://github.com/boson-project/faas/issues/45))
 
@@ -110,7 +146,8 @@
 - add kn-based implementation
 
 
-[Unreleased]: https://github.com/boson-project/faas/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/boson-project/faas/compare/v0.6.0...HEAD
+[v0.6.0]: https://github.com/boson-project/faas/compare/v0.5.0...v0.6.0
 [v0.5.0]: https://github.com/boson-project/faas/compare/v0.4.0...v0.5.0
 [v0.4.0]: https://github.com/boson-project/faas/compare/v0.3.0...v0.4.0
 [v0.3.0]: https://github.com/boson-project/faas/compare/v0.2.2...v0.3.0
