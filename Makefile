@@ -71,7 +71,7 @@ bin/golangci-lint:
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./bin v1.27.0
 
 check: bin/golangci-lint
-	./bin/golangci-lint run --enable=unconvert,prealloc,bodyclose
+	./bin/golangci-lint run
 
 release: build test
 	go get -u github.com/git-chglog/git-chglog/cmd/git-chglog
