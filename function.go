@@ -97,13 +97,6 @@ func (f Function) Initialized() bool {
 // Default if not provided is --repository (a required global setting)
 // followed by the provided (or derived) image name.
 func DerivedImage(root, repository string) (image string, err error) {
-	// Repository is currently required until such time as we support
-	// pushing to an implicitly-available in-cluster registry by default.
-	if repository == "" {
-		err = errors.New("Repository name is required.")
-		return
-	}
-
 	f, err := NewFunction(root)
 	if err != nil {
 		// an inability to load the Function means it is not yet initialized
@@ -117,6 +110,13 @@ func DerivedImage(root, repository string) (image string, err error) {
 	// If the Function has already had image populated, use this pre-calculated value.
 	if f.Image != "" {
 		image = f.Image
+		return
+	}
+
+	// Repository is currently required until such time as we support
+	// pushing to an implicitly-available in-cluster registry by default.
+	if repository == "" {
+		err = errors.New("Repository name is required.")
 		return
 	}
 

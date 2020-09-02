@@ -319,6 +319,8 @@ func (c *Client) Initialize(cfg Function) (err error) {
 		return
 	}
 
+	f.Image = cfg.Image
+
 	// Set the name to that provided, defaulting to path derivation if empty.
 	f.Name = cfg.Name
 	if cfg.Name == "" {
