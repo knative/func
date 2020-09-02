@@ -16,6 +16,6 @@
   },
   "dependencies": {
     "death": "^1.1.0",
-    "@redhat/faas-js-runtime": "0.2.1"
+    "@redhat/faas-js-runtime": "0.2.2"
   }
 }
