@@ -8,7 +8,7 @@
 # have unique names:  'Main', 'Develop'
 name: Develop
 
-on: 
+on:
   push:
     branches:
       - develop
