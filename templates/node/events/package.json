@@ -9,13 +9,10 @@
   },
   "scripts": {
     "test": "node test/unit.js && node test/integration.js",
-    "local": "node local.js"
-  },
-  "dependencies": {
-    "death": "^1.1.0",
-    "@redhat/faas-js-runtime": "0.2.1"
+    "local": "npx @redhat/faas-js-runtime ./index.js"
   },
   "devDependencies": {
+    "@redhat/faas-js-runtime": "0.2.3",
     "cloudevents": "^3.1.0",
     "supertest": "^4.0.2",
     "tape": "^4.13.0"
