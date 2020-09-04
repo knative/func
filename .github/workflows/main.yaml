@@ -29,8 +29,13 @@ jobs:
         run: chmod a+x faas_*amd*
       - uses: actions/upload-artifact@v2
         with:
-          name: Binaries
-          path: |
-            faas_darwin_amd64
-            faas_linux_amd64
-            faas_windows_amd64.exe
+          name: OSX Binary
+          path: faas_darwin_amd64
+      - uses: actions/upload-artifact@v2
+        with:
+          name: Linux Binary
+          path: faas_linux_amd64
+      - uses: actions/upload-artifact@v2
+        with:
+          name: Windows Binary
+          path: faas_windows_amd64.exe
