@@ -21,8 +21,8 @@ jobs:
         run:  make image
       - name: Push Image
         env:
-          USER: ${{ secrets.QUAY_USERNAME }}
-          PASS: ${{ secrets.QUAY_PASSWORD }}
+          USER: ${{ secrets.QUAY_USER }}
+          PASS: ${{ secrets.QUAY_TOKEN }}
         run: |
           docker login -u "$USER" -p "$PASS" quay.io 
           make push && make latest
