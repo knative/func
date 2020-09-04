@@ -8,7 +8,7 @@
 # have unique names:  'Main', 'Develop'
 name: Develop
 
-on: 
+on:
   push:
     branches:
       - develop
@@ -22,6 +22,20 @@ jobs:
       - name: Test
         run:  make test
       - name: Build
-        run:  make build
+        run:  make cross-platform
       - name: Lint
         run: make check
+      - name: Permissions
+        run: chmod a+x faas_*amd*
+      - uses: actions/upload-artifact@v2
+        with:
+          name: OSX Binary
+          path: faas_darwin_amd64
+      - uses: actions/upload-artifact@v2
+        with:
+          name: Linux Binary
+          path: faas_linux_amd64
+      - uses: actions/upload-artifact@v2
+        with:
+          name: Windows Binary
+          path: faas_windows_amd64.exe
