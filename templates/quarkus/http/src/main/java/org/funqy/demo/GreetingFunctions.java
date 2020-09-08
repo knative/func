@@ -1,6 +1,7 @@
 package org.funqy.demo;
 
 import io.quarkus.funqy.Funq;
+import io.smallrye.mutiny.Uni;
 import org.jboss.logging.Logger;
 
 import javax.inject.Inject;
@@ -15,23 +16,24 @@ public class GreetingFunctions {
     GreetingService service;
 
     @Funq
-    public CompletionStage<Greeting> greet(Identity name) {
-        CompletableFuture<Greeting> result = new CompletableFuture<>();
-        executor.schedule(()-> {
-            try {
-                log.info("*** In greeting service ***");
-                String message = service.hello(name.getName());
-                log.info("Sending back: " + message);
-                Greeting greeting = new Greeting();
-                greeting.setMessage(message);
-                greeting.setName(name.getName());
-                result.complete(greeting);
+    public Uni<Greeting> greet(Identity name) {
+        return Uni.createFrom().emitter(uniEmitter -> {
+            executor.schedule(()-> {
+                try {
+                    log.info("*** In greeting service ***");
+                    String message = service.hello(name.getName());
+                    log.info("Sending back: " + message);
+                    Greeting greeting = new Greeting();
+                    greeting.setMessage(message);
+                    greeting.setName(name.getName());
+                    uniEmitter.complete(greeting);
 
-            } catch (Throwable t) {
-                result.completeExceptionally(t);
-            }
-        }, 100, TimeUnit.MILLISECONDS);
-        return result;
+                } catch (Throwable t) {
+                    uniEmitter.fail(t);
+                }
+            }, 100, TimeUnit.MILLISECONDS);
+        });
+
     }
 
 }
