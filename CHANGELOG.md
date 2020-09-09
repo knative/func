@@ -4,6 +4,16 @@
 ## [Unreleased]
 
 
+<a name="v0.6.2"></a>
+## [v0.6.2] - 2020-09-09
+### Build
+- remove main branch from release
+
+### Fix
+- update pkger generated files
+- signature of HTTP go function in template
+
+
 <a name="v0.6.1"></a>
 ## [v0.6.1] - 2020-09-09
 ### Chore
@@ -18,6 +28,9 @@
 - build releases from main branch only
 - remove references to unused binaries appsody, kn, kubectl
 - image override ([#88](https://github.com/boson-project/faas/issues/88))
+
+### Release
+- v0.6.1
 
 ### Templates
 - **node:** make node templates use npx [@redhat](https://github.com/redhat)/faas-js-runtime ([#99](https://github.com/boson-project/faas/issues/99))
@@ -168,7 +181,8 @@
 - add kn-based implementation
 
 
-[Unreleased]: https://github.com/boson-project/faas/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/boson-project/faas/compare/v0.6.2...HEAD
+[v0.6.2]: https://github.com/boson-project/faas/compare/v0.6.1...v0.6.2
 [v0.6.1]: https://github.com/boson-project/faas/compare/v0.6.0...v0.6.1
 [v0.6.0]: https://github.com/boson-project/faas/compare/v0.5.0...v0.6.0
 [v0.5.0]: https://github.com/boson-project/faas/compare/v0.4.0...v0.5.0
