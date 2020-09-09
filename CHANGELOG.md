@@ -4,6 +4,25 @@
 ## [Unreleased]
 
 
+<a name="v0.6.1"></a>
+## [v0.6.1] - 2020-09-09
+### Chore
+- update quarkus version to 1.7.2.Final
+- use organization-level secrets for image deployment
+- **actions:** add binary uploads to develop branch CI ([#104](https://github.com/boson-project/faas/issues/104))
+
+### Docs
+- initial Go template READMEs
+
+### Fix
+- build releases from main branch only
+- remove references to unused binaries appsody, kn, kubectl
+- image override ([#88](https://github.com/boson-project/faas/issues/88))
+
+### Templates
+- **node:** make node templates use npx [@redhat](https://github.com/redhat)/faas-js-runtime ([#99](https://github.com/boson-project/faas/issues/99))
+
+
 <a name="v0.6.0"></a>
 ## [v0.6.0] - 2020-08-31
 ### Chore
@@ -35,6 +54,9 @@
 
 ### Fixup
 - remove unnecessary WithVerbose option from progressListener
+
+### Release
+- v0.6.0
 
 ### Test
 - add test targets for go and quarkus templates ([#72](https://github.com/boson-project/faas/issues/72))
@@ -146,7 +168,8 @@
 - add kn-based implementation
 
 
-[Unreleased]: https://github.com/boson-project/faas/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/boson-project/faas/compare/v0.6.1...HEAD
+[v0.6.1]: https://github.com/boson-project/faas/compare/v0.6.0...v0.6.1
 [v0.6.0]: https://github.com/boson-project/faas/compare/v0.5.0...v0.6.0
 [v0.5.0]: https://github.com/boson-project/faas/compare/v0.4.0...v0.5.0
 [v0.4.0]: https://github.com/boson-project/faas/compare/v0.3.0...v0.4.0
