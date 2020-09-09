@@ -2,6 +2,7 @@ package knative
 
 import (
 	"fmt"
+	"k8s.io/apimachinery/pkg/api/errors"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
@@ -73,7 +74,8 @@ func (describer *Describer) Describe(name string) (description faas.Description,
 	}
 
 	triggers, err := eventingClient.Triggers(namespace).List(metav1.ListOptions{})
-	if err != nil {
+	// IsNotFound -- Eventing is probably not installed on the cluster
+	if err != nil && !errors.IsNotFound(err) {
 		return
 	}
 
