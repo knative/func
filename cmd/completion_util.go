@@ -6,14 +6,13 @@ import (
 	"os/user"
 	"path"
 
-	"github.com/boson-project/faas"
 	"github.com/boson-project/faas/buildpacks"
 	"github.com/boson-project/faas/knative"
 	"github.com/spf13/cobra"
 )
 
 func CompleteFunctionList(cmd *cobra.Command, args []string, toComplete string) (strings []string, directive cobra.ShellCompDirective) {
-	lister, err := knative.NewLister(faas.DefaultNamespace)
+	lister, err := knative.NewLister("")
 	if err != nil {
 		directive = cobra.ShellCompDirectiveError
 		return
