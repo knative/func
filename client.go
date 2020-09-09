@@ -8,7 +8,6 @@ import (
 )
 
 const (
-	DefaultNamespace    = "faas"
 	DefaultRegistry     = "docker.io"
 	DefaultRuntime      = "go"
 	DefaultTrigger      = "http"

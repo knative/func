@@ -3,16 +3,16 @@ package knative
 import (
 	"bytes"
 	"fmt"
-	"github.com/boson-project/faas"
 	"github.com/boson-project/faas/k8s"
 	"io"
+	"k8s.io/client-go/tools/clientcmd"
 	commands "knative.dev/client/pkg/kn/commands"
 	"os"
 	"time"
 )
 
-func NewRemover() *Remover {
-	return &Remover{Namespace: faas.DefaultNamespace}
+func NewRemover(namespaceOverride string) *Remover {
+	return &Remover{Namespace: namespaceOverride}
 }
 
 type Remover struct {
@@ -40,6 +40,11 @@ func (remover *Remover) Remove(name string) (err error) {
 
 	if err != nil {
 		return err
+	}
+	if remover.Namespace == "" {
+		loadingRules := clientcmd.NewDefaultClientConfigLoadingRules()
+		clientConfig := clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, &clientcmd.ConfigOverrides{})
+		remover.Namespace, _, _ = clientConfig.Namespace()
 	}
 	client, err := p.NewServingClient(remover.Namespace)
 	if err != nil {
