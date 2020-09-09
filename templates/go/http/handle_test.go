@@ -19,9 +19,10 @@ func TestHandle(t *testing.T) {
 
 	// Invoke the Handler via a standard Go http.Handler
 	func(w http.ResponseWriter, req *http.Request) {
-		err = Handle(context.Background(), w, req)
+		Handle(context.Background(), w, req)
 	}(w, req)
 	res = w.Result()
+	defer res.Body.Close()
 
 	// Assert postconditions
 	if err != nil {
