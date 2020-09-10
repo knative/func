@@ -1,6 +1,14 @@
 # Change Log
 
 <a name="unreleased"></a>
+### [0.6.3](https://www.github.com/boson-project/faas/compare/v0.6.2...v0.6.3) (2020-09-10)
+
+
+### Bug Fixes
+
+* delete command ([62a6901](https://www.github.com/boson-project/faas/commit/62a69017d5da8a16e9ae8624a85dc2e3f01e13e7))
+* describe works without Eventing ([afec0c5](https://www.github.com/boson-project/faas/commit/afec0c5039fb75f481c0c629aa1644ef442e7411))
+
 ## [Unreleased]
 
 
