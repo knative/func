@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
@@ -11,22 +13,37 @@ import (
 
 func init() {
 	root.AddCommand(buildCmd)
+	buildCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options - $FAAS_CONFIRM")
 	buildCmd.Flags().StringP("image", "i", "", "Optional full image name, in form [registry]/[namespace]/[name]:[tag] for example quay.io/myrepo/project.name:latest (overrides --repository) - $FAAS_IMAGE")
 	buildCmd.Flags().StringP("path", "p", cwd(), "Path to the Function project directory - $FAAS_PATH")
 	buildCmd.Flags().StringP("repository", "r", "", "Repository for built images, ex 'docker.io/myuser' or just 'myuser'.  Optional if --image provided. - $FAAS_REPOSITORY")
-	buildCmd.Flags().BoolP("yes", "y", false, "When in interactive mode (attached to a TTY) skip prompts. - $FAAS_YES")
 }
 
 var buildCmd = &cobra.Command{
 	Use:        "build [options]",
 	Short:      "Build an existing Function project as an OCI image",
 	SuggestFor: []string{"biuld", "buidl", "built"},
-	PreRunE:    bindEnv("image", "path", "repository", "yes"),
+	PreRunE:    bindEnv("image", "path", "repository", "confirm"),
 	RunE:       runBuild,
 }
 
 func runBuild(cmd *cobra.Command, _ []string) (err error) {
-	config := newBuildConfig().Prompt()
+	config := newBuildConfig()
+	function, err := functionWithOverrides(config.Path, "", config.Image)
+	if err != nil {
+		return
+	}
+
+	// If the Function does not yet have an image name, and one was not provided
+	// on the command line AND a --repository was not provided, then we need to
+	// prompt for a repository from which we can derive an image name.
+	if function.Image == "" && config.Repository == "" {
+		fmt.Print("A repository for Function images is required. For example, 'docker.io/tigerteam'.\n\n")
+		config.Repository = prompt.ForString("Repository for Function images", "")
+		if config.Repository == "" {
+			return fmt.Errorf("Unable to determine Function image name")
+		}
+	}
 
 	builder := buildpacks.NewBuilder()
 	builder.Verbose = config.Verbose
@@ -36,10 +53,7 @@ func runBuild(cmd *cobra.Command, _ []string) (err error) {
 		faas.WithRepository(config.Repository), // for deriving image name when --image not provided explicitly.
 		faas.WithBuilder(builder))
 
-	// overrideImage name for built images, if --image provided.
-	if err = overrideImage(config.Path, config.Image); err != nil {
-		return
-	}
+	config.Prompt()
 
 	return client.Build(config.Path)
 }
@@ -65,9 +79,9 @@ type buildConfig struct {
 	// Verbose logging.
 	Verbose bool
 
-	// Yes: agree to values arrived upon from environment plus flags plus defaults,
-	// and skip the interactive prompting (only applicable when attached to a TTY).
-	Yes bool
+	// Confirm: confirm values arrived upon from environment plus flags plus defaults,
+	// with interactive prompting (only applicable when attached to a TTY).
+	Confirm bool
 }
 
 func newBuildConfig() buildConfig {
@@ -76,21 +90,24 @@ func newBuildConfig() buildConfig {
 		Path:       viper.GetString("path"),
 		Repository: viper.GetString("repository"),
 		Verbose:    viper.GetBool("verbose"), // defined on root
-		Yes:        viper.GetBool("yes"),
+		Confirm:    viper.GetBool("confirm"),
 	}
 }
 
 // Prompt the user with value of config members, allowing for interaractive changes.
-// Skipped if not in an interactive terminal (non-TTY), or if --yes (agree to
-// all prompts) was explicitly set.
+// Skipped if not in an interactive terminal (non-TTY), or if --confirm false (agree to
+// all prompts) was set (default).
 func (c buildConfig) Prompt() buildConfig {
-	if !interactiveTerminal() || c.Yes {
+	imageName := deriveImage(c.Image, c.Repository, c.Path)
+	if !interactiveTerminal() || !c.Confirm {
+		// If --confirm false or non-interactive, just print the image name
+		fmt.Printf("Building image: %v\n", imageName)
 		return c
 	}
 	return buildConfig{
 		Path:    prompt.ForString("Path to project directory", c.Path),
-		Image:   prompt.ForString("Resulting image name", deriveImage(c.Image, c.Repository, c.Path), prompt.WithRequired(true)),
-		Verbose: prompt.ForBool("Verbose logging", c.Verbose),
+		Image:   prompt.ForString("Image name", imageName, prompt.WithRequired(true)),
+		Verbose: c.Verbose,
 		// Repository not prompted for as it would be confusing when combined with explicit image.  Instead it is
 		// inferred by the derived default for Image, which uses Repository for derivation.
 	}

@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
@@ -8,10 +10,12 @@ import (
 	"github.com/boson-project/faas/buildpacks"
 	"github.com/boson-project/faas/docker"
 	"github.com/boson-project/faas/knative"
+	"github.com/boson-project/faas/prompt"
 )
 
 func init() {
 	root.AddCommand(updateCmd)
+	updateCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options - $FAAS_CONFIRM")
 	updateCmd.Flags().StringP("namespace", "n", "", "Override namespace for the Function (on supported platforms).  Default is to use currently active underlying platform setting - $FAAS_NAMESPACE")
 	updateCmd.Flags().StringP("path", "p", cwd(), "Path to the Function project directory - $FAAS_PATH")
 	updateCmd.Flags().StringP("repository", "r", "", "Repository for built images, ex 'docker.io/myuser' or just 'myuser'.  - $FAAS_REPOSITORY")
@@ -22,12 +26,20 @@ var updateCmd = &cobra.Command{
 	Short:      "Update or create a deployed Function",
 	Long:       `Update deployed Function to match the current local state.`,
 	SuggestFor: []string{"push", "deploy"},
-	PreRunE:    bindEnv("namespace", "path", "repository"),
+	PreRunE:    bindEnv("namespace", "path", "repository", "confirm"),
 	RunE:       runUpdate,
 }
 
 func runUpdate(cmd *cobra.Command, args []string) (err error) {
 	config := newUpdateConfig()
+	function, err := functionWithOverrides(config.Path, config.Namespace, "")
+	if err != nil {
+		return err
+	}
+	if function.Image == "" {
+		return fmt.Errorf("Cannot determine the Function image. Have you built it yet?")
+	}
+	config.Prompt()
 
 	builder := buildpacks.NewBuilder()
 	builder.Verbose = config.Verbose
@@ -46,11 +58,6 @@ func runUpdate(cmd *cobra.Command, args []string) (err error) {
 		faas.WithBuilder(builder),
 		faas.WithPusher(pusher),
 		faas.WithUpdater(updater))
-
-	// overrieNamespace to which the Function is pinned (deployed/updated etc)
-	if err = overrideNamespace(config.Path, config.Namespace); err != nil {
-		return
-	}
 
 	return client.Update(config.Path)
 }
@@ -85,4 +92,16 @@ func newUpdateConfig() updateConfig {
 		Repository: viper.GetString("repository"),
 		Verbose:    viper.GetBool("verbose"), // defined on root
 	}
+}
+
+func (c updateConfig) Prompt() updateConfig {
+	if !interactiveTerminal() || !viper.GetBool("confirm") {
+		return c
+	}
+	return updateConfig{
+		Namespace: prompt.ForString("Namespace", c.Namespace),
+		Path:      prompt.ForString("Project path", c.Path),
+		Verbose:   c.Verbose,
+	}
+
 }

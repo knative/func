@@ -369,7 +369,7 @@ func (c *Client) Build(path string) (err error) {
 		return
 	}
 
-	// Derive Image from the path (preceidence is given to extant config)
+	// Derive Image from the path (precedence is given to extant config)
 	if f.Image, err = DerivedImage(path, c.repository); err != nil {
 		return
 	}

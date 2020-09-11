@@ -13,11 +13,11 @@ import (
 
 func init() {
 	root.AddCommand(initCmd)
+	initCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options - $FAAS_CONFIRM")
 	initCmd.Flags().StringP("path", "p", cwd(), "Path to the new project directory - $FAAS_PATH")
 	initCmd.Flags().StringP("runtime", "l", faas.DefaultRuntime, "Function runtime language/framework. - $FAAS_RUNTIME")
 	initCmd.Flags().StringP("templates", "", filepath.Join(configPath(), "faas", "templates"), "Extensible templates path. - $FAAS_TEMPLATES")
 	initCmd.Flags().StringP("trigger", "t", faas.DefaultTrigger, "Function trigger (ex: 'http','events') - $FAAS_TRIGGER")
-	initCmd.Flags().BoolP("yes", "y", false, "When in interactive mode (attached to a TTY), skip prompts. - $FAAS_YES")
 
 	if err := initCmd.RegisterFlagCompletionFunc("runtime", CompleteRuntimeList); err != nil {
 		fmt.Println("Error while calling RegisterFlagCompletionFunc: ", err)
@@ -28,7 +28,7 @@ var initCmd = &cobra.Command{
 	Use:        "init <name> [options]",
 	Short:      "Initialize a new Function project",
 	SuggestFor: []string{"inti", "new"},
-	PreRunE:    bindEnv("path", "runtime", "templates", "trigger", "yes"),
+	PreRunE:    bindEnv("path", "runtime", "templates", "trigger", "confirm"),
 	RunE:       runInit,
 	// TODO: autocomplate Functions for runtime and trigger.
 }
@@ -43,9 +43,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 		Trigger: config.Trigger,
 	}
 
-	client := faas.New(
-		faas.WithVerbose(config.Verbose),
-		faas.WithTemplates(config.Templates))
+	client := faas.New(faas.WithTemplates(config.Templates))
 
 	return client.Initialize(function)
 }
@@ -72,12 +70,9 @@ type initConfig struct {
 	// Function which will be invoked with CloudEvents.
 	Trigger string
 
-	// Verbose logging enabled.
-	Verbose bool
-
-	// Yes: agree to values arrived upon from environment plus flags plus defaults,
-	// and skip the interactive prompting (only applicable when attached to a TTY).
-	Yes bool
+	// Confirm: confirm values arrived upon from environment plus flags plus defaults,
+	// with interactive prompting (only applicable when attached to a TTY).
+	Confirm bool
 }
 
 // newInitConfig returns a config populated from the current execution context
@@ -93,25 +88,29 @@ func newInitConfig(args []string) initConfig {
 		Runtime:   viper.GetString("runtime"),
 		Templates: viper.GetString("templates"),
 		Trigger:   viper.GetString("trigger"),
-		Verbose:   viper.GetBool("verbose"), // defined on root
-		Yes:       viper.GetBool("yes"),
+		Confirm:   viper.GetBool("confirm"),
 	}
 }
 
 // Prompt the user with value of config members, allowing for interaractive changes.
-// Skipped if not in an interactive terminal (non-TTY), or if --yes (agree to
-// all prompts) was explicitly set.
+// Skipped if not in an interactive terminal (non-TTY), or if --confirm false (agree to
+// all prompts) was set (default).
 func (c initConfig) Prompt() initConfig {
-	if !interactiveTerminal() || c.Yes {
+	name := deriveName(c.Name, c.Path)
+	if !interactiveTerminal() || !c.Confirm {
+		// Just print the basics if not confirming
+		fmt.Printf("Project path: %v\n", c.Path)
+		fmt.Printf("Project name: %v\n", name)
+		fmt.Printf("Runtime: %v\n", c.Runtime)
+		fmt.Printf("Trigger: %v\n", c.Trigger)
 		return c
 	}
 	return initConfig{
 		// TODO: Path should be prompted for and set prior to name attempting path derivation.  Test/fix this if necessary.
-		Path:    prompt.ForString("Path to project directory", c.Path),
-		Name:    prompt.ForString("Function project name", deriveName(c.Name, c.Path), prompt.WithRequired(true)),
-		Verbose: prompt.ForBool("Verbose logging", c.Verbose),
-		Runtime: prompt.ForString("Runtime of source", c.Runtime),
-		Trigger: prompt.ForString("Function Trigger", c.Trigger),
+		Path:    prompt.ForString("Project path", c.Path),
+		Name:    prompt.ForString("Project name", name, prompt.WithRequired(true)),
+		Runtime: prompt.ForString("Runtime", c.Runtime),
+		Trigger: prompt.ForString("Trigger", c.Trigger),
 		// Templates intentiopnally omitted from prompt for being an edge case.
 	}
 }
