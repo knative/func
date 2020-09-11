@@ -11,9 +11,9 @@ import (
 
 func init() {
 	root.AddCommand(deleteCmd)
+	deleteCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options - $FAAS_CONFIRM")
 	deleteCmd.Flags().StringP("path", "p", cwd(), "Path to the project which should be deleted - $FAAS_PATH")
 	deleteCmd.Flags().StringP("namespace", "n", "", "Override namespace in which to search for Functions.  Default is to use currently active underlying platform setting - $FAAS_NAMESPACE")
-	deleteCmd.Flags().BoolP("yes", "y", false, "When in interactive mode (attached to a TTY), skip prompting the user. - $FAAS_YES")
 }
 
 var deleteCmd = &cobra.Command{
@@ -22,7 +22,7 @@ var deleteCmd = &cobra.Command{
 	Long:              `Removes the deployed Function by name, by explicit path, or by default for the current directory.  No local files are deleted.`,
 	SuggestFor:        []string{"remove", "rm", "del"},
 	ValidArgsFunction: CompleteFunctionList,
-	PreRunE:           bindEnv("path", "yes", "namespace"),
+	PreRunE:           bindEnv("path", "confirm", "namespace"),
 	RunE:              runDelete,
 }
 
@@ -46,7 +46,6 @@ type deleteConfig struct {
 	Namespace string
 	Path      string
 	Verbose   bool
-	Yes       bool
 }
 
 // newDeleteConfig returns a config populated from the current execution context
@@ -61,7 +60,6 @@ func newDeleteConfig(args []string) deleteConfig {
 		Namespace: viper.GetString("namespace"),
 		Name:      deriveName(name, viper.GetString("path")), // args[0] or derived
 		Verbose:   viper.GetBool("verbose"),                  // defined on root
-		Yes:       viper.GetBool("yes"),
 	}
 }
 
@@ -69,7 +67,7 @@ func newDeleteConfig(args []string) deleteConfig {
 // Skipped if not in an interactive terminal (non-TTY), or if --yes (agree to
 // all prompts) was explicitly set.
 func (c deleteConfig) Prompt() deleteConfig {
-	if !interactiveTerminal() || c.Yes {
+	if !interactiveTerminal() || !viper.GetBool("confirm") {
 		return c
 	}
 	return deleteConfig{
