@@ -68,10 +68,10 @@ latest:
 	docker push $(REPO):latest
 
 bin/golangci-lint:
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./bin v1.27.0
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./bin v1.28.0
 
 check: bin/golangci-lint
-	./bin/golangci-lint run
+	./bin/golangci-lint run --timeout 300s
 
 release: build test
 	go get -u github.com/git-chglog/git-chglog/cmd/git-chglog
