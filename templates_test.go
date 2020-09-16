@@ -3,6 +3,7 @@ package faas
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -30,8 +31,10 @@ func TestTemplatesEmbeddedFileMode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if dest.Mode() != sourceMode {
-		t.Fatalf("The dest mode should be %v but was %v", sourceMode, dest.Mode())
+	if runtime.GOOS != "windows" {
+		if dest.Mode() != sourceMode {
+			t.Fatalf("The dest mode should be %v but was %v", sourceMode, dest.Mode())
+		}
 	}
 }
 
@@ -64,7 +67,9 @@ func TestTemplatesExtensibleFileMode(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if dest.Mode() != source.Mode() {
-		t.Fatalf("The dest mode should be %v but was %v", source.Mode(), dest.Mode())
+	if runtime.GOOS != "windows" {
+		if dest.Mode() != source.Mode() {
+			t.Fatalf("The dest mode should be %v but was %v", source.Mode(), dest.Mode())
+		}
 	}
 }
