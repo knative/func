@@ -119,20 +119,6 @@ func bindEnv(flags ...string) bindFunc {
 	}
 }
 
-// functionWithOverrides sets the namespace and image strings for the
-// Function project at root, if provided, and returns the Function
-// configuration values
-func functionWithOverrides(root, namespace, image string) (f faas.Function, err error) {
-
-	if err = f.OverrideNamespace(namespace); err != nil {
-		return
-	}
-	if err = f.OverrideImage(image); err != nil {
-		return
-	}
-	return faas.NewFunction(root)
-}
-
 // deriveName returns the explicit value (if provided) or attempts to derive
 // from the given path.  Path is defaulted to current working directory, where
 // a function configuration, if it exists and contains a name, is used.  Lastly
