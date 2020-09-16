@@ -3,7 +3,7 @@ module github.com/boson-project/faas
 go 1.13
 
 require (
-	github.com/buildpacks/pack v0.11.0
+	github.com/buildpacks/pack v0.13.1
 	github.com/golang/mock v1.4.3 // indirect
 	github.com/google/go-containerregistry v0.0.0-20200423114255-8f808463544c // indirect
 	github.com/imdario/mergo v0.3.10 // indirect
