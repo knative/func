@@ -16,23 +16,24 @@ func init() {
 	root.AddCommand(deployCmd)
 	deployCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options - $FAAS_CONFIRM")
 	deployCmd.Flags().StringP("namespace", "n", "", "Override namespace into which the Function is deployed (on supported platforms).  Default is to use currently active underlying platform setting - $FAAS_NAMESPACE")
-	deployCmd.Flags().StringP("path", "p", cwd(), "Path to the function project directory - $FAAS_PATH")
 }
 
 var deployCmd = &cobra.Command{
 	Use:        "deploy",
 	Short:      "Deploy an existing Function project to a cluster",
 	SuggestFor: []string{"delpoy", "deplyo"},
-	PreRunE:    bindEnv("namespace", "path", "confirm"),
+	PreRunE:    bindEnv("namespace", "confirm"),
 	RunE:       runDeploy,
 }
 
 func runDeploy(cmd *cobra.Command, _ []string) (err error) {
 	config := newDeployConfig()
-	function, err := functionWithOverrides(config.Path, config.Namespace, "")
+	function, err := faas.LoadFunction(config.Path)
 	if err != nil {
-		return err
+		return
 	}
+	function.OverrideNamespace(config.Namespace)
+
 	if function.Image == "" {
 		return fmt.Errorf("Cannot determine the Function image name. Have you built it yet?")
 	}
@@ -83,7 +84,7 @@ type deployConfig struct {
 func newDeployConfig() deployConfig {
 	return deployConfig{
 		Namespace: viper.GetString("namespace"),
-		Path:      viper.GetString("path"),
+		Path:      cwd(),
 		Verbose:   viper.GetBool("verbose"), // defined on root
 		Confirm:   viper.GetBool("confirm"),
 	}

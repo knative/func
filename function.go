@@ -68,6 +68,43 @@ func NewFunction(root string) (f Function, err error) {
 	return
 }
 
+// LoadFunction loads an existing Function project from disk at 'path'
+// If no Function project exists at the path location, an error is returned.
+func LoadFunction(root string) (f Function, err error) {
+	f, err = NewFunction(root)
+	if err != nil {
+		return
+	}
+	// Ensure that the configuration is actually pointing to a Function project directory.
+	if !f.Initialized() {
+		err = fmt.Errorf("No Function project found at %v", root)
+	}
+	return
+}
+
+// OverrideImage overwrites (or sets) the value of the Function's .Image
+// property, which preempts the default functionality of deriving the value as:
+// Deafult:  [config.Repository]/[config.Name]:latest
+func (f Function) OverrideImage(image string) error {
+	if image == "" {
+		return nil
+	}
+	f.Image = image
+	return f.WriteConfig()
+}
+
+// OverrideNamespace overwrites (or sets) the value of the Function's .Namespace
+// property, which preempts the default functionality of using the underlying
+// platform configuration (if supported).  In the case of Kubernetes, this
+// overrides the configured namespace (usually) set in ~/.kube.config.
+func (f Function) OverrideNamespace(namespace string) error {
+	if namespace == "" {
+		return nil
+	}
+	f.Namespace = namespace
+	return f.WriteConfig()
+}
+
 // WriteConfig writes this Function's configuration to disk.
 func (f Function) WriteConfig() (err error) {
 	return writeConfig(f)

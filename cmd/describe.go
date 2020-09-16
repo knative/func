@@ -19,7 +19,6 @@ func init() {
 	root.AddCommand(describeCmd)
 	describeCmd.Flags().StringP("namespace", "n", "", "Override namespace in which to search for the Function.  Default is to use currently active underlying platform setting - $FAAS_NAMESPACE")
 	describeCmd.Flags().StringP("format", "f", "human", "optionally specify output format (human|plain|json|xml|yaml) $FAAS_FORMAT")
-	describeCmd.Flags().StringP("path", "p", cwd(), "Path to the project which should be described - $FAAS_PATH")
 
 	err := describeCmd.RegisterFlagCompletionFunc("format", CompleteOutputFormatList)
 	if err != nil {
@@ -28,17 +27,23 @@ func init() {
 }
 
 var describeCmd = &cobra.Command{
-	Use:               "describe <name> [options]",
+	Use:               "describe [options]",
 	Short:             "Describe Function",
-	Long:              `Describes the Function initialized in the current directory, or by passed name argument.`,
+	Long:              `Describes the Function in the current project directory`,
 	SuggestFor:        []string{"desc", "get"},
 	ValidArgsFunction: CompleteFunctionList,
-	PreRunE:           bindEnv("namespace", "format", "path"),
+	PreRunE:           bindEnv("namespace", "format"),
 	RunE:              runDescribe,
 }
 
 func runDescribe(cmd *cobra.Command, args []string) (err error) {
 	config := newDescribeConfig(args)
+
+	function, err := faas.LoadFunction(config.Path)
+	if err != nil {
+		return
+	}
+	function.OverrideNamespace(config.Namespace)
 
 	describer, err := knative.NewDescriber(config.Namespace)
 	if err != nil {
@@ -76,10 +81,10 @@ func newDescribeConfig(args []string) describeConfig {
 		name = args[0]
 	}
 	return describeConfig{
-		Name:      deriveName(name, viper.GetString("path")),
+		Name:      deriveName(name, cwd()),
 		Namespace: viper.GetString("namespace"),
 		Format:    viper.GetString("format"),
-		Path:      viper.GetString("path"),
+		Path:      cwd(),
 		Verbose:   viper.GetBool("verbose"),
 	}
 }

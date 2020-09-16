@@ -17,7 +17,6 @@ func init() {
 	root.AddCommand(updateCmd)
 	updateCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options - $FAAS_CONFIRM")
 	updateCmd.Flags().StringP("namespace", "n", "", "Override namespace for the Function (on supported platforms).  Default is to use currently active underlying platform setting - $FAAS_NAMESPACE")
-	updateCmd.Flags().StringP("path", "p", cwd(), "Path to the Function project directory - $FAAS_PATH")
 	updateCmd.Flags().StringP("repository", "r", "", "Repository for built images, ex 'docker.io/myuser' or just 'myuser'.  - $FAAS_REPOSITORY")
 }
 
@@ -26,16 +25,18 @@ var updateCmd = &cobra.Command{
 	Short:      "Update or create a deployed Function",
 	Long:       `Update deployed Function to match the current local state.`,
 	SuggestFor: []string{"push", "deploy"},
-	PreRunE:    bindEnv("namespace", "path", "repository", "confirm"),
+	PreRunE:    bindEnv("namespace", "repository", "confirm"),
 	RunE:       runUpdate,
 }
 
 func runUpdate(cmd *cobra.Command, args []string) (err error) {
 	config := newUpdateConfig()
-	function, err := functionWithOverrides(config.Path, config.Namespace, "")
+	function, err := faas.LoadFunction(config.Path)
 	if err != nil {
-		return err
+		return
 	}
+	function.OverrideNamespace(config.Namespace)
+
 	if function.Image == "" {
 		return fmt.Errorf("Cannot determine the Function image. Have you built it yet?")
 	}
@@ -88,7 +89,7 @@ type updateConfig struct {
 func newUpdateConfig() updateConfig {
 	return updateConfig{
 		Namespace:  viper.GetString("namespace"),
-		Path:       viper.GetString("path"),
+		Path:       cwd(),
 		Repository: viper.GetString("repository"),
 		Verbose:    viper.GetBool("verbose"), // defined on root
 	}
@@ -99,9 +100,9 @@ func (c updateConfig) Prompt() updateConfig {
 		return c
 	}
 	return updateConfig{
-		Namespace: prompt.ForString("Namespace", c.Namespace),
-		Path:      prompt.ForString("Project path", c.Path),
-		Verbose:   c.Verbose,
+		Namespace:  prompt.ForString("Namespace", c.Namespace),
+		Repository: prompt.ForString("Repository", c.Repository),
+		Verbose:    c.Verbose,
 	}
 
 }

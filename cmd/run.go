@@ -22,9 +22,13 @@ var runCmd = &cobra.Command{
 
 func runRun(cmd *cobra.Command, args []string) (err error) {
 	var (
-		path    = "" // defaults to current working directory
+		path    = cwd()
 		verbose = viper.GetBool("verbose")
 	)
+
+	if _, err = faas.LoadFunction(path); err != nil {
+		return
+	}
 
 	if len(args) == 1 {
 		path = args[0]

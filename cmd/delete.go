@@ -12,27 +12,28 @@ import (
 func init() {
 	root.AddCommand(deleteCmd)
 	deleteCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options - $FAAS_CONFIRM")
-	deleteCmd.Flags().StringP("path", "p", cwd(), "Path to the project which should be deleted - $FAAS_PATH")
 	deleteCmd.Flags().StringP("namespace", "n", "", "Override namespace in which to search for Functions.  Default is to use currently active underlying platform setting - $FAAS_NAMESPACE")
 }
 
 var deleteCmd = &cobra.Command{
-	Use:               "delete <name>",
+	Use:               "delete",
 	Short:             "Delete a Function deployment",
-	Long:              `Removes the deployed Function by name, by explicit path, or by default for the current directory.  No local files are deleted.`,
+	Long:              `Removes the deployed Function in the current project directory.  No local files are deleted.`,
 	SuggestFor:        []string{"remove", "rm", "del"},
 	ValidArgsFunction: CompleteFunctionList,
-	PreRunE:           bindEnv("path", "confirm", "namespace"),
+	PreRunE:           bindEnv("confirm", "namespace"),
 	RunE:              runDelete,
 }
 
 func runDelete(cmd *cobra.Command, args []string) (err error) {
 	config := newDeleteConfig(args).Prompt()
+	function, err := faas.LoadFunction(config.Path)
+	if err != nil {
+		return
+	}
 
 	remover := knative.NewRemover(config.Namespace)
 	remover.Verbose = config.Verbose
-
-	function := faas.Function{Root: config.Path, Name: config.Name}
 
 	client := faas.New(
 		faas.WithVerbose(config.Verbose),
@@ -56,7 +57,7 @@ func newDeleteConfig(args []string) deleteConfig {
 		name = args[0]
 	}
 	return deleteConfig{
-		Path:      viper.GetString("path"),
+		Path:      cwd(),
 		Namespace: viper.GetString("namespace"),
 		Name:      deriveName(name, viper.GetString("path")), // args[0] or derived
 		Verbose:   viper.GetBool("verbose"),                  // defined on root

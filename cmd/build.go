@@ -15,7 +15,6 @@ func init() {
 	root.AddCommand(buildCmd)
 	buildCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options - $FAAS_CONFIRM")
 	buildCmd.Flags().StringP("image", "i", "", "Optional full image name, in form [registry]/[namespace]/[name]:[tag] for example quay.io/myrepo/project.name:latest (overrides --repository) - $FAAS_IMAGE")
-	buildCmd.Flags().StringP("path", "p", cwd(), "Path to the Function project directory - $FAAS_PATH")
 	buildCmd.Flags().StringP("repository", "r", "", "Repository for built images, ex 'docker.io/myuser' or just 'myuser'.  Optional if --image provided. - $FAAS_REPOSITORY")
 }
 
@@ -23,15 +22,22 @@ var buildCmd = &cobra.Command{
 	Use:        "build [options]",
 	Short:      "Build an existing Function project as an OCI image",
 	SuggestFor: []string{"biuld", "buidl", "built"},
-	PreRunE:    bindEnv("image", "path", "repository", "confirm"),
+	PreRunE:    bindEnv("image", "repository", "confirm"),
 	RunE:       runBuild,
 }
 
 func runBuild(cmd *cobra.Command, _ []string) (err error) {
 	config := newBuildConfig()
-	function, err := functionWithOverrides(config.Path, "", config.Image)
+
+	function, err := faas.LoadFunction(config.Path)
 	if err != nil {
 		return
+	}
+	function.OverrideImage(config.Image)
+
+	// Ensure that the configuration is actually pointing to a Function project directory.
+	if !function.Initialized() {
+		return fmt.Errorf("No Function project found at %v", config.Path)
 	}
 
 	// If the Function does not yet have an image name, and one was not provided
@@ -87,7 +93,7 @@ type buildConfig struct {
 func newBuildConfig() buildConfig {
 	return buildConfig{
 		Image:      viper.GetString("image"),
-		Path:       viper.GetString("path"),
+		Path:       cwd(),
 		Repository: viper.GetString("repository"),
 		Verbose:    viper.GetBool("verbose"), // defined on root
 		Confirm:    viper.GetBool("confirm"),
@@ -105,7 +111,6 @@ func (c buildConfig) Prompt() buildConfig {
 		return c
 	}
 	return buildConfig{
-		Path:    prompt.ForString("Path to project directory", c.Path),
 		Image:   prompt.ForString("Image name", imageName, prompt.WithRequired(true)),
 		Verbose: c.Verbose,
 		// Repository not prompted for as it would be confusing when combined with explicit image.  Instead it is
