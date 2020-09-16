@@ -43,7 +43,9 @@ func runDescribe(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return
 	}
-	function.OverrideNamespace(config.Namespace)
+	if err = function.OverrideNamespace(config.Namespace); err != nil {
+		return
+	}
 
 	describer, err := knative.NewDescriber(config.Namespace)
 	if err != nil {

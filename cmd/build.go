@@ -33,7 +33,9 @@ func runBuild(cmd *cobra.Command, _ []string) (err error) {
 	if err != nil {
 		return
 	}
-	function.OverrideImage(config.Image)
+	if err = function.OverrideImage(config.Image); err != nil {
+		return
+	}
 
 	// Ensure that the configuration is actually pointing to a Function project directory.
 	if !function.Initialized() {

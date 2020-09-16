@@ -32,7 +32,9 @@ func runDeploy(cmd *cobra.Command, _ []string) (err error) {
 	if err != nil {
 		return
 	}
-	function.OverrideNamespace(config.Namespace)
+	if err = function.OverrideNamespace(config.Namespace); err != nil {
+		return
+	}
 
 	if function.Image == "" {
 		return fmt.Errorf("Cannot determine the Function image name. Have you built it yet?")
