@@ -28,7 +28,7 @@ func init() {
 }
 
 var describeCmd = &cobra.Command{
-	Use:               "describe <name> [options]",
+	Use:               "describe <name>",
 	Short:             "Describe Function",
 	Long:              `Describes the Function initialized in the current directory, or by passed name argument.`,
 	SuggestFor:        []string{"desc", "get"},

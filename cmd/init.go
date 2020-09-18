@@ -25,7 +25,7 @@ func init() {
 }
 
 var initCmd = &cobra.Command{
-	Use:        "init <name> [options]",
+	Use:        "init <name>",
 	Short:      "Initialize a new Function project",
 	SuggestFor: []string{"inti", "new"},
 	PreRunE:    bindEnv("path", "runtime", "templates", "trigger", "confirm"),
