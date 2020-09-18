@@ -38,7 +38,7 @@ func init() {
 }
 
 var createCmd = &cobra.Command{
-	Use:        "create <name> [options]",
+	Use:        "create <name>",
 	Short:      "Create a new Function, including initialization of local files and deployment.",
 	SuggestFor: []string{"cerate", "new"},
 	PreRunE:    bindEnv("image", "namespace", "path", "repository", "runtime", "templates", "trigger", "confirm"),

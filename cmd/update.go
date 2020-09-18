@@ -22,7 +22,7 @@ func init() {
 }
 
 var updateCmd = &cobra.Command{
-	Use:        "update [options]",
+	Use:        "update",
 	Short:      "Update or create a deployed Function",
 	Long:       `Update deployed Function to match the current local state.`,
 	SuggestFor: []string{"push", "deploy"},
