@@ -4,13 +4,17 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
+	"path/filepath"
+
+	"gopkg.in/yaml.v2"
 )
 
 const (
-	DefaultRegistry     = "docker.io"
-	DefaultRuntime      = "go"
-	DefaultTrigger      = "http"
+	DefaultRegistry = "docker.io"
+	DefaultRuntime  = "go"
+	DefaultTrigger  = "http"
 )
 
 // Client for managing Function instances.
@@ -117,15 +121,15 @@ type DNSProvider interface {
 func New(options ...Option) *Client {
 	// Instantiate client with static defaults.
 	c := &Client{
-		builder:           &noopBuilder{output: os.Stdout},
-		pusher:            &noopPusher{output: os.Stdout},
-		deployer:          &noopDeployer{output: os.Stdout},
-		updater:           &noopUpdater{output: os.Stdout},
-		runner:            &noopRunner{output: os.Stdout},
-		remover:           &noopRemover{output: os.Stdout},
-		lister:            &noopLister{output: os.Stdout},
-		dnsProvider:       &noopDNSProvider{output: os.Stdout},
-		progressListener:  &noopProgressListener{},
+		builder:          &noopBuilder{output: os.Stdout},
+		pusher:           &noopPusher{output: os.Stdout},
+		deployer:         &noopDeployer{output: os.Stdout},
+		updater:          &noopUpdater{output: os.Stdout},
+		runner:           &noopRunner{output: os.Stdout},
+		remover:          &noopRemover{output: os.Stdout},
+		lister:           &noopLister{output: os.Stdout},
+		dnsProvider:      &noopDNSProvider{output: os.Stdout},
+		progressListener: &noopProgressListener{},
 	}
 
 	// Apply passed options, which take ultimate precidence.
@@ -343,6 +347,27 @@ func (c *Client) Initialize(cfg Function) (err error) {
 	w := templateWriter{templates: c.templates, verbose: c.verbose}
 	if err = w.Write(f.Runtime, f.Trigger, f.Root); err != nil {
 		return
+	}
+
+	// Check if template specifies a builder image. If so, add to configuration
+	builderFilePath := filepath.Join(f.Root, ".builders.yaml")
+	if builderConfig, err := ioutil.ReadFile(builderFilePath); err == nil {
+		// A .builder file was found. Read the default builder and set in the config file
+		// TODO: A command line flag could be used to specify non-default builders
+		builders := make(map[string]string)
+		if err := yaml.Unmarshal(builderConfig, builders); err == nil {
+			f.Builder = builders["default"]
+			if c.verbose {
+				fmt.Printf("Builder: %s\n", f.Builder)
+			}
+		}
+		// Remove the builders.yaml file so the user is not confused by a
+		// configuration file that is only used for project creation/initialization
+		if err := os.Remove(builderFilePath); err != nil {
+			if c.verbose {
+				fmt.Printf("Cannot remove %v. %v\n", builderFilePath, err)
+			}
+		}
 	}
 
 	// Write out the config.
