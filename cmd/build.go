@@ -20,7 +20,7 @@ func init() {
 }
 
 var buildCmd = &cobra.Command{
-	Use:        "build [options]",
+	Use:        "build",
 	Short:      "Build an existing Function project as an OCI image",
 	SuggestFor: []string{"biuld", "buidl", "built"},
 	PreRunE:    bindEnv("image", "path", "repository", "confirm"),

@@ -27,7 +27,7 @@ func init() {
 }
 
 var listCmd = &cobra.Command{
-	Use:        "list [options]",
+	Use:        "list",
 	Short:      "Lists deployed Functions",
 	Long:       `Lists deployed Functions`,
 	SuggestFor: []string{"ls", "lsit"},

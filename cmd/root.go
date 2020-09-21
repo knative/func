@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/mitchellh/go-homedir"
 	"github.com/ory/viper"
@@ -10,8 +11,6 @@ import (
 
 	"github.com/boson-project/faas"
 )
-
-var config = "~/.faas/config" // Location of the optional system-wide config file.
 
 // The root of the command tree defines the command name, descriotion, globally
 // available flags, etc.  It has no action of its own, such that running the
@@ -30,9 +29,6 @@ Create and run Functions as a Service.`,
 // are invoked to gather system context.  This includes reading the configuration
 // file, environment variables, and parsing the command flags.
 func init() {
-	// Populate `config` var with the value of --config flag, if provided.
-	root.PersistentFlags().StringVar(&config, "config", config, "config file path")
-
 	// read in environment variables that match
 	viper.AutomaticEnv()
 
@@ -95,11 +91,15 @@ func cwd() (cwd string) {
 // function defaults and extensible templates.
 func configPath() (path string) {
 	if path = os.Getenv("XDG_CONFIG_HOME"); path != "" {
+		path = filepath.Join(path, "faas")
 		return
 	}
-	path, err := homedir.Expand("~/.config")
+	home, err := homedir.Expand("~")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "could not derive home directory for use as default templates path: %v", err)
+		path = filepath.Join(".config", "faas")
+	} else {
+		path = filepath.Join(home, ".config", "faas")
 	}
 	return
 }

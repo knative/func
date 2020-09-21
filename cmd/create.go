@@ -23,7 +23,7 @@ func init() {
 	createCmd.Flags().StringP("path", "p", cwd(), "Path to the new project directory - $FAAS_PATH")
 	createCmd.Flags().StringP("repository", "r", "", "Repository for built images, ex 'docker.io/myuser' or just 'myuser'.  Optional if --image provided. - $FAAS_REPOSITORY")
 	createCmd.Flags().StringP("runtime", "l", faas.DefaultRuntime, "Function runtime language/framework. - $FAAS_RUNTIME")
-	createCmd.Flags().StringP("templates", "", filepath.Join(configPath(), "faas", "templates"), "Extensible templates path. - $FAAS_TEMPLATES")
+	createCmd.Flags().StringP("templates", "", filepath.Join(configPath(), "templates"), "Extensible templates path. - $FAAS_TEMPLATES")
 	createCmd.Flags().StringP("trigger", "t", faas.DefaultTrigger, "Function trigger (ex: 'http','events') - $FAAS_TRIGGER")
 
 	var err error
@@ -38,7 +38,7 @@ func init() {
 }
 
 var createCmd = &cobra.Command{
-	Use:        "create <name> [options]",
+	Use:        "create <name>",
 	Short:      "Create a new Function, including initialization of local files and deployment.",
 	SuggestFor: []string{"cerate", "new"},
 	PreRunE:    bindEnv("image", "namespace", "path", "repository", "runtime", "templates", "trigger", "confirm"),
