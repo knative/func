@@ -12,8 +12,6 @@ import (
 	"github.com/boson-project/faas"
 )
 
-var config = configPath() // Location of the optional system-wide config file.
-
 // The root of the command tree defines the command name, descriotion, globally
 // available flags, etc.  It has no action of its own, such that running the
 // resultant binary with no arguments prints the help/usage text.
@@ -31,9 +29,6 @@ Create and run Functions as a Service.`,
 // are invoked to gather system context.  This includes reading the configuration
 // file, environment variables, and parsing the command flags.
 func init() {
-	// Populate `config` var with the value of --config flag, if provided.
-	root.PersistentFlags().StringVar(&config, "config", config, "config file path")
-
 	// read in environment variables that match
 	viper.AutomaticEnv()
 
