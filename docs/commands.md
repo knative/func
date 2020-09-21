@@ -52,7 +52,9 @@ kn faas run
 
 ## `deploy`
 
-Deploys the Function project in the current directory. The user may specify a path to the project directory as a flag. Reads the `.faas.yaml` configuration file to determine the image name. Derives the service name from the project name. There is no command line option to specify the image name, although this can be changed in `.faas.yaml`. There is no mechanism by which the user can specify the service name. By default, the image is deployed to the namespace corresponding to the value specified in `.faas.yaml`, or if unset to the currently active Kubernetes namespace. This can be changed with a command line flag. If changed, this value will be persisted in `.faas.yaml`.
+Deploys the Function project in the current directory. The user may specify a path to the project directory as a flag. Reads the `.faas.yaml` configuration file to determine the image name. Derives the service name from the project name. There is no command line option to specify the image name, although this can be changed in `.faas.yaml`. There is no mechanism by which the user can specify the service name. The user must have already built an image for this function using `faas deploy` or they will encounter an error.
+
+The namespace defaults to the value in `.faas.yaml` or the namespace currently active in the user's Kubernetes configuration. The namespace may be specified on the command line, and if so this will overwrite the value in `.faas.yaml`.
 
 Similar `kn` command: `kn service create NAME --image IMAGE [flags]`. This command allows a user to deploy a Knative Service by specifying an image, typically one hosted on a public container registry such as docker.io. The deployment options which the `kn` command affords the user are quite broad. The `kn` command in this case is quite effective for a power user. The `faas deploy` command has a similar end result, but is definitely easier for a user just getting started to be successful with.
 
@@ -88,9 +90,9 @@ kn faas update [-r <repository> -p <path>]
 
 ## `describe`
 
-Prints the name, route and any event subscriptions for a deployed Function. The user may also specify the name of the function to describe, and the namespace in which to search for the function. If provided, this will be updated in the project's `.faas.yaml` configuration file. The user may also supply a path to the Function project.
+Prints the name, route and any event subscriptions for a deployed Function. The user may also specify the name of the function to describe. The namespace defaults to the value in `.faas.yaml` or the namespace currently active in the user's Kubernetes configuration. The namespace may be specified on the command line, and if so this will overwrite the value in `.faas.yaml`.
 
-Similar `kn` command: `kn service describe NAME [flags]`. This flag provides a lot of nice information not available in `faas describe`, such as revisions, age, annotations and labels. Consider a way to combine the two outputs, or rename this command to make it distinct from `kn` - e.g. `faas info`.
+Similar `kn` command: `kn service describe NAME [flags]`. This flag provides a lot of nice information not available in `faas describe`, such as revisions, age, annotations and labels. This command should be renamed to make it distinct from `kn` - e.g. `faas status`.
 
 ```console
 faas describe [-f <format> -n <namespace> -p <path>]
@@ -104,7 +106,7 @@ kn faas describe [-f <format> -n <namespace> -p <path>]
 
 ## `list`
 
-Lists all deployed functions. The namespace defaults to the value in `.faas.yaml` or the namespace currently active in the user's Kubernetes configuration. The namespace may be specified on the command line, and if so this will overwrite the value in `.faas.yaml`.
+Lists all deployed functions. The namespace defaults to the value in `.faas.yaml` or the namespace currently active in the user's Kubernetes configuration. The namespace defaults to the value in `.faas.yaml` or the namespace currently active in the user's Kubernetes configuration. The namespace may be specified on the command line, and if so this will overwrite the value in `.faas.yaml`.
 
 Similar `kn` command: `kn service list [name] [flags]`. This command lists all deployed Knative `Services`. As with other `kn` commands that have similar functionality, there is more information and flexibilty in the `kn` command. However, `kn` will return _all_ `Services`, while `faas list` will only display the boson Functions that have been deployed. Consider improving the output of the `faas list` command so that it is at least as informative as `kn service list`.
 
@@ -138,7 +140,7 @@ kn faas create <path> -r <repository> -l <runtime> -t <trigger> -i <image> -n <n
 
 ## `delete`
 
-Removes a deployed function from the cluster. The user may specify a function by name, path or if neither of those are provided, the current directory will be searched for a `.faas.yaml` configuration file to determine the function to be removed. If a namespace is provided, it will be peristed to the `.faas.yaml` configuration file. If no namespace is provided, it will use the namespace specified in the configuration file, or the namespace for the currently active Kubernetes profile.
+Removes a deployed function from the cluster. The user may specify a function by name, path or if neither of those are provided, the current directory will be searched for a `.faas.yaml` configuration file to determine the function to be removed. The namespace defaults to the value in `.faas.yaml` or the namespace currently active in the user's Kubernetes configuration. The namespace may be specified on the command line, and if so this will overwrite the value in `.faas.yaml`.
 
 Similar `kn` command: `kn service delete NAME [flags]`.
 
