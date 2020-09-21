@@ -16,7 +16,7 @@ func init() {
 	initCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options - $FAAS_CONFIRM")
 	initCmd.Flags().StringP("path", "p", cwd(), "Path to the new project directory - $FAAS_PATH")
 	initCmd.Flags().StringP("runtime", "l", faas.DefaultRuntime, "Function runtime language/framework. - $FAAS_RUNTIME")
-	initCmd.Flags().StringP("templates", "", filepath.Join(configPath(), "faas", "templates"), "Extensible templates path. - $FAAS_TEMPLATES")
+	initCmd.Flags().StringP("templates", "", filepath.Join(configPath(), "templates"), "Extensible templates path. - $FAAS_TEMPLATES")
 	initCmd.Flags().StringP("trigger", "t", faas.DefaultTrigger, "Function trigger (ex: 'http','events') - $FAAS_TRIGGER")
 
 	if err := initCmd.RegisterFlagCompletionFunc("runtime", CompleteRuntimeList); err != nil {
