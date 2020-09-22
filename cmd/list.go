@@ -27,9 +27,15 @@ func init() {
 }
 
 var listCmd = &cobra.Command{
-	Use:        "list",
-	Short:      "Lists deployed Functions",
-	Long:       `Lists deployed Functions`,
+	Use:   "list",
+	Short: "Lists deployed Functions",
+	Long: `Lists deployed Functions
+
+Lists all deployed functions. The namespace defaults to the value in .faas.yaml
+or the namespace currently active in the user's Kubernetes configuration. The
+namespace may be specified on the command line using the --namespace or -n flag.
+If specified this will overwrite the value in .faas.yaml.
+`,
 	SuggestFor: []string{"ls", "lsit"},
 	PreRunE:    bindEnv("namespace", "format"),
 	RunE:       runList,

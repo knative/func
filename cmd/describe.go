@@ -28,9 +28,18 @@ func init() {
 }
 
 var describeCmd = &cobra.Command{
-	Use:               "describe <name>",
-	Short:             "Describe Function",
-	Long:              `Describes the Function initialized in the current directory, or by passed name argument.`,
+	Use:   "describe <name>",
+	Short: "Describes the Function",
+	Long: `Describes the Function
+
+Prints the name, route and any event subscriptions for a deployed Function in
+the current directory. A path to a Function project directory may be supplied
+using the --path or -p flag.
+
+The namespace defaults to the value in .faas.yaml or the namespace currently
+active in the user's Kubernetes configuration. The namespace may be specified
+using the --namespace or -n flag, and if so this will overwrite the value in .faas.yaml.
+`,
 	SuggestFor:        []string{"desc", "get"},
 	ValidArgsFunction: CompleteFunctionList,
 	PreRunE:           bindEnv("namespace", "format", "path"),
