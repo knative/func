@@ -1,6 +1,6 @@
 module github.com/boson-project/faas
 
-go 1.13
+go 1.14
 
 require (
 	github.com/buildpacks/pack v0.13.1
