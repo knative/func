@@ -324,7 +324,7 @@ func (c *Client) Initialize(cfg Function) (err error) {
 
 	f.Image = cfg.Image
 
-	// Set the name to that provided, defaulting to path derivation if empty.
+	// Set the name to that provided.
 	f.Name = cfg.Name
 
 	// Assert runtime was provided, or default.

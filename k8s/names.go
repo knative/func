@@ -11,6 +11,8 @@ import (
 // k8s does not support service names with dots.  So encode it such that
 // www.my-domain,com -> www-my--domain-com
 // Input errors if not a 1035 label.
+// "a DNS-1035 label must consist of lower case alphanumeric characters or '-',
+// start with an alphabetic character, and end with an alphanumeric character"
 func ToK8sAllowedName(in string) (string, error) {
 
 	out := []rune{}

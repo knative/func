@@ -182,7 +182,7 @@ func deriveName(explicitName string, path string) string {
 	return ""
 }
 
-// deriveNameAndPath returns resolved Function name and absolute path
+// deriveNameAndAbsolutePathFromPath returns resolved Function name and absolute path
 // to the Function project root. The input parameter path could be one of:
 // 'relative/path/to/foo', '/absolute/path/to/foo', 'foo' or ''
 func deriveNameAndAbsolutePathFromPath(path string) (string, string) {
