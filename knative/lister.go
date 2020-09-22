@@ -38,7 +38,7 @@ func (l *Lister) List() (names []string, err error) {
 	for _, service := range lst.Items {
 		// Convert the "subdomain-encoded" (i.e. kube-service-friendly) name
 		// back out to a fully qualified service name.
-		n, err := k8s.FromSubdomain(service.Name)
+		n, err := k8s.FromK8sAllowedName(service.Name)
 		if err != nil {
 			return names, err
 		}

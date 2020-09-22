@@ -20,7 +20,6 @@ func init() {
 	createCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options - $FAAS_CONFIRM")
 	createCmd.Flags().StringP("image", "i", "", "Optional full image name, in form [registry]/[namespace]/[name]:[tag] for example quay.io/myrepo/project.name:latest (overrides --repository) - $FAAS_IMAGE")
 	createCmd.Flags().StringP("namespace", "n", "", "Override namespace into which the Function is deployed (on supported platforms).  Default is to use currently active underlying platform setting - $FAAS_NAMESPACE")
-	createCmd.Flags().StringP("path", "p", cwd(), "Path to the new project directory - $FAAS_PATH")
 	createCmd.Flags().StringP("repository", "r", "", "Repository for built images, ex 'docker.io/myuser' or just 'myuser'.  Optional if --image provided. - $FAAS_REPOSITORY")
 	createCmd.Flags().StringP("runtime", "l", faas.DefaultRuntime, "Function runtime language/framework. - $FAAS_RUNTIME")
 	createCmd.Flags().StringP("templates", "", filepath.Join(configPath(), "templates"), "Extensible templates path. - $FAAS_TEMPLATES")
@@ -38,10 +37,10 @@ func init() {
 }
 
 var createCmd = &cobra.Command{
-	Use:        "create <name>",
+	Use:        "create <path>",
 	Short:      "Create a new Function, including initialization of local files and deployment.",
 	SuggestFor: []string{"cerate", "new"},
-	PreRunE:    bindEnv("image", "namespace", "path", "repository", "runtime", "templates", "trigger", "confirm"),
+	PreRunE:    bindEnv("image", "namespace", "repository", "runtime", "templates", "trigger", "confirm"),
 	RunE:       runCreate,
 }
 
@@ -49,7 +48,7 @@ func runCreate(cmd *cobra.Command, args []string) (err error) {
 	config := newCreateConfig(args).Prompt()
 
 	function := faas.Function{
-		Name:    config.Name,
+		Name:    config.initConfig.Name,
 		Root:    config.initConfig.Path,
 		Runtime: config.initConfig.Runtime,
 		Trigger: config.Trigger,
@@ -106,23 +105,24 @@ func newCreateConfig(args []string) createConfig {
 	}
 }
 
-// Prompt the user with value of config members, allowing for interaractive changes.
+// Prompt the user with value of config members, allowing for interactive changes.
 // Skipped if not in an interactive terminal (non-TTY), or if --confirm (agree to
 // all prompts) was not explicitly set.
 func (c createConfig) Prompt() createConfig {
-	name := deriveName(c.Name, c.initConfig.Path)
 	if !interactiveTerminal() || !c.initConfig.Confirm {
 		// Just print the basics if not confirming
 		fmt.Printf("Project path: %v\n", c.initConfig.Path)
-		fmt.Printf("Project name: %v\n", name)
+		fmt.Printf("Function name: %v\n", c.initConfig.Name)
 		fmt.Printf("Runtime: %v\n", c.Runtime)
 		fmt.Printf("Trigger: %v\n", c.Trigger)
 		return c
 	}
+
+	derivedName, derivedPath := deriveNameAndAbsolutePathFromPath(prompt.ForString("Project path", c.initConfig.Path, prompt.WithRequired(true)))
 	return createConfig{
 		initConfig: initConfig{
-			Path:    prompt.ForString("Project path", c.initConfig.Path),
-			Name:    prompt.ForString("Project name", name, prompt.WithRequired(true)),
+			Name:    derivedName,
+			Path:    derivedPath,
 			Runtime: prompt.ForString("Runtime", c.Runtime),
 			Trigger: prompt.ForString("Trigger", c.Trigger),
 			// Templates intentionally omitted from prompt for being an edge case.

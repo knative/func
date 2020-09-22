@@ -2,7 +2,7 @@
 
 ## `init`
 
-Creates a new Function project at _`path`_. If _`path`_ is unspecified, assumes the current directory. If _`path`_ does not exist, it will be created. The user can specify the runtime and trigger with flags.
+Creates a new Function project at _`path`_. If _`path`_ is unspecified, assumes the current directory. If _`path`_ does not exist, it will be created. The function name is the name of the leaf directory at path. The user can specify the runtime and trigger with flags.
 
 Similar `kn` command: none.
 

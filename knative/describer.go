@@ -52,7 +52,7 @@ func (describer *Describer) Describe(name string) (description faas.Description,
 	servingClient := describer.servingClient
 	eventingClient := describer.eventingClient
 
-	serviceName, err := k8s.ToSubdomain(name)
+	serviceName, err := k8s.ToK8sAllowedName(name)
 	if err != nil {
 		return
 	}
@@ -101,7 +101,7 @@ func (describer *Describer) Describe(name string) (description faas.Description,
 
 	description.Routes = routeURLs
 	description.Subscriptions = subscriptions
-	description.Name, err = k8s.FromSubdomain(service.Name)
+	description.Name, err = k8s.FromK8sAllowedName(service.Name)
 
 	return
 }
