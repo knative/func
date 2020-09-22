@@ -5,13 +5,15 @@
   "main": "index.js",
   "scripts": {
     "test": "node test/unit.js && node test/integration.js",
-    "local": "npx @redhat/faas-js-runtime ./index.js"
+    "local": "npx @redhat/faas-js-runtime ./index.js",
+    "debug": "nodemon --inspect ./node_modules/@redhat/faas-js-runtime/bin/cli.js ./index.js"
   },
   "keywords": [],
   "author": "",
   "license": "Apache-2.0",
   "devDependencies": {
     "@redhat/faas-js-runtime": "0.2.3",
+    "nodemon": "^2.0.4",
     "supertest": "^4.0.2",
     "tape": "^5.0.1"
   }
