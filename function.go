@@ -61,7 +61,7 @@ func NewFunction(root string) (f Function, err error) {
 
 	// Let's set Function name, if it is not already set
 	if c.Name == "" {
-		pathParts := strings.Split(root, string(os.PathSeparator))
+		pathParts := strings.Split(strings.TrimRight(root, string(os.PathSeparator)), string(os.PathSeparator))
 		c.Name = pathParts[len(pathParts)-1]
 	}
 

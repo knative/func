@@ -166,7 +166,7 @@ func functionWithOverrides(root, namespace, image string) (f faas.Function, err 
 
 // deriveName returns the explicit value (if provided) or attempts to derive
 // from the given path.  Path is defaulted to current working directory, where
-// a Function configuration, if it exists and contains a name, is used. 
+// a Function configuration, if it exists and contains a name, is used.
 func deriveName(explicitName string, path string) string {
 	// If the name was explicitly provided, use it.
 	if explicitName != "" {
@@ -200,7 +200,7 @@ func deriveNameAndAbsolutePathFromPath(path string) (string, string) {
 	}
 
 	// Get the name of the Function, which equals to name of the current directory
-	pathParts := strings.Split(path, string(os.PathSeparator))
+	pathParts := strings.Split(strings.TrimRight(path, string(os.PathSeparator)), string(os.PathSeparator))
 	return pathParts[len(pathParts)-1], absPath
 }
 
