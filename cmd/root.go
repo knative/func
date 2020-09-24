@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/mitchellh/go-homedir"
 	"github.com/ory/viper"
@@ -165,21 +166,42 @@ func functionWithOverrides(root, namespace, image string) (f faas.Function, err 
 
 // deriveName returns the explicit value (if provided) or attempts to derive
 // from the given path.  Path is defaulted to current working directory, where
-// a function configuration, if it exists and contains a name, is used.  Lastly
-// derivation using the path us used.
+// a Function configuration, if it exists and contains a name, is used.
 func deriveName(explicitName string, path string) string {
 	// If the name was explicitly provided, use it.
 	if explicitName != "" {
 		return explicitName
 	}
+
 	// If the directory at path contains an initialized Function, use the name therein
 	f, err := faas.NewFunction(path)
 	if err == nil && f.Name != "" {
 		return f.Name
 	}
-	maxRecursion := faas.DefaultMaxRecursion
-	derivedName, _ := faas.DerivedName(path, maxRecursion)
-	return derivedName
+
+	return ""
+}
+
+// deriveNameAndAbsolutePathFromPath returns resolved Function name and absolute path
+// to the Function project root. The input parameter path could be one of:
+// 'relative/path/to/foo', '/absolute/path/to/foo', 'foo' or ''
+func deriveNameAndAbsolutePathFromPath(path string) (string, string) {
+	var absPath string
+
+	// If path is not specifed, we would like to use current working dir
+	if path == "" {
+		path = cwd()
+	}
+
+	// Expand the passed Function name to its absolute path
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return "", ""
+	}
+
+	// Get the name of the Function, which equals to name of the current directory
+	pathParts := strings.Split(strings.TrimRight(path, string(os.PathSeparator)), string(os.PathSeparator))
+	return pathParts[len(pathParts)-1], absPath
 }
 
 // deriveImage returns the same image name which will be used if no explicit

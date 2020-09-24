@@ -22,7 +22,7 @@ type Remover struct {
 
 func (remover *Remover) Remove(name string) (err error) {
 
-	project, err := k8s.ToSubdomain(name)
+	project, err := k8s.ToK8sAllowedName(name)
 	if err != nil {
 		return
 	}

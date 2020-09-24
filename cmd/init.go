@@ -14,7 +14,6 @@ import (
 func init() {
 	root.AddCommand(initCmd)
 	initCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options - $FAAS_CONFIRM")
-	initCmd.Flags().StringP("path", "p", cwd(), "Path to the new project directory - $FAAS_PATH")
 	initCmd.Flags().StringP("runtime", "l", faas.DefaultRuntime, "Function runtime language/framework. - $FAAS_RUNTIME")
 	initCmd.Flags().StringP("templates", "", filepath.Join(configPath(), "templates"), "Extensible templates path. - $FAAS_TEMPLATES")
 	initCmd.Flags().StringP("trigger", "t", faas.DefaultTrigger, "Function trigger (ex: 'http','events') - $FAAS_TRIGGER")
@@ -25,10 +24,10 @@ func init() {
 }
 
 var initCmd = &cobra.Command{
-	Use:        "init <name>",
+	Use:        "init <path>",
 	Short:      "Initialize a new Function project",
 	SuggestFor: []string{"inti", "new"},
-	PreRunE:    bindEnv("path", "runtime", "templates", "trigger", "confirm"),
+	PreRunE:    bindEnv("runtime", "templates", "trigger", "confirm"),
 	RunE:       runInit,
 	// TODO: autocomplate Functions for runtime and trigger.
 }
@@ -49,10 +48,10 @@ func runInit(cmd *cobra.Command, args []string) error {
 }
 
 type initConfig struct {
-	// Name of the service in DNS-compatible format (ex myfunc.example.com)
+	// Name of the Function.
 	Name string
 
-	// Path to files on disk.  Defaults to current working directory.
+	// Absolute path to Function on disk.
 	Path string
 
 	// Runtime language/framework.
@@ -78,13 +77,15 @@ type initConfig struct {
 // newInitConfig returns a config populated from the current execution context
 // (args, flags and environment variables)
 func newInitConfig(args []string) initConfig {
-	var name string
+	var path string
 	if len(args) > 0 {
-		name = args[0] // If explicitly provided, use.
+		path = args[0] // If explicitly provided, use.
 	}
+
+	derivedName, derivedPath := deriveNameAndAbsolutePathFromPath(path)
 	return initConfig{
-		Name:      deriveName(name, viper.GetString("path")), // args[0] or derived
-		Path:      viper.GetString("path"),
+		Name:      derivedName,
+		Path:      derivedPath,
 		Runtime:   viper.GetString("runtime"),
 		Templates: viper.GetString("templates"),
 		Trigger:   viper.GetString("trigger"),
@@ -96,19 +97,19 @@ func newInitConfig(args []string) initConfig {
 // Skipped if not in an interactive terminal (non-TTY), or if --confirm false (agree to
 // all prompts) was set (default).
 func (c initConfig) Prompt() initConfig {
-	name := deriveName(c.Name, c.Path)
 	if !interactiveTerminal() || !c.Confirm {
 		// Just print the basics if not confirming
 		fmt.Printf("Project path: %v\n", c.Path)
-		fmt.Printf("Project name: %v\n", name)
+		fmt.Printf("Function name: %v\n", c.Name)
 		fmt.Printf("Runtime: %v\n", c.Runtime)
 		fmt.Printf("Trigger: %v\n", c.Trigger)
 		return c
 	}
+
+	derivedName, derivedPath := deriveNameAndAbsolutePathFromPath(prompt.ForString("Project path", c.Path, prompt.WithRequired(true)))
 	return initConfig{
-		// TODO: Path should be prompted for and set prior to name attempting path derivation.  Test/fix this if necessary.
-		Path:    prompt.ForString("Project path", c.Path),
-		Name:    prompt.ForString("Project name", name, prompt.WithRequired(true)),
+		Name:    derivedName,
+		Path:    derivedPath,
 		Runtime: prompt.ForString("Runtime", c.Runtime),
 		Trigger: prompt.ForString("Trigger", c.Trigger),
 		// Templates intentiopnally omitted from prompt for being an edge case.

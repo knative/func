@@ -7,8 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"golang.org/x/net/publicsuffix"
 )
 
 type Function struct {
@@ -49,6 +47,7 @@ type Function struct {
 // NewFunction creates a Function struct whose attributes are loaded from the
 // configuraiton located at path.
 func NewFunction(root string) (f Function, err error) {
+
 	// Expand the passed root to its absolute path (default current dir)
 	if root, err = filepath.Abs(root); err != nil {
 		return
@@ -58,6 +57,12 @@ func NewFunction(root string) (f Function, err error) {
 	c, err := newConfig(root)
 	if err != nil {
 		return
+	}
+
+	// Let's set Function name, if it is not already set
+	if c.Name == "" {
+		pathParts := strings.Split(strings.TrimRight(root, string(os.PathSeparator)), string(os.PathSeparator))
+		c.Name = pathParts[len(pathParts)-1]
 	}
 
 	// set Function to the value of the config loaded from disk.
@@ -143,16 +148,6 @@ func DerivedImage(root, repository string) (image string, err error) {
 	return
 }
 
-// DerivedName returns a name derived from the path, limited in its upward
-// recursion along path to searchLimit.
-func DerivedName(root string, searchLimit int) (string, error) {
-	root, err := filepath.Abs(root)
-	if err != nil {
-		return "", err
-	}
-	return pathToDomain(root, searchLimit), nil
-}
-
 // assertEmptyRoot ensures that the directory is empty enough to be used for
 // initializing a new Function.
 func assertEmptyRoot(path string) (err error) {
@@ -207,84 +202,4 @@ func isEffectivelyEmpty(dir string) (bool, error) {
 		}
 	}
 	return true, nil
-}
-
-// Convert a path to a domain.
-// Searches up the path string until a domain (TLD+1) is detected.
-// Subdirectories are considered subdomains.
-// Ex: Path:    "/home/users/jane/src/example.com/admin/www"
-//     Returns: "www.admin.example.com"
-// maxLevels is the number of directories to walk upwards beyond the current
-// directory to determine domain (i.e. current directory is always considered.
-// Zero indicates only consider last path element.)
-func pathToDomain(path string, maxLevels int) string {
-	var (
-		// parts of the path, separated by os separator
-		parts = strings.Split(path, string(os.PathSeparator))
-
-		// subdomains derived from the path
-		subdomains []string
-
-		// domain derived from the path
-		domain string
-	)
-
-	// Loop over parts from back to front (recursing upwards), building
-	// optional subdomains until a root domain (TLD+1) is detected.
-	for i := len(parts) - 1; i >= 0; i-- {
-		part := parts[i]
-
-		// Support limited recursion
-		// Tests, for instance, need to be allowed to reliably fail by having their
-		// recursion contained within ./testdata if recursion is set to -1, there
-		// is no limit.  0 indicates only the current directory is considered.
-		iteration := len(parts) - 1 - i
-		if maxLevels >= 0 && iteration > maxLevels {
-			break
-		}
-
-		// Detect TLD+1
-		// If the current directory has a valid TLD plus one, it is a match.
-		// This is determined by using the public suffices list, which includes
-		// both ICANN managed TLDs as well as an extended list (matching, for
-		// instance 'cluster.local')
-		if suffix, _ := publicsuffix.EffectiveTLDPlusOne(part); suffix != "" {
-			domain = part
-			break // no directories above the nearest TLD+1 should be considered.
-		}
-
-		// Skip blanks
-		// Path elements which are blank, such as in the case of a trailing slash
-		// are ignored and the recursion continues, effectively collapsing ex: '//'.
-		if part == "" {
-			continue
-		}
-
-		// Build subdomain
-		// Each path element which appears before the TLD+1 is a subdomain.
-		// ex: '/home/users/jane/src/example.com/us-west-2/admin/www' creates the
-		// subdomain []string{'www', 'admin', 'us-west-2'}
-		subdomains = append(subdomains, part)
-	}
-
-	// Unable to derive domain
-	// If the entire path was searched, but no parts matched a TLD+1, the domain
-	// will be blank.  In this case, the path was insufficient to derive a domain
-	// ex "/home/users/jane/src/test" contains no TLD, thus the final domain must
-	// be explicitly provided.
-	if domain == "" {
-		return ""
-	}
-
-	// Prepend subdomains
-	// If the path was a subdirectory within a TLD+1, these sudbomains
-	// are prepended to the TLD+1 to create the final domain.
-	// ex: '/home/users/jane/src/example.com/us-west-2/admin/www' yields
-	// www.admin.use-west-2.example.com
-	if len(subdomains) > 0 {
-		subdomains = append(subdomains, domain)
-		return strings.Join(subdomains, ".")
-	}
-
-	return domain
 }

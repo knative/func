@@ -2,25 +2,25 @@ package k8s
 
 import "testing"
 
-// TestToSubdomain ensures that a valid domain name is
-// encoded into the expected subdmain.
-func TestToSubdomain(t *testing.T) {
+// TestToK8sAllowedName ensures that a valid name is
+// encoded into k8s allowed name.
+func TestToK8sAllowedName(t *testing.T) {
 	cases := []struct {
 		In  string
 		Out string
 		Err bool
 	}{
-		{"", "", true},        // invalid domain
-		{"*", "", true},       // invalid domain
-		{"example", "", true}, // invalid domain
+		{"", "", true},        // invalid name
+		{"*", "", true},       // invalid name
+		{"example", "example", true},
 		{"example.com", "example-com", false},
 		{"my-domain.com", "my--domain-com", false},
 	}
 
 	for _, c := range cases {
-		out, err := ToSubdomain(c.In)
+		out, err := ToK8sAllowedName(c.In)
 		if err != nil && !c.Err {
-			t.Fatalf("Unexpected error: %v", err)
+			t.Fatalf("Unexpected error: %v, for '%v', want '%v', but got '%v'", err, c.In, c.Out, out)
 		}
 		if out != c.Out {
 			t.Fatalf("expected '%v' to yield '%v', got '%v'", c.In, c.Out, out)
@@ -28,9 +28,9 @@ func TestToSubdomain(t *testing.T) {
 	}
 }
 
-// TestFromSubdomain ensures that a valid subdomain is decoded
-// back into a domain.
-func TestFromSubdomain(t *testing.T) {
+// TestFromK8sAllowedName ensures that an allowed k8s name is correctly
+// decoded back into the original name.
+func TestFromK8sAllowedName(t *testing.T) {
 	cases := []struct {
 		In  string
 		Out string
@@ -44,7 +44,7 @@ func TestFromSubdomain(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		out, err := FromSubdomain(c.In)
+		out, err := FromK8sAllowedName(c.In)
 		if err != nil && !c.Err {
 			t.Fatalf("Unexpected error: %v", err)
 		}

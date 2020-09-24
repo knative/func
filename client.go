@@ -11,7 +11,6 @@ const (
 	DefaultRegistry     = "docker.io"
 	DefaultRuntime      = "go"
 	DefaultTrigger      = "http"
-	DefaultMaxRecursion = 5 // when determining a name from path
 )
 
 // Client for managing Function instances.
@@ -127,7 +126,6 @@ func New(options ...Option) *Client {
 		lister:            &noopLister{output: os.Stdout},
 		dnsProvider:       &noopDNSProvider{output: os.Stdout},
 		progressListener:  &noopProgressListener{},
-		domainSearchLimit: DefaultMaxRecursion, // no recursion limit deriving domain by default.
 	}
 
 	// Apply passed options, which take ultimate precidence.
@@ -306,6 +304,12 @@ func (c *Client) Create(cfg Function) (err error) {
 // Initialize creates a new Function project locally using the settings
 // provided on a Function object.
 func (c *Client) Initialize(cfg Function) (err error) {
+
+	// Create project root directory, if it doesn't already exist
+	if err = os.MkdirAll(cfg.Root, 0755); err != nil {
+		return
+	}
+
 	// Create Function of the given root path.
 	f, err := NewFunction(cfg.Root)
 	if err != nil {
@@ -320,15 +324,8 @@ func (c *Client) Initialize(cfg Function) (err error) {
 
 	f.Image = cfg.Image
 
-	// Set the name to that provided, defaulting to path derivation if empty.
+	// Set the name to that provided.
 	f.Name = cfg.Name
-	if cfg.Name == "" {
-		f.Name = pathToDomain(f.Root, c.domainSearchLimit)
-		if f.Name == "" {
-			err = errors.New("Function name must be deriveable from path or explicitly provided")
-			return
-		}
-	}
 
 	// Assert runtime was provided, or default.
 	f.Runtime = cfg.Runtime

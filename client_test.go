@@ -56,8 +56,14 @@ func TestCreateWritesTemplate(t *testing.T) {
 // TestCreateInitializedAborts ensures that a directory which contains an initialized
 // function does not reinitialize
 func TestCreateInitializedAborts(t *testing.T) {
-	root := "testdata/example.com/testCreateInitializedAborts" // contains only a .faas.config
+	root := "testdata/example.com/testCreateInitializedAborts"
+	defer os.RemoveAll(root)
+
 	client := faas.New()
+	if err := client.Initialize(faas.Function{Root: root}); err != nil {
+		t.Fatal(err)
+	}
+
 	if err := client.Initialize(faas.Function{Root: root}); err == nil {
 		t.Fatal("error expected initilizing a path already containing an initialized Function")
 	}
@@ -67,6 +73,15 @@ func TestCreateInitializedAborts(t *testing.T) {
 // files aborts.
 func TestCreateNonemptyDirectoryAborts(t *testing.T) {
 	root := "testdata/example.com/testCreateNonemptyDirectoryAborts" // contains only a single visible file.
+	if err := os.MkdirAll(root, 0744); err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(root)
+	_, err := os.Create(root + "/file.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	client := faas.New()
 	if err := client.Initialize(faas.Function{Root: root}); err == nil {
 		t.Fatal("error expected initilizing a Function in a nonempty directory")
@@ -212,57 +227,6 @@ func TestUnsupportedRuntime(t *testing.T) {
 	}
 }
 
-// TestDeriveDomain ensures that the name of the service is a domain derived
-// from the current path if possible.
-// see unit tests on the pathToDomain for more detailed logic.
-func TestDeriveName(t *testing.T) {
-	// Create the root Function directory
-	root := "testdata/example.com/testDeriveDomain"
-	if err := os.MkdirAll(root, 0700); err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(root)
-
-	client := faas.New(faas.WithRepository(TestRepository))
-	if err := client.Create(faas.Function{Root: root}); err != nil {
-		t.Fatal(err)
-	}
-
-	f, err := faas.NewFunction(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if f.Name != "testDeriveDomain.example.com" {
-		t.Fatalf("unexpected function name '%v'", f.Name)
-	}
-}
-
-// TestDeriveSubdomans ensures that a subdirectory structure is interpreted as
-// multilevel subdomains when calculating a derived name for a service.
-func TestDeriveSubdomains(t *testing.T) {
-	// Create the test Function root
-	root := "testdata/example.com/region1/testDeriveSubdomains"
-	if err := os.MkdirAll(root, 0700); err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(root)
-
-	client := faas.New(faas.WithRepository(TestRepository))
-	if err := client.Create(faas.Function{Root: root}); err != nil {
-		t.Fatal(err)
-	}
-
-	f, err := faas.NewFunction(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if f.Name != "testDeriveSubdomains.region1.example.com" {
-		t.Fatalf("unexpected function name '%v'", f.Name)
-	}
-}
-
 // TestNamed ensures that an explicitly passed name is used in leau of the
 // path derived name when provided, and persists through instantiations.
 func TestNamed(t *testing.T) {
@@ -387,8 +351,8 @@ func TestDeriveImageDefaultRegistry(t *testing.T) {
 func TestCreateDelegates(t *testing.T) {
 	var (
 		root          = "testdata/example.com/testCreateDelegates" // .. in which to initialize
-		expectedName  = "testCreateDelegates.example.com"          // expected to be derived
-		expectedImage = "quay.io/alice/testCreateDelegates.example.com:latest"
+		expectedName  = "testCreateDelegates"          // expected to be derived
+		expectedImage = "quay.io/alice/testCreateDelegates:latest"
 		builder       = mock.NewBuilder()
 		pusher        = mock.NewPusher()
 		deployer      = mock.NewDeployer()
@@ -501,8 +465,8 @@ func TestRun(t *testing.T) {
 func TestUpdate(t *testing.T) {
 	var (
 		root          = "testdata/example.com/testUpdate"
-		expectedName  = "testUpdate.example.com"
-		expectedImage = "quay.io/alice/testUpdate.example.com:latest"
+		expectedName  = "testUpdate"
+		expectedImage = "quay.io/alice/testUpdate:latest"
 		builder       = mock.NewBuilder()
 		pusher        = mock.NewPusher()
 		updater       = mock.NewUpdater()
@@ -580,7 +544,7 @@ func TestUpdate(t *testing.T) {
 func TestRemoveByPath(t *testing.T) {
 	var (
 		root         = "testdata/example.com/testRemoveByPath"
-		expectedName = "testRemoveByPath.example.com"
+		expectedName = "testRemoveByPath"
 		remover      = mock.NewRemover()
 	)
 

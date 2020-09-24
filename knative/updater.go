@@ -38,9 +38,9 @@ func NewUpdater(namespaceOverride string) (updater *Updater, err error) {
 func (updater *Updater) Update(f faas.Function) error {
 	client, namespace := updater.client, updater.namespace
 
-	project, err := k8s.ToSubdomain(f.Name)
+	project, err := k8s.ToK8sAllowedName(f.Name)
 	if err != nil {
-		return fmt.Errorf("updater call to k8s.ToSubdomain failed: %v", err)
+		return fmt.Errorf("updater call to k8s.ToK8sAllowedName failed: %v", err)
 	}
 
 	service, err := client.Services(namespace).Get(project, apiMachineryV1.GetOptions{})
