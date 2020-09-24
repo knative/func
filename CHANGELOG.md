@@ -1,6 +1,25 @@
 # Change Log
 
 <a name="unreleased"></a>
+## [0.7.0](https://www.github.com/boson-project/faas/compare/v0.6.2...v0.7.0) (2020-09-24)
+
+
+### Features
+
+* add local debugging to node.js templates ([#132](https://www.github.com/boson-project/faas/issues/132)) ([1b0bb15](https://www.github.com/boson-project/faas/commit/1b0bb15147889bb55ff33de1dc132cb0370d1da6))
+* decouple function name from function domain ([#127](https://www.github.com/boson-project/faas/issues/127)) ([0258626](https://www.github.com/boson-project/faas/commit/025862689ec8dc460a1ef6f4402151c18a072ba3))
+* default to no confirmation prompts for CLI commands ([566d8f9](https://www.github.com/boson-project/faas/commit/566d8f9255d532e88e72d5bce122bebaee88bc81))
+* set builder images in templates and .faas.yaml ([#136](https://www.github.com/boson-project/faas/issues/136)) ([d6e131f](https://www.github.com/boson-project/faas/commit/d6e131f9153c20bd3edbf1441060610987fa5693))
+* **ci/cd:** add release-please for automated release management ([8a60c5e](https://www.github.com/boson-project/faas/commit/8a60c5e0c44d28d2ff085e56299217e05e408df8))
+
+
+### Bug Fixes
+
+* correct value for config path and robustify ([#130](https://www.github.com/boson-project/faas/issues/130)) ([fae27da](https://www.github.com/boson-project/faas/commit/fae27dabc97c78cd98be400d296da6fc2fbeba65))
+* delete command ([284b77f](https://www.github.com/boson-project/faas/commit/284b77f7ef6524195da958850131190399470375))
+* describe works without Eventing ([6c16e65](https://www.github.com/boson-project/faas/commit/6c16e65d60543458f0b70c010d672cb4d45f6279))
+* sync package-lock.json ([#137](https://www.github.com/boson-project/faas/issues/137)) ([02309a2](https://www.github.com/boson-project/faas/commit/02309a24a1d8779fb69e4f67fa4f7faea705b2ba))
+
 ## [Unreleased]
 
 
