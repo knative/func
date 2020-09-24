@@ -55,7 +55,9 @@ func runInit(cmd *cobra.Command, args []string) error {
 		Trigger: config.Trigger,
 	}
 
-	client := faas.New(faas.WithTemplates(config.Templates))
+	client := faas.New(
+		faas.WithTemplates(config.Templates),
+		faas.WithVerbose(config.Verbose))
 
 	return client.Initialize(function)
 }
@@ -82,6 +84,9 @@ type initConfig struct {
 	// Function which will be invoked with CloudEvents.
 	Trigger string
 
+	// Verbose output
+	Verbose bool
+
 	// Confirm: confirm values arrived upon from environment plus flags plus defaults,
 	// with interactive prompting (only applicable when attached to a TTY).
 	Confirm bool
@@ -103,6 +108,7 @@ func newInitConfig(args []string) initConfig {
 		Templates: viper.GetString("templates"),
 		Trigger:   viper.GetString("trigger"),
 		Confirm:   viper.GetBool("confirm"),
+		Verbose:   viper.GetBool("verbose"),
 	}
 }
 

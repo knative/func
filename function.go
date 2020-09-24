@@ -40,6 +40,9 @@ type Function struct {
 	// If Image is provided, it overrides the default of concatenating
 	// "Repo+Name:latest" to derive the Image.
 	Image string
+
+	// Builder represents the CNCF Buildpack builder image for a function
+	Builder string
 }
 
 // NewFunction loads a Function from a path on disk. use .Initialized() to determine if

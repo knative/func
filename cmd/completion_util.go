@@ -28,7 +28,7 @@ func CompleteFunctionList(cmd *cobra.Command, args []string, toComplete string) 
 }
 func CompleteRuntimeList(cmd *cobra.Command, args []string, toComplete string) (strings []string, directive cobra.ShellCompDirective) {
 	strings = []string{}
-	for lang := range buildpacks.Runtimes {
+	for lang := range buildpacks.RuntimeToBuildpack {
 		strings = append(strings, lang)
 	}
 	directive = cobra.ShellCompDirectiveDefault
