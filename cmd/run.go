@@ -15,9 +15,13 @@ func init() {
 
 var runCmd = &cobra.Command{
 	Use:   "run",
-	Short: "Run Function locally",
-	Long:  "Runs the function locally within an isolated environment.  Modifications to the Function trigger a reload.  This holds open the current window with the logs from the running Function, and the run is canceled on interrupt.",
-	RunE:  runRun,
+	Short: "Runs the Function locally",
+	Long: `Runs the Function locally
+
+Runs the project in the deployable image. The project must already have been
+built as an OCI container image using the 'build' command.
+`,
+	RunE: runRun,
 }
 
 func runRun(cmd *cobra.Command, args []string) (err error) {

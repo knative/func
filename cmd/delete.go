@@ -17,9 +17,20 @@ func init() {
 }
 
 var deleteCmd = &cobra.Command{
-	Use:               "delete <name>",
-	Short:             "Delete a Function deployment",
-	Long:              `Removes the deployed Function by name, by explicit path, or by default for the current directory.  No local files are deleted.`,
+	Use:   "delete <name>",
+	Short: "Delete a Function deployment",
+	Long: `Delete a Function deployment
+
+Removes a deployed function from the cluster. The user may specify a function
+by name, path using the --path or -p flag, or if neither of those are provided,
+the current directory will be searched for a .faas.yaml configuration file to
+determine the function to be removed.
+
+The namespace defaults to the value in .faas.yaml or the namespace currently
+active in the user's Kubernetes configuration. The namespace may be specified
+on the command line using the --namespace or -n flag, and if so this will
+overwrite the value in .faas.yaml.
+`,
 	SuggestFor:        []string{"remove", "rm", "del"},
 	ValidArgsFunction: CompleteFunctionList,
 	PreRunE:           bindEnv("path", "confirm", "namespace"),

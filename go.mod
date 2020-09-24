@@ -14,7 +14,6 @@ require (
 	github.com/ory/viper v1.7.4
 	github.com/spf13/cobra v1.0.0
 	github.com/stretchr/testify v1.5.1 // indirect
-	golang.org/x/net v0.0.0-20200520004742-59133d7f0dd7
 	golang.org/x/sys v0.0.0-20200728102440-3e129f6d46b1 // indirect
 	gopkg.in/yaml.v2 v2.3.0
 	k8s.io/api v0.17.4

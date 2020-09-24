@@ -21,9 +21,9 @@ func init() {
 	createCmd.Flags().StringP("image", "i", "", "Optional full image name, in form [registry]/[namespace]/[name]:[tag] for example quay.io/myrepo/project.name:latest (overrides --repository) - $FAAS_IMAGE")
 	createCmd.Flags().StringP("namespace", "n", "", "Override namespace into which the Function is deployed (on supported platforms).  Default is to use currently active underlying platform setting - $FAAS_NAMESPACE")
 	createCmd.Flags().StringP("repository", "r", "", "Repository for built images, ex 'docker.io/myuser' or just 'myuser'.  Optional if --image provided. - $FAAS_REPOSITORY")
-	createCmd.Flags().StringP("runtime", "l", faas.DefaultRuntime, "Function runtime language/framework. - $FAAS_RUNTIME")
+	createCmd.Flags().StringP("runtime", "l", faas.DefaultRuntime, "Function runtime language/framework. Default runtime is 'go'. Available runtimes: 'node', 'quarkus' and 'go'. - $FAAS_RUNTIME")
 	createCmd.Flags().StringP("templates", "", filepath.Join(configPath(), "templates"), "Extensible templates path. - $FAAS_TEMPLATES")
-	createCmd.Flags().StringP("trigger", "t", faas.DefaultTrigger, "Function trigger (ex: 'http','events') - $FAAS_TRIGGER")
+	createCmd.Flags().StringP("trigger", "t", faas.DefaultTrigger, "Function trigger. Default trigger is 'http'. Available triggers: 'http' and 'events' - $FAAS_TRIGGER")
 
 	var err error
 	err = createCmd.RegisterFlagCompletionFunc("image", CompleteRegistryList)
@@ -37,8 +37,23 @@ func init() {
 }
 
 var createCmd = &cobra.Command{
-	Use:        "create <path>",
-	Short:      "Create a new Function, including initialization of local files and deployment.",
+	Use:   "create <path>",
+	Short: "Create a new Function, including initialization of local files and deployment",
+	Long: `Create a new Function, including initialization of local files and deployment
+
+Creates a new Function project at <path>. If <path> does not exist, it is
+created. The Function name is the name of the leaf directory at <path>. After
+creating the project, a container image is created and is deployed. This
+command wraps "init", "build" and "deploy" all up into one command.
+
+The runtime, trigger, image name, image repository, and namespace may all be
+specified as flags on the command line, and will subsequently be the default
+values when an image is built or a Function is deployed. If the image name and
+image repository are both unspecified, the user will be prompted for a
+repository name, and the image name can be inferred from that plus the function
+name. The function name, namespace, image name and repository name are all
+persisted in the project configuration file .faas.yaml.
+`,
 	SuggestFor: []string{"cerate", "new"},
 	PreRunE:    bindEnv("image", "namespace", "repository", "runtime", "templates", "trigger", "confirm"),
 	RunE:       runCreate,
