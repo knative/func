@@ -29,10 +29,10 @@ directory may be provided using the --path or -p flag. The image to be deployed
 must have already been created using the "build" command.
 
 The namespace into which the project is deployed defaults to the value in the
-.faas.yaml configuration file. If NAMESPACE is not set in the configuration,
+faas.yaml configuration file. If NAMESPACE is not set in the configuration,
 the namespace currently active in the Kubernetes configuration file will be
 used. The namespace may be specified on the command line using the --namespace
-or -n flag, and if so this will overwrite the value in the .faas.yaml file.
+or -n flag, and if so this will overwrite the value in the faas.yaml file.
 `,
 	SuggestFor: []string{"delpoy", "deplyo"},
 	PreRunE:    bindEnv("namespace", "path", "confirm"),

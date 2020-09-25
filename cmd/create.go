@@ -52,7 +52,7 @@ values when an image is built or a Function is deployed. If the image name and
 image repository are both unspecified, the user will be prompted for a
 repository name, and the image name can be inferred from that plus the function
 name. The function name, namespace, image name and repository name are all
-persisted in the project configuration file .faas.yaml.
+persisted in the project configuration file faas.yaml.
 `,
 	SuggestFor: []string{"cerate", "new"},
 	PreRunE:    bindEnv("image", "namespace", "repository", "runtime", "templates", "trigger", "confirm"),
