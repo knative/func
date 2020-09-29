@@ -27,15 +27,15 @@ var updateCmd = &cobra.Command{
 	Long: `Update a deployed Function
 
 Updates the deployed Function project in the current directory or in the
-directory specified by the --path flag. Reads the .faas.yaml configuration file
+directory specified by the --path flag. Reads the faas.yaml configuration file
 to determine the image name.
 
 The deployed Function is updated with a new container image that is pushed to a
 container image repository, and the Knative Service is updated.
 
-The namespace defaults to the value in .faas.yaml or the namespace currently
+The namespace defaults to the value in faas.yaml or the namespace currently
 active in the user Kubernetes configuration. The namespace may be specified on
-the command line, and if so this will overwrite the value in .faas.yaml.
+the command line, and if so this will overwrite the value in faas.yaml.
 
 An image repository may be specified on the command line using the --repository
 or -r flag.

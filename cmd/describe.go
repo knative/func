@@ -36,9 +36,9 @@ Prints the name, route and any event subscriptions for a deployed Function in
 the current directory. A path to a Function project directory may be supplied
 using the --path or -p flag.
 
-The namespace defaults to the value in .faas.yaml or the namespace currently
+The namespace defaults to the value in faas.yaml or the namespace currently
 active in the user's Kubernetes configuration. The namespace may be specified
-using the --namespace or -n flag, and if so this will overwrite the value in .faas.yaml.
+using the --namespace or -n flag, and if so this will overwrite the value in faas.yaml.
 `,
 	SuggestFor:        []string{"desc", "get"},
 	ValidArgsFunction: CompleteFunctionList,
