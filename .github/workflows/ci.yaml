@@ -9,12 +9,6 @@ jobs:
   build-and-publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: GoogleCloudPlatform/release-please-action@v2.1.1
-        id: release
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          release-type: simple
-
       # Standard build tasks
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
@@ -52,17 +46,26 @@ jobs:
           docker login -u "$USER" -p "$PASS" quay.io
           make push && make latest
 
+      # Create a release, or update the release PR
+      - uses: GoogleCloudPlatform/release-please-action@v2.1.1
+        id: release
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          release-type: simple
+
       # The following steps are only executed if this is a release
       - name: Compress Binaries
         if: ${{ steps.release.outputs.release_created }}
         run: gzip faas_darwin_amd64 faas_linux_amd64 faas_windows_amd64.exe
+
+      # Upload all binaries
       - name: Upload Darwin Binary
         uses: actions/upload-release-asset@v1
         if: ${{ steps.release.outputs.release_created }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          upload_url: ${{ steps.release.outputs.upload_url }}
           asset_path: ./faas_darwin_amd64.gz
           asset_name: faas_darwin_amd64.gz
           asset_content_type: application/x-gzip
@@ -72,7 +75,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          upload_url: ${{ steps.release.outputs.upload_url }}
           asset_path: ./faas_linux_amd64.gz
           asset_name: faas_linux_amd64.gz
           asset_content_type: application/x-gzip
@@ -82,18 +85,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          upload_url: ${{ steps.release.outputs.upload_url }}
           asset_path: ./faas_windows_amd64.exe.gz
           asset_name: faas_windows_amd64.exe.gz
           asset_content_type: application/x-gzip
-      - name: Create Release
-        id: create_release
-        if: ${{ steps.release.outputs.release_created }}
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
-          draft: false
-          prerelease: false
