@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"encoding/json"
+	"github.com/boson-project/faas"
 	"os"
 	"os/user"
 	"path"
@@ -64,6 +65,34 @@ func CompleteRegistryList(cmd *cobra.Command, args []string, toComplete string) 
 	for reg := range auth {
 		strings = append(strings, reg)
 	}
+	directive = cobra.ShellCompDirectiveDefault
+	return
+}
+
+func CompleteBuilderList(cmd *cobra.Command, args []string, complete string) (strings []string, directive cobra.ShellCompDirective) {
+	directive = cobra.ShellCompDirectiveError
+
+	var (
+		err  error
+		path string
+		f    faas.Function
+	)
+
+	path, err = cmd.Flags().GetString("path")
+	if err != nil {
+		return
+	}
+
+	f, err = faas.NewFunction(path)
+	if err != nil {
+		return
+	}
+
+	strings = make([]string, 0, len(f.BuilderMap))
+	for name := range f.BuilderMap {
+		strings = append(strings, name)
+	}
+
 	directive = cobra.ShellCompDirectiveDefault
 	return
 }

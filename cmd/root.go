@@ -123,6 +123,7 @@ func bindEnv(flags ...string) bindFunc {
 type functionOverrides struct {
 	Image     string
 	Namespace string
+	Builder   string
 }
 
 // functionWithOverrides sets the namespace and image strings for the
@@ -138,6 +139,7 @@ func functionWithOverrides(root string, overrides functionOverrides) (f faas.Fun
 		src  string
 		dest *string
 	} {
+		{overrides.Builder, &f.Builder},
 		{overrides.Image, &f.Image},
 		{overrides.Namespace, &f.Namespace},
 	}

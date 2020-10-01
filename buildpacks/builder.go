@@ -36,6 +36,10 @@ func (builder *Builder) Build(f faas.Function) (err error) {
 	var packBuilder string
 	if f.Builder != "" {
 		packBuilder = f.Builder
+		pb, ok := f.BuilderMap[packBuilder]
+		if ok {
+			packBuilder = pb
+		}
 	} else {
 		packBuilder = RuntimeToBuildpack[f.Runtime]
 		if packBuilder == "" {
