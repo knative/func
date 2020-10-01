@@ -47,7 +47,7 @@ jobs:
           make push && make latest
 
       # Create a release, or update the release PR
-      - uses: GoogleCloudPlatform/release-please-action@v2.1.1
+      - uses: GoogleCloudPlatform/release-please-action@v2.4.1
         id: release
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
