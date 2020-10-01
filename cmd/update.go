@@ -50,7 +50,7 @@ update is run, a new container image is always built.
 
 func runUpdate(cmd *cobra.Command, args []string) (err error) {
 	config := newUpdateConfig()
-	function, err := functionWithOverrides(config.Path, config.Namespace, "")
+	function, err := functionWithOverrides(config.Path, functionOverrides{Namespace: config.Namespace})
 	if err != nil {
 		return err
 	}

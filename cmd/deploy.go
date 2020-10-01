@@ -41,7 +41,7 @@ or -n flag, and if so this will overwrite the value in the faas.yaml file.
 
 func runDeploy(cmd *cobra.Command, _ []string) (err error) {
 	config := newDeployConfig()
-	function, err := functionWithOverrides(config.Path, config.Namespace, "")
+	function, err := functionWithOverrides(config.Path, functionOverrides{Namespace: config.Namespace})
 	if err != nil {
 		return err
 	}

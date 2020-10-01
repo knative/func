@@ -41,7 +41,7 @@ these values will be read from the configuration file.
 
 func runBuild(cmd *cobra.Command, _ []string) (err error) {
 	config := newBuildConfig()
-	function, err := functionWithOverrides(config.Path, "", config.Image)
+	function, err := functionWithOverrides(config.Path, functionOverrides{Image: config.Image})
 	if err != nil {
 		return
 	}
