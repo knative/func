@@ -13,10 +13,10 @@ import (
 
 func init() {
 	root.AddCommand(buildCmd)
+	buildCmd.Flags().StringP("builder", "b", "default", "Buildpacks builder")
 	buildCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options - $FAAS_CONFIRM")
 	buildCmd.Flags().StringP("image", "i", "", "Optional full image name, in form [registry]/[namespace]/[name]:[tag] for example quay.io/myrepo/project.name:latest (overrides --repository) - $FAAS_IMAGE")
 	buildCmd.Flags().StringP("path", "p", cwd(), "Path to the Function project directory - $FAAS_PATH")
-	buildCmd.Flags().StringP("builder", "b", "default", "Buildpacks builder")
 	buildCmd.Flags().StringP("repository", "r", "", "Repository for built images, ex 'docker.io/myuser' or just 'myuser'.  Optional if --image provided. - $FAAS_REPOSITORY")
 
 	err := buildCmd.RegisterFlagCompletionFunc("builder", CompleteBuilderList)
@@ -40,7 +40,7 @@ Any value provided for --image or --repository will be persisted in the
 faas.yaml configuration file. On subsequent invocations of the "build" command
 these values will be read from the configuration file.
 
-It's possible to set custom Buildpacks builder by --builder flag.
+It's possible to use a custom Buildpack builder with the --builder flag.
 The value may be image name e.g. "cnbs/sample-builder:bionic",
 or reference to builderMaps in the config file e.g. "default".
 `,
