@@ -57,6 +57,7 @@ func runDeploy(cmd *cobra.Command, _ []string) (err error) {
 
 	deployer := knative.NewDeployer()
 	deployer.Verbose = config.Verbose
+	deployer.Namespace = function.Namespace
 
 	client := faas.New(
 		faas.WithVerbose(config.Verbose),
