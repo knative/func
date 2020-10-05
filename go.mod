@@ -4,7 +4,7 @@ go 1.14
 
 require (
 	github.com/buildpacks/pack v0.14.0
-	github.com/markbates/pkger v0.17.0
+	github.com/markbates/pkger v0.17.1
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/ory/viper v1.7.4
 	github.com/spf13/cobra v1.0.1-0.20201006035406-b97b5ead31f7

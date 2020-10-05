@@ -866,8 +866,8 @@ github.com/mailru/easyjson v0.7.1-0.20191009090205-6c0755d89d1e h1:jcoUdG1TzY/M/
 github.com/mailru/easyjson v0.7.1-0.20191009090205-6c0755d89d1e/go.mod h1:KAzv3t3aY1NaHWoQz1+4F1ccyAH66Jk7yos7ldAVICs=
 github.com/maratori/testpackage v1.0.1/go.mod h1:ddKdw+XG0Phzhx8BFDTKgpWP4i7MpApTE5fXSKAqwDU=
 github.com/markbates/inflect v1.0.4/go.mod h1:1fR9+pO2KHEO9ZRtto13gDwwZaAKstQzferVeWqbgNs=
-github.com/markbates/pkger v0.17.0 h1:RFfyBPufP2V6cddUyyEVSHBpaAnM1WzaMNyqomeT+iY=
-github.com/markbates/pkger v0.17.0/go.mod h1:0JoVlrol20BSywW79rN3kdFFsE5xYM+rSCQDXbLhiuI=
+github.com/markbates/pkger v0.17.1 h1:/MKEtWqtc0mZvu9OinB9UzVN9iYCwLWuyUv4Bw+PCno=
+github.com/markbates/pkger v0.17.1/go.mod h1:0JoVlrol20BSywW79rN3kdFFsE5xYM+rSCQDXbLhiuI=
 github.com/marstr/guid v1.1.0/go.mod h1:74gB1z2wpxxInTG6yaqA7KrtM0NZ+RbrcqDvYHefzho=
 github.com/matoous/godox v0.0.0-20190911065817-5d6d842e92eb/go.mod h1:1BELzlh859Sh1c6+90blK8lbYy0kwQf1bYlBhBysy1s=
 github.com/mattbaird/jsonpatch v0.0.0-20171005235357-81af80346b1a/go.mod h1:M1qoD/MqPgTZIk0EWKB38wE28ACRfVcn+cU08jyArI0=
