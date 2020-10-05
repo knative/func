@@ -6,8 +6,8 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
-	"knative.dev/eventing/pkg/apis/eventing/v1alpha1"
-	eventingv1client "knative.dev/eventing/pkg/client/clientset/versioned/typed/eventing/v1alpha1"
+	"knative.dev/eventing/pkg/apis/eventing/v1beta1"
+	eventingv1client "knative.dev/eventing/pkg/client/clientset/versioned/typed/eventing/v1beta1"
 	servingv1client "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
 
 	"github.com/boson-project/faas"
@@ -18,7 +18,7 @@ type Describer struct {
 	Verbose        bool
 	namespace      string
 	servingClient  *servingv1client.ServingV1alpha1Client
-	eventingClient *eventingv1client.EventingV1alpha1Client
+	eventingClient *eventingv1client.EventingV1beta1Client
 	config         *rest.Config
 }
 
@@ -79,7 +79,7 @@ func (describer *Describer) Describe(name string) (description faas.Description,
 		return
 	}
 
-	triggerMatches := func(t *v1alpha1.Trigger) bool {
+	triggerMatches := func(t *v1beta1.Trigger) bool {
 		return (t.Spec.Subscriber.Ref != nil && t.Spec.Subscriber.Ref.Name == service.Name) ||
 			(t.Spec.Subscriber.URI != nil && service.Status.Address != nil && service.Status.Address.URL != nil &&
 				t.Spec.Subscriber.URI.Path == service.Status.Address.URL.Path)
@@ -89,7 +89,7 @@ func (describer *Describer) Describe(name string) (description faas.Description,
 	subscriptions := make([]faas.Subscription, 0, len(triggers.Items))
 	for _, trigger := range triggers.Items {
 		if triggerMatches(&trigger) {
-			filterAttrs := *trigger.Spec.Filter.Attributes
+			filterAttrs := trigger.Spec.Filter.Attributes
 			subscription := faas.Subscription{
 				Source: filterAttrs["source"],
 				Type:   filterAttrs["type"],

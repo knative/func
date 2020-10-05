@@ -6,8 +6,7 @@ import (
 	"io"
 	"os"
 
-	commands "knative.dev/client/pkg/kn/commands"
-	"knative.dev/client/pkg/kn/core"
+	"knative.dev/client/pkg/kn/root"
 
 	"github.com/boson-project/faas"
 	"github.com/boson-project/faas/k8s"
@@ -45,10 +44,10 @@ func (d *Deployer) Deploy(f faas.Function) (err error) {
 		output = &bytes.Buffer{}
 	}
 
-	params := commands.KnParams{}
-	params.Initialize()
-	params.Output = output
-	c := core.NewKnCommand(params)
+	c, err := root.NewRootCommand(nil)
+	if err != nil {
+		return err
+	}
 	c.SetOut(output)
 	args := []string{
 		"service", "create", encodedName,
