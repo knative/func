@@ -360,6 +360,7 @@ func (c *Client) Initialize(cfg Function) (err error) {
 			if c.verbose {
 				fmt.Printf("Builder: %s\n", f.Builder)
 			}
+			f.BuilderMap = builders
 		}
 		// Remove the builders.yaml file so the user is not confused by a
 		// configuration file that is only used for project creation/initialization

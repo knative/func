@@ -41,8 +41,13 @@ type Function struct {
 	// "Repo+Name:latest" to derive the Image.
 	Image string
 
-	// Builder represents the CNCF Buildpack builder image for a function
-	Builder string
+	// Builder represents the CNCF Buildpack builder image for a function,
+	// or it might be reference to `BuilderMap`.
+	Builder    string
+
+	// Map containing known builders.
+	// e.g. { "jvm": "docker.io/example/quarkus-jvm-builder" }
+	BuilderMap map[string]string
 }
 
 // NewFunction loads a Function from a path on disk. use .Initialized() to determine if

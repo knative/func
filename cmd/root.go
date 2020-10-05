@@ -120,48 +120,44 @@ func bindEnv(flags ...string) bindFunc {
 	}
 }
 
-// overrideImage overwrites (or sets) the value of the Function's .Image
-// property, which preempts the default functionality of deriving the value as:
-// Deafult:  [config.Repository]/[config.Name]:latest
-func overrideImage(root, override string) (err error) {
-	if override == "" {
-		return
-	}
-	f, err := faas.NewFunction(root)
-	if err != nil {
-		return err
-	}
-	f.Image = override
-	return f.WriteConfig()
-}
-
-// overrideNamespace overwrites (or sets) the value of the Function's .Namespace
-// property, which preempts the default functionality of using the underlying
-// platform configuration (if supported).  In the case of Kubernetes, this
-// overrides the configured namespace (usually) set in ~/.kube.config.
-func overrideNamespace(root, override string) (err error) {
-	if override == "" {
-		return
-	}
-	f, err := faas.NewFunction(root)
-	if err != nil {
-		return err
-	}
-	f.Namespace = override
-	return f.WriteConfig()
+type functionOverrides struct {
+	Image     string
+	Namespace string
+	Builder   string
 }
 
 // functionWithOverrides sets the namespace and image strings for the
 // Function project at root, if provided, and returns the Function
 // configuration values
-func functionWithOverrides(root, namespace, image string) (f faas.Function, err error) {
-	if err = overrideNamespace(root, namespace); err != nil {
+func functionWithOverrides(root string, overrides functionOverrides) (f faas.Function, err error) {
+	f, err = faas.NewFunction(root)
+	if err != nil {
 		return
 	}
-	if err = overrideImage(root, image); err != nil {
+
+	overrideMapping := []struct{
+		src  string
+		dest *string
+	} {
+		{overrides.Builder, &f.Builder},
+		{overrides.Image, &f.Image},
+		{overrides.Namespace, &f.Namespace},
+	}
+
+	for _, m := range overrideMapping {
+		if m.src != "" {
+			*m.dest = m.src
+		}
+	}
+
+	err =  f.WriteConfig()
+	if err != nil {
 		return
 	}
-	return faas.NewFunction(root)
+
+	f, err = faas.NewFunction(root)
+	return
+
 }
 
 // deriveName returns the explicit value (if provided) or attempts to derive

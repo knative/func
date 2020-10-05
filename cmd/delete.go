@@ -42,6 +42,7 @@ func runDelete(cmd *cobra.Command, args []string) (err error) {
 
 	remover := knative.NewRemover(config.Namespace)
 	remover.Verbose = config.Verbose
+	remover.Namespace = config.Namespace
 
 	function := faas.Function{Root: config.Path, Name: config.Name}
 
