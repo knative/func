@@ -87,7 +87,10 @@ func runCreate(cmd *cobra.Command, args []string) (err error) {
 	pusher := docker.NewPusher()
 	pusher.Verbose = verbose
 
-	deployer := knative.NewDeployer()
+	deployer, err := knative.NewDeployer(config.Namespace)
+	if err != nil {
+		return
+	}
 	deployer.Verbose = verbose
 
 	listener := progress.New()
@@ -107,7 +110,6 @@ func runCreate(cmd *cobra.Command, args []string) (err error) {
 
 type createConfig struct {
 	initConfig
-	buildConfig
 	deployConfig
 	// Note that ambiguous references set to assume .initConfig
 }
@@ -115,7 +117,6 @@ type createConfig struct {
 func newCreateConfig(args []string) createConfig {
 	return createConfig{
 		initConfig:   newInitConfig(args),
-		buildConfig:  newBuildConfig(),
 		deployConfig: newDeployConfig(),
 	}
 }
@@ -142,10 +143,10 @@ func (c createConfig) Prompt() createConfig {
 			Trigger: prompt.ForString("Trigger", c.Trigger),
 			// Templates intentionally omitted from prompt for being an edge case.
 		},
-		buildConfig: buildConfig{
-			Repository: prompt.ForString("Repository for Function images", c.buildConfig.Repository),
-		},
 		deployConfig: deployConfig{
+			buildConfig: buildConfig{
+				Repository: prompt.ForString("Repository for Function images", c.buildConfig.Repository),
+			},
 			Namespace: prompt.ForString("Override default deploy namespace", c.Namespace),
 		},
 	}

@@ -43,7 +43,7 @@ type Function struct {
 
 	// Builder represents the CNCF Buildpack builder image for a function,
 	// or it might be reference to `BuilderMap`.
-	Builder    string
+	Builder string
 
 	// Map containing known builders.
 	// e.g. { "jvm": "docker.io/example/quarkus-jvm-builder" }
@@ -94,7 +94,8 @@ func (f Function) Initialized() bool {
 	if err != nil {
 		return false
 	}
-	return c.Name != "" // TODO: use a dedicated initialized bool?
+
+	return c.Runtime != "" && c.Name != ""
 }
 
 // DerivedImage returns the derived image name (OCI container tag) of the

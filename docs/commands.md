@@ -52,40 +52,30 @@ kn faas run
 
 ## `deploy`
 
-Deploys the Function project in the current directory. The user may specify a path to the project directory as a flag. Reads the `faas.yaml` configuration file to determine the image name. Derives the service name from the project name. There is no command line option to specify the image name, although this can be changed in `faas.yaml`. There is no mechanism by which the user can specify the service name. The user must have already built an image for this function using `faas deploy` or they will encounter an error.
+Builds and deploys the Function project in the current directory. The user may specify a path to the project directory using the `--path` or `-p` flag. Reads the `faas.yaml` configuration file to determine the image name. An image and repository may be specified on the command line using the  `--image` or `-i`
+and `--repository` or `-r` flag.
 
-The namespace defaults to the value in `faas.yaml` or the namespace currently active in the user's Kubernetes configuration. The namespace may be specified on the command line, and if so this will overwrite the value in `faas.yaml`.
+Derives the service name from the project name. There is no mechanism by which the user can specify the service name. The user must have already initialize the  function using `faas init` or they will encounter an error.
+
+If the Function is already deployed, it is updated with a new container image that is pushed to a
+container image repository, and the Knative Service is updated.
+
+The namespace into which the project is deployed defaults to the value in the
+`faas.yaml` configuration file. If `NAMESPACE` is not set in the configuration,
+the namespace currently active in the Kubernetes configuration file will be
+used. The namespace may be specified on the command line using the `--namespace`
+or `-n` flag, and if so this will overwrite the value in the `faas.yaml` file.
 
 Similar `kn` command: `kn service create NAME --image IMAGE [flags]`. This command allows a user to deploy a Knative Service by specifying an image, typically one hosted on a public container registry such as docker.io. The deployment options which the `kn` command affords the user are quite broad. The `kn` command in this case is quite effective for a power user. The `faas deploy` command has a similar end result, but is definitely easier for a user just getting started to be successful with.
 
 ```console
-faas deploy [-n <namespace> -p <path>]
+faas deploy [-n <namespace> -p <path> -i <image> -r <repository>]
 ```
 
 When run as a `kn` plugin.
 
 ```console
-kn faas deploy [-n <namespace> -p <path>]
-```
-
-## `update`
-
-Updates the deployed Function project in the current directory. The user may specify the path on the command line with a flag. Reads the `faas.yaml` configuration file to determine the image name. Derives the service name from the project name. The deployed Function is updated with a new container image that is pushed to a user repository, and the Knative `Service` is then updated.
-
-The namespace defaults to the value in `faas.yaml` or the namespace currently active in the user's Kubernetes configuration. The namespace may be specified on the command line, and if so this will overwrite the value in `faas.yaml`. The user may specify a repository on the command line.
-
-Note that the behavior of `update` is different than that of `deploy` and `run`.  When `update` is run, a new container image is always built. However, for `deploy` and `run`, the user is required to run `faas build` first. The `update` command also differs from `deploy` in that it allows the user to specify a repository on the command line (but still not an image name). Consider normalizing all of this so that all of these commands behave similarly.
-
-Similar `kn` command: `kn service update NAME [flags]`. As with `deploy`, the `update` command provides a level of simplicity for a new user that restricts flexibility while improving the ease of use.
-
-```console
-faas update [-r <repository> -p <path>]
-```
-
-When run as a `kn` plugin.
-
-```console
-kn faas update [-r <repository> -p <path>]
+kn faas deploy [-n <namespace> -p <path> -i <image> -r <repository>]
 ```
 
 ## `describe`

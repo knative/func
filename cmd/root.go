@@ -150,12 +150,6 @@ func functionWithOverrides(root string, overrides functionOverrides) (f faas.Fun
 		}
 	}
 
-	err =  f.WriteConfig()
-	if err != nil {
-		return
-	}
-
-	f, err = faas.NewFunction(root)
 	return
 
 }
