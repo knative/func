@@ -1,6 +1,20 @@
 # Change Log
 
 <a name="unreleased"></a>
+## [0.8.0](https://www.github.com/boson-project/faas/compare/v0.7.0...v0.8.0) (2020-10-06)
+
+
+### Features
+
+* ability for users to specify custom builders ([#147](https://www.github.com/boson-project/faas/issues/147)) ([c2b4a30](https://www.github.com/boson-project/faas/commit/c2b4a304bd3fa7d020c71db9f4d79c80c98d86d3))
+* fish completion ([d822303](https://www.github.com/boson-project/faas/commit/d82230353d3d437e8f35e7f9ce3569988d765b42))
+
+
+### Bug Fixes
+
+* stop using manually edited completion ([bf9b048](https://www.github.com/boson-project/faas/commit/bf9b04881333fed6038251fa4de92368771840d9))
+* update to Knative 0.17 ([#145](https://www.github.com/boson-project/faas/issues/145)) ([5fe7052](https://www.github.com/boson-project/faas/commit/5fe70526e531e283c6704d9526e3cdd7ef64f9e1))
+
 ## [0.7.0](https://www.github.com/boson-project/faas/compare/v0.6.2...v0.7.0) (2020-09-24)
 
 
