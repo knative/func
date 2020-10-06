@@ -28,7 +28,7 @@ type Client struct {
 	describer         Describer
 	dnsProvider       DNSProvider      // Provider of DNS services
 	templates         string           // path to extensible templates
-	repository        string           // default repo for OCI image tags
+	registry          string           // default registry for OCI image tags
 	domainSearchLimit int              // max recursion when deriving domain
 	progressListener  ProgressListener // progress listener
 }
@@ -225,13 +225,13 @@ func WithTemplates(templates string) Option {
 	}
 }
 
-// WithRepository sets the default registry which is consulted when an image name/tag
+// WithRegistry sets the default registry which is consulted when an image name/tag
 // is not explocitly provided.  Can be fully qualified, including the registry
 // (ex: 'quay.io/myname') or simply the namespace 'myname' which indicates the
 // the use of the default registry.
-func WithRepository(repository string) Option {
+func WithRegistry(registry string) Option {
 	return func(c *Client) {
-		c.repository = repository
+		c.registry = registry
 	}
 }
 
@@ -377,7 +377,7 @@ func (c *Client) Build(path string) (err error) {
 	}
 
 	// Derive Image from the path (precedence is given to extant config)
-	if f.Image, err = DerivedImage(path, c.repository); err != nil {
+	if f.Image, err = DerivedImage(path, c.registry); err != nil {
 		return
 	}
 

@@ -17,10 +17,10 @@ import (
 func init() {
 	root.AddCommand(deployCmd)
 	deployCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options - $FAAS_CONFIRM")
-	deployCmd.Flags().StringP("image", "i", "", "Optional full image name, in form [registry]/[namespace]/[name]:[tag] for example quay.io/myrepo/project.name:latest (overrides --repository) - $FAAS_IMAGE")
+	deployCmd.Flags().StringP("image", "i", "", "Optional full image name, in form [registry]/[namespace]/[name]:[tag] for example quay.io/myrepo/project.name:latest (overrides --registry) - $FAAS_IMAGE")
 	deployCmd.Flags().StringP("namespace", "n", "", "Override namespace into which the Function is deployed (on supported platforms).  Default is to use currently active underlying platform setting - $FAAS_NAMESPACE")
 	deployCmd.Flags().StringP("path", "p", cwd(), "Path to the function project directory - $FAAS_PATH")
-	deployCmd.Flags().StringP("repository", "r", "", "Repository for built images, ex 'docker.io/myuser' or just 'myuser'.  - $FAAS_REPOSITORY")
+	deployCmd.Flags().StringP("registry", "r", "", "Image registry for built images, ex 'docker.io/myuser' or just 'myuser'.  - $FAAS_REGISTRY")
 }
 
 var deployCmd = &cobra.Command{
@@ -31,11 +31,11 @@ var deployCmd = &cobra.Command{
 Builds and Deploys the Function project in the current directory. 
 A path to the project directory may be provided using the --path or -p flag.
 Reads the faas.yaml configuration file to determine the image name. 
-An image and repository may be specified on the command line using 
-the --image or -i and --repository or -r flag.
+An image and registry may be specified on the command line using 
+the --image or -i and --registry or -r flag.
 
 If the Function is already deployed, it is updated with a new container image
-that is pushed to an image repository, and the Knative Service is updated.
+that is pushed to an image registry, and the Knative Service is updated.
 
 The namespace into which the project is deployed defaults to the value in the
 faas.yaml configuration file. If NAMESPACE is not set in the configuration,
@@ -46,7 +46,7 @@ or -n flag, and if so this will overwrite the value in the faas.yaml file.
 
 `,
 	SuggestFor: []string{"delpoy", "deplyo"},
-	PreRunE:    bindEnv("image", "namespace", "path", "repository", "confirm"),
+	PreRunE:    bindEnv("image", "namespace", "path", "registry", "confirm"),
 	RunE:       runDeploy,
 }
 
@@ -66,18 +66,18 @@ func runDeploy(cmd *cobra.Command, _ []string) (err error) {
 
 	// If the Function does not yet have an image name and one was not provided on the command line
 	if function.Image == "" {
-		//  AND a --repository was not provided, then we need to
-		// prompt for a repository from which we can derive an image name.
-		if config.Repository == "" {
-			fmt.Print("A repository for Function images is required. For example, 'docker.io/tigerteam'.\n\n")
-			config.Repository = prompt.ForString("Repository for Function images", "")
-			if config.Repository == "" {
+		//  AND a --registry was not provided, then we need to
+		// prompt for a registry from which we can derive an image name.
+		if config.Registry == "" {
+			fmt.Print("A registry for Function images is required. For example, 'docker.io/tigerteam'.\n\n")
+			config.Registry = prompt.ForString("Registry for Function images", "")
+			if config.Registry == "" {
 				return fmt.Errorf("Unable to determine Function image name")
 			}
 		}
 
-		// We have the repository, so let's use it to derive the Function image name
-		config.Image = deriveImage(config.Image, config.Repository, config.Path)
+		// We have the registry, so let's use it to derive the Function image name
+		config.Image = deriveImage(config.Image, config.Registry, config.Path)
 		function.Image = config.Image
 	}
 
@@ -105,7 +105,7 @@ func runDeploy(cmd *cobra.Command, _ []string) (err error) {
 
 	client := faas.New(
 		faas.WithVerbose(config.Verbose),
-		faas.WithRepository(config.Repository), // for deriving image name when --image not provided explicitly.
+		faas.WithRegistry(config.Registry), // for deriving image name when --image not provided explicitly.
 		faas.WithBuilder(builder),
 		faas.WithPusher(pusher),
 		faas.WithDeployer(deployer),
@@ -161,14 +161,14 @@ func (c deployConfig) Prompt() deployConfig {
 	}
 	dc := deployConfig{
 		buildConfig: buildConfig{
-			Repository: prompt.ForString("Repository for Function images", c.buildConfig.Repository),
+			Registry: prompt.ForString("Registry for Function images", c.buildConfig.Registry),
 		},
 		Namespace: prompt.ForString("Namespace", c.Namespace),
 		Path:      prompt.ForString("Project path", c.Path),
 		Verbose:   c.Verbose,
 	}
 
-	dc.Image = deriveImage(dc.Image, dc.Repository, dc.Path)
+	dc.Image = deriveImage(dc.Image, dc.Registry, dc.Path)
 
 	return dc
 }

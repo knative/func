@@ -4,7 +4,7 @@ Developer's can integrate directly with the Function system using the client lib
 
 ## Using the Client Library
 
-To create a Client which uses the included buildpacks-based function builder, pushes to a Quay.io repository function container artifacts and deploys to a Knative enabled cluster: 
+To create a Client which uses the included buildpacks-based function builder, pushes to a Quay.io registry function container artifacts and deploys to a Knative enabled cluster: 
 ```go
 package main
 

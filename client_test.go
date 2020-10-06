@@ -11,10 +11,10 @@ import (
 	"github.com/boson-project/faas/mock"
 )
 
-// TestRepository for calculating destination image during tests.
+// TestRegistry for calculating destination image during tests.
 // Will be optional once we support in-cluster container registries
-// by default.  See TestRepositoryRequired for details.
-const TestRepository = "quay.io/alice"
+// by default.  See TestRegistryRequired for details.
+const TestRegistry = "quay.io/alice"
 
 // TestCreate completes without error using all defaults and zero values.  The base case.
 func TestCreate(t *testing.T) {
@@ -25,7 +25,7 @@ func TestCreate(t *testing.T) {
 	}
 	defer os.RemoveAll(root)
 
-	client := faas.New(faas.WithRepository(TestRepository))
+	client := faas.New(faas.WithRegistry(TestRegistry))
 
 	if err := client.Create(faas.Function{Root: root}); err != nil {
 		t.Fatal(err)
@@ -42,7 +42,7 @@ func TestCreateWritesTemplate(t *testing.T) {
 	defer os.RemoveAll(root)
 
 	// Create the function at root
-	client := faas.New(faas.WithRepository(TestRepository))
+	client := faas.New(faas.WithRegistry(TestRegistry))
 	if err := client.Create(faas.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +125,7 @@ func TestCreateDefaultRuntime(t *testing.T) {
 	defer os.RemoveAll(root)
 
 	// Create a new function at root with all defaults.
-	client := faas.New(faas.WithRepository(TestRepository))
+	client := faas.New(faas.WithRegistry(TestRegistry))
 	if err := client.Create(faas.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
@@ -154,8 +154,7 @@ func TestCreateDefaultTrigger(t *testing.T) {
 // location is not defined herein but expected to be provided because, for
 // example, a CLI may want to use XDG_CONFIG_HOME.  Assuming a repository path
 // $FAAS_TEMPLATES, a Go template named 'json' which is provided in the
-// repository repository 'boson-experimental', would be expected to be in the
-// location:
+// repository 'boson-experimental', would be expected to be in the location:
 // $FAAS_TEMPLATES/boson-experimental/go/json
 // See the CLI for full details, but a standard default location is
 // $HOME/.config/templates/boson-experimental/go/json
@@ -170,7 +169,7 @@ func TestExtensibleTemplates(t *testing.T) {
 	// Create a new client with a path to the extensible templates
 	client := faas.New(
 		faas.WithTemplates("testdata/templates"),
-		faas.WithRepository(TestRepository))
+		faas.WithRegistry(TestRegistry))
 
 	// Create a Function specifying a template, 'json' that only exists in the extensible set
 	if err := client.Create(faas.Function{Root: root, Trigger: "boson-experimental/json"}); err != nil {
@@ -243,7 +242,7 @@ func TestNamed(t *testing.T) {
 	}
 	defer os.RemoveAll(root)
 
-	client := faas.New(faas.WithRepository(TestRepository))
+	client := faas.New(faas.WithRegistry(TestRegistry))
 
 	if err := client.Create(faas.Function{Root: root, Name: name}); err != nil {
 		t.Fatal(err)
@@ -259,19 +258,19 @@ func TestNamed(t *testing.T) {
 	}
 }
 
-// TestRepository ensures that a repository is required, and is
+// TestRegistry ensures that a registry is required, and is
 // prepended with the DefaultRegistry if a single token.
-// Repository is the namespace at the container image registry.
+// Registry is the namespace at the container image registry.
 // If not prepended with the registry, it will be defaulted:
 // Examples:  "docker.io/alice"
 //            "quay.io/bob"
 //            "charlie" (becomes [DefaultRegistry]/charlie
-// At this time a repository namespace is required as we rely on a third-party
+// At this time a registry namespace is required as we rely on a third-party
 // registry in all cases.  When we support in-cluster container registries,
 // this configuration parameter will become optional.
-func TestRepositoryRequired(t *testing.T) {
+func TestRegistryRequired(t *testing.T) {
 	// Create a root for the Function
-	root := "testdata/example.com/testRepository"
+	root := "testdata/example.com/testRegistry"
 	if err := os.MkdirAll(root, 0700); err != nil {
 		t.Fatal(err)
 	}
@@ -285,7 +284,7 @@ func TestRepositoryRequired(t *testing.T) {
 }
 
 // TestDeriveImage ensures that the full image (tag) of the resultant OCI
-// container is populated based of a derivation using configured repository
+// container is populated based of a derivation using configured registry
 // plus the service name.
 func TestDeriveImage(t *testing.T) {
 	// Create the root Function directory
@@ -296,7 +295,7 @@ func TestDeriveImage(t *testing.T) {
 	defer os.RemoveAll(root)
 
 	// Create the function which calculates fields such as name and image.
-	client := faas.New(faas.WithRepository(TestRepository))
+	client := faas.New(faas.WithRegistry(TestRegistry))
 	if err := client.Create(faas.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
@@ -307,14 +306,14 @@ func TestDeriveImage(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// In form: [Default Registry]/[Repository Namespace]/[Service Name]:latest
-	expected := TestRepository + "/" + f.Name + ":latest"
+	// In form: [Default Registry]/[Registry Namespace]/[Service Name]:latest
+	expected := TestRegistry + "/" + f.Name + ":latest"
 	if f.Image != expected {
 		t.Fatalf("expected image '%v' got '%v'", expected, f.Image)
 	}
 }
 
-// TestDeriveImageDefaultRegistry ensures that a Repository which does not have
+// TestDeriveImageDefaultRegistry ensures that a Registry which does not have
 // a registry prefix has the DefaultRegistry prepended.
 // For example "alice" becomes "docker.io/alice"
 func TestDeriveImageDefaultRegistry(t *testing.T) {
@@ -326,9 +325,9 @@ func TestDeriveImageDefaultRegistry(t *testing.T) {
 	defer os.RemoveAll(root)
 
 	// Create the function which calculates fields such as name and image.
-	// Rather than use TestRepository, use a single-token name and expect
+	// Rather than use TestRegistry, use a single-token name and expect
 	// the DefaultRegistry to be prepended.
-	client := faas.New(faas.WithRepository("alice"))
+	client := faas.New(faas.WithRegistry("alice"))
 	if err := client.Create(faas.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
@@ -351,7 +350,7 @@ func TestDeriveImageDefaultRegistry(t *testing.T) {
 func TestCreateDelegates(t *testing.T) {
 	var (
 		root          = "testdata/example.com/testCreateDelegates" // .. in which to initialize
-		expectedName  = "testCreateDelegates"          // expected to be derived
+		expectedName  = "testCreateDelegates"                      // expected to be derived
 		expectedImage = "quay.io/alice/testCreateDelegates:latest"
 		builder       = mock.NewBuilder()
 		pusher        = mock.NewPusher()
@@ -366,7 +365,7 @@ func TestCreateDelegates(t *testing.T) {
 
 	// Create a client with mocks for each of the subcomponents.
 	client := faas.New(
-		faas.WithRepository(TestRepository),
+		faas.WithRegistry(TestRegistry),
 		faas.WithBuilder(builder),   // builds an image
 		faas.WithPusher(pusher),     // pushes images to a registry
 		faas.WithDeployer(deployer), // deploys images as a running service
@@ -437,7 +436,7 @@ func TestRun(t *testing.T) {
 
 	// Create a client with the mock runner and the new test Function
 	runner := mock.NewRunner()
-	client := faas.New(faas.WithRepository(TestRepository), faas.WithRunner(runner))
+	client := faas.New(faas.WithRegistry(TestRegistry), faas.WithRunner(runner))
 	if err := client.Create(faas.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
@@ -480,7 +479,7 @@ func TestUpdate(t *testing.T) {
 
 	// A client with mocks whose implementaton will validate input.
 	client := faas.New(
-		faas.WithRepository(TestRepository),
+		faas.WithRegistry(TestRegistry),
 		faas.WithBuilder(builder),
 		faas.WithPusher(pusher),
 		faas.WithDeployer(deployer))
@@ -554,7 +553,7 @@ func TestRemoveByPath(t *testing.T) {
 	defer os.RemoveAll(root)
 
 	client := faas.New(
-		faas.WithRepository(TestRepository),
+		faas.WithRegistry(TestRegistry),
 		faas.WithRemover(remover))
 
 	if err := client.Create(faas.Function{Root: root}); err != nil {
@@ -593,7 +592,7 @@ func TestRemoveByName(t *testing.T) {
 	defer os.RemoveAll(root)
 
 	client := faas.New(
-		faas.WithRepository(TestRepository),
+		faas.WithRegistry(TestRegistry),
 		faas.WithRemover(remover))
 
 	if err := client.Create(faas.Function{Root: root}); err != nil {
@@ -644,7 +643,7 @@ func TestRemoveUninitializedFails(t *testing.T) {
 
 	// Instantiate the client with the failing remover.
 	client := faas.New(
-		faas.WithRepository(TestRepository),
+		faas.WithRegistry(TestRegistry),
 		faas.WithRemover(remover))
 
 	// Attempt to remove by path (uninitialized), expecting an error.

@@ -18,9 +18,9 @@ import (
 func init() {
 	root.AddCommand(createCmd)
 	createCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options - $FAAS_CONFIRM")
-	createCmd.Flags().StringP("image", "i", "", "Optional full image name, in form [registry]/[namespace]/[name]:[tag] for example quay.io/myrepo/project.name:latest (overrides --repository) - $FAAS_IMAGE")
+	createCmd.Flags().StringP("image", "i", "", "Optional full image name, in form [registry]/[namespace]/[name]:[tag] for example quay.io/myrepo/project.name:latest (overrides --registry) - $FAAS_IMAGE")
 	createCmd.Flags().StringP("namespace", "n", "", "Override namespace into which the Function is deployed (on supported platforms).  Default is to use currently active underlying platform setting - $FAAS_NAMESPACE")
-	createCmd.Flags().StringP("repository", "r", "", "Repository for built images, ex 'docker.io/myuser' or just 'myuser'.  Optional if --image provided. - $FAAS_REPOSITORY")
+	createCmd.Flags().StringP("registry", "r", "", "Registry for built images, ex 'docker.io/myuser' or just 'myuser'.  Optional if --image provided. - $FAAS_REGISTRY")
 	createCmd.Flags().StringP("runtime", "l", faas.DefaultRuntime, "Function runtime language/framework. Default runtime is 'go'. Available runtimes: 'node', 'quarkus' and 'go'. - $FAAS_RUNTIME")
 	createCmd.Flags().StringP("templates", "", filepath.Join(configPath(), "templates"), "Extensible templates path. - $FAAS_TEMPLATES")
 	createCmd.Flags().StringP("trigger", "t", faas.DefaultTrigger, "Function trigger. Default trigger is 'http'. Available triggers: 'http' and 'events' - $FAAS_TRIGGER")
@@ -46,16 +46,16 @@ created. The Function name is the name of the leaf directory at <path>. After
 creating the project, a container image is created and is deployed. This
 command wraps "init", "build" and "deploy" all up into one command.
 
-The runtime, trigger, image name, image repository, and namespace may all be
+The runtime, trigger, image name, image registry, and namespace may all be
 specified as flags on the command line, and will subsequently be the default
 values when an image is built or a Function is deployed. If the image name and
-image repository are both unspecified, the user will be prompted for a
-repository name, and the image name can be inferred from that plus the function
-name. The function name, namespace, image name and repository name are all
-persisted in the project configuration file faas.yaml.
+image registry are both unspecified, the user will be prompted for an image
+registry, and the image name can be inferred from that plus the function
+name. The function name, namespace and image name are all persisted in the
+project configuration file faas.yaml.
 `,
 	SuggestFor: []string{"cerate", "new"},
-	PreRunE:    bindEnv("image", "namespace", "repository", "runtime", "templates", "trigger", "confirm"),
+	PreRunE:    bindEnv("image", "namespace", "registry", "runtime", "templates", "trigger", "confirm"),
 	RunE:       runCreate,
 }
 
@@ -70,10 +70,10 @@ func runCreate(cmd *cobra.Command, args []string) (err error) {
 		Image:   config.Image,
 	}
 
-	if function.Image == "" && config.Repository == "" {
-		fmt.Print("A repository for Function images is required. For example, 'docker.io/tigerteam'.\n\n")
-		config.Repository = prompt.ForString("Repository for Function images", "")
-		if config.Repository == "" {
+	if function.Image == "" && config.Registry == "" {
+		fmt.Print("A registry for Function images is required. For example, 'docker.io/tigerteam'.\n\n")
+		config.Registry = prompt.ForString("Registry for Function images", "")
+		if config.Registry == "" {
 			return fmt.Errorf("Unable to determine Function image name")
 		}
 	}
@@ -99,7 +99,7 @@ func runCreate(cmd *cobra.Command, args []string) (err error) {
 	client := faas.New(
 		faas.WithVerbose(verbose),
 		faas.WithTemplates(config.Templates),
-		faas.WithRepository(config.Repository), // for deriving image name when --image not provided explicitly.
+		faas.WithRegistry(config.Registry), // for deriving image name when --image not provided explicitly.
 		faas.WithBuilder(builder),
 		faas.WithPusher(pusher),
 		faas.WithDeployer(deployer),
@@ -145,7 +145,7 @@ func (c createConfig) Prompt() createConfig {
 		},
 		deployConfig: deployConfig{
 			buildConfig: buildConfig{
-				Repository: prompt.ForString("Repository for Function images", c.buildConfig.Repository),
+				Registry: prompt.ForString("Registry for Function images", c.buildConfig.Registry),
 			},
 			Namespace: prompt.ForString("Override default deploy namespace", c.Namespace),
 		},

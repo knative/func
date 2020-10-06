@@ -61,7 +61,7 @@ func (n templateWriter) Write(runtime, template string, dest string) error {
 	if n.templates != "" {
 		return copyFilesystem(n.templates, runtime, template, dest)
 	}
-	return fmt.Errorf("A template for runtime '%v' template '%v' was not found internally and no extended repository path was defined.", runtime, template)
+	return fmt.Errorf("A template for runtime '%v' template '%v' was not found internally and no custom template path was defined.", runtime, template)
 }
 
 func copyEmbedded(runtime, template, dest string) error {
