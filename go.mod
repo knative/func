@@ -7,7 +7,7 @@ require (
 	github.com/markbates/pkger v0.17.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/ory/viper v1.7.4
-	github.com/spf13/cobra v1.0.1-0.20200715031239-b95db644ed1c
+	github.com/spf13/cobra v1.0.1-0.20201006035406-b97b5ead31f7
 	golang.org/x/sys v0.0.0-20200930185726-fdedc70b468f // indirect
 	gopkg.in/yaml.v2 v2.3.0
 	k8s.io/api v0.18.8

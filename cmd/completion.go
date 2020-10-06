@@ -13,7 +13,7 @@ func init() {
 
 // completionCmd represents the completion command
 var completionCmd = &cobra.Command{
-	Use:   "completion <bash|zsh>",
+	Use:   "completion <bash|zsh|fish>",
 	Short: "Generate bash/zsh completion scripts",
 	Long: `To load completion run
 
@@ -28,20 +28,23 @@ For bash:
 source <(faas completion bash)
 
 `,
-	ValidArgs: []string{"bash", "zsh"},
+	ValidArgs: []string{"bash", "zsh", "fish"},
 	Args:      cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		if len(args) < 1 {
 			return errors.New("missing argument")
 		}
-		if args[0] == "bash" {
+		switch args[0] {
+		case "bash":
 			err = root.GenBashCompletion(os.Stdout)
-			return err
-		}
-		if args[0] == "zsh" {
+		case "zsh":
 			err = root.GenZshCompletion(os.Stdout)
-			return err
+		case "fish":
+			err = root.GenFishCompletion(os.Stdout, true)
+		default:
+			err = errors.New("unknown shell, only bash, zsh and fish are supported")
 		}
-		return errors.New("unknown shell, only bash and zsh are supported")
+
+		return err
 	},
 }
