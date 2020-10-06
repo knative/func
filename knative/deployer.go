@@ -65,7 +65,7 @@ func (d *Deployer) Deploy(f faas.Function) (err error) {
 				return err
 			}
 
-			err, _ = client.WaitForService(encodedName, time.Duration(30*time.Second), wait.NoopMessageCallback())
+			err, _ = client.WaitForService(encodedName, DefaultWaitingTimeout, wait.NoopMessageCallback())
 			if err != nil {
 				if !d.Verbose {
 					err = fmt.Errorf("deployer failed to wait for the service to become ready: %v.\nStdOut: %s", err, output.(*bytes.Buffer).String())
