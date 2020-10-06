@@ -26,10 +26,15 @@ var root = &cobra.Command{
 Create and run Functions as a Service.`,
 }
 
+// NewRootCmd is used to initialize faas as kn plugin
+func NewRootCmd() *cobra.Command {
+	return root
+}
+
 // When the code is loaded into memory upon invocation, the cobra/viper packages
 // are invoked to gather system context.  This includes reading the configuration
 // file, environment variables, and parsing the command flags.
-func init() {
+func Init() {
 	// read in environment variables that match
 	viper.AutomaticEnv()
 
