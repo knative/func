@@ -128,17 +128,18 @@ type functionOverrides struct {
 
 // functionWithOverrides sets the namespace and image strings for the
 // Function project at root, if provided, and returns the Function
-// configuration values
+// configuration values.
+// Please note that When this function is called, the overrides are not persisted.
 func functionWithOverrides(root string, overrides functionOverrides) (f faas.Function, err error) {
 	f, err = faas.NewFunction(root)
 	if err != nil {
 		return
 	}
 
-	overrideMapping := []struct{
+	overrideMapping := []struct {
 		src  string
 		dest *string
-	} {
+	}{
 		{overrides.Builder, &f.Builder},
 		{overrides.Image, &f.Image},
 		{overrides.Namespace, &f.Namespace},
@@ -151,7 +152,6 @@ func functionWithOverrides(root string, overrides functionOverrides) (f faas.Fun
 	}
 
 	return
-
 }
 
 // deriveName returns the explicit value (if provided) or attempts to derive
