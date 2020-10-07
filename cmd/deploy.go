@@ -25,8 +25,8 @@ func init() {
 
 var deployCmd = &cobra.Command{
 	Use:   "deploy",
-	Short: "Deploy or Update an existing Function project to a cluster",
-	Long: `Deploy or Update an existing Function project to a cluster
+	Short: "Deploy an existing Function project to a cluster",
+	Long: `Deploy an existing Function project to a cluster
 
 Builds and Deploys the Function project in the current directory. A path to the project
 directory may be provided using the --path or -p flag. Reads the faas.yaml configuration file
