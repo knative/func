@@ -1,70 +1,86 @@
-# Quarkus Cloud Events Function
+# Function project
 
-Welcome to your new Quarkus function project! This sample project contains three functions:
-* org.funqy.demo.GreetingFunctions.greet()
-* org.funqy.demo.PrimitiveFunctions.toLowerCase()
-* org.funqy.demo.PrimitiveFunctions.doubleIt()
+Welcome to your new Quarkus function project!
 
-Only one of the function is active at the time.
-Which one is determined by the `quarkus.funqy.export` property in `src/main/resources/application.properties`.
-
-The `greet` function demonstrates work with java beans,
-it accepts `Identity` bean (data of incoming cloud event)
-and it returns `Greeting` bean (data of outgoing cloud event). 
-
-The `toLowerCase` function accepts string and returns string.
-As its name suggests it returns input string with all characters in lowercase.
-
-The `doubleIt` function accepts integer and returns its value doubled.
-
-You can test those functions by using `curl` cmd utility.
-Parameters for `curl` can be found at [Cloud Event emulation](#cloud-event-emulation).
+This sample project contains single function: `functions.Function.echo()`,
+the function just returns its argument.
 
 ## Local execution
-Make sure that `maven 3.6.2` and `Java 11 SDK` is installed.
+Make sure that `Java 11 SDK` is installed.
 
-To start server locally run `mvn quarkus:dev`.
+To start server locally run `./mvnw quarkus:dev`.
 The command starts http server and automatically watches for changes of source code.
 If source code changes the change will be propagated to running server. It also opens debugging port `5005`
 so debugger can be attached if needed.
 
-To run test locally run `mvn test`.
+To run test locally run `./mvnw test`.
 
-## Cloud Event emulation
+## The `faas` CLI
 
-sample cloud event for the `greet` function
+It's recommended to set `FAAS_REGISTRY` environment variable.
 ```shell script
-curl -v "localhost:8080" \
-  -X POST \
-  -H "Ce-Id: 536808d3-88be-4077-9d7a-a3f162705f79" \
-  -H "Ce-specversion: 0.3" \
-  -H "Ce-Type: dev.nodeshift.samples.quarkus-funqy" \
-  -H "Ce-Source: dev.nodeshift.samples/quarkus-funqy-source" \
-  -H "Content-Type: application/json" \
-  -d "{\"name\": \"$(whoami)\"}\"";
-
+# replace ~/.bashrc by your shell rc file
+# replace docker.io/johndoe with your registry
+export FAAS_REGISTRY=docker.io/johndoe
+echo "export FAAS_REGISTRY=docker.io/johndoe" >> ~/.bashrc 
 ```
 
-sample event for the `toLowerCase` function
+### Building
+
+This command builds OCI image for the function.
+
 ```shell script
-curl -v "localhost:8080" \
-  -X POST \
-  -H "Ce-Id: 536808d3-88be-4077-9d7a-a3f162705f79" \
-  -H "Ce-specversion: 0.3" \
-  -H "Ce-Type: dev.nodeshift.samples.quarkus-funqy" \
-  -H "Ce-Source: dev.nodeshift.samples/quarkus-funqy-source" \
-  -H "Content-Type: application/json" \
-  -d '"wEiRDly CaPiTaLisEd sTrInG"'
+faas build                  # build jar
+faas build --builder native # build native binary
 ```
 
-sample event for the `doubleIt` function
+### Running
+
+This command runs the function locally in a container
+using the image created above.
 ```shell script
-curl -v "localhost:8080" \
-  -X POST \
-  -H "Ce-Id: 536808d3-88be-4077-9d7a-a3f162705f79" \
-  -H "Ce-specversion: 0.3" \
-  -H "Ce-Type: dev.nodeshift.samples.quarkus-funqy" \
-  -H "Ce-Source: dev.nodeshift.samples/quarkus-funqy-source" \
-  -H "Content-Type: application/json" \
-  -d '21'
+faas run
+```
+
+### Deploying
+
+This commands will build and deploy the function into cluster.
+
+```shell script
+faas deploy # also triggers build
+```
+
+## Function invocation
+
+Do not forget to set `URL` variable to the route of your function.
+
+You get the route by following command.
+```shell script
+faas describe
+```
+
+### cURL
+
+```shell script
+URL=http://localhost:8080/
+curl -v ${URL} \
+  -H "Content-Type:application/json" \
+  -H "Ce-Id:1" \
+  -H "Ce-Source:cloud-event-example" \
+  -H "Ce-Type:dev.knative.example" \
+  -H "Ce-Specversion:1.0" \
+  -d "{\"name\": \"$(whoami)\"}\""
+```
+
+### HTTPie
+
+```shell script
+URL=http://localhost:8080/
+http -v ${URL} \
+  Content-Type:application/json \
+  Ce-Id:1 \
+  Ce-Source:cloud-event-example \
+  Ce-Type:dev.knative.example \
+  Ce-Specversion:1.0 \
+  name=$(whoami)
 ```
