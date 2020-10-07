@@ -460,7 +460,7 @@ func TestRun(t *testing.T) {
 	}
 }
 
-// TestUpdate ensures that the updater properly invokes the build/push/deploy
+// TestUpdate ensures that the deployer properly invokes the build/push/deploy
 // process, erroring if run on a directory uncreated.
 func TestUpdate(t *testing.T) {
 	var (
@@ -469,7 +469,7 @@ func TestUpdate(t *testing.T) {
 		expectedImage = "quay.io/alice/testUpdate:latest"
 		builder       = mock.NewBuilder()
 		pusher        = mock.NewPusher()
-		updater       = mock.NewUpdater()
+		deployer       = mock.NewDeployer()
 	)
 
 	// Create the root Function directory
@@ -483,7 +483,7 @@ func TestUpdate(t *testing.T) {
 		faas.WithRepository(TestRepository),
 		faas.WithBuilder(builder),
 		faas.WithPusher(pusher),
-		faas.WithUpdater(updater))
+		faas.WithDeployer(deployer))
 
 	// create the new Function which will be updated
 	if err := client.Create(faas.Function{Root: root}); err != nil {
@@ -512,7 +512,7 @@ func TestUpdate(t *testing.T) {
 	}
 
 	// Update whose implementaiton verifed the expected name and image
-	updater.UpdateFn = func(f faas.Function) error {
+	deployer.DeployFn = func(f faas.Function) error {
 		if f.Name != expectedName {
 			t.Fatalf("updater expected name '%v', got '%v'", expectedName, f.Name)
 		}
@@ -524,7 +524,7 @@ func TestUpdate(t *testing.T) {
 
 	// Invoke the creation, triggering the Function delegates, and
 	// perform follow-up assertions that the Functions were indeed invoked.
-	if err := client.Update(root); err != nil {
+	if err := client.Deploy(root); err != nil {
 		t.Fatal(err)
 	}
 
@@ -534,8 +534,8 @@ func TestUpdate(t *testing.T) {
 	if !pusher.PushInvoked {
 		t.Fatal("pusher was not invoked")
 	}
-	if !updater.UpdateInvoked {
-		t.Fatal("updater was not invoked")
+	if !deployer.DeployInvoked {
+		t.Fatal("deployer was not invoked")
 	}
 }
 

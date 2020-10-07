@@ -1,7 +1,6 @@
 package faas
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -22,8 +21,7 @@ type Client struct {
 	verbose           bool     // print verbose logs
 	builder           Builder  // Builds a runnable image from Function source
 	pusher            Pusher   // Pushes the image assocaited with a Function.
-	deployer          Deployer // Deploys a Function
-	updater           Updater  // Updates a deployed Function
+	deployer          Deployer // Deploys or Updates a Function
 	runner            Runner   // Runs the Function locally
 	remover           Remover  // Removes remote services
 	lister            Lister   // Lists remote services
@@ -51,12 +49,6 @@ type Pusher interface {
 type Deployer interface {
 	// Deploy a Function of given name, using given backing image.
 	Deploy(Function) error
-}
-
-// Updater of a deployed Function with new image.
-type Updater interface {
-	// Update a Function
-	Update(Function) error
 }
 
 // Runner runs the Function locally.
@@ -124,7 +116,6 @@ func New(options ...Option) *Client {
 		builder:          &noopBuilder{output: os.Stdout},
 		pusher:           &noopPusher{output: os.Stdout},
 		deployer:         &noopDeployer{output: os.Stdout},
-		updater:          &noopUpdater{output: os.Stdout},
 		runner:           &noopRunner{output: os.Stdout},
 		remover:          &noopRemover{output: os.Stdout},
 		lister:           &noopLister{output: os.Stdout},
@@ -168,13 +159,6 @@ func WithPusher(d Pusher) Option {
 func WithDeployer(d Deployer) Option {
 	return func(c *Client) {
 		c.deployer = d
-	}
-}
-
-// WithUpdater provides the concrete implementation of an updater.
-func WithUpdater(u Updater) Option {
-	return func(c *Client) {
-		c.updater = u
 	}
 }
 
@@ -418,26 +402,24 @@ func (c *Client) Build(path string) (err error) {
 // Deploy the Function at path.  Errors if the Function has not been
 // initialized with an image tag.
 func (c *Client) Deploy(path string) (err error) {
+
 	f, err := NewFunction(path)
 	if err != nil {
 		return
 	}
-	if f.Image == "" {
-		return errors.New("Function needs to have Image tag calculated prior to building.")
+
+	// Build the Function
+	if err = c.Build(f.Root); err != nil {
+		return
 	}
 
-	err = c.pusher.Push(f) // First push the image to an image registry
-	if err != nil {
+	// Push the image for the named service to the configured registry
+	if err = c.pusher.Push(f); err != nil {
 		return
 	}
-	if err = c.deployer.Deploy(f); err != nil {
-		return
-	}
-	if c.verbose {
-		// TODO: aspirational.  Should be an actual route echo.
-		fmt.Printf("OK https://%v/\n", f.Image)
-	}
-	return
+
+	// Deploy a new or Update the previously-deployed Function
+	return c.deployer.Deploy(f)
 }
 
 func (c *Client) Route(path string) (err error) {
@@ -453,42 +435,6 @@ func (c *Client) Route(path string) (err error) {
 		return
 	}
 	return c.dnsProvider.Provide(f)
-}
-
-// Update a previously created Function.
-func (c *Client) Update(root string) (err error) {
-
-	// Create an instance of a Function representation at the given root.
-	f, err := NewFunction(root)
-	if err != nil {
-		return
-	}
-
-	if !f.Initialized() {
-		// TODO: this needs a test.
-		return fmt.Errorf("the given path '%v' does not contain an initialized Function.  Please create one at this path before updating.", root)
-	}
-
-	// Build an image from the current state of the Function's implementation.
-	err = c.Build(f.Root)
-	if err != nil {
-		return
-	}
-
-	// reload the Function as it will now have the Image populated if it had not yet been set.
-	f, err = NewFunction(f.Root)
-	if err != nil {
-		return
-	}
-
-	// Push the image for the named service to the configured registry
-	if err = c.pusher.Push(f); err != nil {
-		return
-	}
-
-	// Update the previously-deployed Function, returning its publicly
-	// addressible name for possible registration.
-	return c.updater.Update(f)
 }
 
 // Run the Function whose code resides at root.
@@ -572,10 +518,6 @@ func (n *noopPusher) Push(_ Function) error { return nil }
 type noopDeployer struct{ output io.Writer }
 
 func (n *noopDeployer) Deploy(_ Function) error { return nil }
-
-type noopUpdater struct{ output io.Writer }
-
-func (n *noopUpdater) Update(_ Function) error { return nil }
 
 type noopRunner struct{ output io.Writer }
 

@@ -7,16 +7,20 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/boson-project/faas"
+	"github.com/boson-project/faas/buildpacks"
 	"github.com/boson-project/faas/docker"
 	"github.com/boson-project/faas/knative"
+	"github.com/boson-project/faas/progress"
 	"github.com/boson-project/faas/prompt"
 )
 
 func init() {
 	root.AddCommand(deployCmd)
 	deployCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options - $FAAS_CONFIRM")
+	deployCmd.Flags().StringP("image", "i", "", "Optional full image name, in form [registry]/[namespace]/[name]:[tag] for example quay.io/myrepo/project.name:latest (overrides --repository) - $FAAS_IMAGE")
 	deployCmd.Flags().StringP("namespace", "n", "", "Override namespace into which the Function is deployed (on supported platforms).  Default is to use currently active underlying platform setting - $FAAS_NAMESPACE")
 	deployCmd.Flags().StringP("path", "p", cwd(), "Path to the function project directory - $FAAS_PATH")
+	deployCmd.Flags().StringP("repository", "r", "", "Repository for built images, ex 'docker.io/myuser' or just 'myuser'.  - $FAAS_REPOSITORY")
 }
 
 var deployCmd = &cobra.Command{
@@ -24,45 +28,88 @@ var deployCmd = &cobra.Command{
 	Short: "Deploy an existing Function project to a cluster",
 	Long: `Deploy an existing Function project to a cluster
 
-Deploys the Function project in the current directory. A path to the project
-directory may be provided using the --path or -p flag. The image to be deployed
-must have already been created using the "build" command.
+Builds and Deploys the Function project in the current directory. 
+A path to the project directory may be provided using the --path or -p flag.
+Reads the faas.yaml configuration file to determine the image name. 
+An image and repository may be specified on the command line using 
+the --image or -i and --repository or -r flag.
+
+If the Function is already deployed, it is updated with a new container image
+that is pushed to an image repository, and the Knative Service is updated.
 
 The namespace into which the project is deployed defaults to the value in the
 faas.yaml configuration file. If NAMESPACE is not set in the configuration,
 the namespace currently active in the Kubernetes configuration file will be
 used. The namespace may be specified on the command line using the --namespace
 or -n flag, and if so this will overwrite the value in the faas.yaml file.
+
+
 `,
 	SuggestFor: []string{"delpoy", "deplyo"},
-	PreRunE:    bindEnv("namespace", "path", "confirm"),
+	PreRunE:    bindEnv("image", "namespace", "path", "repository", "confirm"),
 	RunE:       runDeploy,
 }
 
 func runDeploy(cmd *cobra.Command, _ []string) (err error) {
-	config := newDeployConfig()
-	function, err := functionWithOverrides(config.Path, functionOverrides{Namespace: config.Namespace})
+
+	config := newDeployConfig().Prompt()
+
+	function, err := functionWithOverrides(config.Path, functionOverrides{Namespace: config.Namespace, Image: config.Image})
 	if err != nil {
-		return err
-	}
-	if function.Image == "" {
-		return fmt.Errorf("Cannot determine the Function image name. Have you built it yet?")
+		return
 	}
 
-	// Confirm or print configuration
-	config.Prompt()
+	// Check if the Function has been initialized
+	if !function.Initialized() {
+		return fmt.Errorf("the given path '%v' does not contain an initialized Function. Please create one at this path before deploying.", config.Path)
+	}
+
+	// If the Function does not yet have an image name and one was not provided on the command line
+	if function.Image == "" {
+		//  AND a --repository was not provided, then we need to
+		// prompt for a repository from which we can derive an image name.
+		if config.Repository == "" {
+			fmt.Print("A repository for Function images is required. For example, 'docker.io/tigerteam'.\n\n")
+			config.Repository = prompt.ForString("Repository for Function images", "")
+			if config.Repository == "" {
+				return fmt.Errorf("Unable to determine Function image name")
+			}
+		}
+
+		// We have the repository, so let's use it to derive the Function image name
+		config.Image = deriveImage(config.Image, config.Repository, config.Path)
+		function.Image = config.Image
+	}
+
+	// All set, let's write changes in the config to the disk
+	err = function.WriteConfig()
+	if err != nil {
+		return
+	}
+
+	builder := buildpacks.NewBuilder()
+	builder.Verbose = config.Verbose
 
 	pusher := docker.NewPusher()
 	pusher.Verbose = config.Verbose
 
-	deployer := knative.NewDeployer()
+	deployer, err := knative.NewDeployer(config.Namespace)
+	if err != nil {
+		return
+	}
+
+	listener := progress.New()
+
 	deployer.Verbose = config.Verbose
 	deployer.Namespace = function.Namespace
 
 	client := faas.New(
 		faas.WithVerbose(config.Verbose),
+		faas.WithRepository(config.Repository), // for deriving image name when --image not provided explicitly.
+		faas.WithBuilder(builder),
 		faas.WithPusher(pusher),
-		faas.WithDeployer(deployer))
+		faas.WithDeployer(deployer),
+		faas.WithProgressListener(listener))
 
 	return client.Deploy(config.Path)
 
@@ -71,6 +118,8 @@ func runDeploy(cmd *cobra.Command, _ []string) (err error) {
 }
 
 type deployConfig struct {
+	buildConfig
+
 	// Namespace override for the deployed function.  If provided, the
 	// underlying platform will be instructed to deploy the function to the given
 	// namespace (if such a setting is applicable; such as for Kubernetes
@@ -95,10 +144,11 @@ type deployConfig struct {
 // environment variables; in that precedence.
 func newDeployConfig() deployConfig {
 	return deployConfig{
-		Namespace: viper.GetString("namespace"),
-		Path:      viper.GetString("path"),
-		Verbose:   viper.GetBool("verbose"), // defined on root
-		Confirm:   viper.GetBool("confirm"),
+		buildConfig: newBuildConfig(),
+		Namespace:   viper.GetString("namespace"),
+		Path:        viper.GetString("path"),
+		Verbose:     viper.GetBool("verbose"), // defined on root
+		Confirm:     viper.GetBool("confirm"),
 	}
 }
 
@@ -109,9 +159,16 @@ func (c deployConfig) Prompt() deployConfig {
 	if !interactiveTerminal() || !c.Confirm {
 		return c
 	}
-	return deployConfig{
+	dc := deployConfig{
+		buildConfig: buildConfig{
+			Repository: prompt.ForString("Repository for Function images", c.buildConfig.Repository),
+		},
 		Namespace: prompt.ForString("Namespace", c.Namespace),
 		Path:      prompt.ForString("Project path", c.Path),
 		Verbose:   c.Verbose,
 	}
+
+	dc.Image = deriveImage(dc.Image, dc.Repository, dc.Path)
+
+	return dc
 }
