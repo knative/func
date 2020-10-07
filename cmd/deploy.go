@@ -28,13 +28,14 @@ var deployCmd = &cobra.Command{
 	Short: "Deploy an existing Function project to a cluster",
 	Long: `Deploy an existing Function project to a cluster
 
-Builds and Deploys the Function project in the current directory. A path to the project
-directory may be provided using the --path or -p flag. Reads the faas.yaml configuration file
-to determine the image name. An image and repository may be specified on the command line
-using the  --image or -i and --repository or -r flag.
+Builds and Deploys the Function project in the current directory. 
+A path to the project directory may be provided using the --path or -p flag.
+Reads the faas.yaml configuration file to determine the image name. 
+An image and repository may be specified on the command line using 
+the --image or -i and --repository or -r flag.
 
-If the Function is already deployed, it is updated with a new container image that is pushed to a
-container image repository, and the Knative Service is updated.
+If the Function is already deployed, it is updated with a new container image
+that is pushed to an image repository, and the Knative Service is updated.
 
 The namespace into which the project is deployed defaults to the value in the
 faas.yaml configuration file. If NAMESPACE is not set in the configuration,
