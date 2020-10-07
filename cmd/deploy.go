@@ -30,8 +30,8 @@ var deployCmd = &cobra.Command{
 
 Builds and Deploys the Function project in the current directory. A path to the project
 directory may be provided using the --path or -p flag. Reads the faas.yaml configuration file
-to determine the image name. An image and repository may be specified on the command line using the  --image or -i
-and --repository or -r flag.
+to determine the image name. An image and repository may be specified on the command line
+using the  --image or -i and --repository or -r flag.
 
 If the Function is already deployed, it is updated with a new container image that is pushed to a
 container image repository, and the Knative Service is updated.
@@ -53,11 +53,6 @@ func runDeploy(cmd *cobra.Command, _ []string) (err error) {
 
 	config := newDeployConfig().Prompt()
 
-	// Load Function from the config
-	// function, err := faas.NewFunction(config.Path)
-	// if err != nil {
-	// 	return
-	// }
 	function, err := functionWithOverrides(config.Path, functionOverrides{Namespace: config.Namespace, Image: config.Image})
 	if err != nil {
 		return
