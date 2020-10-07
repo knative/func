@@ -1,6 +1,6 @@
 'use strict';
 
-const runtime = require('@redhat/faas-js-runtime');
+const runtime = require('faas-js-runtime');
 const request = require('supertest');
 
 const func = require('..');

@@ -9,11 +9,11 @@
   },
   "scripts": {
     "test": "node test/unit.js && node test/integration.js",
-    "local": "npx @redhat/faas-js-runtime ./index.js",
-    "debug": "nodemon --inspect ./node_modules/@redhat/faas-js-runtime/bin/cli.js ./index.js"
+    "local": "npx faas-js-runtime ./index.js",
+    "debug": "nodemon --inspect ./node_modules/faas-js-runtime/bin/cli.js ./index.js"
   },
   "devDependencies": {
-    "@redhat/faas-js-runtime": "0.2.3",
+    "faas-js-runtime": "0.3.0",
     "nodemon": "^2.0.4",
     "cloudevents": "^3.1.0",
     "supertest": "^4.0.2",
