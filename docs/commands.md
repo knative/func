@@ -36,7 +36,7 @@ kn faas build [-i <image> -r <registry> -p <path>]
 
 ## `run`
 
-Runs the Function project locally in the container. If a container has not yet been created, prompts the user to run `faas build`. Note: there is no option to specify a path to the project.
+Runs the Function project locally in the container. If a container has not yet been created, prompts the user to run `faas build`.  The user may specify a path to the project directory using the `--path` or `-p` flag.
 
 Similar `kn` command: none.
 
@@ -47,7 +47,7 @@ faas run
 When run as a `kn` plugin.
 
 ```console
-kn faas run
+kn faas run [-p <path>]
 ```
 
 ## `deploy`
