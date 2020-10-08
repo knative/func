@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
@@ -44,7 +46,15 @@ func runDelete(cmd *cobra.Command, args []string) (err error) {
 	remover.Verbose = config.Verbose
 	remover.Namespace = config.Namespace
 
-	function := faas.Function{Root: config.Path, Name: config.Name}
+	function, err := faas.NewFunction(config.Path)
+	if err != nil {
+		return
+	}
+
+	// Check if the Function has been initialized
+	if !function.Initialized() {
+		return fmt.Errorf("the given path '%v' does not contain an initialized Function.", config.Path)
+	}
 
 	client := faas.New(
 		faas.WithVerbose(config.Verbose),

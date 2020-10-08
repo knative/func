@@ -49,6 +49,16 @@ using the --namespace or -n flag, and if so this will overwrite the value in faa
 func runDescribe(cmd *cobra.Command, args []string) (err error) {
 	config := newDescribeConfig(args)
 
+	function, err := faas.NewFunction(config.Path)
+	if err != nil {
+		return
+	}
+
+	// Check if the Function has been initialized
+	if !function.Initialized() {
+		return fmt.Errorf("the given path '%v' does not contain an initialized Function.", config.Path)
+	}
+
 	describer, err := knative.NewDescriber(config.Namespace)
 	if err != nil {
 		return
