@@ -195,7 +195,7 @@ func deriveNameAndAbsolutePathFromPath(path string) (string, string) {
 }
 
 // deriveImage returns the same image name which will be used if no explicit
-// image is provided.  I.e. derived from the configured repository (registry
+// image is provided.  I.e. derived from the configured registry (registry
 // plus username) and the Function's name.
 //
 // This is calculated preemptively here in the CLI (prior to invoking the
@@ -214,9 +214,9 @@ func deriveNameAndAbsolutePathFromPath(path string) (string, string) {
 // If the image flag is provided, this value is used directly (the user supplied
 // --image or $FAAS_IMAGE).  Otherwise, the Function at 'path' is loaded, and
 // the Image name therein is used (i.e. it was previously calculated).
-// Finally, the default repository is used, which is prepended to the Function
+// Finally, the default registry is used, which is prepended to the Function
 // name, and appended with ':latest':
-func deriveImage(explicitImage, defaultRepo, path string) string {
+func deriveImage(explicitImage, defaultRegistry, path string) string {
 	if explicitImage != "" {
 		return explicitImage // use the explicit value provided.
 	}
@@ -227,6 +227,6 @@ func deriveImage(explicitImage, defaultRepo, path string) string {
 	if f.Image != "" {
 		return f.Image // use value previously provided or derived.
 	}
-	derivedValue, _ := faas.DerivedImage(path, defaultRepo)
+	derivedValue, _ := faas.DerivedImage(path, defaultRegistry)
 	return derivedValue // Use the faas system's derivation logic.
 }

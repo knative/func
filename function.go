@@ -26,9 +26,9 @@ type Function struct {
 	// Trigger of the Function.  http|events etc.
 	Trigger string
 
-	// Repository at which to store interstitial containers, in the form
+	// Registry at which to store interstitial containers, in the form
 	// [registry]/[user]. If omitted, "Image" must be provided.
-	Repo string
+	Registry string
 
 	// Optional full OCI image tag in form:
 	//   [registry]/[namespace]/[name]:[tag]
@@ -38,7 +38,7 @@ type Function struct {
 	// example:
 	//   alice/my.function.name
 	// If Image is provided, it overrides the default of concatenating
-	// "Repo+Name:latest" to derive the Image.
+	// "Registry+Name:latest" to derive the Image.
 	Image string
 
 	// Builder represents the CNCF Buildpack builder image for a function,
@@ -99,18 +99,17 @@ func (f Function) Initialized() bool {
 }
 
 // DerivedImage returns the derived image name (OCI container tag) of the
-// Function whose source is at root, with the default repository for when
+// Function whose source is at root, with the default registry for when
 // the image has to be calculated (derived).
-// repository can be either with or without prefixed registry.
 // The following are eqivalent due to the use of DefaultRegistry:
-// repository:  docker.io/myname
-//              myname
-// A full image name consists of registry, repository, name and tag.
-// in form [registry]/[repository]/[name]:[tag]
+// registry:  docker.io/myname
+//            myname
+// A full image name consists of registry, image name and tag.
+// in form [registry]/[image-name]:[tag]
 // example docker.io/alice/my.example.func:latest
-// Default if not provided is --repository (a required global setting)
+// Default if not provided is --registry (a required global setting)
 // followed by the provided (or derived) image name.
-func DerivedImage(root, repository string) (image string, err error) {
+func DerivedImage(root, registry string) (image string, err error) {
 	f, err := NewFunction(root)
 	if err != nil {
 		// an inability to load the Function means it is not yet initialized
@@ -127,26 +126,26 @@ func DerivedImage(root, repository string) (image string, err error) {
 		return
 	}
 
-	// Repository is currently required until such time as we support
+	// registry is currently required until such time as we support
 	// pushing to an implicitly-available in-cluster registry by default.
-	if repository == "" {
-		err = errors.New("Repository name is required.")
+	if registry == "" {
+		err = errors.New("Registry name is required.")
 		return
 	}
 
 	// If the Function loaded, and there is not yet an Image set, then this is
 	// the first build and no explicit image override was specified.  We should
-	// therefore derive the image tag from the defined repository and name.
+	// therefore derive the image tag from the defined registry and name.
 	// form:    [registry]/[user]/[function]:latest
 	// example: quay.io/alice/my.function.name:latest
-	repository = strings.Trim(repository, "/") // too defensive?
-	repositoryTokens := strings.Split(repository, "/")
-	if len(repositoryTokens) == 1 {
-		image = DefaultRegistry + "/" + repository + "/" + f.Name
-	} else if len(repositoryTokens) == 2 {
-		image = repository + "/" + f.Name
+	registry = strings.Trim(registry, "/") // too defensive?
+	registryTokens := strings.Split(registry, "/")
+	if len(registryTokens) == 1 {
+		image = DefaultRegistry + "/" + registry + "/" + f.Name
+	} else if len(registryTokens) == 2 {
+		image = registry + "/" + f.Name
 	} else {
-		err = fmt.Errorf("repository should be either 'namespace' or 'registry/namespace'")
+		err = fmt.Errorf("registry should be either 'namespace' or 'registry/namespace'")
 	}
 
 	// Explicitly append :latest.  We currently expect source control to drive

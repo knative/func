@@ -18,20 +18,20 @@ kn faas init <path> [-l <runtime> -t <trigger>]
 
 ## `build`
 
-Builds the Function project in the current directory. Reads the `faas.yaml` file to determine image name and repository. If both of these values are unset in the configuration file, the user is prompted to provide a repository, from there an image name can be derived. The image name and repository may also be specified as flags, as can the path to the project.
+Builds the Function project in the current directory. Reads the `faas.yaml` file to determine image name and registry. If both of these values are unset in the configuration file, the user is prompted to provide a registry, from there an image name can be derived. The image name and registry may also be specified as flags, as can the path to the project.
 
-The value(s) provided for image and repository are persisted to the `faas.yaml` file so that subsequent invocations do not require the user to specify these again.
+The value(s) provided for image and registry are persisted to the `faas.yaml` file so that subsequent invocations do not require the user to specify these again.
 
 Similar `kn` command: none.
 
 ```console
-faas build [-i <image> -r <repository> -p <path>]
+faas build [-i <image> -r <registry> -p <path>]
 ```
 
 When run as a `kn` plugin.
 
 ```console
-kn faas build [-i <image> -r <repository> -p <path>]
+kn faas build [-i <image> -r <registry> -p <path>]
 ```
 
 ## `run`
@@ -52,25 +52,25 @@ kn faas run
 
 ## `deploy`
 
-Builds and deploys the Function project in the current directory. The user may specify a path to the project directory using the `--path` or `-p` flag. Reads the `faas.yaml` configuration file to determine the image name. An image and repository may be specified on the command line using the  `--image` or `-i` and `--repository` or `-r` flag.
+Builds and deploys the Function project in the current directory. The user may specify a path to the project directory using the `--path` or `-p` flag. Reads the `faas.yaml` configuration file to determine the image name. An image and registry may be specified on the command line using the  `--image` or `-i` and `--registry` or `-r` flag.
 
 Derives the service name from the project name. There is no mechanism by which the user can specify the service name. The user must have already initialized the  function using `faas init` or they will encounter an error.
 
 If the Function is already deployed, it is updated with a new container image that is pushed to a
-container image repository, and the Knative Service is updated.
+container image registry, and the Knative Service is updated.
 
 The namespace into which the project is deployed defaults to the value in the `faas.yaml` configuration file. If `NAMESPACE` is not set in the configuration, the namespace currently active in the Kubernetes configuration file will be used. The namespace may be specified on the command line using the `--namespace` or `-n` flag, and if so this will overwrite the value in the `faas.yaml` file.
 
 Similar `kn` command: `kn service create NAME --image IMAGE [flags]`. This command allows a user to deploy a Knative Service by specifying an image, typically one hosted on a public container registry such as docker.io. The deployment options which the `kn` command affords the user are quite broad. The `kn` command in this case is quite effective for a power user. The `faas deploy` command has a similar end result, but is definitely easier for a user just getting started to be successful with.
 
 ```console
-faas deploy [-n <namespace> -p <path> -i <image> -r <repository>]
+faas deploy [-n <namespace> -p <path> -i <image> -r <registry>]
 ```
 
 When run as a `kn` plugin.
 
 ```console
-kn faas deploy [-n <namespace> -p <path> -i <image> -r <repository>]
+kn faas deploy [-n <namespace> -p <path> -i <image> -r <registry>]
 ```
 
 ## `describe`
@@ -109,18 +109,18 @@ kn faas list [-n <namespace> -p <path>]
 
 Creates a new Function project at _`path`_. If _`path`_ does not exist, it is created. The function name is the name of the leaf directory at _`path`_. After creating the project, it builds a container image and deploys it. This command wraps `init`, `build` and `deploy` all up into one command.
 
-The user may specify the runtime, trigger, image name, image repository, and namespace as flags on the command line. If the image name and image repository are both unspecified, the user will be prompted for a repository name, and the image name can be inferred from that plus the function name. The function name, namespace, image name and repository name are all persisted in the project configuration file `faas.yaml`.
+The user may specify the runtime, trigger, image name, image registry, and namespace as flags on the command line. If the image name and image registry are both unspecified, the user will be prompted for a registry name, and the image name can be inferred from that plus the function name. The function name, namespace and image name are all persisted in the project configuration file `faas.yaml`.
 
 Similar `kn` command: none.
 
 ```console
-faas create <path> -r <repository> -l <runtime> -t <trigger> -i <image> -n <namespace>
+faas create <path> -r <registry> -l <runtime> -t <trigger> -i <image> -n <namespace>
 ```
 
 When run as a `kn` plugin.
 
 ```console
-kn faas create <path> -r <repository> -l <runtime> -t <trigger> -i <image> -n <namespace>
+kn faas create <path> -r <registry> -l <runtime> -t <trigger> -i <image> -n <namespace>
 ```
 
 ## `delete`
