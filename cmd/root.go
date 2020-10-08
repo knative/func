@@ -34,7 +34,7 @@ func NewRootCmd() *cobra.Command {
 // When the code is loaded into memory upon invocation, the cobra/viper packages
 // are invoked to gather system context.  This includes reading the configuration
 // file, environment variables, and parsing the command flags.
-func Init() {
+func init() {
 	// read in environment variables that match
 	viper.AutomaticEnv()
 
