@@ -103,7 +103,6 @@ func runDeploy(cmd *cobra.Command, _ []string) (err error) {
 	listener := progress.New()
 
 	deployer.Verbose = config.Verbose
-	deployer.Namespace = function.Namespace
 
 	client := faas.New(
 		faas.WithVerbose(config.Verbose),

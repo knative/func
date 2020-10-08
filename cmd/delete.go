@@ -42,10 +42,6 @@ overwrite the value in faas.yaml.
 func runDelete(cmd *cobra.Command, args []string) (err error) {
 	config := newDeleteConfig(args).Prompt()
 
-	remover := knative.NewRemover(config.Namespace)
-	remover.Verbose = config.Verbose
-	remover.Namespace = config.Namespace
-
 	function, err := faas.NewFunction(config.Path)
 	if err != nil {
 		return
@@ -55,6 +51,13 @@ func runDelete(cmd *cobra.Command, args []string) (err error) {
 	if !function.Initialized() {
 		return fmt.Errorf("the given path '%v' does not contain an initialized Function.", config.Path)
 	}
+
+	remover, err := knative.NewRemover(config.Namespace)
+	if err != nil {
+		return
+	}
+
+	remover.Verbose = config.Verbose
 
 	client := faas.New(
 		faas.WithVerbose(config.Verbose),
