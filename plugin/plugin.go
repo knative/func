@@ -18,7 +18,6 @@ func (f *faasPlugin) Name() string {
 
 func (f *faasPlugin) Execute(args []string) error {
     rootCmd := cmd.NewRootCmd()
-    cmd.Init()
 	oldArgs := os.Args
 	defer (func() {
 		os.Args = oldArgs
