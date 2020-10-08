@@ -1,55 +1,86 @@
-# Quarkus Http Function
+# Function project
 
-Welcome to your new Quarkus function project! This sample project contains three functions:
-* org.funqy.demo.GreetingFunctions.greet()
-* org.funqy.demo.PrimitiveFunctions.toLowerCase()
-* org.funqy.demo.PrimitiveFunctions.doubleIt()
+Welcome to your new Quarkus function project!
 
-The `greet` function demonstrates work with java beans,
-it accepts `Identity` bean (data of incoming http request),
-and it returns `Greeting` bean (data of http response). 
-
-The `toLowerCase` function accepts string and returns string.
-As its name suggests it returns input string with all characters in lowercase.
-
-The `doubleIt` function accepts integer and returns its value doubled.
-
-You can test those functions by using `curl` cmd utility.
-Parameters for `curl` can be found at [Request emulation](#request-emulation).
+This sample project contains single function: `functions.Function.echo()`,
+the function just returns its argument.
 
 ## Local execution
-Make sure that `maven 3.6.2` and `Java 11 SDK` is installed.
+Make sure that `Java 11 SDK` is installed.
 
-To start server locally run `mvn quarkus:dev`.
+To start server locally run `./mvnw quarkus:dev`.
 The command starts http server and automatically watches for changes of source code.
 If source code changes the change will be propagated to running server. It also opens debugging port `5005`
 so debugger can be attached if needed.
 
-To run test locally run `mvn test`.
+To run test locally run `./mvnw test`.
 
-## Request emulation
+## The `faas` CLI
 
-sample http request for the `greet` function
+It's recommended to set `FAAS_REGISTRY` environment variable.
 ```shell script
-curl -v "localhost:8080/greet" \
-  -X POST \
-  -H "Content-Type: application/json" \
-  -d "{\"name\": \"$(whoami)\"}\"";
-
+# replace ~/.bashrc by your shell rc file
+# replace docker.io/johndoe with your registry
+export FAAS_REGISTRY=docker.io/johndoe
+echo "export FAAS_REGISTRY=docker.io/johndoe" >> ~/.bashrc 
 ```
 
-sample http request for the `toLowerCase` function
+### Building
+
+This command builds OCI image for the function.
+
 ```shell script
-curl -v "localhost:8080/toLowerCase" \
-  -X POST \
-  -H "Content-Type: application/json" \
-  -d '"wEiRDly CaPiTaLisEd sTrInG"'
+faas build                  # build jar
+faas build --builder native # build native binary
 ```
 
-sample http request for the `doubleIt` function
+### Running
+
+This command runs the function locally in a container
+using the image created above.
 ```shell script
-curl -v "localhost:8080/doubleIt" \
-  -X POST \
-  -H "Content-Type: application/json" \
-  -d '21'
+faas run
+```
+
+### Deploying
+
+This commands will build and deploy the function into cluster.
+
+```shell script
+faas deploy # also triggers build
+```
+
+## Function invocation
+
+Do not forget to set `URL` variable to the route of your function.
+
+You get the route by following command.
+```shell script
+faas describe
+```
+
+### cURL
+
+```shell script
+URL=http://localhost:8080/
+curl -v ${URL} \
+  -H "Content-Type:application/json" \
+  -H "Ce-Id:1" \
+  -H "Ce-Source:cloud-event-example" \
+  -H "Ce-Type:dev.knative.example" \
+  -H "Ce-Specversion:1.0" \
+  -d "{\"name\": \"$(whoami)\"}\""
+```
+
+### HTTPie
+
+```shell script
+URL=http://localhost:8080/
+http -v ${URL} \
+  Content-Type:application/json \
+  Ce-Id:1 \
+  Ce-Source:cloud-event-example \
+  Ce-Type:dev.knative.example \
+  Ce-Specversion:1.0 \
+  name=$(whoami)
 ```
