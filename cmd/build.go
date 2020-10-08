@@ -50,21 +50,39 @@ or reference to builderMaps in the config file e.g. "default".
 }
 
 func runBuild(cmd *cobra.Command, _ []string) (err error) {
-	config := newBuildConfig()
+	config := newBuildConfig().Prompt()
+
 	function, err := functionWithOverrides(config.Path, functionOverrides{Builder: config.Builder, Image: config.Image})
 	if err != nil {
 		return
 	}
 
-	// If the Function does not yet have an image name, and one was not provided
-	// on the command line AND a --registry was not provided, then we need to
-	// prompt for a registry from which we can derive an image name.
-	if function.Image == "" && config.Registry == "" {
-		fmt.Print("A registry for Function images is required. For example, 'docker.io/tigerteam'.\n\n")
-		config.Registry = prompt.ForString("Registry for Function images", "")
+	// Check if the Function has been initialized
+	if !function.Initialized() {
+		return fmt.Errorf("the given path '%v' does not contain an initialized Function. Please create one at this path before deploying.", config.Path)
+	}
+
+	// If the Function does not yet have an image name and one was not provided on the command line
+	if function.Image == "" {
+		//  AND a --registry was not provided, then we need to
+		// prompt for a registry from which we can derive an image name.
 		if config.Registry == "" {
-			return fmt.Errorf("Unable to determine Function image name")
+			fmt.Print("A registry for Function images is required. For example, 'docker.io/tigerteam'.\n\n")
+			config.Registry = prompt.ForString("Registry for Function images", "")
+			if config.Registry == "" {
+				return fmt.Errorf("Unable to determine Function image name")
+			}
 		}
+
+		// We have the registry, so let's use it to derive the Function image name
+		config.Image = deriveImage(config.Image, config.Registry, config.Path)
+		function.Image = config.Image
+	}
+
+	// All set, let's write changes in the config to the disk
+	err = function.WriteConfig()
+	if err != nil {
+		return
 	}
 
 	builder := buildpacks.NewBuilder()
@@ -74,8 +92,6 @@ func runBuild(cmd *cobra.Command, _ []string) (err error) {
 		faas.WithVerbose(config.Verbose),
 		faas.WithRegistry(config.Registry), // for deriving image name when --image not provided explicitly.
 		faas.WithBuilder(builder))
-
-	config.Prompt()
 
 	return client.Build(config.Path)
 }
