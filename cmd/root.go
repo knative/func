@@ -235,3 +235,43 @@ func deriveImage(explicitImage, defaultRegistry, path string) string {
 	derivedValue, _ := faas.DerivedImage(path, defaultRegistry)
 	return derivedValue // Use the faas system's derivation logic.
 }
+
+func envVarsFromCmd(cmd *cobra.Command) map[string]string {
+	envVarsM := make(map[string]string)
+	if cmd.Flags().Changed("env") {
+		envVarsA, err := cmd.Flags().GetStringArray("env")
+		if err == nil {
+			for _, s := range envVarsA {
+				kvp := strings.Split(s, "=")
+				if len(kvp) == 2 && kvp[0] != "" {
+					envVarsM[kvp[0]] = kvp[1]
+				} else if len(kvp) == 1 && kvp[0] != "" {
+					envVarsM[kvp[0]] = ""
+				}
+			}
+		}
+	}
+	return envVarsM
+}
+
+func mergeEnvVarsMaps(dest, src map[string]string) map[string]string {
+	result := make(map[string]string, len(dest) +len(src))
+
+	for name, value := range dest {
+		if strings.HasSuffix(name, "-") {
+			if _, ok := src[strings.TrimSuffix(name, "-")]; !ok {
+				result[name] = value
+			}
+		} else {
+			if _, ok := src[name+"-"]; !ok {
+				result[name] = value
+			}
+		}
+	}
+
+	for name, value := range src {
+		result[name] = value
+	}
+
+	return result
+}
