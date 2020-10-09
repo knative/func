@@ -33,4 +33,7 @@ replace (
 	// Nail down k8 deps to align with transisitive deps
 	k8s.io/apimachinery => k8s.io/apimachinery v0.17.6
 	k8s.io/client-go => k8s.io/client-go v0.17.6
+
+	// Carrying the WithLabel feat until it lands in knative.dev/client @ release-0.17
+	knative.dev/client => github.com/navidshaikh/client v0.17.2
 )
