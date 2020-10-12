@@ -13,7 +13,7 @@ require (
 	k8s.io/api v0.18.8
 	k8s.io/apimachinery v0.19.1
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
-	knative.dev/client v0.17.0
+	knative.dev/client v0.17.2
 	knative.dev/eventing v0.17.5
 	knative.dev/serving v0.17.3
 )
@@ -33,7 +33,4 @@ replace (
 	// Nail down k8 deps to align with transisitive deps
 	k8s.io/apimachinery => k8s.io/apimachinery v0.17.6
 	k8s.io/client-go => k8s.io/client-go v0.17.6
-
-	// Carrying the WithLabel feat until it lands in knative.dev/client @ release-0.17
-	knative.dev/client => github.com/navidshaikh/client v0.17.2
 )
