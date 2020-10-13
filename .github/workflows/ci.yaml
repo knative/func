@@ -47,11 +47,12 @@ jobs:
           make push && make latest
 
       # Create a release, or update the release PR
-      - uses: GoogleCloudPlatform/release-please-action@v2.4.1
+      - uses: GoogleCloudPlatform/release-please-action@v2.5.5
         id: release
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           release-type: simple
+          bump-minor-pre-major: true
 
       # The following steps are only executed if this is a release
       - name: Compress Binaries
