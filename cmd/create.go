@@ -60,7 +60,7 @@ project configuration file faas.yaml.
 }
 
 func runCreate(cmd *cobra.Command, args []string) (err error) {
-	config := newCreateConfig(args).Prompt()
+	config := newCreateConfig(cmd, args).Prompt()
 
 	function := faas.Function{
 		Name:    config.initConfig.Name,
@@ -114,10 +114,11 @@ type createConfig struct {
 	// Note that ambiguous references set to assume .initConfig
 }
 
-func newCreateConfig(args []string) createConfig {
+func newCreateConfig(cmd *cobra.Command, args []string) createConfig {
+
 	return createConfig{
 		initConfig:   newInitConfig(args),
-		deployConfig: newDeployConfig(),
+		deployConfig: newDeployConfig(cmd),
 	}
 }
 

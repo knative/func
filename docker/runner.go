@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/boson-project/faas"
 )
@@ -36,9 +37,15 @@ func (n *Runner) Run(f faas.Function) error {
 	// Extra arguments to docker
 	args := []string{"run", "--rm", "-t", "-p=8080:8080"}
 
+	for name, value := range f.EnvVars {
+		if !strings.HasSuffix(name,"-") {
+			args = append(args, fmt.Sprintf("-e%s=%s", name, value))
+		}
+	}
+
 	// If verbosity is enabled, pass along as an environment variable to the Function.
 	if n.Verbose {
-		args = append(args, []string{"-e VERBOSE=true"}...)
+		args = append(args, "-e VERBOSE=true")
 	}
 	args = append(args, f.Image)
 

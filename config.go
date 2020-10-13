@@ -21,6 +21,7 @@ type config struct {
 	Trigger    string            `yaml:"trigger"`
 	Builder    string            `yaml:"builder"`
 	BuilderMap map[string]string `yaml:"builderMap"`
+	EnvVars    map[string]string `yaml:"envVars"`
 	// Add new values to the toConfig/fromConfig functions.
 }
 
@@ -57,6 +58,7 @@ func fromConfig(c config) (f Function) {
 		Trigger:    c.Trigger,
 		Builder:    c.Builder,
 		BuilderMap: c.BuilderMap,
+		EnvVars:    c.EnvVars,
 	}
 }
 
@@ -70,6 +72,7 @@ func toConfig(f Function) config {
 		Trigger:    f.Trigger,
 		Builder:    f.Builder,
 		BuilderMap: f.BuilderMap,
+		EnvVars:    f.EnvVars,
 	}
 }
 

@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
@@ -17,6 +16,7 @@ import (
 func init() {
 	root.AddCommand(deployCmd)
 	deployCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options - $FAAS_CONFIRM")
+	deployCmd.Flags().StringArrayP("env", "e", []string{}, "Sets environment variables for the Function.")
 	deployCmd.Flags().StringP("image", "i", "", "Optional full image name, in form [registry]/[namespace]/[name]:[tag] for example quay.io/myrepo/project.name:latest (overrides --registry) - $FAAS_IMAGE")
 	deployCmd.Flags().StringP("namespace", "n", "", "Override namespace into which the Function is deployed (on supported platforms).  Default is to use currently active underlying platform setting - $FAAS_NAMESPACE")
 	deployCmd.Flags().StringP("path", "p", cwd(), "Path to the function project directory - $FAAS_PATH")
@@ -52,12 +52,14 @@ or -n flag, and if so this will overwrite the value in the faas.yaml file.
 
 func runDeploy(cmd *cobra.Command, _ []string) (err error) {
 
-	config := newDeployConfig().Prompt()
+	config := newDeployConfig(cmd).Prompt()
 
 	function, err := functionWithOverrides(config.Path, functionOverrides{Namespace: config.Namespace, Image: config.Image})
 	if err != nil {
 		return
 	}
+
+	function.EnvVars = mergeEnvVarsMaps(function.EnvVars, config.EnvVars)
 
 	// Check if the Function has been initialized
 	if !function.Initialized() {
@@ -138,17 +140,20 @@ type deployConfig struct {
 	// Confirm: confirm values arrived upon from environment plus flags plus defaults,
 	// with interactive prompting (only applicable when attached to a TTY).
 	Confirm bool
+
+	EnvVars map[string]string
 }
 
 // newDeployConfig creates a buildConfig populated from command flags and
 // environment variables; in that precedence.
-func newDeployConfig() deployConfig {
+func newDeployConfig(cmd *cobra.Command) deployConfig {
 	return deployConfig{
 		buildConfig: newBuildConfig(),
 		Namespace:   viper.GetString("namespace"),
 		Path:        viper.GetString("path"),
 		Verbose:     viper.GetBool("verbose"), // defined on root
 		Confirm:     viper.GetBool("confirm"),
+		EnvVars:     envVarsFromCmd(cmd),
 	}
 }
 

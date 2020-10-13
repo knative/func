@@ -3,12 +3,13 @@ package knative
 import (
 	"bytes"
 	"fmt"
-	"sort"
+	"strings"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	servinglib "knative.dev/client/pkg/serving"
 	"knative.dev/client/pkg/wait"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -97,7 +98,7 @@ func (d *Deployer) Deploy(f faas.Function) (err error) {
 		}
 	} else {
 		// Update the existing Service
-		err = client.UpdateServiceWithRetry(encodedName, updateBuiltTimeStampEnvVar, 3)
+		err = client.UpdateServiceWithRetry(encodedName, updateEnvVars(f.EnvVars), 3)
 		if err != nil {
 			if !d.Verbose {
 				err = fmt.Errorf("deployer failed to update the service: %v.\nStdOut: %s", err, output.(*bytes.Buffer).String())
@@ -142,34 +143,25 @@ func generateNewService(name, image string) *servingv1.Service {
 	}
 }
 
-func updateBuiltTimeStampEnvVar(service *servingv1.Service) (*servingv1.Service, error) {
-	envs := service.Spec.Template.Spec.Containers[0].Env
+func updateEnvVars(envVars map[string]string) func(service *servingv1.Service) (*servingv1.Service, error) {
+	return func(service *servingv1.Service) (*servingv1.Service, error) {
+		builtEnvVarName := "BUILT"
+		builtEnvVarValue := time.Now().Format("20060102T150405")
 
-	builtEnvVarName := "BUILT"
+		toUpdate := make(map[string]string, len(envVars)+1)
+		toRemove := make([]string, 0)
 
-	builtEnvVar := findEnvVar(builtEnvVarName, envs)
-	if builtEnvVar == nil {
-		envs = append(envs, corev1.EnvVar{Name: "VERBOSE", Value: "true"})
-		builtEnvVar = &envs[len(envs)-1]
-	}
-
-	builtEnvVar.Value = time.Now().Format("20060102T150405")
-
-	sort.SliceStable(envs, func(i, j int) bool {
-		return envs[i].Name <= envs[j].Name
-	})
-	service.Spec.Template.Spec.Containers[0].Env = envs
-
-	return service, nil
-}
-
-func findEnvVar(name string, envs []corev1.EnvVar) *corev1.EnvVar {
-	var result *corev1.EnvVar = nil
-	for i, envVar := range envs {
-		if envVar.Name == name {
-			result = &envs[i]
-			break
+		for name, value := range envVars {
+			if strings.HasSuffix(name, "-") {
+				toRemove = append(toRemove, strings.TrimSuffix(name, "-"))
+			} else {
+				toUpdate[name] = value
+			}
 		}
+
+		toUpdate[builtEnvVarName] = builtEnvVarValue
+
+		return service, servinglib.UpdateEnvVars(&service.Spec.Template, toUpdate, toRemove)
 	}
-	return result
+
 }

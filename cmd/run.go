@@ -13,6 +13,7 @@ import (
 func init() {
 	// Add the run command as a subcommand of root.
 	root.AddCommand(runCmd)
+	runCmd.Flags().StringArrayP("env", "e", []string{}, "Sets environment variables for the Function.")
 	runCmd.Flags().StringP("path", "p", cwd(), "Path to the Function project directory - $FAAS_PATH")
 }
 
@@ -31,11 +32,18 @@ already have been built as an OCI container image using the 'build' command.
 }
 
 func runRun(cmd *cobra.Command, args []string) (err error) {
-	config := newRunConfig()
+	config := newRunConfig(cmd)
 
 	function, err := faas.NewFunction(config.Path)
 	if err != nil {
 		return
+	}
+
+	function.EnvVars = mergeEnvVarsMaps(function.EnvVars, config.EnvVars)
+
+	err = function.WriteConfig()
+	if err != nil {
+		return 
 	}
 
 	// Check if the Function has been initialized
@@ -60,11 +68,14 @@ type runConfig struct {
 
 	// Verbose logging.
 	Verbose bool
+
+	EnvVars map[string]string
 }
 
-func newRunConfig() runConfig {
+func newRunConfig(cmd *cobra.Command) runConfig {
 	return runConfig{
 		Path:    viper.GetString("path"),
 		Verbose: viper.GetBool("verbose"), // defined on root
+		EnvVars: envVarsFromCmd(cmd),
 	}
 }
