@@ -1,7 +1,6 @@
 package knative
 
 import (
-	"bytes"
 	"fmt"
 	"time"
 
@@ -31,18 +30,14 @@ func (remover *Remover) Remove(name string) (err error) {
 		return
 	}
 
-	client, output, err := NewServingClient(remover.Namespace, remover.Verbose)
+	client, err := NewServingClient(remover.Namespace)
 	if err != nil {
 		return
 	}
 
 	err = client.DeleteService(serviceName, time.Second*60)
 	if err != nil {
-		if remover.Verbose {
-			err = fmt.Errorf("remover failed to delete the service: %v", err)
-		} else {
-			err = fmt.Errorf("remover failed to delete the service: %v.\nStdOut: %s", err, output.(*bytes.Buffer).String())
-		}
+		err = fmt.Errorf("knative remover failed to delete the service: %v", err)
 	}
 
 	return

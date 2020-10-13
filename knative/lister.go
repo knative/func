@@ -30,7 +30,7 @@ func NewLister(namespaceOverride string) (l *Lister, err error) {
 
 func (l *Lister) List() (names []string, err error) {
 
-	client, _, err := NewServingClient(l.namespace, l.Verbose)
+	client, err := NewServingClient(l.namespace)
 	if err != nil {
 		return
 	}

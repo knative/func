@@ -36,12 +36,12 @@ func (d *Describer) Describe(name string) (description faas.Description, err err
 		return
 	}
 
-	servingClient, _, err := NewServingClient(d.namespace, d.Verbose)
+	servingClient, err := NewServingClient(d.namespace)
 	if err != nil {
 		return
 	}
 
-	eventingClient, _, err := NewEventingClient(d.namespace, d.Verbose)
+	eventingClient, err := NewEventingClient(d.namespace)
 	if err != nil {
 		return
 	}
