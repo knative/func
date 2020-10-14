@@ -87,6 +87,8 @@ func (d *Describer) Describe(name string) (description faas.Description, err err
 		}
 	}
 
+	description.KService = serviceName
+	description.Namespace = d.namespace
 	description.Routes = routeURLs
 	description.Subscriptions = subscriptions
 	description.Name, err = k8s.FromK8sAllowedName(service.Name)

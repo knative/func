@@ -35,6 +35,9 @@ func (remover *Remover) Remove(name string) (err error) {
 		return
 	}
 
+	if remover.Verbose {
+		fmt.Printf("Removing Knative Service: %v\n", serviceName)
+	}
 	err = client.DeleteService(serviceName, time.Second*60)
 	if err != nil {
 		err = fmt.Errorf("knative remover failed to delete the service: %v", err)
