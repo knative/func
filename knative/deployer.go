@@ -1,7 +1,6 @@
 package knative
 
 import (
-	"bytes"
 	"fmt"
 	"strings"
 	"time"
@@ -28,12 +27,11 @@ type Deployer struct {
 
 func NewDeployer(namespaceOverride string) (deployer *Deployer, err error) {
 	deployer = &Deployer{}
-	_, namespace, err := newClientConfig(namespaceOverride)
+	namespace, err := GetNamespace(namespaceOverride)
 	if err != nil {
 		return
 	}
 	deployer.Namespace = namespace
-	//	deployer.client, err = servingv1client.NewForConfig(config)
 	return
 }
 
@@ -41,70 +39,50 @@ func (d *Deployer) Deploy(f faas.Function) (err error) {
 
 	// k8s does not support service names with dots. so encode it such that
 	// www.my-domain,com -> www-my--domain-com
-	encodedName, err := k8s.ToK8sAllowedName(f.Name)
+	serviceName, err := k8s.ToK8sAllowedName(f.Name)
 	if err != nil {
 		return
 	}
 
-	client, output, err := NewClient(d.Namespace, d.Verbose)
+	client, err := NewServingClient(d.Namespace)
 	if err != nil {
 		return
 	}
 
-	_, err = client.GetService(encodedName)
+	_, err = client.GetService(serviceName)
 	if err != nil {
 		if errors.IsNotFound(err) {
 
 			// Let's create a new Service
-			err := client.CreateService(generateNewService(encodedName, f.Image))
+			err := client.CreateService(generateNewService(serviceName, f.Image))
 			if err != nil {
-				if !d.Verbose {
-					err = fmt.Errorf("failed to deploy the service: %v.\nStdOut: %s", err, output.(*bytes.Buffer).String())
-				} else {
-					err = fmt.Errorf("failed to deploy the service: %v", err)
-				}
+				err = fmt.Errorf("knative deployer failed to deploy the service: %v", err)
 				return err
 			}
 
-			err, _ = client.WaitForService(encodedName, DefaultWaitingTimeout, wait.NoopMessageCallback())
+			err, _ = client.WaitForService(serviceName, DefaultWaitingTimeout, wait.NoopMessageCallback())
 			if err != nil {
-				if !d.Verbose {
-					err = fmt.Errorf("deployer failed to wait for the service to become ready: %v.\nStdOut: %s", err, output.(*bytes.Buffer).String())
-				} else {
-					err = fmt.Errorf("deployer failed to wait for the service to become ready: %v", err)
-				}
+				err = fmt.Errorf("knative deployer failed to wait for the service to become ready: %v", err)
 				return err
 			}
 
-			route, err := client.GetRoute(encodedName)
+			route, err := client.GetRoute(serviceName)
 			if err != nil {
-				if !d.Verbose {
-					err = fmt.Errorf("deployer failed to get the route: %v.\nStdOut: %s", err, output.(*bytes.Buffer).String())
-				} else {
-					err = fmt.Errorf("deployer failed to get the route: %v", err)
-				}
+				err = fmt.Errorf("knative deployer failed to get the route: %v", err)
 				return err
 			}
 
 			fmt.Println("Function deployed on: " + route.Status.URL.String())
 
 		} else {
-			if !d.Verbose {
-				err = fmt.Errorf("deployer failed to get the service: %v.\nStdOut: %s", err, output.(*bytes.Buffer).String())
-			} else {
-				err = fmt.Errorf("deployer failed to get the service: %v", err)
-			}
+			err = fmt.Errorf("knative deployer failed to get the service: %v", err)
 			return err
 		}
 	} else {
 		// Update the existing Service
-		err = client.UpdateServiceWithRetry(encodedName, updateEnvVars(f.EnvVars), 3)
+		err = client.UpdateServiceWithRetry(serviceName, updateEnvVars(f.EnvVars), 3)
 		if err != nil {
-			if !d.Verbose {
-				err = fmt.Errorf("deployer failed to update the service: %v.\nStdOut: %s", err, output.(*bytes.Buffer).String())
-			} else {
-				err = fmt.Errorf("deployer failed to update the service: %v", err)
-			}
+			err = fmt.Errorf("knative deployer failed to update the service: %v", err)
 			return err
 		}
 	}

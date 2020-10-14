@@ -1,44 +1,27 @@
 package knative
 
 import (
-	"fmt"
 	"k8s.io/apimachinery/pkg/api/errors"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/rest"
+	v1 "knative.dev/client/pkg/serving/v1"
 	"knative.dev/eventing/pkg/apis/eventing/v1beta1"
-	eventingv1client "knative.dev/eventing/pkg/client/clientset/versioned/typed/eventing/v1beta1"
-	servingv1client "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1alpha1"
 
 	"github.com/boson-project/faas"
 	"github.com/boson-project/faas/k8s"
 )
 
 type Describer struct {
-	Verbose        bool
-	namespace      string
-	servingClient  *servingv1client.ServingV1alpha1Client
-	eventingClient *eventingv1client.EventingV1beta1Client
-	config         *rest.Config
+	Verbose   bool
+	namespace string
 }
 
 func NewDescriber(namespaceOverride string) (describer *Describer, err error) {
 	describer = &Describer{}
-	config, namespace, err := newClientConfig(namespaceOverride)
+	namespace, err := GetNamespace(namespaceOverride)
 	if err != nil {
 		return
 	}
-	describer.namespace = namespace
 
-	describer.servingClient, err = servingv1client.NewForConfig(config)
-	if err != nil {
-		return
-	}
-	describer.eventingClient, err = eventingv1client.NewForConfig(config)
-	if err != nil {
-		return
-	}
-	describer.config = config
+	describer.namespace = namespace
 	return
 }
 
@@ -46,24 +29,29 @@ func NewDescriber(namespaceOverride string) (describer *Describer, err error) {
 // restricts to label-syntax, which is thus escaped. Therefore as a knative (kube) implementation
 // detal proper full names have to be escaped on the way in and unescaped on the way out. ex:
 // www.example-site.com -> www-example--site-com
-func (describer *Describer) Describe(name string) (description faas.Description, err error) {
-
-	namespace := describer.namespace
-	servingClient := describer.servingClient
-	eventingClient := describer.eventingClient
+func (d *Describer) Describe(name string) (description faas.Description, err error) {
 
 	serviceName, err := k8s.ToK8sAllowedName(name)
 	if err != nil {
 		return
 	}
 
-	service, err := servingClient.Services(namespace).Get(serviceName, metav1.GetOptions{})
+	servingClient, err := NewServingClient(d.namespace)
 	if err != nil {
 		return
 	}
 
-	serviceLabel := fmt.Sprintf("serving.knative.dev/service=%s", serviceName)
-	routes, err := servingClient.Routes(namespace).List(metav1.ListOptions{LabelSelector: serviceLabel})
+	eventingClient, err := NewEventingClient(d.namespace)
+	if err != nil {
+		return
+	}
+
+	service, err := servingClient.GetService(serviceName)
+	if err != nil {
+		return
+	}
+
+	routes, err := servingClient.ListRoutes(v1.WithService(serviceName))
 	if err != nil {
 		return
 	}
@@ -73,7 +61,7 @@ func (describer *Describer) Describe(name string) (description faas.Description,
 		routeURLs = append(routeURLs, route.Status.URL.String())
 	}
 
-	triggers, err := eventingClient.Triggers(namespace).List(metav1.ListOptions{})
+	triggers, err := eventingClient.ListTriggers()
 	// IsNotFound -- Eventing is probably not installed on the cluster
 	if err != nil && !errors.IsNotFound(err) {
 		return
