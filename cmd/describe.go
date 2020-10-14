@@ -134,18 +134,18 @@ func (d description) Human(w io.Writer) error {
 }
 
 func (d description) Plain(w io.Writer) error {
-	fmt.Fprintf(w, "NAME %v\n", d.Name)
-	fmt.Fprintf(w, "IMAGE %v\n", d.Image)
-	fmt.Fprintf(w, "KNATIVE SERVICE %v\n", d.KService)
-	fmt.Fprintf(w, "NAMESPACE %v\n", d.Namespace)
+	fmt.Fprintf(w, "Name %v\n", d.Name)
+	fmt.Fprintf(w, "Image %v\n", d.Image)
+	fmt.Fprintf(w, "Knative Service %v\n", d.KService)
+	fmt.Fprintf(w, "Namespace %v\n", d.Namespace)
 
 	for _, route := range d.Routes {
-		fmt.Fprintf(w, "ROUTE %v\n", route)
+		fmt.Fprintf(w, "Route %v\n", route)
 	}
 
 	if len(d.Subscriptions) > 0 {
 		for _, s := range d.Subscriptions {
-			fmt.Fprintf(w, "SUBSCRIPTION %v %v %v\n", s.Source, s.Type, s.Broker)
+			fmt.Fprintf(w, "Subscription %v %v %v\n", s.Source, s.Type, s.Broker)
 		}
 	}
 	return nil
