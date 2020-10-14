@@ -387,11 +387,11 @@ func TestCreateDelegates(t *testing.T) {
 		return nil
 	}
 
-	pusher.PushFn = func(f faas.Function) error {
+	pusher.PushFn = func(f faas.Function) (string, error) {
 		if f.Image != expectedImage {
 			t.Fatalf("pusher expected image '%v', got '%v'", expectedImage, f.Image)
 		}
-		return nil
+		return "", nil
 	}
 
 	deployer.DeployFn = func(f faas.Function) error {
@@ -468,7 +468,7 @@ func TestUpdate(t *testing.T) {
 		expectedImage = "quay.io/alice/testUpdate:latest"
 		builder       = mock.NewBuilder()
 		pusher        = mock.NewPusher()
-		deployer       = mock.NewDeployer()
+		deployer      = mock.NewDeployer()
 	)
 
 	// Create the root Function directory
@@ -502,12 +502,12 @@ func TestUpdate(t *testing.T) {
 	}
 
 	// Pusher whose implementaiton verifies the expected image
-	pusher.PushFn = func(f faas.Function) error {
+	pusher.PushFn = func(f faas.Function) (string, error) {
 		if f.Image != expectedImage {
 			t.Fatalf("pusher expected image '%v', got '%v'", expectedImage, f.Image)
 		}
 		// image of given name wouold be pushed to the configured registry.
-		return nil
+		return "", nil
 	}
 
 	// Update whose implementaiton verifed the expected name and image

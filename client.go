@@ -42,7 +42,8 @@ type Builder interface {
 // Pusher of Function image to a registry.
 type Pusher interface {
 	// Push the image of the Function.
-	Push(Function) error
+	// Returns Image Digest - SHA256 hash of the produced image
+	Push(Function) (string, error)
 }
 
 // Deployer of Function source to running status.
@@ -423,7 +424,14 @@ func (c *Client) Deploy(path string) (err error) {
 	if c.verbose {
 		fmt.Println("\nPushing Function image to the registry:")
 	}
-	if err = c.pusher.Push(f); err != nil {
+	imageDigest, err := c.pusher.Push(f)
+	if err != nil {
+		return
+	}
+
+	// Store the produced image Digest in the config
+	f.ImageDigest = imageDigest
+	if err = writeConfig(f); err != nil {
 		return
 	}
 
@@ -525,7 +533,7 @@ func (n *noopBuilder) Build(_ Function) error { return nil }
 
 type noopPusher struct{ output io.Writer }
 
-func (n *noopPusher) Push(_ Function) error { return nil }
+func (n *noopPusher) Push(_ Function) (string, error) { return "", nil }
 
 type noopDeployer struct{ output io.Writer }
 

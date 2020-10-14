@@ -30,8 +30,8 @@ func (n *Runner) Run(f faas.Function) error {
 		return errors.New("please install 'docker'")
 	}
 
-	if f.Image == "" {
-		return errors.New("Function has no associated image.  Has it been built?")
+	if f.Image == "" || f.ImageWithDigest() == "" {
+		return errors.New("Function has no associated image and SHA356 hash. Has it been built?")
 	}
 
 	// Extra arguments to docker
@@ -47,7 +47,7 @@ func (n *Runner) Run(f faas.Function) error {
 	if n.Verbose {
 		args = append(args, "-e VERBOSE=true")
 	}
-	args = append(args, f.Image)
+	args = append(args, f.ImageWithDigest())
 
 	// Set up the command with extra arguments and to run rooted at path
 	cmd := exec.Command("docker", args...)

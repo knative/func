@@ -41,6 +41,9 @@ type Function struct {
 	// "Registry+Name:latest" to derive the Image.
 	Image string
 
+	// SHA256 hash of the latest image that has been built
+	ImageDigest string
+
 	// Builder represents the CNCF Buildpack builder image for a function,
 	// or it might be reference to `BuilderMap`.
 	Builder string
@@ -98,6 +101,18 @@ func (f Function) Initialized() bool {
 	}
 
 	return c.Runtime != "" && c.Name != ""
+}
+
+// ImageWithDigest returns the full reference to the image including SHA256 Digest.
+// If Digest is empty, image:tag is returned.
+func (f Function) ImageWithDigest() string{
+	// Return image, if Digest is empty
+	if f.ImageDigest == "" {
+		return f.Image
+	}
+
+	// Remove tag from the image name and append SHA256 hash instead
+	return strings.Split(f.Image, ":")[0] + "@" +f.ImageDigest
 }
 
 // DerivedImage returns the derived image name (OCI container tag) of the

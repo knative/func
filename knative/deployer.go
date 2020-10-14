@@ -57,7 +57,7 @@ func (d *Deployer) Deploy(f faas.Function) (err error) {
 			if d.Verbose {
 				fmt.Printf("Creating Knative Service: %v\n", serviceName)
 			}
-			err := client.CreateService(generateNewService(serviceName, f.Image, f.Runtime != "quarkus"))
+			err := client.CreateService(generateNewService(serviceName, f.ImageWithDigest(), f.Runtime != "quarkus"))
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to deploy the service: %v", err)
 				return err
@@ -86,10 +86,7 @@ func (d *Deployer) Deploy(f faas.Function) (err error) {
 		}
 	} else {
 		// Update the existing Service
-		if d.Verbose {
-			fmt.Printf("Updating existing Knative Service: %v\n", serviceName)
-		}
-		err = client.UpdateServiceWithRetry(serviceName, updateEnvVars(f.EnvVars), 3)
+		err = client.UpdateServiceWithRetry(serviceName, updateService(f.ImageWithDigest(), f.EnvVars), 3)
 		if err != nil {
 			err = fmt.Errorf("knative deployer failed to update the service: %v", err)
 			return err
@@ -145,25 +142,32 @@ func generateNewService(name, image string, healthChecks bool) *servingv1.Servic
 	}
 }
 
-func updateEnvVars(envVars map[string]string) func(service *servingv1.Service) (*servingv1.Service, error) {
+func updateService(image string, envVars map[string]string) func(service *servingv1.Service) (*servingv1.Service, error) {
 	return func(service *servingv1.Service) (*servingv1.Service, error) {
-		builtEnvVarName := "BUILT"
-		builtEnvVarValue := time.Now().Format("20060102T150405")
-
-		toUpdate := make(map[string]string, len(envVars)+1)
-		toRemove := make([]string, 0)
-
-		for name, value := range envVars {
-			if strings.HasSuffix(name, "-") {
-				toRemove = append(toRemove, strings.TrimSuffix(name, "-"))
-			} else {
-				toUpdate[name] = value
-			}
+		err := servinglib.UpdateImage(&service.Spec.Template, image)
+		if err != nil {
+			return service, err
 		}
+		return updateEnvVars(service, envVars)
+	}
+}
 
-		toUpdate[builtEnvVarName] = builtEnvVarValue
+func updateEnvVars(service *servingv1.Service, envVars map[string]string) (*servingv1.Service, error) {
+	builtEnvVarName := "BUILT"
+	builtEnvVarValue := time.Now().Format("20060102T150405")
 
-		return service, servinglib.UpdateEnvVars(&service.Spec.Template, toUpdate, toRemove)
+	toUpdate := make(map[string]string, len(envVars)+1)
+	toRemove := make([]string, 0)
+
+	for name, value := range envVars {
+		if strings.HasSuffix(name, "-") {
+			toRemove = append(toRemove, strings.TrimSuffix(name, "-"))
+		} else {
+			toUpdate[name] = value
+		}
 	}
 
+	toUpdate[builtEnvVarName] = builtEnvVarValue
+
+	return service, servinglib.UpdateEnvVars(&service.Spec.Template, toUpdate, toRemove)
 }
