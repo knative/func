@@ -1940,8 +1940,6 @@ knative.dev/caching v0.0.0-20190719140829-2032732871ff/go.mod h1:dHXFU6CGlLlbzaW
 knative.dev/caching v0.0.0-20200116200605-67bca2c83dfa/go.mod h1:dHXFU6CGlLlbzaWc32g80cR92iuBSpsslDNBWI8C7eg=
 knative.dev/caching v0.0.0-20200811171106-48c335fed9c8/go.mod h1:XonDcFC2DLSWP71f2y7oYnXUko5d5HsJRnZtkp0wY7g=
 knative.dev/caching v0.0.0-20200831163411-f6154e7455e2/go.mod h1:jG64HWkBQmFlY8dk1CH884oHtaT/savnqxcZC8vBnvk=
-knative.dev/client v0.17.0 h1:RR+eYVYGy6+LQ44wZcoNuUC6j2Ril7v954ffyK76On8=
-knative.dev/client v0.17.0/go.mod h1:62s+OqEJ8mBSkP6c3ZmPB3jl1jmOyiKtTPwJUBXJQqY=
 knative.dev/client v0.17.2 h1:1aRHQgw0D+FGqZ6Rhpq2nUntBjgc2B2s/HOFoVqoOw4=
 knative.dev/client v0.17.2/go.mod h1:62s+OqEJ8mBSkP6c3ZmPB3jl1jmOyiKtTPwJUBXJQqY=
 knative.dev/eventing v0.17.0 h1:yGJuwN+jWQPCf4XuL44vAjlemLHnbLTBKyhvRBmikpQ=

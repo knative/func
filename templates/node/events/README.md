@@ -15,7 +15,7 @@ The runtime will expose three endpoints.
 The health checks can be accessed in your browser at [http://localhost:8080/health/readiness]() and [http://localhost:8080/health/liveness](). You can use `curl` to `POST` an event to the function endpoint:
 
 ```console
-curl -X POST -d '{"hello": "world"}' \
+curl -X POST -d '{"name": "Tiger", "customerId": "0123456789"}' \
   -H'Content-type: application/json' \
   -H'Ce-id: 1' \
   -H'Ce-source: cloud-event-example' \
