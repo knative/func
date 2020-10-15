@@ -4,7 +4,6 @@ go 1.14
 
 require (
 	github.com/buildpacks/pack v0.14.0
-	github.com/docker/docker v1.13.1
 	github.com/markbates/pkger v0.17.1
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/ory/viper v1.7.4
