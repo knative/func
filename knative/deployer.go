@@ -57,7 +57,7 @@ func (d *Deployer) Deploy(f faas.Function) (err error) {
 			if d.Verbose {
 				fmt.Printf("Creating Knative Service: %v\n", serviceName)
 			}
-			err := client.CreateService(generateNewService(serviceName, f.Image))
+			err := client.CreateService(generateNewService(serviceName, f.Image, f.Runtime != "quarkus"))
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to deploy the service: %v", err)
 				return err
@@ -99,7 +99,17 @@ func (d *Deployer) Deploy(f faas.Function) (err error) {
 	return nil
 }
 
-func generateNewService(name, image string) *servingv1.Service {
+func probeFor(url string) *corev1.Probe {
+	return &corev1.Probe{
+		Handler: corev1.Handler{
+			HTTPGet: &corev1.HTTPGetAction{
+				Path: url,
+			},
+		},
+	}
+}
+
+func generateNewService(name, image string, healthChecks bool) *servingv1.Service {
 	containers := []corev1.Container{
 		{
 			Image: image,
@@ -107,6 +117,11 @@ func generateNewService(name, image string) *servingv1.Service {
 				{Name: "VERBOSE", Value: "true"},
 			},
 		},
+	}
+
+	if healthChecks {
+		containers[0].LivenessProbe = probeFor("/health/liveness")
+		containers[0].ReadinessProbe = probeFor("/health/readiness")
 	}
 
 	return &v1.Service{
