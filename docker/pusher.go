@@ -68,7 +68,7 @@ func (n *Pusher) Push(f faas.Function) (digest string, err error) {
 	return
 }
 
-// parseDigest try to parse the last line from the output, which holds the pushed image digest
+// parseDigest tries to parse the last line from the output, which holds the pushed image digest
 // The last line should look like this:
 // latest: digest: sha256:a278a91112d17f8bde6b5f802a3317c7c752cf88078dae6f4b5a0784deb81782 size: 2613
 func parseDigest(output string) string {
@@ -77,14 +77,14 @@ func parseDigest(output string) string {
 	lines := strings.Split(output, "\n")
 	lastline := lines[len(lines)-2]
 
-	// find the indext start of the "sha256" section
+	// find the start index of the "digest" section
 	shaIndex := strings.Index(lastline, "sha256")
 	if shaIndex == -1 {
 		return ""
 	}
 	subStr := lastline[shaIndex:]
 
-	// find index the end of the digest section
+	// find the end index of the "digest" section
 	endIndex := strings.Index(subStr, " ")
 	if endIndex == -1 {
 		return ""
