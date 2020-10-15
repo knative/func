@@ -31,7 +31,7 @@ func (n *Runner) Run(f faas.Function) error {
 	}
 
 	if f.Image == "" || f.ImageWithDigest() == "" {
-		return errors.New("Function has no associated image and SHA356 hash. Has it been built?")
+		return errors.New("Function has no associated Image and Digest. Has it been built?")
 	}
 
 	// Extra arguments to docker
