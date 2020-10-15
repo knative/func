@@ -1,6 +1,6 @@
 # Function Developer's Guide
 
-Before learning to develop Functions, you should have the client installed and a configured provider.
+Before learning to develop Functions, you should have the client [installed](installing_cli.md) and a configured provider.
 
 ## Local Setup and Configuration
 
