@@ -93,6 +93,9 @@ type Describer interface {
 
 type Description struct {
 	Name          string         `json:"name" yaml:"name"`
+	Image         string         `json:"image" yaml:"image"`
+	KService      string         `json:"kservice" yaml:"kservice"`
+	Namespace     string         `json:"namespace" yaml:"namespace"`
 	Routes        []string       `json:"routes" yaml:"routes"`
 	Subscriptions []Subscription `json:"subscriptions" yaml:"subscriptions"`
 }
@@ -363,7 +366,7 @@ func (c *Client) Initialize(cfg Function) (err error) {
 	// TODO: Create a status structure and return it for clients to use
 	// for output, such as from the CLI.
 	if c.verbose {
-		fmt.Printf("OK %v %v\n", f.Name, f.Root)
+		fmt.Println("Function project created")
 	}
 	return
 }
@@ -371,6 +374,10 @@ func (c *Client) Initialize(cfg Function) (err error) {
 // Build the Function at path.  Errors if the Function is either unloadable or does
 // not contain a populated Image.
 func (c *Client) Build(path string) (err error) {
+	if c.verbose {
+		fmt.Println("Building Function image:")
+	}
+
 	f, err := NewFunction(path)
 	if err != nil {
 		return
@@ -394,7 +401,7 @@ func (c *Client) Build(path string) (err error) {
 	// TODO: create a statu structure and return it here for optional
 	// use by the cli for user echo (rather than rely on verbose mode here)
 	if c.verbose {
-		fmt.Printf("OK %v\n", f.Image)
+		fmt.Printf("Function image has been built, image: %v\n", f.Image)
 	}
 	return
 }
@@ -402,7 +409,6 @@ func (c *Client) Build(path string) (err error) {
 // Deploy the Function at path.  Errors if the Function has not been
 // initialized with an image tag.
 func (c *Client) Deploy(path string) (err error) {
-
 	f, err := NewFunction(path)
 	if err != nil {
 		return
@@ -414,11 +420,17 @@ func (c *Client) Deploy(path string) (err error) {
 	}
 
 	// Push the image for the named service to the configured registry
+	if c.verbose {
+		fmt.Println("\nPushing Function image to the registry:")
+	}
 	if err = c.pusher.Push(f); err != nil {
 		return
 	}
 
 	// Deploy a new or Update the previously-deployed Function
+	if c.verbose {
+		fmt.Println("\nDeploying Function to cluster:")
+	}
 	return c.deployer.Deploy(f)
 }
 

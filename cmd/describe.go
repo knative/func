@@ -73,6 +73,7 @@ func runDescribe(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return
 	}
+	d.Image = function.Image
 
 	write(os.Stdout, description(d), config.Format)
 	return
@@ -109,25 +110,43 @@ func newDescribeConfig(args []string) describeConfig {
 type description faas.Description
 
 func (d description) Human(w io.Writer) error {
-	fmt.Fprintln(w, d.Name)
+	fmt.Fprintln(w, "Function name:")
+	fmt.Fprintf(w, "  %v\n", d.Name)
+	fmt.Fprintln(w, "Function is built in image:")
+	fmt.Fprintf(w, "  %v\n", d.Image)
+	fmt.Fprintln(w, "Function is deployed as Knative Service:")
+	fmt.Fprintf(w, "  %v\n", d.KService)
+	fmt.Fprintln(w, "Function is deployed in namespace:")
+	fmt.Fprintf(w, "  %v\n", d.Namespace)
 	fmt.Fprintln(w, "Routes:")
+
 	for _, route := range d.Routes {
 		fmt.Fprintf(w, "  %v\n", route)
 	}
-	fmt.Fprintln(w, "Subscriptions (Source, Type, Broker):")
-	for _, s := range d.Subscriptions {
-		fmt.Fprintf(w, "  %v %v %v\n", s.Source, s.Type, s.Broker)
+
+	if len(d.Subscriptions) > 0 {
+		fmt.Fprintln(w, "Subscriptions (Source, Type, Broker):")
+		for _, s := range d.Subscriptions {
+			fmt.Fprintf(w, "  %v %v %v\n", s.Source, s.Type, s.Broker)
+		}
 	}
-	return d.Plain(w)
+	return nil
 }
 
 func (d description) Plain(w io.Writer) error {
-	fmt.Fprintf(w, "NAME %v\n", d.Name)
+	fmt.Fprintf(w, "Name %v\n", d.Name)
+	fmt.Fprintf(w, "Image %v\n", d.Image)
+	fmt.Fprintf(w, "Knative Service %v\n", d.KService)
+	fmt.Fprintf(w, "Namespace %v\n", d.Namespace)
+
 	for _, route := range d.Routes {
-		fmt.Fprintf(w, "ROUTE %v\n", route)
+		fmt.Fprintf(w, "Route %v\n", route)
 	}
-	for _, s := range d.Subscriptions {
-		fmt.Fprintf(w, "SUBSCRIPTION %v %v %v\n", s.Source, s.Type, s.Broker)
+
+	if len(d.Subscriptions) > 0 {
+		for _, s := range d.Subscriptions {
+			fmt.Fprintf(w, "Subscription %v %v %v\n", s.Source, s.Type, s.Broker)
+		}
 	}
 	return nil
 }

@@ -54,12 +54,18 @@ func (d *Deployer) Deploy(f faas.Function) (err error) {
 		if errors.IsNotFound(err) {
 
 			// Let's create a new Service
+			if d.Verbose {
+				fmt.Printf("Creating Knative Service: %v\n", serviceName)
+			}
 			err := client.CreateService(generateNewService(serviceName, f.Image))
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to deploy the service: %v", err)
 				return err
 			}
 
+			if d.Verbose {
+				fmt.Println("Waiting for Knative Service to become ready")
+			}
 			err, _ = client.WaitForService(serviceName, DefaultWaitingTimeout, wait.NoopMessageCallback())
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to wait for the service to become ready: %v", err)
@@ -72,7 +78,7 @@ func (d *Deployer) Deploy(f faas.Function) (err error) {
 				return err
 			}
 
-			fmt.Println("Function deployed on: " + route.Status.URL.String())
+			fmt.Println("Function deployed at URL: " + route.Status.URL.String())
 
 		} else {
 			err = fmt.Errorf("knative deployer failed to get the service: %v", err)
@@ -80,6 +86,9 @@ func (d *Deployer) Deploy(f faas.Function) (err error) {
 		}
 	} else {
 		// Update the existing Service
+		if d.Verbose {
+			fmt.Printf("Updating existing Knative Service: %v\n", serviceName)
+		}
 		err = client.UpdateServiceWithRetry(serviceName, updateEnvVars(f.EnvVars), 3)
 		if err != nil {
 			err = fmt.Errorf("knative deployer failed to update the service: %v", err)
