@@ -110,9 +110,15 @@ func (f Function) ImageWithDigest() string{
 	if f.ImageDigest == "" {
 		return f.Image
 	}
+	
+	lastSlashIdx := strings.LastIndexAny(f.Image, "/")
+	imageAsBytes := []byte(f.Image)
+
+	part1 := string(imageAsBytes[:lastSlashIdx+1])
+	part2 := string(imageAsBytes[lastSlashIdx+1:])
 
 	// Remove tag from the image name and append SHA256 hash instead
-	return strings.Split(f.Image, ":")[0] + "@" +f.ImageDigest
+	return part1 + strings.Split(part2, ":")[0] + "@" +f.ImageDigest
 }
 
 // DerivedImage returns the derived image name (OCI container tag) of the
