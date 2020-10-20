@@ -1,6 +1,40 @@
 # Change Log
 
 <a name="unreleased"></a>
+## [0.8.0](https://www.github.com/boson-project/faas/compare/v0.7.0...v0.8.0) (2020-10-20)
+
+
+### ⚠ BREAKING CHANGES
+
+* change all references of "repository" to "registry" for images (#156)
+* combine deploy and update commands (#152)
+
+### Features
+
+* add health probes to node & go services ([#174](https://www.github.com/boson-project/faas/issues/174)) ([95c1eb5](https://www.github.com/boson-project/faas/commit/95c1eb5e59335cfee84ce536d086bd394268c81c))
+* introduce CloudEvent data as first parameter for event functions ([#172](https://www.github.com/boson-project/faas/issues/172)) ([7451194](https://www.github.com/boson-project/faas/commit/74511948cefc368d898ad05b911fded74d44b759))
+* user can set envvars ([5182487](https://www.github.com/boson-project/faas/commit/5182487df218685867fda10c3d1983b4c035c08a))
+* **kn:** Enable faas to be integrated as plugin to kn ([#155](https://www.github.com/boson-project/faas/issues/155)) ([85a5f47](https://www.github.com/boson-project/faas/commit/85a5f475eb32269b9cced05fe36dc90f8befd000))
+* ability for users to specify custom builders ([#147](https://www.github.com/boson-project/faas/issues/147)) ([c2b4a30](https://www.github.com/boson-project/faas/commit/c2b4a304bd3fa7d020c71db9f4d79c80c98d86d3))
+* combine deploy and update commands ([#152](https://www.github.com/boson-project/faas/issues/152)) ([d5839ea](https://www.github.com/boson-project/faas/commit/d5839ea6c1e84e843ad643cc0611a82e2e6d2399))
+* fish completion ([d822303](https://www.github.com/boson-project/faas/commit/d82230353d3d437e8f35e7f9ce3569988d765b42))
+
+
+### Bug Fixes
+
+* examples in readme ([5591e7f](https://www.github.com/boson-project/faas/commit/5591e7fa2ca9584f03bf8d065778cd120ea9054f))
+* image parsing ([6a621a5](https://www.github.com/boson-project/faas/commit/6a621a5186ffffec79e6f34c34681cc37eeaa0bd))
+* regenerate pkger files ([#183](https://www.github.com/boson-project/faas/issues/183)) ([1d14a8c](https://www.github.com/boson-project/faas/commit/1d14a8c10156098d66ef691f84ecce1bd25a6d88))
+* root cmd init ([ec5327d](https://www.github.com/boson-project/faas/commit/ec5327d5201b57d6a33bcc7314332686582b676f))
+* stop using manually edited completion ([bf9b048](https://www.github.com/boson-project/faas/commit/bf9b04881333fed6038251fa4de92368771840d9))
+* update quarkus templates ([ffc6a12](https://www.github.com/boson-project/faas/commit/ffc6a123e469968865fef1ccb5f8d84a443baccb))
+* update to Knative 0.17 ([#145](https://www.github.com/boson-project/faas/issues/145)) ([5fe7052](https://www.github.com/boson-project/faas/commit/5fe70526e531e283c6704d9526e3cdd7ef64f9e1))
+
+
+### src
+
+* change all references of "repository" to "registry" for images ([#156](https://www.github.com/boson-project/faas/issues/156)) ([e425c8f](https://www.github.com/boson-project/faas/commit/e425c8f08183b333e56d5d3cfe74fc9e85a6c903))
+
 ## [0.7.0](https://www.github.com/boson-project/faas/compare/v0.6.2...v0.7.0) (2020-09-24)
 
 
