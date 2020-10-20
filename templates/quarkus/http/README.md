@@ -62,25 +62,16 @@ faas describe
 ### cURL
 
 ```shell script
-URL=http://localhost:8080/
+URL=http://localhost:8080/echo
 curl -v ${URL} \
   -H "Content-Type:application/json" \
-  -H "Ce-Id:1" \
-  -H "Ce-Source:cloud-event-example" \
-  -H "Ce-Type:dev.knative.example" \
-  -H "Ce-Specversion:1.0" \
   -d "{\"name\": \"$(whoami)\"}\""
 ```
 
 ### HTTPie
 
 ```shell script
-URL=http://localhost:8080/
+URL=http://localhost:8080/echo
 http -v ${URL} \
-  Content-Type:application/json \
-  Ce-Id:1 \
-  Ce-Source:cloud-event-example \
-  Ce-Type:dev.knative.example \
-  Ce-Specversion:1.0 \
   name=$(whoami)
 ```
