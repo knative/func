@@ -14,7 +14,7 @@ import (
 func init() {
 	root.AddCommand(initCmd)
 	initCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options - $FAAS_CONFIRM")
-	initCmd.Flags().StringP("runtime", "l", faas.DefaultRuntime, "Function runtime language/framework. Default runtime is 'go'. Available runtimes: 'node', 'quarkus' and 'go'. - $FAAS_RUNTIME")
+	initCmd.Flags().StringP("runtime", "l", faas.DefaultRuntime, "Function runtime language/framework. Default runtime is 'node'. Available runtimes: 'node', 'quarkus' and 'go'. - $FAAS_RUNTIME")
 	initCmd.Flags().StringP("templates", "", filepath.Join(configPath(), "templates"), "Extensible templates path. - $FAAS_TEMPLATES")
 	initCmd.Flags().StringP("trigger", "t", faas.DefaultTrigger, "Function trigger. Default trigger is 'http'. Available triggers: 'http' and 'events' - $FAAS_TRIGGER")
 
@@ -31,9 +31,9 @@ var initCmd = &cobra.Command{
 Creates a new Function project at <path>. If <path> does not exist, it is
 created. The Function name is the name of the leaf directory at <path>.
 
-A project for a Go Function will be created by default. Specify an alternate
-runtime with the --language or -l flag. Available alternates are "node" and
-"quarkus".
+A project for a Node.js Function will be created by default. Specify an
+alternate runtime with the --language or -l flag. Available alternates are
+"quarkus" and "go".
 
 Use the --trigger or -t flag to specify the function invocation context.
 By default, the trigger is "http". To create a Function for CloudEvents, use
