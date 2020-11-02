@@ -12,7 +12,7 @@ import (
 
 const (
 	DefaultRegistry = "docker.io"
-	DefaultRuntime  = "go"
+	DefaultRuntime  = "node"
 	DefaultTrigger  = "http"
 )
 

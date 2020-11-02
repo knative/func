@@ -176,9 +176,9 @@ func TestExtensibleTemplates(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Ensure that a file from that only exists in that template set was actually written 'json.go'
-	if _, err := os.Stat(filepath.Join(root, "json.go")); os.IsNotExist(err) {
-		t.Fatalf("Initializing a custom did not result in json.go being written to '%v'", root)
+	// Ensure that a file from that only exists in that template set was actually written 'json.js'
+	if _, err := os.Stat(filepath.Join(root, "json.js")); os.IsNotExist(err) {
+		t.Fatalf("Initializing a custom did not result in json.js being written to '%v'", root)
 	} else if err != nil {
 		t.Fatal(err)
 	}
