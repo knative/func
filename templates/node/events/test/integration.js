@@ -1,5 +1,5 @@
 'use strict';
-
+const { CloudEvent } = require('cloudevents');
 const runtime = require('faas-js-runtime');
 const request = require('supertest');
 
@@ -13,23 +13,29 @@ const Spec = {
   source: 'ce-source'
 };
 
+const data = {
+  name: 'tiger',
+  customerId: '01234'
+}
+
 test('Integration: handles a valid event', t => {
   runtime(func, server => {
-    t.plan(1);
+    t.plan(5);
     request(server)
       .post('/')
-      .send({ message: 'hello' })
-      .set(Spec.id, 'TEST-EVENT-1')
-      .set(Spec.source, 'http://localhost:8080/integration-test')
-      .set(Spec.type, 'dev.faas.example')
+      .send(data)
+      .set(Spec.id, '01234')
+      .set(Spec.source, '/test')
+      .set(Spec.type, 'com.example.cloudevents.test')
       .set(Spec.version, '1.0')
       .expect(200)
       .expect('Content-Type', /json/)
-      .end((err, res) => {
+      .end((err, result) => {
         t.error(err, 'No error');
-        // Check response values that your function produces
-        // Uncomment this line to validate the template implementation
-        // t.equal(res.body.data.message, 'hello');
+        t.ok(result);
+        t.deepEqual(result.body, data);
+        t.equal(result.headers['ce-type'], 'user:verified');
+        t.equal(result.headers['ce-source'], 'function.verifyUser');
         t.end();
         server.close();
       });

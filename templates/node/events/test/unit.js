@@ -3,10 +3,11 @@
 const func = require('..');
 const test = require('tape');
 const { CloudEvent } = require('cloudevents');
+const { Context } = require('faas-js-runtime/lib/context');
 
 // Ensure that the function completes cleanly when passed a valid event.
 test('Unit: handles a valid event', t => {
-  t.plan(1);
+  t.plan(4);
   const data = {
     name: 'tiger',
     customerId: '01234'
@@ -19,7 +20,30 @@ test('Unit: handles a valid event', t => {
     data
   });
 
+  const mockContext = new MockContext(cloudevent);
+
   // Invoke the function with the valid event, which should compelte without error.
-  t.ok(func(data, { cloudevent, log: { info: console.log } }));
+  const result =  func(mockContext, data);
+  t.ok(result);
+  t.equal(result.body, data);
+  t.equal(result.headers['ce-type'], 'user:verified');
+  t.equal(result.headers['ce-source'], 'function.verifyUser');
   t.end();
 });
+
+class MockContext {
+  cloudevent;
+
+  constructor(cloudevent) {
+    this.cloudevent = cloudevent;
+    this.log = { info: console.log, debug: console.debug }
+  }
+
+  cloudEventResponse(data) {
+    return new CloudEvent({
+      data,
+      type: 'com.example.cloudevents.test.response',
+      source: '/test'  
+    })
+  }
+}
