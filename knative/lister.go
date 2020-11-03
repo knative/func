@@ -1,8 +1,11 @@
 package knative
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	clientservingv1 "knative.dev/client/pkg/serving/v1"
+	"knative.dev/pkg/apis"
 
+	"github.com/boson-project/faas"
 	"github.com/boson-project/faas/k8s"
 )
 
@@ -28,7 +31,7 @@ func NewLister(namespaceOverride string) (l *Lister, err error) {
 	return
 }
 
-func (l *Lister) List() (names []string, err error) {
+func (l *Lister) List() (items []faas.ListItem, err error) {
 
 	client, err := NewServingClient(l.namespace)
 	if err != nil {
@@ -41,13 +44,32 @@ func (l *Lister) List() (names []string, err error) {
 	}
 
 	for _, service := range lst.Items {
+
 		// Convert the "subdomain-encoded" (i.e. kube-service-friendly) name
 		// back out to a fully qualified service name.
-		n, err := k8s.FromK8sAllowedName(service.Name)
+		name, err := k8s.FromK8sAllowedName(service.Name)
 		if err != nil {
-			return names, err
+			return items, err
 		}
-		names = append(names, n)
+
+		// get status
+		ready := corev1.ConditionUnknown
+		for _, con := range service.Status.Conditions {
+			if con.Type == apis.ConditionReady {
+				ready = con.Status
+				break
+			}
+		}
+
+		listItem := faas.ListItem{
+			Name:     name,
+			Runtime:  service.Labels["boson.dev/runtime"],
+			KService: service.Name,
+			URL:      service.Status.URL.String(),
+			Ready:    string(ready),
+		}
+
+		items = append(items, listItem)
 	}
 	return
 }

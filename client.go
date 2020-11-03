@@ -67,7 +67,15 @@ type Remover interface {
 // Lister of deployed services.
 type Lister interface {
 	// List the Functions currently deployed.
-	List() ([]string, error)
+	List() ([]ListItem, error)
+}
+
+type ListItem struct {
+	Name      string `json:"name" yaml:"name"`
+	Runtime   string `json:"runtime" yaml:"runtime"`
+	URL       string `json:"url" yaml:"url"`
+	KService  string `json:"kservice" yaml:"kservice"`
+	Ready     string `json:"ready" yaml:"ready"`
 }
 
 // ProgressListener is notified of task progress.
@@ -476,7 +484,7 @@ func (c *Client) Run(root string) error {
 }
 
 // List currently deployed Functions.
-func (c *Client) List() ([]string, error) {
+func (c *Client) List() ([]ListItem, error) {
 	// delegate to concrete implementation of lister entirely.
 	return c.lister.List()
 }
@@ -549,7 +557,7 @@ func (n *noopRemover) Remove(string) error { return nil }
 
 type noopLister struct{ output io.Writer }
 
-func (n *noopLister) List() ([]string, error) { return []string{}, nil }
+func (n *noopLister) List() ([]ListItem, error) { return []ListItem{}, nil }
 
 type noopDNSProvider struct{ output io.Writer }
 
