@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	labelKey   = "bosonFunction"
+	labelKey   = "boson.dev/function"
 	labelValue = "true"
 )
 
