@@ -1,4 +1,4 @@
-package functions;
+package {{.GroupId}}.{{.ArtifactId}};
 
 import io.quarkus.funqy.Funq;
 

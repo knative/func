@@ -2,7 +2,7 @@
 
 Welcome to your new Quarkus function project!
 
-This sample project contains single function: `functions.Function.echo()`,
+This sample project contains single function: `{{.GroupId}}.{{.ArtifactId}}.Function.echo()`,
 the function just returns its argument.
 
 ## Local execution

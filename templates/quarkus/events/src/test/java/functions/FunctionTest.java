@@ -1,4 +1,4 @@
-package functions;
+package {{.GroupId}}.{{.ArtifactId}};
 
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.RestAssured;
