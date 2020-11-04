@@ -18,12 +18,15 @@ func CompleteFunctionList(cmd *cobra.Command, args []string, toComplete string) 
 		directive = cobra.ShellCompDirectiveError
 		return
 	}
-	s, err := lister.List()
+	list, err := lister.List()
 	if err != nil {
 		directive = cobra.ShellCompDirectiveError
 		return
 	}
-	strings = s
+
+	for _, item := range list{
+		strings = append(strings, item.Name)
+	}
 	directive = cobra.ShellCompDirectiveDefault
 	return
 }

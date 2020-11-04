@@ -15,6 +15,7 @@ require (
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
 	knative.dev/client v0.17.2
 	knative.dev/eventing v0.17.5
+	knative.dev/pkg v0.0.0-20200831162708-14fb2347fb77
 	knative.dev/serving v0.17.3
 )
 
