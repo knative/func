@@ -1,4 +1,5 @@
 'use strict';
+const { CloudEvent, HTTP } = require('cloudevents');
 
 /**
  * An example function that responds to incoming CloudEvents over HTTP. For example,
@@ -18,17 +19,29 @@
  *
  * const incomingEvent = context.cloudevent;
  *
- * @param {Object} customer the CloudEvent data. If the data content type is application/json
+ * @param {Object} user the CloudEvent data. If the data content type is application/json
  * this will be converted to an Object via JSON.parse()
  * @param {Context} context the invocation context
  */
-function processCustomer(customer, context) {
-  console.log(customer, context)
+function verifyUser(context, user) {
   if (!context.cloudevent) {
     return 'No cloud event received';
   }
-  context.log.info('Processing customer', customer);
+
+  context.log.info('Processing user', user);
   context.log.info(`CloudEvent received: ${context.cloudevent.toString()}`);
-  return { customer };
+
+  user = verify(user);
+  return HTTP.binary(new CloudEvent({
+    source: 'function.verifyUser',
+    type: 'user:verified',
+    data: user
+  }));
 };
-module.exports = processCustomer;
+
+function verify(user) {
+  // do something with the user
+  return user;
+}
+
+module.exports = verifyUser;
