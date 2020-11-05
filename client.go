@@ -71,11 +71,11 @@ type Lister interface {
 }
 
 type ListItem struct {
-	Name      string `json:"name" yaml:"name"`
-	Runtime   string `json:"runtime" yaml:"runtime"`
-	URL       string `json:"url" yaml:"url"`
-	KService  string `json:"kservice" yaml:"kservice"`
-	Ready     string `json:"ready" yaml:"ready"`
+	Name     string `json:"name" yaml:"name"`
+	Runtime  string `json:"runtime" yaml:"runtime"`
+	URL      string `json:"url" yaml:"url"`
+	KService string `json:"kservice" yaml:"kservice"`
+	Ready    string `json:"ready" yaml:"ready"`
 }
 
 // ProgressListener is notified of task progress.
@@ -383,9 +383,8 @@ func (c *Client) Initialize(cfg Function) (err error) {
 // Build the Function at path.  Errors if the Function is either unloadable or does
 // not contain a populated Image.
 func (c *Client) Build(path string) (err error) {
-	if c.verbose {
-		fmt.Println("Building Function image:")
-	}
+
+	fmt.Println("Building function image")
 
 	f, err := NewFunction(path)
 	if err != nil {
@@ -409,9 +408,8 @@ func (c *Client) Build(path string) (err error) {
 
 	// TODO: create a statu structure and return it here for optional
 	// use by the cli for user echo (rather than rely on verbose mode here)
-	if c.verbose {
-		fmt.Printf("Function image has been built, image: %v\n", f.Image)
-	}
+	fmt.Printf("Function image has been built, image: %v\n", f.Image)
+
 	return
 }
 
@@ -429,9 +427,7 @@ func (c *Client) Deploy(path string) (err error) {
 	}
 
 	// Push the image for the named service to the configured registry
-	if c.verbose {
-		fmt.Println("\nPushing Function image to the registry:")
-	}
+	fmt.Println("Pushing function image to the registry")
 	imageDigest, err := c.pusher.Push(f)
 	if err != nil {
 		return
@@ -444,9 +440,7 @@ func (c *Client) Deploy(path string) (err error) {
 	}
 
 	// Deploy a new or Update the previously-deployed Function
-	if c.verbose {
-		fmt.Println("\nDeploying Function to cluster:")
-	}
+	fmt.Println("Deploying function to the cluster")
 	return c.deployer.Deploy(f)
 }
 
