@@ -91,6 +91,14 @@ func (d *Deployer) Deploy(f faas.Function) (err error) {
 			err = fmt.Errorf("knative deployer failed to update the service: %v", err)
 			return err
 		}
+
+		route, err := client.GetRoute(serviceName)
+		if err != nil {
+			err = fmt.Errorf("knative deployer failed to get the route: %v", err)
+			return err
+		}
+
+		fmt.Println("Function updated at URL: " + route.Status.URL.String())
 	}
 
 	return nil

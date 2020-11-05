@@ -138,8 +138,6 @@ func newBuildConfig() buildConfig {
 func (c buildConfig) Prompt() buildConfig {
 	imageName := deriveImage(c.Image, c.Registry, c.Path)
 	if !interactiveTerminal() || !c.Confirm {
-		// If --confirm false or non-interactive, just print the image name
-		fmt.Printf("Building image: %v\n", imageName)
 		return c
 	}
 	return buildConfig{
