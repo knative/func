@@ -10,11 +10,11 @@ data:
   autoTLS: Enabled
   # Redirect HTTP requests to HTTPS
   httpProtocol: Redirected
-  # If there exists an annotation `function.subdomain` on the service,
+  # If there exists an annotation `func.subdomain` on the service,
   # use it instead of the default name.namespace
   domainTemplate: |-
-    {{if index .Annotations "function.subdomain" -}}
-      {{- index .Annotations "function.subdomain" -}}
+    {{if index .Annotations "func.subdomain" -}}
+      {{- index .Annotations "func.subdomain" -}}
     {{else -}}
       {{- .Name}}.{{.Namespace -}}
     {{end -}}

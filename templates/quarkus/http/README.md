@@ -15,14 +15,14 @@ so debugger can be attached if needed.
 
 To run test locally run `./mvnw test`.
 
-## The `function` CLI
+## The `func` CLI
 
-It's recommended to set `FUNCTION_REGISTRY` environment variable.
+It's recommended to set `FUNC_REGISTRY` environment variable.
 ```shell script
 # replace ~/.bashrc by your shell rc file
 # replace docker.io/johndoe with your registry
-export FUNCTION_REGISTRY=docker.io/johndoe
-echo "export FUNCTION_REGISTRY=docker.io/johndoe" >> ~/.bashrc 
+export FUNC_REGISTRY=docker.io/johndoe
+echo "export FUNC_REGISTRY=docker.io/johndoe" >> ~/.bashrc 
 ```
 
 ### Building
@@ -30,16 +30,16 @@ echo "export FUNCTION_REGISTRY=docker.io/johndoe" >> ~/.bashrc
 This command builds OCI image for the function.
 
 ```shell script
-function build                  # build jar
-function build --builder native # build native binary
+func build                  # build jar
+func build --builder native # build native binary
 ```
 
 ### Running
 
-This command runs the function locally in a container
+This command runs the func locally in a container
 using the image created above.
 ```shell script
-function run
+func run
 ```
 
 ### Deploying
@@ -47,7 +47,7 @@ function run
 This commands will build and deploy the function into cluster.
 
 ```shell script
-function deploy # also triggers build
+func deploy # also triggers build
 ```
 
 ## Function invocation
@@ -56,7 +56,7 @@ Do not forget to set `URL` variable to the route of your function.
 
 You get the route by following command.
 ```shell script
-function describe
+func describe
 ```
 
 ### cURL

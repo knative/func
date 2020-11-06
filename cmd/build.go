@@ -14,10 +14,10 @@ import (
 func init() {
 	root.AddCommand(buildCmd)
 	buildCmd.Flags().StringP("builder", "b", "default", "Buildpacks builder")
-	buildCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options - $FUNCTION_CONFIRM")
-	buildCmd.Flags().StringP("image", "i", "", "Optional full image name, in form [registry]/[namespace]/[name]:[tag] for example quay.io/myrepo/project.name:latest (overrides --registry) - $FUNCTION_IMAGE")
-	buildCmd.Flags().StringP("path", "p", cwd(), "Path to the Function project directory - $FUNCTION_PATH")
-	buildCmd.Flags().StringP("registry", "r", "", "Registry for built images, ex 'docker.io/myuser' or just 'myuser'.  Optional if --image provided. - $FUNCTION_REGISTRY")
+	buildCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options - $FUNC_CONFIRM")
+	buildCmd.Flags().StringP("image", "i", "", "Optional full image name, in form [registry]/[namespace]/[name]:[tag] for example quay.io/myrepo/project.name:latest (overrides --registry) - $FUNC_IMAGE")
+	buildCmd.Flags().StringP("path", "p", cwd(), "Path to the Function project directory - $FUNC_PATH")
+	buildCmd.Flags().StringP("registry", "r", "", "Registry for built images, ex 'docker.io/myuser' or just 'myuser'.  Optional if --image provided. - $FUNC_REGISTRY")
 
 	err := buildCmd.RegisterFlagCompletionFunc("builder", CompleteBuilderList)
 	if err != nil {

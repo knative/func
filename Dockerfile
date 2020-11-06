@@ -6,5 +6,5 @@ RUN make
 
 FROM alpine:latest
 RUN apk add --no-cache ca-certificates
-COPY --from=build /src/function /bin/
-ENTRYPOINT ["function"]
+COPY --from=build /src/func /bin/
+ENTRYPOINT ["func"]

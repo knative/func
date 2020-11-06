@@ -13,10 +13,10 @@ import (
 
 func init() {
 	root.AddCommand(createCmd)
-	createCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options - $FFUNCTION_CONFIRM")
-	createCmd.Flags().StringP("runtime", "l", faas.DefaultRuntime, "Function runtime language/framework. Default runtime is 'node'. Available runtimes: 'node', 'quarkus' and 'go'. - $FUNCTION_RUNTIME")
-	createCmd.Flags().StringP("templates", "", filepath.Join(configPath(), "templates"), "Extensible templates path. - $FUNCTION_TEMPLATES")
-	createCmd.Flags().StringP("trigger", "t", faas.DefaultTrigger, "Function trigger. Default trigger is 'http'. Available triggers: 'http' and 'events' - $FUNCTION_TRIGGER")
+	createCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options - $FUNC_CONFIRM")
+	createCmd.Flags().StringP("runtime", "l", faas.DefaultRuntime, "Function runtime language/framework. Default runtime is 'node'. Available runtimes: 'node', 'quarkus' and 'go'. - $FUNC_RUNTIME")
+	createCmd.Flags().StringP("templates", "", filepath.Join(configPath(), "templates"), "Extensible templates path. - $FUNC_TEMPLATES")
+	createCmd.Flags().StringP("trigger", "t", faas.DefaultTrigger, "Function trigger. Default trigger is 'http'. Available triggers: 'http' and 'events' - $FUNC_TRIGGER")
 
 	if err := createCmd.RegisterFlagCompletionFunc("runtime", CompleteRuntimeList); err != nil {
 		fmt.Println("Error while calling RegisterFlagCompletionFunc: ", err)
