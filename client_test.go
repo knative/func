@@ -16,84 +16,93 @@ import (
 // by default.  See TestRegistryRequired for details.
 const TestRegistry = "quay.io/alice"
 
-// TestCreate completes without error using all defaults and zero values.  The base case.
-func TestCreate(t *testing.T) {
+// TestNew Function completes without error using defaults and zero values.
+// New is the superset of creating a new fully deployed Function, and
+// thus implicitly tests Create, Build and Deploy, which are exposed
+// by the client API for those who prefer manual transmissions.
+func TestNew(t *testing.T) {
 	root := "testdata/example.com/testCreate" // Root from which to run the test
-
 	if err := os.MkdirAll(root, 0700); err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(root)
 
+	// New Client
 	client := faas.New(faas.WithRegistry(TestRegistry))
 
-	if err := client.Create(faas.Function{Root: root}); err != nil {
+	// New Function using Client
+	if err := client.New(faas.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 }
 
-// TestCreateWritesTemplate to disk at root.
-func TestCreateWritesTemplate(t *testing.T) {
-	// Create the root path for the function
+// TestTemplateWrites ensures a template is written.
+func TestTemplateWrites(t *testing.T) {
 	root := "testdata/example.com/testCreateWrites"
 	if err := os.MkdirAll(root, 0744); err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(root)
 
-	// Create the function at root
 	client := faas.New(faas.WithRegistry(TestRegistry))
 	if err := client.Create(faas.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
-	// Test that the config file was written
+	// Assert file was written
 	if _, err := os.Stat(filepath.Join(root, faas.ConfigFile)); os.IsNotExist(err) {
 		t.Fatalf("Initialize did not result in '%v' being written to '%v'", faas.ConfigFile, root)
 	}
 }
 
-// TestCreateInitializedAborts ensures that a directory which contains an initialized
-// function does not reinitialize
-func TestCreateInitializedAborts(t *testing.T) {
+// TestExtantAborts ensures that a directory which contains an extant
+// Function does not reinitialize
+func TestExtantAborts(t *testing.T) {
 	root := "testdata/example.com/testCreateInitializedAborts"
+	if err := os.MkdirAll(root, 0744); err != nil {
+		t.Fatal(err)
+	}
 	defer os.RemoveAll(root)
 
-	client := faas.New()
-	if err := client.Initialize(faas.Function{Root: root}); err != nil {
+	// New once
+	client := faas.New(faas.WithRegistry(TestRegistry))
+	if err := client.New(faas.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := client.Initialize(faas.Function{Root: root}); err == nil {
+	// New again should fail as already initialized
+	if err := client.New(faas.Function{Root: root}); err == nil {
 		t.Fatal("error expected initilizing a path already containing an initialized Function")
 	}
 }
 
-// TestCreateNonemptyDirectoryAborts ensures that a directory which contains any visible
-// files aborts.
-func TestCreateNonemptyDirectoryAborts(t *testing.T) {
+// TestNonemptyDirectoryAborts ensures that a directory which contains any
+// visible files aborts.
+func TestNonemptyDirectoryAborts(t *testing.T) {
 	root := "testdata/example.com/testCreateNonemptyDirectoryAborts" // contains only a single visible file.
 	if err := os.MkdirAll(root, 0744); err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(root)
+
+	// An unexpected, non-hidden file.
 	_, err := os.Create(root + "/file.txt")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	client := faas.New()
-	if err := client.Initialize(faas.Function{Root: root}); err == nil {
+	client := faas.New(faas.WithRegistry(TestRegistry))
+	if err := client.New(faas.Function{Root: root}); err == nil {
 		t.Fatal("error expected initilizing a Function in a nonempty directory")
 	}
 }
 
-// TestCreateHiddenFilesIgnored ensures that initializing in a directory that
+// TestHiddenFilesIgnored ensures that initializing in a directory that
 // only contains hidden files does not error, protecting against the naieve
 // implementation of aborting initialization if any files exist, which would
 // break functions tracked in source control (.git), or when used in
 // conjunction with other tools (.envrc, etc)
-func TestCreateHiddenFilesIgnored(t *testing.T) {
+func TestHiddenFilesIgnored(t *testing.T) {
 	// Create a directory for the Function
 	root := "testdata/example.com/testCreateHiddenFilesIgnored"
 	if err := os.MkdirAll(root, 0744); err != nil {
@@ -107,16 +116,15 @@ func TestCreateHiddenFilesIgnored(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	client := faas.New()
-	var err error
-	if err = client.Initialize(faas.Function{Root: root}); err != nil {
+	client := faas.New(faas.WithRegistry(TestRegistry))
+	if err := client.New(faas.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 }
 
-// TestCreateDefaultRuntime ensures that the default runtime is applied to new
+// TestDefaultRuntime ensures that the default runtime is applied to new
 // Functions and persisted.
-func TestCreateDefaultRuntime(t *testing.T) {
+func TestDefaultRuntime(t *testing.T) {
 	// Create a root for the new Function
 	root := "testdata/example.com/testCreateDefaultRuntime"
 	if err := os.MkdirAll(root, 0744); err != nil {
@@ -126,7 +134,7 @@ func TestCreateDefaultRuntime(t *testing.T) {
 
 	// Create a new function at root with all defaults.
 	client := faas.New(faas.WithRegistry(TestRegistry))
-	if err := client.Create(faas.Function{Root: root}); err != nil {
+	if err := client.New(faas.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -142,9 +150,9 @@ func TestCreateDefaultRuntime(t *testing.T) {
 	}
 }
 
-// TestCreateDefaultTemplate ensures that the default template is
+// TestDefaultTemplate ensures that the default template is
 // applied when not provided.
-func TestCreateDefaultTrigger(t *testing.T) {
+func TestDefaultTrigger(t *testing.T) {
 	// TODO: need to either expose accessor for introspection, or compare
 	// the files written to those in the embedded repisotory?
 }
@@ -172,7 +180,7 @@ func TestExtensibleTemplates(t *testing.T) {
 		faas.WithRegistry(TestRegistry))
 
 	// Create a Function specifying a template, 'json' that only exists in the extensible set
-	if err := client.Create(faas.Function{Root: root, Trigger: "boson-experimental/json"}); err != nil {
+	if err := client.New(faas.Function{Root: root, Trigger: "boson-experimental/json"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -181,29 +189,6 @@ func TestExtensibleTemplates(t *testing.T) {
 		t.Fatalf("Initializing a custom did not result in json.js being written to '%v'", root)
 	} else if err != nil {
 		t.Fatal(err)
-	}
-}
-
-// TestCreateUnderivableName ensures that attempting to create a new Function
-// when the name is underivable (and no explicit name is provided) generates
-// an error.
-func TestUnderivableName(t *testing.T) {
-	// Create a directory for the Function
-	root := "testdata/example.com/testUnderivableName"
-	if err := os.MkdirAll(root, 0700); err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(root)
-
-	// Instantiation without an explicit service name, but no derivable service
-	// name (because of limiting path recursion) should fail.
-	client := faas.New(faas.WithDomainSearchLimit(0))
-
-	// create a Function with a missing name, but when the name is
-	// underivable (in this case due to limited recursion, but would equally
-	// apply if run from /tmp or similar)
-	if err := client.Create(faas.Function{Root: root}); err == nil {
-		t.Fatal("did not receive error creating with underivable name")
 	}
 }
 
@@ -216,12 +201,11 @@ func TestUnsupportedRuntime(t *testing.T) {
 	}
 	defer os.RemoveAll(root)
 
-	client := faas.New()
+	client := faas.New(faas.WithRegistry(TestRegistry))
 
 	// create a Function call witn an unsupported runtime should bubble
 	// the error generated by the underlying initializer.
-	var err error
-	if err = client.Create(faas.Function{Root: root, Runtime: "invalid"}); err == nil {
+	if err := client.New(faas.Function{Root: root, Runtime: "invalid"}); err == nil {
 		t.Fatal("unsupported runtime did not generate error")
 	}
 }
@@ -244,7 +228,7 @@ func TestNamed(t *testing.T) {
 
 	client := faas.New(faas.WithRegistry(TestRegistry))
 
-	if err := client.Create(faas.Function{Root: root, Name: name}); err != nil {
+	if err := client.New(faas.Function{Root: root, Name: name}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -258,7 +242,7 @@ func TestNamed(t *testing.T) {
 	}
 }
 
-// TestRegistry ensures that a registry is required, and is
+// TestRegistryRequired ensures that a registry is required, and is
 // prepended with the DefaultRegistry if a single token.
 // Registry is the namespace at the container image registry.
 // If not prepended with the registry, it will be defaulted:
@@ -277,10 +261,11 @@ func TestRegistryRequired(t *testing.T) {
 	defer os.RemoveAll(root)
 
 	client := faas.New()
-	if err := client.Create(faas.Function{Root: root}); err == nil {
+	var err error
+	if err = client.New(faas.Function{Root: root}); err == nil {
 		t.Fatal("did not receive expected error creating a Function without specifying Registry")
 	}
-
+	fmt.Println(err)
 }
 
 // TestDeriveImage ensures that the full image (tag) of the resultant OCI
@@ -296,7 +281,7 @@ func TestDeriveImage(t *testing.T) {
 
 	// Create the function which calculates fields such as name and image.
 	client := faas.New(faas.WithRegistry(TestRegistry))
-	if err := client.Create(faas.Function{Root: root}); err != nil {
+	if err := client.New(faas.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -328,7 +313,7 @@ func TestDeriveImageDefaultRegistry(t *testing.T) {
 	// Rather than use TestRegistry, use a single-token name and expect
 	// the DefaultRegistry to be prepended.
 	client := faas.New(faas.WithRegistry("alice"))
-	if err := client.Create(faas.Function{Root: root}); err != nil {
+	if err := client.New(faas.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -347,7 +332,7 @@ func TestDeriveImageDefaultRegistry(t *testing.T) {
 // TestDelegation ensures that Create invokes each of the individual
 // subcomponents via delegation through Build, Push and
 // Deploy (and confirms expected fields calculated).
-func TestCreateDelegates(t *testing.T) {
+func TestNewDelegates(t *testing.T) {
 	var (
 		root          = "testdata/example.com/testCreateDelegates" // .. in which to initialize
 		expectedName  = "testCreateDelegates"                      // expected to be derived
@@ -409,7 +394,7 @@ func TestCreateDelegates(t *testing.T) {
 
 	// Invoke the creation, triggering the Function delegates, and
 	// perform follow-up assertions that the Functions were indeed invoked.
-	if err := client.Create(faas.Function{Root: root}); err != nil {
+	if err := client.New(faas.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -437,7 +422,7 @@ func TestRun(t *testing.T) {
 	// Create a client with the mock runner and the new test Function
 	runner := mock.NewRunner()
 	client := faas.New(faas.WithRegistry(TestRegistry), faas.WithRunner(runner))
-	if err := client.Create(faas.Function{Root: root}); err != nil {
+	if err := client.New(faas.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -485,7 +470,7 @@ func TestUpdate(t *testing.T) {
 		faas.WithDeployer(deployer))
 
 	// create the new Function which will be updated
-	if err := client.Create(faas.Function{Root: root}); err != nil {
+	if err := client.New(faas.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -556,7 +541,7 @@ func TestRemoveByPath(t *testing.T) {
 		faas.WithRegistry(TestRegistry),
 		faas.WithRemover(remover))
 
-	if err := client.Create(faas.Function{Root: root}); err != nil {
+	if err := client.New(faas.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -674,13 +659,8 @@ func TestList(t *testing.T) {
 func TestListOutsideRoot(t *testing.T) {
 	lister := mock.NewLister()
 
-	// Instantiate in the current working directory, with no name, and explicitly
-	// disallowing name path inferrence by limiting recursion.  This emulates
-	// running the client (and subsequently list) from some arbitrary location
-	// without a derivable funciton context.
-	client := faas.New(
-		faas.WithDomainSearchLimit(0),
-		faas.WithLister(lister))
+	// Instantiate in the current working directory, with no name.
+	client := faas.New(faas.WithLister(lister))
 
 	if _, err := client.List(); err != nil {
 		t.Fatal(err)
@@ -690,3 +670,8 @@ func TestListOutsideRoot(t *testing.T) {
 		t.Fatal("list did not invoke lister implementation")
 	}
 }
+
+// TODO: The tests which confirm an error is generated do not currently test
+// that the expected error is received; just that any error is generated.
+// This should be replaced with typed errors or at a minimum code prefixes
+// on the string to avoid tests passing for unrelated errors.

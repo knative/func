@@ -1,19 +1,19 @@
 # CLI Commands
 
-## `init`
+## `create`
 
 Creates a new Function project at _`path`_. If _`path`_ is unspecified, assumes the current directory. If _`path`_ does not exist, it will be created. The function name is the name of the leaf directory at path. The user can specify the runtime and trigger with flags.
 
 Similar `kn` command: none.
 
 ```console
-faas init <path> [-l <runtime> -t <trigger>]
+faas create <path> [-l <runtime> -t <trigger>]
 ```
 
 When run as a `kn` plugin.
 
 ```console
-kn faas init <path> [-l <runtime> -t <trigger>]
+kn faas create <path> [-l <runtime> -t <trigger>]
 ```
 
 ## `build`
@@ -54,7 +54,7 @@ kn faas run [-p <path>]
 
 Builds and deploys the Function project in the current directory. The user may specify a path to the project directory using the `--path` or `-p` flag. Reads the `faas.yaml` configuration file to determine the image name. An image and registry may be specified on the command line using the  `--image` or `-i` and `--registry` or `-r` flag.
 
-Derives the service name from the project name. There is no mechanism by which the user can specify the service name. The user must have already initialized the  function using `faas init` or they will encounter an error.
+Derives the service name from the project name. There is no mechanism by which the user can specify the service name. The user must have already initialized the  function using `faas create` or they will encounter an error.
 
 If the Function is already deployed, it is updated with a new container image that is pushed to a
 container image registry, and the Knative Service is updated.
@@ -103,24 +103,6 @@ When run as a `kn` plugin.
 
 ```console
 kn faas list [-n <namespace> -p <path>]
-```
-
-## `create`
-
-Creates a new Function project at _`path`_. If _`path`_ does not exist, it is created. The function name is the name of the leaf directory at _`path`_. After creating the project, it builds a container image and deploys it. This command wraps `init`, `build` and `deploy` all up into one command.
-
-The user may specify the runtime, trigger, image name, image registry, and namespace as flags on the command line. If the image name and image registry are both unspecified, the user will be prompted for a registry name, and the image name can be inferred from that plus the function name. The function name, namespace and image name are all persisted in the project configuration file `faas.yaml`.
-
-Similar `kn` command: none.
-
-```console
-faas create <path> -r <registry> -l <runtime> -t <trigger> -i <image> -n <namespace>
-```
-
-When run as a `kn` plugin.
-
-```console
-kn faas create <path> -r <registry> -l <runtime> -t <trigger> -i <image> -n <namespace>
 ```
 
 ## `delete`

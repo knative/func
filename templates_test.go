@@ -19,7 +19,7 @@ func TestTemplatesEmbeddedFileMode(t *testing.T) {
 
 	client := New()
 	function := Function{Root: path, Runtime: "quarkus", Trigger: "events"}
-	if err := client.Initialize(function); err != nil {
+	if err := client.Create(function); err != nil {
 		t.Fatal(err)
 	}
 
@@ -54,7 +54,7 @@ func TestTemplatesExtensibleFileMode(t *testing.T) {
 
 	client := New(WithTemplates(templates))
 	function := Function{Root: path, Runtime: "quarkus", Trigger: template}
-	if err := client.Initialize(function); err != nil {
+	if err := client.Create(function); err != nil {
 		t.Fatal(err)
 	}
 
