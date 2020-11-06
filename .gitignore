@@ -1,5 +1,5 @@
-/faas
-/faas_*
+/function
+/function_*
 /templates/go/events/go.sum
 /templates/go/http/go.sum
 /coverage.out

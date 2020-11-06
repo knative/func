@@ -15,14 +15,14 @@ so debugger can be attached if needed.
 
 To run test locally run `./mvnw test`.
 
-## The `faas` CLI
+## The `function` CLI
 
-It's recommended to set `FAAS_REGISTRY` environment variable.
+It's recommended to set `FUNCTION_REGISTRY` environment variable.
 ```shell script
 # replace ~/.bashrc by your shell rc file
 # replace docker.io/johndoe with your registry
-export FAAS_REGISTRY=docker.io/johndoe
-echo "export FAAS_REGISTRY=docker.io/johndoe" >> ~/.bashrc 
+export FUNCTION_REGISTRY=docker.io/johndoe
+echo "export FUNCTION_REGISTRY=docker.io/johndoe" >> ~/.bashrc 
 ```
 
 ### Building
@@ -30,8 +30,8 @@ echo "export FAAS_REGISTRY=docker.io/johndoe" >> ~/.bashrc
 This command builds OCI image for the function.
 
 ```shell script
-faas build                  # build jar
-faas build --builder native # build native binary
+function build                  # build jar
+function build --builder native # build native binary
 ```
 
 ### Running
@@ -39,7 +39,7 @@ faas build --builder native # build native binary
 This command runs the function locally in a container
 using the image created above.
 ```shell script
-faas run
+function run
 ```
 
 ### Deploying
@@ -47,7 +47,7 @@ faas run
 This commands will build and deploy the function into cluster.
 
 ```shell script
-faas deploy # also triggers build
+function deploy # also triggers build
 ```
 
 ## Function invocation
@@ -56,7 +56,7 @@ Do not forget to set `URL` variable to the route of your function.
 
 You get the route by following command.
 ```shell script
-faas describe
+function describe
 ```
 
 ### cURL

@@ -14,7 +14,7 @@ func init() {
 	// Add the run command as a subcommand of root.
 	root.AddCommand(runCmd)
 	runCmd.Flags().StringArrayP("env", "e", []string{}, "Sets environment variables for the Function.")
-	runCmd.Flags().StringP("path", "p", cwd(), "Path to the Function project directory - $FAAS_PATH")
+	runCmd.Flags().StringP("path", "p", cwd(), "Path to the Function project directory - $FUNCTION_PATH")
 }
 
 var runCmd = &cobra.Command{

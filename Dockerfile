@@ -6,5 +6,5 @@ RUN make
 
 FROM alpine:latest
 RUN apk add --no-cache ca-certificates
-COPY --from=build /src/faas /bin/
-ENTRYPOINT ["faas"]
+COPY --from=build /src/function /bin/
+ENTRYPOINT ["function"]

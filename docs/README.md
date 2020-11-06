@@ -1,8 +1,8 @@
-# FAAS Documentation
+# Function Documentation
 
 [Demo Screencast]
 
-`faas` is a "Function as a Service" Client Library and CLI for enabling the development of implicitly deployed, platform agnostic code.
+`function` is a Client Library and CLI for enabling the development of implicitly deployed, platform agnostic code.
 
 For examples of what's possible, see the [Screencast Series](getting_started_screencast.md) or the [Functions Cookbook](functions_cookbook.md).
 

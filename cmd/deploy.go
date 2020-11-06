@@ -15,12 +15,12 @@ import (
 
 func init() {
 	root.AddCommand(deployCmd)
-	deployCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options - $FAAS_CONFIRM")
+	deployCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options - $FUNCTION_CONFIRM")
 	deployCmd.Flags().StringArrayP("env", "e", []string{}, "Sets environment variables for the Function.")
-	deployCmd.Flags().StringP("image", "i", "", "Optional full image name, in form [registry]/[namespace]/[name]:[tag] for example quay.io/myrepo/project.name:latest (overrides --registry) - $FAAS_IMAGE")
-	deployCmd.Flags().StringP("namespace", "n", "", "Override namespace into which the Function is deployed (on supported platforms).  Default is to use currently active underlying platform setting - $FAAS_NAMESPACE")
-	deployCmd.Flags().StringP("path", "p", cwd(), "Path to the function project directory - $FAAS_PATH")
-	deployCmd.Flags().StringP("registry", "r", "", "Image registry for built images, ex 'docker.io/myuser' or just 'myuser'.  - $FAAS_REGISTRY")
+	deployCmd.Flags().StringP("image", "i", "", "Optional full image name, in form [registry]/[namespace]/[name]:[tag] for example quay.io/myrepo/project.name:latest (overrides --registry) - $FUNCTION_IMAGE")
+	deployCmd.Flags().StringP("namespace", "n", "", "Override namespace into which the Function is deployed (on supported platforms).  Default is to use currently active underlying platform setting - $FUNCTION_NAMESPACE")
+	deployCmd.Flags().StringP("path", "p", cwd(), "Path to the function project directory - $FUNCTION_PATH")
+	deployCmd.Flags().StringP("registry", "r", "", "Image registry for built images, ex 'docker.io/myuser' or just 'myuser'.  - $FUNCTION_REGISTRY")
 }
 
 var deployCmd = &cobra.Command{
@@ -30,7 +30,7 @@ var deployCmd = &cobra.Command{
 
 Builds and Deploys the Function project in the current directory. 
 A path to the project directory may be provided using the --path or -p flag.
-Reads the faas.yaml configuration file to determine the image name. 
+Reads the func.yaml configuration file to determine the image name. 
 An image and registry may be specified on the command line using 
 the --image or -i and --registry or -r flag.
 
@@ -38,10 +38,10 @@ If the Function is already deployed, it is updated with a new container image
 that is pushed to an image registry, and the Knative Service is updated.
 
 The namespace into which the project is deployed defaults to the value in the
-faas.yaml configuration file. If NAMESPACE is not set in the configuration,
+func.yaml configuration file. If NAMESPACE is not set in the configuration,
 the namespace currently active in the Kubernetes configuration file will be
 used. The namespace may be specified on the command line using the --namespace
-or -n flag, and if so this will overwrite the value in the faas.yaml file.
+or -n flag, and if so this will overwrite the value in the func.yaml file.
 
 
 `,

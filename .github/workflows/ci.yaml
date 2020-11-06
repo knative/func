@@ -29,21 +29,21 @@ jobs:
       - name: Lint
         run: make check
       - name: Permissions
-        run: chmod a+x faas_*amd*
+        run: chmod a+x function_*amd*
 
       # Upload all build artifacts whether it's a release or not
       - uses: actions/upload-artifact@v2
         with:
           name: OSX Binary
-          path: faas_darwin_amd64
+          path: function_darwin_amd64
       - uses: actions/upload-artifact@v2
         with:
           name: Linux Binary
-          path: faas_linux_amd64
+          path: function_linux_amd64
       - uses: actions/upload-artifact@v2
         with:
           name: Windows Binary
-          path: faas_windows_amd64.exe
+          path: function_windows_amd64.exe
 
       # Build and push a latest image with each commit
       - name: Image
@@ -59,7 +59,7 @@ jobs:
       # The following steps are only executed if this is a release
       - name: Compress Binaries
         if: ${{ steps.release.outputs.release_created }}
-        run: gzip faas_darwin_amd64 faas_linux_amd64 faas_windows_amd64.exe
+        run: gzip function_darwin_amd64 function_linux_amd64 function_windows_amd64.exe
 
       # Upload all binaries
       - name: Upload Darwin Binary
@@ -69,8 +69,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.release.outputs.upload_url }}
-          asset_path: ./faas_darwin_amd64.gz
-          asset_name: faas_darwin_amd64.gz
+          asset_path: ./function_darwin_amd64.gz
+          asset_name: function_darwin_amd64.gz
           asset_content_type: application/x-gzip
       - name: Upload Linux Binary
         uses: actions/upload-release-asset@v1
@@ -79,8 +79,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.release.outputs.upload_url }}
-          asset_path: ./faas_linux_amd64.gz
-          asset_name: faas_linux_amd64.gz
+          asset_path: ./functionlinux_amd64.gz
+          asset_name: function_linux_amd64.gz
           asset_content_type: application/x-gzip
       - name: Upload Windows Binary
         uses: actions/upload-release-asset@v1
@@ -89,6 +89,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.release.outputs.upload_url }}
-          asset_path: ./faas_windows_amd64.exe.gz
-          asset_name: faas_windows_amd64.exe.gz
+          asset_path: ./function_windows_amd64.exe.gz
+          asset_name: function_windows_amd64.exe.gz
           asset_content_type: application/x-gzip

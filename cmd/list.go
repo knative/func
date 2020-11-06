@@ -18,8 +18,8 @@ import (
 
 func init() {
 	root.AddCommand(listCmd)
-	listCmd.Flags().StringP("namespace", "n", "", "Override namespace in which to search for Functions.  Default is to use currently active underlying platform setting - $FAAS_NAMESPACE")
-	listCmd.Flags().StringP("format", "f", "human", "optionally specify output format (human|plain|json|xml|yaml) $FAAS_FORMAT")
+	listCmd.Flags().StringP("namespace", "n", "", "Override namespace in which to search for Functions.  Default is to use currently active underlying platform setting - $FUNCTION_NAMESPACE")
+	listCmd.Flags().StringP("format", "f", "human", "optionally specify output format (human|plain|json|xml|yaml) $FUNCTION_FORMAT")
 
 	err := listCmd.RegisterFlagCompletionFunc("format", CompleteOutputFormatList)
 	if err != nil {
@@ -32,10 +32,10 @@ var listCmd = &cobra.Command{
 	Short: "Lists deployed Functions",
 	Long: `Lists deployed Functions
 
-Lists all deployed functions. The namespace defaults to the value in faas.yaml
+Lists all deployed functions. The namespace defaults to the value in func.yaml
 or the namespace currently active in the user's Kubernetes configuration. The
 namespace may be specified on the command line using the --namespace or -n flag.
-If specified this will overwrite the value in faas.yaml.
+If specified this will overwrite the value in func.yaml.
 `,
 	SuggestFor: []string{"ls", "lsit"},
 	PreRunE:    bindEnv("namespace", "format"),

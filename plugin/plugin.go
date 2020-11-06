@@ -13,7 +13,7 @@ func init() {
 type faasPlugin struct {}
 
 func (f *faasPlugin) Name() string {
-	return "kn-faas"
+	return "kn-function"
 }
 
 func (f *faasPlugin) Execute(args []string) error {
@@ -22,17 +22,17 @@ func (f *faasPlugin) Execute(args []string) error {
 	defer (func() {
 		os.Args = oldArgs
 	})()
-	os.Args = append([]string { "kn-faas" }, args...)
+	os.Args = append([]string { "kn-function" }, args...)
 	return rootCmd.Execute()
 }
 
-// Description for faas subcommand visible in 'kn --help'
+// Description for function subcommand visible in 'kn --help'
 func (f *faasPlugin) Description() (string, error) {
-	return "Function as a Service plugin", nil
+	return "Function plugin", nil
 }
 
 func (f *faasPlugin) CommandParts() []string {
-	return []string{ "faas"}
+	return []string{ "function"}
 }
 
 // Path is empty because its an internal plugins

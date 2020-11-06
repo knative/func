@@ -14,10 +14,10 @@ import (
 func init() {
 	root.AddCommand(buildCmd)
 	buildCmd.Flags().StringP("builder", "b", "default", "Buildpacks builder")
-	buildCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options - $FAAS_CONFIRM")
-	buildCmd.Flags().StringP("image", "i", "", "Optional full image name, in form [registry]/[namespace]/[name]:[tag] for example quay.io/myrepo/project.name:latest (overrides --registry) - $FAAS_IMAGE")
-	buildCmd.Flags().StringP("path", "p", cwd(), "Path to the Function project directory - $FAAS_PATH")
-	buildCmd.Flags().StringP("registry", "r", "", "Registry for built images, ex 'docker.io/myuser' or just 'myuser'.  Optional if --image provided. - $FAAS_REGISTRY")
+	buildCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options - $FUNCTION_CONFIRM")
+	buildCmd.Flags().StringP("image", "i", "", "Optional full image name, in form [registry]/[namespace]/[name]:[tag] for example quay.io/myrepo/project.name:latest (overrides --registry) - $FUNCTION_IMAGE")
+	buildCmd.Flags().StringP("path", "p", cwd(), "Path to the Function project directory - $FUNCTION_PATH")
+	buildCmd.Flags().StringP("registry", "r", "", "Registry for built images, ex 'docker.io/myuser' or just 'myuser'.  Optional if --image provided. - $FUNCTION_REGISTRY")
 
 	err := buildCmd.RegisterFlagCompletionFunc("builder", CompleteBuilderList)
 	if err != nil {
@@ -31,12 +31,12 @@ var buildCmd = &cobra.Command{
 	Long: `Build an existing Function project as an OCI image
 
 Builds the Function project in the current directory or in the directory
-specified by the --path flag. The faas.yaml file is read to determine the
+specified by the --path flag. The func.yaml file is read to determine the
 image name and registry. If both of these values are unset in the
 configuration file the --registry or -r flag should be provided and an image
 name will be derived from the project name.
 
-Any value provided for the --image flag will be persisted in the faas.yaml
+Any value provided for the --image flag will be persisted in the func.yaml
 configuration file. On subsequent invocations of the "build" command
 these values will be read from the configuration file.
 
