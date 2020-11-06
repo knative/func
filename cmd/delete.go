@@ -13,8 +13,8 @@ import (
 
 func init() {
 	root.AddCommand(deleteCmd)
-	deleteCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options - $FUNCTION_CONFIRM")
-	deleteCmd.Flags().StringP("path", "p", cwd(), "Path to the project which should be deleted - $FUNCTION_PATH")
+	deleteCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options - $FUNC_CONFIRM")
+	deleteCmd.Flags().StringP("path", "p", cwd(), "Path to the project which should be deleted - $FUNC_PATH")
 	deleteCmd.Flags().StringP("namespace", "n", "", "Override namespace in which to search for Functions.  Default is to use currently active underlying platform setting - $FAAS_NAMESPACE")
 }
 

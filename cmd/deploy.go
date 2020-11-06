@@ -15,12 +15,12 @@ import (
 
 func init() {
 	root.AddCommand(deployCmd)
-	deployCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options - $FUNCTION_CONFIRM")
+	deployCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options - $FUNC_CONFIRM")
 	deployCmd.Flags().StringArrayP("env", "e", []string{}, "Sets environment variables for the Function.")
-	deployCmd.Flags().StringP("image", "i", "", "Optional full image name, in form [registry]/[namespace]/[name]:[tag] for example quay.io/myrepo/project.name:latest (overrides --registry) - $FUNCTION_IMAGE")
-	deployCmd.Flags().StringP("namespace", "n", "", "Override namespace into which the Function is deployed (on supported platforms).  Default is to use currently active underlying platform setting - $FUNCTION_NAMESPACE")
-	deployCmd.Flags().StringP("path", "p", cwd(), "Path to the function project directory - $FUNCTION_PATH")
-	deployCmd.Flags().StringP("registry", "r", "", "Image registry for built images, ex 'docker.io/myuser' or just 'myuser'.  - $FUNCTION_REGISTRY")
+	deployCmd.Flags().StringP("image", "i", "", "Optional full image name, in form [registry]/[namespace]/[name]:[tag] for example quay.io/myrepo/project.name:latest (overrides --registry) - $FUNC_IMAGE")
+	deployCmd.Flags().StringP("namespace", "n", "", "Override namespace into which the Function is deployed (on supported platforms).  Default is to use currently active underlying platform setting - $FUNC_NAMESPACE")
+	deployCmd.Flags().StringP("path", "p", cwd(), "Path to the function project directory - $FUNC_PATH")
+	deployCmd.Flags().StringP("registry", "r", "", "Image registry for built images, ex 'docker.io/myuser' or just 'myuser'.  - $FUNC_REGISTRY")
 }
 
 var deployCmd = &cobra.Command{

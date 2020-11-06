@@ -1,5 +1,5 @@
-REPO := quay.io/boson/function
-BIN  := function
+REPO := quay.io/boson/func
+BIN  := func
 
 DARWIN=$(BIN)_darwin_amd64
 LINUX=$(BIN)_linux_amd64

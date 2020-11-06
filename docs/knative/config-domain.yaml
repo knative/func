@@ -9,9 +9,9 @@ data:
   # one entry per TLD+1.  Example:
   boson-project.com: |
     selector:
-      function.domain: "boson-project.com"
+      func.domain: "boson-project.com"
   boson-project.org: |
     selector:
-      function.domain: "boson-project.org"
+      func.domain: "boson-project.org"
   # Default is local only.
   svc.cluster.local: ""

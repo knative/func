@@ -9,7 +9,7 @@
 
 [Demo Screencast]
 
-`function` is a Client Library and CLI for enabling the development of implicitly deployed, platform agnostic code.
+`func` is a Client Library and CLI for enabling the development of implicitly deployed, platform agnostic code.
 
 [Read the Documentation](docs/README.md)
 

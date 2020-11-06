@@ -13,7 +13,7 @@ func init() {
 type faasPlugin struct {}
 
 func (f *faasPlugin) Name() string {
-	return "kn-function"
+	return "kn-func"
 }
 
 func (f *faasPlugin) Execute(args []string) error {
@@ -22,7 +22,7 @@ func (f *faasPlugin) Execute(args []string) error {
 	defer (func() {
 		os.Args = oldArgs
 	})()
-	os.Args = append([]string { "kn-function" }, args...)
+	os.Args = append([]string { "kn-func" }, args...)
 	return rootCmd.Execute()
 }
 
@@ -32,7 +32,7 @@ func (f *faasPlugin) Description() (string, error) {
 }
 
 func (f *faasPlugin) CommandParts() []string {
-	return []string{ "function"}
+	return []string{ "func"}
 }
 
 // Path is empty because its an internal plugins

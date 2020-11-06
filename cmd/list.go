@@ -18,8 +18,8 @@ import (
 
 func init() {
 	root.AddCommand(listCmd)
-	listCmd.Flags().StringP("namespace", "n", "", "Override namespace in which to search for Functions.  Default is to use currently active underlying platform setting - $FUNCTION_NAMESPACE")
-	listCmd.Flags().StringP("format", "f", "human", "optionally specify output format (human|plain|json|xml|yaml) $FUNCTION_FORMAT")
+	listCmd.Flags().StringP("namespace", "n", "", "Override namespace in which to search for Functions.  Default is to use currently active underlying platform setting - $FUNC_NAMESPACE")
+	listCmd.Flags().StringP("format", "f", "human", "optionally specify output format (human|plain|json|xml|yaml) $FUNC_FORMAT")
 
 	err := listCmd.RegisterFlagCompletionFunc("format", CompleteOutputFormatList)
 	if err != nil {

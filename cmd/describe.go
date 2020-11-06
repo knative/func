@@ -17,9 +17,9 @@ import (
 
 func init() {
 	root.AddCommand(describeCmd)
-	describeCmd.Flags().StringP("namespace", "n", "", "Override namespace in which to search for the Function.  Default is to use currently active underlying platform setting - $FUNCTION_NAMESPACE")
-	describeCmd.Flags().StringP("format", "f", "human", "optionally specify output format (human|plain|json|xml|yaml) $FUNCTION_FORMAT")
-	describeCmd.Flags().StringP("path", "p", cwd(), "Path to the project which should be described - $FUNCTION_PATH")
+	describeCmd.Flags().StringP("namespace", "n", "", "Override namespace in which to search for the Function.  Default is to use currently active underlying platform setting - $FUNC_NAMESPACE")
+	describeCmd.Flags().StringP("format", "f", "human", "optionally specify output format (human|plain|json|xml|yaml) $FUNC_FORMAT")
+	describeCmd.Flags().StringP("path", "p", cwd(), "Path to the project which should be described - $FUNC_PATH")
 
 	err := describeCmd.RegisterFlagCompletionFunc("format", CompleteOutputFormatList)
 	if err != nil {
