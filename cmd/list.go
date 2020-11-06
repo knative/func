@@ -29,8 +29,8 @@ func init() {
 
 var listCmd = &cobra.Command{
 	Use:   "list",
-	Short: "Lists deployed Functions",
-	Long: `Lists deployed Functions
+	Short: "List functions",
+	Long: `List functions
 
 Lists all deployed functions. The namespace defaults to the value in func.yaml
 or the namespace currently active in the user's Kubernetes configuration. The

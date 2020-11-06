@@ -14,7 +14,7 @@ func init() {
 // completionCmd represents the completion command
 var completionCmd = &cobra.Command{
 	Use:   "completion <bash|zsh|fish>",
-	Short: "Generate bash/zsh completion scripts",
+	Short: "Generate completion scripts for bash and zsh",
 	Long: `To load completion run
 
 For zsh:

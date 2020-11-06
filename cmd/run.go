@@ -19,8 +19,8 @@ func init() {
 
 var runCmd = &cobra.Command{
 	Use:   "run",
-	Short: "Runs the Function locally",
-	Long: `Runs the Function locally
+	Short: "Run the function locally",
+	Long: `Run the function locally
 
 Runs the Function project in the current directory or in the directory
 specified by the -p or --path flag in the deployable image. The project must
@@ -43,7 +43,7 @@ func runRun(cmd *cobra.Command, args []string) (err error) {
 
 	err = function.WriteConfig()
 	if err != nil {
-		return 
+		return
 	}
 
 	// Check if the Function has been initialized

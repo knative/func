@@ -20,8 +20,8 @@ func init() {
 
 var deleteCmd = &cobra.Command{
 	Use:   "delete <name>",
-	Short: "Delete a Function deployment",
-	Long: `Delete a Function deployment
+	Short: "Undeploy a function",
+	Long: `Undeploy a function
 
 Removes a deployed function from the cluster. The user may specify a function
 by name, path using the --path or -p flag, or if neither of those are provided,

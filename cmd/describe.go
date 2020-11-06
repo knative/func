@@ -29,8 +29,8 @@ func init() {
 
 var describeCmd = &cobra.Command{
 	Use:   "describe <name>",
-	Short: "Describes the Function",
-	Long: `Describes the Function
+	Short: "Show details of a function",
+	Long: `Show details of a function
 
 Prints the name, route and any event subscriptions for a deployed Function in
 the current directory. A path to a Function project directory may be supplied
