@@ -1,6 +1,28 @@
 # Change Log
 
 <a name="unreleased"></a>
+## [0.9.0](https://www.github.com/boson-project/faas/compare/v0.8.0...v0.9.0) (2020-11-06)
+
+
+### ⚠ BREAKING CHANGES
+
+* rename faas to function (#210)
+* remove create cli subcommand (#180)
+
+### Features
+
+* Better output of build/deploy/delete commands ([#206](https://www.github.com/boson-project/faas/issues/206)) ([ddbb95b](https://www.github.com/boson-project/faas/commit/ddbb95b075a383fb1847be2c75fd2c216870c7f8))
+* change default runtime to Node.js HTTP ([#198](https://www.github.com/boson-project/faas/issues/198)) ([61cb56a](https://www.github.com/boson-project/faas/commit/61cb56aec3461e9f9b35282435dbc884999be2b3))
+* list command - improved output ([#205](https://www.github.com/boson-project/faas/issues/205)) ([29ca077](https://www.github.com/boson-project/faas/commit/29ca07768ca455debb7992ebbf09b2db2058f56d))
+* remove create cli subcommand ([#180](https://www.github.com/boson-project/faas/issues/180)) ([57e1236](https://www.github.com/boson-project/faas/commit/57e12362af18f48624a9c303c070846e1645e08d))
+* rename faas to function ([#210](https://www.github.com/boson-project/faas/issues/210)) ([cd57692](https://www.github.com/boson-project/faas/commit/cd57692c9d04fecb918abf4f15cd37d45592cf82))
+
+
+### Bug Fixes
+
+* `delete` and `deploy sub-commands respects func.yaml conf ([d562498](https://www.github.com/boson-project/faas/commit/d5624980d5f31f98bc27e803ae94311491d4d078))
+* return JSON in Node.js event template ([#211](https://www.github.com/boson-project/faas/issues/211)) ([beb838f](https://www.github.com/boson-project/faas/commit/beb838ff43d04c7ccec63a26fbe2af9fb167ae1a))
+
 ## [0.8.0](https://www.github.com/boson-project/faas/compare/v0.7.0...v0.8.0) (2020-10-20)
 
 
