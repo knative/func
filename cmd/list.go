@@ -18,12 +18,11 @@ import (
 
 func init() {
 	root.AddCommand(listCmd)
-	listCmd.Flags().StringP("namespace", "n", "", "Override namespace in which to search for Functions.  Default is to use currently active underlying platform setting - $FUNC_NAMESPACE")
-	listCmd.Flags().StringP("format", "f", "human", "optionally specify output format (human|plain|json|xml|yaml) $FUNC_FORMAT")
-
+	listCmd.Flags().StringP("namespace", "n", "", "Namespace of the function to undeploy. By default, the functions of the actual active namespace are listed. (Env: $FUNC_NAMESPACE)")
+	listCmd.Flags().StringP("format", "f", "human", "Output format (human|plain|json|xml|yaml) (Env: $FUNC_FORMAT)")
 	err := listCmd.RegisterFlagCompletionFunc("format", CompleteOutputFormatList)
 	if err != nil {
-		fmt.Println("Error while calling RegisterFlagCompletionFunc: ", err)
+		fmt.Println("Internal: error while calling RegisterFlagCompletionFunc: ", err)
 	}
 }
 
@@ -32,10 +31,11 @@ var listCmd = &cobra.Command{
 	Short: "List functions",
 	Long: `List functions
 
-Lists all deployed functions. The namespace defaults to the value in func.yaml
-or the namespace currently active in the user's Kubernetes configuration. The
-namespace may be specified on the command line using the --namespace or -n flag.
-If specified this will overwrite the value in func.yaml.
+Lists all deployed functions in a given namespace.
+`,
+	Example: `
+# List all functions in the current namespace in human readable format
+kn func list
 `,
 	SuggestFor: []string{"ls", "lsit"},
 	PreRunE:    bindEnv("namespace", "format"),

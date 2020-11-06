@@ -23,7 +23,19 @@ var root = &cobra.Command{
 	SilenceUsage:  true, // no usage dump on error
 	Long: `Serverless functions
 
-Create, build and deploy functions in serverless containers for multiple runtimes on Knative.`,
+Create, build and deploy functions in serverless containers for multiple runtimes on Knative`,
+	Example: `
+# Create a fresh node function called "node-sample" and enter the directory
+kn func create node-sample
+cd node-sample
+
+# Build the container image, push it to a registry and deploy it to the connected Knative cluster
+# (replace <registry/user> with something like quay.io/user with an account that have you access to)
+kn func deploy --registry <registry/user>
+
+# Curl the service with the service URL
+curl $(kn service describe node-sample -o url)
+`,
 }
 
 // NewRootCmd is used to initialize faas as kn plugin

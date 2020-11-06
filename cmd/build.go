@@ -33,17 +33,17 @@ var buildCmd = &cobra.Command{
 This command builds the function project in the current directory or in the directory
 specified by --path. The result will be a container image that is pushed to a registry.
 The func.yaml file is read to determine the image name and registry. 
-If func.yaml does not exists, either --registry or --image has to be provided and the 
-configuration file be created automatically.
+If not already configured, either --registry or --image has to be provided and is then stored 
+in the configuration file.
 `,
     Example: `
 # Build from the local directory, using the given registry as target.
 # The full image name will be automatically will determined automatically based on the
 # project directories name
-kn func build --registry quay.io/boson
+kn func build --registry quay.io/myuser
 
 # Build from the local directory with specifying the full image name
-kn func build --image quay.io/boson/node-sample
+kn func build --image quay.io/myuser/myfunc
 
 # Re-build with picking up previous given arguments from a local func.yml
 kn func build

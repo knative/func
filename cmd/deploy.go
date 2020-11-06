@@ -15,12 +15,12 @@ import (
 
 func init() {
 	root.AddCommand(deployCmd)
-	deployCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options - $FUNC_CONFIRM")
-	deployCmd.Flags().StringArrayP("env", "e", []string{}, "Sets environment variables for the Function.")
-	deployCmd.Flags().StringP("image", "i", "", "Optional full image name, in form [registry]/[namespace]/[name]:[tag] for example quay.io/myrepo/project.name:latest (overrides --registry) - $FUNC_IMAGE")
-	deployCmd.Flags().StringP("namespace", "n", "", "Override namespace into which the Function is deployed (on supported platforms).  Default is to use currently active underlying platform setting - $FUNC_NAMESPACE")
-	deployCmd.Flags().StringP("path", "p", cwd(), "Path to the function project directory - $FUNC_PATH")
-	deployCmd.Flags().StringP("registry", "r", "", "Image registry for built images, ex 'docker.io/myuser' or just 'myuser'.  - $FUNC_REGISTRY")
+	deployCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
+	deployCmd.Flags().StringArrayP("env", "e", []string{}, "Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables.")
+	deployCmd.Flags().StringP("image", "i", "", "Full image name in the orm [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over -registry (Env: $FUNC_IMAGE")
+	deployCmd.Flags().StringP("namespace", "n", "", "Namespace of the function to undeploy. By default, the namespace in func.yaml is used or the actual active namespace if not set in the configuration. (Env: $FUNC_NAMESPACE)")
+	deployCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
+	deployCmd.Flags().StringP("registry", "r", "", "Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined based on the local directory name. If not provided the registry will be taken from func.yaml (Env: $FUNC_REGISTRY)")
 }
 
 var deployCmd = &cobra.Command{
@@ -28,24 +28,26 @@ var deployCmd = &cobra.Command{
 	Short: "Deploy a function",
 	Long: `Deploy a function
 
-Builds and Deploys the Function project in the current directory. 
-A path to the project directory may be provided using the --path or -p flag.
-Reads the func.yaml configuration file to determine the image name. 
-An image and registry may be specified on the command line using 
-the --image or -i and --registry or -r flag.
+Builds a container image for the function and deploys it to the connected Knative enabled cluster. 
+The function is picked up from the project in the current directory or from the path provided
+with --path.
+If not already configured, either --registry or --image has to be provided and is then stored 
+in the configuration file.
 
-If the Function is already deployed, it is updated with a new container image
-that is pushed to an image registry, and the Knative Service is updated.
-
-The namespace into which the project is deployed defaults to the value in the
-func.yaml configuration file. If NAMESPACE is not set in the configuration,
-the namespace currently active in the Kubernetes configuration file will be
-used. The namespace may be specified on the command line using the --namespace
-or -n flag, and if so this will overwrite the value in the func.yaml file.
-
-
+If the function is already deployed, it is updated with a new container image
+that is pushed to an image registry, and finally the function's Knative service is updated.
 `,
-	SuggestFor: []string{"delpoy", "deplyo"},
+	Example: `
+# Build and deploy the function from the current directory's project. The image will be
+# pushed to "quay.io/myuser/<function name>" and deployed as Knative service with the 
+# same name as the function to the currently connected cluster.
+kn func deploy --registry quay.io/myuser
+
+# Same as above but using a full image name, that will create a Knative service "myfunc" in 
+# the namespace "myns"
+kn func deploy --image quay.io/myuser/myfunc -n myns
+`,
+    SuggestFor: []string{"delpoy", "deplyo"},
 	PreRunE:    bindEnv("image", "namespace", "path", "registry", "confirm"),
 	RunE:       runDeploy,
 }

@@ -13,10 +13,10 @@ import (
 
 func init() {
 	root.AddCommand(createCmd)
-	createCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNCTION_CONFIRM)")
-	createCmd.Flags().StringP("runtime", "l", faas.DefaultRuntime, "Function runtime language/framework. Available runtimes: 'node', 'quarkus' and 'go' (Env: $FUNCTION_RUNTIME)")
-	createCmd.Flags().StringP("templates", "", filepath.Join(configPath(), "templates"), "Path to additional templates (Env: $FUNCTION_TEMPLATES)")
-	createCmd.Flags().StringP("trigger", "t", faas.DefaultTrigger, "Function trigger. Available triggers: 'http' and 'events' (Env: $FUNCTION_TRIGGER)")
+	createCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
+	createCmd.Flags().StringP("runtime", "l", faas.DefaultRuntime, "Function runtime language/framework. Available runtimes: 'node', 'quarkus' and 'go' (Env: $FUNC_RUNTIME)")
+	createCmd.Flags().StringP("templates", "", filepath.Join(configPath(), "templates"), "Path to additional templates (Env: $FUNC_TEMPLATES)")
+	createCmd.Flags().StringP("trigger", "t", faas.DefaultTrigger, "Function trigger. Available triggers: 'http' and 'events' (Env: $FUNC_TRIGGER)")
 
 	if err := createCmd.RegisterFlagCompletionFunc("runtime", CompleteRuntimeList); err != nil {
 		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
@@ -37,12 +37,12 @@ The name of the project is determined by the directory name the project is creat
 kn func create
 
 # Create a Quarkus function project in the directory "sample-service". 
-# The directory will be created in the local directory if non-existant and 
+# The directory will be created in the local directory if non-existent and 
 # the project is called "sample-service"
-kn func create --runtime quarkus sample-service
+kn func create --runtime quarkus myfunc
 
 # Create a function project that uses a CloudEvent based function signature
-kn func create --trigger events sample-service
+kn func create --trigger events myfunc
 `,
 	SuggestFor: []string{"inti", "new"},
 	PreRunE:    bindEnv("runtime", "templates", "trigger", "confirm"),
