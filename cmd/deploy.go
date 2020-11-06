@@ -95,7 +95,12 @@ func runDeploy(cmd *cobra.Command, _ []string) (err error) {
 	pusher := docker.NewPusher()
 	pusher.Verbose = config.Verbose
 
-	deployer, err := knative.NewDeployer(config.Namespace)
+	ns := config.Namespace
+	if ns == "" {
+		ns = function.Namespace
+	}
+
+	deployer, err := knative.NewDeployer(ns)
 	if err != nil {
 		return
 	}
