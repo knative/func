@@ -15,7 +15,7 @@ func init() {
 	root.AddCommand(buildCmd)
 	buildCmd.Flags().StringP("builder", "b", "default", "Buildpack builder, either an as a an image name or a mapping name as defined in func.yaml")
 	buildCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
-	buildCmd.Flags().StringP("image", "i", "", "Full image name in the orm [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over -registry (Env: $FUNC_IMAGE")
+	buildCmd.Flags().StringP("image", "i", "", "Full image name in the orm [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE")
 	buildCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
 	buildCmd.Flags().StringP("registry", "r", "", "Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined based on the local directory name. If not provided the registry will be taken from func.yaml (Env: $FUNC_REGISTRY)")
 
@@ -33,22 +33,22 @@ var buildCmd = &cobra.Command{
 This command builds the function project in the current directory or in the directory
 specified by --path. The result will be a container image that is pushed to a registry.
 The func.yaml file is read to determine the image name and registry. 
-If not already configured, either --registry or --image has to be provided and is then stored 
-in the configuration file.
+If the project has not already been built, either --registry or --image must be provided 
+and the image name is stored in the configuration file.
 `,
     Example: `
 # Build from the local directory, using the given registry as target.
-# The full image name will be automatically will determined automatically based on the
-# project directories name
+# The full image name will be determined automatically based on the
+# project directory name
 kn func build --registry quay.io/myuser
 
-# Build from the local directory with specifying the full image name
+# Build from the local directory, specifying the full image name
 kn func build --image quay.io/myuser/myfunc
 
-# Re-build with picking up previous given arguments from a local func.yml
+# Re-build, picking up a previously supplied image name from a local func.yml
 kn func build
 
-# Build with a custom buildpack
+# Build with a custom buildpack builder
 kn func build --builder cnbs/sample-builder:bionic
 `,
 	SuggestFor: []string{"biuld", "buidl", "built"},
@@ -149,7 +149,7 @@ func (c buildConfig) Prompt() buildConfig {
 	}
 	return buildConfig{
 		Path:    prompt.ForString("Path to project directory", c.Path),
-		Image:   prompt.ForString("Full Image name (e.g. quay.io/boson/node-sample)", imageName, prompt.WithRequired(true)),
+		Image:   prompt.ForString("Full image name (e.g. quay.io/boson/node-sample)", imageName, prompt.WithRequired(true)),
 		Verbose: c.Verbose,
 		// Registry not prompted for as it would be confusing when combined with explicit image.  Instead it is
 		// inferred by the derived default for Image, which uses Registry for derivation.

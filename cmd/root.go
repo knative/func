@@ -109,15 +109,15 @@ func cwd() (cwd string) {
 // function defaults and extensible templates.
 func configPath() (path string) {
 	if path = os.Getenv("XDG_CONFIG_HOME"); path != "" {
-		path = filepath.Join(path, "function")
+		path = filepath.Join(path, "func")
 		return
 	}
 	home, err := homedir.Expand("~")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "could not derive home directory for use as default templates path: %v", err)
-		path = filepath.Join(".config", "function")
+		path = filepath.Join(".config", "func")
 	} else {
-		path = filepath.Join(home, ".config", "function")
+		path = filepath.Join(home, ".config", "func")
 	}
 	return
 }
@@ -229,7 +229,7 @@ func deriveNameAndAbsolutePathFromPath(path string) (string, string) {
 // will be prepended.
 //
 // If the image flag is provided, this value is used directly (the user supplied
-// --image or $FUNCTION_IMAGE).  Otherwise, the Function at 'path' is loaded, and
+// --image or $FUNC_IMAGE).  Otherwise, the Function at 'path' is loaded, and
 // the Image name therein is used (i.e. it was previously calculated).
 // Finally, the default registry is used, which is prepended to the Function
 // name, and appended with ':latest':
