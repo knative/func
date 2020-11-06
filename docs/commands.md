@@ -93,7 +93,7 @@ kn func describe [-f <format> -n <namespace> -p <path>]
 
 Lists all deployed functions. The namespace defaults to the value in `func.yaml` or the namespace currently active in the user's Kubernetes configuration. The namespace defaults to the value in `func.yaml` or the namespace currently active in the user's Kubernetes configuration. The namespace may be specified on the command line, and if so this will overwrite the value in `func.yaml`.
 
-Similar `kn` command: `kn service list [name] [flags]`. This command lists all deployed Knative `Services`. As with other `kn` commands that have similar functionality, there is more information and flexibilty in the `kn` command. However, `kn` will return _all_ `Services`, while `func list` will only display the boson funcs that have been deployed. Consider improving the output of the `func list` command so that it is at least as informative as `kn service list`.
+Similar `kn` command: `kn service list [name] [flags]`. This command lists all deployed Knative `Services`. As with other `kn` commands that have similar functionality, there is more information and flexibilty in the `kn` command. However, `kn` will return _all_ `Services`, while `func list` will only display the boson functions that have been deployed. Consider improving the output of the `func list` command so that it is at least as informative as `kn service list`.
 
 ```console
 func list [-n <namespace> -p <path>]
