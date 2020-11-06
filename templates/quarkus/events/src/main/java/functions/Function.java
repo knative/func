@@ -7,7 +7,7 @@ import io.quarkus.funqy.knative.events.CloudEvent;
 public class Function {
 
     @Funq
-    public Object echo(Object input, @Context CloudEvent cloudEvent) {
+    public Output function(Input input, @Context CloudEvent cloudEvent) {
         if (cloudEvent != null) {
             System.out.println(
                     "CloudEvent{" +
@@ -17,7 +17,7 @@ public class Function {
                             ", subject='" + cloudEvent.subject() + '\'' +
                             '}');
         }
-        return input;
+        return new Output(input.getMessage());
     }
 
 }

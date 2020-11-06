@@ -13,24 +13,24 @@ import static org.hamcrest.Matchers.notNullValue;
 public class FunctionTest {
 
     @Test
-    void testEcho() {
-        Object obj = (new Function()).echo(42, null);
-        Assertions.assertEquals(42, obj);
+    void testFunction() {
+        Output output = (new Function()).function(new Input("Hello!"), null);
+        Assertions.assertEquals("Hello!", output.getMessage());
     }
 
     @Test
-    public void testEchoIntegration() {
+    public void testFunctionIntegration() {
         RestAssured.given().contentType("application/json")
-                .body("{\"message\": \"Hello\"}")
+                .body("{\"message\": \"Hello!\"}")
                 .header("ce-id", "42")
                 .header("ce-specversion", "1.0")
                 .post("/")
                 .then().statusCode(200)
                 .header("ce-id", notNullValue())
                 .header("ce-specversion", equalTo("1.0"))
-                .header("ce-source", equalTo("echo"))
-                .header("ce-type", equalTo("echo.output"))
-                .body("message", equalTo("Hello"));
+                .header("ce-source", equalTo("function"))
+                .header("ce-type", equalTo("function.output"))
+                .body("message", equalTo("Hello!"));
     }
 
 }

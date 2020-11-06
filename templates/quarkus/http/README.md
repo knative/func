@@ -2,7 +2,7 @@
 
 Welcome to your new Quarkus function project!
 
-This sample project contains single function: `functions.Function.echo()`,
+This sample project contains a single function: `functions.Function.function()`,
 the function just returns its argument.
 
 ## Local execution
@@ -62,16 +62,22 @@ func describe
 ### cURL
 
 ```shell script
-URL=http://localhost:8080/echo
+URL=http://localhost:8080/
 curl -v ${URL} \
   -H "Content-Type:application/json" \
-  -d "{\"name\": \"$(whoami)\"}\""
+  -d "{\"message\": \"$(whoami)\"}\""
+# OR
+URL="http://localhost:8080/?message=$(whoami)"
+curl -v ${URL} 
 ```
 
 ### HTTPie
 
 ```shell script
-URL=http://localhost:8080/echo
+URL=http://localhost:8080/
 http -v ${URL} \
-  name=$(whoami)
+  message=$(whoami)
+# OR
+URL="http://localhost:8080/?message=$(whoami)"
+http -v ${URL}
 ```

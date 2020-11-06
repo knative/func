@@ -2,7 +2,7 @@
 
 Welcome to your new Quarkus function project!
 
-This sample project contains single function: `functions.Function.echo()`,
+This sample project contains a single function: `functions.Function.function()`,
 the function just returns its argument.
 
 ## Local execution
@@ -69,7 +69,7 @@ curl -v ${URL} \
   -H "Ce-Source:cloud-event-example" \
   -H "Ce-Type:dev.knative.example" \
   -H "Ce-Specversion:1.0" \
-  -d "{\"name\": \"$(whoami)\"}\""
+  -d "{\"message\": \"$(whoami)\"}\""
 ```
 
 ### HTTPie
@@ -82,5 +82,5 @@ http -v ${URL} \
   Ce-Source:cloud-event-example \
   Ce-Type:dev.knative.example \
   Ce-Specversion:1.0 \
-  name=$(whoami)
+  message=$(whoami)
 ```

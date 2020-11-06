@@ -13,18 +13,18 @@ import static org.hamcrest.Matchers.notNullValue;
 public class FunctionTest {
 
     @Test
-    void testEcho() {
-        Object obj = (new Function()).echo(42);
-        Assertions.assertEquals(42, obj);
+    void testFunction() {
+        Output output = (new Function()).function(new Input("Hello!"));
+        Assertions.assertEquals("Hello!", output.getMessage());
     }
 
     @Test
-    public void testEchoIntegration() {
+    public void testFunctionIntegration() {
         RestAssured.given().contentType("application/json")
                 .body("{\"message\": \"Hello\"}")
                 .header("ce-id", "42")
                 .header("ce-specversion", "1.0")
-                .post("/echo")
+                .post("/")
                 .then().statusCode(200)
                 .body("message", equalTo("Hello"));
     }
