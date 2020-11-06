@@ -161,9 +161,9 @@ func TestDefaultTrigger(t *testing.T) {
 // using a custom path to a template repository on disk.  Custom repository
 // location is not defined herein but expected to be provided because, for
 // example, a CLI may want to use XDG_CONFIG_HOME.  Assuming a repository path
-// $FAAS_TEMPLATES, a Go template named 'json' which is provided in the
+// $FUNCTIONTEMPLATES, a Go template named 'json' which is provided in the
 // repository 'boson-experimental', would be expected to be in the location:
-// $FAAS_TEMPLATES/boson-experimental/go/json
+// $FUNCTION_TEMPLATES/boson-experimental/go/json
 // See the CLI for full details, but a standard default location is
 // $HOME/.config/templates/boson-experimental/go/json
 func TestExtensibleTemplates(t *testing.T) {

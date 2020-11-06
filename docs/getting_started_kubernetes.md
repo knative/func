@@ -18,11 +18,11 @@ Once access to a kubernetes-compatible cluster has been established, it will nee
 
 Create a namespace for your Functions:
 ```
-kubectl create namespace faas
+kubectl create namespace function
 ```
 Set the default namespace for subsequent commands:
 ```
-kubectl config set-context --current --namespace=faas
+kubectl config set-context --current --namespace=function
 ```
 
 ### Serving
@@ -39,7 +39,7 @@ Update the networking layer to
 - Use Kourier
 - use TLS
 - Redirect HTTP requests to HTTPS
-- Add faas subdomain annotations
+- Add function subdomain annotations
 ```
 kubectl apply -f knative/config-network.yaml
 ```
@@ -109,7 +109,7 @@ kubectl edit configmap config-certmanager --namespace knative-serving
 
 ### Eventing
 
-Eventing with In-memory channels, a Channel broker, and enable the default broker in the faas namespace.
+Eventing with In-memory channels, a Channel broker, and enable the default broker in the function namespace.
 ```
 kubectl apply --filename https://github.com/knative/eventing/releases/download/v0.16.0/eventing-crds.yaml
 kubectl apply --filename https://github.com/knative/eventing/releases/download/v0.16.0/eventing-core.yaml
@@ -122,9 +122,9 @@ kubectl apply --filename https://github.com/knative/eventing-contrib/releases/do
 ```
 Learn more about the GitHub source at https://knative.dev/docs/eventing/samples/github-source/index.html
 
-Enable Broker for faas namespace:
+Enable Broker for function namespace:
 ```
-kubectl label namespace faas knative-eventing-injection=enabled
+kubectl label namespace function knative-eventing-injection=enabled
 ```
 
 ### Monitoring

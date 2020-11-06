@@ -82,7 +82,7 @@ func copyFilesystem(templatesPath, runtime, templateFullName, dest string) error
 	template := cc[1]
 
 	// Example FileSystem path:
-	//   /home/alice/.config/faas/templates/boson-experimental/go/json
+	//   /home/alice/.config/function/templates/boson-experimental/go/json
 	src := filepath.Join(templatesPath, repo, runtime, template)
 	return copy(src, dest, filesystemAccessor{})
 }

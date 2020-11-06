@@ -10,11 +10,11 @@ data:
   autoTLS: Enabled
   # Redirect HTTP requests to HTTPS
   httpProtocol: Redirected
-  # If there exists an annotation `faas.subdomain` on the service,
+  # If there exists an annotation `function.subdomain` on the service,
   # use it instead of the default name.namespace
   domainTemplate: |-
-    {{if index .Annotations "faas.subdomain" -}}
-      {{- index .Annotations "faas.subdomain" -}}
+    {{if index .Annotations "function.subdomain" -}}
+      {{- index .Annotations "function.subdomain" -}}
     {{else -}}
       {{- .Name}}.{{.Namespace -}}
     {{end -}}

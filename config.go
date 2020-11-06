@@ -9,7 +9,7 @@ import (
 )
 
 // ConfigFile is the name of the config's serialized form.
-const ConfigFile = "faas.yaml"
+const ConfigFile = "func.yaml"
 
 // Config represents the serialized state of a Function's metadata.
 // See the Function struct for attribute documentation.

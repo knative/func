@@ -10,8 +10,8 @@ of a new function.
 It is recommended to set your preferred image registry for publishing Functions
 by setting the following environment variables:
 ```
-export FAAS_REGISTRY=quay.io
-export FAAS_NAMESPACE=alice
+export FUNCTION_REGISTRY=quay.io
+export FUNCTION_NAMESPACE=alice
 ```
 Alternately, when using the CLI these values can be provided using the --namespace and --registry 
 flags.
@@ -23,7 +23,7 @@ flags.
 ```shell
 > mkdir -p example.com/www
 > cd example.com/www
-> faas create go
+> function create go
 https://www.example.com
 > curl https://www.example.com
 OK

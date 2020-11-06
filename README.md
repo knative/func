@@ -1,4 +1,4 @@
-# faas
+# Boson Function CLI
 
 [![Main Build Status](https://github.com/boson-project/faas/workflows/Main/badge.svg?branch=main)](https://github.com/boson-project/faas/actions?query=workflow%3AMain+branch%3Amain)
 [![Develop Build Status](https://github.com/boson-project/faas/workflows/Develop/badge.svg?branch=develop&label=develop)](https://github.com/boson-project/faas/actions?query=workflow%3ADevelop+branch%3Adevelop)
@@ -9,7 +9,7 @@
 
 [Demo Screencast]
 
-faas is a "Function as a Service" Client Library and CLI for enabling the development of implicitly deployed, platform agnostic code.
+`function` is a Client Library and CLI for enabling the development of implicitly deployed, platform agnostic code.
 
 [Read the Documentation](docs/README.md)
 

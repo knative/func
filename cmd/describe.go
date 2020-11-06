@@ -17,9 +17,9 @@ import (
 
 func init() {
 	root.AddCommand(describeCmd)
-	describeCmd.Flags().StringP("namespace", "n", "", "Override namespace in which to search for the Function.  Default is to use currently active underlying platform setting - $FAAS_NAMESPACE")
-	describeCmd.Flags().StringP("format", "f", "human", "optionally specify output format (human|plain|json|xml|yaml) $FAAS_FORMAT")
-	describeCmd.Flags().StringP("path", "p", cwd(), "Path to the project which should be described - $FAAS_PATH")
+	describeCmd.Flags().StringP("namespace", "n", "", "Override namespace in which to search for the Function.  Default is to use currently active underlying platform setting - $FUNCTION_NAMESPACE")
+	describeCmd.Flags().StringP("format", "f", "human", "optionally specify output format (human|plain|json|xml|yaml) $FUNCTION_FORMAT")
+	describeCmd.Flags().StringP("path", "p", cwd(), "Path to the project which should be described - $FUNCTION_PATH")
 
 	err := describeCmd.RegisterFlagCompletionFunc("format", CompleteOutputFormatList)
 	if err != nil {
@@ -36,9 +36,9 @@ Prints the name, route and any event subscriptions for a deployed Function in
 the current directory. A path to a Function project directory may be supplied
 using the --path or -p flag.
 
-The namespace defaults to the value in faas.yaml or the namespace currently
+The namespace defaults to the value in function.yaml or the namespace currently
 active in the user's Kubernetes configuration. The namespace may be specified
-using the --namespace or -n flag, and if so this will overwrite the value in faas.yaml.
+using the --namespace or -n flag, and if so this will overwrite the value in function.yaml.
 `,
 	SuggestFor:        []string{"desc", "get"},
 	ValidArgsFunction: CompleteFunctionList,
