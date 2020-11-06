@@ -32,7 +32,7 @@
   <dependencies>
     <dependency>
       <groupId>io.quarkus</groupId>
-      <artifactId>quarkus-funqy-http</artifactId>
+      <artifactId>quarkus-funqy-knative-events</artifactId>
     </dependency>
     <dependency>
       <groupId>io.quarkus</groupId>

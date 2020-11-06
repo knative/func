@@ -5,8 +5,8 @@ import io.quarkus.funqy.Funq;
 public class Function {
 
     @Funq
-    public Object echo(Object input) {
-        return input;
+    public Output function(Input input) {
+        return new Output(input.getMessage());
     }
 
 }
