@@ -23,7 +23,7 @@ func init() {
 
 	err := describeCmd.RegisterFlagCompletionFunc("format", CompleteOutputFormatList)
 	if err != nil {
-		fmt.Println("Internal: error while calling RegisterFlagCompletionFunc: ", err)
+		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
 	}
 }
 
@@ -58,7 +58,7 @@ func runDescribe(cmd *cobra.Command, args []string) (err error) {
 
 	// Check if the Function has been initialized
 	if !function.Initialized() {
-		return fmt.Errorf("the given path '%v' does not contain an initialized Function.", config.Path)
+		return fmt.Errorf("the given path '%v' does not contain an initialized function", config.Path)
 	}
 
 	describer, err := knative.NewDescriber(config.Namespace)

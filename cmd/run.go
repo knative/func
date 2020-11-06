@@ -54,7 +54,7 @@ func runRun(cmd *cobra.Command, args []string) (err error) {
 
 	// Check if the Function has been initialized
 	if !function.Initialized() {
-		return fmt.Errorf("the given path '%v' does not contain an initialized Function.", config.Path)
+		return fmt.Errorf("the given path '%v' does not contain an initialized function", config.Path)
 	}
 
 	runner := docker.NewRunner()

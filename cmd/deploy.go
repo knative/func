@@ -65,7 +65,7 @@ func runDeploy(cmd *cobra.Command, _ []string) (err error) {
 
 	// Check if the Function has been initialized
 	if !function.Initialized() {
-		return fmt.Errorf("the given path '%v' does not contain an initialized Function. Please create one at this path before deploying.", config.Path)
+		return fmt.Errorf("the given path '%v' does not contain an initialized function. Please create one at this path before deploying", config.Path)
 	}
 
 	// If the Function does not yet have an image name and one was not provided on the command line
@@ -76,7 +76,7 @@ func runDeploy(cmd *cobra.Command, _ []string) (err error) {
 			fmt.Print("A registry for Function images is required. For example, 'docker.io/tigerteam'.\n\n")
 			config.Registry = prompt.ForString("Registry for Function images", "")
 			if config.Registry == "" {
-				return fmt.Errorf("Unable to determine Function image name")
+				return fmt.Errorf("unable to determine function image name")
 			}
 		}
 

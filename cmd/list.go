@@ -22,7 +22,7 @@ func init() {
 	listCmd.Flags().StringP("format", "f", "human", "Output format (human|plain|json|xml|yaml) (Env: $FUNC_FORMAT)")
 	err := listCmd.RegisterFlagCompletionFunc("format", CompleteOutputFormatList)
 	if err != nil {
-		fmt.Println("Internal: error while calling RegisterFlagCompletionFunc: ", err)
+		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
 	}
 }
 
