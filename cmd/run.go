@@ -13,18 +13,24 @@ import (
 func init() {
 	// Add the run command as a subcommand of root.
 	root.AddCommand(runCmd)
-	runCmd.Flags().StringArrayP("env", "e", []string{}, "Sets environment variables for the Function.")
-	runCmd.Flags().StringP("path", "p", cwd(), "Path to the Function project directory - $FUNC_PATH")
+	runCmd.Flags().StringArrayP("env", "e", []string{}, "Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables.")
+	runCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
 }
 
 var runCmd = &cobra.Command{
 	Use:   "run",
-	Short: "Runs the Function locally",
-	Long: `Runs the Function locally
+	Short: "Run the function locally",
+	Long: `Run the function locally
 
-Runs the Function project in the current directory or in the directory
-specified by the -p or --path flag in the deployable image. The project must
-already have been built as an OCI container image using the 'build' command.
+Runs the function locally in the current directory or in the directory
+specified by --path flag. The function must already have been built with the 'build' command.
+`,
+	Example: `
+# Build function's image first
+kn func build
+
+# Run it locally as a container
+kn func run
 `,
 	SuggestFor: []string{"rnu"},
 	PreRunE:    bindEnv("path"),
@@ -43,12 +49,12 @@ func runRun(cmd *cobra.Command, args []string) (err error) {
 
 	err = function.WriteConfig()
 	if err != nil {
-		return 
+		return
 	}
 
 	// Check if the Function has been initialized
 	if !function.Initialized() {
-		return fmt.Errorf("the given path '%v' does not contain an initialized Function.", config.Path)
+		return fmt.Errorf("the given path '%v' does not contain an initialized function", config.Path)
 	}
 
 	runner := docker.NewRunner()

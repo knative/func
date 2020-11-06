@@ -17,28 +17,30 @@ import (
 
 func init() {
 	root.AddCommand(describeCmd)
-	describeCmd.Flags().StringP("namespace", "n", "", "Override namespace in which to search for the Function.  Default is to use currently active underlying platform setting - $FUNC_NAMESPACE")
-	describeCmd.Flags().StringP("format", "f", "human", "optionally specify output format (human|plain|json|xml|yaml) $FUNC_FORMAT")
-	describeCmd.Flags().StringP("path", "p", cwd(), "Path to the project which should be described - $FUNC_PATH")
+	describeCmd.Flags().StringP("namespace", "n", "", "Namespace of the function to undeploy. By default, the namespace in func.yaml is used or the actual active namespace if not set in the configuration. (Env: $FUNC_NAMESPACE)")
+	describeCmd.Flags().StringP("format", "f", "human", "Output format (human|plain|json|xml|yaml) (Env: $FUNC_FORMAT)")
+	describeCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
 
 	err := describeCmd.RegisterFlagCompletionFunc("format", CompleteOutputFormatList)
 	if err != nil {
-		fmt.Println("Error while calling RegisterFlagCompletionFunc: ", err)
+		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
 	}
 }
 
 var describeCmd = &cobra.Command{
 	Use:   "describe <name>",
-	Short: "Describes the Function",
-	Long: `Describes the Function
+	Short: "Show details of a function",
+	Long: `Show details of a function
 
-Prints the name, route and any event subscriptions for a deployed Function in
-the current directory. A path to a Function project directory may be supplied
-using the --path or -p flag.
+Prints the name, route and any event subscriptions for a deployed function in
+the current directory or from the directory specified with --path.
+`,
+    Example: `
+# Show the details of a function as declared in the local func.yaml
+kn func describe
 
-The namespace defaults to the value in func.yaml or the namespace currently
-active in the user's Kubernetes configuration. The namespace may be specified
-using the --namespace or -n flag, and if so this will overwrite the value in func.yaml.
+# Show the details of the function in YAML format for the function in the myotherfunc directory
+kn func describe --format yaml --path myotherfunc
 `,
 	SuggestFor:        []string{"desc", "get"},
 	ValidArgsFunction: CompleteFunctionList,
@@ -56,7 +58,7 @@ func runDescribe(cmd *cobra.Command, args []string) (err error) {
 
 	// Check if the Function has been initialized
 	if !function.Initialized() {
-		return fmt.Errorf("the given path '%v' does not contain an initialized Function.", config.Path)
+		return fmt.Errorf("the given path '%v' does not contain an initialized function", config.Path)
 	}
 
 	describer, err := knative.NewDescriber(config.Namespace)

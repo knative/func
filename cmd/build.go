@@ -13,36 +13,43 @@ import (
 
 func init() {
 	root.AddCommand(buildCmd)
-	buildCmd.Flags().StringP("builder", "b", "default", "Buildpacks builder")
-	buildCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options - $FUNC_CONFIRM")
-	buildCmd.Flags().StringP("image", "i", "", "Optional full image name, in form [registry]/[namespace]/[name]:[tag] for example quay.io/myrepo/project.name:latest (overrides --registry) - $FUNC_IMAGE")
-	buildCmd.Flags().StringP("path", "p", cwd(), "Path to the Function project directory - $FUNC_PATH")
-	buildCmd.Flags().StringP("registry", "r", "", "Registry for built images, ex 'docker.io/myuser' or just 'myuser'.  Optional if --image provided. - $FUNC_REGISTRY")
+	buildCmd.Flags().StringP("builder", "b", "default", "Buildpack builder, either an as a an image name or a mapping name as defined in func.yaml")
+	buildCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
+	buildCmd.Flags().StringP("image", "i", "", "Full image name in the orm [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE")
+	buildCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
+	buildCmd.Flags().StringP("registry", "r", "", "Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined based on the local directory name. If not provided the registry will be taken from func.yaml (Env: $FUNC_REGISTRY)")
 
 	err := buildCmd.RegisterFlagCompletionFunc("builder", CompleteBuilderList)
 	if err != nil {
-		fmt.Println("Error while calling RegisterFlagCompletionFunc: ", err)
+		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
 	}
 }
 
 var buildCmd = &cobra.Command{
 	Use:   "build",
-	Short: "Build an existing Function project as an OCI image",
-	Long: `Build an existing Function project as an OCI image
+	Short: "Build a function project as a container image",
+	Long: `Build a function project as a container image
 
-Builds the Function project in the current directory or in the directory
-specified by the --path flag. The func.yaml file is read to determine the
-image name and registry. If both of these values are unset in the
-configuration file the --registry or -r flag should be provided and an image
-name will be derived from the project name.
+This command builds the function project in the current directory or in the directory
+specified by --path. The result will be a container image that is pushed to a registry.
+The func.yaml file is read to determine the image name and registry. 
+If the project has not already been built, either --registry or --image must be provided 
+and the image name is stored in the configuration file.
+`,
+    Example: `
+# Build from the local directory, using the given registry as target.
+# The full image name will be determined automatically based on the
+# project directory name
+kn func build --registry quay.io/myuser
 
-Any value provided for the --image flag will be persisted in the func.yaml
-configuration file. On subsequent invocations of the "build" command
-these values will be read from the configuration file.
+# Build from the local directory, specifying the full image name
+kn func build --image quay.io/myuser/myfunc
 
-It's possible to use a custom Buildpack builder with the --builder flag.
-The value may be image name e.g. "cnbs/sample-builder:bionic",
-or reference to builderMaps in the config file e.g. "default".
+# Re-build, picking up a previously supplied image name from a local func.yml
+kn func build
+
+# Build with a custom buildpack builder
+kn func build --builder cnbs/sample-builder:bionic
 `,
 	SuggestFor: []string{"biuld", "buidl", "built"},
 	PreRunE:    bindEnv("image", "path", "builder", "registry", "confirm"),
@@ -59,7 +66,7 @@ func runBuild(cmd *cobra.Command, _ []string) (err error) {
 
 	// Check if the Function has been initialized
 	if !function.Initialized() {
-		return fmt.Errorf("the given path '%v' does not contain an initialized Function. Please create one at this path before deploying.", config.Path)
+		return fmt.Errorf("the given path '%v' does not contain an initialized function. Please create one at this path before deploying", config.Path)
 	}
 
 	// If the Function does not yet have an image name and one was not provided on the command line
@@ -67,10 +74,10 @@ func runBuild(cmd *cobra.Command, _ []string) (err error) {
 		//  AND a --registry was not provided, then we need to
 		// prompt for a registry from which we can derive an image name.
 		if config.Registry == "" {
-			fmt.Print("A registry for Function images is required. For example, 'docker.io/tigerteam'.\n\n")
-			config.Registry = prompt.ForString("Registry for Function images", "")
+			fmt.Print("A registry for function images is required (e.g. 'quay.io/boson').\n\n")
+			config.Registry = prompt.ForString("Registry for function images", "")
 			if config.Registry == "" {
-				return fmt.Errorf("Unable to determine Function image name")
+				return fmt.Errorf("unable to determine function image name")
 			}
 		}
 
@@ -142,7 +149,7 @@ func (c buildConfig) Prompt() buildConfig {
 	}
 	return buildConfig{
 		Path:    prompt.ForString("Path to project directory", c.Path),
-		Image:   prompt.ForString("Image name", imageName, prompt.WithRequired(true)),
+		Image:   prompt.ForString("Full image name (e.g. quay.io/boson/node-sample)", imageName, prompt.WithRequired(true)),
 		Verbose: c.Verbose,
 		// Registry not prompted for as it would be confusing when combined with explicit image.  Instead it is
 		// inferred by the derived default for Image, which uses Registry for derivation.

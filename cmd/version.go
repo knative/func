@@ -26,7 +26,11 @@ func init() {
 
 var versionCmd = &cobra.Command{
 	Use:        "version",
-	Short:      "Print version.  With --verbose the build date stamp and commit hash are included if available.",
+	Short:      "Show the version",
+	Long:       `Show the version
+
+Use the --verbose option to include the build date stamp and commit hash"
+`,
 	SuggestFor: []string{"vers", "verison"},
 	Run:        runVersion,
 }
