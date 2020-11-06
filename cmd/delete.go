@@ -52,7 +52,12 @@ func runDelete(cmd *cobra.Command, args []string) (err error) {
 		return fmt.Errorf("the given path '%v' does not contain an initialized Function.", config.Path)
 	}
 
-	remover, err := knative.NewRemover(config.Namespace)
+	ns := config.Namespace
+	if ns == "" {
+		ns = function.Namespace
+	}
+
+	remover, err := knative.NewRemover(ns)
 	if err != nil {
 		return
 	}
