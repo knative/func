@@ -39,7 +39,7 @@ the current directory or from the directory specified with --path.
 # Show the details of a function as declared in the local func.yaml
 kn func describe
 
-# Show the details of the function in YAML format and that is defined in another directory
+# Show the details of the function in YAML format for the function in the myotherfunc directory
 kn func describe --format yaml --path myotherfunc
 `,
 	SuggestFor:        []string{"desc", "get"},
