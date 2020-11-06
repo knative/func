@@ -19,13 +19,15 @@ const { CloudEvent, HTTP } = require('cloudevents');
  *
  * const incomingEvent = context.cloudevent;
  *
+ * @param {Context} context the invocation context
  * @param {Object} user the CloudEvent data. If the data content type is application/json
  * this will be converted to an Object via JSON.parse()
- * @param {Context} context the invocation context
  */
 function verifyUser(context, user) {
   if (!context.cloudevent) {
-    return 'No cloud event received';
+    return {
+      message: 'No cloud event received'
+    };
   }
 
   context.log.info('Processing user', user);
