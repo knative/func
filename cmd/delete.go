@@ -25,13 +25,13 @@ var deleteCmd = &cobra.Command{
 
 Removes a deployed function from the cluster. The user may specify a function
 by name, path using the --path or -p flag, or if neither of those are provided,
-the current directory will be searched for a function.yaml configuration file to
+the current directory will be searched for a func.yaml configuration file to
 determine the function to be removed.
 
-The namespace defaults to the value in function.yaml or the namespace currently
+The namespace defaults to the value in func.yaml or the namespace currently
 active in the user's Kubernetes configuration. The namespace may be specified
 on the command line using the --namespace or -n flag, and if so this will
-overwrite the value in function.yaml.
+overwrite the value in func.yaml.
 `,
 	SuggestFor:        []string{"remove", "rm", "del"},
 	ValidArgsFunction: CompleteFunctionList,

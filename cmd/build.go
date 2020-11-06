@@ -31,12 +31,12 @@ var buildCmd = &cobra.Command{
 	Long: `Build an existing Function project as an OCI image
 
 Builds the Function project in the current directory or in the directory
-specified by the --path flag. The function.yaml file is read to determine the
+specified by the --path flag. The func.yaml file is read to determine the
 image name and registry. If both of these values are unset in the
 configuration file the --registry or -r flag should be provided and an image
 name will be derived from the project name.
 
-Any value provided for the --image flag will be persisted in the function.yaml
+Any value provided for the --image flag will be persisted in the func.yaml
 configuration file. On subsequent invocations of the "build" command
 these values will be read from the configuration file.
 
