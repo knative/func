@@ -212,6 +212,9 @@ func (c chrootedFileAccessor) Walk(name string, wf filepath.WalkFunc) error {
 	name = filepath.Join(string(filepath.Separator), name)
 	name = filepath.Join(c.root, name)
 	return c.accessor.Walk(name, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
 		rel, err := filepath.Rel(c.root, path)
 		if err != nil {
 			return err
@@ -317,7 +320,9 @@ func (f fileAccessorWithGoTextTemplateSubstitutes) Open(name string) (file, erro
 
 	go func() {
 		var err error
-		defer pw.CloseWithError(err)
+		defer func() {
+			_ = pw.CloseWithError(err)
+		}()
 		err = tmpl.Execute(pw, f.templateParams)
 	}()
 
