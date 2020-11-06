@@ -26,15 +26,14 @@ var root = &cobra.Command{
 Create, build and deploy functions in serverless containers for multiple runtimes on Knative`,
 	Example: `
 # Create a node function called "node-sample" and enter the directory
-kn func create node-sample
-cd node-sample
+kn func create myfunc && cd myfunc
 
 # Build the container image, push it to a registry and deploy it to the connected Knative cluster
 # (replace <registry/user> with something like quay.io/user with an account that have you access to)
 kn func deploy --registry <registry/user>
 
 # Curl the service with the service URL
-curl $(kn service describe node-sample -o url)
+curl $(kn service describe myfunc -o url)
 `,
 }
 
