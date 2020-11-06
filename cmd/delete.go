@@ -33,7 +33,7 @@ No local files are deleted.
 # Undeploy the function defined in the local directory
 kn func delete
 
-# Undeploy the function 'mynode-func' in namespace 'apps'
+# Undeploy the function 'myfunc' in namespace 'apps'
 kn func delete -n apps myfunc
 `,
 	SuggestFor:        []string{"remove", "rm", "del"},

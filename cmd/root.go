@@ -25,7 +25,7 @@ var root = &cobra.Command{
 
 Create, build and deploy functions in serverless containers for multiple runtimes on Knative`,
 	Example: `
-# Create a fresh node function called "node-sample" and enter the directory
+# Create a node function called "node-sample" and enter the directory
 kn func create node-sample
 cd node-sample
 

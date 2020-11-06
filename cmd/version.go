@@ -29,7 +29,7 @@ var versionCmd = &cobra.Command{
 	Short:      "Show the version",
 	Long:       `Show the version
 
-Ust the --verbose option to include the build date stamp and commit hash"
+Use the --verbose option to include the build date stamp and commit hash"
 `,
 	SuggestFor: []string{"vers", "verison"},
 	Run:        runVersion,
