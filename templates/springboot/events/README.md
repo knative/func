@@ -100,7 +100,7 @@ http -v "$URL/uppercase" \
 
 ## Cleanup
 
-To clean the deployed function run:
+To remove the deployed function from your cluster, run:
 
 ```shell
 func delete

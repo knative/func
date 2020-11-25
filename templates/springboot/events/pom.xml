@@ -13,7 +13,7 @@
   <artifactId>function</artifactId>
   <version>0.0.1-SNAPSHOT</version>
   <name>Spring Cloud Function::Events Example</name>
-  <description>An Spring Cloud Function, using Cloud Events</description>
+  <description>A Spring Cloud Function, using Cloud Events</description>
 
   <properties>
     <java.version>11</java.version>

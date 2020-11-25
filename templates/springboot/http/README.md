@@ -11,7 +11,7 @@ Make sure that `Java 11 SDK` is installed.
 To start server locally run `./mvnw spring-boot:run`.
 The command starts http server and automatically watches for changes of source code.
 If source code changes the change will be propagated to running server. It also opens debugging port `5005`
-so debugger can be attached if needed.
+so a debugger can be attached if needed.
 
 To run tests locally run `./mvnw test`.
 
