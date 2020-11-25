@@ -13,7 +13,7 @@ The command starts http server and automatically watches for changes of source c
 If source code changes the change will be propagated to running server. It also opens debugging port `5005`
 so debugger can be attached if needed.
 
-To run test locally run `./mvnw test`.
+To run tests locally run `./mvnw test`.
 
 ## The `func` CLI
 
@@ -28,7 +28,7 @@ echo "export FUNC_REGISTRY=docker.io/johndoe" >> ~/.bashrc
 
 ### Building
 
-This command builds OCI image for the function.
+This command builds an OCI image for the function.
 
 ```shell script
 func build -v                  # build jar
@@ -45,7 +45,7 @@ func run
 
 ### Deploying
 
-This commands will build and deploy the function into cluster.
+This command will build and deploy the function into cluster.
 
 ```shell script
 func deploy -v # also triggers build
@@ -53,7 +53,7 @@ func deploy -v # also triggers build
 
 ## Function invocation
 
-Do not forget to set `URL` variable to the route of your function.
+For the examples below, please be sure to set the `URL` variable to the route of your function.
 
 You get the route by following command.
 

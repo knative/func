@@ -1,7 +1,6 @@
 package utils
 
 import(
-	"fmt"
 	"sort"
 	"strings"
     "github.com/boson-project/faas/buildpacks"
@@ -17,8 +16,8 @@ func RuntimeList() string {
    }	
    sort.Strings(runtimes)
    //make it more grammatical :)
-   s := runtimes[:len(runtimes)-1]
-   str := fmt.Sprintf("%s", strings.Join(s,", "))
+   s   := runtimes[:len(runtimes)-1]
+   str := strings.Join(s,", ")
    str = str + " and " + runtimes[len(runtimes)-1]
    return str
 }
