@@ -14,18 +14,24 @@ import (
 	"github.com/boson-project/faas"
 )
 
+//Builder holds the configuration that will be passed to 
+//Buildpack builder
 type Builder struct {
 	Verbose bool
 }
 
+//NewBuilder builds the new Builder configuration
 func NewBuilder() *Builder {
 	return &Builder{}
 }
 
+//RuntimeToBuildpack holds the mapping between the Runtime and its corresponding
+//Buildpack builder to use
 var RuntimeToBuildpack = map[string]string{
 	"quarkus": "quay.io/boson/faas-quarkus-builder",
 	"node":    "quay.io/boson/faas-nodejs-builder",
 	"go":      "quay.io/boson/faas-go-builder",
+	"springboot": "quay.io/boson/faas-springboot-builder",
 }
 
 // Build the Function at path.

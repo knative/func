@@ -9,12 +9,13 @@ import (
 
 	"github.com/boson-project/faas"
 	"github.com/boson-project/faas/prompt"
+	"github.com/boson-project/faas/utils"
 )
 
 func init() {
 	root.AddCommand(createCmd)
 	createCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
-	createCmd.Flags().StringP("runtime", "l", faas.DefaultRuntime, "Function runtime language/framework. Available runtimes: 'node', 'quarkus' and 'go' (Env: $FUNC_RUNTIME)")
+	createCmd.Flags().StringP("runtime", "l", faas.DefaultRuntime, "Function runtime language/framework. Available runtimes: " + utils.RuntimeList() + " (Env: $FUNC_RUNTIME)")
 	createCmd.Flags().StringP("templates", "", filepath.Join(configPath(), "templates"), "Path to additional templates (Env: $FUNC_TEMPLATES)")
 	createCmd.Flags().StringP("trigger", "t", faas.DefaultTrigger, "Function trigger. Available triggers: 'http' and 'events' (Env: $FUNC_TRIGGER)")
 
