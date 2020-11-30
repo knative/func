@@ -1,7 +1,6 @@
 package plugin
 
 import (
-	"fmt"
 	"github.com/boson-project/faas/cmd"
 	"knative.dev/client/pkg/kn/plugin"
 	"os"
