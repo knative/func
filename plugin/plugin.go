@@ -4,6 +4,8 @@ import (
 	"github.com/boson-project/faas/cmd"
 	"knative.dev/client/pkg/kn/plugin"
 	"os"
+	"runtime/debug"
+	"strings"
 )
 
 func init() {
@@ -17,7 +19,13 @@ func (f *faasPlugin) Name() string {
 }
 
 func (f *faasPlugin) Execute(args []string) error {
-    rootCmd := cmd.NewRootCmd()
+	rootCmd := cmd.NewRootCmd()
+	info, _ := debug.ReadBuildInfo()
+	for _, dep := range info.Deps {
+		if strings.Contains(dep.Path, "boson-project/faas") {
+			cmd.SetMeta("", dep.Version, dep.Sum)
+		}
+	}
 	oldArgs := os.Args
 	defer (func() {
 		os.Args = oldArgs
