@@ -8,15 +8,16 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/ory/viper v1.7.4
 	github.com/spf13/cobra v1.0.1-0.20201006035406-b97b5ead31f7
+	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a // indirect
 	golang.org/x/sys v0.0.0-20200930185726-fdedc70b468f // indirect
 	gopkg.in/yaml.v2 v2.3.0
 	k8s.io/api v0.18.8
 	k8s.io/apimachinery v0.19.1
 	k8s.io/client-go v11.0.1-0.20190805182717-6502b5e7b1b5+incompatible
-	knative.dev/client v0.17.2
-	knative.dev/eventing v0.17.5
-	knative.dev/pkg v0.0.0-20200831162708-14fb2347fb77
-	knative.dev/serving v0.17.3
+	knative.dev/client v0.18.4
+	knative.dev/eventing v0.18.0
+	knative.dev/pkg v0.0.0-20200922164940-4bf40ad82aab
+	knative.dev/serving v0.18.0
 )
 
 replace (
@@ -32,6 +33,6 @@ replace (
 	golang.org/x/sys => golang.org/x/sys v0.0.0-20200302150141-5c8b2ff67527
 
 	// Nail down k8 deps to align with transisitive deps
-	k8s.io/apimachinery => k8s.io/apimachinery v0.17.6
-	k8s.io/client-go => k8s.io/client-go v0.17.6
+	k8s.io/apimachinery => k8s.io/apimachinery v0.18.8
+	k8s.io/client-go => k8s.io/client-go v0.18.8
 )
