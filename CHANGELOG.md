@@ -1,6 +1,19 @@
 # Change Log
 
 <a name="unreleased"></a>
+## [0.10.0](https://www.github.com/boson-project/faas/compare/v0.9.0...v0.10.0) (2020-12-08)
+
+
+### Features
+
+* add spring cloud function runtime and templates ([#231](https://www.github.com/boson-project/faas/issues/231)) ([557361a](https://www.github.com/boson-project/faas/commit/557361a37446953dc613ae30f59913f1924dedd3))
+
+
+### Bug Fixes
+
+* Fix plugin version output ([#233](https://www.github.com/boson-project/faas/issues/233)) ([8a30ba1](https://www.github.com/boson-project/faas/commit/8a30ba193da6097a141332212cbd64e5a1a708e8))
+* use image name for run command ([#238](https://www.github.com/boson-project/faas/issues/238)) ([985906b](https://www.github.com/boson-project/faas/commit/985906b0e1f692f94fc84e3e796893192d17bd4c))
+
 ## [0.9.0](https://www.github.com/boson-project/faas/compare/v0.8.0...v0.9.0) (2020-11-06)
 
 
