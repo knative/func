@@ -1,6 +1,8 @@
 REPO := quay.io/boson/func
 BIN  := func
 
+PKGER?=pkger
+
 DARWIN=$(BIN)_darwin_amd64
 LINUX=$(BIN)_linux_amd64
 WINDOWS=$(BIN)_windows_amd64.exe
@@ -11,10 +13,17 @@ HASH := $(shell git rev-parse --short HEAD 2>/dev/null)
 VTAG := $(shell git tag --points-at HEAD)
 VERS := $(shell [ -z $(VTAG) ] && echo 'tip' || echo $(VTAG) )
 
-build: all
-all: $(BIN)
+TEMPLATE_DIRS=$(shell find templates -type d)
+TEMPLATE_FILES=$(shell find templates -type f -name '*')
+TEMPLATE_PACKAGE=pkged.go
 
-cross-platform: $(DARWIN) $(LINUX) $(WINDOWS)
+build: all
+all: $(TEMPLATE_PACKAGE) $(BIN)
+
+$(TEMPLATE_PACKAGE): templates $(TEMPLATE_DIRS) $(TEMPLATE_FILES)
+	$(PKGER)
+
+cross-platform: $(TEMPLATE_PACKAGE) $(DARWIN) $(LINUX) $(WINDOWS)
 
 darwin: $(DARWIN) ## Build for Darwin (macOS)
 
