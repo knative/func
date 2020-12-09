@@ -18,6 +18,7 @@ import (
 
 func init() {
 	root.AddCommand(listCmd)
+	listCmd.Flags().BoolP("all-namespaces", "A", false, "List functions in all namespaces. If set, the --namespace flag is ignored.")
 	listCmd.Flags().StringP("namespace", "n", "", "Namespace of the function to undeploy. By default, the functions of the actual active namespace are listed. (Env: $FUNC_NAMESPACE)")
 	listCmd.Flags().StringP("format", "f", "human", "Output format (human|plain|json|xml|yaml) (Env: $FUNC_FORMAT)")
 	err := listCmd.RegisterFlagCompletionFunc("format", CompleteOutputFormatList)
@@ -36,6 +37,12 @@ Lists all deployed functions in a given namespace.
 	Example: `
 # List all functions in the current namespace in human readable format
 kn func list
+
+# List all functions in the 'test' namespace in yaml format
+kn func list --namespace test --format yaml
+
+# List all functions in all namespaces in JSON format
+kn func list --all-namespaces --format json
 `,
 	SuggestFor: []string{"ls", "lsit"},
 	PreRunE:    bindEnv("namespace", "format"),
@@ -50,6 +57,15 @@ func runList(cmd *cobra.Command, args []string) (err error) {
 		return
 	}
 	lister.Verbose = config.Verbose
+
+	a, err := cmd.Flags().GetBool("all-namespaces")
+	if err != nil {
+		return
+	}
+
+	if a == true {
+		lister.Namespace = ""
+	}
 
 	client := faas.New(
 		faas.WithVerbose(config.Verbose),
@@ -97,9 +113,9 @@ func (items listItems) Plain(w io.Writer) error {
 	tabWriter := tabwriter.NewWriter(w, 0, 8, 2, ' ', 0)
 	defer tabWriter.Flush()
 
-	fmt.Fprintf(tabWriter, "%s\t%s\t%s\t%s\t%s\n", "NAME", "RUNTIME", "URL", "KSERVICE", "READY")
+	fmt.Fprintf(tabWriter, "%s\t%s\t%s\t%s\t%s\t%s\n", "NAME", "NAMESPACE", "RUNTIME", "URL", "KSERVICE", "READY")
 	for _, item := range items {
-		fmt.Fprintf(tabWriter, "%s\t%s\t%s\t%s\t%s\n", item.Name, item.Runtime, item.URL, item.KService, item.Ready)
+		fmt.Fprintf(tabWriter, "%s\t%s\t%s\t%s\t%s\t%s\n", item.Name, item.Namespace, item.Runtime, item.URL, item.KService, item.Ready)
 	}
 	return nil
 }
