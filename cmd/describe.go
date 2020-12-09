@@ -17,7 +17,7 @@ import (
 
 func init() {
 	root.AddCommand(describeCmd)
-	describeCmd.Flags().StringP("namespace", "n", "", "Namespace of the function to undeploy. By default, the namespace in func.yaml is used or the actual active namespace if not set in the configuration. (Env: $FUNC_NAMESPACE)")
+	describeCmd.Flags().StringP("namespace", "n", "", "Namespace of the function. By default, the namespace in func.yaml is used or the actual active namespace if not set in the configuration. (Env: $FUNC_NAMESPACE)")
 	describeCmd.Flags().StringP("format", "f", "human", "Output format (human|plain|json|xml|yaml) (Env: $FUNC_FORMAT)")
 	describeCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
 
@@ -35,7 +35,7 @@ var describeCmd = &cobra.Command{
 Prints the name, route and any event subscriptions for a deployed function in
 the current directory or from the directory specified with --path.
 `,
-    Example: `
+	Example: `
 # Show the details of a function as declared in the local func.yaml
 kn func describe
 
