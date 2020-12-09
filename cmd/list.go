@@ -62,8 +62,7 @@ func runList(cmd *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return
 	}
-
-	if a == true {
+	if a {
 		lister.Namespace = ""
 	}
 
