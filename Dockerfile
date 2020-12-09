@@ -1,10 +1,10 @@
-FROM golang:alpine as build
-RUN apk add make git gcc g++ 
+FROM registry.access.redhat.com/ubi8/ubi:8.2 as build
+RUN dnf install -y make git gcc gcc-c++ golang
 COPY . /src
 WORKDIR /src
 RUN make
 
-FROM alpine:latest
-RUN apk add --no-cache ca-certificates
+FROM registry.access.redhat.com/ubi8/ubi-minimal:8.2
+RUN microdnf install -y ca-certificates
 COPY --from=build /src/func /bin/
 ENTRYPOINT ["func"]
