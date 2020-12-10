@@ -70,11 +70,12 @@ type Lister interface {
 }
 
 type ListItem struct {
-	Name     string `json:"name" yaml:"name"`
-	Runtime  string `json:"runtime" yaml:"runtime"`
-	URL      string `json:"url" yaml:"url"`
-	KService string `json:"kservice" yaml:"kservice"`
-	Ready    string `json:"ready" yaml:"ready"`
+	Name      string `json:"name" yaml:"name"`
+	Namespace string `json:"namespace" yaml:"namespace"`
+	Runtime   string `json:"runtime" yaml:"runtime"`
+	URL       string `json:"url" yaml:"url"`
+	KService  string `json:"kservice" yaml:"kservice"`
+	Ready     string `json:"ready" yaml:"ready"`
 }
 
 // ProgressListener is notified of task progress.

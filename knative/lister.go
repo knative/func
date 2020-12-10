@@ -16,7 +16,7 @@ const (
 
 type Lister struct {
 	Verbose   bool
-	namespace string
+	Namespace string
 }
 
 func NewLister(namespaceOverride string) (l *Lister, err error) {
@@ -26,14 +26,14 @@ func NewLister(namespaceOverride string) (l *Lister, err error) {
 	if err != nil {
 		return
 	}
-	l.namespace = namespace
+	l.Namespace = namespace
 
 	return
 }
 
 func (l *Lister) List() (items []faas.ListItem, err error) {
 
-	client, err := NewServingClient(l.namespace)
+	client, err := NewServingClient(l.Namespace)
 	if err != nil {
 		return
 	}
@@ -62,11 +62,12 @@ func (l *Lister) List() (items []faas.ListItem, err error) {
 		}
 
 		listItem := faas.ListItem{
-			Name:     name,
-			Runtime:  service.Labels["boson.dev/runtime"],
-			KService: service.Name,
-			URL:      service.Status.URL.String(),
-			Ready:    string(ready),
+			Name:      name,
+			Namespace: service.Namespace,
+			Runtime:   service.Labels["boson.dev/runtime"],
+			KService:  service.Name,
+			URL:       service.Status.URL.String(),
+			Ready:     string(ready),
 		}
 
 		items = append(items, listItem)
