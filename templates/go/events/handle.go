@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	cloudevents "github.com/cloudevents/sdk-go/v2"
+	event "github.com/cloudevents/sdk-go/v2"
 )
 
 // Handle a CloudEvent.
@@ -22,7 +22,7 @@ import (
 // * func(event.Event) (*event.Event, error)
 // * func(context.Context, event.Event) *event.Event
 // * func(context.Context, event.Event) (*event.Event, error)
-func Handle(ctx context.Context, event cloudevents.Event) error {
+func Handle(ctx context.Context, event event.Event) error {
 	if err := event.Validate(); err != nil {
 		fmt.Fprintf(os.Stderr, "invalid event received. %v", err)
 		return err
