@@ -20,8 +20,8 @@ func init() {
 	root.AddCommand(listCmd)
 	listCmd.Flags().BoolP("all-namespaces", "A", false, "List functions in all namespaces. If set, the --namespace flag is ignored.")
 	listCmd.Flags().StringP("namespace", "n", "", "Namespace of the function to undeploy. By default, the functions of the actual active namespace are listed. (Env: $FUNC_NAMESPACE)")
-	listCmd.Flags().StringP("format", "f", "human", "Output format (human|plain|json|xml|yaml) (Env: $FUNC_FORMAT)")
-	err := listCmd.RegisterFlagCompletionFunc("format", CompleteOutputFormatList)
+	listCmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|xml|yaml) (Env: $FUNC_OUTPUT)")
+	err := listCmd.RegisterFlagCompletionFunc("output", CompleteOutputFormatList)
 	if err != nil {
 		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
 	}
@@ -35,17 +35,17 @@ var listCmd = &cobra.Command{
 Lists all deployed functions in a given namespace.
 `,
 	Example: `
-# List all functions in the current namespace in human readable format
+# List all functions in the current namespace with human readable output
 kn func list
 
-# List all functions in the 'test' namespace in yaml format
-kn func list --namespace test --format yaml
+# List all functions in the 'test' namespace with yaml output
+kn func list --namespace test --output yaml
 
-# List all functions in all namespaces in JSON format
-kn func list --all-namespaces --format json
+# List all functions in all namespaces with JSON output
+kn func list --all-namespaces --output json
 `,
 	SuggestFor: []string{"ls", "lsit"},
-	PreRunE:    bindEnv("namespace", "format"),
+	PreRunE:    bindEnv("namespace", "output"),
 	RunE:       runList,
 }
 
@@ -75,7 +75,7 @@ func runList(cmd *cobra.Command, args []string) (err error) {
 		return
 	}
 
-	write(os.Stdout, listItems(items), config.Format)
+	write(os.Stdout, listItems(items), config.Output)
 
 	return
 }
@@ -85,14 +85,14 @@ func runList(cmd *cobra.Command, args []string) (err error) {
 
 type listConfig struct {
 	Namespace string
-	Format    string
+	Output    string
 	Verbose   bool
 }
 
 func newListConfig() listConfig {
 	return listConfig{
 		Namespace: viper.GetString("namespace"),
-		Format:    viper.GetString("format"),
+		Output:    viper.GetString("output"),
 		Verbose:   viper.GetBool("verbose"),
 	}
 }

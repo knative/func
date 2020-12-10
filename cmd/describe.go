@@ -18,10 +18,10 @@ import (
 func init() {
 	root.AddCommand(describeCmd)
 	describeCmd.Flags().StringP("namespace", "n", "", "Namespace of the function. By default, the namespace in func.yaml is used or the actual active namespace if not set in the configuration. (Env: $FUNC_NAMESPACE)")
-	describeCmd.Flags().StringP("format", "f", "human", "Output format (human|plain|json|xml|yaml) (Env: $FUNC_FORMAT)")
+	describeCmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|xml|yaml) (Env: $FUNC_OUTPUT)")
 	describeCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
 
-	err := describeCmd.RegisterFlagCompletionFunc("format", CompleteOutputFormatList)
+	err := describeCmd.RegisterFlagCompletionFunc("output", CompleteOutputFormatList)
 	if err != nil {
 		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
 	}
@@ -39,12 +39,12 @@ the current directory or from the directory specified with --path.
 # Show the details of a function as declared in the local func.yaml
 kn func describe
 
-# Show the details of the function in YAML format for the function in the myotherfunc directory
-kn func describe --format yaml --path myotherfunc
+# Show the details of the function in the myotherfunc directory with yaml output
+kn func describe --output yaml --path myotherfunc
 `,
 	SuggestFor:        []string{"desc", "get"},
 	ValidArgsFunction: CompleteFunctionList,
-	PreRunE:           bindEnv("namespace", "format", "path"),
+	PreRunE:           bindEnv("namespace", "output", "path"),
 	RunE:              runDescribe,
 }
 
@@ -77,7 +77,7 @@ func runDescribe(cmd *cobra.Command, args []string) (err error) {
 	}
 	d.Image = function.Image
 
-	write(os.Stdout, description(d), config.Format)
+	write(os.Stdout, description(d), config.Output)
 	return
 }
 
@@ -87,7 +87,7 @@ func runDescribe(cmd *cobra.Command, args []string) (err error) {
 type describeConfig struct {
 	Name      string
 	Namespace string
-	Format    string
+	Output    string
 	Path      string
 	Verbose   bool
 }
@@ -100,7 +100,7 @@ func newDescribeConfig(args []string) describeConfig {
 	return describeConfig{
 		Name:      deriveName(name, viper.GetString("path")),
 		Namespace: viper.GetString("namespace"),
-		Format:    viper.GetString("format"),
+		Output:    viper.GetString("output"),
 		Path:      viper.GetString("path"),
 		Verbose:   viper.GetBool("verbose"),
 	}

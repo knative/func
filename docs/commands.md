@@ -80,13 +80,13 @@ Prints the name, route and any event subscriptions for a deployed Function. The 
 Similar `kn` command: `kn service describe NAME [flags]`. This flag provides a lot of nice information not available in `func describe`, such as revisions, age, annotations and labels. This command should be renamed to make it distinct from `kn` - e.g. `func status`.
 
 ```console
-func describe [-f <format> -n <namespace> -p <path>]
+func describe [-o <output> -n <namespace> -p <path>]
 ```
 
 When run as a `kn` plugin.
 
 ```console
-kn func describe [-f <format> -n <namespace> -p <path>]
+kn func describe [-o <output> -n <namespace> -p <path>]
 ```
 
 ## `list`
