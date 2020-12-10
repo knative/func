@@ -5,24 +5,24 @@ import (
 	"fmt"
 	"os"
 
-	cloudevents "github.com/cloudevents/sdk-go/v2"
+	event "github.com/cloudevents/sdk-go/v2"
 )
 
 // Handle a CloudEvent.
 // Supported Function signatures:
-//   func()
-//   func() error
-//   func(context.Context)
-//   func(context.Context) error
-//   func(cloudevents.Event)
-//   func(cloudevents.Event) error
-//   func(context.Context, cloudevents.Event)
-//   func(context.Context, cloudevents.Event) error
-//   func(cloudevents.Event, *cloudevents.EventResponse)
-//   func(cloudevents.Event, *cloudevents.EventResponse) error
-//   func(context.Context, cloudevents.Event, *cloudevents.EventResponse)
-//   func(context.Context, cloudevents.Event, *cloudevents.EventResponse) error
-func Handle(ctx context.Context, event cloudevents.Event) error {
+// * func()
+// * func() error
+// * func(context.Context)
+// * func(context.Context) error
+// * func(event.Event)
+// * func(event.Event) error
+// * func(context.Context, event.Event)
+// * func(context.Context, event.Event) error
+// * func(event.Event) *event.Event
+// * func(event.Event) (*event.Event, error)
+// * func(context.Context, event.Event) *event.Event
+// * func(context.Context, event.Event) (*event.Event, error)
+func Handle(ctx context.Context, event event.Event) error {
 	if err := event.Validate(); err != nil {
 		fmt.Fprintf(os.Stderr, "invalid event received. %v", err)
 		return err
