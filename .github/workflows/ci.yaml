@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - "main"
-      - "lance/fix-ci-again"
 jobs:
   test:
     runs-on: 'ubuntu-latest'
