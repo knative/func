@@ -19,7 +19,7 @@ import (
 func init() {
 	root.AddCommand(listCmd)
 	listCmd.Flags().BoolP("all-namespaces", "A", false, "List functions in all namespaces. If set, the --namespace flag is ignored.")
-	listCmd.Flags().StringP("namespace", "n", "", "Namespace of the function to undeploy. By default, the functions of the actual active namespace are listed. (Env: $FUNC_NAMESPACE)")
+	listCmd.Flags().StringP("namespace", "n", "", "Namespace to search for functions. By default, the functions of the actual active namespace are listed. (Env: $FUNC_NAMESPACE)")
 	listCmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|xml|yaml) (Env: $FUNC_OUTPUT)")
 	err := listCmd.RegisterFlagCompletionFunc("output", CompleteOutputFormatList)
 	if err != nil {
@@ -75,7 +75,16 @@ func runList(cmd *cobra.Command, args []string) (err error) {
 		return
 	}
 
+<<<<<<< HEAD
 	write(os.Stdout, listItems(items), config.Output)
+=======
+	if len(items) < 1 {
+		fmt.Printf("No functions found in %v namespace\n", lister.Namespace)
+		return
+	}
+
+	write(os.Stdout, listItems(items), config.Format)
+>>>>>>> ca24764... fix: print "No functions found in [ns] namespace" for kn func list
 
 	return
 }
