@@ -49,8 +49,8 @@ test-binary:
 	go test -race -cover -coverprofile=coverage.out ./...
 
 test-node:
-	cd templates/node/events && npm install && npm test && rm -rf node_modules
-	cd templates/node/http && npm install && npm test && rm -rf node_modules
+	cd templates/node/events && npm ci && npm test && rm -rf node_modules
+	cd templates/node/http && npm ci && npm test && rm -rf node_modules
 
 test-quarkus:
 	cd templates/quarkus/events && mvn test
