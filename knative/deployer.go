@@ -57,7 +57,12 @@ func (d *Deployer) Deploy(f faas.Function) (err error) {
 			if d.Verbose {
 				fmt.Printf("Creating Knative Service: %v\n", serviceName)
 			}
-			err := client.CreateService(generateNewService(serviceName, f.ImageWithDigest(), f.Runtime))
+			service, err := generateNewService(serviceName, f.ImageWithDigest(), f.Runtime, f.EnvVars)
+			if err != nil {
+				err = fmt.Errorf("knative deployer failed to generate the service: %v", err)
+				return err
+			}
+			err = client.CreateService(service)
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to deploy the service: %v", err)
 				return err
@@ -114,13 +119,10 @@ func probeFor(url string) *corev1.Probe {
 	}
 }
 
-func generateNewService(name, image, runtime string) *servingv1.Service {
+func generateNewService(name, image, runtime string, envVars map[string]string) (*servingv1.Service, error) {
 	containers := []corev1.Container{
 		{
 			Image: image,
-			Env: []corev1.EnvVar{
-				{Name: "VERBOSE", Value: "true"},
-			},
 		},
 	}
 
@@ -129,7 +131,7 @@ func generateNewService(name, image, runtime string) *servingv1.Service {
 		containers[0].ReadinessProbe = probeFor("/health/readiness")
 	}
 
-	return &v1.Service{
+	service := &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 			Labels: map[string]string{
@@ -149,6 +151,8 @@ func generateNewService(name, image, runtime string) *servingv1.Service {
 			},
 		},
 	}
+
+	return setEnvVars(service, envVars)
 }
 
 func updateService(image string, envVars map[string]string) func(service *servingv1.Service) (*servingv1.Service, error) {
@@ -157,11 +161,11 @@ func updateService(image string, envVars map[string]string) func(service *servin
 		if err != nil {
 			return service, err
 		}
-		return updateEnvVars(service, envVars)
+		return setEnvVars(service, envVars)
 	}
 }
 
-func updateEnvVars(service *servingv1.Service, envVars map[string]string) (*servingv1.Service, error) {
+func setEnvVars(service *servingv1.Service, envVars map[string]string) (*servingv1.Service, error) {
 	builtEnvVarName := "BUILT"
 	builtEnvVarValue := time.Now().Format("20060102T150405")
 
