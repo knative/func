@@ -75,16 +75,12 @@ func runList(cmd *cobra.Command, args []string) (err error) {
 		return
 	}
 
-<<<<<<< HEAD
-	write(os.Stdout, listItems(items), config.Output)
-=======
 	if len(items) < 1 {
 		fmt.Printf("No functions found in %v namespace\n", lister.Namespace)
 		return
 	}
 
-	write(os.Stdout, listItems(items), config.Format)
->>>>>>> ca24764... fix: print "No functions found in [ns] namespace" for kn func list
+	write(os.Stdout, listItems(items), config.Output)
 
 	return
 }
