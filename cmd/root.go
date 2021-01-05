@@ -10,7 +10,7 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
-	"github.com/boson-project/faas"
+	function "github.com/boson-project/func"
 )
 
 // The root of the command tree defines the command name, descriotion, globally
@@ -37,7 +37,7 @@ curl $(kn service describe myfunc -o url)
 `,
 }
 
-// NewRootCmd is used to initialize faas as kn plugin
+// NewRootCmd is used to initialize func as kn plugin
 func NewRootCmd() *cobra.Command {
 	return root
 }
@@ -146,8 +146,8 @@ type functionOverrides struct {
 // Function project at root, if provided, and returns the Function
 // configuration values.
 // Please note that When this function is called, the overrides are not persisted.
-func functionWithOverrides(root string, overrides functionOverrides) (f faas.Function, err error) {
-	f, err = faas.NewFunction(root)
+func functionWithOverrides(root string, overrides functionOverrides) (f function.Function, err error) {
+	f, err = function.NewFunction(root)
 	if err != nil {
 		return
 	}
@@ -180,7 +180,7 @@ func deriveName(explicitName string, path string) string {
 	}
 
 	// If the directory at path contains an initialized Function, use the name therein
-	f, err := faas.NewFunction(path)
+	f, err := function.NewFunction(path)
 	if err == nil && f.Name != "" {
 		return f.Name
 	}
@@ -236,15 +236,15 @@ func deriveImage(explicitImage, defaultRegistry, path string) string {
 	if explicitImage != "" {
 		return explicitImage // use the explicit value provided.
 	}
-	f, err := faas.NewFunction(path)
+	f, err := function.NewFunction(path)
 	if err != nil {
 		return "" // unable to derive due to load error (uninitialized?)
 	}
 	if f.Image != "" {
 		return f.Image // use value previously provided or derived.
 	}
-	derivedValue, _ := faas.DerivedImage(path, defaultRegistry)
-	return derivedValue // Use the faas system's derivation logic.
+	derivedValue, _ := function.DerivedImage(path, defaultRegistry)
+	return derivedValue // Use the func system's derivation logic.
 }
 
 func envVarsFromCmd(cmd *cobra.Command) map[string]string {
@@ -266,7 +266,7 @@ func envVarsFromCmd(cmd *cobra.Command) map[string]string {
 }
 
 func mergeEnvVarsMaps(dest, src map[string]string) map[string]string {
-	result := make(map[string]string, len(dest) +len(src))
+	result := make(map[string]string, len(dest)+len(src))
 
 	for name, value := range dest {
 		if strings.HasSuffix(name, "-") {

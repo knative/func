@@ -15,9 +15,9 @@ docker run quay.io/boson/func:v0.9.0
 
 ### Prebuilt Binary
 
-Download the latest binary appropriate for your system from the [Latest Release](https://github.com/boson-project/faas/releases/latest/).
+Download the latest binary appropriate for your system from the [Latest Release](https://github.com/boson-project/func/releases/latest/).
 
-Each version is built and made available as a prebuilt binary.  See [All Releases](https://github.com/boson-project/faas/releases/).
+Each version is built and made available as a prebuilt binary.  See [All Releases](https://github.com/boson-project/func/releases/).
 
 ### From Source
 

@@ -11,10 +11,10 @@ import (
 	"github.com/buildpacks/pack"
 	"github.com/buildpacks/pack/logging"
 
-	"github.com/boson-project/faas"
+	function "github.com/boson-project/func"
 )
 
-//Builder holds the configuration that will be passed to 
+//Builder holds the configuration that will be passed to
 //Buildpack builder
 type Builder struct {
 	Verbose bool
@@ -28,14 +28,14 @@ func NewBuilder() *Builder {
 //RuntimeToBuildpack holds the mapping between the Runtime and its corresponding
 //Buildpack builder to use
 var RuntimeToBuildpack = map[string]string{
-	"quarkus": "quay.io/boson/faas-quarkus-builder",
-	"node":    "quay.io/boson/faas-nodejs-builder",
-	"go":      "quay.io/boson/faas-go-builder",
+	"quarkus":    "quay.io/boson/faas-quarkus-builder",
+	"node":       "quay.io/boson/faas-nodejs-builder",
+	"go":         "quay.io/boson/faas-go-builder",
 	"springboot": "quay.io/boson/faas-springboot-builder",
 }
 
 // Build the Function at path.
-func (builder *Builder) Build(f faas.Function) (err error) {
+func (builder *Builder) Build(f function.Function) (err error) {
 
 	// Use the builder found in the Function configuration file
 	// If one isn't found, use the defaults

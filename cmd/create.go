@@ -7,17 +7,17 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
-	"github.com/boson-project/faas"
-	"github.com/boson-project/faas/prompt"
-	"github.com/boson-project/faas/utils"
+	bosonFunc "github.com/boson-project/func"
+	"github.com/boson-project/func/prompt"
+	"github.com/boson-project/func/utils"
 )
 
 func init() {
 	root.AddCommand(createCmd)
 	createCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
-	createCmd.Flags().StringP("runtime", "l", faas.DefaultRuntime, "Function runtime language/framework. Available runtimes: " + utils.RuntimeList() + " (Env: $FUNC_RUNTIME)")
+	createCmd.Flags().StringP("runtime", "l", bosonFunc.DefaultRuntime, "Function runtime language/framework. Available runtimes: "+utils.RuntimeList()+" (Env: $FUNC_RUNTIME)")
 	createCmd.Flags().StringP("templates", "", filepath.Join(configPath(), "templates"), "Path to additional templates (Env: $FUNC_TEMPLATES)")
-	createCmd.Flags().StringP("trigger", "t", faas.DefaultTrigger, "Function trigger. Available triggers: 'http' and 'events' (Env: $FUNC_TRIGGER)")
+	createCmd.Flags().StringP("trigger", "t", bosonFunc.DefaultTrigger, "Function trigger. Available triggers: 'http' and 'events' (Env: $FUNC_TRIGGER)")
 
 	if err := createCmd.RegisterFlagCompletionFunc("runtime", CompleteRuntimeList); err != nil {
 		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
@@ -54,16 +54,16 @@ kn func create --trigger events myfunc
 func runCreate(cmd *cobra.Command, args []string) error {
 	config := newCreateConfig(args).Prompt()
 
-	function := faas.Function{
+	function := bosonFunc.Function{
 		Name:    config.Name,
 		Root:    config.Path,
 		Runtime: config.Runtime,
 		Trigger: config.Trigger,
 	}
 
-	client := faas.New(
-		faas.WithTemplates(config.Templates),
-		faas.WithVerbose(config.Verbose))
+	client := bosonFunc.New(
+		bosonFunc.WithTemplates(config.Templates),
+		bosonFunc.WithVerbose(config.Verbose))
 
 	return client.Create(function)
 }
@@ -80,8 +80,8 @@ type createConfig struct {
 
 	// Templates is an optional path that, if it exists, will be used as a source
 	// for additional templates not included in the binary.  If not provided
-	// explicitly as a flag (--templates) or env (FAAS_TEMPLATES), the default
-	// location is $XDG_CONFIG_HOME/templates ($HOME/.config/faas/templates)
+	// explicitly as a flag (--templates) or env (FUNC_TEMPLATES), the default
+	// location is $XDG_CONFIG_HOME/templates ($HOME/.config/func/templates)
 	Templates string
 
 	// Trigger is the form of the resultant Function, i.e. the Function signature

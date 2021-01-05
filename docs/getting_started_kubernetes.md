@@ -55,7 +55,7 @@ First edit `knative/config-domain.yaml` to contain your domain of choice and the
 ```
 kubectl apply -f knative/config-domain.yaml
 ```
-Note that this step is [pending automation](https://github.com/boson-project/faas/issues/47)
+Note that this step is [pending automation](https://github.com/boson-project/func/issues/47)
 
 ### DNS 
 

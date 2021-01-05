@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/boson-project/faas/k8s"
+	"github.com/boson-project/func/k8s"
 )
 
 func NewRemover(namespaceOverride string) (remover *Remover, err error) {
@@ -36,7 +36,7 @@ func (remover *Remover) Remove(name string) (err error) {
 	}
 
 	fmt.Printf("Removing Knative Service: %v\n", serviceName)
-	
+
 	err = client.DeleteService(serviceName, time.Second*60)
 	if err != nil {
 		err = fmt.Errorf("knative remover failed to delete the service: %v", err)

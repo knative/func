@@ -5,8 +5,8 @@ import (
 	v1 "knative.dev/client/pkg/serving/v1"
 	"knative.dev/eventing/pkg/apis/eventing/v1beta1"
 
-	"github.com/boson-project/faas"
-	"github.com/boson-project/faas/k8s"
+	function "github.com/boson-project/func"
+	"github.com/boson-project/func/k8s"
 )
 
 type Describer struct {
@@ -29,7 +29,7 @@ func NewDescriber(namespaceOverride string) (describer *Describer, err error) {
 // restricts to label-syntax, which is thus escaped. Therefore as a knative (kube) implementation
 // detal proper full names have to be escaped on the way in and unescaped on the way out. ex:
 // www.example-site.com -> www-example--site-com
-func (d *Describer) Describe(name string) (description faas.Description, err error) {
+func (d *Describer) Describe(name string) (description function.Description, err error) {
 
 	serviceName, err := k8s.ToK8sAllowedName(name)
 	if err != nil {
@@ -74,11 +74,11 @@ func (d *Describer) Describe(name string) (description faas.Description, err err
 
 	}
 
-	subscriptions := make([]faas.Subscription, 0, len(triggers.Items))
+	subscriptions := make([]function.Subscription, 0, len(triggers.Items))
 	for _, trigger := range triggers.Items {
 		if triggerMatches(&trigger) {
 			filterAttrs := trigger.Spec.Filter.Attributes
-			subscription := faas.Subscription{
+			subscription := function.Subscription{
 				Source: filterAttrs["source"],
 				Type:   filterAttrs["type"],
 				Broker: trigger.Spec.Broker,

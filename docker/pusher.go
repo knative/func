@@ -9,7 +9,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/boson-project/faas"
+	function "github.com/boson-project/func"
 )
 
 // Pusher of images from local to remote registry.
@@ -24,7 +24,7 @@ func NewPusher() *Pusher {
 }
 
 // Push the image of the Function.
-func (n *Pusher) Push(f faas.Function) (digest string, err error) {
+func (n *Pusher) Push(f function.Function) (digest string, err error) {
 	// Check for the docker binary explicitly so that we can return
 	// an extra-friendly error message.
 	_, err = exec.LookPath("docker")

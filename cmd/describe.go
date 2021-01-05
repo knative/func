@@ -11,8 +11,8 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
-	"github.com/boson-project/faas"
-	"github.com/boson-project/faas/knative"
+	bosonFunc "github.com/boson-project/func"
+	"github.com/boson-project/func/knative"
 )
 
 func init() {
@@ -51,7 +51,7 @@ kn func describe --output yaml --path myotherfunc
 func runDescribe(cmd *cobra.Command, args []string) (err error) {
 	config := newDescribeConfig(args)
 
-	function, err := faas.NewFunction(config.Path)
+	function, err := bosonFunc.NewFunction(config.Path)
 	if err != nil {
 		return
 	}
@@ -67,9 +67,9 @@ func runDescribe(cmd *cobra.Command, args []string) (err error) {
 	}
 	describer.Verbose = config.Verbose
 
-	client := faas.New(
-		faas.WithVerbose(config.Verbose),
-		faas.WithDescriber(describer))
+	client := bosonFunc.New(
+		bosonFunc.WithVerbose(config.Verbose),
+		bosonFunc.WithDescriber(describer))
 
 	d, err := client.Describe(config.Name, config.Path)
 	if err != nil {
@@ -109,7 +109,7 @@ func newDescribeConfig(args []string) describeConfig {
 // Output Formatting (serializers)
 // -------------------------------
 
-type description faas.Description
+type description bosonFunc.Description
 
 func (d description) Human(w io.Writer) error {
 	fmt.Fprintln(w, "Function name:")

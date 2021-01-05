@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/boson-project/faas/cmd"
+	"github.com/boson-project/func/cmd"
 )
 
 // Statically-populated build metadata set
