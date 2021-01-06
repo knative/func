@@ -10,7 +10,7 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
-	function "github.com/boson-project/func"
+	bosonFunc "github.com/boson-project/func"
 )
 
 // The root of the command tree defines the command name, descriotion, globally
@@ -146,8 +146,8 @@ type functionOverrides struct {
 // Function project at root, if provided, and returns the Function
 // configuration values.
 // Please note that When this function is called, the overrides are not persisted.
-func functionWithOverrides(root string, overrides functionOverrides) (f function.Function, err error) {
-	f, err = function.NewFunction(root)
+func functionWithOverrides(root string, overrides functionOverrides) (f bosonFunc.Function, err error) {
+	f, err = bosonFunc.NewFunction(root)
 	if err != nil {
 		return
 	}
@@ -180,7 +180,7 @@ func deriveName(explicitName string, path string) string {
 	}
 
 	// If the directory at path contains an initialized Function, use the name therein
-	f, err := function.NewFunction(path)
+	f, err := bosonFunc.NewFunction(path)
 	if err == nil && f.Name != "" {
 		return f.Name
 	}
@@ -236,14 +236,14 @@ func deriveImage(explicitImage, defaultRegistry, path string) string {
 	if explicitImage != "" {
 		return explicitImage // use the explicit value provided.
 	}
-	f, err := function.NewFunction(path)
+	f, err := bosonFunc.NewFunction(path)
 	if err != nil {
 		return "" // unable to derive due to load error (uninitialized?)
 	}
 	if f.Image != "" {
 		return f.Image // use value previously provided or derived.
 	}
-	derivedValue, _ := function.DerivedImage(path, defaultRegistry)
+	derivedValue, _ := bosonFunc.DerivedImage(path, defaultRegistry)
 	return derivedValue // Use the func system's derivation logic.
 }
 

@@ -11,7 +11,7 @@ package main
 import (
   "log"
 
-  function "github.com/boson-project/func"
+  bosonFunc "github.com/boson-project/func"
   "github.com/boson-project/func/buildpacks"
   "github.com/boson-project/func/docker"
   "github.com/boson-project/func/embedded"
@@ -22,11 +22,11 @@ func main() {
   // A client which uses embedded function templates,
   // Quay.io/alice for interstitial build artifacts.
   // Docker to build and push, and a Knative client for deployment.
-  client, err := function.New(
-    function.WithInitializer(embedded.NewInitializer("")),
-    function.WithBuilder(buildpacks.NewBuilder("quay.io/alice/my-function")),
-    function.WithPusher(docker.NewPusher()),
-    function.WithDeployer(knative.NewDeployer()))
+  client, err := bosonFunc.New(
+    bosonFunc.WithInitializer(embedded.NewInitializer("")),
+    bosonFunc.WithBuilder(buildpacks.NewBuilder("quay.io/alice/my-function")),
+    bosonFunc.WithPusher(docker.NewPusher()),
+    bosonFunc.WithDeployer(knative.NewDeployer()))
 
   // Create a Go function which listens for CloudEvents.
   // Publicly routable as https://www.example.com.

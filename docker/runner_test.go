@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	function "github.com/boson-project/func"
+	bosonFunc "github.com/boson-project/func"
 	"github.com/boson-project/func/docker"
 )
 
@@ -24,7 +24,7 @@ func TestDockerRun(t *testing.T) {
 		t.Skip()
 	}
 
-	f, err := function.NewFunction("testdata/example.com/runnable")
+	f, err := bosonFunc.NewFunction("testdata/example.com/runnable")
 	if err != nil {
 		t.Fatal(err)
 	}

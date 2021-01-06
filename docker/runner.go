@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	"strings"
 
-	function "github.com/boson-project/func"
+	bosonFunc "github.com/boson-project/func"
 )
 
 // Runner of functions using the docker command.
@@ -22,7 +22,7 @@ func NewRunner() *Runner {
 }
 
 // Run the function at path
-func (n *Runner) Run(f function.Function) error {
+func (n *Runner) Run(f bosonFunc.Function) error {
 	// Check for the docker binary explicitly so that we can return
 	// an extra-friendly error message.
 	_, err := exec.LookPath("docker")

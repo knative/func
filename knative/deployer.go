@@ -13,7 +13,7 @@ import (
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 
-	function "github.com/boson-project/func"
+	bosonFunc "github.com/boson-project/func"
 	"github.com/boson-project/func/k8s"
 )
 
@@ -35,7 +35,7 @@ func NewDeployer(namespaceOverride string) (deployer *Deployer, err error) {
 	return
 }
 
-func (d *Deployer) Deploy(f function.Function) (err error) {
+func (d *Deployer) Deploy(f bosonFunc.Function) (err error) {
 
 	// k8s does not support service names with dots. so encode it such that
 	// www.my-domain,com -> www-my--domain-com

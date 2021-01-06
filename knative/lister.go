@@ -5,7 +5,7 @@ import (
 	clientservingv1 "knative.dev/client/pkg/serving/v1"
 	"knative.dev/pkg/apis"
 
-	function "github.com/boson-project/func"
+	bosonFunc "github.com/boson-project/func"
 	"github.com/boson-project/func/k8s"
 )
 
@@ -31,7 +31,7 @@ func NewLister(namespaceOverride string) (l *Lister, err error) {
 	return
 }
 
-func (l *Lister) List() (items []function.ListItem, err error) {
+func (l *Lister) List() (items []bosonFunc.ListItem, err error) {
 
 	client, err := NewServingClient(l.Namespace)
 	if err != nil {
@@ -61,7 +61,7 @@ func (l *Lister) List() (items []function.ListItem, err error) {
 			}
 		}
 
-		listItem := function.ListItem{
+		listItem := bosonFunc.ListItem{
 			Name:      name,
 			Namespace: service.Namespace,
 			Runtime:   service.Labels["boson.dev/runtime"],
