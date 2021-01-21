@@ -2,14 +2,15 @@ package cmd
 
 import (
 	"encoding/json"
-	"github.com/boson-project/faas"
 	"os"
 	"os/user"
 	"path"
 
-	"github.com/boson-project/faas/buildpacks"
-	"github.com/boson-project/faas/knative"
 	"github.com/spf13/cobra"
+
+	bosonFunc "github.com/boson-project/func"
+	"github.com/boson-project/func/buildpacks"
+	"github.com/boson-project/func/knative"
 )
 
 func CompleteFunctionList(cmd *cobra.Command, args []string, toComplete string) (strings []string, directive cobra.ShellCompDirective) {
@@ -24,7 +25,7 @@ func CompleteFunctionList(cmd *cobra.Command, args []string, toComplete string) 
 		return
 	}
 
-	for _, item := range list{
+	for _, item := range list {
 		strings = append(strings, item.Name)
 	}
 	directive = cobra.ShellCompDirectiveDefault
@@ -78,7 +79,7 @@ func CompleteBuilderList(cmd *cobra.Command, args []string, complete string) (st
 	var (
 		err  error
 		path string
-		f    faas.Function
+		f    bosonFunc.Function
 	)
 
 	path, err = cmd.Flags().GetString("path")
@@ -86,7 +87,7 @@ func CompleteBuilderList(cmd *cobra.Command, args []string, complete string) (st
 		return
 	}
 
-	f, err = faas.NewFunction(path)
+	f, err = bosonFunc.NewFunction(path)
 	if err != nil {
 		return
 	}

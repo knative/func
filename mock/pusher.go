@@ -1,19 +1,19 @@
 package mock
 
-import "github.com/boson-project/faas"
+import bosonFunc "github.com/boson-project/func"
 
 type Pusher struct {
 	PushInvoked bool
-	PushFn      func(faas.Function) (string, error)
+	PushFn      func(bosonFunc.Function) (string, error)
 }
 
 func NewPusher() *Pusher {
 	return &Pusher{
-		PushFn: func(faas.Function) (string, error) { return "", nil },
+		PushFn: func(bosonFunc.Function) (string, error) { return "", nil },
 	}
 }
 
-func (i *Pusher) Push(f faas.Function) (string, error) {
+func (i *Pusher) Push(f bosonFunc.Function) (string, error) {
 	i.PushInvoked = true
 	return i.PushFn(f)
 }

@@ -1,19 +1,19 @@
 package mock
 
-import "github.com/boson-project/faas"
+import bosonFunc "github.com/boson-project/func"
 
 type Lister struct {
 	ListInvoked bool
-	ListFn      func() ([]faas.ListItem, error)
+	ListFn      func() ([]bosonFunc.ListItem, error)
 }
 
 func NewLister() *Lister {
 	return &Lister{
-		ListFn: func() ([]faas.ListItem, error) { return []faas.ListItem{}, nil },
+		ListFn: func() ([]bosonFunc.ListItem, error) { return []bosonFunc.ListItem{}, nil },
 	}
 }
 
-func (l *Lister) List() ([]faas.ListItem, error) {
+func (l *Lister) List() ([]bosonFunc.ListItem, error) {
 	l.ListInvoked = true
 	return l.ListFn()
 }

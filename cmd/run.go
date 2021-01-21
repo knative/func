@@ -6,8 +6,8 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
-	"github.com/boson-project/faas"
-	"github.com/boson-project/faas/docker"
+	bosonFunc "github.com/boson-project/func"
+	"github.com/boson-project/func/docker"
 )
 
 func init() {
@@ -40,7 +40,7 @@ kn func run
 func runRun(cmd *cobra.Command, args []string) (err error) {
 	config := newRunConfig(cmd)
 
-	function, err := faas.NewFunction(config.Path)
+	function, err := bosonFunc.NewFunction(config.Path)
 	if err != nil {
 		return
 	}
@@ -60,9 +60,9 @@ func runRun(cmd *cobra.Command, args []string) (err error) {
 	runner := docker.NewRunner()
 	runner.Verbose = config.Verbose
 
-	client := faas.New(
-		faas.WithRunner(runner),
-		faas.WithVerbose(config.Verbose))
+	client := bosonFunc.New(
+		bosonFunc.WithRunner(runner),
+		bosonFunc.WithVerbose(config.Verbose))
 
 	return client.Run(config.Path)
 }

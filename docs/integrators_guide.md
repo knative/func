@@ -11,22 +11,22 @@ package main
 import (
   "log"
 
-  "github.com/boson-project/faas"
-  "github.com/boson-project/faas/buildpacks"
-  "github.com/boson-project/faas/docker"
-  "github.com/boson-project/faas/embedded"
-  "github.com/boson-project/faas/knative"
+  bosonFunc "github.com/boson-project/func"
+  "github.com/boson-project/func/buildpacks"
+  "github.com/boson-project/func/docker"
+  "github.com/boson-project/func/embedded"
+  "github.com/boson-project/func/knative"
 )
 
 func main() {
   // A client which uses embedded function templates,
   // Quay.io/alice for interstitial build artifacts.
   // Docker to build and push, and a Knative client for deployment.
-  client, err := faas.New(
-    faas.WithInitializer(embedded.NewInitializer("")),
-    faas.WithBuilder(buildpacks.NewBuilder("quay.io/alice/my-function")),
-    faas.WithPusher(docker.NewPusher()),
-    faas.WithDeployer(knative.NewDeployer()))
+  client, err := bosonFunc.New(
+    bosonFunc.WithInitializer(embedded.NewInitializer("")),
+    bosonFunc.WithBuilder(buildpacks.NewBuilder("quay.io/alice/my-function")),
+    bosonFunc.WithPusher(docker.NewPusher()),
+    bosonFunc.WithDeployer(knative.NewDeployer()))
 
   // Create a Go function which listens for CloudEvents.
   // Publicly routable as https://www.example.com.

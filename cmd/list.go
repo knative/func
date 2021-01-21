@@ -12,8 +12,8 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
-	"github.com/boson-project/faas"
-	"github.com/boson-project/faas/knative"
+	bosonFunc "github.com/boson-project/func"
+	"github.com/boson-project/func/knative"
 )
 
 func init() {
@@ -66,9 +66,9 @@ func runList(cmd *cobra.Command, args []string) (err error) {
 		lister.Namespace = ""
 	}
 
-	client := faas.New(
-		faas.WithVerbose(config.Verbose),
-		faas.WithLister(lister))
+	client := bosonFunc.New(
+		bosonFunc.WithVerbose(config.Verbose),
+		bosonFunc.WithLister(lister))
 
 	items, err := client.List()
 	if err != nil {
@@ -105,7 +105,7 @@ func newListConfig() listConfig {
 // Output Formatting (serializers)
 // -------------------------------
 
-type listItems []faas.ListItem
+type listItems []bosonFunc.ListItem
 
 func (items listItems) Human(w io.Writer) error {
 	return items.Plain(w)

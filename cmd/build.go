@@ -6,9 +6,9 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
-	"github.com/boson-project/faas"
-	"github.com/boson-project/faas/buildpacks"
-	"github.com/boson-project/faas/prompt"
+	"github.com/boson-project/func/buildpacks"
+	bosonFunc "github.com/boson-project/func"
+	"github.com/boson-project/func/prompt"
 )
 
 func init() {
@@ -36,7 +36,7 @@ The func.yaml file is read to determine the image name and registry.
 If the project has not already been built, either --registry or --image must be provided 
 and the image name is stored in the configuration file.
 `,
-    Example: `
+	Example: `
 # Build from the local directory, using the given registry as target.
 # The full image name will be determined automatically based on the
 # project directory name
@@ -95,10 +95,10 @@ func runBuild(cmd *cobra.Command, _ []string) (err error) {
 	builder := buildpacks.NewBuilder()
 	builder.Verbose = config.Verbose
 
-	client := faas.New(
-		faas.WithVerbose(config.Verbose),
-		faas.WithRegistry(config.Registry), // for deriving image name when --image not provided explicitly.
-		faas.WithBuilder(builder))
+	client := bosonFunc.New(
+		bosonFunc.WithVerbose(config.Verbose),
+		bosonFunc.WithRegistry(config.Registry), // for deriving image name when --image not provided explicitly.
+		bosonFunc.WithBuilder(builder))
 
 	return client.Build(config.Path)
 }

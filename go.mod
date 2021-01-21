@@ -1,4 +1,4 @@
-module github.com/boson-project/faas
+module github.com/boson-project/func
 
 go 1.14
 
@@ -8,8 +8,6 @@ require (
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/ory/viper v1.7.4
 	github.com/spf13/cobra v1.0.1-0.20201006035406-b97b5ead31f7
-	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a // indirect
-	golang.org/x/sys v0.0.0-20200930185726-fdedc70b468f // indirect
 	gopkg.in/yaml.v2 v2.3.0
 	k8s.io/api v0.18.8
 	k8s.io/apimachinery v0.19.1

@@ -1,19 +1,19 @@
 package mock
 
-import "github.com/boson-project/faas"
+import bosonFunc "github.com/boson-project/func"
 
 type Builder struct {
 	BuildInvoked bool
-	BuildFn      func(faas.Function) error
+	BuildFn      func(bosonFunc.Function) error
 }
 
 func NewBuilder() *Builder {
 	return &Builder{
-		BuildFn: func(faas.Function) error { return nil },
+		BuildFn: func(bosonFunc.Function) error { return nil },
 	}
 }
 
-func (i *Builder) Build(f faas.Function) error {
+func (i *Builder) Build(f bosonFunc.Function) error {
 	i.BuildInvoked = true
 	return i.BuildFn(f)
 }

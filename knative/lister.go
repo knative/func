@@ -5,8 +5,8 @@ import (
 	clientservingv1 "knative.dev/client/pkg/serving/v1"
 	"knative.dev/pkg/apis"
 
-	"github.com/boson-project/faas"
-	"github.com/boson-project/faas/k8s"
+	bosonFunc "github.com/boson-project/func"
+	"github.com/boson-project/func/k8s"
 )
 
 const (
@@ -31,7 +31,7 @@ func NewLister(namespaceOverride string) (l *Lister, err error) {
 	return
 }
 
-func (l *Lister) List() (items []faas.ListItem, err error) {
+func (l *Lister) List() (items []bosonFunc.ListItem, err error) {
 
 	client, err := NewServingClient(l.Namespace)
 	if err != nil {
@@ -61,7 +61,7 @@ func (l *Lister) List() (items []faas.ListItem, err error) {
 			}
 		}
 
-		listItem := faas.ListItem{
+		listItem := bosonFunc.ListItem{
 			Name:      name,
 			Namespace: service.Namespace,
 			Runtime:   service.Labels["boson.dev/runtime"],

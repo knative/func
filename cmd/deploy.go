@@ -2,15 +2,16 @@ package cmd
 
 import (
 	"fmt"
+
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
-	"github.com/boson-project/faas"
-	"github.com/boson-project/faas/buildpacks"
-	"github.com/boson-project/faas/docker"
-	"github.com/boson-project/faas/knative"
-	"github.com/boson-project/faas/progress"
-	"github.com/boson-project/faas/prompt"
+	bosonFunc "github.com/boson-project/func"
+	"github.com/boson-project/func/buildpacks"
+	"github.com/boson-project/func/docker"
+	"github.com/boson-project/func/knative"
+	"github.com/boson-project/func/progress"
+	"github.com/boson-project/func/prompt"
 )
 
 func init() {
@@ -47,7 +48,7 @@ kn func deploy --registry quay.io/myuser
 # the namespace "myns"
 kn func deploy --image quay.io/myuser/myfunc -n myns
 `,
-    SuggestFor: []string{"delpoy", "deplyo"},
+	SuggestFor: []string{"delpoy", "deplyo"},
 	PreRunE:    bindEnv("image", "namespace", "path", "registry", "confirm"),
 	RunE:       runDeploy,
 }
@@ -111,13 +112,13 @@ func runDeploy(cmd *cobra.Command, _ []string) (err error) {
 
 	deployer.Verbose = config.Verbose
 
-	client := faas.New(
-		faas.WithVerbose(config.Verbose),
-		faas.WithRegistry(config.Registry), // for deriving image name when --image not provided explicitly.
-		faas.WithBuilder(builder),
-		faas.WithPusher(pusher),
-		faas.WithDeployer(deployer),
-		faas.WithProgressListener(listener))
+	client := bosonFunc.New(
+		bosonFunc.WithVerbose(config.Verbose),
+		bosonFunc.WithRegistry(config.Registry), // for deriving image name when --image not provided explicitly.
+		bosonFunc.WithBuilder(builder),
+		bosonFunc.WithPusher(pusher),
+		bosonFunc.WithDeployer(deployer),
+		bosonFunc.WithProgressListener(listener))
 
 	return client.Deploy(config.Path)
 

@@ -6,8 +6,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/boson-project/faas"
-	"github.com/boson-project/faas/docker"
+	bosonFunc "github.com/boson-project/func"
+	"github.com/boson-project/func/docker"
 )
 
 // Docker Run Integraiton Test
@@ -24,7 +24,7 @@ func TestDockerRun(t *testing.T) {
 		t.Skip()
 	}
 
-	f, err := faas.NewFunction("testdata/example.com/runnable")
+	f, err := bosonFunc.NewFunction("testdata/example.com/runnable")
 	if err != nil {
 		t.Fatal(err)
 	}

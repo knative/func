@@ -1,6 +1,6 @@
 package mock
 
-import "github.com/boson-project/faas"
+import bosonFunc "github.com/boson-project/func"
 
 type Runner struct {
 	RunInvoked    bool
@@ -11,7 +11,7 @@ func NewRunner() *Runner {
 	return &Runner{}
 }
 
-func (r *Runner) Run(f faas.Function) error {
+func (r *Runner) Run(f bosonFunc.Function) error {
 	r.RunInvoked = true
 	r.RootRequested = f.Root
 	return nil

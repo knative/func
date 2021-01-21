@@ -1,11 +1,11 @@
 # Boson Function CLI
 
-[![Main Build Status](https://github.com/boson-project/faas/workflows/Main/badge.svg?branch=main)](https://github.com/boson-project/faas/actions?query=workflow%3AMain+branch%3Amain)
-[![Develop Build Status](https://github.com/boson-project/faas/workflows/Develop/badge.svg?branch=develop&label=develop)](https://github.com/boson-project/faas/actions?query=workflow%3ADevelop+branch%3Adevelop)
-[![Client API Documentation](https://godoc.org/github.com/boson-project/faas?status.svg)](http://godoc.org/github.com/boson-project/faas)
-[![GitHub Issues](https://img.shields.io/github/issues/boson-project/faas.svg)](https://github.com/boson-project/faas/issues)
-[![License](https://img.shields.io/github/license/boson-project/faas)](https://github.com/boson-project/faas/blob/main/LICENSE)
-[![Release](https://img.shields.io/github/release/boson-project/faas.svg?label=Release)](https://github.com/boson-project/faas/releases)
+[![Main Build Status](https://github.com/boson-project/func/workflows/Main/badge.svg?branch=main)](https://github.com/boson-project/func/actions?query=workflow%3AMain+branch%3Amain)
+[![Develop Build Status](https://github.com/boson-project/func/workflows/Develop/badge.svg?branch=develop&label=develop)](https://github.com/boson-project/func/actions?query=workflow%3ADevelop+branch%3Adevelop)
+[![Client API Documentation](https://godoc.org/github.com/boson-project/func?status.svg)](http://godoc.org/github.com/boson-project/func)
+[![GitHub Issues](https://img.shields.io/github/issues/boson-project/func.svg)](https://github.com/boson-project/func/issues)
+[![License](https://img.shields.io/github/license/boson-project/func)](https://github.com/boson-project/func/blob/main/LICENSE)
+[![Release](https://img.shields.io/github/release/boson-project/func.svg?label=Release)](https://github.com/boson-project/func/releases)
 
 [Demo Screencast]
 

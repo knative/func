@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/boson-project/faas/prompt"
+	"github.com/boson-project/func/prompt"
 )
 
 // TestForStringLabel ensures that a string prompt with a given label is printed to stdout.
