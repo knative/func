@@ -8,7 +8,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	servinglib "knative.dev/client/pkg/serving"
+	"knative.dev/client/pkg/kn/flags"
 	"knative.dev/client/pkg/wait"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -157,7 +157,7 @@ func generateNewService(name, image, runtime string, envVars map[string]string) 
 
 func updateService(image string, envVars map[string]string) func(service *servingv1.Service) (*servingv1.Service, error) {
 	return func(service *servingv1.Service) (*servingv1.Service, error) {
-		err := servinglib.UpdateImage(&service.Spec.Template, image)
+		err := flags.UpdateImage(&service.Spec.Template.Spec.PodSpec, image)
 		if err != nil {
 			return service, err
 		}
@@ -182,5 +182,5 @@ func setEnvVars(service *servingv1.Service, envVars map[string]string) (*serving
 
 	toUpdate[builtEnvVarName] = builtEnvVarValue
 
-	return service, servinglib.UpdateEnvVars(&service.Spec.Template, toUpdate, toRemove)
+	return service, flags.UpdateEnvVars(&service.Spec.Template.Spec.PodSpec, toUpdate, toRemove)
 }
