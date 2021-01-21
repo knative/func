@@ -1,6 +1,23 @@
 # Change Log
 
 <a name="unreleased"></a>
+## [0.11.0](https://www.github.com/boson-project/func/compare/v0.10.0...v0.11.0) (2021-01-21)
+
+
+### Features
+
+* add --all-namespaces flag to `func list` ([#242](https://www.github.com/boson-project/func/issues/242)) ([8e72fd2](https://www.github.com/boson-project/func/commit/8e72fd2eba9f4e6e5d3a0bd366215025ba1d1004))
+
+
+### Bug Fixes
+
+* change --format flag to --output for list and describe commands ([#248](https://www.github.com/boson-project/func/issues/248)) ([6470d9e](https://www.github.com/boson-project/func/commit/6470d9e57462bc8d3a30583cf146d4f466e2d5f7))
+* correct fn signatures in Go Events template ([#246](https://www.github.com/boson-project/func/issues/246)) ([5502492](https://www.github.com/boson-project/func/commit/55024921c26e044f83187cbd5510375d8702c6d9))
+* correcting broken merge ([#252](https://www.github.com/boson-project/func/issues/252)) ([8d1f5b8](https://www.github.com/boson-project/func/commit/8d1f5b833d86fa959e3386db73f7e1b07bdd6dfd))
+* fix the help text for the describe function ([#243](https://www.github.com/boson-project/func/issues/243)) ([5a3a0d6](https://www.github.com/boson-project/func/commit/5a3a0d6bdab4d01292c4c8f6011a3b67cadb8ef6))
+* print "No functions found in [ns] namespace" for kn func list ([#240](https://www.github.com/boson-project/func/issues/240)) ([61ea8d4](https://www.github.com/boson-project/func/commit/61ea8d4fc6e841f0f10151244f10131862bf181c))
+* set envVars when creating a function ([#250](https://www.github.com/boson-project/func/issues/250)) ([f0be048](https://www.github.com/boson-project/func/commit/f0be048c841be22fcd0d448fdecc0da33b8c77be))
+
 ## [0.10.0](https://www.github.com/boson-project/faas/compare/v0.9.0...v0.10.0) (2020-12-08)
 
 
