@@ -19,10 +19,6 @@ require (
 )
 
 replace (
-	// Replace with the version used in docker to overcome an issue with renamed
-	// packages (and old docker versions)
-	github.com/Sirupsen/logrus => github.com/sirupsen/logrus v1.7.0
-
 	// Nail down k8 deps to align with transisitive deps
 	k8s.io/apimachinery => k8s.io/apimachinery v0.18.8
 	k8s.io/client-go => k8s.io/client-go v0.18.8
