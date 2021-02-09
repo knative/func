@@ -67,16 +67,15 @@ func (n *Pusher) Push(f bosonFunc.Function) (digest string, err error) {
 	return
 }
 
-var digestRE = regexp.MustCompile(`digest:\s+sha256:(?P<digest>\w{64})`)
-var digestIdx = digestRE.SubexpIndex("digest")
+var digestRE = regexp.MustCompile(`digest:\s+sha256:(?P<Digest>\w{64})`)
 
 // parseDigest tries to parse the last line from the output, which holds the pushed image digest
 // The output should contain line like this:
 // latest: digest: sha256:a278a91112d17f8bde6b5f802a3317c7c752cf88078dae6f4b5a0784deb81782 size: 2613
 func parseDigest(output string) string {
 	match := digestRE.FindStringSubmatch(output)
-	if digestIdx > -1 && len(match) > digestIdx {
-		return match[digestIdx]
+	if len(match) >= 2 {
+		return match[1]
 	}
 	return ""
 }
