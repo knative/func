@@ -4,12 +4,11 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	bosonFunc "github.com/boson-project/func"
 	"io"
 	"os"
 	"os/exec"
-	"strings"
-
-	bosonFunc "github.com/boson-project/func"
+	"regexp"
 )
 
 // Pusher of images from local to remote registry.
@@ -68,26 +67,15 @@ func (n *Pusher) Push(f bosonFunc.Function) (digest string, err error) {
 	return
 }
 
+var digestRE = regexp.MustCompile(`digest:\s+sha256:(?P<Digest>\w{64})`)
+
 // parseDigest tries to parse the last line from the output, which holds the pushed image digest
-// The last line should look like this:
+// The output should contain line like this:
 // latest: digest: sha256:a278a91112d17f8bde6b5f802a3317c7c752cf88078dae6f4b5a0784deb81782 size: 2613
 func parseDigest(output string) string {
-
-	// get last line from the output
-	lines := strings.Split(output, "\n")
-	lastline := lines[len(lines)-2]
-
-	// find the start index of the "digest" section
-	shaIndex := strings.Index(lastline, "sha256")
-	if shaIndex == -1 {
-		return ""
+	match := digestRE.FindStringSubmatch(output)
+	if len(match) >= 2 {
+		return match[1]
 	}
-	subStr := lastline[shaIndex:]
-
-	// find the end index of the "digest" section
-	endIndex := strings.Index(subStr, " ")
-	if endIndex == -1 {
-		return ""
-	}
-	return subStr[:endIndex]
+	return ""
 }
