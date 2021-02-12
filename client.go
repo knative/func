@@ -368,8 +368,6 @@ func (c *Client) Create(cfg Function) (err error) {
 // not contain a populated Image.
 func (c *Client) Build(path string) (err error) {
 
-	fmt.Println("Building function image")
-
 	f, err := NewFunction(path)
 	if err != nil {
 		return
@@ -411,7 +409,6 @@ func (c *Client) Deploy(path string) (err error) {
 	}
 
 	// Push the image for the named service to the configured registry
-	fmt.Println("Pushing function image to the registry")
 	imageDigest, err := c.pusher.Push(f)
 	if err != nil {
 		return

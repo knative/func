@@ -7,6 +7,8 @@ import (
 	"github.com/boson-project/func/k8s"
 )
 
+const RemoveTimeout = 120 * time.Second
+
 func NewRemover(namespaceOverride string) (remover *Remover, err error) {
 	remover = &Remover{}
 	namespace, err := GetNamespace(namespaceOverride)
@@ -37,7 +39,7 @@ func (remover *Remover) Remove(name string) (err error) {
 
 	fmt.Printf("Removing Knative Service: %v\n", serviceName)
 
-	err = client.DeleteService(serviceName, time.Second*60)
+	err = client.DeleteService(serviceName, RemoveTimeout)
 	if err != nil {
 		err = fmt.Errorf("knative remover failed to delete the service: %v", err)
 	}
