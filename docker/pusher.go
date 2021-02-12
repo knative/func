@@ -67,7 +67,7 @@ func (n *Pusher) Push(f bosonFunc.Function) (digest string, err error) {
 	return
 }
 
-var digestRE = regexp.MustCompile(`digest:\s+sha256:(?P<Digest>\w{64})`)
+var digestRE = regexp.MustCompile(`digest:\s+(sha256:\w{64})`)
 
 // parseDigest tries to parse the last line from the output, which holds the pushed image digest
 // The output should contain line like this:
