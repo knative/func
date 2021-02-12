@@ -61,6 +61,9 @@ test-go:
 	cd templates/go/events && go test
 	cd templates/go/http && go test
 
+test-integration:
+	go test -tags integration ./...
+
 image: Dockerfile
 	docker build -t $(REPO):latest  \
 	             -t $(REPO):$(VERS) \

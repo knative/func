@@ -1,3 +1,5 @@
+// +build !integration
+
 package k8s
 
 import "testing"
@@ -10,8 +12,8 @@ func TestToK8sAllowedName(t *testing.T) {
 		Out string
 		Err bool
 	}{
-		{"", "", true},        // invalid name
-		{"*", "", true},       // invalid name
+		{"", "", true},  // invalid name
+		{"*", "", true}, // invalid name
 		{"example", "example", true},
 		{"example.com", "example-com", false},
 		{"my-domain.com", "my--domain-com", false},

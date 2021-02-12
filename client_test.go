@@ -1,3 +1,5 @@
+// +build !integration
+
 package function_test
 
 import (

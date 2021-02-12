@@ -1,3 +1,5 @@
+// +build !integration
+
 package function
 
 import "testing"
@@ -13,17 +15,17 @@ func TestFunction_ImageWithDigest(t *testing.T) {
 		want   string
 	}{
 		{
-			name: "Full path with port",
+			name:   "Full path with port",
 			fields: fields{Image: "image-registry.openshift-image-registry.svc.cluster.local:5000/default/bar", ImageDigest: "42"},
 			want:   "image-registry.openshift-image-registry.svc.cluster.local:5000/default/bar@42",
 		},
 		{
-			name: "Path with namespace",
+			name:   "Path with namespace",
 			fields: fields{Image: "johndoe/bar", ImageDigest: "42"},
 			want:   "johndoe/bar@42",
 		},
 		{
-			name: "Just image name",
+			name:   "Just image name",
 			fields: fields{Image: "bar:latest", ImageDigest: "42"},
 			want:   "bar@42",
 		},
