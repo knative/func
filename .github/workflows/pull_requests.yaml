@@ -69,3 +69,25 @@ jobs:
           PKGER: "./${{ steps.pkger-binaries.outputs.binary }}"
       - name: Lint
         run: make check
+
+  integration-test:
+    runs-on: 'ubuntu-latest'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Setup Go
+        uses: actions/setup-go@v2
+      - name: Provision Cluster
+        uses: lkingland/kind-action@v1 # use ./hack/allocate.sh locally
+        with:
+          version: v0.10.0
+          kubectl_version: v1.20.0
+          knative_serving: v0.20.0
+          knative_kourier: v0.20.0
+          knative_eventing: v0.20.0
+          config: testdata/cluster.yaml
+      - name: Configure Cluster
+        run: ./hack/configure.sh
+      - name: Integration Test
+        run: make test-integration
+

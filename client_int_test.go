@@ -22,7 +22,7 @@ import (
  ## Integration Testing
 
  These tests can be run via the make target:
-   make integration
+   make test-integration
   or manually by specifying the tag
    go test -v -tags integration ./...
 

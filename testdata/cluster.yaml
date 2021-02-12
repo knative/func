@@ -1,0 +1,17 @@
+# Cluster config for the KinD cluster created for use in CI.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+  - role: worker
+    extraPortMappings:
+    - containerPort: 30080
+      hostPort: 80
+      listenAddress: "127.0.0.1"
+    - containerPort: 30443
+      hostPort: 443
+      listenAddress: "127.0.0.1"
+containerdConfigPatches:
+- |-
+  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:5000"]
+    endpoint = ["http://kind-registry:5000"]

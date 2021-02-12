@@ -13,7 +13,7 @@
 # limitations under the License.
 
 #
-# Allocate a local kind cluster with Knative and Kourier installed.
+# Allocate a Kind cluster with Knative, Kourier and a local container registry.
 #
 
 set -o errexit
