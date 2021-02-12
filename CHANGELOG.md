@@ -1,6 +1,13 @@
 # Change Log
 
 <a name="unreleased"></a>
+### [0.11.1](https://www.github.com/boson-project/func/compare/v0.11.0...v0.11.1) (2021-02-12)
+
+
+### Bug Fixes
+
+* update pack dependency ([c3c2165](https://www.github.com/boson-project/func/commit/c3c21657b2bc3cba9e4ba87864d8fe0c5d4e43af))
+
 ## [0.11.0](https://www.github.com/boson-project/func/compare/v0.10.0...v0.11.0) (2021-01-21)
 
 
