@@ -1,5 +1,10 @@
 package function
 
+// Updating Templates:
+// See documentation in ./templates/README.md
+// go get github.com/markbates/pkger
+//go:generate pkger
+
 import (
 	"errors"
 	"fmt"
@@ -11,9 +16,6 @@ import (
 
 	"github.com/markbates/pkger"
 )
-
-// Updating Templates:
-// See documentation in ./templates/README.md
 
 // DefautlTemplate is the default Function signature / environmental context
 // of the resultant template.  All runtimes are expected to have at least

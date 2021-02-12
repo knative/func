@@ -21,6 +21,7 @@ build: all
 all: $(TEMPLATE_PACKAGE) $(BIN)
 
 $(TEMPLATE_PACKAGE): templates $(TEMPLATE_DIRS) $(TEMPLATE_FILES)
+	# to install pkger:  go get github.com/markbates/pkger/cmd/pkger
 	$(PKGER)
 
 cross-platform: $(TEMPLATE_PACKAGE) $(DARWIN) $(LINUX) $(WINDOWS)
