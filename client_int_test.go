@@ -90,7 +90,11 @@ func TestNew(t *testing.T) {
 	defer del(t, client, "testnew")
 
 	// Assert
-	names, err := client.List()
+	items, err := client.List()
+	names := []string{}
+	for _, item := range items {
+		names = append(names, item.Name)
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
