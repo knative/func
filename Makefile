@@ -92,6 +92,11 @@ release: build test
 	git commit -am "release: $(VTAG)"
 	git tag $(VTAG)
 
+cluster: ## Set up a local cluster for integraiton tests.
+	# Creating KinD cluster `kind`.
+	# Delete with ./hack/delete.sh
+	./hack/allocate.sh && ./hack/configure.sh
+
 clean:
 	rm -f $(BIN) $(WINDOWS) $(LINUX) $(DARWIN)
 	-rm -f coverage.out
