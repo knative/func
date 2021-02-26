@@ -2,6 +2,8 @@ package knative
 
 import (
 	"fmt"
+	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -165,6 +167,29 @@ func updateService(image string, envVars map[string]string) func(service *servin
 	}
 }
 
+var evRegex = regexp.MustCompile(`^{{\s*(\w+)\s*.(\w+)\s*}}$`)
+
+const (
+	ctxIdx = 1
+	valIdx = 2
+)
+
+func processValue(val string) (string, error) {
+	match := evRegex.FindStringSubmatch(val)
+	if len(match) > valIdx {
+		if match[ctxIdx] != "env" {
+			return "", fmt.Errorf("uknown context %q", match[ctxIdx])
+		}
+		if v, ok := os.LookupEnv(match[valIdx]); ok {
+			return v, nil
+		} else {
+			return "", fmt.Errorf("required environment variable %q is not set", match[valIdx])
+		}
+	} else {
+		return val, nil
+	}
+}
+
 func setEnvVars(service *servingv1.Service, envVars map[string]string) (*servingv1.Service, error) {
 	builtEnvVarName := "BUILT"
 	builtEnvVarValue := time.Now().Format("20060102T150405")
@@ -181,6 +206,14 @@ func setEnvVars(service *servingv1.Service, envVars map[string]string) (*serving
 	}
 
 	toUpdate[builtEnvVarName] = builtEnvVarValue
+
+	for idx, val := range toUpdate {
+		v, err := processValue(val)
+		if err != nil {
+			return nil, err
+		}
+		toUpdate[idx] = v
+	}
 
 	return service, flags.UpdateEnvVars(&service.Spec.Template.Spec.PodSpec, toUpdate, toRemove)
 }
