@@ -4,7 +4,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
-import static org.springframework.cloud.function.cloudevent.CloudEventMessageUtils.HTTP_ATTR_PREFIX;
 import static org.springframework.cloud.function.cloudevent.CloudEventMessageUtils.ID;
 import static org.springframework.cloud.function.cloudevent.CloudEventMessageUtils.SOURCE;
 import static org.springframework.cloud.function.cloudevent.CloudEventMessageUtils.SPECVERSION;
@@ -27,7 +26,7 @@ import org.springframework.http.ResponseEntity;
 @SpringBootTest(classes = SpringCloudEventsApplication.class,
     webEnvironment = WebEnvironment.RANDOM_PORT)
 public class SpringCloudEventsApplicationTests {
-
+  
   @Autowired
   private TestRestTemplate rest;
 
@@ -42,12 +41,12 @@ public class SpringCloudEventsApplicationTests {
     input.input = "hello";
 
     HttpHeaders ceHeaders = new HttpHeaders();
-    ceHeaders.add(HTTP_ATTR_PREFIX + SPECVERSION, "1.0");
-    ceHeaders.add(HTTP_ATTR_PREFIX + ID, UUID.randomUUID()
+    ceHeaders.add(SPECVERSION, "1.0");
+    ceHeaders.add(ID, UUID.randomUUID()
         .toString());
-    ceHeaders.add(HTTP_ATTR_PREFIX + TYPE, "com.redhat.faas.springboot.test");
-    ceHeaders.add(HTTP_ATTR_PREFIX + SOURCE, "http://localhost:8080/uppercase");
-    ceHeaders.add(HTTP_ATTR_PREFIX + SUBJECT, "Convert to UpperCase");
+    ceHeaders.add(TYPE, "com.redhat.faas.springboot.test");
+    ceHeaders.add(SOURCE, "http://localhost:8080/uppercase");
+    ceHeaders.add(SUBJECT, "Convert to UpperCase");
 
     ResponseEntity<String> response = this.rest.exchange(
         RequestEntity.post(new URI("/uppercase"))
