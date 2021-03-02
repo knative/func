@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 
 	"github.com/buildpacks/pack"
 	"github.com/buildpacks/pack/logging"
@@ -54,10 +55,20 @@ func (builder *Builder) Build(f bosonFunc.Function) (err error) {
 	}
 
 	// Build options for the pack client.
+	var network string
+	if runtime.GOOS == "linux" {
+		network = "host"
+	}
+
 	packOpts := pack.BuildOptions{
 		AppPath: f.Root,
 		Image:   f.Image,
 		Builder: packBuilder,
+		DockerHost: os.Getenv("DOCKER_HOST"),
+		ContainerConfig: struct {
+			Network string
+			Volumes []string
+		}{Network: network, Volumes: nil},
 	}
 
 	// log output is either STDOUt or kept in a buffer to be printed on error.
