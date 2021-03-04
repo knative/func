@@ -157,6 +157,10 @@ func generateNewService(name, image, runtime string, envVars map[string]string) 
 
 func updateService(image string, envVars map[string]string) func(service *servingv1.Service) (*servingv1.Service, error) {
 	return func(service *servingv1.Service) (*servingv1.Service, error) {
+		// Removing the name so the k8s server can fill it in with generated name,
+		// this prevents conflicts in Revision name when updating the KService from multiple places.
+		service.Spec.Template.Name = ""
+
 		err := flags.UpdateImage(&service.Spec.Template.Spec.PodSpec, image)
 		if err != nil {
 			return service, err
