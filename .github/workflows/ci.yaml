@@ -10,38 +10,17 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
-      - name: Determine download URL for pkger
-        id: pkger-download-url
-        uses: actions/github-script@v2
-        with:
-          result-encoding: string
-          script: |
-            return github.repos.getReleaseByTag({
-                owner: "markbates",
-                repo: "pkger",
-                tag: "v0.17.1"
-            }).then(result => {
-                return result.data.assets
-                  .filter(a => a.name.includes('Linux_x86'))
-                  .map(a => a.browser_download_url)[0];
-            })
-      - name: Install pkger
-        run: |
-          curl -s -L -o pkger.tgz ${{ steps.pkger-download-url.outputs.result }}
-          tar xvzf pkger.tgz
       - name: Test
         run:  make test
-        env:
-          PKGER: "./${{ steps.pkger-binaries.outputs.binary }}"
       - name: Lint
         run: make check
-    outputs:
-      pkger: ${{ steps.pkger-download-url.outputs.result }}
 
   build-and-publish:
     needs: test
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/setup-go@v2
+      - uses: actions/checkout@v2
       # Create a release, or update the release PR
       - uses: GoogleCloudPlatform/release-please-action@v2.24.1
         id: release
@@ -49,8 +28,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           release-type: simple
           bump-minor-pre-major: true
-      # Checkout
-      - uses: actions/checkout@v2
       # Tag
       # If a release was created, tag `vX.Y.Z` synchronously which:
       #   1. Triggers release-please to create draft release, allowing manual
@@ -70,26 +47,18 @@ jobs:
           git push origin :v${{steps.release.outputs.major}}.${{steps.release.outputs.minor}}.${{steps.release.outputs.patch}} || true
           git tag -a v${{steps.release.outputs.major}}.${{steps.release.outputs.minor}}.${{steps.release.outputs.patch}} -m "Release v${{steps.release.outputs.major}}.${{steps.release.outputs.minor}}.${{steps.release.outputs.patch}}"
           git push origin v${{steps.release.outputs.major}}.${{steps.release.outputs.minor}}.${{steps.release.outputs.patch}} || true
-
-      - uses: actions/setup-go@v2
-      - name: Install pkger
-        run: |
-          curl -s -L -o pkger.tgz ${{ needs.test.outputs.pkger }}
-          tar xvzf pkger.tgz
-  
       # Standard build tasks
       - name: Build
         run:  make cross-platform
-        env:
-          PKGER: "./pkger"
-          # NOTE:
-          # release-please adds the version asynchronously. Without using the
-          # synchonous tagging step above, the version can be explicitly passed
-          # to the build using the following environment variable.  However this
-          # has the side-effect of causing inter-relese binaries to not include
-          # verbose version information, because the special version `tip` is
-          # overriden with a blank string in those cases.
-          # VERS: ${{ steps.release.outputs.tag_name }}
+        # NOTE:
+        # release-please adds the version asynchronously. Without using the
+        # synchonous tagging step above, the version can be explicitly passed
+        # to the build using the following environment variable.  However this
+        # has the side-effect of causing inter-relese binaries to not include
+        # verbose version information, because the special version `tip` is
+        # overriden with a blank string in those cases.
+        # env:
+        #   VERS: ${{ steps.release.outputs.tag_name }}
 
       # Upload all build artifacts whether it's a release or not
       - uses: actions/upload-artifact@v2
