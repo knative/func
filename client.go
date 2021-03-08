@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -362,7 +361,7 @@ func (c *Client) Create(cfg Function) (err error) {
 
 	// Check if template specifies a builder image. If so, add to configuration
 	builderFilePath := filepath.Join(f.Root, ".builders.yaml")
-	if builderConfig, err := ioutil.ReadFile(builderFilePath); err == nil {
+	if builderConfig, err := os.ReadFile(builderFilePath); err == nil {
 		// A .builder file was found. Read the default builder and set in the config file
 		// TODO: A command line flag could be used to specify non-default builders
 		builders := make(map[string]string)
