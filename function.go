@@ -3,7 +3,6 @@ package function
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -223,7 +222,7 @@ var contentiousFiles = []string{
 
 // contentiousFilesIn the given directoy
 func contentiousFilesIn(dir string) (contentious []string, err error) {
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	for _, file := range files {
 		for _, name := range contentiousFiles {
 			if file.Name() == name {
@@ -237,7 +236,7 @@ func contentiousFilesIn(dir string) (contentious []string, err error) {
 // effectivelyEmpty directories are those which have no visible files
 func isEffectivelyEmpty(dir string) (bool, error) {
 	// Check for any non-hidden files
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		return false, err
 	}
