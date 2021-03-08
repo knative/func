@@ -25,7 +25,7 @@ const TestRegistry = "quay.io/alice"
 // by the client API for those who prefer manual transmissions.
 func TestNew(t *testing.T) {
 	root := "testdata/example.com/testCreate" // Root from which to run the test
-	if err := os.MkdirAll(root, 0700); err != nil {
+	if err := os.MkdirAll(root, 0744); err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(root)
@@ -179,11 +179,11 @@ func TestExtensibleTemplates(t *testing.T) {
 
 	// Create a new client with a path to the extensible templates
 	client := bosonFunc.New(
-		bosonFunc.WithTemplates("testdata/templates"),
+		bosonFunc.WithTemplates("testdata/repositories"),
 		bosonFunc.WithRegistry(TestRegistry))
 
 	// Create a Function specifying a template, 'json' that only exists in the extensible set
-	if err := client.New(context.Background(), bosonFunc.Function{Root: root, Trigger: "boson-experimental/json"}); err != nil {
+	if err := client.New(context.Background(), bosonFunc.Function{Root: root, Trigger: "customProvider/json"}); err != nil {
 		t.Fatal(err)
 	}
 

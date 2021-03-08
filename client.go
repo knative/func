@@ -339,7 +339,7 @@ func (c *Client) Create(cfg Function) (err error) {
 	}
 
 	// Write out a template.
-	w := templateWriter{templates: c.templates, verbose: c.verbose}
+	w := templateWriter{repositories: c.templates, verbose: c.verbose}
 	if err = w.Write(f.Runtime, f.Trigger, f.Root); err != nil {
 		return
 	}
