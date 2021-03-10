@@ -674,6 +674,36 @@ func TestListOutsideRoot(t *testing.T) {
 	}
 }
 
+// TestDeployUnbuilt ensures that a call to deploy a Function which was not
+// fully created (ie. was only initialized, not actually built and deploys)
+// yields an expected, and informative, error.
+func TestDeployUnbuilt(t *testing.T) {
+	root := "testdata/example.com/testDeploy" // Root from which to run the test
+	if err := os.MkdirAll(root, 0700); err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(root)
+
+	// New Client
+	client := bosonFunc.New(bosonFunc.WithRegistry(TestRegistry))
+
+	// Initialize (half-create) a new Function at root
+	if err := client.Create(bosonFunc.Function{Root: root}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Now try to deploy it.  Ie. without having run the necessary build step.
+	err := client.Deploy(root)
+	if err == nil {
+		t.Fatal("did not receive an error attempting to deploy an unbuilt Function")
+	}
+
+	if !errors.Is(err, bosonFunc.ErrNotBuilt) {
+		t.Fatalf("did not receive expected error type.  Expected ErrNotBuilt, got %T", err)
+	}
+
+}
+
 // TODO: The tests which confirm an error is generated do not currently test
 // that the expected error is received; just that any error is generated.
 // This should be replaced with typed errors or at a minimum code prefixes

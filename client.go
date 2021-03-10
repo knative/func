@@ -33,6 +33,9 @@ type Client struct {
 	progressListener ProgressListener // progress listener
 }
 
+// ErrNotBuilt indicates the Function has not yet been built.
+var ErrNotBuilt = errors.New("not built")
+
 // Builder of Function source to runnable image.
 type Builder interface {
 	// Build a Function project with source located at path.
@@ -406,9 +409,10 @@ func (c *Client) Deploy(path string) (err error) {
 		return
 	}
 
-	// Build the Function
-	if err = c.Build(f.Root); err != nil {
-		return
+	// Functions must be built (have an associated image) before being deployed.
+	// Note that externally built images may be specified in the func.yaml
+	if !f.Built() {
+		return ErrNotBuilt
 	}
 
 	// Push the image for the named service to the configured registry
