@@ -52,25 +52,27 @@ kn func run [-p <path>]
 
 ## `deploy`
 
-Builds and deploys the Function project in the current directory. The user may specify a path to the project directory using the `--path` or `-p` flag. Reads the `func.yaml` configuration file to determine the image name. An image and registry may be specified on the command line using the  `--image` or `-i` and `--registry` or `-r` flag.
+Deploys the Function project in the current directory. The user may specify a path to the project directory using the `--path` or `-p` flag. Reads the `func.yaml` configuration file to determine the image name. An image and registry may be specified on the command line using the  `--image` or `-i` and `--registry` or `-r` flag.
 
 Derives the service name from the project name. There is no mechanism by which the user can specify the service name. The user must have already initialized the  function using `func create` or they will encounter an error.
 
 If the Function is already deployed, it is updated with a new container image that is pushed to a
 container image registry, and the Knative Service is updated.
 
+By default the Function image to be deployed is also built.  The build can be skipped by specifying `--build=false`.
+
 The namespace into which the project is deployed defaults to the value in the `func.yaml` configuration file. If `NAMESPACE` is not set in the configuration, the namespace currently active in the Kubernetes configuration file will be used. The namespace may be specified on the command line using the `--namespace` or `-n` flag, and if so this will overwrite the value in the `func.yaml` file.
 
 Similar `kn` command: `kn service create NAME --image IMAGE [flags]`. This command allows a user to deploy a Knative Service by specifying an image, typically one hosted on a public container registry such as docker.io. The deployment options which the `kn` command affords the user are quite broad. The `kn` command in this case is quite effective for a power user. The `func deploy` command has a similar end result, but is definitely easier for a user just getting started to be successful with.
 
 ```console
-func deploy [-n <namespace> -p <path> -i <image> -r <registry>]
+func deploy [-n <namespace> -p <path> -i <image> -r <registry> -b=true|false]
 ```
 
 When run as a `kn` plugin.
 
 ```console
-kn func deploy [-n <namespace> -p <path> -i <image> -r <registry>]
+kn func deploy [-n <namespace> -p <path> -i <image> -r <registry> -b=true|false]
 ```
 
 ## `describe`

@@ -103,14 +103,24 @@ func (f Function) Initialized() bool {
 	return c.Runtime != "" && c.Name != ""
 }
 
+// Built indicates the Function has been built.  Does not guarantee the
+// image indicated actually exists, just that it _should_ exist based off
+// the current state of the Funciton object, in particular the value of
+// the Image and ImageDiget fields.
+func (f Function) Built() bool {
+	// If Image (the override) and ImageDigest (the most recent build stamp) are
+	// both empty, the Function is considered unbuilt.
+	return f.Image != "" || f.ImageDigest != ""
+}
+
 // ImageWithDigest returns the full reference to the image including SHA256 Digest.
 // If Digest is empty, image:tag is returned.
-func (f Function) ImageWithDigest() string{
+func (f Function) ImageWithDigest() string {
 	// Return image, if Digest is empty
 	if f.ImageDigest == "" {
 		return f.Image
 	}
-	
+
 	lastSlashIdx := strings.LastIndexAny(f.Image, "/")
 	imageAsBytes := []byte(f.Image)
 
@@ -118,7 +128,7 @@ func (f Function) ImageWithDigest() string{
 	part2 := string(imageAsBytes[lastSlashIdx+1:])
 
 	// Remove tag from the image name and append SHA256 hash instead
-	return part1 + strings.Split(part2, ":")[0] + "@" +f.ImageDigest
+	return part1 + strings.Split(part2, ":")[0] + "@" + f.ImageDigest
 }
 
 // DerivedImage returns the derived image name (OCI container tag) of the

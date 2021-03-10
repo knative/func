@@ -18,10 +18,11 @@ func init() {
 	root.AddCommand(deployCmd)
 	deployCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
 	deployCmd.Flags().StringArrayP("env", "e", []string{}, "Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables.")
-	deployCmd.Flags().StringP("image", "i", "", "Full image name in the orm [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE")
+	deployCmd.Flags().StringP("image", "i", "", "Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE")
 	deployCmd.Flags().StringP("namespace", "n", "", "Namespace of the function to undeploy. By default, the namespace in func.yaml is used or the actual active namespace if not set in the configuration. (Env: $FUNC_NAMESPACE)")
 	deployCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
 	deployCmd.Flags().StringP("registry", "r", "", "Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined based on the local directory name. If not provided the registry will be taken from func.yaml (Env: $FUNC_REGISTRY)")
+	deployCmd.Flags().BoolP("build", "b", true, "Build the image before deploying (Env: $FUNC_BUILD)")
 }
 
 var deployCmd = &cobra.Command{
@@ -49,7 +50,7 @@ kn func deploy --registry quay.io/myuser
 kn func deploy --image quay.io/myuser/myfunc -n myns
 `,
 	SuggestFor: []string{"delpoy", "deplyo"},
-	PreRunE:    bindEnv("image", "namespace", "path", "registry", "confirm"),
+	PreRunE:    bindEnv("image", "namespace", "path", "registry", "confirm", "build"),
 	RunE:       runDeploy,
 }
 
@@ -120,6 +121,12 @@ func runDeploy(cmd *cobra.Command, _ []string) (err error) {
 		bosonFunc.WithDeployer(deployer),
 		bosonFunc.WithProgressListener(listener))
 
+	if config.Build {
+		if err := client.Build(config.Path); err != nil {
+			return err
+		}
+	}
+
 	return client.Deploy(config.Path)
 
 	// NOTE: Namespace is optional, default is that used by k8s client
@@ -148,6 +155,9 @@ type deployConfig struct {
 	// with interactive prompting (only applicable when attached to a TTY).
 	Confirm bool
 
+	// Build the associated Function before deploying.
+	Build bool
+
 	EnvVars map[string]string
 }
 
@@ -160,6 +170,7 @@ func newDeployConfig(cmd *cobra.Command) deployConfig {
 		Path:        viper.GetString("path"),
 		Verbose:     viper.GetBool("verbose"), // defined on root
 		Confirm:     viper.GetBool("confirm"),
+		Build:       viper.GetBool("build"),
 		EnvVars:     envVarsFromCmd(cmd),
 	}
 }
