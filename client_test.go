@@ -3,6 +3,7 @@
 package function_test
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -429,7 +430,7 @@ func TestRun(t *testing.T) {
 	}
 
 	// Run the newly created function
-	if err := client.Run(root); err != nil {
+	if err := client.Run(context.Background(), root); err != nil {
 		t.Fatal(err)
 	}
 

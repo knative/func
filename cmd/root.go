@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -71,12 +72,11 @@ func init() {
 // Execute the command tree by executing the root command, which runs
 // according to the context defined by:  the optional config file,
 // Environment Variables, command arguments and flags.
-func Execute() {
+func Execute(ctx context.Context) {
 	// Sets version to a string partially populated by compile-time flags.
 	root.Version = version.String()
-
 	// Execute the root of the command tree.
-	if err := root.Execute(); err != nil {
+	if err := root.ExecuteContext(ctx); err != nil {
 		// Errors are printed to STDERR output and the process exits with code of 1.
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)

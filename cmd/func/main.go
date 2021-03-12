@@ -1,7 +1,11 @@
 package main
 
 import (
+	"context"
 	"github.com/boson-project/func/cmd"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
 // Statically-populated build metadata set
@@ -9,6 +13,17 @@ import (
 var date, vers, hash string
 
 func main() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		<-sigs
+		cancel()
+	}()
+
 	cmd.SetMeta(date, vers, hash)
-	cmd.Execute()
+	cmd.Execute(ctx)
 }

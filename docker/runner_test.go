@@ -3,6 +3,7 @@
 package docker_test
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"os"
@@ -35,7 +36,7 @@ func TestDockerRun(t *testing.T) {
 
 	runner := docker.NewRunner()
 	runner.Verbose = true
-	if err = runner.Run(f); err != nil {
+	if err = runner.Run(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
 	/* TODO

@@ -4,9 +4,12 @@ go 1.14
 
 require (
 	github.com/buildpacks/pack v0.17.1-0.20210221000942-0c84b4ae7a30
+	github.com/docker/docker v20.10.0-beta1.0.20201110211921-af34b94a78a1+incompatible
+	github.com/docker/go-connections v0.4.0
 	github.com/markbates/pkger v0.17.1
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/ory/viper v1.7.4
+	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.1.3
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.18.12
