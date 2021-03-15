@@ -46,16 +46,15 @@ func (n *Pusher) Push(ctx context.Context, f bosonFunc.Function) (digest string,
 		return "", errors.Wrap(err, "failed to create docker api client")
 	}
 
-	creds, err := config.GetAllCredentials(nil)
+	credentials, err := config.GetAllCredentials(nil)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get credentials")
 	}
 
 	var opts types.ImagePushOptions
 
-	if c, ok := creds[registry]; ok {
-		opts.RegistryAuth = base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf(`{"username":"%s","password":"%s"}`, c.Username, c.Password)))
-	}
+	c := credentials[registry]
+	opts.RegistryAuth = base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf(`{"username":"%s","password":"%s"}`, c.Username, c.Password)))
 
 	r, err := cli.ImagePush(ctx, f.Image, opts)
 	if err != nil {
