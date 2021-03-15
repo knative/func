@@ -127,7 +127,7 @@ func runDeploy(cmd *cobra.Command, _ []string) (err error) {
 		}
 	}
 
-	return client.Deploy(config.Path)
+	return client.Deploy(cmd.Context(), config.Path)
 
 	// NOTE: Namespace is optional, default is that used by k8s client
 	// (for example kubectl usually uses ~/.kube/config)

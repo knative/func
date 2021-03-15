@@ -1,6 +1,9 @@
 package mock
 
-import bosonFunc "github.com/boson-project/func"
+import (
+	"context"
+	bosonFunc "github.com/boson-project/func"
+)
 
 type Pusher struct {
 	PushInvoked bool
@@ -13,7 +16,7 @@ func NewPusher() *Pusher {
 	}
 }
 
-func (i *Pusher) Push(f bosonFunc.Function) (string, error) {
+func (i *Pusher) Push(ctx context.Context, f bosonFunc.Function) (string, error) {
 	i.PushInvoked = true
 	return i.PushFn(f)
 }

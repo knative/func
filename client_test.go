@@ -512,7 +512,7 @@ func TestUpdate(t *testing.T) {
 
 	// Invoke the creation, triggering the Function delegates, and
 	// perform follow-up assertions that the Functions were indeed invoked.
-	if err := client.Deploy(root); err != nil {
+	if err := client.Deploy(context.TODO(), root); err != nil {
 		t.Fatal(err)
 	}
 

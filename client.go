@@ -47,7 +47,7 @@ type Builder interface {
 type Pusher interface {
 	// Push the image of the Function.
 	// Returns Image Digest - SHA256 hash of the produced image
-	Push(Function) (string, error)
+	Push(ctx context.Context, f Function) (string, error)
 }
 
 // Deployer of Function source to running status.
@@ -270,7 +270,7 @@ func (c *Client) New(cfg Function) (err error) {
 	// Deploy the initialized Function, returning its publicly
 	// addressible name for possible registration.
 	c.progressListener.Increment("Deploying Function to cluster")
-	if err = c.Deploy(f.Root); err != nil {
+	if err = c.Deploy(context.TODO(), f.Root); err != nil {
 		return
 	}
 
@@ -404,7 +404,7 @@ func (c *Client) Build(path string) (err error) {
 
 // Deploy the Function at path.  Errors if the Function has not been
 // initialized with an image tag.
-func (c *Client) Deploy(path string) (err error) {
+func (c *Client) Deploy(ctx context.Context, path string) (err error) {
 	f, err := NewFunction(path)
 	if err != nil {
 		return
@@ -418,7 +418,7 @@ func (c *Client) Deploy(path string) (err error) {
 
 	// Push the image for the named service to the configured registry
 	fmt.Println("Pushing function image to the registry")
-	imageDigest, err := c.pusher.Push(f)
+	imageDigest, err := c.pusher.Push(ctx, f)
 	if err != nil {
 		return
 	}
@@ -525,7 +525,7 @@ func (n *noopBuilder) Build(_ Function) error { return nil }
 
 type noopPusher struct{ output io.Writer }
 
-func (n *noopPusher) Push(_ Function) (string, error) { return "", nil }
+func (n *noopPusher) Push(ctx context.Context, f Function) (string, error) { return "", nil }
 
 type noopDeployer struct{ output io.Writer }
 

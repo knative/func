@@ -115,7 +115,7 @@ func TestDeploy(t *testing.T) {
 	}
 	defer del(t, client, "deploy")
 
-	if err := client.Deploy("."); err != nil {
+	if err := client.Deploy(context.TODO(), "."); err != nil {
 		t.Fatal(err)
 	}
 }

@@ -2,13 +2,19 @@ package docker
 
 import (
 	"bytes"
-	"errors"
+	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	bosonFunc "github.com/boson-project/func"
+	"github.com/containers/image/v5/pkg/docker/config"
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/client"
+	"github.com/pkg/errors"
 	"io"
 	"os"
-	"os/exec"
 	"regexp"
+	"strings"
 )
 
 // Pusher of images from local to remote registry.
@@ -23,46 +29,67 @@ func NewPusher() *Pusher {
 }
 
 // Push the image of the Function.
-func (n *Pusher) Push(f bosonFunc.Function) (digest string, err error) {
-	// Check for the docker binary explicitly so that we can return
-	// an extra-friendly error message.
-	_, err = exec.LookPath("docker")
-	if err != nil {
-		err = errors.New("please install 'docker'")
-		return
-	}
+func (n *Pusher) Push(ctx context.Context, f bosonFunc.Function) (digest string, err error) {
 
 	if f.Image == "" {
 		return "", errors.New("Function has no associated image.  Has it been built?")
 	}
 
-	// set up the command, specifying a sanitized project name and connecting
-	// standard output and error.
-	cmd := exec.Command("docker", "push", f.Image)
+	parts := strings.Split(f.Image, "/")
+	if len(parts) < 1 {
+		return "", errors.Errorf("invalid image name: %q", f.Image)
+	}
+	registry := parts[0]
 
-	// Capture the command output in the buffer
-	var output bytes.Buffer
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		return "", errors.Wrap(err, "failed to create docker api client")
+	}
+
+	creds, err := config.GetAllCredentials(nil)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to get credentials")
+	}
+
+	var opts types.ImagePushOptions
+
+	if c, ok := creds[registry]; ok {
+		opts.RegistryAuth = base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf(`{"username":"%s","password":"%s"}`, c.Username, c.Password)))
+	}
+
+	r, err := cli.ImagePush(ctx, f.Image, opts)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to push the image")
+	}
+	defer r.Close()
+
+	var output io.Writer
+	var outBuff bytes.Buffer
 
 	// If verbose logging is enabled, echo chatty stdout.
 	if n.Verbose {
-		fmt.Println(cmd)
-		cmd.Stdout = io.MultiWriter(&output, os.Stdout)
+		output = io.MultiWriter(&outBuff, os.Stdout)
 	} else {
-		cmd.Stdout = &output
+		output = &outBuff
 	}
 
-	// Capture stderr for echoing on failure.
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-
-	// Run the command, echoing captured stderr as well ass the cmd internal error.
-	err = cmd.Run()
-	if err != nil {
-		// TODO: sanitize stderr from docker?
-		err = fmt.Errorf("%v. %v", stderr.String(), err.Error())
+	decoder := json.NewDecoder(r)
+	li := logItem{}
+	for {
+		err = decoder.Decode(&li)
+		if err != nil {
+			if err == io.EOF {
+				err = nil
+			}
+			break
+		}
+		if li.Id != "" {
+			fmt.Fprintf(output, "%s: ", li.Id)
+		}
+		fmt.Fprintln(output, li.Status)
 	}
 
-	digest = parseDigest(output.String())
+	digest = parseDigest(outBuff.String())
 
 	return
 }
@@ -78,4 +105,9 @@ func parseDigest(output string) string {
 		return match[1]
 	}
 	return ""
+}
+
+type logItem struct {
+	Status string `json:"status"`
+	Id     string `json:"id"`
 }
