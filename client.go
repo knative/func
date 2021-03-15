@@ -1,6 +1,7 @@
 package function
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -54,7 +55,7 @@ type Deployer interface {
 // Runner runs the Function locally.
 type Runner interface {
 	// Run the Function locally.
-	Run(Function) error
+	Run(context.Context, Function) error
 }
 
 // Remover of deployed services.
@@ -444,7 +445,7 @@ func (c *Client) Route(path string) (err error) {
 }
 
 // Run the Function whose code resides at root.
-func (c *Client) Run(root string) error {
+func (c *Client) Run(ctx context.Context, root string) error {
 
 	// Create an instance of a Function representation at the given root.
 	f, err := NewFunction(root)
@@ -458,7 +459,7 @@ func (c *Client) Run(root string) error {
 	}
 
 	// delegate to concrete implementation of runner entirely.
-	return c.runner.Run(f)
+	return c.runner.Run(ctx, f)
 }
 
 // List currently deployed Functions.
@@ -527,7 +528,7 @@ func (n *noopDeployer) Deploy(_ Function) error { return nil }
 
 type noopRunner struct{ output io.Writer }
 
-func (n *noopRunner) Run(_ Function) error { return nil }
+func (n *noopRunner) Run(_ context.Context, _ Function) error { return nil }
 
 type noopRemover struct{ output io.Writer }
 

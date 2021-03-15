@@ -1,11 +1,18 @@
 package docker
 
 import (
-	"errors"
+	"context"
 	"fmt"
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/pkg/stdcopy"
+	"github.com/docker/go-connections/nat"
+	"github.com/pkg/errors"
 	"os"
-	"os/exec"
 	"strings"
+	"time"
+
+	"github.com/docker/docker/client"
 
 	bosonFunc "github.com/boson-project/func"
 )
@@ -22,52 +29,107 @@ func NewRunner() *Runner {
 }
 
 // Run the function at path
-func (n *Runner) Run(f bosonFunc.Function) error {
-	// Check for the docker binary explicitly so that we can return
-	// an extra-friendly error message.
-	_, err := exec.LookPath("docker")
+func (n *Runner) Run(ctx context.Context, f bosonFunc.Function) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
-		return errors.New("please install 'docker'")
+		return errors.Wrap(err, "failed to create docker api client")
 	}
 
 	if f.Image == "" {
 		return errors.New("Function has no associated Image. Has it been built?")
 	}
 
-	// Extra arguments to docker
-	args := []string{"run", "--rm", "-t", "-p=8080:8080"}
-
+	envs := make([]string, 0, len(f.EnvVars)+1)
 	for name, value := range f.EnvVars {
 		if !strings.HasSuffix(name, "-") {
-			args = append(args, fmt.Sprintf("-e%s=%s", name, value))
+			envs = append(envs, fmt.Sprintf("%s=%s", name, value))
 		}
 	}
-
-	// If verbosity is enabled, pass along as an environment variable to the Function.
 	if n.Verbose {
-		args = append(args, "-e VERBOSE=true")
-	}
-	args = append(args, f.Image)
-
-	// Set up the command with extra arguments and to run rooted at path
-	cmd := exec.Command("docker", args...)
-	cmd.Dir = f.Root
-
-	// If verbose logging is enabled, echo command
-	if n.Verbose {
-		fmt.Println(cmd)
+		envs = append(envs, "VERBOSE=true")
 	}
 
-	// We need to show the user all output, so a method to squelch
-	// docker's chattiness is not immediately apparent.
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	ports := map[nat.Port][]nat.PortBinding{
+		nat.Port("8080/tcp"): {
+			nat.PortBinding{
+				HostPort: "8080",
+				HostIP:   "127.0.0.1",
+			},
+		},
+	}
 
-	// Run the command, echoing captured stderr as well ass the cmd internal error.
-	// Will run until explicitly canceled.
-	// TODO: this runner is current stubbed pending an architectural discussion
-	// on how closely we would like to emulate the previous funcitonality, and
-	// if we can use Grid as a localhost integraiton events fabric.
-	fmt.Println(cmd)
-	return cmd.Run()
+	conf := &container.Config{
+		Env:          envs,
+		Tty:          false,
+		AttachStderr: true,
+		AttachStdout: true,
+		AttachStdin:  false,
+		Image:        f.Image,
+	}
+
+	hostConf := &container.HostConfig{
+		PortBindings: ports,
+	}
+
+	cont, err := cli.ContainerCreate(ctx, conf, hostConf, nil, nil, "")
+	if err != nil {
+		return errors.Wrap(err, "failed to create container")
+	}
+	defer func() {
+		err := cli.ContainerRemove(context.Background(), cont.ID, types.ContainerRemoveOptions{})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to remove container: %v", err)
+		}
+	}()
+
+	attachOptions := types.ContainerAttachOptions{
+		Stdout: true,
+		Stderr: true,
+		Stdin:  false,
+		Stream: true,
+	}
+
+	resp, err := cli.ContainerAttach(ctx, cont.ID, attachOptions)
+	if err != nil {
+		return errors.Wrap(err, "failed to attach container")
+	}
+	defer resp.Close()
+
+	copyErrChan := make(chan error, 1)
+	go func() {
+		_, err := stdcopy.StdCopy(os.Stdout, os.Stderr, resp.Reader)
+		copyErrChan <- err
+	}()
+
+	waitBodyChan, waitErrChan := cli.ContainerWait(ctx, cont.ID, container.WaitConditionNextExit)
+
+	err = cli.ContainerStart(ctx, cont.ID, types.ContainerStartOptions{})
+	if err != nil {
+		return errors.Wrap(err, "failed to start container")
+	}
+	defer func() {
+		t := time.Second * 10
+		err := cli.ContainerStop(context.Background(), cont.ID, &t)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to stop container: %v", err)
+		}
+	}()
+
+	select {
+	case body := <-waitBodyChan:
+		if body.StatusCode != 0 {
+			return fmt.Errorf("failed with status code: %d", body.StatusCode)
+		}
+	case err := <-waitErrChan:
+		return err
+	case err := <-copyErrChan:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+
+	return nil
 }

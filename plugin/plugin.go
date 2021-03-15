@@ -1,9 +1,12 @@
 package plugin
 
 import (
+	"context"
 	"os"
+	"os/signal"
 	"runtime/debug"
 	"strings"
+	"syscall"
 
 	"knative.dev/client/pkg/kn/plugin"
 
@@ -21,6 +24,17 @@ func (f *funcPlugin) Name() string {
 }
 
 func (f *funcPlugin) Execute(args []string) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		<-sigs
+		cancel()
+	}()
+
 	rootCmd := cmd.NewRootCmd()
 	info, _ := debug.ReadBuildInfo()
 	for _, dep := range info.Deps {
@@ -33,7 +47,7 @@ func (f *funcPlugin) Execute(args []string) error {
 		os.Args = oldArgs
 	})()
 	os.Args = append([]string{"kn-func"}, args...)
-	return rootCmd.Execute()
+	return rootCmd.ExecuteContext(ctx)
 }
 
 // Description for function subcommand visible in 'kn --help'
