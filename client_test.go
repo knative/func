@@ -514,7 +514,10 @@ func TestUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mockIn.WriteString("\n\n\n")
+	_, err = mockIn.WriteString("\n\n\n")
+	if err != nil {
+		t.Fatal(err)
+	}
 	mockIn.Close()
 	defer os.Remove(mockIn.Name())
 
@@ -713,7 +716,10 @@ func TestDeployUnbuilt(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	mockIn.WriteString("\n\n\n")
+	_, err = mockIn.WriteString("\n\n\n")
+	if err != nil {
+		t.Fatal(err)
+	}
 	mockIn.Close()
 	defer os.Remove(mockIn.Name())
 
