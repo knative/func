@@ -709,11 +709,28 @@ func TestDeployUnbuilt(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	mockIn, err := ioutil.TempFile("", "mockStdin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mockIn.WriteString("\n\n\n")
+	mockIn.Close()
+	defer os.Remove(mockIn.Name())
+
+	oldStdin := os.Stdin
+	os.Stdin, err = os.Open(mockIn.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	// Now try to deploy it.  Ie. without having run the necessary build step.
-	err := client.Deploy(root)
+	err = client.Deploy(context.TODO(), root)
 	if err == nil {
 		t.Fatal("did not receive an error attempting to deploy an unbuilt Function")
 	}
+
+	os.Stdin.Close()
+	os.Stdin = oldStdin
 
 	if !errors.Is(err, bosonFunc.ErrNotBuilt) {
 		t.Fatalf("did not receive expected error type.  Expected ErrNotBuilt, got %T", err)
