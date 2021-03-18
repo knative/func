@@ -510,11 +510,27 @@ func TestUpdate(t *testing.T) {
 		return nil
 	}
 
+	mockIn, err := ioutil.TempFile("", "mockStdin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mockIn.WriteString("\n\n\n")
+	mockIn.Close()
+	defer os.Remove(mockIn.Name())
+
+	oldStdin := os.Stdin
+	os.Stdin, err = os.Open(mockIn.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	// Invoke the creation, triggering the Function delegates, and
 	// perform follow-up assertions that the Functions were indeed invoked.
 	if err := client.Deploy(context.TODO(), root); err != nil {
 		t.Fatal(err)
 	}
+	os.Stdin.Close()
+	os.Stdin = oldStdin
 
 	if !builder.BuildInvoked {
 		t.Fatal("builder was not invoked")

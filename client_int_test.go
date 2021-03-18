@@ -3,6 +3,7 @@
 package function_test
 
 import (
+	"io/ioutil"
 	"os"
 	"reflect"
 	"testing"
@@ -106,6 +107,24 @@ func TestNew(t *testing.T) {
 
 // TestDeploy updates
 func TestDeploy(t *testing.T) {
+	mockIn, err := ioutil.TempFile("", "mockStdin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	mockIn.WriteString("\n\n\n")
+	mockIn.Close()
+	defer os.Remove(mockIn.Name())
+
+	oldStdin := os.Stdin
+	os.Stdin, err = os.Open(mockIn.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		os.Stdin.Close()
+		os.Stdin = oldStdin
+	}()
+
 	defer within(t, "testdata/example.com/deploy")()
 	verbose := true
 
