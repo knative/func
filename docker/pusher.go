@@ -1,7 +1,6 @@
 package docker
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"encoding/base64"
@@ -15,23 +14,51 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/containers/image/v5/pkg/docker/config"
-	containersTypes "github.com/containers/image/v5/types"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/pkg/errors"
-	"golang.org/x/crypto/ssh/terminal"
 )
+
+type Opt func(*Pusher) error
+
+type Credentials struct {
+	Username string
+	Password string
+}
+
+type CredentialsProvider func(ctx context.Context, registry string) (Credentials, error)
 
 // Pusher of images from local to remote registry.
 type Pusher struct {
 	// Verbose logging.
-	Verbose bool
+	Verbose 			bool
+	credentialsProvider CredentialsProvider
+}
+
+func WithCredentialsProvider(cp CredentialsProvider) Opt {
+	return func(p *Pusher) error {
+		p.credentialsProvider = cp
+		return nil
+	}
+}
+
+func EmptyCredentialsProvider(ctx context.Context, registry string) (Credentials, error) {
+	return Credentials{}, nil
 }
 
 // NewPusher creates an instance of a docker-based image pusher.
-func NewPusher() *Pusher {
-	return &Pusher{}
+func NewPusher(opts ...Opt) (*Pusher, error) {
+	result := &Pusher{
+		Verbose: false,
+		credentialsProvider: EmptyCredentialsProvider,
+	}
+	for _, opt := range opts {
+		err := opt(result)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
 }
 
 // Push the image of the Function.
@@ -57,36 +84,17 @@ func (n *Pusher) Push(ctx context.Context, f bosonFunc.Function) (digest string,
 		return "", errors.Wrap(err, "failed to create docker api client")
 	}
 
-	credentials, err := config.GetCredentials(nil, registry)
+	credentials, err := n.credentialsProvider(ctx, registry)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get credentials")
-	}
-
-	var opts types.ImagePushOptions
-
-	if credentials == (containersTypes.DockerAuthConfig{}) {
-
-		fmt.Print("Username: ")
-		username, err := getUserName(ctx)
-		if err != nil {
-			return "", err
-		}
-
-		fmt.Print("Password: ")
-		bytePassword, err := getPassword(ctx)
-		if err != nil {
-			return "", err
-		}
-		password := string(bytePassword)
-
-		credentials.Username, credentials.Password = username, password
 	}
 
 	b, err := json.Marshal(&credentials)
 	if err != nil {
 		return "", err
 	}
-	opts.RegistryAuth = base64.StdEncoding.EncodeToString(b)
+
+	opts := types.ImagePushOptions{RegistryAuth: base64.StdEncoding.EncodeToString(b)}
 
 	r, err := cli.ImagePush(ctx, f.Image, opts)
 	if err != nil {
@@ -163,54 +171,4 @@ type logItem struct {
 	ErrorDetail    errorDetail    `json:"errorDetail"`
 	Progress       string         `json:"progress"`
 	ProgressDetail progressDetail `json:"progressDetail"`
-}
-
-func getPassword(ctx context.Context) ([]byte, error) {
-	ch := make(chan struct {
-		p []byte
-		e error
-	})
-
-	go func() {
-		pass, err := terminal.ReadPassword(0)
-		ch <- struct {
-			p []byte
-			e error
-		}{p: pass, e: err}
-	}()
-
-	select {
-	case res := <-ch:
-		return res.p, res.e
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
-}
-
-func getUserName(ctx context.Context) (string, error) {
-	ch := make(chan struct {
-		u string
-		e error
-	})
-	go func() {
-		reader := bufio.NewReader(os.Stdin)
-		username, err := reader.ReadString('\n')
-		if err != nil {
-			ch <- struct {
-				u string
-				e error
-			}{u: "", e: err}
-		}
-		ch <- struct {
-			u string
-			e error
-		}{u: strings.TrimRight(username, "\n"), e: nil}
-	}()
-
-	select {
-	case res := <-ch:
-		return res.u, res.e
-	case <-ctx.Done():
-		return "", ctx.Err()
-	}
 }

@@ -175,7 +175,10 @@ func newClient(verbose bool) *boson.Client {
 	builder := buildpacks.NewBuilder()
 	builder.Verbose = verbose
 
-	pusher := docker.NewPusher()
+	pusher, err := docker.NewPusher()
+	if err != nil {
+		panic(err)
+	}
 	pusher.Verbose = verbose
 
 	deployer, err := knative.NewDeployer(DefaultNamespace)
