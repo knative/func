@@ -2,6 +2,7 @@ package mock
 
 import (
 	"context"
+
 	bosonFunc "github.com/boson-project/func"
 )
 

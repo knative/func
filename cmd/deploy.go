@@ -4,11 +4,12 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"os"
+	"strings"
+
 	"github.com/containers/image/v5/pkg/docker/config"
 	"github.com/pkg/errors"
 	"golang.org/x/crypto/ssh/terminal"
-	"os"
-	"strings"
 
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
