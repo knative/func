@@ -1,7 +1,9 @@
 package function
 
 import (
-	"embed"
+	"bytes"
+	"compress/gzip"
+	_ "embed"
 	"errors"
 	"fmt"
 	"io"
@@ -10,24 +12,21 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/boson-project/func/tarfs"
 )
 
-// Embed all files in ./templates.
-//go:embed templates
-var embedded embed.FS
+// Generate templates.tgz
+//go:generate go run generate.go
+
+// Embed the templates tarball
+//go:embed templates.tgz
+var embedded []byte
 
 // DefautlTemplate is the default Function signature / environmental context
 // of the resultant template.  All runtimes are expected to have at least
 // an HTTP Handler ("http") and Cloud Events ("events")
 const DefaultTemplate = "http"
-
-// DefaultTemplateFileMode for embedded files which have lost their mode due to being
-// retained in a read-only filesystem (forced 0444 on embed).
-const DefaultTemplateFileMode = 0644
-
-// DefaultTemplateDirMode for embedded files which have lost their mode due to being
-// retained in a read-only filesystem (forced 0444 on embed).
-const DefaultTemplateDirMode = 0744
 
 type templateWriter struct {
 	// Extensible Template Repositories
@@ -44,28 +43,44 @@ type templateWriter struct {
 	// Ie. "Using the custom templates in the func configuration directory,
 	//    write the Boson HTTP template for the Go runtime."
 	repositories string
-	defaultModes bool
+	templates    fs.FS
 	verbose      bool
 }
 
 var (
 	ErrRepositoryNotFound        = errors.New("repository not found")
-	ErrRepositoriesNotDefined    = errors.New("custom template repositories location not specified")
+	ErrRepositoriesNotDefined    = errors.New("custom template location not specified")
 	ErrTemplateMissingRepository = errors.New("template name missing repository prefix")
 )
 
+// Decompress into an in-memory FS which implements fs.ReadDirFS
+func (t *templateWriter) load() (err error) {
+
+	// Templates are stored as an embedded byte slice gzip encoded.
+	zr, err := gzip.NewReader(bytes.NewReader(embedded))
+	if err != nil {
+		return
+	}
+
+	t.templates, err = tarfs.New(zr)
+	return
+}
+
 // Write the template for the given runtime to the destination specified.
 // Template may be prefixed with a custom repo name.
-func (t *templateWriter) Write(runtime, template, dest string) error {
+func (t *templateWriter) Write(runtime, template, dest string) (err error) {
+	if t.templates == nil {
+		// load static embedded templates into t.templates as an fs.FSA
+		if err = t.load(); err != nil {
+			return
+		}
+	}
 	if template == "" {
 		template = DefaultTemplate
 	}
-
 	if isCustom(template) {
 		return t.writeCustom(t.repositories, runtime, template, dest)
 	}
-
-	t.defaultModes = true // overwrite read-only mode on write to defaults.
 	return t.writeEmbedded(runtime, template, dest)
 }
 
@@ -90,12 +105,12 @@ func (t *templateWriter) writeCustom(repositories, runtime, template, dest strin
 }
 
 func (t *templateWriter) writeEmbedded(runtime, template, dest string) error {
-	_, err := fs.Stat(embedded, filepath.Join("templates", runtime, template))
+	_, err := fs.Stat(t.templates, filepath.Join("templates", runtime, template))
 	if err != nil {
 		return err
 	}
 	src := filepath.Join("templates", runtime, template)
-	return t.cp(src, dest, embedded)
+	return t.cp(src, dest, t.templates)
 }
 
 func repositoryExists(repositories, template string) bool {
@@ -123,9 +138,6 @@ func (t *templateWriter) copyNode(src, dest string, files fs.FS) error {
 	}
 
 	mode := node.Mode()
-	if t.defaultModes {
-		mode = DefaultTemplateDirMode
-	}
 
 	err = os.MkdirAll(dest, mode)
 	if err != nil {
@@ -182,9 +194,6 @@ func (t *templateWriter) copyLeaf(src, dest string, files fs.FS) (err error) {
 
 	// Use the original's mode unless a nonzero mode was explicitly provided.
 	mode := srcFileInfo.Mode()
-	if t.defaultModes {
-		mode = DefaultTemplateFileMode
-	}
 
 	destFile, err := os.OpenFile(dest, os.O_RDWR|os.O_CREATE|os.O_TRUNC, mode)
 	if err != nil {
