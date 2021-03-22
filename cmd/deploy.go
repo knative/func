@@ -1,10 +1,18 @@
 package cmd
 
 import (
+	"bufio"
+	"context"
 	"fmt"
+	"os"
+	"strings"
 
+	"github.com/containers/image/v5/pkg/docker/config"
+	containersTypes "github.com/containers/image/v5/types"
 	"github.com/ory/viper"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"golang.org/x/crypto/ssh/terminal"
 
 	bosonFunc "github.com/boson-project/func"
 	"github.com/boson-project/func/buildpacks"
@@ -96,7 +104,10 @@ func runDeploy(cmd *cobra.Command, _ []string) (err error) {
 	builder := buildpacks.NewBuilder()
 	builder.Verbose = config.Verbose
 
-	pusher := docker.NewPusher()
+	pusher, err := docker.NewPusher(docker.WithCredentialsProvider(credentialsProvider))
+	if err != nil {
+		return err
+	}
 	pusher.Verbose = config.Verbose
 
 	ns := config.Namespace
@@ -127,10 +138,91 @@ func runDeploy(cmd *cobra.Command, _ []string) (err error) {
 		}
 	}
 
-	return client.Deploy(config.Path)
+	return client.Deploy(cmd.Context(), config.Path)
 
 	// NOTE: Namespace is optional, default is that used by k8s client
 	// (for example kubectl usually uses ~/.kube/config)
+}
+
+func credentialsProvider(ctx context.Context, registry string) (docker.Credentials, error) {
+
+	result := docker.Credentials{}
+	credentials, err := config.GetCredentials(nil, registry)
+	if err != nil {
+		return result, errors.Wrap(err, "failed to get credentials")
+	}
+
+	if credentials != (containersTypes.DockerAuthConfig{}) {
+		result.Username, result.Password = credentials.Username, credentials.Password
+		return result, nil
+	}
+
+	fmt.Print("Username: ")
+	username, err := getUserName(ctx)
+	if err != nil {
+		return result, err
+	}
+
+	fmt.Print("Password: ")
+	bytePassword, err := getPassword(ctx)
+	if err != nil {
+		return result, err
+	}
+	password := string(bytePassword)
+
+	result.Username, result.Password = username, password
+
+	return result, nil
+}
+
+func getPassword(ctx context.Context) ([]byte, error) {
+	ch := make(chan struct {
+		p []byte
+		e error
+	})
+
+	go func() {
+		pass, err := terminal.ReadPassword(0)
+		ch <- struct {
+			p []byte
+			e error
+		}{p: pass, e: err}
+	}()
+
+	select {
+	case res := <-ch:
+		return res.p, res.e
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
+func getUserName(ctx context.Context) (string, error) {
+	ch := make(chan struct {
+		u string
+		e error
+	})
+	go func() {
+		reader := bufio.NewReader(os.Stdin)
+		username, err := reader.ReadString('\n')
+		if err != nil {
+			ch <- struct {
+				u string
+				e error
+			}{u: "", e: err}
+		}
+		ch <- struct {
+			u string
+			e error
+		}{u: strings.TrimRight(username, "\n"), e: nil}
+	}()
+
+	select {
+	case res := <-ch:
+		return res.u, res.e
+	case <-ctx.Done():
+		return "", ctx.Err()
+	}
 }
 
 type deployConfig struct {

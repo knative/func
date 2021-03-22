@@ -512,7 +512,7 @@ func TestUpdate(t *testing.T) {
 
 	// Invoke the creation, triggering the Function delegates, and
 	// perform follow-up assertions that the Functions were indeed invoked.
-	if err := client.Deploy(root); err != nil {
+	if err := client.Deploy(context.TODO(), root); err != nil {
 		t.Fatal(err)
 	}
 
@@ -694,7 +694,7 @@ func TestDeployUnbuilt(t *testing.T) {
 	}
 
 	// Now try to deploy it.  Ie. without having run the necessary build step.
-	err := client.Deploy(root)
+	err := client.Deploy(context.TODO(), root)
 	if err == nil {
 		t.Fatal("did not receive an error attempting to deploy an unbuilt Function")
 	}
@@ -702,7 +702,6 @@ func TestDeployUnbuilt(t *testing.T) {
 	if !errors.Is(err, bosonFunc.ErrNotBuilt) {
 		t.Fatalf("did not receive expected error type.  Expected ErrNotBuilt, got %T", err)
 	}
-
 }
 
 // TODO: The tests which confirm an error is generated do not currently test

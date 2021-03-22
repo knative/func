@@ -3,6 +3,7 @@
 package function_test
 
 import (
+	"context"
 	"os"
 	"reflect"
 	"testing"
@@ -115,7 +116,7 @@ func TestDeploy(t *testing.T) {
 	}
 	defer del(t, client, "deploy")
 
-	if err := client.Deploy("."); err != nil {
+	if err := client.Deploy(context.TODO(), "."); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -155,7 +156,10 @@ func newClient(verbose bool) *boson.Client {
 	builder := buildpacks.NewBuilder()
 	builder.Verbose = verbose
 
-	pusher := docker.NewPusher()
+	pusher, err := docker.NewPusher()
+	if err != nil {
+		panic(err)
+	}
 	pusher.Verbose = verbose
 
 	deployer, err := knative.NewDeployer(DefaultNamespace)
