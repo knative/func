@@ -70,7 +70,7 @@ func runList(cmd *cobra.Command, args []string) (err error) {
 		bosonFunc.WithVerbose(config.Verbose),
 		bosonFunc.WithLister(lister))
 
-	items, err := client.List()
+	items, err := client.List(cmd.Context())
 	if err != nil {
 		return
 	}

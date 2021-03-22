@@ -1,6 +1,7 @@
 package knative
 
 import (
+	"context"
 	"fmt"
 	"time"
 
@@ -25,7 +26,7 @@ type Remover struct {
 	Verbose   bool
 }
 
-func (remover *Remover) Remove(name string) (err error) {
+func (remover *Remover) Remove(ctx context.Context, name string) (err error) {
 
 	serviceName, err := k8s.ToK8sAllowedName(name)
 	if err != nil {

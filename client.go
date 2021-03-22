@@ -40,7 +40,7 @@ var ErrNotBuilt = errors.New("not built")
 // Builder of Function source to runnable image.
 type Builder interface {
 	// Build a Function project with source located at path.
-	Build(Function) error
+	Build(context.Context, Function) error
 }
 
 // Pusher of Function image to a registry.
@@ -53,7 +53,7 @@ type Pusher interface {
 // Deployer of Function source to running status.
 type Deployer interface {
 	// Deploy a Function of given name, using given backing image.
-	Deploy(Function) error
+	Deploy(context.Context, Function) error
 }
 
 // Runner runs the Function locally.
@@ -65,13 +65,13 @@ type Runner interface {
 // Remover of deployed services.
 type Remover interface {
 	// Remove the Function from remote.
-	Remove(name string) error
+	Remove(ctx context.Context, name string) error
 }
 
 // Lister of deployed services.
 type Lister interface {
 	// List the Functions currently deployed.
-	List() ([]ListItem, error)
+	List(ctx context.Context) ([]ListItem, error)
 }
 
 type ListItem struct {
@@ -245,7 +245,7 @@ func WithRegistry(registry string) Option {
 
 // New Function.
 // Use Create, Build and Deploy independently for lower level control.
-func (c *Client) New(cfg Function) (err error) {
+func (c *Client) New(ctx context.Context, cfg Function) (err error) {
 	c.progressListener.SetTotal(3)
 	defer c.progressListener.Done()
 
@@ -263,14 +263,14 @@ func (c *Client) New(cfg Function) (err error) {
 
 	// Build the now-initialized Function
 	c.progressListener.Increment("Building container image")
-	if err = c.Build(f.Root); err != nil {
+	if err = c.Build(ctx, f.Root); err != nil {
 		return
 	}
 
 	// Deploy the initialized Function, returning its publicly
 	// addressible name for possible registration.
 	c.progressListener.Increment("Deploying Function to cluster")
-	if err = c.Deploy(context.TODO(), f.Root); err != nil {
+	if err = c.Deploy(ctx, f.Root); err != nil {
 		return
 	}
 
@@ -371,7 +371,7 @@ func (c *Client) Create(cfg Function) (err error) {
 
 // Build the Function at path.  Errors if the Function is either unloadable or does
 // not contain a populated Image.
-func (c *Client) Build(path string) (err error) {
+func (c *Client) Build(ctx context.Context, path string) (err error) {
 
 	fmt.Println("Building function image")
 
@@ -385,7 +385,7 @@ func (c *Client) Build(path string) (err error) {
 		return
 	}
 
-	if err = c.builder.Build(f); err != nil {
+	if err = c.builder.Build(ctx, f); err != nil {
 		return
 	}
 
@@ -431,7 +431,7 @@ func (c *Client) Deploy(ctx context.Context, path string) (err error) {
 
 	// Deploy a new or Update the previously-deployed Function
 	fmt.Println("Deploying function to the cluster")
-	return c.deployer.Deploy(f)
+	return c.deployer.Deploy(ctx, f)
 }
 
 func (c *Client) Route(path string) (err error) {
@@ -468,9 +468,9 @@ func (c *Client) Run(ctx context.Context, root string) error {
 }
 
 // List currently deployed Functions.
-func (c *Client) List() ([]ListItem, error) {
+func (c *Client) List(ctx context.Context) ([]ListItem, error) {
 	// delegate to concrete implementation of lister entirely.
-	return c.lister.List()
+	return c.lister.List(ctx)
 }
 
 // Describe a Function.  Name takes precidence.  If no name is provided,
@@ -494,11 +494,11 @@ func (c *Client) Describe(name, root string) (d Description, err error) {
 
 // Remove a Function.  Name takes precidence.  If no name is provided,
 // the Function defined at root is used if it exists.
-func (c *Client) Remove(cfg Function) error {
+func (c *Client) Remove(ctx context.Context, cfg Function) error {
 	// If name is provided, it takes precidence.
 	// Otherwise load the Function deined at root.
 	if cfg.Name != "" {
-		return c.remover.Remove(cfg.Name)
+		return c.remover.Remove(ctx, cfg.Name)
 	}
 
 	f, err := NewFunction(cfg.Root)
@@ -508,7 +508,7 @@ func (c *Client) Remove(cfg Function) error {
 	if !f.Initialized() {
 		return fmt.Errorf("Function at %v can not be removed unless initialized.  Try removing by name.", f.Root)
 	}
-	return c.remover.Remove(f.Name)
+	return c.remover.Remove(ctx, f.Name)
 }
 
 // Manual implementations (noops) of required interfaces.
@@ -521,7 +521,7 @@ func (c *Client) Remove(cfg Function) error {
 
 type noopBuilder struct{ output io.Writer }
 
-func (n *noopBuilder) Build(_ Function) error { return nil }
+func (n *noopBuilder) Build(ctx context.Context, _ Function) error { return nil }
 
 type noopPusher struct{ output io.Writer }
 
@@ -529,7 +529,7 @@ func (n *noopPusher) Push(ctx context.Context, f Function) (string, error) { ret
 
 type noopDeployer struct{ output io.Writer }
 
-func (n *noopDeployer) Deploy(_ Function) error { return nil }
+func (n *noopDeployer) Deploy(ctx context.Context, _ Function) error { return nil }
 
 type noopRunner struct{ output io.Writer }
 
@@ -537,11 +537,11 @@ func (n *noopRunner) Run(_ context.Context, _ Function) error { return nil }
 
 type noopRemover struct{ output io.Writer }
 
-func (n *noopRemover) Remove(string) error { return nil }
+func (n *noopRemover) Remove(context.Context, string) error { return nil }
 
 type noopLister struct{ output io.Writer }
 
-func (n *noopLister) List() ([]ListItem, error) { return []ListItem{}, nil }
+func (n *noopLister) List(context.Context) ([]ListItem, error) { return []ListItem{}, nil }
 
 type noopDNSProvider struct{ output io.Writer }
 

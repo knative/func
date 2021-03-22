@@ -66,7 +66,7 @@ func TestList(t *testing.T) {
 		boson.WithVerbose(verbose))
 
 	// Act
-	names, err := client.List()
+	names, err := client.List(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,13 +85,13 @@ func TestNew(t *testing.T) {
 	client := newClient(verbose)
 
 	// Act
-	if err := client.New(boson.Function{Name: "testnew", Root: ".", Runtime: "go"}); err != nil {
+	if err := client.New(context.Background(), boson.Function{Name: "testnew", Root: ".", Runtime: "go"}); err != nil {
 		t.Fatal(err)
 	}
 	defer del(t, client, "testnew")
 
 	// Assert
-	items, err := client.List()
+	items, err := client.List(context.Background())
 	names := []string{}
 	for _, item := range items {
 		names = append(names, item.Name)
@@ -111,12 +111,12 @@ func TestDeploy(t *testing.T) {
 
 	client := newClient(verbose)
 
-	if err := client.New(boson.Function{Name: "deploy", Root: ".", Runtime: "go"}); err != nil {
+	if err := client.New(context.Background(), boson.Function{Name: "deploy", Root: ".", Runtime: "go"}); err != nil {
 		t.Fatal(err)
 	}
 	defer del(t, client, "deploy")
 
-	if err := client.Deploy(context.TODO(), "."); err != nil {
+	if err := client.Deploy(context.Background(), "."); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -128,16 +128,16 @@ func TestRemove(t *testing.T) {
 
 	client := newClient(verbose)
 
-	if err := client.New(boson.Function{Name: "remove", Root: ".", Runtime: "go"}); err != nil {
+	if err := client.New(context.Background(), boson.Function{Name: "remove", Root: ".", Runtime: "go"}); err != nil {
 		t.Fatal(err)
 	}
 	waitFor(t, client, "remove")
 
-	if err := client.Remove(boson.Function{Name: "remove"}); err != nil {
+	if err := client.Remove(context.Background(), boson.Function{Name: "remove"}); err != nil {
 		t.Fatal(err)
 	}
 
-	names, err := client.List()
+	names, err := client.List(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -204,7 +204,7 @@ func newClient(verbose bool) *boson.Client {
 func del(t *testing.T, c *boson.Client, name string) {
 	t.Helper()
 	waitFor(t, c, name)
-	if err := c.Remove(boson.Function{Name: name}); err != nil {
+	if err := c.Remove(context.Background(), boson.Function{Name: name}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -218,7 +218,7 @@ func waitFor(t *testing.T, c *boson.Client, name string) {
 	var pollInterval = 2 * time.Second
 
 	for { // ever (i.e. defer to global test timeout)
-		nn, err := c.List()
+		nn, err := c.List(context.Background())
 		if err != nil {
 			t.Fatal(err)
 		}

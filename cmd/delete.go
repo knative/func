@@ -71,7 +71,7 @@ func runDelete(cmd *cobra.Command, args []string) (err error) {
 		bosonFunc.WithVerbose(config.Verbose),
 		bosonFunc.WithRemover(remover))
 
-	return client.Remove(function)
+	return client.Remove(cmd.Context(), function)
 }
 
 type deleteConfig struct {

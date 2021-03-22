@@ -3,6 +3,7 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"github.com/pkg/errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -77,6 +78,10 @@ func Execute(ctx context.Context) {
 	root.Version = version.String()
 	// Execute the root of the command tree.
 	if err := root.ExecuteContext(ctx); err != nil {
+		if errors.Cause(err) == context.Canceled {
+			os.Exit(130)
+			return
+		}
 		// Errors are printed to STDERR output and the process exits with code of 1.
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)

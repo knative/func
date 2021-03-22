@@ -36,7 +36,7 @@ var RuntimeToBuildpack = map[string]string{
 }
 
 // Build the Function at path.
-func (builder *Builder) Build(f bosonFunc.Function) (err error) {
+func (builder *Builder) Build(ctx context.Context, f bosonFunc.Function) (err error) {
 
 	// Use the builder found in the Function configuration file
 	// If one isn't found, use the defaults
@@ -86,7 +86,7 @@ func (builder *Builder) Build(f bosonFunc.Function) (err error) {
 	}
 
 	// Build based using the given builder.
-	if err = packClient.Build(context.Background(), packOpts); err != nil {
+	if err = packClient.Build(ctx, packOpts); err != nil {
 		// If the builder was not showing logs, embed the full logs in the error.
 		if !builder.Verbose {
 			err = fmt.Errorf("%v\noutput: %s\n", err, logWriter.(*bytes.Buffer).String())

@@ -1,10 +1,7 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
-	"github.com/pkg/errors"
-
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
@@ -67,9 +64,6 @@ func runRun(cmd *cobra.Command, args []string) (err error) {
 		bosonFunc.WithVerbose(config.Verbose))
 
 	err = client.Run(cmd.Context(), config.Path)
-	if errors.Cause(err) == context.Canceled {
-		err = nil
-	}
 	return
 }
 

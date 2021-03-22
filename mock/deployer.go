@@ -1,6 +1,9 @@
 package mock
 
-import bosonFunc "github.com/boson-project/func"
+import (
+	"context"
+	bosonFunc "github.com/boson-project/func"
+)
 
 type Deployer struct {
 	DeployInvoked bool
@@ -13,7 +16,7 @@ func NewDeployer() *Deployer {
 	}
 }
 
-func (i *Deployer) Deploy(f bosonFunc.Function) error {
+func (i *Deployer) Deploy(ctx context.Context, f bosonFunc.Function) error {
 	i.DeployInvoked = true
 	return i.DeployFn(f)
 }
