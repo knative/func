@@ -8,11 +8,11 @@ import (
 	"strings"
 
 	"github.com/containers/image/v5/pkg/docker/config"
-	"github.com/pkg/errors"
-	"golang.org/x/crypto/ssh/terminal"
-
+	containersTypes "github.com/containers/image/v5/types"
 	"github.com/ory/viper"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
+	"golang.org/x/crypto/ssh/terminal"
 
 	bosonFunc "github.com/boson-project/func"
 	"github.com/boson-project/func/buildpacks"
@@ -20,7 +20,6 @@ import (
 	"github.com/boson-project/func/knative"
 	"github.com/boson-project/func/progress"
 	"github.com/boson-project/func/prompt"
-	containersTypes "github.com/containers/image/v5/types"
 )
 
 func init() {
