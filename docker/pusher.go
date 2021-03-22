@@ -72,7 +72,7 @@ func (n *Pusher) Push(ctx context.Context, f bosonFunc.Function) (digest string,
 	parts := strings.Split(f.Image, "/")
 	switch len(parts) {
 	case 2:
-		registry = "docker.io"
+		registry = bosonFunc.DefaultRegistry
 	case 3:
 		registry = parts[0]
 	default:
