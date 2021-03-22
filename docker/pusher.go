@@ -6,9 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-
-	bosonFunc "github.com/boson-project/func"
-
 	"io"
 	"os"
 	"regexp"
@@ -17,6 +14,8 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/pkg/errors"
+
+	bosonFunc "github.com/boson-project/func"
 )
 
 type Opt func(*Pusher) error
