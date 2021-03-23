@@ -1,1 +1,0 @@
-# Installing the VIM Plugin

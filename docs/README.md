@@ -1,17 +1,16 @@
-# Function Documentation
+# Boson Functions
 
-[Demo Screencast]
+[![Telegram Image Analysis](http://img.youtube.com/vi/CsYo0SmQ0Uk/0.jpg)](https://youtu.be/CsYo0SmQ0Uk "Telegram Image Analysis")
 
-`func` is a Client Library and CLI for enabling the development of implicitly deployed, platform agnostic code.
-
-For examples of what's possible, see the [Screencast Series](getting_started_screencast.md) or the [Functions Cookbook](functions_cookbook.md).
+`func` is a Client Library and CLI for enabling the development of implicitly deployed, platform agnostic functions.
 
 Functions can be written in the following languages:
 
 * Go (Golang)
 * Node.js (JavaScript)
 * Quarkus (Java)
-* Rust (Coming Soon)
+* SpringBoot (Java)
+* Python (Coming Soon)
 
 Functions can be deployed on the following platforms:
 
@@ -19,29 +18,20 @@ Functions can be deployed on the following platforms:
 * OpenShift
 * Localhost
 
+<!--
 [Quickstart Video]
-
+-->
 ## Client Installation
 
 [Install the latest CLI](installing_cli.md)
 
-<!-- Plugins coming soon
-[Install the VS Code Plugin](installing_vscode.md)
+Functions can be created and managed using the CLI interactively, scripted, or by direct integration with the client library.   The [Function Developer's Guide](guides/developers_guide.md)and examples herein demonstrate the CLI-based approach.  
 
-[Install the VIM Plugin](installing_vim.md)
-
-[Install the Emacs Extension](installing_emacs.md)
--->
-
-Functions can be created and managed using the CLI interactively, scripted, or by direct integration with the client library.   The [Function Developer's Guide](developers_guide.md)and examples herein demonstrate the CLI-based approach.  
-
-For direct integration using the Go client library, it is advisible to first follow these CLI-based guides to become familiar with creating and deploying software in this way, and then proceed to the [Function Integrator's Guide](integrators_guide.md).
+For direct integration using the Go client library, it is advisible to first follow these CLI-based guides to become familiar with creating and deploying software in this way, and then proceed to the [Function Integrator's Guide](guides/integrators_guide.md).
 
 ## Platform Configuration
 
 [Getting Started with Kubernetes](getting_started_kubernetes.md)
-
-[Getting Started with OpenShift](getting_started_openshift.md)
 
 [Getting Started on Localhost](getting_started_localhost.md)
 
@@ -49,14 +39,8 @@ Functions are portable between different infrastructure configurations.  While y
 
 ## Function Development
 
-[Function Developer's Guide](developers_guide.md)
+[Function Developer's Guide](guides/developers_guide.md)
 
 Any code which provides one of a set of supported function signatures can be deployed to any of the supported platforms using this client library.  No process boundary code, container, or configuration outside of the function itself is required.
 
 At their most fundamental, a Function is a set of instructions which export a public function whose method signature conforms to one of the supported forms.  It is implicitly deployed to a supported platform when created using the client library, and can be migrated between platforms without code changes.  Runtime execution is handled by the platform, which may offer guarantees such as autoscaling and load balancing.  
-
-
-## Learn More
-
-[Function Architecture](architecture.md)
-

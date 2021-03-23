@@ -1,26 +1,14 @@
 # Installing the CLI
 
-The CLI can be used to invoke most features of the function system.  One can choose to run the container, install one of the pre-built binaries, or compile from source.
+The CLI is used to create, build and deploy functions.  To use it, install one of the pre-built binaries, or compile from source.
 
-### Container
-
-The latest release can be run as a container:
-```
-docker run quay.io/boson/func
-```
-To run a specific version of the CLI, use the version desired as the image tag:
-```
-docker run quay.io/boson/func:v0.9.0
-```
-
-### Prebuilt Binary
+## Prebuilt Binary
 
 Download the latest binary appropriate for your system from the [Latest Release](https://github.com/boson-project/func/releases/latest/).
 
 Each version is built and made available as a prebuilt binary.  See [All Releases](https://github.com/boson-project/func/releases/).
 
-### From Source
-
+## From Source
 
 To build and install from source check out the repository, run `make`, and install the resultant binary:
 ```
