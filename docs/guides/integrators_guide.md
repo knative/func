@@ -1,6 +1,6 @@
 # Integrator's Guide
 
-Developer's can integrate directly with the Function system using the client library upon which the `func` CLI is based.  Before beginning this section, you should have a configured provider and be familiar with the topics covered in the [developer's guide](docs/developers_guide.md).
+Developers can integrate directly with the Function system using the client library upon which the `func` CLI is based.  Before beginning this section, you should have a configured provider and be familiar with the topics covered in the [developer's guide](developers_guide.md).
 
 ## Using the Client Library
 

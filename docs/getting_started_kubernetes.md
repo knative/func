@@ -8,9 +8,9 @@ This guide was developed using the dependency versions listed in their requisite
 
 Any Kubernetes-compatible API should be capable.  Included herein are instructions for two popular variants: Kind and EKS.
 
-[Provision using Kind](provision_kind.md)
+[Provision using Kind](provisioning/provision_kind.md)
 
-[Provision using Amazon EKS](provision_eks.md)
+[Provision using Amazon EKS](provisioning/provision_eks.md)
 
 ## Configuring the Cluster
 
