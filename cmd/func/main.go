@@ -22,6 +22,9 @@ func main() {
 	go func() {
 		<-sigs
 		cancel()
+		// second sigint/sigterm is treated as sigkill
+		<-sigs
+		os.Exit(137)
 	}()
 
 	cmd.SetMeta(date, vers, hash)

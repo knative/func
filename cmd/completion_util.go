@@ -19,7 +19,7 @@ func CompleteFunctionList(cmd *cobra.Command, args []string, toComplete string) 
 		directive = cobra.ShellCompDirectiveError
 		return
 	}
-	list, err := lister.List()
+	list, err := lister.List(cmd.Context())
 	if err != nil {
 		directive = cobra.ShellCompDirectiveError
 		return

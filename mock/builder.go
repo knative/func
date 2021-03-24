@@ -1,6 +1,9 @@
 package mock
 
-import bosonFunc "github.com/boson-project/func"
+import (
+	"context"
+	bosonFunc "github.com/boson-project/func"
+)
 
 type Builder struct {
 	BuildInvoked bool
@@ -13,7 +16,7 @@ func NewBuilder() *Builder {
 	}
 }
 
-func (i *Builder) Build(f bosonFunc.Function) error {
+func (i *Builder) Build(ctx context.Context, f bosonFunc.Function) error {
 	i.BuildInvoked = true
 	return i.BuildFn(f)
 }

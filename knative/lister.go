@@ -1,6 +1,7 @@
 package knative
 
 import (
+	"context"
 	corev1 "k8s.io/api/core/v1"
 	clientservingv1 "knative.dev/client/pkg/serving/v1"
 	"knative.dev/pkg/apis"
@@ -31,7 +32,7 @@ func NewLister(namespaceOverride string) (l *Lister, err error) {
 	return
 }
 
-func (l *Lister) List() (items []bosonFunc.ListItem, err error) {
+func (l *Lister) List(context.Context) (items []bosonFunc.ListItem, err error) {
 
 	client, err := NewServingClient(l.Namespace)
 	if err != nil {

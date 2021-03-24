@@ -133,7 +133,7 @@ func runDeploy(cmd *cobra.Command, _ []string) (err error) {
 		bosonFunc.WithProgressListener(listener))
 
 	if config.Build {
-		if err := client.Build(config.Path); err != nil {
+		if err := client.Build(cmd.Context(), config.Path); err != nil {
 			return err
 		}
 	}

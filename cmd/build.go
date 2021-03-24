@@ -6,8 +6,8 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
-	"github.com/boson-project/func/buildpacks"
 	bosonFunc "github.com/boson-project/func"
+	"github.com/boson-project/func/buildpacks"
 	"github.com/boson-project/func/prompt"
 )
 
@@ -100,7 +100,7 @@ func runBuild(cmd *cobra.Command, _ []string) (err error) {
 		bosonFunc.WithRegistry(config.Registry), // for deriving image name when --image not provided explicitly.
 		bosonFunc.WithBuilder(builder))
 
-	return client.Build(config.Path)
+	return client.Build(cmd.Context(), config.Path)
 }
 
 type buildConfig struct {
