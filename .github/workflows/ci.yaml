@@ -10,6 +10,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
+        with:
+          go-version: '^1.16'
       - name: Test
         run:  make test
       - name: Lint
@@ -19,8 +21,11 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/setup-go@v2
       - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: '^1.16'
+      # Release
       # Create a release, or update the release PR
       - uses: GoogleCloudPlatform/release-please-action@v2.24.1
         id: release
@@ -47,6 +52,7 @@ jobs:
           git push origin :v${{steps.release.outputs.major}}.${{steps.release.outputs.minor}}.${{steps.release.outputs.patch}} || true
           git tag -a v${{steps.release.outputs.major}}.${{steps.release.outputs.minor}}.${{steps.release.outputs.patch}} -m "Release v${{steps.release.outputs.major}}.${{steps.release.outputs.minor}}.${{steps.release.outputs.patch}}"
           git push origin v${{steps.release.outputs.major}}.${{steps.release.outputs.minor}}.${{steps.release.outputs.patch}} || true
+      # Build
       # Standard build tasks
       - name: Build
         run:  make cross-platform
@@ -60,7 +66,9 @@ jobs:
         # env:
         #   VERS: ${{ steps.release.outputs.tag_name }}
 
-      # Upload all build artifacts whether it's a release or not
+      # Upload 
+      # All build artifacts are uploaded whether release or not
+      # Non-release binaries have a verbose version `tip-[git hash]-[build timestamp]`
       - uses: actions/upload-artifact@v2
         with:
           name: OSX Binary

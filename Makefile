@@ -53,6 +53,7 @@ $(WINDOWS):
 test: test-binary test-node test-python test-quarkus test-go
 
 test-binary:
+	go generate
 	go test -race -cover -coverprofile=coverage.out ./...
 
 test-node:
@@ -72,6 +73,7 @@ test-go:
 	cd templates/go/http && go test
 
 test-integration:
+	go generate
 	go test -tags integration ./...
 
 image: Dockerfile
@@ -108,5 +110,6 @@ cluster: ## Set up a local cluster for integraiton tests.
 	./hack/allocate.sh && ./hack/configure.sh
 
 clean:
-	rm -f $(BIN) $(WINDOWS) $(LINUX) $(DARWIN) $(TEMPLATES)
+	rm -f $(BIN) $(WINDOWS) $(LINUX) $(DARWIN)
+	rm -f templates.tgz
 	-rm -f coverage.out
