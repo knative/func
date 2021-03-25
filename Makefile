@@ -21,6 +21,11 @@ build: all
 all: $(TEMPLATE_PACKAGE) $(BIN)
 
 $(TEMPLATE_PACKAGE): templates $(TEMPLATE_DIRS) $(TEMPLATE_FILES)
+  # ensure no cached dependencies are added to the binary
+	rm -rf templates/node/events/node_modules
+	rm -rf templates/node/http/node_modules
+	rm -rf templates/python/events/__pycache__
+	rm -rf templates/python/http/__pycache__
 	# to install pkger:  go get github.com/markbates/pkger/cmd/pkger
 	$(PKGER)
 
@@ -44,7 +49,7 @@ $(LINUX):
 $(WINDOWS):
 	env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o $(WINDOWS) -ldflags "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)" ./cmd/$(BIN)
 
-test: test-binary test-node test-quarkus test-go
+test: test-binary test-node test-python test-quarkus test-go
 
 test-binary:
 	go test -race -cover -coverprofile=coverage.out ./...
@@ -52,6 +57,10 @@ test-binary:
 test-node:
 	cd templates/node/events && npm ci && npm test && rm -rf node_modules
 	cd templates/node/http && npm ci && npm test && rm -rf node_modules
+
+test-python:
+	cd templates/python/events && pip3 install -r requirements.txt && python3 test_func.py
+	cd templates/python/http && python3 test_func.py
 
 test-quarkus:
 	cd templates/quarkus/events && mvn test
