@@ -169,7 +169,7 @@ func readDir(src string, files fs.FS) ([]fs.DirEntry, error) {
 	}
 
 	if !fi.IsDir() {
-		return nil, errors.New(fmt.Sprintf("%v must be a directory", fi.Name()))
+		return nil, fmt.Errorf("%v must be a directory", fi.Name())
 	}
 	list, err := f.(fs.ReadDirFile).ReadDir(-1)
 	if err != nil {
