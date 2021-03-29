@@ -50,6 +50,8 @@ type templateWriter struct {
 var (
 	ErrRepositoryNotFound        = errors.New("repository not found")
 	ErrRepositoriesNotDefined    = errors.New("custom template location not specified")
+	ErrRuntimeNotFound           = errors.New("runtime not found")
+	ErrTemplateNotFound          = errors.New("template not found")
 	ErrTemplateMissingRepository = errors.New("template name missing repository prefix")
 )
 
@@ -105,12 +107,19 @@ func (t *templateWriter) writeCustom(repositories, runtime, template, dest strin
 }
 
 func (t *templateWriter) writeEmbedded(runtime, template, dest string) error {
-	_, err := fs.Stat(t.templates, filepath.Join("templates", runtime, template))
-	if err != nil {
-		return err
+	runtimePath := filepath.Join("templates", runtime)
+	_, err := fs.Stat(t.templates, runtimePath)
+	if errors.Is(err, fs.ErrNotExist) {
+		return ErrRuntimeNotFound
 	}
-	src := filepath.Join("templates", runtime, template)
-	return t.cp(src, dest, t.templates)
+
+	templatePath := filepath.Join("templates", runtime, template)
+	_, err = fs.Stat(t.templates, templatePath)
+	if errors.Is(err, fs.ErrNotExist) {
+		return ErrTemplateNotFound
+	}
+
+	return t.cp(templatePath, dest, t.templates)
 }
 
 func repositoryExists(repositories, template string) bool {
