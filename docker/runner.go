@@ -52,8 +52,9 @@ func (n *Runner) Run(ctx context.Context, f bosonFunc.Function) error {
 		envs = append(envs, "VERBOSE=true")
 	}
 
+	httpPort := nat.Port("8080/tcp")
 	ports := map[nat.Port][]nat.PortBinding{
-		nat.Port("8080/tcp"): {
+		httpPort: {
 			nat.PortBinding{
 				HostPort: "8080",
 				HostIP:   "127.0.0.1",
@@ -68,6 +69,7 @@ func (n *Runner) Run(ctx context.Context, f bosonFunc.Function) error {
 		AttachStdout: true,
 		AttachStdin:  false,
 		Image:        f.Image,
+		ExposedPorts: map[nat.Port]struct{}{httpPort: {}},
 	}
 
 	hostConf := &container.HostConfig{
