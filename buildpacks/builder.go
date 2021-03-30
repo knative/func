@@ -33,6 +33,7 @@ var RuntimeToBuildpack = map[string]string{
 	"node":       "quay.io/boson/faas-nodejs-builder",
 	"go":         "quay.io/boson/faas-go-builder",
 	"springboot": "quay.io/boson/faas-springboot-builder",
+	"python":     "quay.io/boson/faas-python-builder",
 }
 
 // Build the Function at path.
@@ -61,9 +62,9 @@ func (builder *Builder) Build(ctx context.Context, f bosonFunc.Function) (err er
 	}
 
 	packOpts := pack.BuildOptions{
-		AppPath: f.Root,
-		Image:   f.Image,
-		Builder: packBuilder,
+		AppPath:    f.Root,
+		Image:      f.Image,
+		Builder:    packBuilder,
 		DockerHost: os.Getenv("DOCKER_HOST"),
 		ContainerConfig: struct {
 			Network string
