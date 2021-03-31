@@ -43,7 +43,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       # Create a release, or update the release PR
-      - uses: GoogleCloudPlatform/release-please-action@v2.5.5
+      - uses: GoogleCloudPlatform/release-please-action@v2.24.1
         id: release
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -63,6 +63,7 @@ jobs:
         run:  make cross-platform
         env:
           PKGER: "./pkger"
+          VERSION: ${{ steps.release.outputs.tag_name }}
 
       # Upload all build artifacts whether it's a release or not
       - uses: actions/upload-artifact@v2

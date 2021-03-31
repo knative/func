@@ -11,7 +11,10 @@ CODE := $(shell find . -name '*.go')
 DATE := $(shell date -u +"%Y%m%dT%H%M%SZ")
 HASH := $(shell git rev-parse --short HEAD 2>/dev/null)
 VTAG := $(shell git tag --points-at HEAD)
-VERS := $(shell [ -z $(VTAG) ] && echo 'tip' || echo $(VTAG) )
+# a VERS environment variable takes precedence over git tags
+# due to issues with release-please-action tagging not working
+# as expected in CI
+VERS ?= $(shell [ -z $(VTAG) ] && echo 'tip' || echo $(VTAG) )
 
 TEMPLATE_DIRS=$(shell find templates -type d)
 TEMPLATE_FILES=$(shell find templates -type f -name '*')
