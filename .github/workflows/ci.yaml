@@ -63,7 +63,7 @@ jobs:
         run:  make cross-platform
         env:
           PKGER: "./pkger"
-          VERSION: ${{ steps.release.outputs.tag_name }}
+          VERS: ${{ steps.release.outputs.tag_name }}
 
       # Upload all build artifacts whether it's a release or not
       - uses: actions/upload-artifact@v2
