@@ -42,7 +42,7 @@ func main() {
 		Trigger: "events",
 		Name: "my-function",
 		Image: "quay.io/alice/my-function",
-		Root: "example",
+		Root: "my-function",
 	}
 	if err := client.Create(funcTest); err != nil {
 		log.Fatal(err)
