@@ -9,31 +9,44 @@ To create a Client which uses the included buildpacks-based function builder, pu
 package main
 
 import (
-  "log"
-
-  bosonFunc "github.com/boson-project/func"
-  "github.com/boson-project/func/buildpacks"
-  "github.com/boson-project/func/docker"
-  "github.com/boson-project/func/embedded"
-  "github.com/boson-project/func/knative"
+	bosonFunc "github.com/boson-project/func"
+	"github.com/boson-project/func/buildpacks"
+	"github.com/boson-project/func/docker"
+	"github.com/boson-project/func/knative"
+	"log"
 )
 
 func main() {
-  // A client which uses embedded function templates,
-  // Quay.io/alice for interstitial build artifacts.
-  // Docker to build and push, and a Knative client for deployment.
-  client, err := bosonFunc.New(
-    bosonFunc.WithInitializer(embedded.NewInitializer("")),
-    bosonFunc.WithBuilder(buildpacks.NewBuilder("quay.io/alice/my-function")),
-    bosonFunc.WithPusher(docker.NewPusher()),
-    bosonFunc.WithDeployer(knative.NewDeployer()))
+	pusher, err := docker.NewPusher()
+	if err != nil {
+		log.Fatal(err)
+	}
+	deployer, err := knative.NewDeployer("")
+	if err != nil {
+		log.Fatal(err)
+	}
+	// A client which uses embedded function templates,
+	// Quay.io/alice for interstitial build artifacts.
+	// Docker to build and push, and a Knative client for deployment.
+	client := bosonFunc.New(
+		bosonFunc.WithBuilder(buildpacks.NewBuilder()),
+		bosonFunc.WithPusher(pusher),
+		bosonFunc.WithDeployer(deployer),
+		bosonFunc.WithRegistry("quay.io/alice"))
 
-  // Create a Go function which listens for CloudEvents.
-  // Publicly routable as https://www.example.com.
-  // Local implementation is written to the current working directory.
-  if err := client.Create("go", "events", "my-function", "quay.io/alice/my-function:v1.0"); err != nil {
-    log.Fatal(err)
-  }
+	// Create a Go function which listens for CloudEvents.
+	// Publicly routable as https://www.example.com.
+	// Local implementation is written to the current working directory.
+	funcTest := bosonFunc.Function{
+		Runtime: "go",
+		Trigger: "events",
+		Name: "my-function",
+		Image: "quay.io/alice/my-function",
+		Root: "my-function",
+	}
+	if err := client.Create(funcTest); err != nil {
+		log.Fatal(err)
+	}
 }
 ```
 
