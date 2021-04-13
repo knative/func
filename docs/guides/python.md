@@ -98,7 +98,7 @@ that responds to a `CloudEvent` or simple HTTP. `CloudEvents` in Knative are tra
 HTTP as a `POST` request, so in many ways, the two types of functions are very much the same.
 They each will listen and respond to incoming HTTP events.
 
-When an inacoming request is received, your function will be invoked with a `Context`
+When an incoming request is received, your function will be invoked with a `Context`
 object as the first parameter. This object is a Python class with two attributes. The
 `request` attribute will always be present, and contains the Flask `request` object.
 The second attribute, `cloud_event`, will be populated if the incoming request is a
