@@ -1,6 +1,7 @@
 # Boson Functions
 
-[![Telegram Image Analysis](http://img.youtube.com/vi/CsYo0SmQ0Uk/0.jpg)](https://youtu.be/CsYo0SmQ0Uk "Telegram Image Analysis")
+### Telegram Image Analysis Demo Screencast
+[![Telegram Image Analysis Demo Screencast](http://img.youtube.com/vi/CsYo0SmQ0Uk/0.jpg)](https://youtu.be/CsYo0SmQ0Uk "Telegram Image Analysis Demo Screencast")
 
 `func` is a Client Library and CLI for enabling the development of implicitly deployed, platform agnostic functions.
 

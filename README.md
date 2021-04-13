@@ -7,8 +7,6 @@
 [![License](https://img.shields.io/github/license/boson-project/func)](https://github.com/boson-project/func/blob/main/LICENSE)
 [![Release](https://img.shields.io/github/release/boson-project/func.svg?label=Release)](https://github.com/boson-project/func/releases)
 
-[Demo Screencast]
-
 `func` is a Client Library and CLI for enabling the development of implicitly deployed, platform agnostic code.
 
 [Read the Documentation](docs/README.md)
