@@ -5,14 +5,14 @@ looks like a typical Python project. Both HTTP and Event functions have the same
 template structure.
 
 ```
-~/src/pfunk
+~/src/fn
 ❯ kn func create -l python
-Project path: /home/lanceball/src/pfunk
-Function name: pfunk
+Project path: /home/developer/src/fn
+Function name: fn
 Runtime: python
 Trigger: http
 
-~/src/pfunk via 🐍 v3.8.5
+~/src/fn via 🐍 v3.8.5
 ❯ tree
 .
 ├── func.py
@@ -98,20 +98,22 @@ that responds to a `CloudEvent` or simple HTTP. `CloudEvents` in Knative are tra
 HTTP as a `POST` request, so in many ways, the two types of functions are very much the same.
 They each will listen and respond to incoming HTTP events.
 
-When an inacoming request is received, your function will be invoked with a `Context` object as the first parameter. This object is simply a Python `dict` with two keys, `request` and
-optionally, `cloud_event`, if the incoming request is a `CloudEvent`. The `request` value
-is the Flask request objext. Developers may access any event data from the context objext.
-For example: 
+When an inacoming request is received, your function will be invoked with a `Context`
+object as the first parameter. This object is a Python class with two attributes. The
+`request` attribute will always be present, and contains the Flask `request` object.
+The second attribute, `cloud_event`, will be populated if the incoming request is a
+`CloudEvent`. Developers may access any `CloudEvent` data from the context objext.
+For example:
 
 ```python
 def main(context: Context):
-  """ 
-  The context parameter contains the Flask request object and any
-  CloudEvent received with the request.
-  """
-  print(f"Method: {context['request'].method}")
-  print(f"Event data {context['cloud_event'].data})
-  # ... business logic here
+    """ 
+    The context parameter contains the Flask request object and any
+    CloudEvent received with the request.
+    """
+    print(f"Method: {context.request.method}")
+    print(f"Event data {context.cloud_event.data})
+    # ... business logic here
 ```
 
 ### Return Values
@@ -123,20 +125,39 @@ for more information.
 #### Example
 ```python
 def main(context: Context):
-  attributes = {
-    "type": "com.example.fn",
-    "source": "https://example.com/fn"
-  }
-  data = { "message": "Howdy!" }
-  event = CloudEvent(attributes, data)
-  headers, body = to_binary(event)
-  return body, 200, headers
+    data = { "message": "Howdy!" }
+    headers = { "content-type": "application/json" }
+    return body, 200, headers
 ```
 
 Note that functions may set both headers and response codes as secondary
-and tertiary response values from function invocation. 
+and tertiary response values from function invocation.
+
+### CloudEvents
+All event messages in Knative are sent as `CloudEvents` over HTTP. As noted
+above, function developers may access an event through the `context` parameter
+when the function is invoked. Additionally, developers may use an `@event`
+decorator to inform the invoker that this function's return value should be
+converted to a `CloudEvent` before sending the response. For example:
+
+```python
+@event("event_source"="/my/function", "event_type"="my.type")
+def main(context):
+    # business logic here
+    data = do_something()
+    # more data processing
+    return data
+```
+
+This will result in a `CloudEvent` as the response value, with a type of
+`"my.type"`, a source of `"/my/function"`, and the data property set to `data`.
+Both the `event_source` and `event_type` decorator attributes are optional.
+If not supplied, the CloudEvent's source attribute will be set to
+`"/parliament/function"` and the type will be set to `"parliament.response"`.
 
 ## Dependencies
 Developers are not restricted to the dependencies provided in the template
 `requirements.txt` file. Additional dependencies can be added as they would be
 in any other project by simply adding them to the `requirements.txt` file.
+When the project is built for deployment, these dependencies will be included
+in the container image.
