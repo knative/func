@@ -1,4 +1,4 @@
-# Python Developer's Guide
+# Python Function Developer's Guide
 
 When creating a Python function using the `func` CLI, the project directory
 looks like a typical Python project. Both HTTP and Event functions have the same
