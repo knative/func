@@ -16,4 +16,11 @@ public class Output {
     public void setMessage(String message) {
         this.message = message;
     }
+
+    @Override
+    public String toString() {
+        return "Output{" +
+                "message='" + message + '\'' +
+                '}';
+    }
 }

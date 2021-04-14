@@ -1,5 +1,6 @@
 package functions;
 
+import io.quarkus.funqy.knative.events.CloudEventBuilder;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.RestAssured;
 import org.hamcrest.CoreMatchers;
@@ -14,7 +15,7 @@ public class FunctionTest {
 
     @Test
     void testFunction() {
-        Output output = (new Function()).function(new Input("Hello!"), null);
+        Output output = (new Function()).function(CloudEventBuilder.create().build(new Input("Hello!"))).data();
         Assertions.assertEquals("Hello!", output.getMessage());
     }
 

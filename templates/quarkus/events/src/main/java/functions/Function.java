@@ -3,21 +3,15 @@ package functions;
 import io.quarkus.funqy.Context;
 import io.quarkus.funqy.Funq;
 import io.quarkus.funqy.knative.events.CloudEvent;
+import io.quarkus.funqy.knative.events.CloudEventBuilder;
 
 public class Function {
 
     @Funq
-    public Output function(Input input, @Context CloudEvent cloudEvent) {
-        if (cloudEvent != null) {
-            System.out.println(
-                    "CloudEvent{" +
-                            "id='" + cloudEvent.id() + '\'' +
-                            ", specVersion='" + cloudEvent.specVersion() + '\'' +
-                            ", source='" + cloudEvent.source() + '\'' +
-                            ", subject='" + cloudEvent.subject() + '\'' +
-                            '}');
-        }
-        return new Output(input.getMessage());
+    public CloudEvent<Output> function(CloudEvent<Input> input) {
+        System.out.println(input);
+        Output output = new Output(input.data().getMessage());
+        return CloudEventBuilder.create().build(output);
     }
 
 }
