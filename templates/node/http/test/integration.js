@@ -32,7 +32,7 @@ test('Integration: handles an HTTP POST', t => {
       .expect('Content-Type', /json/)
       .end((err, res) => {
         t.error(err, 'No error');
-        t.deepEqual(res.body, { body: { name: 'tiger' }, name: 'tiger' });
+        t.deepEqual(res.body, { name: 'tiger' });
         t.end();
         server.close();
       });
