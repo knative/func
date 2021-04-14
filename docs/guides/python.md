@@ -11,9 +11,8 @@ Function name: fn
 Runtime: python
 Trigger: http
 
-~/src/fn via 🐍 v3.8.5
 ❯ tree
-.
+fn
 ├── func.py
 ├── func.yaml
 ├── requirements.txt
