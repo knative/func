@@ -1,2 +1,1 @@
-werkzeug
-typing_extensions
+parliament
