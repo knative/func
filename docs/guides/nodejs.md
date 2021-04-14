@@ -1,18 +1,18 @@
-# Node.js Developer's Guide
+# Node.js Function Developer's Guide
 
 When creating a Node.js function using the `func` CLI, the project directory
 looks like a typical Node.js project. Both HTTP and Event functions have the same
 template structure.
 
 ```
-❯ func create
-Project path: /home/lanceball/projects/fn
+❯ func create fn
+Project path: /home/developer/projects/fn
 Function name: fn
 Runtime: node
 Trigger: http
 
-❯ tree
-.
+❯ tree fn
+fn
 ├── func.yaml
 ├── index.js
 ├── package.json
@@ -99,7 +99,7 @@ that responds to a `CloudEvent` or simple HTTP. `CloudEvents` in Knative are tra
 HTTP as a `POST` request, so in many ways, the two types of functions are very much the same.
 They each will listen and respond to incoming HTTP events.
 
-When an inacoming request is received, your function will be invoked with a `Context` object as the first parameter. If the incoming request is a `CloudEvent`, any data associated with the `CloudEvent` is extracted from the event and provided as a second parameter. For example, a `CloudEvent` is received which contains a JSON string such as this in its data property, 
+When an incoming request is received, your function will be invoked with a `Context` object as the first parameter. If the incoming request is a `CloudEvent`, any data associated with the `CloudEvent` is extracted from the event and provided as a second parameter. For example, a `CloudEvent` is received which contains a JSON string such as this in its data property, 
 
 ```json
 { 
