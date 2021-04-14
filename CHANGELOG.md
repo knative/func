@@ -1,6 +1,13 @@
 # Change Log
 
 <a name="unreleased"></a>
+### [0.12.1](https://www.github.com/boson-project/func/compare/v0.12.0...v0.12.1) (2021-04-14)
+
+
+### Bug Fixes
+
+* build needs to use legacy jar ([129dc5a](https://www.github.com/boson-project/func/commit/129dc5a8348dc8e4e14f5891871cf6b50ae35ccc))
+
 ## [0.12.0](https://www.github.com/boson-project/func/compare/v0.11.0...v0.12.0) (2021-03-30)
 
 
