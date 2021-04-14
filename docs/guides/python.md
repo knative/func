@@ -5,8 +5,7 @@ looks like a typical Python project. Both HTTP and Event functions have the same
 template structure.
 
 ```
-~/src/fn
-❯ kn func create -l python
+❯ func create -l python fn
 Project path: /home/developer/src/fn
 Function name: fn
 Runtime: python
