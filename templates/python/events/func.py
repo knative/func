@@ -1,23 +1,15 @@
-from werkzeug import Request
-from typing_extensions import TypedDict
-from cloudevents.http import CloudEvent, to_binary
+from parliament import Context, event
 
-class Context(TypedDict):
-    request: Request
-    cloud_event: CloudEvent
 
+@event
 def main(context: Context):
-  """ 
-  Function template
-  The context parameter contains the Flask request object and any
-  CloudEvent received with the request.
-  """
-  # print(f"Method: {context['request'].method}")
-  attributes = {
-    "type": "com.example.fn",
-    "source": "https://example.com/fn"
-  }
-  data = { "message": "Howdy!" }
-  event = CloudEvent(attributes, data)
-  headers, body = to_binary(event)
-  return body, 200, headers
+    """
+    Function template
+    The context parameter contains the Flask request object and any
+    CloudEvent received with the request.
+    """
+    # print(f"Method: {context.request.method}")
+
+    # The return value here will be applied as the data attribute
+    # of a CloudEvent returned to the function invoker
+    return { "message": "Howdy!" }
