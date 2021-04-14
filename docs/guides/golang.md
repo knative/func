@@ -81,7 +81,7 @@ Yo can run this test locally as you would do with any Go project.
 
 Boson Go functions have very few restrictions. You can add any required dependencies
 in `go.mod` and you may include additional local Go files. The only real requirement are 
-that your project is defined in `function` module and exports function `Handle()` 
+that your project is defined in a `function` module and exports the function `Handle()` 
 (supported contracts of this function will be discussed more deeply later).
 In this section, we will look in a little more detail at how Boson functions are invoked,
 and what APIs are available to you as a developer.
@@ -122,7 +122,7 @@ func Handle(ctx context.Context, res http.ResponseWriter, req *http.Request) {
 #### Function triggered by CloudEvent
 
 If the incoming request is a `CloudEvent`, the event is provided via
-[CloudEvents Golang SDK](https://cloudevents.github.io/sdk-go/) and it's `Event` type
+[CloudEvents Golang SDK](https://cloudevents.github.io/sdk-go/) and its `Event` type
 as a parameter. There's possibility to leverage Golang's
 [Context](https://golang.org/pkg/context/) as the optional parameter in the function contract,
 as you can see in the list of supported function signatures:
@@ -244,7 +244,7 @@ other Golang project.
 
 ### Example
 ```console
-go get github.com/cloudevents/sdk-go/v2@v2.4.0
+go get gopkg.in/yaml.v2@v2.4.0
 ```
 
 When the project is built for deployment, these dependencies will be included
