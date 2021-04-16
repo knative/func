@@ -1,4 +1,4 @@
-# Quarkus Developer's Guide
+# Quarkus Function Developer's Guide
 
 When creating a Quarkus function using the `func` CLI, the project directory
 looks like a typical `maven` project. Both HTTP and Event functions have the same
