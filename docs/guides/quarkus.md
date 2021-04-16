@@ -135,7 +135,7 @@ Expecting data that may be represented in JSON like this:
 Depending on the deployment, this function will be invoked in one of three ways:
 * An incoming `CloudEvent` with a JSON object such as above in its `data` property.
 * An ordinary HTTP POST with a JSON object such as above in the body of the request
-* An ordinary HTTP GET with a query string like `customerId=0123456&productId6543210`
+* An ordinary HTTP GET with a query string like `?customerId=0123456&productId=6543210`
 
 ### Return Values
 Functions may return an instance of type satisfying condition described in [Types](#types).
