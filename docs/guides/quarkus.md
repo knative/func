@@ -82,7 +82,7 @@ You can get the URL for your deployed function with the `describe` command.
 
 Quarkus functions can be tested locally on your computer.
 The project contains tests which you can run.
-You do this as you would with any maven project.
+You do this as you would with any Maven project.
 
 ```
 ❯ mvn test
