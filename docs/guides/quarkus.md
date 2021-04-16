@@ -107,29 +107,8 @@ The instance will contain one of:
 * Body of HTTP POST request
 * Query parameters of HTTP GET request
 
-For example, if `CloudEvent` contains a JSON object such as this in its data property
-(or if an ordinary HTTP POST that contains such an object in body),
-
-```json
-{
-  "customerId": "0123456",
-  "productId": "6543210"
-}
-```
-
-you might want to use JavaBean similar to this as an input parameter:
-
-```java
-public class Purchase {
-    private long customerId;
-    private long productId;
-    
-    // getters and setter here
-}
-```
-
-and function signature could look like this:
-
+For example, imagine a function that is meant to receive and process purchase data.
+Your function signature may look like this:
 ```java
 public class Functions {
     @Funq
@@ -138,6 +117,25 @@ public class Functions {
     }
 }
 ```
+With a `Purchase` bean that looks like this:
+```java
+public class Purchase {
+    private long customerId;
+    private long productId;
+    // getters and setter here
+}
+```
+Expecting data that may be represented in JSON like this:
+```json
+{
+  "customerId": "0123456",
+  "productId": "6543210"
+}
+```
+Depending on the deployment, this function will be invoked in one of three ways:
+* An incoming `CloudEvent` with a JSON object such as above in its `data` property.
+* An ordinary HTTP POST with a JSON object such as above in the body of the request
+* An ordinary HTTP GET with a query string like `customerId=0123456&productId6543210
 
 ### Return Values
 Functions may return an instance of type satisfying condition described in [Types](#types).
