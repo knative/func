@@ -150,7 +150,7 @@ This is useful when the function calls asynchronous APIs (e.g. Vert.x HTTP clien
 The object you return will be serialized in the same format as the object you received.
 
 If the function received `CloudEvent` in binary encoding,
-then the object you return will be sent as `data` of binary encoded `CloudEvent`.
+then the object you return will be sent in the `data` property of a binary encoded `CloudEvent`.
 
 If the function received vanilla HTTP,
 then the object you return will be sent as body in HTTP response.
