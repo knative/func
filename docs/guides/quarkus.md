@@ -152,7 +152,10 @@ If the function received `CloudEvent` in binary encoding,
 then the object you return will be sent in the `data` property of a binary encoded `CloudEvent`.
 
 If the function received vanilla HTTP,
-then the object you return will be sent as body in HTTP response.
+then the object you return will be sent as the HTTP response body. In the example below, an invocation of this function
+through an incoming `CloudEvent`, will receive a response with a `CloudEvent` containing a list of purchases as its 
+`data` property. If the invocation was via an ordinary HTTP request, the response will contain the same list of purchases
+in the HTTP response body, but no `CloudEvent` headers will be included.
 
 #### Example
 ```java
