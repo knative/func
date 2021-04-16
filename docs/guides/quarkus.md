@@ -142,7 +142,6 @@ public class Functions {
 ### Return Values
 Functions may return an instance of type satisfying condition described in [Types](#types).
 
-
 You can also return `Uni<T>`.
 Note that the type parameter of `Uni<T>` must satisfy conditions described in [Types](#types).
 This is useful when the function calls asynchronous APIs (e.g. Vert.x HTTP client).
