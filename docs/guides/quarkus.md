@@ -175,7 +175,7 @@ Input or output type of function can be:
 * JavaBeans (the attributes of the JavaBeans also must follow rules defined here)
 * Map, List or Array of the above
 
-There is one special type: `CloudEvents<T>` described below [CloudEvent attributes](#cloudevent-attributes).
+In addition to above, there is one special type: `CloudEvents<T>` described below [CloudEvent attributes](#cloudevent-attributes).
 
 #### Example
 ```java
