@@ -172,7 +172,7 @@ The input and output types of a function can be:
 * `String`,
 * `byte[]`
 * Primitive types and their wrappers (e.g. `int`, `Double`),
-* JavaBeans (the attributes of the JavaBeans also must follow rules defined here)
+* JavaBeans (the attributes of the bean must also follow the rules defined here)
 * Map, List or Array of the above
 
 In addition to above, there is one special type: `CloudEvents<T>` described below [CloudEvent attributes](#cloudevent-attributes).
