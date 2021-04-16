@@ -167,7 +167,7 @@ public class Functions {
 
 ### Types
 
-Input or output type of function can be:
+The input and output types of a function can be:
 * `void`
 * `String`,
 * `byte[]`
