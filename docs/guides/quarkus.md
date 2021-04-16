@@ -171,7 +171,7 @@ Input or output type of function can be:
 * `void`
 * `String`,
 * `byte[]`
-* primitive types and their wrappers (e.g. `int`, `Double`),
+* Primitive types and their wrappers (e.g. `int`, `Double`),
 * JavaBeans (the attributes of the JavaBeans also must follow rules defined here)
 * Map, List or Array of the above
 
