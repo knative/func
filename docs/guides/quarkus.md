@@ -5,14 +5,14 @@ looks like a typical `maven` project. Both HTTP and Event functions have the sam
 template structure.
 
 ```
-❯ func create my-fn --runtime quarkus 
-Project path: /home/mvasek/devel/my-fn
-Function name: my-fn
+❯ func create -l quarkus fn
+Project path: /home/developer/projects/fn
+Function name: fn
 Runtime: quarkus
 Trigger: http
 
-❯ tree my-fn         
-my-fn
+❯ tree         
+fn
 ├── func.yaml
 ├── mvnw
 ├── mvnw.cmd
@@ -32,8 +32,6 @@ my-fn
             └── functions
                 ├── FunctionTest.java
                 └── NativeFunctionIT.java
-
-8 directories, 11 files
 ```
 
 Aside from the `func.yaml` file, this looks like the beginning of just about
