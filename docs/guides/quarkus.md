@@ -90,7 +90,7 @@ You do this as you would with any maven project.
 
 ## Function reference
 
-Boson Quarkus functions have very few restrictions. You can work with it as with any Java maven project.
+Boson Quarkus functions have very few restrictions. You can work with it as with any Java Maven project.
 The only real requirements is that your project contain a method annotated with `@Funq`.
 In this section, we will look in a little more detail at how Boson functions are invoked,
 and what APIs are available to you as a developer.
