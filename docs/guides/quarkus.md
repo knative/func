@@ -190,7 +190,7 @@ public class Functions {
 
 ### CloudEvent attributes
 
-Above we described cases where we handle just `data` portion of `CloudEvent`.
+Above we described cases where we handle just the `data` portion of a `CloudEvent`.
 In many cases this is all we need.
 However sometimes you may need to also read or write the attributes of a `CloudEvent`, such as `type` or `subject`.
 
