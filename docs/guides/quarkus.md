@@ -195,7 +195,7 @@ In many cases this is all we need.
 However sometimes you may need to also read or write `CloudEvent`'s attributes, such as `type` or `subject`.
 
 For this purpose `Funqy` offers generic interface `CloudEvent<T>` and builder `CloudEventBuilder`.
-Note that the type parameter of `CloudEvent<T>` must satisfy conditions described in [Types](#types).
+Note that the type parameter of `CloudEvent<T>` must satisfy the conditions described in [Types](#types).
 
 #### Example
 ```java
