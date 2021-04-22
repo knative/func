@@ -13,7 +13,7 @@ import (
 
 func init() {
 	root.AddCommand(buildCmd)
-	buildCmd.Flags().StringP("builder", "b", "default", "Buildpack builder, either an as a an image name or a mapping name as defined in func.yaml")
+	buildCmd.Flags().StringP("builder", "b", "", "Buildpack builder, either an as a an image name or a mapping name.\nSpecified value is stored in func.yaml for subsequent builds.")
 	buildCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
 	buildCmd.Flags().StringP("image", "i", "", "Full image name in the orm [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE")
 	buildCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
