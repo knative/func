@@ -69,7 +69,7 @@ The language runtime for your function. For example `python`.
 ### `trigger`
 
 The invocation event that triggers your function. Possible values are `http`
-for plain HTTP requests, and `event` for CloudEvent triggered functions.
+for plain HTTP requests, and `events` for CloudEvent triggered functions.
 
 
 ## Environment Variables
@@ -85,4 +85,3 @@ the name with `env.`. For example:
 envVars:
   API_KEY: {{ env.API_KEY }}
 ```
-
