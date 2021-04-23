@@ -26,7 +26,7 @@ Functions can be deployed on the following platforms:
 
 [Install the latest CLI](installing_cli.md)
 
-Functions can be created and managed using the CLI interactively, scripted, or by direct integration with the client library.   The [Function Developer's Guide](guides/developers_guide.md)and examples herein demonstrate the CLI-based approach.  
+Functions can be created and managed using the CLI interactively, scripted, or by direct integration with the client library. The [Function Developer's Guide](guides/developers_guide.md) and examples herein demonstrate the CLI-based approach.  
 
 For direct integration using the Go client library, it is advisible to first follow these CLI-based guides to become familiar with creating and deploying software in this way, and then proceed to the [Function Integrator's Guide](guides/integrators_guide.md).
 
