@@ -53,6 +53,10 @@ type Function struct {
 	BuilderMap map[string]string
 
 	Env map[string]string
+
+	// Map containing user-supplied annotations
+	// Example: { "division": "finance" }
+	Annotations map[string]string
 }
 
 // NewFunction loads a Function from a path on disk. use .Initialized() to determine if

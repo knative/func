@@ -23,6 +23,7 @@ type config struct {
 	Builder     string            `yaml:"builder"`
 	BuilderMap  map[string]string `yaml:"builderMap"`
 	Env         map[string]string `yaml:"env"`
+	Annotations map[string]string `yaml:"annotations"`
 	// Add new values to the toConfig/fromConfig functions.
 }
 
@@ -61,6 +62,7 @@ func fromConfig(c config) (f Function) {
 		Builder:     c.Builder,
 		BuilderMap:  c.BuilderMap,
 		Env:         c.Env,
+		Annotations: c.Annotations,
 	}
 }
 
@@ -76,6 +78,7 @@ func toConfig(f Function) config {
 		Builder:     f.Builder,
 		BuilderMap:  f.BuilderMap,
 		Env:         f.Env,
+		Annotations: f.Annotations,
 	}
 }
 
