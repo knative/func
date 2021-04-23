@@ -1,6 +1,13 @@
 # Change Log
 
 <a name="unreleased"></a>
+### [0.12.2](https://www.github.com/boson-project/func/compare/v0.12.1...v0.12.2) (2021-04-23)
+
+
+### Bug Fixes
+
+* default for `--builder` flag ([06455f4](https://www.github.com/boson-project/func/commit/06455f4bac02e8581ae4471e72909ba9fe7dbd4d))
+
 ### [0.12.1](https://www.github.com/boson-project/func/compare/v0.12.0...v0.12.1) (2021-04-14)
 
 
