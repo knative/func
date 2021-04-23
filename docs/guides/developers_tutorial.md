@@ -45,14 +45,14 @@ The unit of deployment in Boson Functions is an [OCI](https://opencontainers.org
 container image, typically referred to as a Docker container image.
 
 In order for the `func` CLI to manage these containers, you'll need to be
-logged in to a container registry. For example, `docker.io/lanceball`
+logged in to a container registry. For example, `docker.io/developer`
 
 
 ```bash
 # Typically, this will log you in to docker hub if you
 # omit <registry.url>. If you are using a registry
 # other than Docker hub, provide that for <registry.url>
-docker login -u lanceball -p [redacted] <registry.url>
+docker login -u developer -p [redacted] <registry.url>
 ```
 
 > Note: many of the `func` CLI commands take a `--registry` argument.
@@ -62,20 +62,21 @@ docker login -u lanceball -p [redacted] <registry.url>
 ```bash
 # This should be set to a registry that you have write permission
 # on and you have logged into in the previous step.
-export FUNC_REGISTRY=docker.io/lanceball
+export FUNC_REGISTRY=docker.io/developer
 ```
 
 ## Creating a Project
 
 With your Knative enabled cluster up and running, you can now create a new
-Function Project. Let's start by creating a project directory. Function names
-in `func` correspond to URLs at the moment, and there are some finicky cases
-at the moment. To ensure that everything works as it should, create a project
-directory consisting of three URL parts. Here is a good one.
+Function Project. Let's start by creating a project directory. Function name
+must consist of lower case alphanumeric characters or '-', 
+and must start and end with an alphanumeric character 
+(e.g. 'my-name',  or '123-abc', regex used for validation is `[a-z0-9]([-a-z0-9]*[a-z0-9])?`).
+
 
 ```bash
-mkdir fn.example.io
-cd fn.example.io
+mkdir fn-example-io
+cd fn-example-io
 ```
 
 Now, we will create the project files, build a container, and
@@ -84,7 +85,6 @@ deploy the function as a Knative service.
 
 ```bash
 func create -l node
-func build
 func deploy
 ```
 
@@ -93,9 +93,15 @@ all of the defaults inferred from your environment, for example`$FUNC_REGISTRY`.
 When the command has completed, you can see the deployed function.
 
 ```bash
-kn service list
-NAME            URL                                          LATEST                  AGE   CONDITIONS   READY   REASON
-fn-example-io   http://fn-example-io.func.127.0.0.1.nip.io   fn-example-io-ngswh-1   24s   3 OK / 3     True
+func describe
+Function name:
+  fn-example-io
+Function is built in image:
+  docker.io/developer/fn-example-io:latest
+Function is deployed in namespace:
+  default
+Routes:
+  http://fn-example-io-default.apps.functions.my-cluster.com
 ```
 
 Clicking on the URL will take you to the running function in your cluster. You
@@ -108,7 +114,7 @@ should see a simple response.
 You can add query parameters to the request to see those echoed in return.
 
 ```console
-curl "http://fn-example-io.func.127.0.0.1.nip.io?name=tiger"
+curl "http://fn-example-io-default.apps.functions.my-cluster.com?name=tiger"
 {"query":{"name":"tiger"},"name":"tiger"}
 ```
 
@@ -150,7 +156,7 @@ You might see a message such as this.
 Error: remover failed to delete the service: timeout: service 'fn-example-io' not ready after 30 seconds.
 ```
 
-If you do, just run `kn service list` to see if the function is still deployed.
+If you do, just run `func list` to see if the function is still deployed.
 It might just take a little time for it to be removed.
 
 Now, let's clean up the current directory.
@@ -168,9 +174,9 @@ cluster, use the `create` command.
 func create -l node -t http
 ```
 
-You can also create a Quarkus or a Golang project by providing `quarkus` or `go`
-respectively to the `-l` flag. To create a project with a template for
-CloudEvents, provide `events` to the `-t` flag.
+You can also create a Quarkus, SpringBoog, Python or a Golang project by providing
+`quarkus`, `springboot`, `python` or `go` respectively to the `-l` flag. 
+To create a project with a template for CloudEvents, provide `events` to the `-t` flag.
 
 ### `func build`
 

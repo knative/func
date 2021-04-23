@@ -15,7 +15,6 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 
 	bosonFunc "github.com/boson-project/func"
-	"github.com/boson-project/func/k8s"
 )
 
 type Deployer struct {
@@ -38,27 +37,20 @@ func NewDeployer(namespaceOverride string) (deployer *Deployer, err error) {
 
 func (d *Deployer) Deploy(ctx context.Context, f bosonFunc.Function) (err error) {
 
-	// k8s does not support service names with dots. so encode it such that
-	// www.my-domain,com -> www-my--domain-com
-	serviceName, err := k8s.ToK8sAllowedName(f.Name)
-	if err != nil {
-		return
-	}
-
 	client, err := NewServingClient(d.Namespace)
 	if err != nil {
 		return
 	}
 
-	_, err = client.GetService(serviceName)
+	_, err = client.GetService(f.Name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 
 			// Let's create a new Service
 			if d.Verbose {
-				fmt.Printf("Creating Knative Service: %v\n", serviceName)
+				fmt.Printf("Creating Knative Service: %v\n", f.Name)
 			}
-			service, err := generateNewService(serviceName, f.ImageWithDigest(), f.Runtime, f.EnvVars)
+			service, err := generateNewService(f.Name, f.ImageWithDigest(), f.Runtime, f.EnvVars)
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to generate the service: %v", err)
 				return err
@@ -72,13 +64,13 @@ func (d *Deployer) Deploy(ctx context.Context, f bosonFunc.Function) (err error)
 			if d.Verbose {
 				fmt.Println("Waiting for Knative Service to become ready")
 			}
-			err, _ = client.WaitForService(serviceName, DefaultWaitingTimeout, wait.NoopMessageCallback())
+			err, _ = client.WaitForService(f.Name, DefaultWaitingTimeout, wait.NoopMessageCallback())
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to wait for the service to become ready: %v", err)
 				return err
 			}
 
-			route, err := client.GetRoute(serviceName)
+			route, err := client.GetRoute(f.Name)
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to get the route: %v", err)
 				return err
@@ -92,13 +84,13 @@ func (d *Deployer) Deploy(ctx context.Context, f bosonFunc.Function) (err error)
 		}
 	} else {
 		// Update the existing Service
-		err = client.UpdateServiceWithRetry(serviceName, updateService(f.ImageWithDigest(), f.EnvVars), 3)
+		err = client.UpdateServiceWithRetry(f.Name, updateService(f.ImageWithDigest(), f.EnvVars), 3)
 		if err != nil {
 			err = fmt.Errorf("knative deployer failed to update the service: %v", err)
 			return err
 		}
 
-		route, err := client.GetRoute(serviceName)
+		route, err := client.GetRoute(f.Name)
 		if err != nil {
 			err = fmt.Errorf("knative deployer failed to get the route: %v", err)
 			return err
