@@ -25,20 +25,20 @@ In most cases, this value should not be changed.
 Some function runtimes may be built in multiple ways. For example, a Quarkus
 function may be built for the JVM, or as a native binary. The `builderMap`
 field will contain all of the available builders for a given runtime. Although
-it's typically unwise to modify the `builder` field, using values from
+it's typically unnecessary to modify the `builder` field, using values from
 `builderMap` is OK.
 
-### `envVars`
+### `env`
 
-The `envVars` field allows you to set environment variables that will be
+The `env` field allows you to set environment variables that will be
 available to your function at runtime. For example, to set a `MODE` environment
 variable to `debug` when the function is deployed, your `func.yaml` file
 may look like this.
 
 ```yaml
-envVars: {
+env:
   MODE: debug
-}
+  API_KEY: {{ env.API_KEY }}
 ```
 
 ### `image`
@@ -82,6 +82,6 @@ this, prefix the local environment variable with `{{` and `}}` and prefix
 the name with `env.`. For example:
 
 ```yaml
-envVars:
+env:
   API_KEY: {{ env.API_KEY }}
 ```
