@@ -52,7 +52,7 @@ func (d *Deployer) Deploy(ctx context.Context, f bosonFunc.Function) (err error)
 			if d.Verbose {
 				fmt.Printf("Creating Knative Service: %v\n", f.Name)
 			}
-			service, err := generateNewService(f.Name, f.ImageWithDigest(), f.Runtime, f.EnvVars)
+			service, err := generateNewService(f.Name, f.ImageWithDigest(), f.Runtime, f.Env)
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to generate the service: %v", err)
 				return err
@@ -86,7 +86,7 @@ func (d *Deployer) Deploy(ctx context.Context, f bosonFunc.Function) (err error)
 		}
 	} else {
 		// Update the existing Service
-		err = client.UpdateServiceWithRetry(f.Name, updateService(f.ImageWithDigest(), f.EnvVars), 3)
+		err = client.UpdateServiceWithRetry(f.Name, updateService(f.ImageWithDigest(), f.Env), 3)
 		if err != nil {
 			err = fmt.Errorf("knative deployer failed to update the service: %v", err)
 			return err
@@ -114,7 +114,7 @@ func probeFor(url string) *corev1.Probe {
 	}
 }
 
-func generateNewService(name, image, runtime string, envVars map[string]string) (*servingv1.Service, error) {
+func generateNewService(name, image, runtime string, env map[string]string) (*servingv1.Service, error) {
 	containers := []corev1.Container{
 		{
 			Image: image,
@@ -147,10 +147,10 @@ func generateNewService(name, image, runtime string, envVars map[string]string) 
 		},
 	}
 
-	return setEnvVars(service, envVars)
+	return setEnv(service, env)
 }
 
-func updateService(image string, envVars map[string]string) func(service *servingv1.Service) (*servingv1.Service, error) {
+func updateService(image string, env map[string]string) func(service *servingv1.Service) (*servingv1.Service, error) {
 	return func(service *servingv1.Service) (*servingv1.Service, error) {
 		// Removing the name so the k8s server can fill it in with generated name,
 		// this prevents conflicts in Revision name when updating the KService from multiple places.
@@ -160,7 +160,7 @@ func updateService(image string, envVars map[string]string) func(service *servin
 		if err != nil {
 			return service, err
 		}
-		return setEnvVars(service, envVars)
+		return setEnv(service, env)
 	}
 }
 
@@ -187,14 +187,14 @@ func processValue(val string) (string, error) {
 	}
 }
 
-func setEnvVars(service *servingv1.Service, envVars map[string]string) (*servingv1.Service, error) {
-	builtEnvVarName := "BUILT"
-	builtEnvVarValue := time.Now().Format("20060102T150405")
+func setEnv(service *servingv1.Service, env map[string]string) (*servingv1.Service, error) {
+	builtEnvName := "BUILT"
+	builtEnvValue := time.Now().Format("20060102T150405")
 
-	toUpdate := make(map[string]string, len(envVars)+1)
+	toUpdate := make(map[string]string, len(env)+1)
 	toRemove := make([]string, 0)
 
-	for name, value := range envVars {
+	for name, value := range env {
 		if strings.HasSuffix(name, "-") {
 			toRemove = append(toRemove, strings.TrimSuffix(name, "-"))
 		} else {
@@ -202,7 +202,7 @@ func setEnvVars(service *servingv1.Service, envVars map[string]string) (*serving
 		}
 	}
 
-	toUpdate[builtEnvVarName] = builtEnvVarValue
+	toUpdate[builtEnvName] = builtEnvValue
 
 	for idx, val := range toUpdate {
 		v, err := processValue(val)
