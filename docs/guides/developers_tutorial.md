@@ -36,7 +36,7 @@ within your `$PATH`.
 
 ```sh
 # Be sure to download the correct binary for your operating system
-curl -L -o - func.gz https://github.com/boson-project/func/releases/download/v0.8.0/func_linux_amd64.gz | gunzip > func && chmod 755 func
+curl -L -o - func.gz https://github.com/boson-project/func/releases/latest/download/func_linux_amd64.gz | gunzip > func && chmod 755 func
 sudo mv func /usr/local/bin
 ```
 ## Configuring a Container Registry
