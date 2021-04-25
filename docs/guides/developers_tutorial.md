@@ -174,7 +174,7 @@ cluster, use the `create` command.
 func create -l node -t http
 ```
 
-You can also create a Quarkus, SpringBoog, Python or a Golang project by providing
+You can also create a Quarkus, SpringBoot, Python or a Golang project by providing
 `quarkus`, `springboot`, `python` or `go` respectively to the `-l` flag. 
 To create a project with a template for CloudEvents, provide `events` to the `-t` flag.
 
