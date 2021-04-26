@@ -6,7 +6,6 @@ import (
 	"knative.dev/eventing/pkg/apis/eventing/v1beta1"
 
 	bosonFunc "github.com/boson-project/func"
-	"github.com/boson-project/func/k8s"
 )
 
 type Describer struct {
@@ -31,11 +30,6 @@ func NewDescriber(namespaceOverride string) (describer *Describer, err error) {
 // www.example-site.com -> www-example--site-com
 func (d *Describer) Describe(name string) (description bosonFunc.Description, err error) {
 
-	serviceName, err := k8s.ToK8sAllowedName(name)
-	if err != nil {
-		return
-	}
-
 	servingClient, err := NewServingClient(d.namespace)
 	if err != nil {
 		return
@@ -46,12 +40,12 @@ func (d *Describer) Describe(name string) (description bosonFunc.Description, er
 		return
 	}
 
-	service, err := servingClient.GetService(serviceName)
+	service, err := servingClient.GetService(name)
 	if err != nil {
 		return
 	}
 
-	routes, err := servingClient.ListRoutes(v1.WithService(serviceName))
+	routes, err := servingClient.ListRoutes(v1.WithService(name))
 	if err != nil {
 		return
 	}
@@ -87,11 +81,10 @@ func (d *Describer) Describe(name string) (description bosonFunc.Description, er
 		}
 	}
 
-	description.KService = serviceName
+	description.Name = name
 	description.Namespace = d.namespace
 	description.Routes = routeURLs
 	description.Subscriptions = subscriptions
-	description.Name, err = k8s.FromK8sAllowedName(service.Name)
 
 	return
 }

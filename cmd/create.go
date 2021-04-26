@@ -52,7 +52,13 @@ kn func create --trigger events myfunc
 }
 
 func runCreate(cmd *cobra.Command, args []string) error {
-	config := newCreateConfig(args).Prompt()
+	config := newCreateConfig(args)
+
+	if err := utils.ValidateFunctionName(config.Name); err != nil {
+		return err
+	}
+
+	config = config.Prompt()
 
 	function := bosonFunc.Function{
 		Name:    config.Name,
@@ -131,12 +137,21 @@ func (c createConfig) Prompt() createConfig {
 		return c
 	}
 
-	derivedName, derivedPath := deriveNameAndAbsolutePathFromPath(prompt.ForString("Project path", c.Path, prompt.WithRequired(true)))
+	var derivedName, derivedPath string
+	for {
+		derivedName, derivedPath = deriveNameAndAbsolutePathFromPath(prompt.ForString("Project path", c.Path, prompt.WithRequired(true)))
+		err := utils.ValidateFunctionName(derivedName)
+		if err == nil {
+			break
+		}
+		fmt.Println("Error:", err)
+	}
+
 	return createConfig{
 		Name:    derivedName,
 		Path:    derivedPath,
 		Runtime: prompt.ForString("Runtime", c.Runtime),
 		Trigger: prompt.ForString("Trigger", c.Trigger),
-		// Templates intentiopnally omitted from prompt for being an edge case.
+		// Templates intentionally omitted from prompt for being an edge case.
 	}
 }

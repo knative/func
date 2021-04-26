@@ -7,7 +7,6 @@ import (
 	"knative.dev/pkg/apis"
 
 	bosonFunc "github.com/boson-project/func"
-	"github.com/boson-project/func/k8s"
 )
 
 const (
@@ -46,13 +45,6 @@ func (l *Lister) List(context.Context) (items []bosonFunc.ListItem, err error) {
 
 	for _, service := range lst.Items {
 
-		// Convert the "subdomain-encoded" (i.e. kube-service-friendly) name
-		// back out to a fully qualified service name.
-		name, err := k8s.FromK8sAllowedName(service.Name)
-		if err != nil {
-			return items, err
-		}
-
 		// get status
 		ready := corev1.ConditionUnknown
 		for _, con := range service.Status.Conditions {
@@ -63,10 +55,9 @@ func (l *Lister) List(context.Context) (items []bosonFunc.ListItem, err error) {
 		}
 
 		listItem := bosonFunc.ListItem{
-			Name:      name,
+			Name:      service.Name,
 			Namespace: service.Namespace,
 			Runtime:   service.Labels["boson.dev/runtime"],
-			KService:  service.Name,
 			URL:       service.Status.URL.String(),
 			Ready:     string(ready),
 		}

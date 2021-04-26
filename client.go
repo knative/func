@@ -79,7 +79,6 @@ type ListItem struct {
 	Namespace string `json:"namespace" yaml:"namespace"`
 	Runtime   string `json:"runtime" yaml:"runtime"`
 	URL       string `json:"url" yaml:"url"`
-	KService  string `json:"kservice" yaml:"kservice"`
 	Ready     string `json:"ready" yaml:"ready"`
 }
 
@@ -108,7 +107,6 @@ type Describer interface {
 type Description struct {
 	Name          string         `json:"name" yaml:"name"`
 	Image         string         `json:"image" yaml:"image"`
-	KService      string         `json:"kservice" yaml:"kservice"`
 	Namespace     string         `json:"namespace" yaml:"namespace"`
 	Routes        []string       `json:"routes" yaml:"routes"`
 	Subscriptions []Subscription `json:"subscriptions" yaml:"subscriptions"`

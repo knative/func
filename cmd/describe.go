@@ -116,8 +116,6 @@ func (d description) Human(w io.Writer) error {
 	fmt.Fprintf(w, "  %v\n", d.Name)
 	fmt.Fprintln(w, "Function is built in image:")
 	fmt.Fprintf(w, "  %v\n", d.Image)
-	fmt.Fprintln(w, "Function is deployed as Knative Service:")
-	fmt.Fprintf(w, "  %v\n", d.KService)
 	fmt.Fprintln(w, "Function is deployed in namespace:")
 	fmt.Fprintf(w, "  %v\n", d.Namespace)
 	fmt.Fprintln(w, "Routes:")
@@ -138,7 +136,6 @@ func (d description) Human(w io.Writer) error {
 func (d description) Plain(w io.Writer) error {
 	fmt.Fprintf(w, "Name %v\n", d.Name)
 	fmt.Fprintf(w, "Image %v\n", d.Image)
-	fmt.Fprintf(w, "Knative Service %v\n", d.KService)
 	fmt.Fprintf(w, "Namespace %v\n", d.Namespace)
 
 	for _, route := range d.Routes {

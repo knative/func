@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"time"
-
-	"github.com/boson-project/func/k8s"
 )
 
 const RemoveTimeout = 120 * time.Second
@@ -28,19 +26,14 @@ type Remover struct {
 
 func (remover *Remover) Remove(ctx context.Context, name string) (err error) {
 
-	serviceName, err := k8s.ToK8sAllowedName(name)
-	if err != nil {
-		return
-	}
-
 	client, err := NewServingClient(remover.Namespace)
 	if err != nil {
 		return
 	}
 
-	fmt.Printf("Removing Knative Service: %v\n", serviceName)
+	fmt.Printf("Removing Knative Service: %v\n", name)
 
-	err = client.DeleteService(serviceName, RemoveTimeout)
+	err = client.DeleteService(name, RemoveTimeout)
 	if err != nil {
 		err = fmt.Errorf("knative remover failed to delete the service: %v", err)
 	}
