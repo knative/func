@@ -82,7 +82,14 @@ jobs:
         run:  make cross-platform
         env:
           PKGER: "./pkger"
-          VERS: ${{ steps.release.outputs.tag_name }}
+          # NOTE:
+          # release-please adds the version asynchronously. Without using the
+          # synchonous tagging step above, the version can be explicitly passed
+          # to the build using the following environment variable.  However this
+          # has the side-effect of causing inter-relese binaries to not include
+          # verbose version information, because the special version `tip` is
+          # overriden with a blank string in those cases.
+          # VERS: ${{ steps.release.outputs.tag_name }}
 
       # Upload all build artifacts whether it's a release or not
       - uses: actions/upload-artifact@v2
