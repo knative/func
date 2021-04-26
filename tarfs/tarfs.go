@@ -5,7 +5,6 @@ import (
 	"bytes"
 	"io"
 	"io/fs"
-	"os"
 	"path"
 	"sort"
 	"strings"
@@ -16,6 +15,17 @@ import (
 // FS is a tar-backed fs.FS
 // adapted from testing/fstest.MapFS
 type FS map[string]*file
+
+// file can be any file within the FS
+type file struct {
+	Data    []byte
+	Mode    fs.FileMode
+	ModTime time.Time
+	Sys     interface{}
+}
+
+var _ fs.FS = FS(nil)
+var _ fs.File = (*openFile)(nil)
 
 // New tar FS from a reader attached to a tarball.
 func New(r io.Reader) (FS, error) {
@@ -72,7 +82,7 @@ func (fsys FS) Open(name string) (fs.File, error) {
 	if name == "." {
 		elem = "."
 		for fname, f := range fsys {
-			i := strings.Index(fname, string(os.PathSeparator))
+			i := strings.Index(fname, "/")
 			if i < 0 {
 				list = append(list, fileInfo{fname, f})
 			} else {
@@ -80,12 +90,12 @@ func (fsys FS) Open(name string) (fs.File, error) {
 			}
 		}
 	} else {
-		elem = name[strings.LastIndex(name, string(os.PathSeparator))+1:]
-		prefix := name + string(os.PathSeparator)
+		elem = name[strings.LastIndex(name, "/")+1:]
+		prefix := name + "/"
 		for fname, f := range fsys {
 			if strings.HasPrefix(fname, prefix) {
 				felem := fname[len(prefix):]
-				i := strings.Index(felem, string(os.PathSeparator))
+				i := strings.Index(felem, "/")
 				if i < 0 {
 					list = append(list, fileInfo{felem, f})
 				} else {
@@ -146,14 +156,6 @@ func (d *dir) ReadDir(count int) (entries []fs.DirEntry, err error) {
 	}
 	d.offset += n
 	return list, nil
-}
-
-// file can be any file within the FS
-type file struct {
-	Data    []byte
-	Mode    fs.FileMode
-	ModTime time.Time
-	Sys     interface{}
 }
 
 // fileInfo wraps files with metadata
