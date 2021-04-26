@@ -49,10 +49,29 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           release-type: simple
           bump-minor-pre-major: true
-      # Checkout and test
+      # Checkout
       - uses: actions/checkout@v2
-      - uses: actions/setup-go@v2
+      # Tag
+      # If a release was created, tag `vX.Y.Z` synchronously which:
+      #   1. Triggers release-please to create draft release, allowing manual
+      #      proofreading (and probably editing) of release notes.
+      #      (often raw commit messages are a bit overwhelming, overly granular
+      #      or at least could use some context when included as release notes).
+      #   2. Ensures the tag exists for subsequent action tasks which rely on
+      #      this metadata, such as including version in release binaries.
+      #      The release-please action does add this tag, but asynchronously.
+      # Note that tag is created annotated such that it shows tagging metadata
+      # when queried rather than just the associated commit metadata.
+      - name: tag
+        if: ${{ steps.release.outputs.release_created }}
+        run: |
+          git config user.name github-actions[bot]
+          git tag -d v${{steps.release.outputs.major}}.${{steps.release.outputs.minor}}.${{steps.release.outputs.patch}} || true
+          git push origin :v${{steps.release.outputs.major}}.${{steps.release.outputs.minor}}.${{steps.release.outputs.patch}} || true
+          git tag -a v${{steps.release.outputs.major}}.${{steps.release.outputs.minor}}.${{steps.release.outputs.patch}} -m "Release v${{steps.release.outputs.major}}.${{steps.release.outputs.minor}}.${{steps.release.outputs.patch}}"
+          git push origin v${{steps.release.outputs.major}}.${{steps.release.outputs.minor}}.${{steps.release.outputs.patch}} || true
 
+      - uses: actions/setup-go@v2
       - name: Install pkger
         run: |
           curl -s -L -o pkger.tgz ${{ needs.test.outputs.pkger }}
