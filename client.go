@@ -53,7 +53,7 @@ type Pusher interface {
 // Deployer of Function source to running status.
 type Deployer interface {
 	// Deploy a Function of given name, using given backing image.
-	Deploy(context.Context, Function) error
+	Deploy(context.Context, Function) (string, error)
 }
 
 // Runner runs the Function locally.
@@ -370,8 +370,7 @@ func (c *Client) Create(cfg Function) (err error) {
 // Build the Function at path.  Errors if the Function is either unloadable or does
 // not contain a populated Image.
 func (c *Client) Build(ctx context.Context, path string) (err error) {
-
-	fmt.Println("Building function image")
+	c.progressListener.Increment("Building function image")
 
 	f, err := NewFunction(path)
 	if err != nil {
@@ -395,7 +394,8 @@ func (c *Client) Build(ctx context.Context, path string) (err error) {
 
 	// TODO: create a statu structure and return it here for optional
 	// use by the cli for user echo (rather than rely on verbose mode here)
-	fmt.Printf("Function image has been built, image: %v\n", f.Image)
+	message := fmt.Sprintf("Function image built: %v", f.Image)
+	c.progressListener.Increment(message)
 
 	return
 }
@@ -415,7 +415,7 @@ func (c *Client) Deploy(ctx context.Context, path string) (err error) {
 	}
 
 	// Push the image for the named service to the configured registry
-	fmt.Println("Pushing function image to the registry")
+	c.progressListener.Increment("Pushing function image to the registry")
 	imageDigest, err := c.pusher.Push(ctx, f)
 	if err != nil {
 		return
@@ -428,8 +428,10 @@ func (c *Client) Deploy(ctx context.Context, path string) (err error) {
 	}
 
 	// Deploy a new or Update the previously-deployed Function
-	fmt.Println("Deploying function to the cluster")
-	return c.deployer.Deploy(ctx, f)
+	c.progressListener.Increment("Deploying function to the cluster")
+	result, err := c.deployer.Deploy(ctx, f)
+	c.progressListener.Increment(result)
+	return err
 }
 
 func (c *Client) Route(path string) (err error) {
@@ -527,7 +529,7 @@ func (n *noopPusher) Push(ctx context.Context, f Function) (string, error) { ret
 
 type noopDeployer struct{ output io.Writer }
 
-func (n *noopDeployer) Deploy(ctx context.Context, _ Function) error { return nil }
+func (n *noopDeployer) Deploy(ctx context.Context, _ Function) (string, error) { return "", nil }
 
 type noopRunner struct{ output io.Writer }
 

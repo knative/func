@@ -2,6 +2,7 @@ package mock
 
 import (
 	"context"
+
 	bosonFunc "github.com/boson-project/func"
 )
 
@@ -16,7 +17,7 @@ func NewDeployer() *Deployer {
 	}
 }
 
-func (i *Deployer) Deploy(ctx context.Context, f bosonFunc.Function) error {
+func (i *Deployer) Deploy(ctx context.Context, f bosonFunc.Function) (string, error) {
 	i.DeployInvoked = true
-	return i.DeployFn(f)
+	return "", i.DeployFn(f)
 }

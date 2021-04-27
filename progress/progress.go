@@ -47,6 +47,9 @@ type Bar struct {
 	// print verbose-style updates even when not attached to an interactive terminal.
 	printWhileHeadless bool
 
+	// print N/M step counter with messages
+	printWithStepCounter bool
+
 	// Ticker for animated progress when non-verbose, interactive terminal.
 	ticker *time.Ticker
 }
@@ -65,6 +68,12 @@ func WithOutput(w io.Writer) Option {
 func WithPrintWhileHeadless(p bool) Option {
 	return func(b *Bar) {
 		b.printWhileHeadless = p
+	}
+}
+
+func WithPrintStepCounter(s bool) Option {
+	return func(b *Bar) {
+		b.printWithStepCounter = s
 	}
 }
 
@@ -149,13 +158,13 @@ func (b *Bar) Done() {
 	if b.ticker != nil {
 		b.ticker.Stop()
 		b.ticker = nil
-		b.overwrite("") // write unindented
+		// b.overwrite("") // write unindented
 	}
 }
 
 // Write a simple line status update.
 func (b *Bar) write() {
-	fmt.Fprintf(b.out, "%v/%v %v\n", b.index, b.total, b.text)
+	fmt.Fprint(b.out, b.format())
 }
 
 // interactiveTerminal returns whether or not the currently attached process
@@ -179,8 +188,15 @@ func (b *Bar) overwrite(prefix string) {
 	//  2 Move up one line
 	//  3 Clear to the end of the line
 	//  4 Print status text with optional prefix (spinner)
-	//  5 Print linebreak such that subsequent messaes print correctly.
-	fmt.Fprintf(b.out, "\r%v%v%v%v/%v %v\n", up, clear, prefix, b.index, b.total, b.text)
+	//  5 Print linebreak such that subsequent messages print correctly.
+	fmt.Fprintf(b.out, "\r%v%v%v%v", up, clear, prefix, b.format())
+}
+
+func (b *Bar) format() string {
+	if b.printWithStepCounter {
+		return fmt.Sprintf("%v/%v %v\n", b.index, b.total, b.text)
+	}
+	return fmt.Sprintf("%v\n", b.text)
 }
 
 // Write a spinner at the beginning of the previous line.

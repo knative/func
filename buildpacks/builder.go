@@ -3,7 +3,6 @@ package buildpacks
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/buildpacks/pack"
 	"github.com/buildpacks/pack/logging"
+	"github.com/pkg/errors"
 
 	bosonFunc "github.com/boson-project/func"
 )
@@ -88,9 +88,13 @@ func (builder *Builder) Build(ctx context.Context, f bosonFunc.Function) (err er
 
 	// Build based using the given builder.
 	if err = packClient.Build(ctx, packOpts); err != nil {
-		// If the builder was not showing logs, embed the full logs in the error.
+		// If the builder was not showing logs,
+		// and not caused because the context was canceled,
+		// embed the full logs in the error.
 		if !builder.Verbose {
-			err = fmt.Errorf("%v\noutput: %s\n", err, logWriter.(*bytes.Buffer).String())
+			if errors.Cause(err) != context.Canceled {
+				err = fmt.Errorf("%v\noutput: %s\n", err, logWriter.(*bytes.Buffer).String())
+			}
 		}
 	}
 

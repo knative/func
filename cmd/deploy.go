@@ -121,8 +121,16 @@ func runDeploy(cmd *cobra.Command, _ []string) (err error) {
 	}
 
 	listener := progress.New()
+	defer listener.Done()
 
 	deployer.Verbose = config.Verbose
+	listener.Verbose = config.Verbose
+
+	context := cmd.Context()
+	go func() {
+		<-context.Done()
+		listener.Done()
+	}()
 
 	client := bosonFunc.New(
 		bosonFunc.WithVerbose(config.Verbose),
@@ -133,12 +141,12 @@ func runDeploy(cmd *cobra.Command, _ []string) (err error) {
 		bosonFunc.WithProgressListener(listener))
 
 	if config.Build {
-		if err := client.Build(cmd.Context(), config.Path); err != nil {
+		if err := client.Build(context, config.Path); err != nil {
 			return err
 		}
 	}
 
-	return client.Deploy(cmd.Context(), config.Path)
+	return client.Deploy(context, config.Path)
 
 	// NOTE: Namespace is optional, default is that used by k8s client
 	// (for example kubectl usually uses ~/.kube/config)
