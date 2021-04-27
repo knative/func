@@ -52,7 +52,7 @@ type Function struct {
 	// e.g. { "jvm": "docker.io/example/quarkus-jvm-builder" }
 	BuilderMap map[string]string
 
-	EnvVars map[string]string
+	Env map[string]string
 }
 
 // NewFunction loads a Function from a path on disk. use .Initialized() to determine if

@@ -71,7 +71,7 @@ func runDeploy(cmd *cobra.Command, _ []string) (err error) {
 		return
 	}
 
-	function.EnvVars = mergeEnvVarsMaps(function.EnvVars, config.EnvVars)
+	function.Env = mergeEnvMaps(function.Env, config.Env)
 
 	// Check if the Function has been initialized
 	if !function.Initialized() {
@@ -250,7 +250,7 @@ type deployConfig struct {
 	// Build the associated Function before deploying.
 	Build bool
 
-	EnvVars map[string]string
+	Env map[string]string
 }
 
 // newDeployConfig creates a buildConfig populated from command flags and
@@ -263,7 +263,7 @@ func newDeployConfig(cmd *cobra.Command) deployConfig {
 		Verbose:     viper.GetBool("verbose"), // defined on root
 		Confirm:     viper.GetBool("confirm"),
 		Build:       viper.GetBool("build"),
-		EnvVars:     envVarsFromCmd(cmd),
+		Env:         envFromCmd(cmd),
 	}
 }
 

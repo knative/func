@@ -3,14 +3,15 @@ package docker
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
+	"time"
+
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/go-connections/nat"
 	"github.com/pkg/errors"
-	"os"
-	"strings"
-	"time"
 
 	"github.com/docker/docker/client"
 
@@ -42,8 +43,8 @@ func (n *Runner) Run(ctx context.Context, f bosonFunc.Function) error {
 		return errors.New("Function has no associated Image. Has it been built?")
 	}
 
-	envs := make([]string, 0, len(f.EnvVars)+1)
-	for name, value := range f.EnvVars {
+	envs := make([]string, 0, len(f.Env)+1)
+	for name, value := range f.Env {
 		if !strings.HasSuffix(name, "-") {
 			envs = append(envs, fmt.Sprintf("%s=%s", name, value))
 		}

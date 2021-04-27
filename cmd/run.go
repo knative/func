@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
@@ -44,7 +45,7 @@ func runRun(cmd *cobra.Command, args []string) (err error) {
 		return
 	}
 
-	function.EnvVars = mergeEnvVarsMaps(function.EnvVars, config.EnvVars)
+	function.Env = mergeEnvMaps(function.Env, config.Env)
 
 	err = function.WriteConfig()
 	if err != nil {
@@ -75,13 +76,13 @@ type runConfig struct {
 	// Verbose logging.
 	Verbose bool
 
-	EnvVars map[string]string
+	Env map[string]string
 }
 
 func newRunConfig(cmd *cobra.Command) runConfig {
 	return runConfig{
 		Path:    viper.GetString("path"),
 		Verbose: viper.GetBool("verbose"), // defined on root
-		EnvVars: envVarsFromCmd(cmd),
+		Env:     envFromCmd(cmd),
 	}
 }

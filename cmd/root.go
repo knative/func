@@ -3,10 +3,11 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"github.com/pkg/errors"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/pkg/errors"
 
 	"github.com/mitchellh/go-homedir"
 	"github.com/ory/viper"
@@ -252,25 +253,25 @@ func deriveImage(explicitImage, defaultRegistry, path string) string {
 	return derivedValue // Use the func system's derivation logic.
 }
 
-func envVarsFromCmd(cmd *cobra.Command) map[string]string {
-	envVarsM := make(map[string]string)
+func envFromCmd(cmd *cobra.Command) map[string]string {
+	envM := make(map[string]string)
 	if cmd.Flags().Changed("env") {
-		envVarsA, err := cmd.Flags().GetStringArray("env")
+		envA, err := cmd.Flags().GetStringArray("env")
 		if err == nil {
-			for _, s := range envVarsA {
+			for _, s := range envA {
 				kvp := strings.Split(s, "=")
 				if len(kvp) == 2 && kvp[0] != "" {
-					envVarsM[kvp[0]] = kvp[1]
+					envM[kvp[0]] = kvp[1]
 				} else if len(kvp) == 1 && kvp[0] != "" {
-					envVarsM[kvp[0]] = ""
+					envM[kvp[0]] = ""
 				}
 			}
 		}
 	}
-	return envVarsM
+	return envM
 }
 
-func mergeEnvVarsMaps(dest, src map[string]string) map[string]string {
+func mergeEnvMaps(dest, src map[string]string) map[string]string {
 	result := make(map[string]string, len(dest)+len(src))
 
 	for name, value := range dest {
