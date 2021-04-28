@@ -52,7 +52,7 @@ func (d *Deployer) Deploy(ctx context.Context, f bosonFunc.Function) (err error)
 			if d.Verbose {
 				fmt.Printf("Creating Knative Service: %v\n", f.Name)
 			}
-			service, err := generateNewService(f.Name, f.ImageWithDigest(), f.Runtime, f.Env)
+			service, err := generateNewService(f.Name, f.ImageWithDigest(), f.Runtime, f.Env, f.Annotations)
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to generate the service: %v", err)
 				return err
@@ -86,7 +86,7 @@ func (d *Deployer) Deploy(ctx context.Context, f bosonFunc.Function) (err error)
 		}
 	} else {
 		// Update the existing Service
-		err = client.UpdateServiceWithRetry(f.Name, updateService(f.ImageWithDigest(), f.Env), 3)
+		err = client.UpdateServiceWithRetry(f.Name, updateService(f.ImageWithDigest(), f.Env, f.Annotations), 3)
 		if err != nil {
 			err = fmt.Errorf("knative deployer failed to update the service: %v", err)
 			return err
@@ -114,7 +114,7 @@ func probeFor(url string) *corev1.Probe {
 	}
 }
 
-func generateNewService(name, image, runtime string, env map[string]string) (*servingv1.Service, error) {
+func generateNewService(name, image, runtime string, env map[string]string, annotations map[string]string) (*servingv1.Service, error) {
 	containers := []corev1.Container{
 		{
 			Image: image,
@@ -133,6 +133,7 @@ func generateNewService(name, image, runtime string, env map[string]string) (*se
 				"boson.dev/function": "true",
 				"boson.dev/runtime":  runtime,
 			},
+			Annotations: annotations,
 		},
 		Spec: v1.ServiceSpec{
 			ConfigurationSpec: v1.ConfigurationSpec{
@@ -150,11 +151,17 @@ func generateNewService(name, image, runtime string, env map[string]string) (*se
 	return setEnv(service, env)
 }
 
-func updateService(image string, env map[string]string) func(service *servingv1.Service) (*servingv1.Service, error) {
+func updateService(image string, env map[string]string, annotations map[string]string) func(service *servingv1.Service) (*servingv1.Service, error) {
 	return func(service *servingv1.Service) (*servingv1.Service, error) {
 		// Removing the name so the k8s server can fill it in with generated name,
 		// this prevents conflicts in Revision name when updating the KService from multiple places.
 		service.Spec.Template.Name = ""
+
+		// Don't bother being as clever as we are with env variables
+		// Just set the annotations to be whatever we find in func.yaml
+		for k, v := range annotations {
+			service.ObjectMeta.Annotations[k] = v
+		}
 
 		err := flags.UpdateImage(&service.Spec.Template.Spec.PodSpec, image)
 		if err != nil {
