@@ -10,7 +10,7 @@ import (
 
 	"github.com/buildpacks/pack"
 	"github.com/buildpacks/pack/logging"
-	gherrors "github.com/pkg/errors"
+	"github.com/pkg/errors"
 
 	bosonFunc "github.com/boson-project/func"
 )
@@ -51,7 +51,7 @@ func (builder *Builder) Build(ctx context.Context, f bosonFunc.Function) (err er
 	} else {
 		packBuilder = RuntimeToBuildpack[f.Runtime]
 		if packBuilder == "" {
-			return gherrors.New(fmt.Sprint("unsupported runtime: ", f.Runtime))
+			return errors.New(fmt.Sprint("unsupported runtime: ", f.Runtime))
 		}
 	}
 
