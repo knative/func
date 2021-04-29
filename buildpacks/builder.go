@@ -3,6 +3,7 @@ package buildpacks
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -10,7 +11,6 @@ import (
 
 	"github.com/buildpacks/pack"
 	"github.com/buildpacks/pack/logging"
-	"github.com/pkg/errors"
 
 	bosonFunc "github.com/boson-project/func"
 )
