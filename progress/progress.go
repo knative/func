@@ -108,6 +108,13 @@ func (b *Bar) Increment(text string) {
 		return
 	}
 
+	// Start the spinner if not already started
+	if b.ticker == nil {
+		fmt.Println()
+		b.ticker = time.NewTicker(100 * time.Millisecond)
+		go b.spin(b.ticker.C)
+	}
+
 	// If we're in verbose mode, do a simple write
 	if b.Verbose {
 		b.write()
@@ -116,12 +123,6 @@ func (b *Bar) Increment(text string) {
 
 	// Otherwise we are in non-verbose, interactive mode.  Do a line-overwrite.
 	b.overwrite("  ") // Write with space for the spinner
-
-	// Start the spinner if not already started
-	if b.ticker == nil {
-		b.ticker = time.NewTicker(100 * time.Millisecond)
-		go b.spin(b.ticker.C)
-	}
 }
 
 // Complete the spinner by advancing to the last step, printing the final text and stopping the write loop.
@@ -164,7 +165,7 @@ func (b *Bar) Done() {
 
 // Write a simple line status update.
 func (b *Bar) write() {
-	fmt.Fprint(b.out, b.format())
+	fmt.Fprintln(b.out, b)
 }
 
 // interactiveTerminal returns whether or not the currently attached process
@@ -189,18 +190,21 @@ func (b *Bar) overwrite(prefix string) {
 	//  3 Clear to the end of the line
 	//  4 Print status text with optional prefix (spinner)
 	//  5 Print linebreak such that subsequent messages print correctly.
-	fmt.Fprintf(b.out, "\r%v%v%v%v", up, clear, prefix, b.format())
+	fmt.Fprintf(b.out, "\r%v%v%v%v\n", up, clear, prefix, b)
 }
 
-func (b *Bar) format() string {
+func (b *Bar) String() string {
 	if b.printWithStepCounter {
-		return fmt.Sprintf("%v/%v %v\n", b.index, b.total, b.text)
+		return fmt.Sprintf("%v/%v %v", b.index, b.total, b.text)
 	}
-	return fmt.Sprintf("%v\n", b.text)
+	return b.text
 }
 
 // Write a spinner at the beginning of the previous line.
 func (b *Bar) spin(ch <-chan time.Time) {
+	if b.Verbose {
+		return
+	}
 	spinner := []string{"|", "/", "-", "\\"}
 	idx := 0
 	for range ch {

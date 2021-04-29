@@ -17,7 +17,7 @@ func NewDeployer() *Deployer {
 	}
 }
 
-func (i *Deployer) Deploy(ctx context.Context, f bosonFunc.Function) (string, error) {
+func (i *Deployer) Deploy(ctx context.Context, f bosonFunc.Function) (bosonFunc.DeploymentResult, error) {
 	i.DeployInvoked = true
-	return "", i.DeployFn(f)
+	return bosonFunc.DeploymentResult{}, i.DeployFn(f)
 }

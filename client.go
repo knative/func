@@ -50,10 +50,23 @@ type Pusher interface {
 	Push(ctx context.Context, f Function) (string, error)
 }
 
+type Status int
+
+const (
+	Failed Status = iota
+	Deployed
+	Updated
+)
+
+type DeploymentResult struct {
+	Status Status
+	URL    string
+}
+
 // Deployer of Function source to running status.
 type Deployer interface {
 	// Deploy a Function of given name, using given backing image.
-	Deploy(context.Context, Function) (string, error)
+	Deploy(context.Context, Function) (DeploymentResult, error)
 }
 
 // Runner runs the Function locally.
@@ -430,7 +443,12 @@ func (c *Client) Deploy(ctx context.Context, path string) (err error) {
 	// Deploy a new or Update the previously-deployed Function
 	c.progressListener.Increment("Deploying function to the cluster")
 	result, err := c.deployer.Deploy(ctx, f)
-	c.progressListener.Increment(result)
+	if result.Status == Deployed {
+		c.progressListener.Increment(fmt.Sprintf("Function deployed at URL: %v", result.URL))
+	} else if result.Status == Updated {
+		c.progressListener.Increment(fmt.Sprintf("Function updated at URL: %v", result.URL))
+	}
+
 	return err
 }
 
@@ -529,7 +547,9 @@ func (n *noopPusher) Push(ctx context.Context, f Function) (string, error) { ret
 
 type noopDeployer struct{ output io.Writer }
 
-func (n *noopDeployer) Deploy(ctx context.Context, _ Function) (string, error) { return "", nil }
+func (n *noopDeployer) Deploy(ctx context.Context, _ Function) (DeploymentResult, error) {
+	return DeploymentResult{}, nil
+}
 
 type noopRunner struct{ output io.Writer }
 
