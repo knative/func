@@ -42,17 +42,31 @@ kn func delete -n apps myfunc
 	RunE:              runDelete,
 }
 
+
 func runDelete(cmd *cobra.Command, args []string) (err error) {
 	config := newDeleteConfig(args).Prompt()
+	
+	var function fn.Function
 
-	function, err := fn.NewFunction(config.Path)
-	if err != nil {
-		return
-	}
+	// Initialize func with explicit name (when provided)
+	if len(args) > 0 && args[0] != "" {
+		pathChanged := cmd.Flags().Changed("path")
+		if pathChanged {
+			return fmt.Errorf("Only one of --path and [NAME] should be provided")
+		}
+		function = fn.Function{
+			Name: args[0],
+		}
+	} else {
+		function, err = fn.NewFunction(config.Path)
+		if err != nil {
+			return
+		}
 
-	// Check if the Function has been initialized
-	if !function.Initialized() {
-		return fmt.Errorf("the given path '%v' does not contain an initialized function", config.Path)
+		// Check if the Function has been initialized
+		if !function.Initialized() {
+			return fmt.Errorf("the given path '%v' does not contain an initialized function", config.Path)
+		}
 	}
 
 	ns := config.Namespace
