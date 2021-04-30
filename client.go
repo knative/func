@@ -407,7 +407,7 @@ func (c *Client) Build(ctx context.Context, path string) (err error) {
 
 	// TODO: create a statu structure and return it here for optional
 	// use by the cli for user echo (rather than rely on verbose mode here)
-	message := fmt.Sprintf("Function image built: %v", f.Image)
+	message := fmt.Sprintf("🙌 Function image built: %v", f.Image)
 	c.progressListener.Increment(message)
 
 	return

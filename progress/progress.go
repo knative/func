@@ -108,6 +108,12 @@ func (b *Bar) Increment(text string) {
 		return
 	}
 
+	// If we're in verbose mode, do a simple write
+	if b.Verbose {
+		b.write()
+		return
+	}
+
 	// Start the spinner if not already started
 	if b.ticker == nil {
 		fmt.Println()
@@ -115,14 +121,8 @@ func (b *Bar) Increment(text string) {
 		go b.spin(b.ticker.C)
 	}
 
-	// If we're in verbose mode, do a simple write
-	if b.Verbose {
-		b.write()
-		return
-	}
-
 	// Otherwise we are in non-verbose, interactive mode.  Do a line-overwrite.
-	b.overwrite("  ") // Write with space for the spinner
+	b.overwrite("   ") // Write with space for the spinner
 }
 
 // Complete the spinner by advancing to the last step, printing the final text and stopping the write loop.
@@ -159,7 +159,6 @@ func (b *Bar) Done() {
 	if b.ticker != nil {
 		b.ticker.Stop()
 		b.ticker = nil
-		// b.overwrite("") // write unindented
 	}
 }
 
@@ -205,13 +204,29 @@ func (b *Bar) spin(ch <-chan time.Time) {
 	if b.Verbose {
 		return
 	}
-	spinner := []string{"|", "/", "-", "\\"}
+	// Various options for spinners.
+	// spinner := []string{"|", "/", "-", "\\"}
+	// spinner := []string{"◢", "◣", "◤", "◥"}
+	spinner := []string{
+		"🕛 ",
+		"🕐 ",
+		"🕑 ",
+		"🕒 ",
+		"🕓 ",
+		"🕔 ",
+		"🕕 ",
+		"🕖 ",
+		"🕗 ",
+		"🕘 ",
+		"🕙 ",
+		"🕚 ",
+	}
 	idx := 0
 	for range ch {
 		// Writes the spinner frame at the beginning of the previous line, moving
 		// the cursor back to the beginning of the current line for any errors or
 		// informative messages.
 		fmt.Fprintf(b.out, "\r%v%v%v\r", up, spinner[idx], down)
-		idx = (idx + 1) % 4
+		idx = (idx + 1) % len(spinner)
 	}
 }
