@@ -12,7 +12,7 @@ import (
 	"github.com/ory/viper"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 
 	bosonFunc "github.com/boson-project/func"
 	"github.com/boson-project/func/buildpacks"
@@ -190,7 +190,7 @@ func getPassword(ctx context.Context) ([]byte, error) {
 	})
 
 	go func() {
-		pass, err := terminal.ReadPassword(0)
+		pass, err := term.ReadPassword(0)
 		ch <- struct {
 			p []byte
 			e error

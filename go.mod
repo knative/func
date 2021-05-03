@@ -12,7 +12,7 @@ require (
 	github.com/ory/viper v1.7.4
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.1.3
-	golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897
+	golang.org/x/term v0.0.0-20201210144234-2321bbc49cbf
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.18.12
 	k8s.io/apimachinery v0.18.12
