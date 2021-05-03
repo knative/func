@@ -72,7 +72,7 @@ func (t *templateWriter) load() (err error) {
 // Template may be prefixed with a custom repo name.
 func (t *templateWriter) Write(runtime, template, dest string) (err error) {
 	if t.templates == nil {
-		// load static embedded templates into t.templates as an fs.FSA
+		// load static embedded templates into t.templates as an fs.FS
 		if err = t.load(); err != nil {
 			return
 		}
@@ -102,18 +102,21 @@ func (t *templateWriter) writeCustom(repositories, runtime, template, dest strin
 		return ErrTemplateMissingRepository
 	}
 	// ex: /home/alice/.config/func/repositories/boson/go/http
-	src := filepath.Join(cc[0], runtime, cc[1])
+	// Note that the FS instance returned by os.DirFS uses forward slashes
+	// internally, so source paths do not use the os path separator due to
+	// that breaking Windows.
+	src := cc[0] + "/" + runtime + "/" + cc[1]
 	return t.cp(src, dest, os.DirFS(repositories))
 }
 
 func (t *templateWriter) writeEmbedded(runtime, template, dest string) error {
-	runtimePath := filepath.Join("templates", runtime)
+	runtimePath := "templates/" + runtime // embedded FS alwas uses '/'
 	_, err := fs.Stat(t.templates, runtimePath)
 	if errors.Is(err, fs.ErrNotExist) {
 		return ErrRuntimeNotFound
 	}
 
-	templatePath := filepath.Join("templates", runtime, template)
+	templatePath := "templates/" + runtime + "/" + template // always '/' in embedded fs
 	_, err = fs.Stat(t.templates, templatePath)
 	if errors.Is(err, fs.ErrNotExist) {
 		return ErrTemplateNotFound
@@ -158,7 +161,11 @@ func (t *templateWriter) copyNode(src, dest string, files fs.FS) error {
 		return err
 	}
 	for _, child := range children {
-		if err = t.cp(filepath.Join(src, child.Name()), filepath.Join(dest, child.Name()), files); err != nil {
+		// NOTE: instances of fs.FS use forward slashes,
+		// even on Windows.
+		childSrc := src + "/" + child.Name()
+		childDest := filepath.Join(dest, child.Name())
+		if err = t.cp(childSrc, childDest, files); err != nil {
 			return err
 		}
 	}
