@@ -101,7 +101,7 @@ type ProgressListener interface {
 // Describer of Functions' remote deployed aspect.
 type Describer interface {
 	// Describe the running state of the service as reported by the underlyng platform.
-	Describe(name string) (description Description, err error)
+	Describe(ctx context.Context, name string) (description Description, err error)
 }
 
 type Description struct {
@@ -473,11 +473,11 @@ func (c *Client) List(ctx context.Context) ([]ListItem, error) {
 
 // Describe a Function.  Name takes precidence.  If no name is provided,
 // the Function defined at root is used.
-func (c *Client) Describe(name, root string) (d Description, err error) {
+func (c *Client) Describe(ctx context.Context, name, root string) (d Description, err error) {
 	// If name is provided, it takes precidence.
 	// Otherwise load the Function defined at root.
 	if name != "" {
-		return c.describer.Describe(name)
+		return c.describer.Describe(ctx, name)
 	}
 
 	f, err := NewFunction(root)
@@ -487,7 +487,7 @@ func (c *Client) Describe(name, root string) (d Description, err error) {
 	if !f.Initialized() {
 		return d, fmt.Errorf("%v is not initialized", f.Name)
 	}
-	return c.describer.Describe(f.Name)
+	return c.describer.Describe(ctx, f.Name)
 }
 
 // Remove a Function.  Name takes precidence.  If no name is provided,
