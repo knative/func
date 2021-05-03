@@ -8,6 +8,7 @@ import (
 
 	bosonFunc "github.com/boson-project/func"
 	"github.com/boson-project/func/buildpacks"
+	"github.com/boson-project/func/progress"
 	"github.com/boson-project/func/prompt"
 )
 
@@ -95,12 +96,23 @@ func runBuild(cmd *cobra.Command, _ []string) (err error) {
 	builder := buildpacks.NewBuilder()
 	builder.Verbose = config.Verbose
 
+	listener := progress.New()
+	listener.Verbose = config.Verbose
+	defer listener.Done()
+
+	context := cmd.Context()
+	go func() {
+		<-context.Done()
+		listener.Done()
+	}()
+
 	client := bosonFunc.New(
 		bosonFunc.WithVerbose(config.Verbose),
 		bosonFunc.WithRegistry(config.Registry), // for deriving image name when --image not provided explicitly.
-		bosonFunc.WithBuilder(builder))
+		bosonFunc.WithBuilder(builder),
+		bosonFunc.WithProgressListener(listener))
 
-	return client.Build(cmd.Context(), config.Path)
+	return client.Build(context, config.Path)
 }
 
 type buildConfig struct {

@@ -7,8 +7,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/pkg/errors"
-
 	"github.com/mitchellh/go-homedir"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
@@ -79,7 +77,7 @@ func Execute(ctx context.Context) {
 	root.Version = version.String()
 	// Execute the root of the command tree.
 	if err := root.ExecuteContext(ctx); err != nil {
-		if errors.Cause(err) == context.Canceled {
+		if ctx.Err() != nil {
 			os.Exit(130)
 			return
 		}

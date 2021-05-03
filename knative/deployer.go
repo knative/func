@@ -16,7 +16,7 @@ import (
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 
-	bosonFunc "github.com/boson-project/func"
+	fn "github.com/boson-project/func"
 )
 
 type Deployer struct {
@@ -37,30 +37,26 @@ func NewDeployer(namespaceOverride string) (deployer *Deployer, err error) {
 	return
 }
 
-func (d *Deployer) Deploy(ctx context.Context, f bosonFunc.Function) (err error) {
+func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (result fn.DeploymentResult, err error) {
 
 	client, err := NewServingClient(d.Namespace)
 	if err != nil {
-		return
+		return fn.DeploymentResult{}, err
 	}
 
 	_, err = client.GetService(f.Name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 
-			// Let's create a new Service
-			if d.Verbose {
-				fmt.Printf("Creating Knative Service: %v\n", f.Name)
-			}
 			service, err := generateNewService(f.Name, f.ImageWithDigest(), f.Runtime, f.Env, f.Annotations)
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to generate the service: %v", err)
-				return err
+				return fn.DeploymentResult{}, err
 			}
 			err = client.CreateService(service)
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to deploy the service: %v", err)
-				return err
+				return fn.DeploymentResult{}, err
 			}
 
 			if d.Verbose {
@@ -69,39 +65,45 @@ func (d *Deployer) Deploy(ctx context.Context, f bosonFunc.Function) (err error)
 			err, _ = client.WaitForService(f.Name, DefaultWaitingTimeout, wait.NoopMessageCallback())
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to wait for the service to become ready: %v", err)
-				return err
+				return fn.DeploymentResult{}, err
 			}
 
 			route, err := client.GetRoute(f.Name)
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to get the route: %v", err)
-				return err
+				return fn.DeploymentResult{}, err
 			}
 
 			fmt.Println("Function deployed at URL: " + route.Status.URL.String())
+			return fn.DeploymentResult{
+				Status: fn.Deployed,
+				URL:    route.Status.URL.String(),
+			}, nil
+			// fmt.Sprintf("Function deployed at URL: %v", route.Status.URL.String()), nil
 
 		} else {
 			err = fmt.Errorf("knative deployer failed to get the service: %v", err)
-			return err
+			return fn.DeploymentResult{}, err
 		}
 	} else {
 		// Update the existing Service
 		err = client.UpdateServiceWithRetry(f.Name, updateService(f.ImageWithDigest(), f.Env, f.Annotations), 3)
 		if err != nil {
 			err = fmt.Errorf("knative deployer failed to update the service: %v", err)
-			return err
+			return fn.DeploymentResult{}, err
 		}
 
 		route, err := client.GetRoute(f.Name)
 		if err != nil {
 			err = fmt.Errorf("knative deployer failed to get the route: %v", err)
-			return err
+			return fn.DeploymentResult{}, err
 		}
 
-		fmt.Println("Function updated at URL: " + route.Status.URL.String())
+		return fn.DeploymentResult{
+			Status: fn.Updated,
+			URL:    route.Status.URL.String(),
+		}, nil
 	}
-
-	return nil
 }
 
 func probeFor(url string) *corev1.Probe {

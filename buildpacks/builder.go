@@ -88,8 +88,11 @@ func (builder *Builder) Build(ctx context.Context, f bosonFunc.Function) (err er
 
 	// Build based using the given builder.
 	if err = packClient.Build(ctx, packOpts); err != nil {
-		// If the builder was not showing logs, embed the full logs in the error.
-		if !builder.Verbose {
+		if ctx.Err() != nil {
+			// received SIGINT
+			return
+		} else if !builder.Verbose {
+			// If the builder was not showing logs, embed the full logs in the error.
 			err = fmt.Errorf("%v\noutput: %s\n", err, logWriter.(*bytes.Buffer).String())
 		}
 	}

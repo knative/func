@@ -47,6 +47,9 @@ type Bar struct {
 	// print verbose-style updates even when not attached to an interactive terminal.
 	printWhileHeadless bool
 
+	// print N/M step counter with messages
+	printWithStepCounter bool
+
 	// Ticker for animated progress when non-verbose, interactive terminal.
 	ticker *time.Ticker
 }
@@ -65,6 +68,12 @@ func WithOutput(w io.Writer) Option {
 func WithPrintWhileHeadless(p bool) Option {
 	return func(b *Bar) {
 		b.printWhileHeadless = p
+	}
+}
+
+func WithPrintStepCounter(s bool) Option {
+	return func(b *Bar) {
+		b.printWithStepCounter = s
 	}
 }
 
@@ -105,14 +114,15 @@ func (b *Bar) Increment(text string) {
 		return
 	}
 
-	// Otherwise we are in non-verbose, interactive mode.  Do a line-overwrite.
-	b.overwrite("  ") // Write with space for the spinner
-
 	// Start the spinner if not already started
 	if b.ticker == nil {
+		fmt.Println()
 		b.ticker = time.NewTicker(100 * time.Millisecond)
 		go b.spin(b.ticker.C)
 	}
+
+	// Otherwise we are in non-verbose, interactive mode.  Do a line-overwrite.
+	b.overwrite("   ") // Write with space for the spinner
 }
 
 // Complete the spinner by advancing to the last step, printing the final text and stopping the write loop.
@@ -149,13 +159,12 @@ func (b *Bar) Done() {
 	if b.ticker != nil {
 		b.ticker.Stop()
 		b.ticker = nil
-		b.overwrite("") // write unindented
 	}
 }
 
 // Write a simple line status update.
 func (b *Bar) write() {
-	fmt.Fprintf(b.out, "%v/%v %v\n", b.index, b.total, b.text)
+	fmt.Fprintln(b.out, b)
 }
 
 // interactiveTerminal returns whether or not the currently attached process
@@ -179,19 +188,45 @@ func (b *Bar) overwrite(prefix string) {
 	//  2 Move up one line
 	//  3 Clear to the end of the line
 	//  4 Print status text with optional prefix (spinner)
-	//  5 Print linebreak such that subsequent messaes print correctly.
-	fmt.Fprintf(b.out, "\r%v%v%v%v/%v %v\n", up, clear, prefix, b.index, b.total, b.text)
+	//  5 Print linebreak such that subsequent messages print correctly.
+	fmt.Fprintf(b.out, "\r%v%v%v%v\n", up, clear, prefix, b)
+}
+
+func (b *Bar) String() string {
+	if b.printWithStepCounter {
+		return fmt.Sprintf("%v/%v %v", b.index, b.total, b.text)
+	}
+	return b.text
 }
 
 // Write a spinner at the beginning of the previous line.
 func (b *Bar) spin(ch <-chan time.Time) {
-	spinner := []string{"|", "/", "-", "\\"}
+	if b.Verbose {
+		return
+	}
+	// Various options for spinners.
+	// spinner := []string{"|", "/", "-", "\\"}
+	// spinner := []string{"◢", "◣", "◤", "◥"}
+	spinner := []string{
+		"🕛 ",
+		"🕐 ",
+		"🕑 ",
+		"🕒 ",
+		"🕓 ",
+		"🕔 ",
+		"🕕 ",
+		"🕖 ",
+		"🕗 ",
+		"🕘 ",
+		"🕙 ",
+		"🕚 ",
+	}
 	idx := 0
 	for range ch {
 		// Writes the spinner frame at the beginning of the previous line, moving
 		// the cursor back to the beginning of the current line for any errors or
 		// informative messages.
 		fmt.Fprintf(b.out, "\r%v%v%v\r", up, spinner[idx], down)
-		idx = (idx + 1) % 4
+		idx = (idx + 1) % len(spinner)
 	}
 }
