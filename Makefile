@@ -66,8 +66,8 @@ test-python:
 	cd templates/python/http && python3 test_func.py
 
 test-quarkus:
-	cd templates/quarkus/events && mvn test
-	cd templates/quarkus/http && mvn test
+	cd templates/quarkus/events && mvn test && mvn clean
+	cd templates/quarkus/http && mvn test && mvn clean
 
 test-go:
 	cd templates/go/events && go test
