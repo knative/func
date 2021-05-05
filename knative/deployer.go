@@ -87,7 +87,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (result fn.Deploym
 		}
 	} else {
 		// Update the existing Service
-		err = client.UpdateServiceWithRetry(f.Name, updateService(f.ImageWithDigest(), f.Env, f.Annotations), 3)
+		_, err = client.UpdateServiceWithRetry(f.Name, updateService(f.ImageWithDigest(), f.Env, f.Annotations), 3)
 		if err != nil {
 			err = fmt.Errorf("knative deployer failed to update the service: %v", err)
 			return fn.DeploymentResult{}, err
