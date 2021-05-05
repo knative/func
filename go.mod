@@ -23,10 +23,5 @@ require (
 	knative.dev/serving v0.21.0
 )
 
-replace (
-	// knative.dev/serving@v0.21.0 and knative.dev/pkg@v0.0.0-20210331065221-952fdd90dbb0 require different versions of go-openapi/spec
-	github.com/go-openapi/spec => github.com/go-openapi/spec v0.19.6
-	// Nail down k8 deps to align with transisitive deps
-	k8s.io/client-go => k8s.io/client-go v0.19.7
-	k8s.io/code-generator => k8s.io/code-generator v0.19.7
-)
+// knative.dev/serving@v0.21.0 and knative.dev/pkg@v0.0.0-20210331065221-952fdd90dbb0 require different versions of go-openapi/spec
+replace github.com/go-openapi/spec => github.com/go-openapi/spec v0.19.6
