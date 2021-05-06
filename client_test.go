@@ -704,6 +704,30 @@ func TestDeployUnbuilt(t *testing.T) {
 	}
 }
 
+func TestEmit(t *testing.T) {
+	sink := "http://testy.mctestface.com"
+	emitter := mock.NewEmitter()
+
+	// Ensure sink passthrough from client
+	emitter.EmitFn = func(s string) error {
+		if s != sink {
+			t.Fatalf("Unexpected sink %v\n", s)
+		}
+		return nil
+	}
+
+	// Instantiate in the current working directory, with no name.
+	client := bosonFunc.New(bosonFunc.WithEmitter(emitter))
+
+	if err := client.Emit(context.Background(), sink); err != nil {
+		t.Fatal(err)
+	}
+	if !emitter.EmitInvoked {
+		t.Fatal("Client did not invoke emitter.Emit()")
+	}
+
+}
+
 // TODO: The tests which confirm an error is generated do not currently test
 // that the expected error is received; just that any error is generated.
 // This should be replaced with typed errors or at a minimum code prefixes

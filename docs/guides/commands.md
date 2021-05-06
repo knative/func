@@ -124,3 +124,38 @@ When run as a `kn` plugin.
 ```console
 kn func delete <name> [-n namespace, -p path]
 ```
+
+## `emit`
+
+Emits a CloudEvent, sending it to the deployed function. The user may specify the event type, source and ID,
+and may provide event data on the command line or in a file on disk. By default, `event` works on the local
+directory, assuming that it is a function project. Alternatively the user may provide a path to a project
+directory using the `--path` flag, or send an event to an arbitrary endpoint using the `--sink` flag. The
+`--sink` flag also accepts the special value `local` to send an event to the function running locally, for
+example, when run via `func run`.
+
+Similar `kn` command when using the `kn-plgin-event`: `kn event send [FLAGS]`
+
+Examples:
+
+```console
+# Send a CloudEvent to the deployed function with no data and default values
+# for source, type and ID
+kn func emit
+
+# Send a CloudEvent to the deployed function with the data found in ./test.json
+kn func emit --file ./test.json
+
+# Send a CloudEvent to the function running locally with a CloudEvent containing
+# "Hello World!" as the data field, with a content type of "text/plain"
+kn func emit --data "Hello World!" --content-type "text/plain" -s local
+
+# Send a CloudEvent to the function running locally with an event type of "my.event"
+kn func emit --type my.event --sink local
+
+# Send a CloudEvent to the deployed function found at /path/to/fn with an id of "fn.test"
+kn func emit --path /path/to/fn -i fn.test
+
+# Send a CloudEvent to an arbitrary endpoint
+kn func emit --sink "http://my.event.broker.com"
+```
