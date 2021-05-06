@@ -90,7 +90,7 @@ func isCustom(template string) bool {
 	return len(strings.Split(template, "/")) > 1
 }
 
-func (t *templateWriter) writeCustom(repositoriesPath, runtime, template, dest string) error {
+func (t *templateWriter) writeCustom(repositoriesPath, runtime, template, dest string) (err error) {
 	if repositoriesPath == "" {
 		return ErrRepositoriesNotDefined
 	}
@@ -104,9 +104,15 @@ func (t *templateWriter) writeCustom(repositoriesPath, runtime, template, dest s
 	repositoriesFS := os.DirFS(repositoriesPath)
 
 	runtimePath := cc[0] + "/" + runtime
-	_, err := fs.Stat(repositoriesFS, runtimePath)
+	_, err = fs.Stat(repositoriesFS, runtimePath)
 	if errors.Is(err, fs.ErrNotExist) {
 		return ErrRuntimeNotFound
+	}
+
+	templatePath := runtimePath + "/" + cc[1]
+	_, err = fs.Stat(repositoriesFS, templatePath)
+	if errors.Is(err, fs.ErrNotExist) {
+		return ErrTemplateNotFound
 	}
 
 	// ex: /home/alice/.config/func/repositories/boson/go/http
