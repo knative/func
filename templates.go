@@ -90,23 +90,31 @@ func isCustom(template string) bool {
 	return len(strings.Split(template, "/")) > 1
 }
 
-func (t *templateWriter) writeCustom(repositories, runtime, template, dest string) error {
-	if repositories == "" {
+func (t *templateWriter) writeCustom(repositoriesPath, runtime, template, dest string) error {
+	if repositoriesPath == "" {
 		return ErrRepositoriesNotDefined
 	}
-	if !repositoryExists(repositories, template) {
+	if !repositoryExists(repositoriesPath, template) {
 		return ErrRepositoryNotFound
 	}
 	cc := strings.Split(template, "/")
 	if len(cc) < 2 {
 		return ErrTemplateMissingRepository
 	}
+	repositoriesFS := os.DirFS(repositoriesPath)
+
+	runtimePath := cc[0] + "/" + runtime
+	_, err := fs.Stat(repositoriesFS, runtimePath)
+	if errors.Is(err, fs.ErrNotExist) {
+		return ErrRuntimeNotFound
+	}
+
 	// ex: /home/alice/.config/func/repositories/boson/go/http
 	// Note that the FS instance returned by os.DirFS uses forward slashes
 	// internally, so source paths do not use the os path separator due to
 	// that breaking Windows.
 	src := cc[0] + "/" + runtime + "/" + cc[1]
-	return t.cp(src, dest, os.DirFS(repositories))
+	return t.cp(src, dest, repositoriesFS)
 }
 
 func (t *templateWriter) writeEmbedded(runtime, template, dest string) error {

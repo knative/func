@@ -215,6 +215,31 @@ func TestRuntimeNotFound(t *testing.T) {
 	}
 }
 
+// TODO: TestRuntimeNotFoundCustom ensures that the correct error is returned
+// when the requested runtime is not found in a given custom repository
+func TestRuntimeNotFoundCustom(t *testing.T) {
+	root := "testdata/example.com/testRuntimeNotFoundCustom"
+	if err := os.MkdirAll(root, 0700); err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(root)
+
+	// Create a new client with path to the extensible templates
+	client := bosonFunc.New(
+		bosonFunc.WithTemplates("testdata/repositories"),
+		bosonFunc.WithRegistry(TestRegistry))
+
+	// Create a Function specifying a runtime, 'python' that does not exist
+	// in the custom (testdata) repository but does in the embedded.
+	f := bosonFunc.Function{Root: root, Runtime: "python", Trigger: "customProvider/event"}
+
+	// creating should error as runtime not found
+	err := client.New(context.Background(), f)
+	if !errors.Is(err, bosonFunc.ErrRuntimeNotFound) {
+		t.Fatal(err)
+	}
+}
+
 // TestTemplateNotFound generates an error (embedded default repository).
 func TestTemplateNotFound(t *testing.T) {
 	root := "testdata/example.com/testTemplateNotFound"
@@ -234,7 +259,6 @@ func TestTemplateNotFound(t *testing.T) {
 	}
 }
 
-// TODO: TestRuntimeNotFound in custom repository
 // TODO: TestTemplateNotFound in custom repository
 
 // TestNamed ensures that an explicitly passed name is used in leau of the
