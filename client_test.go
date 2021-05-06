@@ -25,7 +25,7 @@ const TestRegistry = "quay.io/alice"
 // by the client API for those who prefer manual transmissions.
 func TestNew(t *testing.T) {
 	root := "testdata/example.com/testCreate" // Root from which to run the test
-	if err := os.MkdirAll(root, 0744); err != nil {
+	if err := os.MkdirAll(root, 0700); err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(root)
@@ -42,7 +42,7 @@ func TestNew(t *testing.T) {
 // TestTemplateWrites ensures a template is written.
 func TestTemplateWrites(t *testing.T) {
 	root := "testdata/example.com/testCreateWrites"
-	if err := os.MkdirAll(root, 0744); err != nil {
+	if err := os.MkdirAll(root, 0700); err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(root)
@@ -62,7 +62,7 @@ func TestTemplateWrites(t *testing.T) {
 // Function does not reinitialize
 func TestExtantAborts(t *testing.T) {
 	root := "testdata/example.com/testCreateInitializedAborts"
-	if err := os.MkdirAll(root, 0744); err != nil {
+	if err := os.MkdirAll(root, 0700); err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(root)
@@ -83,7 +83,7 @@ func TestExtantAborts(t *testing.T) {
 // visible files aborts.
 func TestNonemptyDirectoryAborts(t *testing.T) {
 	root := "testdata/example.com/testCreateNonemptyDirectoryAborts" // contains only a single visible file.
-	if err := os.MkdirAll(root, 0744); err != nil {
+	if err := os.MkdirAll(root, 0700); err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(root)
@@ -108,7 +108,7 @@ func TestNonemptyDirectoryAborts(t *testing.T) {
 func TestHiddenFilesIgnored(t *testing.T) {
 	// Create a directory for the Function
 	root := "testdata/example.com/testCreateHiddenFilesIgnored"
-	if err := os.MkdirAll(root, 0744); err != nil {
+	if err := os.MkdirAll(root, 0700); err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(root)
@@ -130,7 +130,7 @@ func TestHiddenFilesIgnored(t *testing.T) {
 func TestDefaultRuntime(t *testing.T) {
 	// Create a root for the new Function
 	root := "testdata/example.com/testCreateDefaultRuntime"
-	if err := os.MkdirAll(root, 0744); err != nil {
+	if err := os.MkdirAll(root, 0700); err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(root)
@@ -172,7 +172,7 @@ func TestDefaultTrigger(t *testing.T) {
 func TestExtensibleTemplates(t *testing.T) {
 	// Create a directory for the new Function
 	root := "testdata/example.com/testExtensibleTemplates"
-	if err := os.MkdirAll(root, 0744); err != nil {
+	if err := os.MkdirAll(root, 0700); err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(root)

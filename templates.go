@@ -23,7 +23,7 @@ import (
 //go:embed templates.tgz
 var embedded []byte
 
-// DefautlTemplate is the default Function signature / environmental context
+// DefaultTemplate is the default Function signature / environmental context
 // of the resultant template.  All runtimes are expected to have at least
 // an HTTP Handler ("http") and Cloud Events ("events")
 const DefaultTemplate = "http"
