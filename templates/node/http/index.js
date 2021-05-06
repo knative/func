@@ -1,5 +1,5 @@
 /**
- * Handles an incoming HTTP POST
+ * Handles an incoming HTTP GET
  * @param {Context} context a context object containing the HTTP request data
  */
 function handleGet(context) {
