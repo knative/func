@@ -6,7 +6,7 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
-	bosonFunc "github.com/boson-project/func"
+	fn "github.com/boson-project/func"
 	"github.com/boson-project/func/buildpacks"
 	"github.com/boson-project/func/progress"
 	"github.com/boson-project/func/prompt"
@@ -106,11 +106,11 @@ func runBuild(cmd *cobra.Command, _ []string) (err error) {
 		listener.Done()
 	}()
 
-	client := bosonFunc.New(
-		bosonFunc.WithVerbose(config.Verbose),
-		bosonFunc.WithRegistry(config.Registry), // for deriving image name when --image not provided explicitly.
-		bosonFunc.WithBuilder(builder),
-		bosonFunc.WithProgressListener(listener))
+	client := fn.New(
+		fn.WithVerbose(config.Verbose),
+		fn.WithRegistry(config.Registry), // for deriving image name when --image not provided explicitly.
+		fn.WithBuilder(builder),
+		fn.WithProgressListener(listener))
 
 	return client.Build(context, config.Path)
 }

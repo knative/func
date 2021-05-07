@@ -15,7 +15,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/pkg/errors"
 
-	bosonFunc "github.com/boson-project/func"
+	fn "github.com/boson-project/func"
 )
 
 type Opt func(*Pusher) error
@@ -30,7 +30,7 @@ type CredentialsProvider func(ctx context.Context, registry string) (Credentials
 // Pusher of images from local to remote registry.
 type Pusher struct {
 	// Verbose logging.
-	Verbose 			bool
+	Verbose             bool
 	credentialsProvider CredentialsProvider
 }
 
@@ -48,7 +48,7 @@ func EmptyCredentialsProvider(ctx context.Context, registry string) (Credentials
 // NewPusher creates an instance of a docker-based image pusher.
 func NewPusher(opts ...Opt) (*Pusher, error) {
 	result := &Pusher{
-		Verbose: false,
+		Verbose:             false,
 		credentialsProvider: EmptyCredentialsProvider,
 	}
 	for _, opt := range opts {
@@ -61,7 +61,7 @@ func NewPusher(opts ...Opt) (*Pusher, error) {
 }
 
 // Push the image of the Function.
-func (n *Pusher) Push(ctx context.Context, f bosonFunc.Function) (digest string, err error) {
+func (n *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err error) {
 
 	if f.Image == "" {
 		return "", errors.New("Function has no associated image.  Has it been built?")
@@ -71,7 +71,7 @@ func (n *Pusher) Push(ctx context.Context, f bosonFunc.Function) (digest string,
 	parts := strings.Split(f.Image, "/")
 	switch len(parts) {
 	case 2:
-		registry = bosonFunc.DefaultRegistry
+		registry = fn.DefaultRegistry
 	case 3:
 		registry = parts[0]
 	default:

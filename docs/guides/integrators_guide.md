@@ -9,7 +9,7 @@ To create a Client which uses the included buildpacks-based function builder, pu
 package main
 
 import (
-	bosonFunc "github.com/boson-project/func"
+	fn "github.com/boson-project/func"
 	"github.com/boson-project/func/buildpacks"
 	"github.com/boson-project/func/docker"
 	"github.com/boson-project/func/knative"
@@ -28,16 +28,16 @@ func main() {
 	// A client which uses embedded function templates,
 	// Quay.io/alice for interstitial build artifacts.
 	// Docker to build and push, and a Knative client for deployment.
-	client := bosonFunc.New(
-		bosonFunc.WithBuilder(buildpacks.NewBuilder()),
-		bosonFunc.WithPusher(pusher),
-		bosonFunc.WithDeployer(deployer),
-		bosonFunc.WithRegistry("quay.io/alice"))
+	client := fn.New(
+		fn.WithBuilder(buildpacks.NewBuilder()),
+		fn.WithPusher(pusher),
+		fn.WithDeployer(deployer),
+		fn.WithRegistry("quay.io/alice"))
 
 	// Create a Go function which listens for CloudEvents.
 	// Publicly routable as https://www.example.com.
 	// Local implementation is written to the current working directory.
-	funcTest := bosonFunc.Function{
+	funcTest := fn.Function{
 		Runtime: "go",
 		Trigger: "events",
 		Name: "my-function",
