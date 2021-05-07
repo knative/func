@@ -5,7 +5,7 @@ import (
 	v1 "knative.dev/client/pkg/serving/v1"
 	"knative.dev/eventing/pkg/apis/eventing/v1beta1"
 
-	bosonFunc "github.com/boson-project/func"
+	fn "github.com/boson-project/func"
 )
 
 type Describer struct {
@@ -28,7 +28,7 @@ func NewDescriber(namespaceOverride string) (describer *Describer, err error) {
 // restricts to label-syntax, which is thus escaped. Therefore as a knative (kube) implementation
 // detal proper full names have to be escaped on the way in and unescaped on the way out. ex:
 // www.example-site.com -> www-example--site-com
-func (d *Describer) Describe(name string) (description bosonFunc.Description, err error) {
+func (d *Describer) Describe(name string) (description fn.Description, err error) {
 
 	servingClient, err := NewServingClient(d.namespace)
 	if err != nil {
@@ -68,11 +68,11 @@ func (d *Describer) Describe(name string) (description bosonFunc.Description, er
 
 	}
 
-	subscriptions := make([]bosonFunc.Subscription, 0, len(triggers.Items))
+	subscriptions := make([]fn.Subscription, 0, len(triggers.Items))
 	for _, trigger := range triggers.Items {
 		if triggerMatches(&trigger) {
 			filterAttrs := trigger.Spec.Filter.Attributes
-			subscription := bosonFunc.Subscription{
+			subscription := fn.Subscription{
 				Source: filterAttrs["source"],
 				Type:   filterAttrs["type"],
 				Broker: trigger.Spec.Broker,

@@ -6,7 +6,7 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
-	bosonFunc "github.com/boson-project/func"
+	fn "github.com/boson-project/func"
 	"github.com/boson-project/func/knative"
 	"github.com/boson-project/func/prompt"
 )
@@ -45,7 +45,7 @@ kn func delete -n apps myfunc
 func runDelete(cmd *cobra.Command, args []string) (err error) {
 	config := newDeleteConfig(args).Prompt()
 
-	function, err := bosonFunc.NewFunction(config.Path)
+	function, err := fn.NewFunction(config.Path)
 	if err != nil {
 		return
 	}
@@ -67,9 +67,9 @@ func runDelete(cmd *cobra.Command, args []string) (err error) {
 
 	remover.Verbose = config.Verbose
 
-	client := bosonFunc.New(
-		bosonFunc.WithVerbose(config.Verbose),
-		bosonFunc.WithRemover(remover))
+	client := fn.New(
+		fn.WithVerbose(config.Verbose),
+		fn.WithRemover(remover))
 
 	return client.Remove(cmd.Context(), function)
 }

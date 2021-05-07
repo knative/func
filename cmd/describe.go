@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
-	bosonFunc "github.com/boson-project/func"
+	fn "github.com/boson-project/func"
 	"github.com/boson-project/func/knative"
 )
 
@@ -51,7 +51,7 @@ kn func describe --output yaml --path myotherfunc
 func runDescribe(cmd *cobra.Command, args []string) (err error) {
 	config := newDescribeConfig(args)
 
-	function, err := bosonFunc.NewFunction(config.Path)
+	function, err := fn.NewFunction(config.Path)
 	if err != nil {
 		return
 	}
@@ -67,9 +67,9 @@ func runDescribe(cmd *cobra.Command, args []string) (err error) {
 	}
 	describer.Verbose = config.Verbose
 
-	client := bosonFunc.New(
-		bosonFunc.WithVerbose(config.Verbose),
-		bosonFunc.WithDescriber(describer))
+	client := fn.New(
+		fn.WithVerbose(config.Verbose),
+		fn.WithDescriber(describer))
 
 	d, err := client.Describe(config.Name, config.Path)
 	if err != nil {
@@ -109,7 +109,7 @@ func newDescribeConfig(args []string) describeConfig {
 // Output Formatting (serializers)
 // -------------------------------
 
-type description bosonFunc.Description
+type description fn.Description
 
 func (d description) Human(w io.Writer) error {
 	fmt.Fprintln(w, "Function name:")

@@ -12,7 +12,7 @@ import (
 	"github.com/buildpacks/pack"
 	"github.com/buildpacks/pack/logging"
 
-	bosonFunc "github.com/boson-project/func"
+	fn "github.com/boson-project/func"
 )
 
 //Builder holds the configuration that will be passed to
@@ -37,7 +37,7 @@ var RuntimeToBuildpack = map[string]string{
 }
 
 // Build the Function at path.
-func (builder *Builder) Build(ctx context.Context, f bosonFunc.Function) (err error) {
+func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 
 	// Use the builder found in the Function configuration file
 	// If one isn't found, use the defaults

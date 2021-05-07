@@ -15,7 +15,7 @@ import (
 
 	"github.com/docker/docker/client"
 
-	bosonFunc "github.com/boson-project/func"
+	fn "github.com/boson-project/func"
 )
 
 // Runner of functions using the docker command.
@@ -30,7 +30,7 @@ func NewRunner() *Runner {
 }
 
 // Run the function at path
-func (n *Runner) Run(ctx context.Context, f bosonFunc.Function) error {
+func (n *Runner) Run(ctx context.Context, f fn.Function) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
