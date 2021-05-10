@@ -82,17 +82,6 @@ jobs:
           name: Windows Binary
           path: func_windows_amd64.exe
 
-      # Build and push a latest image with each commit
-      - name: Image
-        run:  make image
-      - name: Push Image
-        env:
-          USER: ${{ secrets.QUAY_USER }}
-          PASS: ${{ secrets.QUAY_TOKEN }}
-        run: |
-          docker login -u "$USER" -p "$PASS" quay.io
-          make push && make latest
-
       # The following steps are only executed if this is a release
       - name: Compress Binaries
         if: ${{ steps.release.outputs.release_created }}
