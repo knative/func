@@ -111,7 +111,7 @@ kn func list [-n <namespace> -p <path>]
 
 ## `delete`
 
-Removes a deployed function from the cluster. The user may specify a function by name, path or if neither of those are provided, the current directory will be searched for a `func.yaml` configuration file to determine the function to be removed. The namespace defaults to the value in `func.yaml` or the namespace currently active in the user's Kubernetes configuration. The namespace may be specified on the command line, and if so this will overwrite the value in `func.yaml`.
+Removes a deployed function from the cluster. The user may specify a function by name, path. If both of those are provided the command will not be executed and user will receive an error message. If neither of those are provided, the current directory will be searched for a `func.yaml` configuration file to determine the function to be removed. The namespace defaults to the value in `func.yaml` or the namespace currently active in the user's Kubernetes configuration. The namespace may be specified on the command line, and if so this will overwrite the value in `func.yaml`.
 
 Similar `kn` command: `kn service delete NAME [flags]`.
 
