@@ -66,7 +66,10 @@ annotations: {}
 	}
 	defer f.Close()
 
-	f.WriteString(funcYaml)
+	_, err = f.WriteString(funcYaml)
+	if err != nil {
+		t.Fatal(err)
+	}
 	f.Close()
 
 
@@ -74,8 +77,13 @@ annotations: {}
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer os.Chdir(oldWD)
-	err = 	os.Chdir(tmpDir)
+	defer func() {
+		err = os.Chdir(oldWD)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
+	err = os.Chdir(tmpDir)
 	if err != nil {
 		t.Fatal(err)
 	}
