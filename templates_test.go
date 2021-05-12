@@ -72,38 +72,32 @@ func TestWriteDefault(t *testing.T) {
 	}
 }
 
-// TestWriteModeEmbedded ensures that templates written from the embedded
-// templates retain their mode.
-func TestWriteModeEmbedded(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		return
-		// not applicable
-	}
-
-	// set up test directory
-	var err error
-	root := "testdata/testWriteModeEmbedded"
+// TestWriteModeDefault ensires that files written to disk are set to writible by the owner by default.  Since the embedded filesystem is expressly read-only, copying files to disk results in likewise read-only files.  Templates are expected to be mutable, so by default set mode to 0644.
+func TestWriteModeDefault(t *testing.T) {
+	root := "testdata/testWriteModeDefault"
 	defer using(t, root)()
 
-	// Write the embedded template that contains an executable script
 	w := templateWriter{}
-	err = w.Write(TestRuntime, "tplb", root)
+	err := w.Write(TestRuntime, "tpla", root)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// Verify file mode was preserved
-	file, err := os.Stat(filepath.Join(root, "executable.sh"))
+	// Verify file mode was defaulted
+	f, err := os.Stat(filepath.Join(root, "rtAtplA.txt"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if file.Mode() != os.FileMode(0755) {
-		t.Fatalf("The embedded executable's mode should be 0755 but was %v", file.Mode())
+	if f.Mode() != os.FileMode(0644) {
+		t.Fatalf("The custom file's mode should be 0644 but was %#o", f.Mode())
 	}
+
 }
 
-// TestWriteModeCustom ensures that templates written from custom templates
-// retain their mode.
+// TestWriteCustomMode ensures that templates written from custom templates
+// retain their mode.  Note that the embed system is expressly for read-only
+// filesystems, so the mode is always read-only
+// https://golang.org/src/embed/embed.go?s=5559:6576#L235
 func TestWriteModeCustom(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		return // not applicable
@@ -122,12 +116,12 @@ func TestWriteModeCustom(t *testing.T) {
 	}
 
 	// Verify custom file mode was preserved.
-	file, err := os.Stat(filepath.Join(root, "executable.sh"))
+	customFile, err := os.Stat(filepath.Join(root, "custom-executable.sh"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if file.Mode() != os.FileMode(0755) {
-		t.Fatalf("The custom executable file's mode should be 0755 but was %v", file.Mode())
+	if customFile.Mode() != os.FileMode(0755) {
+		t.Fatalf("The custom file's mode should be 0755 but was %v", customFile.Mode())
 	}
 }
 
