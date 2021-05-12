@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
-	fn "github.com/boson-project/func"
+	bosonFunc "github.com/boson-project/func"
 	"github.com/boson-project/func/knative"
 )
 
@@ -66,9 +66,9 @@ func runList(cmd *cobra.Command, args []string) (err error) {
 		lister.Namespace = ""
 	}
 
-	client := fn.New(
-		fn.WithVerbose(config.Verbose),
-		fn.WithLister(lister))
+	client := bosonFunc.New(
+		bosonFunc.WithVerbose(config.Verbose),
+		bosonFunc.WithLister(lister))
 
 	items, err := client.List(cmd.Context())
 	if err != nil {
@@ -105,7 +105,7 @@ func newListConfig() listConfig {
 // Output Formatting (serializers)
 // -------------------------------
 
-type listItems []fn.ListItem
+type listItems []bosonFunc.ListItem
 
 func (items listItems) Human(w io.Writer) error {
 	return items.Plain(w)

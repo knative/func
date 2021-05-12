@@ -2,21 +2,21 @@ package mock
 
 import (
 	"context"
-	fn "github.com/boson-project/func"
+	bosonFunc "github.com/boson-project/func"
 )
 
 type Lister struct {
 	ListInvoked bool
-	ListFn      func() ([]fn.ListItem, error)
+	ListFn      func() ([]bosonFunc.ListItem, error)
 }
 
 func NewLister() *Lister {
 	return &Lister{
-		ListFn: func() ([]fn.ListItem, error) { return []fn.ListItem{}, nil },
+		ListFn: func() ([]bosonFunc.ListItem, error) { return []bosonFunc.ListItem{}, nil },
 	}
 }
 
-func (l *Lister) List(context.Context) ([]fn.ListItem, error) {
+func (l *Lister) List(context.Context) ([]bosonFunc.ListItem, error) {
 	l.ListInvoked = true
 	return l.ListFn()
 }

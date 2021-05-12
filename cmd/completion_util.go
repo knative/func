@@ -8,7 +8,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	fn "github.com/boson-project/func"
+	bosonFunc "github.com/boson-project/func"
 	"github.com/boson-project/func/buildpacks"
 	"github.com/boson-project/func/knative"
 )
@@ -79,7 +79,7 @@ func CompleteBuilderList(cmd *cobra.Command, args []string, complete string) (st
 	var (
 		err  error
 		path string
-		f    fn.Function
+		f    bosonFunc.Function
 	)
 
 	path, err = cmd.Flags().GetString("path")
@@ -87,7 +87,7 @@ func CompleteBuilderList(cmd *cobra.Command, args []string, complete string) (st
 		return
 	}
 
-	f, err = fn.NewFunction(path)
+	f, err = bosonFunc.NewFunction(path)
 	if err != nil {
 		return
 	}

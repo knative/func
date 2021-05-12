@@ -2,7 +2,7 @@ package mock
 
 import (
 	"context"
-	fn "github.com/boson-project/func"
+	bosonFunc "github.com/boson-project/func"
 )
 
 type Runner struct {
@@ -14,7 +14,7 @@ func NewRunner() *Runner {
 	return &Runner{}
 }
 
-func (r *Runner) Run(ctx context.Context, f fn.Function) error {
+func (r *Runner) Run(ctx context.Context, f bosonFunc.Function) error {
 	r.RunInvoked = true
 	r.RootRequested = f.Root
 	return nil
