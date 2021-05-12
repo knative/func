@@ -1,9 +1,9 @@
 REPO := quay.io/boson/func
+BIN  := func
 
-BIN     := func
-DARWIN  :=$(BIN)_darwin_amd64
-LINUX   :=$(BIN)_linux_amd64
-WINDOWS :=$(BIN)_windows_amd64.exe
+DARWIN=$(BIN)_darwin_amd64
+LINUX=$(BIN)_linux_amd64
+WINDOWS=$(BIN)_windows_amd64.exe
 
 CODE := $(shell find . -name '*.go')
 DATE := $(shell date -u +"%Y%m%dT%H%M%SZ")
@@ -13,8 +13,6 @@ VTAG := $(shell git tag --points-at HEAD)
 # and is necessary with release-please-action which tags asynchronously
 # unless explicitly, synchronously tagging as is done in ci.yaml
 VERS ?= $(shell [ -z $(VTAG) ] && echo 'tip' || echo $(VTAG) )
-
-LDFLAGS := -X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)
 
 build: all
 all: $(BIN)
@@ -35,20 +33,16 @@ linux: $(LINUX) ## Build for Linux
 windows: $(WINDOWS) ## Build for Windows
 
 $(BIN): $(CODE)  ## Build using environment defaults
-	go generate
-	env CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" ./cmd/$(BIN)
+	env CGO_ENABLED=0 go build -ldflags "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)" ./cmd/$(BIN)
 
 $(DARWIN):
-	go generate
-	env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o $(DARWIN) -ldflags "$(LDFLAGS)" ./cmd/$(BIN)
+	env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o $(DARWIN) -ldflags "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)" ./cmd/$(BIN)
 
 $(LINUX):
-	go generate
-	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(LINUX) -ldflags "$(LDFLAGS)" ./cmd/$(BIN)
+	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(LINUX) -ldflags "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)" ./cmd/$(BIN)
 
 $(WINDOWS):
-	go generate
-	env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o $(WINDOWS) -ldflags "$(LDFLAGS)" ./cmd/$(BIN)
+	env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o $(WINDOWS) -ldflags "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)" ./cmd/$(BIN)
 
 test: test-binary test-node test-python test-quarkus test-go
 
@@ -92,5 +86,5 @@ cluster: ## Set up a local cluster for integraiton tests.
 	./hack/allocate.sh && ./hack/configure.sh
 
 clean:
-	rm -f $(BIN) $(WINDOWS) $(LINUX) $(DARWIN) $(TEMPLATES)
+	rm -f $(BIN) $(WINDOWS) $(LINUX) $(DARWIN)
 	-rm -f coverage.out
