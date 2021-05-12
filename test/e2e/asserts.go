@@ -1,7 +1,6 @@
 package e2e
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
 	"testing"
@@ -65,9 +64,7 @@ func (a *Asserts) Http2xx(statusCode int) {
 }
 
 func (a *Asserts) Http2xxWithMessage(statusCode int, errorMessage string) {
-	fmt.Println("inside Http2xxWithMessage")
 	if statusCode < 200 || statusCode > 299 {
-		fmt.Println("inside status")
 		a.t.Fatal("Invalid response code ", errorMessage, ". ", errorMessage)
 	}
 }

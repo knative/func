@@ -93,7 +93,7 @@ func (scenario *TestDeployScenario) RunTestScenario(t *testing.T) {
 	dockerCli.RunSilent("login", "-u", "user", "-p", "password", registry)
 
 	funcCli.SourceDir(functionFullPath)
-	cmd = funcCli.Run("deploy", "-r", registry)
+	cmd = funcCli.RunSilent("deploy", "-r", registry)
 
 	assert.MustMatch(cmd.Stdout, "Function deployed at URL")
 	scenario.isFunctionDeployed = true

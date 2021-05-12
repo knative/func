@@ -17,7 +17,6 @@ func TestDeploySpringboot(t *testing.T) {
 		DeploymentValidator:  func(t *testing.T, funcCli *cli.TestShellCli, functionUrl string) {
 			// WIP: Currently validated by readiness/liveness probe.
 		},
-		LongRunTest:          true,
 	}
 	deployScenario.RunTestScenario(t)
 }
