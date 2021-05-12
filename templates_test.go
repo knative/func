@@ -41,12 +41,9 @@ func TestWriteCustom(t *testing.T) {
 	root := "testdata/testWriteFilesystem"
 	defer using(t, root)()
 
-	// Writer which includes reference to custom repositories location
+	// Writer which includes custom repositories
 	w := templateWriter{repositories: "testdata/repositories"}
-	// template, in form [provider]/[template], on disk the template is
-	// located at testdata/repositories/[provider]/[runtime]/[template]
-	tpl := "customProvider/tpla"
-	err := w.Write(TestRuntime, tpl, root)
+	err := w.Write(TestRuntime, "customProvider/tpla", root)
 	if err != nil {
 		t.Fatal(err)
 	}
