@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
@@ -115,7 +116,7 @@ func TestHiddenFilesIgnored(t *testing.T) {
 
 	// Create a hidden file that should be ignored.
 	hiddenFile := filepath.Join(root, ".envrc")
-	if err := os.WriteFile(hiddenFile, []byte{}, 0644); err != nil {
+	if err := ioutil.WriteFile(hiddenFile, []byte{}, 0644); err != nil {
 		t.Fatal(err)
 	}
 
