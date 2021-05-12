@@ -19,14 +19,12 @@ LDFLAGS := -X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)
 build: all
 all: $(BIN)
 
-templates.tgz:
+clean-templates: 
 	# ensure no cached dependencies are added to the binary
 	rm -rf templates/node/events/node_modules
 	rm -rf templates/node/http/node_modules
 	rm -rf templates/python/events/__pycache__
 	rm -rf templates/python/http/__pycache__
-	# see generate.go for details
-	go generate
 
 cross-platform: $(DARWIN) $(LINUX) $(WINDOWS)
 
@@ -36,21 +34,26 @@ linux: $(LINUX) ## Build for Linux
 
 windows: $(WINDOWS) ## Build for Windows
 
-$(BIN): templates.tgz $(CODE)  ## Build using environment defaults
+$(BIN): $(CODE)  ## Build using environment defaults
+	go generate
 	env CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" ./cmd/$(BIN)
 
-$(DARWIN): templates.tgz
+$(DARWIN):
+	go generate
 	env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o $(DARWIN) -ldflags "$(LDFLAGS)" ./cmd/$(BIN)
 
-$(LINUX): templates.tgz
+$(LINUX):
+	go generate
 	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(LINUX) -ldflags "$(LDFLAGS)" ./cmd/$(BIN)
 
-$(WINDOWS): templates.tgz
+$(WINDOWS):
+	go generate
 	env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o $(WINDOWS) -ldflags "$(LDFLAGS)" ./cmd/$(BIN)
 
 test: test-binary test-node test-python test-quarkus test-go
 
-test-binary: templates.tgz
+test-binary:
+	go generate
 	go test -race -cover -coverprofile=coverage.out ./...
 
 test-node:
@@ -69,7 +72,8 @@ test-go:
 	cd templates/go/events && go test
 	cd templates/go/http && go test
 
-test-integration: templates.tgz
+test-integration:
+	go generate
 	go test -tags integration ./...
 
 bin/golangci-lint:
