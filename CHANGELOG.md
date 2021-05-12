@@ -1,6 +1,17 @@
 # Change Log
 
 <a name="unreleased"></a>
+## [0.14.0](https://www.github.com/boson-project/func/compare/v0.13.0...v0.14.0) (2021-05-12)
+
+
+### ⚠ BREAKING CHANGES
+
+* revert bump to go 1.16 and template changes (#340)
+
+### src
+
+* revert bump to go 1.16 and template changes ([#340](https://www.github.com/boson-project/func/issues/340)) ([2b025df](https://www.github.com/boson-project/func/commit/2b025df19942e990050ef344784662fe77fd7309))
+
 ## [0.13.0](https://www.github.com/boson-project/func/compare/v0.12.1...v0.13.0) (2021-05-12)
 
 
