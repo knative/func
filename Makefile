@@ -1,6 +1,8 @@
 REPO := quay.io/boson/func
 BIN  := func
 
+PKGER?=pkger
+
 DARWIN=$(BIN)_darwin_amd64
 LINUX=$(BIN)_linux_amd64
 WINDOWS=$(BIN)_windows_amd64.exe
@@ -14,17 +16,23 @@ VTAG := $(shell git tag --points-at HEAD)
 # unless explicitly, synchronously tagging as is done in ci.yaml
 VERS ?= $(shell [ -z $(VTAG) ] && echo 'tip' || echo $(VTAG) )
 
-build: all
-all: $(BIN)
+TEMPLATE_DIRS=$(shell find templates -type d)
+TEMPLATE_FILES=$(shell find templates -type f -name '*')
+TEMPLATE_PACKAGE=pkged.go
 
-clean-templates: 
-	# ensure no cached dependencies are added to the binary
+build: all
+all: $(TEMPLATE_PACKAGE) $(BIN)
+
+$(TEMPLATE_PACKAGE): templates $(TEMPLATE_DIRS) $(TEMPLATE_FILES)
+  # ensure no cached dependencies are added to the binary
 	rm -rf templates/node/events/node_modules
 	rm -rf templates/node/http/node_modules
 	rm -rf templates/python/events/__pycache__
 	rm -rf templates/python/http/__pycache__
+	# to install pkger:  go get github.com/markbates/pkger/cmd/pkger
+	$(PKGER)
 
-cross-platform: $(DARWIN) $(LINUX) $(WINDOWS)
+cross-platform: $(TEMPLATE_PACKAGE) $(DARWIN) $(LINUX) $(WINDOWS)
 
 darwin: $(DARWIN) ## Build for Darwin (macOS)
 
