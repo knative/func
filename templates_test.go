@@ -3,15 +3,12 @@
 package function
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
 )
 
-// TestRuntime consists of a specially designed templates directory
-// used exclusively for embedded template write tests.
 const TestRuntime = "test"
 
 // TestWriteEmbedded ensures that embedded templates are copied.
@@ -72,29 +69,6 @@ func TestWriteDefault(t *testing.T) {
 	_, err = os.Stat(filepath.Join(root, "rtAtplDefault.txt"))
 	if err != nil {
 		t.Fatal(err)
-	}
-}
-
-// TestWriteInvalid ensures that specifying unrecgoznized runtime/template errors
-func TestWriteInvalid(t *testing.T) {
-	// create test directory
-	root := "testdata/testWriteInvalid"
-	defer using(t, root)()
-
-	w := templateWriter{}
-	var err error // should be populated with the correct error type
-
-	// Test for error writing an invalid runtime
-	// (the http template
-	err = w.Write("invalid", DefaultTemplate, root)
-	if !errors.Is(err, ErrRuntimeNotFound) {
-		t.Fatalf("Expected ErrRuntimeNotFound, got %T", err)
-	}
-
-	// Test for error writing an invalid template
-	err = w.Write(TestRuntime, "invalid", root)
-	if !errors.Is(err, ErrTemplateNotFound) {
-		t.Fatalf("Expected ErrTemplateNotFound, got %T", err)
 	}
 }
 

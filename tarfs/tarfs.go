@@ -3,6 +3,7 @@ package tarfs
 import (
 	"archive/tar"
 	"bytes"
+	"fmt"
 	"io"
 	"io/fs"
 	"path"
@@ -36,6 +37,7 @@ func New(r io.Reader) (FS, error) {
 			ModTime: header.FileInfo().ModTime(),
 			Sys:     header.FileInfo().Sys,
 		}
+		fmt.Printf("Adding [%v]%v\n", header.Name, mapfs[header.Name])
 
 		// Done if directory
 		if header.FileInfo().IsDir() {
@@ -52,6 +54,7 @@ func New(r io.Reader) (FS, error) {
 }
 
 func (fsys FS) Open(name string) (fs.File, error) {
+	fmt.Printf("Seeking %v\n", name)
 	if !fs.ValidPath(name) {
 		return nil, &fs.PathError{Op: "open", Path: name, Err: fs.ErrNotExist}
 	}
@@ -95,7 +98,7 @@ func (fsys FS) Open(name string) (fs.File, error) {
 		// If the directory name is not in the map,
 		// and there are no children of the name in the map,
 		// then the directory is treated as not existing.
-		if f == nil && len(list) == 0 && len(need) == 0 {
+		if f == nil && list == nil && len(need) == 0 {
 			return nil, &fs.PathError{Op: "open", Path: name, Err: fs.ErrNotExist}
 		}
 	}
