@@ -72,6 +72,23 @@ test-go:
 test-integration: templates.tgz
 	go test -tags integration ./...
 
+test-e2e: test-e2e-node test-e2e-go test-e2e-python test-e2e-quarkus test-e2e-springboot
+
+test-e2e-node: build
+	./test/run_e2e_test.sh e2e_node
+
+test-e2e-go: build
+	./test/run_e2e_test.sh e2e_go
+
+test-e2e-python: build
+	./test/run_e2e_test.sh e2e_python
+
+test-e2e-quarkus: build
+	./test/run_e2e_test.sh e2e_quarkus
+
+test-e2e-springboot: build
+	./test/run_e2e_test.sh e2e_springboot
+
 bin/golangci-lint:
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./bin v1.28.0
 
