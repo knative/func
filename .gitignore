@@ -1,6 +1,7 @@
 /func
 /func_*
-/templates.tgz
+/templates/go/events/go.sum
+/templates/go/http/go.sum
 /coverage.out
 /bin
 

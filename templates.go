@@ -1,231 +1,181 @@
 package function
 
+// Updating Templates:
+// See documentation in ./templates/README.md
+// go get github.com/markbates/pkger
+//go:generate pkger
+
 import (
-	"bytes"
-	"compress/gzip"
-	_ "embed"
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
-	"github.com/boson-project/func/tarfs"
+	"github.com/markbates/pkger"
 )
 
-// Generate templates.tgz
-//go:generate go run generate.go
-
-// Embed the templates tarball
-//go:embed templates.tgz
-var embedded []byte
-
-// DefaultTemplate is the default Function signature / environmental context
+// DefautlTemplate is the default Function signature / environmental context
 // of the resultant template.  All runtimes are expected to have at least
 // an HTTP Handler ("http") and Cloud Events ("events")
 const DefaultTemplate = "http"
 
-type templateWriter struct {
-	// Extensible Template Repositories
-	// templates on disk (extensible templates)
-	// Stored on disk at path:
-	//   [customTemplatesPath]/[repository]/[runtime]/[template]
-	// For example
-	//   ~/.config/func/boson/go/http"
-	// Specified when writing templates as simply:
-	//   Write([runtime], [repository], [path])
-	// For example
-	// w := templateWriter{templates:"/home/username/.config/func/templates")
-	//   w.Write("go", "boson/http")
-	// Ie. "Using the custom templates in the func configuration directory,
-	//    write the Boson HTTP template for the Go runtime."
-	repositories string
-	templates    fs.FS
-	verbose      bool
+// fileAccessor encapsulates methods for accessing template files.
+type fileAccessor interface {
+	Stat(name string) (os.FileInfo, error)
+	Open(p string) (file, error)
 }
 
-var (
-	ErrRepositoryNotFound        = errors.New("repository not found")
-	ErrRepositoriesNotDefined    = errors.New("custom template location not specified")
-	ErrRuntimeNotFound           = errors.New("runtime not found")
-	ErrTemplateNotFound          = errors.New("template not found")
-	ErrTemplateMissingRepository = errors.New("template name missing repository prefix")
-)
+type file interface {
+	Readdir(int) ([]os.FileInfo, error)
+	Read([]byte) (int, error)
+	Close() error
+}
 
-// Decompress into an in-memory FS which implements fs.ReadDirFS
-func (t *templateWriter) load() (err error) {
+// When pkger is run, code analysis detects this Include statement,
+// triggering the serializaation of the templates directory and all
+// its contents into pkged.go, which is then made available via
+// a pkger fileAccessor.
+// Path is relative to the go module root.
+func init() {
+	_ = pkger.Include("/templates")
+}
 
-	// Templates are stored as an embedded byte slice gzip encoded.
-	zr, err := gzip.NewReader(bytes.NewReader(embedded))
+type templateWriter struct {
+	verbose   bool
+	templates string
+}
+
+func (n templateWriter) Write(runtime, template string, dest string) error {
+	if template == "" {
+		template = DefaultTemplate
+	}
+
+	// TODO: Confirm the dest path is empty?  This is currently in an earlier
+	// step of the create process but future calls directly to initialize would
+	// be better off being made safe.
+
+	if isEmbedded(runtime, template) {
+		return copyEmbedded(runtime, template, dest)
+	}
+	if n.templates != "" {
+		return copyFilesystem(n.templates, runtime, template, dest)
+	}
+	return fmt.Errorf("A template for runtime '%v' template '%v' was not found internally and no custom template path was defined.", runtime, template)
+}
+
+func copyEmbedded(runtime, template, dest string) error {
+	// Copy files to the destination
+	// Example embedded path:
+	//   /templates/go/http
+	src := filepath.Join("/templates", runtime, template)
+	return copy(src, dest, embeddedAccessor{})
+}
+
+func copyFilesystem(templatesPath, runtime, templateFullName, dest string) error {
+	// ensure that the templateFullName is of the format "repoName/templateName"
+	cc := strings.Split(templateFullName, "/")
+	if len(cc) != 2 {
+		return errors.New("Template name must be in the format 'REPO/NAME'")
+	}
+	repo := cc[0]
+	template := cc[1]
+
+	// Example FileSystem path:
+	//   /home/alice/.config/func/templates/boson-experimental/go/json
+	src := filepath.Join(templatesPath, repo, runtime, template)
+	return copy(src, dest, filesystemAccessor{})
+}
+
+func isEmbedded(runtime, template string) bool {
+	_, err := pkger.Stat(filepath.Join("/templates", runtime, template))
+	return err == nil
+}
+
+type embeddedAccessor struct{}
+
+func (a embeddedAccessor) Stat(path string) (os.FileInfo, error) {
+	return pkger.Stat(path)
+}
+
+func (a embeddedAccessor) Open(path string) (file, error) {
+	return pkger.Open(path)
+}
+
+type filesystemAccessor struct{}
+
+func (a filesystemAccessor) Stat(path string) (os.FileInfo, error) {
+	return os.Stat(path)
+}
+
+func (a filesystemAccessor) Open(path string) (file, error) {
+	return os.Open(path)
+}
+
+func copy(src, dest string, accessor fileAccessor) (err error) {
+	node, err := accessor.Stat(src)
+	if err != nil {
+		return
+	}
+	if node.IsDir() {
+		return copyNode(src, dest, accessor)
+	} else {
+		return copyLeaf(src, dest, accessor)
+	}
+}
+
+func copyNode(src, dest string, accessor fileAccessor) (err error) {
+	node, err := accessor.Stat(src)
 	if err != nil {
 		return
 	}
 
-	t.templates, err = tarfs.New(zr)
-	return
-}
+	err = os.MkdirAll(dest, node.Mode())
+	if err != nil {
+		return
+	}
 
-// Write the template for the given runtime to the destination specified.
-// Template may be prefixed with a custom repo name.
-func (t *templateWriter) Write(runtime, template, dest string) (err error) {
-	if t.templates == nil {
-		// load static embedded templates into t.templates as an fs.FS
-		if err = t.load(); err != nil {
+	children, err := readDir(src, accessor)
+	if err != nil {
+		return
+	}
+	for _, child := range children {
+		if err = copy(filepath.Join(src, child.Name()), filepath.Join(dest, child.Name()), accessor); err != nil {
 			return
 		}
 	}
-	if template == "" {
-		template = DefaultTemplate
-	}
-	if isCustom(template) {
-		return t.writeCustom(t.repositories, runtime, template, dest)
-	}
-	return t.writeEmbedded(runtime, template, dest)
+	return
 }
 
-func isCustom(template string) bool {
-	return len(strings.Split(template, "/")) > 1
-}
-
-func (t *templateWriter) writeCustom(repositoriesPath, runtime, template, dest string) (err error) {
-	if repositoriesPath == "" {
-		return ErrRepositoriesNotDefined
-	}
-	if !repositoryExists(repositoriesPath, template) {
-		return ErrRepositoryNotFound
-	}
-	cc := strings.Split(template, "/")
-	if len(cc) < 2 {
-		return ErrTemplateMissingRepository
-	}
-	repositoriesFS := os.DirFS(repositoriesPath)
-
-	runtimePath := cc[0] + "/" + runtime
-	_, err = fs.Stat(repositoriesFS, runtimePath)
-	if errors.Is(err, fs.ErrNotExist) {
-		return ErrRuntimeNotFound
-	}
-
-	templatePath := runtimePath + "/" + cc[1]
-	_, err = fs.Stat(repositoriesFS, templatePath)
-	if errors.Is(err, fs.ErrNotExist) {
-		return ErrTemplateNotFound
-	}
-
-	// ex: /home/alice/.config/func/repositories/boson/go/http
-	// Note that the FS instance returned by os.DirFS uses forward slashes
-	// internally, so source paths do not use the os path separator due to
-	// that breaking Windows.
-	src := cc[0] + "/" + runtime + "/" + cc[1]
-	return t.cp(src, dest, repositoriesFS)
-}
-
-func (t *templateWriter) writeEmbedded(runtime, template, dest string) error {
-	runtimePath := "templates/" + runtime // embedded FS alwas uses '/'
-	_, err := fs.Stat(t.templates, runtimePath)
-	if errors.Is(err, fs.ErrNotExist) {
-		return ErrRuntimeNotFound
-	}
-
-	templatePath := "templates/" + runtime + "/" + template // always '/' in embedded fs
-	_, err = fs.Stat(t.templates, templatePath)
-	if errors.Is(err, fs.ErrNotExist) {
-		return ErrTemplateNotFound
-	}
-
-	return t.cp(templatePath, dest, t.templates)
-}
-
-func repositoryExists(repositories, template string) bool {
-	cc := strings.Split(template, "/")
-	_, err := fs.Stat(os.DirFS(repositories), cc[0])
-	return err == nil
-}
-
-func (t *templateWriter) cp(src, dest string, files fs.FS) error {
-	node, err := fs.Stat(files, src)
-	if err != nil {
-		return err
-	}
-	if node.IsDir() {
-		return t.copyNode(src, dest, files)
-	} else {
-		return t.copyLeaf(src, dest, files)
-	}
-}
-
-func (t *templateWriter) copyNode(src, dest string, files fs.FS) error {
-	node, err := fs.Stat(files, src)
-	if err != nil {
-		return err
-	}
-
-	mode := node.Mode()
-
-	err = os.MkdirAll(dest, mode)
-	if err != nil {
-		return err
-	}
-
-	children, err := readDir(src, files)
-	if err != nil {
-		return err
-	}
-	for _, child := range children {
-		// NOTE: instances of fs.FS use forward slashes,
-		// even on Windows.
-		childSrc := src + "/" + child.Name()
-		childDest := filepath.Join(dest, child.Name())
-		if err = t.cp(childSrc, childDest, files); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func readDir(src string, files fs.FS) ([]fs.DirEntry, error) {
-	f, err := files.Open(src)
+func readDir(src string, accessor fileAccessor) ([]os.FileInfo, error) {
+	f, err := accessor.Open(src)
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
-
-	fi, err := f.Stat()
+	list, err := f.Readdir(-1)
+	f.Close()
 	if err != nil {
 		return nil, err
 	}
-
-	if !fi.IsDir() {
-		return nil, fmt.Errorf("%v must be a directory", fi.Name())
-	}
-	list, err := f.(fs.ReadDirFile).ReadDir(-1)
-	if err != nil {
-		return nil, err
-	}
-
 	sort.Slice(list, func(i, j int) bool { return list[i].Name() < list[j].Name() })
 	return list, nil
 }
 
-func (t *templateWriter) copyLeaf(src, dest string, files fs.FS) (err error) {
-	srcFile, err := files.Open(src)
+func copyLeaf(src, dest string, accessor fileAccessor) (err error) {
+	srcFile, err := accessor.Open(src)
 	if err != nil {
 		return
 	}
 	defer srcFile.Close()
 
-	srcFileInfo, err := fs.Stat(files, src)
+	srcFileInfo, err := accessor.Stat(src)
 	if err != nil {
 		return
 	}
 
-	// Use the original's mode unless a nonzero mode was explicitly provided.
-	mode := srcFileInfo.Mode()
-
-	destFile, err := os.OpenFile(dest, os.O_RDWR|os.O_CREATE|os.O_TRUNC, mode)
+	destFile, err := os.OpenFile(dest, os.O_RDWR|os.O_CREATE|os.O_TRUNC, srcFileInfo.Mode())
 	if err != nil {
 		return
 	}

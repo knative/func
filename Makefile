@@ -1,9 +1,11 @@
 REPO := quay.io/boson/func
+BIN  := func
 
-BIN     := func
-DARWIN  :=$(BIN)_darwin_amd64
-LINUX   :=$(BIN)_linux_amd64
-WINDOWS :=$(BIN)_windows_amd64.exe
+PKGER?=pkger
+
+DARWIN=$(BIN)_darwin_amd64
+LINUX=$(BIN)_linux_amd64
+WINDOWS=$(BIN)_windows_amd64.exe
 
 CODE := $(shell find . -name '*.go')
 DATE := $(shell date -u +"%Y%m%dT%H%M%SZ")
@@ -14,21 +16,23 @@ VTAG := $(shell git tag --points-at HEAD)
 # unless explicitly, synchronously tagging as is done in ci.yaml
 VERS ?= $(shell [ -z $(VTAG) ] && echo 'tip' || echo $(VTAG) )
 
-LDFLAGS := -X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)
+TEMPLATE_DIRS=$(shell find templates -type d)
+TEMPLATE_FILES=$(shell find templates -type f -name '*')
+TEMPLATE_PACKAGE=pkged.go
 
 build: all
-all: $(BIN)
+all: $(TEMPLATE_PACKAGE) $(BIN)
 
-templates.tgz:
-	# ensure no cached dependencies are added to the binary
+$(TEMPLATE_PACKAGE): templates $(TEMPLATE_DIRS) $(TEMPLATE_FILES)
+  # ensure no cached dependencies are added to the binary
 	rm -rf templates/node/events/node_modules
 	rm -rf templates/node/http/node_modules
 	rm -rf templates/python/events/__pycache__
 	rm -rf templates/python/http/__pycache__
-	# see generate.go for details
-	go generate
+	# to install pkger:  go get github.com/markbates/pkger/cmd/pkger
+	$(PKGER)
 
-cross-platform: $(DARWIN) $(LINUX) $(WINDOWS)
+cross-platform: $(TEMPLATE_PACKAGE) $(DARWIN) $(LINUX) $(WINDOWS)
 
 darwin: $(DARWIN) ## Build for Darwin (macOS)
 
@@ -36,21 +40,21 @@ linux: $(LINUX) ## Build for Linux
 
 windows: $(WINDOWS) ## Build for Windows
 
-$(BIN): templates.tgz $(CODE)  ## Build using environment defaults
-	env CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" ./cmd/$(BIN)
+$(BIN): $(CODE)  ## Build using environment defaults
+	env CGO_ENABLED=0 go build -ldflags "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)" ./cmd/$(BIN)
 
-$(DARWIN): templates.tgz
-	env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o $(DARWIN) -ldflags "$(LDFLAGS)" ./cmd/$(BIN)
+$(DARWIN):
+	env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o $(DARWIN) -ldflags "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)" ./cmd/$(BIN)
 
-$(LINUX): templates.tgz
-	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(LINUX) -ldflags "$(LDFLAGS)" ./cmd/$(BIN)
+$(LINUX):
+	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(LINUX) -ldflags "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)" ./cmd/$(BIN)
 
-$(WINDOWS): templates.tgz
-	env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o $(WINDOWS) -ldflags "$(LDFLAGS)" ./cmd/$(BIN)
+$(WINDOWS):
+	env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o $(WINDOWS) -ldflags "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)" ./cmd/$(BIN)
 
 test: test-binary test-node test-python test-quarkus test-go
 
-test-binary: templates.tgz
+test-binary:
 	go test -race -cover -coverprofile=coverage.out ./...
 
 test-node:
@@ -69,7 +73,7 @@ test-go:
 	cd templates/go/events && go test
 	cd templates/go/http && go test
 
-test-integration: templates.tgz
+test-integration:
 	go test -tags integration ./...
 
 bin/golangci-lint:
@@ -91,5 +95,4 @@ cluster: ## Set up a local cluster for integraiton tests.
 
 clean:
 	rm -f $(BIN) $(WINDOWS) $(LINUX) $(DARWIN)
-	rm -f templates.tgz
 	-rm -f coverage.out

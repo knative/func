@@ -1,12 +1,13 @@
 module github.com/boson-project/func
 
-go 1.16
+go 1.14
 
 require (
 	github.com/buildpacks/pack v0.18.0
 	github.com/containers/image/v5 v5.10.5
 	github.com/docker/docker v20.10.2+incompatible
 	github.com/docker/go-connections v0.4.0
+	github.com/markbates/pkger v0.17.1
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/ory/viper v1.7.4
 	github.com/pkg/errors v0.9.1

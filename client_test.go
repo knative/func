@@ -6,11 +6,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
 
-	fn "github.com/boson-project/func"
+	bosonFunc "github.com/boson-project/func"
 	"github.com/boson-project/func/mock"
 )
 
@@ -31,10 +32,10 @@ func TestNew(t *testing.T) {
 	defer os.RemoveAll(root)
 
 	// New Client
-	client := fn.New(fn.WithRegistry(TestRegistry))
+	client := bosonFunc.New(bosonFunc.WithRegistry(TestRegistry))
 
 	// New Function using Client
-	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
+	if err := client.New(context.Background(), bosonFunc.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -42,19 +43,19 @@ func TestNew(t *testing.T) {
 // TestTemplateWrites ensures a template is written.
 func TestTemplateWrites(t *testing.T) {
 	root := "testdata/example.com/testCreateWrites"
-	if err := os.MkdirAll(root, 0700); err != nil {
+	if err := os.MkdirAll(root, 0744); err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(root)
 
-	client := fn.New(fn.WithRegistry(TestRegistry))
-	if err := client.Create(fn.Function{Root: root}); err != nil {
+	client := bosonFunc.New(bosonFunc.WithRegistry(TestRegistry))
+	if err := client.Create(bosonFunc.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
 	// Assert file was written
-	if _, err := os.Stat(filepath.Join(root, fn.ConfigFile)); os.IsNotExist(err) {
-		t.Fatalf("Initialize did not result in '%v' being written to '%v'", fn.ConfigFile, root)
+	if _, err := os.Stat(filepath.Join(root, bosonFunc.ConfigFile)); os.IsNotExist(err) {
+		t.Fatalf("Initialize did not result in '%v' being written to '%v'", bosonFunc.ConfigFile, root)
 	}
 }
 
@@ -62,19 +63,19 @@ func TestTemplateWrites(t *testing.T) {
 // Function does not reinitialize
 func TestExtantAborts(t *testing.T) {
 	root := "testdata/example.com/testCreateInitializedAborts"
-	if err := os.MkdirAll(root, 0700); err != nil {
+	if err := os.MkdirAll(root, 0744); err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(root)
 
 	// New once
-	client := fn.New(fn.WithRegistry(TestRegistry))
-	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
+	client := bosonFunc.New(bosonFunc.WithRegistry(TestRegistry))
+	if err := client.New(context.Background(), bosonFunc.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
 	// New again should fail as already initialized
-	if err := client.New(context.Background(), fn.Function{Root: root}); err == nil {
+	if err := client.New(context.Background(), bosonFunc.Function{Root: root}); err == nil {
 		t.Fatal("error expected initilizing a path already containing an initialized Function")
 	}
 }
@@ -83,7 +84,7 @@ func TestExtantAborts(t *testing.T) {
 // visible files aborts.
 func TestNonemptyDirectoryAborts(t *testing.T) {
 	root := "testdata/example.com/testCreateNonemptyDirectoryAborts" // contains only a single visible file.
-	if err := os.MkdirAll(root, 0700); err != nil {
+	if err := os.MkdirAll(root, 0744); err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(root)
@@ -94,8 +95,8 @@ func TestNonemptyDirectoryAborts(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	client := fn.New(fn.WithRegistry(TestRegistry))
-	if err := client.New(context.Background(), fn.Function{Root: root}); err == nil {
+	client := bosonFunc.New(bosonFunc.WithRegistry(TestRegistry))
+	if err := client.New(context.Background(), bosonFunc.Function{Root: root}); err == nil {
 		t.Fatal("error expected initilizing a Function in a nonempty directory")
 	}
 }
@@ -108,19 +109,19 @@ func TestNonemptyDirectoryAborts(t *testing.T) {
 func TestHiddenFilesIgnored(t *testing.T) {
 	// Create a directory for the Function
 	root := "testdata/example.com/testCreateHiddenFilesIgnored"
-	if err := os.MkdirAll(root, 0700); err != nil {
+	if err := os.MkdirAll(root, 0744); err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(root)
 
 	// Create a hidden file that should be ignored.
 	hiddenFile := filepath.Join(root, ".envrc")
-	if err := os.WriteFile(hiddenFile, []byte{}, 0644); err != nil {
+	if err := ioutil.WriteFile(hiddenFile, []byte{}, 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	client := fn.New(fn.WithRegistry(TestRegistry))
-	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
+	client := bosonFunc.New(bosonFunc.WithRegistry(TestRegistry))
+	if err := client.New(context.Background(), bosonFunc.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -130,25 +131,25 @@ func TestHiddenFilesIgnored(t *testing.T) {
 func TestDefaultRuntime(t *testing.T) {
 	// Create a root for the new Function
 	root := "testdata/example.com/testCreateDefaultRuntime"
-	if err := os.MkdirAll(root, 0700); err != nil {
+	if err := os.MkdirAll(root, 0744); err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(root)
 
 	// Create a new function at root with all defaults.
-	client := fn.New(fn.WithRegistry(TestRegistry))
-	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
+	client := bosonFunc.New(bosonFunc.WithRegistry(TestRegistry))
+	if err := client.New(context.Background(), bosonFunc.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
 	// Load the function
-	f, err := fn.NewFunction(root)
+	f, err := bosonFunc.NewFunction(root)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Ensure it has defaulted runtime
-	if f.Runtime != fn.DefaultRuntime {
+	if f.Runtime != bosonFunc.DefaultRuntime {
 		t.Fatal("The default runtime was not applied or persisted.")
 	}
 }
@@ -172,18 +173,18 @@ func TestDefaultTrigger(t *testing.T) {
 func TestExtensibleTemplates(t *testing.T) {
 	// Create a directory for the new Function
 	root := "testdata/example.com/testExtensibleTemplates"
-	if err := os.MkdirAll(root, 0700); err != nil {
+	if err := os.MkdirAll(root, 0744); err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(root)
 
 	// Create a new client with a path to the extensible templates
-	client := fn.New(
-		fn.WithTemplates("testdata/repositories"),
-		fn.WithRegistry(TestRegistry))
+	client := bosonFunc.New(
+		bosonFunc.WithTemplates("testdata/templates"),
+		bosonFunc.WithRegistry(TestRegistry))
 
 	// Create a Function specifying a template, 'json' that only exists in the extensible set
-	if err := client.New(context.Background(), fn.Function{Root: root, Trigger: "customProvider/json"}); err != nil {
+	if err := client.New(context.Background(), bosonFunc.Function{Root: root, Trigger: "boson-experimental/json"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -195,91 +196,21 @@ func TestExtensibleTemplates(t *testing.T) {
 	}
 }
 
-// TestRuntimeNotFound generates an error (embedded default repository).
-func TestRuntimeNotFound(t *testing.T) {
+// TestUnsupportedRuntime generates an error.
+func TestUnsupportedRuntime(t *testing.T) {
 	// Create a directory for the Function
-	root := "testdata/example.com/testRuntimeNotFound"
+	root := "testdata/example.com/testUnsupportedRuntime"
 	if err := os.MkdirAll(root, 0700); err != nil {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(root)
 
-	client := fn.New(fn.WithRegistry(TestRegistry))
+	client := bosonFunc.New(bosonFunc.WithRegistry(TestRegistry))
 
-	// creating a Function with an unsupported runtime should bubble
-	// the error generated by the underlying template initializer.
-	f := fn.Function{Root: root, Runtime: "invalid"}
-	err := client.New(context.Background(), f)
-	if !errors.Is(err, fn.ErrRuntimeNotFound) {
-		t.Fatalf("Expected ErrRuntimeNotFound, got %T", err)
-	}
-}
-
-// TestRuntimeNotFoundCustom ensures that the correct error is returned
-// when the requested runtime is not found in a given custom repository
-func TestRuntimeNotFoundCustom(t *testing.T) {
-	root := "testdata/example.com/testRuntimeNotFoundCustom"
-	if err := os.MkdirAll(root, 0700); err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(root)
-
-	// Create a new client with path to extensible templates
-	client := fn.New(
-		fn.WithTemplates("testdata/repositories"),
-		fn.WithRegistry(TestRegistry))
-
-	// Create a Function specifying a runtime, 'python' that does not exist
-	// in the custom (testdata) repository but does in the embedded.
-	f := fn.Function{Root: root, Runtime: "python", Trigger: "customProvider/event"}
-
-	// creating should error as runtime not found
-	err := client.New(context.Background(), f)
-	if !errors.Is(err, fn.ErrRuntimeNotFound) {
-		t.Fatalf("Expected ErrRuntimeNotFound, got %v", err)
-	}
-}
-
-// TestTemplateNotFound generates an error (embedded default repository).
-func TestTemplateNotFound(t *testing.T) {
-	root := "testdata/example.com/testTemplateNotFound"
-	if err := os.MkdirAll(root, 0700); err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(root)
-
-	client := fn.New(fn.WithRegistry(TestRegistry))
-
-	// Creating a function with an invalid template shulid generate the
-	// appropriate error.
-	f := fn.Function{Root: root, Runtime: "go", Trigger: "invalid"}
-	err := client.New(context.Background(), f)
-	if !errors.Is(err, fn.ErrTemplateNotFound) {
-		t.Fatalf("Expected ErrTemplateNotFound, got %v", err)
-	}
-}
-
-// TestTemplateNotFoundCustom ensures that the correct error is returned
-// when the requested template is not found in the given custom repository.
-func TestTemplateNotFoundCustom(t *testing.T) {
-	root := "testdata/example.com/testTemplateNotFoundCustom"
-	if err := os.MkdirAll(root, 0700); err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(root)
-
-	// Create a new client with path to extensible templates
-	client := fn.New(
-		fn.WithTemplates("testdata/repositories"),
-		fn.WithRegistry(TestRegistry))
-
-	// An invalid template, but a valid custom provider
-	f := fn.Function{Root: root, Runtime: "test", Trigger: "customProvider/invalid"}
-
-	// Creation should generate the correct error of template not being found.
-	err := client.New(context.Background(), f)
-	if !errors.Is(err, fn.ErrTemplateNotFound) {
-		t.Fatalf("Expected ErrTemplateNotFound, got %v", err)
+	// create a Function call witn an unsupported runtime should bubble
+	// the error generated by the underlying initializer.
+	if err := client.New(context.Background(), bosonFunc.Function{Root: root, Runtime: "invalid"}); err == nil {
+		t.Fatal("unsupported runtime did not generate error")
 	}
 }
 
@@ -299,13 +230,13 @@ func TestNamed(t *testing.T) {
 	}
 	defer os.RemoveAll(root)
 
-	client := fn.New(fn.WithRegistry(TestRegistry))
+	client := bosonFunc.New(bosonFunc.WithRegistry(TestRegistry))
 
-	if err := client.New(context.Background(), fn.Function{Root: root, Name: name}); err != nil {
+	if err := client.New(context.Background(), bosonFunc.Function{Root: root, Name: name}); err != nil {
 		t.Fatal(err)
 	}
 
-	f, err := fn.NewFunction(root)
+	f, err := bosonFunc.NewFunction(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -333,9 +264,9 @@ func TestRegistryRequired(t *testing.T) {
 	}
 	defer os.RemoveAll(root)
 
-	client := fn.New()
+	client := bosonFunc.New()
 	var err error
-	if err = client.New(context.Background(), fn.Function{Root: root}); err == nil {
+	if err = client.New(context.Background(), bosonFunc.Function{Root: root}); err == nil {
 		t.Fatal("did not receive expected error creating a Function without specifying Registry")
 	}
 	fmt.Println(err)
@@ -353,13 +284,13 @@ func TestDeriveImage(t *testing.T) {
 	defer os.RemoveAll(root)
 
 	// Create the function which calculates fields such as name and image.
-	client := fn.New(fn.WithRegistry(TestRegistry))
-	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
+	client := bosonFunc.New(bosonFunc.WithRegistry(TestRegistry))
+	if err := client.New(context.Background(), bosonFunc.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
 	// Load the function with the now-populated fields.
-	f, err := fn.NewFunction(root)
+	f, err := bosonFunc.NewFunction(root)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -385,18 +316,18 @@ func TestDeriveImageDefaultRegistry(t *testing.T) {
 	// Create the function which calculates fields such as name and image.
 	// Rather than use TestRegistry, use a single-token name and expect
 	// the DefaultRegistry to be prepended.
-	client := fn.New(fn.WithRegistry("alice"))
-	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
+	client := bosonFunc.New(bosonFunc.WithRegistry("alice"))
+	if err := client.New(context.Background(), bosonFunc.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
 	// Load the function with the now-populated fields.
-	f, err := fn.NewFunction(root)
+	f, err := bosonFunc.NewFunction(root)
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Expected image is [DefaultRegistry]/[namespace]/[servicename]:latest
-	expected := fn.DefaultRegistry + "/alice/" + f.Name + ":latest"
+	expected := bosonFunc.DefaultRegistry + "/alice/" + f.Name + ":latest"
 	if f.Image != expected {
 		t.Fatalf("expected image '%v' got '%v'", expected, f.Image)
 	}
@@ -422,11 +353,11 @@ func TestNewDelegates(t *testing.T) {
 	defer os.RemoveAll(root)
 
 	// Create a client with mocks for each of the subcomponents.
-	client := fn.New(
-		fn.WithRegistry(TestRegistry),
-		fn.WithBuilder(builder),   // builds an image
-		fn.WithPusher(pusher),     // pushes images to a registry
-		fn.WithDeployer(deployer), // deploys images as a running service
+	client := bosonFunc.New(
+		bosonFunc.WithRegistry(TestRegistry),
+		bosonFunc.WithBuilder(builder),   // builds an image
+		bosonFunc.WithPusher(pusher),     // pushes images to a registry
+		bosonFunc.WithDeployer(deployer), // deploys images as a running service
 	)
 
 	// Register Function delegates on the mocks which validate assertions
@@ -434,7 +365,7 @@ func TestNewDelegates(t *testing.T) {
 
 	// The builder should be invoked with a path to a Function project's source
 	// An example image name is returned.
-	builder.BuildFn = func(f fn.Function) error {
+	builder.BuildFn = func(f bosonFunc.Function) error {
 		expectedPath, err := filepath.Abs(root)
 		if err != nil {
 			t.Fatal(err)
@@ -445,14 +376,14 @@ func TestNewDelegates(t *testing.T) {
 		return nil
 	}
 
-	pusher.PushFn = func(f fn.Function) (string, error) {
+	pusher.PushFn = func(f bosonFunc.Function) (string, error) {
 		if f.Image != expectedImage {
 			t.Fatalf("pusher expected image '%v', got '%v'", expectedImage, f.Image)
 		}
 		return "", nil
 	}
 
-	deployer.DeployFn = func(f fn.Function) error {
+	deployer.DeployFn = func(f bosonFunc.Function) error {
 		if f.Name != expectedName {
 			t.Fatalf("deployer expected name '%v', got '%v'", expectedName, f.Name)
 		}
@@ -467,7 +398,7 @@ func TestNewDelegates(t *testing.T) {
 
 	// Invoke the creation, triggering the Function delegates, and
 	// perform follow-up assertions that the Functions were indeed invoked.
-	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
+	if err := client.New(context.Background(), bosonFunc.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -494,8 +425,8 @@ func TestRun(t *testing.T) {
 
 	// Create a client with the mock runner and the new test Function
 	runner := mock.NewRunner()
-	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithRunner(runner))
-	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
+	client := bosonFunc.New(bosonFunc.WithRegistry(TestRegistry), bosonFunc.WithRunner(runner))
+	if err := client.New(context.Background(), bosonFunc.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -536,19 +467,19 @@ func TestUpdate(t *testing.T) {
 	defer os.RemoveAll(root)
 
 	// A client with mocks whose implementaton will validate input.
-	client := fn.New(
-		fn.WithRegistry(TestRegistry),
-		fn.WithBuilder(builder),
-		fn.WithPusher(pusher),
-		fn.WithDeployer(deployer))
+	client := bosonFunc.New(
+		bosonFunc.WithRegistry(TestRegistry),
+		bosonFunc.WithBuilder(builder),
+		bosonFunc.WithPusher(pusher),
+		bosonFunc.WithDeployer(deployer))
 
 	// create the new Function which will be updated
-	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
+	if err := client.New(context.Background(), bosonFunc.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
 	// Builder whose implementation verifies the expected root
-	builder.BuildFn = func(f fn.Function) error {
+	builder.BuildFn = func(f bosonFunc.Function) error {
 		rootPath, err := filepath.Abs(root)
 		if err != nil {
 			t.Fatal(err)
@@ -560,7 +491,7 @@ func TestUpdate(t *testing.T) {
 	}
 
 	// Pusher whose implementaiton verifies the expected image
-	pusher.PushFn = func(f fn.Function) (string, error) {
+	pusher.PushFn = func(f bosonFunc.Function) (string, error) {
 		if f.Image != expectedImage {
 			t.Fatalf("pusher expected image '%v', got '%v'", expectedImage, f.Image)
 		}
@@ -569,7 +500,7 @@ func TestUpdate(t *testing.T) {
 	}
 
 	// Update whose implementaiton verifed the expected name and image
-	deployer.DeployFn = func(f fn.Function) error {
+	deployer.DeployFn = func(f bosonFunc.Function) error {
 		if f.Name != expectedName {
 			t.Fatalf("updater expected name '%v', got '%v'", expectedName, f.Name)
 		}
@@ -610,11 +541,11 @@ func TestRemoveByPath(t *testing.T) {
 	}
 	defer os.RemoveAll(root)
 
-	client := fn.New(
-		fn.WithRegistry(TestRegistry),
-		fn.WithRemover(remover))
+	client := bosonFunc.New(
+		bosonFunc.WithRegistry(TestRegistry),
+		bosonFunc.WithRemover(remover))
 
-	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
+	if err := client.New(context.Background(), bosonFunc.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -625,7 +556,7 @@ func TestRemoveByPath(t *testing.T) {
 		return nil
 	}
 
-	if err := client.Remove(context.Background(), fn.Function{Root: root}); err != nil {
+	if err := client.Remove(context.Background(), bosonFunc.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -649,11 +580,11 @@ func TestRemoveByName(t *testing.T) {
 	}
 	defer os.RemoveAll(root)
 
-	client := fn.New(
-		fn.WithRegistry(TestRegistry),
-		fn.WithRemover(remover))
+	client := bosonFunc.New(
+		bosonFunc.WithRegistry(TestRegistry),
+		bosonFunc.WithRemover(remover))
 
-	if err := client.Create(fn.Function{Root: root}); err != nil {
+	if err := client.Create(bosonFunc.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -665,12 +596,12 @@ func TestRemoveByName(t *testing.T) {
 	}
 
 	// Run remove with only a name
-	if err := client.Remove(context.Background(), fn.Function{Name: expectedName}); err != nil {
+	if err := client.Remove(context.Background(), bosonFunc.Function{Name: expectedName}); err != nil {
 		t.Fatal(err)
 	}
 
 	// Run remove with a name and a root, which should be ignored in favor of the name.
-	if err := client.Remove(context.Background(), fn.Function{Name: expectedName, Root: root}); err != nil {
+	if err := client.Remove(context.Background(), bosonFunc.Function{Name: expectedName, Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -700,12 +631,12 @@ func TestRemoveUninitializedFails(t *testing.T) {
 	}
 
 	// Instantiate the client with the failing remover.
-	client := fn.New(
-		fn.WithRegistry(TestRegistry),
-		fn.WithRemover(remover))
+	client := bosonFunc.New(
+		bosonFunc.WithRegistry(TestRegistry),
+		bosonFunc.WithRemover(remover))
 
 	// Attempt to remove by path (uninitialized), expecting an error.
-	if err := client.Remove(context.Background(), fn.Function{Root: root}); err == nil {
+	if err := client.Remove(context.Background(), bosonFunc.Function{Root: root}); err == nil {
 		t.Fatalf("did not received expeced error removing an uninitialized func")
 	}
 }
@@ -714,7 +645,7 @@ func TestRemoveUninitializedFails(t *testing.T) {
 func TestList(t *testing.T) {
 	lister := mock.NewLister()
 
-	client := fn.New(fn.WithLister(lister)) // lists deployed Functions.
+	client := bosonFunc.New(bosonFunc.WithLister(lister)) // lists deployed Functions.
 
 	if _, err := client.List(context.Background()); err != nil {
 		t.Fatal(err)
@@ -733,7 +664,7 @@ func TestListOutsideRoot(t *testing.T) {
 	lister := mock.NewLister()
 
 	// Instantiate in the current working directory, with no name.
-	client := fn.New(fn.WithLister(lister))
+	client := bosonFunc.New(bosonFunc.WithLister(lister))
 
 	if _, err := client.List(context.Background()); err != nil {
 		t.Fatal(err)
@@ -755,10 +686,10 @@ func TestDeployUnbuilt(t *testing.T) {
 	defer os.RemoveAll(root)
 
 	// New Client
-	client := fn.New(fn.WithRegistry(TestRegistry))
+	client := bosonFunc.New(bosonFunc.WithRegistry(TestRegistry))
 
 	// Initialize (half-create) a new Function at root
-	if err := client.Create(fn.Function{Root: root}); err != nil {
+	if err := client.Create(bosonFunc.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -768,7 +699,7 @@ func TestDeployUnbuilt(t *testing.T) {
 		t.Fatal("did not receive an error attempting to deploy an unbuilt Function")
 	}
 
-	if !errors.Is(err, fn.ErrNotBuilt) {
+	if !errors.Is(err, bosonFunc.ErrNotBuilt) {
 		t.Fatalf("did not receive expected error type.  Expected ErrNotBuilt, got %T", err)
 	}
 }

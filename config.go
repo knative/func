@@ -1,6 +1,7 @@
 package function
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -40,7 +41,7 @@ func newConfig(root string) (c config, err error) {
 		}
 		return
 	}
-	bb, err := os.ReadFile(filename)
+	bb, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return
 	}
@@ -89,5 +90,5 @@ func writeConfig(f Function) (err error) {
 	if bb, err = yaml.Marshal(&c); err != nil {
 		return
 	}
-	return os.WriteFile(path, bb, 0644)
+	return ioutil.WriteFile(path, bb, 0644)
 }
