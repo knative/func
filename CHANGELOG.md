@@ -1,6 +1,37 @@
 # Change Log
 
 <a name="unreleased"></a>
+## [0.13.0](https://www.github.com/boson-project/func/compare/v0.12.1...v0.13.0) (2021-05-12)
+
+
+### ⚠ BREAKING CHANGES
+
+* change envVars to env in func.yaml (#316)
+
+### Features
+
+* add support for annotations in func.yaml ([#314](https://www.github.com/boson-project/func/issues/314)) ([5feb0e2](https://www.github.com/boson-project/func/commit/5feb0e20f366f8dc46f339257d87419bc852753c))
+* add/improve spinner for build and deploy ([#322](https://www.github.com/boson-project/func/issues/322)) ([857b0fd](https://www.github.com/boson-project/func/commit/857b0fd19d2a716c804426196e907a3ad31d559e))
+* create templates archive on go generate ([63b7f11](https://www.github.com/boson-project/func/commit/63b7f1147176ce5cfd21c3b74094fcc8154298df))
+* function name matches KService name ([#317](https://www.github.com/boson-project/func/issues/317)) ([541e858](https://www.github.com/boson-project/func/commit/541e8586f7348fa92ee83f246ef34730b1801b9f))
+* positive error when runtimme or template unrecognized ([acc56b0](https://www.github.com/boson-project/func/commit/acc56b0900113ca68270bd3ac68310864e42b5a7))
+* preserve file modes using in-memory tar FS ([7dc772e](https://www.github.com/boson-project/func/commit/7dc772ec62536fc77b84b16550bf7d2a1f0b6a09))
+* support windows paths in embedded templates FS ([c2b2168](https://www.github.com/boson-project/func/commit/c2b216857bcc1e18555a2e41fa3ad675e75cf1c3))
+* usage of local evnvvar in func cfg file ([7f8e595](https://www.github.com/boson-project/func/commit/7f8e5954a939563486661a98198b22f41eebc195))
+
+
+### Bug Fixes
+
+* added checks on delete command test for lint ([94e387c](https://www.github.com/boson-project/func/commit/94e387c9326aed79ede95f36b97da4de97c42dec))
+* default for `--builder` flag ([06455f4](https://www.github.com/boson-project/func/commit/06455f4bac02e8581ae4471e72909ba9fe7dbd4d))
+* func delete with explicity name as argument ([#323](https://www.github.com/boson-project/func/issues/323)) with strict validation ([8ab0ba2](https://www.github.com/boson-project/func/commit/8ab0ba243ae4c40867a2426b2ca965559a03cd53))
+* lint issues ([895872a](https://www.github.com/boson-project/func/commit/895872aee76b44be739bd0eafb9f2cdcdc137494))
+
+
+### Code Refactoring
+
+* change envVars to env in func.yaml ([#316](https://www.github.com/boson-project/func/issues/316)) ([89ff286](https://www.github.com/boson-project/func/commit/89ff286a1f3afae655a2c724a05cb3bc3c281786))
+
 ### [0.12.1](https://www.github.com/boson-project/func/compare/v0.12.0...v0.12.1) (2021-04-14)
 
 
