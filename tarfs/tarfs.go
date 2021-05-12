@@ -68,9 +68,9 @@ func (fsys FS) Open(name string) (fs.File, error) {
 	// Note that file can be nil here: the map need not contain explicit parent directories for all its files.
 	// But file can also be non-nil, in case the user wants to set metadata for the directory explicitly.
 	// Either way, we need to construct the list of children of this directory.
-	list := []fileInfo{}
-	elem := ""
-	need := make(map[string]bool)
+	var list []fileInfo
+	var elem string
+	var need = make(map[string]bool)
 	if name == "." {
 		elem = "."
 		for fname, f := range fsys {
