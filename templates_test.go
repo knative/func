@@ -78,7 +78,7 @@ func TestWriteDefault(t *testing.T) {
 	}
 }
 
-// TestWriteInvalid ensures that specifying unrecgognized runtime/template errors
+// TestWriteInvalid ensures that specifying unrecgoznized runtime/template errors
 func TestWriteInvalid(t *testing.T) {
 	// create test directory
 	root := "testdata/testWriteInvalid"
@@ -175,7 +175,7 @@ func using(t *testing.T, root string) func() {
 
 func mkdir(t *testing.T, dir string) {
 	t.Helper()
-	if err := os.MkdirAll(dir, 0700); err != nil {
+	if err := os.MkdirAll(dir, 0744); err != nil {
 		t.Fatal(err)
 	}
 }
