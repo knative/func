@@ -32,6 +32,7 @@ type Client struct {
 	templates        string           // path to extensible templates
 	registry         string           // default registry for OCI image tags
 	progressListener ProgressListener // progress listener
+	emitter          Emitter          // Emits CloudEvents to functions
 }
 
 // ErrNotBuilt indicates the Function has not yet been built.
@@ -137,6 +138,11 @@ type DNSProvider interface {
 	Provide(Function) error
 }
 
+// Emit CloudEvents to functions
+type Emitter interface {
+	Emit(ctx context.Context, endpoint string) error
+}
+
 // New client for Function management.
 func New(options ...Option) *Client {
 	// Instantiate client with static defaults.
@@ -149,6 +155,7 @@ func New(options ...Option) *Client {
 		lister:           &noopLister{output: os.Stdout},
 		dnsProvider:      &noopDNSProvider{output: os.Stdout},
 		progressListener: &noopProgressListener{},
+		emitter:          &noopEmitter{},
 	}
 
 	// Apply passed options, which take ultimate precidence.
@@ -251,6 +258,14 @@ func WithTemplates(templates string) Option {
 func WithRegistry(registry string) Option {
 	return func(c *Client) {
 		c.registry = registry
+	}
+}
+
+// WithEmitter sets a CloudEvent emitter on the client which is capable of sending
+// a CloudEvent to an arbitrary function endpoint
+func WithEmitter(e Emitter) Option {
+	return func(c *Client) {
+		c.emitter = e
 	}
 }
 
@@ -529,6 +544,11 @@ func (c *Client) Remove(ctx context.Context, cfg Function) error {
 	return c.remover.Remove(ctx, f.Name)
 }
 
+// Emit a CloudEvent to a function endpoint
+func (c *Client) Emit(ctx context.Context, endpoint string) error {
+	return c.emitter.Emit(ctx, endpoint)
+}
+
 // Manual implementations (noops) of required interfaces.
 // In practice, the user of this client package (for example the CLI) will
 // provide a concrete implementation for all of the interfaces.  For testing or
@@ -573,3 +593,7 @@ func (p *noopProgressListener) SetTotal(i int)     {}
 func (p *noopProgressListener) Increment(m string) {}
 func (p *noopProgressListener) Complete(m string)  {}
 func (p *noopProgressListener) Done()              {}
+
+type noopEmitter struct{}
+
+func (p *noopEmitter) Emit(ctx context.Context, endpoint string) error { return nil }
