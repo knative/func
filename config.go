@@ -1,9 +1,12 @@
 package function
 
 import (
+	"errors"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 
 	"gopkg.in/yaml.v2"
 )
@@ -45,7 +48,20 @@ func newConfig(root string) (c config, err error) {
 	if err != nil {
 		return
 	}
-	err = yaml.Unmarshal(bb, &c)
+
+	err = yaml.UnmarshalStrict(bb, &c)
+	if err != nil {
+		errMsg := err.Error()
+		reg := regexp.MustCompile("not found in type .*")
+
+		if strings.HasPrefix(errMsg, "yaml: unmarshal errors:") {
+			errMsg = reg.ReplaceAllString(errMsg, "is not valid")
+			err = errors.New(strings.Replace(errMsg, "yaml: unmarshal errors:", "'func.yaml' config file is not valid:", 1))
+		} else if strings.HasPrefix(errMsg, "yaml:") {
+			errMsg = reg.ReplaceAllString(errMsg, "is not valid")
+			err = errors.New(strings.Replace(errMsg, "yaml: ", "'func.yaml' config file is not valid:\n  ", 1))
+		}
+	}
 	return
 }
 
