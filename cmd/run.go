@@ -13,7 +13,9 @@ import (
 func init() {
 	// Add the run command as a subcommand of root.
 	root.AddCommand(runCmd)
-	runCmd.Flags().StringArrayP("env", "e", []string{}, "Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables.")
+	runCmd.Flags().StringArrayP("env", "e", []string{}, "Environment variable to set in the form NAME=VALUE. " +
+		"You may provide this flag multiple times for setting multiple environment variables. " +
+		"To unset, specify the environment variable name followed by a \"-\" (e.g., NAME-).")
 	runCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
 }
 

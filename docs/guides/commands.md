@@ -38,7 +38,7 @@ kn func build [-i <image> -r <registry> -p <path>]
 
 ## `run`
 
-Runs the Function project locally in the container. If a container has not yet been created, prompts the user to run `func build`.  The user may specify a path to the project directory using the `--path` or `-p` flag.
+Runs the Function project locally in the container. If a container has not yet been created, prompts the user to run `func build`.  The user may specify a path to the project directory using the `--path` or `-p` flag. The user may set an environment variable by using `--env` or `-e` flag, e.g. `-e VAR_NAME=VAR_VALUE`. To unset a variable dash `-` suffix is used, e.g. `-e VAR_NAME-`.
 
 Similar `kn` command: none.
 
@@ -54,7 +54,7 @@ kn func run [-p <path>]
 
 ## `deploy`
 
-Deploys the Function project in the current directory. The user may specify a path to the project directory using the `--path` or `-p` flag. Reads the `func.yaml` configuration file to determine the image name. An image and registry may be specified on the command line using the  `--image` or `-i` and `--registry` or `-r` flag.
+Deploys the Function project in the current directory. The user may specify a path to the project directory using the `--path` or `-p` flag. Reads the `func.yaml` configuration file to determine the image name. An image and registry may be specified on the command line using the  `--image` or `-i` and `--registry` or `-r` flag. The user may set an environment variable by using `--env` or `-e` flag, e.g. `-e VAR_NAME=VAR_VALUE`. To unset a variable dash `-` suffix is used, e.g. `-e VAR_NAME-`.
 
 Derives the service name from the project name. There is no mechanism by which the user can specify the service name. The user must have already initialized the  function using `func create` or they will encounter an error.
 

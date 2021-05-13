@@ -33,12 +33,13 @@ it's typically unnecessary to modify the `builder` field, using values from
 The `env` field allows you to set environment variables that will be
 available to your function at runtime. For example, to set a `MODE` environment
 variable to `debug` when the function is deployed, your `func.yaml` file
-may look like this.
+may look like this. To unset variables use a dash suffix. For example, to unset `MODE`, use `MODE-`.
 
 ```yaml
 env:
   MODE: debug
   API_KEY: {{ env.API_KEY }}
+  VAR_TO_UNSET-: ""
 ```
 
 ### `image`
