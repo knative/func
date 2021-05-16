@@ -50,7 +50,6 @@ func (scenario *TestDeployScenario) cleanup(funcCli *cli.TestShellCli) {
 func (scenario *TestDeployScenario) RunTestScenario(t *testing.T) {
 
 	// Setup
-
 	functionName := scenario.FuncName
 	runtimeName := scenario.Runtime
 	basePath := os.TempDir() + "/test/"
@@ -180,4 +179,3 @@ func (scenario *TestDeployScenario) RunTestScenario(t *testing.T) {
 	assert.StringNotContains(cmd.Stdout, functionName)
 
 }
-
