@@ -786,7 +786,7 @@ func TestEmit(t *testing.T) {
 	}
 
 	// Instantiate in the current working directory, with no name.
-	client := bosonFunc.New(bosonFunc.WithEmitter(emitter))
+	client := fn.New(fn.WithEmitter(emitter))
 
 	if err := client.Emit(context.Background(), sink); err != nil {
 		t.Fatal(err)
