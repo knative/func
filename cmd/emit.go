@@ -99,8 +99,7 @@ func runEmit(cmd *cobra.Command, args []string) (err error) {
 	if config.File != "" {
 		var buf []byte
 		if emitter.Data != "" && config.Verbose {
-			// TODO: This made me wonder whether we should switch to a real logging library
-			fmt.Printf("WARN: Found both --data and --file. Using file: %v\n", config.File)
+			return fmt.Errorf("Only one of --data and --file may be specified \n")
 		}
 		buf, err = ioutil.ReadFile(config.File)
 		if err != nil {
