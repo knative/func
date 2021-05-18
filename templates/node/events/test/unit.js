@@ -22,7 +22,7 @@ test('Unit: handles a valid event', t => {
 
   const mockContext = new MockContext(cloudevent);
 
-  // Invoke the function with the valid event, which should compelte without error.
+  // Invoke the function with the valid event, which should complete without error.
   const result =  func(mockContext, data);
   t.ok(result);
   t.equal(result.body, data);
