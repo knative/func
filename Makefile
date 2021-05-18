@@ -29,6 +29,8 @@ $(TEMPLATE_PACKAGE): templates $(TEMPLATE_DIRS) $(TEMPLATE_FILES)
 	rm -rf templates/node/http/node_modules
 	rm -rf templates/python/events/__pycache__
 	rm -rf templates/python/http/__pycache__
+	rm -rf templates/typescript/events/node_modules
+	rm -rf templates/typescript/http/node_modules
 	# to install pkger:  go get github.com/markbates/pkger/cmd/pkger
 	$(PKGER)
 
@@ -52,7 +54,7 @@ $(LINUX):
 $(WINDOWS):
 	env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o $(WINDOWS) -ldflags "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)" ./cmd/$(BIN)
 
-test: test-binary test-node test-python test-quarkus test-go
+test: test-binary test-node test-python test-quarkus test-go test-typescript
 
 test-binary:
 	go test -race -cover -coverprofile=coverage.out ./...
@@ -60,6 +62,10 @@ test-binary:
 test-node:
 	cd templates/node/events && npm ci && npm test && rm -rf node_modules
 	cd templates/node/http && npm ci && npm test && rm -rf node_modules
+
+test-typescript:
+	cd templates/typescript/events && npm ci && npm test && rm -rf node_modules build
+	cd templates/typescript/http && npm ci && npm test && rm -rf node_modules build
 
 test-python:
 	cd templates/python/events && pip3 install -r requirements.txt && python3 test_func.py

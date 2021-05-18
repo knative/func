@@ -34,6 +34,7 @@ var RuntimeToBuildpack = map[string]string{
 	"go":         "quay.io/boson/faas-go-builder",
 	"springboot": "quay.io/boson/faas-springboot-builder",
 	"python":     "quay.io/boson/faas-python-builder",
+	"typescript": "quay.io/boson/faas-nodejs-builder",
 }
 
 // Build the Function at path.
