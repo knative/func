@@ -7,7 +7,7 @@ check for this in the function and it will respond just fine to plain vanilla
 incoming HTTP requests. Additionally, this example function is written
 asynchronously, returning a `Promise`. If your function does not perform any
 asynchronous execution, you can safely remove the `async` keyword from the
-function, and return raw values intead of a `Promise`.
+function, and return raw values instead of a `Promise`.
 
 ## Local execution
 

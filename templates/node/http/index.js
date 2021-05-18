@@ -22,7 +22,7 @@ function handlePost(context) {
 
 /**
  * An HTTP handling function which reads the HTTP request
- * method from the context object and invokes the apporpriate
+ * method from the context object and invokes the appropriate
  * request handler.
  * @param {Context} context a context object containing the HTTP request data
  */
