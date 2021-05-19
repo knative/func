@@ -34,8 +34,8 @@ test('Integration: handles a valid event', t => {
         t.error(err, 'No error');
         t.ok(result);
         t.deepEqual(result.body, data);
-        t.equal(result.headers['ce-type'], 'user:verified');
-        t.equal(result.headers['ce-source'], 'function.verifyUser');
+        t.equal(result.headers['ce-type'], 'echo');
+        t.equal(result.headers['ce-source'], 'event.handler');
         t.end();
         server.close();
       });

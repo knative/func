@@ -1,13 +1,8 @@
 # Node.js Cloud Events Function
 
-Welcome to your new Node.js function project! The boilerplate function code can
-be found in [`index.js`](./index.js). This function is meant to respond
-exclusively to [Cloud Events](https://cloudevents.io/), but you can remove the
-check for this in the function and it will respond just fine to plain vanilla
-incoming HTTP requests. Additionally, this example function is written
-asynchronously, returning a `Promise`. If your function does not perform any
-asynchronous execution, you can safely remove the `async` keyword from the
-function, and return raw values instead of a `Promise`.
+Welcome to your new Node.js function project! The boilerplate function
+code can be found in [`index.js`](./index.js). This function is meant
+to respond to [Cloud Events](https://cloudevents.io/).
 
 ## Local execution
 
