@@ -77,7 +77,7 @@ test-integration:
 	go test -tags integration ./...
 
 bin/golangci-lint:
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./bin v1.28.0
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./bin v1.40.1
 
 check: bin/golangci-lint
 	./bin/golangci-lint run --timeout 300s
