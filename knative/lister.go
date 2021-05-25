@@ -31,14 +31,14 @@ func NewLister(namespaceOverride string) (l *Lister, err error) {
 	return
 }
 
-func (l *Lister) List(context.Context) (items []bosonFunc.ListItem, err error) {
+func (l *Lister) List(ctx context.Context) (items []bosonFunc.ListItem, err error) {
 
 	client, err := NewServingClient(l.Namespace)
 	if err != nil {
 		return
 	}
 
-	lst, err := client.ListServices(clientservingv1.WithLabel(labelKey, labelValue))
+	lst, err := client.ListServices(ctx, clientservingv1.WithLabel(labelKey, labelValue))
 	if err != nil {
 		return
 	}

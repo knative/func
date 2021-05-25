@@ -82,7 +82,7 @@ func runEmit(cmd *cobra.Command, args []string) (err error) {
 			return
 		}
 		var desc fn.Description
-		desc, err = d.Describe(f.Name)
+		desc, err = d.Describe(cmd.Context(), f.Name)
 		if err != nil {
 			return
 		}
