@@ -2,8 +2,10 @@
 const { CloudEvent, HTTP } = require('cloudevents');
 
 /**
- * An example function that responds to incoming CloudEvents over HTTP. For example,
- * from the Knative event Broker. Try invoking with a request such as this.
+ * A function that responds to incoming CloudEvents over HTTP from,
+ * for example, a Knative event Source, Channel or Broker.
+ *
+ * If running via 'npm run local', it can be invoked like so:
  *
  * curl -X POST -d '{"name": "Tiger", "customerId": "0123456789"}' \
  *  -H'Content-type: application/json' \
@@ -13,37 +15,22 @@ const { CloudEvent, HTTP } = require('cloudevents');
  *  -H'Ce-specversion: 1.0' \
  *  http://localhost:8080
  *
- * The event data is extracted from the incoming event and provided as the first
- * parameter to the function. The CloudEvent object itself may be accessed via the
- * context parameter, For example:
- *
- * const incomingEvent = context.cloudevent;
- *
  * @param {Context} context the invocation context
- * @param {Object} user the CloudEvent data. If the data content type is application/json
- * this will be converted to an Object via JSON.parse()
+ * @param {Object} event the CloudEvent 
  */
-function verifyUser(context, user) {
-  if (!context.cloudevent) {
-    return {
-      message: 'No cloud event received'
-    };
-  }
+function handle(context, event) {
 
-  context.log.info('Processing user', user);
-  context.log.info(`CloudEvent received: ${context.cloudevent.toString()}`);
+  context.log.info("context");
+  console.log(JSON.stringify(context, null, 2));
 
-  user = verify(user);
+  context.log.info("event");
+  console.log(JSON.stringify(event, null, 2));
+
   return HTTP.binary(new CloudEvent({
-    source: 'function.verifyUser',
-    type: 'user:verified',
-    data: user
+    source: 'event.handler',
+    type: 'echo',
+    data: event
   }));
 };
 
-function verify(user) {
-  // do something with the user
-  return user;
-}
-
-module.exports = verifyUser;
+module.exports = handle;

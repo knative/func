@@ -26,8 +26,8 @@ test('Unit: handles a valid event', t => {
   const result =  func(mockContext, data);
   t.ok(result);
   t.equal(result.body, data);
-  t.equal(result.headers['ce-type'], 'user:verified');
-  t.equal(result.headers['ce-source'], 'function.verifyUser');
+  t.equal(result.headers['ce-type'], 'echo');
+  t.equal(result.headers['ce-source'], 'event.handler');
   t.end();
 });
 

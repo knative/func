@@ -28,6 +28,7 @@ function handlePost(context) {
  */
 function invoke(context) {
   context.log.info(`Handling HTTP ${context.httpVersion} request`);
+  console.log(JSON.stringify(context, null, 2));
   if (context.method === 'POST') {
     return handlePost(context);
   } else if (context.method === 'GET') {

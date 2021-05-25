@@ -86,20 +86,27 @@ If you prefer another, that's no problem. Just remove the `tape` dependency from
 
 ## Function reference
 
-Boson Node.js functions have very few restrictions. You can add any required dependencies
-in `package.json`, and you may include additional local JavaScript files. The only real
-requirements are that your project contain an `index.js` file which exports a single function.
-In this section, we will look in a little more detail at how Boson functions are invoked,
-and what APIs are available to you as a developer.
+Boson Node.js functions have very few restrictions. You can add any
+required dependencies in `package.json`, and you may include
+additional local JavaScript files. The only real requirements are that
+your project contain an `index.js` file which exports a single
+function.  In this section, we will look in a little more detail at
+how Boson functions are invoked, and what APIs are available to you as
+a developer.
 
 ### Invocation parameters
 
-When using the `func` CLI to create a function project, you may choose to generate a project
-that responds to a `CloudEvent` or simple HTTP. `CloudEvents` in Knative are transported over
-HTTP as a `POST` request, so in many ways, the two types of functions are very much the same.
-They each will listen and respond to incoming HTTP events.
+When using the `func` CLI to create a function project, you may choose
+to generate a project that responds to a `CloudEvent` or simple
+HTTP. `CloudEvents` in Knative are transported over HTTP as a `POST`
+request, so in many ways, the two types of functions are very much the
+same.  They each will listen and respond to incoming HTTP events.
 
-When an incoming request is received, your function will be invoked with a `Context` object as the first parameter. If the incoming request is a `CloudEvent`, any data associated with the `CloudEvent` is extracted from the event and provided as a second parameter. For example, a `CloudEvent` is received which contains a JSON string such as this in its data property, 
+When an incoming request is received, your function will be invoked
+with a `Context` object as the first parameter. If the incoming
+request is a `CloudEvent`, it will be provided as the second
+parameter. For example, a `CloudEvent` is received which contains a
+JSON string such as this in its data property,
 
 ```json
 { 
@@ -108,12 +115,12 @@ When an incoming request is received, your function will be invoked with a `Cont
 }
 ```
 
-When invoked, the second parameter to the function, after the `Context` object, will be
-a JavaScript object having `customerId` and `productId` properties. The function
-signature might look like this, with the `data` parameter having these properties.
+So to log that string from your function, you might do this:
 
 ```js
-function processPurchase(context, data)
+function handle(context, event) {
+  console.log(JSON.stringify(event.data, null, 2));
+}
 ```
 ### Return Values
 Functions may return any valid JavaScript type, or nothing at all. When a
@@ -126,7 +133,10 @@ the returned values are extracted and sent with the response.
 
 #### Example
 ```js
-function processCustomer(context, customer) {
+function handle(context, event) {
+  return processCustomer(event.data)
+}
+function processCustomer(customer) {
   // process customer and return a new CloudEvent
   return new CloudEvent({
     source: 'customer.processor',
@@ -142,7 +152,7 @@ extracted and sent with the response to the caller.
 
 #### Example
 ```js
-function processCustomer(context, customer) {
+function processCustomer(customer) {
   // process customer and return custom headers
   // the response will be '204 No content'
   return { headers: { customerid: customer.id } }; 
@@ -155,7 +165,7 @@ Developers may set the response code returned to the caller by adding a
 
 #### Example
 ```js
-function processCustomer(context, customer) {
+function processCustomer(customer) {
   // process customer
   if (customer.restricted) {
     return { statusCode: 451 }
@@ -167,7 +177,7 @@ This also works with `Error` objects thrown from the function.
 
 #### Example
 ```js
-function processCustomer(context, customer) {
+function processCustomer(customer) {
   // process customer
   if (customer.restricted) {
     const err = new Error(‘Unavailable for legal reasons’);
@@ -193,7 +203,7 @@ The log adheres to the Pino logging API (https://getpino.io/#/docs/api).
 
 #### Example
 ```js
-Function myFunction(context) {
+Function handle(context) {
   context.log.info(“Processing customer”);
 }
 ```
@@ -216,7 +226,7 @@ attributes are also found on the context object itself.
 
 #### Example
 ```js
-Function myFunction(context) {
+Function handle(context) {
   // Log the 'name' query parameter
   context.log.info(context.query.name);
   // Query parameters also are attached to the context
@@ -242,7 +252,7 @@ be parsed so that the attributes are directly available.
 
 #### Example
 ```js
-Function myFunction(context) {
+Function handle(context) {
   // log the incoming request body's 'hello' parameter
   context.log.info(context.body.hello);
 }
@@ -264,7 +274,7 @@ Returns the HTTP request headers as an object.
 
 #### Example
 ```js
-Function myFunction(context) {
+Function handle(context) {
   context.log.info(context.headers[custom-header]);
 }
 ```
@@ -309,10 +319,10 @@ A function which accepts a data value and returns a CloudEvent.
 #### Example
 ```js
 // Expects to receive a CloudEvent with customer data
-function processCustomer(context, customer) {
+function handle(context, event) {
   // process the customer
-  const processed = processCustomer(customer);
-  return context.cloudEventResponse(customer);
+  const processed = processCustomer(event.data);
+  return context.cloudEventResponse(processed);
 }
 ```
 
