@@ -1,6 +1,6 @@
 module github.com/boson-project/func
 
-go 1.14
+go 1.15
 
 require (
 	github.com/buildpacks/pack v0.18.0
