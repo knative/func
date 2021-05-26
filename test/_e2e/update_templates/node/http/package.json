@@ -1,0 +1,20 @@
+{
+  "name": "http-handler",
+  "version": "0.1.0",
+  "description": "A function which responds to HTTP requests",
+  "main": "index.js",
+  "scripts": {
+    "test": "node test/unit.js && node test/integration.js",
+    "local": "npx faas-js-runtime index.js",
+    "debug": "nodemon --inspect ./node_modules/faas-js-runtime/bin/cli.js index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "Apache-2.0",
+  "devDependencies": {
+    "faas-js-runtime": "0.6.0",
+    "nodemon": "^2.0.4",
+    "supertest": "^4.0.2",
+    "tape": "^5.0.1"
+  }
+}
