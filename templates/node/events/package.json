@@ -13,7 +13,7 @@
     "debug": "nodemon --inspect ./node_modules/faas-js-runtime/bin/cli.js ./index.js"
   },
   "devDependencies": {
-    "faas-js-runtime": "0.7.1",
+    "faas-js-runtime": "^0.7.1",
     "nodemon": "^2.0.4",
     "supertest": "^4.0.2",
     "tape": "^4.13.0"
