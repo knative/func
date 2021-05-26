@@ -18,7 +18,7 @@ import { Context, Invokable } from 'faas-js-runtime';
  *
  * const incomingEvent: CloudEvent = context.cloudevent;
  *
- * Any data in the incomig CloudEvent is extracted and provided as the second
+ * Any data in the incoming CloudEvent is extracted and provided as the second
  * parameter to the function.
  *
  * @param {Context} context the invocation context
