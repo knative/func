@@ -1,6 +1,13 @@
 # Change Log
 
 <a name="unreleased"></a>
+### [0.15.1](https://www.github.com/boson-project/func/compare/v0.15.0...v0.15.1) (2021-05-27)
+
+
+### Bug Fixes
+
+* Revert "chore: bump Knative deps to 0.22.0 ([#358](https://www.github.com/boson-project/func/issues/358))" ([#366](https://www.github.com/boson-project/func/issues/366)) ([72584ce](https://www.github.com/boson-project/func/commit/72584ced0dc3af86852f56ce36171ba567481b41))
+
 ## [0.15.0](https://www.github.com/boson-project/func/compare/v0.14.0...v0.15.0) (2021-05-26)
 
 
