@@ -44,7 +44,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (result fn.Deploym
 		return fn.DeploymentResult{}, err
 	}
 
-	_, err = client.GetService(ctx, f.Name)
+	_, err = client.GetService(f.Name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 
@@ -53,7 +53,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (result fn.Deploym
 				err = fmt.Errorf("knative deployer failed to generate the service: %v", err)
 				return fn.DeploymentResult{}, err
 			}
-			err = client.CreateService(ctx, service)
+			err = client.CreateService(service)
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to deploy the service: %v", err)
 				return fn.DeploymentResult{}, err
@@ -62,13 +62,13 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (result fn.Deploym
 			if d.Verbose {
 				fmt.Println("Waiting for Knative Service to become ready")
 			}
-			err, _ = client.WaitForService(ctx, f.Name, DefaultWaitingTimeout, wait.NoopMessageCallback())
+			err, _ = client.WaitForService(f.Name, DefaultWaitingTimeout, wait.NoopMessageCallback())
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to wait for the service to become ready: %v", err)
 				return fn.DeploymentResult{}, err
 			}
 
-			route, err := client.GetRoute(ctx, f.Name)
+			route, err := client.GetRoute(f.Name)
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to get the route: %v", err)
 				return fn.DeploymentResult{}, err
@@ -87,13 +87,13 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (result fn.Deploym
 		}
 	} else {
 		// Update the existing Service
-		_, err = client.UpdateServiceWithRetry(ctx, f.Name, updateService(f.ImageWithDigest(), f.Env, f.Annotations), 3)
+		_, err = client.UpdateServiceWithRetry(f.Name, updateService(f.ImageWithDigest(), f.Env, f.Annotations), 3)
 		if err != nil {
 			err = fmt.Errorf("knative deployer failed to update the service: %v", err)
 			return fn.DeploymentResult{}, err
 		}
 
-		route, err := client.GetRoute(ctx, f.Name)
+		route, err := client.GetRoute(f.Name)
 		if err != nil {
 			err = fmt.Errorf("knative deployer failed to get the route: %v", err)
 			return fn.DeploymentResult{}, err

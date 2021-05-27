@@ -82,9 +82,9 @@ jobs:
         with:
           version: v0.10.0
           kubectl_version: v1.20.0
-          knative_serving: v0.22.0
-          knative_kourier: v0.22.0
-          knative_eventing: v0.22.0
+          knative_serving: v0.20.0
+          knative_kourier: v0.20.0
+          knative_eventing: v0.20.0
           config: testdata/cluster.yaml
       - name: Configure Cluster
         run: ./hack/configure.sh
