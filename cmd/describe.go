@@ -71,7 +71,7 @@ func runDescribe(cmd *cobra.Command, args []string) (err error) {
 		bosonFunc.WithVerbose(config.Verbose),
 		bosonFunc.WithDescriber(describer))
 
-	d, err := client.Describe(cmd.Context(), config.Name, config.Path)
+	d, err := client.Describe(config.Name, config.Path)
 	if err != nil {
 		return
 	}

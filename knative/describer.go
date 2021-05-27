@@ -1,8 +1,6 @@
 package knative
 
 import (
-	"context"
-
 	"k8s.io/apimachinery/pkg/api/errors"
 	v1 "knative.dev/client/pkg/serving/v1"
 	"knative.dev/eventing/pkg/apis/eventing/v1beta1"
@@ -30,7 +28,7 @@ func NewDescriber(namespaceOverride string) (describer *Describer, err error) {
 // restricts to label-syntax, which is thus escaped. Therefore as a knative (kube) implementation
 // detal proper full names have to be escaped on the way in and unescaped on the way out. ex:
 // www.example-site.com -> www-example--site-com
-func (d *Describer) Describe(ctx context.Context, name string) (description bosonFunc.Description, err error) {
+func (d *Describer) Describe(name string) (description bosonFunc.Description, err error) {
 
 	servingClient, err := NewServingClient(d.namespace)
 	if err != nil {
@@ -42,12 +40,12 @@ func (d *Describer) Describe(ctx context.Context, name string) (description boso
 		return
 	}
 
-	service, err := servingClient.GetService(ctx, name)
+	service, err := servingClient.GetService(name)
 	if err != nil {
 		return
 	}
 
-	routes, err := servingClient.ListRoutes(ctx, v1.WithService(name))
+	routes, err := servingClient.ListRoutes(v1.WithService(name))
 	if err != nil {
 		return
 	}
@@ -57,7 +55,7 @@ func (d *Describer) Describe(ctx context.Context, name string) (description boso
 		routeURLs = append(routeURLs, route.Status.URL.String())
 	}
 
-	triggers, err := eventingClient.ListTriggers(ctx)
+	triggers, err := eventingClient.ListTriggers()
 	// IsNotFound -- Eventing is probably not installed on the cluster
 	if err != nil && !errors.IsNotFound(err) {
 		return
