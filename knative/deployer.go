@@ -236,6 +236,9 @@ func updateService(image string, newEnv []corev1.EnvVar, newEnvFrom []corev1.Env
 //   - name: EXAMPLE3
 //     value: {{ secret.example-secret.key }}    # ENV from a key in Secret
 //   - value: {{ secret.example-secret }}        # all ENVs from Secret
+//   - name: EXAMPLE4
+//     value: {{ configMap.configMapName.key }}  # ENV from a key in ConfigMap
+//   - value: {{ configMap.configMapName }}      # all key-pair values from ConfigMap are set as ENV
 func processEnvs(envs fn.Envs, referencedSecrets, referencedConfigMaps *sets.String) ([]corev1.EnvVar, []corev1.EnvFromSource, error) {
 
 	envVars := []corev1.EnvVar{{Name: "BUILT", Value: time.Now().Format("20060102T150405")}}
@@ -243,7 +246,7 @@ func processEnvs(envs fn.Envs, referencedSecrets, referencedConfigMaps *sets.Str
 
 	for _, env := range envs {
 		if env.Name == nil && env.Value != nil {
-			// all key-pair values from secret are set as ENV, eg. {{ secret.secretName }}
+			// all key-pair values from secret/configMap are set as ENV, eg. {{ secret.secretName }} or {{ configMap.configMapName }}
 			if strings.HasPrefix(*env.Value, "{{") {
 				envFromSource, err := createEnvFromSource(*env.Value, referencedSecrets, referencedConfigMaps)
 				if err != nil {
@@ -256,7 +259,7 @@ func processEnvs(envs fn.Envs, referencedSecrets, referencedConfigMaps *sets.Str
 			if strings.HasPrefix(*env.Value, "{{") {
 				slices := strings.Split(strings.Trim(*env.Value, "{} "), ".")
 				if len(slices) == 3 {
-					// ENV from a key in secret, eg. FOO={{ secret.secretName.key }}
+					// ENV from a key in secret/configMap, eg. FOO={{ secret.secretName.key }} FOO={{ configMap.configMapName.key }}
 					valueFrom, err := createEnvVarSource(slices, referencedSecrets, referencedConfigMaps)
 					envVars = append(envVars, corev1.EnvVar{Name: *env.Name, ValueFrom: valueFrom})
 					if err != nil {
@@ -287,9 +290,7 @@ func processEnvs(envs fn.Envs, referencedSecrets, referencedConfigMaps *sets.Str
 func createEnvFromSource(value string, referencedSecrets, referencedConfigMaps *sets.String) (*corev1.EnvFromSource, error) {
 	slices := strings.Split(strings.Trim(value, "{} "), ".")
 	if len(slices) != 2 {
-		// following error message can be used when we enable ConfigMaps:
-		// "env requires a value in form \"resourceType.name\" where \"resourceType\" can be one of \"config-map\" or \"secret\""; got %q"
-		return nil, fmt.Errorf("env requires a value in form \"{{ secret.name }}\"; got %q", slices)
+		return nil, fmt.Errorf("env requires a value in form \"resourceType.name\" where \"resourceType\" can be one of \"configMap\" or \"secret\"; got %q", slices)
 	}
 
 	envVarSource := corev1.EnvFromSource{}
@@ -300,7 +301,7 @@ func createEnvFromSource(value string, referencedSecrets, referencedConfigMaps *
 	var sourceType string
 
 	switch typeString {
-	case "config-map":
+	case "configMap":
 		sourceType = "ConfigMap"
 		envVarSource.ConfigMapRef = &corev1.ConfigMapEnvSource{
 			LocalObjectReference: corev1.LocalObjectReference{
@@ -320,9 +321,7 @@ func createEnvFromSource(value string, referencedSecrets, referencedConfigMaps *
 			referencedSecrets.Insert(sourceName)
 		}
 	default:
-		// following error message can be used when we enable ConfigMaps:
-		// "unsupported env source type \"%q\"; supported source types are \"config-map\" or \"secret\""
-		return nil, fmt.Errorf("unsupported env source type \"%q\"; supported source types is \"secret\"", slices[0])
+		return nil, fmt.Errorf("unsupported env source type \"%q\"; supported source types are \"configMap\" or \"secret\"", slices[0])
 	}
 
 	if len(sourceName) == 0 {
@@ -335,9 +334,7 @@ func createEnvFromSource(value string, referencedSecrets, referencedConfigMaps *
 func createEnvVarSource(slices []string, referencedSecrets, referencedConfigMaps *sets.String) (*corev1.EnvVarSource, error) {
 
 	if len(slices) != 3 {
-		// following error message can be used when we enable ConfigMaps:
-		// "env requires a value in form \"resourceType.name.key\" where \"resourceType\" can be one of \"configMap\" or \"secret\""; got %q"
-		return nil, fmt.Errorf("env requires a value in form \"{{ secret.name.key }}\"; got %q", slices)
+		return nil, fmt.Errorf("env requires a value in form \"resourceType.name.key\" where \"resourceType\" can be one of \"configMap\" or \"secret\"; got %q", slices)
 	}
 
 	envVarSource := corev1.EnvVarSource{}
@@ -349,7 +346,7 @@ func createEnvVarSource(slices []string, referencedSecrets, referencedConfigMaps
 	var sourceType string
 
 	switch typeString {
-	case "config-map":
+	case "configMap":
 		sourceType = "ConfigMap"
 		envVarSource.ConfigMapKeyRef = &corev1.ConfigMapKeySelector{
 			LocalObjectReference: corev1.LocalObjectReference{
@@ -372,9 +369,7 @@ func createEnvVarSource(slices []string, referencedSecrets, referencedConfigMaps
 			referencedSecrets.Insert(sourceName)
 		}
 	default:
-		// following error message can be used when we enable ConfigMaps:
-		// "unsupported env source type \"%q\"; supported source types are \"configMap\" or \"secret\""
-		return nil, fmt.Errorf("unsupported env source type \"%q\"; supported source types is \"secret\"", slices[0])
+		return nil, fmt.Errorf("unsupported env source type \"%q\"; supported source types are \"configMap\" or \"secret\"", slices[0])
 	}
 
 	if len(sourceName) == 0 {
@@ -509,7 +504,7 @@ func checkSecretsConfigMapsArePresent(ctx context.Context, namespace string, ref
 	}
 
 	if errMsg != "" {
-		return fmt.Errorf("\n"+errMsg)
+		return fmt.Errorf("\n" + errMsg)
 	}
 
 	return nil
