@@ -5,6 +5,7 @@ import (
 
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
+	"knative.dev/client/pkg/util"
 
 	bosonFunc "github.com/boson-project/func"
 	"github.com/boson-project/func/docker"
@@ -13,8 +14,8 @@ import (
 func init() {
 	// Add the run command as a subcommand of root.
 	root.AddCommand(runCmd)
-	runCmd.Flags().StringArrayP("env", "e", []string{}, "Environment variable to set in the form NAME=VALUE. " +
-		"You may provide this flag multiple times for setting multiple environment variables. " +
+	runCmd.Flags().StringArrayP("env", "e", []string{}, "Environment variable to set in the form NAME=VALUE. "+
+		"You may provide this flag multiple times for setting multiple environment variables. "+
 		"To unset, specify the environment variable name followed by a \"-\" (e.g., NAME-).")
 	runCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
 }
@@ -40,14 +41,20 @@ kn func run
 }
 
 func runRun(cmd *cobra.Command, args []string) (err error) {
-	config := newRunConfig(cmd)
+	config, err := newRunConfig(cmd)
+	if err != nil {
+		return
+	}
 
 	function, err := bosonFunc.NewFunction(config.Path)
 	if err != nil {
 		return
 	}
 
-	function.Env = mergeEnvMaps(function.Env, config.Env)
+	function.Envs, err = mergeEnvs(function.Envs, config.EnvToUpdate, config.EnvToRemove)
+	if err != nil {
+		return
+	}
 
 	err = function.WriteConfig()
 	if err != nil {
@@ -78,13 +85,23 @@ type runConfig struct {
 	// Verbose logging.
 	Verbose bool
 
-	Env map[string]string
+	// Envs passed via cmd to be added/updated
+	EnvToUpdate *util.OrderedMap
+	
+	// Envs passed via cmd to removed
+	EnvToRemove []string
 }
 
-func newRunConfig(cmd *cobra.Command) runConfig {
-	return runConfig{
-		Path:    viper.GetString("path"),
-		Verbose: viper.GetBool("verbose"), // defined on root
-		Env:     envFromCmd(cmd),
+func newRunConfig(cmd *cobra.Command) (runConfig, error) {
+	envToUpdate, envToRemove, err := envFromCmd(cmd)
+	if err != nil {
+		return runConfig{}, err
 	}
+
+	return runConfig{
+		Path:        viper.GetString("path"),
+		Verbose:     viper.GetBool("verbose"), // defined on root
+		EnvToUpdate: envToUpdate,
+		EnvToRemove: envToRemove,
+	}, nil
 }

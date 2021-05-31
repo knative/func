@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
+	"knative.dev/client/pkg/util"
 
 	bosonFunc "github.com/boson-project/func"
 	"github.com/boson-project/func/buildpacks"
@@ -25,8 +26,8 @@ import (
 func init() {
 	root.AddCommand(deployCmd)
 	deployCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
-	deployCmd.Flags().StringArrayP("env", "e", []string{}, "Environment variable to set in the form NAME=VALUE. " +
-		"You may provide this flag multiple times for setting multiple environment variables. " +
+	deployCmd.Flags().StringArrayP("env", "e", []string{}, "Environment variable to set in the form NAME=VALUE. "+
+		"You may provide this flag multiple times for setting multiple environment variables. "+
 		"To unset, specify the environment variable name followed by a \"-\" (e.g., NAME-).")
 	deployCmd.Flags().StringP("image", "i", "", "Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE")
 	deployCmd.Flags().StringP("namespace", "n", "", "Namespace of the function to undeploy. By default, the namespace in func.yaml is used or the actual active namespace if not set in the configuration. (Env: $FUNC_NAMESPACE)")
@@ -66,14 +67,21 @@ kn func deploy --image quay.io/myuser/myfunc -n myns
 
 func runDeploy(cmd *cobra.Command, _ []string) (err error) {
 
-	config := newDeployConfig(cmd).Prompt()
+	config, err := newDeployConfig(cmd)
+	if err != nil {
+		return err
+	}
+	config = config.Prompt()
 
 	function, err := functionWithOverrides(config.Path, functionOverrides{Namespace: config.Namespace, Image: config.Image})
 	if err != nil {
 		return
 	}
 
-	function.Env = mergeEnvMaps(function.Env, config.Env)
+	function.Envs, err = mergeEnvs(function.Envs, config.EnvToUpdate, config.EnvToRemove)
+	if err != nil {
+		return
+	}
 
 	// Check if the Function has been initialized
 	if !function.Initialized() {
@@ -260,12 +268,21 @@ type deployConfig struct {
 	// Build the associated Function before deploying.
 	Build bool
 
-	Env map[string]string
+	// Envs passed via cmd to be added/updated
+	EnvToUpdate *util.OrderedMap
+
+	// Envs passed via cmd to removed
+	EnvToRemove []string
 }
 
 // newDeployConfig creates a buildConfig populated from command flags and
 // environment variables; in that precedence.
-func newDeployConfig(cmd *cobra.Command) deployConfig {
+func newDeployConfig(cmd *cobra.Command) (deployConfig, error) {
+	envToUpdate, envToRemove, err := envFromCmd(cmd)
+	if err != nil {
+		return deployConfig{}, err
+	}
+
 	return deployConfig{
 		buildConfig: newBuildConfig(),
 		Namespace:   viper.GetString("namespace"),
@@ -273,8 +290,9 @@ func newDeployConfig(cmd *cobra.Command) deployConfig {
 		Verbose:     viper.GetBool("verbose"), // defined on root
 		Confirm:     viper.GetBool("confirm"),
 		Build:       viper.GetBool("build"),
-		Env:         envFromCmd(cmd),
-	}
+		EnvToUpdate: envToUpdate,
+		EnvToRemove: envToRemove,
+	}, nil
 }
 
 // Prompt the user with value of config members, allowing for interaractive changes.

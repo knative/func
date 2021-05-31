@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -43,10 +44,16 @@ func (n *Runner) Run(ctx context.Context, f bosonFunc.Function) error {
 		return errors.New("Function has no associated Image. Has it been built?")
 	}
 
-	envs := make([]string, 0, len(f.Env)+1)
-	for name, value := range f.Env {
-		if !strings.HasSuffix(name, "-") {
-			envs = append(envs, fmt.Sprintf("%s=%s", name, value))
+	envs := []string{}
+	for _, env := range f.Envs {
+		if env.Name != nil && env.Value != nil {
+			value, set, err := processEnvValue(*env.Value)
+			if err != nil {
+				return err
+			}
+			if set {
+				envs = append(envs, *env.Name+"="+value)
+			}
 		}
 	}
 	if n.Verbose {
@@ -135,4 +142,32 @@ func (n *Runner) Run(ctx context.Context, f bosonFunc.Function) error {
 	}
 
 	return nil
+}
+
+// run command supports only ENV values in from FOO=bar or FOO={{ env.LOCAL_VALUE }}
+var evRegex = regexp.MustCompile(`^{{\s*(\w+)\s*.(\w+)\s*}}$`)
+
+const (
+	ctxIdx = 1
+	valIdx = 2
+)
+
+// processEnvValue returns only value for ENV variable, that is defined in form FOO=bar or FOO={{ env.LOCAL_VALUE }}
+// if the value is correct, it is returned and the second return parameter is set to `true`
+// otherwise it is set to `false`
+// if the specified value is correct, but the required local variable is not set, error is returned as well
+func processEnvValue(val string) (string, bool, error) {
+	if strings.HasPrefix(val, "{{") {
+		match := evRegex.FindStringSubmatch(val)
+		if len(match) > valIdx && match[ctxIdx] == "env" {
+			if v, ok := os.LookupEnv(match[valIdx]); ok {
+				return v, true, nil
+			} else {
+				return "", false, fmt.Errorf("required local environment variable %q is not set", match[valIdx])
+			}
+		} else {
+			return "", false, nil
+		}
+	}
+	return val, true, nil
 }

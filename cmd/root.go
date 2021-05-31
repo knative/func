@@ -10,6 +10,8 @@ import (
 	"github.com/mitchellh/go-homedir"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
+	"k8s.io/apimachinery/pkg/util/sets"
+	"knative.dev/client/pkg/util"
 
 	bosonFunc "github.com/boson-project/func"
 )
@@ -251,42 +253,52 @@ func deriveImage(explicitImage, defaultRegistry, path string) string {
 	return derivedValue // Use the func system's derivation logic.
 }
 
-func envFromCmd(cmd *cobra.Command) map[string]string {
-	envM := make(map[string]string)
+func envFromCmd(cmd *cobra.Command) (*util.OrderedMap, []string, error) {
 	if cmd.Flags().Changed("env") {
-		envA, err := cmd.Flags().GetStringArray("env")
-		if err == nil {
-			for _, s := range envA {
-				kvp := strings.Split(s, "=")
-				if len(kvp) == 2 && kvp[0] != "" {
-					envM[kvp[0]] = kvp[1]
-				} else if len(kvp) == 1 && kvp[0] != "" {
-					envM[kvp[0]] = ""
-				}
-			}
+		env, err := cmd.Flags().GetStringArray("env")
+		if err != nil {
+			return nil, []string{}, fmt.Errorf("Invalid --env: %w", err)
 		}
+		return util.OrderedMapAndRemovalListFromArray(env, "=")
 	}
-	return envM
+	return util.NewOrderedMap(), []string{}, nil
 }
 
-func mergeEnvMaps(dest, src map[string]string) map[string]string {
-	result := make(map[string]string, len(dest)+len(src))
+func mergeEnvs(envs bosonFunc.Envs, envToUpdate *util.OrderedMap, envToRemove []string) (bosonFunc.Envs, error) {
+	updated := sets.NewString()
 
-	for name, value := range dest {
-		if strings.HasSuffix(name, "-") {
-			if _, ok := src[strings.TrimSuffix(name, "-")]; !ok {
-				result[name] = value
-			}
-		} else {
-			if _, ok := src[name+"-"]; !ok {
-				result[name] = value
+	for i := range envs {
+		if envs[i].Name != nil {
+			value, present := envToUpdate.GetString(*envs[i].Name)
+			if present {
+				envs[i].Value = &value
+				updated.Insert(*envs[i].Name)
 			}
 		}
 	}
 
-	for name, value := range src {
-		result[name] = value
+	it := envToUpdate.Iterator()
+	for name, value, ok := it.NextString(); ok; name, value, ok = it.NextString() {
+		if !updated.Has(name) {
+			n := name
+			v := value
+			envs = append(envs, bosonFunc.Env{Name: &n, Value: &v})
+		}
 	}
 
-	return result
+	for _, name := range envToRemove {
+		for i, envVar := range envs {
+			if *envVar.Name == name {
+				envs = append(envs[:i], envs[i+1:]...)
+				break
+			}
+		}
+	}
+
+	errMsg := bosonFunc.ValidateEnvs(envs)
+	if len(errMsg) > 0 {
+		return bosonFunc.Envs{}, fmt.Errorf(strings.Join(errMsg, "\n"))
+	}
+
+	return envs, nil
 }
