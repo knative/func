@@ -1,3 +1,3 @@
-default: quay.io/boson/faas-quarkus-jvm-builder
-jvm: quay.io/boson/faas-quarkus-jvm-builder
-native: quay.io/boson/faas-quarkus-native-builder
+default: quay.io/boson/faas-quarkus-jvm-builder:v0.8.1
+jvm: quay.io/boson/faas-quarkus-jvm-builder:v0.8.1
+native: quay.io/boson/faas-quarkus-native-builder:v0.8.1
