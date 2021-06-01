@@ -51,16 +51,39 @@ envs:
 - value: '{{ configMap:myconfigmap2 }}'     # (4) all key-value pairs in ConfigMap as env variables
 ```
 
-### `volumes`
-Kubernetes Secrets or ConfigMaps can be mounted to the function as a Kubernetes Volume accessible under specified path. Below you can see an example how to mount the Secret `mysecret` to the path `/workspace/secret` and the ConfigMap `myconfigmap` to the path `/workspace/configmap`. This Secret/ConfigMap needs to be created before it is referenced in a function.
+### `image`
+
+This is the image name for your function after it has been built. This field
+may be modified and `func` will create your image with the new name the next
+time you run `kn func build` or `kn func deploy`.
+
+### `imageDigest`
+
+This is the `sha256` hash of the image manifest when it is deployed. This value
+should not be modified.
+
+### `labels`
+
+The `labels` field allows you to set labels on a deployed function. Labels can be set
+directly from a value or from a local environment value. Eg. `'{{ env:USER }}'`, for more details see [Local Environment Variables section](#local-environment-variables).
 
 ```yaml
-volumes:
-- secret: mysecret
-  path: /workspace/secret
-- configMap: myconfigmap
-  path: /workspace/configmap
+labels:
+- name: role                                # (1) label directly from a value
+  value: backend
+- name: author                              # (2) label from a local environment value
+  value: '{{ env:USER }}'
 ```
+
+### `name`
+
+The name of your function. This value will be used as the name for your service
+when it is deployed. This value may be changed to rename the function on
+subsequent deployments.
+
+### `namespace`
+
+The Kubernetes namespace where your function will be deployed.
 
 ### `options`
 Options allows you to set specific configuration for the deployed function, allowing you to tweak Knative Service options related to autoscaling and other properties. If these options are not set, the Knative defaults will be used. 
@@ -97,27 +120,6 @@ options:
       concurrency: 100
 ```
 
-### `image`
-
-This is the image name for your function after it has been built. This field
-may be modified and `func` will create your image with the new name the next
-time you run `kn func build` or `kn func deploy`.
-
-### `imageDigest`
-
-This is the `sha256` hash of the image manifest when it is deployed. This value
-should not be modified.
-
-### `name`
-
-The name of your function. This value will be used as the name for your service
-when it is deployed. This value may be changed to rename the function on
-subsequent deployments.
-
-### `namespace`
-
-The Kubernetes namespace where your function will be deployed.
-
 ### `runtime`
 
 The language runtime for your function. For example `python`.
@@ -127,6 +129,18 @@ The language runtime for your function. For example `python`.
 The source code template tailored for the invocation event that triggers
 your function. For example `http` for plain HTTP requests, `event` for
 CloudEvent triggered functions.
+
+### `volumes`
+Kubernetes Secrets or ConfigMaps can be mounted to the function as a Kubernetes Volume accessible under specified path. Below you can see an example how to mount the Secret `mysecret` to the path `/workspace/secret` and the ConfigMap `myconfigmap` to the path `/workspace/configmap`. This Secret/ConfigMap needs to be created before it is referenced in a function.
+
+```yaml
+volumes:
+- secret: mysecret
+  path: /workspace/secret
+- configMap: myconfigmap
+  path: /workspace/configmap
+```
+
 
 ## Local Environment Variables
 

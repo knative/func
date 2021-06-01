@@ -3,6 +3,7 @@
 package function
 
 import (
+	"os"
 	"testing"
 
 	"knative.dev/pkg/ptr"
@@ -179,13 +180,13 @@ func Test_validateEnvs(t *testing.T) {
 
 	tests := []struct {
 		name string
-		envs Envs
+		envs Pairs
 		errs int
 	}{
 		{
 			"correct entry - single env with value",
-			Envs{
-				Env{
+			Pairs{
+				Pair{
 					Name:  &name,
 					Value: &value,
 				},
@@ -194,8 +195,8 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"incorrect entry - missing value",
-			Envs{
-				Env{
+			Pairs{
+				Pair{
 					Name: &name,
 				},
 			},
@@ -203,8 +204,8 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"incorrect entry - invalid name",
-			Envs{
-				Env{
+			Pairs{
+				Pair{
 					Name:  &incorrectName,
 					Value: &value,
 				},
@@ -213,8 +214,8 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"incorrect entry - invalid name2",
-			Envs{
-				Env{
+			Pairs{
+				Pair{
 					Name:  &incorrectName2,
 					Value: &value,
 				},
@@ -223,12 +224,12 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"correct entry - multiple envs with value",
-			Envs{
-				Env{
+			Pairs{
+				Pair{
 					Name:  &name,
 					Value: &value,
 				},
-				Env{
+				Pair{
 					Name:  &name2,
 					Value: &value2,
 				},
@@ -237,11 +238,11 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"incorrect entry - mmissing value - multiple envs",
-			Envs{
-				Env{
+			Pairs{
+				Pair{
 					Name: &name,
 				},
-				Env{
+				Pair{
 					Name: &name2,
 				},
 			},
@@ -249,8 +250,8 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"correct entry - single env with value Local env",
-			Envs{
-				Env{
+			Pairs{
+				Pair{
 					Name:  &name,
 					Value: &valueLocalEnv,
 				},
@@ -259,16 +260,16 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"correct entry - multiple envs with value Local env",
-			Envs{
-				Env{
+			Pairs{
+				Pair{
 					Name:  &name,
 					Value: &valueLocalEnv,
 				},
-				Env{
+				Pair{
 					Name:  &name,
 					Value: &valueLocalEnv2,
 				},
-				Env{
+				Pair{
 					Name:  &name,
 					Value: &valueLocalEnv3,
 				},
@@ -277,20 +278,20 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"incorrect entry - multiple envs with value Local env",
-			Envs{
-				Env{
+			Pairs{
+				Pair{
 					Name:  &name,
 					Value: &valueLocalEnv,
 				},
-				Env{
+				Pair{
 					Name:  &name,
 					Value: &valueLocalEnvIncorrect,
 				},
-				Env{
+				Pair{
 					Name:  &name,
 					Value: &valueLocalEnvIncorrect2,
 				},
-				Env{
+				Pair{
 					Name:  &name,
 					Value: &valueLocalEnvIncorrect3,
 				},
@@ -299,8 +300,8 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"correct entry - single secret with key",
-			Envs{
-				Env{
+			Pairs{
+				Pair{
 					Name:  &name,
 					Value: &valueSecretKey,
 				},
@@ -309,8 +310,8 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"correct entry - single configMap with key",
-			Envs{
-				Env{
+			Pairs{
+				Pair{
 					Name:  &name,
 					Value: &valueConfigMapKey,
 				},
@@ -319,16 +320,16 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"correct entry - multiple secrets with key",
-			Envs{
-				Env{
+			Pairs{
+				Pair{
 					Name:  &name,
 					Value: &valueSecretKey,
 				},
-				Env{
+				Pair{
 					Name:  &name,
 					Value: &valueSecretKey2,
 				},
-				Env{
+				Pair{
 					Name:  &name,
 					Value: &valueSecretKey3,
 				},
@@ -337,12 +338,12 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"correct entry - both secret and configmap with key",
-			Envs{
-				Env{
+			Pairs{
+				Pair{
 					Name:  &name,
 					Value: &valueSecretKey,
 				},
-				Env{
+				Pair{
 					Name:  &name,
 					Value: &valueConfigMapKey,
 				},
@@ -351,8 +352,8 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"incorrect entry - single secret with key",
-			Envs{
-				Env{
+			Pairs{
+				Pair{
 					Name:  &name,
 					Value: &valueSecretKeyIncorrect,
 				},
@@ -361,20 +362,20 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"incorrect entry - mutliple secrets with key",
-			Envs{
-				Env{
+			Pairs{
+				Pair{
 					Name:  &name,
 					Value: &valueSecretKey,
 				},
-				Env{
+				Pair{
 					Name:  &name,
 					Value: &valueSecretKeyIncorrect,
 				},
-				Env{
+				Pair{
 					Name:  &name,
 					Value: &valueSecretKeyIncorrect2,
 				},
-				Env{
+				Pair{
 					Name:  &name,
 					Value: &valueSecretKeyIncorrect3,
 				},
@@ -383,8 +384,8 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"correct entry - single whole secret",
-			Envs{
-				Env{
+			Pairs{
+				Pair{
 					Value: &valueSecret,
 				},
 			},
@@ -392,8 +393,8 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"correct entry - single whole configMap",
-			Envs{
-				Env{
+			Pairs{
+				Pair{
 					Value: &valueConfigMap,
 				},
 			},
@@ -401,14 +402,14 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"correct entry - multiple whole secret",
-			Envs{
-				Env{
+			Pairs{
+				Pair{
 					Value: &valueSecret,
 				},
-				Env{
+				Pair{
 					Value: &valueSecret2,
 				},
-				Env{
+				Pair{
 					Value: &valueSecret3,
 				},
 			},
@@ -416,11 +417,11 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"correct entry - both whole secret and configMap",
-			Envs{
-				Env{
+			Pairs{
+				Pair{
 					Value: &valueSecret,
 				},
-				Env{
+				Pair{
 					Value: &valueConfigMap,
 				},
 			},
@@ -428,8 +429,8 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"incorrect entry - single whole secret",
-			Envs{
-				Env{
+			Pairs{
+				Pair{
 					Value: &value,
 				},
 			},
@@ -437,29 +438,29 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"incorrect entry - multiple whole secret",
-			Envs{
-				Env{
+			Pairs{
+				Pair{
 					Value: &valueSecretIncorrect,
 				},
-				Env{
+				Pair{
 					Value: &valueSecretIncorrect2,
 				},
-				Env{
+				Pair{
 					Value: &valueSecretIncorrect3,
 				},
-				Env{
+				Pair{
 					Value: &value,
 				},
-				Env{
+				Pair{
 					Value: &valueLocalEnv,
 				},
-				Env{
+				Pair{
 					Value: &valueLocalEnv2,
 				},
-				Env{
+				Pair{
 					Value: &valueLocalEnv3,
 				},
-				Env{
+				Pair{
 					Value: &valueSecret,
 				},
 			},
@@ -467,52 +468,52 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"correct entry - all combinations",
-			Envs{
-				Env{
+			Pairs{
+				Pair{
 					Name:  &name,
 					Value: &value,
 				},
-				Env{
+				Pair{
 					Name:  &name2,
 					Value: &value2,
 				},
-				Env{
+				Pair{
 					Name:  &name,
 					Value: &valueLocalEnv,
 				},
-				Env{
+				Pair{
 					Name:  &name,
 					Value: &valueLocalEnv2,
 				},
-				Env{
+				Pair{
 					Name:  &name,
 					Value: &valueLocalEnv3,
 				},
-				Env{
+				Pair{
 					Value: &valueSecret,
 				},
-				Env{
+				Pair{
 					Value: &valueSecret2,
 				},
-				Env{
+				Pair{
 					Value: &valueSecret3,
 				},
-				Env{
+				Pair{
 					Value: &valueConfigMap,
 				},
-				Env{
+				Pair{
 					Name:  &name,
 					Value: &valueSecretKey,
 				},
-				Env{
+				Pair{
 					Name:  &name,
 					Value: &valueSecretKey2,
 				},
-				Env{
+				Pair{
 					Name:  &name,
 					Value: &valueSecretKey3,
 				},
-				Env{
+				Pair{
 					Name:  &name,
 					Value: &valueConfigMapKey,
 				},
@@ -525,6 +526,232 @@ func Test_validateEnvs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := ValidateEnvs(tt.envs); len(got) != tt.errs {
 				t.Errorf("validateEnvs() = %v\n got %d errors but want %d", got, len(got), tt.errs)
+			}
+		})
+	}
+
+}
+
+func Test_validateLabels(t *testing.T) {
+
+	name := "name"
+	name2 := "name-two"
+	name3 := "prefix.io/name3"
+	value := "value"
+	value2 := "value2"
+	value3 := "value3"
+
+	incorrectName := ",foo"
+	incorrectName2 := ":foo"
+	incorrectValue := ":foo"
+
+	valueLocalEnv := "{{ env:MY_ENV }}"
+	valueLocalEnv2 := "{{ env:MY_ENV2 }}"
+	valueLocalEnv3 := "{{env:MY_ENV3}}"
+	valueLocalEnvIncorrect := "{{ envs:MY_ENV }}"
+	valueLocalEnvIncorrect2 := "{{ MY_ENV }}"
+	valueLocalEnvIncorrect3 := "{{env:MY_ENV}}foo"
+
+	os.Setenv("BAD_EXAMPLE", ":invalid")
+	valueLocalEnvIncorrect4 := "{{env:BAD_EXAMPLE}}"
+
+	os.Setenv("GOOD_EXAMPLE", "valid")
+	valueLocalEnv4 := "{{env:GOOD_EXAMPLE}}"
+
+	tests := []struct {
+		name   string
+		labels Pairs
+		errs   int
+	}{
+		{
+			"correct entry - single label with value",
+			Pairs{
+				Pair{
+					Name:  &name,
+					Value: &value,
+				},
+			},
+			0,
+		},
+		{
+			"correct entry - prefixed label with value",
+			Pairs{
+				Pair{
+					Name:  &name3,
+					Value: &value3,
+				},
+			},
+			0,
+		}, {
+			"incorrect entry - missing value",
+			Pairs{
+				Pair{
+					Name: &name,
+				},
+			},
+			1,
+		},
+		{
+			"incorrect entry - invalid name",
+			Pairs{
+				Pair{
+					Name:  &incorrectName,
+					Value: &value,
+				},
+			},
+			1,
+		},
+		{
+			"incorrect entry - invalid name2",
+			Pairs{
+				Pair{
+					Name:  &incorrectName2,
+					Value: &value,
+				},
+			},
+			1,
+		},
+		{
+			"incorrect entry - invalid value",
+			Pairs{
+				Pair{
+					Name:  &name,
+					Value: &incorrectValue,
+				},
+			},
+			1,
+		},
+		{
+			"correct entry - multiple labels with value",
+			Pairs{
+				Pair{
+					Name:  &name,
+					Value: &value,
+				},
+				Pair{
+					Name:  &name2,
+					Value: &value2,
+				},
+			},
+			0,
+		},
+		{
+			"incorrect entry - missing value - multiple labels",
+			Pairs{
+				Pair{
+					Name: &name,
+				},
+				Pair{
+					Name: &name2,
+				},
+			},
+			2,
+		},
+		{
+			"correct entry - single label with value from local env",
+			Pairs{
+				Pair{
+					Name:  &name,
+					Value: &valueLocalEnv,
+				},
+			},
+			0,
+		},
+		{
+			"correct entry - multiple labels with values from Local env",
+			Pairs{
+				Pair{
+					Name:  &name,
+					Value: &valueLocalEnv,
+				},
+				Pair{
+					Name:  &name,
+					Value: &valueLocalEnv2,
+				},
+				Pair{
+					Name:  &name,
+					Value: &valueLocalEnv3,
+				},
+			},
+			0,
+		},
+		{
+			"incorrect entry - multiple labels with values from Local env",
+			Pairs{
+				Pair{
+					Name:  &name,
+					Value: &valueLocalEnv,
+				},
+				Pair{
+					Name:  &name,
+					Value: &valueLocalEnvIncorrect,
+				},
+				Pair{
+					Name:  &name,
+					Value: &valueLocalEnvIncorrect2,
+				},
+				Pair{
+					Name:  &name,
+					Value: &valueLocalEnvIncorrect3,
+				},
+			},
+			3,
+		},
+		{
+			"correct entry - good environment variable value",
+			Pairs{
+				Pair{
+					Name:  &name,
+					Value: &valueLocalEnv4,
+				},
+			},
+			0,
+		}, {
+			"incorrect entry - bad environment variable value",
+			Pairs{
+				Pair{
+					Name:  &name,
+					Value: &valueLocalEnvIncorrect4,
+				},
+			},
+			1,
+		},
+		{
+			"correct entry - all combinations",
+			Pairs{
+				Pair{
+					Name:  &name,
+					Value: &value,
+				},
+				Pair{
+					Name:  &name2,
+					Value: &value2,
+				},
+				Pair{
+					Name:  &name3,
+					Value: &value3,
+				},
+				Pair{
+					Name:  &name,
+					Value: &valueLocalEnv,
+				},
+				Pair{
+					Name:  &name,
+					Value: &valueLocalEnv2,
+				},
+				Pair{
+					Name:  &name,
+					Value: &valueLocalEnv3,
+				},
+			},
+			0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ValidateLabels(tt.labels); len(got) != tt.errs {
+				t.Errorf("validateLabels() = %v\n got %d errors but want %d", got, len(got), tt.errs)
 			}
 		})
 	}

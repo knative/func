@@ -62,6 +62,7 @@ builderMap:
   default: quay.io/boson/faas-go-builder
 envs: []
 annotations: {}
+labels: []
 `
 	if err := ioutil.WriteFile("func.yaml", []byte(funcYaml), 0600); err != nil {
 		t.Fatal(err)

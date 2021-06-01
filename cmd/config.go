@@ -21,8 +21,9 @@ var configCmd = &cobra.Command{
 	Short: "Configure a function",
 	Long: `Configure a function
 
-Interactive propmt that allows configuration of Volume mounts and Environment variables for a function
-project present in the current directory or from the directory specified with --path.
+Interactive propmt that allows configuration of Volume mounts, Environment
+variables, and Labels for a function project present in the current directory
+or from the directory specified with --path.
 `,
 	SuggestFor: []string{"cfg", "cofnig"},
 	PreRunE:    bindEnv("path"),
@@ -41,7 +42,7 @@ func runConfigCmd(cmd *cobra.Command, args []string) (err error) {
 			Name: "selectedConfig",
 			Prompt: &survey.Select{
 				Message: "What do you want to configure?",
-				Options: []string{"Environment values", "Volumes"},
+				Options: []string{"Environment values", "Volumes", "Labels"},
 				Default: "Environment values",
 			},
 		},
@@ -74,18 +75,24 @@ func runConfigCmd(cmd *cobra.Command, args []string) (err error) {
 			err = runAddVolumesPrompt(cmd.Context(), function)
 		} else if answers.SelectedConfig == "Environment values" {
 			err = runAddEnvsPrompt(cmd.Context(), function)
+		} else if answers.SelectedConfig == "Labels" {
+			err = runAddLabelsPrompt(cmd.Context(), function)
 		}
 	case "Remove":
 		if answers.SelectedConfig == "Volumes" {
 			err = runRemoveVolumesPrompt(function)
 		} else if answers.SelectedConfig == "Environment values" {
 			err = runRemoveEnvsPrompt(function)
+		} else if answers.SelectedConfig == "Labels" {
+			err = runRemoveLabelsPrompt(function)
 		}
 	case "List":
 		if answers.SelectedConfig == "Volumes" {
 			listVolumes(function)
 		} else if answers.SelectedConfig == "Environment values" {
 			listEnvs(function)
+		} else if answers.SelectedConfig == "Labels" {
+			listLabels(function)
 		}
 	}
 
