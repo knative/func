@@ -34,8 +34,8 @@ The `envs` field allows you to set environment variables that will be
 available to your function at runtime. 
 1. Environment variable can be set directly from a value
 2. Environment variable can be set from a local environment value. Eg. `'{{ env.LOCAL_ENV_VALUE }}'`, for more details see [Local Environment Variables section](#local-environment-variables).
-3. Environment variable can be set from a key in a Kubernetes Secret. This secret needs to be created before it is referenced in a function. Eg. `'{{ secret.mysecret.key }}'` where `mysecret` is the name of the Secret and `key` is the referenced key.
-4. All key-value pairs from a Kubernetes Secret will be set as environment variables. This secret needs to be created before it is referenced in a function. Eg. `'{{ secret.mysecret2 }}'` where `mysecret2` is the name of the Secret.
+3. Environment variable can be set from a key in a Kubernetes Secret. This Secret needs to be created before it is referenced in a function. Eg. `'{{ secret.mysecret.key }}'` where `mysecret` is the name of the Secret and `key` is the referenced key.
+4. All key-value pairs from a Kubernetes Secret will be set as environment variables. This Secret needs to be created before it is referenced in a function. Eg. `'{{ secret.mysecret2 }}'` where `mysecret2` is the name of the Secret.
 
 ```yaml
 envs:
@@ -43,13 +43,13 @@ envs:
   value: value
 - name: EXAMPLE2                       # (2) env variable from a local environment value
   value: '{{ env.LOCAL_ENV_VALUE }}'
-- name: EXAMPLE3                       # (3) env variable from a key in secret
+- name: EXAMPLE3                       # (3) env variable from a key in Secret
   value: '{{ secret.mysecret.key }}'
-- value: '{{ secret.mysecret2 }}'      # (4) all key-value pairs in secret as env variables
+- value: '{{ secret.mysecret2 }}'      # (4) all key-value pairs in Secret as env variables
 ```
 
 ### `volumes`
-Kubernetes Secrets can be mounted to the function as a Kubernetes Volumes accessible under specified path. Below you can see an example how to mount secret `mysecret` to the path `/workspace/secret`. This secret needs to be created before it is referenced in a function.
+Kubernetes Secrets can be mounted to the function as a Kubernetes Volume accessible under specified path. Below you can see an example how to mount the Secret `mysecret` to the path `/workspace/secret`. This Secret needs to be created before it is referenced in a function.
 
 ```yaml
 volumes:

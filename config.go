@@ -161,7 +161,7 @@ func writeConfig(f Function) (err error) {
 	return ioutil.WriteFile(path, bb, 0644)
 }
 
-// validateEnvs checks that input Volumes are correct and contain all necessary fields.
+// validateVolumes checks that input Volumes are correct and contain all necessary fields.
 // Returns array of error messages, empty if none
 //
 // Allowed settings:
