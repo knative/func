@@ -91,3 +91,60 @@ jobs:
       - name: Integration Test
         run: make test-integration
 
+  e2e-test:
+    runs-on: 'ubuntu-latest'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Setup Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: '^1.16'
+      - name: Determine download URL for latest pkger
+        id: pkger-download-url
+        uses: actions/github-script@v2
+        with:
+          result-encoding: string
+          script: |
+            let platform = 'Linux_x86'
+            return github.repos.getReleaseByTag({
+                owner: "markbates",
+                repo: "pkger",
+                tag: "v0.17.1"
+            }).then(result => {
+                return result.data.assets
+                  .filter(a => a.name.includes(platform))
+                  .map(a => a.browser_download_url)[0];
+            })
+      - name: Install pkger
+        run: |
+          curl -s -L -o pkger.tgz ${{ steps.pkger-download-url.outputs.result }}
+          tar xvzf pkger.tgz
+      - name: Build
+        run: make build
+        env:
+          PKGER: "./pkger"
+      - name: Provision Cluster
+        uses: container-tools/kind-action@v1 # use ./hack/allocate.sh locally
+        with:
+          version: v0.10.0
+          kubectl_version: v1.20.0
+          knative_serving: v0.20.0
+          knative_kourier: v0.20.0
+          knative_eventing: v0.20.0
+          config: testdata/cluster.yaml
+      - name: Configure Cluster
+        run: ./hack/configure.sh
+      - name: Patch Network Cluster
+        run: ./test/patch_network.sh
+
+      - name: E2E Test
+        run: ./test/run_e2e_test.sh   # by default runs e2e + 'node' specific tests
+      #- name: E2E Test Go
+      #  run: ./test/run_e2e_test.sh go
+      #- name: E2E Test Python
+      #  run: ./test/run_e2e_test.sh python
+      #- name: E2E Test Quarkus
+      #  run: ./test/run_e2e_test.sh quarkus
+      #- name: E2E Test Springboot
+      #  run: ./test/run_e2e_test.sh springboot

@@ -87,6 +87,7 @@ bin/golangci-lint:
 
 check: bin/golangci-lint
 	./bin/golangci-lint run --timeout 300s
+	cd test/_e2e && ../../bin/golangci-lint run --timeout 300s
 
 release: build test
 	go get -u github.com/git-chglog/git-chglog/cmd/git-chglog
