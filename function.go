@@ -52,7 +52,11 @@ type Function struct {
 	// e.g. { "jvm": "docker.io/example/quarkus-jvm-builder" }
 	BuilderMap map[string]string
 
-	Env map[string]string
+	// List of volumes to be mounted to the function
+	Volumes Volumes
+
+	// Env variables to be set 
+	Envs Envs
 
 	// Map containing user-supplied annotations
 	// Example: { "division": "finance" }

@@ -28,18 +28,33 @@ field will contain all of the available builders for a given runtime. Although
 it's typically unnecessary to modify the `builder` field, using values from
 `builderMap` is OK.
 
-### `env`
+### `envs`
 
-The `env` field allows you to set environment variables that will be
-available to your function at runtime. For example, to set a `MODE` environment
-variable to `debug` when the function is deployed, your `func.yaml` file
-may look like this. To unset variables use a dash suffix. For example, to unset `MODE`, use `MODE-`.
+The `envs` field allows you to set environment variables that will be
+available to your function at runtime. 
+1. Environment variable can be set directly from a value
+2. Environment variable can be set from a local environment value. Eg. `'{{ env.LOCAL_ENV_VALUE }}'`, for more details see [Local Environment Variables section](#local-environment-variables).
+3. Environment variable can be set from a key in a Kubernetes Secret. This Secret needs to be created before it is referenced in a function. Eg. `'{{ secret.mysecret.key }}'` where `mysecret` is the name of the Secret and `key` is the referenced key.
+4. All key-value pairs from a Kubernetes Secret will be set as environment variables. This Secret needs to be created before it is referenced in a function. Eg. `'{{ secret.mysecret2 }}'` where `mysecret2` is the name of the Secret.
 
 ```yaml
-env:
-  MODE: debug
-  API_KEY: {{ env.API_KEY }}
-  VAR_TO_UNSET-: ""
+envs:
+- name: EXAMPLE1                       # (1) env variable directly from a value
+  value: value
+- name: EXAMPLE2                       # (2) env variable from a local environment value
+  value: '{{ env.LOCAL_ENV_VALUE }}'
+- name: EXAMPLE3                       # (3) env variable from a key in Secret
+  value: '{{ secret.mysecret.key }}'
+- value: '{{ secret.mysecret2 }}'      # (4) all key-value pairs in Secret as env variables
+```
+
+### `volumes`
+Kubernetes Secrets can be mounted to the function as a Kubernetes Volume accessible under specified path. Below you can see an example how to mount the Secret `mysecret` to the path `/workspace/secret`. This Secret needs to be created before it is referenced in a function.
+
+```yaml
+volumes:
+- secret: mysecret
+  path: /workspace/secret
 ```
 
 ### `image`
@@ -73,7 +88,7 @@ The invocation event that triggers your function. Possible values are `http`
 for plain HTTP requests, and `events` for CloudEvent triggered functions.
 
 
-## Environment Variables
+## Local Environment Variables
 
 Any of the fields in `func.yaml` may contain a reference to an environment
 variable available in the local environment. For example, if I would like
@@ -83,6 +98,7 @@ this, prefix the local environment variable with `{{` and `}}` and prefix
 the name with `env.`. For example:
 
 ```yaml
-env:
-  API_KEY: {{ env.API_KEY }}
+envs:
+- name: API_KEY
+  value: '{{ env.API_KEY }}'
 ```

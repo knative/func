@@ -2,6 +2,7 @@ package function
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -14,6 +15,19 @@ import (
 // ConfigFile is the name of the config's serialized form.
 const ConfigFile = "func.yaml"
 
+type Volumes []Volume
+type Volume struct {
+	Secret    *string `yaml:"secret,omitempty"`
+	ConfigMap *string `yaml:"configMap,omitempty"`
+	Path      *string `yaml:"path"`
+}
+
+type Envs []Env
+type Env struct {
+	Name  *string `yaml:"name,omitempty"`
+	Value *string `yaml:"value"`
+}
+
 // Config represents the serialized state of a Function's metadata.
 // See the Function struct for attribute documentation.
 type config struct {
@@ -25,7 +39,8 @@ type config struct {
 	Trigger     string            `yaml:"trigger"`
 	Builder     string            `yaml:"builder"`
 	BuilderMap  map[string]string `yaml:"builderMap"`
-	Env         map[string]string `yaml:"env"`
+	Volumes     Volumes           `yaml:"volumes"`
+	Envs        Envs              `yaml:"envs"`
 	Annotations map[string]string `yaml:"annotations"`
 	// Add new values to the toConfig/fromConfig functions.
 }
@@ -49,19 +64,54 @@ func newConfig(root string) (c config, err error) {
 		return
 	}
 
+	errMsg := ""
+	errMsgHeader := "'func.yaml' config file is not valid:\n"
+	errMsgReg := regexp.MustCompile("not found in type .*")
+
+	// Let's try to unmarshal the config file, any fields that are found
+	// in the data that do not have corresponding struct members, or mapping
+	// keys that are duplicates, will result in an error.
 	err = yaml.UnmarshalStrict(bb, &c)
 	if err != nil {
-		errMsg := err.Error()
-		reg := regexp.MustCompile("not found in type .*")
+		errMsg = err.Error()
 
 		if strings.HasPrefix(errMsg, "yaml: unmarshal errors:") {
-			errMsg = reg.ReplaceAllString(errMsg, "is not valid")
-			err = errors.New(strings.Replace(errMsg, "yaml: unmarshal errors:", "'func.yaml' config file is not valid:", 1))
+			errMsg = errMsgReg.ReplaceAllString(errMsg, "is not valid")
+			errMsg = strings.Replace(errMsg, "yaml: unmarshal errors:\n", errMsgHeader, 1)
 		} else if strings.HasPrefix(errMsg, "yaml:") {
-			errMsg = reg.ReplaceAllString(errMsg, "is not valid")
-			err = errors.New(strings.Replace(errMsg, "yaml: ", "'func.yaml' config file is not valid:\n  ", 1))
+			errMsg = errMsgReg.ReplaceAllString(errMsg, "is not valid")
+			errMsg = strings.Replace(errMsg, "yaml: ", errMsgHeader+"  ", 1)
 		}
 	}
+
+	// Let's check that all entries in `volumes` and `envs` contain all required fields
+	volumesErrors := validateVolumes(c.Volumes)
+	envsErrors := ValidateEnvs(c.Envs)
+	if len(volumesErrors) > 0 || len(envsErrors) > 0 {
+		// if there aren't any previously reported errors, we need to set the error message header first
+		if errMsg == "" {
+			errMsg = errMsgHeader
+		} else {
+			// if there are some previously reporeted errors, we need to indent them
+			errMsg = errMsg + "\n"
+		}
+
+		// lets make the error message a little bit nice -> indent each error message
+		for i := range volumesErrors {
+			volumesErrors[i] = "  " + volumesErrors[i]
+		}
+		for i := range envsErrors {
+			envsErrors[i] = "  " + envsErrors[i]
+		}
+
+		errMsg = errMsg + strings.Join(volumesErrors, "\n")
+		errMsg = errMsg + strings.Join(envsErrors, "\n")
+	}
+
+	if errMsg != "" {
+		err = errors.New(errMsg)
+	}
+
 	return
 }
 
@@ -77,7 +127,8 @@ func fromConfig(c config) (f Function) {
 		Trigger:     c.Trigger,
 		Builder:     c.Builder,
 		BuilderMap:  c.BuilderMap,
-		Env:         c.Env,
+		Volumes:     c.Volumes,
+		Envs:        c.Envs,
 		Annotations: c.Annotations,
 	}
 }
@@ -93,7 +144,8 @@ func toConfig(f Function) config {
 		Trigger:     f.Trigger,
 		Builder:     f.Builder,
 		BuilderMap:  f.BuilderMap,
-		Env:         f.Env,
+		Volumes:     f.Volumes,
+		Envs:        f.Envs,
 		Annotations: f.Annotations,
 	}
 }
@@ -107,4 +159,70 @@ func writeConfig(f Function) (err error) {
 		return
 	}
 	return ioutil.WriteFile(path, bb, 0644)
+}
+
+// validateVolumes checks that input Volumes are correct and contain all necessary fields.
+// Returns array of error messages, empty if none
+//
+// Allowed settings:
+// - secret: example-secret              		# mount Secret as Volume
+// 	 path: /etc/secret-volume
+func validateVolumes(volumes Volumes) (errors []string) {
+
+	for i, vol := range volumes {
+		if vol.Path == nil && vol.Secret == nil {
+			errors = append(errors, fmt.Sprintf("volume entry #%d is not properly set", i))
+		} else if vol.Path == nil {
+			errors = append(errors, fmt.Sprintf("volume entry #%d is missing path field, only secret '%s' is set", i, *vol.Secret))
+		} else if vol.Secret == nil {
+			errors = append(errors, fmt.Sprintf("volume entry #%d is missing secret field, only path '%s' is set", i, *vol.Path))
+		}
+	}
+
+	return
+}
+
+// ValidateEnvs checks that input Envs are correct and contain all necessary fields.
+// Returns array of error messages, empty if none
+//
+// Allowed settings:
+// - name: EXAMPLE1                					# ENV directly from a value
+//   value: value1
+// - name: EXAMPLE2                 				# ENV from the local ENV var
+//   value: {{ env.MY_ENV }}
+// - name: EXAMPLE3
+//   value: {{ secret.secretName.key }}   			# ENV from a key in secret
+// - value: {{ secret.secretName }}          		# all key-pair values from secret are set as ENV
+func ValidateEnvs(envs Envs) (errors []string) {
+
+	// there could be '-' char in the secret name, but not in the key
+	regWholeSecret := regexp.MustCompile(`^{{\s*secret\.(?:\w|['-]\w)+\s*}}$`)
+	regKeyFromSecret := regexp.MustCompile(`^{{\s*secret\.(?:\w|['-]\w)+\.\w+\s*}}$`)
+	regLocalEnv := regexp.MustCompile(`^{{\s*env\.(\w+)\s*}}$`)
+
+	for i, env := range envs {
+		if env.Name == nil && env.Value == nil {
+			errors = append(errors, fmt.Sprintf("env entry #%d is not properly set", i))
+		} else if env.Value == nil {
+			errors = append(errors, fmt.Sprintf("env entry #%d is missing value field, only name '%s' is set", i, *env.Name))
+		} else if env.Name == nil {
+			// all key-pair values from secret are set as ENV; {{ secret.secretName }}
+			if !regWholeSecret.MatchString(*env.Value) {
+				errors = append(errors, fmt.Sprintf("env entry #%d has invalid value field set, it has '%s', but allowed is only '{{ secret.secretName }}'", i, *env.Value))
+			}
+		} else {
+			if strings.HasPrefix(*env.Value, "{{") {
+				// ENV from the local ENV var; {{ env.MY_ENV }}
+				// or
+				// ENV from a key in secret;  {{ secret.secretName.key }}
+				if !regLocalEnv.MatchString(*env.Value) && !regKeyFromSecret.MatchString(*env.Value) {
+					errors = append(errors,
+						fmt.Sprintf("env entry #%d with name '%s' has invalid value field set, it has '%s', but allowed is only '{{ env.MY_ENV }}' or '{{ secret.secretName.key }}'", i, *env.Name, *env.Value))
+				}
+			}
+
+		}
+	}
+
+	return
 }

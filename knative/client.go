@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 	clienteventingv1beta1 "knative.dev/client/pkg/eventing/v1beta1"
 	clientservingv1 "knative.dev/client/pkg/serving/v1"
@@ -47,6 +48,16 @@ func NewEventingClient(namespace string) (clienteventingv1beta1.KnEventingClient
 	client := clienteventingv1beta1.NewKnEventingClient(eventingClient, namespace)
 
 	return client, nil
+}
+
+func NewKubernetesClientset(namespace string) (*kubernetes.Clientset, error) {
+
+	restConfig, err := getClientConfig().ClientConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create new kubernetes client: %v", err)
+	}
+
+	return kubernetes.NewForConfig(restConfig)
 }
 
 func GetNamespace(defaultNamespace string) (namespace string, err error) {

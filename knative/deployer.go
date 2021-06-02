@@ -11,6 +11,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/client/pkg/kn/flags"
 	"knative.dev/client/pkg/wait"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
@@ -48,14 +49,24 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (result fn.Deploym
 	if err != nil {
 		if errors.IsNotFound(err) {
 
-			service, err := generateNewService(f.Name, f.ImageWithDigest(), f.Runtime, f.Env, f.Annotations)
+			referencedSecrets := sets.NewString()
+			referencedConfigMaps := sets.NewString()
+
+			service, err := generateNewService(f.Name, f.ImageWithDigest(), f.Runtime, f.Envs, f.Volumes, f.Annotations)
 			if err != nil {
-				err = fmt.Errorf("knative deployer failed to generate the service: %v", err)
+				err = fmt.Errorf("knative deployer failed to generate the Knative Service: %v", err)
 				return fn.DeploymentResult{}, err
 			}
+
+			err = checkSecretsConfigMapsArePresent(ctx, d.Namespace, &referencedSecrets, &referencedConfigMaps)
+			if err != nil {
+				err = fmt.Errorf("knative deployer failed to generate the Knative Service: %v", err)
+				return fn.DeploymentResult{}, err
+			}
+
 			err = client.CreateService(ctx, service)
 			if err != nil {
-				err = fmt.Errorf("knative deployer failed to deploy the service: %v", err)
+				err = fmt.Errorf("knative deployer failed to deploy the Knative Service: %v", err)
 				return fn.DeploymentResult{}, err
 			}
 
@@ -64,13 +75,13 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (result fn.Deploym
 			}
 			err, _ = client.WaitForService(ctx, f.Name, DefaultWaitingTimeout, wait.NoopMessageCallback())
 			if err != nil {
-				err = fmt.Errorf("knative deployer failed to wait for the service to become ready: %v", err)
+				err = fmt.Errorf("knative deployer failed to wait for the Knative Service to become ready: %v", err)
 				return fn.DeploymentResult{}, err
 			}
 
 			route, err := client.GetRoute(ctx, f.Name)
 			if err != nil {
-				err = fmt.Errorf("knative deployer failed to get the route: %v", err)
+				err = fmt.Errorf("knative deployer failed to get the Route: %v", err)
 				return fn.DeploymentResult{}, err
 			}
 
@@ -79,23 +90,41 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (result fn.Deploym
 				Status: fn.Deployed,
 				URL:    route.Status.URL.String(),
 			}, nil
-			// fmt.Sprintf("Function deployed at URL: %v", route.Status.URL.String()), nil
 
 		} else {
-			err = fmt.Errorf("knative deployer failed to get the service: %v", err)
+			err = fmt.Errorf("knative deployer failed to get the Knative Service: %v", err)
 			return fn.DeploymentResult{}, err
 		}
 	} else {
 		// Update the existing Service
-		_, err = client.UpdateServiceWithRetry(ctx, f.Name, updateService(f.ImageWithDigest(), f.Env, f.Annotations), 3)
+		referencedSecrets := sets.NewString()
+		referencedConfigMaps := sets.NewString()
+
+		newEnv, newEnvFrom, err := processEnvs(f.Envs, &referencedSecrets, &referencedConfigMaps)
 		if err != nil {
-			err = fmt.Errorf("knative deployer failed to update the service: %v", err)
+			return fn.DeploymentResult{}, err
+		}
+
+		newVolumes, newVolumeMounts, err := processVolumes(f.Volumes, &referencedSecrets, &referencedConfigMaps)
+		if err != nil {
+			return fn.DeploymentResult{}, err
+		}
+
+		err = checkSecretsConfigMapsArePresent(ctx, d.Namespace, &referencedSecrets, &referencedConfigMaps)
+		if err != nil {
+			err = fmt.Errorf("knative deployer failed to update the Knative Service: %v", err)
+			return fn.DeploymentResult{}, err
+		}
+
+		_, err = client.UpdateServiceWithRetry(ctx, f.Name, updateService(f.ImageWithDigest(), newEnv, newEnvFrom, newVolumes, newVolumeMounts, f.Annotations), 3)
+		if err != nil {
+			err = fmt.Errorf("knative deployer failed to update the Knative Service: %v", err)
 			return fn.DeploymentResult{}, err
 		}
 
 		route, err := client.GetRoute(ctx, f.Name)
 		if err != nil {
-			err = fmt.Errorf("knative deployer failed to get the route: %v", err)
+			err = fmt.Errorf("knative deployer failed to get the Route: %v", err)
 			return fn.DeploymentResult{}, err
 		}
 
@@ -116,7 +145,7 @@ func probeFor(url string) *corev1.Probe {
 	}
 }
 
-func generateNewService(name, image, runtime string, env map[string]string, annotations map[string]string) (*servingv1.Service, error) {
+func generateNewService(name, image, runtime string, envs fn.Envs, volumes fn.Volumes, annotations map[string]string) (*servingv1.Service, error) {
 	containers := []corev1.Container{
 		{
 			Image: image,
@@ -127,6 +156,22 @@ func generateNewService(name, image, runtime string, env map[string]string, anno
 		containers[0].LivenessProbe = probeFor("/health/liveness")
 		containers[0].ReadinessProbe = probeFor("/health/readiness")
 	}
+
+	referencedSecrets := sets.NewString()
+	referencedConfigMaps := sets.NewString()
+
+	newEnv, newEnvFrom, err := processEnvs(envs, &referencedSecrets, &referencedConfigMaps)
+	if err != nil {
+		return nil, err
+	}
+	containers[0].Env = newEnv
+	containers[0].EnvFrom = newEnvFrom
+
+	newVolumes, newVolumeMounts, err := processVolumes(volumes, &referencedSecrets, &referencedConfigMaps)
+	if err != nil {
+		return nil, err
+	}
+	containers[0].VolumeMounts = newVolumeMounts
 
 	service := &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -143,6 +188,7 @@ func generateNewService(name, image, runtime string, env map[string]string, anno
 					Spec: v1.RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							Containers: containers,
+							Volumes:    newVolumes,
 						},
 					},
 				},
@@ -150,10 +196,11 @@ func generateNewService(name, image, runtime string, env map[string]string, anno
 		},
 	}
 
-	return setEnv(service, env)
+	return service, nil
 }
 
-func updateService(image string, env map[string]string, annotations map[string]string) func(service *servingv1.Service) (*servingv1.Service, error) {
+func updateService(image string, newEnv []corev1.EnvVar, newEnvFrom []corev1.EnvFromSource, newVolumes []corev1.Volume, newVolumeMounts []corev1.VolumeMount,
+	annotations map[string]string) func(service *servingv1.Service) (*servingv1.Service, error) {
 	return func(service *servingv1.Service) (*servingv1.Service, error) {
 		// Removing the name so the k8s server can fill it in with generated name,
 		// this prevents conflicts in Revision name when updating the KService from multiple places.
@@ -169,8 +216,176 @@ func updateService(image string, env map[string]string, annotations map[string]s
 		if err != nil {
 			return service, err
 		}
-		return setEnv(service, env)
+
+		service.Spec.ConfigurationSpec.Template.Spec.Containers[0].Env = newEnv
+		service.Spec.ConfigurationSpec.Template.Spec.Containers[0].EnvFrom = newEnvFrom
+
+		service.Spec.ConfigurationSpec.Template.Spec.Containers[0].VolumeMounts = newVolumeMounts
+		service.Spec.ConfigurationSpec.Template.Spec.Volumes = newVolumes
+
+		return service, nil
 	}
+}
+
+// processEnvs generates array of EnvVars and EnvFromSources from a function config
+// envs:
+//   - name: EXAMPLE1                            # ENV directly from a value
+//     value: value1
+//   - name: EXAMPLE2                            # ENV from the local ENV var
+//     value: {{ env.MY_ENV }}
+//   - name: EXAMPLE3
+//     value: {{ secret.example-secret.key }}    # ENV from a key in Secret
+//   - value: {{ secret.example-secret }}        # all ENVs from Secret
+func processEnvs(envs fn.Envs, referencedSecrets, referencedConfigMaps *sets.String) ([]corev1.EnvVar, []corev1.EnvFromSource, error) {
+
+	envVars := []corev1.EnvVar{{Name: "BUILT", Value: time.Now().Format("20060102T150405")}}
+	envFrom := []corev1.EnvFromSource{}
+
+	for _, env := range envs {
+		if env.Name == nil && env.Value != nil {
+			// all key-pair values from secret are set as ENV, eg. {{ secret.secretName }}
+			if strings.HasPrefix(*env.Value, "{{") {
+				envFromSource, err := createEnvFromSource(*env.Value, referencedSecrets, referencedConfigMaps)
+				if err != nil {
+					return nil, nil, err
+				}
+				envFrom = append(envFrom, *envFromSource)
+				continue
+			}
+		} else if env.Name != nil && env.Value != nil {
+			if strings.HasPrefix(*env.Value, "{{") {
+				slices := strings.Split(strings.Trim(*env.Value, "{} "), ".")
+				if len(slices) == 3 {
+					// ENV from a key in secret, eg. FOO={{ secret.secretName.key }}
+					valueFrom, err := createEnvVarSource(slices, referencedSecrets, referencedConfigMaps)
+					envVars = append(envVars, corev1.EnvVar{Name: *env.Name, ValueFrom: valueFrom})
+					if err != nil {
+						return nil, nil, err
+					}
+					continue
+				} else if len(slices) == 2 {
+					// ENV from the local ENV var, eg. FOO={{ env.LOCAL_ENV }}
+					localValue, err := processLocalEnvValue(*env.Value)
+					if err != nil {
+						return nil, nil, err
+					}
+					envVars = append(envVars, corev1.EnvVar{Name: *env.Name, Value: localValue})
+					continue
+				}
+			} else {
+				// a standard ENV with key and value, eg. FOO=bar
+				envVars = append(envVars, corev1.EnvVar{Name: *env.Name, Value: *env.Value})
+				continue
+			}
+		}
+		return nil, nil, fmt.Errorf("unsupported env source entry \"%v\"", env)
+	}
+
+	return envVars, envFrom, nil
+}
+
+func createEnvFromSource(value string, referencedSecrets, referencedConfigMaps *sets.String) (*corev1.EnvFromSource, error) {
+	slices := strings.Split(strings.Trim(value, "{} "), ".")
+	if len(slices) != 2 {
+		// following error message can be used when we enable ConfigMaps:
+		// "env requires a value in form \"resourceType.name\" where \"resourceType\" can be one of \"config-map\" or \"secret\""; got %q"
+		return nil, fmt.Errorf("env requires a value in form \"{{ secret.name }}\"; got %q", slices)
+	}
+
+	envVarSource := corev1.EnvFromSource{}
+
+	typeString := strings.TrimSpace(slices[0])
+	sourceName := strings.TrimSpace(slices[1])
+
+	var sourceType string
+
+	switch typeString {
+	case "config-map":
+		sourceType = "ConfigMap"
+		envVarSource.ConfigMapRef = &corev1.ConfigMapEnvSource{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: sourceName,
+			}}
+
+		if !referencedConfigMaps.Has(sourceName) {
+			referencedConfigMaps.Insert(sourceName)
+		}
+	case "secret":
+		sourceType = "Secret"
+		envVarSource.SecretRef = &corev1.SecretEnvSource{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: sourceName,
+			}}
+		if !referencedSecrets.Has(sourceName) {
+			referencedSecrets.Insert(sourceName)
+		}
+	default:
+		// following error message can be used when we enable ConfigMaps:
+		// "unsupported env source type \"%q\"; supported source types are \"config-map\" or \"secret\""
+		return nil, fmt.Errorf("unsupported env source type \"%q\"; supported source types is \"secret\"", slices[0])
+	}
+
+	if len(sourceName) == 0 {
+		return nil, fmt.Errorf("the name of %s cannot be an empty string", sourceType)
+	}
+
+	return &envVarSource, nil
+}
+
+func createEnvVarSource(slices []string, referencedSecrets, referencedConfigMaps *sets.String) (*corev1.EnvVarSource, error) {
+
+	if len(slices) != 3 {
+		// following error message can be used when we enable ConfigMaps:
+		// "env requires a value in form \"resourceType.name.key\" where \"resourceType\" can be one of \"configMap\" or \"secret\""; got %q"
+		return nil, fmt.Errorf("env requires a value in form \"{{ secret.name.key }}\"; got %q", slices)
+	}
+
+	envVarSource := corev1.EnvVarSource{}
+
+	typeString := strings.TrimSpace(slices[0])
+	sourceName := strings.TrimSpace(slices[1])
+	sourceKey := strings.TrimSpace(slices[2])
+
+	var sourceType string
+
+	switch typeString {
+	case "config-map":
+		sourceType = "ConfigMap"
+		envVarSource.ConfigMapKeyRef = &corev1.ConfigMapKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: sourceName,
+			},
+			Key: sourceKey}
+
+		if !referencedConfigMaps.Has(sourceName) {
+			referencedConfigMaps.Insert(sourceName)
+		}
+	case "secret":
+		sourceType = "Secret"
+		envVarSource.SecretKeyRef = &corev1.SecretKeySelector{
+			LocalObjectReference: corev1.LocalObjectReference{
+				Name: sourceName,
+			},
+			Key: sourceKey}
+
+		if !referencedSecrets.Has(sourceName) {
+			referencedSecrets.Insert(sourceName)
+		}
+	default:
+		// following error message can be used when we enable ConfigMaps:
+		// "unsupported env source type \"%q\"; supported source types are \"configMap\" or \"secret\""
+		return nil, fmt.Errorf("unsupported env source type \"%q\"; supported source types is \"secret\"", slices[0])
+	}
+
+	if len(sourceName) == 0 {
+		return nil, fmt.Errorf("the name of %s cannot be an empty string", sourceType)
+	}
+
+	if len(sourceKey) == 0 {
+		return nil, fmt.Errorf("the key referenced by resource %s \"%s\" cannot be an empty string", sourceType, sourceName)
+	}
+
+	return &envVarSource, nil
 }
 
 var evRegex = regexp.MustCompile(`^{{\s*(\w+)\s*.(\w+)\s*}}$`)
@@ -180,46 +395,122 @@ const (
 	valIdx = 2
 )
 
-func processValue(val string) (string, error) {
+func processLocalEnvValue(val string) (string, error) {
 	match := evRegex.FindStringSubmatch(val)
 	if len(match) > valIdx {
 		if match[ctxIdx] != "env" {
-			return "", fmt.Errorf("uknown context %q", match[ctxIdx])
+			return "", fmt.Errorf("allowed env value entry is \"{{ env.LOCAL_VALUE }}\"1; got: %q", match[ctxIdx])
 		}
 		if v, ok := os.LookupEnv(match[valIdx]); ok {
 			return v, nil
 		} else {
-			return "", fmt.Errorf("required environment variable %q is not set", match[valIdx])
+			return "", fmt.Errorf("required local environment variable \"%q\" is not set", match[valIdx])
 		}
 	} else {
 		return val, nil
 	}
 }
 
-func setEnv(service *servingv1.Service, env map[string]string) (*servingv1.Service, error) {
-	builtEnvName := "BUILT"
-	builtEnvValue := time.Now().Format("20060102T150405")
+/// processVolumes generates Volumes and VolumeMounts from a function config
+// volumes:
+// - secret: example-secret               # mount Secret as Volume
+//   path: /etc/secret-volume
+// - configMap: example-cm                # mount ConfigMap as Volume
+//   path: /etc/cm-volume
+func processVolumes(volumes fn.Volumes, referencedSecrets, referencedConfigMaps *sets.String) ([]corev1.Volume, []corev1.VolumeMount, error) {
 
-	toUpdate := make(map[string]string, len(env)+1)
-	toRemove := make([]string, 0)
+	createdVolumes := sets.NewString()
+	usedPaths := sets.NewString()
 
-	for name, value := range env {
-		if strings.HasSuffix(name, "-") {
-			toRemove = append(toRemove, strings.TrimSuffix(name, "-"))
-		} else {
-			toUpdate[name] = value
+	newVolumes := []corev1.Volume{}
+	newVolumeMounts := []corev1.VolumeMount{}
+
+	for _, vol := range volumes {
+
+		volumeName := ""
+
+		if vol.Secret != nil {
+			volumeName = "secret-" + *vol.Secret
+
+			if !createdVolumes.Has(volumeName) {
+				newVolumes = append(newVolumes, corev1.Volume{
+					Name: volumeName,
+					VolumeSource: corev1.VolumeSource{
+						Secret: &corev1.SecretVolumeSource{
+							SecretName: *vol.Secret,
+						},
+					},
+				})
+				createdVolumes.Insert(volumeName)
+
+				if !referencedSecrets.Has(*vol.Secret) {
+					referencedSecrets.Insert(*vol.Secret)
+				}
+			}
+		} else if vol.ConfigMap != nil {
+			volumeName = "config-map-" + *vol.ConfigMap
+
+			if !createdVolumes.Has(volumeName) {
+				newVolumes = append(newVolumes, corev1.Volume{
+					Name: volumeName,
+					VolumeSource: corev1.VolumeSource{
+						ConfigMap: &corev1.ConfigMapVolumeSource{
+							LocalObjectReference: corev1.LocalObjectReference{
+								Name: *vol.ConfigMap,
+							},
+						},
+					},
+				})
+				createdVolumes.Insert(volumeName)
+
+				if !referencedConfigMaps.Has(*vol.ConfigMap) {
+					referencedConfigMaps.Insert(*vol.ConfigMap)
+				}
+			}
+		}
+
+		if volumeName != "" {
+			if !usedPaths.Has(*vol.Path) {
+				newVolumeMounts = append(newVolumeMounts, corev1.VolumeMount{
+					Name:      volumeName,
+					MountPath: *vol.Path,
+				})
+				usedPaths.Insert(*vol.Path)
+			} else {
+				return nil, nil, fmt.Errorf("mount path %s is defined multiple times", *vol.Path)
+			}
 		}
 	}
 
-	toUpdate[builtEnvName] = builtEnvValue
+	return newVolumes, newVolumeMounts, nil
+}
 
-	for idx, val := range toUpdate {
-		v, err := processValue(val)
+// checkSecretsConfigMapsArePresent returns error if Secrets or ConfigMaps
+// referenced in input sets are not deployed on the cluster in the specified namespace
+func checkSecretsConfigMapsArePresent(ctx context.Context, namespace string, referencedSecrets, referencedConfigMaps *sets.String) error {
+	client, err := NewKubernetesClientset(namespace)
+	if err != nil {
+		return err
+	}
+
+	errMsg := ""
+	for s := range *referencedSecrets {
+		_, err := client.CoreV1().Secrets(namespace).Get(ctx, s, metav1.GetOptions{})
 		if err != nil {
-			return nil, err
+			errMsg += fmt.Sprintf("  referenced Secret \"%s\" is not present in namespace \"%s\"\n", s, namespace)
 		}
-		toUpdate[idx] = v
 	}
 
-	return service, flags.UpdateEnvVars(&service.Spec.Template.Spec.PodSpec, toUpdate, toRemove)
+	for cm := range *referencedConfigMaps {
+		_, err := client.CoreV1().ConfigMaps(namespace).Get(ctx, cm, metav1.GetOptions{})
+		if err != nil {
+			errMsg += fmt.Sprintf("  referenced ConfigMap \"%s\" is not present in namespace \"%s\"\n", cm, namespace)
+		}
+	}
+
+	if errMsg != "" {
+		return fmt.Errorf("\n"+errMsg)
+	}
+
+	return nil
 }

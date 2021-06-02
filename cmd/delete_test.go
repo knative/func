@@ -51,7 +51,7 @@ trigger: http
 builder: quay.io/boson/faas-go-builder
 builderMap:
   default: quay.io/boson/faas-go-builder
-env: {}
+envs: []
 annotations: {}
 `
 	tmpDir, err := ioutil.TempDir("", "bar")
