@@ -62,6 +62,27 @@ volumes:
   path: /workspace/configmap
 ```
 
+### `options`
+Options allows you to set specific configuration for the deployed funciton, ie. it allows you to tweak Knative Service options related to autoscaling and other properties, if these options are not set in the default ones will be used. This options are based on the ones provided by `kn service` [command](https://github.com/knative/client/blob/main/docs/cmd/kn_service_create.md#options).
+- `scale-min`: Minimum number of replicas.
+- `scale-max`: Maximum number of replicas.
+- `scale-init`: Initial number of replicas with which a Service starts. Can be 0 or a positive integer.
+- `autoscale-window`: Duration to look back for making auto-scaling decisions. The Service is scaled to zero if no request was received in during that time. (eg: 10s)
+- `concurrency-limit`: Hard Limit of concurrent requests to be processed by a single replica.
+- `concurrency-target`: Recommendation for when to scale up based on the concurrent number of incoming request. Defaults to `concurrency-limit` when given.
+- `concurrency-utilization`: Percentage of concurrent requests utilization before scaling up.
+
+```yaml
+options:
+  scale-min: 0
+  scale-max: 10
+  scale-init: 2
+  autoscale-window: 10s
+  concurrency-limit: 100
+  concurrency-target: 75
+  concurrency-utilization: 75
+```
+
 ### `image`
 
 This is the image name for your function after it has been built. This field

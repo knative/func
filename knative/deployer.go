@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -13,7 +14,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/client/pkg/kn/flags"
+	servingclientlib "knative.dev/client/pkg/serving"
 	"knative.dev/client/pkg/wait"
+	"knative.dev/serving/pkg/apis/autoscaling"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 
@@ -52,7 +55,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (result fn.Deploym
 			referencedSecrets := sets.NewString()
 			referencedConfigMaps := sets.NewString()
 
-			service, err := generateNewService(f.Name, f.ImageWithDigest(), f.Runtime, f.Envs, f.Volumes, f.Annotations)
+			service, err := generateNewService(f.Name, f.ImageWithDigest(), f.Runtime, f.Envs, f.Volumes, f.Annotations, f.Options)
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to generate the Knative Service: %v", err)
 				return fn.DeploymentResult{}, err
@@ -116,7 +119,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (result fn.Deploym
 			return fn.DeploymentResult{}, err
 		}
 
-		_, err = client.UpdateServiceWithRetry(ctx, f.Name, updateService(f.ImageWithDigest(), newEnv, newEnvFrom, newVolumes, newVolumeMounts, f.Annotations), 3)
+		_, err = client.UpdateServiceWithRetry(ctx, f.Name, updateService(f.ImageWithDigest(), newEnv, newEnvFrom, newVolumes, newVolumeMounts, f.Annotations, f.Options), 3)
 		if err != nil {
 			err = fmt.Errorf("knative deployer failed to update the Knative Service: %v", err)
 			return fn.DeploymentResult{}, err
@@ -145,7 +148,7 @@ func probeFor(url string) *corev1.Probe {
 	}
 }
 
-func generateNewService(name, image, runtime string, envs fn.Envs, volumes fn.Volumes, annotations map[string]string) (*servingv1.Service, error) {
+func generateNewService(name, image, runtime string, envs fn.Envs, volumes fn.Volumes, annotations map[string]string, options fn.Options) (*servingv1.Service, error) {
 	containers := []corev1.Container{
 		{
 			Image: image,
@@ -196,11 +199,16 @@ func generateNewService(name, image, runtime string, envs fn.Envs, volumes fn.Vo
 		},
 	}
 
+	err = setServiceOptions(&service.Spec.Template, options)
+	if err != nil {
+		return service, err
+	}
+
 	return service, nil
 }
 
 func updateService(image string, newEnv []corev1.EnvVar, newEnvFrom []corev1.EnvFromSource, newVolumes []corev1.Volume, newVolumeMounts []corev1.VolumeMount,
-	annotations map[string]string) func(service *servingv1.Service) (*servingv1.Service, error) {
+	annotations map[string]string, options fn.Options) func(service *servingv1.Service) (*servingv1.Service, error) {
 	return func(service *servingv1.Service) (*servingv1.Service, error) {
 		// Removing the name so the k8s server can fill it in with generated name,
 		// this prevents conflicts in Revision name when updating the KService from multiple places.
@@ -212,7 +220,12 @@ func updateService(image string, newEnv []corev1.EnvVar, newEnvFrom []corev1.Env
 			service.ObjectMeta.Annotations[k] = v
 		}
 
-		err := flags.UpdateImage(&service.Spec.Template.Spec.PodSpec, image)
+		err := setServiceOptions(&service.Spec.Template, options)
+		if err != nil {
+			return service, err
+		}
+
+		err = flags.UpdateImage(&service.Spec.Template.Spec.PodSpec, image)
 		if err != nil {
 			return service, err
 		}
@@ -508,4 +521,52 @@ func checkSecretsConfigMapsArePresent(ctx context.Context, namespace string, ref
 	}
 
 	return nil
+}
+
+// setServiceOptions sets annotations on Service Revision Template or in the Service Spec
+// from values specifed in function configuration options
+func setServiceOptions(template *servingv1.RevisionTemplateSpec, options fn.Options) error {
+
+	toRemove := []string{}
+	toUpdate := map[string]string{}
+
+	if options.ScaleMin != nil {
+		toUpdate[autoscaling.MinScaleAnnotationKey] = strconv.Itoa(*options.ScaleMin)
+	} else {
+		toRemove = append(toRemove, autoscaling.MinScaleAnnotationKey)
+	}
+
+	if options.ScaleMax != nil {
+		toUpdate[autoscaling.MaxScaleAnnotationKey] = strconv.Itoa(*options.ScaleMax)
+	} else {
+		toRemove = append(toRemove, autoscaling.MaxScaleAnnotationKey)
+	}
+
+	if options.ScaleInit != nil {
+		toUpdate[autoscaling.InitialScaleAnnotationKey] = strconv.Itoa(*options.ScaleInit)
+	} else {
+		toRemove = append(toRemove, autoscaling.InitialScaleAnnotationKey)
+	}
+
+	if options.AutoscaleWindow != nil {
+		toUpdate[autoscaling.WindowAnnotationKey] = *options.AutoscaleWindow
+	} else {
+		toRemove = append(toRemove, autoscaling.WindowAnnotationKey)
+	}
+
+	template.Spec.ContainerConcurrency = options.ConcurrencyLimit
+
+	if options.ConcurrencyTarget != nil {
+		toUpdate[autoscaling.TargetAnnotationKey] = strconv.Itoa(*options.ConcurrencyTarget)
+	} else {
+		toRemove = append(toRemove, autoscaling.TargetAnnotationKey)
+	}
+
+	if options.ConcurrencyUtilizatin != nil {
+		toUpdate[autoscaling.TargetUtilizationPercentageKey] = strconv.Itoa(*options.ConcurrencyUtilizatin)
+	} else {
+		toRemove = append(toRemove, autoscaling.TargetUtilizationPercentageKey)
+	}
+
+	return servingclientlib.UpdateRevisionTemplateAnnotations(template, toUpdate, toRemove)
 }

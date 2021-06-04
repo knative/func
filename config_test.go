@@ -4,6 +4,8 @@ package function
 
 import (
 	"testing"
+
+	"knative.dev/pkg/ptr"
 )
 
 func Test_validateVolumes(t *testing.T) {
@@ -500,6 +502,91 @@ func Test_validateEnvs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := ValidateEnvs(tt.envs); len(got) != tt.errs {
 				t.Errorf("validateEnvs() = %v\n got %d errors but want %d", got, len(got), tt.errs)
+			}
+		})
+	}
+
+}
+
+func Test_validateOptions(t *testing.T) {
+
+	tests := []struct {
+		name    string
+		options Options
+		errs    int
+	}{
+		{
+			"correct 'autoscale-window'",
+			Options{
+				AutoscaleWindow: ptr.String("10s"),
+			},
+			0,
+		},
+		{
+			"incorrect 'autoscale-window' - missing unit",
+			Options{
+				AutoscaleWindow: ptr.String("10"),
+			},
+			1,
+		},
+		{
+			"incorrect 'autoscale-window' - wrong string",
+			Options{
+				AutoscaleWindow: ptr.String("foo"),
+			},
+			1,
+		},
+		{
+			"correct 'concurrency-limit'",
+			Options{
+				ConcurrencyLimit: ptr.Int64(50),
+			},
+			0,
+		},
+		{
+			"correct 'concurrency-limit' - 0",
+			Options{
+				ConcurrencyLimit: ptr.Int64(0),
+			},
+			0,
+		},
+		{
+			"incorrect 'concurrency-limit' - negative value",
+			Options{
+				ConcurrencyLimit: ptr.Int64(-10),
+			},
+			1,
+		},
+		{
+			"correct all options",
+			Options{
+				ConcurrencyLimit: ptr.Int64(50),
+				AutoscaleWindow:  ptr.String("10s"),
+			},
+			0,
+		},
+		{
+			"incorrect all options",
+			Options{
+				ConcurrencyLimit: ptr.Int64(-10),
+				AutoscaleWindow:  ptr.String("foo"),
+			},
+			2,
+		},
+		{
+			"incorrect and correct options",
+			Options{
+				ConcurrencyLimit: ptr.Int64(50),
+				AutoscaleWindow:  ptr.String("foo"),
+			},
+			1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := validateOptions(tt.options); len(got) != tt.errs {
+				t.Errorf("validateOptions() = %v\n got %d errors but want %d", got, len(got), tt.errs)
 			}
 		})
 	}

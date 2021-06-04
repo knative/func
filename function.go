@@ -55,12 +55,15 @@ type Function struct {
 	// List of volumes to be mounted to the function
 	Volumes Volumes
 
-	// Env variables to be set 
+	// Env variables to be set
 	Envs Envs
 
 	// Map containing user-supplied annotations
 	// Example: { "division": "finance" }
 	Annotations map[string]string
+
+	// Options to be set on deployed function (scaling, etc.)
+	Options Options
 }
 
 // NewFunction loads a Function from a path on disk. use .Initialized() to determine if
