@@ -105,6 +105,10 @@ func newConfig(root string) (c config, err error) {
 		}
 
 		errMsg = errMsg + strings.Join(volumesErrors, "\n")
+		// we have errors from both volumes and envs sections -> let's make sure they are both indented
+		if len(volumesErrors) > 0 && len(envsErrors) > 0 {
+			errMsg = errMsg + "\n"
+		}
 		errMsg = errMsg + strings.Join(envsErrors, "\n")
 	}
 
@@ -167,15 +171,24 @@ func writeConfig(f Function) (err error) {
 // Allowed settings:
 // - secret: example-secret              		# mount Secret as Volume
 // 	 path: /etc/secret-volume
+// - configMap: example-configMap              	# mount ConfigMap as Volume
+// 	 path: /etc/configMap-volume
 func validateVolumes(volumes Volumes) (errors []string) {
 
 	for i, vol := range volumes {
-		if vol.Path == nil && vol.Secret == nil {
+		if vol.Secret != nil && vol.ConfigMap != nil {
+			errors = append(errors, fmt.Sprintf("volume entry #%d is not properly set, both secret '%s' and configMap '%s' can not be set at the same time",
+				i, *vol.Secret, *vol.ConfigMap))
+		} else if vol.Path == nil && vol.Secret == nil && vol.ConfigMap == nil {
 			errors = append(errors, fmt.Sprintf("volume entry #%d is not properly set", i))
 		} else if vol.Path == nil {
-			errors = append(errors, fmt.Sprintf("volume entry #%d is missing path field, only secret '%s' is set", i, *vol.Secret))
-		} else if vol.Secret == nil {
-			errors = append(errors, fmt.Sprintf("volume entry #%d is missing secret field, only path '%s' is set", i, *vol.Path))
+			if vol.Secret != nil {
+				errors = append(errors, fmt.Sprintf("volume entry #%d is missing path field, only secret '%s' is set", i, *vol.Secret))
+			} else if vol.ConfigMap != nil {
+				errors = append(errors, fmt.Sprintf("volume entry #%d is missing path field, only configMap '%s' is set", i, *vol.ConfigMap))
+			}
+		} else if vol.Path != nil && vol.Secret == nil && vol.ConfigMap == nil {
+			errors = append(errors, fmt.Sprintf("volume entry #%d is missing secret or configMap field, only path '%s' is set", i, *vol.Path))
 		}
 	}
 
@@ -193,11 +206,16 @@ func validateVolumes(volumes Volumes) (errors []string) {
 // - name: EXAMPLE3
 //   value: {{ secret.secretName.key }}   			# ENV from a key in secret
 // - value: {{ secret.secretName }}          		# all key-pair values from secret are set as ENV
+// - name: EXAMPLE4
+//   value: {{ configMap.configMapName.key }}   	# ENV from a key in configMap
+// - value: {{ configMap.configMapName }}          	# all key-pair values from configMap are set as ENV
 func ValidateEnvs(envs Envs) (errors []string) {
 
-	// there could be '-' char in the secret name, but not in the key
+	// there could be '-' char in the secret/configMap name, but not in the key
 	regWholeSecret := regexp.MustCompile(`^{{\s*secret\.(?:\w|['-]\w)+\s*}}$`)
 	regKeyFromSecret := regexp.MustCompile(`^{{\s*secret\.(?:\w|['-]\w)+\.\w+\s*}}$`)
+	regWholeConfigMap := regexp.MustCompile(`^{{\s*configMap\.(?:\w|['-]\w)+\s*}}$`)
+	regKeyFromConfigMap := regexp.MustCompile(`^{{\s*configMap\.(?:\w|['-]\w)+\.\w+\s*}}$`)
 	regLocalEnv := regexp.MustCompile(`^{{\s*env\.(\w+)\s*}}$`)
 
 	for i, env := range envs {
@@ -206,18 +224,21 @@ func ValidateEnvs(envs Envs) (errors []string) {
 		} else if env.Value == nil {
 			errors = append(errors, fmt.Sprintf("env entry #%d is missing value field, only name '%s' is set", i, *env.Name))
 		} else if env.Name == nil {
-			// all key-pair values from secret are set as ENV; {{ secret.secretName }}
-			if !regWholeSecret.MatchString(*env.Value) {
-				errors = append(errors, fmt.Sprintf("env entry #%d has invalid value field set, it has '%s', but allowed is only '{{ secret.secretName }}'", i, *env.Value))
+			// all key-pair values from secret are set as ENV; {{ secret.secretName }} or {{ configMap.configMapName }}
+			if !regWholeSecret.MatchString(*env.Value) && !regWholeConfigMap.MatchString(*env.Value) {
+				errors = append(errors, fmt.Sprintf("env entry #%d has invalid value field set, it has '%s', but allowed is only '{{ secret.secretName }}' or '{{ configMap.configMapName }}'",
+				 i, *env.Value))
 			}
 		} else {
 			if strings.HasPrefix(*env.Value, "{{") {
 				// ENV from the local ENV var; {{ env.MY_ENV }}
 				// or
-				// ENV from a key in secret;  {{ secret.secretName.key }}
-				if !regLocalEnv.MatchString(*env.Value) && !regKeyFromSecret.MatchString(*env.Value) {
+				// ENV from a key in secret/configMap;  {{ secret.secretName.key }} or {{ configMap.configMapName.key }}
+				if !regLocalEnv.MatchString(*env.Value) && !regKeyFromSecret.MatchString(*env.Value) && !regKeyFromConfigMap.MatchString(*env.Value) {
 					errors = append(errors,
-						fmt.Sprintf("env entry #%d with name '%s' has invalid value field set, it has '%s', but allowed is only '{{ env.MY_ENV }}' or '{{ secret.secretName.key }}'", i, *env.Name, *env.Value))
+						fmt.Sprintf(
+							"env entry #%d with name '%s' has invalid value field set, it has '%s', but allowed is only '{{ env.MY_ENV }}', '{{ secret.secretName.key }}' or '{{ configMap.configMapName.key }}'",
+							i, *env.Name, *env.Value))
 				}
 			}
 

@@ -34,27 +34,32 @@ The `envs` field allows you to set environment variables that will be
 available to your function at runtime. 
 1. Environment variable can be set directly from a value
 2. Environment variable can be set from a local environment value. Eg. `'{{ env.LOCAL_ENV_VALUE }}'`, for more details see [Local Environment Variables section](#local-environment-variables).
-3. Environment variable can be set from a key in a Kubernetes Secret. This Secret needs to be created before it is referenced in a function. Eg. `'{{ secret.mysecret.key }}'` where `mysecret` is the name of the Secret and `key` is the referenced key.
-4. All key-value pairs from a Kubernetes Secret will be set as environment variables. This Secret needs to be created before it is referenced in a function. Eg. `'{{ secret.mysecret2 }}'` where `mysecret2` is the name of the Secret.
+3. Environment variable can be set from a key in a Kubernetes Secret or ConfigMap. This Secret/ConfigMap needs to be created before it is referenced in a function. Eg. `'{{ secret.mysecret.key }}'` where `mysecret` is the name of the Secret and `key` is the referenced key; or `{{ configMap.myconfigmap.key }}` where `myconfigmap` is the name of the ConfigMap and `key` is the referenced key.
+4. All key-value pairs from a Kubernetes Secret or ConfigMap will be set as environment variables. This Secret/ConfigMap needs to be created before it is referenced in a function. Eg. `'{{ secret.mysecret2 }}'` where `mysecret2` is the name of the Secret; or `{{ configMap.myconfigmap }}` where `myconfigmap` is the name of the ConfigMap.
 
 ```yaml
 envs:
-- name: EXAMPLE1                       # (1) env variable directly from a value
+- name: EXAMPLE1                            # (1) env variable directly from a value
   value: value
-- name: EXAMPLE2                       # (2) env variable from a local environment value
+- name: EXAMPLE2                            # (2) env variable from a local environment value
   value: '{{ env.LOCAL_ENV_VALUE }}'
-- name: EXAMPLE3                       # (3) env variable from a key in Secret
+- name: EXAMPLE3                            # (3) env variable from a key in Secret
   value: '{{ secret.mysecret.key }}'
-- value: '{{ secret.mysecret2 }}'      # (4) all key-value pairs in Secret as env variables
+- name: EXAMPLE4                            # (3) env variable from a key in ConfigMap
+  value: '{{ configMap.myconfigmap.key }}'
+- value: '{{ secret.mysecret2 }}'           # (4) all key-value pairs in Secret as env variables
+- value: '{{ configMap.myconfigmap2 }}'     # (4) all key-value pairs in ConfigMap as env variables
 ```
 
 ### `volumes`
-Kubernetes Secrets can be mounted to the function as a Kubernetes Volume accessible under specified path. Below you can see an example how to mount the Secret `mysecret` to the path `/workspace/secret`. This Secret needs to be created before it is referenced in a function.
+Kubernetes Secrets or ConfigMaps can be mounted to the function as a Kubernetes Volume accessible under specified path. Below you can see an example how to mount the Secret `mysecret` to the path `/workspace/secret` and the ConfigMap `myconfigmap` to the path `/workspace/configmap`. This Secret/ConfigMap needs to be created before it is referenced in a function.
 
 ```yaml
 volumes:
 - secret: mysecret
   path: /workspace/secret
+- configMap: myconfigmap
+  path: /workspace/configmap
 ```
 
 ### `image`
