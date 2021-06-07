@@ -39,54 +39,98 @@ func init() {
 }
 
 type templateWriter struct {
-	verbose   bool
+	// Extensible Template Repositories
+	// templates on disk (extensible templates)
+	// Stored on disk at path:
+	//   [customTemplatesPath]/[repository]/[runtime]/[template]
+	// For example
+	//   ~/.config/func/boson/go/http"
+	// Specified when writing templates as simply:
+	//   Write([runtime], [repository], [path])
+	// For example
+	// w := templateWriter{templates:"/home/username/.config/func/templates")
+	//   w.Write("go", "boson/http")
+	// Ie. "Using the custom templates in the func configuration directory,
+	//    write the Boson HTTP template for the Go runtime."
 	templates string
+	verbose   bool
 }
 
-func (n templateWriter) Write(runtime, template string, dest string) error {
+var (
+	ErrRepositoryNotFound        = errors.New("repository not found")
+	ErrRepositoriesNotDefined    = errors.New("custom template repositories location not specified")
+	ErrRuntimeNotFound           = errors.New("runtime not found")
+	ErrTemplateNotFound          = errors.New("template not found")
+	ErrTemplateMissingRepository = errors.New("template name missing repository prefix")
+)
+
+func (t templateWriter) Write(runtime, template, dest string) error {
 	if template == "" {
 		template = DefaultTemplate
 	}
 
-	// TODO: Confirm the dest path is empty?  This is currently in an earlier
-	// step of the create process but future calls directly to initialize would
-	// be better off being made safe.
+	if isCustom(template) {
+		return writeCustom(t.templates, runtime, template, dest)
+	}
 
-	if isEmbedded(runtime, template) {
-		return copyEmbedded(runtime, template, dest)
-	}
-	if n.templates != "" {
-		return copyFilesystem(n.templates, runtime, template, dest)
-	}
-	return fmt.Errorf("A template for runtime '%v' template '%v' was not found internally and no custom template path was defined.", runtime, template)
+	return writeEmbedded(runtime, template, dest)
 }
 
-func copyEmbedded(runtime, template, dest string) error {
-	// Copy files to the destination
-	// Example embedded path:
-	//   /templates/go/http
-	src := filepath.Join("/templates", runtime, template)
-	return copy(src, dest, embeddedAccessor{})
+func isCustom(template string) bool {
+	return len(strings.Split(template, "/")) > 1
 }
 
-func copyFilesystem(templatesPath, runtime, templateFullName, dest string) error {
+func writeCustom(templatesPath, runtime, templateFullName, dest string) error {
+	if templatesPath == "" {
+		return ErrRepositoriesNotDefined
+	}
+
+	if !repositoryExists(templatesPath, templateFullName) {
+		return ErrRepositoryNotFound
+	}
+
 	// ensure that the templateFullName is of the format "repoName/templateName"
 	cc := strings.Split(templateFullName, "/")
 	if len(cc) != 2 {
-		return errors.New("Template name must be in the format 'REPO/NAME'")
+		return ErrTemplateMissingRepository
 	}
 	repo := cc[0]
 	template := cc[1]
 
+	runtimePath := filepath.Join(templatesPath, repo, runtime)
+	_, err := os.Stat(runtimePath)
+	if err != nil {
+		return ErrRuntimeNotFound
+	}
+
 	// Example FileSystem path:
 	//   /home/alice/.config/func/templates/boson-experimental/go/json
-	src := filepath.Join(templatesPath, repo, runtime, template)
-	return copy(src, dest, filesystemAccessor{})
+	templatePath := filepath.Join(templatesPath, repo, runtime, template)
+	_, err = os.Stat(templatePath)
+	if err != nil {
+		return ErrTemplateNotFound
+	}
+	return copy(templatePath, dest, filesystemAccessor{})
 }
 
-func isEmbedded(runtime, template string) bool {
-	_, err := pkger.Stat(filepath.Join("/templates", runtime, template))
-	return err == nil
+func writeEmbedded(runtime, template, dest string) (err error) {
+	fmt.Println("copyEmbedded")
+	// Copy files to the destination
+	// Example embedded path:
+	//   /templates/go/http
+	runtimePath := filepath.Join("/templates", runtime)
+	_, err = pkger.Stat(runtimePath)
+	if err != nil {
+		return ErrRuntimeNotFound
+	}
+
+	templatePath := filepath.Join("/templates", runtime, template)
+	_, err = pkger.Stat(templatePath)
+	if err != nil {
+		return ErrTemplateNotFound
+	}
+
+	return copy(templatePath, dest, embeddedAccessor{})
 }
 
 type embeddedAccessor struct{}
@@ -107,6 +151,12 @@ func (a filesystemAccessor) Stat(path string) (os.FileInfo, error) {
 
 func (a filesystemAccessor) Open(path string) (file, error) {
 	return os.Open(path)
+}
+
+func repositoryExists(repositories, template string) bool {
+	cc := strings.Split(template, "/")
+	_, err := os.Stat(filepath.Join(repositories, cc[0]))
+	return err == nil
 }
 
 func copy(src, dest string, accessor fileAccessor) (err error) {
