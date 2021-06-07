@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"time"
 
 	"gopkg.in/yaml.v2"
 )
@@ -30,13 +29,20 @@ type Env struct {
 }
 
 type Options struct {
-	ScaleMin              *int    `yaml:"scale-min,omitempty"`
-	ScaleMax              *int    `yaml:"scale-max,omitempty"`
-	ScaleInit             *int    `yaml:"scale-init,omitempty"`
-	AutoscaleWindow       *string `yaml:"autoscale-window,omitempty"`
-	ConcurrencyLimit      *int64  `yaml:"concurrency-limit,omitempty"`
-	ConcurrencyTarget     *int    `yaml:"concurrency-target,omitempty"`
-	ConcurrencyUtilizatin *int    `yaml:"concurrency-utilization,omitempty"`
+	Scale       *ScaleOptions       `yaml:"scale,omitempty"`
+	Concurrency *ConcurrencyOptions `yaml:"concurrency,omitempty"`
+}
+
+type ScaleOptions struct {
+	Min    *int64  `yaml:"min,omitempty"`
+	Max    *int64  `yaml:"max,omitempty"`
+	Metric *string `yaml:"metric,omitempty"`
+}
+
+type ConcurrencyOptions struct {
+	Limit       *int64   `yaml:"limit,omitempty"`
+	Target      *float64 `yaml:"target,omitempty"`
+	Utilization *float64 `yaml:"utilization,omitempty"`
 }
 
 // Config represents the serialized state of a Function's metadata.
@@ -189,7 +195,7 @@ func writeConfig(f Function) (err error) {
 }
 
 // validateVolumes checks that input Volumes are correct and contain all necessary fields.
-// Returns array of error messages, empty if none errors are found
+// Returns array of error messages, empty if no errors are found
 //
 // Allowed settings:
 // - secret: example-secret              		# mount Secret as Volume
@@ -219,7 +225,7 @@ func validateVolumes(volumes Volumes) (errors []string) {
 }
 
 // ValidateEnvs checks that input Envs are correct and contain all necessary fields.
-// Returns array of error messages, empty if none errors are found
+// Returns array of error messages, empty if no errors are found
 //
 // Allowed settings:
 // - name: EXAMPLE1                					# ENV directly from a value
@@ -271,20 +277,61 @@ func ValidateEnvs(envs Envs) (errors []string) {
 }
 
 // validateOptions checks that input Options are correctly set.
-// Returns array of error messages, empty if none errors are found
+// Returns array of error messages, empty if no errors are found
 func validateOptions(options Options) (errors []string) {
 
-	if options.AutoscaleWindow != nil {
-		_, err := time.ParseDuration(*options.AutoscaleWindow)
-		if err != nil {
-			errors = append(errors, fmt.Sprintf("options field \"autoscale-window\" has invalid value set: %s", err.Error()))
+	// options.scale
+	if options.Scale != nil {
+		if options.Scale.Min != nil {
+			if *options.Scale.Min < 0 {
+				errors = append(errors, fmt.Sprintf("options field \"scale.min\" has invalid value set: %d, the value must be greater than \"0\"",
+					*options.Scale.Min))
+			}
+		}
+
+		if options.Scale.Max != nil {
+			if *options.Scale.Max < 0 {
+				errors = append(errors, fmt.Sprintf("options field \"scale.max\" has invalid value set: %d, the value must be greater than \"0\"",
+					*options.Scale.Max))
+			}
+		}
+
+		if options.Scale.Min != nil && options.Scale.Max != nil {
+			if *options.Scale.Max < *options.Scale.Min {
+				errors = append(errors, "options field \"scale.max\" value must be greater or equal to \"scale.min\"")
+			}
+		}
+
+		if options.Scale.Metric != nil {
+			if *options.Scale.Metric != "concurrency" && *options.Scale.Metric != "rps" {
+				errors = append(errors, fmt.Sprintf("options field \"scale.metric\" has invalid value set: %s, allowed is only \"concurrency\" or \"rps\"",
+					*options.Scale.Metric))
+			}
 		}
 	}
 
-	if options.ConcurrencyLimit != nil {
-		if *options.ConcurrencyLimit < 0 {
-			errors = append(errors, fmt.Sprintf("options field \"concurrency-limit\" has value set to \"%d\", but it must not be less than 0",
-				*options.ConcurrencyLimit))
+	// options.concurrency
+	if options.Concurrency != nil {
+		if options.Concurrency.Limit != nil {
+			if *options.Concurrency.Limit < 0 {
+				errors = append(errors, fmt.Sprintf("options field \"concurrency.limit\" has value set to \"%d\", but it must not be less than 0",
+					*options.Concurrency.Limit))
+			}
+		}
+
+		if options.Concurrency.Target != nil {
+			if *options.Concurrency.Target < 0.01 {
+				errors = append(errors, fmt.Sprintf("options field \"concurrency.target\" has value set to \"%f\", but it must not be less than 0.01",
+					*options.Concurrency.Target))
+			}
+		}
+
+		if options.Concurrency.Utilization != nil {
+			if *options.Concurrency.Utilization < 1 || *options.Concurrency.Utilization > 100 {
+				errors = append(errors,
+					fmt.Sprintf("options field \"concurrency.utilization\" has value set to \"%f\", but it must not be less than 1 or greater than 100",
+						*options.Concurrency.Utilization))
+			}
 		}
 	}
 

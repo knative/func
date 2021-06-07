@@ -516,70 +516,191 @@ func Test_validateOptions(t *testing.T) {
 		errs    int
 	}{
 		{
-			"correct 'autoscale-window'",
+			"correct 'scale.metric' - concurrency",
 			Options{
-				AutoscaleWindow: ptr.String("10s"),
+				Scale: &ScaleOptions{
+					Metric: ptr.String("concurrency"),
+				},
 			},
 			0,
 		},
 		{
-			"incorrect 'autoscale-window' - missing unit",
+			"correct 'scale.metric' - rps",
 			Options{
-				AutoscaleWindow: ptr.String("10"),
+				Scale: &ScaleOptions{
+					Metric: ptr.String("rps"),
+				},
+			},
+			0,
+		},
+		{
+			"incorrect 'scale.metric'",
+			Options{
+				Scale: &ScaleOptions{
+					Metric: ptr.String("foo"),
+				},
 			},
 			1,
 		},
 		{
-			"incorrect 'autoscale-window' - wrong string",
+			"correct 'scale.min'",
 			Options{
-				AutoscaleWindow: ptr.String("foo"),
+				Scale: &ScaleOptions{
+					Min: ptr.Int64(1),
+				},
+			},
+			0,
+		},
+		{
+			"correct 'scale.max'",
+			Options{
+				Scale: &ScaleOptions{
+					Max: ptr.Int64(10),
+				},
+			},
+			0,
+		},
+		{
+			"correct  'scale.min' & 'scale.max'",
+			Options{
+				Scale: &ScaleOptions{
+					Min: ptr.Int64(0),
+					Max: ptr.Int64(10),
+				},
+			},
+			0,
+		},
+		{
+			"incorrect  'scale.min' & 'scale.max'",
+			Options{
+				Scale: &ScaleOptions{
+					Min: ptr.Int64(100),
+					Max: ptr.Int64(10),
+				},
 			},
 			1,
 		},
 		{
-			"correct 'concurrency-limit'",
+			"incorrect 'scale.min' - negative value",
 			Options{
-				ConcurrencyLimit: ptr.Int64(50),
+				Scale: &ScaleOptions{
+					Min: ptr.Int64(-10),
+				},
+			},
+			1,
+		},
+		{
+			"incorrect 'scale.max' - negative value",
+			Options{
+				Scale: &ScaleOptions{
+					Max: ptr.Int64(-10),
+				},
+			},
+			1,
+		},
+		{
+			"correct 'concurrency.limit'",
+			Options{
+				Concurrency: &ConcurrencyOptions{
+					Limit: ptr.Int64(50),
+				},
 			},
 			0,
 		},
 		{
-			"correct 'concurrency-limit' - 0",
+			"correct 'concurrency.limit' - 0",
 			Options{
-				ConcurrencyLimit: ptr.Int64(0),
+				Concurrency: &ConcurrencyOptions{
+					Limit: ptr.Int64(0),
+				},
 			},
 			0,
 		},
 		{
-			"incorrect 'concurrency-limit' - negative value",
+			"incorrect 'concurrency.limit' - negative value",
 			Options{
-				ConcurrencyLimit: ptr.Int64(-10),
+				Concurrency: &ConcurrencyOptions{
+					Limit: ptr.Int64(-10),
+				},
+			},
+			1,
+		},
+		{
+			"correct 'concurrency.target'",
+			Options{
+				Concurrency: &ConcurrencyOptions{
+					Target: ptr.Float64(50),
+				},
+			},
+			0,
+		},
+		{
+			"incorrect 'concurrency.target'",
+			Options{
+				Concurrency: &ConcurrencyOptions{
+					Target: ptr.Float64(0),
+				},
+			},
+			1,
+		},
+		{
+			"correct 'concurrency.utilization'",
+			Options{
+				Concurrency: &ConcurrencyOptions{
+					Utilization: ptr.Float64(50),
+				},
+			},
+			0,
+		},
+		{
+			"incorrect 'concurrency.utilization' - < 1",
+			Options{
+				Concurrency: &ConcurrencyOptions{
+					Utilization: ptr.Float64(0),
+				},
+			},
+			1,
+		},
+		{
+			"incorrect 'concurrency.utilization' - > 100",
+			Options{
+				Concurrency: &ConcurrencyOptions{
+					Utilization: ptr.Float64(110),
+				},
 			},
 			1,
 		},
 		{
 			"correct all options",
 			Options{
-				ConcurrencyLimit: ptr.Int64(50),
-				AutoscaleWindow:  ptr.String("10s"),
+				Concurrency: &ConcurrencyOptions{
+					Limit:       ptr.Int64(50),
+					Target:      ptr.Float64(40.5),
+					Utilization: ptr.Float64(35.5),
+				},
+				Scale: &ScaleOptions{
+					Min:    ptr.Int64(0),
+					Max:    ptr.Int64(10),
+					Metric: ptr.String("concurrency"),
+				},
 			},
 			0,
 		},
 		{
 			"incorrect all options",
 			Options{
-				ConcurrencyLimit: ptr.Int64(-10),
-				AutoscaleWindow:  ptr.String("foo"),
+				Concurrency: &ConcurrencyOptions{
+					Limit:       ptr.Int64(-1),
+					Target:      ptr.Float64(-1),
+					Utilization: ptr.Float64(110),
+				},
+				Scale: &ScaleOptions{
+					Min:    ptr.Int64(-1),
+					Max:    ptr.Int64(-1),
+					Metric: ptr.String("foo"),
+				},
 			},
-			2,
-		},
-		{
-			"incorrect and correct options",
-			Options{
-				ConcurrencyLimit: ptr.Int64(50),
-				AutoscaleWindow:  ptr.String("foo"),
-			},
-			1,
+			6,
 		},
 	}
 

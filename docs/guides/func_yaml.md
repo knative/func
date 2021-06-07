@@ -63,24 +63,26 @@ volumes:
 ```
 
 ### `options`
-Options allows you to set specific configuration for the deployed funciton, ie. it allows you to tweak Knative Service options related to autoscaling and other properties, if these options are not set in the default ones will be used. This options are based on the ones provided by `kn service` [command](https://github.com/knative/client/blob/main/docs/cmd/kn_service_create.md#options).
-- `scale-min`: Minimum number of replicas.
-- `scale-max`: Maximum number of replicas.
-- `scale-init`: Initial number of replicas with which a Service starts. Can be 0 or a positive integer.
-- `autoscale-window`: Duration to look back for making auto-scaling decisions. The Service is scaled to zero if no request was received in during that time. (eg: 10s)
-- `concurrency-limit`: Hard Limit of concurrent requests to be processed by a single replica.
-- `concurrency-target`: Recommendation for when to scale up based on the concurrent number of incoming request. Defaults to `concurrency-limit` when given.
-- `concurrency-utilization`: Percentage of concurrent requests utilization before scaling up.
+Options allows you to set specific configuration for the deployed function, allowing you to tweak Knative Service options related to autoscaling and other properties. If these options are not set, the Knative defaults will be used. 
+- `scale`
+  - `min`: Minimum number of replicas. Must me non-negative integer, default is 0. See related [Knative docs](https://knative.dev/docs/serving/autoscaling/scale-bounds/#lower-bound).
+  - `max`: Maximum number of replicas. Must me non-negative integer, default is 0 - meaning no limit. See related [Knative docs](https://knative.dev/docs/serving/autoscaling/scale-bounds/#upper-bound).
+  - `metric`: Defines which metric type is watched by the Autoscaler. Could be `concurrency` (default) or `rps`. See related [Knative docs](https://knative.dev/docs/serving/autoscaling/autoscaling-metrics/).
+- `concurrency` 
+  - `limit`: Hard Limit of concurrent requests to be processed by a single replica. Can be integer value greater than or equal to 0, default is 0 - meaning no limit. See related [Knative docs](https://knative.dev/docs/serving/autoscaling/concurrency/#hard-limit).
+  - `target`: Recommendation for when to scale up based on the concurrent number of incoming request. Defaults to `limit` when given. Can be float value greater than 0.01, default is 100. See related [Knative docs](https://knative.dev/docs/serving/autoscaling/concurrency/#soft-limit).
+  - `utilization`: Percentage of concurrent requests utilization before scaling up. Can be float value between 1 and 100, default is 70. See related [Knative docs](https://knative.dev/docs/serving/autoscaling/concurrency/#target-utilization).
 
 ```yaml
 options:
-  scale-min: 0
-  scale-max: 10
-  scale-init: 2
-  autoscale-window: 10s
-  concurrency-limit: 100
-  concurrency-target: 75
-  concurrency-utilization: 75
+  scale:
+    min: 0
+    max: 10
+    metric: concurrency
+  concurrency:
+    limit: 100
+    target: 75
+    utilization: 75
 ```
 
 ### `image`

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -530,42 +529,40 @@ func setServiceOptions(template *servingv1.RevisionTemplateSpec, options fn.Opti
 	toRemove := []string{}
 	toUpdate := map[string]string{}
 
-	if options.ScaleMin != nil {
-		toUpdate[autoscaling.MinScaleAnnotationKey] = strconv.Itoa(*options.ScaleMin)
-	} else {
-		toRemove = append(toRemove, autoscaling.MinScaleAnnotationKey)
+	if options.Scale != nil {
+		if options.Scale.Min != nil {
+			toUpdate[autoscaling.MinScaleAnnotationKey] = fmt.Sprintf("%d", *options.Scale.Min)
+		} else {
+			toRemove = append(toRemove, autoscaling.MinScaleAnnotationKey)
+		}
+
+		if options.Scale.Max != nil {
+			toUpdate[autoscaling.MaxScaleAnnotationKey] = fmt.Sprintf("%d", *options.Scale.Max)
+		} else {
+			toRemove = append(toRemove, autoscaling.MaxScaleAnnotationKey)
+		}
+
+		if options.Scale.Metric != nil {
+			toUpdate[autoscaling.MetricAnnotationKey] = *options.Scale.Metric
+		} else {
+			toRemove = append(toRemove, autoscaling.MetricAnnotationKey)
+		}
 	}
 
-	if options.ScaleMax != nil {
-		toUpdate[autoscaling.MaxScaleAnnotationKey] = strconv.Itoa(*options.ScaleMax)
-	} else {
-		toRemove = append(toRemove, autoscaling.MaxScaleAnnotationKey)
-	}
+	if options.Concurrency != nil {
+		template.Spec.ContainerConcurrency = options.Concurrency.Limit
 
-	if options.ScaleInit != nil {
-		toUpdate[autoscaling.InitialScaleAnnotationKey] = strconv.Itoa(*options.ScaleInit)
-	} else {
-		toRemove = append(toRemove, autoscaling.InitialScaleAnnotationKey)
-	}
+		if options.Concurrency.Target != nil {
+			toUpdate[autoscaling.TargetAnnotationKey] = fmt.Sprintf("%f", *options.Concurrency.Target)
+		} else {
+			toRemove = append(toRemove, autoscaling.TargetAnnotationKey)
+		}
 
-	if options.AutoscaleWindow != nil {
-		toUpdate[autoscaling.WindowAnnotationKey] = *options.AutoscaleWindow
-	} else {
-		toRemove = append(toRemove, autoscaling.WindowAnnotationKey)
-	}
-
-	template.Spec.ContainerConcurrency = options.ConcurrencyLimit
-
-	if options.ConcurrencyTarget != nil {
-		toUpdate[autoscaling.TargetAnnotationKey] = strconv.Itoa(*options.ConcurrencyTarget)
-	} else {
-		toRemove = append(toRemove, autoscaling.TargetAnnotationKey)
-	}
-
-	if options.ConcurrencyUtilizatin != nil {
-		toUpdate[autoscaling.TargetUtilizationPercentageKey] = strconv.Itoa(*options.ConcurrencyUtilizatin)
-	} else {
-		toRemove = append(toRemove, autoscaling.TargetUtilizationPercentageKey)
+		if options.Concurrency.Utilization != nil {
+			toUpdate[autoscaling.TargetUtilizationPercentageKey] = fmt.Sprintf("%f", *options.Concurrency.Utilization)
+		} else {
+			toRemove = append(toRemove, autoscaling.TargetUtilizationPercentageKey)
+		}
 	}
 
 	return servingclientlib.UpdateRevisionTemplateAnnotations(template, toUpdate, toRemove)
