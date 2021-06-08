@@ -11,11 +11,11 @@ import (
 const updateTemplatesFolder = "update_templates"
 
 // Update replaces the project content (source files) of the existing project in test
-// by the source stored under 'update_template/<runtime>/<trigger>
+// by the source stored under 'update_template/<runtime>/<template>
 // Once sources are update the project is built and re-deployed
-func Update(t *testing.T, knFunc *TestShellCmdRunner, project *FunctionTestProject)  {
+func Update(t *testing.T, knFunc *TestShellCmdRunner, project *FunctionTestProject) {
 
-	templatePath := filepath.Join(updateTemplatesFolder, project.Runtime, project.Trigger)
+	templatePath := filepath.Join(updateTemplatesFolder, project.Runtime, project.Template)
 	if _, err := os.Stat(templatePath); err != nil {
 		if os.IsNotExist(err) {
 			// skip update test when there is no template folder
@@ -25,7 +25,7 @@ func Update(t *testing.T, knFunc *TestShellCmdRunner, project *FunctionTestProje
 		}
 	}
 
-	// Template folder exists for given runtime / trigger.
+	// Template folder exists for given runtime / template.
 	// Let's update the project and redeploy
 	err := projectUpdater{}.UpdateFolderContent(templatePath, project)
 	if err != nil {
@@ -42,20 +42,19 @@ func Update(t *testing.T, knFunc *TestShellCmdRunner, project *FunctionTestProje
 	project.IsNewRevision = true
 }
 
-
 //
 // projectUpdater offers methods to update the project source content by the
 // source provided on update_templates folder
 // The strategy used consists in
 // 1. Create a temporary project folder with func.yaml (copied from test folder)
-// 2. Copy recursivelly all files from ./update_template/<runtime>/<trigger>/** to the temporary project folder
+// 2. Copy recursivelly all files from ./update_template/<runtime>/<template>/** to the temporary project folder
 // 3. Replace current project folder by the temporary one (rm -rf <project folder> && mv <tmp folder> <project folder>
 //
-type projectUpdater struct {}
+type projectUpdater struct{}
 
 func (p projectUpdater) UpdateFolderContent(templatePath string, project *FunctionTestProject) error {
 	// Create temp project folder (reuse func.yaml)
-	projectTmp := NewFunctionTestProject(project.Runtime, project.Trigger)
+	projectTmp := NewFunctionTestProject(project.Runtime, project.Template)
 	projectTmp.ProjectPath = projectTmp.ProjectPath + "-tmp"
 	err := projectTmp.CreateProjectFolder()
 	if err != nil {
@@ -118,7 +117,7 @@ func (p projectUpdater) walkThru(dir string, fn func(path string, f os.FileInfo)
 			return err
 		}
 		if file.IsDir() {
-			err := p.walkThru(filepath.Join(dir,file.Name()), fn)
+			err := p.walkThru(filepath.Join(dir, file.Name()), fn)
 			if err != nil {
 				return err
 			}

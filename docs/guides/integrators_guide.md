@@ -38,11 +38,11 @@ func main() {
 	// Publicly routable as https://www.example.com.
 	// Local implementation is written to the current working directory.
 	funcTest := bosonFunc.Function{
-		Runtime: "go",
-		Trigger: "events",
-		Name: "my-function",
-		Image: "quay.io/alice/my-function",
-		Root: "my-function",
+		Runtime:  "go",
+		Template: "events",
+		Name:     "my-function",
+		Image:    "quay.io/alice/my-function",
+		Root:     "my-function",
 	}
 	if err := client.Create(funcTest); err != nil {
 		log.Fatal(err)

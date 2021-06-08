@@ -9,7 +9,7 @@ template structure.
 Project path: /home/developer/src/fn
 Function name: fn
 Runtime: python
-Trigger: http
+Template: http
 
 ❯ tree
 fn

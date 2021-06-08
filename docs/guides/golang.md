@@ -9,7 +9,7 @@ template structure.
 Project path: /home/developer/projects/fn
 Function name: fn
 Runtime: go
-Trigger: http
+Template: http
 
 ❯ tree
 fn

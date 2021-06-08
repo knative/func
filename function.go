@@ -23,8 +23,8 @@ type Function struct {
 	// Runtime is the language plus context.  nodejs|go|quarkus|rust etc.
 	Runtime string
 
-	// Trigger of the Function.  http|events etc.
-	Trigger string
+	// Template of the Function.  http|events etc.
+	Template string
 
 	// Registry at which to store interstitial containers, in the form
 	// [registry]/[user]. If omitted, "Image" must be provided.
@@ -55,7 +55,7 @@ type Function struct {
 	// List of volumes to be mounted to the function
 	Volumes Volumes
 
-	// Env variables to be set 
+	// Env variables to be set
 	Envs Envs
 
 	// Map containing user-supplied annotations

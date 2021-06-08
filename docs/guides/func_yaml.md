@@ -87,11 +87,11 @@ The Kubernetes namespace where your function will be deployed.
 
 The language runtime for your function. For example `python`.
 
-### `trigger`
+### `template`
 
-The invocation event that triggers your function. Possible values are `http`
-for plain HTTP requests, and `events` for CloudEvent triggered functions.
-
+The source code template tailored for the invocation event that triggers
+your function. Possible values are `http` for plain HTTP requests, and
+`events` for CloudEvent triggered functions.
 
 ## Local Environment Variables
 

@@ -2,20 +2,20 @@
 
 ## `create`
 
-Creates a new Function project at _`path`_. If _`path`_ is unspecified, assumes the current directory. If _`path`_ does not exist, it will be created. The function name is the name of the leaf directory at path. The user can specify the runtime and trigger with flags.
+Creates a new Function project at _`path`_. If _`path`_ is unspecified, assumes the current directory. If _`path`_ does not exist, it will be created. The function name is the name of the leaf directory at path. The user can specify the runtime and template with flags.
 
 Function name must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character (e.g. 'my-name',  or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?').
 
 Similar `kn` command: none.
 
 ```console
-func create <path> [-l <runtime> -t <trigger>]
+func create <path> [-l <runtime> -t <template>]
 ```
 
 When run as a `kn` plugin.
 
 ```console
-kn func create <path> [-l <runtime> -t <trigger>]
+kn func create <path> [-l <runtime> -t <template>]
 ```
 
 ## `build`

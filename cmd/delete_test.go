@@ -2,11 +2,12 @@ package cmd
 
 import (
 	"context"
-	fn "github.com/boson-project/func"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
+
+	fn "github.com/boson-project/func"
 )
 
 type testRemover struct {
@@ -47,7 +48,7 @@ namespace: ""
 runtime: go
 image: ""
 imageDigest: ""
-trigger: http
+template: http
 builder: quay.io/boson/faas-go-builder
 builderMap:
   default: quay.io/boson/faas-go-builder
@@ -71,7 +72,6 @@ annotations: {}
 		t.Fatal(err)
 	}
 	f.Close()
-
 
 	oldWD, err := os.Getwd()
 	if err != nil {

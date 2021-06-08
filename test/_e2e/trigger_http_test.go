@@ -10,9 +10,9 @@ import (
 
 // HTTP Based Function Test Validator
 type FunctionHttpResponsivenessValidator struct {
-	runtime string
+	runtime   string
 	targetUrl string
-	expects string
+	expects   string
 }
 
 func (f FunctionHttpResponsivenessValidator) Validate(t *testing.T, project FunctionTestProject) {
@@ -31,32 +31,31 @@ func (f FunctionHttpResponsivenessValidator) Validate(t *testing.T, project Func
 	}
 }
 
-
 var defaultFunctionsHttpValidators = []FunctionHttpResponsivenessValidator{
-	{	runtime:   "node",
+	{runtime: "node",
 		targetUrl: "%s?message=hello",
 		expects:   `{"message":"hello"}`,
 	},
-	{	runtime:   "go",
+	{runtime: "go",
 		targetUrl: "%s",
 		expects:   `OK`,
 	},
-	{	runtime:   "python",
+	{runtime: "python",
 		targetUrl: "%s",
 		expects:   `Howdy!`,
 	},
-	{	runtime:   "quarkus",
+	{runtime: "quarkus",
 		targetUrl: "%s?message=hello",
 		expects:   `{"message":"hello"}`,
 	},
-	{	runtime:   "springboot",
+	{runtime: "springboot",
 		targetUrl: "%s/health/readiness",
 	},
 }
 
 // DefaultFunctionHttpTest is meant to validate the deployed (default) function is actually responsive
 func DefaultFunctionHttpTest(t *testing.T, knFunc *TestShellCmdRunner, project FunctionTestProject) {
-	if project.Trigger == "http" {
+	if project.Template == "http" {
 		for _, v := range defaultFunctionsHttpValidators {
 			v.Validate(t, project)
 		}
@@ -64,19 +63,19 @@ func DefaultFunctionHttpTest(t *testing.T, knFunc *TestShellCmdRunner, project F
 }
 
 var newRevisionFunctionsHttpValidators = []FunctionHttpResponsivenessValidator{
-	{	runtime:   "node",
+	{runtime: "node",
 		targetUrl: "%s",
 		expects:   `HELLO NODE FUNCTION`,
 	},
-	{	runtime:   "go",
+	{runtime: "go",
 		targetUrl: "%s",
 		expects:   `HELLO GO FUNCTION`,
 	},
-	{	runtime:   "python",
+	{runtime: "python",
 		targetUrl: "%s",
 		expects:   `HELLO PYTHON FUNCTION`,
 	},
-	{	runtime:   "quarkus",
+	{runtime: "quarkus",
 		targetUrl: "%s",
 		expects:   `HELLO QUARKUS FUNCTION`,
 	},
@@ -84,13 +83,12 @@ var newRevisionFunctionsHttpValidators = []FunctionHttpResponsivenessValidator{
 
 // NewRevisionFunctionHttpTest is meant to validate the deployed function (new revision from Template) is actually responsive
 func NewRevisionFunctionHttpTest(t *testing.T, knFunc *TestShellCmdRunner, project FunctionTestProject) {
-	if project.IsNewRevision && project.Trigger == "http" {
+	if project.IsNewRevision && project.Template == "http" {
 		for _, v := range newRevisionFunctionsHttpValidators {
 			v.Validate(t, project)
 		}
 	}
 }
-
 
 // HttpGet Convenient wrapper that calls an URL and returns just the
 // body and status code. It fails in case some error occurs in the call

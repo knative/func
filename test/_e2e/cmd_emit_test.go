@@ -16,21 +16,21 @@ import (
 // as HTTP response next time it receives another event with source "e2e:check"
 // A better solution could be evaluated in future.
 func TestEmitCommand(t *testing.T) {
-	
+
 	project := FunctionTestProject{
-		FunctionName:  "emit-test-node",
-		ProjectPath:   filepath.Join(os.TempDir(), "emit-test-node"),
-		Runtime:       "node",
-		Trigger:       "events",
+		FunctionName: "emit-test-node",
+		ProjectPath:  filepath.Join(os.TempDir(), "emit-test-node"),
+		Runtime:      "node",
+		Template:     "events",
 	}
 	knFunc := NewKnFuncShellCli(t)
-	
+
 	// Create new project
 	Create(t, knFunc, project)
 	defer project.RemoveProjectFolder()
 
 	//knFunc.Exec("build", "-r", GetRegistry(), "-p", project.ProjectPath, "-b", "quay.io/boson/faas-nodejs-builder:v0.7.1")
-	
+
 	// Update the project folder with the content of update_templates/node/events/// and deploy it
 	Update(t, knFunc, &project)
 	defer Delete(t, knFunc, &project)
@@ -41,7 +41,7 @@ func TestEmitCommand(t *testing.T) {
 	if result.Error != nil {
 		t.Fatal()
 	}
-	
+
 	// Issue another event (in order to capture the event sent by emit)
 	testEvent := SimpleTestEvent{
 		Type:        "e2e:check",
