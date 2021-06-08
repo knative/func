@@ -154,13 +154,6 @@ func TestDefaultRuntime(t *testing.T) {
 	}
 }
 
-// TestDefaultTemplate ensures that the default template is
-// applied when not provided.
-func TestDefaultTrigger(t *testing.T) {
-	// TODO: need to either expose accessor for introspection, or compare
-	// the files written to those in the embedded repisotory?
-}
-
 // TestExtensibleTemplates templates.  Ensures that templates are extensible
 // using a custom path to a template repository on disk.  Custom repository
 // location is not defined herein but expected to be provided because, for
@@ -184,7 +177,7 @@ func TestExtensibleTemplates(t *testing.T) {
 		bosonFunc.WithRegistry(TestRegistry))
 
 	// Create a Function specifying a template, 'json' that only exists in the extensible set
-	if err := client.New(context.Background(), bosonFunc.Function{Root: root, Trigger: "boson-experimental/json"}); err != nil {
+	if err := client.New(context.Background(), bosonFunc.Function{Root: root, Template: "boson-experimental/json"}); err != nil {
 		t.Fatal(err)
 	}
 

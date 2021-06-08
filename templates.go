@@ -17,11 +17,6 @@ import (
 	"github.com/markbates/pkger"
 )
 
-// DefautlTemplate is the default Function signature / environmental context
-// of the resultant template.  All runtimes are expected to have at least
-// an HTTP Handler ("http") and Cloud Events ("events")
-const DefaultTemplate = "http"
-
 // fileAccessor encapsulates methods for accessing template files.
 type fileAccessor interface {
 	Stat(name string) (os.FileInfo, error)

@@ -9,7 +9,6 @@ template structure.
 Project path: /home/developer/projects/fn
 Function name: fn
 Runtime: quarkus
-Trigger: http
 
 ❯ tree         
 fn

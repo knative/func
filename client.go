@@ -15,7 +15,12 @@ import (
 const (
 	DefaultRegistry = "docker.io"
 	DefaultRuntime  = "node"
-	DefaultTrigger  = "http"
+
+	// DefautlTemplate is the default Function signature / environmental context
+	// of the resultant function.  All runtimes are expected to have at least
+	// one implementation of each supported funciton sinagure.  Currently that
+	// includes an HTTP Handler ("http") and Cloud Events handler ("events")
+	DefaultTemplate = "http"
 )
 
 // Client for managing Function instances.
@@ -348,15 +353,15 @@ func (c *Client) Create(cfg Function) (err error) {
 		f.Runtime = DefaultRuntime
 	}
 
-	// Assert trigger was provided, or default.
-	f.Trigger = cfg.Trigger
-	if f.Trigger == "" {
-		f.Trigger = DefaultTrigger
+	// Assert template was provided, or default.
+	f.Template = cfg.Template
+	if f.Template == "" {
+		f.Template = DefaultTemplate
 	}
 
 	// Write out a template.
 	w := templateWriter{templates: c.templates, verbose: c.verbose}
-	if err = w.Write(f.Runtime, f.Trigger, f.Root); err != nil {
+	if err = w.Write(f.Runtime, f.Template, f.Root); err != nil {
 		return
 	}
 

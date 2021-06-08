@@ -47,7 +47,6 @@ namespace: ""
 runtime: go
 image: ""
 imageDigest: ""
-trigger: http
 builder: quay.io/boson/faas-go-builder
 builderMap:
   default: quay.io/boson/faas-go-builder
@@ -71,7 +70,6 @@ annotations: {}
 		t.Fatal(err)
 	}
 	f.Close()
-
 
 	oldWD, err := os.Getwd()
 	if err != nil {

@@ -9,15 +9,15 @@ import (
 )
 
 type SimpleTestEvent struct {
-	Type string
-	Source string
+	Type        string
+	Source      string
 	ContentType string
-	Data string
+	Data        string
 }
 
 func (s SimpleTestEvent) pushTo(url string, t *testing.T) (body string, statusCode int, err error) {
 	client := &http.Client{}
-	req, err := http.NewRequest("POST", url, strings.NewReader(s.Data) )
+	req, err := http.NewRequest("POST", url, strings.NewReader(s.Data))
 	req.Header.Add("Ce-Id", "message-1")
 	req.Header.Add("Ce-Specversion", "1.0")
 	req.Header.Add("Ce-Type", s.Type)
@@ -39,9 +39,9 @@ func (s SimpleTestEvent) pushTo(url string, t *testing.T) (body string, statusCo
 }
 
 type FunctionCloudEventsValidatorEntry struct {
-	targetUrl string
+	targetUrl   string
 	contentType string
-	data string
+	data        string
 }
 
 var defaultFunctionsCloudEventsValidators = map[string]FunctionCloudEventsValidatorEntry{
@@ -57,11 +57,10 @@ var defaultFunctionsCloudEventsValidators = map[string]FunctionCloudEventsValida
 	},
 }
 
-
 // DefaultFunctionEventsTest executes a common test (applied for all runtimes) against a deployed
 // functions that responds to CloudEvents
 func DefaultFunctionEventsTest(t *testing.T, knFunc *TestShellCmdRunner, project FunctionTestProject) {
-	if project.Trigger == "events" && project.IsDeployed {
+	if project.Template == "events" && project.IsDeployed {
 
 		simpleEvent := SimpleTestEvent{
 			Type:        "e2e.test",

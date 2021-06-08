@@ -9,7 +9,6 @@ template structure.
 Project path: /home/developer/projects/fn
 Function name: fn
 Runtime: node
-Trigger: http
 
 ❯ tree fn
 fn

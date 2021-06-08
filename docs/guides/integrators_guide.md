@@ -39,7 +39,6 @@ func main() {
 	// Local implementation is written to the current working directory.
 	funcTest := bosonFunc.Function{
 		Runtime: "go",
-		Trigger: "events",
 		Name: "my-function",
 		Image: "quay.io/alice/my-function",
 		Root: "my-function",

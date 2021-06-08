@@ -18,24 +18,23 @@ type FunctionTestProject struct {
 	ProjectPath string
 	// Function Runtime. Example "node"
 	Runtime string
-	// Function Trigger. Example "http"
-	Trigger string
+	// Function Template. Example "http"
+	Template string
 	// Indicates function is already deployed
 	IsDeployed bool
 	// Indicates new revision deployed (custom template)
 	IsNewRevision bool
 	// Function URL
 	FunctionURL string
-
 }
 
 // NewFunctionTestProject initiates a project with derived function name an project path
-func NewFunctionTestProject(runtime string, trigger string) FunctionTestProject {
+func NewFunctionTestProject(runtime string, template string) FunctionTestProject {
 	project := FunctionTestProject{
-		Runtime: runtime,
-		Trigger: trigger,
+		Runtime:  runtime,
+		Template: template,
 	}
-	project.FunctionName = "func-" + runtime + "-" + trigger
+	project.FunctionName = "func-" + runtime + "-" + template
 	project.ProjectPath = filepath.Join(os.TempDir(), project.FunctionName)
 	return project
 }
@@ -61,7 +60,7 @@ func (f FunctionTestProject) CreateProjectFolder() error {
 func (f FunctionTestProject) RemoveProjectFolder() error {
 	if f.ProjectPath != "" {
 		err := os.RemoveAll(f.ProjectPath)
-		if err != nil  && !os.IsNotExist(err) {
+		if err != nil && !os.IsNotExist(err) {
 			return fmt.Errorf("unable to remove project folder: %s", err.Error())
 		}
 	}

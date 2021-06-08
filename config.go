@@ -36,7 +36,6 @@ type config struct {
 	Runtime     string            `yaml:"runtime"`
 	Image       string            `yaml:"image"`
 	ImageDigest string            `yaml:"imageDigest"`
-	Trigger     string            `yaml:"trigger"`
 	Builder     string            `yaml:"builder"`
 	BuilderMap  map[string]string `yaml:"builderMap"`
 	Volumes     Volumes           `yaml:"volumes"`
@@ -128,7 +127,6 @@ func fromConfig(c config) (f Function) {
 		Runtime:     c.Runtime,
 		Image:       c.Image,
 		ImageDigest: c.ImageDigest,
-		Trigger:     c.Trigger,
 		Builder:     c.Builder,
 		BuilderMap:  c.BuilderMap,
 		Volumes:     c.Volumes,
@@ -145,7 +143,6 @@ func toConfig(f Function) config {
 		Runtime:     f.Runtime,
 		Image:       f.Image,
 		ImageDigest: f.ImageDigest,
-		Trigger:     f.Trigger,
 		Builder:     f.Builder,
 		BuilderMap:  f.BuilderMap,
 		Volumes:     f.Volumes,
@@ -227,7 +224,7 @@ func ValidateEnvs(envs Envs) (errors []string) {
 			// all key-pair values from secret are set as ENV; {{ secret.secretName }} or {{ configMap.configMapName }}
 			if !regWholeSecret.MatchString(*env.Value) && !regWholeConfigMap.MatchString(*env.Value) {
 				errors = append(errors, fmt.Sprintf("env entry #%d has invalid value field set, it has '%s', but allowed is only '{{ secret.secretName }}' or '{{ configMap.configMapName }}'",
-				 i, *env.Value))
+					i, *env.Value))
 			}
 		} else {
 			if strings.HasPrefix(*env.Value, "{{") {
