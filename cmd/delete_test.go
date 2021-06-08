@@ -2,11 +2,12 @@ package cmd
 
 import (
 	"context"
-	fn "github.com/boson-project/func"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
+
+	fn "github.com/boson-project/func"
 )
 
 type testRemover struct {

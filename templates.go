@@ -30,7 +30,7 @@ type file interface {
 }
 
 // When pkger is run, code analysis detects this Include statement,
-// triggering the serializaation of the templates directory and all
+// triggering the serialization of the templates directory and all
 // its contents into pkged.go, which is then made available via
 // a pkger fileAccessor.
 // Path is relative to the go module root.

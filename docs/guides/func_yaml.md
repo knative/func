@@ -87,8 +87,6 @@ The Kubernetes namespace where your function will be deployed.
 
 The language runtime for your function. For example `python`.
 
-
-
 ## Local Environment Variables
 
 Any of the fields in `func.yaml` may contain a reference to an environment

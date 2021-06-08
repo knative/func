@@ -34,7 +34,7 @@ type Client struct {
 	lister           Lister   // Lists remote services
 	describer        Describer
 	dnsProvider      DNSProvider      // Provider of DNS services
-	templates        string           // path to extensible templates
+	packages         string           // path to extensible templates
 	registry         string           // default registry for OCI image tags
 	progressListener ProgressListener // progress listener
 	emitter          Emitter          // Emits CloudEvents to functions
@@ -247,12 +247,12 @@ func WithDNSProvider(provider DNSProvider) Option {
 	}
 }
 
-// WithTemplates sets the location to use for extensible templates.
-// Extensible templates are additional templates that exist on disk and are
+// WithPackages sets the location to use for extensible template packages.
+// Extensible template packages are additional templates that exist on disk and are
 // not built into the binary.
-func WithTemplates(templates string) Option {
+func WithPackages(packages string) Option {
 	return func(c *Client) {
-		c.templates = templates
+		c.packages = packages
 	}
 }
 
@@ -360,7 +360,7 @@ func (c *Client) Create(cfg Function) (err error) {
 	}
 
 	// Write out a template.
-	w := templateWriter{templates: c.templates, verbose: c.verbose}
+	w := templateWriter{templates: c.packages, verbose: c.verbose}
 	if err = w.Write(f.Runtime, f.Template, f.Root); err != nil {
 		return
 	}

@@ -54,7 +54,7 @@ func TestTemplatesExtensibleFileMode(t *testing.T) {
 	}
 	defer os.RemoveAll(path)
 
-	client := New(WithTemplates(templates))
+	client := New(WithPackages(templates))
 	function := Function{Root: path, Runtime: "quarkus", Template: template}
 	if err := client.Create(function); err != nil {
 		t.Fatal(err)
