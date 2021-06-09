@@ -8,7 +8,7 @@ To learn how to work with functions quickly, have a look at the [developer's tut
 
 ## CLI Command Reference
 
-For detailed documentation on the CLI and its commands, please see the [Commands document](commands).
+For detailed documentation on the CLI and its commands, please see the [Commands document](commands.md).
 
 ## Function Project Configuration
 
