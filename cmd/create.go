@@ -16,7 +16,7 @@ func init() {
 	root.AddCommand(createCmd)
 	createCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
 	createCmd.Flags().StringP("runtime", "l", bosonFunc.DefaultRuntime, "Function runtime language/framework. Available runtimes: "+utils.RuntimeList()+" (Env: $FUNC_RUNTIME)")
-	createCmd.Flags().StringP("packages", "p", filepath.Join(configPath(), "packages"), "Path to additional template packages (Env: $FUNC_PACKAGES)")
+	createCmd.Flags().StringP("packages", "a", filepath.Join(configPath(), "packages"), "Path to additional template packages (Env: $FUNC_PACKAGES)")
 	createCmd.Flags().StringP("template", "t", bosonFunc.DefaultTemplate, "Function template. Available templates: 'http' and 'events' (Env: $FUNC_TEMPLATE)")
 
 	if err := createCmd.RegisterFlagCompletionFunc("runtime", CompleteRuntimeList); err != nil {
