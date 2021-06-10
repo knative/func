@@ -29,8 +29,7 @@ type Env struct {
 }
 
 type Options struct {
-	Scale       *ScaleOptions       `yaml:"scale,omitempty"`
-	Concurrency *ConcurrencyOptions `yaml:"concurrency,omitempty"`
+	Scale *ScaleOptions `yaml:"scale,omitempty"`
 }
 
 type ScaleOptions struct {
@@ -39,10 +38,6 @@ type ScaleOptions struct {
 	Metric      *string  `yaml:"metric,omitempty"`
 	Target      *float64 `yaml:"target,omitempty"`
 	Utilization *float64 `yaml:"utilization,omitempty"`
-}
-
-type ConcurrencyOptions struct {
-	Limit *int64 `yaml:"limit,omitempty"`
 }
 
 // Config represents the serialized state of a Function's metadata.
@@ -321,16 +316,6 @@ func validateOptions(options Options) (errors []string) {
 				errors = append(errors,
 					fmt.Sprintf("options field \"scale.utilization\" has value set to \"%f\", but it must not be less than 1 or greater than 100",
 						*options.Scale.Utilization))
-			}
-		}
-	}
-
-	// options.concurrency
-	if options.Concurrency != nil {
-		if options.Concurrency.Limit != nil {
-			if *options.Concurrency.Limit < 0 {
-				errors = append(errors, fmt.Sprintf("options field \"concurrency.limit\" has value set to \"%d\", but it must not be less than 0",
-					*options.Concurrency.Limit))
 			}
 		}
 	}

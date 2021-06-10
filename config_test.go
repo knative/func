@@ -599,33 +599,6 @@ func Test_validateOptions(t *testing.T) {
 			1,
 		},
 		{
-			"correct 'concurrency.limit'",
-			Options{
-				Concurrency: &ConcurrencyOptions{
-					Limit: ptr.Int64(50),
-				},
-			},
-			0,
-		},
-		{
-			"correct 'concurrency.limit' - 0",
-			Options{
-				Concurrency: &ConcurrencyOptions{
-					Limit: ptr.Int64(0),
-				},
-			},
-			0,
-		},
-		{
-			"incorrect 'concurrency.limit' - negative value",
-			Options{
-				Concurrency: &ConcurrencyOptions{
-					Limit: ptr.Int64(-10),
-				},
-			},
-			1,
-		},
-		{
 			"correct 'scale.target'",
 			Options{
 				Scale: &ScaleOptions{
@@ -673,9 +646,6 @@ func Test_validateOptions(t *testing.T) {
 		{
 			"correct all options",
 			Options{
-				Concurrency: &ConcurrencyOptions{
-					Limit: ptr.Int64(50),
-				},
 				Scale: &ScaleOptions{
 					Min:         ptr.Int64(0),
 					Max:         ptr.Int64(10),
@@ -689,9 +659,6 @@ func Test_validateOptions(t *testing.T) {
 		{
 			"incorrect all options",
 			Options{
-				Concurrency: &ConcurrencyOptions{
-					Limit: ptr.Int64(-1),
-				},
 				Scale: &ScaleOptions{
 					Min:         ptr.Int64(-1),
 					Max:         ptr.Int64(-1),
@@ -700,7 +667,7 @@ func Test_validateOptions(t *testing.T) {
 					Utilization: ptr.Float64(110),
 				},
 			},
-			6,
+			5,
 		},
 	}
 

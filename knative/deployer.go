@@ -561,9 +561,5 @@ func setServiceOptions(template *servingv1.RevisionTemplateSpec, options fn.Opti
 		}
 	}
 
-	if options.Concurrency != nil {
-		template.Spec.ContainerConcurrency = options.Concurrency.Limit
-	}
-
 	return servingclientlib.UpdateRevisionTemplateAnnotations(template, toUpdate, toRemove)
 }
