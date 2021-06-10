@@ -547,22 +547,22 @@ func setServiceOptions(template *servingv1.RevisionTemplateSpec, options fn.Opti
 		} else {
 			toRemove = append(toRemove, autoscaling.MetricAnnotationKey)
 		}
-	}
 
-	if options.Concurrency != nil {
-		template.Spec.ContainerConcurrency = options.Concurrency.Limit
-
-		if options.Concurrency.Target != nil {
-			toUpdate[autoscaling.TargetAnnotationKey] = fmt.Sprintf("%f", *options.Concurrency.Target)
+		if options.Scale.Target != nil {
+			toUpdate[autoscaling.TargetAnnotationKey] = fmt.Sprintf("%f", *options.Scale.Target)
 		} else {
 			toRemove = append(toRemove, autoscaling.TargetAnnotationKey)
 		}
 
-		if options.Concurrency.Utilization != nil {
-			toUpdate[autoscaling.TargetUtilizationPercentageKey] = fmt.Sprintf("%f", *options.Concurrency.Utilization)
+		if options.Scale.Utilization != nil {
+			toUpdate[autoscaling.TargetUtilizationPercentageKey] = fmt.Sprintf("%f", *options.Scale.Utilization)
 		} else {
 			toRemove = append(toRemove, autoscaling.TargetUtilizationPercentageKey)
 		}
+	}
+
+	if options.Concurrency != nil {
+		template.Spec.ContainerConcurrency = options.Concurrency.Limit
 	}
 
 	return servingclientlib.UpdateRevisionTemplateAnnotations(template, toUpdate, toRemove)

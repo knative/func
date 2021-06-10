@@ -34,15 +34,15 @@ type Options struct {
 }
 
 type ScaleOptions struct {
-	Min    *int64  `yaml:"min,omitempty"`
-	Max    *int64  `yaml:"max,omitempty"`
-	Metric *string `yaml:"metric,omitempty"`
+	Min         *int64   `yaml:"min,omitempty"`
+	Max         *int64   `yaml:"max,omitempty"`
+	Metric      *string  `yaml:"metric,omitempty"`
+	Target      *float64 `yaml:"target,omitempty"`
+	Utilization *float64 `yaml:"utilization,omitempty"`
 }
 
 type ConcurrencyOptions struct {
-	Limit       *int64   `yaml:"limit,omitempty"`
-	Target      *float64 `yaml:"target,omitempty"`
-	Utilization *float64 `yaml:"utilization,omitempty"`
+	Limit *int64 `yaml:"limit,omitempty"`
 }
 
 // Config represents the serialized state of a Function's metadata.
@@ -308,6 +308,21 @@ func validateOptions(options Options) (errors []string) {
 					*options.Scale.Metric))
 			}
 		}
+
+		if options.Scale.Target != nil {
+			if *options.Scale.Target < 0.01 {
+				errors = append(errors, fmt.Sprintf("options field \"scale.target\" has value set to \"%f\", but it must not be less than 0.01",
+					*options.Scale.Target))
+			}
+		}
+
+		if options.Scale.Utilization != nil {
+			if *options.Scale.Utilization < 1 || *options.Scale.Utilization > 100 {
+				errors = append(errors,
+					fmt.Sprintf("options field \"scale.utilization\" has value set to \"%f\", but it must not be less than 1 or greater than 100",
+						*options.Scale.Utilization))
+			}
+		}
 	}
 
 	// options.concurrency
@@ -316,21 +331,6 @@ func validateOptions(options Options) (errors []string) {
 			if *options.Concurrency.Limit < 0 {
 				errors = append(errors, fmt.Sprintf("options field \"concurrency.limit\" has value set to \"%d\", but it must not be less than 0",
 					*options.Concurrency.Limit))
-			}
-		}
-
-		if options.Concurrency.Target != nil {
-			if *options.Concurrency.Target < 0.01 {
-				errors = append(errors, fmt.Sprintf("options field \"concurrency.target\" has value set to \"%f\", but it must not be less than 0.01",
-					*options.Concurrency.Target))
-			}
-		}
-
-		if options.Concurrency.Utilization != nil {
-			if *options.Concurrency.Utilization < 1 || *options.Concurrency.Utilization > 100 {
-				errors = append(errors,
-					fmt.Sprintf("options field \"concurrency.utilization\" has value set to \"%f\", but it must not be less than 1 or greater than 100",
-						*options.Concurrency.Utilization))
 			}
 		}
 	}

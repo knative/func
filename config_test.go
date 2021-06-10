@@ -626,45 +626,45 @@ func Test_validateOptions(t *testing.T) {
 			1,
 		},
 		{
-			"correct 'concurrency.target'",
+			"correct 'scale.target'",
 			Options{
-				Concurrency: &ConcurrencyOptions{
+				Scale: &ScaleOptions{
 					Target: ptr.Float64(50),
 				},
 			},
 			0,
 		},
 		{
-			"incorrect 'concurrency.target'",
+			"incorrect 'scale.target'",
 			Options{
-				Concurrency: &ConcurrencyOptions{
+				Scale: &ScaleOptions{
 					Target: ptr.Float64(0),
 				},
 			},
 			1,
 		},
 		{
-			"correct 'concurrency.utilization'",
+			"correct 'scale.utilization'",
 			Options{
-				Concurrency: &ConcurrencyOptions{
+				Scale: &ScaleOptions{
 					Utilization: ptr.Float64(50),
 				},
 			},
 			0,
 		},
 		{
-			"incorrect 'concurrency.utilization' - < 1",
+			"incorrect 'scale.utilization' - < 1",
 			Options{
-				Concurrency: &ConcurrencyOptions{
+				Scale: &ScaleOptions{
 					Utilization: ptr.Float64(0),
 				},
 			},
 			1,
 		},
 		{
-			"incorrect 'concurrency.utilization' - > 100",
+			"incorrect 'scale.utilization' - > 100",
 			Options{
-				Concurrency: &ConcurrencyOptions{
+				Scale: &ScaleOptions{
 					Utilization: ptr.Float64(110),
 				},
 			},
@@ -674,14 +674,14 @@ func Test_validateOptions(t *testing.T) {
 			"correct all options",
 			Options{
 				Concurrency: &ConcurrencyOptions{
-					Limit:       ptr.Int64(50),
-					Target:      ptr.Float64(40.5),
-					Utilization: ptr.Float64(35.5),
+					Limit: ptr.Int64(50),
 				},
 				Scale: &ScaleOptions{
-					Min:    ptr.Int64(0),
-					Max:    ptr.Int64(10),
-					Metric: ptr.String("concurrency"),
+					Min:         ptr.Int64(0),
+					Max:         ptr.Int64(10),
+					Metric:      ptr.String("concurrency"),
+					Target:      ptr.Float64(40.5),
+					Utilization: ptr.Float64(35.5),
 				},
 			},
 			0,
@@ -690,14 +690,14 @@ func Test_validateOptions(t *testing.T) {
 			"incorrect all options",
 			Options{
 				Concurrency: &ConcurrencyOptions{
-					Limit:       ptr.Int64(-1),
-					Target:      ptr.Float64(-1),
-					Utilization: ptr.Float64(110),
+					Limit: ptr.Int64(-1),
 				},
 				Scale: &ScaleOptions{
-					Min:    ptr.Int64(-1),
-					Max:    ptr.Int64(-1),
-					Metric: ptr.String("foo"),
+					Min:         ptr.Int64(-1),
+					Max:         ptr.Int64(-1),
+					Metric:      ptr.String("foo"),
+					Target:      ptr.Float64(-1),
+					Utilization: ptr.Float64(110),
 				},
 			},
 			6,
