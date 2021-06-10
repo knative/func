@@ -87,6 +87,12 @@ The Kubernetes namespace where your function will be deployed.
 
 The language runtime for your function. For example `python`.
 
+### `template`
+
+The source code template tailored for the invocation event that triggers
+your function. For example `http` for plain HTTP requests, `event` for
+CloudEvent triggered functions.
+
 ## Local Environment Variables
 
 Any of the fields in `func.yaml` may contain a reference to an environment
