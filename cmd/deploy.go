@@ -201,7 +201,7 @@ func getPassword(ctx context.Context) ([]byte, error) {
 	})
 
 	go func() {
-		pass, err := term.ReadPassword(int(syscall.Stdin))
+		pass, err := term.ReadPassword(int(syscall.Stdin)) // nolint: unconvert
 		ch <- struct {
 			p []byte
 			e error
