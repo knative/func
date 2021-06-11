@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"syscall"
 
 	"github.com/containers/image/v5/pkg/docker/config"
 	containersTypes "github.com/containers/image/v5/types"
@@ -200,7 +201,7 @@ func getPassword(ctx context.Context) ([]byte, error) {
 	})
 
 	go func() {
-		pass, err := term.ReadPassword(0)
+		pass, err := term.ReadPassword(int(syscall.Stdin))
 		ch <- struct {
 			p []byte
 			e error
