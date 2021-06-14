@@ -154,18 +154,18 @@ func TestDefaultRuntime(t *testing.T) {
 	}
 }
 
-// TestExtensiblePackages ensures that template packages are extensible
-// using a custom path to a template package repository on disk.  Custom repository
+// TestExtensibleRepositories ensures that templates are extensible
+// using a custom path to template repositories on disk. The custom repositories
 // location is not defined herein but expected to be provided because, for
 // example, a CLI may want to use XDG_CONFIG_HOME.  Assuming a repository path
-// $FUNC_TEMPLATES, a Go template named 'json' which is provided in the
+// $FUNC_REPOSITORIES, a Go template named 'json' which is provided in the
 // repository 'boson-experimental', would be expected to be in the location:
-// $FUNC_TEMPLATES/boson-experimental/go/json
+// $FUNC_REPOSITORIES/boson-experimental/go/json
 // See the CLI for full details, but a standard default location is
-// $HOME/.config/templates/boson-experimental/go/json
-func TestExtensiblePackages(t *testing.T) {
+// $HOME/.config/func/repositories/boson-experimental/go/json
+func TestExtensibleRepositories(t *testing.T) {
 	// Create a directory for the new Function
-	root := "testdata/example.com/testExtensiblePackages"
+	root := "testdata/example.com/testExtensibleRepositories"
 	if err := os.MkdirAll(root, 0744); err != nil {
 		t.Fatal(err)
 	}
@@ -173,7 +173,7 @@ func TestExtensiblePackages(t *testing.T) {
 
 	// Create a new client with a path to the extensible templates
 	client := bosonFunc.New(
-		bosonFunc.WithPackages("testdata/templates"),
+		bosonFunc.WithRepositories("testdata/repositories"),
 		bosonFunc.WithRegistry(TestRegistry))
 
 	// Create a Function specifying a template, 'json' that only exists in the extensible set

@@ -16,7 +16,7 @@ func init() {
 	root.AddCommand(createCmd)
 	createCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
 	createCmd.Flags().StringP("runtime", "l", bosonFunc.DefaultRuntime, "Function runtime language/framework. Available runtimes: "+utils.RuntimeList()+" (Env: $FUNC_RUNTIME)")
-	createCmd.Flags().StringP("packages", "a", filepath.Join(configPath(), "packages"), "Path to additional template packages (Env: $FUNC_PACKAGES)")
+	createCmd.Flags().StringP("repositories", "r", filepath.Join(configPath(), "repositories"), "Path to extended template repositories (Env: $FUNC_REPOSITORIES)")
 	createCmd.Flags().StringP("template", "t", bosonFunc.DefaultTemplate, "Function template. Available templates: 'http' and 'events' (Env: $FUNC_TEMPLATE)")
 
 	if err := createCmd.RegisterFlagCompletionFunc("runtime", CompleteRuntimeList); err != nil {
@@ -46,7 +46,7 @@ kn func create --runtime quarkus myfunc
 kn func create --template events myfunc
 `,
 	SuggestFor: []string{"inti", "new"},
-	PreRunE:    bindEnv("runtime", "template", "packages", "confirm"),
+	PreRunE:    bindEnv("runtime", "template", "repositories", "confirm"),
 	RunE:       runCreate,
 	// TODO: autocomplate or interactive prompt for runtime and template.
 }
@@ -68,7 +68,7 @@ func runCreate(cmd *cobra.Command, args []string) error {
 	}
 
 	client := bosonFunc.New(
-		bosonFunc.WithPackages(config.Packages),
+		bosonFunc.WithRepositories(config.Repositories),
 		bosonFunc.WithVerbose(config.Verbose))
 
 	return client.Create(function)
@@ -84,11 +84,11 @@ type createConfig struct {
 	// Runtime language/framework.
 	Runtime string
 
-	// Packages is an optional path that, if it exists, will be used as a source
-	// for additional template packages not included in the binary.  If not provided
-	// explicitly as a flag (--packages) or env (FUNC_PACKAGES), the default
-	// location is $XDG_CONFIG_HOME/packages ($HOME/.config/func/packages)
-	Packages string
+	// Repositories is an optional path that, if it exists, will be used as a source
+	// for additional template repositories not included in the binary.  If not provided
+	// explicitly as a flag (--repositories) or env (FUNC_REPOSITORIES), the default
+	// location is $XDG_CONFIG_HOME/repositories ($HOME/.config/func/repositories)
+	Repositories string
 
 	// Template is the code written into the new Function project, including
 	// an implementation adhering to one of the supported function signatures.
@@ -117,13 +117,13 @@ func newCreateConfig(args []string) createConfig {
 
 	derivedName, derivedPath := deriveNameAndAbsolutePathFromPath(path)
 	return createConfig{
-		Name:     derivedName,
-		Path:     derivedPath,
-		Packages: viper.GetString("packages"),
-		Runtime:  viper.GetString("runtime"),
-		Template: viper.GetString("template"),
-		Confirm:  viper.GetBool("confirm"),
-		Verbose:  viper.GetBool("verbose"),
+		Name:         derivedName,
+		Path:         derivedPath,
+		Repositories: viper.GetString("repositories"),
+		Runtime:      viper.GetString("runtime"),
+		Template:     viper.GetString("template"),
+		Confirm:      viper.GetBool("confirm"),
+		Verbose:      viper.GetBool("verbose"),
 	}
 }
 

@@ -46,7 +46,7 @@ func TestTemplatesExtensibleFileMode(t *testing.T) {
 	var (
 		path      = "testdata/example.com/www"
 		template  = "boson-experimental/http"
-		templates = "testdata/templates"
+		templates = "testdata/repositories"
 	)
 	err := os.MkdirAll(path, 0744)
 	if err != nil {
@@ -54,14 +54,14 @@ func TestTemplatesExtensibleFileMode(t *testing.T) {
 	}
 	defer os.RemoveAll(path)
 
-	client := New(WithPackages(templates))
+	client := New(WithRepositories(templates))
 	function := Function{Root: path, Runtime: "quarkus", Template: template}
 	if err := client.Create(function); err != nil {
 		t.Fatal(err)
 	}
 
 	// Assert mode is preserved
-	source, err := os.Stat(filepath.Join("testdata/templates/boson-experimental/quarkus/http/mvnw"))
+	source, err := os.Stat(filepath.Join("testdata/repositories/boson-experimental/quarkus/http/mvnw"))
 	if err != nil {
 		t.Fatal(err)
 	}
