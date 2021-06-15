@@ -233,7 +233,7 @@ func getUserName(ctx context.Context) (string, error) {
 		ch <- struct {
 			u string
 			e error
-		}{u: strings.TrimRight(username, "\n"), e: nil}
+		}{u: strings.TrimRight(username, "\r\n"), e: nil}
 	}()
 
 	select {
