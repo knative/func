@@ -28,6 +28,18 @@ type Env struct {
 	Value *string `yaml:"value"`
 }
 
+type Options struct {
+	Scale *ScaleOptions `yaml:"scale,omitempty"`
+}
+
+type ScaleOptions struct {
+	Min         *int64   `yaml:"min,omitempty"`
+	Max         *int64   `yaml:"max,omitempty"`
+	Metric      *string  `yaml:"metric,omitempty"`
+	Target      *float64 `yaml:"target,omitempty"`
+	Utilization *float64 `yaml:"utilization,omitempty"`
+}
+
 // Config represents the serialized state of a Function's metadata.
 // See the Function struct for attribute documentation.
 type config struct {
@@ -41,6 +53,7 @@ type config struct {
 	Volumes     Volumes           `yaml:"volumes"`
 	Envs        Envs              `yaml:"envs"`
 	Annotations map[string]string `yaml:"annotations"`
+	Options     Options           `yaml:"options"`
 	// Add new values to the toConfig/fromConfig functions.
 }
 
@@ -83,10 +96,11 @@ func newConfig(root string) (c config, err error) {
 		}
 	}
 
-	// Let's check that all entries in `volumes` and `envs` contain all required fields
+	// Let's check that all entries in `volumes`, `envs` and `options` contain all required fields
 	volumesErrors := validateVolumes(c.Volumes)
 	envsErrors := ValidateEnvs(c.Envs)
-	if len(volumesErrors) > 0 || len(envsErrors) > 0 {
+	optionsErrors := validateOptions(c.Options)
+	if len(volumesErrors) > 0 || len(envsErrors) > 0 || len(optionsErrors) > 0 {
 		// if there aren't any previously reported errors, we need to set the error message header first
 		if errMsg == "" {
 			errMsg = errMsgHeader
@@ -102,6 +116,9 @@ func newConfig(root string) (c config, err error) {
 		for i := range envsErrors {
 			envsErrors[i] = "  " + envsErrors[i]
 		}
+		for i := range optionsErrors {
+			optionsErrors[i] = "  " + optionsErrors[i]
+		}
 
 		errMsg = errMsg + strings.Join(volumesErrors, "\n")
 		// we have errors from both volumes and envs sections -> let's make sure they are both indented
@@ -109,6 +126,11 @@ func newConfig(root string) (c config, err error) {
 			errMsg = errMsg + "\n"
 		}
 		errMsg = errMsg + strings.Join(envsErrors, "\n")
+		// lets indent options related errors if there are already some set
+		if len(optionsErrors) > 0 && (len(volumesErrors) > 0 || len(envsErrors) > 0) {
+			errMsg = errMsg + "\n"
+		}
+		errMsg = errMsg + strings.Join(optionsErrors, "\n")
 	}
 
 	if errMsg != "" {
@@ -132,6 +154,7 @@ func fromConfig(c config) (f Function) {
 		Volumes:     c.Volumes,
 		Envs:        c.Envs,
 		Annotations: c.Annotations,
+		Options:     c.Options,
 	}
 }
 
@@ -148,6 +171,7 @@ func toConfig(f Function) config {
 		Volumes:     f.Volumes,
 		Envs:        f.Envs,
 		Annotations: f.Annotations,
+		Options:     f.Options,
 	}
 }
 
@@ -163,7 +187,7 @@ func writeConfig(f Function) (err error) {
 }
 
 // validateVolumes checks that input Volumes are correct and contain all necessary fields.
-// Returns array of error messages, empty if none
+// Returns array of error messages, empty if no errors are found
 //
 // Allowed settings:
 // - secret: example-secret              		# mount Secret as Volume
@@ -193,7 +217,7 @@ func validateVolumes(volumes Volumes) (errors []string) {
 }
 
 // ValidateEnvs checks that input Envs are correct and contain all necessary fields.
-// Returns array of error messages, empty if none
+// Returns array of error messages, empty if no errors are found
 //
 // Allowed settings:
 // - name: EXAMPLE1                					# ENV directly from a value
@@ -238,7 +262,58 @@ func ValidateEnvs(envs Envs) (errors []string) {
 							i, *env.Name, *env.Value))
 				}
 			}
+		}
+	}
 
+	return
+}
+
+// validateOptions checks that input Options are correctly set.
+// Returns array of error messages, empty if no errors are found
+func validateOptions(options Options) (errors []string) {
+
+	// options.scale
+	if options.Scale != nil {
+		if options.Scale.Min != nil {
+			if *options.Scale.Min < 0 {
+				errors = append(errors, fmt.Sprintf("options field \"scale.min\" has invalid value set: %d, the value must be greater than \"0\"",
+					*options.Scale.Min))
+			}
+		}
+
+		if options.Scale.Max != nil {
+			if *options.Scale.Max < 0 {
+				errors = append(errors, fmt.Sprintf("options field \"scale.max\" has invalid value set: %d, the value must be greater than \"0\"",
+					*options.Scale.Max))
+			}
+		}
+
+		if options.Scale.Min != nil && options.Scale.Max != nil {
+			if *options.Scale.Max < *options.Scale.Min {
+				errors = append(errors, "options field \"scale.max\" value must be greater or equal to \"scale.min\"")
+			}
+		}
+
+		if options.Scale.Metric != nil {
+			if *options.Scale.Metric != "concurrency" && *options.Scale.Metric != "rps" {
+				errors = append(errors, fmt.Sprintf("options field \"scale.metric\" has invalid value set: %s, allowed is only \"concurrency\" or \"rps\"",
+					*options.Scale.Metric))
+			}
+		}
+
+		if options.Scale.Target != nil {
+			if *options.Scale.Target < 0.01 {
+				errors = append(errors, fmt.Sprintf("options field \"scale.target\" has value set to \"%f\", but it must not be less than 0.01",
+					*options.Scale.Target))
+			}
+		}
+
+		if options.Scale.Utilization != nil {
+			if *options.Scale.Utilization < 1 || *options.Scale.Utilization > 100 {
+				errors = append(errors,
+					fmt.Sprintf("options field \"scale.utilization\" has value set to \"%f\", but it must not be less than 1 or greater than 100",
+						*options.Scale.Utilization))
+			}
 		}
 	}
 

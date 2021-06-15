@@ -61,6 +61,9 @@ type Function struct {
 	// Map containing user-supplied annotations
 	// Example: { "division": "finance" }
 	Annotations map[string]string
+
+	// Options to be set on deployed function (scaling, etc.)
+	Options Options
 }
 
 // NewFunction loads a Function from a path on disk. use .Initialized() to determine if

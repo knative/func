@@ -4,6 +4,8 @@ package function
 
 import (
 	"testing"
+
+	"knative.dev/pkg/ptr"
 )
 
 func Test_validateVolumes(t *testing.T) {
@@ -500,6 +502,179 @@ func Test_validateEnvs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := ValidateEnvs(tt.envs); len(got) != tt.errs {
 				t.Errorf("validateEnvs() = %v\n got %d errors but want %d", got, len(got), tt.errs)
+			}
+		})
+	}
+
+}
+
+func Test_validateOptions(t *testing.T) {
+
+	tests := []struct {
+		name    string
+		options Options
+		errs    int
+	}{
+		{
+			"correct 'scale.metric' - concurrency",
+			Options{
+				Scale: &ScaleOptions{
+					Metric: ptr.String("concurrency"),
+				},
+			},
+			0,
+		},
+		{
+			"correct 'scale.metric' - rps",
+			Options{
+				Scale: &ScaleOptions{
+					Metric: ptr.String("rps"),
+				},
+			},
+			0,
+		},
+		{
+			"incorrect 'scale.metric'",
+			Options{
+				Scale: &ScaleOptions{
+					Metric: ptr.String("foo"),
+				},
+			},
+			1,
+		},
+		{
+			"correct 'scale.min'",
+			Options{
+				Scale: &ScaleOptions{
+					Min: ptr.Int64(1),
+				},
+			},
+			0,
+		},
+		{
+			"correct 'scale.max'",
+			Options{
+				Scale: &ScaleOptions{
+					Max: ptr.Int64(10),
+				},
+			},
+			0,
+		},
+		{
+			"correct  'scale.min' & 'scale.max'",
+			Options{
+				Scale: &ScaleOptions{
+					Min: ptr.Int64(0),
+					Max: ptr.Int64(10),
+				},
+			},
+			0,
+		},
+		{
+			"incorrect  'scale.min' & 'scale.max'",
+			Options{
+				Scale: &ScaleOptions{
+					Min: ptr.Int64(100),
+					Max: ptr.Int64(10),
+				},
+			},
+			1,
+		},
+		{
+			"incorrect 'scale.min' - negative value",
+			Options{
+				Scale: &ScaleOptions{
+					Min: ptr.Int64(-10),
+				},
+			},
+			1,
+		},
+		{
+			"incorrect 'scale.max' - negative value",
+			Options{
+				Scale: &ScaleOptions{
+					Max: ptr.Int64(-10),
+				},
+			},
+			1,
+		},
+		{
+			"correct 'scale.target'",
+			Options{
+				Scale: &ScaleOptions{
+					Target: ptr.Float64(50),
+				},
+			},
+			0,
+		},
+		{
+			"incorrect 'scale.target'",
+			Options{
+				Scale: &ScaleOptions{
+					Target: ptr.Float64(0),
+				},
+			},
+			1,
+		},
+		{
+			"correct 'scale.utilization'",
+			Options{
+				Scale: &ScaleOptions{
+					Utilization: ptr.Float64(50),
+				},
+			},
+			0,
+		},
+		{
+			"incorrect 'scale.utilization' - < 1",
+			Options{
+				Scale: &ScaleOptions{
+					Utilization: ptr.Float64(0),
+				},
+			},
+			1,
+		},
+		{
+			"incorrect 'scale.utilization' - > 100",
+			Options{
+				Scale: &ScaleOptions{
+					Utilization: ptr.Float64(110),
+				},
+			},
+			1,
+		},
+		{
+			"correct all options",
+			Options{
+				Scale: &ScaleOptions{
+					Min:         ptr.Int64(0),
+					Max:         ptr.Int64(10),
+					Metric:      ptr.String("concurrency"),
+					Target:      ptr.Float64(40.5),
+					Utilization: ptr.Float64(35.5),
+				},
+			},
+			0,
+		},
+		{
+			"incorrect all options",
+			Options{
+				Scale: &ScaleOptions{
+					Min:         ptr.Int64(-1),
+					Max:         ptr.Int64(-1),
+					Metric:      ptr.String("foo"),
+					Target:      ptr.Float64(-1),
+					Utilization: ptr.Float64(110),
+				},
+			},
+			5,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := validateOptions(tt.options); len(got) != tt.errs {
+				t.Errorf("validateOptions() = %v\n got %d errors but want %d", got, len(got), tt.errs)
 			}
 		})
 	}
