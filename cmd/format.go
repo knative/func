@@ -14,6 +14,7 @@ const (
 	JSON         = "json"  // Technically a ⊆ yaml, but no one likes yaml.
 	XML          = "xml"
 	YAML         = "yaml"
+	URL          = "url"
 )
 
 // formatter is any structure which has methods for serialization.
@@ -23,6 +24,7 @@ type Formatter interface {
 	JSON(io.Writer) error
 	XML(io.Writer) error
 	YAML(io.Writer) error
+	URL(io.Writer) error
 }
 
 // write to the output the output of the formatter's appropriate serilization function.
@@ -40,6 +42,8 @@ func write(out io.Writer, s Formatter, formatName string) {
 		err = s.XML(out)
 	case YAML:
 		err = s.YAML(out)
+	case URL:
+		err = s.URL(out)
 	default:
 		err = fmt.Errorf("format not recognized: %v\n", formatName)
 	}
