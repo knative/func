@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"gopkg.in/yaml.v2"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 // ConfigFile is the name of the config's serialized form.
@@ -29,7 +30,8 @@ type Env struct {
 }
 
 type Options struct {
-	Scale *ScaleOptions `yaml:"scale,omitempty"`
+	Scale     *ScaleOptions     `yaml:"scale,omitempty"`
+	Resources *ResourcesOptions `yaml:"resources,omitempty"`
 }
 
 type ScaleOptions struct {
@@ -38,6 +40,22 @@ type ScaleOptions struct {
 	Metric      *string  `yaml:"metric,omitempty"`
 	Target      *float64 `yaml:"target,omitempty"`
 	Utilization *float64 `yaml:"utilization,omitempty"`
+}
+
+type ResourcesOptions struct {
+	Requests *ResourcesRequestsOptions `yaml:"requests,omitempty"`
+	Limits   *ResourcesLimitsOptions   `yaml:"limits,omitempty"`
+}
+
+type ResourcesLimitsOptions struct {
+	CPU         *string `yaml:"cpu,omitempty"`
+	Memory      *string `yaml:"memory,omitempty"`
+	Concurrency *int64  `yaml:"concurrency,omitempty"`
+}
+
+type ResourcesRequestsOptions struct {
+	CPU    *string `yaml:"cpu,omitempty"`
+	Memory *string `yaml:"memory,omitempty"`
 }
 
 // Config represents the serialized state of a Function's metadata.
@@ -313,6 +331,57 @@ func validateOptions(options Options) (errors []string) {
 				errors = append(errors,
 					fmt.Sprintf("options field \"scale.utilization\" has value set to \"%f\", but it must not be less than 1 or greater than 100",
 						*options.Scale.Utilization))
+			}
+		}
+	}
+
+	// options.resource
+	if options.Resources != nil {
+
+		// options.resource.requests
+		if options.Resources.Requests != nil {
+
+			if options.Resources.Requests.CPU != nil {
+				_, err := resource.ParseQuantity(*options.Resources.Requests.CPU)
+				if err != nil {
+					errors = append(errors, fmt.Sprintf("options field \"resources.requests.cpu\" has invalid value set: \"%s\"; \"%s\"",
+						*options.Resources.Requests.CPU, err.Error()))
+				}
+			}
+
+			if options.Resources.Requests.Memory != nil {
+				_, err := resource.ParseQuantity(*options.Resources.Requests.Memory)
+				if err != nil {
+					errors = append(errors, fmt.Sprintf("options field \"resources.requests.memory\" has invalid value set: \"%s\"; \"%s\"",
+						*options.Resources.Requests.Memory, err.Error()))
+				}
+			}
+		}
+
+		// options.resource.limits
+		if options.Resources.Limits != nil {
+
+			if options.Resources.Limits.CPU != nil {
+				_, err := resource.ParseQuantity(*options.Resources.Limits.CPU)
+				if err != nil {
+					errors = append(errors, fmt.Sprintf("options field \"resources.limits.cpu\" has invalid value set: \"%s\"; \"%s\"",
+						*options.Resources.Limits.CPU, err.Error()))
+				}
+			}
+
+			if options.Resources.Limits.Memory != nil {
+				_, err := resource.ParseQuantity(*options.Resources.Limits.Memory)
+				if err != nil {
+					errors = append(errors, fmt.Sprintf("options field \"resources.limits.memory\" has invalid value set: \"%s\"; \"%s\"",
+						*options.Resources.Limits.Memory, err.Error()))
+				}
+			}
+
+			if options.Resources.Limits.Concurrency != nil {
+				if *options.Resources.Limits.Concurrency < 0 {
+					errors = append(errors, fmt.Sprintf("options field \"resources.limits.concurrency\" has value set to \"%d\", but it must not be less than 0",
+						*options.Resources.Limits.Concurrency))
+				}
 			}
 		}
 	}

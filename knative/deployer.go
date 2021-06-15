@@ -10,6 +10,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/client/pkg/kn/flags"
@@ -558,6 +559,58 @@ func setServiceOptions(template *servingv1.RevisionTemplateSpec, options fn.Opti
 			toUpdate[autoscaling.TargetUtilizationPercentageKey] = fmt.Sprintf("%f", *options.Scale.Utilization)
 		} else {
 			toRemove = append(toRemove, autoscaling.TargetUtilizationPercentageKey)
+		}
+
+	}
+
+	// in the container always set Requests/Limits & Concurrency values based on the contents of config
+	template.Spec.PodSpec.Containers[0].Resources.Requests = nil
+	template.Spec.PodSpec.Containers[0].Resources.Limits = nil
+	template.Spec.ContainerConcurrency = nil
+
+	if options.Resources != nil {
+		if options.Resources.Requests != nil {
+			template.Spec.PodSpec.Containers[0].Resources.Requests = corev1.ResourceList{}
+
+			if options.Resources.Requests.CPU != nil {
+				value, err := resource.ParseQuantity(*options.Resources.Requests.CPU)
+				if err != nil {
+					return err
+				}
+				template.Spec.PodSpec.Containers[0].Resources.Requests[corev1.ResourceCPU] = value
+			}
+
+			if options.Resources.Requests.Memory != nil {
+				value, err := resource.ParseQuantity(*options.Resources.Requests.Memory)
+				if err != nil {
+					return err
+				}
+				template.Spec.PodSpec.Containers[0].Resources.Requests[corev1.ResourceMemory] = value
+			}
+		}
+
+		if options.Resources.Limits != nil {
+			template.Spec.PodSpec.Containers[0].Resources.Limits = corev1.ResourceList{}
+
+			if options.Resources.Limits.CPU != nil {
+				value, err := resource.ParseQuantity(*options.Resources.Limits.CPU)
+				if err != nil {
+					return err
+				}
+				template.Spec.PodSpec.Containers[0].Resources.Limits[corev1.ResourceCPU] = value
+			}
+
+			if options.Resources.Limits.Memory != nil {
+				value, err := resource.ParseQuantity(*options.Resources.Limits.Memory)
+				if err != nil {
+					return err
+				}
+				template.Spec.PodSpec.Containers[0].Resources.Limits[corev1.ResourceMemory] = value
+			}
+
+			if options.Resources.Limits.Concurrency != nil {
+				template.Spec.ContainerConcurrency = options.Resources.Limits.Concurrency
+			}
 		}
 	}
 
