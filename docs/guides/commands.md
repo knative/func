@@ -159,3 +159,43 @@ kn func emit --path /path/to/fn -i fn.test
 # Send a CloudEvent to an arbitrary endpoint
 kn func emit --sink "http://my.event.broker.com"
 ```
+
+## `config`
+
+Invokes interactive prompt that manages configuration of the Function project in the current directory. 
+The user may specify a path to the project directory using the `--path` or `-p` flag. This command operates on configuration
+specified in `func.yaml` configuration file.
+Users need to deploy or update the function with `func deploy` in order to apply the updated configuration to the deployed function.
+
+This command has subcommands `envs` and `volumes` to manage directly the specific resouces: Environment variables and Volumes.
+These subcommands has commands `add` and `remove` to add and remove specified resouces.
+
+Invokes top level interactive prompt that allows choosing the resouce and operation:
+```console
+func config [-p <path>]
+```
+
+Example:
+```console
+func config
+? What do you want to configure? Volumes
+? What operation do you want to perform? List
+Configured Volumes mounts:
+ -  Secret "mysecret" mounted at path: "/workspace/secret"
+ -  ConfigMap "mycm" mounted at path: "/workspace/configmap"
+```
+
+This command lists configured Volumes:
+```console
+func config volumes [-p <path>]
+```
+
+Invokes interactive prompt that allows addind Volumes to the function configuration
+```console
+func config volumes add [-p <path>]
+```
+
+Invokes interactive prompt that allows removing Volumes from the function configuration
+```console
+func config volumes remove [-p <path>]
+```

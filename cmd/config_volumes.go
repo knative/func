@@ -1,0 +1,247 @@
+package cmd
+
+import (
+	"context"
+	"fmt"
+	"strings"
+
+	"github.com/AlecAivazis/survey/v2"
+	"github.com/AlecAivazis/survey/v2/terminal"
+	"github.com/spf13/cobra"
+
+	bosonFunc "github.com/boson-project/func"
+	"github.com/boson-project/func/k8s"
+)
+
+func init() {
+	configCmd.AddCommand(configVolumesCmd)
+	configVolumesCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
+	configVolumesCmd.AddCommand(configVolumesAddCmd)
+	configVolumesAddCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
+	configVolumesCmd.AddCommand(configVolumesRemoveCmd)
+	configVolumesRemoveCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
+}
+
+var configVolumesCmd = &cobra.Command{
+	Use:   "volumes",
+	Short: "List and manage configured volumes for a function",
+	Long: `List and manage configured volumes for a function
+
+Prints configured Volume mounts for a function project present in
+the current directory or from the directory specified with --path.
+`,
+	SuggestFor: []string{"volums", "volume", "vols"},
+	PreRunE:    bindEnv("path"),
+	RunE: func(cmd *cobra.Command, args []string) (err error) {
+		function, err := initConfigCommand(args)
+		if err != nil {
+			return
+		}
+
+		listVolumes(function)
+
+		return
+	},
+}
+
+var configVolumesAddCmd = &cobra.Command{
+	Use:   "add",
+	Short: "Add volume to the function configuration",
+	Long: `Add volume to the function configuration
+
+Interactive prompt that allows adding Secrets and ConfigMaps as Volume mounts to the function project
+in the current directory or from the directory specified with --path.
+`,
+	SuggestFor: []string{"ad", "create", "insert", "append"},
+	//ValidArgsFunction: CompleteFunctionList,
+	PreRunE: bindEnv("path"),
+	RunE: func(cmd *cobra.Command, args []string) (err error) {
+		function, err := initConfigCommand(args)
+		if err != nil {
+			return
+		}
+
+		return runAddVolumesPrompt(cmd.Context(), function)
+	},
+}
+
+var configVolumesRemoveCmd = &cobra.Command{
+	Use:   "remove",
+	Short: "Remove volume from the function configuration",
+	Long: `Remove volume from the function configuration
+
+	Interactive prompt that allows removing Volume mounts from the configuration of the function project
+	in the current directory or from the directory specified with --path.
+`,
+	SuggestFor: []string{"del", "delete", "rmeove"},
+	PreRunE:    bindEnv("path"),
+	RunE: func(cmd *cobra.Command, args []string) (err error) {
+		function, err := initConfigCommand(args)
+		if err != nil {
+			return
+		}
+
+		return runRemoveVolumesPrompt(function)
+	},
+}
+
+func listVolumes(f bosonFunc.Function) {
+	if len(f.Volumes) == 0 {
+		fmt.Println("There aren't any configured Volume mounts")
+		return
+	}
+
+	fmt.Println("Configured Volumes mounts:")
+	for _, v := range f.Volumes {
+		fmt.Println(" - ", v.String())
+	}
+}
+
+func runAddVolumesPrompt(ctx context.Context, f bosonFunc.Function) (err error) {
+
+	secrets, err := k8s.ListSecretsNames(ctx, f.Namespace)
+	if err != nil {
+		return
+	}
+	configMaps, err := k8s.ListConfigMapsNames(ctx, f.Namespace)
+	if err != nil {
+		return
+	}
+
+	// SECTION - select resource type to be mounted
+	options := []string{}
+	selectedOption := ""
+	const optionConfigMap = "ConfigMap"
+	const optionSecret = "Secret"
+
+	if len(configMaps) > 0 {
+		options = append(options, optionConfigMap)
+	}
+	if len(secrets) > 0 {
+		options = append(options, optionSecret)
+	}
+
+	switch len(options) {
+	case 0:
+		fmt.Printf("There aren't any Secrets or ConfiMaps in the namespace \"%s\"\n", f.Namespace)
+		return
+	case 1:
+		selectedOption = options[0]
+	case 2:
+		err = survey.AskOne(&survey.Select{
+			Message: "What do you want to mount as a Volume?",
+			Options: options,
+		}, &selectedOption)
+		if err != nil {
+			if err == terminal.InterruptErr {
+				return nil
+			}
+			return
+		}
+	}
+
+	// SECTION - select the specific resource to be mounted
+	optionsResoures := []string{}
+	resourceType := ""
+	switch selectedOption {
+	case optionConfigMap:
+		resourceType = optionConfigMap
+		optionsResoures = configMaps
+	case optionSecret:
+		resourceType = optionSecret
+		optionsResoures = secrets
+	}
+
+	selectedResource := ""
+	err = survey.AskOne(&survey.Select{
+		Message: fmt.Sprintf("Which \"%s\" do you want to mount?", resourceType),
+		Options: optionsResoures,
+	}, &selectedResource)
+	if err != nil {
+		if err == terminal.InterruptErr {
+			return nil
+		}
+		return
+	}
+
+	// SECTION - specify mount Path of the Volume
+
+	path := ""
+	err = survey.AskOne(&survey.Input{
+		Message: fmt.Sprintf("Please specify the path where the %s should be mounted:", resourceType),
+	}, &path, survey.WithValidator(func(val interface{}) error {
+		if str, ok := val.(string); !ok || len(str) <= 0 || !strings.HasPrefix(str, "/") {
+			return fmt.Errorf("The input must be non-empty absolute path.")
+		}
+		return nil
+	}))
+	if err != nil {
+		if err == terminal.InterruptErr {
+			return nil
+		}
+		return
+	}
+
+	// we have all necessary information -> let's store the new Volume
+	newVolume := bosonFunc.Volume{Path: &path}
+	switch selectedOption {
+	case optionConfigMap:
+		newVolume.ConfigMap = &selectedResource
+	case optionSecret:
+		newVolume.Secret = &selectedResource
+	}
+
+	f.Volumes = append(f.Volumes, newVolume)
+	
+	err = f.WriteConfig()
+	if err == nil {
+		fmt.Println("Volume was added to the function configuration")
+	}
+
+	return
+}
+
+func runRemoveVolumesPrompt(f bosonFunc.Function) (err error) {
+	if len(f.Volumes) == 0 {
+		fmt.Println("There aren't any configured Volume mounts")
+		return
+	}
+
+	options := []string{}
+	for _, v := range f.Volumes {
+		options = append(options, v.String())
+	}
+
+	selectedVolume := ""
+	prompt := &survey.Select{
+		Message: "Which Volume do you want to remove?",
+		Options: options,
+	}
+	err = survey.AskOne(prompt, &selectedVolume)
+	if err != nil {
+		if err == terminal.InterruptErr {
+			return nil
+		}
+		return
+	}
+
+	var newVolumes bosonFunc.Volumes
+	removed := false
+	for i, v := range f.Volumes {
+		if v.String() == selectedVolume {
+			newVolumes = append(f.Volumes[:i], f.Volumes[i+1:]...)
+			removed = true
+			break
+		}
+	}
+
+	if removed {
+		f.Volumes = newVolumes
+		err = f.WriteConfig()
+		if err == nil {
+			fmt.Println("Volume was removed from the function configuration")
+		}
+	}
+
+	return
+}

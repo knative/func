@@ -3,6 +3,7 @@ module github.com/boson-project/func
 go 1.15
 
 require (
+	github.com/AlecAivazis/survey/v2 v2.2.12
 	github.com/buildpacks/pack v0.18.0
 	github.com/cloudevents/sdk-go/v2 v2.2.0
 	github.com/containers/image/v5 v5.10.5

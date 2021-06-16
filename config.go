@@ -22,6 +22,16 @@ type Volume struct {
 	Path      *string `yaml:"path"`
 }
 
+func (v Volume) String() string {
+	if v.ConfigMap != nil {
+		return fmt.Sprintf("ConfigMap \"%s\" mounted at path: \"%s\"", *v.ConfigMap, *v.Path)
+	} else if v.Secret != nil {
+		return fmt.Sprintf("Secret \"%s\" mounted at path: \"%s\"", *v.Secret, *v.Path)
+	}
+
+	return ""
+}
+
 type Envs []Env
 type Env struct {
 	Name  *string `yaml:"name,omitempty"`

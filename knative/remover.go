@@ -4,13 +4,15 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"github.com/boson-project/func/k8s"
 )
 
 const RemoveTimeout = 120 * time.Second
 
 func NewRemover(namespaceOverride string) (remover *Remover, err error) {
 	remover = &Remover{}
-	namespace, err := GetNamespace(namespaceOverride)
+	namespace, err := k8s.GetNamespace(namespaceOverride)
 	if err != nil {
 		return
 	}
