@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"syscall"
 
 	"github.com/containers/image/v5/pkg/docker/config"
 	containersTypes "github.com/containers/image/v5/types"
@@ -200,7 +201,7 @@ func getPassword(ctx context.Context) ([]byte, error) {
 	})
 
 	go func() {
-		pass, err := term.ReadPassword(0)
+		pass, err := term.ReadPassword(int(syscall.Stdin)) // nolint: unconvert
 		ch <- struct {
 			p []byte
 			e error
@@ -232,7 +233,7 @@ func getUserName(ctx context.Context) (string, error) {
 		ch <- struct {
 			u string
 			e error
-		}{u: strings.TrimRight(username, "\n"), e: nil}
+		}{u: strings.TrimRight(username, "\r\n"), e: nil}
 	}()
 
 	select {
