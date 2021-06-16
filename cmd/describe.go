@@ -164,7 +164,7 @@ func (d description) YAML(w io.Writer) error {
 
 func (d description) URL(w io.Writer) error {
 	if len(d.Routes) > 0 {
-		fmt.Fprint(w, d.Routes[0])
+		fmt.Fprintf(w, "%s\n", d.Routes[0])
 	}
 	return nil
 }
