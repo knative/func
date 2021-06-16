@@ -8,6 +8,7 @@ require (
 	github.com/cloudevents/sdk-go/v2 v2.2.0
 	github.com/containers/image/v5 v5.10.5
 	github.com/docker/docker v20.10.2+incompatible
+	github.com/docker/docker-credential-helpers v0.6.3
 	github.com/docker/go-connections v0.4.0
 	github.com/google/go-cmp v0.5.5
 	github.com/google/uuid v1.2.0
