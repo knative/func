@@ -129,6 +129,7 @@ type clientWrapper struct {
 	impl dockerClient.CommonAPIClient
 }
 
+// The following section is a workaround until https://github.com/buildpacks/pack/issues/1208 is fixed.
 // override injecting the security opt
 
 func (c clientWrapper) ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, platform *v1.Platform, containerName string) (container.ContainerCreateCreatedBody, error) {
