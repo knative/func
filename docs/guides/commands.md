@@ -134,7 +134,7 @@ directory using the `--path` flag, or send an event to an arbitrary endpoint usi
 `--sink` flag also accepts the special value `local` to send an event to the function running locally, for
 example, when run via `func run`.
 
-Similar `kn` command when using the `kn-plgin-event`: `kn event send [FLAGS]`
+Similar `kn` command when using the [kn-plugin-event](https://github.com/knative-sandbox/kn-plugin-event): `kn event send [FLAGS]`
 
 Examples:
 
