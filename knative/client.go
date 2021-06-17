@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"time"
 
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 	clienteventingv1beta1 "knative.dev/client/pkg/eventing/v1beta1"
 	clientservingv1 "knative.dev/client/pkg/serving/v1"
 	eventingv1beta1 "knative.dev/eventing/pkg/client/clientset/versioned/typed/eventing/v1beta1"
 	servingv1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1"
+
+	"github.com/boson-project/func/k8s"
 )
 
 const (
@@ -18,7 +18,7 @@ const (
 
 func NewServingClient(namespace string) (clientservingv1.KnServingClient, error) {
 
-	restConfig, err := getClientConfig().ClientConfig()
+	restConfig, err := k8s.GetClientConfig().ClientConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new serving client: %v", err)
 	}
@@ -35,7 +35,7 @@ func NewServingClient(namespace string) (clientservingv1.KnServingClient, error)
 
 func NewEventingClient(namespace string) (clienteventingv1beta1.KnEventingClient, error) {
 
-	restConfig, err := getClientConfig().ClientConfig()
+	restConfig, err := k8s.GetClientConfig().ClientConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new serving client: %v", err)
 	}
@@ -48,32 +48,4 @@ func NewEventingClient(namespace string) (clienteventingv1beta1.KnEventingClient
 	client := clienteventingv1beta1.NewKnEventingClient(eventingClient, namespace)
 
 	return client, nil
-}
-
-func NewKubernetesClientset(namespace string) (*kubernetes.Clientset, error) {
-
-	restConfig, err := getClientConfig().ClientConfig()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create new kubernetes client: %v", err)
-	}
-
-	return kubernetes.NewForConfig(restConfig)
-}
-
-func GetNamespace(defaultNamespace string) (namespace string, err error) {
-	namespace = defaultNamespace
-
-	if defaultNamespace == "" {
-		namespace, _, err = getClientConfig().Namespace()
-		if err != nil {
-			return
-		}
-	}
-	return
-}
-
-func getClientConfig() clientcmd.ClientConfig {
-	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
-		clientcmd.NewDefaultClientConfigLoadingRules(),
-		&clientcmd.ConfigOverrides{})
 }

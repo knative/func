@@ -7,6 +7,7 @@ import (
 	"knative.dev/pkg/apis"
 
 	bosonFunc "github.com/boson-project/func"
+	"github.com/boson-project/func/k8s"
 )
 
 const (
@@ -22,7 +23,7 @@ type Lister struct {
 func NewLister(namespaceOverride string) (l *Lister, err error) {
 	l = &Lister{}
 
-	namespace, err := GetNamespace(namespaceOverride)
+	namespace, err := k8s.GetNamespace(namespaceOverride)
 	if err != nil {
 		return
 	}

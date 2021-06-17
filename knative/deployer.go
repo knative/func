@@ -20,6 +20,7 @@ import (
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 
 	fn "github.com/boson-project/func"
+	"github.com/boson-project/func/k8s"
 )
 
 type Deployer struct {
@@ -32,7 +33,7 @@ type Deployer struct {
 
 func NewDeployer(namespaceOverride string) (deployer *Deployer, err error) {
 	deployer = &Deployer{}
-	namespace, err := GetNamespace(namespaceOverride)
+	namespace, err := k8s.GetNamespace(namespaceOverride)
 	if err != nil {
 		return
 	}
@@ -495,21 +496,17 @@ func processVolumes(volumes fn.Volumes, referencedSecrets, referencedConfigMaps 
 // checkSecretsConfigMapsArePresent returns error if Secrets or ConfigMaps
 // referenced in input sets are not deployed on the cluster in the specified namespace
 func checkSecretsConfigMapsArePresent(ctx context.Context, namespace string, referencedSecrets, referencedConfigMaps *sets.String) error {
-	client, err := NewKubernetesClientset(namespace)
-	if err != nil {
-		return err
-	}
 
 	errMsg := ""
 	for s := range *referencedSecrets {
-		_, err := client.CoreV1().Secrets(namespace).Get(ctx, s, metav1.GetOptions{})
+		_, err := k8s.GetSecret(ctx, s, namespace)
 		if err != nil {
 			errMsg += fmt.Sprintf("  referenced Secret \"%s\" is not present in namespace \"%s\"\n", s, namespace)
 		}
 	}
 
 	for cm := range *referencedConfigMaps {
-		_, err := client.CoreV1().ConfigMaps(namespace).Get(ctx, cm, metav1.GetOptions{})
+		_, err := k8s.GetConfigMap(ctx, cm, namespace)
 		if err != nil {
 			errMsg += fmt.Sprintf("  referenced ConfigMap \"%s\" is not present in namespace \"%s\"\n", cm, namespace)
 		}

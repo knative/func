@@ -8,6 +8,7 @@ import (
 	"knative.dev/eventing/pkg/apis/eventing/v1beta1"
 
 	bosonFunc "github.com/boson-project/func"
+	"github.com/boson-project/func/k8s"
 )
 
 type Describer struct {
@@ -17,7 +18,7 @@ type Describer struct {
 
 func NewDescriber(namespaceOverride string) (describer *Describer, err error) {
 	describer = &Describer{}
-	namespace, err := GetNamespace(namespaceOverride)
+	namespace, err := k8s.GetNamespace(namespaceOverride)
 	if err != nil {
 		return
 	}
