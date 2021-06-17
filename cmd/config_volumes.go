@@ -49,7 +49,7 @@ var configVolumesAddCmd = &cobra.Command{
 	Short: "Add volume to the function configuration",
 	Long: `Add volume to the function configuration
 
-Interactive prompt that allows adding Secrets and ConfigMaps as Volume mounts to the function project
+Interactive prompt to add Secrets and ConfigMaps as Volume mounts to the function project
 in the current directory or from the directory specified with --path.
 `,
 	SuggestFor: []string{"ad", "create", "insert", "append"},
@@ -70,8 +70,8 @@ var configVolumesRemoveCmd = &cobra.Command{
 	Short: "Remove volume from the function configuration",
 	Long: `Remove volume from the function configuration
 
-	Interactive prompt that allows removing Volume mounts from the configuration of the function project
-	in the current directory or from the directory specified with --path.
+Interactive prompt to remove Volume mounts from the function project
+in the current directory or from the directory specified with --path.
 `,
 	SuggestFor: []string{"del", "delete", "rmeove"},
 	PreRunE:    bindEnv("path"),
