@@ -245,7 +245,7 @@ func updateService(image string, newEnv []corev1.EnvVar, newEnvFrom []corev1.Env
 //   - name: EXAMPLE1                            # ENV directly from a value
 //     value: value1
 //   - name: EXAMPLE2                            # ENV from the local ENV var
-//     value: {{ env.MY_ENV }}
+//     value: {{ env:MY_ENV }}
 //   - name: EXAMPLE3
 //     value: {{ secret:example-secret:key }}    # ENV from a key in Secret
 //   - value: {{ secret:example-secret }}        # all ENVs from Secret

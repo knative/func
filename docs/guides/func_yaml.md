@@ -120,10 +120,10 @@ variable available in the local environment. For example, if I would like
 to avoid storing sensitive information such as an API key in my function
 configuration, I may have this value set from the local environment. To do
 this, prefix the local environment variable with `{{` and `}}` and prefix
-the name with `env.`. For example:
+the name with `env:`. For example:
 
 ```yaml
 envs:
 - name: API_KEY
-  value: '{{ env.API_KEY }}'
+  value: '{{ env:API_KEY }}'
 ```
