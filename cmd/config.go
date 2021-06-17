@@ -72,14 +72,20 @@ func runConfigCmd(cmd *cobra.Command, args []string) (err error) {
 	case "Add":
 		if answers.SelectedConfig == "Volumes" {
 			err = runAddVolumesPrompt(cmd.Context(), function)
+		} else if answers.SelectedConfig == "Environment values" {
+			err = runAddEnvsPrompt(cmd.Context(), function)
 		}
 	case "Remove":
 		if answers.SelectedConfig == "Volumes" {
 			err = runRemoveVolumesPrompt(function)
+		} else if answers.SelectedConfig == "Environment values" {
+			err = runRemoveEnvsPrompt(function)
 		}
 	case "List":
 		if answers.SelectedConfig == "Volumes" {
 			listVolumes(function)
+		} else if answers.SelectedConfig == "Environment values" {
+			listEnvs(function)
 		}
 	}
 
