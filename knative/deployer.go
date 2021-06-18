@@ -245,13 +245,13 @@ func updateService(image string, newEnv []corev1.EnvVar, newEnvFrom []corev1.Env
 //   - name: EXAMPLE1                            # ENV directly from a value
 //     value: value1
 //   - name: EXAMPLE2                            # ENV from the local ENV var
-//     value: {{ env.MY_ENV }}
+//     value: {{ env:MY_ENV }}
 //   - name: EXAMPLE3
-//     value: {{ secret.example-secret.key }}    # ENV from a key in Secret
-//   - value: {{ secret.example-secret }}        # all ENVs from Secret
+//     value: {{ secret:example-secret:key }}    # ENV from a key in Secret
+//   - value: {{ secret:example-secret }}        # all ENVs from Secret
 //   - name: EXAMPLE4
-//     value: {{ configMap.configMapName.key }}  # ENV from a key in ConfigMap
-//   - value: {{ configMap.configMapName }}      # all key-pair values from ConfigMap are set as ENV
+//     value: {{ configMap:configMapName:key }}  # ENV from a key in ConfigMap
+//   - value: {{ configMap:configMapName }}      # all key-pair values from ConfigMap are set as ENV
 func processEnvs(envs fn.Envs, referencedSecrets, referencedConfigMaps *sets.String) ([]corev1.EnvVar, []corev1.EnvFromSource, error) {
 
 	envVars := []corev1.EnvVar{{Name: "BUILT", Value: time.Now().Format("20060102T150405")}}
@@ -259,7 +259,7 @@ func processEnvs(envs fn.Envs, referencedSecrets, referencedConfigMaps *sets.Str
 
 	for _, env := range envs {
 		if env.Name == nil && env.Value != nil {
-			// all key-pair values from secret/configMap are set as ENV, eg. {{ secret.secretName }} or {{ configMap.configMapName }}
+			// all key-pair values from secret/configMap are set as ENV, eg. {{ secret:secretName }} or {{ configMap:configMapName }}
 			if strings.HasPrefix(*env.Value, "{{") {
 				envFromSource, err := createEnvFromSource(*env.Value, referencedSecrets, referencedConfigMaps)
 				if err != nil {
@@ -270,9 +270,9 @@ func processEnvs(envs fn.Envs, referencedSecrets, referencedConfigMaps *sets.Str
 			}
 		} else if env.Name != nil && env.Value != nil {
 			if strings.HasPrefix(*env.Value, "{{") {
-				slices := strings.Split(strings.Trim(*env.Value, "{} "), ".")
+				slices := strings.Split(strings.Trim(*env.Value, "{} "), ":")
 				if len(slices) == 3 {
-					// ENV from a key in secret/configMap, eg. FOO={{ secret.secretName.key }} FOO={{ configMap.configMapName.key }}
+					// ENV from a key in secret/configMap, eg. FOO={{ secret:secretName:key }} FOO={{ configMap:configMapName.key }}
 					valueFrom, err := createEnvVarSource(slices, referencedSecrets, referencedConfigMaps)
 					envVars = append(envVars, corev1.EnvVar{Name: *env.Name, ValueFrom: valueFrom})
 					if err != nil {
@@ -280,7 +280,7 @@ func processEnvs(envs fn.Envs, referencedSecrets, referencedConfigMaps *sets.Str
 					}
 					continue
 				} else if len(slices) == 2 {
-					// ENV from the local ENV var, eg. FOO={{ env.LOCAL_ENV }}
+					// ENV from the local ENV var, eg. FOO={{ env:LOCAL_ENV }}
 					localValue, err := processLocalEnvValue(*env.Value)
 					if err != nil {
 						return nil, nil, err
@@ -301,9 +301,9 @@ func processEnvs(envs fn.Envs, referencedSecrets, referencedConfigMaps *sets.Str
 }
 
 func createEnvFromSource(value string, referencedSecrets, referencedConfigMaps *sets.String) (*corev1.EnvFromSource, error) {
-	slices := strings.Split(strings.Trim(value, "{} "), ".")
+	slices := strings.Split(strings.Trim(value, "{} "), ":")
 	if len(slices) != 2 {
-		return nil, fmt.Errorf("env requires a value in form \"resourceType.name\" where \"resourceType\" can be one of \"configMap\" or \"secret\"; got %q", slices)
+		return nil, fmt.Errorf("env requires a value in form \"resourceType:name\" where \"resourceType\" can be one of \"configMap\" or \"secret\"; got %q", slices)
 	}
 
 	envVarSource := corev1.EnvFromSource{}
@@ -334,7 +334,7 @@ func createEnvFromSource(value string, referencedSecrets, referencedConfigMaps *
 			referencedSecrets.Insert(sourceName)
 		}
 	default:
-		return nil, fmt.Errorf("unsupported env source type \"%q\"; supported source types are \"configMap\" or \"secret\"", slices[0])
+		return nil, fmt.Errorf("unsupported env source type %q; supported source types are \"configMap\" or \"secret\"", slices[0])
 	}
 
 	if len(sourceName) == 0 {
@@ -347,7 +347,7 @@ func createEnvFromSource(value string, referencedSecrets, referencedConfigMaps *
 func createEnvVarSource(slices []string, referencedSecrets, referencedConfigMaps *sets.String) (*corev1.EnvVarSource, error) {
 
 	if len(slices) != 3 {
-		return nil, fmt.Errorf("env requires a value in form \"resourceType.name.key\" where \"resourceType\" can be one of \"configMap\" or \"secret\"; got %q", slices)
+		return nil, fmt.Errorf("env requires a value in form \"resourceType:name:key\" where \"resourceType\" can be one of \"configMap\" or \"secret\"; got %q", slices)
 	}
 
 	envVarSource := corev1.EnvVarSource{}
@@ -382,7 +382,7 @@ func createEnvVarSource(slices []string, referencedSecrets, referencedConfigMaps
 			referencedSecrets.Insert(sourceName)
 		}
 	default:
-		return nil, fmt.Errorf("unsupported env source type \"%q\"; supported source types are \"configMap\" or \"secret\"", slices[0])
+		return nil, fmt.Errorf("unsupported env source type %q; supported source types are \"configMap\" or \"secret\"", slices[0])
 	}
 
 	if len(sourceName) == 0 {
@@ -390,13 +390,13 @@ func createEnvVarSource(slices []string, referencedSecrets, referencedConfigMaps
 	}
 
 	if len(sourceKey) == 0 {
-		return nil, fmt.Errorf("the key referenced by resource %s \"%s\" cannot be an empty string", sourceType, sourceName)
+		return nil, fmt.Errorf("the key referenced by resource %s %q cannot be an empty string", sourceType, sourceName)
 	}
 
 	return &envVarSource, nil
 }
 
-var evRegex = regexp.MustCompile(`^{{\s*(\w+)\s*.(\w+)\s*}}$`)
+var evRegex = regexp.MustCompile(`^{{\s*(\w+)\s*:(\w+)\s*}}$`)
 
 const (
 	ctxIdx = 1
@@ -407,12 +407,12 @@ func processLocalEnvValue(val string) (string, error) {
 	match := evRegex.FindStringSubmatch(val)
 	if len(match) > valIdx {
 		if match[ctxIdx] != "env" {
-			return "", fmt.Errorf("allowed env value entry is \"{{ env.LOCAL_VALUE }}\"1; got: %q", match[ctxIdx])
+			return "", fmt.Errorf("allowed env value entry is \"{{ env:LOCAL_VALUE }}\"; got: %q", match[ctxIdx])
 		}
 		if v, ok := os.LookupEnv(match[valIdx]); ok {
 			return v, nil
 		} else {
-			return "", fmt.Errorf("required local environment variable \"%q\" is not set", match[valIdx])
+			return "", fmt.Errorf("required local environment variable %q is not set", match[valIdx])
 		}
 	} else {
 		return val, nil

@@ -144,15 +144,15 @@ func (n *Runner) Run(ctx context.Context, f bosonFunc.Function) error {
 	return nil
 }
 
-// run command supports only ENV values in from FOO=bar or FOO={{ env.LOCAL_VALUE }}
-var evRegex = regexp.MustCompile(`^{{\s*(\w+)\s*.(\w+)\s*}}$`)
+// run command supports only ENV values in from FOO=bar or FOO={{ env:LOCAL_VALUE }}
+var evRegex = regexp.MustCompile(`^{{\s*(\w+)\s*:(\w+)\s*}}$`)
 
 const (
 	ctxIdx = 1
 	valIdx = 2
 )
 
-// processEnvValue returns only value for ENV variable, that is defined in form FOO=bar or FOO={{ env.LOCAL_VALUE }}
+// processEnvValue returns only value for ENV variable, that is defined in form FOO=bar or FOO={{ env:LOCAL_VALUE }}
 // if the value is correct, it is returned and the second return parameter is set to `true`
 // otherwise it is set to `false`
 // if the specified value is correct, but the required local variable is not set, error is returned as well

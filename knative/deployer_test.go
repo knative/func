@@ -31,9 +31,9 @@ func Test_processValue(t *testing.T) {
 		wantErr bool
 	}{
 		{name: "simple value", arg: "A_VALUE", want: "A_VALUE", wantErr: false},
-		{name: "using envvar value", arg: "{{ env.TEST_KNATIVE_DEPLOYER }}", want: "VALUE_FOR_TEST_KNATIVE_DEPLOYER", wantErr: false},
-		{name: "bad context", arg: "{{secret.S}}", want: "", wantErr: true},
-		{name: "unset envvar", arg: "{{env.SOME_UNSET_VAR}}", want: "", wantErr: true},
+		{name: "using envvar value", arg: "{{ env:TEST_KNATIVE_DEPLOYER }}", want: "VALUE_FOR_TEST_KNATIVE_DEPLOYER", wantErr: false},
+		{name: "bad context", arg: "{{secret:S}}", want: "", wantErr: true},
+		{name: "unset envvar", arg: "{{env:SOME_UNSET_VAR}}", want: "", wantErr: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
