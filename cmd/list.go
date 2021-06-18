@@ -135,3 +135,10 @@ func (items listItems) XML(w io.Writer) error {
 func (items listItems) YAML(w io.Writer) error {
 	return yaml.NewEncoder(w).Encode(items)
 }
+
+func (items listItems) URL(w io.Writer) error {
+	for _, item := range items {
+		fmt.Fprintf(w, "%s\n", item.URL)
+	}
+	return nil
+}

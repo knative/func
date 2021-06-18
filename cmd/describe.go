@@ -18,7 +18,7 @@ import (
 func init() {
 	root.AddCommand(describeCmd)
 	describeCmd.Flags().StringP("namespace", "n", "", "Namespace of the function. By default, the namespace in func.yaml is used or the actual active namespace if not set in the configuration. (Env: $FUNC_NAMESPACE)")
-	describeCmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|xml|yaml) (Env: $FUNC_OUTPUT)")
+	describeCmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|xml|yaml|url) (Env: $FUNC_OUTPUT)")
 	describeCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
 
 	err := describeCmd.RegisterFlagCompletionFunc("output", CompleteOutputFormatList)
@@ -160,4 +160,11 @@ func (d description) XML(w io.Writer) error {
 
 func (d description) YAML(w io.Writer) error {
 	return yaml.NewEncoder(w).Encode(d)
+}
+
+func (d description) URL(w io.Writer) error {
+	if len(d.Routes) > 0 {
+		fmt.Fprintf(w, "%s\n", d.Routes[0])
+	}
+	return nil
 }
