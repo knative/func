@@ -1,16 +1,14 @@
-package utils
+package buildpacks
 
 import (
 	"sort"
 	"strings"
-
-	"github.com/boson-project/func/buildpacks"
 )
 
 //RuntimeList returns the list of supported runtimes
 //as comma seperated strings
 func RuntimeList() string {
-	rb := buildpacks.RuntimeToBuildpack
+	rb := RuntimeToBuildpack
 	runtimes := make([]string, 0, len(rb))
 	for k := range rb {
 		runtimes = append(runtimes, k)

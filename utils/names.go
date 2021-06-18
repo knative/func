@@ -23,3 +23,14 @@ func ValidateFunctionName(name string) error {
 
 	return nil
 }
+
+// ValidateEnvVarName validatest that the input name is a valid Kubernetes Environmet Variable name.
+// It must  must consist of alphabetic characters, digits, '_', '-', or '.', and must not start with a digit
+// (e.g. 'my.env-name',  or 'MY_ENV.NAME',  or 'MyEnvName1', regex used for validation is '[-._a-zA-Z][-._a-zA-Z0-9]*'))
+func ValidateEnvVarName(name string) error {
+	if errs := validation.IsEnvVarName(name); len(errs) > 0 {
+		return errors.New(strings.Join(errs, ""))
+	}
+
+	return nil
+}

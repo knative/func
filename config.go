@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/boson-project/func/utils"
 	"gopkg.in/yaml.v2"
 )
 
@@ -261,6 +262,11 @@ func ValidateEnvs(envs Envs) (errors []string) {
 					i, *env.Value))
 			}
 		} else {
+
+			if err := utils.ValidateEnvVarName(*env.Name); err != nil {
+				errors = append(errors, fmt.Sprintf("env entry #%d has invalid name set: %q; %s", i, *env.Name, err.Error()))
+			}
+
 			if strings.HasPrefix(*env.Value, "{{") {
 				// ENV from the local ENV var; {{ env.MY_ENV }}
 				// or

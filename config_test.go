@@ -151,6 +151,9 @@ func Test_validateEnvs(t *testing.T) {
 	value := "value"
 	value2 := "value2"
 
+	incorrectName := ",foo"
+	incorrectName2 := ":foo"
+
 	valueLocalEnv := "{{ env.MY_ENV }}"
 	valueLocalEnv2 := "{{ env.MY_ENV2 }}"
 	valueLocalEnv3 := "{{env.MY_ENV3}}"
@@ -194,6 +197,26 @@ func Test_validateEnvs(t *testing.T) {
 			Envs{
 				Env{
 					Name: &name,
+				},
+			},
+			1,
+		},
+		{
+			"incorrect entry - invalid name",
+			Envs{
+				Env{
+					Name:  &incorrectName,
+					Value: &value,
+				},
+			},
+			1,
+		},
+		{
+			"incorrect entry - invalid name2",
+			Envs{
+				Env{
+					Name:  &incorrectName2,
+					Value: &value,
 				},
 			},
 			1,

@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	bosonFunc "github.com/boson-project/func"
+	"github.com/boson-project/func/buildpacks"
 	"github.com/boson-project/func/prompt"
 	"github.com/boson-project/func/utils"
 )
@@ -15,7 +16,7 @@ import (
 func init() {
 	root.AddCommand(createCmd)
 	createCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
-	createCmd.Flags().StringP("runtime", "l", bosonFunc.DefaultRuntime, "Function runtime language/framework. Available runtimes: "+utils.RuntimeList()+" (Env: $FUNC_RUNTIME)")
+	createCmd.Flags().StringP("runtime", "l", bosonFunc.DefaultRuntime, "Function runtime language/framework. Available runtimes: "+buildpacks.RuntimeList()+" (Env: $FUNC_RUNTIME)")
 	createCmd.Flags().StringP("repositories", "r", filepath.Join(configPath(), "repositories"), "Path to extended template repositories (Env: $FUNC_REPOSITORIES)")
 	createCmd.Flags().StringP("template", "t", bosonFunc.DefaultTemplate, "Function template. Available templates: 'http' and 'events' (Env: $FUNC_TEMPLATE)")
 
