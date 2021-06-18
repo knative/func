@@ -11,7 +11,8 @@ Functions can be written in the following languages:
 * Node.js (JavaScript)
 * Quarkus (Java)
 * SpringBoot (Java)
-* Python (Coming Soon)
+* Python
+* Rust
 
 Functions can be deployed on the following platforms:
 

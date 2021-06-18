@@ -21,3 +21,4 @@ For detailed description of `func.yaml` file that is used for the Function proje
 * [Node.js](nodejs.md)
 * [Python](python.md)
 * [Quarkus](quarkus.md)
+* [Rust](rust.md)

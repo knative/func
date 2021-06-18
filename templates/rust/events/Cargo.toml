@@ -1,0 +1,14 @@
+
+[package]
+name = "function"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+cloudevents-sdk = "0.3.0"
+cloudevents-sdk-actix-web = "0.3.0"
+actix-web = "3"
+actix-rt = "1"
+serde_json = "1"
+log = "0.4.0"
+env_logger = "0.7.1"
