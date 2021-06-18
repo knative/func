@@ -15,10 +15,16 @@ import (
 	"github.com/boson-project/func/mock"
 )
 
-// TestRegistry for calculating destination image during tests.
-// Will be optional once we support in-cluster container registries
-// by default.  See TestRegistryRequired for details.
-const TestRegistry = "quay.io/alice"
+const (
+	// TestRegistry for calculating destination image during tests.
+	// Will be optional once we support in-cluster container registries
+	// by default.  See TestRegistryRequired for details.
+	TestRegistry = "quay.io/alice"
+
+	// TestRuntime consists of a specially designed templates directory
+	// used exclusively for embedded template write tests.
+	TestRuntime = "test"
+)
 
 // TestNew Function completes without error using defaults and zero values.
 // New is the superset of creating a new fully deployed Function, and
@@ -159,10 +165,10 @@ func TestDefaultRuntime(t *testing.T) {
 // location is not defined herein but expected to be provided because, for
 // example, a CLI may want to use XDG_CONFIG_HOME.  Assuming a repository path
 // $FUNC_REPOSITORIES, a Go template named 'json' which is provided in the
-// repository 'boson-experimental', would be expected to be in the location:
-// $FUNC_REPOSITORIES/boson-experimental/go/json
+// repository 'boson', would be expected to be in the location:
+// $FUNC_REPOSITORIES/boson/go/json
 // See the CLI for full details, but a standard default location is
-// $HOME/.config/func/repositories/boson-experimental/go/json
+// $HOME/.config/func/repositories/boson/go/json
 func TestExtensibleRepositories(t *testing.T) {
 	// Create a directory for the new Function
 	root := "testdata/example.com/testExtensibleRepositories"

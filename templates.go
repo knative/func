@@ -104,7 +104,7 @@ func writeCustom(templatesPath, runtime, templateFullName, dest string) error {
 	}
 
 	// Example FileSystem path:
-	//   /home/alice/.config/func/templates/boson-experimental/go/json
+	//   /home/alice/.config/func/templates/boson/go/json
 	templatePath := filepath.Join(templatesPath, repo, runtime, template)
 	_, err = os.Stat(templatePath)
 	if err != nil {
