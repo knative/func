@@ -3,12 +3,13 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/AlecAivazis/survey/v2"
+	"github.com/AlecAivazis/survey/v2/terminal"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
 	fn "github.com/boson-project/func"
 	"github.com/boson-project/func/knative"
-	"github.com/boson-project/func/prompt"
 )
 
 func init() {
@@ -38,7 +39,13 @@ kn func delete -n apps myfunc
 		ValidArgsFunction: CompleteFunctionList,
 		PreRunE:           bindEnv("path", "confirm", "namespace"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			config := newDeleteConfig(args).Prompt()
+			config, err := newDeleteConfig(args).Prompt()
+			if err != nil {
+				if err == terminal.InterruptErr {
+					return nil
+				}
+				return
+			}
 
 			var function fn.Function
 
@@ -122,12 +129,16 @@ func newDeleteConfig(args []string) deleteConfig {
 // Prompt the user with value of config members, allowing for interaractive changes.
 // Skipped if not in an interactive terminal (non-TTY), or if --yes (agree to
 // all prompts) was explicitly set.
-func (c deleteConfig) Prompt() deleteConfig {
+func (c deleteConfig) Prompt() (deleteConfig, error) {
 	if !interactiveTerminal() || !viper.GetBool("confirm") {
-		return c
+		return c, nil
 	}
-	return deleteConfig{
-		// TODO: Path should be prompted for and set prior to name attempting path derivation.  Test/fix this if necessary.
-		Name: prompt.ForString("Function to remove", deriveName(c.Name, c.Path), prompt.WithRequired(true)),
-	}
+
+	dc := deleteConfig{}
+
+	return dc, survey.AskOne(
+		&survey.Input{
+			Message: "Function to remove:",
+			Default: deriveName(c.Name, c.Path)},
+		&dc.Name, survey.WithValidator(survey.Required))
 }
