@@ -206,7 +206,7 @@ func credentialsProvider(ctx context.Context, registry string) (docker.Credentia
 	}
 	err = survey.Ask(qs, &result)
 
-	return result, nil
+	return result, err
 }
 
 type deployConfig struct {
