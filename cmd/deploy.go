@@ -203,7 +203,7 @@ func credentialsProvider(ctx context.Context, registry string) (docker.Credentia
 			Validate: survey.Required,
 		},
 		{
-			Name: "namespace",
+			Name: "password",
 			Prompt: &survey.Password{
 				Message: "Password:",
 			},
