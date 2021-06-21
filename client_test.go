@@ -32,10 +32,7 @@ const (
 // by the client API for those who prefer manual transmissions.
 func TestNew(t *testing.T) {
 	root := "testdata/example.com/testCreate" // Root from which to run the test
-	if err := os.MkdirAll(root, 0700); err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(root)
+	defer using(t, root)()
 
 	// New Client
 	client := bosonFunc.New(bosonFunc.WithRegistry(TestRegistry))
@@ -49,10 +46,7 @@ func TestNew(t *testing.T) {
 // TestTemplateWrites ensures a template is written.
 func TestTemplateWrites(t *testing.T) {
 	root := "testdata/example.com/testCreateWrites"
-	if err := os.MkdirAll(root, 0744); err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(root)
+	defer using(t, root)()
 
 	client := bosonFunc.New(bosonFunc.WithRegistry(TestRegistry))
 	if err := client.Create(bosonFunc.Function{Root: root}); err != nil {
@@ -69,10 +63,7 @@ func TestTemplateWrites(t *testing.T) {
 // Function does not reinitialize
 func TestExtantAborts(t *testing.T) {
 	root := "testdata/example.com/testCreateInitializedAborts"
-	if err := os.MkdirAll(root, 0744); err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(root)
+	defer using(t, root)()
 
 	// New once
 	client := bosonFunc.New(bosonFunc.WithRegistry(TestRegistry))
@@ -90,10 +81,7 @@ func TestExtantAborts(t *testing.T) {
 // visible files aborts.
 func TestNonemptyDirectoryAborts(t *testing.T) {
 	root := "testdata/example.com/testCreateNonemptyDirectoryAborts" // contains only a single visible file.
-	if err := os.MkdirAll(root, 0744); err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(root)
+	defer using(t, root)()
 
 	// An unexpected, non-hidden file.
 	_, err := os.Create(root + "/file.txt")
@@ -115,10 +103,7 @@ func TestNonemptyDirectoryAborts(t *testing.T) {
 func TestHiddenFilesIgnored(t *testing.T) {
 	// Create a directory for the Function
 	root := "testdata/example.com/testCreateHiddenFilesIgnored"
-	if err := os.MkdirAll(root, 0744); err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(root)
+	defer using(t, root)()
 
 	// Create a hidden file that should be ignored.
 	hiddenFile := filepath.Join(root, ".envrc")
@@ -137,10 +122,7 @@ func TestHiddenFilesIgnored(t *testing.T) {
 func TestDefaultRuntime(t *testing.T) {
 	// Create a root for the new Function
 	root := "testdata/example.com/testCreateDefaultRuntime"
-	if err := os.MkdirAll(root, 0744); err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(root)
+	defer using(t, root)()
 
 	// Create a new function at root with all defaults.
 	client := bosonFunc.New(bosonFunc.WithRegistry(TestRegistry))
@@ -172,10 +154,7 @@ func TestDefaultRuntime(t *testing.T) {
 func TestExtensibleRepositories(t *testing.T) {
 	// Create a directory for the new Function
 	root := "testdata/example.com/testExtensibleRepositories"
-	if err := os.MkdirAll(root, 0744); err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(root)
+	defer using(t, root)()
 
 	// Create a new client with a path to the extensible templates
 	client := bosonFunc.New(
@@ -199,10 +178,7 @@ func TestExtensibleRepositories(t *testing.T) {
 func TestRuntimeNotFound(t *testing.T) {
 	// Create a directory for the Function
 	root := "testdata/example.com/testRuntimeNotFound"
-	if err := os.MkdirAll(root, 0700); err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(root)
+	defer using(t, root)()
 
 	client := bosonFunc.New(bosonFunc.WithRegistry(TestRegistry))
 
@@ -219,10 +195,7 @@ func TestRuntimeNotFound(t *testing.T) {
 // when the requested runtime is not found in a given custom repository
 func TestRuntimeNotFoundCustom(t *testing.T) {
 	root := "testdata/example.com/testRuntimeNotFoundCustom"
-	if err := os.MkdirAll(root, 0700); err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(root)
+	defer using(t, root)()
 
 	// Create a new client with path to the extensible templates
 	client := bosonFunc.New(
@@ -243,10 +216,7 @@ func TestRuntimeNotFoundCustom(t *testing.T) {
 // TestTemplateNotFound generates an error (embedded default repository).
 func TestTemplateNotFound(t *testing.T) {
 	root := "testdata/example.com/testTemplateNotFound"
-	if err := os.MkdirAll(root, 0700); err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(root)
+	defer using(t, root)()
 
 	client := bosonFunc.New(bosonFunc.WithRegistry(TestRegistry))
 
@@ -263,10 +233,7 @@ func TestTemplateNotFound(t *testing.T) {
 // when the requested template is not found in the given custom repository.
 func TestTemplateNotFoundCustom(t *testing.T) {
 	root := "testdata/example.com/testTemplateNotFoundCustom"
-	if err := os.MkdirAll(root, 0700); err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(root)
+	defer using(t, root)()
 
 	// Create a new client with path to extensible templates
 	client := bosonFunc.New(
@@ -292,12 +259,7 @@ func TestNamed(t *testing.T) {
 	// Path which would derive to testWithHame.example.com were it not for the
 	// explicitly provided name.
 	root := "testdata/example.com/testWithName"
-
-	// Create a root directory for the Function
-	if err := os.MkdirAll(root, 0700); err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(root)
+	defer using(t, root)()
 
 	client := bosonFunc.New(bosonFunc.WithRegistry(TestRegistry))
 
@@ -328,10 +290,7 @@ func TestNamed(t *testing.T) {
 func TestRegistryRequired(t *testing.T) {
 	// Create a root for the Function
 	root := "testdata/example.com/testRegistry"
-	if err := os.MkdirAll(root, 0700); err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(root)
+	defer using(t, root)()
 
 	client := bosonFunc.New()
 	var err error
@@ -347,10 +306,7 @@ func TestRegistryRequired(t *testing.T) {
 func TestDeriveImage(t *testing.T) {
 	// Create the root Function directory
 	root := "testdata/example.com/testDeriveImage"
-	if err := os.MkdirAll(root, 0700); err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(root)
+	defer using(t, root)()
 
 	// Create the function which calculates fields such as name and image.
 	client := bosonFunc.New(bosonFunc.WithRegistry(TestRegistry))
@@ -377,10 +333,7 @@ func TestDeriveImage(t *testing.T) {
 func TestDeriveImageDefaultRegistry(t *testing.T) {
 	// Create the root Function directory
 	root := "testdata/example.com/testDeriveImageDefaultRegistry"
-	if err := os.MkdirAll(root, 0700); err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(root)
+	defer using(t, root)()
 
 	// Create the function which calculates fields such as name and image.
 	// Rather than use TestRegistry, use a single-token name and expect
@@ -395,6 +348,7 @@ func TestDeriveImageDefaultRegistry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	// Expected image is [DefaultRegistry]/[namespace]/[servicename]:latest
 	expected := bosonFunc.DefaultRegistry + "/alice/" + f.Name + ":latest"
 	if f.Image != expected {
@@ -415,11 +369,8 @@ func TestNewDelegates(t *testing.T) {
 		deployer      = mock.NewDeployer()
 	)
 
-	// Create a directory for the new Function
-	if err := os.MkdirAll(root, 0700); err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(root)
+	// Create a directory for the test
+	defer using(t, root)()
 
 	// Create a client with mocks for each of the subcomponents.
 	client := bosonFunc.New(
@@ -487,10 +438,7 @@ func TestNewDelegates(t *testing.T) {
 func TestRun(t *testing.T) {
 	// Create the root Function directory
 	root := "testdata/example.com/testRun"
-	if err := os.MkdirAll(root, 0700); err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(root)
+	defer using(t, root)()
 
 	// Create a client with the mock runner and the new test Function
 	runner := mock.NewRunner()
@@ -530,10 +478,7 @@ func TestUpdate(t *testing.T) {
 	)
 
 	// Create the root Function directory
-	if err := os.MkdirAll(root, 0700); err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(root)
+	defer using(t, root)()
 
 	// A client with mocks whose implementaton will validate input.
 	client := bosonFunc.New(
@@ -605,10 +550,7 @@ func TestRemoveByPath(t *testing.T) {
 		remover      = mock.NewRemover()
 	)
 
-	if err := os.MkdirAll(root, 0700); err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(root)
+	defer using(t, root)()
 
 	client := bosonFunc.New(
 		bosonFunc.WithRegistry(TestRegistry),
@@ -644,10 +586,7 @@ func TestRemoveByName(t *testing.T) {
 		remover      = mock.NewRemover()
 	)
 
-	if err := os.MkdirAll(root, 0700); err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(root)
+	defer using(t, root)()
 
 	client := bosonFunc.New(
 		bosonFunc.WithRegistry(TestRegistry),
@@ -688,11 +627,7 @@ func TestRemoveUninitializedFails(t *testing.T) {
 		root    = "testdata/example.com/testRemoveUninitializedFails"
 		remover = mock.NewRemover()
 	)
-	err := os.MkdirAll(root, 0700)
-	if err != nil {
-		panic(err)
-	}
-	defer os.RemoveAll(root)
+	defer using(t, root)()
 
 	// remover fails if invoked
 	remover.RemoveFn = func(name string) error {
@@ -749,10 +684,7 @@ func TestListOutsideRoot(t *testing.T) {
 // yields an expected, and informative, error.
 func TestDeployUnbuilt(t *testing.T) {
 	root := "testdata/example.com/testDeploy" // Root from which to run the test
-	if err := os.MkdirAll(root, 0700); err != nil {
-		t.Fatal(err)
-	}
-	defer os.RemoveAll(root)
+	defer using(t, root)()
 
 	// New Client
 	client := bosonFunc.New(bosonFunc.WithRegistry(TestRegistry))
@@ -773,6 +705,7 @@ func TestDeployUnbuilt(t *testing.T) {
 	}
 }
 
+// TestEmit ensures that the
 func TestEmit(t *testing.T) {
 	sink := "http://testy.mctestface.com"
 	emitter := mock.NewEmitter()
@@ -793,5 +726,31 @@ func TestEmit(t *testing.T) {
 	}
 	if !emitter.EmitInvoked {
 		t.Fatal("Client did not invoke emitter.Emit()")
+	}
+}
+
+// Helpers ----
+
+// using the given directory (creating it) returns a closure which removes the
+// directory, intended to be run in a defer statement.
+func using(t *testing.T, root string) func() {
+	t.Helper()
+	mkdir(t, root)
+	return func() {
+		rm(t, root)
+	}
+}
+
+func mkdir(t *testing.T, dir string) {
+	t.Helper()
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func rm(t *testing.T, dir string) {
+	t.Helper()
+	if err := os.RemoveAll(dir); err != nil {
+		t.Fatal(err)
 	}
 }

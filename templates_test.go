@@ -160,6 +160,8 @@ func TestWriteModeCustom(t *testing.T) {
 	}
 }
 
+// Helpers ----
+
 // using the given directory (creating it) returns a closure which removes the
 // directory, intended to be run in a defer statement.
 func using(t *testing.T, root string) func() {
