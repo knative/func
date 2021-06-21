@@ -667,8 +667,140 @@ func Test_validateOptions(t *testing.T) {
 			1,
 		},
 		{
+			"correct 'resources.requests.cpu'",
+			Options{
+				Resources: &ResourcesOptions{
+					Requests: &ResourcesRequestsOptions{
+						CPU: ptr.String("1000m"),
+					},
+				},
+			},
+			0,
+		},
+		{
+			"incorrect 'resources.requests.cpu'",
+			Options{
+				Resources: &ResourcesOptions{
+					Requests: &ResourcesRequestsOptions{
+						CPU: ptr.String("foo"),
+					},
+				},
+			},
+			1,
+		},
+		{
+			"correct 'resources.requests.memory'",
+			Options{
+				Resources: &ResourcesOptions{
+					Requests: &ResourcesRequestsOptions{
+						Memory: ptr.String("100Mi"),
+					},
+				},
+			},
+			0,
+		},
+		{
+			"incorrect 'resources.requests.memory'",
+			Options{
+				Resources: &ResourcesOptions{
+					Requests: &ResourcesRequestsOptions{
+						Memory: ptr.String("foo"),
+					},
+				},
+			},
+			1,
+		},
+		{
+			"correct 'resources.limits.cpu'",
+			Options{
+				Resources: &ResourcesOptions{
+					Limits: &ResourcesLimitsOptions{
+						CPU: ptr.String("1000m"),
+					},
+				},
+			},
+			0,
+		},
+		{
+			"incorrect 'resources.limits.cpu'",
+			Options{
+				Resources: &ResourcesOptions{
+					Limits: &ResourcesLimitsOptions{
+						CPU: ptr.String("foo"),
+					},
+				},
+			},
+			1,
+		},
+		{
+			"correct 'resources.limits.memory'",
+			Options{
+				Resources: &ResourcesOptions{
+					Limits: &ResourcesLimitsOptions{
+						Memory: ptr.String("100Mi"),
+					},
+				},
+			},
+			0,
+		},
+		{
+			"incorrect 'resources.limits.memory'",
+			Options{
+				Resources: &ResourcesOptions{
+					Limits: &ResourcesLimitsOptions{
+						Memory: ptr.String("foo"),
+					},
+				},
+			},
+			1,
+		},
+		{
+			"correct 'resources.limits.concurrency'",
+			Options{
+				Resources: &ResourcesOptions{
+					Limits: &ResourcesLimitsOptions{
+						Concurrency: ptr.Int64(50),
+					},
+				},
+			},
+			0,
+		},
+		{
+			"correct 'resources.limits.concurrency' - 0",
+			Options{
+				Resources: &ResourcesOptions{
+					Limits: &ResourcesLimitsOptions{
+						Concurrency: ptr.Int64(0),
+					},
+				},
+			},
+			0,
+		},
+		{
+			"incorrect 'resources.limits.concurrency' - negative value",
+			Options{
+				Resources: &ResourcesOptions{
+					Limits: &ResourcesLimitsOptions{
+						Concurrency: ptr.Int64(-10),
+					},
+				},
+			},
+			1,
+		},
+		{
 			"correct all options",
 			Options{
+				Resources: &ResourcesOptions{
+					Requests: &ResourcesRequestsOptions{
+						CPU:    ptr.String("1000m"),
+						Memory: ptr.String("100Mi"),
+					},
+					Limits: &ResourcesLimitsOptions{
+						CPU:         ptr.String("1000m"),
+						Memory:      ptr.String("100Mi"),
+						Concurrency: ptr.Int64(10),
+					},
+				},
 				Scale: &ScaleOptions{
 					Min:         ptr.Int64(0),
 					Max:         ptr.Int64(10),
@@ -682,6 +814,17 @@ func Test_validateOptions(t *testing.T) {
 		{
 			"incorrect all options",
 			Options{
+				Resources: &ResourcesOptions{
+					Requests: &ResourcesRequestsOptions{
+						CPU:    ptr.String("foo"),
+						Memory: ptr.String("foo"),
+					},
+					Limits: &ResourcesLimitsOptions{
+						CPU:         ptr.String("foo"),
+						Memory:      ptr.String("foo"),
+						Concurrency: ptr.Int64(-1),
+					},
+				},
 				Scale: &ScaleOptions{
 					Min:         ptr.Int64(-1),
 					Max:         ptr.Int64(-1),
@@ -690,7 +833,7 @@ func Test_validateOptions(t *testing.T) {
 					Utilization: ptr.Float64(110),
 				},
 			},
-			5,
+			10,
 		},
 	}
 
