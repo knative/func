@@ -187,6 +187,12 @@ func credentialsProvider(ctx context.Context, registry string) (docker.Credentia
 		return result, nil
 	}
 
+	credentials, _ = docker.GetCredentialsFromCredsStore(registry)
+	if credentials != (containersTypes.DockerAuthConfig{}) {
+		result.Username, result.Password = credentials.Username, credentials.Password
+		return result, nil
+	}
+
 	fmt.Println("Please provide credentials for image registry.")
 	var qs = []*survey.Question{
 		{
@@ -197,7 +203,7 @@ func credentialsProvider(ctx context.Context, registry string) (docker.Credentia
 			Validate: survey.Required,
 		},
 		{
-			Name: "namespace",
+			Name: "password",
 			Prompt: &survey.Password{
 				Message: "Password:",
 			},
