@@ -185,17 +185,36 @@ Configured Volumes mounts:
  -  ConfigMap "mycm" mounted at path: "/workspace/configmap"
 ```
 
+### `config envs`
+
+This command lists configured Environment variables:
+```console
+func config envs [-p <path>]
+```
+
+Invokes interactive prompt to add Environment variables to the function configuration
+```console
+func config envs add [-p <path>]
+```
+
+Invokes interactive prompt to remove Environment variables from the function configuration
+```console
+func config envs remove [-p <path>]
+```
+
+### `config volumes`
+
 This command lists configured Volumes:
 ```console
 func config volumes [-p <path>]
 ```
 
-Invokes interactive prompt that allows addind Volumes to the function configuration
+Invokes interactive prompt to add Volumes to the function configuration
 ```console
 func config volumes add [-p <path>]
 ```
 
-Invokes interactive prompt that allows removing Volumes from the function configuration
+Invokes interactive prompt to remove Volumes from the function configuration
 ```console
 func config volumes remove [-p <path>]
 ```

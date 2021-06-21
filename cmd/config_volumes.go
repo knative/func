@@ -53,8 +53,7 @@ Interactive prompt to add Secrets and ConfigMaps as Volume mounts to the functio
 in the current directory or from the directory specified with --path.
 `,
 	SuggestFor: []string{"ad", "create", "insert", "append"},
-	//ValidArgsFunction: CompleteFunctionList,
-	PreRunE: bindEnv("path"),
+	PreRunE:    bindEnv("path"),
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		function, err := initConfigCommand(args)
 		if err != nil {
@@ -192,10 +191,10 @@ func runAddVolumesPrompt(ctx context.Context, f bosonFunc.Function) (err error) 
 	}
 
 	f.Volumes = append(f.Volumes, newVolume)
-	
+
 	err = f.WriteConfig()
 	if err == nil {
-		fmt.Println("Volume was added to the function configuration")
+		fmt.Println("Volume entry was added to the function configuration")
 	}
 
 	return
@@ -239,7 +238,7 @@ func runRemoveVolumesPrompt(f bosonFunc.Function) (err error) {
 		f.Volumes = newVolumes
 		err = f.WriteConfig()
 		if err == nil {
-			fmt.Println("Volume was removed from the function configuration")
+			fmt.Println("Volume entry was removed from the function configuration")
 		}
 	}
 
