@@ -7,7 +7,7 @@ import (
 	"github.com/spf13/cobra"
 	"knative.dev/client/pkg/util"
 
-	bosonFunc "github.com/boson-project/func"
+	fn "github.com/boson-project/func"
 	"github.com/boson-project/func/docker"
 )
 
@@ -46,7 +46,7 @@ func runRun(cmd *cobra.Command, args []string) (err error) {
 		return
 	}
 
-	function, err := bosonFunc.NewFunction(config.Path)
+	function, err := fn.NewFunction(config.Path)
 	if err != nil {
 		return
 	}
@@ -69,9 +69,9 @@ func runRun(cmd *cobra.Command, args []string) (err error) {
 	runner := docker.NewRunner()
 	runner.Verbose = config.Verbose
 
-	client := bosonFunc.New(
-		bosonFunc.WithRunner(runner),
-		bosonFunc.WithVerbose(config.Verbose))
+	client := fn.New(
+		fn.WithRunner(runner),
+		fn.WithVerbose(config.Verbose))
 
 	err = client.Run(cmd.Context(), config.Path)
 	return
@@ -87,7 +87,7 @@ type runConfig struct {
 
 	// Envs passed via cmd to be added/updated
 	EnvToUpdate *util.OrderedMap
-	
+
 	// Envs passed via cmd to removed
 	EnvToRemove []string
 }

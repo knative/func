@@ -9,7 +9,7 @@ import (
 	"github.com/AlecAivazis/survey/v2/terminal"
 	"github.com/spf13/cobra"
 
-	bosonFunc "github.com/boson-project/func"
+	fn "github.com/boson-project/func"
 	"github.com/boson-project/func/k8s"
 	"github.com/boson-project/func/utils"
 )
@@ -88,7 +88,7 @@ in the current directory or from the directory specified with --path.
 	},
 }
 
-func listEnvs(f bosonFunc.Function) {
+func listEnvs(f fn.Function) {
 	if len(f.Envs) == 0 {
 		fmt.Println("There aren't any configured Environment variables")
 		return
@@ -100,7 +100,7 @@ func listEnvs(f bosonFunc.Function) {
 	}
 }
 
-func runAddEnvsPrompt(ctx context.Context, f bosonFunc.Function) (err error) {
+func runAddEnvsPrompt(ctx context.Context, f fn.Function) (err error) {
 
 	insertToIndex := 0
 
@@ -175,7 +175,7 @@ func runAddEnvsPrompt(ctx context.Context, f bosonFunc.Function) (err error) {
 		return
 	}
 
-	newEnv := bosonFunc.Env{}
+	newEnv := fn.Env{}
 
 	switch selectedOption {
 	// SECTION - add new Environment variable with the specified value
@@ -379,7 +379,7 @@ func runAddEnvsPrompt(ctx context.Context, f bosonFunc.Function) (err error) {
 	return
 }
 
-func runRemoveEnvsPrompt(f bosonFunc.Function) (err error) {
+func runRemoveEnvsPrompt(f fn.Function) (err error) {
 	if len(f.Envs) == 0 {
 		fmt.Println("There aren't any configured Environment variables")
 		return
@@ -403,7 +403,7 @@ func runRemoveEnvsPrompt(f bosonFunc.Function) (err error) {
 		return
 	}
 
-	var newEnvs bosonFunc.Envs
+	var newEnvs fn.Envs
 	removed := false
 	for i, e := range f.Envs {
 		if e.String() == selectedEnv {

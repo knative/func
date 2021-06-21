@@ -7,7 +7,7 @@ import (
 
 	"knative.dev/client/pkg/util"
 
-	bosonFunc "github.com/boson-project/func"
+	fn "github.com/boson-project/func"
 )
 
 func Test_mergeEnvMaps(t *testing.T) {
@@ -18,77 +18,77 @@ func Test_mergeEnvMaps(t *testing.T) {
 	v2 := "y"
 
 	type args struct {
-		envs     bosonFunc.Envs
+		envs     fn.Envs
 		toUpdate *util.OrderedMap
 		toRemove []string
 	}
 	tests := []struct {
 		name string
 		args args
-		want bosonFunc.Envs
+		want fn.Envs
 	}{
 		{
 			"add new var to empty list",
 			args{
-				bosonFunc.Envs{},
+				fn.Envs{},
 				util.NewOrderedMapWithKVStrings([][]string{{a, v1}}),
 				[]string{},
 			},
-			bosonFunc.Envs{bosonFunc.Env{Name: &a, Value: &v1}},
+			fn.Envs{fn.Env{Name: &a, Value: &v1}},
 		},
 		{
 			"add new var",
 			args{
-				bosonFunc.Envs{bosonFunc.Env{Name: &b, Value: &v2}},
+				fn.Envs{fn.Env{Name: &b, Value: &v2}},
 				util.NewOrderedMapWithKVStrings([][]string{{a, v1}}),
 				[]string{},
 			},
-			bosonFunc.Envs{bosonFunc.Env{Name: &b, Value: &v2}, bosonFunc.Env{Name: &a, Value: &v1}},
+			fn.Envs{fn.Env{Name: &b, Value: &v2}, fn.Env{Name: &a, Value: &v1}},
 		},
 		{
 			"update var",
 			args{
-				bosonFunc.Envs{bosonFunc.Env{Name: &a, Value: &v1}},
+				fn.Envs{fn.Env{Name: &a, Value: &v1}},
 				util.NewOrderedMapWithKVStrings([][]string{{a, v2}}),
 				[]string{},
 			},
-			bosonFunc.Envs{bosonFunc.Env{Name: &a, Value: &v2}},
+			fn.Envs{fn.Env{Name: &a, Value: &v2}},
 		},
 		{
 			"update multiple vars",
 			args{
-				bosonFunc.Envs{bosonFunc.Env{Name: &a, Value: &v1}, bosonFunc.Env{Name: &b, Value: &v2}},
+				fn.Envs{fn.Env{Name: &a, Value: &v1}, fn.Env{Name: &b, Value: &v2}},
 				util.NewOrderedMapWithKVStrings([][]string{{a, v2}, {b, v1}}),
 				[]string{},
 			},
-			bosonFunc.Envs{bosonFunc.Env{Name: &a, Value: &v2}, bosonFunc.Env{Name: &b, Value: &v1}},
+			fn.Envs{fn.Env{Name: &a, Value: &v2}, fn.Env{Name: &b, Value: &v1}},
 		},
 		{
 			"remove var",
 			args{
-				bosonFunc.Envs{bosonFunc.Env{Name: &a, Value: &v1}},
+				fn.Envs{fn.Env{Name: &a, Value: &v1}},
 				util.NewOrderedMap(),
 				[]string{a},
 			},
-			bosonFunc.Envs{},
+			fn.Envs{},
 		},
 		{
 			"remove multiple vars",
 			args{
-				bosonFunc.Envs{bosonFunc.Env{Name: &a, Value: &v1}, bosonFunc.Env{Name: &b, Value: &v2}},
+				fn.Envs{fn.Env{Name: &a, Value: &v1}, fn.Env{Name: &b, Value: &v2}},
 				util.NewOrderedMap(),
 				[]string{a, b},
 			},
-			bosonFunc.Envs{},
+			fn.Envs{},
 		},
 		{
 			"update and remove vars",
 			args{
-				bosonFunc.Envs{bosonFunc.Env{Name: &a, Value: &v1}, bosonFunc.Env{Name: &b, Value: &v2}},
+				fn.Envs{fn.Env{Name: &a, Value: &v1}, fn.Env{Name: &b, Value: &v2}},
 				util.NewOrderedMapWithKVStrings([][]string{{a, v2}}),
 				[]string{b},
 			},
-			bosonFunc.Envs{bosonFunc.Env{Name: &a, Value: &v2}},
+			fn.Envs{fn.Env{Name: &a, Value: &v2}},
 		},
 	}
 	for _, tt := range tests {

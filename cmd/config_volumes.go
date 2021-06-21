@@ -9,7 +9,7 @@ import (
 	"github.com/AlecAivazis/survey/v2/terminal"
 	"github.com/spf13/cobra"
 
-	bosonFunc "github.com/boson-project/func"
+	fn "github.com/boson-project/func"
 	"github.com/boson-project/func/k8s"
 )
 
@@ -84,7 +84,7 @@ in the current directory or from the directory specified with --path.
 	},
 }
 
-func listVolumes(f bosonFunc.Function) {
+func listVolumes(f fn.Function) {
 	if len(f.Volumes) == 0 {
 		fmt.Println("There aren't any configured Volume mounts")
 		return
@@ -96,7 +96,7 @@ func listVolumes(f bosonFunc.Function) {
 	}
 }
 
-func runAddVolumesPrompt(ctx context.Context, f bosonFunc.Function) (err error) {
+func runAddVolumesPrompt(ctx context.Context, f fn.Function) (err error) {
 
 	secrets, err := k8s.ListSecretsNames(ctx, f.Namespace)
 	if err != nil {
@@ -182,7 +182,7 @@ func runAddVolumesPrompt(ctx context.Context, f bosonFunc.Function) (err error) 
 	}
 
 	// we have all necessary information -> let's store the new Volume
-	newVolume := bosonFunc.Volume{Path: &path}
+	newVolume := fn.Volume{Path: &path}
 	switch selectedOption {
 	case optionConfigMap:
 		newVolume.ConfigMap = &selectedResource
@@ -200,7 +200,7 @@ func runAddVolumesPrompt(ctx context.Context, f bosonFunc.Function) (err error) 
 	return
 }
 
-func runRemoveVolumesPrompt(f bosonFunc.Function) (err error) {
+func runRemoveVolumesPrompt(f fn.Function) (err error) {
 	if len(f.Volumes) == 0 {
 		fmt.Println("There aren't any configured Volume mounts")
 		return
@@ -224,7 +224,7 @@ func runRemoveVolumesPrompt(f bosonFunc.Function) (err error) {
 		return
 	}
 
-	var newVolumes bosonFunc.Volumes
+	var newVolumes fn.Volumes
 	removed := false
 	for i, v := range f.Volumes {
 		if v.String() == selectedVolume {

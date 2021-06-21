@@ -9,7 +9,7 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
-	bosonFunc "github.com/boson-project/func"
+	fn "github.com/boson-project/func"
 	"github.com/boson-project/func/buildpacks"
 	"github.com/boson-project/func/utils"
 )
@@ -17,9 +17,9 @@ import (
 func init() {
 	root.AddCommand(createCmd)
 	createCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
-	createCmd.Flags().StringP("runtime", "l", bosonFunc.DefaultRuntime, "Function runtime language/framework. Available runtimes: "+buildpacks.Runtimes()+" (Env: $FUNC_RUNTIME)")
+	createCmd.Flags().StringP("runtime", "l", fn.DefaultRuntime, "Function runtime language/framework. Available runtimes: "+buildpacks.Runtimes()+" (Env: $FUNC_RUNTIME)")
 	createCmd.Flags().StringP("repositories", "r", filepath.Join(configPath(), "repositories"), "Path to extended template repositories (Env: $FUNC_REPOSITORIES)")
-	createCmd.Flags().StringP("template", "t", bosonFunc.DefaultTemplate, "Function template. Available templates: 'http' and 'events' (Env: $FUNC_TEMPLATE)")
+	createCmd.Flags().StringP("template", "t", fn.DefaultTemplate, "Function template. Available templates: 'http' and 'events' (Env: $FUNC_TEMPLATE)")
 
 	if err := createCmd.RegisterFlagCompletionFunc("runtime", CompleteRuntimeList); err != nil {
 		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
@@ -69,16 +69,16 @@ func runCreate(cmd *cobra.Command, args []string) (err error) {
 		return
 	}
 
-	function := bosonFunc.Function{
+	function := fn.Function{
 		Name:     config.Name,
 		Root:     config.Path,
 		Runtime:  config.Runtime,
 		Template: config.Template,
 	}
 
-	client := bosonFunc.New(
-		bosonFunc.WithRepositories(config.Repositories),
-		bosonFunc.WithVerbose(config.Verbose))
+	client := fn.New(
+		fn.WithRepositories(config.Repositories),
+		fn.WithVerbose(config.Verbose))
 
 	return client.Create(function)
 }

@@ -8,7 +8,7 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
-	bosonFunc "github.com/boson-project/func"
+	fn "github.com/boson-project/func"
 )
 
 func init() {
@@ -113,17 +113,17 @@ func newConfigCmdConfig(args []string) configCmdConfig {
 
 }
 
-func initConfigCommand(args []string) (bosonFunc.Function, error) {
+func initConfigCommand(args []string) (fn.Function, error) {
 	config := newConfigCmdConfig(args)
 
-	function, err := bosonFunc.NewFunction(config.Path)
+	function, err := fn.NewFunction(config.Path)
 	if err != nil {
-		return bosonFunc.Function{}, err
+		return fn.Function{}, err
 	}
 
 	// Check if the Function has been initialized
 	if !function.Initialized() {
-		return bosonFunc.Function{}, fmt.Errorf("the given path '%v' does not contain an initialized function", config.Path)
+		return fn.Function{}, fmt.Errorf("the given path '%v' does not contain an initialized function", config.Path)
 	}
 
 	return function, nil
