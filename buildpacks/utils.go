@@ -5,18 +5,27 @@ import (
 	"strings"
 )
 
-//RuntimeList returns the list of supported runtimes
-//as comma seperated strings
-func RuntimeList() string {
+//Runtimes returns the list of supported runtimes
+//as comma seperated strings, sorted alphabetically
+func Runtimes() string {
+	runtimes := RuntimesList()
+
+	//make it more grammatical :)
+	s := runtimes[:len(runtimes)-1]
+	str := strings.Join(s, ", ")
+	str = str + " and " + runtimes[len(runtimes)-1]
+	return str
+}
+
+//RuntimesList returns the list of supported runtimes
+//as an array of strings, sorted alphabetically
+func RuntimesList() []string {
 	rb := RuntimeToBuildpack
 	runtimes := make([]string, 0, len(rb))
 	for k := range rb {
 		runtimes = append(runtimes, k)
 	}
 	sort.Strings(runtimes)
-	//make it more grammatical :)
-	s := runtimes[:len(runtimes)-1]
-	str := strings.Join(s, ", ")
-	str = str + " and " + runtimes[len(runtimes)-1]
-	return str
+
+	return runtimes
 }
