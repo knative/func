@@ -1,19 +1,16 @@
 package cmd
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"os"
-	"strings"
-	"syscall"
 
+	"github.com/AlecAivazis/survey/v2"
+	"github.com/AlecAivazis/survey/v2/terminal"
 	"github.com/containers/image/v5/pkg/docker/config"
 	containersTypes "github.com/containers/image/v5/types"
 	"github.com/ory/viper"
 	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 	"knative.dev/client/pkg/util"
 
 	bosonFunc "github.com/boson-project/func"
@@ -21,7 +18,6 @@ import (
 	"github.com/boson-project/func/docker"
 	"github.com/boson-project/func/knative"
 	"github.com/boson-project/func/progress"
-	"github.com/boson-project/func/prompt"
 )
 
 func init() {
@@ -72,7 +68,13 @@ func runDeploy(cmd *cobra.Command, _ []string) (err error) {
 	if err != nil {
 		return err
 	}
-	config = config.Prompt()
+	config, err = config.Prompt()
+	if err != nil {
+		if err == terminal.InterruptErr {
+			return nil
+		}
+		return
+	}
 
 	function, err := functionWithOverrides(config.Path, functionOverrides{Namespace: config.Namespace, Image: config.Image})
 	if err != nil {
@@ -94,10 +96,16 @@ func runDeploy(cmd *cobra.Command, _ []string) (err error) {
 		//  AND a --registry was not provided, then we need to
 		// prompt for a registry from which we can derive an image name.
 		if config.Registry == "" {
-			fmt.Print("A registry for Function images is required. For example, 'docker.io/tigerteam'.\n\n")
-			config.Registry = prompt.ForString("Registry for Function images", "")
-			if config.Registry == "" {
-				return fmt.Errorf("unable to determine function image name")
+			fmt.Println("A registry for Function images is required. For example, 'docker.io/tigerteam'.")
+
+			err = survey.AskOne(
+				&survey.Input{Message: "Registry for Function images:"},
+				&config.Registry, survey.WithValidator(survey.Required))
+			if err != nil {
+				if err == terminal.InterruptErr {
+					return nil
+				}
+				return
 			}
 		}
 
@@ -117,6 +125,9 @@ func runDeploy(cmd *cobra.Command, _ []string) (err error) {
 
 	pusher, err := docker.NewPusher(docker.WithCredentialsProvider(credentialsProvider))
 	if err != nil {
+		if err == terminal.InterruptErr {
+			return nil
+		}
 		return err
 	}
 	pusher.Verbose = config.Verbose
@@ -176,72 +187,26 @@ func credentialsProvider(ctx context.Context, registry string) (docker.Credentia
 		return result, nil
 	}
 
-	fmt.Print("Username: ")
-	username, err := getUserName(ctx)
-	if err != nil {
-		return result, err
+	fmt.Println("Please provide credentials for image registry.")
+	var qs = []*survey.Question{
+		{
+			Name: "username",
+			Prompt: &survey.Input{
+				Message: "Username:",
+			},
+			Validate: survey.Required,
+		},
+		{
+			Name: "namespace",
+			Prompt: &survey.Password{
+				Message: "Password:",
+			},
+			Validate: survey.Required,
+		},
 	}
+	err = survey.Ask(qs, &result)
 
-	fmt.Print("Password: ")
-	bytePassword, err := getPassword(ctx)
-	if err != nil {
-		return result, err
-	}
-	password := string(bytePassword)
-
-	result.Username, result.Password = username, password
-
-	return result, nil
-}
-
-func getPassword(ctx context.Context) ([]byte, error) {
-	ch := make(chan struct {
-		p []byte
-		e error
-	})
-
-	go func() {
-		pass, err := term.ReadPassword(int(syscall.Stdin)) // nolint: unconvert
-		ch <- struct {
-			p []byte
-			e error
-		}{p: pass, e: err}
-	}()
-
-	select {
-	case res := <-ch:
-		return res.p, res.e
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	}
-}
-
-func getUserName(ctx context.Context) (string, error) {
-	ch := make(chan struct {
-		u string
-		e error
-	})
-	go func() {
-		reader := bufio.NewReader(os.Stdin)
-		username, err := reader.ReadString('\n')
-		if err != nil {
-			ch <- struct {
-				u string
-				e error
-			}{u: "", e: err}
-		}
-		ch <- struct {
-			u string
-			e error
-		}{u: strings.TrimRight(username, "\r\n"), e: nil}
-	}()
-
-	select {
-	case res := <-ch:
-		return res.u, res.e
-	case <-ctx.Done():
-		return "", ctx.Err()
-	}
+	return result, err
 }
 
 type deployConfig struct {
@@ -299,20 +264,56 @@ func newDeployConfig(cmd *cobra.Command) (deployConfig, error) {
 // Prompt the user with value of config members, allowing for interaractive changes.
 // Skipped if not in an interactive terminal (non-TTY), or if --yes (agree to
 // all prompts) was explicitly set.
-func (c deployConfig) Prompt() deployConfig {
+func (c deployConfig) Prompt() (deployConfig, error) {
 	if !interactiveTerminal() || !c.Confirm {
-		return c
+		return c, nil
 	}
+
+	var qs = []*survey.Question{
+		{
+			Name: "registry",
+			Prompt: &survey.Input{
+				Message: "Registry for Function images:",
+				Default: c.buildConfig.Registry,
+			},
+			Validate: survey.Required,
+		},
+		{
+			Name: "namespace",
+			Prompt: &survey.Input{
+				Message: "Namespace:",
+				Default: c.Namespace,
+			},
+		},
+		{
+			Name: "path",
+			Prompt: &survey.Input{
+				Message: "Project path:",
+				Default: c.Path,
+			},
+			Validate: survey.Required,
+		},
+	}
+	answers := struct {
+		Registry  string
+		Namespace string
+		Path      string
+	}{}
+	err := survey.Ask(qs, &answers)
+	if err != nil {
+		return deployConfig{}, err
+	}
+
 	dc := deployConfig{
 		buildConfig: buildConfig{
-			Registry: prompt.ForString("Registry for Function images", c.buildConfig.Registry),
+			Registry: answers.Registry,
 		},
-		Namespace: prompt.ForString("Namespace", c.Namespace),
-		Path:      prompt.ForString("Project path", c.Path),
+		Namespace: answers.Namespace,
+		Path:      answers.Path,
 		Verbose:   c.Verbose,
 	}
 
 	dc.Image = deriveImage(dc.Image, dc.Registry, dc.Path)
 
-	return dc
+	return dc, nil
 }

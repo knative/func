@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/AlecAivazis/survey/v2"
+	"github.com/AlecAivazis/survey/v2/terminal"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
 	bosonFunc "github.com/boson-project/func"
 	"github.com/boson-project/func/buildpacks"
-	"github.com/boson-project/func/prompt"
 	"github.com/boson-project/func/utils"
 )
 
@@ -52,14 +53,21 @@ kn func create --template events myfunc
 	// TODO: autocomplate or interactive prompt for runtime and template.
 }
 
-func runCreate(cmd *cobra.Command, args []string) error {
+func runCreate(cmd *cobra.Command, args []string) (err error) {
 	config := newCreateConfig(args)
 
-	if err := utils.ValidateFunctionName(config.Name); err != nil {
-		return err
+	err = utils.ValidateFunctionName(config.Name)
+	if err != nil {
+		return
 	}
 
-	config = config.Prompt()
+	config, err = config.Prompt()
+	if err != nil {
+		if err == terminal.InterruptErr {
+			return nil
+		}
+		return
+	}
 
 	function := bosonFunc.Function{
 		Name:     config.Name,
@@ -131,30 +139,62 @@ func newCreateConfig(args []string) createConfig {
 // Prompt the user with value of config members, allowing for interaractive changes.
 // Skipped if not in an interactive terminal (non-TTY), or if --confirm false (agree to
 // all prompts) was set (default).
-func (c createConfig) Prompt() createConfig {
+func (c createConfig) Prompt() (createConfig, error) {
 	if !interactiveTerminal() || !c.Confirm {
 		// Just print the basics if not confirming
 		fmt.Printf("Project path: %v\n", c.Path)
 		fmt.Printf("Function name: %v\n", c.Name)
 		fmt.Printf("Runtime: %v\n", c.Runtime)
 		fmt.Printf("Template: %v\n", c.Template)
-		return c
+		return c, nil
 	}
 
-	var derivedName, derivedPath string
-	for {
-		derivedName, derivedPath = deriveNameAndAbsolutePathFromPath(prompt.ForString("Project path", c.Path, prompt.WithRequired(true)))
-		err := utils.ValidateFunctionName(derivedName)
-		if err == nil {
-			break
-		}
-		fmt.Println("Error:", err)
+	var qs = []*survey.Question{
+		{
+			Name: "path",
+			Prompt: &survey.Input{
+				Message: "Project path:",
+				Default: c.Path,
+			},
+			Validate: func(val interface{}) error {
+				derivedName, _ := deriveNameAndAbsolutePathFromPath(val.(string))
+				return utils.ValidateFunctionName(derivedName)
+			},
+		},
+		{
+			Name: "runtime",
+			Prompt: &survey.Input{
+				Message: "Runtime:",
+				Default: c.Runtime,
+				// TODO add runtime suggestions: https://github.com/AlecAivazis/survey#suggestion-options
+			},
+			Validate: survey.Required,
+		},
+		{
+			Name: "template",
+			Prompt: &survey.Input{
+				Message: "Template:",
+				Default: c.Template,
+				// TODO add template suggestions: https://github.com/AlecAivazis/survey#suggestion-options
+			},
+		},
 	}
+	answers := struct {
+		Template string
+		Runtime  string
+		Path     string
+	}{}
+	err := survey.Ask(qs, &answers)
+	if err != nil {
+		return createConfig{}, err
+	}
+
+	derivedName, derivedPath := deriveNameAndAbsolutePathFromPath(answers.Path)
 
 	return createConfig{
 		Name:     derivedName,
 		Path:     derivedPath,
-		Runtime:  prompt.ForString("Runtime", c.Runtime),
-		Template: prompt.ForString("Template", c.Template),
-	}
+		Runtime:  answers.Runtime,
+		Template: answers.Template,
+	}, nil
 }

@@ -3,13 +3,14 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/AlecAivazis/survey/v2"
+	"github.com/AlecAivazis/survey/v2/terminal"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
 	bosonFunc "github.com/boson-project/func"
 	"github.com/boson-project/func/buildpacks"
 	"github.com/boson-project/func/progress"
-	"github.com/boson-project/func/prompt"
 )
 
 func init() {
@@ -58,7 +59,13 @@ kn func build --builder cnbs/sample-builder:bionic
 }
 
 func runBuild(cmd *cobra.Command, _ []string) (err error) {
-	config := newBuildConfig().Prompt()
+	config, err := newBuildConfig().Prompt()
+	if err != nil {
+		if err == terminal.InterruptErr {
+			return nil
+		}
+		return
+	}
 
 	function, err := functionWithOverrides(config.Path, functionOverrides{Builder: config.Builder, Image: config.Image})
 	if err != nil {
@@ -75,10 +82,16 @@ func runBuild(cmd *cobra.Command, _ []string) (err error) {
 		//  AND a --registry was not provided, then we need to
 		// prompt for a registry from which we can derive an image name.
 		if config.Registry == "" {
-			fmt.Print("A registry for function images is required (e.g. 'quay.io/boson').\n\n")
-			config.Registry = prompt.ForString("Registry for function images", "")
-			if config.Registry == "" {
-				return fmt.Errorf("unable to determine function image name")
+			fmt.Println("A registry for Function images is required. For example, 'docker.io/tigerteam'.")
+
+			err = survey.AskOne(
+				&survey.Input{Message: "Registry for Function images:"},
+				&config.Registry, survey.WithValidator(survey.Required))
+			if err != nil {
+				if err == terminal.InterruptErr {
+					return nil
+				}
+				return
 			}
 		}
 
@@ -154,16 +167,33 @@ func newBuildConfig() buildConfig {
 // Prompt the user with value of config members, allowing for interaractive changes.
 // Skipped if not in an interactive terminal (non-TTY), or if --confirm false (agree to
 // all prompts) was set (default).
-func (c buildConfig) Prompt() buildConfig {
+func (c buildConfig) Prompt() (buildConfig, error) {
 	imageName := deriveImage(c.Image, c.Registry, c.Path)
 	if !interactiveTerminal() || !c.Confirm {
-		return c
+		return c, nil
 	}
-	return buildConfig{
-		Path:    prompt.ForString("Path to project directory", c.Path),
-		Image:   prompt.ForString("Full image name (e.g. quay.io/boson/node-sample)", imageName, prompt.WithRequired(true)),
-		Verbose: c.Verbose,
-		// Registry not prompted for as it would be confusing when combined with explicit image.  Instead it is
-		// inferred by the derived default for Image, which uses Registry for derivation.
+
+	bc := buildConfig{Verbose: c.Verbose}
+
+	var qs = []*survey.Question{
+		{
+			Name: "path",
+			Prompt: &survey.Input{
+				Message: "Project path:",
+				Default: c.Path,
+			},
+			Validate: survey.Required,
+		},
+		{
+			Name: "image",
+			Prompt: &survey.Input{
+				Message: "Full image name (e.g. quay.io/boson/node-sample):",
+				Default: imageName,
+			},
+			Validate: survey.Required,
+		},
 	}
+	err := survey.Ask(qs, &bc)
+
+	return bc, err
 }
