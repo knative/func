@@ -80,12 +80,12 @@ func TestExtantAborts(t *testing.T) {
 // TestNonemptyDirectoryAborts ensures that a directory which contains any
 // visible files aborts.
 func TestNonemptyDirectoryAborts(t *testing.T) {
-	root := "testdata/example.com/testCreateNonemptyDirectoryAborts" // contains only a single visible file.
+	root := "testdata/example.com/testCreateNonemptyDirectoryAborts"
 	defer using(t, root)()
 
 	// An unexpected, non-hidden file.
-	_, err := os.Create(root + "/file.txt")
-	if err != nil {
+	visibleFile := filepath.Join(root, "file.txt")
+	if err := ioutil.WriteFile(visibleFile, []byte{}, 0644); err != nil {
 		t.Fatal(err)
 	}
 
