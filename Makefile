@@ -86,7 +86,7 @@ test-rust:
 	cd templates/rust/http && cargo test && cargo clean
 
 test-integration:
-	go test -tags integration ./...
+	go test -tags integration ./... -v
 
 bin/golangci-lint:
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./bin v1.40.1
