@@ -30,6 +30,8 @@
 #   ./run_e2e_test.sh python
 #
 
+sleep 300;
+
 set -o errexit
 set -o nounset
 set -o pipefail
