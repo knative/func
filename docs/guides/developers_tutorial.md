@@ -10,7 +10,7 @@ installed.
 
 * [oc][oc] or [kubectl][kubectl] CLI
 * [kn][kn] CLI
-* [Docker][docker] 
+* [Docker][docker] or [Podman](podman.md)
 
 [docker]: https://docs.docker.com/install/
 [oc]: https://docs.openshift.com/container-platform/4.6/cli_reference/openshift_cli/getting-started-cli.html#cli-installing-cli_cli-developer-commands
