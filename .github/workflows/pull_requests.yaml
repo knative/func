@@ -78,7 +78,7 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v2
       - name: Provision Cluster
-        uses: lkingland/kind-action@v1 # use ./hack/allocate.sh locally
+        uses: container-tools/kind-action@v1 # use ./hack/allocate.sh locally
         with:
           version: v0.10.0
           kubectl_version: v1.20.0
