@@ -55,7 +55,7 @@ kn func create --runtime quarkus myfunc
 # Create a function project that uses a CloudEvent based function signature
 kn func create --template events myfunc
 	`,
-		SuggestFor: []string{"inti", "new"},
+		SuggestFor: []string{"vreate", "creaet", "craete", "new"},
 		PreRunE:    bindEnv("runtime", "template", "repositories", "confirm"),
 	}
 
