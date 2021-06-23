@@ -15,26 +15,34 @@ import (
 )
 
 func init() {
-	root.AddCommand(createCmd)
-	createCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
-	createCmd.Flags().StringP("runtime", "l", fn.DefaultRuntime, "Function runtime language/framework. Available runtimes: "+buildpacks.Runtimes()+" (Env: $FUNC_RUNTIME)")
-	createCmd.Flags().StringP("repositories", "r", filepath.Join(configPath(), "repositories"), "Path to extended template repositories (Env: $FUNC_REPOSITORIES)")
-	createCmd.Flags().StringP("template", "t", fn.DefaultTemplate, "Function template. Available templates: 'http' and 'events' (Env: $FUNC_TEMPLATE)")
-
-	if err := createCmd.RegisterFlagCompletionFunc("runtime", CompleteRuntimeList); err != nil {
-		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
-	}
+	// Add to the root a new "Create" command which obtains an appropriate
+	// instance of fn.Client from the given client creator function.
+	root.AddCommand(NewCreateCmd(newCreateClient))
 }
 
-var createCmd = &cobra.Command{
-	Use:   "create [PATH]",
-	Short: "Create a function project",
-	Long: `Create a function project
+// newCreateClient returns an instance of fn.Client for the "Create" command.
+// The createClientFn is a client factory which creates a new Client for use by
+// the create command during normal execution (see tests for alternative client
+// factories which return clients with various mocks).
+func newCreateClient(repositories string, verbose bool) *fn.Client {
+	return fn.New(fn.WithRepositories(repositories), fn.WithVerbose(verbose))
+}
+
+// createClientFn is a factory function which returns a Client suitable for
+// use with the Create command.
+type createClientFn func(repositories string, verbose bool) *fn.Client
+
+// NewCreateCmd creates a create command using the given client creator.
+func NewCreateCmd(clientFn createClientFn) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "create [PATH]",
+		Short: "Create a function project",
+		Long: `Create a function project
 
 Creates a new function project in PATH, or in the current directory if no PATH is given. 
 The name of the project is determined by the directory name the project is created in.
 `,
-	Example: `
+		Example: `
 # Create a Node.js function project in the current directory, choosing the
 # directory name as the project's name.
 kn func create
@@ -46,23 +54,42 @@ kn func create --runtime quarkus myfunc
 
 # Create a function project that uses a CloudEvent based function signature
 kn func create --template events myfunc
-`,
-	SuggestFor: []string{"inti", "new"},
-	PreRunE:    bindEnv("runtime", "template", "repositories", "confirm"),
-	RunE:       runCreate,
-	// TODO: autocomplate or interactive prompt for runtime and template.
+	`,
+		SuggestFor: []string{"inti", "new"},
+		PreRunE:    bindEnv("runtime", "template", "repositories", "confirm"),
+	}
+
+	cmd.Flags().BoolP("confirm", "c", false,
+		"Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
+	cmd.Flags().StringP("runtime", "l", fn.DefaultRuntime,
+		"Function runtime language/framework. Available runtimes: "+buildpacks.Runtimes()+" (Env: $FUNC_RUNTIME)")
+	cmd.Flags().StringP("repositories", "r", filepath.Join(configPath(), "repositories"),
+		"Path to extended template repositories (Env: $FUNC_REPOSITORIES)")
+	cmd.Flags().StringP("template", "t", fn.DefaultTemplate,
+		"Function template. Available templates: 'http' and 'events' (Env: $FUNC_TEMPLATE)")
+
+	// Register tab-completeion function integration
+	if err := cmd.RegisterFlagCompletionFunc("runtime", CompleteRuntimeList); err != nil {
+		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
+	}
+
+	// The execution delegate is invoked with the command, arguments, and the
+	// client creator.
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		return runCreate(cmd, args, clientFn)
+	}
+
+	return cmd
 }
 
-func runCreate(cmd *cobra.Command, args []string) (err error) {
+func runCreate(cmd *cobra.Command, args []string, clientFn createClientFn) (err error) {
 	config := newCreateConfig(args)
 
-	err = utils.ValidateFunctionName(config.Name)
-	if err != nil {
+	if err = utils.ValidateFunctionName(config.Name); err != nil {
 		return
 	}
 
-	config, err = config.Prompt()
-	if err != nil {
+	if config, err = config.Prompt(); err != nil {
 		if err == terminal.InterruptErr {
 			return nil
 		}
@@ -76,9 +103,7 @@ func runCreate(cmd *cobra.Command, args []string) (err error) {
 		Template: config.Template,
 	}
 
-	client := fn.New(
-		fn.WithRepositories(config.Repositories),
-		fn.WithVerbose(config.Verbose))
+	client := clientFn(config.Repositories, config.Verbose)
 
 	return client.Create(function)
 }
