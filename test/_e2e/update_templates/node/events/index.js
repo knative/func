@@ -23,22 +23,22 @@ let lastEmitEventData = ""
  *
  *
  * @param context
- * @param eventData
+ * @param cloudevent
  * @returns {{message: string}|*}
  */
-function handle(context, eventData) {
-  if (!context.cloudevent) {
+function handle(context, cloudevent) {
+  if (!cloudevent) {
     return {
       message: 'No cloud event received'
     };
   }
 
-  if (context.cloudevent.source == "func:emit") {
-    context.log.info(`CloudEvent received : ${context.cloudevent.toString()}`);
-    lastEmitEventData = eventData
+  if (cloudevent.source == "func:emit") {
+    context.log.info(`CloudEvent received : ${cloudevent.toString()}`);
+    lastEmitEventData = cloudevent.data
   }
 
-  if (context.cloudevent.source == "e2e:check") {
+  if (cloudevent.source == "e2e:check") {
     return HTTP.binary(new CloudEvent({
       source: 'test:handle',
       type: 'test:emit',

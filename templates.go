@@ -7,7 +7,6 @@ package function
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -114,7 +113,6 @@ func writeCustom(templatesPath, runtime, templateFullName, dest string) error {
 }
 
 func writeEmbedded(runtime, template, dest string) (err error) {
-	fmt.Println("copyEmbedded")
 	// Copy files to the destination
 	// Example embedded path:
 	//   /templates/go/http

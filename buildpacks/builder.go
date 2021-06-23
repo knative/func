@@ -5,6 +5,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"net"
+	"net/http"
+	"os"
+	"runtime"
+	"strings"
+	"time"
+
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/events"
@@ -15,12 +23,6 @@ import (
 	"github.com/docker/docker/api/types/swarm"
 	"github.com/docker/docker/api/types/volume"
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
-	"io"
-	"net"
-	"net/http"
-	"os"
-	"runtime"
-	"time"
 
 	"github.com/buildpacks/pack"
 	"github.com/buildpacks/pack/logging"
@@ -79,10 +81,11 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	}
 
 	packOpts := pack.BuildOptions{
-		AppPath:    f.Root,
-		Image:      f.Image,
-		Builder:    packBuilder,
-		DockerHost: os.Getenv("DOCKER_HOST"),
+		AppPath:      f.Root,
+		Image:        f.Image,
+		Builder:      packBuilder,
+		TrustBuilder: strings.HasPrefix(packBuilder, "quay.io/boson"),
+		DockerHost:   os.Getenv("DOCKER_HOST"),
 		ContainerConfig: struct {
 			Network string
 			Volumes []string
