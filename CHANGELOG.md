@@ -1,6 +1,39 @@
 # Change Log
 
 <a name="unreleased"></a>
+## [0.16.0](https://www.github.com/boson-project/func/compare/v0.15.1...v0.16.0) (2021-06-23)
+
+
+### ⚠ BREAKING CHANGES
+
+* change --trigger and --templates flags
+* function signatures implied from trigger
+
+### Features
+
+* `func config envs` - interactive prompt ([#396](https://www.github.com/boson-project/func/issues/396)) ([83a9ca6](https://www.github.com/boson-project/func/commit/83a9ca684f1b74458b4804fe0e0efe5e95507077))
+* `func config volumes` - interactive prompt ([#391](https://www.github.com/boson-project/func/issues/391)) ([4ba95b6](https://www.github.com/boson-project/func/commit/4ba95b69a8926ef56773166951ab8fa577111d37))
+* add a URL output type for `func describe` ([#389](https://www.github.com/boson-project/func/issues/389)) ([947fcaa](https://www.github.com/boson-project/func/commit/947fcaa968a90efed4b6037cafa19e8fadda1fc7)), closes [#387](https://www.github.com/boson-project/func/issues/387)
+* allow setting autoscaling options to deployed KService ([#374](https://www.github.com/boson-project/func/issues/374)) ([a937c49](https://www.github.com/boson-project/func/commit/a937c490b7e1ad31c3596f91c310c3f4560329fd))
+* allow setting resource requests/limits ([#386](https://www.github.com/boson-project/func/issues/386)) ([12c5cda](https://www.github.com/boson-project/func/commit/12c5cda8e2157a775e9fc0bb14fc051c5119f86a))
+* reference ConfigMaps in `envs` and `volumes` sections in config ([#371](https://www.github.com/boson-project/func/issues/371)) ([1dbb5ae](https://www.github.com/boson-project/func/commit/1dbb5aecbf73cd77a648eaff5e52c1c3ce282a67))
+* reference Secrets in `envs` and `volumes` sections in config ([#369](https://www.github.com/boson-project/func/issues/369)) ([9d7fd34](https://www.github.com/boson-project/func/commit/9d7fd346495b119e895747d747c1c0a5bacb988e))
+* Rust templates ([#376](https://www.github.com/boson-project/func/issues/376)) ([4711638](https://www.github.com/boson-project/func/commit/4711638495692e5b8fc1ccca34000c44afa3832c))
+* typed errors for templates use cases ([40f1027](https://www.github.com/boson-project/func/commit/40f10277a4efc3239bbec7a35586c3eabf3337ee))
+
+
+### Bug Fixes
+
+* disable selinux labeling ([6e8517c](https://www.github.com/boson-project/func/commit/6e8517c023fa815c616606640657344785dbe4ff))
+* password read on windows ([84f896b](https://www.github.com/boson-project/func/commit/84f896b3298fffe9c8aeec2706c83b6a0fb48141))
+* use credsStore ([88ea081](https://www.github.com/boson-project/func/commit/88ea081cc0addb644ca4a575735a6dd3393197a2))
+
+
+### Code Refactoring
+
+* change --trigger and --templates flags ([ce29ff6](https://www.github.com/boson-project/func/commit/ce29ff6285d68bc008fbf0cfbd956982044104bc))
+* function signatures implied from trigger ([b30e883](https://www.github.com/boson-project/func/commit/b30e883e671477ebfa217df03e6825778e84a3df))
+
 ### [0.15.1](https://www.github.com/boson-project/func/compare/v0.15.0...v0.15.1) (2021-05-27)
 
 
