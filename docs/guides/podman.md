@@ -12,5 +12,5 @@ Then set the environment variable `DOCKER_HOST` to the socket so `func` knows wh
 ```
 ❯ export DOCKER_HOST="unix:///run/user/$(id -u)/podman/podman.sock"
 ❯ func build -v
-\```
+```
 Now you may use `func` as usual.
