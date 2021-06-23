@@ -133,6 +133,8 @@ func TestRemove(t *testing.T) {
 	}
 	waitFor(t, client, "remove")
 
+	time.Sleep(1 * time.Minute)
+
 	if err := client.Remove(context.Background(), boson.Function{Name: "remove"}); err != nil {
 		t.Fatal(err)
 	}
@@ -153,8 +155,6 @@ func TestRemove(t *testing.T) {
 // newClient creates an instance of the func client whose concrete impls
 // match those created by the kn func plugin CLI.
 func newClient(verbose bool) *boson.Client {
-	// TODO: Forcing verbose to false in order to pass integration tests
-	verbose = false
 	builder := buildpacks.NewBuilder()
 	builder.Verbose = verbose
 

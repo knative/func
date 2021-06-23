@@ -3,7 +3,6 @@ package buildpacks
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -32,19 +31,10 @@ import (
 	fn "github.com/boson-project/func"
 )
 
-//Builder holds the configuration that will be passed to
-//Buildpack builder
-type Builder struct {
-	Verbose bool
-}
+const DefaultDockerClientVersion = "1.38"
 
-//NewBuilder builds the new Builder configuration
-func NewBuilder() *Builder {
-	return &Builder{}
-}
-
-//RuntimeToBuildpack holds the mapping between the Runtime and its corresponding
-//Buildpack builder to use
+// RuntimeToBuildpack holds the mapping between the Runtime and its
+// corresponding Buildpack builder to use
 var RuntimeToBuildpack = map[string]string{
 	"quarkus":    "quay.io/boson/faas-quarkus-builder",
 	"node":       "quay.io/boson/faas-nodejs-builder",
@@ -55,78 +45,113 @@ var RuntimeToBuildpack = map[string]string{
 	"rust":       "quay.io/boson/faas-rust-builder",
 }
 
+//Builder holds the configuration that will be passed to
+//Buildpack builder
+type Builder struct {
+	DockerClientVersion string
+	Verbose             bool
+}
+
+//NewBuilder builds the new Builder configuration
+func NewBuilder() *Builder {
+	return &Builder{
+		DockerClientVersion: DefaultDockerClientVersion,
+	}
+}
+
 // Build the Function at path.
-func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
+func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
+	logBuffer := &bytes.Buffer{}
 
-	// Use the builder found in the Function configuration file
-	// If one isn't found, use the defaults
-	var packBuilder string
-	if f.Builder != "" {
-		packBuilder = f.Builder
-		pb, ok := f.BuilderMap[packBuilder]
-		if ok {
-			packBuilder = pb
-		}
-	} else {
-		packBuilder = RuntimeToBuildpack[f.Runtime]
-		if packBuilder == "" {
-			return errors.New(fmt.Sprint("unsupported runtime: ", f.Runtime))
-		}
-	}
-
-	// Build options for the pack client.
-	var network string
-	if runtime.GOOS == "linux" {
-		network = "host"
-	}
-
-	packOpts := pack.BuildOptions{
-		AppPath:      f.Root,
-		Image:        f.Image,
-		Builder:      packBuilder,
-		TrustBuilder: strings.HasPrefix(packBuilder, "quay.io/boson"),
-		DockerHost:   os.Getenv("DOCKER_HOST"),
-		ContainerConfig: struct {
-			Network string
-			Volumes []string
-		}{Network: network, Volumes: nil},
-	}
-
-	// log output is either STDOUt or kept in a buffer to be printed on error.
-	var logWriter io.Writer
-	if builder.Verbose {
-		logWriter = os.Stdout
-	} else {
-		logWriter = &bytes.Buffer{}
-	}
-
-	// Client with a logger which is enabled if in Verbose mode.
-	dockerClient, err := dockerClient.NewClientWithOpts(
-		dockerClient.FromEnv,
-		dockerClient.WithVersion("1.38"),
-	)
-	if err != nil {
-		return err
-	}
-
-	dockerClientWrapper := &clientWrapper{dockerClient}
-	packClient, err := pack.NewClient(pack.WithLogger(logging.New(logWriter)), pack.WithDockerClient(dockerClientWrapper))
+	// Docker Client
+	docker, err := newDockerClient(b.DockerClientVersion)
 	if err != nil {
 		return
 	}
 
-	// Build based using the given builder.
-	if err = packClient.Build(ctx, packOpts); err != nil {
+	// Pack Client
+	packClient, err := pack.NewClient(
+		pack.WithLogger(logging.New(logBuffer)),
+		pack.WithDockerClient(docker))
+	if err != nil {
+		return
+	}
+
+	// Build Options
+	buildOptions, err := newBuildOptions(f)
+	if err != nil {
+		return
+	}
+
+	// Build
+	if err = packClient.Build(ctx, buildOptions); err != nil {
 		if ctx.Err() != nil {
-			// received SIGINT
-			return
-		} else if !builder.Verbose {
-			// If the builder was not showing logs, embed the full logs in the error.
-			err = fmt.Errorf("%v\noutput: %s\n", err, logWriter.(*bytes.Buffer).String())
+			return // received SIGINT
+		}
+		if !b.Verbose { // embed log in error if !verbose
+			err = fmt.Errorf("%v\noutput: %s\n", err, logBuffer.String())
 		}
 	}
 
+	// Log buffered output only if in verbose mode
+	if b.Verbose {
+		fmt.Fprintf(os.Stdout, logBuffer.String())
+	}
+
 	return
+}
+
+func newDockerClient(version string) (dockerClient.CommonAPIClient, error) {
+	c, err := dockerClient.NewClientWithOpts(
+		dockerClient.FromEnv,
+		dockerClient.WithVersion(version))
+	if err != nil {
+		return c, err
+	}
+	// TODO: Check if we can use struct embedding or some other method
+	// to smooth this out a bit:
+	return &clientWrapper{c}, nil
+
+}
+
+// buildOptions for the given Function
+func newBuildOptions(f fn.Function) (o pack.BuildOptions, err error) {
+	builder, err := builderFor(f)
+	if err != nil {
+		return
+	}
+
+	o = pack.BuildOptions{
+		AppPath:      f.Root,
+		Image:        f.Image,
+		Builder:      builder,
+		TrustBuilder: strings.HasPrefix(builder, "quay.io/boson"),
+		DockerHost:   os.Getenv("DOCKER_HOST"),
+		ContainerConfig: struct {
+			Network string
+			Volumes []string
+		}{Volumes: nil},
+	}
+
+	if runtime.GOOS == "linux" {
+		o.ContainerConfig.Network = "host"
+	}
+
+	return o, nil
+}
+
+// builder for the given function
+// First choice is that which is explicitly defined.
+// The default is chosen via the runtime.
+func builderFor(f fn.Function) (string, error) {
+	if b, ok := f.BuilderMap[f.Builder]; ok {
+		return b, nil
+	}
+
+	if b, ok := RuntimeToBuildpack[f.Runtime]; ok {
+		return b, nil
+	}
+	return "", fmt.Errorf("no builder for runtime: %v", f.Runtime)
 }
 
 type clientWrapper struct {
