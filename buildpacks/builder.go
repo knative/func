@@ -95,7 +95,9 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	// log output is either STDOUt or kept in a buffer to be printed on error.
 	var logWriter io.Writer
 	if builder.Verbose {
-		logWriter = os.Stdout
+		// pass stdout as non-closeable writer
+		// otherwise pack client would close it which is bad
+		logWriter = stdoutWrapper{os.Stdout}
 	} else {
 		logWriter = &bytes.Buffer{}
 	}
@@ -127,6 +129,15 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	}
 
 	return
+}
+
+// hack this makes stdout non-closeable
+type stdoutWrapper struct {
+	impl io.Writer
+}
+
+func (s stdoutWrapper) Write(p []byte) (n int, err error) {
+	return s.impl.Write(p)
 }
 
 type clientWrapper struct {
