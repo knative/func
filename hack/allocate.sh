@@ -22,9 +22,9 @@ set -o pipefail
 
 main() {
 
-  local serving_version=v0.22.0
-  local eventing_version=v0.22.0
-  local kourier_version=v0.22.0
+  local serving_version=v0.23.0
+  local eventing_version=v0.23.0
+  local kourier_version=v0.23.0
 
   local em=$(tput bold)$(tput setaf 2)
   local me=$(tput sgr0)
