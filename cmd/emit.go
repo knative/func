@@ -1,7 +1,8 @@
 package cmd
 
 import (
-	"fmt"
+	"context"
+	"errors"
 	"io/ioutil"
 
 	fn "github.com/boson-project/func"
@@ -13,27 +14,41 @@ import (
 )
 
 func init() {
-	e := cloudevents.NewEmitter()
-	root.AddCommand(emitCmd)
-	// TODO: do these env vars make sense?
-	emitCmd.Flags().StringP("sink", "k", "", "Send the CloudEvent to the function running at [sink]. The special value \"local\" can be used to send the event to a function running on the local host. When provided, the --path flag is ignored  (Env: $FUNC_SINK)")
-	emitCmd.Flags().StringP("source", "s", e.Source, "CloudEvent source (Env: $FUNC_SOURCE)")
-	emitCmd.Flags().StringP("type", "t", e.Type, "CloudEvent type  (Env: $FUNC_TYPE)")
-	emitCmd.Flags().StringP("id", "i", uuid.NewString(), "CloudEvent ID (Env: $FUNC_ID)")
-	emitCmd.Flags().StringP("data", "d", "", "Any arbitrary string to be sent as the CloudEvent data. Ignored if --file is provided  (Env: $FUNC_DATA)")
-	emitCmd.Flags().StringP("file", "f", "", "Path to a local file containing CloudEvent data to be sent  (Env: $FUNC_FILE)")
-	emitCmd.Flags().StringP("content-type", "c", "application/json", "The MIME Content-Type for the CloudEvent data  (Env: $FUNC_CONTENT_TYPE)")
-	emitCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory. Ignored when --sink is provided (Env: $FUNC_PATH)")
+	root.AddCommand(NewEmitCmd(newEmitClient))
 }
 
-var emitCmd = &cobra.Command{
-	Use:   "emit",
-	Short: "Emit a CloudEvent to a function endpoint",
-	Long: `Emit event
+// create a fn.Client with an instance of a
+func newEmitClient(cfg emitConfig) (*fn.Client, error) {
+	e := cloudevents.NewEmitter()
+	e.Id = cfg.Id
+	e.Source = cfg.Source
+	e.Type = cfg.Type
+	e.ContentType = cfg.ContentType
+	e.Data = cfg.Data
+	if cfg.File != "" {
+		// See config.Validate for --Data and --file exclusivity enforcement
+		b, err := ioutil.ReadFile(cfg.File)
+		if err != nil {
+			return nil, err
+		}
+		e.Data = string(b)
+	}
+
+	return fn.New(fn.WithEmitter(e)), nil
+}
+
+type emitClientFn func(emitConfig) (*fn.Client, error)
+
+func NewEmitCmd(clientFn emitClientFn) *cobra.Command {
+
+	cmd := &cobra.Command{
+		Use:   "emit",
+		Short: "Emit a CloudEvent to a function endpoint",
+		Long: `Emit event
 
 Emits a CloudEvent, sending it to the deployed function.
 `,
-	Example: `
+		Example: `
 # Send a CloudEvent to the deployed function with no data and default values
 # for source, type and ID
 kn func emit
@@ -54,64 +69,100 @@ kn func emit --path /path/to/fn -i fn.test
 # Send a CloudEvent to an arbitrary endpoint
 kn func emit --sink "http://my.event.broker.com"
 `,
-	SuggestFor: []string{"meit", "emti", "send"},
-	PreRunE:    bindEnv("source", "type", "id", "data", "file", "path", "sink", "content-type"),
-	RunE:       runEmit,
+		SuggestFor: []string{"meit", "emti", "send"},
+		PreRunE:    bindEnv("source", "type", "id", "data", "file", "path", "sink", "content-type"),
+	}
+
+	cmd.Flags().StringP("sink", "k", "", "Send the CloudEvent to the function running at [sink]. The special value \"local\" can be used to send the event to a function running on the local host. When provided, the --path flag is ignored  (Env: $FUNC_SINK)")
+	cmd.Flags().StringP("source", "s", cloudevents.DefaultSource, "CloudEvent source (Env: $FUNC_SOURCE)")
+	cmd.Flags().StringP("type", "t", cloudevents.DefaultType, "CloudEvent type  (Env: $FUNC_TYPE)")
+	cmd.Flags().StringP("id", "i", uuid.NewString(), "CloudEvent ID (Env: $FUNC_ID)")
+	cmd.Flags().StringP("data", "d", "", "Any arbitrary string to be sent as the CloudEvent data. Ignored if --file is provided  (Env: $FUNC_DATA)")
+	cmd.Flags().StringP("file", "f", "", "Path to a local file containing CloudEvent data to be sent  (Env: $FUNC_FILE)")
+	cmd.Flags().StringP("content-type", "c", "application/json", "The MIME Content-Type for the CloudEvent data  (Env: $FUNC_CONTENT_TYPE)")
+	cmd.Flags().StringP("path", "p", cwd(), "Path to the project directory. Ignored when --sink is provided (Env: $FUNC_PATH)")
+
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		return runEmit(cmd, args, clientFn)
+	}
+
+	return cmd
+
 }
 
-func runEmit(cmd *cobra.Command, args []string) (err error) {
+func runEmit(cmd *cobra.Command, _ []string, clientFn emitClientFn) (err error) {
 	config := newEmitConfig()
-	var endpoint string
-	if config.Sink != "" {
-		if config.Sink == "local" {
-			endpoint = "http://localhost:8080"
-		} else {
-			endpoint = config.Sink
-		}
-	} else {
-		var f fn.Function
-		f, err = fn.NewFunction(config.Path)
-		if err != nil {
-			return
-		}
-		// What happens if the function hasn't been deployed but they don't run with --local=true
-		// Maybe we should be thinking about saving the endpoint URL in func.yaml after each deploy
-		var d *knative.Describer
-		d, err = knative.NewDescriber("")
-		if err != nil {
-			return
-		}
-		var desc fn.Description
-		desc, err = d.Describe(cmd.Context(), f.Name)
-		if err != nil {
-			return
-		}
-		// Use the first available route
-		endpoint = desc.Routes[0]
+
+	// Validate things like invalid config combinations.
+	if err := config.Validate(); err != nil {
+		return err
 	}
 
-	emitter := cloudevents.NewEmitter()
-	emitter.Source = config.Source
-	emitter.Type = config.Type
-	emitter.Id = config.Id
-	emitter.ContentType = config.ContentType
-	emitter.Data = config.Data
-	if config.File != "" {
-		var buf []byte
-		if emitter.Data != "" && config.Verbose {
-			return fmt.Errorf("Only one of --data and --file may be specified \n")
-		}
-		buf, err = ioutil.ReadFile(config.File)
-		if err != nil {
-			return
-		}
-		emitter.Data = string(buf)
+	// Determine the final endpoint, taking into account the special value "local",
+	// and sampling the function's current route if not explicitly provided
+	endpoint, err := endpoint(cmd.Context(), config)
+	if err != nil {
+		return err
 	}
 
-	client := fn.New(
-		fn.WithEmitter(emitter),
-	)
+	// Instantiate a client based on the final value of config
+	client, err := clientFn(config)
+	if err != nil {
+		return err
+	}
+
+	// Emit the event to the endpoint
 	return client.Emit(cmd.Context(), endpoint)
+}
+
+// endpoint returns the final effective endpoint.
+// By default, the contextually active Function is queried for it's current
+// address (route).
+// If "local" is specified in cfg.Sink, localhost is used.
+// Otherwise the value of Sink is used verbatim if defined.
+func endpoint(ctx context.Context, cfg emitConfig) (url string, err error) {
+	var (
+		f    fn.Function
+		d    fn.Describer
+		desc fn.Description
+	)
+
+	// If the special value "local" was requested,
+	// use localhost.
+	if cfg.Sink == "local" {
+		return "http://localhost:8080", nil
+	}
+
+	// If a sink was expressly provided, use that verbatim
+	if cfg.Sink != "" {
+		return cfg.Sink, nil
+	}
+
+	// If no sink was specified, use the route to the currently
+	// contectually active function
+	if f, err = fn.NewFunction(cfg.Path); err != nil {
+		return
+	}
+
+	// TODO: Decide what happens if the function hasn't been deployed but they
+	// don't run with --local=true.  Perhaps an error in .Validate()?
+	if d, err = knative.NewDescriber(""); err != nil {
+		return
+	}
+
+	// Get the current state of the function.
+	if desc, err = d.Describe(ctx, f.Name); err != nil {
+		return
+	}
+
+	// Probably wise to be defensive here:
+	if len(desc.Routes) == 0 {
+		err = errors.New("function has no active routes")
+		return
+	}
+
+	// The first route should be the destination.
+	return desc.Routes[0], nil
 }
 
 type emitConfig struct {
@@ -138,4 +189,12 @@ func newEmitConfig() emitConfig {
 		Sink:        viper.GetString("sink"),
 		Verbose:     viper.GetBool("verbose"),
 	}
+}
+
+func (c emitConfig) Validate() error {
+	if c.Data != "" && c.File != "" {
+		return errors.New("Only one of --data or --file may be specified")
+	}
+	// TODO: should we verify that sink is a url or "local"?
+	return nil
 }

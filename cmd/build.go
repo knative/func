@@ -14,23 +14,32 @@ import (
 )
 
 func init() {
-	root.AddCommand(buildCmd)
-	buildCmd.Flags().StringP("builder", "b", "", "Buildpack builder, either an as a an image name or a mapping name.\nSpecified value is stored in func.yaml for subsequent builds.")
-	buildCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
-	buildCmd.Flags().StringP("image", "i", "", "Full image name in the orm [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE")
-	buildCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
-	buildCmd.Flags().StringP("registry", "r", "", "Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined based on the local directory name. If not provided the registry will be taken from func.yaml (Env: $FUNC_REGISTRY)")
-
-	err := buildCmd.RegisterFlagCompletionFunc("builder", CompleteBuilderList)
-	if err != nil {
-		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
-	}
+	// Add to the root a new "Build" command which obtains an appropriate
+	// instance of fn.Client from the given client creator function.
+	root.AddCommand(NewBuildCmd(newBuildClient))
 }
 
-var buildCmd = &cobra.Command{
-	Use:   "build",
-	Short: "Build a function project as a container image",
-	Long: `Build a function project as a container image
+func newBuildClient(cfg buildConfig) (*fn.Client, error) {
+	builder := buildpacks.NewBuilder()
+	listener := progress.New()
+
+	builder.Verbose = cfg.Verbose
+	listener.Verbose = cfg.Verbose
+
+	return fn.New(
+		fn.WithBuilder(builder),
+		fn.WithProgressListener(listener),
+		fn.WithRegistry(cfg.Registry), // for image name when --image not provided
+		fn.WithVerbose(cfg.Verbose)), nil
+}
+
+type buildClientFn func(buildConfig) (*fn.Client, error)
+
+func NewBuildCmd(clientFn buildClientFn) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "build",
+		Short: "Build a function project as a container image",
+		Long: `Build a function project as a container image
 
 This command builds the function project in the current directory or in the directory
 specified by --path. The result will be a container image that is pushed to a registry.
@@ -38,7 +47,7 @@ The func.yaml file is read to determine the image name and registry.
 If the project has not already been built, either --registry or --image must be provided 
 and the image name is stored in the configuration file.
 `,
-	Example: `
+		Example: `
 # Build from the local directory, using the given registry as target.
 # The full image name will be determined automatically based on the
 # project directory name
@@ -53,12 +62,28 @@ kn func build
 # Build with a custom buildpack builder
 kn func build --builder cnbs/sample-builder:bionic
 `,
-	SuggestFor: []string{"biuld", "buidl", "built"},
-	PreRunE:    bindEnv("image", "path", "builder", "registry", "confirm"),
-	RunE:       runBuild,
+		SuggestFor: []string{"biuld", "buidl", "built"},
+		PreRunE:    bindEnv("image", "path", "builder", "registry", "confirm"),
+	}
+
+	cmd.Flags().StringP("builder", "b", "", "Buildpack builder, either an as a an image name or a mapping name.\nSpecified value is stored in func.yaml for subsequent builds.")
+	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
+	cmd.Flags().StringP("image", "i", "", "Full image name in the orm [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE")
+	cmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
+	cmd.Flags().StringP("registry", "r", "", "Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined based on the local directory name. If not provided the registry will be taken from func.yaml (Env: $FUNC_REGISTRY)")
+
+	if err := cmd.RegisterFlagCompletionFunc("builder", CompleteBuilderList); err != nil {
+		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
+	}
+
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		return runBuild(cmd, args, clientFn)
+	}
+
+	return cmd
 }
 
-func runBuild(cmd *cobra.Command, _ []string) (err error) {
+func runBuild(cmd *cobra.Command, _ []string, clientFn buildClientFn) (err error) {
 	config, err := newBuildConfig().Prompt()
 	if err != nil {
 		if err == terminal.InterruptErr {
@@ -106,26 +131,12 @@ func runBuild(cmd *cobra.Command, _ []string) (err error) {
 		return
 	}
 
-	builder := buildpacks.NewBuilder()
-	builder.Verbose = config.Verbose
+	client, err := clientFn(config)
+	if err != nil {
+		return err
+	}
 
-	listener := progress.New()
-	listener.Verbose = config.Verbose
-	defer listener.Done()
-
-	context := cmd.Context()
-	go func() {
-		<-context.Done()
-		listener.Done()
-	}()
-
-	client := fn.New(
-		fn.WithVerbose(config.Verbose),
-		fn.WithRegistry(config.Registry), // for deriving image name when --image not provided explicitly.
-		fn.WithBuilder(builder),
-		fn.WithProgressListener(listener))
-
-	return client.Build(context, config.Path)
+	return client.Build(cmd.Context(), config.Path)
 }
 
 type buildConfig struct {

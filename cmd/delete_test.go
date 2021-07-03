@@ -1,48 +1,57 @@
 package cmd
 
 import (
-	"context"
 	"io/ioutil"
-	"os"
-	"path/filepath"
 	"testing"
 
 	fn "github.com/boson-project/func"
+	"github.com/boson-project/func/mock"
 )
 
-type testRemover struct {
-	invokedWith *string
-}
+// TestDeleteByName ensures that running delete specifying the name of the Funciton
+// explicitly as an argument invokes the remover appropriately.
+func TestDeleteByName(t *testing.T) {
+	var (
+		testname = "testname"         // explict name with which to create the Funciton
+		args     = []string{testname} // passed as the lone argument
+		remover  = mock.NewRemover()  // with a mock remover
+	)
 
-func (t *testRemover) Remove(ctx context.Context, name string) error {
-	t.invokedWith = &name
-	return nil
-}
+	// Remover fails the test if it receives the incorrect name
+	// an incorrect name.
+	remover.RemoveFn = func(n string) error {
+		if n != testname {
+			t.Fatalf("expected delete name %v, got %v", testname, n)
+		}
+		return nil
+	}
 
-// test delete outside project just using function name
-func TestDeleteCmdWithoutProject(t *testing.T) {
-	tr := &testRemover{}
-	cmd := NewDeleteCmd(func(ns string, verbose bool) (fn.Remover, error) {
-		return tr, nil
+	// Create a command with a client constructor fn that instantiates a client
+	// with a the mocked remover.
+	cmd := NewDeleteCmd(func(_ deleteConfig) (*fn.Client, error) {
+		return fn.New(fn.WithRemover(remover)), nil
 	})
 
-	cmd.SetArgs([]string{"foo"})
+	// Execute the command
+	cmd.SetArgs(args)
 	err := cmd.Execute()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if tr.invokedWith == nil {
-		t.Fatal("fn.Remover has not been invoked")
-	}
-
-	if *tr.invokedWith != "foo" {
-		t.Fatalf("expected fn.Remover to be called with 'foo', but was called with '%s'", *tr.invokedWith)
+	// Fail if remover's .Remove not invoked at all
+	if !remover.RemoveInvoked {
+		t.Fatal("fn.Remover not invoked")
 	}
 }
 
-// test delete from inside project directory (reading func name from func.yaml)
-func TestDeleteCmdWithProject(t *testing.T) {
+// TestDeleteByProject ensures that running delete with a valid project as its
+// context invokes remove and with the correct name (reads name from func.yaml)
+func TestDeleteByProject(t *testing.T) {
+	// from within a new temporary directory
+	defer fromTempDir(t)()
+
+	// Write a func.yaml config which specifies a name
 	funcYaml := `name: bar
 namespace: ""
 runtime: go
@@ -54,73 +63,65 @@ builderMap:
 envs: []
 annotations: {}
 `
-	tmpDir, err := ioutil.TempDir("", "bar")
-	if err != nil {
+	if err := ioutil.WriteFile("func.yaml", []byte(funcYaml), 0600); err != nil {
 		t.Fatal(err)
 	}
-	defer os.RemoveAll(tmpDir)
 
-	f, err := os.Create(filepath.Join(tmpDir, "func.yaml"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer f.Close()
-
-	_, err = f.WriteString(funcYaml)
-	if err != nil {
-		t.Fatal(err)
-	}
-	f.Close()
-
-	oldWD, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() {
-		err = os.Chdir(oldWD)
-		if err != nil {
-			t.Fatal(err)
+	// A mock remover which fails if the name from the func.yaml is not received.
+	remover := mock.NewRemover()
+	remover.RemoveFn = func(n string) error {
+		if n != "bar" {
+			t.Fatalf("expected name 'bar', got '%v'", n)
 		}
-	}()
-	err = os.Chdir(tmpDir)
-	if err != nil {
-		t.Fatal(err)
+		return nil
 	}
 
-	tr := &testRemover{}
-	cmd := NewDeleteCmd(func(ns string, verbose bool) (fn.Remover, error) {
-		return tr, nil
+	// Command with a Client constructor that returns  client with the
+	// mocked remover.
+	cmd := NewDeleteCmd(func(_ deleteConfig) (*fn.Client, error) {
+		return fn.New(fn.WithRemover(remover)), nil
 	})
 
-	cmd.SetArgs([]string{"-p", "."})
-	err = cmd.Execute()
+	// Execute the command simulating no arguments.
+	cmd.SetArgs([]string{})
+	err := cmd.Execute()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if tr.invokedWith == nil {
-		t.Fatal("fn.Remover has not been invoked")
-	}
-
-	if *tr.invokedWith != "bar" {
-		t.Fatalf("expected fn.Remover to be called with 'bar', but was called with '%s'", *tr.invokedWith)
+	// Also fail if remover's .Remove is not invoked
+	if !remover.RemoveInvoked {
+		t.Fatal("fn.Remover not invoked")
 	}
 }
 
-// test where both name and path are provided
-func TestDeleteCmdWithBothPathAndName(t *testing.T) {
-	tr := &testRemover{}
-	cmd := NewDeleteCmd(func(ns string, verbose bool) (fn.Remover, error) {
-		return tr, nil
+// TestDeleteNameAndPathExclusivity ensures that providing both a name and a
+// path generates an error.
+// Providing the --path (-p) flag indicates the name of the funciton to delete
+// is to be taken from the Function at the given path.  Providing the name as
+// an argument as well is therefore redundant and an error.
+func TestDeleteNameAndPathExclusivity(t *testing.T) {
+
+	// A mock remover which will be sampled to ensure it is not invoked.
+	remover := mock.NewRemover()
+
+	// Command with a Client constructor using the mock remover.
+	cmd := NewDeleteCmd(func(_ deleteConfig) (*fn.Client, error) {
+		return fn.New(fn.WithRemover(remover)), nil
 	})
 
-	cmd.SetArgs([]string{"foo", "-p", "/adir/"})
+	// Execute the command simulating the invalid argument combination of both
+	// a path and an explicit name.
+	cmd.SetArgs([]string{"-p", "./testpath", "testname"})
 	err := cmd.Execute()
 	if err == nil {
-		t.Fatal("error was expected as both name an path cannot be used together")
+		// TODO should really either parse the output or use typed errors to ensure it's
+		// failing for the expected reason.
+		t.Fatal(err)
 	}
 
-	if tr.invokedWith != nil {
-		t.Fatal("fn.Remove was call when it shouldn't have been")
+	// Also fail if remover's .Remove is invoked.
+	if remover.RemoveInvoked {
+		t.Fatal("fn.Remover invoked despite invalid combination and an error")
 	}
 }

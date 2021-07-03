@@ -17,7 +17,7 @@ func TestCreateValidatesName(t *testing.T) {
 
 	// Create a new Create command with a fn.Client construtor
 	// which returns a default (noop) client suitable for tests.
-	cmd := NewCreateCmd(func(string, bool) *fn.Client {
+	cmd := NewCreateCmd(func(createConfig) *fn.Client {
 		return fn.New()
 	})
 

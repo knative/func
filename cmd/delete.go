@@ -13,11 +13,33 @@ import (
 )
 
 func init() {
-	root.AddCommand(deleteCmd)
+	// Create a new delete command with a reference to
+	// a function which yields an appropriate concrete client instance.
+	root.AddCommand(NewDeleteCmd(newDeleteClient))
 }
 
-func NewDeleteCmd(newRemover func(ns string, verbose bool) (fn.Remover, error)) *cobra.Command {
-	delCmd := &cobra.Command{
+// newDeleteClient returns an instance of a Client using the
+// final config state.
+// Testing note: This method is swapped out during testing to allow
+// mocking the remover or the client itself to fabricate test states.
+func newDeleteClient(cfg deleteConfig) (*fn.Client, error) {
+	remover, err := knative.NewRemover(cfg.Namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	remover.Verbose = cfg.Verbose
+
+	return fn.New(
+		fn.WithRemover(remover),
+		fn.WithVerbose(cfg.Verbose)), nil
+}
+
+// A deleteClientFn is a function which yields a Client instance from a config
+type deleteClientFn func(deleteConfig) (*fn.Client, error)
+
+func NewDeleteCmd(clientFn deleteClientFn) *cobra.Command {
+	cmd := &cobra.Command{
 		Use:   "delete [NAME]",
 		Short: "Undeploy a function",
 		Long: `Undeploy a function
@@ -38,71 +60,65 @@ kn func delete -n apps myfunc
 		SuggestFor:        []string{"remove", "rm", "del"},
 		ValidArgsFunction: CompleteFunctionList,
 		PreRunE:           bindEnv("path", "confirm", "namespace"),
-		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			config, err := newDeleteConfig(args).Prompt()
-			if err != nil {
-				if err == terminal.InterruptErr {
-					return nil
-				}
-				return
-			}
-
-			var function fn.Function
-
-			// Initialize func with explicit name (when provided)
-			if len(args) > 0 && args[0] != "" {
-				pathChanged := cmd.Flags().Changed("path")
-				if pathChanged {
-					return fmt.Errorf("Only one of --path and [NAME] should be provided")
-				}
-				function = fn.Function{
-					Name: args[0],
-				}
-			} else {
-				function, err = fn.NewFunction(config.Path)
-				if err != nil {
-					return
-				}
-
-				// Check if the Function has been initialized
-				if !function.Initialized() {
-					return fmt.Errorf("the given path '%v' does not contain an initialized function", config.Path)
-				}
-			}
-
-			ns := config.Namespace
-			if ns == "" {
-				ns = function.Namespace
-			}
-
-			remover, err := newRemover(ns, config.Verbose)
-			if err != nil {
-				return
-			}
-
-			client := fn.New(
-				fn.WithVerbose(config.Verbose),
-				fn.WithRemover(remover))
-
-			return client.Remove(cmd.Context(), function)
-		},
 	}
 
-	delCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
-	delCmd.Flags().StringP("path", "p", cwd(), "Path to the function project that should be undeployed (Env: $FUNC_PATH)")
-	delCmd.Flags().StringP("namespace", "n", "", "Namespace of the function to undeploy. By default, the namespace in func.yaml is used or the actual active namespace if not set in the configuration. (Env: $FUNC_NAMESPACE)")
+	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
+	cmd.Flags().StringP("path", "p", cwd(), "Path to the function project that should be undeployed (Env: $FUNC_PATH)")
+	cmd.Flags().StringP("namespace", "n", "", "Namespace of the function to undeploy. By default, the namespace in func.yaml is used or the actual active namespace if not set in the configuration. (Env: $FUNC_NAMESPACE)")
 
-	return delCmd
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		return runDelete(cmd, args, clientFn)
+	}
+
+	return cmd
 }
 
-var deleteCmd = NewDeleteCmd(func(ns string, verbose bool) (fn.Remover, error) {
-	r, err := knative.NewRemover(ns)
+func runDelete(cmd *cobra.Command, args []string, clientFn deleteClientFn) (err error) {
+	config, err := newDeleteConfig(args).Prompt()
 	if err != nil {
-		return nil, err
+		if err == terminal.InterruptErr {
+			return nil
+		}
+		return
 	}
-	r.Verbose = verbose
-	return r, nil
-})
+
+	var function fn.Function
+
+	// Initialize func with explicit name (when provided)
+	if len(args) > 0 && args[0] != "" {
+		pathChanged := cmd.Flags().Changed("path")
+		if pathChanged {
+			return fmt.Errorf("Only one of --path and [NAME] should be provided")
+		}
+		function = fn.Function{
+			Name: args[0],
+		}
+	} else {
+		function, err = fn.NewFunction(config.Path)
+		if err != nil {
+			return
+		}
+
+		// Check if the Function has been initialized
+		if !function.Initialized() {
+			return fmt.Errorf("the given path '%v' does not contain an initialized function", config.Path)
+		}
+	}
+
+	// If not provided, use the function's extant namespace
+	if config.Namespace == "" {
+		config.Namespace = function.Namespace
+	}
+
+	// Create a client instance from the now-final config
+	client, err := clientFn(config)
+	if err != nil {
+		return err
+	}
+
+	// Invoke remove using the concrete client impl
+	return client.Remove(cmd.Context(), function)
+}
 
 type deleteConfig struct {
 	Name      string

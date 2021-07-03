@@ -3,6 +3,7 @@ package cmd
 import (
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -17,24 +18,36 @@ import (
 )
 
 func init() {
-	root.AddCommand(listCmd)
-	listCmd.Flags().BoolP("all-namespaces", "A", false, "List functions in all namespaces. If set, the --namespace flag is ignored.")
-	listCmd.Flags().StringP("namespace", "n", "", "Namespace to search for functions. By default, the functions of the actual active namespace are listed. (Env: $FUNC_NAMESPACE)")
-	listCmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|xml|yaml) (Env: $FUNC_OUTPUT)")
-	err := listCmd.RegisterFlagCompletionFunc("output", CompleteOutputFormatList)
-	if err != nil {
-		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
-	}
+	root.AddCommand(NewListCmd(newListClient))
 }
 
-var listCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List functions",
-	Long: `List functions
+func newListClient(cfg listConfig) (*fn.Client, error) {
+	// TODO(lkingland): does an empty namespace mean all namespaces
+	// or the default namespace as defined in user's config?
+	lister, err := knative.NewLister(cfg.Namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	lister.Verbose = cfg.Verbose
+
+	return fn.New(
+		fn.WithLister(lister),
+		fn.WithVerbose(cfg.Verbose),
+	), nil
+}
+
+type listClientFn func(listConfig) (*fn.Client, error)
+
+func NewListCmd(clientFn listClientFn) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List functions",
+		Long: `List functions
 
 Lists all deployed functions in a given namespace.
 `,
-	Example: `
+		Example: `
 # List all functions in the current namespace with human readable output
 kn func list
 
@@ -44,40 +57,51 @@ kn func list --namespace test --output yaml
 # List all functions in all namespaces with JSON output
 kn func list --all-namespaces --output json
 `,
-	SuggestFor: []string{"ls", "lsit"},
-	PreRunE:    bindEnv("namespace", "output"),
-	RunE:       runList,
+		SuggestFor: []string{"ls", "lsit"},
+		PreRunE:    bindEnv("namespace", "output"),
+	}
+
+	cmd.Flags().BoolP("all-namespaces", "A", false, "List functions in all namespaces. If set, the --namespace flag is ignored.")
+	cmd.Flags().StringP("namespace", "n", "", "Namespace to search for functions. By default, the functions of the actual active namespace are listed. (Env: $FUNC_NAMESPACE)")
+	cmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|xml|yaml) (Env: $FUNC_OUTPUT)")
+
+	if err := cmd.RegisterFlagCompletionFunc("output", CompleteOutputFormatList); err != nil {
+		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
+	}
+
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		return runList(cmd, args, clientFn)
+	}
+
+	return cmd
 }
 
-func runList(cmd *cobra.Command, args []string) (err error) {
+func runList(cmd *cobra.Command, _ []string, clientFn listClientFn) (err error) {
 	config := newListConfig()
 
-	lister, err := knative.NewLister(config.Namespace)
-	if err != nil {
-		return
-	}
-	lister.Verbose = config.Verbose
-
-	a, err := cmd.Flags().GetBool("all-namespaces")
-	if err != nil {
-		return
-	}
-	if a {
-		lister.Namespace = ""
+	if err := config.Validate(); err != nil {
+		return err
 	}
 
-	client := fn.New(
-		fn.WithVerbose(config.Verbose),
-		fn.WithLister(lister))
+	client, err := clientFn(config)
+	if err != nil {
+		return err
+	}
 
 	items, err := client.List(cmd.Context())
 	if err != nil {
 		return
 	}
 
-	if len(items) < 1 {
-		fmt.Printf("No functions found in %v namespace\n", lister.Namespace)
-		return
+	if len(items) == 0 {
+		// TODO(lkingland): this isn't particularly script friendly.  Suggest this
+		// prints bo only on --verbose.  Possible future tweak, as I don't want to
+		// make functional changes during a refactor.
+		if config.Namespace != "" && !config.AllNamespaces {
+			fmt.Printf("No functions found in '%v' namespace\n", config.Namespace)
+		} else {
+			fmt.Println("No functions found")
+		}
 	}
 
 	write(os.Stdout, listItems(items), config.Output)
@@ -89,17 +113,26 @@ func runList(cmd *cobra.Command, args []string) (err error) {
 // ------------------------------
 
 type listConfig struct {
-	Namespace string
-	Output    string
-	Verbose   bool
+	Namespace     string
+	Output        string
+	AllNamespaces bool
+	Verbose       bool
 }
 
 func newListConfig() listConfig {
 	return listConfig{
-		Namespace: viper.GetString("namespace"),
-		Output:    viper.GetString("output"),
-		Verbose:   viper.GetBool("verbose"),
+		Namespace:     viper.GetString("namespace"),
+		Output:        viper.GetString("output"),
+		AllNamespaces: viper.GetBool("all-namespaces"),
+		Verbose:       viper.GetBool("verbose"),
 	}
+}
+
+func (c listConfig) Validate() error {
+	if c.Namespace != "" && c.AllNamespaces {
+		return errors.New("Both --namespace and --all-namespaces specified.")
+	}
+	return nil
 }
 
 // Output Formatting (serializers)

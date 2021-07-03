@@ -12,35 +12,54 @@ import (
 )
 
 func init() {
-	// Add the run command as a subcommand of root.
-	root.AddCommand(runCmd)
-	runCmd.Flags().StringArrayP("env", "e", []string{}, "Environment variable to set in the form NAME=VALUE. "+
-		"You may provide this flag multiple times for setting multiple environment variables. "+
-		"To unset, specify the environment variable name followed by a \"-\" (e.g., NAME-).")
-	runCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
+	root.AddCommand(NewRunCmd(newRunClient))
 }
 
-var runCmd = &cobra.Command{
-	Use:   "run",
-	Short: "Run the function locally",
-	Long: `Run the function locally
+func newRunClient(cfg runConfig) *fn.Client {
+	runner := docker.NewRunner()
+	runner.Verbose = cfg.Verbose
+	return fn.New(
+		fn.WithRunner(runner),
+		fn.WithVerbose(cfg.Verbose))
+}
+
+type runClientFn func(runConfig) *fn.Client
+
+func NewRunCmd(clientFn runClientFn) *cobra.Command {
+
+	cmd := &cobra.Command{
+		Use:   "run",
+		Short: "Run the function locally",
+		Long: `Run the function locally
 
 Runs the function locally in the current directory or in the directory
 specified by --path flag. The function must already have been built with the 'build' command.
 `,
-	Example: `
+		Example: `
 # Build function's image first
 kn func build
 
 # Run it locally as a container
 kn func run
 `,
-	SuggestFor: []string{"rnu"},
-	PreRunE:    bindEnv("path"),
-	RunE:       runRun,
+		SuggestFor: []string{"rnu"},
+		PreRunE:    bindEnv("path"),
+	}
+
+	cmd.Flags().StringArrayP("env", "e", []string{},
+		"Environment variable to set in the form NAME=VALUE. "+
+			"You may provide this flag multiple times for setting multiple environment variables. "+
+			"To unset, specify the environment variable name followed by a \"-\" (e.g., NAME-).")
+	cmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
+
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		return runRun(cmd, args, clientFn)
+	}
+
+	return cmd
 }
 
-func runRun(cmd *cobra.Command, args []string) (err error) {
+func runRun(cmd *cobra.Command, args []string, clientFn runClientFn) (err error) {
 	config, err := newRunConfig(cmd)
 	if err != nil {
 		return
@@ -66,15 +85,9 @@ func runRun(cmd *cobra.Command, args []string) (err error) {
 		return fmt.Errorf("the given path '%v' does not contain an initialized function", config.Path)
 	}
 
-	runner := docker.NewRunner()
-	runner.Verbose = config.Verbose
+	client := clientFn(config)
 
-	client := fn.New(
-		fn.WithRunner(runner),
-		fn.WithVerbose(config.Verbose))
-
-	err = client.Run(cmd.Context(), config.Path)
-	return
+	return client.Run(cmd.Context(), config.Path)
 }
 
 type runConfig struct {
@@ -92,10 +105,10 @@ type runConfig struct {
 	EnvToRemove []string
 }
 
-func newRunConfig(cmd *cobra.Command) (runConfig, error) {
+func newRunConfig(cmd *cobra.Command) (c runConfig, err error) {
 	envToUpdate, envToRemove, err := envFromCmd(cmd)
 	if err != nil {
-		return runConfig{}, err
+		return
 	}
 
 	return runConfig{

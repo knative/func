@@ -16,39 +16,62 @@ import (
 )
 
 func init() {
-	root.AddCommand(describeCmd)
-	describeCmd.Flags().StringP("namespace", "n", "", "Namespace of the function. By default, the namespace in func.yaml is used or the actual active namespace if not set in the configuration. (Env: $FUNC_NAMESPACE)")
-	describeCmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|xml|yaml|url) (Env: $FUNC_OUTPUT)")
-	describeCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
-
-	err := describeCmd.RegisterFlagCompletionFunc("output", CompleteOutputFormatList)
-	if err != nil {
-		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
-	}
+	root.AddCommand(NewDescribeCmd(newDescribeClient))
 }
 
-var describeCmd = &cobra.Command{
-	Use:   "describe <name>",
-	Short: "Show details of a function",
-	Long: `Show details of a function
+func newDescribeClient(cfg describeConfig) (*fn.Client, error) {
+	describer, err := knative.NewDescriber(cfg.Namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	describer.Verbose = cfg.Verbose
+
+	return fn.New(
+		fn.WithDescriber(describer),
+		fn.WithVerbose(cfg.Verbose),
+	), nil
+}
+
+type describeClientFn func(describeConfig) (*fn.Client, error)
+
+func NewDescribeCmd(clientFn describeClientFn) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "describe <name>",
+		Short: "Show details of a function",
+		Long: `Show details of a function
 
 Prints the name, route and any event subscriptions for a deployed function in
 the current directory or from the directory specified with --path.
 `,
-	Example: `
+		Example: `
 # Show the details of a function as declared in the local func.yaml
 kn func describe
 
 # Show the details of the function in the myotherfunc directory with yaml output
 kn func describe --output yaml --path myotherfunc
 `,
-	SuggestFor:        []string{"desc", "get"},
-	ValidArgsFunction: CompleteFunctionList,
-	PreRunE:           bindEnv("namespace", "output", "path"),
-	RunE:              runDescribe,
+		SuggestFor:        []string{"desc", "get"},
+		ValidArgsFunction: CompleteFunctionList,
+		PreRunE:           bindEnv("namespace", "output", "path"),
+	}
+
+	cmd.Flags().StringP("namespace", "n", "", "Namespace of the function. By default, the namespace in func.yaml is used or the actual active namespace if not set in the configuration. (Env: $FUNC_NAMESPACE)")
+	cmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|xml|yaml|url) (Env: $FUNC_OUTPUT)")
+	cmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
+
+	if err := cmd.RegisterFlagCompletionFunc("output", CompleteOutputFormatList); err != nil {
+		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
+	}
+
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		return runDescribe(cmd, args, clientFn)
+	}
+
+	return cmd
 }
 
-func runDescribe(cmd *cobra.Command, args []string) (err error) {
+func runDescribe(cmd *cobra.Command, args []string, clientFn describeClientFn) (err error) {
 	config := newDescribeConfig(args)
 
 	function, err := fn.NewFunction(config.Path)
@@ -61,16 +84,13 @@ func runDescribe(cmd *cobra.Command, args []string) (err error) {
 		return fmt.Errorf("the given path '%v' does not contain an initialized function", config.Path)
 	}
 
-	describer, err := knative.NewDescriber(config.Namespace)
+	// Create a client
+	client, err := clientFn(config)
 	if err != nil {
-		return
+		return err
 	}
-	describer.Verbose = config.Verbose
 
-	client := fn.New(
-		fn.WithVerbose(config.Verbose),
-		fn.WithDescriber(describer))
-
+	// Get the description
 	d, err := client.Describe(cmd.Context(), config.Name, config.Path)
 	if err != nil {
 		return
