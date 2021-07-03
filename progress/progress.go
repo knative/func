@@ -153,6 +153,13 @@ func (b *Bar) Complete(text string) {
 	b.Done() // stop spinner
 }
 
+// Stopping indicates the process is stopping, such as having received a context
+// cancellation.
+func (b *Bar) Stopping() {
+	// currently stopping is equivalent in effect to Done
+	b.Done()
+}
+
 // Done cancels the write loop if being used.
 // Call in a defer statement after creation to ensure that the spinner stops
 func (b *Bar) Done() {

@@ -112,6 +112,10 @@ type ProgressListener interface {
 	// Complete signals completion, which is expected to be somewhat different than a step increment.
 	Complete(message string)
 
+	// Stopping indicates the process is in the state of stopping, such as when a context cancelation
+	// has been received
+	Stopping()
+
 	// Done signals a cessation of progress updates.  Should be called in a defer statement to ensure
 	// the progress listener can stop any outstanding tasks such as synchronous user updates.
 	Done()
@@ -278,7 +282,15 @@ func WithEmitter(e Emitter) Option {
 // Use Create, Build and Deploy independently for lower level control.
 func (c *Client) New(ctx context.Context, cfg Function) (err error) {
 	c.progressListener.SetTotal(3)
-	defer c.progressListener.Done()
+	// Always start a concurrent routine listening for context cancellation.
+	// On this event, immediately indicate the task is canceling.
+	// (this is useful, for example, when a progress listener is mutating
+	// stdout, and a context cancelation needs to free up stdout entirely for
+	// the status or error from said cancelltion.
+	go func() {
+		<-ctx.Done()
+		c.progressListener.Stopping()
+	}()
 
 	// Create local template
 	err = c.Create(cfg)
@@ -404,6 +416,10 @@ func (c *Client) Create(cfg Function) (err error) {
 // not contain a populated Image.
 func (c *Client) Build(ctx context.Context, path string) (err error) {
 	c.progressListener.Increment("Building function image")
+	go func() {
+		<-ctx.Done()
+		c.progressListener.Stopping()
+	}()
 
 	f, err := NewFunction(path)
 	if err != nil {
@@ -436,6 +452,12 @@ func (c *Client) Build(ctx context.Context, path string) (err error) {
 // Deploy the Function at path.  Errors if the Function has not been
 // initialized with an image tag.
 func (c *Client) Deploy(ctx context.Context, path string) (err error) {
+	c.progressListener.Increment("Deployin function")
+	go func() {
+		<-ctx.Done()
+		c.progressListener.Stopping()
+	}()
+
 	f, err := NewFunction(path)
 	if err != nil {
 		return
@@ -489,6 +511,10 @@ func (c *Client) Route(path string) (err error) {
 
 // Run the Function whose code resides at root.
 func (c *Client) Run(ctx context.Context, root string) error {
+	go func() {
+		<-ctx.Done()
+		c.progressListener.Stopping()
+	}()
 
 	// Create an instance of a Function representation at the given root.
 	f, err := NewFunction(root)
@@ -514,6 +540,10 @@ func (c *Client) List(ctx context.Context) ([]ListItem, error) {
 // Describe a Function.  Name takes precidence.  If no name is provided,
 // the Function defined at root is used.
 func (c *Client) Describe(ctx context.Context, name, root string) (d Description, err error) {
+	go func() {
+		<-ctx.Done()
+		c.progressListener.Stopping()
+	}()
 	// If name is provided, it takes precidence.
 	// Otherwise load the Function defined at root.
 	if name != "" {
@@ -533,6 +563,10 @@ func (c *Client) Describe(ctx context.Context, name, root string) (d Description
 // Remove a Function.  Name takes precidence.  If no name is provided,
 // the Function defined at root is used if it exists.
 func (c *Client) Remove(ctx context.Context, cfg Function) error {
+	go func() {
+		<-ctx.Done()
+		c.progressListener.Stopping()
+	}()
 	// If name is provided, it takes precidence.
 	// Otherwise load the Function deined at root.
 	if cfg.Name != "" {
@@ -551,15 +585,23 @@ func (c *Client) Remove(ctx context.Context, cfg Function) error {
 
 // Emit a CloudEvent to a function endpoint
 func (c *Client) Emit(ctx context.Context, endpoint string) error {
+	go func() {
+		<-ctx.Done()
+		c.progressListener.Stopping()
+	}()
 	return c.emitter.Emit(ctx, endpoint)
 }
 
 // Manual implementations (noops) of required interfaces.
 // In practice, the user of this client package (for example the CLI) will
-// provide a concrete implementation for all of the interfaces.  For testing or
-// development, however, it is usefule that they are defaulted to noops and
-// provded only when necessary.  Unit tests for the concrete implementations
-// serve to keep the core logic here separate from the imperitive.
+// provide a concrete implementation for only the interfaces necessary to
+// complete the given command.  Integrators importing the package would
+// provide a concrete implementation for all interfaces to be used. To
+// enable partial definition (in particular used for testing) they
+// are defaulted to noop implementations such that they can be provded
+// only when necessary.  Unit tests for the concrete implementations
+// serve to keep the core logic here separate from the imperitive, and
+// with a minimum of external dependencies.
 // -----------------------------------------------------
 
 type noopBuilder struct{ output io.Writer }
@@ -597,6 +639,7 @@ type noopProgressListener struct{}
 func (p *noopProgressListener) SetTotal(i int)     {}
 func (p *noopProgressListener) Increment(m string) {}
 func (p *noopProgressListener) Complete(m string)  {}
+func (p *noopProgressListener) Stopping()          {}
 func (p *noopProgressListener) Done()              {}
 
 type noopEmitter struct{}
