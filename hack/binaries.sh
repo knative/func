@@ -15,7 +15,6 @@ main() {
 
   kubectl
   kind
-  jq
   yq
 
   echo "${em}DONE${me}"
@@ -34,12 +33,6 @@ kind() {
     curl -sSLo kind "https://github.com/kubernetes-sigs/kind/releases/download/$kind_version/kind-linux-amd64"
     chmod +x kind
     sudo mv kind /usr/local/bin/kind
-}
-
-jq() {
-    echo 'Installing jq...'
-    sudo apt-get install jq
-    jq --version
 }
 
 yq() {
