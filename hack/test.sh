@@ -10,6 +10,13 @@ main() {
 
   echo "${em}Testing Cluster...${me}"
 
+  kubectl get svc -n knative-serving webhook -oyaml
+  kubectl delete pod -n knative-serving -lapp=webhook
+  sleep 20
+  kubectl get pod -n knative-serving -lapp=webhook -oyaml
+
+
+  echo "${em}-- creating echo${me}"
   cat <<EOF | kubectl apply -f -
 apiVersion: serving.knative.dev/v1
 kind: Service
@@ -23,6 +30,7 @@ spec:
         - image: docker.io/jmalloc/echo-server
 EOF
   sleep 10
+  echo "${em}-- invoking echo${me}"
   curl -H "Host: echo.func.cluster.local" http://127.0.0.1/
 
   echo "${em}DONE${me}"
