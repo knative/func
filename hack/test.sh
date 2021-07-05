@@ -10,7 +10,10 @@ main() {
 
   echo "${em}Testing Cluster...${me}"
 
-  # TODO
+  kubectl get services -A
+  kubectl get po -A
+  sleep 5
+
   cat <<EOF | kubectl apply -f -
 apiVersion: serving.knative.dev/v1
 kind: Service
@@ -23,8 +26,9 @@ spec:
       containers:
         - image: docker.io/jmalloc/echo-server
 EOF
-  sleep 30
-  kubectl get services -n func
+  sleep 5
+  kubectl get services -A
+  kubectl get po -A
   sleep 5
   curl -H "Host: echo.func.cluster.local" http://127.0.0.1/
   kubectl get po --all-namespaces
