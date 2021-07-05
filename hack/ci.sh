@@ -33,7 +33,7 @@ patch_hosts() {
 fix_webhook() {
   kubectl get svc -n knative-serving webhook -oyaml
   kubectl delete pod -n knative-serving -lapp=webhook
-  sleep 20
+  sleep 10
   kubectl get pod -n knative-serving -lapp=webhook -oyaml
 }
 
