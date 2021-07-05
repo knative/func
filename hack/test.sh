@@ -11,7 +11,18 @@ main() {
   echo "${em}Testing Cluster...${me}"
 
   # TODO
-  kubectl apply -f echo-server.yaml
+  cat <<EOF | kubectl apply -f -
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: echo
+  namespace: func
+spec:
+  template:
+    spec:
+      containers:
+        - image: docker.io/jmalloc/echo-server
+EOF
   sleep 30
   kubectl get services -n func
   sleep 5
