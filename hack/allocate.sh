@@ -66,28 +66,44 @@ EOF
 serving() {
   echo "${em}② Knative Serving${me}"
   kubectl apply --filename https://github.com/knative/serving/releases/download/$serving_version/serving-crds.yaml
-  sleep 2
+  sleep 10
   curl -L -s https://github.com/knative/serving/releases/download/$serving_version/serving-core.yaml | yq 'del(.spec.template.spec.containers[]?.resources)' -y | yq 'del(.metadata.annotations."knative.dev/example-checksum")' -y | kubectl apply -f -
+  echo "Resources being initialized"
+  sleep 30
+  kubectl get pod -n knative-serving
 }
 
 eventing() {
   echo "${em}③ Knative Eventing${me}"
+  # CRDs
   kubectl apply --filename https://github.com/knative/eventing/releases/download/$eventing_version/eventing-crds.yaml
-  sleep 2
+  sleep 10
+  # Core
   curl -L -s https://github.com/knative/eventing/releases/download/$eventing_version/eventing-core.yaml | yq 'del(.spec.template.spec.containers[]?.resources)' -y | yq 'del(.metadata.annotations."knative.dev/example-checksum")' -y | kubectl apply -f -
-  curl -L -s https://github.com/knative/eventing/releases/download/$eventing_version/in-memory-channel.yaml | yq 'del(.spec.template.spec.containers[]?.resources)' -y | yq 'del(.metadata.annotations."knative.dev/example-checksum")' -y | kubectl apply -f -
+  # Channel
+  # yq fails parsing in-memory-channel.yaml due to duplicate declaration of the
+  # &everything anchor.  Upon investigation, the yq statements may actually not be necessary.
+  # curl -L -s https://github.com/knative/eventing/releases/download/$eventing_version/in-memory-channel.yaml | yq 'del(.spec.template.spec.containers[]?.resources)' -y | yq 'del(.metadata.annotations."knative.dev/example-checksum")' -y | kubectl apply -f -
+  curl -L -s https://github.com/knative/eventing/releases/download/$eventing_version/in-memory-channel.yaml | kubectl apply -f -
+  # Broker
   curl -L -s https://github.com/knative/eventing/releases/download/$eventing_version/mt-channel-broker.yaml | yq 'del(.spec.template.spec.containers[]?.resources)' -y | yq 'del(.metadata.annotations."knative.dev/example-checksum")' -y | kubectl apply -f -
+  # Echo
+  echo "Resources being initialized"
+  sleep 30
+  kubectl get pod -n knative-eventing
 }
 
 networking() {
   echo "${em}④ Kourier Networking${me}"
-  kubectl apply --filename https://github.com/knative-sandbox/net-kourier/releases/download/$kourier_version/kourier.yaml
+  kubectl apply --filename https://github.com/knative/net-kourier/releases/download/$kourier_version/kourier.yaml
   kubectl patch configmap/config-network \
       --namespace knative-serving \
       --type merge \
       --patch '{"data":{"ingress.class":"kourier.ingress.networking.knative.dev"}}'
+  echo "Resources being initialized"
+  sleep 30
+  kubectl get service kourier -n kourier-system 
 }
-
 
 registry() {
   # see https://kind.sigs.k8s.io/docs/user/local-registry/
@@ -112,14 +128,11 @@ next_steps() {
   local red=$(tput bold)$(tput setaf 1)
 
   echo "${em}⑥ Configure Registry${me}"
-  echo "Please ${red}manually add 'kind-registry' to your local hosts${me} file:"
-  echo "  echo \"127.0.0.1 kind-registry\" | sudo tee --append /etc/hosts"
-
-  echo "Please ${red}manually set registry as insecure${me} in the docker daemon config (/etc/docker/daemon.json on linux or ~/.docker/daemon.json on OSX):
-  {
-    \"insecure-registries\": [ \"kind-registry:5000\" ],
-  }"
-
+  echo "If not in CI (running ci.sh): 
+  echo "  ${red}add 'kind-registry' "to your local hosts${me} file:"
+  echo "    echo \"127.0.0.1 kind-registry\" | sudo tee --append /etc/hosts"
+  echo "  ${red}set registry as insecure${me} in the docker daemon config (/etc/docker/daemon.json on linux or ~/.docker/daemon.json on OSX):
+  { \"insecure-registries\": [ \"kind-registry:5000\" ] }"
 }
 
 main "$@"

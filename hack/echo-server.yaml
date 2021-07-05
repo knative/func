@@ -1,0 +1,10 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: echo
+  namespace: func
+spec:
+  template:
+    spec:
+      containers:
+        - image: docker.io/jmalloc/echo-server

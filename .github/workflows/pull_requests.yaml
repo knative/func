@@ -11,11 +11,15 @@ jobs:
         uses: actions/checkout@v2
       - name: Setup Go
         uses: actions/setup-go@v2
-      - name: Fetch Binaries
+      - name: Install Binaries
         run: ./hack/binaries.sh
       - name: Allocate Cluster
         run: ./hack/allocate.sh
       - name: Configure Cluster
         run: ./hack/configure.sh
+      - name: Local Registry an Routes (CI)
+        run: ./hack/ci.sh
+      - name: Test Configuration
+        run: ./hack/test.sh
       - name: Integration Test
         run: go test -tags integration -v -run=TestNew
