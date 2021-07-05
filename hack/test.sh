@@ -12,7 +12,10 @@ main() {
 
   kubectl get services -A
   kubectl get po -A
-  sleep 5
+  kubectl get ingresses.networking.internal.knative.dev -o=custom-columns='NAME:.metadata.name,LABELS:.metadata.labels'
+  kubectl get svc -n knative-serving webhook -oyaml
+  kubectl delete pod -n knative-serving -lapp=webhook
+  sleep 30
 
   cat <<EOF | kubectl apply -f -
 apiVersion: serving.knative.dev/v1
