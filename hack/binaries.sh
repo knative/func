@@ -26,7 +26,7 @@ install_kubectl() {
     curl -sSLO "https://storage.googleapis.com/kubernetes-release/release/$kubectl_version/bin/linux/amd64/kubectl"
     chmod +x kubectl
     sudo mv kubectl /usr/local/bin/kubectl
-    kubectl version
+    kubectl version --client=true
 }
 
 install_kind() {
