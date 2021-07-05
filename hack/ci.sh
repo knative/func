@@ -24,7 +24,7 @@ set_registry_insecure() {
     sudo service docker restart
 }
 
-connect() {
+patch_hosts() {
     echo 'Adding registry to hosts'
     echo "127.0.0.1 kind-registry" | sudo tee --append /etc/hosts
 }
