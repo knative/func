@@ -17,6 +17,7 @@ main() {
   kubectl delete pod -n knative-serving -lapp=webhook
   sleep 30
 
+  echo "${em}-- creating echo${me}"
   cat <<EOF | kubectl apply -f -
 apiVersion: serving.knative.dev/v1
 kind: Service
@@ -29,10 +30,12 @@ spec:
       containers:
         - image: docker.io/jmalloc/echo-server
 EOF
-  sleep 5
+  sleep 10
+  echo "${em}-- echo created${me}"
   kubectl get services -A
   kubectl get po -A
   sleep 5
+  echo "${em}-- invoking echo${me}"
   curl -H "Host: echo.func.cluster.local" http://127.0.0.1/
   kubectl get po --all-namespaces
 
