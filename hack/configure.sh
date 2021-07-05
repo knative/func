@@ -48,7 +48,6 @@ main() {
   network
   kourier_nodeport
   default_domain
-  fix_webhook
 
   sleep 10
   kubectl --namespace kourier-system get service kourier
@@ -163,9 +162,6 @@ data:
   # Default is local only.
   cluster.local: ""
 EOF
-}
-
-fix_webhook() {
 }
 
 main "$@"
