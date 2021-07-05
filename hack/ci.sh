@@ -12,6 +12,7 @@ main() {
 
   set_registry_insecure
   patch_hosts
+  fix_webhook
 
   echo "${em}DONE${me}"
 
@@ -27,6 +28,13 @@ set_registry_insecure() {
 patch_hosts() {
     echo 'Adding registry to hosts'
     echo "127.0.0.1 kind-registry" | sudo tee --append /etc/hosts
+}
+
+fix_webhook() {
+  kubectl get svc -n knative-serving webhook -oyaml
+  kubectl delete pod -n knative-serving -lapp=webhook
+  sleep 20
+  kubectl get pod -n knative-serving -lapp=webhook -oyaml
 }
 
 main "$@"
