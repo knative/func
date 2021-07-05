@@ -21,7 +21,7 @@ main() {
 
 }
 
-kubectl() {
+install_kubectl() {
     echo 'Installing kubectl...'
     curl -sSLO "https://storage.googleapis.com/kubernetes-release/release/$kubectl_version/bin/linux/amd64/kubectl"
     chmod +x kubectl
@@ -29,7 +29,7 @@ kubectl() {
     kubectl version
 }
 
-kind() {
+install_kind() {
     echo 'Installing kind...'
     curl -sSLo kind "https://github.com/kubernetes-sigs/kind/releases/download/$kind_version/kind-linux-amd64"
     chmod +x kind
@@ -37,7 +37,7 @@ kind() {
     kind version
 }
 
-yq() {
+install_yq() {
     echo 'Installing yq...'
     sudo pip3 install yq
     yq --version
