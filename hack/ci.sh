@@ -5,6 +5,9 @@ set -o nounset
 set -o pipefail
 
 main() {
+  local em=$(tput bold)$(tput setaf 2)
+  local me=$(tput sgr0)
+
   echo "${em}Configuring for CI...${me}"
 
   set_registry_insecure
