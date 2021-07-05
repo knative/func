@@ -16,6 +16,8 @@ main() {
   kubectl get svc -n knative-serving webhook -oyaml
   kubectl delete pod -n knative-serving -lapp=webhook
   sleep 30
+  kubectl get pod -n knative-serving -lapp=webhook -oyaml
+
 
   echo "${em}-- creating echo${me}"
   cat <<EOF | kubectl apply -f -
