@@ -1,5 +1,12 @@
 #!/usr/bin/env bash
 
+# 
+# CI-specific configuration for linux systems.
+# Patches docker to allow the local kind registtry without authentication.
+# Adds the registry to the local hosts file
+# Restarts the internal webkook (fix).
+#
+
 set -o errexit
 set -o nounset
 set -o pipefail

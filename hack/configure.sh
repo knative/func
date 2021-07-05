@@ -14,6 +14,8 @@
 
 # 
 # Configures the current cluster for use with Functions
+# Sets up the namespace, networking, configures ingress to be a nodeport and 
+# sets up the default domain.
 #
 
 set -o errexit

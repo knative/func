@@ -19,7 +19,5 @@ jobs:
         run: ./hack/configure.sh
       - name: CI Config 
         run: ./hack/ci.sh
-      - name: Test Configuration
-        run: ./hack/test.sh
       - name: Integration Test
         run: go test -tags integration -v -run=TestNew

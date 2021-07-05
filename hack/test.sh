@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+# 
+# Runs a test of the knative serving installation by deploying and then 
+# invoking an http echoing server.
+#
+
 set -o errexit
 set -o nounset
 set -o pipefail

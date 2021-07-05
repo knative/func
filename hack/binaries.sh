@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
+#
+# Installs binaries on linux systems.
+#
+# Note that there are multiple 'yq's out there.  The one we want is kislyuk/yq,
+# which is a thin wrapper around jq.
 
 set -o errexit
 set -o nounset
