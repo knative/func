@@ -13,9 +13,9 @@ main() {
 
   echo "${em}Fetching Binaries...${me}"
 
-  kubectl
-  kind
-  yq
+  install_kubectl
+  install_kind
+  install_yq
 
   echo "${em}DONE${me}"
 
