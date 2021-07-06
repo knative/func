@@ -42,7 +42,7 @@ status() {
   # perhaps a racing condition.  A re-start and long wait seems to
   # fix this brittle situation, but only sometimes?
   # kubectl delete pod -n knative-serving -lapp=webhook
-  sleep 60
+  sleep 120
   kubectl get services -A
   kubectl get po -A
   echo "Activator:"

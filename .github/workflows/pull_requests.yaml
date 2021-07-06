@@ -19,8 +19,6 @@ jobs:
         run: ./hack/configure.sh
       - name: Local Registry an Routes (CI)
         run: ./hack/ci.sh
-      - name: Test Configuration
-        run: ./hack/test.sh
       - name: Integration Test
         run: make test-integration
 
