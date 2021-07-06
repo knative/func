@@ -40,8 +40,10 @@ patch_hosts() {
 fix_webhook() {
   kubectl get svc -n knative-serving webhook -oyaml
   kubectl delete pod -n knative-serving -lapp=webhook
-  sleep 10
+  sleep 30
   kubectl get pod -n knative-serving -lapp=webhook -oyaml
+  kubectl get services -A
+  kubectl get po -A
 }
 
 main "$@"

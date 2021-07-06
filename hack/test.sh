@@ -28,7 +28,7 @@ spec:
       containers:
         - image: docker.io/jmalloc/echo-server
 EOF
-  sleep 5
+  sleep 10
   echo "${em}-- invoking echo server${me}"
   curl -H "Host: echo.func.cluster.local" http://127.0.0.1/
 

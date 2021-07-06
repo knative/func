@@ -51,7 +51,7 @@ main() {
   kourier_nodeport
   default_domain
 
-  sleep 5
+  sleep 10
   kubectl --namespace kourier-system get service kourier
 
   echo "${em}DONE${me}"

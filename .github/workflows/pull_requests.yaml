@@ -17,7 +17,7 @@ jobs:
         run: ./hack/allocate.sh
       - name: Configure Cluster
         run: ./hack/configure.sh
-      - name: CI Config 
+      - name: Local Registry an Routes (CI)
         run: ./hack/ci.sh
       - name: Test Configuration
         run: ./hack/test.sh
