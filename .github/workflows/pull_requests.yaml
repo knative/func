@@ -88,7 +88,7 @@ jobs:
       - name: Test Configuration
         run: ./hack/test.sh
       - name: Integration Test
-        run: go test -tags integration -v -run=TestNew
+        run: make test-integration
 
   e2e-test:
     runs-on: 'ubuntu-latest'
