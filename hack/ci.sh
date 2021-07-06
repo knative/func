@@ -45,6 +45,7 @@ fix_webhook() {
   sleep 120
   kubectl get services -A
   kubectl get po -A
+  kubectl describe po -n kourier-system -lapp=3scale-kourier-gateway
 }
 
 main "$@"
