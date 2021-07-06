@@ -19,7 +19,7 @@ main() {
 
   set_registry_insecure
   patch_hosts
-  fix_webhook
+  status
 
   echo "${em}DONE${me}"
 
@@ -37,13 +37,12 @@ patch_hosts() {
     echo "127.0.0.1 kind-registry" | sudo tee --append /etc/hosts
 }
 
-fix_webhook() {
+status() {
   # It seems that, on some runs, the webhook does not become available,
   # perhaps a racing condition.  A re-start and long wait seems to
-  # fix this brittle situation.  
+  # fix this brittle situation, but only sometimes?
   # kubectl delete pod -n knative-serving -lapp=webhook
   sleep 60
-  echo "Deleting webhook"
   kubectl get services -A
   kubectl get po -A
   echo "Activator:"
