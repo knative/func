@@ -38,10 +38,11 @@ patch_hosts() {
 }
 
 fix_webhook() {
-  kubectl get svc -n knative-serving webhook -oyaml
+  # It seems that, on some runs, the webhook does not become available,
+  # perhaps a racing condition.  A re-start and long wait seems to
+  # fix this brittle situation.  
   kubectl delete pod -n knative-serving -lapp=webhook
-  sleep 30
-  kubectl get pod -n knative-serving -lapp=webhook -oyaml
+  sleep 120
   kubectl get services -A
   kubectl get po -A
 }

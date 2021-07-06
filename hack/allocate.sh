@@ -102,7 +102,7 @@ networking() {
       --patch '{"data":{"ingress.class":"kourier.ingress.networking.knative.dev"}}'
   echo "Resources being initialized"
   sleep 30
-  kubectl get service kourier -n kourier-system 
+  kubectl get pod -n kourier-system
 }
 
 registry() {
