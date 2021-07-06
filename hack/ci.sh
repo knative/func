@@ -41,10 +41,13 @@ fix_webhook() {
   # It seems that, on some runs, the webhook does not become available,
   # perhaps a racing condition.  A re-start and long wait seems to
   # fix this brittle situation.  
-  kubectl delete pod -n knative-serving -lapp=webhook
+  # kubectl delete pod -n knative-serving -lapp=webhook
   sleep 120
   kubectl get services -A
   kubectl get po -A
+  echo "Activator:"
+  describe po -lapp=activator -n knative-serving
+  echo "Gateway:"
   kubectl describe po -n kourier-system -lapp=3scale-kourier-gateway
 }
 

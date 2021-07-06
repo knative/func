@@ -66,10 +66,10 @@ EOF
 serving() {
   echo "${em}② Knative Serving${me}"
   kubectl apply --filename https://github.com/knative/serving/releases/download/$serving_version/serving-crds.yaml
-  sleep 10
+  sleep 5
   curl -L -s https://github.com/knative/serving/releases/download/$serving_version/serving-core.yaml | yq 'del(.spec.template.spec.containers[]?.resources)' -y | yq 'del(.metadata.annotations."knative.dev/example-checksum")' -y | kubectl apply -f -
   echo "Resources being initialized"
-  sleep 30
+  sleep 10
   kubectl get pod -n knative-serving
 }
 
@@ -77,7 +77,7 @@ eventing() {
   echo "${em}③ Knative Eventing${me}"
   # CRDs
   kubectl apply --filename https://github.com/knative/eventing/releases/download/$eventing_version/eventing-crds.yaml
-  sleep 10
+  sleep 5
   # Core
   curl -L -s https://github.com/knative/eventing/releases/download/$eventing_version/eventing-core.yaml | yq 'del(.spec.template.spec.containers[]?.resources)' -y | yq 'del(.metadata.annotations."knative.dev/example-checksum")' -y | kubectl apply -f -
   # Channel
@@ -89,7 +89,7 @@ eventing() {
   curl -L -s https://github.com/knative/eventing/releases/download/$eventing_version/mt-channel-broker.yaml | yq 'del(.spec.template.spec.containers[]?.resources)' -y | yq 'del(.metadata.annotations."knative.dev/example-checksum")' -y | kubectl apply -f -
   # Echo
   echo "Resources being initialized"
-  sleep 30
+  sleep 5
   kubectl get pod -n knative-eventing
 }
 
@@ -101,7 +101,7 @@ networking() {
       --type merge \
       --patch '{"data":{"ingress.class":"kourier.ingress.networking.knative.dev"}}'
   echo "Resources being initialized"
-  sleep 30
+  sleep 5
   kubectl get pod -n kourier-system
 }
 
