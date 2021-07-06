@@ -71,6 +71,7 @@ jobs:
         run: make check
 
   integration-test:
+    needs: build
     runs-on: 'ubuntu-latest'
     steps:
       - name: Checkout
@@ -91,6 +92,7 @@ jobs:
         run: make test-integration
 
   e2e-test:
+    needs: integration-test
     runs-on: 'ubuntu-latest'
     steps:
       - name: Checkout
