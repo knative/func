@@ -91,27 +91,11 @@ network() {
   echo "${em}② Network${me}"
   echo "Registering Kourier as ingress"
   echo "Enabling subdomains"
-  cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: config-network
-  namespace: knative-serving
-data:
-  # Use Kourier for the networking layer
-  ingress.class: kourier.ingress.networking.knative.dev
-
-  # If there exists an annotation 'func.subdomain' on the service, use it 
-  # instead of the default name.namespace
-  domainTemplate: |-
-    {{if index .Annotations "func.subdomain" -}}
-      {{- index .Annotations "func.subdomain" -}}
-    {{else -}}
-      {{- .Name}}.{{.Namespace -}}
-    {{end -}}
-    .{{.Domain}}
-
-EOF
+  kubectl patch configmap/config-network \
+  --namespace knative-serving \
+  --type merge \
+  --patch '{"data":{"ingress.class":"kourier.ingress.networking.knative.dev"}}'
+  kubectl --namespace kourier-system get service kourier
 }
 
 kourier_nodeport() {
@@ -119,7 +103,6 @@ kourier_nodeport() {
   echo 'Setting Kourier service to type NodePort'
   # Patch for changing kourier to a NodePort for installations where a 
   # LoadBalancer is not available (for example local Kind clusters)
-  # kubectl patch -n kourier-system services/kourier -p "$(cat configure-kourier-nodeport.yaml)"
   kubectl patch services/kourier \
     --namespace kourier-system \
     --type merge \
@@ -148,22 +131,10 @@ kourier_nodeport() {
 
 default_domain() {
   echo "${em}④ Default Domains${me}"
-  cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: config-domain
-  namespace: knative-serving
-data:
-  example.com: |
-    selector:
-      func.domain: "example.com"
-  example.org: |
-    selector:
-      func.domain: "example.org"
-  # Default is local only.
-  svc.cluster.local: ""
-EOF
+  kubectl patch configmap/config-domain \
+  --namespace knative-serving \
+  --type merge \
+  --patch '{"data":{"127.0.0.1.sslip.io":""}}'
 }
 
 main "$@"
