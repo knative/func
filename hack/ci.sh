@@ -38,11 +38,7 @@ patch_hosts() {
 }
 
 status() {
-  # It seems that, on some runs, the webhook does not become available,
-  # perhaps a racing condition.  A re-start and long wait seems to
-  # fix this brittle situation, but only sometimes?
-  # kubectl delete pod -n knative-serving -lapp=webhook
-  sleep 120
+  sleep 180
   kubectl get services -A
   kubectl get po -A
   echo "\n\n==== Activator:"
