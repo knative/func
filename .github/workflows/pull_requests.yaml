@@ -123,17 +123,14 @@ jobs:
         run: make build
         env:
           PKGER: "./pkger"
-      - name: Provision Cluster
-        uses: container-tools/kind-action@v1 # use ./hack/allocate.sh locally
-        with:
-          version: v0.10.0
-          kubectl_version: v1.20.0
-          knative_serving: v0.22.0
-          knative_kourier: v0.22.0
-          knative_eventing: v0.22.0
-          config: testdata/cluster.yaml
+      - name: Install Binaries
+        run: ./hack/binaries.sh
+      - name: Allocate Cluster
+        run: ./hack/allocate.sh
       - name: Configure Cluster
         run: ./hack/configure.sh
+      - name: Local Registry an Routes (CI)
+        run: ./hack/ci.sh
       - name: Patch Network Cluster
         run: ./test/patch_network.sh
 
