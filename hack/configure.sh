@@ -162,7 +162,7 @@ data:
     selector:
       func.domain: "example.org"
   # Default is local only.
-  cluster.local: ""
+  svc.cluster.local: ""
 EOF
 }
 

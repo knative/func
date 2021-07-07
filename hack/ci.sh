@@ -41,7 +41,7 @@ status() {
   sleep 180
   kubectl get services -A
   kubectl get po -A
-  echo "\n\n==== Activator:"
+  echo "==== Activator:"
   kubectl describe po -lapp=activator -n knative-serving
   kubectl logs -lapp=activator -n knative-serving
   echo "==== Gateway:"

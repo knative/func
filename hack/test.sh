@@ -30,7 +30,7 @@ spec:
 EOF
   sleep 10
   echo "${em}-- invoking echo server${me}"
-  curl -H "Host: echo.func.cluster.local" http://127.0.0.1/
+  curl -H "Host: echo.func.svc.cluster.local" http://127.0.0.1/
 
   echo "${em}DONE${me}"
 
