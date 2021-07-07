@@ -86,6 +86,8 @@ jobs:
         run: ./hack/configure.sh
       - name: Local Registry an Routes (CI)
         run: ./hack/ci.sh
+      - name: Run Echo Test
+        run: ./hack/test.sh
       - name: Integration Test
         run: make test-integration
 
@@ -131,6 +133,8 @@ jobs:
         run: ./hack/configure.sh
       - name: Local Registry an Routes (CI)
         run: ./hack/ci.sh
+      - name: Run Echo Test
+        run: ./hack/test.sh
       - name: Patch Network Cluster
         run: ./test/patch_network.sh
 

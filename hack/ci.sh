@@ -45,10 +45,12 @@ status() {
   sleep 120
   kubectl get services -A
   kubectl get po -A
-  echo "Activator:"
+  echo "\n\n==== Activator:"
   kubectl describe po -lapp=activator -n knative-serving
-  echo "Gateway:"
+  kubectl logs -lapp=activator -n knative-serving
+  echo "==== Gateway:"
   kubectl describe po -n kourier-system -lapp=3scale-kourier-gateway
+  kubectl logs -n kourier-system -lapp=3scale-kourier-gateway
 }
 
 main "$@"
