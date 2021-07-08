@@ -13,8 +13,13 @@ main() {
   local em=$(tput bold)$(tput setaf 2)
   local me=$(tput sgr0)
 
-  echo "${em}Status...${me}"
-  sleep 360
+  echo "${em}Waiting for stability...${me}"
+  # Sadly this long wait appears to be necessary as of recent
+  # versions due to restarts of kourier gateway and knative activator. The
+  # root cause is currently unknown, but it eventually starts.  Eventually.
+  sleep 420
+
+  # Drop some debug in the event even the above excessive wait does not work.
   kubectl get services -A
   kubectl get po -A
   echo "==== Activator:"
