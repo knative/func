@@ -21,22 +21,46 @@ import (
 )
 
 func init() {
-	root.AddCommand(deployCmd)
-	deployCmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
-	deployCmd.Flags().StringArrayP("env", "e", []string{}, "Environment variable to set in the form NAME=VALUE. "+
-		"You may provide this flag multiple times for setting multiple environment variables. "+
-		"To unset, specify the environment variable name followed by a \"-\" (e.g., NAME-).")
-	deployCmd.Flags().StringP("image", "i", "", "Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE")
-	deployCmd.Flags().StringP("namespace", "n", "", "Namespace of the function to undeploy. By default, the namespace in func.yaml is used or the actual active namespace if not set in the configuration. (Env: $FUNC_NAMESPACE)")
-	deployCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
-	deployCmd.Flags().StringP("registry", "r", "", "Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined based on the local directory name. If not provided the registry will be taken from func.yaml (Env: $FUNC_REGISTRY)")
-	deployCmd.Flags().BoolP("build", "b", true, "Build the image before deploying (Env: $FUNC_BUILD)")
+	root.AddCommand(NewDeployCmd(newDeployClient))
 }
 
-var deployCmd = &cobra.Command{
-	Use:   "deploy",
-	Short: "Deploy a function",
-	Long: `Deploy a function
+func newDeployClient(cfg deployConfig) (*fn.Client, error) {
+	listener := progress.New()
+
+	builder := buildpacks.NewBuilder()
+
+	pusher, err := docker.NewPusher(docker.WithCredentialsProvider(credentialsProvider))
+	if err != nil {
+		return nil, err
+	}
+
+	deployer, err := knative.NewDeployer(cfg.Namespace)
+	if err != nil {
+		return nil, err
+	}
+
+	listener.Verbose = cfg.Verbose
+	builder.Verbose = cfg.Verbose
+	pusher.Verbose = cfg.Verbose
+	deployer.Verbose = cfg.Verbose
+
+	return fn.New(
+		fn.WithProgressListener(listener),
+		fn.WithBuilder(builder),
+		fn.WithPusher(pusher),
+		fn.WithDeployer(deployer),
+		fn.WithRegistry(cfg.Registry), // for deriving name when no --image value
+		fn.WithVerbose(cfg.Verbose),
+	), nil
+}
+
+type deployClientFn func(deployConfig) (*fn.Client, error)
+
+func NewDeployCmd(clientFn deployClientFn) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "deploy",
+		Short: "Deploy a function",
+		Long: `Deploy a function
 
 Builds a container image for the function and deploys it to the connected Knative enabled cluster. 
 The function is picked up from the project in the current directory or from the path provided
@@ -47,7 +71,7 @@ in the configuration file.
 If the function is already deployed, it is updated with a new container image
 that is pushed to an image registry, and finally the function's Knative service is updated.
 `,
-	Example: `
+		Example: `
 # Build and deploy the function from the current directory's project. The image will be
 # pushed to "quay.io/myuser/<function name>" and deployed as Knative service with the 
 # same name as the function to the currently connected cluster.
@@ -57,17 +81,33 @@ kn func deploy --registry quay.io/myuser
 # the namespace "myns"
 kn func deploy --image quay.io/myuser/myfunc -n myns
 `,
-	SuggestFor: []string{"delpoy", "deplyo"},
-	PreRunE:    bindEnv("image", "namespace", "path", "registry", "confirm", "build"),
-	RunE:       runDeploy,
+		SuggestFor: []string{"delpoy", "deplyo"},
+		PreRunE:    bindEnv("image", "namespace", "path", "registry", "confirm", "build"),
+	}
+
+	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
+	cmd.Flags().StringArrayP("env", "e", []string{}, "Environment variable to set in the form NAME=VALUE. "+
+		"You may provide this flag multiple times for setting multiple environment variables. "+
+		"To unset, specify the environment variable name followed by a \"-\" (e.g., NAME-).")
+	cmd.Flags().StringP("image", "i", "", "Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE")
+	cmd.Flags().StringP("namespace", "n", "", "Namespace of the function to undeploy. By default, the namespace in func.yaml is used or the actual active namespace if not set in the configuration. (Env: $FUNC_NAMESPACE)")
+	cmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
+	cmd.Flags().StringP("registry", "r", "", "Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined based on the local directory name. If not provided the registry will be taken from func.yaml (Env: $FUNC_REGISTRY)")
+	cmd.Flags().BoolP("build", "b", true, "Build the image before deploying (Env: $FUNC_BUILD)")
+
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		return runDeploy(cmd, args, clientFn)
+	}
+
+	return cmd
 }
 
-func runDeploy(cmd *cobra.Command, _ []string) (err error) {
-
+func runDeploy(cmd *cobra.Command, _ []string, clientFn deployClientFn) (err error) {
 	config, err := newDeployConfig(cmd)
 	if err != nil {
 		return err
 	}
+
 	config, err = config.Prompt()
 	if err != nil {
 		if err == terminal.InterruptErr {
@@ -120,55 +160,26 @@ func runDeploy(cmd *cobra.Command, _ []string) (err error) {
 		return
 	}
 
-	builder := buildpacks.NewBuilder()
-	builder.Verbose = config.Verbose
+	// Deafult conig namespace is the function's namespace
+	if config.Namespace == "" {
+		config.Namespace = function.Namespace
+	}
 
-	pusher, err := docker.NewPusher(docker.WithCredentialsProvider(credentialsProvider))
+	client, err := clientFn(config)
 	if err != nil {
 		if err == terminal.InterruptErr {
 			return nil
 		}
 		return err
 	}
-	pusher.Verbose = config.Verbose
-
-	ns := config.Namespace
-	if ns == "" {
-		ns = function.Namespace
-	}
-
-	deployer, err := knative.NewDeployer(ns)
-	if err != nil {
-		return
-	}
-
-	listener := progress.New()
-	defer listener.Done()
-
-	deployer.Verbose = config.Verbose
-	listener.Verbose = config.Verbose
-
-	context := cmd.Context()
-	go func() {
-		<-context.Done()
-		listener.Done()
-	}()
-
-	client := fn.New(
-		fn.WithVerbose(config.Verbose),
-		fn.WithRegistry(config.Registry), // for deriving image name when --image not provided explicitly.
-		fn.WithBuilder(builder),
-		fn.WithPusher(pusher),
-		fn.WithDeployer(deployer),
-		fn.WithProgressListener(listener))
 
 	if config.Build {
-		if err := client.Build(context, config.Path); err != nil {
+		if err := client.Build(cmd.Context(), config.Path); err != nil {
 			return err
 		}
 	}
 
-	return client.Deploy(context, config.Path)
+	return client.Deploy(cmd.Context(), config.Path)
 
 	// NOTE: Namespace is optional, default is that used by k8s client
 	// (for example kubectl usually uses ~/.kube/config)

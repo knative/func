@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	DefaultWaitingTimeout = 60 * time.Second
+	DefaultWaitingTimeout = 120 * time.Second
 )
 
 func NewServingClient(namespace string) (clientservingv1.KnServingClient, error) {

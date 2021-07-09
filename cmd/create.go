@@ -24,13 +24,15 @@ func init() {
 // The createClientFn is a client factory which creates a new Client for use by
 // the create command during normal execution (see tests for alternative client
 // factories which return clients with various mocks).
-func newCreateClient(repositories string, verbose bool) *fn.Client {
-	return fn.New(fn.WithRepositories(repositories), fn.WithVerbose(verbose))
+func newCreateClient(cfg createConfig) *fn.Client {
+	return fn.New(
+		fn.WithRepositories(cfg.Repositories),
+		fn.WithVerbose(cfg.Verbose))
 }
 
 // createClientFn is a factory function which returns a Client suitable for
 // use with the Create command.
-type createClientFn func(repositories string, verbose bool) *fn.Client
+type createClientFn func(createConfig) *fn.Client
 
 // NewCreateCmd creates a create command using the given client creator.
 func NewCreateCmd(clientFn createClientFn) *cobra.Command {
@@ -59,14 +61,10 @@ kn func create --template events myfunc
 		PreRunE:    bindEnv("runtime", "template", "repositories", "confirm"),
 	}
 
-	cmd.Flags().BoolP("confirm", "c", false,
-		"Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
-	cmd.Flags().StringP("runtime", "l", fn.DefaultRuntime,
-		"Function runtime language/framework. Available runtimes: "+buildpacks.Runtimes()+" (Env: $FUNC_RUNTIME)")
-	cmd.Flags().StringP("repositories", "r", filepath.Join(configPath(), "repositories"),
-		"Path to extended template repositories (Env: $FUNC_REPOSITORIES)")
-	cmd.Flags().StringP("template", "t", fn.DefaultTemplate,
-		"Function template. Available templates: 'http' and 'events' (Env: $FUNC_TEMPLATE)")
+	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
+	cmd.Flags().StringP("runtime", "l", fn.DefaultRuntime, "Function runtime language/framework. Available runtimes: "+buildpacks.Runtimes()+" (Env: $FUNC_RUNTIME)")
+	cmd.Flags().StringP("repositories", "r", filepath.Join(configPath(), "repositories"), "Path to extended template repositories (Env: $FUNC_REPOSITORIES)")
+	cmd.Flags().StringP("template", "t", fn.DefaultTemplate, "Function template. Available templates: 'http' and 'events' (Env: $FUNC_TEMPLATE)")
 
 	// Register tab-completeion function integration
 	if err := cmd.RegisterFlagCompletionFunc("runtime", CompleteRuntimeList); err != nil {
@@ -103,7 +101,7 @@ func runCreate(cmd *cobra.Command, args []string, clientFn createClientFn) (err 
 		Template: config.Template,
 	}
 
-	client := clientFn(config.Repositories, config.Verbose)
+	client := clientFn(config)
 
 	return client.Create(function)
 }
