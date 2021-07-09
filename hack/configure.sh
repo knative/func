@@ -50,6 +50,7 @@ main() {
   network
   kourier_nodeport
   default_domain
+  broker
 
   sleep 5
   kubectl --namespace kourier-system get service kourier
@@ -135,6 +136,51 @@ default_domain() {
   --namespace knative-serving \
   --type merge \
   --patch '{"data":{"127.0.0.1.sslip.io":""}}'
+}
+
+broker() {
+  echo "${em}④  Func Broker & Channel${me}"
+
+  # Broker
+  kubectl apply -f - <<EOF
+  apiVersion: eventing.knative.dev/v1
+  kind: broker
+  metadata:
+   name: default-broker
+   namespace: default
+EOF
+
+  # Channel
+  kubectl apply -f - << EOF
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: imc-channel
+  namespace: knative-eventing
+data:
+  channelTemplateSpec: |
+    apiVersion: messaging.knative.dev/v1
+    kind: InMemoryChannel
+EOF
+
+  # Broker Default Channel
+  kubectl apply -f - << EOF
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: config-br-defaults
+  namespace: knative-eventing
+data:
+  default-br-config: |
+    # This is the cluster-wide default broker channel.
+    clusterDefault:
+      brokerClass: MTChannelBasedBroker
+      apiVersion: v1
+      kind: ConfigMap
+      name: imc-channel
+      namespace: knative-eventing
+EOF
+
 }
 
 main "$@"

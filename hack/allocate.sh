@@ -91,24 +91,6 @@ eventing() {
   echo "Resources being initialized"
   sleep 5
   kubectl get pod -n knative-eventing
-
-  # Set up the MT broker as the default
-  cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: config-br-defaults
-  namespace: knative-eventing
-data:
-  default-br-config: |
-    # This is the cluster-wide default broker channel.
-    clusterDefault:
-      brokerClass: MTChannelBasedBroker
-      apiVersion: v1
-      kind: ConfigMap
-      name: imc-channel
-      namespace: knative-eventing
-EOF
 }
 
 networking() {
