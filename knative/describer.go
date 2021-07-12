@@ -4,11 +4,11 @@ import (
 	"context"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	v1 "knative.dev/client/pkg/serving/v1"
-	"knative.dev/eventing/pkg/apis/eventing/v1beta1"
+	clientservingv1 "knative.dev/client/pkg/serving/v1"
+	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
 
 	fn "github.com/boson-project/func"
-	"github.com/boson-project/func/k8s"
+	k8s "github.com/boson-project/func/k8s"
 )
 
 type Describer struct {
@@ -48,7 +48,7 @@ func (d *Describer) Describe(ctx context.Context, name string) (description fn.D
 		return
 	}
 
-	routes, err := servingClient.ListRoutes(ctx, v1.WithService(name))
+	routes, err := servingClient.ListRoutes(ctx, clientservingv1.WithService(name))
 	if err != nil {
 		return
 	}
@@ -64,7 +64,7 @@ func (d *Describer) Describe(ctx context.Context, name string) (description fn.D
 		return
 	}
 
-	triggerMatches := func(t *v1beta1.Trigger) bool {
+	triggerMatches := func(t *eventingv1.Trigger) bool {
 		return (t.Spec.Subscriber.Ref != nil && t.Spec.Subscriber.Ref.Name == service.Name) ||
 			(t.Spec.Subscriber.URI != nil && service.Status.Address != nil && service.Status.Address.URL != nil &&
 				t.Spec.Subscriber.URI.Path == service.Status.Address.URL.Path)
