@@ -1,74 +1,58 @@
-use actix_web::{web, HttpRequest, HttpResponse};
-use cloudevents::{event::Data, EventBuilder, EventBuilderV10};
-use cloudevents_sdk_actix_web::{HttpRequestExt, HttpResponseBuilderExt};
+use cloudevents::{event::Data, Event, EventBuilder, EventBuilderV10};
 use log::info;
-use serde_json::json;
+use serde_json::{from_slice, from_str, json};
 
 // Implement your function's logic here
-pub async fn handle(req: HttpRequest, pl: web::Payload) -> Result<HttpResponse, actix_web::Error> {
-    let event = req.to_event(pl).await?;
-    info!("request: {}", event);
+pub async fn handle(event: Event) -> Result<Event, actix_web::Error> {
+    info!("event: {}", event);
 
-    let input = if let Some(Data::Binary(data)) = event.data() {
-        serde_json::from_slice(data).unwrap()
-    } else {
-        json!({ "name": "world" })
+    let input = match event.data() {
+        Some(Data::Binary(v)) => from_slice(v)?,
+        Some(Data::String(v)) => from_str(v)?,
+        Some(Data::Json(v)) => v.to_owned(),
+        None => json!({ "name": "world" }),
     };
 
-    let response = EventBuilderV10::from(event)
+    EventBuilderV10::from(event)
         .source("func://handler")
         .ty("func.example")
         .data("application/json", json!({ "hello": input["name"] }))
         .build()
-        .map_err(actix_web::error::ErrorInternalServerError)?;
-
-    info!("response: {}", response);
-    HttpResponse::Ok().event(response).await
+        .map_err(actix_web::error::ErrorInternalServerError)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use actix_web::{body::Body, test};
 
     #[actix_rt::test]
     async fn valid_input() {
-        let input = json!({"name": "bootsy"});
-        let (req, payload) = test::TestRequest::post()
-            .header("ce-specversion", "1.0")
-            .header("ce-id", "1")
-            .header("ce-type", "test")
-            .header("ce-source", "http://localhost")
-            .set_json(&input)
-            .to_http_parts();
-        let resp = handle(req, web::Payload(payload)).await.unwrap();
-        assert!(resp.status().is_success());
-        assert_eq!(
-            &Body::from(json!({"hello":"bootsy"})),
-            resp.body().as_ref().unwrap()
-        );
+        let mut input = Event::default();
+        input.set_data("application/json", json!({"name": "bootsy"}));
+        let resp = handle(input).await;
+        assert!(resp.is_ok());
+        match resp.unwrap().data() {
+            Some(Data::Json(output)) => assert_eq!("bootsy", output["hello"]),
+            _ => panic!(),
+        }
     }
 
     #[actix_rt::test]
     async fn no_input() {
-        let (req, payload) = test::TestRequest::post()
-            .header("ce-specversion", "1.0")
-            .header("ce-id", "1")
-            .header("ce-type", "test")
-            .header("ce-source", "http://localhost")
-            .to_http_parts();
-        let resp = handle(req, web::Payload(payload)).await.unwrap();
-        assert!(resp.status().is_success());
-        assert_eq!(
-            &Body::from(json!({"hello":"world"})),
-            resp.body().as_ref().unwrap()
-        );
+        let resp = handle(Event::default()).await;
+        assert!(resp.is_ok());
+        match resp.unwrap().data() {
+            Some(Data::Json(output)) => assert_eq!("world", output["hello"]),
+            _ => panic!(),
+        }
     }
 
     #[actix_rt::test]
     async fn invalid_event() {
-        let (req, payload) = test::TestRequest::post().to_http_parts();
-        let resp = handle(req, web::Payload(payload)).await;
-        assert!(resp.is_err());
+        use actix_web::{test, web, App};
+        let mut app = test::init_service(App::new().route("/", web::post().to(handle))).await;
+        let req = test::TestRequest::post().uri("/").to_request();
+        let resp = test::call_service(&mut app, req).await;
+        assert!(resp.status().is_client_error());
     }
 }
