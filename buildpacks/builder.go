@@ -80,18 +80,6 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		network = "host"
 	}
 
-	packOpts := pack.BuildOptions{
-		AppPath:      f.Root,
-		Image:        f.Image,
-		Builder:      packBuilder,
-		TrustBuilder: strings.HasPrefix(packBuilder, "quay.io/boson"),
-		DockerHost:   os.Getenv("DOCKER_HOST"),
-		ContainerConfig: struct {
-			Network string
-			Volumes []string
-		}{Network: network, Volumes: nil},
-	}
-
 	// log output is either STDOUt or kept in a buffer to be printed on error.
 	var logWriter io.Writer
 	if builder.Verbose {
@@ -109,6 +97,31 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	)
 	if err != nil {
 		return err
+	}
+
+	version, err := dockerClient.ServerVersion(ctx)
+	if err != nil {
+		return err
+	}
+
+	var deamonIsPodman bool
+	for _, component := range version.Components {
+		if component.Name == "Podman Engine" {
+			deamonIsPodman = true
+			break
+		}
+	}
+
+	packOpts := pack.BuildOptions{
+		AppPath:      f.Root,
+		Image:        f.Image,
+		Builder:      packBuilder,
+		TrustBuilder: !deamonIsPodman && strings.HasPrefix(packBuilder, "quay.io/boson"),
+		DockerHost:   os.Getenv("DOCKER_HOST"),
+		ContainerConfig: struct {
+			Network string
+			Volumes []string
+		}{Network: network, Volumes: nil},
 	}
 
 	dockerClientWrapper := &clientWrapper{dockerClient}
