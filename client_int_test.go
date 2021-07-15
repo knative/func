@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	boson "github.com/boson-project/func"
-	"github.com/boson-project/func/buildpacks"
-	"github.com/boson-project/func/docker"
-	"github.com/boson-project/func/knative"
+	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/buildpacks"
+	"knative.dev/kn-plugin-func/docker"
+	"knative.dev/kn-plugin-func/knative"
 )
 
 /*
@@ -61,9 +61,9 @@ func TestList(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	client := boson.New(
-		boson.WithLister(lister),
-		boson.WithVerbose(verbose))
+	client := fn.New(
+		fn.WithLister(lister),
+		fn.WithVerbose(verbose))
 
 	// Act
 	names, err := client.List(context.Background())
@@ -85,7 +85,7 @@ func TestNew(t *testing.T) {
 	client := newClient(verbose)
 
 	// Act
-	if err := client.New(context.Background(), boson.Function{Name: "testnew", Root: ".", Runtime: "go"}); err != nil {
+	if err := client.New(context.Background(), fn.Function{Name: "testnew", Root: ".", Runtime: "go"}); err != nil {
 		t.Fatal(err)
 	}
 	defer del(t, client, "testnew")
@@ -111,7 +111,7 @@ func TestDeploy(t *testing.T) {
 
 	client := newClient(verbose)
 
-	if err := client.New(context.Background(), boson.Function{Name: "deploy", Root: ".", Runtime: "go"}); err != nil {
+	if err := client.New(context.Background(), fn.Function{Name: "deploy", Root: ".", Runtime: "go"}); err != nil {
 		t.Fatal(err)
 	}
 	defer del(t, client, "deploy")
@@ -128,12 +128,12 @@ func TestRemove(t *testing.T) {
 
 	client := newClient(verbose)
 
-	if err := client.New(context.Background(), boson.Function{Name: "remove", Root: ".", Runtime: "go"}); err != nil {
+	if err := client.New(context.Background(), fn.Function{Name: "remove", Root: ".", Runtime: "go"}); err != nil {
 		t.Fatal(err)
 	}
 	waitFor(t, client, "remove")
 
-	if err := client.Remove(context.Background(), boson.Function{Name: "remove"}); err != nil {
+	if err := client.Remove(context.Background(), fn.Function{Name: "remove"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -152,7 +152,7 @@ func TestRemove(t *testing.T) {
 
 // newClient creates an instance of the func client whose concrete impls
 // match those created by the kn func plugin CLI.
-func newClient(verbose bool) *boson.Client {
+func newClient(verbose bool) *fn.Client {
 	builder := buildpacks.NewBuilder()
 	builder.Verbose = verbose
 
@@ -180,14 +180,14 @@ func newClient(verbose bool) *boson.Client {
 	}
 	lister.Verbose = verbose
 
-	return boson.New(
-		boson.WithRegistry(DefaultRegistry),
-		boson.WithVerbose(verbose),
-		boson.WithBuilder(builder),
-		boson.WithPusher(pusher),
-		boson.WithDeployer(deployer),
-		boson.WithRemover(remover),
-		boson.WithLister(lister),
+	return fn.New(
+		fn.WithRegistry(DefaultRegistry),
+		fn.WithVerbose(verbose),
+		fn.WithBuilder(builder),
+		fn.WithPusher(pusher),
+		fn.WithDeployer(deployer),
+		fn.WithRemover(remover),
+		fn.WithLister(lister),
 	)
 }
 
@@ -201,10 +201,10 @@ func newClient(verbose bool) *boson.Client {
 // Of course, ideally this would be replaced by the use of a synchronous
 // method, or at a minimum a way to register a callback/listener for the
 // creation event.  This is what we have for now, and the show must go on.
-func del(t *testing.T, c *boson.Client, name string) {
+func del(t *testing.T, c *fn.Client, name string) {
 	t.Helper()
 	waitFor(t, c, name)
-	if err := c.Remove(context.Background(), boson.Function{Name: name}); err != nil {
+	if err := c.Remove(context.Background(), fn.Function{Name: name}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -213,7 +213,7 @@ func del(t *testing.T, c *boson.Client, name string) {
 // TODO: the API should be synchronous, but that depends first on
 // Create returning the derived name such that we can bake polling in.
 // Ideally the Boson provider's Creaet would be made syncrhonous.
-func waitFor(t *testing.T, c *boson.Client, name string) {
+func waitFor(t *testing.T, c *fn.Client, name string) {
 	t.Helper()
 	var pollInterval = 2 * time.Second
 

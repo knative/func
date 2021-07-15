@@ -10,7 +10,7 @@ import (
 
 	"knative.dev/client/pkg/kn/plugin"
 
-	"github.com/boson-project/func/cmd"
+	"knative.dev/kn-plugin-func/cmd"
 )
 
 func init() {

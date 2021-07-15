@@ -9,9 +9,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/boson-project/func/utils"
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"knative.dev/kn-plugin-func/utils"
 )
 
 // ConfigFile is the name of the config's serialized form.

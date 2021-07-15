@@ -13,11 +13,11 @@ import (
 	"github.com/spf13/cobra"
 	"knative.dev/client/pkg/util"
 
-	fn "github.com/boson-project/func"
-	"github.com/boson-project/func/buildpacks"
-	"github.com/boson-project/func/docker"
-	"github.com/boson-project/func/knative"
-	"github.com/boson-project/func/progress"
+	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/buildpacks"
+	"knative.dev/kn-plugin-func/docker"
+	"knative.dev/kn-plugin-func/knative"
+	"knative.dev/kn-plugin-func/progress"
 )
 
 func init() {

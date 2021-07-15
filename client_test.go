@@ -11,8 +11,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	fn "github.com/boson-project/func"
-	"github.com/boson-project/func/mock"
+	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/mock"
 )
 
 const (

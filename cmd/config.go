@@ -8,7 +8,7 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
-	fn "github.com/boson-project/func"
+	fn "knative.dev/kn-plugin-func"
 )
 
 func init() {

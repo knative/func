@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"github.com/boson-project/func/cmd"
+	"knative.dev/kn-plugin-func/cmd"
 	"os"
 	"os/signal"
 	"syscall"

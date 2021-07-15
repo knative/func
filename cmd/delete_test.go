@@ -4,8 +4,8 @@ import (
 	"io/ioutil"
 	"testing"
 
-	fn "github.com/boson-project/func"
-	"github.com/boson-project/func/mock"
+	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/mock"
 )
 
 // TestDeleteByName ensures that running delete specifying the name of the Funciton

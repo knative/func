@@ -6,8 +6,8 @@ import (
 	"os"
 	"testing"
 
-	fn "github.com/boson-project/func"
-	"github.com/boson-project/func/utils"
+	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/utils"
 )
 
 // TestCreateValidatesName ensures that the create command only accepts

@@ -16,7 +16,7 @@ import (
 
 	"github.com/docker/docker/client"
 
-	fn "github.com/boson-project/func"
+	fn "knative.dev/kn-plugin-func"
 )
 
 // Runner of functions using the docker command.

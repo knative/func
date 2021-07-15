@@ -15,7 +15,7 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/pkg/errors"
 
-	fn "github.com/boson-project/func"
+	fn "knative.dev/kn-plugin-func"
 )
 
 type Opt func(*Pusher) error

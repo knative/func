@@ -9,7 +9,7 @@ import (
 	eventingv1beta1 "knative.dev/eventing/pkg/client/clientset/versioned/typed/eventing/v1beta1"
 	servingv1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1"
 
-	"github.com/boson-project/func/k8s"
+	"knative.dev/kn-plugin-func/k8s"
 )
 
 const (
