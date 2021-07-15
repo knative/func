@@ -3,6 +3,12 @@
 # Suitable for use locally during development.
 # CI/CD uses the very similar knative-kind action
 
+set -o errexit
+set -o nounset
+set -o pipefail
+
+export TERM="${TERM:-dumb}"
+
 main() {
   local green=$(tput bold)$(tput setaf 2)
   local red=$(tput bold)$(tput setaf 2)
