@@ -46,10 +46,10 @@ func NewBuilder() *Builder {
 //RuntimeToBuildpack holds the mapping between the Runtime and its corresponding
 //Buildpack builder to use
 var RuntimeToBuildpack = map[string]string{
-	"quarkus":    "quay.io/boson/faas-quarkus-builder",
+	"quarkus":    "quay.io/boson/faas-jvm-builder",
 	"node":       "quay.io/boson/faas-nodejs-builder",
 	"go":         "quay.io/boson/faas-go-builder",
-	"springboot": "quay.io/boson/faas-springboot-builder",
+	"springboot": "quay.io/boson/faas-jvm-builder",
 	"python":     "quay.io/boson/faas-python-builder",
 	"typescript": "quay.io/boson/faas-nodejs-builder",
 	"rust":       "quay.io/boson/faas-rust-builder",
