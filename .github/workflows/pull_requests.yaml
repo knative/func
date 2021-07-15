@@ -71,27 +71,26 @@ jobs:
         run: make check
 
   integration-test:
+    needs: build
     runs-on: 'ubuntu-latest'
     steps:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Setup Go
         uses: actions/setup-go@v2
-      - name: Provision Cluster
-        uses: container-tools/kind-action@v1 # use ./hack/allocate.sh locally
-        with:
-          version: v0.11.1
-          kubectl_version: v1.21.2
-          knative_serving: v0.23.0
-          knative_kourier: v0.23.0
-          knative_eventing: v0.23.0
-          config: testdata/cluster.yaml
-      - name: Configure Cluster
-        run: ./hack/configure.sh
+      - name: Install Binaries
+        run: ./hack/binaries.sh
+      - name: Allocate Cluster
+        run: ./hack/allocate.sh
+      - name: Local Registry Routing
+        run: ./hack/ci.sh
+      - name: Verify Configuration
+        run: ./hack/test.sh
       - name: Integration Test
         run: make test-integration
 
   e2e-test:
+    needs: integration-test
     runs-on: 'ubuntu-latest'
     steps:
       - name: Checkout
@@ -124,20 +123,14 @@ jobs:
         run: make build
         env:
           PKGER: "./pkger"
-      - name: Provision Cluster
-        uses: container-tools/kind-action@v1 # use ./hack/allocate.sh locally
-        with:
-          version: v0.10.0
-          kubectl_version: v1.20.0
-          knative_serving: v0.22.0
-          knative_kourier: v0.22.0
-          knative_eventing: v0.22.0
-          config: testdata/cluster.yaml
-      - name: Configure Cluster
-        run: ./hack/configure.sh
-      - name: Patch Network Cluster
-        run: ./test/patch_network.sh
-
+      - name: Install Binaries
+        run: ./hack/binaries.sh
+      - name: Allocate Cluster
+        run: ./hack/allocate.sh
+      - name: Local Registry an Routes (CI)
+        run: ./hack/ci.sh
+      - name: Verify Configuration
+        run: ./hack/test.sh
       - name: E2E Test
         run: ./test/run_e2e_test.sh   # by default runs e2e + 'node' specific tests
       #- name: E2E Test Go
