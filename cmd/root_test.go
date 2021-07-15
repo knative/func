@@ -7,7 +7,7 @@ import (
 
 	"knative.dev/client/pkg/util"
 
-	fn "github.com/boson-project/func"
+	fn "knative.dev/kn-plugin-func"
 )
 
 func Test_mergeEnvMaps(t *testing.T) {

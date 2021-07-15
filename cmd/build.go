@@ -8,9 +8,9 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
-	fn "github.com/boson-project/func"
-	"github.com/boson-project/func/buildpacks"
-	"github.com/boson-project/func/progress"
+	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/buildpacks"
+	"knative.dev/kn-plugin-func/progress"
 )
 
 func init() {

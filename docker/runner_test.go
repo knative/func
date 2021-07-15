@@ -9,8 +9,8 @@ import (
 	"os"
 	"testing"
 
-	fn "github.com/boson-project/func"
-	"github.com/boson-project/func/docker"
+	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/docker"
 )
 
 // Docker Run Integraiton Test

@@ -13,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/client/pkg/util"
 
-	fn "github.com/boson-project/func"
+	fn "knative.dev/kn-plugin-func"
 )
 
 // The root of the command tree defines the command name, descriotion, globally

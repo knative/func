@@ -9,9 +9,9 @@ import (
 	"github.com/AlecAivazis/survey/v2/terminal"
 	"github.com/spf13/cobra"
 
-	fn "github.com/boson-project/func"
-	"github.com/boson-project/func/k8s"
-	"github.com/boson-project/func/utils"
+	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/k8s"
+	"knative.dev/kn-plugin-func/utils"
 )
 
 func init() {

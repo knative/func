@@ -5,12 +5,12 @@ import (
 	"errors"
 	"io/ioutil"
 
-	fn "github.com/boson-project/func"
-	"github.com/boson-project/func/cloudevents"
-	"github.com/boson-project/func/knative"
 	"github.com/google/uuid"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
+	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/cloudevents"
+	"knative.dev/kn-plugin-func/knative"
 )
 
 func init() {

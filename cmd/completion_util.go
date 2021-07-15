@@ -8,9 +8,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	fn "github.com/boson-project/func"
-	"github.com/boson-project/func/buildpacks"
-	"github.com/boson-project/func/knative"
+	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/buildpacks"
+	"knative.dev/kn-plugin-func/knative"
 )
 
 func CompleteFunctionList(cmd *cobra.Command, args []string, toComplete string) (strings []string, directive cobra.ShellCompDirective) {

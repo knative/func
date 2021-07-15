@@ -20,8 +20,8 @@ import (
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 
-	fn "github.com/boson-project/func"
-	"github.com/boson-project/func/k8s"
+	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/k8s"
 )
 
 type Deployer struct {

@@ -1,4 +1,4 @@
-module github.com/boson-project/func
+module knative.dev/kn-plugin-func
 
 go 1.15
 

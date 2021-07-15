@@ -2,7 +2,7 @@ package mock
 
 import (
 	"context"
-	fn "github.com/boson-project/func"
+	fn "knative.dev/kn-plugin-func"
 )
 
 type Runner struct {

@@ -11,8 +11,8 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
-	fn "github.com/boson-project/func"
-	"github.com/boson-project/func/knative"
+	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/knative"
 )
 
 func init() {

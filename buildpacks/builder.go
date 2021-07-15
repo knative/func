@@ -29,7 +29,7 @@ import (
 
 	dockerClient "github.com/docker/docker/client"
 
-	fn "github.com/boson-project/func"
+	fn "knative.dev/kn-plugin-func"
 )
 
 //Builder holds the configuration that will be passed to
