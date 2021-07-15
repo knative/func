@@ -32,11 +32,11 @@ The primary interface for Boson project is the `func` CLI.
 [Download][func-download] the most recent version and install it some place
 within your `$PATH`.
 
-[func-download]: https://github.com/boson-project/func/releases/latest
+[func-download]: https://github.com/knative-sandbox/kn-plugin-func/releases/latest
 
 ```sh
 # Be sure to download the correct binary for your operating system
-curl -L -o - func.gz https://github.com/boson-project/func/releases/latest/download/func_linux_amd64.gz | gunzip > func && chmod 755 func
+curl -L -o - func.gz https://github.com/knative-sandbox/kn-plugin-func/releases/latest/download/func_linux_amd64.gz | gunzip > func && chmod 755 func
 sudo mv func /usr/local/bin
 ```
 ## Configuring a Container Registry
