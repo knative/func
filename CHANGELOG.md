@@ -1,6 +1,15 @@
 # Change Log
 
 <a name="unreleased"></a>
+### [0.16.1](https://www.github.com/knative-sandbox/kn-plugin-func/compare/v0.16.0...v0.16.1) (2021-07-16)
+
+
+### Bug Fixes
+
+* closing stdout ([6f40b29](https://www.github.com/knative-sandbox/kn-plugin-func/commit/6f40b29d3e02193c51317a29737c20dc11730c5a))
+* do not trust builder when using podman ([#420](https://www.github.com/knative-sandbox/kn-plugin-func/issues/420)) ([894f4fe](https://www.github.com/knative-sandbox/kn-plugin-func/commit/894f4febda1d7da5d3f47e1003b29b339b1f8cd4))
+* update builders version ([#421](https://www.github.com/knative-sandbox/kn-plugin-func/issues/421)) ([771a230](https://www.github.com/knative-sandbox/kn-plugin-func/commit/771a2307a13d105a188a0fd2c2fa843f3a535277))
+
 ## [0.16.0](https://www.github.com/boson-project/func/compare/v0.15.1...v0.16.0) (2021-06-23)
 
 
