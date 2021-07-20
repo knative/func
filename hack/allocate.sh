@@ -90,7 +90,7 @@ serving() {
 dns() {
   echo "${em}③ DNS${me}"
 
-  i=0; n=3
+  i=0; n=10
   while :; do
     kubectl patch configmap/config-domain \
     --namespace knative-serving \
@@ -103,7 +103,7 @@ dns() {
       exit 1
     fi
     echo 'Retrying...'
-    sleep 2
+    sleep 5
   done
 }
 
