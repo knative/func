@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 
 # 
-# CI-specific configuration for linux systems.
-# Patches docker to allow the local kind registtry without authentication.
-# Adds the registry to the local hosts file
-# Restarts the internal webkook (fix).
+# Set up local registry (linux only)
+# - Registers registry with Docker as trusted
+# - Adds 'kind-rgistry' to /etc/hosts
 #
 
 set -o errexit
