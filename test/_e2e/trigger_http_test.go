@@ -1,7 +1,6 @@
 package e2e
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -13,7 +12,7 @@ import (
 type FunctionHttpResponsivenessValidator struct {
 	runtime     string
 	targetUrl   string
-	operation   string
+	method      string
 	contentType string
 	bodyData    string
 	expects     string
@@ -25,24 +24,27 @@ func (f FunctionHttpResponsivenessValidator) Validate(t *testing.T, project Func
 	}
 
 	// Http Invoke Handling
-	var operation = f.operation
-	var url = fmt.Sprintf(f.targetUrl, project.FunctionURL)
-	var resp *http.Response
-	var err error
-
-	if operation == "POST" {
-		resp, err = http.Post(url, f.contentType, bytes.NewBuffer([]byte(f.bodyData)))
-	} else {
-		resp, err = http.Get(url)
-		operation = "GET"
+	method := "GET"
+	if f.method != "" {
+		method = f.method
 	}
+	url := fmt.Sprintf(f.targetUrl, project.FunctionURL)
+	req, err := http.NewRequest(method, url, strings.NewReader(f.bodyData))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.contentType != "" {
+		req.Header.Add("Content-Type", f.contentType)
+	}
+	client := &http.Client{}
+	resp, err := client.Do(req)
 
 	// Http Response Handling
 	if err != nil {
 		t.Fatalf("Error returned calling %v : %v", url, err.Error())
 	}
 	defer resp.Body.Close()
-	t.Logf("%v %v -> %v", operation, url, resp.Status)
+	t.Logf("%v %v -> %v", method, url, resp.Status)
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -81,7 +83,7 @@ var defaultFunctionsHttpValidators = []FunctionHttpResponsivenessValidator{
 	},
 	{runtime: "typescript",
 		targetUrl: "%s",
-		operation: "POST",
+		method: "POST",
 		contentType: "application/json",
 		bodyData: `{"message":"hello"}`,
 		expects: `{"message":"hello"}`,
