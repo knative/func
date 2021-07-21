@@ -17,20 +17,21 @@ fn
 ├── func.yaml
 ├── README.md
 └── src
+    ├── config.rs
     ├── handler.rs
     └── main.rs
 
 ```
 
 This is a full-featured, self-contained Rust application that uses the
-[actix](https://actix.rs/) web framework to listen for HTTP requests on port 8080. 
+[actix](https://actix.rs/) web framework to listen for HTTP requests on port 8080.
 
 See the generated [README.md](../../templates/rust/http/README.md) for
 details on building, testing, and deploying the app.
 
 You may have noticed the `func.yaml` file. This is a configuration
 file used by `func` to deploy your project as a service in your
-kubernetes cluster. 
+kubernetes cluster.
 
 For an event-triggered function, pass the `-t events` option to
 generate an app capable of responding to

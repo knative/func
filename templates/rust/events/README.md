@@ -5,7 +5,8 @@ Welcome to your new Rust function project! The boilerplate
 [`src/main.rs`](./src/main.rs). It's configured to invoke the `handle`
 function in [`src/handler.rs`](./src/handler.rs) in response to a POST
 request containing a valid `CloudEvent`. You should put your desired
-behavior inside that `handle` function.
+behavior inside that `handle` function. In case you need to configure
+some resources for your function, you can do that in the [`configure` function](./src/config.rs).
 
 The app will expose three endpoints:
 

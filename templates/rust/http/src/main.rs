@@ -1,6 +1,7 @@
 use actix_web::{web, App, HttpResponse, HttpServer};
 use env_logger as elog;
 
+mod config;
 mod handler;
 
 #[actix_web::main]
@@ -16,6 +17,7 @@ async fn main() -> std::io::Result<()> {
     HttpServer::new(|| {
         App::new()
             .wrap(actix_web::middleware::Logger::default())
+            .configure(config::configure)
             .route("/", web::get().to(handler::index))
             .route("/", web::post().to(handler::index))
             .route(
