@@ -29,8 +29,12 @@ jobs:
         run: |
           curl -s -L -o pkger.tgz ${{ steps.pkger-download-url.outputs.result }}
           tar xvzf pkger.tgz
-      - name: Test
+      - name: Unit Test
         run:  make test
+        env:
+          PKGER: "./${{ steps.pkger-binaries.outputs.binary }}"
+      - name: Template Unit Tests
+        run:  make test-templates
         env:
           PKGER: "./${{ steps.pkger-binaries.outputs.binary }}"
       - name: Lint

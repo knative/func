@@ -59,8 +59,12 @@ jobs:
           curl -s -L -o pkger.tgz ${{ steps.pkger-download-url.outputs.result }}
           tar xvzf pkger.tgz
 
-      - name: Test
+      - name: Unit Test
         run:  make test
+        env:
+          PKGER: "./${{ steps.pkger-binaries.outputs.binary }}"
+      - name: Template Unit Tests
+        run:  make test-templates
         env:
           PKGER: "./${{ steps.pkger-binaries.outputs.binary }}"
       - name: Build
@@ -92,7 +96,7 @@ jobs:
       - name: Allocate Cluster
         run: ./hack/allocate.sh
       - name: Local Registry Routing
-        run: ./hack/ci.sh
+        run: ./hack/registry.sh
       - name: Verify Configuration
         run: ./hack/test.sh
       - name: Integration Test Podman
@@ -139,11 +143,11 @@ jobs:
       - name: Allocate Cluster
         run: ./hack/allocate.sh
       - name: Local Registry an Routes (CI)
-        run: ./hack/ci.sh
+        run: ./hack/registry.sh
       - name: Verify Configuration
         run: ./hack/test.sh
       - name: E2E Test
-        run: ./test/run_e2e_test.sh   # by default runs e2e + 'node' specific tests
+        run: make test-e2e
       #- name: E2E Test Go
       #  run: ./test/run_e2e_test.sh go
       #- name: E2E Test Python
