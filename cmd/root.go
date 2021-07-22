@@ -110,21 +110,33 @@ func cwd() (cwd string) {
 	return cwd
 }
 
+// The name of the config directory within ~/.config (or configured location)
+const configDirName = "func"
+
 // configPath is the effective path to the optional config directory used for
 // function defaults and extensible templates.
-func configPath() (path string) {
-	if path = os.Getenv("XDG_CONFIG_HOME"); path != "" {
-		path = filepath.Join(path, "func")
-		return
+func configPath() string {
+	// Use XDG_CONFIG_HOME/func if defined
+	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
+		// TODO: create if not exist
+		return filepath.Join(xdg, configDirName)
 	}
+
+	// Expand and use ~/.config/func
 	home, err := homedir.Expand("~")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "could not derive home directory for use as default templates path: %v", err)
-		path = filepath.Join(".config", "func")
-	} else {
-		path = filepath.Join(home, ".config", "func")
+	if err == nil {
+		// TODO: ensureConfigPath(home)
+		return filepath.Join(home, ".config", configDirName)
 	}
-	return
+
+	// default is .config in current working directory, used when there is no
+	// available home in which to find a .`.config/func` directory.
+	// A case could be made that a panic is in order in this scenario, but
+	// currently this seems like a nonfatal situation, as in the scenario
+	// "there is no home directory", the fallback of using `.config` if extant
+	// may very well be the optimal choice.
+	fmt.Fprintf(os.Stderr, "Error locating ~/.config: %v", err)
+	return filepath.Join(".config", configDirName)
 }
 
 // bindFunc which conforms to the cobra PreRunE method signature
