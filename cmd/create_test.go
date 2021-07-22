@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 	"testing"
 
 	fn "knative.dev/kn-plugin-func"
@@ -29,6 +30,42 @@ func TestCreateValidatesName(t *testing.T) {
 	var e utils.ErrInvalidFunctionName
 	if !errors.As(err, &e) {
 		t.Fatalf("Did not receive ErrInvalidFunctionName. Got %v", err)
+	}
+}
+
+// TestCreateRepositoriesPath ensures that the create command utilizes the
+// expected repositories path, respecting the setting for XDG_CONFIG_PATH
+// when deriving the default
+func TestCreateRepositoriesPath(t *testing.T) {
+	defer fromTempDir(t)()
+
+	// Update XDG_CONFIG_HOME to point to some arbitrary location.
+	xdgConfigHome, err := ioutil.TempDir("", "alice")
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Setenv("XDG_CONFIG_HOME", xdgConfigHome)
+
+	// The expected full path to repositories:
+	expected := filepath.Join(xdgConfigHome, "func", "repositories")
+
+	// Create command takes a function which will be invoked with the final
+	// state of the createConfig, usually used to do fn.Client instantiation
+	// after flags, environment variables, etc. are calculated.  In this case it
+	// will validate the test condition:  that config reflects the value of
+	// XDG_CONFIG_HOME, and secondarily the path suffix `func/repositories`.
+	cmd := NewCreateCmd(func(cfg createConfig) *fn.Client {
+		if cfg.Repositories != expected {
+			t.Fatalf("expected repositories default path to be '%v', got '%v'", expected, cfg.Repositories)
+		}
+		return fn.New()
+	})
+
+	// Invoke the command, which is an airball, but does invoke the client constructor, which
+	// which evaluates the aceptance condition of ensuring the default repositories path was
+	// updated based on the value of XDG_CONFIG_HOME.
+	if err = cmd.Execute(); err != nil {
+		t.Fatalf("unexpected error running 'create' with a default (noop) client instance: %v", err)
 	}
 }
 
