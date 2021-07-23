@@ -19,6 +19,6 @@
     "tape": "^4.13.0"
   },
   "dependencies": {
-    "cloudevents": "^3.2.0"
+    "cloudevents": "^4.0.3"
   }
 }
