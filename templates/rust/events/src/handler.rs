@@ -1,16 +1,21 @@
+use crate::config::HandlerConfig;
+use actix_web::web;
 use cloudevents::{event::Data, Event, EventBuilder, EventBuilderV10};
 use log::info;
 use serde_json::{from_slice, from_str, json};
 
 // Implement your function's logic here
-pub async fn handle(event: Event) -> Result<Event, actix_web::Error> {
+pub async fn handle(
+    event: Event,
+    config: web::Data<HandlerConfig>,
+) -> Result<Event, actix_web::Error> {
     info!("event: {}", event);
 
     let input = match event.data() {
         Some(Data::Binary(v)) => from_slice(v)?,
         Some(Data::String(v)) => from_str(v)?,
         Some(Data::Json(v)) => v.to_owned(),
-        None => json!({ "name": "world" }),
+        None => json!({ "name": config.name }),
     };
 
     EventBuilderV10::from(event)
@@ -25,11 +30,15 @@ pub async fn handle(event: Event) -> Result<Event, actix_web::Error> {
 mod tests {
     use super::*;
 
+    fn config() -> web::Data<HandlerConfig> {
+        web::Data::new(HandlerConfig::default())
+    }
+
     #[actix_rt::test]
     async fn valid_input() {
         let mut input = Event::default();
         input.set_data("application/json", json!({"name": "bootsy"}));
-        let resp = handle(input).await;
+        let resp = handle(input, config()).await;
         assert!(resp.is_ok());
         match resp.unwrap().data() {
             Some(Data::Json(output)) => assert_eq!("bootsy", output["hello"]),
@@ -39,7 +48,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn no_input() {
-        let resp = handle(Event::default()).await;
+        let resp = handle(Event::default(), config()).await;
         assert!(resp.is_ok());
         match resp.unwrap().data() {
             Some(Data::Json(output)) => assert_eq!("world", output["hello"]),

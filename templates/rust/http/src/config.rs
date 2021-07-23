@@ -21,6 +21,21 @@ use actix_web::web;
 /// ) -> HttpResponse {
 ///     HttpResponse::NoContent()
 /// }
-pub fn configure(_cfg: &mut web::ServiceConfig) {
+pub fn configure(cfg: &mut web::ServiceConfig) {
     log::info!("Configuring service");
+    cfg.data(HandlerConfig::default());
+}
+
+/// An example of the function configuration structure.
+#[derive(Clone)]
+pub struct HandlerConfig {
+    pub name: String,
+}
+
+impl Default for HandlerConfig {
+    fn default() -> HandlerConfig {
+        HandlerConfig {
+            name: String::from("world"),
+        }
+    }
 }
