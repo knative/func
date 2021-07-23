@@ -34,7 +34,7 @@ When changes are made to a template's source code, regenerate `pkged.go` by runn
 
 If you would like to run integration tests prior to opening a pull request against origin, you can enable Actions in your fork of this repository and create a pull request to your own main branch.
 
-If you would like to run integraiton tests locally, or would like to use the CLI / Client Library directly against a local cluster, the cluster allocation script can be used locally as well:
+If you would like to run integraiton tests locally, or would like to use the CLI / Client Library directly against a local cluster, the cluster allocation script can be used locally as well, by following the steps below.
 
 
 ###  Prerequisites
@@ -68,7 +68,6 @@ To run integration tests, use `make test-integration`.
 ### Cleanup
 
 The cluster and registry can be deleted by running `hack/delete.sh`
-
 
 
 
