@@ -21,7 +21,7 @@ Before submitting code in a Pull Request, please run `make check` and resolve an
 
 ## Templates
 
-When a new Function is created, a few files are placed in the new Function's directory.  This includes source code illustrating a minimal Function of the requested type (language runtime and function signature) as well as Function metadata (`func.yaml`).
+When a new Function is created, a few files are placed in the new Function's directory.  This includes source code illustrating a minimal Function of the requested type (language runtime and function signature) as well as Function metadata in a `func.yaml` file.
 
 The source of these templates is `./templates`; a directory subdivided by language and template name.  For example, the Go HTTP template is located in `./templates/go/http`.  The client library and CLI are self-contained by encoding this directory as `pkged.go`.   Therefore any updates to templates requires re-generating this file.
 
@@ -68,7 +68,6 @@ To run integration tests, use `make test-integration`.
 ### Cleanup
 
 The cluster and registry can be deleted by running `hack/delete.sh`
-
 
 
 
