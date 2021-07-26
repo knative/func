@@ -4,6 +4,7 @@ package function
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -42,7 +43,7 @@ func TestWriteCustom(t *testing.T) {
 	defer using(t, root)()
 
 	// Writer which includes reference to custom repositories location
-	w := templateWriter{templates: "testdata/repositories"}
+	w := templateWriter{repositories: "testdata/repositories"}
 	// template, in form [provider]/[template], on disk the template is
 	// located at testdata/repositories/[provider]/[runtime]/[template]
 	tpl := "customProvider/tpla"
@@ -53,6 +54,41 @@ func TestWriteCustom(t *testing.T) {
 
 	// Assert file exists as expected
 	_, err = os.Stat(filepath.Join(root, "customtpl.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestWriteRemote ensures that a Git template repository provided via URI
+// can be specificed.
+func TestWriteRemote(t *testing.T) {
+	// Create test directory
+	root := "testdata/testWriteRemote"
+	defer using(t, root)()
+
+	// The difference between HTTP vs File protocol is internal to the
+	// go-git library which implements the template writer.  As such
+	// providing a local file URI is conceptually sufficient to test
+	// our usage, though in practice HTTP is expected to be the norm.
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(cwd, "testdata", "repository.git")
+	url := fmt.Sprintf(`file://%s`, path)
+
+	t.Logf("cloning: %v", url)
+
+	// Create a writer which explicitly specifies the Git repo at URL
+	// rather than relying on the default internally builtin template repo
+	w := templateWriter{url: url}
+
+	err = w.Write("go", "remote", root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = os.Stat(filepath.Join(root, "remote-test"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,7 +180,7 @@ func TestWriteModeCustom(t *testing.T) {
 	defer using(t, root)()
 
 	// Write executable from custom repo
-	w := templateWriter{templates: "testdata/repositories"}
+	w := templateWriter{repositories: "testdata/repositories"}
 	err = w.Write(TestRuntime, "customProvider/tplb", root)
 	if err != nil {
 		t.Fatal(err)

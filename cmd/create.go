@@ -27,6 +27,7 @@ func init() {
 func newCreateClient(cfg createConfig) *fn.Client {
 	return fn.New(
 		fn.WithRepositories(cfg.Repositories),
+		fn.WithRepository(cfg.Repository),
 		fn.WithVerbose(cfg.Verbose))
 }
 
@@ -63,7 +64,8 @@ kn func create --template events myfunc
 
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
 	cmd.Flags().StringP("runtime", "l", fn.DefaultRuntime, "Function runtime language/framework. Available runtimes: "+buildpacks.Runtimes()+" (Env: $FUNC_RUNTIME)")
-	cmd.Flags().StringP("repositories", "r", filepath.Join(configPath(), "repositories"), "Path to extended template repositories (Env: $FUNC_REPOSITORIES)")
+	cmd.Flags().StringP("repositories", "r", filepath.Join(configPath(), "repositories"), "Path to extended template repositories, or URL to a single git repository containing templates (Env: $FUNC_REPOSITORIES)")
+	cmd.Flags().StringP("repository", "g", "", "URI to a Git repository from which template can be pulled (causes builtin and extensible repositories to be ignored) (Env: $FUNC_REPOSITORY)")
 	cmd.Flags().StringP("template", "t", fn.DefaultTemplate, "Function template. Available templates: 'http' and 'events' (Env: $FUNC_TEMPLATE)")
 
 	// Register tab-completeion function integration
@@ -122,6 +124,11 @@ type createConfig struct {
 	// location is $XDG_CONFIG_HOME/repositories ($HOME/.config/func/repositories)
 	Repositories string
 
+	// Repository is the URL of a specific Git repository to use for templates.
+	// If specified, this takes precidence over both inbuilt templates or
+	// extensible templates.
+	Repository string
+
 	// Template is the code written into the new Function project, including
 	// an implementation adhering to one of the supported function signatures.
 	// May also include additional configuration settings or examples.
@@ -152,6 +159,7 @@ func newCreateConfig(args []string) createConfig {
 		Name:         derivedName,
 		Path:         derivedPath,
 		Repositories: viper.GetString("repositories"),
+		Repository:   viper.GetString("repository"),
 		Runtime:      viper.GetString("runtime"),
 		Template:     viper.GetString("template"),
 		Confirm:      viper.GetBool("confirm"),
@@ -165,10 +173,13 @@ func newCreateConfig(args []string) createConfig {
 func (c createConfig) Prompt() (createConfig, error) {
 	if !interactiveTerminal() || !c.Confirm {
 		// Just print the basics if not confirming
-		fmt.Printf("Project path: %v\n", c.Path)
+		fmt.Printf("Project path:  %v\n", c.Path)
 		fmt.Printf("Function name: %v\n", c.Name)
-		fmt.Printf("Runtime: %v\n", c.Runtime)
-		fmt.Printf("Template: %v\n", c.Template)
+		fmt.Printf("Runtime:       %v\n", c.Runtime)
+		fmt.Printf("Template:      %v\n", c.Template)
+		if c.Repository != "" {
+			fmt.Printf("Repository:   %v\n", c.Repository)
+		}
 		return c, nil
 	}
 
