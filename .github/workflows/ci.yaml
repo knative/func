@@ -32,11 +32,11 @@ jobs:
       - name: Unit Test
         run:  make test
         env:
-          PKGER: "./${{ steps.pkger-binaries.outputs.binary }}"
+          PKGER: "./pkger"
       - name: Template Unit Tests
         run:  make test-templates
         env:
-          PKGER: "./${{ steps.pkger-binaries.outputs.binary }}"
+          PKGER: "./pkger"
       - name: Lint
         run: make check
     outputs:
