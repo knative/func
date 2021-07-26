@@ -25,7 +25,7 @@ test('Unit: handles a valid event', t => {
   // Invoke the function with the valid event, which should complete without error.
   const result =  func(mockContext, data);
   t.ok(result);
-  t.equal(result.body, data);
+  t.equal(result.body, JSON.stringify(data));
   t.equal(result.headers['ce-type'], 'echo');
   t.equal(result.headers['ce-source'], 'event.handler');
   t.end();
