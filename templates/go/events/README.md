@@ -18,5 +18,5 @@ curl -X POST -d '{"hello": "world"}' \
   http://myFunction.example.com/
 ```
 
-For more, see [the complete documentation]('https://github.com/boson-project/func/tree/main/docs')
+For more, see [the complete documentation]('https://github.com/knative-sandbox/kn-plugin-func/tree/main/docs')
 
