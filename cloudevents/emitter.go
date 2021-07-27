@@ -51,8 +51,12 @@ func (e *Emitter) Emit(ctx context.Context, endpoint string) (err error) {
 	if err = evt.SetData(e.ContentType, e.Data); err != nil {
 		return
 	}
-	if result := c.Send(ctx, evt); cloudevents.IsUndelivered(result) {
+	event, result := c.Request(ctx, evt)
+	if !cloudevents.IsACK(result) {
 		return fmt.Errorf(result.Error())
+	}
+	if event != nil {
+		fmt.Printf("%v", event)
 	}
 	return nil
 }
