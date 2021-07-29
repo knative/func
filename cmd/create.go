@@ -65,7 +65,7 @@ kn func create --template events myfunc
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
 	cmd.Flags().StringP("runtime", "l", fn.DefaultRuntime, "Function runtime language/framework. Available runtimes: "+buildpacks.Runtimes()+" (Env: $FUNC_RUNTIME)")
 	cmd.Flags().StringP("repositories", "r", filepath.Join(configPath(), "repositories"), "Path to extended template repositories, or URL to a single git repository containing templates (Env: $FUNC_REPOSITORIES)")
-	cmd.Flags().StringP("repository", "g", "", "URI to a Git repository from which template can be pulled (causes builtin and extensible repositories to be ignored) (Env: $FUNC_REPOSITORY)")
+	cmd.Flags().StringP("repository", "g", "", "URI to a Git repository from which a template can be pulled (overrides built in and extensible repositories) (Env: $FUNC_REPOSITORY)")
 	cmd.Flags().StringP("template", "t", fn.DefaultTemplate, "Function template. Available templates: 'http' and 'events' (Env: $FUNC_TEMPLATE)")
 
 	// Register tab-completeion function integration
