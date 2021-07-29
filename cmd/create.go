@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -59,14 +60,13 @@ kn func create --runtime quarkus myfunc
 kn func create --template events myfunc
 	`,
 		SuggestFor: []string{"vreate", "creaet", "craete", "new"},
-		PreRunE:    bindEnv("runtime", "template", "repositories", "confirm"),
+		PreRunE:    bindEnv("runtime", "template", "repository", "confirm"),
 	}
 
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
 	cmd.Flags().StringP("runtime", "l", fn.DefaultRuntime, "Function runtime language/framework. Available runtimes: "+buildpacks.Runtimes()+" (Env: $FUNC_RUNTIME)")
-	cmd.Flags().StringP("repositories", "r", filepath.Join(configPath(), "repositories"), "Path to extended template repositories, or URL to a single git repository containing templates (Env: $FUNC_REPOSITORIES)")
-	cmd.Flags().StringP("repository", "g", "", "URI to a Git repository from which a template can be pulled (overrides built in and extensible repositories) (Env: $FUNC_REPOSITORY)")
 	cmd.Flags().StringP("template", "t", fn.DefaultTemplate, "Function template. Available templates: 'http' and 'events' (Env: $FUNC_TEMPLATE)")
+	cmd.Flags().StringP("repository", "r", "", "URI to a Git repository containing the specified template (Env: $FUNC_REPOSITORY)")
 
 	// Register tab-completeion function integration
 	if err := cmd.RegisterFlagCompletionFunc("runtime", CompleteRuntimeList); err != nil {
@@ -119,9 +119,9 @@ type createConfig struct {
 	Runtime string
 
 	// Repositories is an optional path that, if it exists, will be used as a source
-	// for additional template repositories not included in the binary.  If not provided
-	// explicitly as a flag (--repositories) or env (FUNC_REPOSITORIES), the default
-	// location is $XDG_CONFIG_HOME/repositories ($HOME/.config/func/repositories)
+	// for additional template repositories not included in the binary.  provided via
+	// env (FUNC_REPOSITORIES), the default location is $XDG_CONFIG_HOME/repositories
+	// ($HOME/.config/func/repositories)
 	Repositories string
 
 	// Repository is the URL of a specific Git repository to use for templates.
@@ -155,16 +155,24 @@ func newCreateConfig(args []string) createConfig {
 	}
 
 	derivedName, derivedPath := deriveNameAndAbsolutePathFromPath(path)
-	return createConfig{
-		Name:         derivedName,
-		Path:         derivedPath,
-		Repositories: viper.GetString("repositories"),
-		Repository:   viper.GetString("repository"),
-		Runtime:      viper.GetString("runtime"),
-		Template:     viper.GetString("template"),
-		Confirm:      viper.GetBool("confirm"),
-		Verbose:      viper.GetBool("verbose"),
+	cc := createConfig{
+		Name:       derivedName,
+		Path:       derivedPath,
+		Repository: viper.GetString("repository"),
+		Runtime:    viper.GetString("runtime"),
+		Template:   viper.GetString("template"),
+		Confirm:    viper.GetBool("confirm"),
+		Verbose:    viper.GetBool("verbose"),
 	}
+
+	// Repositories not exposed as a flag due to potential confusion and
+	// unlikliness of being needed, but is left available as an env.
+	cc.Repositories = os.Getenv("FUNC_REPOSITORIES")
+	if cc.Repositories == "" {
+		cc.Repositories = filepath.Join(configPath(), "repositories")
+	}
+
+	return cc
 }
 
 // Prompt the user with value of config members, allowing for interaractive changes.
