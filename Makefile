@@ -22,17 +22,20 @@ LDFLAGS := "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)"
 
 # Templates
 # Built into the binary are the contents of ./templates.  This is done by
-# running 'pkger' which generates pkged.go, containing a go-encoded version of
-# the templates directory.
-PKGER           ?= pkger
+# running 'pkger' which generates pkged.go containing templates encoded 
+# as Go objects and exposed at runtime as a filesystem.
+PKGER ?= pkger
 
-# Code is all go source files, used for build target freshness checks
-CODE := $(shell find . -name '*.go')
+# Target prerequisites for the two stages of encoding and building.
+CODE := $(shell find . -name '*.go') pkged.go go.mod
+TEMPLATES := $(shell find templates -name '*' -type f)
 
+# Default Targets
 all: build
-	# Run 'make help' for make target documentation.
 
-# Print Help Text
+# Help Text
+# Headings: lines with `##$` comment prefix
+# Targets:  printed if their line includes a `##` comment
 help:
 	@echo 'Usage: make <OPTIONS> ... <TARGETS>'
 	@echo ''
@@ -40,12 +43,12 @@ help:
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z0-9_-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
 ###############
-# Development #
+##@ Development
 ###############
 
-##@ Development
+build: $(BIN) ## (default) Build binary for current OS
 
-build: $(CODE) ## (default) Build binary for current OS
+$(BIN): $(CODE)
 	env CGO_ENABLED=0 go build -ldflags $(LDFLAGS) ./cmd/$(BIN)
 
 test: $(CODE) ## Run core unit tests
@@ -58,12 +61,7 @@ check: bin/golangci-lint ## Check code quality (lint)
 bin/golangci-lint:
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./bin v1.40.1
 
-clean: ## Remove generated artifacts such as binaries
-	rm -f $(BIN) $(BIN_WINDOWS) $(BIN_LINUX) $(BIN_DARWIN)
-	-rm -f coverage.out
-
-clean-templates: 
-	# Clearing caches in ./templates
+pkged.go: $(TEMPLATES)
 	@rm -rf templates/node/events/node_modules
 	@rm -rf templates/node/http/node_modules
 	@rm -rf templates/python/events/__pycache__
@@ -72,18 +70,20 @@ clean-templates:
 	@rm -rf templates/typescript/http/node_modules
 	@rm -rf templates/rust/events/target
 	@rm -rf templates/rust/http/target
-
-################
-# Templates #
-################
-
-##@ Builtin Language Packs
-
-templates: test-templates pkged.go ## Run template unit tests and update pkged.go
-
-pkged.go: clean-templates
-	# Encoding ./templates as pkged.go (requires 'pkger':  go get github.com/markbates/pkger/cmd/pkger)
+	# Generating pkged.go using pkger
+	# to insstall pkger: 'go get github.com/markbates/pkger/cmd/pkger'
 	$(PKGER)
+
+clean: ## Remove generated artifacts such as binaries
+	rm -f $(BIN) $(BIN_WINDOWS) $(BIN_LINUX) $(BIN_DARWIN)
+	rm -f coverage.out
+	rm -f pkged.go
+
+
+#############
+##@ Templates
+#############
+
 
 test-templates: test-go test-node test-python test-quarkus test-rust test-typescript ## Run all template tests
 
@@ -96,8 +96,8 @@ test-node: ## Test Node templates
 	cd templates/node/http && npm ci && npm test && rm -rf node_modules
 
 test-python: ## Test Python templates
-	cd templates/python/events && pip3 install -r requirements.txt && python3 test_func.py
-	cd templates/python/http && python3 test_func.py
+	cd templates/python/events && pip3 install -r requirements.txt && python3 test_func.py && rm -rf __pycache__
+	cd templates/python/http && python3 test_func.py && rm -rf __pycache__
 
 test-quarkus: ## Test Quarkus templates
 	cd templates/quarkus/events && mvn test && mvn clean
@@ -111,12 +111,10 @@ test-typescript: ## Test Typescript templates
 	cd templates/typescript/events && npm ci && npm test && rm -rf node_modules build
 	cd templates/typescript/http && npm ci && npm test && rm -rf node_modules build
 
-
 ###################
-# Release Testing #
-###################
-
 ##@ Extended Testing (cluster required)
+###################
+
 
 test-integration: ## Run integration tests using an available cluster.
 	go test -tags integration ./... -v
@@ -126,10 +124,8 @@ test-e2e: ## Run end-to-end tests using an available cluster.
 
 
 ######################
-# Release Artifacts  #
-######################
-
 ##@ Release Artifacts
+######################
 
 cross-platform: darwin linux windows ## Build all distributable (cross-platform) binaries
 
