@@ -15,7 +15,6 @@ import (
 const (
 	DefaultRegistry = "docker.io"
 	DefaultRuntime  = "node"
-
 	// DefautlTemplate is the default Function signature / environmental context
 	// of the resultant function.  All runtimes are expected to have at least
 	// one implementation of each supported funciton sinagure.  Currently that
