@@ -61,18 +61,18 @@ func (e Pair) String() string {
 	} else if e.Name != nil && e.Value != nil {
 		match := regKeyFromSecret.FindStringSubmatch(*e.Value)
 		if len(match) == 3 {
-			return fmt.Sprintf("Pair \"%s\" with value set from key \"%s\" from Secret \"%s\"", *e.Name, match[2], match[1])
+			return fmt.Sprintf("Entry \"%s\" with value set from key \"%s\" from Secret \"%s\"", *e.Name, match[2], match[1])
 		}
 		match = regKeyFromConfigMap.FindStringSubmatch(*e.Value)
 		if len(match) == 3 {
-			return fmt.Sprintf("Pair \"%s\" with value set from key \"%s\" from ConfigMap \"%s\"", *e.Name, match[2], match[1])
+			return fmt.Sprintf("Entry \"%s\" with value set from key \"%s\" from ConfigMap \"%s\"", *e.Name, match[2], match[1])
 		}
 		match = regLocalEnv.FindStringSubmatch(*e.Value)
 		if len(match) == 2 {
-			return fmt.Sprintf("Pair \"%s\" with value set from local env variable \"%s\"", *e.Name, match[1])
+			return fmt.Sprintf("Entry \"%s\" with value set from local env variable \"%s\"", *e.Name, match[1])
 		}
 
-		return fmt.Sprintf("Pair \"%s\" with value \"%s\"", *e.Name, *e.Value)
+		return fmt.Sprintf("Entry \"%s\" with value \"%s\"", *e.Name, *e.Value)
 	}
 	return ""
 }
