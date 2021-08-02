@@ -77,13 +77,11 @@ pkged.go: $(TEMPLATES)
 clean: ## Remove generated artifacts such as binaries
 	rm -f $(BIN) $(BIN_WINDOWS) $(BIN_LINUX) $(BIN_DARWIN)
 	rm -f coverage.out
-	rm -f pkged.go
 
 
 #############
 ##@ Templates
 #############
-
 
 test-templates: test-go test-node test-python test-quarkus test-rust test-typescript ## Run all template tests
 
