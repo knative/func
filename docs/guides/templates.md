@@ -28,8 +28,7 @@ func create <name> --template boson/hello-world
 
 In addition to example implementations, a template includes a `func.yaml` which includes metadata about the Function.  By default this is populated with things like the new Function's name.  It also includes a reference to the specific tooling which compiles and packages the Function into its deployable form.  This is called the Builder.  By customizing this metadata, it is more than just a template; it is referred to as a Language Pack. See [Project Configuration with func.yaml](func_yaml.md).
 
-A Language Pack can support additional function signatures and can fully cusstomize the environment of the final running Function.  For more information see the [Language Pack Guide](language-packs.md).
-
+A Language Pack can support additional function signatures and can fully customize the environment of the final running Function.  For more information see the [Language Pack Guide](language-packs.md).
 
 
 
