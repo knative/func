@@ -7,4 +7,4 @@ A Language Pack is the mechanism by which the Functions binary can be extended t
 
 Built in to the Functions library is a basic language pack for each supported language.
 
-For an example external language pack, see [https://github.com/lance/gcf-kn]
+For an example external language pack, see [https://github.com/lance/gcf-kn/tree/main/ruby]
