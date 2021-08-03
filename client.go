@@ -34,6 +34,7 @@ type Client struct {
 	describer        Describer
 	dnsProvider      DNSProvider      // Provider of DNS services
 	repositories     string           // path to extensible template repositories
+	repository       string           // URL to Git repo (overrides on-disk and embedded)
 	registry         string           // default registry for OCI image tags
 	progressListener ProgressListener // progress listener
 	emitter          Emitter          // Emits CloudEvents to functions
@@ -259,6 +260,15 @@ func WithRepositories(repositories string) Option {
 	}
 }
 
+// WithRepository sets a specific URL to a Git repository from which to pull templates.
+// This setting's existence precldes the use of either the inbuilt templates or any
+// repositories from the extensible repositories path.
+func WithRepository(repository string) Option {
+	return func(c *Client) {
+		c.repository = repository
+	}
+}
+
 // WithRegistry sets the default registry which is consulted when an image name/tag
 // is not explocitly provided.  Can be fully qualified, including the registry
 // (ex: 'quay.io/myname') or simply the namespace 'myname' which indicates the
@@ -342,7 +352,8 @@ func (c *Client) Create(cfg Function) (err error) {
 		return
 	}
 
-	// Create Function of the given root path.
+	// Create Function about the given root path.
+	// Loads extant config if it exists.  In-memory representation only.
 	f, err := NewFunction(cfg.Root)
 	if err != nil {
 		return
@@ -371,7 +382,7 @@ func (c *Client) Create(cfg Function) (err error) {
 	}
 
 	// Write out a template.
-	w := templateWriter{templates: c.repositories, verbose: c.verbose}
+	w := templateWriter{repositories: c.repositories, url: c.repository, verbose: c.verbose}
 	if err = w.Write(f.Runtime, f.Template, f.Root); err != nil {
 		return
 	}

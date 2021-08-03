@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -27,6 +28,7 @@ func init() {
 func newCreateClient(cfg createConfig) *fn.Client {
 	return fn.New(
 		fn.WithRepositories(cfg.Repositories),
+		fn.WithRepository(cfg.Repository),
 		fn.WithVerbose(cfg.Verbose))
 }
 
@@ -58,13 +60,13 @@ kn func create --runtime quarkus myfunc
 kn func create --template events myfunc
 	`,
 		SuggestFor: []string{"vreate", "creaet", "craete", "new"},
-		PreRunE:    bindEnv("runtime", "template", "repositories", "confirm"),
+		PreRunE:    bindEnv("runtime", "template", "repository", "confirm"),
 	}
 
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
 	cmd.Flags().StringP("runtime", "l", fn.DefaultRuntime, "Function runtime language/framework. Available runtimes: "+buildpacks.Runtimes()+" (Env: $FUNC_RUNTIME)")
-	cmd.Flags().StringP("repositories", "r", filepath.Join(configPath(), "repositories"), "Path to extended template repositories (Env: $FUNC_REPOSITORIES)")
 	cmd.Flags().StringP("template", "t", fn.DefaultTemplate, "Function template. Available templates: 'http' and 'events' (Env: $FUNC_TEMPLATE)")
+	cmd.Flags().StringP("repository", "r", "", "URI to a Git repository containing the specified template (Env: $FUNC_REPOSITORY)")
 
 	// Register tab-completeion function integration
 	if err := cmd.RegisterFlagCompletionFunc("runtime", CompleteRuntimeList); err != nil {
@@ -117,10 +119,15 @@ type createConfig struct {
 	Runtime string
 
 	// Repositories is an optional path that, if it exists, will be used as a source
-	// for additional template repositories not included in the binary.  If not provided
-	// explicitly as a flag (--repositories) or env (FUNC_REPOSITORIES), the default
-	// location is $XDG_CONFIG_HOME/repositories ($HOME/.config/func/repositories)
+	// for additional template repositories not included in the binary.  provided via
+	// env (FUNC_REPOSITORIES), the default location is $XDG_CONFIG_HOME/repositories
+	// ($HOME/.config/func/repositories)
 	Repositories string
+
+	// Repository is the URL of a specific Git repository to use for templates.
+	// If specified, this takes precidence over both inbuilt templates or
+	// extensible templates.
+	Repository string
 
 	// Template is the code written into the new Function project, including
 	// an implementation adhering to one of the supported function signatures.
@@ -148,15 +155,24 @@ func newCreateConfig(args []string) createConfig {
 	}
 
 	derivedName, derivedPath := deriveNameAndAbsolutePathFromPath(path)
-	return createConfig{
-		Name:         derivedName,
-		Path:         derivedPath,
-		Repositories: viper.GetString("repositories"),
-		Runtime:      viper.GetString("runtime"),
-		Template:     viper.GetString("template"),
-		Confirm:      viper.GetBool("confirm"),
-		Verbose:      viper.GetBool("verbose"),
+	cc := createConfig{
+		Name:       derivedName,
+		Path:       derivedPath,
+		Repository: viper.GetString("repository"),
+		Runtime:    viper.GetString("runtime"),
+		Template:   viper.GetString("template"),
+		Confirm:    viper.GetBool("confirm"),
+		Verbose:    viper.GetBool("verbose"),
 	}
+
+	// Repositories not exposed as a flag due to potential confusion and
+	// unlikliness of being needed, but is left available as an env.
+	cc.Repositories = os.Getenv("FUNC_REPOSITORIES")
+	if cc.Repositories == "" {
+		cc.Repositories = filepath.Join(configPath(), "repositories")
+	}
+
+	return cc
 }
 
 // Prompt the user with value of config members, allowing for interaractive changes.
@@ -165,10 +181,13 @@ func newCreateConfig(args []string) createConfig {
 func (c createConfig) Prompt() (createConfig, error) {
 	if !interactiveTerminal() || !c.Confirm {
 		// Just print the basics if not confirming
-		fmt.Printf("Project path: %v\n", c.Path)
+		fmt.Printf("Project path:  %v\n", c.Path)
 		fmt.Printf("Function name: %v\n", c.Name)
-		fmt.Printf("Runtime: %v\n", c.Runtime)
-		fmt.Printf("Template: %v\n", c.Template)
+		fmt.Printf("Runtime:       %v\n", c.Runtime)
+		fmt.Printf("Template:      %v\n", c.Template)
+		if c.Repository != "" {
+			fmt.Printf("Repository:   %v\n", c.Repository)
+		}
 		return c, nil
 	}
 
