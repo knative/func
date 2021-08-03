@@ -18,77 +18,77 @@ func Test_mergeEnvMaps(t *testing.T) {
 	v2 := "y"
 
 	type args struct {
-		envs     fn.Envs
+		envs     fn.Pairs
 		toUpdate *util.OrderedMap
 		toRemove []string
 	}
 	tests := []struct {
 		name string
 		args args
-		want fn.Envs
+		want fn.Pairs
 	}{
 		{
 			"add new var to empty list",
 			args{
-				fn.Envs{},
+				fn.Pairs{},
 				util.NewOrderedMapWithKVStrings([][]string{{a, v1}}),
 				[]string{},
 			},
-			fn.Envs{fn.Env{Name: &a, Value: &v1}},
+			fn.Pairs{fn.Pair{Name: &a, Value: &v1}},
 		},
 		{
 			"add new var",
 			args{
-				fn.Envs{fn.Env{Name: &b, Value: &v2}},
+				fn.Pairs{fn.Pair{Name: &b, Value: &v2}},
 				util.NewOrderedMapWithKVStrings([][]string{{a, v1}}),
 				[]string{},
 			},
-			fn.Envs{fn.Env{Name: &b, Value: &v2}, fn.Env{Name: &a, Value: &v1}},
+			fn.Pairs{fn.Pair{Name: &b, Value: &v2}, fn.Pair{Name: &a, Value: &v1}},
 		},
 		{
 			"update var",
 			args{
-				fn.Envs{fn.Env{Name: &a, Value: &v1}},
+				fn.Pairs{fn.Pair{Name: &a, Value: &v1}},
 				util.NewOrderedMapWithKVStrings([][]string{{a, v2}}),
 				[]string{},
 			},
-			fn.Envs{fn.Env{Name: &a, Value: &v2}},
+			fn.Pairs{fn.Pair{Name: &a, Value: &v2}},
 		},
 		{
 			"update multiple vars",
 			args{
-				fn.Envs{fn.Env{Name: &a, Value: &v1}, fn.Env{Name: &b, Value: &v2}},
+				fn.Pairs{fn.Pair{Name: &a, Value: &v1}, fn.Pair{Name: &b, Value: &v2}},
 				util.NewOrderedMapWithKVStrings([][]string{{a, v2}, {b, v1}}),
 				[]string{},
 			},
-			fn.Envs{fn.Env{Name: &a, Value: &v2}, fn.Env{Name: &b, Value: &v1}},
+			fn.Pairs{fn.Pair{Name: &a, Value: &v2}, fn.Pair{Name: &b, Value: &v1}},
 		},
 		{
 			"remove var",
 			args{
-				fn.Envs{fn.Env{Name: &a, Value: &v1}},
+				fn.Pairs{fn.Pair{Name: &a, Value: &v1}},
 				util.NewOrderedMap(),
 				[]string{a},
 			},
-			fn.Envs{},
+			fn.Pairs{},
 		},
 		{
 			"remove multiple vars",
 			args{
-				fn.Envs{fn.Env{Name: &a, Value: &v1}, fn.Env{Name: &b, Value: &v2}},
+				fn.Pairs{fn.Pair{Name: &a, Value: &v1}, fn.Pair{Name: &b, Value: &v2}},
 				util.NewOrderedMap(),
 				[]string{a, b},
 			},
-			fn.Envs{},
+			fn.Pairs{},
 		},
 		{
 			"update and remove vars",
 			args{
-				fn.Envs{fn.Env{Name: &a, Value: &v1}, fn.Env{Name: &b, Value: &v2}},
+				fn.Pairs{fn.Pair{Name: &a, Value: &v1}, fn.Pair{Name: &b, Value: &v2}},
 				util.NewOrderedMapWithKVStrings([][]string{{a, v2}}),
 				[]string{b},
 			},
-			fn.Envs{fn.Env{Name: &a, Value: &v2}},
+			fn.Pairs{fn.Pair{Name: &a, Value: &v2}},
 		},
 	}
 	for _, tt := range tests {

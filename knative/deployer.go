@@ -56,7 +56,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (result fn.Deploym
 			referencedSecrets := sets.NewString()
 			referencedConfigMaps := sets.NewString()
 
-			service, err := generateNewService(f.Name, f.ImageWithDigest(), f.Runtime, f.Envs, f.Volumes, f.Annotations, f.Options)
+			service, err := generateNewService(f)
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to generate the Knative Service: %v", err)
 				return fn.DeploymentResult{}, err
@@ -120,7 +120,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (result fn.Deploym
 			return fn.DeploymentResult{}, err
 		}
 
-		_, err = client.UpdateServiceWithRetry(ctx, f.Name, updateService(f.ImageWithDigest(), newEnv, newEnvFrom, newVolumes, newVolumeMounts, f.Annotations, f.Options), 3)
+		_, err = client.UpdateServiceWithRetry(ctx, f.Name, updateService(f, newEnv, newEnvFrom, newVolumes, newVolumeMounts), 3)
 		if err != nil {
 			err = fmt.Errorf("knative deployer failed to update the Knative Service: %v", err)
 			return fn.DeploymentResult{}, err
@@ -149,14 +149,14 @@ func probeFor(url string) *corev1.Probe {
 	}
 }
 
-func generateNewService(name, image, runtime string, envs fn.Envs, volumes fn.Volumes, annotations map[string]string, options fn.Options) (*servingv1.Service, error) {
+func generateNewService(f fn.Function) (*servingv1.Service, error) {
 	containers := []corev1.Container{
 		{
-			Image: image,
+			Image: f.ImageWithDigest(),
 		},
 	}
 
-	if runtime != "quarkus" {
+	if f.Runtime != "quarkus" {
 		containers[0].LivenessProbe = probeFor("/health/liveness")
 		containers[0].ReadinessProbe = probeFor("/health/readiness")
 	}
@@ -164,27 +164,29 @@ func generateNewService(name, image, runtime string, envs fn.Envs, volumes fn.Vo
 	referencedSecrets := sets.NewString()
 	referencedConfigMaps := sets.NewString()
 
-	newEnv, newEnvFrom, err := processEnvs(envs, &referencedSecrets, &referencedConfigMaps)
+	newEnv, newEnvFrom, err := processEnvs(f.Envs, &referencedSecrets, &referencedConfigMaps)
 	if err != nil {
 		return nil, err
 	}
 	containers[0].Env = newEnv
 	containers[0].EnvFrom = newEnvFrom
 
-	newVolumes, newVolumeMounts, err := processVolumes(volumes, &referencedSecrets, &referencedConfigMaps)
+	newVolumes, newVolumeMounts, err := processVolumes(f.Volumes, &referencedSecrets, &referencedConfigMaps)
 	if err != nil {
 		return nil, err
 	}
 	containers[0].VolumeMounts = newVolumeMounts
 
+	labels, err := processLabels(f)
+	if err != nil {
+		return nil, err
+	}
+
 	service := &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-			Labels: map[string]string{
-				"boson.dev/function": "true",
-				"boson.dev/runtime":  runtime,
-			},
-			Annotations: annotations,
+			Name:        f.Name,
+			Labels:      labels,
+			Annotations: f.Annotations,
 		},
 		Spec: v1.ServiceSpec{
 			ConfigurationSpec: v1.ConfigurationSpec{
@@ -200,7 +202,7 @@ func generateNewService(name, image, runtime string, envs fn.Envs, volumes fn.Vo
 		},
 	}
 
-	err = setServiceOptions(&service.Spec.Template, options)
+	err = setServiceOptions(&service.Spec.Template, f.Options)
 	if err != nil {
 		return service, err
 	}
@@ -208,25 +210,30 @@ func generateNewService(name, image, runtime string, envs fn.Envs, volumes fn.Vo
 	return service, nil
 }
 
-func updateService(image string, newEnv []corev1.EnvVar, newEnvFrom []corev1.EnvFromSource, newVolumes []corev1.Volume, newVolumeMounts []corev1.VolumeMount,
-	annotations map[string]string, options fn.Options) func(service *servingv1.Service) (*servingv1.Service, error) {
+func updateService(f fn.Function, newEnv []corev1.EnvVar, newEnvFrom []corev1.EnvFromSource, newVolumes []corev1.Volume, newVolumeMounts []corev1.VolumeMount) func(service *servingv1.Service) (*servingv1.Service, error) {
 	return func(service *servingv1.Service) (*servingv1.Service, error) {
 		// Removing the name so the k8s server can fill it in with generated name,
 		// this prevents conflicts in Revision name when updating the KService from multiple places.
 		service.Spec.Template.Name = ""
 
 		// Don't bother being as clever as we are with env variables
-		// Just set the annotations to be whatever we find in func.yaml
-		for k, v := range annotations {
+		// Just set the annotations and labels to be whatever we find in func.yaml
+		for k, v := range f.Annotations {
 			service.ObjectMeta.Annotations[k] = v
 		}
 
-		err := setServiceOptions(&service.Spec.Template, options)
+		err := setServiceOptions(&service.Spec.Template, f.Options)
 		if err != nil {
 			return service, err
 		}
 
-		err = flags.UpdateImage(&service.Spec.Template.Spec.PodSpec, image)
+		labels, err := processLabels(f)
+		if err != nil {
+			return service, err
+		}
+		service.ObjectMeta.Labels = labels
+
+		err = flags.UpdateImage(&service.Spec.Template.Spec.PodSpec, f.ImageWithDigest())
 		if err != nil {
 			return service, err
 		}
@@ -241,6 +248,41 @@ func updateService(image string, newEnv []corev1.EnvVar, newEnvFrom []corev1.Env
 	}
 }
 
+// processLabels generates a map of labels as key/value pairs from a function config
+// labels:
+//   - name: EXAMPLE1                            # Label directly from a value
+//     value: value1
+//   - name: EXAMPLE2                            # Label from the local ENV var
+//     value: {{ env:MY_ENV }}
+func processLabels(f fn.Function) (map[string]string, error) {
+	labels := map[string]string{
+		"boson.dev/function": "true",
+		"boson.dev/runtime":  f.Runtime,
+	}
+	for _, label := range f.Labels {
+		if label.Name != nil && label.Value != nil {
+			if strings.HasPrefix(*label.Value, "{{") {
+				slices := strings.Split(strings.Trim(*label.Value, "{} "), ":")
+				if len(slices) == 2 {
+					// label from the local ENV var, eg. author={{ env:$USER }}
+					localValue, err := processLocalEnvValue(*label.Value)
+					if err != nil {
+						return nil, err
+					}
+					labels[*label.Name] = localValue
+					continue
+				}
+			} else {
+				// a standard label with key and value, eg. author=alice@example.com
+				labels[*label.Name] = *label.Value
+				continue
+			}
+		}
+	}
+
+	return labels, nil
+}
+
 // processEnvs generates array of EnvVars and EnvFromSources from a function config
 // envs:
 //   - name: EXAMPLE1                            # ENV directly from a value
@@ -253,7 +295,7 @@ func updateService(image string, newEnv []corev1.EnvVar, newEnvFrom []corev1.Env
 //   - name: EXAMPLE4
 //     value: {{ configMap:configMapName:key }}  # ENV from a key in ConfigMap
 //   - value: {{ configMap:configMapName }}      # all key-pair values from ConfigMap are set as ENV
-func processEnvs(envs fn.Envs, referencedSecrets, referencedConfigMaps *sets.String) ([]corev1.EnvVar, []corev1.EnvFromSource, error) {
+func processEnvs(envs fn.Pairs, referencedSecrets, referencedConfigMaps *sets.String) ([]corev1.EnvVar, []corev1.EnvFromSource, error) {
 
 	envVars := []corev1.EnvVar{{Name: "BUILT", Value: time.Now().Format("20060102T150405")}}
 	envFrom := []corev1.EnvFromSource{}

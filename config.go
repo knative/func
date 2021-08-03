@@ -42,13 +42,13 @@ func (v Volume) String() string {
 	return ""
 }
 
-type Envs []Env
-type Env struct {
+type Pairs []Pair
+type Pair struct {
 	Name  *string `yaml:"name,omitempty"`
 	Value *string `yaml:"value"`
 }
 
-func (e Env) String() string {
+func (e Pair) String() string {
 	if e.Name == nil && e.Value != nil {
 		match := regWholeSecret.FindStringSubmatch(*e.Value)
 		if len(match) == 2 {
@@ -61,18 +61,18 @@ func (e Env) String() string {
 	} else if e.Name != nil && e.Value != nil {
 		match := regKeyFromSecret.FindStringSubmatch(*e.Value)
 		if len(match) == 3 {
-			return fmt.Sprintf("Env \"%s\" with value set from key \"%s\" from Secret \"%s\"", *e.Name, match[2], match[1])
+			return fmt.Sprintf("Entry \"%s\" with value set from key \"%s\" from Secret \"%s\"", *e.Name, match[2], match[1])
 		}
 		match = regKeyFromConfigMap.FindStringSubmatch(*e.Value)
 		if len(match) == 3 {
-			return fmt.Sprintf("Env \"%s\" with value set from key \"%s\" from ConfigMap \"%s\"", *e.Name, match[2], match[1])
+			return fmt.Sprintf("Entry \"%s\" with value set from key \"%s\" from ConfigMap \"%s\"", *e.Name, match[2], match[1])
 		}
 		match = regLocalEnv.FindStringSubmatch(*e.Value)
 		if len(match) == 2 {
-			return fmt.Sprintf("Env \"%s\" with value set from local env variable \"%s\"", *e.Name, match[1])
+			return fmt.Sprintf("Entry \"%s\" with value set from local env variable \"%s\"", *e.Name, match[1])
 		}
 
-		return fmt.Sprintf("Env \"%s\" with value \"%s\"", *e.Name, *e.Value)
+		return fmt.Sprintf("Entry \"%s\" with value \"%s\"", *e.Name, *e.Value)
 	}
 	return ""
 }
@@ -117,9 +117,10 @@ type config struct {
 	Builder     string            `yaml:"builder"`
 	BuilderMap  map[string]string `yaml:"builderMap"`
 	Volumes     Volumes           `yaml:"volumes"`
-	Envs        Envs              `yaml:"envs"`
+	Envs        Pairs             `yaml:"envs"`
 	Annotations map[string]string `yaml:"annotations"`
 	Options     Options           `yaml:"options"`
+	Labels      Pairs             `yaml:"labels"`
 	// Add new values to the toConfig/fromConfig functions.
 }
 
@@ -166,7 +167,8 @@ func newConfig(root string) (c config, err error) {
 	volumesErrors := validateVolumes(c.Volumes)
 	envsErrors := ValidateEnvs(c.Envs)
 	optionsErrors := validateOptions(c.Options)
-	if len(volumesErrors) > 0 || len(envsErrors) > 0 || len(optionsErrors) > 0 {
+	labelsErrors := ValidateLabels(c.Labels)
+	if len(volumesErrors) > 0 || len(envsErrors) > 0 || len(optionsErrors) > 0 || len(labelsErrors) > 0 {
 		// if there aren't any previously reported errors, we need to set the error message header first
 		if errMsg == "" {
 			errMsg = errMsgHeader
@@ -185,7 +187,9 @@ func newConfig(root string) (c config, err error) {
 		for i := range optionsErrors {
 			optionsErrors[i] = "  " + optionsErrors[i]
 		}
-
+		for i := range labelsErrors {
+			labelsErrors[i] = "  " + labelsErrors[i]
+		}
 		errMsg = errMsg + strings.Join(volumesErrors, "\n")
 		// we have errors from both volumes and envs sections -> let's make sure they are both indented
 		if len(volumesErrors) > 0 && len(envsErrors) > 0 {
@@ -197,6 +201,11 @@ func newConfig(root string) (c config, err error) {
 			errMsg = errMsg + "\n"
 		}
 		errMsg = errMsg + strings.Join(optionsErrors, "\n")
+		// now also handle labels related errors
+		if len(labelsErrors) > 0 && (len(optionsErrors) > 0 || len(volumesErrors) > 0 || len(envsErrors) > 0) {
+			errMsg = errMsg + "\n"
+		}
+		errMsg = errMsg + strings.Join(labelsErrors, "\n")
 	}
 
 	if errMsg != "" {
@@ -221,6 +230,7 @@ func fromConfig(c config) (f Function) {
 		Envs:        c.Envs,
 		Annotations: c.Annotations,
 		Options:     c.Options,
+		Labels:      c.Labels,
 	}
 }
 
@@ -238,6 +248,7 @@ func toConfig(f Function) config {
 		Envs:        f.Envs,
 		Annotations: f.Annotations,
 		Options:     f.Options,
+		Labels:      f.Labels,
 	}
 }
 
@@ -296,7 +307,7 @@ func validateVolumes(volumes Volumes) (errors []string) {
 // - name: EXAMPLE4
 //   value: {{ configMap:configMapName:key }}   	# ENV from a key in configMap
 // - value: {{ configMap:configMapName }}          	# all key-pair values from configMap are set as ENV
-func ValidateEnvs(envs Envs) (errors []string) {
+func ValidateEnvs(envs Pairs) (errors []string) {
 
 	for i, env := range envs {
 		if env.Name == nil && env.Value == nil {
@@ -324,6 +335,49 @@ func ValidateEnvs(envs Envs) (errors []string) {
 						fmt.Sprintf(
 							"env entry #%d with name '%s' has invalid value field set, it has '%s', but allowed is only '{{ env:MY_ENV }}', '{{ secret:secretName:key }}' or '{{ configMap:configMapName:key }}'",
 							i, *env.Name, *env.Value))
+				}
+			}
+		}
+	}
+
+	return
+}
+
+// ValidateLabels checks that input labels are correct and contain all necessary fields.
+// Returns array of error messages, empty if no errors are found
+//
+// Allowed settings:
+// - name: EXAMPLE1                					# label directly from a value
+//   value: value1
+// - name: EXAMPLE2                 				# label from the local ENV var
+//   value: {{ env:MY_ENV }}
+func ValidateLabels(labels Pairs) (errors []string) {
+	for i, label := range labels {
+		if label.Name == nil && label.Value == nil {
+			errors = append(errors, fmt.Sprintf("label entry #%d is not properly set", i))
+		} else if label.Value == nil {
+			errors = append(errors, fmt.Sprintf("label entry #%d is missing value field, only name '%s' is set", i, *label.Name))
+		} else {
+
+			if err := utils.ValidateLabelName(*label.Name); err != nil {
+				errors = append(errors, fmt.Sprintf("label entry #%d has invalid name or value set: %q %q; %s", i, *label.Name, *label.Value, err.Error()))
+			} else if err := utils.ValidateLabelValue(*label.Value); err != nil {
+				errors = append(errors, fmt.Sprintf("label entry #%d has invalid name or value set: %q %q; %s", i, *label.Name, *label.Value, err.Error()))
+			}
+
+			if strings.HasPrefix(*label.Value, "{{") {
+				// ENV from the local ENV var; {{ env:MY_ENV }}
+				if !regLocalEnv.MatchString(*label.Value) {
+					errors = append(errors,
+						fmt.Sprintf(
+							"label entry #%d with name '%s' has invalid value field set, it has '%s', but allowed is only '{{ env:MY_ENV }}'",
+							i, *label.Name, *label.Value))
+				} else {
+					match := regLocalEnv.FindStringSubmatch(*label.Value)
+					value := os.Getenv(match[1])
+					if err := utils.ValidateLabelValue(value); err != nil {
+						errors = append(errors, fmt.Sprintf("label entry #%d with name '%s' has invalid value when the environment is evaluated: '%s': %s", i, *label.Name, value, err.Error()))
+					}
 				}
 			}
 		}
