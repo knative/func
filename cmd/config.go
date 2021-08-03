@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
 	"github.com/ory/viper"
@@ -11,9 +10,42 @@ import (
 	fn "knative.dev/kn-plugin-func"
 )
 
+type functionLoader interface {
+	Load(path string) (fn.Function, error)
+}
+
+type functionSaver interface {
+	Save(f fn.Function) error
+}
+
+type functionLoaderSaver interface {
+	functionLoader
+	functionSaver
+}
+
+type standardLoaderSaver struct {}
+
+func (s standardLoaderSaver) Load(path string) (fn.Function, error) {
+	f, err := fn.NewFunction(path)
+	if err != nil {
+		return fn.Function{}, err
+	}
+	if !f.Initialized() {
+		return fn.Function{}, fmt.Errorf("the given path '%v' does not contain an initialized function", path)
+	}
+	return f, nil
+}
+
+func (s standardLoaderSaver) Save(f fn.Function) error {
+	return f.WriteConfig()
+}
+
+var defaultLoaderSaver standardLoaderSaver
+
 func init() {
 	root.AddCommand(configCmd)
 	configCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
+	configCmd.AddCommand(NewConfigLabelsCmd(defaultLoaderSaver))
 }
 
 var configCmd = &cobra.Command{
@@ -32,7 +64,7 @@ or from the directory specified with --path.
 
 func runConfigCmd(cmd *cobra.Command, args []string) (err error) {
 
-	function, err := initConfigCommand(args)
+	function, err := initConfigCommand(args, defaultLoaderSaver)
 	if err != nil {
 		return
 	}
@@ -76,7 +108,7 @@ func runConfigCmd(cmd *cobra.Command, args []string) (err error) {
 		} else if answers.SelectedConfig == "Environment values" {
 			err = runAddEnvsPrompt(cmd.Context(), function)
 		} else if answers.SelectedConfig == "Labels" {
-			err = runAddLabelsPrompt(cmd.Context(), function)
+			err = runAddLabelsPrompt(cmd.Context(), function, defaultLoaderSaver)
 		}
 	case "Remove":
 		if answers.SelectedConfig == "Volumes" {
@@ -84,7 +116,7 @@ func runConfigCmd(cmd *cobra.Command, args []string) (err error) {
 		} else if answers.SelectedConfig == "Environment values" {
 			err = runRemoveEnvsPrompt(function)
 		} else if answers.SelectedConfig == "Labels" {
-			err = runRemoveLabelsPrompt(function)
+			err = runRemoveLabelsPrompt(function, defaultLoaderSaver)
 		}
 	case "List":
 		if answers.SelectedConfig == "Volumes" {
@@ -120,17 +152,12 @@ func newConfigCmdConfig(args []string) configCmdConfig {
 
 }
 
-func initConfigCommand(args []string) (fn.Function, error) {
+func initConfigCommand(args []string, loader functionLoader) (fn.Function, error) {
 	config := newConfigCmdConfig(args)
 
-	function, err := fn.NewFunction(config.Path)
+	function, err := loader.Load(config.Path)
 	if err != nil {
 		return fn.Function{}, err
-	}
-
-	// Check if the Function has been initialized
-	if !function.Initialized() {
-		return fn.Function{}, fmt.Errorf("the given path '%v' does not contain an initialized function", config.Path)
 	}
 
 	return function, nil
