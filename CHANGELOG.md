@@ -1,6 +1,26 @@
 # Change Log
 
 <a name="unreleased"></a>
+## [0.17.0](https://www.github.com/knative-sandbox/kn-plugin-func/compare/v0.16.0...v0.17.0) (2021-08-03)
+
+
+### Features
+
+* Add proper example of configuring Rust functions. ([#436](https://www.github.com/knative-sandbox/kn-plugin-func/issues/436)) ([7656c40](https://www.github.com/knative-sandbox/kn-plugin-func/commit/7656c4097283ed54b9e5f0472947cff931973365))
+* add support for labels in func.yaml ([#373](https://www.github.com/knative-sandbox/kn-plugin-func/issues/373)) ([0dba677](https://www.github.com/knative-sandbox/kn-plugin-func/commit/0dba67751e5a4c594701d674b44b101a043e9a2c))
+* Configure Rust functions ([#430](https://www.github.com/knative-sandbox/kn-plugin-func/issues/430)) ([a08b843](https://www.github.com/knative-sandbox/kn-plugin-func/commit/a08b843a9c2639d6b237f4248341b35f3bd8b954))
+* print emit response output if it's a cloudevent ([#444](https://www.github.com/knative-sandbox/kn-plugin-func/issues/444)) ([a25b723](https://www.github.com/knative-sandbox/kn-plugin-func/commit/a25b723dbcd50d544566a385441cbdd883017947))
+* remote template repositories ([#437](https://www.github.com/knative-sandbox/kn-plugin-func/issues/437)) ([9db1a3d](https://www.github.com/knative-sandbox/kn-plugin-func/commit/9db1a3d902016d59e60b732de43bdf4be198334f))
+
+
+### Bug Fixes
+
+* closing stdout ([6f40b29](https://www.github.com/knative-sandbox/kn-plugin-func/commit/6f40b29d3e02193c51317a29737c20dc11730c5a))
+* do not trust builder when using podman ([#420](https://www.github.com/knative-sandbox/kn-plugin-func/issues/420)) ([894f4fe](https://www.github.com/knative-sandbox/kn-plugin-func/commit/894f4febda1d7da5d3f47e1003b29b339b1f8cd4))
+* fix unit tests for Node.js event templates ([#438](https://www.github.com/knative-sandbox/kn-plugin-func/issues/438)) ([d71532a](https://www.github.com/knative-sandbox/kn-plugin-func/commit/d71532a070b24ec70dd5b77221e11b53bd300e8d))
+* unnecessary template repackaging ([#449](https://www.github.com/knative-sandbox/kn-plugin-func/issues/449)) ([435d1ac](https://www.github.com/knative-sandbox/kn-plugin-func/commit/435d1ac2a39c4e3abf1a6518b05be3151d132a57))
+* update builders version ([#421](https://www.github.com/knative-sandbox/kn-plugin-func/issues/421)) ([771a230](https://www.github.com/knative-sandbox/kn-plugin-func/commit/771a2307a13d105a188a0fd2c2fa843f3a535277))
+
 ## [0.16.0](https://github.com/knative-sandbox/kn-plugin-func/compare/v0.15.1...v0.16.0) (2021-06-23)
 
 
