@@ -24,6 +24,8 @@ const (
 
 // Client for managing Function instances.
 type Client struct {
+	Repositories *Repositories // Repository management
+
 	verbose          bool     // print verbose logs
 	builder          Builder  // Builds a runnable image from Function source
 	pusher           Pusher   // Pushes the image assocaited with a Function.
@@ -33,11 +35,11 @@ type Client struct {
 	lister           Lister   // Lists remote services
 	describer        Describer
 	dnsProvider      DNSProvider      // Provider of DNS services
-	repositories     string           // path to extensible template repositories
 	repository       string           // URL to Git repo (overrides on-disk and embedded)
 	registry         string           // default registry for OCI image tags
 	progressListener ProgressListener // progress listener
 	emitter          Emitter          // Emits CloudEvents to functions
+
 }
 
 // ErrNotBuilt indicates the Function has not yet been built.
@@ -156,6 +158,7 @@ type Emitter interface {
 func New(options ...Option) *Client {
 	// Instantiate client with static defaults.
 	c := &Client{
+		Repositories:     &Repositories{},
 		builder:          &noopBuilder{output: os.Stdout},
 		pusher:           &noopPusher{output: os.Stdout},
 		deployer:         &noopDeployer{output: os.Stdout},
@@ -256,7 +259,7 @@ func WithDNSProvider(provider DNSProvider) Option {
 // not built into the binary.
 func WithRepositories(repositories string) Option {
 	return func(c *Client) {
-		c.repositories = repositories
+		c.Repositories.Path = repositories
 	}
 }
 
@@ -382,7 +385,7 @@ func (c *Client) Create(cfg Function) (err error) {
 	}
 
 	// Write out a template.
-	w := templateWriter{repositories: c.repositories, url: c.repository, verbose: c.verbose}
+	w := templateWriter{repositories: c.Repositories.Path, url: c.repository, verbose: c.verbose}
 	if err = w.Write(f.Runtime, f.Template, f.Root); err != nil {
 		return
 	}
