@@ -6,12 +6,54 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	fn "knative.dev/kn-plugin-func"
 )
 
 const RepositoriesTestRepo = "repository-a"
+
+// TestRepositoriesGet ensures the full set of extensible
+// repoositories is returned on Get.
+// Note: at this time the implicit builtin default templates are not considered
+// within a "default" or "builtin" repository.  However, this may change if the
+// need arises to structure them thusly.
+func TestRepositoriesGet(t *testing.T) {
+	uri := testRepoURI(t) // ./testdata/$RepositoriesTestRepo.git
+	root, rm := mktemp(t)
+	defer rm()
+
+	client := fn.New(fn.WithRepositories(root))
+
+	// Assert initially empty
+	rr, err := client.Repositories.Get()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(rr) != 0 {
+		t.Fatalf("Expected an empty initial rep list.  Got %v", len(rr))
+	}
+
+	// Add one
+	err = client.Repositories.Add("", uri)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Assert exists in list
+	expected := []fn.Repository{{Name: RepositoriesTestRepo}}
+
+	rr, err = client.Repositories.Get()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(rr, expected) {
+		t.Logf("expected: %v", expected)
+		t.Logf("received: %v", rr)
+		t.Fatalf("Expected repositories not received.")
+	}
+}
 
 // TestRepositoriesList ensures the base case of an empty list
 // when no repositories are installed.
