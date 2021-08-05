@@ -480,7 +480,6 @@ func (c *Client) Deploy(ctx context.Context, path string) (err error) {
 	}
 
 	// Push the image for the named service to the configured registry
-	c.progressListener.Increment("Pushing function image to the registry")
 	imageDigest, err := c.pusher.Push(ctx, f)
 	if err != nil {
 		return
