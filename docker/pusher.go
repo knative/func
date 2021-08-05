@@ -59,6 +59,7 @@ func NewPusher(opts ...Opt) (*Pusher, error) {
 	result := &Pusher{
 		Verbose:             false,
 		credentialsProvider: EmptyCredentialsProvider,
+		progressListener:    &fn.NoopProgressListener{},
 	}
 	for _, opt := range opts {
 		err := opt(result)

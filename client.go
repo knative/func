@@ -163,7 +163,7 @@ func New(options ...Option) *Client {
 		remover:          &noopRemover{output: os.Stdout},
 		lister:           &noopLister{output: os.Stdout},
 		dnsProvider:      &noopDNSProvider{output: os.Stdout},
-		progressListener: &noopProgressListener{},
+		progressListener: &NoopProgressListener{},
 		emitter:          &noopEmitter{},
 	}
 
@@ -643,13 +643,13 @@ type noopDNSProvider struct{ output io.Writer }
 
 func (n *noopDNSProvider) Provide(_ Function) error { return nil }
 
-type noopProgressListener struct{}
+type NoopProgressListener struct{}
 
-func (p *noopProgressListener) SetTotal(i int)     {}
-func (p *noopProgressListener) Increment(m string) {}
-func (p *noopProgressListener) Complete(m string)  {}
-func (p *noopProgressListener) Stopping()          {}
-func (p *noopProgressListener) Done()              {}
+func (p *NoopProgressListener) SetTotal(i int)     {}
+func (p *NoopProgressListener) Increment(m string) {}
+func (p *NoopProgressListener) Complete(m string)  {}
+func (p *NoopProgressListener) Stopping()          {}
+func (p *NoopProgressListener) Done()              {}
 
 type noopEmitter struct{}
 
