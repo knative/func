@@ -42,6 +42,7 @@ help:
 	@echo 'Available targets are:'
 	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z0-9_-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
+
 ###############
 ##@ Development
 ###############
@@ -109,10 +110,10 @@ test-typescript: ## Test Typescript templates
 	cd templates/typescript/events && npm ci && npm test && rm -rf node_modules build
 	cd templates/typescript/http && npm ci && npm test && rm -rf node_modules build
 
+
 ###################
 ##@ Extended Testing (cluster required)
 ###################
-
 
 test-integration: ## Run integration tests using an available cluster.
 	go test -tags integration ./... -v
@@ -142,3 +143,15 @@ windows: $(BIN_WINDOWS) ## Build for Windows
 $(BIN_WINDOWS): pkged.go
 	env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o $(BIN_WINDOWS) -ldflags $(LDFLAGS) ./cmd/$(BIN)
 
+######################
+##@ Schemas
+######################
+schema-generate: ## Generate func.yaml schema
+	go run schema/generator/main.go
+
+schema-check: ## Check that func.yaml schema is up-to-date
+	mv schema/func_yaml-schema.json schema/func_yaml-schema-previous.json
+	make schema-generate
+	diff schema/func_yaml-schema.json schema/func_yaml-schema-previous.json ||\
+	(echo "\n\nFunction config schema 'schema/func_yaml-schema.json' is obsolete, please run 'make schema-generate'.\n\n"; rm -rf schema/func_yaml-schema-previous.json; exit 1)
+	rm -rf schema/func_yaml-schema-previous.json
