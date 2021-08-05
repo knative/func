@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"time"
 )
 
@@ -227,6 +228,9 @@ func (b *Bar) spin(ch <-chan time.Time) {
 		"🕘 ",
 		"🕙 ",
 		"🕚 ",
+	}
+	if runtime.GOOS == "windows" {
+		spinner = []string{"|", "/", "-", "\\"}
 	}
 	idx := 0
 	for range ch {
