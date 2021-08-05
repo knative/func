@@ -1,6 +1,14 @@
 # Change Log
 
 <a name="unreleased"></a>
+### [0.17.1](https://www.github.com/knative-sandbox/kn-plugin-func/compare/v0.17.0...v0.17.1) (2021-08-05)
+
+
+### Bug Fixes
+
+* hide progress indicator if asking for creds ([#458](https://www.github.com/knative-sandbox/kn-plugin-func/issues/458)) ([79e2234](https://www.github.com/knative-sandbox/kn-plugin-func/commit/79e2234cbc62319f35b18a9b2a39ca4dffe89d4d))
+* use ascii chars in progress indicator on win ([#459](https://www.github.com/knative-sandbox/kn-plugin-func/issues/459)) ([6fd42a4](https://www.github.com/knative-sandbox/kn-plugin-func/commit/6fd42a421ea58a4e9e1b6b6bff3f97d1da99d349))
+
 ## [0.17.0](https://www.github.com/knative-sandbox/kn-plugin-func/compare/v0.16.0...v0.17.0) (2021-08-03)
 
 
