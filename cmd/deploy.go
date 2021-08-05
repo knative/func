@@ -29,7 +29,8 @@ func newDeployClient(cfg deployConfig) (*fn.Client, error) {
 
 	builder := buildpacks.NewBuilder()
 
-	pusher, err := docker.NewPusher(docker.WithCredentialsProvider(credentialsProvider))
+	pusher, err := docker.NewPusher(docker.WithCredentialsProvider(credentialsProvider),
+		docker.WithProgressListener(listener))
 	if err != nil {
 		return nil, err
 	}

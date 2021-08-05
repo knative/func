@@ -32,11 +32,20 @@ type Pusher struct {
 	// Verbose logging.
 	Verbose             bool
 	credentialsProvider CredentialsProvider
+	progressListener    fn.ProgressListener
+
 }
 
 func WithCredentialsProvider(cp CredentialsProvider) Opt {
 	return func(p *Pusher) error {
 		p.credentialsProvider = cp
+		return nil
+	}
+}
+
+func WithProgressListener(pl fn.ProgressListener) Opt {
+	return func (p *Pusher) error {
+		p.progressListener = pl
 		return nil
 	}
 }
@@ -50,6 +59,7 @@ func NewPusher(opts ...Opt) (*Pusher, error) {
 	result := &Pusher{
 		Verbose:             false,
 		credentialsProvider: EmptyCredentialsProvider,
+		progressListener:    &fn.NoopProgressListener{},
 	}
 	for _, opt := range opts {
 		err := opt(result)
@@ -83,10 +93,12 @@ func (n *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err er
 		return "", errors.Wrap(err, "failed to create docker api client")
 	}
 
+	n.progressListener.Stopping()
 	credentials, err := n.credentialsProvider(ctx, registry)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to get credentials")
 	}
+	n.progressListener.Increment("Pushing function image to the registry")
 
 	b, err := json.Marshal(&credentials)
 	if err != nil {
