@@ -33,7 +33,6 @@ type Pusher struct {
 	Verbose             bool
 	credentialsProvider CredentialsProvider
 	progressListener    fn.ProgressListener
-
 }
 
 func WithCredentialsProvider(cp CredentialsProvider) Opt {
@@ -44,7 +43,7 @@ func WithCredentialsProvider(cp CredentialsProvider) Opt {
 }
 
 func WithProgressListener(pl fn.ProgressListener) Opt {
-	return func (p *Pusher) error {
+	return func(p *Pusher) error {
 		p.progressListener = pl
 		return nil
 	}
@@ -79,10 +78,10 @@ func (n *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err er
 
 	var registry string
 	parts := strings.Split(f.Image, "/")
-	switch len(parts) {
-	case 2:
+	switch {
+	case len(parts) == 2:
 		registry = fn.DefaultRegistry
-	case 3:
+	case len(parts) >= 3:
 		registry = parts[0]
 	default:
 		return "", errors.Errorf("failed to parse image name: %q", f.Image)
