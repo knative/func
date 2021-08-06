@@ -52,6 +52,9 @@ type Function struct {
 	// e.g. { "jvm": "docker.io/example/quarkus-jvm-builder" }
 	BuilderMap map[string]string
 
+	// Optional list of buildpacks to use when building the function
+	Buildpacks []string
+
 	// List of volumes to be mounted to the function
 	Volumes Volumes
 
@@ -67,6 +70,9 @@ type Function struct {
 
 	// Map of user-supplied labels
 	Labels Labels
+
+	// Health endpoints specified by the language pack
+	HealthEndpoints map[string]string
 }
 
 // NewFunction loads a Function from a path on disk. use .Initialized() to determine if

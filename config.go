@@ -131,18 +131,20 @@ type ResourcesRequestsOptions struct {
 // Config represents the serialized state of a Function's metadata.
 // See the Function struct for attribute documentation.
 type Config struct {
-	Name        string            `yaml:"name" jsonschema:"pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"`
-	Namespace   string            `yaml:"namespace"`
-	Runtime     string            `yaml:"runtime"`
-	Image       string            `yaml:"image"`
-	ImageDigest string            `yaml:"imageDigest"`
-	Builder     string            `yaml:"builder"`
-	BuilderMap  map[string]string `yaml:"builderMap"`
-	Volumes     Volumes           `yaml:"volumes"`
-	Envs        Envs              `yaml:"envs"`
-	Annotations map[string]string `yaml:"annotations"`
-	Options     Options           `yaml:"options"`
-	Labels      Labels            `yaml:"labels"`
+	Name            string            `yaml:"name" jsonschema:"pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"`
+	Namespace       string            `yaml:"namespace"`
+	Runtime         string            `yaml:"runtime"`
+	Image           string            `yaml:"image"`
+	ImageDigest     string            `yaml:"imageDigest"`
+	Builder         string            `yaml:"builder"`
+	BuilderMap      map[string]string `yaml:"builderMap"`
+	Buildpacks      []string          `yaml:"buildpacks"`
+	HealthEndpoints map[string]string `yaml:"healthEndpoints"`
+	Volumes         Volumes           `yaml:"volumes"`
+	Envs            Envs              `yaml:"envs"`
+	Annotations     map[string]string `yaml:"annotations"`
+	Options         Options           `yaml:"options"`
+	Labels          Labels            `yaml:"labels"`
 	// Add new values to the toConfig/fromConfig functions.
 }
 
@@ -241,36 +243,40 @@ func newConfig(root string) (c Config, err error) {
 // Note that config does not include ancillary fields not serialized, such as Root.
 func fromConfig(c Config) (f Function) {
 	return Function{
-		Name:        c.Name,
-		Namespace:   c.Namespace,
-		Runtime:     c.Runtime,
-		Image:       c.Image,
-		ImageDigest: c.ImageDigest,
-		Builder:     c.Builder,
-		BuilderMap:  c.BuilderMap,
-		Volumes:     c.Volumes,
-		Envs:        c.Envs,
-		Annotations: c.Annotations,
-		Options:     c.Options,
-		Labels:      c.Labels,
+		Name:            c.Name,
+		Namespace:       c.Namespace,
+		Runtime:         c.Runtime,
+		Image:           c.Image,
+		ImageDigest:     c.ImageDigest,
+		Builder:         c.Builder,
+		BuilderMap:      c.BuilderMap,
+		Buildpacks:      c.Buildpacks,
+		HealthEndpoints: c.HealthEndpoints,
+		Volumes:         c.Volumes,
+		Envs:            c.Envs,
+		Annotations:     c.Annotations,
+		Options:         c.Options,
+		Labels:          c.Labels,
 	}
 }
 
 // toConfig serializes a Function to a config object.
 func toConfig(f Function) Config {
 	return Config{
-		Name:        f.Name,
-		Namespace:   f.Namespace,
-		Runtime:     f.Runtime,
-		Image:       f.Image,
-		ImageDigest: f.ImageDigest,
-		Builder:     f.Builder,
-		BuilderMap:  f.BuilderMap,
-		Volumes:     f.Volumes,
-		Envs:        f.Envs,
-		Annotations: f.Annotations,
-		Options:     f.Options,
-		Labels:      f.Labels,
+		Name:            f.Name,
+		Namespace:       f.Namespace,
+		Runtime:         f.Runtime,
+		Image:           f.Image,
+		ImageDigest:     f.ImageDigest,
+		Builder:         f.Builder,
+		BuilderMap:      f.BuilderMap,
+		Buildpacks:      f.Buildpacks,
+		HealthEndpoints: f.HealthEndpoints,
+		Volumes:         f.Volumes,
+		Envs:            f.Envs,
+		Annotations:     f.Annotations,
+		Options:         f.Options,
+		Labels:          f.Labels,
 	}
 }
 

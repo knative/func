@@ -143,6 +143,13 @@ type Subscription struct {
 	Broker string `json:"broker" yaml:"broker"`
 }
 
+type Manifest struct {
+	Name            string            `yaml:"name"`
+	Buildpacks      []string          `yaml:"buildpacks"`
+	HealthEndpoints map[string]string `yaml:"healthEndpoints"`
+	Builders        map[string]string `yaml:"builders"`
+}
+
 // DNSProvider exposes DNS services necessary for serving the Function.
 type DNSProvider interface {
 	// Provide the given name by routing requests to address.
@@ -391,23 +398,30 @@ func (c *Client) Create(cfg Function) (err error) {
 	}
 
 	// Check if template specifies a builder image. If so, add to configuration
-	builderFilePath := filepath.Join(f.Root, ".builders.yaml")
-	if builderConfig, err := ioutil.ReadFile(builderFilePath); err == nil {
-		// A .builder file was found. Read the default builder and set in the config file
-		// TODO: A command line flag could be used to specify non-default builders
-		builders := make(map[string]string)
-		if err := yaml.Unmarshal(builderConfig, builders); err == nil {
-			f.Builder = builders["default"]
+	manifestFilePath := filepath.Join(f.Root, "manifest.yaml")
+	if manifestYaml, err := ioutil.ReadFile(manifestFilePath); err == nil {
+		// A manifest.yaml file was found. Read the default builder and set in the config file
+		manifest := Manifest{}
+		if err := yaml.Unmarshal(manifestYaml, &manifest); err == nil {
+			f.Builder = manifest.Builders["default"]
+			f.BuilderMap = manifest.Builders
+			f.Buildpacks = manifest.Buildpacks
+			f.HealthEndpoints = manifest.HealthEndpoints
 			if c.verbose {
-				fmt.Printf("Builder: %s\n", f.Builder)
+				fmt.Printf("Builder:       %s\n", f.Builder)
+				if len(f.Buildpacks) > 0 {
+					fmt.Println("Buildpacks:")
+					for _, b := range f.Buildpacks {
+						fmt.Printf("           ... %s\n", b)
+					}
+				}
 			}
-			f.BuilderMap = builders
 		}
-		// Remove the builders.yaml file so the user is not confused by a
+		// Remove the manifest.yaml file so the user is not confused by a
 		// configuration file that is only used for project creation/initialization
-		if err := os.Remove(builderFilePath); err != nil {
+		if err := os.Remove(manifestFilePath); err != nil {
 			if c.verbose {
-				fmt.Printf("Cannot remove %v. %v\n", builderFilePath, err)
+				fmt.Printf("Cannot remove %v. %v\n", manifestFilePath, err)
 			}
 		}
 	}

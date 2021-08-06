@@ -149,15 +149,25 @@ func probeFor(url string) *corev1.Probe {
 	}
 }
 
+func setHealthEndpoints(f fn.Function, c *corev1.Container) *corev1.Container {
+	if f.HealthEndpoints != nil {
+		if f.HealthEndpoints["liveness"] != "" {
+			c.LivenessProbe = probeFor(f.HealthEndpoints["liveness"])
+		}
+		if f.HealthEndpoints["readiness"] != "" {
+			c.ReadinessProbe = probeFor(f.HealthEndpoints["readiness"])
+		}
+	}
+	return c
+}
+
 func generateNewService(f fn.Function) (*servingv1.Service, error) {
 	containers := []corev1.Container{
 		{
 			Image: f.ImageWithDigest(),
 		},
 	}
-
-	containers[0].LivenessProbe = probeFor("/health/liveness")
-	containers[0].ReadinessProbe = probeFor("/health/readiness")
+	setHealthEndpoints(f, &containers[0])
 
 	referencedSecrets := sets.NewString()
 	referencedConfigMaps := sets.NewString()
@@ -219,6 +229,19 @@ func updateService(f fn.Function, newEnv []corev1.EnvVar, newEnvFrom []corev1.En
 		for k, v := range f.Annotations {
 			service.ObjectMeta.Annotations[k] = v
 		}
+		// I hate that we have to do this. Users should not see these values.
+		// It is an implementation detail. These health endpoints should not be
+		// a part of func.yaml since the user can only mess things up by changing
+		// them. Ultimately, this information is determined by the language pack.
+		// Which is another reason to consider having a global config to store
+		// some metadata which is fairly static. For example, a .config/func/global.yaml
+		// file could contain information about all known language packs. As new
+		// language packs are discovered through use of the --repository flag when
+		// creating a function, this information could be extracted from
+		// language-pack.yaml for each template and written to the local global
+		// config. At runtime this configuration file could be consulted. I don't
+		// know what this would mean for developers using the func library directly.
+		setHealthEndpoints(f, &service.Spec.Template.Spec.Containers[0])
 
 		err := setServiceOptions(&service.Spec.Template, f.Options)
 		if err != nil {

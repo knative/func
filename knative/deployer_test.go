@@ -3,7 +3,30 @@ package knative
 import (
 	"os"
 	"testing"
+
+	corev1 "k8s.io/api/core/v1"
+	fn "knative.dev/kn-plugin-func"
 )
+
+func Test_setHealthEndpoints(t *testing.T) {
+	f := fn.Function{
+		Name: "testing",
+		HealthEndpoints: map[string]string{
+			"liveness":  "/lively",
+			"readiness": "/readyAsIllEverBe",
+		},
+	}
+	c := corev1.Container{}
+	setHealthEndpoints(f, &c)
+	got := c.LivenessProbe.HTTPGet.Path
+	if got != "/lively" {
+		t.Errorf("expected \"/lively\" but got %v", got)
+	}
+	got = c.ReadinessProbe.HTTPGet.Path
+	if got != "/readyAsIllEverBe" {
+		t.Errorf("expected \"readyAsIllEverBe\" but got %v", got)
+	}
+}
 
 func Test_processValue(t *testing.T) {
 	testEnvVarOld, testEnvVarOldExists := os.LookupEnv("TEST_KNATIVE_DEPLOYER")
