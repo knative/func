@@ -26,7 +26,7 @@ func TestRepositoriesList(t *testing.T) {
 	}
 	// Assert contains only the default repo
 	if len(rr) != 1 && rr[0] != fn.DefaultRepository {
-		t.Fatalf("Expected repositor list '[%v]', got %v", fn.DefaultRepository, rr)
+		t.Fatalf("Expected repository list '[%v]', got %v", fn.DefaultRepository, rr)
 	}
 }
 
@@ -48,7 +48,7 @@ func TestRepositoriesGet(t *testing.T) {
 
 	// valid should have expected name
 	if repo.Name != "customProvider" {
-		t.Fatalf("Repository returnd expected 'customProvider', got: %v", repo.Name)
+		t.Fatalf("Expected 'customProvider', got: %v", repo.Name)
 	}
 }
 
