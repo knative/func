@@ -7,7 +7,7 @@ jobs:
   build:
     strategy:
       matrix:
-        os: ['ubuntu-latest', 'windows-latest', 'macos-latest']
+        os: ["ubuntu-latest", "windows-latest", "macos-latest"]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v2
@@ -58,25 +58,27 @@ jobs:
         run: |
           curl -s -L -o pkger.tgz ${{ steps.pkger-download-url.outputs.result }}
           tar xvzf pkger.tgz
-
       - name: Unit Test
-        run:  make test
+        run: make test
         env:
           PKGER: "./${{ steps.pkger-binaries.outputs.binary }}"
       - name: Template Unit Tests
-        run:  make test-templates
+        run: make test-templates
         env:
           PKGER: "./${{ steps.pkger-binaries.outputs.binary }}"
       - name: Build
-        run:  make build
+        run: make build
         env:
           PKGER: "./${{ steps.pkger-binaries.outputs.binary }}"
       - name: Lint
         run: make check
+      - name: Check that 'func.yaml schema' is up-to-date
+        if: matrix.os != 'windows-latest'
+        run: make schema-check
 
   integration-test:
     needs: build
-    runs-on: 'ubuntu-latest'
+    runs-on: "ubuntu-latest"
     steps:
       - name: Checkout
         uses: actions/checkout@v2
@@ -106,14 +108,14 @@ jobs:
 
   e2e-test:
     needs: integration-test
-    runs-on: 'ubuntu-latest'
+    runs-on: "ubuntu-latest"
     steps:
       - name: Checkout
         uses: actions/checkout@v2
       - name: Setup Go
         uses: actions/setup-go@v2
         with:
-          go-version: '^1.16'
+          go-version: "^1.16"
       - name: Determine download URL for latest pkger
         id: pkger-download-url
         uses: actions/github-script@v2

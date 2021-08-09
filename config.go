@@ -27,8 +27,8 @@ var (
 
 type Volumes []Volume
 type Volume struct {
-	Secret    *string `yaml:"secret,omitempty"`
-	ConfigMap *string `yaml:"configMap,omitempty"`
+	Secret    *string `yaml:"secret,omitempty" jsonschema:"oneof_required=secret"`
+	ConfigMap *string `yaml:"configMap,omitempty" jsonschema:"oneof_required=configmap"`
 	Path      *string `yaml:"path"`
 }
 
@@ -83,11 +83,11 @@ type Options struct {
 }
 
 type ScaleOptions struct {
-	Min         *int64   `yaml:"min,omitempty"`
-	Max         *int64   `yaml:"max,omitempty"`
-	Metric      *string  `yaml:"metric,omitempty"`
-	Target      *float64 `yaml:"target,omitempty"`
-	Utilization *float64 `yaml:"utilization,omitempty"`
+	Min         *int64   `yaml:"min,omitempty" jsonschema_extras:"minimum=0"`
+	Max         *int64   `yaml:"max,omitempty" jsonschema_extras:"minimum=0"`
+	Metric      *string  `yaml:"metric,omitempty" jsonschema:"enum=concurrency,enum=rps"`
+	Target      *float64 `yaml:"target,omitempty" jsonschema_extras:"minimum=0.01"`
+	Utilization *float64 `yaml:"utilization,omitempty" jsonschema:"minimum=1,maximum=100"`
 }
 
 type ResourcesOptions struct {
@@ -96,20 +96,20 @@ type ResourcesOptions struct {
 }
 
 type ResourcesLimitsOptions struct {
-	CPU         *string `yaml:"cpu,omitempty"`
-	Memory      *string `yaml:"memory,omitempty"`
-	Concurrency *int64  `yaml:"concurrency,omitempty"`
+	CPU         *string `yaml:"cpu,omitempty" jsonschema:"pattern=^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$"`
+	Memory      *string `yaml:"memory,omitempty" jsonschema:"pattern=^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$"`
+	Concurrency *int64  `yaml:"concurrency,omitempty" jsonschema_extras:"minimum=0"`
 }
 
 type ResourcesRequestsOptions struct {
-	CPU    *string `yaml:"cpu,omitempty"`
-	Memory *string `yaml:"memory,omitempty"`
+	CPU    *string `yaml:"cpu,omitempty" jsonschema:"pattern=^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$"`
+	Memory *string `yaml:"memory,omitempty" jsonschema:"pattern=^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$"`
 }
 
 // Config represents the serialized state of a Function's metadata.
 // See the Function struct for attribute documentation.
-type config struct {
-	Name        string            `yaml:"name"`
+type Config struct {
+	Name        string            `yaml:"name" jsonschema:"pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"`
 	Namespace   string            `yaml:"namespace"`
 	Runtime     string            `yaml:"runtime"`
 	Image       string            `yaml:"image"`
@@ -129,7 +129,7 @@ type config struct {
 // errors accessing an extant config file, or the contents of the file do not
 // unmarshall.  A missing file at a valid path does not error but returns the
 // empty value of Config.
-func newConfig(root string) (c config, err error) {
+func newConfig(root string) (c Config, err error) {
 	filename := filepath.Join(root, ConfigFile)
 	if _, err = os.Stat(filename); err != nil {
 		// do not consider a missing config file an error.  Just return.
@@ -217,7 +217,7 @@ func newConfig(root string) (c config, err error) {
 
 // fromConfig returns a Function populated from config.
 // Note that config does not include ancillary fields not serialized, such as Root.
-func fromConfig(c config) (f Function) {
+func fromConfig(c Config) (f Function) {
 	return Function{
 		Name:        c.Name,
 		Namespace:   c.Namespace,
@@ -235,8 +235,8 @@ func fromConfig(c config) (f Function) {
 }
 
 // toConfig serializes a Function to a config object.
-func toConfig(f Function) config {
-	return config{
+func toConfig(f Function) Config {
+	return Config{
 		Name:        f.Name,
 		Namespace:   f.Namespace,
 		Runtime:     f.Runtime,
