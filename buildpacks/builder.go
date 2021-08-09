@@ -113,11 +113,12 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	}
 
 	packOpts := pack.BuildOptions{
-		AppPath:      f.Root,
-		Image:        f.Image,
-		Builder:      packBuilder,
-		TrustBuilder: !deamonIsPodman && strings.HasPrefix(packBuilder, "quay.io/boson"),
-		DockerHost:   os.Getenv("DOCKER_HOST"),
+		AppPath:        f.Root,
+		Image:          f.Image,
+		LifecycleImage: "quay.io/boson/lifecycle:0.10.2",
+		Builder:        packBuilder,
+		TrustBuilder:   !deamonIsPodman && strings.HasPrefix(packBuilder, "quay.io/boson"),
+		DockerHost:     os.Getenv("DOCKER_HOST"),
 		ContainerConfig: struct {
 			Network string
 			Volumes []string
