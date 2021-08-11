@@ -22,6 +22,7 @@ be specified as an HTTP URL.
 - remove sample hooks
 - touch a .gitinclude in refs/heads and refs/tags
 
+## repository-a.git
 
-
+Used by tests in repositories_tests.go
 
