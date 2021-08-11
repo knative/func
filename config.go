@@ -52,11 +52,11 @@ func (e Env) String() string {
 	if e.Name == nil && e.Value != nil {
 		match := regWholeSecret.FindStringSubmatch(*e.Value)
 		if len(match) == 2 {
-			return fmt.Sprintf("Env key=value pairs from Secret \"%s\"", match[1])
+			return fmt.Sprintf("All key=value pairs from Secret \"%s\"", match[1])
 		}
 		match = regWholeConfigMap.FindStringSubmatch(*e.Value)
 		if len(match) == 2 {
-			return fmt.Sprintf("Env key=value pairs from ConfigMap \"%s\"", match[1])
+			return fmt.Sprintf("All key=value pairs from ConfigMap \"%s\"", match[1])
 		}
 	} else if e.Name != nil && e.Value != nil {
 		match := regKeyFromSecret.FindStringSubmatch(*e.Value)
