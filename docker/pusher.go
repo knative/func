@@ -69,6 +69,21 @@ func NewPusher(opts ...Opt) (*Pusher, error) {
 	return result, nil
 }
 
+func getRegistry(image_url string) (string, error) {
+	var registry string
+	parts := strings.Split(image_url, "/")
+	switch {
+	case len(parts) == 2:
+		registry = fn.DefaultRegistry
+	case len(parts) >= 3:
+		registry = parts[0]
+	default:
+		return "", errors.Errorf("failed to parse image name: %q", image_url)
+	}
+
+	return registry, nil
+}
+
 // Push the image of the Function.
 func (n *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err error) {
 
@@ -76,15 +91,9 @@ func (n *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err er
 		return "", errors.New("Function has no associated image.  Has it been built?")
 	}
 
-	var registry string
-	parts := strings.Split(f.Image, "/")
-	switch {
-	case len(parts) == 2:
-		registry = fn.DefaultRegistry
-	case len(parts) >= 3:
-		registry = parts[0]
-	default:
-		return "", errors.Errorf("failed to parse image name: %q", f.Image)
+	registry, err := getRegistry(f.Image)
+	if err != nil {
+		return "", err
 	}
 
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
