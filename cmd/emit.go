@@ -122,9 +122,9 @@ func runEmit(cmd *cobra.Command, _ []string, clientFn emitClientFn) (err error) 
 // Otherwise the value of Sink is used verbatim if defined.
 func endpoint(ctx context.Context, cfg emitConfig) (url string, err error) {
 	var (
-		f    fn.Function
-		d    fn.Describer
-		desc fn.Description
+		f fn.Function
+		d fn.Describer
+		i fn.Info
 	)
 
 	// If the special value "local" was requested,
@@ -151,18 +151,18 @@ func endpoint(ctx context.Context, cfg emitConfig) (url string, err error) {
 	}
 
 	// Get the current state of the function.
-	if desc, err = d.Describe(ctx, f.Name); err != nil {
+	if i, err = d.Describe(ctx, f.Name); err != nil {
 		return
 	}
 
 	// Probably wise to be defensive here:
-	if len(desc.Routes) == 0 {
+	if len(i.Routes) == 0 {
 		err = errors.New("function has no active routes")
 		return
 	}
 
 	// The first route should be the destination.
-	return desc.Routes[0], nil
+	return i.Routes[0], nil
 }
 
 type emitConfig struct {

@@ -126,10 +126,10 @@ type ProgressListener interface {
 // Describer of Functions' remote deployed aspect.
 type Describer interface {
 	// Describe the running state of the service as reported by the underlyng platform.
-	Describe(ctx context.Context, name string) (description Description, err error)
+	Describe(ctx context.Context, name string) (description Info, err error)
 }
 
-type Description struct {
+type Info struct {
 	Name          string         `json:"name" yaml:"name"`
 	Image         string         `json:"image" yaml:"image"`
 	Namespace     string         `json:"namespace" yaml:"namespace"`
@@ -549,9 +549,9 @@ func (c *Client) List(ctx context.Context) ([]ListItem, error) {
 	return c.lister.List(ctx)
 }
 
-// Describe a Function.  Name takes precidence.  If no name is provided,
+// Info for a Function.  Name takes precidence.  If no name is provided,
 // the Function defined at root is used.
-func (c *Client) Describe(ctx context.Context, name, root string) (d Description, err error) {
+func (c *Client) Info(ctx context.Context, name, root string) (d Info, err error) {
 	go func() {
 		<-ctx.Done()
 		c.progressListener.Stopping()

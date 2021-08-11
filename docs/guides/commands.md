@@ -79,20 +79,20 @@ When run as a `kn` plugin.
 kn func deploy [-n <namespace> -p <path> -i <image> -r <registry> -b=true|false]
 ```
 
-## `describe`
+## `info`
 
 Prints the name, route and any event subscriptions for a deployed Function. The user may also specify the name of the function to describe. The namespace defaults to the value in `func.yaml` or the namespace currently active in the user's Kubernetes configuration. The namespace may be specified on the command line, and if so this will overwrite the value in `func.yaml`.
 
-Similar `kn` command: `kn service describe NAME [flags]`. This flag provides a lot of nice information not available in `func describe`, such as revisions, age, annotations and labels. This command should be renamed to make it distinct from `kn` - e.g. `func status`.
+Similar `kn` command: `kn service describe NAME [flags]`. This flag provides a lot of nice information not available in `func info`, such as revisions, age, annotations and labels.
 
 ```console
-func describe [-o <output> -n <namespace> -p <path>]
+func info [-o <output> -n <namespace> -p <path>]
 ```
 
 When run as a `kn` plugin.
 
 ```console
-kn func describe [-o <output> -n <namespace> -p <path>]
+kn func info [-o <output> -n <namespace> -p <path>]
 ```
 
 ## `list`

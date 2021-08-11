@@ -31,7 +31,7 @@ func NewDescriber(namespaceOverride string) (describer *Describer, err error) {
 // restricts to label-syntax, which is thus escaped. Therefore as a knative (kube) implementation
 // detal proper full names have to be escaped on the way in and unescaped on the way out. ex:
 // www.example-site.com -> www-example--site-com
-func (d *Describer) Describe(ctx context.Context, name string) (description fn.Description, err error) {
+func (d *Describer) Describe(ctx context.Context, name string) (description fn.Info, err error) {
 
 	servingClient, err := NewServingClient(d.namespace)
 	if err != nil {
