@@ -152,17 +152,17 @@ func runAddLabelsPrompt(ctx context.Context, f fn.Function) (err error) {
 		return
 	}
 
-	newPair := fn.Pair{}
+	newPair := fn.Label{}
 
 	switch selectedOption {
 	// SECTION - add new label with the specified value
 	case optionLabelValue:
 		qs := []*survey.Question{
 			{
-				Name:   "name",
-				Prompt: &survey.Input{Message: "Please specify the label name:"},
+				Name:   "key",
+				Prompt: &survey.Input{Message: "Please specify the label key:"},
 				Validate: func(val interface{}) error {
-					return utils.ValidateLabelName(val.(string))
+					return utils.ValidateLabelKey(val.(string))
 				},
 			},
 			{
@@ -173,7 +173,7 @@ func runAddLabelsPrompt(ctx context.Context, f fn.Function) (err error) {
 				}},
 		}
 		answers := struct {
-			Name  string
+			Key   string
 			Value string
 		}{}
 
@@ -185,17 +185,17 @@ func runAddLabelsPrompt(ctx context.Context, f fn.Function) (err error) {
 			return
 		}
 
-		newPair.Name = &answers.Name
+		newPair.Key = &answers.Key
 		newPair.Value = &answers.Value
 
 	// SECTION - add new label with value from a local environment variable
 	case optionLabelLocal:
 		qs := []*survey.Question{
 			{
-				Name:   "name",
-				Prompt: &survey.Input{Message: "Please specify the label name:"},
+				Name:   "key",
+				Prompt: &survey.Input{Message: "Please specify the label key:"},
 				Validate: func(val interface{}) error {
-					return utils.ValidateLabelName(val.(string))
+					return utils.ValidateLabelKey(val.(string))
 				},
 			},
 			{
@@ -207,7 +207,7 @@ func runAddLabelsPrompt(ctx context.Context, f fn.Function) (err error) {
 			},
 		}
 		answers := struct {
-			Name  string
+			Key   string
 			Value string
 		}{}
 
@@ -224,7 +224,7 @@ func runAddLabelsPrompt(ctx context.Context, f fn.Function) (err error) {
 		}
 
 		value := fmt.Sprintf("{{ env:%s }}", answers.Value)
-		newPair.Name = &answers.Name
+		newPair.Key = &answers.Key
 		newPair.Value = &value
 	}
 
@@ -268,7 +268,7 @@ func runRemoveLabelsPrompt(f fn.Function) (err error) {
 		return
 	}
 
-	var newLabels fn.Pairs
+	var newLabels fn.Labels
 	removed := false
 	for i, e := range f.Labels {
 		if e.String() == selectedLabel {

@@ -56,7 +56,7 @@ type Function struct {
 	Volumes Volumes
 
 	// Env variables to be set
-	Envs Pairs
+	Envs Envs
 
 	// Map containing user-supplied annotations
 	// Example: { "division": "finance" }
@@ -66,7 +66,7 @@ type Function struct {
 	Options Options
 
 	// Map of user-supplied labels
-	Labels Pairs
+	Labels Labels
 }
 
 // NewFunction loads a Function from a path on disk. use .Initialized() to determine if
