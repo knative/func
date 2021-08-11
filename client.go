@@ -693,6 +693,8 @@ func newSortedSet() *sortedSet {
 	}
 }
 
+// Add a value to the set.  Adding the same value more than
+// once has no effect.
 func (s *sortedSet) Add(value string) {
 	s.Lock()
 	s.members[value] = true
@@ -705,6 +707,7 @@ func (s *sortedSet) Remove(value string) {
 	s.Unlock()
 }
 
+// Items returns the memebers of the set, sorted.
 func (s *sortedSet) Items() []string {
 	s.Lock()
 	defer s.Unlock()

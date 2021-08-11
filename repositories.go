@@ -75,25 +75,6 @@ func (r *Repositories) Get(name string) (repo Repository, err error) {
 	return NewRepositoryFromPath(filepath.Join(r.Path, name))
 }
 
-// Repository
-type Repository struct {
-	Name string
-}
-
-// Get a reference to all repositories under management (at instance's
-// configured Repositories Path)
-func (r *Repositories) Get() ([]Repository, error) {
-	rr := []Repository{}
-	names, err := r.List()
-	if err != nil {
-		return rr, err
-	}
-	for _, r := range names {
-		rr = append(rr, Repository{r})
-	}
-	return rr, nil
-}
-
 // Add a repository of the given name from the URI.  Name, if not provided,
 // defaults to the repo name (sans optional .git suffix)
 func (r *Repositories) Add(name, uri string) (err error) {
@@ -110,10 +91,10 @@ func (r *Repositories) Add(name, uri string) (err error) {
 }
 
 // Rename a repository
-func (r *Repositories) Rename(old string, new string) error {
-	oldPath := filepath.Join(r.Path, old)
-	newPath := filepath.Join(r.Path, new)
-	return os.Rename(oldPath, newPath)
+func (r *Repositories) Rename(from, to string) error {
+	a := filepath.Join(r.Path, from)
+	b := filepath.Join(r.Path, to)
+	return os.Rename(a, b)
 }
 
 // Remove a repository of the given name from the repositories.
