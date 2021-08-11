@@ -3,10 +3,8 @@
 package function_test
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
-	"reflect"
 	"testing"
 
 	fn "knative.dev/kn-plugin-func"
@@ -14,25 +12,62 @@ import (
 
 const RepositoriesTestRepo = "repository-a"
 
-// TestRepositoriesGet ensures the full set of extensible
-// repoositories is returned on Get.
-// Note: at this time the implicit builtin default templates are not considered
-// within a "default" or "builtin" repository.  However, this may change if the
-// need arises to structure them thusly.
+// TestRepositoriesList ensures the base case of listing
+// repositories without error in the default scenario of builtin only.
+func TestRepositoriesList(t *testing.T) {
+	root, rm := mktemp(t)
+	defer rm()
+
+	client := fn.New(fn.WithRepositories(root)) // Explicitly empty
+
+	rr, err := client.Repositories.List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Assert contains only the default repo
+	if len(rr) != 1 && rr[0] != fn.DefaultRepository {
+		t.Fatalf("Expected repositor list '[%v]', got %v", fn.DefaultRepository, rr)
+	}
+}
+
+// TestRepositoriesGet ensures a repository can be accessed by name.
 func TestRepositoriesGet(t *testing.T) {
-	uri := testRepoURI(t) // ./testdata/$RepositoriesTestRepo.git
+	client := fn.New(fn.WithRepositories("testdata/repositories"))
+
+	// invalid should error
+	repo, err := client.Repositories.Get("invalid")
+	if err == nil {
+		t.Fatal("did not receive expected error getting inavlid repository")
+	}
+
+	// valid should not error
+	repo, err = client.Repositories.Get("customProvider")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// valid should have expected name
+	if repo.Name != "customProvider" {
+		t.Fatalf("Repository returnd expected 'customProvider', got: %v", repo.Name)
+	}
+}
+
+// TestRepositoriesAll ensures builtin and extended repos are returned from
+// .All accessor.
+func TestRepositoriesAll(t *testing.T) {
+	uri := testRepoURI(RepositoriesTestRepo, t)
 	root, rm := mktemp(t)
 	defer rm()
 
 	client := fn.New(fn.WithRepositories(root))
 
-	// Assert initially empty
-	rr, err := client.Repositories.Get()
+	// Assert initially only the default is included
+	rr, err := client.Repositories.All()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rr) != 0 {
-		t.Fatalf("Expected an empty initial rep list.  Got %v", len(rr))
+	if len(rr) != 1 && rr[0].Name != fn.DefaultRepository {
+		t.Fatalf("Expected initial repo list to be only the default.  Got %v", rr)
 	}
 
 	// Add one
@@ -41,65 +76,46 @@ func TestRepositoriesGet(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Assert exists in list
-	expected := []fn.Repository{{Name: RepositoriesTestRepo}}
-
-	rr, err = client.Repositories.Get()
+	// Get full list
+	repositories, err := client.Repositories.All()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(rr, expected) {
-		t.Logf("expected: %v", expected)
-		t.Logf("received: %v", rr)
-		t.Fatalf("Expected repositories not received.")
-	}
-}
 
-// TestRepositoriesList ensures the base case of an empty list
-// when no repositories are installed.
-func TestRepositoriesList(t *testing.T) {
-	root, rm := mktemp(t)
-	defer rm()
-
-	client := fn.New(fn.WithRepositories(root))
-
-	rr, err := client.Repositories.List()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(rr) != 0 {
-		t.Fatalf("Expected an empty repositories list, got %v", len(rr))
+	// Assert it now includes both builtin and extended
+	if len(repositories) != 2 ||
+		repositories[0].Name != fn.DefaultRepository ||
+		repositories[1].Name != RepositoriesTestRepo {
+		t.Fatal("Repositories list does not pass shallow repository membership check")
 	}
 }
 
 // TestRepositoriesAdd ensures that adding a repository adds it to the FS
 // and List output.  Uses default name (repo name).
 func TestRepositoriesAdd(t *testing.T) {
-	uri := testRepoURI(t) // ./testdata/$RepositoriesTestRepo.git
-	root, rm := mktemp(t) // create and cd to a temp dir
+	uri := testRepoURI(RepositoriesTestRepo, t) // ./testdata/$RepositoriesTestRepo.git
+	root, rm := mktemp(t)                       // create and cd to a temp dir
 	defer rm()
 
-	// Instantiate the client using the current temp directory as the
-	// repositories' root location.
 	client := fn.New(fn.WithRepositories(root))
 
-	// Create a new repository without a name (use default of repo name)
+	// Add repo at uri
 	if err := client.Repositories.Add("", uri); err != nil {
 		t.Fatal(err)
 	}
 
-	// assert list len 1
+	// Assert list now includes the test repo
 	rr, err := client.Repositories.List()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rr) != 1 || rr[0] != RepositoriesTestRepo {
+	if len(rr) != 2 || rr[1] != RepositoriesTestRepo {
 		t.Fatalf("Expected '%v', got %v", RepositoriesTestRepo, rr)
 	}
 
 	// assert expected name
-	if rr[0] != RepositoriesTestRepo {
-		t.Fatalf("Expected name '%v', got %v", RepositoriesTestRepo, rr[0])
+	if rr[1] != RepositoriesTestRepo {
+		t.Fatalf("Expected name '%v', got %v", RepositoriesTestRepo, rr[1])
 	}
 
 	// assert repo was checked out
@@ -114,8 +130,8 @@ func TestRepositoriesAdd(t *testing.T) {
 // TestRepositoriesAddNamed ensures that adding a repository with a specified
 // name takes precidence over the default of repo name.
 func TestRepositoriesAddNamed(t *testing.T) {
-	uri := testRepoURI(t) // ./testdata/$RepositoriesTestRepo.git
-	root, rm := mktemp(t) // create and cd to a temp dir, returning path.
+	uri := testRepoURI(RepositoriesTestRepo, t) // ./testdata/$RepositoriesTestRepo.git
+	root, rm := mktemp(t)                       // create and cd to a temp dir, returning path.
 	defer rm()
 
 	// Instantiate the client using the current temp directory as the
@@ -131,7 +147,7 @@ func TestRepositoriesAddNamed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rr) != 1 || rr[0] != name {
+	if len(rr) != 2 || rr[1] != name {
 		t.Fatalf("Expected '%v', got %v", name, rr)
 	}
 
@@ -144,7 +160,7 @@ func TestRepositoriesAddNamed(t *testing.T) {
 // TestRepositoriesAddExistingErrors ensures that adding a repository that
 // already exists yields an error.
 func TestRepositoriesAddExistingErrors(t *testing.T) {
-	uri := testRepoURI(t)
+	uri := testRepoURI(RepositoriesTestRepo, t)
 	root, rm := mktemp(t) // create and cd to a temp dir, returning path.
 	defer rm()
 
@@ -166,7 +182,7 @@ func TestRepositoriesAddExistingErrors(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rr) != 1 || rr[0] != name {
+	if len(rr) != 2 || rr[1] != name {
 		t.Fatalf("Expected '[%v]', got %v", name, rr)
 	}
 
@@ -178,7 +194,7 @@ func TestRepositoriesAddExistingErrors(t *testing.T) {
 
 // TestRepositoriesRename ensures renaming a repository.
 func TestRepositoriesRename(t *testing.T) {
-	uri := testRepoURI(t)
+	uri := testRepoURI(RepositoriesTestRepo, t)
 	root, rm := mktemp(t) // create and cd to a temp dir, returning path.
 	defer rm()
 
@@ -199,7 +215,7 @@ func TestRepositoriesRename(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rr) != 1 || rr[0] != "bar" {
+	if len(rr) != 2 || rr[1] != "bar" {
 		t.Fatalf("Expected '[bar]', got %v", rr)
 	}
 
@@ -212,8 +228,8 @@ func TestRepositoriesRename(t *testing.T) {
 // TestRepositoriesRemove ensures that removing a repository by name
 // removes it from the list and FS.
 func TestRepositoriesRemove(t *testing.T) {
-	uri := testRepoURI(t) // ./testdata/repository.git
-	root, rm := mktemp(t) // create and cd to a temp dir, returning path.
+	uri := testRepoURI(RepositoriesTestRepo, t) // ./testdata/repository.git
+	root, rm := mktemp(t)                       // create and cd to a temp dir, returning path.
 	defer rm()
 
 	// Instantiate the client using the current temp directory as the
@@ -234,61 +250,12 @@ func TestRepositoriesRemove(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rr) != 0 {
-		t.Fatalf("Expected empty repo list upon remove.  Got %v", rr)
+	if len(rr) != 1 {
+		t.Fatalf("Expected repo list of len 1.  Got %v", rr)
 	}
 
 	// assert repo not on filesystem
 	if _, err := os.Stat(name); !os.IsNotExist(err) {
 		t.Fatalf("Repo %v still exists on filesystem.", name)
-	}
-}
-
-// Helpers ---
-
-// testRepoURI returns a file:// URI to a test repository in
-// testdata.  Must be called prior to mktemp in tests which changes current
-// working directory.
-// Repo uri:  file://$(pwd)/testdata/repository.git (unix-like)
-//            file: //$(pwd)\testdata\repository.git (windows)
-func testRepoURI(t *testing.T) string {
-	t.Helper()
-	cwd, _ := os.Getwd()
-	repo := filepath.Join(cwd, "testdata", RepositoriesTestRepo+".git")
-	return "file://" + filepath.ToSlash(repo)
-}
-
-// mktemp creates a temp dir, returning its path
-// and a function which will remove it.
-func mktemp(t *testing.T) (string, func()) {
-	t.Helper()
-	tmp := mktmp(t)
-	owd := pwd(t)
-	cd(t, tmp)
-	return tmp, func() {
-		os.RemoveAll(tmp)
-		cd(t, owd)
-	}
-}
-
-func mktmp(t *testing.T) string {
-	d, err := ioutil.TempDir("", "dir")
-	if err != nil {
-		t.Fatal(err)
-	}
-	return d
-}
-
-func pwd(t *testing.T) string {
-	d, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	return d
-}
-
-func cd(t *testing.T, dir string) {
-	if err := os.Chdir(dir); err != nil {
-		t.Fatal(err)
 	}
 }

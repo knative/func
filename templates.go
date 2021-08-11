@@ -20,6 +20,125 @@ import (
 	"github.com/markbates/pkger"
 )
 
+const builtinPath = "/templates"
+
+// Templates Manager
+type Templates struct {
+	Repositories *Repositories // Repository Manager
+}
+
+// Template metadata
+type Template struct {
+	Runtime    string
+	Repository string
+	Name       string
+}
+
+// Fullname is a caluclate field of [repo]/[name] used
+// to uniquely reference a template which may share a name
+// with one in another repository.
+func (t Template) Fullname() string {
+	return t.Repository + "/" + t.Name
+}
+
+// List the full name of templates available runtime.
+// Full name is the optional repository prefix plus the template's repository
+// local name.  Default templates grouped first sans prefix.
+func (t *Templates) List(runtime string) ([]string, error) {
+	// TODO: if repository override was enabled, we should just return those, flat.
+	builtin, err := t.ListDefault(runtime)
+	if err != nil {
+		return []string{}, err
+	}
+
+	extended, err := t.ListExtended(runtime)
+	if err != nil {
+		return []string{}, err
+	}
+
+	// Result is an alphanumerically sorted list first grouped by
+	// embedded at head.
+	return append(builtin, extended...), nil
+}
+
+// ListDefault (embedded) templates by runtime
+func (t *Templates) ListDefault(runtime string) ([]string, error) {
+	var (
+		names     = newSortedSet()
+		repo, err = t.Repositories.Get(DefaultRepository)
+	)
+	if err != nil {
+		return []string{}, err
+	}
+	for _, template := range repo.Templates {
+		if template.Runtime != runtime {
+			continue
+		}
+		names.Add(template.Name)
+	}
+	return names.Items(), nil
+}
+
+// ListExtended templates returns all template full names that
+// exist in all extended (config dir) repositories for a runtime.
+// Prefixed, sorted.
+func (t *Templates) ListExtended(runtime string) ([]string, error) {
+	var (
+		names      = newSortedSet()
+		repos, err = t.Repositories.All()
+	)
+	if err != nil {
+		return []string{}, err
+	}
+	for _, repo := range repos {
+		if repo.Name == DefaultRepository {
+			continue // already added at head of names
+		}
+		for _, template := range repo.Templates {
+			if template.Runtime != runtime {
+				continue
+			}
+			names.Add(template.Fullname())
+		}
+	}
+	return names.Items(), nil
+}
+
+// Template returns the named template in full form '[repo]/[name]' for the
+// specified runtime.
+// Templates from the default repository do not require the repo name prefix,
+// though it can be provided.
+func (t *Templates) Get(runtime, fullname string) (Template, error) {
+	var (
+		template Template
+		repoName string
+		tplName  string
+		repo     Repository
+		err      error
+	)
+
+	// Split into repo and template names.
+	// Defaults when unprefixed to DefaultRepository
+	cc := strings.Split(fullname, "/")
+	if len(cc) == 1 {
+		repoName = DefaultRepository
+		tplName = fullname
+	} else {
+		repoName = cc[0]
+		tplName = cc[1]
+	}
+
+	// Get specified repository
+	repo, err = t.Repositories.Get(repoName)
+	if err != nil {
+		return template, err
+	}
+
+	return repo.GetTemplate(runtime, tplName)
+}
+
+// Writing ------
+
 type filesystem interface {
 	Stat(name string) (os.FileInfo, error)
 	Open(path string) (file, error)
@@ -38,7 +157,7 @@ type file interface {
 // into pkged.go, which is then made available via a pkger filesystem.  Path is
 // relative to the go module root.
 func init() {
-	_ = pkger.Include("/templates")
+	_ = pkger.Include(builtinPath)
 }
 
 type templateWriter struct {
@@ -292,7 +411,7 @@ func (a pkgerFilesystem) ReadDir(path string) ([]os.FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	return f.Readdir(-1) // Really?  Pkger's ReadDir is Readdir.
+	return f.Readdir(-1)
 }
 
 // billyFilesystem is a template file accessor backed by a billy FS

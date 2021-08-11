@@ -7,13 +7,89 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"testing"
 
 	fn "knative.dev/kn-plugin-func"
 )
 
-// TestTemplateEmbedded ensures that embedded templates are copied.
+// TestTemplatesList ensures that all templates are listed taking into account
+// both internal and extensible (prefixed) repositories.
+func TestTemplatesList(t *testing.T) {
+	// A client which specifies a location of exensible repositoreis on disk
+	// will list all builtin plus exensible
+	client := fn.New(fn.WithRepositories("testdata/repositories"))
+
+	// list templates for the "go" runtime
+	templates, err := client.Templates.List("go")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Note that this list will change as the customProvider
+	// and builtin templates are shared.  THis could be mitigated
+	// by creating a custom repository path for just this test, if
+	// that becomes a hassle.
+	expected := []string{
+		"events",
+		"http",
+		"customProvider/customTemplate",
+		"repositoryTests/custom",
+	}
+
+	if !reflect.DeepEqual(templates, expected) {
+		t.Logf("expected: %v", expected)
+		t.Logf("received: %v", templates)
+		t.Fatal("Expected templates list not received.")
+	}
+}
+
+// TestTemplatesGet ensures that a template's metadata object can
+// be retrieved by full name (full name prefix optional for embedded).
+func TestTemplatesGet(t *testing.T) {
+	client := fn.New(fn.WithRepositories("testdata/repositories"))
+
+	// Check embedded
+
+	embedded, err := client.Templates.Get("go", "http")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := fn.Template{
+		Runtime:    "go",
+		Repository: "default",
+		Name:       "http",
+	}
+
+	if !reflect.DeepEqual(embedded, expected) {
+		t.Logf("expected: %v", expected)
+		t.Logf("received: %v", embedded)
+		t.Fatal("Template from embedded repo not as expected.")
+	}
+
+	// Check extended
+
+	extended, err := client.Templates.Get("go", "customProvider/customTemplate")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected = fn.Template{
+		Runtime:    "go",
+		Repository: "customProvider",
+		Name:       "customTemplate",
+	}
+
+	if !reflect.DeepEqual(extended, expected) {
+		t.Logf("expected: %v", expected)
+		t.Logf("received: %v", extended)
+		t.Fatal("Template from extended repo not as expected.")
+	}
+}
+
+// TestTemplateEmbedded ensures that embedded templates are copied on write.
 func TestTemplateEmbedded(t *testing.T) {
 	// create test directory
 	root := "testdata/testTemplateEmbedded"
