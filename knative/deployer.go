@@ -250,9 +250,9 @@ func updateService(f fn.Function, newEnv []corev1.EnvVar, newEnvFrom []corev1.En
 
 // processLabels generates a map of labels as key/value pairs from a function config
 // labels:
-//   - name: EXAMPLE1                            # Label directly from a value
+//   - key: EXAMPLE1                            # Label directly from a value
 //     value: value1
-//   - name: EXAMPLE2                            # Label from the local ENV var
+//   - key: EXAMPLE2                            # Label from the local ENV var
 //     value: {{ env:MY_ENV }}
 func processLabels(f fn.Function) (map[string]string, error) {
 	labels := map[string]string{
@@ -260,7 +260,7 @@ func processLabels(f fn.Function) (map[string]string, error) {
 		"boson.dev/runtime":  f.Runtime,
 	}
 	for _, label := range f.Labels {
-		if label.Name != nil && label.Value != nil {
+		if label.Key != nil && label.Value != nil {
 			if strings.HasPrefix(*label.Value, "{{") {
 				slices := strings.Split(strings.Trim(*label.Value, "{} "), ":")
 				if len(slices) == 2 {
@@ -269,14 +269,16 @@ func processLabels(f fn.Function) (map[string]string, error) {
 					if err != nil {
 						return nil, err
 					}
-					labels[*label.Name] = localValue
+					labels[*label.Key] = localValue
 					continue
 				}
 			} else {
 				// a standard label with key and value, eg. author=alice@example.com
-				labels[*label.Name] = *label.Value
+				labels[*label.Key] = *label.Value
 				continue
 			}
+		} else if label.Key != nil && label.Value == nil {
+			labels[*label.Key] = ""
 		}
 	}
 
@@ -295,7 +297,7 @@ func processLabels(f fn.Function) (map[string]string, error) {
 //   - name: EXAMPLE4
 //     value: {{ configMap:configMapName:key }}  # ENV from a key in ConfigMap
 //   - value: {{ configMap:configMapName }}      # all key-pair values from ConfigMap are set as ENV
-func processEnvs(envs fn.Pairs, referencedSecrets, referencedConfigMaps *sets.String) ([]corev1.EnvVar, []corev1.EnvFromSource, error) {
+func processEnvs(envs fn.Envs, referencedSecrets, referencedConfigMaps *sets.String) ([]corev1.EnvVar, []corev1.EnvFromSource, error) {
 
 	envVars := []corev1.EnvVar{{Name: "BUILT", Value: time.Now().Format("20060102T150405")}}
 	envFrom := []corev1.EnvFromSource{}

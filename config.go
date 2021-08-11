@@ -42,37 +42,59 @@ func (v Volume) String() string {
 	return ""
 }
 
-type Pairs []Pair
-type Pair struct {
-	Name  *string `yaml:"name,omitempty"`
+type Envs []Env
+type Env struct {
+	Name  *string `yaml:"name,omitempty" jsonschema:"pattern=^[-._a-zA-Z][-._a-zA-Z0-9]*$"`
 	Value *string `yaml:"value"`
 }
 
-func (e Pair) String() string {
+func (e Env) String() string {
 	if e.Name == nil && e.Value != nil {
 		match := regWholeSecret.FindStringSubmatch(*e.Value)
 		if len(match) == 2 {
-			return fmt.Sprintf("All key=value pairs from Secret \"%s\"", match[1])
+			return fmt.Sprintf("Env key=value pairs from Secret \"%s\"", match[1])
 		}
 		match = regWholeConfigMap.FindStringSubmatch(*e.Value)
 		if len(match) == 2 {
-			return fmt.Sprintf("All key=value pairs from ConfigMap \"%s\"", match[1])
+			return fmt.Sprintf("Env key=value pairs from ConfigMap \"%s\"", match[1])
 		}
 	} else if e.Name != nil && e.Value != nil {
 		match := regKeyFromSecret.FindStringSubmatch(*e.Value)
 		if len(match) == 3 {
-			return fmt.Sprintf("Entry \"%s\" with value set from key \"%s\" from Secret \"%s\"", *e.Name, match[2], match[1])
+			return fmt.Sprintf("Env \"%s\" with value set from key \"%s\" from Secret \"%s\"", *e.Name, match[2], match[1])
 		}
 		match = regKeyFromConfigMap.FindStringSubmatch(*e.Value)
 		if len(match) == 3 {
-			return fmt.Sprintf("Entry \"%s\" with value set from key \"%s\" from ConfigMap \"%s\"", *e.Name, match[2], match[1])
+			return fmt.Sprintf("Env \"%s\" with value set from key \"%s\" from ConfigMap \"%s\"", *e.Name, match[2], match[1])
 		}
 		match = regLocalEnv.FindStringSubmatch(*e.Value)
 		if len(match) == 2 {
-			return fmt.Sprintf("Entry \"%s\" with value set from local env variable \"%s\"", *e.Name, match[1])
+			return fmt.Sprintf("Env \"%s\" with value set from local env variable \"%s\"", *e.Name, match[1])
 		}
 
-		return fmt.Sprintf("Entry \"%s\" with value \"%s\"", *e.Name, *e.Value)
+		return fmt.Sprintf("Env \"%s\" with value \"%s\"", *e.Name, *e.Value)
+	}
+	return ""
+}
+
+type Labels []Label
+type Label struct {
+	// Key consist of optional prefix part (ended by '/') and name part
+	// Prefix part validation pattern: [a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*
+	// Name part validation pattern: ([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]
+	Key   *string `yaml:"key" jsonschema:"pattern=^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\\/)?([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]$"`
+	Value *string `yaml:"value,omitempty" jsonschema:"pattern=^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$"`
+}
+
+func (l Label) String() string {
+	if l.Key != nil && l.Value == nil {
+		return fmt.Sprintf("Label with key \"%s\"", *l.Key)
+	} else if l.Key != nil && l.Value != nil {
+		match := regLocalEnv.FindStringSubmatch(*l.Value)
+		if len(match) == 2 {
+			return fmt.Sprintf("Label with key \"%s\" and value set from local env variable \"%s\"", *l.Key, match[1])
+		}
+		return fmt.Sprintf("Label with key \"%s\" and value \"%s\"", *l.Key, *l.Value)
 	}
 	return ""
 }
@@ -117,10 +139,10 @@ type Config struct {
 	Builder     string            `yaml:"builder"`
 	BuilderMap  map[string]string `yaml:"builderMap"`
 	Volumes     Volumes           `yaml:"volumes"`
-	Envs        Pairs             `yaml:"envs"`
+	Envs        Envs              `yaml:"envs"`
 	Annotations map[string]string `yaml:"annotations"`
 	Options     Options           `yaml:"options"`
-	Labels      Pairs             `yaml:"labels"`
+	Labels      Labels            `yaml:"labels"`
 	// Add new values to the toConfig/fromConfig functions.
 }
 
@@ -307,7 +329,7 @@ func validateVolumes(volumes Volumes) (errors []string) {
 // - name: EXAMPLE4
 //   value: {{ configMap:configMapName:key }}   	# ENV from a key in configMap
 // - value: {{ configMap:configMapName }}          	# all key-pair values from configMap are set as ENV
-func ValidateEnvs(envs Pairs) (errors []string) {
+func ValidateEnvs(envs Envs) (errors []string) {
 
 	for i, env := range envs {
 		if env.Name == nil && env.Value == nil {
@@ -347,36 +369,38 @@ func ValidateEnvs(envs Pairs) (errors []string) {
 // Returns array of error messages, empty if no errors are found
 //
 // Allowed settings:
-// - name: EXAMPLE1                					# label directly from a value
+// - key: EXAMPLE1                				# label directly from a value
 //   value: value1
-// - name: EXAMPLE2                 				# label from the local ENV var
+// - key: EXAMPLE2                 				# label from the local ENV var
 //   value: {{ env:MY_ENV }}
-func ValidateLabels(labels Pairs) (errors []string) {
+func ValidateLabels(labels Labels) (errors []string) {
 	for i, label := range labels {
-		if label.Name == nil && label.Value == nil {
+		if label.Key == nil && label.Value == nil {
 			errors = append(errors, fmt.Sprintf("label entry #%d is not properly set", i))
-		} else if label.Value == nil {
-			errors = append(errors, fmt.Sprintf("label entry #%d is missing value field, only name '%s' is set", i, *label.Name))
+		} else if label.Key == nil && label.Value != nil {
+			errors = append(errors, fmt.Sprintf("label entry #%d is missing key field, only value '%s' is set", i, *label.Value))
 		} else {
-
-			if err := utils.ValidateLabelName(*label.Name); err != nil {
-				errors = append(errors, fmt.Sprintf("label entry #%d has invalid name or value set: %q %q; %s", i, *label.Name, *label.Value, err.Error()))
-			} else if err := utils.ValidateLabelValue(*label.Value); err != nil {
-				errors = append(errors, fmt.Sprintf("label entry #%d has invalid name or value set: %q %q; %s", i, *label.Name, *label.Value, err.Error()))
+			if err := utils.ValidateLabelKey(*label.Key); err != nil {
+				errors = append(errors, fmt.Sprintf("label entry #%d has invalid key set: %q; %s", i, *label.Key, err.Error()))
 			}
+			if label.Value != nil {
+				if err := utils.ValidateLabelValue(*label.Value); err != nil {
+					errors = append(errors, fmt.Sprintf("label entry #%d has invalid value set: %q; %s", i, *label.Value, err.Error()))
+				}
 
-			if strings.HasPrefix(*label.Value, "{{") {
-				// ENV from the local ENV var; {{ env:MY_ENV }}
-				if !regLocalEnv.MatchString(*label.Value) {
-					errors = append(errors,
-						fmt.Sprintf(
-							"label entry #%d with name '%s' has invalid value field set, it has '%s', but allowed is only '{{ env:MY_ENV }}'",
-							i, *label.Name, *label.Value))
-				} else {
-					match := regLocalEnv.FindStringSubmatch(*label.Value)
-					value := os.Getenv(match[1])
-					if err := utils.ValidateLabelValue(value); err != nil {
-						errors = append(errors, fmt.Sprintf("label entry #%d with name '%s' has invalid value when the environment is evaluated: '%s': %s", i, *label.Name, value, err.Error()))
+				if strings.HasPrefix(*label.Value, "{{") {
+					// ENV from the local ENV var; {{ env:MY_ENV }}
+					if !regLocalEnv.MatchString(*label.Value) {
+						errors = append(errors,
+							fmt.Sprintf(
+								"label entry #%d with key '%s' has invalid value field set, it has '%s', but allowed is only '{{ env:MY_ENV }}'",
+								i, *label.Key, *label.Value))
+					} else {
+						match := regLocalEnv.FindStringSubmatch(*label.Value)
+						value := os.Getenv(match[1])
+						if err := utils.ValidateLabelValue(value); err != nil {
+							errors = append(errors, fmt.Sprintf("label entry #%d with key '%s' has invalid value when the environment is evaluated: '%s': %s", i, *label.Key, value, err.Error()))
+						}
 					}
 				}
 			}

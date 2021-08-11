@@ -86,7 +86,7 @@ func TestValidateLabelName(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		err := ValidateLabelName(c.In)
+		err := ValidateLabelKey(c.In)
 		if err != nil && c.Valid {
 			t.Fatalf("Unexpected error: %v, for '%v'", err, c.In)
 		}

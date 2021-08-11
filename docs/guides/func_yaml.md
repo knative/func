@@ -69,9 +69,9 @@ directly from a value or from a local environment value. Eg. `'{{ env:USER }}'`,
 
 ```yaml
 labels:
-- name: role                                # (1) label directly from a value
+- key: role                                # (1) label directly from a value
   value: backend
-- name: author                              # (2) label from a local environment value
+- key: author                              # (2) label from a local environment value
   value: '{{ env:USER }}'
 ```
 

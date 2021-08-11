@@ -175,7 +175,7 @@ func runAddEnvsPrompt(ctx context.Context, f fn.Function) (err error) {
 		return
 	}
 
-	newEnv := fn.Pair{}
+	newEnv := fn.Env{}
 
 	switch selectedOption {
 	// SECTION - add new Environment variable with the specified value
@@ -403,7 +403,7 @@ func runRemoveEnvsPrompt(f fn.Function) (err error) {
 		return
 	}
 
-	var newEnvs fn.Pairs
+	var newEnvs fn.Envs
 	removed := false
 	for i, e := range f.Envs {
 		if e.String() == selectedEnv {
