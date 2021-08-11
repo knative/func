@@ -2,6 +2,7 @@ package function
 
 import (
 	"io/ioutil"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,13 +18,16 @@ type Repositories struct {
 
 // Add a repository of the given name from the URI.  Name, if not provided,
 // defaults to the repo name (sans optional .git suffix)
-func (r *Repositories) Add(name string, uri string) error {
+func (r *Repositories) Add(name string, uri string) (err error) {
 	if name == "" {
-		name = repoNameFrom(uri)
+		name, err = repoNameFrom(uri)
+		if err != nil {
+			return err
+		}
 	}
 	path := filepath.Join(r.Path, name)
 	bare := false
-	_, err := git.PlainClone(path, bare, &git.CloneOptions{URL: uri})
+	_, err = git.PlainClone(path, bare, &git.CloneOptions{URL: uri})
 	return err
 }
 
@@ -57,10 +61,16 @@ func (r *Repositories) List() (list []string, err error) {
 }
 
 // repoNameFrom uri returns the last token with any .git suffix trimmed.
-func repoNameFrom(uri string) (name string) {
-	ss := strings.Split(uri, string(os.PathSeparator))
+// uri must be parseable as a net/URL
+func repoNameFrom(uri string) (name string, err error) {
+	url, err := url.Parse(uri)
+	if err != nil {
+		return "", err
+	}
+
+	ss := strings.Split(url.Path, "/")
 	if len(ss) == 0 {
 		return
 	}
-	return strings.TrimSuffix(ss[len(ss)-1], ".git")
+	return strings.TrimSuffix(ss[len(ss)-1], ".git"), nil
 }

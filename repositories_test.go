@@ -3,7 +3,6 @@
 package function_test
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -214,7 +213,7 @@ func testRepoURI(t *testing.T) string {
 	t.Helper()
 	cwd, _ := os.Getwd()
 	repo := filepath.Join(cwd, "testdata", RepositoriesTestRepo+".git")
-	return fmt.Sprintf(`file://%s`, repo)
+	return "file://" + filepath.ToSlash(repo)
 }
 
 // mktemp creates a temp dir, returning its path
