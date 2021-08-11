@@ -18,7 +18,7 @@ type Repositories struct {
 
 // Add a repository of the given name from the URI.  Name, if not provided,
 // defaults to the repo name (sans optional .git suffix)
-func (r *Repositories) Add(name string, uri string) (err error) {
+func (r *Repositories) Add(name, uri string) (err error) {
 	if name == "" {
 		name, err = repoNameFrom(uri)
 		if err != nil {

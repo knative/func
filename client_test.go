@@ -22,7 +22,7 @@ const (
 	TestRegistry = "quay.io/alice"
 
 	// TestRuntime consists of a specially designed templates directory
-	// used exclusively for embedded template write tests.
+	// used exclusively for tests.
 	TestRuntime = "test"
 )
 
