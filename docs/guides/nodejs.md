@@ -198,7 +198,8 @@ function developer.
 
 ### `log`
 Provides a logging object that can be used to write output to the cluster logs.
-The log adheres to the Pino logging API (https://getpino.io/#/docs/api).
+The log adheres to the Pino logging API. For detailed documentation on this
+logging instance, see the Pino API documentation (https://getpino.io/#/docs/api).
 
 #### Example
 ```js
@@ -218,6 +219,16 @@ The function will log
 ```console
 {"level":30,"time":1604511655265,"pid":3430203,"hostname":"localhost.localdomain","reqId":1,"msg":"Processing customer"}
 ```
+#### Setting the log level
+Developers can control the log level by setting the `logLevel` value in
+`func.yaml` The possible options for this adhere to the options available
+for [`pino`](https://getpino.io/#/docs/api?id=level-string),
+and may be one of 
+`'fatal'`, `'error'`, `'warn'`, `'info'`, `'debug'`, `'trace'` or `'silent'`.
+
+To temporarily override this value, set the environment variable `FUNC_LOG_LEVEL`
+to one of the options listed above. To set the environment variable, use the
+[`config` command](commands#config).
 
 ### `query`
 Returns the query string for the request, if any, as key value pairs. These
