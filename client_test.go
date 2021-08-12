@@ -9,8 +9,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sort"
-	"strings"
 	"testing"
 
 	fn "knative.dev/kn-plugin-func"
@@ -798,24 +796,6 @@ func cd(t *testing.T, dir string) {
 	}
 }
 
-// Templates in path
-// (implemented as visible directories within)
-func repositoriesIn(path string, t *testing.T) []string {
-	t.Helper()
-	dirs := []string{}
-	ff, err := ioutil.ReadDir(path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, f := range ff {
-		if f.IsDir() && !strings.HasPrefix(f.Name(), ".") {
-			dirs = append(dirs, f.Name())
-		}
-	}
-	sort.Strings(dirs)
-	return dirs
-}
-
 // TEST REPO URI:  Return URI to repo in ./testdata of matching name.
 // Suitable as URI for repository override. returns in form file://
 // Must be called prior to mktemp in tests which changes current
@@ -828,5 +808,3 @@ func testRepoURI(name string, t *testing.T) string {
 	repo := filepath.Join(cwd, "testdata", name+".git")
 	return fmt.Sprintf(`file://%s`, repo)
 }
-
-// TODO:  TestDescribe

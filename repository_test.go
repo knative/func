@@ -57,30 +57,3 @@ func TestRepositoryGetTemplateCustom(t *testing.T) {
 	}
 
 }
-
-// TestRepositoryRuntimes ensures that a repository includes its runtimes.
-func TestRepositoryRuntimes(t *testing.T) {
-	// NOTE this assumes a non-manifested repo.
-	// Manifested repo tests use custom provider with manifest"
-
-	// TODO: confirm necessary before fixing by both code coverage test
-	// and logical review of other tests.
-
-	/*
-		client := fn.New(
-			fn.WithRepositories("testdata/repositories"))
-
-		repo, err := client.Repositories.Get("customProvider")
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		expected := repositoriesIn("testdata/repositories/customProvider", t)
-
-		if !reflect.DeepEqual(repo.Runtimes, expected) {
-			t.Logf("expected: %v", expected)
-			t.Logf("received: %v", repo.Runtimes)
-			t.Fatal("Runtimes not as expected.")
-		}
-	*/
-}
