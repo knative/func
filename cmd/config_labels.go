@@ -13,41 +13,33 @@ import (
 	"knative.dev/kn-plugin-func/utils"
 )
 
-func init() {
-	configCmd.AddCommand(configLabelsCmd)
-	configLabelsCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
-	configLabelsCmd.AddCommand(configLabelsAddCmd)
-	configLabelsAddCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
-	configLabelsCmd.AddCommand(configLabelsRemoveCmd)
-	configLabelsRemoveCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
-}
-
-var configLabelsCmd = &cobra.Command{
-	Use:   "labels",
-	Short: "List and manage configured labels for a function",
-	Long: `List and manage configured labels for a function
+func NewConfigLabelsCmd(loaderSaver functionLoaderSaver) *cobra.Command {
+	var configLabelsCmd = &cobra.Command{
+		Use:   "labels",
+		Short: "List and manage configured labels for a function",
+		Long: `List and manage configured labels for a function
 
 Prints configured labels for a function project present in
 the current directory or from the directory specified with --path.
 `,
-	SuggestFor: []string{"albels", "abels", "label"},
-	PreRunE:    bindEnv("path"),
-	RunE: func(cmd *cobra.Command, args []string) (err error) {
-		function, err := initConfigCommand(args)
-		if err != nil {
+		SuggestFor: []string{"albels", "abels", "label"},
+		PreRunE:    bindEnv("path"),
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			function, err := initConfigCommand(args, loaderSaver)
+			if err != nil {
+				return
+			}
+
+			listLabels(function)
+
 			return
-		}
+		},
+	}
 
-		listLabels(function)
-
-		return
-	},
-}
-
-var configLabelsAddCmd = &cobra.Command{
-	Use:   "add",
-	Short: "Add labels to the function configuration",
-	Long: `Add labels to the function configuration
+	var configLabelsAddCmd = &cobra.Command{
+		Use:   "add",
+		Short: "Add labels to the function configuration",
+		Long: `Add labels to the function configuration
 
 Interactive prompt to add labels to the function project in the current
 directory or from the directory specified with --path.
@@ -55,36 +47,44 @@ directory or from the directory specified with --path.
 The label can be set directly from a value or from an environment variable on
 the local machine.
 `,
-	SuggestFor: []string{"ad", "create", "insert", "append"},
-	PreRunE:    bindEnv("path"),
-	RunE: func(cmd *cobra.Command, args []string) (err error) {
-		function, err := initConfigCommand(args)
-		if err != nil {
-			return
-		}
+		SuggestFor: []string{"ad", "create", "insert", "append"},
+		PreRunE:    bindEnv("path"),
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			function, err := initConfigCommand(args, loaderSaver)
+			if err != nil {
+				return
+			}
 
-		return runAddLabelsPrompt(cmd.Context(), function)
-	},
-}
+			return runAddLabelsPrompt(cmd.Context(), function, loaderSaver)
+		},
+	}
 
-var configLabelsRemoveCmd = &cobra.Command{
-	Use:   "remove",
-	Short: "Remove labels from the function configuration",
-	Long: `Remove labels from the function configuration
+	var configLabelsRemoveCmd = &cobra.Command{
+		Use:   "remove",
+		Short: "Remove labels from the function configuration",
+		Long: `Remove labels from the function configuration
 
 Interactive prompt to remove labels from the function project in the current
 directory or from the directory specified with --path.
 `,
-	SuggestFor: []string{"del", "delete", "rmeove"},
-	PreRunE:    bindEnv("path"),
-	RunE: func(cmd *cobra.Command, args []string) (err error) {
-		function, err := initConfigCommand(args)
-		if err != nil {
-			return
-		}
+		SuggestFor: []string{"del", "delete", "rmeove"},
+		PreRunE:    bindEnv("path"),
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			function, err := initConfigCommand(args, loaderSaver)
+			if err != nil {
+				return
+			}
 
-		return runRemoveLabelsPrompt(function)
-	},
+			return runRemoveLabelsPrompt(function, loaderSaver)
+		},
+	}
+
+	configLabelsCmd.AddCommand(configLabelsAddCmd)
+	configLabelsAddCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
+	configLabelsCmd.AddCommand(configLabelsRemoveCmd)
+	configLabelsRemoveCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
+
+	return configLabelsCmd
 }
 
 func listLabels(f fn.Function) {
@@ -99,7 +99,7 @@ func listLabels(f fn.Function) {
 	}
 }
 
-func runAddLabelsPrompt(ctx context.Context, f fn.Function) (err error) {
+func runAddLabelsPrompt(ctx context.Context, f fn.Function, saver functionSaver) (err error) {
 
 	insertToIndex := 0
 
@@ -236,7 +236,7 @@ func runAddLabelsPrompt(ctx context.Context, f fn.Function) (err error) {
 		f.Labels[insertToIndex] = newPair
 	}
 
-	err = f.WriteConfig()
+	err = saver.Save(f)
 	if err == nil {
 		fmt.Println("Label entry was added to the function configuration")
 	}
@@ -244,7 +244,7 @@ func runAddLabelsPrompt(ctx context.Context, f fn.Function) (err error) {
 	return
 }
 
-func runRemoveLabelsPrompt(f fn.Function) (err error) {
+func runRemoveLabelsPrompt(f fn.Function, saver functionSaver) (err error) {
 	if len(f.Labels) == 0 {
 		fmt.Println("There aren't any configured labels")
 		return
@@ -280,7 +280,7 @@ func runRemoveLabelsPrompt(f fn.Function) (err error) {
 
 	if removed {
 		f.Labels = newLabels
-		err = f.WriteConfig()
+		err = saver.Save(f)
 		if err == nil {
 			fmt.Println("Label was removed from the function configuration")
 		}

@@ -53,7 +53,7 @@ $(BIN): $(CODE)
 	env CGO_ENABLED=0 go build -ldflags $(LDFLAGS) ./cmd/$(BIN)
 
 test: $(CODE) ## Run core unit tests
-	go test -race -cover -coverprofile=coverage.out ./...
+	go test -race -cover -coverprofile=coverage.out -v ./...
 
 check: bin/golangci-lint ## Check code quality (lint)
 	./bin/golangci-lint run --timeout 300s
