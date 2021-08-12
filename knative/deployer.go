@@ -156,10 +156,8 @@ func generateNewService(f fn.Function) (*servingv1.Service, error) {
 		},
 	}
 
-	if f.Runtime != "quarkus" {
-		containers[0].LivenessProbe = probeFor("/health/liveness")
-		containers[0].ReadinessProbe = probeFor("/health/readiness")
-	}
+	containers[0].LivenessProbe = probeFor("/health/liveness")
+	containers[0].ReadinessProbe = probeFor("/health/readiness")
 
 	referencedSecrets := sets.NewString()
 	referencedConfigMaps := sets.NewString()
