@@ -71,6 +71,10 @@ pkged.go: $(TEMPLATES)
 	@rm -rf templates/typescript/http/node_modules
 	@rm -rf templates/rust/events/target
 	@rm -rf templates/rust/http/target
+	@rm -rf templates/quarkus/events/target
+	@rm -rf templates/quarkus/http/target
+	@rm -rf templates/springboot/events/target
+	@rm -rf templates/springboot/http/target
 	# Generating pkged.go using pkger
 	# to insstall pkger: 'go get github.com/markbates/pkger/cmd/pkger'
 	$(PKGER)
