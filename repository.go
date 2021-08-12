@@ -9,6 +9,11 @@ import (
 	"github.com/markbates/pkger"
 )
 
+// Path to builtin repositories.
+// note: this constant must be redefined in each file used due to pkger
+// performing static analysis on each source file separately.
+const builtinRepositories = "/templates"
+
 // Repository
 type Repository struct {
 	Name      string
@@ -66,7 +71,7 @@ func NewRepositoryFromBuiltin() (Repository, error) {
 		Runtimes:  []string{}}
 
 	// Read in runtimes
-	dir, err := pkger.Open(builtinPath)
+	dir, err := pkger.Open(builtinRepositories)
 	if err != nil {
 		return r, err
 	}
@@ -81,7 +86,7 @@ func NewRepositoryFromBuiltin() (Repository, error) {
 		r.Runtimes = append(r.Runtimes, runtime.Name())
 
 		// Each subdirectory is a Template
-		templateDir, err := pkger.Open(filepath.Join(builtinPath, runtime.Name()))
+		templateDir, err := pkger.Open(filepath.Join(builtinRepositories, runtime.Name()))
 		if err != nil {
 			return r, err
 		}

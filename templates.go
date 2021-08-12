@@ -20,6 +20,9 @@ import (
 	"github.com/markbates/pkger"
 )
 
+// Path to builtin
+// note: this constant must be redefined in each file used due to pkger
+// performing static analysis on each source file separately.
 const builtinPath = "/templates"
 
 // Templates Manager
