@@ -181,7 +181,7 @@ func TestTemplateModeEmbedded(t *testing.T) {
 	}
 
 	// set up test directory
-	root := "testdata/testWriteModeEmbedded"
+	root := "testdata/testTemplateModeEmbedded"
 	defer using(t, root)()
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
