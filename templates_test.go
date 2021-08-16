@@ -44,7 +44,7 @@ func TestTemplateEmbedded(t *testing.T) {
 // template.
 func TestTemplateCustom(t *testing.T) {
 	// Create test directory
-	root := "testdata/testWriteFilesystem"
+	root := "testdata/testTemplateCustom"
 	defer using(t, root)()
 
 	// CLient which uses custom repositories
