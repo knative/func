@@ -144,7 +144,7 @@ func TestTemplateDefault(t *testing.T) {
 // runtime/template errors
 func TestTemplateInvalidErrors(t *testing.T) {
 	// create test directory
-	root := "testdata/testWriteInvalid"
+	root := "testdata/testTemplateInvalidErrors"
 	defer using(t, root)()
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
