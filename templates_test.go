@@ -16,7 +16,7 @@ import (
 // TestTemplateEmbedded ensures that embedded templates are copied.
 func TestTemplateEmbedded(t *testing.T) {
 	// create test directory
-	root := "testdata/testWriteEmbedded"
+	root := "testdata/testTemplateEmbedded"
 	defer using(t, root)()
 
 	// Client whose internal (builtin default) templates will be used.
