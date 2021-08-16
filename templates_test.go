@@ -214,7 +214,7 @@ func TestTemplateModeCustom(t *testing.T) {
 	}
 
 	// test directories
-	root := "testdata/testWriteModeCustom"
+	root := "testdata/testTemplateModeCustom"
 	defer using(t, root)()
 
 	client := fn.New(
