@@ -27,7 +27,7 @@ type Function struct {
 	Template string
 
 	// Registry at which to store interstitial containers, in the form
-	// [registry]/[user]. If omitted, "Image" must be provided.
+	// [registry]/[user].
 	Registry string
 
 	// Optional full OCI image tag in form:

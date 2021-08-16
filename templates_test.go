@@ -1,6 +1,6 @@
 // +build !integration
 
-package function
+package function_test
 
 import (
 	"errors"
@@ -9,21 +9,25 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+
+	fn "knative.dev/kn-plugin-func"
 )
 
-// TestRuntime consists of a specially designed templates directory
-// used exclusively for embedded template write tests.
-const TestRuntime = "test"
-
-// TestWriteEmbedded ensures that embedded templates are copied.
-func TestWriteEmbedded(t *testing.T) {
+// TestTemplateEmbedded ensures that embedded templates are copied.
+func TestTemplateEmbedded(t *testing.T) {
 	// create test directory
-	root := "testdata/testWriteEmbedded"
+	root := "testdata/testTemplateEmbedded"
 	defer using(t, root)()
 
+	// Client whose internal (builtin default) templates will be used.
+	client := fn.New(fn.WithRegistry(TestRegistry))
+
 	// write out a template
-	w := templateWriter{}
-	err := w.Write(TestRuntime, "tpla", root)
+	err := client.Create(fn.Function{
+		Root:     root,
+		Runtime:  TestRuntime,
+		Template: "tpla",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,19 +39,28 @@ func TestWriteEmbedded(t *testing.T) {
 	}
 }
 
-// TestWriteCustom ensures that a template from a filesystem source (ie. custom
-// provider on disk) can be specified as the source for a template.
-func TestWriteCustom(t *testing.T) {
+// TestTemplateCustom ensures that a template from a filesystem source
+// (ie. custom provider on disk) can be specified as the source for a
+// template.
+func TestTemplateCustom(t *testing.T) {
 	// Create test directory
-	root := "testdata/testWriteFilesystem"
+	root := "testdata/testTemplateCustom"
 	defer using(t, root)()
 
-	// Writer which includes reference to custom repositories location
-	w := templateWriter{repositories: "testdata/repositories"}
-	// template, in form [provider]/[template], on disk the template is
-	// located at testdata/repositories/[provider]/[runtime]/[template]
-	tpl := "customProvider/tpla"
-	err := w.Write(TestRuntime, tpl, root)
+	// CLient which uses custom repositories
+	// in form [provider]/[template], on disk the template is
+	// at: testdata/repositories/[provider]/[runtime]/[template]
+	client := fn.New(
+		fn.WithRegistry(TestRegistry),
+		fn.WithRepositories("testdata/repositories"))
+
+	// Create a function specifying a template from
+	// the custom provider's directory in the on-disk template repo.
+	err := client.Create(fn.Function{
+		Root:     root,
+		Runtime:  TestRuntime,
+		Template: "customProvider/tpla",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -59,11 +72,11 @@ func TestWriteCustom(t *testing.T) {
 	}
 }
 
-// TestWriteRemote ensures that a Git template repository provided via URI
+// TestTemplateRemote ensures that a Git template repository provided via URI
 // can be specificed.
-func TestWriteRemote(t *testing.T) {
+func TestTemplateRemote(t *testing.T) {
 	// Create test directory
-	root := "testdata/testWriteRemote"
+	root := "testdata/testTemplateRemote"
 	defer using(t, root)()
 
 	// The difference between HTTP vs File protocol is internal to the
@@ -79,30 +92,43 @@ func TestWriteRemote(t *testing.T) {
 
 	t.Logf("cloning: %v", url)
 
-	// Create a writer which explicitly specifies the Git repo at URL
+	// Create a client which explicitly specifies the Git repo at URL
 	// rather than relying on the default internally builtin template repo
-	w := templateWriter{url: url}
+	client := fn.New(
+		fn.WithRegistry(TestRegistry),
+		fn.WithRepository(url),
+	)
 
-	err = w.Write("go", "remote", root)
+	// Create a default function, which should override builtin and use
+	// that from the specified url (git repo)
+	err = client.Create(fn.Function{
+		Root:     root,
+		Runtime:  "go",
+		Template: "remote",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	// Assert the sample file from the git repo was written
 	_, err = os.Stat(filepath.Join(root, "remote-test"))
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
-// TestWriteDefault ensures that the default template is used when not specified.
-func TestWriteDefault(t *testing.T) {
+// TestTemplateDefault ensures that the expected default template
+// is used when none specified.
+func TestTemplateDefault(t *testing.T) {
 	// create test directory
-	root := "testdata/testWriteDefault"
+	root := "testdata/testTemplateDefault"
 	defer using(t, root)()
 
-	// write out a template
-	w := templateWriter{}
-	err := w.Write(TestRuntime, "", root)
+	client := fn.New(fn.WithRegistry(TestRegistry))
+
+	// The runtime is specified, and explicitly includes a
+	// file for the default template of fn.DefaultTemplate
+	err := client.Create(fn.Function{Root: root, Runtime: TestRuntime})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -114,45 +140,58 @@ func TestWriteDefault(t *testing.T) {
 	}
 }
 
-// TestWriteInvalid ensures that specifying unrecgognized runtime/template errors
-func TestWriteInvalid(t *testing.T) {
+// TestTemplateInvalidErrors ensures that specifying unrecgognized
+// runtime/template errors
+func TestTemplateInvalidErrors(t *testing.T) {
 	// create test directory
-	root := "testdata/testWriteInvalid"
+	root := "testdata/testTemplateInvalidErrors"
 	defer using(t, root)()
 
-	w := templateWriter{}
-	var err error // should be populated with the correct error type
+	client := fn.New(fn.WithRegistry(TestRegistry))
+
+	// Error will be type-checked.
+	var err error
 
 	// Test for error writing an invalid runtime
-	// (the http template
-	err = w.Write("invalid", DefaultTemplate, root)
-	if !errors.Is(err, ErrRuntimeNotFound) {
+	err = client.Create(fn.Function{
+		Root:    root,
+		Runtime: "invalid",
+	})
+	if !errors.Is(err, fn.ErrRuntimeNotFound) {
 		t.Fatalf("Expected ErrRuntimeNotFound, got %v", err)
 	}
 
 	// Test for error writing an invalid template
-	err = w.Write(TestRuntime, "invalid", root)
-	if !errors.Is(err, ErrTemplateNotFound) {
+	err = client.Create(fn.Function{
+		Root:     root,
+		Runtime:  TestRuntime,
+		Template: "invalid",
+	})
+	if !errors.Is(err, fn.ErrTemplateNotFound) {
 		t.Fatalf("Expected ErrTemplateNotFound, got %v", err)
 	}
 }
 
-// TestWriteModeEmbedded ensures that templates written from the embedded
+// TestTemplateModeEmbedded ensures that templates written from the embedded
 // templates retain their mode.
-func TestWriteModeEmbedded(t *testing.T) {
+func TestTemplateModeEmbedded(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		return
 		// not applicable
 	}
 
 	// set up test directory
-	var err error
-	root := "testdata/testWriteModeEmbedded"
+	root := "testdata/testTemplateModeEmbedded"
 	defer using(t, root)()
 
-	// Write the embedded template that contains an executable script
-	w := templateWriter{}
-	err = w.Write(TestRuntime, "tplb", root)
+	client := fn.New(fn.WithRegistry(TestRegistry))
+
+	// Write the embedded template that contains an executable
+	err := client.Create(fn.Function{
+		Root:     root,
+		Runtime:  TestRuntime,
+		Template: "tplb",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -167,21 +206,27 @@ func TestWriteModeEmbedded(t *testing.T) {
 	}
 }
 
-// TestWriteModeCustom ensures that templates written from custom templates
+// TestTemplateModeCustom ensures that templates written from custom templates
 // retain their mode.
-func TestWriteModeCustom(t *testing.T) {
+func TestTemplateModeCustom(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		return // not applicable
 	}
 
 	// test directories
-	var err error
-	root := "testdata/testWriteModeCustom"
+	root := "testdata/testTemplateModeCustom"
 	defer using(t, root)()
 
+	client := fn.New(
+		fn.WithRegistry(TestRegistry),
+		fn.WithRepositories("testdata/repositories"))
+
 	// Write executable from custom repo
-	w := templateWriter{repositories: "testdata/repositories"}
-	err = w.Write(TestRuntime, "customProvider/tplb", root)
+	err := client.Create(fn.Function{
+		Root:     root,
+		Runtime:  TestRuntime,
+		Template: "customProvider/tplb",
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -193,31 +238,5 @@ func TestWriteModeCustom(t *testing.T) {
 	}
 	if file.Mode() != os.FileMode(0755) {
 		t.Fatalf("The custom executable file's mode should be 0755 but was %v", file.Mode())
-	}
-}
-
-// Helpers ----
-
-// using the given directory (creating it) returns a closure which removes the
-// directory, intended to be run in a defer statement.
-func using(t *testing.T, root string) func() {
-	t.Helper()
-	mkdir(t, root)
-	return func() {
-		rm(t, root)
-	}
-}
-
-func mkdir(t *testing.T, dir string) {
-	t.Helper()
-	if err := os.MkdirAll(dir, 0700); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func rm(t *testing.T, dir string) {
-	t.Helper()
-	if err := os.RemoveAll(dir); err != nil {
-		t.Fatal(err)
 	}
 }
