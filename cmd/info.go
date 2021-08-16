@@ -16,10 +16,10 @@ import (
 )
 
 func init() {
-	root.AddCommand(NewDescribeCmd(newDescribeClient))
+	root.AddCommand(NewInfoCmd(newInfoClient))
 }
 
-func newDescribeClient(cfg describeConfig) (*fn.Client, error) {
+func newInfoClient(cfg infoConfig) (*fn.Client, error) {
 	describer, err := knative.NewDescriber(cfg.Namespace)
 	if err != nil {
 		return nil, err
@@ -33,11 +33,11 @@ func newDescribeClient(cfg describeConfig) (*fn.Client, error) {
 	), nil
 }
 
-type describeClientFn func(describeConfig) (*fn.Client, error)
+type infoClientFn func(infoConfig) (*fn.Client, error)
 
-func NewDescribeCmd(clientFn describeClientFn) *cobra.Command {
+func NewInfoCmd(clientFn infoClientFn) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "describe <name>",
+		Use:   "info <name>",
 		Short: "Show details of a function",
 		Long: `Show details of a function
 
@@ -46,12 +46,12 @@ the current directory or from the directory specified with --path.
 `,
 		Example: `
 # Show the details of a function as declared in the local func.yaml
-kn func describe
+kn func info
 
 # Show the details of the function in the myotherfunc directory with yaml output
-kn func describe --output yaml --path myotherfunc
+kn func info --output yaml --path myotherfunc
 `,
-		SuggestFor:        []string{"desc", "get"},
+		SuggestFor:        []string{"ifno", "describe", "fino", "get"},
 		ValidArgsFunction: CompleteFunctionList,
 		PreRunE:           bindEnv("namespace", "output", "path"),
 	}
@@ -65,14 +65,14 @@ kn func describe --output yaml --path myotherfunc
 	}
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runDescribe(cmd, args, clientFn)
+		return runInfo(cmd, args, clientFn)
 	}
 
 	return cmd
 }
 
-func runDescribe(cmd *cobra.Command, args []string, clientFn describeClientFn) (err error) {
-	config := newDescribeConfig(args)
+func runInfo(cmd *cobra.Command, args []string, clientFn infoClientFn) (err error) {
+	config := newInfoConfig(args)
 
 	function, err := fn.NewFunction(config.Path)
 	if err != nil {
@@ -91,20 +91,20 @@ func runDescribe(cmd *cobra.Command, args []string, clientFn describeClientFn) (
 	}
 
 	// Get the description
-	d, err := client.Describe(cmd.Context(), config.Name, config.Path)
+	d, err := client.Info(cmd.Context(), config.Name, config.Path)
 	if err != nil {
 		return
 	}
 	d.Image = function.Image
 
-	write(os.Stdout, description(d), config.Output)
+	write(os.Stdout, info(d), config.Output)
 	return
 }
 
 // CLI Configuration (parameters)
 // ------------------------------
 
-type describeConfig struct {
+type infoConfig struct {
 	Name      string
 	Namespace string
 	Output    string
@@ -112,12 +112,12 @@ type describeConfig struct {
 	Verbose   bool
 }
 
-func newDescribeConfig(args []string) describeConfig {
+func newInfoConfig(args []string) infoConfig {
 	var name string
 	if len(args) > 0 {
 		name = args[0]
 	}
-	return describeConfig{
+	return infoConfig{
 		Name:      deriveName(name, viper.GetString("path")),
 		Namespace: viper.GetString("namespace"),
 		Output:    viper.GetString("output"),
@@ -129,62 +129,62 @@ func newDescribeConfig(args []string) describeConfig {
 // Output Formatting (serializers)
 // -------------------------------
 
-type description fn.Description
+type info fn.Info
 
-func (d description) Human(w io.Writer) error {
+func (i info) Human(w io.Writer) error {
 	fmt.Fprintln(w, "Function name:")
-	fmt.Fprintf(w, "  %v\n", d.Name)
+	fmt.Fprintf(w, "  %v\n", i.Name)
 	fmt.Fprintln(w, "Function is built in image:")
-	fmt.Fprintf(w, "  %v\n", d.Image)
+	fmt.Fprintf(w, "  %v\n", i.Image)
 	fmt.Fprintln(w, "Function is deployed in namespace:")
-	fmt.Fprintf(w, "  %v\n", d.Namespace)
+	fmt.Fprintf(w, "  %v\n", i.Namespace)
 	fmt.Fprintln(w, "Routes:")
 
-	for _, route := range d.Routes {
+	for _, route := range i.Routes {
 		fmt.Fprintf(w, "  %v\n", route)
 	}
 
-	if len(d.Subscriptions) > 0 {
+	if len(i.Subscriptions) > 0 {
 		fmt.Fprintln(w, "Subscriptions (Source, Type, Broker):")
-		for _, s := range d.Subscriptions {
+		for _, s := range i.Subscriptions {
 			fmt.Fprintf(w, "  %v %v %v\n", s.Source, s.Type, s.Broker)
 		}
 	}
 	return nil
 }
 
-func (d description) Plain(w io.Writer) error {
-	fmt.Fprintf(w, "Name %v\n", d.Name)
-	fmt.Fprintf(w, "Image %v\n", d.Image)
-	fmt.Fprintf(w, "Namespace %v\n", d.Namespace)
+func (i info) Plain(w io.Writer) error {
+	fmt.Fprintf(w, "Name %v\n", i.Name)
+	fmt.Fprintf(w, "Image %v\n", i.Image)
+	fmt.Fprintf(w, "Namespace %v\n", i.Namespace)
 
-	for _, route := range d.Routes {
+	for _, route := range i.Routes {
 		fmt.Fprintf(w, "Route %v\n", route)
 	}
 
-	if len(d.Subscriptions) > 0 {
-		for _, s := range d.Subscriptions {
+	if len(i.Subscriptions) > 0 {
+		for _, s := range i.Subscriptions {
 			fmt.Fprintf(w, "Subscription %v %v %v\n", s.Source, s.Type, s.Broker)
 		}
 	}
 	return nil
 }
 
-func (d description) JSON(w io.Writer) error {
-	return json.NewEncoder(w).Encode(d)
+func (i info) JSON(w io.Writer) error {
+	return json.NewEncoder(w).Encode(i)
 }
 
-func (d description) XML(w io.Writer) error {
-	return xml.NewEncoder(w).Encode(d)
+func (i info) XML(w io.Writer) error {
+	return xml.NewEncoder(w).Encode(i)
 }
 
-func (d description) YAML(w io.Writer) error {
-	return yaml.NewEncoder(w).Encode(d)
+func (i info) YAML(w io.Writer) error {
+	return yaml.NewEncoder(w).Encode(i)
 }
 
-func (d description) URL(w io.Writer) error {
-	if len(d.Routes) > 0 {
-		fmt.Fprintf(w, "%s\n", d.Routes[0])
+func (i info) URL(w io.Writer) error {
+	if len(i.Routes) > 0 {
+		fmt.Fprintf(w, "%s\n", i.Routes[0])
 	}
 	return nil
 }

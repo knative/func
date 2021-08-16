@@ -21,7 +21,7 @@ func TestHttpFunction(t *testing.T) {
 	Deploy(t, knFunc, &project)
 	defer Delete(t, knFunc, &project)
 	ReadyCheck(t, knFunc, project)
-	Describe(t, knFunc, &project)
+	Info(t, knFunc, &project)
 	DefaultFunctionHttpTest(t, knFunc, project)
 	Update(t, knFunc, &project)
 	NewRevisionFunctionHttpTest(t, knFunc, project)
@@ -40,8 +40,7 @@ func TestCloudEventsFunction(t *testing.T) {
 	Deploy(t, knFunc, &project)
 	defer Delete(t, knFunc, &project)
 	ReadyCheck(t, knFunc, project)
-	Describe(t, knFunc, &project)
+	Info(t, knFunc, &project)
 	DefaultFunctionEventsTest(t, knFunc, project)
 
 }
-
