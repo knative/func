@@ -121,7 +121,7 @@ func TestTemplateRemote(t *testing.T) {
 // is used when none specified.
 func TestTemplateDefault(t *testing.T) {
 	// create test directory
-	root := "testdata/testWriteDefault"
+	root := "testdata/testTemplateDefault"
 	defer using(t, root)()
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
