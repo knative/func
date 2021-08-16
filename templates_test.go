@@ -76,7 +76,7 @@ func TestTemplateCustom(t *testing.T) {
 // can be specificed.
 func TestTemplateRemote(t *testing.T) {
 	// Create test directory
-	root := "testdata/testWriteRemote"
+	root := "testdata/testTemplateRemote"
 	defer using(t, root)()
 
 	// The difference between HTTP vs File protocol is internal to the
