@@ -57,7 +57,7 @@ You can omit the `--registry` option by setting the `FUNC_REGISTRY`
 environment variable. And if you forget, you'll be prompted.
 
 The output from a successful deploy should show the URL for the
-service, which you can also get via `func describe`, e.g.
+service, which you can also get via `func info`, e.g.
 
 ```console
 curl -v -d '{"name": "Bootsy"}' \
@@ -66,7 +66,7 @@ curl -v -d '{"name": "Bootsy"}' \
   -H'ce-id: 1' \
   -H'ce-source: http://cloudevents.io' \
   -H'ce-type: dev.knative.example' \
-  $(func describe -o url)
+  $(func info -o url)
 ```
 
 Have fun!

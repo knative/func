@@ -59,10 +59,10 @@ To deploy your function to a Kubenetes cluster, use the `deploy` command.
 ❯ func deploy
 ```
 
-You can get the URL for your deployed function with the `describe` command.
+You can get the URL for your deployed function with the `info` command.
 
 ```
-❯ func describe
+❯ func info
 ```
 
 ## Testing a function locally

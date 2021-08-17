@@ -56,7 +56,7 @@ Do not forget to set `URL` variable to the route of your function.
 
 You get the route by following command.
 ```shell script
-func describe
+func info
 ```
 
 ### cURL
