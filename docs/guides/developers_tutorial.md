@@ -93,7 +93,7 @@ all of the defaults inferred from your environment, for example`$FUNC_REGISTRY`.
 When the command has completed, you can see the deployed function.
 
 ```bash
-func describe
+func info
 Function name:
   fn-example-io
 Function is built in image:

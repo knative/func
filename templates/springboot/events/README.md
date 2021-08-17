@@ -58,7 +58,7 @@ For the examples below, please be sure to set the `URL` variable to the route of
 You get the route by following command.
 
 ```shell script
-func describe
+func info
 ```
 
 Note the value of **Routes:** from the output, set `$URL` to its value.

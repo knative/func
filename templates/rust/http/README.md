@@ -53,10 +53,10 @@ You can omit the `--registry` option by setting the `FUNC_REGISTRY`
 environment variable. And if you forget, you'll be prompted.
 
 The output from a successful deploy should show the URL for the
-service, which you can also get via `func describe`, e.g.
+service, which you can also get via `func info`, e.g.
 
 ```console
-curl $(func describe -o url)
+curl $(func info -o url)
 ```
 
 Have fun!
