@@ -10,8 +10,8 @@ import (
 )
 
 // Path to builtin repositories.
-// note: this constant must be redefined in each file used due to pkger
-// performing static analysis on each source file separately.
+// note: this constant must be defined in the same file in which it is used due
+// to pkger performing static analysis on source files separately.
 const builtinRepositories = "/templates"
 
 // Repository
