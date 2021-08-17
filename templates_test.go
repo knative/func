@@ -281,7 +281,7 @@ func TestTemplateModeRemote(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if file.Mode() != os.FileMode(os.ModeDir|0755) {
+	if file.Mode() != os.ModeDir|0755 {
 		t.Fatalf("The remote repositry directory mode should be 0755 but was %#o", file.Mode())
 	}
 
