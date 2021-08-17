@@ -45,9 +45,9 @@ func (r *Repositories) All() (repos []Repository, err error) {
 
 	// read repos from filesystem (sorted by name)
 	// TODO: when manifests are introduced, the final name may be different
-	// than the name on the filesystem, and as such we can no rely
-	// on the alpha ordering of underlying directly list and will have to sort
-	// by configured name here.
+	// than the name on the filesystem, and as such we can not rely on the
+	// alphanumeric ordering of underlying list, and will instead have to sort
+	// by configured name.
 	ff, err := ioutil.ReadDir(r.Path)
 	if err != nil {
 		return
@@ -71,7 +71,7 @@ func (r *Repositories) Get(name string) (repo Repository, err error) {
 	if name == DefaultRepository {
 		return NewRepositoryFromBuiltin()
 	}
-	// TODO: if WithRepository defined, only it can be defined?
+	// TODO: when WithRepository defined, only it can be defined
 	return NewRepositoryFromPath(filepath.Join(r.Path, name))
 }
 

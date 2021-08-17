@@ -31,7 +31,7 @@ const (
 // thus implicitly tests Create, Build and Deploy, which are exposed
 // by the client API for those who prefer manual transmissions.
 func TestNew(t *testing.T) {
-	root := "testdata/example.com/testCreate"
+	root := "testdata/example.com/testNew"
 	defer using(t, root)()
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
@@ -44,7 +44,7 @@ func TestNew(t *testing.T) {
 // TestWritesTemplate ensures the config file and files from the template
 // are written on new.
 func TestWritesTemplate(t *testing.T) {
-	root := "testdata/example.com/testCreateWrites"
+	root := "testdata/example.com/testWritesTemplate"
 	defer using(t, root)()
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
@@ -67,7 +67,7 @@ func TestWritesTemplate(t *testing.T) {
 // TestExtantAborts ensures that a directory which contains an extant
 // Function does not reinitialize.
 func TestExtantAborts(t *testing.T) {
-	root := "testdata/example.com/testCreateInitializedAborts"
+	root := "testdata/example.com/testExtantAborts"
 	defer using(t, root)()
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
@@ -86,7 +86,7 @@ func TestExtantAborts(t *testing.T) {
 // TestNonemptyAborts ensures that a directory which contains any
 // (visible) files aborts.
 func TestNonemptyAborts(t *testing.T) {
-	root := "testdata/example.com/testCreateNonemptyDirectoryAborts"
+	root := "testdata/example.com/testNonemptyAborts"
 	defer using(t, root)()
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
@@ -110,7 +110,7 @@ func TestNonemptyAborts(t *testing.T) {
 // conjunction with other tools (.envrc, etc)
 func TestHiddenFilesIgnored(t *testing.T) {
 	// Create a directory for the Function
-	root := "testdata/example.com/testCreateHiddenFilesIgnored"
+	root := "testdata/example.com/testHiddenFilesIgnored"
 	defer using(t, root)()
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
@@ -131,7 +131,7 @@ func TestHiddenFilesIgnored(t *testing.T) {
 // Functions and persisted.
 func TestDefaultRuntime(t *testing.T) {
 	// Create a root for the new Function
-	root := "testdata/example.com/testCreateDefaultRuntime"
+	root := "testdata/example.com/testDefaultRuntime"
 	defer using(t, root)()
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
@@ -265,7 +265,7 @@ func TestNamed(t *testing.T) {
 
 	// Path which would derive to testWithHame.example.com were it not for the
 	// explicitly provided name.
-	root := "testdata/example.com/testWithName"
+	root := "testdata/example.com/testNamed"
 	defer using(t, root)()
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
@@ -296,7 +296,7 @@ func TestNamed(t *testing.T) {
 // this configuration parameter will become optional.
 func TestRegistryRequired(t *testing.T) {
 	// Create a root for the Function
-	root := "testdata/example.com/testRegistry"
+	root := "testdata/example.com/testRegistryRequired"
 	defer using(t, root)()
 
 	client := fn.New()
@@ -368,9 +368,9 @@ func TestDeriveImageDefaultRegistry(t *testing.T) {
 // Deploy (and confirms expected fields calculated).
 func TestNewDelegates(t *testing.T) {
 	var (
-		root          = "testdata/example.com/testCreateDelegates" // .. in which to initialize
-		expectedName  = "testCreateDelegates"                      // expected to be derived
-		expectedImage = "example.com/alice/testCreateDelegates:latest"
+		root          = "testdata/example.com/testNewDelegates" // .. in which to initialize
+		expectedName  = "testNewDelegates"                      // expected to be derived
+		expectedImage = "example.com/alice/testNewDelegates:latest"
 		builder       = mock.NewBuilder()
 		pusher        = mock.NewPusher()
 		deployer      = mock.NewDeployer()
@@ -588,7 +588,7 @@ func TestRemoveByPath(t *testing.T) {
 // of the name provided, with precidence over a provided root path.
 func TestRemoveByName(t *testing.T) {
 	var (
-		root         = "testdata/example.com/testRemoveByPath"
+		root         = "testdata/example.com/testRemoveByName"
 		expectedName = "explicitName.example.com"
 		remover      = mock.NewRemover()
 	)
@@ -690,7 +690,7 @@ func TestListOutsideRoot(t *testing.T) {
 // fully created (ie. was only initialized, not actually built and deploys)
 // yields an expected, and informative, error.
 func TestDeployUnbuilt(t *testing.T) {
-	root := "testdata/example.com/testDeploy" // Root from which to run the test
+	root := "testdata/example.com/testDeployUnbuilt" // Root from which to run the test
 	defer using(t, root)()
 
 	// New Client

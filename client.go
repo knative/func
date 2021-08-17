@@ -28,15 +28,15 @@ const (
 	// includes an HTTP Handler ("http") and Cloud Events handler ("events")
 	DefaultTemplate = "http"
 
-	// DefaultRepository is the default templates repository used when none
-	// is provided, and is by default built in (encoded).
+	// DefaultRepository is the name of the default (builtin) template repository,
+	// and is assumed when no template prefix is provided.
 	DefaultRepository = "default"
 )
 
 // Client for managing Function instances.
 type Client struct {
-	Repositories *Repositories // Language Pack Repository manager
-	Templates    *Templates    // Function Templates
+	Repositories *Repositories // Repositories management
+	Templates    *Templates    // Templates management
 
 	verbose          bool     // print verbose logs
 	builder          Builder  // Builds a runnable image from Function source
@@ -183,12 +183,11 @@ func New(options ...Option) *Client {
 		emitter:          &noopEmitter{},
 	}
 
-	// Repositories default location ($XDG_CONFIG_HOME/func/repositories)
-	// TODO: pull from CLI here
+	// TODO: Repositories default location ($XDG_CONFIG_HOME/func/repositories)
+	// will be relocated from CLI to here.
 	// c.Repositories.Path = ...
 
-	// Give Templates a reference to the repositories manager, which it uses heavily
-	// to implement its API.
+	// Templates management requires the repositories management api
 	c.Templates.Repositories = c.Repositories
 
 	for _, o := range options {
@@ -624,11 +623,11 @@ func (c *Client) Emit(ctx context.Context, endpoint string) error {
 	return c.emitter.Emit(ctx, endpoint)
 }
 
-// sortedSet of strings.
+// sorted set of strings.
 //
 // write-optimized and suitable only for fairly small values of N.
-// Should this ever increase dramatically in size, a different implementation,
-// such as linked list, might be more appropriate.
+// Should this increase dramatically in size, a different implementation,
+// such as a linked list, might be more appropriate.
 type sortedSet struct {
 	members map[string]bool
 	sync.Mutex
@@ -640,22 +639,18 @@ func newSortedSet() *sortedSet {
 	}
 }
 
-// Add a value to the set.  Adding the same value more than
-// once has no effect.
 func (s *sortedSet) Add(value string) {
 	s.Lock()
 	s.members[value] = true
 	s.Unlock()
 }
 
-// Remove a value from the set.
 func (s *sortedSet) Remove(value string) {
 	s.Lock()
-	s.members[value] = false
+	delete(s.members, value)
 	s.Unlock()
 }
 
-// Items returns the memebers of the set, sorted.
 func (s *sortedSet) Items() []string {
 	s.Lock()
 	defer s.Unlock()
