@@ -54,10 +54,10 @@ kn func create
 # Create a Quarkus function project in the directory "sample-service". 
 # The directory will be created in the local directory if non-existent and 
 # the project is called "sample-service"
-kn func create --runtime quarkus myfunc
+kn func create --runtime quarkus sample-service
 
 # Create a function project that uses a CloudEvent based function signature
-kn func create --template events myfunc
+kn func create --template events sample-events
 	`,
 		SuggestFor: []string{"vreate", "creaet", "craete", "new"},
 		PreRunE:    bindEnv("runtime", "template", "repository", "confirm"),
