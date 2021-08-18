@@ -44,13 +44,12 @@ type Function struct {
 	// SHA256 hash of the latest image that has been built
 	ImageDigest string
 
-	// Builder represents the CNCF Buildpack builder image for a function,
-	// or it might be reference to `BuilderMap`.
+	// Builder represents the CNCF Buildpack builder image for a function
 	Builder string
 
 	// Map containing known builders.
 	// e.g. { "jvm": "docker.io/example/quarkus-jvm-builder" }
-	BuilderMap map[string]string
+	Builders map[string]string
 
 	// Optional list of buildpacks to use when building the function
 	Buildpacks []string

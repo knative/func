@@ -63,7 +63,7 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	var packBuilder string
 	if f.Builder != "" {
 		packBuilder = f.Builder
-		pb, ok := f.BuilderMap[packBuilder]
+		pb, ok := f.Builders[packBuilder]
 		if ok {
 			packBuilder = pb
 		}

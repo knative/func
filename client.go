@@ -404,7 +404,7 @@ func (c *Client) Create(cfg Function) (err error) {
 		manifest := Manifest{}
 		if err := yaml.Unmarshal(manifestYaml, &manifest); err == nil {
 			f.Builder = manifest.Builders["default"]
-			f.BuilderMap = manifest.Builders
+			f.Builders = manifest.Builders
 			f.Buildpacks = manifest.Buildpacks
 			f.HealthEndpoints = manifest.HealthEndpoints
 			if c.verbose {

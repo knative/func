@@ -137,7 +137,7 @@ type Config struct {
 	Image           string            `yaml:"image"`
 	ImageDigest     string            `yaml:"imageDigest"`
 	Builder         string            `yaml:"builder"`
-	BuilderMap      map[string]string `yaml:"builderMap"`
+	Builders        map[string]string `yaml:"builders"`
 	Buildpacks      []string          `yaml:"buildpacks"`
 	HealthEndpoints map[string]string `yaml:"healthEndpoints"`
 	Volumes         Volumes           `yaml:"volumes"`
@@ -249,7 +249,7 @@ func fromConfig(c Config) (f Function) {
 		Image:           c.Image,
 		ImageDigest:     c.ImageDigest,
 		Builder:         c.Builder,
-		BuilderMap:      c.BuilderMap,
+		Builders:        c.Builders,
 		Buildpacks:      c.Buildpacks,
 		HealthEndpoints: c.HealthEndpoints,
 		Volumes:         c.Volumes,
@@ -269,7 +269,7 @@ func toConfig(f Function) Config {
 		Image:           f.Image,
 		ImageDigest:     f.ImageDigest,
 		Builder:         f.Builder,
-		BuilderMap:      f.BuilderMap,
+		Builders:        f.Builders,
 		Buildpacks:      f.Buildpacks,
 		HealthEndpoints: f.HealthEndpoints,
 		Volumes:         f.Volumes,

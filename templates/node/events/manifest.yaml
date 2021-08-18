@@ -1,5 +1,4 @@
 builders:
-  default: quay.io/boson/faas-nodejs-builder:v0.8.4
-healthEndpoints:
-  liveness: /health/liveness
-  readiness: /health/readiness
+  default: paketobuildpacks/builder:base
+  base: paketobuildpacks/builder:base
+  full: paketobuildpacks/builder:full
