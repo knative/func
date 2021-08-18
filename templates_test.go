@@ -240,3 +240,59 @@ func TestTemplateModeCustom(t *testing.T) {
 		t.Fatalf("The custom executable file's mode should be 0755 but was %v", file.Mode())
 	}
 }
+
+// TestTemplateModeRemote ensures that templates written from remote templates
+// retain their mode.
+func TestTemplateModeRemote(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		return // not applicable
+	}
+
+	// test directories
+	root := "testdata/testTemplateModeRemote"
+	defer using(t, root)()
+
+	// Clone a repository from a local file path
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(cwd, "testdata", "repository.git")
+	url := fmt.Sprintf(`file://%s`, path)
+
+	t.Logf("cloning: %v", url)
+
+	client := fn.New(
+		fn.WithRegistry(TestRegistry),
+		fn.WithRepository(url))
+
+	// Write executable from custom repo
+	err = client.Create(fn.Function{
+		Root:     root,
+		Runtime:  "node",
+		Template: "remote",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify directory file mode was preserved
+	file, err := os.Stat(filepath.Join(root, "test"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if file.Mode() != os.ModeDir|0755 {
+		t.Fatalf("The remote repositry directory mode should be 0755 but was %#o", file.Mode())
+	}
+
+	// Verify remote executible file mode was preserved.
+	file, err = os.Stat(filepath.Join(root, "test", "executable.sh"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if file.Mode() != os.FileMode(0755) {
+		t.Fatalf("The remote executable's mode should be 0755 but was %v", file.Mode())
+	}
+}
+
+// TODO: test typed errors for custom and remote (embedded checked)
