@@ -197,6 +197,8 @@ func copyNode(src, dest string, accessor filesystem) (err error) {
 	// Ideally we should use the file mode of the src node
 	// but it seems the git module is reporting directories
 	// as 0644 instead of 0755. For now, just do it this way.
+	// See https://github.com/go-git/go-git/issues/364
+	// Upon resolution, return accessor.Stat(src).Mode()
 	err = os.MkdirAll(dest, 0755)
 	if err != nil {
 		return
