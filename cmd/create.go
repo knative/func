@@ -186,7 +186,7 @@ func (c createConfig) Prompt() (createConfig, error) {
 		fmt.Printf("Runtime:       %v\n", c.Runtime)
 		fmt.Printf("Template:      %v\n", c.Template)
 		if c.Repository != "" {
-			fmt.Printf("Repository:   %v\n", c.Repository)
+			fmt.Printf("Repository:    %v\n", c.Repository)
 		}
 		return c, nil
 	}
