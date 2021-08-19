@@ -146,6 +146,56 @@ func TestRemove(t *testing.T) {
 	}
 }
 
+// TestRemoteRepositories ensures that initializing a Function
+// defined in a remote repository finds the template, writes
+// the expected files, and retains the expected modes.
+// NOTE: this test only succeeds due to an override in
+// templates' copyNode which forces mode 755 for directories.
+// See https://github.com/go-git/go-git/issues/364
+func TestRemoteRepositories(t *testing.T) {
+	defer within(t, "testdata/example.com/remote")()
+
+	// Write the test template from the remote onto root
+	client := fn.New(
+		fn.WithRegistry(DefaultRegistry),
+		fn.WithRepository("https://github.com/boson-project/test-templates"),
+	)
+	err := client.Create(fn.Function{
+		Root:     ".",
+		Runtime:  "runtime",
+		Template: "template",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		Path string
+		Perm uint32
+		Dir  bool
+	}{
+		{Path: "file", Perm: 0644},
+		{Path: "dir-a/file", Perm: 0644},
+		{Path: "dir-b/file", Perm: 0644},
+		{Path: "dir-b/executable", Perm: 0755},
+		{Path: "dir-b", Perm: 0755},
+		{Path: "dir-a", Perm: 0755},
+	}
+
+	// Note that .Perm() are used to only consider the least-signifigant 9 and
+	// thus not have to consider the directory bit.
+	for _, test := range tests {
+		file, err := os.Stat(test.Path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("%04o repository/%v", file.Mode().Perm(), test.Path)
+		if file.Mode().Perm() != os.FileMode(test.Perm) {
+			t.Fatalf("expected 'repository/%v' to have mode %04o, got %04o", test.Path, test.Perm, file.Mode().Perm())
+		}
+	}
+}
+
 // ***********
 //   Helpers
 // ***********
