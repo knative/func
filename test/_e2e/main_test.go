@@ -1,4 +1,4 @@
-// +build e2e
+// +build e2e e2efunc
 
 package e2e
 
