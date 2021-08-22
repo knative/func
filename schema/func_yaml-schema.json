@@ -11,6 +11,8 @@
 				"imageDigest",
 				"builder",
 				"builderMap",
+				"buildpacks",
+				"healthEndpoints",
 				"volumes",
 				"envs",
 				"annotations",
@@ -38,6 +40,20 @@
 					"type": "string"
 				},
 				"builderMap": {
+					"patternProperties": {
+						".*": {
+							"type": "string"
+						}
+					},
+					"type": "object"
+				},
+				"buildpacks": {
+					"items": {
+						"type": "string"
+					},
+					"type": "array"
+				},
+				"healthEndpoints": {
 					"patternProperties": {
 						".*": {
 							"type": "string"

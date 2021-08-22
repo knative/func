@@ -1,0 +1,5 @@
+builders:
+  default: quay.io/boson/faas-go-builder:v0.8.4
+healthEndpoints:
+  liveness: /health/liveness
+  readiness: /health/readiness
