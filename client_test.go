@@ -19,7 +19,7 @@ const (
 	// TestRegistry for calculating destination image during tests.
 	// Will be optional once we support in-cluster container registries
 	// by default.  See TestRegistryRequired for details.
-	TestRegistry = "quay.io/alice"
+	TestRegistry = "example.com/alice"
 
 	// TestRuntime consists of a specially designed templates directory
 	// used exclusively for tests.
@@ -31,65 +31,73 @@ const (
 // thus implicitly tests Create, Build and Deploy, which are exposed
 // by the client API for those who prefer manual transmissions.
 func TestNew(t *testing.T) {
-	root := "testdata/example.com/testCreate" // Root from which to run the test
+	root := "testdata/example.com/testNew"
 	defer using(t, root)()
 
-	// New Client
 	client := fn.New(fn.WithRegistry(TestRegistry))
 
-	// New Function using Client
 	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 }
 
-// TestTemplateWrites ensures a template is written.
-func TestTemplateWrites(t *testing.T) {
-	root := "testdata/example.com/testCreateWrites"
+// TestWritesTemplate ensures the config file and files from the template
+// are written on new.
+func TestWritesTemplate(t *testing.T) {
+	root := "testdata/example.com/testWritesTemplate"
 	defer using(t, root)()
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
-	if err := client.Create(fn.Function{Root: root}); err != nil {
+
+	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
-	// Assert file was written
+	// Assert the standard config file was written
 	if _, err := os.Stat(filepath.Join(root, fn.ConfigFile)); os.IsNotExist(err) {
+		t.Fatalf("Initialize did not result in '%v' being written to '%v'", fn.ConfigFile, root)
+	}
+
+	// Assert a file from the template was written
+	if _, err := os.Stat(filepath.Join(root, "README.md")); os.IsNotExist(err) {
 		t.Fatalf("Initialize did not result in '%v' being written to '%v'", fn.ConfigFile, root)
 	}
 }
 
 // TestExtantAborts ensures that a directory which contains an extant
-// Function does not reinitialize
+// Function does not reinitialize.
 func TestExtantAborts(t *testing.T) {
-	root := "testdata/example.com/testCreateInitializedAborts"
+	root := "testdata/example.com/testExtantAborts"
 	defer using(t, root)()
 
-	// New once
 	client := fn.New(fn.WithRegistry(TestRegistry))
+
+	// First .New should succeed...
 	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
-	// New again should fail as already initialized
+	// Calling again should abort...
 	if err := client.New(context.Background(), fn.Function{Root: root}); err == nil {
 		t.Fatal("error expected initilizing a path already containing an initialized Function")
 	}
 }
 
-// TestNonemptyDirectoryAborts ensures that a directory which contains any
-// visible files aborts.
-func TestNonemptyDirectoryAborts(t *testing.T) {
-	root := "testdata/example.com/testCreateNonemptyDirectoryAborts"
+// TestNonemptyAborts ensures that a directory which contains any
+// (visible) files aborts.
+func TestNonemptyAborts(t *testing.T) {
+	root := "testdata/example.com/testNonemptyAborts"
 	defer using(t, root)()
 
-	// An unexpected, non-hidden file.
+	client := fn.New(fn.WithRegistry(TestRegistry))
+
+	// Write a visible file which should cause an aboert
 	visibleFile := filepath.Join(root, "file.txt")
 	if err := ioutil.WriteFile(visibleFile, []byte{}, 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	client := fn.New(fn.WithRegistry(TestRegistry))
+	// Ceation should abort due to the visible file
 	if err := client.New(context.Background(), fn.Function{Root: root}); err == nil {
 		t.Fatal("error expected initilizing a Function in a nonempty directory")
 	}
@@ -102,8 +110,10 @@ func TestNonemptyDirectoryAborts(t *testing.T) {
 // conjunction with other tools (.envrc, etc)
 func TestHiddenFilesIgnored(t *testing.T) {
 	// Create a directory for the Function
-	root := "testdata/example.com/testCreateHiddenFilesIgnored"
+	root := "testdata/example.com/testHiddenFilesIgnored"
 	defer using(t, root)()
+
+	client := fn.New(fn.WithRegistry(TestRegistry))
 
 	// Create a hidden file that should be ignored.
 	hiddenFile := filepath.Join(root, ".envrc")
@@ -111,7 +121,7 @@ func TestHiddenFilesIgnored(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	client := fn.New(fn.WithRegistry(TestRegistry))
+	// Should succeed without error, ignoring the hidden file.
 	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
@@ -121,11 +131,12 @@ func TestHiddenFilesIgnored(t *testing.T) {
 // Functions and persisted.
 func TestDefaultRuntime(t *testing.T) {
 	// Create a root for the new Function
-	root := "testdata/example.com/testCreateDefaultRuntime"
+	root := "testdata/example.com/testDefaultRuntime"
 	defer using(t, root)()
 
-	// Create a new function at root with all defaults.
 	client := fn.New(fn.WithRegistry(TestRegistry))
+
+	// Create a new function at root with all defaults.
 	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
@@ -142,7 +153,7 @@ func TestDefaultRuntime(t *testing.T) {
 	}
 }
 
-// TestExtensibleRepositories ensures that templates are extensible
+// TestRepositoriesExtensible ensures that templates are extensible
 // using a custom path to template repositories on disk. The custom repositories
 // location is not defined herein but expected to be provided because, for
 // example, a CLI may want to use XDG_CONFIG_HOME.  Assuming a repository path
@@ -151,12 +162,10 @@ func TestDefaultRuntime(t *testing.T) {
 // $FUNC_REPOSITORIES/boson/go/json
 // See the CLI for full details, but a standard default location is
 // $HOME/.config/func/repositories/boson/go/json
-func TestExtensibleRepositories(t *testing.T) {
-	// Create a directory for the new Function
-	root := "testdata/example.com/testExtensibleRepositories"
+func TestRepositoriesExtensible(t *testing.T) {
+	root := "testdata/example.com/testRepositoriesExtensible"
 	defer using(t, root)()
 
-	// Create a new client with a path to the extensible templates
 	client := fn.New(
 		fn.WithRepositories("testdata/repositories"),
 		fn.WithRegistry(TestRegistry))
@@ -176,7 +185,6 @@ func TestExtensibleRepositories(t *testing.T) {
 
 // TestRuntimeNotFound generates an error (embedded default repository).
 func TestRuntimeNotFound(t *testing.T) {
-	// Create a directory for the Function
 	root := "testdata/example.com/testRuntimeNotFound"
 	defer using(t, root)()
 
@@ -184,8 +192,7 @@ func TestRuntimeNotFound(t *testing.T) {
 
 	// creating a Function with an unsupported runtime should bubble
 	// the error generated by the underlying template initializer.
-	f := fn.Function{Root: root, Runtime: "invalid"}
-	err := client.New(context.Background(), f)
+	err := client.New(context.Background(), fn.Function{Root: root, Runtime: "invalid"})
 	if !errors.Is(err, fn.ErrRuntimeNotFound) {
 		t.Fatalf("Expected ErrRuntimeNotFound, got %T", err)
 	}
@@ -258,7 +265,7 @@ func TestNamed(t *testing.T) {
 
 	// Path which would derive to testWithHame.example.com were it not for the
 	// explicitly provided name.
-	root := "testdata/example.com/testWithName"
+	root := "testdata/example.com/testNamed"
 	defer using(t, root)()
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
@@ -289,7 +296,7 @@ func TestNamed(t *testing.T) {
 // this configuration parameter will become optional.
 func TestRegistryRequired(t *testing.T) {
 	// Create a root for the Function
-	root := "testdata/example.com/testRegistry"
+	root := "testdata/example.com/testRegistryRequired"
 	defer using(t, root)()
 
 	client := fn.New()
@@ -361,9 +368,9 @@ func TestDeriveImageDefaultRegistry(t *testing.T) {
 // Deploy (and confirms expected fields calculated).
 func TestNewDelegates(t *testing.T) {
 	var (
-		root          = "testdata/example.com/testCreateDelegates" // .. in which to initialize
-		expectedName  = "testCreateDelegates"                      // expected to be derived
-		expectedImage = "quay.io/alice/testCreateDelegates:latest"
+		root          = "testdata/example.com/testNewDelegates" // .. in which to initialize
+		expectedName  = "testNewDelegates"                      // expected to be derived
+		expectedImage = "example.com/alice/testNewDelegates:latest"
 		builder       = mock.NewBuilder()
 		pusher        = mock.NewPusher()
 		deployer      = mock.NewDeployer()
@@ -471,7 +478,7 @@ func TestUpdate(t *testing.T) {
 	var (
 		root          = "testdata/example.com/testUpdate"
 		expectedName  = "testUpdate"
-		expectedImage = "quay.io/alice/testUpdate:latest"
+		expectedImage = "example.com/alice/testUpdate:latest"
 		builder       = mock.NewBuilder()
 		pusher        = mock.NewPusher()
 		deployer      = mock.NewDeployer()
@@ -581,7 +588,7 @@ func TestRemoveByPath(t *testing.T) {
 // of the name provided, with precidence over a provided root path.
 func TestRemoveByName(t *testing.T) {
 	var (
-		root         = "testdata/example.com/testRemoveByPath"
+		root         = "testdata/example.com/testRemoveByName"
 		expectedName = "explicitName.example.com"
 		remover      = mock.NewRemover()
 	)
@@ -683,7 +690,7 @@ func TestListOutsideRoot(t *testing.T) {
 // fully created (ie. was only initialized, not actually built and deploys)
 // yields an expected, and informative, error.
 func TestDeployUnbuilt(t *testing.T) {
-	root := "testdata/example.com/testDeploy" // Root from which to run the test
+	root := "testdata/example.com/testDeployUnbuilt" // Root from which to run the test
 	defer using(t, root)()
 
 	// New Client
@@ -731,8 +738,7 @@ func TestEmit(t *testing.T) {
 
 // Helpers ----
 
-// using the given directory (creating it) returns a closure which removes the
-// directory, intended to be run in a defer statement.
+// USING:  Make specified dir.  Return deferrable cleanup fn.
 func using(t *testing.T, root string) func() {
 	t.Helper()
 	mkdir(t, root)
@@ -753,4 +759,52 @@ func rm(t *testing.T, dir string) {
 	if err := os.RemoveAll(dir); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// MKTEMP:  Create and CD to a temp dir.
+//          Returns a deferrable cleanup fn.
+func mktemp(t *testing.T) (string, func()) {
+	t.Helper()
+	tmp := tempdir(t)
+	owd := pwd(t)
+	cd(t, tmp)
+	return tmp, func() {
+		os.RemoveAll(tmp)
+		cd(t, owd)
+	}
+}
+
+func tempdir(t *testing.T) string {
+	d, err := ioutil.TempDir("", "dir")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return d
+}
+
+func pwd(t *testing.T) string {
+	d, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return d
+}
+
+func cd(t *testing.T, dir string) {
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TEST REPO URI:  Return URI to repo in ./testdata of matching name.
+// Suitable as URI for repository override. returns in form file://
+// Must be called prior to mktemp in tests which changes current
+// working directory as it depends on a relative path.
+// Repo uri:  file://$(pwd)/testdata/repository.git (unix-like)
+//            file: //$(pwd)\testdata\repository.git (windows)
+func testRepoURI(name string, t *testing.T) string {
+	t.Helper()
+	cwd, _ := os.Getwd()
+	repo := filepath.Join(cwd, "testdata", name+".git")
+	return fmt.Sprintf(`file://%s`, repo)
 }

@@ -10,10 +10,69 @@ import (
 	"github.com/go-git/go-git/v5"
 )
 
-// Repositories management.
+// Repositories manager
 type Repositories struct {
-	// Path to repositories
-	Path string
+	Path string // Path to repositories
+}
+
+// List all repositories installed at the defined root path plus builtin.
+func (r *Repositories) List() ([]string, error) {
+	repositories, err := r.All()
+	if err != nil {
+		return []string{}, err
+	}
+
+	names := []string{}
+	for _, repo := range repositories {
+		names = append(names, repo.Name)
+	}
+	return names, nil
+}
+
+// All repositories under management (at configured Path)
+func (r *Repositories) All() (repos []Repository, err error) {
+	repos = []Repository{}
+
+	// Single repo override
+	// TODO: Create single remote repository override for WithRepository option.
+
+	// Default (builtin) repo always first
+	builtin, err := NewRepositoryFromBuiltin()
+	if err != nil {
+		return
+	}
+	repos = append(repos, builtin)
+
+	// read repos from filesystem (sorted by name)
+	// TODO: when manifests are introduced, the final name may be different
+	// than the name on the filesystem, and as such we can not rely on the
+	// alphanumeric ordering of underlying list, and will instead have to sort
+	// by configured name.
+	ff, err := ioutil.ReadDir(r.Path)
+	if err != nil {
+		return
+	}
+	for _, f := range ff {
+		if !f.IsDir() || strings.HasPrefix(f.Name(), ".") {
+			continue
+		}
+		var repo Repository
+		repo, err = NewRepositoryFromPath(filepath.Join(r.Path, f.Name()))
+		if err != nil {
+			return
+		}
+		repos = append(repos, repo)
+	}
+	return repos, nil
+}
+
+// Get a repository by name, error if it does not exist.
+func (r *Repositories) Get(name string) (repo Repository, err error) {
+	if name == DefaultRepository {
+		return NewRepositoryFromBuiltin()
+	}
+	// TODO: when WithRepository defined, only it can be defined
+	return NewRepositoryFromPath(filepath.Join(r.Path, name))
 }
 
 // Add a repository of the given name from the URI.  Name, if not provided,
@@ -43,21 +102,6 @@ func (r *Repositories) Rename(old string, new string) error {
 func (r *Repositories) Remove(name string) error {
 	path := filepath.Join(r.Path, name)
 	return os.RemoveAll(path)
-}
-
-// List repositories installed at the defined root path.
-func (r *Repositories) List() (list []string, err error) {
-	list = []string{}
-	ff, err := ioutil.ReadDir(r.Path)
-	if err != nil {
-		return
-	}
-	for _, f := range ff {
-		if f.IsDir() && !strings.HasPrefix(f.Name(), ".") {
-			list = append(list, f.Name())
-		}
-	}
-	return
 }
 
 // repoNameFrom uri returns the last token with any .git suffix trimmed.

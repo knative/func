@@ -8,23 +8,35 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
+	"sync"
 
 	"gopkg.in/yaml.v2"
 )
 
 const (
+	// DefaultRegistry through which containers of Functions will be shuttled.
 	DefaultRegistry = "docker.io"
-	DefaultRuntime  = "node"
+
+	// DefaultRuntime is the runtime language for a new Function, including
+	// the template written and builder invoked on deploy.
+	DefaultRuntime = "node"
+
 	// DefautlTemplate is the default Function signature / environmental context
 	// of the resultant function.  All runtimes are expected to have at least
 	// one implementation of each supported funciton sinagure.  Currently that
 	// includes an HTTP Handler ("http") and Cloud Events handler ("events")
 	DefaultTemplate = "http"
+
+	// DefaultRepository is the name of the default (builtin) template repository,
+	// and is assumed when no template prefix is provided.
+	DefaultRepository = "default"
 )
 
 // Client for managing Function instances.
 type Client struct {
-	Repositories *Repositories // Repository management
+	Repositories *Repositories // Repositories management
+	Templates    *Templates    // Templates management
 
 	verbose          bool     // print verbose logs
 	builder          Builder  // Builds a runnable image from Function source
@@ -166,6 +178,7 @@ func New(options ...Option) *Client {
 	// Instantiate client with static defaults.
 	c := &Client{
 		Repositories:     &Repositories{},
+		Templates:        &Templates{},
 		builder:          &noopBuilder{output: os.Stdout},
 		pusher:           &noopPusher{output: os.Stdout},
 		deployer:         &noopDeployer{output: os.Stdout},
@@ -177,7 +190,13 @@ func New(options ...Option) *Client {
 		emitter:          &noopEmitter{},
 	}
 
-	// Apply passed options, which take ultimate precidence.
+	// TODO: Repositories default location ($XDG_CONFIG_HOME/func/repositories)
+	// will be relocated from CLI to here.
+	// c.Repositories.Path = ...
+
+	// Templates management requires the repositories management api
+	c.Templates.Repositories = c.Repositories
+
 	for _, o := range options {
 		o(c)
 	}
@@ -618,6 +637,45 @@ func (c *Client) Emit(ctx context.Context, endpoint string) error {
 	return c.emitter.Emit(ctx, endpoint)
 }
 
+// sorted set of strings.
+//
+// write-optimized and suitable only for fairly small values of N.
+// Should this increase dramatically in size, a different implementation,
+// such as a linked list, might be more appropriate.
+type sortedSet struct {
+	members map[string]bool
+	sync.Mutex
+}
+
+func newSortedSet() *sortedSet {
+	return &sortedSet{
+		members: make(map[string]bool),
+	}
+}
+
+func (s *sortedSet) Add(value string) {
+	s.Lock()
+	s.members[value] = true
+	s.Unlock()
+}
+
+func (s *sortedSet) Remove(value string) {
+	s.Lock()
+	delete(s.members, value)
+	s.Unlock()
+}
+
+func (s *sortedSet) Items() []string {
+	s.Lock()
+	defer s.Unlock()
+	n := []string{}
+	for k := range s.members {
+		n = append(n, k)
+	}
+	sort.Strings(n)
+	return n
+}
+
 // Manual implementations (noops) of required interfaces.
 // In practice, the user of this client package (for example the CLI) will
 // provide a concrete implementation for only the interfaces necessary to
@@ -630,36 +688,49 @@ func (c *Client) Emit(ctx context.Context, endpoint string) error {
 // with a minimum of external dependencies.
 // -----------------------------------------------------
 
+// Builder
 type noopBuilder struct{ output io.Writer }
 
 func (n *noopBuilder) Build(ctx context.Context, _ Function) error { return nil }
 
+// Pusher
 type noopPusher struct{ output io.Writer }
 
 func (n *noopPusher) Push(ctx context.Context, f Function) (string, error) { return "", nil }
 
+// Deployer
 type noopDeployer struct{ output io.Writer }
 
 func (n *noopDeployer) Deploy(ctx context.Context, _ Function) (DeploymentResult, error) {
 	return DeploymentResult{}, nil
 }
 
+// Runner
 type noopRunner struct{ output io.Writer }
 
 func (n *noopRunner) Run(_ context.Context, _ Function) error { return nil }
 
+// Remover
 type noopRemover struct{ output io.Writer }
 
 func (n *noopRemover) Remove(context.Context, string) error { return nil }
 
+// Lister
 type noopLister struct{ output io.Writer }
 
 func (n *noopLister) List(context.Context) ([]ListItem, error) { return []ListItem{}, nil }
 
+// Emitter
+type noopEmitter struct{}
+
+func (p *noopEmitter) Emit(ctx context.Context, endpoint string) error { return nil }
+
+// DNSProvider
 type noopDNSProvider struct{ output io.Writer }
 
 func (n *noopDNSProvider) Provide(_ Function) error { return nil }
 
+// ProgressListener
 type NoopProgressListener struct{}
 
 func (p *NoopProgressListener) SetTotal(i int)     {}
@@ -667,7 +738,3 @@ func (p *NoopProgressListener) Increment(m string) {}
 func (p *NoopProgressListener) Complete(m string)  {}
 func (p *NoopProgressListener) Stopping()          {}
 func (p *NoopProgressListener) Done()              {}
-
-type noopEmitter struct{}
-
-func (p *noopEmitter) Emit(ctx context.Context, endpoint string) error { return nil }
