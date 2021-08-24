@@ -10,7 +10,7 @@
 				"image",
 				"imageDigest",
 				"builder",
-				"builderMap",
+				"builders",
 				"buildpacks",
 				"healthEndpoints",
 				"volumes",
@@ -39,7 +39,7 @@
 				"builder": {
 					"type": "string"
 				},
-				"builderMap": {
+				"builders": {
 					"patternProperties": {
 						".*": {
 							"type": "string"

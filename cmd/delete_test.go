@@ -58,7 +58,7 @@ runtime: go
 image: ""
 imageDigest: ""
 builder: quay.io/boson/faas-go-builder
-builderMap:
+builders:
   default: quay.io/boson/faas-go-builder
 envs: []
 annotations: {}

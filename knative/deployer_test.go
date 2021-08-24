@@ -28,6 +28,22 @@ func Test_setHealthEndpoints(t *testing.T) {
 	}
 }
 
+func Test_setHealthEndpointDefaults(t *testing.T) {
+	f := fn.Function{
+		Name: "testing",
+	}
+	c := corev1.Container{}
+	setHealthEndpoints(f, &c)
+	got := c.LivenessProbe.HTTPGet.Path
+	if got != LIVENESS_ENDPOINT {
+		t.Errorf("expected \"%v\" but got %v", LIVENESS_ENDPOINT, got)
+	}
+	got = c.ReadinessProbe.HTTPGet.Path
+	if got != READINESS_ENDPOINT {
+		t.Errorf("expected \"%v\" but got %v", READINESS_ENDPOINT, got)
+	}
+}
+
 func Test_processValue(t *testing.T) {
 	testEnvVarOld, testEnvVarOldExists := os.LookupEnv("TEST_KNATIVE_DEPLOYER")
 	os.Setenv("TEST_KNATIVE_DEPLOYER", "VALUE_FOR_TEST_KNATIVE_DEPLOYER")

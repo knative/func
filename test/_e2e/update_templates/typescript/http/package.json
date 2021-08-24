@@ -8,12 +8,11 @@
     "url": ""
   },
   "scripts": {
-    "build": "tsc",
-    "local": "npx faas-js-runtime ./build/index.js"
+    "build": "npx -p typescript tsc",
+    "start": "faas-js-runtime ./build/index.js"
   },
   "devDependencies": {
     "@types/tape": "^4.13.0",
-    "faas-js-runtime": "^0.7.1",
     "nodemon": "^2.0.4",
     "tape": "^4.13.0",
     "ts-node": "^9.1.1",
@@ -21,6 +20,7 @@
   },
   "dependencies": {
     "@types/node": "^15.3.0",
-    "cloudevents": "^4.0.2"
+    "cloudevents": "^4.0.2",
+    "faas-js-runtime": "^0.7.1"
   }
 }

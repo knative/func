@@ -92,8 +92,8 @@ func CompleteBuilderList(cmd *cobra.Command, args []string, complete string) (st
 		return
 	}
 
-	strings = make([]string, 0, len(f.BuilderMap))
-	for name := range f.BuilderMap {
+	strings = make([]string, 0, len(f.Builders))
+	for name := range f.Builders {
 		strings = append(strings, name)
 	}
 

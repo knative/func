@@ -20,13 +20,13 @@ The following fields are used in `func.yaml`.
 Specifies the buildpack builder image to use when building the function.
 In most cases, this value should not be changed.
 
-### `builderMap`
+### `builders`
 
 Some function runtimes may be built in multiple ways. For example, a Quarkus
-function may be built for the JVM, or as a native binary. The `builderMap`
+function may be built for the JVM, or as a native binary. The `builders`
 field will contain all of the available builders for a given runtime. Although
 it's typically unnecessary to modify the `builder` field, using values from
-`builderMap` is OK.
+`builders` is OK.
 
 ### `envs`
 

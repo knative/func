@@ -24,6 +24,9 @@ import (
 	"knative.dev/kn-plugin-func/k8s"
 )
 
+const LIVENESS_ENDPOINT = "/health/liveness"
+const READINESS_ENDPOINT = "/health/readiness"
+
 type Deployer struct {
 	// Namespace with which to override that set on the default configuration (such as the ~/.kube/config).
 	// If left blank, deployment will commence to the configured namespace.
@@ -150,6 +153,11 @@ func probeFor(url string) *corev1.Probe {
 }
 
 func setHealthEndpoints(f fn.Function, c *corev1.Container) *corev1.Container {
+	// Set the defaults
+	c.LivenessProbe = probeFor(LIVENESS_ENDPOINT)
+	c.ReadinessProbe = probeFor(READINESS_ENDPOINT)
+
+	// If specified in func.yaml, the provided values override the defaults
 	if f.HealthEndpoints != nil {
 		if f.HealthEndpoints["liveness"] != "" {
 			c.LivenessProbe = probeFor(f.HealthEndpoints["liveness"])
@@ -162,12 +170,10 @@ func setHealthEndpoints(f fn.Function, c *corev1.Container) *corev1.Container {
 }
 
 func generateNewService(f fn.Function) (*servingv1.Service, error) {
-	containers := []corev1.Container{
-		{
-			Image: f.ImageWithDigest(),
-		},
+	container := corev1.Container{
+		Image: f.ImageWithDigest(),
 	}
-	setHealthEndpoints(f, &containers[0])
+	setHealthEndpoints(f, &container)
 
 	referencedSecrets := sets.NewString()
 	referencedConfigMaps := sets.NewString()
@@ -176,14 +182,14 @@ func generateNewService(f fn.Function) (*servingv1.Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	containers[0].Env = newEnv
-	containers[0].EnvFrom = newEnvFrom
+	container.Env = newEnv
+	container.EnvFrom = newEnvFrom
 
 	newVolumes, newVolumeMounts, err := processVolumes(f.Volumes, &referencedSecrets, &referencedConfigMaps)
 	if err != nil {
 		return nil, err
 	}
-	containers[0].VolumeMounts = newVolumeMounts
+	container.VolumeMounts = newVolumeMounts
 
 	labels, err := processLabels(f)
 	if err != nil {
@@ -201,8 +207,10 @@ func generateNewService(f fn.Function) (*servingv1.Service, error) {
 				Template: v1.RevisionTemplateSpec{
 					Spec: v1.RevisionSpec{
 						PodSpec: corev1.PodSpec{
-							Containers: containers,
-							Volumes:    newVolumes,
+							Containers: []corev1.Container{
+								container,
+							},
+							Volumes: newVolumes,
 						},
 					},
 				},
@@ -241,7 +249,8 @@ func updateService(f fn.Function, newEnv []corev1.EnvVar, newEnvFrom []corev1.En
 		// language-pack.yaml for each template and written to the local global
 		// config. At runtime this configuration file could be consulted. I don't
 		// know what this would mean for developers using the func library directly.
-		setHealthEndpoints(f, &service.Spec.Template.Spec.Containers[0])
+		cp := &service.Spec.Template.Spec.Containers[0]
+		setHealthEndpoints(f, cp)
 
 		err := setServiceOptions(&service.Spec.Template, f.Options)
 		if err != nil {
@@ -259,10 +268,9 @@ func updateService(f fn.Function, newEnv []corev1.EnvVar, newEnvFrom []corev1.En
 			return service, err
 		}
 
-		service.Spec.ConfigurationSpec.Template.Spec.Containers[0].Env = newEnv
-		service.Spec.ConfigurationSpec.Template.Spec.Containers[0].EnvFrom = newEnvFrom
-
-		service.Spec.ConfigurationSpec.Template.Spec.Containers[0].VolumeMounts = newVolumeMounts
+		cp.Env = newEnv
+		cp.EnvFrom = newEnvFrom
+		cp.VolumeMounts = newVolumeMounts
 		service.Spec.ConfigurationSpec.Template.Spec.Volumes = newVolumes
 
 		return service, nil

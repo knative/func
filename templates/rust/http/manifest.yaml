@@ -1,5 +1,2 @@
 builders:
   default: quay.io/boson/faas-rust-builder:v0.8.4
-healthEndpoints:
-  liveness: /health/liveness
-  readiness: /health/readiness

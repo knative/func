@@ -1,8 +1,8 @@
 builders:
-  default: quay.io/boson/faas-nodejs-builder:v0.8.4
+  default: paketobuildpacks/builder:base
+  base: paketobuildpacks/builder:base
+  full: paketobuildpacks/builder:full
+
 buildpacks:
-  - quay.io/boson/faas-nodejs-bp:v0.8.4
-  - quay.io/boson/redhat-noop-buildpack:tip
-healthEndpoints:
-  liveness: /health/liveness
-  readiness: /health/readiness
+  - paketo-buildpacks/nodejs
+  - docker.io/bosonproject/boson-typescript-buildpack
