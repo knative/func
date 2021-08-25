@@ -124,7 +124,8 @@ test-integration: ## Run integration tests using an available cluster.
 	go test -tags integration ./... -v
 
 test-e2e: ## Run end-to-end tests using an available cluster.
-	./test/run_e2e_test.sh
+	./test/e2e_lifecycle_tests.sh node
+	./test/e2e_extended_tests.sh
 
 
 ######################

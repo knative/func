@@ -25,11 +25,10 @@ func (s SimpleTestEvent) pushTo(url string, t *testing.T) (body string, statusCo
 	req.Header.Add("Content-Type", s.ContentType)
 	resp, err := client.Do(req)
 
-	t.Logf("event POST %v -> %v", url, resp.Status)
-
 	if err != nil {
 		return "", 0, err
 	}
+	t.Logf("event POST %v -> %v", url, resp.Status)
 	defer resp.Body.Close()
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
