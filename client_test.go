@@ -744,10 +744,12 @@ func TestWithConfiguredBuilders(t *testing.T) {
 		"custom": "docker.io/example/custom",
 	}
 	client := fn.New(fn.WithRegistry(TestRegistry))
-	client.Create(fn.Function{
+	if err := client.Create(fn.Function{
 		Root:     root,
 		Builders: fxt,
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 	f, err := fn.NewFunction(root)
 	if err != nil {
 		t.Fatal(err)
@@ -773,10 +775,12 @@ func TestWithConfiguredBuildersWithDefault(t *testing.T) {
 		"default": "docker.io/example/default",
 	}
 	client := fn.New(fn.WithRegistry(TestRegistry))
-	client.Create(fn.Function{
+	if err := client.Create(fn.Function{
 		Root:     root,
 		Builders: fxt,
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 	f, err := fn.NewFunction(root)
 	if err != nil {
 		t.Fatal(err)
@@ -803,10 +807,12 @@ func TestWithConfiguredBuildpacks(t *testing.T) {
 		"docker.io/example/custom-buildpack",
 	}
 	client := fn.New(fn.WithRegistry(TestRegistry))
-	client.Create(fn.Function{
+	if err := client.Create(fn.Function{
 		Root:       root,
 		Buildpacks: fxt,
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 	f, err := fn.NewFunction(root)
 	if err != nil {
 		t.Fatal(err)
