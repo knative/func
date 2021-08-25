@@ -445,6 +445,27 @@ func (c *Client) Create(cfg Function) (err error) {
 		}
 	}
 
+	// Now that defaults are set from manifest.yaml for builders/buildpacks
+	// be sure to allow configuration to override these
+
+	// If buildpacks are provided, use them
+	if len(cfg.Buildpacks) > 0 {
+		f.Buildpacks = cfg.Buildpacks
+	}
+
+	// If builders are provided use them
+	if len(cfg.Builders) > 0 {
+		f.Builders = cfg.Builders
+		if f.Builders["default"] != "" {
+			f.Builder = f.Builders["default"]
+		}
+	}
+
+	// If a default builder is provided use it
+	if cfg.Builder != "" {
+		f.Builder = cfg.Builder
+	}
+
 	// Write out the config.
 	if err = writeConfig(f); err != nil {
 		return

@@ -736,6 +736,88 @@ func TestEmit(t *testing.T) {
 	}
 }
 
+func TestWithConfiguredBuilders(t *testing.T) {
+	root := "testdata/example.com/testConfiguredBuilders" // Root from which to run the test
+	defer using(t, root)()
+
+	fxt := map[string]string{
+		"custom": "docker.io/example/custom",
+	}
+	client := fn.New(fn.WithRegistry(TestRegistry))
+	client.Create(fn.Function{
+		Root:     root,
+		Builders: fxt,
+	})
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Assert that our custom builder array was set
+	if f.Builders["custom"] != fxt["custom"] {
+		t.Fatalf("Expected %s but got %s", fxt["custom"], f.Builders["custom"])
+	}
+
+	// But that the default still exists
+	if f.Builder == "" {
+		t.Fatal("Expected default builder to be set")
+	}
+}
+
+func TestWithConfiguredBuildersWithDefault(t *testing.T) {
+	root := "testdata/example.com/testConfiguredBuildersWithDefault" // Root from which to run the test
+	defer using(t, root)()
+
+	fxt := map[string]string{
+		"custom":  "docker.io/example/custom",
+		"default": "docker.io/example/default",
+	}
+	client := fn.New(fn.WithRegistry(TestRegistry))
+	client.Create(fn.Function{
+		Root:     root,
+		Builders: fxt,
+	})
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Assert that our custom builder array was set
+	if f.Builders["custom"] != fxt["custom"] {
+		t.Fatalf("Expected %s but got %s", fxt["custom"], f.Builders["custom"])
+	}
+	if f.Builders["default"] != fxt["default"] {
+		t.Fatalf("Expected %s but got %s", fxt["default"], f.Builders["default"])
+	}
+	// Asser that the default is also set
+	if f.Builder != fxt["default"] {
+		t.Fatalf("Expected %s but got %s", fxt["default"], f.Builder)
+	}
+}
+
+func TestWithConfiguredBuildpacks(t *testing.T) {
+	root := "testdata/example.com/testConfiguredBuildpacks" // Root from which to run the test
+	defer using(t, root)()
+
+	fxt := []string{
+		"docker.io/example/custom-buildpack",
+	}
+	client := fn.New(fn.WithRegistry(TestRegistry))
+	client.Create(fn.Function{
+		Root:       root,
+		Buildpacks: fxt,
+	})
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Assert that our custom buildpacks were set
+	if f.Buildpacks[0] != fxt[0] {
+		t.Fatalf("Expected %s but got %s", fxt[0], f.Buildpacks[0])
+	}
+}
+
 // Helpers ----
 
 // USING:  Make specified dir.  Return deferrable cleanup fn.
