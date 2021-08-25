@@ -129,3 +129,63 @@ func TestNewConfigLabelsCmd(t *testing.T) {
 	run("remove", arrowDown, enter)
 	assertLabel(fn.Labels{p("e","f"), p("c", "d")})
 }
+
+
+func TestListLabels(t *testing.T) {
+
+	p := func (k,v string) fn.Label {
+		return fn.Label{Key: &k, Value: &v}
+	}
+
+	var loaderSaver mockFunctionLoaderSaver
+	labels := &loaderSaver.f.Labels
+
+	*labels = append(*labels, p("a", "b"), p("c", "d"))
+
+	cmd := NewConfigLabelsCmd(&loaderSaver)
+
+	ctx := context.Background()
+	c, _, err := vt10x.NewVT10XConsole()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+
+	cmd.SetArgs(make([]string, 0))
+
+	errChan := make(chan error, 1)
+	func () {
+		var err error
+		defer func() {
+			errChan <- err
+		}()
+		defer withMockedStdio(t, c)()
+		err = cmd.ExecuteContext(ctx)
+	}()
+
+	expected := []string{
+		`Configured labels:`,
+		`-  Label with key "a" and value "b"`,
+		`-  Label with key "c" and value "d"`,
+	}
+
+	// prevents the ExpectString() function from waiting indefinitely
+	// in case when expected string is not printed to stdout nor the stdout is closed
+	go func() {
+		time.Sleep(time.Second * 5)
+		c.Close()
+	}()
+
+	for _, s := range expected {
+		out, err := c.ExpectString(s)
+		if err != nil {
+			t.Errorf("unexpected output: %q, err: %v\n", out, err)
+		}
+	}
+
+	err = <- errChan
+	if err != nil {
+		t.Fatal(err)
+	}
+
+}
