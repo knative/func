@@ -12,13 +12,13 @@
 # limitations under the License.
 
 #
-# Runs basic E2E tests against kn func cli for a given language/runtime.
+# Runs basic lifecycle E2E tests against kn func cli for a given language/runtime.
 # By default it will run e2e tests against 'func' binary, but you can change it to use 'kn func' instead
 #
 # Use:
-#   ./e2e_runtime_tests.sh <language>  (defaults to "node")
+#   ./e2e_lifecycle_tests.sh <language>  (defaults to "node")
 # Example:
-#   ./e2e_runtime_tests.sh python
+#   ./e2e_lifecycle_tests.sh python
 #
 # The following environment variable can be set in order to customize e2e execution:
 #
@@ -54,7 +54,7 @@ fi
 export E2E_FUNC_BIN_PATH=$(pwd)/func
 
 go clean -testcache
-go test -v -test.v -tags="e2efunc" ./test/_e2e/
+go test -v -test.v -tags="e2elc" ./test/_e2e/
 ret=$?
 
 cd $curdir

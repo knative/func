@@ -150,11 +150,3 @@ jobs:
         run: ./hack/test.sh
       - name: E2E Test
         run: make test-e2e
-      #- name: E2E Test Go
-      #  run: ./test/e2e_runtime_test.sh go
-      #- name: E2E Test Python
-      #  run: ./test/e2e_runtime_test.sh python
-      #- name: E2E Test Quarkus
-      #  run: ./test/e2e_runtime_test.sh quarkus
-      #- name: E2E Test Springboot
-      #  run: ./test/e2e_runtime_test.sh springboot
