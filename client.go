@@ -381,15 +381,29 @@ func (c *Client) Create(cfg Function) (err error) {
 		return
 	}
 
-	// Create Function about the given root path.
-	// Loads extant config if it exists.  In-memory representation only.
+	// Root must not already be a Function
+	//
+	// Instantiate a Function struct about the given root path, but
+	// immediately exit with error (prior to actual creation) if a
+	// Function already existed at that path (Create should never
+	// clobber a pre-existing Function)
 	f, err := NewFunction(cfg.Root)
 	if err != nil {
 		return
 	}
+	if f.Initialized() {
+		err = fmt.Errorf("Function at '%v' already initialized.", cfg.Root)
+		return
+	}
 
-	// Assert the specified root is free of visible files and contentious
-	// hidden files (the ConfigFile, which indicates it is already initialized)
+	// Root must not contain any visible files
+	//
+	// We know from above that the target directory does not contain a Function,
+	// but also immediately exit if the target directoy contains any visible files
+	// at all, or any of the known hidden files that will be written.
+	// This is to ensure that if a user inadvertently chooses an incorrect directory
+	// for their new Function, the template and config file writing steps do not
+	// cause data loss.
 	if err = assertEmptyRoot(f.Root); err != nil {
 		return
 	}
