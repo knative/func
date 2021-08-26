@@ -426,15 +426,6 @@ func (c *Client) Create(cfg Function) (err error) {
 			f.Builders = manifest.Builders
 			f.Buildpacks = manifest.Buildpacks
 			f.HealthEndpoints = manifest.HealthEndpoints
-			if c.verbose {
-				fmt.Printf("Builder:       %s\n", f.Builder)
-				if len(f.Buildpacks) > 0 {
-					fmt.Println("Buildpacks:")
-					for _, b := range f.Buildpacks {
-						fmt.Printf("           ... %s\n", b)
-					}
-				}
-			}
 		}
 		// Remove the manifest.yaml file so the user is not confused by a
 		// configuration file that is only used for project creation/initialization
@@ -464,6 +455,16 @@ func (c *Client) Create(cfg Function) (err error) {
 	// If a default builder is provided use it
 	if cfg.Builder != "" {
 		f.Builder = cfg.Builder
+	}
+
+	if c.verbose {
+		fmt.Printf("Builder:       %s\n", f.Builder)
+		if len(f.Buildpacks) > 0 {
+			fmt.Println("Buildpacks:")
+			for _, b := range f.Buildpacks {
+				fmt.Printf("           ... %s\n", b)
+			}
+		}
 	}
 
 	// Write out the config.

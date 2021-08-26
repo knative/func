@@ -712,7 +712,7 @@ func TestDeployUnbuilt(t *testing.T) {
 	}
 }
 
-// TestEmit ensures that the
+// TestEmit ensures that the client properly invokes the emitter when provided
 func TestEmit(t *testing.T) {
 	sink := "http://testy.mctestface.com"
 	emitter := mock.NewEmitter()
@@ -736,6 +736,9 @@ func TestEmit(t *testing.T) {
 	}
 }
 
+// Asserts that the client properly writes user provided Builders
+// to the Function configuration but uses internal default if
+// not provided.
 func TestWithConfiguredBuilders(t *testing.T) {
 	root := "testdata/example.com/testConfiguredBuilders" // Root from which to run the test
 	defer using(t, root)()
@@ -766,6 +769,9 @@ func TestWithConfiguredBuilders(t *testing.T) {
 	}
 }
 
+// Asserts that the client properly sets user provided Builders
+// in the Function configuration, and if one of the provided is
+// keyed as "default", this is set as the default Builder.
 func TestWithConfiguredBuildersWithDefault(t *testing.T) {
 	root := "testdata/example.com/testConfiguredBuildersWithDefault" // Root from which to run the test
 	defer using(t, root)()
@@ -799,6 +805,8 @@ func TestWithConfiguredBuildersWithDefault(t *testing.T) {
 	}
 }
 
+// Asserts that the client properly sets the Buildpacks property
+// in the Function configuration when it is provided.
 func TestWithConfiguredBuildpacks(t *testing.T) {
 	root := "testdata/example.com/testConfiguredBuildpacks" // Root from which to run the test
 	defer using(t, root)()
