@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	fn "knative.dev/kn-plugin-func"
@@ -743,13 +744,13 @@ func TestWithConfiguredBuilders(t *testing.T) {
 	root := "testdata/example.com/testConfiguredBuilders" // Root from which to run the test
 	defer using(t, root)()
 
-	fxt := map[string]string{
+	builders := map[string]string{
 		"custom": "docker.io/example/custom",
 	}
 	client := fn.New(fn.WithRegistry(TestRegistry))
 	if err := client.Create(fn.Function{
 		Root:     root,
-		Builders: fxt,
+		Builders: builders,
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -759,8 +760,8 @@ func TestWithConfiguredBuilders(t *testing.T) {
 	}
 
 	// Assert that our custom builder array was set
-	if f.Builders["custom"] != fxt["custom"] {
-		t.Fatalf("Expected %s but got %s", fxt["custom"], f.Builders["custom"])
+	if !reflect.DeepEqual(f.Builders, builders) {
+		t.Fatalf("Expected %v but got %v", builders, f.Builders)
 	}
 
 	// But that the default still exists
@@ -776,14 +777,14 @@ func TestWithConfiguredBuildersWithDefault(t *testing.T) {
 	root := "testdata/example.com/testConfiguredBuildersWithDefault" // Root from which to run the test
 	defer using(t, root)()
 
-	fxt := map[string]string{
+	builders := map[string]string{
 		"custom":  "docker.io/example/custom",
 		"default": "docker.io/example/default",
 	}
 	client := fn.New(fn.WithRegistry(TestRegistry))
 	if err := client.Create(fn.Function{
 		Root:     root,
-		Builders: fxt,
+		Builders: builders,
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -793,15 +794,13 @@ func TestWithConfiguredBuildersWithDefault(t *testing.T) {
 	}
 
 	// Assert that our custom builder array was set
-	if f.Builders["custom"] != fxt["custom"] {
-		t.Fatalf("Expected %s but got %s", fxt["custom"], f.Builders["custom"])
+	if !reflect.DeepEqual(f.Builders, builders) {
+		t.Fatalf("Expected %v but got %v", builders, f.Builders)
 	}
-	if f.Builders["default"] != fxt["default"] {
-		t.Fatalf("Expected %s but got %s", fxt["default"], f.Builders["default"])
-	}
+
 	// Asser that the default is also set
-	if f.Builder != fxt["default"] {
-		t.Fatalf("Expected %s but got %s", fxt["default"], f.Builder)
+	if f.Builder != builders["default"] {
+		t.Fatalf("Expected %s but got %s", builders["default"], f.Builder)
 	}
 }
 
@@ -811,13 +810,13 @@ func TestWithConfiguredBuildpacks(t *testing.T) {
 	root := "testdata/example.com/testConfiguredBuildpacks" // Root from which to run the test
 	defer using(t, root)()
 
-	fxt := []string{
+	buildpacks := []string{
 		"docker.io/example/custom-buildpack",
 	}
 	client := fn.New(fn.WithRegistry(TestRegistry))
 	if err := client.Create(fn.Function{
 		Root:       root,
-		Buildpacks: fxt,
+		Buildpacks: buildpacks,
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -827,8 +826,8 @@ func TestWithConfiguredBuildpacks(t *testing.T) {
 	}
 
 	// Assert that our custom buildpacks were set
-	if f.Buildpacks[0] != fxt[0] {
-		t.Fatalf("Expected %s but got %s", fxt[0], f.Buildpacks[0])
+	if !reflect.DeepEqual(f.Buildpacks, buildpacks) {
+		t.Fatalf("Expected %v but got %v", buildpacks, f.Buildpacks)
 	}
 }
 
