@@ -440,21 +440,43 @@ func (c *Client) Create(cfg Function) (err error) {
 			f.Builders = manifest.Builders
 			f.Buildpacks = manifest.Buildpacks
 			f.HealthEndpoints = manifest.HealthEndpoints
-			if c.verbose {
-				fmt.Printf("Builder:       %s\n", f.Builder)
-				if len(f.Buildpacks) > 0 {
-					fmt.Println("Buildpacks:")
-					for _, b := range f.Buildpacks {
-						fmt.Printf("           ... %s\n", b)
-					}
-				}
-			}
 		}
 		// Remove the manifest.yaml file so the user is not confused by a
 		// configuration file that is only used for project creation/initialization
 		if err := os.Remove(manifestFilePath); err != nil {
 			if c.verbose {
 				fmt.Printf("Cannot remove %v. %v\n", manifestFilePath, err)
+			}
+		}
+	}
+
+	// Now that defaults are set from manifest.yaml for builders/buildpacks
+	// be sure to allow configuration to override these
+
+	// If buildpacks are provided, use them
+	if len(cfg.Buildpacks) > 0 {
+		f.Buildpacks = cfg.Buildpacks
+	}
+
+	// If builders are provided use them
+	if len(cfg.Builders) > 0 {
+		f.Builders = cfg.Builders
+		if f.Builders["default"] != "" {
+			f.Builder = f.Builders["default"]
+		}
+	}
+
+	// If a default builder is provided use it
+	if cfg.Builder != "" {
+		f.Builder = cfg.Builder
+	}
+
+	if c.verbose {
+		fmt.Printf("Builder:       %s\n", f.Builder)
+		if len(f.Buildpacks) > 0 {
+			fmt.Println("Buildpacks:")
+			for _, b := range f.Buildpacks {
+				fmt.Printf("           ... %s\n", b)
 			}
 		}
 	}
