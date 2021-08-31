@@ -534,7 +534,7 @@ func (c *Client) Build(ctx context.Context, path string) (err error) {
 // Deploy the Function at path.  Errors if the Function has not been
 // initialized with an image tag.
 func (c *Client) Deploy(ctx context.Context, path string) (err error) {
-	c.progressListener.Increment("Deployin function")
+	c.progressListener.Increment("Deploying function")
 	go func() {
 		<-ctx.Done()
 		c.progressListener.Stopping()
