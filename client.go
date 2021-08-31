@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"sort"
 	"sync"
+	"runtime"
 
 	"gopkg.in/yaml.v2"
 )
@@ -526,6 +527,9 @@ func (c *Client) Build(ctx context.Context, path string) (err error) {
 	// TODO: create a statu structure and return it here for optional
 	// use by the cli for user echo (rather than rely on verbose mode here)
 	message := fmt.Sprintf("🙌 Function image built: %v", f.Image)
+	if runtime.GOOS == "windows" {
+		message = fmt.Sprintf("Function image built: %v", f.Image)
+	}
 	c.progressListener.Increment(message)
 
 	return
@@ -534,7 +538,7 @@ func (c *Client) Build(ctx context.Context, path string) (err error) {
 // Deploy the Function at path.  Errors if the Function has not been
 // initialized with an image tag.
 func (c *Client) Deploy(ctx context.Context, path string) (err error) {
-	c.progressListener.Increment("Deployin function")
+	c.progressListener.Increment("Deploying function")
 	go func() {
 		<-ctx.Done()
 		c.progressListener.Stopping()
