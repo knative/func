@@ -5,4 +5,4 @@ builders:
 
 buildpacks:
   - paketo-buildpacks/nodejs
-  - docker.io/bosonproject/boson-typescript-buildpack
+  - ghcr.io/boson-project/typescript-function-buildpack:tip

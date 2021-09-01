@@ -5,4 +5,4 @@ builders:
 
 buildpacks:
   - paketo-buildpacks/go-dist
-  - docker.io/bosonproject/boson-go-buildpack
+  - ghcr.io/boson-project/go-function-buildpack:tip
