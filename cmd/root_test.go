@@ -117,3 +117,22 @@ func Test_mergeEnvMaps(t *testing.T) {
 		})
 	}
 }
+
+func Test_CMDParameterized(t *testing.T) {
+
+	if root.Use != "func" {
+		t.Fatalf("default command use should be \"func\".")
+	}
+
+	if root.Example != replaceNameInTemplate("func") {
+		t.Fatalf("default command example should assume \"func\" as executable name.")
+	}
+
+	if NewRootCmd().Use != "kn func" {
+		t.Fatalf("plugin command use should be \"kn func\".")
+	}
+
+	if NewRootCmd().Example != replaceNameInTemplate("kn func") {
+		t.Fatalf("plugin command example should assume \"kn func\" as executable name.")
+	}
+}

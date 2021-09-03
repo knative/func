@@ -59,7 +59,7 @@ func (f *funcPlugin) CommandParts() []string {
 	return []string{"func"}
 }
 
-// Path is empty because its an internal plugins
+// Path is empty because its an internal plugin
 func (f *funcPlugin) Path() string {
 	return ""
 }

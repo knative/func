@@ -1,11 +1,13 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"text/template"
 
 	"github.com/mitchellh/go-homedir"
 	"github.com/ory/viper"
@@ -16,7 +18,19 @@ import (
 	fn "knative.dev/kn-plugin-func"
 )
 
-// The root of the command tree defines the command name, descriotion, globally
+var exampleTemplate = template.Must(template.New("example").Parse(`
+# Create a node function called "node-sample" and enter the directory
+{{.}} create myfunc && cd myfunc
+
+# Build the container image, push it to a registry and deploy it to the connected Knative cluster
+# (replace <registry/user> with something like quay.io/user with an account that have you access to)
+{{.}} deploy --registry <registry/user>
+
+# Curl the service with the service URL
+curl $(kn service describe myfunc -o url)
+`))
+
+// The root of the command tree defines the command name, description, globally
 // available flags, etc.  It has no action of its own, such that running the
 // resultant binary with no arguments prints the help/usage text.
 var root = &cobra.Command{
@@ -27,21 +41,19 @@ var root = &cobra.Command{
 	Long: `Serverless functions
 
 Create, build and deploy functions in serverless containers for multiple runtimes on Knative`,
-	Example: `
-# Create a node function called "node-sample" and enter the directory
-kn func create myfunc && cd myfunc
+	Example: replaceNameInTemplate("func"),
+}
 
-# Build the container image, push it to a registry and deploy it to the connected Knative cluster
-# (replace <registry/user> with something like quay.io/user with an account that have you access to)
-kn func deploy --registry <registry/user>
-
-# Curl the service with the service URL
-curl $(kn service describe myfunc -o url)
-`,
+func replaceNameInTemplate(name string) string {
+	var buffer bytes.Buffer
+	exampleTemplate.Execute(&buffer, name)
+	return buffer.String()
 }
 
 // NewRootCmd is used to initialize func as kn plugin
 func NewRootCmd() *cobra.Command {
+	root.Use = "kn func"
+	root.Example = replaceNameInTemplate("kn func")
 	return root
 }
 
