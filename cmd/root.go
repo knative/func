@@ -41,19 +41,19 @@ var root = &cobra.Command{
 	Long: `Serverless functions
 
 Create, build and deploy functions in serverless containers for multiple runtimes on Knative`,
-	Example: replaceNameInTemplate("func"),
+	Example: replaceNameInTemplate("func", "example"),
 }
 
-func replaceNameInTemplate(name string) string {
+func replaceNameInTemplate(name, template string) string {
 	var buffer bytes.Buffer
-	exampleTemplate.Execute(&buffer, name)
+	exampleTemplate.ExecuteTemplate(&buffer, template, name)
 	return buffer.String()
 }
 
 // NewRootCmd is used to initialize func as kn plugin
 func NewRootCmd() *cobra.Command {
 	root.Use = "kn func"
-	root.Example = replaceNameInTemplate("kn func")
+	root.Example = replaceNameInTemplate("kn func", "example")
 	return root
 }
 

@@ -124,7 +124,7 @@ func Test_CMDParameterized(t *testing.T) {
 		t.Fatalf("default command use should be \"func\".")
 	}
 
-	if root.Example != replaceNameInTemplate("func") {
+	if root.Example != replaceNameInTemplate("func", "example") {
 		t.Fatalf("default command example should assume \"func\" as executable name.")
 	}
 
@@ -132,7 +132,7 @@ func Test_CMDParameterized(t *testing.T) {
 		t.Fatalf("plugin command use should be \"kn func\".")
 	}
 
-	if NewRootCmd().Example != replaceNameInTemplate("kn func") {
+	if NewRootCmd().Example != replaceNameInTemplate("kn func", "example") {
 		t.Fatalf("plugin command example should assume \"kn func\" as executable name.")
 	}
 }
