@@ -172,8 +172,9 @@ func DerivedImage(root, registry string) (image string, err error) {
 		return
 	}
 
-	// If the Function has already had image populated, use this pre-calculated value.
-	if f.Image != "" {
+	// If the Function has already had image populated
+	// and a new registry hasn't been provided, use this pre-calculated value.
+	if f.Image != "" && f.Registry == registry {
 		image = f.Image
 		return
 	}
