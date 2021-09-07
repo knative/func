@@ -124,15 +124,19 @@ func Test_CMDParameterized(t *testing.T) {
 		t.Fatalf("default command use should be \"func\".")
 	}
 
-	if root.Example != replaceNameInTemplate("func", "example") {
-		t.Fatalf("default command example should assume \"func\" as executable name.")
+	usageExample, err := replaceNameInTemplate("func", "example")
+	if root.Example != usageExample || err != nil {
+		t.Fatalf("default command example should assume \"func\" as executable name. error: %v", err)
 	}
 
-	if NewRootCmd().Use != "kn func" {
+	cmd, err := NewRootCmd()
+	if cmd.Use != "kn func" && err != nil {
 		t.Fatalf("plugin command use should be \"kn func\".")
 	}
 
-	if NewRootCmd().Example != replaceNameInTemplate("kn func", "example") {
-		t.Fatalf("plugin command example should assume \"kn func\" as executable name.")
+	usageExample, _ = replaceNameInTemplate("kn func", "example")
+	cmd, err = NewRootCmd()
+	if cmd.Example != usageExample || err != nil {
+		t.Fatalf("plugin command example should assume \"kn func\" as executable name. error: %v", err)
 	}
 }

@@ -41,20 +41,34 @@ var root = &cobra.Command{
 	Long: `Serverless functions
 
 Create, build and deploy functions in serverless containers for multiple runtimes on Knative`,
-	Example: replaceNameInTemplate("func", "example"),
 }
 
-func replaceNameInTemplate(name, template string) string {
+func init() {
+	var err error
+	root.Example, err = replaceNameInTemplate("func", "example")
+	if err != nil {
+		root.Example = "Usage could not be loaded"
+	}
+}
+
+func replaceNameInTemplate(name, template string) (string, error) {
 	var buffer bytes.Buffer
-	exampleTemplate.ExecuteTemplate(&buffer, template, name)
-	return buffer.String()
+	err := exampleTemplate.ExecuteTemplate(&buffer, template, name)
+	if err != nil {
+		return "", err
+	}
+	return buffer.String(), nil
 }
 
 // NewRootCmd is used to initialize func as kn plugin
-func NewRootCmd() *cobra.Command {
+func NewRootCmd() (*cobra.Command, error) {
 	root.Use = "kn func"
-	root.Example = replaceNameInTemplate("kn func", "example")
-	return root
+	var err error
+	root.Example, err = replaceNameInTemplate("kn func", "example")
+	if err != nil {
+		root.Example = "Usage could not be loaded"
+	}
+	return root, err
 }
 
 // When the code is loaded into memory upon invocation, the cobra/viper packages
