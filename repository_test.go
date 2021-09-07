@@ -12,7 +12,7 @@ import (
 func TestRepositoryGetTemplateDefault(t *testing.T) {
 	client := fn.New()
 
-	repo, err := client.Repositories.Get(fn.DefaultRepository)
+	repo, err := client.Repositories().Get(fn.DefaultRepository)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -37,7 +37,7 @@ func TestRepositoryGetTemplateDefault(t *testing.T) {
 func TestRepositoryGetTemplateCustom(t *testing.T) {
 	client := fn.New(fn.WithRepositories("testdata/repositories"))
 
-	repo, err := client.Repositories.Get("repositoryTests")
+	repo, err := client.Repositories().Get("repositoryTests")
 	if err != nil {
 		t.Fatal(err)
 	}

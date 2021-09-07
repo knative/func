@@ -36,16 +36,15 @@ const (
 
 // Client for managing Function instances.
 type Client struct {
-	Repositories *Repositories // Repositories management
-	Templates    *Templates    // Templates management
-
-	verbose          bool     // print verbose logs
-	builder          Builder  // Builds a runnable image from Function source
-	pusher           Pusher   // Pushes the image assocaited with a Function.
-	deployer         Deployer // Deploys or Updates a Function
-	runner           Runner   // Runs the Function locally
-	remover          Remover  // Removes remote services
-	lister           Lister   // Lists remote services
+	repositories     *Repositories // Repositories management
+	templates        *Templates    // Templates management
+	verbose          bool          // print verbose logs
+	builder          Builder       // Builds a runnable image from Function source
+	pusher           Pusher        // Pushes the image assocaited with a Function.
+	deployer         Deployer      // Deploys or Updates a Function
+	runner           Runner        // Runs the Function locally
+	remover          Remover       // Removes remote services
+	lister           Lister        // Lists remote services
 	describer        Describer
 	dnsProvider      DNSProvider      // Provider of DNS services
 	repository       string           // URL to Git repo (overrides on-disk and embedded)
@@ -178,8 +177,8 @@ type Emitter interface {
 func New(options ...Option) *Client {
 	// Instantiate client with static defaults.
 	c := &Client{
-		Repositories:     &Repositories{},
-		Templates:        &Templates{},
+		repositories:     &Repositories{},
+		templates:        &Templates{},
 		builder:          &noopBuilder{output: os.Stdout},
 		pusher:           &noopPusher{output: os.Stdout},
 		deployer:         &noopDeployer{output: os.Stdout},
@@ -196,7 +195,7 @@ func New(options ...Option) *Client {
 	// c.Repositories.Path = ...
 
 	// Templates management requires the repositories management api
-	c.Templates.Repositories = c.Repositories
+	c.templates.Repositories = c.repositories
 
 	for _, o := range options {
 		o(c)
@@ -286,7 +285,7 @@ func WithDNSProvider(provider DNSProvider) Option {
 // not built into the binary.
 func WithRepositories(repositories string) Option {
 	return func(c *Client) {
-		c.Repositories.Path = repositories
+		c.repositories.Path = repositories
 	}
 }
 
@@ -315,6 +314,16 @@ func WithEmitter(e Emitter) Option {
 	return func(c *Client) {
 		c.emitter = e
 	}
+}
+
+// Repositories accessor
+func (c *Client) Repositories() *Repositories {
+	return c.repositories
+}
+
+// Templates accessor
+func (c *Client) Templates() *Templates {
+	return c.templates
 }
 
 // New Function.
@@ -426,7 +435,7 @@ func (c *Client) Create(cfg Function) (err error) {
 	}
 
 	// Write out a template.
-	w := templateWriter{repositories: c.Repositories.Path, url: c.repository, verbose: c.verbose}
+	w := templateWriter{repositories: c.repositories.Path, url: c.repository, verbose: c.verbose}
 	if err = w.Write(f.Runtime, f.Template, f.Root); err != nil {
 		return
 	}

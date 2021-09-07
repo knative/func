@@ -20,7 +20,7 @@ func TestRepositoriesList(t *testing.T) {
 
 	client := fn.New(fn.WithRepositories(root)) // Explicitly empty
 
-	rr, err := client.Repositories.List()
+	rr, err := client.Repositories().List()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -35,13 +35,13 @@ func TestRepositoriesGet(t *testing.T) {
 	client := fn.New(fn.WithRepositories("testdata/repositories"))
 
 	// invalid should error
-	repo, err := client.Repositories.Get("invalid")
+	repo, err := client.Repositories().Get("invalid")
 	if err == nil {
 		t.Fatal("did not receive expected error getting inavlid repository")
 	}
 
 	// valid should not error
-	repo, err = client.Repositories.Get("customProvider")
+	repo, err = client.Repositories().Get("customProvider")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,7 +62,7 @@ func TestRepositoriesAll(t *testing.T) {
 	client := fn.New(fn.WithRepositories(root))
 
 	// Assert initially only the default is included
-	rr, err := client.Repositories.All()
+	rr, err := client.Repositories().All()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,13 +71,13 @@ func TestRepositoriesAll(t *testing.T) {
 	}
 
 	// Add one
-	err = client.Repositories.Add("", uri)
+	err = client.Repositories().Add("", uri)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Get full list
-	repositories, err := client.Repositories.All()
+	repositories, err := client.Repositories().All()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,12 +100,12 @@ func TestRepositoriesAdd(t *testing.T) {
 	client := fn.New(fn.WithRepositories(root))
 
 	// Add repo at uri
-	if err := client.Repositories.Add("", uri); err != nil {
+	if err := client.Repositories().Add("", uri); err != nil {
 		t.Fatal(err)
 	}
 
 	// Assert list now includes the test repo
-	rr, err := client.Repositories.List()
+	rr, err := client.Repositories().List()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -138,12 +138,12 @@ func TestRepositoriesAddNamed(t *testing.T) {
 	// repositories' root location.
 	client := fn.New(fn.WithRepositories(root))
 
-	name := "example"                                          // the custom name for the new repo
-	if err := client.Repositories.Add(name, uri); err != nil { // add with name
+	name := "example"                                            // the custom name for the new repo
+	if err := client.Repositories().Add(name, uri); err != nil { // add with name
 		t.Fatal(err)
 	}
 
-	rr, err := client.Repositories.List()
+	rr, err := client.Repositories().List()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,15 +170,15 @@ func TestRepositoriesAddExistingErrors(t *testing.T) {
 
 	// Add twice.
 	name := "example"
-	if err := client.Repositories.Add(name, uri); err != nil {
+	if err := client.Repositories().Add(name, uri); err != nil {
 		t.Fatal(err)
 	}
-	if err := client.Repositories.Add(name, uri); err == nil {
+	if err := client.Repositories().Add(name, uri); err == nil {
 		t.Fatalf("did not receive expected error adding an existing repository")
 	}
 
 	// assert repo named correctly
-	rr, err := client.Repositories.List()
+	rr, err := client.Repositories().List()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,15 +203,15 @@ func TestRepositoriesRename(t *testing.T) {
 	client := fn.New(fn.WithRepositories(root))
 
 	// Add and Rename
-	if err := client.Repositories.Add("foo", uri); err != nil {
+	if err := client.Repositories().Add("foo", uri); err != nil {
 		t.Fatal(err)
 	}
-	if err := client.Repositories.Rename("foo", "bar"); err != nil {
+	if err := client.Repositories().Rename("foo", "bar"); err != nil {
 		t.Fatal(err)
 	}
 
 	// assert repo named correctly
-	rr, err := client.Repositories.List()
+	rr, err := client.Repositories().List()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -238,15 +238,15 @@ func TestRepositoriesRemove(t *testing.T) {
 
 	// Add and Remove
 	name := "example"
-	if err := client.Repositories.Add(name, uri); err != nil {
+	if err := client.Repositories().Add(name, uri); err != nil {
 		t.Fatal(err)
 	}
-	if err := client.Repositories.Remove(name); err != nil {
+	if err := client.Repositories().Remove(name); err != nil {
 		t.Fatal(err)
 	}
 
 	// assert repo not in list
-	rr, err := client.Repositories.List()
+	rr, err := client.Repositories().List()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -257,5 +257,32 @@ func TestRepositoriesRemove(t *testing.T) {
 	// assert repo not on filesystem
 	if _, err := os.Stat(name); !os.IsNotExist(err) {
 		t.Fatalf("Repo %v still exists on filesystem.", name)
+	}
+}
+
+// TestRepositoriesURL ensures that a repository populates its URL member
+// from the git repository's origin url (if it is a git repo and exists)
+func TestRepositoriesURL(t *testing.T) {
+	uri := testRepoURI(RepositoriesTestRepo, t)
+	root, rm := mktemp(t)
+	defer rm()
+
+	client := fn.New(fn.WithRepositories(root))
+
+	// Add the test repo
+	err := client.Repositories().Add("newrepo", uri)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Get the newly added repo
+	r, err := client.Repositories().Get("newrepo")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Assert it includes the correct URL
+	if r.URL != uri {
+		t.Fatalf("expected repository URL '%v', got '%v'", uri, r.URL)
 	}
 }

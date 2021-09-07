@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
@@ -169,7 +168,7 @@ func newCreateConfig(args []string) createConfig {
 	// unlikliness of being needed, but is left available as an env.
 	cc.Repositories = os.Getenv("FUNC_REPOSITORIES")
 	if cc.Repositories == "" {
-		cc.Repositories = filepath.Join(configPath(), "repositories")
+		cc.Repositories = repositoriesPath()
 	}
 
 	return cc
