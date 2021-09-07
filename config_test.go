@@ -590,7 +590,7 @@ func Test_validateLabels(t *testing.T) {
 				},
 			},
 			1,
-		},{
+		}, {
 			"incorrect entry - missing multiple keys",
 			Labels{
 				Label{

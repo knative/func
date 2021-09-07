@@ -34,7 +34,7 @@ func TestRemoteRepository(t *testing.T) {
 	defer Delete(t, knFunc, &project)
 	ReadyCheck(t, knFunc, project)
 
-	functionRespValidator := FunctionHttpResponsivenessValidator{ runtime: "go", targetUrl: "%v", expects: "REMOTE_VALID" }
+	functionRespValidator := FunctionHttpResponsivenessValidator{runtime: "go", targetUrl: "%v", expects: "REMOTE_VALID"}
 	functionRespValidator.Validate(t, project)
 
 }

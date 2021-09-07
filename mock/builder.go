@@ -2,6 +2,7 @@ package mock
 
 import (
 	"context"
+
 	fn "knative.dev/kn-plugin-func"
 )
 

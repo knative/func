@@ -7,7 +7,6 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-
 func NewKubernetesClientset(namespace string) (*kubernetes.Clientset, error) {
 
 	restConfig, err := GetClientConfig().ClientConfig()

@@ -2,10 +2,11 @@ package main
 
 import (
 	"context"
-	"knative.dev/kn-plugin-func/cmd"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"knative.dev/kn-plugin-func/cmd"
 )
 
 // Statically-populated build metadata set
