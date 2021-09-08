@@ -6,7 +6,7 @@ import (
 )
 
 // Build runs `func build' command for a given test project.
-func Build(t *testing.T, knFunc *TestShellCmdRunner, project *FunctionTestProject)  {
+func Build(t *testing.T, knFunc *TestShellCmdRunner, project *FunctionTestProject) {
 
 	result := knFunc.Exec("build", "--path", project.ProjectPath, "--registry", GetRegistry())
 	if result.Error != nil {

@@ -3,12 +3,13 @@ package docker
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/containers/image/v5/types"
-	"github.com/docker/docker-credential-helpers/client"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/containers/image/v5/types"
+	"github.com/docker/docker-credential-helpers/client"
 )
 
 func GetCredentialsFromCredsStore(registry string) (types.DockerAuthConfig, error) {

@@ -4,9 +4,9 @@ import "testing"
 
 func Test_to2ndLevelDomain(t *testing.T) {
 	tests := []struct {
-		name string
+		name   string
 		rawurl string
-		want string
+		want   string
 	}{
 		{"2nd level", "quay.io", "quay.io"},
 		{"3nd level", "sub.quay.io", "quay.io"},
@@ -27,4 +27,3 @@ func Test_to2ndLevelDomain(t *testing.T) {
 		})
 	}
 }
-

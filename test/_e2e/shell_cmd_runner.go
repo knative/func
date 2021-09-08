@@ -34,7 +34,7 @@ type TestShellCmdRunner struct {
 type TestShellCmdResult struct {
 	Stdout string
 	Stderr string
-	Error error
+	Error  error
 }
 
 func (r TestShellCmdResult) Dump(t *testing.T) {
@@ -73,7 +73,6 @@ func (f *TestShellCmdRunner) FromDir(dir string) *TestShellCmdRunner {
 	return f
 }
 
-
 // Exec invokes go exec library and runs a shell command combining the binary args with args from method signature
 func (f *TestShellCmdRunner) Exec(args ...string) TestShellCmdResult {
 	finalArgs := f.BinaryArgs
@@ -101,7 +100,7 @@ func (f *TestShellCmdRunner) Exec(args ...string) TestShellCmdResult {
 	result := TestShellCmdResult{
 		Stdout: stdout.String(),
 		Stderr: stderr.String(),
-		Error: err,
+		Error:  err,
 	}
 
 	if err == nil && f.ShouldDumpOnSuccess {

@@ -13,7 +13,7 @@ func List(t *testing.T, knFunc *TestShellCmdRunner, project FunctionTestProject)
 	}
 	isProjectPresent := strings.Contains(result.Stdout, project.FunctionName)
 	if project.IsDeployed && !isProjectPresent {
-		 t.Fatal("Deployed project expected")
+		t.Fatal("Deployed project expected")
 	}
 	if !project.IsDeployed && isProjectPresent {
 		t.Fatal("Project is not expected to appear in list output")

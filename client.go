@@ -8,9 +8,9 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"sync"
-	"runtime"
 
 	"gopkg.in/yaml.v2"
 )

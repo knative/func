@@ -82,11 +82,11 @@ var defaultFunctionsHttpValidators = []FunctionHttpResponsivenessValidator{
 		targetUrl: "%s/health/readiness",
 	},
 	{runtime: "typescript",
-		targetUrl: "%s",
-		method: "POST",
+		targetUrl:   "%s",
+		method:      "POST",
 		contentType: "application/json",
-		bodyData: `{"message":"hello"}`,
-		expects: `{"message":"hello"}`,
+		bodyData:    `{"message":"hello"}`,
+		expects:     `{"message":"hello"}`,
 	},
 }
 
