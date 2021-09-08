@@ -7,7 +7,6 @@ package function
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -198,7 +197,6 @@ var (
 )
 
 func (t templateWriter) Write(runtime, template, dest string) error {
-	fmt.Printf("Writing %s to %s\n", template, dest)
 	if runtime == "" {
 		runtime = DefaultRuntime
 	}
@@ -209,13 +207,11 @@ func (t templateWriter) Write(runtime, template, dest string) error {
 
 	// remote URLs, when provided, take precidence
 	if t.url != "" {
-		fmt.Println("Writing remote")
 		return writeRemote(t.url, runtime, template, dest)
 	}
 
 	// templates with repo prefix are on-disk "custom" (not embedded)
 	if len(strings.Split(template, "/")) > 1 {
-		fmt.Println("Writing custom")
 		return writeCustom(t.repositories, runtime, template, dest)
 	}
 
@@ -279,9 +275,7 @@ func writeCustom(repositoriesPath, runtime, templateFullName, dest string) error
 		templatePath = filepath.Join(repositoriesPath, repo, runtime, template)
 		accessor     = osFilesystem{} // in instanced provider of Stat and Open
 	)
-	fmt.Printf("Checking %s\n", repoPath)
 	if _, err := accessor.Stat(repoPath); err != nil {
-		fmt.Printf("ERROR %s\n", err)
 		return ErrRepositoryNotFound
 	}
 	if _, err := accessor.Stat(runtimePath); err != nil {
