@@ -75,9 +75,9 @@ DESCRIPTION
 	the 'repository' command, or any of the inidivual subcommands.
 
 	The Default Repository:
-	The default repository is not stored on disk, but embedded in the binary and 
-	can be used without explicitly specifying the name.  The default repository 
-	is always listed first, and is assumed when creating a new Function without 
+	The default repository is not stored on disk, but embedded in the binary and
+	can be used without explicitly specifying the name.  The default repository
+	is always listed first, and is assumed when creating a new Function without
 	specifying a repository name prefix.
 	For example, to create a new Go function using the 'http' template from the
 	default repository.
@@ -113,19 +113,19 @@ COMMANDS
 
 	list
 	  List all available repositories, including the installed default
-	  repository.  Repositories available are listed by name.  To see the URL 
+	  repository.  Repositories available are listed by name.  To see the URL
 	  which was used to install remotes, use --verbose (-v).
 
 	rename
 	  Rename a previously installed repository from <old> to <new>. Only installed
-	  repositories can be renamed.  
+	  repositories can be renamed.
 	    $ func repository rename <name> <new name>
 
 	remove
 	  Remove a repository by name.  Removes the repository from local storage
 	  entirely.  When in confirm mode (--confirm) it will confirm before
 	  deletion, but in regular mode this is done immediately, so please use
-	  caution, especially when using an altered repositories location 
+	  caution, especially when using an altered repositories location
 	  (FUNC_REPOSITORIES environment variable or --repositories).
 	    $ func repository remove <name>
 
@@ -252,11 +252,11 @@ type repositoryClientConfig struct {
 	Confirm      bool   // Enables interactive confirmation/prompting mode
 }
 
-// newRepositoryConfig creates a configuraton suitable for use instantiating the
+// newRepositoryConfig creates a configuration suitable for use instantiating the
 // fn Client. Note that parameters for the individual commands (add, remove etc)
 // are collected separately in their requisite run functions.
 func newRepositoryConfig(args []string) (cfg repositoryClientConfig, err error) {
-	// inital config is populated based on flags, which are themselves
+	// initial config is populated based on flags, which are themselves
 	// first populated by static defaults, then environment variables,
 	// finally command flags.
 	cfg = repositoryClientConfig{
@@ -618,7 +618,7 @@ func runRepositoryRemove(args []string, clientFn repositoryClientFn) (err error)
 		// important than an abort by the user, either by answering no to the
 		// confirmation or by an os interrupt such as ^C be considered an error,
 		// and thus a non-zero program exit.  This is because a user may have
-		// chained the command, and an abort (for wahtever reason) should cancel
+		// chained the command, and an abort (for whatever reason) should cancel
 		// the whole chain.  For example, given the command:
 		//    func repo rm -cv && doSomethingOnSuccess
 		// The trailing command 'doSomethignOnSuccess' should not be evaluated if

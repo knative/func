@@ -14,8 +14,8 @@ import (
 )
 
 // Docker Run Integraiton Test
-// This is an integraiton test meant to be manually run in order to confirm proper funcitoning of the docker runner.
-// It requires that the funciton already be built.
+// This is an integraiton test meant to be manually run in order to confirm proper functioning of the docker runner.
+// It requires that the function already be built.
 
 var enableTestDocker = flag.Bool("enable-test-docker", false, "Enable tests requiring local docker.")
 
@@ -32,7 +32,7 @@ func TestDockerRun(t *testing.T) {
 		t.Fatal(err)
 	}
 	// TODO: This test is too tricky, as it requires the related image be
-	// already built.  Build the funciton prior to running?
+	// already built.  Build the function prior to running?
 
 	runner := docker.NewRunner()
 	runner.Verbose = true

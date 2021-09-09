@@ -4,7 +4,7 @@ When a Function is created, an example implementation and a Function metadata fi
 
 These embedded templates are minimal by design.  The Function contains a minimum of external dependencies, and the 'func.yaml' defines a final environment within which the Funciton will execute that is devoid of any extraneous packages or services.
 
-To make use of more complex inital Function implementions, or to define runtime environments with arbitrarily complex requirements, the templates system is fully pluggable.
+To make use of more complex initial Function implementions, or to define runtime environments with arbitrarily complex requirements, the templates system is fully pluggable.
 
 ## External Git Repositories
 

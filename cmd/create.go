@@ -131,7 +131,7 @@ type createConfig struct {
 	// Template is the code written into the new Function project, including
 	// an implementation adhering to one of the supported function signatures.
 	// May also include additional configuration settings or examples.
-	// For example, embedded are 'http' for a Function whose funciton signature
+	// For example, embedded are 'http' for a Function whose function signature
 	// is invoked via straight HTTP requests, or 'events' for a Function which
 	// will be invoked with CloudEvents.  These embedded templates contain a
 	// minimum implementation of the signature itself and example tests.

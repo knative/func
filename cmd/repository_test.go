@@ -180,7 +180,7 @@ func TestRepositoryRemove(t *testing.T) {
 // -------
 
 // testClientFn returns a repositoryClientFn which always returns the provided
-// mock client.  The client may have various funciton implementations overriden
+// mock client.  The client may have various function implementations overridden
 // so as to test particular cases, and a config object is created from the
 // flags and environment variables in the same way as the actual commands, with
 // the effective value recorded on the mock as members for test assertions.

@@ -25,7 +25,7 @@ const (
 
 	// DefautlTemplate is the default Function signature / environmental context
 	// of the resultant function.  All runtimes are expected to have at least
-	// one implementation of each supported funciton sinagure.  Currently that
+	// one implementation of each supported function signature.  Currently that
 	// includes an HTTP Handler ("http") and Cloud Events handler ("events")
 	DefaultTemplate = "http"
 
@@ -40,7 +40,7 @@ type Client struct {
 	templates        *Templates    // Templates management
 	verbose          bool          // print verbose logs
 	builder          Builder       // Builds a runnable image from Function source
-	pusher           Pusher        // Pushes the image assocaited with a Function.
+	pusher           Pusher        // Pushes the image associated with a Function.
 	deployer         Deployer      // Deploys or Updates a Function
 	runner           Runner        // Runs the Function locally
 	remover          Remover       // Removes remote services
