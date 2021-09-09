@@ -7,7 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/validation"
 )
 
-// ErrInvalidName indicates the name did not pass funciton name validation.
+// ErrInvalidName indicates the name did not pass function name validation.
 type ErrInvalidFunctionName error
 
 // ErrInvalidEnvVarName indicates the name did not pass env var name validation.

@@ -76,7 +76,7 @@ var configEnvsRemoveCmd = &cobra.Command{
 Interactive prompt to remove Environment variables from the function project
 in the current directory or from the directory specified with --path.
 `,
-	SuggestFor: []string{"del", "delete", "rmeove"},
+	SuggestFor: []string{"rm", "del", "delete", "rmeove"},
 	PreRunE:    bindEnv("path"),
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		function, err := initConfigCommand(args, defaultLoaderSaver)

@@ -43,6 +43,13 @@ func (r *Repositories) All() (repos []Repository, err error) {
 	}
 	repos = append(repos, builtin)
 
+	// Return if not using on-disk repos
+	// If r.Path not populated, this indicates the client should
+	// not read repositories from disk, using only builtin.
+	if r.Path == "" {
+		return
+	}
+
 	// read repos from filesystem (sorted by name)
 	// TODO: when manifests are introduced, the final name may be different
 	// than the name on the filesystem, and as such we can not rely on the

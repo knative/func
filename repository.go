@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/go-git/go-git/v5"
 	"github.com/markbates/pkger"
 )
 
@@ -17,6 +18,7 @@ const builtinRepositories = "/templates"
 // Repository
 type Repository struct {
 	Name      string
+	URL       string // (empty if not a git repo with an upstream URL)
 	Templates []Template
 	Runtimes  []string
 }
@@ -31,6 +33,7 @@ func NewRepositoryFromPath(path string) (Repository, error) {
 
 	r := Repository{
 		Name:      filepath.Base(path),
+		URL:       readURL(path),
 		Templates: []Template{},
 		Runtimes:  []string{}}
 
@@ -120,4 +123,27 @@ func (r *Repository) GetTemplate(runtime, name string) (Template, error) {
 	}
 	// TODO: Typed TemplateNotFound in repo X
 	return Template{}, errors.New("template not found")
+}
+
+// readURL attempts to read the remote git origin URL of the repository.  Best
+// effort; returns empty string if the repository is not a git repo or the repo
+// has been mutated beyond recognition on disk (ex: removing the origin remote)
+func readURL(path string) string {
+	repo, err := git.PlainOpen(path)
+	if err != nil {
+		return "" // not a git repository
+	}
+
+	c, err := repo.Config()
+	if err != nil {
+		return "" // Has no .git/config or other error.
+	}
+
+	if _, ok := c.Remotes["origin"]; ok {
+		urls := c.Remotes["origin"].URLs
+		if len(urls) > 0 {
+			return urls[0]
+		}
+	}
+	return ""
 }

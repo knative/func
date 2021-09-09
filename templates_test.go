@@ -22,7 +22,7 @@ func TestTemplatesList(t *testing.T) {
 	client := fn.New(fn.WithRepositories("testdata/repositories"))
 
 	// list templates for the "go" runtime
-	templates, err := client.Templates.List("go")
+	templates, err := client.Templates().List("go")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +52,7 @@ func TestTemplatesGet(t *testing.T) {
 
 	// Check embedded
 
-	embedded, err := client.Templates.Get("go", "http")
+	embedded, err := client.Templates().Get("go", "http")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +71,7 @@ func TestTemplatesGet(t *testing.T) {
 
 	// Check extended
 
-	extended, err := client.Templates.Get("go", "customProvider/customTemplate")
+	extended, err := client.Templates().Get("go", "customProvider/customTemplate")
 	if err != nil {
 		t.Fatal(err)
 	}

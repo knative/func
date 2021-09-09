@@ -115,7 +115,7 @@ func Execute(ctx context.Context) {
 	}
 }
 
-// Helper functions used by multiple commands
+// Helpers
 // ------------------------------------------
 
 // interactiveTerminal returns whether or not the currently attached process
@@ -163,6 +163,15 @@ func configPath() string {
 	// may very well be the optimal choice.
 	fmt.Fprintf(os.Stderr, "Error locating ~/.config: %v", err)
 	return filepath.Join(".config", configDirName)
+}
+
+// The anme of the repositories directory within config dir (usually ~/.config)
+const repositoriesDirName = "repositories"
+
+// repositoriesPath is the effective path to the optional repositories directory
+// used for extensible language packs.
+func repositoriesPath() string {
+	return filepath.Join(configPath(), repositoriesDirName)
 }
 
 // bindFunc which conforms to the cobra PreRunE method signature

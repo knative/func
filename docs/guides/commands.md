@@ -220,3 +220,138 @@ Invokes interactive prompt to remove Volumes from the function configuration
 ```console
 func config volumes remove [-p <path>]
 ```
+
+## `repository`
+
+Manage set of installed repositories.
+
+With no arguments, the help text is shown.
+To run using an interactive prompt, use the use the --confirm (-c) flag.
+```console
+$ func repository -c
+```
+
+Manages template repositories installed on disk at either the default location
+(~/.config/func/repositories) or the location specified by the --repository
+flag.  Once added, a template from the repository can be used when creating
+a new Function.
+
+_Alternative Repositories Location:_
+Repositories are stored on disk in ~/.config/func/repositories by default.
+This location can be altered by either setting the FUNC_REPOSITORIES
+environment variable, or by providing the --repositories (-r) flag to any
+of the commands.  XDG_CONFIG_HOME is respected when determining the default.
+
+_Interactive Prompts:_
+To complete these commands interactively, pass the --confirm (-c) flag to
+the 'repository' command, or any of the inidivual subcommands.
+
+_The Default Repository:_
+The default repository is not stored on disk, but embedded in the binary and
+can be used without explicitly specifying the name.  The default repository is
+always listed first, and is assumed when creating a new Function without
+specifying a repository name prefix.  For example, to create a new Go function
+using the 'http' template from the default repository.
+```console
+$ func create -l go -t http
+```
+
+_The Repository Flag:_
+Installing repositories locally is optional.  To use a template from a remote
+repository directly, it is possible to use the --repository flag on create.
+This leaves the local disk untouched.  For example, To create a Function using
+the Boson Project Hello-World template without installing the template
+repository locally, use the --repository (-r) flag on create:
+```console
+$ func create -l go \
+--template hello-world \
+--repository https://github.com/boson-project/templates
+```
+
+### `add`
+Add a new repository to the installed set.
+```console
+$ func repository add <name> <URL>
+```
+
+For Example, to add the Boson Project repository:
+```console
+$ func repository add boson https://github.com/boson-project/templates
+```
+
+Once added, a Function can be created with templates from the new repository
+by prefixing the template name with the repository.  For example, to create
+a new Function using the Go Hello World template:
+```console
+$ func create -l go -t boson/hello-world
+```
+
+### `list`
+
+List all available repositories, including the installed default repository.
+Repositories available are listed by name.  To see the URL which was used to
+install remotes, use --verbose (-v).
+
+### `rename`
+
+Rename a previously installed repository from <old> to <new>. Only installed
+repositories can be renamed.
+```console
+$ func repository rename <name> <new name>
+```
+
+### `remove`
+
+Remove a repository by name.  Removes the repository from local storage
+entirely.  When in confirm mode (--confirm) it will confirm before
+deletion, but in regular mode this is done immediately, so please use
+caution, especially when using an altered repositories location
+(FUNC_REPOSITORIES environment variable or --repositories).
+```console
+$ func repository remove <name>
+```
+
+### Examples
+
+o Run in confirmation mode (interactive prompts) using the --confirm flag
+```console
+$ func repository -c
+```
+
+o Add a repository and create a new Function using a template from it:
+```console
+$ func repository add boson https://github.com/boson-project/templates
+$ func repository list
+default
+boson
+$ func create -l go -t boson/hello-world
+...
+```
+
+o List all repositories including the URL from which remotes were installed
+```console
+$ func repository list -v
+default
+boson	https://github.com/boson-project/templates
+```
+
+o Rename an installed repository
+```console
+$ func repository list
+default
+boson
+$ func repository rename boson boson-examples
+$ func repository list
+default
+boson-examples
+```
+
+o Remove an installed repository
+```console
+$ func repository list
+default
+boson-examples
+$ func repository remove boson-examples
+$ func repository list
+default
+```
