@@ -686,6 +686,30 @@ func (c *Client) Emit(ctx context.Context, endpoint string) error {
 	return c.emitter.Emit(ctx, endpoint)
 }
 
+// Runtimes available in totality.
+// Not all repository/template combinations necessarily exist,
+// and further validation is performed when a template+runtime is chosen.
+// from a given repository.  This is the global list of all available.
+// Returned list is unique and sorted.
+func (c *Client) Runtimes() ([]string, error) {
+	runtimes := newSortedSet()
+
+	// Gather all runtimes from all repositories
+	// into a uniqueness map
+	repositories, err := c.Repositories.All()
+	if err != nil {
+		return []string{}, err
+	}
+	for _, repo := range repositories {
+		for _, runtime := range repo.Runtimes {
+			runtimes.Add(runtime)
+		}
+	}
+
+	// Return a unique, sorted list of runtimes
+	return runtimes.Items(), nil
+}
+
 // sorted set of strings.
 //
 // write-optimized and suitable only for fairly small values of N.

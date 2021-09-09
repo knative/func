@@ -831,6 +831,50 @@ func TestWithConfiguredBuildpacks(t *testing.T) {
 	}
 }
 
+// TestRuntimes ensures that the total set of runtimes are returned.
+func TestRuntimes(t *testing.T) {
+	// TODO: test when a specific repo override is indicated
+	// (remote repo which takes precidence over embedded and extended)
+
+	client := fn.New(fn.WithRepositories("testdata/repositories"))
+
+	runtimes, err := client.Runtimes()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Runtimes from `./templates` + `./testdata/repositories`
+	// Should be unique and sorted.
+	//
+	// Note that hard-coding the runtimes list here does add future maintenance
+	// (test will fail requiring updates when either the builtin set of or test
+	//  set change), but the simplicity and straightforwardness of this
+	// requirement seems to outweigh the complexity of calculating the list for
+	// testing, which effectively just recreates the logic within the client.
+	// Additionally, this list has the benefit of creating a more understandable
+	// test (a primary goal of course being human communication of libray intent).
+	// If this is an incorrect assumption, we would need to calculate this
+	// slice from the contents of ./templates & ./testdata/repositories, taking
+	// into acount future repository manifests.
+	expected := []string{
+		"customRuntime",
+		"go",
+		"node",
+		"python",
+		"quarkus",
+		"rust",
+		"springboot",
+		"test",
+		"typescript",
+	}
+
+	if !reflect.DeepEqual(runtimes, expected) {
+		t.Logf("expected: %v", expected)
+		t.Logf("received: %v", runtimes)
+		t.Fatal("Runtimes not as expected.")
+	}
+}
+
 // Helpers ----
 
 // USING:  Make specified dir.  Return deferrable cleanup fn.

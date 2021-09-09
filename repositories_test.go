@@ -48,7 +48,7 @@ func TestRepositoriesGet(t *testing.T) {
 
 	// valid should have expected name
 	if repo.Name != "customProvider" {
-		t.Fatalf("expected 'customProvider' as repository name, got: %v", repo.Name)
+		t.Fatalf("Expected 'customProvider', got: %v", repo.Name)
 	}
 }
 

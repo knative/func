@@ -98,10 +98,10 @@ func (r *Repositories) Add(name, uri string) (err error) {
 }
 
 // Rename a repository
-func (r *Repositories) Rename(old string, new string) error {
-	oldPath := filepath.Join(r.Path, old)
-	newPath := filepath.Join(r.Path, new)
-	return os.Rename(oldPath, newPath)
+func (r *Repositories) Rename(from, to string) error {
+	a := filepath.Join(r.Path, from)
+	b := filepath.Join(r.Path, to)
+	return os.Rename(a, b)
 }
 
 // Remove a repository of the given name from the repositories.
