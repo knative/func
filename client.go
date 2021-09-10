@@ -696,7 +696,7 @@ func (c *Client) Runtimes() ([]string, error) {
 
 	// Gather all runtimes from all repositories
 	// into a uniqueness map
-	repositories, err := c.Repositories.All()
+	repositories, err := c.Repositories().All()
 	if err != nil {
 		return []string{}, err
 	}
