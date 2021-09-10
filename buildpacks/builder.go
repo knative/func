@@ -8,10 +8,13 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/matejvasek/sshdialer"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -90,11 +93,51 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		logWriter = &bytes.Buffer{}
 	}
 
+	var dockerClientOpts = []dockerClient.Opt{
+		dockerClient.WithAPIVersionNegotiation(),
+	}
+
+	// docker host from `func` binary POW
+	const defaultDockerHost = "unix:///var/run/docker.sock"
+
+	dockerHost := defaultDockerHost
+	if dh, ok := os.LookupEnv("DOCKER_HOST"); ok {
+		dockerHost = dh
+	}
+	// docker host from build container POW
+	dockerHostBuildContainer := dockerHost
+
+	if _url, err := url.Parse(dockerHost); err == nil && _url != nil && _url.Scheme == "ssh" {
+		dialer, err := sshdialer.CreateDialContext(_url, "", "")
+		if err != nil {
+			return fmt.Errorf("failed to dial ssh connection: %w", err)
+		}
+
+		if _url.Path != "" {
+			dockerHostBuildContainer = fmt.Sprintf("unix://%s", _url.Path)
+		} else {
+			dockerHostBuildContainer = defaultDockerHost
+		}
+
+		httpClient := &http.Client{
+			// No tls
+			// No proxy
+			Transport: &http.Transport{
+				DialContext: dialer,
+			},
+		}
+
+		dockerClientOpts = append(dockerClientOpts,
+			dockerClient.WithHTTPClient(httpClient),
+			dockerClient.WithHost("http://placeholder"),
+			dockerClient.WithDialContext(dialer),
+		)
+	} else {
+		dockerClientOpts = append(dockerClientOpts, dockerClient.FromEnv)
+	}
+
 	// Client with a logger which is enabled if in Verbose mode.
-	dockerClient, err := dockerClient.NewClientWithOpts(
-		dockerClient.FromEnv,
-		dockerClient.WithVersion("1.38"),
-	)
+	dockerClient, err := dockerClient.NewClientWithOpts(dockerClientOpts...)
 	if err != nil {
 		return err
 	}
@@ -119,7 +162,7 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		Builder:        packBuilder,
 		Buildpacks:     f.Buildpacks,
 		TrustBuilder:   !deamonIsPodman && strings.HasPrefix(packBuilder, "quay.io/boson"),
-		DockerHost:     os.Getenv("DOCKER_HOST"),
+		DockerHost:     dockerHostBuildContainer,
 		ContainerConfig: struct {
 			Network string
 			Volumes []string
