@@ -18,12 +18,14 @@ require (
 	github.com/google/uuid v1.2.0
 	github.com/hinshun/vt10x v0.0.0-20180809195222-d55458df857c
 	github.com/markbates/pkger v0.17.1
-	github.com/matejvasek/sshdialer v0.0.0-20210910025520-fddb287f1031
+	github.com/matejvasek/sshdialer v0.0.0-20210913130443-7a6a7b860dfe
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/opencontainers/image-spec v1.0.2-0.20190823105129-775207bd45b6
 	github.com/ory/viper v1.7.5
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.1.3
+	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5 // indirect
+	golang.org/x/sys v0.0.0-20210910150752-751e447fb3d0 // indirect
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.20.6
 	k8s.io/apimachinery v0.20.6
