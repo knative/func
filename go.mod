@@ -18,7 +18,7 @@ require (
 	github.com/google/uuid v1.2.0
 	github.com/hinshun/vt10x v0.0.0-20180809195222-d55458df857c
 	github.com/markbates/pkger v0.17.1
-	github.com/matejvasek/sshdialer v0.0.0-20210913130443-7a6a7b860dfe
+	github.com/matejvasek/sshdialer v0.0.0-20210913154027-5c1d18f349cb
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/opencontainers/image-spec v1.0.2-0.20190823105129-775207bd45b6
 	github.com/ory/viper v1.7.5
