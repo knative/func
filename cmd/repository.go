@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
 
@@ -522,7 +523,6 @@ func runRepositoryRename(args []string, clientFn repositoryClientFn) (err error)
 				Prompt: &survey.Select{
 					Message: "Repository to rename:",
 					Options: repositories,
-					Default: params.Old,
 				},
 			}, {
 				Name:     "New",
@@ -586,6 +586,10 @@ func runRepositoryRemove(args []string, clientFn repositoryClientFn) (err error)
 		return
 	}
 
+	if len(repositories) == 0 {
+		return errors.New("No repositories installed. use 'add' to install")
+	}
+
 	// Confirm (interactive prompt mode)
 	if cfg.Confirm && interactiveTerminal() {
 		questions := []*survey.Question{
@@ -595,7 +599,6 @@ func runRepositoryRemove(args []string, clientFn repositoryClientFn) (err error)
 				Prompt: &survey.Select{
 					Message: "Repository to remove:",
 					Options: repositories,
-					Default: params.Name,
 				},
 			}, {
 				Name: "Sure",
