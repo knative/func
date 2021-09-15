@@ -2,6 +2,7 @@ package docker
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -12,6 +13,8 @@ import (
 	"github.com/docker/docker-credential-helpers/client"
 )
 
+var ErrCredentialsNotFound = errors.New("credentials not found")
+
 func GetCredentialsFromCredsStore(registry string) (types.DockerAuthConfig, error) {
 	result := types.DockerAuthConfig{}
 
@@ -20,10 +23,13 @@ func GetCredentialsFromCredsStore(registry string) (types.DockerAuthConfig, erro
 		return result, fmt.Errorf("failed to determine home directory: %w", err)
 	}
 
-	confFilePath := filepath.Join(dirname, ".docker/config.json")
+	confFilePath := filepath.Join(dirname, ".docker", "config.json")
 
 	f, err := os.Open(confFilePath)
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return types.DockerAuthConfig{}, ErrCredentialsNotFound
+		}
 		return result, fmt.Errorf("failed to open docker config file: %w", err)
 	}
 	defer f.Close()
@@ -63,7 +69,7 @@ func GetCredentialsFromCredsStore(registry string) (types.DockerAuthConfig, erro
 		}
 	}
 
-	return result, fmt.Errorf("credentials cannot be found: %w", os.ErrNotExist)
+	return result, fmt.Errorf("failed to get credentials from helper specified in ~/.docker/config.json: %w", ErrCredentialsNotFound)
 }
 
 func to2ndLevelDomain(rawurl string) string {

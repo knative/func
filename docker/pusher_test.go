@@ -1,6 +1,10 @@
 package docker
 
 import (
+	"context"
+	"fmt"
+	"os"
+	"runtime"
 	"testing"
 )
 
@@ -53,5 +57,63 @@ func Test_getRegistry(t *testing.T) {
 				t.Errorf("getRegistry() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func Test_NewCredentialsProvider(t *testing.T) {
+	// TODO add tests where also reading from config is utilized.
+	defer withCleanHome(t)()
+
+	ctx := context.Background()
+
+	firstInvocation := true
+	pwdCbk := func(registry string) (Credentials, error) {
+		if registry != "docker.io" {
+			return Credentials{}, fmt.Errorf("unexpected registry: %s", registry)
+		}
+		if firstInvocation {
+			firstInvocation = false
+			return Credentials{"testUser", "badPwd"}, nil
+		}
+		return Credentials{"testUser", "goodPwd"}, nil
+	}
+
+	verifyCbk := func(ctx context.Context, username, password, registry string) error {
+		if username == "testUser" && password == "goodPwd" && registry == "docker.io" {
+			return nil
+		}
+		return ErrUnauthorized
+	}
+
+	credentialProvider := NewCredentialsProvider(pwdCbk, verifyCbk)
+
+	creds, err := credentialProvider(ctx, "docker.io")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+		return
+	}
+
+	expectedCredentials := Credentials{Username: "testUser", Password: "goodPwd"}
+	if creds != expectedCredentials {
+		t.Errorf("credentialProvider() = %v, want %v", creds, expectedCredentials)
+	}
+}
+
+func withCleanHome(t *testing.T) func() {
+	t.Helper()
+	homeName := "HOME"
+	if runtime.GOOS == "windows" {
+		homeName = "USERPROFILE"
+	}
+	tmpDir := t.TempDir()
+	oldHome, hadHome := os.LookupEnv(homeName)
+	os.Setenv(homeName, tmpDir)
+
+	return func() {
+		if hadHome {
+			os.Setenv(homeName, oldHome)
+		} else {
+			os.Unsetenv(homeName)
+		}
 	}
 }
