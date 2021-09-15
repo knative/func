@@ -1,6 +1,7 @@
 package function
 
 import (
+	"errors"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -107,6 +108,9 @@ func (r *Repositories) Rename(from, to string) error {
 // Remove a repository of the given name from the repositories.
 // (removes its directory in Path)
 func (r *Repositories) Remove(name string) error {
+	if name == "" {
+		return errors.New("name is required")
+	}
 	path := filepath.Join(r.Path, name)
 	return os.RemoveAll(path)
 }
