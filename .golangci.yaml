@@ -6,6 +6,13 @@
 #
 # 
 #
+run:
+  build-tags:
+    - e2e
+    - e2elc
+    - linux
+    - integration
+
 linters:
   enable:
     - unconvert

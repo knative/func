@@ -326,18 +326,3 @@ func rm(t *testing.T, dir string) {
 		t.Fatal(err)
 	}
 }
-
-func touch(file string) {
-	_, err := os.Stat(file)
-	if os.IsNotExist(err) {
-		f, err := os.Create(file)
-		if err != nil {
-			panic(err)
-		}
-		defer f.Close()
-	}
-	t := time.Now().Local()
-	if err := os.Chtimes(file, t, t); err != nil {
-		panic(err)
-	}
-}
