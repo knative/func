@@ -1,4 +1,4 @@
 builders:
-  default: paketobuildpacks/builder:base
-  base: paketobuildpacks/builder:base
-  full: paketobuildpacks/builder:full
+  default: gcr.io/paketo-buildpacks/builder:base
+  base: gcr.io/paketo-buildpacks/builder:base
+  full: gcr.io/paketo-buildpacks/builder:full
