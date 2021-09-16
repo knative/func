@@ -7,7 +7,7 @@
 /coverage.out
 /bin
 
-target
+/target
 node_modules
 __pycache__
 /coverage.out
