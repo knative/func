@@ -60,6 +60,8 @@ jobs:
         run: |
           curl -s -L -o pkger.tgz ${{ steps.pkger-download-url.outputs.result }}
           tar xvzf pkger.tgz
+      - name: Clear Cache
+        run: go clean -modcache -testcache -cache
       - name: Unit Test
         run: make test
         env:
