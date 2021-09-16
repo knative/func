@@ -110,7 +110,7 @@ jobs:
           echo '::endgroup::'
 
           echo '::group:: Installing misspell ... https://github.com/client9/misspell'
-          go get github.com/client9/misspell/cmd/misspell
+          curl -sfL https://git.io/misspell | sh -s -- -b "${TEMP_PATH}" 2>&1
           echo '::endgroup::'
 
           echo '::group:: Installing woke ... https://github.com/get-woke/woke'
