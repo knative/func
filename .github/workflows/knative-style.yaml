@@ -128,12 +128,6 @@ jobs:
         uses: golangci/golangci-lint-action@v2
         with:
           version: v1.42
-          # tar errors extracting to pkg dir
-          # example: https://github.com/knative-sandbox/kn-plugin-func/pull/490/checks?check_run_id=3551662472
-          # issue:   https://github.com/golangci/golangci-lint-action/issues/244
-          # hotfix is to skip the pkg cache, which also requires an extended timeout:
-          skip-pkg-cache: true
-          args: --timeout=5m
 
       - name: misspell
         shell: bash
