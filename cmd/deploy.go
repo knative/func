@@ -1,15 +1,11 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
-	"github.com/containers/image/v5/pkg/docker/config"
-	containersTypes "github.com/containers/image/v5/types"
 	"github.com/ory/viper"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"knative.dev/client/pkg/util"
 
@@ -29,7 +25,7 @@ func newDeployClient(cfg deployConfig) (*fn.Client, error) {
 
 	builder := buildpacks.NewBuilder()
 
-	pusher, err := docker.NewPusher(docker.WithCredentialsProvider(credentialsProvider),
+	pusher, err := docker.NewPusher(docker.WithCredentialsProvider(docker.NewCredentialsProvider(newCredentialsCallback(), nil)),
 		docker.WithProgressListener(listener))
 	if err != nil {
 		return nil, err
@@ -186,45 +182,38 @@ func runDeploy(cmd *cobra.Command, _ []string, clientFn deployClientFn) (err err
 	// (for example kubectl usually uses ~/.kube/config)
 }
 
-func credentialsProvider(ctx context.Context, registry string) (docker.Credentials, error) {
-
-	result := docker.Credentials{}
-	credentials, err := config.GetCredentials(nil, registry)
-	if err != nil {
-		return result, errors.Wrap(err, "failed to get credentials")
-	}
-
-	if credentials != (containersTypes.DockerAuthConfig{}) {
-		result.Username, result.Password = credentials.Username, credentials.Password
+func newCredentialsCallback() func(registry string) (docker.Credentials, error) {
+	firstTime := true
+	return func(registry string) (docker.Credentials, error) {
+		var result docker.Credentials
+		var qs = []*survey.Question{
+			{
+				Name: "username",
+				Prompt: &survey.Input{
+					Message: "Username:",
+				},
+				Validate: survey.Required,
+			},
+			{
+				Name: "password",
+				Prompt: &survey.Password{
+					Message: "Password:",
+				},
+				Validate: survey.Required,
+			},
+		}
+		if firstTime {
+			firstTime = false
+			fmt.Printf("Please provide credentials for image registry (%s).\n", registry)
+		} else {
+			fmt.Println("Incorrect credentials, please try again.")
+		}
+		err := survey.Ask(qs, &result)
+		if err != nil {
+			return docker.Credentials{}, err
+		}
 		return result, nil
 	}
-
-	credentials, _ = docker.GetCredentialsFromCredsStore(registry)
-	if credentials != (containersTypes.DockerAuthConfig{}) {
-		result.Username, result.Password = credentials.Username, credentials.Password
-		return result, nil
-	}
-
-	fmt.Println("Please provide credentials for image registry.")
-	var qs = []*survey.Question{
-		{
-			Name: "username",
-			Prompt: &survey.Input{
-				Message: "Username:",
-			},
-			Validate: survey.Required,
-		},
-		{
-			Name: "password",
-			Prompt: &survey.Password{
-				Message: "Password:",
-			},
-			Validate: survey.Required,
-		},
-	}
-	err = survey.Ask(qs, &result)
-
-	return result, err
 }
 
 type deployConfig struct {

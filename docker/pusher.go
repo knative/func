@@ -5,15 +5,20 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"regexp"
 	"strings"
 
+	"github.com/docker/docker/errdefs"
+
+	"github.com/containers/image/v5/pkg/docker/config"
+	containersTypes "github.com/containers/image/v5/types"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
-	"github.com/pkg/errors"
+	dockerClient "github.com/docker/docker/client"
 
 	fn "knative.dev/kn-plugin-func"
 )
@@ -26,6 +31,103 @@ type Credentials struct {
 }
 
 type CredentialsProvider func(ctx context.Context, registry string) (Credentials, error)
+
+type CredentialsCallback func(registry string) (Credentials, error)
+
+var ErrUnauthorized = errors.New("bad credentials")
+
+// VerifyCredentialsCallback checks if credentials are accepted by the registry.
+// If credentials are incorrect this callback shall return ErrUnauthorized.
+type VerifyCredentialsCallback func(ctx context.Context, username, password, registry string) error
+
+func CheckAuth(ctx context.Context, username, password, registry string) error {
+	cli, err := dockerClient.NewClientWithOpts(dockerClient.FromEnv, dockerClient.WithAPIVersionNegotiation())
+	if err != nil {
+		return err
+	}
+
+	_, err = cli.RegistryLogin(ctx, types.AuthConfig{Username: username, Password: password, ServerAddress: registry})
+	if err != nil && strings.Contains(err.Error(), "401 Unauthorized") {
+		return ErrUnauthorized
+	}
+
+	// podman hack until https://github.com/containers/podman/pull/11595 is merged
+	// podman returns 400 (instead of 500) and body in unexpected shape
+	if errdefs.IsInvalidParameter(err) {
+		return ErrUnauthorized
+	}
+
+	return err
+}
+
+// NewCredentialsProvider returns new CredentialsProvider that tires to read credentials from `~/.docker/config.json`.
+// If reading credentials from the config fails caller provided callback will be invoked to obtain credentials.
+// The callback will typically prompt user to enter password to stdin.
+// To verify that password is correct verifyCredentials param may be used.
+// If verifyCredentials == nil then CheckAuth will be used.
+func NewCredentialsProvider(credentialsCallback CredentialsCallback, verifyCredentials VerifyCredentialsCallback) CredentialsProvider {
+	if verifyCredentials == nil {
+		verifyCredentials = CheckAuth
+	}
+	return func(ctx context.Context, registry string) (Credentials, error) {
+
+		result := Credentials{}
+		credentials, err := config.GetCredentials(nil, registry)
+		if err != nil {
+			return result, fmt.Errorf("failed to get credentials: %w", err)
+		}
+
+		if credentials != (containersTypes.DockerAuthConfig{}) {
+			result.Username, result.Password = credentials.Username, credentials.Password
+
+			err = verifyCredentials(ctx, result.Username, result.Password, registry)
+			if err == nil {
+				return result, nil
+			} else {
+				if !errors.Is(err, ErrUnauthorized) {
+					return Credentials{}, err
+				}
+			}
+		}
+
+		credentials, err = GetCredentialsFromCredsStore(registry)
+		if err != nil && !errors.Is(err, ErrCredentialsNotFound) {
+			return Credentials{}, err
+		}
+
+		if credentials != (containersTypes.DockerAuthConfig{}) {
+			result.Username, result.Password = credentials.Username, credentials.Password
+
+			err = verifyCredentials(ctx, result.Username, result.Password, registry)
+			if err == nil {
+				return result, nil
+			} else {
+				if !errors.Is(err, ErrUnauthorized) {
+					return Credentials{}, err
+				}
+			}
+		}
+
+		for {
+			result, err = credentialsCallback(registry)
+			if err != nil {
+				return Credentials{}, err
+			}
+
+			err = verifyCredentials(ctx, result.Username, result.Password, registry)
+			if err == nil {
+				// TODO maybe save the credentials
+				// but where? ~/.docker/conf.json or our own config file?
+				return result, nil
+			} else {
+				if errors.Is(err, ErrUnauthorized) {
+					continue
+				}
+				return Credentials{}, err
+			}
+		}
+	}
+}
 
 // Pusher of images from local to remote registry.
 type Pusher struct {
@@ -78,7 +180,7 @@ func getRegistry(image_url string) (string, error) {
 	case len(parts) >= 3:
 		registry = parts[0]
 	default:
-		return "", errors.Errorf("failed to parse image name: %q", image_url)
+		return "", fmt.Errorf("failed to parse image name: %q", image_url)
 	}
 
 	return registry, nil
@@ -98,13 +200,13 @@ func (n *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err er
 
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
-		return "", errors.Wrap(err, "failed to create docker api client")
+		return "", fmt.Errorf("failed to create docker api client: %w", err)
 	}
 
 	n.progressListener.Stopping()
 	credentials, err := n.credentialsProvider(ctx, registry)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to get credentials")
+		return "", fmt.Errorf("failed to get credentials: %w", err)
 	}
 	n.progressListener.Increment("Pushing function image to the registry")
 
@@ -117,7 +219,7 @@ func (n *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err er
 
 	r, err := cli.ImagePush(ctx, f.Image, opts)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to push the image")
+		return "", fmt.Errorf("failed to push the image: %w", err)
 	}
 	defer r.Close()
 
