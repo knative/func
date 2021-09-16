@@ -12,6 +12,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
+        with:
+          go-version: "^1.16"
       - name: Determine platform binaries
         id: pkger-binaries
         uses: actions/github-script@v2
@@ -82,8 +84,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      - name: Setup Go
-        uses: actions/setup-go@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: "^1.16"
       - name: Install Podman
         run: |
           . /etc/os-release
@@ -112,8 +115,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      - name: Setup Go
-        uses: actions/setup-go@v2
+      - uses: actions/setup-go@v2
         with:
           go-version: "^1.16"
       - name: Determine download URL for latest pkger

@@ -10,6 +10,8 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
+        with:
+          go-version: "^1.16"
       - name: Determine download URL for pkger
         id: pkger-download-url
         uses: actions/github-script@v2
@@ -78,6 +80,8 @@ jobs:
           git push origin v${{steps.release.outputs.major}}.${{steps.release.outputs.minor}}.${{steps.release.outputs.patch}} || true
 
       - uses: actions/setup-go@v2
+        with:
+          go-version: "^1.16"
       - name: Install pkger
         run: |
           curl -s -L -o pkger.tgz ${{ needs.test.outputs.pkger }}
