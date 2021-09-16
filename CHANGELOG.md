@@ -1,6 +1,42 @@
 # Change Log
 
 <a name="unreleased"></a>
+## [0.18.0](https://www.github.com/knative-sandbox/kn-plugin-func/compare/v0.17.1...v0.18.0) (2021-09-16)
+
+
+### ⚠ BREAKING CHANGES
+
+* change `describe` command to `info` (#474)
+* use key&value for Labels (#472)
+
+### Features
+
+* allow language packs to set function metadata ([#465](https://www.github.com/knative-sandbox/kn-plugin-func/issues/465)) ([48f40c3](https://www.github.com/knative-sandbox/kn-plugin-func/commit/48f40c35e3a239d09d6a87fc4603ad21db46bc37))
+* builders/buildpacks configured in client ([#495](https://www.github.com/knative-sandbox/kn-plugin-func/issues/495)) ([668804e](https://www.github.com/knative-sandbox/kn-plugin-func/commit/668804e53e76ce153a887289efb2b05f88203a1f))
+* change `describe` command to `info` ([#474](https://www.github.com/knative-sandbox/kn-plugin-func/issues/474)) ([10a0757](https://www.github.com/knative-sandbox/kn-plugin-func/commit/10a07578e9f6ab6bbbb8028633b37e3400fd22bb))
+* client effective runtimes list ([#490](https://www.github.com/knative-sandbox/kn-plugin-func/issues/490)) ([e0aad6f](https://www.github.com/knative-sandbox/kn-plugin-func/commit/e0aad6f936067892e04a463f85ca46689714716c))
+* generate json schema for func.yaml ([#460](https://www.github.com/knative-sandbox/kn-plugin-func/issues/460)) ([8939f89](https://www.github.com/knative-sandbox/kn-plugin-func/commit/8939f89beae7d5b2f66bc18b921ca3059f89e629))
+* make func schema if config updated ([#468](https://www.github.com/knative-sandbox/kn-plugin-func/issues/468)) ([6ae2157](https://www.github.com/knative-sandbox/kn-plugin-func/commit/6ae215754930c8a1e1dc4b5cd0b8ef3d99bb2893))
+* move go, typescript and nodejs to paketo builders ([#485](https://www.github.com/knative-sandbox/kn-plugin-func/issues/485)) ([a4b15ad](https://www.github.com/knative-sandbox/kn-plugin-func/commit/a4b15ad9926112910251a8d74747e2db368c86e9))
+* repository and templates client api ([#475](https://www.github.com/knative-sandbox/kn-plugin-func/issues/475)) ([3f56a8f](https://www.github.com/knative-sandbox/kn-plugin-func/commit/3f56a8fd7a66b923294043bcaa68ad59b1228831))
+* repository management cli ([#514](https://www.github.com/knative-sandbox/kn-plugin-func/issues/514)) ([ae638c3](https://www.github.com/knative-sandbox/kn-plugin-func/commit/ae638c349c46c035bad74645bfc612380c871a85))
+* repository management client api ([#467](https://www.github.com/knative-sandbox/kn-plugin-func/issues/467)) ([9fd2475](https://www.github.com/knative-sandbox/kn-plugin-func/commit/9fd247557ae8ee30cc7c5f0107d80fa72fbe8086))
+* use key&value for Labels ([#472](https://www.github.com/knative-sandbox/kn-plugin-func/issues/472)) ([5569681](https://www.github.com/knative-sandbox/kn-plugin-func/commit/55696811e317a51767e09acab3d4d4e2abc6e982))
+
+
+### Bug Fixes
+
+* `build` should honor registry specified in `-r` ([#510](https://www.github.com/knative-sandbox/kn-plugin-func/issues/510)) ([8aba038](https://www.github.com/knative-sandbox/kn-plugin-func/commit/8aba038073f5584133eb3d08ba85289800e2e770))
+* `config labels` panic ([#493](https://www.github.com/knative-sandbox/kn-plugin-func/issues/493)) ([f2efbe5](https://www.github.com/knative-sandbox/kn-plugin-func/commit/f2efbe5b42a6e0af36ecc6be429a630312e0c6e5))
+* better cleanup before pkger run ([#479](https://www.github.com/knative-sandbox/kn-plugin-func/issues/479)) ([25b1d63](https://www.github.com/knative-sandbox/kn-plugin-func/commit/25b1d63b9c1b332e1d59e494af83bdc3a1f576e9))
+* control chars on progress listener for Windows OS ([#498](https://www.github.com/knative-sandbox/kn-plugin-func/issues/498)) ([1172a85](https://www.github.com/knative-sandbox/kn-plugin-func/commit/1172a85c80f834ff3958073bc36ff4a5173c9de6))
+* enable healt checks for Quarkus ([#477](https://www.github.com/knative-sandbox/kn-plugin-func/issues/477)) ([72a1cf8](https://www.github.com/knative-sandbox/kn-plugin-func/commit/72a1cf885e092340295cc6ace3580e7420640cda))
+* fast-fail on create if Function already exists ([#496](https://www.github.com/knative-sandbox/kn-plugin-func/issues/496)) ([25f7007](https://www.github.com/knative-sandbox/kn-plugin-func/commit/25f7007300c020b5a1d336740a2bbc2f546bf3da))
+* regenerate pkged.go ([#478](https://www.github.com/knative-sandbox/kn-plugin-func/issues/478)) ([c7b3af4](https://www.github.com/knative-sandbox/kn-plugin-func/commit/c7b3af41b8cac0b9edfb96d3a01230d2606e320a))
+* removal of repositories ([#524](https://www.github.com/knative-sandbox/kn-plugin-func/issues/524)) ([90c60b6](https://www.github.com/knative-sandbox/kn-plugin-func/commit/90c60b693d6b2dbb2c8edee27a7cf7b6e8d1c399))
+* support nested subdirs in remote templates ([#482](https://www.github.com/knative-sandbox/kn-plugin-func/issues/482)) ([fcf9e77](https://www.github.com/knative-sandbox/kn-plugin-func/commit/fcf9e77cb93808d28d0c60f3a0959fac605771fb))
+* use full image names ([#535](https://www.github.com/knative-sandbox/kn-plugin-func/issues/535)) ([16ee28c](https://www.github.com/knative-sandbox/kn-plugin-func/commit/16ee28c83debcc19092abb250ef20354eca09710))
+
 ### [0.17.1](https://www.github.com/knative-sandbox/kn-plugin-func/compare/v0.17.0...v0.17.1) (2021-08-05)
 
 
