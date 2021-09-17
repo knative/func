@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"sort"
 	"sync"
+	"time"
 
 	"gopkg.in/yaml.v2"
 )
@@ -508,8 +509,34 @@ func (c *Client) Create(cfg Function) (err error) {
 // not contain a populated Image.
 func (c *Client) Build(ctx context.Context, path string) (err error) {
 	c.progressListener.Increment("Building function image")
+
+	m := []string{
+		"Still building",
+		"Don't give up",
+		"This is taking a while",
+		"Still building"}
+	ticker := time.NewTicker(5 * time.Second)
+	quit := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				if len(m) == 0 {
+					close(quit)
+					break
+				}
+				c.progressListener.Increment(m[0])
+				m = m[1:] // remove 0th element
+			case <-quit:
+				ticker.Stop()
+				return
+			}
+		}
+	}()
+
 	go func() {
 		<-ctx.Done()
+		close(quit)
 		c.progressListener.Stopping()
 	}()
 
