@@ -2,6 +2,13 @@
 
 The CLI is used to create, build and deploy functions.  To use it, install one of the pre-built binaries, or compile from source.
 
+## From Homebrew
+
+```
+brew tap knative-sandbox/kn-plugins
+brew install func
+```
+
 ## Prebuilt Binary
 
 Download the latest binary appropriate for your system from the [Latest Release](https://github.com/knative-sandbox/kn-plugin-func/releases/latest/).
