@@ -92,7 +92,9 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (result fn.Deploym
 				return fn.DeploymentResult{}, err
 			}
 
-			fmt.Println("Function deployed at URL: " + route.Status.URL.String())
+			if d.Verbose {
+				fmt.Println("Function deployed at URL: " + route.Status.URL.String())
+			}
 			return fn.DeploymentResult{
 				Status: fn.Deployed,
 				URL:    route.Status.URL.String(),
