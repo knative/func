@@ -24,7 +24,7 @@ LDFLAGS := "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)"
 # Built into the binary are the contents of ./templates.  This is done by
 # running 'pkger' which generates pkged.go containing templates encoded 
 # as Go objects and exposed at runtime as a filesystem.
-PKGER ?= pkger
+PKGER ?= ./hack/update-pkger.sh
 
 # All Code prerequisites, including generated files, etc.
 CODE := $(shell find . -name '*.go') pkged.go go.mod schema/func_yaml-schema.json
@@ -76,7 +76,6 @@ pkged.go: $(TEMPLATES)
 	@rm -rf templates/springboot/events/target
 	@rm -rf templates/springboot/http/target
 	# Generating pkged.go using pkger
-	# to insstall pkger: 'go get github.com/markbates/pkger/cmd/pkger'
 	$(PKGER)
 
 clean: ## Remove generated artifacts such as binaries and schemas

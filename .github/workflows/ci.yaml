@@ -10,39 +10,14 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
-      - name: Determine download URL for pkger
-        id: pkger-download-url
-        uses: actions/github-script@v2
-        with:
-          result-encoding: string
-          script: |
-            return github.repos.getReleaseByTag({
-                owner: "markbates",
-                repo: "pkger",
-                tag: "v0.17.1"
-            }).then(result => {
-                return result.data.assets
-                  .filter(a => a.name.includes('Linux_x86'))
-                  .map(a => a.browser_download_url)[0];
-            })
-      - name: Install pkger
-        run: |
-          curl -s -L -o pkger.tgz ${{ steps.pkger-download-url.outputs.result }}
-          tar xvzf pkger.tgz
       - name: Unit Test
         run:  make test
-        env:
-          PKGER: "./pkger"
       - name: Template Unit Tests
         run:  make test-templates
-        env:
-          PKGER: "./pkger"
       - name: Lint
         run: make check
       - name: Check that 'func.yaml schema' is up-to-date
         run: make schema-check
-    outputs:
-      pkger: ${{ steps.pkger-download-url.outputs.result }}
 
   build-and-publish:
     needs: test
@@ -78,16 +53,10 @@ jobs:
           git push origin v${{steps.release.outputs.major}}.${{steps.release.outputs.minor}}.${{steps.release.outputs.patch}} || true
 
       - uses: actions/setup-go@v2
-      - name: Install pkger
-        run: |
-          curl -s -L -o pkger.tgz ${{ needs.test.outputs.pkger }}
-          tar xvzf pkger.tgz
 
       # Standard build tasks
       - name: Build
         run: make cross-platform
-        env:
-          PKGER: "./pkger"
           # NOTE:
           # release-please adds the version asynchronously. Without using the
           # synchonous tagging step above, the version can be explicitly passed
