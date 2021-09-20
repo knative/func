@@ -20,12 +20,10 @@ set -o pipefail
 
 source $(dirname $0)/../vendor/knative.dev/hack/library.sh
 
-# Hack: Remove the build tag before running pkger
-tools="${REPO_ROOT_DIR}/hack/tools.go"
-first="$(head -n1 "$tools")"
-sed -i '1d' "$tools"
+# Hack: touch a non-tagged file so that pkger doesn't complain
+echo -e "package tools" > "$REPO_ROOT_DIR/hack/package.go"
 
 go run ./vendor/github.com/markbates/pkger/cmd/pkger
 
-# Hack: Restore build tag.
-echo -e "$first\n$(cat "$tools")" > "$tools"
+# Hack: remove touched file.
+rm "$REPO_ROOT_DIR/hack/package.go"
