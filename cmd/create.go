@@ -1,11 +1,12 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/AlecAivazis/survey/v2/terminal"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
@@ -20,60 +21,86 @@ func init() {
 	root.AddCommand(NewCreateCmd(newCreateClient))
 }
 
+// createClientFn is a factory function which returns a Client suitable for
+// use with the Create command.
+type createClientFn func(createConfig) (*fn.Client, error)
+
 // newCreateClient returns an instance of fn.Client for the "Create" command.
 // The createClientFn is a client factory which creates a new Client for use by
 // the create command during normal execution (see tests for alternative client
 // factories which return clients with various mocks).
-func newCreateClient(cfg createConfig) *fn.Client {
-	return fn.New(
-		fn.WithRepositories(cfg.Repositories),
-		fn.WithRepository(cfg.Repository),
-		fn.WithVerbose(cfg.Verbose))
+func newCreateClient(cfg createConfig) (*fn.Client, error) {
+	client := fn.New(
+		fn.WithRepositories(cfg.Repositories), // path to repositories in disk
+		fn.WithRepository(cfg.Repository),     // URI of repository override
+		fn.WithVerbose(cfg.Verbose))           // verbose logging
+	return client, nil
 }
-
-// createClientFn is a factory function which returns a Client suitable for
-// use with the Create command.
-type createClientFn func(createConfig) *fn.Client
 
 // NewCreateCmd creates a create command using the given client creator.
 func NewCreateCmd(clientFn createClientFn) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "create [PATH]",
-		Short: "Create a function project",
-		Long: `Create a function project
+		Short: "Create a Function Project",
+		Use:   "create",
+		Long: `
+NAME
+	func-create - Create a Function project.
 
-Creates a new function project in PATH, or in the current directory if no PATH is given. 
-The name of the project is determined by the directory name the project is created in.
+SYNOPSIS
+	func create [-l|--language] [-t|--template] [-r|--repository]
+	             [-c|--confirm]  [-v|--verbose] [path]
+
+DESCRIPTION
+	Creates a new Function project.
+
+	  $ func create -l go -t http
+
+	Creates a Function in the current directory '.' which is written in the
+	language/runtime 'Go' and handles HTTP events.
+
+	If [path] is provided, the Function is initialized at that path, creating
+	if necessary.
+
+	To complete this command interactivly, use --confirm (-c):
+	  $ func create -c
+
+	Language Runtime and Templates Currently Installed
+	Language Runtime  |  Template
+	// Coming Soon
+
+	To install more language runtimes and their templates see 'func-repository'.
+
+EXAMPLES
+	o Create a Node.js Function (the default language runtime) in the current
+	  directory (the default path) which handles http events (the default
+	  template).
+	  $ func create
+
+	o Create a Node.js Function in the directory 'myfunc'.
+	  $ func create myfunc
+
+	o Create a Go Function which handles Cloud Events in ./myfunc.
+	  $ func create -l go -t events myfunc
 `,
-		Example: `
-# Create a Node.js function project in the current directory, choosing the
-# directory name as the project's name.
-kn func create
-
-# Create a Quarkus function project in the directory "sample-service". 
-# The directory will be created in the local directory if non-existent and 
-# the project is called "sample-service"
-kn func create --runtime quarkus sample-service
-
-# Create a function project that uses a CloudEvent based function signature
-kn func create --template events sample-events
-	`,
 		SuggestFor: []string{"vreate", "creaet", "craete", "new"},
-		PreRunE:    bindEnv("runtime", "template", "repository", "confirm"),
+		PreRunE:    bindEnv("language", "template", "repository", "confirm"),
 	}
 
-	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
-	cmd.Flags().StringP("runtime", "l", fn.DefaultRuntime, "Function runtime language/framework. Available runtimes: "+buildpacks.Runtimes()+" (Env: $FUNC_RUNTIME)")
-	cmd.Flags().StringP("template", "t", fn.DefaultTemplate, "Function template. Available templates: 'http' and 'events' (Env: $FUNC_TEMPLATE)")
+	// Flags
+	cmd.Flags().StringP("language", "l", fn.DefaultLanguage, "Language Runtime (see help text for list) (Env: $FUNC_RUNTIME)")
+	cmd.Flags().StringP("template", "t", fn.DefaultTemplate, "Function template. (see help text for list) (Env: $FUNC_TEMPLATE)")
 	cmd.Flags().StringP("repository", "r", "", "URI to a Git repository containing the specified template (Env: $FUNC_REPOSITORY)")
+	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
 
-	// Register tab-completeion function integration
-	if err := cmd.RegisterFlagCompletionFunc("runtime", CompleteRuntimeList); err != nil {
-		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
+	// Tab Complition
+	if err := cmd.RegisterFlagCompletionFunc("language", CompleteLanguageRuntimeList); err != nil {
+		fmt.Fprintf(os.Stderr, "unable to provide runtime suggestions: %v", err)
+	}
+	if err := cmd.RegisterFlagCompletionFunc("template", CompleteTemplateList); err != nil {
+		fmt.Fprintf(os.Stderr, "unable to provide template suggestions: %v", err)
 	}
 
-	// The execution delegate is invoked with the command, arguments, and the
-	// client creator.
+	// Command Action
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		return runCreate(cmd, args, clientFn)
 	}
@@ -81,52 +108,49 @@ kn func create --template events sample-events
 	return cmd
 }
 
+// Run
 func runCreate(cmd *cobra.Command, args []string, clientFn createClientFn) (err error) {
-	config := newCreateConfig(args)
-
-	if err = utils.ValidateFunctionName(config.Name); err != nil {
+	// Config
+	// Create a config based on args.  Also uses the clientFn to create a
+	// temporary client for completing options such as available runtimes.
+	cfg, err := newCreateConfig(args, clientFn)
+	if err != nil {
 		return
 	}
 
-	if config, err = config.Prompt(); err != nil {
-		if err == terminal.InterruptErr {
-			return nil
-		}
+	// Config and Client
+	// From environment variables, flags, arguments, and user prompts if --confirm
+	// (in increasing levels of precidence)
+	client, err := clientFn(cfg)
+	if err != nil {
 		return
 	}
 
-	function := fn.Function{
-		Name:     config.Name,
-		Root:     config.Path,
-		Runtime:  config.Runtime,
-		Template: config.Template,
+	// Validate
+	if err = cfg.Validate(); err != nil {
+		return
 	}
 
-	client := clientFn(config)
-
-	return client.Create(function)
+	// Create
+	return client.Create(fn.Function{
+		Root:     cfg.Path,
+		Runtime:  cfg.Language,
+		Template: cfg.Template,
+	})
 }
 
 type createConfig struct {
-	// Name of the Function.
-	Name string
-
-	// Absolute path to Function on disk.
-	Path string
-
-	// Runtime language/framework.
-	Runtime string
+	Path       string // Absolute path to Function sourcsource
+	Language   string // Language Runtime
+	Repository string // Repository URI (overrides builtin and installed)
+	Verbose    bool   // Verbose output
+	Confirm    bool   // Confirm values via an interactive prompt
 
 	// Repositories is an optional path that, if it exists, will be used as a source
 	// for additional template repositories not included in the binary.  provided via
 	// env (FUNC_REPOSITORIES), the default location is $XDG_CONFIG_HOME/repositories
 	// ($HOME/.config/func/repositories)
 	Repositories string
-
-	// Repository is the URL of a specific Git repository to use for templates.
-	// If specified, this takes precidence over both inbuilt templates or
-	// extensible templates.
-	Repository string
 
 	// Template is the code written into the new Function project, including
 	// an implementation adhering to one of the supported function signatures.
@@ -137,104 +161,184 @@ type createConfig struct {
 	// minimum implementation of the signature itself and example tests.
 	Template string
 
-	// Verbose output
-	Verbose bool
-
-	// Confirm: confirm values arrived upon from environment plus flags plus defaults,
-	// with interactive prompting (only applicable when attached to a TTY).
-	Confirm bool
+	// Name of the Function
+	// Not prominently highlighted in help text or confirmation statements as it
+	// is likely this will be refactored away to be part of the Deploy step, in
+	// a git-like flow where it is not required to create, but is part of a named
+	// remote for a one-to-many replationship.
+	Name string
 }
 
 // newCreateConfig returns a config populated from the current execution context
 // (args, flags and environment variables)
-func newCreateConfig(args []string) createConfig {
-	var path string
-	if len(args) > 0 {
-		path = args[0] // If explicitly provided, use.
+// The client constructor function is used to create a transient client for
+// accessing things like the current valid templates list, and uses the
+// current value of the config at time of prompting.
+func newCreateConfig(args []string, clientFn createClientFn) (cfg createConfig, err error) {
+	var (
+		path         string
+		dirName      string
+		absolutePath string
+		repositories string
+	)
+
+	if len(args) == 1 {
+		path = args[0]
+	} else if len(args) > 1 {
+		return cfg, errors.New("too many arguments.  usage: func create [flags] [path]")
 	}
 
-	derivedName, derivedPath := deriveNameAndAbsolutePathFromPath(path)
-	cc := createConfig{
-		Name:       derivedName,
-		Path:       derivedPath,
-		Repository: viper.GetString("repository"),
-		Runtime:    viper.GetString("runtime"),
-		Template:   viper.GetString("template"),
-		Confirm:    viper.GetBool("confirm"),
-		Verbose:    viper.GetBool("verbose"),
+	// Convert the path to an absolute path, and extract the ending directory name
+	// as the function name. TODO: refactor to be git-like with no name up-front
+	// and set instead as a named one-to-many deploy target.
+	dirName, absolutePath = deriveNameAndAbsolutePathFromPath(path)
+
+	// Repositories Path
+	// Not exposed as a flag due to potential confusion with the more likely
+	// "repository override" flag, and due to its unlikliness of being needed, but
+	// it is still available as an environment variable.
+	repositories = os.Getenv("FUNC_REPOSITORIES")
+	if repositories == "" { // if no env var provided
+		repositories = repositoriesPath() // use ~/.config/func/repositories
 	}
 
-	// Repositories not exposed as a flag due to potential confusion and
-	// unlikliness of being needed, but is left available as an env.
-	cc.Repositories = os.Getenv("FUNC_REPOSITORIES")
-	if cc.Repositories == "" {
-		cc.Repositories = repositoriesPath()
+	// Config is the final default values based off the execution context.
+	// When prompting, these become the defaults presented.
+	cfg = createConfig{
+		Name:         dirName, // TODO: refactor to be git-like
+		Path:         absolutePath,
+		Repositories: repositories,
+		Repository:   viper.GetString("repository"),
+		Language:     viper.GetString("language"),
+		Template:     viper.GetString("template"),
+		Confirm:      viper.GetBool("confirm"),
+		Verbose:      viper.GetBool("verbose"),
 	}
 
-	return cc
+	// If not in confirm/prompting mode, this cfg structure is complete.
+	if !cfg.Confirm {
+		return
+	}
+
+	// Create a tempoarary client for use by the following prompts to complete
+	// runtime/template suggestions etc
+	client, err := clientFn(cfg)
+	if err != nil {
+		return
+	}
+
+	// IN confirm mode.  If also in an interactive terminal, run prompts.
+	if interactiveTerminal() {
+		return cfg.prompt(client)
+	}
+
+	// Confirming, but noninteractive
+	// Print out the final values as a confirmation.  Only show Repository or
+	// Repositories, not both (repository takes precidence) in order to avoid
+	// likely confusion if both are displayed and one is empty.
+	// be removed and both displayed.
+	fmt.Printf("Path:         %v\n", cfg.Path)
+	fmt.Printf("Language:     %v\n", cfg.Language)
+	if cfg.Repository != "" { // if an override was provided
+		fmt.Printf("Repository:   %v\n", cfg.Repository) // show only the override
+	} else {
+		fmt.Printf("Repositories: %v\n", cfg.Repositories) // or path to installed
+	}
+	fmt.Printf("Template:     %v\n", cfg.Template)
+	return
 }
 
-// Prompt the user with value of config members, allowing for interaractive changes.
-// Skipped if not in an interactive terminal (non-TTY), or if --confirm false (agree to
-// all prompts) was set (default).
-func (c createConfig) Prompt() (createConfig, error) {
-	if !interactiveTerminal() || !c.Confirm {
-		// Just print the basics if not confirming
-		fmt.Printf("Project path:  %v\n", c.Path)
-		fmt.Printf("Function name: %v\n", c.Name)
-		fmt.Printf("Runtime:       %v\n", c.Runtime)
-		fmt.Printf("Template:      %v\n", c.Template)
-		if c.Repository != "" {
-			fmt.Printf("Repository:    %v\n", c.Repository)
-		}
-		return c, nil
-	}
+// Validate the current state of the config, returning any errors.
+func (c createConfig) Validate() (err error) {
+	// TODO: refactor to be git-like with no name at time of creation, but rather
+	// with named deployment targets in a one-to-many configuration.
+	dirName, _ := deriveNameAndAbsolutePathFromPath(c.Path)
+	return utils.ValidateFunctionName(dirName)
+	// NOTE: perhaps additional validation would be of use here in the CLI, but
+	// the client libray itself is ultimately responsible for validating all input
+	// prior to exeuting any requests.
+}
 
-	var qs = []*survey.Question{
+// prompt the user with value of config members, allowing for interactively
+// mutating the values. The provided clientFn is used to construct a transient
+// client for use during prompt autocompletion/suggestions (such as suggesting
+// valid templates)
+func (c createConfig) prompt(client *fn.Client) (createConfig, error) {
+	var qs []*survey.Question
+
+	// First ask for path...
+	qs = []*survey.Question{
 		{
 			Name: "path",
 			Prompt: &survey.Input{
-				Message: "Project path:",
+				Message: "Function Path:",
 				Default: c.Path,
 			},
 			Validate: func(val interface{}) error {
 				derivedName, _ := deriveNameAndAbsolutePathFromPath(val.(string))
 				return utils.ValidateFunctionName(derivedName)
 			},
-		},
-		{
-			Name: "runtime",
-			Prompt: &survey.Select{
-				Message: "Runtime:",
-				Options: buildpacks.RuntimesList(),
-				Default: c.Runtime,
+			Transform: func(ans interface{}) interface{} {
+				_, absolutePath := deriveNameAndAbsolutePathFromPath(ans.(string))
+				return absolutePath
 			},
-		},
+		}, {
+			Name: "language",
+			Prompt: &survey.Select{
+				Message: "Language Runtime:",
+				Options: effectiveRuntimes(client),
+				Default: c.Language,
+			},
+		}}
+	if err := survey.Ask(qs, &c); err != nil {
+		return c, err
+	}
+
+	// Second loop: choose template with autocompletion filtered by chosen runtime
+	qs = []*survey.Question{
 		{
 			Name: "template",
 			Prompt: &survey.Input{
 				Message: "Template:",
 				Default: c.Template,
-				// TODO add template suggestions: https://github.com/AlecAivazis/survey#suggestion-options
+				Suggest: func(prefix string) []string {
+					suggestions, err := templatesWithPrefix(prefix, c.Language, client)
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "unable to suggest: %v", err)
+					}
+					return suggestions
+				},
 			},
 		},
 	}
-	answers := struct {
-		Template string
-		Runtime  string
-		Path     string
-	}{}
-	err := survey.Ask(qs, &answers)
-	if err != nil {
-		return createConfig{}, err
+	if err := survey.Ask(qs, &c); err != nil {
+		return c, err
 	}
 
-	derivedName, derivedPath := deriveNameAndAbsolutePathFromPath(answers.Path)
+	return c, nil
+}
 
-	return createConfig{
-		Name:     derivedName,
-		Path:     derivedPath,
-		Runtime:  answers.Runtime,
-		Template: answers.Template,
-	}, nil
+// effective language runtimes are those which can be created because they also
+// have an associated template, etc.
+func effectiveRuntimes(client *fn.Client) []string {
+	// TODO:  merge effective language runtimes PR and invoke here
+	return buildpacks.RuntimesList()
+}
+
+// return templates for language runtime whose full name (including repository)
+// have the given prefix.
+func templatesWithPrefix(prefix, language string, client *fn.Client) ([]string, error) {
+	var (
+		suggestions    = []string{}
+		templates, err = client.Templates().List(language)
+	)
+	if err != nil {
+		return suggestions, err
+	}
+	for _, template := range templates {
+		if strings.HasPrefix(template, prefix) {
+			suggestions = append(suggestions, template)
+		}
+	}
+	return suggestions, nil
 }

@@ -31,7 +31,8 @@ func CompleteFunctionList(cmd *cobra.Command, args []string, toComplete string) 
 	directive = cobra.ShellCompDirectiveDefault
 	return
 }
-func CompleteRuntimeList(cmd *cobra.Command, args []string, toComplete string) (strings []string, directive cobra.ShellCompDirective) {
+
+func CompleteLanguageRuntimeList(cmd *cobra.Command, args []string, toComplete string) (strings []string, directive cobra.ShellCompDirective) {
 	strings = []string{}
 	for lang := range buildpacks.RuntimeToBuildpack {
 		strings = append(strings, lang)
@@ -39,6 +40,14 @@ func CompleteRuntimeList(cmd *cobra.Command, args []string, toComplete string) (
 	directive = cobra.ShellCompDirectiveDefault
 	return
 }
+
+func CompleteTemplateList(cmd *cobra.Command, args []string, toComplete string) (strings []string, directive cobra.ShellCompDirective) {
+	strings = []string{}
+	// TODO
+	directive = cobra.ShellCompDirectiveDefault
+	return
+}
+
 func CompleteOutputFormatList(cmd *cobra.Command, args []string, toComplete string) (strings []string, directive cobra.ShellCompDirective) {
 	directive = cobra.ShellCompDirectiveDefault
 	strings = []string{"plain", "yaml", "xml", "json"}

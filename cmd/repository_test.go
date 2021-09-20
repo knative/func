@@ -186,7 +186,7 @@ func TestRepositoryRemove(t *testing.T) {
 // the effective value recorded on the mock as members for test assertions.
 func testRepositoryClientFn(client *mock.Client) repositoryClientFn {
 	c := testRepositoryClient{client} // type gymnastics
-	return func(args []string) (repositoryClientConfig, RepositoryClient, error) {
+	return func(args []string) (repositoryConfig, RepositoryClient, error) {
 		cfg, err := newRepositoryConfig(args)
 		client.Confirm = cfg.Confirm
 		client.RepositoriesPath = cfg.Repositories

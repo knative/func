@@ -149,7 +149,7 @@ func TestDefaultRuntime(t *testing.T) {
 	}
 
 	// Ensure it has defaulted runtime
-	if f.Runtime != fn.DefaultRuntime {
+	if f.Runtime != fn.DefaultLanguage {
 		t.Fatal("The default runtime was not applied or persisted.")
 	}
 }

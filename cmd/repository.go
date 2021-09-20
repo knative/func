@@ -23,13 +23,13 @@ func init() {
 
 // repositoryClientFn is a function which yields both a client and the final
 // config used to instantiate.
-type repositoryClientFn func([]string) (repositoryClientConfig, RepositoryClient, error)
+type repositoryClientFn func([]string) (repositoryConfig, RepositoryClient, error)
 
 // newRepositoryClient is the default repositoryClientFn.
 // It creates a config (which parses flags and environment variables) and uses
 // the config to intantiate a client.  This function is swapped out in tests
 // with one which returns a mock client.
-func newRepositoryClient(args []string) (repositoryClientConfig, RepositoryClient, error) {
+func newRepositoryClient(args []string) (repositoryConfig, RepositoryClient, error) {
 	cfg, err := newRepositoryConfig(args)
 	if err != nil {
 		return cfg, nil, err
@@ -243,85 +243,6 @@ func NewRepositoryRemoveCmd(clientFn repositoryClientFn) *cobra.Command {
 	return cmd
 }
 
-// client config
-// -------------
-
-// repositoryClientConfig used for instantiating a fn.Client
-type repositoryClientConfig struct {
-	Repositories string // Path to repos to be managed
-	Verbose      bool   // Enables verbose logging
-	Confirm      bool   // Enables interactive confirmation/prompting mode
-}
-
-// newRepositoryConfig creates a configuration suitable for use instantiating the
-// fn Client. Note that parameters for the individual commands (add, remove etc)
-// are collected separately in their requisite run functions.
-func newRepositoryConfig(args []string) (cfg repositoryClientConfig, err error) {
-	// initial config is populated based on flags, which are themselves
-	// first populated by static defaults, then environment variables,
-	// finally command flags.
-	cfg = repositoryClientConfig{
-		Repositories: viper.GetString("repositories"),
-		Verbose:      viper.GetBool("verbose"),
-		Confirm:      viper.GetBool("confirm"),
-	}
-
-	// If not in confirm (interactive prompting) mode,
-	// this struct is complete.
-	if !cfg.Confirm {
-		return
-	}
-
-	// Prompt the terminal for interactive input using the current values
-	// as defaults. (noninteractive terminals are a noop)
-	if interactiveTerminal() {
-		return cfg.prompt()
-	}
-
-	// Noninteractive terminals in confirm/prompt mode simply echo
-	// effective values to stdout.
-	fmt.Fprintf(os.Stdout, "Repositories path: %v\n", cfg.Repositories)
-	fmt.Fprintf(os.Stdout, "Verbose logging:   %v\n", cfg.Verbose)
-	return
-}
-
-// prompt returns a config with values populated from interactivly prompting
-// the user.
-func (c repositoryClientConfig) prompt() (repositoryClientConfig, error) {
-	// These prompts are overly verbose, as the user calling --confirm likely
-	// only cares about the individual command-specific values (for example
-	// "name" and "url" when calling "add".  However, we want to provide the
-	// ability to interactively choose _all_ options if the user really wants
-	// to, therefore these prompts are only shown if the user is "confirming
-	// verbosely", for example `func repository add -cv`.  (of course the
-	// associated flags, environment variables etc are still respected.  Just
-	// no prompts unless verbose)
-	if !c.Verbose {
-		return c, nil
-	}
-
-	// Prompt the user for the "global" settings Repositories Path and Verbose.
-	// Not prompted for unless already in verbose mode (ex: func repo add -cv)
-	qs := []*survey.Question{
-		{
-			Name: "Repositories",
-			Prompt: &survey.Input{
-				Message: "Path to repositories:",
-				Default: c.Repositories,
-			},
-			Validate: survey.Required,
-		}, {
-			Name: "Verbose",
-			Prompt: &survey.Confirm{
-				Message: "Enable verbose logging:",
-				Default: c.Verbose,
-			},
-		},
-	}
-	err := survey.Ask(qs, &c)
-	return c, err
-}
-
 // command implementations
 // -----------------------
 
@@ -358,7 +279,7 @@ func runRepository(cmd *cobra.Command, args []string, clientFn repositoryClientF
 	// (possibly prompting etc.), so the clientFn used for the subcommand
 	// delegation can be effectively a closure around those values so the
 	// user is not re-prompted:
-	c := func([]string) (repositoryClientConfig, RepositoryClient, error) { return cfg, client, nil }
+	c := func([]string) (repositoryConfig, RepositoryClient, error) { return cfg, client, nil }
 
 	// Run the command indicated
 	switch answer.Action {
@@ -652,6 +573,85 @@ func installedRepositories(client RepositoryClient) ([]string, error) {
 		return []string{}, err
 	}
 	return repositories[1:], nil
+}
+
+// client config
+// -------------
+
+// repositoryConfig used for instantiating a fn.Client
+type repositoryConfig struct {
+	Repositories string // Path to repos to be managed
+	Verbose      bool   // Enables verbose logging
+	Confirm      bool   // Enables interactive confirmation/prompting mode
+}
+
+// newRepositoryConfig creates a configuration suitable for use instantiating the
+// fn Client. Note that parameters for the individual commands (add, remove etc)
+// are collected separately in their requisite run functions.
+func newRepositoryConfig(args []string) (cfg repositoryConfig, err error) {
+	// initial config is populated based on flags, which are themselves
+	// first populated by static defaults, then environment variables,
+	// finally command flags.
+	cfg = repositoryConfig{
+		Repositories: viper.GetString("repositories"),
+		Verbose:      viper.GetBool("verbose"),
+		Confirm:      viper.GetBool("confirm"),
+	}
+
+	// If not in confirm (interactive prompting) mode,
+	// this struct is complete.
+	if !cfg.Confirm {
+		return
+	}
+
+	// Prompt the terminal for interactive input using the current values
+	// as defaults. (noninteractive terminals are a noop)
+	if interactiveTerminal() {
+		return cfg.prompt()
+	}
+
+	// Noninteractive terminals in confirm/prompt mode simply echo
+	// effective values to stdout.
+	fmt.Fprintf(os.Stdout, "Repositories path: %v\n", cfg.Repositories)
+	fmt.Fprintf(os.Stdout, "Verbose logging:   %v\n", cfg.Verbose)
+	return
+}
+
+// prompt returns a config with values populated from interactivly prompting
+// the user.
+func (c repositoryConfig) prompt() (repositoryConfig, error) {
+	// These prompts are overly verbose, as the user calling --confirm likely
+	// only cares about the individual command-specific values (for example
+	// "name" and "url" when calling "add".  However, we want to provide the
+	// ability to interactively choose _all_ options if the user really wants
+	// to, therefore these prompts are only shown if the user is "confirming
+	// verbosely", for example `func repository add -cv`.  (of course the
+	// associated flags, environment variables etc are still respected.  Just
+	// no prompts unless verbose)
+	if !c.Verbose || !interactiveTerminal() {
+		return c, nil
+	}
+
+	// Prompt the user for the "global" settings Repositories Path and Verbose.
+	// Not prompted for unless already in verbose mode (ex: func repo add -cv)
+	qs := []*survey.Question{
+		{
+			Name: "Repositories",
+			Prompt: &survey.Input{
+				Message: "Path to repositories:",
+				Default: c.Repositories,
+			},
+			Validate: survey.Required,
+		}, {
+			Name: "Verbose",
+			Prompt: &survey.Confirm{
+				Message: "Enable verbose logging:",
+				Default: c.Verbose,
+			},
+		},
+	}
+	err := survey.Ask(qs, &c)
+	return c, err
 }
 
 // Type Gymnastics
