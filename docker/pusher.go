@@ -210,15 +210,13 @@ func (n *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err er
 	}
 	n.progressListener.Increment("Pushing function image to the registry")
 
-	b, err := json.Marshal(&struct {
-		Username      string `json:"username"`
-		Password      string `json:"password"`
-		ServerAddress string `json:"serveraddress"`
-	}{
+	authConfig := types.AuthConfig{
 		Username:      credentials.Username,
 		Password:      credentials.Password,
 		ServerAddress: registry,
-	})
+	}
+
+	b, err := json.Marshal(&authConfig)
 	if err != nil {
 		return "", err
 	}
