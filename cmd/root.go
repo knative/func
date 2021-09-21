@@ -18,6 +18,15 @@ import (
 	fn "knative.dev/kn-plugin-func"
 )
 
+// kn func (plugin mode) flag
+// embedded indicates the cli package should behave as a KN plugin rather than
+// as a standalone binary (for example prefixing usage help text of with
+// "kn").  This flag is set when using NewRootCommand().
+// TODO: this of course does not work if the binary is installed standalone as
+// kn-func with kn using it via convention.  For this to work, we will need to
+// negotiate an environment variable which flips this flag on init.
+var embedded bool
+
 var exampleTemplate = template.Must(template.New("example").Parse(`
 # Create a node function called "node-sample" and enter the directory
 {{.}} create myfunc && cd myfunc

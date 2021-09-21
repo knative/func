@@ -198,7 +198,7 @@ var (
 
 func (t templateWriter) Write(runtime, template, dest string) error {
 	if runtime == "" {
-		runtime = DefaultLanguage
+		runtime = DefaultRuntime
 	}
 
 	if template == "" {

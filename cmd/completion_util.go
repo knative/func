@@ -32,7 +32,7 @@ func CompleteFunctionList(cmd *cobra.Command, args []string, toComplete string) 
 	return
 }
 
-func CompleteLanguageRuntimeList(cmd *cobra.Command, args []string, toComplete string) (strings []string, directive cobra.ShellCompDirective) {
+func CompleteRuntimeList(cmd *cobra.Command, args []string, toComplete string) (strings []string, directive cobra.ShellCompDirective) {
 	strings = []string{}
 	for lang := range buildpacks.RuntimeToBuildpack {
 		strings = append(strings, lang)

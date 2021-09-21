@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"text/tabwriter"
+	"text/template"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/ory/viper"
@@ -39,8 +41,8 @@ func newCreateClient(cfg createConfig) (*fn.Client, error) {
 // NewCreateCmd creates a create command using the given client creator.
 func NewCreateCmd(clientFn createClientFn) *cobra.Command {
 	cmd := &cobra.Command{
-		Short: "Create a Function Project",
 		Use:   "create",
+		Short: "Create a Function Project",
 		Long: `
 NAME
 	func-create - Create a Function project.
@@ -63,9 +65,8 @@ DESCRIPTION
 	To complete this command interactivly, use --confirm (-c):
 	  $ func create -c
 
-	Language Runtime and Templates Currently Installed
-	Language Runtime  |  Template
-	// Coming Soon
+	Available Language Runtimes and Templates:
+{{ .Options | indent 2 " " | indent 1 "\t" }}
 
 	To install more language runtimes and their templates see 'func-repository'.
 
@@ -80,26 +81,31 @@ EXAMPLES
 
 	o Create a Go Function which handles Cloud Events in ./myfunc.
 	  $ func create -l go -t events myfunc
-`,
+		`,
 		SuggestFor: []string{"vreate", "creaet", "craete", "new"},
 		PreRunE:    bindEnv("language", "template", "repository", "confirm"),
 	}
 
 	// Flags
-	cmd.Flags().StringP("language", "l", fn.DefaultLanguage, "Language Runtime (see help text for list) (Env: $FUNC_RUNTIME)")
+	cmd.Flags().StringP("language", "l", fn.DefaultRuntime, "Language Runtime (see help text for list) (Env: $FUNC_RUNTIME)")
 	cmd.Flags().StringP("template", "t", fn.DefaultTemplate, "Function template. (see help text for list) (Env: $FUNC_TEMPLATE)")
 	cmd.Flags().StringP("repository", "r", "", "URI to a Git repository containing the specified template (Env: $FUNC_REPOSITORY)")
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
 
 	// Tab Complition
-	if err := cmd.RegisterFlagCompletionFunc("language", CompleteLanguageRuntimeList); err != nil {
+	if err := cmd.RegisterFlagCompletionFunc("language", CompleteRuntimeList); err != nil {
 		fmt.Fprintf(os.Stderr, "unable to provide runtime suggestions: %v", err)
 	}
 	if err := cmd.RegisterFlagCompletionFunc("template", CompleteTemplateList); err != nil {
 		fmt.Fprintf(os.Stderr, "unable to provide template suggestions: %v", err)
 	}
 
-	// Command Action
+	// Help Action
+	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
+		runCreateHelp(cmd, args, clientFn)
+	})
+
+	// Run Action
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		return runCreate(cmd, args, clientFn)
 	}
@@ -107,7 +113,7 @@ EXAMPLES
 	return cmd
 }
 
-// Run
+// Run Create
 func runCreate(cmd *cobra.Command, args []string, clientFn createClientFn) (err error) {
 	// Config
 	// Create a config based on args.  Also uses the clientFn to create a
@@ -117,7 +123,7 @@ func runCreate(cmd *cobra.Command, args []string, clientFn createClientFn) (err 
 		return
 	}
 
-	// Config and Client
+	// Client
 	// From environment variables, flags, arguments, and user prompts if --confirm
 	// (in increasing levels of precidence)
 	client, err := clientFn(cfg)
@@ -125,22 +131,89 @@ func runCreate(cmd *cobra.Command, args []string, clientFn createClientFn) (err 
 		return
 	}
 
-	// Validate
-	if err = cfg.Validate(); err != nil {
+	// Validate - a deeper validation than that which is performed when
+	// instantiating the client with the raw config above.
+	if err = cfg.Validate(client); err != nil {
 		return
 	}
 
 	// Create
 	return client.Create(fn.Function{
 		Root:     cfg.Path,
-		Runtime:  cfg.Language,
+		Runtime:  cfg.Runtime,
 		Template: cfg.Template,
 	})
 }
 
+// Run Help
+func runCreateHelp(cmd *cobra.Command, args []string, clientFn createClientFn) {
+	// Error-tolerant implementataion:
+	// Help can not fail when creating the client config (such as on invalid
+	// flag values) because help text is needed in that situation.   Therefore
+	// this implementation must be resilient to cfg zero value.
+	failSoft := func(err error) {
+		if err == nil {
+			return
+		}
+		fmt.Fprintf(cmd.OutOrStderr(), "error: help text may be partial: %v", err)
+	}
+
+	err := cmd.ParseFlags(args)
+	failSoft(err)
+
+	repositories := os.Getenv("FUNC_REPOSITORIES")
+	if repositories == "" { // if no env var provided
+		repositories = repositoriesPath() // use ~/.config/func/repositories
+	}
+	fmt.Printf("runCreateHelp repositories: %v\n", repositories)
+
+	body := cmd.Long + "\n\n" + cmd.UsageString()
+	t := template.New("help")
+	fm := template.FuncMap{
+		"indent": func(i int, c string, v string) string {
+			indentation := strings.Repeat(c, i)
+			return indentation + strings.Replace(v, "\n", "\n"+indentation, -1)
+		},
+	}
+	t.Funcs(fm)
+
+	template.Must(t.Parse(body))
+	cfg, err := newCreateConfig(args, clientFn)
+	failSoft(err)
+	client, err := clientFn(cfg)
+	failSoft(err)
+	runtimes, err := client.Runtimes()
+	failSoft(err)
+
+	// Build up a Runtimes/Templates string representation
+	builder := strings.Builder{}
+	writer := tabwriter.NewWriter(&builder, 0, 0, 3, ' ', 0)
+	fmt.Fprint(writer, "Runtime\tTemplate\n")
+	fmt.Fprint(writer, "-------\t--------\n")
+	for _, r := range runtimes {
+		templates, err := client.Templates().List(r)
+		if err != nil {
+			return
+		}
+		for _, t := range templates {
+			fmt.Fprintf(writer, "%v\t%v\n", r, t) // write tabbed
+		}
+	}
+	writer.Flush()
+
+	var data = struct {
+		Options string
+	}{
+		Options: builder.String(),
+	}
+	if err := t.Execute(cmd.OutOrStdout(), data); err != nil {
+		fmt.Fprintf(cmd.ErrOrStderr(), "unable to display help text: %v", err)
+	}
+}
+
 type createConfig struct {
 	Path       string // Absolute path to Function sourcsource
-	Language   string // Language Runtime
+	Runtime    string // Language Runtime
 	Repository string // Repository URI (overrides builtin and installed)
 	Verbose    bool   // Verbose output
 	Confirm    bool   // Confirm values via an interactive prompt
@@ -181,10 +254,8 @@ func newCreateConfig(args []string, clientFn createClientFn) (cfg createConfig, 
 		repositories string
 	)
 
-	if len(args) == 1 {
+	if len(args) >= 1 {
 		path = args[0]
-	} else if len(args) > 1 {
-		return cfg, errors.New("too many arguments.  usage: func create [flags] [path]")
 	}
 
 	// Convert the path to an absolute path, and extract the ending directory name
@@ -208,7 +279,7 @@ func newCreateConfig(args []string, clientFn createClientFn) (cfg createConfig, 
 		Path:         absolutePath,
 		Repositories: repositories,
 		Repository:   viper.GetString("repository"),
-		Language:     viper.GetString("language"),
+		Runtime:      viper.GetString("language"), // users refer to it is language
 		Template:     viper.GetString("template"),
 		Confirm:      viper.GetBool("confirm"),
 		Verbose:      viper.GetBool("verbose"),
@@ -237,8 +308,8 @@ func newCreateConfig(args []string, clientFn createClientFn) (cfg createConfig, 
 	// likely confusion if both are displayed and one is empty.
 	// be removed and both displayed.
 	fmt.Printf("Path:         %v\n", cfg.Path)
-	fmt.Printf("Language:     %v\n", cfg.Language)
-	if cfg.Repository != "" { // if an override was provided
+	fmt.Printf("Language:     %v\n", cfg.Runtime) // users refer to it as language
+	if cfg.Repository != "" {                     // if an override was provided
 		fmt.Printf("Repository:   %v\n", cfg.Repository) // show only the override
 	} else {
 		fmt.Printf("Repositories: %v\n", cfg.Repositories) // or path to installed
@@ -247,8 +318,95 @@ func newCreateConfig(args []string, clientFn createClientFn) (cfg createConfig, 
 	return
 }
 
+// isValidRuntime determines if the given language runtime is a valid choice.
+func isValidRuntime(client *fn.Client, runtime string) bool {
+	runtimes, err := client.Runtimes()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error checking runtimes: %v", err)
+		return false
+	}
+	for _, v := range runtimes {
+		if v == runtime {
+			return true
+		}
+	}
+	return false
+}
+
+// isValidTemplate determines if the given template is valid for the given
+// runtime.
+func isValidTemplate(client *fn.Client, runtime, template string) bool {
+	if !isValidRuntime(client, runtime) {
+		return false
+	}
+	templates, err := client.Templates().List(runtime)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error checking templates: %v", err)
+		return false
+	}
+	for _, v := range templates {
+		if v == template {
+			return true
+		}
+	}
+	return false
+}
+
+// newInvalidRuntimeError creates an error stating that the given language
+// is not valid, and a verbose list of valid options.
+func newInvalidRuntimeError(client *fn.Client, runtime string) error {
+	b := strings.Builder{}
+	fmt.Fprintf(&b, "The language runtime '%v' is not recognized.\n", runtime)
+	fmt.Fprintln(&b, "Available language runtimes are:")
+	runtimes, err := client.Runtimes()
+	if err != nil {
+		return err
+	}
+	for _, v := range runtimes {
+		fmt.Fprintf(&b, "  %v\n", v)
+	}
+	return errors.New(b.String())
+}
+
+// newInvalidTemplateError creates an error stating that the given template
+// is not available for the given runtime, and a verbose list of valid options.
+// The runtime is expected to already have been validated.
+func newInvalidTemplateError(client *fn.Client, runtime, template string) error {
+	b := strings.Builder{}
+	fmt.Fprintf(&b, "The template '%v' was not found for language runtime '%v'.\n", template, runtime)
+	fmt.Fprintln(&b, "Available templates for this language runtime are:")
+	templates, err := client.Templates().List(runtime)
+	if err != nil {
+		return err
+	}
+	for _, v := range templates {
+		fmt.Fprintf(&b, "  %v\n", v)
+	}
+	return errors.New(b.String())
+}
+
 // Validate the current state of the config, returning any errors.
-func (c createConfig) Validate() (err error) {
+// Note this is a deeper validation using a client already configured with a
+// preliminary config object from flags/config, such that the client instance
+// can be used to determine possible values for runtime, templates, etc.  a
+// pre-client validation should not be required, as the Client does its own
+// validation.
+func (c createConfig) Validate(client *fn.Client) (err error) {
+	// Client validates both language runtime and template exist, defaulting
+	// them if not (to 'node' and 'http', respectively).  However, if either of
+	// them are invalid, or the chosen combination does not exist, the error
+	// message is a rather terse one-liner.  This is suitable for libraries, but
+	// for a CLI it behooves us to be more verbose, including valid options for
+	// each.  So here, we check that the values entered (if any) are both valid
+	// and valid together.
+	if c.Runtime != "" && !isValidRuntime(client, c.Runtime) {
+		return newInvalidRuntimeError(client, c.Runtime)
+	}
+
+	if c.Template != "" && !isValidTemplate(client, c.Runtime, c.Template) {
+		return newInvalidTemplateError(client, c.Runtime, c.Template)
+	}
+
 	// TODO: refactor to be git-like with no name at time of creation, but rather
 	// with named deployment targets in a one-to-many configuration.
 	dirName, _ := deriveNameAndAbsolutePathFromPath(c.Path)
@@ -287,11 +445,11 @@ func (c createConfig) prompt(client *fn.Client) (createConfig, error) {
 				return absolutePath
 			},
 		}, {
-			Name: "language",
+			Name: "language", // users refer to this as Language Runtime (language for short)
 			Prompt: &survey.Select{
 				Message: "Language Runtime:",
 				Options: runtimes,
-				Default: c.Language,
+				Default: c.Runtime,
 			},
 		}}
 	if err := survey.Ask(qs, &c); err != nil {
@@ -306,7 +464,7 @@ func (c createConfig) prompt(client *fn.Client) (createConfig, error) {
 				Message: "Template:",
 				Default: c.Template,
 				Suggest: func(prefix string) []string {
-					suggestions, err := templatesWithPrefix(prefix, c.Language, client)
+					suggestions, err := templatesWithPrefix(prefix, c.Runtime, client)
 					if err != nil {
 						fmt.Fprintf(os.Stderr, "unable to suggest: %v", err)
 					}
@@ -324,10 +482,10 @@ func (c createConfig) prompt(client *fn.Client) (createConfig, error) {
 
 // return templates for language runtime whose full name (including repository)
 // have the given prefix.
-func templatesWithPrefix(prefix, language string, client *fn.Client) ([]string, error) {
+func templatesWithPrefix(prefix, runtime string, client *fn.Client) ([]string, error) {
 	var (
 		suggestions    = []string{}
-		templates, err = client.Templates().List(language)
+		templates, err = client.Templates().List(runtime)
 	)
 	if err != nil {
 		return suggestions, err
