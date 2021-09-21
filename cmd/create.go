@@ -11,7 +11,6 @@ import (
 	"github.com/spf13/cobra"
 
 	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/buildpacks"
 	"knative.dev/kn-plugin-func/utils"
 )
 
@@ -266,6 +265,11 @@ func (c createConfig) Validate() (err error) {
 func (c createConfig) prompt(client *fn.Client) (createConfig, error) {
 	var qs []*survey.Question
 
+	runtimes, err := client.Runtimes()
+	if err != nil {
+		return createConfig{}, err
+	}
+
 	// First ask for path...
 	qs = []*survey.Question{
 		{
@@ -286,7 +290,7 @@ func (c createConfig) prompt(client *fn.Client) (createConfig, error) {
 			Name: "language",
 			Prompt: &survey.Select{
 				Message: "Language Runtime:",
-				Options: effectiveRuntimes(client),
+				Options: runtimes,
 				Default: c.Language,
 			},
 		}}
@@ -316,13 +320,6 @@ func (c createConfig) prompt(client *fn.Client) (createConfig, error) {
 	}
 
 	return c, nil
-}
-
-// effective language runtimes are those which can be created because they also
-// have an associated template, etc.
-func effectiveRuntimes(client *fn.Client) []string {
-	// TODO:  merge effective language runtimes PR and invoke here
-	return buildpacks.RuntimesList()
 }
 
 // return templates for language runtime whose full name (including repository)
