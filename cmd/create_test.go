@@ -17,7 +17,7 @@ func TestCreate(t *testing.T) {
 	defer fromTempDir(t)()
 
 	// command with a client factory which yields a fully default client.
-	cmd := NewCreateCmd(func(createConfig) (*fn.Client, error) { return fn.New(), nil })
+	cmd := NewCreateCmd(func(createConfig) *fn.Client { return fn.New() })
 	cmd.SetArgs([]string{})
 
 	if err := cmd.Execute(); err != nil {
@@ -32,7 +32,7 @@ func TestCreateValidatesName(t *testing.T) {
 
 	// Create a new Create command with a fn.Client construtor
 	// which returns a default (noop) client suitable for tests.
-	cmd := NewCreateCmd(func(createConfig) (*fn.Client, error) { return fn.New(), nil })
+	cmd := NewCreateCmd(func(createConfig) *fn.Client { return fn.New() })
 
 	// Execute the command with a function name containing invalid characters and
 	// confirm the expected error is returned
@@ -65,11 +65,11 @@ func TestCreateRepositoriesPath(t *testing.T) {
 	// after flags, environment variables, etc. are calculated.  In this case it
 	// will validate the test condition:  that config reflects the value of
 	// XDG_CONFIG_HOME, and secondarily the path suffix `func/repositories`.
-	cmd := NewCreateCmd(func(cfg createConfig) (*fn.Client, error) {
+	cmd := NewCreateCmd(func(cfg createConfig) *fn.Client {
 		if cfg.Repositories != expected {
 			t.Fatalf("expected repositories default path to be '%v', got '%v'", expected, cfg.Repositories)
 		}
-		return fn.New(), nil
+		return fn.New()
 	})
 
 	// Invoke the command, which is an airball, but does invoke the client

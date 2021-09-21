@@ -71,6 +71,7 @@ type Pusher interface {
 	Push(ctx context.Context, f Function) (string, error)
 }
 
+// Status of the Function
 type Status int
 
 const (

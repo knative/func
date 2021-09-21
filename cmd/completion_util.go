@@ -59,9 +59,7 @@ func CompleteTemplateList(cmd *cobra.Command, args []string, toComplete string, 
 			fmt.Fprintf(os.Stderr, "error listing template for use in template flag completion: %v", err)
 			return
 		}
-		for _, template := range templates {
-			matches = append(matches, template)
-		}
+		matches = append(matches, templates...)
 	}
 	return
 }

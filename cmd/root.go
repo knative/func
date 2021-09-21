@@ -18,15 +18,6 @@ import (
 	fn "knative.dev/kn-plugin-func"
 )
 
-// kn func (plugin mode) flag
-// embedded indicates the cli package should behave as a KN plugin rather than
-// as a standalone binary (for example prefixing usage help text of with
-// "kn").  This flag is set when using NewRootCommand().
-// TODO: this of course does not work if the binary is installed standalone as
-// kn-func with kn using it via convention.  For this to work, we will need to
-// negotiate an environment variable which flips this flag on init.
-var embedded bool
-
 var exampleTemplate = template.Must(template.New("example").Parse(`
 # Create a node function called "node-sample" and enter the directory
 {{.}} create myfunc && cd myfunc
@@ -69,8 +60,26 @@ func replaceNameInTemplate(name, template string) (string, error) {
 	return buffer.String(), nil
 }
 
-// NewRootCmd is used to initialize func as kn plugin
+// pluginPrefix returns an optional prefix for help commands based on the
+// value of the FUNC_PARENT_COMMAND environment variable.
+func pluginPrefix() string {
+	parent := os.Getenv("FUNC_PARENT_COMMAND")
+	if parent != "" {
+		return parent + " "
+	}
+	return ""
+}
+
+// NewRootCmd can be used to embed the func commands as a library, such as
+// a plugin in 'kn'.
 func NewRootCmd() (*cobra.Command, error) {
+	// TODO: have 'kn' provide this environment variable, such that this works
+	// generically, and works whether it is compiled in as a library or used via
+	// the `kn-func` binary naming convention.
+	os.Setenv("FUNC_PARENT_COMMAND", "kn")
+
+	// TODO: update the below to use the environment variable, and the general
+	// structure seen in the create command's help text.
 	root.Use = "kn func"
 	var err error
 	root.Example, err = replaceNameInTemplate("kn func", "example")
