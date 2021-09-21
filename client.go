@@ -516,27 +516,20 @@ func (c *Client) Build(ctx context.Context, path string) (err error) {
 		"This is taking a while",
 		"Still building"}
 	ticker := time.NewTicker(5 * time.Second)
-	quit := make(chan struct{})
+	defer ticker.Stop()
 	go func() {
 		for {
-			select {
-			case <-ticker.C:
-				if len(m) == 0 {
-					close(quit)
-					break
-				}
-				c.progressListener.Increment(m[0])
-				m = m[1:] // remove 0th element
-			case <-quit:
-				ticker.Stop()
-				return
+			<-ticker.C
+			if len(m) == 0 {
+				break
 			}
+			c.progressListener.Increment(m[0])
+			m = m[1:] // remove 0th element
 		}
 	}()
 
 	go func() {
 		<-ctx.Done()
-		close(quit)
 		c.progressListener.Stopping()
 	}()
 
@@ -567,14 +560,12 @@ func (c *Client) Build(ctx context.Context, path string) (err error) {
 		message = fmt.Sprintf("Function image built: %v", f.Image)
 	}
 	c.progressListener.Increment(message)
-
 	return
 }
 
 // Deploy the Function at path.  Errors if the Function has not been
 // initialized with an image tag.
 func (c *Client) Deploy(ctx context.Context, path string) (err error) {
-	c.progressListener.Increment("Deploying function")
 	go func() {
 		<-ctx.Done()
 		c.progressListener.Stopping()
