@@ -35,8 +35,10 @@ type PodSpecFlags struct {
 	Mount        []string
 	Volume       []string
 
-	Command string
+	Command []string
 	Arg     []string
+
+	ExtraContainers string
 
 	Resources          ResourceOptions
 	Port               string
@@ -112,9 +114,9 @@ func (p *PodSpecFlags) AddFlags(flagset *pflag.FlagSet) []string {
 			"To unset a ConfigMap/Secret reference, append \"-\" to the name, e.g. --volume myvolume-.")
 	flagNames = append(flagNames, "volume")
 
-	flagset.StringVarP(&p.Command, "cmd", "", "",
+	flagset.StringArrayVarP(&p.Command, "cmd", "", []string{},
 		"Specify command to be used as entrypoint instead of default one. "+
-			"Example: --cmd /app/start or --cmd /app/start --arg myArg to pass additional arguments.")
+			"Example: --cmd /app/start or --cmd sh --cmd /app/start.sh or --cmd /app/start --arg myArg to pass additional arguments.")
 	flagNames = append(flagNames, "cmd")
 
 	flagset.StringArrayVarP(&p.Arg, "arg", "", []string{},
@@ -122,6 +124,11 @@ func (p *PodSpecFlags) AddFlags(flagset *pflag.FlagSet) []string {
 			"Example: --arg myArg1 --arg --myArg2 --arg myArg3=3. "+
 			"You can use this flag multiple times.")
 	flagNames = append(flagNames, "arg")
+
+	flagset.StringVarP(&p.ExtraContainers, "extra-containers", "", "",
+		"Specify path to file including definition for additional containers, alternatively use '-' to read from stdin. "+
+			"Example: --extra-containers ./containers.yaml or --extra-containers -.")
+	flagNames = append(flagNames, "containers")
 
 	flagset.StringSliceVar(&p.Resources.Limits,
 		"limit",
@@ -266,6 +273,15 @@ func (p *PodSpecFlags) ResolvePodSpec(podSpec *corev1.PodSpec, flags *pflag.Flag
 		if err != nil {
 			return err
 		}
+	}
+
+	if flags.Changed("extra-containers") || p.ExtraContainers == "-" {
+		var fromFile *corev1.PodSpec
+		fromFile, err = decodeContainersFromFile(p.ExtraContainers)
+		if err != nil {
+			return err
+		}
+		UpdateContainers(podSpec, fromFile.Containers)
 	}
 
 	return nil
