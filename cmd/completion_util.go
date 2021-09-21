@@ -2,14 +2,15 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/user"
 	"path"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/buildpacks"
 	"knative.dev/kn-plugin-func/knative"
 )
 
@@ -32,19 +33,36 @@ func CompleteFunctionList(cmd *cobra.Command, args []string, toComplete string) 
 	return
 }
 
-func CompleteRuntimeList(cmd *cobra.Command, args []string, toComplete string) (strings []string, directive cobra.ShellCompDirective) {
-	strings = []string{}
-	for lang := range buildpacks.RuntimeToBuildpack {
-		strings = append(strings, lang)
+func CompleteRuntimeList(cmd *cobra.Command, args []string, toComplete string, client *fn.Client) (matches []string, directive cobra.ShellCompDirective) {
+	runtimes, err := client.Runtimes()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error listing runtimes for flag completion: %v", err)
+		return
 	}
-	directive = cobra.ShellCompDirectiveDefault
+	for _, runtime := range runtimes {
+		if strings.HasPrefix(runtime, toComplete) {
+			matches = append(matches, runtime)
+		}
+	}
 	return
 }
 
-func CompleteTemplateList(cmd *cobra.Command, args []string, toComplete string) (strings []string, directive cobra.ShellCompDirective) {
-	strings = []string{}
-	// TODO
-	directive = cobra.ShellCompDirectiveDefault
+func CompleteTemplateList(cmd *cobra.Command, args []string, toComplete string, client *fn.Client) (matches []string, directive cobra.ShellCompDirective) {
+	repositories, err := client.Repositories().All()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error listing repositories for use in template flag completion: %v", err)
+		return
+	}
+	for _, repository := range repositories {
+		templates, err := client.Templates().List(repository.Name)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error listing template for use in template flag completion: %v", err)
+			return
+		}
+		for _, template := range templates {
+			matches = append(matches, template)
+		}
+	}
 	return
 }
 

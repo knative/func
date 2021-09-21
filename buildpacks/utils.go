@@ -8,7 +8,7 @@ import (
 //Runtimes returns the list of supported runtimes
 //as comma seperated strings, sorted alphabetically
 func Runtimes() string {
-	runtimes := LanguageRuntimesList()
+	runtimes := RuntimesList()
 
 	//make it more grammatical :)
 	s := runtimes[:len(runtimes)-1]
@@ -17,9 +17,9 @@ func Runtimes() string {
 	return str
 }
 
-// LanguageRuntimesList returns the list of supported runtimes
+// RuntimesList returns the list of supported runtimes
 //as an array of strings, sorted alphabetically
-func LanguageRuntimesList() []string {
+func RuntimesList() []string {
 	rb := RuntimeToBuildpack
 	runtimes := make([]string, 0, len(rb))
 	for k := range rb {

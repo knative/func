@@ -87,18 +87,10 @@ EXAMPLES
 	}
 
 	// Flags
-	cmd.Flags().StringP("language", "l", fn.DefaultRuntime, "Language Runtime (see help text for list) (Env: $FUNC_RUNTIME)")
+	cmd.Flags().StringP("language", "l", fn.DefaultRuntime, "Language Runtime (see help text for list) (Env: $FUNC_LANGUAGE)")
 	cmd.Flags().StringP("template", "t", fn.DefaultTemplate, "Function template. (see help text for list) (Env: $FUNC_TEMPLATE)")
 	cmd.Flags().StringP("repository", "r", "", "URI to a Git repository containing the specified template (Env: $FUNC_REPOSITORY)")
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
-
-	// Tab Complition
-	if err := cmd.RegisterFlagCompletionFunc("language", CompleteRuntimeList); err != nil {
-		fmt.Fprintf(os.Stderr, "unable to provide runtime suggestions: %v", err)
-	}
-	if err := cmd.RegisterFlagCompletionFunc("template", CompleteTemplateList); err != nil {
-		fmt.Fprintf(os.Stderr, "unable to provide template suggestions: %v", err)
-	}
 
 	// Help Action
 	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
@@ -108,6 +100,14 @@ EXAMPLES
 	// Run Action
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		return runCreate(cmd, args, clientFn)
+	}
+
+	// Tab Completion: Runtime
+	if err := cmd.RegisterFlagCompletionFunc("language", newRuntimeCompletionFunc(clientFn)); err != nil {
+		fmt.Fprintf(os.Stderr, "unable to provide runtime suggestions: %v", err)
+	}
+	if err := cmd.RegisterFlagCompletionFunc("template", newTemplateCompletionFunc(clientFn)); err != nil {
+		fmt.Fprintf(os.Stderr, "unable to provide template suggestions: %v", err)
 	}
 
 	return cmd
@@ -478,6 +478,39 @@ func (c createConfig) prompt(client *fn.Client) (createConfig, error) {
 	}
 
 	return c, nil
+}
+
+// Tab Completion and Prompt Suggestions Helpers
+// ---------------------------------------------
+
+type flagCompletionFunc func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective)
+
+func newRuntimeCompletionFunc(clientFn createClientFn) flagCompletionFunc {
+	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		cfg, err := newCreateConfig(args, clientFn)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error creating client config for flag completion: %v", err)
+		}
+		client, err := clientFn(cfg)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error creating client for flag completion: %v", err)
+		}
+		return CompleteRuntimeList(cmd, args, toComplete, client)
+	}
+}
+
+func newTemplateCompletionFunc(clientFn createClientFn) flagCompletionFunc {
+	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+		cfg, err := newCreateConfig(args, clientFn)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error creating client config for flag completion: %v", err)
+		}
+		client, err := clientFn(cfg)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error creating client for flag completion: %v", err)
+		}
+		return CompleteTemplateList(cmd, args, toComplete, client)
+	}
 }
 
 // return templates for language runtime whose full name (including repository)
