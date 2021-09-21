@@ -1,0 +1,27 @@
+name: Func Integration Test
+
+on: [pull_request]
+
+jobs:
+  test:
+    name: Integration Test 
+    strategy:
+      matrix:
+        go: [1.16.x]
+        os: ["ubuntu-latest"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go }}
+      - name: Install Binaries
+        run: ./hack/binaries.sh
+      - name: Allocate Cluster
+        run: ./hack/allocate.sh
+      - name: Local Registry
+        run: ./hack/registry.sh
+      - name: Verify Configuration
+        run: ./hack/test.sh
+      - name: Integration Test
+        run: make test-integration

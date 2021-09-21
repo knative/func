@@ -1,0 +1,21 @@
+name: Func Unit Test
+
+on: [pull_request]
+
+jobs:
+  test:
+    name: Unit Test 
+    strategy:
+      matrix:
+        go: [1.16.x]
+        os: ["ubuntu-latest", "windows-latest", "macos-latest"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go }}
+      - name: Core Unit Tests
+        run: make test
+      - name: Template Unit Tests
+        run: make test-templates
