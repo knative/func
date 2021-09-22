@@ -206,10 +206,6 @@ type createConfig struct {
 	Template string
 
 	// Name of the Function
-	// Not prominently highlighted in help text or confirmation statements as it
-	// is likely this will be refactored away to be part of the Deploy step, in
-	// a git-like flow where it is not required to create, but is part of a named
-	// remote for a one-to-many replationship.
 	Name string
 }
 
