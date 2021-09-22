@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -58,7 +59,7 @@ func GetCredentialsFromCredsStore(registry string) (types.DockerAuthConfig, erro
 	}
 
 	for serverUrl := range credentialsMap {
-		if to2ndLevelDomain(serverUrl) == to2ndLevelDomain(registry) {
+		if registryEquals(serverUrl, registry) {
 			creds, err := client.Get(p, serverUrl)
 			if err != nil {
 				return result, fmt.Errorf("failed to get credentials: %w", err)
@@ -72,18 +73,47 @@ func GetCredentialsFromCredsStore(registry string) (types.DockerAuthConfig, erro
 	return result, fmt.Errorf("failed to get credentials from helper specified in ~/.docker/config.json: %w", ErrCredentialsNotFound)
 }
 
-func to2ndLevelDomain(rawurl string) string {
-	if !strings.Contains(rawurl, "://") {
-		rawurl = "https://" + rawurl
+func hostPort(registry string) (host string, port string) {
+	host, port = registry, "443"
+	if !strings.Contains(registry, "://") {
+		h, p, err := net.SplitHostPort(registry)
+
+		if err == nil {
+			host, port = h, p
+			return
+		}
+		registry = "https://" + registry
 	}
-	u, err := url.Parse(rawurl)
+
+	u, err := url.Parse(registry)
 	if err != nil {
-		return ""
+		panic(err)
 	}
-	hostname := u.Hostname()
-	parts := strings.Split(hostname, ".")
-	if len(parts) <= 1 {
-		return hostname
+	host = u.Hostname()
+	if u.Port() != "" {
+		port = u.Port()
+	} else if u.Scheme == "http" {
+		port = "80"
 	}
-	return parts[len(parts)-2] + "." + parts[len(parts)-1]
+	return
+}
+
+// checks whether registry matches in host and port
+// with exception where port 80 and 443 are considered equal
+func registryEquals(regA, regB string) bool {
+	h1, p1 := hostPort(regA)
+	h2, p2 := hostPort(regB)
+
+	stdPort := func(p string) bool { return p == "80" || p == "443" }
+
+	if h1 == h2 && (p1 == p2 || (stdPort(p1) && stdPort(p2))) {
+		return true
+	}
+
+	if strings.HasSuffix(h1, "docker.io") &&
+		strings.HasSuffix(h2, "docker.io") {
+		return true
+	}
+
+	return false
 }
