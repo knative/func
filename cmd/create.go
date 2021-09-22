@@ -135,6 +135,7 @@ func runCreate(cmd *cobra.Command, args []string, clientFn createClientFn) (err 
 
 	// Create
 	err = client.Create(fn.Function{
+		Name:     cfg.Name,
 		Root:     cfg.Path,
 		Runtime:  cfg.Runtime,
 		Template: cfg.Template,
