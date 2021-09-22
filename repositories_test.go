@@ -286,3 +286,23 @@ func TestRepositoriesURL(t *testing.T) {
 		t.Fatalf("expected repository URL '%v', got '%v'", uri, r.URL)
 	}
 }
+
+// TestRepositoriesMissing ensures that a missing repositores directory
+// does not cause an error (is treated as no repositories installed).
+// This will change in an upcoming release where the repositories directory
+// will be created at the config path if it does not exist, but this requires
+// first moving the defaulting path logic from CLI into the client lib.
+func TestRepositoriesMissing(t *testing.T) {
+	root, rm := mktemp(t)
+	defer rm()
+
+	// Client with a repositories path which does not exit.
+	repositories := filepath.Join(root, "repositories")
+	client := fn.New(fn.WithRepositories(repositories))
+
+	// Get all repositories
+	_, err := client.Repositories().All()
+	if err != nil {
+		t.Fatal(err)
+	}
+}

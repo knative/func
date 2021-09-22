@@ -287,7 +287,7 @@ func newCreateConfig(args []string, clientFn createClientFn) (cfg createConfig, 
 func isValidRuntime(client *fn.Client, runtime string) bool {
 	runtimes, err := client.Runtimes()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error checking runtimes: %v", err)
+		fmt.Fprintf(os.Stderr, "error checking runtimes: %v\n", err)
 		return false
 	}
 	for _, v := range runtimes {
