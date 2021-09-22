@@ -1,7 +1,5 @@
 /func
 /func_*
-/templates/go/events/go.sum
-/templates/go/http/go.sum
 /templates/typescript/events/build
 /templates/typescript/http/build
 /coverage.out
