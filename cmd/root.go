@@ -60,8 +60,26 @@ func replaceNameInTemplate(name, template string) (string, error) {
 	return buffer.String(), nil
 }
 
-// NewRootCmd is used to initialize func as kn plugin
+// pluginPrefix returns an optional prefix for help commands based on the
+// value of the FUNC_PARENT_COMMAND environment variable.
+func pluginPrefix() string {
+	parent := os.Getenv("FUNC_PARENT_COMMAND")
+	if parent != "" {
+		return parent + " "
+	}
+	return ""
+}
+
+// NewRootCmd can be used to embed the func commands as a library, such as
+// a plugin in 'kn'.
 func NewRootCmd() (*cobra.Command, error) {
+	// TODO: have 'kn' provide this environment variable, such that this works
+	// generically, and works whether it is compiled in as a library or used via
+	// the `kn-func` binary naming convention.
+	os.Setenv("FUNC_PARENT_COMMAND", "kn")
+
+	// TODO: update the below to use the environment variable, and the general
+	// structure seen in the create command's help text.
 	root.Use = "kn func"
 	var err error
 	root.Example, err = replaceNameInTemplate("kn func", "example")

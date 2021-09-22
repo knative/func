@@ -22,9 +22,9 @@ const (
 	// by default.  See TestRegistryRequired for details.
 	TestRegistry = "example.com/alice"
 
-	// TestRuntime consists of a specially designed templates directory
-	// used exclusively for tests.
-	TestRuntime = "test"
+	// TestRuntime is currently Go, the "reference implementation" and is
+	// used for verifying functionality that should be runtime agnostic.
+	TestRuntime = "go"
 )
 
 // TestNew Function completes without error using defaults and zero values.

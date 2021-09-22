@@ -20,7 +20,7 @@ const (
 	// DefaultRegistry through which containers of Functions will be shuttled.
 	DefaultRegistry = "docker.io"
 
-	// DefaultRuntime is the runtime language for a new Function, including
+	// DefaultRuntime is the language runtime for a new Function, including
 	// the template written and builder invoked on deploy.
 	DefaultRuntime = "node"
 
@@ -71,6 +71,7 @@ type Pusher interface {
 	Push(ctx context.Context, f Function) (string, error)
 }
 
+// Status of the Function
 type Status int
 
 const (

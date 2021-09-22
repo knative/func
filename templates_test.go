@@ -102,14 +102,14 @@ func TestTemplateEmbedded(t *testing.T) {
 	err := client.Create(fn.Function{
 		Root:     root,
 		Runtime:  TestRuntime,
-		Template: "tpla",
+		Template: "http",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Assert file exists as expected
-	_, err = os.Stat(filepath.Join(root, "rtAtplA.txt"))
+	_, err = os.Stat(filepath.Join(root, "handle.go"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -135,14 +135,14 @@ func TestTemplateCustom(t *testing.T) {
 	err := client.Create(fn.Function{
 		Root:     root,
 		Runtime:  TestRuntime,
-		Template: "customProvider/tpla",
+		Template: "customProvider/customTemplate",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Assert file exists as expected
-	_, err = os.Stat(filepath.Join(root, "customtpl.txt"))
+	_, err = os.Stat(filepath.Join(root, "custom.go"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -210,7 +210,7 @@ func TestTemplateDefault(t *testing.T) {
 	}
 
 	// Assert file exists as expected
-	_, err = os.Stat(filepath.Join(root, "rtAtplDefault.txt"))
+	_, err = os.Stat(filepath.Join(root, "handle.go"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -262,18 +262,19 @@ func TestTemplateModeEmbedded(t *testing.T) {
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
 
-	// Write the embedded template that contains an executable
+	// Write the embedded template that contains a file which
+	// needs to be executable (only such is mvnw in quarkus)
 	err := client.Create(fn.Function{
 		Root:     root,
-		Runtime:  TestRuntime,
-		Template: "tplb",
+		Runtime:  "quarkus",
+		Template: "http",
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Verify file mode was preserved
-	file, err := os.Stat(filepath.Join(root, "executable.sh"))
+	file, err := os.Stat(filepath.Join(root, "mvnw"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -300,7 +301,7 @@ func TestTemplateModeCustom(t *testing.T) {
 	// Write executable from custom repo
 	err := client.Create(fn.Function{
 		Root:     root,
-		Runtime:  TestRuntime,
+		Runtime:  "test",
 		Template: "customProvider/tplb",
 	})
 	if err != nil {

@@ -21,7 +21,7 @@ func TestRemoteRepository(t *testing.T) {
 	project.ProjectPath = filepath.Join(os.TempDir(), project.FunctionName)
 
 	result := knFunc.Exec("create", project.ProjectPath,
-		"--runtime", project.Runtime,
+		"--language", project.Runtime,
 		"--template", project.Template,
 		"--repository", testTemplateRepository)
 	if result.Error != nil {

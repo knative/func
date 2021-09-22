@@ -44,7 +44,7 @@ func (t Template) Fullname() string {
 	return t.Repository + "/" + t.Name
 }
 
-// List the full name of templates available runtime.
+// List the full name of templates available for the runtime.
 // Full name is the optional repository prefix plus the template's repository
 // local name.  Default templates grouped first sans prefix.
 func (t *Templates) List(runtime string) ([]string, error) {

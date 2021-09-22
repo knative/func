@@ -11,6 +11,20 @@ import (
 	"knative.dev/kn-plugin-func/utils"
 )
 
+// TestCreate ensures that an invocation of create with minimal settings
+// and valid input completes without error; degenerate case.
+func TestCreate(t *testing.T) {
+	defer fromTempDir(t)()
+
+	// command with a client factory which yields a fully default client.
+	cmd := NewCreateCmd(func(createConfig) *fn.Client { return fn.New() })
+	cmd.SetArgs([]string{})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // TestCreateValidatesName ensures that the create command only accepts
 // DNS-1123 labels for Function name.
 func TestCreateValidatesName(t *testing.T) {
@@ -18,15 +32,12 @@ func TestCreateValidatesName(t *testing.T) {
 
 	// Create a new Create command with a fn.Client construtor
 	// which returns a default (noop) client suitable for tests.
-	cmd := NewCreateCmd(func(createConfig) *fn.Client {
-		return fn.New()
-	})
+	cmd := NewCreateCmd(func(createConfig) *fn.Client { return fn.New() })
 
-	// Execute the command with a function name containing invalid characters.
+	// Execute the command with a function name containing invalid characters and
+	// confirm the expected error is returned
 	cmd.SetArgs([]string{"invalid!"})
 	err := cmd.Execute()
-
-	// Confirm the expected error is returned
 	var e utils.ErrInvalidFunctionName
 	if !errors.As(err, &e) {
 		t.Fatalf("Did not receive ErrInvalidFunctionName. Got %v", err)
@@ -61,9 +72,9 @@ func TestCreateRepositoriesPath(t *testing.T) {
 		return fn.New()
 	})
 
-	// Invoke the command, which is an airball, but does invoke the client constructor, which
-	// which evaluates the aceptance condition of ensuring the default repositories path was
-	// updated based on the value of XDG_CONFIG_HOME.
+	// Invoke the command, which is an airball, but does invoke the client
+	// constructor, which which evaluates the aceptance condition of ensuring the
+	// default repositories path was updated based on XDG_CONFIG_HOME.
 	if err = cmd.Execute(); err != nil {
 		t.Fatalf("unexpected error running 'create' with a default (noop) client instance: %v", err)
 	}

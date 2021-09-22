@@ -51,6 +51,15 @@ func (r *Repositories) All() (repos []Repository, err error) {
 		return
 	}
 
+	// Return empty if path does not exit
+	// This will change to an error when the logic to determine config path,
+	// and create its initial structure, is moved into the client library.
+	// For now a missing repositores directory is considered equivalent to having
+	// none installed.
+	if _, err := os.Stat(r.Path); os.IsNotExist(err) {
+		return repos, nil
+	}
+
 	// read repos from filesystem (sorted by name)
 	// TODO: when manifests are introduced, the final name may be different
 	// than the name on the filesystem, and as such we can not rely on the
