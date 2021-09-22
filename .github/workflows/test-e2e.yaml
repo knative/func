@@ -22,4 +22,4 @@ jobs:
       - name: Local Registry
         run: ./hack/registry.sh
       - name: E2E Test
-        run: make test-e2e
+        run: make && make test-e2e
