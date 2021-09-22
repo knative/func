@@ -48,7 +48,7 @@ NAME
 
 SYNOPSIS
 	func create [-l|--language] [-t|--template] [-r|--repository]
-	             [-c|--confirm]  [-v|--verbose] [path]
+	            [-c|--confirm]  [-v|--verbose]  [path]
 
 DESCRIPTION
 	Creates a new Function project.
@@ -134,11 +134,18 @@ func runCreate(cmd *cobra.Command, args []string, clientFn createClientFn) (err 
 	}
 
 	// Create
-	return client.Create(fn.Function{
+	err = client.Create(fn.Function{
 		Root:     cfg.Path,
 		Runtime:  cfg.Runtime,
 		Template: cfg.Template,
 	})
+	if err != nil {
+		return err
+	}
+
+	// Confirm
+	fmt.Fprintf(cmd.OutOrStderr(), "Created %v Function in %v\n", cfg.Runtime, cfg.Path)
+	return nil
 }
 
 // Run Help
