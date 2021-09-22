@@ -396,7 +396,7 @@ func (c createConfig) prompt(client *fn.Client) (createConfig, error) {
 	// First ask for path...
 	qs = []*survey.Question{
 		{
-			Name: "path",
+			Name: "Path",
 			Prompt: &survey.Input{
 				Message: "Function Path:",
 				Default: c.Path,
@@ -410,7 +410,7 @@ func (c createConfig) prompt(client *fn.Client) (createConfig, error) {
 				return absolutePath
 			},
 		}, {
-			Name: "language", // users refer to this as Language Runtime (language for short)
+			Name: "Runtime",
 			Prompt: &survey.Select{
 				Message: "Language Runtime:",
 				Options: runtimes,
@@ -424,7 +424,7 @@ func (c createConfig) prompt(client *fn.Client) (createConfig, error) {
 	// Second loop: choose template with autocompletion filtered by chosen runtime
 	qs = []*survey.Question{
 		{
-			Name: "template",
+			Name: "Template",
 			Prompt: &survey.Input{
 				Message: "Template:",
 				Default: c.Template,
