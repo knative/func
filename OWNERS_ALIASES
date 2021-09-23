@@ -26,8 +26,6 @@ aliases:
   - matzew
   - travis-minke-sap
   - vaikas
-  delivery-wg-leads:
-  - matzew
   discovery-approvers:
   - lberk
   - n3wscott
@@ -64,9 +62,18 @@ aliases:
   - steven0711dong
   - travis-minke-sap
   eventing-kafka-broker-approvers:
+  - matzew
   - pierDipi
   eventing-kafka-mtsource-approvers:
   - steven0711dong
+  eventing-kafka-wg-leads:
+  - devguyio
+  - lionelvillard
+  - travis-minke-sap
+  eventing-kafka-writers:
+  - devguyio
+  - lionelvillard
+  - travis-minke-sap
   eventing-kogito-approvers:
   - ricardozanini
   - spolti
@@ -90,7 +97,6 @@ aliases:
   eventing-writers:
   - devguyio
   - lionelvillard
-  - matzew
   homebrew-kn-plugins-approvers:
   - dsimansk
   - maximilien
