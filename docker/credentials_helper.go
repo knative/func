@@ -74,7 +74,7 @@ func GetCredentialsFromCredsStore(registry string) (types.DockerAuthConfig, erro
 }
 
 func hostPort(registry string) (host string, port string) {
-	host, port = registry, "443"
+	host, port = registry, ""
 	if !strings.Contains(registry, "://") {
 		h, p, err := net.SplitHostPort(registry)
 
@@ -90,23 +90,23 @@ func hostPort(registry string) (host string, port string) {
 		panic(err)
 	}
 	host = u.Hostname()
-	if u.Port() != "" {
-		port = u.Port()
-	} else if u.Scheme == "http" {
-		port = "80"
-	}
+	port = u.Port()
 	return
 }
 
 // checks whether registry matches in host and port
-// with exception where port 80 and 443 are considered equal
+// with exception where empty port matches standard ports (80,443)
 func registryEquals(regA, regB string) bool {
 	h1, p1 := hostPort(regA)
 	h2, p2 := hostPort(regB)
 
-	stdPort := func(p string) bool { return p == "80" || p == "443" }
+	isStdPort := func(p string) bool { return p == "443" || p == "80" }
 
-	if h1 == h2 && (p1 == p2 || (stdPort(p1) && stdPort(p2))) {
+	portEq := p1 == p2 ||
+		(p1 == "" && isStdPort(p2)) ||
+		(isStdPort(p1) && p2 == "")
+
+	if h1 == h2 && portEq {
 		return true
 	}
 
