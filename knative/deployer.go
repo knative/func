@@ -160,13 +160,11 @@ func setHealthEndpoints(f fn.Function, c *corev1.Container) *corev1.Container {
 	c.ReadinessProbe = probeFor(READINESS_ENDPOINT)
 
 	// If specified in func.yaml, the provided values override the defaults
-	if f.HealthEndpoints != nil {
-		if f.HealthEndpoints["liveness"] != "" {
-			c.LivenessProbe = probeFor(f.HealthEndpoints["liveness"])
-		}
-		if f.HealthEndpoints["readiness"] != "" {
-			c.ReadinessProbe = probeFor(f.HealthEndpoints["readiness"])
-		}
+	if f.HealthEndpoints.Liveness != "" {
+		c.LivenessProbe = probeFor(f.HealthEndpoints.Liveness)
+	}
+	if f.HealthEndpoints.Readiness != "" {
+		c.ReadinessProbe = probeFor(f.HealthEndpoints.Readiness)
 	}
 	return c
 }

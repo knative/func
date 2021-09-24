@@ -5,15 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
-	"path/filepath"
 	"runtime"
 	"sort"
+	"strings"
 	"sync"
 	"time"
-
-	"gopkg.in/yaml.v2"
 )
 
 const (
@@ -155,13 +152,6 @@ type Subscription struct {
 	Source string `json:"source" yaml:"source"`
 	Type   string `json:"type" yaml:"type"`
 	Broker string `json:"broker" yaml:"broker"`
-}
-
-type Manifest struct {
-	Name            string            `yaml:"name"`
-	Buildpacks      []string          `yaml:"buildpacks"`
-	HealthEndpoints map[string]string `yaml:"healthEndpoints"`
-	Builders        map[string]string `yaml:"builders"`
 }
 
 // DNSProvider exposes DNS services necessary for serving the Function.
@@ -442,29 +432,46 @@ func (c *Client) Create(cfg Function) (err error) {
 		return
 	}
 
-	// Check if template specifies a builder image. If so, add to configuration
-	manifestFilePath := filepath.Join(f.Root, "manifest.yaml")
-	if manifestYaml, err := ioutil.ReadFile(manifestFilePath); err == nil {
-		// A manifest.yaml file was found. Read the default builder and set in the config file
-		manifest := Manifest{}
-		if err := yaml.Unmarshal(manifestYaml, &manifest); err == nil {
-			f.Builder = manifest.Builders["default"]
-			f.Builders = manifest.Builders
-			f.Buildpacks = manifest.Buildpacks
-			f.HealthEndpoints = manifest.HealthEndpoints
-		}
-		// Remove the manifest.yaml file so the user is not confused by a
-		// configuration file that is only used for project creation/initialization
-		if err := os.Remove(manifestFilePath); err != nil {
-			if c.verbose {
-				fmt.Printf("Cannot remove %v. %v\n", manifestFilePath, err)
-			}
-		}
+	var repo, _ string
+	cc := strings.Split(cfg.Template, "/")
+	if len(cc) == 1 {
+		repo = DefaultRepository
+	} else {
+		repo = cc[0]
+	}
+
+	// TODO: Add support for remote repos. None of the below works with templates being read from a remote
+	// git repository, since repositories.Get(repo) only works on local template repositories.
+	// get the repository for the function
+	repository, err := c.repositories.Get(repo)
+	if err != nil {
+		return
+	}
+
+	runtime, err := repository.GetRuntime(f.Runtime)
+	if err != nil {
+		return
+	}
+	// Check to see if the runtime provides builder/buildpack metadata.
+	// If so, add Builders and Buildpacks to the configuration
+	f.Builder = runtime.Builders["default"]
+	f.Builders = runtime.Builders
+	f.Buildpacks = runtime.Buildpacks
+	// fmt.Printf("Setting builder to %s\n", f.Builder)
+	// fmt.Printf("Setting builders to %+v\n", f.Builders)
+	// fmt.Printf("Setting Buildpacks to %+v\n", f.Buildpacks)
+
+	f.HealthEndpoints.Liveness = repository.HealthEndpoints.Liveness
+	f.HealthEndpoints.Readiness = repository.HealthEndpoints.Readiness
+	if runtime.Liveness != "" {
+		f.HealthEndpoints.Liveness = runtime.Liveness
+	}
+	if runtime.Readiness != "" {
+		f.HealthEndpoints.Readiness = runtime.Readiness
 	}
 
 	// Now that defaults are set from manifest.yaml for builders/buildpacks
 	// be sure to allow configuration to override these
-
 	// If buildpacks are provided, use them
 	if len(cfg.Buildpacks) > 0 {
 		f.Buildpacks = cfg.Buildpacks
@@ -513,7 +520,7 @@ func (c *Client) Build(ctx context.Context, path string) (err error) {
 
 	m := []string{
 		"Still building",
-		"Don't give up",
+		"Don't give up on me",
 		"This is taking a while",
 		"Still building"}
 	ticker := time.NewTicker(5 * time.Second)
@@ -721,7 +728,7 @@ func (c *Client) Runtimes() ([]string, error) {
 	}
 	for _, repo := range repositories {
 		for _, runtime := range repo.Runtimes {
-			runtimes.Add(runtime)
+			runtimes.Add(runtime.Path)
 		}
 	}
 

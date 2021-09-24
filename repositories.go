@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/go-git/go-git/v5"
+	"gopkg.in/yaml.v2"
 )
 
 // Repositories manager
@@ -95,23 +96,34 @@ func (r *Repositories) Get(name string) (repo Repository, err error) {
 // Add a repository of the given name from the URI.  Name, if not provided,
 // defaults to the repo name (sans optional .git suffix)
 func (r *Repositories) Add(name, uri string) (err error) {
-	if name == "" {
-		name, err = repoNameFrom(uri)
+	derivedName := name
+	if derivedName == "" {
+		derivedName, err = repoNameFrom(uri)
 		if err != nil {
 			return err
 		}
 	}
-	path := filepath.Join(r.Path, name)
+	path := filepath.Join(r.Path, derivedName)
 	bare := false
 	_, err = git.PlainClone(path, bare, &git.CloneOptions{URL: uri})
-	return err
+	if err != nil {
+		return
+	}
+	// If the caller provided a name, set it
+	if name != "" {
+		err = writeRepositoryName(name, path)
+	}
+	return
 }
 
 // Rename a repository
 func (r *Repositories) Rename(from, to string) error {
 	a := filepath.Join(r.Path, from)
 	b := filepath.Join(r.Path, to)
-	return os.Rename(a, b)
+	if err := os.Rename(a, b); err != nil {
+		return err
+	}
+	return writeRepositoryName(to, b)
 }
 
 // Remove a repository of the given name from the repositories.
@@ -137,4 +149,22 @@ func repoNameFrom(uri string) (name string, err error) {
 		return
 	}
 	return strings.TrimSuffix(ss[len(ss)-1], ".git"), nil
+}
+
+// writeRepositoryName writes the given name to the repository's
+// Name attribute in the manifest.yaml file
+func writeRepositoryName(name, path string) (err error) {
+	var r Repository
+	if r, err = NewRepositoryFromPath(path); err != nil {
+		return
+	}
+	r.Name = name
+
+	// Now write the manifest file back to disk
+	p := filepath.Join(path, ManifestYaml)
+	var bb []byte
+	if bb, err = yaml.Marshal(&r); err != nil {
+		return
+	}
+	return ioutil.WriteFile(p, bb, 0644)
 }

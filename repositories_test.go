@@ -30,18 +30,23 @@ func TestRepositoriesList(t *testing.T) {
 	}
 }
 
+// TestRepositoriesGetInvalid ensures that attempting to get an invalid repo results in error.
+func TestRepositoriesGetInvalid(t *testing.T) {
+	client := fn.New(fn.WithRepositories("testdata/repositories"))
+
+	// invalid should error
+	_, err := client.Repositories().Get("invalid")
+	if err == nil {
+		t.Fatal("did not receive expected error getting inavlid repository")
+	}
+}
+
 // TestRepositoriesGet ensures a repository can be accessed by name.
 func TestRepositoriesGet(t *testing.T) {
 	client := fn.New(fn.WithRepositories("testdata/repositories"))
 
-	// invalid should error
-	repo, err := client.Repositories().Get("invalid")
-	if err == nil {
-		t.Fatal("did not receive expected error getting inavlid repository")
-	}
-
 	// valid should not error
-	repo, err = client.Repositories().Get("customProvider")
+	repo, err := client.Repositories().Get("customProvider")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,7 +153,7 @@ func TestRepositoriesAddNamed(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(rr) != 2 || rr[1] != name {
-		t.Fatalf("Expected '%v', got %v", name, rr)
+		t.Fatalf("Expected '%v', got %v(%d)", name, rr, len(rr))
 	}
 
 	// assert repo files exist

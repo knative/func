@@ -3,6 +3,8 @@ builders:
   base: gcr.io/paketo-buildpacks/builder:base
   full: gcr.io/paketo-buildpacks/builder:full
 
+# Optional. A list of additional Buildpacks to be applied to the language pack's
+# builder image when the function is built
 buildpacks:
   - paketo-buildpacks/go-dist
   - ghcr.io/boson-project/go-function-buildpack:tip

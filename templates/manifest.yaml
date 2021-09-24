@@ -1,0 +1,75 @@
+schema_version: 0.0.1 # The version for manifest.yaml schema
+
+# The name used for this language pack repository when referenced
+# in the UX, and its version
+name: default 
+version: 0.0.1
+url: builtin
+
+# Optional. Health endpoints for deployed functions in all runtimes.
+# May be overridden by mainfest.yaml settings at the language level.
+healthEndpoints:
+  liveness: /health/liveness
+  readiness: /health/readiness
+
+# Runtimes is a list of language runtimes supported by this repository
+# This manifest.yaml file for the builtin runtimes is overly verbose,
+# supplying many optional values, solely for purposes of illustration.
+runtimes:
+
+  - path: go       # Required. The path of the runtime directory from the repository root
+    name: go       # Optional. Name of the runtime; if not provided, path will be used
+    # The list of templates supplied for this language pack
+    templates:     # Required. One or more templates that correspond to directories within this language pack
+    - path: events # Required. The path to the template directory from the language pack root
+      name: events # Optional. The name of the template; if not provided path will be used
+    - path: http
+      name: http
+
+  - name: node
+    path: node
+    templates:
+    - path: events
+      name: events
+    - path: http
+      name: http
+
+  - name: python
+    path: python
+    templates:
+    - path: events
+      name: events
+    - path: http
+      name: http
+
+  - name: quarkus
+    path: quarkus
+    templates:
+    - path: events
+      name: events
+    - path: http
+      name: http
+
+  - name: rust
+    path: rust
+    templates:
+    - path: events
+      name: events
+    - path: http
+      name: http
+
+  - name: springboot
+    path: springboot
+    templates:
+    - path: events
+      name: events
+    - path: http
+      name: http
+
+  - name: typescript
+    path: typescript
+    templates:
+    - path: events
+      name: events
+    - path: http
+      name: http

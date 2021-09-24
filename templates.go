@@ -69,15 +69,17 @@ func (t *Templates) ListDefault(runtime string) ([]string, error) {
 	var (
 		names     = newSortedSet()
 		repo, err = t.Repositories.Get(DefaultRepository)
+		templates FunctionTemplates
 	)
 	if err != nil {
 		return []string{}, err
 	}
-	for _, template := range repo.Templates {
-		if template.Runtime != runtime {
-			continue
-		}
-		names.Add(template.Name)
+
+	if templates, err = repo.GetTemplates(runtime); err != nil {
+		return []string{}, err
+	}
+	for _, t := range templates {
+		names.Add(t.Name)
 	}
 	return names.Items(), nil
 }
@@ -89,6 +91,7 @@ func (t *Templates) ListExtended(runtime string) ([]string, error) {
 	var (
 		names      = newSortedSet()
 		repos, err = t.Repositories.All()
+		templates  FunctionTemplates
 	)
 	if err != nil {
 		return []string{}, err
@@ -97,11 +100,15 @@ func (t *Templates) ListExtended(runtime string) ([]string, error) {
 		if repo.Name == DefaultRepository {
 			continue // already added at head of names
 		}
-		for _, template := range repo.Templates {
-			if template.Runtime != runtime {
-				continue
-			}
-			names.Add(template.Fullname())
+		if templates, err = repo.GetTemplates(runtime); err != nil {
+			return []string{}, err
+		}
+		for _, template := range templates {
+			names.Add(Template{
+				Name:       template.Path,
+				Repository: repo.Name,
+				Runtime:    runtime,
+			}.Fullname())
 		}
 	}
 	return names.Items(), nil
@@ -180,7 +187,7 @@ type templateWriter struct {
 	repositories string
 
 	// URL of a a specific network-available Git repository to use for
-	// templates.  Takes precidence over both builtin and extensible
+	// templates.  Takes precedence over both builtin and extensible
 	// if defined.
 	url string
 
@@ -205,7 +212,7 @@ func (t templateWriter) Write(runtime, template, dest string) error {
 		template = DefaultTemplate
 	}
 
-	// remote URLs, when provided, take precidence
+	// remote URLs, when provided, take precedence
 	if t.url != "" {
 		return writeRemote(t.url, runtime, template, dest)
 	}

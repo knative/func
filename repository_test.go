@@ -57,3 +57,79 @@ func TestRepositoryGetTemplateCustom(t *testing.T) {
 	}
 
 }
+
+// TestRepositoryGetRuntimeDefault ensures that repositories make runtimes
+// avaialble via the Get accessor with given name.
+func TestRepositoryGetRuntimeDefault(t *testing.T) {
+	client := fn.New(fn.WithRepositories("testdata/repositories"))
+
+	repo, err := client.Repositories().Get("repositoryTests")
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtime, err := repo.GetRuntime("go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := fn.Runtime{
+		Name: "go",
+		Path: "go",
+		Templates: fn.FunctionTemplates{
+			{
+				Name: "custom",
+				Path: "custom",
+			},
+		},
+	}
+	if runtime.Name != expected.Name {
+		t.Fatalf("Expected: %s\nGot: %s", expected.Name, runtime.Name)
+	}
+	if runtime.Path != expected.Path {
+		t.Fatalf("Expected: %s\nGot: %s", expected.Path, runtime.Path)
+	}
+	if !reflect.DeepEqual(runtime.Templates, expected.Templates) {
+		t.Logf("expected: %v", expected)
+		t.Logf("received: %v", runtime)
+		t.Fatal("Custom go runtime not as expected")
+	}
+}
+
+// TestRepositoryGetRuntimeDefault ensures that repositories make runtimes
+// avaialble via the Get accessor with given name.
+func TestRepositoryGetRuntimeCustom(t *testing.T) {
+	client := fn.New()
+
+	repo, err := client.Repositories().Get(fn.DefaultRepository)
+	if err != nil {
+		t.Fatal(err)
+	}
+	runtime, err := repo.GetRuntime("go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := fn.Runtime{
+		Name: "go",
+		Path: "go",
+		Templates: fn.FunctionTemplates{
+			{
+				Name: "events",
+				Path: "events",
+			},
+			{
+				Name: "http",
+				Path: "http",
+			},
+		},
+	}
+	if runtime.Name != expected.Name {
+		t.Fatalf("Expected: %s\nGot: %s", expected.Name, runtime.Name)
+	}
+	if runtime.Path != expected.Path {
+		t.Fatalf("Expected: %s\nGot: %s", expected.Path, runtime.Path)
+	}
+	if !reflect.DeepEqual(runtime.Templates, expected.Templates) {
+		t.Logf("expected: %v", expected)
+		t.Logf("received: %v", runtime)
+		t.Fatal("Default go runtime not as expected")
+	}
+}

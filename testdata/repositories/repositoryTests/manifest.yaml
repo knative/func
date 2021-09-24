@@ -1,0 +1,21 @@
+schema_version: 0.0.1 # The version for manifest.yaml schema
+
+name: repositoryTests 
+version: 0.0.1
+url: test
+
+runtimes:
+
+  - path: go       # Required. The path of the runtime directory from the repository root
+    name: go       # Optional. Name of the runtime; if not provided, path will be used
+    # The list of templates supplied for this language pack
+    templates:     # Required. One or more templates that correspond to directories within this language pack
+    - path: custom # Required. The path to the template directory from the language pack root
+      name: custom # Optional. The name of the template; if not provided path will be used
+
+  - name: node
+    path: node
+    templates:
+    - path: custom
+      name: custom
+

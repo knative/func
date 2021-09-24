@@ -71,7 +71,7 @@ type Function struct {
 	Labels Labels
 
 	// Health endpoints specified by the language pack
-	HealthEndpoints map[string]string
+	HealthEndpoints HealthEndpoints
 }
 
 // NewFunction loads a Function from a path on disk. use .Initialized() to determine if

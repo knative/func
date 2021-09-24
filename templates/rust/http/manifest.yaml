@@ -1,2 +1,0 @@
-builders:
-  default: quay.io/boson/faas-rust-builder:v0.8.4
