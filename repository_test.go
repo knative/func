@@ -59,7 +59,7 @@ func TestRepositoryGetTemplateCustom(t *testing.T) {
 }
 
 // TestRepositoryGetRuntimeDefault ensures that repositories make runtimes
-// avaialble via the Get accessor with given name.
+// available via the Get accessor with given name.
 func TestRepositoryGetRuntimeDefault(t *testing.T) {
 	client := fn.New(fn.WithRepositories("testdata/repositories"))
 
@@ -95,7 +95,7 @@ func TestRepositoryGetRuntimeDefault(t *testing.T) {
 }
 
 // TestRepositoryGetRuntimeDefault ensures that repositories make runtimes
-// avaialble via the Get accessor with given name.
+// available via the Get accessor with given name.
 func TestRepositoryGetRuntimeCustom(t *testing.T) {
 	client := fn.New()
 
