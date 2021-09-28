@@ -111,10 +111,6 @@
 			"type": "object"
 		},
 		"HealthEndpoints": {
-			"required": [
-				"liveness",
-				"readiness"
-			],
 			"properties": {
 				"liveness": {
 					"type": "string"
