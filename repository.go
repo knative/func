@@ -1,10 +1,10 @@
 package function
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/markbates/pkger"
@@ -30,7 +30,10 @@ type Repository struct {
 }
 
 // FunctionTemplates is the collection of templates for a Runtime
-type FunctionTemplates []struct {
+type FunctionTemplates []FunctionTemplate
+
+// FunctionTemplate is the name and path to a Runtime template
+type FunctionTemplate struct {
 	Name string `yaml:"name,omitempty"`
 	Path string `yaml:"path"`
 }
@@ -51,6 +54,15 @@ type Runtime struct {
 	HealthEndpoints
 }
 
+// Manifest0_18 is the struct for a manifest.yaml file found in a runtime's template directory
+// Deprecated
+type Manifest0_18 struct {
+	Name            string
+	Buildpacks      []string
+	Builders        map[string]string
+	HealthEndpoints HealthEndpoints
+}
+
 // NewRepositoryFromPath represents the file structure of 'path' at time of construction as
 // a Repository with Templates, each of which has a Name and its Runtime.
 // a convenience member of Runtimes is the unique, sorted list of all
@@ -64,14 +76,14 @@ func NewRepositoryFromPath(path string) (r Repository, err error) {
 			return
 		}
 		// If no manifest.yaml file, at least be sure that the repo exists
-		_, err := os.Stat(path)
+		_, err = os.Stat(path)
 		if os.IsNotExist(err) {
 			return r, ErrRepositoryNotFound
 		}
 		// The repo exists, but no manifest.yaml
-		err = nil
-		fmt.Println("TODO: Restore directory traversal")
-		// TODO: Restore directory traversal
+		if err = traverseTemplateRepository(path, &r); err != nil {
+			return
+		}
 	} else {
 		err = yaml.Unmarshal(bytes, &r)
 		if err != nil {
@@ -142,6 +154,69 @@ func NewRepositoryFromBuiltin() (r Repository, err error) {
 		r.Runtimes[i] = rr
 	}
 	return
+}
+
+// traverseTemplateRepository is used to extrapolate repository
+// metadata when a manifest.yaml file is not present. This is really
+// only meant to support template repositories created and used up
+// to and including the release of 0.18, and should ultimately be
+// removed, in my opinion
+func traverseTemplateRepository(path string, r *Repository) error {
+	r.Name = filepath.Base(path)
+	r.URL = readURL(path)
+
+	// Each subdirectory of path is potentially a Runtime
+	directories, err := ioutil.ReadDir(path)
+	if err != nil {
+		return err
+	}
+	for _, maybeRuntime := range directories {
+		if !maybeRuntime.IsDir() || strings.HasPrefix(maybeRuntime.Name(), ".") {
+			continue // Ignore files and hidden dirs
+		}
+		rpath := filepath.Join(path, maybeRuntime.Name())
+		runtime := Runtime{
+			Name: maybeRuntime.Name(),
+			Path: rpath,
+		}
+		r.Runtimes = append(r.Runtimes, runtime)
+
+		// Each subdirectory of the runtime is potentially a Template
+		templates, err := ioutil.ReadDir(rpath)
+		if err != nil {
+			return err
+		}
+		for _, maybeTemplate := range templates {
+			if !maybeTemplate.IsDir() || strings.HasPrefix(maybeTemplate.Name(), ".") {
+				continue // Ignore files and hidden dirs
+			}
+			ft := FunctionTemplate{
+				Name: maybeTemplate.Name(),
+				Path: filepath.Join(runtime.Path, maybeTemplate.Name()),
+			}
+
+			runtime.Templates = append(runtime.Templates, ft)
+
+			// Finally - older template repos will have a manifest.yaml
+			// file in the template directory. This is problematic in that
+			// builders, buildpacks and health endpoints are now set at
+			// the runtime level instead of the template level. That means
+			// that whatever was the last template processed for a given
+			// runtime, determines these values now. This is really only
+			// a theoretical problem because in practice, manifest.yaml
+			// files are identical across templates.
+			manifestPath := filepath.Join(ft.Path, ManifestYaml)
+			if bytes, err := os.ReadFile(manifestPath); err == nil {
+				manifest := Manifest0_18{}
+				if err := yaml.Unmarshal(bytes, &manifest); err == nil {
+					runtime.Builders = manifest.Builders
+					runtime.Buildpacks = manifest.Buildpacks
+					runtime.HealthEndpoints = manifest.HealthEndpoints
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // getBytesFromBuiltinFile reads a file at `path` in the embedded
