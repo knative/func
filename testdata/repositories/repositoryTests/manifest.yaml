@@ -1,6 +1,6 @@
 schema_version: 0.0.1 # The version for manifest.yaml schema
 
-name: repositoryTests 
+name: repositoryTests
 version: 0.0.1
 url: test
 
