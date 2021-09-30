@@ -173,6 +173,7 @@ func TestTemplateRemote(t *testing.T) {
 	client := fn.New(
 		fn.WithRegistry(TestRegistry),
 		fn.WithRepository(url),
+		fn.WithRepositories("testdata/repositories"),
 	)
 
 	// Create a default function, which should override builtin and use
@@ -341,8 +342,8 @@ func TestTemplateModeRemote(t *testing.T) {
 
 	client := fn.New(
 		fn.WithRegistry(TestRegistry),
-		fn.WithRepository(url))
-
+		fn.WithRepository(url),
+		fn.WithRepositories("testdata/repositories"))
 	// Write executable from custom repo
 	err = client.Create(fn.Function{
 		Root:     root,

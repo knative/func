@@ -14,9 +14,6 @@ import (
 	"strings"
 
 	"github.com/go-git/go-billy/v5"
-	"github.com/go-git/go-billy/v5/memfs"
-	"github.com/go-git/go-git/v5"
-	"github.com/go-git/go-git/v5/storage/memory"
 	"github.com/markbates/pkger"
 )
 
@@ -185,12 +182,6 @@ type templateWriter struct {
 	// Ie. "Using the custom templates in the func configuration directory,
 	//    write the Boson HTTP template for the Go runtime."
 	repositories string
-
-	// URL of a a specific network-available Git repository to use for
-	// templates.  Takes precedence over both builtin and extensible
-	// if defined.
-	url string
-
 	// enable verbose logging
 	verbose bool
 }
@@ -203,7 +194,7 @@ var (
 	ErrTemplateMissingRepository = errors.New("template name missing repository prefix")
 )
 
-func (t templateWriter) Write(runtime, template, dest string) error {
+func (t templateWriter) Write(repo, runtime, template, dest string) error {
 	if runtime == "" {
 		runtime = DefaultRuntime
 	}
@@ -212,71 +203,22 @@ func (t templateWriter) Write(runtime, template, dest string) error {
 		template = DefaultTemplate
 	}
 
-	// remote URLs, when provided, take precedence
-	if t.url != "" {
-		return writeRemote(t.url, runtime, template, dest)
+	if repo == DefaultRepository {
+		return writeEmbedded(runtime, template, dest)
 	}
 
-	// templates with repo prefix are on-disk "custom" (not embedded)
-	if len(strings.Split(template, "/")) > 1 {
-		return writeCustom(t.repositories, runtime, template, dest)
-	}
+	return writeCustom(t.repositories, repo, runtime, template, dest)
 
-	// default case is to write from the embedded set of core templates.
-	return writeEmbedded(runtime, template, dest)
-}
-
-func writeRemote(url, runtime, template, dest string) error {
-	// Clone a minimal copy of the remote repository in-memory.
-	r, err := git.Clone(
-		memory.NewStorage(),
-		memfs.New(),
-		&git.CloneOptions{
-			URL:               url,
-			Depth:             1,
-			Tags:              git.NoTags,
-			RecurseSubmodules: git.NoRecurseSubmodules,
-		})
-	if err != nil {
-		return err
-	}
-	wt, err := r.Worktree()
-	if err != nil {
-		return err
-	}
-	fs := wt.Filesystem
-
-	if _, err := fs.Stat(runtime); err != nil {
-		return ErrRuntimeNotFound
-	}
-
-	templatePath := filepath.Join(runtime, template)
-
-	if _, err := fs.Stat(templatePath); err != nil {
-		return ErrTemplateNotFound
-	}
-
-	accessor := billyFilesystem{fs: fs}
-
-	return copy(templatePath, dest, accessor)
 }
 
 // write from a custom repository.  The temlate full name is prefixed
-func writeCustom(repositoriesPath, runtime, templateFullName, dest string) error {
+func writeCustom(repositoriesPath, repo, runtime, template, dest string) error {
 	// assert path to template repos provided
 	if repositoriesPath == "" {
 		return ErrRepositoriesNotDefined
 	}
 
-	// assert template in form "repoName/templateName"
-	cc := strings.Split(templateFullName, "/")
-	if len(cc) != 2 {
-		return ErrTemplateMissingRepository
-	}
-
 	var (
-		repo         = cc[0]
-		template     = cc[1]
 		repoPath     = filepath.Join(repositoriesPath, repo)
 		runtimePath  = filepath.Join(repositoriesPath, repo, runtime)
 		templatePath = filepath.Join(repositoriesPath, repo, runtime, template)

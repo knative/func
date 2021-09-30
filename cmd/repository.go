@@ -395,11 +395,12 @@ func runRepositoryAdd(args []string, clientFn repositoryClientFn) (err error) {
 	}
 
 	// Add repository
-	if err = client.Repositories().Add(params.Name, params.URL); err != nil {
+	var n string
+	if n, err = client.Repositories().Add(params.Name, params.URL); err != nil {
 		return
 	}
 	if cfg.Verbose {
-		fmt.Fprintln(os.Stdout, "Repository added")
+		fmt.Fprintf(os.Stdout, "Repository added: %s", n)
 	}
 	return
 }
@@ -668,7 +669,7 @@ type RepositoryClient interface {
 type Repositories interface {
 	All() ([]fn.Repository, error)
 	List() ([]string, error)
-	Add(name, url string) error
+	Add(name, url string) (string, error)
 	Rename(old, new string) error
 	Remove(name string) error
 }

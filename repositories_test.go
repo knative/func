@@ -76,7 +76,7 @@ func TestRepositoriesAll(t *testing.T) {
 	}
 
 	// Add one
-	err = client.Repositories().Add("", uri)
+	_, err = client.Repositories().Add("", uri)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -105,8 +105,10 @@ func TestRepositoriesAdd(t *testing.T) {
 	client := fn.New(fn.WithRepositories(root))
 
 	// Add repo at uri
-	if err := client.Repositories().Add("", uri); err != nil {
+	if name, err := client.Repositories().Add("", uri); err != nil {
 		t.Fatal(err)
+	} else if name != RepositoriesTestRepo {
+		t.Fatalf("Expected name '%v', got %v", RepositoriesTestRepo, name)
 	}
 
 	// Assert list now includes the test repo
@@ -143,8 +145,8 @@ func TestRepositoriesAddNamed(t *testing.T) {
 	// repositories' root location.
 	client := fn.New(fn.WithRepositories(root))
 
-	name := "example"                                            // the custom name for the new repo
-	if err := client.Repositories().Add(name, uri); err != nil { // add with name
+	name := "example"                                               // the custom name for the new repo
+	if _, err := client.Repositories().Add(name, uri); err != nil { // add with name
 		t.Fatal(err)
 	}
 
@@ -175,10 +177,10 @@ func TestRepositoriesAddExistingErrors(t *testing.T) {
 
 	// Add twice.
 	name := "example"
-	if err := client.Repositories().Add(name, uri); err != nil {
+	if _, err := client.Repositories().Add(name, uri); err != nil {
 		t.Fatal(err)
 	}
-	if err := client.Repositories().Add(name, uri); err == nil {
+	if _, err := client.Repositories().Add(name, uri); err == nil {
 		t.Fatalf("did not receive expected error adding an existing repository")
 	}
 
@@ -208,7 +210,7 @@ func TestRepositoriesRename(t *testing.T) {
 	client := fn.New(fn.WithRepositories(root))
 
 	// Add and Rename
-	if err := client.Repositories().Add("foo", uri); err != nil {
+	if _, err := client.Repositories().Add("foo", uri); err != nil {
 		t.Fatal(err)
 	}
 	if err := client.Repositories().Rename("foo", "bar"); err != nil {
@@ -243,7 +245,7 @@ func TestRepositoriesRemove(t *testing.T) {
 
 	// Add and Remove
 	name := "example"
-	if err := client.Repositories().Add(name, uri); err != nil {
+	if _, err := client.Repositories().Add(name, uri); err != nil {
 		t.Fatal(err)
 	}
 	if err := client.Repositories().Remove(name); err != nil {
@@ -275,7 +277,7 @@ func TestRepositoriesURL(t *testing.T) {
 	client := fn.New(fn.WithRepositories(root))
 
 	// Add the test repo
-	err := client.Repositories().Add("newrepo", uri)
+	_, err := client.Repositories().Add("newrepo", uri)
 	if err != nil {
 		t.Fatal(err)
 	}

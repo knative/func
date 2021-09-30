@@ -95,15 +95,15 @@ func (r *Repositories) Get(name string) (repo Repository, err error) {
 
 // Add a repository of the given name from the URI.  Name, if not provided,
 // defaults to the repo name (sans optional .git suffix)
-func (r *Repositories) Add(name, uri string) (err error) {
-	derivedName := name
-	if derivedName == "" {
-		derivedName, err = repoNameFrom(uri)
+func (r *Repositories) Add(name, uri string) (n string, err error) {
+	n = name
+	if n == "" {
+		n, err = repoNameFrom(uri)
 		if err != nil {
-			return err
+			return n, err
 		}
 	}
-	path := filepath.Join(r.Path, derivedName)
+	path := filepath.Join(r.Path, n)
 	bare := false
 	_, err = git.PlainClone(path, bare, &git.CloneOptions{URL: uri})
 	if err != nil {

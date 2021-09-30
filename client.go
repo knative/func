@@ -426,23 +426,39 @@ func (c *Client) Create(cfg Function) (err error) {
 		f.Template = DefaultTemplate
 	}
 
+	// Determine what repository and template to use. If the caller provided
+	// a git repository URL, then use the repo name and provided template.
+	var repo, template string
+	if c.repository != "" {
+		repo, err = c.repositories.Add("", c.repository)
+		if err != nil {
+			return
+		}
+		template = cfg.Template
+		defer func() {
+			err = c.repositories.Remove(repo)
+		}()
+	} else {
+		// If the template name contains a '/', that indicates the use of a local
+		// "custom" repo. Parse the provided template name, separating the repository
+		// and template. If the name does not contain a '/', use the default built in
+		// template repository.
+		cc := strings.Split(cfg.Template, "/")
+		if len(cc) == 1 {
+			repo = DefaultRepository
+			template = cfg.Template
+		} else {
+			repo = cc[0]
+			template = cc[1]
+		}
+	}
+
 	// Write out a template.
-	w := templateWriter{repositories: c.repositories.Path, url: c.repository, verbose: c.verbose}
-	if err = w.Write(f.Runtime, f.Template, f.Root); err != nil {
+	w := templateWriter{repositories: c.repositories.Path, verbose: c.verbose}
+	if err = w.Write(repo, f.Runtime, template, f.Root); err != nil {
 		return
 	}
 
-	var repo, _ string
-	cc := strings.Split(cfg.Template, "/")
-	if len(cc) == 1 {
-		repo = DefaultRepository
-	} else {
-		repo = cc[0]
-	}
-
-	// TODO: Add support for remote repos. None of the below works with templates being read from a remote
-	// git repository, since repositories.Get(repo) only works on local template repositories.
-	// get the repository for the function
 	repository, err := c.repositories.Get(repo)
 	if err != nil {
 		return
@@ -457,9 +473,6 @@ func (c *Client) Create(cfg Function) (err error) {
 	f.Builder = runtime.Builders["default"]
 	f.Builders = runtime.Builders
 	f.Buildpacks = runtime.Buildpacks
-	// fmt.Printf("Setting builder to %s\n", f.Builder)
-	// fmt.Printf("Setting builders to %+v\n", f.Builders)
-	// fmt.Printf("Setting Buildpacks to %+v\n", f.Buildpacks)
 
 	f.HealthEndpoints.Liveness = repository.HealthEndpoints.Liveness
 	f.HealthEndpoints.Readiness = repository.HealthEndpoints.Readiness
