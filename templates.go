@@ -13,7 +13,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/go-git/go-billy/v5"
 	"github.com/markbates/pkger"
 )
 
@@ -364,21 +363,4 @@ func (a pkgerFilesystem) ReadDir(path string) ([]os.FileInfo, error) {
 		return nil, err
 	}
 	return f.Readdir(-1)
-}
-
-// billyFilesystem is a template file accessor backed by a billy FS
-type billyFilesystem struct {
-	fs billy.Filesystem
-}
-
-func (a billyFilesystem) Stat(path string) (os.FileInfo, error) {
-	return a.fs.Stat(path)
-}
-
-func (a billyFilesystem) Open(path string) (file, error) {
-	return a.fs.Open(path)
-}
-
-func (a billyFilesystem) ReadDir(path string) ([]os.FileInfo, error) {
-	return a.fs.ReadDir(path)
 }
