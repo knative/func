@@ -1,7 +1,7 @@
 package function
 
 import (
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -94,7 +94,7 @@ func NewRepositoryFromPath(path string) (r Repository, err error) {
 	for i, rr := range r.Runtimes {
 		yamlPath := filepath.Join(path, rr.Path, RuntimeYaml)
 		if _, err = os.Stat(yamlPath); err == nil {
-			if bytes, err = ioutil.ReadFile(yamlPath); err == nil {
+			if bytes, err = os.ReadFile(yamlPath); err == nil {
 				if err = yaml.Unmarshal(bytes, &rr); err != nil {
 					return
 				}
@@ -166,7 +166,7 @@ func traverseTemplateRepository(path string, r *Repository) error {
 	r.URL = readURL(path)
 
 	// Each subdirectory of path is potentially a Runtime
-	directories, err := ioutil.ReadDir(path)
+	directories, err := os.ReadDir(path)
 	if err != nil {
 		return err
 	}
@@ -182,7 +182,7 @@ func traverseTemplateRepository(path string, r *Repository) error {
 		r.Runtimes = append(r.Runtimes, runtime)
 
 		// Each subdirectory of the runtime is potentially a Template
-		templates, err := ioutil.ReadDir(rpath)
+		templates, err := os.ReadDir(rpath)
 		if err != nil {
 			return err
 		}
@@ -231,7 +231,7 @@ func getBytesFromBuiltinFile(path string) (bytes []byte, err error) {
 	if err != nil {
 		return
 	}
-	bytes, err = ioutil.ReadAll(manifest)
+	bytes, err = io.ReadAll(manifest)
 	return
 }
 
