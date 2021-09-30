@@ -90,7 +90,7 @@ func create -l go -t boson/hello-world
 ```
 
 See the `repository` section of the [commands guide](commands.md)
-for more information on installing and managing Language Pack 
+for more information on installing and managing Language Pack
 repositories.
 
 ## Language Pack Manifests
