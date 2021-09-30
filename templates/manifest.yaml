@@ -7,7 +7,7 @@ version: 0.0.1
 url: builtin
 
 # Optional. Health endpoints for deployed functions in all runtimes.
-# May be overridden by mainfest.yaml settings at the language level.
+# May be overridden by runtime.yaml settings at the language level.
 healthEndpoints:
   liveness: /health/liveness
   readiness: /health/readiness
