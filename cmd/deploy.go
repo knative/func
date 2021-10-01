@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
@@ -25,7 +26,12 @@ func newDeployClient(cfg deployConfig) (*fn.Client, error) {
 
 	builder := buildpacks.NewBuilder()
 
-	pusher, err := docker.NewPusher(docker.WithCredentialsProvider(docker.NewCredentialsProvider(newCredentialsCallback(), nil)),
+	credentialsProvider := docker.NewCredentialsProvider(
+		newCredentialsCallback(),
+		docker.CheckAuth,
+		newChooseHelperCallback())
+	pusher, err := docker.NewPusher(
+		docker.WithCredentialsProvider(credentialsProvider),
 		docker.WithProgressListener(listener))
 	if err != nil {
 		return nil, err
@@ -213,6 +219,34 @@ func newCredentialsCallback() func(registry string) (docker.Credentials, error) 
 			return docker.Credentials{}, err
 		}
 		return result, nil
+	}
+}
+
+func newChooseHelperCallback() docker.ChooseCredentialHelperCallback {
+	return func(availableHelpers []string) (string, error) {
+		if len(availableHelpers) < 1 {
+			fmt.Fprintf(os.Stderr, `There is no credential helper available.
+As a result credentials won't be saved.
+To fix this consider installing docker credential helper https://github.com/docker/docker-credential-helpers.
+`)
+			return "", nil
+		}
+
+		var resp string
+		err := survey.AskOne(&survey.Select{
+			Message: "Choose credentials helper",
+			Options: append(availableHelpers, "None"),
+		}, &resp, survey.WithValidator(survey.Required))
+		if err != nil {
+			return "", err
+		}
+		if resp == "None" {
+			fmt.Fprintf(os.Stderr, `You haven't chosen credential helper.
+As a result credentials won't be saved.
+`)
+			return "", nil
+		}
+		return resp, nil
 	}
 }
 

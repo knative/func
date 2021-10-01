@@ -9,7 +9,6 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/mitchellh/go-homedir"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -154,42 +153,13 @@ func cwd() (cwd string) {
 	return cwd
 }
 
-// The name of the config directory within ~/.config (or configured location)
-const configDirName = "func"
-
-// configPath is the effective path to the optional config directory used for
-// function defaults and extensible templates.
-func configPath() string {
-	// Use XDG_CONFIG_HOME/func if defined
-	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
-		// TODO: create if not exist
-		return filepath.Join(xdg, configDirName)
-	}
-
-	// Expand and use ~/.config/func
-	home, err := homedir.Expand("~")
-	if err == nil {
-		// TODO: ensureConfigPath(home)
-		return filepath.Join(home, ".config", configDirName)
-	}
-
-	// default is .config in current working directory, used when there is no
-	// available home in which to find a .`.config/func` directory.
-	// A case could be made that a panic is in order in this scenario, but
-	// currently this seems like a nonfatal situation, as in the scenario
-	// "there is no home directory", the fallback of using `.config` if extant
-	// may very well be the optimal choice.
-	fmt.Fprintf(os.Stderr, "Error locating ~/.config: %v", err)
-	return filepath.Join(".config", configDirName)
-}
-
 // The anme of the repositories directory within config dir (usually ~/.config)
 const repositoriesDirName = "repositories"
 
 // repositoriesPath is the effective path to the optional repositories directory
 // used for extensible language packs.
 func repositoriesPath() string {
-	return filepath.Join(configPath(), repositoriesDirName)
+	return filepath.Join(fn.ConfigPath(), repositoriesDirName)
 }
 
 // bindFunc which conforms to the cobra PreRunE method signature
