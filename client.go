@@ -8,7 +8,6 @@ import (
 	"os"
 	"runtime"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 )
@@ -187,10 +186,8 @@ func New(options ...Option) *Client {
 		progressListener: &NoopProgressListener{},
 		emitter:          &noopEmitter{},
 	}
-	// Subtype managers for repositories and templates.
 	c.repositories = newRepositories(c, DefaultRepositoriesPath)
 	c.templates = newTemplates(c)
-
 	for _, o := range options {
 		o(c)
 	}
@@ -378,25 +375,25 @@ func (c *Client) New(ctx context.Context, cfg Function) (err error) {
 
 // Create a new Function project locally using the settings provided on a
 // Function object.
-func (c *Client) Create(cfg Function) (err error) {
+func (c *Client) Create(f Function) (err error) {
 
 	// Create project root directory, if it doesn't already exist
-	if err = os.MkdirAll(cfg.Root, 0755); err != nil {
+	if err = os.MkdirAll(f.Root, 0755); err != nil {
 		return
 	}
 
 	// Root must not already be a Function
 	//
 	// Instantiate a Function struct about the given root path, but
-	// immediately exit with error (prior to actual creation) if a
-	// Function already existed at that path (Create should never
+	// immediately exit with error (prior to actual creation) if this is
+	// a Function already initialized at that path (Create should never
 	// clobber a pre-existing Function)
-	f, err := NewFunction(cfg.Root)
+	defaults, err := NewFunction(f.Root)
 	if err != nil {
 		return
 	}
-	if f.Initialized() {
-		err = fmt.Errorf("Function at '%v' already initialized.", cfg.Root)
+	if defaults.Initialized() {
+		err = fmt.Errorf("Function at '%v' already initialized.", f.Root)
 		return
 	}
 
@@ -412,47 +409,31 @@ func (c *Client) Create(cfg Function) (err error) {
 		return
 	}
 
-	// Map requested fields to the newly created function.
-	f.Image = cfg.Image
-	f.Name = cfg.Name
+	// Merge values loaded from disk into the new function, treating them
+	// as defaults (the do not overwrite, just set if not )
+	f = merge(f, defaults)
 
 	// Assert runtime was provided, or default.
-	f.Runtime = cfg.Runtime
 	if f.Runtime == "" {
 		f.Runtime = DefaultRuntime
 	}
 
 	// Assert template name was provided, or default.
-	f.Template = cfg.Template
 	if f.Template == "" {
 		f.Template = DefaultTemplate
 	}
 
-	// Determine what repository and template to use. If the caller provided
-	// a git repository URL, then use the repo name and provided template.
+	// TODO: if c.repository was defined it should replace the deafult repo and
+	// usurp the loading of extensible repos.
 	var repo string
 	if c.repository != "" {
 		repo, err = c.repositories.Add("", c.repository)
 		if err != nil {
 			return
 		}
-		f.Template = cfg.Template
 		defer func() {
 			err = c.repositories.Remove(repo)
 		}()
-	} else {
-		// If the template name contains a '/', that indicates the use of a local
-		// "custom" repo. Parse the provided template name, separating the repository
-		// and template. If the name does not contain a '/', use the default built in
-		// template repository.
-		cc := strings.Split(cfg.Template, "/")
-		if len(cc) == 1 {
-			repo = DefaultRepository
-			f.Template = cfg.Template
-		} else {
-			repo = cc[0]
-			f.Template = cc[1]
-		}
 	}
 
 	// Write out the template for a Function
@@ -698,7 +679,7 @@ func (c *Client) Runtimes() ([]string, error) {
 	}
 	for _, repo := range repositories {
 		for _, runtime := range repo.Runtimes {
-			runtimes.Add(runtime.Path)
+			runtimes.Add(runtime.Name)
 		}
 	}
 

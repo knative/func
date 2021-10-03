@@ -14,11 +14,17 @@ import (
 type Template struct {
 	// Name (short name) of this template within the repository.
 	// See .Fullname for the calculated field wich is the unique primary id.
-	Name string
+	Name string `yaml:"-"`
 	// Runtime for which this template applies.
 	Runtime string
 	// Repository within which this template is contained.
 	Repository string
+	// BuildConfig defines builders and buildpacks.  the denormalized view of
+	// members which can be defined per repo or per runtime first.
+	BuildConfig `yaml:",inline"`
+	// HealthEndpoints.  The denormalized view of members which can be defined
+	// first per repo or per runtime.
+	HealthEndpoints `yaml:",inline"`
 }
 
 // Fullname is a caluclated field of [repo]/[name] used
@@ -30,16 +36,16 @@ func (t Template) Fullname() string {
 
 // write the given template to path using data from given repos.
 // TODO: needing to pass in path to repos here is a code smell.
-func writeTemplate(t Template, path, repos string) error {
+func writeTemplate(t Template, repos, dest string) error {
 	// Write the template from the right location
 	// This abstraction will be moved into the object itself such that
 	// writing does not depend (at this level) on what _kind_ of template
 	// it is (embedded, on disk or remote) and just writes based on its internal
 	// filesystem (wherever that FS may have come from)
 	if t.Repository == DefaultRepository {
-		return writeEmbedded(t, path)
+		return writeEmbedded(t, dest)
 	}
-	return writeCustom(t, path, repos)
+	return writeCustom(t, repos, dest)
 }
 
 var (
@@ -219,16 +225,16 @@ func (a pkgerFilesystem) ReadDir(path string) ([]os.FileInfo, error) {
 // Embedding Directives
 // Trigger encoding of ./templates as pkged.go
 
-// Path to builtin
-// note: this constant must be redefined in each file used due to pkger
-// performing static analysis on each source file separately.
-const builtinPath = "/templates"
+// Path to embedded
+// note: this constant must be defined in the file in which pkger is called,
+// as it performs static analysis on each source file separately to trigger
+// encoding of referenced paths.
+const embeddedPath = "/templates"
 
-//
 // When pkger is run, code analysis detects this pkger.Include statement,
 // triggering the serialization of the templates directory and all its contents
 // into pkged.go, which is then made available via a pkger filesystem.  Path is
 // relative to the go module root.
 func init() {
-	_ = pkger.Include(builtinPath)
+	_ = pkger.Include(embeddedPath)
 }

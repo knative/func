@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/go-git/go-git/v5"
-	"gopkg.in/yaml.v2"
 )
 
 // Repositories manager
@@ -50,21 +49,21 @@ func (r *Repositories) List() ([]string, error) {
 }
 
 // All repositories under management (at configured Path)
-func (r *Repositories) All() (repos []Repository, err error) {
-	repos = []Repository{}
+func (r *Repositories) All() (repos []Repository0_18, err error) {
+	repos = []Repository0_18{}
 
 	// Single repo override
 	// TODO: Create single remote repository override for WithRepository option.
 
-	// Default (builtin) repo always first
-	builtin, err := NewRepositoryFromBuiltin()
+	// Default (embedded) repo always first
+	builtin, err := newEmbeddedRepository()
 	if err != nil {
 		return
 	}
 	repos = append(repos, builtin)
 
 	// Return if not using on-disk repos
-	// If r.Path not populated, this indicates the client should
+	// If r.path not populated, this indicates the client should
 	// not read repositories from disk, using only builtin.
 	if r.path == "" {
 		return
@@ -92,8 +91,8 @@ func (r *Repositories) All() (repos []Repository, err error) {
 		if !f.IsDir() || strings.HasPrefix(f.Name(), ".") {
 			continue
 		}
-		var repo Repository
-		repo, err = NewRepositoryFromPath(filepath.Join(r.path, f.Name()))
+		var repo Repository0_18
+		repo, err = newRepository(filepath.Join(r.path, f.Name()))
 		if err != nil {
 			return
 		}
@@ -103,16 +102,17 @@ func (r *Repositories) All() (repos []Repository, err error) {
 }
 
 // Get a repository by name, error if it does not exist.
-func (r *Repositories) Get(name string) (repo Repository, err error) {
+func (r *Repositories) Get(name string) (repo Repository0_18, err error) {
 	if name == DefaultRepository {
-		return NewRepositoryFromBuiltin()
+		return newEmbeddedRepository()
 	}
 	// TODO: when WithRepository defined, only it can be defined
-	return NewRepositoryFromPath(filepath.Join(r.path, name))
+	return newRepository(filepath.Join(r.path, name))
 }
 
 // Add a repository of the given name from the URI.  Name, if not provided,
-// defaults to the repo name (sans optional .git suffix)
+// defaults to the repo name (sans optional .git suffix). Returns the final
+// name as added.
 func (r *Repositories) Add(name, uri string) (n string, err error) {
 	n = name
 	if n == "" {
@@ -124,13 +124,6 @@ func (r *Repositories) Add(name, uri string) (n string, err error) {
 	path := filepath.Join(r.path, n)
 	bare := false
 	_, err = git.PlainClone(path, bare, &git.CloneOptions{URL: uri})
-	if err != nil {
-		return
-	}
-	// If the caller provided a name, set it
-	if name != "" {
-		err = writeRepositoryName(name, path)
-	}
 	return
 }
 
@@ -138,10 +131,7 @@ func (r *Repositories) Add(name, uri string) (n string, err error) {
 func (r *Repositories) Rename(from, to string) error {
 	a := filepath.Join(r.path, from)
 	b := filepath.Join(r.path, to)
-	if err := os.Rename(a, b); err != nil {
-		return err
-	}
-	return writeRepositoryName(to, b)
+	return os.Rename(a, b)
 }
 
 // Remove a repository of the given name from the repositories.
@@ -167,22 +157,4 @@ func repoNameFrom(uri string) (name string, err error) {
 		return
 	}
 	return strings.TrimSuffix(ss[len(ss)-1], ".git"), nil
-}
-
-// writeRepositoryName writes the given name to the repository's
-// Name attribute in the manifest.yaml file
-func writeRepositoryName(name, path string) (err error) {
-	var r Repository
-	if r, err = NewRepositoryFromPath(path); err != nil {
-		return
-	}
-	r.Name = name
-
-	// Now write the manifest file back to disk
-	p := filepath.Join(path, ManifestYaml)
-	var bb []byte
-	if bb, err = yaml.Marshal(&r); err != nil {
-		return
-	}
-	return ioutil.WriteFile(p, bb, 0644)
 }

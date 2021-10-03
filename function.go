@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/imdario/mergo"
 )
 
 type Function struct {
@@ -263,4 +265,11 @@ func isEffectivelyEmpty(dir string) (bool, error) {
 		}
 	}
 	return true, nil
+}
+
+// merge into Function A the the values of B, not overwriting if a value already
+// exists in A.
+func merge(a, b Function) Function {
+	mergo.Merge(&a, b)
+	return a
 }

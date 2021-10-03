@@ -44,19 +44,19 @@ func (t *Templates) List(runtime string) ([]string, error) {
 
 // listDefault (embedded) templates by runtime
 func (t *Templates) listDefault(runtime string) ([]string, error) {
-	var (
-		names     = newSortedSet()
-		repo, err = t.client.Repositories().Get(DefaultRepository)
-		templates FunctionTemplates
-	)
+	names := newSortedSet()
+
+	r, err := t.client.Repositories().Get(DefaultRepository)
 	if err != nil {
 		return []string{}, err
 	}
 
-	if templates, err = repo.Templates(runtime); err != nil {
+	tt, err := r.Templates(runtime)
+	if err != nil {
 		return []string{}, err
 	}
-	for _, t := range templates {
+
+	for _, t := range tt {
 		names.Add(t.Name)
 	}
 	return names.Items(), nil
@@ -66,27 +66,23 @@ func (t *Templates) listDefault(runtime string) ([]string, error) {
 // exist in all extended (config dir) repositories for a runtime.
 // Prefixed, sorted.
 func (t *Templates) listExtended(runtime string) ([]string, error) {
-	var (
-		names      = newSortedSet()
-		repos, err = t.client.Repositories().All()
-		templates  FunctionTemplates
-	)
+	names := newSortedSet()
+
+	rr, err := t.client.Repositories().All()
 	if err != nil {
 		return []string{}, err
 	}
-	for _, repo := range repos {
-		if repo.Name == DefaultRepository {
+
+	for _, r := range rr {
+		if r.Name == DefaultRepository {
 			continue // already added at head of names
 		}
-		if templates, err = repo.Templates(runtime); err != nil {
+		tt, err := r.Templates(runtime)
+		if err != nil {
 			return []string{}, err
 		}
-		for _, template := range templates {
-			names.Add(Template{
-				Name:       template.Path,
-				Repository: repo.Name,
-				Runtime:    runtime,
-			}.Fullname())
+		for _, t := range tt {
+			names.Add(t.Fullname())
 		}
 	}
 	return names.Items(), nil
@@ -101,7 +97,7 @@ func (t *Templates) Get(runtime, fullname string) (Template, error) {
 		template Template
 		repoName string
 		tplName  string
-		repo     Repository
+		repo     Repository0_18
 		err      error
 	)
 
@@ -125,22 +121,12 @@ func (t *Templates) Get(runtime, fullname string) (Template, error) {
 	return repo.Template(runtime, tplName)
 }
 
-// Write a Function disk using the named Function at the given location
+// Write a Function to disk using the named Function at the given location
 // Returns a new Function which may have been modified dependent on the content
 // of the template (which can define default Function fields, builders,
 // buildpacks, etc)
 func (t *Templates) Write(f Function) (Function, error) {
-	// TODO: These defaults are in the wrong place and will need to move to
-	// (most likely) the Function constructor, which defines the template name,
-	// runtime and repository to use.
-	if f.Template == "" {
-		f.Template = DefaultTemplate
-	}
-	if f.Runtime == "" {
-		f.Runtime = DefaultRuntime
-	}
 
-	// Fetch the template instance for this Function
 	template, err := t.Get(f.Runtime, f.Template)
 	if err != nil {
 		return f, err
@@ -155,48 +141,41 @@ func (t *Templates) Write(f Function) (Function, error) {
 		return f, err
 	}
 
-	// write template to path potentially using the given template repositories.
-	return f, writeTemplate(template, f.Root, t.client.Repositories().Path())
+	// write template from repositories path to the function root.
+	return f, writeTemplate(template, t.client.Repositories().Path(), f.Root)
 }
 
 // denormalize fields from repo/runtime/template into fields on the Function
 func denormalize(client *Client, t Template, f Function) (Function, error) {
-	// TODO: this denormalizaiton might better be part of either the Template
-	// or Function instantiation process; a hierarchically-derived set of
-	// attributes on the template itself, allowing for the template to simply
-	// write based on the calculated fields upon its inception, reuturning the
-	// final Function as the serialized, denormalized data structure.  This would
-	// separate the somewhat complex hierarchical derivation of these fields from
-	// the somewhat orthoganal task of writing.
-	repo, err := client.Repositories().Get(t.Repository)
-	if err != nil {
-		return f, err
-	}
-	runtime, err := repo.Runtime(f.Runtime)
-	if err != nil {
-		return f, err
-	}
+	// The template is already the denormalized view of repo->runtime->template
+	// so it's values are treated as defaults.
+	//
+	// This denormalizaiton might fit more conceptually correctly in a special
+	// purpose Function constructor; but this is closer to the goal.  The template
+	// is a hierarchically-derived set of attributes, allowing for the us to write
+	// based on the calculated fields, reuturning the final Function as the
+	// serialized, denormalized final data structure.  This separates the somewhat
+	// complex hierarchical derivation of these manifests from the somewhat
+	// orthoganal task of applying the values to a Function prior to writing it
+	// out to disk.
 
-	if f.Builder == "" {
-		f.Builder = runtime.Builders["default"]
+	if f.Builder == "" { // as a special fist case, this default comes from itself
+		f.Builder = f.Builders["default"]
+		if f.Builder == "" { // still nothing?  then use the template
+			f.Builder = t.Builders["default"]
+		}
 	}
 	if len(f.Builders) == 0 {
-		f.Builders = runtime.Builders
+		f.Builders = t.Builders
 	}
 	if len(f.Buildpacks) == 0 {
-		f.Buildpacks = runtime.Buildpacks
+		f.Buildpacks = t.Buildpacks
 	}
 	if f.HealthEndpoints.Liveness == "" {
-		f.HealthEndpoints.Liveness = repo.HealthEndpoints.Liveness
-		if f.HealthEndpoints.Liveness == "" {
-			f.HealthEndpoints.Liveness = runtime.Liveness
-		}
+		f.HealthEndpoints.Liveness = t.HealthEndpoints.Liveness
 	}
 	if f.HealthEndpoints.Readiness == "" {
-		f.HealthEndpoints.Readiness = repo.HealthEndpoints.Readiness
-		if f.HealthEndpoints.Readiness == "" {
-			f.HealthEndpoints.Readiness = runtime.Readiness
-		}
+		f.HealthEndpoints.Readiness = t.HealthEndpoints.Readiness
 	}
 	return f, nil
 }

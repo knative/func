@@ -1,3 +1,4 @@
+//go:build !integration
 // +build !integration
 
 package function_test
@@ -5,6 +6,7 @@ package function_test
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	fn "knative.dev/kn-plugin-func"
@@ -154,8 +156,9 @@ func TestRepositoriesAddNamed(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rr) != 2 || rr[1] != name {
-		t.Fatalf("Expected '%v', got %v(%d)", name, rr, len(rr))
+	expected := []string{"default", name}
+	if !reflect.DeepEqual(rr, expected) {
+		t.Fatalf("Expected '%v', got %v", expected, rr)
 	}
 
 	// assert repo files exist
@@ -289,8 +292,8 @@ func TestRepositoriesURL(t *testing.T) {
 	}
 
 	// Assert it includes the correct URL
-	if r.URL != uri {
-		t.Fatalf("expected repository URL '%v', got '%v'", uri, r.URL)
+	if r.URL() != uri {
+		t.Fatalf("expected repository URL '%v', got '%v'", uri, r.URL())
 	}
 }
 

@@ -1,41 +1,78 @@
 package function
 
 import (
-	"io"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/go-git/go-git/v5"
-	"github.com/markbates/pkger"
-	"github.com/markbates/pkger/pkging"
 	"gopkg.in/yaml.v2"
 )
 
-// Path to builtin repositories.
-// note: this constant must be defined in the same file in which it is used due
-// to pkger performing static analysis on source files separately.
-const builtinRepositories = "/templates"
+const (
+	repositoryManifest = "manifest.yaml"
+	runtimeManifest    = "manifest.yaml"
+	templateManifest   = "manifest.yaml"
+)
 
-const ManifestYaml = "manifest.yaml"
-const RuntimeYaml = "runtime.yaml"
+const (
+	// DefaultReadinessEndpoint for final deployed Function instances
+	DefaultReadinessEndpoint = "/health/readiness"
+	// DefaultLivenessEndpoint for final deployed Function instances
+	DefaultLivenessEndpoint = "/health/liveness"
+	// DefaultTemplatesPath is the root of the defined repository
+	// They are expected to be grouped into directories named by their runtime.
+	DefaultTemplatesPath = "."
+)
 
-// Repository represents a collection of one or more runtimes, each with one or more templates
-type Repository struct {
-	Name            string `yaml:"name"`
-	Version         string `yaml:"version,omitempty"`
-	URL             string `yaml:"url,omitempty"`
-	Runtimes        []Runtime
-	HealthEndpoints HealthEndpoints
+// Repository represents a collection of runtimes, each containing templates.
+type Repository0_18 struct {
+	// Name of the repository.  Naming things and placing them in a hierarchy is
+	// the responsibility of the filesystem; metadata the responsibility of the
+	// files within this structure. Therefore the name is not part of the repo.
+	// This is the same reason a git repository has its name nowhere in .git and
+	// does not need a manifest of its contents:  the filesystem itself maintains
+	// this information.
+	Name string `yaml:"-"`
+	// Version of the repository.
+	Version string `yaml:"version,omitempty"`
+	// TemplatesPath defins an optional path within the repository at which
+	// templates are stored.  By default this is the repository root.
+	TemplatesPath string `yaml:"templates,omitempty"`
+	// BuildConfig defines builders and buildpacks.  Here it serves as the default
+	// option which may be overridden per runtim or per template.
+	BuildConfig `yaml:",inline"`
+	// HealthEndpoints for all templates in the repository.  Serves as the
+	// default option which may be overridden per runtime and per template.
+	HealthEndpoints `yaml:",inline"`
+	// Runtimes defined within the repo.
+	Runtimes []Runtime
+
+	fs   filesystem // repo's files TODO: upgrade to fs.FS introduced in go1.16
+	path string     // path (only valuable when non-embedded, locally installed)
 }
 
-// FunctionTemplates is the collection of templates for a Runtime
-type FunctionTemplates []FunctionTemplate
+// Runtime is a division of templates within a repository of templates for a
+// given runtime (source language plus environmentally available services
+// and libraries)
+type Runtime struct {
+	// Name of the runtime
+	Name string `yaml:"-"`
+	// BuildConfig defines builders and buildpacks.  Here it serves as the default
+	// option which may be overridden per template.
+	BuildConfig `yaml:",inline"`
+	// HealthEndpoints for all templates in the repository.  Serves as the
+	// default option which may be overridden per runtime and per template.
+	HealthEndpoints `yaml:",inline"`
+	// Templates defined for the runtime
+	Templates []Template
+}
 
-// FunctionTemplate is the name and path to a Runtime template
-type FunctionTemplate struct {
-	Name string `yaml:"name,omitempty"`
-	Path string `yaml:"path"`
+// BuildConfig defines settins for builders or buildpacks
+type BuildConfig struct {
+	Buildpacks []string          `yaml:"buildpacks,omitempty"`
+	Builders   map[string]string `yaml:"builders,omitempty"`
 }
 
 // HealthEndpoints specify the liveness and readiness endpoints for a Runtime
@@ -44,233 +81,235 @@ type HealthEndpoints struct {
 	Readiness string `yaml:"readiness,omitempty"`
 }
 
-// Runtime is a path to a directory containing one or more function templates
-type Runtime struct {
-	Path       string            `yaml:"path"`
-	Name       string            `yaml:"name,omitempty"`
-	Buildpacks []string          `yaml:"buildpacks,omitempty"`
-	Builders   map[string]string `yaml:"builders,omitempty"`
-	Templates  FunctionTemplates
-	HealthEndpoints
+// URL from whence it was cloned, if a git repo.
+func (r *Repository0_18) URL() string {
+	return readURL(r.path)
 }
 
-// Manifest0_18 is the struct for a manifest.yaml file found in a runtime's template directory
-// Deprecated
-type Manifest0_18 struct {
-	Name            string
-	Buildpacks      []string
-	Builders        map[string]string
-	HealthEndpoints HealthEndpoints
-}
-
-// NewRepositoryFromPath represents the file structure of 'path' at time of construction as
-// a Repository with Templates, each of which has a Name and its Runtime.
-// a convenience member of Runtimes is the unique, sorted list of all
-// runtimes
-func NewRepositoryFromPath(path string) (r Repository, err error) {
-	// A repository must contain a manifest.yaml at the top level
-	manifest := filepath.Join(path, ManifestYaml)
-	var bytes []byte
-	if bytes, err = os.ReadFile(manifest); err != nil {
-		if !os.IsNotExist(err) {
-			return
-		}
-		// If no manifest.yaml file, at least be sure that the repo exists
-		_, err = os.Stat(path)
-		if os.IsNotExist(err) {
-			return r, ErrRepositoryNotFound
-		}
-		// The repo exists, but no manifest.yaml
-		if err = traverseTemplateRepository(path, &r); err != nil {
-			return
-		}
-	} else {
-		err = yaml.Unmarshal(bytes, &r)
-		if err != nil {
-			return
-		}
+// newRepository creates a repository instance from a path on disk.
+func newRepository(path string) (r Repository0_18, err error) {
+	// Build the repository from disk state as the default
+	r = Repository0_18{
+		Name:          filepath.Base(path),
+		TemplatesPath: path,
+		HealthEndpoints: HealthEndpoints{
+			Liveness:  DefaultLivenessEndpoint,
+			Readiness: DefaultLivenessEndpoint,
+		},
+		fs:   osFilesystem{},
+		path: path,
 	}
-	// Read any runtime.yaml files found
-	for i, rr := range r.Runtimes {
-		yamlPath := filepath.Join(path, rr.Path, RuntimeYaml)
-		if _, err = os.Stat(yamlPath); err == nil {
-			if bytes, err = os.ReadFile(yamlPath); err == nil {
-				if err = yaml.Unmarshal(bytes, &rr); err != nil {
-					return
-				}
-				r.Runtimes[i] = rr
-			}
-		} else {
-			// We don't really care if os.Stat finds that the runtime.yaml
-			// file is absent. It's not required. Nilify the error and continue
-			if os.IsNotExist(err) {
-				err = nil
-			}
-		}
+	// Validate path
+	if err = checkDir(r.fs, path); err != nil { // validates repo path
+		return r, fmt.Errorf("repository path invald. %v", err)
 	}
-	// Repository manifest.yaml does not require a URL field
-	// If it's not there, check the git remote
-	if r.URL == "" {
-		r.URL = readURL(path)
+	// Load repository manifest, which may define an alternate location for
+	// templates.
+	r, err = loadRepositoryManifest(r, path)
+	if err != nil {
+		return
 	}
+	// Load Runtimes, which use settings on repository as defaults.
+	r.Runtimes, err = r.runtimes()
 	return
 }
 
-// NewRepository from builtin (encoded ./templates)
+// newEmbeddedRepository (encoded ./templates)
 // Reads /templates/manifest.yaml and any /template/$RUNTIME/runtime.yaml
 // configuration files to populate the Repository struct
-func NewRepositoryFromBuiltin() (r Repository, err error) {
-	var (
-		path  string // file path
-		bytes []byte // bytes from yaml file
-	)
-
-	// Read the repository manifest.yaml
-	path = filepath.Join(builtinRepositories, ManifestYaml)
-	if bytes, err = getBytesFromBuiltinFile(path); err != nil {
-		if !os.IsNotExist(err) {
-			return
-		}
-	} else {
-		err = yaml.Unmarshal(bytes, &r)
-		if err != nil {
-			return
-		}
+func newEmbeddedRepository() (r Repository0_18, err error) {
+	r = Repository0_18{
+		Name:          DefaultRepository,
+		TemplatesPath: embeddedPath,
+		fs:            pkgerFilesystem{},
 	}
-
-	// Read any runtime.yaml files found
-	for i, rr := range r.Runtimes {
-		path = filepath.Join(builtinRepositories, rr.Path, RuntimeYaml)
-		if bytes, err = getBytesFromBuiltinFile(path); err != nil {
-			// If we don't find a runtime.yaml file, that's ok
-			if os.IsNotExist(err) {
-				err = nil
-			} else {
-				// but if the error is something other than NotExist, bail
-				return
-			}
-		}
-		err = yaml.Unmarshal(bytes, &rr)
-		r.Runtimes[i] = rr
-	}
+	r.Runtimes, err = r.runtimes()
 	return
+	// The embedded repository does not have a manifest because:
+	// 1.  It has no name
+	// 2.  Its version is the version of the parent package.
+	// 3.  It is not a langauge pack and as such need not redefine where templates
+	//     are located within.
+	// 4.  BuildConfig and HealthEndpoints are definitionally defaults.
+	// The embedded repository also does not valide path, because it is implicit.
 }
 
-// traverseTemplateRepository is used to extrapolate repository
-// metadata when a manifest.yaml file is not present. This is really
-// only meant to support template repositories created and used up
-// to and including the release of 0.18, and should ultimately be
-// removed, in my opinion
-func traverseTemplateRepository(path string, r *Repository) error {
-	r.Name = filepath.Base(path)
-	r.URL = readURL(path)
+// runtimes returns runtimes currently defined in this repository's filesytem.
+// The views are denormalized, using the parent repository's values
+// for inherited fields BuildConfig and HealthEndpoints as the default values
+// for the runtimes and templates.  The runtimes and templates themselves can
+// override these values by specifying new values in thir config files.
+func (r Repository0_18) runtimes() (runtimes []Runtime, err error) {
+	runtimes = []Runtime{}
 
-	// Each subdirectory of path is potentially a Runtime
-	directories, err := os.ReadDir(path)
-	if err != nil {
-		return err
+	// Validate template path. Redundant with the same check in the repo
+	// constructor unless alternate templates location is defind.
+	if err = checkDir(r.fs, r.TemplatesPath); err != nil {
+		err = fmt.Errorf("templates path invalid. %v", err)
+		return
 	}
-	for _, maybeRuntime := range directories {
-		if !maybeRuntime.IsDir() || strings.HasPrefix(maybeRuntime.Name(), ".") {
-			continue // Ignore files and hidden dirs
+
+	// Read the templates directory, loading each runtime
+	fis, err := r.fs.ReadDir(r.TemplatesPath)
+	if err != nil {
+		return
+	}
+	for _, fi := range fis {
+		if !fi.IsDir() || strings.HasPrefix(fi.Name(), ".") {
+			continue // ignore files and hidden dirs
 		}
-		rpath := filepath.Join(path, maybeRuntime.Name())
+		// Runtime
+		// Defaults set to the values of the repo for some members, as these are
+		// the repo-wide defaults
 		runtime := Runtime{
-			Name: maybeRuntime.Name(),
-			Path: rpath,
+			Name:            fi.Name(),
+			BuildConfig:     r.BuildConfig,
+			HealthEndpoints: r.HealthEndpoints,
 		}
-		r.Runtimes = append(r.Runtimes, runtime)
-
-		// Each subdirectory of the runtime is potentially a Template
-		templates, err := os.ReadDir(rpath)
-		if err != nil {
-			return err
-		}
-		for _, maybeTemplate := range templates {
-			if !maybeTemplate.IsDir() || strings.HasPrefix(maybeTemplate.Name(), ".") {
-				continue // Ignore files and hidden dirs
-			}
-			ft := FunctionTemplate{
-				Name: maybeTemplate.Name(),
-				Path: filepath.Join(runtime.Path, maybeTemplate.Name()),
-			}
-
-			runtime.Templates = append(runtime.Templates, ft)
-
-			// Finally - older template repos will have a manifest.yaml
-			// file in the template directory. This is problematic in that
-			// builders, buildpacks and health endpoints are now set at
-			// the runtime level instead of the template level. That means
-			// that whatever was the last template processed for a given
-			// runtime, determines these values now. This is really only
-			// a theoretical problem because in practice, manifest.yaml
-			// files are identical across templates.
-			manifestPath := filepath.Join(ft.Path, ManifestYaml)
-			if bytes, err := os.ReadFile(manifestPath); err == nil {
-				manifest := Manifest0_18{}
-				if err := yaml.Unmarshal(bytes, &manifest); err == nil {
-					runtime.Builders = manifest.Builders
-					runtime.Buildpacks = manifest.Buildpacks
-					runtime.HealthEndpoints = manifest.HealthEndpoints
-				}
-			}
-		}
+		// Runtime Manifest
+		// Load the file if it exists, which may override values inherited from the
+		// repo such as builders, buildpacks and health endponts.
+		runtime, err = loadRuntimeManifest(r.fs, runtime, filepath.Join(r.TemplatesPath, fi.Name()))
+		// Runtime Templates
+		// Load from repo filesystem for runtime. Will inherit values from the
+		// runtime such as BuildConfig, HealthEndpoints etc.
+		runtime.Templates, err = r.templates(runtime)
+		runtimes = append(runtimes, runtime)
 	}
-	return nil
-}
-
-// getBytesFromBuiltinFile reads a file at `path` in the embedded
-// template file system and returns the bytes
-func getBytesFromBuiltinFile(path string) (bytes []byte, err error) {
-	// If the file does not exist return an error
-	if _, err = pkger.Stat(path); err != nil {
-		return
-	}
-	var manifest pkging.File
-	manifest, err = pkger.Open(path)
-	if err != nil {
-		return
-	}
-	bytes, err = io.ReadAll(manifest)
 	return
 }
 
-// Template from repo with given runtime.
-func (r *Repository) Template(runtime, name string) (t Template, err error) {
-	var l Runtime
-	l, err = r.Runtime(runtime)
-	if err != nil {
+// templates returns templates currently defined in the given runtime's
+// filesystem.  The view is denormalized, using the inherited fields from
+// the runtime for fileds such as BuildConfig and HealthEndpoints.  The
+// template itself can override these by including a manifest.
+func (r Repository0_18) templates(runtime Runtime) (templates []Template, err error) {
+	templates = []Template{}
+	path := filepath.Join(r.TemplatesPath, runtime.Name)
+
+	// Validate directory exists
+	if err = checkDir(r.fs, path); err != nil {
+		err = fmt.Errorf("runtime path invald. %v", err)
 		return
 	}
 
-	for _, t := range l.Templates {
-		if t.Path == name {
-			return Template{
-				Repository: r.Name,
-				Runtime:    runtime,
-				Name:       t.Path,
-			}, nil
+	// Read the directory, loading each template.
+	fis, err := r.fs.ReadDir(path)
+	if err != nil {
+		return
+	}
+	for _, fi := range fis {
+		if !fi.IsDir() || strings.HasPrefix(fi.Name(), ".") {
+			continue // ignore files and hidden dirs
 		}
+		// Template
+		// Defaults set to the values from the runtime for some members, as these
+		// are the runtime-wide defaults possibly themselves inherited from repo.
+		t := Template{
+			Name:            fi.Name(),
+			Repository:      r.Name,
+			Runtime:         runtime.Name,
+			BuildConfig:     runtime.BuildConfig,
+			HealthEndpoints: runtime.HealthEndpoints,
+		}
+		// Template Manifeset
+		// Load manifest file if it exists, which may override values inherited from
+		// the runtime/repo.
+		t, err = loadTemplateManifest(r.fs, t, filepath.Join(path, fi.Name()))
+		templates = append(templates, t)
+	}
+	return
+}
+
+// loadRepositoryManfist from the directory specifed by path (should be the
+// repository root).  Returned is the repository with values from the manifest
+// populated preferentially.  An error is not returned for a missinge manifest
+// (the passed repo is returned unmodifed), but errors decoding the file are.
+func loadRepositoryManifest(r Repository0_18, path string) (Repository0_18, error) {
+	file, err := r.fs.Open(filepath.Join(path, repositoryManifest))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return r, nil
+		}
+		return r, err
+	}
+	decoder := yaml.NewDecoder(file)
+	return r, decoder.Decode(&r)
+}
+
+// loadRuntimeManifest from the directory specified (runtime root).  Returned
+// is the runtime with values from the manifest populated preferentially.  An
+// error is not returned for a missing manifest file (the passed runtime is
+// returned), but errors decoding the file are.
+func loadRuntimeManifest(fs filesystem, r Runtime, path string) (Runtime, error) {
+	file, err := fs.Open(filepath.Join(path, runtimeManifest))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return r, nil
+		}
+		return r, err
 	}
 
+	decoder := yaml.NewDecoder(file)
+	return r, decoder.Decode(&r)
+}
+
+// loadTemplateManifest from the directory specified (template root).  Returned
+// is the template with values from the manifest populated preferentailly.  An
+// error is not returned for a missing manifest file (the passed template is
+// returned), but errors decoding the file are.
+func loadTemplateManifest(fs filesystem, t Template, path string) (Template, error) {
+	file, err := fs.Open(filepath.Join(path, templateManifest))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return t, nil
+		}
+		return t, err
+	}
+	decoder := yaml.NewDecoder(file)
+	return t, decoder.Decode(&t)
+}
+
+// check that the given path is an accessible directory or error.
+func checkDir(fs filesystem, path string) error {
+	fi, err := fs.Stat(path)
+	if err != nil && os.IsNotExist(err) {
+		err = fmt.Errorf("path '%v' not found", path)
+	} else if err == nil && !fi.IsDir() {
+		err = fmt.Errorf("path '%v' is not a directory", path)
+	}
+	return err
+}
+
+// Template from repo for given runtime.
+func (r *Repository0_18) Template(runtimeName, name string) (t Template, err error) {
+	runtime, err := r.Runtime(runtimeName)
+	if err != nil {
+		return
+	}
+	for _, t := range runtime.Templates {
+		if t.Name == name {
+			return t, nil
+		}
+	}
 	return Template{}, ErrTemplateNotFound
 }
 
 // Templates returns the set of all templates for a given runtime.
-func (r *Repository) Templates(runtime string) (FunctionTemplates, error) {
-	for _, l := range r.Runtimes {
-		if l.Path == runtime {
-			return l.Templates, nil
+func (r *Repository0_18) Templates(runtimeName string) ([]Template, error) {
+	for _, runtime := range r.Runtimes {
+		if runtime.Name == runtimeName {
+			return runtime.Templates, nil
 		}
 	}
 	return nil, ErrTemplateNotFound
 }
 
-// Runtime returns the Runtime for the given name in a repository
-func (r *Repository) Runtime(runtime string) (l Runtime, err error) {
-	for _, l = range r.Runtimes {
-		if l.Path == runtime {
-			return l, err
+// Runtime of the given name within the repository.
+func (r *Repository0_18) Runtime(name string) (runtime Runtime, err error) {
+	for _, runtime = range r.Runtimes {
+		if runtime.Name == name {
+			return runtime, err
 		}
 	}
 	return Runtime{}, ErrRuntimeNotFound

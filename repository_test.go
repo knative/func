@@ -1,14 +1,13 @@
 package function_test
 
 import (
-	"reflect"
 	"testing"
 
 	fn "knative.dev/kn-plugin-func"
 )
 
 // TestRepositoryGetTemplateDefault ensures that repositories make templates
-// avaialble via the Get accessor which given name and runtime.
+// avaialble via the Get accessor when given name and runtime.
 func TestRepositoryGetTemplateDefault(t *testing.T) {
 	client := fn.New()
 
@@ -16,19 +15,14 @@ func TestRepositoryGetTemplateDefault(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	template, err := repo.GetTemplate("go", "http")
+	template, err := repo.Template("go", "http")
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := fn.Template{
-		Runtime:    "go",
-		Repository: fn.DefaultRepository,
-		Name:       "http",
-	}
-	if !reflect.DeepEqual(template, expected) {
-		t.Logf("expected: %v", expected)
-		t.Logf("received: %v", template)
-		t.Fatal("Default template not as expected")
+	// degenerate case: API of the default repository should return what it was
+	// expressly asked for at minimum (known good request)
+	if template.Name != "http" {
+		t.Logf("expected default repo to yield a template named 'http', got '%v'", template.Name)
 	}
 }
 
@@ -41,19 +35,14 @@ func TestRepositoryGetTemplateCustom(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	template, err := repo.GetTemplate("go", "custom")
+	template, err := repo.Template("go", "custom")
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := fn.Template{
-		Runtime:    "go",
-		Repository: "repositoryTests",
-		Name:       "custom",
-	}
-	if !reflect.DeepEqual(template, expected) {
-		t.Logf("expected: %v", expected)
-		t.Logf("received: %v", template)
-		t.Fatal("Custom template not as expected")
+	// degenerate case: API of a custom repository should return what it was
+	// expressly asked for at minimum (known good request)
+	if template.Name != "custom" {
+		t.Logf("expected custom repo to yield a template named 'http', got '%v'", template.Name)
 	}
 
 }
@@ -67,30 +56,29 @@ func TestRepositoryGetRuntimeDefault(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	runtime, err := repo.GetRuntime("go")
+	runtime, err := repo.Runtime("go")
 	if err != nil {
 		t.Fatal(err)
 	}
 	expected := fn.Runtime{
 		Name: "go",
-		Path: "go",
-		Templates: fn.FunctionTemplates{
+		Templates: []fn.Template{
 			{
 				Name: "custom",
-				Path: "custom",
 			},
 		},
 	}
 	if runtime.Name != expected.Name {
-		t.Fatalf("Expected: %s\nGot: %s", expected.Name, runtime.Name)
+		t.Fatalf("Expected runtime name '%s', got '%s'",
+			expected.Name, runtime.Name)
 	}
-	if runtime.Path != expected.Path {
-		t.Fatalf("Expected: %s\nGot: %s", expected.Path, runtime.Path)
+	if len(runtime.Templates) != len(expected.Templates) {
+		t.Fatalf("Expected test runtime to have %v template, got %v",
+			len(expected.Templates), len(runtime.Templates))
 	}
-	if !reflect.DeepEqual(runtime.Templates, expected.Templates) {
-		t.Logf("expected: %v", expected)
-		t.Logf("received: %v", runtime)
-		t.Fatal("Custom go runtime not as expected")
+	if runtime.Templates[0].Name != expected.Templates[0].Name {
+		t.Fatalf("Expected first returned template's name to be '%v', got '%v'",
+			expected.Templates[0].Name, runtime.Templates[0].Name)
 	}
 }
 
@@ -103,33 +91,31 @@ func TestRepositoryGetRuntimeCustom(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	runtime, err := repo.GetRuntime("go")
+	runtime, err := repo.Runtime("go")
 	if err != nil {
 		t.Fatal(err)
 	}
 	expected := fn.Runtime{
 		Name: "go",
-		Path: "go",
-		Templates: fn.FunctionTemplates{
+		Templates: []fn.Template{
 			{
 				Name: "events",
-				Path: "events",
 			},
 			{
 				Name: "http",
-				Path: "http",
 			},
 		},
 	}
 	if runtime.Name != expected.Name {
-		t.Fatalf("Expected: %s\nGot: %s", expected.Name, runtime.Name)
+		t.Fatalf("Expected runtime name '%s', got '%s'",
+			expected.Name, runtime.Name)
 	}
-	if runtime.Path != expected.Path {
-		t.Fatalf("Expected: %s\nGot: %s", expected.Path, runtime.Path)
+	if len(runtime.Templates) != len(expected.Templates) {
+		t.Fatalf("Expected test runtime to have %v template, got %v",
+			len(expected.Templates), len(runtime.Templates))
 	}
-	if !reflect.DeepEqual(runtime.Templates, expected.Templates) {
-		t.Logf("expected: %v", expected)
-		t.Logf("received: %v", runtime)
-		t.Fatal("Default go runtime not as expected")
+	if runtime.Templates[0].Name != expected.Templates[0].Name {
+		t.Fatalf("Expected first returned template's name to be '%v', got '%v'",
+			expected.Templates[0].Name, runtime.Templates[0].Name)
 	}
 }
