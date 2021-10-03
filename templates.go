@@ -23,7 +23,15 @@ const builtinPath = "/templates"
 
 // Templates Manager
 type Templates struct {
-	Repositories *Repositories // Repository Manager
+	client *Client
+}
+
+// newTemplates manager
+// Includes a back-reference to client (logic tree root) such
+// that the templates manager has full access to the API for
+// use in its implementations.
+func newTemplates(client *Client) *Templates {
+	return &Templates{client: client}
 }
 
 // Template metadata
@@ -64,7 +72,7 @@ func (t *Templates) List(runtime string) ([]string, error) {
 func (t *Templates) ListDefault(runtime string) ([]string, error) {
 	var (
 		names     = newSortedSet()
-		repo, err = t.Repositories.Get(DefaultRepository)
+		repo, err = t.client.Repositories().Get(DefaultRepository)
 		templates FunctionTemplates
 	)
 	if err != nil {
@@ -86,7 +94,7 @@ func (t *Templates) ListDefault(runtime string) ([]string, error) {
 func (t *Templates) ListExtended(runtime string) ([]string, error) {
 	var (
 		names      = newSortedSet()
-		repos, err = t.Repositories.All()
+		repos, err = t.client.Repositories().All()
 		templates  FunctionTemplates
 	)
 	if err != nil {
@@ -135,7 +143,7 @@ func (t *Templates) Get(runtime, fullname string) (Template, error) {
 	}
 
 	// Get specified repository
-	repo, err = t.Repositories.Get(repoName)
+	repo, err = t.client.Repositories().Get(repoName)
 	if err != nil {
 		return template, err
 	}

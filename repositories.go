@@ -14,7 +14,20 @@ import (
 
 // Repositories manager
 type Repositories struct {
-	Path string // Path to repositories
+	path   string // Path to repositories
+	client *Client
+}
+
+// newRepositories manager
+// contains a backreference to the client (type tree root) for access to the
+// full client API during implementations.
+func newRepositories(client *Client, path string) *Repositories {
+	return &Repositories{client: client, path: path}
+}
+
+// SetPath to repositories under management.
+func (r *Repositories) SetPath(path string) {
+	r.path = path
 }
 
 // List all repositories installed at the defined root path plus builtin.
@@ -48,7 +61,7 @@ func (r *Repositories) All() (repos []Repository, err error) {
 	// Return if not using on-disk repos
 	// If r.Path not populated, this indicates the client should
 	// not read repositories from disk, using only builtin.
-	if r.Path == "" {
+	if r.path == "" {
 		return
 	}
 
@@ -57,7 +70,7 @@ func (r *Repositories) All() (repos []Repository, err error) {
 	// and create its initial structure, is moved into the client library.
 	// For now a missing repositores directory is considered equivalent to having
 	// none installed.
-	if _, err := os.Stat(r.Path); os.IsNotExist(err) {
+	if _, err := os.Stat(r.path); os.IsNotExist(err) {
 		return repos, nil
 	}
 
@@ -66,7 +79,7 @@ func (r *Repositories) All() (repos []Repository, err error) {
 	// than the name on the filesystem, and as such we can not rely on the
 	// alphanumeric ordering of underlying list, and will instead have to sort
 	// by configured name.
-	ff, err := ioutil.ReadDir(r.Path)
+	ff, err := ioutil.ReadDir(r.path)
 	if err != nil {
 		return
 	}
@@ -75,7 +88,7 @@ func (r *Repositories) All() (repos []Repository, err error) {
 			continue
 		}
 		var repo Repository
-		repo, err = NewRepositoryFromPath(filepath.Join(r.Path, f.Name()))
+		repo, err = NewRepositoryFromPath(filepath.Join(r.path, f.Name()))
 		if err != nil {
 			return
 		}
@@ -90,7 +103,7 @@ func (r *Repositories) Get(name string) (repo Repository, err error) {
 		return NewRepositoryFromBuiltin()
 	}
 	// TODO: when WithRepository defined, only it can be defined
-	return NewRepositoryFromPath(filepath.Join(r.Path, name))
+	return NewRepositoryFromPath(filepath.Join(r.path, name))
 }
 
 // Add a repository of the given name from the URI.  Name, if not provided,
@@ -103,7 +116,7 @@ func (r *Repositories) Add(name, uri string) (n string, err error) {
 			return n, err
 		}
 	}
-	path := filepath.Join(r.Path, n)
+	path := filepath.Join(r.path, n)
 	bare := false
 	_, err = git.PlainClone(path, bare, &git.CloneOptions{URL: uri})
 	if err != nil {
@@ -118,8 +131,8 @@ func (r *Repositories) Add(name, uri string) (n string, err error) {
 
 // Rename a repository
 func (r *Repositories) Rename(from, to string) error {
-	a := filepath.Join(r.Path, from)
-	b := filepath.Join(r.Path, to)
+	a := filepath.Join(r.path, from)
+	b := filepath.Join(r.path, to)
 	if err := os.Rename(a, b); err != nil {
 		return err
 	}
@@ -132,7 +145,7 @@ func (r *Repositories) Remove(name string) error {
 	if name == "" {
 		return errors.New("name is required")
 	}
-	path := filepath.Join(r.Path, name)
+	path := filepath.Join(r.path, name)
 	return os.RemoveAll(path)
 }
 

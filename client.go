@@ -30,6 +30,13 @@ const (
 	// DefaultRepository is the name of the default (builtin) template repository,
 	// and is assumed when no template prefix is provided.
 	DefaultRepository = "default"
+
+	// DefaultRepositoriesPath is the default location for repositories under
+	// management on local disk.
+	// TODO: the logic which defaults this to ~/.config/func/repositories will
+	// be moved from the CLI to the core in the near future.  For now use the
+	// current working directory.
+	DefaultRepositoriesPath = ""
 )
 
 // Client for managing Function instances.
@@ -181,13 +188,9 @@ func New(options ...Option) *Client {
 		progressListener: &NoopProgressListener{},
 		emitter:          &noopEmitter{},
 	}
-
-	// TODO: Repositories default location ($XDG_CONFIG_HOME/func/repositories)
-	// will be relocated from CLI to here.
-	// c.Repositories.Path = ...
-
-	// Templates management requires the repositories management api
-	c.templates.Repositories = c.repositories
+	// Subtype managers for repositories and templates.
+	c.repositories = newRepositories(c, DefaultRepositoriesPath)
+	c.templates = newTemplates(c)
 
 	for _, o := range options {
 		o(c)
@@ -275,9 +278,9 @@ func WithDNSProvider(provider DNSProvider) Option {
 // WithRepositories sets the location to use for extensible template repositories.
 // Extensible template repositories are additional templates that exist on disk and are
 // not built into the binary.
-func WithRepositories(repositories string) Option {
+func WithRepositories(path string) Option {
 	return func(c *Client) {
-		c.repositories.Path = repositories
+		c.Repositories().SetPath(path)
 	}
 }
 
@@ -454,7 +457,7 @@ func (c *Client) Create(cfg Function) (err error) {
 	}
 
 	// Write out a template.
-	w := templateWriter{repositories: c.repositories.Path, verbose: c.verbose}
+	w := templateWriter{repositories: c.repositories.path, verbose: c.verbose}
 	if err = w.Write(repo, f.Runtime, template, f.Root); err != nil {
 		return
 	}
