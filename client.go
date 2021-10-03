@@ -107,7 +107,7 @@ type Remover interface {
 	Remove(ctx context.Context, name string) error
 }
 
-// Lister of deployed services.
+// Lister of deployed functions.
 type Lister interface {
 	// List the Functions currently deployed.
 	List(ctx context.Context) ([]ListItem, error)
@@ -125,19 +125,17 @@ type ListItem struct {
 type ProgressListener interface {
 	// SetTotal steps of the given task.
 	SetTotal(int)
-
 	// Increment to the next step with the given message.
 	Increment(message string)
-
-	// Complete signals completion, which is expected to be somewhat different than a step increment.
+	// Complete signals completion, which is expected to be somewhat different
+	// than a step increment.
 	Complete(message string)
-
-	// Stopping indicates the process is in the state of stopping, such as when a context cancelation
-	// has been received
+	// Stopping indicates the process is in the state of stopping, such as when a
+	// context cancelation has been received
 	Stopping()
-
-	// Done signals a cessation of progress updates.  Should be called in a defer statement to ensure
-	// the progress listener can stop any outstanding tasks such as synchronous user updates.
+	// Done signals a cessation of progress updates.  Should be called in a defer
+	// statement to ensure the progress listener can stop any outstanding tasks
+	// such as synchronous user updates.
 	Done()
 }
 
@@ -147,6 +145,7 @@ type Describer interface {
 	Describe(ctx context.Context, name string) (description Info, err error)
 }
 
+// Info about a given Function
 type Info struct {
 	Name          string         `json:"name" yaml:"name"`
 	Image         string         `json:"image" yaml:"image"`
@@ -456,67 +455,21 @@ func (c *Client) Create(cfg Function) (err error) {
 		}
 	}
 
-	// Fetch the named template from the named repository and write it to disk
-	// at the given function root.
-	repository, err := c.Repositories().Get(repo)
+	// Write out the template for a Function
+	// returns a Function which may be mutated based on the content of
+	// the template (default Function, builders, buildpacks, etc).
+	f, err = c.Templates().Write(f)
 	if err != nil {
 		return
 	}
 
-	t, err := repository.Template(f.Template, f.Runtime)
-	if err != nil {
+	// Write the Function metadata (func.yaml)
+	if err = writeConfig(f); err != nil {
 		return
 	}
 
-	if err = c.Templates().Write(t, f.Root); err != nil {
-		return
-	}
-
-	//  TODO: The act of writing a template should yield an updated Function
-	// metadata instance which has been mutated based on the state of the template
-	// which was written (builders, buildpacks, etc).  The below logic will
-	// therefore be moved into Templates' .Write, which will yield an updated
-	// function:
-	runtime, err := repository.Runtime(f.Runtime)
-	if err != nil {
-		return
-	}
-
-	// Check to see if the runtime provides builder/buildpack metadata.
-	// If so, add Builders and Buildpacks to the configuration
-	f.Builder = runtime.Builders["default"]
-	f.Builders = runtime.Builders
-	f.Buildpacks = runtime.Buildpacks
-
-	f.HealthEndpoints.Liveness = repository.HealthEndpoints.Liveness
-	f.HealthEndpoints.Readiness = repository.HealthEndpoints.Readiness
-	if runtime.Liveness != "" {
-		f.HealthEndpoints.Liveness = runtime.Liveness
-	}
-	if runtime.Readiness != "" {
-		f.HealthEndpoints.Readiness = runtime.Readiness
-	}
-
-	// Now that defaults are set from manifest.yaml for builders/buildpacks
-	// be sure to allow configuration to override these
-	// If buildpacks are provided, use them
-	if len(cfg.Buildpacks) > 0 {
-		f.Buildpacks = cfg.Buildpacks
-	}
-
-	// If builders are provided use them
-	if len(cfg.Builders) > 0 {
-		f.Builders = cfg.Builders
-		if f.Builders["default"] != "" {
-			f.Builder = f.Builders["default"]
-		}
-	}
-
-	// If a default builder is provided use it
-	if cfg.Builder != "" {
-		f.Builder = cfg.Builder
-	}
-
+	// TODO: Create a status structure and return it for clients to use
+	// for output, such as from the CLI.
 	if c.verbose {
 		fmt.Printf("Builder:       %s\n", f.Builder)
 		if len(f.Buildpacks) > 0 {
@@ -525,20 +478,6 @@ func (c *Client) Create(cfg Function) (err error) {
 				fmt.Printf("           ... %s\n", b)
 			}
 		}
-	}
-
-	// Write out the config.
-	// TODO: Config is not really "config", it is the Funciton itself, and the
-	// Function and Config objects will be merged, and this will be more like
-	// client.Write(f, path) // write function to disk at the given path)
-	if err = writeConfig(f); err != nil {
-		return
-	}
-	// END --- logic which will be moved to Templates.Write()
-
-	// TODO: Create a status structure and return it for clients to use
-	// for output, such as from the CLI.
-	if c.verbose {
 		fmt.Println("Function project created")
 	}
 	return

@@ -6,20 +6,8 @@ package function
 //go:generate pkger
 
 import (
-	"errors"
-	"io"
-	"os"
-	"path/filepath"
-	"sort"
 	"strings"
-
-	"github.com/markbates/pkger"
 )
-
-// Path to builtin
-// note: this constant must be redefined in each file used due to pkger
-// performing static analysis on each source file separately.
-const builtinPath = "/templates"
 
 // Templates Manager
 type Templates struct {
@@ -137,231 +125,78 @@ func (t *Templates) Get(runtime, fullname string) (Template, error) {
 	return repo.Template(runtime, tplName)
 }
 
-// Write a template to disk at the given location
-func (t *Templates) Write(template Template, dest string) error {
-	// TODO: These defaults are in the wrong place and will move:
-	if template.Name == "" {
-		template.Name = DefaultTemplate
+// Write a Function disk using the named Function at the given location
+// Returns a new Function which may have been modified dependent on the content
+// of the template (which can define default Function fields, builders,
+// buildpacks, etc)
+func (t *Templates) Write(f Function) (Function, error) {
+	// TODO: These defaults are in the wrong place and will need to move to
+	// (most likely) the Function constructor, which defines the template name,
+	// runtime and repository to use.
+	if f.Template == "" {
+		f.Template = DefaultTemplate
 	}
-	if template.Runtime == "" {
-		template.Runtime = DefaultRuntime
-	}
-	if template.Repository == "" {
-		template.Repository = DefaultRepository
-	}
-
-	// Write the template from the right location
-	// This abstraction will be moved into the object itself such that
-	// writing does not depend (at this level) on what _kind_ of template
-	// it is (embedded, on disk or remote) and just writes based on its internal
-	// filesystem (wherever that FS may have come from)
-	if template.Repository == DefaultRepository {
-		return writeEmbedded(template, dest)
-	}
-	return writeCustom(template, t.client.Repositories().Path(), dest)
-}
-
-var (
-	ErrRepositoryNotFound        = errors.New("repository not found")
-	ErrRepositoriesNotDefined    = errors.New("custom template repositories location not specified")
-	ErrRuntimeNotFound           = errors.New("runtime not found")
-	ErrTemplateNotFound          = errors.New("template not found")
-	ErrTemplateMissingRepository = errors.New("template name missing repository prefix")
-)
-
-// Writing ------
-
-type filesystem interface {
-	Stat(name string) (os.FileInfo, error)
-	Open(path string) (file, error)
-	ReadDir(path string) ([]os.FileInfo, error)
-}
-
-type file interface {
-	io.Reader
-	io.Closer
-}
-
-// Trigger encoding of ./templates as pkged.go
-//
-// When pkger is run, code analysis detects this pkger.Include statement,
-// triggering the serialization of the templates directory and all its contents
-// into pkged.go, which is then made available via a pkger filesystem.  Path is
-// relative to the go module root.
-func init() {
-	_ = pkger.Include(builtinPath)
-}
-
-type templateWriter struct {
-	// Extensible Template Repositories
-	// templates on disk (extensible templates)
-	// Stored on disk at path:
-	//   [customTemplatesPath]/[repository]/[runtime]/[template]
-	// For example
-	//   ~/.config/func/boson/go/http"
-	// Specified when writing templates as simply:
-	//   Write([runtime], [repository], [path])
-	// For example
-	// w := templateWriter{templates:"/home/username/.config/func/templates")
-	//   w.Write("go", "boson/http")
-	// Ie. "Using the custom templates in the func configuration directory,
-	//    write the Boson HTTP template for the Go runtime."
-	repositories string
-	// enable verbose logging
-	verbose bool
-}
-
-// write from a custom repository.  The temlate full name is prefixed
-func writeCustom(t Template, from, to string) error {
-	// assert path to template repos provided
-	if from == "" {
-		return ErrRepositoriesNotDefined
+	if f.Runtime == "" {
+		f.Runtime = DefaultRuntime
 	}
 
-	var (
-		repoPath     = filepath.Join(from, t.Repository)
-		runtimePath  = filepath.Join(from, t.Repository, t.Runtime)
-		templatePath = filepath.Join(from, t.Repository, t.Runtime, t.Name)
-		accessor     = osFilesystem{} // in instanced provider of Stat and Open
-	)
-	if _, err := accessor.Stat(repoPath); err != nil {
-		return ErrRepositoryNotFound
-	}
-	if _, err := accessor.Stat(runtimePath); err != nil {
-		return ErrRuntimeNotFound
-	}
-	if _, err := accessor.Stat(templatePath); err != nil {
-		return ErrTemplateNotFound
-	}
-	return copy(templatePath, to, accessor)
-}
-
-func writeEmbedded(t Template, dest string) error {
-	var (
-		repoPath     = "/templates"
-		runtimePath  = filepath.Join(repoPath, t.Runtime)
-		templatePath = filepath.Join(repoPath, t.Runtime, t.Name)
-		accessor     = pkgerFilesystem{} // instanced provder of Stat and Open
-	)
-	if _, err := accessor.Stat(runtimePath); err != nil {
-		return ErrRuntimeNotFound
-	}
-	if _, err := accessor.Stat(templatePath); err != nil {
-		return ErrTemplateNotFound
-	}
-	return copy(templatePath, dest, accessor)
-}
-
-func copy(src, dest string, accessor filesystem) (err error) {
-	node, err := accessor.Stat(src)
+	// Fetch the template instance for this Function
+	template, err := t.Get(f.Runtime, f.Template)
 	if err != nil {
-		return
+		return f, err
 	}
-	if node.IsDir() {
-		return copyNode(src, dest, accessor)
-	} else {
-		return copyLeaf(src, dest, accessor)
+
+	// Denormalize
+	// Takes fields from the repo/runtime/template and sets them on the Function
+	// if they're not already defined.
+	// (builders, buildpacks, health endpoints)
+	f, err = denormalize(t.client, template, f)
+	if err != nil {
+		return f, err
 	}
+
+	// write template to path potentially using the given template repositories.
+	return f, writeTemplate(template, f.Root, t.client.Repositories().Path())
 }
 
-func copyNode(src, dest string, accessor filesystem) (err error) {
-	// Ideally we should use the file mode of the src node
-	// but it seems the git module is reporting directories
-	// as 0644 instead of 0755. For now, just do it this way.
-	// See https://github.com/go-git/go-git/issues/364
-	// Upon resolution, return accessor.Stat(src).Mode()
-	err = os.MkdirAll(dest, 0755)
+// denormalize fields from repo/runtime/template into fields on the Function
+func denormalize(client *Client, t Template, f Function) (Function, error) {
+	// TODO: this denormalizaiton might better be part of either the Template
+	// or Function instantiation process; a hierarchically-derived set of
+	// attributes on the template itself, allowing for the template to simply
+	// write based on the calculated fields upon its inception, reuturning the
+	// final Function as the serialized, denormalized data structure.  This would
+	// separate the somewhat complex hierarchical derivation of these fields from
+	// the somewhat orthoganal task of writing.
+	repo, err := client.Repositories().Get(t.Repository)
 	if err != nil {
-		return
+		return f, err
+	}
+	runtime, err := repo.Runtime(f.Runtime)
+	if err != nil {
+		return f, err
 	}
 
-	children, err := readDir(src, accessor)
-	if err != nil {
-		return
+	if f.Builder == "" {
+		f.Builder = runtime.Builders["default"]
 	}
-	for _, child := range children {
-		if err = copy(filepath.Join(src, child.Name()), filepath.Join(dest, child.Name()), accessor); err != nil {
-			return
+	if len(f.Builders) == 0 {
+		f.Builders = runtime.Builders
+	}
+	if len(f.Buildpacks) == 0 {
+		f.Buildpacks = runtime.Buildpacks
+	}
+	if f.HealthEndpoints.Liveness == "" {
+		f.HealthEndpoints.Liveness = repo.HealthEndpoints.Liveness
+		if f.HealthEndpoints.Liveness == "" {
+			f.HealthEndpoints.Liveness = runtime.Liveness
 		}
 	}
-	return
-}
-
-func readDir(src string, accessor filesystem) ([]os.FileInfo, error) {
-	list, err := accessor.ReadDir(src)
-	if err != nil {
-		return nil, err
+	if f.HealthEndpoints.Readiness == "" {
+		f.HealthEndpoints.Readiness = repo.HealthEndpoints.Readiness
+		if f.HealthEndpoints.Readiness == "" {
+			f.HealthEndpoints.Readiness = runtime.Readiness
+		}
 	}
-	sort.Slice(list, func(i, j int) bool { return list[i].Name() < list[j].Name() })
-	return list, nil
-}
-
-func copyLeaf(src, dest string, accessor filesystem) (err error) {
-	srcFile, err := accessor.Open(src)
-	if err != nil {
-		return
-	}
-	defer srcFile.Close()
-
-	srcFileInfo, err := accessor.Stat(src)
-	if err != nil {
-		return
-	}
-
-	destFile, err := os.OpenFile(dest, os.O_RDWR|os.O_CREATE|os.O_TRUNC, srcFileInfo.Mode())
-	if err != nil {
-		return
-	}
-	defer destFile.Close()
-
-	_, err = io.Copy(destFile, srcFile)
-	return
-}
-
-// Filesystems
-// Wrap the implementations of FS with their subtle differences into the
-// common interface for accessing template files defined herein.
-// os:    standard for on-disk extensible template repositories.
-// pker:  embedded filesystem backed by the generated pkged.go.
-// billy: go-git library's filesystem used for remote git template repos.
-
-// osFilesystem is a template file accessor backed by an os
-// filesystem.
-type osFilesystem struct{}
-
-func (a osFilesystem) Stat(path string) (os.FileInfo, error) {
-	return os.Stat(path)
-}
-
-func (a osFilesystem) Open(path string) (file, error) {
-	return os.Open(path)
-}
-
-func (a osFilesystem) ReadDir(path string) ([]os.FileInfo, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-	return f.Readdir(-1)
-}
-
-// pkgerFilesystem is template file accessor backed by the pkger-provided
-// embedded filesystem.
-type pkgerFilesystem struct{}
-
-func (a pkgerFilesystem) Stat(path string) (os.FileInfo, error) {
-	return pkger.Stat(path)
-}
-
-func (a pkgerFilesystem) Open(path string) (file, error) {
-	return pkger.Open(path)
-}
-
-func (a pkgerFilesystem) ReadDir(path string) ([]os.FileInfo, error) {
-	f, err := pkger.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	return f.Readdir(-1)
+	return f, nil
 }
