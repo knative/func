@@ -30,6 +30,11 @@ func (r *Repositories) SetPath(path string) {
 	r.path = path
 }
 
+// Path returns the currently active repositories path under management.
+func (r *Repositories) Path() string {
+	return r.path
+}
+
 // List all repositories installed at the defined root path plus builtin.
 func (r *Repositories) List() ([]string, error) {
 	repositories, err := r.All()

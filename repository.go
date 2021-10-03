@@ -235,10 +235,10 @@ func getBytesFromBuiltinFile(path string) (bytes []byte, err error) {
 	return
 }
 
-// GetTemplate from repo with given runtime
-func (r *Repository) GetTemplate(runtime, name string) (t Template, err error) {
+// Template from repo with given runtime.
+func (r *Repository) Template(runtime, name string) (t Template, err error) {
 	var l Runtime
-	l, err = r.GetRuntime(runtime)
+	l, err = r.Runtime(runtime)
 	if err != nil {
 		return
 	}
@@ -256,8 +256,8 @@ func (r *Repository) GetTemplate(runtime, name string) (t Template, err error) {
 	return Template{}, ErrTemplateNotFound
 }
 
-// GetTemplates returns the set of function templates for a given runtime
-func (r *Repository) GetTemplates(runtime string) (FunctionTemplates, error) {
+// Templates returns the set of all templates for a given runtime.
+func (r *Repository) Templates(runtime string) (FunctionTemplates, error) {
 	for _, l := range r.Runtimes {
 		if l.Path == runtime {
 			return l.Templates, nil
@@ -266,8 +266,8 @@ func (r *Repository) GetTemplates(runtime string) (FunctionTemplates, error) {
 	return nil, ErrTemplateNotFound
 }
 
-// GetRuntime returns the Runtime for the given name in a repository
-func (r *Repository) GetRuntime(runtime string) (l Runtime, err error) {
+// Runtime returns the Runtime for the given name in a repository
+func (r *Repository) Runtime(runtime string) (l Runtime, err error) {
 	for _, l = range r.Runtimes {
 		if l.Path == runtime {
 			return l, err

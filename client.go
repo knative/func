@@ -423,7 +423,7 @@ func (c *Client) Create(cfg Function) (err error) {
 		f.Runtime = DefaultRuntime
 	}
 
-	// Assert template was provided, or default.
+	// Assert template name was provided, or default.
 	f.Template = cfg.Template
 	if f.Template == "" {
 		f.Template = DefaultTemplate
@@ -431,13 +431,13 @@ func (c *Client) Create(cfg Function) (err error) {
 
 	// Determine what repository and template to use. If the caller provided
 	// a git repository URL, then use the repo name and provided template.
-	var repo, template string
+	var repo string
 	if c.repository != "" {
 		repo, err = c.repositories.Add("", c.repository)
 		if err != nil {
 			return
 		}
-		template = cfg.Template
+		f.Template = cfg.Template
 		defer func() {
 			err = c.repositories.Remove(repo)
 		}()
@@ -449,28 +449,39 @@ func (c *Client) Create(cfg Function) (err error) {
 		cc := strings.Split(cfg.Template, "/")
 		if len(cc) == 1 {
 			repo = DefaultRepository
-			template = cfg.Template
+			f.Template = cfg.Template
 		} else {
 			repo = cc[0]
-			template = cc[1]
+			f.Template = cc[1]
 		}
 	}
 
-	// Write out a template.
-	w := templateWriter{repositories: c.repositories.path, verbose: c.verbose}
-	if err = w.Write(repo, f.Runtime, template, f.Root); err != nil {
-		return
-	}
-
-	repository, err := c.repositories.Get(repo)
+	// Fetch the named template from the named repository and write it to disk
+	// at the given function root.
+	repository, err := c.Repositories().Get(repo)
 	if err != nil {
 		return
 	}
 
-	runtime, err := repository.GetRuntime(f.Runtime)
+	t, err := repository.Template(f.Template, f.Runtime)
 	if err != nil {
 		return
 	}
+
+	if err = c.Templates().Write(t, f.Root); err != nil {
+		return
+	}
+
+	//  TODO: The act of writing a template should yield an updated Function
+	// metadata instance which has been mutated based on the state of the template
+	// which was written (builders, buildpacks, etc).  The below logic will
+	// therefore be moved into Templates' .Write, which will yield an updated
+	// function:
+	runtime, err := repository.Runtime(f.Runtime)
+	if err != nil {
+		return
+	}
+
 	// Check to see if the runtime provides builder/buildpack metadata.
 	// If so, add Builders and Buildpacks to the configuration
 	f.Builder = runtime.Builders["default"]
@@ -517,9 +528,13 @@ func (c *Client) Create(cfg Function) (err error) {
 	}
 
 	// Write out the config.
+	// TODO: Config is not really "config", it is the Funciton itself, and the
+	// Function and Config objects will be merged, and this will be more like
+	// client.Write(f, path) // write function to disk at the given path)
 	if err = writeConfig(f); err != nil {
 		return
 	}
+	// END --- logic which will be moved to Templates.Write()
 
 	// TODO: Create a status structure and return it for clients to use
 	// for output, such as from the CLI.

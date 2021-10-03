@@ -34,26 +34,12 @@ func newTemplates(client *Client) *Templates {
 	return &Templates{client: client}
 }
 
-// Template metadata
-type Template struct {
-	Runtime    string
-	Repository string
-	Name       string
-}
-
-// Fullname is a caluclate field of [repo]/[name] used
-// to uniquely reference a template which may share a name
-// with one in another repository.
-func (t Template) Fullname() string {
-	return t.Repository + "/" + t.Name
-}
-
 // List the full name of templates available for the runtime.
 // Full name is the optional repository prefix plus the template's repository
 // local name.  Default templates grouped first sans prefix.
 func (t *Templates) List(runtime string) ([]string, error) {
 	// TODO: if repository override was enabled, we should just return those, flat.
-	builtin, err := t.ListDefault(runtime)
+	builtin, err := t.listDefault(runtime)
 	if err != nil {
 		return []string{}, err
 	}
@@ -68,8 +54,8 @@ func (t *Templates) List(runtime string) ([]string, error) {
 	return append(builtin, extended...), nil
 }
 
-// ListDefault (embedded) templates by runtime
-func (t *Templates) ListDefault(runtime string) ([]string, error) {
+// listDefault (embedded) templates by runtime
+func (t *Templates) listDefault(runtime string) ([]string, error) {
 	var (
 		names     = newSortedSet()
 		repo, err = t.client.Repositories().Get(DefaultRepository)
@@ -79,7 +65,7 @@ func (t *Templates) ListDefault(runtime string) ([]string, error) {
 		return []string{}, err
 	}
 
-	if templates, err = repo.GetTemplates(runtime); err != nil {
+	if templates, err = repo.Templates(runtime); err != nil {
 		return []string{}, err
 	}
 	for _, t := range templates {
@@ -88,10 +74,10 @@ func (t *Templates) ListDefault(runtime string) ([]string, error) {
 	return names.Items(), nil
 }
 
-// ListExtended templates returns all template full names that
+// listExtended templates returns all template full names that
 // exist in all extended (config dir) repositories for a runtime.
 // Prefixed, sorted.
-func (t *Templates) ListExtended(runtime string) ([]string, error) {
+func (t *Templates) listExtended(runtime string) ([]string, error) {
 	var (
 		names      = newSortedSet()
 		repos, err = t.client.Repositories().All()
@@ -104,7 +90,7 @@ func (t *Templates) ListExtended(runtime string) ([]string, error) {
 		if repo.Name == DefaultRepository {
 			continue // already added at head of names
 		}
-		if templates, err = repo.GetTemplates(runtime); err != nil {
+		if templates, err = repo.Templates(runtime); err != nil {
 			return []string{}, err
 		}
 		for _, template := range templates {
@@ -148,8 +134,40 @@ func (t *Templates) Get(runtime, fullname string) (Template, error) {
 		return template, err
 	}
 
-	return repo.GetTemplate(runtime, tplName)
+	return repo.Template(runtime, tplName)
 }
+
+// Write a template to disk at the given location
+func (t *Templates) Write(template Template, dest string) error {
+	// TODO: These defaults are in the wrong place and will move:
+	if template.Name == "" {
+		template.Name = DefaultTemplate
+	}
+	if template.Runtime == "" {
+		template.Runtime = DefaultRuntime
+	}
+	if template.Repository == "" {
+		template.Repository = DefaultRepository
+	}
+
+	// Write the template from the right location
+	// This abstraction will be moved into the object itself such that
+	// writing does not depend (at this level) on what _kind_ of template
+	// it is (embedded, on disk or remote) and just writes based on its internal
+	// filesystem (wherever that FS may have come from)
+	if template.Repository == DefaultRepository {
+		return writeEmbedded(template, dest)
+	}
+	return writeCustom(template, t.client.Repositories().Path(), dest)
+}
+
+var (
+	ErrRepositoryNotFound        = errors.New("repository not found")
+	ErrRepositoriesNotDefined    = errors.New("custom template repositories location not specified")
+	ErrRuntimeNotFound           = errors.New("runtime not found")
+	ErrTemplateNotFound          = errors.New("template not found")
+	ErrTemplateMissingRepository = errors.New("template name missing repository prefix")
+)
 
 // Writing ------
 
@@ -193,42 +211,17 @@ type templateWriter struct {
 	verbose bool
 }
 
-var (
-	ErrRepositoryNotFound        = errors.New("repository not found")
-	ErrRepositoriesNotDefined    = errors.New("custom template repositories location not specified")
-	ErrRuntimeNotFound           = errors.New("runtime not found")
-	ErrTemplateNotFound          = errors.New("template not found")
-	ErrTemplateMissingRepository = errors.New("template name missing repository prefix")
-)
-
-func (t templateWriter) Write(repo, runtime, template, dest string) error {
-	if runtime == "" {
-		runtime = DefaultRuntime
-	}
-
-	if template == "" {
-		template = DefaultTemplate
-	}
-
-	if repo == DefaultRepository {
-		return writeEmbedded(runtime, template, dest)
-	}
-
-	return writeCustom(t.repositories, repo, runtime, template, dest)
-
-}
-
 // write from a custom repository.  The temlate full name is prefixed
-func writeCustom(repositoriesPath, repo, runtime, template, dest string) error {
+func writeCustom(t Template, from, to string) error {
 	// assert path to template repos provided
-	if repositoriesPath == "" {
+	if from == "" {
 		return ErrRepositoriesNotDefined
 	}
 
 	var (
-		repoPath     = filepath.Join(repositoriesPath, repo)
-		runtimePath  = filepath.Join(repositoriesPath, repo, runtime)
-		templatePath = filepath.Join(repositoriesPath, repo, runtime, template)
+		repoPath     = filepath.Join(from, t.Repository)
+		runtimePath  = filepath.Join(from, t.Repository, t.Runtime)
+		templatePath = filepath.Join(from, t.Repository, t.Runtime, t.Name)
 		accessor     = osFilesystem{} // in instanced provider of Stat and Open
 	)
 	if _, err := accessor.Stat(repoPath); err != nil {
@@ -240,14 +233,14 @@ func writeCustom(repositoriesPath, repo, runtime, template, dest string) error {
 	if _, err := accessor.Stat(templatePath); err != nil {
 		return ErrTemplateNotFound
 	}
-	return copy(templatePath, dest, accessor)
+	return copy(templatePath, to, accessor)
 }
 
-func writeEmbedded(runtime, template, dest string) error {
+func writeEmbedded(t Template, dest string) error {
 	var (
 		repoPath     = "/templates"
-		runtimePath  = filepath.Join(repoPath, runtime)
-		templatePath = filepath.Join(repoPath, runtime, template)
+		runtimePath  = filepath.Join(repoPath, t.Runtime)
+		templatePath = filepath.Join(repoPath, t.Runtime, t.Name)
 		accessor     = pkgerFilesystem{} // instanced provder of Stat and Open
 	)
 	if _, err := accessor.Stat(runtimePath); err != nil {
