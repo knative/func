@@ -45,6 +45,30 @@ func TestTemplatesList(t *testing.T) {
 	}
 }
 
+// TestTemplatesListExtendedNotFound ensures that an error is not returned
+// when retrieving the list of templates for a runtime that does not exist
+// in an extended repository, but does in the default.
+func TestTemplatesListExtendedNotFound(t *testing.T) {
+	client := fn.New(fn.WithRepositories("testdata/repositories"))
+
+	// list templates for the "python" runtime - not supplied by the extended repos
+	templates, err := client.Templates().List("python")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := []string{
+		"events",
+		"http",
+	}
+
+	if !reflect.DeepEqual(templates, expected) {
+		t.Logf("expected: %v", expected)
+		t.Logf("received: %v", templates)
+		t.Fatal("Expected templates list not received.")
+	}
+}
+
 // TestTemplatesGet ensures that a template's metadata object can
 // be retrieved by full name (full name prefix optional for embedded).
 func TestTemplatesGet(t *testing.T) {

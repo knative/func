@@ -51,7 +51,7 @@ func (t *Templates) List(runtime string) ([]string, error) {
 	}
 
 	extended, err := t.ListExtended(runtime)
-	if err != nil {
+	if err != nil && err != ErrTemplateNotFound {
 		return []string{}, err
 	}
 
