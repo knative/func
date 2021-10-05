@@ -12,7 +12,11 @@ import (
 	fn "knative.dev/kn-plugin-func"
 )
 
-const RepositoriesTestRepo = "repository-a"
+// RepositoriesTestRepo is the general-purpose example repository for most
+// test.  Others do eist with specific test requirements that are mutually
+// exclusive, such as manifest differences, and are specified inline to their
+// requisite test.
+const RepositoriesTestRepo = "repository"
 
 // TestRepositoriesList ensures the base case of listing
 // repositories without error in the default scenario of builtin only.
@@ -97,48 +101,8 @@ func TestRepositoriesAll(t *testing.T) {
 	}
 }
 
-// TestRepositoriesAdd ensures that adding a repository adds it to the FS
-// and List output.  Uses default name (repo name).
+// TestRepositoriesAdd checks basic adding of a repository by URI.
 func TestRepositoriesAdd(t *testing.T) {
-	uri := testRepoURI(RepositoriesTestRepo, t) // ./testdata/$RepositoriesTestRepo.git
-	root, rm := mktemp(t)                       // create and cd to a temp dir
-	defer rm()
-
-	client := fn.New(fn.WithRepositories(root))
-
-	// Add repo at uri
-	if name, err := client.Repositories().Add("", uri); err != nil {
-		t.Fatal(err)
-	} else if name != RepositoriesTestRepo {
-		t.Fatalf("Expected name '%v', got %v", RepositoriesTestRepo, name)
-	}
-
-	// Assert list now includes the test repo
-	rr, err := client.Repositories().List()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(rr) != 2 || rr[1] != RepositoriesTestRepo {
-		t.Fatalf("Expected '%v', got %v", RepositoriesTestRepo, rr)
-	}
-
-	// assert expected name
-	if rr[1] != RepositoriesTestRepo {
-		t.Fatalf("Expected name '%v', got %v", RepositoriesTestRepo, rr[1])
-	}
-
-	// assert repo was checked out
-	if _, err := os.Stat(filepath.Join(RepositoriesTestRepo, "README.md")); os.IsNotExist(err) {
-		t.Fatalf("Repository does not appear on disk as expected: %v", err)
-	}
-	if err != nil {
-		t.Fatal(err) // other unexpected error.
-	}
-}
-
-// TestRepositoriesAddNamed ensures that adding a repository with a specified
-// name takes precidence over the default of repo name.
-func TestRepositoriesAddNamed(t *testing.T) {
 	uri := testRepoURI(RepositoriesTestRepo, t) // ./testdata/$RepositoriesTestRepo.git
 	root, rm := mktemp(t)                       // create and cd to a temp dir, returning path.
 	defer rm()
@@ -147,23 +111,96 @@ func TestRepositoriesAddNamed(t *testing.T) {
 	// repositories' root location.
 	client := fn.New(fn.WithRepositories(root))
 
-	name := "example"                                               // the custom name for the new repo
-	if _, err := client.Repositories().Add(name, uri); err != nil { // add with name
+	// Add the repository, explicitly specifying a name.  See other tests for
+	// defaulting from repoistory names and manifest-defined name.
+	if _, err := client.Repositories().Add("example", uri); err != nil {
 		t.Fatal(err)
 	}
 
+	// Confirm the list now contains the name
 	rr, err := client.Repositories().List()
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := []string{"default", name}
+	expected := []string{"default", "example"}
 	if !reflect.DeepEqual(rr, expected) {
 		t.Fatalf("Expected '%v', got %v", expected, rr)
 	}
 
-	// assert repo files exist
-	if _, err := os.Stat(filepath.Join(name, "README.md")); os.IsNotExist(err) {
+	// assert a file exists at the location as well indicating it was added to
+	// the filesystem, not just the list.
+	if _, err := os.Stat(filepath.Join("example", "README.md")); os.IsNotExist(err) {
 		t.Fatalf("Repository does not appear on disk as expected: %v", err)
+	}
+}
+
+// TestRepositoriesAddDefaultName ensures that repository name is optional,
+// by default being set to the name of the repoisotory from the URI.
+func TestRepositoriesAddDeafultName(t *testing.T) {
+	// The test repository is the "base case" repo, which is a manifestless
+	// repo meant to exemplify the simplest use case:  a repo with no metadata
+	// that simply contains templates, grouped by runtime.  It therefore does
+	// not have a manifest and the deafult name will therefore be the repo name
+	uri := testRepoURI(RepositoriesTestRepo, t) // ./testdata/$RepositoriesTestRepo.git
+	root, rm := mktemp(t)
+	defer rm()
+
+	client := fn.New(fn.WithRepositories(root))
+
+	name, err := client.Repositories().Add("", uri)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// The name returned should be the repo name
+	if name != RepositoriesTestRepo {
+		t.Fatalf("expected returned name '%v', got '%v'", RepositoriesTestRepo, name)
+	}
+
+	// The list of repositories should contain $RepositoriesTestRepo
+	rr, err := client.Repositories().List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := []string{"default", RepositoriesTestRepo}
+	if !reflect.DeepEqual(rr, expected) {
+		t.Fatalf("Expected '%v', got %v", expected, rr)
+	}
+}
+
+// TestRepositoriesAddDefaultNameFromManifest ensures that a repository with
+// a manfest, where a name is specified, is used as the default when one is
+// not explicitly specified.
+func TestRepositoriesAddDefaultNameFromManifest(t *testing.T) {
+	// repository-b is meant to exemplify the use case of a repository which
+	// defines a custom language pack and makes full use of the manifest.yaml.
+	// The manifest.yaml is included which specifies things like custom templates
+	// location and (appropos to this test) a default name/
+	uri := testRepoURI("repository-a", t) // ./testdata/repository-b.git
+	root, rm := mktemp(t)
+	defer rm()
+
+	client := fn.New(fn.WithRepositories(root))
+
+	name, err := client.Repositories().Add("", uri)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// The name returned should be that defined in repository-b/manifest.yaml
+	expectedName := "defaultName"
+	if name != expectedName {
+		t.Fatalf("expected returned name '%v', got '%v'", expectedName, name)
+	}
+
+	// The list should include the name
+	rr, err := client.Repositories().List()
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := []string{"default", expectedName}
+	if !reflect.DeepEqual(rr, expected) {
+		t.Fatalf("Expected '%v', got %v", expected, rr)
 	}
 }
 

@@ -1,2 +1,3 @@
 0000000000000000000000000000000000000000 ef1e6c8ed28e25dec915e8cd7479dacf671665ed Lance Ball <lball@redhat.com> 1632511912 -0400	clone: from file://./home/lanceball/src/github.com/knative-sandbox/kn-plugin-func/testdata/repository-a.git
 ef1e6c8ed28e25dec915e8cd7479dacf671665ed 883ff23f61018546cac0c302c5c75e3c65ed832d Lance Ball <lball@redhat.com> 1632511941 -0400	commit: add manifest.yaml
+883ff23f61018546cac0c302c5c75e3c65ed832d d5c0914f5e90ce1ccc3ee90e44ab610f466c774f drekar <drekar@gmail.com> 1633438956 +0900	push

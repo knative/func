@@ -1,7 +1,9 @@
 package function
 
 import (
+	"crypto/rand"
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/url"
 	"os"
@@ -113,18 +115,57 @@ func (r *Repositories) Get(name string) (repo Repository0_18, err error) {
 // Add a repository of the given name from the URI.  Name, if not provided,
 // defaults to the repo name (sans optional .git suffix). Returns the final
 // name as added.
-func (r *Repositories) Add(name, uri string) (n string, err error) {
-	n = name
-	if n == "" {
-		n, err = repoNameFrom(uri)
-		if err != nil {
-			return n, err
-		}
+func (r *Repositories) Add(name, uri string) (string, error) {
+	// TODO: this function will fail if there already exists a repository of the
+	// _repo_ name due to a filesystem collision.  We use a temporary GUID here,
+	// but this is messy as it can 1) leave files on the system in the event
+	// of a proces interruption and 2) muddies up any other instance of the
+	// library in another process as they will contain a temporary guid in their
+	// api usage and 3) requires an explicit rename after the final is deployed.
+	// etc.  These could be eliminated with an in-memory initial clone.
+
+	// Clone the remote to local disk
+	id, err := uuid()
+	if err != nil {
+		return name, fmt.Errorf("error generating local id for new repo. %v", err)
 	}
-	path := filepath.Join(r.path, n)
-	bare := false
-	_, err = git.PlainClone(path, bare, &git.CloneOptions{URL: uri})
-	return
+	_, err = git.PlainClone(
+		filepath.Join(r.path, id),   // path
+		false,                       // bare (we want a working branch)
+		&git.CloneOptions{URL: uri}) // no other options except URL
+
+	// If the user specified a name, use that preferentially
+	if name != "" {
+		if err := r.Rename(id, name); err != nil {
+			_ = r.Remove(id)
+			return name, err
+		}
+		return name, nil
+	}
+
+	// Use the default name defined in the manifest, if provided
+	repo, err := r.Get(id)
+	if err != nil {
+		return name, err
+	}
+	if repo.DefaultName != "" {
+		if err := r.Rename(id, repo.DefaultName); err != nil {
+			_ = r.Remove(id)
+			return repo.DefaultName, err
+		}
+		return repo.DefaultName, nil
+	}
+
+	// Use the repo name from the URI as the base default case.
+	repoName, err := repoNameFrom(uri)
+	if err != nil {
+		return name, err
+	}
+	if err := r.Rename(id, repoName); err != nil {
+		_ = r.Remove(id)
+		return repoName, err
+	}
+	return repoName, nil
 }
 
 // Rename a repository
@@ -157,4 +198,12 @@ func repoNameFrom(uri string) (name string, err error) {
 		return
 	}
 	return strings.TrimSuffix(ss[len(ss)-1], ".git"), nil
+}
+
+func uuid() (string, error) {
+	b := make([]byte, 6)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x-%x-%x", b[0:2], b[2:4], b[4:6]), nil
 }

@@ -33,8 +33,14 @@ type Repository0_18 struct {
 	// files within this structure. Therefore the name is not part of the repo.
 	// This is the same reason a git repository has its name nowhere in .git and
 	// does not need a manifest of its contents:  the filesystem itself maintains
-	// this information.
+	// this information.  This name is the denormalized view of the filesystem,
+	// which defines the name as the directory name, and supports being defaulted
+	// to the value in the .yaml on initial add, which is stored as DefaultName.
 	Name string `yaml:"-"`
+	// DefaultName is the name indicated by the repository author.
+	// Stored in the yaml attribute "name", it is only consulted during initial
+	// addition of the repo as the default option.
+	DefaultName string `yaml:"name,omitempty"`
 	// Version of the repository.
 	Version string `yaml:"version,omitempty"`
 	// TemplatesPath defins an optional path within the repository at which
