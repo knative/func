@@ -24,7 +24,7 @@ type Template struct {
 	BuildConfig `yaml:",inline"`
 	// HealthEndpoints.  The denormalized view of members which can be defined
 	// first per repo or per runtime.
-	HealthEndpoints `yaml:",inline"`
+	HealthEndpoints `yaml:"healthEndpoints,omitempty"`
 }
 
 // Fullname is a caluclated field of [repo]/[name] used

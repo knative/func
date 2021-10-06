@@ -52,7 +52,7 @@ type Repository0_18 struct {
 	BuildConfig `yaml:",inline"`
 	// HealthEndpoints for all templates in the repository.  Serves as the
 	// default option which may be overridden per runtime and per template.
-	HealthEndpoints `yaml:",inline"`
+	HealthEndpoints `yaml:"healthEndpoints,omitempty"`
 	// Runtimes defined within the repo.
 	Runtimes []Runtime
 
@@ -66,12 +66,15 @@ type Repository0_18 struct {
 type Runtime struct {
 	// Name of the runtime
 	Name string `yaml:"-"`
-	// BuildConfig defines builders and buildpacks.  Here it serves as the default
-	// option which may be overridden per template.
-	BuildConfig `yaml:",inline"`
 	// HealthEndpoints for all templates in the repository.  Serves as the
 	// default option which may be overridden per runtime and per template.
-	HealthEndpoints `yaml:",inline"`
+	HealthEndpoints `yaml:"healthEndpoints,omitempty"`
+	// BuildConfig defines attriutes 'builders' and 'buildpacks'.  Here it serves
+	// as the default option which may be overridden per template. Note that
+	// unlike HealthEndpoints, it is inline, so no 'buildConfig' attribute is
+	// added/expected; rather the Buildpacks and Builders are direct descendants
+	// of Runtime.
+	BuildConfig `yaml:",inline"`
 	// Templates defined for the runtime
 	Templates []Template
 }
@@ -97,8 +100,7 @@ func (r *Repository0_18) URL() string {
 func newRepository(path string) (r Repository0_18, err error) {
 	// Build the repository from disk state as the default
 	r = Repository0_18{
-		Name:          filepath.Base(path),
-		TemplatesPath: path,
+		Name: filepath.Base(path),
 		HealthEndpoints: HealthEndpoints{
 			Liveness:  DefaultLivenessEndpoint,
 			Readiness: DefaultLivenessEndpoint,
@@ -106,18 +108,24 @@ func newRepository(path string) (r Repository0_18, err error) {
 		fs:   osFilesystem{},
 		path: path,
 	}
+
 	// Validate path
 	if err = checkDir(r.fs, path); err != nil { // validates repo path
 		return r, fmt.Errorf("repository path invald. %v", err)
 	}
-	// Load repository manifest, which may define an alternate location for
-	// templates.
+
+	// Load repository manifest
 	r, err = loadRepositoryManifest(r, path)
 	if err != nil {
 		return
 	}
-	// Load Runtimes, which use settings on repository as defaults.
-	r.Runtimes, err = r.runtimes()
+
+	// The templates are located at the repo root plus the defined relative
+	// templates path (from the manifest)
+	templatesPath := filepath.Join(path, r.TemplatesPath)
+
+	// Load templates (by runtime), which use settings on repository as defaults.
+	r.Runtimes, err = r.runtimes(templatesPath)
 	return
 }
 
@@ -126,11 +134,10 @@ func newRepository(path string) (r Repository0_18, err error) {
 // configuration files to populate the Repository struct
 func newEmbeddedRepository() (r Repository0_18, err error) {
 	r = Repository0_18{
-		Name:          DefaultRepositoryName,
-		TemplatesPath: embeddedPath,
-		fs:            pkgerFilesystem{},
+		Name: DefaultRepositoryName,
+		fs:   pkgerFilesystem{},
 	}
-	r.Runtimes, err = r.runtimes()
+	r.Runtimes, err = r.runtimes(embeddedPath) // special path in embedded
 	return
 	// The embedded repository does not have a manifest because:
 	// 1.  It has no name
@@ -152,21 +159,22 @@ func newRemoteRepository(uri string) (r Repository0_18, err error) {
 // for inherited fields BuildConfig and HealthEndpoints as the default values
 // for the runtimes and templates.  The runtimes and templates themselves can
 // override these values by specifying new values in thir config files.
-func (r Repository0_18) runtimes() (runtimes []Runtime, err error) {
+func (r Repository0_18) runtimes(path string) (runtimes []Runtime, err error) {
 	runtimes = []Runtime{}
 
 	// Validate template path. Redundant with the same check in the repo
 	// constructor unless alternate templates location is defind.
-	if err = checkDir(r.fs, r.TemplatesPath); err != nil {
+	if err = checkDir(r.fs, path); err != nil {
 		err = fmt.Errorf("templates path invalid. %v", err)
 		return
 	}
 
 	// Read the templates directory, loading each runtime
-	fis, err := r.fs.ReadDir(r.TemplatesPath)
+	fis, err := r.fs.ReadDir(path)
 	if err != nil {
 		return
 	}
+
 	for _, fi := range fis {
 		if !fi.IsDir() || strings.HasPrefix(fi.Name(), ".") {
 			continue // ignore files and hidden dirs
@@ -182,11 +190,11 @@ func (r Repository0_18) runtimes() (runtimes []Runtime, err error) {
 		// Runtime Manifest
 		// Load the file if it exists, which may override values inherited from the
 		// repo such as builders, buildpacks and health endponts.
-		runtime, err = loadRuntimeManifest(r.fs, runtime, filepath.Join(r.TemplatesPath, fi.Name()))
+		runtime, err = loadRuntimeManifest(r.fs, runtime, filepath.Join(path, fi.Name()))
 		// Runtime Templates
 		// Load from repo filesystem for runtime. Will inherit values from the
 		// runtime such as BuildConfig, HealthEndpoints etc.
-		runtime.Templates, err = r.templates(runtime)
+		runtime.Templates, err = r.templates(runtime, path)
 		runtimes = append(runtimes, runtime)
 	}
 	return
@@ -196,18 +204,18 @@ func (r Repository0_18) runtimes() (runtimes []Runtime, err error) {
 // filesystem.  The view is denormalized, using the inherited fields from
 // the runtime for fileds such as BuildConfig and HealthEndpoints.  The
 // template itself can override these by including a manifest.
-func (r Repository0_18) templates(runtime Runtime) (templates []Template, err error) {
+func (r Repository0_18) templates(runtime Runtime, path string) (templates []Template, err error) {
 	templates = []Template{}
-	path := filepath.Join(r.TemplatesPath, runtime.Name)
+	runtimePath := filepath.Join(path, runtime.Name)
 
 	// Validate directory exists
-	if err = checkDir(r.fs, path); err != nil {
+	if err = checkDir(r.fs, runtimePath); err != nil {
 		err = fmt.Errorf("runtime path invald. %v", err)
 		return
 	}
 
 	// Read the directory, loading each template.
-	fis, err := r.fs.ReadDir(path)
+	fis, err := r.fs.ReadDir(runtimePath)
 	if err != nil {
 		return
 	}
@@ -228,7 +236,7 @@ func (r Repository0_18) templates(runtime Runtime) (templates []Template, err er
 		// Template Manifeset
 		// Load manifest file if it exists, which may override values inherited from
 		// the runtime/repo.
-		t, err = loadTemplateManifest(r.fs, t, filepath.Join(path, fi.Name()))
+		t, err = loadTemplateManifest(r.fs, t, filepath.Join(runtimePath, fi.Name()))
 		templates = append(templates, t)
 	}
 	return
@@ -284,6 +292,7 @@ func loadTemplateManifest(fs filesystem, t Template, path string) (Template, err
 }
 
 // check that the given path is an accessible directory or error.
+// this checks within the given filesystem, which may have its own root.
 func checkDir(fs filesystem, path string) error {
 	fi, err := fs.Stat(path)
 	if err != nil && os.IsNotExist(err) {
@@ -309,13 +318,14 @@ func (r *Repository0_18) Template(runtimeName, name string) (t Template, err err
 }
 
 // Templates returns the set of all templates for a given runtime.
+// If runtime not found, an empty list is returned.
 func (r *Repository0_18) Templates(runtimeName string) ([]Template, error) {
 	for _, runtime := range r.Runtimes {
 		if runtime.Name == runtimeName {
 			return runtime.Templates, nil
 		}
 	}
-	return nil, ErrTemplateNotFound
+	return []Template{}, nil
 }
 
 // Runtime of the given name within the repository.

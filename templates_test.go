@@ -28,15 +28,14 @@ func TestTemplatesList(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Note that this list will change as the customProvider
+	// Note that this list will change as the customTemplateRepo
 	// and builtin templates are shared.  THis could be mitigated
 	// by creating a custom repository path for just this test, if
 	// that becomes a hassle.
 	expected := []string{
 		"events",
 		"http",
-		"customProvider/customTemplate",
-		"repositoryTests/custom",
+		"customTemplateRepo/customTemplate",
 	}
 
 	if !reflect.DeepEqual(templates, expected) {
@@ -89,13 +88,13 @@ func TestTemplatesGet(t *testing.T) {
 
 	// Check extended
 
-	extended, err := client.Templates().Get("go", "customProvider/customTemplate")
+	extended, err := client.Templates().Get("go", "customTemplateRepo/customTemplate")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	if embedded.Runtime != "go" || embedded.Repository != "default" || embedded.Name != "http" {
-		t.Logf("Expected template from extended repo to have runtime 'go' repo 'customProvider' name 'customTemplate', got '%v', '%v', '%v',",
+		t.Logf("Expected template from extended repo to have runtime 'go' repo 'customTemplateRepo' name 'customTemplate', got '%v', '%v', '%v',",
 			extended.Runtime, extended.Repository, extended.Name)
 	}
 }
@@ -146,7 +145,7 @@ func TestTemplateCustom(t *testing.T) {
 	err := client.Create(fn.Function{
 		Root:     root,
 		Runtime:  TestRuntime,
-		Template: "customProvider/customTemplate",
+		Template: "customTemplateRepo/customTemplate",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -316,7 +315,7 @@ func TestTemplateModeCustom(t *testing.T) {
 	err := client.Create(fn.Function{
 		Root:     root,
 		Runtime:  "test",
-		Template: "customProvider/tplb",
+		Template: "customTemplateRepo/tplb",
 	})
 	if err != nil {
 		t.Fatal(err)

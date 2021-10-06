@@ -169,7 +169,14 @@ func (r *Repositories) Get(name string) (repo Repository0_18, err error) {
 	if name == DefaultRepositoryName {
 		return r.newDefault()
 	}
-	// TODO: when WithRepository defined, only it can be defined
+
+	if r.singleMode() {
+		return repo, fmt.Errorf("repository '%v' will not be loaded because we "+
+			"are running in single-repo mode (%v). This is the default (and only) "+
+			"repo loaded.  It can be retrived by name '%v'.",
+			name, r.single, DefaultRepositoryName)
+	}
+
 	return newRepository(filepath.Join(r.path, name))
 }
 

@@ -36,7 +36,8 @@ func TestRepositoriesList(t *testing.T) {
 	}
 }
 
-// TestRepositoriesGetInvalid ensures that attempting to get an invalid repo results in error.
+// TestRepositoriesGetInvalid ensures that attempting to get an invalid repo
+// results in error.
 func TestRepositoriesGetInvalid(t *testing.T) {
 	client := fn.New(fn.WithRepositories("testdata/repositories"))
 
@@ -52,19 +53,19 @@ func TestRepositoriesGet(t *testing.T) {
 	client := fn.New(fn.WithRepositories("testdata/repositories"))
 
 	// valid should not error
-	repo, err := client.Repositories().Get("customProvider")
+	repo, err := client.Repositories().Get("customTemplateRepo")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// valid should have expected name
-	if repo.Name != "customProvider" {
-		t.Fatalf("Expected 'customProvider', got: %v", repo.Name)
+	if repo.Name != "customTemplateRepo" {
+		t.Fatalf("Expected 'customTemplateRepo', got: %v", repo.Name)
 	}
 }
 
-// TestRepositoriesAll ensures builtin and extended repos are returned from
-// .All accessor.
+// TestRepositoriesAll ensures repos are returned from
+// .All accessor.  Tests both builtin and buitlin+extensible cases.
 func TestRepositoriesAll(t *testing.T) {
 	uri := testRepoURI(RepositoriesTestRepo, t)
 	root, rm := mktemp(t)
@@ -168,10 +169,10 @@ func TestRepositoriesAddDeafultName(t *testing.T) {
 	}
 }
 
-// TestRepositoriesAddDefaultNameFromManifest ensures that a repository with
+// TestRepositoriesAddWithManifest ensures that a repository with
 // a manfest, where a name is specified, is used as the default when one is
 // not explicitly specified.
-func TestRepositoriesAddDefaultNameFromManifest(t *testing.T) {
+func TestRepositoriesAddWithManifest(t *testing.T) {
 	// repository-b is meant to exemplify the use case of a repository which
 	// defines a custom language pack and makes full use of the manifest.yaml.
 	// The manifest.yaml is included which specifies things like custom templates
@@ -239,7 +240,7 @@ func TestRepositoriesAddExistingErrors(t *testing.T) {
 	}
 }
 
-// TestRepositoriesRename ensures renaming a repository.
+// TestRepositoriesRename ensures renaming a repository succeeds.
 func TestRepositoriesRename(t *testing.T) {
 	uri := testRepoURI(RepositoriesTestRepo, t)
 	root, rm := mktemp(t) // create and cd to a temp dir, returning path.
@@ -276,7 +277,7 @@ func TestRepositoriesRename(t *testing.T) {
 // removes it from the list and FS.
 func TestRepositoriesRemove(t *testing.T) {
 	uri := testRepoURI(RepositoriesTestRepo, t) // ./testdata/repository.git
-	root, rm := mktemp(t)                       // create and cd to a temp dir, returning path.
+	root, rm := mktemp(t)                       // create and cd to a temp dir
 	defer rm()
 
 	// Instantiate the client using the current temp directory as the

@@ -16,6 +16,14 @@ $ git push
 $ cd .. && rm -rf repository
 [commit changes which will now appear in ./repository.git
 ```
+## Creating Embedded Repos
+
+To create a new embedded repo such as repository.git:
+
+- create as a --bare clone
+- remove `origin` from `config`
+- remove sample hooks
+- touch a `.gitinclude` in `refs/heads` and `refs/tags`
 
 ## ./repositories
 
@@ -33,18 +41,9 @@ be specified as an HTTP URL.
 This repository exemplifies the base case of a remote repository with all 
 defaults, no metadata, comprised of only templates (grouped by runtime)
 
-## repository-a.git
+## ./repository-a.git
 
 This repository exemplifies the complete case of a repository with a fully
 populated manifest which includes an alternate location for templates, a
 default name, etc.
-
-### ./Initial Setup
-
-To create a new embedded repo such as repository.git:
-
-- create as a --bare clone
-- remove `origin` from `config`
-- remove sample hooks
-- touch a `.gitinclude` in `refs/heads` and `refs/tags`
 
