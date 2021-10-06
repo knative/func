@@ -31,8 +31,8 @@ func TestRepositoriesList(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Assert contains only the default repo
-	if len(rr) != 1 && rr[0] != fn.DefaultRepository {
-		t.Fatalf("Expected repository list '[%v]', got %v", fn.DefaultRepository, rr)
+	if len(rr) != 1 && rr[0] != fn.DefaultRepositoryName {
+		t.Fatalf("Expected repository list '[%v]', got %v", fn.DefaultRepositoryName, rr)
 	}
 }
 
@@ -77,7 +77,7 @@ func TestRepositoriesAll(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rr) != 1 && rr[0].Name != fn.DefaultRepository {
+	if len(rr) != 1 && rr[0].Name != fn.DefaultRepositoryName {
 		t.Fatalf("Expected initial repo list to be only the default.  Got %v", rr)
 	}
 
@@ -95,7 +95,7 @@ func TestRepositoriesAll(t *testing.T) {
 
 	// Assert it now includes both builtin and extended
 	if len(repositories) != 2 ||
-		repositories[0].Name != fn.DefaultRepository ||
+		repositories[0].Name != fn.DefaultRepositoryName ||
 		repositories[1].Name != RepositoriesTestRepo {
 		t.Fatal("Repositories list does not pass shallow repository membership check")
 	}

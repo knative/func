@@ -7,8 +7,6 @@ import (
 	"io"
 	"os"
 	"runtime"
-	"sort"
-	"sync"
 	"time"
 )
 
@@ -25,37 +23,24 @@ const (
 	// one implementation of each supported function signature.  Currently that
 	// includes an HTTP Handler ("http") and Cloud Events handler ("events")
 	DefaultTemplate = "http"
-
-	// DefaultRepository is the name of the default (builtin) template repository,
-	// and is assumed when no template prefix is provided.
-	DefaultRepository = "default"
-
-	// DefaultRepositoriesPath is the default location for repositories under
-	// management on local disk.
-	// TODO: the logic which defaults this to ~/.config/func/repositories will
-	// be moved from the CLI to the core in the near future.  For now use the
-	// current working directory.
-	DefaultRepositoriesPath = ""
 )
 
 // Client for managing Function instances.
 type Client struct {
-	repositories     *Repositories // Repositories management
-	templates        *Templates    // Templates management
-	verbose          bool          // print verbose logs
-	builder          Builder       // Builds a runnable image from Function source
-	pusher           Pusher        // Pushes the image associated with a Function.
-	deployer         Deployer      // Deploys or Updates a Function
-	runner           Runner        // Runs the Function locally
-	remover          Remover       // Removes remote services
-	lister           Lister        // Lists remote services
-	describer        Describer
+	repositories     *Repositories    // Repositories management
+	templates        *Templates       // Templates management
+	verbose          bool             // print verbose logs
+	builder          Builder          // Builds a runnable image source
+	pusher           Pusher           // Pushes Funcation image to a remote
+	deployer         Deployer         // Deploys or Updates a Function
+	runner           Runner           // Runs the Function locally
+	remover          Remover          // Removes remote services
+	lister           Lister           // Lists remote services
+	describer        Describer        // Describes Function instances
 	dnsProvider      DNSProvider      // Provider of DNS services
-	repository       string           // URL to Git repo (overrides on-disk and embedded)
 	registry         string           // default registry for OCI image tags
 	progressListener ProgressListener // progress listener
 	emitter          Emitter          // Emits CloudEvents to functions
-
 }
 
 // ErrNotBuilt indicates the Function has not yet been built.
@@ -74,7 +59,18 @@ type Pusher interface {
 	Push(ctx context.Context, f Function) (string, error)
 }
 
-// Status of the Function
+// Deployer of Function source to running status.
+type Deployer interface {
+	// Deploy a Function of given name, using given backing image.
+	Deploy(context.Context, Function) (DeploymentResult, error)
+}
+
+type DeploymentResult struct {
+	Status Status
+	URL    string
+}
+
+// Status of the Function from the DeploymentResult
 type Status int
 
 const (
@@ -82,17 +78,6 @@ const (
 	Deployed
 	Updated
 )
-
-type DeploymentResult struct {
-	Status Status
-	URL    string
-}
-
-// Deployer of Function source to running status.
-type Deployer interface {
-	// Deploy a Function of given name, using given backing image.
-	Deploy(context.Context, Function) (DeploymentResult, error)
-}
 
 // Runner runs the Function locally.
 type Runner interface {
@@ -153,6 +138,7 @@ type Info struct {
 	Subscriptions []Subscription `json:"subscriptions" yaml:"subscriptions"`
 }
 
+// Subscriptions currently active to event sources
 type Subscription struct {
 	Source string `json:"source" yaml:"source"`
 	Type   string `json:"type" yaml:"type"`
@@ -186,7 +172,7 @@ func New(options ...Option) *Client {
 		progressListener: &NoopProgressListener{},
 		emitter:          &noopEmitter{},
 	}
-	c.repositories = newRepositories(c, DefaultRepositoriesPath)
+	c.repositories = newRepositories(c)
 	c.templates = newTemplates(c)
 	for _, o := range options {
 		o(c)
@@ -194,8 +180,11 @@ func New(options ...Option) *Client {
 	return c
 }
 
-// Option defines a Function which when passed to the Client constructor optionally
-// mutates private members at time of instantiation.
+// OPTIONS
+// ---------
+
+// Option defines a Function which when passed to the Client constructor
+// optionally mutates private members at time of instantiation.
 type Option func(*Client)
 
 // WithVerbose toggles verbose logging.
@@ -283,9 +272,9 @@ func WithRepositories(path string) Option {
 // WithRepository sets a specific URL to a Git repository from which to pull templates.
 // This setting's existence precldes the use of either the inbuilt templates or any
 // repositories from the extensible repositories path.
-func WithRepository(repository string) Option {
+func WithRepository(uri string) Option {
 	return func(c *Client) {
-		c.repository = repository
+		c.Repositories().SetSingle(uri)
 	}
 }
 
@@ -307,6 +296,9 @@ func WithEmitter(e Emitter) Option {
 	}
 }
 
+// ACCESSORS
+// ---------
+
 // Repositories accessor
 func (c *Client) Repositories() *Repositories {
 	return c.repositories
@@ -316,6 +308,33 @@ func (c *Client) Repositories() *Repositories {
 func (c *Client) Templates() *Templates {
 	return c.templates
 }
+
+// Runtimes available in totality.
+// Not all repository/template combinations necessarily exist,
+// and further validation is performed when a template+runtime is chosen.
+// from a given repository.  This is the global list of all available.
+// Returned list is unique and sorted.
+func (c *Client) Runtimes() ([]string, error) {
+	runtimes := newSortedSet()
+
+	// Gather all runtimes from all repositories
+	// into a uniqueness map
+	repositories, err := c.Repositories().All()
+	if err != nil {
+		return []string{}, err
+	}
+	for _, repo := range repositories {
+		for _, runtime := range repo.Runtimes {
+			runtimes.Add(runtime.Name)
+		}
+	}
+
+	// Return a unique, sorted list of runtimes
+	return runtimes.Items(), nil
+}
+
+// METHODS
+// ---------
 
 // New Function.
 // Use Create, Build and Deploy independently for lower level control.
@@ -410,7 +429,7 @@ func (c *Client) Create(f Function) (err error) {
 	}
 
 	// Merge values loaded from disk into the new function, treating them
-	// as defaults (the do not overwrite, just set if not )
+	// as defaults (do not overwrite, just set if not populated)
 	f = merge(f, defaults)
 
 	// Assert runtime was provided, or default.
@@ -421,19 +440,6 @@ func (c *Client) Create(f Function) (err error) {
 	// Assert template name was provided, or default.
 	if f.Template == "" {
 		f.Template = DefaultTemplate
-	}
-
-	// TODO: if c.repository was defined it should replace the deafult repo and
-	// usurp the loading of extensible repos.
-	var repo string
-	if c.repository != "" {
-		repo, err = c.repositories.Add("", c.repository)
-		if err != nil {
-			return
-		}
-		defer func() {
-			err = c.repositories.Remove(repo)
-		}()
 	}
 
 	// Write out the template for a Function
@@ -663,68 +669,8 @@ func (c *Client) Emit(ctx context.Context, endpoint string) error {
 	return c.emitter.Emit(ctx, endpoint)
 }
 
-// Runtimes available in totality.
-// Not all repository/template combinations necessarily exist,
-// and further validation is performed when a template+runtime is chosen.
-// from a given repository.  This is the global list of all available.
-// Returned list is unique and sorted.
-func (c *Client) Runtimes() ([]string, error) {
-	runtimes := newSortedSet()
-
-	// Gather all runtimes from all repositories
-	// into a uniqueness map
-	repositories, err := c.Repositories().All()
-	if err != nil {
-		return []string{}, err
-	}
-	for _, repo := range repositories {
-		for _, runtime := range repo.Runtimes {
-			runtimes.Add(runtime.Name)
-		}
-	}
-
-	// Return a unique, sorted list of runtimes
-	return runtimes.Items(), nil
-}
-
-// sorted set of strings.
-//
-// write-optimized and suitable only for fairly small values of N.
-// Should this increase dramatically in size, a different implementation,
-// such as a linked list, might be more appropriate.
-type sortedSet struct {
-	members map[string]bool
-	sync.Mutex
-}
-
-func newSortedSet() *sortedSet {
-	return &sortedSet{
-		members: make(map[string]bool),
-	}
-}
-
-func (s *sortedSet) Add(value string) {
-	s.Lock()
-	s.members[value] = true
-	s.Unlock()
-}
-
-func (s *sortedSet) Remove(value string) {
-	s.Lock()
-	delete(s.members, value)
-	s.Unlock()
-}
-
-func (s *sortedSet) Items() []string {
-	s.Lock()
-	defer s.Unlock()
-	n := []string{}
-	for k := range s.members {
-		n = append(n, k)
-	}
-	sort.Strings(n)
-	return n
-}
+// DEFAULTS
+// ---------
 
 // Manual implementations (noops) of required interfaces.
 // In practice, the user of this client package (for example the CLI) will

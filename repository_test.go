@@ -11,7 +11,7 @@ import (
 func TestRepositoryGetTemplateDefault(t *testing.T) {
 	client := fn.New()
 
-	repo, err := client.Repositories().Get(fn.DefaultRepository)
+	repo, err := client.Repositories().Get(fn.DefaultRepositoryName)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +87,7 @@ func TestRepositoryGetRuntimeDefault(t *testing.T) {
 func TestRepositoryGetRuntimeCustom(t *testing.T) {
 	client := fn.New()
 
-	repo, err := client.Repositories().Get(fn.DefaultRepository)
+	repo, err := client.Repositories().Get(fn.DefaultRepositoryName)
 	if err != nil {
 		t.Fatal(err)
 	}

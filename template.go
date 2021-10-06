@@ -35,17 +35,17 @@ func (t Template) Fullname() string {
 }
 
 // write the given template to path using data from given repos.
-// TODO: needing to pass in path to repos here is a code smell.
 func writeTemplate(t Template, repos, dest string) error {
 	// Write the template from the right location
-	// This abstraction will be moved into the object itself such that
-	// writing does not depend (at this level) on what _kind_ of template
+	// TODO The filesystem abstraction will be moved into the object itself such
+	// that writing does not depend (at this level) on what _kind_ of template
 	// it is (embedded, on disk or remote) and just writes based on its internal
 	// filesystem (wherever that FS may have come from)
-	if t.Repository == DefaultRepository {
+	if t.Repository == DefaultRepositoryName {
 		return writeEmbedded(t, dest)
+	} else {
+		return writeCustom(t, repos, dest)
 	}
-	return writeCustom(t, repos, dest)
 }
 
 var (

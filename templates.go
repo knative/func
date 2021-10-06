@@ -26,47 +26,8 @@ func newTemplates(client *Client) *Templates {
 // Full name is the optional repository prefix plus the template's repository
 // local name.  Default templates grouped first sans prefix.
 func (t *Templates) List(runtime string) ([]string, error) {
-	// TODO: if repository override was enabled, we should just return those, flat.
-	builtin, err := t.listDefault(runtime)
-	if err != nil {
-		return []string{}, err
-	}
-
-	extended, err := t.ListExtended(runtime)
-	if err != nil && err != ErrTemplateNotFound {
-		return []string{}, err
-	}
-
-	// Result is an alphanumerically sorted list first grouped by
-	// embedded at head.
-	return append(builtin, extended...), nil
-}
-
-// listDefault (embedded) templates by runtime
-func (t *Templates) listDefault(runtime string) ([]string, error) {
-	names := newSortedSet()
-
-	r, err := t.client.Repositories().Get(DefaultRepository)
-	if err != nil {
-		return []string{}, err
-	}
-
-	tt, err := r.Templates(runtime)
-	if err != nil {
-		return []string{}, err
-	}
-
-	for _, t := range tt {
-		names.Add(t.Name)
-	}
-	return names.Items(), nil
-}
-
-// listExtended templates returns all template full names that
-// exist in all extended (config dir) repositories for a runtime.
-// Prefixed, sorted.
-func (t *Templates) listExtended(runtime string) ([]string, error) {
-	names := newSortedSet()
+	names := []string{}
+	extended := newSortedSet()
 
 	rr, err := t.client.Repositories().All()
 	if err != nil {
@@ -74,18 +35,19 @@ func (t *Templates) listExtended(runtime string) ([]string, error) {
 	}
 
 	for _, r := range rr {
-		if r.Name == DefaultRepository {
-			continue // already added at head of names
-		}
 		tt, err := r.Templates(runtime)
 		if err != nil {
 			return []string{}, err
 		}
 		for _, t := range tt {
-			names.Add(t.Fullname())
+			if r.Name == DefaultRepositoryName {
+				names = append(names, t.Name)
+			} else {
+				extended.Add(t.Fullname())
+			}
 		}
 	}
-	return names.Items(), nil
+	return append(names, extended.Items()...), nil
 }
 
 // Template returns the named template in full form '[repo]/[name]' for the
@@ -105,7 +67,7 @@ func (t *Templates) Get(runtime, fullname string) (Template, error) {
 	// Defaults when unprefixed to DefaultRepository
 	cc := strings.Split(fullname, "/")
 	if len(cc) == 1 {
-		repoName = DefaultRepository
+		repoName = DefaultRepositoryName
 		tplName = fullname
 	} else {
 		repoName = cc[0]

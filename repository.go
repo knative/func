@@ -1,6 +1,7 @@
 package function
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -125,7 +126,7 @@ func newRepository(path string) (r Repository0_18, err error) {
 // configuration files to populate the Repository struct
 func newEmbeddedRepository() (r Repository0_18, err error) {
 	r = Repository0_18{
-		Name:          DefaultRepository,
+		Name:          DefaultRepositoryName,
 		TemplatesPath: embeddedPath,
 		fs:            pkgerFilesystem{},
 	}
@@ -138,6 +139,12 @@ func newEmbeddedRepository() (r Repository0_18, err error) {
 	//     are located within.
 	// 4.  BuildConfig and HealthEndpoints are definitionally defaults.
 	// The embedded repository also does not valide path, because it is implicit.
+}
+
+// newRemoteRepository returns a repository instantiated from a uri of a
+// remote git repository.
+func newRemoteRepository(uri string) (r Repository0_18, err error) {
+	return Repository0_18{}, errors.New("Remote Repositories Not Implemented")
 }
 
 // runtimes returns runtimes currently defined in this repository's filesytem.

@@ -13,17 +13,44 @@ import (
 	"github.com/go-git/go-git/v5"
 )
 
+const (
+	// DefaultRepositoryName is the name by which the currently default repo can
+	// be referred.  This name is assumed when no template prefix is provided
+	// when determining a template canonical (full) name.
+	// Unless a single-repo override is defined, this is usally referring to the
+	// builtin (embedded) repository.
+	DefaultRepositoryName = "default"
+
+	// DefaultRepositoriesPath is the default location for repositories under
+	// management on local disk.
+	// TODO: the logic which defaults this to ~/.config/func/repositories will
+	// be moved from the CLI to the core in the near future.  For now use the
+	// current working directory.
+	DefaultRepositoriesPath = ""
+)
+
 // Repositories manager
 type Repositories struct {
-	path   string // Path to repositories
+	// Path to repositories
+	// (optional) is the path to extensible repositories on disk.
+	path string
+
+	// Single Repo Mode
+	// (optional) the URI to a single repository for single-repo mode
+	single string // URI of a single-repo override mode
+
+	// backreference to the client enabling full api access for the repo manager
 	client *Client
 }
 
 // newRepositories manager
 // contains a backreference to the client (type tree root) for access to the
 // full client API during implementations.
-func newRepositories(client *Client, path string) *Repositories {
-	return &Repositories{client: client, path: path}
+func newRepositories(client *Client) *Repositories {
+	return &Repositories{
+		path:   DefaultRepositoriesPath,
+		client: client,
+	}
 }
 
 // SetPath to repositories under management.
@@ -36,7 +63,19 @@ func (r *Repositories) Path() string {
 	return r.path
 }
 
-// List all repositories installed at the defined root path plus builtin.
+// SetURI enables single-reposotory mode.
+// Enables single-repository mode.  This replaces the default embedded repo
+// and extended repositories.  This is an important mode for both diskless
+// (config-less) operation, such as security-restrited environments, and for
+// running as a library in which case environmental settings should be
+// ignored in favor of a more funcitonal approach in which only inputs affect
+// outputs.
+func (r *Repositories) SetSingle(uri string) {
+	r.single = uri
+}
+
+// List all repositories the current configuration of the repo manager has
+// defined.
 func (r *Repositories) List() ([]string, error) {
 	repositories, err := r.All()
 	if err != nil {
@@ -54,38 +93,45 @@ func (r *Repositories) List() ([]string, error) {
 func (r *Repositories) All() (repos []Repository0_18, err error) {
 	repos = []Repository0_18{}
 
-	// Single repo override
-	// TODO: Create single remote repository override for WithRepository option.
-
-	// Default (embedded) repo always first
-	builtin, err := newEmbeddedRepository()
+	// The default repository is always first in the list
+	d, err := r.newDefault()
 	if err != nil {
 		return
 	}
-	repos = append(repos, builtin)
+	repos = append(repos, d)
 
-	// Return if not using on-disk repos
-	// If r.path not populated, this indicates the client should
-	// not read repositories from disk, using only builtin.
-	if r.path == "" {
+	// If running in "single repo" mode, or there is no path defined where to
+	// find additional repositories, our job is done.
+	if r.singleMode() || r.path == "" {
 		return
 	}
 
-	// Return empty if path does not exit
-	// This will change to an error when the logic to determine config path,
+	// Loads the extended repositories from the defined path.
+	// Note that an empty path results in an empty set.
+	// (empty path indicates to not use extended repos)
+	extended, err := newExtendedRepositories(r.path)
+	if err != nil {
+		return
+	}
+	repos = append(repos, extended...)
+	return
+}
+
+// Return all repositories defined at path
+// An empty path always returns an empty list.
+func newExtendedRepositories(path string) (repos []Repository0_18, err error) {
+	repos = []Repository0_18{}
+
+	// TODO This will change to an _error_ when the logic to determine config path,
 	// and create its initial structure, is moved into the client library.
 	// For now a missing repositores directory is considered equivalent to having
-	// none installed.
-	if _, err := os.Stat(r.path); os.IsNotExist(err) {
+	// none installed to minimize the blast-radious of that forthcoming change.
+	if _, err := os.Stat(path); os.IsNotExist(err) {
 		return repos, nil
 	}
 
-	// read repos from filesystem (sorted by name)
-	// TODO: when manifests are introduced, the final name may be different
-	// than the name on the filesystem, and as such we can not rely on the
-	// alphanumeric ordering of underlying list, and will instead have to sort
-	// by configured name.
-	ff, err := ioutil.ReadDir(r.path)
+	// Read repos from filesystem (sorted by name)
+	ff, err := ioutil.ReadDir(path)
 	if err != nil {
 		return
 	}
@@ -94,19 +140,34 @@ func (r *Repositories) All() (repos []Repository0_18, err error) {
 			continue
 		}
 		var repo Repository0_18
-		repo, err = newRepository(filepath.Join(r.path, f.Name()))
+		repo, err = newRepository(filepath.Join(path, f.Name()))
 		if err != nil {
 			return
 		}
 		repos = append(repos, repo)
 	}
-	return repos, nil
+	return
+}
+
+// newDefault returns the default repository which is the embedded (builtin)
+// repo or (if defined) the single remote repository specified for single-repo
+// mode.
+func (r *Repositories) newDefault() (Repository0_18, error) {
+	if r.single != "" {
+		return newRemoteRepository(r.single)
+	}
+	return newEmbeddedRepository()
+}
+
+// singleMode returns whether or not we are running in single-repo mode.
+func (r *Repositories) singleMode() bool {
+	return r.single != ""
 }
 
 // Get a repository by name, error if it does not exist.
 func (r *Repositories) Get(name string) (repo Repository0_18, err error) {
-	if name == DefaultRepository {
-		return newEmbeddedRepository()
+	if name == DefaultRepositoryName {
+		return r.newDefault()
 	}
 	// TODO: when WithRepository defined, only it can be defined
 	return newRepository(filepath.Join(r.path, name))
