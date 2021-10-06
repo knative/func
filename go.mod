@@ -16,7 +16,6 @@ require (
 	github.com/google/go-cmp v0.5.6
 	github.com/google/uuid v1.2.0
 	github.com/hinshun/vt10x v0.0.0-20180809195222-d55458df857c
-	github.com/imdario/mergo v0.3.12
 	github.com/markbates/pkger v0.17.1
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/opencontainers/image-spec v1.0.2-0.20190823105129-775207bd45b6

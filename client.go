@@ -428,10 +428,6 @@ func (c *Client) Create(f Function) (err error) {
 		return
 	}
 
-	// Merge values loaded from disk into the new function, treating them
-	// as defaults (do not overwrite, just set if not populated)
-	f = merge(f, defaults)
-
 	// Assert runtime was provided, or default.
 	if f.Runtime == "" {
 		f.Runtime = DefaultRuntime
