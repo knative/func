@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/Masterminds/semver"
 	"io"
 	"net"
 	"net/http"
@@ -13,6 +12,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/Masterminds/semver"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -124,10 +125,10 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		LifecycleImage: "quay.io/boson/lifecycle:0.12.0",
 		Builder:        packBuilder,
 		Buildpacks:     f.Buildpacks,
-		TrustBuilder:   !daemonIsPodmanBeforeV330 &&
+		TrustBuilder: !daemonIsPodmanBeforeV330 &&
 			(strings.HasPrefix(packBuilder, "quay.io/boson") ||
-			strings.HasPrefix(packBuilder, "gcr.io/paketo-buildpacks")),
-		DockerHost:     os.Getenv("DOCKER_HOST"),
+				strings.HasPrefix(packBuilder, "gcr.io/paketo-buildpacks")),
+		DockerHost: os.Getenv("DOCKER_HOST"),
 		ContainerConfig: struct {
 			Network string
 			Volumes []string
