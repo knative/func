@@ -4,5 +4,3 @@
 	bare = true
 	ignorecase = true
 	precomposeunicode = true
-[remote "origin"]
-	url = /Users/drekar/src/github.com/lkingland/kn-plugin-func/testdata/r.git

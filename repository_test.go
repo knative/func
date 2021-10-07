@@ -7,53 +7,9 @@ import (
 	fn "knative.dev/kn-plugin-func"
 )
 
-// TestRepositoryGetTemplateEmbedded ensures that repositories make templates
-// avaialble via the Get accessor from the embedded repository.
-func TestRepositoryGetTemplateEmbedded(t *testing.T) {
-	client := fn.New()
-
-	// unless overridden using remote single-repo option the default repo
-	// is the embedded
-	repo, err := client.Repositories().Get(fn.DefaultRepositoryName)
-	if err != nil {
-		t.Fatal(err)
-	}
-	template, err := repo.Template("go", "http")
-	if err != nil {
-		t.Fatal(err)
-	}
-	// degenerate case: API of the default repository should return what it was
-	// expressly asked for at minimum (known good request)
-	if template.Name != "http" {
-		t.Logf("expected default repo to yield a template named 'http', got '%v'", template.Name)
-	}
-}
-
-// TestRepositoryGetTemplateCustom ensures that repositories make templates
-// avaialble via the Get accessor from a custom-installed (on disk) repo.
-func TestRepositoryGetTemplateCustom(t *testing.T) {
-	client := fn.New(fn.WithRepositories("testdata/repositories"))
-
-	repo, err := client.Repositories().Get("customTemplateRepo")
-	if err != nil {
-		t.Fatal(err)
-	}
-	template, err := repo.Template("customRuntime", "customTemplate")
-	if err != nil {
-		t.Fatal(err)
-	}
-	// degenerate case: API of a custom repository should return what it was
-	// expressly asked for at minimum (known good request)
-	if template.Name != "customTemplate" {
-		t.Logf("expected custom repo to yield a template named 'customTemplate', got '%v'", template.Name)
-	}
-}
-
-// TestManifestedRepositoryGetTemplate ensures that repositories make templates
-// available via the Get accessor when a manifest.yaml is included which
-// defines templates to be located in a custom location (such as with language
-// packs which will likely place them not in root but in ./templates)
-func TestManifestedRepositoryGetTemplate(t *testing.T) {
+// TestRepositoryTemplatesPath ensures that repositories can specify
+// an alternate location for templates using a manifest.
+func TestRepositoryTemplatesPath(t *testing.T) {
 	client := fn.New(fn.WithRepositories("testdata/repositories"))
 
 	// The repo ./testdata/repositories/customLanguagePackRepo includes a
@@ -74,12 +30,11 @@ func TestManifestedRepositoryGetTemplate(t *testing.T) {
 	}
 }
 
-// TestManifestedRepositoryInheritance ensures that repositories which define
-// a manifest properly inherit values defined at the repo level, runtime level
-// and template level.  The tests check for one attribute of both embedded
-// structures: HealthEndpoint's Readiness and BuildConfig's Buildpacks
-// should apply to all shared attributes u
-func TestManifestedRepositoryInheritance(t *testing.T) {
+// TestRepositoryInheritance ensures that repositories which define a manifest
+// properly inherit values defined at the repo level, runtime level
+// and template level.  The tests check for both embedded structures:
+// HealthEndpoints BuildConfig.
+func TestRepositoryInheritance(t *testing.T) {
 	client := fn.New(fn.WithRepositories("testdata/repositories"))
 
 	// The repo ./testdata/repositories/customLanguagePack includes a manifest
@@ -135,5 +90,4 @@ func TestManifestedRepositoryInheritance(t *testing.T) {
 	if !reflect.DeepEqual(tC.Buildpacks, []string{"templateBuildpack"}) {
 		t.Fatalf("Repository-level HealthEndpoint not loaded to template")
 	}
-
 }

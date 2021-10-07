@@ -75,7 +75,6 @@ func TestTemplatesGet(t *testing.T) {
 	client := fn.New(fn.WithRepositories("testdata/repositories"))
 
 	// Check embedded
-
 	embedded, err := client.Templates().Get("go", "http")
 	if err != nil {
 		t.Fatal(err)
@@ -87,7 +86,6 @@ func TestTemplatesGet(t *testing.T) {
 	}
 
 	// Check extended
-
 	extended, err := client.Templates().Get("go", "customTemplateRepo/customTemplate")
 	if err != nil {
 		t.Fatal(err)
@@ -144,7 +142,7 @@ func TestTemplateCustom(t *testing.T) {
 	// the custom provider's directory in the on-disk template repo.
 	err := client.Create(fn.Function{
 		Root:     root,
-		Runtime:  TestRuntime,
+		Runtime:  "customRuntime",
 		Template: "customTemplateRepo/customTemplate",
 	})
 	if err != nil {
@@ -161,9 +159,6 @@ func TestTemplateCustom(t *testing.T) {
 // TestTemplateRemote ensures that a Git template repository provided via URI
 // can be specificed.
 func TestTemplateRemote(t *testing.T) {
-	t.Log("temporarily disabled")
-	return
-	// Create test directory
 	root := "testdata/testTemplateRemote"
 	defer using(t, root)()
 
@@ -171,6 +166,7 @@ func TestTemplateRemote(t *testing.T) {
 	// go-git library which implements the template writer.  As such
 	// providing a local file URI is conceptually sufficient to test
 	// our usage, though in practice HTTP is expected to be the norm.
+	//   file://<cwd>/testdata/repository.git
 	cwd, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
@@ -178,15 +174,11 @@ func TestTemplateRemote(t *testing.T) {
 	path := filepath.Join(cwd, "testdata", "repository.git")
 	url := fmt.Sprintf(`file://%s`, path)
 
-	t.Logf("cloning: %v", url)
-
 	// Create a client which explicitly specifies the Git repo at URL
 	// rather than relying on the default internally builtin template repo
 	client := fn.New(
 		fn.WithRegistry(TestRegistry),
-		fn.WithRepository(url),
-		fn.WithRepositories("testdata/repositories"),
-	)
+		fn.WithRepository(url))
 
 	// Create a default function, which should override builtin and use
 	// that from the specified url (git repo)
@@ -334,9 +326,6 @@ func TestTemplateModeCustom(t *testing.T) {
 // TestTemplateModeRemote ensures that templates written from remote templates
 // retain their mode.
 func TestTemplateModeRemote(t *testing.T) {
-	t.Log("temporarily disabled")
-	return
-
 	if runtime.GOOS == "windows" {
 		return // not applicable
 	}
@@ -353,12 +342,10 @@ func TestTemplateModeRemote(t *testing.T) {
 	path := filepath.Join(cwd, "testdata", "repository.git")
 	url := fmt.Sprintf(`file://%s`, path)
 
-	t.Logf("cloning: %v", url)
-
 	client := fn.New(
 		fn.WithRegistry(TestRegistry),
-		fn.WithRepository(url),
-		fn.WithRepositories("testdata/repositories"))
+		fn.WithRepository(url))
+
 	// Write executable from custom repo
 	err = client.Create(fn.Function{
 		Root:     root,

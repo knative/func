@@ -514,7 +514,7 @@ func (c *Client) Build(ctx context.Context, path string) (err error) {
 		return
 	}
 
-	// TODO: create a statu structure and return it here for optional
+	// TODO: create a status structure and return it here for optional
 	// use by the cli for user echo (rather than rely on verbose mode here)
 	message := fmt.Sprintf("🙌 Function image built: %v", f.Image)
 	if runtime.GOOS == "windows" {

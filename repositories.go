@@ -1,11 +1,8 @@
 package function
 
 import (
-	"crypto/rand"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -31,13 +28,12 @@ const (
 
 // Repositories manager
 type Repositories struct {
-	// Path to repositories
-	// (optional) is the path to extensible repositories on disk.
+	// Optional path to extensible repositories on disk.  Blank indicates not
+	// to use extensible
 	path string
 
-	// Single Repo Mode
-	// (optional) the URI to a single repository for single-repo mode
-	single string // URI of a single-repo override mode
+	// Optional uri of a single repo to use in leau of embedded and extensible.
+	single string
 
 	// backreference to the client enabling full api access for the repo manager
 	client *Client
@@ -63,7 +59,7 @@ func (r *Repositories) Path() string {
 	return r.path
 }
 
-// SetURI enables single-reposotory mode.
+// SetSingle enables single-reposotory mode.
 // Enables single-repository mode.  This replaces the default embedded repo
 // and extended repositories.  This is an important mode for both diskless
 // (config-less) operation, such as security-restrited environments, and for
@@ -89,49 +85,40 @@ func (r *Repositories) List() ([]string, error) {
 	return names, nil
 }
 
-// All repositories under management (at configured Path)
+// All repositories under management
+// The default repository is always first.
+// If a path to custom repositories is defined, these are included next.
+// If repositories is in single-repo mode, it will be the only repo returned.
 func (r *Repositories) All() (repos []Repository0_18, err error) {
+	repo := Repository0_18{}
 	repos = []Repository0_18{}
 
-	// The default repository is always first in the list
-	d, err := r.newDefault()
-	if err != nil {
-		return
-	}
-	repos = append(repos, d)
-
-	// If running in "single repo" mode, or there is no path defined where to
-	// find additional repositories, our job is done.
-	if r.singleMode() || r.path == "" {
+	// if in single-repo mode:
+	if r.single != "" {
+		if repo, err = NewRepository(r.single); err != nil {
+			return
+		}
+		repos = []Repository0_18{repo}
 		return
 	}
 
-	// Loads the extended repositories from the defined path.
-	// Note that an empty path results in an empty set.
-	// (empty path indicates to not use extended repos)
-	extended, err := newExtendedRepositories(r.path)
-	if err != nil {
+	// the default repository is always first in the list
+	if repo, err = NewRepository(DefaultRepositoryName); err != nil {
 		return
 	}
-	repos = append(repos, extended...)
-	return
-}
+	repos = append(repos, repo)
 
-// Return all repositories defined at path
-// An empty path always returns an empty list.
-func newExtendedRepositories(path string) (repos []Repository0_18, err error) {
-	repos = []Repository0_18{}
-
-	// TODO This will change to an _error_ when the logic to determine config path,
-	// and create its initial structure, is moved into the client library.
-	// For now a missing repositores directory is considered equivalent to having
-	// none installed to minimize the blast-radious of that forthcoming change.
-	if _, err := os.Stat(path); os.IsNotExist(err) {
-		return repos, nil
+	// Do not continue on to loading extended repositories unless path defined
+	// and it exists.
+	if r.path == "" {
+		return
+	}
+	if _, err = os.Stat(r.path); err != nil {
+		return
 	}
 
-	// Read repos from filesystem (sorted by name)
-	ff, err := ioutil.ReadDir(path)
+	// Load each repo
+	ff, err := os.ReadDir(r.path)
 	if err != nil {
 		return
 	}
@@ -139,9 +126,7 @@ func newExtendedRepositories(path string) (repos []Repository0_18, err error) {
 		if !f.IsDir() || strings.HasPrefix(f.Name(), ".") {
 			continue
 		}
-		var repo Repository0_18
-		repo, err = newRepository(filepath.Join(path, f.Name()))
-		if err != nil {
+		if repo, err = NewRepository("file://" + r.path + "/" + f.Name()); err != nil {
 			return
 		}
 		repos = append(repos, repo)
@@ -149,95 +134,72 @@ func newExtendedRepositories(path string) (repos []Repository0_18, err error) {
 	return
 }
 
-// newDefault returns the default repository which is the embedded (builtin)
-// repo or (if defined) the single remote repository specified for single-repo
-// mode.
-func (r *Repositories) newDefault() (Repository0_18, error) {
-	if r.single != "" {
-		return newRemoteRepository(r.single)
-	}
-	return newEmbeddedRepository()
-}
-
-// singleMode returns whether or not we are running in single-repo mode.
-func (r *Repositories) singleMode() bool {
-	return r.single != ""
-}
-
 // Get a repository by name, error if it does not exist.
 func (r *Repositories) Get(name string) (repo Repository0_18, err error) {
-	if name == DefaultRepositoryName {
-		return r.newDefault()
+	all, err := r.All()
+	if err != nil {
+		return
+	}
+	if len(all) == 0 { // should not be possible because embedded always exists.
+		err = errors.New("internal error: no repositories loaded.")
+		return
 	}
 
-	if r.singleMode() {
+	if name == DefaultRepositoryName {
+		repo = all[0]
+		return
+	}
+
+	if r.single != "" {
 		return repo, fmt.Errorf("repository '%v' will not be loaded because we "+
 			"are running in single-repo mode (%v). This is the default (and only) "+
 			"repo loaded.  It can be retrived by name '%v'.",
 			name, r.single, DefaultRepositoryName)
 	}
-
-	return newRepository(filepath.Join(r.path, name))
+	for _, v := range all {
+		if v.Name == name {
+			repo = v
+		}
+		return
+	}
+	return repo, ErrRepositoryNotFound
 }
 
 // Add a repository of the given name from the URI.  Name, if not provided,
 // defaults to the repo name (sans optional .git suffix). Returns the final
 // name as added.
 func (r *Repositories) Add(name, uri string) (string, error) {
-	// TODO: this function will fail if there already exists a repository of the
-	// _repo_ name due to a filesystem collision.  We use a temporary GUID here,
-	// but this is messy as it can 1) leave files on the system in the event
-	// of a proces interruption and 2) muddies up any other instance of the
-	// library in another process as they will contain a temporary guid in their
-	// api usage and 3) requires an explicit rename after the final is deployed.
-	// etc.  These could be eliminated with an in-memory initial clone.
-
-	// Clone the remote to local disk
-	id, err := uuid()
-	if err != nil {
-		return name, fmt.Errorf("error generating local id for new repo. %v", err)
+	if r.path == "" {
+		return "", fmt.Errorf("repository %v(%v) will not be added because "+
+			"no repositories path was specified.", name, uri)
 	}
-	_, err = git.PlainClone(
-		filepath.Join(r.path, id),   // path
-		false,                       // bare (we want a working branch)
-		&git.CloneOptions{URL: uri}) // no other options except URL
 
-	// If the user specified a name, use that preferentially
-	if name != "" {
-		if err := r.Rename(id, name); err != nil {
-			_ = r.Remove(id)
-			return name, err
+	// if name was not provided, pull the repo into memory which determines the
+	// default name by first checking the manifest and falling back to extracting
+	// the name from the uri.
+	if name == "" {
+		repo, err := NewRepository(uri)
+		if err != nil {
+			return "", err
 		}
-		return name, nil
+		name = repo.Name
 	}
 
-	// Use the default name defined in the manifest, if provided
-	repo, err := r.Get(id)
-	if err != nil {
-		return name, err
-	}
-	if repo.DefaultName != "" {
-		if err := r.Rename(id, repo.DefaultName); err != nil {
-			_ = r.Remove(id)
-			return repo.DefaultName, err
-		}
-		return repo.DefaultName, nil
-	}
+	// Clone it to disk
+	_, err := git.PlainClone(
+		filepath.Join(r.path, name), // path
+		false,                       // not bare (we want a working branch)
+		&git.CloneOptions{URL: uri}) // no other options except uri
 
-	// Use the repo name from the URI as the base default case.
-	repoName, err := repoNameFrom(uri)
-	if err != nil {
-		return name, err
-	}
-	if err := r.Rename(id, repoName); err != nil {
-		_ = r.Remove(id)
-		return repoName, err
-	}
-	return repoName, nil
+	return name, err
 }
 
 // Rename a repository
 func (r *Repositories) Rename(from, to string) error {
+	if r.path == "" {
+		return fmt.Errorf("repository %v will not be renamed because "+
+			"no repositories path was specified.", from)
+	}
 	a := filepath.Join(r.path, from)
 	b := filepath.Join(r.path, to)
 	return os.Rename(a, b)
@@ -246,32 +208,13 @@ func (r *Repositories) Rename(from, to string) error {
 // Remove a repository of the given name from the repositories.
 // (removes its directory in Path)
 func (r *Repositories) Remove(name string) error {
+	if r.path == "" {
+		return fmt.Errorf("repository %v will not be removed because "+
+			"no repositories path was specified.", name)
+	}
 	if name == "" {
 		return errors.New("name is required")
 	}
 	path := filepath.Join(r.path, name)
 	return os.RemoveAll(path)
-}
-
-// repoNameFrom uri returns the last token with any .git suffix trimmed.
-// uri must be parseable as a net/URL
-func repoNameFrom(uri string) (name string, err error) {
-	url, err := url.Parse(uri)
-	if err != nil {
-		return "", err
-	}
-
-	ss := strings.Split(url.Path, "/")
-	if len(ss) == 0 {
-		return
-	}
-	return strings.TrimSuffix(ss[len(ss)-1], ".git"), nil
-}
-
-func uuid() (string, error) {
-	b := make([]byte, 6)
-	if _, err := rand.Read(b); err != nil {
-		return "", err
-	}
-	return fmt.Sprintf("%x-%x-%x", b[0:2], b[2:4], b[4:6]), nil
 }

@@ -6,7 +6,20 @@ package function
 //go:generate pkger
 
 import (
+	"errors"
+	"path/filepath"
 	"strings"
+
+	"github.com/markbates/pkger"
+)
+
+var (
+	ErrRepositoryNotFound        = errors.New("repository not found")
+	ErrRepositoriesNotDefined    = errors.New("custom template repositories location not specified")
+	ErrTemplatesNotFound         = errors.New("templates path (runtimes) not found")
+	ErrRuntimeNotFound           = errors.New("runtime not found")
+	ErrTemplateNotFound          = errors.New("template not found")
+	ErrTemplateMissingRepository = errors.New("template name missing repository prefix")
 )
 
 // Templates Manager
@@ -83,61 +96,78 @@ func (t *Templates) Get(runtime, fullname string) (Template, error) {
 	return repo.Template(runtime, tplName)
 }
 
-// Write a Function to disk using the named Function at the given location
-// Returns a new Function which may have been modified dependent on the content
+// Write a template to disk for the given Function
+// Returns a Function which may have been modified dependent on the content
 // of the template (which can define default Function fields, builders,
 // buildpacks, etc)
 func (t *Templates) Write(f Function) (Function, error) {
-
+	// The Function's Template
 	template, err := t.Get(f.Runtime, f.Template)
 	if err != nil {
 		return f, err
 	}
 
-	// Denormalize
-	// Takes fields from the repo/runtime/template and sets them on the Function
-	// if they're not already defined.
-	// (builders, buildpacks, health endpoints)
-	f, err = denormalize(t.client, template, f)
+	// The Function's Template Repository
+	repo, err := t.client.Repositories().Get(template.Repository)
 	if err != nil {
 		return f, err
 	}
 
-	// write template from repositories path to the function root.
-	return f, writeTemplate(template, t.client.Repositories().Path(), f.Root)
-}
+	// Validate paths:  (repo/)[templates/]<runtime>/<template>
+	templatesPath := repo.TemplatesPath
+	if _, err := repo.fs.Stat(templatesPath); err != nil {
+		return f, ErrTemplatesNotFound
+	}
+	runtimePath := filepath.Join(templatesPath, template.Runtime)
+	if _, err := repo.fs.Stat(runtimePath); err != nil {
+		return f, ErrRuntimeNotFound
+	}
+	templatePath := filepath.Join(runtimePath, template.Name)
+	if _, err := repo.fs.Stat(templatePath); err != nil {
+		return f, ErrTemplateNotFound
+	}
 
-// denormalize fields from repo/runtime/template into fields on the Function
-func denormalize(client *Client, t Template, f Function) (Function, error) {
+	// Apply fields from the template onto the function itself (Denormalize).
 	// The template is already the denormalized view of repo->runtime->template
 	// so it's values are treated as defaults.
-	//
-	// This denormalizaiton might fit more conceptually correctly in a special
-	// purpose Function constructor; but this is closer to the goal.  The template
-	// is a hierarchically-derived set of attributes, allowing for the us to write
-	// based on the calculated fields, reuturning the final Function as the
-	// serialized, denormalized final data structure.  This separates the somewhat
-	// complex hierarchical derivation of these manifests from the somewhat
-	// orthoganal task of applying the values to a Function prior to writing it
-	// out to disk.
-
+	// TODO: this begs the question: should the Template's manifest.yaml actually
+	// be a partially-populated func.yaml?
 	if f.Builder == "" { // as a special fist case, this default comes from itself
 		f.Builder = f.Builders["default"]
 		if f.Builder == "" { // still nothing?  then use the template
-			f.Builder = t.Builders["default"]
+			f.Builder = template.Builders["default"]
 		}
 	}
 	if len(f.Builders) == 0 {
-		f.Builders = t.Builders
+		f.Builders = template.Builders
 	}
 	if len(f.Buildpacks) == 0 {
-		f.Buildpacks = t.Buildpacks
+		f.Buildpacks = template.Buildpacks
 	}
 	if f.HealthEndpoints.Liveness == "" {
-		f.HealthEndpoints.Liveness = t.HealthEndpoints.Liveness
+		f.HealthEndpoints.Liveness = template.HealthEndpoints.Liveness
 	}
 	if f.HealthEndpoints.Readiness == "" {
-		f.HealthEndpoints.Readiness = t.HealthEndpoints.Readiness
+		f.HealthEndpoints.Readiness = template.HealthEndpoints.Readiness
 	}
-	return f, nil
+
+	// Copy the template files from the repo filesystem to the new Function's root
+	return f, copy(templatePath, f.Root, repo.fs)
+}
+
+// Embedding Directives
+// Trigger encoding of ./templates as pkged.go
+
+// Path to embedded
+// note: this constant must be defined in the file in which pkger is called,
+// as it performs static analysis on each source file separately to trigger
+// encoding of referenced paths.
+const embeddedPath = "/templates"
+
+// When pkger is run, code analysis detects this pkger.Include statement,
+// triggering the serialization of the templates directory and all its contents
+// into pkged.go, which is then made available via a pkger filesystem.  Path is
+// relative to the go module root.
+func init() {
+	_ = pkger.Include(embeddedPath)
 }
