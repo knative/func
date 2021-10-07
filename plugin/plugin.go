@@ -38,7 +38,7 @@ func (f *funcPlugin) Execute(args []string) error {
 	rootCmd, _ := cmd.NewRootCmd()
 	info, _ := debug.ReadBuildInfo()
 	for _, dep := range info.Deps {
-		if strings.Contains(dep.Path, "boson-project/func") {
+		if strings.Contains(dep.Path, "knative.dev/kn-plugin-func") {
 			cmd.SetMeta("", dep.Version, dep.Sum)
 		}
 	}
