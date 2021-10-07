@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"bytes"
+	"os"
 	"os/exec"
 	"strings"
 	"testing"
@@ -25,6 +26,9 @@ type TestShellCmdRunner struct {
 
 	// Indicates shell should dump
 	ShouldDumpOnSuccess bool
+
+	// Environment variable to be used with the command
+	Env []string
 
 	// Boolean
 	T *testing.T
@@ -68,6 +72,12 @@ func NewKnFuncShellCli(t *testing.T) *TestShellCmdRunner {
 	return &knfunc
 }
 
+func (f *TestShellCmdRunner) WithEnv(envKey string, envValue string) *TestShellCmdRunner {
+	env := envKey + "=" + envValue
+	f.Env = append(f.Env, env)
+	return f
+}
+
 func (f *TestShellCmdRunner) FromDir(dir string) *TestShellCmdRunner {
 	f.SourceDir = dir
 	return f
@@ -95,6 +105,7 @@ func (f *TestShellCmdRunner) Exec(args ...string) TestShellCmdResult {
 	if f.SourceDir != "" {
 		cmd.Dir = f.SourceDir
 	}
+	cmd.Env = append(os.Environ(), f.Env...)
 	err := cmd.Run()
 
 	result := TestShellCmdResult{
