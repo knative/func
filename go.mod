@@ -4,6 +4,7 @@ go 1.15
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.2.14
+	github.com/Masterminds/semver v1.5.0
 	github.com/Netflix/go-expect v0.0.0-20210722184520-ef0bf57d82b3
 	github.com/alecthomas/jsonschema v0.0.0-20210526225647-edb03dcab7bc
 	github.com/buildpacks/pack v0.21.1
