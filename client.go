@@ -513,7 +513,7 @@ func (c *Client) Build(ctx context.Context, path string) (err error) {
 
 	m := []string{
 		"Still building",
-		"Don't give up",
+		"Don't give up on me",
 		"This is taking a while",
 		"Still building"}
 	ticker := time.NewTicker(5 * time.Second)
