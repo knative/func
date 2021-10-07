@@ -59,7 +59,7 @@ func (k *ResolvedKeychain) Resolve(resource authn.Resource) (authn.Authenticator
 	if ok {
 		authConfig, err := authHeaderToConfig(header)
 		if err != nil {
-			return nil, errors.Wrapf(err, "parsing auth header '%s'", header)
+			return nil, errors.Wrap(err, "parsing auth header")
 		}
 
 		return &providedAuth{config: authConfig}, nil
@@ -118,10 +118,11 @@ func buildAuthMap(keychain authn.Keychain, images ...string) map[string]string {
 			continue
 		}
 
-		registryAuths[reference.Context().Registry.Name()], err = authConfigToHeader(authConfig)
+		header, err := authConfigToHeader(authConfig)
 		if err != nil {
 			continue
 		}
+		registryAuths[reference.Context().Registry.Name()] = header
 	}
 
 	return registryAuths
@@ -176,7 +177,7 @@ func authHeaderToConfig(header string) (*authn.AuthConfig, error) {
 		}, nil
 	}
 
-	return nil, errors.Errorf("unknown auth type from header: %s", header)
+	return nil, errors.New("unknown auth type from header")
 }
 
 // ReferenceForRepoName returns a reference and an authenticator for a given image name and keychain.

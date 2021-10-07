@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"strconv"
 
 	"github.com/buildpacks/lifecycle/api"
 	"github.com/buildpacks/lifecycle/auth"
@@ -21,6 +22,7 @@ import (
 
 const (
 	defaultProcessType = "web"
+	overrideGID        = 0
 )
 
 type LifecycleExecution struct {
@@ -57,6 +59,10 @@ func NewLifecycleExecution(logger logging.Logger, docker client.CommonAPIClient,
 		opts:         opts,
 		os:           osType,
 		mountPaths:   mountPathsForOS(osType, opts.Workspace),
+	}
+
+	if opts.Interactive {
+		exec.logger = opts.Termui
 	}
 
 	return exec, nil
@@ -182,6 +188,35 @@ func (l *LifecycleExecution) Create(ctx context.Context, publish bool, dockerHos
 		flags = append(flags, "-skip-restore")
 	}
 
+	if l.opts.GID >= overrideGID {
+		flags = append(flags, "-gid", strconv.Itoa(l.opts.GID))
+	}
+
+	if l.opts.PreviousImage != "" {
+		if l.opts.Image == nil {
+			return errors.New("image can't be nil")
+		}
+
+		image, err := name.ParseReference(l.opts.Image.Name(), name.WeakValidation)
+		if err != nil {
+			return fmt.Errorf("invalid image name: %s", err)
+		}
+
+		prevImage, err := name.ParseReference(l.opts.PreviousImage, name.WeakValidation)
+		if err != nil {
+			return fmt.Errorf("invalid previous image name: %s", err)
+		}
+		if publish {
+			if image.Context().RegistryStr() != prevImage.Context().RegistryStr() {
+				return fmt.Errorf(`when --publish is used, <previous-image> must be in the same image registry as <image>
+                image registry = %s
+                previous-image registry = %s`, image.Context().RegistryStr(), prevImage.Context().RegistryStr())
+			}
+		}
+
+		flags = append(flags, "-previous-image", l.opts.PreviousImage)
+	}
+
 	processType := determineDefaultProcessType(l.platformAPI, l.opts.DefaultProcessType)
 	if processType != "" {
 		flags = append(flags, "-process-type", processType)
@@ -201,6 +236,7 @@ func (l *LifecycleExecution) Create(ctx context.Context, publish bool, dockerHos
 		WithArgs(repoName),
 		WithNetwork(networkMode),
 		cacheOpts,
+		WithContainerOperations(WriteProjectMetadata(l.mountPaths.projectPath(), l.opts.ProjectMetadata, l.os)),
 		WithContainerOperations(CopyDir(l.opts.AppPath, l.mountPaths.appDir(), l.opts.Builder.UID(), l.opts.Builder.GID(), l.os, true, l.opts.FileFilter)),
 	}
 
@@ -256,6 +292,9 @@ func (l *LifecycleExecution) Restore(ctx context.Context, networkMode string, bu
 	case cache.Volume:
 		cacheOpt = WithBinds(fmt.Sprintf("%s:%s", buildCache.Name(), l.mountPaths.cacheDir()))
 	}
+	if l.opts.GID >= overrideGID {
+		flagsOpt = WithFlags("-gid", strconv.Itoa(l.opts.GID))
+	}
 
 	configProvider := NewPhaseConfigProvider(
 		"restorer",
@@ -307,6 +346,10 @@ func (l *LifecycleExecution) newAnalyze(repoName, networkMode string, publish bo
 		}
 	case cache.Volume:
 		cacheOpt = WithBinds(fmt.Sprintf("%s:%s", buildCache.Name(), l.mountPaths.cacheDir()))
+	}
+
+	if l.opts.GID >= overrideGID {
+		flagsOpt = WithFlags("-gid", strconv.Itoa(l.opts.GID))
 	}
 
 	if publish {
@@ -377,7 +420,8 @@ func (l *LifecycleExecution) Build(ctx context.Context, networkMode string, volu
 }
 
 func determineDefaultProcessType(platformAPI *api.Version, providedValue string) string {
-	shouldSetForceDefault := platformAPI.Compare(api.MustParse("0.4")) >= 0
+	shouldSetForceDefault := platformAPI.Compare(api.MustParse("0.4")) >= 0 &&
+		platformAPI.Compare(api.MustParse("0.6")) < 0
 	if providedValue == "" && shouldSetForceDefault {
 		return defaultProcessType
 	}
@@ -396,6 +440,9 @@ func (l *LifecycleExecution) newExport(repoName, runImage string, publish bool, 
 	processType := determineDefaultProcessType(l.platformAPI, l.opts.DefaultProcessType)
 	if processType != "" {
 		flags = append(flags, "-process-type", processType)
+	}
+	if l.opts.GID >= overrideGID {
+		flags = append(flags, "-gid", strconv.Itoa(l.opts.GID))
 	}
 
 	cacheOpt := NullOp()
@@ -421,6 +468,7 @@ func (l *LifecycleExecution) newExport(repoName, runImage string, publish bool, 
 		WithNetwork(networkMode),
 		cacheOpt,
 		WithContainerOperations(WriteStackToml(l.mountPaths.stackPath(), l.opts.Builder.Stack(), l.os)),
+		WithContainerOperations(WriteProjectMetadata(l.mountPaths.projectPath(), l.opts.ProjectMetadata, l.os)),
 	}
 
 	if publish {

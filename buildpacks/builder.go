@@ -115,7 +115,7 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	packOpts := pack.BuildOptions{
 		AppPath:        f.Root,
 		Image:          f.Image,
-		LifecycleImage: "quay.io/boson/lifecycle:0.11.4",
+		LifecycleImage: "quay.io/boson/lifecycle:0.12.0",
 		Builder:        packBuilder,
 		Buildpacks:     f.Buildpacks,
 		TrustBuilder:   !deamonIsPodman && strings.HasPrefix(packBuilder, "quay.io/boson"),
