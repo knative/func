@@ -2,6 +2,7 @@ package utils
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/validation"
@@ -23,11 +24,11 @@ func ValidateFunctionName(name string) error {
 
 	if errs := validation.IsDNS1123Label(name); len(errs) > 0 {
 		// In case of invalid name the error is this:
-		//	"a DNS-1123 label must consist of lower case alphanumeric characters or '-',
+		//	"a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-',
 		//   and must start and end with an alphanumeric character (e.g. 'my-name',
 		//   or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?')"
-		// Let's reuse it for our purposes, ie. replace "DNS-1123 label" substring with "function name"
-		return ErrInvalidFunctionName(errors.New(strings.Replace(strings.Join(errs, ""), "a DNS-1123 label", "Function name", 1)))
+		// Let's reuse it for our purposes, ie. replace "a lowercase RFC 1123 label" substring with "Function name" and the actual function name
+		return ErrInvalidFunctionName(errors.New(strings.Replace(strings.Join(errs, ""), "a lowercase RFC 1123 label", fmt.Sprintf("Function name '%v'", name), 1)))
 	}
 
 	return nil
