@@ -119,13 +119,19 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		}
 	}
 
+	buildEnvs := make(map[string]string)
+	for _, env := range f.BuildEnvs {
+		buildEnvs[*env.Name] = *env.Value
+	}
+
 	packOpts := pack.BuildOptions{
 		AppPath:        f.Root,
 		Image:          f.Image,
 		LifecycleImage: "quay.io/boson/lifecycle:0.12.0",
 		Builder:        packBuilder,
 		Buildpacks:     f.Buildpacks,
-		TrustBuilder: !daemonIsPodmanBeforeV330 &&
+		Env:            buildEnvs,
+		TrustBuilder:   !daemonIsPodmanBeforeV330 &&
 			(strings.HasPrefix(packBuilder, "quay.io/boson") ||
 				strings.HasPrefix(packBuilder, "gcr.io/paketo-buildpacks")),
 		DockerHost: os.Getenv("DOCKER_HOST"),
