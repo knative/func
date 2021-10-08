@@ -141,6 +141,7 @@ type Config struct {
 	Buildpacks      []string          `yaml:"buildpacks"`
 	HealthEndpoints map[string]string `yaml:"healthEndpoints"`
 	Volumes         Volumes           `yaml:"volumes"`
+	BuildEnvs       Envs              `yaml:"buildEnvs"`
 	Envs            Envs              `yaml:"envs"`
 	Annotations     map[string]string `yaml:"annotations"`
 	Options         Options           `yaml:"options"`
@@ -192,7 +193,9 @@ func newConfig(root string) (c Config, err error) {
 	envsErrors := ValidateEnvs(c.Envs)
 	optionsErrors := validateOptions(c.Options)
 	labelsErrors := ValidateLabels(c.Labels)
-	if len(volumesErrors) > 0 || len(envsErrors) > 0 || len(optionsErrors) > 0 || len(labelsErrors) > 0 {
+	// Should we implement buildEnv specific validation ?
+	buildEnvsErrors := ValidateEnvs((c.BuildEnvs))
+	if len(volumesErrors) > 0 || len(buildEnvsErrors) > 0 || len(envsErrors) > 0 || len(optionsErrors) > 0 || len(labelsErrors) > 0 {
 		// if there aren't any previously reported errors, we need to set the error message header first
 		if errMsg == "" {
 			errMsg = errMsgHeader
@@ -205,6 +208,9 @@ func newConfig(root string) (c Config, err error) {
 		for i := range volumesErrors {
 			volumesErrors[i] = "  " + volumesErrors[i]
 		}
+		for i := range buildEnvsErrors {
+			buildEnvsErrors[i] = "  " + buildEnvsErrors[i]
+		}
 		for i := range envsErrors {
 			envsErrors[i] = "  " + envsErrors[i]
 		}
@@ -215,6 +221,10 @@ func newConfig(root string) (c Config, err error) {
 			labelsErrors[i] = "  " + labelsErrors[i]
 		}
 		errMsg = errMsg + strings.Join(volumesErrors, "\n")
+		if len(volumesErrors) > 0 && len(buildEnvsErrors) > 0 {
+			errMsg = errMsg + "\n"
+		}
+		errMsg = errMsg + strings.Join(buildEnvsErrors, "\n")
 		// we have errors from both volumes and envs sections -> let's make sure they are both indented
 		if len(volumesErrors) > 0 && len(envsErrors) > 0 {
 			errMsg = errMsg + "\n"
@@ -253,6 +263,7 @@ func fromConfig(c Config) (f Function) {
 		Buildpacks:      c.Buildpacks,
 		HealthEndpoints: c.HealthEndpoints,
 		Volumes:         c.Volumes,
+		BuildEnvs:       c.BuildEnvs,
 		Envs:            c.Envs,
 		Annotations:     c.Annotations,
 		Options:         c.Options,
@@ -273,6 +284,7 @@ func toConfig(f Function) Config {
 		Buildpacks:      f.Buildpacks,
 		HealthEndpoints: f.HealthEndpoints,
 		Volumes:         f.Volumes,
+		BuildEnvs:       f.BuildEnvs,
 		Envs:            f.Envs,
 		Annotations:     f.Annotations,
 		Options:         f.Options,
@@ -336,7 +348,6 @@ func validateVolumes(volumes Volumes) (errors []string) {
 //   value: {{ configMap:configMapName:key }}   	# ENV from a key in configMap
 // - value: {{ configMap:configMapName }}          	# all key-pair values from configMap are set as ENV
 func ValidateEnvs(envs Envs) (errors []string) {
-
 	for i, env := range envs {
 		if env.Name == nil && env.Value == nil {
 			errors = append(errors, fmt.Sprintf("env entry #%d is not properly set", i))

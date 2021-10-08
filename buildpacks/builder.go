@@ -119,6 +119,11 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		}
 	}
 
+	buildEnvs := make(map[string]string)
+	for _, env := range f.BuildEnvs {
+		buildEnvs[*env.Name] = *env.Value
+	}
+
 	packOpts := pack.BuildOptions{
 		AppPath:        f.Root,
 		Image:          f.Image,
