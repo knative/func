@@ -1,0 +1,257 @@
+{
+	"$schema": "http://json-schema.org/draft-04/schema#",
+	"$ref": "#/definitions/Config",
+	"definitions": {
+		"Config": {
+			"required": [
+				"name",
+				"namespace",
+				"runtime",
+				"image",
+				"imageDigest",
+				"builder",
+				"builders",
+				"buildpacks",
+				"healthEndpoints",
+				"volumes",
+				"envs",
+				"annotations",
+				"options",
+				"labels"
+			],
+			"properties": {
+				"name": {
+					"pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+					"type": "string"
+				},
+				"namespace": {
+					"type": "string"
+				},
+				"runtime": {
+					"type": "string"
+				},
+				"image": {
+					"type": "string"
+				},
+				"imageDigest": {
+					"type": "string"
+				},
+				"builder": {
+					"type": "string"
+				},
+				"builders": {
+					"patternProperties": {
+						".*": {
+							"type": "string"
+						}
+					},
+					"type": "object"
+				},
+				"buildpacks": {
+					"items": {
+						"type": "string"
+					},
+					"type": "array"
+				},
+				"healthEndpoints": {
+					"patternProperties": {
+						".*": {
+							"type": "string"
+						}
+					},
+					"type": "object"
+				},
+				"volumes": {
+					"items": {
+						"$schema": "http://json-schema.org/draft-04/schema#",
+						"$ref": "#/definitions/Volume"
+					},
+					"type": "array"
+				},
+				"envs": {
+					"items": {
+						"$schema": "http://json-schema.org/draft-04/schema#",
+						"$ref": "#/definitions/Env"
+					},
+					"type": "array"
+				},
+				"annotations": {
+					"patternProperties": {
+						".*": {
+							"type": "string"
+						}
+					},
+					"type": "object"
+				},
+				"options": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/Options"
+				},
+				"labels": {
+					"items": {
+						"$schema": "http://json-schema.org/draft-04/schema#",
+						"$ref": "#/definitions/Label"
+					},
+					"type": "array"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
+		},
+		"Env": {
+			"required": [
+				"value"
+			],
+			"properties": {
+				"name": {
+					"pattern": "^[-._a-zA-Z][-._a-zA-Z0-9]*$",
+					"type": "string"
+				},
+				"value": {
+					"type": "string"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
+		},
+		"Label": {
+			"required": [
+				"key"
+			],
+			"properties": {
+				"key": {
+					"pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\\/)?([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]$",
+					"type": "string"
+				},
+				"value": {
+					"pattern": "^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$",
+					"type": "string"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
+		},
+		"Options": {
+			"properties": {
+				"scale": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/ScaleOptions"
+				},
+				"resources": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/ResourcesOptions"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
+		},
+		"ResourcesLimitsOptions": {
+			"properties": {
+				"cpu": {
+					"pattern": "^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$",
+					"type": "string"
+				},
+				"memory": {
+					"pattern": "^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$",
+					"type": "string"
+				},
+				"concurrency": {
+					"type": "integer",
+					"minimum": 0
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
+		},
+		"ResourcesOptions": {
+			"properties": {
+				"requests": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/ResourcesRequestsOptions"
+				},
+				"limits": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/ResourcesLimitsOptions"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
+		},
+		"ResourcesRequestsOptions": {
+			"properties": {
+				"cpu": {
+					"pattern": "^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$",
+					"type": "string"
+				},
+				"memory": {
+					"pattern": "^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$",
+					"type": "string"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
+		},
+		"ScaleOptions": {
+			"properties": {
+				"min": {
+					"type": "integer",
+					"minimum": 0
+				},
+				"max": {
+					"type": "integer",
+					"minimum": 0
+				},
+				"metric": {
+					"enum": [
+						"concurrency",
+						"rps"
+					],
+					"type": "string"
+				},
+				"target": {
+					"type": "number",
+					"minimum": 0
+				},
+				"utilization": {
+					"maximum": 100,
+					"minimum": 1,
+					"type": "number"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
+		},
+		"Volume": {
+			"required": [
+				"path"
+			],
+			"properties": {
+				"secret": {
+					"type": "string"
+				},
+				"configMap": {
+					"type": "string"
+				},
+				"path": {
+					"type": "string"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object",
+			"oneOf": [
+				{
+					"required": [
+						"secret"
+					],
+					"title": "secret"
+				},
+				{
+					"required": [
+						"configMap"
+					],
+					"title": "configmap"
+				}
+			]
+		}
+	}
+}
