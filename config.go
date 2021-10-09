@@ -188,13 +188,12 @@ func newConfig(root string) (c Config, err error) {
 		}
 	}
 
-	// Let's check that all entries in `volumes`, `envs` and `options` contain all required fields
+	// Let's check that all entries in `volumes`, `buildEnvs`, `envs` and `options` contain all required fields
 	volumesErrors := validateVolumes(c.Volumes)
+	buildEnvsErrors := ValidateBuildEnvs((c.BuildEnvs))
 	envsErrors := ValidateEnvs(c.Envs)
 	optionsErrors := validateOptions(c.Options)
 	labelsErrors := ValidateLabels(c.Labels)
-	// Should we implement buildEnv specific validation ?
-	buildEnvsErrors := ValidateEnvs((c.BuildEnvs))
 	if len(volumesErrors) > 0 || len(buildEnvsErrors) > 0 || len(envsErrors) > 0 || len(optionsErrors) > 0 || len(labelsErrors) > 0 {
 		// if there aren't any previously reported errors, we need to set the error message header first
 		if errMsg == "" {
@@ -221,22 +220,23 @@ func newConfig(root string) (c Config, err error) {
 			labelsErrors[i] = "  " + labelsErrors[i]
 		}
 		errMsg = errMsg + strings.Join(volumesErrors, "\n")
-		if len(volumesErrors) > 0 && len(buildEnvsErrors) > 0 {
+		// we have errors from both volumes and buildEnvs sections -> let's make sure they are both indented
+		if len(buildEnvsErrors) > 0 && len(volumesErrors) > 0 {
 			errMsg = errMsg + "\n"
 		}
 		errMsg = errMsg + strings.Join(buildEnvsErrors, "\n")
-		// we have errors from both volumes and envs sections -> let's make sure they are both indented
-		if len(volumesErrors) > 0 && len(envsErrors) > 0 {
+		// we have errors from volumes, buildEnvs and envs sections -> let's make sure they are indented
+		if len(envsErrors) > 0 && (len(volumesErrors) > 0 || len(buildEnvsErrors) > 0) {
 			errMsg = errMsg + "\n"
 		}
 		errMsg = errMsg + strings.Join(envsErrors, "\n")
 		// lets indent options related errors if there are already some set
-		if len(optionsErrors) > 0 && (len(volumesErrors) > 0 || len(envsErrors) > 0) {
+		if len(optionsErrors) > 0 && (len(volumesErrors) > 0 || len(buildEnvsErrors) > 0 || len(envsErrors) > 0) {
 			errMsg = errMsg + "\n"
 		}
 		errMsg = errMsg + strings.Join(optionsErrors, "\n")
 		// now also handle labels related errors
-		if len(labelsErrors) > 0 && (len(optionsErrors) > 0 || len(volumesErrors) > 0 || len(envsErrors) > 0) {
+		if len(labelsErrors) > 0 && (len(optionsErrors) > 0 || len(volumesErrors) > 0 || len(buildEnvsErrors) > 0 || len(envsErrors) > 0) {
 			errMsg = errMsg + "\n"
 		}
 		errMsg = errMsg + strings.Join(labelsErrors, "\n")
@@ -327,6 +327,41 @@ func validateVolumes(volumes Volumes) (errors []string) {
 			}
 		} else if vol.Path != nil && vol.Secret == nil && vol.ConfigMap == nil {
 			errors = append(errors, fmt.Sprintf("volume entry #%d is missing secret or configMap field, only path '%s' is set", i, *vol.Path))
+		}
+	}
+
+	return
+}
+
+// ValidateBuildEnvs checks that input BuildEnvs are correct and contain all necessary fields.
+// Returns array of error messages, empty if no errors are found
+//
+// Allowed settings:
+// - name: EXAMPLE1                					# ENV directly from a value
+//   value: value1
+// - name: EXAMPLE2                 				# ENV from the local ENV var
+//   value: {{ env:MY_ENV }}
+func ValidateBuildEnvs(envs Envs) (errors []string) {
+	for i, env := range envs {
+		if env.Name == nil && env.Value == nil {
+			errors = append(errors, fmt.Sprintf("env entry #%d is not properly set", i))
+		} else if env.Value == nil {
+			errors = append(errors, fmt.Sprintf("env entry #%d is missing value field, only name '%s' is set", i, *env.Name))
+		} else {
+
+			if err := utils.ValidateEnvVarName(*env.Name); err != nil {
+				errors = append(errors, fmt.Sprintf("env entry #%d has invalid name set: %q; %s", i, *env.Name, err.Error()))
+			}
+
+			if strings.HasPrefix(*env.Value, "{{") {
+				// ENV from the local ENV var; {{ env:MY_ENV }}
+				if !regLocalEnv.MatchString(*env.Value) {
+					errors = append(errors,
+						fmt.Sprintf(
+							"env entry #%d with name '%s' has invalid value field set, it has '%s', but allowed is only '{{ env:MY_ENV }}', '{{ secret:secretName:key }}' or '{{ configMap:configMapName:key }}'",
+							i, *env.Name, *env.Value))
+				}
+			}
 		}
 	}
 
