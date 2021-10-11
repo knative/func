@@ -847,7 +847,6 @@ gopkg.in/inf.v0
 # gopkg.in/ini.v1 v1.56.0
 gopkg.in/ini.v1
 # gopkg.in/src-d/go-billy.v4 v4.3.2
-## explicit
 gopkg.in/src-d/go-billy.v4
 gopkg.in/src-d/go-billy.v4/helper/chroot
 gopkg.in/src-d/go-billy.v4/helper/polyfill

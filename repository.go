@@ -146,7 +146,7 @@ func repoNameFrom(uri string) (name string, err error) {
 
 // repositoryFilesystem returns a filesystem for the repository's contents
 func repositoryFilesystem(uri string) (f filesystem, err error) {
-	if uri == "" {
+	if uri == DefaultRepositoryName {
 		return pkgerFilesystem{}, nil
 	}
 	clone, err := git.Clone(

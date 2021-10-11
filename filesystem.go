@@ -29,19 +29,26 @@ type file interface {
 }
 
 // pkgerFilesystem is template file accessor backed by the pkger-provided
-// embedded filesystem.
-type pkgerFilesystem struct{}
+// embedded filesystem.o
+type pkgerFilesystem struct {
+}
+
+// the root of the repository is actually ./templates, which is proffered
+// in the pkger filesystem as /templates, so all path requests will be
+// prefixed with this path to emulate having the pkger fs root the same
+// as the logical root.
+const pkgerRoot = "/templates"
 
 func (a pkgerFilesystem) Stat(path string) (os.FileInfo, error) {
-	return pkger.Stat(path)
+	return pkger.Stat(filepath.Join(pkgerRoot, path))
 }
 
 func (a pkgerFilesystem) Open(path string) (file, error) {
-	return pkger.Open(path)
+	return pkger.Open(filepath.Join(pkgerRoot, path))
 }
 
 func (a pkgerFilesystem) ReadDir(path string) ([]os.FileInfo, error) {
-	f, err := pkger.Open(path)
+	f, err := pkger.Open(filepath.Join(pkgerRoot, path))
 	if err != nil {
 		return nil, err
 	}
