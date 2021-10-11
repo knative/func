@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Masterminds/semver"
+
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/events"
@@ -54,6 +56,8 @@ var RuntimeToBuildpack = map[string]string{
 	"typescript": "quay.io/boson/faas-nodejs-builder",
 	"rust":       "quay.io/boson/faas-rust-builder",
 }
+
+var v330 = semver.MustParse("v3.3.0")
 
 // Build the Function at path.
 func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
@@ -104,10 +108,13 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		return err
 	}
 
-	var deamonIsPodman bool
+	var daemonIsPodmanBeforeV330 bool
 	for _, component := range version.Components {
 		if component.Name == "Podman Engine" {
-			deamonIsPodman = true
+			v := semver.MustParse(version.Version)
+			if v.Compare(v330) < 0 {
+				daemonIsPodmanBeforeV330 = true
+			}
 			break
 		}
 	}
@@ -115,11 +122,13 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	packOpts := pack.BuildOptions{
 		AppPath:        f.Root,
 		Image:          f.Image,
-		LifecycleImage: "quay.io/boson/lifecycle:0.11.4",
+		LifecycleImage: "quay.io/boson/lifecycle:0.12.0",
 		Builder:        packBuilder,
 		Buildpacks:     f.Buildpacks,
-		TrustBuilder:   !deamonIsPodman && strings.HasPrefix(packBuilder, "quay.io/boson"),
-		DockerHost:     os.Getenv("DOCKER_HOST"),
+		TrustBuilder: !daemonIsPodmanBeforeV330 &&
+			(strings.HasPrefix(packBuilder, "quay.io/boson") ||
+				strings.HasPrefix(packBuilder, "gcr.io/paketo-buildpacks")),
+		DockerHost: os.Getenv("DOCKER_HOST"),
 		ContainerConfig: struct {
 			Network string
 			Volumes []string

@@ -10,10 +10,10 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/pkg/errors"
 
-	pubcfg "github.com/buildpacks/pack/config"
 	"github.com/buildpacks/pack/internal/blob"
 	"github.com/buildpacks/pack/internal/build"
 	"github.com/buildpacks/pack/internal/config"
+	"github.com/buildpacks/pack/internal/dist"
 	"github.com/buildpacks/pack/internal/image"
 	"github.com/buildpacks/pack/logging"
 )
@@ -33,7 +33,7 @@ type ImageFetcher interface {
 	// These PullPolicies that these interact with the daemon argument.
 	// PullIfNotPresent and daemon = false, gives us the same behavior as PullAlways.
 	// There is a single invalid configuration, PullNever and daemon = false, this will always fail.
-	Fetch(ctx context.Context, name string, daemon bool, pullPolicy pubcfg.PullPolicy) (imgutil.Image, error)
+	Fetch(ctx context.Context, name string, options image.FetchOptions) (imgutil.Image, error)
 }
 
 //go:generate mockgen -package testmocks -destination testmocks/mock_downloader.go github.com/buildpacks/pack Downloader
@@ -54,17 +54,27 @@ type ImageFactory interface {
 	NewImage(repoName string, local bool, imageOS string) (imgutil.Image, error)
 }
 
+//go:generate mockgen -package pack -destination mock_buildpack_downloader.go github.com/buildpacks/pack BuildpackDownloader
+
+// BuildpackDownloader is an interface for downloading and extracting buildpacks from various sources
+type BuildpackDownloader interface {
+	// Download parses a buildpack URI and downloads the buildpack and any dependencies buildpacks from the appropriate source
+	Download(ctx context.Context, buildpackURI string, opts BuildpackDownloadOptions) (dist.Buildpack, []dist.Buildpack, error)
+}
+
 // Client is an orchestration object, it contains all parameters needed to
 // build an app image using Cloud Native Buildpacks.
 // All settings on this object should be changed through ClientOption functions.
 type Client struct {
-	logger            logging.Logger
-	imageFetcher      ImageFetcher
-	downloader        Downloader
-	lifecycleExecutor LifecycleExecutor
-	docker            dockerClient.CommonAPIClient
-	imageFactory      ImageFactory
-	experimental      bool
+	logger              logging.Logger
+	imageFetcher        ImageFetcher
+	downloader          Downloader
+	lifecycleExecutor   LifecycleExecutor
+	docker              dockerClient.CommonAPIClient
+	imageFactory        ImageFactory
+	BuildpackDownloader BuildpackDownloader
+	experimental        bool
+	registryMirrors     map[string]string
 }
 
 // ClientOption is a type of function that mutate settings on the client.
@@ -101,6 +111,14 @@ func WithDownloader(d Downloader) ClientOption {
 	}
 }
 
+// WithBuildpackDownloader supply your own BuildpackDownloader.
+// A BuildpackDownloader is used to gather buildpacks from both remote urls, or local sources.
+func WithBuildpackDownloader(d BuildpackDownloader) ClientOption {
+	return func(c *Client) {
+		c.BuildpackDownloader = d
+	}
+}
+
 // Deprecated: use WithDownloader instead.
 //
 // WithCacheDir supply your own cache directory.
@@ -121,6 +139,13 @@ func WithDockerClient(docker dockerClient.CommonAPIClient) ClientOption {
 func WithExperimental(experimental bool) ClientOption {
 	return func(c *Client) {
 		c.experimental = experimental
+	}
+}
+
+// WithRegistryMirrors sets mirrors to pull images from.
+func WithRegistryMirrors(registryMirrors map[string]string) ClientOption {
+	return func(c *Client) {
+		c.registryMirrors = registryMirrors
 	}
 }
 
@@ -156,11 +181,15 @@ func NewClient(opts ...ClientOption) (*Client, error) {
 	}
 
 	if client.imageFetcher == nil {
-		client.imageFetcher = image.NewFetcher(client.logger, client.docker)
+		client.imageFetcher = image.NewFetcher(client.logger, client.docker, image.WithRegistryMirrors(client.registryMirrors))
 	}
 
 	if client.imageFactory == nil {
 		client.imageFactory = image.NewFactory(client.docker, authn.DefaultKeychain)
+	}
+
+	if client.BuildpackDownloader == nil {
+		client.BuildpackDownloader = NewBuildpackDownloader(client.logger, client.imageFetcher, client.downloader)
 	}
 
 	client.lifecycleExecutor = build.NewLifecycleExecutor(client.logger, client.docker)

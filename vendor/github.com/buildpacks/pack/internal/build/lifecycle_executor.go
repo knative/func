@@ -5,14 +5,15 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/buildpacks/pack/internal/cache"
-
 	"github.com/buildpacks/imgutil"
 	"github.com/buildpacks/lifecycle/api"
+	"github.com/buildpacks/lifecycle/platform"
 	"github.com/docker/docker/client"
 	"github.com/google/go-containerregistry/pkg/name"
 
 	"github.com/buildpacks/pack/internal/builder"
+	"github.com/buildpacks/pack/internal/cache"
+	"github.com/buildpacks/pack/internal/container"
 	"github.com/buildpacks/pack/logging"
 )
 
@@ -21,6 +22,8 @@ var (
 	SupportedPlatformAPIVersions = builder.APISet{
 		api.MustParse("0.3"),
 		api.MustParse("0.4"),
+		api.MustParse("0.5"),
+		api.MustParse("0.6"),
 	}
 )
 
@@ -44,6 +47,13 @@ type Cache interface {
 	Type() cache.Type
 }
 
+type Termui interface {
+	logging.Logger
+
+	Run(funk func()) error
+	Handler() container.Handler
+}
+
 func init() {
 	rand.Seed(time.Now().UTC().UnixNano())
 }
@@ -54,10 +64,13 @@ type LifecycleOptions struct {
 	Builder            Builder
 	LifecycleImage     string
 	RunImage           string
+	ProjectMetadata    platform.ProjectMetadata
 	ClearCache         bool
 	Publish            bool
 	TrustBuilder       bool
 	UseCreator         bool
+	Interactive        bool
+	Termui             Termui
 	DockerHost         string
 	CacheImage         string
 	HTTPProxy          string
@@ -69,6 +82,8 @@ type LifecycleOptions struct {
 	DefaultProcessType string
 	FileFilter         func(string) bool
 	Workspace          string
+	GID                int
+	PreviousImage      string
 }
 
 func NewLifecycleExecutor(logger logging.Logger, docker client.CommonAPIClient) *LifecycleExecutor {
@@ -80,6 +95,14 @@ func (l *LifecycleExecutor) Execute(ctx context.Context, opts LifecycleOptions) 
 	if err != nil {
 		return err
 	}
-	defer lifecycleExec.Cleanup()
-	return lifecycleExec.Run(ctx, NewDefaultPhaseFactory)
+
+	if !opts.Interactive {
+		defer lifecycleExec.Cleanup()
+		return lifecycleExec.Run(ctx, NewDefaultPhaseFactory)
+	}
+
+	return opts.Termui.Run(func() {
+		defer lifecycleExec.Cleanup()
+		lifecycleExec.Run(ctx, NewDefaultPhaseFactory)
+	})
 }
