@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/mitchellh/go-homedir"
-
 	"gopkg.in/yaml.v2"
 )
 

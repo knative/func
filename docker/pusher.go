@@ -13,15 +13,13 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/docker/docker/errdefs"
+	fn "knative.dev/kn-plugin-func"
 
 	"github.com/containers/image/v5/pkg/docker/config"
 	containersTypes "github.com/containers/image/v5/types"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
-	dockerClient "github.com/docker/docker/client"
-
-	fn "knative.dev/kn-plugin-func"
+	"github.com/docker/docker/errdefs"
 )
 
 type Opt func(*Pusher) error
@@ -42,7 +40,7 @@ var ErrUnauthorized = errors.New("bad credentials")
 type VerifyCredentialsCallback func(ctx context.Context, username, password, registry string) error
 
 func CheckAuth(ctx context.Context, username, password, registry string) error {
-	cli, err := dockerClient.NewClientWithOpts(dockerClient.FromEnv, dockerClient.WithAPIVersionNegotiation())
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return err
 	}

@@ -12,10 +12,9 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/docker/docker-credential-helpers/credentials"
-
 	"github.com/containers/image/v5/types"
 	"github.com/docker/docker-credential-helpers/client"
+	"github.com/docker/docker-credential-helpers/credentials"
 )
 
 var errCredentialsNotFound = errors.New("credentials not found")
