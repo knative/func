@@ -225,9 +225,9 @@ func newCredentialsCallback() func(registry string) (docker.Credentials, error) 
 func newChooseHelperCallback() docker.ChooseCredentialHelperCallback {
 	return func(availableHelpers []string) (string, error) {
 		if len(availableHelpers) < 1 {
-			fmt.Fprintf(os.Stderr, `There is no credential helper available.
-As a result credentials won't be saved.
-To fix this consider installing docker credential helper https://github.com/docker/docker-credential-helpers.
+			fmt.Fprintf(os.Stderr, `Credentials will not be saved.
+If you would like to save your credentials in the future,
+you can install docker credential helper https://github.com/docker/docker-credential-helpers.
 `)
 			return "", nil
 		}
@@ -241,9 +241,7 @@ To fix this consider installing docker credential helper https://github.com/dock
 			return "", err
 		}
 		if resp == "None" {
-			fmt.Fprintf(os.Stderr, `You haven't chosen credential helper.
-As a result credentials won't be saved.
-`)
+			fmt.Fprintf(os.Stderr, "No helper selected. Credentials will not be saved.\n")
 			return "", nil
 		}
 		return resp, nil
