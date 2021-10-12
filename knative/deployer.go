@@ -142,7 +142,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (result fn.Deploym
 				}
 			}
 			if presumePrivate {
-				err := fmt.Errorf("it seems your docker registry is private, make sure you have set up pull secrets https://knative.dev/docs/developer/serving/deploying-from-private-registry")
+				err := fmt.Errorf("your function image is unreachable. It is possible that your docker registry is private. If so, make sure you have set up pull secrets https://knative.dev/docs/developer/serving/deploying-from-private-registry")
 				return fn.DeploymentResult{}, err
 			}
 			if err != nil {
