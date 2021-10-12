@@ -120,7 +120,7 @@ test-typescript: ## Test Typescript templates
 ###################
 
 test-integration: ## Run integration tests using an available cluster.
-	go test -tags integration ./... -v
+	go test -tags integration ./...
 
 test-e2e: ## Run end-to-end tests using an available cluster.
 	./test/e2e_lifecycle_tests.sh node
