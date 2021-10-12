@@ -52,6 +52,8 @@ jobs:
       - name: Merge upstream
         if: github.event_name == 'pull_request'
         run: |
+          git config --global user.name "$(git --no-pager log --format=format:'%an' -n 1)"
+          git config --global user.email "$(git --no-pager log --format=format:'%ae' -n 1)"
           git remote add upstream https://github.com/${{ github.repository }}.git
           git fetch upstream ${{ github.base_ref }}
           git pull --no-rebase --no-commit upstream ${{ github.base_ref }}
