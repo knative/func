@@ -63,17 +63,17 @@ bin/golangci-lint:
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./bin v1.40.1
 
 pkged.go: $(TEMPLATES)
-	@rm -rf templates/node/events/node_modules
+	@rm -rf templates/node/cloudevents/node_modules
 	@rm -rf templates/node/http/node_modules
-	@rm -rf templates/python/events/__pycache__
+	@rm -rf templates/python/cloudevents/__pycache__
 	@rm -rf templates/python/http/__pycache__
-	@rm -rf templates/typescript/events/node_modules
+	@rm -rf templates/typescript/cloudevents/node_modules
 	@rm -rf templates/typescript/http/node_modules
-	@rm -rf templates/rust/events/target
+	@rm -rf templates/rust/cloudevents/target
 	@rm -rf templates/rust/http/target
-	@rm -rf templates/quarkus/events/target
+	@rm -rf templates/quarkus/cloudevents/target
 	@rm -rf templates/quarkus/http/target
-	@rm -rf templates/springboot/events/target
+	@rm -rf templates/springboot/cloudevents/target
 	@rm -rf templates/springboot/http/target
 	# Generating pkged.go using pkger
 	$(PKGER)
