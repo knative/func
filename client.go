@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mitchellh/go-homedir"
 	"gopkg.in/yaml.v2"
 )
 
@@ -24,7 +25,7 @@ const (
 	// the template written and builder invoked on deploy.
 	DefaultRuntime = "node"
 
-	// DefautlTemplate is the default Function signature / environmental context
+	// DefaultTemplate is the default Function signature / environmental context
 	// of the resultant function.  All runtimes are expected to have at least
 	// one implementation of each supported function signature.  Currently that
 	// includes an HTTP Handler ("http") and Cloud Events handler ("events")
@@ -33,7 +34,40 @@ const (
 	// DefaultRepository is the name of the default (builtin) template repository,
 	// and is assumed when no template prefix is provided.
 	DefaultRepository = "default"
+
+	// The name of the config directory within ~/.config (or configured location)
+	configDirName = "func"
 )
+
+// ConfigPath is the effective path to the optional global config directory used for
+// function defaults and extensible templates.
+func ConfigPath() string {
+	path := configPath()
+	_ = os.MkdirAll(path, 0700)
+	return path
+}
+
+func configPath() string {
+	// Use XDG_CONFIG_HOME/func if defined
+	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
+		return filepath.Join(xdg, configDirName)
+	}
+
+	// Expand and use ~/.config/func
+	home, err := homedir.Expand("~")
+	if err == nil {
+		return filepath.Join(home, ".config", configDirName)
+	}
+
+	// default is .config in current working directory, used when there is no
+	// available home in which to find a .`.config/func` directory.
+	// A case could be made that a panic is in order in this scenario, but
+	// currently this seems like a nonfatal situation, as in the scenario
+	// "there is no home directory", the fallback of using `.config` if extant
+	// may very well be the optimal choice.
+	fmt.Fprintf(os.Stderr, "Error locating ~/.config: %v", err)
+	return filepath.Join(".config", configDirName)
+}
 
 // Client for managing Function instances.
 type Client struct {
