@@ -10,17 +10,17 @@ import (
 	"testing"
 )
 
-// TestEmitCommand validates func emit command
-// A custom node js Function used to test 'func emit' command (see update_templates/node/events/index.js)
-// An event is sent using emit with a special event source 'func:emit', expected by the custom function.
+// TestInvokeCommand validates func invoke command
+// A custom node js Function used to test 'func invoke' command (see update_templates/node/events/index.js)
+// An event is sent using invoke with a special event source 'func:invoke', expected by the custom function.
 // When this source is matched, the event will get stored globally and will be returned
 // as HTTP response next time it receives another event with source "e2e:check"
 // A better solution could be evaluated in future.
-func TestEmitCommand(t *testing.T) {
+func TestInvokeCommand(t *testing.T) {
 
 	project := FunctionTestProject{
-		FunctionName: "emit-test-node",
-		ProjectPath:  filepath.Join(os.TempDir(), "emit-test-node"),
+		FunctionName: "invoke-test-node",
+		ProjectPath:  filepath.Join(os.TempDir(), "invoke-test-node"),
 		Runtime:      "node",
 		Template:     "cloudevents",
 	}
@@ -37,8 +37,8 @@ func TestEmitCommand(t *testing.T) {
 	defer Delete(t, knFunc, &project)
 
 	// Issue Func Emit command
-	emitMessage := "HELLO FROM EMIT"
-	result := knFunc.Exec("emit", "--content-type", "text/plain", "--data", emitMessage, "--source", "func:emit", "--path", project.ProjectPath)
+	invokeMessage := "HELLO FROM INVOKE"
+	result := knFunc.Exec("invoke", "--content-type", "text/plain", "--data", invokeMessage, "--source", "func:invoke", "--path", project.ProjectPath, "--sink=cluster")
 	if result.Error != nil {
 		t.Fatal()
 	}
@@ -48,13 +48,13 @@ func TestEmitCommand(t *testing.T) {
 		Type:        "e2e:check",
 		Source:      "e2e:check",
 		ContentType: "text/plain",
-		Data:        "Emit Check",
+		Data:        "Invoke Check",
 	}
 	responseBody, _, err := testEvent.pushTo(project.FunctionURL, t)
 	if err != nil {
 		t.Fatal("error occurred while sending event", err.Error())
 	}
-	if responseBody == "" || !strings.Contains(responseBody, emitMessage) {
-		t.Fatalf("fail to validate emit command. Expected [%v], returned [%v]", emitMessage, responseBody)
+	if responseBody == "" || !strings.Contains(responseBody, invokeMessage) {
+		t.Fatalf("fail to validate invoke command. Expected [%v], returned [%v]", invokeMessage, responseBody)
 	}
 }
