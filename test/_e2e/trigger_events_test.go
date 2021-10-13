@@ -59,7 +59,7 @@ var defaultFunctionsCloudEventsValidators = map[string]FunctionCloudEventsValida
 // DefaultFunctionEventsTest executes a common test (applied for all runtimes) against a deployed
 // functions that responds to CloudEvents
 func DefaultFunctionEventsTest(t *testing.T, knFunc *TestShellCmdRunner, project FunctionTestProject) {
-	if project.Template == "events" && project.IsDeployed {
+	if project.Template == "cloudevents" && project.IsDeployed {
 
 		simpleEvent := SimpleTestEvent{
 			Type:        "e2e.test",
@@ -85,6 +85,8 @@ func DefaultFunctionEventsTest(t *testing.T, knFunc *TestShellCmdRunner, project
 			t.Fatalf("Expected status code 200, received %v", statusCode)
 		}
 
+	} else {
+		t.Fatalf("Expected e2e cloudevents test to run")
 	}
 
 }
