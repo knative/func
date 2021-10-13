@@ -129,9 +129,6 @@ func listCredentialHelpers() []string {
 			if fi.IsDir() {
 				continue
 			}
-			if !fi.Mode().IsRegular() {
-				continue
-			}
 			if !strings.HasPrefix(fi.Name(), "docker-credential-") {
 				continue
 			}
