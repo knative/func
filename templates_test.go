@@ -32,7 +32,7 @@ func TestTemplatesList(t *testing.T) {
 	// by creating a custom repository path for just this test, if
 	// that becomes a hassle.
 	expected := []string{
-		"events",
+		"cloudevents",
 		"http",
 		"customProvider/customTemplate",
 		"repositoryTests/custom",

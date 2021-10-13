@@ -32,7 +32,7 @@ func TestHttpFunction(t *testing.T) {
 // for a function that responds to CloudEvents
 func TestCloudEventsFunction(t *testing.T) {
 
-	project := NewFunctionTestProject(GetRuntime(), "events")
+	project := NewFunctionTestProject(GetRuntime(), "cloudevents")
 	knFunc := NewKnFuncShellCli(t)
 
 	Create(t, knFunc, project)
