@@ -14,11 +14,11 @@ import (
 )
 
 func init() {
-	root.AddCommand(NewEmitCmd(newEmitClient))
+	root.AddCommand(NewInvokeCmd(newInvokeClient))
 }
 
 // create a fn.Client with an instance of a
-func newEmitClient(cfg emitConfig) (*fn.Client, error) {
+func newInvokeClient(cfg emitConfig) (*fn.Client, error) {
 	e := cloudevents.NewEmitter()
 	e.Id = cfg.Id
 	e.Source = cfg.Source
@@ -39,41 +39,44 @@ func newEmitClient(cfg emitConfig) (*fn.Client, error) {
 
 type emitClientFn func(emitConfig) (*fn.Client, error)
 
-func NewEmitCmd(clientFn emitClientFn) *cobra.Command {
+func NewInvokeCmd(clientFn emitClientFn) *cobra.Command {
 
 	cmd := &cobra.Command{
-		Use:   "emit",
-		Short: "Emit a CloudEvent to a function endpoint",
-		Long: `Emit event
+		Use:   "invoke",
+		Short: "Invoke a function endpoint",
+		Long: `Invoke a function
 
-Emits a CloudEvent, sending it to the deployed function.
+Invokes the function by sending a CloudEvent to the function endpoint.
+By default the function will be invoked on the local host. To invoke the
+function in the currently active deployment context, use the special
+value "cluster" with the '--sink' flag.
 `,
 		Example: `
-# Send a CloudEvent to the deployed function with no data and default values
+# Send a CloudEvent to the local function with no data and default values
 # for source, type and ID
-kn func emit
+kn func invoke
 
-# Send a CloudEvent to the deployed function with the data found in ./test.json
-kn func emit --file ./test.json
+# Send a CloudEvent to the local function with the data found in ./test.json
+kn func invoke --file ./test.json
 
-# Send a CloudEvent to the function running locally with a CloudEvent containing
+# Send a CloudEvent to the deployed function with a CloudEvent containing
 # "Hello World!" as the data field, with a content type of "text/plain"
-kn func emit --data "Hello World!" --content-type "text/plain" -s local
+kn func invoke --data "Hello World!" --content-type "text/plain" -s cluster
 
-# Send a CloudEvent to the function running locally with an event type of "my.event"
-kn func emit --type my.event --sink local
+# Send a CloudEvent to the deployed function with an event type of "my.event"
+kn func invoke --type my.event --sink cluster
 
-# Send a CloudEvent to the deployed function found at /path/to/fn with an id of "fn.test"
-kn func emit --path /path/to/fn -i fn.test
+# Send a CloudEvent to the local function found at /path/to/fn with an id of "fn.test"
+kn func invoke --path /path/to/fn -i fn.test
 
 # Send a CloudEvent to an arbitrary endpoint
-kn func emit --sink "http://my.event.broker.com"
+kn func invoke --sink "http://my.event.broker.com"
 `,
-		SuggestFor: []string{"meit", "emti", "send"},
+		SuggestFor: []string{"meit", "emti", "send", "emit"},
 		PreRunE:    bindEnv("source", "type", "id", "data", "file", "path", "sink", "content-type"),
 	}
 
-	cmd.Flags().StringP("sink", "k", "", "Send the CloudEvent to the function running at [sink]. The special value \"local\" can be used to send the event to a function running on the local host. When provided, the --path flag is ignored  (Env: $FUNC_SINK)")
+	cmd.Flags().StringP("sink", "k", "", "Send the CloudEvent to the function running at [sink]. The special value \"cluster\" can be used to send the event to a deployed function. (Env: $FUNC_SINK)")
 	cmd.Flags().StringP("source", "s", cloudevents.DefaultSource, "CloudEvent source (Env: $FUNC_SOURCE)")
 	cmd.Flags().StringP("type", "t", cloudevents.DefaultType, "CloudEvent type  (Env: $FUNC_TYPE)")
 	cmd.Flags().StringP("id", "i", uuid.NewString(), "CloudEvent ID (Env: $FUNC_ID)")
@@ -127,18 +130,18 @@ func endpoint(ctx context.Context, cfg emitConfig) (url string, err error) {
 		i fn.Info
 	)
 
-	// If the special value "local" was requested,
-	// use localhost.
-	if cfg.Sink == "local" {
+	// If a sink was not provided, default to localhost
+	if cfg.Sink == "" {
 		return "http://localhost:8080", nil
 	}
 
-	// If a sink was expressly provided, use that verbatim
-	if cfg.Sink != "" {
+	// If the special value "cluster" was not provided,
+	// this implies an explicit sink URI, use it.
+	if cfg.Sink != "cluster" {
 		return cfg.Sink, nil
 	}
 
-	// If no sink was specified, use the route to the currently
+	// The special value "cluster", use the route to the currently
 	// contectually active function
 	if f, err = fn.NewFunction(cfg.Path); err != nil {
 		return
