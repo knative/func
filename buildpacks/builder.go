@@ -131,7 +131,7 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		Builder:        packBuilder,
 		Buildpacks:     f.Buildpacks,
 		Env:            buildEnvs,
-		TrustBuilder:   !daemonIsPodmanBeforeV330 &&
+		TrustBuilder: !daemonIsPodmanBeforeV330 &&
 			(strings.HasPrefix(packBuilder, "quay.io/boson") ||
 				strings.HasPrefix(packBuilder, "gcr.io/paketo-buildpacks")),
 		DockerHost: os.Getenv("DOCKER_HOST"),
