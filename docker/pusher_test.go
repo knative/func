@@ -199,8 +199,16 @@ func TestCredentialsProviderSavingFromUserInput(t *testing.T) {
 		return correctPwdCallback(r)
 	}
 
-	chooseNoStore := func(available []string) (string, error) { return "", nil }
+	chooseNoStore := func(available []string) (string, error) {
+		if len(available) < 1 {
+			t.Errorf("this should have been invoked with non empty list")
+		}
+		return "", nil
+	}
 	chooseMockStore := func(available []string) (string, error) {
+		if len(available) < 1 {
+			t.Errorf("this should have been invoked with non empty list")
+		}
 		return "docker-credential-mock", nil
 	}
 	shallNotBeInvoked := func(available []string) (string, error) {
