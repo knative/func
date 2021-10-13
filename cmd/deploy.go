@@ -168,6 +168,13 @@ func runDeploy(cmd *cobra.Command, _ []string, clientFn deployClientFn) (err err
 		config.Namespace = function.Namespace
 	}
 
+	// if registry was not changed via command line flag meaning it's empty
+	// keep the same registry by setting the config.registry to empty otherwise
+	// trust viper to override the env variable with the given flag if both are specified
+	if regFlag, _ := cmd.Flags().GetString("registry"); regFlag == "" {
+		config.Registry = ""
+	}
+
 	client, err := clientFn(config)
 	if err != nil {
 		if err == terminal.InterruptErr {
