@@ -9,7 +9,7 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/cloudevents"
+	"knative.dev/kn-plugin-func/invoker"
 	"knative.dev/kn-plugin-func/knative"
 )
 
@@ -19,7 +19,7 @@ func init() {
 
 // create a fn.Client with an instance of a
 func newInvokeClient(cfg invokeConfig) (*fn.Client, error) {
-	e := cloudevents.NewEmitter()
+	e := invoker.NewEmitter()
 	e.Id = cfg.Id
 	e.Source = cfg.Source
 	e.Type = cfg.Type
@@ -77,8 +77,8 @@ kn func invoke --sink "http://my.event.broker.com"
 	}
 
 	cmd.Flags().StringP("sink", "k", "", "Send the CloudEvent to the function running at [sink]. The special value \"cluster\" can be used to send the event to a deployed function. (Env: $FUNC_SINK)")
-	cmd.Flags().StringP("source", "s", cloudevents.DefaultSource, "CloudEvent source (Env: $FUNC_SOURCE)")
-	cmd.Flags().StringP("type", "t", cloudevents.DefaultType, "CloudEvent type  (Env: $FUNC_TYPE)")
+	cmd.Flags().StringP("source", "s", invoker.DefaultEventSource, "CloudEvent source (Env: $FUNC_SOURCE)")
+	cmd.Flags().StringP("type", "t", invoker.DefaultEventType, "CloudEvent type  (Env: $FUNC_TYPE)")
 	cmd.Flags().StringP("id", "i", uuid.NewString(), "CloudEvent ID (Env: $FUNC_ID)")
 	cmd.Flags().StringP("data", "d", "", "Any arbitrary string to be sent as the CloudEvent data. Ignored if --file is provided  (Env: $FUNC_DATA)")
 	cmd.Flags().StringP("file", "f", "", "Path to a local file containing CloudEvent data to be sent  (Env: $FUNC_FILE)")

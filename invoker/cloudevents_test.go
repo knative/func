@@ -1,7 +1,7 @@
 //go:build !integration
 // +build !integration
 
-package cloudevents
+package invoker
 
 import (
 	"context"

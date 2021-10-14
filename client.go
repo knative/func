@@ -49,7 +49,7 @@ type Client struct {
 	dnsProvider      DNSProvider      // Provider of DNS services
 	registry         string           // default registry for OCI image tags
 	progressListener ProgressListener // progress listener
-	invoker          Invoker          // Emits CloudEvents to functions
+	invoker          Invoker          // Sends CloudEvents or HTTP to functions
 	repositories     *Repositories    // Repositories management
 	templates        *Templates       // Templates management
 }
@@ -162,7 +162,7 @@ type DNSProvider interface {
 	Provide(Function) error
 }
 
-// Emit CloudEvents to functions
+// Send CloudEvents or HTTP to functions
 type Invoker interface {
 	Send(ctx context.Context, endpoint string) error
 }
