@@ -358,7 +358,7 @@ func ValidateBuildEnvs(envs Envs) (errors []string) {
 				if !regLocalEnv.MatchString(*env.Value) {
 					errors = append(errors,
 						fmt.Sprintf(
-							"env entry #%d with name '%s' has invalid value field set, it has '%s', but allowed is only '{{ env:MY_ENV }}', '{{ secret:secretName:key }}' or '{{ configMap:configMapName:key }}'",
+							"env entry #%d with name '%s' has invalid value field set, it has '%s', but allowed is only '{{ env:MY_ENV }}'",
 							i, *env.Name, *env.Value))
 				}
 			}

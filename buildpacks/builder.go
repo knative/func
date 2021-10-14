@@ -119,7 +119,7 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		}
 	}
 
-	buildEnvs := make(map[string]string)
+	buildEnvs := make(map[string]string, len(f.BuildEnvs))
 	for _, env := range f.BuildEnvs {
 		buildEnvs[*env.Name] = *env.Value
 	}
