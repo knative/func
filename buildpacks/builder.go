@@ -129,6 +129,7 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		Image:          f.Image,
 		LifecycleImage: "quay.io/boson/lifecycle:0.12.0",
 		Builder:        packBuilder,
+		Env:            buildEnvs,
 		Buildpacks:     f.Buildpacks,
 		TrustBuilder: !daemonIsPodmanBeforeV330 &&
 			(strings.HasPrefix(packBuilder, "quay.io/boson") ||
