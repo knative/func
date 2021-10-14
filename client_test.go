@@ -720,7 +720,7 @@ func TestEmit(t *testing.T) {
 	emitter := mock.NewEmitter()
 
 	// Ensure sink passthrough from client
-	emitter.EmitFn = func(s string) error {
+	emitter.SendFn = func(s string) error {
 		if s != sink {
 			t.Fatalf("Unexpected sink %v\n", s)
 		}
@@ -728,13 +728,13 @@ func TestEmit(t *testing.T) {
 	}
 
 	// Instantiate in the current working directory, with no name.
-	client := fn.New(fn.WithEmitter(emitter))
+	client := fn.New(fn.WithInvoker(emitter))
 
-	if err := client.Emit(context.Background(), sink); err != nil {
+	if err := client.Send(context.Background(), sink); err != nil {
 		t.Fatal(err)
 	}
-	if !emitter.EmitInvoked {
-		t.Fatal("Client did not invoke emitter.Emit()")
+	if !emitter.SendInvoked {
+		t.Fatal("Client did not invoke emitter.Send()")
 	}
 }
 

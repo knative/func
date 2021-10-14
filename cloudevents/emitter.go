@@ -36,7 +36,7 @@ func NewEmitter() *Emitter {
 	}
 }
 
-func (e *Emitter) Emit(ctx context.Context, endpoint string) (err error) {
+func (e *Emitter) Send(ctx context.Context, endpoint string) (err error) {
 	c, err := newClient(endpoint)
 	if err != nil {
 		return

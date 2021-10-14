@@ -50,7 +50,7 @@ func TestEmitterDefaults(t *testing.T) {
 	p := receiveEvents(t, ctx, events)
 
 	emitter := NewEmitter()
-	if err := emitter.Emit(ctx, fmt.Sprintf("http://localhost:%v", p.GetListeningPort())); err != nil {
+	if err := emitter.Send(ctx, fmt.Sprintf("http://localhost:%v", p.GetListeningPort())); err != nil {
 		t.Fatalf("Error emitting event: %v\n", err)
 	}
 
@@ -111,7 +111,7 @@ func TestEmitter(t *testing.T) {
 			if tc.cedata != "" {
 				emitter.Data = tc.cedata
 			}
-			if err := emitter.Emit(ctx, fmt.Sprintf("http://localhost:%v", p.GetListeningPort())); err != nil {
+			if err := emitter.Send(ctx, fmt.Sprintf("http://localhost:%v", p.GetListeningPort())); err != nil {
 				t.Fatalf("Error emitting event: %v\n", err)
 			}
 
