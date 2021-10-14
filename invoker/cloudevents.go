@@ -1,4 +1,4 @@
-package cloudevents
+package invoker
 
 import (
 	"context"
@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	DefaultSource = "/boson/fn"
-	DefaultType   = "boson.fn"
+	DefaultEventSource = "/boson/fn"
+	DefaultEventType   = "boson.fn"
 )
 
 type Emitter struct {
@@ -28,8 +28,8 @@ type Emitter struct {
 
 func NewEmitter() *Emitter {
 	return &Emitter{
-		Source:      DefaultSource,
-		Type:        DefaultType,
+		Source:      DefaultEventSource,
+		Type:        DefaultEventType,
 		Id:          uuid.NewString(),
 		Data:        "",
 		ContentType: event.TextPlain,

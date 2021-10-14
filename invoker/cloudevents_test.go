@@ -1,4 +1,4 @@
-package cloudevents
+package invoker
 
 import (
 	"context"
