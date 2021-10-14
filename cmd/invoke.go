@@ -18,7 +18,7 @@ func init() {
 }
 
 // create a fn.Client with an instance of a
-func newInvokeClient(cfg emitConfig) (*fn.Client, error) {
+func newInvokeClient(cfg invokeConfig) (*fn.Client, error) {
 	e := cloudevents.NewEmitter()
 	e.Id = cfg.Id
 	e.Source = cfg.Source
@@ -34,10 +34,10 @@ func newInvokeClient(cfg emitConfig) (*fn.Client, error) {
 		e.Data = string(b)
 	}
 
-	return fn.New(fn.WithEmitter(e)), nil
+	return fn.New(fn.WithInvoker(e)), nil
 }
 
-type emitClientFn func(emitConfig) (*fn.Client, error)
+type emitClientFn func(invokeConfig) (*fn.Client, error)
 
 func NewInvokeCmd(clientFn emitClientFn) *cobra.Command {
 
@@ -86,15 +86,15 @@ kn func invoke --sink "http://my.event.broker.com"
 	cmd.Flags().StringP("path", "p", cwd(), "Path to the project directory. Ignored when --sink is provided (Env: $FUNC_PATH)")
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runEmit(cmd, args, clientFn)
+		return runInvoke(cmd, args, clientFn)
 	}
 
 	return cmd
 
 }
 
-func runEmit(cmd *cobra.Command, _ []string, clientFn emitClientFn) (err error) {
-	config := newEmitConfig()
+func runInvoke(cmd *cobra.Command, _ []string, clientFn emitClientFn) (err error) {
+	config := newInvokeConfig()
 
 	// Validate things like invalid config combinations.
 	if err := config.Validate(); err != nil {
@@ -115,7 +115,7 @@ func runEmit(cmd *cobra.Command, _ []string, clientFn emitClientFn) (err error) 
 	}
 
 	// Emit the event to the endpoint
-	return client.Emit(cmd.Context(), endpoint)
+	return client.Send(cmd.Context(), endpoint)
 }
 
 // endpoint returns the final effective endpoint.
@@ -123,7 +123,7 @@ func runEmit(cmd *cobra.Command, _ []string, clientFn emitClientFn) (err error) 
 // address (route).
 // If "local" is specified in cfg.Sink, localhost is used.
 // Otherwise the value of Sink is used verbatim if defined.
-func endpoint(ctx context.Context, cfg emitConfig) (url string, err error) {
+func endpoint(ctx context.Context, cfg invokeConfig) (url string, err error) {
 	var (
 		f fn.Function
 		d fn.Describer
@@ -168,7 +168,7 @@ func endpoint(ctx context.Context, cfg emitConfig) (url string, err error) {
 	return i.Routes[0], nil
 }
 
-type emitConfig struct {
+type invokeConfig struct {
 	Path        string
 	Source      string
 	Type        string
@@ -180,8 +180,8 @@ type emitConfig struct {
 	Verbose     bool
 }
 
-func newEmitConfig() emitConfig {
-	return emitConfig{
+func newInvokeConfig() invokeConfig {
+	return invokeConfig{
 		Path:        viper.GetString("path"),
 		Source:      viper.GetString("source"),
 		Type:        viper.GetString("type"),
@@ -194,7 +194,7 @@ func newEmitConfig() emitConfig {
 	}
 }
 
-func (c emitConfig) Validate() error {
+func (c invokeConfig) Validate() error {
 	if c.Data != "" && c.File != "" {
 		return errors.New("Only one of --data or --file may be specified")
 	}

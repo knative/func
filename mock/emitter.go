@@ -5,17 +5,17 @@ import (
 )
 
 type Emitter struct {
-	EmitInvoked bool
-	EmitFn      func(string) error
+	SendInvoked bool
+	SendFn      func(string) error
 }
 
 func NewEmitter() *Emitter {
 	return &Emitter{
-		EmitFn: func(string) error { return nil },
+		SendFn: func(string) error { return nil },
 	}
 }
 
-func (i *Emitter) Emit(ctx context.Context, s string) error {
-	i.EmitInvoked = true
-	return i.EmitFn(s)
+func (i *Emitter) Send(ctx context.Context, s string) error {
+	i.SendInvoked = true
+	return i.SendFn(s)
 }
