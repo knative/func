@@ -166,7 +166,12 @@ func (items listItems) XML(w io.Writer) error {
 }
 
 func (items listItems) YAML(w io.Writer) error {
-	return yaml.NewEncoder(w).Encode(items)
+	encoded, err := yaml.Marshal(items)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(encoded)
+	return err
 }
 
 func (items listItems) URL(w io.Writer) error {

@@ -14,7 +14,8 @@ import (
 	"time"
 
 	"github.com/mitchellh/go-homedir"
-	"gopkg.in/yaml.v2"
+	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -192,10 +193,16 @@ type Subscription struct {
 }
 
 type Manifest struct {
-	Name            string            `yaml:"name"`
-	Buildpacks      []string          `yaml:"buildpacks"`
-	HealthEndpoints map[string]string `yaml:"healthEndpoints"`
-	Builders        map[string]string `yaml:"builders"`
+	Name            string            `json:"name"`
+	Buildpacks      []string          `json:"buildpacks"`
+	HealthEndpoints map[string]string `json:"healthEndpoints"`
+	Probes          *LifecycleProbes  `json:"lifecycle"`
+	Builders        map[string]string `json:"builders"`
+}
+
+type LifecycleProbes struct {
+	LivenessProbe  *corev1.Probe `json:"livenessProbe,omitempty" yaml:"livenessProbe,omitempty"`
+	ReadinessProbe *corev1.Probe `json:"readinessProbe,omitempty" yaml:"readinessProbe,omitempty"`
 }
 
 // DNSProvider exposes DNS services necessary for serving the Function.
@@ -486,6 +493,7 @@ func (c *Client) Create(cfg Function) (err error) {
 			f.Builders = manifest.Builders
 			f.Buildpacks = manifest.Buildpacks
 			f.HealthEndpoints = manifest.HealthEndpoints
+			f.Probes = manifest.Probes
 		}
 		// Remove the manifest.yaml file so the user is not confused by a
 		// configuration file that is only used for project creation/initialization

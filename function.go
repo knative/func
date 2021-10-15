@@ -72,6 +72,9 @@ type Function struct {
 
 	// Health endpoints specified by the language pack
 	HealthEndpoints map[string]string
+
+	// Full specification of probes
+	Probes *LifecycleProbes
 }
 
 // NewFunction loads a Function from a path on disk. use .Initialized() to determine if

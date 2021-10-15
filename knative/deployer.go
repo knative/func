@@ -224,6 +224,12 @@ func setHealthEndpoints(f fn.Function, c *corev1.Container) *corev1.Container {
 	c.ReadinessProbe = probeFor(READINESS_ENDPOINT)
 
 	// If specified in func.yaml, the provided values override the defaults
+	if f.Probes != nil {
+		// Prefer full probe specifications to HTTP URL specfications (more flexibility)
+		c.LivenessProbe = f.Probes.LivenessProbe
+		c.ReadinessProbe = f.Probes.ReadinessProbe
+		return c // Skip HealthEndpoints if Lifecycle status is defined.
+	}
 	if f.HealthEndpoints != nil {
 		if f.HealthEndpoints["liveness"] != "" {
 			c.LivenessProbe = probeFor(f.HealthEndpoints["liveness"])

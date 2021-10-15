@@ -5,8 +5,38 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	fn "knative.dev/kn-plugin-func"
 )
+
+func Test_setLifecycleProbes(t *testing.T) {
+	f := fn.Function{
+		Name: "custom-health",
+		HealthEndpoints: map[string]string{
+			"liveness": "/ignored",
+		},
+		Probes: &fn.LifecycleProbes{
+			ReadinessProbe: &corev1.Probe{
+				Handler: corev1.Handler{
+					TCPSocket: &corev1.TCPSocketAction{
+						Port: intstr.FromInt(3000),
+					},
+				},
+				TimeoutSeconds: 2,
+				PeriodSeconds:  6,
+			},
+		},
+	}
+
+	c := corev1.Container{}
+	setHealthEndpoints(f, &c)
+	if c.LivenessProbe != nil {
+		t.Errorf("Expected empty livenessProbe, got %+v", c.LivenessProbe)
+	}
+	if *c.ReadinessProbe != *f.Probes.ReadinessProbe {
+		t.Errorf("Expected %+v, got %+v", f.Probes.ReadinessProbe, c.ReadinessProbe)
+	}
+}
 
 func Test_setHealthEndpoints(t *testing.T) {
 	f := fn.Function{

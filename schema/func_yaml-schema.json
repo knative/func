@@ -61,6 +61,10 @@
 					},
 					"type": "object"
 				},
+				"lifecycle": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/LifecycleProbes"
+				},
 				"volumes": {
 					"items": {
 						"$schema": "http://json-schema.org/draft-04/schema#",
@@ -114,6 +118,101 @@
 			"additionalProperties": false,
 			"type": "object"
 		},
+		"ExecAction": {
+			"properties": {
+				"command": {
+					"items": {
+						"type": "string"
+					},
+					"type": "array"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
+		},
+		"HTTPGetAction": {
+			"required": [
+				"port"
+			],
+			"properties": {
+				"path": {
+					"type": "string"
+				},
+				"port": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/IntOrString"
+				},
+				"host": {
+					"type": "string"
+				},
+				"scheme": {
+					"type": "string"
+				},
+				"httpHeaders": {
+					"items": {
+						"$schema": "http://json-schema.org/draft-04/schema#",
+						"$ref": "#/definitions/HTTPHeader"
+					},
+					"type": "array"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
+		},
+		"HTTPHeader": {
+			"required": [
+				"name",
+				"value"
+			],
+			"properties": {
+				"name": {
+					"type": "string"
+				},
+				"value": {
+					"type": "string"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
+		},
+		"Handler": {
+			"properties": {
+				"exec": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/ExecAction"
+				},
+				"httpGet": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/HTTPGetAction"
+				},
+				"tcpSocket": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/TCPSocketAction"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
+		},
+		"IntOrString": {
+			"required": [
+				"Type",
+				"IntVal",
+				"StrVal"
+			],
+			"properties": {
+				"Type": {
+					"type": "integer"
+				},
+				"IntVal": {
+					"type": "integer"
+				},
+				"StrVal": {
+					"type": "string"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
+		},
 		"Label": {
 			"required": [
 				"key"
@@ -131,6 +230,19 @@
 			"additionalProperties": false,
 			"type": "object"
 		},
+		"LifecycleProbes": {
+			"properties": {
+				"livenessProbe": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/Probe"
+				},
+				"readinessProbe": {
+					"$ref": "#/definitions/Probe"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
+		},
 		"Options": {
 			"properties": {
 				"scale": {
@@ -140,6 +252,34 @@
 				"resources": {
 					"$schema": "http://json-schema.org/draft-04/schema#",
 					"$ref": "#/definitions/ResourcesOptions"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
+		},
+		"Probe": {
+			"required": [
+				"Handler"
+			],
+			"properties": {
+				"Handler": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/Handler"
+				},
+				"initialDelaySeconds": {
+					"type": "integer"
+				},
+				"timeoutSeconds": {
+					"type": "integer"
+				},
+				"periodSeconds": {
+					"type": "integer"
+				},
+				"successThreshold": {
+					"type": "integer"
+				},
+				"failureThreshold": {
+					"type": "integer"
 				}
 			},
 			"additionalProperties": false,
@@ -216,6 +356,21 @@
 					"maximum": 100,
 					"minimum": 1,
 					"type": "number"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
+		},
+		"TCPSocketAction": {
+			"required": [
+				"port"
+			],
+			"properties": {
+				"port": {
+					"$ref": "#/definitions/IntOrString"
+				},
+				"host": {
+					"type": "string"
 				}
 			},
 			"additionalProperties": false,

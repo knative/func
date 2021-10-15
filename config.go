@@ -9,9 +9,9 @@ import (
 	"regexp"
 	"strings"
 
-	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"knative.dev/kn-plugin-func/utils"
+	"sigs.k8s.io/yaml"
 )
 
 // ConfigFile is the name of the config's serialized form.
@@ -27,9 +27,9 @@ var (
 
 type Volumes []Volume
 type Volume struct {
-	Secret    *string `yaml:"secret,omitempty" jsonschema:"oneof_required=secret"`
-	ConfigMap *string `yaml:"configMap,omitempty" jsonschema:"oneof_required=configmap"`
-	Path      *string `yaml:"path"`
+	Secret    *string `json:"secret,omitempty" jsonschema:"oneof_required=secret"`
+	ConfigMap *string `json:"configMap,omitempty" jsonschema:"oneof_required=configmap"`
+	Path      *string `json:"path"`
 }
 
 func (v Volume) String() string {
@@ -44,8 +44,8 @@ func (v Volume) String() string {
 
 type Envs []Env
 type Env struct {
-	Name  *string `yaml:"name,omitempty" jsonschema:"pattern=^[-._a-zA-Z][-._a-zA-Z0-9]*$"`
-	Value *string `yaml:"value"`
+	Name  *string `json:"name,omitempty" jsonschema:"pattern=^[-._a-zA-Z][-._a-zA-Z0-9]*$"`
+	Value *string `json:"value"`
 }
 
 func (e Env) String() string {
@@ -82,8 +82,8 @@ type Label struct {
 	// Key consist of optional prefix part (ended by '/') and name part
 	// Prefix part validation pattern: [a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*
 	// Name part validation pattern: ([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]
-	Key   *string `yaml:"key" jsonschema:"pattern=^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\\/)?([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]$"`
-	Value *string `yaml:"value,omitempty" jsonschema:"pattern=^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$"`
+	Key   *string `json:"key" jsonschema:"pattern=^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\\/)?([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]$"`
+	Value *string `json:"value,omitempty" jsonschema:"pattern=^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$"`
 }
 
 func (l Label) String() string {
@@ -100,51 +100,52 @@ func (l Label) String() string {
 }
 
 type Options struct {
-	Scale     *ScaleOptions     `yaml:"scale,omitempty"`
-	Resources *ResourcesOptions `yaml:"resources,omitempty"`
+	Scale     *ScaleOptions     `json:"scale,omitempty"`
+	Resources *ResourcesOptions `json:"resources,omitempty"`
 }
 
 type ScaleOptions struct {
-	Min         *int64   `yaml:"min,omitempty" jsonschema_extras:"minimum=0"`
-	Max         *int64   `yaml:"max,omitempty" jsonschema_extras:"minimum=0"`
-	Metric      *string  `yaml:"metric,omitempty" jsonschema:"enum=concurrency,enum=rps"`
-	Target      *float64 `yaml:"target,omitempty" jsonschema_extras:"minimum=0.01"`
-	Utilization *float64 `yaml:"utilization,omitempty" jsonschema:"minimum=1,maximum=100"`
+	Min         *int64   `json:"min,omitempty" jsonschema_extras:"minimum=0"`
+	Max         *int64   `json:"max,omitempty" jsonschema_extras:"minimum=0"`
+	Metric      *string  `json:"metric,omitempty" jsonschema:"enum=concurrency,enum=rps"`
+	Target      *float64 `json:"target,omitempty" jsonschema_extras:"minimum=0.01"`
+	Utilization *float64 `json:"utilization,omitempty" jsonschema:"minimum=1,maximum=100"`
 }
 
 type ResourcesOptions struct {
-	Requests *ResourcesRequestsOptions `yaml:"requests,omitempty"`
-	Limits   *ResourcesLimitsOptions   `yaml:"limits,omitempty"`
+	Requests *ResourcesRequestsOptions `json:"requests,omitempty"`
+	Limits   *ResourcesLimitsOptions   `json:"limits,omitempty"`
 }
 
 type ResourcesLimitsOptions struct {
-	CPU         *string `yaml:"cpu,omitempty" jsonschema:"pattern=^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$"`
-	Memory      *string `yaml:"memory,omitempty" jsonschema:"pattern=^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$"`
-	Concurrency *int64  `yaml:"concurrency,omitempty" jsonschema_extras:"minimum=0"`
+	CPU         *string `json:"cpu,omitempty" jsonschema:"pattern=^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$"`
+	Memory      *string `json:"memory,omitempty" jsonschema:"pattern=^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$"`
+	Concurrency *int64  `json:"concurrency,omitempty" jsonschema_extras:"minimum=0"`
 }
 
 type ResourcesRequestsOptions struct {
-	CPU    *string `yaml:"cpu,omitempty" jsonschema:"pattern=^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$"`
-	Memory *string `yaml:"memory,omitempty" jsonschema:"pattern=^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$"`
+	CPU    *string `json:"cpu,omitempty" jsonschema:"pattern=^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$"`
+	Memory *string `json:"memory,omitempty" jsonschema:"pattern=^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$"`
 }
 
 // Config represents the serialized state of a Function's metadata.
 // See the Function struct for attribute documentation.
 type Config struct {
-	Name            string            `yaml:"name" jsonschema:"pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"`
-	Namespace       string            `yaml:"namespace"`
-	Runtime         string            `yaml:"runtime"`
-	Image           string            `yaml:"image"`
-	ImageDigest     string            `yaml:"imageDigest"`
-	Builder         string            `yaml:"builder"`
-	Builders        map[string]string `yaml:"builders"`
-	Buildpacks      []string          `yaml:"buildpacks"`
-	HealthEndpoints map[string]string `yaml:"healthEndpoints"`
-	Volumes         Volumes           `yaml:"volumes"`
-	Envs            Envs              `yaml:"envs"`
-	Annotations     map[string]string `yaml:"annotations"`
-	Options         Options           `yaml:"options"`
-	Labels          Labels            `yaml:"labels"`
+	Name            string            `json:"name" jsonschema:"pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"`
+	Namespace       string            `json:"namespace"`
+	Runtime         string            `json:"runtime"`
+	Image           string            `json:"image"`
+	ImageDigest     string            `json:"imageDigest"`
+	Builder         string            `json:"builder"`
+	Builders        map[string]string `json:"builders"`
+	Buildpacks      []string          `json:"buildpacks"`
+	HealthEndpoints map[string]string `json:"healthEndpoints"`
+	Lifecycle       *LifecycleProbes  `json:"lifecycle,omitempty"`
+	Volumes         Volumes           `json:"volumes"`
+	Envs            Envs              `json:"envs"`
+	Annotations     map[string]string `json:"annotations"`
+	Options         Options           `json:"options"`
+	Labels          Labels            `json:"labels"`
 	// Add new values to the toConfig/fromConfig functions.
 }
 
@@ -252,6 +253,7 @@ func fromConfig(c Config) (f Function) {
 		Builders:        c.Builders,
 		Buildpacks:      c.Buildpacks,
 		HealthEndpoints: c.HealthEndpoints,
+		Probes:          c.Lifecycle,
 		Volumes:         c.Volumes,
 		Envs:            c.Envs,
 		Annotations:     c.Annotations,
@@ -272,6 +274,7 @@ func toConfig(f Function) Config {
 		Builders:        f.Builders,
 		Buildpacks:      f.Buildpacks,
 		HealthEndpoints: f.HealthEndpoints,
+		Lifecycle:       f.Probes,
 		Volumes:         f.Volumes,
 		Envs:            f.Envs,
 		Annotations:     f.Annotations,
