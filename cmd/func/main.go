@@ -2,10 +2,12 @@ package main
 
 import (
 	"context"
-	"github.com/boson-project/func/cmd"
 	"os"
 	"os/signal"
 	"syscall"
+
+	"github.com/boson-project/func/cmd"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 )
 
 // Statically-populated build metadata set
