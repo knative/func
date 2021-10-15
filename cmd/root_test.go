@@ -7,7 +7,7 @@ import (
 
 	"knative.dev/client/pkg/util"
 
-	fn "github.com/boson-project/func"
+	fn "knative.dev/kn-plugin-func"
 )
 
 func Test_mergeEnvMaps(t *testing.T) {
@@ -115,5 +115,28 @@ func Test_mergeEnvMaps(t *testing.T) {
 				t.Errorf("mergeEnvs() = got: %s, want %s", gotString, wantString)
 			}
 		})
+	}
+}
+
+func Test_CMDParameterized(t *testing.T) {
+
+	if root.Use != "func" {
+		t.Fatalf("default command use should be \"func\".")
+	}
+
+	usageExample, err := replaceNameInTemplate("func", "example")
+	if root.Example != usageExample || err != nil {
+		t.Fatalf("default command example should assume \"func\" as executable name. error: %v", err)
+	}
+
+	cmd, err := NewRootCmd()
+	if cmd.Use != "kn func" && err != nil {
+		t.Fatalf("plugin command use should be \"kn func\".")
+	}
+
+	usageExample, _ = replaceNameInTemplate("kn func", "example")
+	cmd, err = NewRootCmd()
+	if cmd.Example != usageExample || err != nil {
+		t.Fatalf("plugin command example should assume \"kn func\" as executable name. error: %v", err)
 	}
 }

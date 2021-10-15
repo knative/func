@@ -10,25 +10,55 @@ import (
 
 // HTTP Based Function Test Validator
 type FunctionHttpResponsivenessValidator struct {
-	runtime   string
-	targetUrl string
-	expects   string
+	runtime     string
+	targetUrl   string
+	method      string
+	contentType string
+	bodyData    string
+	expects     string
 }
 
 func (f FunctionHttpResponsivenessValidator) Validate(t *testing.T, project FunctionTestProject) {
-	if f.runtime != project.Runtime {
+	if f.runtime != project.Runtime || f.targetUrl == "" {
 		return
 	}
-	if f.targetUrl != "" {
-		url := fmt.Sprintf(f.targetUrl, project.FunctionURL)
-		body, status := HttpGet(t, url)
-		if status != 200 {
-			t.Fatalf("Expected status code 200, received %v", status)
-		}
-		if f.expects != "" && !strings.Contains(body, f.expects) {
-			t.Fatalf("Body does not contains expected sentence [%v]", f.expects)
-		}
+
+	// Http Invoke Handling
+	method := "GET"
+	if f.method != "" {
+		method = f.method
 	}
+	url := fmt.Sprintf(f.targetUrl, project.FunctionURL)
+	req, err := http.NewRequest(method, url, strings.NewReader(f.bodyData))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.contentType != "" {
+		req.Header.Add("Content-Type", f.contentType)
+	}
+	client := &http.Client{}
+	resp, err := client.Do(req)
+
+	// Http Response Handling
+	if err != nil {
+		t.Fatalf("Error returned calling %v : %v", url, err.Error())
+	}
+	defer resp.Body.Close()
+	t.Logf("%v %v -> %v", method, url, resp.Status)
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("Error reading response body: %v", err.Error())
+	}
+
+	// Assertions
+	if resp.StatusCode != 200 {
+		t.Fatalf("Expected status code 200, received %v", resp.StatusCode)
+	}
+	if f.expects != "" && !strings.Contains(string(body), f.expects) {
+		t.Fatalf("Body does not contains expected sentence [%v]", f.expects)
+	}
+
 }
 
 var defaultFunctionsHttpValidators = []FunctionHttpResponsivenessValidator{
@@ -50,6 +80,13 @@ var defaultFunctionsHttpValidators = []FunctionHttpResponsivenessValidator{
 	},
 	{runtime: "springboot",
 		targetUrl: "%s/health/readiness",
+	},
+	{runtime: "typescript",
+		targetUrl:   "%s",
+		method:      "POST",
+		contentType: "application/json",
+		bodyData:    `{"message":"hello"}`,
+		expects:     `{"message":"hello"}`,
 	},
 }
 
@@ -79,6 +116,10 @@ var newRevisionFunctionsHttpValidators = []FunctionHttpResponsivenessValidator{
 		targetUrl: "%s",
 		expects:   `HELLO QUARKUS FUNCTION`,
 	},
+	{runtime: "typescript",
+		targetUrl: "%s",
+		expects:   `HELLO TYPESCRIPT FUNCTION`,
+	},
 }
 
 // NewRevisionFunctionHttpTest is meant to validate the deployed function (new revision from Template) is actually responsive
@@ -88,20 +129,4 @@ func NewRevisionFunctionHttpTest(t *testing.T, knFunc *TestShellCmdRunner, proje
 			v.Validate(t, project)
 		}
 	}
-}
-
-// HttpGet Convenient wrapper that calls an URL and returns just the
-// body and status code. It fails in case some error occurs in the call
-func HttpGet(t *testing.T, url string) (body string, statusCode int) {
-	resp, err := http.Get(url)
-	if err != nil {
-		t.Fatalf("Error returned calling %v : %v", url, err.Error())
-	}
-	defer resp.Body.Close()
-	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		t.Fatalf("Error reading response body: %v", err.Error())
-	}
-	t.Logf("GET %v -> %v", url, resp.Status)
-	return string(b), resp.StatusCode
 }

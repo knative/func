@@ -25,11 +25,10 @@ func (s SimpleTestEvent) pushTo(url string, t *testing.T) (body string, statusCo
 	req.Header.Add("Content-Type", s.ContentType)
 	resp, err := client.Do(req)
 
-	t.Logf("event POST %v -> %v", url, resp.Status)
-
 	if err != nil {
 		return "", 0, err
 	}
+	t.Logf("event POST %v -> %v", url, resp.Status)
 	defer resp.Body.Close()
 	b, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -60,7 +59,7 @@ var defaultFunctionsCloudEventsValidators = map[string]FunctionCloudEventsValida
 // DefaultFunctionEventsTest executes a common test (applied for all runtimes) against a deployed
 // functions that responds to CloudEvents
 func DefaultFunctionEventsTest(t *testing.T, knFunc *TestShellCmdRunner, project FunctionTestProject) {
-	if project.Template == "events" && project.IsDeployed {
+	if project.Template == "cloudevents" && project.IsDeployed {
 
 		simpleEvent := SimpleTestEvent{
 			Type:        "e2e.test",
@@ -86,6 +85,8 @@ func DefaultFunctionEventsTest(t *testing.T, knFunc *TestShellCmdRunner, project
 			t.Fatalf("Expected status code 200, received %v", statusCode)
 		}
 
+	} else {
+		t.Fatalf("Expected e2e cloudevents test to run")
 	}
 
 }

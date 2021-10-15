@@ -15,14 +15,17 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/client/pkg/kn/flags"
 	servingclientlib "knative.dev/client/pkg/serving"
+	clientservingv1 "knative.dev/client/pkg/serving/v1"
 	"knative.dev/client/pkg/wait"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 
-	fn "github.com/boson-project/func"
-	"github.com/boson-project/func/k8s"
+	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/k8s"
 )
+
+const LIVENESS_ENDPOINT = "/health/liveness"
+const READINESS_ENDPOINT = "/health/readiness"
 
 type Deployer struct {
 	// Namespace with which to override that set on the default configuration (such as the ~/.kube/config).
@@ -42,6 +45,36 @@ func NewDeployer(namespaceOverride string) (deployer *Deployer, err error) {
 	return
 }
 
+// Checks the status of the "user-container" for the ImagePullBackOff reason meaning that
+// the container image is not reachable probably because a private registry is being used.
+func (d *Deployer) isImageInPrivateRegistry(ctx context.Context, client clientservingv1.KnServingClient, funcName string) bool {
+	ksvc, err := client.GetService(ctx, funcName)
+	if err != nil {
+		return false
+	}
+	k8sClient, err := k8s.NewKubernetesClientset(d.Namespace)
+	if err != nil {
+		return false
+	}
+	list, err := k8sClient.CoreV1().Pods(d.Namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: "serving.knative.dev/revision=" + ksvc.Status.LatestCreatedRevisionName + ",serving.knative.dev/service=" + funcName,
+		FieldSelector: "status.phase=Pending",
+	})
+	if err != nil {
+		return false
+	}
+	if len(list.Items) != 1 {
+		return false
+	}
+
+	for _, cont := range list.Items[0].Status.ContainerStatuses {
+		if cont.Name == "user-container" {
+			return cont.State.Waiting != nil && cont.State.Waiting.Reason == "ImagePullBackOff"
+		}
+	}
+	return false
+}
+
 func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (result fn.DeploymentResult, err error) {
 
 	client, err := NewServingClient(d.Namespace)
@@ -56,7 +89,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (result fn.Deploym
 			referencedSecrets := sets.NewString()
 			referencedConfigMaps := sets.NewString()
 
-			service, err := generateNewService(f.Name, f.ImageWithDigest(), f.Runtime, f.Envs, f.Volumes, f.Annotations, f.Options)
+			service, err := generateNewService(f)
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to generate the Knative Service: %v", err)
 				return fn.DeploymentResult{}, err
@@ -77,7 +110,41 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (result fn.Deploym
 			if d.Verbose {
 				fmt.Println("Waiting for Knative Service to become ready")
 			}
-			err, _ = client.WaitForService(ctx, f.Name, DefaultWaitingTimeout, wait.NoopMessageCallback())
+			chprivate := make(chan bool)
+			cherr := make(chan error)
+			go func() {
+				private := false
+				for !private {
+					time.Sleep(5 * time.Second)
+					private = d.isImageInPrivateRegistry(ctx, client, f.Name)
+					chprivate <- private
+				}
+				close(chprivate)
+			}()
+			go func() {
+				err, _ := client.WaitForService(ctx, f.Name, DefaultWaitingTimeout, wait.NoopMessageCallback())
+				cherr <- err
+				close(cherr)
+			}()
+
+			presumePrivate := false
+		main:
+			// Wait for either a timeout or a container condition signaling the image is unreachable
+			for {
+				select {
+				case private := <-chprivate:
+					if private {
+						presumePrivate = true
+						break main
+					}
+				case err = <-cherr:
+					break main
+				}
+			}
+			if presumePrivate {
+				err := fmt.Errorf("your function image is unreachable. It is possible that your docker registry is private. If so, make sure you have set up pull secrets https://knative.dev/docs/developer/serving/deploying-from-private-registry")
+				return fn.DeploymentResult{}, err
+			}
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to wait for the Knative Service to become ready: %v", err)
 				return fn.DeploymentResult{}, err
@@ -89,7 +156,9 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (result fn.Deploym
 				return fn.DeploymentResult{}, err
 			}
 
-			fmt.Println("Function deployed at URL: " + route.Status.URL.String())
+			if d.Verbose {
+				fmt.Println("Function deployed at URL: " + route.Status.URL.String())
+			}
 			return fn.DeploymentResult{
 				Status: fn.Deployed,
 				URL:    route.Status.URL.String(),
@@ -120,7 +189,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (result fn.Deploym
 			return fn.DeploymentResult{}, err
 		}
 
-		_, err = client.UpdateServiceWithRetry(ctx, f.Name, updateService(f.ImageWithDigest(), newEnv, newEnvFrom, newVolumes, newVolumeMounts, f.Annotations, f.Options), 3)
+		_, err = client.UpdateServiceWithRetry(ctx, f.Name, updateService(f, newEnv, newEnvFrom, newVolumes, newVolumeMounts), 3)
 		if err != nil {
 			err = fmt.Errorf("knative deployer failed to update the Knative Service: %v", err)
 			return fn.DeploymentResult{}, err
@@ -149,50 +218,65 @@ func probeFor(url string) *corev1.Probe {
 	}
 }
 
-func generateNewService(name, image, runtime string, envs fn.Envs, volumes fn.Volumes, annotations map[string]string, options fn.Options) (*servingv1.Service, error) {
-	containers := []corev1.Container{
-		{
-			Image: image,
-		},
-	}
+func setHealthEndpoints(f fn.Function, c *corev1.Container) *corev1.Container {
+	// Set the defaults
+	c.LivenessProbe = probeFor(LIVENESS_ENDPOINT)
+	c.ReadinessProbe = probeFor(READINESS_ENDPOINT)
 
-	if runtime != "quarkus" {
-		containers[0].LivenessProbe = probeFor("/health/liveness")
-		containers[0].ReadinessProbe = probeFor("/health/readiness")
+	// If specified in func.yaml, the provided values override the defaults
+	if f.HealthEndpoints != nil {
+		if f.HealthEndpoints["liveness"] != "" {
+			c.LivenessProbe = probeFor(f.HealthEndpoints["liveness"])
+		}
+		if f.HealthEndpoints["readiness"] != "" {
+			c.ReadinessProbe = probeFor(f.HealthEndpoints["readiness"])
+		}
 	}
+	return c
+}
+
+func generateNewService(f fn.Function) (*v1.Service, error) {
+	container := corev1.Container{
+		Image: f.ImageWithDigest(),
+	}
+	setHealthEndpoints(f, &container)
 
 	referencedSecrets := sets.NewString()
 	referencedConfigMaps := sets.NewString()
 
-	newEnv, newEnvFrom, err := processEnvs(envs, &referencedSecrets, &referencedConfigMaps)
+	newEnv, newEnvFrom, err := processEnvs(f.Envs, &referencedSecrets, &referencedConfigMaps)
 	if err != nil {
 		return nil, err
 	}
-	containers[0].Env = newEnv
-	containers[0].EnvFrom = newEnvFrom
+	container.Env = newEnv
+	container.EnvFrom = newEnvFrom
 
-	newVolumes, newVolumeMounts, err := processVolumes(volumes, &referencedSecrets, &referencedConfigMaps)
+	newVolumes, newVolumeMounts, err := processVolumes(f.Volumes, &referencedSecrets, &referencedConfigMaps)
 	if err != nil {
 		return nil, err
 	}
-	containers[0].VolumeMounts = newVolumeMounts
+	container.VolumeMounts = newVolumeMounts
+
+	labels, err := processLabels(f)
+	if err != nil {
+		return nil, err
+	}
 
 	service := &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-			Labels: map[string]string{
-				"boson.dev/function": "true",
-				"boson.dev/runtime":  runtime,
-			},
-			Annotations: annotations,
+			Name:        f.Name,
+			Labels:      labels,
+			Annotations: f.Annotations,
 		},
 		Spec: v1.ServiceSpec{
 			ConfigurationSpec: v1.ConfigurationSpec{
 				Template: v1.RevisionTemplateSpec{
 					Spec: v1.RevisionSpec{
 						PodSpec: corev1.PodSpec{
-							Containers: containers,
-							Volumes:    newVolumes,
+							Containers: []corev1.Container{
+								container,
+							},
+							Volumes: newVolumes,
 						},
 					},
 				},
@@ -200,7 +284,7 @@ func generateNewService(name, image, runtime string, envs fn.Envs, volumes fn.Vo
 		},
 	}
 
-	err = setServiceOptions(&service.Spec.Template, options)
+	err = setServiceOptions(&service.Spec.Template, f.Options)
 	if err != nil {
 		return service, err
 	}
@@ -208,37 +292,92 @@ func generateNewService(name, image, runtime string, envs fn.Envs, volumes fn.Vo
 	return service, nil
 }
 
-func updateService(image string, newEnv []corev1.EnvVar, newEnvFrom []corev1.EnvFromSource, newVolumes []corev1.Volume, newVolumeMounts []corev1.VolumeMount,
-	annotations map[string]string, options fn.Options) func(service *servingv1.Service) (*servingv1.Service, error) {
-	return func(service *servingv1.Service) (*servingv1.Service, error) {
+func updateService(f fn.Function, newEnv []corev1.EnvVar, newEnvFrom []corev1.EnvFromSource, newVolumes []corev1.Volume, newVolumeMounts []corev1.VolumeMount) func(service *v1.Service) (*v1.Service, error) {
+	return func(service *v1.Service) (*v1.Service, error) {
 		// Removing the name so the k8s server can fill it in with generated name,
 		// this prevents conflicts in Revision name when updating the KService from multiple places.
 		service.Spec.Template.Name = ""
 
 		// Don't bother being as clever as we are with env variables
-		// Just set the annotations to be whatever we find in func.yaml
-		for k, v := range annotations {
+		// Just set the annotations and labels to be whatever we find in func.yaml
+		for k, v := range f.Annotations {
 			service.ObjectMeta.Annotations[k] = v
 		}
+		// I hate that we have to do this. Users should not see these values.
+		// It is an implementation detail. These health endpoints should not be
+		// a part of func.yaml since the user can only mess things up by changing
+		// them. Ultimately, this information is determined by the language pack.
+		// Which is another reason to consider having a global config to store
+		// some metadata which is fairly static. For example, a .config/func/global.yaml
+		// file could contain information about all known language packs. As new
+		// language packs are discovered through use of the --repository flag when
+		// creating a function, this information could be extracted from
+		// language-pack.yaml for each template and written to the local global
+		// config. At runtime this configuration file could be consulted. I don't
+		// know what this would mean for developers using the func library directly.
+		cp := &service.Spec.Template.Spec.Containers[0]
+		setHealthEndpoints(f, cp)
 
-		err := setServiceOptions(&service.Spec.Template, options)
+		err := setServiceOptions(&service.Spec.Template, f.Options)
 		if err != nil {
 			return service, err
 		}
 
-		err = flags.UpdateImage(&service.Spec.Template.Spec.PodSpec, image)
+		labels, err := processLabels(f)
+		if err != nil {
+			return service, err
+		}
+		service.ObjectMeta.Labels = labels
+
+		err = flags.UpdateImage(&service.Spec.Template.Spec.PodSpec, f.ImageWithDigest())
 		if err != nil {
 			return service, err
 		}
 
-		service.Spec.ConfigurationSpec.Template.Spec.Containers[0].Env = newEnv
-		service.Spec.ConfigurationSpec.Template.Spec.Containers[0].EnvFrom = newEnvFrom
-
-		service.Spec.ConfigurationSpec.Template.Spec.Containers[0].VolumeMounts = newVolumeMounts
+		cp.Env = newEnv
+		cp.EnvFrom = newEnvFrom
+		cp.VolumeMounts = newVolumeMounts
 		service.Spec.ConfigurationSpec.Template.Spec.Volumes = newVolumes
 
 		return service, nil
 	}
+}
+
+// processLabels generates a map of labels as key/value pairs from a function config
+// labels:
+//   - key: EXAMPLE1                            # Label directly from a value
+//     value: value1
+//   - key: EXAMPLE2                            # Label from the local ENV var
+//     value: {{ env:MY_ENV }}
+func processLabels(f fn.Function) (map[string]string, error) {
+	labels := map[string]string{
+		"boson.dev/function": "true",
+		"boson.dev/runtime":  f.Runtime,
+	}
+	for _, label := range f.Labels {
+		if label.Key != nil && label.Value != nil {
+			if strings.HasPrefix(*label.Value, "{{") {
+				slices := strings.Split(strings.Trim(*label.Value, "{} "), ":")
+				if len(slices) == 2 {
+					// label from the local ENV var, eg. author={{ env:$USER }}
+					localValue, err := processLocalEnvValue(*label.Value)
+					if err != nil {
+						return nil, err
+					}
+					labels[*label.Key] = localValue
+					continue
+				}
+			} else {
+				// a standard label with key and value, eg. author=alice@example.com
+				labels[*label.Key] = *label.Value
+				continue
+			}
+		} else if label.Key != nil && label.Value == nil {
+			labels[*label.Key] = ""
+		}
+	}
+
+	return labels, nil
 }
 
 // processEnvs generates array of EnvVars and EnvFromSources from a function config
@@ -522,7 +661,7 @@ func checkSecretsConfigMapsArePresent(ctx context.Context, namespace string, ref
 
 // setServiceOptions sets annotations on Service Revision Template or in the Service Spec
 // from values specifed in function configuration options
-func setServiceOptions(template *servingv1.RevisionTemplateSpec, options fn.Options) error {
+func setServiceOptions(template *v1.RevisionTemplateSpec, options fn.Options) error {
 
 	toRemove := []string{}
 	toUpdate := map[string]string{}

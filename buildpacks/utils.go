@@ -17,7 +17,7 @@ func Runtimes() string {
 	return str
 }
 
-//RuntimesList returns the list of supported runtimes
+// RuntimesList returns the list of supported runtimes
 //as an array of strings, sorted alphabetically
 func RuntimesList() []string {
 	rb := RuntimeToBuildpack

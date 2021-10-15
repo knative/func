@@ -9,9 +9,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/boson-project/func/utils"
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"knative.dev/kn-plugin-func/utils"
 )
 
 // ConfigFile is the name of the config's serialized form.
@@ -27,8 +27,8 @@ var (
 
 type Volumes []Volume
 type Volume struct {
-	Secret    *string `yaml:"secret,omitempty"`
-	ConfigMap *string `yaml:"configMap,omitempty"`
+	Secret    *string `yaml:"secret,omitempty" jsonschema:"oneof_required=secret"`
+	ConfigMap *string `yaml:"configMap,omitempty" jsonschema:"oneof_required=configmap"`
 	Path      *string `yaml:"path"`
 }
 
@@ -44,7 +44,7 @@ func (v Volume) String() string {
 
 type Envs []Env
 type Env struct {
-	Name  *string `yaml:"name,omitempty"`
+	Name  *string `yaml:"name,omitempty" jsonschema:"pattern=^[-._a-zA-Z][-._a-zA-Z0-9]*$"`
 	Value *string `yaml:"value"`
 }
 
@@ -77,17 +77,39 @@ func (e Env) String() string {
 	return ""
 }
 
+type Labels []Label
+type Label struct {
+	// Key consist of optional prefix part (ended by '/') and name part
+	// Prefix part validation pattern: [a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*
+	// Name part validation pattern: ([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]
+	Key   *string `yaml:"key" jsonschema:"pattern=^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\\/)?([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]$"`
+	Value *string `yaml:"value,omitempty" jsonschema:"pattern=^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$"`
+}
+
+func (l Label) String() string {
+	if l.Key != nil && l.Value == nil {
+		return fmt.Sprintf("Label with key \"%s\"", *l.Key)
+	} else if l.Key != nil && l.Value != nil {
+		match := regLocalEnv.FindStringSubmatch(*l.Value)
+		if len(match) == 2 {
+			return fmt.Sprintf("Label with key \"%s\" and value set from local env variable \"%s\"", *l.Key, match[1])
+		}
+		return fmt.Sprintf("Label with key \"%s\" and value \"%s\"", *l.Key, *l.Value)
+	}
+	return ""
+}
+
 type Options struct {
 	Scale     *ScaleOptions     `yaml:"scale,omitempty"`
 	Resources *ResourcesOptions `yaml:"resources,omitempty"`
 }
 
 type ScaleOptions struct {
-	Min         *int64   `yaml:"min,omitempty"`
-	Max         *int64   `yaml:"max,omitempty"`
-	Metric      *string  `yaml:"metric,omitempty"`
-	Target      *float64 `yaml:"target,omitempty"`
-	Utilization *float64 `yaml:"utilization,omitempty"`
+	Min         *int64   `yaml:"min,omitempty" jsonschema_extras:"minimum=0"`
+	Max         *int64   `yaml:"max,omitempty" jsonschema_extras:"minimum=0"`
+	Metric      *string  `yaml:"metric,omitempty" jsonschema:"enum=concurrency,enum=rps"`
+	Target      *float64 `yaml:"target,omitempty" jsonschema_extras:"minimum=0.01"`
+	Utilization *float64 `yaml:"utilization,omitempty" jsonschema:"minimum=1,maximum=100"`
 }
 
 type ResourcesOptions struct {
@@ -96,30 +118,33 @@ type ResourcesOptions struct {
 }
 
 type ResourcesLimitsOptions struct {
-	CPU         *string `yaml:"cpu,omitempty"`
-	Memory      *string `yaml:"memory,omitempty"`
-	Concurrency *int64  `yaml:"concurrency,omitempty"`
+	CPU         *string `yaml:"cpu,omitempty" jsonschema:"pattern=^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$"`
+	Memory      *string `yaml:"memory,omitempty" jsonschema:"pattern=^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$"`
+	Concurrency *int64  `yaml:"concurrency,omitempty" jsonschema_extras:"minimum=0"`
 }
 
 type ResourcesRequestsOptions struct {
-	CPU    *string `yaml:"cpu,omitempty"`
-	Memory *string `yaml:"memory,omitempty"`
+	CPU    *string `yaml:"cpu,omitempty" jsonschema:"pattern=^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$"`
+	Memory *string `yaml:"memory,omitempty" jsonschema:"pattern=^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$"`
 }
 
 // Config represents the serialized state of a Function's metadata.
 // See the Function struct for attribute documentation.
-type config struct {
-	Name        string            `yaml:"name"`
-	Namespace   string            `yaml:"namespace"`
-	Runtime     string            `yaml:"runtime"`
-	Image       string            `yaml:"image"`
-	ImageDigest string            `yaml:"imageDigest"`
-	Builder     string            `yaml:"builder"`
-	BuilderMap  map[string]string `yaml:"builderMap"`
-	Volumes     Volumes           `yaml:"volumes"`
-	Envs        Envs              `yaml:"envs"`
-	Annotations map[string]string `yaml:"annotations"`
-	Options     Options           `yaml:"options"`
+type Config struct {
+	Name            string            `yaml:"name" jsonschema:"pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"`
+	Namespace       string            `yaml:"namespace"`
+	Runtime         string            `yaml:"runtime"`
+	Image           string            `yaml:"image"`
+	ImageDigest     string            `yaml:"imageDigest"`
+	Builder         string            `yaml:"builder"`
+	Builders        map[string]string `yaml:"builders"`
+	Buildpacks      []string          `yaml:"buildpacks"`
+	HealthEndpoints map[string]string `yaml:"healthEndpoints"`
+	Volumes         Volumes           `yaml:"volumes"`
+	Envs            Envs              `yaml:"envs"`
+	Annotations     map[string]string `yaml:"annotations"`
+	Options         Options           `yaml:"options"`
+	Labels          Labels            `yaml:"labels"`
 	// Add new values to the toConfig/fromConfig functions.
 }
 
@@ -128,7 +153,7 @@ type config struct {
 // errors accessing an extant config file, or the contents of the file do not
 // unmarshall.  A missing file at a valid path does not error but returns the
 // empty value of Config.
-func newConfig(root string) (c config, err error) {
+func newConfig(root string) (c Config, err error) {
 	filename := filepath.Join(root, ConfigFile)
 	if _, err = os.Stat(filename); err != nil {
 		// do not consider a missing config file an error.  Just return.
@@ -166,7 +191,8 @@ func newConfig(root string) (c config, err error) {
 	volumesErrors := validateVolumes(c.Volumes)
 	envsErrors := ValidateEnvs(c.Envs)
 	optionsErrors := validateOptions(c.Options)
-	if len(volumesErrors) > 0 || len(envsErrors) > 0 || len(optionsErrors) > 0 {
+	labelsErrors := ValidateLabels(c.Labels)
+	if len(volumesErrors) > 0 || len(envsErrors) > 0 || len(optionsErrors) > 0 || len(labelsErrors) > 0 {
 		// if there aren't any previously reported errors, we need to set the error message header first
 		if errMsg == "" {
 			errMsg = errMsgHeader
@@ -185,7 +211,9 @@ func newConfig(root string) (c config, err error) {
 		for i := range optionsErrors {
 			optionsErrors[i] = "  " + optionsErrors[i]
 		}
-
+		for i := range labelsErrors {
+			labelsErrors[i] = "  " + labelsErrors[i]
+		}
 		errMsg = errMsg + strings.Join(volumesErrors, "\n")
 		// we have errors from both volumes and envs sections -> let's make sure they are both indented
 		if len(volumesErrors) > 0 && len(envsErrors) > 0 {
@@ -197,6 +225,11 @@ func newConfig(root string) (c config, err error) {
 			errMsg = errMsg + "\n"
 		}
 		errMsg = errMsg + strings.Join(optionsErrors, "\n")
+		// now also handle labels related errors
+		if len(labelsErrors) > 0 && (len(optionsErrors) > 0 || len(volumesErrors) > 0 || len(envsErrors) > 0) {
+			errMsg = errMsg + "\n"
+		}
+		errMsg = errMsg + strings.Join(labelsErrors, "\n")
 	}
 
 	if errMsg != "" {
@@ -208,36 +241,42 @@ func newConfig(root string) (c config, err error) {
 
 // fromConfig returns a Function populated from config.
 // Note that config does not include ancillary fields not serialized, such as Root.
-func fromConfig(c config) (f Function) {
+func fromConfig(c Config) (f Function) {
 	return Function{
-		Name:        c.Name,
-		Namespace:   c.Namespace,
-		Runtime:     c.Runtime,
-		Image:       c.Image,
-		ImageDigest: c.ImageDigest,
-		Builder:     c.Builder,
-		BuilderMap:  c.BuilderMap,
-		Volumes:     c.Volumes,
-		Envs:        c.Envs,
-		Annotations: c.Annotations,
-		Options:     c.Options,
+		Name:            c.Name,
+		Namespace:       c.Namespace,
+		Runtime:         c.Runtime,
+		Image:           c.Image,
+		ImageDigest:     c.ImageDigest,
+		Builder:         c.Builder,
+		Builders:        c.Builders,
+		Buildpacks:      c.Buildpacks,
+		HealthEndpoints: c.HealthEndpoints,
+		Volumes:         c.Volumes,
+		Envs:            c.Envs,
+		Annotations:     c.Annotations,
+		Options:         c.Options,
+		Labels:          c.Labels,
 	}
 }
 
 // toConfig serializes a Function to a config object.
-func toConfig(f Function) config {
-	return config{
-		Name:        f.Name,
-		Namespace:   f.Namespace,
-		Runtime:     f.Runtime,
-		Image:       f.Image,
-		ImageDigest: f.ImageDigest,
-		Builder:     f.Builder,
-		BuilderMap:  f.BuilderMap,
-		Volumes:     f.Volumes,
-		Envs:        f.Envs,
-		Annotations: f.Annotations,
-		Options:     f.Options,
+func toConfig(f Function) Config {
+	return Config{
+		Name:            f.Name,
+		Namespace:       f.Namespace,
+		Runtime:         f.Runtime,
+		Image:           f.Image,
+		ImageDigest:     f.ImageDigest,
+		Builder:         f.Builder,
+		Builders:        f.Builders,
+		Buildpacks:      f.Buildpacks,
+		HealthEndpoints: f.HealthEndpoints,
+		Volumes:         f.Volumes,
+		Envs:            f.Envs,
+		Annotations:     f.Annotations,
+		Options:         f.Options,
+		Labels:          f.Labels,
 	}
 }
 
@@ -324,6 +363,51 @@ func ValidateEnvs(envs Envs) (errors []string) {
 						fmt.Sprintf(
 							"env entry #%d with name '%s' has invalid value field set, it has '%s', but allowed is only '{{ env:MY_ENV }}', '{{ secret:secretName:key }}' or '{{ configMap:configMapName:key }}'",
 							i, *env.Name, *env.Value))
+				}
+			}
+		}
+	}
+
+	return
+}
+
+// ValidateLabels checks that input labels are correct and contain all necessary fields.
+// Returns array of error messages, empty if no errors are found
+//
+// Allowed settings:
+// - key: EXAMPLE1                				# label directly from a value
+//   value: value1
+// - key: EXAMPLE2                 				# label from the local ENV var
+//   value: {{ env:MY_ENV }}
+func ValidateLabels(labels Labels) (errors []string) {
+	for i, label := range labels {
+		if label.Key == nil && label.Value == nil {
+			errors = append(errors, fmt.Sprintf("label entry #%d is not properly set", i))
+		} else if label.Key == nil && label.Value != nil {
+			errors = append(errors, fmt.Sprintf("label entry #%d is missing key field, only value '%s' is set", i, *label.Value))
+		} else {
+			if err := utils.ValidateLabelKey(*label.Key); err != nil {
+				errors = append(errors, fmt.Sprintf("label entry #%d has invalid key set: %q; %s", i, *label.Key, err.Error()))
+			}
+			if label.Value != nil {
+				if err := utils.ValidateLabelValue(*label.Value); err != nil {
+					errors = append(errors, fmt.Sprintf("label entry #%d has invalid value set: %q; %s", i, *label.Value, err.Error()))
+				}
+
+				if strings.HasPrefix(*label.Value, "{{") {
+					// ENV from the local ENV var; {{ env:MY_ENV }}
+					if !regLocalEnv.MatchString(*label.Value) {
+						errors = append(errors,
+							fmt.Sprintf(
+								"label entry #%d with key '%s' has invalid value field set, it has '%s', but allowed is only '{{ env:MY_ENV }}'",
+								i, *label.Key, *label.Value))
+					} else {
+						match := regLocalEnv.FindStringSubmatch(*label.Value)
+						value := os.Getenv(match[1])
+						if err := utils.ValidateLabelValue(value); err != nil {
+							errors = append(errors, fmt.Sprintf("label entry #%d with key '%s' has invalid value when the environment is evaluated: '%s': %s", i, *label.Key, value, err.Error()))
+						}
+					}
 				}
 			}
 		}

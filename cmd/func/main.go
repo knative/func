@@ -6,8 +6,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/boson-project/func/cmd"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	"knative.dev/kn-plugin-func/cmd"
 )
 
 // Statically-populated build metadata set

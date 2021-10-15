@@ -10,7 +10,7 @@ import (
 
 	"knative.dev/client/pkg/kn/plugin"
 
-	"github.com/boson-project/func/cmd"
+	"knative.dev/kn-plugin-func/cmd"
 )
 
 func init() {
@@ -35,10 +35,10 @@ func (f *funcPlugin) Execute(args []string) error {
 		cancel()
 	}()
 
-	rootCmd := cmd.NewRootCmd()
+	rootCmd, _ := cmd.NewRootCmd()
 	info, _ := debug.ReadBuildInfo()
 	for _, dep := range info.Deps {
-		if strings.Contains(dep.Path, "boson-project/func") {
+		if strings.Contains(dep.Path, "knative.dev/kn-plugin-func") {
 			cmd.SetMeta("", dep.Version, dep.Sum)
 		}
 	}
@@ -59,7 +59,7 @@ func (f *funcPlugin) CommandParts() []string {
 	return []string{"func"}
 }
 
-// Path is empty because its an internal plugins
+// Path is empty because its an internal plugin
 func (f *funcPlugin) Path() string {
 	return ""
 }

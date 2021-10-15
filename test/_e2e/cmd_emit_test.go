@@ -21,7 +21,7 @@ func TestEmitCommand(t *testing.T) {
 		FunctionName: "emit-test-node",
 		ProjectPath:  filepath.Join(os.TempDir(), "emit-test-node"),
 		Runtime:      "node",
-		Template:     "events",
+		Template:     "cloudevents",
 	}
 	knFunc := NewKnFuncShellCli(t)
 

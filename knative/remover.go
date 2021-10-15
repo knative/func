@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/boson-project/func/k8s"
+	"knative.dev/kn-plugin-func/k8s"
 )
 
 const RemoveTimeout = 120 * time.Second

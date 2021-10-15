@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Masterminds/semver"
+
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/events"
@@ -29,7 +31,7 @@ import (
 
 	dockerClient "github.com/docker/docker/client"
 
-	fn "github.com/boson-project/func"
+	fn "knative.dev/kn-plugin-func"
 )
 
 //Builder holds the configuration that will be passed to
@@ -46,14 +48,16 @@ func NewBuilder() *Builder {
 //RuntimeToBuildpack holds the mapping between the Runtime and its corresponding
 //Buildpack builder to use
 var RuntimeToBuildpack = map[string]string{
-	"quarkus":    "quay.io/boson/faas-quarkus-builder",
+	"quarkus":    "quay.io/boson/faas-jvm-builder",
 	"node":       "quay.io/boson/faas-nodejs-builder",
 	"go":         "quay.io/boson/faas-go-builder",
-	"springboot": "quay.io/boson/faas-springboot-builder",
+	"springboot": "quay.io/boson/faas-jvm-builder",
 	"python":     "quay.io/boson/faas-python-builder",
 	"typescript": "quay.io/boson/faas-nodejs-builder",
 	"rust":       "quay.io/boson/faas-rust-builder",
 }
+
+var v330 = semver.MustParse("v3.3.0")
 
 // Build the Function at path.
 func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
@@ -63,7 +67,7 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	var packBuilder string
 	if f.Builder != "" {
 		packBuilder = f.Builder
-		pb, ok := f.BuilderMap[packBuilder]
+		pb, ok := f.Builders[packBuilder]
 		if ok {
 			packBuilder = pb
 		}
@@ -104,20 +108,27 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		return err
 	}
 
-	var deamonIsPodman bool
+	var daemonIsPodmanBeforeV330 bool
 	for _, component := range version.Components {
 		if component.Name == "Podman Engine" {
-			deamonIsPodman = true
+			v := semver.MustParse(version.Version)
+			if v.Compare(v330) < 0 {
+				daemonIsPodmanBeforeV330 = true
+			}
 			break
 		}
 	}
 
 	packOpts := pack.BuildOptions{
-		AppPath:      f.Root,
-		Image:        f.Image,
-		Builder:      packBuilder,
-		TrustBuilder: !deamonIsPodman && strings.HasPrefix(packBuilder, "quay.io/boson"),
-		DockerHost:   os.Getenv("DOCKER_HOST"),
+		AppPath:        f.Root,
+		Image:          f.Image,
+		LifecycleImage: "quay.io/boson/lifecycle:0.12.0",
+		Builder:        packBuilder,
+		Buildpacks:     f.Buildpacks,
+		TrustBuilder: !daemonIsPodmanBeforeV330 &&
+			(strings.HasPrefix(packBuilder, "quay.io/boson") ||
+				strings.HasPrefix(packBuilder, "gcr.io/paketo-buildpacks")),
+		DockerHost: os.Getenv("DOCKER_HOST"),
 		ContainerConfig: struct {
 			Network string
 			Volumes []string

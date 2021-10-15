@@ -3,6 +3,7 @@
 package function
 
 import (
+	"os"
 	"testing"
 
 	"knative.dev/pkg/ptr"
@@ -525,6 +526,243 @@ func Test_validateEnvs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := ValidateEnvs(tt.envs); len(got) != tt.errs {
 				t.Errorf("validateEnvs() = %v\n got %d errors but want %d", got, len(got), tt.errs)
+			}
+		})
+	}
+
+}
+
+func Test_validateLabels(t *testing.T) {
+
+	key := "name"
+	key2 := "name-two"
+	key3 := "prefix.io/name3"
+	value := "value"
+	value2 := "value2"
+	value3 := "value3"
+
+	incorrectKey := ",foo"
+	incorrectKey2 := ":foo"
+	incorrectValue := ":foo"
+
+	valueLocalEnv := "{{ env:MY_ENV }}"
+	valueLocalEnv2 := "{{ env:MY_ENV2 }}"
+	valueLocalEnv3 := "{{env:MY_ENV3}}"
+	valueLocalEnvIncorrect := "{{ envs:MY_ENV }}"
+	valueLocalEnvIncorrect2 := "{{ MY_ENV }}"
+	valueLocalEnvIncorrect3 := "{{env:MY_ENV}}foo"
+
+	os.Setenv("BAD_EXAMPLE", ":invalid")
+	valueLocalEnvIncorrect4 := "{{env:BAD_EXAMPLE}}"
+
+	os.Setenv("GOOD_EXAMPLE", "valid")
+	valueLocalEnv4 := "{{env:GOOD_EXAMPLE}}"
+
+	tests := []struct {
+		key    string
+		labels Labels
+		errs   int
+	}{
+		{
+			"correct entry - single label with value",
+			Labels{
+				Label{
+					Key:   &key,
+					Value: &value,
+				},
+			},
+			0,
+		},
+		{
+			"correct entry - prefixed label with value",
+			Labels{
+				Label{
+					Key:   &key3,
+					Value: &value3,
+				},
+			},
+			0,
+		}, {
+			"incorrect entry - missing key",
+			Labels{
+				Label{
+					Value: &value,
+				},
+			},
+			1,
+		}, {
+			"incorrect entry - missing multiple keys",
+			Labels{
+				Label{
+					Value: &value,
+				},
+				Label{
+					Value: &value2,
+				},
+			},
+			2,
+		},
+		{
+			"incorrect entry - invalid key",
+			Labels{
+				Label{
+					Key:   &incorrectKey,
+					Value: &value,
+				},
+			},
+			1,
+		},
+		{
+			"incorrect entry - invalid key2",
+			Labels{
+				Label{
+					Key:   &incorrectKey2,
+					Value: &value,
+				},
+			},
+			1,
+		},
+		{
+			"incorrect entry - invalid value",
+			Labels{
+				Label{
+					Key:   &key,
+					Value: &incorrectValue,
+				},
+			},
+			1,
+		},
+		{
+			"correct entry - multiple labels with value",
+			Labels{
+				Label{
+					Key:   &key,
+					Value: &value,
+				},
+				Label{
+					Key:   &key2,
+					Value: &value2,
+				},
+			},
+			0,
+		},
+		{
+			"correct entry - missing value - multiple labels",
+			Labels{
+				Label{
+					Key: &key,
+				},
+				Label{
+					Key: &key2,
+				},
+			},
+			0,
+		},
+		{
+			"correct entry - single label with value from local env",
+			Labels{
+				Label{
+					Key:   &key,
+					Value: &valueLocalEnv,
+				},
+			},
+			0,
+		},
+		{
+			"correct entry - multiple labels with values from Local env",
+			Labels{
+				Label{
+					Key:   &key,
+					Value: &valueLocalEnv,
+				},
+				Label{
+					Key:   &key,
+					Value: &valueLocalEnv2,
+				},
+				Label{
+					Key:   &key,
+					Value: &valueLocalEnv3,
+				},
+			},
+			0,
+		},
+		{
+			"incorrect entry - multiple labels with values from Local env",
+			Labels{
+				Label{
+					Key:   &key,
+					Value: &valueLocalEnv,
+				},
+				Label{
+					Key:   &key,
+					Value: &valueLocalEnvIncorrect,
+				},
+				Label{
+					Key:   &key,
+					Value: &valueLocalEnvIncorrect2,
+				},
+				Label{
+					Key:   &key,
+					Value: &valueLocalEnvIncorrect3,
+				},
+			},
+			3,
+		},
+		{
+			"correct entry - good environment variable value",
+			Labels{
+				Label{
+					Key:   &key,
+					Value: &valueLocalEnv4,
+				},
+			},
+			0,
+		}, {
+			"incorrect entry - bad environment variable value",
+			Labels{
+				Label{
+					Key:   &key,
+					Value: &valueLocalEnvIncorrect4,
+				},
+			},
+			1,
+		},
+		{
+			"correct entry - all combinations",
+			Labels{
+				Label{
+					Key:   &key,
+					Value: &value,
+				},
+				Label{
+					Key:   &key2,
+					Value: &value2,
+				},
+				Label{
+					Key:   &key3,
+					Value: &value3,
+				},
+				Label{
+					Key:   &key,
+					Value: &valueLocalEnv,
+				},
+				Label{
+					Key:   &key,
+					Value: &valueLocalEnv2,
+				},
+				Label{
+					Key:   &key,
+					Value: &valueLocalEnv3,
+				},
+			},
+			0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.key, func(t *testing.T) {
+			if got := ValidateLabels(tt.labels); len(got) != tt.errs {
+				t.Errorf("validateLabels() = %v\n got %d errors but want %d", got, len(got), tt.errs)
 			}
 		})
 	}

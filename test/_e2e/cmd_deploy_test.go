@@ -8,9 +8,14 @@ import (
 
 // Deploy runs `func deploy' command for a given test project. It collects the URL from output
 // and store on test project, so it can be used later by any another test
-func Deploy(t *testing.T, knFunc *TestShellCmdRunner, project *FunctionTestProject)  {
+func Deploy(t *testing.T, knFunc *TestShellCmdRunner, project *FunctionTestProject) {
 
-	result := knFunc.Exec("deploy", "--path", project.ProjectPath, "--registry", GetRegistry())
+	var result TestShellCmdResult
+	if project.IsBuilt {
+		result = knFunc.Exec("deploy", "--path", project.ProjectPath, "--registry", GetRegistry(), "--build=false")
+	} else {
+		result = knFunc.Exec("deploy", "--path", project.ProjectPath, "--registry", GetRegistry())
+	}
 	if result.Error != nil {
 		t.Fail()
 	}

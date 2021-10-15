@@ -8,36 +8,85 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
+	"sort"
+	"sync"
+	"time"
 
+	"github.com/mitchellh/go-homedir"
 	"gopkg.in/yaml.v2"
 )
 
 const (
+	// DefaultRegistry through which containers of Functions will be shuttled.
 	DefaultRegistry = "docker.io"
-	DefaultRuntime  = "node"
 
-	// DefautlTemplate is the default Function signature / environmental context
+	// DefaultRuntime is the language runtime for a new Function, including
+	// the template written and builder invoked on deploy.
+	DefaultRuntime = "node"
+
+	// DefaultTemplate is the default Function signature / environmental context
 	// of the resultant function.  All runtimes are expected to have at least
-	// one implementation of each supported funciton sinagure.  Currently that
+	// one implementation of each supported function signature.  Currently that
 	// includes an HTTP Handler ("http") and Cloud Events handler ("events")
 	DefaultTemplate = "http"
+
+	// DefaultRepository is the name of the default (builtin) template repository,
+	// and is assumed when no template prefix is provided.
+	DefaultRepository = "default"
+
+	// The name of the config directory within ~/.config (or configured location)
+	configDirName = "func"
 )
+
+// ConfigPath is the effective path to the optional global config directory used for
+// function defaults and extensible templates.
+func ConfigPath() string {
+	path := configPath()
+	_ = os.MkdirAll(path, 0700)
+	return path
+}
+
+func configPath() string {
+	// Use XDG_CONFIG_HOME/func if defined
+	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
+		return filepath.Join(xdg, configDirName)
+	}
+
+	// Expand and use ~/.config/func
+	home, err := homedir.Expand("~")
+	if err == nil {
+		return filepath.Join(home, ".config", configDirName)
+	}
+
+	// default is .config in current working directory, used when there is no
+	// available home in which to find a .`.config/func` directory.
+	// A case could be made that a panic is in order in this scenario, but
+	// currently this seems like a nonfatal situation, as in the scenario
+	// "there is no home directory", the fallback of using `.config` if extant
+	// may very well be the optimal choice.
+	fmt.Fprintf(os.Stderr, "Error locating ~/.config: %v", err)
+	return filepath.Join(".config", configDirName)
+}
 
 // Client for managing Function instances.
 type Client struct {
-	verbose          bool     // print verbose logs
-	builder          Builder  // Builds a runnable image from Function source
-	pusher           Pusher   // Pushes the image assocaited with a Function.
-	deployer         Deployer // Deploys or Updates a Function
-	runner           Runner   // Runs the Function locally
-	remover          Remover  // Removes remote services
-	lister           Lister   // Lists remote services
+	repositories     *Repositories // Repositories management
+	templates        *Templates    // Templates management
+	verbose          bool          // print verbose logs
+	builder          Builder       // Builds a runnable image from Function source
+	pusher           Pusher        // Pushes the image associated with a Function.
+	deployer         Deployer      // Deploys or Updates a Function
+	runner           Runner        // Runs the Function locally
+	remover          Remover       // Removes remote services
+	lister           Lister        // Lists remote services
 	describer        Describer
 	dnsProvider      DNSProvider      // Provider of DNS services
-	repositories     string           // path to extensible template repositories
+	repository       string           // URL to Git repo (overrides on-disk and embedded)
 	registry         string           // default registry for OCI image tags
 	progressListener ProgressListener // progress listener
 	emitter          Emitter          // Emits CloudEvents to functions
+
 }
 
 // ErrNotBuilt indicates the Function has not yet been built.
@@ -56,6 +105,7 @@ type Pusher interface {
 	Push(ctx context.Context, f Function) (string, error)
 }
 
+// Status of the Function
 type Status int
 
 const (
@@ -124,10 +174,10 @@ type ProgressListener interface {
 // Describer of Functions' remote deployed aspect.
 type Describer interface {
 	// Describe the running state of the service as reported by the underlyng platform.
-	Describe(ctx context.Context, name string) (description Description, err error)
+	Describe(ctx context.Context, name string) (description Info, err error)
 }
 
-type Description struct {
+type Info struct {
 	Name          string         `json:"name" yaml:"name"`
 	Image         string         `json:"image" yaml:"image"`
 	Namespace     string         `json:"namespace" yaml:"namespace"`
@@ -139,6 +189,13 @@ type Subscription struct {
 	Source string `json:"source" yaml:"source"`
 	Type   string `json:"type" yaml:"type"`
 	Broker string `json:"broker" yaml:"broker"`
+}
+
+type Manifest struct {
+	Name            string            `yaml:"name"`
+	Buildpacks      []string          `yaml:"buildpacks"`
+	HealthEndpoints map[string]string `yaml:"healthEndpoints"`
+	Builders        map[string]string `yaml:"builders"`
 }
 
 // DNSProvider exposes DNS services necessary for serving the Function.
@@ -156,6 +213,8 @@ type Emitter interface {
 func New(options ...Option) *Client {
 	// Instantiate client with static defaults.
 	c := &Client{
+		repositories:     &Repositories{},
+		templates:        &Templates{},
 		builder:          &noopBuilder{output: os.Stdout},
 		pusher:           &noopPusher{output: os.Stdout},
 		deployer:         &noopDeployer{output: os.Stdout},
@@ -163,11 +222,17 @@ func New(options ...Option) *Client {
 		remover:          &noopRemover{output: os.Stdout},
 		lister:           &noopLister{output: os.Stdout},
 		dnsProvider:      &noopDNSProvider{output: os.Stdout},
-		progressListener: &noopProgressListener{},
+		progressListener: &NoopProgressListener{},
 		emitter:          &noopEmitter{},
 	}
 
-	// Apply passed options, which take ultimate precidence.
+	// TODO: Repositories default location ($XDG_CONFIG_HOME/func/repositories)
+	// will be relocated from CLI to here.
+	// c.Repositories.Path = ...
+
+	// Templates management requires the repositories management api
+	c.templates.Repositories = c.repositories
+
 	for _, o := range options {
 		o(c)
 	}
@@ -256,7 +321,16 @@ func WithDNSProvider(provider DNSProvider) Option {
 // not built into the binary.
 func WithRepositories(repositories string) Option {
 	return func(c *Client) {
-		c.repositories = repositories
+		c.repositories.Path = repositories
+	}
+}
+
+// WithRepository sets a specific URL to a Git repository from which to pull templates.
+// This setting's existence precldes the use of either the inbuilt templates or any
+// repositories from the extensible repositories path.
+func WithRepository(repository string) Option {
+	return func(c *Client) {
+		c.repository = repository
 	}
 }
 
@@ -276,6 +350,16 @@ func WithEmitter(e Emitter) Option {
 	return func(c *Client) {
 		c.emitter = e
 	}
+}
+
+// Repositories accessor
+func (c *Client) Repositories() *Repositories {
+	return c.repositories
+}
+
+// Templates accessor
+func (c *Client) Templates() *Templates {
+	return c.templates
 }
 
 // New Function.
@@ -343,14 +427,29 @@ func (c *Client) Create(cfg Function) (err error) {
 		return
 	}
 
-	// Create Function of the given root path.
+	// Root must not already be a Function
+	//
+	// Instantiate a Function struct about the given root path, but
+	// immediately exit with error (prior to actual creation) if a
+	// Function already existed at that path (Create should never
+	// clobber a pre-existing Function)
 	f, err := NewFunction(cfg.Root)
 	if err != nil {
 		return
 	}
+	if f.Initialized() {
+		err = fmt.Errorf("Function at '%v' already initialized.", cfg.Root)
+		return
+	}
 
-	// Assert the specified root is free of visible files and contentious
-	// hidden files (the ConfigFile, which indicates it is already initialized)
+	// Root must not contain any visible files
+	//
+	// We know from above that the target directory does not contain a Function,
+	// but also immediately exit if the target directoy contains any visible files
+	// at all, or any of the known hidden files that will be written.
+	// This is to ensure that if a user inadvertently chooses an incorrect directory
+	// for their new Function, the template and config file writing steps do not
+	// cause data loss.
 	if err = assertEmptyRoot(f.Root); err != nil {
 		return
 	}
@@ -372,29 +471,58 @@ func (c *Client) Create(cfg Function) (err error) {
 	}
 
 	// Write out a template.
-	w := templateWriter{templates: c.repositories, verbose: c.verbose}
+	w := templateWriter{repositories: c.repositories.Path, url: c.repository, verbose: c.verbose}
 	if err = w.Write(f.Runtime, f.Template, f.Root); err != nil {
 		return
 	}
 
 	// Check if template specifies a builder image. If so, add to configuration
-	builderFilePath := filepath.Join(f.Root, ".builders.yaml")
-	if builderConfig, err := ioutil.ReadFile(builderFilePath); err == nil {
-		// A .builder file was found. Read the default builder and set in the config file
-		// TODO: A command line flag could be used to specify non-default builders
-		builders := make(map[string]string)
-		if err := yaml.Unmarshal(builderConfig, builders); err == nil {
-			f.Builder = builders["default"]
-			if c.verbose {
-				fmt.Printf("Builder: %s\n", f.Builder)
-			}
-			f.BuilderMap = builders
+	manifestFilePath := filepath.Join(f.Root, "manifest.yaml")
+	if manifestYaml, err := ioutil.ReadFile(manifestFilePath); err == nil {
+		// A manifest.yaml file was found. Read the default builder and set in the config file
+		manifest := Manifest{}
+		if err := yaml.Unmarshal(manifestYaml, &manifest); err == nil {
+			f.Builder = manifest.Builders["default"]
+			f.Builders = manifest.Builders
+			f.Buildpacks = manifest.Buildpacks
+			f.HealthEndpoints = manifest.HealthEndpoints
 		}
-		// Remove the builders.yaml file so the user is not confused by a
+		// Remove the manifest.yaml file so the user is not confused by a
 		// configuration file that is only used for project creation/initialization
-		if err := os.Remove(builderFilePath); err != nil {
+		if err := os.Remove(manifestFilePath); err != nil {
 			if c.verbose {
-				fmt.Printf("Cannot remove %v. %v\n", builderFilePath, err)
+				fmt.Printf("Cannot remove %v. %v\n", manifestFilePath, err)
+			}
+		}
+	}
+
+	// Now that defaults are set from manifest.yaml for builders/buildpacks
+	// be sure to allow configuration to override these
+
+	// If buildpacks are provided, use them
+	if len(cfg.Buildpacks) > 0 {
+		f.Buildpacks = cfg.Buildpacks
+	}
+
+	// If builders are provided use them
+	if len(cfg.Builders) > 0 {
+		f.Builders = cfg.Builders
+		if f.Builders["default"] != "" {
+			f.Builder = f.Builders["default"]
+		}
+	}
+
+	// If a default builder is provided use it
+	if cfg.Builder != "" {
+		f.Builder = cfg.Builder
+	}
+
+	if c.verbose {
+		fmt.Printf("Builder:       %s\n", f.Builder)
+		if len(f.Buildpacks) > 0 {
+			fmt.Println("Buildpacks:")
+			for _, b := range f.Buildpacks {
+				fmt.Printf("           ... %s\n", b)
 			}
 		}
 	}
@@ -416,6 +544,25 @@ func (c *Client) Create(cfg Function) (err error) {
 // not contain a populated Image.
 func (c *Client) Build(ctx context.Context, path string) (err error) {
 	c.progressListener.Increment("Building function image")
+
+	m := []string{
+		"Still building",
+		"Don't give up on me",
+		"This is taking a while",
+		"Still building"}
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+	go func() {
+		for {
+			<-ticker.C
+			if len(m) == 0 {
+				break
+			}
+			c.progressListener.Increment(m[0])
+			m = m[1:] // remove 0th element
+		}
+	}()
+
 	go func() {
 		<-ctx.Done()
 		c.progressListener.Stopping()
@@ -444,15 +591,16 @@ func (c *Client) Build(ctx context.Context, path string) (err error) {
 	// TODO: create a statu structure and return it here for optional
 	// use by the cli for user echo (rather than rely on verbose mode here)
 	message := fmt.Sprintf("🙌 Function image built: %v", f.Image)
+	if runtime.GOOS == "windows" {
+		message = fmt.Sprintf("Function image built: %v", f.Image)
+	}
 	c.progressListener.Increment(message)
-
 	return
 }
 
 // Deploy the Function at path.  Errors if the Function has not been
 // initialized with an image tag.
 func (c *Client) Deploy(ctx context.Context, path string) (err error) {
-	c.progressListener.Increment("Deployin function")
 	go func() {
 		<-ctx.Done()
 		c.progressListener.Stopping()
@@ -470,7 +618,6 @@ func (c *Client) Deploy(ctx context.Context, path string) (err error) {
 	}
 
 	// Push the image for the named service to the configured registry
-	c.progressListener.Increment("Pushing function image to the registry")
 	imageDigest, err := c.pusher.Push(ctx, f)
 	if err != nil {
 		return
@@ -537,9 +684,9 @@ func (c *Client) List(ctx context.Context) ([]ListItem, error) {
 	return c.lister.List(ctx)
 }
 
-// Describe a Function.  Name takes precidence.  If no name is provided,
+// Info for a Function.  Name takes precidence.  If no name is provided,
 // the Function defined at root is used.
-func (c *Client) Describe(ctx context.Context, name, root string) (d Description, err error) {
+func (c *Client) Info(ctx context.Context, name, root string) (d Info, err error) {
 	go func() {
 		<-ctx.Done()
 		c.progressListener.Stopping()
@@ -592,6 +739,69 @@ func (c *Client) Emit(ctx context.Context, endpoint string) error {
 	return c.emitter.Emit(ctx, endpoint)
 }
 
+// Runtimes available in totality.
+// Not all repository/template combinations necessarily exist,
+// and further validation is performed when a template+runtime is chosen.
+// from a given repository.  This is the global list of all available.
+// Returned list is unique and sorted.
+func (c *Client) Runtimes() ([]string, error) {
+	runtimes := newSortedSet()
+
+	// Gather all runtimes from all repositories
+	// into a uniqueness map
+	repositories, err := c.Repositories().All()
+	if err != nil {
+		return []string{}, err
+	}
+	for _, repo := range repositories {
+		for _, runtime := range repo.Runtimes {
+			runtimes.Add(runtime)
+		}
+	}
+
+	// Return a unique, sorted list of runtimes
+	return runtimes.Items(), nil
+}
+
+// sorted set of strings.
+//
+// write-optimized and suitable only for fairly small values of N.
+// Should this increase dramatically in size, a different implementation,
+// such as a linked list, might be more appropriate.
+type sortedSet struct {
+	members map[string]bool
+	sync.Mutex
+}
+
+func newSortedSet() *sortedSet {
+	return &sortedSet{
+		members: make(map[string]bool),
+	}
+}
+
+func (s *sortedSet) Add(value string) {
+	s.Lock()
+	s.members[value] = true
+	s.Unlock()
+}
+
+func (s *sortedSet) Remove(value string) {
+	s.Lock()
+	delete(s.members, value)
+	s.Unlock()
+}
+
+func (s *sortedSet) Items() []string {
+	s.Lock()
+	defer s.Unlock()
+	n := []string{}
+	for k := range s.members {
+		n = append(n, k)
+	}
+	sort.Strings(n)
+	return n
+}
+
 // Manual implementations (noops) of required interfaces.
 // In practice, the user of this client package (for example the CLI) will
 // provide a concrete implementation for only the interfaces necessary to
@@ -604,44 +814,53 @@ func (c *Client) Emit(ctx context.Context, endpoint string) error {
 // with a minimum of external dependencies.
 // -----------------------------------------------------
 
+// Builder
 type noopBuilder struct{ output io.Writer }
 
 func (n *noopBuilder) Build(ctx context.Context, _ Function) error { return nil }
 
+// Pusher
 type noopPusher struct{ output io.Writer }
 
 func (n *noopPusher) Push(ctx context.Context, f Function) (string, error) { return "", nil }
 
+// Deployer
 type noopDeployer struct{ output io.Writer }
 
 func (n *noopDeployer) Deploy(ctx context.Context, _ Function) (DeploymentResult, error) {
 	return DeploymentResult{}, nil
 }
 
+// Runner
 type noopRunner struct{ output io.Writer }
 
 func (n *noopRunner) Run(_ context.Context, _ Function) error { return nil }
 
+// Remover
 type noopRemover struct{ output io.Writer }
 
 func (n *noopRemover) Remove(context.Context, string) error { return nil }
 
+// Lister
 type noopLister struct{ output io.Writer }
 
 func (n *noopLister) List(context.Context) ([]ListItem, error) { return []ListItem{}, nil }
 
+// Emitter
+type noopEmitter struct{}
+
+func (p *noopEmitter) Emit(ctx context.Context, endpoint string) error { return nil }
+
+// DNSProvider
 type noopDNSProvider struct{ output io.Writer }
 
 func (n *noopDNSProvider) Provide(_ Function) error { return nil }
 
-type noopProgressListener struct{}
+// ProgressListener
+type NoopProgressListener struct{}
 
-func (p *noopProgressListener) SetTotal(i int)     {}
-func (p *noopProgressListener) Increment(m string) {}
-func (p *noopProgressListener) Complete(m string)  {}
-func (p *noopProgressListener) Stopping()          {}
-func (p *noopProgressListener) Done()              {}
-
-type noopEmitter struct{}
-
-func (p *noopEmitter) Emit(ctx context.Context, endpoint string) error { return nil }
+func (p *NoopProgressListener) SetTotal(i int)     {}
+func (p *NoopProgressListener) Increment(m string) {}
+func (p *NoopProgressListener) Complete(m string)  {}
+func (p *NoopProgressListener) Stopping()          {}
+func (p *NoopProgressListener) Done()              {}

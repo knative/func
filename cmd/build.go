@@ -8,9 +8,9 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
-	fn "github.com/boson-project/func"
-	"github.com/boson-project/func/buildpacks"
-	"github.com/boson-project/func/progress"
+	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/buildpacks"
+	"knative.dev/kn-plugin-func/progress"
 )
 
 func init() {
@@ -68,7 +68,7 @@ kn func build --builder cnbs/sample-builder:bionic
 
 	cmd.Flags().StringP("builder", "b", "", "Buildpack builder, either an as a an image name or a mapping name.\nSpecified value is stored in func.yaml for subsequent builds.")
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
-	cmd.Flags().StringP("image", "i", "", "Full image name in the orm [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE")
+	cmd.Flags().StringP("image", "i", "", "Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE)")
 	cmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
 	cmd.Flags().StringP("registry", "r", "", "Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined based on the local directory name. If not provided the registry will be taken from func.yaml (Env: $FUNC_REGISTRY)")
 
@@ -118,6 +118,7 @@ func runBuild(cmd *cobra.Command, _ []string, clientFn buildClientFn) (err error
 				}
 				return
 			}
+			fmt.Println("Note: building a Function the first time will take longer than subsequent builds")
 		}
 
 		// We have the registry, so let's use it to derive the Function image name
@@ -129,6 +130,13 @@ func runBuild(cmd *cobra.Command, _ []string, clientFn buildClientFn) (err error
 	err = function.WriteConfig()
 	if err != nil {
 		return
+	}
+
+	// if registry was not changed via command line flag meaning it's empty
+	// keep the same registry by setting the config.registry to empty otherwise
+	// trust viper to override the env variable with the given flag if both are specified
+	if regFlag, _ := cmd.Flags().GetString("registry"); regFlag == "" {
+		config.Registry = ""
 	}
 
 	client, err := clientFn(config)

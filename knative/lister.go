@@ -2,12 +2,13 @@ package knative
 
 import (
 	"context"
+
 	corev1 "k8s.io/api/core/v1"
 	clientservingv1 "knative.dev/client/pkg/serving/v1"
 	"knative.dev/pkg/apis"
 
-	fn "github.com/boson-project/func"
-	"github.com/boson-project/func/k8s"
+	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/k8s"
 )
 
 const (

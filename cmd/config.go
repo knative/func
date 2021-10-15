@@ -8,12 +8,45 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
-	fn "github.com/boson-project/func"
+	fn "knative.dev/kn-plugin-func"
 )
+
+type functionLoader interface {
+	Load(path string) (fn.Function, error)
+}
+
+type functionSaver interface {
+	Save(f fn.Function) error
+}
+
+type functionLoaderSaver interface {
+	functionLoader
+	functionSaver
+}
+
+type standardLoaderSaver struct{}
+
+func (s standardLoaderSaver) Load(path string) (fn.Function, error) {
+	f, err := fn.NewFunction(path)
+	if err != nil {
+		return fn.Function{}, err
+	}
+	if !f.Initialized() {
+		return fn.Function{}, fmt.Errorf("the given path '%v' does not contain an initialized function", path)
+	}
+	return f, nil
+}
+
+func (s standardLoaderSaver) Save(f fn.Function) error {
+	return f.WriteConfig()
+}
+
+var defaultLoaderSaver standardLoaderSaver
 
 func init() {
 	root.AddCommand(configCmd)
 	configCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
+	configCmd.AddCommand(NewConfigLabelsCmd(defaultLoaderSaver))
 }
 
 var configCmd = &cobra.Command{
@@ -21,8 +54,9 @@ var configCmd = &cobra.Command{
 	Short: "Configure a function",
 	Long: `Configure a function
 
-Interactive propmt that allows configuration of Volume mounts and Environment variables for a function
-project present in the current directory or from the directory specified with --path.
+Interactive propmt that allows configuration of Volume mounts, Environment
+variables, and Labels for a function project present in the current directory
+or from the directory specified with --path.
 `,
 	SuggestFor: []string{"cfg", "cofnig"},
 	PreRunE:    bindEnv("path"),
@@ -31,7 +65,7 @@ project present in the current directory or from the directory specified with --
 
 func runConfigCmd(cmd *cobra.Command, args []string) (err error) {
 
-	function, err := initConfigCommand(args)
+	function, err := initConfigCommand(args, defaultLoaderSaver)
 	if err != nil {
 		return
 	}
@@ -41,7 +75,7 @@ func runConfigCmd(cmd *cobra.Command, args []string) (err error) {
 			Name: "selectedConfig",
 			Prompt: &survey.Select{
 				Message: "What do you want to configure?",
-				Options: []string{"Environment values", "Volumes"},
+				Options: []string{"Environment values", "Volumes", "Labels"},
 				Default: "Environment values",
 			},
 		},
@@ -74,18 +108,24 @@ func runConfigCmd(cmd *cobra.Command, args []string) (err error) {
 			err = runAddVolumesPrompt(cmd.Context(), function)
 		} else if answers.SelectedConfig == "Environment values" {
 			err = runAddEnvsPrompt(cmd.Context(), function)
+		} else if answers.SelectedConfig == "Labels" {
+			err = runAddLabelsPrompt(cmd.Context(), function, defaultLoaderSaver)
 		}
 	case "Remove":
 		if answers.SelectedConfig == "Volumes" {
 			err = runRemoveVolumesPrompt(function)
 		} else if answers.SelectedConfig == "Environment values" {
 			err = runRemoveEnvsPrompt(function)
+		} else if answers.SelectedConfig == "Labels" {
+			err = runRemoveLabelsPrompt(function, defaultLoaderSaver)
 		}
 	case "List":
 		if answers.SelectedConfig == "Volumes" {
 			listVolumes(function)
 		} else if answers.SelectedConfig == "Environment values" {
 			listEnvs(function)
+		} else if answers.SelectedConfig == "Labels" {
+			listLabels(function)
 		}
 	}
 
@@ -113,17 +153,12 @@ func newConfigCmdConfig(args []string) configCmdConfig {
 
 }
 
-func initConfigCommand(args []string) (fn.Function, error) {
+func initConfigCommand(args []string, loader functionLoader) (fn.Function, error) {
 	config := newConfigCmdConfig(args)
 
-	function, err := fn.NewFunction(config.Path)
+	function, err := loader.Load(config.Path)
 	if err != nil {
 		return fn.Function{}, err
-	}
-
-	// Check if the Function has been initialized
-	if !function.Initialized() {
-		return fn.Function{}, fmt.Errorf("the given path '%v' does not contain an initialized function", config.Path)
 	}
 
 	return function, nil

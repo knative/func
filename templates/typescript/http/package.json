@@ -8,12 +8,12 @@
     "url": ""
   },
   "scripts": {
-    "build": "npm run lint && tsc",
-    "pretest": "npm run build",
+    "build": "npx -p typescript tsc",
+    "pretest": "npm run lint && npm run build",
     "test:unit": "ts-node node_modules/tape/bin/tape test/unit.ts",
     "test:integration": "ts-node node_modules/tape/bin/tape test/integration.ts",
     "test": "npm run test:unit && npm run test:integration",
-    "local": "npx faas-js-runtime ./build/index.js",
+    "start": "faas-js-runtime ./build/index.js",
     "lint": "eslint \"src/**/*.{js,ts,tsx}\" \"test/**/*.{js,ts,tsx}\" --quiet",
     "debug": "nodemon --inspect ./node_modules/faas-js-runtime/bin/cli.js ./build/index.js"
   },
@@ -24,7 +24,6 @@
     "eslint": "^7.26.0",
     "eslint-config-prettier": "^8.3.0",
     "eslint-plugin-prettier": "^3.4.0",
-    "faas-js-runtime": "^0.7.1",
     "nodemon": "^2.0.4",
     "prettier": "^2.3.0",
     "supertest": "^4.0.2",
@@ -35,6 +34,7 @@
   },
   "dependencies": {
     "@types/node": "^15.3.0",
-    "cloudevents": "^4.0.2"
+    "cloudevents": "^4.0.2",
+    "faas-js-runtime": "^0.7.1"
   }
 }

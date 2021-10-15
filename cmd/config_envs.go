@@ -9,9 +9,9 @@ import (
 	"github.com/AlecAivazis/survey/v2/terminal"
 	"github.com/spf13/cobra"
 
-	fn "github.com/boson-project/func"
-	"github.com/boson-project/func/k8s"
-	"github.com/boson-project/func/utils"
+	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/k8s"
+	"knative.dev/kn-plugin-func/utils"
 )
 
 func init() {
@@ -34,7 +34,7 @@ the current directory or from the directory specified with --path.
 	SuggestFor: []string{"ensv", "env"},
 	PreRunE:    bindEnv("path"),
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
-		function, err := initConfigCommand(args)
+		function, err := initConfigCommand(args, defaultLoaderSaver)
 		if err != nil {
 			return
 		}
@@ -59,7 +59,7 @@ from an environment variable on the local machine or from Secrets and ConfigMaps
 	SuggestFor: []string{"ad", "create", "insert", "append"},
 	PreRunE:    bindEnv("path"),
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
-		function, err := initConfigCommand(args)
+		function, err := initConfigCommand(args, defaultLoaderSaver)
 		if err != nil {
 			return
 		}
@@ -76,10 +76,10 @@ var configEnvsRemoveCmd = &cobra.Command{
 Interactive prompt to remove Environment variables from the function project
 in the current directory or from the directory specified with --path.
 `,
-	SuggestFor: []string{"del", "delete", "rmeove"},
+	SuggestFor: []string{"rm", "del", "delete", "rmeove"},
 	PreRunE:    bindEnv("path"),
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
-		function, err := initConfigCommand(args)
+		function, err := initConfigCommand(args, defaultLoaderSaver)
 		if err != nil {
 			return
 		}

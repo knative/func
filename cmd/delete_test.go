@@ -4,15 +4,15 @@ import (
 	"io/ioutil"
 	"testing"
 
-	fn "github.com/boson-project/func"
-	"github.com/boson-project/func/mock"
+	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/mock"
 )
 
-// TestDeleteByName ensures that running delete specifying the name of the Funciton
-// explicitly as an argument invokes the remover appropriately.
+// TestDeleteByName ensures that running delete specifying the name of the
+// Function explicitly as an argument invokes the remover appropriately.
 func TestDeleteByName(t *testing.T) {
 	var (
-		testname = "testname"         // explict name with which to create the Funciton
+		testname = "testname"         // explicit name for the Function
 		args     = []string{testname} // passed as the lone argument
 		remover  = mock.NewRemover()  // with a mock remover
 	)
@@ -58,10 +58,11 @@ runtime: go
 image: ""
 imageDigest: ""
 builder: quay.io/boson/faas-go-builder
-builderMap:
+builders:
   default: quay.io/boson/faas-go-builder
 envs: []
 annotations: {}
+labels: []
 `
 	if err := ioutil.WriteFile("func.yaml", []byte(funcYaml), 0600); err != nil {
 		t.Fatal(err)
@@ -97,7 +98,7 @@ annotations: {}
 
 // TestDeleteNameAndPathExclusivity ensures that providing both a name and a
 // path generates an error.
-// Providing the --path (-p) flag indicates the name of the funciton to delete
+// Providing the --path (-p) flag indicates the name of the function to delete
 // is to be taken from the Function at the given path.  Providing the name as
 // an argument as well is therefore redundant and an error.
 func TestDeleteNameAndPathExclusivity(t *testing.T) {

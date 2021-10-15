@@ -4,11 +4,11 @@ import (
 	"context"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	v1 "knative.dev/client/pkg/serving/v1"
-	"knative.dev/eventing/pkg/apis/eventing/v1beta1"
+	clientservingv1 "knative.dev/client/pkg/serving/v1"
+	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
 
-	fn "github.com/boson-project/func"
-	"github.com/boson-project/func/k8s"
+	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/k8s"
 )
 
 type Describer struct {
@@ -31,7 +31,7 @@ func NewDescriber(namespaceOverride string) (describer *Describer, err error) {
 // restricts to label-syntax, which is thus escaped. Therefore as a knative (kube) implementation
 // detal proper full names have to be escaped on the way in and unescaped on the way out. ex:
 // www.example-site.com -> www-example--site-com
-func (d *Describer) Describe(ctx context.Context, name string) (description fn.Description, err error) {
+func (d *Describer) Describe(ctx context.Context, name string) (description fn.Info, err error) {
 
 	servingClient, err := NewServingClient(d.namespace)
 	if err != nil {
@@ -48,7 +48,7 @@ func (d *Describer) Describe(ctx context.Context, name string) (description fn.D
 		return
 	}
 
-	routes, err := servingClient.ListRoutes(ctx, v1.WithService(name))
+	routes, err := servingClient.ListRoutes(ctx, clientservingv1.WithService(name))
 	if err != nil {
 		return
 	}
@@ -64,7 +64,7 @@ func (d *Describer) Describe(ctx context.Context, name string) (description fn.D
 		return
 	}
 
-	triggerMatches := func(t *v1beta1.Trigger) bool {
+	triggerMatches := func(t *eventingv1.Trigger) bool {
 		return (t.Spec.Subscriber.Ref != nil && t.Spec.Subscriber.Ref.Name == service.Name) ||
 			(t.Spec.Subscriber.URI != nil && service.Status.Address != nil && service.Status.Address.URL != nil &&
 				t.Spec.Subscriber.URI.Path == service.Status.Address.URL.Path)

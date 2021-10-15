@@ -20,6 +20,8 @@ type FunctionTestProject struct {
 	Runtime string
 	// Function Template. Example "http"
 	Template string
+	// Indicates function is already built
+	IsBuilt bool
 	// Indicates function is already deployed
 	IsDeployed bool
 	// Indicates new revision deployed (custom template)

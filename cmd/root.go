@@ -1,22 +1,35 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
+	"text/template"
 
-	"github.com/mitchellh/go-homedir"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/client/pkg/util"
 
-	fn "github.com/boson-project/func"
+	fn "knative.dev/kn-plugin-func"
 )
 
-// The root of the command tree defines the command name, descriotion, globally
+var exampleTemplate = template.Must(template.New("example").Parse(`
+# Create a node function called "node-sample" and enter the directory
+{{.}} create myfunc && cd myfunc
+
+# Build the container image, push it to a registry and deploy it to the connected Knative cluster
+# (replace <registry/user> with something like quay.io/user with an account that have you access to)
+{{.}} deploy --registry <registry/user>
+
+# Curl the service with the service URL
+curl $(kn service describe myfunc -o url)
+`))
+
+// The root of the command tree defines the command name, description, globally
 // available flags, etc.  It has no action of its own, such that running the
 // resultant binary with no arguments prints the help/usage text.
 var root = &cobra.Command{
@@ -27,22 +40,52 @@ var root = &cobra.Command{
 	Long: `Serverless functions
 
 Create, build and deploy functions in serverless containers for multiple runtimes on Knative`,
-	Example: `
-# Create a node function called "node-sample" and enter the directory
-kn func create myfunc && cd myfunc
-
-# Build the container image, push it to a registry and deploy it to the connected Knative cluster
-# (replace <registry/user> with something like quay.io/user with an account that have you access to)
-kn func deploy --registry <registry/user>
-
-# Curl the service with the service URL
-curl $(kn service describe myfunc -o url)
-`,
 }
 
-// NewRootCmd is used to initialize func as kn plugin
-func NewRootCmd() *cobra.Command {
-	return root
+func init() {
+	var err error
+	root.Example, err = replaceNameInTemplate("func", "example")
+	if err != nil {
+		root.Example = "Usage could not be loaded"
+	}
+}
+
+func replaceNameInTemplate(name, template string) (string, error) {
+	var buffer bytes.Buffer
+	err := exampleTemplate.ExecuteTemplate(&buffer, template, name)
+	if err != nil {
+		return "", err
+	}
+	return buffer.String(), nil
+}
+
+// pluginPrefix returns an optional prefix for help commands based on the
+// value of the FUNC_PARENT_COMMAND environment variable.
+func pluginPrefix() string {
+	parent := os.Getenv("FUNC_PARENT_COMMAND")
+	if parent != "" {
+		return parent + " "
+	}
+	return ""
+}
+
+// NewRootCmd can be used to embed the func commands as a library, such as
+// a plugin in 'kn'.
+func NewRootCmd() (*cobra.Command, error) {
+	// TODO: have 'kn' provide this environment variable, such that this works
+	// generically, and works whether it is compiled in as a library or used via
+	// the `kn-func` binary naming convention.
+	os.Setenv("FUNC_PARENT_COMMAND", "kn")
+
+	// TODO: update the below to use the environment variable, and the general
+	// structure seen in the create command's help text.
+	root.Use = "kn func"
+	var err error
+	root.Example, err = replaceNameInTemplate("kn func", "example")
+	if err != nil {
+		root.Example = "Usage could not be loaded"
+	}
+	return root, err
 }
 
 // When the code is loaded into memory upon invocation, the cobra/viper packages
@@ -89,7 +132,7 @@ func Execute(ctx context.Context) {
 	}
 }
 
-// Helper functions used by multiple commands
+// Helpers
 // ------------------------------------------
 
 // interactiveTerminal returns whether or not the currently attached process
@@ -110,21 +153,13 @@ func cwd() (cwd string) {
 	return cwd
 }
 
-// configPath is the effective path to the optional config directory used for
-// function defaults and extensible templates.
-func configPath() (path string) {
-	if path = os.Getenv("XDG_CONFIG_HOME"); path != "" {
-		path = filepath.Join(path, "func")
-		return
-	}
-	home, err := homedir.Expand("~")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "could not derive home directory for use as default templates path: %v", err)
-		path = filepath.Join(".config", "func")
-	} else {
-		path = filepath.Join(home, ".config", "func")
-	}
-	return
+// The anme of the repositories directory within config dir (usually ~/.config)
+const repositoriesDirName = "repositories"
+
+// repositoriesPath is the effective path to the optional repositories directory
+// used for extensible language packs.
+func repositoriesPath() string {
+	return filepath.Join(fn.ConfigPath(), repositoriesDirName)
 }
 
 // bindFunc which conforms to the cobra PreRunE method signature

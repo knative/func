@@ -27,7 +27,7 @@ type Function struct {
 	Template string
 
 	// Registry at which to store interstitial containers, in the form
-	// [registry]/[user]. If omitted, "Image" must be provided.
+	// [registry]/[user].
 	Registry string
 
 	// Optional full OCI image tag in form:
@@ -44,13 +44,15 @@ type Function struct {
 	// SHA256 hash of the latest image that has been built
 	ImageDigest string
 
-	// Builder represents the CNCF Buildpack builder image for a function,
-	// or it might be reference to `BuilderMap`.
+	// Builder represents the CNCF Buildpack builder image for a function
 	Builder string
 
 	// Map containing known builders.
 	// e.g. { "jvm": "docker.io/example/quarkus-jvm-builder" }
-	BuilderMap map[string]string
+	Builders map[string]string
+
+	// Optional list of buildpacks to use when building the function
+	Buildpacks []string
 
 	// List of volumes to be mounted to the function
 	Volumes Volumes
@@ -64,6 +66,12 @@ type Function struct {
 
 	// Options to be set on deployed function (scaling, etc.)
 	Options Options
+
+	// Map of user-supplied labels
+	Labels Labels
+
+	// Health endpoints specified by the language pack
+	HealthEndpoints map[string]string
 }
 
 // NewFunction loads a Function from a path on disk. use .Initialized() to determine if
@@ -164,8 +172,9 @@ func DerivedImage(root, registry string) (image string, err error) {
 		return
 	}
 
-	// If the Function has already had image populated, use this pre-calculated value.
-	if f.Image != "" {
+	// If the Function has already had image populated
+	// and a new registry hasn't been provided, use this pre-calculated value.
+	if f.Image != "" && f.Registry == registry {
 		image = f.Image
 		return
 	}

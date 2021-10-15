@@ -2,15 +2,16 @@ package cmd
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/user"
 	"path"
+	"strings"
 
 	"github.com/spf13/cobra"
 
-	fn "github.com/boson-project/func"
-	"github.com/boson-project/func/buildpacks"
-	"github.com/boson-project/func/knative"
+	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/knative"
 )
 
 func CompleteFunctionList(cmd *cobra.Command, args []string, toComplete string) (strings []string, directive cobra.ShellCompDirective) {
@@ -31,14 +32,38 @@ func CompleteFunctionList(cmd *cobra.Command, args []string, toComplete string) 
 	directive = cobra.ShellCompDirectiveDefault
 	return
 }
-func CompleteRuntimeList(cmd *cobra.Command, args []string, toComplete string) (strings []string, directive cobra.ShellCompDirective) {
-	strings = []string{}
-	for lang := range buildpacks.RuntimeToBuildpack {
-		strings = append(strings, lang)
+
+func CompleteRuntimeList(cmd *cobra.Command, args []string, toComplete string, client *fn.Client) (matches []string, directive cobra.ShellCompDirective) {
+	runtimes, err := client.Runtimes()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error listing runtimes for flag completion: %v", err)
+		return
 	}
-	directive = cobra.ShellCompDirectiveDefault
+	for _, runtime := range runtimes {
+		if strings.HasPrefix(runtime, toComplete) {
+			matches = append(matches, runtime)
+		}
+	}
 	return
 }
+
+func CompleteTemplateList(cmd *cobra.Command, args []string, toComplete string, client *fn.Client) (matches []string, directive cobra.ShellCompDirective) {
+	repositories, err := client.Repositories().All()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error listing repositories for use in template flag completion: %v", err)
+		return
+	}
+	for _, repository := range repositories {
+		templates, err := client.Templates().List(repository.Name)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "error listing template for use in template flag completion: %v", err)
+			return
+		}
+		matches = append(matches, templates...)
+	}
+	return
+}
+
 func CompleteOutputFormatList(cmd *cobra.Command, args []string, toComplete string) (strings []string, directive cobra.ShellCompDirective) {
 	directive = cobra.ShellCompDirectiveDefault
 	strings = []string{"plain", "yaml", "xml", "json"}
@@ -92,8 +117,8 @@ func CompleteBuilderList(cmd *cobra.Command, args []string, complete string) (st
 		return
 	}
 
-	strings = make([]string, 0, len(f.BuilderMap))
-	for name := range f.BuilderMap {
+	strings = make([]string, 0, len(f.Builders))
+	for name := range f.Builders {
 		strings = append(strings, name)
 	}
 

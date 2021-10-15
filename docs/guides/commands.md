@@ -6,16 +6,18 @@ Creates a new Function project at _`path`_. If _`path`_ is unspecified, assumes 
 
 Function name must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character (e.g. 'my-name',  or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?').
 
+The files written upon create include an example Function of the specified language runtime, example tests, and a metadata file `func.yaml`.  Together, these are referred to as a Template.  Included are the templates 'http' and 'cloudevents' (default is 'http') for each language runtime.  A template can be pulled from a specific Git repository by providing the `--repository` flag, or from a locally installed repository using the repository's name as a prefix.  See the [Templates Guide](templates.md) for more information.
+
 Similar `kn` command: none.
 
 ```console
-func create <path> [-l <runtime> -t <template>]
+func create <path> [-l <runtime> -t <template> -r <repository>]
 ```
 
 When run as a `kn` plugin.
 
 ```console
-kn func create <path> [-l <runtime> -t <template>]
+kn func create <path> [-l <runtime> -t <template> -r <repository>]
 ```
 
 ## `build`
@@ -77,20 +79,20 @@ When run as a `kn` plugin.
 kn func deploy [-n <namespace> -p <path> -i <image> -r <registry> -b=true|false]
 ```
 
-## `describe`
+## `info`
 
 Prints the name, route and any event subscriptions for a deployed Function. The user may also specify the name of the function to describe. The namespace defaults to the value in `func.yaml` or the namespace currently active in the user's Kubernetes configuration. The namespace may be specified on the command line, and if so this will overwrite the value in `func.yaml`.
 
-Similar `kn` command: `kn service describe NAME [flags]`. This flag provides a lot of nice information not available in `func describe`, such as revisions, age, annotations and labels. This command should be renamed to make it distinct from `kn` - e.g. `func status`.
+Similar `kn` command: `kn service describe NAME [flags]`. This flag provides a lot of nice information not available in `func info`, such as revisions, age, annotations and labels.
 
 ```console
-func describe [-o <output> -n <namespace> -p <path>]
+func info [-o <output> -n <namespace> -p <path>]
 ```
 
 When run as a `kn` plugin.
 
 ```console
-kn func describe [-o <output> -n <namespace> -p <path>]
+kn func info [-o <output> -n <namespace> -p <path>]
 ```
 
 ## `list`
@@ -217,4 +219,139 @@ func config volumes add [-p <path>]
 Invokes interactive prompt to remove Volumes from the function configuration
 ```console
 func config volumes remove [-p <path>]
+```
+
+## `repository`
+
+Manage set of installed repositories.
+
+With no arguments, the help text is shown.
+To run using an interactive prompt, use the use the --confirm (-c) flag.
+```console
+$ func repository -c
+```
+
+Manages template repositories installed on disk at either the default location
+(~/.config/func/repositories) or the location specified by the --repository
+flag.  Once added, a template from the repository can be used when creating
+a new Function.
+
+_Alternative Repositories Location:_
+Repositories are stored on disk in ~/.config/func/repositories by default.
+This location can be altered by either setting the FUNC_REPOSITORIES
+environment variable, or by providing the --repositories (-r) flag to any
+of the commands.  XDG_CONFIG_HOME is respected when determining the default.
+
+_Interactive Prompts:_
+To complete these commands interactively, pass the --confirm (-c) flag to
+the 'repository' command, or any of the inidivual subcommands.
+
+_The Default Repository:_
+The default repository is not stored on disk, but embedded in the binary and
+can be used without explicitly specifying the name.  The default repository is
+always listed first, and is assumed when creating a new Function without
+specifying a repository name prefix.  For example, to create a new Go function
+using the 'http' template from the default repository.
+```console
+$ func create -l go -t http
+```
+
+_The Repository Flag:_
+Installing repositories locally is optional.  To use a template from a remote
+repository directly, it is possible to use the --repository flag on create.
+This leaves the local disk untouched.  For example, To create a Function using
+the Boson Project Hello-World template without installing the template
+repository locally, use the --repository (-r) flag on create:
+```console
+$ func create -l go \
+--template hello-world \
+--repository https://github.com/boson-project/templates
+```
+
+### `add`
+Add a new repository to the installed set.
+```console
+$ func repository add <name> <URL>
+```
+
+For Example, to add the Boson Project repository:
+```console
+$ func repository add boson https://github.com/boson-project/templates
+```
+
+Once added, a Function can be created with templates from the new repository
+by prefixing the template name with the repository.  For example, to create
+a new Function using the Go Hello World template:
+```console
+$ func create -l go -t boson/hello-world
+```
+
+### `list`
+
+List all available repositories, including the installed default repository.
+Repositories available are listed by name.  To see the URL which was used to
+install remotes, use --verbose (-v).
+
+### `rename`
+
+Rename a previously installed repository from <old> to <new>. Only installed
+repositories can be renamed.
+```console
+$ func repository rename <name> <new name>
+```
+
+### `remove`
+
+Remove a repository by name.  Removes the repository from local storage
+entirely.  When in confirm mode (--confirm) it will confirm before
+deletion, but in regular mode this is done immediately, so please use
+caution, especially when using an altered repositories location
+(FUNC_REPOSITORIES environment variable or --repositories).
+```console
+$ func repository remove <name>
+```
+
+### Examples
+
+o Run in confirmation mode (interactive prompts) using the --confirm flag
+```console
+$ func repository -c
+```
+
+o Add a repository and create a new Function using a template from it:
+```console
+$ func repository add boson https://github.com/boson-project/templates
+$ func repository list
+default
+boson
+$ func create -l go -t boson/hello-world
+...
+```
+
+o List all repositories including the URL from which remotes were installed
+```console
+$ func repository list -v
+default
+boson	https://github.com/boson-project/templates
+```
+
+o Rename an installed repository
+```console
+$ func repository list
+default
+boson
+$ func repository rename boson boson-examples
+$ func repository list
+default
+boson-examples
+```
+
+o Remove an installed repository
+```console
+$ func repository list
+default
+boson-examples
+$ func repository remove boson-examples
+$ func repository list
+default
 ```

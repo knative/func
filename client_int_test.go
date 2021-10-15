@@ -9,10 +9,10 @@ import (
 	"testing"
 	"time"
 
-	boson "github.com/boson-project/func"
-	"github.com/boson-project/func/buildpacks"
-	"github.com/boson-project/func/docker"
-	"github.com/boson-project/func/knative"
+	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/buildpacks"
+	"knative.dev/kn-plugin-func/docker"
+	"knative.dev/kn-plugin-func/knative"
 )
 
 /*
@@ -61,9 +61,9 @@ func TestList(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	client := boson.New(
-		boson.WithLister(lister),
-		boson.WithVerbose(verbose))
+	client := fn.New(
+		fn.WithLister(lister),
+		fn.WithVerbose(verbose))
 
 	// Act
 	names, err := client.List(context.Background())
@@ -85,7 +85,7 @@ func TestNew(t *testing.T) {
 	client := newClient(verbose)
 
 	// Act
-	if err := client.New(context.Background(), boson.Function{Name: "testnew", Root: ".", Runtime: "go"}); err != nil {
+	if err := client.New(context.Background(), fn.Function{Name: "testnew", Root: ".", Runtime: "go"}); err != nil {
 		t.Fatal(err)
 	}
 	defer del(t, client, "testnew")
@@ -111,7 +111,7 @@ func TestDeploy(t *testing.T) {
 
 	client := newClient(verbose)
 
-	if err := client.New(context.Background(), boson.Function{Name: "deploy", Root: ".", Runtime: "go"}); err != nil {
+	if err := client.New(context.Background(), fn.Function{Name: "deploy", Root: ".", Runtime: "go"}); err != nil {
 		t.Fatal(err)
 	}
 	defer del(t, client, "deploy")
@@ -128,12 +128,12 @@ func TestRemove(t *testing.T) {
 
 	client := newClient(verbose)
 
-	if err := client.New(context.Background(), boson.Function{Name: "remove", Root: ".", Runtime: "go"}); err != nil {
+	if err := client.New(context.Background(), fn.Function{Name: "remove", Root: ".", Runtime: "go"}); err != nil {
 		t.Fatal(err)
 	}
 	waitFor(t, client, "remove")
 
-	if err := client.Remove(context.Background(), boson.Function{Name: "remove"}); err != nil {
+	if err := client.Remove(context.Background(), fn.Function{Name: "remove"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -146,13 +146,63 @@ func TestRemove(t *testing.T) {
 	}
 }
 
+// TestRemoteRepositories ensures that initializing a Function
+// defined in a remote repository finds the template, writes
+// the expected files, and retains the expected modes.
+// NOTE: this test only succeeds due to an override in
+// templates' copyNode which forces mode 755 for directories.
+// See https://github.com/go-git/go-git/issues/364
+func TestRemoteRepositories(t *testing.T) {
+	defer within(t, "testdata/example.com/remote")()
+
+	// Write the test template from the remote onto root
+	client := fn.New(
+		fn.WithRegistry(DefaultRegistry),
+		fn.WithRepository("https://github.com/boson-project/test-templates"),
+	)
+	err := client.Create(fn.Function{
+		Root:     ".",
+		Runtime:  "runtime",
+		Template: "template",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		Path string
+		Perm uint32
+		Dir  bool
+	}{
+		{Path: "file", Perm: 0644},
+		{Path: "dir-a/file", Perm: 0644},
+		{Path: "dir-b/file", Perm: 0644},
+		{Path: "dir-b/executable", Perm: 0755},
+		{Path: "dir-b", Perm: 0755},
+		{Path: "dir-a", Perm: 0755},
+	}
+
+	// Note that .Perm() are used to only consider the least-signifigant 9 and
+	// thus not have to consider the directory bit.
+	for _, test := range tests {
+		file, err := os.Stat(test.Path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("%04o repository/%v", file.Mode().Perm(), test.Path)
+		if file.Mode().Perm() != os.FileMode(test.Perm) {
+			t.Fatalf("expected 'repository/%v' to have mode %04o, got %04o", test.Path, test.Perm, file.Mode().Perm())
+		}
+	}
+}
+
 // ***********
 //   Helpers
 // ***********
 
 // newClient creates an instance of the func client whose concrete impls
 // match those created by the kn func plugin CLI.
-func newClient(verbose bool) *boson.Client {
+func newClient(verbose bool) *fn.Client {
 	builder := buildpacks.NewBuilder()
 	builder.Verbose = verbose
 
@@ -180,14 +230,14 @@ func newClient(verbose bool) *boson.Client {
 	}
 	lister.Verbose = verbose
 
-	return boson.New(
-		boson.WithRegistry(DefaultRegistry),
-		boson.WithVerbose(verbose),
-		boson.WithBuilder(builder),
-		boson.WithPusher(pusher),
-		boson.WithDeployer(deployer),
-		boson.WithRemover(remover),
-		boson.WithLister(lister),
+	return fn.New(
+		fn.WithRegistry(DefaultRegistry),
+		fn.WithVerbose(verbose),
+		fn.WithBuilder(builder),
+		fn.WithPusher(pusher),
+		fn.WithDeployer(deployer),
+		fn.WithRemover(remover),
+		fn.WithLister(lister),
 	)
 }
 
@@ -201,10 +251,10 @@ func newClient(verbose bool) *boson.Client {
 // Of course, ideally this would be replaced by the use of a synchronous
 // method, or at a minimum a way to register a callback/listener for the
 // creation event.  This is what we have for now, and the show must go on.
-func del(t *testing.T, c *boson.Client, name string) {
+func del(t *testing.T, c *fn.Client, name string) {
 	t.Helper()
 	waitFor(t, c, name)
-	if err := c.Remove(context.Background(), boson.Function{Name: name}); err != nil {
+	if err := c.Remove(context.Background(), fn.Function{Name: name}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -213,7 +263,7 @@ func del(t *testing.T, c *boson.Client, name string) {
 // TODO: the API should be synchronous, but that depends first on
 // Create returning the derived name such that we can bake polling in.
 // Ideally the Boson provider's Creaet would be made syncrhonous.
-func waitFor(t *testing.T, c *boson.Client, name string) {
+func waitFor(t *testing.T, c *fn.Client, name string) {
 	t.Helper()
 	var pollInterval = 2 * time.Second
 

@@ -1,17 +1,17 @@
-# Boson Function CLI
+# Func
 
-[![Main Build Status](https://github.com/boson-project/func/workflows/Main/badge.svg?branch=main)](https://github.com/boson-project/func/actions?query=workflow%3AMain+branch%3Amain)
-[![Develop Build Status](https://github.com/boson-project/func/workflows/Develop/badge.svg?branch=develop&label=develop)](https://github.com/boson-project/func/actions?query=workflow%3ADevelop+branch%3Adevelop)
-[![Client API Documentation](https://godoc.org/github.com/boson-project/func?status.svg)](http://godoc.org/github.com/boson-project/func)
-[![GitHub Issues](https://img.shields.io/github/issues/boson-project/func.svg)](https://github.com/boson-project/func/issues)
-[![License](https://img.shields.io/github/license/boson-project/func)](https://github.com/boson-project/func/blob/main/LICENSE)
-[![Release](https://img.shields.io/github/release/boson-project/func.svg?label=Release)](https://github.com/boson-project/func/releases)
+[![CI Status](https://github.com/knative-sandbox/kn-plugin-func/actions/workflows/ci.yaml/badge.svg)](https://github.com/knative-sandbox/kn-plugin-func/actions/workflows/ci.yaml)
+[![Client API Documentation](https://pkg.go.dev/badge/knative.dev/kn-plugin-func?utm_source=godoc)](https://pkg.go.dev/knative.dev/kn-plugin-func)
+[![Issues](https://img.shields.io/github/issues/knative-sandbox/kn-plugin-func.svg)](https://github.com/knative-sandbox/kn-plugin-func/issues)
+[![License](https://img.shields.io/github/license/knative-sandbox/kn-plugin-func)](https://github.com/knative-sandbox/kn-plugin-func/blob/main/LICENSE)
+[![Releases](https://img.shields.io/github/v/release/knative-sandbox/kn-plugin-func.svg?label=Release)](https://github.com/knative-sandbox/kn-plugin-func/releases)
 
-`func` is a Client Library and CLI for enabling the development of implicitly deployed, platform agnostic code.
+`func` is a Client Library and CLI enabling the development and deployment of Functions.
 
 [Read the Documentation](docs/README.md)
 
 ## Contributing
 
-We are always looking for contributions from the Function Developer community.  For more information on how to participate, see the [Contributor's Guide](docs/contributors_guide.md)
+We are always looking for contributions from the Function Developer community.  For more information on how to participate, see the [Development Guide](docs/DEVELOPMENT.md)
 
+The `func` Task Force meets @ 10:30 PST every Tuesday, we'd love to have you! For more information, see the invitation on the [Knative Team Calendar](https://calendar.google.com/calendar/u/0/embed?src=knative.team_9q83bg07qs5b9rrslp5jor4l6s@group.calendar.google.com).

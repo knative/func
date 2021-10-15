@@ -7,8 +7,8 @@ import (
 	"github.com/spf13/cobra"
 	"knative.dev/client/pkg/util"
 
-	fn "github.com/boson-project/func"
-	"github.com/boson-project/func/docker"
+	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/docker"
 )
 
 func init() {

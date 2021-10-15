@@ -1,23 +1,20 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
+	"os"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
-	"github.com/containers/image/v5/pkg/docker/config"
-	containersTypes "github.com/containers/image/v5/types"
 	"github.com/ory/viper"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"knative.dev/client/pkg/util"
 
-	fn "github.com/boson-project/func"
-	"github.com/boson-project/func/buildpacks"
-	"github.com/boson-project/func/docker"
-	"github.com/boson-project/func/knative"
-	"github.com/boson-project/func/progress"
+	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/buildpacks"
+	"knative.dev/kn-plugin-func/docker"
+	"knative.dev/kn-plugin-func/knative"
+	"knative.dev/kn-plugin-func/progress"
 )
 
 func init() {
@@ -29,7 +26,13 @@ func newDeployClient(cfg deployConfig) (*fn.Client, error) {
 
 	builder := buildpacks.NewBuilder()
 
-	pusher, err := docker.NewPusher(docker.WithCredentialsProvider(credentialsProvider))
+	credentialsProvider := docker.NewCredentialsProvider(
+		newCredentialsCallback(),
+		docker.CheckAuth,
+		newChooseHelperCallback())
+	pusher, err := docker.NewPusher(
+		docker.WithCredentialsProvider(credentialsProvider),
+		docker.WithProgressListener(listener))
 	if err != nil {
 		return nil, err
 	}
@@ -89,7 +92,7 @@ kn func deploy --image quay.io/myuser/myfunc -n myns
 	cmd.Flags().StringArrayP("env", "e", []string{}, "Environment variable to set in the form NAME=VALUE. "+
 		"You may provide this flag multiple times for setting multiple environment variables. "+
 		"To unset, specify the environment variable name followed by a \"-\" (e.g., NAME-).")
-	cmd.Flags().StringP("image", "i", "", "Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE")
+	cmd.Flags().StringP("image", "i", "", "Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE)")
 	cmd.Flags().StringP("namespace", "n", "", "Namespace of the function to undeploy. By default, the namespace in func.yaml is used or the actual active namespace if not set in the configuration. (Env: $FUNC_NAMESPACE)")
 	cmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
 	cmd.Flags().StringP("registry", "r", "", "Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined based on the local directory name. If not provided the registry will be taken from func.yaml (Env: $FUNC_REGISTRY)")
@@ -165,6 +168,13 @@ func runDeploy(cmd *cobra.Command, _ []string, clientFn deployClientFn) (err err
 		config.Namespace = function.Namespace
 	}
 
+	// if registry was not changed via command line flag meaning it's empty
+	// keep the same registry by setting the config.registry to empty otherwise
+	// trust viper to override the env variable with the given flag if both are specified
+	if regFlag, _ := cmd.Flags().GetString("registry"); regFlag == "" {
+		config.Registry = ""
+	}
+
 	client, err := clientFn(config)
 	if err != nil {
 		if err == terminal.InterruptErr {
@@ -185,45 +195,64 @@ func runDeploy(cmd *cobra.Command, _ []string, clientFn deployClientFn) (err err
 	// (for example kubectl usually uses ~/.kube/config)
 }
 
-func credentialsProvider(ctx context.Context, registry string) (docker.Credentials, error) {
-
-	result := docker.Credentials{}
-	credentials, err := config.GetCredentials(nil, registry)
-	if err != nil {
-		return result, errors.Wrap(err, "failed to get credentials")
-	}
-
-	if credentials != (containersTypes.DockerAuthConfig{}) {
-		result.Username, result.Password = credentials.Username, credentials.Password
+func newCredentialsCallback() func(registry string) (docker.Credentials, error) {
+	firstTime := true
+	return func(registry string) (docker.Credentials, error) {
+		var result docker.Credentials
+		var qs = []*survey.Question{
+			{
+				Name: "username",
+				Prompt: &survey.Input{
+					Message: "Username:",
+				},
+				Validate: survey.Required,
+			},
+			{
+				Name: "password",
+				Prompt: &survey.Password{
+					Message: "Password:",
+				},
+				Validate: survey.Required,
+			},
+		}
+		if firstTime {
+			firstTime = false
+			fmt.Printf("Please provide credentials for image registry (%s).\n", registry)
+		} else {
+			fmt.Println("Incorrect credentials, please try again.")
+		}
+		err := survey.Ask(qs, &result)
+		if err != nil {
+			return docker.Credentials{}, err
+		}
 		return result, nil
 	}
+}
 
-	credentials, _ = docker.GetCredentialsFromCredsStore(registry)
-	if credentials != (containersTypes.DockerAuthConfig{}) {
-		result.Username, result.Password = credentials.Username, credentials.Password
-		return result, nil
+func newChooseHelperCallback() docker.ChooseCredentialHelperCallback {
+	return func(availableHelpers []string) (string, error) {
+		if len(availableHelpers) < 1 {
+			fmt.Fprintf(os.Stderr, `Credentials will not be saved.
+If you would like to save your credentials in the future,
+you can install docker credential helper https://github.com/docker/docker-credential-helpers.
+`)
+			return "", nil
+		}
+
+		var resp string
+		err := survey.AskOne(&survey.Select{
+			Message: "Choose credentials helper",
+			Options: append(availableHelpers, "None"),
+		}, &resp, survey.WithValidator(survey.Required))
+		if err != nil {
+			return "", err
+		}
+		if resp == "None" {
+			fmt.Fprintf(os.Stderr, "No helper selected. Credentials will not be saved.\n")
+			return "", nil
+		}
+		return resp, nil
 	}
-
-	fmt.Println("Please provide credentials for image registry.")
-	var qs = []*survey.Question{
-		{
-			Name: "username",
-			Prompt: &survey.Input{
-				Message: "Username:",
-			},
-			Validate: survey.Required,
-		},
-		{
-			Name: "password",
-			Prompt: &survey.Password{
-				Message: "Password:",
-			},
-			Validate: survey.Required,
-		},
-	}
-	err = survey.Ask(qs, &result)
-
-	return result, err
 }
 
 type deployConfig struct {

@@ -5,7 +5,8 @@ Welcome to your new Rust function project! The boilerplate
 [`src/main.rs`](./src/main.rs). It's configured to invoke the `index`
 function in [`src/handler.rs`](./src/handler.rs) in response to both
 GET and POST requests. You should put your desired behavior inside
-that `index` function.
+that `index` function. In case you need to configure
+some resources for your function, you can do that in the [`configure` function](./src/config.rs).
 
 The app will expose three endpoints:
 
@@ -52,10 +53,10 @@ You can omit the `--registry` option by setting the `FUNC_REGISTRY`
 environment variable. And if you forget, you'll be prompted.
 
 The output from a successful deploy should show the URL for the
-service, which you can also get via `func describe`, e.g.
+service, which you can also get via `func info`, e.g.
 
 ```console
-curl $(func describe -o url)
+curl $(func info -o url)
 ```
 
 Have fun!

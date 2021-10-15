@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"time"
 )
 
@@ -196,7 +197,11 @@ func (b *Bar) overwrite(prefix string) {
 	//  3 Clear to the end of the line
 	//  4 Print status text with optional prefix (spinner)
 	//  5 Print linebreak such that subsequent messages print correctly.
-	fmt.Fprintf(b.out, "\r%v%v%v%v\n", up, clear, prefix, b)
+	if runtime.GOOS == "windows" {
+		fmt.Fprintf(b.out, "\r%v%v\n", prefix, b)
+	} else {
+		fmt.Fprintf(b.out, "\r%v%v%v%v\n", up, clear, prefix, b)
+	}
 }
 
 func (b *Bar) String() string {
@@ -228,12 +233,19 @@ func (b *Bar) spin(ch <-chan time.Time) {
 		"🕙 ",
 		"🕚 ",
 	}
+	if runtime.GOOS == "windows" {
+		spinner = []string{"|", "/", "-", "\\"}
+	}
 	idx := 0
 	for range ch {
 		// Writes the spinner frame at the beginning of the previous line, moving
 		// the cursor back to the beginning of the current line for any errors or
 		// informative messages.
-		fmt.Fprintf(b.out, "\r%v%v%v\r", up, spinner[idx], down)
+		if runtime.GOOS == "windows" {
+			fmt.Fprintf(b.out, "\r%v\r", spinner[idx])
+		} else {
+			fmt.Fprintf(b.out, "\r%v%v%v\r", up, spinner[idx], down)
+		}
 		idx = (idx + 1) % len(spinner)
 	}
 }

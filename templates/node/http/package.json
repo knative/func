@@ -5,14 +5,16 @@
   "main": "index.js",
   "scripts": {
     "test": "node test/unit.js && node test/integration.js",
-    "local": "npx faas-js-runtime ./index.js",
+    "start": "faas-js-runtime ./index.js",
     "debug": "nodemon --inspect ./node_modules/faas-js-runtime/bin/cli.js ./index.js"
   },
   "keywords": [],
   "author": "",
   "license": "Apache-2.0",
+  "dependencies": {
+    "faas-js-runtime": "^0.7.1"
+  },
   "devDependencies": {
-    "faas-js-runtime": "^0.7.1",
     "nodemon": "^2.0.4",
     "supertest": "^4.0.2",
     "tape": "^5.0.1"

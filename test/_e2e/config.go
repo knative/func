@@ -7,9 +7,9 @@ import (
 
 // Intended to provide setup configuration for E2E tests
 const (
-	defaultRegistry = "localhost:5000/user"
+	defaultRegistry        = "localhost:5000/user"
+	testTemplateRepository = "http://github.com/boson-project/test-templates.git" //nolint:varcheck,deadcode
 )
-
 
 // GetRegistry returns registry
 func GetRegistry() string {

@@ -1,4 +1,4 @@
-// +build e2e e2efunc
+// +build e2elc
 
 package e2e
 
@@ -21,7 +21,7 @@ func TestHttpFunction(t *testing.T) {
 	Deploy(t, knFunc, &project)
 	defer Delete(t, knFunc, &project)
 	ReadyCheck(t, knFunc, project)
-	Describe(t, knFunc, &project)
+	Info(t, knFunc, &project)
 	DefaultFunctionHttpTest(t, knFunc, project)
 	Update(t, knFunc, &project)
 	NewRevisionFunctionHttpTest(t, knFunc, project)
@@ -32,7 +32,7 @@ func TestHttpFunction(t *testing.T) {
 // for a function that responds to CloudEvents
 func TestCloudEventsFunction(t *testing.T) {
 
-	project := NewFunctionTestProject(GetRuntime(), "events")
+	project := NewFunctionTestProject(GetRuntime(), "cloudevents")
 	knFunc := NewKnFuncShellCli(t)
 
 	Create(t, knFunc, project)
@@ -40,8 +40,7 @@ func TestCloudEventsFunction(t *testing.T) {
 	Deploy(t, knFunc, &project)
 	defer Delete(t, knFunc, &project)
 	ReadyCheck(t, knFunc, project)
-	Describe(t, knFunc, &project)
+	Info(t, knFunc, &project)
 	DefaultFunctionEventsTest(t, knFunc, project)
 
 }
-

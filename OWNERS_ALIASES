@@ -1,0 +1,239 @@
+# This file is auto-generated from peribolos.
+# Do not modify this file, instead modify peribolos/knative-sandbox.yaml
+
+aliases:
+  api-core-wg-leads:
+  - dprotaso
+  async-component-approvers:
+  - bvennam
+  - julz
+  - maximilien
+  autoscaling-wg-leads:
+  - markusthoemmes
+  - vagababov
+  client-wg-leads:
+  - dsimansk
+  - navidshaikh
+  - rhuss
+  client-writers:
+  - dsimansk
+  - navidshaikh
+  - rhuss
+  control-protocol-approvers:
+  - devguyio
+  - eric-sap
+  - lionelvillard
+  - matzew
+  - travis-minke-sap
+  - vaikas
+  discovery-approvers:
+  - lberk
+  - n3wscott
+  docs-wg-leads:
+  - abrennan89
+  docs-writers:
+  - abrennan89
+  eventing-autoscaler-keda-approvers:
+  - zroubalik
+  eventing-awssqs-approvers:
+  - lberk
+  eventing-camel-approvers:
+  - nicolaferraro
+  eventing-ceph-approvers:
+  - lberk
+  eventing-couchdb-approvers:
+  - lberk
+  - lionelvillard
+  eventing-github-approvers:
+  - lberk
+  eventing-gitlab-approvers:
+  - antoineco
+  - lberk
+  - sebgoa
+  - tzununbekov
+  eventing-kafka-approvers:
+  - aliok
+  - davyodom
+  - devguyio
+  - eric-sap
+  - lberk
+  - matzew
+  - phamilton
+  - steven0711dong
+  - travis-minke-sap
+  eventing-kafka-broker-approvers:
+  - matzew
+  - pierDipi
+  eventing-kafka-mtsource-approvers:
+  - steven0711dong
+  eventing-kafka-wg-leads:
+  - devguyio
+  - lionelvillard
+  - travis-minke-sap
+  eventing-kafka-writers:
+  - devguyio
+  - lionelvillard
+  - travis-minke-sap
+  eventing-kogito-approvers:
+  - ricardozanini
+  - spolti
+  - vaibhavjainwiz
+  eventing-natss-approvers:
+  - devguyio
+  - zhaojizhuang
+  eventing-prometheus-approvers:
+  - lberk
+  eventing-rabbitmq-approvers:
+  - benmoss
+  - sbawaska
+  - vaikas
+  - xtreme-sameer-vohra
+  eventing-redis-approvers:
+  - aavarghese
+  - lionelvillard
+  eventing-wg-leads:
+  - devguyio
+  - lionelvillard
+  eventing-writers:
+  - devguyio
+  - lionelvillard
+  homebrew-kn-plugins-approvers:
+  - dsimansk
+  - maximilien
+  - rhuss
+  kn-plugin-admin-approvers:
+  - maximilien
+  - navidshaikh
+  - rhuss
+  - zhanggbj
+  kn-plugin-diag-approvers:
+  - cdlliuy
+  - maximilien
+  - navidshaikh
+  kn-plugin-event-approvers:
+  - cardil
+  - rhuss
+  kn-plugin-func-approvers:
+  - lance
+  - lkingland
+  - matejvasek
+  - zroubalik
+  kn-plugin-migration-approvers:
+  - maximilien
+  - zhangtbj
+  kn-plugin-quickstart-approvers:
+  - csantanapr
+  - omerbensaadon
+  - psschwei
+  kn-plugin-sample-approvers:
+  - maximilien
+  - navidshaikh
+  - rhuss
+  kn-plugin-service-log-approvers:
+  - rhuss
+  kn-plugin-source-kafka-approvers:
+  - daisy-ycguo
+  - dsimansk
+  - maximilien
+  - navidshaikh
+  - rhuss
+  kn-plugin-source-kamelet-approvers:
+  - christophd
+  - nicolaferraro
+  - rhuss
+  knative-admin:
+  - ZhiminXiang
+  - bsnchan
+  - dprotaso
+  - evankanderson
+  - julz
+  - knative-prow-releaser-robot
+  - knative-prow-robot
+  - knative-prow-updater-robot
+  - knative-test-reporter-robot
+  - markusthoemmes
+  - mbehrendt
+  - pmorie
+  - rhuss
+  - thisisnotapril
+  - vaikas
+  knative-release-leads:
+  - ZhiminXiang
+  - evankanderson
+  knative-robots:
+  - knative-prow-releaser-robot
+  - knative-prow-robot
+  - knative-prow-updater-robot
+  - knative-test-reporter-robot
+  kperf-approvers:
+  - maximilien
+  - zhanggbj
+  net-certmanager-approvers:
+  - ZhiminXiang
+  - tcnghia
+  net-contour-approvers:
+  - dprotaso
+  - tcnghia
+  net-http01-approvers:
+  - tcnghia
+  net-ingressv2-approvers:
+  - markusthoemmes
+  - nak3
+  - tcnghia
+  net-istio-approvers:
+  - JRBANCEL
+  - ZhiminXiang
+  - nak3
+  - tcnghia
+  - vagababov
+  net-kourier-approvers:
+  - davidor
+  - jmprusi
+  - tcnghia
+  networking-wg-leads:
+  - ZhiminXiang
+  - nak3
+  operations-wg-leads:
+  - houshengbo
+  operations-writers:
+  - dprotaso
+  - houshengbo
+  - upodroid
+  productivity-wg-leads:
+  - chizhg
+  - n3wscott
+  productivity-writers:
+  - chizhg
+  - n3wscott
+  security-wg-leads:
+  - evankanderson
+  - julz
+  security-writers:
+  - evankanderson
+  - julz
+  serving-writers:
+  - ZhiminXiang
+  - dprotaso
+  - markusthoemmes
+  - nak3
+  - vagababov
+  source-wg-leads:
+  - lionelvillard
+  steering-committee:
+  - bsnchan
+  - mbehrendt
+  - pmorie
+  - thisisnotapril
+  - vaikas
+  technical-oversight-committee:
+  - dprotaso
+  - evankanderson
+  - julz
+  - markusthoemmes
+  - rhuss
+  ux-wg-leads:
+  - csantanapr
+  - omerbensaadon
+  ux-writers:
+  - csantanapr
+  - omerbensaadon

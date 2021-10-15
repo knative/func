@@ -1,2 +1,0 @@
-Runtime A
-Template HTTP (Default)

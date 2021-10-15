@@ -1,4 +1,4 @@
-// +build e2e
+// +build e2e e2elc
 
 package e2e
 
@@ -13,7 +13,7 @@ import (
 	"testing"
 )
 
-func TestMain (t *testing.M) {
+func TestMain(t *testing.M) {
 
 	if GetRegistry() == defaultRegistry {
 		err := patchOrCreateDockerConfigFile()
@@ -76,7 +76,7 @@ func updateConfigAuth(dockerConfigFile string) error {
 		return err
 	}
 	content := string(bcontent)
-	if !strings.Contains(content, strings.Split(defaultRegistry,"/")[0]) {
+	if !strings.Contains(content, strings.Split(defaultRegistry, "/")[0]) {
 		// default registry is not present on .docker/config.json, so let's add it
 		log.Println("Updating ./docker/config.json file with default registry authentication.")
 		exp := regexp.MustCompile(`"auths"[\s]*?[:][\s]*?{`)
@@ -86,11 +86,11 @@ func updateConfigAuth(dockerConfigFile string) error {
 		},`))
 
 		// Replace file content
-		_ = os.Rename(dockerConfigFile, dockerConfigFile + ".e2e")
+		_ = os.Rename(dockerConfigFile, dockerConfigFile+".e2e")
 		err := createConfigAuth(dockerConfigFile, string(newContent))
 		if err != nil {
 			// rollback config file
-			_ = os.Rename(dockerConfigFile + ".e2e", dockerConfigFile)
+			_ = os.Rename(dockerConfigFile+".e2e", dockerConfigFile)
 			return err
 		}
 		_ = os.Remove(dockerConfigFile + ".e2e")
