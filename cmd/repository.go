@@ -667,7 +667,7 @@ type RepositoryClient interface {
 // Repositories enumerates the API required of the object returned from
 // client.Repositories.
 type Repositories interface {
-	All() ([]fn.Repository0_18, error)
+	All() ([]fn.Repository, error)
 	List() ([]string, error)
 	Add(name, url string) (string, error)
 	Rename(old, new string) error

@@ -274,7 +274,7 @@ func WithRepositories(path string) Option {
 // repositories from the extensible repositories path.
 func WithRepository(uri string) Option {
 	return func(c *Client) {
-		c.Repositories().SetSingle(uri)
+		c.Repositories().SetRemote(uri)
 	}
 }
 

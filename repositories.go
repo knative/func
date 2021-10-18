@@ -33,7 +33,7 @@ type Repositories struct {
 	path string
 
 	// Optional uri of a single repo to use in leau of embedded and extensible.
-	single string
+	remote string
 
 	// backreference to the client enabling full api access for the repo manager
 	client *Client
@@ -59,15 +59,15 @@ func (r *Repositories) Path() string {
 	return r.path
 }
 
-// SetSingle enables single-reposotory mode.
+// SetRemote enables single-reposotory mode.
 // Enables single-repository mode.  This replaces the default embedded repo
 // and extended repositories.  This is an important mode for both diskless
 // (config-less) operation, such as security-restrited environments, and for
 // running as a library in which case environmental settings should be
-// ignored in favor of a more funcitonal approach in which only inputs affect
+// ignored in favor of a more functional approach in which only inputs affect
 // outputs.
-func (r *Repositories) SetSingle(uri string) {
-	r.single = uri
+func (r *Repositories) SetRemote(uri string) {
+	r.remote = uri
 }
 
 // List all repositories the current configuration of the repo manager has
@@ -89,16 +89,16 @@ func (r *Repositories) List() ([]string, error) {
 // The default repository is always first.
 // If a path to custom repositories is defined, these are included next.
 // If repositories is in single-repo mode, it will be the only repo returned.
-func (r *Repositories) All() (repos []Repository0_18, err error) {
-	repo := Repository0_18{}
-	repos = []Repository0_18{}
+func (r *Repositories) All() (repos []Repository, err error) {
+	repo := Repository{}
+	repos = []Repository{}
 
 	// if in single-repo mode:
-	if r.single != "" {
-		if repo, err = NewRepository(r.single); err != nil {
+	if r.remote != "" {
+		if repo, err = NewRepository(r.remote); err != nil {
 			return
 		}
-		repos = []Repository0_18{repo}
+		repos = []Repository{repo}
 		return
 	}
 
@@ -135,7 +135,7 @@ func (r *Repositories) All() (repos []Repository0_18, err error) {
 }
 
 // Get a repository by name, error if it does not exist.
-func (r *Repositories) Get(name string) (repo Repository0_18, err error) {
+func (r *Repositories) Get(name string) (repo Repository, err error) {
 	all, err := r.All()
 	if err != nil {
 		return
@@ -150,11 +150,8 @@ func (r *Repositories) Get(name string) (repo Repository0_18, err error) {
 		return
 	}
 
-	if r.single != "" {
-		return repo, fmt.Errorf("repository '%v' will not be loaded because we "+
-			"are running in single-repo mode (%v). This is the default (and only) "+
-			"repo loaded.  It can be retrived by name '%v'.",
-			name, r.single, DefaultRepositoryName)
+	if r.remote != "" {
+		return repo, fmt.Errorf("in single-repo mode (%v). Repository '%v' not loaded.", r.remote, name)
 	}
 	for _, v := range all {
 		if v.Name == name {
@@ -170,8 +167,8 @@ func (r *Repositories) Get(name string) (repo Repository0_18, err error) {
 // name as added.
 func (r *Repositories) Add(name, uri string) (string, error) {
 	if r.path == "" {
-		return "", fmt.Errorf("repository %v(%v) will not be added because "+
-			"no repositories path was specified.", name, uri)
+		return "", fmt.Errorf("repository %v(%v) not added. "+
+			"No repositories path provided.", name, uri)
 	}
 
 	// if name was not provided, pull the repo into memory which determines the
@@ -197,8 +194,8 @@ func (r *Repositories) Add(name, uri string) (string, error) {
 // Rename a repository
 func (r *Repositories) Rename(from, to string) error {
 	if r.path == "" {
-		return fmt.Errorf("repository %v will not be renamed because "+
-			"no repositories path was specified.", from)
+		return fmt.Errorf("repository %v not renamed. "+
+			"No repositories path provided.", from)
 	}
 	a := filepath.Join(r.path, from)
 	b := filepath.Join(r.path, to)
@@ -209,8 +206,8 @@ func (r *Repositories) Rename(from, to string) error {
 // (removes its directory in Path)
 func (r *Repositories) Remove(name string) error {
 	if r.path == "" {
-		return fmt.Errorf("repository %v will not be removed because "+
-			"no repositories path was specified.", name)
+		return fmt.Errorf("repository %v not removed. "+
+			"No repositories path provided.", name)
 	}
 	if name == "" {
 		return errors.New("name is required")

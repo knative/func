@@ -72,7 +72,7 @@ func (t *Templates) Get(runtime, fullname string) (Template, error) {
 		template Template
 		repoName string
 		tplName  string
-		repo     Repository0_18
+		repo     Repository
 		err      error
 	)
 

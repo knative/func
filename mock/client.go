@@ -26,14 +26,14 @@ type Repositories struct {
 	// Members which record whether or not the various methods were invoked.
 	ListInvoked bool
 
-	all []fn.Repository0_18
+	all []fn.Repository
 }
 
 func NewRepositories() *Repositories {
-	return &Repositories{all: []fn.Repository0_18{{Name: "default"}}}
+	return &Repositories{all: []fn.Repository{{Name: "default"}}}
 }
 
-func (r *Repositories) All() ([]fn.Repository0_18, error) {
+func (r *Repositories) All() ([]fn.Repository, error) {
 	return r.all, nil
 }
 
@@ -47,7 +47,7 @@ func (r *Repositories) List() ([]string, error) {
 }
 
 func (r *Repositories) Add(name, url string) (string, error) {
-	r.all = append(r.all, fn.Repository0_18{Name: name})
+	r.all = append(r.all, fn.Repository{Name: name})
 	return "", nil
 }
 
@@ -62,7 +62,7 @@ func (r *Repositories) Rename(old, new string) error {
 }
 
 func (r *Repositories) Remove(name string) error {
-	repos := []fn.Repository0_18{}
+	repos := []fn.Repository{}
 	for _, v := range r.all {
 		if v.Name == name {
 			continue

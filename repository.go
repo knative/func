@@ -26,12 +26,13 @@ const (
 	DefaultLivenessEndpoint = "/health/liveness"
 	// DefaultTemplatesPath is the root of the defined repository
 	DefaultTemplatesPath = "."
-	// TODO DefaultBuilder?
-	// TODO DefaultBuilders?
+
+	// Defaults for Builder and Builders not expressly defined as a pourposeful
+	// delegation of choice.
 )
 
 // Repository represents a collection of runtimes, each containing templates.
-type Repository0_18 struct {
+type Repository struct {
 	// Name of the repository.  Naming things and placing them in a hierarchy is
 	// the responsibility of the filesystem; metadata the responsibility of the
 	// files within this structure. Therefore the name is not part of the repo.
@@ -51,7 +52,7 @@ type Repository0_18 struct {
 	// templates are stored.  By default this is the repository root.
 	TemplatesPath string `yaml:"templates,omitempty"`
 	// BuildConfig defines builders and buildpacks.  Here it serves as the default
-	// option which may be overridden per runtim or per template.
+	// option which may be overridden per runtime or per template.
 	BuildConfig `yaml:",inline"`
 	// HealthEndpoints for all templates in the repository.  Serves as the
 	// default option which may be overridden per runtime and per template.
@@ -69,8 +70,8 @@ type Repository0_18 struct {
 type Runtime struct {
 	// Name of the runtime
 	Name string `yaml:"-"` // use filesysem for names
-	// HealthEndpoints for all templates in the repository.  Serves as the
-	// default option which may be overridden per runtime and per template.
+	// HealthEndpoints for all templates in the runtime.  May be overridden
+	// per template.
 	HealthEndpoints `yaml:"healthEndpoints,omitempty"`
 	// BuildConfig defines attriutes 'builders' and 'buildpacks'.  Here it serves
 	// as the default option which may be overridden per template. Note that
@@ -96,14 +97,13 @@ type BuildConfig struct {
 
 // NewRepository creates a repository instance from any of: a path on disk, a
 // remote or local URI, or from the embedded default repo if uri not provided.
-func NewRepository(uri string) (r Repository0_18, err error) {
-	r = Repository0_18{
+func NewRepository(uri string) (r Repository, err error) {
+	r = Repository{
 		uri: uri,
 		HealthEndpoints: HealthEndpoints{
 			Liveness:  DefaultLivenessEndpoint,
 			Readiness: DefaultLivenessEndpoint,
 		},
-		// TODO:  default other members, such as BuildConfig?
 	}
 	r.Name, err = defaultRepositoryName(uri)
 	if err != nil {
@@ -121,10 +121,10 @@ func NewRepository(uri string) (r Repository0_18, err error) {
 	return
 }
 
-// defaultRepositoryName is the default if the URI is default.
-// Otherwise it extracts the repository name from the uri.
+// defaultRepositoryName is the default if the URI is empty or already the
+// default name.  Otherwise it extracts the repository name from the uri.
 func defaultRepositoryName(uri string) (string, error) {
-	if uri == DefaultRepositoryName {
+	if uri == "" || uri == DefaultRepositoryName {
 		return DefaultRepositoryName, nil
 	}
 	return repoNameFrom(uri)
@@ -170,7 +170,7 @@ func repositoryFilesystem(uri string) (f filesystem, err error) {
 // for inherited fields BuildConfig and HealthEndpoints as the default values
 // for the runtimes and templates.  The runtimes and templates themselves can
 // override these values by specifying new values in thir config files.
-func repositoryRuntimes(r Repository0_18) (runtimes []Runtime, err error) {
+func repositoryRuntimes(r Repository) (runtimes []Runtime, err error) {
 	runtimes = []Runtime{}
 
 	// Validate custom path if defined
@@ -226,7 +226,7 @@ func repositoryRuntimes(r Repository0_18) (runtimes []Runtime, err error) {
 // filesystem.  The view is denormalized, using the inherited fields from the
 // runtime for defaults of BuildConfig andHealthEndpoints.  The template itself
 // can override these by including a manifest.
-func runtimeTemplates(r Repository0_18, runtime Runtime) (templates []Template, err error) {
+func runtimeTemplates(r Repository, runtime Runtime) (templates []Template, err error) {
 	templates = []Template{}
 
 	// Validate runtime directory exists and is a directory
@@ -270,7 +270,7 @@ func runtimeTemplates(r Repository0_18, runtime Runtime) (templates []Template, 
 // applyRepositoryManifest from the root of the repository's filesystem if it
 // exists.  Returned is the repository with any values from the manifest
 // set to those of the manifest.
-func applyRepositoryManifest(r Repository0_18) (Repository0_18, error) {
+func applyRepositoryManifest(r Repository) (Repository, error) {
 	file, err := r.fs.Open(repositoryManifest)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -286,7 +286,7 @@ func applyRepositoryManifest(r Repository0_18) (Repository0_18, error) {
 // is the runtime with values from the manifest populated preferentially.  An
 // error is not returned for a missing manifest file (the passed runtime is
 // returned), but errors decoding the file are.
-func applyRuntimeManifest(repo Repository0_18, runtime Runtime) (Runtime, error) {
+func applyRuntimeManifest(repo Repository, runtime Runtime) (Runtime, error) {
 	file, err := repo.fs.Open(filepath.Join(repo.TemplatesPath, runtime.Name, runtimeManifest))
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -302,7 +302,7 @@ func applyRuntimeManifest(repo Repository0_18, runtime Runtime) (Runtime, error)
 // is the template with values from the manifest populated preferentailly.  An
 // error is not returned for a missing manifest file (the passed template is
 // returned), but errors decoding the file are.
-func applyTemplateManifest(repo Repository0_18, t Template) (Template, error) {
+func applyTemplateManifest(repo Repository, t Template) (Template, error) {
 	file, err := repo.fs.Open(filepath.Join(repo.TemplatesPath, t.Runtime, t.Name, templateManifest))
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -327,7 +327,7 @@ func checkDir(fs filesystem, path string) error {
 }
 
 // Template from repo for given runtime.
-func (r *Repository0_18) Template(runtimeName, name string) (t Template, err error) {
+func (r *Repository) Template(runtimeName, name string) (t Template, err error) {
 	runtime, err := r.Runtime(runtimeName)
 	if err != nil {
 		return
@@ -342,7 +342,7 @@ func (r *Repository0_18) Template(runtimeName, name string) (t Template, err err
 
 // Templates returns the set of all templates for a given runtime.
 // If runtime not found, an empty list is returned.
-func (r *Repository0_18) Templates(runtimeName string) ([]Template, error) {
+func (r *Repository) Templates(runtimeName string) ([]Template, error) {
 	for _, runtime := range r.Runtimes {
 		if runtime.Name == runtimeName {
 			return runtime.Templates, nil
@@ -352,7 +352,7 @@ func (r *Repository0_18) Templates(runtimeName string) ([]Template, error) {
 }
 
 // Runtime of the given name within the repository.
-func (r *Repository0_18) Runtime(name string) (runtime Runtime, err error) {
+func (r *Repository) Runtime(name string) (runtime Runtime, err error) {
 	for _, runtime = range r.Runtimes {
 		if runtime.Name == name {
 			return runtime, err
@@ -364,7 +364,7 @@ func (r *Repository0_18) Runtime(name string) (runtime Runtime, err error) {
 // URL attempts to read the remote git origin URL of the repository.  Best
 // effort; returns empty string if the repository is not a git repo or the repo
 // has been mutated beyond recognition on disk (ex: removing the origin remote)
-func (r *Repository0_18) URL() string {
+func (r *Repository) URL() string {
 	repo, err := git.PlainOpen(r.uri)
 	if err != nil {
 		return "" // not a git repository
