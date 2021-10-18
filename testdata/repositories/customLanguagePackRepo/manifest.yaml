@@ -1,0 +1,17 @@
+schema_version: 0.0.1 # The version for manifest.yaml schema
+
+name: customLanguagePackRepo
+version: 0.0.1
+
+# Templates are located within the ./templates directory in this repo
+templates: templates 
+
+# Repo-wide setting for the readiness health endpoint
+healthEndpoints:
+  readiness: /repoReadiness
+
+# Repo-wide setting for buildpacks
+buildpacks:
+  - repoBuildpack
+
+

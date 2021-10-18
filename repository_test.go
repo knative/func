@@ -7,129 +7,87 @@ import (
 	fn "knative.dev/kn-plugin-func"
 )
 
-// TestRepositoryGetTemplateDefault ensures that repositories make templates
-// avaialble via the Get accessor which given name and runtime.
-func TestRepositoryGetTemplateDefault(t *testing.T) {
-	client := fn.New()
-
-	repo, err := client.Repositories().Get(fn.DefaultRepository)
-	if err != nil {
-		t.Fatal(err)
-	}
-	template, err := repo.GetTemplate("go", "http")
-	if err != nil {
-		t.Fatal(err)
-	}
-	expected := fn.Template{
-		Runtime:    "go",
-		Repository: fn.DefaultRepository,
-		Name:       "http",
-	}
-	if !reflect.DeepEqual(template, expected) {
-		t.Logf("expected: %v", expected)
-		t.Logf("received: %v", template)
-		t.Fatal("Default template not as expected")
-	}
-}
-
-// TestRepositoryGetTemplateCustom ensures that repositories make templates
-// avaialble via the Get accessor with given name and runtime.
-func TestRepositoryGetTemplateCustom(t *testing.T) {
+// TestRepositoryTemplatesPath ensures that repositories can specify
+// an alternate location for templates using a manifest.
+func TestRepositoryTemplatesPath(t *testing.T) {
 	client := fn.New(fn.WithRepositories("testdata/repositories"))
 
-	repo, err := client.Repositories().Get("repositoryTests")
+	// The repo ./testdata/repositories/customLanguagePackRepo includes a
+	// manifest.yaml which defines templates as existing in the ./templates
+	// directory within the repo.
+	repo, err := client.Repositories().Get("customLanguagePackRepo")
 	if err != nil {
 		t.Fatal(err)
 	}
-	template, err := repo.GetTemplate("go", "custom")
+	template, err := repo.Template("customRuntime", "customTemplate")
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := fn.Template{
-		Runtime:    "go",
-		Repository: "repositoryTests",
-		Name:       "custom",
+	// degenerate case: API of a custom repository should return what it was
+	// expressly asked for at minimum (known good request)
+	if template.Name != "customTemplate" {
+		t.Logf("expected custom language pack repo to yield a template named 'customTemplate', got '%v'", template.Name)
 	}
-	if !reflect.DeepEqual(template, expected) {
-		t.Logf("expected: %v", expected)
-		t.Logf("received: %v", template)
-		t.Fatal("Custom template not as expected")
-	}
-
 }
 
-// TestRepositoryGetRuntimeDefault ensures that repositories make runtimes
-// available via the Get accessor with given name.
-func TestRepositoryGetRuntimeDefault(t *testing.T) {
+// TestRepositoryInheritance ensures that repositories which define a manifest
+// properly inherit values defined at the repo level, runtime level
+// and template level.  The tests check for both embedded structures:
+// HealthEndpoints BuildConfig.
+func TestRepositoryInheritance(t *testing.T) {
 	client := fn.New(fn.WithRepositories("testdata/repositories"))
 
-	repo, err := client.Repositories().Get("repositoryTests")
+	// The repo ./testdata/repositories/customLanguagePack includes a manifest
+	// which defines custom readiness and liveness endpoints.
+	// The runtime "manifestedRuntime" includes a manifest which sets these
+	// for all templates within, and the template "manifestedTemplate" sets
+	// them explicitly for itself.
+	repo, err := client.Repositories().Get("customLanguagePackRepo")
 	if err != nil {
 		t.Fatal(err)
 	}
-	runtime, err := repo.GetRuntime("go")
-	if err != nil {
-		t.Fatal(err)
-	}
-	expected := fn.Runtime{
-		Name: "go",
-		Path: "go",
-		Templates: fn.FunctionTemplates{
-			{
-				Name: "custom",
-				Path: "custom",
-			},
-		},
-	}
-	if runtime.Name != expected.Name {
-		t.Fatalf("Expected: %s\nGot: %s", expected.Name, runtime.Name)
-	}
-	if runtime.Path != expected.Path {
-		t.Fatalf("Expected: %s\nGot: %s", expected.Path, runtime.Path)
-	}
-	if !reflect.DeepEqual(runtime.Templates, expected.Templates) {
-		t.Logf("expected: %v", expected)
-		t.Logf("received: %v", runtime)
-		t.Fatal("Custom go runtime not as expected")
-	}
-}
 
-// TestRepositoryGetRuntimeDefault ensures that repositories make runtimes
-// available via the Get accessor with given name.
-func TestRepositoryGetRuntimeCustom(t *testing.T) {
-	client := fn.New()
+	// Template A:  from a path containing no settings other than the repo root.
+	// Should have a readiness and liveness equivalent to that defined in
+	// [repo]/manifest.yaml
+	tA, err := repo.Template("customRuntime", "customTemplate")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Template B: from a path containing runtime-wide settings, but no
+	// template-level settings.
+	tB, err := repo.Template("manifestedRuntime", "customTemplate")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Template C: from a runtime with a manifest which sets endpoints, and
+	// itself includes a manifest which explicitly sets.
+	tC, err := repo.Template("manifestedRuntime", "manifestedTemplate")
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	repo, err := client.Repositories().Get(fn.DefaultRepository)
-	if err != nil {
-		t.Fatal(err)
+	// Assert Template A reflects repo-level settings
+	if tA.Readiness != "/repoReadiness" {
+		t.Fatalf("Repository-level HealthEndpoint not loaded to template")
 	}
-	runtime, err := repo.GetRuntime("go")
-	if err != nil {
-		t.Fatal(err)
+	if !reflect.DeepEqual(tA.Buildpacks, []string{"repoBuildpack"}) {
+		t.Fatalf("Repository-level HealthEndpoint not loaded to template")
 	}
-	expected := fn.Runtime{
-		Name: "go",
-		Path: "go",
-		Templates: fn.FunctionTemplates{
-			{
-				Name: "events",
-				Path: "events",
-			},
-			{
-				Name: "http",
-				Path: "http",
-			},
-		},
+
+	// Assert Template B reflects runtime-level settings
+	if tB.Readiness != "/runtimeReadiness" {
+		t.Fatalf("Repository-level HealthEndpoint not loaded to template")
 	}
-	if runtime.Name != expected.Name {
-		t.Fatalf("Expected: %s\nGot: %s", expected.Name, runtime.Name)
+	if !reflect.DeepEqual(tB.Buildpacks, []string{"runtimeBuildpack"}) {
+		t.Fatalf("Repository-level HealthEndpoint not loaded to template")
 	}
-	if runtime.Path != expected.Path {
-		t.Fatalf("Expected: %s\nGot: %s", expected.Path, runtime.Path)
+
+	// Assert Template C reflects template-level settings
+	if tC.Readiness != "/templateReadiness" {
+		t.Fatalf("Repository-level HealthEndpoint not loaded to template")
 	}
-	if !reflect.DeepEqual(runtime.Templates, expected.Templates) {
-		t.Logf("expected: %v", expected)
-		t.Logf("received: %v", runtime)
-		t.Fatal("Default go runtime not as expected")
+	if !reflect.DeepEqual(tC.Buildpacks, []string{"templateBuildpack"}) {
+		t.Fatalf("Repository-level HealthEndpoint not loaded to template")
 	}
 }

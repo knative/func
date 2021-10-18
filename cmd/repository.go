@@ -312,7 +312,7 @@ func runRepositoryList(args []string, clientFn repositoryClientFn) (err error) {
 	// This follows the format of `git remote`, as it is likely familiar.
 	for _, r := range rr {
 		if cfg.Verbose {
-			fmt.Fprintln(os.Stdout, r.Name+"\t"+r.URL)
+			fmt.Fprintln(os.Stdout, r.Name+"\t"+r.URL())
 		} else {
 			fmt.Fprintln(os.Stdout, r.Name)
 		}

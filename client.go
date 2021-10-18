@@ -7,9 +7,6 @@ import (
 	"io"
 	"os"
 	"runtime"
-	"sort"
-	"strings"
-	"sync"
 	"time"
 )
 
@@ -26,30 +23,24 @@ const (
 	// one implementation of each supported function signature.  Currently that
 	// includes an HTTP Handler ("http") and Cloud Events handler ("events")
 	DefaultTemplate = "http"
-
-	// DefaultRepository is the name of the default (builtin) template repository,
-	// and is assumed when no template prefix is provided.
-	DefaultRepository = "default"
 )
 
 // Client for managing Function instances.
 type Client struct {
-	repositories     *Repositories // Repositories management
-	templates        *Templates    // Templates management
-	verbose          bool          // print verbose logs
-	builder          Builder       // Builds a runnable image from Function source
-	pusher           Pusher        // Pushes the image associated with a Function.
-	deployer         Deployer      // Deploys or Updates a Function
-	runner           Runner        // Runs the Function locally
-	remover          Remover       // Removes remote services
-	lister           Lister        // Lists remote services
-	describer        Describer
+	repositories     *Repositories    // Repositories management
+	templates        *Templates       // Templates management
+	verbose          bool             // print verbose logs
+	builder          Builder          // Builds a runnable image source
+	pusher           Pusher           // Pushes Funcation image to a remote
+	deployer         Deployer         // Deploys or Updates a Function
+	runner           Runner           // Runs the Function locally
+	remover          Remover          // Removes remote services
+	lister           Lister           // Lists remote services
+	describer        Describer        // Describes Function instances
 	dnsProvider      DNSProvider      // Provider of DNS services
-	repository       string           // URL to Git repo (overrides on-disk and embedded)
 	registry         string           // default registry for OCI image tags
 	progressListener ProgressListener // progress listener
 	emitter          Emitter          // Emits CloudEvents to functions
-
 }
 
 // ErrNotBuilt indicates the Function has not yet been built.
@@ -68,7 +59,18 @@ type Pusher interface {
 	Push(ctx context.Context, f Function) (string, error)
 }
 
-// Status of the Function
+// Deployer of Function source to running status.
+type Deployer interface {
+	// Deploy a Function of given name, using given backing image.
+	Deploy(context.Context, Function) (DeploymentResult, error)
+}
+
+type DeploymentResult struct {
+	Status Status
+	URL    string
+}
+
+// Status of the Function from the DeploymentResult
 type Status int
 
 const (
@@ -76,17 +78,6 @@ const (
 	Deployed
 	Updated
 )
-
-type DeploymentResult struct {
-	Status Status
-	URL    string
-}
-
-// Deployer of Function source to running status.
-type Deployer interface {
-	// Deploy a Function of given name, using given backing image.
-	Deploy(context.Context, Function) (DeploymentResult, error)
-}
 
 // Runner runs the Function locally.
 type Runner interface {
@@ -100,7 +91,7 @@ type Remover interface {
 	Remove(ctx context.Context, name string) error
 }
 
-// Lister of deployed services.
+// Lister of deployed functions.
 type Lister interface {
 	// List the Functions currently deployed.
 	List(ctx context.Context) ([]ListItem, error)
@@ -118,19 +109,17 @@ type ListItem struct {
 type ProgressListener interface {
 	// SetTotal steps of the given task.
 	SetTotal(int)
-
 	// Increment to the next step with the given message.
 	Increment(message string)
-
-	// Complete signals completion, which is expected to be somewhat different than a step increment.
+	// Complete signals completion, which is expected to be somewhat different
+	// than a step increment.
 	Complete(message string)
-
-	// Stopping indicates the process is in the state of stopping, such as when a context cancelation
-	// has been received
+	// Stopping indicates the process is in the state of stopping, such as when a
+	// context cancelation has been received
 	Stopping()
-
-	// Done signals a cessation of progress updates.  Should be called in a defer statement to ensure
-	// the progress listener can stop any outstanding tasks such as synchronous user updates.
+	// Done signals a cessation of progress updates.  Should be called in a defer
+	// statement to ensure the progress listener can stop any outstanding tasks
+	// such as synchronous user updates.
 	Done()
 }
 
@@ -140,6 +129,7 @@ type Describer interface {
 	Describe(ctx context.Context, name string) (description Info, err error)
 }
 
+// Info about a given Function
 type Info struct {
 	Name          string         `json:"name" yaml:"name"`
 	Image         string         `json:"image" yaml:"image"`
@@ -148,6 +138,7 @@ type Info struct {
 	Subscriptions []Subscription `json:"subscriptions" yaml:"subscriptions"`
 }
 
+// Subscriptions currently active to event sources
 type Subscription struct {
 	Source string `json:"source" yaml:"source"`
 	Type   string `json:"type" yaml:"type"`
@@ -181,22 +172,19 @@ func New(options ...Option) *Client {
 		progressListener: &NoopProgressListener{},
 		emitter:          &noopEmitter{},
 	}
-
-	// TODO: Repositories default location ($XDG_CONFIG_HOME/func/repositories)
-	// will be relocated from CLI to here.
-	// c.Repositories.Path = ...
-
-	// Templates management requires the repositories management api
-	c.templates.Repositories = c.repositories
-
+	c.repositories = newRepositories(c)
+	c.templates = newTemplates(c)
 	for _, o := range options {
 		o(c)
 	}
 	return c
 }
 
-// Option defines a Function which when passed to the Client constructor optionally
-// mutates private members at time of instantiation.
+// OPTIONS
+// ---------
+
+// Option defines a Function which when passed to the Client constructor
+// optionally mutates private members at time of instantiation.
 type Option func(*Client)
 
 // WithVerbose toggles verbose logging.
@@ -275,18 +263,18 @@ func WithDNSProvider(provider DNSProvider) Option {
 // WithRepositories sets the location to use for extensible template repositories.
 // Extensible template repositories are additional templates that exist on disk and are
 // not built into the binary.
-func WithRepositories(repositories string) Option {
+func WithRepositories(path string) Option {
 	return func(c *Client) {
-		c.repositories.Path = repositories
+		c.Repositories().SetPath(path)
 	}
 }
 
 // WithRepository sets a specific URL to a Git repository from which to pull templates.
 // This setting's existence precldes the use of either the inbuilt templates or any
 // repositories from the extensible repositories path.
-func WithRepository(repository string) Option {
+func WithRepository(uri string) Option {
 	return func(c *Client) {
-		c.repository = repository
+		c.Repositories().SetRemote(uri)
 	}
 }
 
@@ -308,6 +296,9 @@ func WithEmitter(e Emitter) Option {
 	}
 }
 
+// ACCESSORS
+// ---------
+
 // Repositories accessor
 func (c *Client) Repositories() *Repositories {
 	return c.repositories
@@ -317,6 +308,33 @@ func (c *Client) Repositories() *Repositories {
 func (c *Client) Templates() *Templates {
 	return c.templates
 }
+
+// Runtimes available in totality.
+// Not all repository/template combinations necessarily exist,
+// and further validation is performed when a template+runtime is chosen.
+// from a given repository.  This is the global list of all available.
+// Returned list is unique and sorted.
+func (c *Client) Runtimes() ([]string, error) {
+	runtimes := newSortedSet()
+
+	// Gather all runtimes from all repositories
+	// into a uniqueness map
+	repositories, err := c.Repositories().All()
+	if err != nil {
+		return []string{}, err
+	}
+	for _, repo := range repositories {
+		for _, runtime := range repo.Runtimes {
+			runtimes.Add(runtime.Name)
+		}
+	}
+
+	// Return a unique, sorted list of runtimes
+	return runtimes.Items(), nil
+}
+
+// METHODS
+// ---------
 
 // New Function.
 // Use Create, Build and Deploy independently for lower level control.
@@ -376,25 +394,25 @@ func (c *Client) New(ctx context.Context, cfg Function) (err error) {
 
 // Create a new Function project locally using the settings provided on a
 // Function object.
-func (c *Client) Create(cfg Function) (err error) {
+func (c *Client) Create(f Function) (err error) {
 
 	// Create project root directory, if it doesn't already exist
-	if err = os.MkdirAll(cfg.Root, 0755); err != nil {
+	if err = os.MkdirAll(f.Root, 0755); err != nil {
 		return
 	}
 
 	// Root must not already be a Function
 	//
 	// Instantiate a Function struct about the given root path, but
-	// immediately exit with error (prior to actual creation) if a
-	// Function already existed at that path (Create should never
+	// immediately exit with error (prior to actual creation) if this is
+	// a Function already initialized at that path (Create should never
 	// clobber a pre-existing Function)
-	f, err := NewFunction(cfg.Root)
+	defaults, err := NewFunction(f.Root)
 	if err != nil {
 		return
 	}
-	if f.Initialized() {
-		err = fmt.Errorf("Function at '%v' already initialized.", cfg.Root)
+	if defaults.Initialized() {
+		err = fmt.Errorf("Function at '%v' already initialized.", f.Root)
 		return
 	}
 
@@ -410,99 +428,31 @@ func (c *Client) Create(cfg Function) (err error) {
 		return
 	}
 
-	// Map requested fields to the newly created function.
-	f.Image = cfg.Image
-	f.Name = cfg.Name
-
 	// Assert runtime was provided, or default.
-	f.Runtime = cfg.Runtime
 	if f.Runtime == "" {
 		f.Runtime = DefaultRuntime
 	}
 
-	// Assert template was provided, or default.
-	f.Template = cfg.Template
+	// Assert template name was provided, or default.
 	if f.Template == "" {
 		f.Template = DefaultTemplate
 	}
 
-	// Determine what repository and template to use. If the caller provided
-	// a git repository URL, then use the repo name and provided template.
-	var repo, template string
-	if c.repository != "" {
-		repo, err = c.repositories.Add("", c.repository)
-		if err != nil {
-			return
-		}
-		template = cfg.Template
-		defer func() {
-			err = c.repositories.Remove(repo)
-		}()
-	} else {
-		// If the template name contains a '/', that indicates the use of a local
-		// "custom" repo. Parse the provided template name, separating the repository
-		// and template. If the name does not contain a '/', use the default built in
-		// template repository.
-		cc := strings.Split(cfg.Template, "/")
-		if len(cc) == 1 {
-			repo = DefaultRepository
-			template = cfg.Template
-		} else {
-			repo = cc[0]
-			template = cc[1]
-		}
-	}
-
-	// Write out a template.
-	w := templateWriter{repositories: c.repositories.Path, verbose: c.verbose}
-	if err = w.Write(repo, f.Runtime, template, f.Root); err != nil {
-		return
-	}
-
-	repository, err := c.repositories.Get(repo)
+	// Write out the template for a Function
+	// returns a Function which may be mutated based on the content of
+	// the template (default Function, builders, buildpacks, etc).
+	f, err = c.Templates().Write(f)
 	if err != nil {
 		return
 	}
 
-	runtime, err := repository.GetRuntime(f.Runtime)
-	if err != nil {
+	// Write the Function metadata (func.yaml)
+	if err = writeConfig(f); err != nil {
 		return
 	}
-	// Check to see if the runtime provides builder/buildpack metadata.
-	// If so, add Builders and Buildpacks to the configuration
-	f.Builder = runtime.Builders["default"]
-	f.Builders = runtime.Builders
-	f.Buildpacks = runtime.Buildpacks
 
-	f.HealthEndpoints.Liveness = repository.HealthEndpoints.Liveness
-	f.HealthEndpoints.Readiness = repository.HealthEndpoints.Readiness
-	if runtime.Liveness != "" {
-		f.HealthEndpoints.Liveness = runtime.Liveness
-	}
-	if runtime.Readiness != "" {
-		f.HealthEndpoints.Readiness = runtime.Readiness
-	}
-
-	// Now that defaults are set from manifest.yaml for builders/buildpacks
-	// be sure to allow configuration to override these
-	// If buildpacks are provided, use them
-	if len(cfg.Buildpacks) > 0 {
-		f.Buildpacks = cfg.Buildpacks
-	}
-
-	// If builders are provided use them
-	if len(cfg.Builders) > 0 {
-		f.Builders = cfg.Builders
-		if f.Builders["default"] != "" {
-			f.Builder = f.Builders["default"]
-		}
-	}
-
-	// If a default builder is provided use it
-	if cfg.Builder != "" {
-		f.Builder = cfg.Builder
-	}
-
+	// TODO: Create a status structure and return it for clients to use
+	// for output, such as from the CLI.
 	if c.verbose {
 		fmt.Printf("Builder:       %s\n", f.Builder)
 		if len(f.Buildpacks) > 0 {
@@ -511,16 +461,6 @@ func (c *Client) Create(cfg Function) (err error) {
 				fmt.Printf("           ... %s\n", b)
 			}
 		}
-	}
-
-	// Write out the config.
-	if err = writeConfig(f); err != nil {
-		return
-	}
-
-	// TODO: Create a status structure and return it for clients to use
-	// for output, such as from the CLI.
-	if c.verbose {
 		fmt.Println("Function project created")
 	}
 	return
@@ -574,7 +514,7 @@ func (c *Client) Build(ctx context.Context, path string) (err error) {
 		return
 	}
 
-	// TODO: create a statu structure and return it here for optional
+	// TODO: create a status structure and return it here for optional
 	// use by the cli for user echo (rather than rely on verbose mode here)
 	message := fmt.Sprintf("🙌 Function image built: %v", f.Image)
 	if runtime.GOOS == "windows" {
@@ -725,68 +665,8 @@ func (c *Client) Emit(ctx context.Context, endpoint string) error {
 	return c.emitter.Emit(ctx, endpoint)
 }
 
-// Runtimes available in totality.
-// Not all repository/template combinations necessarily exist,
-// and further validation is performed when a template+runtime is chosen.
-// from a given repository.  This is the global list of all available.
-// Returned list is unique and sorted.
-func (c *Client) Runtimes() ([]string, error) {
-	runtimes := newSortedSet()
-
-	// Gather all runtimes from all repositories
-	// into a uniqueness map
-	repositories, err := c.Repositories().All()
-	if err != nil {
-		return []string{}, err
-	}
-	for _, repo := range repositories {
-		for _, runtime := range repo.Runtimes {
-			runtimes.Add(runtime.Path)
-		}
-	}
-
-	// Return a unique, sorted list of runtimes
-	return runtimes.Items(), nil
-}
-
-// sorted set of strings.
-//
-// write-optimized and suitable only for fairly small values of N.
-// Should this increase dramatically in size, a different implementation,
-// such as a linked list, might be more appropriate.
-type sortedSet struct {
-	members map[string]bool
-	sync.Mutex
-}
-
-func newSortedSet() *sortedSet {
-	return &sortedSet{
-		members: make(map[string]bool),
-	}
-}
-
-func (s *sortedSet) Add(value string) {
-	s.Lock()
-	s.members[value] = true
-	s.Unlock()
-}
-
-func (s *sortedSet) Remove(value string) {
-	s.Lock()
-	delete(s.members, value)
-	s.Unlock()
-}
-
-func (s *sortedSet) Items() []string {
-	s.Lock()
-	defer s.Unlock()
-	n := []string{}
-	for k := range s.members {
-		n = append(n, k)
-	}
-	sort.Strings(n)
-	return n
-}
+// DEFAULTS
+// ---------
 
 // Manual implementations (noops) of required interfaces.
 // In practice, the user of this client package (for example the CLI) will

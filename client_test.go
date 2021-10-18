@@ -1,3 +1,4 @@
+//go:build !integration
 // +build !integration
 
 package function_test
@@ -172,7 +173,7 @@ func TestRepositoriesExtensible(t *testing.T) {
 		fn.WithRegistry(TestRegistry))
 
 	// Create a Function specifying a template which only exists in the extensible set
-	if err := client.New(context.Background(), fn.Function{Root: root, Runtime: "test", Template: "customProvider/tplc"}); err != nil {
+	if err := client.New(context.Background(), fn.Function{Root: root, Runtime: "test", Template: "customTemplateRepo/tplc"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -212,7 +213,7 @@ func TestRuntimeNotFoundCustom(t *testing.T) {
 
 	// Create a Function specifying a runtime, 'python' that does not exist
 	// in the custom (testdata) repository but does in the embedded.
-	f := fn.Function{Root: root, Runtime: "python", Template: "customProvider/event"}
+	f := fn.Function{Root: root, Runtime: "python", Template: "customTemplateRepo/event"}
 
 	// creating should error as runtime not found
 	err := client.New(context.Background(), f)
@@ -249,7 +250,7 @@ func TestTemplateNotFoundCustom(t *testing.T) {
 		fn.WithRegistry(TestRegistry))
 
 	// An invalid template, but a valid custom provider
-	f := fn.Function{Root: root, Runtime: "test", Template: "customProvider/invalid"}
+	f := fn.Function{Root: root, Runtime: "test", Template: "customTemplateRepo/invalid"}
 
 	// Creation should generate the correct error of template not being found.
 	err := client.New(context.Background(), f)
@@ -859,6 +860,7 @@ func TestRuntimes(t *testing.T) {
 	expected := []string{
 		"customRuntime",
 		"go",
+		"manifestedRuntime",
 		"node",
 		"python",
 		"quarkus",

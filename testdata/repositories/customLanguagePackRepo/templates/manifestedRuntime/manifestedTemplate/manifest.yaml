@@ -1,0 +1,9 @@
+# Template-specific setting for the readiness health endpoint
+healthEndpoints:
+  readiness: /templateReadiness
+
+# Template-specific setting for buildpacks
+buildpacks:
+  - templateBuildpack
+
+

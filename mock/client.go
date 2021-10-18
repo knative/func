@@ -47,7 +47,7 @@ func (r *Repositories) List() ([]string, error) {
 }
 
 func (r *Repositories) Add(name, url string) (string, error) {
-	r.all = append(r.all, fn.Repository{Name: name, URL: url})
+	r.all = append(r.all, fn.Repository{Name: name})
 	return "", nil
 }
 
