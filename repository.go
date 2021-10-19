@@ -70,15 +70,18 @@ type Repository struct {
 type Runtime struct {
 	// Name of the runtime
 	Name string `yaml:"-"` // use filesysem for names
+
 	// HealthEndpoints for all templates in the runtime.  May be overridden
 	// per template.
 	HealthEndpoints `yaml:"healthEndpoints,omitempty"`
+
 	// BuildConfig defines attriutes 'builders' and 'buildpacks'.  Here it serves
 	// as the default option which may be overridden per template. Note that
 	// unlike HealthEndpoints, it is inline, so no 'buildConfig' attribute is
 	// added/expected; rather the Buildpacks and Builders are direct descendants
 	// of Runtime.
 	BuildConfig `yaml:",inline"`
+
 	// Templates defined for the runtime
 	Templates []Template
 }
@@ -105,19 +108,19 @@ func NewRepository(uri string) (r Repository, err error) {
 			Readiness: DefaultLivenessEndpoint,
 		},
 	}
-	r.Name, err = defaultRepositoryName(uri)
+	r.Name, err = defaultRepositoryName(uri) // derives a default name from URI
 	if err != nil {
 		return
 	}
-	r.fs, err = repositoryFilesystem(uri)
+	r.fs, err = filesystemFromURI(uri) // Get a Filesystem from the URI
 	if err != nil {
 		return
 	}
-	r, err = applyRepositoryManifest(r)
+	r, err = applyRepositoryManifest(r) // apply optional manifest to r
 	if err != nil {
 		return
 	}
-	r.Runtimes, err = repositoryRuntimes(r)
+	r.Runtimes, err = repositoryRuntimes(r) // load all templates, by runtime
 	return
 }
 
@@ -144,11 +147,29 @@ func repoNameFrom(uri string) (name string, err error) {
 	return strings.TrimSuffix(ss[len(ss)-1], ".git"), nil
 }
 
-// repositoryFilesystem returns a filesystem for the repository's contents
-func repositoryFilesystem(uri string) (f filesystem, err error) {
+// filesystemFromURI returns a filesystem from the data located at the
+// given URI.  Accepts the magic default name (DefaultRepositoryName) to
+// indicate the embedded files, a remote git repository (http:// https:// etc),
+// or a local file path (file://) which can be a git repo or a plain directory.
+func filesystemFromURI(uri string) (f filesystem, err error) {
+	// If it is the magic name, use the embedded filesystem
 	if uri == DefaultRepositoryName {
 		return pkgerFilesystem{}, nil
 	}
+
+	// Attempt to get a filesystm from the uri as a remote repo.
+	f, err = filesystemFromRepo(uri)
+	if f != nil || err != nil {
+		return // found a filesystem and/or an error
+	}
+
+	// Attempt to get a filesystem from the uri as a file path.
+	return filesystemFromPath(uri)
+}
+
+// filesystemFromRepo attempts to fetch a filesystem from a git repository
+// indicated by the given URI.  Returns nil if there is not a repo at the URI.
+func filesystemFromRepo(uri string) (filesystem, error) {
 	clone, err := git.Clone(
 		memory.NewStorage(),
 		memfs.New(),
@@ -156,13 +177,36 @@ func repositoryFilesystem(uri string) (f filesystem, err error) {
 			RecurseSubmodules: git.NoRecurseSubmodules,
 		})
 	if err != nil {
-		return
+		if isRepoNotFoundError(err) {
+			err = nil // no repo at location is an expected condition
+		}
+		return nil, err
 	}
 	wt, err := clone.Worktree()
 	if err != nil {
-		return
+		return nil, err
 	}
 	return billyFilesystem{fs: wt.Filesystem}, nil
+}
+
+// isRepoNotFoundError returns true if the error is a
+// "repository not found" error.
+func isRepoNotFoundError(err error) bool {
+	// This would be better if the error being tested for was typed, but it is
+	// currently a simple string value comparison.
+	return (err != nil && err.Error() == "repository not found")
+}
+
+// filesystemFromPath attempts to return a filesystem from a URI as a file:// path
+func filesystemFromPath(uri string) (f filesystem, err error) {
+	parsed, err := url.Parse(uri)
+	if err != nil {
+		return
+	}
+	if _, err := os.Stat(parsed.Path); os.IsNotExist(err) {
+		return nil, fmt.Errorf("path does not exist: %v", parsed.Path)
+	}
+	return osFilesystem{root: parsed.Path}, nil
 }
 
 // repositoryRuntimes returns runtimes defined in this repository's filesytem.

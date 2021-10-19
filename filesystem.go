@@ -30,8 +30,7 @@ type file interface {
 
 // pkgerFilesystem is template file accessor backed by the pkger-provided
 // embedded filesystem.o
-type pkgerFilesystem struct {
-}
+type pkgerFilesystem struct{}
 
 // the root of the repository is actually ./templates, which is proffered
 // in the pkger filesystem as /templates, so all path requests will be
@@ -56,20 +55,38 @@ func (a pkgerFilesystem) ReadDir(path string) ([]os.FileInfo, error) {
 }
 
 // billyFilesystem is a template file accessor backed by a billy FS
-type billyFilesystem struct {
-	fs billy.Filesystem
+type billyFilesystem struct{ fs billy.Filesystem }
+
+func (b billyFilesystem) Stat(path string) (os.FileInfo, error) {
+	return b.fs.Stat(path)
 }
 
-func (a billyFilesystem) Stat(path string) (os.FileInfo, error) {
-	return a.fs.Stat(path)
+func (b billyFilesystem) Open(path string) (file, error) {
+	return b.fs.Open(path)
 }
 
-func (a billyFilesystem) Open(path string) (file, error) {
-	return a.fs.Open(path)
+func (b billyFilesystem) ReadDir(path string) ([]os.FileInfo, error) {
+	return b.fs.ReadDir(path)
 }
 
-func (a billyFilesystem) ReadDir(path string) ([]os.FileInfo, error) {
-	return a.fs.ReadDir(path)
+// osFilesystem is a template file accessor backed by the os.
+type osFilesystem struct{ root string }
+
+func (f osFilesystem) Stat(path string) (os.FileInfo, error) {
+	return os.Stat(filepath.Join(f.root, path))
+}
+
+func (f osFilesystem) Open(path string) (file, error) {
+	return os.Open(filepath.Join(f.root, path))
+}
+
+func (f osFilesystem) ReadDir(path string) ([]os.FileInfo, error) {
+	fi, err := os.Open(filepath.Join(f.root, path))
+	if err != nil {
+		return nil, err
+	}
+	defer fi.Close()
+	return fi.Readdir(-1)
 }
 
 // copy

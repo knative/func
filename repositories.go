@@ -90,6 +90,7 @@ func (r *Repositories) List() ([]string, error) {
 // If a path to custom repositories is defined, these are included next.
 // If repositories is in single-repo mode, it will be the only repo returned.
 func (r *Repositories) All() (repos []Repository, err error) {
+
 	repo := Repository{}
 	repos = []Repository{}
 
@@ -161,6 +162,7 @@ func (r *Repositories) Get(name string) (repo Repository, err error) {
 	for _, v := range all {
 		if v.Name == name {
 			repo = v
+			return
 		}
 	}
 	return repo, ErrRepositoryNotFound
