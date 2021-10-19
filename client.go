@@ -395,7 +395,6 @@ func (c *Client) New(ctx context.Context, cfg Function) (err error) {
 // Create a new Function project locally using the settings provided on a
 // Function object.
 func (c *Client) Create(f Function) (err error) {
-
 	// Create project root directory, if it doesn't already exist
 	if err = os.MkdirAll(f.Root, 0755); err != nil {
 		return

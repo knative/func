@@ -88,21 +88,22 @@ func (r *Repositories) List() ([]string, error) {
 // If a path to custom repositories is defined, these are included next.
 // If repositories is in single-repo mode, it will be the only repo returned.
 func (r *Repositories) All() (repos []Repository, err error) {
-
-	repo := Repository{}
-	repos = []Repository{}
+	var repo Repository
 
 	// if in single-repo mode:
+	// Create a new repository from the remote URI, and set its name to
+	// the default so that it is treated as the default in place of the embedded.
 	if r.remote != "" {
-		if repo, err = NewRepository(r.remote); err != nil {
+		if repo, err = NewRepository(DefaultRepositoryName, r.remote); err != nil {
 			return
 		}
 		repos = []Repository{repo}
 		return
 	}
 
-	// the default repository is always first in the list
-	if repo, err = NewRepository(DefaultRepositoryName); err != nil {
+	// When not in single-repo mode (above), the default repository is always
+	// first in the list
+	if repo, err = NewRepository("", ""); err != nil {
 		return
 	}
 	repos = append(repos, repo)
@@ -116,7 +117,9 @@ func (r *Repositories) All() (repos []Repository, err error) {
 		return
 	}
 
-	// Load each repo
+	// Load each repo from disk.
+	// All settings, including name, are derived from its structure on disk
+	// plus manifest.
 	ff, err := os.ReadDir(r.path)
 	if err != nil {
 		return
@@ -130,7 +133,7 @@ func (r *Repositories) All() (repos []Repository, err error) {
 		if err != nil {
 			return
 		}
-		if repo, err = NewRepository("file://" + abspath + "/" + f.Name()); err != nil {
+		if repo, err = NewRepository("", "file://"+abspath+"/"+f.Name()); err != nil {
 			return
 		}
 		repos = append(repos, repo)
@@ -176,13 +179,20 @@ func (r *Repositories) Add(name, uri string) (string, error) {
 	}
 
 	// Create a repo (in-memory FS) from the URI
-	repo, err := NewRepository(uri)
+	repo, err := NewRepository(name, uri)
 	if err != nil {
 		return "", err
 	}
 
-	// Install it to local disk by copying the contents to the location.
-	return repo.Name, copy("/", filepath.Join(r.path, repo.Name), repo.FS)
+	// Error if the repository already exists on disk
+	dest := filepath.Join(r.path, repo.Name)
+	if _, err := os.Stat(dest); !os.IsNotExist(err) {
+		return "", fmt.Errorf("repository '%v' already exists", repo.Name)
+	}
+
+	// Instruct the repository to write itself to disk at the given path.
+	// Fails if path exists.
+	return repo.Name, repo.Write(dest)
 }
 
 // Rename a repository

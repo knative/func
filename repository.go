@@ -64,6 +64,7 @@ type Repository struct {
 	FS Filesystem
 
 	uri string // URI which was used when initially creating
+
 }
 
 // Runtime is a division of templates within a repository of templates for a
@@ -102,7 +103,11 @@ type BuildConfig struct {
 
 // NewRepository creates a repository instance from any of: a path on disk, a
 // remote or local URI, or from the embedded default repo if uri not provided.
-func NewRepository(uri string) (r Repository, err error) {
+// Name (optional), if provided takes precidence over name derived from repo at
+//   the given URI.
+// URI (optional), the path either locally or remote from which to load the
+//    the repository files.  If not provided, the internal default is assumed.
+func NewRepository(name, uri string) (r Repository, err error) {
 	r = Repository{
 		uri: uri,
 		HealthEndpoints: HealthEndpoints{
@@ -118,44 +123,24 @@ func NewRepository(uri string) (r Repository, err error) {
 	if err != nil {
 		return
 	}
-	r.Name, err = repositoryName(r.DefaultName, uri) // set repo name
+	r.Name, err = repositoryDefaultName(r.DefaultName, uri) // choose default name
 	if err != nil {
 		return
 	}
-	r.Runtimes, err = repositoryRuntimes(r) // load all templates, by runtime
+	if name != "" { // If provided, the explicit name takes precidence
+		r.Name = name
+	}
+	r.Runtimes, err = repositoryRuntimes(r) // load templates grouped by runtime
 	return
 }
 
-// repositoryName returns the given name, which if empty falls back to deriving
-// a name from the given URI, which if empty falls back to the static default.
-func repositoryName(name, uri string) (string, error) {
-	// explicit name takes precidence
-	if name != "" {
-		return name, nil
-	}
-	// URI-derived is second precidence
-	if uri != "" {
-		parsed, err := url.Parse(uri)
-		if err != nil {
-			return "", err
-		}
-		ss := strings.Split(parsed.Path, "/")
-		if len(ss) > 0 {
-			// name is the last token with optional '.git' suffix removed
-			return strings.TrimSuffix(ss[len(ss)-1], ".git"), nil
-		}
-	}
-	// static default
-	return DefaultRepositoryName, nil
-}
-
 // filesystemFromURI returns a filesystem from the data located at the
-// given URI.  Accepts the magic default name (DefaultRepositoryName) to
-// indicate the embedded files, a remote git repository (http:// https:// etc),
+// given URI.  If URI is not provided, indicates the embedded repo should
+// be loaded.  URI can be a remote git repository (http:// https:// etc),
 // or a local file path (file://) which can be a git repo or a plain directory.
 func filesystemFromURI(uri string) (f Filesystem, err error) {
-	// If it is the magic name, use the embedded filesystem
-	if uri == DefaultRepositoryName {
+	// If not provided, indicates embedded.
+	if uri == "" {
 		return pkgerFilesystem{}, nil
 	}
 
@@ -313,6 +298,30 @@ func runtimeTemplates(r Repository, runtime Runtime) (templates []Template, err 
 	return
 }
 
+// repositoryDefaultName returns the given name, which if empty falls back to
+// deriving a name from the URI, which if empty then falls back to the
+// statically defined default DefaultRepositoryName.
+func repositoryDefaultName(name, uri string) (string, error) {
+	// explicit name takes precidence
+	if name != "" {
+		return name, nil
+	}
+	// URI-derived is second precidence
+	if uri != "" {
+		parsed, err := url.Parse(uri)
+		if err != nil {
+			return "", err
+		}
+		ss := strings.Split(parsed.Path, "/")
+		if len(ss) > 0 {
+			// name is the last token with optional '.git' suffix removed
+			return strings.TrimSuffix(ss[len(ss)-1], ".git"), nil
+		}
+	}
+	// static default
+	return DefaultRepositoryName, nil
+}
+
 // applyRepositoryManifest from the root of the repository's filesystem if it
 // exists.  Returned is the repository with any values from the manifest
 // set to those of the manifest.
@@ -405,6 +414,20 @@ func (r *Repository) Runtime(name string) (runtime Runtime, err error) {
 		}
 	}
 	return Runtime{}, ErrRuntimeNotFound
+}
+
+// Write all files in the repository to the given path.
+func (r *Repository) Write(path string) error {
+	// NOTE: Writing internal .git directory does not work
+	//
+	// A quirk of the git library's implementation is that the filesytem
+	// returned does not include the .git directory.  This is usually not an
+	// issue when utilizing the repository's filesystem (for writing templates),
+	// but it does cause problems here (used for installing a repo locally) where
+	// we effectively want a full clone.
+	// TODO: switch to using a temp directory?
+
+	return copy("/", path, r.FS) // copy 'all' to 'dest' from 'FS'
 }
 
 // URL attempts to read the remote git origin URL of the repository.  Best
