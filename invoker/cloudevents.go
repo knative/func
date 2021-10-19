@@ -17,7 +17,7 @@ const (
 	DefaultEventType   = "boson.fn"
 )
 
-type Invoker struct {
+type EventInvoker struct {
 	Endpoint    string
 	Source      string
 	Type        string
@@ -26,8 +26,8 @@ type Invoker struct {
 	ContentType string
 }
 
-func NewInvoker() *Invoker {
-	return &Invoker{
+func NewEventInvoker() *EventInvoker {
+	return &EventInvoker{
 		Source:      DefaultEventSource,
 		Type:        DefaultEventType,
 		Id:          uuid.NewString(),
@@ -36,7 +36,7 @@ func NewInvoker() *Invoker {
 	}
 }
 
-func (e *Invoker) Send(ctx context.Context, endpoint string) (err error) {
+func (e *EventInvoker) Send(ctx context.Context, endpoint string) (err error) {
 	c, err := newClient(endpoint)
 	if err != nil {
 		return

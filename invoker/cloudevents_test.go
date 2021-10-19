@@ -41,7 +41,7 @@ func receiveEvents(t *testing.T, ctx context.Context, events chan<- event.Event)
 	return
 }
 
-func TestEmitterDefaults(t *testing.T) {
+func TestEventInvokerDefaults(t *testing.T) {
 	events := make(chan event.Event)
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -49,7 +49,7 @@ func TestEmitterDefaults(t *testing.T) {
 	// and sends them to a channel
 	p := receiveEvents(t, ctx, events)
 
-	emitter := NewEmitter()
+	emitter := NewEventInvoker()
 	if err := emitter.Send(ctx, fmt.Sprintf("http://localhost:%v", p.GetListeningPort())); err != nil {
 		t.Fatalf("Error emitting event: %v\n", err)
 	}
@@ -68,7 +68,7 @@ func TestEmitterDefaults(t *testing.T) {
 	}
 }
 
-func TestEmitter(t *testing.T) {
+func TestEventInvoker(t *testing.T) {
 	testCases := map[string]struct {
 		cesource string
 		cetype   string
@@ -97,7 +97,7 @@ func TestEmitter(t *testing.T) {
 			// and sends them to a channel
 			p := receiveEvents(t, ctx, events)
 
-			emitter := NewEmitter()
+			emitter := NewEventInvoker()
 
 			if tc.cesource != "" {
 				emitter.Source = tc.cesource

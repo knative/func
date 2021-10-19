@@ -17,9 +17,10 @@ func init() {
 	root.AddCommand(NewInvokeCmd(newInvokeClient))
 }
 
-// create a fn.Client with an instance of a
+// create a fn.Client with an instance of an EventInvoker
+// TODO: add support for HTTPInvoker
 func newInvokeClient(cfg invokeConfig) (*fn.Client, error) {
-	e := invoker.NewEmitter()
+	e := invoker.NewEventInvoker()
 	e.Id = cfg.Id
 	e.Source = cfg.Source
 	e.Type = cfg.Type
