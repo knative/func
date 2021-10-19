@@ -126,7 +126,12 @@ func (r *Repositories) All() (repos []Repository, err error) {
 		if !f.IsDir() || strings.HasPrefix(f.Name(), ".") {
 			continue
 		}
-		if repo, err = NewRepository("file://" + r.path + "/" + f.Name()); err != nil {
+		var abspath string
+		abspath, err = filepath.Abs(r.path)
+		if err != nil {
+			return
+		}
+		if repo, err = NewRepository("file://" + abspath + "/" + f.Name()); err != nil {
 			return
 		}
 		repos = append(repos, repo)
@@ -141,7 +146,7 @@ func (r *Repositories) Get(name string) (repo Repository, err error) {
 		return
 	}
 	if len(all) == 0 { // should not be possible because embedded always exists.
-		err = errors.New("internal error: no repositories loaded.")
+		err = errors.New("internal error: no repositories loaded")
 		return
 	}
 
@@ -151,13 +156,12 @@ func (r *Repositories) Get(name string) (repo Repository, err error) {
 	}
 
 	if r.remote != "" {
-		return repo, fmt.Errorf("in single-repo mode (%v). Repository '%v' not loaded.", r.remote, name)
+		return repo, fmt.Errorf("in single-repo mode (%v). Repository '%v' not loaded", r.remote, name)
 	}
 	for _, v := range all {
 		if v.Name == name {
 			repo = v
 		}
-		return
 	}
 	return repo, ErrRepositoryNotFound
 }
@@ -168,7 +172,7 @@ func (r *Repositories) Get(name string) (repo Repository, err error) {
 func (r *Repositories) Add(name, uri string) (string, error) {
 	if r.path == "" {
 		return "", fmt.Errorf("repository %v(%v) not added. "+
-			"No repositories path provided.", name, uri)
+			"No repositories path provided", name, uri)
 	}
 
 	// if name was not provided, pull the repo into memory which determines the
@@ -195,7 +199,7 @@ func (r *Repositories) Add(name, uri string) (string, error) {
 func (r *Repositories) Rename(from, to string) error {
 	if r.path == "" {
 		return fmt.Errorf("repository %v not renamed. "+
-			"No repositories path provided.", from)
+			"No repositories path provided", from)
 	}
 	a := filepath.Join(r.path, from)
 	b := filepath.Join(r.path, to)
@@ -207,7 +211,7 @@ func (r *Repositories) Rename(from, to string) error {
 func (r *Repositories) Remove(name string) error {
 	if r.path == "" {
 		return fmt.Errorf("repository %v not removed. "+
-			"No repositories path provided.", name)
+			"No repositories path provided", name)
 	}
 	if name == "" {
 		return errors.New("name is required")
