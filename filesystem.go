@@ -17,7 +17,7 @@ import (
 // pker:  embedded filesystem backed by the generated pkged.go.
 // billy: go-git library's filesystem used for remote git template repos.
 
-type filesystem interface {
+type Filesystem interface {
 	Stat(name string) (os.FileInfo, error)
 	Open(path string) (file, error)
 	ReadDir(path string) ([]os.FileInfo, error)
@@ -30,8 +30,7 @@ type file interface {
 
 // pkgerFilesystem is template file accessor backed by the pkger-provided
 // embedded filesystem.o
-type pkgerFilesystem struct {
-}
+type pkgerFilesystem struct{}
 
 // the root of the repository is actually ./templates, which is proffered
 // in the pkger filesystem as /templates, so all path requests will be
@@ -56,25 +55,43 @@ func (a pkgerFilesystem) ReadDir(path string) ([]os.FileInfo, error) {
 }
 
 // billyFilesystem is a template file accessor backed by a billy FS
-type billyFilesystem struct {
-	fs billy.Filesystem
+type billyFilesystem struct{ fs billy.Filesystem }
+
+func (b billyFilesystem) Stat(path string) (os.FileInfo, error) {
+	return b.fs.Stat(path)
 }
 
-func (a billyFilesystem) Stat(path string) (os.FileInfo, error) {
-	return a.fs.Stat(path)
+func (b billyFilesystem) Open(path string) (file, error) {
+	return b.fs.Open(path)
 }
 
-func (a billyFilesystem) Open(path string) (file, error) {
-	return a.fs.Open(path)
+func (b billyFilesystem) ReadDir(path string) ([]os.FileInfo, error) {
+	return b.fs.ReadDir(path)
 }
 
-func (a billyFilesystem) ReadDir(path string) ([]os.FileInfo, error) {
-	return a.fs.ReadDir(path)
+// osFilesystem is a template file accessor backed by the os.
+type osFilesystem struct{ root string }
+
+func (f osFilesystem) Stat(path string) (os.FileInfo, error) {
+	return os.Stat(filepath.Join(f.root, path))
+}
+
+func (f osFilesystem) Open(path string) (file, error) {
+	return os.Open(filepath.Join(f.root, path))
+}
+
+func (f osFilesystem) ReadDir(path string) ([]os.FileInfo, error) {
+	fi, err := os.Open(filepath.Join(f.root, path))
+	if err != nil {
+		return nil, err
+	}
+	defer fi.Close()
+	return fi.Readdir(-1)
 }
 
 // copy
 
-func copy(src, dest string, accessor filesystem) (err error) {
+func copy(src, dest string, accessor Filesystem) (err error) {
 	node, err := accessor.Stat(src)
 	if err != nil {
 		return
@@ -86,7 +103,7 @@ func copy(src, dest string, accessor filesystem) (err error) {
 	}
 }
 
-func copyNode(src, dest string, accessor filesystem) (err error) {
+func copyNode(src, dest string, accessor Filesystem) (err error) {
 	// Ideally we should use the file mode of the src node
 	// but it seems the git module is reporting directories
 	// as 0644 instead of 0755. For now, just do it this way.
@@ -109,7 +126,7 @@ func copyNode(src, dest string, accessor filesystem) (err error) {
 	return
 }
 
-func readDir(src string, accessor filesystem) ([]os.FileInfo, error) {
+func readDir(src string, accessor Filesystem) ([]os.FileInfo, error) {
 	list, err := accessor.ReadDir(src)
 	if err != nil {
 		return nil, err
@@ -118,7 +135,7 @@ func readDir(src string, accessor filesystem) ([]os.FileInfo, error) {
 	return list, nil
 }
 
-func copyLeaf(src, dest string, accessor filesystem) (err error) {
+func copyLeaf(src, dest string, accessor Filesystem) (err error) {
 	srcFile, err := accessor.Open(src)
 	if err != nil {
 		return

@@ -7,7 +7,10 @@ type Template struct {
 	Name string `yaml:"-"` // use filesystem for name, not yaml
 	// Runtime for which this template applies.
 	Runtime string
-	// Repository within which this template is contained.
+	// Repository within which this template is contained.  Value is set to the
+	// currently effective name of the repository, which may vary. It is user-
+	// defined when the repository is added, and can be set to "default" when
+	// the client is loaded in single repo mode. I.e. not canonical.
 	Repository string
 	// BuildConfig defines builders and buildpacks.  the denormalized view of
 	// members which can be defined per repo or per runtime first.

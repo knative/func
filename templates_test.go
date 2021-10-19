@@ -150,14 +150,15 @@ func TestTemplateCustom(t *testing.T) {
 	}
 
 	// Assert file exists as expected
-	_, err = os.Stat(filepath.Join(root, "custom.go"))
+	_, err = os.Stat(filepath.Join(root, "custom.impl"))
 	if err != nil {
 		t.Fatal(err)
 	}
 }
 
 // TestTemplateRemote ensures that a Git template repository provided via URI
-// can be specificed.
+// can be specificed on creation of client, with subsequent calls to Create
+// using this remote by default.
 func TestTemplateRemote(t *testing.T) {
 	root := "testdata/testTemplateRemote"
 	defer using(t, root)()

@@ -395,7 +395,6 @@ func (c *Client) New(ctx context.Context, cfg Function) (err error) {
 // Create a new Function project locally using the settings provided on a
 // Function object.
 func (c *Client) Create(f Function) (err error) {
-
 	// Create project root directory, if it doesn't already exist
 	if err = os.MkdirAll(f.Root, 0755); err != nil {
 		return
@@ -412,7 +411,7 @@ func (c *Client) Create(f Function) (err error) {
 		return
 	}
 	if defaults.Initialized() {
-		err = fmt.Errorf("Function at '%v' already initialized.", f.Root)
+		err = fmt.Errorf("Function at '%v' already initialized", f.Root)
 		return
 	}
 
@@ -597,7 +596,7 @@ func (c *Client) Run(ctx context.Context, root string) error {
 
 	if !f.Initialized() {
 		// TODO: this needs a test.
-		return fmt.Errorf("the given path '%v' does not contain an initialized Function.  Please create one at this path in order to run.", root)
+		return fmt.Errorf("the given path '%v' does not contain an initialized Function.  Please create one at this path in order to run", root)
 	}
 
 	// delegate to concrete implementation of runner entirely.
@@ -651,7 +650,7 @@ func (c *Client) Remove(ctx context.Context, cfg Function) error {
 		return err
 	}
 	if !f.Initialized() {
-		return fmt.Errorf("Function at %v can not be removed unless initialized.  Try removing by name.", f.Root)
+		return fmt.Errorf("Function at %v can not be removed unless initialized.  Try removing by name", f.Root)
 	}
 	return c.remover.Remove(ctx, f.Name)
 }

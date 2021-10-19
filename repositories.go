@@ -6,8 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/go-git/go-git/v5"
 )
 
 const (
@@ -90,20 +88,22 @@ func (r *Repositories) List() ([]string, error) {
 // If a path to custom repositories is defined, these are included next.
 // If repositories is in single-repo mode, it will be the only repo returned.
 func (r *Repositories) All() (repos []Repository, err error) {
-	repo := Repository{}
-	repos = []Repository{}
+	var repo Repository
 
 	// if in single-repo mode:
+	// Create a new repository from the remote URI, and set its name to
+	// the default so that it is treated as the default in place of the embedded.
 	if r.remote != "" {
-		if repo, err = NewRepository(r.remote); err != nil {
+		if repo, err = NewRepository(DefaultRepositoryName, r.remote); err != nil {
 			return
 		}
 		repos = []Repository{repo}
 		return
 	}
 
-	// the default repository is always first in the list
-	if repo, err = NewRepository(DefaultRepositoryName); err != nil {
+	// When not in single-repo mode (above), the default repository is always
+	// first in the list
+	if repo, err = NewRepository("", ""); err != nil {
 		return
 	}
 	repos = append(repos, repo)
@@ -117,7 +117,9 @@ func (r *Repositories) All() (repos []Repository, err error) {
 		return
 	}
 
-	// Load each repo
+	// Load each repo from disk.
+	// All settings, including name, are derived from its structure on disk
+	// plus manifest.
 	ff, err := os.ReadDir(r.path)
 	if err != nil {
 		return
@@ -126,7 +128,12 @@ func (r *Repositories) All() (repos []Repository, err error) {
 		if !f.IsDir() || strings.HasPrefix(f.Name(), ".") {
 			continue
 		}
-		if repo, err = NewRepository("file://" + r.path + "/" + f.Name()); err != nil {
+		var abspath string
+		abspath, err = filepath.Abs(r.path)
+		if err != nil {
+			return
+		}
+		if repo, err = NewRepository("", "file://"+abspath+"/"+f.Name()); err != nil {
 			return
 		}
 		repos = append(repos, repo)
@@ -141,7 +148,7 @@ func (r *Repositories) Get(name string) (repo Repository, err error) {
 		return
 	}
 	if len(all) == 0 { // should not be possible because embedded always exists.
-		err = errors.New("internal error: no repositories loaded.")
+		err = errors.New("internal error: no repositories loaded")
 		return
 	}
 
@@ -151,13 +158,13 @@ func (r *Repositories) Get(name string) (repo Repository, err error) {
 	}
 
 	if r.remote != "" {
-		return repo, fmt.Errorf("in single-repo mode (%v). Repository '%v' not loaded.", r.remote, name)
+		return repo, fmt.Errorf("in single-repo mode (%v). Repository '%v' not loaded", r.remote, name)
 	}
 	for _, v := range all {
 		if v.Name == name {
 			repo = v
+			return
 		}
-		return
 	}
 	return repo, ErrRepositoryNotFound
 }
@@ -168,34 +175,31 @@ func (r *Repositories) Get(name string) (repo Repository, err error) {
 func (r *Repositories) Add(name, uri string) (string, error) {
 	if r.path == "" {
 		return "", fmt.Errorf("repository %v(%v) not added. "+
-			"No repositories path provided.", name, uri)
+			"No repositories path provided", name, uri)
 	}
 
-	// if name was not provided, pull the repo into memory which determines the
-	// default name by first checking the manifest and falling back to extracting
-	// the name from the uri.
-	if name == "" {
-		repo, err := NewRepository(uri)
-		if err != nil {
-			return "", err
-		}
-		name = repo.Name
+	// Create a repo (in-memory FS) from the URI
+	repo, err := NewRepository(name, uri)
+	if err != nil {
+		return "", err
 	}
 
-	// Clone it to disk
-	_, err := git.PlainClone(
-		filepath.Join(r.path, name), // path
-		false,                       // not bare (we want a working branch)
-		&git.CloneOptions{URL: uri}) // no other options except uri
+	// Error if the repository already exists on disk
+	dest := filepath.Join(r.path, repo.Name)
+	if _, err := os.Stat(dest); !os.IsNotExist(err) {
+		return "", fmt.Errorf("repository '%v' already exists", repo.Name)
+	}
 
-	return name, err
+	// Instruct the repository to write itself to disk at the given path.
+	// Fails if path exists.
+	return repo.Name, repo.Write(dest)
 }
 
 // Rename a repository
 func (r *Repositories) Rename(from, to string) error {
 	if r.path == "" {
 		return fmt.Errorf("repository %v not renamed. "+
-			"No repositories path provided.", from)
+			"No repositories path provided", from)
 	}
 	a := filepath.Join(r.path, from)
 	b := filepath.Join(r.path, to)
@@ -207,7 +211,7 @@ func (r *Repositories) Rename(from, to string) error {
 func (r *Repositories) Remove(name string) error {
 	if r.path == "" {
 		return fmt.Errorf("repository %v not removed. "+
-			"No repositories path provided.", name)
+			"No repositories path provided", name)
 	}
 	if name == "" {
 		return errors.New("name is required")
