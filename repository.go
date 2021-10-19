@@ -59,9 +59,11 @@ type Repository struct {
 	HealthEndpoints `yaml:"healthEndpoints,omitempty"`
 	// Runtimes containting Templates loaded from the repo
 	Runtimes []Runtime
+	// FS is the filesystem underlying the repository, loaded from URI
+	// TODO upgrade to fs.FS introduced in go1.16
+	FS Filesystem
 
-	uri string     // URI used when initially creating
-	fs  filesystem // filesysem derived from uri: TODO upgrade to fs.FS introduced in go1.16
+	uri string // URI which was used when initially creating
 }
 
 // Runtime is a division of templates within a repository of templates for a
@@ -108,11 +110,7 @@ func NewRepository(uri string) (r Repository, err error) {
 			Readiness: DefaultLivenessEndpoint,
 		},
 	}
-	r.Name, err = defaultRepositoryName(uri) // derives a default name from URI
-	if err != nil {
-		return
-	}
-	r.fs, err = filesystemFromURI(uri) // Get a Filesystem from the URI
+	r.FS, err = filesystemFromURI(uri) // Get a Filesystem from the URI
 	if err != nil {
 		return
 	}
@@ -120,38 +118,42 @@ func NewRepository(uri string) (r Repository, err error) {
 	if err != nil {
 		return
 	}
+	r.Name, err = repositoryName(r.DefaultName, uri) // set repo name
+	if err != nil {
+		return
+	}
 	r.Runtimes, err = repositoryRuntimes(r) // load all templates, by runtime
 	return
 }
 
-// defaultRepositoryName is the default if the URI is empty or already the
-// default name.  Otherwise it extracts the repository name from the uri.
-func defaultRepositoryName(uri string) (string, error) {
-	if uri == "" || uri == DefaultRepositoryName {
-		return DefaultRepositoryName, nil
+// repositoryName returns the given name, which if empty falls back to deriving
+// a name from the given URI, which if empty falls back to the static default.
+func repositoryName(name, uri string) (string, error) {
+	// explicit name takes precidence
+	if name != "" {
+		return name, nil
 	}
-	return repoNameFrom(uri)
-}
-
-// repoNameFrom uri returns the last token with any .git suffix trimmed.
-// uri must be parseable as a net/URL
-func repoNameFrom(uri string) (name string, err error) {
-	url, err := url.Parse(uri)
-	if err != nil {
-		return "", err
+	// URI-derived is second precidence
+	if uri != "" {
+		parsed, err := url.Parse(uri)
+		if err != nil {
+			return "", err
+		}
+		ss := strings.Split(parsed.Path, "/")
+		if len(ss) > 0 {
+			// name is the last token with optional '.git' suffix removed
+			return strings.TrimSuffix(ss[len(ss)-1], ".git"), nil
+		}
 	}
-	ss := strings.Split(url.Path, "/")
-	if len(ss) == 0 {
-		return
-	}
-	return strings.TrimSuffix(ss[len(ss)-1], ".git"), nil
+	// static default
+	return DefaultRepositoryName, nil
 }
 
 // filesystemFromURI returns a filesystem from the data located at the
 // given URI.  Accepts the magic default name (DefaultRepositoryName) to
 // indicate the embedded files, a remote git repository (http:// https:// etc),
 // or a local file path (file://) which can be a git repo or a plain directory.
-func filesystemFromURI(uri string) (f filesystem, err error) {
+func filesystemFromURI(uri string) (f Filesystem, err error) {
 	// If it is the magic name, use the embedded filesystem
 	if uri == DefaultRepositoryName {
 		return pkgerFilesystem{}, nil
@@ -169,7 +171,7 @@ func filesystemFromURI(uri string) (f filesystem, err error) {
 
 // filesystemFromRepo attempts to fetch a filesystem from a git repository
 // indicated by the given URI.  Returns nil if there is not a repo at the URI.
-func filesystemFromRepo(uri string) (filesystem, error) {
+func filesystemFromRepo(uri string) (Filesystem, error) {
 	clone, err := git.Clone(
 		memory.NewStorage(),
 		memfs.New(),
@@ -198,7 +200,7 @@ func isRepoNotFoundError(err error) bool {
 }
 
 // filesystemFromPath attempts to return a filesystem from a URI as a file:// path
-func filesystemFromPath(uri string) (f filesystem, err error) {
+func filesystemFromPath(uri string) (f Filesystem, err error) {
 	parsed, err := url.Parse(uri)
 	if err != nil {
 		return
@@ -219,7 +221,7 @@ func repositoryRuntimes(r Repository) (runtimes []Runtime, err error) {
 
 	// Validate custom path if defined
 	if r.TemplatesPath != "" {
-		if err = checkDir(r.fs, r.TemplatesPath); err != nil {
+		if err = checkDir(r.FS, r.TemplatesPath); err != nil {
 			err = fmt.Errorf("templates path '%v' does not exist in repo '%v'. %v",
 				r.TemplatesPath, r.Name, err)
 			return
@@ -231,7 +233,7 @@ func repositoryRuntimes(r Repository) (runtimes []Runtime, err error) {
 		r.TemplatesPath = "/"
 	}
 
-	fis, err := r.fs.ReadDir(r.TemplatesPath)
+	fis, err := r.FS.ReadDir(r.TemplatesPath)
 	if err != nil {
 		return
 	}
@@ -275,13 +277,13 @@ func runtimeTemplates(r Repository, runtime Runtime) (templates []Template, err 
 
 	// Validate runtime directory exists and is a directory
 	runtimePath := filepath.Join(r.TemplatesPath, runtime.Name)
-	if err = checkDir(r.fs, runtimePath); err != nil {
+	if err = checkDir(r.FS, runtimePath); err != nil {
 		err = fmt.Errorf("runtime path '%v' not found. %v", runtimePath, err)
 		return
 	}
 
 	// Read the directory, loading each template.
-	fis, err := r.fs.ReadDir(runtimePath)
+	fis, err := r.FS.ReadDir(runtimePath)
 	if err != nil {
 		return
 	}
@@ -315,7 +317,7 @@ func runtimeTemplates(r Repository, runtime Runtime) (templates []Template, err 
 // exists.  Returned is the repository with any values from the manifest
 // set to those of the manifest.
 func applyRepositoryManifest(r Repository) (Repository, error) {
-	file, err := r.fs.Open(repositoryManifest)
+	file, err := r.FS.Open(repositoryManifest)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return r, nil
@@ -331,7 +333,7 @@ func applyRepositoryManifest(r Repository) (Repository, error) {
 // error is not returned for a missing manifest file (the passed runtime is
 // returned), but errors decoding the file are.
 func applyRuntimeManifest(repo Repository, runtime Runtime) (Runtime, error) {
-	file, err := repo.fs.Open(filepath.Join(repo.TemplatesPath, runtime.Name, runtimeManifest))
+	file, err := repo.FS.Open(filepath.Join(repo.TemplatesPath, runtime.Name, runtimeManifest))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return runtime, nil
@@ -347,7 +349,7 @@ func applyRuntimeManifest(repo Repository, runtime Runtime) (Runtime, error) {
 // error is not returned for a missing manifest file (the passed template is
 // returned), but errors decoding the file are.
 func applyTemplateManifest(repo Repository, t Template) (Template, error) {
-	file, err := repo.fs.Open(filepath.Join(repo.TemplatesPath, t.Runtime, t.Name, templateManifest))
+	file, err := repo.FS.Open(filepath.Join(repo.TemplatesPath, t.Runtime, t.Name, templateManifest))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return t, nil
@@ -360,7 +362,7 @@ func applyTemplateManifest(repo Repository, t Template) (Template, error) {
 
 // check that the given path is an accessible directory or error.
 // this checks within the given filesystem, which may have its own root.
-func checkDir(fs filesystem, path string) error {
+func checkDir(fs Filesystem, path string) error {
 	fi, err := fs.Stat(path)
 	if err != nil && os.IsNotExist(err) {
 		err = fmt.Errorf("path '%v' not found", path)

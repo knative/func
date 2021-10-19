@@ -6,8 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/go-git/go-git/v5"
 )
 
 const (
@@ -177,24 +175,14 @@ func (r *Repositories) Add(name, uri string) (string, error) {
 			"No repositories path provided", name, uri)
 	}
 
-	// if name was not provided, pull the repo into memory which determines the
-	// default name by first checking the manifest and falling back to extracting
-	// the name from the uri.
-	if name == "" {
-		repo, err := NewRepository(uri)
-		if err != nil {
-			return "", err
-		}
-		name = repo.Name
+	// Create a repo (in-memory FS) from the URI
+	repo, err := NewRepository(uri)
+	if err != nil {
+		return "", err
 	}
 
-	// Clone it to disk
-	_, err := git.PlainClone(
-		filepath.Join(r.path, name), // path
-		false,                       // not bare (we want a working branch)
-		&git.CloneOptions{URL: uri}) // no other options except uri
-
-	return name, err
+	// Install it to local disk by copying the contents to the location.
+	return repo.Name, copy("/", filepath.Join(r.path, repo.Name), repo.FS)
 }
 
 // Rename a repository

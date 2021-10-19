@@ -17,7 +17,7 @@ import (
 // pker:  embedded filesystem backed by the generated pkged.go.
 // billy: go-git library's filesystem used for remote git template repos.
 
-type filesystem interface {
+type Filesystem interface {
 	Stat(name string) (os.FileInfo, error)
 	Open(path string) (file, error)
 	ReadDir(path string) ([]os.FileInfo, error)
@@ -91,7 +91,7 @@ func (f osFilesystem) ReadDir(path string) ([]os.FileInfo, error) {
 
 // copy
 
-func copy(src, dest string, accessor filesystem) (err error) {
+func copy(src, dest string, accessor Filesystem) (err error) {
 	node, err := accessor.Stat(src)
 	if err != nil {
 		return
@@ -103,7 +103,7 @@ func copy(src, dest string, accessor filesystem) (err error) {
 	}
 }
 
-func copyNode(src, dest string, accessor filesystem) (err error) {
+func copyNode(src, dest string, accessor Filesystem) (err error) {
 	// Ideally we should use the file mode of the src node
 	// but it seems the git module is reporting directories
 	// as 0644 instead of 0755. For now, just do it this way.
@@ -126,7 +126,7 @@ func copyNode(src, dest string, accessor filesystem) (err error) {
 	return
 }
 
-func readDir(src string, accessor filesystem) ([]os.FileInfo, error) {
+func readDir(src string, accessor Filesystem) ([]os.FileInfo, error) {
 	list, err := accessor.ReadDir(src)
 	if err != nil {
 		return nil, err
@@ -135,7 +135,7 @@ func readDir(src string, accessor filesystem) ([]os.FileInfo, error) {
 	return list, nil
 }
 
-func copyLeaf(src, dest string, accessor filesystem) (err error) {
+func copyLeaf(src, dest string, accessor Filesystem) (err error) {
 	srcFile, err := accessor.Open(src)
 	if err != nil {
 		return

@@ -115,15 +115,15 @@ func (t *Templates) Write(f Function) (Function, error) {
 
 	// Validate paths:  (repo/)[templates/]<runtime>/<template>
 	templatesPath := repo.TemplatesPath
-	if _, err := repo.fs.Stat(templatesPath); err != nil {
+	if _, err := repo.FS.Stat(templatesPath); err != nil {
 		return f, ErrTemplatesNotFound
 	}
 	runtimePath := filepath.Join(templatesPath, template.Runtime)
-	if _, err := repo.fs.Stat(runtimePath); err != nil {
+	if _, err := repo.FS.Stat(runtimePath); err != nil {
 		return f, ErrRuntimeNotFound
 	}
 	templatePath := filepath.Join(runtimePath, template.Name)
-	if _, err := repo.fs.Stat(templatePath); err != nil {
+	if _, err := repo.FS.Stat(templatePath); err != nil {
 		return f, ErrTemplateNotFound
 	}
 
@@ -152,7 +152,7 @@ func (t *Templates) Write(f Function) (Function, error) {
 	}
 
 	// Copy the template files from the repo filesystem to the new Function's root
-	return f, copy(templatePath, f.Root, repo.fs)
+	return f, copy(templatePath, f.Root, repo.FS)
 }
 
 // Embedding Directives

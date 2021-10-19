@@ -170,14 +170,14 @@ func TestRepositoriesAddDeafultName(t *testing.T) {
 }
 
 // TestRepositoriesAddWithManifest ensures that a repository with
-// a manfest, where a name is specified, is used as the default when one is
-// not explicitly specified.
+// a manfest wherein a default name is specified, is used as the name for the
+// added repository when a name is not explicitly specified.
 func TestRepositoriesAddWithManifest(t *testing.T) {
 	// repository-b is meant to exemplify the use case of a repository which
 	// defines a custom language pack and makes full use of the manifest.yaml.
 	// The manifest.yaml is included which specifies things like custom templates
 	// location and (appropos to this test) a default name/
-	uri := testRepoURI("repository-a", t) // ./testdata/repository-b.git
+	uri := testRepoURI("repository-a", t) // ./testdata/repository-a.git
 	root, rm := mktemp(t)
 	defer rm()
 
