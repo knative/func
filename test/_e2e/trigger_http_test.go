@@ -10,12 +10,13 @@ import (
 
 // HTTP Based Function Test Validator
 type FunctionHttpResponsivenessValidator struct {
-	runtime     string
-	targetUrl   string
-	method      string
-	contentType string
-	bodyData    string
-	expects     string
+	runtime           string
+	targetUrl         string
+	method            string
+	contentType       string
+	bodyData          string
+	expects           string
+	responseValidator func(expects string) error
 }
 
 func (f FunctionHttpResponsivenessValidator) Validate(t *testing.T, project FunctionTestProject) {
@@ -57,6 +58,11 @@ func (f FunctionHttpResponsivenessValidator) Validate(t *testing.T, project Func
 	}
 	if f.expects != "" && !strings.Contains(string(body), f.expects) {
 		t.Fatalf("Body does not contains expected sentence [%v]", f.expects)
+	}
+	if f.responseValidator != nil {
+		if err = f.responseValidator(string(body)); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 }
