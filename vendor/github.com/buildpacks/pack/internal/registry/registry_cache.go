@@ -29,9 +29,10 @@ const defaultRegistryDir = "registry"
 
 // Cache is a RegistryCache
 type Cache struct {
-	logger logging.Logger
-	url    *url.URL
-	Root   string
+	logger      logging.Logger
+	url         *url.URL
+	Root        string
+	RegistryDir string
 }
 
 const GithubIssueTitleTemplate = "{{ if .Yanked }}YANK{{ else }}ADD{{ end }} {{.Namespace}}/{{.Name}}@{{.Version}}"
@@ -170,12 +171,14 @@ func (r *Cache) Initialize() error {
 func (r *Cache) CreateCache() error {
 	r.logger.Debugf("Creating registry cache for %s/%s", r.url.Host, r.url.Path)
 
-	root, err := ioutil.TempDir(filepath.Dir(r.Root), "registry")
+	registryDir, err := ioutil.TempDir(filepath.Dir(r.Root), "registry")
 	if err != nil {
 		return err
 	}
 
-	repository, err := git.PlainClone(root, false, &git.CloneOptions{
+	r.RegistryDir = registryDir
+
+	repository, err := git.PlainClone(r.RegistryDir, false, &git.CloneOptions{
 		URL: r.url.String(),
 	})
 	if err != nil {
@@ -187,7 +190,15 @@ func (r *Cache) CreateCache() error {
 		return err
 	}
 
-	return os.Rename(w.Filesystem.Root(), r.Root)
+	err = os.Rename(w.Filesystem.Root(), r.Root)
+	if err != nil {
+		if err == os.ErrExist {
+			// If pack is run concurrently, this action might have already occurred
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 func (r *Cache) validateCache() error {

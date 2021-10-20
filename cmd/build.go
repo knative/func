@@ -118,6 +118,7 @@ func runBuild(cmd *cobra.Command, _ []string, clientFn buildClientFn) (err error
 				}
 				return
 			}
+			fmt.Println("Note: building a Function the first time will take longer than subsequent builds")
 		}
 
 		// We have the registry, so let's use it to derive the Function image name

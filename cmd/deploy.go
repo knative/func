@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
@@ -25,7 +26,12 @@ func newDeployClient(cfg deployConfig) (*fn.Client, error) {
 
 	builder := buildpacks.NewBuilder()
 
-	pusher, err := docker.NewPusher(docker.WithCredentialsProvider(docker.NewCredentialsProvider(newCredentialsCallback(), nil)),
+	credentialsProvider := docker.NewCredentialsProvider(
+		newCredentialsCallback(),
+		docker.CheckAuth,
+		newChooseHelperCallback())
+	pusher, err := docker.NewPusher(
+		docker.WithCredentialsProvider(credentialsProvider),
 		docker.WithProgressListener(listener))
 	if err != nil {
 		return nil, err
@@ -162,6 +168,13 @@ func runDeploy(cmd *cobra.Command, _ []string, clientFn deployClientFn) (err err
 		config.Namespace = function.Namespace
 	}
 
+	// if registry was not changed via command line flag meaning it's empty
+	// keep the same registry by setting the config.registry to empty otherwise
+	// trust viper to override the env variable with the given flag if both are specified
+	if regFlag, _ := cmd.Flags().GetString("registry"); regFlag == "" {
+		config.Registry = ""
+	}
+
 	client, err := clientFn(config)
 	if err != nil {
 		if err == terminal.InterruptErr {
@@ -213,6 +226,32 @@ func newCredentialsCallback() func(registry string) (docker.Credentials, error) 
 			return docker.Credentials{}, err
 		}
 		return result, nil
+	}
+}
+
+func newChooseHelperCallback() docker.ChooseCredentialHelperCallback {
+	return func(availableHelpers []string) (string, error) {
+		if len(availableHelpers) < 1 {
+			fmt.Fprintf(os.Stderr, `Credentials will not be saved.
+If you would like to save your credentials in the future,
+you can install docker credential helper https://github.com/docker/docker-credential-helpers.
+`)
+			return "", nil
+		}
+
+		var resp string
+		err := survey.AskOne(&survey.Select{
+			Message: "Choose credentials helper",
+			Options: append(availableHelpers, "None"),
+		}, &resp, survey.WithValidator(survey.Required))
+		if err != nil {
+			return "", err
+		}
+		if resp == "None" {
+			fmt.Fprintf(os.Stderr, "No helper selected. Credentials will not be saved.\n")
+			return "", nil
+		}
+		return resp, nil
 	}
 }
 

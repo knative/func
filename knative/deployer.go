@@ -15,9 +15,9 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/client/pkg/kn/flags"
 	servingclientlib "knative.dev/client/pkg/serving"
+	clientservingv1 "knative.dev/client/pkg/serving/v1"
 	"knative.dev/client/pkg/wait"
 	"knative.dev/serving/pkg/apis/autoscaling"
-	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 
 	fn "knative.dev/kn-plugin-func"
@@ -43,6 +43,36 @@ func NewDeployer(namespaceOverride string) (deployer *Deployer, err error) {
 	}
 	deployer.Namespace = namespace
 	return
+}
+
+// Checks the status of the "user-container" for the ImagePullBackOff reason meaning that
+// the container image is not reachable probably because a private registry is being used.
+func (d *Deployer) isImageInPrivateRegistry(ctx context.Context, client clientservingv1.KnServingClient, funcName string) bool {
+	ksvc, err := client.GetService(ctx, funcName)
+	if err != nil {
+		return false
+	}
+	k8sClient, err := k8s.NewKubernetesClientset(d.Namespace)
+	if err != nil {
+		return false
+	}
+	list, err := k8sClient.CoreV1().Pods(d.Namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: "serving.knative.dev/revision=" + ksvc.Status.LatestCreatedRevisionName + ",serving.knative.dev/service=" + funcName,
+		FieldSelector: "status.phase=Pending",
+	})
+	if err != nil {
+		return false
+	}
+	if len(list.Items) != 1 {
+		return false
+	}
+
+	for _, cont := range list.Items[0].Status.ContainerStatuses {
+		if cont.Name == "user-container" {
+			return cont.State.Waiting != nil && cont.State.Waiting.Reason == "ImagePullBackOff"
+		}
+	}
+	return false
 }
 
 func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (result fn.DeploymentResult, err error) {
@@ -80,7 +110,41 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (result fn.Deploym
 			if d.Verbose {
 				fmt.Println("Waiting for Knative Service to become ready")
 			}
-			err, _ = client.WaitForService(ctx, f.Name, DefaultWaitingTimeout, wait.NoopMessageCallback())
+			chprivate := make(chan bool)
+			cherr := make(chan error)
+			go func() {
+				private := false
+				for !private {
+					time.Sleep(5 * time.Second)
+					private = d.isImageInPrivateRegistry(ctx, client, f.Name)
+					chprivate <- private
+				}
+				close(chprivate)
+			}()
+			go func() {
+				err, _ := client.WaitForService(ctx, f.Name, DefaultWaitingTimeout, wait.NoopMessageCallback())
+				cherr <- err
+				close(cherr)
+			}()
+
+			presumePrivate := false
+		main:
+			// Wait for either a timeout or a container condition signaling the image is unreachable
+			for {
+				select {
+				case private := <-chprivate:
+					if private {
+						presumePrivate = true
+						break main
+					}
+				case err = <-cherr:
+					break main
+				}
+			}
+			if presumePrivate {
+				err := fmt.Errorf("your function image is unreachable. It is possible that your docker registry is private. If so, make sure you have set up pull secrets https://knative.dev/docs/developer/serving/deploying-from-private-registry")
+				return fn.DeploymentResult{}, err
+			}
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to wait for the Knative Service to become ready: %v", err)
 				return fn.DeploymentResult{}, err
@@ -169,7 +233,7 @@ func setHealthEndpoints(f fn.Function, c *corev1.Container) *corev1.Container {
 	return c
 }
 
-func generateNewService(f fn.Function) (*servingv1.Service, error) {
+func generateNewService(f fn.Function) (*v1.Service, error) {
 	container := corev1.Container{
 		Image: f.ImageWithDigest(),
 	}
@@ -226,8 +290,8 @@ func generateNewService(f fn.Function) (*servingv1.Service, error) {
 	return service, nil
 }
 
-func updateService(f fn.Function, newEnv []corev1.EnvVar, newEnvFrom []corev1.EnvFromSource, newVolumes []corev1.Volume, newVolumeMounts []corev1.VolumeMount) func(service *servingv1.Service) (*servingv1.Service, error) {
-	return func(service *servingv1.Service) (*servingv1.Service, error) {
+func updateService(f fn.Function, newEnv []corev1.EnvVar, newEnvFrom []corev1.EnvFromSource, newVolumes []corev1.Volume, newVolumeMounts []corev1.VolumeMount) func(service *v1.Service) (*v1.Service, error) {
+	return func(service *v1.Service) (*v1.Service, error) {
 		// Removing the name so the k8s server can fill it in with generated name,
 		// this prevents conflicts in Revision name when updating the KService from multiple places.
 		service.Spec.Template.Name = ""
@@ -595,7 +659,7 @@ func checkSecretsConfigMapsArePresent(ctx context.Context, namespace string, ref
 
 // setServiceOptions sets annotations on Service Revision Template or in the Service Spec
 // from values specifed in function configuration options
-func setServiceOptions(template *servingv1.RevisionTemplateSpec, options fn.Options) error {
+func setServiceOptions(template *v1.RevisionTemplateSpec, options fn.Options) error {
 
 	toRemove := []string{}
 	toUpdate := map[string]string{}

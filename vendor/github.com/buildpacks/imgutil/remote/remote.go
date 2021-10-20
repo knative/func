@@ -347,12 +347,36 @@ func (i *Image) Name() string {
 }
 
 func (i *Image) Found() bool {
-	ref, auth, err := referenceForRepoName(i.keychain, i.repoName)
+	_, err := i.found()
+	return err == nil
+}
+
+func (i *Image) CheckReadWriteAccess() bool {
+	ref, _, err := referenceForRepoName(i.keychain, i.repoName)
 	if err != nil {
 		return false
 	}
-	_, err = remote.Head(ref, remote.WithAuth(auth), remote.WithTransport(http.DefaultTransport))
-	return err == nil
+	return i.CheckReadAccess() && remote.CheckPushPermission(ref, i.keychain, http.DefaultTransport) == nil
+}
+
+func (i *Image) CheckReadAccess() bool {
+	_, err := i.found()
+	if err != nil {
+		if transportErr, ok := err.(*transport.Error); ok {
+			return transportErr.StatusCode != http.StatusUnauthorized &&
+				transportErr.StatusCode != http.StatusForbidden
+		}
+		return false
+	}
+	return true
+}
+
+func (i *Image) found() (*v1.Descriptor, error) {
+	ref, auth, err := referenceForRepoName(i.keychain, i.repoName)
+	if err != nil {
+		return nil, err
+	}
+	return remote.Head(ref, remote.WithAuth(auth), remote.WithTransport(http.DefaultTransport))
 }
 
 func (i *Image) Identifier() (imgutil.Identifier, error) {
@@ -464,10 +488,7 @@ func (i *Image) SetEnv(key, val string) error {
 		if foundKey == searchKey {
 			config.Env[idx] = fmt.Sprintf("%s=%s", key, val)
 			i.image, err = mutate.Config(i.image, config)
-			if err != nil {
-				return err
-			}
-			return nil
+			return err
 		}
 	}
 	config.Env = append(config.Env, fmt.Sprintf("%s=%s", key, val))

@@ -1,3 +1,4 @@
+//go:build e2e || e2elc
 // +build e2e e2elc
 
 package e2e

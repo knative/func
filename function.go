@@ -57,6 +57,9 @@ type Function struct {
 	// List of volumes to be mounted to the function
 	Volumes Volumes
 
+	// Build Env variables to be set
+	BuildEnvs Envs
+
 	// Env variables to be set
 	Envs Envs
 

@@ -6,7 +6,7 @@ Creates a new Function project at _`path`_. If _`path`_ is unspecified, assumes 
 
 Function name must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character (e.g. 'my-name',  or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?').
 
-The files written upon create include an example Function of the specified language runtime, example tests, and a metadata file `func.yaml`.  Together, these are referred to as a Template.  Included are the templates 'http' and 'events' (default is 'http') for each language runtime.  A template can be pulled from a specific Git repository by providing the `--repository` flag, or from a locally installed repository using the repository's name as a prefix.  See the [Templates Guide](templates.md) for more information.
+The files written upon create include an example Function of the specified language runtime, example tests, and a metadata file `func.yaml`.  Together, these are referred to as a Template.  Included are the templates 'http' and 'cloudevents' (default is 'http') for each language runtime.  A template can be pulled from a specific Git repository by providing the `--repository` flag, or from a locally installed repository using the repository's name as a prefix.  See the [Templates Guide](templates.md) for more information.
 
 Similar `kn` command: none.
 

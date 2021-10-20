@@ -78,8 +78,8 @@ EXAMPLES
 	o Create a Node.js Function in the directory 'myfunc'.
 	  $ {{.Prefix}}func create myfunc
 
-	o Create a Go Function which handles Cloud Events in ./myfunc.
-	  $ {{.Prefix}}func create -l go -t events myfunc
+	o Create a Go Function which handles CloudEvents in ./myfunc.
+	  $ {{.Prefix}}func create -l go -t cloudevents myfunc
 		`,
 		SuggestFor: []string{"vreate", "creaet", "craete", "new"},
 		PreRunE:    bindEnv("language", "template", "repository", "confirm"),
