@@ -58,7 +58,7 @@ func TestTemplatesListExtendedNotFound(t *testing.T) {
 	}
 
 	expected := []string{
-		"events",
+		"cloudevents",
 		"http",
 	}
 
