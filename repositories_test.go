@@ -113,7 +113,7 @@ func TestRepositoriesAdd(t *testing.T) {
 	client := fn.New(fn.WithRepositories(root))
 
 	// Add the repository, explicitly specifying a name.  See other tests for
-	// defaulting from repoistory names and manifest-defined name.
+	// defaulting from repository names and manifest-defined name.
 	if _, err := client.Repositories().Add("example", uri); err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +141,7 @@ func TestRepositoriesAddDeafultName(t *testing.T) {
 	// The test repository is the "base case" repo, which is a manifestless
 	// repo meant to exemplify the simplest use case:  a repo with no metadata
 	// that simply contains templates, grouped by runtime.  It therefore does
-	// not have a manifest and the deafult name will therefore be the repo name
+	// not have a manifest and the default name will therefore be the repo name
 	uri := testRepoURI(RepositoriesTestRepo, t) // ./testdata/$RepositoriesTestRepo.git
 	root, rm := mktemp(t)
 	defer rm()

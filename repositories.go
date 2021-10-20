@@ -12,7 +12,7 @@ const (
 	// DefaultRepositoryName is the name by which the currently default repo can
 	// be referred.  This name is assumed when no template prefix is provided
 	// when determining a template canonical (full) name.
-	// Unless a single-repo override is defined, this is usally referring to the
+	// Unless a single-repo override is defined, this is usually referring to the
 	// builtin (embedded) repository.
 	DefaultRepositoryName = "default"
 
@@ -57,7 +57,7 @@ func (r *Repositories) Path() string {
 	return r.path
 }
 
-// SetRemote enables single-reposotory mode.
+// SetRemote enables single-repository mode.
 // Enables single-repository mode.  This replaces the default embedded repo
 // and extended repositories.  This is an important mode for both diskless
 // (config-less) operation, such as security-restrited environments, and for

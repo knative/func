@@ -57,7 +57,7 @@ type Repository struct {
 	// HealthEndpoints for all templates in the repository.  Serves as the
 	// default option which may be overridden per runtime and per template.
 	HealthEndpoints `yaml:"healthEndpoints,omitempty"`
-	// Runtimes containting Templates loaded from the repo
+	// Runtimes containing Templates loaded from the repo
 	Runtimes []Runtime
 	// FS is the filesystem underlying the repository, loaded from URI
 	// TODO upgrade to fs.FS introduced in go1.16

@@ -11,7 +11,7 @@ out the repository, make changes, and then remove the clone.  For example:
 ```
 $ git clone repository.git
 $ cd repository
-[make changes, commiting the result]
+[make changes, committing the result]
 $ git push
 $ cd .. && rm -rf repository
 [commit changes which will now appear in ./repository.git
