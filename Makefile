@@ -91,7 +91,7 @@ clean: ## Remove generated artifacts such as binaries and schemas
 test-templates: test-go test-node test-python test-quarkus test-rust test-typescript ## Run all template tests
 
 test-go: ## Test Go templates
-	cd templates/go/events && go mod tidy && go test
+	cd templates/go/cloudevents && go mod tidy && go test
 	cd templates/go/http && go mod tidy && go test
 
 test-node: ## Test Node templates
