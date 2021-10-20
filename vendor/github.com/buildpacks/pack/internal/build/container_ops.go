@@ -10,15 +10,15 @@ import (
 	"runtime"
 
 	"github.com/BurntSushi/toml"
+	"github.com/buildpacks/lifecycle/platform"
 	"github.com/docker/docker/api/types"
 	dcontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/pkg/errors"
 
-	"github.com/buildpacks/pack/internal/paths"
-
 	"github.com/buildpacks/pack/internal/builder"
 	"github.com/buildpacks/pack/internal/container"
+	"github.com/buildpacks/pack/internal/paths"
 	"github.com/buildpacks/pack/pkg/archive"
 )
 
@@ -93,7 +93,7 @@ func copyDirWindows(ctx context.Context, ctrClient client.CommonAPIClient, conta
 				"cmd",
 				"/c",
 
-				//xcopy args
+				// xcopy args
 				// e - recursively create subdirectories
 				// h - copy hidden and system files
 				// b - copy symlinks, do not dereference
@@ -120,12 +120,14 @@ func copyDirWindows(ctx context.Context, ctrClient client.CommonAPIClient, conta
 		return errors.Wrap(err, "copy app to container")
 	}
 
-	return container.Run(
+	return container.RunWithHandler(
 		ctx,
 		ctrClient,
 		ctr.ID,
-		ioutil.Discard, // Suppress xcopy output
-		stderr,
+		container.DefaultHandler(
+			ioutil.Discard, // Suppress xcopy output
+			stderr,
+		),
 	)
 }
 
@@ -136,6 +138,35 @@ func findMount(info types.ContainerJSON, dst string) (types.MountPoint, error) {
 		}
 	}
 	return types.MountPoint{}, fmt.Errorf("no matching mount found for %s", dst)
+}
+
+//WriteProjectMetadata
+func WriteProjectMetadata(p string, metadata platform.ProjectMetadata, os string) ContainerOperation {
+	return func(ctrClient client.CommonAPIClient, ctx context.Context, containerID string, stdout, stderr io.Writer) error {
+		buf := &bytes.Buffer{}
+		err := toml.NewEncoder(buf).Encode(metadata)
+		if err != nil {
+			return errors.Wrap(err, "marshaling project metadata")
+		}
+
+		tarBuilder := archive.TarBuilder{}
+
+		tarPath := p
+		if os == "windows" {
+			tarPath = paths.WindowsToSlash(p)
+		}
+
+		tarBuilder.AddFile(tarPath, 0755, archive.NormalizedDateTime, buf.Bytes())
+		reader := tarBuilder.Reader(archive.DefaultTarWriterFactory())
+		defer reader.Close()
+
+		if os == "windows" {
+			dirName := paths.WindowsDir(p)
+			return copyDirWindows(ctx, ctrClient, containerID, reader, dirName, stdout, stderr)
+		}
+
+		return ctrClient.CopyToContainer(ctx, containerID, "/", reader, types.CopyToContainerOptions{})
+	}
 }
 
 // WriteStackToml writes a `stack.toml` based on the StackMetadata provided to the destination path.
@@ -185,10 +216,10 @@ func createReader(src, dst string, uid, gid int, includeRoot bool, fileFilter fu
 	return archive.ReadZipAsTar(src, dst, uid, gid, -1, false, fileFilter), nil
 }
 
-//EnsureVolumeAccess grants full access permissions to volumes for UID/GID-based user
-//When UID/GID are 0 it grants explicit full access to BUILTIN\Administrators and any other UID/GID grants full access to BUILTIN\Users
-//Changing permissions on volumes through stopped containers does not work on Docker for Windows so we start the container and make change using icacls
-//See: https://github.com/moby/moby/issues/40771
+// EnsureVolumeAccess grants full access permissions to volumes for UID/GID-based user
+// When UID/GID are 0 it grants explicit full access to BUILTIN\Administrators and any other UID/GID grants full access to BUILTIN\Users
+// Changing permissions on volumes through stopped containers does not work on Docker for Windows so we start the container and make change using icacls
+// See: https://github.com/moby/moby/issues/40771
 func EnsureVolumeAccess(uid, gid int, os string, volumeNames ...string) ContainerOperation {
 	return func(ctrClient client.CommonAPIClient, ctx context.Context, containerID string, stdout, stderr io.Writer) error {
 		if os != "windows" {
@@ -210,7 +241,7 @@ func EnsureVolumeAccess(uid, gid int, os string, volumeNames ...string) Containe
 				cmd += "&&"
 			}
 
-			//icacls args
+			// icacls args
 			// /grant - add new permissions instead of replacing
 			// (OI) - object inherit
 			// (CI) - container inherit
@@ -239,12 +270,14 @@ func EnsureVolumeAccess(uid, gid int, os string, volumeNames ...string) Containe
 		}
 		defer ctrClient.ContainerRemove(context.Background(), ctr.ID, types.ContainerRemoveOptions{Force: true})
 
-		return container.Run(
+		return container.RunWithHandler(
 			ctx,
 			ctrClient,
 			ctr.ID,
-			ioutil.Discard, // Suppress icacls output
-			stderr,
+			container.DefaultHandler(
+				ioutil.Discard, // Suppress icacls output
+				stderr,
+			),
 		)
 	}
 }

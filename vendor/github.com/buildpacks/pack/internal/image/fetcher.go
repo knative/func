@@ -19,30 +19,60 @@ import (
 
 	"github.com/buildpacks/pack/config"
 	ilogging "github.com/buildpacks/pack/internal/logging"
+	pname "github.com/buildpacks/pack/internal/name"
 	"github.com/buildpacks/pack/internal/style"
 	"github.com/buildpacks/pack/logging"
 )
 
-type Fetcher struct {
-	docker client.CommonAPIClient
-	logger logging.Logger
+// FetcherOption is a type of function that mutate settings on the client.
+// Values in these functions are set through currying.
+type FetcherOption func(c *Fetcher)
+
+// WithRegistryMirrors supply your own mirrors for registry.
+func WithRegistryMirrors(registryMirrors map[string]string) FetcherOption {
+	return func(c *Fetcher) {
+		c.registryMirrors = registryMirrors
+	}
 }
 
-func NewFetcher(logger logging.Logger, docker client.CommonAPIClient) *Fetcher {
-	return &Fetcher{
+type Fetcher struct {
+	docker          client.CommonAPIClient
+	logger          logging.Logger
+	registryMirrors map[string]string
+}
+
+type FetchOptions struct {
+	Daemon     bool
+	Platform   string
+	PullPolicy config.PullPolicy
+}
+
+func NewFetcher(logger logging.Logger, docker client.CommonAPIClient, opts ...FetcherOption) *Fetcher {
+	var fetcher = &Fetcher{
 		logger: logger,
 		docker: docker,
 	}
+
+	for _, opt := range opts {
+		opt(fetcher)
+	}
+
+	return fetcher
 }
 
 var ErrNotFound = errors.New("not found")
 
-func (f *Fetcher) Fetch(ctx context.Context, name string, daemon bool, pullPolicy config.PullPolicy) (imgutil.Image, error) {
-	if !daemon {
+func (f *Fetcher) Fetch(ctx context.Context, name string, options FetchOptions) (imgutil.Image, error) {
+	name, err := pname.TranslateRegistry(name, f.registryMirrors, f.logger)
+	if err != nil {
+		return nil, err
+	}
+
+	if !options.Daemon {
 		return f.fetchRemoteImage(name)
 	}
 
-	switch pullPolicy {
+	switch options.PullPolicy {
 	case config.PullNever:
 		img, err := f.fetchDaemonImage(name)
 		return img, err
@@ -54,7 +84,7 @@ func (f *Fetcher) Fetch(ctx context.Context, name string, daemon bool, pullPolic
 	}
 
 	f.logger.Debugf("Pulling image %s", style.Symbol(name))
-	err := f.pullImage(ctx, name)
+	err = f.pullImage(ctx, name, options.Platform)
 	if err != nil && !errors.Is(err, ErrNotFound) {
 		return nil, err
 	}
@@ -88,13 +118,13 @@ func (f *Fetcher) fetchRemoteImage(name string) (imgutil.Image, error) {
 	return image, nil
 }
 
-func (f *Fetcher) pullImage(ctx context.Context, imageID string) error {
+func (f *Fetcher) pullImage(ctx context.Context, imageID string, platform string) error {
 	regAuth, err := registryAuth(imageID)
 	if err != nil {
 		return err
 	}
 
-	rc, err := f.docker.ImagePull(ctx, imageID, types.ImagePullOptions{RegistryAuth: regAuth})
+	rc, err := f.docker.ImagePull(ctx, imageID, types.ImagePullOptions{RegistryAuth: regAuth, Platform: platform})
 	if err != nil {
 		if client.IsErrNotFound(err) {
 			return errors.Wrapf(ErrNotFound, "image %s does not exist on the daemon", style.Symbol(imageID))
@@ -152,7 +182,7 @@ func (w *colorizedWriter) Write(p []byte) (n int, err error) {
 		">":                 style.ProgressBar,
 	}
 	for pattern, colorize := range colorizers {
-		msg = strings.Replace(msg, pattern, colorize(pattern), -1)
+		msg = strings.ReplaceAll(msg, pattern, colorize(pattern))
 	}
 	return w.writer.Write([]byte(msg))
 }

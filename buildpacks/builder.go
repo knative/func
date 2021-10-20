@@ -9,9 +9,12 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"regexp"
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/Masterminds/semver"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -54,6 +57,8 @@ var RuntimeToBuildpack = map[string]string{
 	"typescript": "quay.io/boson/faas-nodejs-builder",
 	"rust":       "quay.io/boson/faas-rust-builder",
 }
+
+var v330 = semver.MustParse("v3.3.0")
 
 // Build the Function at path.
 func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
@@ -104,22 +109,39 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		return err
 	}
 
-	var deamonIsPodman bool
+	var daemonIsPodmanBeforeV330 bool
 	for _, component := range version.Components {
 		if component.Name == "Podman Engine" {
-			deamonIsPodman = true
+			v := semver.MustParse(version.Version)
+			if v.Compare(v330) < 0 {
+				daemonIsPodmanBeforeV330 = true
+			}
 			break
+		}
+	}
+
+	buildEnvs := make(map[string]string, len(f.BuildEnvs))
+	for _, env := range f.BuildEnvs {
+		val, set, err := processEnvValue(*env.Value)
+		if err != nil {
+			return err
+		}
+		if set {
+			buildEnvs[*env.Name] = val
 		}
 	}
 
 	packOpts := pack.BuildOptions{
 		AppPath:        f.Root,
 		Image:          f.Image,
-		LifecycleImage: "quay.io/boson/lifecycle:0.11.4",
+		LifecycleImage: "quay.io/boson/lifecycle:0.12.0",
 		Builder:        packBuilder,
+		Env:            buildEnvs,
 		Buildpacks:     f.Buildpacks,
-		TrustBuilder:   !deamonIsPodman && strings.HasPrefix(packBuilder, "quay.io/boson"),
-		DockerHost:     os.Getenv("DOCKER_HOST"),
+		TrustBuilder: !daemonIsPodmanBeforeV330 &&
+			(strings.HasPrefix(packBuilder, "quay.io/boson") ||
+				strings.HasPrefix(packBuilder, "gcr.io/paketo-buildpacks")),
+		DockerHost: os.Getenv("DOCKER_HOST"),
 		ContainerConfig: struct {
 			Network string
 			Volumes []string
@@ -618,3 +640,31 @@ func (c clientWrapper) DialHijack(ctx context.Context, url, proto string, meta m
 func (c clientWrapper) Dialer() func(context.Context) (net.Conn, error) { return c.impl.Dialer() }
 
 func (c clientWrapper) Close() error { return c.impl.Close() }
+
+// build command supports only ENV values in from FOO=bar or FOO={{ env:LOCAL_VALUE }}
+var buildEnvRegex = regexp.MustCompile(`^{{\s*(\w+)\s*:(\w+)\s*}}$`)
+
+const (
+	ctxIdx = 1
+	valIdx = 2
+)
+
+// processEnvValue returns only value for ENV variable, that is defined in form FOO=bar or FOO={{ env:LOCAL_VALUE }}
+// if the value is correct, it is returned and the second return parameter is set to `true`
+// otherwise it is set to `false`
+// if the specified value is correct, but the required local variable is not set, error is returned as well
+func processEnvValue(val string) (string, bool, error) {
+	if strings.HasPrefix(val, "{{") {
+		match := buildEnvRegex.FindStringSubmatch(val)
+		if len(match) > valIdx && match[ctxIdx] == "env" {
+			if v, ok := os.LookupEnv(match[valIdx]); ok {
+				return v, true, nil
+			} else {
+				return "", false, fmt.Errorf("required local environment variable %q is not set", match[valIdx])
+			}
+		} else {
+			return "", false, nil
+		}
+	}
+	return val, true, nil
+}

@@ -1,8 +1,11 @@
+//go:build !integration
 // +build !integration
 
 package utils
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 )
 
@@ -32,6 +35,20 @@ func TestValidateFunctionName(t *testing.T) {
 		if err == nil && !c.Valid {
 			t.Fatalf("Expected error for invalid entry: %v", c.In)
 		}
+	}
+}
+
+func TestValidateFunctionNameErrMsg(t *testing.T) {
+	invalidFnName := "EXAMPLE"
+	errMsgPrefix := fmt.Sprintf("Function name '%v'", invalidFnName)
+
+	err := ValidateFunctionName(invalidFnName)
+	if err != nil {
+		if !strings.HasPrefix(err.Error(), errMsgPrefix) {
+			t.Fatalf("Unexpected error message: %v, the message should start with '%v' string", err.Error(), errMsgPrefix)
+		}
+	} else {
+		t.Fatalf("Expected error for invalid entry: %v", invalidFnName)
 	}
 }
 
