@@ -38,7 +38,7 @@ A bare git repository used to test specifying a repo directly.
 Tests use a local file URI, but in practice this will likely
 be specified as an HTTP URL.
 
-This repository exemplifies the base case of a remote repository with all 
+This repository exemplifies the base case of a remote repository with all
 defaults, no metadata, comprised of only templates (grouped by runtime)
 
 ## ./repository-a.git
@@ -46,4 +46,3 @@ defaults, no metadata, comprised of only templates (grouped by runtime)
 This repository exemplifies the complete case of a repository with a fully
 populated manifest which includes an alternate location for templates, a
 default name, etc.
-

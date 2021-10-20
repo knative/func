@@ -10,7 +10,3 @@ version: 0.0.1
 healthEndpoints:
   liveness: /health/liveness
   readiness: /health/readiness
-
-# Templates is the location of templates, subdivided by runtime
-# The default is to look in th
-# templates:
