@@ -159,7 +159,7 @@ func TestRemoteRepositories(t *testing.T) {
 	// Write the test template from the remote onto root
 	client := fn.New(
 		fn.WithRegistry(DefaultRegistry),
-		fn.WithRepository("https://github.com/lance/test-templates"),
+		fn.WithRepository("https://github.com/boson-project/test-templates"),
 		fn.WithRepositories("testdata/repositories"),
 	)
 	err := client.Create(fn.Function{
