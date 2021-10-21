@@ -1,2 +1,7 @@
 builders:
-  default: quay.io/boson/faas-rust-builder:v0.8.4
+  default: gcr.io/paketo-buildpacks/builder:base
+  base: gcr.io/paketo-buildpacks/builder:base
+  full: gcr.io/paketo-buildpacks/builder:full
+
+buildpacks:
+  - docker.io/paketocommunity/rust
