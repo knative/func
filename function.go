@@ -156,7 +156,7 @@ func (f Function) ImageWithDigest() string {
 // DerivedImage returns the derived image name (OCI container tag) of the
 // Function whose source is at root, with the default registry for when
 // the image has to be calculated (derived).
-// The following are eqivalent due to the use of DefaultRegistry:
+// The following are equivalent due to the use of DefaultRegistry:
 // registry:  docker.io/myname
 //            myname
 // A full image name consists of registry, image name and tag.
@@ -196,12 +196,13 @@ func DerivedImage(root, registry string) (image string, err error) {
 	// example: quay.io/alice/my.function.name:latest
 	registry = strings.Trim(registry, "/") // too defensive?
 	registryTokens := strings.Split(registry, "/")
-	if len(registryTokens) == 1 {
+	if len(registryTokens) == 1 { //namespace provided only 'alice'
 		image = DefaultRegistry + "/" + registry + "/" + f.Name
-	} else if len(registryTokens) == 2 {
+	} else if len(registryTokens) == 2 { // registry/namespace provided `quay.io/alice`
 		image = registry + "/" + f.Name
-	} else {
-		err = fmt.Errorf("registry should be either 'namespace' or 'registry/namespace'")
+	} else if len(registryTokens) > 2 { // the name of the image is also provided `quay.io/alice/my.function.name`
+		err = fmt.Errorf("registry should be either 'namespace' or 'registry/namespace', the name of the image will be derived from the function.")
+		return
 	}
 
 	// Explicitly append :latest.  We currently expect source control to drive
