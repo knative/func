@@ -113,8 +113,10 @@ func (r *Repositories) All() (repos []Repository, err error) {
 	if r.path == "" {
 		return
 	}
-	if _, err = os.Stat(r.path); err != nil {
-		return
+
+	// Return empty if path does not exist
+	if _, err = os.Stat(r.path); os.IsNotExist(err) {
+		return repos, nil
 	}
 
 	// Load each repo from disk.
