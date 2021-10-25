@@ -4,7 +4,7 @@ name: customLanguagePackRepo
 version: 0.0.1
 
 # Templates are located within the ./templates directory in this repo
-templates: templates 
+templates: templates
 
 # Repo-wide setting for the readiness health endpoint
 healthEndpoints:
@@ -13,5 +13,3 @@ healthEndpoints:
 # Repo-wide setting for buildpacks
 buildpacks:
   - repoBuildpack
-
-

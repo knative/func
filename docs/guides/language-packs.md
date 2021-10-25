@@ -1,7 +1,7 @@
 # Language Packs
 
 A Language Pack is the mechanism by which the Functions binary can be extended
-to support additional runtimes, function signatures, even operating systems and 
+to support additional runtimes, function signatures, even operating systems and
 installed tooling for a function. Language Packs are typically distributed via
 Git repositories. A Language Pack is a directory within this repository,
 typically named for the language or runtime being templated, and includes
