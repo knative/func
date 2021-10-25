@@ -400,7 +400,7 @@ func runRepositoryAdd(args []string, clientFn repositoryClientFn) (err error) {
 		return
 	}
 	if cfg.Verbose {
-		fmt.Fprintf(os.Stdout, "Repository added: %s", n)
+		fmt.Fprintf(os.Stdout, "Repository added: %s\n", n)
 	}
 	return
 }
