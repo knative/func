@@ -41,7 +41,7 @@ buildEnvs:
   value: '{{ env:LOCAL_ENV_VALUE }}'
 ```
 
-For example, the below func.yaml snippet modifies the default golang buildpack to build source code with 1.15 compiler version. Refer to respective buildpack documentation to know more about environment variables that modify behavior of the `func build`.
+For example, the below `func.yaml` snippet modifies the default Golang buildpack to build source code with 1.15 compiler version. Refer to respective buildpack documentation to know more about environment variables that modify behavior of the `func build`.
 ```yaml
 buildEnvs:
 - name: BP_GO_VERSION
