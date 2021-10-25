@@ -1,10 +1,15 @@
 # Language Packs
 
-A Language Pack is the mechanism by which the Functions binary can be extended to support additional runtimes, function signatures, even operating systems and installed tooling for a function. A Language Pack is a directory, typically named for the language or runtime being templated, and includes
+A Language Pack is the mechanism by which the Functions binary can be extended
+to support additional runtimes, function signatures, even operating systems and 
+installed tooling for a function. Language Packs are typically distributed via
+Git repositories. A Language Pack is a directory within this repository,
+typically named for the language or runtime being templated, and includes
 
 - a top level directory named for the language or runtime being templated
-- a `runtime.yaml` file in the root directory, containing metadata about the Language Pack
+- an optional `manifest.yaml` file in the root directory, containing metadata about the Language Pack, which may override metadata provided in a `manifest.yaml` at the repository root
 - one or more directories containing templates for the Language Pack's recognized function signatures
+- an optional `manifest.yaml` file in each  template's directory, which may override the values potentially set in the language pack root, or even at the repository level.
 - tests and documentation
 
 For example, a Language Pack directory for Ruby with templates for both
@@ -23,20 +28,23 @@ ruby
 │   ├── Gemfile
 │   ├── Rakefile
 │   └── README.md
-└── runtime.yaml
+└── manifest.yaml
 ```
 
-## `runtime.yaml`
+## Language Pack Manifests
 
-The `runtime.yaml` file contains metadata that Language Pack providers
-may include to configure the build and deployment of function projects
-created with the Language Pack. The following fields are recognized.
+A Language Pack's root level `manifest.yaml` file contains metadata that
+Language Pack providers may include to configure the build and deployment
+of function projects created with the Language Pack. The following fields
+are recognized and may be used to override any defaults set in the repository's
+root directory `manifest.yaml`.
 
 ### `builders`
-REQUIRED: A set of key value pairs identifying builder images capable of
+OPTIONAL: A set of key value pairs identifying builder images capable of
 building a project from this Language Pack. The `default` key will be
 set as the builder image in `func.yaml` for a newly created project from
-the template.
+the template. If not set in the Language Pack's `manifest.yaml`, these values
+must be provided in repository root `manifest.yaml`
 
 ```
 builders:
@@ -74,6 +82,9 @@ healthEndpoints:
   readiness: /health/readiness
 ```
 
+If not provided, the values `/health/liveness` and `/health/readiness`
+will be used by default.
+
 Built in to the Functions library are basic language packs for Go,
 Node.js, Python, Quarkus, Rust, SpringBoot and TypeScript, each of
 which provide templates for HTTP and CloudEvents.
@@ -93,20 +104,18 @@ See the `repository` section of the [commands guide](commands.md)
 for more information on installing and managing Language Pack
 repositories.
 
-## Language Pack Manifests
+## Repository Manifests
 
-As noted above, Language Packs are distributed via template repositories.
-In the root directory of the repository should be a `manifest.yaml` file
-which describes the language packs therein.
+As noted above, Language Packs are distributed via Git repositories.
+In the root directory of the repository there may be a `manifest.yaml` file
+which describes the language packs therein. This file can be used to set
+the default values for builders, buildpacks and health endpoints for all
+Language Packs within a repository.
 
 ```yaml
-schema_version: 0.0.1 # The version for manifest.yaml schema
-
 # The name used for this language pack repository when referenced
 # in the UX, and its version
 name: examples
-version: 0.0.1
-url: https://github.com/example/templates.git
 
 # Optional. Health endpoints for deployed functions in all runtimes.
 # May be overridden by mainfest.yaml settings at the language level.
