@@ -201,7 +201,7 @@ func DerivedImage(root, registry string) (image string, err error) {
 	} else if len(registryTokens) == 2 { // registry/namespace provided `quay.io/alice`
 		image = registry + "/" + f.Name
 	} else if len(registryTokens) > 2 { // the name of the image is also provided `quay.io/alice/my.function.name`
-		err = fmt.Errorf("registry should be either 'namespace' or 'registry/namespace', the name of the image will be derived from the function.")
+		err = fmt.Errorf("registry should be either 'namespace' or 'registry/namespace', the name of the image will be derived from the function name.")
 		return
 	}
 
