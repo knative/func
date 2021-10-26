@@ -194,14 +194,19 @@ func DerivedImage(root, registry string) (image string, err error) {
 	// therefore derive the image tag from the defined registry and name.
 	// form:    [registry]/[user]/[function]:latest
 	// example: quay.io/alice/my.function.name:latest
+	// Also nested namespaces should be supported:
+	// form:    [registry]/[parent]/[user]/[function]:latest
+	// example: quay.io/project/alice/my.function.name:latest
 	registry = strings.Trim(registry, "/") // too defensive?
 	registryTokens := strings.Split(registry, "/")
-	if len(registryTokens) == 1 { //namespace provided only 'alice'
+	if len(registryTokens) == 1 {
+		//namespace provided only 'alice'
 		image = DefaultRegistry + "/" + registry + "/" + f.Name
-	} else if len(registryTokens) == 2 { // registry/namespace provided `quay.io/alice`
+	} else if len(registryTokens) == 2 || len(registryTokens) == 3 {
+		// registry/namespace provided `quay.io/alice` or registry/parent-namespace/namespace provided `quay.io/project/alice`
 		image = registry + "/" + f.Name
-	} else if len(registryTokens) > 2 { // the name of the image is also provided `quay.io/alice/my.function.name`
-		err = fmt.Errorf("registry should be either 'namespace' or 'registry/namespace', the name of the image will be derived from the function name.")
+	} else if len(registryTokens) > 3 { // the name of the image is also provided `quay.io/alice/my.function.name`
+		err = fmt.Errorf("registry should be either 'namespace', 'registry/namespace' or 'registry/parent/namespace', the name of the image will be derived from the function name.")
 		return
 	}
 
