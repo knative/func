@@ -6,7 +6,7 @@ const { CloudEvent, HTTP } = require('cloudevents');
  * which echoes the incoming event data
  *
  * It can be invoked with 'func emit'
- * 
+ *
  * @param {Context} context a context object.
  * @param {object} context.body the request body if any
  * @param {object} context.query the query string deserialzed as an object, if any
@@ -15,7 +15,7 @@ const { CloudEvent, HTTP } = require('cloudevents');
  * @param {string} context.method the HTTP request method
  * @param {string} context.httpVersion the HTTP protocol version
  * See: https://github.com/knative-sandbox/kn-plugin-func/blob/main/docs/guides/nodejs.md#the-context-object
- * @param {CloudEvent} event the CloudEvent 
+ * @param {CloudEvent} event the CloudEvent
  */
 function handle(context, event) {
   context.log.info("context");

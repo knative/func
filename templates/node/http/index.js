@@ -2,7 +2,7 @@
  * Your HTTP handling function, invoked with each request. This is an example
  * function that echoes its input to the caller, and returns an error if
  * the incoming request is something other than an HTTP POST or GET.
- * 
+ *
  * @param {Context} context a context object.
  * @param {object} context.body the request body if any
  * @param {object} context.query the query string deserialzed as an object, if any

@@ -3,7 +3,7 @@ import { Context, Invokable } from 'faas-js-runtime';
 /**
  * Your HTTP handling function, invoked with each request. This is an example
  * function that logs the incoming request and echoes its input to the caller.
- * 
+ *
  * @param {Context} context a context object.
  * @param {object} context.body the request body if any
  * @param {object} context.query the query string deserialzed as an object, if any
