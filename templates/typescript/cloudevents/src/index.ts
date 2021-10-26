@@ -1,29 +1,22 @@
-'use strict';
 import { CloudEvent, HTTP, Message } from 'cloudevents';
 import { Context, Invokable } from 'faas-js-runtime';
 
 /**
- * An example function that responds to incoming CloudEvents over HTTP. For example,
- * from the Knative event Broker. Try invoking with a request such as this.
+ * Your CloudEvents function, invoked with each request. This
+ * is an example function which logs the incoming event and echoes
+ * the received event data to the caller.
  *
- * curl -X POST -d '{"name": "Tiger", "customerId": "0123456789"}' \
- *  -H'Content-type: application/json' \
- *  -H'Ce-id: 1' \
- *  -H'Ce-source: cloud-event-example' \
- *  -H'Ce-type: dev.knative.example' \
- *  -H'Ce-specversion: 1.0' \
- *  http://localhost:8080
+ * It can be invoked with 'func emit'.
  *
- * The CloudEvent object may be accessed via the context parameter, For example:
- *
- * const incomingEvent: CloudEvent = context.cloudevent;
- *
- * Any data in the incoming CloudEvent is extracted and provided as the second
- * parameter to the function.
- *
- * @param {Context} context the invocation context
- * @param {Object} data the CloudEvent data. If the content-type is application/json
- * the data will be converted to an Object via JSON.parse().
+ * @param {Context} context a context object.
+ * @param {object} context.body the request body if any
+ * @param {object} context.query the query string deserialzed as an object, if any
+ * @param {object} context.log logging object with methods for 'info', 'warn', 'error', etc.
+ * @param {object} context.headers the HTTP request headers
+ * @param {string} context.method the HTTP request method
+ * @param {string} context.httpVersion the HTTP protocol version
+ * See: https://github.com/knative-sandbox/kn-plugin-func/blob/main/docs/guides/nodejs.md#the-context-object
+ * @param {CloudEvent} cloudevent the CloudEvent
  */
 export const handle: Invokable = function (
   context: Context,
