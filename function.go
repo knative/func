@@ -74,7 +74,7 @@ type Function struct {
 	Labels Labels
 
 	// Health endpoints specified by the language pack
-	HealthEndpoints map[string]string
+	HealthEndpoints HealthEndpoints
 }
 
 // NewFunction loads a Function from a path on disk. use .Initialized() to determine if
@@ -185,7 +185,7 @@ func DerivedImage(root, registry string) (image string, err error) {
 	// registry is currently required until such time as we support
 	// pushing to an implicitly-available in-cluster registry by default.
 	if registry == "" {
-		err = errors.New("Registry name is required.")
+		err = errors.New("registry name is required")
 		return
 	}
 
@@ -226,7 +226,7 @@ func assertEmptyRoot(path string) (err error) {
 	if err != nil {
 		return
 	} else if len(files) > 0 {
-		return fmt.Errorf("The chosen directory '%v' contains contentious files: %v.  Has the Service Function already been created?  Try either using a different directory, deleting the Function if it exists, or manually removing the files.", path, files)
+		return fmt.Errorf("the chosen directory '%v' contains contentious files: %v.  Has the Service Function already been created?  Try either using a different directory, deleting the Function if it exists, or manually removing the files", path, files)
 	}
 
 	// Ensure there are no non-hidden files, and again none of the aforementioned contentious files.
@@ -234,7 +234,7 @@ func assertEmptyRoot(path string) (err error) {
 	if err != nil {
 		return
 	} else if !empty {
-		err = errors.New("The directory must be empty of visible files and recognized config files before it can be initialized.")
+		err = errors.New("the directory must be empty of visible files and recognized config files before it can be initialized")
 		return
 	}
 	return

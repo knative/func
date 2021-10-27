@@ -11,9 +11,9 @@ import (
 func Test_setHealthEndpoints(t *testing.T) {
 	f := fn.Function{
 		Name: "testing",
-		HealthEndpoints: map[string]string{
-			"liveness":  "/lively",
-			"readiness": "/readyAsIllEverBe",
+		HealthEndpoints: fn.HealthEndpoints{
+			Liveness:  "/lively",
+			Readiness: "/readyAsIllEverBe",
 		},
 	}
 	c := corev1.Container{}
