@@ -33,6 +33,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           release-type: simple
           bump-minor-pre-major: true
+          fork: true
       # Checkout
       - uses: actions/checkout@v2
       # Tag

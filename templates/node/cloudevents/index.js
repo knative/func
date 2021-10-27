@@ -1,30 +1,28 @@
-'use strict';
 const { CloudEvent, HTTP } = require('cloudevents');
 
 /**
- * A function that responds to incoming CloudEvents over HTTP from,
- * for example, a Knative event Source, Channel or Broker.
+ * Your CloudEvent handling function, invoked with each request.
+ * This example function logs its input, and responds with a CloudEvent
+ * which echoes the incoming event data
  *
- * If running via 'npm run local', it can be invoked like so:
+ * It can be invoked with 'func emit'
  *
- * curl -X POST -d '{"name": "Tiger", "customerId": "0123456789"}' \
- *  -H'Content-type: application/json' \
- *  -H'Ce-id: 1' \
- *  -H'Ce-source: cloud-event-example' \
- *  -H'Ce-type: dev.knative.example' \
- *  -H'Ce-specversion: 1.0' \
- *  http://localhost:8080
- *
- * @param {Context} context the invocation context
- * @param {Object} event the CloudEvent 
+ * @param {Context} context a context object.
+ * @param {object} context.body the request body if any
+ * @param {object} context.query the query string deserialzed as an object, if any
+ * @param {object} context.log logging object with methods for 'info', 'warn', 'error', etc.
+ * @param {object} context.headers the HTTP request headers
+ * @param {string} context.method the HTTP request method
+ * @param {string} context.httpVersion the HTTP protocol version
+ * See: https://github.com/knative-sandbox/kn-plugin-func/blob/main/docs/guides/nodejs.md#the-context-object
+ * @param {CloudEvent} event the CloudEvent
  */
 function handle(context, event) {
-
   context.log.info("context");
-  console.log(JSON.stringify(context, null, 2));
+  context.log.info(JSON.stringify(context, null, 2));
 
   context.log.info("event");
-  console.log(JSON.stringify(event, null, 2));
+  context.log.info(JSON.stringify(event, null, 2));
 
   return HTTP.binary(new CloudEvent({
     source: 'event.handler',
@@ -33,4 +31,4 @@ function handle(context, event) {
   }));
 };
 
-module.exports = handle;
+module.exports = { handle };
