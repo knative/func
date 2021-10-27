@@ -114,8 +114,7 @@ func (e *Exporter) Export(opts ExportOptions) (platform.ExportReport, error) {
 		return platform.ExportReport{}, err
 	}
 
-	// platform API > 0.5
-	if e.PlatformAPI.Compare(api.MustParse("0.5")) > 0 {
+	if e.PlatformAPI.AtLeast("0.6") {
 		e.Logger.Debugf("Setting WORKDIR: '%s'", opts.AppDir)
 		if err := e.setWorkingDir(opts); err != nil {
 			return platform.ExportReport{}, errors.Wrap(err, "setting workdir")
@@ -370,7 +369,7 @@ func (e *Exporter) entrypoint(launchMD launch.Metadata, userDefaultProcessType, 
 		return launch.LauncherPath, nil
 	}
 
-	if userDefaultProcessType == "" && e.PlatformAPI.Compare(api.MustParse("0.6")) < 0 && len(launchMD.Processes) == 1 {
+	if userDefaultProcessType == "" && e.PlatformAPI.LessThan("0.6") && len(launchMD.Processes) == 1 {
 		// if there is only one process, we set it to the default for platform API < 0.6
 		e.Logger.Infof("Setting default process type '%s'", launchMD.Processes[0].Type)
 		return launch.ProcessPath(launchMD.Processes[0].Type), nil
@@ -379,7 +378,7 @@ func (e *Exporter) entrypoint(launchMD launch.Metadata, userDefaultProcessType, 
 	if userDefaultProcessType != "" {
 		defaultProcess, ok := launchMD.FindProcessType(userDefaultProcessType)
 		if !ok {
-			if e.PlatformAPI.Compare(api.MustParse("0.6")) < 0 {
+			if e.PlatformAPI.LessThan("0.6") {
 				e.Logger.Warn(processTypeWarning(launchMD, userDefaultProcessType))
 				return launch.LauncherPath, nil
 			}
@@ -417,11 +416,11 @@ func (e *Exporter) launcherConfig(opts ExportOptions, buildMD *platform.BuildMet
 }
 
 func (e *Exporter) supportsMulticallLauncher() bool {
-	return e.PlatformAPI.Compare(api.MustParse("0.4")) >= 0
+	return e.PlatformAPI.AtLeast("0.4")
 }
 
 func (e *Exporter) supportsManifestSize() bool {
-	return e.PlatformAPI.Compare(api.MustParse("0.6")) >= 0
+	return e.PlatformAPI.AtLeast("0.6")
 }
 
 func processTypeError(launchMD launch.Metadata, defaultProcessType string) error {
@@ -452,12 +451,12 @@ func (e *Exporter) addOrReuseLayer(image imgutil.Image, layer layers.Layer, prev
 }
 
 func (e *Exporter) makeBuildReport(layersDir string) (platform.BuildReport, error) {
-	if e.PlatformAPI.Compare(api.MustParse("0.5")) < 0 { // platform API < 0.5
+	if e.PlatformAPI.LessThan("0.5") {
 		return platform.BuildReport{}, nil
 	}
 	var out []buildpack.BOMEntry
 	for _, bp := range e.Buildpacks {
-		if api.MustParse(bp.API).Compare(api.MustParse("0.5")) < 0 { // buildpack API < 0.5
+		if api.MustParse(bp.API).LessThan("0.5") {
 			continue
 		}
 		var bpBuildReport platform.BuildReport

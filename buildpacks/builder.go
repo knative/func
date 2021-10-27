@@ -120,6 +120,11 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		}
 	}
 
+	var isTrustedBuilderFunc = func(b string) bool {
+		return !daemonIsPodmanBeforeV330 &&
+			(strings.HasPrefix(packBuilder, "quay.io/boson") ||
+				strings.HasPrefix(packBuilder, "gcr.io/paketo-buildpacks"))
+	}
 	packOpts := pack.BuildOptions{
 		AppPath:        f.Root,
 		Image:          f.Image,
@@ -127,10 +132,8 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		Builder:        packBuilder,
 		Env:            buildEnvs,
 		Buildpacks:     f.Buildpacks,
-		TrustBuilder: !daemonIsPodmanBeforeV330 &&
-			(strings.HasPrefix(packBuilder, "quay.io/boson") ||
-				strings.HasPrefix(packBuilder, "gcr.io/paketo-buildpacks")),
-		DockerHost: os.Getenv("DOCKER_HOST"),
+		TrustBuilder:   isTrustedBuilderFunc,
+		DockerHost:     os.Getenv("DOCKER_HOST"),
 		ContainerConfig: struct {
 			Network string
 			Volumes []string

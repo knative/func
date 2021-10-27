@@ -122,5 +122,5 @@ func (l *Launcher) buildpackAPI(proc Process) (*api.Version, error) {
 }
 
 func isLegacyProcess(bpAPI *api.Version) bool {
-	return bpAPI.Compare(api.MustParse("0.4")) == -1
+	return bpAPI.LessThan("0.4")
 }
