@@ -2,11 +2,13 @@ package lifecycle
 
 import (
 	"fmt"
+	"os"
 	"sync"
 
 	"github.com/pkg/errors"
 
 	"github.com/buildpacks/lifecycle/buildpack"
+	"github.com/buildpacks/lifecycle/env"
 	"github.com/buildpacks/lifecycle/platform"
 )
 
@@ -26,12 +28,13 @@ type Resolver interface {
 
 type Detector struct {
 	buildpack.DetectConfig
+	Platform Platform
 	Resolver Resolver
 	Runs     *sync.Map
 	Store    BuildpackStore
 }
 
-func NewDetector(config buildpack.DetectConfig, buildpacksDir string) (*Detector, error) {
+func NewDetector(config buildpack.DetectConfig, buildpacksDir string, platform Platform) (*Detector, error) {
 	resolver := &DefaultResolver{
 		Logger: config.Logger,
 	}
@@ -41,6 +44,7 @@ func NewDetector(config buildpack.DetectConfig, buildpacksDir string) (*Detector
 	}
 	return &Detector{
 		DetectConfig: config,
+		Platform:     platform,
 		Resolver:     resolver,
 		Runs:         &sync.Map{},
 		Store:        store,
@@ -112,11 +116,14 @@ func (d *Detector) detectGroup(group buildpack.Group, done []buildpack.GroupBuil
 			// FIXME: cyclical references lead to infinite recursion
 			return d.detectOrder(bpDesc.Order, done, group.Group[i+1:], groupBp.Optional, wg)
 		}
+
+		bpEnv := env.NewBuildEnv(os.Environ())
+
 		done = append(done, groupBp)
 		wg.Add(1)
 		go func(key string, bp Buildpack) {
 			if _, ok := d.Runs.Load(key); !ok {
-				d.Runs.Store(key, bp.Detect(&d.DetectConfig))
+				d.Runs.Store(key, bp.Detect(&d.DetectConfig, bpEnv))
 			}
 			wg.Done()
 		}(key, bp)

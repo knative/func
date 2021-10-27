@@ -1,6 +1,8 @@
 package env
 
-import "strings"
+import (
+	"strings"
+)
 
 type Vars struct {
 	vals       map[string]string

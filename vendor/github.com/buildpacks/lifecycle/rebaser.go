@@ -122,5 +122,5 @@ func validateMixins(appImg, newBaseImg imgutil.Image) error {
 }
 
 func (r *Rebaser) supportsManifestSize() bool {
-	return r.PlatformAPI.Compare(api.MustParse("0.6")) >= 0
+	return r.PlatformAPI.AtLeast("0.6")
 }

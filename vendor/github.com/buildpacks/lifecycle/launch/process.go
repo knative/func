@@ -4,8 +4,6 @@ import (
 	"fmt"
 
 	"github.com/pkg/errors"
-
-	"github.com/buildpacks/lifecycle/api"
 )
 
 // ProcessFor creates a process from container cmd
@@ -18,7 +16,7 @@ import (
 //     * it constructs a new process from cmd
 //     * If the first element in cmd is `cmd` the process shall be direct
 func (l *Launcher) ProcessFor(cmd []string) (Process, error) {
-	if l.PlatformAPI.Compare(api.MustParse("0.4")) < 0 {
+	if l.PlatformAPI.LessThan("0.4") {
 		return l.processForLegacy(cmd)
 	}
 

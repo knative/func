@@ -68,7 +68,7 @@ func readBuildpackLayersDir(layersDir string, bp buildpack.GroupBuildpack, logge
 			// don't treat launch.toml as a layer
 			continue
 		}
-		if name == "build" && api.MustParse(bp.API).Compare(api.MustParse("0.5")) >= 0 {
+		if name == "build" && api.MustParse(bp.API).AtLeast("0.5") {
 			// if the buildpack API supports build.toml don't treat it as a layer
 			continue
 		}
@@ -131,20 +131,21 @@ func (bp *bpLayer) read() (platform.BuildpackLayerMetadata, error) {
 		return platform.BuildpackLayerMetadata{}, err
 	}
 	if msg != "" {
-		if api.MustParse(bp.api).Compare(api.MustParse("0.6")) < 0 {
+		if api.MustParse(bp.api).LessThan("0.6") {
 			bp.logger.Warn(msg)
 		} else {
 			return platform.BuildpackLayerMetadata{}, errors.New(msg)
 		}
 	}
-	sha, err := ioutil.ReadFile(bp.path + ".sha")
-	if err != nil {
-		if os.IsNotExist(err) {
-			return platform.BuildpackLayerMetadata{LayerMetadata: platform.LayerMetadata{SHA: ""}, LayerMetadataFile: layerMetadataFile}, nil
-		}
+	var sha string
+	shaBytes, err := ioutil.ReadFile(bp.path + ".sha")
+	if err != nil && !os.IsNotExist(err) { // if the sha file doesn't exist, an empty sha will be returned
 		return platform.BuildpackLayerMetadata{}, err
 	}
-	return platform.BuildpackLayerMetadata{LayerMetadata: platform.LayerMetadata{SHA: string(sha)}, LayerMetadataFile: layerMetadataFile}, nil
+	if err == nil {
+		sha = string(shaBytes)
+	}
+	return platform.BuildpackLayerMetadata{LayerMetadata: platform.LayerMetadata{SHA: sha}, LayerMetadataFile: layerMetadataFile}, nil
 }
 
 func (bp *bpLayer) remove() error {

@@ -17,8 +17,8 @@ else
 LIFECYCLE_IMAGE_TAG?=$(LIFECYCLE_VERSION)
 endif
 
+ACCEPTANCE_TIMEOUT?=2400s
 GOCMD?=go
-GOARCH?=amd64
 GOENV=GOARCH=$(GOARCH) CGO_ENABLED=0
 LIFECYCLE_DESCRIPTOR_PATH?=lifecycle.toml
 SCM_REPO?=github.com/buildpacks/lifecycle
@@ -30,8 +30,8 @@ LDFLAGS+=-X 'github.com/buildpacks/lifecycle/cmd.Version=$(LIFECYCLE_VERSION)'
 GOBUILD:=go build $(GOFLAGS) -ldflags "$(LDFLAGS)"
 GOTEST=$(GOCMD) test $(GOFLAGS)
 BUILD_DIR?=$(PWD)$/out
-LINUX_COMPILATION_IMAGE?=golang:1.15-alpine
-WINDOWS_COMPILATION_IMAGE?=golang:1.15-windowsservercore-1809
+LINUX_COMPILATION_IMAGE?=golang:1.16-alpine
+WINDOWS_COMPILATION_IMAGE?=golang:1.16-windowsservercore-1809
 SOURCE_COMPILATION_IMAGE?=lifecycle-img
 BUILD_CTR?=lifecycle-ctr
 DOCKER_CMD?=make test
@@ -40,58 +40,78 @@ GOFILES := $(shell $(GOCMD) run tools$/lister$/main.go)
 
 all: test build package
 
-build: build-linux build-windows
+build: build-linux-amd64 build-linux-arm64 build-windows-amd64
 
-build-linux: build-linux-lifecycle build-linux-symlinks build-linux-launcher
-build-windows: build-windows-lifecycle build-windows-symlinks build-windows-launcher
+build-linux-amd64: build-linux-amd64-lifecycle build-linux-amd64-symlinks build-linux-amd64-launcher
+build-linux-arm64: build-linux-arm64-lifecycle build-linux-arm64-symlinks build-linux-arm64-launcher
+build-windows-amd64: build-windows-amd64-lifecycle build-windows-amd64-symlinks build-windows-amd64-launcher
 
-build-image-linux: build-linux package-linux
-build-image-linux: ARCHIVE_PATH=$(BUILD_DIR)/lifecycle-v$(LIFECYCLE_VERSION)+linux.x86-64.tgz
-build-image-linux:
-	$(GOCMD) run ./tools/image/main.go -daemon -lifecyclePath $(ARCHIVE_PATH) -os linux -tag lifecycle:$(LIFECYCLE_IMAGE_TAG)
+build-image-linux-amd64: build-linux-amd64 package-linux-amd64
+build-image-linux-amd64: ARCHIVE_PATH=$(BUILD_DIR)/lifecycle-v$(LIFECYCLE_VERSION)+linux.x86-64.tgz
+build-image-linux-amd64:
+	$(GOCMD) run ./tools/image/main.go -daemon -lifecyclePath $(ARCHIVE_PATH) -os linux -arch amd64 -tag lifecycle:$(LIFECYCLE_IMAGE_TAG)
 
-build-image-windows: build-windows package-windows
-build-image-windows: ARCHIVE_PATH=$(BUILD_DIR)/lifecycle-v$(LIFECYCLE_VERSION)+windows.x86-64.tgz
-build-image-windows:
-	$(GOCMD) run ./tools/image/main.go -daemon -lifecyclePath $(ARCHIVE_PATH) -os windows -tag lifecycle:$(LIFECYCLE_IMAGE_TAG)
+build-image-linux-arm64: build-linux-arm64 package-linux-arm64
+build-image-linux-arm64: ARCHIVE_PATH=$(BUILD_DIR)/lifecycle-v$(LIFECYCLE_VERSION)+linux.arm64.tgz
+build-image-linux-arm64:
+	$(GOCMD) run ./tools/image/main.go -daemon -lifecyclePath $(ARCHIVE_PATH) -os linux -arch arm64 -tag lifecycle:$(LIFECYCLE_IMAGE_TAG)
 
-build-linux-lifecycle: $(BUILD_DIR)/linux/lifecycle/lifecycle
+build-image-windows-amd64: build-windows-amd64 package-windows-amd64
+build-image-windows-amd64: ARCHIVE_PATH=$(BUILD_DIR)/lifecycle-v$(LIFECYCLE_VERSION)+windows.x86-64.tgz
+build-image-windows-amd64:
+	$(GOCMD) run ./tools/image/main.go -daemon -lifecyclePath $(ARCHIVE_PATH) -os windows -arch amd64 -tag lifecycle:$(LIFECYCLE_IMAGE_TAG)
 
-docker-compilation-image-linux:
-	docker build ./tools --build-arg from_image=$(LINUX_COMPILATION_IMAGE) --tag $(SOURCE_COMPILATION_IMAGE)
+build-linux-amd64-lifecycle: $(BUILD_DIR)/linux-amd64/lifecycle/lifecycle
 
+build-linux-arm64-lifecycle: $(BUILD_DIR)/linux-arm64/lifecycle/lifecycle
 
-$(BUILD_DIR)/linux/lifecycle/lifecycle: export GOOS:=linux
-$(BUILD_DIR)/linux/lifecycle/lifecycle: OUT_DIR:=$(BUILD_DIR)/$(GOOS)/lifecycle
-$(BUILD_DIR)/linux/lifecycle/lifecycle: GOENV:=GOARCH=$(GOARCH) CGO_ENABLED=1
-$(BUILD_DIR)/linux/lifecycle/lifecycle: docker-compilation-image-linux
-$(BUILD_DIR)/linux/lifecycle/lifecycle: $(GOFILES)
-$(BUILD_DIR)/linux/lifecycle/lifecycle:
-	@echo "> Building lifecycle/lifecycle for linux..."
+$(BUILD_DIR)/linux-amd64/lifecycle/lifecycle: export GOOS:=linux
+$(BUILD_DIR)/linux-amd64/lifecycle/lifecycle: export GOARCH:=amd64
+$(BUILD_DIR)/linux-amd64/lifecycle/lifecycle: OUT_DIR?=$(BUILD_DIR)/$(GOOS)-$(GOARCH)/lifecycle
+$(BUILD_DIR)/linux-amd64/lifecycle/lifecycle: $(GOFILES)
+$(BUILD_DIR)/linux-amd64/lifecycle/lifecycle:
+	@echo "> Building lifecycle/lifecycle for $(GOOS)/$(GOARCH)..."
 	mkdir -p $(OUT_DIR)
-	docker run \
-	  --workdir=/lifecycle \
-	  --volume $(OUT_DIR):/out \
-	  --volume $(PWD):/lifecycle \
-	  --volume gocache:/go \
-	  $(SOURCE_COMPILATION_IMAGE) \
-	  sh -c '$(GOENV) $(GOBUILD) -o /out/lifecycle -a ./cmd/lifecycle'
+	$(GOENV) $(GOBUILD) -o $(OUT_DIR)/lifecycle -a ./cmd/lifecycle
 
-build-linux-launcher: $(BUILD_DIR)/linux/lifecycle/launcher
+$(BUILD_DIR)/linux-arm64/lifecycle/lifecycle: export GOOS:=linux
+$(BUILD_DIR)/linux-arm64/lifecycle/lifecycle: export GOARCH:=arm64
+$(BUILD_DIR)/linux-arm64/lifecycle/lifecycle: OUT_DIR?=$(BUILD_DIR)/$(GOOS)-$(GOARCH)/lifecycle
+$(BUILD_DIR)/linux-arm64/lifecycle/lifecycle: $(GOFILES)
+$(BUILD_DIR)/linux-arm64/lifecycle/lifecycle:
+	@echo "> Building lifecycle/lifecycle for $(GOOS)/$(GOARCH)..."
+	mkdir -p $(OUT_DIR)
+	$(GOENV) $(GOBUILD) -o $(OUT_DIR)/lifecycle -a ./cmd/lifecycle
 
-$(BUILD_DIR)/linux/lifecycle/launcher: export GOOS:=linux
-$(BUILD_DIR)/linux/lifecycle/launcher: OUT_DIR?=$(BUILD_DIR)/$(GOOS)/lifecycle
-$(BUILD_DIR)/linux/lifecycle/launcher: $(GOFILES)
-$(BUILD_DIR)/linux/lifecycle/launcher:
-	@echo "> Building lifecycle/launcher for linux..."
+build-linux-amd64-launcher: $(BUILD_DIR)/linux-amd64/lifecycle/launcher
+
+$(BUILD_DIR)/linux-amd64/lifecycle/launcher: export GOOS:=linux
+$(BUILD_DIR)/linux-amd64/lifecycle/launcher: export GOARCH:=amd64
+$(BUILD_DIR)/linux-amd64/lifecycle/launcher: OUT_DIR?=$(BUILD_DIR)/$(GOOS)-$(GOARCH)/lifecycle
+$(BUILD_DIR)/linux-amd64/lifecycle/launcher: $(GOFILES)
+$(BUILD_DIR)/linux-amd64/lifecycle/launcher:
+	@echo "> Building lifecycle/launcher for $(GOOS)/$(GOARCH)..."
 	mkdir -p $(OUT_DIR)
 	$(GOENV) $(GOBUILD) -o $(OUT_DIR)/launcher -a ./cmd/launcher
 	test $$(du -m $(OUT_DIR)/launcher|cut -f 1) -le 3
 
-build-linux-symlinks: export GOOS:=linux
-build-linux-symlinks: OUT_DIR?=$(BUILD_DIR)/$(GOOS)/lifecycle
-build-linux-symlinks:
-	@echo "> Creating phase symlinks for linux..."
+build-linux-arm64-launcher: $(BUILD_DIR)/linux-arm64/lifecycle/launcher
+
+$(BUILD_DIR)/linux-arm64/lifecycle/launcher: export GOOS:=linux
+$(BUILD_DIR)/linux-arm64/lifecycle/launcher: export GOARCH:=arm64
+$(BUILD_DIR)/linux-arm64/lifecycle/launcher: OUT_DIR?=$(BUILD_DIR)/$(GOOS)-$(GOARCH)/lifecycle
+$(BUILD_DIR)/linux-arm64/lifecycle/launcher: $(GOFILES)
+$(BUILD_DIR)/linux-arm64/lifecycle/launcher:
+	@echo "> Building lifecycle/launcher for $(GOOS)/$(GOARCH)..."
+	mkdir -p $(OUT_DIR)
+	$(GOENV) $(GOBUILD) -o $(OUT_DIR)/launcher -a ./cmd/launcher
+	test $$(du -m $(OUT_DIR)/launcher|cut -f 1) -le 3
+
+build-linux-amd64-symlinks: export GOOS:=linux
+build-linux-amd64-symlinks: export GOARCH:=amd64
+build-linux-amd64-symlinks: OUT_DIR?=$(BUILD_DIR)/$(GOOS)-$(GOARCH)/lifecycle
+build-linux-amd64-symlinks:
+	@echo "> Creating phase symlinks for $(GOOS)/$(GOARCH)..."
 	ln -sf lifecycle $(OUT_DIR)/detector
 	ln -sf lifecycle $(OUT_DIR)/analyzer
 	ln -sf lifecycle $(OUT_DIR)/restorer
@@ -100,27 +120,43 @@ build-linux-symlinks:
 	ln -sf lifecycle $(OUT_DIR)/rebaser
 	ln -sf lifecycle $(OUT_DIR)/creator
 
-build-windows-lifecycle: $(BUILD_DIR)/windows/lifecycle/lifecycle.exe
+build-linux-arm64-symlinks: export GOOS:=linux
+build-linux-arm64-symlinks: export GOARCH:=arm64
+build-linux-arm64-symlinks: OUT_DIR?=$(BUILD_DIR)/$(GOOS)-$(GOARCH)/lifecycle
+build-linux-arm64-symlinks:
+	@echo "> Creating phase symlinks for $(GOOS)/$(GOARCH)..."
+	ln -sf lifecycle $(OUT_DIR)/detector
+	ln -sf lifecycle $(OUT_DIR)/analyzer
+	ln -sf lifecycle $(OUT_DIR)/restorer
+	ln -sf lifecycle $(OUT_DIR)/builder
+	ln -sf lifecycle $(OUT_DIR)/exporter
+	ln -sf lifecycle $(OUT_DIR)/rebaser
+	ln -sf lifecycle $(OUT_DIR)/creator
 
-$(BUILD_DIR)/windows/lifecycle/lifecycle.exe: export GOOS:=windows
-$(BUILD_DIR)/windows/lifecycle/lifecycle.exe: OUT_DIR?=$(BUILD_DIR)$/$(GOOS)$/lifecycle
-$(BUILD_DIR)/windows/lifecycle/lifecycle.exe: $(GOFILES)
-$(BUILD_DIR)/windows/lifecycle/lifecycle.exe:
-	@echo "> Building lifecycle/lifecycle for Windows..."
+build-windows-amd64-lifecycle: $(BUILD_DIR)/windows-amd64/lifecycle/lifecycle.exe
+
+$(BUILD_DIR)/windows-amd64/lifecycle/lifecycle.exe: export GOOS:=windows
+$(BUILD_DIR)/windows-amd64/lifecycle/lifecycle.exe: export GOARCH:=amd64
+$(BUILD_DIR)/windows-amd64/lifecycle/lifecycle.exe: OUT_DIR?=$(BUILD_DIR)$/$(GOOS)-$(GOARCH)$/lifecycle
+$(BUILD_DIR)/windows-amd64/lifecycle/lifecycle.exe: $(GOFILES)
+$(BUILD_DIR)/windows-amd64/lifecycle/lifecycle.exe:
+	@echo "> Building lifecycle/lifecycle for $(GOOS)/$(GOARCH)..."
 	$(GOBUILD) -o $(OUT_DIR)$/lifecycle.exe -a .$/cmd$/lifecycle
 
-build-windows-launcher: $(BUILD_DIR)/windows/lifecycle/launcher.exe
+build-windows-amd64-launcher: $(BUILD_DIR)/windows-amd64/lifecycle/launcher.exe
 
-$(BUILD_DIR)/windows/lifecycle/launcher.exe: export GOOS:=windows
-$(BUILD_DIR)/windows/lifecycle/launcher.exe: OUT_DIR?=$(BUILD_DIR)$/$(GOOS)$/lifecycle
-$(BUILD_DIR)/windows/lifecycle/launcher.exe: $(GOFILES)
-$(BUILD_DIR)/windows/lifecycle/launcher.exe:
-	@echo "> Building lifecycle/launcher for Windows..."
+$(BUILD_DIR)/windows-amd64/lifecycle/launcher.exe: export GOOS:=windows
+$(BUILD_DIR)/windows-amd64/lifecycle/launcher.exe: export GOARCH:=amd64
+$(BUILD_DIR)/windows-amd64/lifecycle/launcher.exe: OUT_DIR?=$(BUILD_DIR)$/$(GOOS)-$(GOARCH)$/lifecycle
+$(BUILD_DIR)/windows-amd64/lifecycle/launcher.exe: $(GOFILES)
+$(BUILD_DIR)/windows-amd64/lifecycle/launcher.exe:
+	@echo "> Building lifecycle/launcher for $(GOOS)/$(GOARCH)..."
 	$(GOBUILD) -o $(OUT_DIR)$/launcher.exe -a .$/cmd$/launcher
 
-build-windows-symlinks: export GOOS:=windows
-build-windows-symlinks: OUT_DIR?=$(BUILD_DIR)$/$(GOOS)$/lifecycle
-build-windows-symlinks:
+build-windows-amd64-symlinks: export GOOS:=windows
+build-windows-amd64-symlinks: export GOARCH:=amd64
+build-windows-amd64-symlinks: OUT_DIR?=$(BUILD_DIR)$/$(GOOS)-$(GOARCH)$/lifecycle
+build-windows-amd64-symlinks:
 	@echo "> Creating phase symlinks for Windows..."
 ifeq ($(OS),Windows_NT)
 	call del $(OUT_DIR)$/detector.exe
@@ -147,16 +183,17 @@ else
 	ln -sf lifecycle.exe $(OUT_DIR)$/creator.exe
 endif
 
-build-darwin: build-darwin-lifecycle build-darwin-launcher
+build-darwin-amd64: build-darwin-amd64-lifecycle build-darwin-amd64-launcher
 
-build-darwin-lifecycle: $(BUILD_DIR)/darwin/lifecycle/lifecycle
-$(BUILD_DIR)/darwin/lifecycle/lifecycle: export GOOS:=darwin
-$(BUILD_DIR)/darwin/lifecycle/lifecycle: OUT_DIR:=$(BUILD_DIR)/$(GOOS)/lifecycle
-$(BUILD_DIR)/darwin/lifecycle/lifecycle: $(GOFILES)
-$(BUILD_DIR)/darwin/lifecycle/lifecycle:
-	@echo "> Building lifecycle for macos..."
+build-darwin-amd64-lifecycle: $(BUILD_DIR)/darwin-amd64/lifecycle/lifecycle
+$(BUILD_DIR)/darwin-amd64/lifecycle/lifecycle: export GOOS:=darwin
+$(BUILD_DIR)/darwin-amd64/lifecycle/lifecycle: export GOARCH:=amd64
+$(BUILD_DIR)/darwin-amd64/lifecycle/lifecycle: OUT_DIR:=$(BUILD_DIR)/$(GOOS)-$(GOARCH)/lifecycle
+$(BUILD_DIR)/darwin-amd64/lifecycle/lifecycle: $(GOFILES)
+$(BUILD_DIR)/darwin-amd64/lifecycle/lifecycle:
+	@echo "> Building lifecycle for darwin/amd64..."
 	$(GOENV) $(GOBUILD) -o $(OUT_DIR)/lifecycle -a ./cmd/lifecycle
-	@echo "> Creating lifecycle symlinks for macos..."
+	@echo "> Creating lifecycle symlinks for darwin/amd64..."
 	ln -sf lifecycle $(OUT_DIR)/detector
 	ln -sf lifecycle $(OUT_DIR)/analyzer
 	ln -sf lifecycle $(OUT_DIR)/restorer
@@ -164,31 +201,32 @@ $(BUILD_DIR)/darwin/lifecycle/lifecycle:
 	ln -sf lifecycle $(OUT_DIR)/exporter
 	ln -sf lifecycle $(OUT_DIR)/rebaser
 
-build-darwin-launcher: $(BUILD_DIR)/darwin/lifecycle/launcher
-$(BUILD_DIR)/darwin/lifecycle/launcher: export GOOS:=darwin
-$(BUILD_DIR)/darwin/lifecycle/launcher: OUT_DIR:=$(BUILD_DIR)/$(GOOS)/lifecycle
-$(BUILD_DIR)/darwin/lifecycle/launcher: $(GOFILES)
-$(BUILD_DIR)/darwin/lifecycle/launcher:
-	@echo "> Building launcher for macos..."
+build-darwin-amd64-launcher: $(BUILD_DIR)/darwin-amd64/lifecycle/launcher
+$(BUILD_DIR)/darwin-amd64/lifecycle/launcher: export GOOS:=darwin
+$(BUILD_DIR)/darwin-amd64/lifecycle/launcher: export GOARCH:=amd64
+$(BUILD_DIR)/darwin-amd64/lifecycle/launcher: OUT_DIR:=$(BUILD_DIR)/$(GOOS)-$(GOARCH)/lifecycle
+$(BUILD_DIR)/darwin-amd64/lifecycle/launcher: $(GOFILES)
+$(BUILD_DIR)/darwin-amd64/lifecycle/launcher:
+	@echo "> Building launcher for darwin/amd64..."
 	mkdir -p $(OUT_DIR)
 	$(GOENV) $(GOBUILD) -o $(OUT_DIR)/launcher -a ./cmd/launcher
 	test $$(du -m $(OUT_DIR)/launcher|cut -f 1) -le 4
 
 install-goimports:
 	@echo "> Installing goimports..."
-	cd tools && $(GOCMD) install golang.org/x/tools/cmd/goimports
+	$(GOCMD) install golang.org/x/tools/cmd/goimports@v0.1.2
 
 install-yj:
 	@echo "> Installing yj..."
-	cd tools && $(GOCMD) install github.com/sclevine/yj
+	$(GOCMD) install github.com/sclevine/yj@v0.0.0-20210612025309-737bdf40a5d1
 
 install-mockgen:
 	@echo "> Installing mockgen..."
-	cd tools && $(GOCMD) install github.com/golang/mock/mockgen
+	$(GOCMD) install github.com/golang/mock/mockgen@v1.5.0
 
 install-golangci-lint:
 	@echo "> Installing golangci-lint..."
-	cd tools && $(GOCMD) install github.com/golangci/golangci-lint/cmd/golangci-lint
+	$(GOCMD) install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.30.0
 
 lint: install-golangci-lint
 	@echo "> Linting code..."
@@ -210,42 +248,62 @@ tidy:
 
 test: unit acceptance
 
+# append coverage arguments
+ifeq ($(TEST_COVERAGE), 1)
+unit: GOTESTFLAGS:=$(GOTESTFLAGS) -coverprofile=./out/tests/coverage-unit.txt -covermode=atomic
+endif
+unit: out
 unit: UNIT_PACKAGES=$(shell $(GOCMD) list ./... | grep -v acceptance)
 unit: format lint tidy install-yj
 	@echo "> Running unit tests..."
-	$(GOTEST) -v -count=1 $(UNIT_PACKAGES)
+	$(GOTEST) $(GOTESTFLAGS) -v -count=1 $(UNIT_PACKAGES)
 
-acceptance: format lint tidy
+out:
+	@mkdir out || (exit 0)
+	mkdir out$/tests || (exit 0)
+
+acceptance: format tidy
 	@echo "> Running acceptance tests..."
-	$(GOTEST) -v -count=1 -tags=acceptance ./acceptance/...
+	$(GOTEST) -v -count=1 -tags=acceptance -timeout=$(ACCEPTANCE_TIMEOUT) ./acceptance/...
 
 clean:
 	@echo "> Cleaning workspace..."
 	rm -rf $(BUILD_DIR)
 
-package: package-linux package-windows
+package: package-linux-amd64 package-linux-arm64 package-windows-amd64
 
-package-linux: GOOS:=linux
-package-linux: INPUT_DIR:=$(BUILD_DIR)/$(GOOS)/lifecycle
-package-linux: ARCHIVE_PATH=$(BUILD_DIR)/lifecycle-v$(LIFECYCLE_VERSION)+$(GOOS).x86-64.tgz
-package-linux: PACKAGER=./tools/packager/main.go
-package-linux:
-	@echo "> Packaging lifecycle for $(GOOS)..."
+package-linux-amd64: GOOS:=linux
+package-linux-amd64: GOARCH:=amd64
+package-linux-amd64: INPUT_DIR:=$(BUILD_DIR)/$(GOOS)-$(GOARCH)/lifecycle
+package-linux-amd64: ARCHIVE_PATH=$(BUILD_DIR)/lifecycle-v$(LIFECYCLE_VERSION)+$(GOOS).x86-64.tgz
+package-linux-amd64: PACKAGER=./tools/packager/main.go
+package-linux-amd64:
+	@echo "> Packaging lifecycle for $(GOOS)/$(GOARCH)..."
 	$(GOCMD) run $(PACKAGER) --inputDir $(INPUT_DIR) -archivePath $(ARCHIVE_PATH) -descriptorPath $(LIFECYCLE_DESCRIPTOR_PATH) -version $(LIFECYCLE_VERSION)
 
-package-windows: GOOS:=windows
-package-windows: INPUT_DIR:=$(BUILD_DIR)$/$(GOOS)$/lifecycle
-package-windows: ARCHIVE_PATH=$(BUILD_DIR)$/lifecycle-v$(LIFECYCLE_VERSION)+$(GOOS).x86-64.tgz
-package-windows: PACKAGER=.$/tools$/packager$/main.go
-package-windows:
-	@echo "> Packaging lifecycle for $(GOOS)..."
+package-linux-arm64: GOOS:=linux
+package-linux-arm64: GOARCH:=arm64
+package-linux-arm64: INPUT_DIR:=$(BUILD_DIR)/$(GOOS)-$(GOARCH)/lifecycle
+package-linux-arm64: ARCHIVE_PATH=$(BUILD_DIR)/lifecycle-v$(LIFECYCLE_VERSION)+$(GOOS).arm64.tgz
+package-linux-arm64: PACKAGER=./tools/packager/main.go
+package-linux-arm64:
+	@echo "> Packaging lifecycle for $(GOOS)/$(GOARCH)..."
+	$(GOCMD) run $(PACKAGER) --inputDir $(INPUT_DIR) -archivePath $(ARCHIVE_PATH) -descriptorPath $(LIFECYCLE_DESCRIPTOR_PATH) -version $(LIFECYCLE_VERSION)
+
+package-windows-amd64: GOOS:=windows
+package-windows-amd64: GOARCH:=amd64
+package-windows-amd64: INPUT_DIR:=$(BUILD_DIR)$/$(GOOS)-$(GOARCH)$/lifecycle
+package-windows-amd64: ARCHIVE_PATH=$(BUILD_DIR)$/lifecycle-v$(LIFECYCLE_VERSION)+$(GOOS).x86-64.tgz
+package-windows-amd64: PACKAGER=.$/tools$/packager$/main.go
+package-windows-amd64:
+	@echo "> Packaging lifecycle for $(GOOS)/$(GOARCH)..."
 	$(GOCMD) run $(PACKAGER) --inputDir $(INPUT_DIR) -archivePath $(ARCHIVE_PATH) -descriptorPath $(LIFECYCLE_DESCRIPTOR_PATH) -version $(LIFECYCLE_VERSION)
 
 # Ensure workdir is clean and build image from .git
 docker-build-source-image-windows: $(GOFILES)
 docker-build-source-image-windows:
 	$(if $(shell git status --short), @echo Uncommitted changes. Refusing to run. && exit 1)
-	docker build -f tools/Dockerfile.windows --tag $(SOURCE_COMPILATION_IMAGE) --build-arg image_tag=$(WINDOWS_COMPILATION_IMAGE) --cache-from=$(SOURCE_COMPILATION_IMAGE) --isolation=process --quiet .git
+	docker build .git -f tools/Dockerfile.windows --tag $(SOURCE_COMPILATION_IMAGE) --build-arg image_tag=$(WINDOWS_COMPILATION_IMAGE) --cache-from=$(SOURCE_COMPILATION_IMAGE) --isolation=process --compress
 
 docker-run-windows: docker-build-source-image-windows
 docker-run-windows:

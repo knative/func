@@ -111,16 +111,19 @@ func (v *Version) Compare(o *Version) int {
 	return 0
 }
 
-// IsAPICompatible determines if the lifecycle's API version is compatible with another's API version.
-//
-// Example Usage Pseudocode:
-//
-//	IsAPICompatible(Platform API from Lifecycle, Platform API from Platform)
-//	IsAPICompatible(Buildpack API from Lifecycle, Buildpack API from Buildpack)
-//
 func (v *Version) IsSupersetOf(o *Version) bool {
 	if v.Major == 0 {
 		return v.Equal(o)
 	}
 	return v.Major == o.Major && v.Minor >= o.Minor
+}
+
+func (v *Version) LessThan(other string) bool {
+	otherVersion := MustParse(other)
+	return v.Compare(otherVersion) < 0
+}
+
+func (v *Version) AtLeast(other string) bool {
+	otherVersion := MustParse(other)
+	return v.Compare(otherVersion) >= 0
 }

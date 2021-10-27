@@ -1,6 +1,8 @@
-package v05
+package pre06
 
-import "github.com/buildpacks/lifecycle/cmd"
+import (
+	"github.com/buildpacks/lifecycle/cmd"
+)
 
 var exitCodes = map[cmd.LifecycleExitError]int{
 	// detect phase errors: 100-199
@@ -28,7 +30,7 @@ var exitCodes = map[cmd.LifecycleExitError]int{
 	cmd.LaunchError: 702, // LaunchError indicates generic launch error
 }
 
-func (p *Platform) CodeFor(errType cmd.LifecycleExitError) int {
+func (p *pre06Platform) CodeFor(errType cmd.LifecycleExitError) int {
 	if code, ok := exitCodes[errType]; ok {
 		return code
 	}
