@@ -3,7 +3,7 @@
 const { start } = require('faas-js-runtime');
 const request = require('supertest');
 
-const func = require('..');
+const func = require('..').handle;
 const test = require('tape');
 
 const errHandler = t => err => {
@@ -20,7 +20,7 @@ test('Integration: handles an HTTP GET', t => {
       .expect('Content-Type', /json/)
       .end((err, res) => {
         t.error(err, 'No error');
-        t.deepEqual(res.body, { query: { name: 'tiger' }, name: 'tiger' });
+        t.deepEqual(res.body, { query: { name: 'tiger' } });
         t.end();
         server.close();
       });

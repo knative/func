@@ -1,9 +1,8 @@
 'use strict';
-const { CloudEvent } = require('cloudevents');
 const { start } = require('faas-js-runtime');
 const request = require('supertest');
 
-const func = require('..');
+const func = require('..').handle;
 const test = require('tape');
 
 const Spec = {

@@ -1,9 +1,8 @@
 'use strict';
 
-const func = require('..');
+const func = require('..').handle;
 const test = require('tape');
 const { CloudEvent } = require('cloudevents');
-const { Context } = require('faas-js-runtime/lib/context');
 
 // Ensure that the function completes cleanly when passed a valid event.
 test('Unit: handles a valid event', t => {
