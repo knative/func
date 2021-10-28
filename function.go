@@ -74,7 +74,7 @@ type Function struct {
 	Labels Labels
 
 	// Health endpoints specified by the language pack
-	HealthEndpoints map[string]string
+	HealthEndpoints HealthEndpoints
 }
 
 // NewFunction loads a Function from a path on disk. use .Initialized() to determine if
@@ -156,7 +156,7 @@ func (f Function) ImageWithDigest() string {
 // DerivedImage returns the derived image name (OCI container tag) of the
 // Function whose source is at root, with the default registry for when
 // the image has to be calculated (derived).
-// The following are eqivalent due to the use of DefaultRegistry:
+// The following are equivalent due to the use of DefaultRegistry:
 // registry:  docker.io/myname
 //            myname
 // A full image name consists of registry, image name and tag.
@@ -185,7 +185,7 @@ func DerivedImage(root, registry string) (image string, err error) {
 	// registry is currently required until such time as we support
 	// pushing to an implicitly-available in-cluster registry by default.
 	if registry == "" {
-		err = errors.New("Registry name is required.")
+		err = errors.New("registry name is required")
 		return
 	}
 
@@ -194,14 +194,20 @@ func DerivedImage(root, registry string) (image string, err error) {
 	// therefore derive the image tag from the defined registry and name.
 	// form:    [registry]/[user]/[function]:latest
 	// example: quay.io/alice/my.function.name:latest
+	// Also nested namespaces should be supported:
+	// form:    [registry]/[parent]/[user]/[function]:latest
+	// example: quay.io/project/alice/my.function.name:latest
 	registry = strings.Trim(registry, "/") // too defensive?
 	registryTokens := strings.Split(registry, "/")
 	if len(registryTokens) == 1 {
+		//namespace provided only 'alice'
 		image = DefaultRegistry + "/" + registry + "/" + f.Name
-	} else if len(registryTokens) == 2 {
+	} else if len(registryTokens) == 2 || len(registryTokens) == 3 {
+		// registry/namespace provided `quay.io/alice` or registry/parent-namespace/namespace provided `quay.io/project/alice`
 		image = registry + "/" + f.Name
-	} else {
-		err = fmt.Errorf("registry should be either 'namespace' or 'registry/namespace'")
+	} else if len(registryTokens) > 3 { // the name of the image is also provided `quay.io/alice/my.function.name`
+		err = fmt.Errorf("registry should be either 'namespace', 'registry/namespace' or 'registry/parent/namespace', the name of the image will be derived from the function name.")
+		return
 	}
 
 	// Explicitly append :latest.  We currently expect source control to drive
@@ -220,7 +226,7 @@ func assertEmptyRoot(path string) (err error) {
 	if err != nil {
 		return
 	} else if len(files) > 0 {
-		return fmt.Errorf("The chosen directory '%v' contains contentious files: %v.  Has the Service Function already been created?  Try either using a different directory, deleting the Function if it exists, or manually removing the files.", path, files)
+		return fmt.Errorf("the chosen directory '%v' contains contentious files: %v.  Has the Service Function already been created?  Try either using a different directory, deleting the Function if it exists, or manually removing the files", path, files)
 	}
 
 	// Ensure there are no non-hidden files, and again none of the aforementioned contentious files.
@@ -228,7 +234,7 @@ func assertEmptyRoot(path string) (err error) {
 	if err != nil {
 		return
 	} else if !empty {
-		err = errors.New("The directory must be empty of visible files and recognized config files before it can be initialized.")
+		err = errors.New("the directory must be empty of visible files and recognized config files before it can be initialized")
 		return
 	}
 	return

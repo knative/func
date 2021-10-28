@@ -55,12 +55,8 @@
 					"type": "array"
 				},
 				"healthEndpoints": {
-					"patternProperties": {
-						".*": {
-							"type": "string"
-						}
-					},
-					"type": "object"
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/HealthEndpoints"
 				},
 				"volumes": {
 					"items": {
@@ -115,6 +111,18 @@
 					"type": "string"
 				},
 				"value": {
+					"type": "string"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
+		},
+		"HealthEndpoints": {
+			"properties": {
+				"liveness": {
+					"type": "string"
+				},
+				"readiness": {
 					"type": "string"
 				}
 			},

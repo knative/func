@@ -287,7 +287,6 @@ func newCreateConfig(args []string, clientFn createClientFn) (cfg createConfig, 
 func isValidRuntime(client *fn.Client, runtime string) bool {
 	runtimes, err := client.Runtimes()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error checking runtimes: %v\n", err)
 		return false
 	}
 	for _, v := range runtimes {
@@ -306,7 +305,6 @@ func isValidTemplate(client *fn.Client, runtime, template string) bool {
 	}
 	templates, err := client.Templates().List(runtime)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error checking templates: %v", err)
 		return false
 	}
 	for _, v := range templates {
@@ -533,7 +531,9 @@ func runtimeTemplateOptions(client *fn.Client) (string, error) {
 	fmt.Fprint(writer, "--------\t--------\n")
 	for _, r := range runtimes {
 		templates, err := client.Templates().List(r)
-		if err != nil {
+		// Not all language packs will have templates for
+		// all available runtimes. Without this check
+		if err != nil && err != fn.ErrTemplateNotFound {
 			return "", err
 		}
 		for _, t := range templates {

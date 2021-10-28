@@ -1,0 +1,10 @@
+
+# Runtime-wide setting for the readiness health endpoint
+healthEndpoints:
+  readiness: /runtimeReadiness
+
+# Runtime-wide setting for buildpacks
+buildpacks:
+  - runtimeBuildpack
+
+

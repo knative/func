@@ -139,7 +139,7 @@ type Config struct {
 	Builder         string            `yaml:"builder"`
 	Builders        map[string]string `yaml:"builders"`
 	Buildpacks      []string          `yaml:"buildpacks"`
-	HealthEndpoints map[string]string `yaml:"healthEndpoints"`
+	HealthEndpoints HealthEndpoints   `yaml:"healthEndpoints"`
 	Volumes         Volumes           `yaml:"volumes"`
 	BuildEnvs       Envs              `yaml:"buildEnvs"`
 	Envs            Envs              `yaml:"envs"`

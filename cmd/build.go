@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -83,6 +84,23 @@ kn func build --builder cnbs/sample-builder:bionic
 	return cmd
 }
 
+func ValidNamespaceAndRegistry() survey.Validator {
+	return func(val interface{}) error {
+
+		// if the value passed in is the zero value of the appropriate type
+		if len(val.(string)) == 0 {
+			return errors.New("Value is required")
+		}
+
+		_, err := fn.DerivedImage("", val.(string)) //image can be derived without any error
+
+		if err != nil {
+			return errors.New(val.(string) + " Registry and Namespace are required (ie. docker.io/tigerteam). The image name will be derived from the function name.")
+		}
+		return nil
+	}
+}
+
 func runBuild(cmd *cobra.Command, _ []string, clientFn buildClientFn) (err error) {
 	config, err := newBuildConfig().Prompt()
 	if err != nil {
@@ -111,7 +129,7 @@ func runBuild(cmd *cobra.Command, _ []string, clientFn buildClientFn) (err error
 
 			err = survey.AskOne(
 				&survey.Input{Message: "Registry for Function images:"},
-				&config.Registry, survey.WithValidator(survey.Required))
+				&config.Registry, survey.WithValidator(ValidNamespaceAndRegistry()))
 			if err != nil {
 				if err == terminal.InterruptErr {
 					return nil

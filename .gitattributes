@@ -1,0 +1,3 @@
+testdata/repository-a.git/objects/*/* ignore-lint=true
+testdata/repository.git/objects/*/* ignore-lint=true
+

@@ -46,9 +46,9 @@ func (r *Repositories) List() ([]string, error) {
 	return names, nil
 }
 
-func (r *Repositories) Add(name, url string) error {
-	r.all = append(r.all, fn.Repository{Name: name, URL: url})
-	return nil
+func (r *Repositories) Add(name, url string) (string, error) {
+	r.all = append(r.all, fn.Repository{Name: name})
+	return "", nil
 }
 
 func (r *Repositories) Rename(old, new string) error {
