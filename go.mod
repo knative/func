@@ -23,7 +23,6 @@ require (
 	github.com/ory/viper v1.7.5
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.2.1
-	golang.org/x/mod v0.5.1 // indirect
 	golang.org/x/net v0.0.0-20210929193557-e81a3d93ecf6 // indirect
 	golang.org/x/sys v0.0.0-20211002104244-808efd93c36d // indirect
 	golang.org/x/text v0.3.7 // indirect

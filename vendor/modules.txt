@@ -723,7 +723,6 @@ golang.org/x/crypto/ssh/internal/bcrypt_pbkdf
 golang.org/x/crypto/ssh/knownhosts
 golang.org/x/crypto/ssh/terminal
 # golang.org/x/mod v0.5.1
-## explicit
 golang.org/x/mod/semver
 # golang.org/x/net v0.0.0-20210929193557-e81a3d93ecf6
 ## explicit
