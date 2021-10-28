@@ -77,7 +77,6 @@ type Client struct {
 	registry         string           // default registry for OCI image tags
 	progressListener ProgressListener // progress listener
 	invoker          Invoker          // Sends CloudEvents or HTTP to functions
-
 }
 
 // ErrNotBuilt indicates the Function has not yet been built.

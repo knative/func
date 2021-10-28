@@ -146,6 +146,7 @@ type Config struct {
 	Annotations     map[string]string `yaml:"annotations"`
 	Options         Options           `yaml:"options"`
 	Labels          Labels            `yaml:"labels"`
+	Invocation      string            `yaml:"invocation,omitempty" jsonschema:"enum=GET,enum=POST,enum=CLOUDEVENT"`
 	// Add new values to the toConfig/fromConfig functions.
 }
 
@@ -167,7 +168,13 @@ func newConfig(root string) (c Config, err error) {
 	if err != nil {
 		return
 	}
+	return unmarshalAndValidateConfig(bb)
+}
 
+// unmarshalAndValidateConfig returns a Config populated from the data
+// in bb. Errors are returned if the contents of the byte array do not
+// unmarshall or do not pass schema validation for a Config
+func unmarshalAndValidateConfig(bb []byte) (c Config, err error) {
 	errMsg := ""
 	errMsgHeader := "'func.yaml' config file is not valid:\n"
 	errMsgReg := regexp.MustCompile("not found in type .*")
@@ -242,6 +249,11 @@ func newConfig(root string) (c Config, err error) {
 		errMsg = errMsg + strings.Join(labelsErrors, "\n")
 	}
 
+	// Finally ensure the invocation value is correct if set
+	if c.Invocation != "" && c.Invocation != "GET" && c.Invocation != "POST" && c.Invocation != "CLOUDEVENT" {
+		errMsg = errMsg + fmt.Sprintf("\n  invocation entry has invalid value set: %s, allowed is only \"GET\", \"POST\" or \"CLOUDEVENT\"\n", c.Invocation)
+	}
+
 	if errMsg != "" {
 		err = errors.New(errMsg)
 	}
@@ -268,6 +280,7 @@ func fromConfig(c Config) (f Function) {
 		Annotations:     c.Annotations,
 		Options:         c.Options,
 		Labels:          c.Labels,
+		Invocation:      c.Invocation,
 	}
 }
 
@@ -289,6 +302,7 @@ func toConfig(f Function) Config {
 		Annotations:     f.Annotations,
 		Options:         f.Options,
 		Labels:          f.Labels,
+		Invocation:      f.Invocation,
 	}
 }
 

@@ -75,6 +75,9 @@ type Function struct {
 
 	// Health endpoints specified by the language pack
 	HealthEndpoints HealthEndpoints
+
+	// Invocation specifies how the function should be invoked
+	Invocation string
 }
 
 // NewFunction loads a Function from a path on disk. use .Initialized() to determine if

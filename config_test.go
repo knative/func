@@ -4,7 +4,9 @@
 package function
 
 import (
+	"errors"
 	"os"
+	"strings"
 	"testing"
 
 	"knative.dev/pkg/ptr"
@@ -1232,4 +1234,41 @@ func Test_validateOptions(t *testing.T) {
 		})
 	}
 
+}
+
+func Test_validInvocationValues(t *testing.T) {
+	tests := []struct {
+		name string
+		test string
+		err  error
+	}{
+		{
+			"correct invocation - GET",
+			"invocation: GET",
+			nil,
+		},
+		{
+			"correct invocation - POST",
+			"invocation: POST",
+			nil,
+		},
+		{
+			"correct invocation - CLOUDEVENT",
+			"invocation: CLOUDEVENT",
+			nil,
+		},
+		{
+			"incorrect invocation - PUT",
+			"invocation: PUT",
+			errors.New("invocation entry has invalid value set: PUT, allowed is only \"GET\", \"POST\" or \"CLOUDEVENT\""),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := unmarshalAndValidateConfig([]byte(tt.test))
+			if tt.err != nil && !strings.Contains(err.Error(), tt.err.Error()) {
+				t.Errorf("unmarshalAndValidateConfig() unexpected error. Got %v\nExpected %v\n", err, tt.err)
+			}
+		})
+	}
 }

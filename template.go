@@ -18,6 +18,9 @@ type Template struct {
 	// HealthEndpoints.  The denormalized view of members which can be defined
 	// first per repo or per runtime.
 	HealthEndpoints `yaml:"healthEndpoints,omitempty"`
+	// Invocation is how all templates in this repository should be invoked
+	// Possible values are 'GET' 'POST' and 'CLOUDEVENT'
+	Invocation string `yaml:"invocation,omitempty" jsonschema:"enum=GET,enum=POST,enum=CLOUDEVENT"`
 }
 
 // Fullname is a calculated field of [repo]/[name] used

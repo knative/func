@@ -62,6 +62,9 @@ type Repository struct {
 	// FS is the filesystem underlying the repository, loaded from URI
 	// TODO upgrade to fs.FS introduced in go1.16
 	FS Filesystem
+	// Invocation is how all templates in this repository should be invoked
+	// Possible values are 'GET' 'POST' and 'CLOUDEVENT'
+	Invocation string `yaml:"invocation,omitempty" jsonschema:"enum=GET,enum=POST,enum=CLOUDEVENT"`
 
 	uri string // URI which was used when initially creating
 
@@ -87,6 +90,10 @@ type Runtime struct {
 
 	// Templates defined for the runtime
 	Templates []Template
+
+	// Invocation is how all templates for this runtime should be invoked
+	// Possible values are 'GET' 'POST' and 'CLOUDEVENT'
+	Invocation string `yaml:"invocation,omitempty" jsonschema:"enum=GET,enum=POST,enum=CLOUDEVENT"`
 }
 
 // HealthEndpoints specify the liveness and readiness endpoints for a Runtime

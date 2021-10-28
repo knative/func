@@ -96,6 +96,14 @@
 						"$ref": "#/definitions/Label"
 					},
 					"type": "array"
+				},
+				"invocation": {
+					"enum": [
+						"GET",
+						"POST",
+						"CLOUDEVENT"
+					],
+					"type": "string"
 				}
 			},
 			"additionalProperties": false,
