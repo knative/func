@@ -30,6 +30,9 @@ PKGER ?= ./hack/update-pkger.sh
 CODE := $(shell find . -name '*.go') pkged.go go.mod schema/func_yaml-schema.json
 TEMPLATES := $(shell find templates -name '*' -type f)
 
+# Code for goimports (checkstyle)
+CODECHECK := $(shell find . -path './vendor' -prune -o -path './third_party' -prune -o -name '*.pb.go' -prune -o -name 'wire_gen.go' -prune -o -type f -name '*.go' -print)
+
 # Default Targets
 all: build
 
@@ -59,8 +62,14 @@ check: bin/golangci-lint ## Check code quality (lint)
 	./bin/golangci-lint run --timeout 300s
 	cd test/_e2e && ../../bin/golangci-lint run --timeout 300s
 
+checkstyle: tools/goimports ## Check code style (imports and formatting)
+	@goimports -d $(CODECHECK)
+
 bin/golangci-lint:
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./bin v1.40.1
+
+tools/goimports:
+	@go get golang.org/x/tools/cmd/goimports
 
 pkged.go: $(TEMPLATES)
 	@rm -rf templates/node/cloudevents/node_modules
