@@ -19,6 +19,10 @@ aliases:
   - dsimansk
   - navidshaikh
   - rhuss
+  container-freezer-approvers:
+  - julz
+  - markusthoemmes
+  - psschwei
   control-protocol-approvers:
   - devguyio
   - eric-sap
@@ -37,18 +41,23 @@ aliases:
   - zroubalik
   eventing-awssqs-approvers:
   - lberk
+  - matzew
   eventing-camel-approvers:
   - nicolaferraro
   eventing-ceph-approvers:
   - lberk
+  - matzew
   eventing-couchdb-approvers:
   - lberk
   - lionelvillard
+  - matzew
   eventing-github-approvers:
   - lberk
+  - matzew
   eventing-gitlab-approvers:
   - antoineco
   - lberk
+  - matzew
   - sebgoa
   - tzununbekov
   eventing-kafka-approvers:
@@ -83,6 +92,7 @@ aliases:
   - zhaojizhuang
   eventing-prometheus-approvers:
   - lberk
+  - matzew
   eventing-rabbitmq-approvers:
   - benmoss
   - sbawaska
@@ -91,6 +101,7 @@ aliases:
   eventing-redis-approvers:
   - aavarghese
   - lionelvillard
+  - matzew
   eventing-wg-leads:
   - devguyio
   - lionelvillard
@@ -121,6 +132,13 @@ aliases:
   kn-plugin-migration-approvers:
   - maximilien
   - zhangtbj
+  kn-plugin-operator-approvers:
+  - csantanapr
+  - dsimansk
+  - houshengbo
+  - maximilien
+  - omerbensaadon
+  - rhuss
   kn-plugin-quickstart-approvers:
   - csantanapr
   - omerbensaadon
@@ -142,7 +160,7 @@ aliases:
   - nicolaferraro
   - rhuss
   knative-admin:
-  - ZhiminXiang
+  - benmoss
   - bsnchan
   - dprotaso
   - evankanderson
@@ -155,11 +173,13 @@ aliases:
   - mbehrendt
   - pmorie
   - rhuss
+  - salaboy
   - thisisnotapril
   - vaikas
   knative-release-leads:
-  - ZhiminXiang
-  - evankanderson
+  - benmoss
+  - julz
+  - salaboy
   knative-robots:
   - knative-prow-releaser-robot
   - knative-prow-robot
@@ -174,11 +194,11 @@ aliases:
   net-contour-approvers:
   - dprotaso
   - tcnghia
-  net-http01-approvers:
-  - tcnghia
-  net-ingressv2-approvers:
+  net-gateway-api-approvers:
   - markusthoemmes
   - nak3
+  - tcnghia
+  net-http01-approvers:
   - tcnghia
   net-istio-approvers:
   - JRBANCEL
