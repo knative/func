@@ -1,5 +1,7 @@
 # Boson Function CLI
 
+**[This component is ALPHA](https://github.com/knative/community/tree/main/mechanics/MATURITY-LEVELS.md)**
+
 [![Main Build Status](https://github.com/boson-project/func/workflows/Main/badge.svg?branch=main)](https://github.com/boson-project/func/actions?query=workflow%3AMain+branch%3Amain)
 [![Develop Build Status](https://github.com/boson-project/func/workflows/Develop/badge.svg?branch=develop&label=develop)](https://github.com/boson-project/func/actions?query=workflow%3ADevelop+branch%3Adevelop)
 [![Client API Documentation](https://godoc.org/github.com/boson-project/func?status.svg)](http://godoc.org/github.com/boson-project/func)
