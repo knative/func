@@ -18,7 +18,6 @@ import (
 	"github.com/containers/image/v5/pkg/docker/config"
 	containersTypes "github.com/containers/image/v5/types"
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/client"
 	"github.com/docker/docker/errdefs"
 )
 
@@ -40,7 +39,7 @@ var ErrUnauthorized = errors.New("bad credentials")
 type VerifyCredentialsCallback func(ctx context.Context, username, password, registry string) error
 
 func CheckAuth(ctx context.Context, username, password, registry string) error {
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	cli, _, err := NewDockerClient()
 	if err != nil {
 		return err
 	}
@@ -243,7 +242,7 @@ func (n *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err er
 		return "", err
 	}
 
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	cli, _, err := NewDockerClient()
 	if err != nil {
 		return "", fmt.Errorf("failed to create docker api client: %w", err)
 	}

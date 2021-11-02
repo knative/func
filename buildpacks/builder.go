@@ -14,8 +14,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Masterminds/semver"
+	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/docker"
 
+	"github.com/Masterminds/semver"
+	"github.com/buildpacks/pack"
+	"github.com/buildpacks/pack/logging"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/events"
@@ -25,14 +29,8 @@ import (
 	"github.com/docker/docker/api/types/registry"
 	"github.com/docker/docker/api/types/swarm"
 	"github.com/docker/docker/api/types/volume"
-	v1 "github.com/opencontainers/image-spec/specs-go/v1"
-
-	"github.com/buildpacks/pack"
-	"github.com/buildpacks/pack/logging"
-
 	dockerClient "github.com/docker/docker/client"
-
-	fn "knative.dev/kn-plugin-func"
+	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 //Builder holds the configuration that will be passed to
@@ -95,16 +93,12 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		logWriter = &bytes.Buffer{}
 	}
 
-	// Client with a logger which is enabled if in Verbose mode.
-	dockerClient, err := dockerClient.NewClientWithOpts(
-		dockerClient.FromEnv,
-		dockerClient.WithVersion("1.38"),
-	)
+	cli, dockerHost, err := docker.NewDockerClient()
 	if err != nil {
 		return err
 	}
 
-	version, err := dockerClient.ServerVersion(ctx)
+	version, err := cli.ServerVersion(ctx)
 	if err != nil {
 		return err
 	}
@@ -141,14 +135,15 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		TrustBuilder: !daemonIsPodmanBeforeV330 &&
 			(strings.HasPrefix(packBuilder, "quay.io/boson") ||
 				strings.HasPrefix(packBuilder, "gcr.io/paketo-buildpacks")),
-		DockerHost: os.Getenv("DOCKER_HOST"),
+		DockerHost: dockerHost,
 		ContainerConfig: struct {
 			Network string
 			Volumes []string
 		}{Network: network, Volumes: nil},
 	}
 
-	dockerClientWrapper := &clientWrapper{dockerClient}
+	dockerClientWrapper := &clientWrapper{cli}
+	// Client with a logger which is enabled if in Verbose mode.
 	packClient, err := pack.NewClient(pack.WithLogger(logging.New(logWriter)), pack.WithDockerClient(dockerClientWrapper))
 	if err != nil {
 		return

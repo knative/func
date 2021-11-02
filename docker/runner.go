@@ -14,8 +14,6 @@ import (
 	"github.com/docker/go-connections/nat"
 	"github.com/pkg/errors"
 
-	"github.com/docker/docker/client"
-
 	fn "knative.dev/kn-plugin-func"
 )
 
@@ -35,7 +33,7 @@ func (n *Runner) Run(ctx context.Context, f fn.Function) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	cli, _, err := NewDockerClient()
 	if err != nil {
 		return errors.Wrap(err, "failed to create docker api client")
 	}
