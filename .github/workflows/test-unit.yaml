@@ -8,6 +8,7 @@ jobs:
     strategy:
       matrix:
         go: [1.16.x]
+        java: [11]
         os: ["ubuntu-latest", "windows-latest", "macos-latest"]
     runs-on: ${{ matrix.os }}
     steps:
@@ -26,6 +27,9 @@ jobs:
       - uses: actions/setup-go@v2
         with:
           go-version: ${{ matrix.go }}
+      - uses: actions/setup-java@v1
+        with:
+          java-version: ${{ matrix.java }}
       - name: Core Unit Tests
         run: make test
       - name: Template Unit Tests
