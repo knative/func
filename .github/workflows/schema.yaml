@@ -1,0 +1,19 @@
+name: Func Check Schema
+
+on: [pull_request]
+
+jobs:
+  check:
+    name: Check Schema
+    strategy:
+      matrix:
+        go: [1.16.x]
+        os: ["ubuntu-latest"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go }}
+      - name: Check that 'func.yaml schema' is up-to-date
+        run: make schema-check
