@@ -14,6 +14,12 @@ type ErrInvalidFunctionName error
 // ErrInvalidEnvVarName indicates the name did not pass env var name validation.
 type ErrInvalidEnvVarName error
 
+// ErrInvalidConfigMapKey indicates the key specified for ConfigMap did not pass validation.
+type ErrInvalidConfigMapKey error
+
+// ErrInvalidSecretKey indicates the key specified for ConfigMap did not pass validation.
+type ErrInvalidSecretKey error
+
 // ErrInvalidLabel indicates the name did not pass label key validation, or the value did not pass label value validation.
 type ErrInvalidLabel error
 
@@ -36,10 +42,30 @@ func ValidateFunctionName(name string) error {
 
 // ValidateEnvVarName validatest that the input name is a valid Kubernetes Environmet Variable name.
 // It must  must consist of alphabetic characters, digits, '_', '-', or '.', and must not start with a digit
-// (e.g. 'my.env-name',  or 'MY_ENV.NAME',  or 'MyEnvName1', regex used for validation is '[-._a-zA-Z][-._a-zA-Z0-9]*'))
+// (e.g. 'my.env-name',  or 'MY_ENV.NAME',  or 'MyEnvName1', regex used for validation is '[-._a-zA-Z][-._a-zA-Z0-9]*'
 func ValidateEnvVarName(name string) error {
 	if errs := validation.IsEnvVarName(name); len(errs) > 0 {
 		return ErrInvalidEnvVarName(errors.New(strings.Join(errs, "")))
+	}
+
+	return nil
+}
+
+// ValidateConfigMapKey validatest that the input ConfigMap key is valid.
+// It must  must consist of alphabetic characters, digits, '_', '-', or '.', regex used for validation is '[-._a-zA-Z0-9]+'
+func ValidateConfigMapKey(key string) error {
+	if errs := validation.IsConfigMapKey(key); len(errs) > 0 {
+		return ErrInvalidConfigMapKey(errors.New(strings.Join(errs, "")))
+	}
+
+	return nil
+}
+
+// ValidateSecretKey validatest that the input Secret key is valid.
+// It must  must consist of alphabetic characters, digits, '_', '-', or '.', regex used for validation is '[-._a-zA-Z0-9]+'
+func ValidateSecretKey(key string) error {
+	if errs := validation.IsConfigMapKey(key); len(errs) > 0 {
+		return ErrInvalidSecretKey(errors.New(strings.Join(errs, "")))
 	}
 
 	return nil
