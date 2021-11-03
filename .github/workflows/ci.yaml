@@ -58,6 +58,8 @@ jobs:
           git push origin v${{steps.release.outputs.major}}.${{steps.release.outputs.minor}}.${{steps.release.outputs.patch}} || true
 
       - uses: actions/setup-go@v2
+        with: 
+          go-version: "1.16"
 
       # Standard build tasks
       - name: Build
