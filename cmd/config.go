@@ -75,8 +75,8 @@ func runConfigCmd(cmd *cobra.Command, args []string) (err error) {
 			Name: "selectedConfig",
 			Prompt: &survey.Select{
 				Message: "What do you want to configure?",
-				Options: []string{"Environment values", "Volumes", "Labels"},
-				Default: "Environment values",
+				Options: []string{"Environment variables", "Volumes", "Labels"},
+				Default: "Environment variables",
 			},
 		},
 		{
@@ -106,7 +106,7 @@ func runConfigCmd(cmd *cobra.Command, args []string) (err error) {
 	case "Add":
 		if answers.SelectedConfig == "Volumes" {
 			err = runAddVolumesPrompt(cmd.Context(), function)
-		} else if answers.SelectedConfig == "Environment values" {
+		} else if answers.SelectedConfig == "Environment variables" {
 			err = runAddEnvsPrompt(cmd.Context(), function)
 		} else if answers.SelectedConfig == "Labels" {
 			err = runAddLabelsPrompt(cmd.Context(), function, defaultLoaderSaver)
@@ -114,7 +114,7 @@ func runConfigCmd(cmd *cobra.Command, args []string) (err error) {
 	case "Remove":
 		if answers.SelectedConfig == "Volumes" {
 			err = runRemoveVolumesPrompt(function)
-		} else if answers.SelectedConfig == "Environment values" {
+		} else if answers.SelectedConfig == "Environment variables" {
 			err = runRemoveEnvsPrompt(function)
 		} else if answers.SelectedConfig == "Labels" {
 			err = runRemoveLabelsPrompt(function, defaultLoaderSaver)
@@ -122,7 +122,7 @@ func runConfigCmd(cmd *cobra.Command, args []string) (err error) {
 	case "List":
 		if answers.SelectedConfig == "Volumes" {
 			listVolumes(function)
-		} else if answers.SelectedConfig == "Environment values" {
+		} else if answers.SelectedConfig == "Environment variables" {
 			listEnvs(function)
 		} else if answers.SelectedConfig == "Labels" {
 			listLabels(function)
