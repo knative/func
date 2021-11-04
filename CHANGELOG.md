@@ -1,6 +1,36 @@
 # Change Log
 
 <a name="unreleased"></a>
+## [0.19.0](https://www.github.com/knative-sandbox/kn-plugin-func/compare/v0.18.0...v0.19.0) (2021-11-03)
+
+
+### ⚠ BREAKING CHANGES
+
+* rename event templates to 'cloudevents' (#584)
+
+### Features
+
+* add support for manifest.yaml at repo/language/template levels ([#558](https://www.github.com/knative-sandbox/kn-plugin-func/issues/558)) ([e319ea3](https://www.github.com/knative-sandbox/kn-plugin-func/commit/e319ea3b62150ea2939876cb078ce150b7580bdf))
+* allow developers to provide Build Envs to buildpacks in `func.yaml` ([#571](https://www.github.com/knative-sandbox/kn-plugin-func/issues/571)) ([114a5fa](https://www.github.com/knative-sandbox/kn-plugin-func/commit/114a5faee3ab9ae1ec37ae5c4375c6218405c3b7))
+* create cli ([#547](https://www.github.com/knative-sandbox/kn-plugin-func/issues/547)) ([4fe9fdc](https://www.github.com/knative-sandbox/kn-plugin-func/commit/4fe9fdcab08552814c86d85194c552b591f52cd7))
+* Improve build performance ([#569](https://www.github.com/knative-sandbox/kn-plugin-func/issues/569)) ([ef7b986](https://www.github.com/knative-sandbox/kn-plugin-func/commit/ef7b986900e1eb6afd4203067aeac3dc99a4ede5))
+* periodically update progress during build ([#537](https://www.github.com/knative-sandbox/kn-plugin-func/issues/537)) ([01689e7](https://www.github.com/knative-sandbox/kn-plugin-func/commit/01689e7c131dd79db1e469c3ce54bd011464a6ef))
+* rename event templates to 'cloudevents' ([#584](https://www.github.com/knative-sandbox/kn-plugin-func/issues/584)) ([68b0904](https://www.github.com/knative-sandbox/kn-plugin-func/commit/68b0904b17dee5bc6a5ec71132d35c45d52f4b71))
+* Save password after user input ([#560](https://www.github.com/knative-sandbox/kn-plugin-func/issues/560)) ([e85a4aa](https://www.github.com/knative-sandbox/kn-plugin-func/commit/e85a4aa7f38681eb7554cac818eab7b1ca3bded1))
+* ssh connection to remote docker daemon ([#594](https://www.github.com/knative-sandbox/kn-plugin-func/issues/594)) ([e1f164d](https://www.github.com/knative-sandbox/kn-plugin-func/commit/e1f164d2ca6b0e720ebcf881b8d5fd123dfd0d82))
+* validation for registry/namespace to not contain image name ([#601](https://www.github.com/knative-sandbox/kn-plugin-func/issues/601)) ([cf9596c](https://www.github.com/knative-sandbox/kn-plugin-func/commit/cf9596c83e6eae8229ca61a18fafb5ba4df31d6b))
+
+
+### Bug Fixes
+
+* ConfigMap/Secret key validation ([#623](https://www.github.com/knative-sandbox/kn-plugin-func/issues/623)) ([0ed1e81](https://www.github.com/knative-sandbox/kn-plugin-func/commit/0ed1e816920b3e750c0aa0ed25fd1e0308e80a2e))
+* Environment values -> Environment variables ([#622](https://www.github.com/knative-sandbox/kn-plugin-func/issues/622)) ([ac9de9d](https://www.github.com/knative-sandbox/kn-plugin-func/commit/ac9de9dfc68969ecb825c9ee2a92aa9918ae5ea7))
+* hide a fmt.Println behind verbose flag ([#538](https://www.github.com/knative-sandbox/kn-plugin-func/issues/538)) ([ad4607b](https://www.github.com/knative-sandbox/kn-plugin-func/commit/ad4607bd50ae0c41ba0792d46318757089239de4))
+* improve error message when invalid function name is used ([#567](https://www.github.com/knative-sandbox/kn-plugin-func/issues/567)) ([0e3c676](https://www.github.com/knative-sandbox/kn-plugin-func/commit/0e3c6764ef716cf24a3f60676e139d0c61161693))
+* registry URL comparison ([#549](https://www.github.com/knative-sandbox/kn-plugin-func/issues/549)) ([b10c484](https://www.github.com/knative-sandbox/kn-plugin-func/commit/b10c48453cc5817c4c28077be13fc03baee5d818))
+* stop the progress ticker after build completes ([#544](https://www.github.com/knative-sandbox/kn-plugin-func/issues/544)) ([4f3e5fd](https://www.github.com/knative-sandbox/kn-plugin-func/commit/4f3e5fdb7a40a3419d8d731d5a0c916b81af069b))
+* update-pkger.sh sed error on osX ([#541](https://www.github.com/knative-sandbox/kn-plugin-func/issues/541)) ([25f8b4d](https://www.github.com/knative-sandbox/kn-plugin-func/commit/25f8b4d6ead2f47c3ab6541e2bdb5016b4a423aa))
+
 ## [0.18.0](https://www.github.com/knative-sandbox/kn-plugin-func/compare/v0.17.1...v0.18.0) (2021-09-16)
 
 
