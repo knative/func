@@ -71,6 +71,7 @@ aliases:
   - steven0711dong
   - travis-minke-sap
   eventing-kafka-broker-approvers:
+  - aliok
   - matzew
   - pierDipi
   eventing-kafka-mtsource-approvers:
@@ -95,8 +96,7 @@ aliases:
   - matzew
   eventing-rabbitmq-approvers:
   - benmoss
-  - sbawaska
-  - vaikas
+  - salaboy
   - xtreme-sameer-vohra
   eventing-redis-approvers:
   - aavarghese
@@ -160,7 +160,6 @@ aliases:
   - nicolaferraro
   - rhuss
   knative-admin:
-  - benmoss
   - bsnchan
   - dprotaso
   - evankanderson
@@ -170,16 +169,16 @@ aliases:
   - knative-prow-updater-robot
   - knative-test-reporter-robot
   - markusthoemmes
+  - matzew
   - mbehrendt
+  - nak3
   - pmorie
   - rhuss
-  - salaboy
   - thisisnotapril
   - vaikas
   knative-release-leads:
-  - benmoss
-  - julz
-  - salaboy
+  - matzew
+  - nak3
   knative-robots:
   - knative-prow-releaser-robot
   - knative-prow-robot
