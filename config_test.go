@@ -314,10 +314,22 @@ func Test_validateEnvs(t *testing.T) {
 	valueSecretKey := "{{ secret:mysecret:key }}"
 	valueSecretKey2 := "{{secret:my-secret:key }}"
 	valueSecretKey3 := "{{secret:my-secret:key2}}"
-	valueSecretKeyIncorrect := "{{ secret:my-secret:key.key }}"
+	valueSecretKey4 := "{{secret:my-secret:key-2}}"
+	valueSecretKey5 := "{{secret:my-secret:key.2}}"
+	valueSecretKey6 := "{{secret:my-secret:key_2}}"
+	valueSecretKey7 := "{{secret:my-secret:key_2-1}}"
+	valueSecretKey8 := "{{secret:my-secret:key_2-1.3}}"
+	valueSecretKeyIncorrect := "{{ secret:my-secret:key,key }}"
 	valueSecretKeyIncorrect2 := "{{ my-secret:key }}"
 	valueSecretKeyIncorrect3 := "{{ secret:my-secret:key }}foo"
 	valueConfigMapKey := "{{ configMap:myconfigmap:key }}"
+	valueConfigMapKey2 := "{{ configMap:myconfigmap:key }}"
+	valueConfigMapKey3 := "{{ configMap:myconfigmap:key2 }}"
+	valueConfigMapKey4 := "{{ configMap:myconfigmap:key-2 }}"
+	valueConfigMapKey5 := "{{ configMap:myconfigmap:key.2 }}"
+	valueConfigMapKey6 := "{{ configMap:myconfigmap:key_2 }}"
+	valueConfigMapKey7 := "{{ configMap:myconfigmap:key_2-1 }}"
+	valueConfigMapKey8 := "{{ configMap:myconfigmap:key_2.1 }}"
 
 	valueSecret := "{{ secret:my-secret }}"
 	valueSecret2 := "{{ secret:mysecret }}"
@@ -468,6 +480,44 @@ func Test_validateEnvs(t *testing.T) {
 			0,
 		},
 		{
+			"correct entry - multiple configMaps with key",
+			Envs{
+				Env{
+					Name:  &name,
+					Value: &valueConfigMapKey,
+				},
+				Env{
+					Name:  &name,
+					Value: &valueConfigMapKey2,
+				},
+				Env{
+					Name:  &name,
+					Value: &valueConfigMapKey3,
+				},
+				Env{
+					Name:  &name,
+					Value: &valueConfigMapKey4,
+				},
+				Env{
+					Name:  &name,
+					Value: &valueConfigMapKey5,
+				},
+				Env{
+					Name:  &name,
+					Value: &valueConfigMapKey6,
+				},
+				Env{
+					Name:  &name,
+					Value: &valueConfigMapKey7,
+				},
+				Env{
+					Name:  &name,
+					Value: &valueConfigMapKey8,
+				},
+			},
+			0,
+		},
+		{
 			"correct entry - multiple secrets with key",
 			Envs{
 				Env{
@@ -481,6 +531,26 @@ func Test_validateEnvs(t *testing.T) {
 				Env{
 					Name:  &name,
 					Value: &valueSecretKey3,
+				},
+				Env{
+					Name:  &name,
+					Value: &valueSecretKey4,
+				},
+				Env{
+					Name:  &name,
+					Value: &valueSecretKey5,
+				},
+				Env{
+					Name:  &name,
+					Value: &valueSecretKey6,
+				},
+				Env{
+					Name:  &name,
+					Value: &valueSecretKey7,
+				},
+				Env{
+					Name:  &name,
+					Value: &valueSecretKey8,
 				},
 			},
 			0,

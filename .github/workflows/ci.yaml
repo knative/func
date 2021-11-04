@@ -35,7 +35,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           release-type: simple
           bump-minor-pre-major: true
-          fork: true
       # Checkout
       - uses: actions/checkout@v2
       # Tag
@@ -59,6 +58,8 @@ jobs:
           git push origin v${{steps.release.outputs.major}}.${{steps.release.outputs.minor}}.${{steps.release.outputs.patch}} || true
 
       - uses: actions/setup-go@v2
+        with: 
+          go-version: "1.16"
 
       # Standard build tasks
       - name: Build

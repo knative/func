@@ -281,9 +281,11 @@ func runAddEnvsPrompt(ctx context.Context, f fn.Function) (err error) {
 				},
 			},
 			{
-				Name:     "key",
-				Prompt:   &survey.Input{Message: "Please specify a key from the selected ConfigMap:"},
-				Validate: survey.Required,
+				Name:   "key",
+				Prompt: &survey.Input{Message: "Please specify a key from the selected ConfigMap:"},
+				Validate: func(val interface{}) error {
+					return utils.ValidateConfigMapKey(val.(string))
+				},
 			},
 		}
 		answers := struct {
@@ -339,9 +341,11 @@ func runAddEnvsPrompt(ctx context.Context, f fn.Function) (err error) {
 				},
 			},
 			{
-				Name:     "key",
-				Prompt:   &survey.Input{Message: "Please specify a key from the selected Secret:"},
-				Validate: survey.Required,
+				Name:   "key",
+				Prompt: &survey.Input{Message: "Please specify a key from the selected Secret:"},
+				Validate: func(val interface{}) error {
+					return utils.ValidateSecretKey(val.(string))
+				},
 			},
 		}
 		answers := struct {
