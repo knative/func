@@ -102,6 +102,7 @@ func runList(cmd *cobra.Command, _ []string, clientFn listClientFn) (err error) 
 		} else {
 			fmt.Println("No functions found")
 		}
+		return
 	}
 
 	write(os.Stdout, listItems(items), config.Output)
