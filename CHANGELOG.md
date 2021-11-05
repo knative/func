@@ -1,6 +1,13 @@
 # Change Log
 
 <a name="unreleased"></a>
+### [0.19.1](https://www.github.com/knative-sandbox/kn-plugin-func/compare/v0.19.0...v0.19.1) (2021-11-05)
+
+
+### Bug Fixes
+
+* remove stray manifest.yaml files ([#628](https://www.github.com/knative-sandbox/kn-plugin-func/issues/628)) ([c810efc](https://www.github.com/knative-sandbox/kn-plugin-func/commit/c810efc7a4eb0d87f37f3acfafc46c1e4639fdc4))
+
 ## [0.19.0](https://www.github.com/knative-sandbox/kn-plugin-func/compare/v0.18.0...v0.19.0) (2021-11-03)
 
 
