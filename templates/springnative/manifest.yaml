@@ -2,4 +2,4 @@ builders:
   default: paketobuildpacks/builder:tiny
 buildEnvs:
   - name: BP_NATIVE_IMAGE
-    value: "true" 
+    value: "true"
