@@ -56,7 +56,7 @@ NAME
 	{{.Prefix}}func create - Create a Function project.
 
 SYNOPSIS
-	func create [-l|--language] [-t|--template] [-r|--repository]
+	{{.Prefix}}func create [-l|--language] [-t|--template] [-r|--repository]
 	            [-c|--confirm]  [-v|--verbose]  [path]
 
 DESCRIPTION

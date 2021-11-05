@@ -49,7 +49,6 @@ type Client struct {
 	dnsProvider      DNSProvider      // Provider of DNS services
 	registry         string           // default registry for OCI image tags
 	progressListener ProgressListener // progress listener
-	invoker          Invoker          // Sends CloudEvents or HTTP to functions
 	repositories     *Repositories    // Repositories management
 	templates        *Templates       // Templates management
 }
@@ -162,11 +161,6 @@ type DNSProvider interface {
 	Provide(Function) error
 }
 
-// Send CloudEvents or HTTP to functions
-type Invoker interface {
-	Send(ctx context.Context, endpoint string) error
-}
-
 // New client for Function management.
 func New(options ...Option) *Client {
 	// Instantiate client with static defaults.
@@ -179,7 +173,6 @@ func New(options ...Option) *Client {
 		lister:           &noopLister{output: os.Stdout},
 		dnsProvider:      &noopDNSProvider{output: os.Stdout},
 		progressListener: &NoopProgressListener{},
-		invoker:          &noopInvoker{},
 		repositoriesPath: filepath.Join(ConfigPath(), "repositories"),
 	}
 	for _, o := range options {
@@ -342,14 +335,6 @@ func WithRepository(uri string) Option {
 func WithRegistry(registry string) Option {
 	return func(c *Client) {
 		c.registry = registry
-	}
-}
-
-// WithInvoker sets an invoker on the client which is capable of sending
-// a CloudEvent or HTTP request to an arbitrary function endpoint
-func WithInvoker(i Invoker) Option {
-	return func(c *Client) {
-		c.invoker = i
 	}
 }
 
@@ -707,13 +692,13 @@ func (c *Client) Remove(ctx context.Context, cfg Function) error {
 	return c.remover.Remove(ctx, f.Name)
 }
 
-// Send a CloudEvent to a function endpoint
-func (c *Client) Send(ctx context.Context, endpoint string) error {
+// Invoke a Function
+func (c *Client) Invoke(ctx context.Context, cfg Function) error {
 	go func() {
 		<-ctx.Done()
 		c.progressListener.Stopping()
 	}()
-	return c.invoker.Send(ctx, endpoint)
+	return errors.New("Not Implemented")
 }
 
 // Push the image for the named service to the configured registry
@@ -774,11 +759,6 @@ func (n *noopRemover) Remove(context.Context, string) error { return nil }
 type noopLister struct{ output io.Writer }
 
 func (n *noopLister) List(context.Context) ([]ListItem, error) { return []ListItem{}, nil }
-
-// Invoker
-type noopInvoker struct{}
-
-func (p *noopInvoker) Send(ctx context.Context, endpoint string) error { return nil }
 
 // DNSProvider
 type noopDNSProvider struct{ output io.Writer }
