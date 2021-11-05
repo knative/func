@@ -208,8 +208,8 @@ func New(options ...Option) *Client {
 		progressListener: &NoopProgressListener{},
 		emitter:          &noopEmitter{},
 	}
-	c.repositories = newRepositories(c)
-	c.templates = newTemplates(c)
+	c.repositories = newRepositories()
+	c.templates = newTemplates(c.repositories)
 	for _, o := range options {
 		o(c)
 	}

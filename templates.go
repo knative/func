@@ -24,15 +24,15 @@ var (
 
 // Templates Manager
 type Templates struct {
-	client *Client
+	repositories *Repositories
 }
 
 // newTemplates manager
 // Includes a back-reference to client (logic tree root) such
 // that the templates manager has full access to the API for
 // use in its implementations.
-func newTemplates(client *Client) *Templates {
-	return &Templates{client: client}
+func newTemplates(repositories *Repositories) *Templates {
+	return &Templates{repositories: repositories}
 }
 
 // List the full name of templates available for the runtime.
@@ -42,7 +42,7 @@ func (t *Templates) List(runtime string) ([]string, error) {
 	names := []string{}
 	extended := newSortedSet()
 
-	rr, err := t.client.Repositories().All()
+	rr, err := t.repositories.All()
 	if err != nil {
 		return []string{}, err
 	}
@@ -88,7 +88,7 @@ func (t *Templates) Get(runtime, fullname string) (Template, error) {
 	}
 
 	// Get specified repository
-	repo, err = t.client.Repositories().Get(repoName)
+	repo, err = t.repositories.Get(repoName)
 	if err != nil {
 		return template, err
 	}
@@ -108,7 +108,7 @@ func (t *Templates) Write(f Function) (Function, error) {
 	}
 
 	// The Function's Template Repository
-	repo, err := t.client.Repositories().Get(template.Repository)
+	repo, err := t.repositories.Get(template.Repository)
 	if err != nil {
 		return f, err
 	}

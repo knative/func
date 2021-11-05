@@ -32,18 +32,14 @@ type Repositories struct {
 
 	// Optional uri of a single repo to use in leau of embedded and extensible.
 	remote string
-
-	// backreference to the client enabling full api access for the repo manager
-	client *Client
 }
 
 // newRepositories manager
 // contains a backreference to the client (type tree root) for access to the
 // full client API during implementations.
-func newRepositories(client *Client) *Repositories {
+func newRepositories() *Repositories {
 	return &Repositories{
 		path:   DefaultRepositoriesPath,
-		client: client,
 	}
 }
 
