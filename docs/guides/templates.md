@@ -2,7 +2,7 @@
 
 When a Function is created, an example implementation and a Function metadata file are written into the new Function's working directory.  Together, these files are referred to as the Function's Template.  Included are the templates 'http' and 'events' for each supported language runtime.
 
-These embedded templates are minimal by design.  The Function contains a minimum of external dependencies, and the 'func.yaml' defines a final environment within which the Funciton will execute that is devoid of any extraneous packages or services.
+These embedded templates are minimal by design.  The Function contains a minimum of external dependencies, and the 'func.yaml' defines a final environment within which the Function will execute that is devoid of any extraneous packages or services.
 
 To make use of more complex initial Function implementions, or to define runtime environments with arbitrarily complex requirements, the templates system is fully pluggable.
 

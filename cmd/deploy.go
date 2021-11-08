@@ -158,7 +158,7 @@ func runDeploy(cmd *cobra.Command, _ []string, clientFn deployClientFn) (err err
 	}
 
 	// All set, let's write changes in the config to the disk
-	err = function.WriteConfig()
+	err = function.Write()
 	if err != nil {
 		return
 	}

@@ -192,7 +192,7 @@ func runAddVolumesPrompt(ctx context.Context, f fn.Function) (err error) {
 
 	f.Volumes = append(f.Volumes, newVolume)
 
-	err = f.WriteConfig()
+	err = f.Write()
 	if err == nil {
 		fmt.Println("Volume entry was added to the function configuration")
 	}
@@ -236,7 +236,7 @@ func runRemoveVolumesPrompt(f fn.Function) (err error) {
 
 	if removed {
 		f.Volumes = newVolumes
-		err = f.WriteConfig()
+		err = f.Write()
 		if err == nil {
 			fmt.Println("Volume entry was removed from the function configuration")
 		}
