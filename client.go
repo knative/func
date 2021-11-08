@@ -360,8 +360,12 @@ func (c *Client) Runtimes() ([]string, error) {
 		return []string{}, err
 	}
 	for _, repo := range repositories {
-		for _, runtime := range repo.Runtimes {
-			runtimes.Add(runtime.Name)
+		rs, err := repo.Runtimes(context.TODO())
+		if err != nil {
+			return nil, err
+		}
+		for _, runtime := range rs {
+			runtimes.Add(runtime)
 		}
 	}
 
@@ -474,15 +478,14 @@ func (c *Client) Create(f Function) (err error) {
 	}
 
 	// Write out the template for a Function
-	// returns a Function which may be mutated based on the content of
-	// the template (default Function, builders, buildpacks, etc).
-	f, err = c.Templates().Write(f)
+	err = c.Templates().Write(f)
 	if err != nil {
 		return
 	}
 
-	// Write the Function metadata (func.yaml)
-	if err = writeConfig(f); err != nil {
+	// re-load function after scaffolding
+	f, err = NewFunction(f.Root)
+	if err != nil {
 		return
 	}
 

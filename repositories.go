@@ -39,7 +39,7 @@ type Repositories struct {
 // full client API during implementations.
 func newRepositories() *Repositories {
 	return &Repositories{
-		path:   DefaultRepositoriesPath,
+		path: DefaultRepositoriesPath,
 	}
 }
 
@@ -74,7 +74,7 @@ func (r *Repositories) List() ([]string, error) {
 
 	names := []string{}
 	for _, repo := range repositories {
-		names = append(names, repo.Name)
+		names = append(names, repo.Name())
 	}
 	return names, nil
 }
@@ -83,8 +83,8 @@ func (r *Repositories) List() ([]string, error) {
 // The default repository is always first.
 // If a path to custom repositories is defined, these are included next.
 // If repositories is in single-repo mode, it will be the only repo returned.
-func (r *Repositories) All() (repos []Repository, err error) {
-	var repo Repository
+func (r *Repositories) All() (repos []IRepository, err error) {
+	var repo *Repository
 
 	// if in single-repo mode:
 	// Create a new repository from the remote URI, and set its name to
@@ -93,7 +93,7 @@ func (r *Repositories) All() (repos []Repository, err error) {
 		if repo, err = NewRepository(DefaultRepositoryName, r.remote); err != nil {
 			return
 		}
-		repos = []Repository{repo}
+		repos = []IRepository{repo}
 		return
 	}
 
@@ -140,7 +140,7 @@ func (r *Repositories) All() (repos []Repository, err error) {
 }
 
 // Get a repository by name, error if it does not exist.
-func (r *Repositories) Get(name string) (repo Repository, err error) {
+func (r *Repositories) Get(name string) (repo IRepository, err error) {
 	all, err := r.All()
 	if err != nil {
 		return
@@ -159,7 +159,7 @@ func (r *Repositories) Get(name string) (repo Repository, err error) {
 		return repo, fmt.Errorf("in single-repo mode (%v). Repository '%v' not loaded", r.remote, name)
 	}
 	for _, v := range all {
-		if v.Name == name {
+		if v.Name() == name {
 			repo = v
 			return
 		}
@@ -183,14 +183,14 @@ func (r *Repositories) Add(name, uri string) (string, error) {
 	}
 
 	// Error if the repository already exists on disk
-	dest := filepath.Join(r.path, repo.Name)
+	dest := filepath.Join(r.path, repo.Name())
 	if _, err := os.Stat(dest); !os.IsNotExist(err) {
-		return "", fmt.Errorf("repository '%v' already exists", repo.Name)
+		return "", fmt.Errorf("repository '%v' already exists", repo.Name())
 	}
 
 	// Instruct the repository to write itself to disk at the given path.
 	// Fails if path exists.
-	return repo.Name, repo.Write(dest)
+	return repo.Name(), repo.Write(dest)
 }
 
 // Rename a repository

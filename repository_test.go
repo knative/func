@@ -1,6 +1,8 @@
 package function_test
 
 import (
+	"context"
+	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -19,14 +21,14 @@ func TestRepositoryTemplatesPath(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	template, err := repo.Template("customRuntime", "customTemplate")
+	template, err := repo.Template(context.TODO(), "customRuntime", "customTemplate")
 	if err != nil {
 		t.Fatal(err)
 	}
 	// degenerate case: API of a custom repository should return what it was
 	// expressly asked for at minimum (known good request)
-	if template.Name != "customTemplate" {
-		t.Logf("expected custom language pack repo to yield a template named 'customTemplate', got '%v'", template.Name)
+	if template.Name() != "customTemplate" {
+		t.Logf("expected custom language pack repo to yield a template named 'customTemplate', got '%v'", template.Name())
 	}
 }
 
@@ -42,6 +44,7 @@ func TestRepositoryInheritance(t *testing.T) {
 	// The runtime "manifestedRuntime" includes a manifest which sets these
 	// for all templates within, and the template "manifestedTemplate" sets
 	// them explicitly for itself.
+
 	repo, err := client.Repositories().Get("customLanguagePackRepo")
 	if err != nil {
 		t.Fatal(err)
@@ -50,44 +53,66 @@ func TestRepositoryInheritance(t *testing.T) {
 	// Template A:  from a path containing no settings other than the repo root.
 	// Should have a readiness and liveness equivalent to that defined in
 	// [repo]/manifest.yaml
-	tA, err := repo.Template("customRuntime", "customTemplate")
+	tA, err := repo.Template(context.TODO(), "customRuntime", "customTemplate")
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Template B: from a path containing runtime-wide settings, but no
 	// template-level settings.
-	tB, err := repo.Template("manifestedRuntime", "customTemplate")
+	tB, err := repo.Template(context.TODO(), "manifestedRuntime", "customTemplate")
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Template C: from a runtime with a manifest which sets endpoints, and
 	// itself includes a manifest which explicitly sets.
-	tC, err := repo.Template("manifestedRuntime", "manifestedTemplate")
+	tC, err := repo.Template(context.TODO(), "manifestedRuntime", "manifestedTemplate")
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	tmpDir := t.TempDir()
+
+	fnADir := filepath.Join(tmpDir, "fn-a")
+	err = tA.Write(context.TODO(), "fn-a", fnADir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fnBDir := filepath.Join(tmpDir, "fn-b")
+	err = tB.Write(context.TODO(), "fn-b", fnBDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fnCDir := filepath.Join(tmpDir, "fn-c")
+	err = tC.Write(context.TODO(), "fn-c", fnCDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fA, _ := fn.NewFunction(fnADir)
+	fB, _ := fn.NewFunction(fnBDir)
+	fC, _ := fn.NewFunction(fnCDir)
+
 	// Assert Template A reflects repo-level settings
-	if tA.Readiness != "/repoReadiness" {
+	if fA.HealthEndpoints.Readiness != "/repoReadiness" {
 		t.Fatalf("Repository-level HealthEndpoint not loaded to template")
 	}
-	if !reflect.DeepEqual(tA.Buildpacks, []string{"repoBuildpack"}) {
+	if !reflect.DeepEqual(fA.Buildpacks, []string{"repoBuildpack"}) {
 		t.Fatalf("Repository-level HealthEndpoint not loaded to template")
 	}
 
 	// Assert Template B reflects runtime-level settings
-	if tB.Readiness != "/runtimeReadiness" {
+	if fB.HealthEndpoints.Readiness != "/runtimeReadiness" {
 		t.Fatalf("Repository-level HealthEndpoint not loaded to template")
 	}
-	if !reflect.DeepEqual(tB.Buildpacks, []string{"runtimeBuildpack"}) {
+	if !reflect.DeepEqual(fB.Buildpacks, []string{"runtimeBuildpack"}) {
 		t.Fatalf("Repository-level HealthEndpoint not loaded to template")
 	}
 
 	// Assert Template C reflects template-level settings
-	if tC.Readiness != "/templateReadiness" {
+	if fC.HealthEndpoints.Readiness != "/templateReadiness" {
 		t.Fatalf("Repository-level HealthEndpoint not loaded to template")
 	}
-	if !reflect.DeepEqual(tC.Buildpacks, []string{"templateBuildpack"}) {
+	if !reflect.DeepEqual(fC.Buildpacks, []string{"templateBuildpack"}) {
 		t.Fatalf("Repository-level HealthEndpoint not loaded to template")
 	}
 }

@@ -54,7 +54,7 @@ func CompleteTemplateList(cmd *cobra.Command, args []string, toComplete string, 
 		return
 	}
 	for _, repository := range repositories {
-		templates, err := client.Templates().List(repository.Name)
+		templates, err := client.Templates().List(repository.Name())
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error listing template for use in template flag completion: %v", err)
 			return

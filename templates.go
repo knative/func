@@ -6,8 +6,8 @@ package function
 //go:generate pkger
 
 import (
+	"context"
 	"errors"
-	"path/filepath"
 	"strings"
 
 	"github.com/markbates/pkger"
@@ -48,15 +48,15 @@ func (t *Templates) List(runtime string) ([]string, error) {
 	}
 
 	for _, r := range rr {
-		tt, err := r.Templates(runtime)
+		tt, err := r.Templates(context.TODO(), runtime)
 		if err != nil {
 			return []string{}, err
 		}
 		for _, t := range tt {
-			if r.Name == DefaultRepositoryName {
-				names = append(names, t.Name)
+			if r.Name() == DefaultRepositoryName {
+				names = append(names, t)
 			} else {
-				extended.Add(t.Fullname())
+				extended.Add(r.Name() + "/" + t)
 			}
 		}
 	}
@@ -67,12 +67,12 @@ func (t *Templates) List(runtime string) ([]string, error) {
 // specified runtime.
 // Templates from the default repository do not require the repo name prefix,
 // though it can be provided.
-func (t *Templates) Get(runtime, fullname string) (Template, error) {
+func (t *Templates) Get(runtime, fullname string) (ITemplate, error) {
 	var (
 		template Template
 		repoName string
 		tplName  string
-		repo     Repository
+		repo     IRepository
 		err      error
 	)
 
@@ -93,66 +93,21 @@ func (t *Templates) Get(runtime, fullname string) (Template, error) {
 		return template, err
 	}
 
-	return repo.Template(runtime, tplName)
+	return repo.Template(context.TODO(), runtime, tplName)
 }
 
 // Write a template to disk for the given Function
 // Returns a Function which may have been modified dependent on the content
 // of the template (which can define default Function fields, builders,
 // buildpacks, etc)
-func (t *Templates) Write(f Function) (Function, error) {
+func (t *Templates) Write(f Function) error {
 	// The Function's Template
 	template, err := t.Get(f.Runtime, f.Template)
 	if err != nil {
-		return f, err
+		return err
 	}
 
-	// The Function's Template Repository
-	repo, err := t.repositories.Get(template.Repository)
-	if err != nil {
-		return f, err
-	}
-
-	// Validate paths:  (repo/)[templates/]<runtime>/<template>
-	templatesPath := repo.TemplatesPath
-	if _, err := repo.FS.Stat(templatesPath); err != nil {
-		return f, ErrTemplatesNotFound
-	}
-	runtimePath := filepath.Join(templatesPath, template.Runtime)
-	if _, err := repo.FS.Stat(runtimePath); err != nil {
-		return f, ErrRuntimeNotFound
-	}
-	templatePath := filepath.Join(runtimePath, template.Name)
-	if _, err := repo.FS.Stat(templatePath); err != nil {
-		return f, ErrTemplateNotFound
-	}
-
-	// Apply fields from the template onto the function itself (Denormalize).
-	// The template is already the denormalized view of repo->runtime->template
-	// so it's values are treated as defaults.
-	// TODO: this begs the question: should the Template's manifest.yaml actually
-	// be a partially-populated func.yaml?
-	if f.Builder == "" { // as a special fist case, this default comes from itself
-		f.Builder = f.Builders["default"]
-		if f.Builder == "" { // still nothing?  then use the template
-			f.Builder = template.Builders["default"]
-		}
-	}
-	if len(f.Builders) == 0 {
-		f.Builders = template.Builders
-	}
-	if len(f.Buildpacks) == 0 {
-		f.Buildpacks = template.Buildpacks
-	}
-	if f.HealthEndpoints.Liveness == "" {
-		f.HealthEndpoints.Liveness = template.HealthEndpoints.Liveness
-	}
-	if f.HealthEndpoints.Readiness == "" {
-		f.HealthEndpoints.Readiness = template.HealthEndpoints.Readiness
-	}
-
-	// Copy the template files from the repo filesystem to the new Function's root
-	return f, copy(templatePath, f.Root, repo.FS)
+	return template.Write(context.TODO(), f.Name, f.Root)
 }
 
 // Embedding Directives

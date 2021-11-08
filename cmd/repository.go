@@ -312,9 +312,9 @@ func runRepositoryList(args []string, clientFn repositoryClientFn) (err error) {
 	// This follows the format of `git remote`, as it is likely familiar.
 	for _, r := range rr {
 		if cfg.Verbose {
-			fmt.Fprintln(os.Stdout, r.Name+"\t"+r.URL())
+			fmt.Fprintln(os.Stdout, r.Name()+"\t"+r.URL())
 		} else {
-			fmt.Fprintln(os.Stdout, r.Name)
+			fmt.Fprintln(os.Stdout, r.Name())
 		}
 	}
 	return
@@ -667,7 +667,7 @@ type RepositoryClient interface {
 // Repositories enumerates the API required of the object returned from
 // client.Repositories.
 type Repositories interface {
-	All() ([]fn.Repository, error)
+	All() ([]fn.IRepository, error)
 	List() ([]string, error)
 	Add(name, url string) (string, error)
 	Rename(old, new string) error

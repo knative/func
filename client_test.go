@@ -738,99 +738,99 @@ func TestEmit(t *testing.T) {
 	}
 }
 
-// Asserts that the client properly writes user provided Builders
-// to the Function configuration but uses internal default if
-// not provided.
-func TestWithConfiguredBuilders(t *testing.T) {
-	root := "testdata/example.com/testConfiguredBuilders" // Root from which to run the test
-	defer using(t, root)()
-
-	builders := map[string]string{
-		"custom": "docker.io/example/custom",
-	}
-	client := fn.New(fn.WithRegistry(TestRegistry))
-	if err := client.Create(fn.Function{
-		Root:     root,
-		Builders: builders,
-	}); err != nil {
-		t.Fatal(err)
-	}
-	f, err := fn.NewFunction(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Assert that our custom builder array was set
-	if !reflect.DeepEqual(f.Builders, builders) {
-		t.Fatalf("Expected %v but got %v", builders, f.Builders)
-	}
-
-	// But that the default still exists
-	if f.Builder == "" {
-		t.Fatal("Expected default builder to be set")
-	}
-}
-
-// Asserts that the client properly sets user provided Builders
-// in the Function configuration, and if one of the provided is
-// keyed as "default", this is set as the default Builder.
-func TestWithConfiguredBuildersWithDefault(t *testing.T) {
-	root := "testdata/example.com/testConfiguredBuildersWithDefault" // Root from which to run the test
-	defer using(t, root)()
-
-	builders := map[string]string{
-		"custom":  "docker.io/example/custom",
-		"default": "docker.io/example/default",
-	}
-	client := fn.New(fn.WithRegistry(TestRegistry))
-	if err := client.Create(fn.Function{
-		Root:     root,
-		Builders: builders,
-	}); err != nil {
-		t.Fatal(err)
-	}
-	f, err := fn.NewFunction(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Assert that our custom builder array was set
-	if !reflect.DeepEqual(f.Builders, builders) {
-		t.Fatalf("Expected %v but got %v", builders, f.Builders)
-	}
-
-	// Asser that the default is also set
-	if f.Builder != builders["default"] {
-		t.Fatalf("Expected %s but got %s", builders["default"], f.Builder)
-	}
-}
-
-// Asserts that the client properly sets the Buildpacks property
-// in the Function configuration when it is provided.
-func TestWithConfiguredBuildpacks(t *testing.T) {
-	root := "testdata/example.com/testConfiguredBuildpacks" // Root from which to run the test
-	defer using(t, root)()
-
-	buildpacks := []string{
-		"docker.io/example/custom-buildpack",
-	}
-	client := fn.New(fn.WithRegistry(TestRegistry))
-	if err := client.Create(fn.Function{
-		Root:       root,
-		Buildpacks: buildpacks,
-	}); err != nil {
-		t.Fatal(err)
-	}
-	f, err := fn.NewFunction(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Assert that our custom buildpacks were set
-	if !reflect.DeepEqual(f.Buildpacks, buildpacks) {
-		t.Fatalf("Expected %v but got %v", buildpacks, f.Buildpacks)
-	}
-}
+//// Asserts that the client properly writes user provided Builders
+//// to the Function configuration but uses internal default if
+//// not provided.
+//func TestWithConfiguredBuilders(t *testing.T) {
+//	root := "testdata/example.com/testConfiguredBuilders" // Root from which to run the test
+//	defer using(t, root)()
+//
+//	builders := map[string]string{
+//		"custom": "docker.io/example/custom",
+//	}
+//	client := fn.New(fn.WithRegistry(TestRegistry))
+//	if err := client.Create(fn.Function{
+//		Root:     root,
+//		Builders: builders,
+//	}); err != nil {
+//		t.Fatal(err)
+//	}
+//	f, err := fn.NewFunction(root)
+//	if err != nil {
+//		t.Fatal(err)
+//	}
+//
+//	// Assert that our custom builder array was set
+//	if !reflect.DeepEqual(f.Builders, builders) {
+//		t.Fatalf("Expected %v but got %v", builders, f.Builders)
+//	}
+//
+//	// But that the default still exists
+//	if f.Builder == "" {
+//		t.Fatal("Expected default builder to be set")
+//	}
+//}
+//
+//// Asserts that the client properly sets user provided Builders
+//// in the Function configuration, and if one of the provided is
+//// keyed as "default", this is set as the default Builder.
+//func TestWithConfiguredBuildersWithDefault(t *testing.T) {
+//	root := "testdata/example.com/testConfiguredBuildersWithDefault" // Root from which to run the test
+//	defer using(t, root)()
+//
+//	builders := map[string]string{
+//		"custom":  "docker.io/example/custom",
+//		"default": "docker.io/example/default",
+//	}
+//	client := fn.New(fn.WithRegistry(TestRegistry))
+//	if err := client.Create(fn.Function{
+//		Root:     root,
+//		Builders: builders,
+//	}); err != nil {
+//		t.Fatal(err)
+//	}
+//	f, err := fn.NewFunction(root)
+//	if err != nil {
+//		t.Fatal(err)
+//	}
+//
+//	// Assert that our custom builder array was set
+//	if !reflect.DeepEqual(f.Builders, builders) {
+//		t.Fatalf("Expected %v but got %v", builders, f.Builders)
+//	}
+//
+//	// Asser that the default is also set
+//	if f.Builder != builders["default"] {
+//		t.Fatalf("Expected %s but got %s", builders["default"], f.Builder)
+//	}
+//}
+//
+//// Asserts that the client properly sets the Buildpacks property
+//// in the Function configuration when it is provided.
+//func TestWithConfiguredBuildpacks(t *testing.T) {
+//	root := "testdata/example.com/testConfiguredBuildpacks" // Root from which to run the test
+//	defer using(t, root)()
+//
+//	buildpacks := []string{
+//		"docker.io/example/custom-buildpack",
+//	}
+//	client := fn.New(fn.WithRegistry(TestRegistry))
+//	if err := client.Create(fn.Function{
+//		Root:       root,
+//		Buildpacks: buildpacks,
+//	}); err != nil {
+//		t.Fatal(err)
+//	}
+//	f, err := fn.NewFunction(root)
+//	if err != nil {
+//		t.Fatal(err)
+//	}
+//
+//	// Assert that our custom buildpacks were set
+//	if !reflect.DeepEqual(f.Buildpacks, buildpacks) {
+//		t.Fatalf("Expected %v but got %v", buildpacks, f.Buildpacks)
+//	}
+//}
 
 // TestRuntimes ensures that the total set of runtimes are returned.
 func TestRuntimes(t *testing.T) {
