@@ -19,6 +19,7 @@ async fn main() -> std::io::Result<()> {
             .wrap(actix_web::middleware::Logger::default())
             .configure(config::configure)
             .route("/", web::post().to(handler::handle))
+            .route("/", web::get().to(HttpResponse::MethodNotAllowed))
             .route(
                 "/health/{_:(readiness|liveness)}",
                 web::get().to(HttpResponse::Ok),
