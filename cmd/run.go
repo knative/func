@@ -3,12 +3,15 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 	"knative.dev/client/pkg/util"
 
 	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/buildpacks"
 	"knative.dev/kn-plugin-func/docker"
+	"knative.dev/kn-plugin-func/progress"
 )
 
 func init() {
@@ -18,9 +21,19 @@ func init() {
 func newRunClient(cfg runConfig) *fn.Client {
 	runner := docker.NewRunner()
 	runner.Verbose = cfg.Verbose
+
+	// builder fields
+	builder := buildpacks.NewBuilder()
+	listener := progress.New()
+	builder.Verbose = cfg.Verbose
+	listener.Verbose = cfg.Verbose
 	return fn.New(
+		fn.WithBuilder(builder),
+		fn.WithProgressListener(listener),
+		fn.WithRegistry(cfg.Registry),
 		fn.WithRunner(runner),
-		fn.WithVerbose(cfg.Verbose))
+		fn.WithVerbose(cfg.Verbose),
+	)
 }
 
 type runClientFn func(runConfig) *fn.Client
@@ -87,6 +100,25 @@ func runRun(cmd *cobra.Command, args []string, clientFn runClientFn) (err error)
 
 	client := clientFn(config)
 
+	if !function.Built() {
+		ans := struct {
+			Build bool
+		}{}
+		qs := survey.Question{
+			Name: "Build",
+			Prompt: &survey.Confirm{
+				Message: "Looks like the function has not been built yet (building can take a few minutes), would you like to build it now?:",
+				Default: false,
+			},
+			Validate: survey.Required,
+		}
+		err := survey.Ask([]*survey.Question{&qs}, &ans)
+		if err == nil && ans.Build {
+			client.Build(cmd.Context(), config.Path)
+		} else if err != nil {
+			fmt.Printf("Function will not be built: %v\n", err)
+		}
+	}
 	return client.Run(cmd.Context(), config.Path)
 }
 
@@ -103,6 +135,12 @@ type runConfig struct {
 
 	// Envs passed via cmd to removed
 	EnvToRemove []string
+
+	// Required for Build to be triggered from Run
+	Registry string
+
+	// Required for Build to be triggered from Run
+	Builder string
 }
 
 func newRunConfig(cmd *cobra.Command) (c runConfig, err error) {
@@ -116,5 +154,7 @@ func newRunConfig(cmd *cobra.Command) (c runConfig, err error) {
 		Verbose:     viper.GetBool("verbose"), // defined on root
 		EnvToUpdate: envToUpdate,
 		EnvToRemove: envToRemove,
+		Registry:    viper.GetString("registry"),
+		Builder:     viper.GetString("builder"),
 	}, nil
 }
