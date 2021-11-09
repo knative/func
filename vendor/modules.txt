@@ -99,7 +99,11 @@ github.com/buildpacks/lifecycle/platform/common
 github.com/buildpacks/lifecycle/platform/pre06
 github.com/buildpacks/lifecycle/platform/v06
 github.com/buildpacks/lifecycle/platform/v07
+<<<<<<< HEAD
 # github.com/buildpacks/pack v0.22.0
+=======
+# github.com/buildpacks/pack v0.21.2-0.20211026153954-c845240a8881
+>>>>>>> 76b2d12... latest pack@main used in go.mod, vendor updated, TrustBuilder data type changed
 ## explicit
 github.com/buildpacks/pack
 github.com/buildpacks/pack/builder
@@ -510,6 +514,8 @@ github.com/mattn/go-isatty
 github.com/mattn/go-runewidth
 # github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369
 github.com/matttproud/golang_protobuf_extensions/pbutil
+# github.com/maxbrunsfeld/counterfeiter/v6 v6.2.2
+## explicit
 # github.com/mgutz/ansi v0.0.0-20170206155736-9520e82c474b
 github.com/mgutz/ansi
 # github.com/mitchellh/go-homedir v1.1.0
@@ -670,8 +676,12 @@ golang.org/x/crypto/ssh/knownhosts
 golang.org/x/crypto/ssh/terminal
 # golang.org/x/mod v0.5.1
 golang.org/x/mod/semver
+<<<<<<< HEAD
 # golang.org/x/net v0.0.0-20210929193557-e81a3d93ecf6
 ## explicit
+=======
+# golang.org/x/net v0.0.0-20210610132358-84b48f89b13b
+>>>>>>> 76b2d12... latest pack@main used in go.mod, vendor updated, TrustBuilder data type changed
 golang.org/x/net/context
 golang.org/x/net/context/ctxhttp
 golang.org/x/net/http/httpguts
@@ -742,7 +752,14 @@ google.golang.org/appengine/internal/modules
 google.golang.org/appengine/internal/remote_api
 google.golang.org/appengine/internal/urlfetch
 google.golang.org/appengine/urlfetch
+<<<<<<< HEAD
 # google.golang.org/genproto v0.0.0-20210624195500-8bfb893ecb84
+=======
+# google.golang.org/genproto v0.0.0-20210610141715-e7a9b787a5a4
+google.golang.org/genproto/googleapis/api
+google.golang.org/genproto/googleapis/api/annotations
+google.golang.org/genproto/googleapis/api/distribution
+>>>>>>> 76b2d12... latest pack@main used in go.mod, vendor updated, TrustBuilder data type changed
 google.golang.org/genproto/googleapis/api/httpbody
 google.golang.org/genproto/googleapis/rpc/status
 google.golang.org/genproto/protobuf/field_mask
