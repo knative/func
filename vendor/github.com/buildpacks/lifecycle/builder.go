@@ -3,6 +3,7 @@ package lifecycle
 import (
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"sort"
 
@@ -26,17 +27,17 @@ type BuildpackStore interface {
 }
 
 type Buildpack interface {
-	Build(bpPlan buildpack.Plan, config buildpack.BuildConfig) (buildpack.BuildResult, error)
+	Build(bpPlan buildpack.Plan, config buildpack.BuildConfig, bpEnv buildpack.BuildEnv) (buildpack.BuildResult, error)
 	ConfigFile() *buildpack.Descriptor
-	Detect(config *buildpack.DetectConfig) buildpack.DetectRun
+	Detect(config *buildpack.DetectConfig, bpEnv buildpack.BuildEnv) buildpack.DetectRun
 }
 
 type Builder struct {
 	AppDir         string
 	LayersDir      string
 	PlatformDir    string
-	PlatformAPI    *api.Version
-	Env            BuildEnv
+	Platform       Platform
+	PlatformAPI    *api.Version // TODO: derive from platform
 	Group          buildpack.Group
 	Plan           platform.BuildPlan
 	Out, Err       io.Writer
@@ -58,6 +59,8 @@ func (b *Builder) Build() (*platform.BuildMetadata, error) {
 	var slices []layers.Slice
 	var labels []buildpack.Label
 
+	bpEnv := env.NewBuildEnv(os.Environ())
+
 	for _, bp := range b.Group.Group {
 		b.Logger.Debugf("Running build for buildpack %s", bp)
 
@@ -70,7 +73,7 @@ func (b *Builder) Build() (*platform.BuildMetadata, error) {
 		b.Logger.Debug("Finding plan")
 		bpPlan := plan.Find(bp.ID)
 
-		br, err := bpTOML.Build(bpPlan, config)
+		br, err := bpTOML.Build(bpPlan, config, bpEnv)
 		if err != nil {
 			return nil, err
 		}
@@ -93,7 +96,7 @@ func (b *Builder) Build() (*platform.BuildMetadata, error) {
 		b.Logger.Debugf("Finished running build for buildpack %s", bp)
 	}
 
-	if b.PlatformAPI.Compare(api.MustParse("0.4")) < 0 { // PlatformAPI <= 0.3
+	if b.PlatformAPI.LessThan("0.4") {
 		config.Logger.Debug("Updating BOM entries")
 		for i := range bom {
 			bom[i].ConvertMetadataToVersion()
@@ -116,7 +119,7 @@ func (b *Builder) Build() (*platform.BuildMetadata, error) {
 
 // we set default = true for web processes when platformAPI >= 0.6 and buildpackAPI < 0.6
 func updateDefaultProcesses(processes []launch.Process, buildpackAPI *api.Version, platformAPI *api.Version) {
-	if platformAPI.Compare(api.MustParse("0.6")) < 0 || buildpackAPI.Compare(api.MustParse("0.6")) >= 0 {
+	if platformAPI.LessThan("0.6") || buildpackAPI.AtLeast("0.6") {
 		return
 	}
 
@@ -142,7 +145,6 @@ func (b *Builder) BuildConfig() (buildpack.BuildConfig, error) {
 	}
 
 	return buildpack.BuildConfig{
-		Env:         b.Env,
 		AppDir:      appDir,
 		PlatformDir: platformDir,
 		LayersDir:   layersDir,

@@ -8,40 +8,43 @@ import (
 
 	"github.com/buildpacks/lifecycle/api"
 	"github.com/buildpacks/lifecycle/buildpack"
+	"github.com/buildpacks/lifecycle/cmd"
 	"github.com/buildpacks/lifecycle/layers"
 	"github.com/buildpacks/lifecycle/platform"
 )
 
 type Restorer struct {
-	LayersDir  string
-	Buildpacks []buildpack.GroupBuildpack
-	Logger     Logger
+	LayersDir string
+	Logger    Logger
+
+	Buildpacks            []buildpack.GroupBuildpack
+	LayerMetadataRestorer LayerMetadataRestorer   // Platform API >= 0.7
+	LayersMetadata        platform.LayersMetadata // Platform API >= 0.7
+	Platform              cmd.Platform
 }
 
-// Restore attempts to restore layer data for cache=true layers, removing the layer when unsuccessful.
-// If a usable cache is not provided, Restore will remove all cache=true layer metadata.
+// Restore restores metadata for launch and cache layers into the layers directory and attempts to restore layer data for cache=true layers, removing the layer when unsuccessful.
+// If a usable cache is not provided, Restore will not restore any cache=true layer metadata.
 func (r *Restorer) Restore(cache Cache) error {
-	// Create empty cache metadata in case a usable cache is not provided.
-	var meta platform.CacheMetadata
-	if cache != nil {
-		var err error
-		if !cache.Exists() {
-			r.Logger.Info("Layer cache not found")
+	cacheMeta, err := retrieveCacheMetadata(cache, r.Logger)
+	if err != nil {
+		return err
+	}
+
+	useShaFiles := !r.restoresLayerMetadata()
+	layerSHAStore := NewLayerSHAStore(useShaFiles)
+	if r.restoresLayerMetadata() {
+		if err := r.LayerMetadataRestorer.Restore(r.Buildpacks, r.LayersMetadata, cacheMeta, layerSHAStore); err != nil {
+			return err
 		}
-		meta, err = cache.RetrieveMetadata()
-		if err != nil {
-			return errors.Wrapf(err, "retrieving cache metadata")
-		}
-	} else {
-		r.Logger.Debug("Usable cache not provided, using empty cache metadata.")
 	}
 
 	var g errgroup.Group
 	for _, buildpack := range r.Buildpacks {
-		cachedLayers := meta.MetadataForBuildpack(buildpack.ID).Layers
+		cachedLayers := cacheMeta.MetadataForBuildpack(buildpack.ID).Layers
 
 		var cachedFn func(bpLayer) bool
-		if api.MustParse(buildpack.API).Compare(api.MustParse("0.6")) >= 0 {
+		if api.MustParse(buildpack.API).AtLeast("0.6") {
 			// On Buildpack API 0.6+, the <layer>.toml file never contains layer types information.
 			// The cache metadata is the only way to identify cache=true layers.
 			cachedFn = func(l bpLayer) bool {
@@ -63,8 +66,7 @@ func (r *Restorer) Restore(cache Cache) error {
 		foundLayers := buildpackDir.findLayers(cachedFn)
 
 		for _, bpLayer := range foundLayers {
-			name := bpLayer.name()
-			cachedLayer, exists := cachedLayers[name]
+			cachedLayer, exists := cachedLayers[bpLayer.name()]
 			if !exists {
 				r.Logger.Infof("Removing %q, not in cache", bpLayer.Identifier())
 				if err := bpLayer.remove(); err != nil {
@@ -72,13 +74,15 @@ func (r *Restorer) Restore(cache Cache) error {
 				}
 				continue
 			}
-			data, err := bpLayer.read()
+
+			layerSha, err := layerSHAStore.get(buildpack.ID, bpLayer)
 			if err != nil {
-				return errors.Wrapf(err, "reading layer")
+				return err
 			}
-			if data.SHA != cachedLayer.SHA {
+
+			if layerSha != cachedLayer.SHA {
 				r.Logger.Infof("Removing %q, wrong sha", bpLayer.Identifier())
-				r.Logger.Debugf("Layer sha: %q, cache sha: %q", data.SHA, cachedLayer.SHA)
+				r.Logger.Debugf("Layer sha: %q, cache sha: %q", layerSha, cachedLayer.SHA)
 				if err := bpLayer.remove(); err != nil {
 					return errors.Wrapf(err, "removing layer")
 				}
@@ -94,6 +98,10 @@ func (r *Restorer) Restore(cache Cache) error {
 		return errors.Wrap(err, "restoring data")
 	}
 	return nil
+}
+
+func (r *Restorer) restoresLayerMetadata() bool {
+	return api.MustParse(r.Platform.API()).AtLeast("0.7")
 }
 
 func (r *Restorer) restoreLayer(cache Cache, sha string) error {

@@ -64,7 +64,7 @@ const (
 // DefaultActionType returns the default action to perform for an unsuffixed env file as specified for the given
 // buildpack API
 func DefaultActionType(bpAPI *api.Version) ActionType {
-	if bpAPI != nil && bpAPI.Compare(api.MustParse("0.5")) < 0 {
+	if bpAPI != nil && bpAPI.LessThan("0.5") {
 		return ActionTypePrependPath
 	}
 	return ActionTypeOverride

@@ -18,7 +18,7 @@ func NewEncoderDecoder() *EncoderDecoder06 {
 }
 
 func (d *EncoderDecoder06) IsSupported(buildpackAPI string) bool {
-	return api.MustParse(buildpackAPI).Compare(api.MustParse("0.6")) >= 0
+	return api.MustParse(buildpackAPI).AtLeast("0.6")
 }
 
 func (d *EncoderDecoder06) Encode(file *os.File, lmf layertypes.LayerMetadataFile) error {

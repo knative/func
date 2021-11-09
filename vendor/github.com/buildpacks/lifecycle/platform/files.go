@@ -15,8 +15,9 @@ import (
 // analyzed.toml
 
 type AnalyzedMetadata struct {
-	Image    *ImageIdentifier `toml:"image"`
-	Metadata LayersMetadata   `toml:"metadata"`
+	PreviousImage *ImageIdentifier `toml:"image"`
+	Metadata      LayersMetadata   `toml:"metadata"`
+	RunImage      *ImageIdentifier `toml:"run-image,omitempty"`
 }
 
 // FIXME: fix key names to be accurate in the daemon case
