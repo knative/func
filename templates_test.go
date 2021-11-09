@@ -424,7 +424,7 @@ func TestTemplateFuncYAML(t *testing.T) {
 
 	envs := fn.Envs{
 		fn.Env{
-			Name: &testVariableName,
+			Name:  &testVariableName,
 			Value: &testVariableValue,
 		},
 	}

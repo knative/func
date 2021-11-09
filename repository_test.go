@@ -90,7 +90,7 @@ func TestRepositoryInheritance(t *testing.T) {
 	envVarValue := "test"
 	if !reflect.DeepEqual(tB.BuildEnvs, fn.Envs{
 		fn.Env{
-			Name: &envVarName,
+			Name:  &envVarName,
 			Value: &envVarValue,
 		},
 	}) {
