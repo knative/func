@@ -187,4 +187,3 @@ func processEnvValue(val string) (string, bool, error) {
 	}
 	return val, true, nil
 }
-
