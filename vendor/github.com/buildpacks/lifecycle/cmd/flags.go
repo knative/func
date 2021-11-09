@@ -128,7 +128,7 @@ func DefaultOrderPath(platformAPI, layersDir string) string {
 	cnbOrderPath := filepath.Join(rootDir, "cnb", "order.toml")
 
 	// prior to Platform API 0.6, the default is /cnb/order.toml
-	if api.MustParse(platformAPI).Compare(api.MustParse("0.6")) < 0 {
+	if api.MustParse(platformAPI).LessThan("0.6") {
 		return cnbOrderPath
 	}
 
@@ -253,7 +253,7 @@ func EnvOrDefault(key string, defaultVal string) string {
 }
 
 func defaultPath(fileName, platformAPI, layersDir string) string {
-	if (api.MustParse(platformAPI).Compare(api.MustParse("0.5")) < 0) || (layersDir == "") {
+	if (api.MustParse(platformAPI).LessThan("0.5")) || (layersDir == "") {
 		// prior to platform api 0.5, the default directory was the working dir.
 		// layersDir is unset when this call comes from the rebaser - will be fixed as part of https://github.com/buildpacks/spec/issues/156
 		return filepath.Join(".", fileName)

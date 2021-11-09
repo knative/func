@@ -19,13 +19,15 @@ var BuildEnvIncludelist = []string{
 
 var ignoreEnvVarCase = runtime.GOOS == "windows"
 
-// NewBuildEnv returns an build-time Env from the given environment.
+// NewBuildEnv returns a build-time Env from the given environment.
 //
-// Only keys in the BuildEnvIncludelist will be added to the Environment.
+// Keys in the BuildEnvIncludelist will be added to the Environment.
 func NewBuildEnv(environ []string) *Env {
+	envFilter := isNotMember(BuildEnvIncludelist, flattenMap(POSIXBuildEnv))
+
 	return &Env{
 		RootDirMap: POSIXBuildEnv,
-		Vars:       varsFromEnv(environ, ignoreEnvVarCase, isNotIncluded),
+		Vars:       varsFromEnv(environ, ignoreEnvVarCase, envFilter),
 	}
 }
 
@@ -35,22 +37,6 @@ func matches(k1, k2 string) bool {
 		k2 = strings.ToUpper(k2)
 	}
 	return k1 == k2
-}
-
-func isNotIncluded(k string) bool {
-	for _, wk := range BuildEnvIncludelist {
-		if matches(wk, k) {
-			return false
-		}
-	}
-	for _, wks := range POSIXBuildEnv {
-		for _, wk := range wks {
-			if matches(wk, k) {
-				return false
-			}
-		}
-	}
-	return true
 }
 
 var POSIXBuildEnv = map[string][]string{
@@ -67,4 +53,27 @@ var POSIXBuildEnv = map[string][]string{
 	"pkgconfig": {
 		"PKG_CONFIG_PATH",
 	},
+}
+
+func isNotMember(lists ...[]string) func(string) bool {
+	return func(key string) bool {
+		for _, list := range lists {
+			for _, wk := range list {
+				if matches(wk, key) {
+					// keep in env
+					return false
+				}
+			}
+		}
+		return true
+	}
+}
+
+func flattenMap(m map[string][]string) []string {
+	result := make([]string, 0)
+	for _, subList := range m {
+		result = append(result, subList...)
+	}
+
+	return result
 }

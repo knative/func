@@ -27,7 +27,6 @@ type BuildEnv interface {
 }
 
 type BuildConfig struct {
-	Env         BuildEnv
 	AppDir      string
 	PlatformDir string
 	LayersDir   string
@@ -61,7 +60,7 @@ func (bom *BOMEntry) convertVersionToMetadata() {
 	}
 }
 
-func (b *Descriptor) Build(bpPlan Plan, config BuildConfig) (BuildResult, error) {
+func (b *Descriptor) Build(bpPlan Plan, config BuildConfig, bpEnv BuildEnv) (BuildResult, error) {
 	config.Logger.Debugf("Running build for buildpack %s", b)
 
 	if api.MustParse(b.API).Equal(api.MustParse("0.2")) {
@@ -86,7 +85,7 @@ func (b *Descriptor) Build(bpPlan Plan, config BuildConfig) (BuildResult, error)
 	}
 
 	config.Logger.Debug("Running build command")
-	if err := b.runBuildCmd(bpLayersDir, bpPlanPath, config); err != nil {
+	if err := b.runBuildCmd(bpLayersDir, bpPlanPath, config, bpEnv); err != nil {
 		return BuildResult{}, err
 	}
 
@@ -97,7 +96,7 @@ func (b *Descriptor) Build(bpPlan Plan, config BuildConfig) (BuildResult, error)
 	}
 
 	config.Logger.Debug("Updating environment")
-	if err := b.setupEnv(pathToLayerMetadataFile, config.Env); err != nil {
+	if err := b.setupEnv(pathToLayerMetadataFile, bpEnv); err != nil {
 		return BuildResult{}, err
 	}
 
@@ -116,7 +115,7 @@ func renameLayerDirIfNeeded(layerMetadataFile layertypes.LayerMetadataFile, laye
 }
 
 func (b *Descriptor) processLayers(layersDir string, logger Logger) (map[string]layertypes.LayerMetadataFile, error) {
-	if api.MustParse(b.API).Compare(api.MustParse("0.6")) < 0 {
+	if api.MustParse(b.API).LessThan("0.6") {
 		return eachDir(layersDir, b.API, func(path, buildpackAPI string) (layertypes.LayerMetadataFile, error) {
 			layerMetadataFile, msg, err := DecodeLayerMetadataFile(path+".toml", buildpackAPI)
 			if err != nil {
@@ -173,7 +172,7 @@ func WriteTOML(path string, data interface{}) error {
 	return toml.NewEncoder(f).Encode(data)
 }
 
-func (b *Descriptor) runBuildCmd(bpLayersDir, bpPlanPath string, config BuildConfig) error {
+func (b *Descriptor) runBuildCmd(bpLayersDir, bpPlanPath string, config BuildConfig, bpEnv BuildEnv) error {
 	cmd := exec.Command(
 		filepath.Join(b.Dir, "bin", "build"),
 		bpLayersDir,
@@ -186,9 +185,9 @@ func (b *Descriptor) runBuildCmd(bpLayersDir, bpPlanPath string, config BuildCon
 
 	var err error
 	if b.Buildpack.ClearEnv {
-		cmd.Env = config.Env.List()
+		cmd.Env = bpEnv.List()
 	} else {
-		cmd.Env, err = config.Env.WithPlatform(config.PlatformDir)
+		cmd.Env, err = bpEnv.WithPlatform(config.PlatformDir)
 		if err != nil {
 			return err
 		}
@@ -250,7 +249,7 @@ func (b *Descriptor) readOutputFiles(bpLayersDir, bpPlanPath string, bpPlanIn Pl
 	var launchTOML LaunchTOML
 	launchPath := filepath.Join(bpLayersDir, "launch.toml")
 
-	if api.MustParse(b.API).Compare(api.MustParse("0.5")) < 0 { // buildpack API <= 0.4
+	if api.MustParse(b.API).LessThan("0.5") {
 		// read buildpack plan
 		var bpPlanOut Plan
 		if _, err := toml.DecodeFile(bpPlanPath, &bpPlanOut); err != nil {
@@ -324,7 +323,7 @@ func (b *Descriptor) readOutputFiles(bpLayersDir, bpPlanPath string, bpPlanIn Pl
 }
 
 func overrideDefaultForOldBuildpacks(processes []launch.Process, bpAPI string, logger Logger) error {
-	if api.MustParse(bpAPI).Compare(api.MustParse("0.6")) >= 0 {
+	if api.MustParse(bpAPI).AtLeast("0.6") {
 		return nil
 	}
 	replacedDefaults := []string{}
@@ -354,7 +353,7 @@ func validateNoMultipleDefaults(processes []launch.Process) error {
 }
 
 func validateBOM(bom []BOMEntry, bpAPI string) error {
-	if api.MustParse(bpAPI).Compare(api.MustParse("0.5")) < 0 {
+	if api.MustParse(bpAPI).LessThan("0.5") {
 		for _, entry := range bom {
 			if version, ok := entry.Metadata["version"]; ok {
 				metadataVersion := fmt.Sprintf("%v", version)

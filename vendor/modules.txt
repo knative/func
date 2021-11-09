@@ -9,7 +9,7 @@ contrib.go.opencensus.io/exporter/prometheus
 github.com/AlecAivazis/survey/v2
 github.com/AlecAivazis/survey/v2/core
 github.com/AlecAivazis/survey/v2/terminal
-# github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78
+# github.com/Azure/go-ansiterm v0.0.0-20210608223527-2377c96fe795
 github.com/Azure/go-ansiterm
 github.com/Azure/go-ansiterm/winterm
 # github.com/Azure/go-autorest v14.2.0+incompatible
@@ -76,12 +76,12 @@ github.com/apex/log
 github.com/beorn7/perks/quantile
 # github.com/blendle/zapdriver v1.3.1
 github.com/blendle/zapdriver
-# github.com/buildpacks/imgutil v0.0.0-20210510154637-009f91f52918 => github.com/buildpacks/imgutil v0.0.0-20211001201950-cf7ae41c3771
+# github.com/buildpacks/imgutil v0.0.0-20211001201950-cf7ae41c3771 => github.com/buildpacks/imgutil v0.0.0-20211001201950-cf7ae41c3771
 github.com/buildpacks/imgutil
 github.com/buildpacks/imgutil/layer
 github.com/buildpacks/imgutil/local
 github.com/buildpacks/imgutil/remote
-# github.com/buildpacks/lifecycle v0.11.4
+# github.com/buildpacks/lifecycle v0.12.0
 github.com/buildpacks/lifecycle
 github.com/buildpacks/lifecycle/api
 github.com/buildpacks/lifecycle/archive
@@ -95,35 +95,36 @@ github.com/buildpacks/lifecycle/env
 github.com/buildpacks/lifecycle/launch
 github.com/buildpacks/lifecycle/layers
 github.com/buildpacks/lifecycle/platform
-github.com/buildpacks/lifecycle/platform/v05
+github.com/buildpacks/lifecycle/platform/common
+github.com/buildpacks/lifecycle/platform/pre06
 github.com/buildpacks/lifecycle/platform/v06
-# github.com/buildpacks/pack v0.21.1
+github.com/buildpacks/lifecycle/platform/v07
+# github.com/buildpacks/pack v0.22.0
 ## explicit
 github.com/buildpacks/pack
 github.com/buildpacks/pack/builder
 github.com/buildpacks/pack/buildpackage
-github.com/buildpacks/pack/config
-github.com/buildpacks/pack/internal/blob
 github.com/buildpacks/pack/internal/build
 github.com/buildpacks/pack/internal/builder
-github.com/buildpacks/pack/internal/buildpack
-github.com/buildpacks/pack/internal/buildpackage
 github.com/buildpacks/pack/internal/cache
 github.com/buildpacks/pack/internal/config
 github.com/buildpacks/pack/internal/container
-github.com/buildpacks/pack/internal/dist
-github.com/buildpacks/pack/internal/image
 github.com/buildpacks/pack/internal/layer
-github.com/buildpacks/pack/internal/logging
 github.com/buildpacks/pack/internal/name
 github.com/buildpacks/pack/internal/paths
 github.com/buildpacks/pack/internal/registry
 github.com/buildpacks/pack/internal/stack
 github.com/buildpacks/pack/internal/stringset
 github.com/buildpacks/pack/internal/style
+github.com/buildpacks/pack/internal/term
 github.com/buildpacks/pack/internal/termui
-github.com/buildpacks/pack/logging
 github.com/buildpacks/pack/pkg/archive
+github.com/buildpacks/pack/pkg/blob
+github.com/buildpacks/pack/pkg/buildpack
+github.com/buildpacks/pack/pkg/client
+github.com/buildpacks/pack/pkg/dist
+github.com/buildpacks/pack/pkg/image
+github.com/buildpacks/pack/pkg/logging
 github.com/buildpacks/pack/pkg/project/types
 # github.com/census-instrumentation/opencensus-proto v0.3.0
 github.com/census-instrumentation/opencensus-proto/gen-go/agent/common/v1
@@ -181,7 +182,7 @@ github.com/davecgh/go-spew/spew
 # github.com/dgraph-io/ristretto v0.0.1
 github.com/dgraph-io/ristretto
 github.com/dgraph-io/ristretto/z
-# github.com/docker/cli v20.10.7+incompatible
+# github.com/docker/cli v20.10.10+incompatible
 ## explicit
 github.com/docker/cli/cli/config
 github.com/docker/cli/cli/config/configfile
@@ -195,7 +196,7 @@ github.com/docker/distribution/digestset
 github.com/docker/distribution/reference
 github.com/docker/distribution/registry/api/errcode
 github.com/docker/distribution/registry/client/auth/challenge
-# github.com/docker/docker v20.10.8+incompatible
+# github.com/docker/docker v20.10.10+incompatible
 ## explicit
 github.com/docker/docker/api
 github.com/docker/docker/api/types
@@ -256,7 +257,7 @@ github.com/form3tech-oss/jwt-go
 github.com/fsnotify/fsnotify
 # github.com/gdamore/encoding v1.0.0
 github.com/gdamore/encoding
-# github.com/gdamore/tcell/v2 v2.3.3
+# github.com/gdamore/tcell/v2 v2.4.0
 github.com/gdamore/tcell/v2
 github.com/gdamore/tcell/v2/terminfo
 github.com/gdamore/tcell/v2/terminfo/a/aixterm
@@ -269,6 +270,7 @@ github.com/gdamore/tcell/v2/terminfo/d/dtterm
 github.com/gdamore/tcell/v2/terminfo/dynamic
 github.com/gdamore/tcell/v2/terminfo/e/emacs
 github.com/gdamore/tcell/v2/terminfo/extended
+github.com/gdamore/tcell/v2/terminfo/f/foot
 github.com/gdamore/tcell/v2/terminfo/g/gnome
 github.com/gdamore/tcell/v2/terminfo/h/hpterm
 github.com/gdamore/tcell/v2/terminfo/k/konsole
@@ -371,8 +373,6 @@ github.com/gogo/protobuf/proto
 github.com/gogo/protobuf/sortkeys
 # github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e
 github.com/golang/groupcache/lru
-# github.com/golang/mock v1.6.0
-github.com/golang/mock/gomock
 # github.com/golang/protobuf v1.5.2
 github.com/golang/protobuf/descriptor
 github.com/golang/protobuf/jsonpb
@@ -504,7 +504,7 @@ github.com/markbates/pkger/pkging/pkgutil
 github.com/markbates/pkger/pkging/stdos
 # github.com/mattn/go-colorable v0.1.8
 github.com/mattn/go-colorable
-# github.com/mattn/go-isatty v0.0.12
+# github.com/mattn/go-isatty v0.0.13
 github.com/mattn/go-isatty
 # github.com/mattn/go-runewidth v0.0.10
 github.com/mattn/go-runewidth
@@ -523,7 +523,7 @@ github.com/mitchellh/mapstructure
 github.com/moby/sys/mount
 # github.com/moby/sys/mountinfo v0.4.1
 github.com/moby/sys/mountinfo
-# github.com/moby/term v0.0.0-20201216013528-df9cb8a40635
+# github.com/moby/term v0.0.0-20210610120745-9d4ed1856297
 github.com/moby/term
 github.com/moby/term/windows
 # github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd
@@ -535,7 +535,6 @@ github.com/morikuni/aec
 # github.com/opencontainers/go-digest v1.0.0
 github.com/opencontainers/go-digest
 # github.com/opencontainers/image-spec v1.0.2-0.20190823105129-775207bd45b6
-## explicit
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
 # github.com/opencontainers/runc v1.0.0-rc93
@@ -549,7 +548,7 @@ github.com/opencontainers/selinux/pkg/pwalk
 # github.com/ory/viper v1.7.5
 ## explicit
 github.com/ory/viper
-# github.com/pelletier/go-toml v1.9.3
+# github.com/pelletier/go-toml v1.9.4
 github.com/pelletier/go-toml
 # github.com/peterbourgon/diskv v2.0.1+incompatible
 github.com/peterbourgon/diskv
@@ -670,7 +669,6 @@ golang.org/x/crypto/ssh/internal/bcrypt_pbkdf
 golang.org/x/crypto/ssh/knownhosts
 golang.org/x/crypto/ssh/terminal
 # golang.org/x/mod v0.5.1
-## explicit
 golang.org/x/mod/semver
 # golang.org/x/net v0.0.0-20210929193557-e81a3d93ecf6
 ## explicit

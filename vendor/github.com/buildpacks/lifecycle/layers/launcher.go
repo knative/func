@@ -22,11 +22,11 @@ func (f *Factory) LauncherLayer(path string) (layer Layer, err error) {
 	}
 	fi, err := os.Stat(path)
 	if err != nil {
-		return Layer{}, fmt.Errorf("failed to stat launcher at path '%s'", path)
+		return Layer{}, fmt.Errorf("failed to stat launcher at path '%s': %w", path, err)
 	}
 	hdr, err := tar.FileInfoHeader(fi, "")
 	if err != nil {
-		return Layer{}, fmt.Errorf("failed create TAR header for launcher at path '%s'", path)
+		return Layer{}, fmt.Errorf("failed create TAR header for launcher at path '%s': %w", path, err)
 	}
 	hdr.Name = launch.LauncherPath
 	hdr.Uid = 0
@@ -49,7 +49,7 @@ func (f *Factory) LauncherLayer(path string) (layer Layer, err error) {
 
 		lf, err := os.Open(path)
 		if err != nil {
-			return fmt.Errorf("failed to open launcher at path '%s'", path)
+			return fmt.Errorf("failed to open launcher at path '%s': %w", path, err)
 		}
 		defer lf.Close()
 		if _, err := io.Copy(tw, lf); err != nil {
