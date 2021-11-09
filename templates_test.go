@@ -432,8 +432,4 @@ func TestTemplateFuncYAML(t *testing.T) {
 		t.Fatal("BuildEnvs missing in generated func.yaml")
 	}
 
-
-
-
-
 }
