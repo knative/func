@@ -18,6 +18,9 @@ type Template struct {
 	// HealthEndpoints.  The denormalized view of members which can be defined
 	// first per repo or per runtime.
 	HealthEndpoints `yaml:"healthEndpoints,omitempty"`
+	// BuildEnvs defines environment variables related to the builders,
+	// this can be used to parameterize the builders
+	BuildEnvs Envs `yaml:"buildEnvs,omitempty"`
 }
 
 // Fullname is a calculated field of [repo]/[name] used

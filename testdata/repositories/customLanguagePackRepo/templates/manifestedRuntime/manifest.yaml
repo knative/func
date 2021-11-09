@@ -7,4 +7,6 @@ healthEndpoints:
 buildpacks:
   - runtimeBuildpack
 
-
+buildEnvs:
+  - name: "TEST_VARIABLE"
+    value: "test"

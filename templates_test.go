@@ -6,6 +6,8 @@ package function_test
 import (
 	"errors"
 	"fmt"
+	"gopkg.in/yaml.v2"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -378,3 +380,60 @@ func TestTemplateModeRemote(t *testing.T) {
 }
 
 // TODO: test typed errors for custom and remote (embedded checked)
+
+func TestTemplateFuncYAML(t *testing.T) {
+	// create test directory
+	root := "testdata/testTemplateEmbeddedYAML"
+	defer using(t, root)()
+
+	// Client whose internal templates will be used.
+	client := fn.New(
+		fn.WithRegistry(TestRegistry),
+		fn.WithRepositories("testdata/repositories"))
+
+
+	// write out a template
+	err := client.Create(fn.Function{
+		Root:     root,
+		Runtime:  "manifestedRuntime",
+		Template: "customLanguagePackRepo/customTemplate",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Assert file exists as expected
+	_, err = os.Stat(filepath.Join(root, "func.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	funcByteArray, err := ioutil.ReadFile(filepath.Join(root, "func.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	config := fn.Config{}
+	err = yaml.Unmarshal(funcByteArray, &config)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testVariableName := "TEST_VARIABLE"
+	testVariableValue := "test"
+
+	envs := fn.Envs{
+		fn.Env{
+			Name: &testVariableName ,
+			Value: &testVariableValue ,
+		},
+	}
+	if !reflect.DeepEqual(config.BuildEnvs, envs) {
+		t.Fatal("BuildEnvs missing in generated func.yaml")
+	}
+
+
+
+
+
+}

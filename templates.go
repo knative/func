@@ -132,7 +132,7 @@ func (t *Templates) Write(f Function) (Function, error) {
 	// so it's values are treated as defaults.
 	// TODO: this begs the question: should the Template's manifest.yaml actually
 	// be a partially-populated func.yaml?
-	if f.Builder == "" { // as a special fist case, this default comes from itself
+	if f.Builder == "" { // as a special first case, this default comes from itself
 		f.Builder = f.Builders["default"]
 		if f.Builder == "" { // still nothing?  then use the template
 			f.Builder = template.Builders["default"]
@@ -143,6 +143,9 @@ func (t *Templates) Write(f Function) (Function, error) {
 	}
 	if len(f.Buildpacks) == 0 {
 		f.Buildpacks = template.Buildpacks
+	}
+	if len(f.BuildEnvs) == 0 {
+		f.BuildEnvs = template.BuildEnvs
 	}
 	if f.HealthEndpoints.Liveness == "" {
 		f.HealthEndpoints.Liveness = template.HealthEndpoints.Liveness
