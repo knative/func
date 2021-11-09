@@ -19,6 +19,7 @@ func init() {
 }
 
 func newRunClient(cfg runConfig) *fn.Client {
+	bc := newBuildConfig()
 	runner := docker.NewRunner()
 	runner.Verbose = cfg.Verbose
 
@@ -30,10 +31,9 @@ func newRunClient(cfg runConfig) *fn.Client {
 	return fn.New(
 		fn.WithBuilder(builder),
 		fn.WithProgressListener(listener),
-		fn.WithRegistry(cfg.Registry),
+		fn.WithRegistry(bc.Registry),
 		fn.WithRunner(runner),
-		fn.WithVerbose(cfg.Verbose),
-	)
+		fn.WithVerbose(cfg.Verbose))
 }
 
 type runClientFn func(runConfig) *fn.Client
@@ -114,7 +114,9 @@ func runRun(cmd *cobra.Command, args []string, clientFn runClientFn) (err error)
 		}
 		err := survey.Ask([]*survey.Question{&qs}, &ans)
 		if err == nil && ans.Build {
-			client.Build(cmd.Context(), config.Path)
+			if err := client.Build(cmd.Context(), config.Path); err != nil {
+				return err
+			}
 		} else if err != nil {
 			fmt.Printf("Function will not be built: %v\n", err)
 		}
@@ -135,12 +137,6 @@ type runConfig struct {
 
 	// Envs passed via cmd to removed
 	EnvToRemove []string
-
-	// Required for Build to be triggered from Run
-	Registry string
-
-	// Required for Build to be triggered from Run
-	Builder string
 }
 
 func newRunConfig(cmd *cobra.Command) (c runConfig, err error) {
@@ -154,7 +150,5 @@ func newRunConfig(cmd *cobra.Command) (c runConfig, err error) {
 		Verbose:     viper.GetBool("verbose"), // defined on root
 		EnvToUpdate: envToUpdate,
 		EnvToRemove: envToRemove,
-		Registry:    viper.GetString("registry"),
-		Builder:     viper.GetString("builder"),
 	}, nil
 }
