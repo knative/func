@@ -85,7 +85,6 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	}
 
 	version, err := cli.ServerVersion(ctx)
-
 	if err != nil {
 		return err
 	}
