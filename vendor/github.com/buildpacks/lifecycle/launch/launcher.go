@@ -115,7 +115,7 @@ func (l *Launcher) doExecD(procType string) error {
 }
 
 func supportsExecD(bpAPI *api.Version) bool {
-	return bpAPI.Compare(api.MustParse("0.5")) >= 0
+	return bpAPI.AtLeast("0.5")
 }
 
 type bpAction func(bpAPI *api.Version, bpDir string) error

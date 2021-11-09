@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/pkg/errors"
 )
@@ -15,11 +16,34 @@ type PathMode struct {
 	Mode os.FileMode
 }
 
-// Extract reads all entries from TarReader and extracts them to the filesystem
+var (
+	umaskLock      sync.Mutex
+	extractCounter int
+	originalUmask  int
+)
+
+func setUmaskIfNeeded() {
+	umaskLock.Lock()
+	defer umaskLock.Unlock()
+	extractCounter++
+	if extractCounter == 1 {
+		originalUmask = setUmask(0)
+	}
+}
+
+func unsetUmaskIfNeeded() {
+	umaskLock.Lock()
+	defer umaskLock.Unlock()
+	extractCounter--
+	if extractCounter == 0 {
+		_ = setUmask(originalUmask)
+	}
+}
+
+// Extract reads all entries from TarReader and extracts them to the filesystem.
 func Extract(tr TarReader) error {
-	// Avoid umask from changing the file permissions in the tar file.
-	umask := setUmask(0)
-	defer setUmask(umask)
+	setUmaskIfNeeded()
+	defer unsetUmaskIfNeeded()
 
 	buf := make([]byte, 32*32*1024)
 	dirsFound := make(map[string]bool)
@@ -28,7 +52,7 @@ func Extract(tr TarReader) error {
 	for {
 		hdr, err := tr.Next()
 		if err == io.EOF {
-			for _, pathMode := range pathModes {
+			for _, pathMode := range pathModes { // directories that are newly created and for which there is a header in the tar should have the right permissions
 				if err := os.Chmod(pathMode.Path, pathMode.Mode); err != nil {
 					return err
 				}
@@ -54,7 +78,7 @@ func Extract(tr TarReader) error {
 			dirPath := filepath.Dir(hdr.Name)
 			if !dirsFound[dirPath] {
 				if _, err := os.Stat(dirPath); os.IsNotExist(err) {
-					if err := os.MkdirAll(dirPath, applyUmask(os.ModePerm, umask)); err != nil {
+					if err := os.MkdirAll(dirPath, applyUmask(os.ModePerm, originalUmask)); err != nil { // if there is no header for the parent directory in the tar, apply the provided umask
 						return errors.Wrapf(err, "failed to create parent dir %q for file %q", dirPath, hdr.Name)
 					}
 					dirsFound[dirPath] = true

@@ -10,7 +10,7 @@ import (
 
 	pcontainer "github.com/buildpacks/pack/internal/container"
 	"github.com/buildpacks/pack/internal/style"
-	"github.com/buildpacks/pack/logging"
+	"github.com/buildpacks/pack/pkg/logging"
 )
 
 const (
@@ -159,6 +159,9 @@ func WithDaemonAccess(dockerHost string) PhaseConfigProviderOperation {
 		}
 		if bind != "" {
 			provider.hostConf.Binds = append(provider.hostConf.Binds, bind)
+		}
+		if provider.os != "windows" {
+			provider.hostConf.SecurityOpt = []string{"label=disable"}
 		}
 	}
 }
