@@ -100,7 +100,6 @@ github.com/buildpacks/lifecycle/platform/pre06
 github.com/buildpacks/lifecycle/platform/v06
 github.com/buildpacks/lifecycle/platform/v07
 # github.com/buildpacks/pack v0.22.0
-## explicit
 github.com/buildpacks/pack
 github.com/buildpacks/pack/builder
 github.com/buildpacks/pack/buildpackage
