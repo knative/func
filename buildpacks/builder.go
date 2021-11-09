@@ -15,8 +15,8 @@ import (
 	"knative.dev/kn-plugin-func/docker"
 
 	"github.com/Masterminds/semver"
-	"github.com/buildpacks/pack"
-	"github.com/buildpacks/pack/logging"
+	pack "github.com/buildpacks/pack/pkg/client"
+	"github.com/buildpacks/pack/pkg/logging"
 )
 
 //Builder holds the configuration that will be passed to
@@ -124,8 +124,8 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		Builder:        packBuilder,
 		Env:            buildEnvs,
 		Buildpacks:     f.Buildpacks,
-		TrustBuilder:	isTrustedBuilderFunc,
-		DockerHost: dockerHost,
+		TrustBuilder:   isTrustedBuilderFunc,
+		DockerHost:     dockerHost,
 		ContainerConfig: struct {
 			Network string
 			Volumes []string
@@ -133,7 +133,7 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	}
 
 	// Client with a logger which is enabled if in Verbose mode.
-	packClient, err := pack.NewClient(pack.WithLogger(logging.New(logWriter)))
+	packClient, err := pack.NewClient(pack.WithLogger(logging.NewSimpleLogger(logWriter)))
 	if err != nil {
 		return
 	}
@@ -188,4 +188,3 @@ func processEnvValue(val string) (string, bool, error) {
 	}
 	return val, true, nil
 }
-
