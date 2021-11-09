@@ -6,13 +6,14 @@ package function_test
 import (
 	"errors"
 	"fmt"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
 	"testing"
+
+	"gopkg.in/yaml.v2"
 
 	fn "knative.dev/kn-plugin-func"
 	. "knative.dev/kn-plugin-func/testing"
@@ -391,7 +392,6 @@ func TestTemplateFuncYAML(t *testing.T) {
 		fn.WithRegistry(TestRegistry),
 		fn.WithRepositories("testdata/repositories"))
 
-
 	// write out a template
 	err := client.Create(fn.Function{
 		Root:     root,
@@ -424,8 +424,8 @@ func TestTemplateFuncYAML(t *testing.T) {
 
 	envs := fn.Envs{
 		fn.Env{
-			Name: &testVariableName ,
-			Value: &testVariableValue ,
+			Name: &testVariableName,
+			Value: &testVariableValue,
 		},
 	}
 	if !reflect.DeepEqual(config.BuildEnvs, envs) {

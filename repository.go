@@ -239,7 +239,7 @@ func repositoryRuntimes(r Repository) (runtimes []Runtime, err error) {
 			Name:            fi.Name(),
 			BuildConfig:     r.BuildConfig,
 			HealthEndpoints: r.HealthEndpoints,
-			BuildEnvs: r.BuildEnvs,
+			BuildEnvs:       r.BuildEnvs,
 		}
 		// Runtime Manifest
 		// Load the file if it exists, which may override values inherited from the
@@ -292,7 +292,7 @@ func runtimeTemplates(r Repository, runtime Runtime) (templates []Template, err 
 			Runtime:         runtime.Name,
 			BuildConfig:     runtime.BuildConfig,
 			HealthEndpoints: runtime.HealthEndpoints,
-			BuildEnvs: runtime.BuildEnvs,
+			BuildEnvs:       runtime.BuildEnvs,
 		}
 
 		// Template Manifeset
