@@ -131,8 +131,8 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		}{Network: network, Volumes: nil},
 	}
 
-	// Client with a logger which is enabled if in Verbose mode.
-	packClient, err := pack.NewClient(pack.WithLogger(logging.NewSimpleLogger(logWriter)))
+	// Client with a logger which is enabled if in Verbose mode and a dockerClient that supports SSH docker daemon connection.
+	packClient, err := pack.NewClient(pack.WithLogger(logging.NewSimpleLogger(logWriter)), pack.WithDockerClient(cli))
 	if err != nil {
 		return
 	}
@@ -187,3 +187,4 @@ func processEnvValue(val string) (string, bool, error) {
 	}
 	return val, true, nil
 }
+
