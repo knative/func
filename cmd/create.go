@@ -16,6 +16,15 @@ import (
 	"knative.dev/kn-plugin-func/utils"
 )
 
+// ErrNoRuntime indicates that the language runtime flag was not passed.
+type ErrNoRuntime error
+
+// ErrInvalidRuntime indicates that the passed language runtime was invalid.
+type ErrInvalidRuntime error
+
+// ErrInvalidTemplate indicates that the passed template was invalid.
+type ErrInvalidTemplate error
+
 func init() {
 	// Add to the root a new "Create" command which obtains an appropriate
 	// instance of fn.Client from the given client creator function.
@@ -315,22 +324,6 @@ func isValidTemplate(client *fn.Client, runtime, template string) bool {
 	return false
 }
 
-// newInvalidRuntimeError creates an error stating that the given language
-// is not valid, and a verbose list of valid options.
-func newInvalidRuntimeError(client *fn.Client, runtime string) error {
-	b := strings.Builder{}
-	fmt.Fprintf(&b, "The language runtime '%v' is not recognized.\n", runtime)
-	fmt.Fprintln(&b, "Available language runtimes are:")
-	runtimes, err := client.Runtimes()
-	if err != nil {
-		return err
-	}
-	for _, v := range runtimes {
-		fmt.Fprintf(&b, "  %v\n", v)
-	}
-	return errors.New(b.String())
-}
-
 // noRuntimeError creates an error stating that the language flag
 // is required, and a verbose list of valid options.
 func noRuntimeError(client *fn.Client) error {
@@ -344,7 +337,23 @@ func noRuntimeError(client *fn.Client) error {
 	for _, v := range runtimes {
 		fmt.Fprintf(&b, "  %v\n", v)
 	}
-	return errors.New(b.String())
+	return ErrNoRuntime(errors.New(b.String()))
+}
+
+// newInvalidRuntimeError creates an error stating that the given language
+// is not valid, and a verbose list of valid options.
+func newInvalidRuntimeError(client *fn.Client, runtime string) error {
+	b := strings.Builder{}
+	fmt.Fprintf(&b, "The language runtime '%v' is not recognized.\n", runtime)
+	fmt.Fprintln(&b, "Available language runtimes are:")
+	runtimes, err := client.Runtimes()
+	if err != nil {
+		return err
+	}
+	for _, v := range runtimes {
+		fmt.Fprintf(&b, "  %v\n", v)
+	}
+	return ErrInvalidRuntime(errors.New(b.String()))
 }
 
 // newInvalidTemplateError creates an error stating that the given template
@@ -361,7 +370,7 @@ func newInvalidTemplateError(client *fn.Client, runtime, template string) error 
 	for _, v := range templates {
 		fmt.Fprintf(&b, "  %v\n", v)
 	}
-	return errors.New(b.String())
+	return ErrInvalidTemplate(errors.New(b.String()))
 }
 
 // Validate the current state of the config, returning any errors.

@@ -28,6 +28,59 @@ func TestCreate(t *testing.T) {
 	}
 }
 
+// TestCreateWithNoRuntime ensures that an invocation of create must be
+// done with a runtime.
+func TestCreateWithNoRuntime(t *testing.T) {
+	defer fromTempDir(t)()
+
+	// command with a client factory which yields a fully default client.
+	cmd := NewCreateCmd(func(createConfig) *fn.Client { return fn.New() })
+	cmd.SetArgs([]string{})
+
+	err := cmd.Execute()
+	var e ErrNoRuntime
+	if !errors.As(err, &e) {
+		t.Fatalf("Did not receive ErrNoRuntime. Got %v", err)
+	}
+}
+
+// TestCreateWithNoRuntime ensures that an invocation of create must be
+// done with one of the valid runtimes only.
+func TestCreateWithInvalidRuntime(t *testing.T) {
+	defer fromTempDir(t)()
+
+	// command with a client factory which yields a fully default client.
+	cmd := NewCreateCmd(func(createConfig) *fn.Client { return fn.New() })
+	cmd.SetArgs([]string{
+		fmt.Sprintf("--language=%s", "test"),
+	})
+
+	err := cmd.Execute()
+	var e ErrInvalidRuntime
+	if !errors.As(err, &e) {
+		t.Fatalf("Did not receive ErrInvalidRuntime. Got %v", err)
+	}
+}
+
+// TestCreateWithInvalidTemplate ensures that an invocation of create must be
+// done with one of the valid templates only.
+func TestCreateWithInvalidTemplate(t *testing.T) {
+	defer fromTempDir(t)()
+
+	// command with a client factory which yields a fully default client.
+	cmd := NewCreateCmd(func(createConfig) *fn.Client { return fn.New() })
+	cmd.SetArgs([]string{
+		fmt.Sprintf("--language=%s", "go"),
+		fmt.Sprintf("--template=%s", "events"),
+	})
+
+	err := cmd.Execute()
+	var e ErrInvalidTemplate
+	if !errors.As(err, &e) {
+		t.Fatalf("Did not receive ErrInvalidTemplate. Got %v", err)
+	}
+}
+
 // TestCreateValidatesName ensures that the create command only accepts
 // DNS-1123 labels for Function name.
 func TestCreateValidatesName(t *testing.T) {
