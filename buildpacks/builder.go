@@ -11,6 +11,8 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/docker/docker/client"
+
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/docker"
 
@@ -79,10 +81,11 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		logWriter = &bytes.Buffer{}
 	}
 
-	cli, dockerHost, err := docker.NewDockerClient()
+	cli, dockerHost, err := docker.NewDockerClient(client.DefaultDockerHost)
 	if err != nil {
 		return err
 	}
+	defer cli.Close()
 
 	version, err := cli.ServerVersion(ctx)
 	if err != nil {

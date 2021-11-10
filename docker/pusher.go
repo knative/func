@@ -13,6 +13,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/docker/docker/client"
+
 	fn "knative.dev/kn-plugin-func"
 
 	"github.com/containers/image/v5/pkg/docker/config"
@@ -39,10 +41,11 @@ var ErrUnauthorized = errors.New("bad credentials")
 type VerifyCredentialsCallback func(ctx context.Context, username, password, registry string) error
 
 func CheckAuth(ctx context.Context, username, password, registry string) error {
-	cli, _, err := NewDockerClient()
+	cli, _, err := NewDockerClient(client.DefaultDockerHost)
 	if err != nil {
 		return err
 	}
+	defer cli.Close()
 
 	_, err = cli.RegistryLogin(ctx, types.AuthConfig{Username: username, Password: password, ServerAddress: registry})
 	if err != nil && strings.Contains(err.Error(), "401 Unauthorized") {
@@ -242,10 +245,11 @@ func (n *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err er
 		return "", err
 	}
 
-	cli, _, err := NewDockerClient()
+	cli, _, err := NewDockerClient(client.DefaultDockerHost)
 	if err != nil {
 		return "", fmt.Errorf("failed to create docker api client: %w", err)
 	}
+	defer cli.Close()
 
 	n.progressListener.Stopping()
 	credentials, err := n.credentialsProvider(ctx, registry)

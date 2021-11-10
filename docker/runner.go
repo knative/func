@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/docker/docker/client"
+
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/pkg/stdcopy"
@@ -33,10 +35,11 @@ func (n *Runner) Run(ctx context.Context, f fn.Function) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	cli, _, err := NewDockerClient()
+	cli, _, err := NewDockerClient(client.DefaultDockerHost)
 	if err != nil {
 		return errors.Wrap(err, "failed to create docker api client")
 	}
+	defer cli.Close()
 
 	if f.Image == "" {
 		return errors.New("Function has no associated Image. Has it been built?")
