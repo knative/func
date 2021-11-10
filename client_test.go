@@ -129,32 +129,6 @@ func TestHiddenFilesIgnored(t *testing.T) {
 	}
 }
 
-// TestDefaultRuntime ensures that the default runtime is applied to new
-// Functions and persisted.
-func TestDefaultRuntime(t *testing.T) {
-	// Create a root for the new Function
-	root := "testdata/example.com/testDefaultRuntime"
-	defer using(t, root)()
-
-	client := fn.New(fn.WithRegistry(TestRegistry))
-
-	// Create a new function at root with all defaults.
-	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
-		t.Fatal(err)
-	}
-
-	// Load the function
-	f, err := fn.NewFunction(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Ensure it has defaulted runtime
-	if f.Runtime != fn.DefaultRuntime {
-		t.Fatal("The default runtime was not applied or persisted.")
-	}
-}
-
 // TestRepositoriesExtensible ensures that templates are extensible
 // using a custom path to template repositories on disk. The custom repositories
 // location is not defined herein but expected to be provided because, for

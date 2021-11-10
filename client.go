@@ -17,10 +17,6 @@ const (
 	// DefaultRegistry through which containers of Functions will be shuttled.
 	DefaultRegistry = "docker.io"
 
-	// DefaultRuntime is the language runtime for a new Function, including
-	// the template written and builder invoked on deploy.
-	DefaultRuntime = "node"
-
 	// DefaultTemplate is the default Function signature / environmental context
 	// of the resultant function.  All runtimes are expected to have at least
 	// one implementation of each supported function signature.  Currently that
@@ -461,11 +457,6 @@ func (c *Client) Create(f Function) (err error) {
 	// cause data loss.
 	if err = assertEmptyRoot(f.Root); err != nil {
 		return
-	}
-
-	// Assert runtime was provided, or default.
-	if f.Runtime == "" {
-		f.Runtime = DefaultRuntime
 	}
 
 	// Assert template name was provided, or default.
