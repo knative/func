@@ -121,9 +121,10 @@ func Test_DerivedImage(t *testing.T) {
 			defer using(t, root)()
 
 			f := fn.Function{
-				Name:  tt.fnName,
-				Root:  root,
-				Image: tt.image,
+				Name:    tt.fnName,
+				Root:    root,
+				Runtime: TestRuntime,
+				Image:   tt.image,
 			}
 
 			// write out the function
