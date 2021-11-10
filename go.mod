@@ -24,27 +24,23 @@ require (
 	github.com/ory/viper v1.7.5
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.2.1
-	golang.org/x/crypto v0.0.0-20210513164829-c07d793c2f9a
+	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
 	golang.org/x/net v0.0.0-20210929193557-e81a3d93ecf6 // indirect
 	golang.org/x/sys v0.0.0-20211002104244-808efd93c36d // indirect
 	golang.org/x/term v0.0.0-20210615171337-6886f2dfbf5b
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/tools v0.1.7 // indirect
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/api v0.20.7
-	k8s.io/apimachinery v0.20.7
-	k8s.io/client-go v0.20.7
-	knative.dev/client v0.25.1
-	knative.dev/eventing v0.25.2
-	knative.dev/hack v0.0.0-20210622141627-e28525d8d260
-	knative.dev/pkg v0.0.0-20210902173607-844a6bc45596
-	knative.dev/serving v0.25.1
+	k8s.io/api v0.21.4
+	k8s.io/apimachinery v0.21.4
+	k8s.io/client-go v0.21.4
+	knative.dev/client v0.26.0
+	knative.dev/eventing v0.26.1
+	knative.dev/hack v0.0.0-20210806075220-815cd312d65c
+	knative.dev/pkg v0.0.0-20210919202233-5ae482141474
+	knative.dev/serving v0.26.0
 )
 
-// knative.dev/serving@v0.21.0 and knative.dev/pkg@v0.0.0-20210331065221-952fdd90dbb0 require different versions of go-openapi/spec
-replace (
-	// temporary set higher version of buildpacks/imgutil to get better performance for podman
-	// rever this once there will be buildpacks/pack with newer version
-	github.com/buildpacks/imgutil => github.com/buildpacks/imgutil v0.0.0-20211001201950-cf7ae41c3771
-	github.com/go-openapi/spec => github.com/go-openapi/spec v0.19.6
-)
+// temporary set higher version of buildpacks/imgutil to get better performance for podman
+// rever this once there will be buildpacks/pack with newer version
+replace github.com/buildpacks/imgutil => github.com/buildpacks/imgutil v0.0.0-20211001201950-cf7ae41c3771
