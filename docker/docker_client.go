@@ -18,13 +18,13 @@ import (
 	"github.com/docker/docker/client"
 )
 
-func NewDockerClient(defaultDockerHost string) (dockerClient client.CommonAPIClient, dockerHost string, err error) {
+func NewClient(defaultHost string) (dockerClient client.CommonAPIClient, dockerHost string, err error) {
 	var _url *url.URL
 
 	dockerHost = os.Getenv("DOCKER_HOST")
 
 	if dockerHost == "" && runtime.GOOS == "linux" && podmanPresent() {
-		_url, err = url.Parse(defaultDockerHost)
+		_url, err = url.Parse(defaultHost)
 		if err != nil {
 			return
 		}
@@ -33,7 +33,7 @@ func NewDockerClient(defaultDockerHost string) (dockerClient client.CommonAPICli
 		case err != nil && !os.IsNotExist(err):
 			return
 		case os.IsNotExist(err):
-			dockerClient, dockerHost, err = newDockerClientWithPodmanService()
+			dockerClient, dockerHost, err = newClientWithPodmanService()
 			return
 		}
 	}
@@ -81,7 +81,7 @@ func podmanPresent() bool {
 
 // creates a docker client that has its own podman service associated with it
 // the service is shutdown when Close() is called on the client
-func newDockerClientWithPodmanService() (dockerClient client.CommonAPIClient, dockerHost string, err error) {
+func newClientWithPodmanService() (dockerClient client.CommonAPIClient, dockerHost string, err error) {
 	tmpDir, err := os.MkdirTemp("", "func-podman-")
 	if err != nil {
 		return

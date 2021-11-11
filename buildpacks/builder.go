@@ -81,7 +81,7 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		logWriter = &bytes.Buffer{}
 	}
 
-	cli, dockerHost, err := docker.NewDockerClient(client.DefaultDockerHost)
+	cli, dockerHost, err := docker.NewClient(client.DefaultDockerHost)
 	if err != nil {
 		return err
 	}

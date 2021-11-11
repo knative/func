@@ -26,7 +26,7 @@ func TestNewDockerClient(t *testing.T) {
 
 	defer withEnvVarHost(t, "DOCKER_HOST", fmt.Sprintf("unix://%s", sock))()
 
-	dockerClient, _, err := docker.NewDockerClient(client.DefaultDockerHost)
+	dockerClient, _, err := docker.NewClient(client.DefaultDockerHost)
 	if err != nil {
 		t.Error(err)
 	}

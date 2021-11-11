@@ -21,7 +21,7 @@ func TestNewDockerClientWithAutomaticPodman(t *testing.T) {
 	defer withMockedPodmanBinary(t)()
 	defer withEnvVarHost(t, "DOCKER_HOST", "")()
 
-	dockerClient, _, err := docker.NewDockerClient("unix:///var/run/nonexistent.sock")
+	dockerClient, _, err := docker.NewClient("unix:///var/run/nonexistent.sock")
 	if err != nil {
 		t.Error(err)
 	}

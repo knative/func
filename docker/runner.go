@@ -35,7 +35,7 @@ func (n *Runner) Run(ctx context.Context, f fn.Function) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	cli, _, err := NewDockerClient(client.DefaultDockerHost)
+	cli, _, err := NewClient(client.DefaultDockerHost)
 	if err != nil {
 		return errors.Wrap(err, "failed to create docker api client")
 	}
