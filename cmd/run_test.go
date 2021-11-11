@@ -9,7 +9,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func Test_runRun(t *testing.T) {
+func TestRunRun(t *testing.T) {
 	type args struct {
 		cmd          *cobra.Command
 		args         []string
