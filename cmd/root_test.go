@@ -34,39 +34,39 @@ func Test_mergeEnvMaps(t *testing.T) {
 				util.NewOrderedMapWithKVStrings([][]string{{a, v1}}),
 				[]string{},
 			},
-			[]fn.Env{fn.Env{Name: &a, Value: &v1}},
+			[]fn.Env{{Name: &a, Value: &v1}},
 		},
 		{
 			"add new var",
 			args{
-				[]fn.Env{fn.Env{Name: &b, Value: &v2}},
+				[]fn.Env{{Name: &b, Value: &v2}},
 				util.NewOrderedMapWithKVStrings([][]string{{a, v1}}),
 				[]string{},
 			},
-			[]fn.Env{fn.Env{Name: &b, Value: &v2}, fn.Env{Name: &a, Value: &v1}},
+			[]fn.Env{{Name: &b, Value: &v2}, {Name: &a, Value: &v1}},
 		},
 		{
 			"update var",
 			args{
-				[]fn.Env{fn.Env{Name: &a, Value: &v1}},
+				[]fn.Env{{Name: &a, Value: &v1}},
 				util.NewOrderedMapWithKVStrings([][]string{{a, v2}}),
 				[]string{},
 			},
-			[]fn.Env{fn.Env{Name: &a, Value: &v2}},
+			[]fn.Env{{Name: &a, Value: &v2}},
 		},
 		{
 			"update multiple vars",
 			args{
-				[]fn.Env{fn.Env{Name: &a, Value: &v1}, fn.Env{Name: &b, Value: &v2}},
+				[]fn.Env{{Name: &a, Value: &v1}, {Name: &b, Value: &v2}},
 				util.NewOrderedMapWithKVStrings([][]string{{a, v2}, {b, v1}}),
 				[]string{},
 			},
-			[]fn.Env{fn.Env{Name: &a, Value: &v2}, fn.Env{Name: &b, Value: &v1}},
+			[]fn.Env{{Name: &a, Value: &v2}, {Name: &b, Value: &v1}},
 		},
 		{
 			"remove var",
 			args{
-				[]fn.Env{fn.Env{Name: &a, Value: &v1}},
+				[]fn.Env{{Name: &a, Value: &v1}},
 				util.NewOrderedMap(),
 				[]string{a},
 			},
@@ -75,7 +75,7 @@ func Test_mergeEnvMaps(t *testing.T) {
 		{
 			"remove multiple vars",
 			args{
-				[]fn.Env{fn.Env{Name: &a, Value: &v1}, fn.Env{Name: &b, Value: &v2}},
+				[]fn.Env{{Name: &a, Value: &v1}, {Name: &b, Value: &v2}},
 				util.NewOrderedMap(),
 				[]string{a, b},
 			},
@@ -84,11 +84,11 @@ func Test_mergeEnvMaps(t *testing.T) {
 		{
 			"update and remove vars",
 			args{
-				[]fn.Env{fn.Env{Name: &a, Value: &v1}, fn.Env{Name: &b, Value: &v2}},
+				[]fn.Env{{Name: &a, Value: &v1}, {Name: &b, Value: &v2}},
 				util.NewOrderedMapWithKVStrings([][]string{{a, v2}}),
 				[]string{b},
 			},
-			[]fn.Env{fn.Env{Name: &a, Value: &v2}},
+			[]fn.Env{{Name: &a, Value: &v2}},
 		},
 	}
 	for _, tt := range tests {
