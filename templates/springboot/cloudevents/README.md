@@ -28,13 +28,20 @@ echo "export FUNC_REGISTRY=docker.io/johndoe" >> ~/.bashrc
 
 ### Building
 
-This command builds an OCI image for the function. Depending on the builder selected, 
-you can construct a JVM based container or a native image using GraalVM. By default, a JVM builder is selected.
+This command builds an OCI image for the function. By default, this will build a GraalVM native image.
 
 ```shell script
-func build -v                  # build jar
-func build --builder native -v # build native binary
+func build -v                  # build native image
 ```
+
+**Note**: If you want to disable the native build, you need to edit the `func.yaml` file and 
+remove (or set to false) the following BuilderEnv variable: 
+```
+buildEnvs:
+  - name: BP_NATIVE_IMAGE
+    value: "true"
+```
+
 
 ### Running
 
