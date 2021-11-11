@@ -1,6 +1,19 @@
 # Change Log
 
 <a name="unreleased"></a>
+## [0.20.0](https://www.github.com/knative-sandbox/kn-plugin-func/compare/v0.19.0...v0.20.0) (2021-11-11)
+
+
+### Features
+
+* automatically start podman service ([#648](https://www.github.com/knative-sandbox/kn-plugin-func/issues/648)) ([bfdfb76](https://www.github.com/knative-sandbox/kn-plugin-func/commit/bfdfb760cff575146764f9b841a0cafcb31bcd58))
+* function creation timestamp ([#651](https://www.github.com/knative-sandbox/kn-plugin-func/issues/651)) ([1bf17ec](https://www.github.com/knative-sandbox/kn-plugin-func/commit/1bf17ec976130551da366e75b38f5169b3daed4e))
+
+
+### Bug Fixes
+
+* remove stray manifest.yaml files ([#628](https://www.github.com/knative-sandbox/kn-plugin-func/issues/628)) ([c810efc](https://www.github.com/knative-sandbox/kn-plugin-func/commit/c810efc7a4eb0d87f37f3acfafc46c1e4639fdc4))
+
 ## [0.19.0](https://www.github.com/knative-sandbox/kn-plugin-func/compare/v0.18.0...v0.19.0) (2021-11-03)
 
 
