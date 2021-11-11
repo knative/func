@@ -15,6 +15,8 @@ import (
 	"knative.dev/kn-plugin-func/docker"
 )
 
+// Test that we are creating client in accordance
+// with the DOCKER_HOST environment variable
 func TestNewDockerClient(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*1)
 	defer cancel()

@@ -13,6 +13,8 @@ import (
 	"knative.dev/kn-plugin-func/docker"
 )
 
+// Test that we are starting podman service on behalf of user
+// if docker daemon is not present.
 func TestNewDockerClientWithAutomaticPodman(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*1)
