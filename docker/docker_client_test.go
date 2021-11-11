@@ -26,7 +26,7 @@ func TestNewDockerClient(t *testing.T) {
 
 	defer startMockDaemon(t, sock)()
 
-	defer withEnvVarHost(t, "DOCKER_HOST", fmt.Sprintf("unix://%s", sock))()
+	defer withEnvVar(t, "DOCKER_HOST", fmt.Sprintf("unix://%s", sock))()
 
 	dockerClient, _, err := docker.NewClient(client.DefaultDockerHost)
 	if err != nil {
@@ -40,7 +40,7 @@ func TestNewDockerClient(t *testing.T) {
 	}
 }
 
-func withEnvVarHost(t *testing.T, name, value string) func() {
+func withEnvVar(t *testing.T, name, value string) func() {
 	oldDh, hadDh := os.LookupEnv(name)
 	err := os.Setenv(name, value)
 	if err != nil {

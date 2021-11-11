@@ -21,7 +21,7 @@ func TestNewDockerClientWithAutomaticPodman(t *testing.T) {
 	defer cancel()
 
 	defer withMockedPodmanBinary(t)()
-	defer withEnvVarHost(t, "DOCKER_HOST", "")()
+	defer withEnvVar(t, "DOCKER_HOST", "")()
 
 	dockerClient, _, err := docker.NewClient("unix:///var/run/nonexistent.sock")
 	if err != nil {
@@ -76,7 +76,7 @@ func withMockedPodmanBinary(t *testing.T) func() {
 	binDir := t.TempDir()
 
 	newPath := binDir + string(os.PathListSeparator) + os.Getenv("PATH")
-	cleanUpPath := withEnvVarHost(t, "PATH", newPath)
+	cleanUpPath := withEnvVar(t, "PATH", newPath)
 
 	helperGoScriptPath := filepath.Join(binDir, "main.go")
 
