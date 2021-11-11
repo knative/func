@@ -20,12 +20,12 @@ func Test_validateVolumes(t *testing.T) {
 
 	tests := []struct {
 		name    string
-		volumes Volumes
+		volumes []Volume
 		errs    int
 	}{
 		{
 			"correct entry - single volume with secret",
-			Volumes{
+			[]Volume{
 				Volume{
 					Secret: &secret,
 					Path:   &path,
@@ -35,7 +35,7 @@ func Test_validateVolumes(t *testing.T) {
 		},
 		{
 			"correct entry - single volume with configmap",
-			Volumes{
+			[]Volume{
 				Volume{
 					ConfigMap: &cm,
 					Path:      &path,
@@ -45,7 +45,7 @@ func Test_validateVolumes(t *testing.T) {
 		},
 		{
 			"correct entry - multiple volumes with secrets",
-			Volumes{
+			[]Volume{
 				Volume{
 					Secret: &secret,
 					Path:   &path,
@@ -59,7 +59,7 @@ func Test_validateVolumes(t *testing.T) {
 		},
 		{
 			"correct entry - multiple volumes with both secret and configMap",
-			Volumes{
+			[]Volume{
 				Volume{
 					Secret: &secret,
 					Path:   &path,
@@ -73,7 +73,7 @@ func Test_validateVolumes(t *testing.T) {
 		},
 		{
 			"missing secret/configMap - single volume",
-			Volumes{
+			[]Volume{
 				Volume{
 					Path: &path,
 				},
@@ -82,7 +82,7 @@ func Test_validateVolumes(t *testing.T) {
 		},
 		{
 			"missing path - single volume with secret",
-			Volumes{
+			[]Volume{
 				Volume{
 					Secret: &secret,
 				},
@@ -91,7 +91,7 @@ func Test_validateVolumes(t *testing.T) {
 		},
 		{
 			"missing path - single volume with configMap",
-			Volumes{
+			[]Volume{
 				Volume{
 					ConfigMap: &cm,
 				},
@@ -100,14 +100,14 @@ func Test_validateVolumes(t *testing.T) {
 		},
 		{
 			"missing secret/configMap and path - single volume",
-			Volumes{
+			[]Volume{
 				Volume{},
 			},
 			1,
 		},
 		{
 			"missing secret/configMap in one volume - multiple volumes",
-			Volumes{
+			[]Volume{
 				Volume{
 					Secret: &secret,
 					Path:   &path,
@@ -120,7 +120,7 @@ func Test_validateVolumes(t *testing.T) {
 		},
 		{
 			"missing secret/configMap and path in two different volumes - multiple volumes",
-			Volumes{
+			[]Volume{
 				Volume{
 					Secret: &secret,
 					Path:   &path,
@@ -165,12 +165,12 @@ func Test_validateBuildEnvs(t *testing.T) {
 
 	tests := []struct {
 		name string
-		envs Envs
+		envs []Env
 		errs int
 	}{
 		{
 			"correct entry - single env with value",
-			Envs{
+			[]Env{
 				Env{
 					Name:  &name,
 					Value: &value,
@@ -180,7 +180,7 @@ func Test_validateBuildEnvs(t *testing.T) {
 		},
 		{
 			"incorrect entry - missing value",
-			Envs{
+			[]Env{
 				Env{
 					Name: &name,
 				},
@@ -189,7 +189,7 @@ func Test_validateBuildEnvs(t *testing.T) {
 		},
 		{
 			"incorrect entry - invalid name",
-			Envs{
+			[]Env{
 				Env{
 					Name:  &incorrectName,
 					Value: &value,
@@ -199,7 +199,7 @@ func Test_validateBuildEnvs(t *testing.T) {
 		},
 		{
 			"incorrect entry - invalid name2",
-			Envs{
+			[]Env{
 				Env{
 					Name:  &incorrectName2,
 					Value: &value,
@@ -209,7 +209,7 @@ func Test_validateBuildEnvs(t *testing.T) {
 		},
 		{
 			"correct entry - multiple envs with value",
-			Envs{
+			[]Env{
 				Env{
 					Name:  &name,
 					Value: &value,
@@ -223,7 +223,7 @@ func Test_validateBuildEnvs(t *testing.T) {
 		},
 		{
 			"incorrect entry - mmissing value - multiple envs",
-			Envs{
+			[]Env{
 				Env{
 					Name: &name,
 				},
@@ -235,7 +235,7 @@ func Test_validateBuildEnvs(t *testing.T) {
 		},
 		{
 			"correct entry - single env with value Local env",
-			Envs{
+			[]Env{
 				Env{
 					Name:  &name,
 					Value: &valueLocalEnv,
@@ -245,7 +245,7 @@ func Test_validateBuildEnvs(t *testing.T) {
 		},
 		{
 			"correct entry - multiple envs with value Local env",
-			Envs{
+			[]Env{
 				Env{
 					Name:  &name,
 					Value: &valueLocalEnv,
@@ -263,7 +263,7 @@ func Test_validateBuildEnvs(t *testing.T) {
 		},
 		{
 			"incorrect entry - multiple envs with value Local env",
-			Envs{
+			[]Env{
 				Env{
 					Name:  &name,
 					Value: &valueLocalEnv,
@@ -341,12 +341,12 @@ func Test_validateEnvs(t *testing.T) {
 
 	tests := []struct {
 		name string
-		envs Envs
+		envs []Env
 		errs int
 	}{
 		{
 			"correct entry - single env with value",
-			Envs{
+			[]Env{
 				Env{
 					Name:  &name,
 					Value: &value,
@@ -356,7 +356,7 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"incorrect entry - missing value",
-			Envs{
+			[]Env{
 				Env{
 					Name: &name,
 				},
@@ -365,7 +365,7 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"incorrect entry - invalid name",
-			Envs{
+			[]Env{
 				Env{
 					Name:  &incorrectName,
 					Value: &value,
@@ -375,7 +375,7 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"incorrect entry - invalid name2",
-			Envs{
+			[]Env{
 				Env{
 					Name:  &incorrectName2,
 					Value: &value,
@@ -385,7 +385,7 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"correct entry - multiple envs with value",
-			Envs{
+			[]Env{
 				Env{
 					Name:  &name,
 					Value: &value,
@@ -399,7 +399,7 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"incorrect entry - mmissing value - multiple envs",
-			Envs{
+			[]Env{
 				Env{
 					Name: &name,
 				},
@@ -411,7 +411,7 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"correct entry - single env with value Local env",
-			Envs{
+			[]Env{
 				Env{
 					Name:  &name,
 					Value: &valueLocalEnv,
@@ -421,7 +421,7 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"correct entry - multiple envs with value Local env",
-			Envs{
+			[]Env{
 				Env{
 					Name:  &name,
 					Value: &valueLocalEnv,
@@ -439,7 +439,7 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"incorrect entry - multiple envs with value Local env",
-			Envs{
+			[]Env{
 				Env{
 					Name:  &name,
 					Value: &valueLocalEnv,
@@ -461,7 +461,7 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"correct entry - single secret with key",
-			Envs{
+			[]Env{
 				Env{
 					Name:  &name,
 					Value: &valueSecretKey,
@@ -471,7 +471,7 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"correct entry - single configMap with key",
-			Envs{
+			[]Env{
 				Env{
 					Name:  &name,
 					Value: &valueConfigMapKey,
@@ -481,7 +481,7 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"correct entry - multiple configMaps with key",
-			Envs{
+			[]Env{
 				Env{
 					Name:  &name,
 					Value: &valueConfigMapKey,
@@ -519,7 +519,7 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"correct entry - multiple secrets with key",
-			Envs{
+			[]Env{
 				Env{
 					Name:  &name,
 					Value: &valueSecretKey,
@@ -557,7 +557,7 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"correct entry - both secret and configmap with key",
-			Envs{
+			[]Env{
 				Env{
 					Name:  &name,
 					Value: &valueSecretKey,
@@ -571,7 +571,7 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"incorrect entry - single secret with key",
-			Envs{
+			[]Env{
 				Env{
 					Name:  &name,
 					Value: &valueSecretKeyIncorrect,
@@ -581,7 +581,7 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"incorrect entry - mutliple secrets with key",
-			Envs{
+			[]Env{
 				Env{
 					Name:  &name,
 					Value: &valueSecretKey,
@@ -603,7 +603,7 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"correct entry - single whole secret",
-			Envs{
+			[]Env{
 				Env{
 					Value: &valueSecret,
 				},
@@ -612,7 +612,7 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"correct entry - single whole configMap",
-			Envs{
+			[]Env{
 				Env{
 					Value: &valueConfigMap,
 				},
@@ -621,7 +621,7 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"correct entry - multiple whole secret",
-			Envs{
+			[]Env{
 				Env{
 					Value: &valueSecret,
 				},
@@ -636,7 +636,7 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"correct entry - both whole secret and configMap",
-			Envs{
+			[]Env{
 				Env{
 					Value: &valueSecret,
 				},
@@ -648,7 +648,7 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"incorrect entry - single whole secret",
-			Envs{
+			[]Env{
 				Env{
 					Value: &value,
 				},
@@ -657,7 +657,7 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"incorrect entry - multiple whole secret",
-			Envs{
+			[]Env{
 				Env{
 					Value: &valueSecretIncorrect,
 				},
@@ -687,7 +687,7 @@ func Test_validateEnvs(t *testing.T) {
 		},
 		{
 			"correct entry - all combinations",
-			Envs{
+			[]Env{
 				Env{
 					Name:  &name,
 					Value: &value,
@@ -779,12 +779,12 @@ func Test_validateLabels(t *testing.T) {
 
 	tests := []struct {
 		key    string
-		labels Labels
+		labels []Label
 		errs   int
 	}{
 		{
 			"correct entry - single label with value",
-			Labels{
+			[]Label{
 				Label{
 					Key:   &key,
 					Value: &value,
@@ -794,7 +794,7 @@ func Test_validateLabels(t *testing.T) {
 		},
 		{
 			"correct entry - prefixed label with value",
-			Labels{
+			[]Label{
 				Label{
 					Key:   &key3,
 					Value: &value3,
@@ -803,7 +803,7 @@ func Test_validateLabels(t *testing.T) {
 			0,
 		}, {
 			"incorrect entry - missing key",
-			Labels{
+			[]Label{
 				Label{
 					Value: &value,
 				},
@@ -811,7 +811,7 @@ func Test_validateLabels(t *testing.T) {
 			1,
 		}, {
 			"incorrect entry - missing multiple keys",
-			Labels{
+			[]Label{
 				Label{
 					Value: &value,
 				},
@@ -823,7 +823,7 @@ func Test_validateLabels(t *testing.T) {
 		},
 		{
 			"incorrect entry - invalid key",
-			Labels{
+			[]Label{
 				Label{
 					Key:   &incorrectKey,
 					Value: &value,
@@ -833,7 +833,7 @@ func Test_validateLabels(t *testing.T) {
 		},
 		{
 			"incorrect entry - invalid key2",
-			Labels{
+			[]Label{
 				Label{
 					Key:   &incorrectKey2,
 					Value: &value,
@@ -843,7 +843,7 @@ func Test_validateLabels(t *testing.T) {
 		},
 		{
 			"incorrect entry - invalid value",
-			Labels{
+			[]Label{
 				Label{
 					Key:   &key,
 					Value: &incorrectValue,
@@ -853,7 +853,7 @@ func Test_validateLabels(t *testing.T) {
 		},
 		{
 			"correct entry - multiple labels with value",
-			Labels{
+			[]Label{
 				Label{
 					Key:   &key,
 					Value: &value,
@@ -867,7 +867,7 @@ func Test_validateLabels(t *testing.T) {
 		},
 		{
 			"correct entry - missing value - multiple labels",
-			Labels{
+			[]Label{
 				Label{
 					Key: &key,
 				},
@@ -879,7 +879,7 @@ func Test_validateLabels(t *testing.T) {
 		},
 		{
 			"correct entry - single label with value from local env",
-			Labels{
+			[]Label{
 				Label{
 					Key:   &key,
 					Value: &valueLocalEnv,
@@ -889,7 +889,7 @@ func Test_validateLabels(t *testing.T) {
 		},
 		{
 			"correct entry - multiple labels with values from Local env",
-			Labels{
+			[]Label{
 				Label{
 					Key:   &key,
 					Value: &valueLocalEnv,
@@ -907,7 +907,7 @@ func Test_validateLabels(t *testing.T) {
 		},
 		{
 			"incorrect entry - multiple labels with values from Local env",
-			Labels{
+			[]Label{
 				Label{
 					Key:   &key,
 					Value: &valueLocalEnv,
@@ -929,7 +929,7 @@ func Test_validateLabels(t *testing.T) {
 		},
 		{
 			"correct entry - good environment variable value",
-			Labels{
+			[]Label{
 				Label{
 					Key:   &key,
 					Value: &valueLocalEnv4,
@@ -938,7 +938,7 @@ func Test_validateLabels(t *testing.T) {
 			0,
 		}, {
 			"incorrect entry - bad environment variable value",
-			Labels{
+			[]Label{
 				Label{
 					Key:   &key,
 					Value: &valueLocalEnvIncorrect4,
@@ -948,7 +948,7 @@ func Test_validateLabels(t *testing.T) {
 		},
 		{
 			"correct entry - all combinations",
-			Labels{
+			[]Label{
 				Label{
 					Key:   &key,
 					Value: &value,

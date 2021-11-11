@@ -30,7 +30,7 @@ func (m *mockFunctionLoaderSaver) Save(f fn.Function) error {
 	return nil
 }
 
-func assertLabelEq(t *testing.T, actual fn.Labels, want fn.Labels) {
+func assertLabelEq(t *testing.T, actual []fn.Label, want []fn.Label) {
 	t.Helper()
 	if !reflect.DeepEqual(actual, want) {
 		t.Errorf("labels =  %v, want %v", actual, want)
@@ -113,22 +113,22 @@ func TestNewConfigLabelsCmd(t *testing.T) {
 		return fn.Label{Key: &k, Value: &v}
 	}
 
-	assertLabel := func(ps fn.Labels) {
+	assertLabel := func(ps []fn.Label) {
 		t.Helper()
 		assertLabelEq(t, *labels, ps)
 	}
 
 	run("add", enter, "a", enter, "b", enter)
-	assertLabel(fn.Labels{p("a", "b")})
+	assertLabel([]fn.Label{p("a", "b")})
 
 	run("add", enter, enter, "c", enter, "d", enter)
-	assertLabel(fn.Labels{p("a", "b"), p("c", "d")})
+	assertLabel([]fn.Label{p("a", "b"), p("c", "d")})
 
 	run("add", arrowUp, arrowUp, enter, enter, "e", enter, "f", enter)
-	assertLabel(fn.Labels{p("e", "f"), p("a", "b"), p("c", "d")})
+	assertLabel([]fn.Label{p("e", "f"), p("a", "b"), p("c", "d")})
 
 	run("remove", arrowDown, enter)
-	assertLabel(fn.Labels{p("e", "f"), p("c", "d")})
+	assertLabel([]fn.Label{p("e", "f"), p("c", "d")})
 }
 
 func TestListLabels(t *testing.T) {
