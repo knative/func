@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v2"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -146,6 +147,7 @@ type Config struct {
 	Annotations     map[string]string `yaml:"annotations"`
 	Options         Options           `yaml:"options"`
 	Labels          Labels            `yaml:"labels"`
+	Created         time.Time         `yaml:"created"`
 	// Add new values to the toConfig/fromConfig functions.
 }
 
@@ -268,6 +270,7 @@ func fromConfig(c Config) (f Function) {
 		Annotations:     c.Annotations,
 		Options:         c.Options,
 		Labels:          c.Labels,
+		Created:         c.Created,
 	}
 }
 
@@ -289,6 +292,7 @@ func toConfig(f Function) Config {
 		Annotations:     f.Annotations,
 		Options:         f.Options,
 		Labels:          f.Labels,
+		Created:         f.Created,
 	}
 }
 
