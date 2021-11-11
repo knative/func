@@ -18,7 +18,7 @@
 
   <properties>
     <java.version>11</java.version>
-    <spring-cloud-function.version>3.1.1</spring-cloud-function.version>
+    <spring-cloud.version>2020.0.4</spring-cloud.version>
     <spring-native.version>0.10.3</spring-native.version>
     <compiler-plugin.version>3.8.1</compiler-plugin.version>
     <maven.compiler.parameters>true</maven.compiler.parameters>
@@ -32,8 +32,8 @@
     <dependencies>
       <dependency>
         <groupId>org.springframework.cloud</groupId>
-        <artifactId>spring-cloud-function-dependencies</artifactId>
-        <version>${spring-cloud-function.version}</version>
+        <artifactId>spring-cloud-dependencies</artifactId>
+        <version>${spring-cloud.version}</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -42,8 +42,12 @@
 
   <dependencies>
     <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-webflux</artifactId>
+    </dependency>
+    <dependency>
       <groupId>org.springframework.cloud</groupId>
-      <artifactId>spring-cloud-starter-function-webflux</artifactId>
+      <artifactId>spring-cloud-starter-function-web</artifactId>
     </dependency>
     <dependency>
       <groupId>org.springframework.cloud</groupId>
