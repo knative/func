@@ -555,18 +555,15 @@ func (c *Client) Build(ctx context.Context, path string) (err error) {
 
 	f, err := NewFunction(path)
 	if err != nil {
-		fmt.Println("NewFunction failed:", err)
 		return
 	}
 
 	// Derive Image from the path (precedence is given to extant config)
 	if f.Image, err = DerivedImage(path, c.registry); err != nil {
-		fmt.Println("DerivedImage failed:", err)
 		return
 	}
 
 	if err = c.builder.Build(ctx, f); err != nil {
-		fmt.Println("Build failed:", err)
 		return
 	}
 
