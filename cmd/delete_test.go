@@ -63,6 +63,7 @@ builders:
 envs: []
 annotations: {}
 labels: []
+created: 2021-01-01T00:00:00+00:00
 `
 	if err := ioutil.WriteFile("func.yaml", []byte(funcYaml), 0600); err != nil {
 		t.Fatal(err)

@@ -481,7 +481,8 @@ func (c *Client) Create(f Function) (err error) {
 		return
 	}
 
-	// Write the Function metadata (func.yaml)
+	// Mark it as having been created via this client library and Write (save)
+	f.Created = time.Now()
 	if err = writeConfig(f); err != nil {
 		return
 	}

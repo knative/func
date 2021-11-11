@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+	"time"
 
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/mock"
@@ -874,6 +875,29 @@ func TestRuntimes(t *testing.T) {
 		t.Logf("expected: %v", expected)
 		t.Logf("received: %v", runtimes)
 		t.Fatal("Runtimes not as expected.")
+	}
+}
+
+// TestCreateStamp ensures that the creation timestamp is set on functions
+// which are successfully initialized using the client library.
+func TestCreateStamp(t *testing.T) {
+	root := "testdata/example.com/testCreateStamp"
+	defer using(t, root)()
+
+	start := time.Now()
+
+	client := fn.New(fn.WithRegistry(TestRegistry))
+
+	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !f.Created.After(start) {
+		t.Fatalf("expected function timestamp to be after '%v', got '%v'", start, f.Created)
 	}
 }
 

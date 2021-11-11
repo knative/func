@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 type Function struct {
@@ -75,6 +76,11 @@ type Function struct {
 
 	// Health endpoints specified by the language pack
 	HealthEndpoints HealthEndpoints
+
+	// Created time is the moment that creation was successfully completed
+	// according to the client which is in charge of what constitutes being
+	// fully "Created" (aka initialized)
+	Created time.Time
 }
 
 // NewFunction loads a Function from a path on disk. use .Initialized() to determine if

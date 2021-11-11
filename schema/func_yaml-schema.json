@@ -18,7 +18,8 @@
 				"envs",
 				"annotations",
 				"options",
-				"labels"
+				"labels",
+				"created"
 			],
 			"properties": {
 				"name": {
@@ -96,6 +97,10 @@
 						"$ref": "#/definitions/Label"
 					},
 					"type": "array"
+				},
+				"created": {
+					"type": "string",
+					"format": "date-time"
 				}
 			},
 			"additionalProperties": false,
