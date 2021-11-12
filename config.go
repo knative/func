@@ -169,86 +169,53 @@ func newConfig(root string) (c Config, err error) {
 	if err != nil {
 		return
 	}
+	if err = yaml.UnmarshalStrict(bb, &c); err != nil {
+		return c, formatUnmarshalError(err) // fail fast on sytax errors
+	}
+	return c, validateConfig(c)
+}
 
-	errMsg := ""
-	errMsgHeader := "'func.yaml' config file is not valid:\n"
-	errMsgReg := regexp.MustCompile("not found in type .*")
+func formatUnmarshalError(err error) error {
+	var (
+		e      = err.Error()
+		rxp    = regexp.MustCompile("not found in type .*")
+		header = fmt.Sprintf("'%v' is not valid:\n", ConfigFile)
+	)
+	if strings.HasPrefix(e, "yaml: unmarshal errors:") {
+		e = rxp.ReplaceAllString(e, "is not valid")
+		e = strings.Replace(e, "yaml: unmarshal errors:\n", header, 1)
+	} else if strings.HasPrefix(e, "yaml:") {
+		e = rxp.ReplaceAllString(e, "is not valid")
+		e = strings.Replace(e, "yaml: ", header+"  ", 1)
+	}
+	return errors.New(e)
+}
 
-	// Let's try to unmarshal the config file, any fields that are found
-	// in the data that do not have corresponding struct members, or mapping
-	// keys that are duplicates, will result in an error.
-	err = yaml.UnmarshalStrict(bb, &c)
-	if err != nil {
-		errMsg = err.Error()
-
-		if strings.HasPrefix(errMsg, "yaml: unmarshal errors:") {
-			errMsg = errMsgReg.ReplaceAllString(errMsg, "is not valid")
-			errMsg = strings.Replace(errMsg, "yaml: unmarshal errors:\n", errMsgHeader, 1)
-		} else if strings.HasPrefix(errMsg, "yaml:") {
-			errMsg = errMsgReg.ReplaceAllString(errMsg, "is not valid")
-			errMsg = strings.Replace(errMsg, "yaml: ", errMsgHeader+"  ", 1)
-		}
+func validateConfig(c Config) error {
+	errs := [][]string{
+		validateVolumes(c.Volumes),
+		ValidateBuildEnvs(c.BuildEnvs),
+		ValidateEnvs(c.Envs),
+		validateOptions(c.Options),
+		ValidateLabels(c.Labels),
 	}
 
-	// Let's check that all entries in `volumes`, `buildEnvs`, `envs` and `options` contain all required fields
-	volumesErrors := validateVolumes(c.Volumes)
-	buildEnvsErrors := ValidateBuildEnvs((c.BuildEnvs))
-	envsErrors := ValidateEnvs(c.Envs)
-	optionsErrors := validateOptions(c.Options)
-	labelsErrors := ValidateLabels(c.Labels)
-	if len(volumesErrors) > 0 || len(buildEnvsErrors) > 0 || len(envsErrors) > 0 || len(optionsErrors) > 0 || len(labelsErrors) > 0 {
-		// if there aren't any previously reported errors, we need to set the error message header first
-		if errMsg == "" {
-			errMsg = errMsgHeader
-		} else {
-			// if there are some previously reporeted errors, we need to indent them
-			errMsg = errMsg + "\n"
+	var ctr int
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("'%v' contains errors:", ConfigFile))
+	for _, ee := range errs {
+		if len(ee) > 0 {
+			b.WriteString("\n") // Precede each group of errors with a linebreak
 		}
-
-		// lets make the error message a little bit nice -> indent each error message
-		for i := range volumesErrors {
-			volumesErrors[i] = "  " + volumesErrors[i]
+		for _, e := range ee {
+			ctr++
+			b.WriteString("\t" + e)
 		}
-		for i := range buildEnvsErrors {
-			buildEnvsErrors[i] = "  " + buildEnvsErrors[i]
-		}
-		for i := range envsErrors {
-			envsErrors[i] = "  " + envsErrors[i]
-		}
-		for i := range optionsErrors {
-			optionsErrors[i] = "  " + optionsErrors[i]
-		}
-		for i := range labelsErrors {
-			labelsErrors[i] = "  " + labelsErrors[i]
-		}
-		errMsg = errMsg + strings.Join(volumesErrors, "\n")
-		// we have errors from both volumes and buildEnvs sections -> let's make sure they are both indented
-		if len(buildEnvsErrors) > 0 && len(volumesErrors) > 0 {
-			errMsg = errMsg + "\n"
-		}
-		errMsg = errMsg + strings.Join(buildEnvsErrors, "\n")
-		// we have errors from volumes, buildEnvs and envs sections -> let's make sure they are indented
-		if len(envsErrors) > 0 && (len(volumesErrors) > 0 || len(buildEnvsErrors) > 0) {
-			errMsg = errMsg + "\n"
-		}
-		errMsg = errMsg + strings.Join(envsErrors, "\n")
-		// lets indent options related errors if there are already some set
-		if len(optionsErrors) > 0 && (len(volumesErrors) > 0 || len(buildEnvsErrors) > 0 || len(envsErrors) > 0) {
-			errMsg = errMsg + "\n"
-		}
-		errMsg = errMsg + strings.Join(optionsErrors, "\n")
-		// now also handle labels related errors
-		if len(labelsErrors) > 0 && (len(optionsErrors) > 0 || len(volumesErrors) > 0 || len(buildEnvsErrors) > 0 || len(envsErrors) > 0) {
-			errMsg = errMsg + "\n"
-		}
-		errMsg = errMsg + strings.Join(labelsErrors, "\n")
 	}
-
-	if errMsg != "" {
-		err = errors.New(errMsg)
+	if ctr == 0 {
+		return nil // No errors were encountered
 	}
-
-	return
+	return errors.New(b.String())
 }
 
 // fromConfig returns a Function populated from config.
