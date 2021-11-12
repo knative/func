@@ -488,6 +488,8 @@ func handlerForCredHelper(t *testing.T, credHelper credentials.Helper) http.Hand
 
 }
 
+// Go source code of mock docker-credential-helper implementation.
+// Its storage is backed by inMemoryHelper instantiated in test and exposed via HTTP.
 const helperGoSrc = `package main
 
 import (

@@ -32,6 +32,8 @@ func TestNewDockerClientWithAutomaticPodman(t *testing.T) {
 
 }
 
+// Go source code of mock podman implementation.
+// It just emulates docker /_ping endpoint for all URIs.
 const mockPodmanSrc = `package main
 
 import (
