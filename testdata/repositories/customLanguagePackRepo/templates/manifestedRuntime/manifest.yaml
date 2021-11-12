@@ -8,5 +8,5 @@ buildpacks:
   - runtimeBuildpack
 
 buildEnvs:
-  - name: "TEST_VARIABLE"
-    value: "test"
+  - name: "TEST_RUNTIME_VARIABLE"
+    value: "test-runtime"

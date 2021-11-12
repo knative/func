@@ -13,3 +13,7 @@ healthEndpoints:
 # Repo-wide setting for buildpacks
 buildpacks:
   - repoBuildpack
+
+buildEnvs:
+  - name: "TEST_REPO_VARIABLE"
+    value: "test-repo"

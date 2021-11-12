@@ -6,14 +6,13 @@ package function_test
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
 	"testing"
 
-	"gopkg.in/yaml.v2"
+	"github.com/google/go-cmp/cmp"
 
 	fn "knative.dev/kn-plugin-func"
 	. "knative.dev/kn-plugin-func/testing"
@@ -382,9 +381,11 @@ func TestTemplateModeRemote(t *testing.T) {
 
 // TODO: test typed errors for custom and remote (embedded checked)
 
-func TestTemplateFuncYAML(t *testing.T) {
+// TestRuntimeManifestBuildEnvs ensures that BuildEnvs specified in a
+// runtimes's manifest are included in the final Function.
+func TestRuntimeManifestBuildEnvs(t *testing.T) {
 	// create test directory
-	root := "testdata/testTemplateEmbeddedYAML"
+	root := "testdata/testRuntimeManifestBuildEnvs"
 	defer using(t, root)()
 
 	// Client whose internal templates will be used.
@@ -408,19 +409,8 @@ func TestTemplateFuncYAML(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	funcByteArray, err := ioutil.ReadFile(filepath.Join(root, "func.yaml"))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	config := fn.Config{}
-	err = yaml.Unmarshal(funcByteArray, &config)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	testVariableName := "TEST_VARIABLE"
-	testVariableValue := "test"
+	testVariableName := "TEST_RUNTIME_VARIABLE"
+	testVariableValue := "test-runtime"
 
 	envs := fn.Envs{
 		fn.Env{
@@ -428,8 +418,113 @@ func TestTemplateFuncYAML(t *testing.T) {
 			Value: &testVariableValue,
 		},
 	}
-	if !reflect.DeepEqual(config.BuildEnvs, envs) {
-		t.Fatal("BuildEnvs missing in generated func.yaml")
+
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(f.BuildEnvs, envs) {
+		if diff := cmp.Diff(f.BuildEnvs, envs); diff != "" {
+			t.Fatalf("Unexpected difference between runtime's manifest.yaml buildEnvs and Function BuildEnvs (-want, +got): %v", diff)
+		}
+	}
+}
+
+// TestTemplateManifestBuildEnvs ensures that BuildEnvs specified in a
+// template's manifest are included in the final Function.
+func TestTemplateManifestBuildEnvs(t *testing.T) {
+	// create test directory
+	root := "testdata/testTemplateManifestBuildEnvs"
+	defer using(t, root)()
+
+	// Client whose internal templates will be used.
+	client := fn.New(
+		fn.WithRegistry(TestRegistry),
+		fn.WithRepositories("testdata/repositories"))
+
+	// write out a template
+	err := client.Create(fn.Function{
+		Root:     root,
+		Runtime:  "manifestedRuntime",
+		Template: "customLanguagePackRepo/manifestedTemplate",
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 
+	// Assert file exists as expected
+	_, err = os.Stat(filepath.Join(root, "func.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testVariableName := "TEST_TEMPLATE_VARIABLE"
+	testVariableValue := "test-template"
+
+	envs := fn.Envs{
+		fn.Env{
+			Name:  &testVariableName,
+			Value: &testVariableValue,
+		},
+	}
+
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(f.BuildEnvs, envs) {
+		if diff := cmp.Diff(f.BuildEnvs, envs); diff != "" {
+			t.Fatalf("Unexpected difference between template's manifest.yaml buildEnvs and Function BuildEnvs (-want, +got): %v", diff)
+		}
+	}
+}
+
+// TestRepositoryManifestBuildEnvs ensures that BuildEnvs specified in a
+// repository's manifest are included in the final Function.
+func TestRepositoryManifestBuildEnvs(t *testing.T) {
+	// create test directory
+	root := "testdata/testRepositoryManifestBuildEnvs"
+	defer using(t, root)()
+
+	// Client whose internal templates will be used.
+	client := fn.New(
+		fn.WithRegistry(TestRegistry),
+		fn.WithRepositories("testdata/repositories"))
+
+	// write out a template
+	err := client.Create(fn.Function{
+		Root:     root,
+		Runtime:  "customRuntime",
+		Template: "customLanguagePackRepo/customTemplate",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Assert file exists as expected
+	_, err = os.Stat(filepath.Join(root, "func.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testVariableName := "TEST_REPO_VARIABLE"
+	testVariableValue := "test-repo"
+
+	envs := fn.Envs{
+		fn.Env{
+			Name:  &testVariableName,
+			Value: &testVariableValue,
+		},
+	}
+
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(f.BuildEnvs, envs) {
+		if diff := cmp.Diff(f.BuildEnvs, envs); diff != "" {
+			t.Fatalf("Unexpected difference between repository's manifest.yaml buildEnvs and Function BuildEnvs (-want, +got): %v", diff)
+		}
+
+	}
 }
