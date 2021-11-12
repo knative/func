@@ -20,6 +20,8 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -126,4 +128,64 @@ func TestRepoURI(name string, t *testing.T) string {
 	cwd, _ := os.Getwd()
 	repo := filepath.Join(cwd, "testdata", name+".git")
 	return fmt.Sprintf(`file://%s`, repo)
+}
+
+// WithEnvVar sets an environment variable
+// and returns deferrable function that restores previous value of the environment variable.
+func WithEnvVar(t *testing.T, name, value string) func() {
+	t.Helper()
+	oldDh, hadDh := os.LookupEnv(name)
+	err := os.Setenv(name, value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return func() {
+		if hadDh {
+			_ = os.Setenv(name, oldDh)
+		} else {
+			_ = os.Unsetenv(name)
+		}
+	}
+}
+
+func WithExecutable(t *testing.T, name, goSrc string) func() {
+	var err error
+	binDir := t.TempDir()
+
+	newPath := binDir + string(os.PathListSeparator) + os.Getenv("PATH")
+	cleanUpPath := WithEnvVar(t, "PATH", newPath)
+
+	goSrcPath := filepath.Join(binDir, fmt.Sprintf("%s.go", name))
+
+	err = ioutil.WriteFile(goSrcPath,
+		[]byte(goSrc),
+		0400)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	runnerScriptName := name
+	if runtime.GOOS == "windows" {
+		runnerScriptName = runnerScriptName + ".bat"
+	}
+
+	runnerScriptSrc := `#!/bin/sh
+exec go run GO_SCRIPT_PATH $@;
+`
+	if runtime.GOOS == "windows" {
+		runnerScriptSrc = `@echo off
+go.exe run GO_SCRIPT_PATH %*
+`
+	}
+
+	runnerScriptPath := filepath.Join(binDir, runnerScriptName)
+	runnerScriptSrc = strings.ReplaceAll(runnerScriptSrc, "GO_SCRIPT_PATH", goSrcPath)
+	err = ioutil.WriteFile(runnerScriptPath, []byte(runnerScriptSrc), 0700)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return func() {
+		cleanUpPath()
+	}
 }
