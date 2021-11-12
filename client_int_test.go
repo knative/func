@@ -14,6 +14,7 @@ import (
 	"knative.dev/kn-plugin-func/buildpacks"
 	"knative.dev/kn-plugin-func/docker"
 	"knative.dev/kn-plugin-func/knative"
+	. "knative.dev/kn-plugin-func/testing"
 )
 
 /*
@@ -80,7 +81,7 @@ func TestList(t *testing.T) {
 
 // TestNew creates
 func TestNew(t *testing.T) {
-	defer within(t, "testdata/example.com/testnew")()
+	defer Within(t, "testdata/example.com/testnew")()
 	verbose := true
 
 	client := newClient(verbose)
@@ -107,7 +108,7 @@ func TestNew(t *testing.T) {
 
 // TestDeploy updates
 func TestDeploy(t *testing.T) {
-	defer within(t, "testdata/example.com/deploy")()
+	defer Within(t, "testdata/example.com/deploy")()
 	verbose := true
 
 	client := newClient(verbose)
@@ -124,7 +125,7 @@ func TestDeploy(t *testing.T) {
 
 // TestRemove deletes
 func TestRemove(t *testing.T) {
-	defer within(t, "testdata/example.com/remove")()
+	defer Within(t, "testdata/example.com/remove")()
 	verbose := true
 
 	client := newClient(verbose)
@@ -154,7 +155,7 @@ func TestRemove(t *testing.T) {
 // templates' copyNode which forces mode 755 for directories.
 // See https://github.com/go-git/go-git/issues/364
 func TestRemoteRepositories(t *testing.T) {
-	defer within(t, "testdata/example.com/remote")()
+	defer Within(t, "testdata/example.com/remote")()
 
 	// Write the test template from the remote onto root
 	client := fn.New(
@@ -280,21 +281,5 @@ func waitFor(t *testing.T, c *fn.Client, name string) {
 			}
 		}
 		time.Sleep(pollInterval)
-	}
-}
-
-// Create the given directory, CD to it, and return a function which can be
-// run in a defer statement to return to the original directory and cleanup.
-// Note must be executed, not deferred itself
-// NO:  defer within(t, "somedir")
-// YES: defer within(t, "somedir")()
-func within(t *testing.T, root string) func() {
-	t.Helper()
-	cwd := pwd(t)
-	mkdir(t, root)
-	cd(t, root)
-	return func() {
-		cd(t, cwd)
-		rm(t, root)
 	}
 }
