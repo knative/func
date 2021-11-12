@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-
 	"knative.dev/kn-plugin-func/docker"
 	. "knative.dev/kn-plugin-func/testing"
 

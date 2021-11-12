@@ -9,10 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/docker/docker-credential-helpers/credentials"
 	"io/ioutil"
-	fn "knative.dev/kn-plugin-func"
-	. "knative.dev/kn-plugin-func/testing"
 	"net"
 	"net/http"
 	"os"
@@ -22,6 +19,11 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	fn "knative.dev/kn-plugin-func"
+	. "knative.dev/kn-plugin-func/testing"
+
+	"github.com/docker/docker-credential-helpers/credentials"
 )
 
 func Test_parseDigest(t *testing.T) {
