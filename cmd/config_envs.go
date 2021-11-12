@@ -407,7 +407,7 @@ func runRemoveEnvsPrompt(f fn.Function) (err error) {
 		return
 	}
 
-	var newEnvs fn.Envs
+	var newEnvs []fn.Env
 	removed := false
 	for i, e := range f.Envs {
 		if e.String() == selectedEnv {

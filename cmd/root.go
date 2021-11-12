@@ -299,7 +299,7 @@ func envFromCmd(cmd *cobra.Command) (*util.OrderedMap, []string, error) {
 	return util.NewOrderedMap(), []string{}, nil
 }
 
-func mergeEnvs(envs fn.Envs, envToUpdate *util.OrderedMap, envToRemove []string) (fn.Envs, error) {
+func mergeEnvs(envs []fn.Env, envToUpdate *util.OrderedMap, envToRemove []string) ([]fn.Env, error) {
 	updated := sets.NewString()
 
 	for i := range envs {
@@ -332,7 +332,7 @@ func mergeEnvs(envs fn.Envs, envToUpdate *util.OrderedMap, envToRemove []string)
 
 	errMsg := fn.ValidateEnvs(envs)
 	if len(errMsg) > 0 {
-		return fn.Envs{}, fmt.Errorf(strings.Join(errMsg, "\n"))
+		return []fn.Env{}, fmt.Errorf(strings.Join(errMsg, "\n"))
 	}
 
 	return envs, nil

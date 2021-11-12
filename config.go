@@ -26,7 +26,6 @@ var (
 	regLocalEnv         = regexp.MustCompile(`^{{\s*env:(\w+)\s*}}$`)
 )
 
-type Volumes []Volume
 type Volume struct {
 	Secret    *string `yaml:"secret,omitempty" jsonschema:"oneof_required=secret"`
 	ConfigMap *string `yaml:"configMap,omitempty" jsonschema:"oneof_required=configmap"`
@@ -43,7 +42,6 @@ func (v Volume) String() string {
 	return ""
 }
 
-type Envs []Env
 type Env struct {
 	Name  *string `yaml:"name,omitempty" jsonschema:"pattern=^[-._a-zA-Z][-._a-zA-Z0-9]*$"`
 	Value *string `yaml:"value"`
@@ -78,7 +76,6 @@ func (e Env) String() string {
 	return ""
 }
 
-type Labels []Label
 type Label struct {
 	// Key consist of optional prefix part (ended by '/') and name part
 	// Prefix part validation pattern: [a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*
@@ -141,12 +138,12 @@ type Config struct {
 	Builders        map[string]string `yaml:"builders"`
 	Buildpacks      []string          `yaml:"buildpacks"`
 	HealthEndpoints HealthEndpoints   `yaml:"healthEndpoints"`
-	Volumes         Volumes           `yaml:"volumes"`
-	BuildEnvs       Envs              `yaml:"buildEnvs"`
-	Envs            Envs              `yaml:"envs"`
+	Volumes         []Volume          `yaml:"volumes"`
+	BuildEnvs       []Env             `yaml:"buildEnvs"`
+	Envs            []Env             `yaml:"envs"`
 	Annotations     map[string]string `yaml:"annotations"`
 	Options         Options           `yaml:"options"`
-	Labels          Labels            `yaml:"labels"`
+	Labels          []Label           `yaml:"labels"`
 	Created         time.Time         `yaml:"created"`
 	// Add new values to the toConfig/fromConfig functions.
 }
@@ -282,7 +279,7 @@ func writeConfig(f Function) (err error) {
 // 	 path: /etc/secret-volume
 // - configMap: example-configMap              	# mount ConfigMap as Volume
 // 	 path: /etc/configMap-volume
-func validateVolumes(volumes Volumes) (errors []string) {
+func validateVolumes(volumes []Volume) (errors []string) {
 
 	for i, vol := range volumes {
 		if vol.Secret != nil && vol.ConfigMap != nil {
@@ -312,7 +309,7 @@ func validateVolumes(volumes Volumes) (errors []string) {
 //   value: value1
 // - name: EXAMPLE2                 				# ENV from the local ENV var
 //   value: {{ env:MY_ENV }}
-func ValidateBuildEnvs(envs Envs) (errors []string) {
+func ValidateBuildEnvs(envs []Env) (errors []string) {
 	for i, env := range envs {
 		if env.Name == nil && env.Value == nil {
 			errors = append(errors, fmt.Sprintf("env entry #%d is not properly set", i))
@@ -353,7 +350,7 @@ func ValidateBuildEnvs(envs Envs) (errors []string) {
 // - name: EXAMPLE4
 //   value: {{ configMap:configMapName:key }}   	# ENV from a key in configMap
 // - value: {{ configMap:configMapName }}          	# all key-pair values from configMap are set as ENV
-func ValidateEnvs(envs Envs) (errors []string) {
+func ValidateEnvs(envs []Env) (errors []string) {
 	for i, env := range envs {
 		if env.Name == nil && env.Value == nil {
 			errors = append(errors, fmt.Sprintf("env entry #%d is not properly set", i))
@@ -396,7 +393,7 @@ func ValidateEnvs(envs Envs) (errors []string) {
 //   value: value1
 // - key: EXAMPLE2                 				# label from the local ENV var
 //   value: {{ env:MY_ENV }}
-func ValidateLabels(labels Labels) (errors []string) {
+func ValidateLabels(labels []Label) (errors []string) {
 	for i, label := range labels {
 		if label.Key == nil && label.Value == nil {
 			errors = append(errors, fmt.Sprintf("label entry #%d is not properly set", i))

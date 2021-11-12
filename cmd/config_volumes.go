@@ -224,7 +224,7 @@ func runRemoveVolumesPrompt(f fn.Function) (err error) {
 		return
 	}
 
-	var newVolumes fn.Volumes
+	var newVolumes []fn.Volume
 	removed := false
 	for i, v := range f.Volumes {
 		if v.String() == selectedVolume {

@@ -56,13 +56,13 @@ type Function struct {
 	Buildpacks []string
 
 	// List of volumes to be mounted to the function
-	Volumes Volumes
+	Volumes []Volume
 
 	// Build Env variables to be set
-	BuildEnvs Envs
+	BuildEnvs []Env
 
 	// Env variables to be set
-	Envs Envs
+	Envs []Env
 
 	// Map containing user-supplied annotations
 	// Example: { "division": "finance" }
@@ -72,7 +72,7 @@ type Function struct {
 	Options Options
 
 	// Map of user-supplied labels
-	Labels Labels
+	Labels []Label
 
 	// Health endpoints specified by the language pack
 	HealthEndpoints HealthEndpoints
