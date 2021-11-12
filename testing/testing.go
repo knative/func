@@ -5,7 +5,7 @@
 // sugar and closures for creating an removing test directories etc.
 // It was originally included in each of the requisite testing packages, but
 // since we use both private-access enabled tests (in the function package),
-// as well as black-box tests (in function_test package), and they are gradually
+// as well as closed-box tests (in function_test package), and they are gradually
 // increasing in size and complexity, the choice was made to choose a small
 // dependency over a small amount of copying.
 //
@@ -54,7 +54,7 @@ func rm(t *testing.T, dir string) {
 
 // Within the given root creates the directory, CDs to it, and rturns a
 // closure that when executed (intended in a defer) removes the given dirctory
-// and returns the caller to the inital working directory.
+// and returns the caller to the initial working directory.
 // usage:
 //   defer within(t, "somedir")()
 func Within(t *testing.T, root string) func() {
