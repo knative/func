@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	fn "knative.dev/kn-plugin-func"
+	. "knative.dev/kn-plugin-func/testing"
 )
 
 func TestFunction_ImageWithDigest(t *testing.T) {
@@ -118,7 +119,7 @@ func Test_DerivedImage(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			root := "testdata/" + tt.fnName
-			defer using(t, root)()
+			defer Using(t, root)()
 
 			f := fn.Function{
 				Name:  tt.fnName,

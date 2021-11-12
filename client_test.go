@@ -16,6 +16,7 @@ import (
 
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/mock"
+	. "knative.dev/kn-plugin-func/testing"
 )
 
 const (
@@ -35,7 +36,7 @@ const (
 // by the client API for those who prefer manual transmissions.
 func TestNew(t *testing.T) {
 	root := "testdata/example.com/testNew"
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
 
@@ -48,7 +49,7 @@ func TestNew(t *testing.T) {
 // are written on new.
 func TestWritesTemplate(t *testing.T) {
 	root := "testdata/example.com/testWritesTemplate"
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
 
@@ -71,7 +72,7 @@ func TestWritesTemplate(t *testing.T) {
 // Function does not reinitialize.
 func TestExtantAborts(t *testing.T) {
 	root := "testdata/example.com/testExtantAborts"
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
 
@@ -90,7 +91,7 @@ func TestExtantAborts(t *testing.T) {
 // (visible) files aborts.
 func TestNonemptyAborts(t *testing.T) {
 	root := "testdata/example.com/testNonemptyAborts"
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
 
@@ -114,7 +115,7 @@ func TestNonemptyAborts(t *testing.T) {
 func TestHiddenFilesIgnored(t *testing.T) {
 	// Create a directory for the Function
 	root := "testdata/example.com/testHiddenFilesIgnored"
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
 
@@ -135,7 +136,7 @@ func TestHiddenFilesIgnored(t *testing.T) {
 func TestDefaultRuntime(t *testing.T) {
 	// Create a root for the new Function
 	root := "testdata/example.com/testDefaultRuntime"
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
 
@@ -167,7 +168,7 @@ func TestDefaultRuntime(t *testing.T) {
 // $HOME/.config/func/repositories/boson/go/json
 func TestRepositoriesExtensible(t *testing.T) {
 	root := "testdata/example.com/testRepositoriesExtensible"
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	client := fn.New(
 		fn.WithRepositories("testdata/repositories"),
@@ -189,7 +190,7 @@ func TestRepositoriesExtensible(t *testing.T) {
 // TestRuntimeNotFound generates an error (embedded default repository).
 func TestRuntimeNotFound(t *testing.T) {
 	root := "testdata/example.com/testRuntimeNotFound"
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
 
@@ -205,7 +206,7 @@ func TestRuntimeNotFound(t *testing.T) {
 // when the requested runtime is not found in a given custom repository
 func TestRuntimeNotFoundCustom(t *testing.T) {
 	root := "testdata/example.com/testRuntimeNotFoundCustom"
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	// Create a new client with path to the extensible templates
 	client := fn.New(
@@ -226,7 +227,7 @@ func TestRuntimeNotFoundCustom(t *testing.T) {
 // TestTemplateNotFound generates an error (embedded default repository).
 func TestTemplateNotFound(t *testing.T) {
 	root := "testdata/example.com/testTemplateNotFound"
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
 
@@ -243,7 +244,7 @@ func TestTemplateNotFound(t *testing.T) {
 // when the requested template is not found in the given custom repository.
 func TestTemplateNotFoundCustom(t *testing.T) {
 	root := "testdata/example.com/testTemplateNotFoundCustom"
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	// Create a new client with path to extensible templates
 	client := fn.New(
@@ -269,7 +270,7 @@ func TestNamed(t *testing.T) {
 	// Path which would derive to testWithHame.example.com were it not for the
 	// explicitly provided name.
 	root := "testdata/example.com/testNamed"
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
 
@@ -300,7 +301,7 @@ func TestNamed(t *testing.T) {
 func TestRegistryRequired(t *testing.T) {
 	// Create a root for the Function
 	root := "testdata/example.com/testRegistryRequired"
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	client := fn.New()
 	var err error
@@ -316,7 +317,7 @@ func TestRegistryRequired(t *testing.T) {
 func TestDeriveImage(t *testing.T) {
 	// Create the root Function directory
 	root := "testdata/example.com/testDeriveImage"
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	// Create the function which calculates fields such as name and image.
 	client := fn.New(fn.WithRegistry(TestRegistry))
@@ -343,7 +344,7 @@ func TestDeriveImage(t *testing.T) {
 func TestDeriveImageDefaultRegistry(t *testing.T) {
 	// Create the root Function directory
 	root := "testdata/example.com/testDeriveImageDefaultRegistry"
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	// Create the function which calculates fields such as name and image.
 	// Rather than use TestRegistry, use a single-token name and expect
@@ -380,7 +381,7 @@ func TestNewDelegates(t *testing.T) {
 	)
 
 	// Create a directory for the test
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	// Create a client with mocks for each of the subcomponents.
 	client := fn.New(
@@ -448,7 +449,7 @@ func TestNewDelegates(t *testing.T) {
 func TestRun(t *testing.T) {
 	// Create the root Function directory
 	root := "testdata/example.com/testRun"
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	// Create a client with the mock runner and the new test Function
 	runner := mock.NewRunner()
@@ -488,7 +489,7 @@ func TestUpdate(t *testing.T) {
 	)
 
 	// Create the root Function directory
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	// A client with mocks whose implementaton will validate input.
 	client := fn.New(
@@ -560,7 +561,7 @@ func TestRemoveByPath(t *testing.T) {
 		remover      = mock.NewRemover()
 	)
 
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	client := fn.New(
 		fn.WithRegistry(TestRegistry),
@@ -596,7 +597,7 @@ func TestRemoveByName(t *testing.T) {
 		remover      = mock.NewRemover()
 	)
 
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	client := fn.New(
 		fn.WithRegistry(TestRegistry),
@@ -637,7 +638,7 @@ func TestRemoveUninitializedFails(t *testing.T) {
 		root    = "testdata/example.com/testRemoveUninitializedFails"
 		remover = mock.NewRemover()
 	)
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	// remover fails if invoked
 	remover.RemoveFn = func(name string) error {
@@ -694,7 +695,7 @@ func TestListOutsideRoot(t *testing.T) {
 // yields an expected, and informative, error.
 func TestDeployUnbuilt(t *testing.T) {
 	root := "testdata/example.com/testDeployUnbuilt" // Root from which to run the test
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	// New Client
 	client := fn.New(fn.WithRegistry(TestRegistry))
@@ -744,7 +745,7 @@ func TestEmit(t *testing.T) {
 // not provided.
 func TestWithConfiguredBuilders(t *testing.T) {
 	root := "testdata/example.com/testConfiguredBuilders" // Root from which to run the test
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	builders := map[string]string{
 		"custom": "docker.io/example/custom",
@@ -777,7 +778,7 @@ func TestWithConfiguredBuilders(t *testing.T) {
 // keyed as "default", this is set as the default Builder.
 func TestWithConfiguredBuildersWithDefault(t *testing.T) {
 	root := "testdata/example.com/testConfiguredBuildersWithDefault" // Root from which to run the test
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	builders := map[string]string{
 		"custom":  "docker.io/example/custom",
@@ -810,7 +811,7 @@ func TestWithConfiguredBuildersWithDefault(t *testing.T) {
 // in the Function configuration when it is provided.
 func TestWithConfiguredBuildpacks(t *testing.T) {
 	root := "testdata/example.com/testConfiguredBuildpacks" // Root from which to run the test
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	buildpacks := []string{
 		"docker.io/example/custom-buildpack",
@@ -882,7 +883,7 @@ func TestRuntimes(t *testing.T) {
 // which are successfully initialized using the client library.
 func TestCreateStamp(t *testing.T) {
 	root := "testdata/example.com/testCreateStamp"
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	start := time.Now()
 
@@ -899,77 +900,4 @@ func TestCreateStamp(t *testing.T) {
 	if !f.Created.After(start) {
 		t.Fatalf("expected function timestamp to be after '%v', got '%v'", start, f.Created)
 	}
-}
-
-// Helpers ----
-
-// USING:  Make specified dir.  Return deferrable cleanup fn.
-func using(t *testing.T, root string) func() {
-	t.Helper()
-	mkdir(t, root)
-	return func() {
-		rm(t, root)
-	}
-}
-
-func mkdir(t *testing.T, dir string) {
-	t.Helper()
-	if err := os.MkdirAll(dir, 0700); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func rm(t *testing.T, dir string) {
-	t.Helper()
-	if err := os.RemoveAll(dir); err != nil {
-		t.Fatal(err)
-	}
-}
-
-// MKTEMP:  Create and CD to a temp dir.
-//          Returns a deferrable cleanup fn.
-func mktemp(t *testing.T) (string, func()) {
-	t.Helper()
-	tmp := tempdir(t)
-	owd := pwd(t)
-	cd(t, tmp)
-	return tmp, func() {
-		os.RemoveAll(tmp)
-		cd(t, owd)
-	}
-}
-
-func tempdir(t *testing.T) string {
-	d, err := ioutil.TempDir("", "dir")
-	if err != nil {
-		t.Fatal(err)
-	}
-	return d
-}
-
-func pwd(t *testing.T) string {
-	d, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	return d
-}
-
-func cd(t *testing.T, dir string) {
-	if err := os.Chdir(dir); err != nil {
-		t.Fatal(err)
-	}
-}
-
-// TEST REPO URI:  Return URI to repo in ./testdata of matching name.
-// Suitable as URI for repository override. returns in form file://
-// Must be called prior to mktemp in tests which changes current
-// working directory as it depends on a relative path.
-// Repo uri:  file://$(pwd)/testdata/repository.git (unix-like)
-//            file: //$(pwd)\testdata\repository.git (windows)
-func testRepoURI(name string, t *testing.T) string {
-	t.Helper()
-	cwd, _ := os.Getwd()
-	repo := filepath.Join(cwd, "testdata", name+".git")
-	return fmt.Sprintf(`file://%s`, repo)
 }

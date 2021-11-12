@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	fn "knative.dev/kn-plugin-func"
+	. "knative.dev/kn-plugin-func/testing"
 )
 
 // TestTemplatesList ensures that all templates are listed taking into account
@@ -101,7 +102,7 @@ func TestTemplatesGet(t *testing.T) {
 func TestTemplateEmbedded(t *testing.T) {
 	// create test directory
 	root := "testdata/testTemplateEmbedded"
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	// Client whose internal (builtin default) templates will be used.
 	client := fn.New(fn.WithRegistry(TestRegistry))
@@ -129,7 +130,7 @@ func TestTemplateEmbedded(t *testing.T) {
 func TestTemplateCustom(t *testing.T) {
 	// Create test directory
 	root := "testdata/testTemplateCustom"
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	// CLient which uses custom repositories
 	// in form [provider]/[template], on disk the template is
@@ -161,7 +162,7 @@ func TestTemplateCustom(t *testing.T) {
 // using this remote by default.
 func TestTemplateRemote(t *testing.T) {
 	root := "testdata/testTemplateRemote"
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	// The difference between HTTP vs File protocol is internal to the
 	// go-git library which implements the template writer.  As such
@@ -204,7 +205,7 @@ func TestTemplateRemote(t *testing.T) {
 func TestTemplateDefault(t *testing.T) {
 	// create test directory
 	root := "testdata/testTemplateDefault"
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
 
@@ -227,7 +228,7 @@ func TestTemplateDefault(t *testing.T) {
 func TestTemplateInvalidErrors(t *testing.T) {
 	// create test directory
 	root := "testdata/testTemplateInvalidErrors"
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
 
@@ -264,7 +265,7 @@ func TestTemplateModeEmbedded(t *testing.T) {
 
 	// set up test directory
 	root := "testdata/testTemplateModeEmbedded"
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
 
@@ -298,7 +299,7 @@ func TestTemplateModeCustom(t *testing.T) {
 
 	// test directories
 	root := "testdata/testTemplateModeCustom"
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	client := fn.New(
 		fn.WithRegistry(TestRegistry),
@@ -333,7 +334,7 @@ func TestTemplateModeRemote(t *testing.T) {
 
 	// test directories
 	root := "testdata/testTemplateModeRemote"
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	// Clone a repository from a local file path
 	cwd, err := os.Getwd()
