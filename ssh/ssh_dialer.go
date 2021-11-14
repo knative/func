@@ -37,6 +37,31 @@ type Config struct {
 
 type DialContextFn = func(ctx context.Context, network, addr string) (net.Conn, error)
 
+// NewDialContext allows access to docker daemon in a remote machine using SSH.
+//
+// It creates a new ContextDialer which dials docker daemon in the remote
+// and also returns Docker Host URI as seen by the remote.
+//
+// Knowing the Docker Host is useful when mounting docker socket into a container.
+//
+// Dialing the remote docker daemon can be done in two ways:
+//
+// - Use SSH to tunnel Unix/TCP socket.
+//
+// - Use SSH to execute the "docker system dial-stdio" command in the remote and forward its stdio.
+//
+//
+// The tunnel method is used whenever possible.
+// The "stdio" method is used as a fallback when tunneling is not possible:
+// e.g. when remote uses Windows' named pipe.
+//
+// When tunneling is used all connection dialed
+// by the returned ContextDialer are tunneled via single SSH connection.
+// The connection should be disposed when dialer is no longer needed.
+//
+// For this reason returned ContextDialer may also implement io.Closer.
+// Caller of this function should check if the returned ContextDialer
+// is also an instance of io.Closer and call Close() on it if it is.
 func NewDialContext(url *urlPkg.URL, config Config) (ContextDialer, string, error) {
 	sshConfig, err := NewSSHClientConfig(url, config)
 	if err != nil {
