@@ -8,7 +8,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net"
 	urlPkg "net/url"
@@ -38,7 +37,7 @@ type Config struct {
 
 type DialContextFn = func(ctx context.Context, network, addr string) (net.Conn, error)
 
-func NewDialContext(url *urlPkg.URL, config Config) (ContextDialerCloser, string, error) {
+func NewDialContext(url *urlPkg.URL, config Config) (ContextDialer, string, error) {
 	sshConfig, err := NewSSHClientConfig(url, config)
 	if err != nil {
 		return nil, "", err
@@ -75,12 +74,10 @@ func NewDialContext(url *urlPkg.URL, config Config) (ContextDialerCloser, string
 		return nil, "", err
 	}
 
-	var dialContext DialContextFn
-
 	if network == "npipe" {
 		// ssh tunneling doesn't support tunneling of Windows' named pipes
-		dialContext, err = stdioDialContext(url, sshClient, config.Identity)
-		return noopCloseDialContextCloser(dialContext), remoteDockerHost, err
+		dialContext, err := stdioDialContext(url, sshClient, config.Identity)
+		return contextDialerFn(dialContext), remoteDockerHost, err
 	}
 
 	d := dialer{sshClient: sshClient, addr: addr, network: network}
@@ -96,16 +93,13 @@ type dialer struct {
 	addr      string
 }
 
-type ContextDialerCloser interface {
-	io.Closer
+type ContextDialer interface {
 	DialContext(ctx context.Context, network, address string) (net.Conn, error)
 }
 
-type noopCloseDialContextCloser DialContextFn
+type contextDialerFn DialContextFn
 
-func (n noopCloseDialContextCloser) Close() error { return nil }
-
-func (n noopCloseDialContextCloser) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
+func (n contextDialerFn) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
 	return n(ctx, network, address)
 }
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -53,7 +54,7 @@ func NewClient(defaultHost string) (dockerClient client.CommonAPIClient, dockerH
 		PassPhraseCallback: ssh.NewPassPhraseCbk(),
 		HostKeyCallback:    ssh.NewHostKeyCbk(),
 	}
-	contextDialerCloser, dockerHost, err := ssh.NewDialContext(_url, credentialsConfig)
+	contextDialer, dockerHost, err := ssh.NewDialContext(_url, credentialsConfig)
 	if err != nil {
 		return
 	}
@@ -62,7 +63,7 @@ func NewClient(defaultHost string) (dockerClient client.CommonAPIClient, dockerH
 		// No tls
 		// No proxy
 		Transport: &http.Transport{
-			DialContext: contextDialerCloser.DialContext,
+			DialContext: contextDialer.DialContext,
 		},
 	}
 
@@ -70,11 +71,14 @@ func NewClient(defaultHost string) (dockerClient client.CommonAPIClient, dockerH
 		client.WithAPIVersionNegotiation(),
 		client.WithHTTPClient(httpClient),
 		client.WithHost("http://placeholder/"))
-	dockerClient = clientWithAdditionalCleanup{
-		pimpl: dockerClient,
-		cleanUp: func() {
-			contextDialerCloser.Close()
-		},
+
+	if closer, ok := contextDialer.(io.Closer); ok {
+		dockerClient = clientWithAdditionalCleanup{
+			pimpl: dockerClient,
+			cleanUp: func() {
+				closer.Close()
+			},
+		}
 	}
 
 	return dockerClient, dockerHost, err
