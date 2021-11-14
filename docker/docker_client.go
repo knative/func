@@ -101,9 +101,9 @@ func newClientWithPodmanService() (dockerClient client.CommonAPIClient, dockerHo
 		_ = cmd.Process.Signal(syscall.SIGTERM)
 		_ = os.RemoveAll(tmpDir)
 	}
-	dockerClient = withPodman{
-		pimpl:      dockerClient,
-		stopPodman: stopPodmanService,
+	dockerClient = clientWithAdditionalCleanup{
+		pimpl:   dockerClient,
+		cleanUp: stopPodmanService,
 	}
 
 	podmanServiceRunning := false
@@ -124,13 +124,13 @@ func newClientWithPodmanService() (dockerClient client.CommonAPIClient, dockerHo
 	return
 }
 
-type withPodman struct {
-	stopPodman func()
-	pimpl      client.CommonAPIClient
+type clientWithAdditionalCleanup struct {
+	cleanUp func()
+	pimpl   client.CommonAPIClient
 }
 
 // Close function need to stop associated podman service
-func (w withPodman) Close() error {
-	defer w.stopPodman()
+func (w clientWithAdditionalCleanup) Close() error {
+	defer w.cleanUp()
 	return w.pimpl.Close()
 }
