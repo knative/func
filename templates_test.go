@@ -12,6 +12,8 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+
 	fn "knative.dev/kn-plugin-func"
 	. "knative.dev/kn-plugin-func/testing"
 )
@@ -378,3 +380,151 @@ func TestTemplateModeRemote(t *testing.T) {
 }
 
 // TODO: test typed errors for custom and remote (embedded checked)
+
+// TestRuntimeManifestBuildEnvs ensures that BuildEnvs specified in a
+// runtimes's manifest are included in the final Function.
+func TestRuntimeManifestBuildEnvs(t *testing.T) {
+	// create test directory
+	root := "testdata/testRuntimeManifestBuildEnvs"
+	defer Using(t, root)()
+
+	// Client whose internal templates will be used.
+	client := fn.New(
+		fn.WithRegistry(TestRegistry),
+		fn.WithRepositories("testdata/repositories"))
+
+	// write out a template
+	err := client.Create(fn.Function{
+		Root:     root,
+		Runtime:  "manifestedRuntime",
+		Template: "customLanguagePackRepo/customTemplate",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Assert file exists as expected
+	_, err = os.Stat(filepath.Join(root, "func.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testVariableName := "TEST_RUNTIME_VARIABLE"
+	testVariableValue := "test-runtime"
+
+	envs := []fn.Env{
+		{
+			Name:  &testVariableName,
+			Value: &testVariableValue,
+		},
+	}
+
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(f.BuildEnvs, envs) {
+		if diff := cmp.Diff(f.BuildEnvs, envs); diff != "" {
+			t.Fatalf("Unexpected difference between runtime's manifest.yaml buildEnvs and Function BuildEnvs (-want, +got): %v", diff)
+		}
+	}
+}
+
+// TestTemplateManifestBuildEnvs ensures that BuildEnvs specified in a
+// template's manifest are included in the final Function.
+func TestTemplateManifestBuildEnvs(t *testing.T) {
+	// create test directory
+	root := "testdata/testTemplateManifestBuildEnvs"
+	defer Using(t, root)()
+
+	// Client whose internal templates will be used.
+	client := fn.New(
+		fn.WithRegistry(TestRegistry),
+		fn.WithRepositories("testdata/repositories"))
+
+	// write out a template
+	err := client.Create(fn.Function{
+		Root:     root,
+		Runtime:  "manifestedRuntime",
+		Template: "customLanguagePackRepo/manifestedTemplate",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Assert file exists as expected
+	_, err = os.Stat(filepath.Join(root, "func.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testVariableName := "TEST_TEMPLATE_VARIABLE"
+	testVariableValue := "test-template"
+
+	envs := []fn.Env{
+		{
+			Name:  &testVariableName,
+			Value: &testVariableValue,
+		},
+	}
+
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(f.BuildEnvs, envs) {
+		if diff := cmp.Diff(f.BuildEnvs, envs); diff != "" {
+			t.Fatalf("Unexpected difference between template's manifest.yaml buildEnvs and Function BuildEnvs (-want, +got): %v", diff)
+		}
+	}
+}
+
+// TestRepositoryManifestBuildEnvs ensures that BuildEnvs specified in a
+// repository's manifest are included in the final Function.
+func TestRepositoryManifestBuildEnvs(t *testing.T) {
+	// create test directory
+	root := "testdata/testRepositoryManifestBuildEnvs"
+	defer Using(t, root)()
+
+	// Client whose internal templates will be used.
+	client := fn.New(
+		fn.WithRegistry(TestRegistry),
+		fn.WithRepositories("testdata/repositories"))
+
+	// write out a template
+	err := client.Create(fn.Function{
+		Root:     root,
+		Runtime:  "customRuntime",
+		Template: "customLanguagePackRepo/customTemplate",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Assert file exists as expected
+	_, err = os.Stat(filepath.Join(root, "func.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testVariableName := "TEST_REPO_VARIABLE"
+	testVariableValue := "test-repo"
+
+	envs := []fn.Env{
+		{
+			Name:  &testVariableName,
+			Value: &testVariableValue,
+		},
+	}
+
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(f.BuildEnvs, envs) {
+		if diff := cmp.Diff(f.BuildEnvs, envs); diff != "" {
+			t.Fatalf("Unexpected difference between repository's manifest.yaml buildEnvs and Function BuildEnvs (-want, +got): %v", diff)
+		}
+
+	}
+}

@@ -6,4 +6,6 @@ healthEndpoints:
 buildpacks:
   - templateBuildpack
 
-
+buildEnvs:
+  - name: "TEST_TEMPLATE_VARIABLE"
+    value: "test-template"

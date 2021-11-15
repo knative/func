@@ -7,6 +7,8 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+
 	fn "knative.dev/kn-plugin-func"
 )
 
@@ -86,6 +88,21 @@ func TestRepositoryInheritance(t *testing.T) {
 		t.Fatalf("Repository-level HealthEndpoint not loaded to template")
 	}
 
+	envVarName := "TEST_RUNTIME_VARIABLE"
+	envVarValue := "test-runtime"
+	envs := []fn.Env{
+		{
+			Name:  &envVarName,
+			Value: &envVarValue,
+		},
+	}
+
+	if !reflect.DeepEqual(tB.BuildEnvs, envs) {
+		if diff := cmp.Diff(tB.BuildEnvs, envs); diff != "" {
+			t.Fatalf("Unexpected difference between repository's manifest.yaml buildEnvs and Function BuildEnvs (-want, +got): %v", diff)
+		}
+	}
+
 	// Assert Template C reflects template-level settings
 	if tC.Readiness != "/templateReadiness" {
 		t.Fatalf("Repository-level HealthEndpoint not loaded to template")
@@ -93,4 +110,5 @@ func TestRepositoryInheritance(t *testing.T) {
 	if !reflect.DeepEqual(tC.Buildpacks, []string{"templateBuildpack"}) {
 		t.Fatalf("Repository-level HealthEndpoint not loaded to template")
 	}
+
 }
