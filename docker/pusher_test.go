@@ -20,8 +20,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/docker/docker-credential-helpers/credentials"
 	fn "knative.dev/kn-plugin-func"
+	. "knative.dev/kn-plugin-func/testing"
+
+	"github.com/docker/docker-credential-helpers/credentials"
 )
 
 func Test_parseDigest(t *testing.T) {
@@ -488,7 +490,9 @@ func handlerForCredHelper(t *testing.T, credHelper credentials.Helper) http.Hand
 
 }
 
-const helperGoScriptContent = `package main
+// Go source code of mock docker-credential-helper implementation.
+// Its storage is backed by inMemoryHelper instantiated in test and exposed via HTTP.
+const helperGoSrc = `package main
 
 import (
 	"errors"
@@ -498,11 +502,12 @@ import (
 	"os"
 )
 
-var baseURL = "http://HOST_PORT"
-
 func main() {
-	var resp *http.Response
-	var err error
+	var (
+		baseURL = os.Getenv("HELPER_BASE_URL")
+		resp *http.Response
+		err error
+	)
 	cmd := os.Args[1]
 	switch cmd {
 	case "list":
@@ -538,14 +543,22 @@ func main() {
 //
 // The content of the store presented by the executable is backed by the helper parameter.
 func setUpMockHelper(helperName string, helper credentials.Helper) func(t *testing.T) func() {
+	var cleanUps []func()
 	return func(t *testing.T) func() {
+
+		cleanUps = append(cleanUps, WithExecutable(t, helperName, helperGoSrc))
 
 		listener, err := net.Listen("tcp", "localhost:0")
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		hostPort := listener.Addr().String()
+		cleanUps = append(cleanUps, func() {
+			_ = listener.Close()
+		})
+
+		baseURL := fmt.Sprintf("http://%s", listener.Addr().String())
+		cleanUps = append(cleanUps, WithEnvVar(t, "HELPER_BASE_URL", baseURL))
 
 		server := http.Server{Handler: handlerForCredHelper(t, helper)}
 		servErrChan := make(chan error)
@@ -553,55 +566,19 @@ func setUpMockHelper(helperName string, helper credentials.Helper) func(t *testi
 			servErrChan <- server.Serve(listener)
 		}()
 
-		binDir, err := ioutil.TempDir("", "binDirForCredHelper")
-		if err != nil {
-			t.Fatal(err)
-		}
-		fmt.Fprintf(os.Stderr, "cd %s\n", binDir)
-
-		helperGoScriptPath := filepath.Join(binDir, "main.go")
-
-		err = ioutil.WriteFile(helperGoScriptPath,
-			[]byte(strings.ReplaceAll(helperGoScriptContent, "HOST_PORT", hostPort)),
-			0400)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		runnerScriptName := helperName
-		if runtime.GOOS == "windows" {
-			runnerScriptName = runnerScriptName + ".bat"
-		}
-
-		runnerScriptPath := filepath.Join(binDir, runnerScriptName)
-
-		runnerScriptContent := `#!/bin/sh
-exec go run GO_SCRIPT_PATH $@;
-`
-		if runtime.GOOS == "windows" {
-			runnerScriptContent = `@echo off
-go.exe run GO_SCRIPT_PATH %*
-`
-		}
-
-		runnerScriptContent = strings.ReplaceAll(runnerScriptContent, "GO_SCRIPT_PATH", helperGoScriptPath)
-		err = ioutil.WriteFile(runnerScriptPath, []byte(runnerScriptContent), 0700)
-		if err != nil {
-			t.Fatal(err)
-		}
-
-		oldPath := os.Getenv("PATH")
-		os.Setenv("PATH", binDir+string(os.PathListSeparator)+oldPath)
-
-		return func() {
-			os.Setenv("PATH", oldPath)
-			os.RemoveAll(binDir)
+		cleanUps = append(cleanUps, func() {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 			defer cancel()
 			_ = server.Shutdown(ctx)
-			err := <-servErrChan
-			if !errors.Is(err, http.ErrServerClosed) {
-				t.Fatal(err)
+			e := <-servErrChan
+			if !errors.Is(e, http.ErrServerClosed) {
+				t.Fatal(e)
+			}
+		})
+
+		return func() {
+			for i := len(cleanUps) - 1; i <= 0; i-- {
+				cleanUps[i]()
 			}
 		}
 	}

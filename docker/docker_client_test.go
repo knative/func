@@ -5,14 +5,15 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/docker/docker/client"
 	"knative.dev/kn-plugin-func/docker"
+	. "knative.dev/kn-plugin-func/testing"
+
+	"github.com/docker/docker/client"
 )
 
 // Test that we are creating client in accordance
@@ -26,7 +27,7 @@ func TestNewDockerClient(t *testing.T) {
 
 	defer startMockDaemon(t, sock)()
 
-	defer withEnvVar(t, "DOCKER_HOST", fmt.Sprintf("unix://%s", sock))()
+	defer WithEnvVar(t, "DOCKER_HOST", fmt.Sprintf("unix://%s", sock))()
 
 	dockerClient, _, err := docker.NewClient(client.DefaultDockerHost)
 	if err != nil {
@@ -37,21 +38,6 @@ func TestNewDockerClient(t *testing.T) {
 	_, err = dockerClient.Ping(ctx)
 	if err != nil {
 		t.Error(err)
-	}
-}
-
-func withEnvVar(t *testing.T, name, value string) func() {
-	oldDh, hadDh := os.LookupEnv(name)
-	err := os.Setenv(name, value)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return func() {
-		if hadDh {
-			os.Setenv(name, oldDh)
-		} else {
-			os.Unsetenv(name)
-		}
 	}
 }
 

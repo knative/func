@@ -2,15 +2,11 @@ package docker_test
 
 import (
 	"context"
-	"io/ioutil"
-	"os"
-	"path/filepath"
-	"runtime"
-	"strings"
 	"testing"
 	"time"
 
 	"knative.dev/kn-plugin-func/docker"
+	. "knative.dev/kn-plugin-func/testing"
 )
 
 // Test that we are starting podman service on behalf of user
@@ -20,8 +16,8 @@ func TestNewDockerClientWithAutomaticPodman(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*1)
 	defer cancel()
 
-	defer withMockedPodmanBinary(t)()
-	defer withEnvVar(t, "DOCKER_HOST", "")()
+	defer WithExecutable(t, "podman", mockPodmanSrc)()
+	defer WithEnvVar(t, "DOCKER_HOST", "")()
 
 	dockerClient, _, err := docker.NewClient("unix:///var/run/nonexistent.sock")
 	if err != nil {
@@ -36,7 +32,9 @@ func TestNewDockerClientWithAutomaticPodman(t *testing.T) {
 
 }
 
-const helperGoScriptContent = `package main
+// Go source code of mock podman implementation.
+// It just emulates docker /_ping endpoint for all URIs.
+const mockPodmanSrc = `package main
 
 import (
 	"fmt"
@@ -70,45 +68,3 @@ func main() {
 	server.Serve(listener)
 }
 `
-
-func withMockedPodmanBinary(t *testing.T) func() {
-	var err error
-	binDir := t.TempDir()
-
-	newPath := binDir + string(os.PathListSeparator) + os.Getenv("PATH")
-	cleanUpPath := withEnvVar(t, "PATH", newPath)
-
-	helperGoScriptPath := filepath.Join(binDir, "main.go")
-
-	err = ioutil.WriteFile(helperGoScriptPath,
-		[]byte(helperGoScriptContent),
-		0400)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	runnerScriptName := "podman"
-	if runtime.GOOS == "windows" {
-		runnerScriptName = runnerScriptName + ".bat"
-	}
-
-	runnerScriptContent := `#!/bin/sh
-exec go run GO_SCRIPT_PATH $@;
-`
-	if runtime.GOOS == "windows" {
-		runnerScriptContent = `@echo off
-go.exe run GO_SCRIPT_PATH %*
-`
-	}
-
-	runnerScriptPath := filepath.Join(binDir, runnerScriptName)
-	runnerScriptContent = strings.ReplaceAll(runnerScriptContent, "GO_SCRIPT_PATH", helperGoScriptPath)
-	err = ioutil.WriteFile(runnerScriptPath, []byte(runnerScriptContent), 0700)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return func() {
-		cleanUpPath()
-	}
-}
