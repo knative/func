@@ -91,7 +91,7 @@ func TestRepositoryInheritance(t *testing.T) {
 	envVarName := "TEST_RUNTIME_VARIABLE"
 	envVarValue := "test-runtime"
 	envs := []fn.Env{
-		fn.Env{
+		{
 			Name:  &envVarName,
 			Value: &envVarValue,
 		},
