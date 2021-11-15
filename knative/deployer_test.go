@@ -11,28 +11,6 @@ import (
 	fn "knative.dev/kn-plugin-func"
 )
 
-// Tests that the deployer sets an environment variable POD_NAME
-// with a reference to the Pod's metadata using the downward API
-// https://kubernetes.io/docs/tasks/inject-data-application/environment-variable-expose-pod-information/
-func Test_setsPodNameAsEnvVar(t *testing.T) {
-	f := fn.Function{
-		Name: "testing",
-	}
-	envs, _, err := processEnvs(f.Envs, nil, nil)
-	if err != nil {
-		t.Error(err)
-	}
-	// TODO: is this too fragile, knowing that it should be
-	// the second value in the array?
-	env := envs[1]
-	if env.Name != "POD_NAME" {
-		t.Errorf("Expected 'POD_NAME' got '%s'", env.Name)
-	}
-	if env.ValueFrom.FieldRef.FieldPath != "metadata.name" {
-		t.Errorf("Expected 'metadata.name' got '%s'\n", env.ValueFrom.FieldRef.FieldPath)
-	}
-}
-
 func Test_setHealthEndpoints(t *testing.T) {
 	f := fn.Function{
 		Name: "testing",
