@@ -386,7 +386,7 @@ func TestTemplateModeRemote(t *testing.T) {
 func TestRuntimeManifestBuildEnvs(t *testing.T) {
 	// create test directory
 	root := "testdata/testRuntimeManifestBuildEnvs"
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	// Client whose internal templates will be used.
 	client := fn.New(
@@ -435,7 +435,7 @@ func TestRuntimeManifestBuildEnvs(t *testing.T) {
 func TestTemplateManifestBuildEnvs(t *testing.T) {
 	// create test directory
 	root := "testdata/testTemplateManifestBuildEnvs"
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	// Client whose internal templates will be used.
 	client := fn.New(
@@ -484,7 +484,7 @@ func TestTemplateManifestBuildEnvs(t *testing.T) {
 func TestRepositoryManifestBuildEnvs(t *testing.T) {
 	// create test directory
 	root := "testdata/testRepositoryManifestBuildEnvs"
-	defer using(t, root)()
+	defer Using(t, root)()
 
 	// Client whose internal templates will be used.
 	client := fn.New(
