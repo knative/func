@@ -38,7 +38,7 @@ func TestNew(t *testing.T) {
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
 
-	if err := client.New(context.Background(), fn.Function{Root: root, Runtime: TestRuntime}); err != nil {
+	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -51,7 +51,7 @@ func TestWritesTemplate(t *testing.T) {
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
 
-	if err := client.New(context.Background(), fn.Function{Root: root, Runtime: TestRuntime}); err != nil {
+	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -75,7 +75,7 @@ func TestExtantAborts(t *testing.T) {
 	client := fn.New(fn.WithRegistry(TestRegistry))
 
 	// First .New should succeed...
-	if err := client.New(context.Background(), fn.Function{Root: root, Runtime: TestRuntime}); err != nil {
+	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -124,8 +124,34 @@ func TestHiddenFilesIgnored(t *testing.T) {
 	}
 
 	// Should succeed without error, ignoring the hidden file.
-	if err := client.New(context.Background(), fn.Function{Root: root, Runtime: TestRuntime}); err != nil {
+	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// TestDefaultRuntime ensures that the default runtime is applied to new
+// Functions and persisted.
+func TestDefaultRuntime(t *testing.T) {
+	// Create a root for the new Function
+	root := "testdata/example.com/testDefaultRuntime"
+	defer using(t, root)()
+
+	client := fn.New(fn.WithRegistry(TestRegistry))
+
+	// Create a new function at root with all defaults.
+	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Load the function
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Ensure it has defaulted runtime
+	if f.Runtime != fn.DefaultRuntime {
+		t.Fatal("The default runtime was not applied or persisted.")
 	}
 }
 
@@ -246,7 +272,7 @@ func TestNamed(t *testing.T) {
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
 
-	if err := client.New(context.Background(), fn.Function{Root: root, Runtime: TestRuntime, Name: name}); err != nil {
+	if err := client.New(context.Background(), fn.Function{Root: root, Name: name}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -277,7 +303,7 @@ func TestRegistryRequired(t *testing.T) {
 
 	client := fn.New()
 	var err error
-	if err = client.New(context.Background(), fn.Function{Root: root, Runtime: TestRuntime}); err == nil {
+	if err = client.New(context.Background(), fn.Function{Root: root}); err == nil {
 		t.Fatal("did not receive expected error creating a Function without specifying Registry")
 	}
 	fmt.Println(err)
@@ -293,7 +319,7 @@ func TestDeriveImage(t *testing.T) {
 
 	// Create the function which calculates fields such as name and image.
 	client := fn.New(fn.WithRegistry(TestRegistry))
-	if err := client.New(context.Background(), fn.Function{Root: root, Runtime: TestRuntime}); err != nil {
+	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -322,7 +348,7 @@ func TestDeriveImageDefaultRegistry(t *testing.T) {
 	// Rather than use TestRegistry, use a single-token name and expect
 	// the DefaultRegistry to be prepended.
 	client := fn.New(fn.WithRegistry("alice"))
-	if err := client.New(context.Background(), fn.Function{Root: root, Runtime: TestRuntime}); err != nil {
+	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -401,7 +427,7 @@ func TestNewDelegates(t *testing.T) {
 
 	// Invoke the creation, triggering the Function delegates, and
 	// perform follow-up assertions that the Functions were indeed invoked.
-	if err := client.New(context.Background(), fn.Function{Root: root, Runtime: TestRuntime}); err != nil {
+	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -426,7 +452,7 @@ func TestRun(t *testing.T) {
 	// Create a client with the mock runner and the new test Function
 	runner := mock.NewRunner()
 	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithRunner(runner))
-	if err := client.New(context.Background(), fn.Function{Root: root, Runtime: TestRuntime}); err != nil {
+	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -471,7 +497,7 @@ func TestUpdate(t *testing.T) {
 		fn.WithDeployer(deployer))
 
 	// create the new Function which will be updated
-	if err := client.New(context.Background(), fn.Function{Root: root, Runtime: TestRuntime}); err != nil {
+	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -539,7 +565,7 @@ func TestRemoveByPath(t *testing.T) {
 		fn.WithRegistry(TestRegistry),
 		fn.WithRemover(remover))
 
-	if err := client.New(context.Background(), fn.Function{Root: root, Runtime: TestRuntime}); err != nil {
+	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -575,7 +601,7 @@ func TestRemoveByName(t *testing.T) {
 		fn.WithRegistry(TestRegistry),
 		fn.WithRemover(remover))
 
-	if err := client.Create(fn.Function{Root: root, Runtime: TestRuntime}); err != nil {
+	if err := client.Create(fn.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -673,7 +699,7 @@ func TestDeployUnbuilt(t *testing.T) {
 	client := fn.New(fn.WithRegistry(TestRegistry))
 
 	// Initialize (half-create) a new Function at root
-	if err := client.Create(fn.Function{Root: root, Runtime: TestRuntime}); err != nil {
+	if err := client.Create(fn.Function{Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -725,7 +751,6 @@ func TestWithConfiguredBuilders(t *testing.T) {
 	client := fn.New(fn.WithRegistry(TestRegistry))
 	if err := client.Create(fn.Function{
 		Root:     root,
-		Runtime:  TestRuntime,
 		Builders: builders,
 	}); err != nil {
 		t.Fatal(err)
@@ -760,7 +785,6 @@ func TestWithConfiguredBuildersWithDefault(t *testing.T) {
 	client := fn.New(fn.WithRegistry(TestRegistry))
 	if err := client.Create(fn.Function{
 		Root:     root,
-		Runtime:  TestRuntime,
 		Builders: builders,
 	}); err != nil {
 		t.Fatal(err)
@@ -793,7 +817,6 @@ func TestWithConfiguredBuildpacks(t *testing.T) {
 	client := fn.New(fn.WithRegistry(TestRegistry))
 	if err := client.Create(fn.Function{
 		Root:       root,
-		Runtime:    TestRuntime,
 		Buildpacks: buildpacks,
 	}); err != nil {
 		t.Fatal(err)
