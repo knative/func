@@ -34,8 +34,8 @@ This command builds an OCI image for the function. By default, this will build a
 func build -v                  # build native image
 ```
 
-**Note**: If you want to disable the native build, you need to edit the `func.yaml` file and 
-remove (or set to false) the following BuilderEnv variable: 
+**Note**: If you want to disable the native build, you need to edit the `func.yaml` file and
+remove (or set to false) the following BuilderEnv variable:
 ```
 buildEnvs:
   - name: BP_NATIVE_IMAGE
@@ -66,7 +66,7 @@ Spring Cloud Functions allows you to route CloudEvents to specific functions usi
 For this example, the CloudEvent is routed to the `uppercase` function. You can define multiple functions inside this project
 and then use the `Ce-Type` attribute to route different CloudEvents to different Functions.
 Check the `src/main/resources/application.properties` file for the `functionRouter` configurations.
-Notice that you can also use `path-based` routing and send the any event type by specifying the function path, 
+Notice that you can also use `path-based` routing and send the any event type by specifying the function path,
 for this example: "$URL/uppercase".
 
 For the examples below, please be sure to set the `URL` variable to the route of your function.
@@ -90,7 +90,7 @@ export URL=$(kn service describe $(basename $PWD) -ourl)
 
 ### cURL
 
-Using CloudEvents `Ce-Type` routing: 
+Using CloudEvents `Ce-Type` routing:
 ```shell script
 curl -v "$URL/" \
   -H "Content-Type:application/json" \
@@ -116,7 +116,7 @@ curl -v "$URL/uppercase" \
 
 ### HTTPie
 
-Using CloudEvents `Ce-Type` routing: 
+Using CloudEvents `Ce-Type` routing:
 ```shell script
 http -v "$URL/" \
   Content-Type:application/json \
