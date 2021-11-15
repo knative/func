@@ -59,7 +59,7 @@ type Repository struct {
 	HealthEndpoints `yaml:"healthEndpoints,omitempty"`
 	// BuildEnvs define environment variables for builders that can be used
 	//  to parameterize different builders
-	BuildEnvs Envs `yaml:"buildEnvs,omitempty"`
+	BuildEnvs []Env `yaml:"buildEnvs,omitempty"`
 	// Runtimes containing Templates loaded from the repo
 	Runtimes []Runtime
 	// FS is the filesystem underlying the repository, loaded from URI
@@ -83,7 +83,7 @@ type Runtime struct {
 
 	// BuildEnvs for all the templates in the runtime. May be overridden
 	// per template.
-	BuildEnvs Envs `yaml:"buildEnvs,omitempty"`
+	BuildEnvs []Env `yaml:"buildEnvs,omitempty"`
 
 	// BuildConfig defines attributes 'builders' and 'buildpacks'.  Here it serves
 	// as the default option which may be overridden per template. Note that

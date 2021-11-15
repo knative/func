@@ -20,7 +20,7 @@ type Template struct {
 	HealthEndpoints `yaml:"healthEndpoints,omitempty"`
 	// BuildEnvs defines environment variables related to the builders,
 	// this can be used to parameterize the builders
-	BuildEnvs Envs `yaml:"buildEnvs,omitempty"`
+	BuildEnvs []Env `yaml:"buildEnvs,omitempty"`
 }
 
 // Fullname is a calculated field of [repo]/[name] used
