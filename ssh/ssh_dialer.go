@@ -13,7 +13,6 @@ import (
 	urlPkg "net/url"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -38,7 +37,32 @@ type Config struct {
 
 type DialContextFn = func(ctx context.Context, network, addr string) (net.Conn, error)
 
-func NewDialContext(url *urlPkg.URL, config Config) (DialContextFn, string, error) {
+// NewDialContext allows access to docker daemon in a remote machine using SSH.
+//
+// It creates a new ContextDialer which dials docker daemon in the remote
+// and also returns Docker Host URI as seen by the remote.
+//
+// Knowing the Docker Host is useful when mounting docker socket into a container.
+//
+// Dialing the remote docker daemon can be done in two ways:
+//
+// - Use SSH to tunnel Unix/TCP socket.
+//
+// - Use SSH to execute the "docker system dial-stdio" command in the remote and forward its stdio.
+//
+//
+// The tunnel method is used whenever possible.
+// The "stdio" method is used as a fallback when tunneling is not possible:
+// e.g. when remote uses Windows' named pipe.
+//
+// When tunneling is used all connection dialed
+// by the returned ContextDialer are tunneled via single SSH connection.
+// The connection should be disposed when dialer is no longer needed.
+//
+// For this reason returned ContextDialer may also implement io.Closer.
+// Caller of this function should check if the returned ContextDialer
+// is also an instance of io.Closer and call Close() on it if it is.
+func NewDialContext(url *urlPkg.URL, config Config) (ContextDialer, string, error) {
 	sshConfig, err := NewSSHClientConfig(url, config)
 	if err != nil {
 		return nil, "", err
@@ -75,29 +99,33 @@ func NewDialContext(url *urlPkg.URL, config Config) (DialContextFn, string, erro
 		return nil, "", err
 	}
 
-	var dialContext DialContextFn
-
 	if network == "npipe" {
 		// ssh tunneling doesn't support tunneling of Windows' named pipes
-		dialContext, err = stdioDialContext(url, sshClient, config.Identity)
-		return dialContext, remoteDockerHost, err
+		dialContext, err := stdioDialContext(url, sshClient, config.Identity)
+		return contextDialerFn(dialContext), remoteDockerHost, err
 	}
 
 	d := dialer{sshClient: sshClient, addr: addr, network: network}
+	// moving ownership of sshClient from this function to the returned structure
 	sshClient = nil
-	dialContext = d.DialContext
 
-	runtime.SetFinalizer(&d, func(d *dialer) {
-		d.Close()
-	})
-
-	return dialContext, remoteDockerHost, nil
+	return &d, remoteDockerHost, nil
 }
 
 type dialer struct {
 	sshClient *ssh.Client
 	network   string
 	addr      string
+}
+
+type ContextDialer interface {
+	DialContext(ctx context.Context, network, address string) (net.Conn, error)
+}
+
+type contextDialerFn DialContextFn
+
+func (n contextDialerFn) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
+	return n(ctx, network, address)
 }
 
 func (d *dialer) DialContext(ctx context.Context, n, a string) (net.Conn, error) {
