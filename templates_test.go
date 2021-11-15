@@ -413,7 +413,7 @@ func TestRuntimeManifestBuildEnvs(t *testing.T) {
 	testVariableValue := "test-runtime"
 
 	envs := []fn.Env{
-		fn.Env{
+		{
 			Name:  &testVariableName,
 			Value: &testVariableValue,
 		},
@@ -462,7 +462,7 @@ func TestTemplateManifestBuildEnvs(t *testing.T) {
 	testVariableValue := "test-template"
 
 	envs := []fn.Env{
-		fn.Env{
+		{
 			Name:  &testVariableName,
 			Value: &testVariableValue,
 		},
@@ -511,7 +511,7 @@ func TestRepositoryManifestBuildEnvs(t *testing.T) {
 	testVariableValue := "test-repo"
 
 	envs := []fn.Env{
-		fn.Env{
+		{
 			Name:  &testVariableName,
 			Value: &testVariableValue,
 		},
