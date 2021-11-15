@@ -392,7 +392,14 @@ func processLabels(f fn.Function) (map[string]string, error) {
 //   - value: {{ configMap:configMapName }}      # all key-pair values from ConfigMap are set as ENV
 func processEnvs(envs []fn.Env, referencedSecrets, referencedConfigMaps *sets.String) ([]corev1.EnvVar, []corev1.EnvFromSource, error) {
 
-	envVars := []corev1.EnvVar{{Name: "BUILT", Value: time.Now().Format("20060102T150405")}}
+	envVars := []corev1.EnvVar{
+		{Name: "BUILT", Value: time.Now().Format("20060102T150405")},
+		{Name: "POD_NAME", ValueFrom: &corev1.EnvVarSource{
+			FieldRef: &corev1.ObjectFieldSelector{
+				FieldPath: "metadata.name",
+			},
+		}},
+	}
 	envFrom := []corev1.EnvFromSource{}
 
 	for _, env := range envs {
