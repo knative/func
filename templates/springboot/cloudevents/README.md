@@ -28,11 +28,20 @@ echo "export FUNC_REGISTRY=docker.io/johndoe" >> ~/.bashrc
 
 ### Building
 
-This command builds an OCI image for the function.
+This command builds an OCI image for the function. By default, this will build a GraalVM native image.
 
 ```shell script
-func build -v                # build jar
+func build -v                  # build native image
 ```
+
+**Note**: If you want to disable the native build, you need to edit the `func.yaml` file and
+remove (or set to false) the following BuilderEnv variable:
+```
+buildEnvs:
+  - name: BP_NATIVE_IMAGE
+    value: "true"
+```
+
 
 ### Running
 
@@ -52,6 +61,13 @@ func deploy -v # also triggers build
 ```
 
 ## Function invocation
+
+Spring Cloud Functions allows you to route CloudEvents to specific functions using the `Ce-Type` attribute.
+For this example, the CloudEvent is routed to the `uppercase` function. You can define multiple functions inside this project
+and then use the `Ce-Type` attribute to route different CloudEvents to different Functions.
+Check the `src/main/resources/application.properties` file for the `functionRouter` configurations.
+Notice that you can also use `path-based` routing and send the any event type by specifying the function path,
+for this example: "$URL/uppercase".
 
 For the examples below, please be sure to set the `URL` variable to the route of your function.
 
@@ -74,26 +90,52 @@ export URL=$(kn service describe $(basename $PWD) -ourl)
 
 ### cURL
 
+Using CloudEvents `Ce-Type` routing:
+```shell script
+curl -v "$URL/" \
+  -H "Content-Type:application/json" \
+  -H "Ce-Id:1" \
+  -H "Ce-Subject:Uppercase" \
+  -H "Ce-Source:cloud-event-example" \
+  -H "Ce-Type:uppercase" \
+  -H "Ce-Specversion:1.0" \
+  -d "{\"input\": \"$(whoami)\"}\""
+```
+
+Using Path-Based routing:
 ```shell script
 curl -v "$URL/uppercase" \
   -H "Content-Type:application/json" \
   -H "Ce-Id:1" \
   -H "Ce-Subject:Uppercase" \
   -H "Ce-Source:cloud-event-example" \
-  -H "Ce-Type:dev.knative.example" \
+  -H "Ce-Type:my-event" \
   -H "Ce-Specversion:1.0" \
   -d "{\"input\": \"$(whoami)\"}\""
 ```
 
 ### HTTPie
 
+Using CloudEvents `Ce-Type` routing:
+```shell script
+http -v "$URL/" \
+  Content-Type:application/json \
+  Ce-Id:1 \
+  Ce-Subject:Uppercase \
+  Ce-Source:cloud-event-example \
+  Ce-Type:uppercase \
+  Ce-Specversion:1.0 \
+  input=$(whoami)
+```
+
+Using Path-Based routing:
 ```shell script
 http -v "$URL/uppercase" \
   Content-Type:application/json \
   Ce-Id:1 \
   Ce-Subject:Uppercase \
   Ce-Source:cloud-event-example \
-  Ce-Type:dev.knative.example \
+  Ce-Type:uppercase \
   Ce-Specversion:1.0 \
   input=$(whoami)
 ```
