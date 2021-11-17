@@ -68,6 +68,7 @@ aliases:
   - lberk
   - matzew
   - phamilton
+  - pierDipi
   - steven0711dong
   - travis-minke-sap
   eventing-kafka-broker-approvers:
@@ -128,6 +129,8 @@ aliases:
   - lance
   - lkingland
   - matejvasek
+  - nainaz
+  - omerbensaadon
   - zroubalik
   kn-plugin-migration-approvers:
   - maximilien
