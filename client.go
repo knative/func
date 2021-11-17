@@ -575,7 +575,7 @@ func (c *Client) Deploy(ctx context.Context, path string) (err error) {
 		return
 	}
 
-	// Record eht Image Digest pushed.
+	// Record the Image Digest pushed.
 	f.ImageDigest = imageDigest
 	if err = f.Write(); err != nil {
 		return

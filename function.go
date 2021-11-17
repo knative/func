@@ -90,7 +90,7 @@ type Function struct {
 }
 
 // NewFunction loads a Function from a path on disk.
-// Errors are returned if the path is not valid, the serialized fiel could not
+// Errors are returned if the path is not valid, the serialized field could not
 // be accessed, or if the contents of the file could not be unmarshaled into a
 // Function.  A valid path with no associated FunctionFile is not an error but
 // rather returns a Function with static defaults set, and will return false
@@ -129,7 +129,6 @@ func nameFromPath(path string) string {
 	/* the above may have edge conditions as it assumes the trailing value
 	 * is a directory name.  If errors are encountered, we _may_ need to use the
 	 * inbuilt logic in the std lib and either check if the path indicated is a
-	 * directory (appending slash) and then run:
 	 * directory (appending slash) and then run:
 					 base := filepath.Base(filepath.Dir(path))
 					 if base == string(os.PathSeparator) || base == "." {

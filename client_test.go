@@ -187,7 +187,6 @@ func TestRepositoriesExtensible(t *testing.T) {
 	}
 }
 
-/*
 // TestRuntimeNotFound generates an error (embedded default repository).
 func TestRuntimeNotFound(t *testing.T) {
 	root := "testdata/example.com/testRuntimeNotFound"
@@ -224,7 +223,6 @@ func TestRuntimeNotFoundCustom(t *testing.T) {
 		t.Fatalf("Expected ErrRuntimeNotFound, got %v", err)
 	}
 }
-*/
 
 // TestTemplateNotFound generates an error (embedded default repository).
 func TestTemplateNotFound(t *testing.T) {
