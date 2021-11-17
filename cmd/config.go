@@ -38,7 +38,7 @@ func (s standardLoaderSaver) Load(path string) (fn.Function, error) {
 }
 
 func (s standardLoaderSaver) Save(f fn.Function) error {
-	return f.WriteConfig()
+	return f.Write()
 }
 
 var defaultLoaderSaver standardLoaderSaver

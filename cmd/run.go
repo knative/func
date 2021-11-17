@@ -75,7 +75,7 @@ func runRun(cmd *cobra.Command, args []string, clientFn runClientFn) (err error)
 		return
 	}
 
-	err = function.WriteConfig()
+	err = function.Write()
 	if err != nil {
 		return
 	}

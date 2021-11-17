@@ -38,7 +38,7 @@ func TestNew(t *testing.T) {
 	root := "testdata/example.com/testNew"
 	defer Using(t, root)()
 
-	client := fn.New(fn.WithRegistry(TestRegistry))
+	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithVerbose(true))
 
 	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
 		t.Fatal(err)
@@ -58,13 +58,13 @@ func TestWritesTemplate(t *testing.T) {
 	}
 
 	// Assert the standard config file was written
-	if _, err := os.Stat(filepath.Join(root, fn.ConfigFile)); os.IsNotExist(err) {
-		t.Fatalf("Initialize did not result in '%v' being written to '%v'", fn.ConfigFile, root)
+	if _, err := os.Stat(filepath.Join(root, fn.FunctionFile)); os.IsNotExist(err) {
+		t.Fatalf("Initialize did not result in '%v' being written to '%v'", fn.FunctionFile, root)
 	}
 
 	// Assert a file from the template was written
 	if _, err := os.Stat(filepath.Join(root, "README.md")); os.IsNotExist(err) {
-		t.Fatalf("Initialize did not result in '%v' being written to '%v'", fn.ConfigFile, root)
+		t.Fatalf("Initialize did not result in '%v' being written to '%v'", fn.FunctionFile, root)
 	}
 }
 
