@@ -17,6 +17,11 @@ import (
 const FunctionFile = "func.yaml"
 
 type Function struct {
+	// Version at which this function is known to be compatible.
+	// More specifically, it is the highest migration which has been applied.
+	// For details see the .Migrated() and .Migrate() methods.
+	Version string // semver format
+
 	// Root on disk at which to find/create source and config files.
 	Root string `yaml:"-"`
 
@@ -89,35 +94,85 @@ type Function struct {
 	Created time.Time
 }
 
-// NewFunction loads a Function from a path on disk.
-// Errors are returned if the path is not valid, the serialized field could not
-// be accessed, or if the contents of the file could not be unmarshaled into a
-// Function.  A valid path with no associated FunctionFile is not an error but
-// rather returns a Function with static defaults set, and will return false
-// from .Initialized().
-func NewFunction(root string) (f Function, err error) {
-	// NewFunction is essentially a convenience/decorator over the more fully-
-	// featured constructor which takes a full function object as defaults.
-	return NewFunctionFromDefaults(Function{Root: root})
+// NewFunctionWith defaults as provided.
+func NewFunctionWith(defaults Function) Function {
+	if defaults.Version == "" {
+		defaults.Version = DefaultVersion
+	}
+	if defaults.Template == "" {
+		defaults.Template = DefaultTemplate
+	}
+	return defaults
 }
 
-// NewFunctionFromDefaults is equivalent to calling NewFunction, but will use
-// the provided function as defaults.
-func NewFunctionFromDefaults(f Function) (Function, error) {
-	var err error
-	if f.Runtime == "" {
-		f.Runtime = DefaultRuntime
+// NewFunction from a given path.
+// Invalid paths, or no Function at path are errors.
+// Syntactic errors are returned immediately (yaml unmarshal errors).
+// Functions which are syntactically valid are also then logically validated.
+// Functions from ealier versions are brought up to current using migrations.
+// Migrations are run prior to validators such that validation can omit
+// concerning itself with backwards compatibility.  Migrators must therefore
+// selectively consider the minimal validation necesssary to ehable migration.
+func NewFunction(path string) (f Function, err error) {
+	f.Root = path // path is not persisted, as this is the purvew of the FS itself
+	var filename = filepath.Join(path, FunctionFile)
+	if _, err = os.Stat(filename); err != nil {
+		return
 	}
-	if f.Template == "" {
-		f.Template = DefaultTemplate
+	bb, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return
 	}
-	if f.Root, err = filepath.Abs(f.Root); err != nil {
-		return f, err
+	if err = yaml.UnmarshalStrict(bb, &f); err != nil {
+		err = formatUnmarshalError(err) // human-friendly unmarshalling errors
+		return
 	}
+	if f, err = f.Migrate(); err != nil {
+		return
+	}
+	return f, f.Validate()
+}
+
+// Validate Function is logically correct, returning a bundled, and quite
+// verbose, formatted error detailing any issues.
+func (f Function) Validate() error {
 	if f.Name == "" {
-		f.Name = nameFromPath(f.Root)
+		return errors.New("function name is required")
 	}
-	return unmarshalFunction(f)
+	if f.Runtime == "" {
+		return errors.New("function language runtime is required")
+	}
+	if f.Root == "" {
+		return errors.New("function root path is required")
+	}
+
+	var ctr int
+	errs := [][]string{
+		validateVolumes(f.Volumes),
+		ValidateBuildEnvs(f.BuildEnvs),
+		ValidateEnvs(f.Envs),
+		validateOptions(f.Options),
+		ValidateLabels(f.Labels),
+	}
+
+	var b strings.Builder
+	b.WriteString(fmt.Sprintf("'%v' contains errors:", FunctionFile))
+
+	for _, ee := range errs {
+		if len(ee) > 0 {
+			b.WriteString("\n") // Precede each group of errors with a linebreak
+		}
+		for _, e := range ee {
+			ctr++
+			b.WriteString("\t" + e)
+		}
+	}
+
+	if ctr == 0 {
+		return nil // Return nil if there were no validation errors.
+	}
+
+	return errors.New(b.String())
 }
 
 // nameFromPath returns the default name for a Function derived from a path.
@@ -337,39 +392,32 @@ func unmarshalFunction(f Function) (Function, error) {
 		return f, formatUnmarshalError(err)
 	}
 
-	return f, validateFunction(f)
+	return f, f.Validate()
 }
 
-// Validate Function is logically correct, returning a bundled, and quite
-// verbose, formatted error detailing any issues.
-func validateFunction(f Function) error {
-	var ctr int
-	errs := [][]string{
-		validateVolumes(f.Volumes),
-		ValidateBuildEnvs(f.BuildEnvs),
-		ValidateEnvs(f.Envs),
-		validateOptions(f.Options),
-		ValidateLabels(f.Labels),
-	}
+// returns true if the given path contains an initialized Function.
+func hasInitializedFunction(path string) (bool, error) {
+	var err error
+	var filename = filepath.Join(path, FunctionFile)
 
-	var b strings.Builder
-	b.WriteString(fmt.Sprintf("'%v' contains errors:", FunctionFile))
-
-	for _, ee := range errs {
-		if len(ee) > 0 {
-			b.WriteString("\n") // Precede each group of errors with a linebreak
+	if _, err = os.Stat(filename); err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
 		}
-		for _, e := range ee {
-			ctr++
-			b.WriteString("\t" + e)
-		}
+		return false, err // invalid path or access error
 	}
-
-	if ctr == 0 {
-		return nil // Return nil if there were no validation errors.
+	bb, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return false, err
 	}
-
-	return errors.New(b.String())
+	f := Function{}
+	if err = yaml.UnmarshalStrict(bb, &f); err != nil {
+		return false, err
+	}
+	if f, err = f.Migrate(); err != nil {
+		return false, err
+	}
+	return f.Initialized(), nil
 }
 
 // Format yaml unmarshall error to be more human friendly.

@@ -119,20 +119,14 @@ func Test_DerivedImage(t *testing.T) {
 			root := "testdata/" + tt.fnName
 			defer Using(t, root)()
 
-			f := Function{
-				Name:  tt.fnName,
-				Root:  root,
-				Image: tt.image,
-			}
-
 			// write out the function
 			client := New()
-			err := client.Create(f)
+			err := client.Create(Function{Runtime: "go", Name: tt.fnName, Root: root})
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			got, err := DerivedImage(f.Root, tt.registry)
+			got, err := DerivedImage(root, tt.registry)
 			if err != nil {
 				t.Errorf("DerivedImage() for image %v and registry %v; got error %v", tt.image, tt.registry, err)
 			}

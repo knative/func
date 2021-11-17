@@ -40,8 +40,52 @@ func TestNew(t *testing.T) {
 
 	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithVerbose(true))
 
-	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
+	if err := client.New(context.Background(), fn.Function{Root: root, Runtime: TestRuntime}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// TestRuntimeRequired ensures that the the runtime is an expected value.
+func TestRuntimeRequired(t *testing.T) {
+	// Create a root for the new Function
+	root := "testdata/example.com/testRuntimeRequired"
+	defer Using(t, root)()
+
+	client := fn.New(fn.WithRegistry(TestRegistry))
+
+	// Create a new function at root with all defaults.
+	err := client.New(context.Background(), fn.Function{Root: root})
+	if err == nil {
+		t.Fatalf("did not receive error creating a function without specifying runtime")
+	}
+}
+
+// TestNameDefaults ensures that a newly created Function has its name defaulted
+// to a name which can be dervied from the last part of the given root path.
+func TestNameDefaults(t *testing.T) {
+	root := "testdata/example.com/testNameDefaults"
+	defer Using(t, root)()
+
+	client := fn.New(fn.WithRegistry(TestRegistry))
+
+	f := fn.Function{
+		Runtime: TestRuntime,
+		// NO NAME
+		Root: root,
+	}
+
+	if err := client.New(context.Background(), f); err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expected := "testNameDefaults"
+	if f.Name != expected {
+		t.Fatalf("name was not defaulted. expected '%v' got '%v'", expected, f.Name)
 	}
 }
 
@@ -53,7 +97,7 @@ func TestWritesTemplate(t *testing.T) {
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
 
-	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
+	if err := client.New(context.Background(), fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -77,7 +121,7 @@ func TestExtantAborts(t *testing.T) {
 	client := fn.New(fn.WithRegistry(TestRegistry))
 
 	// First .New should succeed...
-	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
+	if err := client.New(context.Background(), fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -126,34 +170,8 @@ func TestHiddenFilesIgnored(t *testing.T) {
 	}
 
 	// Should succeed without error, ignoring the hidden file.
-	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
+	if err := client.New(context.Background(), fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
 		t.Fatal(err)
-	}
-}
-
-// TestDefaultRuntime ensures that the default runtime is applied to new
-// Functions and persisted.
-func TestDefaultRuntime(t *testing.T) {
-	// Create a root for the new Function
-	root := "testdata/example.com/testDefaultRuntime"
-	defer Using(t, root)()
-
-	client := fn.New(fn.WithRegistry(TestRegistry))
-
-	// Create a new function at root with all defaults.
-	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
-		t.Fatal(err)
-	}
-
-	// Load the function
-	f, err := fn.NewFunction(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Ensure it has defaulted runtime
-	if f.Runtime != fn.DefaultRuntime {
-		t.Fatal("The default runtime was not applied or persisted.")
 	}
 }
 
@@ -274,7 +292,7 @@ func TestNamed(t *testing.T) {
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
 
-	if err := client.New(context.Background(), fn.Function{Root: root, Name: name}); err != nil {
+	if err := client.New(context.Background(), fn.Function{Runtime: TestRuntime, Root: root, Name: name}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -321,7 +339,7 @@ func TestDeriveImage(t *testing.T) {
 
 	// Create the function which calculates fields such as name and image.
 	client := fn.New(fn.WithRegistry(TestRegistry))
-	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
+	if err := client.New(context.Background(), fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -350,7 +368,7 @@ func TestDeriveImageDefaultRegistry(t *testing.T) {
 	// Rather than use TestRegistry, use a single-token name and expect
 	// the DefaultRegistry to be prepended.
 	client := fn.New(fn.WithRegistry("alice"))
-	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
+	if err := client.New(context.Background(), fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -397,12 +415,8 @@ func TestNewDelegates(t *testing.T) {
 	// The builder should be invoked with a path to a Function project's source
 	// An example image name is returned.
 	builder.BuildFn = func(f fn.Function) error {
-		expectedPath, err := filepath.Abs(root)
-		if err != nil {
-			t.Fatal(err)
-		}
-		if expectedPath != f.Root {
-			t.Fatalf("builder expected path %v, got '%v'", expectedPath, f.Root)
+		if root != f.Root {
+			t.Fatalf("builder expected path %v, got '%v'", root, f.Root)
 		}
 		return nil
 	}
@@ -429,7 +443,7 @@ func TestNewDelegates(t *testing.T) {
 
 	// Invoke the creation, triggering the Function delegates, and
 	// perform follow-up assertions that the Functions were indeed invoked.
-	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
+	if err := client.New(context.Background(), fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -454,7 +468,7 @@ func TestRun(t *testing.T) {
 	// Create a client with the mock runner and the new test Function
 	runner := mock.NewRunner()
 	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithRunner(runner))
-	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
+	if err := client.New(context.Background(), fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -467,12 +481,8 @@ func TestRun(t *testing.T) {
 	if !runner.RunInvoked {
 		t.Fatal("run did not invoke the runner")
 	}
-	absRoot, err := filepath.Abs(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if runner.RootRequested != absRoot {
-		t.Fatalf("expected path '%v', got '%v'", absRoot, runner.RootRequested)
+	if runner.RootRequested != root {
+		t.Fatalf("expected path '%v', got '%v'", root, runner.RootRequested)
 	}
 }
 
@@ -499,7 +509,7 @@ func TestUpdate(t *testing.T) {
 		fn.WithDeployer(deployer))
 
 	// create the new Function which will be updated
-	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
+	if err := client.New(context.Background(), fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -567,7 +577,7 @@ func TestRemoveByPath(t *testing.T) {
 		fn.WithRegistry(TestRegistry),
 		fn.WithRemover(remover))
 
-	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
+	if err := client.New(context.Background(), fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -603,7 +613,7 @@ func TestRemoveByName(t *testing.T) {
 		fn.WithRegistry(TestRegistry),
 		fn.WithRemover(remover))
 
-	if err := client.Create(fn.Function{Root: root}); err != nil {
+	if err := client.Create(fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -701,7 +711,7 @@ func TestDeployUnbuilt(t *testing.T) {
 	client := fn.New(fn.WithRegistry(TestRegistry))
 
 	// Initialize (half-create) a new Function at root
-	if err := client.Create(fn.Function{Root: root}); err != nil {
+	if err := client.Create(fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -746,29 +756,34 @@ func TestEmit(t *testing.T) {
 func TestWithConfiguredBuilders(t *testing.T) {
 	root := "testdata/example.com/testConfiguredBuilders" // Root from which to run the test
 	defer Using(t, root)()
-
-	builders := map[string]string{
-		"custom": "docker.io/example/custom",
-	}
 	client := fn.New(fn.WithRegistry(TestRegistry))
-	if err := client.Create(fn.Function{
-		Root:     root,
-		Builders: builders,
-	}); err != nil {
+
+	// A Function with predefined builders
+	f0 := fn.Function{
+		Runtime: TestRuntime,
+		Root:    root,
+		Builders: map[string]string{
+			"custom": "docker.io/example/custom",
+		}}
+
+	// Create the Function, which should preserve custom builders
+	if err := client.Create(f0); err != nil {
 		t.Fatal(err)
 	}
-	f, err := fn.NewFunction(root)
+
+	// Load the Function from disk
+	f1, err := fn.NewFunction(root)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// Assert that our custom builder array was set
-	if !reflect.DeepEqual(f.Builders, builders) {
-		t.Fatalf("Expected %v but got %v", builders, f.Builders)
+	// Assert that our custom builders were retained
+	if !reflect.DeepEqual(f0.Builders, f1.Builders) {
+		t.Fatalf("Expected %v but got %v", f0.Builders, f1.Builders)
 	}
 
-	// But that the default still exists
-	if f.Builder == "" {
+	// But that the default exists
+	if f1.Builder == "" {
 		t.Fatal("Expected default builder to be set")
 	}
 }
@@ -786,6 +801,7 @@ func TestWithConfiguredBuildersWithDefault(t *testing.T) {
 	}
 	client := fn.New(fn.WithRegistry(TestRegistry))
 	if err := client.Create(fn.Function{
+		Runtime:  TestRuntime,
 		Root:     root,
 		Builders: builders,
 	}); err != nil {
@@ -818,6 +834,7 @@ func TestWithConfiguredBuildpacks(t *testing.T) {
 	}
 	client := fn.New(fn.WithRegistry(TestRegistry))
 	if err := client.Create(fn.Function{
+		Runtime:    TestRuntime,
 		Root:       root,
 		Buildpacks: buildpacks,
 	}); err != nil {
@@ -889,7 +906,7 @@ func TestCreateStamp(t *testing.T) {
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
 
-	if err := client.New(context.Background(), fn.Function{Root: root}); err != nil {
+	if err := client.New(context.Background(), fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
 		t.Fatal(err)
 	}
 

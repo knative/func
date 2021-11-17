@@ -170,6 +170,9 @@ github.com/containers/storage/pkg/mount
 github.com/containers/storage/pkg/reexec
 github.com/containers/storage/pkg/system
 github.com/containers/storage/pkg/unshare
+# github.com/coreos/go-semver v0.3.0
+## explicit
+github.com/coreos/go-semver/semver
 # github.com/creack/pty v1.1.11
 github.com/creack/pty
 # github.com/davecgh/go-spew v1.1.1

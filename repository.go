@@ -203,7 +203,7 @@ func filesystemFromPath(uri string) (f Filesystem, err error) {
 	return osFilesystem{root: parsed.Path}, nil
 }
 
-// repositoryRuntimes returns runtimes defined in this repository's filesytem.
+// repositoryRuntimes returns runtimes defined in this repository's filesystem.
 // The views are denormalized, using the parent repository's values
 // for inherited fields BuildConfig and HealthEndpoints as the default values
 // for the runtimes and templates.  The runtimes and templates themselves can
@@ -429,7 +429,7 @@ func (r *Repository) Runtime(name string) (runtime Runtime, err error) {
 func (r *Repository) Write(path string) error {
 	// NOTE: Writing internal .git directory does not work
 	//
-	// A quirk of the git library's implementation is that the filesytem
+	// A quirk of the git library's implementation is that the filesystem
 	// returned does not include the .git directory.  This is usually not an
 	// issue when utilizing the repository's filesystem (for writing templates),
 	// but it does cause problems here (used for installing a repo locally) where

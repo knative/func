@@ -16,6 +16,15 @@ import (
 	"knative.dev/kn-plugin-func/utils"
 )
 
+// DefaultRuntime is the default value for the --language flag, which is
+// temporarily set to Node.js while we work though the intracacies of reverting
+// it back to being required:
+// See Issue: https://github.com/knative-sandbox/kn-plugin-func/issues/553
+// See PR:    https://github.com/knative-sandbox/kn-plugin-func/pull/647
+// The exact form of the new interactivity
+// is still a topic of discussion.  (required argument? tab-completion? etc.)
+const DefaultRuntime = "node"
+
 func init() {
 	// Add to the root a new "Create" command which obtains an appropriate
 	// instance of fn.Client from the given client creator function.
@@ -86,7 +95,7 @@ EXAMPLES
 	}
 
 	// Flags
-	cmd.Flags().StringP("language", "l", fn.DefaultRuntime, "Language Runtime (see help text for list) (Env: $FUNC_LANGUAGE)")
+	cmd.Flags().StringP("language", "l", DefaultRuntime, "Language Runtime (see help text for list) (Env: $FUNC_LANGUAGE)")
 	cmd.Flags().StringP("template", "t", fn.DefaultTemplate, "Function template. (see help text for list) (Env: $FUNC_TEMPLATE)")
 	cmd.Flags().StringP("repository", "r", "", "URI to a Git repository containing the specified template (Env: $FUNC_REPOSITORY)")
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
