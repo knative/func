@@ -18,7 +18,7 @@ import (
 
 // Test that we are creating client in accordance
 // with the DOCKER_HOST environment variable
-func TestNewDockerClient(t *testing.T) {
+func TestNewClient(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*1)
 	defer cancel()
 
@@ -39,6 +39,38 @@ func TestNewDockerClient(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+}
+
+func TestNewClient_DockerHost(t *testing.T) {
+	tests := []struct {
+		name                     string
+		dockerHostEnvVar         string
+		expectedRemoteDockerHost string
+	}{
+		{
+			name:                     "tcp",
+			dockerHostEnvVar:         "tcp://10.0.0.1:1234",
+			expectedRemoteDockerHost: "",
+		},
+		{
+			name:                     "unix",
+			dockerHostEnvVar:         "unix:///some/path/docker.sock",
+			expectedRemoteDockerHost: "unix:///some/path/docker.sock",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			defer WithEnvVar(t, "DOCKER_HOST", tt.dockerHostEnvVar)()
+			_, host, err := docker.NewClient(client.DefaultDockerHost)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if host != tt.expectedRemoteDockerHost {
+				t.Errorf("expected docker host %q, but got %q", tt.expectedRemoteDockerHost, host)
+			}
+		})
+	}
+
 }
 
 func startMockDaemon(t *testing.T, sock string) func() {

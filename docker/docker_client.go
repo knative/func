@@ -41,6 +41,14 @@ func NewClient(defaultHost string) (dockerClient client.CommonAPIClient, dockerH
 
 	_url, err = url.Parse(dockerHost)
 	isSSH := err == nil && _url.Scheme == "ssh"
+	isTCP := err == nil && _url.Scheme == "tcp"
+
+	if isTCP {
+		// With TCP, it's difficult to determine how to expose the daemon socket to lifecycle containers,
+		// so we are defaulting to standard docker location by returning empty string.
+		// This should work well most of the time.
+		dockerHost = ""
+	}
 
 	if !isSSH {
 		dockerClient, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
