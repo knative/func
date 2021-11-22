@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 	"knative.dev/client/pkg/util"
@@ -64,6 +63,7 @@ kn func run
 			"You may provide this flag multiple times for setting multiple environment variables. "+
 			"To unset, specify the environment variable name followed by a \"-\" (e.g., NAME-).")
 	setPathFlag(cmd)
+	cmd.Flags().BoolP("build", "b", false, "Build the function only if the function has not been built before")
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		return runRun(cmd, args, clientFn)
@@ -101,19 +101,8 @@ func runRun(cmd *cobra.Command, args []string, clientFn runClientFn) (err error)
 	client := clientFn(config)
 
 	if !function.Built() {
-		ans := struct {
-			Build bool
-		}{}
-		qs := survey.Question{
-			Name: "Build",
-			Prompt: &survey.Confirm{
-				Message: "Looks like the function has not been built yet (building can take a few minutes), would you like to build it now?:",
-				Default: false,
-			},
-			Validate: survey.Required,
-		}
-		err := survey.Ask([]*survey.Question{&qs}, &ans)
-		if err == nil && ans.Build {
+		build, err := cmd.Flags().GetBool("build")
+		if err == nil && build {
 			if err := client.Build(cmd.Context(), config.Path); err != nil {
 				return err
 			}
