@@ -45,7 +45,7 @@ created: 2009-11-10 23:00:00`,
 			},
 			wantErr:    true,
 			buildFlag:  false,
-			errMessage: "Function has no associated Image. Has it been built?",
+			errMessage: "Function has no associated Image. Has it been built? Using the --build flag will build the image it hasn't been built yet",
 		},
 		{
 			name: "Prebuilt image doesn't build again",
