@@ -84,7 +84,10 @@ created: 2009-11-10 23:00:00`,
 		if err != nil {
 			t.Fatalf("file content was not written %v", err)
 		}
-		tt.args.cmd.Flags().Set("build", strconv.FormatBool(tt.buildFlag))
+		err = tt.args.cmd.Flags().Set("build", strconv.FormatBool(tt.buildFlag))
+		if err != nil {
+			t.Error("build flag could not be set")
+		}
 		t.Run(tt.name, func(t *testing.T) {
 			err := runRun(tt.args.cmd, tt.args.args, tt.args.clientFn)
 			if (err != nil) != tt.wantErr {
