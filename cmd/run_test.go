@@ -68,6 +68,7 @@ created: 2009-11-10 23:00:00`,
 		if err != nil {
 			t.Fatalf("temp dir couldn't be created %v", err)
 		}
+		t.Log("tempDir created:", tempDir)
 		t.Cleanup(func() {
 			os.RemoveAll(tempDir)
 		})
