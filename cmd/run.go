@@ -100,14 +100,9 @@ func runRun(cmd *cobra.Command, args []string, clientFn runClientFn) (err error)
 
 	client := clientFn(config)
 
-	if !function.Built() {
-		build, err := cmd.Flags().GetBool("build")
-		if err == nil && build {
-			if err := client.Build(cmd.Context(), config.Path); err != nil {
-				return err
-			}
-		} else if err != nil {
-			fmt.Printf("Function will not be built: %v\n", err)
+	if config.Build && !function.Built() {
+		if err = client.Build(cmd.Context(), config.Path); err != nil {
+			return
 		}
 	}
 	return client.Run(cmd.Context(), config.Path)
