@@ -365,36 +365,6 @@ func isEffectivelyEmpty(dir string) (bool, error) {
 	return true, nil
 }
 
-// unmarshalFunction from disk (FunctionFile) using the passed Function as
-// its defaults.  If no serialized function exists at path, the Function
-// returned is equivalent to the default passed.
-func unmarshalFunction(f Function) (Function, error) {
-	var err error
-	var filename = filepath.Join(f.Root, FunctionFile)
-
-	// Return if there is no file to load, or if there is an error reading.
-	if _, err = os.Stat(filename); err != nil {
-		if os.IsNotExist(err) {
-			err = nil // missing file is not an error.
-		}
-		return f, err
-	}
-
-	// Load the file
-	bb, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return f, err
-	}
-
-	// Unmarshal as yaml
-	if err = yaml.UnmarshalStrict(bb, &f); err != nil {
-		// Return immediately if there are syntactic errors.
-		return f, formatUnmarshalError(err)
-	}
-
-	return f, f.Validate()
-}
-
 // returns true if the given path contains an initialized Function.
 func hasInitializedFunction(path string) (bool, error) {
 	var err error
