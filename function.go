@@ -109,7 +109,7 @@ func NewFunctionWith(defaults Function) Function {
 // Invalid paths, or no Function at path are errors.
 // Syntactic errors are returned immediately (yaml unmarshal errors).
 // Functions which are syntactically valid are also then logically validated.
-// Functions from ealier versions are brought up to current using migrations.
+// Functions from earlier versions are brought up to current using migrations.
 // Migrations are run prior to validators such that validation can omit
 // concerning itself with backwards compatibility.  Migrators must therefore
 // selectively consider the minimal validation necesssary to ehable migration.
@@ -337,7 +337,7 @@ var contentiousFiles = []string{
 	FunctionFile,
 }
 
-// contentiousFilesIn the given directoy
+// contentiousFilesIn the given directory
 func contentiousFilesIn(dir string) (contentious []string, err error) {
 	files, err := ioutil.ReadDir(dir)
 	for _, file := range files {

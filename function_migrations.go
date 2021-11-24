@@ -92,7 +92,7 @@ var migrations = []migration{
 // The only way to know is to check a side-effect of earlier versions:
 // are the .Name and .Runtime fields populated.  This was the way the
 // .Initialized check was implemented prior to versioning being introduced, so
-// it is equivalant logically to use this here as well.
+// it is equivalent logically to use this here as well.
 
 // In summary:  if the creation stamp is zero, but name and runtime fields are
 // populated, then this is an old Function and should be migrated to having a

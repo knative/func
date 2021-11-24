@@ -431,7 +431,7 @@ func (c *Client) New(ctx context.Context, cfg Function) (err error) {
 // <path> will default to the absolute path of the current working directory.
 // <name> will default to the current working directory.
 // When <name> is provided but <path> is not, a directory <name> is created
-// in the current working directoy and used for <path>.
+// in the current working directory and used for <path>.
 func (c *Client) Create(cfg Function) (err error) {
 	// convert Root path to absolute
 	cfg.Root, err = filepath.Abs(cfg.Root)
