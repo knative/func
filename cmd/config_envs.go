@@ -375,7 +375,7 @@ func runAddEnvsPrompt(ctx context.Context, f fn.Function) (err error) {
 		f.Envs[insertToIndex] = newEnv
 	}
 
-	err = f.WriteConfig()
+	err = f.Write()
 	if err == nil {
 		fmt.Println("Environment variable entry was added to the function configuration")
 	}
@@ -407,7 +407,7 @@ func runRemoveEnvsPrompt(f fn.Function) (err error) {
 		return
 	}
 
-	var newEnvs fn.Envs
+	var newEnvs []fn.Env
 	removed := false
 	for i, e := range f.Envs {
 		if e.String() == selectedEnv {
@@ -419,7 +419,7 @@ func runRemoveEnvsPrompt(f fn.Function) (err error) {
 
 	if removed {
 		f.Envs = newEnvs
-		err = f.WriteConfig()
+		err = f.Write()
 		if err == nil {
 			fmt.Println("Environment variable entry was removed from the function configuration")
 		}

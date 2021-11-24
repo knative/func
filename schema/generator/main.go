@@ -23,7 +23,7 @@ func main() {
 // Genereated schema is written into schema/func_yaml-schema.json file
 func generateFuncYamlSchema() error {
 	// generate json schema for Function struct
-	js := jsonschema.Reflect(&fn.Config{})
+	js := jsonschema.Reflect(&fn.Function{})
 	schema, err := js.MarshalJSON()
 	if err != nil {
 		return err

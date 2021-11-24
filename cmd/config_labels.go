@@ -269,7 +269,7 @@ func runRemoveLabelsPrompt(f fn.Function, saver functionSaver) (err error) {
 		return
 	}
 
-	var newLabels fn.Labels
+	var newLabels []fn.Label
 	removed := false
 	for i, e := range f.Labels {
 		if e.String() == selectedLabel {

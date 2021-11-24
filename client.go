@@ -430,9 +430,9 @@ func (c *Client) New(ctx context.Context, cfg Function) (err error) {
 
 // Create a new Function project locally using the settings provided on a
 // Function object.
-func (c *Client) Create(f Function) (err error) {
+func (c *Client) Create(cfg Function) (err error) {
 	// Create project root directory, if it doesn't already exist
-	if err = os.MkdirAll(f.Root, 0755); err != nil {
+	if err = os.MkdirAll(cfg.Root, 0755); err != nil {
 		return
 	}
 
@@ -442,11 +442,11 @@ func (c *Client) Create(f Function) (err error) {
 	// immediately exit with error (prior to actual creation) if this is
 	// a Function already initialized at that path (Create should never
 	// clobber a pre-existing Function)
-	defaults, err := NewFunction(f.Root)
+	f, err := NewFunctionFromDefaults(cfg)
 	if err != nil {
 		return
 	}
-	if defaults.Initialized() {
+	if f.Initialized() {
 		err = fmt.Errorf("Function at '%v' already initialized", f.Root)
 		return
 	}
@@ -463,16 +463,6 @@ func (c *Client) Create(f Function) (err error) {
 		return
 	}
 
-	// Assert runtime was provided, or default.
-	if f.Runtime == "" {
-		f.Runtime = DefaultRuntime
-	}
-
-	// Assert template name was provided, or default.
-	if f.Template == "" {
-		f.Template = DefaultTemplate
-	}
-
 	// Write out the template for a Function
 	// returns a Function which may be mutated based on the content of
 	// the template (default Function, builders, buildpacks, etc).
@@ -481,8 +471,9 @@ func (c *Client) Create(f Function) (err error) {
 		return
 	}
 
-	// Write the Function metadata (func.yaml)
-	if err = writeConfig(f); err != nil {
+	// Mark it as having been created via this client library and Write (save)
+	f.Created = time.Now()
+	if err = f.Write(); err != nil {
 		return
 	}
 
@@ -543,9 +534,9 @@ func (c *Client) Build(ctx context.Context, path string) (err error) {
 		return
 	}
 
-	// Write out config, which will now contain a populated image tag
-	// if it had not already
-	if err = writeConfig(f); err != nil {
+	// Write (save) - Serialize the Function to disk
+	// Will now contain populated image tag.
+	if err = f.Write(); err != nil {
 		return
 	}
 
@@ -584,9 +575,9 @@ func (c *Client) Deploy(ctx context.Context, path string) (err error) {
 		return
 	}
 
-	// Store the produced image Digest in the config
+	// Record the Image Digest pushed.
 	f.ImageDigest = imageDigest
-	if err = writeConfig(f); err != nil {
+	if err = f.Write(); err != nil {
 		return
 	}
 

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	fn "knative.dev/kn-plugin-func"
+	. "knative.dev/kn-plugin-func/testing"
 )
 
 // RepositoriesTestRepo is the general-purpose example repository for most
@@ -21,7 +22,7 @@ const RepositoriesTestRepo = "repository"
 // TestRepositoriesList ensures the base case of listing
 // repositories without error in the default scenario of builtin only.
 func TestRepositoriesList(t *testing.T) {
-	root, rm := mktemp(t)
+	root, rm := Mktemp(t)
 	defer rm()
 
 	client := fn.New(fn.WithRepositories(root)) // Explicitly empty
@@ -67,8 +68,8 @@ func TestRepositoriesGet(t *testing.T) {
 // TestRepositoriesAll ensures repos are returned from
 // .All accessor.  Tests both builtin and buitlin+extensible cases.
 func TestRepositoriesAll(t *testing.T) {
-	uri := testRepoURI(RepositoriesTestRepo, t)
-	root, rm := mktemp(t)
+	uri := TestRepoURI(RepositoriesTestRepo, t)
+	root, rm := Mktemp(t)
 	defer rm()
 
 	client := fn.New(fn.WithRepositories(root))
@@ -104,8 +105,8 @@ func TestRepositoriesAll(t *testing.T) {
 
 // TestRepositoriesAdd checks basic adding of a repository by URI.
 func TestRepositoriesAdd(t *testing.T) {
-	uri := testRepoURI(RepositoriesTestRepo, t) // ./testdata/$RepositoriesTestRepo.git
-	root, rm := mktemp(t)                       // create and cd to a temp dir, returning path.
+	uri := TestRepoURI(RepositoriesTestRepo, t) // ./testdata/$RepositoriesTestRepo.git
+	root, rm := Mktemp(t)                       // create and cd to a temp dir, returning path.
 	defer rm()
 
 	// Instantiate the client using the current temp directory as the
@@ -142,8 +143,8 @@ func TestRepositoriesAddDeafultName(t *testing.T) {
 	// repo meant to exemplify the simplest use case:  a repo with no metadata
 	// that simply contains templates, grouped by runtime.  It therefore does
 	// not have a manifest and the default name will therefore be the repo name
-	uri := testRepoURI(RepositoriesTestRepo, t) // ./testdata/$RepositoriesTestRepo.git
-	root, rm := mktemp(t)
+	uri := TestRepoURI(RepositoriesTestRepo, t) // ./testdata/$RepositoriesTestRepo.git
+	root, rm := Mktemp(t)
 	defer rm()
 
 	client := fn.New(fn.WithRepositories(root))
@@ -177,8 +178,8 @@ func TestRepositoriesAddWithManifest(t *testing.T) {
 	// defines a custom language pack and makes full use of the manifest.yaml.
 	// The manifest.yaml is included which specifies things like custom templates
 	// location and (appropos to this test) a default name/
-	uri := testRepoURI("repository-a", t) // ./testdata/repository-a.git
-	root, rm := mktemp(t)
+	uri := TestRepoURI("repository-a", t) // ./testdata/repository-a.git
+	root, rm := Mktemp(t)
 	defer rm()
 
 	client := fn.New(fn.WithRepositories(root))
@@ -208,8 +209,8 @@ func TestRepositoriesAddWithManifest(t *testing.T) {
 // TestRepositoriesAddExistingErrors ensures that adding a repository that
 // already exists yields an error.
 func TestRepositoriesAddExistingErrors(t *testing.T) {
-	uri := testRepoURI(RepositoriesTestRepo, t)
-	root, rm := mktemp(t) // create and cd to a temp dir, returning path.
+	uri := TestRepoURI(RepositoriesTestRepo, t)
+	root, rm := Mktemp(t) // create and cd to a temp dir, returning path.
 	defer rm()
 
 	// Instantiate the client using the current temp directory as the
@@ -242,8 +243,8 @@ func TestRepositoriesAddExistingErrors(t *testing.T) {
 
 // TestRepositoriesRename ensures renaming a repository succeeds.
 func TestRepositoriesRename(t *testing.T) {
-	uri := testRepoURI(RepositoriesTestRepo, t)
-	root, rm := mktemp(t) // create and cd to a temp dir, returning path.
+	uri := TestRepoURI(RepositoriesTestRepo, t)
+	root, rm := Mktemp(t) // create and cd to a temp dir, returning path.
 	defer rm()
 
 	// Instantiate the client using the current temp directory as the
@@ -276,8 +277,8 @@ func TestRepositoriesRename(t *testing.T) {
 // TestRepositoriesRemove ensures that removing a repository by name
 // removes it from the list and FS.
 func TestRepositoriesRemove(t *testing.T) {
-	uri := testRepoURI(RepositoriesTestRepo, t) // ./testdata/repository.git
-	root, rm := mktemp(t)                       // create and cd to a temp dir
+	uri := TestRepoURI(RepositoriesTestRepo, t) // ./testdata/repository.git
+	root, rm := Mktemp(t)                       // create and cd to a temp dir
 	defer rm()
 
 	// Instantiate the client using the current temp directory as the
@@ -318,8 +319,8 @@ func TestRepositoriesURL(t *testing.T) {
 		return
 	}
 
-	uri := testRepoURI(RepositoriesTestRepo, t)
-	root, rm := mktemp(t)
+	uri := TestRepoURI(RepositoriesTestRepo, t)
+	root, rm := Mktemp(t)
 	defer rm()
 
 	client := fn.New(fn.WithRepositories(root))

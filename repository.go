@@ -27,7 +27,7 @@ const (
 	// DefaultTemplatesPath is the root of the defined repository
 	DefaultTemplatesPath = "."
 
-	// Defaults for Builder and Builders not expressly defined as a pourposeful
+	// Defaults for Builder and Builders not expressly defined as a purposeful
 	// delegation of choice.
 )
 
@@ -57,6 +57,9 @@ type Repository struct {
 	// HealthEndpoints for all templates in the repository.  Serves as the
 	// default option which may be overridden per runtime and per template.
 	HealthEndpoints `yaml:"healthEndpoints,omitempty"`
+	// BuildEnvs define environment variables for builders that can be used
+	//  to parameterize different builders
+	BuildEnvs []Env `yaml:"buildEnvs,omitempty"`
 	// Runtimes containing Templates loaded from the repo
 	Runtimes []Runtime
 	// FS is the filesystem underlying the repository, loaded from URI
@@ -72,13 +75,17 @@ type Repository struct {
 // and libraries)
 type Runtime struct {
 	// Name of the runtime
-	Name string `yaml:"-"` // use filesysem for names
+	Name string `yaml:"-"` // use filesystem for names
 
 	// HealthEndpoints for all templates in the runtime.  May be overridden
 	// per template.
 	HealthEndpoints `yaml:"healthEndpoints,omitempty"`
 
-	// BuildConfig defines attriutes 'builders' and 'buildpacks'.  Here it serves
+	// BuildEnvs for all the templates in the runtime. May be overridden
+	// per template.
+	BuildEnvs []Env `yaml:"buildEnvs,omitempty"`
+
+	// BuildConfig defines attributes 'builders' and 'buildpacks'.  Here it serves
 	// as the default option which may be overridden per template. Note that
 	// unlike HealthEndpoints, it is inline, so no 'buildConfig' attribute is
 	// added/expected; rather the Buildpacks and Builders are direct descendants
@@ -103,9 +110,9 @@ type BuildConfig struct {
 
 // NewRepository creates a repository instance from any of: a path on disk, a
 // remote or local URI, or from the embedded default repo if uri not provided.
-// Name (optional), if provided takes precidence over name derived from repo at
+// Name (optional), if provided takes precedence over name derived from repo at
 //   the given URI.
-// URI (optional), the path either locally or remote from which to load the
+// URI (optional), the path either locally or remote from which to load
 //    the repository files.  If not provided, the internal default is assumed.
 func NewRepository(name, uri string) (r Repository, err error) {
 	r = Repository{
@@ -136,7 +143,7 @@ func NewRepository(name, uri string) (r Repository, err error) {
 
 // filesystemFromURI returns a filesystem from the data located at the
 // given URI.  If URI is not provided, indicates the embedded repo should
-// be loaded.  URI can be a remote git repository (http:// https:// etc),
+// be loaded.  URI can be a remote git repository (http:// https:// etc.),
 // or a local file path (file://) which can be a git repo or a plain directory.
 func filesystemFromURI(uri string) (f Filesystem, err error) {
 	// If not provided, indicates embedded.
@@ -144,7 +151,7 @@ func filesystemFromURI(uri string) (f Filesystem, err error) {
 		return pkgerFilesystem{}, nil
 	}
 
-	// Attempt to get a filesystm from the uri as a remote repo.
+	// Attempt to get a filesystem from the uri as a remote repo.
 	f, err = filesystemFromRepo(uri)
 	if f != nil || err != nil {
 		return // found a filesystem and/or an error
@@ -232,10 +239,11 @@ func repositoryRuntimes(r Repository) (runtimes []Runtime, err error) {
 			Name:            fi.Name(),
 			BuildConfig:     r.BuildConfig,
 			HealthEndpoints: r.HealthEndpoints,
+			BuildEnvs:       r.BuildEnvs,
 		}
 		// Runtime Manifest
 		// Load the file if it exists, which may override values inherited from the
-		// repo such as builders, buildpacks and health endponts.
+		// repo such as builders, buildpacks and health endpoints.
 		runtime, err = applyRuntimeManifest(r, runtime)
 		if err != nil {
 			return
@@ -284,6 +292,7 @@ func runtimeTemplates(r Repository, runtime Runtime) (templates []Template, err 
 			Runtime:         runtime.Name,
 			BuildConfig:     runtime.BuildConfig,
 			HealthEndpoints: runtime.HealthEndpoints,
+			BuildEnvs:       runtime.BuildEnvs,
 		}
 
 		// Template Manifeset

@@ -11,6 +11,8 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/docker/docker/client"
+
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/docker"
 
@@ -30,25 +32,12 @@ func NewBuilder() *Builder {
 	return &Builder{}
 }
 
-//RuntimeToBuildpack holds the mapping between the Runtime and its corresponding
-//Buildpack builder to use
-var RuntimeToBuildpack = map[string]string{
-	"quarkus":    "quay.io/boson/faas-jvm-builder",
-	"node":       "quay.io/boson/faas-nodejs-builder",
-	"go":         "quay.io/boson/faas-go-builder",
-	"springboot": "quay.io/boson/faas-jvm-builder",
-	"python":     "quay.io/boson/faas-python-builder",
-	"typescript": "quay.io/boson/faas-nodejs-builder",
-	"rust":       "quay.io/boson/faas-rust-builder",
-}
-
 var v330 = semver.MustParse("v3.3.0")
 
 // Build the Function at path.
 func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 
 	// Use the builder found in the Function configuration file
-	// If one isn't found, use the defaults
 	var packBuilder string
 	if f.Builder != "" {
 		packBuilder = f.Builder
@@ -57,10 +46,7 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 			packBuilder = pb
 		}
 	} else {
-		packBuilder = RuntimeToBuildpack[f.Runtime]
-		if packBuilder == "" {
-			return errors.New(fmt.Sprint("unsupported runtime: ", f.Runtime))
-		}
+		return errors.New("no buildpack configured for function")
 	}
 
 	// Build options for the pack client.
@@ -79,10 +65,11 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		logWriter = &bytes.Buffer{}
 	}
 
-	cli, dockerHost, err := docker.NewDockerClient()
+	cli, dockerHost, err := docker.NewClient(client.DefaultDockerHost)
 	if err != nil {
 		return err
 	}
+	defer cli.Close()
 
 	version, err := cli.ServerVersion(ctx)
 	if err != nil {

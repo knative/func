@@ -390,7 +390,7 @@ func processLabels(f fn.Function) (map[string]string, error) {
 //   - name: EXAMPLE4
 //     value: {{ configMap:configMapName:key }}  # ENV from a key in ConfigMap
 //   - value: {{ configMap:configMapName }}      # all key-pair values from ConfigMap are set as ENV
-func processEnvs(envs fn.Envs, referencedSecrets, referencedConfigMaps *sets.String) ([]corev1.EnvVar, []corev1.EnvFromSource, error) {
+func processEnvs(envs []fn.Env, referencedSecrets, referencedConfigMaps *sets.String) ([]corev1.EnvVar, []corev1.EnvFromSource, error) {
 
 	envVars := []corev1.EnvVar{{Name: "BUILT", Value: time.Now().Format("20060102T150405")}}
 	envFrom := []corev1.EnvFromSource{}
@@ -563,7 +563,7 @@ func processLocalEnvValue(val string) (string, error) {
 //   path: /etc/secret-volume
 // - configMap: example-cm                # mount ConfigMap as Volume
 //   path: /etc/cm-volume
-func processVolumes(volumes fn.Volumes, referencedSecrets, referencedConfigMaps *sets.String) ([]corev1.Volume, []corev1.VolumeMount, error) {
+func processVolumes(volumes []fn.Volume, referencedSecrets, referencedConfigMaps *sets.String) ([]corev1.Volume, []corev1.VolumeMount, error) {
 
 	createdVolumes := sets.NewString()
 	usedPaths := sets.NewString()

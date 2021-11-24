@@ -2,3 +2,4 @@ ignore:
   - third_party
   - vendor
   - testdata
+  - docker/docker_client_generated.go

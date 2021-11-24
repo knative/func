@@ -1,2 +1,5 @@
 builders:
-  default: quay.io/boson/faas-jvm-builder:v0.8.4
+  default: paketobuildpacks/builder:tiny
+buildEnvs:
+  - name: BP_NATIVE_IMAGE
+    value: "true"
