@@ -121,6 +121,9 @@ type runConfig struct {
 
 	// Envs passed via cmd to removed
 	EnvToRemove []string
+
+	// Perform build if function hasn't been built yet
+	Build bool
 }
 
 func newRunConfig(cmd *cobra.Command) (c runConfig, err error) {
@@ -130,6 +133,7 @@ func newRunConfig(cmd *cobra.Command) (c runConfig, err error) {
 	}
 
 	return runConfig{
+		Build:       viper.GetBool("build"),
 		Path:        viper.GetString("path"),
 		Verbose:     viper.GetBool("verbose"), // defined on root
 		EnvToUpdate: envToUpdate,
