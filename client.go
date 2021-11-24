@@ -433,6 +433,12 @@ func (c *Client) New(ctx context.Context, cfg Function) (err error) {
 // When <name> is provided but <path> is not, a directory <name> is created
 // in the current working directoy and used for <path>.
 func (c *Client) Create(cfg Function) (err error) {
+	// convert Root path to absolute
+	cfg.Root, err = filepath.Abs(cfg.Root)
+	if err != nil {
+		return
+	}
+
 	// Create project root directory, if it doesn't already exist
 	if err = os.MkdirAll(cfg.Root, 0755); err != nil {
 		return

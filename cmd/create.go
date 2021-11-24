@@ -16,14 +16,14 @@ import (
 	"knative.dev/kn-plugin-func/utils"
 )
 
-// DefaultRuntime is the default value for the --language flag, which is
-// temporarily set to Node.js while we work though the intracacies of reverting
-// it back to being required:
-// See Issue: https://github.com/knative-sandbox/kn-plugin-func/issues/553
-// See PR:    https://github.com/knative-sandbox/kn-plugin-func/pull/647
-// The exact form of the new interactivity
-// is still a topic of discussion.  (required argument? tab-completion? etc.)
-const DefaultRuntime = "node"
+// ErrNoRuntime indicates that the language runtime flag was not passed.
+type ErrNoRuntime error
+
+// ErrInvalidRuntime indicates that the passed language runtime was invalid.
+type ErrInvalidRuntime error
+
+// ErrInvalidTemplate indicates that the passed template was invalid.
+type ErrInvalidTemplate error
 
 func init() {
 	// Add to the root a new "Create" command which obtains an appropriate
@@ -95,7 +95,7 @@ EXAMPLES
 	}
 
 	// Flags
-	cmd.Flags().StringP("language", "l", DefaultRuntime, "Language Runtime (see help text for list) (Env: $FUNC_LANGUAGE)")
+	cmd.Flags().StringP("language", "l", "", "Language Runtime (see help text for list) (Env: $FUNC_LANGUAGE)")
 	cmd.Flags().StringP("template", "t", fn.DefaultTemplate, "Function template. (see help text for list) (Env: $FUNC_TEMPLATE)")
 	cmd.Flags().StringP("repository", "r", "", "URI to a Git repository containing the specified template (Env: $FUNC_REPOSITORY)")
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
@@ -324,6 +324,22 @@ func isValidTemplate(client *fn.Client, runtime, template string) bool {
 	return false
 }
 
+// noRuntimeError creates an error stating that the language flag
+// is required, and a verbose list of valid options.
+func noRuntimeError(client *fn.Client) error {
+	b := strings.Builder{}
+	fmt.Fprintf(&b, "Required flag \"language\" not set.\n")
+	fmt.Fprintln(&b, "Available language runtimes are:")
+	runtimes, err := client.Runtimes()
+	if err != nil {
+		return err
+	}
+	for _, v := range runtimes {
+		fmt.Fprintf(&b, "  %v\n", v)
+	}
+	return ErrNoRuntime(errors.New(b.String()))
+}
+
 // newInvalidRuntimeError creates an error stating that the given language
 // is not valid, and a verbose list of valid options.
 func newInvalidRuntimeError(client *fn.Client, runtime string) error {
@@ -337,7 +353,7 @@ func newInvalidRuntimeError(client *fn.Client, runtime string) error {
 	for _, v := range runtimes {
 		fmt.Fprintf(&b, "  %v\n", v)
 	}
-	return errors.New(b.String())
+	return ErrInvalidRuntime(errors.New(b.String()))
 }
 
 // newInvalidTemplateError creates an error stating that the given template
@@ -354,7 +370,7 @@ func newInvalidTemplateError(client *fn.Client, runtime, template string) error 
 	for _, v := range templates {
 		fmt.Fprintf(&b, "  %v\n", v)
 	}
-	return errors.New(b.String())
+	return ErrInvalidTemplate(errors.New(b.String()))
 }
 
 // Validate the current state of the config, returning any errors.
@@ -364,6 +380,7 @@ func newInvalidTemplateError(client *fn.Client, runtime, template string) error 
 // pre-client validation should not be required, as the Client does its own
 // validation.
 func (c createConfig) Validate(client *fn.Client) (err error) {
+
 	// Confirm Name is valid
 	// Note that this is highly constricted, as it must currently adhere to the
 	// naming of a Knative Service, which itself is constrained to a Kubernetes
@@ -380,13 +397,16 @@ func (c createConfig) Validate(client *fn.Client) (err error) {
 	// Perhaps additional validation would be of use here in the CLI, but
 	// the client libray itself is ultimately responsible for validating all input
 	// prior to exeuting any requests.
-	// Client validates both language runtime and template exist, defaulting
-	// them if not (to 'node' and 'http', respectively).  However, if either of
-	// them are invalid, or the chosen combination does not exist, the error
-	// message is a rather terse one-liner.  This is suitable for libraries, but
+	// Client validates both language runtime and template exist, with language runtime
+	// being a mandatory flag while defaulting template if not present to 'http'.
+	// However, if either of them are invalid, or the chosen combination does not exist,
+	// the error message is a rather terse one-liner. This is suitable for libraries, but
 	// for a CLI it behooves us to be more verbose, including valid options for
 	// each.  So here, we check that the values entered (if any) are both valid
 	// and valid together.
+	if c.Runtime == "" {
+		return noRuntimeError(client)
+	}
 	if c.Runtime != "" && c.Repository == "" &&
 		!isValidRuntime(client, c.Runtime) {
 		return newInvalidRuntimeError(client, c.Runtime)

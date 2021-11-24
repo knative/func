@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -18,10 +19,65 @@ func TestCreate(t *testing.T) {
 
 	// command with a client factory which yields a fully default client.
 	cmd := NewCreateCmd(func(createConfig) *fn.Client { return fn.New() })
-	cmd.SetArgs([]string{})
+	cmd.SetArgs([]string{
+		fmt.Sprintf("--language=%s", "go"),
+	})
 
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// TestCreateWithNoRuntime ensures that an invocation of create must be
+// done with a runtime.
+func TestCreateWithNoRuntime(t *testing.T) {
+	defer fromTempDir(t)()
+
+	// command with a client factory which yields a fully default client.
+	cmd := NewCreateCmd(func(createConfig) *fn.Client { return fn.New() })
+	cmd.SetArgs([]string{})
+
+	err := cmd.Execute()
+	var e ErrNoRuntime
+	if !errors.As(err, &e) {
+		t.Fatalf("Did not receive ErrNoRuntime. Got %v", err)
+	}
+}
+
+// TestCreateWithNoRuntime ensures that an invocation of create must be
+// done with one of the valid runtimes only.
+func TestCreateWithInvalidRuntime(t *testing.T) {
+	defer fromTempDir(t)()
+
+	// command with a client factory which yields a fully default client.
+	cmd := NewCreateCmd(func(createConfig) *fn.Client { return fn.New() })
+	cmd.SetArgs([]string{
+		fmt.Sprintf("--language=%s", "test"),
+	})
+
+	err := cmd.Execute()
+	var e ErrInvalidRuntime
+	if !errors.As(err, &e) {
+		t.Fatalf("Did not receive ErrInvalidRuntime. Got %v", err)
+	}
+}
+
+// TestCreateWithInvalidTemplate ensures that an invocation of create must be
+// done with one of the valid templates only.
+func TestCreateWithInvalidTemplate(t *testing.T) {
+	defer fromTempDir(t)()
+
+	// command with a client factory which yields a fully default client.
+	cmd := NewCreateCmd(func(createConfig) *fn.Client { return fn.New() })
+	cmd.SetArgs([]string{
+		fmt.Sprintf("--language=%s", "go"),
+		fmt.Sprintf("--template=%s", "events"),
+	})
+
+	err := cmd.Execute()
+	var e ErrInvalidTemplate
+	if !errors.As(err, &e) {
+		t.Fatalf("Did not receive ErrInvalidTemplate. Got %v", err)
 	}
 }
 
@@ -71,7 +127,9 @@ func TestCreateRepositoriesPath(t *testing.T) {
 		}
 		return fn.New()
 	})
-
+	cmd.SetArgs([]string{
+		fmt.Sprintf("--language=%s", "go"),
+	})
 	// Invoke the command, which is an airball, but does invoke the client
 	// constructor, which which evaluates the aceptance condition of ensuring the
 	// default repositories path was updated based on XDG_CONFIG_HOME.
