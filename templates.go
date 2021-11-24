@@ -96,11 +96,17 @@ func (t *Templates) Get(runtime, fullname string) (Template, error) {
 	return repo.Template(runtime, tplName)
 }
 
-// Write a template to disk for the given Function
+// Write a function's template to disk.
 // Returns a Function which may have been modified dependent on the content
 // of the template (which can define default Function fields, builders,
 // buildpacks, etc)
 func (t *Templates) Write(f Function) (Function, error) {
+	// Templates require an initially valid Function to write
+	// (has name, path, runtime etc)
+	if err := f.Validate(); err != nil {
+		return f, err
+	}
+
 	// The Function's Template
 	template, err := t.Get(f.Runtime, f.Template)
 	if err != nil {

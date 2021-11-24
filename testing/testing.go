@@ -25,7 +25,6 @@ import (
 	"testing"
 )
 
-// USING:  Make specified dir.  Return deferrable cleanup fn.
 // Using the given path, create it as a new directory and return a deferrable
 // which will remove it.
 // usage:
@@ -73,7 +72,7 @@ func Within(t *testing.T, root string) func() {
 // Mktemp creates a temporary directory, CDs the current processes (test) to
 // said directory, and returns the path to said directory.
 // Usage:
-//   path, rm := mktemp(t)
+//   path, rm := Mktemp(t)
 //   defer rm()
 //   CWD is now 'path'
 // errors encountererd fail the current test.
@@ -148,6 +147,9 @@ func WithEnvVar(t *testing.T, name, value string) func() {
 	}
 }
 
+// WithExecutable creates an executable of the given name and source in a temp
+// directory which is then added to PATH.  Returned is a deferrable which will
+// clean up both the script and PATH.
 func WithExecutable(t *testing.T, name, goSrc string) func() {
 	var err error
 	binDir := t.TempDir()

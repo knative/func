@@ -17,15 +17,15 @@ const (
 	// DefaultRegistry through which containers of Functions will be shuttled.
 	DefaultRegistry = "docker.io"
 
-	// DefaultRuntime is the language runtime for a new Function, including
-	// the template written and builder invoked on deploy.
-	DefaultRuntime = "node"
-
 	// DefaultTemplate is the default Function signature / environmental context
 	// of the resultant function.  All runtimes are expected to have at least
 	// one implementation of each supported function signature.  Currently that
 	// includes an HTTP Handler ("http") and Cloud Events handler ("events")
 	DefaultTemplate = "http"
+
+	// DefaultVersion is the initial value for string members whose implicit type
+	// is a semver.
+	DefaultVersion = "0.0.0"
 
 	// The name of the config directory within ~/.config (or configured location)
 	configDirName = "func"
@@ -386,9 +386,8 @@ func (c *Client) New(ctx context.Context, cfg Function) (err error) {
 		c.progressListener.Stopping()
 	}()
 
-	// Create local template
-	err = c.Create(cfg)
-	if err != nil {
+	// Create Function at path indidcated by Config
+	if err = c.Create(cfg); err != nil {
 		return
 	}
 
@@ -428,50 +427,63 @@ func (c *Client) New(ctx context.Context, cfg Function) (err error) {
 	return
 }
 
-// Create a new Function project locally using the settings provided on a
-// Function object.
+// Create a new Function from the given defaults.
+// <path> will default to the absolute path of the current working directory.
+// <name> will default to the current working directory.
+// When <name> is provided but <path> is not, a directory <name> is created
+// in the current working directory and used for <path>.
 func (c *Client) Create(cfg Function) (err error) {
+	// convert Root path to absolute
+	cfg.Root, err = filepath.Abs(cfg.Root)
+	if err != nil {
+		return
+	}
+
 	// Create project root directory, if it doesn't already exist
 	if err = os.MkdirAll(cfg.Root, 0755); err != nil {
 		return
 	}
 
-	// Root must not already be a Function
-	//
-	// Instantiate a Function struct about the given root path, but
-	// immediately exit with error (prior to actual creation) if this is
-	// a Function already initialized at that path (Create should never
-	// clobber a pre-existing Function)
-	f, err := NewFunctionFromDefaults(cfg)
+	// Create should never clobber a pre-existing Function
+	hasFunc, err := hasInitializedFunction(cfg.Root)
 	if err != nil {
-		return
+		return err
 	}
-	if f.Initialized() {
-		err = fmt.Errorf("Function at '%v' already initialized", f.Root)
-		return
-	}
-
-	// Root must not contain any visible files
-	//
-	// We know from above that the target directory does not contain a Function,
-	// but also immediately exit if the target directoy contains any visible files
-	// at all, or any of the known hidden files that will be written.
-	// This is to ensure that if a user inadvertently chooses an incorrect directory
-	// for their new Function, the template and config file writing steps do not
-	// cause data loss.
-	if err = assertEmptyRoot(f.Root); err != nil {
-		return
+	if hasFunc {
+		return fmt.Errorf("Function at '%v' already initialized", cfg.Root)
 	}
 
-	// Write out the template for a Function
-	// returns a Function which may be mutated based on the content of
-	// the template (default Function, builders, buildpacks, etc).
+	// The path for the new Function should not have any contentious files
+	// (hidden files OK, unless it's one used by Func)
+	if err := assertEmptyRoot(cfg.Root); err != nil {
+		return err
+	}
+
+	// Path is defaulted to the current working directory
+	if cfg.Root == "" {
+		if cfg.Root, err = os.Getwd(); err != nil {
+			return
+		}
+	}
+
+	// Name is defaulted to the directory of the given path.
+	if cfg.Name == "" {
+		cfg.Name = nameFromPath(cfg.Root)
+	}
+
+	// Create a new Function
+	f := NewFunctionWith(cfg)
+
+	// Write out the new Function's Template files.
+	// Templates contain values which may result in the Function being mutated
+	// (default builders, etc), so a new (potentially mutated) Function is
+	// returned from Templates.Write
 	f, err = c.Templates().Write(f)
 	if err != nil {
 		return
 	}
 
-	// Mark it as having been created via this client library and Write (save)
+	// Mark the Function as having been created
 	f.Created = time.Now()
 	if err = f.Write(); err != nil {
 		return
@@ -502,7 +514,7 @@ func (c *Client) Build(ctx context.Context, path string) (err error) {
 		"Don't give up on me",
 		"This is taking a while",
 		"Still building"}
-	ticker := time.NewTicker(5 * time.Second)
+	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 	go func() {
 		for {

@@ -10,6 +10,7 @@ require (
 	github.com/buildpacks/pack v0.22.0
 	github.com/cloudevents/sdk-go/v2 v2.5.0
 	github.com/containers/image/v5 v5.10.6
+	github.com/coreos/go-semver v0.3.0
 	github.com/docker/cli v20.10.10+incompatible
 	github.com/docker/docker v20.10.10+incompatible
 	github.com/docker/docker-credential-helpers v0.6.4
