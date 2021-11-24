@@ -9,7 +9,7 @@ import (
 	fn "knative.dev/kn-plugin-func"
 	. "knative.dev/kn-plugin-func/testing"
 )
-
+    
 // TestFunctionNameDefault ensures that a Function's name is defaulted to that
 // which can be derived from the last part of its path.
 func TestFunctionNameDefault(t *testing.T) {
