@@ -20,6 +20,7 @@
 		},
 		"Function": {
 			"required": [
+				"Version",
 				"name",
 				"namespace",
 				"runtime",
@@ -39,6 +40,9 @@
 				"Created"
 			],
 			"properties": {
+				"Version": {
+					"type": "string"
+				},
 				"name": {
 					"pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
 					"type": "string"
