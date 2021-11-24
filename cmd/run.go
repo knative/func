@@ -74,6 +74,7 @@ kn func run
 
 func runRun(cmd *cobra.Command, args []string, clientFn runClientFn) (err error) {
 	config, err := newRunConfig(cmd)
+	fmt.Println("THE PATH:", config.Path)
 	if err != nil {
 		return
 	}
