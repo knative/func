@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 	"testing"
 
@@ -14,6 +15,7 @@ func TestRunRun(t *testing.T) {
 	tests := []struct {
 		name         string
 		fileContents string
+		buildErrors  bool
 		buildFlag    bool
 		shouldBuild  bool
 		shouldRun    bool
@@ -46,14 +48,32 @@ created: 2009-11-10 23:00:00`,
 			shouldBuild: true,
 			shouldRun:   true,
 		},
+		{
+			name: "Build error skips execution",
+			fileContents: `name: test-func
+runtime: go
+created: 2009-11-10 23:00:00`,
+			buildFlag:   true,
+			shouldBuild: true,
+			shouldRun:   false,
+			buildErrors: true,
+		},
 	}
 	for _, tt := range tests {
 		mockRunner := mock.NewRunner()
 		mockBuilder := mock.NewBuilder()
+		errorBuilder := mock.Builder{
+			BuildFn: func(f fn.Function) error { return fmt.Errorf("build failed") },
+		}
+		fmt.Println(errorBuilder)
 		cmd := NewRunCmd(func(rc runConfig) *fn.Client {
+			buildOption := fn.WithBuilder(mockBuilder)
+			if tt.buildErrors {
+				buildOption = fn.WithBuilder(&errorBuilder)
+			}
 			return fn.New(
 				fn.WithRunner(mockRunner),
-				fn.WithBuilder(mockBuilder),
+				buildOption,
 				fn.WithRegistry("ghcr.com/reg"),
 			)
 		})
@@ -84,11 +104,11 @@ created: 2009-11-10 23:00:00`,
 		}
 		t.Run(tt.name, func(t *testing.T) {
 			err := cmd.Execute()
-			if err != nil {
-				t.Errorf("No error was expected: %v", err)
+			if err == nil && tt.buildErrors {
+				t.Errorf("Expected error: %v but got %v", tt.buildErrors, err)
 			}
-			if mockBuilder.BuildInvoked != tt.shouldBuild {
-				t.Errorf("Function was expected to build is: %v but build execution was: %v", tt.shouldBuild, mockBuilder.BuildInvoked)
+			if tt.shouldBuild && !(mockBuilder.BuildInvoked || errorBuilder.BuildInvoked) {
+				t.Errorf("Function was expected to build is: %v but build execution was: %v", tt.shouldBuild, mockBuilder.BuildInvoked || errorBuilder.BuildInvoked)
 			}
 			if mockRunner.RunInvoked != tt.shouldRun {
 				t.Errorf("Function was expected to run is: %v but run execution was: %v", tt.shouldRun, mockRunner.RunInvoked)
