@@ -2,8 +2,11 @@ package cmd
 
 import (
 	"os"
-	"strconv"
 	"testing"
+
+	"github.com/ory/viper"
+	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/mock"
 )
 
 func TestRunRun(t *testing.T) {
@@ -11,32 +14,49 @@ func TestRunRun(t *testing.T) {
 	tests := []struct {
 		name         string
 		fileContents string
-		wantErr      bool
 		buildFlag    bool
-		errMessage   string
+		shouldBuild  bool
+		shouldRun    bool
 	}{
 		{
-			name: "Non built func won't execute if build is skipped",
+			name: "Should attempt to run even if build is skipped",
 			fileContents: `name: test-func
 runtime: go
 created: 2009-11-10 23:00:00`,
-			wantErr:    true,
-			buildFlag:  false,
-			errMessage: "Function has no associated Image. Has it been built? Using the --build flag will build the image it hasn't been built yet",
+			buildFlag:   false,
+			shouldBuild: false,
+			shouldRun:   true,
 		},
 		{
-			name: "Prebuilt image doesn't build again",
+			name: "Prebuilt image doesn't get built again",
 			fileContents: `name: test-func
 runtime: go
 image: unexistant
 created: 2009-11-10 23:00:00`,
-			wantErr:    true,
-			buildFlag:  true,
-			errMessage: "failed to create container: Error response from daemon: No such image: unexistant:latest",
+			buildFlag:   true,
+			shouldBuild: false,
+			shouldRun:   true,
+		},
+		{
+			name: "Build when image is empty and build flag is true",
+			fileContents: `name: test-func
+runtime: go
+created: 2009-11-10 23:00:00`,
+			buildFlag:   true,
+			shouldBuild: true,
+			shouldRun:   true,
 		},
 	}
 	for _, tt := range tests {
-		cmd := NewRunCmd(newRunClient)
+		mockRunner := mock.NewRunner()
+		mockBuilder := mock.NewBuilder()
+		cmd := NewRunCmd(func(rc runConfig) *fn.Client {
+			return fn.New(
+				fn.WithRunner(mockRunner),
+				fn.WithBuilder(mockBuilder),
+				fn.WithRegistry("ghcr.com/reg"),
+			)
+		})
 		tempDir, err := os.MkdirTemp("", "func-tests")
 		if err != nil {
 			t.Fatalf("temp dir couldn't be created %v", err)
@@ -52,7 +72,8 @@ created: 2009-11-10 23:00:00`,
 			t.Fatalf("temp file couldn't be created %v", err)
 		}
 
-		cmd.SetArgs([]string{"--path=" + tempDir, "--build=" + strconv.FormatBool(tt.buildFlag)})
+		cmd.SetArgs([]string{"--path=" + tempDir})
+		viper.SetDefault("build", tt.buildFlag)
 
 		_, err = tempFile.WriteString(tt.fileContents)
 		if err != nil {
@@ -63,11 +84,14 @@ created: 2009-11-10 23:00:00`,
 		}
 		t.Run(tt.name, func(t *testing.T) {
 			err := cmd.Execute()
-			if (err != nil) != tt.wantErr {
-				t.Errorf("runRun() error = %v, wantErr %v", err, tt.wantErr)
+			if err != nil {
+				t.Errorf("No error was expected: %v", err)
 			}
-			if tt.wantErr && !(err == nil || err.Error() == tt.errMessage) {
-				t.Errorf("Expected error message to be %v but got: %v", tt.errMessage, err)
+			if mockBuilder.BuildInvoked != tt.shouldBuild {
+				t.Errorf("Function was expected to build is: %v but build execution was: %v", tt.shouldBuild, mockBuilder.BuildInvoked)
+			}
+			if mockRunner.RunInvoked != tt.shouldRun {
+				t.Errorf("Function was expected to run is: %v but run execution was: %v", tt.shouldRun, mockRunner.RunInvoked)
 			}
 		})
 	}
