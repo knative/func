@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"gopkg.in/yaml.v2"
+	"sigs.k8s.io/yaml"
 )
 
 // FunctionFile is the file used for the serialized form of a Function.
@@ -23,20 +23,20 @@ type Function struct {
 	Version string // semver format
 
 	// Root on disk at which to find/create source and config files.
-	Root string `yaml:"-"`
+	Root string `json:"-"`
 
 	// Name of the Function.  If not provided, path derivation is attempted when
 	// requried (such as for initialization).
-	Name string `yaml:"name" jsonschema:"pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"`
+	Name string `json:"name" jsonschema:"pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"`
 
 	// Namespace into which the Function is deployed on supported platforms.
-	Namespace string `yaml:"namespace"`
+	Namespace string `json:"namespace"`
 
 	// Runtime is the language plus context.  nodejs|go|quarkus|rust etc.
-	Runtime string `yaml:"runtime"`
+	Runtime string `json:"runtime"`
 
 	// Template for the Function.
-	Template string `yaml:"-"`
+	Template string `json:"-"`
 
 	// Registry at which to store interstitial containers, in the form
 	// [registry]/[user].
@@ -51,42 +51,42 @@ type Function struct {
 	//   alice/my.function.name
 	// If Image is provided, it overrides the default of concatenating
 	// "Registry+Name:latest" to derive the Image.
-	Image string `yaml:"image"`
+	Image string `json:"image"`
 
 	// SHA256 hash of the latest image that has been built
-	ImageDigest string `yaml:"imageDigest"`
+	ImageDigest string `json:"imageDigest"`
 
 	// Builder represents the CNCF Buildpack builder image for a function
-	Builder string `yaml:"builder"`
+	Builder string `json:"builder"`
 
 	// Map containing known builders.
 	// e.g. { "jvm": "docker.io/example/quarkus-jvm-builder" }
-	Builders map[string]string `yaml:"builders"`
+	Builders map[string]string `json:"builders"`
 
 	// Optional list of buildpacks to use when building the function
-	Buildpacks []string `yaml:"buildpacks"`
+	Buildpacks []string `json:"buildpacks"`
 
 	// List of volumes to be mounted to the function
-	Volumes []Volume `yaml:"volumes"`
+	Volumes []Volume `json:"volumes"`
 
 	// Build Env variables to be set
-	BuildEnvs []Env `yaml:"buildEnvs"`
+	BuildEnvs []Env `json:"buildEnvs"`
 
 	// Env variables to be set
-	Envs []Env `yaml:"envs"`
+	Envs []Env `json:"envs"`
 
 	// Map containing user-supplied annotations
 	// Example: { "division": "finance" }
-	Annotations map[string]string `yaml:"annotations"`
+	Annotations map[string]string `json:"annotations"`
 
 	// Options to be set on deployed function (scaling, etc.)
-	Options Options `yaml:"options"`
+	Options Options `json:"options"`
 
 	// Map of user-supplied labels
-	Labels []Label `yaml:"labels"`
+	Labels []Label `json:"labels"`
 
 	// Health endpoints specified by the language pack
-	HealthEndpoints HealthEndpoints `yaml:"healthEndpoints"`
+	HealthEndpoints HealthEndpoints `json:"healthEndpoints"`
 
 	// Created time is the moment that creation was successfully completed
 	// according to the client which is in charge of what constitutes being

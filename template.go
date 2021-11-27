@@ -4,7 +4,7 @@ package function
 type Template struct {
 	// Name (short name) of this template within the repository.
 	// See .Fullname for the calculated field which is the unique primary id.
-	Name string `yaml:"-"` // use filesystem for name, not yaml
+	Name string `json:"-"` // use filesystem for name, not yaml
 	// Runtime for which this template applies.
 	Runtime string
 	// Repository within which this template is contained.  Value is set to the
@@ -14,13 +14,13 @@ type Template struct {
 	Repository string
 	// BuildConfig defines builders and buildpacks.  the denormalized view of
 	// members which can be defined per repo or per runtime first.
-	BuildConfig `yaml:",inline"`
+	BuildConfig `json:",inline"`
 	// HealthEndpoints.  The denormalized view of members which can be defined
 	// first per repo or per runtime.
-	HealthEndpoints `yaml:"healthEndpoints,omitempty"`
+	HealthEndpoints `json:"healthEndpoints,omitempty"`
 	// BuildEnvs defines environment variables related to the builders,
 	// this can be used to parameterize the builders
-	BuildEnvs []Env `yaml:"buildEnvs,omitempty"`
+	BuildEnvs []Env `json:"buildEnvs,omitempty"`
 }
 
 // Fullname is a calculated field of [repo]/[name] used

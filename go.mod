@@ -32,7 +32,6 @@ require (
 	golang.org/x/term v0.0.0-20210615171337-6886f2dfbf5b
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/tools v0.1.7 // indirect
-	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.21.4
 	k8s.io/apimachinery v0.21.4
 	k8s.io/client-go v0.21.4
@@ -41,6 +40,7 @@ require (
 	knative.dev/hack v0.0.0-20210806075220-815cd312d65c
 	knative.dev/pkg v0.0.0-20210919202233-5ae482141474
 	knative.dev/serving v0.26.0
+	sigs.k8s.io/yaml v1.2.0
 )
 
 // temporary set higher version of buildpacks/imgutil to get better performance for podman

@@ -11,7 +11,7 @@ import (
 
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
+	"sigs.k8s.io/yaml"
 
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/knative"
@@ -167,7 +167,12 @@ func (items listItems) XML(w io.Writer) error {
 }
 
 func (items listItems) YAML(w io.Writer) error {
-	return yaml.NewEncoder(w).Encode(items)
+	encoded, err := yaml.Marshal(items)
+	if err != nil {
+		return err
+	}
+	_, err = w.Write(encoded)
+	return err
 }
 
 func (items listItems) URL(w io.Writer) error {

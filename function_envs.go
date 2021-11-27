@@ -8,8 +8,8 @@ import (
 )
 
 type Env struct {
-	Name  *string `yaml:"name,omitempty" jsonschema:"pattern=^[-._a-zA-Z][-._a-zA-Z0-9]*$"`
-	Value *string `yaml:"value"`
+	Name  *string `json:"name,omitempty" jsonschema:"pattern=^[-._a-zA-Z][-._a-zA-Z0-9]*$"`
+	Value *string `json:"value"`
 }
 
 func (e Env) String() string {

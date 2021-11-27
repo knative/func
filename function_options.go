@@ -7,32 +7,32 @@ import (
 )
 
 type Options struct {
-	Scale     *ScaleOptions     `yaml:"scale,omitempty"`
-	Resources *ResourcesOptions `yaml:"resources,omitempty"`
+	Scale     *ScaleOptions     `json:"scale,omitempty"`
+	Resources *ResourcesOptions `json:"resources,omitempty"`
 }
 
 type ScaleOptions struct {
-	Min         *int64   `yaml:"min,omitempty" jsonschema_extras:"minimum=0"`
-	Max         *int64   `yaml:"max,omitempty" jsonschema_extras:"minimum=0"`
-	Metric      *string  `yaml:"metric,omitempty" jsonschema:"enum=concurrency,enum=rps"`
-	Target      *float64 `yaml:"target,omitempty" jsonschema_extras:"minimum=0.01"`
-	Utilization *float64 `yaml:"utilization,omitempty" jsonschema:"minimum=1,maximum=100"`
+	Min         *int64   `json:"min,omitempty" jsonschema_extras:"minimum=0"`
+	Max         *int64   `json:"max,omitempty" jsonschema_extras:"minimum=0"`
+	Metric      *string  `json:"metric,omitempty" jsonschema:"enum=concurrency,enum=rps"`
+	Target      *float64 `json:"target,omitempty" jsonschema_extras:"minimum=0.01"`
+	Utilization *float64 `json:"utilization,omitempty" jsonschema:"minimum=1,maximum=100"`
 }
 
 type ResourcesOptions struct {
-	Requests *ResourcesRequestsOptions `yaml:"requests,omitempty"`
-	Limits   *ResourcesLimitsOptions   `yaml:"limits,omitempty"`
+	Requests *ResourcesRequestsOptions `json:"requests,omitempty"`
+	Limits   *ResourcesLimitsOptions   `json:"limits,omitempty"`
 }
 
 type ResourcesLimitsOptions struct {
-	CPU         *string `yaml:"cpu,omitempty" jsonschema:"pattern=^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$"`
-	Memory      *string `yaml:"memory,omitempty" jsonschema:"pattern=^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$"`
-	Concurrency *int64  `yaml:"concurrency,omitempty" jsonschema_extras:"minimum=0"`
+	CPU         *string `json:"cpu,omitempty" jsonschema:"pattern=^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$"`
+	Memory      *string `json:"memory,omitempty" jsonschema:"pattern=^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$"`
+	Concurrency *int64  `json:"concurrency,omitempty" jsonschema_extras:"minimum=0"`
 }
 
 type ResourcesRequestsOptions struct {
-	CPU    *string `yaml:"cpu,omitempty" jsonschema:"pattern=^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$"`
-	Memory *string `yaml:"memory,omitempty" jsonschema:"pattern=^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$"`
+	CPU    *string `json:"cpu,omitempty" jsonschema:"pattern=^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$"`
+	Memory *string `json:"memory,omitempty" jsonschema:"pattern=^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$"`
 }
 
 // validateOptions checks that input Options are correctly set.

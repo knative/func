@@ -3,9 +3,9 @@ package function
 import "fmt"
 
 type Volume struct {
-	Secret    *string `yaml:"secret,omitempty" jsonschema:"oneof_required=secret"`
-	ConfigMap *string `yaml:"configMap,omitempty" jsonschema:"oneof_required=configmap"`
-	Path      *string `yaml:"path"`
+	Secret    *string `json:"secret,omitempty" jsonschema:"oneof_required=secret"`
+	ConfigMap *string `json:"configMap,omitempty" jsonschema:"oneof_required=configmap"`
+	Path      *string `json:"path"`
 }
 
 func (v Volume) String() string {

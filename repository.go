@@ -2,6 +2,7 @@ package function
 
 import (
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -10,7 +11,7 @@ import (
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/storage/memory"
-	"gopkg.in/yaml.v2"
+	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -41,25 +42,25 @@ type Repository struct {
 	// this information.  This name is the denormalized view of the filesystem,
 	// which defines the name as the directory name, and supports being defaulted
 	// to the value in the .yaml on initial add, which is stored as DefaultName.
-	Name string `yaml:"-"` // use filesystem for names
+	Name string `json:"-"` // use filesystem for names
 	// DefaultName is the name indicated by the repository author.
 	// Stored in the yaml attribute "name", it is only consulted during initial
 	// addition of the repo as the default option.
-	DefaultName string `yaml:"name,omitempty"`
+	DefaultName string `json:"name,omitempty"`
 	// Version of the repository.
-	Version string `yaml:"version,omitempty"`
+	Version string `json:"version,omitempty"`
 	// TemplatesPath defines an optional path within the repository at which
 	// templates are stored.  By default this is the repository root.
-	TemplatesPath string `yaml:"templates,omitempty"`
+	TemplatesPath string `json:"templates,omitempty"`
 	// BuildConfig defines builders and buildpacks.  Here it serves as the default
 	// option which may be overridden per runtime or per template.
-	BuildConfig `yaml:",inline"`
+	BuildConfig `json:",inline"`
 	// HealthEndpoints for all templates in the repository.  Serves as the
 	// default option which may be overridden per runtime and per template.
-	HealthEndpoints `yaml:"healthEndpoints,omitempty"`
+	HealthEndpoints `json:"healthEndpoints,omitempty"`
 	// BuildEnvs define environment variables for builders that can be used
 	//  to parameterize different builders
-	BuildEnvs []Env `yaml:"buildEnvs,omitempty"`
+	BuildEnvs []Env `json:"buildEnvs,omitempty"`
 	// Runtimes containing Templates loaded from the repo
 	Runtimes []Runtime
 	// FS is the filesystem underlying the repository, loaded from URI
@@ -75,22 +76,22 @@ type Repository struct {
 // and libraries)
 type Runtime struct {
 	// Name of the runtime
-	Name string `yaml:"-"` // use filesystem for names
+	Name string `json:"-"` // use filesystem for names
 
 	// HealthEndpoints for all templates in the runtime.  May be overridden
 	// per template.
-	HealthEndpoints `yaml:"healthEndpoints,omitempty"`
+	HealthEndpoints `json:"healthEndpoints,omitempty"`
 
 	// BuildEnvs for all the templates in the runtime. May be overridden
 	// per template.
-	BuildEnvs []Env `yaml:"buildEnvs,omitempty"`
+	BuildEnvs []Env `json:"buildEnvs,omitempty"`
 
 	// BuildConfig defines attributes 'builders' and 'buildpacks'.  Here it serves
 	// as the default option which may be overridden per template. Note that
 	// unlike HealthEndpoints, it is inline, so no 'buildConfig' attribute is
 	// added/expected; rather the Buildpacks and Builders are direct descendants
 	// of Runtime.
-	BuildConfig `yaml:",inline"`
+	BuildConfig `json:",inline"`
 
 	// Templates defined for the runtime
 	Templates []Template
@@ -98,14 +99,14 @@ type Runtime struct {
 
 // HealthEndpoints specify the liveness and readiness endpoints for a Runtime
 type HealthEndpoints struct {
-	Liveness  string `yaml:"liveness,omitempty"`
-	Readiness string `yaml:"readiness,omitempty"`
+	Liveness  string `json:"liveness,omitempty"`
+	Readiness string `json:"readiness,omitempty"`
 }
 
 // BuildConfig defines builders and buildpacks
 type BuildConfig struct {
-	Buildpacks []string          `yaml:"buildpacks,omitempty"`
-	Builders   map[string]string `yaml:"builders,omitempty"`
+	Buildpacks []string          `json:"buildpacks,omitempty"`
+	Builders   map[string]string `json:"builders,omitempty"`
 }
 
 // NewRepository creates a repository instance from any of: a path on disk, a
@@ -342,8 +343,12 @@ func applyRepositoryManifest(r Repository) (Repository, error) {
 		}
 		return r, err
 	}
-	decoder := yaml.NewDecoder(file)
-	return r, decoder.Decode(&r)
+	bytes, err := io.ReadAll(file)
+	if err != nil {
+		return r, err
+	}
+	err = yaml.Unmarshal(bytes, &r)
+	return r, err
 }
 
 // applyRuntimeManifest from the directory specified (runtime root).  Returned
@@ -358,8 +363,12 @@ func applyRuntimeManifest(repo Repository, runtime Runtime) (Runtime, error) {
 		}
 		return runtime, err
 	}
-	decoder := yaml.NewDecoder(file)
-	return runtime, decoder.Decode(&runtime)
+	bytes, err := io.ReadAll(file)
+	if err != nil {
+		return runtime, err
+	}
+	err = yaml.Unmarshal(bytes, &runtime)
+	return runtime, err
 }
 
 // applyTemplateManifest from the directory specified (template root).  Returned
@@ -374,8 +383,12 @@ func applyTemplateManifest(repo Repository, t Template) (Template, error) {
 		}
 		return t, err
 	}
-	decoder := yaml.NewDecoder(file)
-	return t, decoder.Decode(&t)
+	bytes, err := io.ReadAll(file)
+	if err != nil {
+		return t, err
+	}
+	err = yaml.Unmarshal(bytes, &t)
+	return t, err
 }
 
 // check that the given path is an accessible directory or error.
