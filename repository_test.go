@@ -65,7 +65,7 @@ func TestRepositoryInheritance(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Template C: from a runtime with a manifest which sets endpoints, and
-	// itself includes a manifest which explicitly sets.
+	// itself includes a manifest which explicitly sets endpoints.
 	tC, err := repo.Template("manifestedRuntime", "manifestedTemplate")
 	if err != nil {
 		t.Fatal(err)
@@ -76,7 +76,7 @@ func TestRepositoryInheritance(t *testing.T) {
 		t.Errorf("Repository-level HealthEndpoint not loaded to template, got %q", tA.Readiness)
 	}
 	if diff := cmp.Diff([]string{"repoBuildpack"}, tA.Buildpacks); diff != "" {
-		t.Errorf("Repository-level HealthEndpoint differs (-want, +got): %s", diff)
+		t.Errorf("Repository-level Buildpack differs (-want, +got): %s", diff)
 	}
 
 	// Assert Template B reflects runtime-level settings
