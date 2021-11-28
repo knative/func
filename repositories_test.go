@@ -6,8 +6,9 @@ package function_test
 import (
 	"os"
 	"path/filepath"
-	"reflect"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 
 	fn "knative.dev/kn-plugin-func"
 	. "knative.dev/kn-plugin-func/testing"
@@ -125,8 +126,8 @@ func TestRepositoriesAdd(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected := []string{"default", "example"}
-	if !reflect.DeepEqual(rr, expected) {
-		t.Fatalf("Expected '%v', got %v", expected, rr)
+	if diff := cmp.Diff(expected, rr); diff != "" {
+		t.Error("Repositories differed (-want, +got):", diff)
 	}
 
 	// assert a file exists at the location as well indicating it was added to
@@ -165,8 +166,8 @@ func TestRepositoriesAddDeafultName(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected := []string{"default", RepositoriesTestRepo}
-	if !reflect.DeepEqual(rr, expected) {
-		t.Fatalf("Expected '%v', got %v", expected, rr)
+	if diff := cmp.Diff(expected, rr); diff != "" {
+		t.Error("Repositories differed (-want, +got):", diff)
 	}
 }
 
@@ -201,8 +202,8 @@ func TestRepositoriesAddWithManifest(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected := []string{"default", expectedName}
-	if !reflect.DeepEqual(rr, expected) {
-		t.Fatalf("Expected '%v', got %v", expected, rr)
+	if diff := cmp.Diff(expected, rr); diff != "" {
+		t.Error("Repositories differed (-want, +got):", diff)
 	}
 }
 

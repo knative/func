@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"reflect"
 	"runtime"
 	"testing"
 
@@ -41,10 +40,8 @@ func TestTemplatesList(t *testing.T) {
 		"customTemplateRepo/customTemplate",
 	}
 
-	if !reflect.DeepEqual(templates, expected) {
-		t.Logf("expected: %v", expected)
-		t.Logf("received: %v", templates)
-		t.Fatal("Expected templates list not received.")
+	if diff := cmp.Diff(expected, templates); diff != "" {
+		t.Error("Unexpected templates (-want, +got):", diff)
 	}
 }
 
@@ -65,10 +62,8 @@ func TestTemplatesListExtendedNotFound(t *testing.T) {
 		"http",
 	}
 
-	if !reflect.DeepEqual(templates, expected) {
-		t.Logf("expected: %v", expected)
-		t.Logf("received: %v", templates)
-		t.Fatal("Expected templates list not received.")
+	if diff := cmp.Diff(expected, templates); diff != "" {
+		t.Error("Unexpected templates (-want, +got):", diff)
 	}
 }
 
@@ -423,10 +418,8 @@ func TestRuntimeManifestBuildEnvs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(f.BuildEnvs, envs) {
-		if diff := cmp.Diff(f.BuildEnvs, envs); diff != "" {
-			t.Fatalf("Unexpected difference between runtime's manifest.yaml buildEnvs and Function BuildEnvs (-want, +got): %v", diff)
-		}
+	if diff := cmp.Diff(envs, f.BuildEnvs); diff != "" {
+		t.Fatalf("Unexpected difference between runtime's manifest.yaml buildEnvs and Function BuildEnvs (-want, +got): %v", diff)
 	}
 }
 
@@ -472,10 +465,8 @@ func TestTemplateManifestBuildEnvs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(f.BuildEnvs, envs) {
-		if diff := cmp.Diff(f.BuildEnvs, envs); diff != "" {
-			t.Fatalf("Unexpected difference between template's manifest.yaml buildEnvs and Function BuildEnvs (-want, +got): %v", diff)
-		}
+	if diff := cmp.Diff(envs, f.BuildEnvs); diff != "" {
+		t.Fatalf("Unexpected difference between template's manifest.yaml buildEnvs and Function BuildEnvs (-want, +got): %v", diff)
 	}
 }
 
@@ -521,10 +512,7 @@ func TestRepositoryManifestBuildEnvs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(f.BuildEnvs, envs) {
-		if diff := cmp.Diff(f.BuildEnvs, envs); diff != "" {
-			t.Fatalf("Unexpected difference between repository's manifest.yaml buildEnvs and Function BuildEnvs (-want, +got): %v", diff)
-		}
-
+	if diff := cmp.Diff(envs, f.BuildEnvs); diff != "" {
+		t.Fatalf("Unexpected difference between repository's manifest.yaml buildEnvs and Function BuildEnvs (-want, +got): %v", diff)
 	}
 }
