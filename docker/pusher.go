@@ -3,15 +3,18 @@ package docker
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
+
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/name"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/daemon"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 
 	"github.com/docker/docker/client"
 
@@ -258,24 +261,16 @@ func (n *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err er
 	}
 	n.progressListener.Increment("Pushing function image to the registry")
 
-	authConfig := types.AuthConfig{
-		Username:      credentials.Username,
-		Password:      credentials.Password,
-		ServerAddress: registry,
+	auth := &authn.Basic{
+		Username: credentials.Username,
+		Password: credentials.Password,
 	}
 
-	b, err := json.Marshal(&authConfig)
-	if err != nil {
-		return "", err
+	progressChannel := make(chan v1.Update)
+	opts := []remote.Option{
+		remote.WithAuth(auth),
+		remote.WithProgress(progressChannel),
 	}
-
-	opts := types.ImagePushOptions{RegistryAuth: base64.StdEncoding.EncodeToString(b)}
-
-	r, err := cli.ImagePush(ctx, f.Image, opts)
-	if err != nil {
-		return "", fmt.Errorf("failed to push the image: %w", err)
-	}
-	defer r.Close()
 
 	var output io.Writer
 	var outBuff bytes.Buffer
@@ -287,63 +282,31 @@ func (n *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err er
 		output = &outBuff
 	}
 
-	decoder := json.NewDecoder(r)
-	li := logItem{}
-	for {
-		err = decoder.Decode(&li)
-		if err != nil {
-			if err == io.EOF {
-				err = nil
-			}
-			break
-		}
-		if li.Error != "" {
-			return "", errors.New(li.ErrorDetail.Message)
-		}
-		if li.Id != "" {
-			fmt.Fprintf(output, "%s: ", li.Id)
-		}
-		var percent int
-		if li.ProgressDetail.Total == 0 {
-			percent = 100
-		} else {
-			percent = (li.ProgressDetail.Current * 100) / li.ProgressDetail.Total
-		}
-		fmt.Fprintf(output, "%s (%d%%)\n", li.Status, percent)
+	ref, err := name.ParseReference(f.Image)
+	if err != nil {
+		return "", err
 	}
 
-	digest = parseDigest(outBuff.String())
-
-	return
-}
-
-var digestRE = regexp.MustCompile(`digest:\s+(sha256:\w{64})`)
-
-// parseDigest tries to parse the last line from the output, which holds the pushed image digest
-// The output should contain line like this:
-// latest: digest: sha256:a278a91112d17f8bde6b5f802a3317c7c752cf88078dae6f4b5a0784deb81782 size: 2613
-func parseDigest(output string) string {
-	match := digestRE.FindStringSubmatch(output)
-	if len(match) >= 2 {
-		return match[1]
+	img, err := daemon.Image(ref)
+	if err != nil {
+		return "", err
 	}
-	return ""
-}
 
-type errorDetail struct {
-	Message string `json:"message"`
-}
+	go func() {
+		for progress := range progressChannel {
+			fmt.Fprintf(output, "progress: %+v\n", progress)
+		}
+	}()
 
-type progressDetail struct {
-	Current int `json:"current"`
-	Total   int `json:"total"`
-}
+	err = remote.Write(ref, img, opts...)
+	if err != nil {
+		return "", err
+	}
 
-type logItem struct {
-	Id             string         `json:"id"`
-	Status         string         `json:"status"`
-	Error          string         `json:"error"`
-	ErrorDetail    errorDetail    `json:"errorDetail"`
-	Progress       string         `json:"progress"`
-	ProgressDetail progressDetail `json:"progressDetail"`
+	hash, err := img.Digest()
+	if err != nil {
+		return "", err
+	}
+
+	return hash.String(), nil
 }
