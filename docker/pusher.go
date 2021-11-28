@@ -3,12 +3,16 @@ package docker
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"knative.dev/kn-plugin-func/k8s"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -25,6 +29,8 @@ import (
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/errdefs"
 )
+
+const openShiftRegistry = "image-registry.openshift-image-registry.svc:5000"
 
 type Opt func(*Pusher) error
 
@@ -44,6 +50,12 @@ var ErrUnauthorized = errors.New("bad credentials")
 type VerifyCredentialsCallback func(ctx context.Context, username, password, registry string) error
 
 func CheckAuth(ctx context.Context, username, password, registry string) error {
+
+	// TODO add real impl
+	if registry == openShiftRegistry {
+		return nil
+	}
+
 	cli, _, err := NewClient(client.DefaultDockerHost)
 	if err != nil {
 		return err
@@ -108,7 +120,23 @@ func NewCredentialsProvider(
 	return func(ctx context.Context, registry string) (Credentials, error) {
 		result := Credentials{}
 
-		for _, load := range []func() (containersTypes.DockerAuthConfig, error){
+		type loadFn = func() (containersTypes.DockerAuthConfig, error)
+		var loaders []loadFn
+
+		if registry == openShiftRegistry {
+			loaders = append(loaders, func() (containersTypes.DockerAuthConfig, error) {
+				conf := k8s.GetClientConfig()
+				restCli, err := conf.ClientConfig()
+				if err != nil {
+					return containersTypes.DockerAuthConfig{}, err
+				}
+				return containersTypes.DockerAuthConfig{
+					Password: restCli.BearerToken,
+				}, nil
+			})
+		}
+
+		loaders = append(loaders, []loadFn{
 			func() (containersTypes.DockerAuthConfig, error) {
 				return config.GetCredentials(sys, registry)
 			},
@@ -118,7 +146,9 @@ func NewCredentialsProvider(
 			func() (containersTypes.DockerAuthConfig, error) {
 				return getCredentialsByCredentialHelper(dockerConfigPath, registry)
 			},
-		} {
+		}...)
+
+		for _, load := range loaders {
 			var credentials containersTypes.DockerAuthConfig
 			credentials, err = load()
 
@@ -261,15 +291,33 @@ func (n *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err er
 	}
 	n.progressListener.Increment("Pushing function image to the registry")
 
-	auth := &authn.Basic{
-		Username: credentials.Username,
-		Password: credentials.Password,
+	var auth authn.Authenticator
+
+	if credentials.Username != "" {
+		auth = &authn.Basic{
+			Username: credentials.Username,
+			Password: credentials.Password,
+		}
+	} else {
+		auth = &authn.Bearer{
+			Token: credentials.Password,
+		}
 	}
 
 	progressChannel := make(chan v1.Update)
 	opts := []remote.Option{
 		remote.WithAuth(auth),
 		remote.WithProgress(progressChannel),
+	}
+
+	if registry == openShiftRegistry {
+		dialer := k8s.NewInClusterDialer()
+		defer dialer.Close()
+		transport := &http.Transport{
+			DialContext:     dialer.DialContext,
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}
+		opts = append(opts, remote.WithTransport(transport))
 	}
 
 	var output io.Writer

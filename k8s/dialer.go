@@ -77,7 +77,9 @@ func (c *contextDialer) DialContext(ctx context.Context, network string, addr st
 
 	conn.cleanUp = func() {
 		err = <-attachErrChan
-		fmt.Fprintf(os.Stderr, "failed to attach to dialer pod: %v", err)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "failed to attach to dialer pod: %v", err)
+		}
 		removePod()
 	}
 	return conn, nil
