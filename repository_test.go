@@ -4,7 +4,6 @@
 package function_test
 
 import (
-	"reflect"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -74,18 +73,18 @@ func TestRepositoryInheritance(t *testing.T) {
 
 	// Assert Template A reflects repo-level settings
 	if tA.Readiness != "/repoReadiness" {
-		t.Fatalf("Repository-level HealthEndpoint not loaded to template")
+		t.Errorf("Repository-level HealthEndpoint not loaded to template, got %q", tA.Readiness)
 	}
-	if !reflect.DeepEqual(tA.Buildpacks, []string{"repoBuildpack"}) {
-		t.Fatalf("Repository-level HealthEndpoint not loaded to template")
+	if diff := cmp.Diff([]string{"repoBuildpack"}, tA.Buildpacks); diff != "" {
+		t.Errorf("Repository-level HealthEndpoint differs (-want, +got): %s", diff)
 	}
 
 	// Assert Template B reflects runtime-level settings
 	if tB.Readiness != "/runtimeReadiness" {
-		t.Fatalf("Repository-level HealthEndpoint not loaded to template")
+		t.Errorf("Runtime-level HealthEndpoint not loaded to template, got %q", tB.Readiness)
 	}
-	if !reflect.DeepEqual(tB.Buildpacks, []string{"runtimeBuildpack"}) {
-		t.Fatalf("Repository-level HealthEndpoint not loaded to template")
+	if diff := cmp.Diff([]string{"runtimeBuildpack"}, tB.Buildpacks); diff != "" {
+		t.Errorf("Runtime-level Buildpack differs (-want, +got): %s", diff)
 	}
 
 	envVarName := "TEST_RUNTIME_VARIABLE"
@@ -97,18 +96,15 @@ func TestRepositoryInheritance(t *testing.T) {
 		},
 	}
 
-	if !reflect.DeepEqual(tB.BuildEnvs, envs) {
-		if diff := cmp.Diff(tB.BuildEnvs, envs); diff != "" {
-			t.Fatalf("Unexpected difference between repository's manifest.yaml buildEnvs and Function BuildEnvs (-want, +got): %v", diff)
-		}
+	if diff := cmp.Diff(envs, tB.BuildEnvs); diff != "" {
+		t.Fatalf("Unexpected difference between repository's manifest.yaml buildEnvs and Function BuildEnvs (-want, +got): %v", diff)
 	}
 
 	// Assert Template C reflects template-level settings
 	if tC.Readiness != "/templateReadiness" {
-		t.Fatalf("Repository-level HealthEndpoint not loaded to template")
+		t.Fatalf("Template-level HealthEndpoint not loaded to template, got %q", tC.Readiness)
 	}
-	if !reflect.DeepEqual(tC.Buildpacks, []string{"templateBuildpack"}) {
-		t.Fatalf("Repository-level HealthEndpoint not loaded to template")
+	if diff := cmp.Diff([]string{"templateBuildpack"}, tC.Buildpacks); diff != "" {
+		t.Fatalf("Template-level Buildpack differs (-want, +got): %s", diff)
 	}
-
 }

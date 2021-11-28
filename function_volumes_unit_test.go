@@ -3,7 +3,9 @@
 
 package function
 
-import "testing"
+import (
+	"testing"
+)
 
 func Test_validateVolumes(t *testing.T) {
 

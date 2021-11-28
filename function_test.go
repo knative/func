@@ -4,8 +4,9 @@
 package function_test
 
 import (
-	"reflect"
 	"testing"
+
+	"github.com/google/go-cmp/cmp"
 
 	fn "knative.dev/kn-plugin-func"
 	. "knative.dev/kn-plugin-func/testing"
@@ -41,8 +42,8 @@ func TestWriteIdempotency(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(f1, f2) {
-		t.Fatalf("function differs after reload.")
+	if diff := cmp.Diff(f1, f2); diff != "" {
+		t.Error("function differs after reload (-before, +after):", diff)
 	}
 }
 
