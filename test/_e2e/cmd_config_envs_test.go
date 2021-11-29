@@ -103,7 +103,7 @@ func TestConfigEnvs(t *testing.T) {
 	project.Template = "envs"
 	project.FunctionName = "test-config-envs"
 	project.ProjectPath = filepath.Join(os.TempDir(), project.FunctionName)
-	project.RemoteRepository = "http://github.com/lance/test-templates.git"
+	project.RemoteRepository = "http://github.com/boson-project/test-templates.git"
 
 	Create(t, knFunc.TestShell, project)
 	defer func() { _ = project.RemoveProjectFolder() }()
