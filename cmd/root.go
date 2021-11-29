@@ -153,15 +153,6 @@ func cwd() (cwd string) {
 	return cwd
 }
 
-// The anme of the repositories directory within config dir (usually ~/.config)
-const repositoriesDirName = "repositories"
-
-// repositoriesPath is the effective path to the optional repositories directory
-// used for extensible language packs.
-func repositoriesPath() string {
-	return filepath.Join(fn.ConfigPath(), repositoriesDirName)
-}
-
 // bindFunc which conforms to the cobra PreRunE method signature
 type bindFunc func(*cobra.Command, []string) error
 

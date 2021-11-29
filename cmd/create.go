@@ -246,7 +246,7 @@ func newCreateConfig(args []string, clientFn createClientFn) (cfg createConfig, 
 	// it is still available as an environment variable.
 	repositories = os.Getenv("FUNC_REPOSITORIES")
 	if repositories == "" { // if no env var provided
-		repositories = repositoriesPath() // use ~/.config/func/repositories
+		repositories = fn.RepositoriesPath() // use ~/.config/func/repositories
 	}
 
 	// Config is the final default values based off the execution context.

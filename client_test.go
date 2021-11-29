@@ -45,6 +45,35 @@ func TestNew(t *testing.T) {
 	}
 }
 
+// TestInstantiationCreatesRepositoriesPath ensures that instantiating the
+// client has the side-effect of ensuring that the repositories path exists
+// on-disk, and also confirms that the XDG_CONFIG_HOME environment variable is
+// respected when calculating this home path.
+func TestInstantiationCreatesRepositoriesPath(t *testing.T) {
+	root := "testdata/example.com/testNewCreatesRepositoriesPath"
+	defer Using(t, root)()
+
+	rootAbs, err := filepath.Abs(root) // absolute path to root
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Instruct the system to use the above test root directory as the home dir.
+	os.Setenv("XDG_CONFIG_HOME", rootAbs)
+
+	// The expected full path to the repositories should be:
+	expected := filepath.Join(rootAbs, "func", "repositories")
+
+	// Create a new client, which should perform initialization checks such as
+	// ensuring the full path to repositories exists.
+	_ = fn.New(fn.WithRegistry(TestRegistry))
+
+	// Confirm that the repositories path exists.
+	if _, err := os.Stat(expected); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // TestRuntimeRequired ensures that the the runtime is an expected value.
 func TestRuntimeRequired(t *testing.T) {
 	// Create a root for the new Function
