@@ -161,7 +161,6 @@ func TestRemoteRepositories(t *testing.T) {
 	client := fn.New(
 		fn.WithRegistry(DefaultRegistry),
 		fn.WithRepository("https://github.com/boson-project/test-templates"),
-		fn.WithRepositories("testdata/repositories"),
 	)
 	err := client.Create(fn.Function{
 		Root:     ".",

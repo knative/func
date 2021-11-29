@@ -31,9 +31,16 @@ type Repositories struct {
 	path string
 
 	// Optional uri of a single repo to use in leau of embedded and extensible.
+	// Enables single-repository mode.  This replaces the default embedded repo
+	// and extended repositories.  This is an important mode for both diskless
+	// (config-less) operation, such as security-restrited environments, and for
+	// running as a library in which case environmental settings should be
+	// ignored in favor of a more functional approach in which only inputs affect
+	// outputs.
 	remote string
 
-	// backreference to the client enabling full api access for the repo manager
+	// backreference to the client enabling this repositorires manage to
+	// have full API access.
 	client *Client
 }
 
@@ -42,30 +49,15 @@ type Repositories struct {
 // full client API during implementations.
 func newRepositories(client *Client) *Repositories {
 	return &Repositories{
-		path:   DefaultRepositoriesPath,
 		client: client,
+		path:   client.repositoriesPath,
+		remote: client.repositoriesURI,
 	}
-}
-
-// SetPath to repositories under management.
-func (r *Repositories) SetPath(path string) {
-	r.path = path
 }
 
 // Path returns the currently active repositories path under management.
 func (r *Repositories) Path() string {
 	return r.path
-}
-
-// SetRemote enables single-repository mode.
-// Enables single-repository mode.  This replaces the default embedded repo
-// and extended repositories.  This is an important mode for both diskless
-// (config-less) operation, such as security-restrited environments, and for
-// running as a library in which case environmental settings should be
-// ignored in favor of a more functional approach in which only inputs affect
-// outputs.
-func (r *Repositories) SetRemote(uri string) {
-	r.remote = uri
 }
 
 // List all repositories the current configuration of the repo manager has
