@@ -152,7 +152,7 @@ $(BIN_WINDOWS): pkged.go
 ##@ Schemas
 ######################
 schema-generate: schema/func_yaml-schema.json ## Generate func.yaml schema
-schema/func_yaml-schema.json: config.go
+schema/func_yaml-schema.json: function.go
 	go run schema/generator/main.go
 
 schema-check: ## Check that func.yaml schema is up-to-date
