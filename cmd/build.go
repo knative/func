@@ -79,7 +79,7 @@ kn func build
 kn func build --builder cnbs/sample-builder:bionic
 `,
 		SuggestFor: []string{"biuld", "buidl", "built"},
-		PreRunE:    bindEnv("image", "path", "builder", "registry", "confirm"),
+		PreRunE:    bindEnv("image", "path", "builder", "registry", "confirm", "push"),
 	}
 
 	cmd.Flags().StringP("builder", "b", "", "Buildpack builder, either an as a an image name or a mapping name.\nSpecified value is stored in func.yaml for subsequent builds.")
@@ -118,10 +118,6 @@ func ValidNamespaceAndRegistry(path string) survey.Validator {
 }
 
 func runBuild(cmd *cobra.Command, _ []string, clientFn buildClientFn) (err error) {
-	flag, err := cmd.Flags().GetBool("push")
-	fmt.Println("PUSH FLAG", flag, err)
-	cmd.DebugFlags()
-	viper.Debug()
 	config, err := newBuildConfig().Prompt()
 	if err != nil {
 		if err == terminal.InterruptErr {
@@ -191,7 +187,6 @@ func runBuild(cmd *cobra.Command, _ []string, clientFn buildClientFn) (err error
 	}
 
 	err = client.Build(cmd.Context(), config.Path)
-	fmt.Printf("BUILD CONFIG = %+v\n", config)
 	if err == nil && config.Push {
 		err = client.Push(cmd.Context(), function)
 	}
@@ -224,7 +219,6 @@ type buildConfig struct {
 }
 
 func newBuildConfig() buildConfig {
-	fmt.Println("PUSH BOOLEAN", viper.GetBool("push"))
 	return buildConfig{
 		Image:    viper.GetString("image"),
 		Path:     viper.GetString("path"),
