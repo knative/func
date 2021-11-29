@@ -245,9 +245,8 @@ func repositoryRuntimes(r Repository) (runtimes []Runtime, err error) {
 		// Runtime Manifest
 		// Load the file if it exists, which may override values inherited from the
 		// repo such as builders, buildpacks and health endpoints.
-		runtime, err = applyRuntimeManifest(r, runtime)
-		if err != nil {
-			return
+		if err := applyRuntimeManifest(r, &runtime); err != nil {
+			return runtimes, err
 		}
 
 		// Runtime Templates
@@ -288,12 +287,30 @@ func runtimeTemplates(r Repository, runtime Runtime) (templates []Template, err 
 		}
 		// Template, defaulted to values inherited from the runtime
 		t := Template{
-			Name:            fi.Name(),
-			Repository:      r.Name,
-			Runtime:         runtime.Name,
-			BuildConfig:     runtime.BuildConfig,
+			Name:       fi.Name(),
+			Repository: r.Name,
+			Runtime:    runtime.Name,
+			BuildConfig: BuildConfig{
+				Buildpacks: append([]string{}, runtime.BuildConfig.Buildpacks...),
+				Builders:   make(map[string]string, len(runtime.BuildConfig.Builders)),
+			},
 			HealthEndpoints: runtime.HealthEndpoints,
-			BuildEnvs:       runtime.BuildEnvs,
+			BuildEnvs:       make([]Env, len(runtime.BuildEnvs)),
+		}
+		// Copy reference types (maps, slices) to prevent aliasing
+		for k, v := range runtime.BuildConfig.Builders {
+			t.BuildConfig.Builders[k] = v
+		}
+		for i, env := range runtime.BuildEnvs {
+			// Explicitly copy strings (Env has a pair of pointers), so they don't get aliased
+			if env.Name != nil {
+				n := *env.Name
+				t.BuildEnvs[i].Name = &n
+			}
+			if env.Value != nil {
+				v := *env.Value
+				t.BuildEnvs[i].Value = &v
+			}
 		}
 
 		// Template Manifeset
@@ -355,20 +372,20 @@ func applyRepositoryManifest(r Repository) (Repository, error) {
 // is the runtime with values from the manifest populated preferentially.  An
 // error is not returned for a missing manifest file (the passed runtime is
 // returned), but errors decoding the file are.
-func applyRuntimeManifest(repo Repository, runtime Runtime) (Runtime, error) {
+func applyRuntimeManifest(repo Repository, runtime *Runtime) error {
 	file, err := repo.FS.Open(filepath.Join(repo.TemplatesPath, runtime.Name, runtimeManifest))
 	if err != nil {
 		if os.IsNotExist(err) {
-			return runtime, nil
+			return nil
 		}
-		return runtime, err
+		return err
 	}
 	bytes, err := io.ReadAll(file)
 	if err != nil {
-		return runtime, err
+		return err
 	}
-	err = yaml.Unmarshal(bytes, &runtime)
-	return runtime, err
+	err = yaml.Unmarshal(bytes, runtime)
+	return err
 }
 
 // applyTemplateManifest from the directory specified (template root).  Returned
