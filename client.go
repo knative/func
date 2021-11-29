@@ -593,15 +593,7 @@ func (c *Client) Deploy(ctx context.Context, path string) (err error) {
 		return ErrNotBuilt
 	}
 
-	// Push the image for the named service to the configured registry
-	imageDigest, err := c.pusher.Push(ctx, f)
-	if err != nil {
-		return
-	}
-
-	// Record the Image Digest pushed.
-	f.ImageDigest = imageDigest
-	if err = f.Write(); err != nil {
+	if err = c.Push(ctx, f); err != nil {
 		return
 	}
 
@@ -713,6 +705,18 @@ func (c *Client) Emit(ctx context.Context, endpoint string) error {
 		c.progressListener.Stopping()
 	}()
 	return c.emitter.Emit(ctx, endpoint)
+}
+
+// Push the image for the named service to the configured registry
+func (c *Client) Push(ctx context.Context, f Function) (err error) {
+	imageDigest, err := c.pusher.Push(ctx, f)
+	if err != nil {
+		return
+	}
+
+	// Record the Image Digest pushed.
+	f.ImageDigest = imageDigest
+	return f.Write()
 }
 
 // DEFAULTS
