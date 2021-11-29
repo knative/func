@@ -169,7 +169,7 @@ EXAMPLES
 	}
 
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
-	cmd.Flags().StringP("repositories", "r", repositoriesPath(), "Path to language pack repositories (Env: $FUNC_REPOSITORIES)")
+	cmd.Flags().StringP("repositories", "r", fn.RepositoriesPath(), "Path to language pack repositories (Env: $FUNC_REPOSITORIES)")
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		return runRepository(cmd, args, clientFn)
@@ -184,7 +184,7 @@ func NewRepositoryListCmd(clientFn repositoryClientFn) *cobra.Command {
 		PreRunE: bindEnv("repositories"),
 	}
 
-	cmd.Flags().StringP("repositories", "r", repositoriesPath(), "Path to language pack repositories (Env: $FUNC_REPOSITORIES)")
+	cmd.Flags().StringP("repositories", "r", fn.RepositoriesPath(), "Path to language pack repositories (Env: $FUNC_REPOSITORIES)")
 
 	cmd.RunE = func(_ *cobra.Command, args []string) error {
 		return runRepositoryList(args, clientFn)
@@ -201,7 +201,7 @@ func NewRepositoryAddCmd(clientFn repositoryClientFn) *cobra.Command {
 	}
 
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
-	cmd.Flags().StringP("repositories", "r", repositoriesPath(), "Path to language pack repositories (Env: $FUNC_REPOSITORIES)")
+	cmd.Flags().StringP("repositories", "r", fn.RepositoriesPath(), "Path to language pack repositories (Env: $FUNC_REPOSITORIES)")
 
 	cmd.RunE = func(_ *cobra.Command, args []string) error {
 		return runRepositoryAdd(args, clientFn)
@@ -217,7 +217,7 @@ func NewRepositoryRenameCmd(clientFn repositoryClientFn) *cobra.Command {
 	}
 
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
-	cmd.Flags().StringP("repositories", "r", repositoriesPath(), "Path to language pack repositories (Env: $FUNC_REPOSITORIES)")
+	cmd.Flags().StringP("repositories", "r", fn.RepositoriesPath(), "Path to language pack repositories (Env: $FUNC_REPOSITORIES)")
 
 	cmd.RunE = func(_ *cobra.Command, args []string) error {
 		return runRepositoryRename(args, clientFn)
@@ -235,7 +235,7 @@ func NewRepositoryRemoveCmd(clientFn repositoryClientFn) *cobra.Command {
 	}
 
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
-	cmd.Flags().StringP("repositories", "r", repositoriesPath(), "Path to language pack repositories (Env: $FUNC_REPOSITORIES)")
+	cmd.Flags().StringP("repositories", "r", fn.RepositoriesPath(), "Path to language pack repositories (Env: $FUNC_REPOSITORIES)")
 
 	cmd.RunE = func(_ *cobra.Command, args []string) error {
 		return runRepositoryRemove(args, clientFn)

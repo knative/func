@@ -26,40 +26,7 @@ const (
 	// DefaultVersion is the initial value for string members whose implicit type
 	// is a semver.
 	DefaultVersion = "0.0.0"
-
-	// The name of the config directory within ~/.config (or configured location)
-	configDirName = "func"
 )
-
-// ConfigPath is the effective path to the optional global config directory used for
-// function defaults and extensible templates.
-func ConfigPath() string {
-	path := configPath()
-	_ = os.MkdirAll(path, 0700)
-	return path
-}
-
-func configPath() string {
-	// Use XDG_CONFIG_HOME/func if defined
-	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
-		return filepath.Join(xdg, configDirName)
-	}
-
-	// Expand and use ~/.config/func
-	home, err := homedir.Expand("~")
-	if err == nil {
-		return filepath.Join(home, ".config", configDirName)
-	}
-
-	// default is .config in current working directory, used when there is no
-	// available home in which to find a .`.config/func` directory.
-	// A case could be made that a panic is in order in this scenario, but
-	// currently this seems like a nonfatal situation, as in the scenario
-	// "there is no home directory", the fallback of using `.config` if extant
-	// may very well be the optimal choice.
-	fmt.Fprintf(os.Stderr, "Error locating ~/.config: %v", err)
-	return filepath.Join(".config", configDirName)
-}
 
 // Client for managing Function instances.
 type Client struct {
@@ -194,6 +161,10 @@ type Emitter interface {
 
 // New client for Function management.
 func New(options ...Option) *Client {
+	// Assert the global config directory exists (including child directories
+	// such as repositories)
+	assertConfigDir()
+
 	// Instantiate client with static defaults.
 	c := &Client{
 		repositories:     &Repositories{},
@@ -214,6 +185,47 @@ func New(options ...Option) *Client {
 		o(c)
 	}
 	return c
+}
+
+// assertConfigDir makes a best-effort attempt to create the config directory
+// (including required subdirectories).
+func assertConfigDir() {
+	// NOTE: regarding running as a user with no home directory:
+	// The default is .config/func in current working directory when there is no
+	// available HOME in which to find .`~/.config/func`.
+	// Since it is expected that the code elsewhere never assume the config
+	// directory exists (doing so is a racing condition), it is valid to simply
+	// handle errors at this level.
+	if err := os.MkdirAll(RepositoriesPath(), 0700); err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating '%v': %v", RepositoriesPath(), err)
+	}
+}
+
+// RepositoriesPath is the static default path to repositories used by a Client.
+// This path can be overridden on intantiation of a client using the
+// WithRepositories option.
+func RepositoriesPath() string {
+	return filepath.Join(ConfigPath(), "repositories")
+}
+
+// ConfigPath returns the default config directory path used by the Client.
+// The default is ~/.config/func.  If defined, XDG_CONFIG_HOME is used.
+// In the event of an error calculating ~ (no home directory for the current
+// user), the relative path '.config/func' is used.
+func ConfigPath() string {
+	// 'XDG_CONFIG_HOME/func' takes precidence if defined
+	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
+		return filepath.Join(xdg, "func")
+	}
+
+	// ~/.config/func is the default if ~ can be expanded
+	if home, err := homedir.Expand("~"); err == nil {
+		return filepath.Join(home, ".config", "func")
+	}
+
+	// The default (edge case) is to return a relative path of .config inidicating
+	// the current working directory when neither aforementioned exist.
+	return ".config/func"
 }
 
 // OPTIONS
