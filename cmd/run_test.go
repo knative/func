@@ -65,7 +65,6 @@ created: 2009-11-10 23:00:00`,
 		errorBuilder := mock.Builder{
 			BuildFn: func(f fn.Function) error { return fmt.Errorf("build failed") },
 		}
-		fmt.Println(errorBuilder)
 		cmd := NewRunCmd(func(rc runConfig) *fn.Client {
 			buildOption := fn.WithBuilder(mockBuilder)
 			if tt.buildErrors {
@@ -98,9 +97,6 @@ created: 2009-11-10 23:00:00`,
 		_, err = tempFile.WriteString(tt.fileContents)
 		if err != nil {
 			t.Fatalf("file content was not written %v", err)
-		}
-		if err != nil {
-			t.Error("build flag could not be set")
 		}
 		t.Run(tt.name, func(t *testing.T) {
 			err := cmd.Execute()
