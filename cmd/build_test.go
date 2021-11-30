@@ -63,10 +63,11 @@ func Test_runBuild(t *testing.T) {
 		wantErr      bool
 	}{
 		{
-			name:     "asdf",
+			name:     "push flag triggers push after build",
 			pushFlag: true,
 			fileContents: `name: test-func
-runtime: go`,
+runtime: go
+created: 2009-11-10 23:00:00`,
 			shouldBuild: true,
 			shouldPush:  true,
 		},
