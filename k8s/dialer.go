@@ -87,7 +87,7 @@ func (c *contextDialer) DialContext(ctx context.Context, network string, addr st
 }
 
 func (c *contextDialer) Close() error {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*1)
 	defer cancel()
 	delOpts := metaV1.DeleteOptions{}
 
@@ -159,7 +159,7 @@ func (c *contextDialer) startDialerPod(ctx context.Context) (err error) {
 	case err = <-ready:
 	case <-ctx.Done():
 		err = ctx.Err()
-	case <-time.After(time.Second * 10):
+	case <-time.After(time.Minute * 1):
 		err = errors.New("timeout")
 	}
 
