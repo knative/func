@@ -103,6 +103,7 @@ created: 2009-11-10 23:00:00`,
 
 		cmd.SetArgs([]string{"--path=" + tempDir})
 		viper.SetDefault("push", tt.pushFlag)
+		viper.SetDefault("registry", "docker.io/tigerteam")
 
 		t.Run(tt.name, func(t *testing.T) {
 			err := cmd.Execute()
