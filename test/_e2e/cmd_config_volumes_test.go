@@ -100,7 +100,7 @@ func TestConfigVolumes(t *testing.T) {
 	project.Template = "volumes"
 	project.FunctionName = "test-config-volumes"
 	project.ProjectPath = filepath.Join(os.TempDir(), project.FunctionName)
-	project.RemoteRepository = "http://github.com/lance/test-templates.git"
+	project.RemoteRepository = "http://github.com/boson-project/test-templates.git"
 
 	Create(t, knFunc.TestShell, project)
 	defer project.RemoveProjectFolder()
