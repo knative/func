@@ -1,0 +1,3 @@
+defaultBaseImage: gcr.io/distroless/static:nonroot
+baseImageOverrides:
+  knative.dev/kn-plugin-func/cmd/func: docker.io/library/alpine:latest
