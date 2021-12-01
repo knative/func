@@ -111,27 +111,32 @@ func runDeploy(cmd *cobra.Command, _ []string, clientFn deployClientFn) (err err
 		return err
 	}
 
-	config, err = config.Prompt()
-	if err != nil {
-		if err == terminal.InterruptErr {
-			return nil
-		}
-		return
-	}
-
 	function, err := functionWithOverrides(config.Path, functionOverrides{Namespace: config.Namespace, Image: config.Image})
 	if err != nil {
 		return
 	}
 
-	function.Envs, err = mergeEnvs(function.Envs, config.EnvToUpdate, config.EnvToRemove)
-	if err != nil {
-		return
+	if len(function.Envs) > 0 {
+		function.Envs, err = mergeEnvs(function.Envs, config.EnvToUpdate, config.EnvToRemove)
+		if err != nil {
+			return
+		}
 	}
 
-	// Check if the Function has been initialized
-	if !function.Initialized() {
-		return fmt.Errorf("the given path '%v' does not contain an initialized function. Please create one at this path before deploying", config.Path)
+	if config.Build {
+
+		// Check if the Function has been initialized
+		if !function.Initialized() {
+			return fmt.Errorf("the given path '%v' does not contain an initialized function. Please create one at this path before deploying", config.Path)
+		}
+
+		config, err = config.Prompt()
+		if err != nil {
+			if err == terminal.InterruptErr {
+				return nil
+			}
+			return
+		}
 	}
 
 	// If the Function does not yet have an image name and one was not provided on the command line
@@ -163,7 +168,7 @@ func runDeploy(cmd *cobra.Command, _ []string, clientFn deployClientFn) (err err
 		return
 	}
 
-	// Deafult conig namespace is the function's namespace
+	// Default config namespace is the function's namespace
 	if config.Namespace == "" {
 		config.Namespace = function.Namespace
 	}
@@ -307,7 +312,7 @@ func newDeployConfig(cmd *cobra.Command) (deployConfig, error) {
 	}, nil
 }
 
-// Prompt the user with value of config members, allowing for interaractive changes.
+// Prompt the user with value of config members, allowing for interactive changes.
 // Skipped if not in an interactive terminal (non-TTY), or if --yes (agree to
 // all prompts) was explicitly set.
 func (c deployConfig) Prompt() (deployConfig, error) {
