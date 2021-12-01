@@ -92,11 +92,10 @@ func ValidNamespaceAndRegistry(path string) survey.Validator {
 			return errors.New("Value is required")
 		}
 
-		_, err := fn.DerivedImage("", val.(string)) //image can be derived without any error
+		_, err := fn.DerivedImage(path, val.(string)) //image can be derived without any error
 
 		if err != nil {
-			orig := fmt.Sprintf("Err %+v", err)
-			return errors.New(val.(string) + " Registry and Namespace are required (ie. docker.io/tigerteam). The image name will be derived from the function name. " + orig)
+			return fmt.Errorf("Invalid registry [%s] %v", val.(string), err)
 		}
 		return nil
 	}
@@ -119,6 +118,14 @@ func runBuild(cmd *cobra.Command, _ []string, clientFn buildClientFn) (err error
 	// Check if the Function has been initialized
 	if !function.Initialized() {
 		return fmt.Errorf("the given path '%v' does not contain an initialized function. Please create one at this path before deploying", config.Path)
+	}
+
+	// If a registry name was provided as a command line flag, it should be validated
+	if config.Registry != "" {
+		err = ValidNamespaceAndRegistry(config.Path)(config.Registry)
+		if err != nil {
+			return
+		}
 	}
 
 	// If the Function does not yet have an image name and one was not provided on the command line
