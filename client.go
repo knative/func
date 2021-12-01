@@ -593,16 +593,17 @@ func (c *Client) Deploy(ctx context.Context, path string) (err error) {
 		return ErrNotBuilt
 	}
 
-	// Push the image for the named service to the configured registry
-	imageDigest, err := c.pusher.Push(ctx, f)
-	if err != nil {
-		return
-	}
-
-	// Record the Image Digest pushed.
-	f.ImageDigest = imageDigest
-	if err = f.Write(); err != nil {
-		return
+	if f.ImageDigest == "" {
+		// Push the image for the named service to the configured registry
+		imageDigest, err := c.pusher.Push(ctx, f)
+		if err != nil {
+			return err
+		}
+		// Record the Image Digest pushed.
+		f.ImageDigest = imageDigest
+		if err = f.Write(); err != nil {
+			return err
+		}
 	}
 
 	// Deploy a new or Update the previously-deployed Function
