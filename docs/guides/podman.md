@@ -40,3 +40,9 @@ Under macOS you need to use `podman machine` as `podman` is native to Linux.
       Example service configuration:
     
       `ExecStart=/usr/bin/podman $LOGGING system service --time=0`
+      </br></br>
+      After editing the configuration files you need to reload/restart service:
+      ```
+      ❯ systemctl --user daemon-reload
+      ❯ systemctl restart --user podman.socket
+      ```
