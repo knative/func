@@ -9,8 +9,7 @@ aliases:
   - julz
   - maximilien
   autoscaling-wg-leads:
-  - markusthoemmes
-  - vagababov
+  - julz
   client-wg-leads:
   - dsimansk
   - navidshaikh
@@ -21,7 +20,6 @@ aliases:
   - rhuss
   container-freezer-approvers:
   - julz
-  - markusthoemmes
   - psschwei
   control-protocol-approvers:
   - devguyio
@@ -236,9 +234,8 @@ aliases:
   serving-writers:
   - ZhiminXiang
   - dprotaso
-  - markusthoemmes
+  - julz
   - nak3
-  - vagababov
   source-wg-leads:
   - lionelvillard
   steering-committee:
