@@ -84,7 +84,7 @@ kn func build --builder cnbs/sample-builder:bionic
 	return cmd
 }
 
-func ValidNamespaceAndRegistry() survey.Validator {
+func ValidNamespaceAndRegistry(path string) survey.Validator {
 	return func(val interface{}) error {
 
 		// if the value passed in is the zero value of the appropriate type
@@ -92,10 +92,10 @@ func ValidNamespaceAndRegistry() survey.Validator {
 			return errors.New("Value is required")
 		}
 
-		_, err := fn.DerivedImage("", val.(string)) //image can be derived without any error
+		_, err := fn.DerivedImage(path, val.(string)) //image can be derived without any error
 
 		if err != nil {
-			return errors.New(val.(string) + " Registry and Namespace are required (ie. docker.io/tigerteam). The image name will be derived from the function name.")
+			return fmt.Errorf("Invalid registry [%s] %v", val.(string), err)
 		}
 		return nil
 	}
@@ -120,6 +120,14 @@ func runBuild(cmd *cobra.Command, _ []string, clientFn buildClientFn) (err error
 		return fmt.Errorf("the given path '%v' does not contain an initialized function. Please create one at this path before deploying", config.Path)
 	}
 
+	// If a registry name was provided as a command line flag, it should be validated
+	if config.Registry != "" {
+		err = ValidNamespaceAndRegistry(config.Path)(config.Registry)
+		if err != nil {
+			return
+		}
+	}
+
 	// If the Function does not yet have an image name and one was not provided on the command line
 	if function.Image == "" {
 		//  AND a --registry was not provided, then we need to
@@ -129,7 +137,7 @@ func runBuild(cmd *cobra.Command, _ []string, clientFn buildClientFn) (err error
 
 			err = survey.AskOne(
 				&survey.Input{Message: "Registry for Function images:"},
-				&config.Registry, survey.WithValidator(ValidNamespaceAndRegistry()))
+				&config.Registry, survey.WithValidator(ValidNamespaceAndRegistry(config.Path)))
 			if err != nil {
 				if err == terminal.InterruptErr {
 					return nil
