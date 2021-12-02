@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -83,49 +84,49 @@ created: 2009-11-10 23:00:00`,
 		},
 	}
 	for _, tt := range tests {
-		mockPusher := mock.NewPusher()
-		failPusher := &mock.Pusher{
-			PushFn: func(f fn.Function) (string, error) {
-				return "", fmt.Errorf("push failed")
-			},
-		}
-		mockBuilder := mock.NewBuilder()
-		cmd := NewBuildCmd(func(bc buildConfig) (*fn.Client, error) {
-			pusher := mockPusher
-			if tt.wantErr {
-				pusher = failPusher
-			}
-			return fn.New(
-				fn.WithBuilder(mockBuilder),
-				fn.WithPusher(pusher),
-			), nil
-		})
-
-		tempDir, err := os.MkdirTemp("", "func-tests")
-		if err != nil {
-			t.Fatalf("temp dir couldn't be created %v", err)
-		}
-		t.Log("tempDir created:", tempDir)
-		t.Cleanup(func() {
-			os.RemoveAll(tempDir)
-		})
-
-		fullPath := tempDir + "/func.yaml"
-		tempFile, err := os.Create(fullPath)
-		if err != nil {
-			t.Fatalf("temp file couldn't be created %v", err)
-		}
-		_, err = tempFile.WriteString(tt.fileContents)
-		if err != nil {
-			t.Fatalf("file content was not written %v", err)
-		}
-
-		cmd.SetArgs([]string{"--path=" + tempDir})
-		viper.SetDefault("push", tt.pushFlag)
-		viper.SetDefault("registry", "docker.io/tigerteam")
-
 		t.Run(tt.name, func(t *testing.T) {
-			err := cmd.Execute()
+			mockPusher := mock.NewPusher()
+			failPusher := &mock.Pusher{
+				PushFn: func(f fn.Function) (string, error) {
+					return "", fmt.Errorf("push failed")
+				},
+			}
+			mockBuilder := mock.NewBuilder()
+			cmd := NewBuildCmd(func(bc buildConfig) (*fn.Client, error) {
+				pusher := mockPusher
+				if tt.wantErr {
+					pusher = failPusher
+				}
+				return fn.New(
+					fn.WithBuilder(mockBuilder),
+					fn.WithPusher(pusher),
+				), nil
+			})
+
+			tempDir, err := os.MkdirTemp("", "func-tests")
+			if err != nil {
+				t.Fatalf("temp dir couldn't be created %v", err)
+			}
+			t.Log("tempDir created:", tempDir)
+			t.Cleanup(func() {
+				os.RemoveAll(tempDir)
+			})
+
+			fullPath := tempDir + "/func.yaml"
+			tempFile, err := os.Create(fullPath)
+			if err != nil {
+				t.Fatalf("temp file couldn't be created %v", err)
+			}
+			_, err = tempFile.WriteString(tt.fileContents)
+			if err != nil {
+				t.Fatalf("file content was not written %v", err)
+			}
+
+			cmd.SetArgs([]string{"--path=" + tempDir})
+			viper.SetDefault("push", tt.pushFlag)
+			viper.SetDefault("registry", "docker.io/tigerteam")
+
+			err = cmd.Execute()
 			if tt.wantErr != (err != nil) {
 				t.Errorf("Wanted error %v but actually got %v", tt.wantErr, err)
 			}
@@ -135,7 +136,41 @@ created: 2009-11-10 23:00:00`,
 			}
 
 			if tt.shouldPush != (mockPusher.PushInvoked || failPusher.PushInvoked) {
-				t.Errorf("Push execution expected: %v but was actually %v", tt.shouldPush, mockPusher.PushInvoked)
+				t.Errorf("Push execution expected: %v but was actually mockPusher invoked: %v failPusher invoked %v", tt.shouldPush, mockPusher.PushInvoked, failPusher.PushInvoked)
+			}
+		})
+	}
+}
+
+func Test_newBuildClient(t *testing.T) {
+	tests := []struct {
+		name    string
+		cfg     buildConfig
+		succeed bool
+	}{
+		{
+			name: "push flag set to false avoids pusher instanciation",
+			cfg: buildConfig{
+				Push: false,
+			},
+			succeed: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client, err := newBuildClient(tt.cfg)
+			if err != nil {
+				t.Error(err)
+			}
+			defer func() {
+				if r := recover(); r != nil && tt.succeed {
+					t.Errorf("expected function call to succeed %v, got actually %v", tt.succeed, r)
+				}
+			}()
+			err = client.Push(context.TODO(), &fn.Function{})
+			if err != nil {
+				t.Error(err)
 			}
 		})
 	}

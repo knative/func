@@ -25,25 +25,31 @@ func newBuildClient(cfg buildConfig) (*fn.Client, error) {
 	builder := buildpacks.NewBuilder()
 	listener := progress.New()
 
-	credentialsProvider := docker.NewCredentialsProvider(
-		newCredentialsCallback(),
-		docker.CheckAuth,
-		newChooseHelperCallback(),
-	)
-	pusher, err := docker.NewPusher(
-		docker.WithCredentialsProvider(credentialsProvider),
-		docker.WithProgressListener(listener),
-	)
-	if err != nil {
-		return nil, err
+	pusherOption := fn.WithPusher(nil)
+	if cfg.Push {
+		credentialsProvider := docker.NewCredentialsProvider(
+			newCredentialsCallback(),
+			docker.CheckAuth,
+			newChooseHelperCallback(),
+		)
+		pusher, err := docker.NewPusher(
+			docker.WithCredentialsProvider(credentialsProvider),
+			docker.WithProgressListener(listener),
+		)
+
+		if err != nil {
+			return nil, err
+		}
+		pusher.Verbose = cfg.Verbose
+		pusherOption = fn.WithPusher(pusher)
 	}
 	builder.Verbose = cfg.Verbose
 	listener.Verbose = cfg.Verbose
-	pusher.Verbose = cfg.Verbose
 
 	return fn.New(
 		fn.WithBuilder(builder),
-		fn.WithPusher(pusher),
+		// fn.WithPusher(pusher),
+		pusherOption,
 		fn.WithProgressListener(listener),
 		fn.WithRegistry(cfg.Registry), // for image name when --image not provided
 		fn.WithVerbose(cfg.Verbose)), nil
