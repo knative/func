@@ -35,7 +35,7 @@ Under macOS you need to use `podman machine` as `podman` is native to Linux.
     ERROR: failed to image: error during connect: Get "http://%2Fvar%2Frun%2Fdocker.sock/v1.40/info": EOF
     ```
   * The following workaround exists for this issue:
-    * Update the podman service by adding --time=0 to the service ExecStart definition.  The configuration files are: `/etc/systemd/[user|system]/podman.service`.You might need to copy default vendor configuration files from `/usr/lib/systemd/[user|system]/podman.service` first.
+    * Update the podman service by adding --time=0 to the service ExecStart definition in the podman configuration file at `/etc/systemd/user/podman.service`.You might need to copy the default configuration file from `/usr/lib/systemd/user/podman.service` first.
       </br></br> 
       Example service configuration:
     
