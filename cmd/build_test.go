@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -107,7 +106,9 @@ created: 2009-11-10 23:00:00`,
 
 		t.Run(tt.name, func(t *testing.T) {
 			err := cmd.Execute()
-			fmt.Printf("ERROR: %+v\n", err)
+			if tt.wantErr != (err != nil) {
+				t.Errorf("Wanted error %v but actually got %v", tt.wantErr, err)
+			}
 
 			if mockBuilder.BuildInvoked != tt.shouldBuild {
 				t.Errorf("Build execution expected: %v but was actually %v", tt.shouldBuild, mockBuilder.BuildInvoked)

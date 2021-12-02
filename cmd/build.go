@@ -188,7 +188,7 @@ func runBuild(cmd *cobra.Command, _ []string, clientFn buildClientFn) (err error
 
 	err = client.Build(cmd.Context(), config.Path)
 	if err == nil && config.Push {
-		err = client.Push(cmd.Context(), function)
+		err = client.Push(cmd.Context(), &function)
 	}
 	return
 }
