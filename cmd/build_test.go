@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
@@ -70,14 +71,33 @@ created: 2009-11-10 23:00:00`,
 			shouldBuild: true,
 			shouldPush:  true,
 		},
+		{
+			name:     "push flag with failing push",
+			pushFlag: true,
+			fileContents: `name: test-func
+runtime: go
+created: 2009-11-10 23:00:00`,
+			shouldBuild: true,
+			shouldPush:  true,
+			wantErr:     true,
+		},
 	}
 	for _, tt := range tests {
 		mockPusher := mock.NewPusher()
+		failPusher := &mock.Pusher{
+			PushFn: func(f fn.Function) (string, error) {
+				return "", fmt.Errorf("push failed")
+			},
+		}
 		mockBuilder := mock.NewBuilder()
 		cmd := NewBuildCmd(func(bc buildConfig) (*fn.Client, error) {
+			pusher := mockPusher
+			if tt.wantErr {
+				pusher = failPusher
+			}
 			return fn.New(
 				fn.WithBuilder(mockBuilder),
-				fn.WithPusher(mockPusher),
+				fn.WithPusher(pusher),
 			), nil
 		})
 
@@ -114,7 +134,7 @@ created: 2009-11-10 23:00:00`,
 				t.Errorf("Build execution expected: %v but was actually %v", tt.shouldBuild, mockBuilder.BuildInvoked)
 			}
 
-			if mockPusher.PushInvoked != tt.shouldPush {
+			if tt.shouldPush != (mockPusher.PushInvoked || failPusher.PushInvoked) {
 				t.Errorf("Push execution expected: %v but was actually %v", tt.shouldPush, mockPusher.PushInvoked)
 			}
 		})
