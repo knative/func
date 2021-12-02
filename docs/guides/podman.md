@@ -36,9 +36,9 @@ Under macOS you need to use `podman machine` as `podman` is native to Linux.
     ```
   * The following workaround exists for this issue:
     * Update the podman service by adding --time=0 to the service ExecStart definition in the podman configuration file at `/etc/systemd/user/podman.service`.You might need to copy the default configuration file from `/usr/lib/systemd/user/podman.service` first.
-      </br></br> 
+      </br></br>
       Example service configuration:
-    
+
       `ExecStart=/usr/bin/podman $LOGGING system service --time=0`
       </br></br>
       After editing the configuration files you need to reload/restart service:
