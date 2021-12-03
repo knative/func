@@ -11,6 +11,7 @@ import (
 
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/buildpacks"
+	"knative.dev/kn-plugin-func/docker"
 	"knative.dev/kn-plugin-func/progress"
 )
 
@@ -24,11 +25,31 @@ func newBuildClient(cfg buildConfig) (*fn.Client, error) {
 	builder := buildpacks.NewBuilder()
 	listener := progress.New()
 
+	pusherOption := fn.WithPusher(nil)
+	if cfg.Push {
+		credentialsProvider := docker.NewCredentialsProvider(
+			newCredentialsCallback(),
+			docker.CheckAuth,
+			newChooseHelperCallback(),
+		)
+		pusher, err := docker.NewPusher(
+			docker.WithCredentialsProvider(credentialsProvider),
+			docker.WithProgressListener(listener),
+		)
+
+		if err != nil {
+			return nil, err
+		}
+		pusher.Verbose = cfg.Verbose
+		pusherOption = fn.WithPusher(pusher)
+	}
 	builder.Verbose = cfg.Verbose
 	listener.Verbose = cfg.Verbose
 
 	return fn.New(
 		fn.WithBuilder(builder),
+		// fn.WithPusher(pusher),
+		pusherOption,
 		fn.WithProgressListener(listener),
 		fn.WithRegistry(cfg.Registry), // for image name when --image not provided
 		fn.WithVerbose(cfg.Verbose)), nil
@@ -64,7 +85,7 @@ kn func build
 kn func build --builder cnbs/sample-builder:bionic
 `,
 		SuggestFor: []string{"biuld", "buidl", "built"},
-		PreRunE:    bindEnv("image", "path", "builder", "registry", "confirm"),
+		PreRunE:    bindEnv("image", "path", "builder", "registry", "confirm", "push"),
 	}
 
 	cmd.Flags().StringP("builder", "b", "", "Buildpack builder, either an as a an image name or a mapping name.\nSpecified value is stored in func.yaml for subsequent builds.")
@@ -72,6 +93,7 @@ kn func build --builder cnbs/sample-builder:bionic
 	cmd.Flags().StringP("image", "i", "", "Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE)")
 	cmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
 	cmd.Flags().StringP("registry", "r", "", "Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined based on the local directory name. If not provided the registry will be taken from func.yaml (Env: $FUNC_REGISTRY)")
+	cmd.Flags().BoolP("push", "u", false, "Attempt to push the function image after being successfully built")
 
 	if err := cmd.RegisterFlagCompletionFunc("builder", CompleteBuilderList); err != nil {
 		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
@@ -170,7 +192,11 @@ func runBuild(cmd *cobra.Command, _ []string, clientFn buildClientFn) (err error
 		return err
 	}
 
-	return client.Build(cmd.Context(), config.Path)
+	err = client.Build(cmd.Context(), config.Path)
+	if err == nil && config.Push {
+		err = client.Push(cmd.Context(), &function)
+	}
+	return
 }
 
 type buildConfig struct {
@@ -206,6 +232,7 @@ func newBuildConfig() buildConfig {
 		Verbose:  viper.GetBool("verbose"), // defined on root
 		Confirm:  viper.GetBool("confirm"),
 		Builder:  viper.GetString("builder"),
+		Push:     viper.GetBool("push"),
 	}
 }
 

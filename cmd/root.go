@@ -156,7 +156,7 @@ func cwd() (cwd string) {
 // bindFunc which conforms to the cobra PreRunE method signature
 type bindFunc func(*cobra.Command, []string) error
 
-// bindEnv returns a bindFunc that binds env vars to the namd flags.
+// bindEnv returns a bindFunc that binds env vars to the named flags.
 func bindEnv(flags ...string) bindFunc {
 	return func(cmd *cobra.Command, args []string) (err error) {
 		for _, flag := range flags {
