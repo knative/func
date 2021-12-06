@@ -56,7 +56,7 @@ func createConfigAuth(dockerConfigFile string, content string) error {
 	if content == "" {
 		content = `{
 	"auths": {
-		"localhost:50000": {
+		"kind-registry:50000": {
 			"auth": "dXNlcjpwYXNzd29yZA=="
 		}
 	}
@@ -82,7 +82,7 @@ func updateConfigAuth(dockerConfigFile string) error {
 		log.Println("Updating ./docker/config.json file with default registry authentication.")
 		exp := regexp.MustCompile(`"auths"[\s]*?[:][\s]*?{`)
 		newContent := exp.ReplaceAll(bcontent, []byte(`"auths": {
-		"localhost:50000": {
+		"kind-registry:50000": {
 			"auth": "dXNlcjpwYXNzd29yZA=="
 		},`))
 
