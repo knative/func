@@ -90,10 +90,6 @@ func NewCredentialsProvider(
 		}
 	}
 
-	// Creating an instance of the fn.Client ensures that the config path
-	// exists:
-	_ = fn.New()
-
 	authFilePath := filepath.Join(fn.ConfigPath(), "auth.json")
 	sys := &containersTypes.SystemContext{
 		AuthFilePath: authFilePath,

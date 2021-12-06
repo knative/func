@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"time"
 
 	"github.com/mitchellh/go-homedir"
@@ -26,12 +27,17 @@ const (
 	// DefaultVersion is the initial value for string members whose implicit type
 	// is a semver.
 	DefaultVersion = "0.0.0"
+
+	// DefaultConfigPath is used in the unlikely event that
+	// the user has no home directory (no ~), there is no
+	// XDG_CONFIG_HOME set, and no WithConfigPath was used.
+	DefaultConfigPath = ".config/func"
 )
 
 // Client for managing Function instances.
 type Client struct {
-	repositories     *Repositories    // Repositories management
-	templates        *Templates       // Templates management
+	repositoriesPath string           // path to repositories
+	repositoriesURI  string           // repo URI (overrides repositories path)
 	verbose          bool             // print verbose logs
 	builder          Builder          // Builds a runnable image source
 	pusher           Pusher           // Pushes Funcation image to a remote
@@ -44,6 +50,8 @@ type Client struct {
 	registry         string           // default registry for OCI image tags
 	progressListener ProgressListener // progress listener
 	emitter          Emitter          // Emits CloudEvents to functions
+	repositories     *Repositories    // Repositories management
+	templates        *Templates       // Templates management
 }
 
 // ErrNotBuilt indicates the Function has not yet been built.
@@ -161,14 +169,8 @@ type Emitter interface {
 
 // New client for Function management.
 func New(options ...Option) *Client {
-	// Assert the global config directory exists (including child directories
-	// such as repositories)
-	assertConfigDir()
-
 	// Instantiate client with static defaults.
 	c := &Client{
-		repositories:     &Repositories{},
-		templates:        &Templates{},
 		builder:          &noopBuilder{output: os.Stdout},
 		pusher:           &noopPusher{output: os.Stdout},
 		deployer:         &noopDeployer{output: os.Stdout},
@@ -178,54 +180,61 @@ func New(options ...Option) *Client {
 		dnsProvider:      &noopDNSProvider{output: os.Stdout},
 		progressListener: &NoopProgressListener{},
 		emitter:          &noopEmitter{},
+		repositoriesPath: filepath.Join(ConfigPath(), "repositories"),
 	}
-	c.repositories = newRepositories(c)
-	c.templates = newTemplates(c)
 	for _, o := range options {
 		o(c)
 	}
+	// Initialize sub-managers using now-fully-initialized client.
+	c.repositories = newRepositories(c)
+	c.templates = newTemplates(c)
+
+	// Trigger the creation of the config and repository paths
+	_ = ConfigPath()         // Config is package-global scoped
+	_ = c.RepositoriesPath() // Repositories is Client-specific
+
 	return c
 }
 
-// assertConfigDir makes a best-effort attempt to create the config directory
-// (including required subdirectories).
-func assertConfigDir() {
-	// NOTE: regarding running as a user with no home directory:
-	// The default is .config/func in current working directory when there is no
-	// available HOME in which to find .`~/.config/func`.
-	// Since it is expected that the code elsewhere never assume the config
-	// directory exists (doing so is a racing condition), it is valid to simply
-	// handle errors at this level.
-	if err := os.MkdirAll(RepositoriesPath(), 0700); err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating '%v': %v", RepositoriesPath(), err)
-	}
-}
-
-// RepositoriesPath is the static default path to repositories used by a Client.
-// This path can be overridden on intantiation of a client using the
-// WithRepositories option.
-func RepositoriesPath() string {
-	return filepath.Join(ConfigPath(), "repositories")
-}
-
-// ConfigPath returns the default config directory path used by the Client.
-// The default is ~/.config/func.  If defined, XDG_CONFIG_HOME is used.
-// In the event of an error calculating ~ (no home directory for the current
-// user), the relative path '.config/func' is used.
-func ConfigPath() string {
-	// 'XDG_CONFIG_HOME/func' takes precidence if defined
-	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
-		return filepath.Join(xdg, "func")
-	}
+// The default config path is evaluated in the following order, from lowest
+// to highest precedence.
+// 1.  The static default is DefaultConfigPath (./.config/func)
+// 2.  ~/.config/func if it exists (can be expanded: user has a home dir)
+// 3.  The value of $XDG_CONFIG_PATH/func if the environment variable exists.
+// The path will be created if it does not already exist.
+func ConfigPath() (path string) {
+	path = DefaultConfigPath
 
 	// ~/.config/func is the default if ~ can be expanded
 	if home, err := homedir.Expand("~"); err == nil {
-		return filepath.Join(home, ".config", "func")
+		path = filepath.Join(home, ".config", "func")
 	}
 
-	// The default (edge case) is to return a relative path of .config inidicating
-	// the current working directory when neither aforementioned exist.
-	return ".config/func"
+	// 'XDG_CONFIG_HOME/func' takes precidence if defined
+	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
+		path = filepath.Join(xdg, "func")
+	}
+
+	mkdir(path) // make sure it exists
+	return
+}
+
+// RepositoriesPath accesses the currently effective repositories path,
+// which defaults to [ConfigPath]/repositories but can be set explicitly using
+// the WithRepositories option when creating the client..
+// The path will be created if it does not already exist.
+func (c *Client) RepositoriesPath() (path string) {
+	path = c.repositories.Path()
+	mkdir(path) // make sure it exists
+	return
+}
+
+// RepositoriesPath is a convenience method for accessing the default path to
+// repositories that will be used by new instances of a Client unless options
+// such as WithRepositories are used to override.
+// The path will be created if it does not already exist.
+func RepositoriesPath() string {
+	return New().RepositoriesPath()
 }
 
 // OPTIONS
@@ -308,21 +317,21 @@ func WithDNSProvider(provider DNSProvider) Option {
 	}
 }
 
-// WithRepositories sets the location to use for extensible template repositories.
-// Extensible template repositories are additional templates that exist on disk and are
-// not built into the binary.
+// WithRepositories sets the location to use for extensible template
+// repositories.  Extensible template repositories are additional templates
+// that exist on disk and are not built into the binary.
 func WithRepositories(path string) Option {
 	return func(c *Client) {
-		c.Repositories().SetPath(path)
+		c.repositoriesPath = path
 	}
 }
 
-// WithRepository sets a specific URL to a Git repository from which to pull templates.
-// This setting's existence precldes the use of either the inbuilt templates or any
-// repositories from the extensible repositories path.
+// WithRepository sets a specific URL to a Git repository from which to pull
+// templates.  This setting's existence precldes the use of either the inbuilt
+// templates or any repositories from the extensible repositories path.
 func WithRepository(uri string) Option {
 	return func(c *Client) {
-		c.Repositories().SetRemote(uri)
+		c.repositoriesURI = uri
 	}
 }
 
@@ -784,3 +793,14 @@ func (p *NoopProgressListener) Increment(m string) {}
 func (p *NoopProgressListener) Complete(m string)  {}
 func (p *NoopProgressListener) Stopping()          {}
 func (p *NoopProgressListener) Done()              {}
+
+// mkdir attempts to mkdir, writing any errors to stderr.
+func mkdir(path string) {
+	// Since it is expected that the code elsewhere never assume directories
+	// exist (doing so is a racing condition), it is valid to simply
+	// handle errors at this level.
+	if err := os.MkdirAll(path, 0700); err != nil {
+		fmt.Fprintf(os.Stderr, "Error creating '%v': %v", path, err)
+		debug.PrintStack()
+	}
+}
