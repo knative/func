@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	socatImage = "quay.io/mvasek/socat:alpine"
+	socatImage = "alpine/socat:1.7.4.2-r0"
 )
 
 type ContextDialer interface {
