@@ -197,7 +197,7 @@ func New(options ...Option) *Client {
 }
 
 // The default config path is evaluated in the following order, from lowest
-// to highest precidence.
+// to highest precedence.
 // 1.  The static default is DefaultConfigPath (./.config/func)
 // 2.  ~/.config/func if it exists (can be expanded: user has a home dir)
 // 3.  The value of $XDG_CONFIG_PATH/func if the environment variable exists.

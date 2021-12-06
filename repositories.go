@@ -39,7 +39,7 @@ type Repositories struct {
 	// outputs.
 	remote string
 
-	// backreference to the client enabling this repositorires manage to
+	// backreference to the client enabling this repositorires manager to
 	// have full API access.
 	client *Client
 }
