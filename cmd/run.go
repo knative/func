@@ -50,7 +50,7 @@ kn func run
 		"Environment variable to set in the form NAME=VALUE. "+
 			"You may provide this flag multiple times for setting multiple environment variables. "+
 			"To unset, specify the environment variable name followed by a \"-\" (e.g., NAME-).")
-	cmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
+	setPathFlag(cmd)
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		return runRun(cmd, args, clientFn)

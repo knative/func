@@ -328,3 +328,13 @@ func mergeEnvs(envs []fn.Env, envToUpdate *util.OrderedMap, envToRemove []string
 
 	return envs, nil
 }
+
+// setPathFlag ensures common text/wording when the --path flag is used
+func setPathFlag(cmd *cobra.Command) {
+	cmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
+}
+
+// setNamespaceFlag ensures common text/wording when the --namespace flag is used
+func setNamespaceFlag(cmd *cobra.Command) {
+	cmd.Flags().StringP("namespace", "n", "", "The namespace on the cluster. By default, the namespace in func.yaml is used or the currently active namespace if not set in the configuration. (Env: $FUNC_NAMESPACE)")
+}

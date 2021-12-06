@@ -79,11 +79,11 @@ directory or from the directory specified with --path.
 		},
 	}
 
-	configLabelsCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
+	setPathFlag(configLabelsCmd)
+	setPathFlag(configLabelsAddCmd)
+	setPathFlag(configLabelsRemoveCmd)
 	configLabelsCmd.AddCommand(configLabelsAddCmd)
-	configLabelsAddCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
 	configLabelsCmd.AddCommand(configLabelsRemoveCmd)
-	configLabelsRemoveCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
 
 	return configLabelsCmd
 }

@@ -56,9 +56,9 @@ kn func info --output yaml --path myotherfunc
 		PreRunE:           bindEnv("namespace", "output", "path"),
 	}
 
-	cmd.Flags().StringP("namespace", "n", "", "Namespace of the function. By default, the namespace in func.yaml is used or the actual active namespace if not set in the configuration. (Env: $FUNC_NAMESPACE)")
+	setNamespaceFlag(cmd)
 	cmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|xml|yaml|url) (Env: $FUNC_OUTPUT)")
-	cmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
+	setPathFlag(cmd)
 
 	if err := cmd.RegisterFlagCompletionFunc("output", CompleteOutputFormatList); err != nil {
 		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)

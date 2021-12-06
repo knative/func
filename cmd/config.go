@@ -45,7 +45,7 @@ var defaultLoaderSaver standardLoaderSaver
 
 func init() {
 	root.AddCommand(configCmd)
-	configCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
+	setPathFlag(configCmd)
 	configCmd.AddCommand(NewConfigLabelsCmd(defaultLoaderSaver))
 }
 
