@@ -80,7 +80,7 @@ kn func emit --sink "http://my.event.broker.com"
 	cmd.Flags().StringP("data", "d", "", "Any arbitrary string to be sent as the CloudEvent data. Ignored if --file is provided  (Env: $FUNC_DATA)")
 	cmd.Flags().StringP("file", "f", "", "Path to a local file containing CloudEvent data to be sent  (Env: $FUNC_FILE)")
 	cmd.Flags().StringP("content-type", "c", "application/json", "The MIME Content-Type for the CloudEvent data  (Env: $FUNC_CONTENT_TYPE)")
-	cmd.Flags().StringP("path", "p", cwd(), "Path to the project directory. Ignored when --sink is provided (Env: $FUNC_PATH)")
+	setPathFlag(cmd)
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		return runEmit(cmd, args, clientFn)

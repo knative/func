@@ -14,12 +14,12 @@ import (
 )
 
 func init() {
+	setPathFlag(configVolumesCmd)
+	setPathFlag(configVolumesAddCmd)
+	setPathFlag(configVolumesRemoveCmd)
 	configCmd.AddCommand(configVolumesCmd)
-	configVolumesCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
 	configVolumesCmd.AddCommand(configVolumesAddCmd)
-	configVolumesAddCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
 	configVolumesCmd.AddCommand(configVolumesRemoveCmd)
-	configVolumesRemoveCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
 }
 
 var configVolumesCmd = &cobra.Command{

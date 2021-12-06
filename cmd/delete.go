@@ -63,8 +63,8 @@ kn func delete -n apps myfunc
 	}
 
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
-	cmd.Flags().StringP("path", "p", cwd(), "Path to the function project that should be undeployed (Env: $FUNC_PATH)")
-	cmd.Flags().StringP("namespace", "n", "", "Namespace of the function to undeploy. By default, the namespace in func.yaml is used or the actual active namespace if not set in the configuration. (Env: $FUNC_NAMESPACE)")
+	setNamespaceFlag(cmd)
+	setPathFlag(cmd)
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		return runDelete(cmd, args, clientFn)
