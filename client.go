@@ -5,12 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
 	"time"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/mitchellh/go-homedir"
 )
 
@@ -647,7 +650,8 @@ func (c *Client) List(ctx context.Context) ([]ListItem, error) {
 }
 
 // Info for a Function.  Name takes precidence.  If no name is provided,
-// the Function defined at root is used.
+// the Function defined at root is used.  This allows for retreival of info
+// about a deployed function without requiring its source.
 func (c *Client) Info(ctx context.Context, name, root string) (d Info, err error) {
 	go func() {
 		<-ctx.Done()
@@ -692,13 +696,107 @@ func (c *Client) Remove(ctx context.Context, cfg Function) error {
 	return c.remover.Remove(ctx, f.Name)
 }
 
-// Invoke a Function
-func (c *Client) Invoke(ctx context.Context, cfg Function) error {
+// Invoke is a convenience method for triggering the execution of a Function
+// for testing and development.  The Function argument defines the Function
+// to invoke, requiring either Name or Root members are populated.
+// The target argument is optional, naming the running instance of the Function
+// which should be invoked.  This can be the literal names "local" or "remote",
+// or can be a URL to an arbitrary endpoint.  If not provided, a running local
+// instance is preferred, with the remote Function triggered if there is no
+// locally running instance.
+// Example:
+//  myClient.Invoke(myContext, myFunction, "local", NewInvokeMessage())
+// The message sent to the Function is defined by the invoke message.
+// See NewInvokeMessage for its defaults.
+// Functions are invoked in a manner consistent with the settings defined in
+// their metadata.  For example HTTP vs CloudEvent
+func (c *Client) Invoke(ctx context.Context, root string, target string, m InvokeMessage) error {
 	go func() {
 		<-ctx.Done()
 		c.progressListener.Stopping()
 	}()
-	return errors.New("Not Implemented")
+
+	// Load the Function
+	f, err := NewFunction(root)
+	if err != nil {
+		return err
+	}
+
+	// Get a route to the Function, optionally by named target.
+	route, err := c.invocationRoute(ctx, f, target)
+	if err != nil {
+		return err
+	}
+
+	switch f.Invocation.Format {
+	case "cloudevent":
+		return c.invokeCloudEvent(ctx, route, m) // invoke the f with m via CloudEvent
+	default:
+		return c.invokeHTTP(ctx, route, m) // invoke the f with m via standard HTTP (Form POST)
+		// NOTE: The default case ('http') is to always fall back to attempting
+		// a simple HTTP POST with form values.
+	}
+}
+
+func (c *Client) invokeCloudEvent(ctx context.Context, route string, m InvokeMessage) error {
+
+	fmt.Printf("Invoking '%v' via CloudEvent with: %#v\n", route, m)
+
+	cc, err := cloudevents.NewClientHTTP()
+	if err != nil {
+		return err
+	}
+
+	// Create an Event.
+	event := cloudevents.NewEvent()
+	event.SetID(m.ID)
+	event.SetSource(m.Source)
+	event.SetType(m.Type)
+	event.SetData(cloudevents.TextPlain, m.Data)
+
+	sendCtx := cloudevents.ContextWithTarget(ctx, route)
+
+	if result := cc.Send(sendCtx, event); cloudevents.IsUndelivered(result) {
+		return fmt.Errorf("unable to invoke: %v", result)
+	}
+	return nil
+}
+
+func (c *Client) invokeHTTP(ctx context.Context, route string, m InvokeMessage) error {
+
+	fmt.Printf("Invoking '%v' via default HTTP POST with: %#v\n", route, m)
+
+	resp, err := http.PostForm(route, url.Values{
+		"ID":     {m.ID},
+		"Source": {m.Source},
+		"Type":   {m.Type},
+		"Data":   {m.Data},
+	})
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("failure invoking '%v' (HTTP %v)", route, resp.StatusCode)
+	}
+	return nil
+}
+
+// invocationRoute returns a route to the named target instance of a Func:
+// 'local': locally running Function (error if not running)
+// 'remote': first available remote instance (error if none available)
+// '<url>': The exact URL passed as an override.
+// '': Default if no target is passed is to first use local, then remote.
+//     errors if neither are available.
+func (c *Client) invocationRoute(ctx context.Context, f Function, target string) (string, error) {
+	info, err := c.Info(ctx, f.Name, f.Root)
+	if err != nil {
+		return "", err
+	}
+	if len(info.Routes) == 0 {
+		return "", errors.New("no route to Function found")
+	}
+	return info.Routes[0], nil
+
 }
 
 // Push the image for the named service to the configured registry

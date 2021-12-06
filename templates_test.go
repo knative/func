@@ -516,3 +516,65 @@ func TestRepositoryManifestBuildEnvs(t *testing.T) {
 		t.Fatalf("Unexpected difference between repository's manifest.yaml buildEnvs and Function BuildEnvs (-want, +got): %v", diff)
 	}
 }
+
+// TestTemplateManifestInvocationHints ensures that invocation hints
+// from a template's manifest are included in the final Function.
+func TestTemplateManifestInvocationHints(t *testing.T) {
+	root := "testdata/testTemplateManifestInvocationHints"
+	defer Using(t, root)()
+
+	client := fn.New(
+		fn.WithRegistry(TestRegistry),
+		fn.WithRepositories("testdata/repositories"))
+
+	err := client.Create(fn.Function{
+		Root:     root,
+		Runtime:  "manifestedRuntime",
+		Template: "customLanguagePackRepo/manifestedTemplate",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if f.Invocation.Format != "format" {
+		t.Fatalf("expected invocation format 'format', got '%v'", f.Invocation.Format)
+	}
+
+}
+
+// TestTemplateInvocationDefault ensures that creating a Function which
+// does not define an invocation hint defaults to the DefaultInvocationFormat
+// (http post)
+func TestTemplateInvocationDefault(t *testing.T) {
+	root := "testdata/testTemplateInvocationDefault"
+	defer Using(t, root)()
+
+	client := fn.New(
+		fn.WithRegistry(TestRegistry),
+		fn.WithRepositories("testdata/repositories"))
+
+	// The customTemplateRepo explicitly does not
+	// include manifests as it exemplifies an entirely default template repo.
+	err := client.Create(fn.Function{
+		Root:     root,
+		Runtime:  "customRuntime",
+		Template: "customTemplateRepo/customTemplate",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if f.Invocation.Format != fn.DefaultInvocationFormat {
+		t.Fatalf("expected '%v' invocation format.  Got '%v'", fn.DefaultInvocationFormat, f.Invocation.Format)
+	}
+}

@@ -8,12 +8,15 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/mock"
 	. "knative.dev/kn-plugin-func/testing"
@@ -755,30 +758,6 @@ func TestDeployUnbuilt(t *testing.T) {
 	}
 }
 
-// TestEmit ensures that the client properly invokes the emitter when provided
-func TestEmit(t *testing.T) {
-	sink := "http://testy.mctestface.com"
-	emitter := mock.NewEmitter()
-
-	// Ensure sink passthrough from client
-	emitter.SendFn = func(s string) error {
-		if s != sink {
-			t.Fatalf("Unexpected sink %v\n", s)
-		}
-		return nil
-	}
-
-	// Instantiate in the current working directory, with no name.
-	client := fn.New(fn.WithInvoker(emitter))
-
-	if err := client.Send(context.Background(), sink); err != nil {
-		t.Fatal(err)
-	}
-	if !emitter.SendInvoked {
-		t.Fatal("Client did not invoke emitter.Send()")
-	}
-}
-
 // Asserts that the client properly writes user provided Builders
 // to the Function configuration but uses internal default if
 // not provided.
@@ -945,5 +924,164 @@ func TestCreateStamp(t *testing.T) {
 	}
 	if !f.Created.After(start) {
 		t.Fatalf("expected function timestamp to be after '%v', got '%v'", start, f.Created)
+	}
+}
+
+// TestInvokeHTTP ensures that the client will attempt to invoke a default HTTP
+// Function using a simple HTTP POST method with the invoke message as form
+// field values (as though a simple form were posted).
+func TestInvokeHTTP(t *testing.T) {
+	root := "testdata/example.com/testInvokeHTTP"
+	defer Using(t, root)()
+
+	// Flag indicating the Function was invoked
+	var invoked bool
+
+	// The message to send to the Function
+	// Individul fields can be overridden, by default all fields are populeted
+	// with values intended as illustrative examples plus a unique request ID.
+	message := fn.NewInvokeMessage()
+
+	// An HTTP handler which masquarades as a running Function and verifies the
+	// invoker POSTed the invocation message.
+	handler := http.NewServeMux()
+	handler.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
+		invoked = true
+		if err := req.ParseForm(); err != nil {
+			t.Fatal(err)
+		}
+		// Verify that we POSt to HTTP endpoints by default
+		if req.Method != "POST" {
+			t.Fatalf("expected 'POST' request, got '%v'", req.Method)
+		}
+		// Verify the values came through via a spot-check of the unique ID
+		if req.Form.Get("ID") != message.ID {
+			t.Fatalf("expected message ID '%v', got '%v'", message.ID, req.Form.Get("ID"))
+		}
+	})
+
+	// Expose the masquarading Function on an OS-chosen port.
+	l, err := net.Listen("tcp4", "127.0.0.1:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := http.Server{Handler: handler}
+	go func() {
+		if err := s.Serve(l); err != nil && err != http.ErrServerClosed {
+			t.Fatal(err)
+		}
+	}()
+	defer s.Close()
+
+	// Create a client with a mock Describer which will report the route
+	// to any Function as being the masquarading Function started above.
+	describer := mock.NewDescriber()
+	describer.DescribeFn = func(name string) (fn.Info, error) {
+		return fn.Info{Routes: []string{"http://" + l.Addr().String()}}, nil
+	}
+	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithDescriber(describer))
+
+	// Create a new default HTTP function
+	f := fn.Function{Runtime: TestRuntime, Root: root, Template: "http"}
+	if err := client.New(context.Background(), f); err != nil {
+		t.Fatal(err)
+	}
+
+	// Invoke the Function, which will use the mock Descrivber to locate the
+	// Function as being the one started above which validates the passed
+	// messsage arrives as expected.
+	if err := client.Invoke(context.Background(), f.Root, "", message); err != nil {
+		t.Fatal(err)
+	}
+
+	// Fail if the Function was never invoked.
+	if !invoked {
+		t.Fatal("Function was not invoked")
+	}
+
+	// Also fail if the mock descrier was never consulted.
+	if !describer.DescribeInvoked {
+		t.Fatal("the describer was not invoked for the Functions address")
+	}
+}
+
+// TestInvokeCloudEvent ensures that the client will attempt to invoke a
+// default CloudEvent Function.  This also uses the HTTP protocol but asserts
+// the invoker is sending the invocation message as a CloudEvent rather than
+// a standard HTTP form POST.
+func TestInvokeCloudEvent(t *testing.T) {
+	root := "testdata/example.com/testInvokeCloudEvent"
+	defer Using(t, root)()
+
+	var (
+		invoked bool // flag the Function was invoked
+		ctx     = context.Background()
+		message = fn.NewInvokeMessage() // message to send to the Function
+	)
+
+	// A CloudEvent Receiver which masquarades as a running Function and
+	// verifies the invoker sent the message as a populated CloudEvent.
+	receiver := func(ctx context.Context, event cloudevents.Event) {
+		fmt.Printf("%s", event)
+		invoked = true
+		if event.ID() != message.ID {
+			t.Fatalf("expected event ID '%v', got '%v'", message.ID, event.ID())
+		}
+	}
+
+	// A cloudevents receive handler which will expect the HTTP protocol
+	protocol, err := cloudevents.NewHTTP() // Use HTTP protocol when receiving
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler, err := cloudevents.NewHTTPReceiveHandler(ctx, protocol, receiver)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Listen and serve on an OS-chosen port
+	l, err := net.Listen("tcp4", "127.0.0.1:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := http.Server{Handler: handler}
+	go func() {
+		if err := s.Serve(l); err != nil && err != http.ErrServerClosed {
+			t.Fatal(err)
+		}
+	}()
+	defer s.Close()
+
+	// Create a client with a mock Describer which will report the route
+	// to any Function as being the masquarading Function started above.
+	describer := mock.NewDescriber()
+	describer.DescribeFn = func(name string) (fn.Info, error) {
+		return fn.Info{Routes: []string{"http://" + l.Addr().String()}}, nil
+	}
+	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithDescriber(describer))
+
+	// Create a new default CloudEvents function
+	f := fn.Function{Runtime: TestRuntime, Root: root, Template: "cloudevents"}
+	if err := client.New(context.Background(), f); err != nil {
+		t.Fatal(err)
+	}
+
+	fmt.Printf("Function created: %#v\n", f)
+
+	// Invoke the Function, which will use the mock Descrivber to locate the
+	// Function as being the one started above which validates the passed
+	// messsage arrives as expected.
+	if err := client.Invoke(context.Background(), f.Root, "", message); err != nil {
+		t.Fatal(err)
+	}
+
+	// Fail if the Function was never invoked.
+	if !invoked {
+		t.Fatal("Function was not invoked")
+	}
+
+	// Also fail if the mock descrier was never consulted.
+	if !describer.DescribeInvoked {
+		t.Fatal("the describer was not invoked for the Functions address")
 	}
 }

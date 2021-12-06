@@ -159,6 +159,9 @@ func (t *Templates) Write(f Function) (Function, error) {
 	if f.HealthEndpoints.Readiness == "" {
 		f.HealthEndpoints.Readiness = template.HealthEndpoints.Readiness
 	}
+	if f.Invocation.Format == "" {
+		f.Invocation.Format = template.Invocation.Format
+	}
 
 	// Copy the template files from the repo filesystem to the new Function's root
 	return f, copy(templatePath, f.Root, repo.FS)

@@ -1,35 +1,24 @@
 package cmd
 
 import (
-	"context"
 	"errors"
 	"fmt"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/google/uuid"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/invoker"
-	"knative.dev/kn-plugin-func/knative"
+	"knative.dev/kn-plugin-func/utils"
 )
 
 func init() {
 	root.AddCommand(NewInvokeCmd(newInvokeClient))
 }
 
-type invokeClientFn func(invokeConfig) (*fn.Client, error)
+type invokeClientFn func(invokeConfig) *fn.Client
 
-func newInvokeClient(cfg invokeConfig) (*fn.Client, error) {
-	describer, err := knative.NewDescriber(cfg.Namespace)
-	if err != nil {
-		return nil, err
-	}
-
-	return fn.New(
-		fn.WithDescriber(describer),
-		fn.WithVerbose(cfg.Verbose),
-	), nil
+func newInvokeClient(cfg invokeConfig) *fn.Client {
+	return fn.New(fn.WithVerbose(cfg.Verbose))
 }
 
 func NewInvokeCmd(clientFn invokeClientFn) *cobra.Command {
@@ -51,7 +40,6 @@ DESCRIPTION
 	Function instance, either locally or remote.  If the Function is running
 	both locally and remote, the local instance will be invoked.  This behavior
 	can be manually overridden using the --target flag.
-$ func run $ func invoke
 
 	Functions are invoked with a test data structure consisting of five values: 
 		id:            A unique identifer for the request.
@@ -78,7 +66,7 @@ $ func run $ func invoke
 	  To explicitly target a remote (deployed) Function:
 	    func invoke --target=remote
 	  To target an arbitrary endpont, provide a URL:
-	    func invoke --target=https://my-function.example.com
+	    func invoke --target=https://myfunction.example.com
 
 	Custom Requests
 	  To provide a raw HTTP request to the Function, use the --request flag which
@@ -112,20 +100,21 @@ EXAMPLES
 	  $ {{.Prefix}}func invoke --file=example.jpeg --content-type=image/jpeg
 		`,
 		SuggestFor: []string{"emit", "emti", "send", "emit", "exec", "nivoke", "onvoke", "unvoke", "knvoke", "imvoke", "ihvoke", "ibvoke"},
-		PreRunE:    bindEnv("target", "id", "source", "type", "data", "file", "content-type", "save", "path", "confirm", "verbose"),
+		PreRunE:    bindEnv("path", "target", "id", "source", "type", "data", "content-type", "file", "save", "confirm"),
 	}
 
 	// Flags
 	cmd.Flags().StringP("path", "p", cwd(), "Path to the Function which should have its instance invoked (Env: $FUNC_PATH)")
 	cmd.Flags().StringP("target", "t", "", "Function instance to invoke.  Can be 'local', 'remote' or a URL. (Env: $FUNC_TARGET)")
-	cmd.Flags().StringP("id", "", uuid.NewString(), "ID for the request data. (Env: $FUNC_ID)")
-	cmd.Flags().StringP("source", "", invoker.DefaultSource, "Source value for the request data. (Env: $FUNC_SOURCE)")
-	cmd.Flags().StringP("type", "", invoker.DefaultType, "Type value for the request data. (Env: $FUNC_TYPE)")
-	cmd.Flags().StringP("data", "", invoker.DefaultData, "Data sent in the request. (Env: $FUNC_DATA)")
-	cmd.Flags().StringP("content-type", "", invoker.DefaultContentType, "Content Type of the data. (Env: $FUNC_CONTENT_TYPE)")
+	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
+	cmd.Flags().StringP("id", "", "", "ID for the request data. (Env: $FUNC_ID)")
+	cmd.Flags().StringP("source", "", "", "Source value for the request data. (Env: $FUNC_SOURCE)")
+	cmd.Flags().StringP("type", "", "", "Type value for the request data. (Env: $FUNC_TYPE)")
+	cmd.Flags().StringP("data", "", "", "Data to send in the request. (Env: $FUNC_DATA)")
+	cmd.Flags().StringP("content-type", "", "", "Content Type of the data. (Env: $FUNC_CONTENT_TYPE)")
 	cmd.Flags().StringP("file", "", "", "Path to a file containg data to send. Eclusive with --data flag and requres correct --content-type. (Env: $FUNC_FILE)")
 	cmd.Flags().BoolP("save", "", false, "Save request values specified as the new defaults for future invocations.  (Env: $FUNC_SAVE)")
-	cmd.Flags().BoolP("request", "", false, "Provide a raw HTTP request manually via STDIN in place of other options. (Env: $FUNC_REQUEST)")
+	cmd.Flags().BoolP("request", "", false, "Provide a raw HTTP request manually via STDIN in place of other options.")
 
 	// Help Action
 	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
@@ -143,11 +132,13 @@ EXAMPLES
 // Run
 func runInvoke(cmd *cobra.Command, args []string, clientFn invokeClientFn) (err error) {
 
+	// Gather flag values for the invocation
 	cfg, err := newInvokeConfig(clientFn)
 	if err != nil {
 		return
 	}
 
+	// Client instance from env vars, flags, args and user promtps (if --confirm)
 	client := clientFn(cfg)
 
 	// A deeper validation than that which is performed when instantiating the
@@ -158,42 +149,37 @@ func runInvoke(cmd *cobra.Command, args []string, clientFn invokeClientFn) (err 
 
 	// Load Function
 	// This path has gone through defaulting, env/flag overrieds and prompts.
+	var f fn.Function
 	if f, err = fn.NewFunction(cfg.Path); err != nil {
 		return
 	}
 
-	// Apply Overrides
-	// Config now includes final values for the invocation fields, including
-	// env/flags and prompts.  Apply those settings to the function just loaded
-	// from the final path.
-	if f, err := applyInvocationOverrides(f, cfg); err != nil {
-		return
+	// Message to send to the Function
+	// Based on first static defaults, followed by overrides from flags/envs
+	message := newInvokeMessage(cfg)
+
+	// Invoke
+	err = client.Invoke(cmd.Context(), f, message)
+	if err != nil {
+		return err
 	}
 
 	// Save
-	// Persist the final value of F if saving these settings
+	// IF invoke completed without error (not necessarily successful invocation,
+	// this means successful execution of an invocation attempt), save the final
+	// value of the invocation settings such that future invocations can be run
+	// without re-providing the values.
+	// This is in essence updating the Function metadata to preserve default
+	// invocation settings for this and other developers (settings are written
+	// to func.yaml for commission to source control)
 	if cfg.Save {
-		f.Save()
-	}
-
-	// Invoke
-	err = client.Invoke(cmd.Context(), f,
-		fn.InvokeWithRequest(cfg.Request))
-	if err != nil {
-		return err
+		err = f.Save()
 	}
 
 	// Confirm
 	fmt.Fprintf(cmd.OutOrStderr(), "Invoked %v\n", f.Name)
 
-	/*
-		// Determine the final endpoint, taking into account the special value "local",
-		// and sampling the function's current route if not explicitly provided
-		endpoint, err := endpoint(cmd.Context(), config)
-		if err != nil {
-			return err
-		}
-	*/
+	return
 }
 
 func runInvokeHelp(cmd *cobra.Command, args []string, clientFn invokeClientFn) {
@@ -209,10 +195,10 @@ func runInvokeHelp(cmd *cobra.Command, args []string, clientFn invokeClientFn) {
 
 	tpl := invokeHelpTemplate(cmd)
 
-	cfg, err := newInvokeConfig(args, clientFn)
+	cfg, err := newInvokeConfig(clientFn)
 	failSoft(err)
 
-	client := clientFn(cfg)
+	_ = clientFn(cfg) // TODO: remove if not used to create data for help tpl
 
 	f, err := fn.NewFunction(cfg.Path)
 	failSoft(err)
@@ -240,10 +226,11 @@ type invokeConfig struct {
 	ContentType string
 	File        string
 	Save        bool
+	Confirm     bool
 	Verbose     bool
 }
 
-func newInvokeConfig() (cfg invokeConfig, err error) {
+func newInvokeConfig(clientFn invokeClientFn) (cfg invokeConfig, err error) {
 	cfg = invokeConfig{
 		Path:        viper.GetString("path"),
 		Target:      viper.GetString("target"),
@@ -254,6 +241,7 @@ func newInvokeConfig() (cfg invokeConfig, err error) {
 		ContentType: viper.GetString("content-type"),
 		File:        viper.GetString("file"),
 		Save:        viper.GetBool("save"),
+		Confirm:     viper.GetBool("confirm"),
 		Verbose:     viper.GetBool("verbose"),
 	}
 
@@ -277,6 +265,7 @@ func newInvokeConfig() (cfg invokeConfig, err error) {
 	fmt.Printf("ID: %v\n", cfg.Id)
 	fmt.Printf("Source: %v\n", cfg.Source)
 	fmt.Printf("Type: %v\n", cfg.Type)
+	fmt.Printf("Data: %v\n", cfg.Data)
 	fmt.Printf("Content Type: %v\n", cfg.ContentType)
 	fmt.Printf("File: %v\n", cfg.File)
 	fmt.Printf("Save: %v\n", cfg.Save)
@@ -300,7 +289,15 @@ func (c invokeConfig) prompt(client *fn.Client) (invokeConfig, error) {
 			Name: "Path",
 			Prompt: &survey.Input{
 				Message: "Function Path:",
-				Defaut:  c.Path,
+				Default: c.Path,
+			},
+			Validate: func(val interface{}) error {
+				derivedName, _ := deriveNameAndAbsolutePathFromPath(val.(string))
+				return utils.ValidateFunctionName(derivedName)
+			},
+			Transform: func(ans interface{}) interface{} {
+				_, absolutePath := deriveNameAndAbsolutePathFromPath(ans.(string))
+				return absolutePath
 			},
 		},
 	}
@@ -315,18 +312,21 @@ func (c invokeConfig) prompt(client *fn.Client) (invokeConfig, error) {
 	if err != nil {
 		return c, err
 	}
-	if client.IsRunningLocally(f) {
-		c.Target = "local"
-	} else if client.IsRunningRemote(f) {
-		c.Target = "remote"
-	} else {
-		c.Target = ""
+
+	// Set a friendly default for target if it was not provided.
+	if c.Target == "" {
+		// If the functionis running locally,
+		if client.Running(f) {
+			c.Target = "local"
+		} else if client.Deployed(f) {
+			c.Target = "remote"
+		}
 	}
 	qs = []*survey.Question{
 		{
 			Name: "Target",
 			Prompt: &survey.Input{
-				Message: "Target Function",
+				Message: "Target Function ('local', 'remote' or URL endpoint)",
 				Default: c.Target,
 			},
 		},
@@ -363,7 +363,7 @@ func (c invokeConfig) prompt(client *fn.Client) (invokeConfig, error) {
 		}, {
 			Name: "Source",
 			Prompt: &survey.Input{
-				"Data Source",
+				Message: "Data Source",
 				Default: c.Source,
 			},
 		}, {
@@ -414,54 +414,4 @@ func (c invokeConfig) prompt(client *fn.Client) (invokeConfig, error) {
 	}
 
 	return c, nil
-}
-
-// endpoint returns the final effective endpoint.
-// By default, the contextually active Function is queried for it's current
-// address (route).
-// If "local" is specified in cfg.Sink, localhost is used.
-// Otherwise the value of Sink is used verbatim if defined.
-func endpoint(ctx context.Context, cfg invokeConfig) (url string, err error) {
-	var (
-		f fn.Function
-		d fn.Describer
-		i fn.Info
-	)
-
-	// If a sink was not provided, default to localhost
-	if cfg.Sink == "" {
-		return "http://localhost:8080", nil
-	}
-
-	// If the special value "cluster" was not provided,
-	// this implies an explicit sink URI, use it.
-	if cfg.Sink != "cluster" {
-		return cfg.Sink, nil
-	}
-
-	// The special value "cluster", use the route to the currently
-	// contectually active function
-	if f, err = fn.NewFunction(cfg.Path); err != nil {
-		return
-	}
-
-	// TODO: Decide what happens if the function hasn't been deployed but they
-	// don't run with --local=true.  Perhaps an error in .Validate()?
-	if d, err = knative.NewDescriber(""); err != nil {
-		return
-	}
-
-	// Get the current state of the function.
-	if i, err = d.Describe(ctx, f.Name); err != nil {
-		return
-	}
-
-	// Probably wise to be defensive here:
-	if len(i.Routes) == 0 {
-		err = errors.New("function has no active routes")
-		return
-	}
-
-	// The first route should be the destination.
-	return i.Routes[0], nil
 }
