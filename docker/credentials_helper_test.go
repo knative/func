@@ -20,7 +20,7 @@ func Test_registryEquals(t *testing.T) {
 		{"localhost with matching port", "https://localhost:1234", "http://localhost:1234", true},
 		{"localhost with match by default port 80", "http://localhost", "localhost:80", true},
 		{"localhost with match by default port 443", "https://localhost", "localhost:443", true},
-		{"localhost with mismatch by non-default port 5000", "https://localhost", "localhost:5000", false},
+		{"localhost with mismatch by non-default port 50000", "https://localhost", "localhost:50000", false},
 		{"localhost with match by empty ports", "https://localhost", "http://localhost", true},
 		{"docker.io matching host https", "https://docker.io", "docker.io", true},
 		{"docker.io matching host http", "http://docker.io", "docker.io", true},
