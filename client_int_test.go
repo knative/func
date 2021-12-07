@@ -48,7 +48,7 @@ const (
 	// DefaultRegistry must contain both the registry host and
 	// registry namespace at this time.  This will likely be
 	// split and defaulted to the forthcoming in-cluster registry.
-	DefaultRegistry = "localhost:5000/func"
+	DefaultRegistry = "kind-registry:50000/func"
 
 	// DefaultNamespace for the underlying deployments.  Must be the same
 	// as is set up and configured (see hack/configure.sh)

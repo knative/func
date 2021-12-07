@@ -62,8 +62,8 @@ nodes:
       listenAddress: "127.0.0.1"
 containerdConfigPatches:
 - |-
-  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:5000"]
-    endpoint = ["http://kind-registry:5000"]
+  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."kind-registry:50000"]
+    endpoint = ["http://kind-registry:50000"]
 EOF
   sleep 10
   kubectl wait pod --for=condition=Ready -l '!job-name' -n kube-system --timeout=5m
@@ -179,7 +179,7 @@ registry() {
   # see https://kind.sigs.k8s.io/docs/user/local-registry/
 
   echo "${em}⑥ Registry${me}"
-  docker run -d --restart=always -p "5000:5000" --name "kind-registry" registry:2
+  docker run -d --restart=always -p "50000:50000" --env REGISTRY_HTTP_ADDR="0.0.0.0:50000" --name "kind-registry" registry:2
   docker network connect "kind" "kind-registry"
   kubectl apply -f - <<EOF
 apiVersion: v1
@@ -189,7 +189,7 @@ metadata:
   namespace: kube-public
 data:
   localRegistryHosting.v1: |
-    host: "localhost:5000"
+    host: "kind-registry:50000"
     help: "https://kind.sigs.k8s.io/docs/user/local-registry/"
 EOF
 }
@@ -250,7 +250,7 @@ next_steps() {
   echo "  ${red}add 'kind-registry' "to your local hosts${me} file:"
   echo "    echo \"127.0.0.1 kind-registry\" | sudo tee --append /etc/hosts"
   echo "  ${red}set registry as insecure${me} in the docker daemon config (/etc/docker/daemon.json on linux or ~/.docker/daemon.json on OSX):
-  { \"insecure-registries\": [ \"kind-registry:5000\" ] }"
+  { \"insecure-registries\": [ \"kind-registry:50000\" ] }"
 }
 
 main "$@"
