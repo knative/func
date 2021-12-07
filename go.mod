@@ -18,6 +18,7 @@ require (
 	github.com/go-git/go-billy/v5 v5.3.1
 	github.com/go-git/go-git/v5 v5.4.2
 	github.com/google/go-cmp v0.5.6
+	github.com/google/go-containerregistry v0.6.0
 	github.com/google/uuid v1.3.0
 	github.com/hinshun/vt10x v0.0.0-20180809195222-d55458df857c
 	github.com/markbates/pkger v0.17.1

@@ -5,11 +5,18 @@ package docker
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"math/big"
 	"net"
 	"net/http"
 	"os"
@@ -653,4 +660,201 @@ func (i *inMemoryHelper) Delete(serverURL string) error {
 	}
 
 	return credentials.NewErrCredentialsNotFound()
+}
+
+func TestCheckAuth(t *testing.T) {
+	localhost, localhostTLS, stopServer := startServer(t)
+	defer stopServer()
+
+	_, portTLS, err := net.SplitHostPort(localhostTLS)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	nonLocalhostTLS := "test.io:" + portTLS
+
+	type args struct {
+		ctx      context.Context
+		username string
+		password string
+		registry string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "correct credentials localhost no-TLS",
+			args: args{
+				ctx:      context.Background(),
+				username: "testuser",
+				password: "testpwd",
+				registry: localhost,
+			},
+			wantErr: false,
+		},
+		{
+			name: "correct credentials localhost",
+			args: args{
+				ctx:      context.Background(),
+				username: "testuser",
+				password: "testpwd",
+				registry: localhostTLS,
+			},
+			wantErr: false,
+		},
+
+		{
+			name: "correct credentials non-localhost",
+			args: args{
+				ctx:      context.Background(),
+				username: "testuser",
+				password: "testpwd",
+				registry: nonLocalhostTLS,
+			},
+			wantErr: false,
+		},
+		{
+			name: "incorrect credentials localhost no-TLS",
+			args: args{
+				ctx:      context.Background(),
+				username: "testuser",
+				password: "badpwd",
+				registry: localhost,
+			},
+			wantErr: true,
+		},
+		{
+			name: "incorrect credentials localhost",
+			args: args{
+				ctx:      context.Background(),
+				username: "testuser",
+				password: "badpwd",
+				registry: localhostTLS,
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := CheckAuth(tt.args.ctx, tt.args.username, tt.args.password, tt.args.registry); (err != nil) != tt.wantErr {
+				t.Errorf("CheckAuth() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func startServer(t *testing.T) (addr, addrTLS string, stopServer func()) {
+	listener, err := net.Listen("tcp", "localhost:8080")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr = listener.Addr().String()
+
+	listenerTLS, err := net.Listen("tcp", "localhost:4433")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addrTLS = listenerTLS.Addr().String()
+
+	handler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
+		resp.Header().Add("WWW-Authenticate", "basic")
+		if user, pwd, ok := req.BasicAuth(); ok {
+			if user == "testuser" && pwd == "testpwd" {
+				resp.WriteHeader(http.StatusOK)
+				return
+			}
+		}
+		resp.WriteHeader(http.StatusUnauthorized)
+	})
+
+	var randReader io.Reader = rand.Reader
+
+	caPublicKey, caPrivateKey, err := ed25519.GenerateKey(randReader)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ca := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			CommonName: "localhost",
+		},
+		IPAddresses:           []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback},
+		DNSNames:              []string{"localhost", "test.io"},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().AddDate(10, 0, 0),
+		IsCA:                  true,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		ExtraExtensions:       []pkix.Extension{},
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+		BasicConstraintsValid: true,
+	}
+
+	caBytes, err := x509.CreateCertificate(randReader, ca, ca, caPublicKey, caPrivateKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ca, err = x509.ParseCertificate(caBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cert := tls.Certificate{
+		Certificate: [][]byte{caBytes},
+		PrivateKey:  caPrivateKey,
+		Leaf:        ca,
+	}
+
+	server := http.Server{
+		Handler: handler,
+		TLSConfig: &tls.Config{
+			ServerName:   "localhost",
+			Certificates: []tls.Certificate{cert},
+		},
+	}
+
+	go func() {
+		err := server.ServeTLS(listenerTLS, "", "")
+		if err != nil && !strings.Contains(err.Error(), "Server closed") {
+			panic(err)
+		}
+	}()
+
+	go func() {
+		err := server.Serve(listener)
+		if err != nil && !strings.Contains(err.Error(), "Server closed") {
+			panic(err)
+		}
+	}()
+
+	// make the testing CA trusted by default HTTP transport/client
+	oldDefaultTransport := http.DefaultTransport
+	newDefaultTransport := http.DefaultTransport.(*http.Transport).Clone()
+	http.DefaultTransport = newDefaultTransport
+	caPool := x509.NewCertPool()
+	caPool.AddCert(ca)
+	newDefaultTransport.TLSClientConfig.RootCAs = caPool
+	dc := newDefaultTransport.DialContext
+	newDefaultTransport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+		h, p, err := net.SplitHostPort(addr)
+		if err != nil {
+			return nil, err
+		}
+		if h == "test.io" {
+			h = "localhost"
+		}
+		addr = net.JoinHostPort(h, p)
+		return dc(ctx, network, addr)
+	}
+
+	return addr, addrTLS, func() {
+		err := server.Shutdown(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		http.DefaultTransport = oldDefaultTransport
+	}
 }

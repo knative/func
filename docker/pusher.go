@@ -8,10 +8,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 
 	"github.com/docker/docker/client"
 
@@ -20,7 +25,6 @@ import (
 	"github.com/containers/image/v5/pkg/docker/config"
 	containersTypes "github.com/containers/image/v5/types"
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/errdefs"
 )
 
 type Opt func(*Pusher) error
@@ -41,24 +45,49 @@ var ErrUnauthorized = errors.New("bad credentials")
 type VerifyCredentialsCallback func(ctx context.Context, username, password, registry string) error
 
 func CheckAuth(ctx context.Context, username, password, registry string) error {
-	cli, _, err := NewClient(client.DefaultDockerHost)
+	serverAddress := registry
+	if !strings.HasPrefix(serverAddress, "https://") && !strings.HasPrefix(serverAddress, "http://") {
+		serverAddress = "https://" + serverAddress
+	}
+
+	url := fmt.Sprintf("%s/v2", serverAddress)
+
+	authenticator := &authn.Basic{
+		Username: username,
+		Password: password,
+	}
+
+	reg, err := name.NewRegistry(registry)
 	if err != nil {
 		return err
 	}
-	defer cli.Close()
 
-	_, err = cli.RegistryLogin(ctx, types.AuthConfig{Username: username, Password: password, ServerAddress: registry})
-	if err != nil && strings.Contains(err.Error(), "401 Unauthorized") {
-		return ErrUnauthorized
+	tr, err := transport.NewWithContext(ctx, reg, authenticator, http.DefaultTransport, nil)
+	if err != nil {
+		return err
 	}
 
-	// podman hack until https://github.com/containers/podman/pull/11595 is merged
-	// podman returns 400 (instead of 500) and body in unexpected shape
-	if errdefs.IsInvalidParameter(err) {
-		return ErrUnauthorized
+	cli := http.Client{Transport: tr}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return err
 	}
 
-	return err
+	resp, err := cli.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to verify credentials: %w", err)
+	}
+	defer resp.Body.Close()
+
+	switch {
+	case resp.StatusCode == http.StatusUnauthorized:
+		return ErrUnauthorized
+	case resp.StatusCode != http.StatusOK:
+		return fmt.Errorf("failed to verify credentials: status code: %d", resp.StatusCode)
+	default:
+		return nil
+	}
 }
 
 type ChooseCredentialHelperCallback func(available []string) (string, error)
