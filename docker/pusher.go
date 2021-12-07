@@ -14,6 +14,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/containers/image/v5/pkg/docker/config"
+
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
@@ -22,7 +24,6 @@ import (
 
 	fn "knative.dev/kn-plugin-func"
 
-	"github.com/containers/image/v5/pkg/docker/config"
 	containersTypes "github.com/containers/image/v5/types"
 	"github.com/docker/docker/api/types"
 )
@@ -42,9 +43,9 @@ var ErrUnauthorized = errors.New("bad credentials")
 
 // VerifyCredentialsCallback checks if credentials are accepted by the registry.
 // If credentials are incorrect this callback shall return ErrUnauthorized.
-type VerifyCredentialsCallback func(ctx context.Context, username, password, registry string) error
+type VerifyCredentialsCallback func(ctx context.Context, registry string, credentials Credentials) error
 
-func CheckAuth(ctx context.Context, username, password, registry string) error {
+func CheckAuth(ctx context.Context, registry string, credentials Credentials) error {
 	serverAddress := registry
 	if !strings.HasPrefix(serverAddress, "https://") && !strings.HasPrefix(serverAddress, "http://") {
 		serverAddress = "https://" + serverAddress
@@ -53,8 +54,8 @@ func CheckAuth(ctx context.Context, username, password, registry string) error {
 	url := fmt.Sprintf("%s/v2", serverAddress)
 
 	authenticator := &authn.Basic{
-		Username: username,
-		Password: password,
+		Username: credentials.Username,
+		Password: credentials.Password,
 	}
 
 	reg, err := name.NewRegistry(registry)
@@ -134,28 +135,35 @@ func NewCredentialsProvider(
 	return func(ctx context.Context, registry string) (Credentials, error) {
 		result := Credentials{}
 
-		for _, load := range []func() (containersTypes.DockerAuthConfig, error){
-			func() (containersTypes.DockerAuthConfig, error) {
-				return config.GetCredentials(sys, registry)
+		var authLoaders = []CredentialsCallback{
+			func(registry string) (Credentials, error) {
+				creds, err := config.GetCredentials(sys, registry)
+				if err != nil {
+					return Credentials{}, err
+				}
+				return Credentials{
+					Username: creds.Username,
+					Password: creds.Password,
+				}, nil
 			},
-			func() (containersTypes.DockerAuthConfig, error) {
+			func(registry string) (Credentials, error) {
 				return getCredentialsByCredentialHelper(authFilePath, registry)
 			},
-			func() (containersTypes.DockerAuthConfig, error) {
+			func(registry string) (Credentials, error) {
 				return getCredentialsByCredentialHelper(dockerConfigPath, registry)
 			},
-		} {
-			var credentials containersTypes.DockerAuthConfig
-			credentials, err = load()
+		}
+
+		for _, load := range authLoaders {
+
+			result, err = load(registry)
 
 			if err != nil && !errors.Is(err, errCredentialsNotFound) {
 				return Credentials{}, err
 			}
 
-			if credentials != (containersTypes.DockerAuthConfig{}) {
-				result.Username, result.Password = credentials.Username, credentials.Password
-
-				err = verifyCredentials(ctx, result.Username, result.Password, registry)
+			if result != (Credentials{}) {
+				err = verifyCredentials(ctx, registry, result)
 				if err == nil {
 					return result, nil
 				} else {
@@ -172,7 +180,7 @@ func NewCredentialsProvider(
 				return Credentials{}, err
 			}
 
-			err = verifyCredentials(ctx, result.Username, result.Password, registry)
+			err = verifyCredentials(ctx, registry, result)
 			if err == nil {
 				err = setCredentialsByCredentialHelper(authFilePath, registry, result.Username, result.Password)
 				if err != nil {

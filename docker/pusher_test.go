@@ -381,7 +381,8 @@ func correctPwdCallback(registry string) (Credentials, error) {
 	return Credentials{}, errors.New("this cbk don't know the pwd")
 }
 
-func correctVerifyCbk(ctx context.Context, username, password, registry string) error {
+func correctVerifyCbk(ctx context.Context, registry string, creds Credentials) error {
+	username, password := creds.Username, creds.Password
 	if username == dockerIoUser && password == dockerIoUserPwd && registry == "docker.io" {
 		return nil
 	}
@@ -738,7 +739,11 @@ func TestCheckAuth(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := CheckAuth(tt.args.ctx, tt.args.username, tt.args.password, tt.args.registry); (err != nil) != tt.wantErr {
+			creds := Credentials{
+				Username: tt.args.username,
+				Password: tt.args.password,
+			}
+			if err := CheckAuth(tt.args.ctx, tt.args.registry, creds); (err != nil) != tt.wantErr {
 				t.Errorf("CheckAuth() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
