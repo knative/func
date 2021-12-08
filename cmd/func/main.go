@@ -2,9 +2,12 @@ package main
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+
+	funcHttp "knative.dev/kn-plugin-func/http"
 
 	"knative.dev/kn-plugin-func/cmd"
 )
@@ -14,6 +17,11 @@ import (
 var date, vers, hash string
 
 func main() {
+
+	rt := funcHttp.NewRoundTripper()
+	http.DefaultTransport = rt
+	defer rt.Close()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
