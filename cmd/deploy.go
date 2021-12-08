@@ -27,8 +27,8 @@ func newDeployClient(cfg deployConfig) (*fn.Client, error) {
 	builder := buildpacks.NewBuilder()
 
 	credentialsProvider := docker.NewCredentialsProvider(
-		docker.WithPromptForCredentials(newCredentialsCallback()),
-		docker.WithPromptForCredentialStore(newChooseHelperCallback()))
+		docker.WithPromptForCredentials(newPromptForCredentials()),
+		docker.WithPromptForCredentialStore(newPromptForCredentialStore()))
 	pusher, err := docker.NewPusher(
 		docker.WithCredentialsProvider(credentialsProvider),
 		docker.WithProgressListener(listener))
@@ -194,7 +194,7 @@ func runDeploy(cmd *cobra.Command, _ []string, clientFn deployClientFn) (err err
 	// (for example kubectl usually uses ~/.kube/config)
 }
 
-func newCredentialsCallback() func(registry string) (docker.Credentials, error) {
+func newPromptForCredentials() func(registry string) (docker.Credentials, error) {
 	firstTime := true
 	return func(registry string) (docker.Credentials, error) {
 		var result docker.Credentials
@@ -228,7 +228,7 @@ func newCredentialsCallback() func(registry string) (docker.Credentials, error) 
 	}
 }
 
-func newChooseHelperCallback() docker.ChooseCredentialHelperCallback {
+func newPromptForCredentialStore() docker.ChooseCredentialHelperCallback {
 	return func(availableHelpers []string) (string, error) {
 		if len(availableHelpers) < 1 {
 			fmt.Fprintf(os.Stderr, `Credentials will not be saved.
