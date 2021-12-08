@@ -94,9 +94,10 @@ func CheckAuth(ctx context.Context, registry string, credentials Credentials) er
 type ChooseCredentialHelperCallback func(available []string) (string, error)
 
 type credentialProviderConfig struct {
-	promptForCredentials     CredentialsCallback
-	verifyCredentials        VerifyCredentialsCallback
-	promptForCredentialStore ChooseCredentialHelperCallback
+	promptForCredentials        CredentialsCallback
+	verifyCredentials           VerifyCredentialsCallback
+	promptForCredentialStore    ChooseCredentialHelperCallback
+	additionalCredentialLoaders []CredentialsCallback
 }
 
 type CredentialProviderOptions func(opts *credentialProviderConfig)
@@ -123,6 +124,18 @@ func WithVerifyCredentials(cbk VerifyCredentialsCallback) CredentialProviderOpti
 func WithPromptForCredentialStore(cbk ChooseCredentialHelperCallback) CredentialProviderOptions {
 	return func(opts *credentialProviderConfig) {
 		opts.promptForCredentialStore = cbk
+	}
+}
+
+// WithAdditionalCredentialLoaders adds custom callbacks for credential retrieval.
+// The callbacks are supposed to be non-interactive as opposed to WithPromptForCredentials.
+//
+// This might be useful when credentials are shared with some other service.
+//
+// Example: OpenShift builtin registry shares credentials with the cluster (k8s) credentials.
+func WithAdditionalCredentialLoaders(loaders ...CredentialsCallback) CredentialProviderOptions {
+	return func(opts *credentialProviderConfig) {
+		opts.additionalCredentialLoaders = append(opts.additionalCredentialLoaders, loaders...)
 	}
 }
 
@@ -171,27 +184,29 @@ func NewCredentialsProvider(opts ...CredentialProviderOptions) CredentialsProvid
 	}
 	dockerConfigPath := filepath.Join(home, ".docker", "config.json")
 
+	var authLoaders = []CredentialsCallback{
+		func(registry string) (Credentials, error) {
+			creds, err := config.GetCredentials(sys, registry)
+			if err != nil {
+				return Credentials{}, err
+			}
+			return Credentials{
+				Username: creds.Username,
+				Password: creds.Password,
+			}, nil
+		},
+		func(registry string) (Credentials, error) {
+			return getCredentialsByCredentialHelper(authFilePath, registry)
+		},
+		func(registry string) (Credentials, error) {
+			return getCredentialsByCredentialHelper(dockerConfigPath, registry)
+		},
+	}
+
+	authLoaders = append(conf.additionalCredentialLoaders, authLoaders...)
+
 	return func(ctx context.Context, registry string) (Credentials, error) {
 		result := Credentials{}
-
-		var authLoaders = []CredentialsCallback{
-			func(registry string) (Credentials, error) {
-				creds, err := config.GetCredentials(sys, registry)
-				if err != nil {
-					return Credentials{}, err
-				}
-				return Credentials{
-					Username: creds.Username,
-					Password: creds.Password,
-				}, nil
-			},
-			func(registry string) (Credentials, error) {
-				return getCredentialsByCredentialHelper(authFilePath, registry)
-			},
-			func(registry string) (Credentials, error) {
-				return getCredentialsByCredentialHelper(dockerConfigPath, registry)
-			},
-		}
 
 		for _, load := range authLoaders {
 

@@ -109,6 +109,7 @@ func TestNewCredentialsProvider(t *testing.T) {
 	type args struct {
 		promptUser        CredentialsCallback
 		verifyCredentials VerifyCredentialsCallback
+		additionalLoaders []CredentialsCallback
 		registry          string
 		setUpEnv          setUpEnv
 	}
@@ -177,6 +178,16 @@ func TestNewCredentialsProvider(t *testing.T) {
 			},
 			want: Credentials{Username: dockerIoUser, Password: dockerIoUserPwd},
 		},
+		{
+			name: "get docker-io credentials from custom loader",
+			args: args{
+				promptUser:        pwdCbkThatShallNotBeCalled(t),
+				verifyCredentials: correctVerifyCbk,
+				registry:          "docker.io",
+				additionalLoaders: []CredentialsCallback{correctPwdCallback},
+			},
+			want: Credentials{Username: dockerIoUser, Password: dockerIoUserPwd},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -188,7 +199,8 @@ func TestNewCredentialsProvider(t *testing.T) {
 
 			credentialsProvider := NewCredentialsProvider(
 				WithPromptForCredentials(tt.args.promptUser),
-				WithVerifyCredentials(tt.args.verifyCredentials))
+				WithVerifyCredentials(tt.args.verifyCredentials),
+				WithAdditionalCredentialLoaders(tt.args.additionalLoaders...))
 			got, err := credentialsProvider(context.Background(), tt.args.registry)
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
