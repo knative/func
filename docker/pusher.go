@@ -93,22 +93,60 @@ func CheckAuth(ctx context.Context, registry string, credentials Credentials) er
 
 type ChooseCredentialHelperCallback func(available []string) (string, error)
 
-// NewCredentialsProvider returns new CredentialsProvider that tires to get credentials from `docker` and `func` config files.
+type credentialProviderConfig struct {
+	askUser                CredentialsCallback
+	verifyCredentials      VerifyCredentialsCallback
+	chooseCredentialHelper ChooseCredentialHelperCallback
+}
+
+type CredentialProviderOptions func(opts *credentialProviderConfig)
+
+// WithPromptForCredentials sets custom callback that is supposed to
+// interactively ask for credentials in case the credentials cannot be found in configuration files.
+func WithPromptForCredentials(cbk CredentialsCallback) CredentialProviderOptions {
+	return func(opts *credentialProviderConfig) {
+		opts.askUser = cbk
+	}
+}
+
+// WithVerifyCredentials sets custom callback for credentials validation.
+func WithVerifyCredentials(cbk VerifyCredentialsCallback) CredentialProviderOptions {
+	return func(opts *credentialProviderConfig) {
+		opts.verifyCredentials = cbk
+	}
+}
+
+// WithPromptForCredentialStore sets custom callback that is supposed to
+// interactively ask user which credentials store/helper is used to store credentials obtained
+// from user.
+func WithPromptForCredentialStore(cbk ChooseCredentialHelperCallback) CredentialProviderOptions {
+	return func(opts *credentialProviderConfig) {
+		opts.chooseCredentialHelper = cbk
+	}
+}
+
+// NewCredentialsProvider returns new CredentialsProvider that tires to get credentials from docker/func config files.
 //
 // In case getting credentials from the config files fails
-// the caller provided callback will be invoked to obtain credentials.
-// The callback may be called multiple times in case it returned credentials that are not correct (see verifyCredentials).
+// the caller provided callback (see WithPromptForCredentials) will be invoked to obtain credentials.
+// The callback may be called multiple times in case the returned credentials
+// are not correct (see WithVerifyCredentials).
 //
-// When the callback succeeds the credentials will be saved by using helper defined in the `func` config.
-// If the helper is not defined in the config the chooseCredentialHelper parameter will be used to pick one.
+// When the callback succeeds the credentials will be saved by using helper defined in the func config.
+// If the helper is not defined in the config file
+// it may be picked by provided callback (see WithPromptForCredentialStore).
 // The picked value will be saved in the func config.
 //
-// To verify that credentials are correct the verifyCredentials parameter is used.
-// If verifyCredentials is not set then CheckAuth will be used as a fallback.
-func NewCredentialsProvider(
-	getCredentials CredentialsCallback,
-	verifyCredentials VerifyCredentialsCallback,
-	chooseCredentialHelper ChooseCredentialHelperCallback) CredentialsProvider {
+// To verify that credentials are correct callback will be used (see WithVerifyCredentials).
+// If the callback is not set then CheckAuth will be used as a fallback.
+func NewCredentialsProvider(opts ...CredentialProviderOptions) CredentialsProvider {
+	var conf credentialProviderConfig
+
+	for _, o := range opts {
+		o(&conf)
+	}
+
+	askUser, verifyCredentials, chooseCredentialHelper := conf.askUser, conf.verifyCredentials, conf.chooseCredentialHelper
 
 	if verifyCredentials == nil {
 		verifyCredentials = CheckAuth
@@ -175,7 +213,7 @@ func NewCredentialsProvider(
 		}
 
 		for {
-			result, err = getCredentials(registry)
+			result, err = askUser(registry)
 			if err != nil {
 				return Credentials{}, err
 			}

@@ -28,9 +28,8 @@ func newBuildClient(cfg buildConfig) (*fn.Client, error) {
 	pusherOption := fn.WithPusher(nil)
 	if cfg.Push {
 		credentialsProvider := docker.NewCredentialsProvider(
-			newCredentialsCallback(),
-			docker.CheckAuth,
-			newChooseHelperCallback(),
+			docker.WithPromptForCredentials(newCredentialsCallback()),
+			docker.WithPromptForCredentialStore(newChooseHelperCallback()),
 		)
 		pusher, err := docker.NewPusher(
 			docker.WithCredentialsProvider(credentialsProvider),

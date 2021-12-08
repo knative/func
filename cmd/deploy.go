@@ -27,9 +27,8 @@ func newDeployClient(cfg deployConfig) (*fn.Client, error) {
 	builder := buildpacks.NewBuilder()
 
 	credentialsProvider := docker.NewCredentialsProvider(
-		newCredentialsCallback(),
-		docker.CheckAuth,
-		newChooseHelperCallback())
+		docker.WithPromptForCredentials(newCredentialsCallback()),
+		docker.WithPromptForCredentialStore(newChooseHelperCallback()))
 	pusher, err := docker.NewPusher(
 		docker.WithCredentialsProvider(credentialsProvider),
 		docker.WithProgressListener(listener))
