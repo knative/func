@@ -94,9 +94,9 @@ func CheckAuth(ctx context.Context, registry string, credentials Credentials) er
 type ChooseCredentialHelperCallback func(available []string) (string, error)
 
 type credentialProviderConfig struct {
-	askUser                CredentialsCallback
-	verifyCredentials      VerifyCredentialsCallback
-	chooseCredentialHelper ChooseCredentialHelperCallback
+	promptForCredentials     CredentialsCallback
+	verifyCredentials        VerifyCredentialsCallback
+	promptForCredentialStore ChooseCredentialHelperCallback
 }
 
 type CredentialProviderOptions func(opts *credentialProviderConfig)
@@ -105,7 +105,7 @@ type CredentialProviderOptions func(opts *credentialProviderConfig)
 // interactively ask for credentials in case the credentials cannot be found in configuration files.
 func WithPromptForCredentials(cbk CredentialsCallback) CredentialProviderOptions {
 	return func(opts *credentialProviderConfig) {
-		opts.askUser = cbk
+		opts.promptForCredentials = cbk
 	}
 }
 
@@ -121,7 +121,7 @@ func WithVerifyCredentials(cbk VerifyCredentialsCallback) CredentialProviderOpti
 // from user.
 func WithPromptForCredentialStore(cbk ChooseCredentialHelperCallback) CredentialProviderOptions {
 	return func(opts *credentialProviderConfig) {
-		opts.chooseCredentialHelper = cbk
+		opts.promptForCredentialStore = cbk
 	}
 }
 
@@ -146,7 +146,7 @@ func NewCredentialsProvider(opts ...CredentialProviderOptions) CredentialsProvid
 		o(&conf)
 	}
 
-	askUser, verifyCredentials, chooseCredentialHelper := conf.askUser, conf.verifyCredentials, conf.chooseCredentialHelper
+	askUser, verifyCredentials, chooseCredentialHelper := conf.promptForCredentials, conf.verifyCredentials, conf.promptForCredentialStore
 
 	if verifyCredentials == nil {
 		verifyCredentials = CheckAuth
