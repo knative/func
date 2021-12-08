@@ -49,7 +49,9 @@ type ContextDialer interface {
 //         Transport: transport,
 //     }
 func NewInClusterDialer(ctx context.Context) (ContextDialer, error) {
-	c := &contextDialer{}
+	c := &contextDialer{
+		detachChan: make(chan struct{}),
+	}
 	err := c.startDialerPod(ctx)
 	if err != nil {
 		return nil, err
@@ -58,10 +60,11 @@ func NewInClusterDialer(ctx context.Context) (ContextDialer, error) {
 }
 
 type contextDialer struct {
-	coreV1    v1.CoreV1Interface
-	restConf  *restclient.Config
-	podName   string
-	namespace string
+	coreV1     v1.CoreV1Interface
+	restConf   *restclient.Config
+	podName    string
+	namespace  string
+	detachChan chan struct{}
 }
 
 func (c *contextDialer) DialContext(ctx context.Context, network string, addr string) (net.Conn, error) {
@@ -87,6 +90,9 @@ func (c *contextDialer) DialContext(ctx context.Context, network string, addr st
 }
 
 func (c *contextDialer) Close() error {
+	// closing the channel will cause stdin of the attached container to return EOF
+	// as a result the pod exits -- it transits to Completed state
+	close(c.detachChan)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*1)
 	defer cancel()
 	delOpts := metaV1.DeleteOptions{}
@@ -136,10 +142,11 @@ func (c *contextDialer) startDialerPod(ctx context.Context) (err error) {
 		Spec: coreV1.PodSpec{
 			Containers: []coreV1.Container{
 				{
-					Name:    c.podName,
-					Image:   socatImage,
-					Stdin:   true,
-					Command: []string{"sleep", "infinity"},
+					Name:      c.podName,
+					Image:     socatImage,
+					Stdin:     true,
+					StdinOnce: true,
+					Args:      []string{"-u", "-", "OPEN:/dev/null,append"},
 				},
 			},
 			DNSPolicy:     coreV1.DNSClusterFirst,
@@ -164,10 +171,24 @@ func (c *contextDialer) startDialerPod(ctx context.Context) (err error) {
 	}
 
 	if err != nil {
-		err = fmt.Errorf("failed to start dialer container: %w", err)
+		return fmt.Errorf("failed to start dialer container: %w", err)
 	}
 
-	return err
+	// attaching to the stdin to automatically Complete the pod on exit
+	go func() {
+		_ = c.attach(emptyBlockingReader(c.detachChan), io.Discard, io.Discard)
+	}()
+
+	return nil
+}
+
+// reader that returns no data and blocks until
+// the channel is closed or data are sent to the channel
+type emptyBlockingReader chan struct{}
+
+func (e emptyBlockingReader) Read(p []byte) (n int, err error) {
+	<-e
+	return 0, io.EOF
 }
 
 func (c *contextDialer) exec(hostPort string, in io.Reader, out, errOut io.Writer) error {
@@ -180,6 +201,35 @@ func (c *contextDialer) exec(hostPort string, in io.Reader, out, errOut io.Write
 		SubResource("exec")
 	req.VersionedParams(&coreV1.PodExecOptions{
 		Command:   []string{"socat", "-", fmt.Sprintf("TCP:%s", hostPort)},
+		Container: c.podName,
+		Stdin:     true,
+		Stdout:    true,
+		Stderr:    true,
+		TTY:       false,
+	}, scheme.ParameterCodec)
+
+	executor, err := remotecommand.NewSPDYExecutor(c.restConf, "POST", req.URL())
+	if err != nil {
+		return err
+	}
+
+	return executor.Stream(remotecommand.StreamOptions{
+		Stdin:  in,
+		Stdout: out,
+		Stderr: errOut,
+		Tty:    false,
+	})
+}
+
+func (c *contextDialer) attach(in io.Reader, out, errOut io.Writer) error {
+
+	restClient := c.coreV1.RESTClient()
+	req := restClient.Post().
+		Resource("pods").
+		Name(c.podName).
+		Namespace(c.namespace).
+		SubResource("attach")
+	req.VersionedParams(&coreV1.PodAttachOptions{
 		Container: c.podName,
 		Stdin:     true,
 		Stdout:    true,
