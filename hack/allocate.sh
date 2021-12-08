@@ -62,7 +62,7 @@ nodes:
       listenAddress: "127.0.0.1"
 containerdConfigPatches:
 - |-
-  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."kind-registry:50000"]
+  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:50000"]
     endpoint = ["http://kind-registry:50000"]
 EOF
   sleep 10
@@ -189,7 +189,7 @@ metadata:
   namespace: kube-public
 data:
   localRegistryHosting.v1: |
-    host: "kind-registry:50000"
+    host: "localhost:50000"
     help: "https://kind.sigs.k8s.io/docs/user/local-registry/"
 EOF
 }
