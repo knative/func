@@ -107,7 +107,7 @@ func TestNewCredentialsProvider(t *testing.T) {
 	}
 
 	type args struct {
-		askUser           CredentialsCallback
+		promptUser        CredentialsCallback
 		verifyCredentials VerifyCredentialsCallback
 		registry          string
 		setUpEnv          setUpEnv
@@ -120,7 +120,7 @@ func TestNewCredentialsProvider(t *testing.T) {
 		{
 			name: "test user callback correct password on first try",
 			args: args{
-				askUser:           correctPwdCallback,
+				promptUser:        correctPwdCallback,
 				verifyCredentials: correctVerifyCbk,
 				registry:          "docker.io",
 			},
@@ -129,7 +129,7 @@ func TestNewCredentialsProvider(t *testing.T) {
 		{
 			name: "test user callback correct password on second try",
 			args: args{
-				askUser:           pwdCbkFirstWrongThenCorrect(t),
+				promptUser:        pwdCbkFirstWrongThenCorrect(t),
 				verifyCredentials: correctVerifyCbk,
 				registry:          "docker.io",
 			},
@@ -138,7 +138,7 @@ func TestNewCredentialsProvider(t *testing.T) {
 		{
 			name: "get quay-io credentials with func config populated",
 			args: args{
-				askUser:           pwdCbkThatShallNotBeCalled(t),
+				promptUser:        pwdCbkThatShallNotBeCalled(t),
 				verifyCredentials: correctVerifyCbk,
 				registry:          "quay.io",
 				setUpEnv:          withPopulatedFuncAuthConfig,
@@ -148,7 +148,7 @@ func TestNewCredentialsProvider(t *testing.T) {
 		{
 			name: "get docker-io credentials with func config populated",
 			args: args{
-				askUser:           pwdCbkThatShallNotBeCalled(t),
+				promptUser:        pwdCbkThatShallNotBeCalled(t),
 				verifyCredentials: correctVerifyCbk,
 				registry:          "docker.io",
 				setUpEnv:          withPopulatedFuncAuthConfig,
@@ -158,7 +158,7 @@ func TestNewCredentialsProvider(t *testing.T) {
 		{
 			name: "get quay-io credentials with docker config populated",
 			args: args{
-				askUser:           pwdCbkThatShallNotBeCalled(t),
+				promptUser:        pwdCbkThatShallNotBeCalled(t),
 				verifyCredentials: correctVerifyCbk,
 				registry:          "quay.io",
 				setUpEnv: all(
@@ -170,7 +170,7 @@ func TestNewCredentialsProvider(t *testing.T) {
 		{
 			name: "get docker-io credentials with docker config populated",
 			args: args{
-				askUser:           pwdCbkThatShallNotBeCalled(t),
+				promptUser:        pwdCbkThatShallNotBeCalled(t),
 				verifyCredentials: correctVerifyCbk,
 				registry:          "docker.io",
 				setUpEnv:          withPopulatedDockerAuthConfig,
@@ -187,7 +187,7 @@ func TestNewCredentialsProvider(t *testing.T) {
 			}
 
 			credentialsProvider := NewCredentialsProvider(
-				WithPromptForCredentials(tt.args.askUser),
+				WithPromptForCredentials(tt.args.promptUser),
 				WithVerifyCredentials(tt.args.verifyCredentials))
 			got, err := credentialsProvider(context.Background(), tt.args.registry)
 			if err != nil {

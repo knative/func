@@ -103,6 +103,7 @@ type CredentialProviderOptions func(opts *credentialProviderConfig)
 
 // WithPromptForCredentials sets custom callback that is supposed to
 // interactively ask for credentials in case the credentials cannot be found in configuration files.
+// The callback may be called multiple times in case incorrect credentials were returned before.
 func WithPromptForCredentials(cbk CredentialsCallback) CredentialProviderOptions {
 	return func(opts *credentialProviderConfig) {
 		opts.promptForCredentials = cbk
