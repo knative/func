@@ -12,7 +12,6 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/containers/image/v5/types"
 	"github.com/docker/docker-credential-helpers/client"
 	"github.com/docker/docker-credential-helpers/credentials"
 )
@@ -65,15 +64,15 @@ func setCredentialHelperToConfig(confFilePath, helper string) error {
 	return nil
 }
 
-func getCredentialsByCredentialHelper(confFilePath, registry string) (types.DockerAuthConfig, error) {
-	result := types.DockerAuthConfig{}
+func getCredentialsByCredentialHelper(confFilePath, registry string) (Credentials, error) {
+	result := Credentials{}
 
 	helper, err := getCredentialHelperFromConfig(confFilePath)
 	if err != nil && !os.IsNotExist(err) {
-		return types.DockerAuthConfig{}, fmt.Errorf("failed to get helper from config: %w", err)
+		return result, fmt.Errorf("failed to get helper from config: %w", err)
 	}
 	if helper == "" {
-		return types.DockerAuthConfig{}, errCredentialsNotFound
+		return result, errCredentialsNotFound
 	}
 
 	helperName := fmt.Sprintf("docker-credential-%s", helper)

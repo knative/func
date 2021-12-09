@@ -107,10 +107,11 @@ func TestNewCredentialsProvider(t *testing.T) {
 	}
 
 	type args struct {
-		credentialsCallback CredentialsCallback
-		verifyCredentials   VerifyCredentialsCallback
-		registry            string
-		setUpEnv            setUpEnv
+		promptUser        CredentialsCallback
+		verifyCredentials VerifyCredentialsCallback
+		additionalLoaders []CredentialsCallback
+		registry          string
+		setUpEnv          setUpEnv
 	}
 	tests := []struct {
 		name string
@@ -120,47 +121,47 @@ func TestNewCredentialsProvider(t *testing.T) {
 		{
 			name: "test user callback correct password on first try",
 			args: args{
-				credentialsCallback: correctPwdCallback,
-				verifyCredentials:   correctVerifyCbk,
-				registry:            "docker.io",
+				promptUser:        correctPwdCallback,
+				verifyCredentials: correctVerifyCbk,
+				registry:          "docker.io",
 			},
 			want: Credentials{Username: dockerIoUser, Password: dockerIoUserPwd},
 		},
 		{
 			name: "test user callback correct password on second try",
 			args: args{
-				credentialsCallback: pwdCbkFirstWrongThenCorrect(t),
-				verifyCredentials:   correctVerifyCbk,
-				registry:            "docker.io",
+				promptUser:        pwdCbkFirstWrongThenCorrect(t),
+				verifyCredentials: correctVerifyCbk,
+				registry:          "docker.io",
 			},
 			want: Credentials{Username: dockerIoUser, Password: dockerIoUserPwd},
 		},
 		{
 			name: "get quay-io credentials with func config populated",
 			args: args{
-				credentialsCallback: pwdCbkThatShallNotBeCalled(t),
-				verifyCredentials:   correctVerifyCbk,
-				registry:            "quay.io",
-				setUpEnv:            withPopulatedFuncAuthConfig,
+				promptUser:        pwdCbkThatShallNotBeCalled(t),
+				verifyCredentials: correctVerifyCbk,
+				registry:          "quay.io",
+				setUpEnv:          withPopulatedFuncAuthConfig,
 			},
 			want: Credentials{Username: quayIoUser, Password: quayIoUserPwd},
 		},
 		{
 			name: "get docker-io credentials with func config populated",
 			args: args{
-				credentialsCallback: pwdCbkThatShallNotBeCalled(t),
-				verifyCredentials:   correctVerifyCbk,
-				registry:            "docker.io",
-				setUpEnv:            withPopulatedFuncAuthConfig,
+				promptUser:        pwdCbkThatShallNotBeCalled(t),
+				verifyCredentials: correctVerifyCbk,
+				registry:          "docker.io",
+				setUpEnv:          withPopulatedFuncAuthConfig,
 			},
 			want: Credentials{Username: dockerIoUser, Password: dockerIoUserPwd},
 		},
 		{
 			name: "get quay-io credentials with docker config populated",
 			args: args{
-				credentialsCallback: pwdCbkThatShallNotBeCalled(t),
-				verifyCredentials:   correctVerifyCbk,
-				registry:            "quay.io",
+				promptUser:        pwdCbkThatShallNotBeCalled(t),
+				verifyCredentials: correctVerifyCbk,
+				registry:          "quay.io",
 				setUpEnv: all(
 					withPopulatedDockerAuthConfig,
 					setUpMockHelper("docker-credential-mock", helperWithQuayIO)),
@@ -170,10 +171,20 @@ func TestNewCredentialsProvider(t *testing.T) {
 		{
 			name: "get docker-io credentials with docker config populated",
 			args: args{
-				credentialsCallback: pwdCbkThatShallNotBeCalled(t),
-				verifyCredentials:   correctVerifyCbk,
-				registry:            "docker.io",
-				setUpEnv:            withPopulatedDockerAuthConfig,
+				promptUser:        pwdCbkThatShallNotBeCalled(t),
+				verifyCredentials: correctVerifyCbk,
+				registry:          "docker.io",
+				setUpEnv:          withPopulatedDockerAuthConfig,
+			},
+			want: Credentials{Username: dockerIoUser, Password: dockerIoUserPwd},
+		},
+		{
+			name: "get docker-io credentials from custom loader",
+			args: args{
+				promptUser:        pwdCbkThatShallNotBeCalled(t),
+				verifyCredentials: correctVerifyCbk,
+				registry:          "docker.io",
+				additionalLoaders: []CredentialsCallback{correctPwdCallback},
 			},
 			want: Credentials{Username: dockerIoUser, Password: dockerIoUserPwd},
 		},
@@ -186,7 +197,10 @@ func TestNewCredentialsProvider(t *testing.T) {
 				defer tt.args.setUpEnv(t)()
 			}
 
-			credentialsProvider := NewCredentialsProvider(tt.args.credentialsCallback, tt.args.verifyCredentials, nil)
+			credentialsProvider := NewCredentialsProvider(
+				WithPromptForCredentials(tt.args.promptUser),
+				WithVerifyCredentials(tt.args.verifyCredentials),
+				WithAdditionalCredentialLoaders(tt.args.additionalLoaders...))
 			got, err := credentialsProvider(context.Background(), tt.args.registry)
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
@@ -228,7 +242,10 @@ func TestCredentialsProviderSavingFromUserInput(t *testing.T) {
 		return "", errors.New("this callback shall not be invoked")
 	}
 
-	credentialsProvider := NewCredentialsProvider(pwdCbk, correctVerifyCbk, chooseNoStore)
+	credentialsProvider := NewCredentialsProvider(
+		WithPromptForCredentials(pwdCbk),
+		WithVerifyCredentials(correctVerifyCbk),
+		WithPromptForCredentialStore(chooseNoStore))
 	_, err := credentialsProvider(context.Background(), "docker.io")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -244,7 +261,10 @@ func TestCredentialsProviderSavingFromUserInput(t *testing.T) {
 	if credsInStore != 0 {
 		t.Errorf("expected to have zero credentials in store, but has: %d", credsInStore)
 	}
-	credentialsProvider = NewCredentialsProvider(pwdCbk, correctVerifyCbk, chooseMockStore)
+	credentialsProvider = NewCredentialsProvider(
+		WithPromptForCredentials(pwdCbk),
+		WithVerifyCredentials(correctVerifyCbk),
+		WithPromptForCredentialStore(chooseMockStore))
 	_, err = credentialsProvider(context.Background(), "docker.io")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -263,9 +283,10 @@ func TestCredentialsProviderSavingFromUserInput(t *testing.T) {
 	if len(l) != 1 {
 		t.Errorf("expected to have exactly one credentials in store, but has: %d", credsInStore)
 	}
-	credentialsProvider = NewCredentialsProvider(pwdCbkThatShallNotBeCalled(t),
-		correctVerifyCbk,
-		shallNotBeInvoked)
+	credentialsProvider = NewCredentialsProvider(
+		WithPromptForCredentials(pwdCbkThatShallNotBeCalled(t)),
+		WithVerifyCredentials(correctVerifyCbk),
+		WithPromptForCredentialStore(shallNotBeInvoked))
 	_, err = credentialsProvider(context.Background(), "docker.io")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -381,7 +402,8 @@ func correctPwdCallback(registry string) (Credentials, error) {
 	return Credentials{}, errors.New("this cbk don't know the pwd")
 }
 
-func correctVerifyCbk(ctx context.Context, username, password, registry string) error {
+func correctVerifyCbk(ctx context.Context, registry string, creds Credentials) error {
+	username, password := creds.Username, creds.Password
 	if username == dockerIoUser && password == dockerIoUserPwd && registry == "docker.io" {
 		return nil
 	}
@@ -738,7 +760,11 @@ func TestCheckAuth(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := CheckAuth(tt.args.ctx, tt.args.username, tt.args.password, tt.args.registry); (err != nil) != tt.wantErr {
+			creds := Credentials{
+				Username: tt.args.username,
+				Password: tt.args.password,
+			}
+			if err := CheckAuth(tt.args.ctx, tt.args.registry, creds); (err != nil) != tt.wantErr {
 				t.Errorf("CheckAuth() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
