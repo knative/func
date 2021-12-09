@@ -19,6 +19,7 @@ import (
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/rand"
 )
 
 func TestDialInClusterService(t *testing.T) {
@@ -35,7 +36,7 @@ func TestDialInClusterService(t *testing.T) {
 
 	testingNS := &coreV1.Namespace{
 		ObjectMeta: metaV1.ObjectMeta{
-			Name: "dialer-test-ns",
+			Name: "dialer-test-ns-" + rand.String(5),
 		},
 		Spec: coreV1.NamespaceSpec{},
 	}
