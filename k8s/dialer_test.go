@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"knative.dev/kn-plugin-func/k8s"
 
@@ -98,6 +99,8 @@ func TestDialInClusterService(t *testing.T) {
 	}
 	defer cliSet.CoreV1().Services(testingNS.Name).Delete(ctx, nginxService.Name, deleteOpts)
 	t.Log("created svc: ", nginxService.Name)
+
+	time.Sleep(time.Second * 10)
 
 	dialer, err := k8s.NewInClusterDialer(ctx)
 	if err != nil {
