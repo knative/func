@@ -13,12 +13,14 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"knative.dev/kn-plugin-func/k8s"
 
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/apimachinery/pkg/util/rand"
 )
 
 func TestDialInClusterService(t *testing.T) {
@@ -35,7 +37,7 @@ func TestDialInClusterService(t *testing.T) {
 
 	testingNS := &coreV1.Namespace{
 		ObjectMeta: metaV1.ObjectMeta{
-			Name: "dialer-test-ns",
+			Name: "dialer-test-ns-" + rand.String(5),
 		},
 		Spec: coreV1.NamespaceSpec{},
 	}
@@ -44,7 +46,9 @@ func TestDialInClusterService(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cliSet.CoreV1().Namespaces().Delete(ctx, testingNS.Name, deleteOpts)
+	t.Cleanup(func() {
+		cliSet.CoreV1().Namespaces().Delete(ctx, testingNS.Name, deleteOpts)
+	})
 	t.Log("created namespace: ", testingNS.Name)
 
 	nginxPod := &coreV1.Pod{
@@ -69,7 +73,9 @@ func TestDialInClusterService(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cliSet.CoreV1().Pods(testingNS.Name).Delete(ctx, nginxPod.Name, deleteOpts)
+	t.Cleanup(func() {
+		cliSet.CoreV1().Pods(testingNS.Name).Delete(ctx, nginxPod.Name, deleteOpts)
+	})
 	t.Log("created pod: ", nginxPod.Name)
 
 	nginxService := &coreV1.Service{
@@ -95,14 +101,21 @@ func TestDialInClusterService(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cliSet.CoreV1().Services(testingNS.Name).Delete(ctx, nginxService.Name, deleteOpts)
+	t.Cleanup(func() {
+		cliSet.CoreV1().Services(testingNS.Name).Delete(ctx, nginxService.Name, deleteOpts)
+	})
 	t.Log("created svc: ", nginxService.Name)
+
+	// wait for service to start
+	time.Sleep(time.Second * 10)
 
 	dialer, err := k8s.NewInClusterDialer(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dialer.Close()
+	t.Cleanup(func() {
+		dialer.Close()
+	})
 
 	transport := &http.Transport{
 		DialContext: dialer.DialContext,
@@ -154,7 +167,9 @@ func TestDialUnreachable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dialer.Close()
+	t.Cleanup(func() {
+		dialer.Close()
+	})
 
 	transport := &http.Transport{
 		DialContext: dialer.DialContext,
