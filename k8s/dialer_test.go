@@ -46,7 +46,9 @@ func TestDialInClusterService(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cliSet.CoreV1().Namespaces().Delete(ctx, testingNS.Name, deleteOpts)
+	t.Cleanup(func() {
+		cliSet.CoreV1().Namespaces().Delete(ctx, testingNS.Name, deleteOpts)
+	})
 	t.Log("created namespace: ", testingNS.Name)
 
 	nginxPod := &coreV1.Pod{
@@ -71,7 +73,9 @@ func TestDialInClusterService(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cliSet.CoreV1().Pods(testingNS.Name).Delete(ctx, nginxPod.Name, deleteOpts)
+	t.Cleanup(func() {
+		cliSet.CoreV1().Pods(testingNS.Name).Delete(ctx, nginxPod.Name, deleteOpts)
+	})
 	t.Log("created pod: ", nginxPod.Name)
 
 	nginxService := &coreV1.Service{
@@ -97,16 +101,21 @@ func TestDialInClusterService(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer cliSet.CoreV1().Services(testingNS.Name).Delete(ctx, nginxService.Name, deleteOpts)
+	t.Cleanup(func() {
+		cliSet.CoreV1().Services(testingNS.Name).Delete(ctx, nginxService.Name, deleteOpts)
+	})
 	t.Log("created svc: ", nginxService.Name)
 
+	// wait for service to start
 	time.Sleep(time.Second * 10)
 
 	dialer, err := k8s.NewInClusterDialer(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dialer.Close()
+	t.Cleanup(func() {
+		dialer.Close()
+	})
 
 	transport := &http.Transport{
 		DialContext: dialer.DialContext,
@@ -158,7 +167,9 @@ func TestDialUnreachable(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer dialer.Close()
+	t.Cleanup(func() {
+		dialer.Close()
+	})
 
 	transport := &http.Transport{
 		DialContext: dialer.DialContext,
