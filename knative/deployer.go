@@ -349,8 +349,10 @@ func updateService(f fn.Function, newEnv []corev1.EnvVar, newEnvFrom []corev1.En
 //     value: {{ env:MY_ENV }}
 func processLabels(f fn.Function) (map[string]string, error) {
 	labels := map[string]string{
-		"boson.dev/function": "true",
-		"boson.dev/runtime":  f.Runtime,
+		"boson.dev/function":           "true",
+		"boson.dev/runtime":            f.Runtime,
+		"function.knative.dev":         "true",
+		"function.knative.dev/runtime": f.Runtime,
 	}
 	for _, label := range f.Labels {
 		if label.Key != nil && label.Value != nil {
