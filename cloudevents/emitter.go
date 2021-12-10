@@ -3,6 +3,7 @@ package cloudevents
 import (
 	"context"
 	"fmt"
+	nethttp "net/http"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/client"
@@ -24,6 +25,7 @@ type Emitter struct {
 	Id          string
 	Data        string
 	ContentType string
+	Transport   nethttp.RoundTripper
 }
 
 func NewEmitter() *Emitter {
@@ -33,14 +35,21 @@ func NewEmitter() *Emitter {
 		Id:          uuid.NewString(),
 		Data:        "",
 		ContentType: event.TextPlain,
+		Transport:   nethttp.DefaultTransport,
 	}
 }
 
 func (e *Emitter) Emit(ctx context.Context, endpoint string) (err error) {
-	c, err := newClient(endpoint)
+	p, err := http.New(http.WithTarget(endpoint), http.WithRoundTripper(e.Transport))
 	if err != nil {
-		return
+		return err
 	}
+
+	c, err := client.New(p)
+	if err != nil {
+		return err
+	}
+
 	evt := event.Event{
 		Context: event.EventContextV1{
 			Type:   e.Type,
@@ -59,12 +68,4 @@ func (e *Emitter) Emit(ctx context.Context, endpoint string) (err error) {
 		fmt.Printf("%v", event)
 	}
 	return nil
-}
-
-func newClient(target string) (c client.Client, err error) {
-	p, err := http.New(http.WithTarget(target))
-	if err != nil {
-		return
-	}
-	return client.New(p)
 }
