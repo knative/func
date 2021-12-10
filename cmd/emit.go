@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"io/ioutil"
+	"net/http"
 
 	"github.com/google/uuid"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/cloudevents"
+	fnhttp "knative.dev/kn-plugin-func/http"
 	"knative.dev/kn-plugin-func/knative"
 )
 
@@ -25,6 +27,9 @@ func newEmitClient(cfg emitConfig) (*fn.Client, error) {
 	e.Type = cfg.Type
 	e.ContentType = cfg.ContentType
 	e.Data = cfg.Data
+	if e.Transport != nil {
+		e.Transport = cfg.Transport
+	}
 	if cfg.File != "" {
 		// See config.Validate for --Data and --file exclusivity enforcement
 		b, err := ioutil.ReadFile(cfg.File)
@@ -106,6 +111,9 @@ func runEmit(cmd *cobra.Command, _ []string, clientFn emitClientFn) (err error) 
 	}
 
 	// Instantiate a client based on the final value of config
+	transport := fnhttp.NewRoundTripper()
+	defer transport.Close()
+	config.Transport = transport
 	client, err := clientFn(config)
 	if err != nil {
 		return err
@@ -175,6 +183,7 @@ type emitConfig struct {
 	ContentType string
 	Sink        string
 	Verbose     bool
+	Transport   http.RoundTripper
 }
 
 func newEmitConfig() emitConfig {
