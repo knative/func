@@ -81,6 +81,8 @@ pkged.go: $(TEMPLATES)
 clean: ## Remove generated artifacts such as binaries and schemas
 	rm -f $(BIN) $(BIN_WINDOWS) $(BIN_LINUX) $(BIN_DARWIN)
 	rm -f schema/func_yaml-schema.json
+	rm -f templates/go/cloudevents/go.sum
+	rm -f templates/go/http/go.sum
 	rm -f coverage.out
 
 
