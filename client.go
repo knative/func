@@ -51,6 +51,7 @@ type Client struct {
 	progressListener ProgressListener // progress listener
 	repositories     *Repositories    // Repositories management
 	templates        *Templates       // Templates management
+	instances        *Instances       // Function Instances management
 }
 
 // ErrNotBuilt indicates the Function has not yet been built.
@@ -91,8 +92,11 @@ const (
 
 // Runner runs the Function locally.
 type Runner interface {
-	// Run the Function locally.
-	Run(context.Context, Function) error
+	// Run the Function locally, returning the process' pid, port on which
+	// it is listening (default route) and any errors.
+	Run(context.Context, Function) (pid, port int, err error)
+	// Function if it is running
+	Stop(context.Context, Function) error
 }
 
 // Remover of deployed services.
@@ -133,18 +137,30 @@ type ProgressListener interface {
 	Done()
 }
 
-// Describer of Functions' remote deployed aspect.
+// Describer of Function instances
 type Describer interface {
-	// Describe the running state of the service as reported by the underlyng platform.
-	Describe(ctx context.Context, name string) (description Info, err error)
+	// Describe the named Function in the remote environment.
+	Describe(ctx context.Context, name string) (Instance, error)
 }
 
-// Info about a given Function
-type Info struct {
+// Instance data about the runtime state of a Function in a given environment.
+//
+// A Function instance is a logical running Function space, which share
+// a unique route (or set of routes).  Due to autoscaling and load balancing,
+// there is a one to many relationship between a given route and processes.
+// By default the system creates the 'local' and 'remote' named instances
+// when a Function is run (locally) and deployed, respectively.
+// See the .Instances(f) accessor for the map of named environments to these
+// Function Information structures.
+type Instance struct {
+	// Route is the primary route of a Function instance.
+	Route string
+	// Routes is the primary route plus any other route at which the Function
+	// can be contacted.
+	Routes        []string       `json:"routes" yaml:"routes"`
 	Name          string         `json:"name" yaml:"name"`
 	Image         string         `json:"image" yaml:"image"`
 	Namespace     string         `json:"namespace" yaml:"namespace"`
-	Routes        []string       `json:"routes" yaml:"routes"`
 	Subscriptions []Subscription `json:"subscriptions" yaml:"subscriptions"`
 }
 
@@ -178,9 +194,11 @@ func New(options ...Option) *Client {
 	for _, o := range options {
 		o(c)
 	}
+
 	// Initialize sub-managers using now-fully-initialized client.
 	c.repositories = newRepositories(c)
 	c.templates = newTemplates(c)
+	c.instances = newInstances(c)
 
 	// Trigger the creation of the config and repository paths
 	_ = ConfigPath()         // Config is package-global scoped
@@ -351,6 +369,11 @@ func (c *Client) Templates() *Templates {
 	return c.templates
 }
 
+// Instances accessor
+func (c *Client) Instances() *Instances {
+	return c.instances
+}
+
 // Runtimes available in totality.
 // Not all repository/template combinations necessarily exist,
 // and further validation is performed when a template+runtime is chosen.
@@ -375,8 +398,8 @@ func (c *Client) Runtimes() ([]string, error) {
 	return runtimes.Items(), nil
 }
 
-// METHODS
-// ---------
+// LIFECYCLE METHODS
+// -----------------
 
 // New Function.
 // Use Create, Build and Deploy independently for lower level control.
@@ -521,7 +544,6 @@ func createRuntimeDir(f Function) error {
 	if err := os.MkdirAll(filepath.Join(f.Root, ".func"), os.ModePerm); err != nil {
 		return err
 	}
-	fmt.Printf("Created %v\n", filepath.Join(f.Root, ".func"))
 
 	gitignore := `
 # Functions use the .func directory for local runtime data which should
@@ -532,8 +554,8 @@ func createRuntimeDir(f Function) error {
 
 }
 
-// Build the Function at path.  Errors if the Function is either unloadable or does
-// not contain a populated Image.
+// Build the Function at path.  Errors if the Function is either unloadable or
+// does not contain a populated Image.
 func (c *Client) Build(ctx context.Context, path string) (err error) {
 	c.progressListener.Increment("Building function image")
 
@@ -654,42 +676,47 @@ func (c *Client) Run(ctx context.Context, root string) error {
 	}
 
 	if !f.Initialized() {
-		// TODO: this needs a test.
 		return fmt.Errorf("the given path '%v' does not contain an initialized Function.  Please create one at this path in order to run", root)
 	}
 
-	// delegate to concrete implementation of runner entirely.
-	return c.runner.Run(ctx, f)
+	// Run the given function using the registered runner
+	pid, port, err := c.runner.Run(ctx, f)
+	if err != nil {
+		return err
+	}
+	defer c.runner.Stop(ctx, f)
+
+	if err := writeFunc(f, "pid", []byte(fmt.Sprint(pid))); err != nil {
+		return err
+	}
+	if err := writeFunc(f, "port", []byte(fmt.Sprint(port))); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// write Function runtime/local data.
+// Runtime data is metadata used during local development, testing and running
+// which does not affect the state of the Function in a way that would warrant
+// a commit to soure control.  This data is writtin into the .func directory
+// which is ignored from source control by default.  Examples of runtime data
+// include PID and Port of a Function being run locally, etc.
+func writeFunc(f Function, name string, value []byte) error {
+	file := filepath.Join(f.Root, ".func", name)
+	return os.WriteFile(file, value, os.ModePerm)
+}
+
+// read Function runtime/local data.  See writeFunc for more details.
+func readFunc(f Function, name string) ([]byte, error) {
+	file := filepath.Join(f.Root, ".func", name)
+	return os.ReadFile(file)
 }
 
 // List currently deployed Functions.
 func (c *Client) List(ctx context.Context) ([]ListItem, error) {
 	// delegate to concrete implementation of lister entirely.
 	return c.lister.List(ctx)
-}
-
-// Info for a Function.  Name takes precidence.  If no name is provided,
-// the Function defined at root is used.  This allows for retreival of info
-// about a deployed function without requiring its source.
-func (c *Client) Info(ctx context.Context, name, root string) (d Info, err error) {
-	go func() {
-		<-ctx.Done()
-		c.progressListener.Stopping()
-	}()
-	// If name is provided, it takes precidence.
-	// Otherwise load the Function defined at root.
-	if name != "" {
-		return c.describer.Describe(ctx, name)
-	}
-
-	f, err := NewFunction(root)
-	if err != nil {
-		return d, err
-	}
-	if !f.Initialized() {
-		return d, fmt.Errorf("%v is not initialized", f.Name)
-	}
-	return c.describer.Describe(ctx, f.Name)
 }
 
 // Remove a Function.  Name takes precidence.  If no name is provided,
@@ -791,7 +818,8 @@ func (n *noopDeployer) Deploy(ctx context.Context, _ Function) (DeploymentResult
 // Runner
 type noopRunner struct{ output io.Writer }
 
-func (n *noopRunner) Run(_ context.Context, _ Function) error { return nil }
+func (n *noopRunner) Run(_ context.Context, _ Function) (int, int, error) { return -1, -1, nil }
+func (n *noopRunner) Stop(_ context.Context, _ Function) error            { return nil }
 
 // Remover
 type noopRemover struct{ output io.Writer }

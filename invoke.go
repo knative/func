@@ -58,18 +58,25 @@ func invoke(ctx context.Context, c *Client, f Function, target string, m InvokeM
 // invocationRoute returns a route to the named target instance of a Func:
 // 'local': locally running Function (error if not running)
 // 'remote': first available remote instance (error if none available)
-// '<url>': The exact URL passed as an override.
+// '<environment>': A valid alternate target which contains instances.
+// '<url>': An explicit URL
 // '': Default if no target is passed is to first use local, then remote.
 //     errors if neither are available.
 func invocationRoute(ctx context.Context, c *Client, f Function, target string) (string, error) {
-	info, err := c.Info(ctx, f.Name, f.Root)
+
+	// Attempt to get the instance data for the Function in the given target
+	// environment.
+	instance, err := c.Instances().Get(ctx, f, target)
 	if err != nil {
+		// If the only error returned is that the target environment does not exist
+		// fall through and assume it as an override URL.
+		if errors.Is(err, ErrEnvironmentNotFound) {
+			return target, nil
+		}
+		// Other errors are reported as such
 		return "", err
 	}
-	if len(info.Routes) == 0 {
-		return "", errors.New("no route to Function found")
-	}
-	return info.Routes[0], nil
+	return instance.Route, nil
 }
 
 // sendEvent to the route populated with data in the invoke message.

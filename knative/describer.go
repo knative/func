@@ -31,7 +31,7 @@ func NewDescriber(namespaceOverride string) (describer *Describer, err error) {
 // restricts to label-syntax, which is thus escaped. Therefore as a knative (kube) implementation
 // detal proper full names have to be escaped on the way in and unescaped on the way out. ex:
 // www.example-site.com -> www-example--site-com
-func (d *Describer) Describe(ctx context.Context, name string) (description fn.Info, err error) {
+func (d *Describer) Describe(ctx context.Context, name string) (description fn.Instance, err error) {
 
 	servingClient, err := NewServingClient(d.namespace)
 	if err != nil {
@@ -56,6 +56,11 @@ func (d *Describer) Describe(ctx context.Context, name string) (description fn.I
 	routeURLs := make([]string, 0, len(routes.Items))
 	for _, route := range routes.Items {
 		routeURLs = append(routeURLs, route.Status.URL.String())
+	}
+
+	primaryRouteURL := ""
+	if len(routes.Items) > 0 {
+		primaryRouteURL = routes.Items[0].Status.URL.String()
 	}
 
 	triggers, err := eventingClient.ListTriggers(ctx)
@@ -86,6 +91,7 @@ func (d *Describer) Describe(ctx context.Context, name string) (description fn.I
 
 	description.Name = name
 	description.Namespace = d.namespace
+	description.Route = primaryRouteURL
 	description.Routes = routeURLs
 	description.Subscriptions = subscriptions
 

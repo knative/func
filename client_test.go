@@ -977,8 +977,8 @@ func TestInvokeHTTP(t *testing.T) {
 	// Create a client with a mock Describer which will report the route
 	// to any Function as being the masquarading Function started above.
 	describer := mock.NewDescriber()
-	describer.DescribeFn = func(name string) (fn.Info, error) {
-		return fn.Info{Routes: []string{"http://" + l.Addr().String()}}, nil
+	describer.DescribeFn = func(name string) (fn.Instance, error) {
+		return fn.Instance{Routes: []string{"http://" + l.Addr().String()}}, nil
 	}
 	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithDescriber(describer))
 
@@ -1056,8 +1056,8 @@ func TestInvokeCloudEvent(t *testing.T) {
 	// Create a client with a mock Describer which will report the route
 	// to any Function as being the masquarading Function started above.
 	describer := mock.NewDescriber()
-	describer.DescribeFn = func(name string) (fn.Info, error) {
-		return fn.Info{Routes: []string{"http://" + l.Addr().String()}}, nil
+	describer.DescribeFn = func(name string) (fn.Instance, error) {
+		return fn.Instance{Routes: []string{"http://" + l.Addr().String()}}, nil
 	}
 	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithDescriber(describer))
 
@@ -1098,13 +1098,9 @@ func TestRunDataDir(t *testing.T) {
 	root := "testdata/example.com/testRunDataDir"
 	defer Using(t, root)()
 
-	var (
-		ctx = context.Background()
-	)
-
 	// Create a function at root
 	client := fn.New(fn.WithRegistry(TestRegistry))
-	if err := client.New(ctx, fn.Function{Root: root, Runtime: TestRuntime}); err != nil {
+	if err := client.New(context.Background(), fn.Function{Root: root, Runtime: TestRuntime}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1126,7 +1122,7 @@ func TestRunDataDir(t *testing.T) {
 	}
 	defer file.Close()
 
-	// Scan for the line which ignores .func
+	// Assert the directive exists
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		if scanner.Text() == "/.func" {
@@ -1135,3 +1131,49 @@ func TestRunDataDir(t *testing.T) {
 	}
 	t.Errorf(".gitignore does not include '/.func' ignore directive")
 }
+
+// TestRunInstance ensures that when a Function is run (locally) its metadata
+// is available to other clients inspecting the same Function using .Instances
+func TestInstances(t *testing.T) {
+	root := "testdata/example.com/testInstances"
+	defer Using(t, root)()
+
+	// A mock runner
+	runner := mock.NewRunner()
+	runner.RunFn = func(_ context.Context, f fn.Function) (int, int, error) {
+		// TODO:  Report back metadata about the running process?
+		// Perhaps port and pid?  Allowing Client to do the lifting of tracking
+		// these things?
+		return 1000, 8080, nil
+	}
+
+	// Create and run a new Function
+	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithRunner(runner))
+	if err := client.New(context.Background(), fn.Function{Root: root, Runtime: TestRuntime}); err != nil {
+		t.Fatal(err)
+	}
+	if err := client.Run(context.Background(), root); err != nil {
+		t.Fatal(err)
+	}
+
+	// Load the (now fully initialized) Function metadata
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Get the local function instance info
+	instance, err := client.Instances().Local(context.Background(), f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Assert the endpoint route is as explected
+	expectedEndpoint := "http://localhost:8080/"
+	if instance.Route != expectedEndpoint {
+		t.Fatalf("Expected endpoint '%v', got '%v'", expectedEndpoint, instance.Route)
+	}
+}
+
+// TODO: TestRunnerCleanup ensures that the Client signals the Runner to clean
+// up when it is done and nukes pid/port data
