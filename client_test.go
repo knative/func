@@ -4,6 +4,7 @@
 package function_test
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -1084,4 +1085,53 @@ func TestInvokeCloudEvent(t *testing.T) {
 	if !describer.DescribeInvoked {
 		t.Fatal("the describer was not invoked for the Functions address")
 	}
+}
+
+// TestRunDataDir ensures that when a Function is created, it also
+// includes a .func (runtime data) directory which is registered as ignored for
+// Functions which will be tracked in git source control.
+// Note that this test is somewhat testing an implementation detail of how
+// `.Run()` is implemented (it writes runtime data to files in .func but the
+// feature of adding .func to .gitignore is an important externally visible
+// "feature", so an explicit test has been deemed warranted.
+func TestRunDataDir(t *testing.T) {
+	root := "testdata/example.com/testRunDataDir"
+	defer Using(t, root)()
+
+	var (
+		ctx = context.Background()
+	)
+
+	// Create a function at root
+	client := fn.New(fn.WithRegistry(TestRegistry))
+	if err := client.New(ctx, fn.Function{Root: root, Runtime: TestRuntime}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Assert the directory exists
+	if _, err := os.Stat(filepath.Join(root, ".func")); os.IsNotExist(err) {
+		t.Fatal(err)
+	}
+
+	// Assert that .gitignore was also created and includes an ignore directove
+	// for the .func directory
+	if _, err := os.Stat(filepath.Join(root, ".gitignore")); os.IsNotExist(err) {
+		t.Fatal(err)
+	}
+
+	// Assert that .func is ignored
+	file, err := os.Open(filepath.Join(root, ".gitignore"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+
+	// Scan for the line which ignores .func
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		if scanner.Text() == "/.func" {
+			return // success
+		}
+	}
+	t.Errorf(".gitignore does not include '/.func' ignore directive")
 }

@@ -459,12 +459,6 @@ func (c *Client) Create(cfg Function) (err error) {
 		return fmt.Errorf("Function at '%v' already initialized", cfg.Root)
 	}
 
-	// The path for the new Function should not have any contentious files
-	// (hidden files OK, unless it's one used by Func)
-	if err := assertEmptyRoot(cfg.Root); err != nil {
-		return err
-	}
-
 	// Path is defaulted to the current working directory
 	if cfg.Root == "" {
 		if cfg.Root, err = os.Getwd(); err != nil {
@@ -477,8 +471,19 @@ func (c *Client) Create(cfg Function) (err error) {
 		cfg.Name = nameFromPath(cfg.Root)
 	}
 
-	// Create a new Function
+	// The path for the new Function should not have any contentious files
+	// (hidden files OK, unless it's one used by Func)
+	if err := assertEmptyRoot(cfg.Root); err != nil {
+		return err
+	}
+
+	// Create a new Function (in memory)
 	f := NewFunctionWith(cfg)
+
+	// Create a .func diretory which is also added to a .gitignore
+	if err = createRuntimeDir(f); err != nil {
+		return
+	}
 
 	// Write out the new Function's Template files.
 	// Templates contain values which may result in the Function being mutated
@@ -508,6 +513,23 @@ func (c *Client) Create(cfg Function) (err error) {
 		fmt.Println("Function project created")
 	}
 	return
+}
+
+// createRuntimeDir creates a .func directory in the root of the given
+// Function which is also registered as ignored in .gitignore
+func createRuntimeDir(f Function) error {
+	if err := os.MkdirAll(filepath.Join(f.Root, ".func"), os.ModePerm); err != nil {
+		return err
+	}
+	fmt.Printf("Created %v\n", filepath.Join(f.Root, ".func"))
+
+	gitignore := `
+# Functions use the .func directory for local runtime data which should
+# generally not be tracked in source control:
+/.func
+`
+	return os.WriteFile(filepath.Join(f.Root, ".gitignore"), []byte(gitignore), os.ModePerm)
+
 }
 
 // Build the Function at path.  Errors if the Function is either unloadable or does
