@@ -33,8 +33,8 @@
     "typescript": "^4.2.4"
   },
   "dependencies": {
-    "@types/node": "^15.3.0",
-    "cloudevents": "^4.0.2",
-    "faas-js-runtime": "^0.7.1"
+    "@types/node": "^16.11.12",
+    "cloudevents": "^5.2.0",
+    "faas-js-runtime": "^0.8.0"
   }
 }
