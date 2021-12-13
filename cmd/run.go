@@ -8,7 +8,9 @@ import (
 	"knative.dev/client/pkg/util"
 
 	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/buildpacks"
 	"knative.dev/kn-plugin-func/docker"
+	"knative.dev/kn-plugin-func/progress"
 )
 
 func init() {
@@ -16,9 +18,19 @@ func init() {
 }
 
 func newRunClient(cfg runConfig) *fn.Client {
+	bc := newBuildConfig()
 	runner := docker.NewRunner()
 	runner.Verbose = cfg.Verbose
+
+	// builder fields
+	builder := buildpacks.NewBuilder()
+	listener := progress.New()
+	builder.Verbose = cfg.Verbose
+	listener.Verbose = cfg.Verbose
 	return fn.New(
+		fn.WithBuilder(builder),
+		fn.WithProgressListener(listener),
+		fn.WithRegistry(bc.Registry),
 		fn.WithRunner(runner),
 		fn.WithVerbose(cfg.Verbose))
 }
@@ -51,6 +63,7 @@ kn func run
 			"You may provide this flag multiple times for setting multiple environment variables. "+
 			"To unset, specify the environment variable name followed by a \"-\" (e.g., NAME-).")
 	setPathFlag(cmd)
+	cmd.Flags().BoolP("build", "b", false, "Build the function only if the function has not been built before")
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		return runRun(cmd, args, clientFn)
@@ -87,6 +100,11 @@ func runRun(cmd *cobra.Command, args []string, clientFn runClientFn) (err error)
 
 	client := clientFn(config)
 
+	if config.Build && !function.Built() {
+		if err = client.Build(cmd.Context(), config.Path); err != nil {
+			return
+		}
+	}
 	return client.Run(cmd.Context(), config.Path)
 }
 
@@ -103,6 +121,9 @@ type runConfig struct {
 
 	// Envs passed via cmd to removed
 	EnvToRemove []string
+
+	// Perform build if function hasn't been built yet
+	Build bool
 }
 
 func newRunConfig(cmd *cobra.Command) (c runConfig, err error) {
@@ -112,6 +133,7 @@ func newRunConfig(cmd *cobra.Command) (c runConfig, err error) {
 	}
 
 	return runConfig{
+		Build:       viper.GetBool("build"),
 		Path:        viper.GetString("path"),
 		Verbose:     viper.GetBool("verbose"), // defined on root
 		EnvToUpdate: envToUpdate,

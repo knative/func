@@ -42,7 +42,7 @@ func (n *Runner) Run(ctx context.Context, f fn.Function) error {
 	defer cli.Close()
 
 	if f.Image == "" {
-		return errors.New("Function has no associated Image. Has it been built?")
+		return errors.New("Function has no associated Image. Has it been built? Using the --build flag will build the image if it hasn't been built yet")
 	}
 
 	envs := []string{}

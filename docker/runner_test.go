@@ -46,3 +46,13 @@ func TestDockerRun(t *testing.T) {
 	*/
 
 }
+
+func TestDockerRunImagelessError(t *testing.T) {
+	runner := docker.NewRunner()
+	f := fn.NewFunctionWith(fn.Function{})
+	err := runner.Run(context.Background(), f)
+	expectedErrorMessage := "Function has no associated Image. Has it been built? Using the --build flag will build the image if it hasn't been built yet"
+	if err == nil || err.Error() != expectedErrorMessage {
+		t.Fatalf("The expected error message is \"%v\" but got instead %v", expectedErrorMessage, err)
+	}
+}
