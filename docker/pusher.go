@@ -8,24 +8,26 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 
-	"github.com/containers/image/v5/pkg/docker/config"
-
-	"github.com/google/go-containerregistry/pkg/authn"
-	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
-
-	"github.com/docker/docker/client"
-
 	fn "knative.dev/kn-plugin-func"
+	fnhttp "knative.dev/kn-plugin-func/http"
 
+	"github.com/containers/image/v5/pkg/docker/config"
 	containersTypes "github.com/containers/image/v5/types"
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/client"
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/name"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/daemon"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 )
 
 type Opt func(*Pusher) error
@@ -63,7 +65,10 @@ func CheckAuth(ctx context.Context, registry string, credentials Credentials) er
 		return err
 	}
 
-	tr, err := transport.NewWithContext(ctx, reg, authenticator, http.DefaultTransport, nil)
+	t := fnhttp.NewRoundTripper()
+	defer t.Close()
+
+	tr, err := transport.NewWithContext(ctx, reg, authenticator, t, nil)
 	if err != nil {
 		return err
 	}
@@ -327,6 +332,14 @@ func getRegistry(image_url string) (string, error) {
 // Push the image of the Function.
 func (n *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err error) {
 
+	var output io.Writer
+
+	if n.Verbose {
+		output = os.Stderr
+	} else {
+		output = io.Discard
+	}
+
 	if f.Image == "" {
 		return "", errors.New("Function has no associated image.  Has it been built?")
 	}
@@ -336,12 +349,6 @@ func (n *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err er
 		return "", err
 	}
 
-	cli, _, err := NewClient(client.DefaultDockerHost)
-	if err != nil {
-		return "", fmt.Errorf("failed to create docker api client: %w", err)
-	}
-	defer cli.Close()
-
 	n.progressListener.Stopping()
 	credentials, err := n.credentialsProvider(ctx, registry)
 	if err != nil {
@@ -349,10 +356,25 @@ func (n *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err er
 	}
 	n.progressListener.Increment("Pushing function image to the registry")
 
+	// if the registry is not cluster private do push directly from daemon
+	if _, err = net.DefaultResolver.LookupHost(ctx, registry); err == nil {
+		return daemonPush(ctx, f, credentials, output)
+	}
+
+	// push with custom transport to be able to push into cluster private registries
+	return push(ctx, f, credentials, output)
+}
+
+func daemonPush(ctx context.Context, f fn.Function, credentials Credentials, output io.Writer) (digest string, err error) {
+	cli, _, err := NewClient(client.DefaultDockerHost)
+	if err != nil {
+		return "", fmt.Errorf("failed to create docker api client: %w", err)
+	}
+	defer cli.Close()
+
 	authConfig := types.AuthConfig{
-		Username:      credentials.Username,
-		Password:      credentials.Password,
-		ServerAddress: registry,
+		Username: credentials.Username,
+		Password: credentials.Password,
 	}
 
 	b, err := json.Marshal(&authConfig)
@@ -368,15 +390,8 @@ func (n *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err er
 	}
 	defer r.Close()
 
-	var output io.Writer
 	var outBuff bytes.Buffer
-
-	// If verbose logging is enabled, echo chatty stdout.
-	if n.Verbose {
-		output = io.MultiWriter(&outBuff, os.Stdout)
-	} else {
-		output = &outBuff
-	}
+	output = io.MultiWriter(&outBuff, output)
 
 	decoder := json.NewDecoder(r)
 	li := logItem{}
@@ -405,7 +420,7 @@ func (n *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err er
 
 	digest = parseDigest(outBuff.String())
 
-	return
+	return digest, nil
 }
 
 var digestRE = regexp.MustCompile(`digest:\s+(sha256:\w{64})`)
@@ -437,4 +452,68 @@ type logItem struct {
 	ErrorDetail    errorDetail    `json:"errorDetail"`
 	Progress       string         `json:"progress"`
 	ProgressDetail progressDetail `json:"progressDetail"`
+}
+
+func push(ctx context.Context, f fn.Function, credentials Credentials, output io.Writer) (digest string, err error) {
+	auth := &authn.Basic{
+		Username: credentials.Username,
+		Password: credentials.Password,
+	}
+
+	ref, err := name.ParseReference(f.Image)
+	if err != nil {
+		return "", err
+	}
+
+	dockerClient, _, err := NewClient(client.DefaultDockerHost)
+	if err != nil {
+		return "", fmt.Errorf("failed to create docker api client: %w", err)
+	}
+	defer dockerClient.Close()
+
+	img, err := daemon.Image(ref,
+		daemon.WithContext(ctx),
+		daemon.WithClient(dockerClient))
+	if err != nil {
+		return "", err
+	}
+
+	progressChannel := make(chan v1.Update, 1024)
+	errChan := make(chan error)
+	go func() {
+		defer fmt.Fprint(output, "\n")
+
+		for progress := range progressChannel {
+			if progress.Error != nil {
+				errChan <- progress.Error
+				return
+			}
+			fmt.Fprintf(output, "\rprogress: %d%%", progress.Complete*100/progress.Total)
+		}
+
+		errChan <- nil
+	}()
+
+	t := fnhttp.NewRoundTripper()
+	defer t.Close()
+
+	err = remote.Write(ref, img,
+		remote.WithAuth(auth),
+		remote.WithProgress(progressChannel),
+		remote.WithTransport(t),
+		remote.WithContext(ctx))
+	if err != nil {
+		return "", err
+	}
+	err = <-errChan
+	if err != nil {
+		return "", err
+	}
+
+	hash, err := img.Digest()
+	if err != nil {
+		return "", err
+	}
+
+	return hash.String(), nil
 }
