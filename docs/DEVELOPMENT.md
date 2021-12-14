@@ -53,7 +53,7 @@ Allocate a new local cluster by running `hack/allocate.sh`.
 
 The allocation script sets up a local container registry and connects it to the cluster.  This registry must be set as trusted and its address entered in the local hosts file.  This is a one-time configuration and on Linux can be accomplished by running `hack/registry.sh`. 
 
-On other systems, add `127.0.0.1 kind-registry` to your local hosts file and `"insecure-registries" = ["kind-registry:5000"]` to your docker daemon config (`docker/daemon.json`).
+On other systems, add `127.0.0.1 kind-registry` to your local hosts file and `"insecure-registries" = ["kind-registry:50000"]` to your docker daemon config (`docker/daemon.json`).
 
 
 ### Using the Cluster

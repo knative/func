@@ -27,7 +27,7 @@ main() {
 
 set_registry_insecure() {
     echo 'Setting registry as trusted local-only'
-    patch=".\"insecure-registries\" = [\"kind-registry:5000\""]
+    patch=".\"insecure-registries\" = [\"kind-registry:50000\""]
     sudo jq "$patch" /etc/docker/daemon.json > /tmp/daemon.json.tmp && sudo mv /tmp/daemon.json.tmp /etc/docker/daemon.json
     sudo service docker restart
 }

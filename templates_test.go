@@ -51,7 +51,8 @@ func TestTemplatesList(t *testing.T) {
 func TestTemplatesListExtendedNotFound(t *testing.T) {
 	client := fn.New(fn.WithRepositories("testdata/repositories"))
 
-	// list templates for the "python" runtime - not supplied by the extended repos
+	// list templates for the "python" runtime -
+	// not supplied by the extended repos
 	templates, err := client.Templates().List("python")
 	if err != nil {
 		t.Fatal(err)
@@ -543,6 +544,40 @@ func TestTemplateManifestInvocationHints(t *testing.T) {
 
 	if f.Invocation.Format != "format" {
 		t.Fatalf("expected invocation format 'format', got '%v'", f.Invocation.Format)
+	}
+}
+
+// TestTemplateManifestRemoved ensures that the manifest is not left in
+// the resultant Function after write.
+func TestTemplateManifestRemoved(t *testing.T) {
+	// create test directory
+	root := "testdata/testTemplateManifestRemoved"
+	defer Using(t, root)()
+
+	// Client whose internal templates will be used.
+	client := fn.New(
+		fn.WithRegistry(TestRegistry),
+		fn.WithRepositories("testdata/repositories"))
+
+	// write out a template
+	err := client.Create(fn.Function{
+		Root:     root,
+		Runtime:  "manifestedRuntime",
+		Template: "customLanguagePackRepo/manifestedTemplate",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Assert func.yaml exists as expected
+	_, err = os.Stat(filepath.Join(root, "func.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Assert manifest.yaml does not
+	_, err = os.Stat(filepath.Join(root, "manifest.yaml"))
+	if err == nil {
+		t.Fatal("manifest.yaml should not exist after write")
 	}
 
 }

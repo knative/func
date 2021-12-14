@@ -5,11 +5,18 @@ package docker
 
 import (
 	"context"
+	"crypto/ed25519"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"math/big"
 	"net"
 	"net/http"
 	"os"
@@ -100,10 +107,11 @@ func TestNewCredentialsProvider(t *testing.T) {
 	}
 
 	type args struct {
-		credentialsCallback CredentialsCallback
-		verifyCredentials   VerifyCredentialsCallback
-		registry            string
-		setUpEnv            setUpEnv
+		promptUser        CredentialsCallback
+		verifyCredentials VerifyCredentialsCallback
+		additionalLoaders []CredentialsCallback
+		registry          string
+		setUpEnv          setUpEnv
 	}
 	tests := []struct {
 		name string
@@ -113,47 +121,47 @@ func TestNewCredentialsProvider(t *testing.T) {
 		{
 			name: "test user callback correct password on first try",
 			args: args{
-				credentialsCallback: correctPwdCallback,
-				verifyCredentials:   correctVerifyCbk,
-				registry:            "docker.io",
+				promptUser:        correctPwdCallback,
+				verifyCredentials: correctVerifyCbk,
+				registry:          "docker.io",
 			},
 			want: Credentials{Username: dockerIoUser, Password: dockerIoUserPwd},
 		},
 		{
 			name: "test user callback correct password on second try",
 			args: args{
-				credentialsCallback: pwdCbkFirstWrongThenCorrect(t),
-				verifyCredentials:   correctVerifyCbk,
-				registry:            "docker.io",
+				promptUser:        pwdCbkFirstWrongThenCorrect(t),
+				verifyCredentials: correctVerifyCbk,
+				registry:          "docker.io",
 			},
 			want: Credentials{Username: dockerIoUser, Password: dockerIoUserPwd},
 		},
 		{
 			name: "get quay-io credentials with func config populated",
 			args: args{
-				credentialsCallback: pwdCbkThatShallNotBeCalled(t),
-				verifyCredentials:   correctVerifyCbk,
-				registry:            "quay.io",
-				setUpEnv:            withPopulatedFuncAuthConfig,
+				promptUser:        pwdCbkThatShallNotBeCalled(t),
+				verifyCredentials: correctVerifyCbk,
+				registry:          "quay.io",
+				setUpEnv:          withPopulatedFuncAuthConfig,
 			},
 			want: Credentials{Username: quayIoUser, Password: quayIoUserPwd},
 		},
 		{
 			name: "get docker-io credentials with func config populated",
 			args: args{
-				credentialsCallback: pwdCbkThatShallNotBeCalled(t),
-				verifyCredentials:   correctVerifyCbk,
-				registry:            "docker.io",
-				setUpEnv:            withPopulatedFuncAuthConfig,
+				promptUser:        pwdCbkThatShallNotBeCalled(t),
+				verifyCredentials: correctVerifyCbk,
+				registry:          "docker.io",
+				setUpEnv:          withPopulatedFuncAuthConfig,
 			},
 			want: Credentials{Username: dockerIoUser, Password: dockerIoUserPwd},
 		},
 		{
 			name: "get quay-io credentials with docker config populated",
 			args: args{
-				credentialsCallback: pwdCbkThatShallNotBeCalled(t),
-				verifyCredentials:   correctVerifyCbk,
-				registry:            "quay.io",
+				promptUser:        pwdCbkThatShallNotBeCalled(t),
+				verifyCredentials: correctVerifyCbk,
+				registry:          "quay.io",
 				setUpEnv: all(
 					withPopulatedDockerAuthConfig,
 					setUpMockHelper("docker-credential-mock", helperWithQuayIO)),
@@ -163,10 +171,20 @@ func TestNewCredentialsProvider(t *testing.T) {
 		{
 			name: "get docker-io credentials with docker config populated",
 			args: args{
-				credentialsCallback: pwdCbkThatShallNotBeCalled(t),
-				verifyCredentials:   correctVerifyCbk,
-				registry:            "docker.io",
-				setUpEnv:            withPopulatedDockerAuthConfig,
+				promptUser:        pwdCbkThatShallNotBeCalled(t),
+				verifyCredentials: correctVerifyCbk,
+				registry:          "docker.io",
+				setUpEnv:          withPopulatedDockerAuthConfig,
+			},
+			want: Credentials{Username: dockerIoUser, Password: dockerIoUserPwd},
+		},
+		{
+			name: "get docker-io credentials from custom loader",
+			args: args{
+				promptUser:        pwdCbkThatShallNotBeCalled(t),
+				verifyCredentials: correctVerifyCbk,
+				registry:          "docker.io",
+				additionalLoaders: []CredentialsCallback{correctPwdCallback},
 			},
 			want: Credentials{Username: dockerIoUser, Password: dockerIoUserPwd},
 		},
@@ -179,7 +197,10 @@ func TestNewCredentialsProvider(t *testing.T) {
 				defer tt.args.setUpEnv(t)()
 			}
 
-			credentialsProvider := NewCredentialsProvider(tt.args.credentialsCallback, tt.args.verifyCredentials, nil)
+			credentialsProvider := NewCredentialsProvider(
+				WithPromptForCredentials(tt.args.promptUser),
+				WithVerifyCredentials(tt.args.verifyCredentials),
+				WithAdditionalCredentialLoaders(tt.args.additionalLoaders...))
 			got, err := credentialsProvider(context.Background(), tt.args.registry)
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
@@ -221,7 +242,10 @@ func TestCredentialsProviderSavingFromUserInput(t *testing.T) {
 		return "", errors.New("this callback shall not be invoked")
 	}
 
-	credentialsProvider := NewCredentialsProvider(pwdCbk, correctVerifyCbk, chooseNoStore)
+	credentialsProvider := NewCredentialsProvider(
+		WithPromptForCredentials(pwdCbk),
+		WithVerifyCredentials(correctVerifyCbk),
+		WithPromptForCredentialStore(chooseNoStore))
 	_, err := credentialsProvider(context.Background(), "docker.io")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -237,7 +261,10 @@ func TestCredentialsProviderSavingFromUserInput(t *testing.T) {
 	if credsInStore != 0 {
 		t.Errorf("expected to have zero credentials in store, but has: %d", credsInStore)
 	}
-	credentialsProvider = NewCredentialsProvider(pwdCbk, correctVerifyCbk, chooseMockStore)
+	credentialsProvider = NewCredentialsProvider(
+		WithPromptForCredentials(pwdCbk),
+		WithVerifyCredentials(correctVerifyCbk),
+		WithPromptForCredentialStore(chooseMockStore))
 	_, err = credentialsProvider(context.Background(), "docker.io")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -256,9 +283,10 @@ func TestCredentialsProviderSavingFromUserInput(t *testing.T) {
 	if len(l) != 1 {
 		t.Errorf("expected to have exactly one credentials in store, but has: %d", credsInStore)
 	}
-	credentialsProvider = NewCredentialsProvider(pwdCbkThatShallNotBeCalled(t),
-		correctVerifyCbk,
-		shallNotBeInvoked)
+	credentialsProvider = NewCredentialsProvider(
+		WithPromptForCredentials(pwdCbkThatShallNotBeCalled(t)),
+		WithVerifyCredentials(correctVerifyCbk),
+		WithPromptForCredentialStore(shallNotBeInvoked))
 	_, err = credentialsProvider(context.Background(), "docker.io")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
@@ -374,7 +402,8 @@ func correctPwdCallback(registry string) (Credentials, error) {
 	return Credentials{}, errors.New("this cbk don't know the pwd")
 }
 
-func correctVerifyCbk(ctx context.Context, username, password, registry string) error {
+func correctVerifyCbk(ctx context.Context, registry string, creds Credentials) error {
+	username, password := creds.Username, creds.Password
 	if username == dockerIoUser && password == dockerIoUserPwd && registry == "docker.io" {
 		return nil
 	}
@@ -653,4 +682,205 @@ func (i *inMemoryHelper) Delete(serverURL string) error {
 	}
 
 	return credentials.NewErrCredentialsNotFound()
+}
+
+func TestCheckAuth(t *testing.T) {
+	localhost, localhostTLS, stopServer := startServer(t)
+	defer stopServer()
+
+	_, portTLS, err := net.SplitHostPort(localhostTLS)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	nonLocalhostTLS := "test.io:" + portTLS
+
+	type args struct {
+		ctx      context.Context
+		username string
+		password string
+		registry string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "correct credentials localhost no-TLS",
+			args: args{
+				ctx:      context.Background(),
+				username: "testuser",
+				password: "testpwd",
+				registry: localhost,
+			},
+			wantErr: false,
+		},
+		{
+			name: "correct credentials localhost",
+			args: args{
+				ctx:      context.Background(),
+				username: "testuser",
+				password: "testpwd",
+				registry: localhostTLS,
+			},
+			wantErr: false,
+		},
+
+		{
+			name: "correct credentials non-localhost",
+			args: args{
+				ctx:      context.Background(),
+				username: "testuser",
+				password: "testpwd",
+				registry: nonLocalhostTLS,
+			},
+			wantErr: false,
+		},
+		{
+			name: "incorrect credentials localhost no-TLS",
+			args: args{
+				ctx:      context.Background(),
+				username: "testuser",
+				password: "badpwd",
+				registry: localhost,
+			},
+			wantErr: true,
+		},
+		{
+			name: "incorrect credentials localhost",
+			args: args{
+				ctx:      context.Background(),
+				username: "testuser",
+				password: "badpwd",
+				registry: localhostTLS,
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			creds := Credentials{
+				Username: tt.args.username,
+				Password: tt.args.password,
+			}
+			if err := CheckAuth(tt.args.ctx, tt.args.registry, creds); (err != nil) != tt.wantErr {
+				t.Errorf("CheckAuth() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func startServer(t *testing.T) (addr, addrTLS string, stopServer func()) {
+	listener, err := net.Listen("tcp", "localhost:8080")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addr = listener.Addr().String()
+
+	listenerTLS, err := net.Listen("tcp", "localhost:4433")
+	if err != nil {
+		t.Fatal(err)
+	}
+	addrTLS = listenerTLS.Addr().String()
+
+	handler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
+		resp.Header().Add("WWW-Authenticate", "basic")
+		if user, pwd, ok := req.BasicAuth(); ok {
+			if user == "testuser" && pwd == "testpwd" {
+				resp.WriteHeader(http.StatusOK)
+				return
+			}
+		}
+		resp.WriteHeader(http.StatusUnauthorized)
+	})
+
+	var randReader io.Reader = rand.Reader
+
+	caPublicKey, caPrivateKey, err := ed25519.GenerateKey(randReader)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ca := &x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			CommonName: "localhost",
+		},
+		IPAddresses:           []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback},
+		DNSNames:              []string{"localhost", "test.io"},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().AddDate(10, 0, 0),
+		IsCA:                  true,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
+		ExtraExtensions:       []pkix.Extension{},
+		KeyUsage:              x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+		BasicConstraintsValid: true,
+	}
+
+	caBytes, err := x509.CreateCertificate(randReader, ca, ca, caPublicKey, caPrivateKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	ca, err = x509.ParseCertificate(caBytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cert := tls.Certificate{
+		Certificate: [][]byte{caBytes},
+		PrivateKey:  caPrivateKey,
+		Leaf:        ca,
+	}
+
+	server := http.Server{
+		Handler: handler,
+		TLSConfig: &tls.Config{
+			ServerName:   "localhost",
+			Certificates: []tls.Certificate{cert},
+		},
+	}
+
+	go func() {
+		err := server.ServeTLS(listenerTLS, "", "")
+		if err != nil && !strings.Contains(err.Error(), "Server closed") {
+			panic(err)
+		}
+	}()
+
+	go func() {
+		err := server.Serve(listener)
+		if err != nil && !strings.Contains(err.Error(), "Server closed") {
+			panic(err)
+		}
+	}()
+
+	// make the testing CA trusted by default HTTP transport/client
+	oldDefaultTransport := http.DefaultTransport
+	newDefaultTransport := http.DefaultTransport.(*http.Transport).Clone()
+	http.DefaultTransport = newDefaultTransport
+	caPool := x509.NewCertPool()
+	caPool.AddCert(ca)
+	newDefaultTransport.TLSClientConfig.RootCAs = caPool
+	dc := newDefaultTransport.DialContext
+	newDefaultTransport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
+		h, p, err := net.SplitHostPort(addr)
+		if err != nil {
+			return nil, err
+		}
+		if h == "test.io" {
+			h = "localhost"
+		}
+		addr = net.JoinHostPort(h, p)
+		return dc(ctx, network, addr)
+	}
+
+	return addr, addrTLS, func() {
+		err := server.Shutdown(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		http.DefaultTransport = oldDefaultTransport
+	}
 }

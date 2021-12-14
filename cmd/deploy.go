@@ -27,9 +27,8 @@ func newDeployClient(cfg deployConfig) (*fn.Client, error) {
 	builder := buildpacks.NewBuilder()
 
 	credentialsProvider := docker.NewCredentialsProvider(
-		newCredentialsCallback(),
-		docker.CheckAuth,
-		newChooseHelperCallback())
+		docker.WithPromptForCredentials(newPromptForCredentials()),
+		docker.WithPromptForCredentialStore(newPromptForCredentialStore()))
 	pusher, err := docker.NewPusher(
 		docker.WithCredentialsProvider(credentialsProvider),
 		docker.WithProgressListener(listener))
@@ -93,10 +92,10 @@ kn func deploy --image quay.io/myuser/myfunc -n myns
 		"You may provide this flag multiple times for setting multiple environment variables. "+
 		"To unset, specify the environment variable name followed by a \"-\" (e.g., NAME-).")
 	cmd.Flags().StringP("image", "i", "", "Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE)")
-	cmd.Flags().StringP("namespace", "n", "", "Namespace of the function to undeploy. By default, the namespace in func.yaml is used or the actual active namespace if not set in the configuration. (Env: $FUNC_NAMESPACE)")
-	cmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
 	cmd.Flags().StringP("registry", "r", "", "Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined based on the local directory name. If not provided the registry will be taken from func.yaml (Env: $FUNC_REGISTRY)")
 	cmd.Flags().BoolP("build", "b", true, "Build the image before deploying (Env: $FUNC_BUILD)")
+	setPathFlag(cmd)
+	setNamespaceFlag(cmd)
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		return runDeploy(cmd, args, clientFn)
@@ -195,7 +194,7 @@ func runDeploy(cmd *cobra.Command, _ []string, clientFn deployClientFn) (err err
 	// (for example kubectl usually uses ~/.kube/config)
 }
 
-func newCredentialsCallback() func(registry string) (docker.Credentials, error) {
+func newPromptForCredentials() func(registry string) (docker.Credentials, error) {
 	firstTime := true
 	return func(registry string) (docker.Credentials, error) {
 		var result docker.Credentials
@@ -229,7 +228,7 @@ func newCredentialsCallback() func(registry string) (docker.Credentials, error) 
 	}
 }
 
-func newChooseHelperCallback() docker.ChooseCredentialHelperCallback {
+func newPromptForCredentialStore() docker.ChooseCredentialHelperCallback {
 	return func(availableHelpers []string) (string, error) {
 		if len(availableHelpers) < 1 {
 			fmt.Fprintf(os.Stderr, `Credentials will not be saved.

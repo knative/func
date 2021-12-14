@@ -8,19 +8,24 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 
+	"github.com/containers/image/v5/pkg/docker/config"
+
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
+
 	"github.com/docker/docker/client"
 
 	fn "knative.dev/kn-plugin-func"
 
-	"github.com/containers/image/v5/pkg/docker/config"
 	containersTypes "github.com/containers/image/v5/types"
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/errdefs"
 )
 
 type Opt func(*Pusher) error
@@ -38,47 +43,124 @@ var ErrUnauthorized = errors.New("bad credentials")
 
 // VerifyCredentialsCallback checks if credentials are accepted by the registry.
 // If credentials are incorrect this callback shall return ErrUnauthorized.
-type VerifyCredentialsCallback func(ctx context.Context, username, password, registry string) error
+type VerifyCredentialsCallback func(ctx context.Context, registry string, credentials Credentials) error
 
-func CheckAuth(ctx context.Context, username, password, registry string) error {
-	cli, _, err := NewClient(client.DefaultDockerHost)
+func CheckAuth(ctx context.Context, registry string, credentials Credentials) error {
+	serverAddress := registry
+	if !strings.HasPrefix(serverAddress, "https://") && !strings.HasPrefix(serverAddress, "http://") {
+		serverAddress = "https://" + serverAddress
+	}
+
+	url := fmt.Sprintf("%s/v2", serverAddress)
+
+	authenticator := &authn.Basic{
+		Username: credentials.Username,
+		Password: credentials.Password,
+	}
+
+	reg, err := name.NewRegistry(registry)
 	if err != nil {
 		return err
 	}
-	defer cli.Close()
 
-	_, err = cli.RegistryLogin(ctx, types.AuthConfig{Username: username, Password: password, ServerAddress: registry})
-	if err != nil && strings.Contains(err.Error(), "401 Unauthorized") {
-		return ErrUnauthorized
+	tr, err := transport.NewWithContext(ctx, reg, authenticator, http.DefaultTransport, nil)
+	if err != nil {
+		return err
 	}
 
-	// podman hack until https://github.com/containers/podman/pull/11595 is merged
-	// podman returns 400 (instead of 500) and body in unexpected shape
-	if errdefs.IsInvalidParameter(err) {
-		return ErrUnauthorized
+	cli := http.Client{Transport: tr}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return err
 	}
 
-	return err
+	resp, err := cli.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to verify credentials: %w", err)
+	}
+	defer resp.Body.Close()
+
+	switch {
+	case resp.StatusCode == http.StatusUnauthorized:
+		return ErrUnauthorized
+	case resp.StatusCode != http.StatusOK:
+		return fmt.Errorf("failed to verify credentials: status code: %d", resp.StatusCode)
+	default:
+		return nil
+	}
 }
 
 type ChooseCredentialHelperCallback func(available []string) (string, error)
 
-// NewCredentialsProvider returns new CredentialsProvider that tires to get credentials from `docker` and `func` config files.
+type credentialProviderConfig struct {
+	promptForCredentials        CredentialsCallback
+	verifyCredentials           VerifyCredentialsCallback
+	promptForCredentialStore    ChooseCredentialHelperCallback
+	additionalCredentialLoaders []CredentialsCallback
+}
+
+type CredentialProviderOptions func(opts *credentialProviderConfig)
+
+// WithPromptForCredentials sets custom callback that is supposed to
+// interactively ask for credentials in case the credentials cannot be found in configuration files.
+// The callback may be called multiple times in case incorrect credentials were returned before.
+func WithPromptForCredentials(cbk CredentialsCallback) CredentialProviderOptions {
+	return func(opts *credentialProviderConfig) {
+		opts.promptForCredentials = cbk
+	}
+}
+
+// WithVerifyCredentials sets custom callback for credentials validation.
+func WithVerifyCredentials(cbk VerifyCredentialsCallback) CredentialProviderOptions {
+	return func(opts *credentialProviderConfig) {
+		opts.verifyCredentials = cbk
+	}
+}
+
+// WithPromptForCredentialStore sets custom callback that is supposed to
+// interactively ask user which credentials store/helper is used to store credentials obtained
+// from user.
+func WithPromptForCredentialStore(cbk ChooseCredentialHelperCallback) CredentialProviderOptions {
+	return func(opts *credentialProviderConfig) {
+		opts.promptForCredentialStore = cbk
+	}
+}
+
+// WithAdditionalCredentialLoaders adds custom callbacks for credential retrieval.
+// The callbacks are supposed to be non-interactive as opposed to WithPromptForCredentials.
+//
+// This might be useful when credentials are shared with some other service.
+//
+// Example: OpenShift builtin registry shares credentials with the cluster (k8s) credentials.
+func WithAdditionalCredentialLoaders(loaders ...CredentialsCallback) CredentialProviderOptions {
+	return func(opts *credentialProviderConfig) {
+		opts.additionalCredentialLoaders = append(opts.additionalCredentialLoaders, loaders...)
+	}
+}
+
+// NewCredentialsProvider returns new CredentialsProvider that tires to get credentials from docker/func config files.
 //
 // In case getting credentials from the config files fails
-// the caller provided callback will be invoked to obtain credentials.
-// The callback may be called multiple times in case it returned credentials that are not correct (see verifyCredentials).
+// the caller provided callback (see WithPromptForCredentials) will be invoked to obtain credentials.
+// The callback may be called multiple times in case the returned credentials
+// are not correct (see WithVerifyCredentials).
 //
-// When the callback succeeds the credentials will be saved by using helper defined in the `func` config.
-// If the helper is not defined in the config the chooseCredentialHelper parameter will be used to pick one.
+// When the callback succeeds the credentials will be saved by using helper defined in the func config.
+// If the helper is not defined in the config file
+// it may be picked by provided callback (see WithPromptForCredentialStore).
 // The picked value will be saved in the func config.
 //
-// To verify that credentials are correct the verifyCredentials parameter is used.
-// If verifyCredentials is not set then CheckAuth will be used as a fallback.
-func NewCredentialsProvider(
-	getCredentials CredentialsCallback,
-	verifyCredentials VerifyCredentialsCallback,
-	chooseCredentialHelper ChooseCredentialHelperCallback) CredentialsProvider {
+// To verify that credentials are correct callback will be used (see WithVerifyCredentials).
+// If the callback is not set then CheckAuth will be used as a fallback.
+func NewCredentialsProvider(opts ...CredentialProviderOptions) CredentialsProvider {
+	var conf credentialProviderConfig
+
+	for _, o := range opts {
+		o(&conf)
+	}
+
+	askUser, verifyCredentials, chooseCredentialHelper := conf.promptForCredentials, conf.verifyCredentials, conf.promptForCredentialStore
 
 	if verifyCredentials == nil {
 		verifyCredentials = CheckAuth
@@ -102,31 +184,40 @@ func NewCredentialsProvider(
 	}
 	dockerConfigPath := filepath.Join(home, ".docker", "config.json")
 
+	var authLoaders = []CredentialsCallback{
+		func(registry string) (Credentials, error) {
+			creds, err := config.GetCredentials(sys, registry)
+			if err != nil {
+				return Credentials{}, err
+			}
+			return Credentials{
+				Username: creds.Username,
+				Password: creds.Password,
+			}, nil
+		},
+		func(registry string) (Credentials, error) {
+			return getCredentialsByCredentialHelper(authFilePath, registry)
+		},
+		func(registry string) (Credentials, error) {
+			return getCredentialsByCredentialHelper(dockerConfigPath, registry)
+		},
+	}
+
+	authLoaders = append(conf.additionalCredentialLoaders, authLoaders...)
+
 	return func(ctx context.Context, registry string) (Credentials, error) {
 		result := Credentials{}
 
-		for _, load := range []func() (containersTypes.DockerAuthConfig, error){
-			func() (containersTypes.DockerAuthConfig, error) {
-				return config.GetCredentials(sys, registry)
-			},
-			func() (containersTypes.DockerAuthConfig, error) {
-				return getCredentialsByCredentialHelper(authFilePath, registry)
-			},
-			func() (containersTypes.DockerAuthConfig, error) {
-				return getCredentialsByCredentialHelper(dockerConfigPath, registry)
-			},
-		} {
-			var credentials containersTypes.DockerAuthConfig
-			credentials, err = load()
+		for _, load := range authLoaders {
+
+			result, err = load(registry)
 
 			if err != nil && !errors.Is(err, errCredentialsNotFound) {
 				return Credentials{}, err
 			}
 
-			if credentials != (containersTypes.DockerAuthConfig{}) {
-				result.Username, result.Password = credentials.Username, credentials.Password
-
-				err = verifyCredentials(ctx, result.Username, result.Password, registry)
+			if result != (Credentials{}) {
+				err = verifyCredentials(ctx, registry, result)
 				if err == nil {
 					return result, nil
 				} else {
@@ -138,12 +229,12 @@ func NewCredentialsProvider(
 		}
 
 		for {
-			result, err = getCredentials(registry)
+			result, err = askUser(registry)
 			if err != nil {
 				return Credentials{}, err
 			}
 
-			err = verifyCredentials(ctx, result.Username, result.Password, registry)
+			err = verifyCredentials(ctx, registry, result)
 			if err == nil {
 				err = setCredentialsByCredentialHelper(authFilePath, registry, result.Username, result.Password)
 				if err != nil {

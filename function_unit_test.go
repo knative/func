@@ -21,8 +21,8 @@ func TestFunction_ImageWithDigest(t *testing.T) {
 	}{
 		{
 			name:   "Full path with port",
-			fields: fields{Image: "image-registry.openshift-image-registry.svc.cluster.local:5000/default/bar", ImageDigest: "42"},
-			want:   "image-registry.openshift-image-registry.svc.cluster.local:5000/default/bar@42",
+			fields: fields{Image: "image-registry.openshift-image-registry.svc.cluster.local:50000/default/bar", ImageDigest: "42"},
+			want:   "image-registry.openshift-image-registry.svc.cluster.local:50000/default/bar@42",
 		},
 		{
 			name:   "Path with namespace",

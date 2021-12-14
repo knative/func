@@ -15,12 +15,12 @@ import (
 )
 
 func init() {
+	setPathFlag(configEnvsCmd)
+	setPathFlag(configEnvsAddCmd)
+	setPathFlag(configEnvsRemoveCmd)
 	configCmd.AddCommand(configEnvsCmd)
-	configEnvsCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
 	configEnvsCmd.AddCommand(configEnvsAddCmd)
-	configEnvsAddCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
 	configEnvsCmd.AddCommand(configEnvsRemoveCmd)
-	configEnvsRemoveCmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
 }
 
 var configEnvsCmd = &cobra.Command{
