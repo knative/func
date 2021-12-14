@@ -86,27 +86,28 @@ func CheckAuth(ctx context.Context, registry string, credentials docker.Credenti
 
 type ChooseCredentialHelperCallback func(available []string) (string, error)
 
-type credentialProviderConfig struct {
-	promptForCredentials        CredentialsCallback
-	verifyCredentials           VerifyCredentialsCallback
-	promptForCredentialStore    ChooseCredentialHelperCallback
-	additionalCredentialLoaders []CredentialsCallback
+type credentialsProvider struct {
+	promptForCredentials     CredentialsCallback
+	verifyCredentials        VerifyCredentialsCallback
+	promptForCredentialStore ChooseCredentialHelperCallback
+	credentialLoaders        []CredentialsCallback
+	authFilePath             string
 }
 
-type CredentialProviderOptions func(opts *credentialProviderConfig)
+type Opt func(opts *credentialsProvider)
 
 // WithPromptForCredentials sets custom callback that is supposed to
 // interactively ask for credentials in case the credentials cannot be found in configuration files.
 // The callback may be called multiple times in case incorrect credentials were returned before.
-func WithPromptForCredentials(cbk CredentialsCallback) CredentialProviderOptions {
-	return func(opts *credentialProviderConfig) {
+func WithPromptForCredentials(cbk CredentialsCallback) Opt {
+	return func(opts *credentialsProvider) {
 		opts.promptForCredentials = cbk
 	}
 }
 
 // WithVerifyCredentials sets custom callback for credentials validation.
-func WithVerifyCredentials(cbk VerifyCredentialsCallback) CredentialProviderOptions {
-	return func(opts *credentialProviderConfig) {
+func WithVerifyCredentials(cbk VerifyCredentialsCallback) Opt {
+	return func(opts *credentialsProvider) {
 		opts.verifyCredentials = cbk
 	}
 }
@@ -114,8 +115,8 @@ func WithVerifyCredentials(cbk VerifyCredentialsCallback) CredentialProviderOpti
 // WithPromptForCredentialStore sets custom callback that is supposed to
 // interactively ask user which credentials store/helper is used to store credentials obtained
 // from user.
-func WithPromptForCredentialStore(cbk ChooseCredentialHelperCallback) CredentialProviderOptions {
-	return func(opts *credentialProviderConfig) {
+func WithPromptForCredentialStore(cbk ChooseCredentialHelperCallback) Opt {
+	return func(opts *credentialsProvider) {
 		opts.promptForCredentialStore = cbk
 	}
 }
@@ -126,9 +127,9 @@ func WithPromptForCredentialStore(cbk ChooseCredentialHelperCallback) Credential
 // This might be useful when credentials are shared with some other service.
 //
 // Example: OpenShift builtin registry shares credentials with the cluster (k8s) credentials.
-func WithAdditionalCredentialLoaders(loaders ...CredentialsCallback) CredentialProviderOptions {
-	return func(opts *credentialProviderConfig) {
-		opts.additionalCredentialLoaders = append(opts.additionalCredentialLoaders, loaders...)
+func WithAdditionalCredentialLoaders(loaders ...CredentialsCallback) Opt {
+	return func(opts *credentialsProvider) {
+		opts.credentialLoaders = append(opts.credentialLoaders, loaders...)
 	}
 }
 
@@ -146,28 +147,26 @@ func WithAdditionalCredentialLoaders(loaders ...CredentialsCallback) CredentialP
 //
 // To verify that credentials are correct callback will be used (see WithVerifyCredentials).
 // If the callback is not set then CheckAuth will be used as a fallback.
-func NewCredentialsProvider(opts ...CredentialProviderOptions) docker.CredentialsProvider {
-	var conf credentialProviderConfig
+func NewCredentialsProvider(opts ...Opt) docker.CredentialsProvider {
+	var c credentialsProvider
 
 	for _, o := range opts {
-		o(&conf)
+		o(&c)
 	}
 
-	askUser, verifyCredentials, chooseCredentialHelper := conf.promptForCredentials, conf.verifyCredentials, conf.promptForCredentialStore
-
-	if verifyCredentials == nil {
-		verifyCredentials = CheckAuth
+	if c.verifyCredentials == nil {
+		c.verifyCredentials = CheckAuth
 	}
 
-	if chooseCredentialHelper == nil {
-		chooseCredentialHelper = func(available []string) (string, error) {
+	if c.promptForCredentialStore == nil {
+		c.promptForCredentialStore = func(available []string) (string, error) {
 			return "", nil
 		}
 	}
 
-	authFilePath := filepath.Join(fn.ConfigPath(), "auth.json")
+	c.authFilePath = filepath.Join(fn.ConfigPath(), "auth.json")
 	sys := &containersTypes.SystemContext{
-		AuthFilePath: authFilePath,
+		AuthFilePath: c.authFilePath,
 	}
 
 	home, err := os.UserHomeDir()
@@ -177,7 +176,7 @@ func NewCredentialsProvider(opts ...CredentialProviderOptions) docker.Credential
 	}
 	dockerConfigPath := filepath.Join(home, ".docker", "config.json")
 
-	var authLoaders = []CredentialsCallback{
+	var defaultCredentialLoaders = []CredentialsCallback{
 		func(registry string) (docker.Credentials, error) {
 			creds, err := config.GetCredentials(sys, registry)
 			if err != nil {
@@ -189,77 +188,80 @@ func NewCredentialsProvider(opts ...CredentialProviderOptions) docker.Credential
 			}, nil
 		},
 		func(registry string) (docker.Credentials, error) {
-			return getCredentialsByCredentialHelper(authFilePath, registry)
+			return getCredentialsByCredentialHelper(c.authFilePath, registry)
 		},
 		func(registry string) (docker.Credentials, error) {
 			return getCredentialsByCredentialHelper(dockerConfigPath, registry)
 		},
 	}
 
-	authLoaders = append(conf.additionalCredentialLoaders, authLoaders...)
+	c.credentialLoaders = append(c.credentialLoaders, defaultCredentialLoaders...)
 
-	return func(ctx context.Context, registry string) (docker.Credentials, error) {
-		result := docker.Credentials{}
+	return c.getCredentials
+}
 
-		for _, load := range authLoaders {
+func (c *credentialsProvider) getCredentials(ctx context.Context, registry string) (docker.Credentials, error) {
+	var err error
+	result := docker.Credentials{}
 
-			result, err = load(registry)
+	for _, load := range c.credentialLoaders {
 
-			if err != nil && !errors.Is(err, errCredentialsNotFound) {
-				return docker.Credentials{}, err
-			}
+		result, err = load(registry)
 
-			if result != (docker.Credentials{}) {
-				err = verifyCredentials(ctx, registry, result)
-				if err == nil {
-					return result, nil
-				} else {
-					if !errors.Is(err, ErrUnauthorized) {
-						return docker.Credentials{}, err
-					}
-				}
-			}
+		if err != nil && !errors.Is(err, errCredentialsNotFound) {
+			return docker.Credentials{}, err
 		}
 
-		if askUser == nil {
-			return docker.Credentials{}, errCredentialsNotFound
-		}
-
-		for {
-			result, err = askUser(registry)
-			if err != nil {
-				return docker.Credentials{}, err
-			}
-
-			err = verifyCredentials(ctx, registry, result)
+		if result != (docker.Credentials{}) {
+			err = c.verifyCredentials(ctx, registry, result)
 			if err == nil {
-				err = setCredentialsByCredentialHelper(authFilePath, registry, result.Username, result.Password)
-				if err != nil {
-					if !errors.Is(err, errNoCredentialHelperConfigured) {
-						return docker.Credentials{}, err
-					}
-					helpers := listCredentialHelpers()
-					helper, err := chooseCredentialHelper(helpers)
-					if err != nil {
-						return docker.Credentials{}, err
-					}
-					helper = strings.TrimPrefix(helper, "docker-credential-")
-					err = setCredentialHelperToConfig(authFilePath, helper)
-					if err != nil {
-						return docker.Credentials{}, fmt.Errorf("faild to set the helper to the config: %w", err)
-					}
-					err = setCredentialsByCredentialHelper(authFilePath, registry, result.Username, result.Password)
-					if err != nil && !errors.Is(err, errNoCredentialHelperConfigured) {
-						return docker.Credentials{}, err
-					}
-				}
 				return result, nil
 			} else {
-				if errors.Is(err, ErrUnauthorized) {
-					continue
+				if !errors.Is(err, ErrUnauthorized) {
+					return docker.Credentials{}, err
 				}
-				return docker.Credentials{}, err
 			}
+		}
+	}
+
+	if c.promptForCredentials == nil {
+		return docker.Credentials{}, errCredentialsNotFound
+	}
+
+	for {
+		result, err = c.promptForCredentials(registry)
+		if err != nil {
+			return docker.Credentials{}, err
+		}
+
+		err = c.verifyCredentials(ctx, registry, result)
+		if err == nil {
+			err = setCredentialsByCredentialHelper(c.authFilePath, registry, result.Username, result.Password)
+			if err != nil {
+				if !errors.Is(err, errNoCredentialHelperConfigured) {
+					return docker.Credentials{}, err
+				}
+				helpers := listCredentialHelpers()
+				helper, err := c.promptForCredentialStore(helpers)
+				if err != nil {
+					return docker.Credentials{}, err
+				}
+				helper = strings.TrimPrefix(helper, "docker-credential-")
+				err = setCredentialHelperToConfig(c.authFilePath, helper)
+				if err != nil {
+					return docker.Credentials{}, fmt.Errorf("faild to set the helper to the config: %w", err)
+				}
+				err = setCredentialsByCredentialHelper(c.authFilePath, registry, result.Username, result.Password)
+				if err != nil && !errors.Is(err, errNoCredentialHelperConfigured) {
+					return docker.Credentials{}, err
+				}
+			}
+			return result, nil
+		} else {
+			if errors.Is(err, ErrUnauthorized) {
+				continue
+			}
+			return docker.Credentials{}, err
 		}
 	}
 }
