@@ -13,6 +13,7 @@ import (
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/buildpacks"
 	"knative.dev/kn-plugin-func/docker"
+	"knative.dev/kn-plugin-func/docker/creds"
 	"knative.dev/kn-plugin-func/knative"
 	"knative.dev/kn-plugin-func/progress"
 )
@@ -26,9 +27,9 @@ func newDeployClient(cfg deployConfig) (*fn.Client, error) {
 
 	builder := buildpacks.NewBuilder()
 
-	credentialsProvider := docker.NewCredentialsProvider(
-		docker.WithPromptForCredentials(newPromptForCredentials()),
-		docker.WithPromptForCredentialStore(newPromptForCredentialStore()))
+	credentialsProvider := creds.NewCredentialsProvider(
+		creds.WithPromptForCredentials(newPromptForCredentials()),
+		creds.WithPromptForCredentialStore(newPromptForCredentialStore()))
 	pusher, err := docker.NewPusher(
 		docker.WithCredentialsProvider(credentialsProvider),
 		docker.WithProgressListener(listener))
@@ -228,7 +229,7 @@ func newPromptForCredentials() func(registry string) (docker.Credentials, error)
 	}
 }
 
-func newPromptForCredentialStore() docker.ChooseCredentialHelperCallback {
+func newPromptForCredentialStore() creds.ChooseCredentialHelperCallback {
 	return func(availableHelpers []string) (string, error) {
 		if len(availableHelpers) < 1 {
 			fmt.Fprintf(os.Stderr, `Credentials will not be saved.

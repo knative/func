@@ -9,17 +9,13 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"net/http"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 
 	fn "knative.dev/kn-plugin-func"
 	fnhttp "knative.dev/kn-plugin-func/http"
 
-	"github.com/containers/image/v5/pkg/docker/config"
-	containersTypes "github.com/containers/image/v5/types"
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
 	"github.com/google/go-containerregistry/pkg/authn"
@@ -27,7 +23,6 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/daemon"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 )
 
 type Opt func(*Pusher) error
@@ -38,239 +33,6 @@ type Credentials struct {
 }
 
 type CredentialsProvider func(ctx context.Context, registry string) (Credentials, error)
-
-type CredentialsCallback func(registry string) (Credentials, error)
-
-var ErrUnauthorized = errors.New("bad credentials")
-
-// VerifyCredentialsCallback checks if credentials are accepted by the registry.
-// If credentials are incorrect this callback shall return ErrUnauthorized.
-type VerifyCredentialsCallback func(ctx context.Context, registry string, credentials Credentials) error
-
-func CheckAuth(ctx context.Context, registry string, credentials Credentials) error {
-	serverAddress := registry
-	if !strings.HasPrefix(serverAddress, "https://") && !strings.HasPrefix(serverAddress, "http://") {
-		serverAddress = "https://" + serverAddress
-	}
-
-	url := fmt.Sprintf("%s/v2", serverAddress)
-
-	authenticator := &authn.Basic{
-		Username: credentials.Username,
-		Password: credentials.Password,
-	}
-
-	reg, err := name.NewRegistry(registry)
-	if err != nil {
-		return err
-	}
-
-	t := fnhttp.NewRoundTripper()
-	defer t.Close()
-
-	tr, err := transport.NewWithContext(ctx, reg, authenticator, t, nil)
-	if err != nil {
-		return err
-	}
-
-	cli := http.Client{Transport: tr}
-
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return err
-	}
-
-	resp, err := cli.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to verify credentials: %w", err)
-	}
-	defer resp.Body.Close()
-
-	switch {
-	case resp.StatusCode == http.StatusUnauthorized:
-		return ErrUnauthorized
-	case resp.StatusCode != http.StatusOK:
-		return fmt.Errorf("failed to verify credentials: status code: %d", resp.StatusCode)
-	default:
-		return nil
-	}
-}
-
-type ChooseCredentialHelperCallback func(available []string) (string, error)
-
-type credentialProviderConfig struct {
-	promptForCredentials        CredentialsCallback
-	verifyCredentials           VerifyCredentialsCallback
-	promptForCredentialStore    ChooseCredentialHelperCallback
-	additionalCredentialLoaders []CredentialsCallback
-}
-
-type CredentialProviderOptions func(opts *credentialProviderConfig)
-
-// WithPromptForCredentials sets custom callback that is supposed to
-// interactively ask for credentials in case the credentials cannot be found in configuration files.
-// The callback may be called multiple times in case incorrect credentials were returned before.
-func WithPromptForCredentials(cbk CredentialsCallback) CredentialProviderOptions {
-	return func(opts *credentialProviderConfig) {
-		opts.promptForCredentials = cbk
-	}
-}
-
-// WithVerifyCredentials sets custom callback for credentials validation.
-func WithVerifyCredentials(cbk VerifyCredentialsCallback) CredentialProviderOptions {
-	return func(opts *credentialProviderConfig) {
-		opts.verifyCredentials = cbk
-	}
-}
-
-// WithPromptForCredentialStore sets custom callback that is supposed to
-// interactively ask user which credentials store/helper is used to store credentials obtained
-// from user.
-func WithPromptForCredentialStore(cbk ChooseCredentialHelperCallback) CredentialProviderOptions {
-	return func(opts *credentialProviderConfig) {
-		opts.promptForCredentialStore = cbk
-	}
-}
-
-// WithAdditionalCredentialLoaders adds custom callbacks for credential retrieval.
-// The callbacks are supposed to be non-interactive as opposed to WithPromptForCredentials.
-//
-// This might be useful when credentials are shared with some other service.
-//
-// Example: OpenShift builtin registry shares credentials with the cluster (k8s) credentials.
-func WithAdditionalCredentialLoaders(loaders ...CredentialsCallback) CredentialProviderOptions {
-	return func(opts *credentialProviderConfig) {
-		opts.additionalCredentialLoaders = append(opts.additionalCredentialLoaders, loaders...)
-	}
-}
-
-// NewCredentialsProvider returns new CredentialsProvider that tires to get credentials from docker/func config files.
-//
-// In case getting credentials from the config files fails
-// the caller provided callback (see WithPromptForCredentials) will be invoked to obtain credentials.
-// The callback may be called multiple times in case the returned credentials
-// are not correct (see WithVerifyCredentials).
-//
-// When the callback succeeds the credentials will be saved by using helper defined in the func config.
-// If the helper is not defined in the config file
-// it may be picked by provided callback (see WithPromptForCredentialStore).
-// The picked value will be saved in the func config.
-//
-// To verify that credentials are correct callback will be used (see WithVerifyCredentials).
-// If the callback is not set then CheckAuth will be used as a fallback.
-func NewCredentialsProvider(opts ...CredentialProviderOptions) CredentialsProvider {
-	var conf credentialProviderConfig
-
-	for _, o := range opts {
-		o(&conf)
-	}
-
-	askUser, verifyCredentials, chooseCredentialHelper := conf.promptForCredentials, conf.verifyCredentials, conf.promptForCredentialStore
-
-	if verifyCredentials == nil {
-		verifyCredentials = CheckAuth
-	}
-
-	if chooseCredentialHelper == nil {
-		chooseCredentialHelper = func(available []string) (string, error) {
-			return "", nil
-		}
-	}
-
-	authFilePath := filepath.Join(fn.ConfigPath(), "auth.json")
-	sys := &containersTypes.SystemContext{
-		AuthFilePath: authFilePath,
-	}
-
-	home, err := os.UserHomeDir()
-	if err != nil {
-		panic(err)
-		//return result, fmt.Errorf("failed to determine home directory: %w", err)
-	}
-	dockerConfigPath := filepath.Join(home, ".docker", "config.json")
-
-	var authLoaders = []CredentialsCallback{
-		func(registry string) (Credentials, error) {
-			creds, err := config.GetCredentials(sys, registry)
-			if err != nil {
-				return Credentials{}, err
-			}
-			return Credentials{
-				Username: creds.Username,
-				Password: creds.Password,
-			}, nil
-		},
-		func(registry string) (Credentials, error) {
-			return getCredentialsByCredentialHelper(authFilePath, registry)
-		},
-		func(registry string) (Credentials, error) {
-			return getCredentialsByCredentialHelper(dockerConfigPath, registry)
-		},
-	}
-
-	authLoaders = append(conf.additionalCredentialLoaders, authLoaders...)
-
-	return func(ctx context.Context, registry string) (Credentials, error) {
-		result := Credentials{}
-
-		for _, load := range authLoaders {
-
-			result, err = load(registry)
-
-			if err != nil && !errors.Is(err, errCredentialsNotFound) {
-				return Credentials{}, err
-			}
-
-			if result != (Credentials{}) {
-				err = verifyCredentials(ctx, registry, result)
-				if err == nil {
-					return result, nil
-				} else {
-					if !errors.Is(err, ErrUnauthorized) {
-						return Credentials{}, err
-					}
-				}
-			}
-		}
-
-		for {
-			result, err = askUser(registry)
-			if err != nil {
-				return Credentials{}, err
-			}
-
-			err = verifyCredentials(ctx, registry, result)
-			if err == nil {
-				err = setCredentialsByCredentialHelper(authFilePath, registry, result.Username, result.Password)
-				if err != nil {
-					if !errors.Is(err, errNoCredentialHelperConfigured) {
-						return Credentials{}, err
-					}
-					helpers := listCredentialHelpers()
-					helper, err := chooseCredentialHelper(helpers)
-					if err != nil {
-						return Credentials{}, err
-					}
-					helper = strings.TrimPrefix(helper, "docker-credential-")
-					err = setCredentialHelperToConfig(authFilePath, helper)
-					if err != nil {
-						return Credentials{}, fmt.Errorf("faild to set the helper to the config: %w", err)
-					}
-					err = setCredentialsByCredentialHelper(authFilePath, registry, result.Username, result.Password)
-					if err != nil && !errors.Is(err, errNoCredentialHelperConfigured) {
-						return Credentials{}, err
-					}
-				}
-				return result, nil
-			} else {
-				if errors.Is(err, ErrUnauthorized) {
-					continue
-				}
-				return Credentials{}, err
-			}
-		}
-	}
-}
 
 // Pusher of images from local to remote registry.
 type Pusher struct {
@@ -314,7 +76,7 @@ func NewPusher(opts ...Opt) (*Pusher, error) {
 	return result, nil
 }
 
-func getRegistry(image_url string) (string, error) {
+func GetRegistry(image_url string) (string, error) {
 	var registry string
 	parts := strings.Split(image_url, "/")
 	switch {
@@ -344,7 +106,7 @@ func (n *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err er
 		return "", errors.New("Function has no associated image.  Has it been built?")
 	}
 
-	registry, err := getRegistry(f.Image)
+	registry, err := GetRegistry(f.Image)
 	if err != nil {
 		return "", err
 	}
@@ -418,17 +180,17 @@ func daemonPush(ctx context.Context, f fn.Function, credentials Credentials, out
 		fmt.Fprintf(output, "%s (%d%%)\n", li.Status, percent)
 	}
 
-	digest = parseDigest(outBuff.String())
+	digest = ParseDigest(outBuff.String())
 
 	return digest, nil
 }
 
 var digestRE = regexp.MustCompile(`digest:\s+(sha256:\w{64})`)
 
-// parseDigest tries to parse the last line from the output, which holds the pushed image digest
+// ParseDigest tries to parse the last line from the output, which holds the pushed image digest
 // The output should contain line like this:
 // latest: digest: sha256:a278a91112d17f8bde6b5f802a3317c7c752cf88078dae6f4b5a0784deb81782 size: 2613
-func parseDigest(output string) string {
+func ParseDigest(output string) string {
 	match := digestRE.FindStringSubmatch(output)
 	if len(match) >= 2 {
 		return match[1]
