@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"testing"
 	"time"
 
@@ -951,7 +952,7 @@ func TestInvokeHTTP(t *testing.T) {
 		if err := req.ParseForm(); err != nil {
 			t.Fatal(err)
 		}
-		// Verify that we POSt to HTTP endpoints by default
+		// Verify that we POST to HTTP endpoints by default
 		if req.Method != "POST" {
 			t.Fatalf("expected 'POST' request, got '%v'", req.Method)
 		}
@@ -974,17 +975,30 @@ func TestInvokeHTTP(t *testing.T) {
 	}()
 	defer s.Close()
 
-	// Create a client with a mock Describer which will report the route
-	// to any Function as being the masquarading Function started above.
-	describer := mock.NewDescriber()
-	describer.DescribeFn = func(name string) (fn.Instance, error) {
-		return fn.Instance{Routes: []string{"http://" + l.Addr().String()}}, nil
+	// Create a client with a mock runner which will report a fake pid
+	// and the port at which the fake Function above is listening.
+	runner := mock.NewRunner()
+	runner.RunFn = func(ctx context.Context, f fn.Function) (int, int, error) {
+		_, p, _ := net.SplitHostPort(l.Addr().String())
+		port, err := strconv.Atoi(p)
+		return 1000, int(port), err
 	}
-	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithDescriber(describer))
+	/*
+		describer := mock.NewDescriber()
+		describer.DescribeFn = func(name string) (fn.Instance, error) {
+			return fn.Instance{Routes: []string{"http://" + l.Addr().String()}}, nil
+		}
+	*/
+	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithRunner(runner))
 
 	// Create a new default HTTP function
 	f := fn.Function{Runtime: TestRuntime, Root: root, Template: "http"}
 	if err := client.New(context.Background(), f); err != nil {
+		t.Fatal(err)
+	}
+
+	// Run the Function
+	if err := client.Run(context.Background(), f.Root); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1001,7 +1015,7 @@ func TestInvokeHTTP(t *testing.T) {
 	}
 
 	// Also fail if the mock descrier was never consulted.
-	if !describer.DescribeInvoked {
+	if !runner.RunInvoked {
 		t.Fatal("the describer was not invoked for the Functions address")
 	}
 }
@@ -1055,11 +1069,19 @@ func TestInvokeCloudEvent(t *testing.T) {
 
 	// Create a client with a mock Describer which will report the route
 	// to any Function as being the masquarading Function started above.
-	describer := mock.NewDescriber()
-	describer.DescribeFn = func(name string) (fn.Instance, error) {
-		return fn.Instance{Routes: []string{"http://" + l.Addr().String()}}, nil
+	runner := mock.NewRunner()
+	runner.RunFn = func(ctx context.Context, f fn.Function) (int, int, error) {
+		_, p, _ := net.SplitHostPort(l.Addr().String())
+		port, err := strconv.Atoi(p)
+		return 1000, int(port), err
 	}
-	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithDescriber(describer))
+	/*
+		describer := mock.NewDescriber()
+		describer.DescribeFn = func(name string) (fn.Instance, error) {
+			return fn.Instance{Routes: []string{"http://" + l.Addr().String()}}, nil
+		}
+	*/
+	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithRunner(runner))
 
 	// Create a new default CloudEvents function
 	f := fn.Function{Runtime: TestRuntime, Root: root, Template: "cloudevents"}
@@ -1067,7 +1089,10 @@ func TestInvokeCloudEvent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	fmt.Printf("Function created: %#v\n", f)
+	// Run the Function
+	if err := client.Run(context.Background(), f.Root); err != nil {
+		t.Fatal(err)
+	}
 
 	// Invoke the Function, which will use the mock Descrivber to locate the
 	// Function as being the one started above which validates the passed
@@ -1082,10 +1107,14 @@ func TestInvokeCloudEvent(t *testing.T) {
 	}
 
 	// Also fail if the mock descrier was never consulted.
-	if !describer.DescribeInvoked {
+	if !runner.RunInvoked {
 		t.Fatal("the describer was not invoked for the Functions address")
 	}
 }
+
+// TestInvokeErrors ensures that
+//   Attempting to invoke a local Function errors if not running locally
+//   Attempting to invoke a remote Function errors if not running in remote
 
 // TestRunDataDir ensures that when a Function is created, it also
 // includes a .func (runtime data) directory which is registered as ignored for

@@ -713,6 +713,23 @@ func readFunc(f Function, name string) ([]byte, error) {
 	return os.ReadFile(file)
 }
 
+// runningFunc returns true if the passed Function appears to be running.
+// Improperly initialized or nonexistent (zero value) Functions are considered
+// to not be running.
+func runningFunc(f Function) bool {
+	if f.Root == "" || !f.Initialized() {
+		return false
+	}
+	// "pid" file is used as a simple indicator the Function is (expected to be)
+	// running.
+	// This could be expanded to be more in-depth by also checking that the
+	// process at that pid is currently running and a TCP connection can
+	// be established on port ('port' file).
+	file := filepath.Join(f.Root, ".func", "port")
+	_, err := os.Stat(file)
+	return err == nil
+}
+
 // List currently deployed Functions.
 func (c *Client) List(ctx context.Context) ([]ListItem, error) {
 	// delegate to concrete implementation of lister entirely.
@@ -768,6 +785,7 @@ func (c *Client) Invoke(ctx context.Context, root string, target string, m Invok
 
 	// TODO: default target
 
+	// See invoke.go for implementation details
 	return invoke(ctx, c, f, target, m)
 }
 

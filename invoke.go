@@ -39,7 +39,12 @@ func NewInvokeMessage() InvokeMessage {
 	}
 }
 
+// invoke the Function instance in the target environment with the
+// invocation message.
 func invoke(ctx context.Context, c *Client, f Function, target string, m InvokeMessage) error {
+
+	// Get the first available route from 'local', 'remote', a named environment
+	// or treat target
 	route, err := invocationRoute(ctx, c, f, target) // choose instance to invoke
 	if err != nil {
 		return err
@@ -56,27 +61,50 @@ func invoke(ctx context.Context, c *Client, f Function, target string, m InvokeM
 }
 
 // invocationRoute returns a route to the named target instance of a Func:
-// 'local': locally running Function (error if not running)
-// 'remote': first available remote instance (error if none available)
+// 'local': local environment; locally running Function (error if not running)
+// 'remote': remote environment; first available instance (error if none)
 // '<environment>': A valid alternate target which contains instances.
 // '<url>': An explicit URL
 // '': Default if no target is passed is to first use local, then remote.
 //     errors if neither are available.
 func invocationRoute(ctx context.Context, c *Client, f Function, target string) (string, error) {
-
-	// Attempt to get the instance data for the Function in the given target
-	// environment.
-	instance, err := c.Instances().Get(ctx, f, target)
-	if err != nil {
-		// If the only error returned is that the target environment does not exist
-		// fall through and assume it as an override URL.
-		if errors.Is(err, ErrEnvironmentNotFound) {
-			return target, nil
+	// TODO: this function has code-smell.  will de-smellify it, but I
+	if target == EnvironmentLocal {
+		instance, err := c.Instances().Get(ctx, f, target)
+		if err != nil {
+			if errors.Is(err, ErrEnvironmentNotFound) {
+				return "", errors.New("not running locally")
+			}
+			return "", err
 		}
-		// Other errors are reported as such
-		return "", err
+		return instance.Route, nil
+
+	} else if target == EnvironmentRemote {
+		instance, err := c.Instances().Get(ctx, f, target)
+		if err != nil {
+			if errors.Is(err, ErrEnvironmentNotFound) {
+				return "", errors.New("not running in remote")
+			}
+			return "", err
+		}
+		return instance.Route, nil
+
+	} else if target == "" { // target blank, check local first then remote.
+		instance, err := c.Instances().Get(ctx, f, EnvironmentLocal)
+		if err != nil {
+			if errors.Is(err, ErrEnvironmentNotFound) {
+				instance, err = c.Instances().Get(ctx, f, EnvironmentLocal)
+				if err != nil {
+					return "", errors.New("not running")
+				}
+			}
+			return "", err
+		}
+		return instance.Route, nil
+	} else {
+		// treat an unrecognized target as an ad-hoc verbatim endpoint
+		return target, nil
 	}
-	return instance.Route, nil
 }
 
 // sendEvent to the route populated with data in the invoke message.

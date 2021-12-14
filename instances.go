@@ -51,16 +51,22 @@ func (s *Instances) Get(ctx context.Context, f Function, environment string) (In
 }
 
 // Local instance details for the Function
+// If the Function is not running locally the error returned is ErrNotRunning
 func (s *Instances) Local(ctx context.Context, f Function) (Instance, error) {
 	var i Instance
+	// To create a local instance the Function must have a root path defined
+	// which contains an initialized function and be running.
 	if f.Root == "" {
 		return i, ErrRootRequired
 	}
 	if !f.Initialized() {
 		return i, ErrNotInitialized
 	}
+	if !runningFunc(f) {
+		return i, ErrNotRunning
+	}
 
-	port, err := readFunc(f, "port")
+	port, err := readFunc(f, "port") // this will fail if !running
 	if err != nil {
 		return i, err
 	}
