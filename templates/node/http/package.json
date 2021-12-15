@@ -12,7 +12,7 @@
   "author": "",
   "license": "Apache-2.0",
   "dependencies": {
-    "faas-js-runtime": "^0.7.1"
+    "faas-js-runtime": "^0.8.0"
   },
   "devDependencies": {
     "nodemon": "^2.0.4",
