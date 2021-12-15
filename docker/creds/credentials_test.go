@@ -147,7 +147,7 @@ func TestCheckAuth(t *testing.T) {
 				Username: tt.args.username,
 				Password: tt.args.password,
 			}
-			if err := creds.CheckAuth(tt.args.ctx, tt.args.registry, c); (err != nil) != tt.wantErr {
+			if err := creds.CheckAuth(tt.args.ctx, tt.args.registry, c, http.DefaultTransport); (err != nil) != tt.wantErr {
 				t.Errorf("CheckAuth() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

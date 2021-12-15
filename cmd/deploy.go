@@ -2,7 +2,10 @@ package cmd
 
 import (
 	"fmt"
+	"net/http"
 	"os"
+
+	fnhttp "knative.dev/kn-plugin-func/http"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
@@ -29,10 +32,12 @@ func newDeployClient(cfg deployConfig) (*fn.Client, error) {
 
 	credentialsProvider := creds.NewCredentialsProvider(
 		creds.WithPromptForCredentials(newPromptForCredentials()),
-		creds.WithPromptForCredentialStore(newPromptForCredentialStore()))
+		creds.WithPromptForCredentialStore(newPromptForCredentialStore()),
+		creds.WithTransport(cfg.Transport))
 	pusher, err := docker.NewPusher(
 		docker.WithCredentialsProvider(credentialsProvider),
-		docker.WithProgressListener(listener))
+		docker.WithProgressListener(listener),
+		docker.WithTransport(cfg.Transport))
 	if err != nil {
 		return nil, err
 	}
@@ -175,6 +180,10 @@ func runDeploy(cmd *cobra.Command, _ []string, clientFn deployClientFn) (err err
 		config.Registry = ""
 	}
 
+	rt := fnhttp.NewRoundTripper()
+	defer rt.Close()
+	config.Transport = rt
+
 	client, err := clientFn(config)
 	if err != nil {
 		if err == terminal.InterruptErr {
@@ -285,6 +294,8 @@ type deployConfig struct {
 
 	// Envs passed via cmd to removed
 	EnvToRemove []string
+
+	Transport http.RoundTripper
 }
 
 // newDeployConfig creates a buildConfig populated from command flags and

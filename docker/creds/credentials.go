@@ -16,7 +16,6 @@ import (
 
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/docker"
-	fnhttp "knative.dev/kn-plugin-func/http"
 
 	"github.com/containers/image/v5/pkg/docker/config"
 	containersTypes "github.com/containers/image/v5/types"
@@ -35,7 +34,7 @@ var ErrUnauthorized = errors.New("bad credentials")
 // If credentials are incorrect this callback shall return ErrUnauthorized.
 type VerifyCredentialsCallback func(ctx context.Context, registry string, credentials docker.Credentials) error
 
-func CheckAuth(ctx context.Context, registry string, credentials docker.Credentials) error {
+func CheckAuth(ctx context.Context, registry string, credentials docker.Credentials, trans http.RoundTripper) error {
 	serverAddress := registry
 	if !strings.HasPrefix(serverAddress, "https://") && !strings.HasPrefix(serverAddress, "http://") {
 		serverAddress = "https://" + serverAddress
@@ -53,10 +52,7 @@ func CheckAuth(ctx context.Context, registry string, credentials docker.Credenti
 		return err
 	}
 
-	t := fnhttp.NewRoundTripper()
-	defer t.Close()
-
-	tr, err := transport.NewWithContext(ctx, reg, authenticator, t, nil)
+	tr, err := transport.NewWithContext(ctx, reg, authenticator, trans, nil)
 	if err != nil {
 		return err
 	}
@@ -92,6 +88,7 @@ type credentialsProvider struct {
 	promptForCredentialStore ChooseCredentialHelperCallback
 	credentialLoaders        []CredentialsCallback
 	authFilePath             string
+	transport                http.RoundTripper
 }
 
 type Opt func(opts *credentialsProvider)
@@ -121,6 +118,12 @@ func WithPromptForCredentialStore(cbk ChooseCredentialHelperCallback) Opt {
 	}
 }
 
+func WithTransport(transport http.RoundTripper) Opt {
+	return func(opts *credentialsProvider) {
+		opts.transport = transport
+	}
+}
+
 // WithAdditionalCredentialLoaders adds custom callbacks for credential retrieval.
 // The callbacks are supposed to be non-interactive as opposed to WithPromptForCredentials.
 //
@@ -145,8 +148,7 @@ func WithAdditionalCredentialLoaders(loaders ...CredentialsCallback) Opt {
 // it may be picked by provided callback (see WithPromptForCredentialStore).
 // The picked value will be saved in the func config.
 //
-// To verify that credentials are correct callback will be used (see WithVerifyCredentials).
-// If the callback is not set then CheckAuth will be used as a fallback.
+// To verify that credentials are correct custom callback can be used (see WithVerifyCredentials).
 func NewCredentialsProvider(opts ...Opt) docker.CredentialsProvider {
 	var c credentialsProvider
 
@@ -154,8 +156,14 @@ func NewCredentialsProvider(opts ...Opt) docker.CredentialsProvider {
 		o(&c)
 	}
 
+	if c.transport == nil {
+		c.transport = http.DefaultTransport
+	}
+
 	if c.verifyCredentials == nil {
-		c.verifyCredentials = CheckAuth
+		c.verifyCredentials = func(ctx context.Context, registry string, credentials docker.Credentials) error {
+			return CheckAuth(ctx, registry, credentials, c.transport)
+		}
 	}
 
 	if c.promptForCredentialStore == nil {

@@ -9,12 +9,12 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"os"
 	"regexp"
 	"strings"
 
 	fn "knative.dev/kn-plugin-func"
-	fnhttp "knative.dev/kn-plugin-func/http"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
@@ -40,6 +40,7 @@ type Pusher struct {
 	Verbose             bool
 	credentialsProvider CredentialsProvider
 	progressListener    fn.ProgressListener
+	transport           http.RoundTripper
 }
 
 func WithCredentialsProvider(cp CredentialsProvider) Opt {
@@ -56,6 +57,13 @@ func WithProgressListener(pl fn.ProgressListener) Opt {
 	}
 }
 
+func WithTransport(transport http.RoundTripper) Opt {
+	return func(pusher *Pusher) error {
+		pusher.transport = transport
+		return nil
+	}
+}
+
 func EmptyCredentialsProvider(ctx context.Context, registry string) (Credentials, error) {
 	return Credentials{}, nil
 }
@@ -66,6 +74,7 @@ func NewPusher(opts ...Opt) (*Pusher, error) {
 		Verbose:             false,
 		credentialsProvider: EmptyCredentialsProvider,
 		progressListener:    &fn.NoopProgressListener{},
+		transport:           http.DefaultTransport,
 	}
 	for _, opt := range opts {
 		err := opt(result)
@@ -73,6 +82,7 @@ func NewPusher(opts ...Opt) (*Pusher, error) {
 			return nil, err
 		}
 	}
+
 	return result, nil
 }
 
@@ -120,14 +130,14 @@ func (n *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err er
 
 	// if the registry is not cluster private do push directly from daemon
 	if _, err = net.DefaultResolver.LookupHost(ctx, registry); err == nil {
-		return daemonPush(ctx, f, credentials, output)
+		return n.daemonPush(ctx, f, credentials, output)
 	}
 
 	// push with custom transport to be able to push into cluster private registries
-	return push(ctx, f, credentials, output)
+	return n.push(ctx, f, credentials, output)
 }
 
-func daemonPush(ctx context.Context, f fn.Function, credentials Credentials, output io.Writer) (digest string, err error) {
+func (n *Pusher) daemonPush(ctx context.Context, f fn.Function, credentials Credentials, output io.Writer) (digest string, err error) {
 	cli, _, err := NewClient(client.DefaultDockerHost)
 	if err != nil {
 		return "", fmt.Errorf("failed to create docker api client: %w", err)
@@ -216,7 +226,7 @@ type logItem struct {
 	ProgressDetail progressDetail `json:"progressDetail"`
 }
 
-func push(ctx context.Context, f fn.Function, credentials Credentials, output io.Writer) (digest string, err error) {
+func (n *Pusher) push(ctx context.Context, f fn.Function, credentials Credentials, output io.Writer) (digest string, err error) {
 	auth := &authn.Basic{
 		Username: credentials.Username,
 		Password: credentials.Password,
@@ -256,13 +266,10 @@ func push(ctx context.Context, f fn.Function, credentials Credentials, output io
 		errChan <- nil
 	}()
 
-	t := fnhttp.NewRoundTripper()
-	defer t.Close()
-
 	err = remote.Write(ref, img,
 		remote.WithAuth(auth),
 		remote.WithProgress(progressChannel),
-		remote.WithTransport(t),
+		remote.WithTransport(n.transport),
 		remote.WithContext(ctx))
 	if err != nil {
 		return "", err
