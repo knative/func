@@ -92,11 +92,10 @@ const (
 
 // Runner runs the Function locally.
 type Runner interface {
-	// Run the Function locally, returning the process' pid, port on which
-	// it is listening (default route) and any errors.
+	// Start the Function locally, returning the process' pid, port on which
+	// it is listening (default route).   Canceling the context should signal
+	// the Function (which was started in another process) must exit.
 	Run(context.Context, Function) (pid, port int, err error)
-	// Function if it is running
-	Stop(context.Context, Function) error
 }
 
 // Remover of deployed services.
@@ -663,7 +662,10 @@ func (c *Client) Route(path string) (err error) {
 }
 
 // Run the Function whose code resides at root.
-func (c *Client) Run(ctx context.Context, root string) error {
+// The Funciton is expected to be a long-running process which blocks,
+// streaming its output to stdout and stderr.  the started channel argument
+// will be closed when the underlying runner signals started.
+func (c *Client) Run(ctx context.Context, root string, started chan bool) error {
 	go func() {
 		<-ctx.Done()
 		c.progressListener.Stopping()
@@ -676,23 +678,30 @@ func (c *Client) Run(ctx context.Context, root string) error {
 	}
 
 	if !f.Initialized() {
-		return fmt.Errorf("the given path '%v' does not contain an initialized Function.  Please create one at this path in order to run", root)
+		return fmt.Errorf("'%v' does not contain an initialized Function.", root)
 	}
 
 	// Run the given function using the registered runner
+	// Returned is the pid, port and a channel on which the runner signals it is
+	// done (such as on context cancelation)
 	pid, port, err := c.runner.Run(ctx, f)
 	if err != nil {
 		return err
 	}
-	defer c.runner.Stop(ctx, f)
 
 	if err := writeFunc(f, "pid", []byte(fmt.Sprint(pid))); err != nil {
 		return err
 	}
+	defer rmFunc(f, "pid")
+
 	if err := writeFunc(f, "port", []byte(fmt.Sprint(port))); err != nil {
 		return err
 	}
+	defer rmFunc(f, "port")
 
+	// Block awaiting a done signal from the Runner
+	close(started)
+	<-ctx.Done()
 	return nil
 }
 
@@ -703,8 +712,18 @@ func (c *Client) Run(ctx context.Context, root string) error {
 // which is ignored from source control by default.  Examples of runtime data
 // include PID and Port of a Function being run locally, etc.
 func writeFunc(f Function, name string, value []byte) error {
-	file := filepath.Join(f.Root, ".func", name)
-	return os.WriteFile(file, value, os.ModePerm)
+	path := filepath.Join(f.Root, ".func", name)
+	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, os.ModePerm)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+	if _, err := file.Write(value); err != nil {
+		return err
+	}
+	// Ensure it is written to disk such that other routines can immediately
+	// check if the Function is running.
+	return file.Sync()
 }
 
 // read Function runtime/local data.  See writeFunc for more details.
@@ -728,6 +747,12 @@ func runningFunc(f Function) bool {
 	file := filepath.Join(f.Root, ".func", "port")
 	_, err := os.Stat(file)
 	return err == nil
+}
+
+// rmFunc removes a file from the .func system if it exists
+func rmFunc(f Function, name string) error {
+	file := filepath.Join(f.Root, ".func", name)
+	return os.Remove(file)
 }
 
 // List currently deployed Functions.
@@ -836,8 +861,10 @@ func (n *noopDeployer) Deploy(ctx context.Context, _ Function) (DeploymentResult
 // Runner
 type noopRunner struct{ output io.Writer }
 
-func (n *noopRunner) Run(_ context.Context, _ Function) (int, int, error) { return -1, -1, nil }
-func (n *noopRunner) Stop(_ context.Context, _ Function) error            { return nil }
+func (n *noopRunner) Run(_ context.Context, _ Function) (int, int, error) {
+	return -1, -1, nil
+}
+func (n *noopRunner) Stop() {}
 
 // Remover
 type noopRemover struct{ output io.Writer }

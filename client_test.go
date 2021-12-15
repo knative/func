@@ -499,7 +499,7 @@ func TestRun(t *testing.T) {
 	root := "testdata/example.com/testRun"
 	defer Using(t, root)()
 
-	// Create a client with the mock runner and the new test Function
+	// client with the mock runner and the new test Function
 	runner := mock.NewRunner()
 	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithRunner(runner))
 	if err := client.New(context.Background(), fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
@@ -507,9 +507,16 @@ func TestRun(t *testing.T) {
 	}
 
 	// Run the newly created function
-	if err := client.Run(context.Background(), root); err != nil {
-		t.Fatal(err)
-	}
+	// Blocks until its context is canceled.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	started := make(chan bool, 1)
+	go func() {
+		if err := client.Run(ctx, root, started); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	<-started
 
 	// Assert the runner was invoked, and with the expected root.
 	if !runner.RunInvoked {
@@ -981,14 +988,8 @@ func TestInvokeHTTP(t *testing.T) {
 	runner.RunFn = func(ctx context.Context, f fn.Function) (int, int, error) {
 		_, p, _ := net.SplitHostPort(l.Addr().String())
 		port, err := strconv.Atoi(p)
-		return 1000, int(port), err
+		return 1000, port, err
 	}
-	/*
-		describer := mock.NewDescriber()
-		describer.DescribeFn = func(name string) (fn.Instance, error) {
-			return fn.Instance{Routes: []string{"http://" + l.Addr().String()}}, nil
-		}
-	*/
 	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithRunner(runner))
 
 	// Create a new default HTTP function
@@ -998,9 +999,15 @@ func TestInvokeHTTP(t *testing.T) {
 	}
 
 	// Run the Function
-	if err := client.Run(context.Background(), f.Root); err != nil {
-		t.Fatal(err)
-	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	started := make(chan bool, 1)
+	go func() {
+		if err := client.Run(ctx, root, started); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	<-started
 
 	// Invoke the Function, which will use the mock Descrivber to locate the
 	// Function as being the one started above which validates the passed
@@ -1037,7 +1044,6 @@ func TestInvokeCloudEvent(t *testing.T) {
 	// A CloudEvent Receiver which masquarades as a running Function and
 	// verifies the invoker sent the message as a populated CloudEvent.
 	receiver := func(ctx context.Context, event cloudevents.Event) {
-		fmt.Printf("%s", event)
 		invoked = true
 		if event.ID() != message.ID {
 			t.Fatalf("expected event ID '%v', got '%v'", message.ID, event.ID())
@@ -1075,12 +1081,6 @@ func TestInvokeCloudEvent(t *testing.T) {
 		port, err := strconv.Atoi(p)
 		return 1000, int(port), err
 	}
-	/*
-		describer := mock.NewDescriber()
-		describer.DescribeFn = func(name string) (fn.Instance, error) {
-			return fn.Instance{Routes: []string{"http://" + l.Addr().String()}}, nil
-		}
-	*/
 	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithRunner(runner))
 
 	// Create a new default CloudEvents function
@@ -1090,9 +1090,15 @@ func TestInvokeCloudEvent(t *testing.T) {
 	}
 
 	// Run the Function
-	if err := client.Run(context.Background(), f.Root); err != nil {
-		t.Fatal(err)
-	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	started := make(chan bool, 1)
+	go func() {
+		if err := client.Run(ctx, root, started); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	<-started
 
 	// Invoke the Function, which will use the mock Descrivber to locate the
 	// Function as being the one started above which validates the passed
@@ -1161,7 +1167,7 @@ func TestRunDataDir(t *testing.T) {
 	t.Errorf(".gitignore does not include '/.func' ignore directive")
 }
 
-// TestRunInstance ensures that when a Function is run (locally) its metadata
+// TestInstances ensures that when a Function is run (locally) its metadata
 // is available to other clients inspecting the same Function using .Instances
 func TestInstances(t *testing.T) {
 	root := "testdata/example.com/testInstances"
@@ -1170,20 +1176,27 @@ func TestInstances(t *testing.T) {
 	// A mock runner
 	runner := mock.NewRunner()
 	runner.RunFn = func(_ context.Context, f fn.Function) (int, int, error) {
-		// TODO:  Report back metadata about the running process?
-		// Perhaps port and pid?  Allowing Client to do the lifting of tracking
-		// these things?
 		return 1000, 8080, nil
 	}
 
-	// Create and run a new Function
+	// Client with the mock runner
 	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithRunner(runner))
+
+	// Create the new Function
 	if err := client.New(context.Background(), fn.Function{Root: root, Runtime: TestRuntime}); err != nil {
 		t.Fatal(err)
 	}
-	if err := client.Run(context.Background(), root); err != nil {
-		t.Fatal(err)
-	}
+
+	// Run the function, awaiting start and then canceling
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	started := make(chan bool, 1)
+	go func() {
+		if err := client.Run(ctx, root, started); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	<-started
 
 	// Load the (now fully initialized) Function metadata
 	f, err := fn.NewFunction(root)
