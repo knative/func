@@ -976,19 +976,19 @@ func TestInvokeHTTP(t *testing.T) {
 	}
 	s := http.Server{Handler: handler}
 	go func() {
-		if err := s.Serve(l); err != nil && err != http.ErrServerClosed {
+		if err = s.Serve(l); err != nil && err != http.ErrServerClosed {
 			t.Fatal(err)
 		}
 	}()
 	defer s.Close()
 
-	// Create a client with a mock runner which will report a fake pid
-	// and the port at which the fake Function above is listening.
+	// Create a client with a mock runner which will report the port at which the
+	// interloping Function is listening.
 	runner := mock.NewRunner()
-	runner.RunFn = func(ctx context.Context, f fn.Function, _ chan error) (int, int, error) {
+	runner.RunFn = func(ctx context.Context, f fn.Function, _ chan error) (int, error) {
 		_, p, _ := net.SplitHostPort(l.Addr().String())
 		port, err := strconv.Atoi(p)
-		return 1000, port, err
+		return port, err
 	}
 	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithRunner(runner))
 
@@ -1076,10 +1076,10 @@ func TestInvokeCloudEvent(t *testing.T) {
 	// Create a client with a mock Describer which will report the route
 	// to any Function as being the masquarading Function started above.
 	runner := mock.NewRunner()
-	runner.RunFn = func(ctx context.Context, f fn.Function, _ chan error) (int, int, error) {
+	runner.RunFn = func(ctx context.Context, f fn.Function, _ chan error) (int, error) {
 		_, p, _ := net.SplitHostPort(l.Addr().String())
 		port, err := strconv.Atoi(p)
-		return 1000, int(port), err
+		return int(port), err
 	}
 	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithRunner(runner))
 
@@ -1175,8 +1175,8 @@ func TestInstances(t *testing.T) {
 
 	// A mock runner
 	runner := mock.NewRunner()
-	runner.RunFn = func(_ context.Context, f fn.Function, _ chan error) (int, int, error) {
-		return 1000, 8080, nil
+	runner.RunFn = func(_ context.Context, f fn.Function, _ chan error) (int, error) {
+		return 8080, nil
 	}
 
 	// Client with the mock runner
@@ -1216,6 +1216,3 @@ func TestInstances(t *testing.T) {
 		t.Fatalf("Expected endpoint '%v', got '%v'", expectedEndpoint, instance.Route)
 	}
 }
-
-// TODO: TestRunnerCleanup ensures that the Client signals the Runner to clean
-// up when it is done and nukes pid/port data

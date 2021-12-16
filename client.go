@@ -92,10 +92,11 @@ const (
 
 // Runner runs the Function locally.
 type Runner interface {
-	// Start the Function locally, returning the process' pid, port on which
-	// it is listening (default route).   Canceling the context should signal
-	// the Function (which was started in another process) must exit.
-	Run(context.Context, Function, chan error) (pid, port int, err error)
+	// Run the Function.  Returned is the port on which it can be contacted.
+	// Errors starting are returned immediately.  Runtime errors are communicated
+	// over a passed error channel.  The process can be stopped by canceling the
+	// passed context.
+	Run(context.Context, Function, chan error) (port int, err error)
 }
 
 // Remover of deployed services.
@@ -662,9 +663,9 @@ func (c *Client) Route(path string) (err error) {
 }
 
 // Run the Function whose code resides at root.
-// The Funciton is expected to be a long-running process which blocks,
-// streaming its output to stdout and stderr.  the started channel argument
-// will be closed when the underlying runner signals started.
+// The Funciton is expected to be a long-running process which streams its
+// output to stdout and stderr.  the started channel argument will be closed
+// when the underlying runner returns successfully.
 func (c *Client) Run(ctx context.Context, root string, started chan bool) error {
 	go func() {
 		<-ctx.Done()
@@ -685,24 +686,21 @@ func (c *Client) Run(ctx context.Context, root string, started chan bool) error 
 	// Returned is the pid, port and a channel on which the runner signals it is
 	// done (such as on context cancelation) or runtime error causing exit.
 	errCh := make(chan error, 1)
-	pid, port, err := c.runner.Run(ctx, f, errCh)
+	port, err := c.runner.Run(ctx, f, errCh)
 	if err != nil {
 		return err
 	}
-
-	if err := writeFunc(f, "pid", []byte(fmt.Sprint(pid))); err != nil {
-		return err
-	}
-	defer rmFunc(f, "pid")
 
 	if err := writeFunc(f, "port", []byte(fmt.Sprint(port))); err != nil {
 		return err
 	}
 	defer rmFunc(f, "port")
 
-	// Block awaiting a done signal from the Runner
+	// Signal the Function is started
 	close(started)
 
+	// Block awaiting either context cancelation or an exit of the
+	// Function.
 	select {
 	case <-ctx.Done():
 		// context canceled.  return cancellation errors other than a successful
@@ -872,8 +870,8 @@ func (n *noopDeployer) Deploy(ctx context.Context, _ Function) (DeploymentResult
 // Runner
 type noopRunner struct{ output io.Writer }
 
-func (n *noopRunner) Run(context.Context, Function, chan error) (int, int, error) {
-	return -1, -1, nil
+func (n *noopRunner) Run(context.Context, Function, chan error) (int, error) {
+	return -1, nil
 }
 func (n *noopRunner) Stop() {}
 
