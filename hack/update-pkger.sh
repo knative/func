@@ -27,3 +27,6 @@ go run ./vendor/github.com/markbates/pkger/cmd/pkger
 
 # Hack: remove touched file.
 rm "$REPO_ROOT_DIR/hack/package.go"
+
+# Ensure pkged.go is migrated
+gofmt -s -w pkged.go
