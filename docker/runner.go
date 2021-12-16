@@ -8,10 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/docker/docker/client"
-
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/go-connections/nat"
 	"github.com/pkg/errors"
@@ -33,7 +32,7 @@ func NewRunner() *Runner {
 // Run the function.  Errors running are returned along with port.  Runtime
 // errors are setnt to the passed error channel.  Stops when the context is
 // canceled.
-func (n *Runner) Run(ctx context.Context, f fn.Function, errCh chan error) (pid int, port int, err error) {
+func (n *Runner) Run(ctx context.Context, f fn.Function, errCh chan error) (port int, err error) {
 	// Ensure image is built before running
 	if f.Image == "" {
 		err = errors.New("Function has no associate image. Has it been built?")
@@ -139,7 +138,7 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, errCh chan error) (pid 
 		stopAndRemoveContainerCh <- true
 	}()
 
-	return 0, port, nil
+	return port, nil
 }
 
 // Run the function at path

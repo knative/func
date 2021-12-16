@@ -105,7 +105,14 @@ func runRun(cmd *cobra.Command, args []string, clientFn runClientFn) (err error)
 			return
 		}
 	}
-	return client.Run(cmd.Context(), config.Path)
+
+	startedCh := make(chan bool, 1)
+	if err = client.Run(cmd.Context(), config.Path, startedCh); err != nil {
+		return
+	}
+	<-startedCh
+	fmt.Fprintf(cmd.OutOrStderr(), "Started %v\n", function.Name)
+	return
 }
 
 type runConfig struct {

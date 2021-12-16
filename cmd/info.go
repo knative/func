@@ -129,7 +129,7 @@ func newInfoConfig(args []string) infoConfig {
 // Output Formatting (serializers)
 // -------------------------------
 
-type info fn.Info
+type info fn.Instance
 
 func (i info) Human(w io.Writer) error {
 	fmt.Fprintln(w, "Function name:")

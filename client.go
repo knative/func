@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -52,6 +53,7 @@ type Client struct {
 	repositories     *Repositories    // Repositories management
 	templates        *Templates       // Templates management
 	instances        *Instances       // Function Instances management
+	transport        http.RoundTripper
 }
 
 // ErrNotBuilt indicates the Function has not yet been built.
@@ -190,6 +192,7 @@ func New(options ...Option) *Client {
 		dnsProvider:      &noopDNSProvider{output: os.Stdout},
 		progressListener: &NoopProgressListener{},
 		repositoriesPath: filepath.Join(ConfigPath(), "repositories"),
+		transport:        http.DefaultTransport,
 	}
 	for _, o := range options {
 		o(c)
@@ -353,6 +356,13 @@ func WithRepository(uri string) Option {
 func WithRegistry(registry string) Option {
 	return func(c *Client) {
 		c.registry = registry
+	}
+}
+
+// WithTransport sets a custom transport to use internally.
+func WithTransport(t http.RoundTripper) Option {
+	return func(c *Client) {
+		c.transport = t
 	}
 }
 
@@ -714,6 +724,29 @@ func (c *Client) Run(ctx context.Context, root string, started chan bool) error 
 	}
 }
 
+// Info for a Function.  Name takes precidence.  If no name is provided,
+// the Function defined at root is used.
+func (c *Client) Info(ctx context.Context, name, root string) (d Instance, err error) {
+	go func() {
+		<-ctx.Done()
+		c.progressListener.Stopping()
+	}()
+	// If name is provided, it takes precidence.
+	// Otherwise load the Function defined at root.
+	if name != "" {
+		return c.describer.Describe(ctx, name)
+	}
+
+	f, err := NewFunction(root)
+	if err != nil {
+		return d, err
+	}
+	if !f.Initialized() {
+		return d, fmt.Errorf("%v is not initialized", f.Name)
+	}
+	return c.describer.Describe(ctx, f.Name)
+}
+
 // write Function runtime/local data.
 // Runtime data is metadata used during local development, testing and running
 // which does not affect the state of the Function in a way that would warrant
@@ -816,8 +849,6 @@ func (c *Client) Invoke(ctx context.Context, root string, target string, m Invok
 	if err != nil {
 		return
 	}
-
-	// TODO: default target
 
 	// See invoke.go for implementation details
 	return invoke(ctx, c, f, target, m)

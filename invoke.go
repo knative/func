@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/google/uuid"
@@ -52,9 +53,9 @@ func invoke(ctx context.Context, c *Client, f Function, target string, m InvokeM
 
 	switch f.Invocation.Format {
 	case "cloudevent":
-		return sendEvent(ctx, route, m) // invoke the f with m via CloudEvent
+		return sendEvent(ctx, route, m, c.transport) // invoke the f with m via CloudEvent
 	default:
-		return sendPost(ctx, route, m) // invoke the f with m via standard HTTP (Form POST)
+		return sendPost(ctx, route, m, c.transport) // invoke the f with m via standard HTTP (Form POST)
 		// NOTE: The default case ('http') is to always fall back to attempting
 		// a simple HTTP POST with form values.
 	}
@@ -109,14 +110,18 @@ func invocationRoute(ctx context.Context, c *Client, f Function, target string) 
 
 // sendEvent to the route populated with data in the invoke message.
 // with the data from the invoke message.
-func sendEvent(ctx context.Context, route string, m InvokeMessage) (err error) {
+func sendEvent(ctx context.Context, route string, m InvokeMessage, t http.RoundTripper) (err error) {
 	event := cloudevents.NewEvent()
 	event.SetID(m.ID)
 	event.SetSource(m.Source)
 	event.SetType(m.Type)
-	event.SetData(m.ContentType, m.Data)
+	if err = event.SetData(m.ContentType, m.Data); err != nil {
+		return
+	}
 
-	c, err := cloudevents.NewClientHTTP()
+	c, err := cloudevents.NewClientHTTP(
+		cloudevents.WithTarget(route),
+		cloudevents.WithRoundTripper(t))
 	if err != nil {
 		return
 	}
@@ -129,8 +134,12 @@ func sendEvent(ctx context.Context, route string, m InvokeMessage) (err error) {
 }
 
 // sendPost to the route populated with data in the invoke message.
-func sendPost(ctx context.Context, route string, m InvokeMessage) error {
-	resp, err := http.PostForm(route, url.Values{
+func sendPost(ctx context.Context, route string, m InvokeMessage, t http.RoundTripper) error {
+	client := http.Client{
+		Transport: t,
+		Timeout:   10 * time.Second,
+	}
+	resp, err := client.PostForm(route, url.Values{
 		"ID":     {m.ID},
 		"Source": {m.Source},
 		"Type":   {m.Type},
