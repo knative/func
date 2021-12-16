@@ -14,18 +14,18 @@ import (
 type Runner struct {
 	RunInvoked    bool
 	RootRequested string
-	RunFn         func(context.Context, fn.Function) (int, int, error)
+	RunFn         func(context.Context, fn.Function, chan error) (int, int, error)
 }
 
 func NewRunner() *Runner {
 	return &Runner{
-		RunFn: func(context.Context, fn.Function) (int, int, error) {
+		RunFn: func(context.Context, fn.Function, chan error) (int, int, error) {
 			return 0, 0, nil
 		},
 	}
 }
 
-func (r *Runner) Run(ctx context.Context, f fn.Function) (int, int, error) {
+func (r *Runner) Run(ctx context.Context, f fn.Function, errCh chan error) (int, int, error) {
 	r.RunInvoked = true
 	r.RootRequested = f.Root
 
@@ -40,12 +40,10 @@ func (r *Runner) Run(ctx context.Context, f fn.Function) (int, int, error) {
 	// the RunFn.  RunFn can block or not, but if it blocks should
 	started := make(chan bool, 1) // signal the "Function" is started
 	go func() {
-		pid, port, err = r.RunFn(ctx, f)
+		pid, port, err = r.RunFn(ctx, f, errCh)
 		started <- true
 		<-ctx.Done()
 	}()
-
 	<-started // wait for "start" (pid and port populated)
 	return pid, port, err
-
 }

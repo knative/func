@@ -95,7 +95,7 @@ type Runner interface {
 	// Start the Function locally, returning the process' pid, port on which
 	// it is listening (default route).   Canceling the context should signal
 	// the Function (which was started in another process) must exit.
-	Run(context.Context, Function) (pid, port int, err error)
+	Run(context.Context, Function, chan error) (pid, port int, err error)
 }
 
 // Remover of deployed services.
@@ -683,8 +683,9 @@ func (c *Client) Run(ctx context.Context, root string, started chan bool) error 
 
 	// Run the given function using the registered runner
 	// Returned is the pid, port and a channel on which the runner signals it is
-	// done (such as on context cancelation)
-	pid, port, err := c.runner.Run(ctx, f)
+	// done (such as on context cancelation) or runtime error causing exit.
+	errCh := make(chan error, 1)
+	pid, port, err := c.runner.Run(ctx, f, errCh)
 	if err != nil {
 		return err
 	}
@@ -701,8 +702,18 @@ func (c *Client) Run(ctx context.Context, root string, started chan bool) error 
 
 	// Block awaiting a done signal from the Runner
 	close(started)
-	<-ctx.Done()
-	return nil
+
+	select {
+	case <-ctx.Done():
+		// context canceled.  return cancellation errors other than a successful
+		// cancel.
+		if ctx.Err() != nil && !errors.Is(ctx.Err(), context.Canceled) {
+			return ctx.Err()
+		}
+		return nil
+	case err := <-errCh:
+		return err // Process exited, return possible errors
+	}
 }
 
 // write Function runtime/local data.
@@ -861,7 +872,7 @@ func (n *noopDeployer) Deploy(ctx context.Context, _ Function) (DeploymentResult
 // Runner
 type noopRunner struct{ output io.Writer }
 
-func (n *noopRunner) Run(_ context.Context, _ Function) (int, int, error) {
+func (n *noopRunner) Run(context.Context, Function, chan error) (int, int, error) {
 	return -1, -1, nil
 }
 func (n *noopRunner) Stop() {}

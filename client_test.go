@@ -985,7 +985,7 @@ func TestInvokeHTTP(t *testing.T) {
 	// Create a client with a mock runner which will report a fake pid
 	// and the port at which the fake Function above is listening.
 	runner := mock.NewRunner()
-	runner.RunFn = func(ctx context.Context, f fn.Function) (int, int, error) {
+	runner.RunFn = func(ctx context.Context, f fn.Function, _ chan error) (int, int, error) {
 		_, p, _ := net.SplitHostPort(l.Addr().String())
 		port, err := strconv.Atoi(p)
 		return 1000, port, err
@@ -1076,7 +1076,7 @@ func TestInvokeCloudEvent(t *testing.T) {
 	// Create a client with a mock Describer which will report the route
 	// to any Function as being the masquarading Function started above.
 	runner := mock.NewRunner()
-	runner.RunFn = func(ctx context.Context, f fn.Function) (int, int, error) {
+	runner.RunFn = func(ctx context.Context, f fn.Function, _ chan error) (int, int, error) {
 		_, p, _ := net.SplitHostPort(l.Addr().String())
 		port, err := strconv.Atoi(p)
 		return 1000, int(port), err
@@ -1175,7 +1175,7 @@ func TestInstances(t *testing.T) {
 
 	// A mock runner
 	runner := mock.NewRunner()
-	runner.RunFn = func(_ context.Context, f fn.Function) (int, int, error) {
+	runner.RunFn = func(_ context.Context, f fn.Function, _ chan error) (int, int, error) {
 		return 1000, 8080, nil
 	}
 
