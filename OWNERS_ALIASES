@@ -32,9 +32,13 @@ aliases:
   - lberk
   - n3wscott
   docs-wg-leads:
-  - abrennan89
+  - csantanapr
+  - snneji
   docs-writers:
   - abrennan89
+  - csantanapr
+  - psschwei
+  - snneji
   eventing-autoscaler-keda-approvers:
   - zroubalik
   eventing-awssqs-approvers:
@@ -170,7 +174,6 @@ aliases:
   - knative-prow-updater-robot
   - knative-test-reporter-robot
   - lance
-  - markusthoemmes
   - matzew
   - nak3
   - pmorie
@@ -195,7 +198,6 @@ aliases:
   - dprotaso
   - tcnghia
   net-gateway-api-approvers:
-  - markusthoemmes
   - nak3
   - tcnghia
   net-http01-approvers:
@@ -221,10 +223,8 @@ aliases:
   - upodroid
   productivity-wg-leads:
   - chizhg
-  - n3wscott
   productivity-writers:
   - chizhg
-  - n3wscott
   security-wg-leads:
   - evankanderson
   - julz
@@ -248,7 +248,6 @@ aliases:
   - dprotaso
   - evankanderson
   - julz
-  - markusthoemmes
   - rhuss
   ux-wg-leads:
   - csantanapr
