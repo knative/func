@@ -295,6 +295,7 @@ func (n *Pusher) push(ctx context.Context, f fn.Function, credentials Credential
 		remote.WithAuth(auth),
 		remote.WithProgress(progressChannel),
 		remote.WithTransport(n.transport),
+		remote.WithJobs(1),
 		remote.WithContext(ctx))
 	if err != nil {
 		return "", err
