@@ -14,10 +14,11 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/docker/docker/client"
+
 	fn "knative.dev/kn-plugin-func"
 
 	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/client"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -34,6 +35,18 @@ type Credentials struct {
 
 type CredentialsProvider func(ctx context.Context, registry string) (Credentials, error)
 
+// PusherDockerClient is sub-interface of client.CommonAPIClient required by pusher.
+type PusherDockerClient interface {
+	NegotiateAPIVersion(ctx context.Context)
+	ImageSave(context.Context, []string) (io.ReadCloser, error)
+	ImageLoad(context.Context, io.Reader, bool) (types.ImageLoadResponse, error)
+	ImageTag(context.Context, string, string) error
+	ImagePush(ctx context.Context, ref string, options types.ImagePushOptions) (io.ReadCloser, error)
+	Close() error
+}
+
+type PusherDockerClientFactory func() (PusherDockerClient, error)
+
 // Pusher of images from local to remote registry.
 type Pusher struct {
 	// Verbose logging.
@@ -41,6 +54,7 @@ type Pusher struct {
 	credentialsProvider CredentialsProvider
 	progressListener    fn.ProgressListener
 	transport           http.RoundTripper
+	dockerClientFactory PusherDockerClientFactory
 }
 
 func WithCredentialsProvider(cp CredentialsProvider) Opt {
@@ -64,6 +78,13 @@ func WithTransport(transport http.RoundTripper) Opt {
 	}
 }
 
+func WithPusherDockerClientFactory(dockerClientFactory PusherDockerClientFactory) Opt {
+	return func(pusher *Pusher) error {
+		pusher.dockerClientFactory = dockerClientFactory
+		return nil
+	}
+}
+
 func EmptyCredentialsProvider(ctx context.Context, registry string) (Credentials, error) {
 	return Credentials{}, nil
 }
@@ -75,6 +96,10 @@ func NewPusher(opts ...Opt) (*Pusher, error) {
 		credentialsProvider: EmptyCredentialsProvider,
 		progressListener:    &fn.NoopProgressListener{},
 		transport:           http.DefaultTransport,
+		dockerClientFactory: func() (PusherDockerClient, error) {
+			c, _, err := NewClient(client.DefaultDockerHost)
+			return c, err
+		},
 	}
 	for _, opt := range opts {
 		err := opt(result)
@@ -138,7 +163,7 @@ func (n *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err er
 }
 
 func (n *Pusher) daemonPush(ctx context.Context, f fn.Function, credentials Credentials, output io.Writer) (digest string, err error) {
-	cli, _, err := NewClient(client.DefaultDockerHost)
+	cli, err := n.dockerClientFactory()
 	if err != nil {
 		return "", fmt.Errorf("failed to create docker api client: %w", err)
 	}
@@ -237,7 +262,7 @@ func (n *Pusher) push(ctx context.Context, f fn.Function, credentials Credential
 		return "", err
 	}
 
-	dockerClient, _, err := NewClient(client.DefaultDockerHost)
+	dockerClient, err := n.dockerClientFactory()
 	if err != nil {
 		return "", fmt.Errorf("failed to create docker api client: %w", err)
 	}
