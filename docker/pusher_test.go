@@ -323,6 +323,9 @@ func (m *mockPusherDockerClient) Close() error {
 func serveRegistry(t *testing.T, l net.Listener) {
 
 	caPrivateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
 	caPublicKey := &caPrivateKey.PublicKey
 
 	ca := &x509.Certificate{
