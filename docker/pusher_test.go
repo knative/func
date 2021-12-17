@@ -368,7 +368,7 @@ func serveRegistry(t *testing.T, l net.Listener) {
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
 	}
 	go func() {
-		server.ServeTLS(l, "", "")
+		_ = server.ServeTLS(l, "", "")
 	}()
 	t.Cleanup(func() {
 		server.Close()
