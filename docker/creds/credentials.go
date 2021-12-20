@@ -34,6 +34,7 @@ var ErrUnauthorized = errors.New("bad credentials")
 // If credentials are incorrect this callback shall return ErrUnauthorized.
 type VerifyCredentialsCallback func(ctx context.Context, registry string, credentials docker.Credentials) error
 
+// CheckAuth verifies that credentials are correct
 func CheckAuth(ctx context.Context, registry string, credentials docker.Credentials, trans http.RoundTripper) error {
 	serverAddress := registry
 	if !strings.HasPrefix(serverAddress, "https://") && !strings.HasPrefix(serverAddress, "http://") {
@@ -136,7 +137,7 @@ func WithAdditionalCredentialLoaders(loaders ...CredentialsCallback) Opt {
 	}
 }
 
-// NewCredentialsProvider returns new CredentialsProvider that tires to get credentials from docker/func config files.
+// NewCredentialsProvider returns new CredentialsProvider that tries to get credentials from docker/func config files.
 //
 // In case getting credentials from the config files fails
 // the caller provided callback (see WithPromptForCredentials) will be invoked to obtain credentials.
@@ -180,7 +181,6 @@ func NewCredentialsProvider(opts ...Opt) docker.CredentialsProvider {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		panic(err)
-		//return result, fmt.Errorf("failed to determine home directory: %w", err)
 	}
 	dockerConfigPath := filepath.Join(home, ".docker", "config.json")
 
