@@ -3,6 +3,9 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"net/http"
+
+	fnhttp "knative.dev/kn-plugin-func/http"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
@@ -12,6 +15,7 @@ import (
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/buildpacks"
 	"knative.dev/kn-plugin-func/docker"
+	"knative.dev/kn-plugin-func/docker/creds"
 	"knative.dev/kn-plugin-func/progress"
 )
 
@@ -27,14 +31,14 @@ func newBuildClient(cfg buildConfig) (*fn.Client, error) {
 
 	pusherOption := fn.WithPusher(nil)
 	if cfg.Push {
-		credentialsProvider := docker.NewCredentialsProvider(
-			docker.WithPromptForCredentials(newPromptForCredentials()),
-			docker.WithPromptForCredentialStore(newPromptForCredentialStore()),
-		)
+		credentialsProvider := creds.NewCredentialsProvider(
+			creds.WithPromptForCredentials(newPromptForCredentials()),
+			creds.WithPromptForCredentialStore(newPromptForCredentialStore()),
+			creds.WithTransport(cfg.Transport))
 		pusher, err := docker.NewPusher(
 			docker.WithCredentialsProvider(credentialsProvider),
 			docker.WithProgressListener(listener),
-		)
+			docker.WithTransport(cfg.Transport))
 
 		if err != nil {
 			return nil, err
@@ -186,6 +190,10 @@ func runBuild(cmd *cobra.Command, _ []string, clientFn buildClientFn) (err error
 		config.Registry = ""
 	}
 
+	rt := fnhttp.NewRoundTripper()
+	defer rt.Close()
+	config.Transport = rt
+
 	client, err := clientFn(config)
 	if err != nil {
 		return err
@@ -221,6 +229,8 @@ type buildConfig struct {
 	// with interactive prompting (only applicable when attached to a TTY).
 	Confirm bool
 	Builder string
+
+	Transport http.RoundTripper
 }
 
 func newBuildConfig() buildConfig {

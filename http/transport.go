@@ -22,14 +22,23 @@ type RoundTripCloser interface {
 //
 // This is useful for accessing cluster internal services (pushing a CloudEvent into Knative broker).
 func NewRoundTripper() RoundTripCloser {
-	d := &dialer{
-		netDialer: net.Dialer{
-			Timeout:   30 * time.Second,
-			KeepAlive: 30 * time.Second,
-		},
-	}
-	return &roundTripCloser{
-		Transport: http.Transport{
+	result := &roundTripCloser{}
+	if dt, ok := http.DefaultTransport.(*http.Transport); ok {
+		d := &dialer{
+			defaultDialContext: dt.DialContext,
+		}
+		result.d = d
+		result.Transport = dt.Clone()
+		result.Transport.DialContext = d.DialContext
+	} else {
+		d := &dialer{
+			defaultDialContext: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+		}
+		result.d = d
+		result.Transport = &http.Transport{
 			Proxy:                 http.ProxyFromEnvironment,
 			DialContext:           d.DialContext,
 			ForceAttemptHTTP2:     true,
@@ -37,13 +46,14 @@ func NewRoundTripper() RoundTripCloser {
 			IdleConnTimeout:       90 * time.Second,
 			TLSHandshakeTimeout:   10 * time.Second,
 			ExpectContinueTimeout: 1 * time.Second,
-		},
-		d: d,
+		}
 	}
+
+	return result
 }
 
 type roundTripCloser struct {
-	http.Transport
+	*http.Transport
 	d *dialer
 }
 
@@ -52,13 +62,13 @@ func (r *roundTripCloser) Close() error {
 }
 
 type dialer struct {
-	o               sync.Once
-	netDialer       net.Dialer
-	inClusterDialer k8s.ContextDialer
+	o                  sync.Once
+	defaultDialContext func(ctx context.Context, network, address string) (net.Conn, error)
+	inClusterDialer    k8s.ContextDialer
 }
 
 func (d *dialer) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
-	conn, err := d.netDialer.DialContext(ctx, network, address)
+	conn, err := d.defaultDialContext(ctx, network, address)
 	if err == nil {
 		return conn, nil
 	}
