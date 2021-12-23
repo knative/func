@@ -851,6 +851,9 @@ google.golang.org/protobuf/types/known/wrapperspb
 gopkg.in/inf.v0
 # gopkg.in/ini.v1 v1.62.0
 gopkg.in/ini.v1
+# gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce
+## explicit
+gopkg.in/natefinch/npipe.v2
 # gopkg.in/src-d/go-billy.v4 v4.3.2
 gopkg.in/src-d/go-billy.v4
 gopkg.in/src-d/go-billy.v4/helper/chroot
