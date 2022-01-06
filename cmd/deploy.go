@@ -29,13 +29,16 @@ func newDeployClient(cfg deployConfig) (*fn.Client, error) {
 	listener := progress.New()
 	builder := buildpacks.NewBuilder()
 
-	pusherOption := fn.WithPusher(nil)
+	var (
+		pusher *docker.Pusher
+		err    error
+	)
 	if cfg.Push {
 		credentialsProvider := creds.NewCredentialsProvider(
 			creds.WithPromptForCredentials(newPromptForCredentials()),
 			creds.WithPromptForCredentialStore(newPromptForCredentialStore()),
 			creds.WithTransport(cfg.Transport))
-		pusher, err := docker.NewPusher(
+		pusher, err = docker.NewPusher(
 			docker.WithCredentialsProvider(credentialsProvider),
 			docker.WithProgressListener(listener),
 			docker.WithTransport(cfg.Transport))
@@ -43,7 +46,6 @@ func newDeployClient(cfg deployConfig) (*fn.Client, error) {
 			return nil, err
 		}
 		pusher.Verbose = cfg.Verbose
-		pusherOption = fn.WithPusher(pusher)
 	}
 
 	deployer, err := knative.NewDeployer(cfg.Namespace)
@@ -58,7 +60,7 @@ func newDeployClient(cfg deployConfig) (*fn.Client, error) {
 	return fn.New(
 		fn.WithProgressListener(listener),
 		fn.WithBuilder(builder),
-		pusherOption,
+		fn.WithPusher(pusher),
 		fn.WithDeployer(deployer),
 		fn.WithRegistry(cfg.Registry), // for deriving name when no --image value
 		fn.WithVerbose(cfg.Verbose),
