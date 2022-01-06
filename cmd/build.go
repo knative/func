@@ -51,6 +51,7 @@ func newBuildClient(cfg buildConfig) (*fn.Client, error) {
 
 	return fn.New(
 		fn.WithBuilder(builder),
+		// fn.WithPusher(pusher),
 		pusherOption,
 		fn.WithProgressListener(listener),
 		fn.WithRegistry(cfg.Registry), // for image name when --image not provided
@@ -200,7 +201,7 @@ func runBuild(cmd *cobra.Command, _ []string, clientFn buildClientFn) (err error
 
 	err = client.Build(cmd.Context(), config.Path)
 	if err == nil && config.Push {
-		err = client.Push(cmd.Context(), config.Path)
+		err = client.Push(cmd.Context(), &function)
 	}
 	return
 }
