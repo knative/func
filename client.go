@@ -424,6 +424,12 @@ func (c *Client) New(ctx context.Context, cfg Function) (err error) {
 		return
 	}
 
+	// Push the produced function image
+	c.progressListener.Increment("Pushing container image to registry")
+	if err = c.Push(ctx, f.Root); err != nil {
+		return
+	}
+
 	// Deploy the initialized Function, returning its publicly
 	// addressible name for possible registration.
 	c.progressListener.Increment("Deploying Function to cluster")
@@ -602,10 +608,6 @@ func (c *Client) Deploy(ctx context.Context, path string) (err error) {
 		return ErrNotBuilt
 	}
 
-	if err = c.Push(ctx, &f); err != nil {
-		return
-	}
-
 	// Deploy a new or Update the previously-deployed Function
 	c.progressListener.Increment("Deploying function to the cluster")
 	result, err := c.deployer.Deploy(ctx, f)
@@ -717,8 +719,17 @@ func (c *Client) Emit(ctx context.Context, endpoint string) error {
 }
 
 // Push the image for the named service to the configured registry
-func (c *Client) Push(ctx context.Context, f *Function) (err error) {
-	imageDigest, err := c.pusher.Push(ctx, *f)
+func (c *Client) Push(ctx context.Context, path string) (err error) {
+	f, err := NewFunction(path)
+	if err != nil {
+		return
+	}
+
+	if !f.Built() {
+		return ErrNotBuilt
+	}
+
+	imageDigest, err := c.pusher.Push(ctx, f)
 	if err != nil {
 		return
 	}

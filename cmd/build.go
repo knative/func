@@ -29,30 +29,31 @@ func newBuildClient(cfg buildConfig) (*fn.Client, error) {
 	builder := buildpacks.NewBuilder()
 	listener := progress.New()
 
-	pusherOption := fn.WithPusher(nil)
+	var (
+		pusher *docker.Pusher
+		err    error
+	)
 	if cfg.Push {
 		credentialsProvider := creds.NewCredentialsProvider(
 			creds.WithPromptForCredentials(newPromptForCredentials()),
 			creds.WithPromptForCredentialStore(newPromptForCredentialStore()),
 			creds.WithTransport(cfg.Transport))
-		pusher, err := docker.NewPusher(
+		pusher, err = docker.NewPusher(
 			docker.WithCredentialsProvider(credentialsProvider),
 			docker.WithProgressListener(listener),
 			docker.WithTransport(cfg.Transport))
-
 		if err != nil {
 			return nil, err
 		}
 		pusher.Verbose = cfg.Verbose
-		pusherOption = fn.WithPusher(pusher)
 	}
+
 	builder.Verbose = cfg.Verbose
 	listener.Verbose = cfg.Verbose
 
 	return fn.New(
 		fn.WithBuilder(builder),
-		// fn.WithPusher(pusher),
-		pusherOption,
+		fn.WithPusher(pusher),
 		fn.WithProgressListener(listener),
 		fn.WithRegistry(cfg.Registry), // for image name when --image not provided
 		fn.WithVerbose(cfg.Verbose)), nil
@@ -201,7 +202,7 @@ func runBuild(cmd *cobra.Command, _ []string, clientFn buildClientFn) (err error
 
 	err = client.Build(cmd.Context(), config.Path)
 	if err == nil && config.Push {
-		err = client.Push(cmd.Context(), &function)
+		err = client.Push(cmd.Context(), config.Path)
 	}
 	return
 }

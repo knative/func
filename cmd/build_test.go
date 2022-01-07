@@ -144,31 +144,57 @@ created: 2009-11-10 23:00:00`,
 
 func Test_newBuildClient(t *testing.T) {
 	tests := []struct {
-		name    string
-		cfg     buildConfig
-		succeed bool
+		name         string
+		cfg          buildConfig
+		fileContents string
+		succeed      bool
 	}{
 		{
 			name: "push flag set to false avoids pusher instanciation",
 			cfg: buildConfig{
 				Push: false,
 			},
+			fileContents: `name: test-func
+runtime: go
+image: registry.io/foo/bar:latest
+imageDigest: sha256:1111111111111111111111
+created: 2009-11-10 23:00:00`,
 			succeed: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+
+			tempDir, err := os.MkdirTemp("", "func-tests")
+			if err != nil {
+				t.Fatalf("temp dir couldn't be created %v", err)
+			}
+			t.Cleanup(func() {
+				os.RemoveAll(tempDir)
+			})
+
+			fullPath := tempDir + "/func.yaml"
+			tempFile, err := os.Create(fullPath)
+			if err != nil {
+				t.Fatalf("temp file couldn't be created %v", err)
+			}
+			_, err = tempFile.WriteString(tt.fileContents)
+			if err != nil {
+				t.Fatalf("file content was not written %v", err)
+			}
+
 			client, err := newBuildClient(tt.cfg)
 			if err != nil {
 				t.Error(err)
 			}
+
 			defer func() {
 				if r := recover(); r != nil && tt.succeed {
 					t.Errorf("expected function call to succeed %v, got actually %v", tt.succeed, r)
 				}
 			}()
-			err = client.Push(context.TODO(), &fn.Function{})
+			err = client.Push(context.TODO(), tempDir)
 			if err != nil {
 				t.Error(err)
 			}
