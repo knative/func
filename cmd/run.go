@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"context"
+	"errors"
 	"fmt"
 
 	"github.com/ory/viper"
@@ -98,21 +100,34 @@ func runRun(cmd *cobra.Command, args []string, clientFn runClientFn) (err error)
 		return fmt.Errorf("the given path '%v' does not contain an initialized function", config.Path)
 	}
 
+	// Client for use running (and potentially building)
 	client := clientFn(config)
 
+	// Build if not built and --build
 	if config.Build && !function.Built() {
 		if err = client.Build(cmd.Context(), config.Path); err != nil {
 			return
 		}
 	}
 
-	startedCh := make(chan bool, 1)
-	if err = client.Run(cmd.Context(), config.Path, startedCh); err != nil {
+	// Run the Function at path
+	port, stop, runtimeErrCh, err := client.Run(cmd.Context(), config.Path)
+	if err != nil {
 		return
 	}
-	<-startedCh
-	fmt.Fprintf(cmd.OutOrStderr(), "Started %v\n", function.Name)
-	return
+	defer stop()
+
+	fmt.Fprintf(cmd.OutOrStderr(), "Function started on port %v\n", port)
+
+	select {
+	case <-cmd.Context().Done():
+		if !errors.Is(cmd.Context().Err(), context.Canceled) {
+			err = cmd.Context().Err()
+		}
+		return
+	case err = <-runtimeErrCh:
+		return
+	}
 }
 
 type runConfig struct {

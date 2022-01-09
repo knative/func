@@ -96,9 +96,9 @@ const (
 type Runner interface {
 	// Run the Function.  Returned is the port on which it can be contacted.
 	// Errors starting are returned immediately.  Runtime errors are communicated
-	// over a passed error channel.  The process can be stopped by canceling the
-	// passed context.
-	Run(context.Context, Function, chan error) (port string, err error)
+	// over a passed error channel.  The process can be stopped by running the
+	// returned stop function, either on context cancellation or in a defer.
+	Run(context.Context, Function) (port string, stop func() error, runtimeErrCh chan error, err error)
 }
 
 // Remover of deployed services.
@@ -675,55 +675,41 @@ func (c *Client) Route(path string) (err error) {
 }
 
 // Run the Function whose code resides at root.
-// The Funciton is expected to be a long-running process which streams its
-// output to stdout and stderr.  the started channel argument will be closed
-// when the underlying runner returns successfully.
-func (c *Client) Run(ctx context.Context, root string, started chan bool) error {
+// On start, the chosen port is sent to the provided started channel
+func (c *Client) Run(ctx context.Context, root string) (port string, stop func() error, errs chan error, err error) {
 	go func() {
 		<-ctx.Done()
 		c.progressListener.Stopping()
 	}()
 
-	// Create an instance of a Function representation at the given root.
+	// Load the Function
 	f, err := NewFunction(root)
 	if err != nil {
-		return err
+		return
 	}
-
 	if !f.Initialized() {
-		return fmt.Errorf("'%v' does not contain an initialized Function.", root)
+		err = fmt.Errorf("'%v' does not contain an initialized Function.", root)
+		return
 	}
 
-	// Run the given function using the registered runner
-	// Returned is the port and a channel on which the runner signals it is
-	// done (such as on context cancelation) or runtime error causing exit.
-	errCh := make(chan error, 1)
-	port, err := c.runner.Run(ctx, f, errCh)
+	// Run the Function
+	port, stopContainer, runtimeErrCh, err := c.runner.Run(ctx, f)
 	if err != nil {
-		return err
+		return
 	}
 
-	if err := writeFunc(f, "port", []byte(port)); err != nil {
-		return err
+	// Store the effective port for use by other client instances, possibly
+	// in other processes, such as to run Invoke from other terminal in CLI apps.
+	if err = writeFunc(f, "port", []byte(port)); err != nil {
+		return
 	}
-	defer rmFunc(f, "port")
 
-	// Signal the Function is started
-	close(started)
-
-	// Block awaiting either context cancelation or an exit of the
-	// Function.
-	select {
-	case <-ctx.Done():
-		// context canceled.  return cancellation errors other than a successful
-		// cancel.
-		if ctx.Err() != nil && !errors.Is(ctx.Err(), context.Canceled) {
-			return ctx.Err()
-		}
-		return nil
-	case err := <-errCh:
-		return err // Process exited, return possible errors
+	// stop also cleans up
+	stop = func() error {
+		rmFunc(f, "port")
+		return stopContainer()
 	}
+	return port, stop, runtimeErrCh, err
 }
 
 // Info for a Function.  Name takes precidence.  If no name is provided,
@@ -903,10 +889,9 @@ func (n *noopDeployer) Deploy(ctx context.Context, _ Function) (DeploymentResult
 // Runner
 type noopRunner struct{ output io.Writer }
 
-func (n *noopRunner) Run(context.Context, Function, chan error) (string, error) {
-	return "", nil
+func (n *noopRunner) Run(context.Context, Function) (string, func() error, chan error, error) {
+	return "", nil, nil, nil
 }
-func (n *noopRunner) Stop() {}
 
 // Remover
 type noopRemover struct{ output io.Writer }

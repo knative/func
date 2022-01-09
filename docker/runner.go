@@ -3,9 +3,11 @@ package docker
 import (
 	"context"
 	"fmt"
+	"net"
 	"os"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -18,9 +20,24 @@ import (
 	fn "knative.dev/kn-plugin-func"
 )
 
-// Runner of functions using the docker command.
+const (
+	// DefaultHost is the standard ipv4 looback
+	DefaultHost = "127.0.0.1"
+
+	// DefaultPort is used as the preferred port, and in the unlikly event of an
+	// error querying the OS for a free port during allocation.
+	DefaultPort = "8080"
+
+	// DefaultDialTimeout when checking if a port is available.
+	DefaultDialTimeout = 2 * time.Second
+
+	// DefaultStopTimeout when attempting to stop underlying containers.
+	DefaultStopTimeout = 10 * time.Second
+)
+
+// Runner starts and stops Functions as local contaieners.
 type Runner struct {
-	// Verbose logging flag.
+	// Verbose logging
 	Verbose bool
 }
 
@@ -29,18 +46,17 @@ func NewRunner() *Runner {
 	return &Runner{}
 }
 
-// Run the function.  Errors running are returned along with port.  Runtime
-// errors are setnt to the passed error channel.  Stops when the context is
-// canceled.
-func (n *Runner) Run(ctx context.Context, f fn.Function, errCh chan error) (port int, err error) {
+// Run the Function.
+func (n *Runner) Run(ctx context.Context, f fn.Function) (port string, stop func() error, runtimeErrCh chan error, err error) {
 	// Ensure image is built before running
 	if f.Image == "" {
 		err = errors.New("Function has no associate image. Has it been built?")
 		return
 	}
 
-	// Port chosen based on OS availability
-	port = choosePort()
+	// Choose a free port on the given interface, with the given default
+	// to use if available.  Limit querying to the given timeout.
+	port = choosePort(DefaultHost, DefaultPort, DefaultDialTimeout)
 
 	// Container config
 	containerCfg, err := newContainerConfig(f, port, n.Verbose)
@@ -54,223 +70,166 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, errCh chan error) (port
 		return
 	}
 
-	// Client
-	c, _, err := NewClient(client.DefaultDockerHost)
+	// Create the job running asynchronously
+	// Caller's reponsibility to stop() either on context cancelation or
+	// in a defer.
+	job, err := NewJob(ctx, containerCfg, hostCfg)
+	return port, job.Stop, job.Errors, err
+}
+
+type Job struct {
+	Errors       chan error
+	StopTimeout  time.Duration
+	Stopped      bool
+	dockerClient client.CommonAPIClient
+	response     types.HijackedResponse
+	containerID  string
+	sync.Mutex
+}
+
+// NewJob runs the defined container.
+// Context passed is for initial setup request.  To stop the running job,
+// the caller should await context cancelation and call .Stop explicitly, or
+// do so in a defer statement.
+func NewJob(ctx context.Context, containerCfg container.Config, hostCfg container.HostConfig) (j *Job, err error) {
+	j = &Job{
+		Errors:      make(chan error, 10),
+		StopTimeout: DefaultStopTimeout,
+	}
+
+	// Docker Client
+	j.dockerClient, _, err = NewClient(client.DefaultDockerHost)
 	if err != nil {
 		err = errors.Wrap(err, "failed to create Docker API client")
 		return
 	}
-	defer c.Close()
 
-	// Create Container t using client c
-	t, err := c.ContainerCreate(ctx, &containerCfg, &hostCfg, nil, nil, "")
+	// Container
+	t, err := j.dockerClient.ContainerCreate(ctx, &containerCfg, &hostCfg, nil, nil, "")
 	if err != nil {
 		err = errors.Wrap(err, "runner unable to create container")
 		return
 	}
+	j.containerID = t.ID
 
-	// Start a routine which when signaled will clean up the container.
-	// Set to accept more than enough signals such that the signalsers do
-	// not block, but only the first signal matters.
-	removeContainerCh := make(chan bool, 10)
-	go func() {
-		<-removeContainerCh
-		if err := c.ContainerRemove(context.Background(), t.ID, types.ContainerRemoveOptions{}); err != nil {
-			fmt.Fprintf(os.Stderr, "unable remove container '%v': %v", t.ID, err)
-		}
-	}()
-
-	// Attach the container's stdio to the current process
-	resp, err := c.ContainerAttach(ctx, t.ID, types.ContainerAttachOptions{
-		Stdout: true, Stderr: true, Stdin: false, Stream: true})
+	// Attach to container's stdio
+	j.response, err = j.dockerClient.ContainerAttach(ctx, j.containerID,
+		types.ContainerAttachOptions{Stdout: true, Stderr: true, Stdin: false, Stream: true})
 	if err != nil {
 		err = errors.Wrap(err, "runner unable to attach to container's stdio")
-		removeContainerCh <- true
 		return
 	}
-	defer resp.Close()
-
-	// Start a routine waiting for stiod copy errors
 	copyErrCh := make(chan error, 1)
 	go func() {
-		_, err := stdcopy.StdCopy(os.Stdout, os.Stderr, resp.Reader)
+		_, err := stdcopy.StdCopy(os.Stdout, os.Stderr, j.response.Reader)
 		copyErrCh <- err
 	}()
 
-	// Start routine waiting for the container exits
-	bodyCh, waitErrCh := c.ContainerWait(ctx, t.ID, container.WaitConditionNextExit)
+	// Channels for receiving body and errors from the container
+	bodyCh, waitErrCh := j.dockerClient.ContainerWait(ctx, t.ID, container.WaitConditionNextExit)
+	go func() {
+		for {
+			select {
+			case err = <-copyErrCh:
+				j.Errors <- err
+			case err = <-waitErrCh:
+				j.Errors <- err
+			case body := <-bodyCh:
+				if body.StatusCode != 0 {
+					err = fmt.Errorf("container exited with code %v", body.StatusCode)
+				}
+				j.Errors <- err
+			}
+		}
+	}()
 
-	// Start the container
-	if err = c.ContainerStart(ctx, t.ID, types.ContainerStartOptions{}); err != nil {
+	// Start
+	if err = j.dockerClient.ContainerStart(ctx, j.containerID, types.ContainerStartOptions{}); err != nil {
 		err = errors.Wrap(err, "runner unable to start container")
-		removeContainerCh <- true
 		return
 	}
 
-	// Start a routine waiting for the signal to attempt stopping the container
-	// Also cascades through to signaling the removal of the container after stop
-	stopAndRemoveContainerCh := make(chan bool, 10)
-	go func() {
-		<-stopAndRemoveContainerCh
-		timeout := 10 * time.Second
-		err = c.ContainerStop(context.Background(), t.ID, &timeout)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "unable to stop container: %v", err)
-		}
-		removeContainerCh <- true
-	}()
-
-	// Go wait for errors or cancel
-	go func() {
-		select {
-		case err = <-copyErrCh:
-			errCh <- err
-		case err = <-waitErrCh:
-			errCh <- err
-		case <-ctx.Done():
-			errCh <- ctx.Err()
-		case body := <-bodyCh:
-			if body.StatusCode != 0 {
-				err = fmt.Errorf("container exited with code %v", body.StatusCode)
-			}
-			errCh <- err
-		}
-		stopAndRemoveContainerCh <- true
-	}()
-
-	return port, nil
+	return
 }
 
-// Run the function at path
-func (n *Runner) OldRun(ctx context.Context, f fn.Function) error {
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+// Stop the running job, cleaning up.  Errors encountered are printed to stderr,
+// with the last of which being returned up the stack.  Nil error indicates no
+// errors encoutered stopping.
+func (j *Job) Stop() (err error) {
+	j.Lock()
+	defer j.Unlock()
+	if j.Stopped {
+		fmt.Fprintf(os.Stderr, "job for container %v already stopped\n", j.containerID)
+		return
+	}
 
-	cli, _, err := NewClient(client.DefaultDockerHost)
+	err = j.dockerClient.ContainerStop(context.Background(), j.containerID, &j.StopTimeout)
 	if err != nil {
-		return errors.Wrap(err, "failed to create docker api client")
+		fmt.Fprintf(os.Stderr, "error stopping container %v: %v\n", j.containerID, err)
 	}
-	defer cli.Close()
-
-	if f.Image == "" {
-		return errors.New("Function has no associated Image. Has it been built? Using the --build flag will build the image if it hasn't been built yet")
-	}
-
-	envs := []string{}
-	for _, env := range f.Envs {
-		if env.Name != nil && env.Value != nil {
-			value, set, err := processEnvValue(*env.Value)
-			if err != nil {
-				return err
-			}
-			if set {
-				envs = append(envs, *env.Name+"="+value)
-			}
-		}
-	}
-	if n.Verbose {
-		envs = append(envs, "VERBOSE=true")
-	}
-
-	httpPort := nat.Port("8080/tcp")
-	ports := map[nat.Port][]nat.PortBinding{
-		httpPort: {
-			nat.PortBinding{
-				HostPort: "8080",
-				HostIP:   "127.0.0.1",
-			},
-		},
-	}
-
-	conf := &container.Config{
-		Env:          envs,
-		Tty:          false,
-		AttachStderr: true,
-		AttachStdout: true,
-		AttachStdin:  false,
-		Image:        f.Image,
-		ExposedPorts: map[nat.Port]struct{}{httpPort: {}},
-	}
-
-	hostConf := &container.HostConfig{
-		PortBindings: ports,
-	}
-
-	cont, err := cli.ContainerCreate(ctx, conf, hostConf, nil, nil, "")
+	err = j.dockerClient.ContainerRemove(
+		context.Background(), j.containerID, types.ContainerRemoveOptions{})
 	if err != nil {
-		return errors.Wrap(err, "failed to create container")
+		fmt.Fprintf(os.Stderr, "error removing container %v: %v\n", j.containerID, err)
 	}
-	defer func() {
-		err := cli.ContainerRemove(context.Background(), cont.ID, types.ContainerRemoveOptions{})
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to remove container: %v", err)
-		}
-	}()
-
-	attachOptions := types.ContainerAttachOptions{
-		Stdout: true,
-		Stderr: true,
-		Stdin:  false,
-		Stream: true,
-	}
-
-	resp, err := cli.ContainerAttach(ctx, cont.ID, attachOptions)
+	err = j.response.Conn.Close()
 	if err != nil {
-		return errors.Wrap(err, "failed to attach container")
+		fmt.Fprintf(os.Stderr, "error closing connection to container: %v\n", err)
 	}
-	defer resp.Close()
-
-	copyErrChan := make(chan error, 1)
-	go func() {
-		_, err := stdcopy.StdCopy(os.Stdout, os.Stderr, resp.Reader)
-		copyErrChan <- err
-	}()
-
-	waitBodyChan, waitErrChan := cli.ContainerWait(ctx, cont.ID, container.WaitConditionNextExit)
-
-	err = cli.ContainerStart(ctx, cont.ID, types.ContainerStartOptions{})
+	err = j.dockerClient.Close()
 	if err != nil {
-		return errors.Wrap(err, "failed to start container")
+		fmt.Fprintf(os.Stderr, "error closing daemon cliet: %v\n", err)
 	}
-	defer func() {
-		t := time.Second * 10
-		err := cli.ContainerStop(context.Background(), cont.ID, &t)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "failed to stop container: %v", err)
-		}
-	}()
+	j.Stopped = true
+	return
+}
 
-	select {
-	case body := <-waitBodyChan:
-		if body.StatusCode != 0 {
-			return fmt.Errorf("failed with status code: %d", body.StatusCode)
-		}
-	case err := <-waitErrChan:
-		return err
-	case err := <-copyErrChan:
-		return err
-	case <-ctx.Done():
-		return ctx.Err()
+// Dial the given (tcp) port on the given interface, returning an error if it is
+// unreachable.
+func dial(host, port string, dialTimeout time.Duration) (err error) {
+	address := net.JoinHostPort(host, port)
+	conn, err := net.DialTimeout("tcp", address, dialTimeout)
+	if err != nil {
+		return
 	}
-
-	return nil
+	defer conn.Close()
+	return
 }
 
 // choosePort returns an unused port
 // Note this is not fool-proof becase of a race with any other processes
 // looking for a port at the same time.
 // Note that TCP is presumed.
-func choosePort() int {
-	// TODO: implement me
-	return 8080
+func choosePort(host string, preferredPort string, dialTimeout time.Duration) string {
+	// If we can not dial the preferredPort, it is assumed to be open.
+	if err := dial(host, preferredPort, dialTimeout); err != nil {
+		return preferredPort
+	}
+
+	// Use an OS-chosen port
+	lis, err := net.Listen("tcp", net.JoinHostPort(host, "")) // listen on any open port
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "unable to check for open ports. using fallback %v. %v", DefaultPort, err)
+		return DefaultPort
+	}
+	defer lis.Close()
+
+	_, port, err := net.SplitHostPort(lis.Addr().String())
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "unable to extract port from allocated listener address '%v'. %v", lis.Addr(), err)
+		return DefaultPort
+	}
+	return port
+
 }
 
-func newContainerConfig(f fn.Function, port int, verbose bool) (c container.Config, err error) {
+func newContainerConfig(f fn.Function, _ string, verbose bool) (c container.Config, err error) {
 	envs, err := newEnvironmentVariables(f, verbose)
 	if err != nil {
 		return
 	}
-	httpPort := nat.Port(fmt.Sprintf("%v/tcp", port))
+	// httpPort := nat.Port(fmt.Sprintf("%v/tcp", port))
+	httpPort := nat.Port("8080/tcp")
 	return container.Config{
 		Image:        f.Image,
 		Env:          envs,
@@ -282,12 +241,13 @@ func newContainerConfig(f fn.Function, port int, verbose bool) (c container.Conf
 	}, nil
 }
 
-func newHostConfig(port int) (c container.HostConfig, err error) {
-	httpPort := nat.Port(fmt.Sprintf("%v/tcp", port))
+func newHostConfig(port string) (c container.HostConfig, err error) {
+	// httpPort := nat.Port(fmt.Sprintf("%v/tcp", port))
+	httpPort := nat.Port("8080/tcp")
 	ports := map[nat.Port][]nat.PortBinding{
 		httpPort: {
 			nat.PortBinding{
-				HostPort: fmt.Sprintf("%v", port),
+				HostPort: port,
 				HostIP:   "127.0.0.1",
 			},
 		},
