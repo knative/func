@@ -98,7 +98,7 @@ type Runner interface {
 	// Errors starting are returned immediately.  Runtime errors are communicated
 	// over a passed error channel.  The process can be stopped by canceling the
 	// passed context.
-	Run(context.Context, Function, chan error) (port int, err error)
+	Run(context.Context, Function, chan error) (port string, err error)
 }
 
 // Remover of deployed services.
@@ -571,25 +571,27 @@ func (c *Client) Build(ctx context.Context, path string) (err error) {
 
 	m := []string{
 		"Still building",
-		"Don't give up on me",
+		"First builds take longer",
+		"Still building",
 		"This is taking a while",
-		"Still building"}
+		"Still building",
+		"Don't give up on me",
+	}
+	i := 0
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 	go func() {
 		for {
-			<-ticker.C
-			if len(m) == 0 {
-				break
+			select {
+			case <-ticker.C:
+				c.progressListener.Increment(m[i])
+				i++
+				i = i % len(m)
+			case <-ctx.Done():
+				c.progressListener.Stopping()
+				return
 			}
-			c.progressListener.Increment(m[0])
-			m = m[1:] // remove 0th element
 		}
-	}()
-
-	go func() {
-		<-ctx.Done()
-		c.progressListener.Stopping()
 	}()
 
 	f, err := NewFunction(path)
@@ -693,7 +695,7 @@ func (c *Client) Run(ctx context.Context, root string, started chan bool) error 
 	}
 
 	// Run the given function using the registered runner
-	// Returned is the pid, port and a channel on which the runner signals it is
+	// Returned is the port and a channel on which the runner signals it is
 	// done (such as on context cancelation) or runtime error causing exit.
 	errCh := make(chan error, 1)
 	port, err := c.runner.Run(ctx, f, errCh)
@@ -701,7 +703,7 @@ func (c *Client) Run(ctx context.Context, root string, started chan bool) error 
 		return err
 	}
 
-	if err := writeFunc(f, "port", []byte(fmt.Sprint(port))); err != nil {
+	if err := writeFunc(f, "port", []byte(port)); err != nil {
 		return err
 	}
 	defer rmFunc(f, "port")
@@ -901,8 +903,8 @@ func (n *noopDeployer) Deploy(ctx context.Context, _ Function) (DeploymentResult
 // Runner
 type noopRunner struct{ output io.Writer }
 
-func (n *noopRunner) Run(context.Context, Function, chan error) (int, error) {
-	return -1, nil
+func (n *noopRunner) Run(context.Context, Function, chan error) (string, error) {
+	return "", nil
 }
 func (n *noopRunner) Stop() {}
 
