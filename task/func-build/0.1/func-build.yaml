@@ -1,0 +1,74 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: func-build
+  labels:
+    app.kubernetes.io/version: "0.1"
+  annotations:
+    tekton.dev/pipelines.minVersion: "0.12.1"
+    tekton.dev/categories: CLI
+    tekton.dev/tags: cli
+    tekton.dev/platforms: "linux/amd64"
+spec:
+  description: >-
+    This Task performs the build operation using Knative `func` CLI
+  params:
+  - name: func-image
+    description: func CLI container image to run this task
+    default: salaboy/func-2e37ecdd2ee11985d861179f5d0a0fbb@sha256:33468313582069d2e6ea850cd526858918db215c1bf98558ece2f8967201937f #func built with `ko publish ./cmd/func`
+  - name: path
+    description: path where the function project lives
+  - name: registry
+    description: registry where the function container image will be pushed  
+  - name: USER_ID
+    description: The user ID of the builder image user.
+    default: "1000"
+  - name: GROUP_ID
+    description: The group ID of the builder image user.
+    default: "1000"
+  workspaces:
+    - name: output
+      description: The workspace containing the `func` project.   
+  results:
+    - name: APP_IMAGE_DIGEST
+      description: The digest of the built container image. 
+  volumes:
+    - name: dockersock
+      hostPath:
+        path: /var/run/docker.sock       
+  steps:
+  - name: prepare
+    image: docker.io/library/bash:5.1.4@sha256:b208215a4655538be652b2769d82e576bc4d0a2bb132144c060efc5be8c3f5d6
+    script: |
+        #!/usr/bin/env bash
+        set -e
+        for path in "/tekton/home" "$(workspaces.output.path)"; do
+          echo "> Setting permissions on '$path'..."
+          chown -R "$(params.USER_ID):$(params.GROUP_ID)" "$path"
+        done 
+  - name: func-build
+    image: "$(params.func-image)"
+    command: ["func"]
+    args: 
+      - "build"
+      - "-v"
+      - "-p"
+      - "$(params.path)"
+      - "-r"
+      - "$(params.registry)"
+    securityContext:
+      privileged: true
+      runAsUser: 1000
+      runAsGroup: 1000
+    volumeMounts:
+      - name: dockersock
+        mountPath: "/var/run/docker.sock"    
+  - name: results
+    image: docker.io/library/bash:5.1.4@sha256:b208215a4655538be652b2769d82e576bc4d0a2bb132144c060efc5be8c3f5d6
+    script: |
+        #!/usr/bin/env bash
+        set -e
+        cat $(params.path)/func.yaml | grep imageDigest | awk '{print $2}' | tee $(results.APP_IMAGE_DIGEST.path)
+        cat $(results.APP_IMAGE_DIGEST.path)
+      
+

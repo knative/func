@@ -1,0 +1,36 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: func-deploy
+  labels:
+    app.kubernetes.io/version: "0.1"
+  annotations:
+    tekton.dev/pipelines.minVersion: "0.12.1"
+    tekton.dev/categories: CLI
+    tekton.dev/tags: cli
+    tekton.dev/platforms: "linux/amd64"
+spec:
+  description: >-
+    This Task performs operations using Knative `func` CLI
+  params:
+  - name: func-image
+    description: func CLI container image to run this task
+    default: salaboy/func-2e37ecdd2ee11985d861179f5d0a0fbb@sha256:33468313582069d2e6ea850cd526858918db215c1bf98558ece2f8967201937f #func built with `ko publish ./cmd/func`
+  - name: path
+    description: path where the function project lives  
+  workspaces:
+    - name: output
+      description: The workspace containing the `func` project.   
+  steps:
+  - name: func-deploy
+    image: "$(params.func-image)"
+    command: ["func"]
+    args: 
+      - "deploy"
+      - "-v"
+      - "-c=false"
+      - "-b=false"
+      - "-p"
+      - "$(params.path)"
+      
+
