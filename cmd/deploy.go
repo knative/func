@@ -154,6 +154,8 @@ func runDeploy(cmd *cobra.Command, _ []string, clientFn deployClientFn) (err err
 		return
 	}
 
+	currentBuildType := config.BuildType
+
 	// if build type has been explicitly set as flag, validate it and override function config
 	if config.BuildType != "" {
 		err = validateBuildType(config.BuildType)
@@ -162,9 +164,13 @@ func runDeploy(cmd *cobra.Command, _ []string, clientFn deployClientFn) (err err
 		}
 
 		// update function config if build type has been changed
-		if function.BuildType != config.BuildType {
+		// don't store type `disabled` as it should be used only as a parameter in `func deploy`
+		// and not stored in function config
+		if function.BuildType != config.BuildType && config.BuildType != fn.BuildTypeDisabled {
 			function.BuildType = config.BuildType
 		}
+	} else {
+		currentBuildType = function.BuildType
 	}
 
 	// Check if the Function has been initialized
@@ -225,7 +231,7 @@ func runDeploy(cmd *cobra.Command, _ []string, clientFn deployClientFn) (err err
 		return err
 	}
 
-	switch function.BuildType {
+	switch currentBuildType {
 	case fn.BuildTypeLocal, "":
 		if err := client.Build(cmd.Context(), config.Path); err != nil {
 			return err
@@ -235,7 +241,7 @@ func runDeploy(cmd *cobra.Command, _ []string, clientFn deployClientFn) (err err
 	case fn.BuildTypeDisabled:
 		// nothing needed to be done for `build=disabled`
 	default:
-		return ErrInvalidBuildType(fmt.Errorf("unknown build type: %s", function.BuildType))
+		return ErrInvalidBuildType(fmt.Errorf("unknown build type: %s", currentBuildType))
 	}
 
 	if config.Push {
