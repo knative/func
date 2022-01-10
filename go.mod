@@ -27,6 +27,9 @@ require (
 	github.com/ory/viper v1.7.5
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.2.1
+	github.com/tektoncd/cli v0.21.0
+	github.com/tektoncd/pipeline v0.29.0
+	github.com/whilp/git-urls v1.0.0
 	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5
 	golang.org/x/net v0.0.0-20210929193557-e81a3d93ecf6 // indirect
 	golang.org/x/sys v0.0.0-20211002104244-808efd93c36d // indirect

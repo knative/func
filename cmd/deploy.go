@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 
 	fnhttp "knative.dev/kn-plugin-func/http"
 
@@ -18,6 +20,8 @@ import (
 	"knative.dev/kn-plugin-func/docker"
 	"knative.dev/kn-plugin-func/docker/creds"
 	"knative.dev/kn-plugin-func/knative"
+	"knative.dev/kn-plugin-func/pipelines"
+	"knative.dev/kn-plugin-func/pipelines/tekton"
 	"knative.dev/kn-plugin-func/progress"
 )
 
@@ -53,15 +57,25 @@ func newDeployClient(cfg deployConfig) (*fn.Client, error) {
 		return nil, err
 	}
 
+	pipelinesProvider, err := tekton.NewPipelinesProvider(
+		tekton.WithNamespace(cfg.Namespace),
+		tekton.WithProgressListener(listener),
+		tekton.WithPromptForContainerRegistryCredentials(newPromptForPipelineRegistryCredentials()))
+	if err != nil {
+		return nil, err
+	}
+
 	listener.Verbose = cfg.Verbose
 	builder.Verbose = cfg.Verbose
 	deployer.Verbose = cfg.Verbose
+	pipelinesProvider.Verbose = cfg.Verbose
 
 	return fn.New(
 		fn.WithProgressListener(listener),
 		fn.WithBuilder(builder),
 		fn.WithPusher(pusher),
 		fn.WithDeployer(deployer),
+		fn.WithPipelinesProvider(pipelinesProvider),
 		fn.WithRegistry(cfg.Registry), // for deriving name when no --image value
 		fn.WithVerbose(cfg.Verbose),
 	), nil
@@ -104,7 +118,7 @@ kn func deploy --image quay.io/myuser/myfunc -n myns
 		"To unset, specify the environment variable name followed by a \"-\" (e.g., NAME-).")
 	cmd.Flags().StringP("image", "i", "", "Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE)")
 	cmd.Flags().StringP("registry", "r", "", "Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined based on the local directory name. If not provided the registry will be taken from func.yaml (Env: $FUNC_REGISTRY)")
-	cmd.Flags().BoolP("build", "b", true, "Build the image before deploying (Env: $FUNC_BUILD)")
+	cmd.Flags().StringP("build", "b", fn.DefaultBuildType, fmt.Sprintf("Build specifies the way the function should be built. Supported types are %s (Env: $FUNC_BUILD)", fn.SupportedBuildTypes(true)))
 	cmd.Flags().BoolP("push", "u", true, "Attempt to push the function image to registry before deploying (Env: $FUNC_PUSH)")
 	setPathFlag(cmd)
 	setNamespaceFlag(cmd)
@@ -119,7 +133,7 @@ kn func deploy --image quay.io/myuser/myfunc -n myns
 func runDeploy(cmd *cobra.Command, _ []string, clientFn deployClientFn) (err error) {
 	config, err := newDeployConfig(cmd)
 	if err != nil {
-		return err
+		return
 	}
 
 	config, err = config.Prompt()
@@ -138,6 +152,19 @@ func runDeploy(cmd *cobra.Command, _ []string, clientFn deployClientFn) (err err
 	function.Envs, err = mergeEnvs(function.Envs, config.EnvToUpdate, config.EnvToRemove)
 	if err != nil {
 		return
+	}
+
+	// if build type has been explicitly set as flag, validate it and override function config
+	if config.BuildType != "" {
+		err = validateBuildType(config.BuildType)
+		if err != nil {
+			return err
+		}
+
+		// update function config if build type has been changed
+		if function.BuildType != config.BuildType {
+			function.BuildType = config.BuildType
+		}
 	}
 
 	// Check if the Function has been initialized
@@ -174,7 +201,7 @@ func runDeploy(cmd *cobra.Command, _ []string, clientFn deployClientFn) (err err
 		return
 	}
 
-	// Deafult conig namespace is the function's namespace
+	// Default config namespace is the function's namespace
 	if config.Namespace == "" {
 		config.Namespace = function.Namespace
 	}
@@ -198,10 +225,13 @@ func runDeploy(cmd *cobra.Command, _ []string, clientFn deployClientFn) (err err
 		return err
 	}
 
-	if config.Build {
+	switch function.BuildType {
+	case fn.BuildTypeLocal, "":
 		if err := client.Build(cmd.Context(), config.Path); err != nil {
 			return err
 		}
+	case fn.BuildTypeGit:
+		return client.RunPipeline(cmd.Context(), config.Path)
 	}
 
 	if config.Push {
@@ -211,9 +241,6 @@ func runDeploy(cmd *cobra.Command, _ []string, clientFn deployClientFn) (err err
 	}
 
 	return client.Deploy(cmd.Context(), config.Path)
-
-	// NOTE: Namespace is optional, default is that used by k8s client
-	// (for example kubectl usually uses ~/.kube/config)
 }
 
 func newPromptForCredentials() func(registry string) (docker.Credentials, error) {
@@ -245,6 +272,44 @@ func newPromptForCredentials() func(registry string) (docker.Credentials, error)
 		err := survey.Ask(qs, &result)
 		if err != nil {
 			return docker.Credentials{}, err
+		}
+		return result, nil
+	}
+}
+
+func newPromptForPipelineRegistryCredentials() pipelines.ContainerRegistryCredentialsCallback {
+	return func() (pipelines.ContainerRegistryCredentials, error) {
+		var result pipelines.ContainerRegistryCredentials
+		var qs = []*survey.Question{
+			{
+				Name: "server",
+				Prompt: &survey.Input{
+					Message: "Server:",
+					Default: "https://index.docker.io/v1/",
+				},
+				Validate: survey.Required,
+			},
+			{
+				Name: "username",
+				Prompt: &survey.Input{
+					Message: "Username:",
+				},
+				Validate: survey.Required,
+			},
+			{
+				Name: "password",
+				Prompt: &survey.Password{
+					Message: "Password:",
+				},
+				Validate: survey.Required,
+			},
+		}
+
+		fmt.Printf("Please provide credentials for image registry used by Pipeline.\n")
+
+		err := survey.Ask(qs, &result)
+		if err != nil {
+			return pipelines.ContainerRegistryCredentials{}, err
 		}
 		return result, nil
 	}
@@ -299,7 +364,7 @@ type deployConfig struct {
 	Confirm bool
 
 	// Build the associated Function before deploying.
-	Build bool
+	BuildType string
 
 	// Push function image to the registry before deploying.
 	Push bool
@@ -321,13 +386,20 @@ func newDeployConfig(cmd *cobra.Command) (deployConfig, error) {
 		return deployConfig{}, err
 	}
 
+	// We need to know whether the `build`` flag had been explicitly set,
+	// to distinguish between unset and default value.
+	var buildType string
+	if viper.IsSet("build") {
+		buildType = viper.GetString("build")
+	}
+
 	return deployConfig{
 		buildConfig: newBuildConfig(),
 		Namespace:   viper.GetString("namespace"),
 		Path:        viper.GetString("path"),
 		Verbose:     viper.GetBool("verbose"), // defined on root
 		Confirm:     viper.GetBool("confirm"),
-		Build:       viper.GetBool("build"),
+		BuildType:   buildType,
 		Push:        viper.GetBool("push"),
 		EnvToUpdate: envToUpdate,
 		EnvToRemove: envToRemove,
@@ -389,4 +461,15 @@ func (c deployConfig) Prompt() (deployConfig, error) {
 	dc.Image = deriveImage(dc.Image, dc.Registry, dc.Path)
 
 	return dc, nil
+}
+
+// ErrInvalidBuildType indicates that the passed build type was invalid.
+type ErrInvalidBuildType error
+
+// ValidateBuildType validatest that the input Build type is valid for deploy command
+func validateBuildType(buildType string) error {
+	if errs := fn.ValidateBuildType(buildType, false, true); len(errs) > 0 {
+		return ErrInvalidBuildType(errors.New(strings.Join(errs, "")))
+	}
+	return nil
 }

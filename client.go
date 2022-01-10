@@ -32,26 +32,30 @@ const (
 	// the user has no home directory (no ~), there is no
 	// XDG_CONFIG_HOME set, and no WithConfigPath was used.
 	DefaultConfigPath = ".config/func"
+
+	// DefaultBuild is the default build type for a Function
+	DefaultBuildType = BuildTypeLocal
 )
 
 // Client for managing Function instances.
 type Client struct {
-	repositoriesPath string           // path to repositories
-	repositoriesURI  string           // repo URI (overrides repositories path)
-	verbose          bool             // print verbose logs
-	builder          Builder          // Builds a runnable image source
-	pusher           Pusher           // Pushes Funcation image to a remote
-	deployer         Deployer         // Deploys or Updates a Function
-	runner           Runner           // Runs the Function locally
-	remover          Remover          // Removes remote services
-	lister           Lister           // Lists remote services
-	describer        Describer        // Describes Function instances
-	dnsProvider      DNSProvider      // Provider of DNS services
-	registry         string           // default registry for OCI image tags
-	progressListener ProgressListener // progress listener
-	emitter          Emitter          // Emits CloudEvents to functions
-	repositories     *Repositories    // Repositories management
-	templates        *Templates       // Templates management
+	repositoriesPath  string            // path to repositories
+	repositoriesURI   string            // repo URI (overrides repositories path)
+	verbose           bool              // print verbose logs
+	builder           Builder           // Builds a runnable image source
+	pusher            Pusher            // Pushes Funcation image to a remote
+	deployer          Deployer          // Deploys or Updates a Function
+	runner            Runner            // Runs the Function locally
+	remover           Remover           // Removes remote services
+	lister            Lister            // Lists remote services
+	describer         Describer         // Describes Function instances
+	dnsProvider       DNSProvider       // Provider of DNS services
+	registry          string            // default registry for OCI image tags
+	progressListener  ProgressListener  // progress listener
+	emitter           Emitter           // Emits CloudEvents to functions
+	pipelinesProvider PipelinesProvider // Manages lifecyle of CI/CD pipelines used by a Function
+	repositories      *Repositories     // Repositories management
+	templates         *Templates        // Templates management
 }
 
 // ErrNotBuilt indicates the Function has not yet been built.
@@ -162,25 +166,31 @@ type DNSProvider interface {
 	Provide(Function) error
 }
 
-// Emit CloudEvents to functions
+// Emitter emits CloudEvents to functions
 type Emitter interface {
 	Emit(ctx context.Context, endpoint string) error
+}
+
+// PipelinesProvider manages lifecyle of CI/CD pipelines used by a Function
+type PipelinesProvider interface {
+	Run(context.Context, Function) error
 }
 
 // New client for Function management.
 func New(options ...Option) *Client {
 	// Instantiate client with static defaults.
 	c := &Client{
-		builder:          &noopBuilder{output: os.Stdout},
-		pusher:           &noopPusher{output: os.Stdout},
-		deployer:         &noopDeployer{output: os.Stdout},
-		runner:           &noopRunner{output: os.Stdout},
-		remover:          &noopRemover{output: os.Stdout},
-		lister:           &noopLister{output: os.Stdout},
-		dnsProvider:      &noopDNSProvider{output: os.Stdout},
-		progressListener: &NoopProgressListener{},
-		emitter:          &noopEmitter{},
-		repositoriesPath: filepath.Join(ConfigPath(), "repositories"),
+		builder:           &noopBuilder{output: os.Stdout},
+		pusher:            &noopPusher{output: os.Stdout},
+		deployer:          &noopDeployer{output: os.Stdout},
+		runner:            &noopRunner{output: os.Stdout},
+		remover:           &noopRemover{output: os.Stdout},
+		lister:            &noopLister{output: os.Stdout},
+		dnsProvider:       &noopDNSProvider{output: os.Stdout},
+		progressListener:  &NoopProgressListener{},
+		emitter:           &noopEmitter{},
+		pipelinesProvider: &noopPipelinesProvider{},
+		repositoriesPath:  filepath.Join(ConfigPath(), "repositories"),
 	}
 	for _, o := range options {
 		o(c)
@@ -350,6 +360,13 @@ func WithRegistry(registry string) Option {
 func WithEmitter(e Emitter) Option {
 	return func(c *Client) {
 		c.emitter = e
+	}
+}
+
+// WithPipelinesProvider sets implementation of provider responsible for CI/CD pipelines
+func WithPipelinesProvider(pp PipelinesProvider) Option {
+	return func(c *Client) {
+		c.pipelinesProvider = pp
 	}
 }
 
@@ -531,7 +548,7 @@ func (c *Client) Create(cfg Function) (err error) {
 	return
 }
 
-// Build the Function at path.  Errors if the Function is either unloadable or does
+// Build the Function at path. Errors if the Function is either unloadable or does
 // not contain a populated Image.
 func (c *Client) Build(ctx context.Context, path string) (err error) {
 	c.progressListener.Increment("Building function image")
@@ -589,7 +606,7 @@ func (c *Client) Build(ctx context.Context, path string) (err error) {
 	return
 }
 
-// Deploy the Function at path.  Errors if the Function has not been
+// Deploy the Function at path. Errors if the Function has not been
 // initialized with an image tag.
 func (c *Client) Deploy(ctx context.Context, path string) (err error) {
 	go func() {
@@ -615,6 +632,27 @@ func (c *Client) Deploy(ctx context.Context, path string) (err error) {
 		c.progressListener.Increment(fmt.Sprintf("Function deployed at URL: %v", result.URL))
 	} else if result.Status == Updated {
 		c.progressListener.Increment(fmt.Sprintf("Function updated at URL: %v", result.URL))
+	}
+
+	return err
+}
+
+// RunPipeline runs a Pipeline to Build and deploy the Function at path.
+func (c *Client) RunPipeline(ctx context.Context, path string) (err error) {
+	go func() {
+		<-ctx.Done()
+		c.progressListener.Stopping()
+	}()
+
+	f, err := NewFunction(path)
+	if err != nil {
+		return
+	}
+
+	// Build and deploy function using Pipeline
+	err = c.pipelinesProvider.Run(ctx, f)
+	if err != nil {
+		return
 	}
 
 	return err
@@ -789,7 +827,12 @@ func (n *noopLister) List(context.Context) ([]ListItem, error) { return []ListIt
 // Emitter
 type noopEmitter struct{}
 
-func (p *noopEmitter) Emit(ctx context.Context, endpoint string) error { return nil }
+func (n *noopEmitter) Emit(ctx context.Context, endpoint string) error { return nil }
+
+// PipelinesProvider
+type noopPipelinesProvider struct{}
+
+func (n *noopPipelinesProvider) Run(ctx context.Context, _ Function) error { return nil }
 
 // DNSProvider
 type noopDNSProvider struct{ output io.Writer }
