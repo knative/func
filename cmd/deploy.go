@@ -232,6 +232,8 @@ func runDeploy(cmd *cobra.Command, _ []string, clientFn deployClientFn) (err err
 		}
 	case fn.BuildTypeGit:
 		return client.RunPipeline(cmd.Context(), config.Path)
+	default:
+		return ErrInvalidBuildType(fmt.Errorf("unknown build type: %s", function.BuildType))
 	}
 
 	if config.Push {

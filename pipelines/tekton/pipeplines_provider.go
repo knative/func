@@ -131,7 +131,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 		return fmt.Errorf("problem in creating pipeline run: %v", err)
 	}
 
-	err = pp.watchPipelineRunProgess(pr)
+	err = pp.watchPipelineRunProgress(pr)
 	if err != nil {
 		return fmt.Errorf("problem in watching started pipeline run: %v", err)
 	}
@@ -165,7 +165,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 	return nil
 }
 
-func (pp *PipelinesProvider) watchPipelineRunProgess(pr *v1beta1.PipelineRun) error {
+func (pp *PipelinesProvider) watchPipelineRunProgress(pr *v1beta1.PipelineRun) error {
 	taskProgressMsg := map[string]string{
 		"fetch-repository": "Fetching git repository with function source code",
 		"build":            "Building function image on the cluster",

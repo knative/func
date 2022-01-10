@@ -12,7 +12,7 @@ func Deploy(t *testing.T, knFunc *TestShellCmdRunner, project *FunctionTestProje
 
 	var result TestShellCmdResult
 	if project.IsBuilt {
-		result = knFunc.Exec("deploy", "--path", project.ProjectPath, "--registry", GetRegistry(), "--build=false")
+		result = knFunc.Exec("deploy", "--path", project.ProjectPath, "--registry", GetRegistry(), "--build=disabled")
 	} else {
 		result = knFunc.Exec("deploy", "--path", project.ProjectPath, "--registry", GetRegistry())
 	}
