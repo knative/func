@@ -7,7 +7,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateClusterRoleBindingForSA(ctx context.Context, name, namespaceOverride, serviceAccountName, clusterRoleName string) (err error) {
+func CreateClusterRoleBindingForServiceAccount(ctx context.Context, name, namespaceOverride, serviceAccountName, clusterRoleName string) (err error) {
 	client, namespace, err := NewClientAndResolvedNamespace(namespaceOverride)
 	if err != nil {
 		return

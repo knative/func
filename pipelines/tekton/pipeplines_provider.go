@@ -69,6 +69,9 @@ func NewPipelinesProvider(opts ...Opt) (*PipelinesProvider, error) {
 	return pp, nil
 }
 
+// Run creates a Tekton Pipeline and all necessary resources (PVCs, Secrets, SAs,...) for the input Function.
+// It ensures that all needed resources are present on the cluster so the PipelineRun can be initialized.
+// After the PipelineRun is being intitialized, the progress of the PipelineRun is being watched and printed to the output.
 func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 	pp.progressListener.Increment("Creating Pipeline resources")
 
@@ -118,7 +121,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 		}
 	}
 
-	err = k8s.CreateClusterRoleBindingForSA(ctx, getPipelineDeployerClusterRoleBindingName(f, pp.namespace), pp.namespace, getPipelineBuilderServiceAccountName(f), "knative-serving-namespaced-edit")
+	err = k8s.CreateClusterRoleBindingForServiceAccount(ctx, getPipelineDeployerClusterRoleBindingName(f, pp.namespace), pp.namespace, getPipelineBuilderServiceAccountName(f), "knative-serving-namespaced-edit")
 	if err != nil {
 		if !errors.IsAlreadyExists(err) {
 			return fmt.Errorf("problem in creating cluster role biding: %v", err)
@@ -165,9 +168,11 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 	return nil
 }
 
+// watchPipelineRunProgress watches the progress of the input PipelineRun
+// and prints detailed description of the currently executed Tekton Task.
 func (pp *PipelinesProvider) watchPipelineRunProgress(pr *v1beta1.PipelineRun) error {
 	taskProgressMsg := map[string]string{
-		"fetch-repository": "Fetching git repository with function source code",
+		"fetch-repository": "Fetching git repository with the function source code",
 		"build":            "Building function image on the cluster",
 		"image-digest":     "Retrieving digest of the produced function image",
 		"deploy":           "Deploying function to the cluster",
@@ -188,7 +193,13 @@ func (pp *PipelinesProvider) watchPipelineRunProgress(pr *v1beta1.PipelineRun) e
 		for _, run := range trs {
 			go func(tr taskrun.Run) {
 				defer wg.Done()
-				pp.progressListener.Increment(fmt.Sprintf("Running Pipeline: %s", taskProgressMsg[tr.Task]))
+
+				// let's print a Task name, if we don't have a proper description of the Task
+				taskDescription := tr.Task
+				if val, ok := taskProgressMsg[tr.Task]; ok {
+					taskDescription = val
+				}
+				pp.progressListener.Increment(fmt.Sprintf("Running Pipeline: %s", taskDescription))
 
 			}(run)
 		}

@@ -232,6 +232,8 @@ func runDeploy(cmd *cobra.Command, _ []string, clientFn deployClientFn) (err err
 		}
 	case fn.BuildTypeGit:
 		return client.RunPipeline(cmd.Context(), config.Path)
+	case fn.BuildTypeDisabled:
+		// nothing needed to be done for `build=disabled`
 	default:
 		return ErrInvalidBuildType(fmt.Errorf("unknown build type: %s", function.BuildType))
 	}
@@ -307,7 +309,7 @@ func newPromptForPipelineRegistryCredentials() pipelines.ContainerRegistryCreden
 			},
 		}
 
-		fmt.Printf("Please provide credentials for image registry used by Pipeline.\n")
+		fmt.Printf("Please provide credentials for the image registry used by Pipeline.\n")
 
 		err := survey.Ask(qs, &result)
 		if err != nil {

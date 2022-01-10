@@ -63,7 +63,7 @@ func CreateDockerRegistrySecret(ctx context.Context, name, namespaceOverride, us
 
 // --- Helper methods for DockerConfigJson type of Secret
 // Taken from (and converted to private):
-// https://github.com/kubernetes/kubectl/blob/master/pkg/cmd/create/create_secret_docker.go
+// https://github.com/kubernetes/kubectl/blob/10c4667470db41ce138b9aae4e9590dbd7f1930d/pkg/cmd/create/create_secret_docker.go#L290
 
 // DockerConfigJSON represents a local docker auth config file
 // for pulling images.
