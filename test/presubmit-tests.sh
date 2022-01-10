@@ -50,7 +50,7 @@ function unit_tests() {
 function integration_tests() {
   header "Running func integration tests"
   make test-integration || failed=1
-  
+
   if (( failed )); then
     results_banner "Integration tests failed"
     exit ${failed}
