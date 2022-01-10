@@ -19,8 +19,7 @@ main() {
   docker stop kind-registry && docker rm kind-registry
   docker network rm kind
   echo "${red}NOTE:${reset}  The following changes have not been undone:"
-  echo " - Manual etc/hosts entry for kind-registry"
-  echo " - Manual docker config registering kind-registry as insecure"
+  echo " - Manual docker config registering registry at localhost:50000 (kind-registry) as insecure"
   echo " - Downloaded container images were not removed"
   echo "${green}DONE${reset}"
 }
