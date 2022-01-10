@@ -97,7 +97,7 @@ EXAMPLES
 
 `,
 		SuggestFor: []string{"emit", "emti", "send", "emit", "exec", "nivoke", "onvoke", "unvoke", "knvoke", "imvoke", "ihvoke", "ibvoke"},
-		PreRunE:    bindEnv("path", "target", "id", "source", "type", "data", "content-type", "file", "save", "confirm"),
+		PreRunE:    bindEnv("path", "target", "id", "source", "type", "data", "content-type", "file"),
 	}
 
 	// Flags
