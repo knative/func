@@ -2,7 +2,10 @@ package cmd
 
 import (
 	"fmt"
+	"net/http"
 	"os"
+
+	fnhttp "knative.dev/kn-plugin-func/http"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
@@ -13,6 +16,7 @@ import (
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/buildpacks"
 	"knative.dev/kn-plugin-func/docker"
+	"knative.dev/kn-plugin-func/docker/creds"
 	"knative.dev/kn-plugin-func/knative"
 	"knative.dev/kn-plugin-func/progress"
 )
@@ -23,17 +27,25 @@ func init() {
 
 func newDeployClient(cfg deployConfig) (*fn.Client, error) {
 	listener := progress.New()
-
 	builder := buildpacks.NewBuilder()
 
-	credentialsProvider := docker.NewCredentialsProvider(
-		docker.WithPromptForCredentials(newPromptForCredentials()),
-		docker.WithPromptForCredentialStore(newPromptForCredentialStore()))
-	pusher, err := docker.NewPusher(
-		docker.WithCredentialsProvider(credentialsProvider),
-		docker.WithProgressListener(listener))
-	if err != nil {
-		return nil, err
+	var (
+		pusher *docker.Pusher
+		err    error
+	)
+	if cfg.Push {
+		credentialsProvider := creds.NewCredentialsProvider(
+			creds.WithPromptForCredentials(newPromptForCredentials()),
+			creds.WithPromptForCredentialStore(newPromptForCredentialStore()),
+			creds.WithTransport(cfg.Transport))
+		pusher, err = docker.NewPusher(
+			docker.WithCredentialsProvider(credentialsProvider),
+			docker.WithProgressListener(listener),
+			docker.WithTransport(cfg.Transport))
+		if err != nil {
+			return nil, err
+		}
+		pusher.Verbose = cfg.Verbose
 	}
 
 	deployer, err := knative.NewDeployer(cfg.Namespace)
@@ -43,7 +55,6 @@ func newDeployClient(cfg deployConfig) (*fn.Client, error) {
 
 	listener.Verbose = cfg.Verbose
 	builder.Verbose = cfg.Verbose
-	pusher.Verbose = cfg.Verbose
 	deployer.Verbose = cfg.Verbose
 
 	return fn.New(
@@ -84,7 +95,7 @@ kn func deploy --registry quay.io/myuser
 kn func deploy --image quay.io/myuser/myfunc -n myns
 `,
 		SuggestFor: []string{"delpoy", "deplyo"},
-		PreRunE:    bindEnv("image", "namespace", "path", "registry", "confirm", "build"),
+		PreRunE:    bindEnv("image", "namespace", "path", "registry", "confirm", "build", "push"),
 	}
 
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
@@ -94,6 +105,7 @@ kn func deploy --image quay.io/myuser/myfunc -n myns
 	cmd.Flags().StringP("image", "i", "", "Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE)")
 	cmd.Flags().StringP("registry", "r", "", "Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined based on the local directory name. If not provided the registry will be taken from func.yaml (Env: $FUNC_REGISTRY)")
 	cmd.Flags().BoolP("build", "b", true, "Build the image before deploying (Env: $FUNC_BUILD)")
+	cmd.Flags().BoolP("push", "u", true, "Attempt to push the function image to registry before deploying (Env: $FUNC_PUSH)")
 	setPathFlag(cmd)
 	setNamespaceFlag(cmd)
 
@@ -174,6 +186,10 @@ func runDeploy(cmd *cobra.Command, _ []string, clientFn deployClientFn) (err err
 		config.Registry = ""
 	}
 
+	rt := fnhttp.NewRoundTripper()
+	defer rt.Close()
+	config.Transport = rt
+
 	client, err := clientFn(config)
 	if err != nil {
 		if err == terminal.InterruptErr {
@@ -184,6 +200,12 @@ func runDeploy(cmd *cobra.Command, _ []string, clientFn deployClientFn) (err err
 
 	if config.Build {
 		if err := client.Build(cmd.Context(), config.Path); err != nil {
+			return err
+		}
+	}
+
+	if config.Push {
+		if err := client.Push(cmd.Context(), config.Path); err != nil {
 			return err
 		}
 	}
@@ -228,7 +250,7 @@ func newPromptForCredentials() func(registry string) (docker.Credentials, error)
 	}
 }
 
-func newPromptForCredentialStore() docker.ChooseCredentialHelperCallback {
+func newPromptForCredentialStore() creds.ChooseCredentialHelperCallback {
 	return func(availableHelpers []string) (string, error) {
 		if len(availableHelpers) < 1 {
 			fmt.Fprintf(os.Stderr, `Credentials will not be saved.
@@ -279,11 +301,16 @@ type deployConfig struct {
 	// Build the associated Function before deploying.
 	Build bool
 
+	// Push function image to the registry before deploying.
+	Push bool
+
 	// Envs passed via cmd to be added/updated
 	EnvToUpdate *util.OrderedMap
 
 	// Envs passed via cmd to removed
 	EnvToRemove []string
+
+	Transport http.RoundTripper
 }
 
 // newDeployConfig creates a buildConfig populated from command flags and
@@ -301,6 +328,7 @@ func newDeployConfig(cmd *cobra.Command) (deployConfig, error) {
 		Verbose:     viper.GetBool("verbose"), // defined on root
 		Confirm:     viper.GetBool("confirm"),
 		Build:       viper.GetBool("build"),
+		Push:        viper.GetBool("push"),
 		EnvToUpdate: envToUpdate,
 		EnvToRemove: envToRemove,
 	}, nil

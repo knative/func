@@ -1,60 +1,42 @@
 //go:build !integration
 // +build !integration
 
-package docker
+package docker_test
 
 import (
+	"bytes"
 	"context"
-	"crypto/ed25519"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"log"
 	"math/big"
 	"net"
 	"net/http"
 	"os"
-	"path/filepath"
-	"runtime"
+	"reflect"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
-	fn "knative.dev/kn-plugin-func"
-	. "knative.dev/kn-plugin-func/testing"
+	"github.com/docker/docker/api/types"
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/registry"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 
-	"github.com/docker/docker-credential-helpers/credentials"
+	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/docker"
 )
 
-func Test_parseDigest(t *testing.T) {
-	tests := []struct {
-		name string
-		arg  string
-		want string
-	}{
-		{
-			name: "basic test",
-			arg:  "latest: digest: sha256:a278a91112d17f8bde6b5f802a3317c7c752cf88078dae6f4b5a0784deb81782 size: 2613",
-			want: "sha256:a278a91112d17f8bde6b5f802a3317c7c752cf88078dae6f4b5a0784deb81782",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := parseDigest(tt.arg); got != tt.want {
-				t.Errorf("parseDigest() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func Test_getRegistry(t *testing.T) {
+func TestGetRegistry(t *testing.T) {
 	tests := []struct {
 		name string
 		arg  string
@@ -78,739 +60,282 @@ func Test_getRegistry(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got, _ := getRegistry(tt.arg); got != tt.want {
-				t.Errorf("getRegistry() = %v, want %v", got, tt.want)
+			if got, _ := docker.GetRegistry(tt.arg); got != tt.want {
+				t.Errorf("GetRegistry() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
 const (
-	dockerIoUser    = "testUser1"
-	dockerIoUserPwd = "goodPwd1"
-	quayIoUser      = "testUser2"
-	quayIoUserPwd   = "goodPwd2"
+	testUser            = "testuser"
+	testPwd             = "testpwd"
+	registryHostname    = "my.testing.registry"
+	functionImage       = "/testuser/func:latest"
+	functionImageRemote = registryHostname + functionImage
+	functionImageLocal  = "localhost" + functionImage
 )
 
-func TestNewCredentialsProvider(t *testing.T) {
-	defer withCleanHome(t)()
+var testCredProvider = docker.CredentialsProvider(func(ctx context.Context, registry string) (docker.Credentials, error) {
+	return docker.Credentials{
+		Username: testUser,
+		Password: testPwd,
+	}, nil
+})
 
-	helperWithQuayIO := newInMemoryHelper()
+func TestDaemonPush(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*5)
+	defer cancel()
 
-	err := helperWithQuayIO.Add(&credentials.Credentials{
-		ServerURL: "quay.io",
-		Username:  quayIoUser,
-		Secret:    quayIoUserPwd,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	var optsPassedToMock types.ImagePushOptions
+	var imagePassedToMock string
+	var closeCalledOnMock bool
 
-	type args struct {
-		promptUser        CredentialsCallback
-		verifyCredentials VerifyCredentialsCallback
-		additionalLoaders []CredentialsCallback
-		registry          string
-		setUpEnv          setUpEnv
-	}
-	tests := []struct {
-		name string
-		args args
-		want Credentials
-	}{
-		{
-			name: "test user callback correct password on first try",
-			args: args{
-				promptUser:        correctPwdCallback,
-				verifyCredentials: correctVerifyCbk,
-				registry:          "docker.io",
-			},
-			want: Credentials{Username: dockerIoUser, Password: dockerIoUserPwd},
-		},
-		{
-			name: "test user callback correct password on second try",
-			args: args{
-				promptUser:        pwdCbkFirstWrongThenCorrect(t),
-				verifyCredentials: correctVerifyCbk,
-				registry:          "docker.io",
-			},
-			want: Credentials{Username: dockerIoUser, Password: dockerIoUserPwd},
-		},
-		{
-			name: "get quay-io credentials with func config populated",
-			args: args{
-				promptUser:        pwdCbkThatShallNotBeCalled(t),
-				verifyCredentials: correctVerifyCbk,
-				registry:          "quay.io",
-				setUpEnv:          withPopulatedFuncAuthConfig,
-			},
-			want: Credentials{Username: quayIoUser, Password: quayIoUserPwd},
-		},
-		{
-			name: "get docker-io credentials with func config populated",
-			args: args{
-				promptUser:        pwdCbkThatShallNotBeCalled(t),
-				verifyCredentials: correctVerifyCbk,
-				registry:          "docker.io",
-				setUpEnv:          withPopulatedFuncAuthConfig,
-			},
-			want: Credentials{Username: dockerIoUser, Password: dockerIoUserPwd},
-		},
-		{
-			name: "get quay-io credentials with docker config populated",
-			args: args{
-				promptUser:        pwdCbkThatShallNotBeCalled(t),
-				verifyCredentials: correctVerifyCbk,
-				registry:          "quay.io",
-				setUpEnv: all(
-					withPopulatedDockerAuthConfig,
-					setUpMockHelper("docker-credential-mock", helperWithQuayIO)),
-			},
-			want: Credentials{Username: quayIoUser, Password: quayIoUserPwd},
-		},
-		{
-			name: "get docker-io credentials with docker config populated",
-			args: args{
-				promptUser:        pwdCbkThatShallNotBeCalled(t),
-				verifyCredentials: correctVerifyCbk,
-				registry:          "docker.io",
-				setUpEnv:          withPopulatedDockerAuthConfig,
-			},
-			want: Credentials{Username: dockerIoUser, Password: dockerIoUserPwd},
-		},
-		{
-			name: "get docker-io credentials from custom loader",
-			args: args{
-				promptUser:        pwdCbkThatShallNotBeCalled(t),
-				verifyCredentials: correctVerifyCbk,
-				registry:          "docker.io",
-				additionalLoaders: []CredentialsCallback{correctPwdCallback},
-			},
-			want: Credentials{Username: dockerIoUser, Password: dockerIoUserPwd},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			defer cleanUpConfigs(t)
+	dockerClient := newMockPusherDockerClient()
 
-			if tt.args.setUpEnv != nil {
-				defer tt.args.setUpEnv(t)()
-			}
-
-			credentialsProvider := NewCredentialsProvider(
-				WithPromptForCredentials(tt.args.promptUser),
-				WithVerifyCredentials(tt.args.verifyCredentials),
-				WithAdditionalCredentialLoaders(tt.args.additionalLoaders...))
-			got, err := credentialsProvider(context.Background(), tt.args.registry)
-			if err != nil {
-				t.Errorf("unexpected error: %v", err)
-				return
-			}
-			if got != tt.want {
-				t.Errorf("credentialsProvider() = %v, want %v", got, tt.want)
-			}
-		})
-	}
+	dockerClient.imagePush = func(ctx context.Context, ref string, options types.ImagePushOptions) (io.ReadCloser, error) {
+		imagePassedToMock = ref
+		optsPassedToMock = options
+		return io.NopCloser(strings.NewReader(`{
+    "status":  "latest: digest: sha256:00af51d125f3092e157a7f8a717029412dc9d266c017e89cecdfeccb4cc3d7a7 size: 2613"
 }
-
-func TestCredentialsProviderSavingFromUserInput(t *testing.T) {
-	defer withCleanHome(t)()
-
-	helper := newInMemoryHelper()
-	defer setUpMockHelper("docker-credential-mock", helper)(t)()
-
-	var pwdCbkInvocations int
-	pwdCbk := func(r string) (Credentials, error) {
-		pwdCbkInvocations++
-		return correctPwdCallback(r)
+`)), nil
 	}
 
-	chooseNoStore := func(available []string) (string, error) {
-		if len(available) < 1 {
-			t.Errorf("this should have been invoked with non empty list")
-		}
-		return "", nil
-	}
-	chooseMockStore := func(available []string) (string, error) {
-		if len(available) < 1 {
-			t.Errorf("this should have been invoked with non empty list")
-		}
-		return "docker-credential-mock", nil
-	}
-	shallNotBeInvoked := func(available []string) (string, error) {
-		t.Fatal("this choose helper callback shall not be invoked")
-		return "", errors.New("this callback shall not be invoked")
-	}
-
-	credentialsProvider := NewCredentialsProvider(
-		WithPromptForCredentials(pwdCbk),
-		WithVerifyCredentials(correctVerifyCbk),
-		WithPromptForCredentialStore(chooseNoStore))
-	_, err := credentialsProvider(context.Background(), "docker.io")
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-		return
-	}
-
-	// now credentials should not be saved because no helper was provided
-	l, err := helper.List()
-	if err != nil {
-		t.Fatal(err)
-	}
-	credsInStore := len(l)
-	if credsInStore != 0 {
-		t.Errorf("expected to have zero credentials in store, but has: %d", credsInStore)
-	}
-	credentialsProvider = NewCredentialsProvider(
-		WithPromptForCredentials(pwdCbk),
-		WithVerifyCredentials(correctVerifyCbk),
-		WithPromptForCredentialStore(chooseMockStore))
-	_, err = credentialsProvider(context.Background(), "docker.io")
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-		return
-	}
-	if pwdCbkInvocations != 2 {
-		t.Errorf("the pwd callback should have been invoked exactly twice but was invoked %d time", pwdCbkInvocations)
-	}
-
-	// now credentials should be saved in the mock secure store
-	l, err = helper.List()
-	if err != nil {
-		t.Fatal(err)
-	}
-	credsInStore = len(l)
-	if len(l) != 1 {
-		t.Errorf("expected to have exactly one credentials in store, but has: %d", credsInStore)
-	}
-	credentialsProvider = NewCredentialsProvider(
-		WithPromptForCredentials(pwdCbkThatShallNotBeCalled(t)),
-		WithVerifyCredentials(correctVerifyCbk),
-		WithPromptForCredentialStore(shallNotBeInvoked))
-	_, err = credentialsProvider(context.Background(), "docker.io")
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-		return
-	}
-}
-
-func cleanUpConfigs(t *testing.T) {
-	home, err := os.Hostname()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	os.RemoveAll(fn.ConfigPath())
-
-	os.RemoveAll(filepath.Join(home, ".docker"))
-}
-
-type setUpEnv = func(t *testing.T) func()
-
-func withPopulatedDockerAuthConfig(t *testing.T) func() {
-	t.Helper()
-	home, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	dockerConfigDir := filepath.Join(home, ".docker")
-	dockerConfigPath := filepath.Join(dockerConfigDir, "config.json")
-	err = os.MkdirAll(filepath.Dir(dockerConfigPath), 0700)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	configJSON := `{
-	"auths": {
-		"docker.io": { "auth": "%s" },
-		"quay.io": {}
-	},
-	"credsStore": "mock"
-}`
-	configJSON = fmt.Sprintf(configJSON, base64.StdEncoding.EncodeToString([]byte(dockerIoUser+":"+dockerIoUserPwd)))
-
-	err = ioutil.WriteFile(dockerConfigPath, []byte(configJSON), 0600)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return func() {
-
-		os.RemoveAll(dockerConfigDir)
-	}
-}
-
-func withPopulatedFuncAuthConfig(t *testing.T) func() {
-	t.Helper()
-
-	var err error
-
-	authConfig := filepath.Join(fn.ConfigPath(), "auth.json")
-	err = os.MkdirAll(filepath.Dir(authConfig), 0700)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	authJSON := `{
-	"auths": {
-		"docker.io": { "auth": "%s" },
-		"quay.io":   { "auth": "%s" }
-	}
-}`
-	authJSON = fmt.Sprintf(authJSON,
-		base64.StdEncoding.EncodeToString([]byte(dockerIoUser+":"+dockerIoUserPwd)),
-		base64.StdEncoding.EncodeToString([]byte(quayIoUser+":"+quayIoUserPwd)))
-
-	err = ioutil.WriteFile(authConfig, []byte(authJSON), 0600)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return func() {
-		os.RemoveAll(fn.ConfigPath())
-	}
-}
-
-func pwdCbkThatShallNotBeCalled(t *testing.T) CredentialsCallback {
-	t.Helper()
-	return func(registry string) (Credentials, error) {
-		return Credentials{}, errors.New("this pwd cbk code shall not be called")
-	}
-}
-
-func pwdCbkFirstWrongThenCorrect(t *testing.T) func(registry string) (Credentials, error) {
-	t.Helper()
-	var firstInvocation bool
-	return func(registry string) (Credentials, error) {
-		if registry != "docker.io" && registry != "quay.io" {
-			return Credentials{}, fmt.Errorf("unexpected registry: %s", registry)
-		}
-		if firstInvocation {
-			firstInvocation = false
-			return Credentials{dockerIoUser, "badPwd"}, nil
-		}
-		return correctPwdCallback(registry)
-	}
-}
-
-func correctPwdCallback(registry string) (Credentials, error) {
-	if registry == "docker.io" {
-		return Credentials{Username: dockerIoUser, Password: dockerIoUserPwd}, nil
-	}
-	if registry == "quay.io" {
-		return Credentials{Username: quayIoUser, Password: quayIoUserPwd}, nil
-	}
-	return Credentials{}, errors.New("this cbk don't know the pwd")
-}
-
-func correctVerifyCbk(ctx context.Context, registry string, creds Credentials) error {
-	username, password := creds.Username, creds.Password
-	if username == dockerIoUser && password == dockerIoUserPwd && registry == "docker.io" {
+	dockerClient.close = func() error {
+		closeCalledOnMock = true
 		return nil
 	}
-	if username == quayIoUser && password == quayIoUserPwd && registry == "quay.io" {
-		return nil
+
+	dockerClientFactory := func() (docker.PusherDockerClient, error) {
+		return dockerClient, nil
 	}
-	return ErrUnauthorized
+	pusher, err := docker.NewPusher(
+		docker.WithCredentialsProvider(testCredProvider),
+		docker.WithPusherDockerClientFactory(dockerClientFactory))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f := fn.Function{
+		Image: functionImageLocal,
+	}
+
+	digest, err := pusher.Push(ctx, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if digest != "sha256:00af51d125f3092e157a7f8a717029412dc9d266c017e89cecdfeccb4cc3d7a7" {
+		t.Errorf("got bad digest: %q", digest)
+	}
+
+	authData, err := base64.StdEncoding.DecodeString(optsPassedToMock.RegistryAuth)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	authStruct := struct {
+		Username, Password string
+	}{}
+
+	dec := json.NewDecoder(bytes.NewReader(authData))
+
+	err = dec.Decode(&authStruct)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if imagePassedToMock != functionImageLocal {
+		t.Errorf("Bad image name passed to the Docker API Client: %q.", imagePassedToMock)
+	}
+
+	if authStruct.Username != testUser || authStruct.Password != testPwd {
+		t.Errorf("Bad credentials passed to the Docker API Client: %q:%q", authStruct.Username, authStruct.Password)
+	}
+
+	if !closeCalledOnMock {
+		t.Error("The Close() function has not been called on the Docker API Client.")
+	}
 }
 
-func withCleanHome(t *testing.T) func() {
-	t.Helper()
-	homeName := "HOME"
-	if runtime.GOOS == "windows" {
-		homeName = "USERPROFILE"
+func TestNonDaemonPush(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*5)
+	defer cancel()
+
+	// in memory network emulation
+	connections := conns(make(chan net.Conn))
+
+	serveRegistry(t, connections)
+
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.TLSClientConfig = &tls.Config{
+		InsecureSkipVerify: true,
 	}
-	tmpHome := t.TempDir()
-	oldHome, hadHome := os.LookupEnv(homeName)
-	os.Setenv(homeName, tmpHome)
+	transport.DialContext = connections.DialContext
 
-	oldXDGConfigHome, hadXDGConfigHome := os.LookupEnv("XDG_CONFIG_HOME")
+	dockerClient := newMockPusherDockerClient()
 
-	if runtime.GOOS == "linux" {
-		os.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpHome, ".config"))
-	}
-
-	return func() {
-		if hadHome {
-			os.Setenv(homeName, oldHome)
-		} else {
-			os.Unsetenv(homeName)
-		}
-		if hadXDGConfigHome {
-			os.Setenv("XDG_CONFIG_HOME", oldXDGConfigHome)
-		} else {
-			os.Unsetenv("XDG_CONFIG_HOME")
-		}
-	}
-}
-
-func handlerForCredHelper(t *testing.T, credHelper credentials.Helper) http.Handler {
-	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		defer request.Body.Close()
-
-		var err error
-		var outBody interface{}
-
-		uri := strings.Trim(request.RequestURI, "/")
-
-		var serverURL string
-		if uri == "get" || uri == "erase" {
-			data, err := ioutil.ReadAll(request.Body)
-			if err != nil {
-				writer.WriteHeader(http.StatusInternalServerError)
-				return
-			}
-			serverURL = string(data)
-			serverURL = strings.Trim(serverURL, "\n\r\t ")
-		}
-
-		switch uri {
-		case "list":
-			var list map[string]string
-			list, err = credHelper.List()
-			if err == nil {
-				outBody = &list
-			}
-		case "store":
-			creds := credentials.Credentials{}
-			dec := json.NewDecoder(request.Body)
-			err = dec.Decode(&creds)
-			if err != nil {
-				break
-			}
-			err = credHelper.Add(&creds)
-		case "get":
-			var user, secret string
-			user, secret, err = credHelper.Get(serverURL)
-			if err == nil {
-				outBody = &credentials.Credentials{ServerURL: serverURL, Username: user, Secret: secret}
-			}
-		case "erase":
-			err = credHelper.Delete(serverURL)
-		default:
-			writer.WriteHeader(http.StatusNotFound)
-			return
-		}
-
+	var imagesPassedToMock []string
+	dockerClient.imageSave = func(ctx context.Context, images []string) (io.ReadCloser, error) {
+		imagesPassedToMock = images
+		f, err := os.Open("./testData/image.tar")
 		if err != nil {
-			if credentials.IsErrCredentialsNotFound(err) {
-				writer.WriteHeader(http.StatusNotFound)
-			} else {
-				writer.WriteHeader(http.StatusInternalServerError)
-				writer.Header().Add("Content-Type", "text/plain")
-				fmt.Fprintf(writer, "error: %+v\n", err)
-			}
-			return
+			return nil, err
 		}
-
-		if outBody != nil {
-			var data []byte
-			data, err = json.Marshal(outBody)
-			if err != nil {
-				writer.WriteHeader(http.StatusInternalServerError)
-				return
-			}
-			writer.Header().Add("Content-Type", "application/json")
-			_, err = writer.Write(data)
-			if err != nil {
-				t.Fatal(err)
-			}
-		}
-	})
-
-}
-
-// Go source code of mock docker-credential-helper implementation.
-// Its storage is backed by inMemoryHelper instantiated in test and exposed via HTTP.
-const helperGoSrc = `package main
-
-import (
-	"errors"
-	"io"
-	"log"
-	"net/http"
-	"os"
-)
-
-func main() {
-	var (
-		baseURL = os.Getenv("HELPER_BASE_URL")
-		resp *http.Response
-		err error
-	)
-	cmd := os.Args[1]
-	switch cmd {
-	case "list":
-		resp, err = http.Get(baseURL + "/" + cmd)
-		if err != nil {
-			log.Fatal(err)
-		}
-		io.Copy(os.Stdout, resp.Body)
-	case "get", "erase":
-		resp, err = http.Post(baseURL+ "/" + cmd, "text/plain", os.Stdin)
-		if err != nil {
-			log.Fatal(err)
-		}
-		io.Copy(os.Stdout, resp.Body)
-	case "store":
-		resp, err = http.Post(baseURL+ "/" + cmd, "application/json", os.Stdin)
-		if err != nil {
-			log.Fatal(err)
-		}
-	default:
-		log.Fatal(errors.New("unknown cmd: " + cmd))
+		return f, nil
 	}
-	if resp.StatusCode != http.StatusOK {
-		log.Fatal(errors.New(resp.Status))
+
+	dockerClientFactory := func() (docker.PusherDockerClient, error) {
+		return dockerClient, nil
 	}
-	return
-}
-`
 
-// Creates executable with name determined by the helperName parameter and puts it on $PATH.
-//
-// The executable behaves like docker credential helper (https://github.com/docker/docker-credential-helpers).
-//
-// The content of the store presented by the executable is backed by the helper parameter.
-func setUpMockHelper(helperName string, helper credentials.Helper) func(t *testing.T) func() {
-	var cleanUps []func()
-	return func(t *testing.T) func() {
+	pusher, err := docker.NewPusher(
+		docker.WithTransport(transport),
+		docker.WithCredentialsProvider(testCredProvider),
+		docker.WithPusherDockerClientFactory(dockerClientFactory))
+	if err != nil {
+		t.Fatal(err)
+	}
 
-		cleanUps = append(cleanUps, WithExecutable(t, helperName, helperGoSrc))
+	f := fn.Function{
+		Image: functionImageRemote,
+	}
 
-		listener, err := net.Listen("tcp", "localhost:0")
+	actualDigest, err := pusher.Push(ctx, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !reflect.DeepEqual(imagesPassedToMock, []string{f.Image}) {
+		t.Errorf("Bad image name passed to the Docker API Client: %q.", imagesPassedToMock)
+	}
+
+	r, err := name.NewRegistry(registryHostname)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	remoteOpts := []remote.Option{
+		remote.WithTransport(transport),
+		remote.WithAuth(&authn.Basic{
+			Username: testUser,
+			Password: testPwd,
+		}),
+	}
+
+	c, err := remote.Catalog(ctx, r, remoteOpts...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !reflect.DeepEqual(c, []string{"testuser/func"}) {
+		t.Error("unexpected catalog content")
+	}
+
+	imgRef := name.MustParseReference(functionImageRemote)
+
+	img, err := remote.Image(imgRef, remoteOpts...)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedDigest, err := img.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if actualDigest != expectedDigest.String() {
+		t.Error("digest does not match")
+	}
+
+	layers, err := img.Layers()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedDiffs := []string{
+		"sha256:cba17de713254df68662c399558da08f1cd9abfa4e3b404544757982b4f11597",
+		"sha256:d5c07940dc570b965530593384a3cf47f47bf07d68eb741d875090392a6331c3",
+		"sha256:a4dd43077393aff80a0bec5c1bf2db4941d620dcaa545662068476e324efefaa",
+		"sha256:abe6122e067d0f8bee1a8b8f0c4bb9d2b23cc73617bc8ff4addd6c1329bca23e",
+		"sha256:515e67f7a08c1798cad8ee4d5f0ce7e606540f5efe5163a967d8dc58994f9641",
+		"sha256:a5fdabf59fa2a4a0e60d21c1ffc4d482e62debe196bae742a476f4d5b893f0ce",
+		"sha256:8d6bae166e585b4b503d36a7de0ba749b68ef689884e94dfa0655bbf8ce4d213",
+		"sha256:b136b7c51981af6493ecbb1136f6ff0f23734f7b9feacb20c8090ac9dec6333d",
+		"sha256:e9055109e5f7999da5add4b5fff11a34783cddc9aef492d9b790024d1bc1b7d0",
+		"sha256:5a1ff39e0e0291a43170cbcd70515bfccef4bed4c7e7b97f82d49d3d557fe04b",
+	}
+
+	actualDiffs := make([]string, 0, len(expectedDiffs))
+
+	for _, layer := range layers {
+		diffID, err := layer.DiffID()
 		if err != nil {
 			t.Fatal(err)
 		}
+		actualDiffs = append(actualDiffs, diffID.String())
+	}
 
-		cleanUps = append(cleanUps, func() {
-			_ = listener.Close()
-		})
-
-		baseURL := fmt.Sprintf("http://%s", listener.Addr().String())
-		cleanUps = append(cleanUps, WithEnvVar(t, "HELPER_BASE_URL", baseURL))
-
-		server := http.Server{Handler: handlerForCredHelper(t, helper)}
-		servErrChan := make(chan error)
-		go func() {
-			servErrChan <- server.Serve(listener)
-		}()
-
-		cleanUps = append(cleanUps, func() {
-			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
-			defer cancel()
-			_ = server.Shutdown(ctx)
-			e := <-servErrChan
-			if !errors.Is(e, http.ErrServerClosed) {
-				t.Fatal(e)
-			}
-		})
-
-		return func() {
-			for i := len(cleanUps) - 1; i <= 0; i-- {
-				cleanUps[i]()
-			}
-		}
+	if !reflect.DeepEqual(expectedDiffs, actualDiffs) {
+		t.Error("layer diffs in tar and from registry differs")
 	}
 }
 
-// combines multiple setUp routines into one setUp routine
-func all(fns ...setUpEnv) setUpEnv {
-	return func(t *testing.T) func() {
-		t.Helper()
-		var cleanUps []func()
-		for _, fn := range fns {
-			cleanUps = append(cleanUps, fn(t))
-		}
-
-		return func() {
-			for i := len(cleanUps) - 1; i >= 0; i-- {
-				cleanUps[i]()
-			}
-		}
+func newMockPusherDockerClient() *mockPusherDockerClient {
+	return &mockPusherDockerClient{
+		negotiateAPIVersion: func(ctx context.Context) {},
+		close:               func() error { return nil },
 	}
 }
 
-func newInMemoryHelper() *inMemoryHelper {
-	return &inMemoryHelper{lock: &sync.Mutex{}, credentials: make(map[string]credentials.Credentials)}
+type mockPusherDockerClient struct {
+	negotiateAPIVersion func(ctx context.Context)
+	imagePush           func(ctx context.Context, ref string, options types.ImagePushOptions) (io.ReadCloser, error)
+	imageSave           func(ctx context.Context, strings []string) (io.ReadCloser, error)
+	close               func() error
 }
 
-type inMemoryHelper struct {
-	credentials map[string]credentials.Credentials
-	lock        sync.Locker
+func (m *mockPusherDockerClient) NegotiateAPIVersion(ctx context.Context) {
+	m.negotiateAPIVersion(ctx)
 }
 
-func (i *inMemoryHelper) Add(credentials *credentials.Credentials) error {
-	i.lock.Lock()
-	defer i.lock.Unlock()
-
-	i.credentials[credentials.ServerURL] = *credentials
-
-	return nil
+func (m *mockPusherDockerClient) ImageSave(ctx context.Context, strings []string) (io.ReadCloser, error) {
+	return m.imageSave(ctx, strings)
 }
 
-func (i *inMemoryHelper) Get(serverURL string) (string, string, error) {
-	i.lock.Lock()
-	defer i.lock.Unlock()
-
-	if result, ok := i.credentials[serverURL]; ok {
-		return result.Username, result.Secret, nil
-	}
-
-	return "", "", credentials.NewErrCredentialsNotFound()
+func (m *mockPusherDockerClient) ImageLoad(ctx context.Context, reader io.Reader, b bool) (types.ImageLoadResponse, error) {
+	panic("implement me")
 }
 
-func (i *inMemoryHelper) List() (map[string]string, error) {
-	i.lock.Lock()
-	defer i.lock.Unlock()
-
-	result := make(map[string]string, len(i.credentials))
-
-	for k, v := range i.credentials {
-		result[k] = v.Username
-	}
-
-	return result, nil
+func (m *mockPusherDockerClient) ImageTag(ctx context.Context, s string, s2 string) error {
+	panic("implement me")
 }
 
-func (i *inMemoryHelper) Delete(serverURL string) error {
-	i.lock.Lock()
-	defer i.lock.Unlock()
-
-	if _, ok := i.credentials[serverURL]; ok {
-		delete(i.credentials, serverURL)
-		return nil
-	}
-
-	return credentials.NewErrCredentialsNotFound()
+func (m *mockPusherDockerClient) ImagePush(ctx context.Context, ref string, options types.ImagePushOptions) (io.ReadCloser, error) {
+	return m.imagePush(ctx, ref, options)
 }
 
-func TestCheckAuth(t *testing.T) {
-	localhost, localhostTLS, stopServer := startServer(t)
-	defer stopServer()
+func (m *mockPusherDockerClient) Close() error {
+	return m.close()
+}
 
-	_, portTLS, err := net.SplitHostPort(localhostTLS)
+func serveRegistry(t *testing.T, l net.Listener) {
+
+	caPrivateKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	nonLocalhostTLS := "test.io:" + portTLS
-
-	type args struct {
-		ctx      context.Context
-		username string
-		password string
-		registry string
-	}
-	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
-	}{
-		{
-			name: "correct credentials localhost no-TLS",
-			args: args{
-				ctx:      context.Background(),
-				username: "testuser",
-				password: "testpwd",
-				registry: localhost,
-			},
-			wantErr: false,
-		},
-		{
-			name: "correct credentials localhost",
-			args: args{
-				ctx:      context.Background(),
-				username: "testuser",
-				password: "testpwd",
-				registry: localhostTLS,
-			},
-			wantErr: false,
-		},
-
-		{
-			name: "correct credentials non-localhost",
-			args: args{
-				ctx:      context.Background(),
-				username: "testuser",
-				password: "testpwd",
-				registry: nonLocalhostTLS,
-			},
-			wantErr: false,
-		},
-		{
-			name: "incorrect credentials localhost no-TLS",
-			args: args{
-				ctx:      context.Background(),
-				username: "testuser",
-				password: "badpwd",
-				registry: localhost,
-			},
-			wantErr: true,
-		},
-		{
-			name: "incorrect credentials localhost",
-			args: args{
-				ctx:      context.Background(),
-				username: "testuser",
-				password: "badpwd",
-				registry: localhostTLS,
-			},
-			wantErr: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			creds := Credentials{
-				Username: tt.args.username,
-				Password: tt.args.password,
-			}
-			if err := CheckAuth(tt.args.ctx, tt.args.registry, creds); (err != nil) != tt.wantErr {
-				t.Errorf("CheckAuth() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func startServer(t *testing.T) (addr, addrTLS string, stopServer func()) {
-	listener, err := net.Listen("tcp", "localhost:8080")
-	if err != nil {
-		t.Fatal(err)
-	}
-	addr = listener.Addr().String()
-
-	listenerTLS, err := net.Listen("tcp", "localhost:4433")
-	if err != nil {
-		t.Fatal(err)
-	}
-	addrTLS = listenerTLS.Addr().String()
-
-	handler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-		resp.Header().Add("WWW-Authenticate", "basic")
-		if user, pwd, ok := req.BasicAuth(); ok {
-			if user == "testuser" && pwd == "testpwd" {
-				resp.WriteHeader(http.StatusOK)
-				return
-			}
-		}
-		resp.WriteHeader(http.StatusUnauthorized)
-	})
-
-	var randReader io.Reader = rand.Reader
-
-	caPublicKey, caPrivateKey, err := ed25519.GenerateKey(randReader)
-	if err != nil {
-		t.Fatal(err)
-	}
+	caPublicKey := &caPrivateKey.PublicKey
 
 	ca := &x509.Certificate{
 		SerialNumber: big.NewInt(1),
 		Subject: pkix.Name{
-			CommonName: "localhost",
+			CommonName: registryHostname,
 		},
-		IPAddresses:           []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback},
-		DNSNames:              []string{"localhost", "test.io"},
+		DNSNames:              []string{registryHostname},
 		NotBefore:             time.Now(),
-		NotAfter:              time.Now().AddDate(10, 0, 0),
+		NotAfter:              time.Now().Add(time.Minute * 10),
 		IsCA:                  true,
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
 		ExtraExtensions:       []pkix.Extension{},
@@ -818,7 +343,7 @@ func startServer(t *testing.T) (addr, addrTLS string, stopServer func()) {
 		BasicConstraintsValid: true,
 	}
 
-	caBytes, err := x509.CreateCertificate(randReader, ca, ca, caPublicKey, caPrivateKey)
+	caBytes, err := x509.CreateCertificate(rand.Reader, ca, ca, caPublicKey, caPrivateKey)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -835,52 +360,122 @@ func startServer(t *testing.T) (addr, addrTLS string, stopServer func()) {
 	}
 
 	server := http.Server{
-		Handler: handler,
+		Handler: withAuth(registry.New(
+			registry.Logger(log.New(io.Discard, "", 0)))),
 		TLSConfig: &tls.Config{
-			ServerName:   "localhost",
+			ServerName:   registryHostname,
 			Certificates: []tls.Certificate{cert},
 		},
+		// The line below disables HTTP/2.
+		// See: https://github.com/google/go-containerregistry/issues/1210
+		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)),
 	}
-
 	go func() {
-		err := server.ServeTLS(listenerTLS, "", "")
-		if err != nil && !strings.Contains(err.Error(), "Server closed") {
-			panic(err)
-		}
+		_ = server.ServeTLS(l, "", "")
 	}()
-
-	go func() {
-		err := server.Serve(listener)
-		if err != nil && !strings.Contains(err.Error(), "Server closed") {
-			panic(err)
-		}
-	}()
-
-	// make the testing CA trusted by default HTTP transport/client
-	oldDefaultTransport := http.DefaultTransport
-	newDefaultTransport := http.DefaultTransport.(*http.Transport).Clone()
-	http.DefaultTransport = newDefaultTransport
-	caPool := x509.NewCertPool()
-	caPool.AddCert(ca)
-	newDefaultTransport.TLSClientConfig.RootCAs = caPool
-	dc := newDefaultTransport.DialContext
-	newDefaultTransport.DialContext = func(ctx context.Context, network, addr string) (net.Conn, error) {
-		h, p, err := net.SplitHostPort(addr)
-		if err != nil {
-			return nil, err
-		}
-		if h == "test.io" {
-			h = "localhost"
-		}
-		addr = net.JoinHostPort(h, p)
-		return dc(ctx, network, addr)
-	}
-
-	return addr, addrTLS, func() {
-		err := server.Shutdown(context.Background())
-		if err != nil {
-			t.Fatal(err)
-		}
-		http.DefaultTransport = oldDefaultTransport
-	}
+	t.Cleanup(func() {
+		server.Close()
+	})
 }
+
+// middleware for basic auth
+func withAuth(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		user, pass, ok := r.BasicAuth()
+		if ok && user == testUser && pass == testPwd {
+			h.ServeHTTP(w, r)
+			return
+		}
+		w.Header().Add("WWW-Authenticate", "basic")
+		w.WriteHeader(401)
+		fmt.Fprintln(w, "Unauthorised.")
+	})
+}
+
+type conns chan net.Conn
+
+func (c conns) DialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+	if addr == registryHostname+":443" {
+
+		pr0, pw0 := io.Pipe()
+		pr1, pw1 := io.Pipe()
+
+		c <- conn{pr0, pw1}
+
+		return conn{pr1, pw0}, nil
+	}
+	return (&net.Dialer{
+		Timeout:   30 * time.Second,
+		KeepAlive: 30 * time.Second,
+	}).DialContext(ctx, network, addr)
+}
+
+func (c conns) Accept() (net.Conn, error) {
+	con, ok := <-c
+	if !ok {
+		return nil, net.ErrClosed
+	}
+	return con, nil
+}
+
+func (c conns) Close() error {
+	close(c)
+	return nil
+}
+
+func (c conns) Addr() net.Addr {
+	return addr{}
+}
+
+type conn struct {
+	pr *io.PipeReader
+	pw *io.PipeWriter
+}
+
+type addr struct{}
+
+func (a addr) Network() string {
+	return "mock-addr"
+}
+
+func (a addr) String() string {
+	return "mock-addr"
+}
+
+func (c conn) Read(b []byte) (n int, err error) {
+	return c.pr.Read(b)
+}
+
+func (c conn) Write(b []byte) (n int, err error) {
+	return c.pw.Write(b)
+}
+
+func (c conn) Close() error {
+	var err error
+
+	err = c.pr.Close()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "err: %v\n", err)
+	}
+
+	err = c.pw.Close()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "err: %v\n", err)
+	}
+
+	return nil
+}
+
+func (c conn) LocalAddr() net.Addr {
+	return addr{}
+}
+
+func (c conn) RemoteAddr() net.Addr {
+	return addr{}
+}
+
+func (c conn) SetDeadline(t time.Time) error { return nil }
+
+func (c conn) SetReadDeadline(t time.Time) error { return nil }
+
+func (c conn) SetWriteDeadline(t time.Time) error { return nil }

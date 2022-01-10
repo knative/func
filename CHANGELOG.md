@@ -1,6 +1,41 @@
 # Change Log
 
 <a name="unreleased"></a>
+## [0.20.0](https://www.github.com/knative-sandbox/kn-plugin-func/compare/v0.19.0...v0.20.0) (2021-12-20)
+
+
+### ⚠ BREAKING CHANGES
+
+* use `function.knative.dev` for Functions related labels (#717)
+
+### Features
+
+* add flag to push image at the end of a successful build ([#681](https://www.github.com/knative-sandbox/kn-plugin-func/issues/681)) ([2f24182](https://www.github.com/knative-sandbox/kn-plugin-func/commit/2f241824ff3a2664a987fe742aed2f0b56aeb9ab))
+* add POD_NAME as an environment variable ([#660](https://www.github.com/knative-sandbox/kn-plugin-func/issues/660)) ([64473b7](https://www.github.com/knative-sandbox/kn-plugin-func/commit/64473b7197bb5a821b6724a8b914784891b1a828))
+* add telemetry to Node.js and TypeScript function templates ([#719](https://www.github.com/knative-sandbox/kn-plugin-func/issues/719)) ([d7cfe6e](https://www.github.com/knative-sandbox/kn-plugin-func/commit/d7cfe6ead76f15c4bcd34a132d0c17c02a149548))
+* allow build to be triggered from run when fn.Image is missing ([#644](https://www.github.com/knative-sandbox/kn-plugin-func/issues/644)) ([b190b52](https://www.github.com/knative-sandbox/kn-plugin-func/commit/b190b527542bf659f06bf931d94d09542d012c36))
+* allow push to cluster internal registries ([#718](https://www.github.com/knative-sandbox/kn-plugin-func/issues/718)) ([8d51393](https://www.github.com/knative-sandbox/kn-plugin-func/commit/8d51393181adca0c74a4b08cfb2dc2da390f983b))
+* automatically start podman service ([#648](https://www.github.com/knative-sandbox/kn-plugin-func/issues/648)) ([bfdfb76](https://www.github.com/knative-sandbox/kn-plugin-func/commit/bfdfb760cff575146764f9b841a0cafcb31bcd58))
+* custom default HTTP transport ([#711](https://www.github.com/knative-sandbox/kn-plugin-func/issues/711)) ([a13f897](https://www.github.com/knative-sandbox/kn-plugin-func/commit/a13f897fbb996dbfcb2120965745477321087a9c))
+* ensure config and repos path exists ([#683](https://www.github.com/knative-sandbox/kn-plugin-func/issues/683)) ([db9ad07](https://www.github.com/knative-sandbox/kn-plugin-func/commit/db9ad07c7048361946a8c7d45c549323eee44a58))
+* function creation timestamp ([#651](https://www.github.com/knative-sandbox/kn-plugin-func/issues/651)) ([1bf17ec](https://www.github.com/knative-sandbox/kn-plugin-func/commit/1bf17ec976130551da366e75b38f5169b3daed4e))
+* function version migrations ([#664](https://www.github.com/knative-sandbox/kn-plugin-func/issues/664)) ([ccf0015](https://www.github.com/knative-sandbox/kn-plugin-func/commit/ccf00152be0ceba1794267f8e03a09cb32fee514))
+* In cluster dialer to proxy TCP connections to unexposed services ([#688](https://www.github.com/knative-sandbox/kn-plugin-func/issues/688)) ([98ef5a0](https://www.github.com/knative-sandbox/kn-plugin-func/commit/98ef5a00356a5b93ef1a6c581ae8d5ba86ee09e4))
+* make SpringBoot template SpringNative by default ([#649](https://www.github.com/knative-sandbox/kn-plugin-func/issues/649)) ([c70a21e](https://www.github.com/knative-sandbox/kn-plugin-func/commit/c70a21e9a459d726a4118e177835082323698f83))
+* use `function.knative.dev` for Functions related labels ([#717](https://www.github.com/knative-sandbox/kn-plugin-func/issues/717)) ([feaf8f9](https://www.github.com/knative-sandbox/kn-plugin-func/commit/feaf8f91091afc21bcc3e99ed3098c9ff0679883))
+
+
+### Bug Fixes
+
+* make registry validation work again ([#690](https://www.github.com/knative-sandbox/kn-plugin-func/issues/690)) ([10f2cf4](https://www.github.com/knative-sandbox/kn-plugin-func/commit/10f2cf44c74884b4585114affd3c05cfba4f7613))
+* move integration port to unregistered range ([#701](https://www.github.com/knative-sandbox/kn-plugin-func/issues/701)) ([f63af0d](https://www.github.com/knative-sandbox/kn-plugin-func/commit/f63af0d34e97a549df51c47f12e22a7558504278))
+* remove stray manifest.yaml files ([#628](https://www.github.com/knative-sandbox/kn-plugin-func/issues/628)) ([c810efc](https://www.github.com/knative-sandbox/kn-plugin-func/commit/c810efc7a4eb0d87f37f3acfafc46c1e4639fdc4))
+* remove template manifest from final Function ([#703](https://www.github.com/knative-sandbox/kn-plugin-func/issues/703)) ([79ad65d](https://www.github.com/knative-sandbox/kn-plugin-func/commit/79ad65ddf42b1bfffacd3f6fe4d606885b1a3766))
+* revert hostname alias ([#712](https://www.github.com/knative-sandbox/kn-plugin-func/issues/712)) ([07062c1](https://www.github.com/knative-sandbox/kn-plugin-func/commit/07062c144aa19e4eb4c4ef27d5c5cb1ebb8eb185))
+* schema-generate should point to `function.go` ([#677](https://www.github.com/knative-sandbox/kn-plugin-func/issues/677)) ([c7d18c8](https://www.github.com/knative-sandbox/kn-plugin-func/commit/c7d18c89edaf0a4fcb5c7b684e5e151c217430c2))
+* use default socket path for TCP connections ([#669](https://www.github.com/knative-sandbox/kn-plugin-func/issues/669)) ([ee96bef](https://www.github.com/knative-sandbox/kn-plugin-func/commit/ee96bef9aea34c9370cf1f871bc4c558ed449a13))
+* use specific version of paketo builder ([#670](https://www.github.com/knative-sandbox/kn-plugin-func/issues/670)) ([834e8ae](https://www.github.com/knative-sandbox/kn-plugin-func/commit/834e8ae46c833d2052171dc8dde23648a1da5112))
+
 ## [0.19.0](https://www.github.com/knative-sandbox/kn-plugin-func/compare/v0.18.0...v0.19.0) (2021-11-03)
 
 

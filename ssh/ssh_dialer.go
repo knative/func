@@ -271,7 +271,7 @@ func NewSSHClientConfig(url *urlPkg.URL, credentialsConfig Config) (*ssh.ClientC
 	if sock, found := os.LookupEnv("SSH_AUTH_SOCK"); found && sock != "" {
 		var agentSigners []ssh.Signer
 		var agentConn net.Conn
-		agentConn, err = net.Dial("unix", sock)
+		agentConn, err = dialSSHAgentConnection(sock)
 		if err != nil {
 			return nil, fmt.Errorf("failed to connect to ssh-agent's socket: %w", err)
 		}

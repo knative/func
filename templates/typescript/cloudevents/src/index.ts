@@ -1,5 +1,5 @@
 import { CloudEvent, HTTP, Message } from 'cloudevents';
-import { Context, Invokable } from 'faas-js-runtime';
+import { Context } from 'faas-js-runtime';
 
 /**
  * Your CloudEvents function, invoked with each request. This
@@ -18,9 +18,9 @@ import { Context, Invokable } from 'faas-js-runtime';
  * See: https://github.com/knative-sandbox/kn-plugin-func/blob/main/docs/guides/nodejs.md#the-context-object
  * @param {CloudEvent} cloudevent the CloudEvent
  */
-export const handle: Invokable = function (
+const handle = function (
   context: Context,
-  cloudevent?: CloudEvent
+  cloudevent?: CloudEvent<string> | CloudEvent<Customer>
 ): Message {
   const meta = {
     source: 'function.eventViewer',
@@ -28,7 +28,7 @@ export const handle: Invokable = function (
   };
   // The incoming CloudEvent
   if (!cloudevent) {
-    const response: CloudEvent = new CloudEvent({
+    const response: CloudEvent<string> = new CloudEvent<string>({
       ...meta,
       ...{ type: 'error', data: 'No event received' }
     });
@@ -48,3 +48,10 @@ ${JSON.stringify(cloudevent.data)}
   // respond with a new CloudEvent
   return HTTP.binary(new CloudEvent({ ...meta, data: cloudevent.data }));
 };
+
+interface Customer {
+  name: string;
+  customerId: string;
+}
+
+export { handle, Customer };
