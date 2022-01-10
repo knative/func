@@ -62,16 +62,12 @@ func (s *Instances) Local(ctx context.Context, f Function) (Instance, error) {
 	if !f.Initialized() {
 		return i, ErrNotInitialized
 	}
-	if !runningFunc(f) {
+	ports := jobPorts(f)
+	if len(ports) == 0 {
 		return i, ErrNotRunning
 	}
 
-	port, err := readFunc(f, "port") // this will fail if !running
-	if err != nil {
-		return i, err
-	}
-
-	route := fmt.Sprintf("http://localhost:%s/", port)
+	route := fmt.Sprintf("http://localhost:%s/", ports[0])
 
 	return Instance{
 		Route:  route,

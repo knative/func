@@ -98,7 +98,7 @@ type Runner interface {
 	// Errors starting are returned immediately.  Runtime errors are communicated
 	// over a passed error channel.  The process can be stopped by running the
 	// returned stop function, either on context cancellation or in a defer.
-	Run(context.Context, Function) (port string, stop func() error, runtimeErrCh chan error, err error)
+	Run(context.Context, Function) (*Job, error)
 }
 
 // Remover of deployed services.
@@ -571,11 +571,11 @@ func (c *Client) Build(ctx context.Context, path string) (err error) {
 
 	m := []string{
 		"Still building",
-		"First builds take longer",
+		"Still building",
+		"Yes, still building",
+		"Don't give up on me",
 		"Still building",
 		"This is taking a while",
-		"Still building",
-		"Don't give up on me",
 	}
 	i := 0
 	ticker := time.NewTicker(10 * time.Second)
@@ -692,24 +692,16 @@ func (c *Client) Run(ctx context.Context, root string) (port string, stop func()
 		return
 	}
 
-	// Run the Function
-	port, stopContainer, runtimeErrCh, err := c.runner.Run(ctx, f)
+	// Run the Function, which returns a Job for use interacting (at arms length)
+	// with that running task (which is likely inside a container process).
+	job, err := c.runner.Run(ctx, f)
 	if err != nil {
 		return
 	}
 
-	// Store the effective port for use by other client instances, possibly
-	// in other processes, such as to run Invoke from other terminal in CLI apps.
-	if err = writeFunc(f, "port", []byte(port)); err != nil {
-		return
-	}
-
-	// stop also cleans up
-	stop = func() error {
-		rmFunc(f, "port")
-		return stopContainer()
-	}
-	return port, stop, runtimeErrCh, err
+	// Return to the caller the effective port, a function to call to trigger
+	// stop, and a channel on which can be received runtime errors.
+	return job.Port, job.Stop, job.Errors, nil
 }
 
 // Info for a Function.  Name takes precidence.  If no name is provided,
@@ -733,56 +725,6 @@ func (c *Client) Info(ctx context.Context, name, root string) (d Instance, err e
 		return d, fmt.Errorf("%v is not initialized", f.Name)
 	}
 	return c.describer.Describe(ctx, f.Name)
-}
-
-// write Function runtime/local data.
-// Runtime data is metadata used during local development, testing and running
-// which does not affect the state of the Function in a way that would warrant
-// a commit to soure control.  This data is writtin into the .func directory
-// which is ignored from source control by default.  Examples of runtime data
-// include PID and Port of a Function being run locally, etc.
-func writeFunc(f Function, name string, value []byte) error {
-	path := filepath.Join(f.Root, ".func", name)
-	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, os.ModePerm)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-	if _, err := file.Write(value); err != nil {
-		return err
-	}
-	// Ensure it is written to disk such that other routines can immediately
-	// check if the Function is running.
-	return file.Sync()
-}
-
-// read Function runtime/local data.  See writeFunc for more details.
-func readFunc(f Function, name string) ([]byte, error) {
-	file := filepath.Join(f.Root, ".func", name)
-	return os.ReadFile(file)
-}
-
-// runningFunc returns true if the passed Function appears to be running.
-// Improperly initialized or nonexistent (zero value) Functions are considered
-// to not be running.
-func runningFunc(f Function) bool {
-	if f.Root == "" || !f.Initialized() {
-		return false
-	}
-	// "pid" file is used as a simple indicator the Function is (expected to be)
-	// running.
-	// This could be expanded to be more in-depth by also checking that the
-	// process at that pid is currently running and a TCP connection can
-	// be established on port ('port' file).
-	file := filepath.Join(f.Root, ".func", "port")
-	_, err := os.Stat(file)
-	return err == nil
-}
-
-// rmFunc removes a file from the .func system if it exists
-func rmFunc(f Function, name string) error {
-	file := filepath.Join(f.Root, ".func", name)
-	return os.Remove(file)
 }
 
 // List currently deployed Functions.
@@ -889,8 +831,8 @@ func (n *noopDeployer) Deploy(ctx context.Context, _ Function) (DeploymentResult
 // Runner
 type noopRunner struct{ output io.Writer }
 
-func (n *noopRunner) Run(context.Context, Function) (string, func() error, chan error, error) {
-	return "", nil, nil, nil
+func (n *noopRunner) Run(context.Context, Function) (job *Job, err error) {
+	return
 }
 
 // Remover

@@ -14,7 +14,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"strconv"
 	"testing"
 	"time"
 
@@ -507,16 +506,14 @@ func TestRun(t *testing.T) {
 	}
 
 	// Run the newly created function
-	// Blocks until its context is canceled.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	started := make(chan bool, 1)
-	go func() {
-		if err := client.Run(ctx, root, started); err != nil {
-			t.Fatal(err)
-		}
-	}()
-	<-started
+
+	_, stop, _, err := client.Run(ctx, root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stop()
 
 	// Assert the runner was invoked, and with the expected root.
 	if !runner.RunInvoked {
@@ -985,10 +982,11 @@ func TestInvokeHTTP(t *testing.T) {
 	// Create a client with a mock runner which will report the port at which the
 	// interloping Function is listening.
 	runner := mock.NewRunner()
-	runner.RunFn = func(ctx context.Context, f fn.Function, _ chan error) (int, error) {
+	runner.RunFn = func(ctx context.Context, f fn.Function) (*fn.Job, error) {
 		_, p, _ := net.SplitHostPort(l.Addr().String())
-		port, err := strconv.Atoi(p)
-		return port, err
+		errs := make(chan error, 10)
+		stop := func() error { return nil }
+		return fn.NewJob(f, p, errs, stop)
 	}
 	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithRunner(runner))
 
@@ -999,17 +997,13 @@ func TestInvokeHTTP(t *testing.T) {
 	}
 
 	// Run the Function
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	started := make(chan bool, 1)
-	go func() {
-		if err := client.Run(ctx, root, started); err != nil {
-			t.Fatal(err)
-		}
-	}()
-	<-started
+	_, stop, _, err := client.Run(context.Background(), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stop()
 
-	// Invoke the Function, which will use the mock Descrivber to locate the
+	// Invoke the Function, which will use the mock Describer to locate the
 	// Function as being the one started above which validates the passed
 	// messsage arrives as expected.
 	if err := client.Invoke(context.Background(), f.Root, "", message); err != nil {
@@ -1076,10 +1070,11 @@ func TestInvokeCloudEvent(t *testing.T) {
 	// Create a client with a mock Describer which will report the route
 	// to any Function as being the masquarading Function started above.
 	runner := mock.NewRunner()
-	runner.RunFn = func(ctx context.Context, f fn.Function, _ chan error) (int, error) {
+	runner.RunFn = func(ctx context.Context, f fn.Function) (*fn.Job, error) {
 		_, p, _ := net.SplitHostPort(l.Addr().String())
-		port, err := strconv.Atoi(p)
-		return int(port), err
+		errs := make(chan error, 10)
+		stop := func() error { return nil }
+		return fn.NewJob(f, p, errs, stop)
 	}
 	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithRunner(runner))
 
@@ -1090,17 +1085,13 @@ func TestInvokeCloudEvent(t *testing.T) {
 	}
 
 	// Run the Function
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	started := make(chan bool, 1)
-	go func() {
-		if err := client.Run(ctx, root, started); err != nil {
-			t.Fatal(err)
-		}
-	}()
-	<-started
+	_, stop, _, err := client.Run(context.Background(), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stop()
 
-	// Invoke the Function, which will use the mock Descrivber to locate the
+	// Invoke the Function, which will use the mock Describer to locate the
 	// Function as being the one started above which validates the passed
 	// messsage arrives as expected.
 	if err := client.Invoke(context.Background(), f.Root, "", message); err != nil {
@@ -1140,7 +1131,7 @@ func TestRunDataDir(t *testing.T) {
 	}
 
 	// Assert the directory exists
-	if _, err := os.Stat(filepath.Join(root, ".func")); os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(root, fn.RunDataDir)); os.IsNotExist(err) {
 		t.Fatal(err)
 	}
 
@@ -1160,11 +1151,11 @@ func TestRunDataDir(t *testing.T) {
 	// Assert the directive exists
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		if scanner.Text() == "/.func" {
+		if scanner.Text() == "/"+fn.RunDataDir {
 			return // success
 		}
 	}
-	t.Errorf(".gitignore does not include '/.func' ignore directive")
+	t.Errorf(".gitignore does not include '/%v' ignore directive", fn.RunDataDir)
 }
 
 // TestInstances ensures that when a Function is run (locally) its metadata
@@ -1175,8 +1166,10 @@ func TestInstances(t *testing.T) {
 
 	// A mock runner
 	runner := mock.NewRunner()
-	runner.RunFn = func(_ context.Context, f fn.Function, _ chan error) (int, error) {
-		return 8080, nil
+	runner.RunFn = func(_ context.Context, f fn.Function) (*fn.Job, error) {
+		errs := make(chan error, 10)
+		stop := func() error { return nil }
+		return fn.NewJob(f, "8080", errs, stop)
 	}
 
 	// Client with the mock runner
@@ -1188,15 +1181,11 @@ func TestInstances(t *testing.T) {
 	}
 
 	// Run the function, awaiting start and then canceling
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	started := make(chan bool, 1)
-	go func() {
-		if err := client.Run(ctx, root, started); err != nil {
-			t.Fatal(err)
-		}
-	}()
-	<-started
+	_, stop, _, err := client.Run(context.Background(), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stop()
 
 	// Load the (now fully initialized) Function metadata
 	f, err := fn.NewFunction(root)

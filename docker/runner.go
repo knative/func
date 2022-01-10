@@ -7,7 +7,6 @@ import (
 	"os"
 	"regexp"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -47,141 +46,85 @@ func NewRunner() *Runner {
 }
 
 // Run the Function.
-func (n *Runner) Run(ctx context.Context, f fn.Function) (port string, stop func() error, runtimeErrCh chan error, err error) {
-	// Ensure image is built before running
+func (n *Runner) Run(ctx context.Context, f fn.Function) (job *fn.Job, err error) {
+
+	var (
+		port = choosePort(DefaultHost, DefaultPort, DefaultDialTimeout)
+		c    client.CommonAPIClient // Docker client
+		id   string                 // ID of running container
+		conn net.Conn               // Connection to container's stdio
+
+		// Channels for gathering runtime errors from the container instance
+		copyErrCh  = make(chan error, 10)
+		contBodyCh <-chan container.ContainerWaitOKBody
+		contErrCh  <-chan error
+
+		// Combined runtime error channel for sending all errors to caller
+		runtimeErrCh = make(chan error, 10)
+	)
+
 	if f.Image == "" {
-		err = errors.New("Function has no associate image. Has it been built?")
+		return job, errors.New("Function has no associate image. Has it been built?")
+	}
+	if c, _, err = NewClient(client.DefaultDockerHost); err != nil {
+		return job, errors.Wrap(err, "failed to create Docker API client")
+	}
+	if id, err = newContainer(ctx, c, f, port, n.Verbose); err != nil {
+		return job, errors.Wrap(err, "runner unable to create container")
+	}
+	if conn, err = copyStdio(ctx, c, id, copyErrCh); err != nil {
 		return
 	}
 
-	// Choose a free port on the given interface, with the given default
-	// to use if available.  Limit querying to the given timeout.
-	port = choosePort(DefaultHost, DefaultPort, DefaultDialTimeout)
-
-	// Container config
-	containerCfg, err := newContainerConfig(f, port, n.Verbose)
-	if err != nil {
-		return
-	}
-
-	// Host config
-	hostCfg, err := newHostConfig(port)
-	if err != nil {
-		return
-	}
-
-	// Create the job running asynchronously
-	// Caller's reponsibility to stop() either on context cancelation or
-	// in a defer.
-	job, err := NewJob(ctx, containerCfg, hostCfg)
-	return port, job.Stop, job.Errors, err
-}
-
-type Job struct {
-	Errors       chan error
-	StopTimeout  time.Duration
-	Stopped      bool
-	dockerClient client.CommonAPIClient
-	response     types.HijackedResponse
-	containerID  string
-	sync.Mutex
-}
-
-// NewJob runs the defined container.
-// Context passed is for initial setup request.  To stop the running job,
-// the caller should await context cancelation and call .Stop explicitly, or
-// do so in a defer statement.
-func NewJob(ctx context.Context, containerCfg container.Config, hostCfg container.HostConfig) (j *Job, err error) {
-	j = &Job{
-		Errors:      make(chan error, 10),
-		StopTimeout: DefaultStopTimeout,
-	}
-
-	// Docker Client
-	j.dockerClient, _, err = NewClient(client.DefaultDockerHost)
-	if err != nil {
-		err = errors.Wrap(err, "failed to create Docker API client")
-		return
-	}
-
-	// Container
-	t, err := j.dockerClient.ContainerCreate(ctx, &containerCfg, &hostCfg, nil, nil, "")
-	if err != nil {
-		err = errors.Wrap(err, "runner unable to create container")
-		return
-	}
-	j.containerID = t.ID
-
-	// Attach to container's stdio
-	j.response, err = j.dockerClient.ContainerAttach(ctx, j.containerID,
-		types.ContainerAttachOptions{Stdout: true, Stderr: true, Stdin: false, Stream: true})
-	if err != nil {
-		err = errors.Wrap(err, "runner unable to attach to container's stdio")
-		return
-	}
-	copyErrCh := make(chan error, 1)
-	go func() {
-		_, err := stdcopy.StdCopy(os.Stdout, os.Stderr, j.response.Reader)
-		copyErrCh <- err
-	}()
-
-	// Channels for receiving body and errors from the container
-	bodyCh, waitErrCh := j.dockerClient.ContainerWait(ctx, t.ID, container.WaitConditionNextExit)
+	// Wait for errors or premature exits
+	contBodyCh, contErrCh = c.ContainerWait(ctx, id, container.WaitConditionNextExit)
 	go func() {
 		for {
 			select {
 			case err = <-copyErrCh:
-				j.Errors <- err
-			case err = <-waitErrCh:
-				j.Errors <- err
-			case body := <-bodyCh:
-				if body.StatusCode != 0 {
-					err = fmt.Errorf("container exited with code %v", body.StatusCode)
-				}
-				j.Errors <- err
+				runtimeErrCh <- err
+			case body := <-contBodyCh:
+				// NOTE: currently an exit is not expected and thus a return, for any
+				// reason, is considered an error even when the exit code is 0.
+				// Functions are expected to be long-running processes that do not exit
+				// of their own accord when run locally.  Should this expectation
+				// change in the future, this channel-based wait may need to be
+				// expanded to accept the case of a voluntary, successful exit.
+				runtimeErrCh <- fmt.Errorf("exited code %v", body.StatusCode)
+			case err = <-contErrCh:
+				runtimeErrCh <- err
 			}
 		}
 	}()
 
 	// Start
-	if err = j.dockerClient.ContainerStart(ctx, j.containerID, types.ContainerStartOptions{}); err != nil {
-		err = errors.Wrap(err, "runner unable to start container")
-		return
+	if err = c.ContainerStart(ctx, id, types.ContainerStartOptions{}); err != nil {
+		return job, errors.Wrap(err, "runner unable to start container")
 	}
 
-	return
-}
-
-// Stop the running job, cleaning up.  Errors encountered are printed to stderr,
-// with the last of which being returned up the stack.  Nil error indicates no
-// errors encoutered stopping.
-func (j *Job) Stop() (err error) {
-	j.Lock()
-	defer j.Unlock()
-	if j.Stopped {
-		fmt.Fprintf(os.Stderr, "job for container %v already stopped\n", j.containerID)
-		return
+	// Stopper
+	stop := func() error {
+		var (
+			timeout = DefaultStopTimeout
+			ctx     = context.Background()
+		)
+		if err = c.ContainerStop(ctx, id, &timeout); err != nil {
+			fmt.Fprintf(os.Stderr, "error stopping container %v: %v\n", id, err)
+		}
+		if err = c.ContainerRemove(ctx, id, types.ContainerRemoveOptions{}); err != nil {
+			fmt.Fprintf(os.Stderr, "error removing container %v: %v\n", id, err)
+		}
+		if err = conn.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "error closing connection to container: %v\n", err)
+		}
+		if err = c.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "error closing daemon client: %v\n", err)
+		}
+		return err
 	}
 
-	err = j.dockerClient.ContainerStop(context.Background(), j.containerID, &j.StopTimeout)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error stopping container %v: %v\n", j.containerID, err)
-	}
-	err = j.dockerClient.ContainerRemove(
-		context.Background(), j.containerID, types.ContainerRemoveOptions{})
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error removing container %v: %v\n", j.containerID, err)
-	}
-	err = j.response.Conn.Close()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error closing connection to container: %v\n", err)
-	}
-	err = j.dockerClient.Close()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error closing daemon cliet: %v\n", err)
-	}
-	j.Stopped = true
-	return
+	// Job reporting port, runtime errors and provides a mechanism for stopping.
+	return fn.NewJob(f, port, runtimeErrCh, stop)
 }
 
 // Dial the given (tcp) port on the given interface, returning an error if it is
@@ -221,6 +164,24 @@ func choosePort(host string, preferredPort string, dialTimeout time.Duration) st
 	}
 	return port
 
+}
+
+func newContainer(ctx context.Context, c client.CommonAPIClient, f fn.Function, port string, verbose bool) (id string, err error) {
+	var (
+		containerCfg container.Config
+		hostCfg      container.HostConfig
+	)
+	if containerCfg, err = newContainerConfig(f, port, verbose); err != nil {
+		return
+	}
+	if hostCfg, err = newHostConfig(port); err != nil {
+		return
+	}
+	t, err := c.ContainerCreate(ctx, &containerCfg, &hostCfg, nil, nil, "")
+	if err != nil {
+		return
+	}
+	return t.ID, nil
 }
 
 func newContainerConfig(f fn.Function, _ string, verbose bool) (c container.Config, err error) {
@@ -305,4 +266,26 @@ func processEnvValue(val string) (string, bool, error) {
 		}
 	}
 	return val, true, nil
+}
+
+// copy stdin and stdout from the container of the given ID.  Errors encountered
+// during copy are communicated via a provided errs channel.
+func copyStdio(ctx context.Context, c client.CommonAPIClient, id string, errs chan error) (conn net.Conn, err error) {
+	var (
+		res types.HijackedResponse
+		opt = types.ContainerAttachOptions{
+			Stdout: true,
+			Stderr: true,
+			Stdin:  false,
+			Stream: true,
+		}
+	)
+	if res, err = c.ContainerAttach(ctx, id, opt); err != nil {
+		return conn, errors.Wrap(err, "runner unable to attach to container's stdio")
+	}
+	go func() {
+		_, err := stdcopy.StdCopy(os.Stdout, os.Stderr, res.Reader)
+		errs <- err
+	}()
+	return res.Conn, nil
 }
