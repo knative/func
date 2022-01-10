@@ -189,6 +189,7 @@ func New(options ...Option) *Client {
 		runner:           &noopRunner{output: os.Stdout},
 		remover:          &noopRemover{output: os.Stdout},
 		lister:           &noopLister{output: os.Stdout},
+		describer:        &noopDescriber{output: os.Stdout},
 		dnsProvider:      &noopDNSProvider{output: os.Stdout},
 		progressListener: &NoopProgressListener{},
 		repositoriesPath: filepath.Join(ConfigPath(), "repositories"),
@@ -855,6 +856,13 @@ func (n *noopRemover) Remove(context.Context, string) error { return nil }
 type noopLister struct{ output io.Writer }
 
 func (n *noopLister) List(context.Context) ([]ListItem, error) { return []ListItem{}, nil }
+
+// Describer
+type noopDescriber struct{ output io.Writer }
+
+func (n *noopDescriber) Describe(context.Context, string) (Instance, error) {
+	return Instance{}, errors.New("no describer provided")
+}
 
 // DNSProvider
 type noopDNSProvider struct{ output io.Writer }

@@ -13,19 +13,27 @@ import (
 
 	fn "knative.dev/kn-plugin-func"
 	fnhttp "knative.dev/kn-plugin-func/http"
+	knative "knative.dev/kn-plugin-func/knative"
 )
 
 func init() {
 	root.AddCommand(NewInvokeCmd(newInvokeClient))
 }
 
-type invokeClientFn func(invokeConfig) *fn.Client
+type invokeClientFn func(invokeConfig) (*fn.Client, error)
 
-func newInvokeClient(cfg invokeConfig) *fn.Client {
+func newInvokeClient(cfg invokeConfig) (*fn.Client, error) {
+	describer, err := knative.NewDescriber(cfg.Namespace)
+	if err != nil {
+		return nil, err
+	}
+	describer.Verbose = cfg.Verbose
+
 	return fn.New(
+		fn.WithDescriber(describer),
 		fn.WithTransport(fnhttp.NewRoundTripper()),
 		fn.WithVerbose(cfg.Verbose),
-	)
+	), nil
 }
 
 func NewInvokeCmd(clientFn invokeClientFn) *cobra.Command {
@@ -75,10 +83,11 @@ EXAMPLES
 	  $ {{.Prefix}}func invoke
 
 	o Run the Function locally and then invoke it with a test request:
+	  (run in two terminals or by running the first in the background)
 	  $ {{.Prefix}}func run
 	  $ {{.Prefix}}func invoke
 
-	o Deploy and invoke the remote Function:
+	o Deploy and then invoke the remote Function:
 	  $ {{.Prefix}}func deploy
 	  $ {{.Prefix}}func invoke
 
@@ -97,7 +106,7 @@ EXAMPLES
 
 `,
 		SuggestFor: []string{"emit", "emti", "send", "emit", "exec", "nivoke", "onvoke", "unvoke", "knvoke", "imvoke", "ihvoke", "ibvoke"},
-		PreRunE:    bindEnv("path", "target", "id", "source", "type", "data", "content-type", "file"),
+		PreRunE:    bindEnv("path", "target", "id", "source", "type", "data", "content-type", "file", "namespace"),
 	}
 
 	// Flags
@@ -110,6 +119,7 @@ EXAMPLES
 	cmd.Flags().StringP("data", "", "", "Data to send in the request. (Env: $FUNC_DATA)")
 	cmd.Flags().StringP("content-type", "", "", "Content Type of the data. (Env: $FUNC_CONTENT_TYPE)")
 	cmd.Flags().StringP("file", "", "", "Path to a file containg data to send. Eclusive with --data flag and requres correct --content-type. (Env: $FUNC_FILE)")
+	setNamespaceFlag(cmd)
 
 	// Help Action
 	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
@@ -133,7 +143,10 @@ func runInvoke(cmd *cobra.Command, args []string, clientFn invokeClientFn) (err 
 	}
 
 	// Client instance from env vars, flags, args and user promtps (if --confirm)
-	client := clientFn(cfg)
+	client, err := clientFn(cfg)
+	if err != nil {
+		return err
+	}
 
 	// A deeper validation than that which is performed when instantiating the
 	// client with the raw config above.
@@ -184,6 +197,7 @@ type invokeConfig struct {
 	Data        string
 	ContentType string
 	File        string
+	Namespace   string
 	Confirm     bool
 	Verbose     bool
 }
@@ -218,7 +232,10 @@ func newInvokeConfig(clientFn invokeClientFn) (cfg invokeConfig, err error) {
 	}
 
 	// Client instance for use during prompting.
-	client := clientFn(cfg)
+	client, err := clientFn(cfg)
+	if err != nil {
+		return
+	}
 
 	// If in interactive terminal mode, prompt to modify defaults.
 	if interactiveTerminal() {
