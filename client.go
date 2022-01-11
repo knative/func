@@ -33,7 +33,7 @@ const (
 	// XDG_CONFIG_HOME set, and no WithConfigPath was used.
 	DefaultConfigPath = ".config/func"
 
-	// DefaultBuild is the default build type for a Function
+	// DefaultBuildType is the default build type for a Function
 	DefaultBuildType = BuildTypeLocal
 )
 

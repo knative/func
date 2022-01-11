@@ -80,7 +80,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 		return err
 	}
 
-	err = k8s.CreatePersistentVolumeClaim(ctx, getPipelinePvcName(f), pp.namespace, corev1.ReadWriteOnce, *resource.NewQuantity(500, resource.DecimalSI))
+	err = k8s.CreatePersistentVolumeClaim(ctx, getPipelinePvcName(f), pp.namespace, corev1.ReadWriteOnce, *resource.NewQuantity(DefaultPersistentVolumeClaimSize, resource.DecimalSI))
 	if err != nil {
 		if !errors.IsAlreadyExists(err) {
 			return fmt.Errorf("problem creating persistent volume claim: %v", err)
@@ -146,23 +146,22 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 
 	if pr.Status.GetCondition(apis.ConditionSucceeded).Status == corev1.ConditionFalse {
 		return fmt.Errorf("function pipeline run has failed, please inspect logs of Tekton PipelineRun \"%s\"", pr.Name)
+	}
+
+	kClient, err := knative.NewServingClient(pp.namespace)
+	if err != nil {
+		return fmt.Errorf("problem in retrieving status of deployed function: %v", err)
+	}
+
+	ksvc, err := kClient.GetService(ctx, f.Name)
+	if err != nil {
+		return fmt.Errorf("problem in retrieving status of deployed function: %v", err)
+	}
+
+	if ksvc.Generation == 1 {
+		pp.progressListener.Increment(fmt.Sprintf("Function deployed at URL: %s", ksvc.Status.URL.String()))
 	} else {
-
-		kClient, err := knative.NewServingClient(pp.namespace)
-		if err != nil {
-			return fmt.Errorf("problem in retrieving status of deployed function: %v", err)
-		}
-
-		ksvc, err := kClient.GetService(ctx, f.Name)
-		if err != nil {
-			return fmt.Errorf("problem in retrieving status of deployed function: %v", err)
-		}
-
-		if ksvc.Generation == 1 {
-			pp.progressListener.Increment(fmt.Sprintf("Function deployed at URL: %s", ksvc.Status.URL.String()))
-		} else {
-			pp.progressListener.Increment(fmt.Sprintf("Function updated at URL: %s", ksvc.Status.URL.String()))
-		}
+		pp.progressListener.Increment(fmt.Sprintf("Function updated at URL: %s", ksvc.Status.URL.String()))
 	}
 
 	return nil
