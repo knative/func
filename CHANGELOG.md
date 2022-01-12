@@ -1,6 +1,14 @@
 # Change Log
 
 <a name="unreleased"></a>
+## [0.21.0](https://www.github.com/knative-sandbox/kn-plugin-func/compare/v0.20.0...v0.21.0) (2022-01-12)
+
+
+### Features
+
+* add possibility to disable pushing of image in `deploy` command ([#736](https://www.github.com/knative-sandbox/kn-plugin-func/issues/736)) ([4e5a5e8](https://www.github.com/knative-sandbox/kn-plugin-func/commit/4e5a5e830799b73f65aba8ee248a52bf1c643acb))
+* add possibility to disable pushing of image in `deploy` command ([#739](https://www.github.com/knative-sandbox/kn-plugin-func/issues/739)) ([64ba17b](https://www.github.com/knative-sandbox/kn-plugin-func/commit/64ba17b4fbe9033e8279fa34aeebdb12edcee25d))
+
 ## [0.20.0](https://www.github.com/knative-sandbox/kn-plugin-func/compare/v0.19.0...v0.20.0) (2021-12-20)
 
 
