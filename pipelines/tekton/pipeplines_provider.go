@@ -3,6 +3,8 @@ package tekton
 import (
 	"context"
 	"fmt"
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/name"
 	"sync"
 
 	"github.com/tektoncd/cli/pkg/pipelinerun"
@@ -110,6 +112,10 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 			return err
 		}
 		pp.progressListener.Increment("Creating Pipeline resources")
+
+		if registry == name.DefaultRegistry {
+			registry = authn.DefaultAuthKey
+		}
 
 		err = k8s.CreateDockerRegistrySecret(ctx, getPipelineSecretName(f), pp.namespace, creds.Username, creds.Password, registry)
 		if err != nil {
