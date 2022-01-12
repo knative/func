@@ -3,9 +3,10 @@ package tekton
 import (
 	"context"
 	"fmt"
+	"sync"
+
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
-	"sync"
 
 	"github.com/tektoncd/cli/pkg/pipelinerun"
 	"github.com/tektoncd/cli/pkg/taskrun"
