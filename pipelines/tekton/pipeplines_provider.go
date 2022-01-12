@@ -14,9 +14,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/docker"
 	"knative.dev/kn-plugin-func/k8s"
 	"knative.dev/kn-plugin-func/knative"
-	"knative.dev/kn-plugin-func/pipelines"
 	"knative.dev/pkg/apis"
 )
 
@@ -25,10 +25,10 @@ type Opt func(*PipelinesProvider) error
 type PipelinesProvider struct {
 	// namespace with which to override that set on the default configuration (such as the ~/.kube/config).
 	// If left blank, pipeline creation/run will commence to the configured namespace.
-	namespace                            string
-	Verbose                              bool
-	progressListener                     fn.ProgressListener
-	containerRegistryCredentialsCallback pipelines.ContainerRegistryCredentialsCallback
+	namespace           string
+	Verbose             bool
+	progressListener    fn.ProgressListener
+	credentialsProvider docker.CredentialsProvider
 }
 
 func WithNamespace(namespace string) Opt {
@@ -49,9 +49,9 @@ func WithProgressListener(pl fn.ProgressListener) Opt {
 	}
 }
 
-func WithPromptForContainerRegistryCredentials(cbk pipelines.ContainerRegistryCredentialsCallback) Opt {
+func WithCredentialsProvider(credentialsProvider docker.CredentialsProvider) Opt {
 	return func(pp *PipelinesProvider) error {
-		pp.containerRegistryCredentialsCallback = cbk
+		pp.credentialsProvider = credentialsProvider
 		return nil
 	}
 }
@@ -97,16 +97,21 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 		}
 	}
 
+	registry, err := docker.GetRegistry(f.Image)
+	if err != nil {
+		return err
+	}
+
 	_, err = k8s.GetSecret(ctx, getPipelineSecretName(f), pp.namespace)
 	if errors.IsNotFound(err) {
 		pp.progressListener.Stopping()
-		creds, err := pp.containerRegistryCredentialsCallback()
+		creds, err := pp.credentialsProvider(ctx, registry)
 		if err != nil {
 			return err
 		}
 		pp.progressListener.Increment("Creating Pipeline resources")
 
-		err = k8s.CreateDockerRegistrySecret(ctx, getPipelineSecretName(f), pp.namespace, creds.Username, creds.Password, creds.Server)
+		err = k8s.CreateDockerRegistrySecret(ctx, getPipelineSecretName(f), pp.namespace, creds.Username, creds.Password, registry)
 		if err != nil {
 			return err
 		}
