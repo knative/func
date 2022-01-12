@@ -45,7 +45,7 @@ func generatePipeline(f fn.Function) *pplnv1beta1.Pipeline {
 
 	tasks := pplnv1beta1.PipelineTaskList{
 		taskFetchRepository(),
-		taskkBuild("fetch-repository"),
+		taskBuild("fetch-repository"),
 		taskImageDigest("build"),
 		taskFuncDeploy("image-digest"),
 	}

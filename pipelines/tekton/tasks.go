@@ -22,7 +22,7 @@ func taskFetchRepository() pplnv1beta1.PipelineTask {
 	}
 }
 
-func taskkBuild(runAfter string) pplnv1beta1.PipelineTask {
+func taskBuild(runAfter string) pplnv1beta1.PipelineTask {
 	return pplnv1beta1.PipelineTask{
 		Name: "build",
 		TaskRef: &pplnv1beta1.TaskRef{
@@ -49,18 +49,18 @@ func taskkBuild(runAfter string) pplnv1beta1.PipelineTask {
 // TODO this should be part of the future func-build Tekton Task as a post-build step
 func taskImageDigest(runAfter string) pplnv1beta1.PipelineTask {
 	script := `#!/usr/bin/env bash
-               set -e
+set -e
 
-			   func_file="/workspace/source/func.yaml"
-			   if [ "$(params.contextDir)" != "" ]; then
-			   		func_file = /workspace/source/$(params.contextDir)/func.yaml
-			   fi
+func_file="/workspace/source/func.yaml"
+if [ "$(params.contextDir)" != "" ]; then
+  func_file="/workspace/source/$(params.contextDir)/func.yaml"
+fi
 
-			   sed -i "s|^image:.*$|image: $(params.image)|" $func_file
-			   echo "Function image name: $(params.image)"
+sed -i "s|^image:.*$|image: $(params.image)|" "$func_file"
+echo "Function image name: $(params.image)"
 
-			   sed -i "s/^imageDigest:.*$/imageDigest: $(params.digest)/" $func_file
-			   echo "Function image digest: $(params.digest)"
+sed -i "s/^imageDigest:.*$/imageDigest: $(params.digest)/" "$func_file"
+echo "Function image digest: $(params.digest)"
 	`
 
 	return pplnv1beta1.PipelineTask{
