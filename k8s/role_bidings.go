@@ -7,7 +7,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateRoleBindingForServiceAccount(ctx context.Context, name, namespaceOverride, serviceAccountName, roleKind, roleName string) (err error) {
+func CreateRoleBindingForServiceAccount(ctx context.Context, name, namespaceOverride string, labels map[string]string, serviceAccountName, roleKind, roleName string) (err error) {
 	client, namespace, err := NewClientAndResolvedNamespace(namespaceOverride)
 	if err != nil {
 		return
@@ -15,7 +15,8 @@ func CreateRoleBindingForServiceAccount(ctx context.Context, name, namespaceOver
 
 	rb := &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
+			Name:   name,
+			Labels: labels,
 		},
 		Subjects: []rbacv1.Subject{
 			{

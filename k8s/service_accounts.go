@@ -7,7 +7,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateServiceAccountWithSecret(ctx context.Context, name, namespaceOverride, secretName string) (err error) {
+func CreateServiceAccountWithSecret(ctx context.Context, name, namespaceOverride string, labels map[string]string, secretName string) (err error) {
 	client, namespace, err := NewClientAndResolvedNamespace(namespaceOverride)
 	if err != nil {
 		return
@@ -17,6 +17,7 @@ func CreateServiceAccountWithSecret(ctx context.Context, name, namespaceOverride
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
+			Labels:    labels,
 		},
 		Secrets: []corev1.ObjectReference{
 			{

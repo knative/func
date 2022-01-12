@@ -10,7 +10,7 @@ import (
 	fn "knative.dev/kn-plugin-func"
 )
 
-func generatePipeline(f fn.Function) *pplnv1beta1.Pipeline {
+func generatePipeline(f fn.Function, labels map[string]string) *pplnv1beta1.Pipeline {
 	pipelineName := getPipelineName(f)
 
 	params := []pplnv1beta1.ParamSpec{
@@ -52,7 +52,8 @@ func generatePipeline(f fn.Function) *pplnv1beta1.Pipeline {
 
 	return &pplnv1beta1.Pipeline{
 		ObjectMeta: v1.ObjectMeta{
-			Name: pipelineName,
+			Name:   pipelineName,
+			Labels: labels,
 		},
 		Spec: pplnv1beta1.PipelineSpec{
 			Params:     params,
@@ -62,7 +63,7 @@ func generatePipeline(f fn.Function) *pplnv1beta1.Pipeline {
 	}
 }
 
-func generatePipelineRun(f fn.Function) *pplnv1beta1.PipelineRun {
+func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.PipelineRun {
 
 	revision := ""
 	if f.Git.Revision != nil {
@@ -76,6 +77,7 @@ func generatePipelineRun(f fn.Function) *pplnv1beta1.PipelineRun {
 	return &pplnv1beta1.PipelineRun{
 		ObjectMeta: v1.ObjectMeta{
 			GenerateName: fmt.Sprintf("%s-run-", getPipelineName(f)),
+			Labels:       labels,
 		},
 
 		Spec: pplnv1beta1.PipelineRunSpec{

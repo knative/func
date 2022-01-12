@@ -22,6 +22,7 @@ import (
 
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/k8s"
+	"knative.dev/kn-plugin-func/k8s/labels"
 )
 
 const LIVENESS_ENDPOINT = "/health/liveness"
@@ -349,10 +350,14 @@ func updateService(f fn.Function, newEnv []corev1.EnvVar, newEnvFrom []corev1.En
 //     value: {{ env:MY_ENV }}
 func processLabels(f fn.Function) (map[string]string, error) {
 	labels := map[string]string{
-		"boson.dev/function":           "true",
-		"boson.dev/runtime":            f.Runtime,
-		"function.knative.dev":         "true",
-		"function.knative.dev/runtime": f.Runtime,
+		labels.FunctionKey:        labels.FunctionValue,
+		labels.FunctionNameKey:    f.Name,
+		labels.FunctionRuntimeKey: f.Runtime,
+
+		// --- handle usage of deprecated labels (`boson.dev/function`, `boson.dev/runtime`)
+		labels.DeprecatedFunctionKey:        labels.FunctionValue,
+		labels.DeprecatedFunctionRuntimeKey: f.Runtime,
+		// --- end of handling usage of deprecated runtime labels
 	}
 	for _, label := range f.Labels {
 		if label.Key != nil && label.Value != nil {
