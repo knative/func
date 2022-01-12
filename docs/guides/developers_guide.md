@@ -14,6 +14,9 @@ For detailed documentation on the CLI and its commands, please see the [Commands
 
 For detailed description of `func.yaml` file that is used for the Function project configuration, please see the [Project Configuration with `func.yaml` document](func_yaml.md).
 
+## Building Functions on Cluster
+
+For detailed description on how to build a Function on Cluster with Tekton Pipelines, please see the [On Cluster Build Guide](on-cluster-build.yaml).
 
 ## Language Guides
 
