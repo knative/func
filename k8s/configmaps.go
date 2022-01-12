@@ -8,13 +8,7 @@ import (
 )
 
 func GetConfigMap(ctx context.Context, name, namespaceOverride string) (*corev1.ConfigMap, error) {
-
-	namespace, err := GetNamespace(namespaceOverride)
-	if err != nil {
-		return nil, err
-	}
-
-	client, err := NewKubernetesClientset(namespace)
+	client, namespace, err := NewClientAndResolvedNamespace(namespaceOverride)
 	if err != nil {
 		return nil, err
 	}
@@ -23,13 +17,7 @@ func GetConfigMap(ctx context.Context, name, namespaceOverride string) (*corev1.
 }
 
 func ListConfigMapsNames(ctx context.Context, namespaceOverride string) (names []string, err error) {
-
-	namespace, err := GetNamespace(namespaceOverride)
-	if err != nil {
-		return
-	}
-
-	client, err := NewKubernetesClientset(namespace)
+	client, namespace, err := NewClientAndResolvedNamespace(namespaceOverride)
 	if err != nil {
 		return
 	}
