@@ -17,7 +17,7 @@ func GetPersistentVolumeClaim(ctx context.Context, name, namespaceOverride strin
 	return client.CoreV1().PersistentVolumeClaims(namespace).Get(ctx, name, metav1.GetOptions{})
 }
 
-func CreatePersistentVolumeClaim(ctx context.Context, name, namespaceOverride string, accessMode corev1.PersistentVolumeAccessMode, resourceRequest resource.Quantity) (err error) {
+func CreatePersistentVolumeClaim(ctx context.Context, name, namespaceOverride string, labels map[string]string, accessMode corev1.PersistentVolumeAccessMode, resourceRequest resource.Quantity) (err error) {
 	client, namespace, err := NewClientAndResolvedNamespace(namespaceOverride)
 	if err != nil {
 		return
@@ -27,6 +27,7 @@ func CreatePersistentVolumeClaim(ctx context.Context, name, namespaceOverride st
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
+			Labels:    labels,
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
 			AccessModes: []corev1.PersistentVolumeAccessMode{accessMode},

@@ -36,7 +36,7 @@ func ListSecretsNames(ctx context.Context, namespaceOverride string) (names []st
 	return
 }
 
-func CreateDockerRegistrySecret(ctx context.Context, name, namespaceOverride, username, password, server string) (err error) {
+func CreateDockerRegistrySecret(ctx context.Context, name, namespaceOverride string, labels map[string]string, username, password, server string) (err error) {
 	client, namespace, err := NewClientAndResolvedNamespace(namespaceOverride)
 	if err != nil {
 		return
@@ -46,6 +46,7 @@ func CreateDockerRegistrySecret(ctx context.Context, name, namespaceOverride, us
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
+			Labels:    labels,
 		},
 		Type: corev1.SecretTypeDockerConfigJson,
 		Data: map[string][]byte{},

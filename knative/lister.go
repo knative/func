@@ -9,14 +9,7 @@ import (
 
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/k8s"
-)
-
-const (
-	labelFunctionKey           = "function.knative.dev"
-	deprecatedLabelFunctionKey = "boson.dev/function"
-	labelFunctionValue         = "true"
-	labelRuntimeKey            = "function.knative.dev/runtime"
-	deprecatedLabelRuntimeKey  = "boson.dev/runtime"
+	"knative.dev/kn-plugin-func/k8s/labels"
 )
 
 type Lister struct {
@@ -43,13 +36,13 @@ func (l *Lister) List(ctx context.Context) (items []fn.ListItem, err error) {
 		return
 	}
 
-	lst, err := client.ListServices(ctx, clientservingv1.WithLabel(labelFunctionKey, labelFunctionValue))
+	lst, err := client.ListServices(ctx, clientservingv1.WithLabel(labels.FunctionKey, labels.FunctionValue))
 	if err != nil {
 		return
 	}
 
 	// --- handle usage of deprecated function labels (`boson.dev/function`)
-	lstDeprecated, err := client.ListServices(ctx, clientservingv1.WithLabel(deprecatedLabelFunctionKey, labelFunctionValue))
+	lstDeprecated, err := client.ListServices(ctx, clientservingv1.WithLabel(labels.DeprecatedFunctionKey, labels.FunctionValue))
 	if err != nil {
 		return
 	}
@@ -82,10 +75,10 @@ func (l *Lister) List(ctx context.Context) (items []fn.ListItem, err error) {
 
 		// --- handle usage of deprecated runtime labels (`boson.dev/runtime`)
 		runtimeLabel := ""
-		if val, ok := f.Labels[labelRuntimeKey]; ok {
+		if val, ok := f.Labels[labels.FunctionRuntimeKey]; ok {
 			runtimeLabel = val
 		} else {
-			runtimeLabel = f.Labels[deprecatedLabelRuntimeKey]
+			runtimeLabel = f.Labels[labels.DeprecatedFunctionRuntimeKey]
 		}
 		// --- end of handling usage of deprecated runtime labels
 

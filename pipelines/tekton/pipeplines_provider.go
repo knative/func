@@ -19,6 +19,7 @@ import (
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/docker"
 	"knative.dev/kn-plugin-func/k8s"
+	"knative.dev/kn-plugin-func/k8s/labels"
 	"knative.dev/kn-plugin-func/knative"
 	"knative.dev/pkg/apis"
 )
@@ -83,14 +84,17 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 		return err
 	}
 
-	err = k8s.CreatePersistentVolumeClaim(ctx, getPipelinePvcName(f), pp.namespace, corev1.ReadWriteOnce, *resource.NewQuantity(DefaultPersistentVolumeClaimSize, resource.DecimalSI))
+	// let's specify labels that will be applied to every resouce that is created for a Pipeline
+	labels := map[string]string{labels.FunctionNameKey: f.Name}
+
+	err = k8s.CreatePersistentVolumeClaim(ctx, getPipelinePvcName(f), pp.namespace, labels, corev1.ReadWriteOnce, *resource.NewQuantity(DefaultPersistentVolumeClaimSize, resource.DecimalSI))
 	if err != nil {
 		if !errors.IsAlreadyExists(err) {
 			return fmt.Errorf("problem creating persistent volume claim: %v", err)
 		}
 	}
 
-	_, err = client.Pipelines(pp.namespace).Create(ctx, generatePipeline(f), metav1.CreateOptions{})
+	_, err = client.Pipelines(pp.namespace).Create(ctx, generatePipeline(f, labels), metav1.CreateOptions{})
 	if err != nil {
 		if !errors.IsAlreadyExists(err) {
 			if errors.IsNotFound(err) {
@@ -118,7 +122,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 			registry = authn.DefaultAuthKey
 		}
 
-		err = k8s.CreateDockerRegistrySecret(ctx, getPipelineSecretName(f), pp.namespace, creds.Username, creds.Password, registry)
+		err = k8s.CreateDockerRegistrySecret(ctx, getPipelineSecretName(f), pp.namespace, labels, creds.Username, creds.Password, registry)
 		if err != nil {
 			return err
 		}
@@ -126,7 +130,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 		return fmt.Errorf("problem in creating secret: %v", err)
 	}
 
-	err = k8s.CreateServiceAccountWithSecret(ctx, getPipelineBuilderServiceAccountName(f), pp.namespace, getPipelineSecretName(f))
+	err = k8s.CreateServiceAccountWithSecret(ctx, getPipelineBuilderServiceAccountName(f), pp.namespace, labels, getPipelineSecretName(f))
 	if err != nil {
 		if !errors.IsAlreadyExists(err) {
 			return fmt.Errorf("problem in creating service account: %v", err)
@@ -134,7 +138,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 	}
 
 	// using ClusterRole `knative-serving-namespaced-admin` that should be present on the cluster after the installation of Knative Serving
-	err = k8s.CreateRoleBindingForServiceAccount(ctx, getPipelineDeployerRoleBindingName(f), pp.namespace, getPipelineBuilderServiceAccountName(f), "ClusterRole", "knative-serving-namespaced-admin")
+	err = k8s.CreateRoleBindingForServiceAccount(ctx, getPipelineDeployerRoleBindingName(f), pp.namespace, labels, getPipelineBuilderServiceAccountName(f), "ClusterRole", "knative-serving-namespaced-admin")
 	if err != nil {
 		if !errors.IsAlreadyExists(err) {
 			return fmt.Errorf("problem in creating role biding: %v", err)
@@ -142,7 +146,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 	}
 
 	pp.progressListener.Increment("Running Pipeline with the Function")
-	pr, err := client.PipelineRuns(pp.namespace).Create(ctx, generatePipelineRun(f), metav1.CreateOptions{})
+	pr, err := client.PipelineRuns(pp.namespace).Create(ctx, generatePipelineRun(f, labels), metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("problem in creating pipeline run: %v", err)
 	}
