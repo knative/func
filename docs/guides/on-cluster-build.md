@@ -4,34 +4,23 @@ This guide describes how you can build a Function on Cluster with Tekton Pipelin
 
 > Please note that the following approach requires administrator privileges on the cluster and the build is executed on a privileged container.
 
-## Prerequisites
+## Prerequisite
 1. Install Tekton Pipelines on the cluster. Please refer to [Tekton Pipelines documentation](https://github.com/tektoncd/pipeline/blob/main/docs/install.md) or run the following command:
 ```bash
 kubectl apply -f https://storage.googleapis.com/tekton-releases/pipeline/latest/release.yaml
 ```
-2. Create a Knative Deployer Cluster Role
-```bash
-kubectl apply -f https://raw.githubusercontent.com/knative-sandbox/kn-plugin-func/main/pipelines/resources/knative-deployer-clusterrole.yaml
-```
 
 ## Enabling a namespace to run Function related Tekton Pipelines
 In each namespace that you would like to run Pipelines and deploy a Function you need to create or install the following resources.
-1. Create a Service Account that has permissions to deploy on Knative:
-```bash
-export NAMESPACE=<INSERT_YOUR_NAMESPACE>
-kubectl create serviceaccount knative-deployer-account -n $NAMESPACE
-kubectl create clusterrolebinding $NAMESPACE:knative-deployer-binding \
---clusterrole=kn-deployer --serviceaccount=$NAMESPACE:knative-deployer-account
-```
-2. Install the Git Clone Tekton Task to fetch the Function source code:
+1. Install the Git Clone Tekton Task to fetch the Function source code:
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/tektoncd/catalog/master/task/git-clone/0.4/git-clone.yaml
 ```
-3. Install the Buildpacks Tekton Task to be able to build the Function image:
+2. Install the Buildpacks Tekton Task to be able to build the Function image:
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/tektoncd/catalog/master/task/buildpacks/0.3/buildpacks.yaml
 ```
-4. Install the `kn func` Deploy Tekton Task to be able to deploy the Function on in the Pipeline:
+3. Install the `kn func` Deploy Tekton Task to be able to deploy the Function on in the Pipeline:
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/knative-sandbox/kn-plugin-func/main/pipelines/resources/tekton/task/func-deploy/0.1/func-deploy.yaml
 ```
