@@ -7,13 +7,13 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-func CreateClusterRoleBindingForServiceAccount(ctx context.Context, name, namespaceOverride, serviceAccountName, clusterRoleName string) (err error) {
+func CreateRoleBindingForServiceAccount(ctx context.Context, name, namespaceOverride, serviceAccountName, roleKind, roleName string) (err error) {
 	client, namespace, err := NewClientAndResolvedNamespace(namespaceOverride)
 	if err != nil {
 		return
 	}
 
-	crb := &rbacv1.ClusterRoleBinding{
+	rb := &rbacv1.RoleBinding{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: name,
 		},
@@ -26,11 +26,11 @@ func CreateClusterRoleBindingForServiceAccount(ctx context.Context, name, namesp
 		},
 		RoleRef: rbacv1.RoleRef{
 			APIGroup: "rbac.authorization.k8s.io",
-			Kind:     "ClusterRole",
-			Name:     clusterRoleName,
+			Kind:     roleKind,
+			Name:     roleName,
 		},
 	}
 
-	_, err = client.RbacV1().ClusterRoleBindings().Create(ctx, crb, metav1.CreateOptions{})
+	_, err = client.RbacV1().RoleBindings(namespace).Create(ctx, rb, metav1.CreateOptions{})
 	return
 }

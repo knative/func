@@ -133,10 +133,11 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 		}
 	}
 
-	err = k8s.CreateClusterRoleBindingForServiceAccount(ctx, getPipelineDeployerClusterRoleBindingName(f, pp.namespace), pp.namespace, getPipelineBuilderServiceAccountName(f), "knative-serving-namespaced-edit")
+	// using ClusterRole `knative-serving-namespaced-admin` that should be present on the cluster after the installation of Knative Serving
+	err = k8s.CreateRoleBindingForServiceAccount(ctx, getPipelineDeployerRoleBindingName(f), pp.namespace, getPipelineBuilderServiceAccountName(f), "ClusterRole", "knative-serving-namespaced-admin")
 	if err != nil {
 		if !errors.IsAlreadyExists(err) {
-			return fmt.Errorf("problem in creating cluster role biding: %v", err)
+			return fmt.Errorf("problem in creating role biding: %v", err)
 		}
 	}
 

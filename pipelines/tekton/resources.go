@@ -85,13 +85,6 @@ func generatePipelineRun(f fn.Function) *pplnv1beta1.PipelineRun {
 
 			ServiceAccountName: getPipelineBuilderServiceAccountName(f),
 
-			TaskRunSpecs: []pplnv1beta1.PipelineTaskRunSpec{
-				{
-					PipelineTaskName:       "deploy",
-					TaskServiceAccountName: "knative-deployer-account",
-				},
-			},
-
 			Params: []pplnv1beta1.Param{
 				{
 					Name:  "gitRepository",
@@ -151,6 +144,6 @@ func getPipelineBuilderServiceAccountName(f fn.Function) string {
 	return fmt.Sprintf("%s-builder-secret", getPipelineName(f))
 }
 
-func getPipelineDeployerClusterRoleBindingName(f fn.Function, namespace string) string {
-	return fmt.Sprintf("%s-%s-deployer-binding", getPipelineName(f), namespace)
+func getPipelineDeployerRoleBindingName(f fn.Function) string {
+	return fmt.Sprintf("%s-deployer-binding", getPipelineName(f))
 }
