@@ -1,13 +1,15 @@
 package cmd
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"text/template"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/google/uuid"
 	"github.com/ory/viper"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"knative.dev/kn-plugin-func/utils"
 
@@ -113,12 +115,12 @@ EXAMPLES
 	cmd.Flags().StringP("path", "p", cwd(), "Path to the Function which should have its instance invoked (Env: $FUNC_PATH)")
 	cmd.Flags().StringP("target", "t", "", "Function instance to invoke.  Can be 'local', 'remote' or a URL.  Defaults to auto-discovery if not provided (Env: $FUNC_TARGET)")
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
-	cmd.Flags().StringP("id", "", "", "ID for the request data. (Env: $FUNC_ID)")
-	cmd.Flags().StringP("source", "", "", "Source value for the request data. (Env: $FUNC_SOURCE)")
-	cmd.Flags().StringP("type", "", "", "Type value for the request data. (Env: $FUNC_TYPE)")
-	cmd.Flags().StringP("data", "", "", "Data to send in the request. (Env: $FUNC_DATA)")
-	cmd.Flags().StringP("content-type", "", "", "Content Type of the data. (Env: $FUNC_CONTENT_TYPE)")
-	cmd.Flags().StringP("file", "", "", "Path to a file containg data to send. Eclusive with --data flag and requres correct --content-type. (Env: $FUNC_FILE)")
+	cmd.Flags().StringP("id", "", uuid.NewString(), "ID for the request data. (Env: $FUNC_ID)")
+	cmd.Flags().StringP("source", "", fn.DefaultInvokeSource, "Source value for the request data. (Env: $FUNC_SOURCE)")
+	cmd.Flags().StringP("type", "", fn.DefaultInvokeType, "Type value for the request data. (Env: $FUNC_TYPE)")
+	cmd.Flags().StringP("content-type", "", fn.DefaultInvokeContentType, "Content Type of the data. (Env: $FUNC_CONTENT_TYPE)")
+	cmd.Flags().StringP("data", "", fn.DefaultInvokeData, "Data to send in the request. (Env: $FUNC_DATA)")
+	cmd.Flags().StringP("file", "", "", "Path to a file to use as data. Eclusive with --data flag and requres correct --content-type. (Env: $FUNC_FILE)")
 	setNamespaceFlag(cmd)
 
 	// Help Action
@@ -148,20 +150,24 @@ func runInvoke(cmd *cobra.Command, args []string, clientFn invokeClientFn) (err 
 		return err
 	}
 
-	// A deeper validation than that which is performed when instantiating the
-	// client with the raw config above.
-	if err = cfg.Validate(); err != nil {
-		return
-	}
-
-	// Invoke
-	err = client.Invoke(cmd.Context(), cfg.Path, cfg.Target, fn.InvokeMessage{
+	m := fn.InvokeMessage{
 		ID:          cfg.ID,
 		Source:      cfg.Source,
 		Type:        cfg.Type,
 		ContentType: cfg.ContentType,
 		Data:        cfg.Data,
-	})
+	}
+
+	if cfg.File != "" {
+		content, err := os.ReadFile(cfg.File)
+		if err != nil {
+			return err
+		}
+		m.Data = base64.StdEncoding.EncodeToString(content)
+	}
+
+	// Invoke
+	err = client.Invoke(cmd.Context(), cfg.Path, cfg.Target, m)
 	if err != nil {
 		return err
 	}
@@ -253,14 +259,6 @@ func newInvokeConfig(clientFn invokeClientFn) (cfg invokeConfig, err error) {
 	fmt.Printf("Content Type: %v\n", cfg.ContentType)
 	fmt.Printf("File: %v\n", cfg.File)
 	return
-}
-
-// Validate the current state of config.
-func (c invokeConfig) Validate() error {
-	if c.Data != "" && c.File != "" {
-		return errors.New("Only one of --data or --file may be specified")
-	}
-	return nil
 }
 
 func (c invokeConfig) prompt(client *fn.Client) (invokeConfig, error) {

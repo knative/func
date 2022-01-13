@@ -777,6 +777,7 @@ func (c *Client) Invoke(ctx context.Context, root string, target string, m Invok
 		<-ctx.Done()
 		c.progressListener.Stopping()
 	}()
+	fmt.Printf("InvokeMessage: %#v\n", m)
 
 	f, err := NewFunction(root)
 	if err != nil {

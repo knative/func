@@ -16,7 +16,7 @@ const (
 	DefaultInvokeSource      = "/boson/fn"
 	DefaultInvokeType        = "boson.fn"
 	DefaultInvokeContentType = "text/plain"
-	DefaultInvokeData        = "example data"
+	DefaultInvokeData        = "Hello World"
 )
 
 // InvokeMesage is the message used by the convenience method Invoke to provide
@@ -143,10 +143,11 @@ func sendPost(ctx context.Context, route string, m InvokeMessage, t http.RoundTr
 		Timeout:   10 * time.Second,
 	}
 	resp, err := client.PostForm(route, url.Values{
-		"ID":     {m.ID},
-		"Source": {m.Source},
-		"Type":   {m.Type},
-		"Data":   {m.Data},
+		"ID":          {m.ID},
+		"Source":      {m.Source},
+		"Type":        {m.Type},
+		"ContentType": {m.ContentType},
+		"Data":        {m.Data},
 	})
 	if err != nil {
 		return err
