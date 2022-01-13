@@ -20,7 +20,6 @@ import (
 	"knative.dev/kn-plugin-func/docker"
 	"knative.dev/kn-plugin-func/docker/creds"
 	"knative.dev/kn-plugin-func/knative"
-	"knative.dev/kn-plugin-func/pipelines"
 	"knative.dev/kn-plugin-func/pipelines/tekton"
 	"knative.dev/kn-plugin-func/progress"
 )
@@ -37,11 +36,13 @@ func newDeployClient(cfg deployConfig) (*fn.Client, error) {
 		pusher *docker.Pusher
 		err    error
 	)
+
+	credentialsProvider := creds.NewCredentialsProvider(
+		creds.WithPromptForCredentials(newPromptForCredentials()),
+		creds.WithPromptForCredentialStore(newPromptForCredentialStore()),
+		creds.WithTransport(cfg.Transport))
+
 	if cfg.Push {
-		credentialsProvider := creds.NewCredentialsProvider(
-			creds.WithPromptForCredentials(newPromptForCredentials()),
-			creds.WithPromptForCredentialStore(newPromptForCredentialStore()),
-			creds.WithTransport(cfg.Transport))
 		pusher, err = docker.NewPusher(
 			docker.WithCredentialsProvider(credentialsProvider),
 			docker.WithProgressListener(listener),
@@ -60,7 +61,7 @@ func newDeployClient(cfg deployConfig) (*fn.Client, error) {
 	pipelinesProvider, err := tekton.NewPipelinesProvider(
 		tekton.WithNamespace(cfg.Namespace),
 		tekton.WithProgressListener(listener),
-		tekton.WithPromptForContainerRegistryCredentials(newPromptForPipelineRegistryCredentials()))
+		tekton.WithCredentialsProvider(credentialsProvider))
 	if err != nil {
 		return nil, err
 	}
@@ -282,44 +283,6 @@ func newPromptForCredentials() func(registry string) (docker.Credentials, error)
 		err := survey.Ask(qs, &result)
 		if err != nil {
 			return docker.Credentials{}, err
-		}
-		return result, nil
-	}
-}
-
-func newPromptForPipelineRegistryCredentials() pipelines.ContainerRegistryCredentialsCallback {
-	return func() (pipelines.ContainerRegistryCredentials, error) {
-		var result pipelines.ContainerRegistryCredentials
-		var qs = []*survey.Question{
-			{
-				Name: "server",
-				Prompt: &survey.Input{
-					Message: "Server:",
-					Default: "https://index.docker.io/v1/",
-				},
-				Validate: survey.Required,
-			},
-			{
-				Name: "username",
-				Prompt: &survey.Input{
-					Message: "Username:",
-				},
-				Validate: survey.Required,
-			},
-			{
-				Name: "password",
-				Prompt: &survey.Password{
-					Message: "Password:",
-				},
-				Validate: survey.Required,
-			},
-		}
-
-		fmt.Printf("Please provide credentials for the image registry used by Pipeline.\n")
-
-		err := survey.Ask(qs, &result)
-		if err != nil {
-			return pipelines.ContainerRegistryCredentials{}, err
 		}
 		return result, nil
 	}

@@ -45,17 +45,12 @@ func TestGetRegistry(t *testing.T) {
 		{
 			name: "default registry",
 			arg:  "docker.io/mysamplefunc:latest",
-			want: "docker.io",
+			want: "index.docker.io",
 		},
 		{
 			name: "long-form nested url",
 			arg:  "myregistry.io/myorg/myuser/myfunctions/mysamplefunc:latest",
 			want: "myregistry.io",
-		},
-		{
-			name: "invalid url",
-			arg:  "myregistry.io-mysamplefunc:latest",
-			want: "",
 		},
 	}
 	for _, tt := range tests {

@@ -12,13 +12,11 @@ import (
 	"net/http"
 	"os"
 	"regexp"
-	"strings"
-
-	"github.com/docker/docker/client"
 
 	fn "knative.dev/kn-plugin-func"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/client"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -111,18 +109,12 @@ func NewPusher(opts ...Opt) (*Pusher, error) {
 	return result, nil
 }
 
-func GetRegistry(image_url string) (string, error) {
-	var registry string
-	parts := strings.Split(image_url, "/")
-	switch {
-	case len(parts) == 2:
-		registry = fn.DefaultRegistry
-	case len(parts) >= 3:
-		registry = parts[0]
-	default:
-		return "", fmt.Errorf("failed to parse image name: %q", image_url)
+func GetRegistry(img string) (string, error) {
+	ref, err := name.ParseReference(img, name.WeakValidation)
+	if err != nil {
+		return "", err
 	}
-
+	registry := ref.Context().RegistryStr()
 	return registry, nil
 }
 
