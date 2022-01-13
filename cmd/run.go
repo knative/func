@@ -55,7 +55,7 @@ kn func build
 kn func run
 `,
 		SuggestFor: []string{"rnu"},
-		PreRunE:    bindEnv("path"),
+		PreRunE:    bindEnv("build", "path"),
 	}
 
 	cmd.Flags().StringArrayP("env", "e", []string{},
