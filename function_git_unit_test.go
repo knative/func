@@ -15,9 +15,17 @@ func Test_validateGit(t *testing.T) {
 		errs         int
 	}{
 		{
-			"correct 'Git - only URL",
+			"correct 'Git - only URL https",
 			Git{
 				URL: ptr.String("https://myrepo/foo.git"),
+			},
+			true,
+			0,
+		},
+		{
+			"correct 'Git - only URL scp",
+			Git{
+				URL: ptr.String("git@myrepo:foo.git"),
 			},
 			true,
 			0,

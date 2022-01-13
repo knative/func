@@ -19,6 +19,9 @@ func validateGit(git Git, mandatoryGit bool) (errors []string) {
 	if git.URL != nil {
 		_, err := giturls.ParseTransport(*git.URL)
 		if err != nil {
+			_, err = giturls.ParseScp(*git.URL)
+		}
+		if err != nil {
 			errMsg := fmt.Sprintf("specified option \"git.url=%s\" is not valid", *git.URL)
 
 			originalErr := err.Error()
