@@ -20,13 +20,3 @@ func TestHandle(t *testing.T) {
 		t.Fatal(err)
 	}
 }
-
-// TestHandleInvalid ensures that an invalid input event generates an error.
-func TestInvalidInput(t *testing.T) {
-	invalidEvent := event.New() // missing required fields
-
-	// Attempt to handle the invalid event, ensuring that the handler validats events.
-	if err := Handle(context.Background(), invalidEvent); err == nil {
-		t.Fatalf("handler did not generate error on invalid event.  Missing .Validate() check?")
-	}
-}

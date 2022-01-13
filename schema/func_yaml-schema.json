@@ -27,6 +27,8 @@
 				"Registry",
 				"image",
 				"imageDigest",
+				"build",
+				"git",
 				"builder",
 				"builders",
 				"buildpacks",
@@ -61,6 +63,17 @@
 				},
 				"imageDigest": {
 					"type": "string"
+				},
+				"build": {
+					"enum": [
+						"local",
+						"git"
+					],
+					"type": "string"
+				},
+				"git": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/Git"
 				},
 				"builder": {
 					"type": "string"
@@ -129,6 +142,21 @@
 				"invocation": {
 					"$schema": "http://json-schema.org/draft-04/schema#",
 					"$ref": "#/definitions/Invocation"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
+		},
+		"Git": {
+			"properties": {
+				"url": {
+					"type": "string"
+				},
+				"revision": {
+					"type": "string"
+				},
+				"contextDir": {
+					"type": "string"
 				}
 			},
 			"additionalProperties": false,

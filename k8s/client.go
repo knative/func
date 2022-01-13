@@ -8,8 +8,17 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-func NewKubernetesClientset(namespace string) (*kubernetes.Clientset, error) {
+func NewClientAndResolvedNamespace(defaultNamespace string) (client *kubernetes.Clientset, namespace string, err error) {
+	namespace, err = GetNamespace(defaultNamespace)
+	if err != nil {
+		return
+	}
 
+	client, err = NewKubernetesClientset()
+	return
+}
+
+func NewKubernetesClientset() (*kubernetes.Clientset, error) {
 	restConfig, err := GetClientConfig().ClientConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new kubernetes client: %v", err)

@@ -52,7 +52,7 @@ func (d *Deployer) isImageInPrivateRegistry(ctx context.Context, client clientse
 	if err != nil {
 		return false
 	}
-	k8sClient, err := k8s.NewKubernetesClientset(d.Namespace)
+	k8sClient, err := k8s.NewKubernetesClientset()
 	if err != nil {
 		return false
 	}

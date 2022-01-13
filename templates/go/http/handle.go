@@ -4,15 +4,17 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
 )
 
 // Handle an HTTP Request.
 func Handle(ctx context.Context, res http.ResponseWriter, req *http.Request) {
-	res.Header().Add("Content-Type", "text/plain")
+	/*
+	 * YOUR CODE HERE
+	 *
+	 * Try running `go test`.  Add more test as you code in `handle_test.go`.
+	 */
 
-	_, err := fmt.Fprintf(res, "OK\n")
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error or response write: %v", err)
-	}
+	// Example implementation:
+	fmt.Println("OK")       // Print "OK" to standard output (local logs)
+	fmt.Fprintln(res, "OK") // Send "OK" back to the client
 }

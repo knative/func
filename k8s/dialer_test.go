@@ -27,7 +27,7 @@ func TestDialInClusterService(t *testing.T) {
 	var err error
 	var ctx = context.Background()
 
-	cliSet, err := k8s.NewKubernetesClientset("")
+	cliSet, err := k8s.NewKubernetesClientset()
 	if err != nil {
 		t.Fatal(err)
 	}
