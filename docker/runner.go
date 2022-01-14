@@ -64,7 +64,7 @@ func (n *Runner) Run(ctx context.Context, f fn.Function) (job *fn.Job, err error
 	)
 
 	if f.Image == "" {
-		return job, errors.New("Function has no associate image. Has it been built?")
+		return job, errors.New("Function has no associated image. Has it been built?")
 	}
 	if c, _, err = NewClient(client.DefaultDockerHost); err != nil {
 		return job, errors.Wrap(err, "failed to create Docker API client")
@@ -103,7 +103,7 @@ func (n *Runner) Run(ctx context.Context, f fn.Function) (job *fn.Job, err error
 	}
 
 	// Stopper
-	stop := func() error {
+	stop := func() {
 		var (
 			timeout = DefaultStopTimeout
 			ctx     = context.Background()
@@ -120,7 +120,6 @@ func (n *Runner) Run(ctx context.Context, f fn.Function) (job *fn.Job, err error
 		if err = c.Close(); err != nil {
 			fmt.Fprintf(os.Stderr, "error closing daemon client: %v\n", err)
 		}
-		return err
 	}
 
 	// Job reporting port, runtime errors and provides a mechanism for stopping.

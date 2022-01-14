@@ -57,7 +57,7 @@ DESCRIPTION
 	both locally and remote, the local instance will be invoked.  This behavior
 	can be manually overridden using the --target flag.
 
-	Functions are invoked with a test data structure consisting of five values: 
+	Functions are invoked with a test data structure consisting of five values:
 		id:            A unique identifer for the request.
 		source:        A sender name for the request (sender).
 		type:          An application-level type for this request.
@@ -148,13 +148,13 @@ func runInvoke(cmd *cobra.Command, args []string, clientFn invokeClientFn) (err 
 		return
 	}
 
-	// Client instance from env vars, flags, args and user promtps (if --confirm)
+	// Client instance from env vars, flags, args and user prompts (if --confirm)
 	client, err := clientFn(cfg)
 	if err != nil {
 		return err
 	}
 
-	// Message to send the runing Function built from parameters gathered
+	// Message to send the running Function built from parameters gathered
 	// from the user (or defaults)
 	m := fn.InvokeMessage{
 		ID:          cfg.ID,

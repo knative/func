@@ -114,6 +114,7 @@ created: 2009-11-10 23:00:00`,
 			}
 
 			ctx, cancel := context.WithCancel(context.Background())
+			runErrCh := make(chan error, 1)
 			go func() {
 				// capture tt into the closure such that the next loop does't redefine
 				// before the assertion is evaluated.
@@ -123,17 +124,23 @@ created: 2009-11-10 23:00:00`,
 					if t0.buildError != nil {
 						return // expected error (simple nil check; typed would be better)
 					} else {
-						t.Fatal(err) // error not expected
+						runErrCh <- err // error not expected
+						return
 					}
 				}
 				// Error is nil, but an error was expected:
 				if t0.buildError != nil {
-					t.Fatalf("Expected error: %v but got %v\n", t0.buildError, err)
+					runErrCh <- fmt.Errorf("Expected error: %v but got %v\n", t0.buildError, err)
 				}
 			}()
 			// TODO: it might be an improvement to return a channel on which
 			// successful start can be listened for.
-			time.Sleep(1 * time.Second)
+			timer := time.NewTimer(1 * time.Second)
+			select {
+			case err := <-runErrCh:
+				t.Fatal(err)
+			case <-timer.C:
+			}
 			cancel()
 
 			if builder.BuildInvoked != tt.buildInvoked {

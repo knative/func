@@ -152,6 +152,7 @@ func sendPost(ctx context.Context, route string, m InvokeMessage, t http.RoundTr
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("failure invoking '%v' (HTTP %v)", route, resp.StatusCode)
 	}

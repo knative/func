@@ -18,13 +18,13 @@ type Job struct {
 	Function Function
 	Port     string
 	Errors   chan error
-	OnStop   func() error
+	OnStop   func()
 }
 
 // Create a new Job which represents a running Function task by providing
 // the port on which it was started, a channel on which runtime errors can
 // be received, and a stop function.
-func NewJob(f Function, port string, errs chan error, onStop func() error) (*Job, error) {
+func NewJob(f Function, port string, errs chan error, onStop func()) (*Job, error) {
 	j := &Job{
 		Function: f,
 		Port:     port,
@@ -36,9 +36,9 @@ func NewJob(f Function, port string, errs chan error, onStop func() error) (*Job
 
 // Stop the Job, running the provided stop delegate and removing runtime
 // metadata from disk.
-func (j *Job) Stop() error {
-	j.remove() // Remove representation on disk
-	return j.OnStop()
+func (j *Job) Stop() {
+	_ = j.remove() // Remove representation on disk
+	j.OnStop()
 }
 
 func (j *Job) save() error {
@@ -66,27 +66,6 @@ func (j *Job) save() error {
 func (j *Job) remove() error {
 	filename := filepath.Join(j.Function.Root, RunDataDir, "instances", j.Port)
 	return os.Remove(filename)
-}
-
-// write Function runtime/local data.
-// Runtime data is metadata used during local development, testing and running
-// which does not affect the state of the Function in a way that would warrant
-// a commit to soure control.  This data is writtin into the .func directory
-// which is ignored from source control by default.  Examples of runtime data
-// include PID and Port of a Function being run locally, etc.
-func writeFunc(f Function, name string, value []byte) error {
-	path := filepath.Join(f.Root, ".func", name)
-	file, err := os.OpenFile(path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, os.ModePerm)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-	if _, err := file.Write(value); err != nil {
-		return err
-	}
-	// Ensure it is written to disk such that other routines can immediately
-	// check if the Function is running.
-	return file.Sync()
 }
 
 // jobPorts returns all the ports on which an instance of the given Function is

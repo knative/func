@@ -717,7 +717,7 @@ func (c *Client) Route(path string) (err error) {
 
 // Run the Function whose code resides at root.
 // On start, the chosen port is sent to the provided started channel
-func (c *Client) Run(ctx context.Context, root string) (port string, stop func() error, errs chan error, err error) {
+func (c *Client) Run(ctx context.Context, root string) (port string, stop func(), errs chan error, err error) {
 	go func() {
 		<-ctx.Done()
 		c.progressListener.Stopping()

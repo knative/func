@@ -945,7 +945,7 @@ func TestInvokeHTTP(t *testing.T) {
 	var invoked bool
 
 	// The message to send to the Function
-	// Individul fields can be overridden, by default all fields are populeted
+	// Individual fields can be overridden, by default all fields are populeted
 	// with values intended as illustrative examples plus a unique request ID.
 	message := fn.NewInvokeMessage()
 
@@ -975,7 +975,7 @@ func TestInvokeHTTP(t *testing.T) {
 	s := http.Server{Handler: handler}
 	go func() {
 		if err = s.Serve(l); err != nil && err != http.ErrServerClosed {
-			t.Fatal(err)
+			fmt.Fprintf(os.Stderr, "error serving: %v", err)
 		}
 	}()
 	defer s.Close()
@@ -986,7 +986,7 @@ func TestInvokeHTTP(t *testing.T) {
 	runner.RunFn = func(ctx context.Context, f fn.Function) (*fn.Job, error) {
 		_, p, _ := net.SplitHostPort(l.Addr().String())
 		errs := make(chan error, 10)
-		stop := func() error { return nil }
+		stop := func() {}
 		return fn.NewJob(f, p, errs, stop)
 	}
 	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithRunner(runner))
@@ -1004,9 +1004,7 @@ func TestInvokeHTTP(t *testing.T) {
 	}
 	defer stop()
 
-	// Invoke the Function, which will use the mock Describer to locate the
-	// Function as being the one started above which validates the passed
-	// messsage arrives as expected.
+	// Invoke the Function, which will use the mock Runner
 	if err := client.Invoke(context.Background(), f.Root, "", message); err != nil {
 		t.Fatal(err)
 	}
@@ -1016,9 +1014,9 @@ func TestInvokeHTTP(t *testing.T) {
 		t.Fatal("Function was not invoked")
 	}
 
-	// Also fail if the mock descrier was never consulted.
+	// Also fail if the mock runner was never invoked.
 	if !runner.RunInvoked {
-		t.Fatal("the describer was not invoked for the Functions address")
+		t.Fatal("the runner was not")
 	}
 }
 
@@ -1045,7 +1043,7 @@ func TestInvokeCloudEvent(t *testing.T) {
 		}
 	}
 
-	// A cloudevents receive handler which will expect the HTTP protocol
+	// A cloudevent receive handler which will expect the HTTP protocol
 	protocol, err := cloudevents.NewHTTP() // Use HTTP protocol when receiving
 	if err != nil {
 		t.Fatal(err)
@@ -1063,18 +1061,17 @@ func TestInvokeCloudEvent(t *testing.T) {
 	s := http.Server{Handler: handler}
 	go func() {
 		if err := s.Serve(l); err != nil && err != http.ErrServerClosed {
-			t.Fatal(err)
+			fmt.Fprintf(os.Stderr, "error serving: %v", err)
 		}
 	}()
 	defer s.Close()
 
-	// Create a client with a mock Describer which will report the route
-	// to any Function as being the masquarading Function started above.
+	// Create a client with a mock Runner which returns its address.
 	runner := mock.NewRunner()
 	runner.RunFn = func(ctx context.Context, f fn.Function) (*fn.Job, error) {
 		_, p, _ := net.SplitHostPort(l.Addr().String())
 		errs := make(chan error, 10)
-		stop := func() error { return nil }
+		stop := func() {}
 		return fn.NewJob(f, p, errs, stop)
 	}
 	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithRunner(runner))
@@ -1092,9 +1089,7 @@ func TestInvokeCloudEvent(t *testing.T) {
 	}
 	defer stop()
 
-	// Invoke the Function, which will use the mock Describer to locate the
-	// Function as being the one started above which validates the passed
-	// messsage arrives as expected.
+	// Invoke the Function, which will use the mock Runner
 	if err := client.Invoke(context.Background(), f.Root, "", message); err != nil {
 		t.Fatal(err)
 	}
@@ -1104,15 +1099,11 @@ func TestInvokeCloudEvent(t *testing.T) {
 		t.Fatal("Function was not invoked")
 	}
 
-	// Also fail if the mock descrier was never consulted.
+	// Also fail if the mock runner was never invoked.
 	if !runner.RunInvoked {
-		t.Fatal("the describer was not invoked for the Functions address")
+		t.Fatal("the runner was not invoked")
 	}
 }
-
-// TestInvokeErrors ensures that
-//   Attempting to invoke a local Function errors if not running locally
-//   Attempting to invoke a remote Function errors if not running in remote
 
 // TestRunDataDir ensures that when a Function is created, it also
 // includes a .func (runtime data) directory which is registered as ignored for
@@ -1169,7 +1160,7 @@ func TestInstances(t *testing.T) {
 	runner := mock.NewRunner()
 	runner.RunFn = func(_ context.Context, f fn.Function) (*fn.Job, error) {
 		errs := make(chan error, 10)
-		stop := func() error { return nil }
+		stop := func() {}
 		return fn.NewJob(f, "8080", errs, stop)
 	}
 
@@ -1200,7 +1191,7 @@ func TestInstances(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Assert the endpoint route is as explected
+	// Assert the endpoint route is as expected
 	expectedEndpoint := "http://localhost:8080/"
 	if instance.Route != expectedEndpoint {
 		t.Fatalf("Expected endpoint '%v', got '%v'", expectedEndpoint, instance.Route)
