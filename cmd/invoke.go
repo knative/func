@@ -60,24 +60,28 @@ DESCRIPTION
 	Functions are invoked with a test data structure consisting of five values: 
 		id:            A unique identifer for the request.
 		source:        A sender name for the request (sender).
-		type:          A type for this request.
+		type:          An application-level type for this request.
 		data:          Data (content) for this request.
 		content-type:  The MIME type of the value contained in 'data'.
 
 	The values of these parameters can be individually altered from their defaults
 	using their associated flags. Data can also be provided from file with --file.
 
-	The Function template chosen at time of Function creation determines how this
-	data arrives.  It can be in the form of an HTTP POST or a Cloud Event
-
 	Invocation Target
 	  The Function instance to invoke can be specified using the --target flag
 	  which accepts the values "local", "remote", or <URL>.  By default the
 	  local Function instance is chosen if running (see {{.Prefix}}func run).
 	  To explicitly target the remote (deployed) Function:
-	    func invoke --target=remote
+	    {{.Prefix}}func invoke --target=remote
 	  To target an arbitrary endpont, provide a URL:
-	    func invoke --target=https://myfunction.example.com
+	    {{.Prefix}}func invoke --target=https://myfunction.example.com
+
+	File Submission
+	  Providing a filename in the --file flag will base64 encode its contents
+	  as the "data" parameter sent to the Function.  The value of --content-type
+	  should be set to the type from the source file.  For example, the following
+	  would send a JPEG base64 encoded in the "data" POST parameter:
+	    {{.Prefix}}func invoke --file=example.jpeg --content-type=image/jpeg
 
 EXAMPLES
 
@@ -108,19 +112,19 @@ EXAMPLES
 
 `,
 		SuggestFor: []string{"emit", "emti", "send", "emit", "exec", "nivoke", "onvoke", "unvoke", "knvoke", "imvoke", "ihvoke", "ibvoke"},
-		PreRunE:    bindEnv("path", "target", "id", "source", "type", "data", "content-type", "file", "namespace"),
+		PreRunE:    bindEnv("path", "target", "id", "source", "type", "data", "content-type", "file", "confirm", "namespace"),
 	}
 
 	// Flags
 	cmd.Flags().StringP("path", "p", cwd(), "Path to the Function which should have its instance invoked (Env: $FUNC_PATH)")
 	cmd.Flags().StringP("target", "t", "", "Function instance to invoke.  Can be 'local', 'remote' or a URL.  Defaults to auto-discovery if not provided (Env: $FUNC_TARGET)")
-	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
 	cmd.Flags().StringP("id", "", uuid.NewString(), "ID for the request data. (Env: $FUNC_ID)")
 	cmd.Flags().StringP("source", "", fn.DefaultInvokeSource, "Source value for the request data. (Env: $FUNC_SOURCE)")
 	cmd.Flags().StringP("type", "", fn.DefaultInvokeType, "Type value for the request data. (Env: $FUNC_TYPE)")
 	cmd.Flags().StringP("content-type", "", fn.DefaultInvokeContentType, "Content Type of the data. (Env: $FUNC_CONTENT_TYPE)")
 	cmd.Flags().StringP("data", "", fn.DefaultInvokeData, "Data to send in the request. (Env: $FUNC_DATA)")
 	cmd.Flags().StringP("file", "", "", "Path to a file to use as data. Eclusive with --data flag and requres correct --content-type. (Env: $FUNC_FILE)")
+	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
 	setNamespaceFlag(cmd)
 
 	// Help Action
@@ -150,6 +154,8 @@ func runInvoke(cmd *cobra.Command, args []string, clientFn invokeClientFn) (err 
 		return err
 	}
 
+	// Message to send the runing Function built from parameters gathered
+	// from the user (or defaults)
 	m := fn.InvokeMessage{
 		ID:          cfg.ID,
 		Source:      cfg.Source,
@@ -158,6 +164,7 @@ func runInvoke(cmd *cobra.Command, args []string, clientFn invokeClientFn) (err 
 		Data:        cfg.Data,
 	}
 
+	// If --file was specified, use its content for message data
 	if cfg.File != "" {
 		content, err := os.ReadFile(cfg.File)
 		if err != nil {
@@ -248,8 +255,8 @@ func newInvokeConfig(clientFn invokeClientFn) (cfg invokeConfig, err error) {
 		return cfg.prompt(client)
 	}
 
-	// Confirming, but noninteractive
-	// Print out the final values as confirmation
+	// Confirming, but noninteractive, is essentially a selective verbose mode
+	// which prints out the effective values of config as a confirmation.
 	fmt.Printf("Path: %v\n", cfg.Path)
 	fmt.Printf("Target: %v\n", cfg.Target)
 	fmt.Printf("ID: %v\n", cfg.ID)
@@ -269,7 +276,7 @@ func (c invokeConfig) prompt(client *fn.Client) (invokeConfig, error) {
 		{
 			Name: "Path",
 			Prompt: &survey.Input{
-				Message: "Function Path (optional):",
+				Message: "Function Path:",
 				Default: c.Path,
 			},
 			Validate: func(val interface{}) error {
@@ -296,25 +303,14 @@ func (c invokeConfig) prompt(client *fn.Client) (invokeConfig, error) {
 		{
 			Name: "Target",
 			Prompt: &survey.Input{
-				Message: "(optional) Target Function ('local', 'remote' or URL endpoint. default: auto)",
-				Default: c.Target,
+				Message: "(Optional) Target ('local', 'remote' or URL). Defalt will choose, preferring local.",
+				Default: "",
 			},
 		},
 	}
 	if err := survey.Ask(qs, &c); err != nil {
 		return c, err
 	}
-
-	// TODO: load Function if path defined
-
-	// Apply Overrides
-	// The current state of the config includes environment variables and
-	// flag values.  These override the settings defined in the function.
-	/*
-		if f, err := applyInvocationOverrides(f, c); err != nil {
-			return
-		}
-	*/
 
 	// Prompt for the next set of values, with defaults set first by the Function
 	// as it exists on disk, followed by environment variables, and finally flags.
@@ -368,11 +364,15 @@ func (c invokeConfig) prompt(client *fn.Client) (invokeConfig, error) {
 	}
 
 	// Finally, allow mutation of the data content type.
+	contentTypeMessage := "Content type of data"
+	if c.File != "" {
+		contentTypeMessage = "Content type of file"
+	}
 	qs = []*survey.Question{
 		{
 			Name: "ContentType",
 			Prompt: &survey.Input{
-				Message: "Content Type of Data",
+				Message: contentTypeMessage,
 				Default: c.ContentType,
 			},
 		}}
