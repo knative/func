@@ -12,9 +12,9 @@ import (
 	"knative.dev/kn-plugin-func/mock"
 )
 
-// TestBuildInvalidRegistry ensures that running build specifying the name of the
+// TestBuild_InvalidRegistry ensures that running build specifying the name of the
 // registry explicitly as an argument invokes the registry validation code.
-func TestBuildInvalidRegistry(t *testing.T) {
+func TestBuild_InvalidRegistry(t *testing.T) {
 	var (
 		args    = []string{"--registry", "foo/bar/foobar/boofar"} // provide an invalid registry name
 		builder = mock.NewBuilder()                               // with a mock builder
@@ -54,7 +54,7 @@ created: 2021-01-01T00:00:00+00:00
 	}
 }
 
-func Test_runBuild(t *testing.T) {
+func TestBuild_runBuild(t *testing.T) {
 	tests := []struct {
 		name         string
 		pushFlag     bool
@@ -142,7 +142,7 @@ created: 2009-11-10 23:00:00`,
 	}
 }
 
-func Test_newBuildClient(t *testing.T) {
+func TestBuild_newBuildClient(t *testing.T) {
 	tests := []struct {
 		name         string
 		cfg          buildConfig

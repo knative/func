@@ -16,6 +16,15 @@ import (
 	"knative.dev/kn-plugin-func/utils"
 )
 
+// ErrNoRuntime indicates that the language runtime flag was not passed.
+type ErrNoRuntime error
+
+// ErrInvalidRuntime indicates that the passed language runtime was invalid.
+type ErrInvalidRuntime error
+
+// ErrInvalidTemplate indicates that the passed template was invalid.
+type ErrInvalidTemplate error
+
 func init() {
 	// Add to the root a new "Create" command which obtains an appropriate
 	// instance of fn.Client from the given client creator function.
@@ -375,7 +384,7 @@ func noRuntimeError(client *fn.Client) error {
 	for _, v := range runtimes {
 		fmt.Fprintf(&b, "  %v\n", v)
 	}
-	return errors.New(b.String())
+	return ErrNoRuntime(errors.New(b.String()))
 }
 
 // newInvalidRuntimeError creates an error stating that the given language
@@ -391,7 +400,7 @@ func newInvalidRuntimeError(client *fn.Client, runtime string) error {
 	for _, v := range runtimes {
 		fmt.Fprintf(&b, "  %v\n", v)
 	}
-	return errors.New(b.String())
+	return ErrInvalidRuntime(errors.New(b.String()))
 }
 
 // newInvalidTemplateError creates an error stating that the given template
@@ -408,7 +417,7 @@ func newInvalidTemplateError(client *fn.Client, runtime, template string) error 
 	for _, v := range templates {
 		fmt.Fprintf(&b, "  %v\n", v)
 	}
-	return errors.New(b.String())
+	return ErrInvalidTemplate(errors.New(b.String()))
 }
 
 // prompt the user with value of config members, allowing for interactively

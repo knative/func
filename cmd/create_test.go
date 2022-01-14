@@ -12,9 +12,9 @@ import (
 	"knative.dev/kn-plugin-func/utils"
 )
 
-// TestCreate ensures that an invocation of create with minimal settings
+// TestCreate_Execute ensures that an invocation of create with minimal settings
 // and valid input completes without error; degenerate case.
-func TestCreate(t *testing.T) {
+func TestCreate_Execute(t *testing.T) {
 	defer fromTempDir(t)()
 
 	// command with a client factory which yields a fully default client.
@@ -28,9 +28,9 @@ func TestCreate(t *testing.T) {
 	}
 }
 
-// TestCreateWithNoRuntime ensures that an invocation of create must be
+// TestCreate_NoRuntime ensures that an invocation of create must be
 // done with a runtime.
-func TestCreateWithNoRuntime(t *testing.T) {
+func TestCreate_NoRuntime(t *testing.T) {
 	defer fromTempDir(t)()
 
 	// command with a client factory which yields a fully default client.
@@ -44,9 +44,9 @@ func TestCreateWithNoRuntime(t *testing.T) {
 	}
 }
 
-// TestCreateWithNoRuntime ensures that an invocation of create must be
+// TestCreate_WithNoRuntime ensures that an invocation of create must be
 // done with one of the valid runtimes only.
-func TestCreateWithInvalidRuntime(t *testing.T) {
+func TestCreate_WithInvalidRuntime(t *testing.T) {
 	defer fromTempDir(t)()
 
 	// command with a client factory which yields a fully default client.
@@ -62,9 +62,9 @@ func TestCreateWithInvalidRuntime(t *testing.T) {
 	}
 }
 
-// TestCreateWithInvalidTemplate ensures that an invocation of create must be
+// TestCreate_InvalidTemplate ensures that an invocation of create must be
 // done with one of the valid templates only.
-func TestCreateWithInvalidTemplate(t *testing.T) {
+func TestCreate_InvalidTemplate(t *testing.T) {
 	defer fromTempDir(t)()
 
 	// command with a client factory which yields a fully default client.
@@ -81,9 +81,9 @@ func TestCreateWithInvalidTemplate(t *testing.T) {
 	}
 }
 
-// TestCreateValidatesName ensures that the create command only accepts
+// TestCreate_ValidatesName ensures that the create command only accepts
 // DNS-1123 labels for Function name.
-func TestCreateValidatesName(t *testing.T) {
+func TestCreate_ValidatesName(t *testing.T) {
 	defer fromTempDir(t)()
 
 	// Create a new Create command with a fn.Client construtor
@@ -100,10 +100,10 @@ func TestCreateValidatesName(t *testing.T) {
 	}
 }
 
-// TestCreateRepositoriesPath ensures that the create command utilizes the
+// TestCreate_RepositoriesPath ensures that the create command utilizes the
 // expected repositories path, respecting the setting for XDG_CONFIG_PATH
 // when deriving the default
-func TestCreateRepositoriesPath(t *testing.T) {
+func TestCreate_RepositoriesPath(t *testing.T) {
 	defer fromTempDir(t)()
 
 	// Update XDG_CONFIG_HOME to point to some arbitrary location.

@@ -10,7 +10,7 @@ import (
 	fn "knative.dev/kn-plugin-func"
 )
 
-func Test_mergeEnvMaps(t *testing.T) {
+func TestRoot_mergeEnvMaps(t *testing.T) {
 
 	a := "A"
 	b := "B"
@@ -118,7 +118,7 @@ func Test_mergeEnvMaps(t *testing.T) {
 	}
 }
 
-func Test_CMDParameterized(t *testing.T) {
+func TestRoot_CMDParameterized(t *testing.T) {
 
 	if root.Use != "func" {
 		t.Fatalf("default command use should be \"func\".")

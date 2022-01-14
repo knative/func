@@ -493,6 +493,7 @@ func TestNewDelegates(t *testing.T) {
 }
 
 // TestRun ensures that the runner is invoked with the absolute path requested.
+// Implicitly checks that the stop fn returned also is respected.
 func TestRun(t *testing.T) {
 	// Create the root Function directory
 	root := "testdata/example.com/testRun"

@@ -1,114 +1,148 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/ory/viper"
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/mock"
 )
 
-func TestRunRun(t *testing.T) {
+func TestRun_Run(t *testing.T) {
+
+	// TODO: this test is testing using a side-effect (the contents of func.yaml)
+	// which is an implementation detail from the perspective of the CLI.
+	// An improvement would be to implement the cases by making direct calls
+	// and inspecting the resultant function.
 
 	tests := []struct {
-		name         string
-		fileContents string
-		buildErrors  bool
-		buildFlag    bool
-		shouldBuild  bool
-		shouldRun    bool
+		name         string // name of the test
+		desc         string // description of the test
+		funcState    string // Function stat, as described in func.yaml
+		buildFlag    bool   // vale to set the --build flag
+		buildError   error  // Set the builder to yield this error
+		runError     error  // Set the runner to yield this error
+		buildInvoked bool   // should Builder.Build be invoked?
+		runInvoked   bool   // should Runner.Run be invoked?
 	}{
 		{
-			name: "Should attempt to run even if build is skipped",
-			fileContents: `name: test-func
+			name: "run when not building",
+			desc: "Should run when build is not enabled",
+			funcState: `name: test-func
 runtime: go
 created: 2009-11-10 23:00:00`,
-			buildFlag:   false,
-			shouldBuild: false,
-			shouldRun:   true,
+			buildFlag:    false,
+			buildInvoked: false,
+			runInvoked:   true,
 		},
 		{
-			name: "Prebuilt image doesn't get built again",
-			fileContents: `name: test-func
+			name: "run and build",
+			desc: "Should run and build when build is enabled and there is no image",
+			funcState: `name: test-func
 runtime: go
-image: unexistant
 created: 2009-11-10 23:00:00`,
-			buildFlag:   true,
-			shouldBuild: false,
-			shouldRun:   true,
+			buildFlag:    true,
+			buildInvoked: true,
+			runInvoked:   true,
 		},
 		{
-			name: "Build when image is empty and build flag is true",
-			fileContents: `name: test-func
+			name: "skip rebuild",
+			desc: "Built image doesn't get built again",
+			// TODO: this might be improved by checking if the user provided
+			// the --build=true flag, allowing an override to force rebuild.
+			// This could be accomplished by adding a 'provideBuildFlag' struct
+			// member.
+			funcState: `name: test-func
 runtime: go
+image: exampleimage
 created: 2009-11-10 23:00:00`,
-			buildFlag:   true,
-			shouldBuild: true,
-			shouldRun:   true,
+			buildFlag:    true,
+			buildInvoked: false,
+			runInvoked:   true,
 		},
 		{
-			name: "Build error skips execution",
-			fileContents: `name: test-func
+			name: "Build errors return",
+			desc: "Errors building cause an immediate return with error",
+			funcState: `name: test-func
 runtime: go
 created: 2009-11-10 23:00:00`,
-			buildFlag:   true,
-			shouldBuild: true,
-			shouldRun:   false,
-			buildErrors: true,
+			buildFlag:    true,
+			buildError:   fmt.Errorf("generic build error"),
+			buildInvoked: true,
+			runInvoked:   false,
 		},
 	}
 	for _, tt := range tests {
-		mockRunner := mock.NewRunner()
-		mockBuilder := mock.NewBuilder()
-		errorBuilder := mock.Builder{
-			BuildFn: func(f fn.Function) error { return fmt.Errorf("build failed") },
-		}
-		cmd := NewRunCmd(func(rc runConfig) *fn.Client {
-			buildOption := fn.WithBuilder(mockBuilder)
-			if tt.buildErrors {
-				buildOption = fn.WithBuilder(&errorBuilder)
-			}
-			return fn.New(
-				fn.WithRunner(mockRunner),
-				buildOption,
-				fn.WithRegistry("ghcr.com/reg"),
-			)
-		})
-		tempDir, err := os.MkdirTemp("", "func-tests")
-		if err != nil {
-			t.Fatalf("temp dir couldn't be created %v", err)
-		}
-		t.Log("tempDir created:", tempDir)
-		t.Cleanup(func() {
-			os.RemoveAll(tempDir)
-		})
-
-		fullPath := tempDir + "/func.yaml"
-		tempFile, err := os.Create(fullPath)
-		if err != nil {
-			t.Fatalf("temp file couldn't be created %v", err)
-		}
-
-		cmd.SetArgs([]string{"--path=" + tempDir})
-		viper.SetDefault("build", tt.buildFlag)
-
-		_, err = tempFile.WriteString(tt.fileContents)
-		if err != nil {
-			t.Fatalf("file content was not written %v", err)
-		}
+		// run as a sub-test
 		t.Run(tt.name, func(t *testing.T) {
-			err := cmd.Execute()
-			if err == nil && tt.buildErrors {
-				t.Errorf("Expected error: %v but got %v", tt.buildErrors, err)
+
+			// From within a temp directory
+			// t.Cleanup(fromTempDir(t))
+			defer fromTempDir(t)()
+
+			runner := mock.NewRunner()
+			if tt.runError != nil {
+				runner.RunFn = func(context.Context, fn.Function) (*fn.Job, error) { return nil, tt.runError }
 			}
-			if tt.shouldBuild && !(mockBuilder.BuildInvoked || errorBuilder.BuildInvoked) {
-				t.Errorf("Function was expected to build is: %v but build execution was: %v", tt.shouldBuild, mockBuilder.BuildInvoked || errorBuilder.BuildInvoked)
+
+			builder := mock.NewBuilder()
+			if tt.buildError != nil {
+				builder.BuildFn = func(f fn.Function) error { return tt.buildError }
 			}
-			if mockRunner.RunInvoked != tt.shouldRun {
-				t.Errorf("Function was expected to run is: %v but run execution was: %v", tt.shouldRun, mockRunner.RunInvoked)
+
+			// using a command whose client will be populated with mock
+			// builder and mock runner, each of which may be set to error if the
+			// test has an error defined.
+			cmd := NewRunCmd(func(rc runConfig) *fn.Client {
+				return fn.New(
+					fn.WithRunner(runner),
+					fn.WithBuilder(builder),
+					fn.WithRegistry("ghcr.com/reg"),
+				)
+			})
+
+			// set test case's build
+			viper.SetDefault("build", tt.buildFlag)
+
+			// set test case's func.yaml
+			if err := os.WriteFile("func.yaml", []byte(tt.funcState), os.ModePerm); err != nil {
+				t.Fatal(err)
 			}
+
+			ctx, cancel := context.WithCancel(context.Background())
+			go func() {
+				// capture tt into the closure such that the next loop does't redefine
+				// before the assertion is evaluated.
+				t0 := tt
+				_, err := cmd.ExecuteContextC(ctx)
+				if err != nil {
+					if t0.buildError != nil {
+						return // expected error (simple nil check; typed would be better)
+					} else {
+						t.Fatal(err) // error not expected
+					}
+				}
+				// Error is nil, but an error was expected:
+				if t0.buildError != nil {
+					t.Fatalf("Expected error: %v but got %v\n", t0.buildError, err)
+				}
+			}()
+			// TODO: it might be an improvement to return a channel on which
+			// successful start can be listened for.
+			time.Sleep(1 * time.Second)
+			cancel()
+
+			if builder.BuildInvoked != tt.buildInvoked {
+				t.Fatalf("Function was expected to build is: %v but build execution was: %v", tt.buildInvoked, builder.BuildInvoked)
+			}
+			if runner.RunInvoked != tt.runInvoked {
+				t.Fatalf("Function was expected to run is: %v but run execution was: %v", tt.runInvoked, runner.RunInvoked)
+			}
+			<-ctx.Done()
 		})
 	}
 }
