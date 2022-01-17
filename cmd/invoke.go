@@ -215,6 +215,7 @@ func runInvokeHelp(cmd *cobra.Command, args []string, clientFn invokeClientFn) {
 type invokeConfig struct {
 	Path        string
 	Target      string
+	Format      string
 	ID          string
 	Source      string
 	Type        string
@@ -315,6 +316,14 @@ func (c invokeConfig) prompt(client *fn.Client) (invokeConfig, error) {
 			Prompt: &survey.Input{
 				Message: "(Optional) Target ('local', 'remote' or URL).  If not provided, local will be preferred over remote.",
 				Default: "",
+			},
+		},
+		{
+			Name: "Format",
+			Prompt: &survey.Select{
+				Message: "(Optional) Format Override",
+				Options: []string{"", "http", "cloudevent"},
+				Default: c.Format,
 			},
 		},
 	}
