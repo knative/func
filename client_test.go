@@ -256,7 +256,7 @@ func TestClient_New_RuntimeNotFoundError(t *testing.T) {
 
 // TestClient_New_RuntimeNotFoundCustom ensures that the correct error is returned
 // when the requested runtime is not found in a given custom repository
-func TestRuntimeNotFoundCustom(t *testing.T) {
+func TestClient_New_RuntimeNotFoundCustom(t *testing.T) {
 	root := "testdata/example.com/testRuntimeNotFoundCustom"
 	defer Using(t, root)()
 
@@ -294,7 +294,7 @@ func TestClient_New_TemplateNotFoundError(t *testing.T) {
 
 // TestClient_New_TemplateNotFoundCustom ensures that the correct error is returned
 // when the requested template is not found in the given custom repository.
-func TestTemplateNotFoundCustom(t *testing.T) {
+func TestClient_New_TemplateNotFoundCustom(t *testing.T) {
 	root := "testdata/example.com/testTemplateNotFoundCustom"
 	defer Using(t, root)()
 
@@ -811,10 +811,10 @@ func TestClient_Deploy_UnbuiltErrors(t *testing.T) {
 	}
 }
 
-// TestClient_Create_BuildersPersisted Asserts that the client preserves user-
+// TestClient_New_BuildersPersisted Asserts that the client preserves user-
 // provided Builders on the Function configuration with the internal default
 // if not provided.
-func TestClient_Create_BuildersPersisted(t *testing.T) {
+func TestClient_New_BuildersPersisted(t *testing.T) {
 	root := "testdata/example.com/testConfiguredBuilders" // Root from which to run the test
 	defer Using(t, root)()
 	client := fn.New(fn.WithRegistry(TestRegistry))
@@ -828,7 +828,7 @@ func TestClient_Create_BuildersPersisted(t *testing.T) {
 		}}
 
 	// Create the Function, which should preserve custom builders
-	if err := client.Create(f0); err != nil {
+	if err := client.New(context.Background(), f0); err != nil {
 		t.Fatal(err)
 	}
 
@@ -849,10 +849,10 @@ func TestClient_Create_BuildersPersisted(t *testing.T) {
 	}
 }
 
-// TestClient_Create_BuilderDefault ensures that if a custom builder is
+// TestClient_New_BuilderDefault ensures that if a custom builder is
 // provided of name "default", this is chosen as the default builder instead
 // of the inbuilt static default.
-func TestClient_Create_BuilderDefault(t *testing.T) {
+func TestClient_New_BuilderDefault(t *testing.T) {
 	root := "testdata/example.com/testConfiguredBuildersWithDefault" // Root from which to run the test
 	defer Using(t, root)()
 
@@ -861,7 +861,7 @@ func TestClient_Create_BuilderDefault(t *testing.T) {
 		"default": "docker.io/example/default",
 	}
 	client := fn.New(fn.WithRegistry(TestRegistry))
-	if err := client.Create(fn.Function{
+	if err := client.New(context.Background(), fn.Function{
 		Runtime:  TestRuntime,
 		Root:     root,
 		Builders: builders,
@@ -884,9 +884,9 @@ func TestClient_Create_BuilderDefault(t *testing.T) {
 	}
 }
 
-// TestClient_Create_BuildpacksPersisted ensures that provided buildpacks are
+// TestClient_New_BuildpacksPersisted ensures that provided buildpacks are
 // persisted on new Functions.
-func TestClient_Create_BuildpacksPersisted(t *testing.T) {
+func TestClient_New_BuildpacksPersisted(t *testing.T) {
 	root := "testdata/example.com/testConfiguredBuildpacks" // Root from which to run the test
 	defer Using(t, root)()
 
@@ -894,7 +894,7 @@ func TestClient_Create_BuildpacksPersisted(t *testing.T) {
 		"docker.io/example/custom-buildpack",
 	}
 	client := fn.New(fn.WithRegistry(TestRegistry))
-	if err := client.Create(fn.Function{
+	if err := client.New(context.Background(), fn.Function{
 		Runtime:    TestRuntime,
 		Root:       root,
 		Buildpacks: buildpacks,

@@ -136,7 +136,7 @@ created: 2009-11-10 23:00:00`,
 			}()
 			cancel() // trigger the return of cmd.ExecuteContextC in the routine
 			<-ctx.Done()
-			if err := <-runErrCh; err != nil { // wait for completeion of assertions
+			if err := <-runErrCh; err != nil { // wait for completion of assertions
 				t.Fatal(err)
 			}
 		})

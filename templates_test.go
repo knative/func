@@ -17,9 +17,9 @@ import (
 	. "knative.dev/kn-plugin-func/testing"
 )
 
-// TestTemplatesList ensures that all templates are listed taking into account
+// TestTemplates_List ensures that all templates are listed taking into account
 // both internal and extensible (prefixed) repositories.
-func TestTemplatesList(t *testing.T) {
+func TestTemplates_List(t *testing.T) {
 	// A client which specifies a location of exensible repositoreis on disk
 	// will list all builtin plus exensible
 	client := fn.New(fn.WithRepositories("testdata/repositories"))
@@ -45,10 +45,10 @@ func TestTemplatesList(t *testing.T) {
 	}
 }
 
-// TestTemplatesListExtendedNotFound ensures that an error is not returned
+// TestTemplates_List_ExtendedNotFound ensures that an error is not returned
 // when retrieving the list of templates for a runtime that does not exist
 // in an extended repository, but does in the default.
-func TestTemplatesListExtendedNotFound(t *testing.T) {
+func TestTemplates_List_ExtendedNotFound(t *testing.T) {
 	client := fn.New(fn.WithRepositories("testdata/repositories"))
 
 	// list templates for the "python" runtime -
@@ -68,9 +68,9 @@ func TestTemplatesListExtendedNotFound(t *testing.T) {
 	}
 }
 
-// TestTemplatesGet ensures that a template's metadata object can
+// TestTemplates_Get ensures that a template's metadata object can
 // be retrieved by full name (full name prefix optional for embedded).
-func TestTemplatesGet(t *testing.T) {
+func TestTemplates_Get(t *testing.T) {
 	client := fn.New(fn.WithRepositories("testdata/repositories"))
 
 	// Check embedded
@@ -96,10 +96,10 @@ func TestTemplatesGet(t *testing.T) {
 	}
 }
 
-// TestTemplateEmbedded ensures that embedded templates are copied on write.
-func TestTemplateEmbedded(t *testing.T) {
+// TestTemplates_Embedded ensures that embedded templates are copied on write.
+func TestTemplates_Embedded(t *testing.T) {
 	// create test directory
-	root := "testdata/testTemplateEmbedded"
+	root := "testdata/testTemplatesEmbedded"
 	defer Using(t, root)()
 
 	// Client whose internal (builtin default) templates will be used.
@@ -122,12 +122,12 @@ func TestTemplateEmbedded(t *testing.T) {
 	}
 }
 
-// TestTemplateCustom ensures that a template from a filesystem source
+// TestTemplates_Custom ensures that a template from a filesystem source
 // (ie. custom provider on disk) can be specified as the source for a
 // template.
-func TestTemplateCustom(t *testing.T) {
+func TestTemplates_Custom(t *testing.T) {
 	// Create test directory
-	root := "testdata/testTemplateCustom"
+	root := "testdata/testTemplatesCustom"
 	defer Using(t, root)()
 
 	// CLient which uses custom repositories
@@ -155,11 +155,11 @@ func TestTemplateCustom(t *testing.T) {
 	}
 }
 
-// TestTemplateRemote ensures that a Git template repository provided via URI
+// TestTemplates_Remote ensures that a Git template repository provided via URI
 // can be specificed on creation of client, with subsequent calls to Create
 // using this remote by default.
-func TestTemplateRemote(t *testing.T) {
-	root := "testdata/testTemplateRemote"
+func TestTemplates_Remote(t *testing.T) {
+	root := "testdata/testTemplatesRemote"
 	defer Using(t, root)()
 
 	// The difference between HTTP vs File protocol is internal to the
@@ -198,11 +198,11 @@ func TestTemplateRemote(t *testing.T) {
 	}
 }
 
-// TestTemplateDefault ensures that the expected default template
+// TestTemplates_Default ensures that the expected default template
 // is used when none specified.
-func TestTemplateDefault(t *testing.T) {
+func TestTemplates_Default(t *testing.T) {
 	// create test directory
-	root := "testdata/testTemplateDefault"
+	root := "testdata/testTemplates_Default"
 	defer Using(t, root)()
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
@@ -221,11 +221,11 @@ func TestTemplateDefault(t *testing.T) {
 	}
 }
 
-// TestTemplateInvalidErrors ensures that specifying unrecgognized
+// TestTemplates_InvalidErrors ensures that specifying unrecgognized
 // runtime/template errors
-func TestTemplateInvalidErrors(t *testing.T) {
+func TestTemplates_InvalidErrors(t *testing.T) {
 	// create test directory
-	root := "testdata/testTemplateInvalidErrors"
+	root := "testdata/testTemplates_InvalidErrors"
 	defer Using(t, root)()
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
@@ -253,16 +253,16 @@ func TestTemplateInvalidErrors(t *testing.T) {
 	}
 }
 
-// TestTemplateModeEmbedded ensures that templates written from the embedded
+// TestTemplates_ModeEmbedded ensures that templates written from the embedded
 // templates retain their mode.
-func TestTemplateModeEmbedded(t *testing.T) {
+func TestTemplates_ModeEmbedded(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		return
 		// not applicable
 	}
 
 	// set up test directory
-	root := "testdata/testTemplateModeEmbedded"
+	root := "testdata/testTemplatesModeEmbedded"
 	defer Using(t, root)()
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
@@ -288,15 +288,15 @@ func TestTemplateModeEmbedded(t *testing.T) {
 	}
 }
 
-// TestTemplateModeCustom ensures that templates written from custom templates
+// TestTemplates_ModeCustom ensures that templates written from custom templates
 // retain their mode.
-func TestTemplateModeCustom(t *testing.T) {
+func TestTemplates_ModeCustom(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		return // not applicable
 	}
 
 	// test directories
-	root := "testdata/testTemplateModeCustom"
+	root := "testdata/testTemplates_ModeCustom"
 	defer Using(t, root)()
 
 	client := fn.New(
@@ -323,15 +323,15 @@ func TestTemplateModeCustom(t *testing.T) {
 	}
 }
 
-// TestTemplateModeRemote ensures that templates written from remote templates
+// TestTemplates_ModeRemote ensures that templates written from remote templates
 // retain their mode.
-func TestTemplateModeRemote(t *testing.T) {
+func TestTemplates_ModeRemote(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		return // not applicable
 	}
 
 	// test directories
-	root := "testdata/testTemplateModeRemote"
+	root := "testdata/testTemplates_ModeRemote"
 	defer Using(t, root)()
 
 	// Clone a repository from a local file path
@@ -377,11 +377,11 @@ func TestTemplateModeRemote(t *testing.T) {
 
 // TODO: test typed errors for custom and remote (embedded checked)
 
-// TestRuntimeManifestBuildEnvs ensures that BuildEnvs specified in a
+// TestTemplates_RuntimeManifestBuildEnvs ensures that BuildEnvs specified in a
 // runtimes's manifest are included in the final Function.
-func TestRuntimeManifestBuildEnvs(t *testing.T) {
+func TestTemplates_RuntimeManifestBuildEnvs(t *testing.T) {
 	// create test directory
-	root := "testdata/testRuntimeManifestBuildEnvs"
+	root := "testdata/testTemplatesRuntimeManifestBuildEnvs"
 	defer Using(t, root)()
 
 	// Client whose internal templates will be used.
@@ -424,11 +424,11 @@ func TestRuntimeManifestBuildEnvs(t *testing.T) {
 	}
 }
 
-// TestTemplateManifestBuildEnvs ensures that BuildEnvs specified in a
+// TestTemplates_ManifestBuildEnvs ensures that BuildEnvs specified in a
 // template's manifest are included in the final Function.
-func TestTemplateManifestBuildEnvs(t *testing.T) {
+func TestTemplates_ManifestBuildEnvs(t *testing.T) {
 	// create test directory
-	root := "testdata/testTemplateManifestBuildEnvs"
+	root := "testdata/testTemplatesManifestBuildEnvs"
 	defer Using(t, root)()
 
 	// Client whose internal templates will be used.
@@ -471,9 +471,9 @@ func TestTemplateManifestBuildEnvs(t *testing.T) {
 	}
 }
 
-// TestRepositoryManifestBuildEnvs ensures that BuildEnvs specified in a
+// TestTemplates_RepositoryManifestBuildEnvs ensures that BuildEnvs specified in a
 // repository's manifest are included in the final Function.
-func TestRepositoryManifestBuildEnvs(t *testing.T) {
+func TestTemplates_RepositoryManifestBuildEnvs(t *testing.T) {
 	// create test directory
 	root := "testdata/testRepositoryManifestBuildEnvs"
 	defer Using(t, root)()
@@ -518,10 +518,10 @@ func TestRepositoryManifestBuildEnvs(t *testing.T) {
 	}
 }
 
-// TestTemplateManifestInvocationHints ensures that invocation hints
+// TestTemplates_ManifestInvocationHints ensures that invocation hints
 // from a template's manifest are included in the final Function.
-func TestTemplateManifestInvocationHints(t *testing.T) {
-	root := "testdata/testTemplateManifestInvocationHints"
+func TestTemplates_ManifestInvocationHints(t *testing.T) {
+	root := "testdata/testTemplatesManifestInvocationHints"
 	defer Using(t, root)()
 
 	client := fn.New(
@@ -547,9 +547,9 @@ func TestTemplateManifestInvocationHints(t *testing.T) {
 	}
 }
 
-// TestTemplateManifestRemoved ensures that the manifest is not left in
+// TestTemplates_ManifestRemoved ensures that the manifest is not left in
 // the resultant Function after write.
-func TestTemplateManifestRemoved(t *testing.T) {
+func TestTemplates_ManifestRemoved(t *testing.T) {
 	// create test directory
 	root := "testdata/testTemplateManifestRemoved"
 	defer Using(t, root)()
@@ -582,11 +582,11 @@ func TestTemplateManifestRemoved(t *testing.T) {
 
 }
 
-// TestTemplateInvocationDefault ensures that creating a Function which
+// TestTemplates_InvocationDefault ensures that creating a Function which
 // does not define an invocation hint defaults to the DefaultInvocationFormat
 // (http post)
-func TestTemplateInvocationDefault(t *testing.T) {
-	root := "testdata/testTemplateInvocationDefault"
+func TestTemplates_InvocationDefault(t *testing.T) {
+	root := "testdata/testTemplatesInvocationDefault"
 	defer Using(t, root)()
 
 	client := fn.New(
