@@ -101,12 +101,13 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	var isTrustedBuilderFunc = func(b string) bool {
 		return !daemonIsPodmanBeforeV330 &&
 			(strings.HasPrefix(packBuilder, "quay.io/boson") ||
-				strings.HasPrefix(packBuilder, "gcr.io/paketo-buildpacks"))
+				strings.HasPrefix(packBuilder, "gcr.io/paketo-buildpacks") ||
+				strings.HasPrefix(packBuilder, "docker.io/paketobuildpacks"))
 	}
 	packOpts := pack.BuildOptions{
 		AppPath:        f.Root,
 		Image:          f.Image,
-		LifecycleImage: "quay.io/boson/lifecycle:0.12.0",
+		LifecycleImage: "quay.io/boson/lifecycle:0.13.0",
 		Builder:        packBuilder,
 		Env:            buildEnvs,
 		Buildpacks:     f.Buildpacks,
