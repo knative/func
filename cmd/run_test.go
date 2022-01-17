@@ -5,12 +5,17 @@ import (
 	"fmt"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/ory/viper"
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/mock"
 )
+
+// Tests in the cmd directory should test functionality _in cmd_.
+// - Are flags attached?
+// - Are environment variables attached to their flags?
+// - Are flags respected?
+// - Does interactive confirm mode populate flags?
 
 func TestRun_Run(t *testing.T) {
 
@@ -122,7 +127,10 @@ created: 2009-11-10 23:00:00`,
 				_, err := cmd.ExecuteContextC(ctx)
 				if err != nil {
 					if t0.buildError != nil {
-						return // expected error (simple nil check; typed would be better)
+						// This is an expected error, so simply continue execution ignoring
+						// the error (send nil on the channel to release the parent routine
+						runErrCh <- nil
+						return
 					} else {
 						runErrCh <- err // error not expected
 						return
@@ -132,24 +140,20 @@ created: 2009-11-10 23:00:00`,
 				if t0.buildError != nil {
 					runErrCh <- fmt.Errorf("Expected error: %v but got %v\n", t0.buildError, err)
 				}
+				//
+				if builder.BuildInvoked != tt.buildInvoked {
+					runErrCh <- fmt.Errorf("Function was expected to build is: %v but build execution was: %v", tt.buildInvoked, builder.BuildInvoked)
+				}
+				if runner.RunInvoked != tt.runInvoked {
+					runErrCh <- fmt.Errorf("Function was expected to run is: %v but run execution was: %v", tt.runInvoked, runner.RunInvoked)
+				}
+				close(runErrCh)
 			}()
-			// TODO: it might be an improvement to return a channel on which
-			// successful start can be listened for.
-			timer := time.NewTimer(1 * time.Second)
-			select {
-			case err := <-runErrCh:
-				t.Fatal(err)
-			case <-timer.C:
-			}
 			cancel()
-
-			if builder.BuildInvoked != tt.buildInvoked {
-				t.Fatalf("Function was expected to build is: %v but build execution was: %v", tt.buildInvoked, builder.BuildInvoked)
-			}
-			if runner.RunInvoked != tt.runInvoked {
-				t.Fatalf("Function was expected to run is: %v but run execution was: %v", tt.runInvoked, runner.RunInvoked)
-			}
 			<-ctx.Done()
+			if err := <-runErrCh; err != nil {
+				t.Fatal(err)
+			}
 		})
 	}
 }
