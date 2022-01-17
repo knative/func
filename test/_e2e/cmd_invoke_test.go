@@ -38,7 +38,7 @@ func TestInvokeCommand(t *testing.T) {
 
 	// Issue Func Emit command
 	invokeMessage := "HELLO FROM INVOKE"
-	result := knFunc.Exec("invoke", "--content-type", "text/plain", "--data", invokeMessage, "--source", "func:invoke", "--path", project.ProjectPath, "--sink=cluster")
+	result := knFunc.Exec("invoke", "--content-type", "text/plain", "--data", invokeMessage, "--source", "func:invoke", "--path", project.ProjectPath, "--target", "remote", "--format", "cloudevent")
 	if result.Error != nil {
 		t.Fatal()
 	}
