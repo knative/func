@@ -129,40 +129,41 @@ kn func delete <name> [-n namespace, -p path]
 
 ## `invoke`
 
-Invokes a function by sending a CloudEvent. By default, `invoke` assumes
-the function is running locally, and sends the event to localhost.
-The user may specify the event type, source and ID,
-and may provide event data on the command line or in a file on disk.
-`invoke` works on the local
-directory, assuming that it is a function project. Alternatively the user may provide a path to a project
-directory using the `--path` flag, or send an event to an arbitrary endpoint using the `--sink` flag. The
-`--sink` flag also accepts the special value `cluster` to send an event to the function running on a cluster in the active deployment context.
+Invokes a function. By default, a locally running instance will be preferred
+over a remote if both are running. The user may specify the event type, source,
+ID, and may provide event data on the command line or in a file on disk.
+`invoke` works on the local directory, assuming that it is a function project.
+Alternatively the user may provide a path to a project directory using the
+`--path` flag, or send an event to an arbitrary endpoint using the `--target`
+flag. The `--target` flag also accepts the special values `local` and `remote`
+to send an event to a locally running function instance or a function running
+on the remote cluster in the active deployed context.
 
 Similar `kn` command when using the [kn-plugin-event](https://github.com/knative-sandbox/kn-plugin-event): `kn event send [FLAGS]`
 
 Examples:
 
 ```console
-# Send a CloudEvent to the local function with no data and default values
+# Send a request to the local function with no data and default values
 # for source, type and ID
 kn func invoke
 
-# Send a CloudEvent to the local function with the data found in ./test.json
+# Send a message to the local function with the data found in ./test.json
 kn func invoke --file ./test.json
 
-# Send a CloudEvent to the deployed function with a CloudEvent containing
+# Send a message to the deployed function containing
 # "Hello World!" as the data field, with a content type of "text/plain"
-kn func invoke --data "Hello World!" --content-type "text/plain" -s cluster
+kn func invoke --data "Hello World!" --content-type "text/plain" --target remote
 
-# Send a CloudEvent to the deployed function with an event type of "my.event"
-kn func invoke --type my.event --sink cluster
+# Send a message to the deployed function with an event type of "my.event"
+kn func invoke --type my.event --target remote
 
-# Send a CloudEvent to the local function found at /path/to/fn with an id of "fn.test"
-kn func invoke --path /path/to/fn -i fn.test
+# Send a message to the local function found at /path/to/fn with an id of "fn.test"
+kn func invoke --path /path/to/fn --id fn.test
 
 # Send a CloudEvent to an arbitrary endpoint
-kn func invoke --sink "http://my.event.broker.com"
-```
+kn func invoke --target "http://my.event.broker.com" --format=cloudevent
+
 
 ## `config`
 
