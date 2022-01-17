@@ -7,7 +7,6 @@ import (
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
-
 	"github.com/tektoncd/cli/pkg/pipelinerun"
 	"github.com/tektoncd/cli/pkg/taskrun"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
@@ -15,6 +14,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8slabels "k8s.io/apimachinery/pkg/labels"
 
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/docker"
@@ -182,6 +182,59 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 	}
 
 	return nil
+}
+
+func (pp *PipelinesProvider) Remove(ctx context.Context, f fn.Function) error {
+
+	l := k8slabels.SelectorFromSet(k8slabels.Set(map[string]string{labels.FunctionNameKey: f.Name}))
+	listOptions := metav1.ListOptions{
+		LabelSelector: l.String(),
+	}
+
+	// let's try to delete all resources in parallel, so the operation doesn't take long
+	wg := sync.WaitGroup{}
+	deleteFunctions := []func(context.Context, string, metav1.ListOptions) error{
+		deletePipelines,
+		deletePipelineRuns,
+		k8s.DeleteRoleBindings,
+		k8s.DeleteServiceAccounts,
+		k8s.DeleteSecrets,
+		k8s.DeletePersistentVolumeClaims,
+	}
+
+	wg.Add(len(deleteFunctions))
+	errChan := make(chan error, len(deleteFunctions))
+
+	for i := range deleteFunctions {
+		df := deleteFunctions[i]
+		go func() {
+			defer wg.Done()
+			err := df(ctx, pp.namespace, listOptions)
+			if err != nil && !errors.IsNotFound(err) {
+				errChan <- err
+			}
+		}()
+	}
+	wg.Wait()
+	close(errChan)
+
+	// collect all errors and print them
+	var err error
+	errMsg := ""
+	anyError := false
+	for e := range errChan {
+		if !anyError {
+			anyError = true
+			errMsg = "error deleting resources:"
+		}
+		errMsg += fmt.Sprintf("\n %v", e)
+	}
+
+	if anyError {
+		err = fmt.Errorf("%s", errMsg)
+	}
+
+	return err
 }
 
 // watchPipelineRunProgress watches the progress of the input PipelineRun

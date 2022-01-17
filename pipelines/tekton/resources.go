@@ -1,14 +1,34 @@
 package tekton
 
 import (
+	"context"
 	"fmt"
 
 	pplnv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	fn "knative.dev/kn-plugin-func"
 )
+
+func deletePipelines(ctx context.Context, namespace string, listOptions metav1.ListOptions) (err error) {
+	client, err := NewTektonClient()
+	if err != nil {
+		return
+	}
+
+	return client.Pipelines(namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, listOptions)
+}
+
+func deletePipelineRuns(ctx context.Context, namespace string, listOptions metav1.ListOptions) (err error) {
+	client, err := NewTektonClient()
+	if err != nil {
+		return
+	}
+
+	return client.PipelineRuns(namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, listOptions)
+}
 
 func generatePipeline(f fn.Function, labels map[string]string) *pplnv1beta1.Pipeline {
 	pipelineName := getPipelineName(f)

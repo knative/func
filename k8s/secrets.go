@@ -36,6 +36,15 @@ func ListSecretsNames(ctx context.Context, namespaceOverride string) (names []st
 	return
 }
 
+func DeleteSecrets(ctx context.Context, namespaceOverride string, listOptions metav1.ListOptions) (err error) {
+	client, namespace, err := NewClientAndResolvedNamespace(namespaceOverride)
+	if err != nil {
+		return
+	}
+
+	return client.CoreV1().Secrets(namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, listOptions)
+}
+
 func CreateDockerRegistrySecret(ctx context.Context, name, namespaceOverride string, labels map[string]string, username, password, server string) (err error) {
 	client, namespace, err := NewClientAndResolvedNamespace(namespaceOverride)
 	if err != nil {

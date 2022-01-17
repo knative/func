@@ -673,12 +673,100 @@ func TestClient_Remove_ByPath(t *testing.T) {
 		return nil
 	}
 
-	if err := client.Remove(context.Background(), fn.Function{Root: root}); err != nil {
+	if err := client.Remove(context.Background(), fn.Function{Root: root}, false); err != nil {
 		t.Fatal(err)
 	}
 
 	if !remover.RemoveInvoked {
 		t.Fatal("remover was not invoked")
+	}
+
+}
+
+// TestClient_Remove_DeleteAll ensures that the remover is invoked to remove
+// and that dependent resources are removed as well -> pipeline provider is invoked
+// the Function with the name of the function at the provided root.
+func TestClient_Remove_DeleteAll(t *testing.T) {
+	var (
+		root              = "testdata/example.com/testRemoveDeleteAll"
+		expectedName      = "testRemoveDeleteAll"
+		remover           = mock.NewRemover()
+		pipelinesProvider = mock.NewPipelinesProvider()
+		deleteAll         = true
+	)
+
+	defer Using(t, root)()
+
+	client := fn.New(
+		fn.WithRegistry(TestRegistry),
+		fn.WithRemover(remover),
+		fn.WithPipelinesProvider(pipelinesProvider))
+
+	if err := client.New(context.Background(), fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
+		t.Fatal(err)
+	}
+
+	remover.RemoveFn = func(name string) error {
+		if name != expectedName {
+			t.Fatalf("Expected to remove '%v', got '%v'", expectedName, name)
+		}
+		return nil
+	}
+
+	if err := client.Remove(context.Background(), fn.Function{Root: root}, deleteAll); err != nil {
+		t.Fatal(err)
+	}
+
+	if !remover.RemoveInvoked {
+		t.Fatal("remover was not invoked")
+	}
+
+	if !remover.RemoveInvoked {
+		t.Fatal("pipelinesprovider was not invoked")
+	}
+
+}
+
+// TestClient_Remove_Dont_DeleteAll ensures that the remover is invoked to remove
+// and that dependent resources are not removed as well -> pipeline provider not is invoked
+// the Function with the name of the function at the provided root.
+func TestClient_Remove_Dont_DeleteAll(t *testing.T) {
+	var (
+		root              = "testdata/example.com/testRemoveDontDeleteAll"
+		expectedName      = "testRemoveDontDeleteAll"
+		remover           = mock.NewRemover()
+		pipelinesProvider = mock.NewPipelinesProvider()
+		deleteAll         = false
+	)
+
+	defer Using(t, root)()
+
+	client := fn.New(
+		fn.WithRegistry(TestRegistry),
+		fn.WithRemover(remover),
+		fn.WithPipelinesProvider(pipelinesProvider))
+
+	if err := client.New(context.Background(), fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
+		t.Fatal(err)
+	}
+
+	remover.RemoveFn = func(name string) error {
+		if name != expectedName {
+			t.Fatalf("Expected to remove '%v', got '%v'", expectedName, name)
+		}
+		return nil
+	}
+
+	if err := client.Remove(context.Background(), fn.Function{Root: root}, deleteAll); err != nil {
+		t.Fatal(err)
+	}
+
+	if !remover.RemoveInvoked {
+		t.Fatal("remover was not invoked")
+	}
+
+	if !remover.RemoveInvoked {
+		t.Fatal("pipelinesprovider was not invoked")
 	}
 
 }
@@ -710,12 +798,12 @@ func TestClient_Remove_ByName(t *testing.T) {
 	}
 
 	// Run remove with only a name
-	if err := client.Remove(context.Background(), fn.Function{Name: expectedName}); err != nil {
+	if err := client.Remove(context.Background(), fn.Function{Name: expectedName}, false); err != nil {
 		t.Fatal(err)
 	}
 
 	// Run remove with a name and a root, which should be ignored in favor of the name.
-	if err := client.Remove(context.Background(), fn.Function{Name: expectedName, Root: root}); err != nil {
+	if err := client.Remove(context.Background(), fn.Function{Name: expectedName, Root: root}, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -746,7 +834,7 @@ func TestClient_Remove_UninitializedFails(t *testing.T) {
 		fn.WithRemover(remover))
 
 	// Attempt to remove by path (uninitialized), expecting an error.
-	if err := client.Remove(context.Background(), fn.Function{Root: root}); err == nil {
+	if err := client.Remove(context.Background(), fn.Function{Root: root}, false); err == nil {
 		t.Fatalf("did not received expeced error removing an uninitialized func")
 	}
 }

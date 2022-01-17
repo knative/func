@@ -10,6 +10,8 @@ import (
 
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/knative"
+	"knative.dev/kn-plugin-func/pipelines/tekton"
+	"knative.dev/kn-plugin-func/progress"
 )
 
 func init() {
@@ -23,15 +25,26 @@ func init() {
 // Testing note: This method is swapped out during testing to allow
 // mocking the remover or the client itself to fabricate test states.
 func newDeleteClient(cfg deleteConfig) (*fn.Client, error) {
+	listener := progress.New()
 	remover, err := knative.NewRemover(cfg.Namespace)
 	if err != nil {
 		return nil, err
 	}
 
+	pipelinesProvider, err := tekton.NewPipelinesProvider(
+		tekton.WithNamespace(cfg.Namespace))
+	if err != nil {
+		return nil, err
+	}
+
+	listener.Verbose = cfg.Verbose
 	remover.Verbose = cfg.Verbose
+	pipelinesProvider.Verbose = cfg.Verbose
 
 	return fn.New(
+		fn.WithProgressListener(listener),
 		fn.WithRemover(remover),
+		fn.WithPipelinesProvider(pipelinesProvider),
 		fn.WithVerbose(cfg.Verbose)), nil
 }
 
@@ -59,10 +72,11 @@ kn func delete -n apps myfunc
 `,
 		SuggestFor:        []string{"remove", "rm", "del"},
 		ValidArgsFunction: CompleteFunctionList,
-		PreRunE:           bindEnv("path", "confirm", "namespace"),
+		PreRunE:           bindEnv("path", "confirm", "namespace", "all"),
 	}
 
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
+	cmd.Flags().StringP("all", "a", "true", "Delete all resources created for a function, eg. Pipelines, Secrets, etc. (Env: $FUNC_ALL) (allowed values: \"true\", \"false\")")
 	setNamespaceFlag(cmd)
 	setPathFlag(cmd)
 
@@ -117,13 +131,14 @@ func runDelete(cmd *cobra.Command, args []string, clientFn deleteClientFn) (err 
 	}
 
 	// Invoke remove using the concrete client impl
-	return client.Remove(cmd.Context(), function)
+	return client.Remove(cmd.Context(), function, config.DeleteAll)
 }
 
 type deleteConfig struct {
 	Name      string
 	Namespace string
 	Path      string
+	DeleteAll bool
 	Verbose   bool
 }
 
@@ -137,6 +152,7 @@ func newDeleteConfig(args []string) deleteConfig {
 	return deleteConfig{
 		Path:      viper.GetString("path"),
 		Namespace: viper.GetString("namespace"),
+		DeleteAll: viper.GetBool("all"),
 		Name:      deriveName(name, viper.GetString("path")), // args[0] or derived
 		Verbose:   viper.GetBool("verbose"),                  // defined on root
 	}
@@ -152,9 +168,37 @@ func (c deleteConfig) Prompt() (deleteConfig, error) {
 
 	dc := deleteConfig{}
 
-	return dc, survey.AskOne(
-		&survey.Input{
-			Message: "Function to remove:",
-			Default: deriveName(c.Name, c.Path)},
-		&dc.Name, survey.WithValidator(survey.Required))
+	var qs = []*survey.Question{
+		{
+			Name: "name",
+			Prompt: &survey.Input{
+				Message: "Function to remove:",
+				Default: deriveName(c.Name, c.Path)},
+			Validate: survey.Required,
+		},
+		{
+			Name: "all",
+			Prompt: &survey.Confirm{
+				Message: "Do you want to delete all resources?",
+				Default: true,
+			},
+		},
+	}
+	answers := struct {
+		Name string
+		All  bool
+	}{}
+
+	err := survey.Ask(qs, &answers)
+	if err != nil {
+		return dc, err
+	}
+
+	dc.Name = answers.Name
+	dc.DeleteAll = answers.All
+	dc.Namespace = c.Namespace
+	dc.Path = c.Path
+	dc.Verbose = c.Verbose
+
+	return dc, err
 }
