@@ -529,10 +529,10 @@ func TestClient_Run(t *testing.T) {
 // TestClient_Run_DataDir ensures that when a Function is created, it also
 // includes a .func (runtime data) directory which is registered as ignored for
 // Functions which will be tracked in git source control.
-// Note that this test is somewhat testing an implementation detail of how
-// `.Run()` is implemented (it writes runtime data to files in .func but the
-// feature of adding .func to .gitignore is an important externally visible
-// "feature", so an explicit test has been deemed warranted.
+// Note that this test is somewhat testing an implementation detail of `.Run(`
+// (it writes runtime data to files in .func) but since the feature of adding
+// .func to .gitignore is an important externally visible "feature", an explicit
+// test is warranted.
 func TestClient_Run_DataDir(t *testing.T) {
 	root := "testdata/example.com/testRunDataDir"
 	defer Using(t, root)()

@@ -40,24 +40,24 @@ const (
 
 // Client for managing Function instances.
 type Client struct {
-	repositoriesPath  string           // path to repositories
-	repositoriesURI   string           // repo URI (overrides repositories path)
-	verbose           bool             // print verbose logs
-	builder           Builder          // Builds a runnable image source
-	pusher            Pusher           // Pushes Funcation image to a remote
-	deployer          Deployer         // Deploys or Updates a Function
-	runner            Runner           // Runs the Function locally
-	remover           Remover          // Removes remote services
-	lister            Lister           // Lists remote services
-	describer         Describer        // Describes Function instances
-	dnsProvider       DNSProvider      // Provider of DNS services
-	registry          string           // default registry for OCI image tags
-	progressListener  ProgressListener // progress listener
-	repositories      *Repositories    // Repositories management
-	templates         *Templates       // Templates management
-	instances         *Instances       // Function Instances management
-	transport         http.RoundTripper
-	pipelinesProvider PipelinesProvider // Manages lifecyle of CI/CD pipelines used by a Function
+	repositoriesPath  string            // path to repositories
+	repositoriesURI   string            // repo URI (overrides repositories path)
+	verbose           bool              // print verbose logs
+	builder           Builder           // Builds a runnable image source
+	pusher            Pusher            // Pushes Funcation image to a remote
+	deployer          Deployer          // Deploys or Updates a Function
+	runner            Runner            // Runs the Function locally
+	remover           Remover           // Removes remote services
+	lister            Lister            // Lists remote services
+	describer         Describer         // Describes Function instances
+	dnsProvider       DNSProvider       // Provider of DNS services
+	registry          string            // default registry for OCI image tags
+	progressListener  ProgressListener  // progress listener
+	repositories      *Repositories     // Repositories management
+	templates         *Templates        // Templates management
+	instances         *Instances        // Function Instances management
+	transport         http.RoundTripper // Customizable internal transport
+	pipelinesProvider PipelinesProvider // CI/CD pipelines management
 }
 
 // ErrNotBuilt indicates the Function has not yet been built.
@@ -98,10 +98,9 @@ const (
 
 // Runner runs the Function locally.
 type Runner interface {
-	// Run the Function.  Returned is the port on which it can be contacted.
-	// Errors starting are returned immediately.  Runtime errors are communicated
-	// over a passed error channel.  The process can be stopped by running the
-	// returned stop function, either on context cancellation or in a defer.
+	// Run the Function, returning a Job with metadata, error channels, and
+	// a stop function.The process can be stopped by running the returned stop
+	// function, either on context cancellation or in a defer.
 	Run(context.Context, Function) (*Job, error)
 }
 
@@ -575,7 +574,7 @@ func (c *Client) Create(cfg Function) (err error) {
 // createRuntimeDir creates a .func directory in the root of the given
 // Function which is also registered as ignored in .gitignore
 func createRuntimeDir(f Function) error {
-	if err := os.MkdirAll(filepath.Join(f.Root, ".func"), os.ModePerm); err != nil {
+	if err := os.MkdirAll(filepath.Join(f.Root, RunDataDir), os.ModePerm); err != nil {
 		return err
 	}
 
@@ -729,7 +728,9 @@ func (c *Client) Run(ctx context.Context, root string) (port string, stop func()
 		return
 	}
 	if !f.Initialized() {
-		err = fmt.Errorf("'%v' does not contain an initialized Function.", root)
+		// TODO: this needs a test.
+		err = fmt.Errorf("the given path '%v' does not contain an initialized "+
+			"Function.  Please create one at this path in order to run", root)
 		return
 	}
 

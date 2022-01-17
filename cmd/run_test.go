@@ -11,18 +11,7 @@ import (
 	"knative.dev/kn-plugin-func/mock"
 )
 
-// Tests in the cmd directory should test functionality _in cmd_.
-// - Are flags attached?
-// - Are environment variables attached to their flags?
-// - Are flags respected?
-// - Does interactive confirm mode populate flags?
-
 func TestRun_Run(t *testing.T) {
-
-	// TODO: this test is testing using a side-effect (the contents of func.yaml)
-	// which is an implementation detail from the perspective of the CLI.
-	// An improvement would be to implement the cases by making direct calls
-	// and inspecting the resultant function.
 
 	tests := []struct {
 		name         string // name of the test
@@ -84,9 +73,6 @@ created: 2009-11-10 23:00:00`,
 	for _, tt := range tests {
 		// run as a sub-test
 		t.Run(tt.name, func(t *testing.T) {
-
-			// From within a temp directory
-			// t.Cleanup(fromTempDir(t))
 			defer fromTempDir(t)()
 
 			runner := mock.NewRunner()
@@ -121,37 +107,36 @@ created: 2009-11-10 23:00:00`,
 			ctx, cancel := context.WithCancel(context.Background())
 			runErrCh := make(chan error, 1)
 			go func() {
-				// capture tt into the closure such that the next loop does't redefine
-				// before the assertion is evaluated.
-				t0 := tt
+				t0 := tt // capture tt into closure
 				_, err := cmd.ExecuteContextC(ctx)
-				if err != nil {
-					if t0.buildError != nil {
-						// This is an expected error, so simply continue execution ignoring
-						// the error (send nil on the channel to release the parent routine
-						runErrCh <- nil
-						return
-					} else {
-						runErrCh <- err // error not expected
-						return
-					}
+				if err != nil && t0.buildError != nil {
+					// This is an expected error, so simply continue execution ignoring
+					// the error (send nil on the channel to release the parent routine
+					runErrCh <- nil
+					return
+				} else if err != nil {
+					runErrCh <- err // error not expected
+					return
 				}
-				// Error is nil, but an error was expected:
+
+				// No errors, but an error was expected:
 				if t0.buildError != nil {
 					runErrCh <- fmt.Errorf("Expected error: %v but got %v\n", t0.buildError, err)
 				}
-				//
+
+				// Ensure invocations match expectations
 				if builder.BuildInvoked != tt.buildInvoked {
 					runErrCh <- fmt.Errorf("Function was expected to build is: %v but build execution was: %v", tt.buildInvoked, builder.BuildInvoked)
 				}
 				if runner.RunInvoked != tt.runInvoked {
 					runErrCh <- fmt.Errorf("Function was expected to run is: %v but run execution was: %v", tt.runInvoked, runner.RunInvoked)
 				}
-				close(runErrCh)
+
+				close(runErrCh) // release the waiting parent process
 			}()
-			cancel()
+			cancel() // trigger the return of cmd.ExecuteContextC in the routine
 			<-ctx.Done()
-			if err := <-runErrCh; err != nil {
+			if err := <-runErrCh; err != nil { // wait for completeion of assertions
 				t.Fatal(err)
 			}
 		})
