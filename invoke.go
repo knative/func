@@ -17,6 +17,7 @@ const (
 	DefaultInvokeType        = "boson.fn"
 	DefaultInvokeContentType = "text/plain"
 	DefaultInvokeData        = "Hello World"
+	DefaultInvokeFormat      = "http"
 )
 
 // InvokeMesage is the message used by the convenience method Invoke to provide
@@ -27,6 +28,7 @@ type InvokeMessage struct {
 	Type        string
 	ContentType string
 	Data        string
+	Format      string //optional override for Function-defined message format
 }
 
 // NewInvokeMessage creates a new InvokeMessage with fields populated
@@ -37,6 +39,7 @@ func NewInvokeMessage() InvokeMessage {
 		Type:        DefaultInvokeType,
 		ContentType: DefaultInvokeContentType,
 		Data:        DefaultInvokeData,
+		// Format override not set by default: value from Function being preferred.
 	}
 }
 
@@ -51,13 +54,28 @@ func invoke(ctx context.Context, c *Client, f Function, target string, m InvokeM
 		return err
 	}
 
-	switch f.Invocation.Format {
+	// Format" either 'http' or 'cloudevent'
+	// TODO: discuss if providing a Format on Message should a) update the
+	// Function to use the new format if none is defined already (backwards
+	// compatibility fix) or b) always update the Function, even if it was already
+	// set. Once decided, codify in a test.
+	format := DefaultInvokeFormat
+	if f.Invocation.Format != "" {
+		// Prefer the format set during Function creation if defined.
+		format = f.Invocation.Format
+	}
+	if m.Format != "" {
+		// Use the override specified on the message if provided
+		format = m.Format
+	}
+
+	switch format {
+	case "http":
+		return sendPost(ctx, route, m, c.transport)
 	case "cloudevent":
-		return sendEvent(ctx, route, m, c.transport) // invoke the f with m via CloudEvent
+		return sendEvent(ctx, route, m, c.transport)
 	default:
-		return sendPost(ctx, route, m, c.transport) // invoke the f with m via standard HTTP (Form POST)
-		// NOTE: The default case ('http') is to always fall back to attempting
-		// a simple HTTP POST with form values.
+		return fmt.Errorf("format '%v' not supported.", format)
 	}
 }
 

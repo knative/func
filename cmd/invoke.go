@@ -47,7 +47,7 @@ NAME
 	{{.Prefix}}func invoke - Invoke a Function.
 
 	SYNOPSIS
-	{{.Prefix}}func invoke [-t|--target]
+	{{.Prefix}}func invoke [-t|--target] [-f|--format]
 	             [--id] [--source] [--type] [--data] [--file] [--content-type]
 	             [-s|--save] [-p|--path] [-c|--confirm] [-v|--verbose]
 
@@ -83,6 +83,12 @@ DESCRIPTION
 	  would send a JPEG base64 encoded in the "data" POST parameter:
 	    {{.Prefix}}func invoke --file=example.jpeg --content-type=image/jpeg
 
+	Message Format
+	  By default Functions are sent messages which match the invocation format
+	  of the template they were created using; for example "http" or "cloudevent".
+	  To override this behavior, use the --format (-f) flag.
+	    {{.Prefix}}func invoke -f=cloudevent -t=http://my-sink.my-cluster
+
 EXAMPLES
 
 	o Invoke the default (local or remote) running Function with default values
@@ -107,23 +113,27 @@ EXAMPLES
 	o Send a JPEG to the Function
 	  $ {{.Prefix}}func invoke --file=example.jpeg --content-type=image/jpeg
 
-	o Invoke an arbitrary endpoint
+	o Invoke an arbitrary endpoint (HTTP POST)
 		$ {{.Prefix}}func invoke --target="https://my-event-broker.example.com"
+
+	o Invoke an arbitrary endpoint (CloudEvent)
+		$ {{.Prefix}}func invoke -f=cloudevent -t="https://my-event-broker.example.com"
 
 `,
 		SuggestFor: []string{"emit", "emti", "send", "emit", "exec", "nivoke", "onvoke", "unvoke", "knvoke", "imvoke", "ihvoke", "ibvoke"},
-		PreRunE:    bindEnv("path", "target", "id", "source", "type", "data", "content-type", "file", "confirm", "namespace"),
+		PreRunE:    bindEnv("path", "format", "target", "id", "source", "type", "data", "content-type", "file", "confirm", "namespace"),
 	}
 
 	// Flags
 	cmd.Flags().StringP("path", "p", cwd(), "Path to the Function which should have its instance invoked (Env: $FUNC_PATH)")
+	cmd.Flags().StringP("format", "f", "", "Format of message to send, 'http' or 'cloudevent'.  Defaults is to auto-choose, but is required for direct invocation of remote CloudEvent Functions by URL, or for Functions created prior. (Env: $FUNC_FORMAT)")
 	cmd.Flags().StringP("target", "t", "", "Function instance to invoke.  Can be 'local', 'remote' or a URL.  Defaults to auto-discovery if not provided (Env: $FUNC_TARGET)")
 	cmd.Flags().StringP("id", "", uuid.NewString(), "ID for the request data. (Env: $FUNC_ID)")
 	cmd.Flags().StringP("source", "", fn.DefaultInvokeSource, "Source value for the request data. (Env: $FUNC_SOURCE)")
 	cmd.Flags().StringP("type", "", fn.DefaultInvokeType, "Type value for the request data. (Env: $FUNC_TYPE)")
 	cmd.Flags().StringP("content-type", "", fn.DefaultInvokeContentType, "Content Type of the data. (Env: $FUNC_CONTENT_TYPE)")
 	cmd.Flags().StringP("data", "", fn.DefaultInvokeData, "Data to send in the request. (Env: $FUNC_DATA)")
-	cmd.Flags().StringP("file", "", "", "Path to a file to use as data. Eclusive with --data flag and requres correct --content-type. (Env: $FUNC_FILE)")
+	cmd.Flags().StringP("file", "", "", "Path to a file to use as data. Overrides --data flag and should be sent with a correct --content-type. (Env: $FUNC_FILE)")
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
 	setNamespaceFlag(cmd)
 
@@ -162,6 +172,7 @@ func runInvoke(cmd *cobra.Command, args []string, clientFn invokeClientFn) (err 
 		Type:        cfg.Type,
 		ContentType: cfg.ContentType,
 		Data:        cfg.Data,
+		Format:      cfg.Format,
 	}
 
 	// If --file was specified, use its content for message data
@@ -230,7 +241,6 @@ func newInvokeConfig(clientFn invokeClientFn) (cfg invokeConfig, err error) {
 	}
 
 	// If file was passed, read it in as data
-	// See .Validate for file/data exclusivity checks
 	if cfg.File != "" {
 		b, err := ioutil.ReadFile(cfg.File)
 		if err != nil {
@@ -303,7 +313,7 @@ func (c invokeConfig) prompt(client *fn.Client) (invokeConfig, error) {
 		{
 			Name: "Target",
 			Prompt: &survey.Input{
-				Message: "(Optional) Target ('local', 'remote' or URL). Defalt will choose, preferring local.",
+				Message: "(Optional) Target ('local', 'remote' or URL).  If not provided, local will be preferred over remote.",
 				Default: "",
 			},
 		},
@@ -338,7 +348,7 @@ func (c invokeConfig) prompt(client *fn.Client) (invokeConfig, error) {
 		}, {
 			Name: "File",
 			Prompt: &survey.Input{
-				Message: "Load Data Content from File (optional)",
+				Message: "(Optional) Load Data Content from File",
 				Default: c.File,
 			},
 		},
