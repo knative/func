@@ -1,6 +1,6 @@
 # Podman
 
-Under Linux, it is possible to use [podman](https://podman.io/) instead of [docker](https://www.docker.com/).
+Under Linux, it is possible to use [podman](https://podman.io/) instead of [docker](https://www.docker.com/). With Functions, you'll need `podman` version `v3.3` or better for this to work properly.
 
 In order to do this you need to run `podman` as a service. You can do this with the following command.
 ```
