@@ -41,18 +41,19 @@ func NewRunCmd(clientFn runClientFn) *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "run",
-		Short: "Run the function locally",
-		Long: `Run the function locally
+		Short: "Run a Function locally",
+		Long: `Run a Function in the local environment
 
-Runs the function locally in the current directory or in the directory
-specified by --path flag. The function must already have been built with the 'build' command.
+Runs a Function locally in the current directory or in the directory
+specified by --path flag. The function must already have been built
+with the 'build' command.
 `,
 		Example: `
 # Build function's image first
-kn func build
+{{.Prefix}}func build
 
 # Run it locally as a container
-kn func run
+{{.Prefix}}func run
 `,
 		SuggestFor: []string{"rnu"},
 		PreRunE:    bindEnv("build", "path"),
@@ -63,7 +64,14 @@ kn func run
 			"You may provide this flag multiple times for setting multiple environment variables. "+
 			"To unset, specify the environment variable name followed by a \"-\" (e.g., NAME-).")
 	setPathFlag(cmd)
-	cmd.Flags().BoolP("build", "b", false, "Build the function only if the function has not been built before")
+	cmd.Flags().BoolP("build", "b", false, "Build the function if it has not been previously built")
+
+	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
+		runCommandHelp(cmd, "run")
+	})
+	cmd.SetUsageFunc(func(cmd *cobra.Command) error {
+		return runCommandUsage(cmd, "{{.Prefix}}func run [flags]")
+	})
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		return runRun(cmd, args, clientFn)

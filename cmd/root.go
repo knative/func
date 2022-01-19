@@ -338,3 +338,81 @@ func setPathFlag(cmd *cobra.Command) {
 func setNamespaceFlag(cmd *cobra.Command) {
 	cmd.Flags().StringP("namespace", "n", "", "The namespace on the cluster. By default, the namespace in func.yaml is used or the currently active namespace if not set in the configuration. (Env: $FUNC_NAMESPACE)")
 }
+
+func runCommandHelp(cmd *cobra.Command, name string) {
+	var (
+		t   = template.New(name)
+		tpl = template.Must(t.Parse(extractHelp(cmd)))
+	)
+	executeTemplate(cmd, tpl)
+}
+
+func extractHelp(cmd *cobra.Command) string {
+	var (
+		example  = cmd.Example
+		flags    = cmd.Flags().FlagUsages()
+		global   = cmd.InheritedFlags().FlagUsages()
+		aliases  = ""
+		commands = ""
+		postfix  = ""
+	)
+	if example != "" {
+		example = fmt.Sprintf(`
+Examples:
+%s`, example)
+	}
+	if cmd.HasAvailableFlags() {
+		flags = fmt.Sprintf(`
+Flags:
+%s`, flags)
+	}
+	if cmd.HasAvailableInheritedFlags() {
+		global = fmt.Sprintf(`
+Global Flags:
+%s`, global)
+	}
+	if len(cmd.Aliases) > 0 {
+		aliases = fmt.Sprintf(`
+Aliases:
+  %s
+`, cmd.NameAndAliases())
+	}
+	if cmd.HasAvailableSubCommands() {
+		commands = `
+Available Commands:`
+		for _, c := range cmd.Commands() {
+			cc := fmt.Sprintf("\n  %-*s%s", c.NamePadding(), c.Name(), c.Short)
+			commands = fmt.Sprintf("%s%s", commands, cc)
+		}
+		commands = commands + "\n"
+		postfix = fmt.Sprintf(`
+Use "func %s [command] --help" for more information about a command.
+`, cmd.Name())
+	}
+	return fmt.Sprintf(`%s
+Usage:
+  %s
+%s%s%s%s%s%s`, cmd.Long, cmd.UsageString(), example, aliases, commands, flags, global, postfix)
+}
+
+func runCommandUsage(cmd *cobra.Command, name string) error {
+	var (
+		t   = template.New(name + "-usage")
+		tpl = template.Must(t.Parse(name))
+	)
+	return executeTemplate(cmd, tpl)
+}
+
+func executeTemplate(cmd *cobra.Command, tpl *template.Template) (err error) {
+
+	var data = struct {
+		Prefix string
+	}{
+		Prefix: pluginPrefix(),
+	}
+
+	if err = tpl.Execute(cmd.OutOrStdout(), data); err != nil {
+		fmt.Fprintf(cmd.ErrOrStderr(), "unable to display text: %v", err)
+	}
+	return err
+}

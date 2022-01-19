@@ -47,15 +47,14 @@ func NewListCmd(clientFn listClientFn) *cobra.Command {
 
 Lists all deployed functions in a given namespace.
 `,
-		Example: `
-# List all functions in the current namespace with human readable output
-kn func list
+		Example: `# List all functions in the current namespace in human readable form
+{{.Prefix}}func list
 
 # List all functions in the 'test' namespace with yaml output
-kn func list --namespace test --output yaml
+{{.Prefix}}func list --namespace test --output yaml
 
 # List all functions in all namespaces with JSON output
-kn func list --all-namespaces --output json
+{{.Prefix}}func list --all-namespaces --output json
 `,
 		SuggestFor: []string{"ls", "lsit"},
 		PreRunE:    bindEnv("namespace", "output"),
@@ -64,6 +63,13 @@ kn func list --all-namespaces --output json
 	cmd.Flags().BoolP("all-namespaces", "A", false, "List functions in all namespaces. If set, the --namespace flag is ignored.")
 	cmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|xml|yaml) (Env: $FUNC_OUTPUT)")
 	setNamespaceFlag(cmd)
+
+	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
+		runCommandHelp(cmd, "list")
+	})
+	cmd.SetUsageFunc(func(cmd *cobra.Command) error {
+		return runCommandUsage(cmd, "{{.Prefix}}func list [flags]")
+	})
 
 	if err := cmd.RegisterFlagCompletionFunc("output", CompleteOutputFormatList); err != nil {
 		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)

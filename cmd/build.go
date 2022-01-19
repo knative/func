@@ -67,26 +67,29 @@ func NewBuildCmd(clientFn buildClientFn) *cobra.Command {
 		Short: "Build a function project as a container image",
 		Long: `Build a function project as a container image
 
-This command builds the function project in the current directory or in the directory
-specified by --path. The result will be a container image that is pushed to a registry.
-The func.yaml file is read to determine the image name and registry. 
-If the project has not already been built, either --registry or --image must be provided 
-and the image name is stored in the configuration file.
+This command builds the function project in the current directory or
+in the directory specified by --path. The result will be a container
+image that is pushed to a registry. The func.yaml file is read to
+determine the image name and registry. 
+
+If the project has not already been built, either --registry or
+--image must be provided and the image name is stored in the
+configuration file.
 `,
 		Example: `
 # Build from the local directory, using the given registry as target.
 # The full image name will be determined automatically based on the
 # project directory name
-kn func build --registry quay.io/myuser
+{{.Prefix}}func build --registry quay.io/myuser
 
 # Build from the local directory, specifying the full image name
-kn func build --image quay.io/myuser/myfunc
+{{.Prefix}}func build --image quay.io/myuser/myfunc
 
-# Re-build, picking up a previously supplied image name from a local func.yml
-kn func build
+# Re-build, using a previously supplied image name from a local func.yml
+{{.Prefix}}func build
 
 # Build with a custom buildpack builder
-kn func build --builder cnbs/sample-builder:bionic
+{{.Prefix}}func build --builder cnbs/sample-builder:bionic
 `,
 		SuggestFor: []string{"biuld", "buidl", "built"},
 		PreRunE:    bindEnv("image", "path", "builder", "registry", "confirm", "push"),
@@ -98,6 +101,13 @@ kn func build --builder cnbs/sample-builder:bionic
 	cmd.Flags().StringP("registry", "r", "", "Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined based on the local directory name. If not provided the registry will be taken from func.yaml (Env: $FUNC_REGISTRY)")
 	cmd.Flags().BoolP("push", "u", false, "Attempt to push the function image after being successfully built")
 	setPathFlag(cmd)
+
+	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
+		runCommandHelp(cmd, "build")
+	})
+	cmd.SetUsageFunc(func(cmd *cobra.Command) error {
+		return runCommandUsage(cmd, "{{.Prefix}}func build [flags]")
+	})
 
 	if err := cmd.RegisterFlagCompletionFunc("builder", CompleteBuilderList); err != nil {
 		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)

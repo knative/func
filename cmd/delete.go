@@ -40,22 +40,22 @@ type deleteClientFn func(deleteConfig) (*fn.Client, error)
 
 func NewDeleteCmd(clientFn deleteClientFn) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "delete [NAME]",
+		Use:   "delete",
 		Short: "Undeploy a function",
 		Long: `Undeploy a function
 
-This command undeploys a function from the cluster. By default the function from 
-the project in the current directory is undeployed. Alternatively either the name 
-of the function can be given as argument or the project path provided with --path.
+This command undeploys a function from the cluster. By default the
+function from the project in the current directory is undeployed.
+Alternatively either the name of the function or the project path
+may be provided with --path.
 
 No local files are deleted.
 `,
-		Example: `
-# Undeploy the function defined in the local directory
-kn func delete
+		Example: `# Undeploy the function defined in the local directory
+{{.Prefix}}func delete
 
 # Undeploy the function 'myfunc' in namespace 'apps'
-kn func delete -n apps myfunc
+{{.Prefix}}func delete -n apps myfunc
 `,
 		SuggestFor:        []string{"remove", "rm", "del"},
 		ValidArgsFunction: CompleteFunctionList,
@@ -65,6 +65,13 @@ kn func delete -n apps myfunc
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
 	setNamespaceFlag(cmd)
 	setPathFlag(cmd)
+
+	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
+		runCommandHelp(cmd, "delete")
+	})
+	cmd.SetUsageFunc(func(cmd *cobra.Command) error {
+		return runCommandUsage(cmd, "{{.Prefix}}func delete [NAME] [flags]")
+	})
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		return runDelete(cmd, args, clientFn)
