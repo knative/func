@@ -4,57 +4,117 @@
 package e2e
 
 import (
+	"context"
+	"fmt"
 	"os"
-	"path/filepath"
+	"os/exec"
 	"strings"
 	"testing"
+
+	cloudevents "github.com/cloudevents/sdk-go/v2"
+	. "knative.dev/kn-plugin-func/testing"
 )
 
-// TestInvokeCommand validates func invoke command
-// A custom node js Function used to test 'func invoke' command (see update_templates/node/events/index.js)
-// An event is sent using invoke with a special event source 'func:invoke', expected by the custom function.
-// When this source is matched, the event will get stored globally and will be returned
-// as HTTP response next time it receives another event with source "e2e:check"
-// A better solution could be evaluated in future.
-func TestInvokeCommand(t *testing.T) {
+// TestInvokeFunction is used when testing the 'func invoke' subcommand.
+// It responds with a CloudEvent containing an echo of the data received
+// If the CloudEvent received has source "func:set" it will update the
+// current value of data.
+var TestInvokeFunctionImpl = `
+package function
 
-	project := FunctionTestProject{
-		FunctionName: "invoke-test-node",
-		ProjectPath:  filepath.Join(os.TempDir(), "invoke-test-node"),
-		Runtime:      "node",
-		Template:     "cloudevents",
+import (
+  "context"
+
+  ce "github.com/cloudevents/sdk-go/v2/event"
+)
+
+var _data = []byte{}
+var _type = "text/plain"
+
+func Handle(ctx context.Context, event ce.Event) (*ce.Event, error) {
+	if event.Source() == "func:set" {
+		_data = event.Data()
+		_type = event.DataContentType()
 	}
-	knFunc := NewKnFuncShellCli(t)
+	res := ce.New()
+	res.SetSource("func:testInvokeHandler")
+	res.SetData(_type, _data)
+	return &res, nil
+}
+`
 
-	// Create new project
-	Create(t, knFunc, project)
-	defer project.RemoveProjectFolder()
+// TestInvoke ensures that invoking a CloudEvent Function succeeds, including
+// preserving custom values through the full round-trip.
+func TestInvoke(t *testing.T) {
+	var (
+		root        = "testdata/e2e/testinvoke" // root path for the test Function
+		bin, prefix = bin()                     // path to test binary and prefix args
+		cleanup     = Within(t, root)           // Create and CD to root.
+		cwd, _      = os.Getwd()                // the current working directory (absolute)
+	)
+	defer cleanup()
 
-	//knFunc.Exec("build", "-r", GetRegistry(), "-p", project.ProjectPath, "-b", "quay.io/boson/faas-nodejs-builder:v0.7.1")
+	run(t, bin, prefix, "create", "--verbose=true", "--language=go", "--template=cloudevents", cwd)
+	set(t, "handle.go", TestInvokeFunctionImpl)
+	run(t, bin, prefix, "deploy", "--verbose=true", "--registry", GetRegistry())
+	run(t, bin, prefix, "invoke", "--verbose=true", "--content-type=text/plain", "--source=func:set", "--data=TEST")
 
-	// Update the project folder with the content of update_templates/node/events/// and deploy it
-	Update(t, knFunc, &project)
-	defer Delete(t, knFunc, &project)
-
-	// Issue Func Emit command
-	invokeMessage := "HELLO FROM INVOKE"
-	result := knFunc.Exec("invoke", "--content-type", "text/plain", "--data", invokeMessage, "--source", "func:invoke", "--path", project.ProjectPath, "--target", "remote", "--format", "cloudevent")
-	if result.Error != nil {
-		t.Fatal()
-	}
-
-	// Issue another event (in order to capture the event sent by emit)
-	testEvent := SimpleTestEvent{
-		Type:        "e2e:check",
-		Source:      "e2e:check",
-		ContentType: "text/plain",
-		Data:        "Invoke Check",
-	}
-	responseBody, _, err := testEvent.pushTo(project.FunctionURL, t)
+	// Validate by fetching the contents of the Function's data global
+	fmt.Println("Validate:")
+	req := cloudevents.NewEvent()
+	req.SetID("1")
+	req.SetSource("func:get")
+	req.SetType("func.test")
+	c, err := cloudevents.NewClientHTTP(cloudevents.WithTarget("http://testinvoke.default.127.0.0.1.sslip.io"))
 	if err != nil {
-		t.Fatal("error occurred while sending event", err.Error())
+		return
 	}
-	if responseBody == "" || !strings.Contains(responseBody, invokeMessage) {
-		t.Fatalf("fail to validate invoke command. Expected [%v], returned [%v]", invokeMessage, responseBody)
+	res, err := c.Request(context.Background(), req)
+	if cloudevents.IsUndelivered(err) {
+		t.Fatal(err)
+	}
+	if string(res.Data()) != "TEST" {
+		t.Fatalf("expected data 'TEST' got '%v'", string(res.Data()))
+	}
+	return
+}
+
+// bin returns the path to use for the binary plus any leading args that
+// should be prepended.
+// For example, this will usually either return `/path/to/func` or `kn func`.
+// See NewKnFuncShellCli for original source of this logic.
+func bin() (path string, args []string) {
+	if IsUseKnFunc() {
+		return "kn", []string{"func"}
+	}
+	if path = GetFuncBinaryPath(); path == "" {
+		fmt.Fprintf(os.Stderr, "'E2E_FUNC_BIN_PATH' or 'E2E_USE_KN_FUNC' can be used to specify test binary path.")
+		return "func", []string{} //default
+	}
+	return path, []string{}
+}
+
+// run the given binary with the given two sets of arguments
+// This allows for swappable running between the two forms:
+// func [subcommand] [flags]
+//   and
+// kn func [subcommand] [flags]
+func run(t *testing.T, bin string, prefix []string, suffix ...string) {
+	t.Helper()
+	args := append(prefix, suffix...)
+	fmt.Printf("%v %v\n", bin, strings.Join(args, " "))
+
+	cmd := exec.Command(bin, args...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// set the contents of the given file
+func set(t *testing.T, path, data string) {
+	if err := os.WriteFile(path, []byte(data), os.ModePerm); err != nil {
+		t.Fatal(err)
 	}
 }
