@@ -592,30 +592,12 @@ func createRuntimeDir(f Function) error {
 func (c *Client) Build(ctx context.Context, path string) (err error) {
 	c.progressListener.Increment("Building function image")
 
-	m := []string{
-		"Still building",
-		"Still building",
-		"Yes, still building",
-		"Don't give up on me",
-		"Still building",
-		"This is taking a while",
+	// If not logging verbosely, the ongoing progress of the build will not
+	// be streaming to stdout, and the lack of activity has been seen to cause
+	// users to prematurely exit due to the sluggishness of pulling large images
+	if !c.verbose {
+		c.printBuildActivity(ctx) // print friendly messages until context is canceled
 	}
-	i := 0
-	ticker := time.NewTicker(10 * time.Second)
-	defer ticker.Stop()
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				c.progressListener.Increment(m[i])
-				i++
-				i = i % len(m)
-			case <-ctx.Done():
-				c.progressListener.Stopping()
-				return
-			}
-		}
-	}()
 
 	f, err := NewFunction(path)
 	if err != nil {
@@ -645,6 +627,33 @@ func (c *Client) Build(ctx context.Context, path string) (err error) {
 	}
 	c.progressListener.Increment(message)
 	return
+}
+
+func (c *Client) printBuildActivity(ctx context.Context) {
+	m := []string{
+		"Still building",
+		"Still building",
+		"Yes, still building",
+		"Don't give up on me",
+		"Still building",
+		"This is taking a while",
+	}
+	i := 0
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				c.progressListener.Increment(m[i])
+				i++
+				i = i % len(m)
+			case <-ctx.Done():
+				c.progressListener.Stopping()
+				return
+			}
+		}
+	}()
 }
 
 // Deploy the Function at path. Errors if the Function has not been
