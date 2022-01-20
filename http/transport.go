@@ -9,7 +9,7 @@ import (
 	"net"
 	"net/http"
 	"time"
-	
+
 	"knative.dev/kn-plugin-func/k8s"
 )
 

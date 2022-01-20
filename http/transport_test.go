@@ -8,12 +8,13 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"fmt"
-	fnhttp "knative.dev/kn-plugin-func/http"
 	"math/big"
 	"net"
 	"net/http"
 	"testing"
 	"time"
+
+	fnhttp "knative.dev/kn-plugin-func/http"
 )
 
 const inClusterHostName = "image-registry.openshift-image-registry.svc"
