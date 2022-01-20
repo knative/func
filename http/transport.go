@@ -2,6 +2,8 @@ package http
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"io"
 	"net"
@@ -21,19 +23,47 @@ type RoundTripCloser interface {
 	io.Closer
 }
 
+type options struct {
+	selectCA        func(ctx context.Context, serverName string) (*x509.Certificate, error)
+	inClusterDialer ContextDialer
+}
+
+type Option func(*options)
+
+func WithSelectCA(selectCA func(ctx context.Context, serverName string) (*x509.Certificate, error)) Option {
+	return func(o *options) {
+		o.selectCA = selectCA
+	}
+}
+
+func WithInClusterDialer(inClusterDialer ContextDialer) Option {
+	return func(o *options) {
+		o.inClusterDialer = inClusterDialer
+	}
+}
+
 // NewRoundTripper returns new closable RoundTripper that first tries to dial connection in standard way,
 // if the dial operation fails due to hostname resolution the RoundTripper tries to dial from in cluster pod.
 //
 // This is useful for accessing cluster internal services (pushing a CloudEvent into Knative broker).
-func NewRoundTripper() RoundTripCloser {
+func NewRoundTripper(opts ...Option) RoundTripCloser {
+	o := options{
+		inClusterDialer: k8s.NewLazyInitInClusterDialer(),
+	}
+	for _, option := range opts {
+		option(&o)
+	}
+
 	httpTransport := newHTTPTransport()
 
 	primaryDialer := dialContextFn(httpTransport.DialContext)
-	secondaryDialer := k8s.NewLazyInitInClusterDialer()
+	secondaryDialer := o.inClusterDialer
+
 	combinedDialer := newDialerWithFallback(primaryDialer, secondaryDialer)
 
 	httpTransport.DialContext = combinedDialer.DialContext
-	httpTransport.DialTLSContext = nil
+
+	httpTransport.DialTLSContext = newDialTLSContext(combinedDialer, httpTransport.TLSClientConfig, o.selectCA)
 
 	return &roundTripCloser{
 		Transport:       httpTransport,
@@ -114,3 +144,41 @@ func (d dialContextFn) DialContext(ctx context.Context, network string, addr str
 }
 
 func (d dialContextFn) Close() error { return nil }
+
+func newDialTLSContext(dialer ContextDialer, config *tls.Config, selectCA func(ctx context.Context, serverName string) (*x509.Certificate, error)) func(ctx context.Context, network, addr string) (net.Conn, error) {
+	if selectCA == nil {
+		return nil
+	}
+	return func(ctx context.Context, network, addr string) (net.Conn, error) {
+
+		conn, err := dialer.DialContext(ctx, network, addr)
+		if err != nil {
+			return nil, err
+		}
+
+		var cfg *tls.Config
+		if config != nil {
+			cfg = config.Clone()
+		} else {
+			cfg = &tls.Config{}
+		}
+
+		serverName, _, err := net.SplitHostPort(addr)
+		if err != nil {
+			return nil, err
+		}
+
+		if cfg.ServerName == "" {
+			cfg.ServerName = serverName
+		}
+
+		if ca, err := selectCA(ctx, serverName); ca != nil && err == nil {
+			caPool := x509.NewCertPool()
+			caPool.AddCert(ca)
+			cfg.RootCAs = caPool
+		}
+
+		tlsConn := tls.Client(conn, cfg)
+		return tlsConn, nil
+	}
+}
