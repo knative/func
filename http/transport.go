@@ -6,11 +6,15 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"sync"
 	"time"
-
+	
 	"knative.dev/kn-plugin-func/k8s"
 )
+
+type ContextDialer interface {
+	DialContext(ctx context.Context, network string, addr string) (net.Conn, error)
+	Close() error
+}
 
 type RoundTripCloser interface {
 	http.RoundTripper
@@ -22,25 +26,32 @@ type RoundTripCloser interface {
 //
 // This is useful for accessing cluster internal services (pushing a CloudEvent into Knative broker).
 func NewRoundTripper() RoundTripCloser {
-	result := &roundTripCloser{}
+	httpTransport := newHTTPTransport()
+
+	primaryDialer := dialContextFn(httpTransport.DialContext)
+	secondaryDialer := k8s.NewLazyInitInClusterDialer()
+	combinedDialer := newDialerWithFallback(primaryDialer, secondaryDialer)
+
+	httpTransport.DialContext = combinedDialer.DialContext
+	httpTransport.DialTLSContext = nil
+
+	return &roundTripCloser{
+		Transport:       httpTransport,
+		primaryDialer:   primaryDialer,
+		secondaryDialer: secondaryDialer,
+	}
+}
+
+func newHTTPTransport() *http.Transport {
 	if dt, ok := http.DefaultTransport.(*http.Transport); ok {
-		d := &dialer{
-			defaultDialContext: dt.DialContext,
-		}
-		result.d = d
-		result.Transport = dt.Clone()
-		result.Transport.DialContext = d.DialContext
+		return dt.Clone()
 	} else {
-		d := &dialer{
-			defaultDialContext: (&net.Dialer{
+		return &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			DialContext: (&net.Dialer{
 				Timeout:   30 * time.Second,
 				KeepAlive: 30 * time.Second,
 			}).DialContext,
-		}
-		result.d = d
-		result.Transport = &http.Transport{
-			Proxy:                 http.ProxyFromEnvironment,
-			DialContext:           d.DialContext,
 			ForceAttemptHTTP2:     true,
 			MaxIdleConns:          100,
 			IdleConnTimeout:       90 * time.Second,
@@ -48,27 +59,36 @@ func NewRoundTripper() RoundTripCloser {
 			ExpectContinueTimeout: 1 * time.Second,
 		}
 	}
-
-	return result
 }
 
 type roundTripCloser struct {
 	*http.Transport
-	d *dialer
+	primaryDialer   ContextDialer
+	secondaryDialer ContextDialer
 }
 
 func (r *roundTripCloser) Close() error {
-	return r.d.Close()
+	err := r.primaryDialer.Close()
+	if err != nil {
+		return err
+	}
+	return r.secondaryDialer.Close()
 }
 
-type dialer struct {
-	o                  sync.Once
-	defaultDialContext func(ctx context.Context, network, address string) (net.Conn, error)
-	inClusterDialer    k8s.ContextDialer
+func newDialerWithFallback(primaryDialer ContextDialer, fallbackDialer ContextDialer) *dialerWithFallback {
+	return &dialerWithFallback{
+		primaryDialer:  primaryDialer,
+		fallbackDialer: fallbackDialer,
+	}
 }
 
-func (d *dialer) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
-	conn, err := d.defaultDialContext(ctx, network, address)
+type dialerWithFallback struct {
+	primaryDialer  ContextDialer
+	fallbackDialer ContextDialer
+}
+
+func (d *dialerWithFallback) DialContext(ctx context.Context, network, address string) (net.Conn, error) {
+	conn, err := d.primaryDialer.DialContext(ctx, network, address)
 	if err == nil {
 		return conn, nil
 	}
@@ -77,26 +97,20 @@ func (d *dialer) DialContext(ctx context.Context, network, address string) (net.
 	if !(errors.As(err, &dnsErr) && dnsErr.IsNotFound) {
 		return nil, err
 	}
-	err = nil
 
-	d.o.Do(func() {
-		d.inClusterDialer, err = k8s.NewInClusterDialer(ctx)
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	if d.inClusterDialer == nil {
-		return nil, errors.New("failed to init in cluster dialer")
-	}
-
-	return d.inClusterDialer.DialContext(ctx, network, address)
+	return d.fallbackDialer.DialContext(ctx, network, address)
 }
 
-func (d *dialer) Close() error {
-	if d.inClusterDialer != nil {
-		return d.inClusterDialer.Close()
-	}
+func (d *dialerWithFallback) Close() error {
+	d.primaryDialer.Close()
+	d.fallbackDialer.Close()
 	return nil
 }
+
+type dialContextFn func(ctx context.Context, network string, addr string) (net.Conn, error)
+
+func (d dialContextFn) DialContext(ctx context.Context, network string, addr string) (net.Conn, error) {
+	return d(ctx, network, addr)
+}
+
+func (d dialContextFn) Close() error { return nil }

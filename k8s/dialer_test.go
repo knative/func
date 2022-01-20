@@ -109,10 +109,7 @@ func TestDialInClusterService(t *testing.T) {
 	// wait for service to start
 	time.Sleep(time.Second * 10)
 
-	dialer, err := k8s.NewInClusterDialer(ctx)
-	if err != nil {
-		t.Fatal(err)
-	}
+	dialer := k8s.NewLazyInitInClusterDialer()
 	t.Cleanup(func() {
 		dialer.Close()
 	})
