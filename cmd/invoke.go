@@ -60,12 +60,13 @@ DESCRIPTION
 	Functions are invoked with a test data structure consisting of five values:
 		id:            A unique identifer for the request.
 		source:        A sender name for the request (sender).
-		type:          An application-level type for this request.
+		type:          A type for the request.
 		data:          Data (content) for this request.
 		content-type:  The MIME type of the value contained in 'data'.
 
 	The values of these parameters can be individually altered from their defaults
-	using their associated flags. Data can also be provided from file with --file.
+	using their associated flags. Data can also be provided from a file using the
+	--file flag.
 
 	Invocation Target
 	  The Function instance to invoke can be specified using the --target flag
@@ -76,7 +77,7 @@ DESCRIPTION
 	  To target an arbitrary endpont, provide a URL:
 	    {{.Prefix}}func invoke --target=https://myfunction.example.com
 
-	File Submission
+	Invocation Data
 	  Providing a filename in the --file flag will base64 encode its contents
 	  as the "data" parameter sent to the Function.  The value of --content-type
 	  should be set to the type from the source file.  For example, the following
@@ -125,16 +126,16 @@ EXAMPLES
 	}
 
 	// Flags
-	cmd.Flags().StringP("path", "p", cwd(), "Path to the Function which should have its instance invoked (Env: $FUNC_PATH)")
-	cmd.Flags().StringP("format", "f", "", "Format of message to send, 'http' or 'cloudevent'.  Defaults is to auto-choose, but is required for direct invocation of remote CloudEvent Functions by URL, or for Functions created prior. (Env: $FUNC_FORMAT)")
-	cmd.Flags().StringP("target", "t", "", "Function instance to invoke.  Can be 'local', 'remote' or a URL.  Defaults to auto-discovery if not provided (Env: $FUNC_TARGET)")
+	cmd.Flags().StringP("path", "p", cwd(), "Path to the Function which should have its instance invoked. (Env: $FUNC_PATH)")
+	cmd.Flags().StringP("format", "f", "", "Format of message to send, 'http' or 'cloudevent'.  Default is to choose automatically. (Env: $FUNC_FORMAT)")
+	cmd.Flags().StringP("target", "t", "", "Function instance to invoke.  Can be 'local', 'remote' or a URL.  Defaults to auto-discovery if not provided. (Env: $FUNC_TARGET)")
 	cmd.Flags().StringP("id", "", uuid.NewString(), "ID for the request data. (Env: $FUNC_ID)")
 	cmd.Flags().StringP("source", "", fn.DefaultInvokeSource, "Source value for the request data. (Env: $FUNC_SOURCE)")
 	cmd.Flags().StringP("type", "", fn.DefaultInvokeType, "Type value for the request data. (Env: $FUNC_TYPE)")
 	cmd.Flags().StringP("content-type", "", fn.DefaultInvokeContentType, "Content Type of the data. (Env: $FUNC_CONTENT_TYPE)")
 	cmd.Flags().StringP("data", "", fn.DefaultInvokeData, "Data to send in the request. (Env: $FUNC_DATA)")
 	cmd.Flags().StringP("file", "", "", "Path to a file to use as data. Overrides --data flag and should be sent with a correct --content-type. (Env: $FUNC_FILE)")
-	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
+	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all options interactively. (Env: $FUNC_CONFIRM)")
 	setNamespaceFlag(cmd)
 
 	// Help Action

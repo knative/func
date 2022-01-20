@@ -511,11 +511,11 @@ func TestClient_Run(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	_, stop, _, err := client.Run(ctx, root)
+	job, err := client.Run(ctx, root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer stop()
+	defer job.Stop()
 
 	// Assert the runner was invoked, and with the expected root.
 	if !runner.RunInvoked {
@@ -1044,11 +1044,11 @@ func TestClient_Invoke_HTTP(t *testing.T) {
 	}
 
 	// Run the Function
-	_, stop, _, err := client.Run(context.Background(), root)
+	job, err := client.Run(context.Background(), root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer stop()
+	defer job.Stop()
 
 	// Invoke the Function, which will use the mock Runner
 	if err := client.Invoke(context.Background(), f.Root, "", message); err != nil {
@@ -1129,11 +1129,11 @@ func TestClient_Invoke_CloudEvent(t *testing.T) {
 	}
 
 	// Run the Function
-	_, stop, _, err := client.Run(context.Background(), root)
+	job, err := client.Run(context.Background(), root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer stop()
+	defer job.Stop()
 
 	// Invoke the Function, which will use the mock Runner
 	if err := client.Invoke(context.Background(), f.Root, "", message); err != nil {
@@ -1174,11 +1174,11 @@ func TestClient_Instances(t *testing.T) {
 	}
 
 	// Run the function, awaiting start and then canceling
-	_, stop, _, err := client.Run(context.Background(), root)
+	job, err := client.Run(context.Background(), root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer stop()
+	defer job.Stop()
 
 	// Load the (now fully initialized) Function metadata
 	f, err := fn.NewFunction(root)

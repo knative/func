@@ -129,7 +129,7 @@ kn func delete <name> [-n namespace, -p path]
 
 ## `invoke`
 
-Invokes a function. By default, a locally running instance will be preferred
+Invokes a running function. By default, a locally running instance will be preferred
 over a remote if both are running. The user may specify the event type, source,
 ID, and may provide event data on the command line or in a file on disk.
 `invoke` works on the local directory, assuming that it is a function project.

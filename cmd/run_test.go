@@ -16,8 +16,8 @@ func TestRun_Run(t *testing.T) {
 	tests := []struct {
 		name         string // name of the test
 		desc         string // description of the test
-		funcState    string // Function stat, as described in func.yaml
-		buildFlag    bool   // vale to set the --build flag
+		funcState    string // Function state, as described in func.yaml
+		buildFlag    bool   // value to which the --build flag should be set
 		buildError   error  // Set the builder to yield this error
 		runError     error  // Set the runner to yield this error
 		buildInvoked bool   // should Builder.Build be invoked?

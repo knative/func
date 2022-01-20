@@ -573,6 +573,9 @@ func (c *Client) Create(cfg Function) (err error) {
 
 // createRuntimeDir creates a .func directory in the root of the given
 // Function which is also registered as ignored in .gitignore
+// TODO: Mutate extant .gitignore file if it exists rather than failing
+// if present (see contentious files in function.go), such that a user
+// can `git init` a directory prior to `func init` in the same directory).
 func createRuntimeDir(f Function) error {
 	if err := os.MkdirAll(filepath.Join(f.Root, RunDataDir), os.ModePerm); err != nil {
 		return err
@@ -725,7 +728,7 @@ func (c *Client) Route(path string) (err error) {
 
 // Run the Function whose code resides at root.
 // On start, the chosen port is sent to the provided started channel
-func (c *Client) Run(ctx context.Context, root string) (port string, stop func(), errs chan error, err error) {
+func (c *Client) Run(ctx context.Context, root string) (job *Job, err error) {
 	go func() {
 		<-ctx.Done()
 		c.progressListener.Stopping()
@@ -745,14 +748,13 @@ func (c *Client) Run(ctx context.Context, root string) (port string, stop func()
 
 	// Run the Function, which returns a Job for use interacting (at arms length)
 	// with that running task (which is likely inside a container process).
-	job, err := c.runner.Run(ctx, f)
-	if err != nil {
+	if job, err = c.runner.Run(ctx, f); err != nil {
 		return
 	}
 
 	// Return to the caller the effective port, a function to call to trigger
 	// stop, and a channel on which can be received runtime errors.
-	return job.Port, job.Stop, job.Errors, nil
+	return job, nil
 }
 
 // Info for a Function.  Name takes precidence.  If no name is provided,

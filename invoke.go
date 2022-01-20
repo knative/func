@@ -130,7 +130,6 @@ func invocationRoute(ctx context.Context, c *Client, f Function, target string) 
 }
 
 // sendEvent to the route populated with data in the invoke message.
-// with the data from the invoke message.
 func sendEvent(ctx context.Context, route string, m InvokeMessage, t http.RoundTripper) (err error) {
 	event := cloudevents.NewEvent()
 	event.SetID(m.ID)

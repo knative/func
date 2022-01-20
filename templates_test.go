@@ -241,6 +241,7 @@ func TestTemplates_InvalidErrors(t *testing.T) {
 	if !errors.Is(err, fn.ErrRuntimeNotFound) {
 		t.Fatalf("Expected ErrRuntimeNotFound, got %v", err)
 	}
+	os.Remove(filepath.Join(root, ".gitignore"))
 
 	// Test for error writing an invalid template
 	err = client.Create(fn.Function{

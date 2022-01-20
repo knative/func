@@ -111,13 +111,13 @@ func runRun(cmd *cobra.Command, args []string, clientFn runClientFn) (err error)
 	}
 
 	// Run the Function at path
-	port, stop, runtimeErrCh, err := client.Run(cmd.Context(), config.Path)
+	job, err := client.Run(cmd.Context(), config.Path)
 	if err != nil {
 		return
 	}
-	defer stop()
+	defer job.Stop()
 
-	fmt.Fprintf(cmd.OutOrStderr(), "Function started on port %v\n", port)
+	fmt.Fprintf(cmd.OutOrStderr(), "Function started on port %v\n", job.Port)
 
 	select {
 	case <-cmd.Context().Done():
@@ -125,7 +125,7 @@ func runRun(cmd *cobra.Command, args []string, clientFn runClientFn) (err error)
 			err = cmd.Context().Err()
 		}
 		return
-	case err = <-runtimeErrCh:
+	case err = <-job.Errors:
 		return
 	}
 }

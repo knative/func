@@ -18,7 +18,7 @@ type Job struct {
 	Function Function
 	Port     string
 	Errors   chan error
-	OnStop   func()
+	onStop   func()
 }
 
 // Create a new Job which represents a running Function task by providing
@@ -28,8 +28,8 @@ func NewJob(f Function, port string, errs chan error, onStop func()) (*Job, erro
 	j := &Job{
 		Function: f,
 		Port:     port,
-		OnStop:   onStop,
 		Errors:   errs,
+		onStop:   onStop,
 	}
 	return j, j.save() // Everything is a file:  save instance data to disk.
 }
@@ -38,7 +38,7 @@ func NewJob(f Function, port string, errs chan error, onStop func()) (*Job, erro
 // metadata from disk.
 func (j *Job) Stop() {
 	_ = j.remove() // Remove representation on disk
-	j.OnStop()
+	j.onStop()
 }
 
 func (j *Job) save() error {

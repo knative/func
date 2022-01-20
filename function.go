@@ -370,6 +370,7 @@ func assertEmptyRoot(path string) (err error) {
 // Function rooted in the given directory.
 var contentiousFiles = []string{
 	FunctionFile,
+	".gitignore",
 }
 
 // contentiousFilesIn the given directory

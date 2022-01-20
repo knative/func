@@ -6,3 +6,6 @@ builders:
 buildpacks:
   - paketo-buildpacks/nodejs
   - ghcr.io/boson-project/typescript-function-buildpack:tip
+
+invocation:
+  format: "cloudevent"
