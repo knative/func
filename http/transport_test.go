@@ -47,15 +47,20 @@ func TestCustomCA(t *testing.T) {
 	client := http.Client{Transport: tr}
 
 	_, p, err := net.SplitHostPort(localhostAddr)
-	_, err = client.Get(fmt.Sprintf("https://localhost:%s", p))
 	if err != nil {
 		t.Fatal(err)
 	}
+	resp, err := client.Get(fmt.Sprintf("https://localhost:%s", p))
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
 
-	_, err = client.Get(fmt.Sprintf("https://%s:5000/v2/", inClusterHostName))
+	resp, err = client.Get(fmt.Sprintf("https://%s:5000/v2/", inClusterHostName))
 	if err != nil {
 		t.Fatal(err)
 	}
+	resp.Body.Close()
 
 }
 
@@ -125,7 +130,6 @@ func startServer(t *testing.T, hostname string) (addr string, ca *x509.Certifica
 	addr = listener.Addr().String()
 
 	handler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
-		return
 	})
 
 	server := http.Server{
@@ -139,6 +143,8 @@ func startServer(t *testing.T, hostname string) (addr string, ca *x509.Certifica
 		server.Close()
 	})
 
-	go server.ServeTLS(listener, "", "")
+	go func() {
+		_ = server.ServeTLS(listener, "", "")
+	}()
 	return
 }
