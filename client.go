@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -52,10 +53,11 @@ type Client struct {
 	dnsProvider       DNSProvider       // Provider of DNS services
 	registry          string            // default registry for OCI image tags
 	progressListener  ProgressListener  // progress listener
-	emitter           Emitter           // Emits CloudEvents to functions
-	pipelinesProvider PipelinesProvider // Manages lifecyle of CI/CD pipelines used by a Function
 	repositories      *Repositories     // Repositories management
 	templates         *Templates        // Templates management
+	instances         *Instances        // Function Instances management
+	transport         http.RoundTripper // Customizable internal transport
+	pipelinesProvider PipelinesProvider // CI/CD pipelines management
 }
 
 // ErrNotBuilt indicates the Function has not yet been built.
@@ -96,8 +98,10 @@ const (
 
 // Runner runs the Function locally.
 type Runner interface {
-	// Run the Function locally.
-	Run(context.Context, Function) error
+	// Run the Function, returning a Job with metadata, error channels, and
+	// a stop function.The process can be stopped by running the returned stop
+	// function, either on context cancellation or in a defer.
+	Run(context.Context, Function) (*Job, error)
 }
 
 // Remover of deployed services.
@@ -138,18 +142,30 @@ type ProgressListener interface {
 	Done()
 }
 
-// Describer of Functions' remote deployed aspect.
+// Describer of Function instances
 type Describer interface {
-	// Describe the running state of the service as reported by the underlyng platform.
-	Describe(ctx context.Context, name string) (description Info, err error)
+	// Describe the named Function in the remote environment.
+	Describe(ctx context.Context, name string) (Instance, error)
 }
 
-// Info about a given Function
-type Info struct {
+// Instance data about the runtime state of a Function in a given environment.
+//
+// A Function instance is a logical running Function space, which share
+// a unique route (or set of routes).  Due to autoscaling and load balancing,
+// there is a one to many relationship between a given route and processes.
+// By default the system creates the 'local' and 'remote' named instances
+// when a Function is run (locally) and deployed, respectively.
+// See the .Instances(f) accessor for the map of named environments to these
+// Function Information structures.
+type Instance struct {
+	// Route is the primary route of a Function instance.
+	Route string
+	// Routes is the primary route plus any other route at which the Function
+	// can be contacted.
+	Routes        []string       `json:"routes" yaml:"routes"`
 	Name          string         `json:"name" yaml:"name"`
 	Image         string         `json:"image" yaml:"image"`
 	Namespace     string         `json:"namespace" yaml:"namespace"`
-	Routes        []string       `json:"routes" yaml:"routes"`
 	Subscriptions []Subscription `json:"subscriptions" yaml:"subscriptions"`
 }
 
@@ -164,11 +180,6 @@ type Subscription struct {
 type DNSProvider interface {
 	// Provide the given name by routing requests to address.
 	Provide(Function) error
-}
-
-// Emitter emits CloudEvents to functions
-type Emitter interface {
-	Emit(ctx context.Context, endpoint string) error
 }
 
 // PipelinesProvider manages lifecyle of CI/CD pipelines used by a Function
@@ -186,18 +197,21 @@ func New(options ...Option) *Client {
 		runner:            &noopRunner{output: os.Stdout},
 		remover:           &noopRemover{output: os.Stdout},
 		lister:            &noopLister{output: os.Stdout},
+		describer:         &noopDescriber{output: os.Stdout},
 		dnsProvider:       &noopDNSProvider{output: os.Stdout},
 		progressListener:  &NoopProgressListener{},
-		emitter:           &noopEmitter{},
 		pipelinesProvider: &noopPipelinesProvider{},
 		repositoriesPath:  filepath.Join(ConfigPath(), "repositories"),
+		transport:         http.DefaultTransport,
 	}
 	for _, o := range options {
 		o(c)
 	}
+
 	// Initialize sub-managers using now-fully-initialized client.
 	c.repositories = newRepositories(c)
 	c.templates = newTemplates(c)
+	c.instances = newInstances(c)
 
 	// Trigger the creation of the config and repository paths
 	_ = ConfigPath()         // Config is package-global scoped
@@ -355,11 +369,10 @@ func WithRegistry(registry string) Option {
 	}
 }
 
-// WithEmitter sets a CloudEvent emitter on the client which is capable of sending
-// a CloudEvent to an arbitrary function endpoint
-func WithEmitter(e Emitter) Option {
+// WithTransport sets a custom transport to use internally.
+func WithTransport(t http.RoundTripper) Option {
 	return func(c *Client) {
-		c.emitter = e
+		c.transport = t
 	}
 }
 
@@ -381,6 +394,11 @@ func (c *Client) Repositories() *Repositories {
 // Templates accessor
 func (c *Client) Templates() *Templates {
 	return c.templates
+}
+
+// Instances accessor
+func (c *Client) Instances() *Instances {
+	return c.instances
 }
 
 // Runtimes available in totality.
@@ -407,8 +425,8 @@ func (c *Client) Runtimes() ([]string, error) {
 	return runtimes.Items(), nil
 }
 
-// METHODS
-// ---------
+// LIFECYCLE METHODS
+// -----------------
 
 // New Function.
 // Use Create, Build and Deploy independently for lower level control.
@@ -497,12 +515,6 @@ func (c *Client) Create(cfg Function) (err error) {
 		return fmt.Errorf("Function at '%v' already initialized", cfg.Root)
 	}
 
-	// The path for the new Function should not have any contentious files
-	// (hidden files OK, unless it's one used by Func)
-	if err := assertEmptyRoot(cfg.Root); err != nil {
-		return err
-	}
-
 	// Path is defaulted to the current working directory
 	if cfg.Root == "" {
 		if cfg.Root, err = os.Getwd(); err != nil {
@@ -515,8 +527,19 @@ func (c *Client) Create(cfg Function) (err error) {
 		cfg.Name = nameFromPath(cfg.Root)
 	}
 
-	// Create a new Function
+	// The path for the new Function should not have any contentious files
+	// (hidden files OK, unless it's one used by Func)
+	if err := assertEmptyRoot(cfg.Root); err != nil {
+		return err
+	}
+
+	// Create a new Function (in memory)
 	f := NewFunctionWith(cfg)
+
+	// Create a .func diretory which is also added to a .gitignore
+	if err = createRuntimeDir(f); err != nil {
+		return
+	}
 
 	// Write out the new Function's Template files.
 	// Templates contain values which may result in the Function being mutated
@@ -548,33 +571,36 @@ func (c *Client) Create(cfg Function) (err error) {
 	return
 }
 
+// createRuntimeDir creates a .func directory in the root of the given
+// Function which is also registered as ignored in .gitignore
+// TODO: Mutate extant .gitignore file if it exists rather than failing
+// if present (see contentious files in function.go), such that a user
+// can `git init` a directory prior to `func init` in the same directory).
+func createRuntimeDir(f Function) error {
+	if err := os.MkdirAll(filepath.Join(f.Root, RunDataDir), os.ModePerm); err != nil {
+		return err
+	}
+
+	gitignore := `
+# Functions use the .func directory for local runtime data which should
+# generally not be tracked in source control:
+/.func
+`
+	return os.WriteFile(filepath.Join(f.Root, ".gitignore"), []byte(gitignore), os.ModePerm)
+
+}
+
 // Build the Function at path. Errors if the Function is either unloadable or does
 // not contain a populated Image.
 func (c *Client) Build(ctx context.Context, path string) (err error) {
 	c.progressListener.Increment("Building function image")
 
-	m := []string{
-		"Still building",
-		"Don't give up on me",
-		"This is taking a while",
-		"Still building"}
-	ticker := time.NewTicker(10 * time.Second)
-	defer ticker.Stop()
-	go func() {
-		for {
-			<-ticker.C
-			if len(m) == 0 {
-				break
-			}
-			c.progressListener.Increment(m[0])
-			m = m[1:] // remove 0th element
-		}
-	}()
-
-	go func() {
-		<-ctx.Done()
-		c.progressListener.Stopping()
-	}()
+	// If not logging verbosely, the ongoing progress of the build will not
+	// be streaming to stdout, and the lack of activity has been seen to cause
+	// users to prematurely exit due to the sluggishness of pulling large images
+	if !c.verbose {
+		c.printBuildActivity(ctx) // print friendly messages until context is canceled
+	}
 
 	f, err := NewFunction(path)
 	if err != nil {
@@ -604,6 +630,33 @@ func (c *Client) Build(ctx context.Context, path string) (err error) {
 	}
 	c.progressListener.Increment(message)
 	return
+}
+
+func (c *Client) printBuildActivity(ctx context.Context) {
+	m := []string{
+		"Still building",
+		"Still building",
+		"Yes, still building",
+		"Don't give up on me",
+		"Still building",
+		"This is taking a while",
+	}
+	i := 0
+	ticker := time.NewTicker(10 * time.Second)
+	defer ticker.Stop()
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				c.progressListener.Increment(m[i])
+				i++
+				i = i % len(m)
+			case <-ctx.Done():
+				c.progressListener.Stopping()
+				return
+			}
+		}
+	}()
 }
 
 // Deploy the Function at path. Errors if the Function has not been
@@ -674,36 +727,39 @@ func (c *Client) Route(path string) (err error) {
 }
 
 // Run the Function whose code resides at root.
-func (c *Client) Run(ctx context.Context, root string) error {
+// On start, the chosen port is sent to the provided started channel
+func (c *Client) Run(ctx context.Context, root string) (job *Job, err error) {
 	go func() {
 		<-ctx.Done()
 		c.progressListener.Stopping()
 	}()
 
-	// Create an instance of a Function representation at the given root.
+	// Load the Function
 	f, err := NewFunction(root)
 	if err != nil {
-		return err
+		return
 	}
-
 	if !f.Initialized() {
 		// TODO: this needs a test.
-		return fmt.Errorf("the given path '%v' does not contain an initialized Function.  Please create one at this path in order to run", root)
+		err = fmt.Errorf("the given path '%v' does not contain an initialized "+
+			"Function.  Please create one at this path in order to run", root)
+		return
 	}
 
-	// delegate to concrete implementation of runner entirely.
-	return c.runner.Run(ctx, f)
-}
+	// Run the Function, which returns a Job for use interacting (at arms length)
+	// with that running task (which is likely inside a container process).
+	if job, err = c.runner.Run(ctx, f); err != nil {
+		return
+	}
 
-// List currently deployed Functions.
-func (c *Client) List(ctx context.Context) ([]ListItem, error) {
-	// delegate to concrete implementation of lister entirely.
-	return c.lister.List(ctx)
+	// Return to the caller the effective port, a function to call to trigger
+	// stop, and a channel on which can be received runtime errors.
+	return job, nil
 }
 
 // Info for a Function.  Name takes precidence.  If no name is provided,
 // the Function defined at root is used.
-func (c *Client) Info(ctx context.Context, name, root string) (d Info, err error) {
+func (c *Client) Info(ctx context.Context, name, root string) (d Instance, err error) {
 	go func() {
 		<-ctx.Done()
 		c.progressListener.Stopping()
@@ -722,6 +778,12 @@ func (c *Client) Info(ctx context.Context, name, root string) (d Info, err error
 		return d, fmt.Errorf("%v is not initialized", f.Name)
 	}
 	return c.describer.Describe(ctx, f.Name)
+}
+
+// List currently deployed Functions.
+func (c *Client) List(ctx context.Context) ([]ListItem, error) {
+	// delegate to concrete implementation of lister entirely.
+	return c.lister.List(ctx)
 }
 
 // Remove a Function.  Name takes precidence.  If no name is provided,
@@ -747,13 +809,32 @@ func (c *Client) Remove(ctx context.Context, cfg Function) error {
 	return c.remover.Remove(ctx, f.Name)
 }
 
-// Emit a CloudEvent to a function endpoint
-func (c *Client) Emit(ctx context.Context, endpoint string) error {
+// Invoke is a convenience method for triggering the execution of a Function
+// for testing and development.
+// The target argument is optional, naming the running instance of the Function
+// which should be invoked.  This can be the literal names "local" or "remote",
+// or can be a URL to an arbitrary endpoint.  If not provided, a running local
+// instance is preferred, with the remote Function triggered if there is no
+// locally running instance.
+// Example:
+//  myClient.Invoke(myContext, myFunction, "local", NewInvokeMessage())
+// The message sent to the Function is defined by the invoke message.
+// See NewInvokeMessage for its defaults.
+// Functions are invoked in a manner consistent with the settings defined in
+// their metadata.  For example HTTP vs CloudEvent
+func (c *Client) Invoke(ctx context.Context, root string, target string, m InvokeMessage) (err error) {
 	go func() {
 		<-ctx.Done()
 		c.progressListener.Stopping()
 	}()
-	return c.emitter.Emit(ctx, endpoint)
+
+	f, err := NewFunction(root)
+	if err != nil {
+		return
+	}
+
+	// See invoke.go for implementation details
+	return invoke(ctx, c, f, target, m)
 }
 
 // Push the image for the named service to the configured registry
@@ -812,7 +893,9 @@ func (n *noopDeployer) Deploy(ctx context.Context, _ Function) (DeploymentResult
 // Runner
 type noopRunner struct{ output io.Writer }
 
-func (n *noopRunner) Run(_ context.Context, _ Function) error { return nil }
+func (n *noopRunner) Run(context.Context, Function) (job *Job, err error) {
+	return
+}
 
 // Remover
 type noopRemover struct{ output io.Writer }
@@ -824,10 +907,12 @@ type noopLister struct{ output io.Writer }
 
 func (n *noopLister) List(context.Context) ([]ListItem, error) { return []ListItem{}, nil }
 
-// Emitter
-type noopEmitter struct{}
+// Describer
+type noopDescriber struct{ output io.Writer }
 
-func (n *noopEmitter) Emit(ctx context.Context, endpoint string) error { return nil }
+func (n *noopDescriber) Describe(context.Context, string) (Instance, error) {
+	return Instance{}, errors.New("no describer provided")
+}
 
 // PipelinesProvider
 type noopPipelinesProvider struct{}

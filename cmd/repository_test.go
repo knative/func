@@ -9,10 +9,10 @@ import (
 	"knative.dev/kn-plugin-func/mock"
 )
 
-// TestRepositoryList ensures that the 'list' subcommand shows the client's
+// TestRepository_List ensures that the 'list' subcommand shows the client's
 // set of repositories by name, respects the repositories flag (provides it to
 // the client), and prints the list as expected.
-func TestRepositoryList(t *testing.T) {
+func TestRepository_List(t *testing.T) {
 	var (
 		client = mock.NewClient()
 		list   = NewRepositoryListCmd(testRepositoryClientFn(client))
@@ -41,10 +41,10 @@ func TestRepositoryList(t *testing.T) {
 	}
 }
 
-// TestRepositoryAdd ensures that the 'add' subcommand accepts its positional
+// TestRepository_Add ensures that the 'add' subcommand accepts its positional
 // arguments, respects the repositories path flag, and the expected name is echoed
 // upon subsequent 'list'.
-func TestRepositoryAdd(t *testing.T) {
+func TestRepository_Add(t *testing.T) {
 	var (
 		client = mock.NewClient()
 		add    = NewRepositoryAddCmd(testRepositoryClientFn(client))
@@ -81,10 +81,10 @@ func TestRepositoryAdd(t *testing.T) {
 	}
 }
 
-// TestRepositoryRename ensures that the 'rename' subcommand accepts its
+// TestRepository_Rename ensures that the 'rename' subcommand accepts its
 // positional arguments, respects the repositories path flag, and the name is
 // reflected as having been reanamed upon subsequent 'list'.
-func TestRepositoryRename(t *testing.T) {
+func TestRepository_Rename(t *testing.T) {
 	var (
 		client = mock.NewClient()
 		add    = NewRepositoryAddCmd(testRepositoryClientFn(client))
@@ -129,10 +129,10 @@ func TestRepositoryRename(t *testing.T) {
 	}
 }
 
-// TestReposotoryRemove ensures that the 'remove' subcommand accepts name as
+// TestReposotory_Remove ensures that the 'remove' subcommand accepts name as
 // its argument, respects the repositorieis flag, and the entry is removed upon
 // subsequent 'list'.
-func TestRepositoryRemove(t *testing.T) {
+func TestRepository_Remove(t *testing.T) {
 	var (
 		client = mock.NewClient()
 		add    = NewRepositoryAddCmd(testRepositoryClientFn(client))

@@ -100,6 +100,22 @@ type Function struct {
 	// according to the client which is in charge of what constitutes being
 	// fully "Created" (aka initialized)
 	Created time.Time
+
+	// Invocation defines hints for use when invoking this function.
+	// See Client.Invoke for usage.
+	Invocation Invocation `yaml:"invocation,omitempty"`
+}
+
+// Invocation defines hints on how to accomplish a Function invocation.
+type Invocation struct {
+	// Format indicates the expected format of the invocation.  Either 'http'
+	// (a basic HTTP POST of standard form fields) or 'cloudevent'
+	// (a CloudEvents v2 formatted http request).
+	Format string `yaml:"format,omitempty"`
+
+	// Protocol Note:
+	// Protocol is currently always HTTP.  Method etc. determined by the single,
+	// simple switch of the Format field.
 }
 
 // NewFunctionWith defaults as provided.
@@ -354,6 +370,7 @@ func assertEmptyRoot(path string) (err error) {
 // Function rooted in the given directory.
 var contentiousFiles = []string{
 	FunctionFile,
+	".gitignore",
 }
 
 // contentiousFilesIn the given directory

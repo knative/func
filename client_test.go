@@ -4,16 +4,20 @@
 package function_test
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/mock"
 	. "knative.dev/kn-plugin-func/testing"
@@ -30,11 +34,11 @@ const (
 	TestRuntime = "go"
 )
 
-// TestNew Function completes without error using defaults and zero values.
+// TestClient_New Function completes without error using defaults and zero values.
 // New is the superset of creating a new fully deployed Function, and
 // thus implicitly tests Create, Build and Deploy, which are exposed
 // by the client API for those who prefer manual transmissions.
-func TestNew(t *testing.T) {
+func TestClient_New(t *testing.T) {
 	root := "testdata/example.com/testNew"
 	defer Using(t, root)()
 
@@ -45,11 +49,11 @@ func TestNew(t *testing.T) {
 	}
 }
 
-// TestInstantiationCreatesRepositoriesPath ensures that instantiating the
+// TestClient_InstantiationCreatesRepositoriesPath ensures that instantiating the
 // client has the side-effect of ensuring that the repositories path exists
 // on-disk, and also confirms that the XDG_CONFIG_HOME environment variable is
 // respected when calculating this home path.
-func TestInstantiationCreatesRepositoriesPath(t *testing.T) {
+func TestClient_InstantiationCreatesRepositoriesPath(t *testing.T) {
 	root := "testdata/example.com/testNewCreatesRepositoriesPath"
 	defer Using(t, root)()
 
@@ -74,8 +78,8 @@ func TestInstantiationCreatesRepositoriesPath(t *testing.T) {
 	}
 }
 
-// TestRuntimeRequired ensures that the the runtime is an expected value.
-func TestRuntimeRequired(t *testing.T) {
+// TestClient_New_RuntimeRequired ensures that the the runtime is an expected value.
+func TestClient_New_RuntimeRequired(t *testing.T) {
 	// Create a root for the new Function
 	root := "testdata/example.com/testRuntimeRequired"
 	defer Using(t, root)()
@@ -89,9 +93,9 @@ func TestRuntimeRequired(t *testing.T) {
 	}
 }
 
-// TestNameDefaults ensures that a newly created Function has its name defaulted
+// TestClient_New_NameDefaults ensures that a newly created Function has its name defaulted
 // to a name which can be dervied from the last part of the given root path.
-func TestNameDefaults(t *testing.T) {
+func TestClient_New_NameDefaults(t *testing.T) {
 	root := "testdata/example.com/testNameDefaults"
 	defer Using(t, root)()
 
@@ -118,9 +122,9 @@ func TestNameDefaults(t *testing.T) {
 	}
 }
 
-// TestWritesTemplate ensures the config file and files from the template
+// TestClient_New_WritesTemplate ensures the config file and files from the template
 // are written on new.
-func TestWritesTemplate(t *testing.T) {
+func TestClient_New_WritesTemplate(t *testing.T) {
 	root := "testdata/example.com/testWritesTemplate"
 	defer Using(t, root)()
 
@@ -141,9 +145,9 @@ func TestWritesTemplate(t *testing.T) {
 	}
 }
 
-// TestExtantAborts ensures that a directory which contains an extant
+// TestClient_New_ExtantAborts ensures that a directory which contains an extant
 // Function does not reinitialize.
-func TestExtantAborts(t *testing.T) {
+func TestClient_New_ExtantAborts(t *testing.T) {
 	root := "testdata/example.com/testExtantAborts"
 	defer Using(t, root)()
 
@@ -160,9 +164,9 @@ func TestExtantAborts(t *testing.T) {
 	}
 }
 
-// TestNonemptyAborts ensures that a directory which contains any
+// TestClient_New_NonemptyAborts ensures that a directory which contains any
 // (visible) files aborts.
-func TestNonemptyAborts(t *testing.T) {
+func TestClient_New_NonemptyAborts(t *testing.T) {
 	root := "testdata/example.com/testNonemptyAborts"
 	defer Using(t, root)()
 
@@ -180,12 +184,12 @@ func TestNonemptyAborts(t *testing.T) {
 	}
 }
 
-// TestHiddenFilesIgnored ensures that initializing in a directory that
+// TestClient_New_HiddenFilesIgnored ensures that initializing in a directory that
 // only contains hidden files does not error, protecting against the naieve
 // implementation of aborting initialization if any files exist, which would
 // break functions tracked in source control (.git), or when used in
 // conjunction with other tools (.envrc, etc)
-func TestHiddenFilesIgnored(t *testing.T) {
+func TestClient_New_HiddenFilesIgnored(t *testing.T) {
 	// Create a directory for the Function
 	root := "testdata/example.com/testHiddenFilesIgnored"
 	defer Using(t, root)()
@@ -204,7 +208,7 @@ func TestHiddenFilesIgnored(t *testing.T) {
 	}
 }
 
-// TestRepositoriesExtensible ensures that templates are extensible
+// TestClient_New_RepositoriesExtensible ensures that templates are extensible
 // using a custom path to template repositories on disk. The custom repositories
 // location is not defined herein but expected to be provided because, for
 // example, a CLI may want to use XDG_CONFIG_HOME.  Assuming a repository path
@@ -213,7 +217,7 @@ func TestHiddenFilesIgnored(t *testing.T) {
 // $FUNC_REPOSITORIES/boson/go/json
 // See the CLI for full details, but a standard default location is
 // $HOME/.config/func/repositories/boson/go/json
-func TestRepositoriesExtensible(t *testing.T) {
+func TestClient_New_RepositoriesExtensible(t *testing.T) {
 	root := "testdata/example.com/testRepositoriesExtensible"
 	defer Using(t, root)()
 
@@ -234,8 +238,9 @@ func TestRepositoriesExtensible(t *testing.T) {
 	}
 }
 
-// TestRuntimeNotFound generates an error (embedded default repository).
-func TestRuntimeNotFound(t *testing.T) {
+// TestRuntime_New_RuntimeNotFoundError generates an error when the provided
+// runtime is not fo0und (embedded default repository).
+func TestClient_New_RuntimeNotFoundError(t *testing.T) {
 	root := "testdata/example.com/testRuntimeNotFound"
 	defer Using(t, root)()
 
@@ -249,9 +254,9 @@ func TestRuntimeNotFound(t *testing.T) {
 	}
 }
 
-// TestRuntimeNotFoundCustom ensures that the correct error is returned
+// TestClient_New_RuntimeNotFoundCustom ensures that the correct error is returned
 // when the requested runtime is not found in a given custom repository
-func TestRuntimeNotFoundCustom(t *testing.T) {
+func TestClient_New_RuntimeNotFoundCustom(t *testing.T) {
 	root := "testdata/example.com/testRuntimeNotFoundCustom"
 	defer Using(t, root)()
 
@@ -271,8 +276,8 @@ func TestRuntimeNotFoundCustom(t *testing.T) {
 	}
 }
 
-// TestTemplateNotFound generates an error (embedded default repository).
-func TestTemplateNotFound(t *testing.T) {
+// TestClient_New_TemplateNotFoundError generates an error (embedded default repository).
+func TestClient_New_TemplateNotFoundError(t *testing.T) {
 	root := "testdata/example.com/testTemplateNotFound"
 	defer Using(t, root)()
 
@@ -287,9 +292,9 @@ func TestTemplateNotFound(t *testing.T) {
 	}
 }
 
-// TestTemplateNotFoundCustom ensures that the correct error is returned
+// TestClient_New_TemplateNotFoundCustom ensures that the correct error is returned
 // when the requested template is not found in the given custom repository.
-func TestTemplateNotFoundCustom(t *testing.T) {
+func TestClient_New_TemplateNotFoundCustom(t *testing.T) {
 	root := "testdata/example.com/testTemplateNotFoundCustom"
 	defer Using(t, root)()
 
@@ -308,9 +313,9 @@ func TestTemplateNotFoundCustom(t *testing.T) {
 	}
 }
 
-// TestNamed ensures that an explicitly passed name is used in leau of the
+// TestClient_New_Named ensures that an explicitly passed name is used in leau of the
 // path derived name when provided, and persists through instantiations.
-func TestNamed(t *testing.T) {
+func TestClient_New_Named(t *testing.T) {
 	// Explicit name to use
 	name := "service.example.com"
 
@@ -335,7 +340,7 @@ func TestNamed(t *testing.T) {
 	}
 }
 
-// TestRegistryRequired ensures that a registry is required, and is
+// TestClient_New_RegistryRequired ensures that a registry is required, and is
 // prepended with the DefaultRegistry if a single token.
 // Registry is the namespace at the container image registry.
 // If not prepended with the registry, it will be defaulted:
@@ -345,7 +350,7 @@ func TestNamed(t *testing.T) {
 // At this time a registry namespace is required as we rely on a third-party
 // registry in all cases.  When we support in-cluster container registries,
 // this configuration parameter will become optional.
-func TestRegistryRequired(t *testing.T) {
+func TestClient_New_RegistryRequired(t *testing.T) {
 	// Create a root for the Function
 	root := "testdata/example.com/testRegistryRequired"
 	defer Using(t, root)()
@@ -358,10 +363,10 @@ func TestRegistryRequired(t *testing.T) {
 	fmt.Println(err)
 }
 
-// TestDeriveImage ensures that the full image (tag) of the resultant OCI
+// TestClient_New_ImageNameDerived ensures that the full image (tag) of the resultant OCI
 // container is populated based of a derivation using configured registry
 // plus the service name.
-func TestDeriveImage(t *testing.T) {
+func TestClient_New_ImageNameDerived(t *testing.T) {
 	// Create the root Function directory
 	root := "testdata/example.com/testDeriveImage"
 	defer Using(t, root)()
@@ -385,10 +390,10 @@ func TestDeriveImage(t *testing.T) {
 	}
 }
 
-// TestDeriveImageDefaultRegistry ensures that a Registry which does not have
+// TestCleint_New_ImageRegistryDefaults ensures that a Registry which does not have
 // a registry prefix has the DefaultRegistry prepended.
 // For example "alice" becomes "docker.io/alice"
-func TestDeriveImageDefaultRegistry(t *testing.T) {
+func TestClient_New_ImageRegistryDefaults(t *testing.T) {
 	// Create the root Function directory
 	root := "testdata/example.com/testDeriveImageDefaultRegistry"
 	defer Using(t, root)()
@@ -414,10 +419,10 @@ func TestDeriveImageDefaultRegistry(t *testing.T) {
 	}
 }
 
-// TestDelegation ensures that Create invokes each of the individual
+// TestClient_New_Delegation ensures that Create invokes each of the individual
 // subcomponents via delegation through Build, Push and
 // Deploy (and confirms expected fields calculated).
-func TestNewDelegates(t *testing.T) {
+func TestClient_New_Delegation(t *testing.T) {
 	var (
 		root          = "testdata/example.com/testNewDelegates" // .. in which to initialize
 		expectedName  = "testNewDelegates"                      // expected to be derived
@@ -488,13 +493,14 @@ func TestNewDelegates(t *testing.T) {
 	}
 }
 
-// TestRun ensures that the runner is invoked with the absolute path requested.
-func TestRun(t *testing.T) {
+// TestClient_Run ensures that the runner is invoked with the absolute path requested.
+// Implicitly checks that the stop fn returned also is respected.
+func TestClient_Run(t *testing.T) {
 	// Create the root Function directory
 	root := "testdata/example.com/testRun"
 	defer Using(t, root)()
 
-	// Create a client with the mock runner and the new test Function
+	// client with the mock runner and the new test Function
 	runner := mock.NewRunner()
 	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithRunner(runner))
 	if err := client.New(context.Background(), fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
@@ -502,9 +508,14 @@ func TestRun(t *testing.T) {
 	}
 
 	// Run the newly created function
-	if err := client.Run(context.Background(), root); err != nil {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	job, err := client.Run(ctx, root)
+	if err != nil {
 		t.Fatal(err)
 	}
+	defer job.Stop()
 
 	// Assert the runner was invoked, and with the expected root.
 	if !runner.RunInvoked {
@@ -515,9 +526,54 @@ func TestRun(t *testing.T) {
 	}
 }
 
-// TestUpdate ensures that the deployer properly invokes the build/push/deploy
+// TestClient_Run_DataDir ensures that when a Function is created, it also
+// includes a .func (runtime data) directory which is registered as ignored for
+// Functions which will be tracked in git source control.
+// Note that this test is somewhat testing an implementation detail of `.Run(`
+// (it writes runtime data to files in .func) but since the feature of adding
+// .func to .gitignore is an important externally visible "feature", an explicit
+// test is warranted.
+func TestClient_Run_DataDir(t *testing.T) {
+	root := "testdata/example.com/testRunDataDir"
+	defer Using(t, root)()
+
+	// Create a function at root
+	client := fn.New(fn.WithRegistry(TestRegistry))
+	if err := client.New(context.Background(), fn.Function{Root: root, Runtime: TestRuntime}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Assert the directory exists
+	if _, err := os.Stat(filepath.Join(root, fn.RunDataDir)); os.IsNotExist(err) {
+		t.Fatal(err)
+	}
+
+	// Assert that .gitignore was also created and includes an ignore directove
+	// for the .func directory
+	if _, err := os.Stat(filepath.Join(root, ".gitignore")); os.IsNotExist(err) {
+		t.Fatal(err)
+	}
+
+	// Assert that .func is ignored
+	file, err := os.Open(filepath.Join(root, ".gitignore"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+
+	// Assert the directive exists
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		if scanner.Text() == "/"+fn.RunDataDir {
+			return // success
+		}
+	}
+	t.Errorf(".gitignore does not include '/%v' ignore directive", fn.RunDataDir)
+}
+
+// TestClient_Update ensures that the deployer properly invokes the build/push/deploy
 // process, erroring if run on a directory uncreated.
-func TestUpdate(t *testing.T) {
+func TestClient_Update(t *testing.T) {
 	var (
 		root          = "testdata/example.com/testUpdate"
 		expectedName  = "testUpdate"
@@ -591,9 +647,9 @@ func TestUpdate(t *testing.T) {
 	}
 }
 
-// TestRemoveByPath ensures that the remover is invoked to remove
+// TestClient_Remove_ByPath ensures that the remover is invoked to remove
 // the Function with the name of the function at the provided root.
-func TestRemoveByPath(t *testing.T) {
+func TestClient_Remove_ByPath(t *testing.T) {
 	var (
 		root         = "testdata/example.com/testRemoveByPath"
 		expectedName = "testRemoveByPath"
@@ -627,9 +683,9 @@ func TestRemoveByPath(t *testing.T) {
 
 }
 
-// TestRemoveByName ensures that the remover is invoked to remove the function
+// TestClient_Remove_ByName ensures that the remover is invoked to remove the function
 // of the name provided, with precidence over a provided root path.
-func TestRemoveByName(t *testing.T) {
+func TestClient_Remove_ByName(t *testing.T) {
 	var (
 		root         = "testdata/example.com/testRemoveByName"
 		expectedName = "explicitName.example.com"
@@ -668,11 +724,11 @@ func TestRemoveByName(t *testing.T) {
 	}
 }
 
-// TestRemoveUninitializedFails ensures that attempting to remove a Function
+// TestClient_Remove_UninitializedFails ensures that removing a Function
 // by path only (no name) fails unless the Function has been initialized.  I.e.
 // the name will not be derived from path and the Function removed by this
 // derived name; which could be unexpected and destructive.
-func TestRemoveUninitializedFails(t *testing.T) {
+func TestClient_Remove_UninitializedFails(t *testing.T) {
 	var (
 		root    = "testdata/example.com/testRemoveUninitializedFails"
 		remover = mock.NewRemover()
@@ -695,8 +751,8 @@ func TestRemoveUninitializedFails(t *testing.T) {
 	}
 }
 
-// TestList merely ensures that the client invokes the configured lister.
-func TestList(t *testing.T) {
+// TestClient_List merely ensures that the client invokes the configured lister.
+func TestClient_List(t *testing.T) {
 	lister := mock.NewLister()
 
 	client := fn.New(fn.WithLister(lister)) // lists deployed Functions.
@@ -710,11 +766,11 @@ func TestList(t *testing.T) {
 	}
 }
 
-// TestListOutsideRoot ensures that a call to a Function (in this case list)
+// TestClient_List_OutsideRoot ensures that a call to a Function (in this case list)
 // that is not contextually dependent on being associated with a Function,
 // can be run from anywhere, thus ensuring that the client itself makes
 // a distinction between Function-scoped methods and not.
-func TestListOutsideRoot(t *testing.T) {
+func TestClient_List_OutsideRoot(t *testing.T) {
 	lister := mock.NewLister()
 
 	// Instantiate in the current working directory, with no name.
@@ -729,10 +785,10 @@ func TestListOutsideRoot(t *testing.T) {
 	}
 }
 
-// TestDeployUnbuilt ensures that a call to deploy a Function which was not
+// TestClient_Deploy_UnbuiltErrors ensures that a call to deploy a Function which was not
 // fully created (ie. was only initialized, not actually built and deploys)
 // yields an expected, and informative, error.
-func TestDeployUnbuilt(t *testing.T) {
+func TestClient_Deploy_UnbuiltErrors(t *testing.T) {
 	root := "testdata/example.com/testDeployUnbuilt" // Root from which to run the test
 	defer Using(t, root)()
 
@@ -755,34 +811,10 @@ func TestDeployUnbuilt(t *testing.T) {
 	}
 }
 
-// TestEmit ensures that the client properly invokes the emitter when provided
-func TestEmit(t *testing.T) {
-	sink := "http://testy.mctestface.com"
-	emitter := mock.NewEmitter()
-
-	// Ensure sink passthrough from client
-	emitter.EmitFn = func(s string) error {
-		if s != sink {
-			t.Fatalf("Unexpected sink %v\n", s)
-		}
-		return nil
-	}
-
-	// Instantiate in the current working directory, with no name.
-	client := fn.New(fn.WithEmitter(emitter))
-
-	if err := client.Emit(context.Background(), sink); err != nil {
-		t.Fatal(err)
-	}
-	if !emitter.EmitInvoked {
-		t.Fatal("Client did not invoke emitter.Emit()")
-	}
-}
-
-// Asserts that the client properly writes user provided Builders
-// to the Function configuration but uses internal default if
-// not provided.
-func TestWithConfiguredBuilders(t *testing.T) {
+// TestClient_New_BuildersPersisted Asserts that the client preserves user-
+// provided Builders on the Function configuration with the internal default
+// if not provided.
+func TestClient_New_BuildersPersisted(t *testing.T) {
 	root := "testdata/example.com/testConfiguredBuilders" // Root from which to run the test
 	defer Using(t, root)()
 	client := fn.New(fn.WithRegistry(TestRegistry))
@@ -796,7 +828,7 @@ func TestWithConfiguredBuilders(t *testing.T) {
 		}}
 
 	// Create the Function, which should preserve custom builders
-	if err := client.Create(f0); err != nil {
+	if err := client.New(context.Background(), f0); err != nil {
 		t.Fatal(err)
 	}
 
@@ -817,10 +849,10 @@ func TestWithConfiguredBuilders(t *testing.T) {
 	}
 }
 
-// Asserts that the client properly sets user provided Builders
-// in the Function configuration, and if one of the provided is
-// keyed as "default", this is set as the default Builder.
-func TestWithConfiguredBuildersWithDefault(t *testing.T) {
+// TestClient_New_BuilderDefault ensures that if a custom builder is
+// provided of name "default", this is chosen as the default builder instead
+// of the inbuilt static default.
+func TestClient_New_BuilderDefault(t *testing.T) {
 	root := "testdata/example.com/testConfiguredBuildersWithDefault" // Root from which to run the test
 	defer Using(t, root)()
 
@@ -829,7 +861,7 @@ func TestWithConfiguredBuildersWithDefault(t *testing.T) {
 		"default": "docker.io/example/default",
 	}
 	client := fn.New(fn.WithRegistry(TestRegistry))
-	if err := client.Create(fn.Function{
+	if err := client.New(context.Background(), fn.Function{
 		Runtime:  TestRuntime,
 		Root:     root,
 		Builders: builders,
@@ -852,9 +884,9 @@ func TestWithConfiguredBuildersWithDefault(t *testing.T) {
 	}
 }
 
-// Asserts that the client properly sets the Buildpacks property
-// in the Function configuration when it is provided.
-func TestWithConfiguredBuildpacks(t *testing.T) {
+// TestClient_New_BuildpacksPersisted ensures that provided buildpacks are
+// persisted on new Functions.
+func TestClient_New_BuildpacksPersisted(t *testing.T) {
 	root := "testdata/example.com/testConfiguredBuildpacks" // Root from which to run the test
 	defer Using(t, root)()
 
@@ -862,7 +894,7 @@ func TestWithConfiguredBuildpacks(t *testing.T) {
 		"docker.io/example/custom-buildpack",
 	}
 	client := fn.New(fn.WithRegistry(TestRegistry))
-	if err := client.Create(fn.Function{
+	if err := client.New(context.Background(), fn.Function{
 		Runtime:    TestRuntime,
 		Root:       root,
 		Buildpacks: buildpacks,
@@ -880,8 +912,8 @@ func TestWithConfiguredBuildpacks(t *testing.T) {
 	}
 }
 
-// TestRuntimes ensures that the total set of runtimes are returned.
-func TestRuntimes(t *testing.T) {
+// TestClient_Runtimes ensures that the total set of runtimes are returned.
+func TestClient_Runtimes(t *testing.T) {
 	// TODO: test when a specific repo override is indicated
 	// (remote repo which takes precidence over embedded and extended)
 
@@ -925,9 +957,9 @@ func TestRuntimes(t *testing.T) {
 	}
 }
 
-// TestCreateStamp ensures that the creation timestamp is set on functions
+// TestClient_New_Timestamp ensures that the creation timestamp is set on functions
 // which are successfully initialized using the client library.
-func TestCreateStamp(t *testing.T) {
+func TestClient_New_Timestamp(t *testing.T) {
 	root := "testdata/example.com/testCreateStamp"
 	defer Using(t, root)()
 
@@ -945,5 +977,224 @@ func TestCreateStamp(t *testing.T) {
 	}
 	if !f.Created.After(start) {
 		t.Fatalf("expected function timestamp to be after '%v', got '%v'", start, f.Created)
+	}
+}
+
+// TestClient_Invoke_HTTP ensures that the client will attempt to invoke a default HTTP
+// Function using a simple HTTP POST method with the invoke message as form
+// field values (as though a simple form were posted).
+func TestClient_Invoke_HTTP(t *testing.T) {
+	root := "testdata/example.com/testInvokeHTTP"
+	defer Using(t, root)()
+
+	// Flag indicating the Function was invoked
+	var invoked bool
+
+	// The message to send to the Function
+	// Individual fields can be overridden, by default all fields are populeted
+	// with values intended as illustrative examples plus a unique request ID.
+	message := fn.NewInvokeMessage()
+
+	// An HTTP handler which masquarades as a running Function and verifies the
+	// invoker POSTed the invocation message.
+	handler := http.NewServeMux()
+	handler.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
+		invoked = true
+		if err := req.ParseForm(); err != nil {
+			t.Fatal(err)
+		}
+		// Verify that we POST to HTTP endpoints by default
+		if req.Method != "POST" {
+			t.Fatalf("expected 'POST' request, got '%v'", req.Method)
+		}
+		// Verify the values came through via a spot-check of the unique ID
+		if req.Form.Get("ID") != message.ID {
+			t.Fatalf("expected message ID '%v', got '%v'", message.ID, req.Form.Get("ID"))
+		}
+	})
+
+	// Expose the masquarading Function on an OS-chosen port.
+	l, err := net.Listen("tcp4", "127.0.0.1:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := http.Server{Handler: handler}
+	go func() {
+		if err = s.Serve(l); err != nil && err != http.ErrServerClosed {
+			fmt.Fprintf(os.Stderr, "error serving: %v", err)
+		}
+	}()
+	defer s.Close()
+
+	// Create a client with a mock runner which will report the port at which the
+	// interloping Function is listening.
+	runner := mock.NewRunner()
+	runner.RunFn = func(ctx context.Context, f fn.Function) (*fn.Job, error) {
+		_, p, _ := net.SplitHostPort(l.Addr().String())
+		errs := make(chan error, 10)
+		stop := func() {}
+		return fn.NewJob(f, p, errs, stop)
+	}
+	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithRunner(runner))
+
+	// Create a new default HTTP function
+	f := fn.Function{Runtime: TestRuntime, Root: root, Template: "http"}
+	if err := client.New(context.Background(), f); err != nil {
+		t.Fatal(err)
+	}
+
+	// Run the Function
+	job, err := client.Run(context.Background(), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer job.Stop()
+
+	// Invoke the Function, which will use the mock Runner
+	if err := client.Invoke(context.Background(), f.Root, "", message); err != nil {
+		t.Fatal(err)
+	}
+
+	// Fail if the Function was never invoked.
+	if !invoked {
+		t.Fatal("Function was not invoked")
+	}
+
+	// Also fail if the mock runner was never invoked.
+	if !runner.RunInvoked {
+		t.Fatal("the runner was not")
+	}
+}
+
+// TestClient_Invoke_CloudEvent ensures that the client will attempt to invoke a
+// default CloudEvent Function.  This also uses the HTTP protocol but asserts
+// the invoker is sending the invocation message as a CloudEvent rather than
+// a standard HTTP form POST.
+func TestClient_Invoke_CloudEvent(t *testing.T) {
+	root := "testdata/example.com/testInvokeCloudEvent"
+	defer Using(t, root)()
+
+	var (
+		invoked bool // flag the Function was invoked
+		ctx     = context.Background()
+		message = fn.NewInvokeMessage() // message to send to the Function
+	)
+
+	// A CloudEvent Receiver which masquarades as a running Function and
+	// verifies the invoker sent the message as a populated CloudEvent.
+	receiver := func(ctx context.Context, event cloudevents.Event) {
+		invoked = true
+		if event.ID() != message.ID {
+			t.Fatalf("expected event ID '%v', got '%v'", message.ID, event.ID())
+		}
+	}
+
+	// A cloudevent receive handler which will expect the HTTP protocol
+	protocol, err := cloudevents.NewHTTP() // Use HTTP protocol when receiving
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler, err := cloudevents.NewHTTPReceiveHandler(ctx, protocol, receiver)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Listen and serve on an OS-chosen port
+	l, err := net.Listen("tcp4", "127.0.0.1:")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := http.Server{Handler: handler}
+	go func() {
+		if err := s.Serve(l); err != nil && err != http.ErrServerClosed {
+			fmt.Fprintf(os.Stderr, "error serving: %v", err)
+		}
+	}()
+	defer s.Close()
+
+	// Create a client with a mock Runner which returns its address.
+	runner := mock.NewRunner()
+	runner.RunFn = func(ctx context.Context, f fn.Function) (*fn.Job, error) {
+		_, p, _ := net.SplitHostPort(l.Addr().String())
+		errs := make(chan error, 10)
+		stop := func() {}
+		return fn.NewJob(f, p, errs, stop)
+	}
+	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithRunner(runner))
+
+	// Create a new default CloudEvents function
+	f := fn.Function{Runtime: TestRuntime, Root: root, Template: "cloudevents"}
+	if err := client.New(context.Background(), f); err != nil {
+		t.Fatal(err)
+	}
+
+	// Run the Function
+	job, err := client.Run(context.Background(), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer job.Stop()
+
+	// Invoke the Function, which will use the mock Runner
+	if err := client.Invoke(context.Background(), f.Root, "", message); err != nil {
+		t.Fatal(err)
+	}
+
+	// Fail if the Function was never invoked.
+	if !invoked {
+		t.Fatal("Function was not invoked")
+	}
+
+	// Also fail if the mock runner was never invoked.
+	if !runner.RunInvoked {
+		t.Fatal("the runner was not invoked")
+	}
+}
+
+// TestClient_Instances ensures that when a Function is run (locally) its metadata
+// is available to other clients inspecting the same Function using .Instances
+func TestClient_Instances(t *testing.T) {
+	root := "testdata/example.com/testInstances"
+	defer Using(t, root)()
+
+	// A mock runner
+	runner := mock.NewRunner()
+	runner.RunFn = func(_ context.Context, f fn.Function) (*fn.Job, error) {
+		errs := make(chan error, 10)
+		stop := func() {}
+		return fn.NewJob(f, "8080", errs, stop)
+	}
+
+	// Client with the mock runner
+	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithRunner(runner))
+
+	// Create the new Function
+	if err := client.New(context.Background(), fn.Function{Root: root, Runtime: TestRuntime}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Run the function, awaiting start and then canceling
+	job, err := client.Run(context.Background(), root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer job.Stop()
+
+	// Load the (now fully initialized) Function metadata
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Get the local function instance info
+	instance, err := client.Instances().Local(context.Background(), f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Assert the endpoint route is as expected
+	expectedEndpoint := "http://localhost:8080/"
+	if instance.Route != expectedEndpoint {
+		t.Fatalf("Expected endpoint '%v', got '%v'", expectedEndpoint, instance.Route)
 	}
 }

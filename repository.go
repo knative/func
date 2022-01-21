@@ -26,6 +26,10 @@ const (
 	DefaultLivenessEndpoint = "/health/liveness"
 	// DefaultTemplatesPath is the root of the defined repository
 	DefaultTemplatesPath = "."
+	// DefaultInvocationFormat is a named invocation hint for the convenience
+	// helper .Invoke.  It is usually set at the template level.  The default
+	// ('http') is a plain HTTP POST.
+	DefaultInvocationFormat = "http"
 
 	// Defaults for Builder and Builders not expressly defined as a purposeful
 	// delegation of choice.
@@ -66,6 +70,10 @@ type Repository struct {
 	// TODO upgrade to fs.FS introduced in go1.16
 	FS Filesystem
 
+	// Invocation hints for all templates in this repo
+	// (it is more likely this will be set only at the template level)
+	Invocation Invocation `yaml:"invocation,omitempty"`
+
 	uri string // URI which was used when initially creating
 
 }
@@ -91,6 +99,10 @@ type Runtime struct {
 	// added/expected; rather the Buildpacks and Builders are direct descendants
 	// of Runtime.
 	BuildConfig `yaml:",inline"`
+
+	// Invocation hints for all templates in this runtime
+	// (it is more likely this will be set only at the template level)
+	Invocation Invocation `yaml:"invocation,omitempty"`
 
 	// Templates defined for the runtime
 	Templates []Template
@@ -121,6 +133,7 @@ func NewRepository(name, uri string) (r Repository, err error) {
 			Liveness:  DefaultLivenessEndpoint,
 			Readiness: DefaultLivenessEndpoint,
 		},
+		Invocation: Invocation{Format: DefaultInvocationFormat},
 	}
 	r.FS, err = filesystemFromURI(uri) // Get a Filesystem from the URI
 	if err != nil {
@@ -240,6 +253,7 @@ func repositoryRuntimes(r Repository) (runtimes []Runtime, err error) {
 			BuildConfig:     r.BuildConfig,
 			HealthEndpoints: r.HealthEndpoints,
 			BuildEnvs:       r.BuildEnvs,
+			Invocation:      r.Invocation,
 		}
 		// Runtime Manifest
 		// Load the file if it exists, which may override values inherited from the
@@ -293,6 +307,7 @@ func runtimeTemplates(r Repository, runtime Runtime) (templates []Template, err 
 			BuildConfig:     runtime.BuildConfig,
 			HealthEndpoints: runtime.HealthEndpoints,
 			BuildEnvs:       runtime.BuildEnvs,
+			Invocation:      runtime.Invocation,
 		}
 
 		// Template Manifeset

@@ -8,9 +8,9 @@ import (
 	"knative.dev/kn-plugin-func/mock"
 )
 
-// TestDeleteByName ensures that running delete specifying the name of the
+// TestDelete_ByName ensures that running delete specifying the name of the
 // Function explicitly as an argument invokes the remover appropriately.
-func TestDeleteByName(t *testing.T) {
+func TestDelete_ByName(t *testing.T) {
 	var (
 		testname = "testname"         // explicit name for the Function
 		args     = []string{testname} // passed as the lone argument
@@ -45,9 +45,9 @@ func TestDeleteByName(t *testing.T) {
 	}
 }
 
-// TestDeleteByProject ensures that running delete with a valid project as its
+// TestDelete_ByProject ensures that running delete with a valid project as its
 // context invokes remove and with the correct name (reads name from func.yaml)
-func TestDeleteByProject(t *testing.T) {
+func TestDelete_ByProject(t *testing.T) {
 	// from within a new temporary directory
 	defer fromTempDir(t)()
 
@@ -97,12 +97,12 @@ created: 2021-01-01T00:00:00+00:00
 	}
 }
 
-// TestDeleteNameAndPathExclusivity ensures that providing both a name and a
+// TestDelete_NameAndPathExclusivity ensures that providing both a name and a
 // path generates an error.
 // Providing the --path (-p) flag indicates the name of the function to delete
 // is to be taken from the Function at the given path.  Providing the name as
 // an argument as well is therefore redundant and an error.
-func TestDeleteNameAndPathExclusivity(t *testing.T) {
+func TestDelete_NameAndPathExclusivity(t *testing.T) {
 
 	// A mock remover which will be sampled to ensure it is not invoked.
 	remover := mock.NewRemover()

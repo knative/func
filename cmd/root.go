@@ -34,12 +34,12 @@ curl $(kn service describe myfunc -o url)
 // resultant binary with no arguments prints the help/usage text.
 var root = &cobra.Command{
 	Use:           "func",
-	Short:         "Serverless functions",
+	Short:         "Serverless Functions",
 	SilenceErrors: true, // we explicitly handle errors in Execute()
 	SilenceUsage:  true, // no usage dump on error
-	Long: `Serverless functions
+	Long: `Serverless Functions
 
-Create, build and deploy functions in serverless containers for multiple runtimes on Knative`,
+Create, build and deploy Functions in serverless containers for multiple runtimes on Knative`,
 }
 
 func init() {

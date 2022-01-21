@@ -11,8 +11,8 @@ import (
 	"testing"
 )
 
-// TestConfigPathDefault ensures that config defaults to XDG_CONFIG_HOME/func
-func TestConfigPathDefault(t *testing.T) {
+// TestConfig_PathDefault ensures that config defaults to XDG_CONFIG_HOME/func
+func TestConfig_PathDefault(t *testing.T) {
 	// TODO
 	// Set XDG_CONFIG_PATH to ./testdata/config
 	// Confirm the config is populated from the test files.
@@ -20,7 +20,7 @@ func TestConfigPathDefault(t *testing.T) {
 
 // TestConfigPath ensure that the config path provided via the WithConfig
 // option is respected.
-func TestConfigPath(t *testing.T) {
+func TestConfig_Path(t *testing.T) {
 	// TODO
 	// Create a client specifying ./testdata/config
 	// Confirm the config is populated from the test files.
@@ -28,7 +28,7 @@ func TestConfigPath(t *testing.T) {
 
 // TestConfigRepositoriesPath ensures that the repositories directory within
 // the effective config path is created if it does not already exist.
-func TestConfigRepositoriesPath(t *testing.T) {
+func TestConfig_RepositoriesPath(t *testing.T) {
 	// TODO
 	// Create a temporary directory
 	// Specify this directory as the config path when instantiating a client.

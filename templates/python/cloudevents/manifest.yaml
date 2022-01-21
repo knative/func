@@ -1,2 +1,4 @@
 builders:
   default: quay.io/boson/faas-python-builder:v0.8.4
+invocation:
+  format: "cloudevent"

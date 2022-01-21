@@ -20,9 +20,9 @@ import (
 // requisite test.
 const RepositoriesTestRepo = "repository"
 
-// TestRepositoriesList ensures the base case of listing
+// TestRepositories_List ensures the base case of listing
 // repositories without error in the default scenario of builtin only.
-func TestRepositoriesList(t *testing.T) {
+func TestRepositories_List(t *testing.T) {
 	root, rm := Mktemp(t)
 	defer rm()
 
@@ -38,9 +38,9 @@ func TestRepositoriesList(t *testing.T) {
 	}
 }
 
-// TestRepositoriesGetInvalid ensures that attempting to get an invalid repo
+// TestRepositories_GetInvalid ensures that attempting to get an invalid repo
 // results in error.
-func TestRepositoriesGetInvalid(t *testing.T) {
+func TestRepositories_GetInvalid(t *testing.T) {
 	client := fn.New(fn.WithRepositories("testdata/repositories"))
 
 	// invalid should error
@@ -50,8 +50,8 @@ func TestRepositoriesGetInvalid(t *testing.T) {
 	}
 }
 
-// TestRepositoriesGet ensures a repository can be accessed by name.
-func TestRepositoriesGet(t *testing.T) {
+// TestRepositories_Get ensures a repository can be accessed by name.
+func TestRepositories_Get(t *testing.T) {
 	client := fn.New(fn.WithRepositories("testdata/repositories"))
 
 	// valid should not error
@@ -66,9 +66,9 @@ func TestRepositoriesGet(t *testing.T) {
 	}
 }
 
-// TestRepositoriesAll ensures repos are returned from
+// TestRepositories_All ensures repos are returned from
 // .All accessor.  Tests both builtin and buitlin+extensible cases.
-func TestRepositoriesAll(t *testing.T) {
+func TestRepositories_All(t *testing.T) {
 	uri := TestRepoURI(RepositoriesTestRepo, t)
 	root, rm := Mktemp(t)
 	defer rm()
@@ -104,8 +104,8 @@ func TestRepositoriesAll(t *testing.T) {
 	}
 }
 
-// TestRepositoriesAdd checks basic adding of a repository by URI.
-func TestRepositoriesAdd(t *testing.T) {
+// TestRepositories_Add checks basic adding of a repository by URI.
+func TestRepositories_Add(t *testing.T) {
 	uri := TestRepoURI(RepositoriesTestRepo, t) // ./testdata/$RepositoriesTestRepo.git
 	root, rm := Mktemp(t)                       // create and cd to a temp dir, returning path.
 	defer rm()
@@ -137,9 +137,9 @@ func TestRepositoriesAdd(t *testing.T) {
 	}
 }
 
-// TestRepositoriesAddDefaultName ensures that repository name is optional,
+// TestRepositories_AddDefaultName ensures that repository name is optional,
 // by default being set to the name of the repoisotory from the URI.
-func TestRepositoriesAddDeafultName(t *testing.T) {
+func TestRepositories_AddDeafultName(t *testing.T) {
 	// The test repository is the "base case" repo, which is a manifestless
 	// repo meant to exemplify the simplest use case:  a repo with no metadata
 	// that simply contains templates, grouped by runtime.  It therefore does
@@ -171,10 +171,10 @@ func TestRepositoriesAddDeafultName(t *testing.T) {
 	}
 }
 
-// TestRepositoriesAddWithManifest ensures that a repository with
+// TestRepositories_AddWithManifest ensures that a repository with
 // a manfest wherein a default name is specified, is used as the name for the
 // added repository when a name is not explicitly specified.
-func TestRepositoriesAddWithManifest(t *testing.T) {
+func TestRepositories_AddWithManifest(t *testing.T) {
 	// repository-b is meant to exemplify the use case of a repository which
 	// defines a custom language pack and makes full use of the manifest.yaml.
 	// The manifest.yaml is included which specifies things like custom templates
@@ -207,9 +207,9 @@ func TestRepositoriesAddWithManifest(t *testing.T) {
 	}
 }
 
-// TestRepositoriesAddExistingErrors ensures that adding a repository that
+// TestRepositories_AddExistingErrors ensures that adding a repository that
 // already exists yields an error.
-func TestRepositoriesAddExistingErrors(t *testing.T) {
+func TestRepositories_AddExistingErrors(t *testing.T) {
 	uri := TestRepoURI(RepositoriesTestRepo, t)
 	root, rm := Mktemp(t) // create and cd to a temp dir, returning path.
 	defer rm()
@@ -242,8 +242,8 @@ func TestRepositoriesAddExistingErrors(t *testing.T) {
 	}
 }
 
-// TestRepositoriesRename ensures renaming a repository succeeds.
-func TestRepositoriesRename(t *testing.T) {
+// TestRepositories_Rename ensures renaming a repository succeeds.
+func TestRepositories_Rename(t *testing.T) {
 	uri := TestRepoURI(RepositoriesTestRepo, t)
 	root, rm := Mktemp(t) // create and cd to a temp dir, returning path.
 	defer rm()
@@ -275,9 +275,9 @@ func TestRepositoriesRename(t *testing.T) {
 	}
 }
 
-// TestRepositoriesRemove ensures that removing a repository by name
+// TestRepositories_Remove ensures that removing a repository by name
 // removes it from the list and FS.
-func TestRepositoriesRemove(t *testing.T) {
+func TestRepositories_Remove(t *testing.T) {
 	uri := TestRepoURI(RepositoriesTestRepo, t) // ./testdata/repository.git
 	root, rm := Mktemp(t)                       // create and cd to a temp dir
 	defer rm()
@@ -310,9 +310,9 @@ func TestRepositoriesRemove(t *testing.T) {
 	}
 }
 
-// TestRepositoriesURL ensures that a repository populates its URL member
+// TestRepositories_URL ensures that a repository populates its URL member
 // from the git repository's origin url (if it is a git repo and exists)
-func TestRepositoriesURL(t *testing.T) {
+func TestRepositories_URL(t *testing.T) {
 	// FIXME:  This test is temporarily disabled.  See not in Repository.Write
 	// in short: as a side-effect of removing the double-clone, the in-memory
 	// repo is insufficient as it does not include a .git directory.
@@ -344,13 +344,13 @@ func TestRepositoriesURL(t *testing.T) {
 	}
 }
 
-// TestRepositoriesMissing ensures that a missing repositores directory
+// TestRepositories_Missing ensures that a missing repositores directory
 // does not cause an error unless it was explicitly set (zero value indicates
 // no repos should be loaded from os).
 // This may change in an upcoming release where the repositories directory
 // will be created at the config path if it does not exist, but this requires
 // first moving the defaulting path logic from CLI into the client lib.
-func TestRepositoriesMissing(t *testing.T) {
+func TestRepositories_Missing(t *testing.T) {
 	// Client with no repositories path defined.
 	client := fn.New()
 

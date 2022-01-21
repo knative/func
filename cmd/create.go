@@ -56,7 +56,7 @@ NAME
 	{{.Prefix}}func create - Create a Function project.
 
 SYNOPSIS
-	func create [-l|--language] [-t|--template] [-r|--repository]
+	{{.Prefix}}func create [-l|--language] [-t|--template] [-r|--repository]
 	            [-c|--confirm]  [-v|--verbose]  [path]
 
 DESCRIPTION
@@ -292,6 +292,53 @@ func newCreateConfig(args []string, clientFn createClientFn) (cfg createConfig, 
 	return
 }
 
+// Validate the current state of the config, returning any errors.
+// Note this is a deeper validation using a client already configured with a
+// preliminary config object from flags/config, such that the client instance
+// can be used to determine possible values for runtime, templates, etc.  a
+// pre-client validation should not be required, as the Client does its own
+// validation.
+func (c createConfig) Validate(client *fn.Client) (err error) {
+
+	// Confirm Name is valid
+	// Note that this is highly constricted, as it must currently adhere to the
+	// naming of a Knative Service, which itself is constrained to a Kubernetes
+	// Service, which itself is constrained to a DNS label (a subdomain).
+	// TODO: refactor to be git-like with no name at time of creation, but rather
+	// with named deployment targets in a one-to-many configuration.
+	dirName, _ := deriveNameAndAbsolutePathFromPath(c.Path)
+	if err = utils.ValidateFunctionName(dirName); err != nil {
+		return
+	}
+
+	// Validate Runtime and Template Name
+	//
+	// Perhaps additional validation would be of use here in the CLI, but
+	// the client libray itself is ultimately responsible for validating all input
+	// prior to exeuting any requests.
+	// Client validates both language runtime and template exist, with language runtime
+	// being a mandatory flag while defaulting template if not present to 'http'.
+	// However, if either of them are invalid, or the chosen combination does not exist,
+	// the error message is a rather terse one-liner. This is suitable for libraries, but
+	// for a CLI it behooves us to be more verbose, including valid options for
+	// each.  So here, we check that the values entered (if any) are both valid
+	// and valid together.
+	if c.Runtime == "" {
+		return noRuntimeError(client)
+	}
+	if c.Runtime != "" && c.Repository == "" &&
+		!isValidRuntime(client, c.Runtime) {
+		return newInvalidRuntimeError(client, c.Runtime)
+	}
+
+	if c.Template != "" && c.Repository == "" &&
+		!isValidTemplate(client, c.Runtime, c.Template) {
+		return newInvalidTemplateError(client, c.Runtime, c.Template)
+	}
+
+	return
+}
+
 // isValidRuntime determines if the given language runtime is a valid choice.
 func isValidRuntime(client *fn.Client, runtime string) bool {
 	runtimes, err := client.Runtimes()
@@ -371,53 +418,6 @@ func newInvalidTemplateError(client *fn.Client, runtime, template string) error 
 		fmt.Fprintf(&b, "  %v\n", v)
 	}
 	return ErrInvalidTemplate(errors.New(b.String()))
-}
-
-// Validate the current state of the config, returning any errors.
-// Note this is a deeper validation using a client already configured with a
-// preliminary config object from flags/config, such that the client instance
-// can be used to determine possible values for runtime, templates, etc.  a
-// pre-client validation should not be required, as the Client does its own
-// validation.
-func (c createConfig) Validate(client *fn.Client) (err error) {
-
-	// Confirm Name is valid
-	// Note that this is highly constricted, as it must currently adhere to the
-	// naming of a Knative Service, which itself is constrained to a Kubernetes
-	// Service, which itself is constrained to a DNS label (a subdomain).
-	// TODO: refactor to be git-like with no name at time of creation, but rather
-	// with named deployment targets in a one-to-many configuration.
-	dirName, _ := deriveNameAndAbsolutePathFromPath(c.Path)
-	if err = utils.ValidateFunctionName(dirName); err != nil {
-		return
-	}
-
-	// Validate Runtime and Template Name
-	//
-	// Perhaps additional validation would be of use here in the CLI, but
-	// the client libray itself is ultimately responsible for validating all input
-	// prior to exeuting any requests.
-	// Client validates both language runtime and template exist, with language runtime
-	// being a mandatory flag while defaulting template if not present to 'http'.
-	// However, if either of them are invalid, or the chosen combination does not exist,
-	// the error message is a rather terse one-liner. This is suitable for libraries, but
-	// for a CLI it behooves us to be more verbose, including valid options for
-	// each.  So here, we check that the values entered (if any) are both valid
-	// and valid together.
-	if c.Runtime == "" {
-		return noRuntimeError(client)
-	}
-	if c.Runtime != "" && c.Repository == "" &&
-		!isValidRuntime(client, c.Runtime) {
-		return newInvalidRuntimeError(client, c.Runtime)
-	}
-
-	if c.Template != "" && c.Repository == "" &&
-		!isValidTemplate(client, c.Runtime, c.Template) {
-		return newInvalidTemplateError(client, c.Runtime, c.Template)
-	}
-
-	return
 }
 
 // prompt the user with value of config members, allowing for interactively

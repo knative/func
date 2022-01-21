@@ -32,12 +32,12 @@ func TestDockerRun(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// TODO: This test is too tricky, as it requires the related image be
-	// already built.  Build the function prior to running?
+
+	// NOTE: test requires that the image be built already.
 
 	runner := docker.NewRunner()
 	runner.Verbose = true
-	if err = runner.Run(context.Background(), f); err != nil {
+	if _, err = runner.Run(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
 	/* TODO
@@ -50,9 +50,11 @@ func TestDockerRun(t *testing.T) {
 func TestDockerRunImagelessError(t *testing.T) {
 	runner := docker.NewRunner()
 	f := fn.NewFunctionWith(fn.Function{})
-	err := runner.Run(context.Background(), f)
-	expectedErrorMessage := "Function has no associated Image. Has it been built? Using the --build flag will build the image if it hasn't been built yet"
+
+	_, err := runner.Run(context.Background(), f)
+	// TODO: switch to typed error:
+	expectedErrorMessage := "Function has no associated image. Has it been built?"
 	if err == nil || err.Error() != expectedErrorMessage {
-		t.Fatalf("The expected error message is \"%v\" but got instead %v", expectedErrorMessage, err)
+		t.Fatalf("Expected error '%v', got '%v'", expectedErrorMessage, err)
 	}
 }

@@ -11,9 +11,9 @@ import (
 	fn "knative.dev/kn-plugin-func"
 )
 
-// TestRepositoryTemplatesPath ensures that repositories can specify
+// TestRepository_TemplatesPath ensures that repositories can specify
 // an alternate location for templates using a manifest.
-func TestRepositoryTemplatesPath(t *testing.T) {
+func TestRepository_TemplatesPath(t *testing.T) {
 	client := fn.New(fn.WithRepositories("testdata/repositories"))
 
 	// The repo ./testdata/repositories/customLanguagePackRepo includes a
@@ -34,11 +34,11 @@ func TestRepositoryTemplatesPath(t *testing.T) {
 	}
 }
 
-// TestRepositoryInheritance ensures that repositories which define a manifest
+// TestRepository_Inheritance ensures that repositories which define a manifest
 // properly inherit values defined at the repo level, runtime level
 // and template level.  The tests check for both embedded structures:
 // HealthEndpoints BuildConfig.
-func TestRepositoryInheritance(t *testing.T) {
+func TestRepository_Inheritance(t *testing.T) {
 	client := fn.New(fn.WithRepositories("testdata/repositories"))
 
 	// The repo ./testdata/repositories/customLanguagePack includes a manifest
