@@ -5,9 +5,6 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
-	"knative.dev/kn-plugin-func/docker"
-	"knative.dev/kn-plugin-func/docker/creds"
-	fnhttp "knative.dev/kn-plugin-func/http"
 	"strings"
 	"time"
 
@@ -16,6 +13,9 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/rand"
 
+	"knative.dev/kn-plugin-func/docker"
+	"knative.dev/kn-plugin-func/docker/creds"
+	fnhttp "knative.dev/kn-plugin-func/http"
 	"knative.dev/kn-plugin-func/k8s"
 )
 
