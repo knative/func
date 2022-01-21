@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"net/http"
 
-	fnhttp "knative.dev/kn-plugin-func/http"
-
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
 	"github.com/ory/viper"
@@ -17,6 +15,8 @@ import (
 	"knative.dev/kn-plugin-func/docker"
 	"knative.dev/kn-plugin-func/docker/creds"
 	"knative.dev/kn-plugin-func/progress"
+
+	"knative.dev/kn-plugin-func/openshift"
 )
 
 func init() {
@@ -35,6 +35,7 @@ func newBuildClient(cfg buildConfig) (*fn.Client, error) {
 	)
 	if cfg.Push {
 		credentialsProvider := creds.NewCredentialsProvider(
+			creds.WithAdditionalCredentialLoaders(openshift.GetDockerCredentialLoaders()...),
 			creds.WithPromptForCredentials(newPromptForCredentials()),
 			creds.WithPromptForCredentialStore(newPromptForCredentialStore()),
 			creds.WithTransport(cfg.Transport))
@@ -95,7 +96,7 @@ kn func build --builder cnbs/sample-builder:bionic
 	cmd.Flags().StringP("builder", "b", "", "Buildpack builder, either an as a an image name or a mapping name.\nSpecified value is stored in func.yaml for subsequent builds.")
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
 	cmd.Flags().StringP("image", "i", "", "Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE)")
-	cmd.Flags().StringP("registry", "r", "", "Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined based on the local directory name. If not provided the registry will be taken from func.yaml (Env: $FUNC_REGISTRY)")
+	cmd.Flags().StringP("registry", "r", openshift.GetDefaultRegistry(), "Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined based on the local directory name. If not provided the registry will be taken from func.yaml (Env: $FUNC_REGISTRY)")
 	cmd.Flags().BoolP("push", "u", false, "Attempt to push the function image after being successfully built")
 	setPathFlag(cmd)
 
@@ -191,7 +192,7 @@ func runBuild(cmd *cobra.Command, _ []string, clientFn buildClientFn) (err error
 		config.Registry = ""
 	}
 
-	rt := fnhttp.NewRoundTripper()
+	rt := openshift.NewRoundTripper()
 	defer rt.Close()
 	config.Transport = rt
 

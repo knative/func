@@ -11,8 +11,9 @@ import (
 	"github.com/spf13/cobra"
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/cloudevents"
-	fnhttp "knative.dev/kn-plugin-func/http"
 	"knative.dev/kn-plugin-func/knative"
+
+	"knative.dev/kn-plugin-func/openshift"
 )
 
 func init() {
@@ -111,7 +112,7 @@ func runEmit(cmd *cobra.Command, _ []string, clientFn emitClientFn) (err error) 
 	}
 
 	// Instantiate a client based on the final value of config
-	transport := fnhttp.NewRoundTripper()
+	transport := openshift.NewRoundTripper()
 	defer transport.Close()
 	config.Transport = transport
 	client, err := clientFn(config)
