@@ -46,7 +46,7 @@ func NewInvokeCmd(clientFn invokeClientFn) *cobra.Command {
 NAME
 	{{.Prefix}}func invoke - Invoke a Function.
 
-	SYNOPSIS
+SYNOPSIS
 	{{.Prefix}}func invoke [-t|--target] [-f|--format]
 	             [--id] [--source] [--type] [--data] [--file] [--content-type]
 	             [-s|--save] [-p|--path] [-c|--confirm] [-v|--verbose]
@@ -58,7 +58,7 @@ DESCRIPTION
 	can be manually overridden using the --target flag.
 
 	Functions are invoked with a test data structure consisting of five values:
-		id:            A unique identifer for the request.
+		id:            A unique identifier for the request.
 		source:        A sender name for the request (sender).
 		type:          A type for the request.
 		data:          Data (content) for this request.
@@ -74,7 +74,7 @@ DESCRIPTION
 	  local Function instance is chosen if running (see {{.Prefix}}func run).
 	  To explicitly target the remote (deployed) Function:
 	    {{.Prefix}}func invoke --target=remote
-	  To target an arbitrary endpont, provide a URL:
+	  To target an arbitrary endpoint, provide a URL:
 	    {{.Prefix}}func invoke --target=https://myfunction.example.com
 
 	Invocation Data
@@ -115,7 +115,7 @@ EXAMPLES
 	  $ {{.Prefix}}func invoke --file=example.jpeg --content-type=image/jpeg
 
 	o Invoke an arbitrary endpoint (HTTP POST)
-		$ {{.Prefix}}func invoke --target="https://my-event-broker.example.com"
+		$ {{.Prefix}}func invoke --target="https://my-http-handler.example.com"
 
 	o Invoke an arbitrary endpoint (CloudEvent)
 		$ {{.Prefix}}func invoke -f=cloudevent -t="https://my-event-broker.example.com"
