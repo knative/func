@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 	"time"
 
 	coreV1 "k8s.io/api/core/v1"
@@ -24,11 +25,6 @@ import (
 const (
 	socatImage = "alpine/socat:1.7.4.2-r0"
 )
-
-type ContextDialer interface {
-	DialContext(ctx context.Context, network string, addr string) (net.Conn, error)
-	Close() error
-}
 
 // NewInClusterDialer creates context dialer that will dial TCP connections via POD running in k8s cluster.
 // This is useful when accessing k8s services that are not exposed outside cluster (e.g. openshift image registry).
@@ -48,7 +44,7 @@ type ContextDialer interface {
 //     var client = http.Client{
 //         Transport: transport,
 //     }
-func NewInClusterDialer(ctx context.Context) (ContextDialer, error) {
+func NewInClusterDialer(ctx context.Context) (*contextDialer, error) {
 	c := &contextDialer{
 		detachChan: make(chan struct{}),
 	}
@@ -371,4 +367,31 @@ func newConn(execDone <-chan struct{}) (*io.PipeReader, *io.PipeWriter, conn) {
 	pr1, pw1 := io.Pipe()
 	rwc := conn{pr: pr0, pw: pw1, execDone: execDone}
 	return pr1, pw0, rwc
+}
+
+func NewLazyInitInClusterDialer() *lazyInitInClusterDialer {
+	return &lazyInitInClusterDialer{}
+}
+
+type lazyInitInClusterDialer struct {
+	contextDialer *contextDialer
+	initErr       error
+	o             sync.Once
+}
+
+func (l *lazyInitInClusterDialer) DialContext(ctx context.Context, network string, addr string) (net.Conn, error) {
+	l.o.Do(func() {
+		l.contextDialer, l.initErr = NewInClusterDialer(ctx)
+	})
+	if l.initErr != nil {
+		return nil, l.initErr
+	}
+	return l.contextDialer.DialContext(ctx, network, addr)
+}
+
+func (l *lazyInitInClusterDialer) Close() error {
+	if l.contextDialer != nil {
+		return l.contextDialer.Close()
+	}
+	return nil
 }
