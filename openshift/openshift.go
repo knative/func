@@ -6,9 +6,11 @@ import (
 	"encoding/pem"
 	"errors"
 	"strings"
+	"sync"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -86,6 +88,10 @@ func GetServiceCA(ctx context.Context) (*x509.Certificate, error) {
 }
 
 func NewRoundTripper() fnhttp.RoundTripCloser {
+	if !IsOpenShift() {
+		return fnhttp.NewRoundTripper()
+	}
+
 	var selectCA func(ctx context.Context, serverName string) (*x509.Certificate, error)
 	ca, err := GetServiceCA(context.TODO())
 	if err == nil {
@@ -100,6 +106,10 @@ func NewRoundTripper() fnhttp.RoundTripCloser {
 }
 
 func GetDefaultRegistry() string {
+	if !IsOpenShift() {
+		return ""
+	}
+
 	ns, _ := k8s.GetNamespace("")
 	if ns == "" {
 		ns = "default"
@@ -109,6 +119,10 @@ func GetDefaultRegistry() string {
 }
 
 func GetDockerCredentialLoaders() []creds.CredentialsCallback {
+	if !IsOpenShift() {
+		return nil
+	}
+
 	conf := k8s.GetClientConfig()
 
 	rawConf, err := conf.RawConfig()
@@ -138,4 +152,24 @@ func GetDockerCredentialLoaders() []creds.CredentialsCallback {
 		},
 	}
 
+}
+
+var isOpenShift bool
+var onceIsOpenShift sync.Once
+
+func IsOpenShift() bool {
+	onceIsOpenShift.Do(func() {
+		client, err := k8s.NewKubernetesClientset()
+		if err != nil {
+			isOpenShift = false
+			return
+		}
+		_, err = client.CoreV1().Services("openshift-image-registry").Get(context.TODO(), "image-registry", metav1.GetOptions{})
+		if k8sErrors.IsNotFound(err) {
+			isOpenShift = false
+			return
+		}
+		isOpenShift = true
+	})
+	return isOpenShift
 }
