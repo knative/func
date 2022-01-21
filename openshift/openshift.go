@@ -81,7 +81,7 @@ func GetServiceCA(ctx context.Context) (*x509.Certificate, error) {
 		blk, _ := pem.Decode([]byte(crt))
 		return x509.ParseCertificate(blk.Bytes)
 	case <-time.After(time.Second * 5):
-		return nil, errors.New("timeout")
+		return nil, errors.New("failed to get OpenShift's service CA in time")
 	}
 }
 
