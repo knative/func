@@ -56,7 +56,10 @@ func GetServiceCA(ctx context.Context) (*x509.Certificate, error) {
 	crtChan := make(chan string)
 	go func() {
 		for event := range watch.ResultChan() {
-			cm := event.Object.(*v1.ConfigMap)
+			cm, ok := event.Object.(*v1.ConfigMap)
+			if !ok {
+				continue
+			}
 			if crt, ok := cm.Data["service-ca.crt"]; ok {
 				crtChan <- crt
 				close(crtChan)
