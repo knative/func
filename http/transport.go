@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -66,9 +67,8 @@ func NewRoundTripper(opts ...Option) RoundTripCloser {
 	httpTransport.DialTLSContext = newDialTLSContext(combinedDialer, httpTransport.TLSClientConfig, o.selectCA)
 
 	return &roundTripCloser{
-		Transport:       httpTransport,
-		primaryDialer:   primaryDialer,
-		secondaryDialer: secondaryDialer,
+		Transport: httpTransport,
+		dialer:    combinedDialer,
 	}
 }
 
@@ -93,16 +93,11 @@ func newHTTPTransport() *http.Transport {
 
 type roundTripCloser struct {
 	*http.Transport
-	primaryDialer   ContextDialer
-	secondaryDialer ContextDialer
+	dialer ContextDialer
 }
 
 func (r *roundTripCloser) Close() error {
-	err := r.primaryDialer.Close()
-	if err != nil {
-		return err
-	}
-	return r.secondaryDialer.Close()
+	return r.dialer.Close()
 }
 
 func newDialerWithFallback(primaryDialer ContextDialer, fallbackDialer ContextDialer) *dialerWithFallback {
@@ -132,8 +127,23 @@ func (d *dialerWithFallback) DialContext(ctx context.Context, network, address s
 }
 
 func (d *dialerWithFallback) Close() error {
-	d.primaryDialer.Close()
-	d.fallbackDialer.Close()
+	var err error
+	errs := make([]error, 0, 2)
+
+	err = d.primaryDialer.Close()
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	err = d.fallbackDialer.Close()
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("failed to Close(): %v", errs)
+	}
+
 	return nil
 }
 
