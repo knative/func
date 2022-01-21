@@ -41,7 +41,7 @@ func CheckAuth(ctx context.Context, registry string, credentials docker.Credenti
 		serverAddress = "https://" + serverAddress
 	}
 
-	url := fmt.Sprintf("%s/v2", serverAddress)
+	url := fmt.Sprintf("%s/v2/", serverAddress)
 
 	authenticator := &authn.Basic{
 		Username: credentials.Username,
