@@ -168,6 +168,7 @@ func startServer(t *testing.T) (addr, addrTLS string, stopServer func()) {
 	addrTLS = listenerTLS.Addr().String()
 
 	handler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
+		// TODO add also test for token based auth
 		resp.Header().Add("WWW-Authenticate", "basic")
 		if user, pwd, ok := req.BasicAuth(); ok {
 			if user == "testuser" && pwd == "testpwd" {
