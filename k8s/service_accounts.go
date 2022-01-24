@@ -31,3 +31,12 @@ func CreateServiceAccountWithSecret(ctx context.Context, name, namespaceOverride
 	_, err = client.CoreV1().ServiceAccounts(namespace).Create(ctx, sa, metav1.CreateOptions{})
 	return
 }
+
+func DeleteServiceAccounts(ctx context.Context, namespaceOverride string, listOptions metav1.ListOptions) (err error) {
+	client, namespace, err := NewClientAndResolvedNamespace(namespaceOverride)
+	if err != nil {
+		return
+	}
+
+	return client.CoreV1().ServiceAccounts(namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, listOptions)
+}

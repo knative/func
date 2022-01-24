@@ -35,3 +35,12 @@ func CreateRoleBindingForServiceAccount(ctx context.Context, name, namespaceOver
 	_, err = client.RbacV1().RoleBindings(namespace).Create(ctx, rb, metav1.CreateOptions{})
 	return
 }
+
+func DeleteRoleBindings(ctx context.Context, namespaceOverride string, listOptions metav1.ListOptions) (err error) {
+	client, namespace, err := NewClientAndResolvedNamespace(namespaceOverride)
+	if err != nil {
+		return
+	}
+
+	return client.RbacV1().RoleBindings(namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, listOptions)
+}

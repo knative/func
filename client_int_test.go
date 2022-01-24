@@ -135,7 +135,7 @@ func TestRemove(t *testing.T) {
 	}
 	waitFor(t, client, "remove")
 
-	if err := client.Remove(context.Background(), fn.Function{Name: "remove"}); err != nil {
+	if err := client.Remove(context.Background(), fn.Function{Name: "remove"}, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -256,7 +256,7 @@ func newClient(verbose bool) *fn.Client {
 func del(t *testing.T, c *fn.Client, name string) {
 	t.Helper()
 	waitFor(t, c, name)
-	if err := c.Remove(context.Background(), fn.Function{Name: name}); err != nil {
+	if err := c.Remove(context.Background(), fn.Function{Name: name}, false); err != nil {
 		t.Fatal(err)
 	}
 }

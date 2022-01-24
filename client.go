@@ -185,6 +185,7 @@ type DNSProvider interface {
 // PipelinesProvider manages lifecyle of CI/CD pipelines used by a Function
 type PipelinesProvider interface {
 	Run(context.Context, Function) error
+	Remove(context.Context, Function) error
 }
 
 // New client for Function management.
@@ -788,25 +789,47 @@ func (c *Client) List(ctx context.Context) ([]ListItem, error) {
 
 // Remove a Function.  Name takes precidence.  If no name is provided,
 // the Function defined at root is used if it exists.
-func (c *Client) Remove(ctx context.Context, cfg Function) error {
+func (c *Client) Remove(ctx context.Context, cfg Function, deleteAll bool) error {
 	go func() {
 		<-ctx.Done()
 		c.progressListener.Stopping()
 	}()
 	// If name is provided, it takes precidence.
-	// Otherwise load the Function deined at root.
-	if cfg.Name != "" {
-		return c.remover.Remove(ctx, cfg.Name)
+	// Otherwise load the Function defined at root.
+	functionName := cfg.Name
+	if cfg.Name == "" {
+		f, err := NewFunction(cfg.Root)
+		if err != nil {
+			return err
+		}
+		if !f.Initialized() {
+			return fmt.Errorf("Function at %v can not be removed unless initialized. Try removing by name", f.Root)
+		}
+		functionName = f.Name
+		cfg = f
 	}
 
-	f, err := NewFunction(cfg.Root)
-	if err != nil {
-		return err
+	// Delete Knative Service and dependent resources in parallel
+	c.progressListener.Increment(fmt.Sprintf("Removing Knative Service: %v", functionName))
+	errChan := make(chan error)
+	go func() {
+		errChan <- c.remover.Remove(ctx, functionName)
+	}()
+
+	var errResources error
+	if deleteAll {
+		c.progressListener.Increment(fmt.Sprintf("Removing Knative Service '%v' and all dependent resources", functionName))
+		errResources = c.pipelinesProvider.Remove(ctx, cfg)
 	}
-	if !f.Initialized() {
-		return fmt.Errorf("Function at %v can not be removed unless initialized.  Try removing by name", f.Root)
+
+	errService := <-errChan
+
+	if errService != nil && errResources != nil {
+		return fmt.Errorf("%s\n%s", errService, errResources)
+	} else if errResources != nil {
+		return errResources
 	}
-	return c.remover.Remove(ctx, f.Name)
+	return errService
 }
 
 // Invoke is a convenience method for triggering the execution of a Function
@@ -917,7 +940,8 @@ func (n *noopDescriber) Describe(context.Context, string) (Instance, error) {
 // PipelinesProvider
 type noopPipelinesProvider struct{}
 
-func (n *noopPipelinesProvider) Run(ctx context.Context, _ Function) error { return nil }
+func (n *noopPipelinesProvider) Run(ctx context.Context, _ Function) error    { return nil }
+func (n *noopPipelinesProvider) Remove(ctx context.Context, _ Function) error { return nil }
 
 // DNSProvider
 type noopDNSProvider struct{ output io.Writer }
