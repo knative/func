@@ -14,12 +14,11 @@ main() {
   local red=$(tput bold)$(tput setaf 2)
   local reset=$(tput sgr0)
 
-  echo "${green}Deleting Cluster, Registry and Network${reset}"
-  kind delete cluster --name "kind"
-  docker stop kind-registry && docker rm kind-registry
-  docker network rm kind
+  echo "${green}Deleting Cluster and Registry${reset}"
+  kind delete cluster --name "func"
+  docker stop func-registry && docker rm func-registry
   echo "${red}NOTE:${reset}  The following changes have not been undone:"
-  echo " - Manual docker config registering registry at localhost:50000 (kind-registry) as insecure"
+  echo " - Config setting registry localhost:50000 (func-registry) as insecure"
   echo " - Downloaded container images were not removed"
   echo "${green}DONE${reset}"
 }

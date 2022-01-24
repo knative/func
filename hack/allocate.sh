@@ -47,7 +47,7 @@ main() {
 
 kubernetes() {
   echo "${em}① Kubernetes${me}"
-  cat <<EOF | kind create cluster --wait=60s --config=-
+  cat <<EOF | kind create cluster --name=func --wait=60s --config=-
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
@@ -63,7 +63,7 @@ nodes:
 containerdConfigPatches:
 - |-
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:50000"]
-    endpoint = ["http://kind-registry:5000"]
+    endpoint = ["http://func-registry:5000"]
 EOF
   sleep 10
   kubectl wait pod --for=condition=Ready -l '!job-name' -n kube-system --timeout=5m
@@ -179,8 +179,8 @@ registry() {
   # see https://kind.sigs.k8s.io/docs/user/local-registry/
 
   echo "${em}⑥ Registry${me}"
-  docker run -d --restart=always -p "127.0.0.1:50000:5000" --name "kind-registry" registry:2
-  docker network connect "kind" "kind-registry"
+  docker run -d --restart=always -p "127.0.0.1:50000:5000" --name "func-registry" registry:2
+  docker network connect "kind" "func-registry"
   kubectl apply -f - <<EOF
 apiVersion: v1
 kind: ConfigMap
