@@ -99,7 +99,9 @@ aliases:
   - matzew
   eventing-rabbitmq-approvers:
   - benmoss
+  - gabo1208
   - gvmw
+  - ikvmw
   - salaboy
   - xtreme-sameer-vohra
   eventing-redis-approvers:
