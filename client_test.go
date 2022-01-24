@@ -721,7 +721,7 @@ func TestClient_Remove_DeleteAll(t *testing.T) {
 		t.Fatal("remover was not invoked")
 	}
 
-	if !remover.RemoveInvoked {
+	if !pipelinesProvider.RemoveInvoked {
 		t.Fatal("pipelinesprovider was not invoked")
 	}
 
@@ -765,8 +765,8 @@ func TestClient_Remove_Dont_DeleteAll(t *testing.T) {
 		t.Fatal("remover was not invoked")
 	}
 
-	if !remover.RemoveInvoked {
-		t.Fatal("pipelinesprovider was not invoked")
+	if pipelinesProvider.RemoveInvoked {
+		t.Fatal("pipelinesprovider was invoked, but should not")
 	}
 
 }

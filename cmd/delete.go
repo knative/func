@@ -166,8 +166,7 @@ func (c deleteConfig) Prompt() (deleteConfig, error) {
 		return c, nil
 	}
 
-	dc := deleteConfig{}
-
+	dc := c
 	var qs = []*survey.Question{
 		{
 			Name: "name",
@@ -180,7 +179,7 @@ func (c deleteConfig) Prompt() (deleteConfig, error) {
 			Name: "all",
 			Prompt: &survey.Confirm{
 				Message: "Do you want to delete all resources?",
-				Default: true,
+				Default: c.DeleteAll,
 			},
 		},
 	}
@@ -196,9 +195,6 @@ func (c deleteConfig) Prompt() (deleteConfig, error) {
 
 	dc.Name = answers.Name
 	dc.DeleteAll = answers.All
-	dc.Namespace = c.Namespace
-	dc.Path = c.Path
-	dc.Verbose = c.Verbose
 
 	return dc, err
 }
