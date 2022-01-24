@@ -17,7 +17,7 @@ import (
 	fnhttp "knative.dev/kn-plugin-func/http"
 )
 
-const inClusterHostName = "image-registry.openshift-image-registry.svc"
+const inClusterHostName = "a-testing-service.a-testing-namespace.svc"
 
 func TestCustomCA(t *testing.T) {
 	var err error
