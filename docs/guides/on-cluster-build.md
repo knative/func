@@ -49,6 +49,7 @@ git:
 ```
 5. Implement the bussines logic of your Function, then commit and push changes
 ```bash
+git add .
 git commit -a -m "implementing my-function"
 git push origin main
 ```
