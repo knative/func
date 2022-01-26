@@ -55,6 +55,10 @@ func CheckAuth(ctx context.Context, registry string, credentials docker.Credenti
 
 	tr, err := transport.NewWithContext(ctx, reg, authenticator, trans, nil)
 	if err != nil {
+		var transportErr *transport.Error
+		if errors.As(err, &transportErr) && transportErr.StatusCode == 401 {
+			return ErrUnauthorized
+		}
 		return err
 	}
 
