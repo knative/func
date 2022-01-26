@@ -1,5 +1,5 @@
 builders:
-  default: paketobuildpacks/builder:tiny
+  default: gcr.io/paketo-buildpacks/builder:tiny
 buildEnvs:
   - name: BP_NATIVE_IMAGE
     value: "true"
