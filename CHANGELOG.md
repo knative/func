@@ -1,6 +1,31 @@
 # Change Log
 
 <a name="unreleased"></a>
+## [0.22.0](https://www.github.com/knative-sandbox/kn-plugin-func/compare/v0.21.0...v0.22.0) (2022-01-27)
+
+
+### ⚠ BREAKING CHANGES
+
+* invoke (#705)
+* support on cluster build from git repo with Tekton (#743)
+
+### Features
+
+* add `function.knative.dev/name: functionName` label to every resouce created for a Function ([#757](https://www.github.com/knative-sandbox/kn-plugin-func/issues/757)) ([bddac30](https://www.github.com/knative-sandbox/kn-plugin-func/commit/bddac30621e12cc5c0dc8432bd8064c26d4329eb))
+* add definition for `func-deploy` Tekton Task ([#740](https://www.github.com/knative-sandbox/kn-plugin-func/issues/740)) ([b8d248a](https://www.github.com/knative-sandbox/kn-plugin-func/commit/b8d248a00b633d33bfcb24c24fcbf83273b5a90c))
+* delete pipeline and resources with `func delete` ([#763](https://www.github.com/knative-sandbox/kn-plugin-func/issues/763)) ([d478f55](https://www.github.com/knative-sandbox/kn-plugin-func/commit/d478f555cca0308e5fe6b2844af4ad074dc02a9c))
+* invoke ([#705](https://www.github.com/knative-sandbox/kn-plugin-func/issues/705)) ([e918f74](https://www.github.com/knative-sandbox/kn-plugin-func/commit/e918f74b9e177989ac520ae430dd5f232b393deb))
+* support on cluster build from git repo with Tekton ([#743](https://www.github.com/knative-sandbox/kn-plugin-func/issues/743)) ([cb719ff](https://www.github.com/knative-sandbox/kn-plugin-func/commit/cb719ff56421352665abbb6902a80dc03c1588a0))
+
+
+### Bug Fixes
+
+* auth check ([#773](https://www.github.com/knative-sandbox/kn-plugin-func/issues/773)) ([153e486](https://www.github.com/knative-sandbox/kn-plugin-func/commit/153e486bc62c05963cba41243d6c01a9f9ae414f))
+* error type-check condition ([#786](https://www.github.com/knative-sandbox/kn-plugin-func/issues/786)) ([6c282e7](https://www.github.com/knative-sandbox/kn-plugin-func/commit/6c282e77c2ffc6c6485fd4760b1738b11a2189eb))
+* local cluster name collision ([#779](https://www.github.com/knative-sandbox/kn-plugin-func/issues/779)) ([6649a71](https://www.github.com/knative-sandbox/kn-plugin-func/commit/6649a71f4d08ec1d7516abe43241819a47303100))
+* use correct --build flag value for `func-deploy` Tekton Task ([#760](https://www.github.com/knative-sandbox/kn-plugin-func/issues/760)) ([3d7c351](https://www.github.com/knative-sandbox/kn-plugin-func/commit/3d7c3515441f016ca41419d99a417fa4cb2dbda4))
+* use domain qualified registry for springboot ([#789](https://www.github.com/knative-sandbox/kn-plugin-func/issues/789)) ([6097b8d](https://www.github.com/knative-sandbox/kn-plugin-func/commit/6097b8d790f5672bc731c4b51e3e128722941479))
+
 ## [0.21.0](https://www.github.com/knative-sandbox/kn-plugin-func/compare/v0.20.0...v0.21.0) (2022-01-12)
 
 
