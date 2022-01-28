@@ -99,6 +99,7 @@ aliases:
   - matzew
   eventing-rabbitmq-approvers:
   - benmoss
+  - chunyilyu
   - gabo1208
   - gvmw
   - ikvmw
@@ -229,7 +230,9 @@ aliases:
   productivity-wg-leads:
   - chizhg
   productivity-writers:
+  - cardil
   - chizhg
+  - psschwei
   security-wg-leads:
   - evankanderson
   - julz
