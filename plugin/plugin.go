@@ -45,7 +45,7 @@ func (f *funcPlugin) Execute(args []string) error {
 			rootConfig.Version, rootConfig.Hash = dep.Version, dep.Sum
 		}
 	}
-	
+
 	rootCmd, _ := cmd.NewRootCmd(rootConfig)
 
 	oldArgs := os.Args
