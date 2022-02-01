@@ -124,6 +124,10 @@ kn func deploy --image quay.io/myuser/myfunc -n myns
 	setPathFlag(cmd)
 	setNamespaceFlag(cmd)
 
+	if err := cmd.RegisterFlagCompletionFunc("build", CompleteDeployBuildType); err != nil {
+		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
+	}
+
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		return runDeploy(cmd, args, clientFn)
 	}
