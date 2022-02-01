@@ -110,16 +110,6 @@ func replaceNameInTemplate(name, template string) (string, error) {
 	return buffer.String(), nil
 }
 
-// pluginPrefix returns an optional prefix for help commands based on the
-// value of the FUNC_PARENT_COMMAND environment variable.
-func pluginPrefix() string {
-	parent := os.Getenv("FUNC_PARENT_COMMAND")
-	if parent != "" {
-		return parent + " "
-	}
-	return ""
-}
-
 // Helpers
 // ------------------------------------------
 
