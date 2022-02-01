@@ -19,12 +19,6 @@ import (
 	"knative.dev/kn-plugin-func/progress"
 )
 
-func init() {
-	// Add to the root a new "Build" command which obtains an appropriate
-	// instance of fn.Client from the given client creator function.
-	root.AddCommand(NewBuildCmd(newBuildClient))
-}
-
 func newBuildClient(cfg buildConfig) (*fn.Client, error) {
 	builder := buildpacks.NewBuilder()
 	listener := progress.New()

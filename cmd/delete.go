@@ -14,12 +14,6 @@ import (
 	"knative.dev/kn-plugin-func/progress"
 )
 
-func init() {
-	// Create a new delete command with a reference to
-	// a function which yields an appropriate concrete client instance.
-	root.AddCommand(NewDeleteCmd(newDeleteClient))
-}
-
 // newDeleteClient returns an instance of a Client using the
 // final config state.
 // Testing note: This method is swapped out during testing to allow

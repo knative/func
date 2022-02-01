@@ -15,10 +15,6 @@ import (
 	"knative.dev/kn-plugin-func/progress"
 )
 
-func init() {
-	root.AddCommand(NewRunCmd(newRunClient))
-}
-
 func newRunClient(cfg runConfig) *fn.Client {
 	bc := newBuildConfig()
 	runner := docker.NewRunner()

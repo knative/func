@@ -25,12 +25,6 @@ type ErrInvalidRuntime error
 // ErrInvalidTemplate indicates that the passed template was invalid.
 type ErrInvalidTemplate error
 
-func init() {
-	// Add to the root a new "Create" command which obtains an appropriate
-	// instance of fn.Client from the given client creator function.
-	root.AddCommand(NewCreateCmd(newCreateClient))
-}
-
 // createClientFn is a factory function which returns a Client suitable for
 // use with the Create command.
 type createClientFn func(createConfig) *fn.Client

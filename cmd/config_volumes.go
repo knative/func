@@ -13,75 +13,86 @@ import (
 	"knative.dev/kn-plugin-func/k8s"
 )
 
-func init() {
-	setPathFlag(configVolumesCmd)
-	setPathFlag(configVolumesAddCmd)
-	setPathFlag(configVolumesRemoveCmd)
-	configCmd.AddCommand(configVolumesCmd)
-	configVolumesCmd.AddCommand(configVolumesAddCmd)
-	configVolumesCmd.AddCommand(configVolumesRemoveCmd)
-}
-
-var configVolumesCmd = &cobra.Command{
-	Use:   "volumes",
-	Short: "List and manage configured volumes for a function",
-	Long: `List and manage configured volumes for a function
+func NewConfigVolumesCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "volumes",
+		Short: "List and manage configured volumes for a function",
+		Long: `List and manage configured volumes for a function
 
 Prints configured Volume mounts for a function project present in
 the current directory or from the directory specified with --path.
 `,
-	SuggestFor: []string{"volums", "volume", "vols"},
-	PreRunE:    bindEnv("path"),
-	RunE: func(cmd *cobra.Command, args []string) (err error) {
-		function, err := initConfigCommand(args, defaultLoaderSaver)
-		if err != nil {
+		SuggestFor: []string{"volums", "volume", "vols"},
+		PreRunE:    bindEnv("path"),
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			function, err := initConfigCommand(args, defaultLoaderSaver)
+			if err != nil {
+				return
+			}
+
+			listVolumes(function)
+
 			return
-		}
+		},
+	}
 
-		listVolumes(function)
+	configVolumesAddCmd := NewConfigVolumesAddCmd()
+	configVolumesRemoveCmd := NewConfigVolumesRemoveCmd()
 
-		return
-	},
+	setPathFlag(cmd)
+	setPathFlag(configVolumesAddCmd)
+	setPathFlag(configVolumesRemoveCmd)
+
+	cmd.AddCommand(configVolumesAddCmd)
+	cmd.AddCommand(configVolumesRemoveCmd)
+
+	return cmd
 }
 
-var configVolumesAddCmd = &cobra.Command{
-	Use:   "add",
-	Short: "Add volume to the function configuration",
-	Long: `Add volume to the function configuration
+func NewConfigVolumesAddCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "add",
+		Short: "Add volume to the function configuration",
+		Long: `Add volume to the function configuration
 
 Interactive prompt to add Secrets and ConfigMaps as Volume mounts to the function project
 in the current directory or from the directory specified with --path.
 `,
-	SuggestFor: []string{"ad", "create", "insert", "append"},
-	PreRunE:    bindEnv("path"),
-	RunE: func(cmd *cobra.Command, args []string) (err error) {
-		function, err := initConfigCommand(args, defaultLoaderSaver)
-		if err != nil {
-			return
-		}
+		SuggestFor: []string{"ad", "create", "insert", "append"},
+		PreRunE:    bindEnv("path"),
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			function, err := initConfigCommand(args, defaultLoaderSaver)
+			if err != nil {
+				return
+			}
 
-		return runAddVolumesPrompt(cmd.Context(), function)
-	},
+			return runAddVolumesPrompt(cmd.Context(), function)
+		},
+	}
+
 }
 
-var configVolumesRemoveCmd = &cobra.Command{
-	Use:   "remove",
-	Short: "Remove volume from the function configuration",
-	Long: `Remove volume from the function configuration
+func NewConfigVolumesRemoveCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "remove",
+		Short: "Remove volume from the function configuration",
+		Long: `Remove volume from the function configuration
 
 Interactive prompt to remove Volume mounts from the function project
 in the current directory or from the directory specified with --path.
 `,
-	SuggestFor: []string{"del", "delete", "rmeove"},
-	PreRunE:    bindEnv("path"),
-	RunE: func(cmd *cobra.Command, args []string) (err error) {
-		function, err := initConfigCommand(args, defaultLoaderSaver)
-		if err != nil {
-			return
-		}
+		SuggestFor: []string{"del", "delete", "rmeove"},
+		PreRunE:    bindEnv("path"),
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			function, err := initConfigCommand(args, defaultLoaderSaver)
+			if err != nil {
+				return
+			}
 
-		return runRemoveVolumesPrompt(function)
-	},
+			return runRemoveVolumesPrompt(function)
+		},
+	}
+
 }
 
 func listVolumes(f fn.Function) {

@@ -18,10 +18,6 @@ import (
 	knative "knative.dev/kn-plugin-func/knative"
 )
 
-func init() {
-	root.AddCommand(NewInvokeCmd(newInvokeClient))
-}
-
 type invokeClientFn func(invokeConfig) (*fn.Client, error)
 
 func newInvokeClient(cfg invokeConfig) (*fn.Client, error) {

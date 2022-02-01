@@ -14,41 +14,47 @@ import (
 	"knative.dev/kn-plugin-func/utils"
 )
 
-func init() {
-	setPathFlag(configEnvsCmd)
-	setPathFlag(configEnvsAddCmd)
-	setPathFlag(configEnvsRemoveCmd)
-	configCmd.AddCommand(configEnvsCmd)
-	configEnvsCmd.AddCommand(configEnvsAddCmd)
-	configEnvsCmd.AddCommand(configEnvsRemoveCmd)
-}
-
-var configEnvsCmd = &cobra.Command{
-	Use:   "envs",
-	Short: "List and manage configured environment variable for a function",
-	Long: `List and manage configured environment variable for a function
+func NewConfigEnvsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "envs",
+		Short: "List and manage configured environment variable for a function",
+		Long: `List and manage configured environment variable for a function
 
 Prints configured Environment variable for a function project present in
 the current directory or from the directory specified with --path.
 `,
-	SuggestFor: []string{"ensv", "env"},
-	PreRunE:    bindEnv("path"),
-	RunE: func(cmd *cobra.Command, args []string) (err error) {
-		function, err := initConfigCommand(args, defaultLoaderSaver)
-		if err != nil {
+		SuggestFor: []string{"ensv", "env"},
+		PreRunE:    bindEnv("path"),
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			function, err := initConfigCommand(args, defaultLoaderSaver)
+			if err != nil {
+				return
+			}
+
+			listEnvs(function)
+
 			return
-		}
+		},
+	}
 
-		listEnvs(function)
+	configEnvsAddCmd := NewConfigEnvsAddCmd()
+	configEnvsRemoveCmd := NewConfigEnvsRemoveCmd()
 
-		return
-	},
+	setPathFlag(cmd)
+	setPathFlag(configEnvsAddCmd)
+	setPathFlag(configEnvsRemoveCmd)
+
+	cmd.AddCommand(configEnvsAddCmd)
+	cmd.AddCommand(configEnvsRemoveCmd)
+
+	return cmd
 }
 
-var configEnvsAddCmd = &cobra.Command{
-	Use:   "add",
-	Short: "Add environment variable to the function configuration",
-	Long: `Add environment variable to the function configuration
+func NewConfigEnvsAddCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "add",
+		Short: "Add environment variable to the function configuration",
+		Long: `Add environment variable to the function configuration
 
 Interactive prompt to add Environment variables to the function project
 in the current directory or from the directory specified with --path.
@@ -56,36 +62,41 @@ in the current directory or from the directory specified with --path.
 The environment variable can be set directly from a value,
 from an environment variable on the local machine or from Secrets and ConfigMaps.
 `,
-	SuggestFor: []string{"ad", "create", "insert", "append"},
-	PreRunE:    bindEnv("path"),
-	RunE: func(cmd *cobra.Command, args []string) (err error) {
-		function, err := initConfigCommand(args, defaultLoaderSaver)
-		if err != nil {
-			return
-		}
+		SuggestFor: []string{"ad", "create", "insert", "append"},
+		PreRunE:    bindEnv("path"),
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			function, err := initConfigCommand(args, defaultLoaderSaver)
+			if err != nil {
+				return
+			}
 
-		return runAddEnvsPrompt(cmd.Context(), function)
-	},
+			return runAddEnvsPrompt(cmd.Context(), function)
+		},
+	}
+
 }
 
-var configEnvsRemoveCmd = &cobra.Command{
-	Use:   "remove",
-	Short: "Remove environment variable from the function configuration",
-	Long: `Remove environment variable from the function configuration
+func NewConfigEnvsRemoveCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "remove",
+		Short: "Remove environment variable from the function configuration",
+		Long: `Remove environment variable from the function configuration
 
 Interactive prompt to remove Environment variables from the function project
 in the current directory or from the directory specified with --path.
 `,
-	SuggestFor: []string{"rm", "del", "delete", "rmeove"},
-	PreRunE:    bindEnv("path"),
-	RunE: func(cmd *cobra.Command, args []string) (err error) {
-		function, err := initConfigCommand(args, defaultLoaderSaver)
-		if err != nil {
-			return
-		}
+		SuggestFor: []string{"rm", "del", "delete", "rmeove"},
+		PreRunE:    bindEnv("path"),
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
+			function, err := initConfigCommand(args, defaultLoaderSaver)
+			if err != nil {
+				return
+			}
 
-		return runRemoveEnvsPrompt(function)
-	},
+			return runRemoveEnvsPrompt(function)
+		},
+	}
+
 }
 
 func listEnvs(f fn.Function) {

@@ -24,10 +24,6 @@ import (
 	"knative.dev/kn-plugin-func/progress"
 )
 
-func init() {
-	root.AddCommand(NewDeployCmd(newDeployClient))
-}
-
 func newDeployClient(cfg deployConfig) (*fn.Client, error) {
 	listener := progress.New()
 	builder := buildpacks.NewBuilder()
