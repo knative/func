@@ -20,11 +20,11 @@
 		},
 		"Function": {
 			"required": [
-				"Version",
+				"version",
 				"name",
 				"namespace",
 				"runtime",
-				"Registry",
+				"registry",
 				"image",
 				"imageDigest",
 				"build",
@@ -39,10 +39,10 @@
 				"options",
 				"labels",
 				"healthEndpoints",
-				"Created"
+				"created"
 			],
 			"properties": {
-				"Version": {
+				"version": {
 					"type": "string"
 				},
 				"name": {
@@ -55,7 +55,7 @@
 				"runtime": {
 					"type": "string"
 				},
-				"Registry": {
+				"registry": {
 					"type": "string"
 				},
 				"image": {
@@ -135,7 +135,7 @@
 					"$schema": "http://json-schema.org/draft-04/schema#",
 					"$ref": "#/definitions/HealthEndpoints"
 				},
-				"Created": {
+				"created": {
 					"type": "string",
 					"format": "date-time"
 				},

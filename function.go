@@ -20,7 +20,7 @@ type Function struct {
 	// Version at which this function is known to be compatible.
 	// More specifically, it is the highest migration which has been applied.
 	// For details see the .Migrated() and .Migrate() methods.
-	Version string // semver format
+	Version string `yaml:"version"` // semver format
 
 	// Root on disk at which to find/create source and config files.
 	Root string `yaml:"-"`
@@ -40,7 +40,7 @@ type Function struct {
 
 	// Registry at which to store interstitial containers, in the form
 	// [registry]/[user].
-	Registry string
+	Registry string `yaml:"registry"`
 
 	// Optional full OCI image tag in form:
 	//   [registry]/[namespace]/[name]:[tag]
@@ -99,7 +99,7 @@ type Function struct {
 	// Created time is the moment that creation was successfully completed
 	// according to the client which is in charge of what constitutes being
 	// fully "Created" (aka initialized)
-	Created time.Time
+	Created time.Time `yaml:"created"`
 
 	// Invocation defines hints for use when invoking this function.
 	// See Client.Invoke for usage.
