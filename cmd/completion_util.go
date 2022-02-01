@@ -127,7 +127,7 @@ func CompleteBuilderList(cmd *cobra.Command, args []string, complete string) (st
 }
 
 func CompleteDeployBuildType(cmd *cobra.Command, args []string, complete string) (buildTypes []string, directive cobra.ShellCompDirective) {
-	buildTypes = []string{fn.BuildTypeLocal, fn.BuildTypeGit, fn.BuildTypeDisabled}
+	buildTypes = fn.AllBuildTypes()
 	directive = cobra.ShellCompDirectiveDefault
 	return
 }
