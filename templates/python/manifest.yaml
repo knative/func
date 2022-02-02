@@ -1,2 +1,2 @@
 builders:
-  default: quay.io/boson/faas-python-builder:v0.8.4
+  default: quay.io/boson/faas-python-builder:v0.9.2
