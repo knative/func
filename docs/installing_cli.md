@@ -23,3 +23,5 @@ make
 mv func /usr/local/bin/
 ```
 
+## Integration with `kn`
+See [plugins](https://github.com/knative/client/blob/main/docs/README.md#plugin-configuration) section of `kn`
