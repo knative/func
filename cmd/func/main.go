@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -28,6 +29,25 @@ func main() {
 		os.Exit(137)
 	}()
 
-	cmd.SetMeta(date, vers, hash)
-	cmd.Execute(ctx)
+	root, err := cmd.NewRootCmd(cmd.RootCommandConfig{
+		Name:    "func",
+		Date:    date,
+		Version: vers,
+		Hash:    hash,
+	})
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
+
+	if err := root.ExecuteContext(ctx); err != nil {
+		if ctx.Err() != nil {
+			os.Exit(130)
+			return
+		}
+		// Errors are printed to STDERR output and the process exits with code of 1.
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
 }

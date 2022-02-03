@@ -43,24 +43,28 @@ func (s standardLoaderSaver) Save(f fn.Function) error {
 
 var defaultLoaderSaver standardLoaderSaver
 
-func init() {
-	root.AddCommand(configCmd)
-	setPathFlag(configCmd)
-	configCmd.AddCommand(NewConfigLabelsCmd(defaultLoaderSaver))
-}
-
-var configCmd = &cobra.Command{
-	Use:   "config",
-	Short: "Configure a function",
-	Long: `Configure a function
+func NewConfigCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "config",
+		Short: "Configure a function",
+		Long: `Configure a function
 
 Interactive propmt that allows configuration of Volume mounts, Environment
 variables, and Labels for a function project present in the current directory
 or from the directory specified with --path.
 `,
-	SuggestFor: []string{"cfg", "cofnig"},
-	PreRunE:    bindEnv("path"),
-	RunE:       runConfigCmd,
+		SuggestFor: []string{"cfg", "cofnig"},
+		PreRunE:    bindEnv("path"),
+		RunE:       runConfigCmd,
+	}
+
+	setPathFlag(cmd)
+
+	cmd.AddCommand(NewConfigLabelsCmd(defaultLoaderSaver))
+	cmd.AddCommand(NewConfigEnvsCmd())
+	cmd.AddCommand(NewConfigVolumesCmd())
+
+	return cmd
 }
 
 func runConfigCmd(cmd *cobra.Command, args []string) (err error) {

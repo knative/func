@@ -120,6 +120,11 @@ func TestRoot_mergeEnvMaps(t *testing.T) {
 
 func TestRoot_CMDParameterized(t *testing.T) {
 
+	rootConfig := RootCommandConfig{
+		Name: "func",
+	}
+
+	root, _ := NewRootCmd(rootConfig)
 	if root.Use != "func" {
 		t.Fatalf("default command use should be \"func\".")
 	}
@@ -129,13 +134,17 @@ func TestRoot_CMDParameterized(t *testing.T) {
 		t.Fatalf("default command example should assume \"func\" as executable name. error: %v", err)
 	}
 
-	cmd, err := NewRootCmd()
+	rootConfig = RootCommandConfig{
+		Name: "kn func",
+	}
+
+	cmd, err := NewRootCmd(rootConfig)
 	if cmd.Use != "kn func" && err != nil {
 		t.Fatalf("plugin command use should be \"kn func\".")
 	}
 
 	usageExample, _ = replaceNameInTemplate("kn func", "example")
-	cmd, err = NewRootCmd()
+	cmd, err = NewRootCmd(rootConfig)
 	if cmd.Example != usageExample || err != nil {
 		t.Fatalf("plugin command example should assume \"kn func\" as executable name. error: %v", err)
 	}

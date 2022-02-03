@@ -15,10 +15,6 @@ import (
 	"knative.dev/kn-plugin-func/knative"
 )
 
-func init() {
-	root.AddCommand(NewInfoCmd(newInfoClient))
-}
-
 func newInfoClient(cfg infoConfig) (*fn.Client, error) {
 	describer, err := knative.NewDescriber(cfg.Namespace)
 	if err != nil {

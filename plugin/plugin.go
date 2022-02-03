@@ -35,13 +35,19 @@ func (f *funcPlugin) Execute(args []string) error {
 		cancel()
 	}()
 
-	rootCmd, _ := cmd.NewRootCmd()
+	rootConfig := cmd.RootCommandConfig{
+		Name: "kn func",
+	}
+
 	info, _ := debug.ReadBuildInfo()
 	for _, dep := range info.Deps {
 		if strings.Contains(dep.Path, "knative.dev/kn-plugin-func") {
-			cmd.SetMeta("", dep.Version, dep.Sum)
+			rootConfig.Version, rootConfig.Hash = dep.Version, dep.Sum
 		}
 	}
+
+	rootCmd, _ := cmd.NewRootCmd(rootConfig)
+
 	oldArgs := os.Args
 	defer (func() {
 		os.Args = oldArgs

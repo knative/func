@@ -25,12 +25,6 @@ type ErrInvalidRuntime error
 // ErrInvalidTemplate indicates that the passed template was invalid.
 type ErrInvalidTemplate error
 
-func init() {
-	// Add to the root a new "Create" command which obtains an appropriate
-	// instance of fn.Client from the given client creator function.
-	root.AddCommand(NewCreateCmd(newCreateClient))
-}
-
 // createClientFn is a factory function which returns a Client suitable for
 // use with the Create command.
 type createClientFn func(createConfig) *fn.Client
@@ -53,16 +47,16 @@ func NewCreateCmd(clientFn createClientFn) *cobra.Command {
 		Short: "Create a Function Project",
 		Long: `
 NAME
-	{{.Prefix}}func create - Create a Function project.
+	{{.Name}} create - Create a Function project.
 
 SYNOPSIS
-	{{.Prefix}}func create [-l|--language] [-t|--template] [-r|--repository]
+	{{.Name}} create [-l|--language] [-t|--template] [-r|--repository]
 	            [-c|--confirm]  [-v|--verbose]  [path]
 
 DESCRIPTION
 	Creates a new Function project.
 
-	  $ {{.Prefix}}func create -l node -t http
+	  $ {{.Name}} create -l node -t http
 
 	Creates a Function in the current directory '.' which is written in the
 	language/runtime 'node' and handles HTTP events.
@@ -71,24 +65,24 @@ DESCRIPTION
 	the path if necessary.
 
 	To complete this command interactivly, use --confirm (-c):
-	  $ {{.Prefix}}func create -c
+	  $ {{.Name}} create -c
 
 	Available Language Runtimes and Templates:
 {{ .Options | indent 2 " " | indent 1 "\t" }}
 
-	To install more language runtimes and their templates see '{{.Prefix}}func repository'.
+	To install more language runtimes and their templates see '{{.Name}} repository'.
 
 EXAMPLES
 	o Create a Node.js Function (the default language runtime) in the current
 	  directory (the default path) which handles http events (the default
 	  template).
-	  $ {{.Prefix}}func create
+	  $ {{.Name}} create
 
 	o Create a Node.js Function in the directory 'myfunc'.
-	  $ {{.Prefix}}func create myfunc
+	  $ {{.Name}} create myfunc
 
 	o Create a Go Function which handles CloudEvents in ./myfunc.
-	  $ {{.Prefix}}func create -l go -t cloudevents myfunc
+	  $ {{.Name}} create -l go -t cloudevents myfunc
 		`,
 		SuggestFor: []string{"vreate", "creaet", "craete", "new"},
 		PreRunE:    bindEnv("language", "template", "repository", "confirm"),
@@ -182,10 +176,10 @@ func runCreateHelp(cmd *cobra.Command, args []string, clientFn createClientFn) {
 
 	var data = struct {
 		Options string
-		Prefix  string
+		Name    string
 	}{
 		Options: options,
-		Prefix:  pluginPrefix(),
+		Name:    cmd.Root().Name(),
 	}
 	if err := tpl.Execute(cmd.OutOrStdout(), data); err != nil {
 		fmt.Fprintf(cmd.ErrOrStderr(), "unable to display help text: %v", err)

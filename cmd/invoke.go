@@ -18,10 +18,6 @@ import (
 	knative "knative.dev/kn-plugin-func/knative"
 )
 
-func init() {
-	root.AddCommand(NewInvokeCmd(newInvokeClient))
-}
-
 type invokeClientFn func(invokeConfig) (*fn.Client, error)
 
 func newInvokeClient(cfg invokeConfig) (*fn.Client, error) {
@@ -44,10 +40,10 @@ func NewInvokeCmd(clientFn invokeClientFn) *cobra.Command {
 		Short: "Invoke a Function",
 		Long: `
 NAME
-	{{.Prefix}}func invoke - Invoke a Function.
+	{{.Name}} invoke - Invoke a Function.
 
 SYNOPSIS
-	{{.Prefix}}func invoke [-t|--target] [-f|--format]
+	{{.Name}} invoke [-t|--target] [-f|--format]
 	             [--id] [--source] [--type] [--data] [--file] [--content-type]
 	             [-s|--save] [-p|--path] [-c|--confirm] [-v|--verbose]
 
@@ -71,54 +67,54 @@ DESCRIPTION
 	Invocation Target
 	  The Function instance to invoke can be specified using the --target flag
 	  which accepts the values "local", "remote", or <URL>.  By default the
-	  local Function instance is chosen if running (see {{.Prefix}}func run).
+	  local Function instance is chosen if running (see {{.Name}} run).
 	  To explicitly target the remote (deployed) Function:
-	    {{.Prefix}}func invoke --target=remote
+	    {{.Name}} invoke --target=remote
 	  To target an arbitrary endpoint, provide a URL:
-	    {{.Prefix}}func invoke --target=https://myfunction.example.com
+	    {{.Name}} invoke --target=https://myfunction.example.com
 
 	Invocation Data
 	  Providing a filename in the --file flag will base64 encode its contents
 	  as the "data" parameter sent to the Function.  The value of --content-type
 	  should be set to the type from the source file.  For example, the following
 	  would send a JPEG base64 encoded in the "data" POST parameter:
-	    {{.Prefix}}func invoke --file=example.jpeg --content-type=image/jpeg
+	    {{.Name}} invoke --file=example.jpeg --content-type=image/jpeg
 
 	Message Format
 	  By default Functions are sent messages which match the invocation format
 	  of the template they were created using; for example "http" or "cloudevent".
 	  To override this behavior, use the --format (-f) flag.
-	    {{.Prefix}}func invoke -f=cloudevent -t=http://my-sink.my-cluster
+	    {{.Name}} invoke -f=cloudevent -t=http://my-sink.my-cluster
 
 EXAMPLES
 
 	o Invoke the default (local or remote) running Function with default values
-	  $ {{.Prefix}}func invoke
+	  $ {{.Name}} invoke
 
 	o Run the Function locally and then invoke it with a test request:
 	  (run in two terminals or by running the first in the background)
-	  $ {{.Prefix}}func run
-	  $ {{.Prefix}}func invoke
+	  $ {{.Name}} run
+	  $ {{.Name}} invoke
 
 	o Deploy and then invoke the remote Function:
-	  $ {{.Prefix}}func deploy
-	  $ {{.Prefix}}func invoke
+	  $ {{.Name}} deploy
+	  $ {{.Name}} invoke
 
 	o Invoke a remote (deployed) Function when it is already running locally:
 	  (overrides the default behavior of preferring locally running instances)
-	  $ {{.Prefix}}func invoke --target=remote
+	  $ {{.Name}} invoke --target=remote
 
 	o Specify the data to send to the Function as a flag
-	  $ {{.Prefix}}func invoke --data="Hello World!"
+	  $ {{.Name}} invoke --data="Hello World!"
 
 	o Send a JPEG to the Function
-	  $ {{.Prefix}}func invoke --file=example.jpeg --content-type=image/jpeg
+	  $ {{.Name}} invoke --file=example.jpeg --content-type=image/jpeg
 
 	o Invoke an arbitrary endpoint (HTTP POST)
-		$ {{.Prefix}}func invoke --target="https://my-http-handler.example.com"
+		$ {{.Name}} invoke --target="https://my-http-handler.example.com"
 
 	o Invoke an arbitrary endpoint (CloudEvent)
-		$ {{.Prefix}}func invoke -f=cloudevent -t="https://my-event-broker.example.com"
+		$ {{.Name}} invoke -f=cloudevent -t="https://my-event-broker.example.com"
 
 `,
 		SuggestFor: []string{"emit", "emti", "send", "emit", "exec", "nivoke", "onvoke", "unvoke", "knvoke", "imvoke", "ihvoke", "ibvoke"},
@@ -203,9 +199,9 @@ func runInvokeHelp(cmd *cobra.Command, args []string, clientFn invokeClientFn) {
 	)
 
 	var data = struct {
-		Prefix string
+		Name string
 	}{
-		Prefix: pluginPrefix(),
+		Name: cmd.Root().Name(),
 	}
 
 	if err := tpl.Execute(cmd.OutOrStdout(), data); err != nil {

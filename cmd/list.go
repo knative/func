@@ -17,10 +17,6 @@ import (
 	"knative.dev/kn-plugin-func/knative"
 )
 
-func init() {
-	root.AddCommand(NewListCmd(newListClient))
-}
-
 func newListClient(cfg listConfig) (*fn.Client, error) {
 	// TODO(lkingland): does an empty namespace mean all namespaces
 	// or the default namespace as defined in user's config?

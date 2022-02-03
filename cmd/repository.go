@@ -12,15 +12,6 @@ import (
 	fn "knative.dev/kn-plugin-func"
 )
 
-func init() {
-	repositoryCmd := NewRepositoryCmd(newRepositoryClient)
-	repositoryCmd.AddCommand(NewRepositoryListCmd(newRepositoryClient))
-	repositoryCmd.AddCommand(NewRepositoryAddCmd(newRepositoryClient))
-	repositoryCmd.AddCommand(NewRepositoryRenameCmd(newRepositoryClient))
-	repositoryCmd.AddCommand(NewRepositoryRemoveCmd(newRepositoryClient))
-	root.AddCommand(repositoryCmd)
-}
-
 // repositoryClientFn is a function which yields both a client and the final
 // config used to instantiate.
 type repositoryClientFn func([]string) (repositoryConfig, RepositoryClient, error)
@@ -174,6 +165,12 @@ EXAMPLES
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		return runRepository(cmd, args, clientFn)
 	}
+
+	cmd.AddCommand(NewRepositoryListCmd(newRepositoryClient))
+	cmd.AddCommand(NewRepositoryAddCmd(newRepositoryClient))
+	cmd.AddCommand(NewRepositoryRenameCmd(newRepositoryClient))
+	cmd.AddCommand(NewRepositoryRemoveCmd(newRepositoryClient))
+
 	return cmd
 }
 

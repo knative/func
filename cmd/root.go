@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -29,69 +28,34 @@ var exampleTemplate = template.Must(template.New("example").Parse(`
 curl $(kn service describe myfunc -o url)
 `))
 
-// The root of the command tree defines the command name, description, globally
+type RootCommandConfig struct {
+	Name    string // usually `func` or `kn func`
+	Date    string
+	Version string
+	Hash    string
+}
+
+// NewRootCmd creates the root of the command tree defines the command name, description, globally
 // available flags, etc.  It has no action of its own, such that running the
 // resultant binary with no arguments prints the help/usage text.
-var root = &cobra.Command{
-	Use:           "func",
-	Short:         "Serverless Functions",
-	SilenceErrors: true, // we explicitly handle errors in Execute()
-	SilenceUsage:  true, // no usage dump on error
-	Long: `Serverless Functions
+func NewRootCmd(config RootCommandConfig) (*cobra.Command, error) {
+	var err error
+
+	root := &cobra.Command{
+		Use:           config.Name,
+		Short:         "Serverless Functions",
+		SilenceErrors: true, // we explicitly handle errors in Execute()
+		SilenceUsage:  true, // no usage dump on error
+		Long: `Serverless Functions
 
 Create, build and deploy Functions in serverless containers for multiple runtimes on Knative`,
-}
+	}
 
-func init() {
-	var err error
-	root.Example, err = replaceNameInTemplate("func", "example")
+	root.Example, err = replaceNameInTemplate(config.Name, "example")
 	if err != nil {
 		root.Example = "Usage could not be loaded"
 	}
-}
 
-func replaceNameInTemplate(name, template string) (string, error) {
-	var buffer bytes.Buffer
-	err := exampleTemplate.ExecuteTemplate(&buffer, template, name)
-	if err != nil {
-		return "", err
-	}
-	return buffer.String(), nil
-}
-
-// pluginPrefix returns an optional prefix for help commands based on the
-// value of the FUNC_PARENT_COMMAND environment variable.
-func pluginPrefix() string {
-	parent := os.Getenv("FUNC_PARENT_COMMAND")
-	if parent != "" {
-		return parent + " "
-	}
-	return ""
-}
-
-// NewRootCmd can be used to embed the func commands as a library, such as
-// a plugin in 'kn'.
-func NewRootCmd() (*cobra.Command, error) {
-	// TODO: have 'kn' provide this environment variable, such that this works
-	// generically, and works whether it is compiled in as a library or used via
-	// the `kn-func` binary naming convention.
-	os.Setenv("FUNC_PARENT_COMMAND", "kn")
-
-	// TODO: update the below to use the environment variable, and the general
-	// structure seen in the create command's help text.
-	root.Use = "kn func"
-	var err error
-	root.Example, err = replaceNameInTemplate("kn func", "example")
-	if err != nil {
-		root.Example = "Usage could not be loaded"
-	}
-	return root, err
-}
-
-// When the code is loaded into memory upon invocation, the cobra/viper packages
-// are invoked to gather system context.  This includes reading the configuration
-// file, environment variables, and parsing the command flags.
-func init() {
 	// read in environment variables that match
 	viper.AutomaticEnv()
 
@@ -101,9 +65,9 @@ func init() {
 	// which thus overrides both the default and the value read in from the
 	// config file (i.e. flags always take highest precidence).
 	root.PersistentFlags().BoolVarP(&verbose, "verbose", "v", verbose, "print verbose logs")
-	err := viper.BindPFlag("verbose", root.PersistentFlags().Lookup("verbose"))
+	err = viper.BindPFlag("verbose", root.PersistentFlags().Lookup("verbose"))
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	// Override the --version template to match the output format from the
@@ -112,24 +76,38 @@ func init() {
 
 	// Prefix all environment variables with "FUNC_" to avoid collisions with other apps.
 	viper.SetEnvPrefix("func")
+
+	version := Version{
+		Date: config.Date,
+		Vers: config.Version,
+		Hash: config.Hash,
+	}
+
+	root.Version = version.String()
+
+	root.AddCommand(NewVersionCmd(version))
+	root.AddCommand(NewCreateCmd(newCreateClient))
+	root.AddCommand(NewConfigCmd())
+	root.AddCommand(NewBuildCmd(newBuildClient))
+	root.AddCommand(NewDeployCmd(newDeployClient))
+	root.AddCommand(NewDeleteCmd(newDeleteClient))
+	root.AddCommand(NewInfoCmd(newInfoClient))
+	root.AddCommand(NewListCmd(newListClient))
+	root.AddCommand(NewInvokeCmd(newInvokeClient))
+	root.AddCommand(NewRepositoryCmd(newRepositoryClient))
+	root.AddCommand(NewRunCmd(newRunClient))
+	root.AddCommand(NewCompletionCmd())
+
+	return root, nil
 }
 
-// Execute the command tree by executing the root command, which runs
-// according to the context defined by:  the optional config file,
-// Environment Variables, command arguments and flags.
-func Execute(ctx context.Context) {
-	// Sets version to a string partially populated by compile-time flags.
-	root.Version = version.String()
-	// Execute the root of the command tree.
-	if err := root.ExecuteContext(ctx); err != nil {
-		if ctx.Err() != nil {
-			os.Exit(130)
-			return
-		}
-		// Errors are printed to STDERR output and the process exits with code of 1.
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-		os.Exit(1)
+func replaceNameInTemplate(name, template string) (string, error) {
+	var buffer bytes.Buffer
+	err := exampleTemplate.ExecuteTemplate(&buffer, template, name)
+	if err != nil {
+		return "", err
 	}
+	return buffer.String(), nil
 }
 
 // Helpers
@@ -337,4 +315,46 @@ func setPathFlag(cmd *cobra.Command) {
 // setNamespaceFlag ensures common text/wording when the --namespace flag is used
 func setNamespaceFlag(cmd *cobra.Command) {
 	cmd.Flags().StringP("namespace", "n", "", "The namespace on the cluster. By default, the namespace in func.yaml is used or the currently active namespace if not set in the configuration. (Env: $FUNC_NAMESPACE)")
+}
+
+type Version struct {
+	// Date of compilation
+	Date string
+	// Version tag of the git commit, or 'tip' if no tag.
+	Vers string
+	// Hash of the currently active git commit on build.
+	Hash string
+	// Verbose printing enabled for the string representation.
+	Verbose bool
+}
+
+func (v Version) String() string {
+	// If 'vers' is not a semver already, then the binary was built either
+	// from an untagged git commit (set semver to v0.0.0), or was built
+	// directly from source (set semver to v0.0.0-source).
+	if strings.HasPrefix(v.Vers, "v") {
+		// Was built via make with a tagged commit
+		if v.Verbose {
+			return fmt.Sprintf("%s-%s-%s", v.Vers, v.Hash, v.Date)
+		} else {
+			return v.Vers
+		}
+	} else if v.Vers == "tip" {
+		// Was built via make from an untagged commit
+		v.Vers = "v0.0.0"
+		if v.Verbose {
+			return fmt.Sprintf("%s-%s-%s", v.Vers, v.Hash, v.Date)
+		} else {
+			return v.Vers
+		}
+	} else {
+		// Was likely built from source
+		v.Vers = "v0.0.0"
+		v.Hash = "source"
+		if v.Verbose {
+			return fmt.Sprintf("%s-%s", v.Vers, v.Hash)
+		} else {
+			return v.Vers
+		}
+	}
 }
