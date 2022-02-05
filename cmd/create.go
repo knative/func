@@ -255,7 +255,6 @@ func newCreateConfig(args []string, clientFn createClientFn) (cfg createConfig, 
 		Confirm:      viper.GetBool("confirm"),
 		Verbose:      viper.GetBool("verbose"),
 	}
-
 	// If not in confirm/prompting mode, this cfg structure is complete.
 	if !cfg.Confirm {
 		return
@@ -447,7 +446,7 @@ func (c createConfig) prompt(client *fn.Client) (createConfig, error) {
 			Prompt: &survey.Select{
 				Message: "Language Runtime:",
 				Options: runtimes,
-				Default: c.Runtime,
+				Default: runtimes[0],
 			},
 		}}
 	if err := survey.Ask(qs, &c); err != nil {
