@@ -467,6 +467,14 @@ func (c createConfig) prompt(client *fn.Client) (createConfig, error) {
 		return c, err
 	}
 
+	executable, err := os.Executable()
+	if err != nil {
+		fmt.Printf("Unable to get the executable path: %v", err)
+		executable = "func"
+	}
+	fmt.Printf("The command below is a shorthand method to create the same function!\n")
+	fmt.Printf("    %v -l %v -t %v %v\n", executable, c.Runtime, c.Template, c.Path)
+
 	return c, nil
 }
 
