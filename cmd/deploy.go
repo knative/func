@@ -30,7 +30,6 @@ func newDeployClient(cfg deployConfig) (*fn.Client, error) {
 
 	var (
 		pusher *docker.Pusher
-		err    error
 	)
 
 	credentialsProvider := creds.NewCredentialsProvider(
@@ -39,13 +38,10 @@ func newDeployClient(cfg deployConfig) (*fn.Client, error) {
 		creds.WithTransport(cfg.Transport))
 
 	if cfg.Push {
-		pusher, err = docker.NewPusher(
+		pusher = docker.NewPusher(
 			docker.WithCredentialsProvider(credentialsProvider),
 			docker.WithProgressListener(listener),
 			docker.WithTransport(cfg.Transport))
-		if err != nil {
-			return nil, err
-		}
 		pusher.Verbose = cfg.Verbose
 	}
 

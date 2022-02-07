@@ -24,7 +24,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 )
 
-type Opt func(*Pusher) error
+type Opt func(*Pusher)
 
 type Credentials struct {
 	Username string
@@ -56,30 +56,26 @@ type Pusher struct {
 }
 
 func WithCredentialsProvider(cp CredentialsProvider) Opt {
-	return func(p *Pusher) error {
+	return func(p *Pusher) {
 		p.credentialsProvider = cp
-		return nil
 	}
 }
 
 func WithProgressListener(pl fn.ProgressListener) Opt {
-	return func(p *Pusher) error {
+	return func(p *Pusher) {
 		p.progressListener = pl
-		return nil
 	}
 }
 
 func WithTransport(transport http.RoundTripper) Opt {
-	return func(pusher *Pusher) error {
+	return func(pusher *Pusher) {
 		pusher.transport = transport
-		return nil
 	}
 }
 
 func WithPusherDockerClientFactory(dockerClientFactory PusherDockerClientFactory) Opt {
-	return func(pusher *Pusher) error {
+	return func(pusher *Pusher) {
 		pusher.dockerClientFactory = dockerClientFactory
-		return nil
 	}
 }
 
@@ -88,7 +84,7 @@ func EmptyCredentialsProvider(ctx context.Context, registry string) (Credentials
 }
 
 // NewPusher creates an instance of a docker-based image pusher.
-func NewPusher(opts ...Opt) (*Pusher, error) {
+func NewPusher(opts ...Opt) *Pusher {
 	result := &Pusher{
 		Verbose:             false,
 		credentialsProvider: EmptyCredentialsProvider,
@@ -100,13 +96,10 @@ func NewPusher(opts ...Opt) (*Pusher, error) {
 		},
 	}
 	for _, opt := range opts {
-		err := opt(result)
-		if err != nil {
-			return nil, err
-		}
+		opt(result)
 	}
 
-	return result, nil
+	return result
 }
 
 func GetRegistry(img string) (string, error) {
