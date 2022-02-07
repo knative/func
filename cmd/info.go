@@ -16,10 +16,7 @@ import (
 )
 
 func newInfoClient(cfg infoConfig) (*fn.Client, error) {
-	describer, err := knative.NewDescriber(cfg.Namespace)
-	if err != nil {
-		return nil, err
-	}
+	describer := knative.NewDescriber(cfg.Namespace)
 
 	describer.Verbose = cfg.Verbose
 

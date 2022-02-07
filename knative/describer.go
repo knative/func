@@ -16,15 +16,10 @@ type Describer struct {
 	namespace string
 }
 
-func NewDescriber(namespaceOverride string) (describer *Describer, err error) {
-	describer = &Describer{}
-	namespace, err := k8s.GetNamespace(namespaceOverride)
-	if err != nil {
-		return
+func NewDescriber(namespaceOverride string) *Describer {
+	return &Describer{
+		namespace: namespaceOverride,
 	}
-
-	describer.namespace = namespace
-	return
 }
 
 // Describe by name. Note that the consuming API uses domain style notation, whereas Kubernetes
@@ -32,6 +27,12 @@ func NewDescriber(namespaceOverride string) (describer *Describer, err error) {
 // detal proper full names have to be escaped on the way in and unescaped on the way out. ex:
 // www.example-site.com -> www-example--site-com
 func (d *Describer) Describe(ctx context.Context, name string) (description fn.Instance, err error) {
+	if d.namespace == "" {
+		d.namespace, err = k8s.GetNamespace(d.namespace)
+		if err != nil {
+			return fn.Instance{}, err
+		}
+	}
 
 	servingClient, err := NewServingClient(d.namespace)
 	if err != nil {

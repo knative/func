@@ -10,15 +10,10 @@ import (
 
 const RemoveTimeout = 120 * time.Second
 
-func NewRemover(namespaceOverride string) (remover *Remover, err error) {
-	remover = &Remover{}
-	namespace, err := k8s.GetNamespace(namespaceOverride)
-	if err != nil {
-		return
+func NewRemover(namespaceOverride string) *Remover {
+	return &Remover{
+		Namespace: namespaceOverride,
 	}
-	remover.Namespace = namespace
-
-	return
 }
 
 type Remover struct {
@@ -27,6 +22,12 @@ type Remover struct {
 }
 
 func (remover *Remover) Remove(ctx context.Context, name string) (err error) {
+	if remover.Namespace == "" {
+		remover.Namespace, err = k8s.GetNamespace(remover.Namespace)
+		if err != nil {
+			return err
+		}
+	}
 
 	client, err := NewServingClient(remover.Namespace)
 	if err != nil {

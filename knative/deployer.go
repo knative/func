@@ -36,14 +36,10 @@ type Deployer struct {
 	Verbose bool
 }
 
-func NewDeployer(namespaceOverride string) (deployer *Deployer, err error) {
-	deployer = &Deployer{}
-	namespace, err := k8s.GetNamespace(namespaceOverride)
-	if err != nil {
-		return
+func NewDeployer(namespaceOverride string) *Deployer {
+	return &Deployer{
+		Namespace: namespaceOverride,
 	}
-	deployer.Namespace = namespace
-	return
 }
 
 // Checks the status of the "user-container" for the ImagePullBackOff reason meaning that
@@ -77,6 +73,12 @@ func (d *Deployer) isImageInPrivateRegistry(ctx context.Context, client clientse
 }
 
 func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (result fn.DeploymentResult, err error) {
+	if d.Namespace == "" {
+		d.Namespace, err = k8s.GetNamespace(d.Namespace)
+		if err != nil {
+			return fn.DeploymentResult{}, err
+		}
+	}
 
 	client, err := NewServingClient(d.Namespace)
 	if err != nil {

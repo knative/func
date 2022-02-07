@@ -59,10 +59,8 @@ func TestList(t *testing.T) {
 	verbose := true
 
 	// Assemble
-	lister, err := knative.NewLister(DefaultNamespace)
-	if err != nil {
-		t.Fatal(err)
-	}
+	lister := knative.NewLister(DefaultNamespace)
+
 	client := fn.New(
 		fn.WithLister(lister),
 		fn.WithVerbose(verbose))
@@ -214,22 +212,13 @@ func newClient(verbose bool) *fn.Client {
 	}
 	pusher.Verbose = verbose
 
-	deployer, err := knative.NewDeployer(DefaultNamespace)
-	if err != nil {
-		panic(err) // TODO: remove error from deployer constructor
-	}
+	deployer := knative.NewDeployer(DefaultNamespace)
 	deployer.Verbose = verbose
 
-	remover, err := knative.NewRemover(DefaultNamespace)
-	if err != nil {
-		panic(err) // TODO: remove error from remover constructor
-	}
+	remover := knative.NewRemover(DefaultNamespace)
 	remover.Verbose = verbose
 
-	lister, err := knative.NewLister(DefaultNamespace)
-	if err != nil {
-		panic(err) // TODO: remove error from lister constructor
-	}
+	lister := knative.NewLister(DefaultNamespace)
 	lister.Verbose = verbose
 
 	return fn.New(

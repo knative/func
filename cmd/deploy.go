@@ -49,18 +49,12 @@ func newDeployClient(cfg deployConfig) (*fn.Client, error) {
 		pusher.Verbose = cfg.Verbose
 	}
 
-	deployer, err := knative.NewDeployer(cfg.Namespace)
-	if err != nil {
-		return nil, err
-	}
+	deployer := knative.NewDeployer(cfg.Namespace)
 
-	pipelinesProvider, err := tekton.NewPipelinesProvider(
+	pipelinesProvider := tekton.NewPipelinesProvider(
 		tekton.WithNamespace(cfg.Namespace),
 		tekton.WithProgressListener(listener),
 		tekton.WithCredentialsProvider(credentialsProvider))
-	if err != nil {
-		return nil, err
-	}
 
 	listener.Verbose = cfg.Verbose
 	builder.Verbose = cfg.Verbose
