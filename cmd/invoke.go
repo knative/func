@@ -306,7 +306,7 @@ func (c invokeConfig) prompt(client *fn.Client) (invokeConfig, error) {
 	if err := survey.Ask(qs, &c); err != nil {
 		return c, err
 	}
-
+	formatOptions := []string{"", "http", "cloudevent"}
 	qs = []*survey.Question{
 		{
 			Name: "Target",
@@ -319,8 +319,8 @@ func (c invokeConfig) prompt(client *fn.Client) (invokeConfig, error) {
 			Name: "Format",
 			Prompt: &survey.Select{
 				Message: "(Optional) Format Override",
-				Options: []string{"", "http", "cloudevent"},
-				Default: c.Format,
+				Options: formatOptions,
+				Default: surveySelectDefault(c.Format, formatOptions),
 			},
 		},
 	}

@@ -446,7 +446,7 @@ func (c createConfig) prompt(client *fn.Client) (createConfig, error) {
 			Prompt: &survey.Select{
 				Message: "Language Runtime:",
 				Options: runtimes,
-				Default: runtimes[0],
+				Default: surveySelectDefault(c.Runtime, runtimes),
 			},
 		}}
 	if err := survey.Ask(qs, &c); err != nil {
