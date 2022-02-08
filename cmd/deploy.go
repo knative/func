@@ -3,11 +3,8 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"net/http"
 	"os"
 	"strings"
-
-	fnhttp "knative.dev/kn-plugin-func/http"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
@@ -16,61 +13,19 @@ import (
 	"knative.dev/client/pkg/util"
 
 	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/buildpacks"
 	"knative.dev/kn-plugin-func/docker"
 	"knative.dev/kn-plugin-func/docker/creds"
-	"knative.dev/kn-plugin-func/knative"
-	"knative.dev/kn-plugin-func/pipelines/tekton"
-	"knative.dev/kn-plugin-func/progress"
 )
 
-func newDeployClient(cfg deployConfig) (*fn.Client, error) {
-	listener := progress.New()
-	builder := buildpacks.NewBuilder()
-
-	var (
-		pusher *docker.Pusher
-	)
-
-	credentialsProvider := creds.NewCredentialsProvider(
-		creds.WithPromptForCredentials(newPromptForCredentials()),
-		creds.WithPromptForCredentialStore(newPromptForCredentialStore()),
-		creds.WithTransport(cfg.Transport))
-
-	if cfg.Push {
-		pusher = docker.NewPusher(
-			docker.WithCredentialsProvider(credentialsProvider),
-			docker.WithProgressListener(listener),
-			docker.WithTransport(cfg.Transport))
-		pusher.Verbose = cfg.Verbose
+func deployConfigToClientOptions(cfg deployConfig) ClientOptions {
+	return ClientOptions{
+		Namespace: cfg.Namespace,
+		Verbose:   cfg.Verbose,
+		Registry:  cfg.Registry,
 	}
-
-	deployer := knative.NewDeployer(cfg.Namespace)
-
-	pipelinesProvider := tekton.NewPipelinesProvider(
-		tekton.WithNamespace(cfg.Namespace),
-		tekton.WithProgressListener(listener),
-		tekton.WithCredentialsProvider(credentialsProvider))
-
-	listener.Verbose = cfg.Verbose
-	builder.Verbose = cfg.Verbose
-	deployer.Verbose = cfg.Verbose
-	pipelinesProvider.Verbose = cfg.Verbose
-
-	return fn.New(
-		fn.WithProgressListener(listener),
-		fn.WithBuilder(builder),
-		fn.WithPusher(pusher),
-		fn.WithDeployer(deployer),
-		fn.WithPipelinesProvider(pipelinesProvider),
-		fn.WithRegistry(cfg.Registry), // for deriving name when no --image value
-		fn.WithVerbose(cfg.Verbose),
-	), nil
 }
 
-type deployClientFn func(deployConfig) (*fn.Client, error)
-
-func NewDeployCmd(clientFn deployClientFn) *cobra.Command {
+func NewDeployCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "deploy",
 		Short: "Deploy a function",
@@ -115,13 +70,13 @@ kn func deploy --image quay.io/myuser/myfunc -n myns
 	}
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runDeploy(cmd, args, clientFn)
+		return runDeploy(cmd, args, newClient)
 	}
 
 	return cmd
 }
 
-func runDeploy(cmd *cobra.Command, _ []string, clientFn deployClientFn) (err error) {
+func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err error) {
 	config, err := newDeployConfig(cmd)
 	if err != nil {
 		return
@@ -210,17 +165,7 @@ func runDeploy(cmd *cobra.Command, _ []string, clientFn deployClientFn) (err err
 		config.Registry = ""
 	}
 
-	rt := fnhttp.NewRoundTripper()
-	defer rt.Close()
-	config.Transport = rt
-
-	client, err := clientFn(config)
-	if err != nil {
-		if err == terminal.InterruptErr {
-			return nil
-		}
-		return err
-	}
+	client := newClient(deployConfigToClientOptions(config))
 
 	switch currentBuildType {
 	case fn.BuildTypeLocal, "":
@@ -337,8 +282,6 @@ type deployConfig struct {
 
 	// Envs passed via cmd to removed
 	EnvToRemove []string
-
-	Transport http.RoundTripper
 }
 
 // newDeployConfig creates a buildConfig populated from command flags and

@@ -12,23 +12,9 @@ import (
 	"gopkg.in/yaml.v2"
 
 	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/knative"
 )
 
-func newInfoClient(cfg infoConfig) (*fn.Client, error) {
-	describer := knative.NewDescriber(cfg.Namespace)
-
-	describer.Verbose = cfg.Verbose
-
-	return fn.New(
-		fn.WithDescriber(describer),
-		fn.WithVerbose(cfg.Verbose),
-	), nil
-}
-
-type infoClientFn func(infoConfig) (*fn.Client, error)
-
-func NewInfoCmd(clientFn infoClientFn) *cobra.Command {
+func NewInfoCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "info <name>",
 		Short: "Show details of a function",
@@ -58,13 +44,13 @@ kn func info --output yaml --path myotherfunc
 	}
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runInfo(cmd, args, clientFn)
+		return runInfo(cmd, args, newClient)
 	}
 
 	return cmd
 }
 
-func runInfo(cmd *cobra.Command, args []string, clientFn infoClientFn) (err error) {
+func runInfo(cmd *cobra.Command, args []string, newClient ClientFactory) (err error) {
 	config := newInfoConfig(args)
 
 	function, err := fn.NewFunction(config.Path)
@@ -78,10 +64,10 @@ func runInfo(cmd *cobra.Command, args []string, clientFn infoClientFn) (err erro
 	}
 
 	// Create a client
-	client, err := clientFn(config)
-	if err != nil {
-		return err
-	}
+	client := newClient(ClientOptions{
+		Namespace: config.Namespace,
+		Verbose:   config.Verbose,
+	})
 
 	// Get the description
 	d, err := client.Info(cmd.Context(), config.Name, config.Path)

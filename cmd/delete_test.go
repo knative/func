@@ -28,8 +28,8 @@ func TestDelete_ByName(t *testing.T) {
 
 	// Create a command with a client constructor fn that instantiates a client
 	// with a the mocked remover.
-	cmd := NewDeleteCmd(func(_ deleteConfig) (*fn.Client, error) {
-		return fn.New(fn.WithRemover(remover)), nil
+	cmd := NewDeleteCmd(func(ClientOptions) *fn.Client {
+		return fn.New(fn.WithRemover(remover))
 	})
 
 	// Execute the command
@@ -80,8 +80,8 @@ created: 2021-01-01T00:00:00+00:00
 
 	// Command with a Client constructor that returns  client with the
 	// mocked remover.
-	cmd := NewDeleteCmd(func(_ deleteConfig) (*fn.Client, error) {
-		return fn.New(fn.WithRemover(remover)), nil
+	cmd := NewDeleteCmd(func(ClientOptions) *fn.Client {
+		return fn.New(fn.WithRemover(remover))
 	})
 
 	// Execute the command simulating no arguments.
@@ -108,8 +108,8 @@ func TestDelete_NameAndPathExclusivity(t *testing.T) {
 	remover := mock.NewRemover()
 
 	// Command with a Client constructor using the mock remover.
-	cmd := NewDeleteCmd(func(_ deleteConfig) (*fn.Client, error) {
-		return fn.New(fn.WithRemover(remover)), nil
+	cmd := NewDeleteCmd(func(ClientOptions) *fn.Client {
+		return fn.New(fn.WithRemover(remover))
 	})
 
 	// Execute the command simulating the invalid argument combination of both
