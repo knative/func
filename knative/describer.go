@@ -63,9 +63,17 @@ func (d *Describer) Describe(ctx context.Context, name string) (description fn.I
 		primaryRouteURL = routes.Items[0].Status.URL.String()
 	}
 
+	description.Name = name
+	description.Namespace = d.namespace
+	description.Route = primaryRouteURL
+	description.Routes = routeURLs
+
 	triggers, err := eventingClient.ListTriggers(ctx)
 	// IsNotFound -- Eventing is probably not installed on the cluster
 	if err != nil && !errors.IsNotFound(err) {
+		err = nil
+		return
+	} else if err != nil {
 		return
 	}
 
@@ -89,10 +97,6 @@ func (d *Describer) Describe(ctx context.Context, name string) (description fn.I
 		}
 	}
 
-	description.Name = name
-	description.Namespace = d.namespace
-	description.Route = primaryRouteURL
-	description.Routes = routeURLs
 	description.Subscriptions = subscriptions
 
 	return
