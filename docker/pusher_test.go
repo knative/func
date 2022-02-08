@@ -105,12 +105,9 @@ func TestDaemonPush(t *testing.T) {
 	dockerClientFactory := func() (docker.PusherDockerClient, error) {
 		return dockerClient, nil
 	}
-	pusher, err := docker.NewPusher(
+	pusher := docker.NewPusher(
 		docker.WithCredentialsProvider(testCredProvider),
 		docker.WithPusherDockerClientFactory(dockerClientFactory))
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	f := fn.Function{
 		Image: functionImageLocal,
@@ -185,13 +182,10 @@ func TestNonDaemonPush(t *testing.T) {
 		return dockerClient, nil
 	}
 
-	pusher, err := docker.NewPusher(
+	pusher := docker.NewPusher(
 		docker.WithTransport(transport),
 		docker.WithCredentialsProvider(testCredProvider),
 		docker.WithPusherDockerClientFactory(dockerClientFactory))
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	f := fn.Function{
 		Image: functionImageRemote,

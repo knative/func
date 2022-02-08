@@ -15,11 +15,8 @@ import (
 )
 
 func CompleteFunctionList(cmd *cobra.Command, args []string, toComplete string) (strings []string, directive cobra.ShellCompDirective) {
-	lister, err := knative.NewLister("")
-	if err != nil {
-		directive = cobra.ShellCompDirectiveError
-		return
-	}
+	lister := knative.NewLister("")
+
 	list, err := lister.List(cmd.Context())
 	if err != nil {
 		directive = cobra.ShellCompDirectiveError

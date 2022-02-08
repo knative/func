@@ -24,7 +24,7 @@ import (
 	"knative.dev/pkg/apis"
 )
 
-type Opt func(*PipelinesProvider) error
+type Opt func(*PipelinesProvider)
 
 type PipelinesProvider struct {
 	// namespace with which to override that set on the default configuration (such as the ~/.kube/config).
@@ -36,47 +36,46 @@ type PipelinesProvider struct {
 }
 
 func WithNamespace(namespace string) Opt {
-	return func(pp *PipelinesProvider) error {
-		namespace, err := k8s.GetNamespace(namespace)
-		if err != nil {
-			return err
-		}
+	return func(pp *PipelinesProvider) {
 		pp.namespace = namespace
-		return nil
 	}
 }
 
 func WithProgressListener(pl fn.ProgressListener) Opt {
-	return func(pp *PipelinesProvider) error {
+	return func(pp *PipelinesProvider) {
 		pp.progressListener = pl
-		return nil
 	}
 }
 
 func WithCredentialsProvider(credentialsProvider docker.CredentialsProvider) Opt {
-	return func(pp *PipelinesProvider) error {
+	return func(pp *PipelinesProvider) {
 		pp.credentialsProvider = credentialsProvider
-		return nil
 	}
 }
 
-func NewPipelinesProvider(opts ...Opt) (*PipelinesProvider, error) {
+func NewPipelinesProvider(opts ...Opt) *PipelinesProvider {
 	pp := &PipelinesProvider{}
 
 	for _, opt := range opts {
-		err := opt(pp)
-		if err != nil {
-			return nil, err
-		}
+		opt(pp)
 	}
 
-	return pp, nil
+	return pp
 }
 
 // Run creates a Tekton Pipeline and all necessary resources (PVCs, Secrets, SAs,...) for the input Function.
 // It ensures that all needed resources are present on the cluster so the PipelineRun can be initialized.
 // After the PipelineRun is being intitialized, the progress of the PipelineRun is being watched and printed to the output.
 func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
+	var err error
+
+	if pp.namespace == "" {
+		pp.namespace, err = k8s.GetNamespace(pp.namespace)
+		if err != nil {
+			return err
+		}
+	}
+
 	pp.progressListener.Increment("Creating Pipeline resources")
 
 	client, err := NewTektonClient()

@@ -21,10 +21,7 @@ import (
 type invokeClientFn func(invokeConfig) (*fn.Client, error)
 
 func newInvokeClient(cfg invokeConfig) (*fn.Client, error) {
-	describer, err := knative.NewDescriber(cfg.Namespace)
-	if err != nil {
-		return nil, err
-	}
+	describer := knative.NewDescriber(cfg.Namespace)
 	describer.Verbose = cfg.Verbose
 
 	return fn.New(

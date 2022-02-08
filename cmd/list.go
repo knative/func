@@ -20,11 +20,7 @@ import (
 func newListClient(cfg listConfig) (*fn.Client, error) {
 	// TODO(lkingland): does an empty namespace mean all namespaces
 	// or the default namespace as defined in user's config?
-	lister, err := knative.NewLister(cfg.Namespace)
-	if err != nil {
-		return nil, err
-	}
-
+	lister := knative.NewLister(cfg.Namespace)
 	lister.Verbose = cfg.Verbose
 
 	return fn.New(

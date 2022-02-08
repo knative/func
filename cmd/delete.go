@@ -20,16 +20,10 @@ import (
 // mocking the remover or the client itself to fabricate test states.
 func newDeleteClient(cfg deleteConfig) (*fn.Client, error) {
 	listener := progress.New()
-	remover, err := knative.NewRemover(cfg.Namespace)
-	if err != nil {
-		return nil, err
-	}
+	remover := knative.NewRemover(cfg.Namespace)
 
-	pipelinesProvider, err := tekton.NewPipelinesProvider(
+	pipelinesProvider := tekton.NewPipelinesProvider(
 		tekton.WithNamespace(cfg.Namespace))
-	if err != nil {
-		return nil, err
-	}
 
 	listener.Verbose = cfg.Verbose
 	remover.Verbose = cfg.Verbose

@@ -17,19 +17,19 @@ type Lister struct {
 	Namespace string
 }
 
-func NewLister(namespaceOverride string) (l *Lister, err error) {
-	l = &Lister{}
-
-	namespace, err := k8s.GetNamespace(namespaceOverride)
-	if err != nil {
-		return
+func NewLister(namespaceOverride string) *Lister {
+	return &Lister{
+		Namespace: namespaceOverride,
 	}
-	l.Namespace = namespace
-
-	return
 }
 
 func (l *Lister) List(ctx context.Context) (items []fn.ListItem, err error) {
+	if l.Namespace == "" {
+		l.Namespace, err = k8s.GetNamespace(l.Namespace)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	client, err := NewServingClient(l.Namespace)
 	if err != nil {

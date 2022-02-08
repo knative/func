@@ -30,7 +30,6 @@ func newDeployClient(cfg deployConfig) (*fn.Client, error) {
 
 	var (
 		pusher *docker.Pusher
-		err    error
 	)
 
 	credentialsProvider := creds.NewCredentialsProvider(
@@ -39,28 +38,19 @@ func newDeployClient(cfg deployConfig) (*fn.Client, error) {
 		creds.WithTransport(cfg.Transport))
 
 	if cfg.Push {
-		pusher, err = docker.NewPusher(
+		pusher = docker.NewPusher(
 			docker.WithCredentialsProvider(credentialsProvider),
 			docker.WithProgressListener(listener),
 			docker.WithTransport(cfg.Transport))
-		if err != nil {
-			return nil, err
-		}
 		pusher.Verbose = cfg.Verbose
 	}
 
-	deployer, err := knative.NewDeployer(cfg.Namespace)
-	if err != nil {
-		return nil, err
-	}
+	deployer := knative.NewDeployer(cfg.Namespace)
 
-	pipelinesProvider, err := tekton.NewPipelinesProvider(
+	pipelinesProvider := tekton.NewPipelinesProvider(
 		tekton.WithNamespace(cfg.Namespace),
 		tekton.WithProgressListener(listener),
 		tekton.WithCredentialsProvider(credentialsProvider))
-	if err != nil {
-		return nil, err
-	}
 
 	listener.Verbose = cfg.Verbose
 	builder.Verbose = cfg.Verbose

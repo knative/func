@@ -25,20 +25,16 @@ func newBuildClient(cfg buildConfig) (*fn.Client, error) {
 
 	var (
 		pusher *docker.Pusher
-		err    error
 	)
 	if cfg.Push {
 		credentialsProvider := creds.NewCredentialsProvider(
 			creds.WithPromptForCredentials(newPromptForCredentials()),
 			creds.WithPromptForCredentialStore(newPromptForCredentialStore()),
 			creds.WithTransport(cfg.Transport))
-		pusher, err = docker.NewPusher(
+		pusher = docker.NewPusher(
 			docker.WithCredentialsProvider(credentialsProvider),
 			docker.WithProgressListener(listener),
 			docker.WithTransport(cfg.Transport))
-		if err != nil {
-			return nil, err
-		}
 		pusher.Verbose = cfg.Verbose
 	}
 
