@@ -18,7 +18,7 @@ func TestCreate_Execute(t *testing.T) {
 	defer fromTempDir(t)()
 
 	// command with a client factory which yields a fully default client.
-	cmd := NewCreateCmd(func(createConfig) *fn.Client { return fn.New() })
+	cmd := NewCreateCmd(func(ClientOptions) *fn.Client { return fn.New() })
 	cmd.SetArgs([]string{
 		fmt.Sprintf("--language=%s", "go"),
 	})
@@ -34,7 +34,7 @@ func TestCreate_NoRuntime(t *testing.T) {
 	defer fromTempDir(t)()
 
 	// command with a client factory which yields a fully default client.
-	cmd := NewCreateCmd(func(createConfig) *fn.Client { return fn.New() })
+	cmd := NewCreateCmd(func(ClientOptions) *fn.Client { return fn.New() })
 	cmd.SetArgs([]string{})
 
 	err := cmd.Execute()
@@ -50,7 +50,7 @@ func TestCreate_WithInvalidRuntime(t *testing.T) {
 	defer fromTempDir(t)()
 
 	// command with a client factory which yields a fully default client.
-	cmd := NewCreateCmd(func(createConfig) *fn.Client { return fn.New() })
+	cmd := NewCreateCmd(func(ClientOptions) *fn.Client { return fn.New() })
 	cmd.SetArgs([]string{
 		fmt.Sprintf("--language=%s", "test"),
 	})
@@ -68,7 +68,7 @@ func TestCreate_InvalidTemplate(t *testing.T) {
 	defer fromTempDir(t)()
 
 	// command with a client factory which yields a fully default client.
-	cmd := NewCreateCmd(func(createConfig) *fn.Client { return fn.New() })
+	cmd := NewCreateCmd(func(ClientOptions) *fn.Client { return fn.New() })
 	cmd.SetArgs([]string{
 		fmt.Sprintf("--language=%s", "go"),
 		fmt.Sprintf("--template=%s", "events"),
@@ -88,7 +88,7 @@ func TestCreate_ValidatesName(t *testing.T) {
 
 	// Create a new Create command with a fn.Client construtor
 	// which returns a default (noop) client suitable for tests.
-	cmd := NewCreateCmd(func(createConfig) *fn.Client { return fn.New() })
+	cmd := NewCreateCmd(func(ClientOptions) *fn.Client { return fn.New() })
 
 	// Execute the command with a function name containing invalid characters and
 	// confirm the expected error is returned
@@ -121,7 +121,7 @@ func TestCreate_RepositoriesPath(t *testing.T) {
 	// after flags, environment variables, etc. are calculated.  In this case it
 	// will validate the test condition:  that config reflects the value of
 	// XDG_CONFIG_HOME, and secondarily the path suffix `func/repositories`.
-	cmd := NewCreateCmd(func(cfg createConfig) *fn.Client {
+	cmd := NewCreateCmd(func(cfg ClientOptions) *fn.Client {
 		if cfg.Repositories != expected {
 			t.Fatalf("expected repositories default path to be '%v', got '%v'", expected, cfg.Repositories)
 		}

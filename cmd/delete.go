@@ -9,37 +9,9 @@ import (
 	"github.com/spf13/cobra"
 
 	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/knative"
-	"knative.dev/kn-plugin-func/pipelines/tekton"
-	"knative.dev/kn-plugin-func/progress"
 )
 
-// newDeleteClient returns an instance of a Client using the
-// final config state.
-// Testing note: This method is swapped out during testing to allow
-// mocking the remover or the client itself to fabricate test states.
-func newDeleteClient(cfg deleteConfig) (*fn.Client, error) {
-	listener := progress.New()
-	remover := knative.NewRemover(cfg.Namespace)
-
-	pipelinesProvider := tekton.NewPipelinesProvider(
-		tekton.WithNamespace(cfg.Namespace))
-
-	listener.Verbose = cfg.Verbose
-	remover.Verbose = cfg.Verbose
-	pipelinesProvider.Verbose = cfg.Verbose
-
-	return fn.New(
-		fn.WithProgressListener(listener),
-		fn.WithRemover(remover),
-		fn.WithPipelinesProvider(pipelinesProvider),
-		fn.WithVerbose(cfg.Verbose)), nil
-}
-
-// A deleteClientFn is a function which yields a Client instance from a config
-type deleteClientFn func(deleteConfig) (*fn.Client, error)
-
-func NewDeleteCmd(clientFn deleteClientFn) *cobra.Command {
+func NewDeleteCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete [NAME]",
 		Short: "Undeploy a function",
@@ -69,13 +41,13 @@ kn func delete -n apps myfunc
 	setPathFlag(cmd)
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runDelete(cmd, args, clientFn)
+		return runDelete(cmd, args, newClient)
 	}
 
 	return cmd
 }
 
-func runDelete(cmd *cobra.Command, args []string, clientFn deleteClientFn) (err error) {
+func runDelete(cmd *cobra.Command, args []string, clientFn ClientFactory) (err error) {
 	config, err := newDeleteConfig(args).Prompt()
 	if err != nil {
 		if err == terminal.InterruptErr {
@@ -113,10 +85,10 @@ func runDelete(cmd *cobra.Command, args []string, clientFn deleteClientFn) (err 
 	}
 
 	// Create a client instance from the now-final config
-	client, err := clientFn(config)
-	if err != nil {
-		return err
-	}
+	client := clientFn(ClientOptions{
+		Namespace: config.Namespace,
+		Verbose:   config.Verbose,
+	})
 
 	// Invoke remove using the concrete client impl
 	return client.Remove(cmd.Context(), function, config.DeleteAll)

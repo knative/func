@@ -14,6 +14,7 @@ import (
 	"knative.dev/client/pkg/util"
 
 	fn "knative.dev/kn-plugin-func"
+	fnhttp "knative.dev/kn-plugin-func/http"
 )
 
 var exampleTemplate = template.Must(template.New("example").Parse(`
@@ -29,10 +30,11 @@ curl $(kn service describe myfunc -o url)
 `))
 
 type RootCommandConfig struct {
-	Name    string // usually `func` or `kn func`
-	Date    string
-	Version string
-	Hash    string
+	Name      string // usually `func` or `kn func`
+	Date      string
+	Version   string
+	Hash      string
+	NewClient ClientFactory
 }
 
 // NewRootCmd creates the root of the command tree defines the command name, description, globally
@@ -85,15 +87,25 @@ Create, build and deploy Functions in serverless containers for multiple runtime
 
 	root.Version = version.String()
 
+	newClient := config.NewClient
+
+	if newClient == nil {
+		transport := fnhttp.NewRoundTripper()
+		root.PostRun = func(cmd *cobra.Command, args []string) {
+			transport.Close()
+		}
+		newClient = NewClientFactory(transport)
+	}
+
 	root.AddCommand(NewVersionCmd(version))
-	root.AddCommand(NewCreateCmd(newCreateClient))
+	root.AddCommand(NewCreateCmd(newClient))
 	root.AddCommand(NewConfigCmd())
-	root.AddCommand(NewBuildCmd(newBuildClient))
-	root.AddCommand(NewDeployCmd(newDeployClient))
-	root.AddCommand(NewDeleteCmd(newDeleteClient))
-	root.AddCommand(NewInfoCmd(newInfoClient))
-	root.AddCommand(NewListCmd(newListClient))
-	root.AddCommand(NewInvokeCmd(newInvokeClient))
+	root.AddCommand(NewBuildCmd(newClient))
+	root.AddCommand(NewDeployCmd(newClient))
+	root.AddCommand(NewDeleteCmd(newClient))
+	root.AddCommand(NewInfoCmd(newClient))
+	root.AddCommand(NewListCmd(newClient))
+	root.AddCommand(NewInvokeCmd(newClient))
 	root.AddCommand(NewRepositoryCmd(newRepositoryClient))
 	root.AddCommand(NewRunCmd(newRunClient))
 	root.AddCommand(NewCompletionCmd())

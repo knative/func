@@ -14,24 +14,9 @@ import (
 	"gopkg.in/yaml.v2"
 
 	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/knative"
 )
 
-func newListClient(cfg listConfig) (*fn.Client, error) {
-	// TODO(lkingland): does an empty namespace mean all namespaces
-	// or the default namespace as defined in user's config?
-	lister := knative.NewLister(cfg.Namespace)
-	lister.Verbose = cfg.Verbose
-
-	return fn.New(
-		fn.WithLister(lister),
-		fn.WithVerbose(cfg.Verbose),
-	), nil
-}
-
-type listClientFn func(listConfig) (*fn.Client, error)
-
-func NewListCmd(clientFn listClientFn) *cobra.Command {
+func NewListCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List functions",
@@ -62,23 +47,23 @@ kn func list --all-namespaces --output json
 	}
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runList(cmd, args, clientFn)
+		return runList(cmd, args, newClient)
 	}
 
 	return cmd
 }
 
-func runList(cmd *cobra.Command, _ []string, clientFn listClientFn) (err error) {
+func runList(cmd *cobra.Command, _ []string, newClient ClientFactory) (err error) {
 	config := newListConfig()
 
 	if err := config.Validate(); err != nil {
 		return err
 	}
 
-	client, err := clientFn(config)
-	if err != nil {
-		return err
-	}
+	client := newClient(ClientOptions{
+		Namespace: config.Namespace,
+		Verbose:   config.Verbose,
+	})
 
 	items, err := client.List(cmd.Context())
 	if err != nil {

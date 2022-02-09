@@ -1,13 +1,11 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
 	"testing"
 
-	"github.com/ory/viper"
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/mock"
 )
@@ -42,8 +40,8 @@ created: 2021-01-01T00:00:00+00:00
 
 	// Create a command with a client constructor fn that instantiates a client
 	// with a the mocked builder.
-	cmd := NewBuildCmd(func(_ buildConfig) (*fn.Client, error) {
-		return fn.New(fn.WithBuilder(builder)), nil
+	cmd := NewBuildCmd(func(options ClientOptions) *fn.Client {
+		return fn.New(fn.WithBuilder(builder))
 	})
 
 	// Execute the command
@@ -73,6 +71,15 @@ created: 2009-11-10 23:00:00`,
 			shouldPush:  true,
 		},
 		{
+			name:     "do not push when --push=false",
+			pushFlag: false,
+			fileContents: `name: test-func
+runtime: go
+created: 2009-11-10 23:00:00`,
+			shouldBuild: true,
+			shouldPush:  false,
+		},
+		{
 			name:     "push flag with failing push",
 			pushFlag: true,
 			fileContents: `name: test-func
@@ -92,7 +99,7 @@ created: 2009-11-10 23:00:00`,
 				},
 			}
 			mockBuilder := mock.NewBuilder()
-			cmd := NewBuildCmd(func(bc buildConfig) (*fn.Client, error) {
+			cmd := NewBuildCmd(func(options ClientOptions) *fn.Client {
 				pusher := mockPusher
 				if tt.wantErr {
 					pusher = failPusher
@@ -100,7 +107,7 @@ created: 2009-11-10 23:00:00`,
 				return fn.New(
 					fn.WithBuilder(mockBuilder),
 					fn.WithPusher(pusher),
-				), nil
+				)
 			})
 
 			tempDir, err := os.MkdirTemp("", "func-tests")
@@ -122,9 +129,11 @@ created: 2009-11-10 23:00:00`,
 				t.Fatalf("file content was not written %v", err)
 			}
 
-			cmd.SetArgs([]string{"--path=" + tempDir})
-			viper.SetDefault("push", tt.pushFlag)
-			viper.SetDefault("registry", "docker.io/tigerteam")
+			cmd.SetArgs([]string{
+				"--path=" + tempDir,
+				fmt.Sprintf("--push=%t", tt.pushFlag),
+				"--registry=docker.io/tigerteam",
+			})
 
 			err = cmd.Execute()
 			if tt.wantErr != (err != nil) {
@@ -137,66 +146,6 @@ created: 2009-11-10 23:00:00`,
 
 			if tt.shouldPush != (mockPusher.PushInvoked || failPusher.PushInvoked) {
 				t.Errorf("Push execution expected: %v but was actually mockPusher invoked: %v failPusher invoked %v", tt.shouldPush, mockPusher.PushInvoked, failPusher.PushInvoked)
-			}
-		})
-	}
-}
-
-func TestBuild_newBuildClient(t *testing.T) {
-	tests := []struct {
-		name         string
-		cfg          buildConfig
-		fileContents string
-		succeed      bool
-	}{
-		{
-			name: "push flag set to false avoids pusher instanciation",
-			cfg: buildConfig{
-				Push: false,
-			},
-			fileContents: `name: test-func
-runtime: go
-image: registry.io/foo/bar:latest
-imageDigest: sha256:1111111111111111111111
-created: 2009-11-10 23:00:00`,
-			succeed: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-
-			tempDir, err := os.MkdirTemp("", "func-tests")
-			if err != nil {
-				t.Fatalf("temp dir couldn't be created %v", err)
-			}
-			t.Cleanup(func() {
-				os.RemoveAll(tempDir)
-			})
-
-			fullPath := tempDir + "/func.yaml"
-			tempFile, err := os.Create(fullPath)
-			if err != nil {
-				t.Fatalf("temp file couldn't be created %v", err)
-			}
-			_, err = tempFile.WriteString(tt.fileContents)
-			if err != nil {
-				t.Fatalf("file content was not written %v", err)
-			}
-
-			client, err := newBuildClient(tt.cfg)
-			if err != nil {
-				t.Error(err)
-			}
-
-			defer func() {
-				if r := recover(); r != nil && tt.succeed {
-					t.Errorf("expected function call to succeed %v, got actually %v", tt.succeed, r)
-				}
-			}()
-			err = client.Push(context.TODO(), tempDir)
-			if err != nil {
-				t.Error(err)
 			}
 		})
 	}

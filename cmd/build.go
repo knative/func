@@ -3,9 +3,6 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"net/http"
-
-	fnhttp "knative.dev/kn-plugin-func/http"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
@@ -13,45 +10,16 @@ import (
 	"github.com/spf13/cobra"
 
 	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/buildpacks"
-	"knative.dev/kn-plugin-func/docker"
-	"knative.dev/kn-plugin-func/docker/creds"
-	"knative.dev/kn-plugin-func/progress"
 )
 
-func newBuildClient(cfg buildConfig) (*fn.Client, error) {
-	builder := buildpacks.NewBuilder()
-	listener := progress.New()
-
-	var (
-		pusher *docker.Pusher
-	)
-	if cfg.Push {
-		credentialsProvider := creds.NewCredentialsProvider(
-			creds.WithPromptForCredentials(newPromptForCredentials()),
-			creds.WithPromptForCredentialStore(newPromptForCredentialStore()),
-			creds.WithTransport(cfg.Transport))
-		pusher = docker.NewPusher(
-			docker.WithCredentialsProvider(credentialsProvider),
-			docker.WithProgressListener(listener),
-			docker.WithTransport(cfg.Transport))
-		pusher.Verbose = cfg.Verbose
+func buildConfigToClientOptions(cfg buildConfig) ClientOptions {
+	return ClientOptions{
+		Registry: cfg.Registry,
+		Verbose:  cfg.Verbose,
 	}
-
-	builder.Verbose = cfg.Verbose
-	listener.Verbose = cfg.Verbose
-
-	return fn.New(
-		fn.WithBuilder(builder),
-		fn.WithPusher(pusher),
-		fn.WithProgressListener(listener),
-		fn.WithRegistry(cfg.Registry), // for image name when --image not provided
-		fn.WithVerbose(cfg.Verbose)), nil
 }
 
-type buildClientFn func(buildConfig) (*fn.Client, error)
-
-func NewBuildCmd(clientFn buildClientFn) *cobra.Command {
+func NewBuildCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "build",
 		Short: "Build a function project as a container image",
@@ -94,7 +62,7 @@ kn func build --builder cnbs/sample-builder:bionic
 	}
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runBuild(cmd, args, clientFn)
+		return runBuild(cmd, args, newClient)
 	}
 
 	return cmd
@@ -117,7 +85,7 @@ func ValidNamespaceAndRegistry(path string) survey.Validator {
 	}
 }
 
-func runBuild(cmd *cobra.Command, _ []string, clientFn buildClientFn) (err error) {
+func runBuild(cmd *cobra.Command, _ []string, clientFn ClientFactory) (err error) {
 	config, err := newBuildConfig().Prompt()
 	if err != nil {
 		if err == terminal.InterruptErr {
@@ -181,14 +149,7 @@ func runBuild(cmd *cobra.Command, _ []string, clientFn buildClientFn) (err error
 		config.Registry = ""
 	}
 
-	rt := fnhttp.NewRoundTripper()
-	defer rt.Close()
-	config.Transport = rt
-
-	client, err := clientFn(config)
-	if err != nil {
-		return err
-	}
+	client := clientFn(buildConfigToClientOptions(config))
 
 	err = client.Build(cmd.Context(), config.Path)
 	if err == nil && config.Push {
@@ -220,8 +181,6 @@ type buildConfig struct {
 	// with interactive prompting (only applicable when attached to a TTY).
 	Confirm bool
 	Builder string
-
-	Transport http.RoundTripper
 }
 
 func newBuildConfig() buildConfig {

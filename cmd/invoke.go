@@ -11,27 +11,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
-	"knative.dev/kn-plugin-func/utils"
 
 	fn "knative.dev/kn-plugin-func"
-	fnhttp "knative.dev/kn-plugin-func/http"
-	knative "knative.dev/kn-plugin-func/knative"
+	"knative.dev/kn-plugin-func/utils"
 )
 
-type invokeClientFn func(invokeConfig) (*fn.Client, error)
-
-func newInvokeClient(cfg invokeConfig) (*fn.Client, error) {
-	describer := knative.NewDescriber(cfg.Namespace)
-	describer.Verbose = cfg.Verbose
-
-	return fn.New(
-		fn.WithDescriber(describer),
-		fn.WithTransport(fnhttp.NewRoundTripper()),
-		fn.WithVerbose(cfg.Verbose),
-	), nil
-}
-
-func NewInvokeCmd(clientFn invokeClientFn) *cobra.Command {
+func NewInvokeCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "invoke",
 		Short: "Invoke a Function",
@@ -133,30 +118,30 @@ EXAMPLES
 
 	// Help Action
 	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
-		runInvokeHelp(cmd, args, clientFn)
+		runInvokeHelp(cmd, args, newClient)
 	})
 
 	// Run Action
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runInvoke(cmd, args, clientFn)
+		return runInvoke(cmd, args, newClient)
 	}
 
 	return cmd
 }
 
 // Run
-func runInvoke(cmd *cobra.Command, args []string, clientFn invokeClientFn) (err error) {
+func runInvoke(cmd *cobra.Command, args []string, newClient ClientFactory) (err error) {
 	// Gather flag values for the invocation
-	cfg, err := newInvokeConfig(clientFn)
+	cfg, err := newInvokeConfig(newClient)
 	if err != nil {
 		return
 	}
 
 	// Client instance from env vars, flags, args and user prompts (if --confirm)
-	client, err := clientFn(cfg)
-	if err != nil {
-		return err
-	}
+	client := newClient(ClientOptions{
+		Namespace: cfg.Namespace,
+		Verbose:   cfg.Verbose,
+	})
 
 	// Message to send the running Function built from parameters gathered
 	// from the user (or defaults)
@@ -188,7 +173,7 @@ func runInvoke(cmd *cobra.Command, args []string, clientFn invokeClientFn) (err 
 	return
 }
 
-func runInvokeHelp(cmd *cobra.Command, args []string, clientFn invokeClientFn) {
+func runInvokeHelp(cmd *cobra.Command, args []string, newClient ClientFactory) {
 	var (
 		body = cmd.Long + "\n\n" + cmd.UsageString()
 		t    = template.New("invoke")
@@ -221,7 +206,7 @@ type invokeConfig struct {
 	Verbose     bool
 }
 
-func newInvokeConfig(clientFn invokeClientFn) (cfg invokeConfig, err error) {
+func newInvokeConfig(newClient ClientFactory) (cfg invokeConfig, err error) {
 	cfg = invokeConfig{
 		Path:        viper.GetString("path"),
 		Target:      viper.GetString("target"),
@@ -250,10 +235,10 @@ func newInvokeConfig(clientFn invokeClientFn) (cfg invokeConfig, err error) {
 	}
 
 	// Client instance for use during prompting.
-	client, err := clientFn(cfg)
-	if err != nil {
-		return
-	}
+	client := newClient(ClientOptions{
+		Namespace: cfg.Namespace,
+		Verbose:   cfg.Verbose,
+	})
 
 	// If in interactive terminal mode, prompt to modify defaults.
 	if interactiveTerminal() {
