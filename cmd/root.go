@@ -370,3 +370,61 @@ func (v Version) String() string {
 		}
 	}
 }
+
+// surveySelectDefault returns 'value' if defined and exists in 'options'.
+// Otherwise, options[0] is returned if it exists.  Empty string otherwise.
+//
+// Usage Example:
+//
+//  languages := []string{ "go", "node", "rust" },
+//  survey.Select{
+//    Options: options,
+//    Default: surveySelectDefaut(cfg.Language, languages),
+//  }
+//
+// Summary:
+//
+// This protects against an incorrectly initialized survey.Select when the user
+// has provided a nonexistant option (validation is handled elsewhere) or
+// when a value is required but there exists no defaults (no default value on
+// the associated flag).
+//
+// Explanation:
+//
+// The above example chooses the default for the Survey (--confirm) question
+// in a way that works with user-provided flag and environment variable values.
+//  `cfg.Language` is the current value set in the config struct, which is
+//     populated from (in ascending order of precedence):
+//     static flag default, associated environment variable, or command flag.
+//  `languages` are the options which are being used by the survey select.
+//
+// This cascade allows for the Survey questions to be properly pre-initialzed
+// with their associated environment variables or flags.  For example,
+// A user whose default language is set to 'node' using the global environment
+// variable FUNC_LANGUAGE will have that option pre-selected when running
+// `func create -c`.
+//
+// The 'survey' package expects the value of the Default member to exist
+// in the 'Options' member.  This is not possible when user-provided data is
+// allowed for the default, hence this logic is necessary.
+//
+// For example, when the user is using prompts (--confirm) to select from a set
+// of options, but the associated flag either has an unrecognized value, or no
+// value at all, without this logic the resulting select prompt would be
+// initialized with this as the default value, and the act of what appears to
+// be choose the first option displayed does not overwrite the invalid default.
+// It could perhaps be argued this is a shortcoming in the survey package, but
+// it is also clearly an error to provide invalid data for a default.
+func surveySelectDefault(value string, options []string) string {
+	for _, v := range options {
+		if value == v {
+			return v // The provided value is acceptable
+		}
+	}
+	if len(options) > 0 {
+		return options[0] // Sync with the option which will be shown by the UX
+	}
+	// Either the value is not an option or there are no options.  Either of
+	// which should fail proper validation
+	return ""
+}
