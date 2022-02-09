@@ -14,7 +14,6 @@ import (
 	"knative.dev/client/pkg/util"
 
 	fn "knative.dev/kn-plugin-func"
-	fnhttp "knative.dev/kn-plugin-func/http"
 )
 
 var exampleTemplate = template.Must(template.New("example").Parse(`
@@ -90,11 +89,11 @@ Create, build and deploy Functions in serverless containers for multiple runtime
 	newClient := config.NewClient
 
 	if newClient == nil {
-		transport := fnhttp.NewRoundTripper()
-		root.PostRun = func(cmd *cobra.Command, args []string) {
-			transport.Close()
+		var cleanUp func() error
+		newClient, cleanUp = NewDefaultClientFactory()
+		root.PersistentPostRunE = func(cmd *cobra.Command, args []string) error {
+			return cleanUp()
 		}
-		newClient = NewClientFactory(transport)
 	}
 
 	root.AddCommand(NewVersionCmd(version))
