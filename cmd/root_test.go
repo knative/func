@@ -1,10 +1,12 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"reflect"
 	"testing"
 
+	"github.com/ory/viper"
 	"knative.dev/client/pkg/util"
 
 	fn "knative.dev/kn-plugin-func"
@@ -148,4 +150,59 @@ func TestRoot_CMDParameterized(t *testing.T) {
 	if cmd.Example != usageExample || err != nil {
 		t.Fatalf("plugin command example should assume \"kn func\" as executable name. error: %v", err)
 	}
+}
+
+func TestVerbose(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		want string
+	}{
+		{
+			name: "verbose as version's flag",
+			args: []string{"version", "-v"},
+			want: "v0.42.0-cafe-1970-01-01\n",
+		},
+		{
+			name: "no verbose",
+			args: []string{"version"},
+			want: "v0.42.0\n",
+		},
+		{
+			name: "verbose as root's flag",
+			args: []string{"--verbose", "version"},
+			want: "v0.42.0-cafe-1970-01-01\n",
+		},
+		{
+			name: "version not as sub-command",
+			args: []string{"--version"},
+			want: "v0.42.0\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			viper.Reset()
+
+			var out bytes.Buffer
+
+			cmd, err := NewRootCmd(RootCommandConfig{
+				Name:    "func",
+				Date:    "1970-01-01",
+				Version: "v0.42.0",
+				Hash:    "cafe",
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			cmd.SetArgs(tt.args)
+			cmd.SetOut(&out)
+			cmd.Execute()
+
+			if out.String() != tt.want {
+				t.Errorf("expected output: %q but got: %q", tt.want, out.String())
+			}
+		})
+	}
+
 }
