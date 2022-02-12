@@ -644,7 +644,6 @@ func (c *Client) printBuildActivity(ctx context.Context) {
 	}
 	i := 0
 	ticker := time.NewTicker(10 * time.Second)
-	defer ticker.Stop()
 	go func() {
 		for {
 			select {
@@ -654,6 +653,7 @@ func (c *Client) printBuildActivity(ctx context.Context) {
 				i = i % len(m)
 			case <-ctx.Done():
 				c.progressListener.Stopping()
+				ticker.Stop()
 				return
 			}
 		}
