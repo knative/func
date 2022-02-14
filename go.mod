@@ -9,10 +9,10 @@ require (
 	github.com/alecthomas/jsonschema v0.0.0-20210526225647-edb03dcab7bc
 	github.com/buildpacks/pack v0.22.0
 	github.com/cloudevents/sdk-go/v2 v2.5.0
-	github.com/containers/image/v5 v5.10.6
+	github.com/containers/image/v5 v5.19.1
 	github.com/coreos/go-semver v0.3.0
 	github.com/docker/cli v20.10.10+incompatible
-	github.com/docker/docker v20.10.10+incompatible
+	github.com/docker/docker v20.10.12+incompatible
 	github.com/docker/docker-credential-helpers v0.6.4
 	github.com/docker/go-connections v0.4.0
 	github.com/go-git/go-billy/v5 v5.3.1
@@ -23,13 +23,14 @@ require (
 	github.com/hinshun/vt10x v0.0.0-20180809195222-d55458df857c
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/opencontainers/image-spec v1.0.3-0.20211202222133-eacdcc10569b
+	github.com/openshift/source-to-image v1.3.1
 	github.com/ory/viper v1.7.5
 	github.com/pkg/errors v0.9.1
-	github.com/spf13/cobra v1.2.1
+	github.com/spf13/cobra v1.3.0
 	github.com/tektoncd/cli v0.22.0
 	github.com/tektoncd/pipeline v0.32.1
 	github.com/whilp/git-urls v1.0.0
-	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
+	golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3
 	golang.org/x/term v0.0.0-20210615171337-6886f2dfbf5b
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce
 	gopkg.in/yaml.v2 v2.4.0
@@ -44,6 +45,12 @@ require (
 	knative.dev/serving v0.27.1
 )
 
-// temporary set higher version of buildpacks/imgutil to get better performance for podman
-// rever this once there will be buildpacks/pack with newer version
-replace github.com/buildpacks/imgutil => github.com/buildpacks/imgutil v0.0.0-20211001201950-cf7ae41c3771
+replace (
+	github.com/buildpacks/imgutil => github.com/buildpacks/imgutil v0.0.0-20211001201950-cf7ae41c3771 // pack: force newer version of imgutil for better performance until pack updates
+	// github.com/containerd/containerd v1.3.0-0.20190507210959-7c1e88399ec0 => github.com/containerd/containerd v1.2.1-0.20190507210959-7c1e88399ec0 // s2i: fix transitive dependency's invalid pseudo-version
+	// github.com/docker/docker v1.14.0-0.20190319215453-e7b5f7dbe98c => github.com/docker/docker v17.12.0-ce-rc1.0.20190319215453-e7b5f7dbe98c+incompatible
+	// golang.org/x/crypto v0.0.0-20190129210102-0709b304e793 => golang.org/x/crypto v0.0.0-20180904163835-0709b304e793 // s2i: fix transitive dependency's invalid pseudo-version
+
+	github.com/openshift/source-to-image => github.com/lkingland/source-to-image v1.3.2 // updates docker to be compatible with version used by pack and removes invalid pseudo-version
+// github.com/openshift/source-to-image => ../../github.com/lkingland/source-to-image // s2i: updates docker to be compatible with pack, removing pseudo-version
+)

@@ -11,7 +11,7 @@ import (
 	fn "knative.dev/kn-plugin-func"
 )
 
-func NewDeleteCmd() *cobra.Command {
+func NewDeleteCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete [NAME]",
 		Short: "Undeploy a function",
@@ -42,7 +42,9 @@ No local files are deleted.
 
 	cmd.SetHelpFunc(defaultTemplatedHelp)
 
-	cmd.RunE = runDelete
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		return runDelete(cmd, args, newClient)
+	}
 
 	return cmd
 }

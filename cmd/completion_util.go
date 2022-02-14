@@ -95,7 +95,7 @@ func CompleteRegistryList(cmd *cobra.Command, args []string, toComplete string) 
 	return
 }
 
-func CompleteBuilderList(cmd *cobra.Command, args []string, complete string) (strings []string, directive cobra.ShellCompDirective) {
+func CompleteBuilderImageList(cmd *cobra.Command, args []string, complete string) (strings []string, directive cobra.ShellCompDirective) {
 	directive = cobra.ShellCompDirectiveError
 
 	var (
