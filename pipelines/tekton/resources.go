@@ -12,6 +12,14 @@ import (
 	fn "knative.dev/kn-plugin-func"
 )
 
+const (
+	fetchRepositoryTask = "fetch-repository"
+	backupSourceTask    = "backup-source"
+	buildTask           = "build"
+	restoreSourceTask   = "restore-source"
+	imageDigestTask     = "image-digest"
+)
+
 func deletePipelines(ctx context.Context, namespace string, listOptions metav1.ListOptions) (err error) {
 	client, err := NewTektonClient()
 	if err != nil {
@@ -66,11 +74,11 @@ func generatePipeline(f fn.Function, labels map[string]string) *pplnv1beta1.Pipe
 
 	tasks := pplnv1beta1.PipelineTaskList{
 		taskFetchRepository(),
-		taskBackupSource("fetch-repository"),
-		taskBuild("backup-source"),
-		taskRestoreSource("build"),
-		taskImageDigest("restore-source"),
-		taskFuncDeploy("image-digest"),
+		taskBackupSource(fetchRepositoryTask),
+		taskBuild(backupSourceTask),
+		taskRestoreSource(buildTask),
+		taskImageDigest(restoreSourceTask),
+		taskFuncDeploy(imageDigestTask),
 	}
 
 	return &pplnv1beta1.Pipeline{
