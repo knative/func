@@ -3,7 +3,7 @@
 # are copied directly to a function project's func.yaml file, allowing the
 # function developer to choose between them in local build configurations
 builders:
-  default: gcr.io/paketo-buildpacks/builder:base
+  default: docker.io/shashankft/go-function-builder:tip
   base: gcr.io/paketo-buildpacks/builder:base
   full: gcr.io/paketo-buildpacks/builder:full
 
