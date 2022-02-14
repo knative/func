@@ -168,9 +168,9 @@ func bindEnv(flags ...string) bindFunc {
 }
 
 type functionOverrides struct {
-	Image     string
-	Namespace string
-	Builder   string
+	Image        string
+	Namespace    string
+	BuilderImage string
 }
 
 // functionWithOverrides sets the namespace and image strings for the
@@ -187,7 +187,7 @@ func functionWithOverrides(root string, overrides functionOverrides) (f fn.Funct
 		src  string
 		dest *string
 	}{
-		{overrides.Builder, &f.Builder},
+		{overrides.BuilderImage, &f.Builder},
 		{overrides.Image, &f.Image},
 		{overrides.Namespace, &f.Namespace},
 	}
