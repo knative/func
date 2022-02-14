@@ -59,14 +59,17 @@ func generatePipeline(f fn.Function, labels map[string]string) *pplnv1beta1.Pipe
 	}
 
 	workspaces := []pplnv1beta1.PipelineWorkspaceDeclaration{
-		{Name: "source-workspace", Description: "Directory where function source is located."},
+		{Name: "source-workspace", Description: "Directory where function source is located"},
+		{Name: "backup-source-workspace", Description: "Directory where function source is backed up before build"},
 		{Name: "cache-workspace", Description: "Directory where Buildpacks cache is stored"},
 	}
 
 	tasks := pplnv1beta1.PipelineTaskList{
 		taskFetchRepository(),
-		taskBuild("fetch-repository"),
-		taskImageDigest("build"),
+		taskBackupSource("fetch-repository"),
+		taskBuild("backup-source"),
+		taskRestoreSource("build"),
+		taskImageDigest("restore-source"),
 		taskFuncDeploy("image-digest"),
 	}
 
@@ -137,6 +140,13 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 						ClaimName: getPipelinePvcName(f),
 					},
 					SubPath: "source",
+				},
+				{
+					Name: "backup-source-workspace",
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: getPipelinePvcName(f),
+					},
+					SubPath: "backup-source",
 				},
 				{
 					Name: "cache-workspace",
