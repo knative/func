@@ -3,12 +3,14 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 )
 
 func NewVersionCmd(version Version) *cobra.Command {
 	runVersion := func(cmd *cobra.Command, args []string) {
-		fmt.Println(version)
+		version.Verbose = viper.GetBool("verbose")
+		fmt.Fprintf(cmd.OutOrStdout(), "%v\n", version)
 	}
 
 	cmd := &cobra.Command{
