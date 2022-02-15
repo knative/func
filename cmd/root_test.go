@@ -197,7 +197,10 @@ func TestVerbose(t *testing.T) {
 
 			cmd.SetArgs(tt.args)
 			cmd.SetOut(&out)
-			cmd.Execute()
+			err = cmd.Execute()
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			if out.String() != tt.want {
 				t.Errorf("expected output: %q but got: %q", tt.want, out.String())
