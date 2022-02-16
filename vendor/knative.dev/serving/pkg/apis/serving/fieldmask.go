@@ -210,10 +210,15 @@ func PodSpecMask(ctx context.Context, in *corev1.PodSpec) *corev1.PodSpec {
 	if cfg.Features.PodSpecPriorityClassName != config.Disabled {
 		out.PriorityClassName = in.PriorityClassName
 	}
+	if cfg.Features.PodSpecSchedulerName != config.Disabled {
+		out.SchedulerName = in.SchedulerName
+	}
+	if cfg.Features.PodSpecInitContainers != config.Disabled {
+		out.InitContainers = in.InitContainers
+	}
 
 	// Disallowed fields
 	// This list is unnecessary, but added here for clarity
-	out.InitContainers = nil
 	out.RestartPolicy = ""
 	out.TerminationGracePeriodSeconds = nil
 	out.ActiveDeadlineSeconds = nil
@@ -225,7 +230,6 @@ func PodSpecMask(ctx context.Context, in *corev1.PodSpec) *corev1.PodSpec {
 	out.ShareProcessNamespace = nil
 	out.Hostname = ""
 	out.Subdomain = ""
-	out.SchedulerName = ""
 	out.Priority = nil
 	out.DNSConfig = nil
 	out.ReadinessGates = nil
@@ -362,6 +366,7 @@ func HTTPGetActionMask(in *corev1.HTTPGetAction) *corev1.HTTPGetAction {
 	out.Path = in.Path
 	out.Scheme = in.Scheme
 	out.HTTPHeaders = in.HTTPHeaders
+	out.Port = in.Port
 
 	return out
 }
@@ -377,6 +382,7 @@ func TCPSocketActionMask(in *corev1.TCPSocketAction) *corev1.TCPSocketAction {
 
 	// Allowed fields
 	out.Host = in.Host
+	out.Port = in.Port
 
 	return out
 }

@@ -46,9 +46,14 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 	config := defaultConfig()
 
 	if err := cm.Parse(data,
+		// Parse legacy keys first
 		cm.AsDuration("leaseDuration", &config.LeaseDuration),
 		cm.AsDuration("renewDeadline", &config.RenewDeadline),
 		cm.AsDuration("retryPeriod", &config.RetryPeriod),
+
+		cm.AsDuration("lease-duration", &config.LeaseDuration),
+		cm.AsDuration("renew-deadline", &config.RenewDeadline),
+		cm.AsDuration("retry-period", &config.RetryPeriod),
 
 		cm.AsUint32("buckets", &config.Buckets),
 	); err != nil {
@@ -93,9 +98,9 @@ func (c *Config) GetComponentConfig(name string) ComponentConfig {
 func defaultConfig() *Config {
 	return &Config{
 		Buckets:       1,
-		LeaseDuration: 15 * time.Second,
-		RenewDeadline: 10 * time.Second,
-		RetryPeriod:   2 * time.Second,
+		LeaseDuration: 60 * time.Second,
+		RenewDeadline: 40 * time.Second,
+		RetryPeriod:   10 * time.Second,
 	}
 }
 

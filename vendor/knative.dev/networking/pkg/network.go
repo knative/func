@@ -25,11 +25,12 @@ import (
 	"net/url"
 	"strings"
 	"text/template"
-	"time"
 
 	lru "github.com/hashicorp/golang-lru"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	cm "knative.dev/pkg/configmap"
+	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -67,11 +68,11 @@ const (
 
 	// DefaultIngressClassKey is the name of the configuration entry
 	// that specifies the default Ingress.
-	DefaultIngressClassKey = "ingress.class"
+	DefaultIngressClassKey = "ingress-class"
 
 	// DefaultCertificateClassKey is the name of the configuration entry
 	// that specifies the default Certificate.
-	DefaultCertificateClassKey = "certificate.class"
+	DefaultCertificateClassKey = "certificate-class"
 
 	// IstioIngressClassName value for specifying knative's Istio
 	// Ingress reconciler.
@@ -84,16 +85,21 @@ const (
 	// DomainTemplateKey is the name of the configuration entry that
 	// specifies the golang template string to use to construct the
 	// Knative service's DNS name.
-	DomainTemplateKey = "domainTemplate"
+	DomainTemplateKey = "domain-template"
 
 	// TagTemplateKey is the name of the configuration entry that
 	// specifies the golang template string to use to construct the
 	// hostname for a Route's tag.
-	TagTemplateKey = "tagTemplate"
+	TagTemplateKey = "tag-template"
 
 	// RolloutDurationKey is the name of the configuration entry
 	// that specifies the default duration of the configuration rollout.
-	RolloutDurationKey = "rolloutDuration"
+	RolloutDurationKey = "rollout-duration"
+
+	// NamespaceWildcardCertSelectorKey is the name of the configuration
+	// entry that specifies a LabelSelector to control which namespaces
+	// have a wildcard certificate provisioned for them.
+	NamespaceWildcardCertSelectorKey = "namespace-wildcard-cert-selector"
 
 	// KubeProbeUAPrefix is the user agent prefix of the probe.
 	// Since K8s 1.8, prober requests have
@@ -115,15 +121,15 @@ const (
 
 	// AutocreateClusterDomainClaimsKey is the key for the
 	// AutocreateClusterDomainClaims property.
-	AutocreateClusterDomainClaimsKey = "autocreateClusterDomainClaims"
+	AutocreateClusterDomainClaimsKey = "autocreate-cluster-domain-claims"
 
 	// AutoTLSKey is the name of the configuration entry
 	// that specifies enabling auto-TLS or not.
-	AutoTLSKey = "autoTLS"
+	AutoTLSKey = "auto-tls"
 
 	// HTTPProtocolKey is the name of the configuration entry that
 	// specifies the HTTP endpoint behavior of Knative ingress.
-	HTTPProtocolKey = "httpProtocol"
+	HTTPProtocolKey = "http-protocol"
 
 	// UserAgentKey is the constant for header "User-Agent".
 	UserAgentKey = "User-Agent"
@@ -153,19 +159,16 @@ const (
 	// It has one of the string value "true" or "false".
 	DefaultRouteHeaderName = "Knative-Serving-Default-Route"
 
-	// TagHeaderBasedRoutingKey is the name of the configuration entry
-	// that specifies enabling tag header based routing or not.
-	TagHeaderBasedRoutingKey = "tagHeaderBasedRouting"
-
 	// ProtoAcceptContent is the content type to be used when autoscaler scrapes metrics from the QP
 	ProtoAcceptContent = "application/protobuf"
 
 	// FlushInterval controls the time when we flush the connection in the
 	// reverse proxies (Activator, QP).
-	// NB: having it equal to 0 is a problem for streaming requests
-	// since the data won't be transferred in chunks less than 4kb, if the
-	// reverse proxy fails to detect streaming (gRPC, e.g.).
-	FlushInterval = 20 * time.Millisecond
+	// As of go1.16, a FlushInterval of 0 (the default) still flushes immediately
+	// when Content-Length is -1, which means the default works properly for
+	// streaming/websockets, without flushing more often than necessary for
+	// non-streaming requests.
+	FlushInterval = 0
 
 	// VisibilityLabelKey is the label to indicate visibility of Route
 	// and KServices.  It can be an annotation too but since users are
@@ -185,7 +188,7 @@ const (
 	MeshCompatibilityModeKey = "mesh-compatibility-mode"
 
 	// DefaultExternalSchemeKey is the config for defining the scheme of external URLs.
-	DefaultExternalSchemeKey = "defaultExternalScheme"
+	DefaultExternalSchemeKey = "default-external-scheme"
 )
 
 // DomainTemplateValues are the available properties people can choose from
@@ -245,8 +248,17 @@ type Config struct {
 	// DefaultCertificateClass specifies the default Certificate class.
 	DefaultCertificateClass string
 
-	// TagHeaderBasedRouting specifies if TagHeaderBasedRouting is enabled or not.
-	TagHeaderBasedRouting bool
+	// NamespaceWildcardCertSelector specifies the set of namespaces which should
+	// have wildcard certificates provisioned for the Knative Services within.
+	// Defaults to empty (selecting no namespaces). If set to an exclude rule like:
+	// ```
+	//   matchExpressions:
+	//     key: "kubernetes.io/metadata.name"
+	//     operator: "NotIn"
+	//     values: ["kube-system"]
+	// ```
+	// This can be used to enbale wildcard certs in all non-system namespaces
+	NamespaceWildcardCertSelector *metav1.LabelSelector
 
 	// RolloutDurationSecs specifies the default duration for the rollout.
 	RolloutDurationSecs int
@@ -325,6 +337,7 @@ func defaultConfig() *Config {
 		DomainTemplate:                DefaultDomainTemplate,
 		TagTemplate:                   DefaultTagTemplate,
 		AutoTLS:                       false,
+		NamespaceWildcardCertSelector: nil,
 		HTTPProtocol:                  HTTPEnabled,
 		AutocreateClusterDomainClaims: false,
 		DefaultExternalScheme:         "http",
@@ -342,6 +355,15 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 	nc := defaultConfig()
 
 	if err := cm.Parse(data,
+		// Legacy keys
+		cm.AsString("ingress.class", &nc.DefaultIngressClass),
+		cm.AsString("certificate.class", &nc.DefaultCertificateClass),
+		cm.AsString("domainTemplate", &nc.DomainTemplate),
+		cm.AsString("tagTemplate", &nc.TagTemplate),
+		cm.AsInt("rolloutDuration", &nc.RolloutDurationSecs),
+		cm.AsBool("autocreateClusterDomainClaims", &nc.AutocreateClusterDomainClaims),
+		cm.AsString("defaultExternalScheme", &nc.DefaultExternalScheme),
+
 		// New key takes precedence.
 		cm.AsString(DefaultIngressClassKey, &nc.DefaultIngressClass),
 		cm.AsString(DefaultCertificateClassKey, &nc.DefaultCertificateClass),
@@ -352,6 +374,7 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 		cm.AsBool(EnableMeshPodAddressabilityKey, &nc.EnableMeshPodAddressability),
 		cm.AsString(DefaultExternalSchemeKey, &nc.DefaultExternalScheme),
 		asMode(MeshCompatibilityModeKey, &nc.MeshCompatibilityMode),
+		asLabelSelector(NamespaceWildcardCertSelectorKey, &nc.NamespaceWildcardCertSelector),
 	); err != nil {
 		return nil, err
 	}
@@ -379,10 +402,22 @@ func NewConfigFromMap(data map[string]string) (*Config, error) {
 	}
 	templateCache.Add(nc.TagTemplate, t)
 
-	nc.AutoTLS = strings.EqualFold(data[AutoTLSKey], "enabled")
-	nc.TagHeaderBasedRouting = strings.EqualFold(data[TagHeaderBasedRoutingKey], "enabled")
+	if val, ok := data["autoTLS"]; ok {
+		nc.AutoTLS = strings.EqualFold(val, "enabled")
+	}
+	if val, ok := data[AutoTLSKey]; ok {
+		nc.AutoTLS = strings.EqualFold(val, "enabled")
+	}
 
-	switch strings.ToLower(data[HTTPProtocolKey]) {
+	var httpProtocol string
+	if val, ok := data["httpProtocol"]; ok {
+		httpProtocol = val
+	}
+	if val, ok := data[HTTPProtocolKey]; ok {
+		httpProtocol = val
+	}
+
+	switch strings.ToLower(httpProtocol) {
 	case "", string(HTTPEnabled):
 		// If HTTPProtocol is not set in the config-network, default is already
 		// set to HTTPEnabled.
@@ -549,6 +584,22 @@ func asMode(key string, target *MeshCompatibilityMode) cm.ParseFunc {
 				if strings.EqualFold(raw, string(flag)) {
 					*target = flag
 					return nil
+				}
+			}
+		}
+		return nil
+	}
+}
+
+// asLabelSelector returns a LabelSelector extracted from a given configmap key.
+func asLabelSelector(key string, target **metav1.LabelSelector) cm.ParseFunc {
+	return func(data map[string]string) error {
+		*target = nil
+		if raw, ok := data[key]; ok {
+			if len(raw) > 0 {
+				*target = &metav1.LabelSelector{}
+				if err := yaml.Unmarshal([]byte(raw), *target); err != nil {
+					return err
 				}
 			}
 		}
