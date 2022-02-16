@@ -20,6 +20,5 @@ limitations under the License.
 package tools
 
 import (
-	_ "github.com/markbates/pkger/cmd/pkger"
 	_ "knative.dev/hack"
 )

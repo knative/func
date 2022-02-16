@@ -1,17 +1,11 @@
 package function
 
-// Updating Templates:
-// See documentation in ./templates/README.md
-// go get github.com/markbates/pkger
-//go:generate pkger
-
 import (
 	"errors"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
-
-	"github.com/markbates/pkger"
 )
 
 var (
@@ -122,14 +116,17 @@ func (t *Templates) Write(f Function) (Function, error) {
 
 	// Validate paths:  (repo/)[templates/]<runtime>/<template>
 	templatesPath := repo.TemplatesPath
+	if templatesPath == "" {
+		templatesPath = "."
+	}
 	if _, err := repo.FS.Stat(templatesPath); err != nil {
 		return f, ErrTemplatesNotFound
 	}
-	runtimePath := filepath.Join(templatesPath, template.Runtime)
+	runtimePath := path.Join(templatesPath, template.Runtime)
 	if _, err := repo.FS.Stat(runtimePath); err != nil {
 		return f, ErrRuntimeNotFound
 	}
-	templatePath := filepath.Join(runtimePath, template.Name)
+	templatePath := path.Join(runtimePath, template.Name)
 	if _, err := repo.FS.Stat(templatePath); err != nil {
 		return f, ErrTemplateNotFound
 	}
@@ -170,21 +167,4 @@ func (t *Templates) Write(f Function) (Function, error) {
 	_ = os.Remove(filepath.Join(f.Root, templateManifest)) // except the manifest
 
 	return f, err
-}
-
-// Embedding Directives
-// Trigger encoding of ./templates as pkged.go
-
-// Path to embedded
-// note: this constant must be defined in the file in which pkger is called,
-// as it performs static analysis on each source file separately to trigger
-// encoding of referenced paths.
-const embeddedPath = "/templates"
-
-// When pkger is run, code analysis detects this pkger.Include statement,
-// triggering the serialization of the templates directory and all its contents
-// into pkged.go, which is then made available via a pkger filesystem.  Path is
-// relative to the go module root.
-func init() {
-	_ = pkger.Include(embeddedPath)
 }

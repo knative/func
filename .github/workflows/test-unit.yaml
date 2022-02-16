@@ -23,6 +23,7 @@ jobs:
 
           echo "/usr/local/bin" >> $GITHUB_PATH
           echo "$(brew --prefix)/opt/gnu-sed/libexec/gnubin" >> $GITHUB_PATH
+      - run: git config --global core.autocrlf false
       - uses: actions/checkout@v2
       - uses: actions/setup-go@v2
         with:

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -161,7 +162,7 @@ func NewRepository(name, uri string) (r Repository, err error) {
 func filesystemFromURI(uri string) (f Filesystem, err error) {
 	// If not provided, indicates embedded.
 	if uri == "" {
-		return pkgerFilesystem{}, nil
+		return EmbeddedTemplatesFS, nil
 	}
 
 	// Attempt to get a filesystem from the uri as a remote repo.
@@ -242,7 +243,7 @@ func repositoryRuntimes(r Repository) (runtimes []Runtime, err error) {
 
 	// Load runtimes
 	if r.TemplatesPath == "" {
-		r.TemplatesPath = "/"
+		r.TemplatesPath = "."
 	}
 
 	fis, err := r.FS.ReadDir(r.TemplatesPath)
@@ -290,7 +291,7 @@ func runtimeTemplates(r Repository, runtime Runtime) (templates []Template, err 
 	templates = []Template{}
 
 	// Validate runtime directory exists and is a directory
-	runtimePath := filepath.Join(r.TemplatesPath, runtime.Name)
+	runtimePath := path.Join(r.TemplatesPath, runtime.Name)
 	if err = checkDir(r.FS, runtimePath); err != nil {
 		err = fmt.Errorf("runtime path '%v' not found. %v", runtimePath, err)
 		return
@@ -373,7 +374,7 @@ func applyRepositoryManifest(r Repository) (Repository, error) {
 // error is not returned for a missing manifest file (the passed runtime is
 // returned), but errors decoding the file are.
 func applyRuntimeManifest(repo Repository, runtime Runtime) (Runtime, error) {
-	file, err := repo.FS.Open(filepath.Join(repo.TemplatesPath, runtime.Name, runtimeManifest))
+	file, err := repo.FS.Open(path.Join(repo.TemplatesPath, runtime.Name, runtimeManifest))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return runtime, nil
@@ -389,7 +390,7 @@ func applyRuntimeManifest(repo Repository, runtime Runtime) (Runtime, error) {
 // error is not returned for a missing manifest file (the passed template is
 // returned), but errors decoding the file are.
 func applyTemplateManifest(repo Repository, t Template) (Template, error) {
-	file, err := repo.FS.Open(filepath.Join(repo.TemplatesPath, t.Runtime, t.Name, templateManifest))
+	file, err := repo.FS.Open(path.Join(repo.TemplatesPath, t.Runtime, t.Name, templateManifest))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return t, nil
@@ -458,7 +459,7 @@ func (r *Repository) Write(path string) error {
 	// we effectively want a full clone.
 	// TODO: switch to using a temp directory?
 
-	return copy("/", path, r.FS) // copy 'all' to 'dest' from 'FS'
+	return copy(".", path, r.FS) // copy 'all' to 'dest' from 'FS'
 }
 
 // URL attempts to read the remote git origin URL of the repository.  Best

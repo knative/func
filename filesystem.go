@@ -1,92 +1,148 @@
 package function
 
 import (
+	"archive/zip"
+	"bytes"
 	"io"
+	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	billy "github.com/go-git/go-billy/v5"
-	"github.com/markbates/pkger"
 )
 
 // Filesystems
 // Wrap the implementations of FS with their subtle differences into the
 // common interface for accessing template files defined herein.
 // os:    standard for on-disk extensible template repositories.
-// pker:  embedded filesystem backed by the generated pkged.go.
+// zip:   embedded filesystem backed by the byte array representing zipfile.
 // billy: go-git library's filesystem used for remote git template repos.
 
 type Filesystem interface {
-	Stat(name string) (os.FileInfo, error)
-	Open(path string) (file, error)
-	ReadDir(path string) ([]os.FileInfo, error)
+	fs.ReadDirFS
+	fs.StatFS
 }
 
-type file interface {
-	io.Reader
-	io.Closer
+type zipFS struct {
+	archive *zip.Reader
 }
 
-// pkgerFilesystem is template file accessor backed by the pkger-provided
-// embedded filesystem.o
-type pkgerFilesystem struct{}
-
-// the root of the repository is actually ./templates, which is proffered
-// in the pkger filesystem as /templates, so all path requests will be
-// prefixed with this path to emulate having the pkger fs root the same
-// as the logical root.
-const pkgerRoot = "/templates"
-
-func (a pkgerFilesystem) Stat(path string) (os.FileInfo, error) {
-	return pkger.Stat(filepath.Join(pkgerRoot, path))
+func (z zipFS) Open(name string) (fs.File, error) {
+	return z.archive.Open(name)
 }
 
-func (a pkgerFilesystem) Open(path string) (file, error) {
-	return pkger.Open(filepath.Join(pkgerRoot, path))
+func (z zipFS) ReadDir(name string) ([]fs.DirEntry, error) {
+	var dirEntries []fs.DirEntry
+	for _, file := range z.archive.File {
+		cleanName := strings.TrimRight(file.Name, "/")
+		if path.Dir(cleanName) == name {
+			f, err := z.archive.Open(cleanName)
+			if err != nil {
+				return nil, err
+			}
+			fi, err := f.Stat()
+			if err != nil {
+				return nil, err
+			}
+			dirEntries = append(dirEntries, dirEntry{FileInfo: fi})
+		}
+	}
+	return dirEntries, nil
 }
 
-func (a pkgerFilesystem) ReadDir(path string) ([]os.FileInfo, error) {
-	f, err := pkger.Open(filepath.Join(pkgerRoot, path))
+func (z zipFS) Stat(name string) (fs.FileInfo, error) {
+	f, err := z.archive.Open(name)
 	if err != nil {
 		return nil, err
 	}
-	return f.Readdir(-1)
+	return f.Stat()
 }
+
+//go:generate go run ./generate/templates/main.go
+
+func newEmbeddedTemplatesFS() Filesystem {
+	archive, err := zip.NewReader(bytes.NewReader(templatesZip), int64(len(templatesZip)))
+	if err != nil {
+		panic(err)
+	}
+	return zipFS{
+		archive: archive,
+	}
+}
+
+var EmbeddedTemplatesFS Filesystem = newEmbeddedTemplatesFS()
 
 // billyFilesystem is a template file accessor backed by a billy FS
 type billyFilesystem struct{ fs billy.Filesystem }
 
-func (b billyFilesystem) Stat(path string) (os.FileInfo, error) {
-	return b.fs.Stat(path)
+type bfsFile struct {
+	billy.File
+	stats func() (fs.FileInfo, error)
 }
 
-func (b billyFilesystem) Open(path string) (file, error) {
-	return b.fs.Open(path)
+func (b bfsFile) Stat() (fs.FileInfo, error) {
+	return b.stats()
 }
 
-func (b billyFilesystem) ReadDir(path string) ([]os.FileInfo, error) {
-	return b.fs.ReadDir(path)
+func (b billyFilesystem) Open(name string) (fs.File, error) {
+	f, err := b.fs.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	return bfsFile{
+		File: f,
+		stats: func() (fs.FileInfo, error) {
+			return b.fs.Stat(name)
+		}}, nil
+}
+
+type dirEntry struct {
+	fs.FileInfo
+}
+
+func (d dirEntry) Type() fs.FileMode {
+	return d.Mode().Type()
+}
+
+func (d dirEntry) Info() (fs.FileInfo, error) {
+	return d, nil
+}
+
+func (b billyFilesystem) ReadDir(name string) ([]fs.DirEntry, error) {
+	fis, err := b.fs.ReadDir(name)
+	if err != nil {
+		return nil, err
+	}
+	var des = make([]fs.DirEntry, len(fis))
+	for i, fi := range fis {
+		des[i] = dirEntry{fi}
+	}
+	return des, nil
+}
+
+func (b billyFilesystem) Stat(name string) (fs.FileInfo, error) {
+	return b.fs.Stat(name)
 }
 
 // osFilesystem is a template file accessor backed by the os.
 type osFilesystem struct{ root string }
 
-func (f osFilesystem) Stat(path string) (os.FileInfo, error) {
-	return os.Stat(filepath.Join(f.root, path))
+func (o osFilesystem) Open(name string) (fs.File, error) {
+	name = filepath.FromSlash(name)
+	return os.Open(filepath.Join(o.root, name))
 }
 
-func (f osFilesystem) Open(path string) (file, error) {
-	return os.Open(filepath.Join(f.root, path))
+func (o osFilesystem) ReadDir(name string) ([]fs.DirEntry, error) {
+	name = filepath.FromSlash(name)
+	return os.ReadDir(filepath.Join(o.root, name))
 }
 
-func (f osFilesystem) ReadDir(path string) ([]os.FileInfo, error) {
-	fi, err := os.Open(filepath.Join(f.root, path))
-	if err != nil {
-		return nil, err
-	}
-	defer fi.Close()
-	return fi.Readdir(-1)
+func (o osFilesystem) Stat(name string) (fs.FileInfo, error) {
+	name = filepath.FromSlash(name)
+	return os.Stat(filepath.Join(o.root, name))
 }
 
 // copy
@@ -119,14 +175,14 @@ func copyNode(src, dest string, accessor Filesystem) (err error) {
 		return
 	}
 	for _, child := range children {
-		if err = copy(filepath.Join(src, child.Name()), filepath.Join(dest, child.Name()), accessor); err != nil {
+		if err = copy(path.Join(src, child.Name()), filepath.Join(dest, child.Name()), accessor); err != nil {
 			return
 		}
 	}
 	return
 }
 
-func readDir(src string, accessor Filesystem) ([]os.FileInfo, error) {
+func readDir(src string, accessor Filesystem) ([]fs.DirEntry, error) {
 	list, err := accessor.ReadDir(src)
 	if err != nil {
 		return nil, err
