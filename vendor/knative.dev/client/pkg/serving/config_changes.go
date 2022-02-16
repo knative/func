@@ -64,22 +64,22 @@ func UpdateMaxScale(template *servingv1.RevisionTemplateSpec, max int) error {
 	return UpdateRevisionTemplateAnnotation(template, autoscaling.MaxScaleAnnotationKey, strconv.Itoa(max))
 }
 
-// UpdateAutoscaleWindow updates the autoscale window annotation
-func UpdateAutoscaleWindow(template *servingv1.RevisionTemplateSpec, window string) error {
+// UpdateScaleWindow updates the autoscale window annotation
+func UpdateScaleWindow(template *servingv1.RevisionTemplateSpec, window string) error {
 	_, err := time.ParseDuration(window)
 	if err != nil {
-		return fmt.Errorf("invalid duration for 'autoscale-window': %w", err)
+		return fmt.Errorf("invalid duration for 'scale-window': %w", err)
 	}
 	return UpdateRevisionTemplateAnnotation(template, autoscaling.WindowAnnotationKey, window)
 }
 
-// UpdateConcurrencyTarget updates container concurrency annotation
-func UpdateConcurrencyTarget(template *servingv1.RevisionTemplateSpec, target int) error {
+// UpdateScaleTarget updates container concurrency annotation
+func UpdateScaleTarget(template *servingv1.RevisionTemplateSpec, target int) error {
 	return UpdateRevisionTemplateAnnotation(template, autoscaling.TargetAnnotationKey, strconv.Itoa(target))
 }
 
-// UpdateConcurrencyUtilization updates container target utilization percentage annotation
-func UpdateConcurrencyUtilization(template *servingv1.RevisionTemplateSpec, target int) error {
+// UpdateScaleUtilization updates container target utilization percentage annotation
+func UpdateScaleUtilization(template *servingv1.RevisionTemplateSpec, target int) error {
 	return UpdateRevisionTemplateAnnotation(template, autoscaling.TargetUtilizationPercentageKey, strconv.Itoa(target))
 }
 
