@@ -2,10 +2,10 @@
 
 Under Linux, it is possible to use [podman](https://podman.io/) instead of [docker](https://www.docker.com/). With Functions, you'll need `podman` version `v3.3` or better for this to work properly.
 
-For `func` version `v0.20.0` and later no further setup is needed,
+For `func` version `v0.20.0` and later on Linux no further setup is needed,
 `func` should use `podman` automatically.
 
-For older versions some setup is required:
+For older versions or if you use Windows or macOS some setup is required:
 
 In order to do this you need to run `podman` as a service. You can do this with the following command.
 ```
