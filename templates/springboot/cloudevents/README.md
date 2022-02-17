@@ -97,7 +97,7 @@ curl -v "$URL/" \
   -H "Ce-Id:1" \
   -H "Ce-Subject:Uppercase" \
   -H "Ce-Source:cloud-event-example" \
-  -H "Ce-Type:uppercase" \
+  -H "Ce-Type:Upper" \
   -H "Ce-Specversion:1.0" \
   -d "{\"input\": \"$(whoami)\"}\""
 ```
