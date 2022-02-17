@@ -1757,7 +1757,7 @@ github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635/go.mod h1:hkRG
 github.com/tchap/go-patricia v2.2.6+incompatible/go.mod h1:bmLyhP68RS6kStMGxByiQ23RP/odRBOTVjwp2cDyi6I=
 github.com/tchap/go-patricia v2.3.0+incompatible/go.mod h1:bmLyhP68RS6kStMGxByiQ23RP/odRBOTVjwp2cDyi6I=
 github.com/tdakkota/asciicheck v0.0.0-20200416200610-e657995f937b/go.mod h1:yHp0ai0Z9gUljN3o0xMhYJnH/IcvkdTBOX2fmJ93JEM=
-github.com/tektoncd/cli v0.22.0 h1:X0EL67tPQvaMWyeocNJflJyIPeexD5AgTkp/I2igT6g=
+github.com/tektoncd/cli v0.22.0 h1:otVwC6loVzCKb3gM09DVYgJ2vvw5ncLQvNigx672fO0=
 github.com/tektoncd/cli v0.22.0/go.mod h1:F1EIO3esxKoACMCMNLI4+Ci10KssCmk3Vr+65LLyZjs=
 github.com/tektoncd/hub/api v0.0.0-20220128080824-5941f280d06a/go.mod h1:ckgU0iLL6PdwTnma9GkNYfmMVCXdzI8X6vh6GeJrDeM=
 github.com/tektoncd/pipeline v0.24.1/go.mod h1:ChFD/vfu14VOtCVlLWdtlvOwXfBfVotULoNV6yz+CKY=
