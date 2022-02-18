@@ -113,7 +113,7 @@ func runCreate(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 	// Config
 	// Create a config based on args.  Also uses the newClient to create a
 	// temporary client for completing options such as available runtimes.
-	cfg, err := newCreateConfig(cmd, args, clientFn)
+	cfg, err := newCreateConfig(cmd, args, newClient)
 	if err != nil {
 		return
 	}
@@ -159,7 +159,7 @@ func runCreateHelp(cmd *cobra.Command, args []string, newClient ClientFactory) {
 
 	tpl := createHelpTemplate(cmd)
 
-	cfg, err := newCreateConfig(cmd, args, clientFn)
+	cfg, err := newCreateConfig(cmd, args, newClient)
 	failSoft(err)
 
 	client := newClient(createConfigToClientOptions(cfg))
@@ -210,7 +210,7 @@ type createConfig struct {
 // The client constructor function is used to create a transient client for
 // accessing things like the current valid templates list, and uses the
 // current value of the config at time of prompting.
-func newCreateConfig(cmd *cobra.Command, args []string, clientFn createClientFn) (cfg createConfig, err error) {
+func newCreateConfig(cmd *cobra.Command, args []string, newClient ClientFactory) (cfg createConfig, err error) {
 	var (
 		path         string
 		dirName      string
@@ -503,7 +503,7 @@ type flagCompletionFunc func(*cobra.Command, []string, string) ([]string, cobra.
 
 func newRuntimeCompletionFunc(newClient ClientFactory) flagCompletionFunc {
 	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		cfg, err := newCreateConfig(cmd, args, clientFn)
+		cfg, err := newCreateConfig(cmd, args, newClient)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error creating client config for flag completion: %v", err)
 		}
@@ -514,7 +514,7 @@ func newRuntimeCompletionFunc(newClient ClientFactory) flagCompletionFunc {
 
 func newTemplateCompletionFunc(newClient ClientFactory) flagCompletionFunc {
 	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		cfg, err := newCreateConfig(cmd, args, clientFn)
+		cfg, err := newCreateConfig(cmd, args, newClient)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error creating client config for flag completion: %v", err)
 		}
