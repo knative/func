@@ -113,7 +113,7 @@ func runCreate(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 	// Config
 	// Create a config based on args.  Also uses the newClient to create a
 	// temporary client for completing options such as available runtimes.
-	cfg, err := newCreateConfig(args, newClient)
+	cfg, err := newCreateConfig(cmd, args, clientFn)
 	if err != nil {
 		return
 	}
@@ -159,7 +159,7 @@ func runCreateHelp(cmd *cobra.Command, args []string, newClient ClientFactory) {
 
 	tpl := createHelpTemplate(cmd)
 
-	cfg, err := newCreateConfig(args, newClient)
+	cfg, err := newCreateConfig(cmd, args, clientFn)
 	failSoft(err)
 
 	client := newClient(createConfigToClientOptions(cfg))
@@ -210,7 +210,7 @@ type createConfig struct {
 // The client constructor function is used to create a transient client for
 // accessing things like the current valid templates list, and uses the
 // current value of the config at time of prompting.
-func newCreateConfig(args []string, newClient ClientFactory) (cfg createConfig, err error) {
+func newCreateConfig(cmd *cobra.Command, args []string, clientFn createClientFn) (cfg createConfig, err error) {
 	var (
 		path         string
 		dirName      string
@@ -259,7 +259,13 @@ func newCreateConfig(args []string, newClient ClientFactory) (cfg createConfig, 
 
 	// IN confirm mode.  If also in an interactive terminal, run prompts.
 	if interactiveTerminal() {
-		return cfg.prompt(client)
+		createdCfg, err := cfg.prompt(client)
+		if err != nil {
+			return createdCfg, err
+		}
+		fmt.Println("Command:")
+		fmt.Println(singleCommand(cmd, args, createdCfg))
+		return createdCfg, nil
 	}
 
 	// Confirming, but noninteractive
@@ -276,6 +282,26 @@ func newCreateConfig(args []string, newClient ClientFactory) (cfg createConfig, 
 	}
 	fmt.Printf("Template:     %v\n", cfg.Template)
 	return
+}
+
+// singleCommand that could be used by the current user to minimally recreate the current state.
+func singleCommand(cmd *cobra.Command, args []string, cfg createConfig) string {
+	var b strings.Builder
+	b.WriteString(os.Args[0])           // process executable
+	b.WriteString(" -l " + cfg.Runtime) // language runtime is required
+	if cmd.Flags().Lookup("template").Changed {
+		b.WriteString(" -t " + cfg.Template)
+	}
+	if cmd.Flags().Lookup("repository").Changed {
+		b.WriteString(" -r " + cfg.Repository)
+	}
+	if cmd.Flags().Lookup("verbose").Changed {
+		b.WriteString(fmt.Sprintf(" -v %v", cfg.Verbose))
+	}
+	if len(args) > 0 {
+		b.WriteString(" " + cfg.Path) // optional trailing <path> argument
+	}
+	return b.String()
 }
 
 // Validate the current state of the config, returning any errors.
@@ -467,14 +493,6 @@ func (c createConfig) prompt(client *fn.Client) (createConfig, error) {
 		return c, err
 	}
 
-	executable, err := os.Executable()
-	if err != nil {
-		fmt.Printf("Unable to get the executable path: %v", err)
-		executable = "func"
-	}
-	fmt.Printf("The command below is a shorthand method to create the same function!\n")
-	fmt.Printf("    %v -l %v -t %v %v\n", executable, c.Runtime, c.Template, c.Path)
-
 	return c, nil
 }
 
@@ -485,7 +503,7 @@ type flagCompletionFunc func(*cobra.Command, []string, string) ([]string, cobra.
 
 func newRuntimeCompletionFunc(newClient ClientFactory) flagCompletionFunc {
 	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		cfg, err := newCreateConfig(args, newClient)
+		cfg, err := newCreateConfig(cmd, args, clientFn)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error creating client config for flag completion: %v", err)
 		}
@@ -496,7 +514,7 @@ func newRuntimeCompletionFunc(newClient ClientFactory) flagCompletionFunc {
 
 func newTemplateCompletionFunc(newClient ClientFactory) flagCompletionFunc {
 	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		cfg, err := newCreateConfig(args, newClient)
+		cfg, err := newCreateConfig(cmd, args, clientFn)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error creating client config for flag completion: %v", err)
 		}
