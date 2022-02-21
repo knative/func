@@ -106,7 +106,7 @@ git:
 				t.Fatal(err)
 			}
 
-			ctx, _ := context.WithCancel(context.TODO())
+			ctx := context.TODO()
 
 			_, err := cmd.ExecuteContextC(ctx)
 			if err != nil {
