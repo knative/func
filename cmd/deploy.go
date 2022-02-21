@@ -51,13 +51,16 @@ kn func deploy --registry quay.io/myuser
 kn func deploy --image quay.io/myuser/myfunc -n myns
 `,
 		SuggestFor: []string{"delpoy", "deplyo"},
-		PreRunE:    bindEnv("image", "namespace", "path", "registry", "confirm", "build", "push"),
+		PreRunE:    bindEnv("image", "namespace", "path", "registry", "confirm", "build", "push", "git-url", "git-branch", "git-dir"),
 	}
 
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
 	cmd.Flags().StringArrayP("env", "e", []string{}, "Environment variable to set in the form NAME=VALUE. "+
 		"You may provide this flag multiple times for setting multiple environment variables. "+
 		"To unset, specify the environment variable name followed by a \"-\" (e.g., NAME-).")
+	cmd.Flags().StringP("git-url", "g", "", "Repo url to push the code to be built")
+	cmd.Flags().StringP("git-branch", "t", "", "Git branch to be used for remote builds")
+	cmd.Flags().StringP("git-dir", "d", "", "Directory in the repo where the function is located")
 	cmd.Flags().StringP("image", "i", "", "Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE)")
 	cmd.Flags().StringP("registry", "r", "", "Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined based on the local directory name. If not provided the registry will be taken from func.yaml (Env: $FUNC_REGISTRY)")
 	cmd.Flags().StringP("build", "b", fn.DefaultBuildType, fmt.Sprintf("Build specifies the way the function should be built. Supported types are %s (Env: $FUNC_BUILD)", fn.SupportedBuildTypes(true)))
@@ -107,13 +110,6 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		err = validateBuildType(config.BuildType)
 		if err != nil {
 			return err
-		}
-
-		// update function config if build type has been changed
-		// don't store type `disabled` as it should be used only as a parameter in `func deploy`
-		// and not stored in function config
-		if function.BuildType != config.BuildType && config.BuildType != fn.BuildTypeDisabled {
-			function.BuildType = config.BuildType
 		}
 	} else {
 		currentBuildType = function.BuildType
@@ -173,7 +169,21 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 			return err
 		}
 	case fn.BuildTypeGit:
-		return client.RunPipeline(cmd.Context(), config.Path)
+		git := function.Git
+
+		if config.GitURL != "" {
+			git.URL = &config.GitURL
+		}
+
+		if config.GitBranch != "" {
+			git.Revision = &config.GitBranch
+		}
+
+		if config.GitDir != "" {
+			git.ContextDir = &config.GitDir
+		}
+
+		return client.RunPipeline(cmd.Context(), config.Path, git)
 	case fn.BuildTypeDisabled:
 		// nothing needed to be done for `build=disabled`
 	default:
@@ -282,6 +292,15 @@ type deployConfig struct {
 
 	// Envs passed via cmd to removed
 	EnvToRemove []string
+
+	// Git repo url for remote builds
+	GitURL string
+
+	// Git branch for remote builds
+	GitBranch string
+
+	// Directory in the git repo where the function is located
+	GitDir string
 }
 
 // newDeployConfig creates a buildConfig populated from command flags and
@@ -309,6 +328,9 @@ func newDeployConfig(cmd *cobra.Command) (deployConfig, error) {
 		Push:        viper.GetBool("push"),
 		EnvToUpdate: envToUpdate,
 		EnvToRemove: envToRemove,
+		GitURL:      viper.GetString("git-url"),
+		GitBranch:   viper.GetString("git-branch"),
+		GitDir:      viper.GetString("git-dir"),
 	}, nil
 }
 
