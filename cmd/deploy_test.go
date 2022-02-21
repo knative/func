@@ -40,6 +40,18 @@ created: 2009-11-10 23:00:00`,
 			expectCallContextDir: pointer.StringPtr("func"),
 		},
 		{
+			name:      "Git url gets split when in the format url#branch",
+			gitURL:    "git@github.com:knative-sandbox/kn-plugin-func.git#main",
+			gitDir:    "func",
+			buildType: fn.BuildTypeGit,
+			funcFile: `name: test-func
+runtime: go
+created: 2009-11-10 23:00:00`,
+			expectCallURL:        pointer.StringPtr("git@github.com:knative-sandbox/kn-plugin-func.git"),
+			expectCallBranch:     pointer.StringPtr("main"),
+			expectCallContextDir: pointer.StringPtr("func"),
+		},
+		{
 			name:      "Git arguments override func.yaml but don't get saved",
 			gitURL:    "git@github.com:knative-sandbox/kn-plugin-func.git",
 			gitBranch: "main",

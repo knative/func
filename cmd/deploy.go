@@ -173,6 +173,11 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 
 		if config.GitURL != "" {
 			git.URL = &config.GitURL
+			if strings.Contains(config.GitURL, "#") {
+				parts := strings.Split(config.GitURL, "#")
+				git.URL = &parts[0]
+				git.Revision = &parts[1]
+			}
 		}
 
 		if config.GitBranch != "" {
