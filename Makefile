@@ -22,12 +22,6 @@ VTAG    := $(shell [ -z $(VTAG) ] && echo $(ETAG) || echo $(VTAG))
 VERS    ?= $(shell [ -z $(VTAG) ] && echo 'tip' || echo $(VTAG) )
 LDFLAGS := "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)"
 
-# Templates
-# Built into the binary are the contents of ./templates.  This is done by
-# running 'pkger' which generates pkged.go containing templates encoded 
-# as Go objects and exposed at runtime as a filesystem.
-PKGER ?= ./hack/update-pkger.sh
-
 # All Code prerequisites, including generated files, etc.
 CODE := $(shell find . -name '*.go') pkged.go go.mod schema/func_yaml-schema.json
 TEMPLATES := $(shell find templates -name '*' -type f)
@@ -65,6 +59,7 @@ bin/golangci-lint:
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./bin v1.43.0
 
 pkged.go: $(TEMPLATES)
+	# Removing temporary template files
 	@rm -rf templates/node/cloudevents/node_modules
 	@rm -rf templates/node/http/node_modules
 	@rm -rf templates/python/cloudevents/__pycache__
@@ -77,8 +72,15 @@ pkged.go: $(TEMPLATES)
 	@rm -rf templates/quarkus/http/target
 	@rm -rf templates/springboot/cloudevents/target
 	@rm -rf templates/springboot/http/target
-	# Generating pkged.go using pkger
-	$(PKGER)
+	# Encoding ./templates as pkged.go
+# See ./hack/tools.go which triggers the vendoring of pkger cmd
+# The temp file ./hack/package.go averts a "no buildable files" error
+# gofmt updates the resultant pkged.go file to the new build tag f ormat.
+	@echo "package tools" > hack/package.go
+	@go run ./vendor/github.com/markbates/pkger/cmd/pkger
+	@rm hack/package.go
+	@gofmt -s -w pkged.go
+
 
 clean: ## Remove generated artifacts such as binaries and schemas
 	rm -f $(BIN) $(BIN_WINDOWS) $(BIN_LINUX) $(BIN_DARWIN)
