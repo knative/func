@@ -119,7 +119,7 @@ func (d *dialerWithFallback) DialContext(ctx context.Context, network, address s
 	}
 
 	var dnsErr *net.DNSError
-	if !(errors.As(err, &dnsErr) && dnsErr.IsNotFound) {
+	if !errors.As(err, &dnsErr) {
 		return nil, err
 	}
 
