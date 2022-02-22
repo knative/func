@@ -122,7 +122,7 @@ func GetDockerCredentialLoaders() []creds.CredentialsCallback {
 	cc := rawConf.Contexts[rawConf.CurrentContext]
 	authInfo := rawConf.AuthInfos[cc.AuthInfo]
 
-	user := "<UNKNOWN>"
+	var user string
 	parts := strings.SplitN(cc.AuthInfo, "/", 2)
 	if len(parts) >= 1 {
 		user = parts[0]
