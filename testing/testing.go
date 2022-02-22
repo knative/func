@@ -126,7 +126,7 @@ func TestRepoURI(name string, t *testing.T) string {
 	t.Helper()
 	cwd, _ := os.Getwd()
 	repo := filepath.Join(cwd, "testdata", name+".git")
-	return fmt.Sprintf(`file://%s`, repo)
+	return fmt.Sprintf(`file://%s`, filepath.ToSlash(repo))
 }
 
 // WithEnvVar sets an environment variable

@@ -172,7 +172,7 @@ func TestTemplates_Remote(t *testing.T) {
 		t.Fatal(err)
 	}
 	path := filepath.Join(cwd, "testdata", "repository.git")
-	url := fmt.Sprintf(`file://%s`, path)
+	url := fmt.Sprintf(`file://%s`, filepath.ToSlash(path))
 
 	// Create a client which explicitly specifies the Git repo at URL
 	// rather than relying on the default internally builtin template repo
@@ -341,7 +341,7 @@ func TestTemplates_ModeRemote(t *testing.T) {
 		t.Fatal(err)
 	}
 	path := filepath.Join(cwd, "testdata", "repository.git")
-	url := fmt.Sprintf(`file://%s`, path)
+	url := fmt.Sprintf(`file://%s`, filepath.ToSlash(path))
 
 	client := fn.New(
 		fn.WithRegistry(TestRegistry),
