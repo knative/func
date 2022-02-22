@@ -1,13 +1,13 @@
 package cmd
 
 import (
-	"net/http"
-
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/buildpacks"
 	"knative.dev/kn-plugin-func/docker"
 	"knative.dev/kn-plugin-func/docker/creds"
+	fnhttp "knative.dev/kn-plugin-func/http"
 	"knative.dev/kn-plugin-func/knative"
+	"knative.dev/kn-plugin-func/openshift"
 	"knative.dev/kn-plugin-func/pipelines/tekton"
 	"knative.dev/kn-plugin-func/progress"
 )
@@ -22,8 +22,36 @@ type ClientOptions struct {
 
 type ClientFactory func(opts ClientOptions) *fn.Client
 
-func NewClientFactory(transport http.RoundTripper) ClientFactory {
-	return func(clientOptions ClientOptions) *fn.Client {
+// NewDefaultClientFactory returns a function that creates instances of function.Client and a cleanup routine.
+//
+// This function may allocate resources that are used by produced instances of function.Client.
+//
+// To free these resources (after instances of function.Client are no longer in use)
+// caller of this function has to invoke the cleanup routine.
+//
+// Usage:
+//   newClient, cleanUp := NewDefaultClientFactory()
+//   defer cleanUp()
+//   fnClient := newClient()
+//   // use your fnClient here...
+func NewDefaultClientFactory() (newClient ClientFactory, cleanUp func() error) {
+
+	var transportOpts []fnhttp.Option
+	var additionalCredLoaders []creds.CredentialsCallback
+
+	switch {
+	case openshift.IsOpenShift():
+		transportOpts = append(transportOpts, openshift.WithOpenShiftServiceCA())
+		additionalCredLoaders = openshift.GetDockerCredentialLoaders()
+	default:
+	}
+
+	transport := fnhttp.NewRoundTripper(transportOpts...)
+	cleanUp = func() error {
+		return transport.Close()
+	}
+
+	newClient = func(clientOptions ClientOptions) *fn.Client {
 		builder := buildpacks.NewBuilder()
 		builder.Verbose = clientOptions.Verbose
 
@@ -33,7 +61,8 @@ func NewClientFactory(transport http.RoundTripper) ClientFactory {
 		credentialsProvider := creds.NewCredentialsProvider(
 			creds.WithPromptForCredentials(newPromptForCredentials()),
 			creds.WithPromptForCredentialStore(newPromptForCredentialStore()),
-			creds.WithTransport(transport))
+			creds.WithTransport(transport),
+			creds.WithAdditionalCredentialLoaders(additionalCredLoaders...))
 
 		pusher := docker.NewPusher(
 			docker.WithCredentialsProvider(credentialsProvider),
@@ -83,5 +112,16 @@ func NewClientFactory(transport http.RoundTripper) ClientFactory {
 		}
 
 		return fn.New(opts...)
+	}
+
+	return newClient, cleanUp
+}
+
+func GetDefaultRegistry() string {
+	switch {
+	case openshift.IsOpenShift():
+		return openshift.GetDefaultRegistry()
+	default:
+		return ""
 	}
 }
