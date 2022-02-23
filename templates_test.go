@@ -162,7 +162,7 @@ func TestTemplates_Remote(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("TODO fix this test on Windows CI") // TODO fix this
 	}
-	
+
 	root := "testdata/testTemplatesRemote"
 	defer Using(t, root)()
 
