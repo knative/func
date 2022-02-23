@@ -166,7 +166,7 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 	switch currentBuildType {
 	case fn.BuildTypeLocal, "":
 		if config.GitURL != "" || config.GitDir != "" || config.GitBranch != "" {
-			return fmt.Errorf("remote git arguments require the --build=remote flag")
+			return fmt.Errorf("remote git arguments require the --build=git flag")
 		}
 		if err := client.Build(cmd.Context(), config.Path); err != nil {
 			return err

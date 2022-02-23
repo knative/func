@@ -96,7 +96,7 @@ git:
 			funcFile: `name: test-func
 runtime: go
 created: 2009-11-10 23:00:00`,
-			errString: "remote git arguments require the --build=remote flag",
+			errString: "remote git arguments require the --build=git flag",
 		},
 	}
 	for _, tt := range tests {
