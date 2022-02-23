@@ -172,10 +172,10 @@ The user may specify a path to the project directory using the `--path` or `-p` 
 specified in `func.yaml` configuration file.
 Users need to deploy or update the function with `func deploy` in order to apply the updated configuration to the deployed function.
 
-This command has subcommands `envs` and `volumes` to manage directly the specific resouces: Environment variables and Volumes.
-These subcommands has commands `add` and `remove` to add and remove specified resouces.
+This command has subcommands `envs` and `volumes` to manage directly the specific resources: Environment variables and Volumes.
+These subcommands has commands `add` and `remove` to add and remove specified resources.
 
-Invokes top level interactive prompt that allows choosing the resouce and operation:
+Invokes top level interactive prompt that allows choosing the resource and operation:
 ```console
 func config [-p <path>]
 ```
@@ -247,7 +247,7 @@ of the commands.  XDG_CONFIG_HOME is respected when determining the default.
 
 _Interactive Prompts:_
 To complete these commands interactively, pass the --confirm (-c) flag to
-the 'repository' command, or any of the inidivual subcommands.
+the 'repository' command, or any of the individual subcommands.
 
 _The Default Repository:_
 The default repository is not stored on disk, but embedded in the binary and

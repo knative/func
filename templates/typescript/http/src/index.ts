@@ -6,7 +6,7 @@ import { Context, Invokable } from 'faas-js-runtime';
  *
  * @param {Context} context a context object.
  * @param {object} context.body the request body if any
- * @param {object} context.query the query string deserialzed as an object, if any
+ * @param {object} context.query the query string deserialized as an object, if any
  * @param {object} context.log logging object with methods for 'info', 'warn', 'error', etc.
  * @param {object} context.headers the HTTP request headers
  * @param {string} context.method the HTTP request method

@@ -62,7 +62,7 @@ http://localhost:8080.
 
 ## Deploying the function to a cluster
 
-To deploy your function to a Kubenetes cluster, use the `deploy` command.
+To deploy your function to a Kubernetes cluster, use the `deploy` command.
 
 ```
 ❯ func deploy

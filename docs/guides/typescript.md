@@ -57,7 +57,7 @@ is good, both of these will return `OK`.
 
 ## Deploying the function to a cluster
 
-To deploy your function to a Kubenetes cluster, use the `deploy` command.
+To deploy your function to a Kubernetes cluster, use the `deploy` command.
 
 ```
 ❯ func deploy
@@ -329,7 +329,7 @@ in your functions. Usage for these types is described in the previous
 sections.
 
 ```typescript
-// Invokable is the expeted Function signature for user functions
+// Invokable is the expected Function signature for user functions
 export interface Invokable {
     (context: Context, cloudevent?: CloudEvent): any
 }

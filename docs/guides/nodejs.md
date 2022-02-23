@@ -54,7 +54,7 @@ is good, both of these will return `OK`.
 
 ## Deploying the function to a cluster
 
-To deploy your function to a Kubenetes cluster, use the `deploy` command.
+To deploy your function to a Kubernetes cluster, use the `deploy` command.
 
 ```
 ❯ func deploy

@@ -118,7 +118,7 @@ Language Packs within a repository.
 name: examples
 
 # Optional. Health endpoints for deployed functions in all runtimes.
-# May be overridden by mainfest.yaml settings at the language level.
+# May be overridden by manifest.yaml settings at the language level.
 healthEndpoints:
   liveness: /health/liveness
   readiness: /health/readiness

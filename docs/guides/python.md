@@ -52,7 +52,7 @@ is good, both of these will return `OK`.
 
 ## Deploying the function to a cluster
 
-To deploy your function to a Kubenetes cluster, use the `deploy` command.
+To deploy your function to a Kubernetes cluster, use the `deploy` command.
 
 ```
 ❯ func deploy
@@ -99,7 +99,7 @@ When an incoming request is received, your function will be invoked with a `Cont
 object as the first parameter. This object is a Python class with two attributes. The
 `request` attribute will always be present, and contains the Flask `request` object.
 The second attribute, `cloud_event`, will be populated if the incoming request is a
-`CloudEvent`. Developers may access any `CloudEvent` data from the context objext.
+`CloudEvent`. Developers may access any `CloudEvent` data from the context object.
 For example:
 
 ```python
