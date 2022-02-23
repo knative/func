@@ -53,7 +53,7 @@ is good, both of these will return `{"ok":true}`.
 
 ## Deploying the function to a cluster
 
-To deploy your function to a Kubenetes cluster, use the `deploy` command.
+To deploy your function to a Kubernetes cluster, use the `deploy` command.
 
 ```
 ❯ func deploy
@@ -151,7 +151,7 @@ For example, a `CloudEvent` is received which contains a JSON string such as thi
 ```
 
 to access this data, we need to define `Purchase` structure, which maps properties in `CloudEvents`
-data and retrive it from the incoming event:
+data and retrieve it from the incoming event:
 
 ```go
 type Purchase struct {
