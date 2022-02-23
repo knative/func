@@ -65,6 +65,10 @@ func TestNewClient_DockerHost(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.name == "unix" && runtime.GOOS == "windows" {
+				t.Skip("Windows cannot handle Unix sockets")
+			}
+
 			defer WithEnvVar(t, "DOCKER_HOST", tt.dockerHostEnvVar)()
 			_, host, err := docker.NewClient(client.DefaultDockerHost)
 			if err != nil {
