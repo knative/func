@@ -395,7 +395,7 @@ func listCredentialHelpers() []string {
 			}
 			if runtime.GOOS == "windows" {
 				ext := filepath.Ext(fi.Name())
-				if ext != "exe" && ext != "bat" {
+				if ext != ".exe" && ext != ".bat" {
 					continue
 				}
 			}

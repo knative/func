@@ -157,13 +157,13 @@ func TestCheckAuth(t *testing.T) {
 func startServer(t *testing.T) (addr, addrTLS string, stopServer func()) {
 	// TODO: this should be refactored to use OS-chosen ports so as not to
 	// fail when a user is running a Function on the default port.)
-	listener, err := net.Listen("tcp", "localhost:8080")
+	listener, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		t.Fatal(err)
 	}
 	addr = listener.Addr().String()
 
-	listenerTLS, err := net.Listen("tcp", "localhost:4433")
+	listenerTLS, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		t.Fatal(err)
 	}
