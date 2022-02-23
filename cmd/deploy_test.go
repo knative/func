@@ -25,6 +25,7 @@ func Test_runDeploy(t *testing.T) {
 		expectCallURL        *string
 		expectCallBranch     *string
 		expectCallContextDir *string
+		errString            string
 	}{
 		{
 			name:      "Git arguments don't get saved to func.yaml but are used in the pipeline invocation",
@@ -88,6 +89,15 @@ git:
 			expectCallBranch:     pointer.StringPtr("master"),
 			expectCallContextDir: pointer.StringPtr("pwd"),
 		},
+		{
+			name:      "check error when providing git flags with buildType local",
+			gitURL:    "git@github.com:my-repo/my-function.git",
+			buildType: "local",
+			funcFile: `name: test-func
+runtime: go
+created: 2009-11-10 23:00:00`,
+			errString: "remote git arguments require the --build=remote flag",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -122,7 +132,11 @@ git:
 
 			_, err := cmd.ExecuteContextC(ctx)
 			if err != nil {
-				t.Fatalf("Problem executing command: %v", err)
+				if tt.errString == "" {
+					t.Fatalf("Problem executing command: %v", err)
+				} else if err := err.Error(); tt.errString != err {
+					t.Fatalf("Error expected to be %v but was %v", tt.errString, err)
+				}
 			}
 
 			fileFunction, err := fn.NewFunction(".")

@@ -58,9 +58,9 @@ kn func deploy --image quay.io/myuser/myfunc -n myns
 	cmd.Flags().StringArrayP("env", "e", []string{}, "Environment variable to set in the form NAME=VALUE. "+
 		"You may provide this flag multiple times for setting multiple environment variables. "+
 		"To unset, specify the environment variable name followed by a \"-\" (e.g., NAME-).")
-	cmd.Flags().StringP("git-url", "g", "", "Repo url to push the code to be built")
-	cmd.Flags().StringP("git-branch", "t", "", "Git branch to be used for remote builds")
-	cmd.Flags().StringP("git-dir", "d", "", "Directory in the repo where the function is located")
+	cmd.Flags().StringP("git-url", "g", "", "Repo url to push the code to be built (Env: $FUNC_GIT_URL)")
+	cmd.Flags().StringP("git-branch", "t", "", "Git branch to be used for remote builds (Env: $FUNC_GIT_BRANCH)")
+	cmd.Flags().StringP("git-dir", "d", "", "Directory in the repo where the function is located (Env: $FUNC_GIT_DIR)")
 	cmd.Flags().StringP("image", "i", "", "Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE)")
 	cmd.Flags().StringP("registry", "r", "", "Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined based on the local directory name. If not provided the registry will be taken from func.yaml (Env: $FUNC_REGISTRY)")
 	cmd.Flags().StringP("build", "b", fn.DefaultBuildType, fmt.Sprintf("Build specifies the way the function should be built. Supported types are %s (Env: $FUNC_BUILD)", fn.SupportedBuildTypes(true)))
@@ -165,6 +165,9 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 
 	switch currentBuildType {
 	case fn.BuildTypeLocal, "":
+		if config.GitURL != "" || config.GitDir != "" || config.GitBranch != "" {
+			return fmt.Errorf("remote git arguments require the --build=remote flag")
+		}
 		if err := client.Build(cmd.Context(), config.Path); err != nil {
 			return err
 		}
