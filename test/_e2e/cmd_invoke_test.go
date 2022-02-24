@@ -4,10 +4,13 @@
 package e2e
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -57,7 +60,15 @@ func TestInvoke(t *testing.T) {
 	run(t, bin, prefix, "create", "--verbose=true", "--language=go", "--template=cloudevents", cwd)
 	set(t, "handle.go", TestInvokeFunctionImpl)
 	run(t, bin, prefix, "deploy", "--verbose=true", "--registry", GetRegistry())
+	infoOut := run(t, bin, prefix, "info", "--output", "plain")
 	run(t, bin, prefix, "invoke", "--verbose=true", "--content-type=text/plain", "--source=func:set", "--data=TEST")
+
+	// Resolve target service URL from info command stdout
+	targetUrl := "http://testinvoke.default.127.0.0.1.sslip.io"
+	matches := regexp.MustCompile("Route (http.*)").FindStringSubmatch(infoOut)
+	if len(matches) > 1 {
+		targetUrl = matches[1]
+	}
 
 	// Validate by fetching the contents of the Function's data global
 	fmt.Println("Validate:")
@@ -65,7 +76,7 @@ func TestInvoke(t *testing.T) {
 	req.SetID("1")
 	req.SetSource("func:get")
 	req.SetType("func.test")
-	c, err := cloudevents.NewClientHTTP(cloudevents.WithTarget("http://testinvoke.default.127.0.0.1.sslip.io"))
+	c, err := cloudevents.NewClientHTTP(cloudevents.WithTarget(targetUrl))
 	if err != nil {
 		return
 	}
@@ -99,17 +110,20 @@ func bin() (path string, args []string) {
 // func [subcommand] [flags]
 //   and
 // kn func [subcommand] [flags]
-func run(t *testing.T, bin string, prefix []string, suffix ...string) {
+func run(t *testing.T, bin string, prefix []string, suffix ...string) string {
 	t.Helper()
 	args := append(prefix, suffix...)
 	fmt.Printf("%v %v\n", bin, strings.Join(args, " "))
 
+	var stdout bytes.Buffer
+
 	cmd := exec.Command(bin, args...)
-	cmd.Stdout = os.Stdout
+	cmd.Stdout = io.MultiWriter(os.Stdout, &stdout)
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		t.Fatal(err)
 	}
+	return stdout.String()
 }
 
 // set the contents of the given file
