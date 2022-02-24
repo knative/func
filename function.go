@@ -152,9 +152,9 @@ func NewFunctionWith(defaults Function) Function {
 // Functions from earlier versions are brought up to current using migrations.
 // Migrations are run prior to validators such that validation can omit
 // concerning itself with backwards compatibility.  Migrators must therefore
-// selectively consider the minimal validation necesssary to ehable migration.
+// selectively consider the minimal validation necessary to enable migration.
 func NewFunction(path string) (f Function, err error) {
-	f.Root = path // path is not persisted, as this is the purvew of the FS itself
+	f.Root = path // path is not persisted, as this is the purview of the FS itself
 	var filename = filepath.Join(path, FunctionFile)
 	if _, err = os.Stat(filename); err != nil {
 		return

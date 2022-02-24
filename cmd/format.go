@@ -27,7 +27,7 @@ type Formatter interface {
 	URL(io.Writer) error
 }
 
-// write to the output the output of the formatter's appropriate serilization function.
+// write to the output of the formatter's appropriate serialization function.
 // the command to exit with value 2.
 func write(out io.Writer, s Formatter, formatName string) {
 	var err error
