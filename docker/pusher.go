@@ -78,12 +78,18 @@ func WithPusherDockerClientFactory(dockerClientFactory PusherDockerClientFactory
 	}
 }
 
+func WithVerbose(verbose bool) Opt {
+	return func(pusher *Pusher) {
+		pusher.verbose = verbose
+	}
+}
+
 func EmptyCredentialsProvider(ctx context.Context, registry string) (Credentials, error) {
 	return Credentials{}, nil
 }
 
 // NewPusher creates an instance of a docker-based image pusher.
-func NewPusher(verbose bool, opts ...Opt) *Pusher {
+func NewPusher(opts ...Opt) *Pusher {
 	result := &Pusher{
 		credentialsProvider: EmptyCredentialsProvider,
 		progressListener:    &fn.NoopProgressListener{},
@@ -92,7 +98,6 @@ func NewPusher(verbose bool, opts ...Opt) *Pusher {
 			c, _, err := NewClient(client.DefaultDockerHost)
 			return c, err
 		},
-		verbose: verbose,
 	}
 	for _, opt := range opts {
 		opt(result)

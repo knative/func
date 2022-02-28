@@ -11,7 +11,7 @@ import (
 	fn "knative.dev/kn-plugin-func"
 )
 
-func NewDeleteCmd(newClient ClientFactory) *cobra.Command {
+func NewDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete [NAME]",
 		Short: "Undeploy a function",
@@ -42,14 +42,12 @@ No local files are deleted.
 
 	cmd.SetHelpFunc(defaultTemplatedHelp)
 
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runDelete(cmd, args, newClient)
-	}
+	cmd.RunE = runDelete
 
 	return cmd
 }
 
-func runDelete(cmd *cobra.Command, args []string, clientFn ClientFactory) (err error) {
+func runDelete(cmd *cobra.Command, args []string) (err error) {
 	config, err := newDeleteConfig(args).Prompt()
 	if err != nil {
 		if err == terminal.InterruptErr {
@@ -87,10 +85,10 @@ func runDelete(cmd *cobra.Command, args []string, clientFn ClientFactory) (err e
 	}
 
 	// Create a client instance from the now-final config
-	client := clientFn(ClientOptions{
-		Namespace: config.Namespace,
-		Verbose:   config.Verbose,
-	})
+	client := NewClient(
+		config.Namespace,
+		config.Verbose,
+	)
 
 	// Invoke remove using the concrete client impl
 	return client.Remove(cmd.Context(), function, config.DeleteAll)

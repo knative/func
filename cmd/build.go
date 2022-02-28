@@ -12,14 +12,7 @@ import (
 	fn "knative.dev/kn-plugin-func"
 )
 
-func buildConfigToClientOptions(cfg buildConfig) ClientOptions {
-	return ClientOptions{
-		Registry: cfg.Registry,
-		Verbose:  cfg.Verbose,
-	}
-}
-
-func NewBuildCmd(newClient ClientFactory) *cobra.Command {
+func NewBuildCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "build",
 		Short: "Build a function project as a container image",
@@ -63,9 +56,7 @@ and the image name is stored in the configuration file.
 
 	cmd.SetHelpFunc(defaultTemplatedHelp)
 
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runBuild(cmd, args, newClient)
-	}
+	cmd.RunE = runBuild
 
 	return cmd
 }
@@ -87,7 +78,7 @@ func ValidNamespaceAndRegistry(path string) survey.Validator {
 	}
 }
 
-func runBuild(cmd *cobra.Command, _ []string, clientFn ClientFactory) (err error) {
+func runBuild(cmd *cobra.Command, _ []string) (err error) {
 	config, err := newBuildConfig().Prompt()
 	if err != nil {
 		if err == terminal.InterruptErr {
@@ -101,7 +92,6 @@ func runBuild(cmd *cobra.Command, _ []string, clientFn ClientFactory) (err error
 		return
 	}
 
-	// Check if the Function has been initialized
 	if !function.Initialized() {
 		return fmt.Errorf("the given path '%v' does not contain an initialized function. Please create one at this path before deploying", config.Path)
 	}
@@ -151,7 +141,7 @@ func runBuild(cmd *cobra.Command, _ []string, clientFn ClientFactory) (err error
 		config.Registry = ""
 	}
 
-	client := clientFn(buildConfigToClientOptions(config))
+	client := NewClient(config.Namespace, config.Verbose, fn.WithRegistry(config.Registry))
 
 	err = client.Build(cmd.Context(), config.Path)
 	if err == nil && config.Push {

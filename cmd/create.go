@@ -25,16 +25,8 @@ type ErrInvalidRuntime error
 // ErrInvalidTemplate indicates that the passed template was invalid.
 type ErrInvalidTemplate error
 
-func createConfigToClientOptions(cfg createConfig) ClientOptions {
-	return ClientOptions{
-		Repositories: cfg.Repositories,
-		Repository:   cfg.Repository,
-		Verbose:      cfg.Verbose,
-	}
-}
-
 // NewCreateCmd creates a create command using the given client creator.
-func NewCreateCmd(newClient ClientFactory) *cobra.Command {
+func NewCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a Function Project",
@@ -87,17 +79,7 @@ EXAMPLES
 	cmd.Flags().StringP("repository", "r", "", "URI to a Git repository containing the specified template (Env: $FUNC_REPOSITORY)")
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
 
-	// Help Action
-	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
-		runCreateHelp(cmd, args, newClient)
-	})
-
-	// Run Action
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runCreate(cmd, args, newClient)
-	}
-
-	// Tab Completion
+	// Tab completion
 	if err := cmd.RegisterFlagCompletionFunc("language", newRuntimeCompletionFunc(newClient)); err != nil {
 		fmt.Fprintf(os.Stderr, "unable to provide language runtime suggestions: %v", err)
 	}
@@ -105,15 +87,19 @@ EXAMPLES
 		fmt.Fprintf(os.Stderr, "unable to provide template suggestions: %v", err)
 	}
 
+	cmd.SetHelpFunc(runCreateHelp)
+
+	cmd.RunE = runCreate
+
 	return cmd
 }
 
 // Run Create
-func runCreate(cmd *cobra.Command, args []string, newClient ClientFactory) (err error) {
+func runCreate(cmd *cobra.Command, args []string) (err error) {
 	// Config
 	// Create a config based on args.  Also uses the newClient to create a
 	// temporary client for completing options such as available runtimes.
-	cfg, err := newCreateConfig(cmd, args, newClient)
+	cfg, err := newCreateConfig(cmd, args)
 	if err != nil {
 		return
 	}
@@ -121,7 +107,11 @@ func runCreate(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 	// Client
 	// From environment variables, flags, arguments, and user prompts if --confirm
 	// (in increasing levels of precidence)
-	client := newClient(createConfigToClientOptions(cfg))
+	client := NewClient(
+		"", // default namespace
+		cfg.Verbose,
+		fn.WithRepository(cfg.Repository),
+		fn.WithRepositories(cfg.Repositories))
 
 	// Validate - a deeper validation than that which is performed when
 	// instantiating the client with the raw config above.
@@ -146,7 +136,7 @@ func runCreate(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 }
 
 // Run Help
-func runCreateHelp(cmd *cobra.Command, args []string, newClient ClientFactory) {
+func runCreateHelp(cmd *cobra.Command, args []string) {
 	// Error-tolerant implementataion:
 	// Help can not fail when creating the client config (such as on invalid
 	// flag values) because help text is needed in that situation.   Therefore
@@ -159,10 +149,13 @@ func runCreateHelp(cmd *cobra.Command, args []string, newClient ClientFactory) {
 
 	tpl := createHelpTemplate(cmd)
 
-	cfg, err := newCreateConfig(cmd, args, newClient)
+	cfg, err := NewCreateConfig(cmd, args)
 	failSoft(err)
 
-	client := newClient(createConfigToClientOptions(cfg))
+	client := NewClient(
+		"", cfg.Verbose,
+		fn.WithRepositories(cfg.Repositories),
+		fn.WithRepository(cfg.Repository))
 
 	options, err := runtimeTemplateOptions(client) // human-friendly
 	failSoft(err)
@@ -210,7 +203,7 @@ type createConfig struct {
 // The client constructor function is used to create a transient client for
 // accessing things like the current valid templates list, and uses the
 // current value of the config at time of prompting.
-func newCreateConfig(cmd *cobra.Command, args []string, newClient ClientFactory) (cfg createConfig, err error) {
+func newCreateConfig(cmd *cobra.Command, args []string) (cfg createConfig, err error) {
 	var (
 		path         string
 		dirName      string
@@ -501,7 +494,7 @@ func (c createConfig) prompt(client *fn.Client) (createConfig, error) {
 
 type flagCompletionFunc func(*cobra.Command, []string, string) ([]string, cobra.ShellCompDirective)
 
-func newRuntimeCompletionFunc(newClient ClientFactory) flagCompletionFunc {
+func newRuntimeCompletionFunc() flagCompletionFunc {
 	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		cfg, err := newCreateConfig(cmd, args, newClient)
 		if err != nil {
@@ -512,7 +505,7 @@ func newRuntimeCompletionFunc(newClient ClientFactory) flagCompletionFunc {
 	}
 }
 
-func newTemplateCompletionFunc(newClient ClientFactory) flagCompletionFunc {
+func newTemplateCompletionFunc() flagCompletionFunc {
 	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		cfg, err := newCreateConfig(cmd, args, newClient)
 		if err != nil {

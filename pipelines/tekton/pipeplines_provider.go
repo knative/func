@@ -53,8 +53,14 @@ func WithCredentialsProvider(credentialsProvider docker.CredentialsProvider) Opt
 	}
 }
 
-func NewPipelinesProvider(verbose bool, opts ...Opt) *PipelinesProvider {
-	pp := &PipelinesProvider{verbose: verbose}
+func WithVerbose(verbose bool) Opt {
+	return func(pp *PipelinesProvider) {
+		pp.verbose = verbose
+	}
+}
+
+func NewPipelinesProvider(opts ...Opt) *PipelinesProvider {
+	pp := &PipelinesProvider{}
 
 	for _, opt := range opts {
 		opt(pp)

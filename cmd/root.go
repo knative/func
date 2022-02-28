@@ -11,22 +11,13 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/client/pkg/util"
-
 	fn "knative.dev/kn-plugin-func"
 )
-
-type RootCommandConfig struct {
-	Name      string // usually `func` or `kn func`
-	Date      string
-	Version   string
-	Hash      string
-	NewClient ClientFactory
-}
 
 // NewRootCmd creates the root of the command tree defines the command name, description, globally
 // available flags, etc.  It has no action of its own, such that running the
 // resultant binary with no arguments prints the help/usage text.
-func NewRootCmd(config RootCommandConfig) (*cobra.Command, error) {
+func NewRootCmd(name string, version Version) *cobra.Command {
 	cmd := &cobra.Command{
 		// Use must be set to exactly config.Name, as this field is overloaded to
 		// be used in subcommand help text as the command with possible prefix:
@@ -72,50 +63,27 @@ EXAMPLES
 		return cmd, err
 	}
 
-	// Version
-	// Gather the statically-set version values (populated durin build) into
-	// a version structure used by both --version flag and the `version` subcmd
-	// Overrides the --version template to match the output format from the
-	// version subcommand: nothing but the version.
-	version := Version{
-		Date: config.Date,
-		Vers: config.Version,
-		Hash: config.Hash,
-	}
-	cmd.Version = version.String()
-	cmd.SetVersionTemplate(`{{printf "%s\n" .Version}}`)
-
-	newClient := config.NewClient
-
-	if newClient == nil {
-		var cleanUp func() error
-		newClient, cleanUp = NewDefaultClientFactory()
-		cmd.PersistentPostRunE = func(cmd *cobra.Command, args []string) error {
-			return cleanUp()
-		}
-	}
-
-	cmd.AddCommand(NewVersionCmd(version))
-	cmd.AddCommand(NewCreateCmd(newClient))
+	cmd.AddCommand(NewCreateCmd())
 	cmd.AddCommand(NewConfigCmd())
-	cmd.AddCommand(NewBuildCmd(newClient))
-	cmd.AddCommand(NewDeployCmd(newClient))
-	cmd.AddCommand(NewDeleteCmd(newClient))
-	cmd.AddCommand(NewInfoCmd(newClient))
-	cmd.AddCommand(NewListCmd(newClient))
-	cmd.AddCommand(NewInvokeCmd(newClient))
-	cmd.AddCommand(NewRepositoryCmd(newRepositoryClient))
-	cmd.AddCommand(NewRunCmd(newRunClient))
+	cmd.AddCommand(NewBuildCmd())
+	cmd.AddCommand(NewDeployCmd())
+	cmd.AddCommand(NewDeleteCmd())
+	cmd.AddCommand(NewInfoCmd())
+	cmd.AddCommand(NewListCmd())
+	cmd.AddCommand(NewInvokeCmd())
+	cmd.AddCommand(NewRepositoryCmd())
+	cmd.AddCommand(NewRunCmd())
 	cmd.AddCommand(NewCompletionCmd())
+	cmd.AddCommand(NewVersionCmd(cfg.Version))
 
 	// Help
 	// Overridden to process the help text as a template and have
 	// access to the provided Client instance.
 	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
-		runRootHelp(cmd, args, version)
+		runRootHelp(cmd, args, cfg.Version)
 	})
 
-	return cmd, nil
+	return cmd
 
 	// NOTE Default Action
 	// No default action is provided triggering the default of displaying the help
