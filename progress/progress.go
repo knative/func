@@ -43,7 +43,7 @@ type Bar struct {
 
 	// verbose mode disables progress spinner and line overwrites, instead
 	// printing single, full line updates.
-	Verbose bool
+	verbose bool
 
 	// print verbose-style updates even when not attached to an interactive terminal.
 	printWhileHeadless bool
@@ -78,9 +78,10 @@ func WithPrintStepCounter(s bool) Option {
 	}
 }
 
-func New(options ...Option) *Bar {
+func New(verbose bool, options ...Option) *Bar {
 	b := &Bar{
-		out: os.Stdout,
+		out:     os.Stdout,
+		verbose: verbose,
 	}
 	for _, o := range options {
 		o(b)
@@ -110,7 +111,7 @@ func (b *Bar) Increment(text string) {
 	}
 
 	// If we're in verbose mode, do a simple write
-	if b.Verbose {
+	if b.verbose {
 		b.write()
 		return
 	}
@@ -144,7 +145,7 @@ func (b *Bar) Complete(text string) {
 	}
 
 	// If we're interactive, but in verbose mode do a simple write
-	if b.Verbose {
+	if b.verbose {
 		b.write()
 		return
 	}
@@ -213,7 +214,7 @@ func (b *Bar) String() string {
 
 // Write a spinner at the beginning of the previous line.
 func (b *Bar) spin(ch <-chan time.Time) {
-	if b.Verbose {
+	if b.verbose {
 		return
 	}
 	// Various options for spinners.

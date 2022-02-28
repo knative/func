@@ -52,11 +52,10 @@ func NewDefaultClientFactory() (newClient ClientFactory, cleanUp func() error) {
 	}
 
 	newClient = func(clientOptions ClientOptions) *fn.Client {
-		builder := buildpacks.NewBuilder()
-		builder.Verbose = clientOptions.Verbose
+		verbose := clientOptions.Verbose
+		builder := buildpacks.NewBuilder(verbose)
 
-		progressListener := progress.New()
-		progressListener.Verbose = clientOptions.Verbose
+		progressListener := progress.New(verbose)
 
 		credentialsProvider := creds.NewCredentialsProvider(
 			creds.WithPromptForCredentials(newPromptForCredentials()),
@@ -64,37 +63,30 @@ func NewDefaultClientFactory() (newClient ClientFactory, cleanUp func() error) {
 			creds.WithTransport(transport),
 			creds.WithAdditionalCredentialLoaders(additionalCredLoaders...))
 
-		pusher := docker.NewPusher(
+		pusher := docker.NewPusher(verbose,
 			docker.WithCredentialsProvider(credentialsProvider),
 			docker.WithProgressListener(progressListener),
 			docker.WithTransport(transport))
-		pusher.Verbose = clientOptions.Verbose
 
-		deployer := knative.NewDeployer(clientOptions.Namespace)
-		deployer.Verbose = clientOptions.Verbose
+		deployer := knative.NewDeployer(clientOptions.Namespace, verbose)
 
-		pipelinesProvider := tekton.NewPipelinesProvider(
+		pipelinesProvider := tekton.NewPipelinesProvider(verbose,
 			tekton.WithNamespace(clientOptions.Namespace),
 			tekton.WithProgressListener(progressListener),
 			tekton.WithCredentialsProvider(credentialsProvider))
-		pipelinesProvider.Verbose = clientOptions.Verbose
 
-		remover := knative.NewRemover(clientOptions.Namespace)
-		remover.Verbose = clientOptions.Verbose
+		remover := knative.NewRemover(clientOptions.Namespace, verbose)
 
-		describer := knative.NewDescriber(clientOptions.Namespace)
-		describer.Verbose = clientOptions.Verbose
+		describer := knative.NewDescriber(clientOptions.Namespace, verbose)
 
-		lister := knative.NewLister(clientOptions.Namespace)
-		lister.Verbose = clientOptions.Verbose
+		lister := knative.NewLister(clientOptions.Namespace, verbose)
 
-		runner := docker.NewRunner()
-		runner.Verbose = clientOptions.Verbose
+		runner := docker.NewRunner(verbose)
 
 		opts := []fn.Option{
 			fn.WithRepository(clientOptions.Repository), // URI of repository override
 			fn.WithRegistry(clientOptions.Registry),
-			fn.WithVerbose(clientOptions.Verbose),
+			fn.WithVerbose(verbose),
 			fn.WithTransport(transport),
 			fn.WithProgressListener(progressListener),
 			fn.WithBuilder(builder),

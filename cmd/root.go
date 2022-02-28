@@ -62,7 +62,7 @@ EXAMPLES
 	// Environment Variables
 	// Evaluated first after static defaults, set all flags to be associated with
 	// a version prefixed by "FUNC_"
-	viper.AutomaticEnv()       // read in environment variables that match
+	viper.AutomaticEnv()       // read in environment variables for FUNC_<flag>
 	viper.SetEnvPrefix("func") // ensure thay all have the prefix
 
 	// Flags

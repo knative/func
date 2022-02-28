@@ -59,7 +59,7 @@ func TestList(t *testing.T) {
 	verbose := true
 
 	// Assemble
-	lister := knative.NewLister(DefaultNamespace)
+	lister := knative.NewLister(DefaultNamespace, verbose)
 
 	client := fn.New(
 		fn.WithLister(lister),
@@ -203,20 +203,11 @@ func TestRemoteRepositories(t *testing.T) {
 // newClient creates an instance of the func client whose concrete impls
 // match those created by the kn func plugin CLI.
 func newClient(verbose bool) *fn.Client {
-	builder := buildpacks.NewBuilder()
-	builder.Verbose = verbose
-
-	pusher := docker.NewPusher()
-	pusher.Verbose = verbose
-
-	deployer := knative.NewDeployer(DefaultNamespace)
-	deployer.Verbose = verbose
-
-	remover := knative.NewRemover(DefaultNamespace)
-	remover.Verbose = verbose
-
-	lister := knative.NewLister(DefaultNamespace)
-	lister.Verbose = verbose
+	builder := buildpacks.NewBuilder(verbose)
+	pusher := docker.NewPusher(verbose)
+	deployer := knative.NewDeployer(DefaultNamespace, verbose)
+	remover := knative.NewRemover(DefaultNamespace, verbose)
+	lister := knative.NewLister(DefaultNamespace, verbose)
 
 	return fn.New(
 		fn.WithRegistry(DefaultRegistry),

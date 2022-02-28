@@ -13,13 +13,14 @@ import (
 )
 
 type Lister struct {
-	Verbose   bool
 	Namespace string
+	verbose   bool
 }
 
-func NewLister(namespaceOverride string) *Lister {
+func NewLister(namespaceOverride string, verbose bool) *Lister {
 	return &Lister{
 		Namespace: namespaceOverride,
+		verbose:   verbose,
 	}
 }
 

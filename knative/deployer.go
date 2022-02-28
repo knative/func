@@ -32,13 +32,14 @@ type Deployer struct {
 	// Namespace with which to override that set on the default configuration (such as the ~/.kube/config).
 	// If left blank, deployment will commence to the configured namespace.
 	Namespace string
-	// Verbose logging enablement flag.
-	Verbose bool
+	// verbose logging enablement flag.
+	verbose bool
 }
 
-func NewDeployer(namespaceOverride string) *Deployer {
+func NewDeployer(namespaceOverride string, verbose bool) *Deployer {
 	return &Deployer{
 		Namespace: namespaceOverride,
+		verbose:   verbose,
 	}
 }
 
@@ -110,7 +111,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (result fn.Deploym
 				return fn.DeploymentResult{}, err
 			}
 
-			if d.Verbose {
+			if d.verbose {
 				fmt.Println("Waiting for Knative Service to become ready")
 			}
 			chprivate := make(chan bool)
@@ -159,7 +160,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (result fn.Deploym
 				return fn.DeploymentResult{}, err
 			}
 
-			if d.Verbose {
+			if d.verbose {
 				fmt.Println("Function deployed at URL: " + route.Status.URL.String())
 			}
 			return fn.DeploymentResult{
