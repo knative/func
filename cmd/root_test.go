@@ -205,5 +205,4 @@ func TestVerbose(t *testing.T) {
 			}
 		})
 	}
-
 }
