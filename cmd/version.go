@@ -41,7 +41,6 @@ DESCRIPTION
 	cmd.Run = func(cmd *cobra.Command, args []string) {
 		runVersion(cmd, args, version)
 	}
-	cmd.SetHelpFunc(defaultTemplatedHelp)
 
 	return cmd
 }
