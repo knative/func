@@ -26,6 +26,8 @@ LDFLAGS := "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)"
 CODE := $(shell find . -name '*.go') pkged.go go.mod schema/func_yaml-schema.json
 TEMPLATES := $(shell find templates -name '*' -type f)
 
+.PHONY: test
+
 # Default Targets
 all: build
 

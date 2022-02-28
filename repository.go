@@ -210,10 +210,17 @@ func filesystemFromPath(uri string) (f Filesystem, err error) {
 	if err != nil {
 		return
 	}
-	if _, err := os.Stat(parsed.Path); os.IsNotExist(err) {
-		return nil, fmt.Errorf("path does not exist: %v", parsed.Path)
+
+	if parsed.Scheme != "file" {
+		return nil, fmt.Errorf("only file scheme is supported")
 	}
-	return osFilesystem{root: parsed.Path}, nil
+
+	path := filepath.FromSlash(uri[7:])
+
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return nil, fmt.Errorf("path does not exist: %v", path)
+	}
+	return osFilesystem{root: path}, nil
 }
 
 // repositoryRuntimes returns runtimes defined in this repository's filesystem.

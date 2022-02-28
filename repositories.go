@@ -127,7 +127,7 @@ func (r *Repositories) All() (repos []Repository, err error) {
 		if err != nil {
 			return
 		}
-		if repo, err = NewRepository("", "file://"+abspath+"/"+f.Name()); err != nil {
+		if repo, err = NewRepository("", "file://"+filepath.ToSlash(abspath)+"/"+f.Name()); err != nil {
 			return
 		}
 		repos = append(repos, repo)
