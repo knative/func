@@ -56,9 +56,7 @@ and the image name is stored in the configuration file.
 
 	cmd.SetHelpFunc(defaultTemplatedHelp)
 
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runBuild(cmd, args, newClient)
-	}
+	cmd.RunE = runBuild
 
 	return cmd
 }
@@ -94,7 +92,6 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		return
 	}
 
-	// Check if the Function has been initialized
 	if !function.Initialized() {
 		return fmt.Errorf("the given path '%v' does not contain an initialized function. Please create one at this path before deploying", config.Path)
 	}

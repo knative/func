@@ -26,7 +26,7 @@ type ErrInvalidRuntime error
 type ErrInvalidTemplate error
 
 // NewCreateCmd creates a create command using the given client creator.
-func NewCreateCmd(newClient ClientFactory) *cobra.Command {
+func NewCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a Function Project",
@@ -95,11 +95,15 @@ EXAMPLES
 		fmt.Fprintf(os.Stderr, "unable to provide template suggestions: %v", err)
 	}
 
+	cmd.SetHelpFunc(runCreateHelp)
+
+	cmd.RunE = runCreate
+
 	return cmd
 }
 
 // Run Create
-func runCreate(cmd *cobra.Command, args []string, newClient ClientFactory) (err error) {
+func runCreate(cmd *cobra.Command, args []string) (err error) {
 	// Config
 	// Create a config based on args.  Also uses the newClient to create a
 	// temporary client for completing options such as available runtimes.
