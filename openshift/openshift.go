@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -152,6 +153,7 @@ func IsOpenShift() bool {
 	checkOpenShiftOnce.Do(func() {
 		client, err := k8s.NewKubernetesClientset()
 		if err != nil {
+			fmt.Print("error in NewKubernetesClientset")
 			isOpenShift = false
 			return
 		}
@@ -160,6 +162,15 @@ func IsOpenShift() bool {
 			isOpenShift = false
 			return
 		}
+		fmt.Printf("ERROR: %#v\n", err)
+		// FIXME(lkingland): This may obscure legitimate errors and treat them
+		// as proof of the system being connected to an OpenShift cluster.
+		// For example when no cluster is connected at all, this fails with
+		// a connection refused error, leading to the system state where the system
+		// presumes it is in OpenShift mode.
+		// This may be improved by adopting a different detection mechanism..
+		// See [associated discussion](https://github.com/knative-sandbox/kn-plugin-func/pull/825#discussion_r811520395)
+		// See [appropos issue](https://github.com/knative-sandbox/kn-plugin-func/issues/867)
 		isOpenShift = true
 	})
 	return isOpenShift
