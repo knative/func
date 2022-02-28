@@ -692,7 +692,7 @@ func (c *Client) Deploy(ctx context.Context, path string) (err error) {
 }
 
 // RunPipeline runs a Pipeline to Build and deploy the Function at path.
-func (c *Client) RunPipeline(ctx context.Context, path string) (err error) {
+func (c *Client) RunPipeline(ctx context.Context, path string, git Git) (err error) {
 	go func() {
 		<-ctx.Done()
 		c.progressListener.Stopping()
@@ -702,6 +702,7 @@ func (c *Client) RunPipeline(ctx context.Context, path string) (err error) {
 	if err != nil {
 		return
 	}
+	f.Git = git
 
 	// Build and deploy function using Pipeline
 	err = c.pipelinesProvider.Run(ctx, f)
