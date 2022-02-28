@@ -150,17 +150,16 @@ var checkOpenShiftOnce sync.Once
 
 func IsOpenShift() bool {
 	checkOpenShiftOnce.Do(func() {
+		isOpenShift = false
 		client, err := k8s.NewKubernetesClientset()
 		if err != nil {
-			isOpenShift = false
 			return
 		}
 		_, err = client.CoreV1().Services("openshift-image-registry").Get(context.TODO(), "image-registry", metav1.GetOptions{})
-		if k8sErrors.IsNotFound(err) {
-			isOpenShift = false
+		if err == nil || k8sErrors.IsForbidden(err) {
+			isOpenShift = true
 			return
 		}
-		isOpenShift = true
 	})
 	return isOpenShift
 }
