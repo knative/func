@@ -119,7 +119,10 @@ func GetDockerCredentialLoaders() []creds.CredentialsCallback {
 		return nil
 	}
 
-	cc := rawConf.Contexts[rawConf.CurrentContext]
+	cc, ok := rawConf.Contexts[rawConf.CurrentContext]
+	if !ok {
+		return nil
+	}
 	authInfo := rawConf.AuthInfos[cc.AuthInfo]
 
 	var user string
