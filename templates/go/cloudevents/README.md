@@ -9,12 +9,12 @@ Develop new features by adding a test to [`handle_test.go`](handle_test.go) for 
 Update the running analog of the function using the `func` CLI or client library, and it can be invoked using a manually-created CloudEvent:
 
 ```console
-curl -v -X POST -d '{"input": "hello"}' \
+curl -v -X POST -d 'hello' \
   -H'Content-type: application/json' \
   -H'Ce-id: 1' \
   -H'Ce-source: cloud-event-example' \
-  -H'Ce-subject: Convert to UpperCase' \
-  -H'Ce-type: UppercaseRequestedEvent' \
+  -H'Ce-subject: Echo content' \
+  -H'Ce-type: MyEvent' \
   -H'Ce-specversion: 1.0' \
   http://localhost:8080/
 ```
