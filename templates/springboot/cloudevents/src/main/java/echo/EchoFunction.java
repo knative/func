@@ -22,6 +22,12 @@ public class EchoFunction implements Function<Message<String>, Message<String>> 
   
   @Override
   public Message<String> apply(Message<String> inputMessage) {
+  
+    /*
+     * YOUR CODE HERE
+     *
+     * Try running `mvn test`.  Add more test as you code in `test/java/echo/SpringCloudEventsApplicationTests`.
+    */
     HttpHeaders httpHeaders = HeaderUtils.fromMessage(inputMessage.getHeaders());
 
       LOGGER.log(Level.INFO, "Input CE Id:{0}", httpHeaders.getFirst(
