@@ -3,56 +3,39 @@ package function
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/cloudevents/sdk-go/v2/event"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 )
 
-type Output struct {
-	Output    string `json:"output"`
-	Input     string `json:"input"`
-	Operation string `json:"operation"`
-}
+// Handle an event.
+func Handle(ctx context.Context, event cloudevents.Event) (*event.Event, error) {
 
-type Input struct {
-	Input string `json:"input"`
-}
+	/*
+	 * YOUR CODE HERE
+	 *
+	 * Try running `go test`.  Add more test as you code in `handle_test.go`.
+	 */
 
-func uppercase(event cloudevents.Event) (*event.Event, error) {
-	input := Input{}
-	err := json.Unmarshal(event.Data(), &input)
+	fmt.Printf("Incoming Event: %v\n", event) // print the received event to standard output
+	payload := ""
+	err := json.Unmarshal(event.Data(), &payload)
 	if err != nil {
 		fmt.Printf("%v\n", err)
 		return nil, err
 	}
-	fmt.Printf("%v\n", input)
+
+	payload = "echo " + payload
 	outputEvent := cloudevents.NewEvent()
-	outputEvent.SetSource("http://example.com/uppercase")
-	outputEvent.SetType("UpperCasedEvent")
-	output := Output{}
-	output.Input = input.Input
-	output.Output = strings.ToUpper(input.Input)
-	output.Operation = event.Subject()
-	outputEvent.SetData(cloudevents.ApplicationJSON, &output)
+	outputEvent.SetSource("http://example.com/echo")
+	outputEvent.SetType("Echo")
+	outputEvent.SetData(cloudevents.ApplicationJSON, &payload)
 
 	fmt.Printf("Outgoing Event: %v\n", outputEvent)
 
 	return &outputEvent, nil
-}
-
-// Handle an event.
-func Handle(ctx context.Context, event cloudevents.Event) (*event.Event, error) {
-
-	// Example implementation:
-	fmt.Printf("Incoming Event: %v\n", event) // print the received event to standard output
-	if event.Type() == "uppercase" {
-		return uppercase(event)
-	}
-	return nil, errors.New("No action for event type: " + event.Type())
 }
 
 /*
