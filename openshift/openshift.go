@@ -148,24 +148,14 @@ func GetDockerCredentialLoaders() []creds.CredentialsCallback {
 
 }
 
-// FIXME(lkingland):
-// Using this global variable meaans any processing importing this package
-// will be "locked" to the value of the cluster to which it is attached on the
-// first call.  This breaks the ability to have multiple instances of the Client
-// which change their target cluster during execution.
 var isOpenShift bool
 var checkOpenShiftOnce sync.Once
 
 func IsOpenShift() bool {
 	checkOpenShiftOnce.Do(func() {
-		isOpenShift = false // FIXME(lkingland):  False is the zero value.
+		isOpenShift = false
 		client, err := k8s.NewKubernetesClientset()
 		if err != nil {
-			// FIXME(lkingland): This should perhaps print the err to stderr, but I
-			// suspect it would be better to bubble this error.  The caller probably
-			// would like to know the system was unable to determine if the target
-			// cluster is OpenShift, since a fair bit of logic relies on it.
-			isOpenShift = false
 			return
 		}
 		_, err = client.CoreV1().Services("openshift-image-registry").Get(context.TODO(), "image-registry", metav1.GetOptions{})
@@ -173,15 +163,6 @@ func IsOpenShift() bool {
 			isOpenShift = true
 			return
 		}
-		// FIXME(lkingland): This logic seems to obscure legitimate errors, treating
-		// them as equivalent to IsOpenShift==true.
-		// For example when no cluster is available, this fails with a connection
-		// refused error, leading to the system state of presuming we are in
-		// OpenShift mode.
-		// This may be improved by adopting a different detection mechanism, or at
-		// least.
-		// See [associated discussion](https://github.com/knative-sandbox/kn-plugin-func/pull/825#discussion_r811520395)
-		// See [appropos issue](https://github.com/knative-sandbox/kn-plugin-func/issues/867)
 	})
 	return isOpenShift
 }

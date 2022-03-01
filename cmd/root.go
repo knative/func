@@ -366,7 +366,7 @@ func (v Version) String() string {
 	// value v0.0.0 as the default indicating there is no version information
 	// available.
 	if strings.HasPrefix(v.Vers, "v") {
-		// TODO: this is the naieve approach, perhaps consider actually parse it
+		// TODO: this is the naive approach, perhaps consider actually parse it
 		// using the semver lib
 		return v.Vers
 	}
