@@ -172,7 +172,7 @@ func runCreateHelp(cmd *cobra.Command, args []string, newClient ClientFactory) {
 		Name    string
 	}{
 		Options: options,
-		Name:    cmd.Root().Name(),
+		Name:    cmd.Root().Use,
 	}
 	if err := tpl.Execute(cmd.OutOrStdout(), data); err != nil {
 		fmt.Fprintf(cmd.ErrOrStderr(), "unable to display help text: %v", err)

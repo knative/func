@@ -43,6 +43,8 @@ func NewRootCmd(config RootCommandConfig) (*cobra.Command, error) {
 	var err error
 
 	root := &cobra.Command{
+		// Use must be set to exactly config.Name, as this field is overloaded to
+		// be used in subcommand help text as the command with possible prefix:
 		Use:           config.Name,
 		Short:         "Serverless Functions",
 		SilenceErrors: true, // we explicitly handle errors in Execute()
