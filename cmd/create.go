@@ -287,7 +287,7 @@ func newCreateConfig(cmd *cobra.Command, args []string, newClient ClientFactory)
 // singleCommand that could be used by the current user to minimally recreate the current state.
 func singleCommand(cmd *cobra.Command, args []string, cfg createConfig) string {
 	var b strings.Builder
-	b.WriteString(os.Args[0])           // process executable
+	b.WriteString(cmd.Root().Name())    // process executable
 	b.WriteString(" -l " + cfg.Runtime) // language runtime is required
 	if cmd.Flags().Lookup("template").Changed {
 		b.WriteString(" -t " + cfg.Template)
