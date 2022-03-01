@@ -2,13 +2,16 @@ package function
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
-	event "github.com/cloudevents/sdk-go/v2"
+	"github.com/cloudevents/sdk-go/v2/event"
+
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 )
 
 // Handle an event.
-func Handle(ctx context.Context, event event.Event) error {
+func Handle(ctx context.Context, event cloudevents.Event) (*event.Event, error) {
 
 	/*
 	 * YOUR CODE HERE
@@ -16,10 +19,23 @@ func Handle(ctx context.Context, event event.Event) error {
 	 * Try running `go test`.  Add more test as you code in `handle_test.go`.
 	 */
 
-	// Example implementation:
-	fmt.Printf("%v\n", event) // print the received event to standard output
+	fmt.Printf("Incoming Event: %v\n", event) // print the received event to standard output
+	payload := ""
+	err := json.Unmarshal(event.Data(), &payload)
+	if err != nil {
+		fmt.Printf("%v\n", err)
+		return nil, err
+	}
 
-	return nil
+	payload = "echo " + payload
+	outputEvent := cloudevents.NewEvent()
+	outputEvent.SetSource("http://example.com/echo")
+	outputEvent.SetType("Echo")
+	outputEvent.SetData(cloudevents.ApplicationJSON, &payload)
+
+	fmt.Printf("Outgoing Event: %v\n", outputEvent)
+
+	return &outputEvent, nil
 }
 
 /*
