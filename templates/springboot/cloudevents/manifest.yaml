@@ -2,7 +2,7 @@ builders:
   default: gcr.io/paketo-buildpacks/builder:base
 buildEnvs:
   - name: BP_NATIVE_IMAGE
-    value: "true"
+    value: "false"
 
 healthEndpoints:
   liveness: /actuator/health

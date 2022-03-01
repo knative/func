@@ -1,4 +1,4 @@
-package uppercase;
+package echo;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -30,26 +30,24 @@ public class SpringCloudEventsApplicationTests {
   @Autowired
   private TestRestTemplate rest;
 
-  @Autowired
-  ObjectMapper objectMapper = new ObjectMapper();
+ 
 
   @Test
-  public void testUpperCaseJsonInput() throws Exception {
+  public void testEchoInput() throws Exception {
 
-    Input input = new Input();
+    String input ="hello";
 
-    input.setInput("hello");
-
+   
     HttpHeaders ceHeaders = new HttpHeaders();
     ceHeaders.add(SPECVERSION, "1.0");
     ceHeaders.add(ID, UUID.randomUUID()
         .toString());
-    ceHeaders.add(TYPE, "UpperCasedEvent");
-    ceHeaders.add(SOURCE, "http://localhost:8080/uppercase");
-    ceHeaders.add(SUBJECT, "Convert to UpperCase");
+    ceHeaders.add(TYPE, "MyEvent");
+    ceHeaders.add(SOURCE, "http://localhost:8080/echo");
+    ceHeaders.add(SUBJECT, "Echo content");
 
     ResponseEntity<String> response = this.rest.exchange(
-        RequestEntity.post(new URI("/UppercaseRequestedEvent"))
+        RequestEntity.post(new URI("/echo"))
             .contentType(MediaType.APPLICATION_JSON)
             .headers(ceHeaders)
             .body(input),
@@ -59,29 +57,23 @@ public class SpringCloudEventsApplicationTests {
         .value(), equalTo(200));
     String body = response.getBody();
     assertThat(body, notNullValue());
-    Output output = objectMapper.readValue(body,
-        Output.class);
-    assertThat(output, notNullValue());
-    assertThat(output.getInput(), equalTo("hello"));
-    assertThat(output.getOperation(), equalTo("Convert to UpperCase"));
-    assertThat(output.getOutput(), equalTo("HELLO"));
-    assertThat(output.getError(), nullValue());
+  
+    assertThat(body, equalTo(input));
+   
   }
 
   @Test
-  public void testUpperCaseRoutingBasedOnType() throws Exception {
+  public void testEchoRoutingBasedOnType() throws Exception {
 
-    Input input = new Input();
-
-    input.setInput("hello");
+    String input ="hello";
 
     HttpHeaders ceHeaders = new HttpHeaders();
     ceHeaders.add(SPECVERSION, "1.0");
     ceHeaders.add(ID, UUID.randomUUID()
       .toString());
-    ceHeaders.add(TYPE, "UppercaseRequestedEvent");
-    ceHeaders.add(SOURCE, "http://localhost:8080/uppercase");
-    ceHeaders.add(SUBJECT, "Convert to UpperCase");
+    ceHeaders.add(TYPE, "MyEvent");
+    ceHeaders.add(SOURCE, "http://localhost:8080/echo");
+    ceHeaders.add(SUBJECT, "Echo content");
 
     ResponseEntity<String> response = this.rest.exchange(
       RequestEntity.post(new URI("/"))
@@ -94,12 +86,9 @@ public class SpringCloudEventsApplicationTests {
       .value(), equalTo(200));
     String body = response.getBody();
     assertThat(body, notNullValue());
-    Output output = objectMapper.readValue(body,
-      Output.class);
-    assertThat(output, notNullValue());
-    assertThat(output.getInput(), equalTo("hello"));
-    assertThat(output.getOperation(), equalTo("Convert to UpperCase"));
-    assertThat(output.getOutput(), equalTo("HELLO"));
-    assertThat(output.getError(), nullValue());
+    
+    assertThat(body, notNullValue());
+    assertThat(body, equalTo(input));
+   
   }
 }

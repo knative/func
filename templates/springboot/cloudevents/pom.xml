@@ -19,7 +19,7 @@
   <properties>
     <java.version>11</java.version>
     <spring-cloud.version>2021.0.1</spring-cloud.version>
-    <spring-native.version>0.11.3</spring-native.version>
+    <spring-native.version>0.11.3-SNAPSHOT</spring-native.version>
     <compiler-plugin.version>3.8.1</compiler-plugin.version>
     <log4j2.version>2.16.0</log4j2.version>
     <maven.compiler.parameters>true</maven.compiler.parameters>
@@ -81,7 +81,7 @@
           <image>
             <builder>paketobuildpacks/builder:tiny</builder>
             <env>
-              <BP_NATIVE_IMAGE>true</BP_NATIVE_IMAGE>
+              <BP_NATIVE_IMAGE>false</BP_NATIVE_IMAGE>
             </env>
           </image>
         </configuration>

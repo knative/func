@@ -1,4 +1,4 @@
-package uppercase;
+package echo;
 
 import org.springframework.cloud.function.cloudevent.CloudEventMessageBuilder;
 import org.springframework.cloud.function.web.util.HeaderUtils;
@@ -14,14 +14,14 @@ import java.util.logging.Logger;
 
 import static org.springframework.cloud.function.cloudevent.CloudEventMessageUtils.*;
 
-@Component("UppercaseRequstedEvent")
-public class UpperCaseFunction implements Function<Message<Input>, Message<Output>> {
+@Component("echo")
+public class EchoFunction implements Function<Message<String>, Message<String>> {
     private static final Logger LOGGER = Logger.getLogger(
-      UpperCaseFunction.class.getName());
+      EchoFunction.class.getName());
 
   
   @Override
-  public Message<Output> apply(Message<Input> inputMessage) {
+  public Message<String> apply(Message<String> inputMessage) {
     HttpHeaders httpHeaders = HeaderUtils.fromMessage(inputMessage.getHeaders());
 
       LOGGER.log(Level.INFO, "Input CE Id:{0}", httpHeaders.getFirst(
@@ -33,15 +33,12 @@ public class UpperCaseFunction implements Function<Message<Input>, Message<Outpu
       LOGGER.log(Level.INFO, "Input CE Subject:{0}",
           httpHeaders.getFirst(SUBJECT));
 
-      Input input = inputMessage.getPayload();
+      String input = inputMessage.getPayload();
       LOGGER.log(Level.INFO, "Input {0} ", input);
-      Output output = new Output();
-      output.setInput(input.getInput());
-      output.setOperation(httpHeaders.getFirst(SUBJECT));
-      output.setOutput(input.getInput() != null ? input.getInput().toUpperCase() : "NO DATA");
-      return CloudEventMessageBuilder.withData(output)
-        .setType("UpperCasedEvent").setId(UUID.randomUUID().toString())
-        .setSubject("Convert to UpperCase")
-        .setSource(URI.create("http://example.com/uppercase")).build();
+      
+      return CloudEventMessageBuilder.withData(input)
+        .setType("Echo").setId(UUID.randomUUID().toString())
+        .setSubject("Echo event")
+        .setSource(URI.create("http://example.com/echo")).build();
   }
 }
