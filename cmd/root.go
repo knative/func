@@ -128,7 +128,7 @@ func runRootHelp(cmd *cobra.Command, args []string, version Version) {
 		Name    string
 		Version Version
 	}{
-		Name:    cmd.Root().Name(),
+		Name:    cmd.Root().Use,
 		Version: version,
 	}
 

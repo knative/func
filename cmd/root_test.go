@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/ory/viper"
@@ -121,25 +122,32 @@ func TestRoot_mergeEnvMaps(t *testing.T) {
 }
 
 func TestRoot_CMDParameterized(t *testing.T) {
+	expectedSynopsis := "%v [-v|--verbose] <command> [args]"
 
-	rootConfig := RootCommandConfig{
-		Name: "func",
+	tests := []string{
+		"func",
+		"kn func",
 	}
 
-	root, _ := NewRootCmd(rootConfig)
-	if root.Use != "func" {
-		t.Fatalf("default command use should be \"func\".")
+	for _, test := range tests {
+		var (
+			cfg    = RootCommandConfig{Name: test}
+			cmd, _ = NewRootCmd(cfg)
+			out    = strings.Builder{}
+		)
+		cmd.SetOut(&out)
+		if err := cmd.Help(); err != nil {
+			t.Fatal(err)
+		}
+		if cmd.Use != cfg.Name {
+			t.Fatalf("expected command Use '%v', got '%v'", cfg.Name, cmd.Use)
+		}
+		if !strings.Contains(out.String(), fmt.Sprintf(expectedSynopsis, cfg.Name)) {
+			t.Logf("Testing '%v'\n", test)
+			t.Log(out.String())
+			t.Fatalf("Help text does not include substituted name '%v'", cfg.Name)
+		}
 	}
-
-	rootConfig = RootCommandConfig{
-		Name: "kn func",
-	}
-
-	cmd, err := NewRootCmd(rootConfig)
-	if cmd.Use != "kn func" && err != nil {
-		t.Fatalf("plugin command use should be \"kn func\".")
-	}
-
 }
 
 func TestVerbose(t *testing.T) {
