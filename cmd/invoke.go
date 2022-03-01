@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"text/template"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/google/uuid"
@@ -116,10 +115,7 @@ EXAMPLES
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all options interactively. (Env: $FUNC_CONFIRM)")
 	setNamespaceFlag(cmd)
 
-	// Help Action
-	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
-		runInvokeHelp(cmd, args, newClient)
-	})
+	cmd.SetHelpFunc(defaultTemplatedHelp)
 
 	// Run Action
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
@@ -171,24 +167,6 @@ func runInvoke(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 
 	fmt.Fprintf(cmd.OutOrStderr(), "Invoked %v\n", cfg.Target)
 	return
-}
-
-func runInvokeHelp(cmd *cobra.Command, args []string, newClient ClientFactory) {
-	var (
-		body = cmd.Long + "\n\n" + cmd.UsageString()
-		t    = template.New("invoke")
-		tpl  = template.Must(t.Parse(body))
-	)
-
-	var data = struct {
-		Name string
-	}{
-		Name: cmd.Root().Use,
-	}
-
-	if err := tpl.Execute(cmd.OutOrStdout(), data); err != nil {
-		fmt.Fprintf(cmd.ErrOrStderr(), "unable to display help text: %v", err)
-	}
 }
 
 type invokeConfig struct {

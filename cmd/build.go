@@ -35,16 +35,16 @@ and the image name is stored in the configuration file.
 # Build from the local directory, using the given registry as target.
 # The full image name will be determined automatically based on the
 # project directory name
-kn func build --registry quay.io/myuser
+{{.Name}} build --registry quay.io/myuser
 
 # Build from the local directory, specifying the full image name
-kn func build --image quay.io/myuser/myfunc
+{{.Name}} build --image quay.io/myuser/myfunc
 
 # Re-build, picking up a previously supplied image name from a local func.yml
-kn func build
+{{.Name}} build
 
 # Build with a custom buildpack builder
-kn func build --builder cnbs/sample-builder:bionic
+{{.Name}} build --builder cnbs/sample-builder:bionic
 `,
 		SuggestFor: []string{"biuld", "buidl", "built"},
 		PreRunE:    bindEnv("image", "path", "builder", "registry", "confirm", "push"),
@@ -60,6 +60,8 @@ kn func build --builder cnbs/sample-builder:bionic
 	if err := cmd.RegisterFlagCompletionFunc("builder", CompleteBuilderList); err != nil {
 		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
 	}
+
+	cmd.SetHelpFunc(defaultTemplatedHelp)
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		return runBuild(cmd, args, newClient)

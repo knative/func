@@ -47,10 +47,10 @@ specified by --path flag. The function must already have been built with the 'bu
 `,
 		Example: `
 # Build function's image first
-kn func build
+{{.Name}} build
 
 # Run it locally as a container
-kn func run
+{{.Name}} run
 `,
 		SuggestFor: []string{"rnu"},
 		PreRunE:    bindEnv("build", "path"),
@@ -62,6 +62,8 @@ kn func run
 			"To unset, specify the environment variable name followed by a \"-\" (e.g., NAME-).")
 	setPathFlag(cmd)
 	cmd.Flags().BoolP("build", "b", false, "Build the function only if the function has not been built before")
+
+	cmd.SetHelpFunc(defaultTemplatedHelp)
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		return runRun(cmd, args, clientFn)

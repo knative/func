@@ -51,7 +51,7 @@ the current directory or from the directory specified with --path.
 }
 
 func NewConfigEnvsAddCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "add",
 		Short: "Add environment variable to the function configuration",
 		Long: `Add environment variable to the function configuration
@@ -73,7 +73,8 @@ from an environment variable on the local machine or from Secrets and ConfigMaps
 			return runAddEnvsPrompt(cmd.Context(), function)
 		},
 	}
-
+	cmd.SetHelpFunc(defaultTemplatedHelp)
+	return cmd
 }
 
 func NewConfigEnvsRemoveCmd() *cobra.Command {

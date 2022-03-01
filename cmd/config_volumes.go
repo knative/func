@@ -35,6 +35,7 @@ the current directory or from the directory specified with --path.
 			return
 		},
 	}
+	cmd.SetHelpFunc(defaultTemplatedHelp)
 
 	configVolumesAddCmd := NewConfigVolumesAddCmd()
 	configVolumesRemoveCmd := NewConfigVolumesRemoveCmd()
@@ -50,7 +51,7 @@ the current directory or from the directory specified with --path.
 }
 
 func NewConfigVolumesAddCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "add",
 		Short: "Add volume to the function configuration",
 		Long: `Add volume to the function configuration
@@ -69,11 +70,12 @@ in the current directory or from the directory specified with --path.
 			return runAddVolumesPrompt(cmd.Context(), function)
 		},
 	}
-
+	cmd.SetHelpFunc(defaultTemplatedHelp)
+	return cmd
 }
 
 func NewConfigVolumesRemoveCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "remove",
 		Short: "Remove volume from the function configuration",
 		Long: `Remove volume from the function configuration
@@ -92,7 +94,8 @@ in the current directory or from the directory specified with --path.
 			return runRemoveVolumesPrompt(function)
 		},
 	}
-
+	cmd.SetHelpFunc(defaultTemplatedHelp)
+	return cmd
 }
 
 func listVolumes(f fn.Function) {

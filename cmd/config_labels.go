@@ -35,6 +35,7 @@ the current directory or from the directory specified with --path.
 			return
 		},
 	}
+	configLabelsCmd.SetHelpFunc(defaultTemplatedHelp)
 
 	var configLabelsAddCmd = &cobra.Command{
 		Use:   "add",
@@ -58,6 +59,7 @@ the local machine.
 			return runAddLabelsPrompt(cmd.Context(), function, loaderSaver)
 		},
 	}
+	configLabelsAddCmd.SetHelpFunc(defaultTemplatedHelp)
 
 	var configLabelsRemoveCmd = &cobra.Command{
 		Use:   "remove",
@@ -78,6 +80,7 @@ directory or from the directory specified with --path.
 			return runRemoveLabelsPrompt(function, loaderSaver)
 		},
 	}
+	configLabelsRemoveCmd.SetHelpFunc(defaultTemplatedHelp)
 
 	setPathFlag(configLabelsCmd)
 	setPathFlag(configLabelsAddCmd)

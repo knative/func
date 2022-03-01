@@ -26,13 +26,13 @@ Lists all deployed functions in a given namespace.
 `,
 		Example: `
 # List all functions in the current namespace with human readable output
-kn func list
+{{.Name}} list
 
 # List all functions in the 'test' namespace with yaml output
-kn func list --namespace test --output yaml
+{{.Name}} list --namespace test --output yaml
 
 # List all functions in all namespaces with JSON output
-kn func list --all-namespaces --output json
+{{.Name}} list --all-namespaces --output json
 `,
 		SuggestFor: []string{"ls", "lsit"},
 		PreRunE:    bindEnv("namespace", "output"),
@@ -45,6 +45,8 @@ kn func list --all-namespaces --output json
 	if err := cmd.RegisterFlagCompletionFunc("output", CompleteOutputFormatList); err != nil {
 		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
 	}
+
+	cmd.SetHelpFunc(defaultTemplatedHelp)
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		return runList(cmd, args, newClient)

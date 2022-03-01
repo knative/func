@@ -44,11 +44,11 @@ that is pushed to an image registry, and finally the function's Knative service 
 # Build and deploy the function from the current directory's project. The image will be
 # pushed to "quay.io/myuser/<function name>" and deployed as Knative service with the 
 # same name as the function to the currently connected cluster.
-kn func deploy --registry quay.io/myuser
+{{.Name}} deploy --registry quay.io/myuser
 
 # Same as above but using a full image name, that will create a Knative service "myfunc" in 
 # the namespace "myns"
-kn func deploy --image quay.io/myuser/myfunc -n myns
+{{.Name}} deploy --image quay.io/myuser/myfunc -n myns
 `,
 		SuggestFor: []string{"delpoy", "deplyo"},
 		PreRunE:    bindEnv("image", "namespace", "path", "registry", "confirm", "build", "push", "git-url", "git-branch", "git-dir"),
@@ -71,6 +71,8 @@ kn func deploy --image quay.io/myuser/myfunc -n myns
 	if err := cmd.RegisterFlagCompletionFunc("build", CompleteDeployBuildType); err != nil {
 		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
 	}
+
+	cmd.SetHelpFunc(defaultTemplatedHelp)
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		return runDeploy(cmd, args, newClient)
