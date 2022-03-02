@@ -183,7 +183,7 @@ func runInvokeHelp(cmd *cobra.Command, args []string, newClient ClientFactory) {
 	var data = struct {
 		Name string
 	}{
-		Name: cmd.Root().Name(),
+		Name: cmd.Root().Use,
 	}
 
 	if err := tpl.Execute(cmd.OutOrStdout(), data); err != nil {
