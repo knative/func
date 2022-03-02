@@ -23,10 +23,10 @@ DESCRIPTION
 	Print version information.  Use the --verbose option to see date stamp and
 	associated git source control hash if available.
 
-	o Print the Functions version 
+	o Print the Functions version
 	  $ {{.Name}} version
 
-	o Print the Functions version along with date and associated git commit hash. 
+	o Print the Functions version along with date and associated git commit hash.
 	  $ {{.Name}} version -v
 
 `,
