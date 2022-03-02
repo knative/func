@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -16,18 +15,6 @@ import (
 	fn "knative.dev/kn-plugin-func"
 )
 
-var exampleTemplate = template.Must(template.New("example").Parse(`
-# Create a node function called "node-sample" and enter the directory
-{{.}} create myfunc && cd myfunc
-
-# Build the container image, push it to a registry and deploy it to the connected Knative cluster
-# (replace <registry/user> with something like quay.io/user with an account that have you access to)
-{{.}} deploy --registry <registry/user>
-
-# Curl the service with the service URL
-curl $(kn service describe myfunc -o url)
-`))
-
 type RootCommandConfig struct {
 	Name      string // usually `func` or `kn func`
 	Date      string
@@ -40,87 +27,114 @@ type RootCommandConfig struct {
 // available flags, etc.  It has no action of its own, such that running the
 // resultant binary with no arguments prints the help/usage text.
 func NewRootCmd(config RootCommandConfig) (*cobra.Command, error) {
-	var err error
-
-	root := &cobra.Command{
+	cmd := &cobra.Command{
 		// Use must be set to exactly config.Name, as this field is overloaded to
 		// be used in subcommand help text as the command with possible prefix:
 		Use:           config.Name,
 		Short:         "Serverless Functions",
 		SilenceErrors: true, // we explicitly handle errors in Execute()
 		SilenceUsage:  true, // no usage dump on error
-		Long: `Serverless Functions
+		Long: `Serverless Functions {{.Version}}
 
-Create, build and deploy Functions in serverless containers for multiple runtimes on Knative`,
+	Create, build and deploy Knative Functions
+
+SYNOPSIS
+	{{.Name}} [-v|--verbose] <command> [args]
+
+EXAMPLES
+
+	o Create a Node Function in the current directory
+	  $ {{.Name}} create --language node .
+
+	o Deploy the Function defined in the current working directory to the
+	  currently connected cluster, specifying a container registry in place of
+	  quay.io/user for the Function's container.
+	  $ {{.Name}} deploy --registry quay.io.user
+
+	o Invoke the Function defined in the current working directory with an example
+	  request.
+	  $ {{.Name}} invoke
+
+	For more examples, see '{{.Name}} <command> --help'.`,
+		PreRunE: bindEnv("verbose"),
 	}
 
-	root.Example, err = replaceNameInTemplate(config.Name, "example")
-	if err != nil {
-		root.Example = "Usage could not be loaded"
-	}
+	// Environment Variables
+	// Evaluated first after static defaults, set all flags to be associated with
+	// a version prefixed by "FUNC_"
+	viper.AutomaticEnv()       // read in environment variables that match
+	viper.SetEnvPrefix("func") // ensure thay all have the prefix
 
-	// read in environment variables that match
-	viper.AutomaticEnv()
+	// Flags
+	// persistent flags are available to all subcommands implicitly
+	cmd.PersistentFlags().BoolP("verbose", "v", false, "print verbose logs ($FUNC_VERBOSE)")
 
-	verbose := viper.GetBool("verbose")
-
-	// Populate the `verbose` flag with the value of --verbose, if provided,
-	// which thus overrides both the default and the value read in from the
-	// config file (i.e. flags always take highest precidence).
-	root.PersistentFlags().BoolVarP(&verbose, "verbose", "v", verbose, "print verbose logs")
-	err = viper.BindPFlag("verbose", root.PersistentFlags().Lookup("verbose"))
-	if err != nil {
-		return nil, err
-	}
-
-	// Override the --version template to match the output format from the
+	// Version
+	// Gather the statically-set version values (populated durin build) into
+	// a version structure used by both --version flag and the `version` subcmd
+	// Overrides the --version template to match the output format from the
 	// version subcommand: nothing but the version.
-	root.SetVersionTemplate(`{{printf "%s\n" .Version}}`)
-
-	// Prefix all environment variables with "FUNC_" to avoid collisions with other apps.
-	viper.SetEnvPrefix("func")
-
 	version := Version{
 		Date: config.Date,
 		Vers: config.Version,
 		Hash: config.Hash,
 	}
-
-	root.Version = version.String()
+	cmd.Version = version.String()
+	cmd.SetVersionTemplate(`{{printf "%s\n" .Version}}`)
 
 	newClient := config.NewClient
 
 	if newClient == nil {
 		var cleanUp func() error
 		newClient, cleanUp = NewDefaultClientFactory()
-		root.PersistentPostRunE = func(cmd *cobra.Command, args []string) error {
+		cmd.PersistentPostRunE = func(cmd *cobra.Command, args []string) error {
 			return cleanUp()
 		}
 	}
 
-	root.AddCommand(NewVersionCmd(version))
-	root.AddCommand(NewCreateCmd(newClient))
-	root.AddCommand(NewConfigCmd())
-	root.AddCommand(NewBuildCmd(newClient))
-	root.AddCommand(NewDeployCmd(newClient))
-	root.AddCommand(NewDeleteCmd(newClient))
-	root.AddCommand(NewInfoCmd(newClient))
-	root.AddCommand(NewListCmd(newClient))
-	root.AddCommand(NewInvokeCmd(newClient))
-	root.AddCommand(NewRepositoryCmd(newRepositoryClient))
-	root.AddCommand(NewRunCmd(newRunClient))
-	root.AddCommand(NewCompletionCmd())
+	cmd.AddCommand(NewVersionCmd(version))
+	cmd.AddCommand(NewCreateCmd(newClient))
+	cmd.AddCommand(NewConfigCmd())
+	cmd.AddCommand(NewBuildCmd(newClient))
+	cmd.AddCommand(NewDeployCmd(newClient))
+	cmd.AddCommand(NewDeleteCmd(newClient))
+	cmd.AddCommand(NewInfoCmd(newClient))
+	cmd.AddCommand(NewListCmd(newClient))
+	cmd.AddCommand(NewInvokeCmd(newClient))
+	cmd.AddCommand(NewRepositoryCmd(newRepositoryClient))
+	cmd.AddCommand(NewRunCmd(newRunClient))
+	cmd.AddCommand(NewCompletionCmd())
 
-	return root, nil
+	// Help
+	// Overridden to process the help text as a template and have
+	// access to the provided Client instance.
+	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
+		runRootHelp(cmd, args, version)
+	})
+
+	return cmd, nil
+
+	// NOTE Default Action
+	// No default action is provided triggering the default of displaying the help
 }
 
-func replaceNameInTemplate(name, template string) (string, error) {
-	var buffer bytes.Buffer
-	err := exampleTemplate.ExecuteTemplate(&buffer, template, name)
-	if err != nil {
-		return "", err
+func runRootHelp(cmd *cobra.Command, args []string, version Version) {
+	var (
+		body = cmd.Long + "\n\n" + cmd.UsageString()
+		t    = template.New("root")
+		tpl  = template.Must(t.Parse(body))
+	)
+	var data = struct {
+		Name    string
+		Version Version
+	}{
+		Name:    cmd.Root().Use,
+		Version: version,
 	}
-	return buffer.String(), nil
+
+	if err := tpl.Execute(cmd.OutOrStdout(), data); err != nil {
+		fmt.Fprintf(cmd.ErrOrStderr(), "unable to display help text: %v", err)
+	}
 }
 
 // Helpers
@@ -341,35 +355,44 @@ type Version struct {
 	Verbose bool
 }
 
+// Return the stringification of the Version struct, which takes into account
+// the verbosity setting.
 func (v Version) String() string {
-	// If 'vers' is not a semver already, then the binary was built either
-	// from an untagged git commit (set semver to v0.0.0), or was built
-	// directly from source (set semver to v0.0.0-source).
-	if strings.HasPrefix(v.Vers, "v") {
-		// Was built via make with a tagged commit
-		if v.Verbose {
-			return fmt.Sprintf("%s-%s-%s", v.Vers, v.Hash, v.Date)
-		} else {
-			return v.Vers
-		}
-	} else if v.Vers == "tip" {
-		// Was built via make from an untagged commit
-		v.Vers = "v0.0.0"
-		if v.Verbose {
-			return fmt.Sprintf("%s-%s-%s", v.Vers, v.Hash, v.Date)
-		} else {
-			return v.Vers
-		}
-	} else {
-		// Was likely built from source
-		v.Vers = "v0.0.0"
-		v.Hash = "source"
-		if v.Verbose {
-			return fmt.Sprintf("%s-%s", v.Vers, v.Hash)
-		} else {
-			return v.Vers
-		}
+	if v.Verbose {
+		return v.StringVerbose()
 	}
+
+	// Ensure that the value returned is parseable as a semver, with the special
+	// value v0.0.0 as the default indicating there is no version information
+	// available.
+	if strings.HasPrefix(v.Vers, "v") {
+		// TODO: this is the naieve approach, perhaps consider actually parse it
+		// using the semver lib
+		return v.Vers
+	}
+
+	// Any non-semver value is invalid, and thus indistinguishable from a
+	// nonexistent version value, so the default zero value of v0.0.0 is used.
+	return "v0.0.0"
+}
+
+// StringVerbose returns the verbose version of the version stringification.
+// The format returned is [semver]-[hash]-[date] where the special value
+// 'v0.0.0' and 'source' are used when version is not available and/or the
+// libray has been built from source, respectively.
+func (v Version) StringVerbose() string {
+	var (
+		vers = v.Vers
+		hash = v.Hash
+		date = v.Date
+	)
+	if vers == "" {
+		vers = "v0.0.0"
+	}
+	if hash == "" {
+		hash = "source"
+	}
+	return fmt.Sprintf("%s-%s-%s", vers, hash, date)
 }
 
 // surveySelectDefault returns 'value' if defined and exists in 'options'.
