@@ -23,7 +23,7 @@ VERS    ?= $(shell [ -z $(VTAG) ] && echo 'tip' || echo $(VTAG) )
 LDFLAGS := "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)"
 
 # All Code prerequisites, including generated files, etc.
-CODE := $(shell find . -name '*.go') pkged.go go.mod schema/func_yaml-schema.json
+CODE := $(shell find . -name '*.go') zz_filesystem_generated.go go.mod schema/func_yaml-schema.json
 TEMPLATES := $(shell find templates -name '*' -type f)
 
 .PHONY: test
@@ -60,7 +60,7 @@ check: bin/golangci-lint ## Check code quality (lint)
 bin/golangci-lint:
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./bin v1.43.0
 
-pkged.go: $(TEMPLATES)
+zz_filesystem_generated.go: $(TEMPLATES)
 	# Removing temporary template files
 	@rm -rf templates/node/cloudevents/node_modules
 	@rm -rf templates/node/http/node_modules
@@ -74,15 +74,7 @@ pkged.go: $(TEMPLATES)
 	@rm -rf templates/quarkus/http/target
 	@rm -rf templates/springboot/cloudevents/target
 	@rm -rf templates/springboot/http/target
-	# Encoding ./templates as pkged.go
-# See ./hack/tools.go which triggers the vendoring of pkger cmd
-# The temp file ./hack/package.go averts a "no buildable files" error
-# gofmt updates the resultant pkged.go file to the new build tag f ormat.
-	@echo "package tools" > hack/package.go
-	@go run ./vendor/github.com/markbates/pkger/cmd/pkger
-	@rm hack/package.go
-	@gofmt -s -w pkged.go
-
+	go generate filesystem.go
 
 clean: ## Remove generated artifacts such as binaries and schemas
 	rm -f $(BIN) $(BIN_WINDOWS) $(BIN_LINUX) $(BIN_DARWIN)
@@ -143,17 +135,17 @@ cross-platform: darwin linux windows ## Build all distributable (cross-platform)
 
 darwin: $(BIN_DARWIN) ## Build for Darwin (macOS)
 
-$(BIN_DARWIN): pkged.go
+$(BIN_DARWIN): zz_filesystem_generated.go
 	env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o $(BIN_DARWIN) -ldflags $(LDFLAGS) ./cmd/$(BIN)
 
 linux: $(BIN_LINUX) ## Build for Linux
 
-$(BIN_LINUX): pkged.go
+$(BIN_LINUX): zz_filesystem_generated.go
 	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BIN_LINUX) -ldflags $(LDFLAGS) ./cmd/$(BIN)
 
 windows: $(BIN_WINDOWS) ## Build for Windows
 
-$(BIN_WINDOWS): pkged.go
+$(BIN_WINDOWS): zz_filesystem_generated.go
 	env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o $(BIN_WINDOWS) -ldflags $(LDFLAGS) ./cmd/$(BIN)
 
 ######################
