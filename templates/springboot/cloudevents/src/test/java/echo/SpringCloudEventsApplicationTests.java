@@ -30,13 +30,10 @@ public class SpringCloudEventsApplicationTests {
   @Autowired
   private TestRestTemplate rest;
 
- 
-
   @Test
   public void testEchoInput() throws Exception {
 
     String input ="hello";
-
    
     HttpHeaders ceHeaders = new HttpHeaders();
     ceHeaders.add(SPECVERSION, "1.0");
@@ -57,9 +54,7 @@ public class SpringCloudEventsApplicationTests {
         .value(), equalTo(200));
     String body = response.getBody();
     assertThat(body, notNullValue());
-  
     assertThat(body, equalTo(input));
-   
   }
 
   @Test
@@ -89,6 +84,5 @@ public class SpringCloudEventsApplicationTests {
     
     assertThat(body, notNullValue());
     assertThat(body, equalTo(input));
-   
   }
 }

@@ -18,11 +18,9 @@ import static org.springframework.cloud.function.cloudevent.CloudEventMessageUti
 public class EchoFunction implements Function<Message<String>, Message<String>> {
     private static final Logger LOGGER = Logger.getLogger(
       EchoFunction.class.getName());
-
   
   @Override
   public Message<String> apply(Message<String> inputMessage) {
-  
     /*
      * YOUR CODE HERE
      *
@@ -30,19 +28,14 @@ public class EchoFunction implements Function<Message<String>, Message<String>> 
     */
     HttpHeaders httpHeaders = HeaderUtils.fromMessage(inputMessage.getHeaders());
 
-      LOGGER.log(Level.INFO, "Input CE Id:{0}", httpHeaders.getFirst(
-          ID));
-      LOGGER.log(Level.INFO, "Input CE Spec Version:{0}",
-          httpHeaders.getFirst(SPECVERSION));
-      LOGGER.log(Level.INFO, "Input CE Source:{0}",
-          httpHeaders.getFirst(SOURCE));
-      LOGGER.log(Level.INFO, "Input CE Subject:{0}",
-          httpHeaders.getFirst(SUBJECT));
-
-      String input = inputMessage.getPayload();
-      LOGGER.log(Level.INFO, "Input {0} ", input);
+    LOGGER.log(Level.INFO, "Input CE Id:{0}", httpHeaders.getFirst(ID));
+    LOGGER.log(Level.INFO, "Input CE Spec Version:{0}", httpHeaders.getFirst(SPECVERSION));
+    LOGGER.log(Level.INFO, "Input CE Source:{0}", httpHeaders.getFirst(SOURCE));
+    LOGGER.log(Level.INFO, "Input CE Subject:{0}", httpHeaders.getFirst(SUBJECT));
+    String input = inputMessage.getPayload();
+    LOGGER.log(Level.INFO, "Input {0} ", input);
       
-      return CloudEventMessageBuilder.withData(input)
+     return CloudEventMessageBuilder.withData(input)
         .setType("Echo").setId(UUID.randomUUID().toString())
         .setSubject("Echo event")
         .setSource(URI.create("http://example.com/echo")).build();
