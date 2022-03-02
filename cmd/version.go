@@ -23,6 +23,7 @@ Use the --verbose option to include the build date stamp and commit hash"
 		SuggestFor: []string{"vers", "verison"}, //nolint:misspell
 		Run:        runVersion,
 	}
+	cmd.SetHelpFunc(defaultTemplatedHelp)
 
 	return cmd
 }

@@ -25,10 +25,10 @@ No local files are deleted.
 `,
 		Example: `
 # Undeploy the function defined in the local directory
-kn func delete
+{{.Name}} delete
 
 # Undeploy the function 'myfunc' in namespace 'apps'
-kn func delete -n apps myfunc
+{{.Name}} delete -n apps myfunc
 `,
 		SuggestFor:        []string{"remove", "rm", "del"},
 		ValidArgsFunction: CompleteFunctionList,
@@ -39,6 +39,8 @@ kn func delete -n apps myfunc
 	cmd.Flags().StringP("all", "a", "true", "Delete all resources created for a function, eg. Pipelines, Secrets, etc. (Env: $FUNC_ALL) (allowed values: \"true\", \"false\")")
 	setNamespaceFlag(cmd)
 	setPathFlag(cmd)
+
+	cmd.SetHelpFunc(defaultTemplatedHelp)
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		return runDelete(cmd, args, newClient)

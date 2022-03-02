@@ -41,14 +41,14 @@ func NewRepositoryCmd(clientFn repositoryClientFn) *cobra.Command {
 		Aliases: []string{"repo", "repositories"},
 		Long: `
 NAME
-	func-repository - Manage set of installed repositories.
+	{{.Name}} - Manage set of installed repositories.
 
 SYNOPSIS
-	func repo [-c|--confirm] [-v|--verbose]
-	func repo list [-r|--repositories] [-c|--confirm] [-v|--verbose]
-	func repo add <name> <url>[-r|--repositories] [-c|--confirm] [-v|--verbose]
-	func repo rename <old> <new> [-r|--repositories] [-c|--confirm] [-v|--verbose]
-	func repo remove <name> [-r|--repositories] [-c|--confirm] [-v|--verbose]
+	{{.Name}} repo [-c|--confirm] [-v|--verbose]
+	{{.Name}} repo list [-r|--repositories] [-c|--confirm] [-v|--verbose]
+	{{.Name}} repo add <name> <url>[-r|--repositories] [-c|--confirm] [-v|--verbose]
+	{{.Name}} repo rename <old> <new> [-r|--repositories] [-c|--confirm] [-v|--verbose]
+	{{.Name}} repo remove <name> [-r|--repositories] [-c|--confirm] [-v|--verbose]
 
 DESCRIPTION
 	Manage template repositories installed on disk at either the default location
@@ -73,7 +73,7 @@ DESCRIPTION
 	specifying a repository name prefix.
 	For example, to create a new Go function using the 'http' template from the
 	default repository.
-		$ func create -l go -t http
+		$ {{.Name}} create -l go -t http
 
 	The Repository Flag:
 	Installing repositories locally is optional.  To use a template from a remote
@@ -81,7 +81,7 @@ DESCRIPTION
 	This leaves the local disk untouched.  For example, To create a Function using
 	the Boson Project Hello-World template without installing the template
 	repository locally, use the --repository (-r) flag on create:
-		$ func create -l go \
+		$ {{.Name}} create -l go \
 			--template hello-world \
 			--repository https://github.com/boson-project/templates
 
@@ -89,19 +89,19 @@ COMMANDS
 
 	With no arguments, this help text is shown.  To manage repositories with
 	an interactive prompt, use the use the --confirm (-c) flag.
-	  $ func repository -c
+	  $ {{.Name}} repository -c
 
 	add
 	  Add a new repository to the installed set.
-	    $ func repository add <name> <URL>
+	    $ {{.Name}} repository add <name> <URL>
 
 	  For Example, to add the Boson Project repository:
-	    $ func repository add boson https://github.com/boson-project/templates
+	    $ {{.Name}} repository add boson https://github.com/boson-project/templates
 
 	  Once added, a Function can be created with templates from the new repository
 	  by prefixing the template name with the repository.  For example, to create
 	  a new Function using the Go Hello World template:
-	    $ func create -l go -t boson/hello-world
+	    $ {{.Name}} create -l go -t boson/hello-world
 
 	list
 	  List all available repositories, including the installed default
@@ -111,7 +111,7 @@ COMMANDS
 	rename
 	  Rename a previously installed repository from <old> to <new>. Only installed
 	  repositories can be renamed.
-	    $ func repository rename <name> <new name>
+	    $ {{.Name}} repository rename <name> <new name>
 
 	remove
 	  Remove a repository by name.  Removes the repository from local storage
@@ -119,40 +119,40 @@ COMMANDS
 	  deletion, but in regular mode this is done immediately, so please use
 	  caution, especially when using an altered repositories location
 	  (FUNC_REPOSITORIES environment variable or --repositories).
-	    $ func repository remove <name>
+	    $ {{.Name}} repository remove <name>
 
 EXAMPLES
 	o Run in confirmation mode (interactive prompts) using the --confirm flag
-	  $ func repository -c
+	  $ {{.Name}} repository -c
 
 	o Add a repository and create a new Function using a template from it:
-	  $ func repository add boson https://github.com/boson-project/templates
-	  $ func repository list
+	  $ {{.Name}} repository add boson https://github.com/boson-project/templates
+	  $ {{.Name}} repository list
 	  default
 	  boson
-	  $ func create -l go -t boson/hello-world
+	  $ {{.Name}} create -l go -t boson/hello-world
 	  ...
 
 	o List all repositories including the URL from which remotes were installed
-	  $ func repository list -v
+	  $ {{.Name}} repository list -v
 	  default
 	  boson	https://github.com/boson-project/templates
 
 	o Rename an installed repository
-	  $ func repository list
+	  $ {{.Name}} repository list
 	  default
 	  boson
-	  $ func repository rename boson boson-examples
-	  $ func repository list
+	  $ {{.Name}} repository rename boson boson-examples
+	  $ {{.Name}} repository list
 	  default
 	  boson-examples
 
 	o Remove an installed repository
-	  $ func repository list
+	  $ {{.Name}} repository list
 	  default
 	  boson-examples
-	  $ func repository remove boson-examples
-	  $ func repository list
+	  $ {{.Name}} repository remove boson-examples
+	  $ {{.Name}} repository list
 	  default
 `,
 		SuggestFor: []string{"repositories", "repos", "template", "templates", "pack", "packs"},
@@ -161,6 +161,8 @@ EXAMPLES
 
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
 	cmd.Flags().StringP("repositories", "r", fn.RepositoriesPath(), "Path to language pack repositories (Env: $FUNC_REPOSITORIES)")
+
+	cmd.SetHelpFunc(defaultTemplatedHelp)
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		return runRepository(cmd, args, clientFn)
