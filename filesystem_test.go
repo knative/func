@@ -145,7 +145,7 @@ func TestFileSystems(t *testing.T) {
 					return nil
 				}
 
-				if runtime.GOOS != "windows" && embeddedFileStats.Mode().Perm() != localFileStat.Mode().Perm() {
+				if runtime.GOOS != "windows" && (embeddedFileStats.Mode().Perm()&0100) != (localFileStat.Mode().Perm()&0100) {
 					t.Errorf("mode mismatch on %q (expected: %o, actual: %o)",
 						path, localFileStat.Mode().Perm(), embeddedFileStats.Mode().Perm())
 					return nil
