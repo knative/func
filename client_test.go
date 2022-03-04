@@ -1139,7 +1139,8 @@ func TestClient_Invoke_HTTP(t *testing.T) {
 	defer job.Stop()
 
 	// Invoke the Function, which will use the mock Runner
-	if err := client.Invoke(context.Background(), f.Root, "", message); err != nil {
+	_, err = client.Invoke(context.Background(), f.Root, "", message)
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -1224,7 +1225,8 @@ func TestClient_Invoke_CloudEvent(t *testing.T) {
 	defer job.Stop()
 
 	// Invoke the Function, which will use the mock Runner
-	if err := client.Invoke(context.Background(), f.Root, "", message); err != nil {
+	_, err = client.Invoke(context.Background(), f.Root, "", message)
+	if err != nil {
 		t.Fatal(err)
 	}
 

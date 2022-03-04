@@ -160,12 +160,12 @@ func runInvoke(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 	}
 
 	// Invoke
-	err = client.Invoke(cmd.Context(), cfg.Path, cfg.Target, m)
+	s, err := client.Invoke(cmd.Context(), cfg.Path, cfg.Target, m)
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintf(cmd.OutOrStderr(), "Invoked %v\n", cfg.Target)
+	fmt.Fprintln(cmd.OutOrStderr(), s)
 	return
 }
 

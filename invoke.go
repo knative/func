@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"time"
@@ -45,13 +46,13 @@ func NewInvokeMessage() InvokeMessage {
 
 // invoke the Function instance in the target environment with the
 // invocation message.
-func invoke(ctx context.Context, c *Client, f Function, target string, m InvokeMessage) error {
+func invoke(ctx context.Context, c *Client, f Function, target string, m InvokeMessage) (string, error) {
 
 	// Get the first available route from 'local', 'remote', a named environment
 	// or treat target
 	route, err := invocationRoute(ctx, c, f, target) // choose instance to invoke
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	// Format" either 'http' or 'cloudevent'
@@ -75,7 +76,7 @@ func invoke(ctx context.Context, c *Client, f Function, target string, m InvokeM
 	case "cloudevent":
 		return sendEvent(ctx, route, m, c.transport)
 	default:
-		return fmt.Errorf("format '%v' not supported.", format)
+		return "", fmt.Errorf("format '%v' not supported.", format)
 	}
 }
 
@@ -130,7 +131,7 @@ func invocationRoute(ctx context.Context, c *Client, f Function, target string) 
 }
 
 // sendEvent to the route populated with data in the invoke message.
-func sendEvent(ctx context.Context, route string, m InvokeMessage, t http.RoundTripper) (err error) {
+func sendEvent(ctx context.Context, route string, m InvokeMessage, t http.RoundTripper) (resp string, err error) {
 	event := cloudevents.NewEvent()
 	event.SetID(m.ID)
 	event.SetSource(m.Source)
@@ -146,15 +147,18 @@ func sendEvent(ctx context.Context, route string, m InvokeMessage, t http.RoundT
 		return
 	}
 
-	result := c.Send(cloudevents.ContextWithTarget(ctx, route), event)
+	evt, result := c.Request(cloudevents.ContextWithTarget(ctx, route), event)
 	if cloudevents.IsUndelivered(result) {
 		err = fmt.Errorf("unable to invoke: %v", result)
+	} else if evt != nil { // Check for nil in case no event is returned
+		resp = evt.String()
 	}
+
 	return
 }
 
 // sendPost to the route populated with data in the invoke message.
-func sendPost(ctx context.Context, route string, m InvokeMessage, t http.RoundTripper) error {
+func sendPost(ctx context.Context, route string, m InvokeMessage, t http.RoundTripper) (string, error) {
 	client := http.Client{
 		Transport: t,
 		Timeout:   10 * time.Second,
@@ -167,11 +171,12 @@ func sendPost(ctx context.Context, route string, m InvokeMessage, t http.RoundTr
 		"Data":        {m.Data},
 	})
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		return fmt.Errorf("failure invoking '%v' (HTTP %v)", route, resp.StatusCode)
+	if resp.StatusCode > 299 {
+		return "", fmt.Errorf("failure invoking '%v' (HTTP %v)", route, resp.StatusCode)
 	}
-	return nil
+	b, err := io.ReadAll(resp.Body)
+	return string(b), err
 }
