@@ -13,6 +13,11 @@ import (
 	"path/filepath"
 )
 
+var hexs = []byte("0123456789abcdef")
+var space = []byte(" ")
+var newLine = []byte("\n")
+var tab = []byte("\t")
+
 // This program generates zz_filesystem_generated.go file containing byte array variable named templatesZip.
 // The variable contains zip of "./templates" directory.
 func main() {
@@ -80,10 +85,10 @@ func main() {
 		log.Fatal(err)
 	}
 
-	zipBytesReader := bytes.NewReader(zipBuff.Bytes())
 	buff := make([]byte, 32)
+	hexDigitWithComma := []byte("0x00,")
 	for {
-		n, err := zipBytesReader.Read(buff)
+		n, err := zipBuff.Read(buff)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				break
@@ -92,32 +97,34 @@ func main() {
 			}
 		}
 
-		_, err = fmt.Fprintf(srcOut, "\t")
+		_, err = srcOut.Write(tab)
 		if err != nil {
 			log.Fatal(err)
 		}
 
 		for i, b := range buff[:n] {
-			_, err = fmt.Fprintf(srcOut, "0x%02x,", b)
+			hexDigitWithComma[2] = hexs[b>>4]
+			hexDigitWithComma[3] = hexs[b&0x0f]
+			_, err = srcOut.Write(hexDigitWithComma)
 			if err != nil {
 				log.Fatal(err)
 			}
 			if i < n-1 {
-				_, err = fmt.Fprintf(srcOut, " ")
+				_, err = srcOut.Write(space)
 				if err != nil {
 					log.Fatal(err)
 				}
 			}
 		}
 
-		_, err = fmt.Fprintf(srcOut, "\n")
+		_, err = srcOut.Write(newLine)
 		if err != nil {
 			log.Fatal(err)
 		}
 
 	}
 
-	_, err = fmt.Fprintf(srcOut, "}\n")
+	_, err = fmt.Fprint(srcOut, "}\n")
 	if err != nil {
 		log.Fatal(err)
 	}
