@@ -30,7 +30,7 @@ type PipelinesProvider struct {
 	// namespace with which to override that set on the default configuration (such as the ~/.kube/config).
 	// If left blank, pipeline creation/run will commence to the configured namespace.
 	namespace           string
-	Verbose             bool
+	verbose             bool
 	progressListener    fn.ProgressListener
 	credentialsProvider docker.CredentialsProvider
 }
@@ -53,8 +53,8 @@ func WithCredentialsProvider(credentialsProvider docker.CredentialsProvider) Opt
 	}
 }
 
-func NewPipelinesProvider(opts ...Opt) *PipelinesProvider {
-	pp := &PipelinesProvider{}
+func NewPipelinesProvider(verbose bool, opts ...Opt) *PipelinesProvider {
+	pp := &PipelinesProvider{verbose: verbose}
 
 	for _, opt := range opts {
 		opt(pp)

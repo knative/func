@@ -36,13 +36,12 @@ const (
 
 // Runner starts and stops Functions as local contaieners.
 type Runner struct {
-	// Verbose logging
-	Verbose bool
+	verbose bool // Verbose logging
 }
 
 // NewRunner creates an instance of a docker-backed runner.
-func NewRunner() *Runner {
-	return &Runner{}
+func NewRunner(verbose bool) *Runner {
+	return &Runner{verbose: verbose}
 }
 
 // Run the Function.
@@ -69,7 +68,7 @@ func (n *Runner) Run(ctx context.Context, f fn.Function) (job *fn.Job, err error
 	if c, _, err = NewClient(client.DefaultDockerHost); err != nil {
 		return job, errors.Wrap(err, "failed to create Docker API client")
 	}
-	if id, err = newContainer(ctx, c, f, port, n.Verbose); err != nil {
+	if id, err = newContainer(ctx, c, f, port, n.verbose); err != nil {
 		return job, errors.Wrap(err, "runner unable to create container")
 	}
 	if conn, err = copyStdio(ctx, c, id, copyErrCh); err != nil {

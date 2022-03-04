@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"text/template"
 
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
@@ -35,13 +34,12 @@ DESCRIPTION
 	}
 
 	// Help Action
-	cmd.SetHelpFunc(runVersionHelp)
+	cmd.SetHelpFunc(defaultTemplatedHelp)
 
 	// Run Action
 	cmd.Run = func(cmd *cobra.Command, args []string) {
 		runVersion(cmd, args, version)
 	}
-	cmd.SetHelpFunc(defaultTemplatedHelp)
 
 	return cmd
 }
@@ -50,23 +48,4 @@ DESCRIPTION
 func runVersion(cmd *cobra.Command, args []string, version Version) {
 	version.Verbose = viper.GetBool("verbose")
 	fmt.Fprintf(cmd.OutOrStdout(), "%v\n", version)
-}
-
-// Help
-func runVersionHelp(cmd *cobra.Command, args []string) {
-	var (
-		body = cmd.Long + "\n\n" + cmd.UsageString()
-		t    = template.New("version")
-		tpl  = template.Must(t.Parse(body))
-	)
-
-	var data = struct {
-		Name string
-	}{
-		Name: cmd.Root().Name(),
-	}
-
-	if err := tpl.Execute(cmd.OutOrStdout(), data); err != nil {
-		fmt.Fprintf(cmd.ErrOrStderr(), "unable to display help text: %v", err)
-	}
 }

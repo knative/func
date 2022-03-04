@@ -47,8 +47,7 @@ type PusherDockerClientFactory func() (PusherDockerClient, error)
 
 // Pusher of images from local to remote registry.
 type Pusher struct {
-	// Verbose logging.
-	Verbose             bool
+	verbose             bool // verbose logging.
 	credentialsProvider CredentialsProvider
 	progressListener    fn.ProgressListener
 	transport           http.RoundTripper
@@ -84,9 +83,8 @@ func EmptyCredentialsProvider(ctx context.Context, registry string) (Credentials
 }
 
 // NewPusher creates an instance of a docker-based image pusher.
-func NewPusher(opts ...Opt) *Pusher {
+func NewPusher(verbose bool, opts ...Opt) *Pusher {
 	result := &Pusher{
-		Verbose:             false,
 		credentialsProvider: EmptyCredentialsProvider,
 		progressListener:    &fn.NoopProgressListener{},
 		transport:           http.DefaultTransport,
@@ -94,6 +92,7 @@ func NewPusher(opts ...Opt) *Pusher {
 			c, _, err := NewClient(client.DefaultDockerHost)
 			return c, err
 		},
+		verbose: verbose,
 	}
 	for _, opt := range opts {
 		opt(result)
@@ -116,7 +115,7 @@ func (n *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err er
 
 	var output io.Writer
 
-	if n.Verbose {
+	if n.verbose {
 		output = os.Stderr
 	} else {
 		output = io.Discard

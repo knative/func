@@ -62,7 +62,7 @@ EXAMPLES
 	// Environment Variables
 	// Evaluated first after static defaults, set all flags to be associated with
 	// a version prefixed by "FUNC_"
-	viper.AutomaticEnv()       // read in environment variables that match
+	viper.AutomaticEnv()       // read in environment variables for FUNC_<flag>
 	viper.SetEnvPrefix("func") // ensure thay all have the prefix
 
 	// Flags
@@ -366,7 +366,7 @@ func (v Version) String() string {
 	// value v0.0.0 as the default indicating there is no version information
 	// available.
 	if strings.HasPrefix(v.Vers, "v") {
-		// TODO: this is the naieve approach, perhaps consider actually parse it
+		// TODO: this is the naive approach, perhaps consider actually parse it
 		// using the semver lib
 		return v.Vers
 	}

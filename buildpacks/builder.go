@@ -24,12 +24,12 @@ import (
 //Builder holds the configuration that will be passed to
 //Buildpack builder
 type Builder struct {
-	Verbose bool
+	verbose bool
 }
 
 //NewBuilder builds the new Builder configuration
-func NewBuilder() *Builder {
-	return &Builder{}
+func NewBuilder(verbose bool) *Builder {
+	return &Builder{verbose: verbose}
 }
 
 var v330 = semver.MustParse("v3.3.0")
@@ -57,7 +57,7 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 
 	// log output is either STDOUt or kept in a buffer to be printed on error.
 	var logWriter io.Writer
-	if builder.Verbose {
+	if builder.verbose {
 		// pass stdout as non-closeable writer
 		// otherwise pack client would close it which is bad
 		logWriter = stdoutWrapper{os.Stdout}
@@ -130,7 +130,7 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		if ctx.Err() != nil {
 			// received SIGINT
 			return
-		} else if !builder.Verbose {
+		} else if !builder.verbose {
 			// If the builder was not showing logs, embed the full logs in the error.
 			err = fmt.Errorf("%v\noutput: %s\n", err, logWriter.(*bytes.Buffer).String())
 		}

@@ -35,8 +35,7 @@ func TestDockerRun(t *testing.T) {
 
 	// NOTE: test requires that the image be built already.
 
-	runner := docker.NewRunner()
-	runner.Verbose = true
+	runner := docker.NewRunner(true)
 	if _, err = runner.Run(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
@@ -48,7 +47,7 @@ func TestDockerRun(t *testing.T) {
 }
 
 func TestDockerRunImagelessError(t *testing.T) {
-	runner := docker.NewRunner()
+	runner := docker.NewRunner(true)
 	f := fn.NewFunctionWith(fn.Function{})
 
 	_, err := runner.Run(context.Background(), f)

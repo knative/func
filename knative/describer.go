@@ -12,13 +12,14 @@ import (
 )
 
 type Describer struct {
-	Verbose   bool
 	namespace string
+	verbose   bool
 }
 
-func NewDescriber(namespaceOverride string) *Describer {
+func NewDescriber(namespaceOverride string, verbose bool) *Describer {
 	return &Describer{
 		namespace: namespaceOverride,
+		verbose:   verbose,
 	}
 }
 

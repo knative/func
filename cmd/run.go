@@ -17,14 +17,11 @@ import (
 
 func newRunClient(cfg runConfig) *fn.Client {
 	bc := newBuildConfig()
-	runner := docker.NewRunner()
-	runner.Verbose = cfg.Verbose
+	runner := docker.NewRunner(cfg.Verbose)
 
 	// builder fields
-	builder := buildpacks.NewBuilder()
-	listener := progress.New()
-	builder.Verbose = cfg.Verbose
-	listener.Verbose = cfg.Verbose
+	builder := buildpacks.NewBuilder(cfg.Verbose)
+	listener := progress.New(cfg.Verbose)
 	return fn.New(
 		fn.WithBuilder(builder),
 		fn.WithProgressListener(listener),

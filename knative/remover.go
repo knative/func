@@ -10,15 +10,16 @@ import (
 
 const RemoveTimeout = 120 * time.Second
 
-func NewRemover(namespaceOverride string) *Remover {
+func NewRemover(namespaceOverride string, verbose bool) *Remover {
 	return &Remover{
 		Namespace: namespaceOverride,
+		verbose:   verbose,
 	}
 }
 
 type Remover struct {
 	Namespace string
-	Verbose   bool
+	verbose   bool
 }
 
 func (remover *Remover) Remove(ctx context.Context, name string) (err error) {
