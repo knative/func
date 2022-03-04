@@ -60,7 +60,9 @@ check: bin/golangci-lint ## Check code quality (lint)
 bin/golangci-lint:
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./bin v1.43.0
 
-zz_filesystem_generated.go: $(TEMPLATES)
+.PHONY: zz_filesystem_generated.go
+
+zz_filesystem_generated.go:
 	# Removing temporary template files
 	@rm -rf templates/node/cloudevents/node_modules
 	@rm -rf templates/node/http/node_modules
