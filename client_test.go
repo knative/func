@@ -1099,6 +1099,7 @@ func TestClient_Invoke_HTTP(t *testing.T) {
 		if req.Form.Get("ID") != message.ID {
 			t.Fatalf("expected message ID '%v', got '%v'", message.ID, req.Form.Get("ID"))
 		}
+		res.Write([]byte("hello world"))
 	})
 
 	// Expose the masquarading Function on an OS-chosen port.
@@ -1139,9 +1140,14 @@ func TestClient_Invoke_HTTP(t *testing.T) {
 	defer job.Stop()
 
 	// Invoke the Function, which will use the mock Runner
-	_, err = client.Invoke(context.Background(), f.Root, "", message)
+	r, err := client.Invoke(context.Background(), f.Root, "", message)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	// Check the response value
+	if r != "hello world" {
+		t.Fatal("Unexpected response from function " + r)
 	}
 
 	// Fail if the Function was never invoked.
@@ -1167,15 +1173,18 @@ func TestClient_Invoke_CloudEvent(t *testing.T) {
 		invoked bool // flag the Function was invoked
 		ctx     = context.Background()
 		message = fn.NewInvokeMessage() // message to send to the Function
+		evt     *cloudevents.Event      // A pointer to the received event
 	)
 
 	// A CloudEvent Receiver which masquarades as a running Function and
 	// verifies the invoker sent the message as a populated CloudEvent.
-	receiver := func(ctx context.Context, event cloudevents.Event) {
+	receiver := func(ctx context.Context, event cloudevents.Event) *cloudevents.Event {
 		invoked = true
 		if event.ID() != message.ID {
 			t.Fatalf("expected event ID '%v', got '%v'", message.ID, event.ID())
 		}
+		evt = &event
+		return evt
 	}
 
 	// A cloudevent receive handler which will expect the HTTP protocol
@@ -1225,11 +1234,14 @@ func TestClient_Invoke_CloudEvent(t *testing.T) {
 	defer job.Stop()
 
 	// Invoke the Function, which will use the mock Runner
-	_, err = client.Invoke(context.Background(), f.Root, "", message)
+	r, err := client.Invoke(context.Background(), f.Root, "", message)
 	if err != nil {
 		t.Fatal(err)
 	}
-
+	// Test the contents of the returned string.
+	if r != evt.String() {
+		t.Fatal("Invoke failed to return a response")
+	}
 	// Fail if the Function was never invoked.
 	if !invoked {
 		t.Fatal("Function was not invoked")
