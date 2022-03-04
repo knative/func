@@ -1099,7 +1099,10 @@ func TestClient_Invoke_HTTP(t *testing.T) {
 		if req.Form.Get("ID") != message.ID {
 			t.Fatalf("expected message ID '%v', got '%v'", message.ID, req.Form.Get("ID"))
 		}
-		res.Write([]byte("hello world"))
+		_, err := res.Write([]byte("hello world"))
+		if err != nil {
+			t.Fatal(err)
+		}
 	})
 
 	// Expose the masquarading Function on an OS-chosen port.
