@@ -3,7 +3,6 @@ package main
 import (
 	"archive/zip"
 	"bufio"
-	"bytes"
 	"errors"
 	"fmt"
 	"io"
@@ -21,55 +20,62 @@ var tab = []byte("\t")
 // This program generates zz_filesystem_generated.go file containing byte array variable named templatesZip.
 // The variable contains zip of "./templates" directory.
 func main() {
-	var zipBuff bytes.Buffer
-	zipWriter := zip.NewWriter(&zipBuff)
-	err := filepath.Walk("templates", func(path string, info fs.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
+	pr, pw := io.Pipe()
 
-		if filepath.Clean(path) == "templates" {
+	go func() {
+		zipWriter := zip.NewWriter(pw)
+		buff := make([]byte, 4*1024)
+		err := filepath.Walk("templates", func(path string, info fs.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+
+			if filepath.Clean(path) == "templates" {
+				return nil
+			}
+
+			name, err := filepath.Rel("templates", path)
+			if err != nil {
+				return err
+			}
+			name = filepath.ToSlash(name)
+			if info.IsDir() {
+				name = name + "/"
+			}
+
+			header := &zip.FileHeader{
+				Name:   name,
+				Method: zip.Deflate,
+			}
+			header.SetMode(info.Mode())
+
+			w, err := zipWriter.CreateHeader(header)
+			if err != nil {
+				return err
+			}
+
+			if !info.IsDir() {
+				f, err := os.Open(path)
+				if err != nil {
+					return err
+				}
+
+				_, err = io.CopyBuffer(w, f, buff)
+				if err != nil {
+					return err
+				}
+			}
+
 			return nil
-		}
-
-		name, err := filepath.Rel("templates", path)
+		})
 		if err != nil {
-			return err
-		}
-		name = filepath.ToSlash(name)
-		if info.IsDir() {
-			name = name + "/"
+			_ = zipWriter.Close()
+			_ = pw.CloseWithError(err)
 		}
 
-		header := &zip.FileHeader{
-			Name:   name,
-			Method: zip.Deflate,
-		}
-		header.SetMode(info.Mode())
-
-		w, err := zipWriter.CreateHeader(header)
-		if err != nil {
-			return err
-		}
-
-		if !info.IsDir() {
-			b, err := os.ReadFile(path)
-			if err != nil {
-				return err
-			}
-
-			_, err = w.Write(b)
-			if err != nil {
-				return err
-			}
-		}
-
-		return nil
-	})
-	zipWriter.Close()
-	if err != nil {
-		log.Fatal(err)
-	}
+		err = zipWriter.Close()
+		_ = pw.CloseWithError(err)
+	}()
 
 	f, err := os.OpenFile("zz_filesystem_generated.go", os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
@@ -88,7 +94,7 @@ func main() {
 	buff := make([]byte, 32)
 	hexDigitWithComma := []byte("0x00,")
 	for {
-		n, err := zipBuff.Read(buff)
+		n, err := pr.Read(buff)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				break
