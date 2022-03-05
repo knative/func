@@ -3,7 +3,6 @@ package main
 import (
 	"archive/zip"
 	"bufio"
-	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -12,71 +11,9 @@ import (
 	"path/filepath"
 )
 
-var hexs = []byte("0123456789abcdef")
-var space = []byte(" ")
-var newLine = []byte("\n")
-var tab = []byte("\t")
-
 // This program generates zz_filesystem_generated.go file containing byte array variable named templatesZip.
 // The variable contains zip of "./templates" directory.
 func main() {
-	pr, pw := io.Pipe()
-
-	go func() {
-		zipWriter := zip.NewWriter(pw)
-		buff := make([]byte, 4*1024)
-		err := filepath.Walk("templates", func(path string, info fs.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-
-			if filepath.Clean(path) == "templates" {
-				return nil
-			}
-
-			name, err := filepath.Rel("templates", path)
-			if err != nil {
-				return err
-			}
-			name = filepath.ToSlash(name)
-			if info.IsDir() {
-				name = name + "/"
-			}
-
-			header := &zip.FileHeader{
-				Name:   name,
-				Method: zip.Deflate,
-			}
-			header.SetMode(info.Mode())
-
-			w, err := zipWriter.CreateHeader(header)
-			if err != nil {
-				return err
-			}
-
-			if !info.IsDir() {
-				f, err := os.Open(path)
-				if err != nil {
-					return err
-				}
-
-				_, err = io.CopyBuffer(w, f, buff)
-				if err != nil {
-					return err
-				}
-			}
-
-			return nil
-		})
-		if err != nil {
-			_ = zipWriter.Close()
-			_ = pw.CloseWithError(err)
-		}
-
-		err = zipWriter.Close()
-		_ = pw.CloseWithError(err)
-	}()
-
 	f, err := os.OpenFile("zz_filesystem_generated.go", os.O_TRUNC|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		log.Fatal(err)
@@ -91,47 +28,122 @@ func main() {
 		log.Fatal(err)
 	}
 
-	buff := make([]byte, 32)
-	hexDigitWithComma := []byte("0x00,")
-	for {
-		n, err := pr.Read(buff)
+	zipWriter := zip.NewWriter(newGoByteArrayWriter(srcOut))
+	buff := make([]byte, 4*1024)
+	err = filepath.Walk("templates", func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			} else {
-				log.Fatal(err)
-			}
+			return err
 		}
 
-		_, err = srcOut.Write(tab)
-		if err != nil {
-			log.Fatal(err)
+		if filepath.Clean(path) == "templates" {
+			return nil
 		}
 
-		for i, b := range buff[:n] {
-			hexDigitWithComma[2] = hexs[b>>4]
-			hexDigitWithComma[3] = hexs[b&0x0f]
-			_, err = srcOut.Write(hexDigitWithComma)
+		name, err := filepath.Rel("templates", path)
+		if err != nil {
+			return err
+		}
+		name = filepath.ToSlash(name)
+		if info.IsDir() {
+			name = name + "/"
+		}
+
+		header := &zip.FileHeader{
+			Name:   name,
+			Method: zip.Deflate,
+		}
+		header.SetMode(info.Mode())
+
+		w, err := zipWriter.CreateHeader(header)
+		if err != nil {
+			return err
+		}
+
+		if !info.IsDir() {
+			f, err := os.Open(path)
 			if err != nil {
-				log.Fatal(err)
+				return err
 			}
-			if i < n-1 {
-				_, err = srcOut.Write(space)
-				if err != nil {
-					log.Fatal(err)
-				}
+
+			_, err = io.CopyBuffer(w, f, buff)
+			if err != nil {
+				return err
 			}
 		}
 
-		_, err = srcOut.Write(newLine)
-		if err != nil {
-			log.Fatal(err)
-		}
-
+		return nil
+	})
+	zipWriter.Close()
+	if err != nil {
+		log.Fatal(err)
 	}
 
 	_, err = fmt.Fprint(srcOut, "}\n")
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+// goByteArrayWriter dumps bytes as a Go integer hex literals separated by commas into underlying Writer.
+// Each line of the output will be indented by a tab and each line will contain at most 32 integer literals.
+// This is useful when generating Go array literals.
+type goByteArrayWriter struct {
+	i                 uint32
+	w                 io.Writer
+	hexDigitWithComma []byte
+}
+
+func newGoByteArrayWriter(w io.Writer) *goByteArrayWriter {
+	return &goByteArrayWriter{
+		i:                 0,
+		w:                 w,
+		hexDigitWithComma: []byte("0x00,"),
+	}
+}
+
+var hexs = []byte("0123456789abcdef")
+var space = []byte(" ")
+var newLine = []byte("\n")
+var tab = []byte("\t")
+
+const bytesInLine = 32
+
+func (g *goByteArrayWriter) Write(bs []byte) (written int, err error) {
+	var n int
+
+	for _, b := range bs {
+		if g.i == 0 {
+			n, err = g.w.Write(tab)
+			written += n
+			if err != nil {
+				return
+			}
+		}
+
+		g.hexDigitWithComma[2] = hexs[b>>4]
+		g.hexDigitWithComma[3] = hexs[b&0x0f]
+		n, err = g.w.Write(g.hexDigitWithComma)
+		written += n
+		if err != nil {
+			return
+		}
+
+		if g.i == bytesInLine-1 {
+			n, err = g.w.Write(newLine)
+			written += n
+			if err != nil {
+				return
+			}
+			g.i = 0
+		} else {
+			n, err = g.w.Write(space)
+			written += n
+			if err != nil {
+				return
+			}
+			g.i++
+		}
+	}
+
+	return
 }
