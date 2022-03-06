@@ -15,6 +15,8 @@ jobs:
       - uses: actions/setup-java@v1
         with:
           java-version: '11'
+      - name: Check embedded templates content
+        run: go test -run "^\QTestFileSystems\E$/^\Qembedded\E$"
       - name: Unit Test
         run:  make test
       - name: Template Unit Tests
