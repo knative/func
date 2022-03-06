@@ -846,7 +846,7 @@ func (c *Client) Remove(ctx context.Context, cfg Function, deleteAll bool) error
 // See NewInvokeMessage for its defaults.
 // Functions are invoked in a manner consistent with the settings defined in
 // their metadata.  For example HTTP vs CloudEvent
-func (c *Client) Invoke(ctx context.Context, root string, target string, m InvokeMessage) (err error) {
+func (c *Client) Invoke(ctx context.Context, root string, target string, m InvokeMessage) (s string, err error) {
 	go func() {
 		<-ctx.Done()
 		c.progressListener.Stopping()
