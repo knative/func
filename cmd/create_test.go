@@ -2,13 +2,11 @@ package cmd
 
 import (
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"testing"
 
-	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/utils"
 )
 
@@ -18,10 +16,8 @@ func TestCreate_Execute(t *testing.T) {
 	defer fromTempDir(t)()
 
 	// command with a client factory which yields a fully default client.
-	cmd := NewCreateCmd(func(ClientOptions) *fn.Client { return fn.New() })
-	cmd.SetArgs([]string{
-		fmt.Sprintf("--language=%s", "go"),
-	})
+	cmd := NewCreateCmd()
+	cmd.SetArgs([]string{"--language", "go"})
 
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -33,8 +29,7 @@ func TestCreate_Execute(t *testing.T) {
 func TestCreate_NoRuntime(t *testing.T) {
 	defer fromTempDir(t)()
 
-	// command with a client factory which yields a fully default client.
-	cmd := NewCreateCmd(func(ClientOptions) *fn.Client { return fn.New() })
+	cmd := NewCreateCmd()
 	cmd.SetArgs([]string{})
 
 	err := cmd.Execute()
@@ -49,11 +44,8 @@ func TestCreate_NoRuntime(t *testing.T) {
 func TestCreate_WithInvalidRuntime(t *testing.T) {
 	defer fromTempDir(t)()
 
-	// command with a client factory which yields a fully default client.
-	cmd := NewCreateCmd(func(ClientOptions) *fn.Client { return fn.New() })
-	cmd.SetArgs([]string{
-		fmt.Sprintf("--language=%s", "test"),
-	})
+	cmd := NewCreateCmd()
+	cmd.SetArgs([]string{"--language", "invalid"})
 
 	err := cmd.Execute()
 	var e ErrInvalidRuntime
@@ -67,11 +59,10 @@ func TestCreate_WithInvalidRuntime(t *testing.T) {
 func TestCreate_InvalidTemplate(t *testing.T) {
 	defer fromTempDir(t)()
 
-	// command with a client factory which yields a fully default client.
-	cmd := NewCreateCmd(func(ClientOptions) *fn.Client { return fn.New() })
+	cmd := NewCreateCmd()
 	cmd.SetArgs([]string{
-		fmt.Sprintf("--language=%s", "go"),
-		fmt.Sprintf("--template=%s", "events"),
+		"--language", "go",
+		"--template", "invalid",
 	})
 
 	err := cmd.Execute()
@@ -86,12 +77,9 @@ func TestCreate_InvalidTemplate(t *testing.T) {
 func TestCreate_ValidatesName(t *testing.T) {
 	defer fromTempDir(t)()
 
-	// Create a new Create command with a fn.Client construtor
-	// which returns a default (noop) client suitable for tests.
-	cmd := NewCreateCmd(func(ClientOptions) *fn.Client { return fn.New() })
-
 	// Execute the command with a function name containing invalid characters and
 	// confirm the expected error is returned
+	cmd := NewCreateCmd()
 	cmd.SetArgs([]string{"invalid!"})
 	err := cmd.Execute()
 	var e utils.ErrInvalidFunctionName
@@ -100,10 +88,10 @@ func TestCreate_ValidatesName(t *testing.T) {
 	}
 }
 
-// TestCreate_RepositoriesPath ensures that the create command utilizes the
-// expected repositories path, respecting the setting for XDG_CONFIG_PATH
+// TestCreateConfig_RepositoriesPath ensures that the create command utilizes
+// the expected repositories path, respecting the setting for XDG_CONFIG_PATH
 // when deriving the default
-func TestCreate_RepositoriesPath(t *testing.T) {
+func TestCreateConfig_RepositoriesPath(t *testing.T) {
 	defer fromTempDir(t)()
 
 	// Update XDG_CONFIG_HOME to point to some arbitrary location.
@@ -113,28 +101,15 @@ func TestCreate_RepositoriesPath(t *testing.T) {
 	}
 	os.Setenv("XDG_CONFIG_HOME", xdgConfigHome)
 
-	// The expected full path to repositories:
+	// The expected full path is XDG_CONFIG_HOME/func/repositories
 	expected := filepath.Join(xdgConfigHome, "func", "repositories")
 
-	// Create command takes a function which will be invoked with the final
-	// state of the createConfig, usually used to do fn.Client instantiation
-	// after flags, environment variables, etc. are calculated.  In this case it
-	// will validate the test condition:  that config reflects the value of
-	// XDG_CONFIG_HOME, and secondarily the path suffix `func/repositories`.
-	cmd := NewCreateCmd(func(cfg ClientOptions) *fn.Client {
-		if cfg.Repositories != expected {
-			t.Fatalf("expected repositories default path to be '%v', got '%v'", expected, cfg.Repositories)
-		}
-		return fn.New()
-	})
-	cmd.SetArgs([]string{
-		fmt.Sprintf("--language=%s", "go"),
-	})
-	// Invoke the command, which is an airball, but does invoke the client
-	// constructor, which which evaluates the aceptance condition of ensuring the
-	// default repositories path was updated based on XDG_CONFIG_HOME.
-	if err = cmd.Execute(); err != nil {
-		t.Fatalf("unexpected error running 'create' with a default (noop) client instance: %v", err)
+	cmd := NewCreateCmd()
+	cfg := createConfig{}
+	cfg, err = newCreateConfig(cmd, []string{})
+
+	if cfg.Repositories != expected {
+		t.Fatalf("expected repositories default path to be '%v', got '%v'", expected, cfg.Repositories)
 	}
 }
 

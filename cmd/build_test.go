@@ -6,6 +6,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/spf13/cobra"
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/mock"
 )
@@ -38,11 +39,8 @@ created: 2021-01-01T00:00:00+00:00
 		t.Fatal(err)
 	}
 
-	// Create a command with a client constructor fn that instantiates a client
-	// with a the mocked builder.
-	cmd := NewBuildCmd(func(options ClientOptions) *fn.Client {
-		return fn.New(fn.WithBuilder(builder))
-	})
+	// Create build command that will use a mock builder.
+	cmd := NewBuildCmd(fn.WithBuilder(builder))
 
 	// Execute the command
 	cmd.SetArgs(args)
@@ -92,23 +90,23 @@ created: 2009-11-10 23:00:00`,
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockPusher := mock.NewPusher()
-			failPusher := &mock.Pusher{
-				PushFn: func(f fn.Function) (string, error) {
-					return "", fmt.Errorf("push failed")
-				},
-			}
-			mockBuilder := mock.NewBuilder()
-			cmd := NewBuildCmd(func(options ClientOptions) *fn.Client {
-				pusher := mockPusher
-				if tt.wantErr {
-					pusher = failPusher
+			// create a build command that uses mock builder and pusher
+			// If the test is marked as wanting a failure, use an erroring pusher
+			var (
+				cmd       *cobra.Command
+				builder   = mock.NewBuilder()
+				pusher    = mock.NewPusher()
+				errPusher = &mock.Pusher{
+					PushFn: func(f fn.Function) (string, error) {
+						return "", fmt.Errorf("push failed")
+					},
 				}
-				return fn.New(
-					fn.WithBuilder(mockBuilder),
-					fn.WithPusher(pusher),
-				)
-			})
+			)
+			if tt.wantErr {
+				cmd = NewBuildCmd(fn.WithBuilder(builder), fn.WithPusher(errPusher))
+			} else {
+				cmd = NewBuildCmd(fn.WithBuilder(builder), fn.WithPusher(pusher))
+			}
 
 			tempDir, err := os.MkdirTemp("", "func-tests")
 			if err != nil {
@@ -140,12 +138,12 @@ created: 2009-11-10 23:00:00`,
 				t.Errorf("Wanted error %v but actually got %v", tt.wantErr, err)
 			}
 
-			if mockBuilder.BuildInvoked != tt.shouldBuild {
-				t.Errorf("Build execution expected: %v but was actually %v", tt.shouldBuild, mockBuilder.BuildInvoked)
+			if builder.BuildInvoked != tt.shouldBuild {
+				t.Errorf("Build execution expected: %v but was actually %v", tt.shouldBuild, builder.BuildInvoked)
 			}
 
-			if tt.shouldPush != (mockPusher.PushInvoked || failPusher.PushInvoked) {
-				t.Errorf("Push execution expected: %v but was actually mockPusher invoked: %v failPusher invoked %v", tt.shouldPush, mockPusher.PushInvoked, failPusher.PushInvoked)
+			if tt.shouldPush != (pusher.PushInvoked || errPusher.PushInvoked) {
+				t.Errorf("Push execution expected: %v but was actually mockPusher invoked: %v failPusher invoked %v", tt.shouldPush, pusher.PushInvoked, errPusher.PushInvoked)
 			}
 		})
 	}

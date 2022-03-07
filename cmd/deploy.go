@@ -17,15 +17,7 @@ import (
 	"knative.dev/kn-plugin-func/docker/creds"
 )
 
-func deployConfigToClientOptions(cfg deployConfig) ClientOptions {
-	return ClientOptions{
-		Namespace: cfg.Namespace,
-		Verbose:   cfg.Verbose,
-		Registry:  cfg.Registry,
-	}
-}
-
-func NewDeployCmd(newClient ClientFactory) *cobra.Command {
+func NewDeployCmd(options ...fn.Option) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "deploy",
 		Short: "Deploy a function",
@@ -75,13 +67,13 @@ that is pushed to an image registry, and finally the function's Knative service 
 	cmd.SetHelpFunc(defaultTemplatedHelp)
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runDeploy(cmd, args, newClient)
+		return runDeploy(cmd, args, options...)
 	}
 
 	return cmd
 }
 
-func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err error) {
+func runDeploy(cmd *cobra.Command, _ []string, options ...fn.Option) (err error) {
 	config, err := newDeployConfig(cmd)
 	if err != nil {
 		return
@@ -163,7 +155,15 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		config.Registry = ""
 	}
 
-	client := newClient(deployConfigToClientOptions(config))
+	// Create a client using values from the config, and any options
+	// provided (such as for providing mocks for the pipelines provider
+	// and deployer for testing))
+	options = append([]fn.Option{fn.WithRegistry(config.Registry)}, options...)
+	client, done := NewClient(
+		config.Namespace,
+		config.Verbose,
+		options...)
+	defer done()
 
 	switch currentBuildType {
 	case fn.BuildTypeLocal, "":

@@ -12,7 +12,7 @@ import (
 	fn "knative.dev/kn-plugin-func"
 )
 
-func NewBuildCmd() *cobra.Command {
+func NewBuildCmd(options ...fn.Option) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "build",
 		Short: "Build a function project as a container image",
@@ -56,7 +56,9 @@ and the image name is stored in the configuration file.
 
 	cmd.SetHelpFunc(defaultTemplatedHelp)
 
-	cmd.RunE = runBuild
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		return runBuild(cmd, args, options...)
+	}
 
 	return cmd
 }
@@ -78,7 +80,7 @@ func ValidNamespaceAndRegistry(path string) survey.Validator {
 	}
 }
 
-func runBuild(cmd *cobra.Command, _ []string) (err error) {
+func runBuild(cmd *cobra.Command, _ []string, options ...fn.Option) (err error) {
 	config, err := newBuildConfig().Prompt()
 	if err != nil {
 		if err == terminal.InterruptErr {
@@ -141,7 +143,11 @@ func runBuild(cmd *cobra.Command, _ []string) (err error) {
 		config.Registry = ""
 	}
 
-	client := NewClient(config.Namespace, config.Verbose, fn.WithRegistry(config.Registry))
+	// Create a client using the registry defined in config plus any additional
+	// options provided (such as mocks for testing)
+	options = append([]fn.Option{fn.WithRegistry(config.Registry)}, options...)
+	client, done := NewClient("", config.Verbose, options...)
+	defer done()
 
 	err = client.Build(cmd.Context(), config.Path)
 	if err == nil && config.Push {

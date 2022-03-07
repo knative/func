@@ -21,7 +21,7 @@ func NewRootCmd(name string, version Version) *cobra.Command {
 	cmd := &cobra.Command{
 		// Use must be set to exactly config.Name, as this field is overloaded to
 		// be used in subcommand help text as the command with possible prefix:
-		Use:           config.Name,
+		Use:           name,
 		Short:         "Serverless Functions",
 		SilenceErrors: true, // we explicitly handle errors in Execute()
 		SilenceUsage:  true, // no usage dump on error
@@ -74,13 +74,13 @@ EXAMPLES
 	cmd.AddCommand(NewRepositoryCmd())
 	cmd.AddCommand(NewRunCmd())
 	cmd.AddCommand(NewCompletionCmd())
-	cmd.AddCommand(NewVersionCmd(cfg.Version))
+	cmd.AddCommand(NewVersionCmd(version))
 
 	// Help
 	// Overridden to process the help text as a template and have
 	// access to the provided Client instance.
 	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
-		runRootHelp(cmd, args, cfg.Version)
+		runRootHelp(cmd, args, version)
 	})
 
 	return cmd

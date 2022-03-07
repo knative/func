@@ -131,21 +131,20 @@ func TestRoot_CMDParameterized(t *testing.T) {
 
 	for _, test := range tests {
 		var (
-			cfg    = RootCommandConfig{Name: test}
-			cmd, _ = NewRootCmd(cfg)
-			out    = strings.Builder{}
+			cmd = NewRootCmd(test, Version{})
+			out = strings.Builder{}
 		)
 		cmd.SetOut(&out)
 		if err := cmd.Help(); err != nil {
 			t.Fatal(err)
 		}
-		if cmd.Use != cfg.Name {
-			t.Fatalf("expected command Use '%v', got '%v'", cfg.Name, cmd.Use)
+		if cmd.Use != test {
+			t.Fatalf("expected command Use '%v', got '%v'", test, cmd.Use)
 		}
-		if !strings.Contains(out.String(), fmt.Sprintf(expectedSynopsis, cfg.Name)) {
+		if !strings.Contains(out.String(), fmt.Sprintf(expectedSynopsis, test)) {
 			t.Logf("Testing '%v'\n", test)
 			t.Log(out.String())
-			t.Fatalf("Help text does not include substituted name '%v'", cfg.Name)
+			t.Fatalf("Help text does not include substituted name '%v'", test)
 		}
 	}
 }
@@ -171,11 +170,6 @@ func TestVerbose(t *testing.T) {
 			args: []string{"--verbose", "version"},
 			want: "v0.42.0-cafe-1970-01-01\n",
 		},
-		{
-			name: "version not as sub-command",
-			args: []string{"--version"},
-			want: "v0.42.0\n",
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -183,20 +177,15 @@ func TestVerbose(t *testing.T) {
 
 			var out bytes.Buffer
 
-			cmd, err := NewRootCmd(RootCommandConfig{
-				Name:    "func",
-				Date:    "1970-01-01",
-				Version: "v0.42.0",
-				Hash:    "cafe",
+			cmd := NewRootCmd("func", Version{
+				Date: "1970-01-01",
+				Vers: "v0.42.0",
+				Hash: "cafe",
 			})
-			if err != nil {
-				t.Fatal(err)
-			}
 
 			cmd.SetArgs(tt.args)
 			cmd.SetOut(&out)
-			err = cmd.Execute()
-			if err != nil {
+			if err := cmd.Execute(); err != nil {
 				t.Fatal(err)
 			}
 

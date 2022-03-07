@@ -1,6 +1,10 @@
 package cmd
 
 import (
+	"fmt"
+	"net/http"
+	"os"
+
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/buildpacks"
 	"knative.dev/kn-plugin-func/docker"
@@ -24,58 +28,65 @@ import (
 // 'Verbose' indicates the system should write out a higher amount of information
 // about its execution.
 // Usage:
-//   client, cleanup:= NewClient("",false)
-//   defer cleanup()
+//   client, done := NewClient("",false)
+//   defer done()
 func NewClient(namespace string, verbose bool, options ...fn.Option) (*fn.Client, func()) {
 	var (
-		p = progress.New(verbose) // updates the CLI
-		t = newTransport()
-		c = newCredentialsProvider(t)
+		p = progress.New(verbose)     // updates the CLI
+		t = newTransport()            // may provide a custom impl which proxies
+		c = newCredentialsProvider(t) // for accessing registries
+		o = []fn.Option{              // standard (shared) options for all commands
+			fn.WithVerbose(verbose),
+			fn.WithProgressListener(p),
+			fn.WithTransport(t),
+			fn.WithBuilder(buildpacks.NewBuilder(verbose)),
+			fn.WithRemover(knative.NewRemover(namespace, verbose)),
+			fn.WithDescriber(knative.NewDescriber(namespace, verbose)),
+			fn.WithLister(knative.NewLister(namespace, verbose)),
+			fn.WithRunner(docker.NewRunner(verbose)),
+			fn.WithDeployer(knative.NewDeployer(namespace, verbose)),
+			fn.WithPipelinesProvider(tekton.NewPipelinesProvider(
+				tekton.WithNamespace(namespace),
+				tekton.WithProgressListener(p),
+				tekton.WithCredentialsProvider(c),
+				tekton.WithVerbose(verbose))),
+			fn.WithPusher(docker.NewPusher(
+				docker.WithCredentialsProvider(c),
+				docker.WithProgressListener(p),
+				docker.WithTransport(t),
+				docker.WithVerbose(verbose))),
+		}
 	)
-	client := fn.New(
-		fn.WithVerbose(verbose),
-		fn.WithProgressListener(p),
-		fn.WithTransport(t),
-		fn.WithBuilder(buildpacks.NewBuilder(verbose)),
-		fn.WithRemover(knative.NewRemover(namespace, verbose)),
-		fn.WithDescriber(knative.NewDescriber(namespace, verbose)),
-		fn.WithLister(knative.NewLister(namespace, verbose)),
-		fn.WithRunner(docker.NewRunner(verbose)),
-		fn.WithDeployer(knative.NewDeployer(namespace, verbose)),
-		fn.WithPipelinesProvider(tekton.NewPipelinesProvider(
-			tekton.WithNamespace(namespace),
-			tekton.WithProgressListener(p),
-			tekton.WithCredentialsProvider(c),
-			tekton.WithVerbose(verbose))),
-		fn.WithPusher(docker.NewPusher(
-			docker.WithCredentialsProvider(c),
-			docker.WithProgressListener(p),
-			docker.WithTransport(t),
-			docker.WithVerbose(verbose))),
-		options..., // override or set additional options
-	)
-	cleanup := func() {
-		t.Close() // the custom transport needs to be closed.
+	client := fn.New(append(o, options...)...) // standard plus extra options
+
+	// Include a deferrable cleanup function which will attempt to close
+	// the concrete transport.
+	done := func() {
+		if err := t.Close(); err != nil {
+			fmt.Fprintf(os.Stderr, "error closing http transport. %v", err)
+		}
 	}
-	return client, cleanup
+
+	return client, done
 }
 
 // newTransport returns a transport with cluster-flavor-specific variations
 // which take advantage of additional features offered by cluster variants.
-func newTransport(verbose bool) fnhttp.RoundTripCloser {
+func newTransport() fnhttp.RoundTripCloser {
 	if openshift.IsOpenShift() {
 		return fnhttp.NewRoundTripper(openshift.WithOpenShiftServiceCA())
 	}
-	// Other cluster variants forthcoming...
 
-	return fnhttp.NewRoundTripper() // Default transport
+	// Other cluster variants ...
+
+	return fnhttp.NewRoundTripper() // Default (vanilla k8s)
 }
 
 // newCredentialsProvider returns a credentials provider which possibly
 // has cluster-flavor specific additional credential loaders to take advantage
 // of features or configuration nuances of cluster variants.
-func newCredentailsProvider(t docker.CredentialsProvider) docker.CredentialsProvider {
-	options := []creds.Option{
+func newCredentialsProvider(t http.RoundTripper) docker.CredentialsProvider {
+	options := []creds.Opt{
 		creds.WithPromptForCredentials(newPromptForCredentials()),
 		creds.WithPromptForCredentialStore(newPromptForCredentialStore()),
 		creds.WithTransport(t),
@@ -83,7 +94,7 @@ func newCredentailsProvider(t docker.CredentialsProvider) docker.CredentialsProv
 	// The OpenShift variant has additional ways to load credentials
 	if openshift.IsOpenShift() {
 		options = append(options,
-			creds.WithAdditionalCredentialLoaders(openshift.GetDockerCredentialLoaders()))
+			creds.WithAdditionalCredentialLoaders(openshift.GetDockerCredentialLoaders()...))
 	}
 	// Other cluster variants can be supported here
 	return creds.NewCredentialsProvider(options...)

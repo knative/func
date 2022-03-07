@@ -185,6 +185,8 @@ type DNSProvider interface {
 // PipelinesProvider manages lifecyle of CI/CD pipelines used by a Function
 type PipelinesProvider interface {
 	Run(context.Context, Function) error
+	// TODO: It would be best if this were split into two interfaces: a
+	// PipelinesRunner and a PipelinesRemover.
 	Remove(context.Context, Function) error
 }
 
@@ -817,6 +819,14 @@ func (c *Client) Remove(ctx context.Context, cfg Function, deleteAll bool) error
 		errChan <- c.remover.Remove(ctx, functionName)
 	}()
 
+	// TODO: refoctor such that Remover removes.
+	// This flag disjoints the Remover such that it doesn't actually handle
+	// removing.  This unfortunately causes knock-on effects.  For example it
+	// yields unituitive pipeline errors in tests when providing a mock Remover.
+	// SUGGESTED FIX:  the remover should be in charge of removal, and the
+	// handling of the "all" flag, even if that requires that the remover
+	// implementation be aware of a PipelinesProvider (which should be split
+	// into a PipelinesRunner and PipelinesRemover).
 	var errResources error
 	if deleteAll {
 		c.progressListener.Increment(fmt.Sprintf("Removing Knative Service '%v' and all dependent resources", functionName))

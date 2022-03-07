@@ -80,10 +80,10 @@ EXAMPLES
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
 
 	// Tab completion
-	if err := cmd.RegisterFlagCompletionFunc("language", newRuntimeCompletionFunc(newClient)); err != nil {
+	if err := cmd.RegisterFlagCompletionFunc("language", newRuntimeCompletionFunc()); err != nil {
 		fmt.Fprintf(os.Stderr, "unable to provide language runtime suggestions: %v", err)
 	}
-	if err := cmd.RegisterFlagCompletionFunc("template", newTemplateCompletionFunc(newClient)); err != nil {
+	if err := cmd.RegisterFlagCompletionFunc("template", newTemplateCompletionFunc()); err != nil {
 		fmt.Fprintf(os.Stderr, "unable to provide template suggestions: %v", err)
 	}
 
@@ -107,11 +107,12 @@ func runCreate(cmd *cobra.Command, args []string) (err error) {
 	// Client
 	// From environment variables, flags, arguments, and user prompts if --confirm
 	// (in increasing levels of precidence)
-	client := NewClient(
+	client, done := NewClient(
 		"", // default namespace
 		cfg.Verbose,
 		fn.WithRepository(cfg.Repository),
 		fn.WithRepositories(cfg.Repositories))
+	defer done()
 
 	// Validate - a deeper validation than that which is performed when
 	// instantiating the client with the raw config above.
@@ -149,13 +150,14 @@ func runCreateHelp(cmd *cobra.Command, args []string) {
 
 	tpl := createHelpTemplate(cmd)
 
-	cfg, err := NewCreateConfig(cmd, args)
+	cfg, err := newCreateConfig(cmd, args)
 	failSoft(err)
 
-	client := NewClient(
+	client, done := NewClient(
 		"", cfg.Verbose,
 		fn.WithRepositories(cfg.Repositories),
 		fn.WithRepository(cfg.Repository))
+	defer done()
 
 	options, err := runtimeTemplateOptions(client) // human-friendly
 	failSoft(err)
@@ -248,7 +250,8 @@ func newCreateConfig(cmd *cobra.Command, args []string) (cfg createConfig, err e
 
 	// Create a tempoarary client for use by the following prompts to complete
 	// runtime/template suggestions etc
-	client := newClient(createConfigToClientOptions(cfg))
+	client, done := NewClient("", cfg.Verbose)
+	defer done()
 
 	// IN confirm mode.  If also in an interactive terminal, run prompts.
 	if interactiveTerminal() {
@@ -496,22 +499,24 @@ type flagCompletionFunc func(*cobra.Command, []string, string) ([]string, cobra.
 
 func newRuntimeCompletionFunc() flagCompletionFunc {
 	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		cfg, err := newCreateConfig(cmd, args, newClient)
+		cfg, err := newCreateConfig(cmd, args)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error creating client config for flag completion: %v", err)
 		}
-		client := newClient(createConfigToClientOptions(cfg))
+		client, done := NewClient("", cfg.Verbose)
+		defer done()
 		return CompleteRuntimeList(cmd, args, toComplete, client)
 	}
 }
 
 func newTemplateCompletionFunc() flagCompletionFunc {
 	return func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
-		cfg, err := newCreateConfig(cmd, args, newClient)
+		cfg, err := newCreateConfig(cmd, args)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error creating client config for flag completion: %v", err)
 		}
-		client := newClient(createConfigToClientOptions(cfg))
+		client, done := NewClient("", cfg.Verbose)
+		defer done()
 		return CompleteTemplateList(cmd, args, toComplete, client)
 	}
 }

@@ -15,7 +15,7 @@ import (
 	"knative.dev/kn-plugin-func/utils"
 )
 
-func NewInvokeCmd(newClient ClientFactory) *cobra.Command {
+func NewInvokeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "invoke",
 		Short: "Invoke a Function",
@@ -117,27 +117,22 @@ EXAMPLES
 
 	cmd.SetHelpFunc(defaultTemplatedHelp)
 
-	// Run Action
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runInvoke(cmd, args, newClient)
-	}
+	cmd.RunE = runInvoke
 
 	return cmd
 }
 
 // Run
-func runInvoke(cmd *cobra.Command, args []string, newClient ClientFactory) (err error) {
+func runInvoke(cmd *cobra.Command, args []string) (err error) {
 	// Gather flag values for the invocation
-	cfg, err := newInvokeConfig(newClient)
+	cfg, err := newInvokeConfig()
 	if err != nil {
 		return
 	}
 
 	// Client instance from env vars, flags, args and user prompts (if --confirm)
-	client := newClient(ClientOptions{
-		Namespace: cfg.Namespace,
-		Verbose:   cfg.Verbose,
-	})
+	client, done := NewClient(cfg.Namespace, cfg.Verbose)
+	defer done()
 
 	// Message to send the running Function built from parameters gathered
 	// from the user (or defaults)
@@ -184,7 +179,7 @@ type invokeConfig struct {
 	Verbose     bool
 }
 
-func newInvokeConfig(newClient ClientFactory) (cfg invokeConfig, err error) {
+func newInvokeConfig() (cfg invokeConfig, err error) {
 	cfg = invokeConfig{
 		Path:        viper.GetString("path"),
 		Target:      viper.GetString("target"),
@@ -212,11 +207,10 @@ func newInvokeConfig(newClient ClientFactory) (cfg invokeConfig, err error) {
 		return
 	}
 
-	// Client instance for use during prompting.
-	client := newClient(ClientOptions{
-		Namespace: cfg.Namespace,
-		Verbose:   cfg.Verbose,
-	})
+	// Client instance for use during prompting, using the best config
+	// we have yet (defaults, environment variables, flags)
+	client, done := NewClient(cfg.Namespace, cfg.Verbose)
+	defer done()
 
 	// If in interactive terminal mode, prompt to modify defaults.
 	if interactiveTerminal() {

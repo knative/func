@@ -14,7 +14,7 @@ import (
 	fn "knative.dev/kn-plugin-func"
 )
 
-func NewInfoCmd(newClient ClientFactory) *cobra.Command {
+func NewInfoCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "info <name>",
 		Short: "Show details of a function",
@@ -45,14 +45,12 @@ the current directory or from the directory specified with --path.
 
 	cmd.SetHelpFunc(defaultTemplatedHelp)
 
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runInfo(cmd, args, newClient)
-	}
+	cmd.RunE = runInfo
 
 	return cmd
 }
 
-func runInfo(cmd *cobra.Command, args []string, newClient ClientFactory) (err error) {
+func runInfo(cmd *cobra.Command, args []string) (err error) {
 	config := newInfoConfig(args)
 
 	function, err := fn.NewFunction(config.Path)
@@ -66,10 +64,8 @@ func runInfo(cmd *cobra.Command, args []string, newClient ClientFactory) (err er
 	}
 
 	// Create a client
-	client := newClient(ClientOptions{
-		Namespace: config.Namespace,
-		Verbose:   config.Verbose,
-	})
+	client, done := NewClient(config.Namespace, config.Verbose)
+	defer done()
 
 	// Get the description
 	d, err := client.Info(cmd.Context(), config.Name, config.Path)

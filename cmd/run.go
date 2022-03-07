@@ -10,30 +10,9 @@ import (
 	"knative.dev/client/pkg/util"
 
 	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/buildpacks"
-	"knative.dev/kn-plugin-func/docker"
-	"knative.dev/kn-plugin-func/progress"
 )
 
-func newRunClient(cfg runConfig) *fn.Client {
-	bc := newBuildConfig()
-	runner := docker.NewRunner(cfg.Verbose)
-
-	// builder fields
-	builder := buildpacks.NewBuilder(cfg.Verbose)
-	listener := progress.New(cfg.Verbose)
-	return fn.New(
-		fn.WithBuilder(builder),
-		fn.WithProgressListener(listener),
-		fn.WithRegistry(bc.Registry),
-		fn.WithRunner(runner),
-		fn.WithVerbose(cfg.Verbose))
-}
-
-type runClientFn func(runConfig) *fn.Client
-
-func NewRunCmd(clientFn runClientFn) *cobra.Command {
-
+func NewRunCmd(options ...fn.Option) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "run",
 		Short: "Run the function locally",
@@ -50,26 +29,26 @@ specified by --path flag. The function must already have been built with the 'bu
 {{.Name}} run
 `,
 		SuggestFor: []string{"rnu"},
-		PreRunE:    bindEnv("build", "path"),
+		PreRunE:    bindEnv("build", "path", "registry"),
 	}
 
 	cmd.Flags().StringArrayP("env", "e", []string{},
 		"Environment variable to set in the form NAME=VALUE. "+
 			"You may provide this flag multiple times for setting multiple environment variables. "+
 			"To unset, specify the environment variable name followed by a \"-\" (e.g., NAME-).")
-	setPathFlag(cmd)
 	cmd.Flags().BoolP("build", "b", false, "Build the function only if the function has not been built before")
+	setPathFlag(cmd)
 
 	cmd.SetHelpFunc(defaultTemplatedHelp)
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runRun(cmd, args, clientFn)
+		return runRun(cmd, args, options...)
 	}
 
 	return cmd
 }
 
-func runRun(cmd *cobra.Command, args []string, clientFn runClientFn) (err error) {
+func runRun(cmd *cobra.Command, args []string, options ...fn.Option) (err error) {
 	config, err := newRunConfig(cmd)
 	if err != nil {
 		return
@@ -95,8 +74,12 @@ func runRun(cmd *cobra.Command, args []string, clientFn runClientFn) (err error)
 		return fmt.Errorf("the given path '%v' does not contain an initialized function", config.Path)
 	}
 
-	// Client for use running (and potentially building)
-	client := clientFn(config)
+	// Client for use running (and potentially building), using the config
+	// gathered plus any additional option overrieds (such as for providing
+	// mocks when testing for builder and runner)
+	options = append([]fn.Option{fn.WithRegistry(config.Registry)}, options...)
+	client, done := NewClient("", config.Verbose, options...)
+	defer done()
 
 	// Build if not built and --build
 	if config.Build && !function.Built() {
@@ -141,6 +124,9 @@ type runConfig struct {
 
 	// Perform build if function hasn't been built yet
 	Build bool
+
+	// Registry for the build tag if building
+	Registry string
 }
 
 func newRunConfig(cmd *cobra.Command) (c runConfig, err error) {
@@ -153,6 +139,7 @@ func newRunConfig(cmd *cobra.Command) (c runConfig, err error) {
 		Build:       viper.GetBool("build"),
 		Path:        viper.GetString("path"),
 		Verbose:     viper.GetBool("verbose"), // defined on root
+		Registry:    viper.GetString("registry"),
 		EnvToUpdate: envToUpdate,
 		EnvToRemove: envToRemove,
 	}, nil

@@ -12,9 +12,8 @@ import (
 // Function explicitly as an argument invokes the remover appropriately.
 func TestDelete_ByName(t *testing.T) {
 	var (
-		testname = "testname"         // explicit name for the Function
-		args     = []string{testname} // passed as the lone argument
-		remover  = mock.NewRemover()  // with a mock remover
+		testname = "testname"        // explicit name for the Function
+		remover  = mock.NewRemover() // with a mock remover
 	)
 
 	// Remover fails the test if it receives the incorrect name
@@ -28,14 +27,13 @@ func TestDelete_ByName(t *testing.T) {
 
 	// Create a command with a client constructor fn that instantiates a client
 	// with a the mocked remover.
-	cmd := NewDeleteCmd(func(ClientOptions) *fn.Client {
-		return fn.New(fn.WithRemover(remover))
-	})
+	cmd := NewDeleteCmd(
+		fn.WithRemover(remover),
+		fn.WithPipelinesProvider(mock.NewPipelinesProvider()),
+	)
 
-	// Execute the command
-	cmd.SetArgs(args)
-	err := cmd.Execute()
-	if err != nil {
+	cmd.SetArgs([]string{testname})
+	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
 
@@ -80,9 +78,10 @@ created: 2021-01-01T00:00:00+00:00
 
 	// Command with a Client constructor that returns  client with the
 	// mocked remover.
-	cmd := NewDeleteCmd(func(ClientOptions) *fn.Client {
-		return fn.New(fn.WithRemover(remover))
-	})
+	cmd := NewDeleteCmd(
+		fn.WithRemover(remover),
+		fn.WithPipelinesProvider(mock.NewPipelinesProvider()),
+	)
 
 	// Execute the command simulating no arguments.
 	cmd.SetArgs([]string{})
@@ -108,9 +107,10 @@ func TestDelete_NameAndPathExclusivity(t *testing.T) {
 	remover := mock.NewRemover()
 
 	// Command with a Client constructor using the mock remover.
-	cmd := NewDeleteCmd(func(ClientOptions) *fn.Client {
-		return fn.New(fn.WithRemover(remover))
-	})
+	cmd := NewDeleteCmd(
+		fn.WithRemover(remover),
+		fn.WithPipelinesProvider(mock.NewPipelinesProvider()),
+	)
 
 	// Execute the command simulating the invalid argument combination of both
 	// a path and an explicit name.

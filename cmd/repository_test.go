@@ -1,36 +1,26 @@
 package cmd
 
 import (
+	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
-
-	"knative.dev/kn-plugin-func/mock"
 )
 
 // TestRepository_List ensures that the 'list' subcommand shows the client's
-// set of repositories by name, respects the repositories flag (provides it to
-// the client), and prints the list as expected.
+// set of repositories by name for builtin repositories, by explicitly
+// setting the repositories path to a new path which includes no others.
 func TestRepository_List(t *testing.T) {
-	var (
-		client = mock.NewClient()
-		list   = NewRepositoryListCmd(testRepositoryClientFn(client))
-	)
-
-	// Set the repositories flag, which will be passed to the client instance
-	// in the form of a config.
-	list.SetArgs([]string{"--repositories=testpath"})
+	os.Setenv("XDG_CONFIG_HOME", newTempDir()) // use tmp dir for repos
+	cmd := NewRepositoryListCmd()
 
 	// Execute the command, capturing the output sent to stdout
 	stdout := piped(t)
-	if err := list.Execute(); err != nil {
+	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
-	}
-
-	// Assert the repository flag setting was preserved during execution
-	if client.RepositoriesPath != "testpath" {
-		t.Fatal("repositories flag not passed to client")
 	}
 
 	// Assert the output matches expectd (whitespace trimmed)
@@ -45,27 +35,22 @@ func TestRepository_List(t *testing.T) {
 // arguments, respects the repositories path flag, and the expected name is echoed
 // upon subsequent 'list'.
 func TestRepository_Add(t *testing.T) {
+	os.Setenv("XDG_CONFIG_HOME", newTempDir()) // use tmp dir for repos
 	var (
-		client = mock.NewClient()
-		add    = NewRepositoryAddCmd(testRepositoryClientFn(client))
-		list   = NewRepositoryListCmd(testRepositoryClientFn(client))
+		add    = NewRepositoryAddCmd()
+		list   = NewRepositoryListCmd()
 		stdout = piped(t)
 	)
+
 	// add [flags] <old> <new>
 	add.SetArgs([]string{
-		"--repositories=testpath",
 		"newrepo",
-		"https://git.example.com/user/repo",
+		testRepoURI("repository", t),
 	})
 
 	// Parse flags and args, performing action
 	if err := add.Execute(); err != nil {
 		t.Fatal(err)
-	}
-
-	// Assert the repositories flag was parsed and provided to client
-	if client.RepositoriesPath != "testpath" {
-		t.Fatal("repositories flag not passed to client")
 	}
 
 	// List post-add, capturing output from stdout
@@ -85,23 +70,22 @@ func TestRepository_Add(t *testing.T) {
 // positional arguments, respects the repositories path flag, and the name is
 // reflected as having been reanamed upon subsequent 'list'.
 func TestRepository_Rename(t *testing.T) {
+	os.Setenv("XDG_CONFIG_HOME", newTempDir()) // use tmp dir for repos
 	var (
-		client = mock.NewClient()
-		add    = NewRepositoryAddCmd(testRepositoryClientFn(client))
-		rename = NewRepositoryRenameCmd(testRepositoryClientFn(client))
-		list   = NewRepositoryListCmd(testRepositoryClientFn(client))
+		add    = NewRepositoryAddCmd()
+		rename = NewRepositoryRenameCmd()
+		list   = NewRepositoryListCmd()
 		stdout = piped(t)
 	)
 
 	// add a repo which will be renamed
-	add.SetArgs([]string{"newrepo", "https://git.example.com/user/repo"})
+	add.SetArgs([]string{"newrepo", testRepoURI("repository", t)})
 	if err := add.Execute(); err != nil {
 		t.Fatal(err)
 	}
 
 	// rename [flags] <old> <new>
 	rename.SetArgs([]string{
-		"--repositories=testpath",
 		"newrepo",
 		"renamed",
 	})
@@ -109,11 +93,6 @@ func TestRepository_Rename(t *testing.T) {
 	// Parse flags and args, performing action
 	if err := rename.Execute(); err != nil {
 		t.Fatal(err)
-	}
-
-	// Assert the repositories flag was parsed and provided to client
-	if client.RepositoriesPath != "testpath" {
-		t.Fatal("repositories flag not passed to client")
 	}
 
 	// List post-rename, capturing output from stdout
@@ -133,34 +112,28 @@ func TestRepository_Rename(t *testing.T) {
 // its argument, respects the repositorieis flag, and the entry is removed upon
 // subsequent 'list'.
 func TestRepository_Remove(t *testing.T) {
+	os.Setenv("XDG_CONFIG_HOME", newTempDir()) // use tmp dir for repos
 	var (
-		client = mock.NewClient()
-		add    = NewRepositoryAddCmd(testRepositoryClientFn(client))
-		remove = NewRepositoryRemoveCmd(testRepositoryClientFn(client))
-		list   = NewRepositoryListCmd(testRepositoryClientFn(client))
+		add    = NewRepositoryAddCmd()
+		remove = NewRepositoryRemoveCmd()
+		list   = NewRepositoryListCmd()
 		stdout = piped(t)
 	)
 
 	// add a repo which will be removed
-	add.SetArgs([]string{"newrepo", "https://git.example.com/user/repo"})
+	add.SetArgs([]string{"newrepo", testRepoURI("repository", t)})
 	if err := add.Execute(); err != nil {
 		t.Fatal(err)
 	}
 
 	// remove [flags] <name>
 	remove.SetArgs([]string{
-		"--repositories=testpath",
 		"newrepo",
 	})
 
 	// Parse flags and args, performing action
 	if err := remove.Execute(); err != nil {
 		t.Fatal(err)
-	}
-
-	// Assert the repositories flag was parsed and provided to client
-	if client.RepositoriesPath != "testpath" {
-		t.Fatal("repositories flag not passed to client")
 	}
 
 	// List post-remove, capturing output from stdout
@@ -178,30 +151,6 @@ func TestRepository_Remove(t *testing.T) {
 
 // Helpers
 // -------
-
-// testClientFn returns a repositoryClientFn which always returns the provided
-// mock client.  The client may have various function implementations overridden
-// so as to test particular cases, and a config object is created from the
-// flags and environment variables in the same way as the actual commands, with
-// the effective value recorded on the mock as members for test assertions.
-func testRepositoryClientFn(client *mock.Client) repositoryClientFn {
-	c := testRepositoryClient{client} // type gymnastics
-	return func(args []string) (repositoryConfig, RepositoryClient, error) {
-		cfg, err := newRepositoryConfig(args)
-		client.Confirm = cfg.Confirm
-		client.RepositoriesPath = cfg.Repositories
-		if err != nil {
-			return cfg, c, err
-		}
-		return cfg, c, nil
-	}
-}
-
-type testRepositoryClient struct{ *mock.Client }
-
-func (c testRepositoryClient) Repositories() Repositories {
-	return Repositories(c.Client.Repositories())
-}
 
 // pipe the output of stdout to a buffer whose value is returned
 // from the returned function.  Call pipe() to start piping output
@@ -237,4 +186,27 @@ func piped(t *testing.T) func() string {
 		}
 		return strings.TrimSpace(b.String())
 	}
+}
+
+// TEST REPO URI:  Return URI to repo in ./testdata of matching name.
+// Suitable as URI for repository override. returns in form file://
+// Must be called prior to mktemp in tests which changes current
+// working directory as it depends on a relative path.
+// Repo uri:  file://$(pwd)/testdata/repository.git (unix-like)
+//            file: //$(pwd)\testdata\repository.git (windows)
+func testRepoURI(name string, t *testing.T) string {
+	t.Helper()
+	cwd, _ := os.Getwd()
+	repo := filepath.Join(cwd, "testdata", name+".git")
+	return fmt.Sprintf(`file://%s`, filepath.ToSlash(repo))
+}
+
+// create a temp dir.  prefixed 'func'.  panic on fail.
+// TODO: check if this is a duplicate:
+func newTempDir() string {
+	path, err := ioutil.TempDir("", "func")
+	if err != nil {
+		panic(err)
+	}
+	return path
 }
