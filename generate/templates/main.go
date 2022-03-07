@@ -109,12 +109,9 @@ var tab = []byte("\t")
 const bytesInLine = 32
 
 func (g *goByteArrayWriter) Write(bs []byte) (written int, err error) {
-	var n int
-
 	for _, b := range bs {
 		if g.i == 0 {
-			n, err = g.w.Write(tab)
-			written += n
+			_, err = g.w.Write(tab)
 			if err != nil {
 				return
 			}
@@ -122,27 +119,25 @@ func (g *goByteArrayWriter) Write(bs []byte) (written int, err error) {
 
 		g.hexDigitWithComma[2] = hexs[b>>4]
 		g.hexDigitWithComma[3] = hexs[b&0x0f]
-		n, err = g.w.Write(g.hexDigitWithComma)
-		written += n
+		_, err = g.w.Write(g.hexDigitWithComma)
 		if err != nil {
 			return
 		}
 
 		if g.i == bytesInLine-1 {
-			n, err = g.w.Write(newLine)
-			written += n
+			_, err = g.w.Write(newLine)
 			if err != nil {
 				return
 			}
 			g.i = 0
 		} else {
-			n, err = g.w.Write(space)
-			written += n
+			_, err = g.w.Write(space)
 			if err != nil {
 				return
 			}
 			g.i++
 		}
+		written += 1
 	}
 
 	return
