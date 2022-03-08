@@ -105,7 +105,10 @@ func TestCreateConfig_RepositoriesPath(t *testing.T) {
 	expected := filepath.Join(xdgConfigHome, "func", "repositories")
 
 	cmd := NewCreateCmd()
-	cfg, err := newCreateConfig(cmd, []string{})
+	var cfg createConfig
+	if cfg, err = newCreateConfig(cmd, []string{}); err != nil {
+		t.Fatal(err)
+	}
 
 	if cfg.Repositories != expected {
 		t.Fatalf("expected repositories default path to be '%v', got '%v'", expected, cfg.Repositories)
