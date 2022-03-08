@@ -56,7 +56,6 @@ EXAMPLES
 	  $ {{.Name}} invoke
 
 	For more examples, see '{{.Name}} <command> --help'.`,
-		PreRunE: bindEnv("verbose"),
 	}
 
 	// Environment Variables
@@ -68,6 +67,10 @@ EXAMPLES
 	// Flags
 	// persistent flags are available to all subcommands implicitly
 	cmd.PersistentFlags().BoolP("verbose", "v", false, "print verbose logs ($FUNC_VERBOSE)")
+	err := viper.BindPFlag("verbose", cmd.PersistentFlags().Lookup("verbose"))
+	if err != nil {
+		return cmd, err
+	}
 
 	// Version
 	// Gather the statically-set version values (populated durin build) into
