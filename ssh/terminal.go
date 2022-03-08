@@ -3,6 +3,7 @@ package ssh
 import (
 	"bufio"
 	"bytes"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -99,7 +100,7 @@ func NewHostKeyCbk() HostKeyCallback {
 		msg := `The authenticity of host %s cannot be established.
 %s key fingerprint is %s
 Are you sure you want to continue connecting (yes/no)? `
-		fmt.Fprintf(os.Stdout, msg, hostPort, pubKey.Type(), ssh.FingerprintSHA256(pubKey))
+		fmt.Fprintf(os.Stderr, msg, hostPort, pubKey.Type(), ssh.FingerprintSHA256(pubKey))
 		reader := bufio.NewReader(os.Stdin)
 		answer, err := reader.ReadString('\n')
 		if err != nil {
@@ -110,6 +111,8 @@ Are you sure you want to continue connecting (yes/no)? `
 
 		if answer == "yes" || answer == "y" {
 			trust = pubKey.Marshal()
+			fmt.Fprintf(os.Stderr, "To avoid this in future add following line into your ~/.ssh/known_hosts:\n%s %s %s\n",
+				hostPort, pubKey.Type(), base64.StdEncoding.EncodeToString(trust))
 			return nil
 		}
 
