@@ -146,7 +146,7 @@ func runBuild(cmd *cobra.Command, _ []string, options ...fn.Option) (err error) 
 	// Create a client using the registry defined in config plus any additional
 	// options provided (such as mocks for testing)
 	options = append([]fn.Option{fn.WithRegistry(config.Registry)}, options...)
-	client, done := NewClient("", config.Verbose, options...)
+	client, done := NewClient(DefaultNamespace, config.Verbose, options...)
 	defer done()
 
 	err = client.Build(cmd.Context(), config.Path)

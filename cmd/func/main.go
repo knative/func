@@ -26,13 +26,13 @@ func main() {
 		os.Exit(137)
 	}()
 
-	version := cmd.Version{
-		Date: date,
-		Vers: vers,
-		Hash: hash,
-	}
+	var (
+		version = cmd.Version{Date: date, Vers: vers, Hash: hash}
+		root    = cmd.NewRootCmd("func", version)
+		err     = root.ExecuteContext(ctx)
+	)
 
-	if err := cmd.NewRootCmd("func", version).ExecuteContext(ctx); err != nil {
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		if ctx.Err() != nil {
 			os.Exit(130)

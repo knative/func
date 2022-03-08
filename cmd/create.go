@@ -107,9 +107,7 @@ func runCreate(cmd *cobra.Command, args []string) (err error) {
 	// Client
 	// From environment variables, flags, arguments, and user prompts if --confirm
 	// (in increasing levels of precidence)
-	client, done := NewClient(
-		"", // default namespace
-		cfg.Verbose,
+	client, done := NewClient(DefaultNamespace, cfg.Verbose,
 		fn.WithRepository(cfg.Repository),
 		fn.WithRepositories(cfg.Repositories))
 	defer done()
@@ -153,8 +151,7 @@ func runCreateHelp(cmd *cobra.Command, args []string) {
 	cfg, err := newCreateConfig(cmd, args)
 	failSoft(err)
 
-	client, done := NewClient(
-		"", cfg.Verbose,
+	client, done := NewClient(DefaultNamespace, cfg.Verbose,
 		fn.WithRepositories(cfg.Repositories),
 		fn.WithRepository(cfg.Repository))
 	defer done()
@@ -250,7 +247,7 @@ func newCreateConfig(cmd *cobra.Command, args []string) (cfg createConfig, err e
 
 	// Create a tempoarary client for use by the following prompts to complete
 	// runtime/template suggestions etc
-	client, done := NewClient("", cfg.Verbose)
+	client, done := NewClient(DefaultNamespace, cfg.Verbose)
 	defer done()
 
 	// IN confirm mode.  If also in an interactive terminal, run prompts.
@@ -503,7 +500,7 @@ func newRuntimeCompletionFunc() flagCompletionFunc {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error creating client config for flag completion: %v", err)
 		}
-		client, done := NewClient("", cfg.Verbose)
+		client, done := NewClient(DefaultNamespace, cfg.Verbose)
 		defer done()
 		return CompleteRuntimeList(cmd, args, toComplete, client)
 	}
@@ -515,7 +512,7 @@ func newTemplateCompletionFunc() flagCompletionFunc {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error creating client config for flag completion: %v", err)
 		}
-		client, done := NewClient("", cfg.Verbose)
+		client, done := NewClient(DefaultNamespace, cfg.Verbose)
 		defer done()
 		return CompleteTemplateList(cmd, args, toComplete, client)
 	}

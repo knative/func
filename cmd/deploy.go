@@ -155,14 +155,8 @@ func runDeploy(cmd *cobra.Command, _ []string, options ...fn.Option) (err error)
 		config.Registry = ""
 	}
 
-	// Create a client using values from the config, and any options
-	// provided (such as for providing mocks for the pipelines provider
-	// and deployer for testing))
 	options = append([]fn.Option{fn.WithRegistry(config.Registry)}, options...)
-	client, done := NewClient(
-		config.Namespace,
-		config.Verbose,
-		options...)
+	client, done := NewClient(config.Namespace, config.Verbose, options...)
 	defer done()
 
 	switch currentBuildType {

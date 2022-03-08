@@ -268,7 +268,7 @@ func runRepositoryList(_ *cobra.Command, args []string) (err error) {
 		return
 	}
 
-	client, done := NewClient("", cfg.Verbose,
+	client, done := NewClient(DefaultNamespace, cfg.Verbose,
 		fn.WithRepositories(cfg.Repositories))
 	defer done()
 
@@ -302,7 +302,7 @@ func runRepositoryAdd(_ *cobra.Command, args []string) (err error) {
 		return
 	}
 
-	client, done := NewClient("", cfg.Verbose,
+	client, done := NewClient(DefaultNamespace, cfg.Verbose,
 		fn.WithRepositories(cfg.Repositories))
 	defer done()
 
@@ -383,7 +383,7 @@ func runRepositoryRename(_ *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return
 	}
-	client, done := NewClient("", cfg.Verbose,
+	client, done := NewClient(DefaultNamespace, cfg.Verbose,
 		fn.WithRepositories(cfg.Repositories))
 	defer done()
 
@@ -406,7 +406,7 @@ func runRepositoryRename(_ *cobra.Command, args []string) (err error) {
 
 	// Repositories installed according to the client
 	// (does not include the builtin default)
-	repositories, err := installedRepositories(repositoryClient{client})
+	repositories, err := installedRepositories(client)
 	if err != nil {
 		return
 	}
@@ -454,7 +454,7 @@ func runRepositoryRemove(_ *cobra.Command, args []string) (err error) {
 	if err != nil {
 		return
 	}
-	client, done := NewClient("", cfg.Verbose,
+	client, done := NewClient(DefaultNamespace, cfg.Verbose,
 		fn.WithRepositories(cfg.Repositories))
 	defer done()
 
@@ -481,7 +481,7 @@ func runRepositoryRemove(_ *cobra.Command, args []string) (err error) {
 
 	// Repositories installed according to the client
 	// (does not include the builtin default)
-	repositories, err := installedRepositories(repositoryClient{client})
+	repositories, err := installedRepositories(client)
 	if err != nil {
 		return
 	}
@@ -544,7 +544,7 @@ func runRepositoryRemove(_ *cobra.Command, args []string) (err error) {
 
 // Installed repositories
 // All repositories which have been installed (does not include builtin)
-func installedRepositories(client RepositoryClient) ([]string, error) {
+func installedRepositories(client *fn.Client) ([]string, error) {
 	// Client API contract stipulates the list always lists the defeault builtin
 	// repo, and always lists it at index 0
 	repositories, err := client.Repositories().List()
@@ -631,34 +631,4 @@ func (c repositoryConfig) prompt() (repositoryConfig, error) {
 	}
 	err := survey.Ask(qs, &c)
 	return c, err
-}
-
-// Type Gymnastics
-// ---------------
-
-// RepositoryClient enumerates the API required of a functions.Client to
-// implement the various repository commands.
-type RepositoryClient interface {
-	Repositories() Repositories
-}
-
-// Repositories enumerates the API required of the object returned from
-// client.Repositories.
-type Repositories interface {
-	All() ([]fn.Repository, error)
-	List() ([]string, error)
-	Add(name, url string) (string, error)
-	Rename(old, new string) error
-	Remove(name string) error
-}
-
-// repositoryClient implements RepositoryClient by embedding
-// a functions.Client and overriding the Repositories accessor
-// to return an interaface type.  This is because an instance
-// of functions.Client can not be directly treated as a RepositoryClient due
-// to the return value of Repositories being a concrete type.
-type repositoryClient struct{ *fn.Client }
-
-func (c repositoryClient) Repositories() Repositories {
-	return Repositories(c.Client.Repositories())
 }

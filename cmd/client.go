@@ -16,18 +16,17 @@ import (
 	"knative.dev/kn-plugin-func/progress"
 )
 
+// DefaultNamespace is empty, indicating the namespace currently configured
+// in the client's connection should be used.
+const DefaultNamespace = ""
+
 // NewClient creates an fn.Client with the majority of the concrete
 // implementations defaulted.  Provide additional Options to this constructor
-// to override or augment as needed.  Returned is also a cleanup function
-// which is the responsibility of the caller to invoke to free potentially
-// dedicated resources. To free these resources (after instances of
-// function.Client are no longer in use) the caller of this constructor should
-// invoke the cleanup routine.
-// 'Namespace' is optional.  If not provided, the
-// currently configured namespace will be used.
-// 'Verbose' indicates the system should write out a higher amount of information
-// about its execution.
-// Usage:
+// to override or augment as needed. Note the reutrned cleanup function.
+// 'Namespace' is optional.  If not provided (see DefaultNamespace), the
+// currently configured is used.
+// 'Verbose' indicates the system should write out a higher amount of logging.
+// Example:
 //   client, done := NewClient("",false)
 //   defer done()
 func NewClient(namespace string, verbose bool, options ...fn.Option) (*fn.Client, func()) {
@@ -57,17 +56,20 @@ func NewClient(namespace string, verbose bool, options ...fn.Option) (*fn.Client
 				docker.WithVerbose(verbose))),
 		}
 	)
-	client := fn.New(append(o, options...)...) // standard plus extra options
 
-	// Include a deferrable cleanup function which will attempt to close
-	// the concrete transport.
-	done := func() {
+	// Client is constructed with standard options plus any additional options
+	// which either augment or override the defaults.
+	client := fn.New(append(o, options...)...)
+
+	// A deferrable cleanup function which is used to perform any cleanup, such
+	// as closing the transport
+	cleanup := func() {
 		if err := t.Close(); err != nil {
 			fmt.Fprintf(os.Stderr, "error closing http transport. %v", err)
 		}
 	}
 
-	return client, done
+	return client, cleanup
 }
 
 // newTransport returns a transport with cluster-flavor-specific variations

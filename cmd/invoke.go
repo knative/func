@@ -207,8 +207,7 @@ func newInvokeConfig() (cfg invokeConfig, err error) {
 		return
 	}
 
-	// Client instance for use during prompting, using the best config
-	// we have yet (defaults, environment variables, flags)
+	// Client instance for use during prompting.
 	client, done := NewClient(cfg.Namespace, cfg.Verbose)
 	defer done()
 

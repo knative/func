@@ -86,9 +86,7 @@ func runDelete(cmd *cobra.Command, args []string, options ...fn.Option) (err err
 		config.Namespace = function.Namespace
 	}
 
-	// Create a client instance from the now-final config, using any options
-	// that may have been provided (such as for overriding the default
-	// implementation's remover for mocking).
+	// Create a client instance from the now-final config
 	client, done := NewClient(config.Namespace, config.Verbose, options...)
 	defer done()
 

@@ -78,7 +78,7 @@ func runRun(cmd *cobra.Command, args []string, options ...fn.Option) (err error)
 	// gathered plus any additional option overrieds (such as for providing
 	// mocks when testing for builder and runner)
 	options = append([]fn.Option{fn.WithRegistry(config.Registry)}, options...)
-	client, done := NewClient("", config.Verbose, options...)
+	client, done := NewClient(DefaultNamespace, config.Verbose, options...)
 	defer done()
 
 	// Build if not built and --build
