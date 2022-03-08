@@ -143,6 +143,11 @@ func runBuild(cmd *cobra.Command, _ []string, options ...fn.Option) (err error) 
 		config.Registry = ""
 	}
 
+	// TODO(lkingland): The below deferred options gathering is what will
+	// re-enable the addition of alternative implementations of the Builder,
+	// unblocking PR https://github.com/knative-sandbox/kn-plugin-func/pull/842
+	// the implementation of which will be inserted here.
+
 	// Create a client using the registry defined in config plus any additional
 	// options provided (such as mocks for testing)
 	options = append([]fn.Option{fn.WithRegistry(config.Registry)}, options...)
