@@ -6,24 +6,12 @@ import (
 	"os"
 	"testing"
 
+	"github.com/ory/viper"
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/mock"
 )
 
-var disableRunTest = true
-
 func TestRun_Run(t *testing.T) {
-	if disableRunTest {
-		return
-	} // TODO:  this test needs a little love.
-	// It currently is implemented by directly manipulating an artifact of an
-	// implementation detail of the client library: func.yaml
-	// func.yaml is is the serialized state of the Function; not really intended
-	// to be a public API. Rather than write the value of func.yaml directly,
-	// we would probably be best served by creating the desired test system state
-	// transitions through API calls.
-	// See Issue #TBD
-
 	tests := []struct {
 		name         string // name of the test
 		desc         string // description of the test
@@ -106,7 +94,7 @@ created: 2009-11-10 23:00:00`,
 			)
 
 			// set test case's build
-			cmd.SetArgs([]string{"--build", fmt.Sprintf("%v", tt.buildFlag)})
+			viper.SetDefault("build", tt.buildFlag)
 
 			// set test case's func.yaml
 			if err := os.WriteFile("func.yaml", []byte(tt.funcState), os.ModePerm); err != nil {
