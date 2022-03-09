@@ -81,8 +81,6 @@ public class SpringCloudEventsApplicationTests {
       .value(), equalTo(200));
     String body = response.getBody();
     assertThat(body, notNullValue());
-    
-    assertThat(body, notNullValue());
     assertThat(body, equalTo(input));
   }
 }
