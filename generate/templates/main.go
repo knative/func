@@ -133,7 +133,7 @@ func (g *goByteArrayWriter) Write(bs []byte) (written int, err error) {
 		} else {
 			g.i++
 		}
-		
+
 		written += 1
 	}
 
