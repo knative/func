@@ -14,4 +14,3 @@ healthEndpoints:
 invocation:
   # Invocations of Functions from this template is via basic HTTP CloudEvent
   format: "cloudevent"
-  
