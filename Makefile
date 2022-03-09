@@ -60,10 +60,12 @@ check: bin/golangci-lint ## Check code quality (lint)
 bin/golangci-lint:
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./bin v1.43.0
 
-.PHONY: zz_filesystem_generated.go
+.PHONY: clean_templates
 
-zz_filesystem_generated.go:
+clean_templates:
 	# Removing temporary template files
+	@rm -f templates/go/cloudevents/go.sum
+	@rm -f templates/go/http/go.sum
 	@rm -rf templates/node/cloudevents/node_modules
 	@rm -rf templates/node/http/node_modules
 	@rm -rf templates/python/cloudevents/__pycache__
@@ -76,13 +78,18 @@ zz_filesystem_generated.go:
 	@rm -rf templates/quarkus/http/target
 	@rm -rf templates/springboot/cloudevents/target
 	@rm -rf templates/springboot/http/target
+	@rm -f templates/**/.DS_Store
+
+.PHONY: zz_filesystem_generated.go
+
+zz_filesystem_generated.go: clean_templates
 	go generate filesystem.go
 
-clean: ## Remove generated artifacts such as binaries and schemas
+.PHONY: clean
+
+clean: clean_templates ## Remove generated artifacts such as binaries and schemas
 	rm -f $(BIN) $(BIN_WINDOWS) $(BIN_LINUX) $(BIN_DARWIN)
 	rm -f schema/func_yaml-schema.json
-	rm -f templates/go/cloudevents/go.sum
-	rm -f templates/go/http/go.sum
 	rm -f coverage.out
 
 
