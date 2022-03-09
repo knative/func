@@ -29,14 +29,14 @@ The client library and CLI are self-contained
 by encoding this directory as a ZIP byte array in the `zz_filesystem_generated.go` file.
 Therefore, any updates to templates requires re-generating this file.
 
-When changes are made to a template's source code,
+When changes are made to files in the `./templates` directory,
 regenerate `zz_filesystem_generated.go` by running `make zz_filesystem_generated.go`.
 It is also important to run the unit tests of the template modified.
 For example, to run the unit tests of the Go templates, use `make test-go`.
 For a list of available make targets, use `make help`.
 
 **Tip**:
-Put following script to your `.git/hooks/pre-commit`.
+Put the following script in your `.git/hooks/pre-commit` file.
 
 ```sh
 #!/bin/sh
