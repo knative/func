@@ -23,10 +23,50 @@ Before submitting code in a Pull Request, please run `make check` and resolve an
 
 When a new Function is created, a few files are placed in the new Function's directory.  This includes source code illustrating a minimal Function of the requested type (language runtime and function signature) as well as Function metadata in a `func.yaml` file.
 
-The source of these templates is `./templates`; a directory subdivided by language and template name.  For example, the Go HTTP template is located in `./templates/go/http`.  The client library and CLI are self-contained by encoding this directory as `pkged.go`.   Therefore any updates to templates requires re-generating this file.
+The source of these templates is `./templates`; a directory subdivided by language and template name.
+For example, the Go HTTP template is located in `./templates/go/http`.
+The client library and CLI are self-contained
+by encoding this directory as a ZIP byte array in the `zz_filesystem_generated.go` file.
+Therefore, any updates to templates requires re-generating this file.
 
-When changes are made to a template's source code, regenerate `pkged.go` by running `make pkged.go`.  It is also important to run the unit tests of the template modified.  For example, to run the unit tests of the Go templates, use `make test-go`.  For a list of available make targets, use `make help`.
+When changes are made to a template's source code,
+regenerate `zz_filesystem_generated.go` by running `make zz_filesystem_generated.go`.
+It is also important to run the unit tests of the template modified.
+For example, to run the unit tests of the Go templates, use `make test-go`.
+For a list of available make targets, use `make help`.
 
+**Tip**:
+Put following script to your `.git/hooks/pre-commit`.
+
+```sh
+#!/bin/sh
+
+if git diff-index --cached --name-only HEAD | grep -iP "^templates/.*$" >/dev/null; then
+  if ! git diff-index --cached --name-only HEAD | grep -iP "^zz_filesystem_generated.go$" >/dev/null; then
+    echo "WARNING: You are about to commit changes to the templates directory," \
+      "but the generated zz_filesystem_generated.go file is not staged."
+    echo "If this is intentional use '--no-verify' flag."
+    exit 1
+  fi
+fi
+
+if git diff-index --cached --name-only HEAD | grep -iP "^zz_filesystem_generated.go$" >/dev/null; then
+  UNVERSIONED=$(git ls-files --others --exclude-standard --ignored -- templates/ 2>/dev/null)
+  if [ -n "$UNVERSIONED" ]; then
+    echo "WARNING: You are about to commit zz_filesystem_generated.go," \
+      "but the templates directory contains some unversioned files" \
+      "that may be unintentionally included in zz_filesystem_generated.go"
+    for f in $UNVERSIONED; do
+      echo "    $f"
+    done
+    echo "If this is intentional use '--no-verify' flag."
+    exit 1
+  fi
+fi
+
+exit 0
+
+```
 
 ## Integration Testing
 
