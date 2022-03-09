@@ -34,7 +34,7 @@ public class SpringCloudEventsApplicationTests {
   public void testEchoInput() throws Exception {
 
     String input ="hello";
-   
+
     HttpHeaders ceHeaders = new HttpHeaders();
     ceHeaders.add(SPECVERSION, "1.0");
     ceHeaders.add(ID, UUID.randomUUID()

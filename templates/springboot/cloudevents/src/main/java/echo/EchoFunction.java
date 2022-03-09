@@ -34,7 +34,7 @@ public class EchoFunction implements Function<Message<String>, Message<String>> 
      LOGGER.log(Level.INFO, "Input CE Subject:{0}", httpHeaders.getFirst(SUBJECT));
      String input = inputMessage.getPayload();
      LOGGER.log(Level.INFO, "Input {0} ", input);
- 
+
      return CloudEventMessageBuilder.withData(input)
         .setType("Echo").setId(UUID.randomUUID().toString())
         .setSubject("Echo event")
