@@ -6,8 +6,6 @@ This document details how to get started contributing to the project.  This incl
 
 To build the core project, run `make` from the repository root.  This will result in a `func` binary being generated.  Run `make help` for additional targets and `./func help` for usage-centric documentation.
 
-Building currently requires that `pkger` be available in your `$PATH`.  This can be installed with `go get github.com/markbates/pkger/cmd/pkger`.  See [Templates](#templates) below for more information on this dependency.
-
 To remove built artifacts, use `make clean`.
 
 ## Testing
