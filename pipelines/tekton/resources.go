@@ -14,9 +14,7 @@ import (
 
 const (
 	fetchRepositoryTask = "fetch-repository"
-	backupSourceTask    = "backup-source"
 	buildTask           = "build"
-	restoreSourceTask   = "restore-source"
 	imageDigestTask     = "image-digest"
 )
 
@@ -74,10 +72,8 @@ func generatePipeline(f fn.Function, labels map[string]string) *pplnv1beta1.Pipe
 
 	tasks := pplnv1beta1.PipelineTaskList{
 		taskFetchRepository(),
-		taskBackupSource(fetchRepositoryTask),
-		taskBuild(backupSourceTask),
-		taskRestoreSource(buildTask),
-		taskImageDigest(restoreSourceTask),
+		taskBuild(fetchRepositoryTask),
+		taskImageDigest(buildTask),
 		taskFuncDeploy(imageDigestTask),
 	}
 

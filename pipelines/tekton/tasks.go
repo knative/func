@@ -22,44 +22,6 @@ func taskFetchRepository() pplnv1beta1.PipelineTask {
 	}
 }
 
-func taskBackupSource(runAfter string) pplnv1beta1.PipelineTask {
-	script := `#!/usr/bin/env bash
-set -e
-
-echo "Backing up source files"
-cp -r -v /workspace/source/* /workspace/backup-source
-	`
-
-	return pplnv1beta1.PipelineTask{
-		Name: "backup-source",
-		TaskSpec: &pplnv1beta1.EmbeddedTask{
-			TaskSpec: pplnv1beta1.TaskSpec{
-				Workspaces: []pplnv1beta1.WorkspaceDeclaration{
-					{Name: "source"},
-					{Name: "backup-source"},
-				},
-				Steps: []pplnv1beta1.Step{
-					{
-						Container: corev1.Container{
-							Image: "docker.io/library/bash:5.1.4@sha256:b208215a4655538be652b2769d82e576bc4d0a2bb132144c060efc5be8c3f5d6",
-						},
-						Script: script,
-					},
-				},
-			},
-		},
-		RunAfter: []string{runAfter},
-		Workspaces: []pplnv1beta1.WorkspacePipelineTaskBinding{{
-			Name:      "source",
-			Workspace: "source-workspace",
-		},
-			{Name: "backup-source",
-				Workspace: "backup-source-workspace",
-			},
-		},
-	}
-}
-
 func taskBuild(runAfter string) pplnv1beta1.PipelineTask {
 	return pplnv1beta1.PipelineTask{
 		Name: "build",
@@ -73,6 +35,10 @@ func taskBuild(runAfter string) pplnv1beta1.PipelineTask {
 				Workspace: "source-workspace",
 			},
 			{
+				Name:      "backup-source",
+				Workspace: "backup-source-workspace",
+			},
+			{
 				Name:      "cache",
 				Workspace: "cache-workspace",
 			}},
@@ -80,44 +46,6 @@ func taskBuild(runAfter string) pplnv1beta1.PipelineTask {
 			{Name: "APP_IMAGE", Value: *pplnv1beta1.NewArrayOrString("$(params.imageName)")},
 			{Name: "SOURCE_SUBPATH", Value: *pplnv1beta1.NewArrayOrString("$(params.contextDir)")},
 			{Name: "BUILDER_IMAGE", Value: *pplnv1beta1.NewArrayOrString("$(params.builderImage)")},
-		},
-	}
-}
-
-func taskRestoreSource(runAfter string) pplnv1beta1.PipelineTask {
-	script := `#!/usr/bin/env bash
-set -e
-
-echo "Restoring source files"
-mv -v /workspace/backup-source/* /workspace/source
-	`
-
-	return pplnv1beta1.PipelineTask{
-		Name: "restore-source",
-		TaskSpec: &pplnv1beta1.EmbeddedTask{
-			TaskSpec: pplnv1beta1.TaskSpec{
-				Workspaces: []pplnv1beta1.WorkspaceDeclaration{
-					{Name: "source"},
-					{Name: "backup-source"},
-				},
-				Steps: []pplnv1beta1.Step{
-					{
-						Container: corev1.Container{
-							Image: "docker.io/library/bash:5.1.4@sha256:b208215a4655538be652b2769d82e576bc4d0a2bb132144c060efc5be8c3f5d6",
-						},
-						Script: script,
-					},
-				},
-			},
-		},
-		RunAfter: []string{runAfter},
-		Workspaces: []pplnv1beta1.WorkspacePipelineTaskBinding{{
-			Name:      "source",
-			Workspace: "source-workspace",
-		},
-			{Name: "backup-source",
-				Workspace: "backup-source-workspace",
-			},
 		},
 	}
 }
