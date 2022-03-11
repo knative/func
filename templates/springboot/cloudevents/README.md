@@ -2,7 +2,7 @@
 
 Welcome to your new Function project!
 
-This sample project contains a single function based on Spring Cloud Function: `functions.CloudFunctionApplication.uppercase()`, which returns the uppercase of the data passed via CloudEvents.
+This sample project contains a single function based on Spring Cloud Function: `echo.EchoFunction`, which returns an echo of the data passed via CloudEvents.
 
 ## Local execution
 
@@ -95,11 +95,11 @@ Using CloudEvents `Ce-Type` routing:
 curl -v "$URL/" \
   -H "Content-Type:application/json" \
   -H "Ce-Id:1" \
-  -H "Ce-Subject:Uppercase" \
+  -H "Ce-Subject:Echo" \
   -H "Ce-Source:cloud-event-example" \
-  -H "Ce-Type:uppercase" \
+  -H "Ce-Type:MyEvent" \
   -H "Ce-Specversion:1.0" \
-  -d "{\"input\": \"$(whoami)\"}\""
+  -d "hello"
 ```
 
 Using Path-Based routing:
@@ -107,11 +107,11 @@ Using Path-Based routing:
 curl -v "$URL/uppercase" \
   -H "Content-Type:application/json" \
   -H "Ce-Id:1" \
-  -H "Ce-Subject:Uppercase" \
+  -H "Ce-Subject:Echo" \
   -H "Ce-Source:cloud-event-example" \
-  -H "Ce-Type:my-event" \
+  -H "Ce-Type:MyEvent" \
   -H "Ce-Specversion:1.0" \
-  -d "{\"input\": \"$(whoami)\"}\""
+  -d "hello"
 ```
 
 ### HTTPie
@@ -121,23 +121,23 @@ Using CloudEvents `Ce-Type` routing:
 http -v "$URL/" \
   Content-Type:application/json \
   Ce-Id:1 \
-  Ce-Subject:Uppercase \
+  Ce-Subject:Echo \
   Ce-Source:cloud-event-example \
-  Ce-Type:uppercase \
+  Ce-Type:MyEvent \
   Ce-Specversion:1.0 \
-  input=$(whoami)
+  hello
 ```
 
 Using Path-Based routing:
 ```shell script
-http -v "$URL/uppercase" \
+http -v "$URL/echo" \
   Content-Type:application/json \
   Ce-Id:1 \
-  Ce-Subject:Uppercase \
+  Ce-Subject:Echo \
   Ce-Source:cloud-event-example \
-  Ce-Type:uppercase \
+  Ce-Type:MyEvent \
   Ce-Specversion:1.0 \
-  input=$(whoami)
+  hello
 ```
 
 ## Cleanup

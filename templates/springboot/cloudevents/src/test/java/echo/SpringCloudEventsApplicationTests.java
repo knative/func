@@ -1,4 +1,4 @@
-package functions;
+package echo;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -30,26 +30,21 @@ public class SpringCloudEventsApplicationTests {
   @Autowired
   private TestRestTemplate rest;
 
-  @Autowired
-  ObjectMapper objectMapper = new ObjectMapper();
-
   @Test
-  public void testUpperCaseJsonInput() throws Exception {
+  public void testEchoInput() throws Exception {
 
-    Input input = new Input();
-
-    input.input = "hello";
+    String input ="hello";
 
     HttpHeaders ceHeaders = new HttpHeaders();
     ceHeaders.add(SPECVERSION, "1.0");
     ceHeaders.add(ID, UUID.randomUUID()
         .toString());
-    ceHeaders.add(TYPE, "com.redhat.faas.springboot.test");
-    ceHeaders.add(SOURCE, "http://localhost:8080/uppercase");
-    ceHeaders.add(SUBJECT, "Convert to UpperCase");
+    ceHeaders.add(TYPE, "MyEvent");
+    ceHeaders.add(SOURCE, "http://localhost:8080/echo");
+    ceHeaders.add(SUBJECT, "Echo content");
 
     ResponseEntity<String> response = this.rest.exchange(
-        RequestEntity.post(new URI("/uppercase"))
+        RequestEntity.post(new URI("/echo"))
             .contentType(MediaType.APPLICATION_JSON)
             .headers(ceHeaders)
             .body(input),
@@ -59,12 +54,33 @@ public class SpringCloudEventsApplicationTests {
         .value(), equalTo(200));
     String body = response.getBody();
     assertThat(body, notNullValue());
-    Output output = objectMapper.readValue(body,
-        Output.class);
-    assertThat(output, notNullValue());
-    assertThat(output.input, equalTo("hello"));
-    assertThat(output.operation, equalTo("Convert to UpperCase"));
-    assertThat(output.output, equalTo("HELLO"));
-    assertThat(output.error, nullValue());
+    assertThat(body, equalTo(input));
+  }
+
+  @Test
+  public void testEchoRoutingBasedOnType() throws Exception {
+
+    String input ="hello";
+
+    HttpHeaders ceHeaders = new HttpHeaders();
+    ceHeaders.add(SPECVERSION, "1.0");
+    ceHeaders.add(ID, UUID.randomUUID()
+      .toString());
+    ceHeaders.add(TYPE, "MyEvent");
+    ceHeaders.add(SOURCE, "http://localhost:8080/echo");
+    ceHeaders.add(SUBJECT, "Echo content");
+
+    ResponseEntity<String> response = this.rest.exchange(
+      RequestEntity.post(new URI("/"))
+        .contentType(MediaType.APPLICATION_JSON)
+        .headers(ceHeaders)
+        .body(input),
+      String.class);
+
+    assertThat(response.getStatusCode()
+      .value(), equalTo(200));
+    String body = response.getBody();
+    assertThat(body, notNullValue());
+    assertThat(body, equalTo(input));
   }
 }
