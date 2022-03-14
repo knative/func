@@ -132,7 +132,7 @@ func runInvoke(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 	}
 
 	// Client instance from env vars, flags, args and user prompts (if --confirm)
-	client, done := newClient(cfg.Namespace, cfg.Verbose)
+	client, done := newClient(ClientConfig{Namespace: cfg.Namespace, Verbose: cfg.Verbose})
 	defer done()
 
 	// Message to send the running Function built from parameters gathered
@@ -175,9 +175,9 @@ type invokeConfig struct {
 	Data        string
 	ContentType string
 	File        string
-	Namespace   string
 	Confirm     bool
 	Verbose     bool
+	Namespace   string
 }
 
 func newInvokeConfig() (cfg invokeConfig, err error) {
@@ -192,6 +192,7 @@ func newInvokeConfig() (cfg invokeConfig, err error) {
 		File:        viper.GetString("file"),
 		Confirm:     viper.GetBool("confirm"),
 		Verbose:     viper.GetBool("verbose"),
+		Namespace:   viper.GetString("namespace"),
 	}
 
 	// If file was passed, read it in as data
@@ -209,7 +210,7 @@ func newInvokeConfig() (cfg invokeConfig, err error) {
 	}
 
 	// Client instance for use during prompting.
-	client, done := NewClient(cfg.Namespace, cfg.Verbose)
+	client, done := NewClient(ClientConfig{Namespace: cfg.Namespace, Verbose: cfg.Verbose})
 	defer done()
 
 	// If in interactive terminal mode, prompt to modify defaults.

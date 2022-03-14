@@ -25,7 +25,7 @@ const Verbose = true
 // by commands by default.
 // See NewClientFactory which constructs a minimal CientFactory for use
 // during testing.
-type ClientFactory func(namespace string, verbose bool, options ...fn.Option) (*fn.Client, func())
+type ClientFactory func(ClientConfig, ...fn.Option) (*fn.Client, func())
 
 // NewClientFactory enables simple mocking of a fn.Client during tests.
 // Given is a minimal Client constructor, Returned is full ClientFactory
@@ -35,18 +35,8 @@ type ClientFactory func(namespace string, verbose bool, options ...fn.Option) (*
 // are used during normal operation are ignored.  This allows for simple
 // mocking in tests.
 func NewClientFactory(n func() *fn.Client) ClientFactory {
-	return func(_ string, _ bool, _ ...fn.Option) (*fn.Client, func()) {
+	return func(_ ClientConfig, _ ...fn.Option) (*fn.Client, func()) {
 		return n(), func() {}
-	}
-}
-
-var TestClientFactory = func(string, bool, ...fn.Option) (*fn.Client, func()) {
-	return fn.New(), func() {} // noop client
-}
-
-func panicOnErr(err error) {
-	if err != nil {
-		panic(err)
 	}
 }
 

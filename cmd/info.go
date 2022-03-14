@@ -65,7 +65,7 @@ func runInfo(cmd *cobra.Command, args []string, newClient ClientFactory) (err er
 	}
 
 	// Create a client
-	client, done := newClient(config.Namespace, config.Verbose)
+	client, done := newClient(ClientConfig{Namespace: config.Namespace, Verbose: config.Verbose})
 	defer done()
 
 	// Get the description

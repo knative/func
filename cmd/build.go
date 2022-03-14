@@ -39,9 +39,8 @@ and the image name is stored in the configuration file.
 # Build with a custom buildpack builder
 {{.Name}} build --builder cnbs/sample-builder:bionic
 `,
-		SuggestFor:   []string{"biuld", "buidl", "built"},
-		PreRunE:      bindEnv("image", "path", "builder", "registry", "confirm", "push"),
-		SilenceUsage: true, // we explicitly handle errors in Execute()
+		SuggestFor: []string{"biuld", "buidl", "built"},
+		PreRunE:    bindEnv("image", "path", "builder", "registry", "confirm", "push"),
 	}
 
 	cmd.Flags().StringP("builder", "b", "", "Buildpack builder, either an as a an image name or a mapping name.\nSpecified value is stored in func.yaml for subsequent builds.")
@@ -152,7 +151,7 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 
 	// Create a client using the registry defined in config plus any additional
 	// options provided (such as mocks for testing)
-	client, done := newClient(DefaultNamespace, config.Verbose,
+	client, done := newClient(ClientConfig{Verbose: config.Verbose},
 		fn.WithRegistry(config.Registry))
 	defer done()
 

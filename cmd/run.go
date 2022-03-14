@@ -78,7 +78,7 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 	// Client for use running (and potentially building), using the config
 	// gathered plus any additional option overrieds (such as for providing
 	// mocks when testing for builder and runner)
-	client, done := newClient(DefaultNamespace, config.Verbose, fn.WithRegistry(config.Registry))
+	client, done := newClient(ClientConfig{Verbose: config.Verbose}, fn.WithRegistry(config.Registry))
 	defer done()
 
 	// Build if not built and --build

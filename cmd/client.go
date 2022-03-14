@@ -16,9 +16,19 @@ import (
 	"knative.dev/kn-plugin-func/progress"
 )
 
-// DefaultNamespace is empty, indicating the namespace currently configured
-// in the client's connection should be used.
-const DefaultNamespace = ""
+// ClientConfig settings for use with NewClient
+// These are the minimum settings necessary to create the default client
+// instance which has most subsystems initialized.
+type ClientConfig struct {
+	// Namespace in the remote cluster to use for any client commands which
+	// touch the remote.  Optional.  Empty namespace indicates the namespace
+	// currently configured in the client's connection should be used.
+	Namespace string
+
+	// Verbose logging.  By default logging output is kept to the bare minimum.
+	// Use this flag to configure verbose logging throughout.
+	Verbose bool
+}
 
 // NewClient constructs an fn.Client with the majority of
 // the concrete implementations set.  Provide additional Options to this constructor
@@ -30,31 +40,31 @@ const DefaultNamespace = ""
 // Example:
 //   client, done := NewClient("",false)
 //   defer done()
-func NewClient(namespace string, verbose bool, options ...fn.Option) (*fn.Client, func()) {
+func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 	var (
-		p = progress.New(verbose)     // updates the CLI
+		p = progress.New(cfg.Verbose) // updates the CLI
 		t = newTransport()            // may provide a custom impl which proxies
 		c = newCredentialsProvider(t) // for accessing registries
 		o = []fn.Option{              // standard (shared) options for all commands
-			fn.WithVerbose(verbose),
+			fn.WithVerbose(cfg.Verbose),
 			fn.WithProgressListener(p),
 			fn.WithTransport(t),
-			fn.WithBuilder(buildpacks.NewBuilder(verbose)),
-			fn.WithRemover(knative.NewRemover(namespace, verbose)),
-			fn.WithDescriber(knative.NewDescriber(namespace, verbose)),
-			fn.WithLister(knative.NewLister(namespace, verbose)),
-			fn.WithRunner(docker.NewRunner(verbose)),
-			fn.WithDeployer(knative.NewDeployer(namespace, verbose)),
+			fn.WithBuilder(buildpacks.NewBuilder(cfg.Verbose)),
+			fn.WithRemover(knative.NewRemover(cfg.Namespace, cfg.Verbose)),
+			fn.WithDescriber(knative.NewDescriber(cfg.Namespace, cfg.Verbose)),
+			fn.WithLister(knative.NewLister(cfg.Namespace, cfg.Verbose)),
+			fn.WithRunner(docker.NewRunner(cfg.Verbose)),
+			fn.WithDeployer(knative.NewDeployer(cfg.Namespace, cfg.Verbose)),
 			fn.WithPipelinesProvider(tekton.NewPipelinesProvider(
-				tekton.WithNamespace(namespace),
+				tekton.WithNamespace(cfg.Namespace),
 				tekton.WithProgressListener(p),
 				tekton.WithCredentialsProvider(c),
-				tekton.WithVerbose(verbose))),
+				tekton.WithVerbose(cfg.Verbose))),
 			fn.WithPusher(docker.NewPusher(
 				docker.WithCredentialsProvider(c),
 				docker.WithProgressListener(p),
 				docker.WithTransport(t),
-				docker.WithVerbose(verbose))),
+				docker.WithVerbose(cfg.Verbose))),
 		}
 	)
 

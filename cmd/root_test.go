@@ -58,11 +58,11 @@ func TestRoot_PersistentFlags(t *testing.T) {
 
 			// Assert the persistent variables were propagated to the Client constructor
 			// when the command is actually invoked.
-			cmd = NewRootCmd("func", Version{}, func(namespace string, verbose bool, options ...fn.Option) (*fn.Client, func()) {
-				if namespace != tt.expectedNamespace {
+			cmd = NewRootCmd("func", Version{}, func(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
+				if cfg.Namespace != tt.expectedNamespace {
 					t.Fatal("namespace not propagated")
 				}
-				if verbose != tt.expectedVerbose {
+				if cfg.Verbose != tt.expectedVerbose {
 					t.Fatal("verbose not propagated")
 				}
 				return fn.New(), func() {}
@@ -260,4 +260,10 @@ func TestVerbose(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestClientFactory is convenience factory which returns a test client
+// Client (all subsystems noop).
+var TestClientFactory = func(ClientConfig, ...fn.Option) (*fn.Client, func()) {
+	return fn.New(), func() {} // noop client
 }

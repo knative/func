@@ -154,7 +154,7 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		config.Registry = ""
 	}
 
-	client, done := newClient(config.Namespace, config.Verbose,
+	client, done := newClient(ClientConfig{Namespace: config.Namespace, Verbose: config.Verbose},
 		fn.WithRegistry(config.Registry))
 	defer done()
 

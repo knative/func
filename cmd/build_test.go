@@ -91,24 +91,23 @@ created: 2009-11-10 23:00:00`,
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// create a build command that uses mock builder and pusher
-			// If the test is marked as wanting a failure, use an erroring pusher
-			var (
-				builder = mock.NewBuilder()
-				pusher  = mock.NewPusher()
-			)
-			if tt.wantErr {
-				pusher = &mock.Pusher{
-					PushFn: func(f fn.Function) (string, error) {
-						return "", fmt.Errorf("push failed")
-					},
+			mockPusher := mock.NewPusher()
+			failPusher := &mock.Pusher{
+				PushFn: func(f fn.Function) (string, error) {
+					return "", fmt.Errorf("push failed")
+				},
+			}
+			mockBuilder := mock.NewBuilder()
+			cmd := NewBuildCmd(NewClientFactory(func() *fn.Client {
+				pusher := mockPusher
+				if tt.wantErr {
+					pusher = failPusher
 				}
-			}
-			var newClient ClientFactory
-			newClient = func(_ string, _ bool, o ...fn.Option) (*fn.Client, func()) {
-				return fn.New(fn.WithBuilder(builder), fn.WithPusher(pusher)), func() {}
-			}
-			cmd := NewBuildCmd(newClient)
+				return fn.New(
+					fn.WithBuilder(mockBuilder),
+					fn.WithPusher(pusher),
+				)
+			}))
 
 			tempDir, err := os.MkdirTemp("", "func-tests")
 			if err != nil {
@@ -140,12 +139,12 @@ created: 2009-11-10 23:00:00`,
 				t.Errorf("Wanted error %v but actually got %v", tt.wantErr, err)
 			}
 
-			if builder.BuildInvoked != tt.shouldBuild {
-				t.Errorf("Build execution expected: %v but was actually %v", tt.shouldBuild, builder.BuildInvoked)
+			if mockBuilder.BuildInvoked != tt.shouldBuild {
+				t.Errorf("Build execution expected: %v but was actually %v", tt.shouldBuild, mockBuilder.BuildInvoked)
 			}
 
-			if tt.shouldPush != pusher.PushInvoked {
-				t.Errorf("Push execution expected: %v but was actually: %v", tt.shouldPush, pusher.PushInvoked)
+			if tt.shouldPush != (mockPusher.PushInvoked || failPusher.PushInvoked) {
+				t.Errorf("Push execution expected: %v but was actually mockPusher invoked: %v failPusher invoked %v", tt.shouldPush, mockPusher.PushInvoked, failPusher.PushInvoked)
 			}
 		})
 	}

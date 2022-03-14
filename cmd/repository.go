@@ -278,7 +278,7 @@ func runRepositoryList(_ *cobra.Command, args []string, newClient ClientFactory)
 		return
 	}
 
-	client, done := newClient(DefaultNamespace, cfg.Verbose,
+	client, done := newClient(ClientConfig{Verbose: cfg.Verbose},
 		fn.WithRepositories(cfg.Repositories))
 	defer done()
 
@@ -312,7 +312,7 @@ func runRepositoryAdd(_ *cobra.Command, args []string, newClient ClientFactory) 
 		return
 	}
 
-	client, done := newClient(DefaultNamespace, cfg.Verbose,
+	client, done := newClient(ClientConfig{Verbose: cfg.Verbose},
 		fn.WithRepositories(cfg.Repositories))
 	defer done()
 
@@ -393,7 +393,7 @@ func runRepositoryRename(_ *cobra.Command, args []string, newClient ClientFactor
 	if err != nil {
 		return
 	}
-	client, done := newClient(DefaultNamespace, cfg.Verbose,
+	client, done := newClient(ClientConfig{Verbose: cfg.Verbose},
 		fn.WithRepositories(cfg.Repositories))
 	defer done()
 
@@ -464,7 +464,7 @@ func runRepositoryRemove(_ *cobra.Command, args []string, newClient ClientFactor
 	if err != nil {
 		return
 	}
-	client, done := newClient(DefaultNamespace, cfg.Verbose,
+	client, done := newClient(ClientConfig{Verbose: cfg.Verbose},
 		fn.WithRepositories(cfg.Repositories))
 	defer done()
 

@@ -87,7 +87,7 @@ func runDelete(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 	}
 
 	// Create a client instance from the now-final config
-	client, done := newClient(config.Namespace, config.Verbose)
+	client, done := newClient(ClientConfig{Namespace: config.Namespace, Verbose: config.Verbose})
 	defer done()
 
 	// Invoke remove using the concrete client impl

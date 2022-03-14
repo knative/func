@@ -61,7 +61,7 @@ func runList(cmd *cobra.Command, _ []string, newClient ClientFactory) (err error
 		return err
 	}
 
-	client, done := newClient(config.Namespace, config.Verbose)
+	client, done := newClient(ClientConfig{Namespace: config.Namespace, Verbose: config.Verbose})
 	defer done()
 
 	items, err := client.List(cmd.Context())
