@@ -114,6 +114,13 @@ created: 2009-11-10 23:00:00`,
 				return fn.New(fn.WithPipelinesProvider(pipeline), fn.WithDeployer(deployer))
 			}))
 
+			// FIXME: the below viper.SetDefault calls mutate static data, meaning it
+			// is changing global default for any other test which happens to use
+			// these same flags.  Also, since this is setting a condition which
+			// does not exist (a changed default)  these tests are not as effective
+			// as could be achieved by directly providing arguments to the command
+			// using cmd.SetArgs(...). This emulates a code path is a code path which
+			// is actually traveled during usage.
 			viper.SetDefault("git-url", tt.gitURL)
 			viper.SetDefault("git-branch", tt.gitBranch)
 			viper.SetDefault("git-dir", tt.gitDir)

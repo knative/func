@@ -28,13 +28,13 @@ func TestRoot_PersistentFlags(t *testing.T) {
 	}{
 		{
 			name:              "provided as root flags",
-			args:              []string{"--verbose", "--namespace=namespace", "deploy"},
+			args:              []string{"--verbose", "--namespace=namespace", "list"},
 			expectedVerbose:   true,
 			expectedNamespace: "namespace",
 		},
 		{
 			name:              "provided as sub-command flags",
-			args:              []string{"deploy", "--verbose", "--namespace=namespace"},
+			args:              []string{"list", "--verbose", "--namespace=namespace"},
 			expectedVerbose:   true,
 			expectedNamespace: "namespace",
 		},
