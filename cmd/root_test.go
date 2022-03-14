@@ -45,7 +45,7 @@ func TestRoot_PersistentFlags(t *testing.T) {
 
 			// Assert the persistent variables were propagated to the Client constructor
 			// when the command is actually invoked.
-			cmd = NewRootCmd("func", Version{}, func(cfg ClientConfig, _ ...fn.Option) (*fn.Client, func()) {
+			cmd = NewRootCmd(RootCommandConfig{NewClient: func(cfg ClientConfig, _ ...fn.Option) (*fn.Client, func()) {
 				if cfg.Namespace != "namespace" && !tt.skipNamespace {
 					t.Fatal("namespace not propagated")
 				}
@@ -53,7 +53,7 @@ func TestRoot_PersistentFlags(t *testing.T) {
 					t.Fatal("verbose not propagated")
 				}
 				return fn.New(), func() {}
-			})
+			}})
 			cmd.SetArgs(tt.args)
 			if err := cmd.Execute(); err != nil {
 				t.Fatal(err)
@@ -184,7 +184,7 @@ func TestRoot_CommandNameParameterized(t *testing.T) {
 
 	for _, testName := range tests {
 		var (
-			cmd = NewRootCmd(testName, Version{}, TestClientFactory)
+			cmd = NewRootCmd(RootCommandConfig{Name: testName})
 			out = strings.Builder{}
 		)
 		cmd.SetOut(&out)
@@ -230,11 +230,13 @@ func TestVerbose(t *testing.T) {
 
 			var out bytes.Buffer
 
-			cmd := NewRootCmd("func", Version{
-				Date: "1970-01-01",
-				Vers: "v0.42.0",
-				Hash: "cafe",
-			}, TestClientFactory)
+			cmd := NewRootCmd(RootCommandConfig{
+				Name: "func",
+				Version: Version{
+					Date: "1970-01-01",
+					Vers: "v0.42.0",
+					Hash: "cafe",
+				}})
 
 			cmd.SetArgs(tt.args)
 			cmd.SetOut(&out)

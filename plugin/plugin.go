@@ -45,7 +45,7 @@ func (f *funcPlugin) Execute(args []string) error {
 		}
 	}
 
-	rootCmd := cmd.NewRootCmd("kn func", version)
+	rootCmd := cmd.NewRootCmd(cmd.RootCommandConfig{Name: "kn func", Version: version})
 
 	oldArgs := os.Args
 	defer (func() {
