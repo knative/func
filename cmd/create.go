@@ -69,9 +69,8 @@ EXAMPLES
 	o Create a Go Function which handles CloudEvents in ./myfunc.
 	  $ {{.Name}} create -l go -t cloudevents myfunc
 		`,
-		SuggestFor:   []string{"vreate", "creaet", "craete", "new"},
-		PreRunE:      bindEnv("language", "template", "repository", "confirm"),
-		SilenceUsage: true, // no usage dump on error
+		SuggestFor: []string{"vreate", "creaet", "craete", "new"},
+		PreRunE:    bindEnv("language", "template", "repository", "confirm"),
 	}
 
 	// Flags
@@ -80,18 +79,20 @@ EXAMPLES
 	cmd.Flags().StringP("repository", "r", "", "URI to a Git repository containing the specified template (Env: $FUNC_REPOSITORY)")
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
 
+	// Help Action
+	cmd.SetHelpFunc(runCreateHelp)
+
+	// Run Action
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		return runCreate(cmd, args, newClient)
+	}
+
 	// Tab completion
 	if err := cmd.RegisterFlagCompletionFunc("language", newRuntimeCompletionFunc()); err != nil {
 		fmt.Fprintf(os.Stderr, "unable to provide language runtime suggestions: %v", err)
 	}
 	if err := cmd.RegisterFlagCompletionFunc("template", newTemplateCompletionFunc()); err != nil {
 		fmt.Fprintf(os.Stderr, "unable to provide template suggestions: %v", err)
-	}
-
-	cmd.SetHelpFunc(runCreateHelp)
-
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runCreate(cmd, args, newClient)
 	}
 
 	return cmd
@@ -111,8 +112,8 @@ func runCreate(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 	// From environment variables, flags, arguments, and user prompts if --confirm
 	// (in increasing levels of precidence)
 	client, done := newClient(ClientConfig{Verbose: cfg.Verbose},
-		fn.WithRepository(cfg.Repository),
-		fn.WithRepositories(cfg.Repositories))
+		fn.WithRepository(cfg.Repository),     // Use exactly this repo OR
+		fn.WithRepositories(cfg.Repositories)) // Path on disk to installed repos
 	defer done()
 
 	// Validate - a deeper validation than that which is performed when

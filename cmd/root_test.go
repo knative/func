@@ -13,42 +13,29 @@ import (
 	fn "knative.dev/kn-plugin-func"
 )
 
-// TestRoot_PersistentFlags ensures that the two global (persistent) flags
-// Verbose and Namespace are propagated.
 func TestRoot_PersistentFlags(t *testing.T) {
-	// Tests use spot-checking of sub and sub-sub commands to ensure that
-	// the persistent flags have been propagated.  Note that Namespace is not
-	// strictly required for all sub-commands, so the spot-check value of
-	// the sub-sub command does not check that Namespace was parsed.
 	tests := []struct {
-		name              string
-		args              []string
-		expectedVerbose   bool
-		expectedNamespace string
+		name          string
+		args          []string
+		skipNamespace bool
 	}{
 		{
-			name:              "provided as root flags",
-			args:              []string{"--verbose", "--namespace=namespace", "list"},
-			expectedVerbose:   true,
-			expectedNamespace: "namespace",
+			name: "provided as root flags",
+			args: []string{"--verbose", "--namespace=namespace", "list"},
 		},
 		{
-			name:              "provided as sub-command flags",
-			args:              []string{"list", "--verbose", "--namespace=namespace"},
-			expectedVerbose:   true,
-			expectedNamespace: "namespace",
+			name: "provided as sub-command flags",
+			args: []string{"list", "--verbose", "--namespace=namespace"},
 		},
 		{
-			name:              "provided as sub-sub-command flags",
-			args:              []string{"repositories", "list", "--verbose", "--namespace=namespace"},
-			expectedVerbose:   true,
-			expectedNamespace: "", // no sub-sub commands currently parse namespace
+			name:          "provided as sub-sub-command flags",
+			args:          []string{"repositories", "list", "--verbose"},
+			skipNamespace: true, // NOTE: no sub-sub commands yet use namespace, so it is not checked.
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create a Function in a temp directory to operate upon
 			defer fromTempDir(t)()                    // from a temp dir, deferred cleanup
 			cmd := NewCreateCmd(NewClient)            // Create a new Function
 			cmd.SetArgs([]string{"--language", "go"}) // providing language (the only required param)
@@ -58,11 +45,11 @@ func TestRoot_PersistentFlags(t *testing.T) {
 
 			// Assert the persistent variables were propagated to the Client constructor
 			// when the command is actually invoked.
-			cmd = NewRootCmd("func", Version{}, func(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
-				if cfg.Namespace != tt.expectedNamespace {
+			cmd = NewRootCmd("func", Version{}, func(cfg ClientConfig, _ ...fn.Option) (*fn.Client, func()) {
+				if cfg.Namespace != "namespace" && !tt.skipNamespace {
 					t.Fatal("namespace not propagated")
 				}
-				if cfg.Verbose != tt.expectedVerbose {
+				if cfg.Verbose != true {
 					t.Fatal("verbose not propagated")
 				}
 				return fn.New(), func() {}
@@ -262,8 +249,8 @@ func TestVerbose(t *testing.T) {
 	}
 }
 
-// TestClientFactory is convenience factory which returns a test client
-// Client (all subsystems noop).
+// TestClientFactory is convenience factory which returns a default Client
+// suitable for testing; a Client with all subsystem noop'd.
 var TestClientFactory = func(ClientConfig, ...fn.Option) (*fn.Client, func()) {
 	return fn.New(), func() {} // noop client
 }

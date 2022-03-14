@@ -15,7 +15,6 @@ import (
 func TestCreate_Execute(t *testing.T) {
 	defer fromTempDir(t)()
 
-	// command with a client factory which yields a fully default client.
 	cmd := NewCreateCmd(NewClient)
 	cmd.SetArgs([]string{"--language", "go"})
 
@@ -30,7 +29,6 @@ func TestCreate_NoRuntime(t *testing.T) {
 	defer fromTempDir(t)()
 
 	cmd := NewCreateCmd(NewClient)
-	cmd.SetArgs([]string{})
 
 	err := cmd.Execute()
 	var e ErrNoRuntime
@@ -60,10 +58,7 @@ func TestCreate_InvalidTemplate(t *testing.T) {
 	defer fromTempDir(t)()
 
 	cmd := NewCreateCmd(NewClient)
-	cmd.SetArgs([]string{
-		"--language", "go",
-		"--template", "invalid",
-	})
+	cmd.SetArgs([]string{"--language", "go", "--template", "invalid"})
 
 	err := cmd.Execute()
 	var e ErrInvalidTemplate
@@ -114,5 +109,3 @@ func TestCreateConfig_RepositoriesPath(t *testing.T) {
 		t.Fatalf("expected repositories default path to be '%v', got '%v'", expected, cfg.Repositories)
 	}
 }
-
-// Helpers ----

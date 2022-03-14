@@ -16,9 +16,6 @@ import (
 	fn "knative.dev/kn-plugin-func"
 )
 
-// Verbose indicates logging should be generous.
-const Verbose = true
-
 // ClientFactory defines a constructor which assists in the creation of a Client
 // for use by commands.
 // See the NewClient constructor which is the fully populated ClientFactory used

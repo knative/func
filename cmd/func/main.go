@@ -28,7 +28,7 @@ func main() {
 
 	var (
 		version = cmd.Version{Date: date, Vers: vers, Hash: hash}
-		root    = cmd.NewRootCmd("func", version)
+		root    = cmd.NewRootCmd("func", version, cmd.NewClient)
 		err     = root.ExecuteContext(ctx)
 	)
 

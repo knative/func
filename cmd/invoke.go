@@ -126,7 +126,7 @@ EXAMPLES
 // Run
 func runInvoke(cmd *cobra.Command, args []string, newClient ClientFactory) (err error) {
 	// Gather flag values for the invocation
-	cfg, err := newInvokeConfig()
+	cfg, err := newInvokeConfig(newClient)
 	if err != nil {
 		return
 	}
@@ -175,12 +175,12 @@ type invokeConfig struct {
 	Data        string
 	ContentType string
 	File        string
+	Namespace   string
 	Confirm     bool
 	Verbose     bool
-	Namespace   string
 }
 
-func newInvokeConfig() (cfg invokeConfig, err error) {
+func newInvokeConfig(newClient ClientFactory) (cfg invokeConfig, err error) {
 	cfg = invokeConfig{
 		Path:        viper.GetString("path"),
 		Target:      viper.GetString("target"),
@@ -210,7 +210,7 @@ func newInvokeConfig() (cfg invokeConfig, err error) {
 	}
 
 	// Client instance for use during prompting.
-	client, done := NewClient(ClientConfig{Namespace: cfg.Namespace, Verbose: cfg.Verbose})
+	client, done := newClient(ClientConfig{Namespace: cfg.Namespace, Verbose: cfg.Verbose})
 	defer done()
 
 	// If in interactive terminal mode, prompt to modify defaults.

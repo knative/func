@@ -111,7 +111,9 @@ created: 2009-11-10 23:00:00`,
 			deployer := mock.NewDeployer()
 			defer fromTempDir(t)()
 			cmd := NewDeployCmd(NewClientFactory(func() *fn.Client {
-				return fn.New(fn.WithPipelinesProvider(pipeline), fn.WithDeployer(deployer))
+				return fn.New(
+					fn.WithPipelinesProvider(pipeline),
+					fn.WithDeployer(deployer))
 			}))
 
 			// FIXME: the below viper.SetDefault calls mutate static data, meaning it
