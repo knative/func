@@ -6,7 +6,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/spf13/cobra"
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/mock"
 )
@@ -40,7 +39,9 @@ created: 2021-01-01T00:00:00+00:00
 	}
 
 	// Create build command that will use a mock builder.
-	cmd := NewBuildCmd(fn.WithBuilder(builder))
+	cmd := NewBuildCmd(NewClientFactory(func() *fn.Client {
+		return fn.New(fn.WithBuilder(builder))
+	}))
 
 	// Execute the command
 	cmd.SetArgs(args)
@@ -93,20 +94,21 @@ created: 2009-11-10 23:00:00`,
 			// create a build command that uses mock builder and pusher
 			// If the test is marked as wanting a failure, use an erroring pusher
 			var (
-				cmd       *cobra.Command
-				builder   = mock.NewBuilder()
-				pusher    = mock.NewPusher()
-				errPusher = &mock.Pusher{
+				builder = mock.NewBuilder()
+				pusher  = mock.NewPusher()
+			)
+			if tt.wantErr {
+				pusher = &mock.Pusher{
 					PushFn: func(f fn.Function) (string, error) {
 						return "", fmt.Errorf("push failed")
 					},
 				}
-			)
-			if tt.wantErr {
-				cmd = NewBuildCmd(fn.WithBuilder(builder), fn.WithPusher(errPusher))
-			} else {
-				cmd = NewBuildCmd(fn.WithBuilder(builder), fn.WithPusher(pusher))
 			}
+			var newClient ClientFactory
+			newClient = func(_ string, _ bool, o ...fn.Option) (*fn.Client, func()) {
+				return fn.New(fn.WithBuilder(builder), fn.WithPusher(pusher)), func() {}
+			}
+			cmd := NewBuildCmd(newClient)
 
 			tempDir, err := os.MkdirTemp("", "func-tests")
 			if err != nil {
@@ -142,8 +144,8 @@ created: 2009-11-10 23:00:00`,
 				t.Errorf("Build execution expected: %v but was actually %v", tt.shouldBuild, builder.BuildInvoked)
 			}
 
-			if tt.shouldPush != (pusher.PushInvoked || errPusher.PushInvoked) {
-				t.Errorf("Push execution expected: %v but was actually mockPusher invoked: %v failPusher invoked %v", tt.shouldPush, pusher.PushInvoked, errPusher.PushInvoked)
+			if tt.shouldPush != pusher.PushInvoked {
+				t.Errorf("Push execution expected: %v but was actually: %v", tt.shouldPush, pusher.PushInvoked)
 			}
 		})
 	}

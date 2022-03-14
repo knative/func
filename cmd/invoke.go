@@ -15,7 +15,7 @@ import (
 	"knative.dev/kn-plugin-func/utils"
 )
 
-func NewInvokeCmd() *cobra.Command {
+func NewInvokeCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "invoke",
 		Short: "Invoke a Function",
@@ -99,7 +99,7 @@ EXAMPLES
 
 `,
 		SuggestFor: []string{"emit", "emti", "send", "emit", "exec", "nivoke", "onvoke", "unvoke", "knvoke", "imvoke", "ihvoke", "ibvoke"},
-		PreRunE:    bindEnv("path", "format", "target", "id", "source", "type", "data", "content-type", "file", "confirm", "namespace"),
+		PreRunE:    bindEnv("path", "format", "target", "id", "source", "type", "data", "content-type", "file", "confirm"),
 	}
 
 	// Flags
@@ -117,13 +117,15 @@ EXAMPLES
 
 	cmd.SetHelpFunc(defaultTemplatedHelp)
 
-	cmd.RunE = runInvoke
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		return runInvoke(cmd, args, newClient)
+	}
 
 	return cmd
 }
 
 // Run
-func runInvoke(cmd *cobra.Command, args []string) (err error) {
+func runInvoke(cmd *cobra.Command, args []string, newClient ClientFactory) (err error) {
 	// Gather flag values for the invocation
 	cfg, err := newInvokeConfig()
 	if err != nil {
@@ -131,7 +133,7 @@ func runInvoke(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// Client instance from env vars, flags, args and user prompts (if --confirm)
-	client, done := NewClient(cfg.Namespace, cfg.Verbose)
+	client, done := newClient(cfg.Namespace, cfg.Verbose)
 	defer done()
 
 	// Message to send the running Function built from parameters gathered

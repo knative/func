@@ -20,11 +20,12 @@ import (
 // in the client's connection should be used.
 const DefaultNamespace = ""
 
-// NewClient creates an fn.Client with the majority of the concrete
-// implementations defaulted.  Provide additional Options to this constructor
-// to override or augment as needed. Note the reutrned cleanup function.
-// 'Namespace' is optional.  If not provided (see DefaultNamespace), the
-// currently configured is used.
+// NewClient constructs an fn.Client with the majority of
+// the concrete implementations set.  Provide additional Options to this constructor
+// to override or augment as needed, or override the ClientFactory passed to
+// commands entirely to mock for testing. Note the reutrned cleanup function.
+// 'Namespace' is optional.  If not provided (see DefaultNamespace commantary),
+// the currently configured is used.
 // 'Verbose' indicates the system should write out a higher amount of logging.
 // Example:
 //   client, done := NewClient("",false)

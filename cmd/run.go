@@ -12,7 +12,7 @@ import (
 	fn "knative.dev/kn-plugin-func"
 )
 
-func NewRunCmd(options ...fn.Option) *cobra.Command {
+func NewRunCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "run",
 		Short: "Run the function locally",
@@ -43,13 +43,13 @@ specified by --path flag. The function must already have been built with the 'bu
 	cmd.SetHelpFunc(defaultTemplatedHelp)
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runRun(cmd, args, options...)
+		return runRun(cmd, args, newClient)
 	}
 
 	return cmd
 }
 
-func runRun(cmd *cobra.Command, args []string, options ...fn.Option) (err error) {
+func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err error) {
 	config, err := newRunConfig(cmd)
 	if err != nil {
 		return
@@ -78,8 +78,7 @@ func runRun(cmd *cobra.Command, args []string, options ...fn.Option) (err error)
 	// Client for use running (and potentially building), using the config
 	// gathered plus any additional option overrieds (such as for providing
 	// mocks when testing for builder and runner)
-	options = append([]fn.Option{fn.WithRegistry(config.Registry)}, options...)
-	client, done := NewClient(DefaultNamespace, config.Verbose, options...)
+	client, done := newClient(DefaultNamespace, config.Verbose, fn.WithRegistry(config.Registry))
 	defer done()
 
 	// Build if not built and --build

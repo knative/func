@@ -12,7 +12,7 @@ import (
 	fn "knative.dev/kn-plugin-func"
 )
 
-func NewBuildCmd(options ...fn.Option) *cobra.Command {
+func NewBuildCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "build",
 		Short: "Build a function project as a container image",
@@ -39,8 +39,9 @@ and the image name is stored in the configuration file.
 # Build with a custom buildpack builder
 {{.Name}} build --builder cnbs/sample-builder:bionic
 `,
-		SuggestFor: []string{"biuld", "buidl", "built"},
-		PreRunE:    bindEnv("image", "path", "builder", "registry", "confirm", "push"),
+		SuggestFor:   []string{"biuld", "buidl", "built"},
+		PreRunE:      bindEnv("image", "path", "builder", "registry", "confirm", "push"),
+		SilenceUsage: true, // we explicitly handle errors in Execute()
 	}
 
 	cmd.Flags().StringP("builder", "b", "", "Buildpack builder, either an as a an image name or a mapping name.\nSpecified value is stored in func.yaml for subsequent builds.")
@@ -57,7 +58,7 @@ and the image name is stored in the configuration file.
 	cmd.SetHelpFunc(defaultTemplatedHelp)
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runBuild(cmd, args, options...)
+		return runBuild(cmd, args, newClient)
 	}
 
 	return cmd
@@ -80,7 +81,7 @@ func ValidNamespaceAndRegistry(path string) survey.Validator {
 	}
 }
 
-func runBuild(cmd *cobra.Command, _ []string, options ...fn.Option) (err error) {
+func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err error) {
 	config, err := newBuildConfig().Prompt()
 	if err != nil {
 		if err == terminal.InterruptErr {
@@ -94,6 +95,7 @@ func runBuild(cmd *cobra.Command, _ []string, options ...fn.Option) (err error) 
 		return
 	}
 
+	// Check if the Function has been initialized
 	if !function.Initialized() {
 		return fmt.Errorf("the given path '%v' does not contain an initialized function. Please create one at this path before deploying", config.Path)
 	}
@@ -150,8 +152,8 @@ func runBuild(cmd *cobra.Command, _ []string, options ...fn.Option) (err error) 
 
 	// Create a client using the registry defined in config plus any additional
 	// options provided (such as mocks for testing)
-	options = append([]fn.Option{fn.WithRegistry(config.Registry)}, options...)
-	client, done := NewClient(DefaultNamespace, config.Verbose, options...)
+	client, done := newClient(DefaultNamespace, config.Verbose,
+		fn.WithRegistry(config.Registry))
 	defer done()
 
 	err = client.Build(cmd.Context(), config.Path)

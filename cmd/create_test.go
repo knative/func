@@ -16,7 +16,7 @@ func TestCreate_Execute(t *testing.T) {
 	defer fromTempDir(t)()
 
 	// command with a client factory which yields a fully default client.
-	cmd := NewCreateCmd()
+	cmd := NewCreateCmd(NewClient)
 	cmd.SetArgs([]string{"--language", "go"})
 
 	if err := cmd.Execute(); err != nil {
@@ -29,7 +29,7 @@ func TestCreate_Execute(t *testing.T) {
 func TestCreate_NoRuntime(t *testing.T) {
 	defer fromTempDir(t)()
 
-	cmd := NewCreateCmd()
+	cmd := NewCreateCmd(NewClient)
 	cmd.SetArgs([]string{})
 
 	err := cmd.Execute()
@@ -44,7 +44,7 @@ func TestCreate_NoRuntime(t *testing.T) {
 func TestCreate_WithInvalidRuntime(t *testing.T) {
 	defer fromTempDir(t)()
 
-	cmd := NewCreateCmd()
+	cmd := NewCreateCmd(NewClient)
 	cmd.SetArgs([]string{"--language", "invalid"})
 
 	err := cmd.Execute()
@@ -59,7 +59,7 @@ func TestCreate_WithInvalidRuntime(t *testing.T) {
 func TestCreate_InvalidTemplate(t *testing.T) {
 	defer fromTempDir(t)()
 
-	cmd := NewCreateCmd()
+	cmd := NewCreateCmd(NewClient)
 	cmd.SetArgs([]string{
 		"--language", "go",
 		"--template", "invalid",
@@ -79,7 +79,7 @@ func TestCreate_ValidatesName(t *testing.T) {
 
 	// Execute the command with a function name containing invalid characters and
 	// confirm the expected error is returned
-	cmd := NewCreateCmd()
+	cmd := NewCreateCmd(NewClient)
 	cmd.SetArgs([]string{"invalid!"})
 	err := cmd.Execute()
 	var e utils.ErrInvalidFunctionName
@@ -104,7 +104,7 @@ func TestCreateConfig_RepositoriesPath(t *testing.T) {
 	// The expected full path is XDG_CONFIG_HOME/func/repositories
 	expected := filepath.Join(xdgConfigHome, "func", "repositories")
 
-	cmd := NewCreateCmd()
+	cmd := NewCreateCmd(NewClient)
 	var cfg createConfig
 	if cfg, err = newCreateConfig(cmd, []string{}); err != nil {
 		t.Fatal(err)
@@ -116,39 +116,3 @@ func TestCreateConfig_RepositoriesPath(t *testing.T) {
 }
 
 // Helpers ----
-
-// change directory into a new temp directory.
-// returned is a closure which cleans up; intended to be run as a defer:
-//    defer within(t, /some/path)()
-func fromTempDir(t *testing.T) func() {
-	t.Helper()
-	tmp := mktmp(t) // create temp directory
-	owd := pwd(t)   // original working directory
-	cd(t, tmp)      // change to the temp directory
-	return func() { // return a deferable cleanup closure
-		os.RemoveAll(tmp) // remove temp directory
-		cd(t, owd)        // change director back to original
-	}
-}
-
-func mktmp(t *testing.T) string {
-	d, err := ioutil.TempDir("", "dir")
-	if err != nil {
-		t.Fatal(err)
-	}
-	return d
-}
-
-func pwd(t *testing.T) string {
-	d, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	return d
-}
-
-func cd(t *testing.T, dir string) {
-	if err := os.Chdir(dir); err != nil {
-		t.Fatal(err)
-	}
-}

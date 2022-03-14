@@ -16,7 +16,7 @@ import (
 	fn "knative.dev/kn-plugin-func"
 )
 
-func NewListCmd() *cobra.Command {
+func NewListCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List functions",
@@ -35,7 +35,7 @@ Lists all deployed functions in a given namespace.
 {{.Name}} list --all-namespaces --output json
 `,
 		SuggestFor: []string{"ls", "lsit"},
-		PreRunE:    bindEnv("namespace", "output"),
+		PreRunE:    bindEnv("all-namespaces", "output"),
 	}
 
 	cmd.Flags().BoolP("all-namespaces", "A", false, "List functions in all namespaces. If set, the --namespace flag is ignored.")
@@ -48,19 +48,21 @@ Lists all deployed functions in a given namespace.
 
 	cmd.SetHelpFunc(defaultTemplatedHelp)
 
-	cmd.RunE = runList
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		return runList(cmd, args, newClient)
+	}
 
 	return cmd
 }
 
-func runList(cmd *cobra.Command, _ []string) (err error) {
+func runList(cmd *cobra.Command, _ []string, newClient ClientFactory) (err error) {
 	config := newListConfig()
 
 	if err := config.Validate(); err != nil {
 		return err
 	}
 
-	client, done := NewClient(config.Namespace, config.Verbose)
+	client, done := newClient(config.Namespace, config.Verbose)
 	defer done()
 
 	items, err := client.List(cmd.Context())

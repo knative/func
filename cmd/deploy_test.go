@@ -110,10 +110,9 @@ created: 2009-11-10 23:00:00`,
 			}
 			deployer := mock.NewDeployer()
 			defer fromTempDir(t)()
-			cmd := NewDeployCmd(
-				fn.WithPipelinesProvider(pipeline),
-				fn.WithDeployer(deployer),
-			)
+			cmd := NewDeployCmd(NewClientFactory(func() *fn.Client {
+				return fn.New(fn.WithPipelinesProvider(pipeline), fn.WithDeployer(deployer))
+			}))
 
 			viper.SetDefault("git-url", tt.gitURL)
 			viper.SetDefault("git-branch", tt.gitBranch)

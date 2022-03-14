@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,7 +14,7 @@ import (
 // setting the repositories path to a new path which includes no others.
 func TestRepository_List(t *testing.T) {
 	os.Setenv("XDG_CONFIG_HOME", newTempDir()) // use tmp dir for repos
-	cmd := NewRepositoryListCmd()
+	cmd := NewRepositoryListCmd(NewClient)
 
 	// Execute the command, capturing the output sent to stdout
 	stdout := piped(t)
@@ -37,8 +36,8 @@ func TestRepository_List(t *testing.T) {
 func TestRepository_Add(t *testing.T) {
 	os.Setenv("XDG_CONFIG_HOME", newTempDir()) // use tmp dir for repos
 	var (
-		add    = NewRepositoryAddCmd()
-		list   = NewRepositoryListCmd()
+		add    = NewRepositoryAddCmd(NewClient)
+		list   = NewRepositoryListCmd(NewClient)
 		stdout = piped(t)
 	)
 
@@ -72,9 +71,9 @@ func TestRepository_Add(t *testing.T) {
 func TestRepository_Rename(t *testing.T) {
 	os.Setenv("XDG_CONFIG_HOME", newTempDir()) // use tmp dir for repos
 	var (
-		add    = NewRepositoryAddCmd()
-		rename = NewRepositoryRenameCmd()
-		list   = NewRepositoryListCmd()
+		add    = NewRepositoryAddCmd(NewClient)
+		rename = NewRepositoryRenameCmd(NewClient)
+		list   = NewRepositoryListCmd(NewClient)
 		stdout = piped(t)
 	)
 
@@ -114,9 +113,9 @@ func TestRepository_Rename(t *testing.T) {
 func TestRepository_Remove(t *testing.T) {
 	os.Setenv("XDG_CONFIG_HOME", newTempDir()) // use tmp dir for repos
 	var (
-		add    = NewRepositoryAddCmd()
-		remove = NewRepositoryRemoveCmd()
-		list   = NewRepositoryListCmd()
+		add    = NewRepositoryAddCmd(NewClient)
+		remove = NewRepositoryRemoveCmd(NewClient)
+		list   = NewRepositoryListCmd(NewClient)
 		stdout = piped(t)
 	)
 
@@ -199,14 +198,4 @@ func testRepoURI(name string, t *testing.T) string {
 	cwd, _ := os.Getwd()
 	repo := filepath.Join(cwd, "testdata", name+".git")
 	return fmt.Sprintf(`file://%s`, filepath.ToSlash(repo))
-}
-
-// create a temp dir.  prefixed 'func'.  panic on fail.
-// TODO: check if this is a duplicate:
-func newTempDir() string {
-	path, err := ioutil.TempDir("", "func")
-	if err != nil {
-		panic(err)
-	}
-	return path
 }

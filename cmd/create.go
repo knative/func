@@ -26,7 +26,7 @@ type ErrInvalidRuntime error
 type ErrInvalidTemplate error
 
 // NewCreateCmd creates a create command using the given client creator.
-func NewCreateCmd() *cobra.Command {
+func NewCreateCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
 		Short: "Create a Function Project",
@@ -69,8 +69,9 @@ EXAMPLES
 	o Create a Go Function which handles CloudEvents in ./myfunc.
 	  $ {{.Name}} create -l go -t cloudevents myfunc
 		`,
-		SuggestFor: []string{"vreate", "creaet", "craete", "new"},
-		PreRunE:    bindEnv("language", "template", "repository", "confirm"),
+		SuggestFor:   []string{"vreate", "creaet", "craete", "new"},
+		PreRunE:      bindEnv("language", "template", "repository", "confirm"),
+		SilenceUsage: true, // no usage dump on error
 	}
 
 	// Flags
@@ -89,13 +90,15 @@ EXAMPLES
 
 	cmd.SetHelpFunc(runCreateHelp)
 
-	cmd.RunE = runCreate
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		return runCreate(cmd, args, newClient)
+	}
 
 	return cmd
 }
 
 // Run Create
-func runCreate(cmd *cobra.Command, args []string) (err error) {
+func runCreate(cmd *cobra.Command, args []string, newClient ClientFactory) (err error) {
 	// Config
 	// Create a config based on args.  Also uses the newClient to create a
 	// temporary client for completing options such as available runtimes.
@@ -107,7 +110,7 @@ func runCreate(cmd *cobra.Command, args []string) (err error) {
 	// Client
 	// From environment variables, flags, arguments, and user prompts if --confirm
 	// (in increasing levels of precidence)
-	client, done := NewClient(DefaultNamespace, cfg.Verbose,
+	client, done := newClient(DefaultNamespace, cfg.Verbose,
 		fn.WithRepository(cfg.Repository),
 		fn.WithRepositories(cfg.Repositories))
 	defer done()

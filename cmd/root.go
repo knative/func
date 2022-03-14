@@ -2,9 +2,11 @@ package cmd
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
+	"testing"
 	"text/template"
 
 	"github.com/ory/viper"
@@ -14,10 +16,44 @@ import (
 	fn "knative.dev/kn-plugin-func"
 )
 
+// Verbose indicates logging should be generous.
+const Verbose = true
+
+// ClientFactory defines a constructor which assists in the creation of a Client
+// for use by commands.
+// See the NewClient constructor which is the fully populated ClientFactory used
+// by commands by default.
+// See NewClientFactory which constructs a minimal CientFactory for use
+// during testing.
+type ClientFactory func(namespace string, verbose bool, options ...fn.Option) (*fn.Client, func())
+
+// NewClientFactory enables simple mocking of a fn.Client during tests.
+// Given is a minimal Client constructor, Returned is full ClientFactory
+// All aspects of normal full Client construction (namespace, verbosity level,
+// additional options and the returned cleanup function for deferral) are
+// left at zero value and ignored
+// are used during normal operation are ignored.  This allows for simple
+// mocking in tests.
+func NewClientFactory(n func() *fn.Client) ClientFactory {
+	return func(_ string, _ bool, _ ...fn.Option) (*fn.Client, func()) {
+		return n(), func() {}
+	}
+}
+
+var TestClientFactory = func(string, bool, ...fn.Option) (*fn.Client, func()) {
+	return fn.New(), func() {} // noop client
+}
+
+func panicOnErr(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
 // NewRootCmd creates the root of the command tree defines the command name, description, globally
 // available flags, etc.  It has no action of its own, such that running the
 // resultant binary with no arguments prints the help/usage text.
-func NewRootCmd(name string, version Version) *cobra.Command {
+func NewRootCmd(name string, version Version, newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		// Use must be set to exactly config.Name, as this field is overloaded to
 		// be used in subcommand help text as the command with possible prefix:
@@ -57,22 +93,28 @@ EXAMPLES
 
 	// Flags
 	// persistent flags are available to all subcommands implicitly
-	cmd.PersistentFlags().BoolP("verbose", "v", false, "print verbose logs ($FUNC_VERBOSE)")
-	err := viper.BindPFlag("verbose", cmd.PersistentFlags().Lookup("verbose"))
-	if err != nil {
-		return cmd, err
+	// Note they are bound immediately here as opposed to other subcommands
+	// because this root command is not actually executed during tests, and
+	// therefore PreRunE and other event-based listeners are not invoked.
+	cmd.PersistentFlags().BoolP("verbose", "v", false, "Print verbose logs ($FUNC_VERBOSE)")
+	if err := viper.BindPFlag("verbose", cmd.PersistentFlags().Lookup("verbose")); err != nil {
+		fmt.Fprintf(os.Stderr, "error binding flag: %v\n", err)
+	}
+	cmd.PersistentFlags().StringP("namespace", "n", "", "The namespace on the cluster used for remote commands. By default, the namespace func.yaml is used or the currently active namespace if not set in the configuration. (Env: $FUNC_NAMESPACE)")
+	if err := viper.BindPFlag("namespace", cmd.PersistentFlags().Lookup("namespace")); err != nil {
+		fmt.Fprintf(os.Stderr, "error binding flag: %v\n", err)
 	}
 
-	cmd.AddCommand(NewCreateCmd())
+	cmd.AddCommand(NewCreateCmd(newClient))
 	cmd.AddCommand(NewConfigCmd())
-	cmd.AddCommand(NewBuildCmd())
-	cmd.AddCommand(NewDeployCmd())
-	cmd.AddCommand(NewDeleteCmd())
-	cmd.AddCommand(NewInfoCmd())
-	cmd.AddCommand(NewListCmd())
-	cmd.AddCommand(NewInvokeCmd())
-	cmd.AddCommand(NewRepositoryCmd())
-	cmd.AddCommand(NewRunCmd())
+	cmd.AddCommand(NewBuildCmd(newClient))
+	cmd.AddCommand(NewDeployCmd(newClient))
+	cmd.AddCommand(NewDeleteCmd(newClient))
+	cmd.AddCommand(NewInfoCmd(newClient))
+	cmd.AddCommand(NewListCmd(newClient))
+	cmd.AddCommand(NewInvokeCmd(newClient))
+	cmd.AddCommand(NewRepositoryCmd(newClient))
+	cmd.AddCommand(NewRunCmd(newClient))
 	cmd.AddCommand(NewCompletionCmd())
 	cmd.AddCommand(NewVersionCmd(version))
 
@@ -312,7 +354,7 @@ func setPathFlag(cmd *cobra.Command) {
 
 // setNamespaceFlag ensures common text/wording when the --namespace flag is used
 func setNamespaceFlag(cmd *cobra.Command) {
-	cmd.Flags().StringP("namespace", "n", "", "The namespace on the cluster. By default, the namespace in func.yaml is used or the currently active namespace if not set in the configuration. (Env: $FUNC_NAMESPACE)")
+	// TODO: remove now that this is a global (persistent) flag
 }
 
 type Version struct {
@@ -437,5 +479,51 @@ func defaultTemplatedHelp(cmd *cobra.Command, args []string) {
 
 	if err := tpl.Execute(cmd.OutOrStdout(), data); err != nil {
 		fmt.Fprintf(cmd.ErrOrStderr(), "unable to display help text: %v", err)
+	}
+}
+
+// Create and return a path to a temp dir prefixed 'func'.  Does not change
+// woriking directory.
+func newTempDir() string {
+	path, err := ioutil.TempDir("", "func")
+	if err != nil {
+		panic(err)
+	}
+	return path
+}
+
+// Change directory into a new temp directory.
+// returned is a closure which cleans up; intended to be run as a defer:
+//    defer within(t, /some/path)()
+func fromTempDir(t *testing.T) func() {
+	t.Helper()
+	tmp := mktmp(t) // create temp directory
+	owd := pwd(t)   // original working directory
+	cd(t, tmp)      // change to the temp directory
+	return func() { // return a deferable cleanup closure
+		os.RemoveAll(tmp) // remove temp directory
+		cd(t, owd)        // change director back to original
+	}
+}
+
+func mktmp(t *testing.T) string {
+	d, err := ioutil.TempDir("", "dir")
+	if err != nil {
+		t.Fatal(err)
+	}
+	return d
+}
+
+func pwd(t *testing.T) string {
+	d, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return d
+}
+
+func cd(t *testing.T, dir string) {
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
 	}
 }

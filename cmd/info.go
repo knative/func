@@ -14,7 +14,7 @@ import (
 	fn "knative.dev/kn-plugin-func"
 )
 
-func NewInfoCmd() *cobra.Command {
+func NewInfoCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "info <name>",
 		Short: "Show details of a function",
@@ -32,7 +32,7 @@ the current directory or from the directory specified with --path.
 `,
 		SuggestFor:        []string{"ifno", "describe", "fino", "get"},
 		ValidArgsFunction: CompleteFunctionList,
-		PreRunE:           bindEnv("namespace", "output", "path"),
+		PreRunE:           bindEnv("output", "path"),
 	}
 
 	setNamespaceFlag(cmd)
@@ -45,12 +45,14 @@ the current directory or from the directory specified with --path.
 
 	cmd.SetHelpFunc(defaultTemplatedHelp)
 
-	cmd.RunE = runInfo
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		return runInfo(cmd, args, newClient)
+	}
 
 	return cmd
 }
 
-func runInfo(cmd *cobra.Command, args []string) (err error) {
+func runInfo(cmd *cobra.Command, args []string, newClient ClientFactory) (err error) {
 	config := newInfoConfig(args)
 
 	function, err := fn.NewFunction(config.Path)
@@ -64,7 +66,7 @@ func runInfo(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// Create a client
-	client, done := NewClient(config.Namespace, config.Verbose)
+	client, done := newClient(config.Namespace, config.Verbose)
 	defer done()
 
 	// Get the description

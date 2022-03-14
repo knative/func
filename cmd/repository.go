@@ -15,7 +15,7 @@ import (
 // command constructors
 // --------------------
 
-func NewRepositoryCmd() *cobra.Command {
+func NewRepositoryCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Short:   "Manage installed template repositories",
 		Use:     "repository",
@@ -145,17 +145,19 @@ EXAMPLES
 
 	cmd.SetHelpFunc(defaultTemplatedHelp)
 
-	cmd.RunE = runRepository
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		return runRepository(cmd, args, newClient)
+	}
 
-	cmd.AddCommand(NewRepositoryListCmd())
-	cmd.AddCommand(NewRepositoryAddCmd())
-	cmd.AddCommand(NewRepositoryRenameCmd())
-	cmd.AddCommand(NewRepositoryRemoveCmd())
+	cmd.AddCommand(NewRepositoryListCmd(newClient))
+	cmd.AddCommand(NewRepositoryAddCmd(newClient))
+	cmd.AddCommand(NewRepositoryRenameCmd(newClient))
+	cmd.AddCommand(NewRepositoryRemoveCmd(newClient))
 
 	return cmd
 }
 
-func NewRepositoryListCmd() *cobra.Command {
+func NewRepositoryListCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Short:   "List repositories",
 		Use:     "list",
@@ -164,12 +166,14 @@ func NewRepositoryListCmd() *cobra.Command {
 
 	cmd.Flags().StringP("repositories", "r", fn.RepositoriesPath(), "Path to language pack repositories (Env: $FUNC_REPOSITORIES)")
 
-	cmd.RunE = runRepositoryList
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		return runRepositoryList(cmd, args, newClient)
+	}
 
 	return cmd
 }
 
-func NewRepositoryAddCmd() *cobra.Command {
+func NewRepositoryAddCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Short:      "Add a repository",
 		Use:        "add <name> <url>",
@@ -180,12 +184,14 @@ func NewRepositoryAddCmd() *cobra.Command {
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
 	cmd.Flags().StringP("repositories", "r", fn.RepositoriesPath(), "Path to language pack repositories (Env: $FUNC_REPOSITORIES)")
 
-	cmd.RunE = runRepositoryAdd
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		return runRepositoryAdd(cmd, args, newClient)
+	}
 
 	return cmd
 }
 
-func NewRepositoryRenameCmd() *cobra.Command {
+func NewRepositoryRenameCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Short:   "Rename a repository",
 		Use:     "rename <old> <new>",
@@ -195,12 +201,14 @@ func NewRepositoryRenameCmd() *cobra.Command {
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
 	cmd.Flags().StringP("repositories", "r", fn.RepositoriesPath(), "Path to language pack repositories (Env: $FUNC_REPOSITORIES)")
 
-	cmd.RunE = runRepositoryRename
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		return runRepositoryRename(cmd, args, newClient)
+	}
 
 	return cmd
 }
 
-func NewRepositoryRemoveCmd() *cobra.Command {
+func NewRepositoryRemoveCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Short:      "Remove a repository",
 		Use:        "remove <name>",
@@ -212,7 +220,9 @@ func NewRepositoryRemoveCmd() *cobra.Command {
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
 	cmd.Flags().StringP("repositories", "r", fn.RepositoriesPath(), "Path to language pack repositories (Env: $FUNC_REPOSITORIES)")
 
-	cmd.RunE = runRepositoryRemove
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		return runRepositoryRemove(cmd, args, newClient)
+	}
 
 	return cmd
 }
@@ -222,7 +232,7 @@ func NewRepositoryRemoveCmd() *cobra.Command {
 
 // Run
 // (list by default or interactive with -c|--confirm)
-func runRepository(cmd *cobra.Command, args []string) (err error) {
+func runRepository(cmd *cobra.Command, args []string, newClient ClientFactory) (err error) {
 	cfg, err := newRepositoryConfig(args)
 	if err != nil {
 		return
@@ -250,25 +260,25 @@ func runRepository(cmd *cobra.Command, args []string) (err error) {
 	// Run the command indicated
 	switch answer.Action {
 	case "list":
-		return runRepositoryList(cmd, args)
+		return runRepositoryList(cmd, args, newClient)
 	case "add":
-		return runRepositoryAdd(cmd, args)
+		return runRepositoryAdd(cmd, args, newClient)
 	case "rename":
-		return runRepositoryRename(cmd, args)
+		return runRepositoryRename(cmd, args, newClient)
 	case "remove":
-		return runRepositoryRemove(cmd, args)
+		return runRepositoryRemove(cmd, args, newClient)
 	}
 	return fmt.Errorf("invalid action '%v'", answer.Action) // Unreachable
 }
 
 // List
-func runRepositoryList(_ *cobra.Command, args []string) (err error) {
+func runRepositoryList(_ *cobra.Command, args []string, newClient ClientFactory) (err error) {
 	cfg, err := newRepositoryConfig(args)
 	if err != nil {
 		return
 	}
 
-	client, done := NewClient(DefaultNamespace, cfg.Verbose,
+	client, done := newClient(DefaultNamespace, cfg.Verbose,
 		fn.WithRepositories(cfg.Repositories))
 	defer done()
 
@@ -291,7 +301,7 @@ func runRepositoryList(_ *cobra.Command, args []string) (err error) {
 }
 
 // Add
-func runRepositoryAdd(_ *cobra.Command, args []string) (err error) {
+func runRepositoryAdd(_ *cobra.Command, args []string, newClient ClientFactory) (err error) {
 	// Supports both composable, discrete CLI commands or prompt-based "config"
 	// by setting the argument values (name and ulr) to value of positional args,
 	// but only requires them if not prompting.  If prompting, those values
@@ -302,7 +312,7 @@ func runRepositoryAdd(_ *cobra.Command, args []string) (err error) {
 		return
 	}
 
-	client, done := NewClient(DefaultNamespace, cfg.Verbose,
+	client, done := newClient(DefaultNamespace, cfg.Verbose,
 		fn.WithRepositories(cfg.Repositories))
 	defer done()
 
@@ -378,12 +388,12 @@ func runRepositoryAdd(_ *cobra.Command, args []string) (err error) {
 }
 
 // Rename
-func runRepositoryRename(_ *cobra.Command, args []string) (err error) {
+func runRepositoryRename(_ *cobra.Command, args []string, newClient ClientFactory) (err error) {
 	cfg, err := newRepositoryConfig(args)
 	if err != nil {
 		return
 	}
-	client, done := NewClient(DefaultNamespace, cfg.Verbose,
+	client, done := newClient(DefaultNamespace, cfg.Verbose,
 		fn.WithRepositories(cfg.Repositories))
 	defer done()
 
@@ -449,12 +459,12 @@ func runRepositoryRename(_ *cobra.Command, args []string) (err error) {
 }
 
 // Remove
-func runRepositoryRemove(_ *cobra.Command, args []string) (err error) {
+func runRepositoryRemove(_ *cobra.Command, args []string, newClient ClientFactory) (err error) {
 	cfg, err := newRepositoryConfig(args)
 	if err != nil {
 		return
 	}
-	client, done := NewClient(DefaultNamespace, cfg.Verbose,
+	client, done := newClient(DefaultNamespace, cfg.Verbose,
 		fn.WithRepositories(cfg.Repositories))
 	defer done()
 
