@@ -4,8 +4,11 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"net"
 
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -18,7 +21,30 @@ func GetSecret(ctx context.Context, name, namespaceOverride string) (*corev1.Sec
 	return client.CoreV1().Secrets(namespace).Get(ctx, name, metav1.GetOptions{})
 }
 
-func ListSecretsNames(ctx context.Context, namespaceOverride string) (names []string, err error) {
+// ListSecretsNamesIfConnected lists names of Secrets present and the current k8s context
+// returns empty list, if not connected to any cluster
+func ListSecretsNamesIfConnected(ctx context.Context, namespaceOverride string) (names []string, err error) {
+	names, err = listSecretsNames(ctx, namespaceOverride)
+	if err != nil {
+
+		// not logged our authorized to access resources
+		if k8serrors.IsForbidden(err) || k8serrors.IsUnauthorized(err) {
+			return []string{}, nil
+		}
+
+		// non existent k8s cluster
+		var dnsErr *net.DNSError
+		if errors.As(err, &dnsErr) {
+			if dnsErr.IsNotFound || dnsErr.IsTemporary || dnsErr.IsTimeout {
+				return []string{}, nil
+			}
+		}
+	}
+
+	return
+}
+
+func listSecretsNames(ctx context.Context, namespaceOverride string) (names []string, err error) {
 	client, namespace, err := NewClientAndResolvedNamespace(namespaceOverride)
 	if err != nil {
 		return

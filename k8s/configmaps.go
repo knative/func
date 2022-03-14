@@ -2,8 +2,11 @@ package k8s
 
 import (
 	"context"
+	"errors"
+	"net"
 
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -16,7 +19,29 @@ func GetConfigMap(ctx context.Context, name, namespaceOverride string) (*corev1.
 	return client.CoreV1().ConfigMaps(namespace).Get(ctx, name, metav1.GetOptions{})
 }
 
-func ListConfigMapsNames(ctx context.Context, namespaceOverride string) (names []string, err error) {
+// ListConfigMapsNamesIfConnected lists names of ConfigMaps present and the current k8s context
+// returns empty list, if not connected to any cluster
+func ListConfigMapsNamesIfConnected(ctx context.Context, namespaceOverride string) (names []string, err error) {
+	names, err = listConfigMapsNames(ctx, namespaceOverride)
+	if err != nil {
+		// not logged our authorized to access resources
+		if k8serrors.IsForbidden(err) || k8serrors.IsUnauthorized(err) {
+			return []string{}, nil
+		}
+
+		// non existent k8s cluster
+		var dnsErr *net.DNSError
+		if errors.As(err, &dnsErr) {
+			if dnsErr.IsNotFound || dnsErr.IsTemporary || dnsErr.IsTimeout {
+				return []string{}, nil
+			}
+		}
+	}
+
+	return
+}
+
+func listConfigMapsNames(ctx context.Context, namespaceOverride string) (names []string, err error) {
 	client, namespace, err := NewClientAndResolvedNamespace(namespaceOverride)
 	if err != nil {
 		return
