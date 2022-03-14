@@ -352,11 +352,6 @@ func setPathFlag(cmd *cobra.Command) {
 	cmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
 }
 
-// setNamespaceFlag ensures common text/wording when the --namespace flag is used
-func setNamespaceFlag(cmd *cobra.Command) {
-	// TODO: remove now that this is a global (persistent) flag
-}
-
 type Version struct {
 	// Date of compilation
 	Date string

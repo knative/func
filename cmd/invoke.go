@@ -113,7 +113,6 @@ EXAMPLES
 	cmd.Flags().StringP("data", "", fn.DefaultInvokeData, "Data to send in the request. (Env: $FUNC_DATA)")
 	cmd.Flags().StringP("file", "", "", "Path to a file to use as data. Overrides --data flag and should be sent with a correct --content-type. (Env: $FUNC_FILE)")
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all options interactively. (Env: $FUNC_CONFIRM)")
-	setNamespaceFlag(cmd)
 
 	cmd.SetHelpFunc(defaultTemplatedHelp)
 

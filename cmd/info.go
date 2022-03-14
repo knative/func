@@ -35,7 +35,6 @@ the current directory or from the directory specified with --path.
 		PreRunE:           bindEnv("output", "path"),
 	}
 
-	setNamespaceFlag(cmd)
 	cmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|xml|yaml|url) (Env: $FUNC_OUTPUT)")
 	setPathFlag(cmd)
 

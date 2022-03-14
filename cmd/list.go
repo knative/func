@@ -40,7 +40,6 @@ Lists all deployed functions in a given namespace.
 
 	cmd.Flags().BoolP("all-namespaces", "A", false, "List functions in all namespaces. If set, the --namespace flag is ignored.")
 	cmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|xml|yaml) (Env: $FUNC_OUTPUT)")
-	setNamespaceFlag(cmd)
 
 	if err := cmd.RegisterFlagCompletionFunc("output", CompleteOutputFormatList); err != nil {
 		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
