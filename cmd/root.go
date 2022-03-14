@@ -16,6 +16,12 @@ import (
 	fn "knative.dev/kn-plugin-func"
 )
 
+type RootCommandConfig struct {
+	Name string // usually `func` or `kn func`
+	Version
+	NewClient ClientFactory
+}
+
 // ClientFactory defines a constructor which assists in the creation of a Client
 // for use by commands.
 // See the NewClient constructor which is the fully populated ClientFactory used
@@ -40,11 +46,11 @@ func NewClientFactory(n func() *fn.Client) ClientFactory {
 // NewRootCmd creates the root of the command tree defines the command name, description, globally
 // available flags, etc.  It has no action of its own, such that running the
 // resultant binary with no arguments prints the help/usage text.
-func NewRootCmd(name string, version Version, newClient ClientFactory) *cobra.Command {
+func NewRootCmd(config RootCommandConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		// Use must be set to exactly config.Name, as this field is overloaded to
 		// be used in subcommand help text as the command with possible prefix:
-		Use:           name,
+		Use:           config.Name,
 		Short:         "Serverless Functions",
 		SilenceErrors: true, // we explicitly handle errors in Execute()
 		SilenceUsage:  true, // no usage dump on error
@@ -92,6 +98,17 @@ EXAMPLES
 		fmt.Fprintf(os.Stderr, "error binding flag: %v\n", err)
 	}
 
+	// Version
+	cmd.Version = config.Version.String()
+	cmd.SetVersionTemplate(`{{printf "%s\n" .Version}}`)
+
+	// Client
+	// Use the provided ClientFactory or default to NewClient
+	newClient := config.NewClient
+	if newClient == nil {
+		newClient = NewClient
+	}
+
 	cmd.AddCommand(NewCreateCmd(newClient))
 	cmd.AddCommand(NewConfigCmd())
 	cmd.AddCommand(NewBuildCmd(newClient))
@@ -103,13 +120,13 @@ EXAMPLES
 	cmd.AddCommand(NewRepositoryCmd(newClient))
 	cmd.AddCommand(NewRunCmd(newClient))
 	cmd.AddCommand(NewCompletionCmd())
-	cmd.AddCommand(NewVersionCmd(version))
+	cmd.AddCommand(NewVersionCmd(config.Version))
 
 	// Help
 	// Overridden to process the help text as a template and have
 	// access to the provided Client instance.
 	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
-		runRootHelp(cmd, args, version)
+		runRootHelp(cmd, args, config.Version)
 	})
 
 	return cmd
