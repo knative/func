@@ -4,36 +4,35 @@ import (
 	"fmt"
 
 	"github.com/ory/viper"
+	api "k8s.io/apimachinery/pkg/apis/meta/v1"
 	fn "knative.dev/kn-plugin-func"
 
 	"github.com/spf13/cobra"
 )
 
-// NewExportCmd export a func.yaml to CRD-like resource(s).
+// NewExportCmd export a func.yaml to Kubernetes-like resource(s).
 func NewExportCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "export",
-		Short: "Export Function File to other formats",
+		Short: "Export Function File to a Kubernetes resource-like format",
 		Long: `
 NAME
-	{{.Name}} export - Export a Function configuration file.
+	{{.Name}} export - Export a Function configuration file (func.yaml) to a file which uses a Kubernetes resource-like format.
 
 SYNOPSIS
-	{{.Name}} export [-t|--type] [-f|--file]  [-v|--verbose] 
+	{{.Name}} export [-f|--file]  [-v|--verbose] 
 
 DESCRIPTION
 	Export a Function configuration file (func.yaml) into a different format
 
-	  $ {{.Name}} export -t crd -f my-resource.yaml
+	  $ {{.Name}} export -f my-resource.yaml
 
 	`,
 		SuggestFor: []string{"exprot", "exports", "expor"},
-		PreRunE:    bindEnv("type", "path", "file"),
+		PreRunE:    bindEnv("path", "file"),
 	}
 
 	// Flags
-
-	cmd.Flags().StringP("type", "t", "crd", "Format for the exported func.yaml file. Default: crd")
 	cmd.Flags().StringP("file", "", cwd(), "Path to a file to export the func.yaml file")
 	setPathFlag(cmd)
 	// Help Action
@@ -65,15 +64,22 @@ func runExport(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 		return fmt.Errorf("the given path '%v' does not contain an initialized function. Please create one at this path before exporting", config.Path)
 	}
 
-	funcCRD := fn.NewFunctionCRD()
+	funcCRD := fn.NewFunctionCRD(function.Name)
 	funcCRD.Root = function.Root // I am doing this so I can write the func
-	funcCRD.ObjectMeta.Name = function.Name
 	funcCRD.ObjectMeta.Annotations["version"] = function.Version
 	funcCRD.ObjectMeta.Annotations["runtime"] = function.Runtime
 	funcCRD.ObjectMeta.Annotations["invocation"] = function.Invocation.Format
+	funcCRD.ObjectMeta.CreationTimestamp = api.Date(function.Created.Year(), function.Created.Month(),
+		function.Created.Day(), function.Created.Hour(), function.Created.Minute(), function.Created.Second(), function.Created.Nanosecond(), function.Created.Location())
 	funcCRD.ObjectMeta.Namespace = function.Namespace
-	funcCRD.Spec.HealthEndpoints = function.HealthEndpoints
-	funcCRD.Spec.Image = function.Image
+	funcCRD.Spec.ConfigurationSpec.Template.Spec.PodSpec.Containers[0].Image = function.Image
+	funcCRD.Spec.ConfigurationSpec.Template.Spec.PodSpec.Containers[0].LivenessProbe.HTTPGet.Path = function.HealthEndpoints.Liveness
+	funcCRD.Spec.ConfigurationSpec.Template.Spec.PodSpec.Containers[0].ReadinessProbe.HTTPGet.Path = function.HealthEndpoints.Readiness
+	funcCRD.Spec.FunctionBuildSpec.BuildType = function.BuildType
+	funcCRD.Spec.FunctionBuildSpec.Builder = function.Builder
+	funcCRD.Spec.FunctionBuildSpec.BuildEnvs = function.BuildEnvs
+	funcCRD.Spec.FunctionBuildSpec.Git = function.Git
+
 	funcCRD.Write()
 	// Confirm
 	fmt.Fprintf(cmd.OutOrStderr(), "Exporting %v Function in %v\n", funcCRD.ObjectMeta.Name, config.File)
@@ -86,9 +92,6 @@ type exportConfig struct {
 	// working directory of the process.
 	Path string
 
-	// Type format used to export the func.yaml file
-	Type string
-
 	// File used to write the exported version of the func.yaml file
 	File string
 }
@@ -96,7 +99,6 @@ type exportConfig struct {
 func newExportConfig() exportConfig {
 	return exportConfig{
 		File: viper.GetString("file"),
-		Type: viper.GetString("type"),
 		Path: viper.GetString("path"),
 	}
 }
@@ -115,7 +117,7 @@ func runExportHelp(cmd *cobra.Command, args []string, newClient ClientFactory) {
 
 	tpl := createHelpTemplate(cmd)
 
-	cfg, err := newCreateConfig(args, newClient)
+	cfg, err := newCreateConfig(cmd, args, newClient)
 	failSoft(err)
 
 	client := newClient(createConfigToClientOptions(cfg))

@@ -8,9 +8,9 @@ import (
 )
 
 type Git struct {
-	URL        *string `yaml:"url,omitempty"`
-	Revision   *string `yaml:"revision,omitempty"`
-	ContextDir *string `yaml:"contextDir,omitempty"`
+	URL        *string `json:"url,omitempty"`
+	Revision   *string `json:"revision,omitempty"`
+	ContextDir *string `json:"contextDir,omitempty"`
 }
 
 // validateGit validates input Git option from Function config
