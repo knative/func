@@ -6,12 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"net"
-	"strings"
 	"syscall"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8sclientcmd "k8s.io/client-go/tools/clientcmd"
 )
 
 func GetSecret(ctx context.Context, name, namespaceOverride string) (*corev1.Secret, error) {
@@ -47,7 +47,7 @@ func ListSecretsNamesIfConnected(ctx context.Context, namespaceOverride string) 
 		}
 
 		// invalid configuration: no configuration has been provided
-		if strings.HasPrefix(err.Error(), "invalid configuration") {
+		if k8sclientcmd.IsEmptyConfig(err) {
 			return []string{}, nil
 		}
 	}
