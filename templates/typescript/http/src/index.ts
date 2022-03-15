@@ -3,7 +3,7 @@ import { Context, Invokable } from 'faas-js-runtime';
 /**
  * Your HTTP handling function, invoked with each request. This is an example
  * function that logs the incoming request and echoes its input to the caller.
- * 
+ *
  * It can be invoked with `func invoke`
  * It can be tested with `npm test`
  *
