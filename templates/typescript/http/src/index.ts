@@ -7,6 +7,9 @@ import { Context, Invokable } from 'faas-js-runtime';
  * It can be invoked with `func invoke`
  * It can be tested with `npm test`
  *
+ * It can be invoked with `func invoke`
+ * It can be tested with `npm test`
+ *
  * @param {Context} context a context object.
  * @param {object} context.body the request body if any
  * @param {object} context.query the query string deserialized as an object, if any

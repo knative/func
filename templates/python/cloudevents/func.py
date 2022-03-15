@@ -8,8 +8,8 @@ def main(context: Context):
     The context parameter contains the Flask request object and any
     CloudEvent received with the request.
     """
-    # print(f"Method: {context.request.method}")
+    # Add your business logic here
 
     # The return value here will be applied as the data attribute
     # of a CloudEvent returned to the function invoker
-    return { "message": "Howdy!" }
+    return context.cloud_event.data
