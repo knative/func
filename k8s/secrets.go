@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"net"
+	"strings"
+	"syscall"
 
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -26,9 +28,8 @@ func GetSecret(ctx context.Context, name, namespaceOverride string) (*corev1.Sec
 func ListSecretsNamesIfConnected(ctx context.Context, namespaceOverride string) (names []string, err error) {
 	names, err = listSecretsNames(ctx, namespaceOverride)
 	if err != nil {
-
 		// not logged our authorized to access resources
-		if k8serrors.IsForbidden(err) || k8serrors.IsUnauthorized(err) {
+		if k8serrors.IsForbidden(err) || k8serrors.IsUnauthorized(err) || k8serrors.IsInvalid(err) || k8serrors.IsTimeout(err) {
 			return []string{}, nil
 		}
 
@@ -38,6 +39,16 @@ func ListSecretsNamesIfConnected(ctx context.Context, namespaceOverride string) 
 			if dnsErr.IsNotFound || dnsErr.IsTemporary || dnsErr.IsTimeout {
 				return []string{}, nil
 			}
+		}
+
+		// connection refused
+		if errors.Is(err, syscall.ECONNREFUSED) {
+			return []string{}, nil
+		}
+
+		// invalid configuration: no configuration has been provided
+		if strings.HasPrefix(err.Error(), "invalid configuration") {
+			return []string{}, nil
 		}
 	}
 
