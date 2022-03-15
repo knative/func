@@ -6,7 +6,8 @@ import { Context } from 'faas-js-runtime';
  * is an example function which logs the incoming event and echoes
  * the received event data to the caller.
  *
- * It can be invoked with 'func emit'.
+ * It can be invoked with 'func invoke'.
+ * It can be tested with 'npm test'.
  *
  * @param {Context} context a context object.
  * @param {object} context.body the request body if any
@@ -26,6 +27,7 @@ const handle = function (
     source: 'function.eventViewer',
     type: 'echo'
   };
+  // YOUR CODE HERE
   // The incoming CloudEvent
   if (!cloudevent) {
     const response: CloudEvent<string> = new CloudEvent<string>({

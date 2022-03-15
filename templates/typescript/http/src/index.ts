@@ -4,6 +4,9 @@ import { Context, Invokable } from 'faas-js-runtime';
  * Your HTTP handling function, invoked with each request. This is an example
  * function that logs the incoming request and echoes its input to the caller.
  *
+ * It can be invoked with `func invoke`
+ * It can be tested with `npm test`
+ *
  * @param {Context} context a context object.
  * @param {object} context.body the request body if any
  * @param {object} context.query the query string deserialized as an object, if any
@@ -14,6 +17,7 @@ import { Context, Invokable } from 'faas-js-runtime';
  * See: https://github.com/knative-sandbox/kn-plugin-func/blob/main/docs/guides/nodejs.md#the-context-object
  */
 export const handle: Invokable = function (context: Context): string {
+  // YOUR CODE HERE
   // eslint-disable-next-line no-console
   console.log(`
 -----------------------------------------------------------
