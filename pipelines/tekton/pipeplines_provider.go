@@ -1,8 +1,12 @@
 package tekton
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"strings"
 	"sync"
 
 	"github.com/google/go-containerregistry/pkg/authn"
@@ -10,11 +14,15 @@ import (
 	"github.com/tektoncd/cli/pkg/pipelinerun"
 	"github.com/tektoncd/cli/pkg/taskrun"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+
+	// "gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	runtimejson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/docker"
@@ -66,7 +74,7 @@ func NewPipelinesProvider(verbose bool, opts ...Opt) *PipelinesProvider {
 // Run creates a Tekton Pipeline and all necessary resources (PVCs, Secrets, SAs,...) for the input Function.
 // It ensures that all needed resources are present on the cluster so the PipelineRun can be initialized.
 // After the PipelineRun is being intitialized, the progress of the PipelineRun is being watched and printed to the output.
-func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
+func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function, customPipeline bool) error {
 	var err error
 
 	if pp.namespace == "" {
@@ -93,7 +101,16 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 		}
 	}
 
-	_, err = client.Pipelines(pp.namespace).Create(ctx, generatePipeline(f, labels), metav1.CreateOptions{})
+	var pipeline *v1beta1.Pipeline
+	if customPipeline {
+		pipeline, err = loadPipelineFromFile(f.Root)
+		if err != nil {
+			return err
+		}
+	} else {
+		pipeline = generatePipeline(f, labels)
+	}
+	_, err = client.Pipelines(pp.namespace).Create(ctx, pipeline, metav1.CreateOptions{})
 	if err != nil {
 		if !errors.IsAlreadyExists(err) {
 			if errors.IsNotFound(err) {
@@ -275,4 +292,56 @@ func (pp *PipelinesProvider) watchPipelineRunProgress(pr *v1beta1.PipelineRun) e
 	wg.Wait()
 
 	return nil
+}
+
+func (pp *PipelinesProvider) Export(ctx context.Context, f fn.Function, namespace string) (err error) {
+	client, err := NewTektonClient()
+	if err != nil {
+		return
+	}
+	if namespace == "" {
+		namespace = pp.namespace
+	}
+	pipelines := client.Pipelines(namespace)
+
+	pipeline, err := pipelines.Get(ctx, getPipelineName(f), metav1.GetOptions{})
+	if err != nil {
+		return
+	}
+
+	file, err := os.Create(strings.Join([]string{f.Root, "pipeline.yaml"}, "/"))
+	if err != nil {
+		return
+	}
+
+	writer := bufio.NewWriter(file)
+	defer writer.Flush()
+
+	scheme := runtime.NewScheme()
+	v1beta1.AddToScheme(scheme)
+
+	yamlSerializer := runtimejson.NewYAMLSerializer(runtimejson.DefaultMetaFactory, scheme, scheme)
+
+	pipeline.APIVersion = "tekton.dev/v1beta1"
+	pipeline.Kind = "Pipeline"
+	if err := yamlSerializer.Encode(pipeline, writer); err != nil {
+		return err
+	}
+	return nil
+}
+
+func loadPipelineFromFile(path string) (*v1beta1.Pipeline, error) {
+	bytes, err := ioutil.ReadFile(strings.Join([]string{path, "pipeline.yaml"}, "/"))
+	if err != nil {
+		return nil, err
+	}
+	pipeline := v1beta1.Pipeline{}
+
+	scheme := runtime.NewScheme()
+	v1beta1.AddToScheme(scheme)
+	gvk := v1beta1.SchemeGroupVersion.WithKind("Pipeline")
+
+	yamlSerializer := runtimejson.NewYAMLSerializer(runtimejson.DefaultMetaFactory, scheme, scheme)
+	yamlSerializer.Decode(bytes, &gvk, &pipeline)
+	return &pipeline, nil
 }

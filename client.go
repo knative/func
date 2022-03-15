@@ -184,8 +184,9 @@ type DNSProvider interface {
 
 // PipelinesProvider manages lifecyle of CI/CD pipelines used by a Function
 type PipelinesProvider interface {
-	Run(context.Context, Function) error
+	Run(context.Context, Function, bool) error
 	Remove(context.Context, Function) error
+	Export(context.Context, Function, string) error
 }
 
 // New client for Function management.
@@ -692,7 +693,7 @@ func (c *Client) Deploy(ctx context.Context, path string) (err error) {
 }
 
 // RunPipeline runs a Pipeline to Build and deploy the Function at path.
-func (c *Client) RunPipeline(ctx context.Context, path string, git Git) (err error) {
+func (c *Client) RunPipeline(ctx context.Context, path string, git Git, customPipeline bool) (err error) {
 	go func() {
 		<-ctx.Done()
 		c.progressListener.Stopping()
@@ -705,7 +706,7 @@ func (c *Client) RunPipeline(ctx context.Context, path string, git Git) (err err
 	f.Git = git
 
 	// Build and deploy function using Pipeline
-	err = c.pipelinesProvider.Run(ctx, f)
+	err = c.pipelinesProvider.Run(ctx, f, customPipeline)
 	if err != nil {
 		return
 	}
@@ -882,6 +883,14 @@ func (c *Client) Push(ctx context.Context, path string) (err error) {
 	return f.Write()
 }
 
+func (c *Client) Export(ctx context.Context, path, namespace string) error {
+	f, err := NewFunction(path)
+	if err != nil {
+		return err
+	}
+	return c.pipelinesProvider.Export(ctx, f, namespace)
+}
+
 // DEFAULTS
 // ---------
 
@@ -941,8 +950,9 @@ func (n *noopDescriber) Describe(context.Context, string) (Instance, error) {
 // PipelinesProvider
 type noopPipelinesProvider struct{}
 
-func (n *noopPipelinesProvider) Run(ctx context.Context, _ Function) error    { return nil }
-func (n *noopPipelinesProvider) Remove(ctx context.Context, _ Function) error { return nil }
+func (n *noopPipelinesProvider) Run(ctx context.Context, _ Function, _ bool) error      { return nil }
+func (n *noopPipelinesProvider) Remove(ctx context.Context, _ Function) error           { return nil }
+func (n *noopPipelinesProvider) Export(ctx context.Context, _ Function, _ string) error { return nil }
 
 // DNSProvider
 type noopDNSProvider struct{ output io.Writer }

@@ -104,6 +104,7 @@ EXAMPLES
 	cmd.AddCommand(NewInfoCmd(newClient))
 	cmd.AddCommand(NewListCmd(newClient))
 	cmd.AddCommand(NewInvokeCmd(newClient))
+	cmd.AddCommand(NewPipelineCmd(newClient))
 	cmd.AddCommand(NewRepositoryCmd(newRepositoryClient))
 	cmd.AddCommand(NewRunCmd(newRunClient))
 	cmd.AddCommand(NewCompletionCmd())

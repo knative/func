@@ -51,7 +51,7 @@ that is pushed to an image registry, and finally the function's Knative service 
 {{.Name}} deploy --image quay.io/myuser/myfunc -n myns
 `,
 		SuggestFor: []string{"delpoy", "deplyo"},
-		PreRunE:    bindEnv("image", "namespace", "path", "registry", "confirm", "build", "push", "git-url", "git-branch", "git-dir"),
+		PreRunE:    bindEnv("image", "namespace", "path", "registry", "confirm", "build", "push", "git-url", "git-branch", "git-dir", "pipeline"),
 	}
 
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
@@ -65,6 +65,7 @@ that is pushed to an image registry, and finally the function's Knative service 
 	cmd.Flags().StringP("registry", "r", GetDefaultRegistry(), "Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined based on the local directory name. If not provided the registry will be taken from func.yaml (Env: $FUNC_REGISTRY)")
 	cmd.Flags().StringP("build", "b", fn.DefaultBuildType, fmt.Sprintf("Build specifies the way the function should be built. Supported types are %s (Env: $FUNC_BUILD)", fn.SupportedBuildTypes(true)))
 	cmd.Flags().BoolP("push", "u", true, "Attempt to push the function image to registry before deploying (Env: $FUNC_PUSH)")
+	cmd.Flags().BoolP("pipeline", "P", false, "Use custom pipeline file at the function's root directory")
 	setPathFlag(cmd)
 	setNamespaceFlag(cmd)
 
@@ -193,7 +194,7 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 			git.ContextDir = &config.GitDir
 		}
 
-		return client.RunPipeline(cmd.Context(), config.Path, git)
+		return client.RunPipeline(cmd.Context(), config.Path, git, config.Pipeline)
 	case fn.BuildTypeDisabled:
 		// nothing needed to be done for `build=disabled`
 	default:
@@ -311,6 +312,9 @@ type deployConfig struct {
 
 	// Directory in the git repo where the function is located
 	GitDir string
+
+	// Apply custom pipeline at the function's root
+	Pipeline bool
 }
 
 // newDeployConfig creates a buildConfig populated from command flags and
@@ -341,6 +345,7 @@ func newDeployConfig(cmd *cobra.Command) (deployConfig, error) {
 		GitURL:      viper.GetString("git-url"),
 		GitBranch:   viper.GetString("git-branch"),
 		GitDir:      viper.GetString("git-dir"),
+		Pipeline:    viper.GetBool("pipeline"),
 	}, nil
 }
 
