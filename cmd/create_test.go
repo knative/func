@@ -122,8 +122,8 @@ func TestCreate_RepositoriesPath(t *testing.T) {
 	// will validate the test condition:  that config reflects the value of
 	// XDG_CONFIG_HOME, and secondarily the path suffix `func/repositories`.
 	cmd := NewCreateCmd(func(cfg ClientOptions) *fn.Client {
-		if cfg.Repositories != expected {
-			t.Fatalf("expected repositories default path to be '%v', got '%v'", expected, cfg.Repositories)
+		if cfg.RepositoriesPath != expected {
+			t.Fatalf("expected repositories default path to be '%v', got '%v'", expected, cfg.RepositoriesPath)
 		}
 		return fn.New()
 	})

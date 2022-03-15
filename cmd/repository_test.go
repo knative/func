@@ -10,17 +10,16 @@ import (
 )
 
 // TestRepository_List ensures that the 'list' subcommand shows the client's
-// set of repositories by name, respects the repositories flag (provides it to
-// the client), and prints the list as expected.
+// set of repositories by name and prints the list as expected.
 func TestRepository_List(t *testing.T) {
 	var (
 		client = mock.NewClient()
 		list   = NewRepositoryListCmd(testRepositoryClientFn(client))
 	)
 
-	// Set the repositories flag, which will be passed to the client instance
+	// Set the repositories path, which will be passed to the client instance
 	// in the form of a config.
-	list.SetArgs([]string{"--repositories=testpath"})
+	os.Setenv("FUNC_REPOSITORIES_PATH", "testpath")
 
 	// Execute the command, capturing the output sent to stdout
 	stdout := piped(t)
@@ -30,7 +29,7 @@ func TestRepository_List(t *testing.T) {
 
 	// Assert the repository flag setting was preserved during execution
 	if client.RepositoriesPath != "testpath" {
-		t.Fatal("repositories flag not passed to client")
+		t.Fatal("repositories env not passed to client")
 	}
 
 	// Assert the output matches expectd (whitespace trimmed)
@@ -51,9 +50,10 @@ func TestRepository_Add(t *testing.T) {
 		list   = NewRepositoryListCmd(testRepositoryClientFn(client))
 		stdout = piped(t)
 	)
+	os.Setenv("FUNC_REPOSITORIES_PATH", "testpath")
+
 	// add [flags] <old> <new>
 	add.SetArgs([]string{
-		"--repositories=testpath",
 		"newrepo",
 		"https://git.example.com/user/repo",
 	})
@@ -65,7 +65,7 @@ func TestRepository_Add(t *testing.T) {
 
 	// Assert the repositories flag was parsed and provided to client
 	if client.RepositoriesPath != "testpath" {
-		t.Fatal("repositories flag not passed to client")
+		t.Fatal("repositories path not passed to client")
 	}
 
 	// List post-add, capturing output from stdout
@@ -92,6 +92,7 @@ func TestRepository_Rename(t *testing.T) {
 		list   = NewRepositoryListCmd(testRepositoryClientFn(client))
 		stdout = piped(t)
 	)
+	os.Setenv("FUNC_REPOSITORIES_PATH", "testpath")
 
 	// add a repo which will be renamed
 	add.SetArgs([]string{"newrepo", "https://git.example.com/user/repo"})
@@ -101,7 +102,6 @@ func TestRepository_Rename(t *testing.T) {
 
 	// rename [flags] <old> <new>
 	rename.SetArgs([]string{
-		"--repositories=testpath",
 		"newrepo",
 		"renamed",
 	})
@@ -113,7 +113,7 @@ func TestRepository_Rename(t *testing.T) {
 
 	// Assert the repositories flag was parsed and provided to client
 	if client.RepositoriesPath != "testpath" {
-		t.Fatal("repositories flag not passed to client")
+		t.Fatal("repositories path not passed to client")
 	}
 
 	// List post-rename, capturing output from stdout
@@ -140,6 +140,7 @@ func TestRepository_Remove(t *testing.T) {
 		list   = NewRepositoryListCmd(testRepositoryClientFn(client))
 		stdout = piped(t)
 	)
+	os.Setenv("FUNC_REPOSITORIES_PATH", "testpath")
 
 	// add a repo which will be removed
 	add.SetArgs([]string{"newrepo", "https://git.example.com/user/repo"})
@@ -149,7 +150,6 @@ func TestRepository_Remove(t *testing.T) {
 
 	// remove [flags] <name>
 	remove.SetArgs([]string{
-		"--repositories=testpath",
 		"newrepo",
 	})
 
@@ -189,7 +189,7 @@ func testRepositoryClientFn(client *mock.Client) repositoryClientFn {
 	return func(args []string) (repositoryConfig, RepositoryClient, error) {
 		cfg, err := newRepositoryConfig(args)
 		client.Confirm = cfg.Confirm
-		client.RepositoriesPath = cfg.Repositories
+		client.RepositoriesPath = cfg.RepositoriesPath
 		if err != nil {
 			return cfg, c, err
 		}
