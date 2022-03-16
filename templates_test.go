@@ -5,7 +5,6 @@ package function_test
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -164,8 +163,7 @@ func TestTemplates_Remote(t *testing.T) {
 	root := "testdata/testTemplatesRemote"
 	defer Using(t, root)()
 
-	addr := RunGitServer(t)
-	url := fmt.Sprintf(`http://%s/repository.git`, addr)
+	url := TestRepoURI(RepositoriesTestRepo, t)
 
 	// Create a client which explicitly specifies the Git repo at URL
 	// rather than relying on the default internally builtin template repo
@@ -330,8 +328,7 @@ func TestTemplates_ModeRemote(t *testing.T) {
 	root := "testdata/testTemplates_ModeRemote"
 	defer Using(t, root)()
 
-	addr := RunGitServer(t)
-	url := fmt.Sprintf(`http://%s/repository.git`, addr)
+	url := TestRepoURI(RepositoriesTestRepo, t)
 
 	client := fn.New(
 		fn.WithRegistry(TestRegistry),

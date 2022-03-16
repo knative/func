@@ -120,17 +120,21 @@ func cd(t *testing.T, dir string) {
 	}
 }
 
-// TEST REPO URI:  Return URI to repo in ./testdata of matching name.
-// Suitable as URI for repository override. returns in form file://
-// Must be called prior to mktemp in tests which changes current
-// working directory as it depends on a relative path.
-// Repo uri:  file://$(pwd)/testdata/repository.git (unix-like)
-//            file: //$(pwd)\testdata\repository.git (windows)
+// TestRepoURI starts serving HTTP git server with GIT_PROJECT_ROOT=$(pwd)/testdata
+// and returns URL for project named `name` under the git root.
+//
+//
+// For example TestRepoURI("my-repo", t) returns string that could look like:
+// http://localhost:4242/my-repo.git
 func TestRepoURI(name string, t *testing.T) string {
 	t.Helper()
-
-	addr := RunGitServer(t)
-	return fmt.Sprintf(`http://%s/%s`, addr, name+".git")
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	gitRoot := filepath.Join(wd, "testdata")
+	hostPort := RunGitServer(t, gitRoot)
+	return fmt.Sprintf(`http://%s/%s.git`, hostPort, name)
 }
 
 // WithEnvVar sets an environment variable
@@ -196,12 +200,13 @@ go.exe run GO_SCRIPT_PATH %*
 	}
 }
 
-func RunGitServer(t *testing.T) (addr string) {
+// RunGitServer starts serving git HTTP server and returns its address including port
+func RunGitServer(t *testing.T, gitRoot string) (hostPort string) {
 	l, err := net.Listen("tcp", "localhost:0")
 	if err != nil {
 		t.Fatal(err)
 	}
-	addr = l.Addr().String()
+	hostPort = l.Addr().String()
 
 	cmd := exec.Command("git", "--exec-path")
 	out, err := cmd.CombinedOutput()
@@ -209,15 +214,10 @@ func RunGitServer(t *testing.T) (addr string) {
 		t.Fatal(err)
 	}
 
-	wd, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	server := &http.Server{
 		Handler: &cgi.Handler{
 			Path: filepath.Join(strings.Trim(string(out), "\n"), "git-http-backend"),
-			Env:  []string{"GIT_HTTP_EXPORT_ALL=true", fmt.Sprintf("GIT_PROJECT_ROOT=%s", filepath.Join(wd, "testdata"))},
+			Env:  []string{"GIT_HTTP_EXPORT_ALL=true", fmt.Sprintf("GIT_PROJECT_ROOT=%s", gitRoot)},
 		},
 	}
 
@@ -232,5 +232,5 @@ func RunGitServer(t *testing.T) (addr string) {
 		server.Close()
 	})
 
-	return addr
+	return hostPort
 }
