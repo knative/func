@@ -13,11 +13,11 @@ import (
 )
 
 type ClientOptions struct {
-	Namespace    string
-	Registry     string
-	Repository   string
-	Repositories string
-	Verbose      bool
+	Namespace        string
+	Registry         string
+	Repository       string
+	RepositoriesPath string
+	Verbose          bool
 }
 
 type ClientFactory func(opts ClientOptions) *fn.Client
@@ -99,8 +99,8 @@ func NewDefaultClientFactory() (newClient ClientFactory, cleanUp func() error) {
 			fn.WithPusher(pusher),
 		}
 
-		if clientOptions.Repositories != "" {
-			opts = append(opts, fn.WithRepositories(clientOptions.Repositories)) // path to repositories in disk
+		if clientOptions.RepositoriesPath != "" {
+			opts = append(opts, fn.WithRepositoriesPath(clientOptions.RepositoriesPath)) // path to repositories in disk
 		}
 
 		return fn.New(opts...)

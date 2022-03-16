@@ -27,7 +27,7 @@ func TestRepositories_List(t *testing.T) {
 	root, rm := Mktemp(t)
 	defer rm()
 
-	client := fn.New(fn.WithRepositories(root)) // Explicitly empty
+	client := fn.New(fn.WithRepositoriesPath(root)) // Explicitly empty
 
 	rr, err := client.Repositories().List()
 	if err != nil {
@@ -42,7 +42,7 @@ func TestRepositories_List(t *testing.T) {
 // TestRepositories_GetInvalid ensures that attempting to get an invalid repo
 // results in error.
 func TestRepositories_GetInvalid(t *testing.T) {
-	client := fn.New(fn.WithRepositories("testdata/repositories"))
+	client := fn.New(fn.WithRepositoriesPath("testdata/repositories"))
 
 	// invalid should error
 	_, err := client.Repositories().Get("invalid")
@@ -53,7 +53,7 @@ func TestRepositories_GetInvalid(t *testing.T) {
 
 // TestRepositories_Get ensures a repository can be accessed by name.
 func TestRepositories_Get(t *testing.T) {
-	client := fn.New(fn.WithRepositories("testdata/repositories"))
+	client := fn.New(fn.WithRepositoriesPath("testdata/repositories"))
 
 	// valid should not error
 	repo, err := client.Repositories().Get("customTemplateRepo")
@@ -78,7 +78,7 @@ func TestRepositories_All(t *testing.T) {
 	root, rm := Mktemp(t)
 	defer rm()
 
-	client := fn.New(fn.WithRepositories(root))
+	client := fn.New(fn.WithRepositoriesPath(root))
 
 	// Assert initially only the default is included
 	rr, err := client.Repositories().All()
@@ -121,7 +121,7 @@ func TestRepositories_Add(t *testing.T) {
 
 	// Instantiate the client using the current temp directory as the
 	// repositories' root location.
-	client := fn.New(fn.WithRepositories(root))
+	client := fn.New(fn.WithRepositoriesPath(root))
 
 	// Add the repository, explicitly specifying a name.  See other tests for
 	// defaulting from repository names and manifest-defined name.
@@ -161,7 +161,7 @@ func TestRepositories_AddDeafultName(t *testing.T) {
 	root, rm := Mktemp(t)
 	defer rm()
 
-	client := fn.New(fn.WithRepositories(root))
+	client := fn.New(fn.WithRepositoriesPath(root))
 
 	name, err := client.Repositories().Add("", uri)
 	if err != nil {
@@ -200,7 +200,7 @@ func TestRepositories_AddWithManifest(t *testing.T) {
 	root, rm := Mktemp(t)
 	defer rm()
 
-	client := fn.New(fn.WithRepositories(root))
+	client := fn.New(fn.WithRepositoriesPath(root))
 
 	name, err := client.Repositories().Add("", uri)
 	if err != nil {
@@ -237,7 +237,7 @@ func TestRepositories_AddExistingErrors(t *testing.T) {
 
 	// Instantiate the client using the current temp directory as the
 	// repositories' root location.
-	client := fn.New(fn.WithRepositories(root))
+	client := fn.New(fn.WithRepositoriesPath(root))
 
 	// Add twice.
 	name := "example"
@@ -275,7 +275,7 @@ func TestRepositories_Rename(t *testing.T) {
 
 	// Instantiate the client using the current temp directory as the
 	// repositories' root location.
-	client := fn.New(fn.WithRepositories(root))
+	client := fn.New(fn.WithRepositoriesPath(root))
 
 	// Add and Rename
 	if _, err := client.Repositories().Add("foo", uri); err != nil {
@@ -309,7 +309,7 @@ func TestRepositories_Remove(t *testing.T) {
 
 	// Instantiate the client using the current temp directory as the
 	// repositories' root location.
-	client := fn.New(fn.WithRepositories(root))
+	client := fn.New(fn.WithRepositoriesPath(root))
 
 	// Add and Remove
 	name := "example"
@@ -346,7 +346,7 @@ func TestRepositories_URL(t *testing.T) {
 	root, rm := Mktemp(t)
 	defer rm()
 
-	client := fn.New(fn.WithRepositories(root))
+	client := fn.New(fn.WithRepositoriesPath(root))
 
 	// Add the test repo
 	_, err := client.Repositories().Add("newrepo", uri)

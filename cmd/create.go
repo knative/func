@@ -27,9 +27,9 @@ type ErrInvalidTemplate error
 
 func createConfigToClientOptions(cfg createConfig) ClientOptions {
 	return ClientOptions{
-		Repositories: cfg.Repositories,
-		Repository:   cfg.Repository,
-		Verbose:      cfg.Verbose,
+		RepositoriesPath: cfg.RepositoriesPath,
+		Repository:       cfg.Repository,
+		Verbose:          cfg.Verbose,
 	}
 }
 
@@ -64,6 +64,7 @@ DESCRIPTION
 {{ .Options | indent 2 " " | indent 1 "\t" }}
 
 	To install more language runtimes and their templates see '{{.Name}} repository'.
+
 
 EXAMPLES
 	o Create a Node.js Function (the default language runtime) in the current
@@ -186,12 +187,6 @@ type createConfig struct {
 	Verbose    bool   // Verbose output
 	Confirm    bool   // Confirm values via an interactive prompt
 
-	// Repositories is an optional path that, if it exists, will be used as a source
-	// for additional template repositories not included in the binary.  provided via
-	// env (FUNC_REPOSITORIES), the default location is $XDG_CONFIG_HOME/repositories
-	// ($HOME/.config/func/repositories)
-	Repositories string
-
 	// Template is the code written into the new Function project, including
 	// an implementation adhering to one of the supported function signatures.
 	// May also include additional configuration settings or examples.
@@ -203,6 +198,14 @@ type createConfig struct {
 
 	// Name of the Function
 	Name string
+
+	// RepositoriesPath is an optional configuration setting (not set via flags)
+	// which overrides the location on disk at which to search for installed
+	// repositories.
+	// Override using $FUNC_REPOSITORIES_PATH
+	// Default value is $XDG_CONFIG_HOME/func/repositories
+	// (~/.config/func/repositories)
+	RepositoriesPath string
 }
 
 // newCreateConfig returns a config populated from the current execution context
@@ -212,10 +215,10 @@ type createConfig struct {
 // current value of the config at time of prompting.
 func newCreateConfig(cmd *cobra.Command, args []string, newClient ClientFactory) (cfg createConfig, err error) {
 	var (
-		path         string
-		dirName      string
-		absolutePath string
-		repositories string
+		path             string
+		dirName          string
+		absolutePath     string
+		repositoriesPath string
 	)
 
 	if len(args) >= 1 {
@@ -231,22 +234,22 @@ func newCreateConfig(cmd *cobra.Command, args []string, newClient ClientFactory)
 	// Not exposed as a flag due to potential confusion with the more likely
 	// "repository override" flag, and due to its unlikliness of being needed, but
 	// it is still available as an environment variable.
-	repositories = os.Getenv("FUNC_REPOSITORIES")
-	if repositories == "" { // if no env var provided
-		repositories = fn.New().RepositoriesPath() // use ~/.config/func/repositories
+	repositoriesPath = os.Getenv("FUNC_REPOSITORIES_PATH")
+	if repositoriesPath == "" { // if no env var provided
+		repositoriesPath = fn.New().RepositoriesPath() // use ~/.config/func/repositories
 	}
 
 	// Config is the final default values based off the execution context.
 	// When prompting, these become the defaults presented.
 	cfg = createConfig{
-		Name:         dirName, // TODO: refactor to be git-like
-		Path:         absolutePath,
-		Repositories: repositories,
-		Repository:   viper.GetString("repository"),
-		Runtime:      viper.GetString("language"), // users refer to it is language
-		Template:     viper.GetString("template"),
-		Confirm:      viper.GetBool("confirm"),
-		Verbose:      viper.GetBool("verbose"),
+		Name:             dirName, // TODO: refactor to be git-like
+		Path:             absolutePath,
+		RepositoriesPath: repositoriesPath,
+		Repository:       viper.GetString("repository"),
+		Runtime:          viper.GetString("language"), // users refer to it is language
+		Template:         viper.GetString("template"),
+		Confirm:          viper.GetBool("confirm"),
+		Verbose:          viper.GetBool("verbose"),
 	}
 	// If not in confirm/prompting mode, this cfg structure is complete.
 	if !cfg.Confirm {
@@ -277,8 +280,6 @@ func newCreateConfig(cmd *cobra.Command, args []string, newClient ClientFactory)
 	fmt.Printf("Language:     %v\n", cfg.Runtime) // users refer to it as language
 	if cfg.Repository != "" {                     // if an override was provided
 		fmt.Printf("Repository:   %v\n", cfg.Repository) // show only the override
-	} else {
-		fmt.Printf("Repositories: %v\n", cfg.Repositories) // or path to installed
 	}
 	fmt.Printf("Template:     %v\n", cfg.Template)
 	return

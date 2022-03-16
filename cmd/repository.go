@@ -26,7 +26,7 @@ func newRepositoryClient(args []string) (repositoryConfig, RepositoryClient, err
 		return cfg, nil, err
 	}
 	client := repositoryClient{fn.New(
-		fn.WithRepositories(cfg.Repositories),
+		fn.WithRepositoriesPath(cfg.RepositoriesPath),
 		fn.WithVerbose(cfg.Verbose))}
 	return cfg, client, nil
 }
@@ -56,12 +56,6 @@ DESCRIPTION
 	flag.  Once added, a template from the repository can be used when creating
 	a new Function.
 
-	Alternative Repositories Location:
-	Repositories are stored on disk in ~/.config/func/repositories by default.
-	This location can be altered by either setting the FUNC_REPOSITORIES
-	environment variable, or by providing the --repositories (-r) flag to any
-	of the commands.  XDG_CONFIG_HOME is respected when determining the default.
-
 	Interactive Prompts:
 	To complete these commands interactively, pass the --confirm (-c) flag to
 	the 'repository' command, or any of the inidivual subcommands.
@@ -84,6 +78,12 @@ DESCRIPTION
 		$ {{.Name}} create -l go \
 			--template hello-world \
 			--repository https://github.com/boson-project/templates
+
+	Alternative Repositories Location:
+	Repositories are stored on disk in ~/.config/func/repositories by default.
+	This location can be altered by setting the FUNC_REPOSITORIES_PATH
+	environment variable.
+
 
 COMMANDS
 
@@ -118,7 +118,7 @@ COMMANDS
 	  entirely.  When in confirm mode (--confirm) it will confirm before
 	  deletion, but in regular mode this is done immediately, so please use
 	  caution, especially when using an altered repositories location
-	  (FUNC_REPOSITORIES environment variable or --repositories).
+	  (via the FUNC_REPOSITORIES_PATH environment variable).
 	    $ {{.Name}} repository remove <name>
 
 EXAMPLES
@@ -156,11 +156,10 @@ EXAMPLES
 	  default
 `,
 		SuggestFor: []string{"repositories", "repos", "template", "templates", "pack", "packs"},
-		PreRunE:    bindEnv("repositories", "confirm"),
+		PreRunE:    bindEnv("confirm"),
 	}
 
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
-	cmd.Flags().StringP("repositories", "r", fn.RepositoriesPath(), "Path to language pack repositories (Env: $FUNC_REPOSITORIES)")
 
 	cmd.SetHelpFunc(defaultTemplatedHelp)
 
@@ -178,12 +177,9 @@ EXAMPLES
 
 func NewRepositoryListCmd(clientFn repositoryClientFn) *cobra.Command {
 	cmd := &cobra.Command{
-		Short:   "List repositories",
-		Use:     "list",
-		PreRunE: bindEnv("repositories"),
+		Short: "List repositories",
+		Use:   "list",
 	}
-
-	cmd.Flags().StringP("repositories", "r", fn.RepositoriesPath(), "Path to language pack repositories (Env: $FUNC_REPOSITORIES)")
 
 	cmd.RunE = func(_ *cobra.Command, args []string) error {
 		return runRepositoryList(args, clientFn)
@@ -196,11 +192,10 @@ func NewRepositoryAddCmd(clientFn repositoryClientFn) *cobra.Command {
 		Short:      "Add a repository",
 		Use:        "add <name> <url>",
 		SuggestFor: []string{"ad", "install"},
-		PreRunE:    bindEnv("repositories", "confirm"),
+		PreRunE:    bindEnv("confirm"),
 	}
 
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
-	cmd.Flags().StringP("repositories", "r", fn.RepositoriesPath(), "Path to language pack repositories (Env: $FUNC_REPOSITORIES)")
 
 	cmd.RunE = func(_ *cobra.Command, args []string) error {
 		return runRepositoryAdd(args, clientFn)
@@ -212,11 +207,10 @@ func NewRepositoryRenameCmd(clientFn repositoryClientFn) *cobra.Command {
 	cmd := &cobra.Command{
 		Short:   "Rename a repository",
 		Use:     "rename <old> <new>",
-		PreRunE: bindEnv("repositories", "confirm"),
+		PreRunE: bindEnv("confirm"),
 	}
 
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
-	cmd.Flags().StringP("repositories", "r", fn.RepositoriesPath(), "Path to language pack repositories (Env: $FUNC_REPOSITORIES)")
 
 	cmd.RunE = func(_ *cobra.Command, args []string) error {
 		return runRepositoryRename(args, clientFn)
@@ -230,11 +224,10 @@ func NewRepositoryRemoveCmd(clientFn repositoryClientFn) *cobra.Command {
 		Use:        "remove <name>",
 		Aliases:    []string{"rm"},
 		SuggestFor: []string{"delete", "del"},
-		PreRunE:    bindEnv("repositories", "confirm"),
+		PreRunE:    bindEnv("confirm"),
 	}
 
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
-	cmd.Flags().StringP("repositories", "r", fn.RepositoriesPath(), "Path to language pack repositories (Env: $FUNC_REPOSITORIES)")
 
 	cmd.RunE = func(_ *cobra.Command, args []string) error {
 		return runRepositoryRemove(args, clientFn)
@@ -580,9 +573,9 @@ func installedRepositories(client RepositoryClient) ([]string, error) {
 
 // repositoryConfig used for instantiating a fn.Client
 type repositoryConfig struct {
-	Repositories string // Path to repos to be managed
-	Verbose      bool   // Enables verbose logging
-	Confirm      bool   // Enables interactive confirmation/prompting mode
+	RepositoriesPath string // Path to repos to be managed
+	Verbose          bool   // Enables verbose logging
+	Confirm          bool   // Enables interactive confirmation/prompting mode
 }
 
 // newRepositoryConfig creates a configuration suitable for use instantiating the
@@ -593,9 +586,15 @@ func newRepositoryConfig(args []string) (cfg repositoryConfig, err error) {
 	// first populated by static defaults, then environment variables,
 	// finally command flags.
 	cfg = repositoryConfig{
-		Repositories: viper.GetString("repositories"),
-		Verbose:      viper.GetBool("verbose"),
-		Confirm:      viper.GetBool("confirm"),
+		Verbose: viper.GetBool("verbose"),
+		Confirm: viper.GetBool("confirm"),
+	}
+
+	// Repositories Path
+	// Use env var to alter the default of ~/.config/func/repositories
+	cfg.RepositoriesPath = os.Getenv("FUNC_REPOSITORIES_PATH")
+	if cfg.RepositoriesPath == "" {
+		cfg.RepositoriesPath = fn.New().RepositoriesPath()
 	}
 
 	// If not in confirm (interactive prompting) mode,
@@ -612,7 +611,7 @@ func newRepositoryConfig(args []string) (cfg repositoryConfig, err error) {
 
 	// Noninteractive terminals in confirm/prompt mode simply echo
 	// effective values to stdout.
-	fmt.Fprintf(os.Stdout, "Repositories path: %v\n", cfg.Repositories)
+	fmt.Fprintf(os.Stdout, "Repositories path: %v\n", cfg.RepositoriesPath)
 	fmt.Fprintf(os.Stdout, "Verbose logging:   %v\n", cfg.Verbose)
 	return
 }
@@ -639,7 +638,7 @@ func (c repositoryConfig) prompt() (repositoryConfig, error) {
 			Name: "Repositories",
 			Prompt: &survey.Input{
 				Message: "Path to repositories:",
-				Default: c.Repositories,
+				Default: c.RepositoriesPath,
 			},
 			Validate: survey.Required,
 		}, {
