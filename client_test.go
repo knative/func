@@ -900,8 +900,7 @@ func TestClient_Deploy_UnbuiltErrors(t *testing.T) {
 }
 
 // TestClient_New_BuildersPersisted Asserts that the client preserves user-
-// provided Builders on the Function configuration with the internal default
-// if not provided.
+// provided Builders
 func TestClient_New_BuildersPersisted(t *testing.T) {
 	root := "testdata/example.com/testConfiguredBuilders" // Root from which to run the test
 	defer Using(t, root)()
@@ -931,10 +930,11 @@ func TestClient_New_BuildersPersisted(t *testing.T) {
 		t.Fatalf("Expected %v but got %v", f0.Builders, f1.Builders)
 	}
 
-	// But that the default exists
-	if f1.Builder == "" {
-		t.Fatal("Expected default builder to be set")
-	}
+	// A Default Builder(image) is not asserted here, because that is
+	// the responsibility of the Builder(type) being used to build the Function.
+	// The builder (Buildpack,s2i, etc) will have a default builder image for
+	// the given Function or will error that the Function is not supported.
+	// A builder image may also be manually specified of course.
 }
 
 // TestClient_New_BuilderDefault ensures that if a custom builder is
