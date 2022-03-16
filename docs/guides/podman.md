@@ -53,27 +53,27 @@ podman info | grep podman.sock
 This should display something like `path: /run/user/1000/podman/podman.sock`. When you have this path, and the hostname or IP address of the Linux server, you can configure `podman` with the following command.
 
 ```
-podman --remote system connection add registry --identity ~/.ssh/id_ed255519 ssh://username@hostname/path/to/podman.socket
+podman --remote system connection add podman-remote --identity ~/.ssh/id_ed255519 ssh://username@hostname/path/to/podman.socket
 ```
 
-In the example above, a connection called `registry` is added, which will connect using the SSH key created earlier to the host at `hostname` as the user `username`. Here is a real world example.
+In the example above, a connection called `podman-remote` is added, which will connect using the SSH key created earlier to the host at `hostname` as the user `username`. Here is a real world example.
 
 ```
-podman --remote system connection add cluster --identity ~/.ssh/id_podman_client ssh://lanceball@192.168.1.203/run/user/1000/podman/podman.sock
+podman --remote system connection add podman-remote --identity ~/.ssh/id_podman_client ssh://lanceball@192.168.1.203/run/user/1000/podman/podman.sock
 ```
 
-To make the newly configured registry the default for `podman` on your laptop, run the following command.
+To make the newly configured remote the default for `podman` on your laptop, run the following command.
 
 ```
-podman --remote system connection default registry
+podman --remote system connection default podman-remote
 ```
 
-To check if it was successfully added, run the following command. You should see the `registry` connection added.
+To check if it was successfully added, run the following command. You should see the `podman-remote` connection added.
 
 ```
 ❯ podman --remote system connection list
 Name                         Identity                                  URI
-registry*                    /Users/lball/.ssh/id_podman_client        ssh://lanceball@192.168.1.203:22/run/user/1000/podman/podman.sock
+podman-remote*               /Users/lball/.ssh/id_podman_client        ssh://lanceball@192.168.1.203:22/run/user/1000/podman/podman.sock
 ```
 
 Finally, to ensure that `func` knows the address of your newly configured registry, set and export the `DOCKER_HOST` environment variable with the following command.
