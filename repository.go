@@ -500,7 +500,7 @@ func (r *Repository) URL() string {
 
 	// git.PlainOpen does not seem to
 	if strings.HasPrefix(uri, "file://") {
-		uri = r.uri[6:]
+		uri = filepath.FromSlash(r.uri[7:])
 	}
 
 	repo, err := git.PlainOpen(uri)
