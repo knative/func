@@ -22,7 +22,7 @@ import (
 
 // DefaultBuilderImages for Pack builders indexed by Runtime Language
 var DefaultBuilderImages = map[string]string{
-	"node": "gcr.io/paketo-buildpacks/builder:0.1.201-base",
+	"node": "gcr.io/paketo-buildpacks/builder:base",
 	"go":   "gcr.io/paketo-buildpacks/builder:base",
 }
 

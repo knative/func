@@ -95,8 +95,6 @@ EXAMPLES
 		fmt.Fprintf(os.Stderr, "unable to provide template suggestions: %v", err)
 	}
 
-	cmd.SetHelpFunc(runCreateHelp)
-
 	return cmd
 }
 
