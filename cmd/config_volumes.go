@@ -112,11 +112,11 @@ func listVolumes(f fn.Function) {
 
 func runAddVolumesPrompt(ctx context.Context, f fn.Function) (err error) {
 
-	secrets, err := k8s.ListSecretsNames(ctx, f.Namespace)
+	secrets, err := k8s.ListSecretsNamesIfConnected(ctx, f.Namespace)
 	if err != nil {
 		return
 	}
-	configMaps, err := k8s.ListConfigMapsNames(ctx, f.Namespace)
+	configMaps, err := k8s.ListConfigMapsNamesIfConnected(ctx, f.Namespace)
 	if err != nil {
 		return
 	}
