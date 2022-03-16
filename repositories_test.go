@@ -338,11 +338,8 @@ func TestRepositories_Remove(t *testing.T) {
 // TestRepositories_URL ensures that a repository populates its URL member
 // from the git repository's origin url (if it is a git repo and exists)
 func TestRepositories_URL(t *testing.T) {
-	// FIXME:  This test is temporarily disabled.  See not in Repository.Write
-	// in short: as a side-effect of removing the double-clone, the in-memory
-	// repo is insufficient as it does not include a .git directory.
-	if true {
-		return
+	if runtime.GOOS == "windows" {
+		t.Skip("TODO fix this test on Windows CI") // TODO fix this
 	}
 
 	uri := TestRepoURI(RepositoriesTestRepo, t)
