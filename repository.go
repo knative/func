@@ -2,6 +2,7 @@ package function
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net/url"
 	"os"
 	"path"
@@ -449,24 +450,60 @@ func (r *Repository) Runtime(name string) (runtime Runtime, err error) {
 }
 
 // Write all files in the repository to the given path.
-func (r *Repository) Write(path string) error {
-	// NOTE: Writing internal .git directory does not work
-	//
-	// A quirk of the git library's implementation is that the filesystem
-	// returned does not include the .git directory.  This is usually not an
-	// issue when utilizing the repository's filesystem (for writing templates),
-	// but it does cause problems here (used for installing a repo locally) where
-	// we effectively want a full clone.
-	// TODO: switch to using a temp directory?
+func (r *Repository) Write(path string) (err error) {
+	fs := r.FS // The FS to copy
 
-	return copy(".", path, r.FS) // copy 'all' to 'dest' from 'FS'
+	// NOTE
+	// We re-load in-memory git repos via a temp directory to avoid what
+	// appears to be a missing .git directory in the default worktree FS.
+	//
+	// This missing .git dir is usually not an issue when utilizing the
+	// repository's filesystem (for writing templates, etc), but it does cause
+	// problems here where we are writing the entire repository to disk (cloning).
+	// We effectively want a full clone with a working tree. So here we do a
+	// plain clone first to a temp directory and then copy the files on disk
+	// using a regular file copy operation which thus includes the repo metadata.
+	if _, ok := r.FS.(billyFilesystem); ok {
+		var (
+			tempDir string
+			clone   *git.Repository
+			wt      *git.Worktree
+		)
+		if tempDir, err = ioutil.TempDir("", "func"); err != nil {
+			return
+		}
+		if clone, err = git.PlainClone(tempDir, false, // not bare
+			&git.CloneOptions{URL: r.uri, Depth: 1, Tags: git.NoTags,
+				RecurseSubmodules: git.NoRecurseSubmodules}); err != nil {
+			return
+		}
+		if wt, err = clone.Worktree(); err != nil {
+			return
+		}
+		fs = billyFilesystem{fs: wt.Filesystem}
+	}
+	return copy(".", path, fs)
 }
 
 // URL attempts to read the remote git origin URL of the repository.  Best
 // effort; returns empty string if the repository is not a git repo or the repo
 // has been mutated beyond recognition on disk (ex: removing the origin remote)
 func (r *Repository) URL() string {
-	repo, err := git.PlainOpen(r.uri)
+	uri := r.uri
+
+	// The default builtin repository is indicated by an empty URI.
+	// It has no remote URL, and without this check the current working directory
+	// would be checked.
+	if uri == "" {
+		return ""
+	}
+
+	// git.PlainOpen does not seem to
+	if strings.HasPrefix(uri, "file://") {
+		uri = r.uri[6:]
+	}
+
+	repo, err := git.PlainOpen(uri)
 	if err != nil {
 		return "" // not a git repository
 	}
