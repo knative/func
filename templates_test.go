@@ -159,20 +159,13 @@ func TestTemplates_Custom(t *testing.T) {
 // can be specificed on creation of client, with subsequent calls to Create
 // using this remote by default.
 func TestTemplates_Remote(t *testing.T) {
+	var err error
+
 	root := "testdata/testTemplatesRemote"
 	defer Using(t, root)()
 
-	// The difference between HTTP vs File protocol is internal to the
-	// go-git library which implements the template writer.  As such
-	// providing a local file URI is conceptually sufficient to test
-	// our usage, though in practice HTTP is expected to be the norm.
-	//   file://<cwd>/testdata/repository.git
-	cwd, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	path := filepath.Join(cwd, "testdata", "repository.git")
-	url := fmt.Sprintf(`file://%s`, filepath.ToSlash(path))
+	addr := RunGitServer(t)
+	url := fmt.Sprintf(`http://%s/repository.git`, addr)
 
 	// Create a client which explicitly specifies the Git repo at URL
 	// rather than relying on the default internally builtin template repo
@@ -327,6 +320,8 @@ func TestTemplates_ModeCustom(t *testing.T) {
 // TestTemplates_ModeRemote ensures that templates written from remote templates
 // retain their mode.
 func TestTemplates_ModeRemote(t *testing.T) {
+	var err error
+
 	if runtime.GOOS == "windows" {
 		return // not applicable
 	}
@@ -335,13 +330,8 @@ func TestTemplates_ModeRemote(t *testing.T) {
 	root := "testdata/testTemplates_ModeRemote"
 	defer Using(t, root)()
 
-	// Clone a repository from a local file path
-	cwd, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	path := filepath.Join(cwd, "testdata", "repository.git")
-	url := fmt.Sprintf(`file://%s`, filepath.ToSlash(path))
+	addr := RunGitServer(t)
+	url := fmt.Sprintf(`http://%s/repository.git`, addr)
 
 	client := fn.New(
 		fn.WithRegistry(TestRegistry),
