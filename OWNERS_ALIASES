@@ -112,8 +112,13 @@ aliases:
   - devguyio
   - lionelvillard
   eventing-writers:
+  - aliok
   - devguyio
   - lionelvillard
+  - matzew
+  - odacremolbap
+  - pierDipi
+  - vaikas
   homebrew-kn-plugins-approvers:
   - dsimansk
   - maximilien
