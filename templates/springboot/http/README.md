@@ -28,15 +28,16 @@ echo "export FUNC_REGISTRY=docker.io/johndoe" >> ~/.bashrc
 
 ### Building
 
-This command builds an OCI image for the function. By default, this will build a GraalVM native image.
+This command builds an OCI image for the function. By default, this will build a JVM image.
 
 ```shell script
-func build -v                  # build native image
+func build -v                  # build image
 ```
 
-**Note**: If you want to disable the native build, you need to edit the `func.yaml` file and
-remove (or set to false) the following BuilderEnv variable:
-```
+**Note**: If you want to enable the native build, you need to edit the `func.yaml` file and
+set the following BuilderEnv variable:
+
+```yaml
 buildEnvs:
   - name: BP_NATIVE_IMAGE
     value: "true"
@@ -85,6 +86,7 @@ export URL=$(kn service describe $(basename $PWD) -ourl)
 ```shell script
 curl -v "$URL/uppercase" \
   -H "Content-Type:text/plain" \
+  -w "\n" \
   -d "$(whoami)"
 ```
 

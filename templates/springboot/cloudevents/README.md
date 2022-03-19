@@ -28,20 +28,20 @@ echo "export FUNC_REGISTRY=docker.io/johndoe" >> ~/.bashrc
 
 ### Building
 
-This command builds an OCI image for the function. By default, this will build a GraalVM native image.
+This command builds an OCI image for the function. By default, this will build a JVM image.
 
 ```shell script
-func build -v                  # build native image
+func build -v                  # build image
 ```
 
-**Note**: If you want to disable the native build, you need to edit the `func.yaml` file and
-remove (or set to false) the following BuilderEnv variable:
-```
+**Note**: If you want to enable the native build, you need to edit the `func.yaml` file and
+set the following BuilderEnv variable:
+
+```yaml
 buildEnvs:
   - name: BP_NATIVE_IMAGE
     value: "true"
 ```
-
 
 ### Running
 
@@ -63,11 +63,11 @@ func deploy -v # also triggers build
 ## Function invocation
 
 Spring Cloud Functions allows you to route CloudEvents to specific functions using the `Ce-Type` attribute.
-For this example, the CloudEvent is routed to the `uppercase` function. You can define multiple functions inside this project
+For this example, the CloudEvent is routed to the `echo` function. You can define multiple functions inside this project
 and then use the `Ce-Type` attribute to route different CloudEvents to different Functions.
 Check the `src/main/resources/application.properties` file for the `functionRouter` configurations.
 Notice that you can also use `path-based` routing and send the any event type by specifying the function path,
-for this example: "$URL/uppercase".
+for this example: "$URL/echo".
 
 For the examples below, please be sure to set the `URL` variable to the route of your function.
 
@@ -99,18 +99,20 @@ curl -v "$URL/" \
   -H "Ce-Source:cloud-event-example" \
   -H "Ce-Type:MyEvent" \
   -H "Ce-Specversion:1.0" \
+  -w "\n" \
   -d "hello"
 ```
 
 Using Path-Based routing:
 ```shell script
-curl -v "$URL/uppercase" \
+curl -v "$URL/echo" \
   -H "Content-Type:application/json" \
   -H "Ce-Id:1" \
   -H "Ce-Subject:Echo" \
   -H "Ce-Source:cloud-event-example" \
   -H "Ce-Type:MyEvent" \
   -H "Ce-Specversion:1.0" \
+  -w "\n" \
   -d "hello"
 ```
 
@@ -118,26 +120,24 @@ curl -v "$URL/uppercase" \
 
 Using CloudEvents `Ce-Type` routing:
 ```shell script
-http -v "$URL/" \
+echo hello | http -v "$URL/" \
   Content-Type:application/json \
   Ce-Id:1 \
   Ce-Subject:Echo \
   Ce-Source:cloud-event-example \
   Ce-Type:MyEvent \
-  Ce-Specversion:1.0 \
-  hello
+  Ce-Specversion:1.0
 ```
 
 Using Path-Based routing:
 ```shell script
-http -v "$URL/echo" \
+echo hello | http -v "$URL/echo" \
   Content-Type:application/json \
   Ce-Id:1 \
   Ce-Subject:Echo \
   Ce-Source:cloud-event-example \
   Ce-Type:MyEvent \
-  Ce-Specversion:1.0 \
-  hello
+  Ce-Specversion:1.0
 ```
 
 ## Cleanup
