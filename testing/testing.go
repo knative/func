@@ -87,9 +87,18 @@ func Mktemp(t *testing.T) (string, func()) {
 	}
 }
 
+// Fromtemp is like Mktemp, but does not bother returing the temp path.
+func Fromtemp(t *testing.T) func() {
+	_, done := Mktemp(t)
+	return done
+}
+
 // tempdir creates a new temporary directory and returns its path.
 // errors fail the current test.
 func tempdir(t *testing.T) string {
+	// NOTE: Not using t.TempDir() because it is sometimes helpful during
+	// debugging to skip running the returned deferred cleanup function
+	// and manually inspect the contents of the test's temp directory.
 	d, err := ioutil.TempDir("", "dir")
 	if err != nil {
 		t.Fatal(err)

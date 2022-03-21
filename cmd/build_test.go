@@ -8,6 +8,7 @@ import (
 
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/mock"
+	. "knative.dev/kn-plugin-func/testing"
 )
 
 // TestBuild_InvalidRegistry ensures that running build specifying the name of the
@@ -19,7 +20,7 @@ func TestBuild_InvalidRegistry(t *testing.T) {
 	)
 
 	// Run this test in a temporary directory
-	defer fromTempDir(t)()
+	defer Fromtemp(t)()
 	// Write a func.yaml config which does not specify an image
 	funcYaml := `name: testymctestface
 namespace: ""

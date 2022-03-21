@@ -2,18 +2,17 @@ package cmd
 
 import (
 	"errors"
-	"io/ioutil"
-	"os"
 	"path/filepath"
 	"testing"
 
+	. "knative.dev/kn-plugin-func/testing"
 	"knative.dev/kn-plugin-func/utils"
 )
 
 // TestCreate_Execute ensures that an invocation of create with minimal settings
 // and valid input completes without error; degenerate case.
 func TestCreate_Execute(t *testing.T) {
-	defer fromTempDir(t)()
+	defer Fromtemp(t)()
 
 	cmd := NewCreateCmd(NewClient)
 	cmd.SetArgs([]string{"--language", "go"})
@@ -26,7 +25,7 @@ func TestCreate_Execute(t *testing.T) {
 // TestCreate_NoRuntime ensures that an invocation of create must be
 // done with a runtime.
 func TestCreate_NoRuntime(t *testing.T) {
-	defer fromTempDir(t)()
+	defer Fromtemp(t)()
 
 	cmd := NewCreateCmd(NewClient)
 
@@ -40,7 +39,7 @@ func TestCreate_NoRuntime(t *testing.T) {
 // TestCreate_WithNoRuntime ensures that an invocation of create must be
 // done with one of the valid runtimes only.
 func TestCreate_WithInvalidRuntime(t *testing.T) {
-	defer fromTempDir(t)()
+	defer Fromtemp(t)()
 
 	cmd := NewCreateCmd(NewClient)
 	cmd.SetArgs([]string{"--language", "invalid"})
@@ -55,7 +54,7 @@ func TestCreate_WithInvalidRuntime(t *testing.T) {
 // TestCreate_InvalidTemplate ensures that an invocation of create must be
 // done with one of the valid templates only.
 func TestCreate_InvalidTemplate(t *testing.T) {
-	defer fromTempDir(t)()
+	defer Fromtemp(t)()
 
 	cmd := NewCreateCmd(NewClient)
 	cmd.SetArgs([]string{"--language", "go", "--template", "invalid"})
@@ -70,7 +69,7 @@ func TestCreate_InvalidTemplate(t *testing.T) {
 // TestCreate_ValidatesName ensures that the create command only accepts
 // DNS-1123 labels for Function name.
 func TestCreate_ValidatesName(t *testing.T) {
-	defer fromTempDir(t)()
+	defer Fromtemp(t)()
 
 	// Execute the command with a function name containing invalid characters and
 	// confirm the expected error is returned
@@ -87,21 +86,18 @@ func TestCreate_ValidatesName(t *testing.T) {
 // the expected repositories path, respecting the setting for XDG_CONFIG_PATH
 // when deriving the default
 func TestCreateConfig_RepositoriesPath(t *testing.T) {
-	defer fromTempDir(t)()
+	defer Fromtemp(t)()
 
 	// Update XDG_CONFIG_HOME to point to some arbitrary location.
-	xdgConfigHome, err := ioutil.TempDir("", "alice")
-	if err != nil {
-		t.Fatal(err)
-	}
-	os.Setenv("XDG_CONFIG_HOME", xdgConfigHome)
+	xdgConfigHome := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", xdgConfigHome)
 
 	// The expected full path is XDG_CONFIG_HOME/func/repositories
 	expected := filepath.Join(xdgConfigHome, "func", "repositories")
 
 	cmd := NewCreateCmd(NewClient)
-	var cfg createConfig
-	if cfg, err = newCreateConfig(cmd, []string{}); err != nil {
+	cfg, err := newCreateConfig(cmd, []string{})
+	if err != nil {
 		t.Fatal(err)
 	}
 

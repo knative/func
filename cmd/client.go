@@ -34,7 +34,7 @@ type ClientConfig struct {
 // the concrete implementations set.  Provide additional Options to this constructor
 // to override or augment as needed, or override the ClientFactory passed to
 // commands entirely to mock for testing. Note the reutrned cleanup function.
-// 'Namespace' is optional.  If not provided (see DefaultNamespace commantary),
+// 'Namespace' is optional.  If not provided (see DefaultNamespace commentary),
 // the currently configured is used.
 // 'Verbose' indicates the system should write out a higher amount of logging.
 // Example:

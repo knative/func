@@ -11,6 +11,7 @@ import (
 	"knative.dev/client/pkg/util"
 
 	fn "knative.dev/kn-plugin-func"
+	. "knative.dev/kn-plugin-func/testing"
 )
 
 func TestRoot_PersistentFlags(t *testing.T) {
@@ -21,7 +22,7 @@ func TestRoot_PersistentFlags(t *testing.T) {
 	}{
 		{
 			name: "provided as root flags",
-			args: []string{"--verbose", "--namespace=namespace", "list"},
+			args: []string{"--verbose", "--namespace=namespace", "deploy"},
 		},
 		{
 			name: "provided as sub-command flags",
@@ -36,7 +37,7 @@ func TestRoot_PersistentFlags(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			defer fromTempDir(t)()                    // from a temp dir, deferred cleanup
+			defer Fromtemp(t)()                       // from a temp dir, deferred cleanup
 			cmd := NewCreateCmd(NewClient)            // Create a new Function
 			cmd.SetArgs([]string{"--language", "go"}) // providing language (the only required param)
 			if err := cmd.Execute(); err != nil {     // fail on any errors
@@ -249,10 +250,4 @@ func TestVerbose(t *testing.T) {
 			}
 		})
 	}
-}
-
-// TestClientFactory is convenience factory which returns a default Client
-// suitable for testing; a Client with all subsystem noop'd.
-var TestClientFactory = func(ClientConfig, ...fn.Option) (*fn.Client, func()) {
-	return fn.New(), func() {} // noop client
 }

@@ -2,11 +2,9 @@ package cmd
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
-	"testing"
 	"text/template"
 
 	"github.com/ory/viper"
@@ -35,8 +33,6 @@ type ClientFactory func(ClientConfig, ...fn.Option) (*fn.Client, func())
 // All aspects of normal full Client construction (namespace, verbosity level,
 // additional options and the returned cleanup function for deferral) are
 // left at zero value and ignored
-// are used during normal operation are ignored.  This allows for simple
-// mocking in tests.
 func NewClientFactory(n func() *fn.Client) ClientFactory {
 	return func(_ ClientConfig, _ ...fn.Option) (*fn.Client, func()) {
 		return n(), func() {}
@@ -478,51 +474,5 @@ func defaultTemplatedHelp(cmd *cobra.Command, args []string) {
 
 	if err := tpl.Execute(cmd.OutOrStdout(), data); err != nil {
 		fmt.Fprintf(cmd.ErrOrStderr(), "unable to display help text: %v", err)
-	}
-}
-
-// Create and return a path to a temp dir prefixed 'func'.  Does not change
-// woriking directory.
-func newTempDir() string {
-	path, err := ioutil.TempDir("", "func")
-	if err != nil {
-		panic(err)
-	}
-	return path
-}
-
-// Change directory into a new temp directory.
-// returned is a closure which cleans up; intended to be run as a defer:
-//    defer within(t, /some/path)()
-func fromTempDir(t *testing.T) func() {
-	t.Helper()
-	tmp := mktmp(t) // create temp directory
-	owd := pwd(t)   // original working directory
-	cd(t, tmp)      // change to the temp directory
-	return func() { // return a deferable cleanup closure
-		os.RemoveAll(tmp) // remove temp directory
-		cd(t, owd)        // change director back to original
-	}
-}
-
-func mktmp(t *testing.T) string {
-	d, err := ioutil.TempDir("", "dir")
-	if err != nil {
-		t.Fatal(err)
-	}
-	return d
-}
-
-func pwd(t *testing.T) string {
-	d, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	return d
-}
-
-func cd(t *testing.T, dir string) {
-	if err := os.Chdir(dir); err != nil {
-		t.Fatal(err)
 	}
 }

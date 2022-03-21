@@ -6,6 +6,7 @@ import (
 
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/mock"
+	. "knative.dev/kn-plugin-func/testing"
 )
 
 // TestDelete_ByName ensures that running delete specifying the name of the
@@ -46,7 +47,7 @@ func TestDelete_ByName(t *testing.T) {
 // context invokes remove and with the correct name (reads name from func.yaml)
 func TestDelete_ByProject(t *testing.T) {
 	// from within a new temporary directory
-	defer fromTempDir(t)()
+	defer Fromtemp(t)()
 
 	// Write a func.yaml config which specifies a name
 	funcYaml := `name: bar

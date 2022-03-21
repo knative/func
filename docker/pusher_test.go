@@ -108,7 +108,6 @@ func TestDaemonPush(t *testing.T) {
 	pusher := docker.NewPusher(
 		docker.WithCredentialsProvider(testCredProvider),
 		docker.WithPusherDockerClientFactory(dockerClientFactory),
-		docker.WithVerbose(false),
 	)
 
 	f := fn.Function{
@@ -188,7 +187,6 @@ func TestNonDaemonPush(t *testing.T) {
 		docker.WithTransport(transport),
 		docker.WithCredentialsProvider(testCredProvider),
 		docker.WithPusherDockerClientFactory(dockerClientFactory),
-		docker.WithVerbose(false),
 	)
 
 	f := fn.Function{
