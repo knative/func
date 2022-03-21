@@ -139,7 +139,7 @@ func NewRepository(name, uri string) (r Repository, err error) {
 	}
 	r.FS, err = filesystemFromURI(uri) // Get a Filesystem from the URI
 	if err != nil {
-		return
+		return Repository{}, fmt.Errorf("failed to get repository from URI (%q): %w", uri, err)
 	}
 	r, err = applyRepositoryManifest(r) // apply optional manifest to r
 	if err != nil {
@@ -187,9 +187,9 @@ func filesystemFromRepo(uri string) (Filesystem, error) {
 		})
 	if err != nil {
 		if isRepoNotFoundError(err) {
-			err = nil // no repo at location is an expected condition
+			return nil, nil
 		}
-		return nil, err
+		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}
 	wt, err := clone.Worktree()
 	if err != nil {
@@ -475,10 +475,10 @@ func (r *Repository) Write(path string) (err error) {
 		if clone, err = git.PlainClone(tempDir, false, // not bare
 			&git.CloneOptions{URL: r.uri, Depth: 1, Tags: git.NoTags,
 				RecurseSubmodules: git.NoRecurseSubmodules}); err != nil {
-			return
+			return fmt.Errorf("failed to plain clone repository: %w", err)
 		}
 		if wt, err = clone.Worktree(); err != nil {
-			return
+			return fmt.Errorf("failed to get worktree: %w", err)
 		}
 		fs = billyFilesystem{fs: wt.Filesystem}
 	}
