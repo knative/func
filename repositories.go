@@ -175,7 +175,7 @@ func (r *Repositories) Add(name, uri string) (string, error) {
 	// Create a repo (in-memory FS) from the URI
 	repo, err := NewRepository(name, uri)
 	if err != nil {
-		return "", fmt.Errorf("failed to crate new repository: %w", err)
+		return "", fmt.Errorf("failed to create new repository: %w", err)
 	}
 
 	// Error if the repository already exists on disk
