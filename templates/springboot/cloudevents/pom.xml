@@ -6,7 +6,7 @@
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
-    <version>2.6.3</version>
+    <version>2.6.4</version>
     <relativePath/>
   </parent>
 
@@ -106,6 +106,7 @@
       </plugin>
     </plugins>
   </build>
+
   <repositories>
     <repository>
       <id>spring-releases</id>
@@ -132,7 +133,7 @@
       <id>native</id>
       <properties>
         <repackage.classifier>exec</repackage.classifier>
-        <native-buildtools.version>0.9.9</native-buildtools.version>
+        <native-buildtools.version>0.9.10</native-buildtools.version>
       </properties>
       <dependencies>
         <dependency>
