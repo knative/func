@@ -52,7 +52,12 @@ func main() {
 			Name:   name,
 			Method: zip.Deflate,
 		}
-		header.SetMode(info.Mode())
+
+		if info.IsDir() || (info.Mode().Perm()&0111) != 0 {
+			header.SetMode(0755)
+		} else {
+			header.SetMode(0644)
+		}
 
 		w, err := zipWriter.CreateHeader(header)
 		if err != nil {
