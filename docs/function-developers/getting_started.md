@@ -1,4 +1,4 @@
-# Boson Functions: A Step By Step Tutorial
+# Getting Started with Knative Functions: A Step By Step Tutorial
 
 This document will walk you step by step through the process of creating,
 editing, and deploying a Boson Function project.
@@ -19,16 +19,16 @@ installed.
 
 ## Cluster Setup
 
-To use Boson Functions, you'll need a Kubernetes cluster with Knative Serving
+To use Knative Functions, you'll need a Kubernetes cluster with Knative Serving
 and Eventing installed. If you have a recent version of OpenShift, you can
 simply install the Serverless Operator. If you don't have a cluster already,
 you can create a simple cluster with [kind](https://kind.sigs.k8s.io/). Follow
-these [step by step instructions](kind-setup.md) to install on your local
+these [step by step instructions](../provisioning/provision_kind.md) to install on your local
 machine.
 
-## Boson Tooling
+## Tooling
 
-The primary interface for Boson project is the `func` CLI.
+The primary interface for Knative Functions is the `func` CLI.
 [Download][func-download] the most recent version and install it some place
 within your `$PATH`.
 
@@ -39,6 +39,15 @@ within your `$PATH`.
 curl -L -o - func.gz https://github.com/knative-sandbox/kn-plugin-func/releases/latest/download/func_linux_amd64.gz | gunzip > func && chmod 755 func
 sudo mv func /usr/local/bin
 ```
+
+If brew is available for your operating system, you can use that to install the `func` binary.
+
+```sh
+brew tap knative-sandbox/kn-plugins
+brew install kn
+brew install func
+```
+
 ## Configuring a Container Registry
 
 The unit of deployment in Boson Functions is an [OCI](https://opencontainers.org/)
