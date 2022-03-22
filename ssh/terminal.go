@@ -45,7 +45,7 @@ func readSecret(prompt string) (pw []byte, err error) {
 		if err != nil {
 			// terminal.readSecret accepts EOF-terminated passwords
 			// if non-empty, so we do the same
-			if err == io.EOF && len(pw) > 0 {
+			if errors.Is(err, io.EOF) && len(pw) > 0 {
 				err = nil
 			}
 			return pw, err

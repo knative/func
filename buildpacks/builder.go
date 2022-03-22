@@ -132,7 +132,7 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 			return
 		} else if !builder.verbose {
 			// If the builder was not showing logs, embed the full logs in the error.
-			err = fmt.Errorf("%v\noutput: %s\n", err, logWriter.(*bytes.Buffer).String())
+			err = fmt.Errorf("failed to build the function (output: %q): %w", logWriter.(*bytes.Buffer).String(), err)
 		}
 	}
 

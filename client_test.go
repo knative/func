@@ -1112,7 +1112,7 @@ func TestClient_Invoke_HTTP(t *testing.T) {
 	}
 	s := http.Server{Handler: handler}
 	go func() {
-		if err = s.Serve(l); err != nil && err != http.ErrServerClosed {
+		if err = s.Serve(l); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			fmt.Fprintf(os.Stderr, "error serving: %v", err)
 		}
 	}()
