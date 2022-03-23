@@ -3,14 +3,12 @@ package echo;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.notNullValue;
-import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.cloud.function.cloudevent.CloudEventMessageUtils.ID;
 import static org.springframework.cloud.function.cloudevent.CloudEventMessageUtils.SOURCE;
 import static org.springframework.cloud.function.cloudevent.CloudEventMessageUtils.SPECVERSION;
 import static org.springframework.cloud.function.cloudevent.CloudEventMessageUtils.SUBJECT;
 import static org.springframework.cloud.function.cloudevent.CloudEventMessageUtils.TYPE;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import java.net.URI;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -39,7 +37,7 @@ public class SpringCloudEventsApplicationTests {
     ceHeaders.add(SPECVERSION, "1.0");
     ceHeaders.add(ID, UUID.randomUUID()
         .toString());
-    ceHeaders.add(TYPE, "MyEvent");
+    ceHeaders.add(TYPE, "echo");
     ceHeaders.add(SOURCE, "http://localhost:8080/echo");
     ceHeaders.add(SUBJECT, "Echo content");
 
@@ -66,7 +64,7 @@ public class SpringCloudEventsApplicationTests {
     ceHeaders.add(SPECVERSION, "1.0");
     ceHeaders.add(ID, UUID.randomUUID()
       .toString());
-    ceHeaders.add(TYPE, "MyEvent");
+    ceHeaders.add(TYPE, "echo");
     ceHeaders.add(SOURCE, "http://localhost:8080/echo");
     ceHeaders.add(SUBJECT, "Echo content");
 

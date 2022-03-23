@@ -88,29 +88,45 @@ If you use `kn` then you can set the url by:
 export URL=$(kn service describe $(basename $PWD) -ourl)
 ```
 
+### func
+
+Using `func invoke` command with CloudEvents `Ce-Type` routing:
+
+```shell script
+func invoke --type "echo"
+```
+
+Using Path-Based routing:
+
+```shell script
+func invoke --target "$URL/echo"
+```
+
 ### cURL
 
 Using CloudEvents `Ce-Type` routing:
+
 ```shell script
 curl -v "$URL/" \
   -H "Content-Type:application/json" \
   -H "Ce-Id:1" \
   -H "Ce-Subject:Echo" \
   -H "Ce-Source:cloud-event-example" \
-  -H "Ce-Type:MyEvent" \
+  -H "Ce-Type:echo" \
   -H "Ce-Specversion:1.0" \
   -w "\n" \
   -d "hello"
 ```
 
 Using Path-Based routing:
+
 ```shell script
 curl -v "$URL/echo" \
   -H "Content-Type:application/json" \
   -H "Ce-Id:1" \
   -H "Ce-Subject:Echo" \
   -H "Ce-Source:cloud-event-example" \
-  -H "Ce-Type:MyEvent" \
+  -H "Ce-Type:echo" \
   -H "Ce-Specversion:1.0" \
   -w "\n" \
   -d "hello"
