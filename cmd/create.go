@@ -575,7 +575,7 @@ func runtimeTemplateOptions(client *fn.Client) (string, error) {
 		templates, err := client.Templates().List(r)
 		// Not all language packs will have templates for
 		// all available runtimes. Without this check
-		if err != nil && err != fn.ErrTemplateNotFound {
+		if err != nil && !errors.Is(err, fn.ErrTemplateNotFound) {
 			return "", err
 		}
 		for _, t := range templates {

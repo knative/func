@@ -173,7 +173,7 @@ func TestNonDaemonPush(t *testing.T) {
 		imagesPassedToMock = images
 		f, err := os.Open("./testData/image.tar")
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to load image tar: %w", err)
 		}
 		return f, nil
 	}

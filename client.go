@@ -700,6 +700,7 @@ func (c *Client) RunPipeline(ctx context.Context, path string, git Git) (err err
 
 	f, err := NewFunction(path)
 	if err != nil {
+		err = fmt.Errorf("failed to laod function: %w", err)
 		return
 	}
 	f.Git = git
@@ -707,6 +708,7 @@ func (c *Client) RunPipeline(ctx context.Context, path string, git Git) (err err
 	// Build and deploy function using Pipeline
 	err = c.pipelinesProvider.Run(ctx, f)
 	if err != nil {
+		err = fmt.Errorf("failed to run pipeline: %w", err)
 		return
 	}
 

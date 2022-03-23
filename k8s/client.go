@@ -21,7 +21,7 @@ func NewClientAndResolvedNamespace(defaultNamespace string) (client *kubernetes.
 func NewKubernetesClientset() (*kubernetes.Clientset, error) {
 	restConfig, err := GetClientConfig().ClientConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create new kubernetes client: %v", err)
+		return nil, fmt.Errorf("failed to create new kubernetes client: %w", err)
 	}
 
 	return kubernetes.NewForConfig(restConfig)

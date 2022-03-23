@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 
@@ -132,7 +133,7 @@ func runAddEnvsPrompt(ctx context.Context, f fn.Function) (err error) {
 		}
 		err = survey.AskOne(prompt, &selectedEnv)
 		if err != nil {
-			if err == terminal.InterruptErr {
+			if errors.Is(err, terminal.InterruptErr) {
 				return nil
 			}
 			return
@@ -181,7 +182,7 @@ func runAddEnvsPrompt(ctx context.Context, f fn.Function) (err error) {
 		Options: options,
 	}, &selectedOption)
 	if err != nil {
-		if err == terminal.InterruptErr {
+		if errors.Is(err, terminal.InterruptErr) {
 			return nil
 		}
 		return
@@ -212,7 +213,7 @@ func runAddEnvsPrompt(ctx context.Context, f fn.Function) (err error) {
 
 		err = survey.Ask(qs, &answers)
 		if err != nil {
-			if err == terminal.InterruptErr {
+			if errors.Is(err, terminal.InterruptErr) {
 				return nil
 			}
 			return
@@ -244,7 +245,7 @@ func runAddEnvsPrompt(ctx context.Context, f fn.Function) (err error) {
 
 		err = survey.Ask(qs, &answers)
 		if err != nil {
-			if err == terminal.InterruptErr {
+			if errors.Is(err, terminal.InterruptErr) {
 				return nil
 			}
 			return
@@ -266,7 +267,7 @@ func runAddEnvsPrompt(ctx context.Context, f fn.Function) (err error) {
 			Options: configMaps,
 		}, &selectedResource)
 		if err != nil {
-			if err == terminal.InterruptErr {
+			if errors.Is(err, terminal.InterruptErr) {
 				return nil
 			}
 			return
@@ -308,7 +309,7 @@ func runAddEnvsPrompt(ctx context.Context, f fn.Function) (err error) {
 
 		err = survey.Ask(qs, &answers)
 		if err != nil {
-			if err == terminal.InterruptErr {
+			if errors.Is(err, terminal.InterruptErr) {
 				return nil
 			}
 			return
