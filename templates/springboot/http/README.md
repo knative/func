@@ -81,6 +81,20 @@ If you use `kn` then you can set the url by:
 export URL=$(kn service describe $(basename $PWD) -ourl)
 ```
 
+### func
+
+Using `func invoke` command with Path-Based routing:
+
+```shell script
+func invoke --target "$URL/uppercase" --data "$(whoami)"
+```
+
+If your function class only contains one function, then you can leave out the target path:
+
+```shell script
+func invoke --data "$(whoami)"
+```
+
 ### cURL
 
 ```shell script
@@ -90,10 +104,25 @@ curl -v "$URL/uppercase" \
   -d "$(whoami)"
 ```
 
+If your function class only contains one function, then you can leave out the target path:
+
+```shell script
+curl -v "$URL" \
+  -H "Content-Type:text/plain" \
+  -w "\n" \
+  -d "$(whoami)"
+```
+
 ### HTTPie
 
 ```shell script
 echo "$(whoami)" | http -v "$URL/uppercase"
+```
+
+If your function class only contains one function, then you can leave out the target path:
+
+```shell script
+echo "$(whoami)" | http -v "$URL"
 ```
 
 ## Cleanup
