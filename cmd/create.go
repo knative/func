@@ -57,6 +57,7 @@ DESCRIPTION
 
 	To install more language runtimes and their templates see '{{.Name}} repository'.
 
+
 EXAMPLES
 	o Create a Node.js Function (the default language runtime) in the current
 	  directory (the default path) which handles http events (the default
@@ -112,8 +113,8 @@ func runCreate(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 	// From environment variables, flags, arguments, and user prompts if --confirm
 	// (in increasing levels of precidence)
 	client, done := newClient(ClientConfig{Verbose: cfg.Verbose},
-		fn.WithRepository(cfg.Repository),     // Use exactly this repo OR
-		fn.WithRepositories(cfg.Repositories)) // Path on disk to installed repos
+		fn.WithRepository(cfg.Repository),             // Use exactly this repo OR
+		fn.WithRepositoriesPath(cfg.RepositoriesPath)) // Path on disk to installed repos
 	defer done()
 
 	// Validate - a deeper validation than that which is performed when
@@ -156,7 +157,7 @@ func runCreateHelp(cmd *cobra.Command, args []string) {
 	failSoft(err)
 
 	client, done := NewClient(ClientConfig{Verbose: cfg.Verbose},
-		fn.WithRepositories(cfg.Repositories),
+		fn.WithRepositoriesPath(cfg.RepositoriesPath),
 		fn.WithRepository(cfg.Repository))
 	defer done()
 
@@ -182,12 +183,6 @@ type createConfig struct {
 	Verbose    bool   // Verbose output
 	Confirm    bool   // Confirm values via an interactive prompt
 
-	// Repositories is an optional path that, if it exists, will be used as a source
-	// for additional template repositories not included in the binary.  provided via
-	// env (FUNC_REPOSITORIES), the default location is $XDG_CONFIG_HOME/repositories
-	// ($HOME/.config/func/repositories)
-	Repositories string
-
 	// Template is the code written into the new Function project, including
 	// an implementation adhering to one of the supported function signatures.
 	// May also include additional configuration settings or examples.
@@ -199,6 +194,14 @@ type createConfig struct {
 
 	// Name of the Function
 	Name string
+
+	// RepositoriesPath is an optional configuration setting (not set via flags)
+	// which overrides the location on disk at which to search for installed
+	// repositories.
+	// Override using $FUNC_REPOSITORIES_PATH
+	// Default value is $XDG_CONFIG_HOME/func/repositories
+	// (~/.config/func/repositories)
+	RepositoriesPath string
 }
 
 // newCreateConfig returns a config populated from the current execution context
@@ -208,10 +211,10 @@ type createConfig struct {
 // current value of the config at time of prompting.
 func newCreateConfig(cmd *cobra.Command, args []string) (cfg createConfig, err error) {
 	var (
-		path         string
-		dirName      string
-		absolutePath string
-		repositories string
+		path             string
+		dirName          string
+		absolutePath     string
+		repositoriesPath string
 	)
 
 	if len(args) >= 1 {
@@ -227,22 +230,22 @@ func newCreateConfig(cmd *cobra.Command, args []string) (cfg createConfig, err e
 	// Not exposed as a flag due to potential confusion with the more likely
 	// "repository override" flag, and due to its unlikliness of being needed, but
 	// it is still available as an environment variable.
-	repositories = os.Getenv("FUNC_REPOSITORIES")
-	if repositories == "" { // if no env var provided
-		repositories = fn.New().RepositoriesPath() // use ~/.config/func/repositories
+	repositoriesPath = os.Getenv("FUNC_REPOSITORIES_PATH")
+	if repositoriesPath == "" { // if no env var provided
+		repositoriesPath = fn.New().RepositoriesPath() // use ~/.config/func/repositories
 	}
 
 	// Config is the final default values based off the execution context.
 	// When prompting, these become the defaults presented.
 	cfg = createConfig{
-		Name:         dirName, // TODO: refactor to be git-like
-		Path:         absolutePath,
-		Repositories: repositories,
-		Repository:   viper.GetString("repository"),
-		Runtime:      viper.GetString("language"), // users refer to it is language
-		Template:     viper.GetString("template"),
-		Confirm:      viper.GetBool("confirm"),
-		Verbose:      viper.GetBool("verbose"),
+		Name:             dirName, // TODO: refactor to be git-like
+		Path:             absolutePath,
+		RepositoriesPath: repositoriesPath,
+		Repository:       viper.GetString("repository"),
+		Runtime:          viper.GetString("language"), // users refer to it is language
+		Template:         viper.GetString("template"),
+		Confirm:          viper.GetBool("confirm"),
+		Verbose:          viper.GetBool("verbose"),
 	}
 	// If not in confirm/prompting mode, this cfg structure is complete.
 	if !cfg.Confirm {
@@ -274,8 +277,6 @@ func newCreateConfig(cmd *cobra.Command, args []string) (cfg createConfig, err e
 	fmt.Printf("Language:     %v\n", cfg.Runtime) // users refer to it as language
 	if cfg.Repository != "" {                     // if an override was provided
 		fmt.Printf("Repository:   %v\n", cfg.Repository) // show only the override
-	} else {
-		fmt.Printf("Repositories: %v\n", cfg.Repositories) // or path to installed
 	}
 	fmt.Printf("Template:     %v\n", cfg.Template)
 	return
@@ -573,7 +574,7 @@ func runtimeTemplateOptions(client *fn.Client) (string, error) {
 		templates, err := client.Templates().List(r)
 		// Not all language packs will have templates for
 		// all available runtimes. Without this check
-		if err != nil && err != fn.ErrTemplateNotFound {
+		if err != nil && !errors.Is(err, fn.ErrTemplateNotFound) {
 			return "", err
 		}
 		for _, t := range templates {

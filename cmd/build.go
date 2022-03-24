@@ -74,7 +74,7 @@ func ValidNamespaceAndRegistry(path string) survey.Validator {
 		_, err := fn.DerivedImage(path, val.(string)) //image can be derived without any error
 
 		if err != nil {
-			return fmt.Errorf("Invalid registry [%s] %v", val.(string), err)
+			return fmt.Errorf("invalid registry [%q]: %w", val.(string), err)
 		}
 		return nil
 	}
@@ -83,7 +83,7 @@ func ValidNamespaceAndRegistry(path string) survey.Validator {
 func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err error) {
 	config, err := newBuildConfig().Prompt()
 	if err != nil {
-		if err == terminal.InterruptErr {
+		if errors.Is(err, terminal.InterruptErr) {
 			return nil
 		}
 		return
@@ -118,7 +118,7 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 				&survey.Input{Message: "Registry for Function images:"},
 				&config.Registry, survey.WithValidator(ValidNamespaceAndRegistry(config.Path)))
 			if err != nil {
-				if err == terminal.InterruptErr {
+				if errors.Is(err, terminal.InterruptErr) {
 					return nil
 				}
 				return

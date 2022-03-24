@@ -101,7 +101,7 @@ func TestCreateConfig_RepositoriesPath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if cfg.Repositories != expected {
-		t.Fatalf("expected repositories default path to be '%v', got '%v'", expected, cfg.Repositories)
+	if cfg.RepositoriesPath != expected {
+		t.Fatalf("expected repositories default path to be '%v', got '%v'", expected, cfg.RepositoriesPath)
 	}
 }

@@ -5,7 +5,6 @@ package function_test
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -22,7 +21,7 @@ import (
 func TestTemplates_List(t *testing.T) {
 	// A client which specifies a location of exensible repositoreis on disk
 	// will list all builtin plus exensible
-	client := fn.New(fn.WithRepositories("testdata/repositories"))
+	client := fn.New(fn.WithRepositoriesPath("testdata/repositories"))
 
 	// list templates for the "go" runtime
 	templates, err := client.Templates().List("go")
@@ -49,7 +48,7 @@ func TestTemplates_List(t *testing.T) {
 // when retrieving the list of templates for a runtime that does not exist
 // in an extended repository, but does in the default.
 func TestTemplates_List_ExtendedNotFound(t *testing.T) {
-	client := fn.New(fn.WithRepositories("testdata/repositories"))
+	client := fn.New(fn.WithRepositoriesPath("testdata/repositories"))
 
 	// list templates for the "python" runtime -
 	// not supplied by the extended repos
@@ -71,7 +70,7 @@ func TestTemplates_List_ExtendedNotFound(t *testing.T) {
 // TestTemplates_Get ensures that a template's metadata object can
 // be retrieved by full name (full name prefix optional for embedded).
 func TestTemplates_Get(t *testing.T) {
-	client := fn.New(fn.WithRepositories("testdata/repositories"))
+	client := fn.New(fn.WithRepositoriesPath("testdata/repositories"))
 
 	// Check embedded
 	embedded, err := client.Templates().Get("go", "http")
@@ -135,7 +134,7 @@ func TestTemplates_Custom(t *testing.T) {
 	// at: testdata/repositories/[provider]/[runtime]/[template]
 	client := fn.New(
 		fn.WithRegistry(TestRegistry),
-		fn.WithRepositories("testdata/repositories"))
+		fn.WithRepositoriesPath("testdata/repositories"))
 
 	// Create a function specifying a template from
 	// the custom provider's directory in the on-disk template repo.
@@ -159,24 +158,12 @@ func TestTemplates_Custom(t *testing.T) {
 // can be specificed on creation of client, with subsequent calls to Create
 // using this remote by default.
 func TestTemplates_Remote(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("TODO fix this test on Windows CI") // TODO fix this
-	}
+	var err error
 
 	root := "testdata/testTemplatesRemote"
 	defer Using(t, root)()
 
-	// The difference between HTTP vs File protocol is internal to the
-	// go-git library which implements the template writer.  As such
-	// providing a local file URI is conceptually sufficient to test
-	// our usage, though in practice HTTP is expected to be the norm.
-	//   file://<cwd>/testdata/repository.git
-	cwd, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	path := filepath.Join(cwd, "testdata", "repository.git")
-	url := fmt.Sprintf(`file://%s`, filepath.ToSlash(path))
+	url := TestRepoURI(RepositoriesTestRepo, t)
 
 	// Create a client which explicitly specifies the Git repo at URL
 	// rather than relying on the default internally builtin template repo
@@ -306,7 +293,7 @@ func TestTemplates_ModeCustom(t *testing.T) {
 
 	client := fn.New(
 		fn.WithRegistry(TestRegistry),
-		fn.WithRepositories("testdata/repositories"))
+		fn.WithRepositoriesPath("testdata/repositories"))
 
 	// Write executable from custom repo
 	err := client.Create(fn.Function{
@@ -331,6 +318,8 @@ func TestTemplates_ModeCustom(t *testing.T) {
 // TestTemplates_ModeRemote ensures that templates written from remote templates
 // retain their mode.
 func TestTemplates_ModeRemote(t *testing.T) {
+	var err error
+
 	if runtime.GOOS == "windows" {
 		return // not applicable
 	}
@@ -339,13 +328,7 @@ func TestTemplates_ModeRemote(t *testing.T) {
 	root := "testdata/testTemplates_ModeRemote"
 	defer Using(t, root)()
 
-	// Clone a repository from a local file path
-	cwd, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	path := filepath.Join(cwd, "testdata", "repository.git")
-	url := fmt.Sprintf(`file://%s`, filepath.ToSlash(path))
+	url := TestRepoURI(RepositoriesTestRepo, t)
 
 	client := fn.New(
 		fn.WithRegistry(TestRegistry),
@@ -392,7 +375,7 @@ func TestTemplates_RuntimeManifestBuildEnvs(t *testing.T) {
 	// Client whose internal templates will be used.
 	client := fn.New(
 		fn.WithRegistry(TestRegistry),
-		fn.WithRepositories("testdata/repositories"))
+		fn.WithRepositoriesPath("testdata/repositories"))
 
 	// write out a template
 	err := client.Create(fn.Function{
@@ -439,7 +422,7 @@ func TestTemplates_ManifestBuildEnvs(t *testing.T) {
 	// Client whose internal templates will be used.
 	client := fn.New(
 		fn.WithRegistry(TestRegistry),
-		fn.WithRepositories("testdata/repositories"))
+		fn.WithRepositoriesPath("testdata/repositories"))
 
 	// write out a template
 	err := client.Create(fn.Function{
@@ -486,7 +469,7 @@ func TestTemplates_RepositoryManifestBuildEnvs(t *testing.T) {
 	// Client whose internal templates will be used.
 	client := fn.New(
 		fn.WithRegistry(TestRegistry),
-		fn.WithRepositories("testdata/repositories"))
+		fn.WithRepositoriesPath("testdata/repositories"))
 
 	// write out a template
 	err := client.Create(fn.Function{
@@ -531,7 +514,7 @@ func TestTemplates_ManifestInvocationHints(t *testing.T) {
 
 	client := fn.New(
 		fn.WithRegistry(TestRegistry),
-		fn.WithRepositories("testdata/repositories"))
+		fn.WithRepositoriesPath("testdata/repositories"))
 
 	err := client.Create(fn.Function{
 		Root:     root,
@@ -562,7 +545,7 @@ func TestTemplates_ManifestRemoved(t *testing.T) {
 	// Client whose internal templates will be used.
 	client := fn.New(
 		fn.WithRegistry(TestRegistry),
-		fn.WithRepositories("testdata/repositories"))
+		fn.WithRepositoriesPath("testdata/repositories"))
 
 	// write out a template
 	err := client.Create(fn.Function{
@@ -596,7 +579,7 @@ func TestTemplates_InvocationDefault(t *testing.T) {
 
 	client := fn.New(
 		fn.WithRegistry(TestRegistry),
-		fn.WithRepositories("testdata/repositories"))
+		fn.WithRepositoriesPath("testdata/repositories"))
 
 	// The customTemplateRepo explicitly does not
 	// include manifests as it exemplifies an entirely default template repo.

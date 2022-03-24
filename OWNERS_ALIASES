@@ -112,8 +112,21 @@ aliases:
   - devguyio
   - lionelvillard
   eventing-writers:
+  - aliok
   - devguyio
   - lionelvillard
+  - matzew
+  - odacremolbap
+  - pierDipi
+  - vaikas
+  func-tastic-approvers:
+  - lance
+  - lkingland
+  - matejvasek
+  - nainaz
+  - omerbensaadon
+  - salaboy
+  - zroubalik
   homebrew-kn-plugins-approvers:
   - dsimansk
   - maximilien
@@ -234,8 +247,12 @@ aliases:
   - chizhg
   productivity-writers:
   - cardil
+  - chaodaiG
   - chizhg
+  - coryrc
+  - kvmware
   - psschwei
+  - upodroid
   security-wg-leads:
   - evankanderson
   - julz

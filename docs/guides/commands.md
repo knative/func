@@ -235,15 +235,14 @@ $ func repository -c
 ```
 
 Manages template repositories installed on disk at either the default location
-(~/.config/func/repositories) or the location specified by the --repository
-flag.  Once added, a template from the repository can be used when creating
-a new Function.
+(~/.config/func/repositories) or the location specified by the
+FUNC_REPOSITORIES_PATH environment variable.  Once added, a template from the
+repository can be used when creating a new Function.
 
 _Alternative Repositories Location:_
 Repositories are stored on disk in ~/.config/func/repositories by default.
-This location can be altered by either setting the FUNC_REPOSITORIES
-environment variable, or by providing the --repositories (-r) flag to any
-of the commands.  XDG_CONFIG_HOME is respected when determining the default.
+This location can be altered by setting the FUNC_REPOSITORIES_PATH
+environment variable.  XDG_CONFIG_HOME is respected when determining the default.
 
 _Interactive Prompts:_
 To complete these commands interactively, pass the --confirm (-c) flag to
@@ -309,7 +308,7 @@ Remove a repository by name.  Removes the repository from local storage
 entirely.  When in confirm mode (--confirm) it will confirm before
 deletion, but in regular mode this is done immediately, so please use
 caution, especially when using an altered repositories location
-(FUNC_REPOSITORIES environment variable or --repositories).
+(FUNC_REPOSITORIES_PATH environment variable).
 ```console
 $ func repository remove <name>
 ```

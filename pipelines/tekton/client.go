@@ -17,7 +17,7 @@ const (
 func NewTektonClient() (*v1beta1.TektonV1beta1Client, error) {
 	restConfig, err := k8s.GetClientConfig().ClientConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create new tekton client: %v", err)
+		return nil, fmt.Errorf("failed to create new tekton client: %w", err)
 	}
 
 	client, err := v1beta1.NewForConfig(restConfig)

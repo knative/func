@@ -175,7 +175,7 @@ func (r *Repositories) Add(name, uri string) (string, error) {
 	// Create a repo (in-memory FS) from the URI
 	repo, err := NewRepository(name, uri)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to create new repository: %w", err)
 	}
 
 	// Error if the repository already exists on disk
@@ -186,7 +186,11 @@ func (r *Repositories) Add(name, uri string) (string, error) {
 
 	// Instruct the repository to write itself to disk at the given path.
 	// Fails if path exists.
-	return repo.Name, repo.Write(dest)
+	err = repo.Write(dest)
+	if err != nil {
+		return "", fmt.Errorf("failed to write repository: %w", err)
+	}
+	return repo.Name, nil
 }
 
 // Rename a repository

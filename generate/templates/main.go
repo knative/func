@@ -52,7 +52,14 @@ func main() {
 			Name:   name,
 			Method: zip.Deflate,
 		}
-		header.SetMode(info.Mode())
+
+		// Coercing permission to 755 for directories/executables and to 644 for non-executable files.
+		// This is needed to ensure reproducible builds on machines with different values of `umask`.
+		if info.IsDir() || (info.Mode().Perm()&0111) != 0 {
+			header.SetMode(0755)
+		} else {
+			header.SetMode(0644)
+		}
 
 		w, err := zipWriter.CreateHeader(header)
 		if err != nil {

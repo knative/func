@@ -14,7 +14,7 @@ import (
 // TestRepository_TemplatesPath ensures that repositories can specify
 // an alternate location for templates using a manifest.
 func TestRepository_TemplatesPath(t *testing.T) {
-	client := fn.New(fn.WithRepositories("testdata/repositories"))
+	client := fn.New(fn.WithRepositoriesPath("testdata/repositories"))
 
 	// The repo ./testdata/repositories/customLanguagePackRepo includes a
 	// manifest.yaml which defines templates as existing in the ./templates
@@ -39,7 +39,7 @@ func TestRepository_TemplatesPath(t *testing.T) {
 // and template level.  The tests check for both embedded structures:
 // HealthEndpoints BuildConfig.
 func TestRepository_Inheritance(t *testing.T) {
-	client := fn.New(fn.WithRepositories("testdata/repositories"))
+	client := fn.New(fn.WithRepositoriesPath("testdata/repositories"))
 
 	// The repo ./testdata/repositories/customLanguagePack includes a manifest
 	// which defines custom readiness and liveness endpoints.

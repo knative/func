@@ -29,8 +29,59 @@ Under macOS you need to use `podman machine` as `podman` is native to Linux.
 ❯ podman machine init --cpus=2 --disk-size=30 --memory=8192
 ❯ podman machine start
 ❯ ssh-add -k $HOME/.ssh/podman-machine-default
-❯ export DOCKER_HOST=(podman system connection ls --format="{{.URI}}" | grep root)
+❯ export DOCKER_HOST=$(podman system connection ls --format="{{.URI}}" | grep root)
 ```
+
+### Remote connections
+
+You may also connect to a remote `podman` running on a remote Linux server. Follow the instructions above for running `podman` as a service on a Linux server. You will connect to this via SSH when `func` builds a project. In addition to having `podman` on the remote Linux server, you will also need to run the SSH daemon. Installing, configuring and running SSH is outside of the scope of this project. Please work with a system administrator to ensure that this prerequisite is met.
+
+To use `podman` remotely, create (or reuse) a default key on your client MacOS computer. If you do not already have a key created, you can create one with the following command.
+
+```
+ssh-keygen -t ed255519
+```
+
+This will create a public, private key pair. By default, if you followed the command above, the public key will be in `~/.ssh/id_ed255519.pub`. Add the contents of this file to the `authorized_keys` file on the remote Linux server. This should conclude the SSH configuration required.
+
+Once you have SSH configured, you need to configure `podman` on the local macOS computer. To add the remote connection to `podman` you will need to know the IP address or hostname of the Linux server that you are connecting to. You will also need to know the location of the unix socket used by `podman`. To find the location, you can issue the following command on the Linux server.
+
+```
+podman info | grep podman.sock
+```
+
+This should display something like `path: /run/user/1000/podman/podman.sock`. When you have this path, and the hostname or IP address of the Linux server, you can configure `podman` with the following command.
+
+```
+podman --remote system connection add podman-remote --identity ~/.ssh/id_ed255519 ssh://username@hostname/path/to/podman.socket
+```
+
+In the example above, a connection called `podman-remote` is added, which will connect using the SSH key created earlier to the host at `hostname` as the user `username`. Here is a real world example.
+
+```
+podman --remote system connection add podman-remote --identity ~/.ssh/id_podman_client ssh://lanceball@192.168.1.203/run/user/1000/podman/podman.sock
+```
+
+To make the newly configured remote the default for `podman` on your laptop, run the following command.
+
+```
+podman --remote system connection default podman-remote
+```
+
+To check if it was successfully added, run the following command. You should see the `podman-remote` connection added.
+
+```
+❯ podman --remote system connection list
+Name                         Identity                                  URI
+podman-remote*               /Users/lball/.ssh/id_podman_client        ssh://lanceball@192.168.1.203:22/run/user/1000/podman/podman.sock
+```
+
+Finally, to ensure that `func` knows the address of your newly configured registry, set and export the `DOCKER_HOST` environment variable with the following command.
+
+```
+export DOCKER_HOST=$(podman system connection ls --format="{{.URI}}" | head -1)
+```
+
 
 ## Known issues
 

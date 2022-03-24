@@ -39,8 +39,8 @@ Put the following script in your `.git/hooks/pre-commit` file.
 ```sh
 #!/bin/sh
 
-if git diff-index --cached --name-only HEAD | grep -iP "^templates/.*$" >/dev/null; then
-  if ! git diff-index --cached --name-only HEAD | grep -iP "^zz_filesystem_generated.go$" >/dev/null; then
+if git diff-index --cached --name-only HEAD | grep -i "^templates/.*$" >/dev/null; then
+  if ! git diff-index --cached --name-only HEAD | grep -i "^zz_filesystem_generated.go$" >/dev/null; then
     echo "WARNING: You are about to commit changes to the templates directory," \
       "but the generated zz_filesystem_generated.go file is not staged."
     echo "If this is intentional use '--no-verify' flag."
@@ -48,7 +48,7 @@ if git diff-index --cached --name-only HEAD | grep -iP "^templates/.*$" >/dev/nu
   fi
 fi
 
-if git diff-index --cached --name-only HEAD | grep -iP "^zz_filesystem_generated.go$" >/dev/null; then
+if git diff-index --cached --name-only HEAD | grep -i "^zz_filesystem_generated.go$" >/dev/null; then
   UNVERSIONED=$(git ls-files --others --exclude-standard --ignored -- templates/ 2>/dev/null)
   if [ -n "$UNVERSIONED" ]; then
     echo "WARNING: You are about to commit zz_filesystem_generated.go," \

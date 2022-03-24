@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/AlecAivazis/survey/v2"
@@ -29,7 +30,7 @@ type standardLoaderSaver struct{}
 func (s standardLoaderSaver) Load(path string) (fn.Function, error) {
 	f, err := fn.NewFunction(path)
 	if err != nil {
-		return fn.Function{}, err
+		return fn.Function{}, fmt.Errorf("failed to create new function (path: %q): %w", path, err)
 	}
 	if !f.Initialized() {
 		return fn.Function{}, fmt.Errorf("the given path '%v' does not contain an initialized function", path)
@@ -101,7 +102,7 @@ func runConfigCmd(cmd *cobra.Command, args []string) (err error) {
 
 	err = survey.Ask(qs, &answers)
 	if err != nil {
-		if err == terminal.InterruptErr {
+		if errors.Is(err, terminal.InterruptErr) {
 			return nil
 		}
 		return
@@ -163,7 +164,7 @@ func initConfigCommand(args []string, loader functionLoader) (fn.Function, error
 
 	function, err := loader.Load(config.Path)
 	if err != nil {
-		return fn.Function{}, err
+		return fn.Function{}, fmt.Errorf("failed to load the function (path: %q): %w", config.Path, err)
 	}
 
 	return function, nil

@@ -184,7 +184,7 @@ func (n *Pusher) daemonPush(ctx context.Context, f fn.Function, credentials Cred
 	for {
 		err = decoder.Decode(&li)
 		if err != nil {
-			if err == io.EOF {
+			if errors.Is(err, io.EOF) {
 				err = nil
 			}
 			break

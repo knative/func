@@ -3,6 +3,9 @@
  * function that echoes its input to the caller, and returns an error if
  * the incoming request is something other than an HTTP POST or GET.
  *
+ * In can be invoked with 'func invoke'
+ * It can be tested with 'npm test'
+ *
  * @param {Context} context a context object.
  * @param {object} context.body the request body if any
  * @param {object} context.query the query string deserialized as an object, if any
@@ -13,6 +16,7 @@
  * See: https://github.com/knative-sandbox/kn-plugin-func/blob/main/docs/guides/nodejs.md#the-context-object
  */
 function handle(context) {
+  // YOUR CODE HERE
   context.log.info(JSON.stringify(context, null, 2));
 
   // If the request is an HTTP POST, the context will contain the request body

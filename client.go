@@ -246,7 +246,7 @@ func ConfigPath() (path string) {
 
 // RepositoriesPath accesses the currently effective repositories path,
 // which defaults to [ConfigPath]/repositories but can be set explicitly using
-// the WithRepositories option when creating the client..
+// the WithRepositoriesPath option when creating the client..
 // The path will be created if it does not already exist.
 func (c *Client) RepositoriesPath() (path string) {
 	path = c.repositories.Path()
@@ -256,7 +256,7 @@ func (c *Client) RepositoriesPath() (path string) {
 
 // RepositoriesPath is a convenience method for accessing the default path to
 // repositories that will be used by new instances of a Client unless options
-// such as WithRepositories are used to override.
+// such as WithRepositoriesPath are used to override.
 // The path will be created if it does not already exist.
 func RepositoriesPath() string {
 	return New().RepositoriesPath()
@@ -342,10 +342,10 @@ func WithDNSProvider(provider DNSProvider) Option {
 	}
 }
 
-// WithRepositories sets the location to use for extensible template
+// WithRepositoriesPath sets the location on disk to use for extensible template
 // repositories.  Extensible template repositories are additional templates
 // that exist on disk and are not built into the binary.
-func WithRepositories(path string) Option {
+func WithRepositoriesPath(path string) Option {
 	return func(c *Client) {
 		c.repositoriesPath = path
 	}
@@ -700,6 +700,7 @@ func (c *Client) RunPipeline(ctx context.Context, path string, git Git) (err err
 
 	f, err := NewFunction(path)
 	if err != nil {
+		err = fmt.Errorf("failed to laod function: %w", err)
 		return
 	}
 	f.Git = git
@@ -707,6 +708,7 @@ func (c *Client) RunPipeline(ctx context.Context, path string, git Git) (err err
 	// Build and deploy function using Pipeline
 	err = c.pipelinesProvider.Run(ctx, f)
 	if err != nil {
+		err = fmt.Errorf("failed to run pipeline: %w", err)
 		return
 	}
 

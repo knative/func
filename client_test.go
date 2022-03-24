@@ -212,9 +212,9 @@ func TestClient_New_HiddenFilesIgnored(t *testing.T) {
 // using a custom path to template repositories on disk. The custom repositories
 // location is not defined herein but expected to be provided because, for
 // example, a CLI may want to use XDG_CONFIG_HOME.  Assuming a repository path
-// $FUNC_REPOSITORIES, a Go template named 'json' which is provided in the
+// $FUNC_REPOSITORIES_PATH, a Go template named 'json' which is provided in the
 // repository 'boson', would be expected to be in the location:
-// $FUNC_REPOSITORIES/boson/go/json
+// $FUNC_REPOSITORIES_PATH/boson/go/json
 // See the CLI for full details, but a standard default location is
 // $HOME/.config/func/repositories/boson/go/json
 func TestClient_New_RepositoriesExtensible(t *testing.T) {
@@ -222,7 +222,7 @@ func TestClient_New_RepositoriesExtensible(t *testing.T) {
 	defer Using(t, root)()
 
 	client := fn.New(
-		fn.WithRepositories("testdata/repositories"),
+		fn.WithRepositoriesPath("testdata/repositories"),
 		fn.WithRegistry(TestRegistry))
 
 	// Create a Function specifying a template which only exists in the extensible set
@@ -262,7 +262,7 @@ func TestClient_New_RuntimeNotFoundCustom(t *testing.T) {
 
 	// Create a new client with path to the extensible templates
 	client := fn.New(
-		fn.WithRepositories("testdata/repositories"),
+		fn.WithRepositoriesPath("testdata/repositories"),
 		fn.WithRegistry(TestRegistry))
 
 	// Create a Function specifying a runtime, 'python' that does not exist
@@ -300,7 +300,7 @@ func TestClient_New_TemplateNotFoundCustom(t *testing.T) {
 
 	// Create a new client with path to extensible templates
 	client := fn.New(
-		fn.WithRepositories("testdata/repositories"),
+		fn.WithRepositoriesPath("testdata/repositories"),
 		fn.WithRegistry(TestRegistry))
 
 	// An invalid template, but a valid custom provider
@@ -1005,7 +1005,7 @@ func TestClient_Runtimes(t *testing.T) {
 	// TODO: test when a specific repo override is indicated
 	// (remote repo which takes precidence over embedded and extended)
 
-	client := fn.New(fn.WithRepositories("testdata/repositories"))
+	client := fn.New(fn.WithRepositoriesPath("testdata/repositories"))
 
 	runtimes, err := client.Runtimes()
 	if err != nil {
@@ -1112,7 +1112,7 @@ func TestClient_Invoke_HTTP(t *testing.T) {
 	}
 	s := http.Server{Handler: handler}
 	go func() {
-		if err = s.Serve(l); err != nil && err != http.ErrServerClosed {
+		if err = s.Serve(l); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			fmt.Fprintf(os.Stderr, "error serving: %v", err)
 		}
 	}()

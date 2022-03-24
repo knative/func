@@ -5,7 +5,8 @@ const { CloudEvent, HTTP } = require('cloudevents');
  * This example function logs its input, and responds with a CloudEvent
  * which echoes the incoming event data
  *
- * It can be invoked with 'func emit'
+ * It can be invoked with 'func invoke'
+ * It can be tested with 'npm test'
  *
  * @param {Context} context a context object.
  * @param {object} context.body the request body if any
@@ -18,6 +19,7 @@ const { CloudEvent, HTTP } = require('cloudevents');
  * @param {CloudEvent} event the CloudEvent
  */
 function handle(context, event) {
+  // YOUR CODE HERE
   context.log.info("context");
   context.log.info(JSON.stringify(context, null, 2));
 

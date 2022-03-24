@@ -6,7 +6,6 @@ package function_test
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -27,7 +26,7 @@ func TestRepositories_List(t *testing.T) {
 	root, rm := Mktemp(t)
 	defer rm()
 
-	client := fn.New(fn.WithRepositories(root)) // Explicitly empty
+	client := fn.New(fn.WithRepositoriesPath(root)) // Explicitly empty
 
 	rr, err := client.Repositories().List()
 	if err != nil {
@@ -42,7 +41,7 @@ func TestRepositories_List(t *testing.T) {
 // TestRepositories_GetInvalid ensures that attempting to get an invalid repo
 // results in error.
 func TestRepositories_GetInvalid(t *testing.T) {
-	client := fn.New(fn.WithRepositories("testdata/repositories"))
+	client := fn.New(fn.WithRepositoriesPath("testdata/repositories"))
 
 	// invalid should error
 	_, err := client.Repositories().Get("invalid")
@@ -53,7 +52,7 @@ func TestRepositories_GetInvalid(t *testing.T) {
 
 // TestRepositories_Get ensures a repository can be accessed by name.
 func TestRepositories_Get(t *testing.T) {
-	client := fn.New(fn.WithRepositories("testdata/repositories"))
+	client := fn.New(fn.WithRepositoriesPath("testdata/repositories"))
 
 	// valid should not error
 	repo, err := client.Repositories().Get("customTemplateRepo")
@@ -70,15 +69,11 @@ func TestRepositories_Get(t *testing.T) {
 // TestRepositories_All ensures repos are returned from
 // .All accessor.  Tests both builtin and buitlin+extensible cases.
 func TestRepositories_All(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("TODO fix this test on Windows CI") // TODO fix this
-	}
-
 	uri := TestRepoURI(RepositoriesTestRepo, t)
 	root, rm := Mktemp(t)
 	defer rm()
 
-	client := fn.New(fn.WithRepositories(root))
+	client := fn.New(fn.WithRepositoriesPath(root))
 
 	// Assert initially only the default is included
 	rr, err := client.Repositories().All()
@@ -111,17 +106,13 @@ func TestRepositories_All(t *testing.T) {
 
 // TestRepositories_Add checks basic adding of a repository by URI.
 func TestRepositories_Add(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("TODO fix this test on Windows CI") // TODO fix this
-	}
-
 	uri := TestRepoURI(RepositoriesTestRepo, t) // ./testdata/$RepositoriesTestRepo.git
 	root, rm := Mktemp(t)                       // create and cd to a temp dir, returning path.
 	defer rm()
 
 	// Instantiate the client using the current temp directory as the
 	// repositories' root location.
-	client := fn.New(fn.WithRepositories(root))
+	client := fn.New(fn.WithRepositoriesPath(root))
 
 	// Add the repository, explicitly specifying a name.  See other tests for
 	// defaulting from repository names and manifest-defined name.
@@ -149,10 +140,6 @@ func TestRepositories_Add(t *testing.T) {
 // TestRepositories_AddDefaultName ensures that repository name is optional,
 // by default being set to the name of the repoisotory from the URI.
 func TestRepositories_AddDeafultName(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("TODO fix this test on Windows CI") // TODO fix this
-	}
-
 	// The test repository is the "base case" repo, which is a manifestless
 	// repo meant to exemplify the simplest use case:  a repo with no metadata
 	// that simply contains templates, grouped by runtime.  It therefore does
@@ -161,7 +148,7 @@ func TestRepositories_AddDeafultName(t *testing.T) {
 	root, rm := Mktemp(t)
 	defer rm()
 
-	client := fn.New(fn.WithRepositories(root))
+	client := fn.New(fn.WithRepositoriesPath(root))
 
 	name, err := client.Repositories().Add("", uri)
 	if err != nil {
@@ -188,10 +175,6 @@ func TestRepositories_AddDeafultName(t *testing.T) {
 // a manfest wherein a default name is specified, is used as the name for the
 // added repository when a name is not explicitly specified.
 func TestRepositories_AddWithManifest(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("TODO fix this test on Windows CI") // TODO fix this
-	}
-
 	// repository-b is meant to exemplify the use case of a repository which
 	// defines a custom language pack and makes full use of the manifest.yaml.
 	// The manifest.yaml is included which specifies things like custom templates
@@ -200,7 +183,7 @@ func TestRepositories_AddWithManifest(t *testing.T) {
 	root, rm := Mktemp(t)
 	defer rm()
 
-	client := fn.New(fn.WithRepositories(root))
+	client := fn.New(fn.WithRepositoriesPath(root))
 
 	name, err := client.Repositories().Add("", uri)
 	if err != nil {
@@ -227,17 +210,13 @@ func TestRepositories_AddWithManifest(t *testing.T) {
 // TestRepositories_AddExistingErrors ensures that adding a repository that
 // already exists yields an error.
 func TestRepositories_AddExistingErrors(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("TODO fix this test on Windows CI") // TODO fix this
-	}
-
 	uri := TestRepoURI(RepositoriesTestRepo, t)
 	root, rm := Mktemp(t) // create and cd to a temp dir, returning path.
 	defer rm()
 
 	// Instantiate the client using the current temp directory as the
 	// repositories' root location.
-	client := fn.New(fn.WithRepositories(root))
+	client := fn.New(fn.WithRepositoriesPath(root))
 
 	// Add twice.
 	name := "example"
@@ -265,17 +244,13 @@ func TestRepositories_AddExistingErrors(t *testing.T) {
 
 // TestRepositories_Rename ensures renaming a repository succeeds.
 func TestRepositories_Rename(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("TODO fix this test on Windows CI") // TODO fix this
-	}
-
 	uri := TestRepoURI(RepositoriesTestRepo, t)
 	root, rm := Mktemp(t) // create and cd to a temp dir, returning path.
 	defer rm()
 
 	// Instantiate the client using the current temp directory as the
 	// repositories' root location.
-	client := fn.New(fn.WithRepositories(root))
+	client := fn.New(fn.WithRepositoriesPath(root))
 
 	// Add and Rename
 	if _, err := client.Repositories().Add("foo", uri); err != nil {
@@ -309,7 +284,7 @@ func TestRepositories_Remove(t *testing.T) {
 
 	// Instantiate the client using the current temp directory as the
 	// repositories' root location.
-	client := fn.New(fn.WithRepositories(root))
+	client := fn.New(fn.WithRepositoriesPath(root))
 
 	// Add and Remove
 	name := "example"
@@ -338,18 +313,11 @@ func TestRepositories_Remove(t *testing.T) {
 // TestRepositories_URL ensures that a repository populates its URL member
 // from the git repository's origin url (if it is a git repo and exists)
 func TestRepositories_URL(t *testing.T) {
-	// FIXME:  This test is temporarily disabled.  See not in Repository.Write
-	// in short: as a side-effect of removing the double-clone, the in-memory
-	// repo is insufficient as it does not include a .git directory.
-	if true {
-		return
-	}
-
 	uri := TestRepoURI(RepositoriesTestRepo, t)
 	root, rm := Mktemp(t)
 	defer rm()
 
-	client := fn.New(fn.WithRepositories(root))
+	client := fn.New(fn.WithRepositoriesPath(root))
 
 	// Add the test repo
 	_, err := client.Repositories().Add("newrepo", uri)

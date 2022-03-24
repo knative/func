@@ -17,22 +17,4 @@ public class CloudFunctionApplication {
     return String::toUpperCase;
   }
 
-  /**
-   * Health checks
-   * 
-   * @return
-   */
-  @Bean
-  public Function<String, String> health() {
-    return probe -> {
-      if ("readiness".equals(probe)) {
-        return "ready";
-      } else if ("liveness".equals(probe)) {
-        return "live";
-      } else {
-        return "OK";
-      }
-    };
-  }
-
 }

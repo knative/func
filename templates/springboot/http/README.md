@@ -28,15 +28,16 @@ echo "export FUNC_REGISTRY=docker.io/johndoe" >> ~/.bashrc
 
 ### Building
 
-This command builds an OCI image for the function. By default, this will build a GraalVM native image.
+This command builds an OCI image for the function. By default, this will build a JVM image.
 
 ```shell script
-func build -v                  # build native image
+func build -v                  # build image
 ```
 
-**Note**: If you want to disable the native build, you need to edit the `func.yaml` file and
-remove (or set to false) the following BuilderEnv variable:
-```
+**Note**: If you want to enable the native build, you need to edit the `func.yaml` file and
+set the following BuilderEnv variable:
+
+```yaml
 buildEnvs:
   - name: BP_NATIVE_IMAGE
     value: "true"
@@ -80,11 +81,35 @@ If you use `kn` then you can set the url by:
 export URL=$(kn service describe $(basename $PWD) -ourl)
 ```
 
+### func
+
+Using `func invoke` command with Path-Based routing:
+
+```shell script
+func invoke --target "$URL/uppercase" --data "$(whoami)"
+```
+
+If your function class only contains one function, then you can leave out the target path:
+
+```shell script
+func invoke --data "$(whoami)"
+```
+
 ### cURL
 
 ```shell script
 curl -v "$URL/uppercase" \
   -H "Content-Type:text/plain" \
+  -w "\n" \
+  -d "$(whoami)"
+```
+
+If your function class only contains one function, then you can leave out the target path:
+
+```shell script
+curl -v "$URL" \
+  -H "Content-Type:text/plain" \
+  -w "\n" \
   -d "$(whoami)"
 ```
 
@@ -92,6 +117,12 @@ curl -v "$URL/uppercase" \
 
 ```shell script
 echo "$(whoami)" | http -v "$URL/uppercase"
+```
+
+If your function class only contains one function, then you can leave out the target path:
+
+```shell script
+echo "$(whoami)" | http -v "$URL"
 ```
 
 ## Cleanup
