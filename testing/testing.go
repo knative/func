@@ -148,6 +148,7 @@ func TestRepoURI(name string, t *testing.T) string {
 
 // WithEnvVar sets an environment variable
 // and returns deferrable function that restores previous value of the environment variable.
+// TODO: replace with t.Setenv when we upgrade to go.1.17
 func WithEnvVar(t *testing.T, name, value string) func() {
 	t.Helper()
 	oldDh, hadDh := os.LookupEnv(name)
