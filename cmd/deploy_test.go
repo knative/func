@@ -119,7 +119,7 @@ created: 2009-11-10 23:00:00`,
 
 			// TODO: the below viper.SetDefault calls appear to be altering
 			// the default values of flags as a way set various values of flags.
-			// This could perhaps be better acheived by constructing an array
+			// This could perhaps be better achieved by constructing an array
 			// of flag arguments, set via cmd.SetArgs(...).  This would more directly
 			// test the use-case of flag values (as opposed to the indirect proxy
 			// of their defaults), and would avoid the need to call viper.Reset() to
