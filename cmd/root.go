@@ -20,25 +20,6 @@ type RootCommandConfig struct {
 	NewClient ClientFactory
 }
 
-// ClientFactory defines a constructor which assists in the creation of a Client
-// for use by commands.
-// See the NewClient constructor which is the fully populated ClientFactory used
-// by commands by default.
-// See NewClientFactory which constructs a minimal CientFactory for use
-// during testing.
-type ClientFactory func(ClientConfig, ...fn.Option) (*fn.Client, func())
-
-// NewClientFactory enables simple mocking of a fn.Client during tests.
-// Given is a minimal Client constructor, Returned is full ClientFactory
-// All aspects of normal full Client construction (namespace, verbosity level,
-// additional options and the returned cleanup function for deferral) are
-// left at zero value and ignored
-func NewClientFactory(n func() *fn.Client) ClientFactory {
-	return func(_ ClientConfig, _ ...fn.Option) (*fn.Client, func()) {
-		return n(), func() {}
-	}
-}
-
 // NewRootCmd creates the root of the command tree defines the command name, description, globally
 // available flags, etc.  It has no action of its own, such that running the
 // resultant binary with no arguments prints the help/usage text.

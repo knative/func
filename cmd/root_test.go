@@ -38,7 +38,7 @@ func TestRoot_PersistentFlags(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			defer Fromtemp(t)()                       // from a temp dir, deferred cleanup
-			cmd := NewCreateCmd(NewClient)            // Create a new Function
+			cmd := NewCreateCmd(NewClient)          // Create a new Function
 			cmd.SetArgs([]string{"--language", "go"}) // providing language (the only required param)
 			if err := cmd.Execute(); err != nil {     // fail on any errors
 				t.Fatal(err)

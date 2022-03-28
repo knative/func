@@ -30,6 +30,25 @@ type ClientConfig struct {
 	Verbose bool
 }
 
+// ClientFactory defines a constructor which assists in the creation of a Client
+// for use by commands.
+// See the NewClient constructor which is the fully populated ClientFactory used
+// by commands by default.
+// See NewClientFactory which constructs a minimal CientFactory for use
+// during testing.
+type ClientFactory func(ClientConfig, ...fn.Option) (*fn.Client, func())
+
+// NewClientFactory enables simple instantiation of an fn.Client, such as
+// for mocking during tests or for minimal api usage.
+// Given is a minimal Client constructor, Returned is full ClientFactory
+// with the aspects of normal (full) Client construction (namespace, verbosity
+// level, additional options and the returned cleanup function) ignored.
+func NewClientFactory(n func() *fn.Client) ClientFactory {
+	return func(_ ClientConfig, _ ...fn.Option) (*fn.Client, func()) {
+		return n(), func() {}
+	}
+}
+
 // NewClient constructs an fn.Client with the majority of
 // the concrete implementations set.  Provide additional Options to this constructor
 // to override or augment as needed, or override the ClientFactory passed to

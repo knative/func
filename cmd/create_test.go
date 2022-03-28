@@ -96,7 +96,7 @@ func TestCreateConfig_RepositoriesPath(t *testing.T) {
 	expected := filepath.Join(xdgConfigHome, "func", "repositories")
 
 	cmd := NewCreateCmd(NewClient)
-	cfg, err := newCreateConfig(cmd, []string{})
+	cfg, err := newCreateConfig(cmd, []string{}, NewClient)
 	if err != nil {
 		t.Fatal(err)
 	}

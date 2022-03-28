@@ -1,10 +1,8 @@
 package cmd
 
 import (
-	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -46,7 +44,7 @@ func TestRepository_Add(t *testing.T) {
 	// add [flags] <old> <new>
 	add.SetArgs([]string{
 		"newrepo",
-		testRepoURI("repository", t),
+		TestRepoURI("repository", t),
 	})
 
 	// Parse flags and args, performing action
@@ -80,7 +78,7 @@ func TestRepository_Rename(t *testing.T) {
 	)
 
 	// add a repo which will be renamed
-	add.SetArgs([]string{"newrepo", testRepoURI("repository", t)})
+	add.SetArgs([]string{"newrepo", TestRepoURI("repository", t)})
 	if err := add.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -122,7 +120,7 @@ func TestRepository_Remove(t *testing.T) {
 	)
 
 	// add a repo which will be removed
-	add.SetArgs([]string{"newrepo", testRepoURI("repository", t)})
+	add.SetArgs([]string{"newrepo", TestRepoURI("repository", t)})
 	if err := add.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -187,17 +185,4 @@ func piped(t *testing.T) func() string {
 		}
 		return strings.TrimSpace(b.String())
 	}
-}
-
-// TEST REPO URI:  Return URI to repo in ./testdata of matching name.
-// Suitable as URI for repository override. returns in form file://
-// Must be called prior to mktemp in tests which changes current
-// working directory as it depends on a relative path.
-// Repo uri:  file://$(pwd)/testdata/repository.git (unix-like)
-//            file: //$(pwd)\testdata\repository.git (windows)
-func testRepoURI(name string, t *testing.T) string {
-	t.Helper()
-	cwd, _ := os.Getwd()
-	repo := filepath.Join(cwd, "testdata", name+".git")
-	return fmt.Sprintf(`file://%s`, filepath.ToSlash(repo))
 }
