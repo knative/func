@@ -28,6 +28,7 @@ func TestCreate_NoRuntime(t *testing.T) {
 	defer Fromtemp(t)()
 
 	cmd := NewCreateCmd(NewClient)
+	cmd.SetArgs([]string{}) // Do not use test command args
 
 	err := cmd.Execute()
 	var e ErrNoRuntime
@@ -96,6 +97,7 @@ func TestCreateConfig_RepositoriesPath(t *testing.T) {
 	expected := filepath.Join(xdgConfigHome, "func", "repositories")
 
 	cmd := NewCreateCmd(NewClient)
+	cmd.SetArgs([]string{}) // Do not use test command args
 	cfg, err := newCreateConfig(cmd, []string{}, NewClient)
 	if err != nil {
 		t.Fatal(err)

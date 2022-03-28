@@ -15,6 +15,7 @@ import (
 func TestRepository_List(t *testing.T) {
 	defer WithEnvVar(t, "XDG_CONFIG_HOME", t.TempDir())()
 	cmd := NewRepositoryListCmd(NewClient)
+	cmd.SetArgs([]string{}) // Do not use test command args
 
 	// Execute the command, capturing the output sent to stdout
 	stdout := piped(t)
@@ -40,6 +41,9 @@ func TestRepository_Add(t *testing.T) {
 		list   = NewRepositoryListCmd(NewClient)
 		stdout = piped(t)
 	)
+	// Do not use test command args
+	add.SetArgs([]string{})
+	list.SetArgs([]string{})
 
 	// add [flags] <old> <new>
 	add.SetArgs([]string{
@@ -76,6 +80,10 @@ func TestRepository_Rename(t *testing.T) {
 		list   = NewRepositoryListCmd(NewClient)
 		stdout = piped(t)
 	)
+	// Do not use test command args
+	add.SetArgs([]string{})
+	rename.SetArgs([]string{})
+	list.SetArgs([]string{})
 
 	// add a repo which will be renamed
 	add.SetArgs([]string{"newrepo", TestRepoURI("repository", t)})
@@ -118,6 +126,10 @@ func TestRepository_Remove(t *testing.T) {
 		list   = NewRepositoryListCmd(NewClient)
 		stdout = piped(t)
 	)
+	// Do not use test command args
+	add.SetArgs([]string{})
+	remove.SetArgs([]string{})
+	list.SetArgs([]string{})
 
 	// add a repo which will be removed
 	add.SetArgs([]string{"newrepo", TestRepoURI("repository", t)})

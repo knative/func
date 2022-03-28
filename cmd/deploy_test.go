@@ -116,6 +116,7 @@ created: 2009-11-10 23:00:00`,
 					fn.WithPipelinesProvider(pipeline),
 					fn.WithDeployer(deployer))
 			}))
+			cmd.SetArgs([]string{}) // Do not use test command args
 
 			// TODO: the below viper.SetDefault calls appear to be altering
 			// the default values of flags as a way set various values of flags.

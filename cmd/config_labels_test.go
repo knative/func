@@ -106,6 +106,7 @@ func TestNewConfigLabelsCmd(t *testing.T) {
 	labels := &loaderSaver.f.Labels
 
 	cmd := NewConfigLabelsCmd(&loaderSaver)
+	cmd.SetArgs([]string{}) // Do not use test command args
 
 	run := createRunFunc(cmd, t)
 
@@ -143,6 +144,7 @@ func TestListLabels(t *testing.T) {
 	*labels = append(*labels, p("a", "b"), p("c", "d"))
 
 	cmd := NewConfigLabelsCmd(&loaderSaver)
+	cmd.SetArgs([]string{}) // Do not use test command args
 
 	ctx := context.Background()
 	c, _, err := vt10x.NewVT10XConsole()
@@ -150,8 +152,6 @@ func TestListLabels(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer c.Close()
-
-	cmd.SetArgs(make([]string, 0))
 
 	errChan := make(chan error, 1)
 	func() {

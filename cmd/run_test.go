@@ -95,6 +95,7 @@ created: 2009-11-10 23:00:00`,
 					fn.WithRegistry("ghcr.com/reg"),
 				)
 			}))
+			cmd.SetArgs([]string{}) // Do not use test command args
 
 			// set test case's build
 			viper.SetDefault("build", tt.buildFlag)

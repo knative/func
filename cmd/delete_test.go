@@ -81,9 +81,9 @@ created: 2021-01-01T00:00:00+00:00
 	cmd := NewDeleteCmd(NewClientFactory(func() *fn.Client {
 		return fn.New(fn.WithRemover(remover))
 	}))
+	cmd.SetArgs([]string{}) // Do not use test command args
 
 	// Execute the command simulating no arguments.
-	cmd.SetArgs([]string{})
 	err := cmd.Execute()
 	if err != nil {
 		t.Fatal(err)
