@@ -40,6 +40,7 @@ type PusherDockerClient interface {
 	ImageLoad(context.Context, io.Reader, bool) (types.ImageLoadResponse, error)
 	ImageTag(context.Context, string, string) error
 	ImagePush(ctx context.Context, ref string, options types.ImagePushOptions) (io.ReadCloser, error)
+	ImageInspectWithRaw(context.Context, string) (types.ImageInspect, []byte, error)
 	Close() error
 }
 
