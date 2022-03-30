@@ -582,7 +582,7 @@ github.com/opencontainers/selinux/go-selinux
 github.com/opencontainers/selinux/go-selinux/label
 github.com/opencontainers/selinux/pkg/pwalk
 github.com/opencontainers/selinux/pkg/pwalkdir
-# github.com/openshift/source-to-image v1.3.1 => github.com/lkingland/source-to-image v1.3.2
+# github.com/openshift/source-to-image v1.3.1 => github.com/boson-project/source-to-image v1.3.2
 ## explicit
 github.com/openshift/source-to-image/pkg/api
 github.com/openshift/source-to-image/pkg/api/constants
@@ -1450,4 +1450,4 @@ sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.3.0
 sigs.k8s.io/yaml
 # github.com/buildpacks/imgutil => github.com/buildpacks/imgutil v0.0.0-20211001201950-cf7ae41c3771
-# github.com/openshift/source-to-image => github.com/lkingland/source-to-image v1.3.2
+# github.com/openshift/source-to-image => github.com/boson-project/source-to-image v1.3.2

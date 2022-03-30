@@ -47,10 +47,6 @@ require (
 
 replace (
 	github.com/buildpacks/imgutil => github.com/buildpacks/imgutil v0.0.0-20211001201950-cf7ae41c3771 // pack: force newer version of imgutil for better performance until pack updates
-	// github.com/containerd/containerd v1.3.0-0.20190507210959-7c1e88399ec0 => github.com/containerd/containerd v1.2.1-0.20190507210959-7c1e88399ec0 // s2i: fix transitive dependency's invalid pseudo-version
-	// github.com/docker/docker v1.14.0-0.20190319215453-e7b5f7dbe98c => github.com/docker/docker v17.12.0-ce-rc1.0.20190319215453-e7b5f7dbe98c+incompatible
-	// golang.org/x/crypto v0.0.0-20190129210102-0709b304e793 => golang.org/x/crypto v0.0.0-20180904163835-0709b304e793 // s2i: fix transitive dependency's invalid pseudo-version
 
-	github.com/openshift/source-to-image => github.com/lkingland/source-to-image v1.3.2 // updates docker to be compatible with version used by pack and removes invalid pseudo-version
-// github.com/openshift/source-to-image => ../../github.com/lkingland/source-to-image // s2i: updates docker to be compatible with pack, removing pseudo-version
+	github.com/openshift/source-to-image => github.com/boson-project/source-to-image v1.3.2 // updates docker to be compatible with version used by pack and removes invalid pseudo-version
 )
