@@ -8,6 +8,7 @@ import (
 
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/mock"
+	. "knative.dev/kn-plugin-func/testing"
 )
 
 // TestBuild_InvalidRegistry ensures that running build specifying the name of the
@@ -19,7 +20,7 @@ func TestBuild_InvalidRegistry(t *testing.T) {
 	)
 
 	// Run this test in a temporary directory
-	defer fromTempDir(t)()
+	defer Fromtemp(t)()
 	// Write a func.yaml config which does not specify an image
 	funcYaml := `name: testymctestface
 namespace: ""
@@ -38,11 +39,10 @@ created: 2021-01-01T00:00:00+00:00
 		t.Fatal(err)
 	}
 
-	// Create a command with a client constructor fn that instantiates a client
-	// with a the mocked builder.
-	cmd := NewBuildCmd(func(options ClientOptions) *fn.Client {
+	// Create build command that will use a mock builder.
+	cmd := NewBuildCmd(NewClientFactory(func() *fn.Client {
 		return fn.New(fn.WithBuilder(builder))
-	})
+	}))
 
 	// Execute the command
 	cmd.SetArgs(args)
@@ -99,7 +99,7 @@ created: 2009-11-10 23:00:00`,
 				},
 			}
 			mockBuilder := mock.NewBuilder()
-			cmd := NewBuildCmd(func(options ClientOptions) *fn.Client {
+			cmd := NewBuildCmd(NewClientFactory(func() *fn.Client {
 				pusher := mockPusher
 				if tt.wantErr {
 					pusher = failPusher
@@ -108,7 +108,7 @@ created: 2009-11-10 23:00:00`,
 					fn.WithBuilder(mockBuilder),
 					fn.WithPusher(pusher),
 				)
-			})
+			}))
 
 			tempDir, err := os.MkdirTemp("", "func-tests")
 			if err != nil {

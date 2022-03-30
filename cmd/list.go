@@ -35,12 +35,11 @@ Lists all deployed functions in a given namespace.
 {{.Name}} list --all-namespaces --output json
 `,
 		SuggestFor: []string{"ls", "lsit"},
-		PreRunE:    bindEnv("namespace", "output"),
+		PreRunE:    bindEnv("all-namespaces", "output"),
 	}
 
 	cmd.Flags().BoolP("all-namespaces", "A", false, "List functions in all namespaces. If set, the --namespace flag is ignored.")
 	cmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|xml|yaml) (Env: $FUNC_OUTPUT)")
-	setNamespaceFlag(cmd)
 
 	if err := cmd.RegisterFlagCompletionFunc("output", CompleteOutputFormatList); err != nil {
 		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
@@ -62,10 +61,8 @@ func runList(cmd *cobra.Command, _ []string, newClient ClientFactory) (err error
 		return err
 	}
 
-	client := newClient(ClientOptions{
-		Namespace: config.Namespace,
-		Verbose:   config.Verbose,
-	})
+	client, done := newClient(ClientConfig{Namespace: config.Namespace, Verbose: config.Verbose})
+	defer done()
 
 	items, err := client.List(cmd.Context())
 	if err != nil {

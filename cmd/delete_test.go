@@ -6,15 +6,15 @@ import (
 
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/mock"
+	. "knative.dev/kn-plugin-func/testing"
 )
 
 // TestDelete_ByName ensures that running delete specifying the name of the
 // Function explicitly as an argument invokes the remover appropriately.
 func TestDelete_ByName(t *testing.T) {
 	var (
-		testname = "testname"         // explicit name for the Function
-		args     = []string{testname} // passed as the lone argument
-		remover  = mock.NewRemover()  // with a mock remover
+		testname = "testname"        // explicit name for the Function
+		remover  = mock.NewRemover() // with a mock remover
 	)
 
 	// Remover fails the test if it receives the incorrect name
@@ -28,14 +28,12 @@ func TestDelete_ByName(t *testing.T) {
 
 	// Create a command with a client constructor fn that instantiates a client
 	// with a the mocked remover.
-	cmd := NewDeleteCmd(func(ClientOptions) *fn.Client {
+	cmd := NewDeleteCmd(NewClientFactory(func() *fn.Client {
 		return fn.New(fn.WithRemover(remover))
-	})
+	}))
 
-	// Execute the command
-	cmd.SetArgs(args)
-	err := cmd.Execute()
-	if err != nil {
+	cmd.SetArgs([]string{testname})
+	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
 
@@ -49,7 +47,7 @@ func TestDelete_ByName(t *testing.T) {
 // context invokes remove and with the correct name (reads name from func.yaml)
 func TestDelete_ByProject(t *testing.T) {
 	// from within a new temporary directory
-	defer fromTempDir(t)()
+	defer Fromtemp(t)()
 
 	// Write a func.yaml config which specifies a name
 	funcYaml := `name: bar
@@ -80,12 +78,12 @@ created: 2021-01-01T00:00:00+00:00
 
 	// Command with a Client constructor that returns  client with the
 	// mocked remover.
-	cmd := NewDeleteCmd(func(ClientOptions) *fn.Client {
+	cmd := NewDeleteCmd(NewClientFactory(func() *fn.Client {
 		return fn.New(fn.WithRemover(remover))
-	})
+	}))
+	cmd.SetArgs([]string{}) // Do not use test command args
 
 	// Execute the command simulating no arguments.
-	cmd.SetArgs([]string{})
 	err := cmd.Execute()
 	if err != nil {
 		t.Fatal(err)
@@ -108,9 +106,9 @@ func TestDelete_NameAndPathExclusivity(t *testing.T) {
 	remover := mock.NewRemover()
 
 	// Command with a Client constructor using the mock remover.
-	cmd := NewDeleteCmd(func(ClientOptions) *fn.Client {
+	cmd := NewDeleteCmd(NewClientFactory(func() *fn.Client {
 		return fn.New(fn.WithRemover(remover))
-	})
+	}))
 
 	// Execute the command simulating the invalid argument combination of both
 	// a path and an explicit name.

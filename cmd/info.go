@@ -32,10 +32,9 @@ the current directory or from the directory specified with --path.
 `,
 		SuggestFor:        []string{"ifno", "describe", "fino", "get"},
 		ValidArgsFunction: CompleteFunctionList,
-		PreRunE:           bindEnv("namespace", "output", "path"),
+		PreRunE:           bindEnv("output", "path"),
 	}
 
-	setNamespaceFlag(cmd)
 	cmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|xml|yaml|url) (Env: $FUNC_OUTPUT)")
 	setPathFlag(cmd)
 
@@ -66,10 +65,8 @@ func runInfo(cmd *cobra.Command, args []string, newClient ClientFactory) (err er
 	}
 
 	// Create a client
-	client := newClient(ClientOptions{
-		Namespace: config.Namespace,
-		Verbose:   config.Verbose,
-	})
+	client, done := newClient(ClientConfig{Namespace: config.Namespace, Verbose: config.Verbose})
+	defer done()
 
 	// Get the description
 	d, err := client.Info(cmd.Context(), config.Name, config.Path)

@@ -9,10 +9,10 @@ import (
 	"github.com/ory/viper"
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/mock"
+	. "knative.dev/kn-plugin-func/testing"
 )
 
 func TestRun_Run(t *testing.T) {
-
 	tests := []struct {
 		name         string // name of the test
 		desc         string // description of the test
@@ -73,7 +73,7 @@ created: 2009-11-10 23:00:00`,
 	for _, tt := range tests {
 		// run as a sub-test
 		t.Run(tt.name, func(t *testing.T) {
-			defer fromTempDir(t)()
+			defer Fromtemp(t)()
 
 			runner := mock.NewRunner()
 			if tt.runError != nil {
@@ -88,13 +88,14 @@ created: 2009-11-10 23:00:00`,
 			// using a command whose client will be populated with mock
 			// builder and mock runner, each of which may be set to error if the
 			// test has an error defined.
-			cmd := NewRunCmd(func(rc runConfig) *fn.Client {
+			cmd := NewRunCmd(NewClientFactory(func() *fn.Client {
 				return fn.New(
 					fn.WithRunner(runner),
 					fn.WithBuilder(builder),
 					fn.WithRegistry("ghcr.com/reg"),
 				)
-			})
+			}))
+			cmd.SetArgs([]string{}) // Do not use test command args
 
 			// set test case's build
 			viper.SetDefault("build", tt.buildFlag)

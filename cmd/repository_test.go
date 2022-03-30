@@ -6,30 +6,21 @@ import (
 	"strings"
 	"testing"
 
-	"knative.dev/kn-plugin-func/mock"
+	. "knative.dev/kn-plugin-func/testing"
 )
 
 // TestRepository_List ensures that the 'list' subcommand shows the client's
-// set of repositories by name and prints the list as expected.
+// set of repositories by name for builtin repositories, by explicitly
+// setting the repositories path to a new path which includes no others.
 func TestRepository_List(t *testing.T) {
-	var (
-		client = mock.NewClient()
-		list   = NewRepositoryListCmd(testRepositoryClientFn(client))
-	)
-
-	// Set the repositories path, which will be passed to the client instance
-	// in the form of a config.
-	os.Setenv("FUNC_REPOSITORIES_PATH", "testpath")
+	defer WithEnvVar(t, "XDG_CONFIG_HOME", t.TempDir())()
+	cmd := NewRepositoryListCmd(NewClient)
+	cmd.SetArgs([]string{}) // Do not use test command args
 
 	// Execute the command, capturing the output sent to stdout
 	stdout := piped(t)
-	if err := list.Execute(); err != nil {
+	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
-	}
-
-	// Assert the repository flag setting was preserved during execution
-	if client.RepositoriesPath != "testpath" {
-		t.Fatal("repositories env not passed to client")
 	}
 
 	// Assert the output matches expectd (whitespace trimmed)
@@ -44,28 +35,25 @@ func TestRepository_List(t *testing.T) {
 // arguments, respects the repositories path flag, and the expected name is echoed
 // upon subsequent 'list'.
 func TestRepository_Add(t *testing.T) {
+	defer WithEnvVar(t, "XDG_CONFIG_HOME", t.TempDir())()
 	var (
-		client = mock.NewClient()
-		add    = NewRepositoryAddCmd(testRepositoryClientFn(client))
-		list   = NewRepositoryListCmd(testRepositoryClientFn(client))
+		add    = NewRepositoryAddCmd(NewClient)
+		list   = NewRepositoryListCmd(NewClient)
 		stdout = piped(t)
 	)
-	os.Setenv("FUNC_REPOSITORIES_PATH", "testpath")
+	// Do not use test command args
+	add.SetArgs([]string{})
+	list.SetArgs([]string{})
 
 	// add [flags] <old> <new>
 	add.SetArgs([]string{
 		"newrepo",
-		"https://git.example.com/user/repo",
+		TestRepoURI("repository", t),
 	})
 
 	// Parse flags and args, performing action
 	if err := add.Execute(); err != nil {
 		t.Fatal(err)
-	}
-
-	// Assert the repositories flag was parsed and provided to client
-	if client.RepositoriesPath != "testpath" {
-		t.Fatal("repositories path not passed to client")
 	}
 
 	// List post-add, capturing output from stdout
@@ -85,17 +73,20 @@ func TestRepository_Add(t *testing.T) {
 // positional arguments, respects the repositories path flag, and the name is
 // reflected as having been reanamed upon subsequent 'list'.
 func TestRepository_Rename(t *testing.T) {
+	defer WithEnvVar(t, "XDG_CONFIG_HOME", t.TempDir())()
 	var (
-		client = mock.NewClient()
-		add    = NewRepositoryAddCmd(testRepositoryClientFn(client))
-		rename = NewRepositoryRenameCmd(testRepositoryClientFn(client))
-		list   = NewRepositoryListCmd(testRepositoryClientFn(client))
+		add    = NewRepositoryAddCmd(NewClient)
+		rename = NewRepositoryRenameCmd(NewClient)
+		list   = NewRepositoryListCmd(NewClient)
 		stdout = piped(t)
 	)
-	os.Setenv("FUNC_REPOSITORIES_PATH", "testpath")
+	// Do not use test command args
+	add.SetArgs([]string{})
+	rename.SetArgs([]string{})
+	list.SetArgs([]string{})
 
 	// add a repo which will be renamed
-	add.SetArgs([]string{"newrepo", "https://git.example.com/user/repo"})
+	add.SetArgs([]string{"newrepo", TestRepoURI("repository", t)})
 	if err := add.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -109,11 +100,6 @@ func TestRepository_Rename(t *testing.T) {
 	// Parse flags and args, performing action
 	if err := rename.Execute(); err != nil {
 		t.Fatal(err)
-	}
-
-	// Assert the repositories flag was parsed and provided to client
-	if client.RepositoriesPath != "testpath" {
-		t.Fatal("repositories path not passed to client")
 	}
 
 	// List post-rename, capturing output from stdout
@@ -133,17 +119,20 @@ func TestRepository_Rename(t *testing.T) {
 // its argument, respects the repositorieis flag, and the entry is removed upon
 // subsequent 'list'.
 func TestRepository_Remove(t *testing.T) {
+	defer WithEnvVar(t, "XDG_CONFIG_HOME", t.TempDir())()
 	var (
-		client = mock.NewClient()
-		add    = NewRepositoryAddCmd(testRepositoryClientFn(client))
-		remove = NewRepositoryRemoveCmd(testRepositoryClientFn(client))
-		list   = NewRepositoryListCmd(testRepositoryClientFn(client))
+		add    = NewRepositoryAddCmd(NewClient)
+		remove = NewRepositoryRemoveCmd(NewClient)
+		list   = NewRepositoryListCmd(NewClient)
 		stdout = piped(t)
 	)
-	os.Setenv("FUNC_REPOSITORIES_PATH", "testpath")
+	// Do not use test command args
+	add.SetArgs([]string{})
+	remove.SetArgs([]string{})
+	list.SetArgs([]string{})
 
 	// add a repo which will be removed
-	add.SetArgs([]string{"newrepo", "https://git.example.com/user/repo"})
+	add.SetArgs([]string{"newrepo", TestRepoURI("repository", t)})
 	if err := add.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -156,11 +145,6 @@ func TestRepository_Remove(t *testing.T) {
 	// Parse flags and args, performing action
 	if err := remove.Execute(); err != nil {
 		t.Fatal(err)
-	}
-
-	// Assert the repositories flag was parsed and provided to client
-	if client.RepositoriesPath != "testpath" {
-		t.Fatal("repositories flag not passed to client")
 	}
 
 	// List post-remove, capturing output from stdout
@@ -178,30 +162,6 @@ func TestRepository_Remove(t *testing.T) {
 
 // Helpers
 // -------
-
-// testClientFn returns a repositoryClientFn which always returns the provided
-// mock client.  The client may have various function implementations overridden
-// so as to test particular cases, and a config object is created from the
-// flags and environment variables in the same way as the actual commands, with
-// the effective value recorded on the mock as members for test assertions.
-func testRepositoryClientFn(client *mock.Client) repositoryClientFn {
-	c := testRepositoryClient{client} // type gymnastics
-	return func(args []string) (repositoryConfig, RepositoryClient, error) {
-		cfg, err := newRepositoryConfig(args)
-		client.Confirm = cfg.Confirm
-		client.RepositoriesPath = cfg.RepositoriesPath
-		if err != nil {
-			return cfg, c, err
-		}
-		return cfg, c, nil
-	}
-}
-
-type testRepositoryClient struct{ *mock.Client }
-
-func (c testRepositoryClient) Repositories() Repositories {
-	return Repositories(c.Client.Repositories())
-}
 
 // pipe the output of stdout to a buffer whose value is returned
 // from the returned function.  Call pipe() to start piping output

@@ -17,14 +17,6 @@ import (
 	"knative.dev/kn-plugin-func/docker/creds"
 )
 
-func deployConfigToClientOptions(cfg deployConfig) ClientOptions {
-	return ClientOptions{
-		Namespace: cfg.Namespace,
-		Verbose:   cfg.Verbose,
-		Registry:  cfg.Registry,
-	}
-}
-
 func NewDeployCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "deploy",
@@ -51,7 +43,7 @@ that is pushed to an image registry, and finally the function's Knative service 
 {{.Name}} deploy --image quay.io/myuser/myfunc -n myns
 `,
 		SuggestFor: []string{"delpoy", "deplyo"},
-		PreRunE:    bindEnv("image", "namespace", "path", "registry", "confirm", "build", "push", "git-url", "git-branch", "git-dir"),
+		PreRunE:    bindEnv("image", "path", "registry", "confirm", "build", "push", "git-url", "git-branch", "git-dir"),
 	}
 
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
@@ -66,7 +58,6 @@ that is pushed to an image registry, and finally the function's Knative service 
 	cmd.Flags().StringP("build", "b", fn.DefaultBuildType, fmt.Sprintf("Build specifies the way the function should be built. Supported types are %s (Env: $FUNC_BUILD)", fn.SupportedBuildTypes(true)))
 	cmd.Flags().BoolP("push", "u", true, "Attempt to push the function image to registry before deploying (Env: $FUNC_PUSH)")
 	setPathFlag(cmd)
-	setNamespaceFlag(cmd)
 
 	if err := cmd.RegisterFlagCompletionFunc("build", CompleteDeployBuildType); err != nil {
 		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
@@ -163,7 +154,9 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		config.Registry = ""
 	}
 
-	client := newClient(deployConfigToClientOptions(config))
+	client, done := newClient(ClientConfig{Namespace: config.Namespace, Verbose: config.Verbose},
+		fn.WithRegistry(config.Registry))
+	defer done()
 
 	switch currentBuildType {
 	case fn.BuildTypeLocal, "":

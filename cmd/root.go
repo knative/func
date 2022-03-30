@@ -11,22 +11,19 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/client/pkg/util"
-
 	fn "knative.dev/kn-plugin-func"
 )
 
 type RootCommandConfig struct {
-	Name      string // usually `func` or `kn func`
-	Date      string
-	Version   string
-	Hash      string
+	Name string // usually `func` or `kn func`
+	Version
 	NewClient ClientFactory
 }
 
 // NewRootCmd creates the root of the command tree defines the command name, description, globally
 // available flags, etc.  It has no action of its own, such that running the
 // resultant binary with no arguments prints the help/usage text.
-func NewRootCmd(config RootCommandConfig) (*cobra.Command, error) {
+func NewRootCmd(config RootCommandConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		// Use must be set to exactly config.Name, as this field is overloaded to
 		// be used in subcommand help text as the command with possible prefix:
@@ -66,36 +63,29 @@ EXAMPLES
 
 	// Flags
 	// persistent flags are available to all subcommands implicitly
-	cmd.PersistentFlags().BoolP("verbose", "v", false, "print verbose logs ($FUNC_VERBOSE)")
-	err := viper.BindPFlag("verbose", cmd.PersistentFlags().Lookup("verbose"))
-	if err != nil {
-		return cmd, err
+	// Note they are bound immediately here as opposed to other subcommands
+	// because this root command is not actually executed during tests, and
+	// therefore PreRunE and other event-based listeners are not invoked.
+	cmd.PersistentFlags().BoolP("verbose", "v", false, "Print verbose logs ($FUNC_VERBOSE)")
+	if err := viper.BindPFlag("verbose", cmd.PersistentFlags().Lookup("verbose")); err != nil {
+		fmt.Fprintf(os.Stderr, "error binding flag: %v\n", err)
+	}
+	cmd.PersistentFlags().StringP("namespace", "n", "", "The namespace on the cluster used for remote commands. By default, the namespace func.yaml is used or the currently active namespace if not set in the configuration. (Env: $FUNC_NAMESPACE)")
+	if err := viper.BindPFlag("namespace", cmd.PersistentFlags().Lookup("namespace")); err != nil {
+		fmt.Fprintf(os.Stderr, "error binding flag: %v\n", err)
 	}
 
 	// Version
-	// Gather the statically-set version values (populated durin build) into
-	// a version structure used by both --version flag and the `version` subcmd
-	// Overrides the --version template to match the output format from the
-	// version subcommand: nothing but the version.
-	version := Version{
-		Date: config.Date,
-		Vers: config.Version,
-		Hash: config.Hash,
-	}
-	cmd.Version = version.String()
+	cmd.Version = config.Version.String()
 	cmd.SetVersionTemplate(`{{printf "%s\n" .Version}}`)
 
+	// Client
+	// Use the provided ClientFactory or default to NewClient
 	newClient := config.NewClient
-
 	if newClient == nil {
-		var cleanUp func() error
-		newClient, cleanUp = NewDefaultClientFactory()
-		cmd.PersistentPostRunE = func(cmd *cobra.Command, args []string) error {
-			return cleanUp()
-		}
+		newClient = NewClient
 	}
 
-	cmd.AddCommand(NewVersionCmd(version))
 	cmd.AddCommand(NewCreateCmd(newClient))
 	cmd.AddCommand(NewConfigCmd())
 	cmd.AddCommand(NewBuildCmd(newClient))
@@ -104,18 +94,19 @@ EXAMPLES
 	cmd.AddCommand(NewInfoCmd(newClient))
 	cmd.AddCommand(NewListCmd(newClient))
 	cmd.AddCommand(NewInvokeCmd(newClient))
-	cmd.AddCommand(NewRepositoryCmd(newRepositoryClient))
-	cmd.AddCommand(NewRunCmd(newRunClient))
+	cmd.AddCommand(NewRepositoryCmd(newClient))
+	cmd.AddCommand(NewRunCmd(newClient))
 	cmd.AddCommand(NewCompletionCmd())
+	cmd.AddCommand(NewVersionCmd(config.Version))
 
 	// Help
 	// Overridden to process the help text as a template and have
 	// access to the provided Client instance.
 	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
-		runRootHelp(cmd, args, version)
+		runRootHelp(cmd, args, config.Version)
 	})
 
-	return cmd, nil
+	return cmd
 
 	// NOTE Default Action
 	// No default action is provided triggering the default of displaying the help
@@ -340,11 +331,6 @@ func mergeEnvs(envs []fn.Env, envToUpdate *util.OrderedMap, envToRemove []string
 // setPathFlag ensures common text/wording when the --path flag is used
 func setPathFlag(cmd *cobra.Command) {
 	cmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
-}
-
-// setNamespaceFlag ensures common text/wording when the --namespace flag is used
-func setNamespaceFlag(cmd *cobra.Command) {
-	cmd.Flags().StringP("namespace", "n", "", "The namespace on the cluster. By default, the namespace in func.yaml is used or the currently active namespace if not set in the configuration. (Env: $FUNC_NAMESPACE)")
 }
 
 type Version struct {

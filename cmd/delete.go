@@ -32,12 +32,12 @@ No local files are deleted.
 `,
 		SuggestFor:        []string{"remove", "rm", "del"},
 		ValidArgsFunction: CompleteFunctionList,
-		PreRunE:           bindEnv("path", "confirm", "namespace", "all"),
+		PreRunE:           bindEnv("path", "confirm", "all"),
+		SilenceUsage:      true, // no usage dump on error
 	}
 
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
 	cmd.Flags().StringP("all", "a", "true", "Delete all resources created for a function, eg. Pipelines, Secrets, etc. (Env: $FUNC_ALL) (allowed values: \"true\", \"false\")")
-	setNamespaceFlag(cmd)
 	setPathFlag(cmd)
 
 	cmd.SetHelpFunc(defaultTemplatedHelp)
@@ -49,7 +49,7 @@ No local files are deleted.
 	return cmd
 }
 
-func runDelete(cmd *cobra.Command, args []string, clientFn ClientFactory) (err error) {
+func runDelete(cmd *cobra.Command, args []string, newClient ClientFactory) (err error) {
 	config, err := newDeleteConfig(args).Prompt()
 	if err != nil {
 		if err == terminal.InterruptErr {
@@ -87,10 +87,8 @@ func runDelete(cmd *cobra.Command, args []string, clientFn ClientFactory) (err e
 	}
 
 	// Create a client instance from the now-final config
-	client := clientFn(ClientOptions{
-		Namespace: config.Namespace,
-		Verbose:   config.Verbose,
-	})
+	client, done := newClient(ClientConfig{Namespace: config.Namespace, Verbose: config.Verbose})
+	defer done()
 
 	// Invoke remove using the concrete client impl
 	return client.Remove(cmd.Context(), function, config.DeleteAll)

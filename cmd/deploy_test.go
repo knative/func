@@ -9,6 +9,7 @@ import (
 	"k8s.io/utils/pointer"
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/mock"
+	. "knative.dev/kn-plugin-func/testing"
 )
 
 func Test_runDeploy(t *testing.T) {
@@ -109,19 +110,27 @@ created: 2009-11-10 23:00:00`,
 				},
 			}
 			deployer := mock.NewDeployer()
-			defer fromTempDir(t)()
-			cmd := NewDeployCmd(func(opts ClientOptions) *fn.Client {
+			defer Fromtemp(t)()
+			cmd := NewDeployCmd(NewClientFactory(func() *fn.Client {
 				return fn.New(
 					fn.WithPipelinesProvider(pipeline),
-					fn.WithDeployer(deployer),
-				)
-			})
+					fn.WithDeployer(deployer))
+			}))
+			cmd.SetArgs([]string{}) // Do not use test command args
 
+			// TODO: the below viper.SetDefault calls appear to be altering
+			// the default values of flags as a way set various values of flags.
+			// This could perhaps be better achieved by constructing an array
+			// of flag arguments, set via cmd.SetArgs(...).  This would more directly
+			// test the use-case of flag values (as opposed to the indirect proxy
+			// of their defaults), and would avoid the need to call viper.Reset() to
+			// avoid affecting other tests.
 			viper.SetDefault("git-url", tt.gitURL)
 			viper.SetDefault("git-branch", tt.gitBranch)
 			viper.SetDefault("git-dir", tt.gitDir)
 			viper.SetDefault("build", tt.buildType)
 			viper.SetDefault("registry", "docker.io/tigerteam")
+			defer viper.Reset()
 
 			// set test case's func.yaml
 			if err := os.WriteFile("func.yaml", []byte(tt.funcFile), os.ModePerm); err != nil {

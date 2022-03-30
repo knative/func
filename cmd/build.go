@@ -12,13 +12,6 @@ import (
 	fn "knative.dev/kn-plugin-func"
 )
 
-func buildConfigToClientOptions(cfg buildConfig) ClientOptions {
-	return ClientOptions{
-		Registry: cfg.Registry,
-		Verbose:  cfg.Verbose,
-	}
-}
-
 func NewBuildCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "build",
@@ -87,7 +80,7 @@ func ValidNamespaceAndRegistry(path string) survey.Validator {
 	}
 }
 
-func runBuild(cmd *cobra.Command, _ []string, clientFn ClientFactory) (err error) {
+func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err error) {
 	config, err := newBuildConfig().Prompt()
 	if err != nil {
 		if errors.Is(err, terminal.InterruptErr) {
@@ -151,7 +144,16 @@ func runBuild(cmd *cobra.Command, _ []string, clientFn ClientFactory) (err error
 		config.Registry = ""
 	}
 
-	client := clientFn(buildConfigToClientOptions(config))
+	// TODO(lkingland): The below deferred options gathering is what will
+	// re-enable the addition of alternative implementations of the Builder,
+	// unblocking PR https://github.com/knative-sandbox/kn-plugin-func/pull/842
+	// the implementation of which will be inserted here.
+
+	// Create a client using the registry defined in config plus any additional
+	// options provided (such as mocks for testing)
+	client, done := newClient(ClientConfig{Verbose: config.Verbose},
+		fn.WithRegistry(config.Registry))
+	defer done()
 
 	err = client.Build(cmd.Context(), config.Path)
 	if err == nil && config.Push {

@@ -63,7 +63,7 @@ func TestClient_InstantiationCreatesRepositoriesPath(t *testing.T) {
 	}
 
 	// Instruct the system to use the above test root directory as the home dir.
-	os.Setenv("XDG_CONFIG_HOME", rootAbs)
+	defer WithEnvVar(t, "XDG_CONFIG_HOME", rootAbs)()
 
 	// The expected full path to the repositories should be:
 	expected := filepath.Join(rootAbs, "func", "repositories")

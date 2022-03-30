@@ -25,14 +25,6 @@ type ErrInvalidRuntime error
 // ErrInvalidTemplate indicates that the passed template was invalid.
 type ErrInvalidTemplate error
 
-func createConfigToClientOptions(cfg createConfig) ClientOptions {
-	return ClientOptions{
-		RepositoriesPath: cfg.RepositoriesPath,
-		Repository:       cfg.Repository,
-		Verbose:          cfg.Verbose,
-	}
-}
-
 // NewCreateCmd creates a create command using the given client creator.
 func NewCreateCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
@@ -89,16 +81,14 @@ EXAMPLES
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
 
 	// Help Action
-	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
-		runCreateHelp(cmd, args, newClient)
-	})
+	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) { runCreateHelp(cmd, args, newClient) })
 
 	// Run Action
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		return runCreate(cmd, args, newClient)
 	}
 
-	// Tab Completion
+	// Tab completion
 	if err := cmd.RegisterFlagCompletionFunc("language", newRuntimeCompletionFunc(newClient)); err != nil {
 		fmt.Fprintf(os.Stderr, "unable to provide language runtime suggestions: %v", err)
 	}
@@ -122,7 +112,10 @@ func runCreate(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 	// Client
 	// From environment variables, flags, arguments, and user prompts if --confirm
 	// (in increasing levels of precidence)
-	client := newClient(createConfigToClientOptions(cfg))
+	client, done := newClient(ClientConfig{Verbose: cfg.Verbose},
+		fn.WithRepository(cfg.Repository),             // Use exactly this repo OR
+		fn.WithRepositoriesPath(cfg.RepositoriesPath)) // Path on disk to installed repos
+	defer done()
 
 	// Validate - a deeper validation than that which is performed when
 	// instantiating the client with the raw config above.
@@ -163,7 +156,10 @@ func runCreateHelp(cmd *cobra.Command, args []string, newClient ClientFactory) {
 	cfg, err := newCreateConfig(cmd, args, newClient)
 	failSoft(err)
 
-	client := newClient(createConfigToClientOptions(cfg))
+	client, done := newClient(ClientConfig{Verbose: cfg.Verbose},
+		fn.WithRepositoriesPath(cfg.RepositoriesPath),
+		fn.WithRepository(cfg.Repository))
+	defer done()
 
 	options, err := runtimeTemplateOptions(client) // human-friendly
 	failSoft(err)
@@ -258,7 +254,8 @@ func newCreateConfig(cmd *cobra.Command, args []string, newClient ClientFactory)
 
 	// Create a tempoarary client for use by the following prompts to complete
 	// runtime/template suggestions etc
-	client := newClient(createConfigToClientOptions(cfg))
+	client, done := newClient(ClientConfig{Verbose: cfg.Verbose})
+	defer done()
 
 	// IN confirm mode.  If also in an interactive terminal, run prompts.
 	if interactiveTerminal() {
@@ -508,7 +505,8 @@ func newRuntimeCompletionFunc(newClient ClientFactory) flagCompletionFunc {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error creating client config for flag completion: %v", err)
 		}
-		client := newClient(createConfigToClientOptions(cfg))
+		client, done := newClient(ClientConfig{Verbose: cfg.Verbose})
+		defer done()
 		return CompleteRuntimeList(cmd, args, toComplete, client)
 	}
 }
@@ -519,7 +517,8 @@ func newTemplateCompletionFunc(newClient ClientFactory) flagCompletionFunc {
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error creating client config for flag completion: %v", err)
 		}
-		client := newClient(createConfigToClientOptions(cfg))
+		client, done := newClient(ClientConfig{Verbose: cfg.Verbose})
+		defer done()
 		return CompleteTemplateList(cmd, args, toComplete, client)
 	}
 }

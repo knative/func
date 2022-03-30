@@ -11,7 +11,57 @@ import (
 	"knative.dev/client/pkg/util"
 
 	fn "knative.dev/kn-plugin-func"
+	. "knative.dev/kn-plugin-func/testing"
 )
+
+func TestRoot_PersistentFlags(t *testing.T) {
+	tests := []struct {
+		name          string
+		args          []string
+		skipNamespace bool
+	}{
+		{
+			name: "provided as root flags",
+			args: []string{"--verbose", "--namespace=namespace", "list"},
+		},
+		{
+			name: "provided as sub-command flags",
+			args: []string{"list", "--verbose", "--namespace=namespace"},
+		},
+		{
+			name:          "provided as sub-sub-command flags",
+			args:          []string{"repositories", "list", "--verbose"},
+			skipNamespace: true, // NOTE: no sub-sub commands yet use namespace, so it is not checked.
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			defer Fromtemp(t)()                       // from a temp dir, deferred cleanup
+			cmd := NewCreateCmd(NewClient)            // Create a new Function
+			cmd.SetArgs([]string{"--language", "go"}) // providing language (the only required param)
+			if err := cmd.Execute(); err != nil {     // fail on any errors
+				t.Fatal(err)
+			}
+
+			// Assert the persistent variables were propagated to the Client constructor
+			// when the command is actually invoked.
+			cmd = NewRootCmd(RootCommandConfig{NewClient: func(cfg ClientConfig, _ ...fn.Option) (*fn.Client, func()) {
+				if cfg.Namespace != "namespace" && !tt.skipNamespace {
+					t.Fatal("namespace not propagated")
+				}
+				if cfg.Verbose != true {
+					t.Fatal("verbose not propagated")
+				}
+				return fn.New(), func() {}
+			}})
+			cmd.SetArgs(tt.args)
+			if err := cmd.Execute(); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
 
 func TestRoot_mergeEnvMaps(t *testing.T) {
 
@@ -121,31 +171,35 @@ func TestRoot_mergeEnvMaps(t *testing.T) {
 	}
 }
 
-func TestRoot_CMDParameterized(t *testing.T) {
+// TestRoot_CommandNameParameterized confirmst that the command name, as
+// printed in help text, is parameterized based on the constructor parameters
+// of the root command.  This allows, for example, to have help text correct
+// when both embedded as a plugin or standalone.
+func TestRoot_CommandNameParameterized(t *testing.T) {
 	expectedSynopsis := "%v [-v|--verbose] <command> [args]"
 
 	tests := []string{
-		"func",
-		"kn func",
+		"func",    // standalone
+		"kn func", // kn plugin
 	}
 
-	for _, test := range tests {
+	for _, testName := range tests {
 		var (
-			cfg    = RootCommandConfig{Name: test}
-			cmd, _ = NewRootCmd(cfg)
-			out    = strings.Builder{}
+			cmd = NewRootCmd(RootCommandConfig{Name: testName})
+			out = strings.Builder{}
 		)
+		cmd.SetArgs([]string{}) // Do not use test command args
 		cmd.SetOut(&out)
 		if err := cmd.Help(); err != nil {
 			t.Fatal(err)
 		}
-		if cmd.Use != cfg.Name {
-			t.Fatalf("expected command Use '%v', got '%v'", cfg.Name, cmd.Use)
+		if cmd.Use != testName {
+			t.Fatalf("expected command Use '%v', got '%v'", testName, cmd.Use)
 		}
-		if !strings.Contains(out.String(), fmt.Sprintf(expectedSynopsis, cfg.Name)) {
-			t.Logf("Testing '%v'\n", test)
+		if !strings.Contains(out.String(), fmt.Sprintf(expectedSynopsis, testName)) {
+			t.Logf("Testing '%v'\n", testName)
 			t.Log(out.String())
-			t.Fatalf("Help text does not include substituted name '%v'", cfg.Name)
+			t.Fatalf("Help text does not include substituted name '%v'", testName)
 		}
 	}
 }
@@ -171,11 +225,6 @@ func TestVerbose(t *testing.T) {
 			args: []string{"--verbose", "version"},
 			want: "v0.42.0-cafe-1970-01-01\n",
 		},
-		{
-			name: "version not as sub-command",
-			args: []string{"--version"},
-			want: "v0.42.0\n",
-		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -183,20 +232,17 @@ func TestVerbose(t *testing.T) {
 
 			var out bytes.Buffer
 
-			cmd, err := NewRootCmd(RootCommandConfig{
-				Name:    "func",
-				Date:    "1970-01-01",
-				Version: "v0.42.0",
-				Hash:    "cafe",
-			})
-			if err != nil {
-				t.Fatal(err)
-			}
+			cmd := NewRootCmd(RootCommandConfig{
+				Name: "func",
+				Version: Version{
+					Date: "1970-01-01",
+					Vers: "v0.42.0",
+					Hash: "cafe",
+				}})
 
 			cmd.SetArgs(tt.args)
 			cmd.SetOut(&out)
-			err = cmd.Execute()
-			if err != nil {
+			if err := cmd.Execute(); err != nil {
 				t.Fatal(err)
 			}
 
@@ -205,5 +251,4 @@ func TestVerbose(t *testing.T) {
 			}
 		})
 	}
-
 }
