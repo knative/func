@@ -26,9 +26,6 @@ var (
 	// ErrRuntimeNotSupported indicates the given runtime is not (yet) supported
 	// by this builder.
 	ErrRuntimeNotSupported = errors.New("runtime not supported")
-
-	// ErrUpdatePodman requests users update to a later podman
-	ErrUpdatePodman = errors.New("please update to podman v3.3 or later")
 )
 
 // DefaultBuilderImages for s2i builders indexed by Runtime Language
@@ -59,30 +56,13 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	if err != nil {
 		return err
 	}
-
-	// Default endpoint
-	// TODO: this should perhaps not be necessary?  The default is explicitly
-	// passed to NewClient, thus the returned endpoint should at least be that.
+	defer client.Close()
+	// TODO: this defaulting of endpoint should perhaps not be necessary?  The
+	// default is explicitly passed to NewClient, thus the returned endpoint
+	// should at least be that.
 	if endpoint == "" {
 		endpoint = dockerClient.DefaultDockerHost
 	}
-	defer client.Close()
-
-	// Assert podman 3.3 or later
-	/* may not be necessary?
-	v, err := client.ServerVersion(ctx)
-	for _, c := range v.Components {
-		if c.Name == "Podman Engine" {
-			serverVersion, err := semver.NewVersion(v.Version)
-			if err != nil {
-				return fmt.Errorf("error parsing server version '%v'", err)
-			}
-			if serverVersion.LessThan(semver.MustParse("v3.3.0")) {
-				return ErrUpdatePodman
-			}
-		}
-	}
-	*/
 
 	// Build Config
 	cfg := &api.Config{}
@@ -103,19 +83,16 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		return errors.New("Unable to build via the s2i builder.")
 	}
 
-	// Builder Impl
-	// Create a builder impl from the docker client and config; build and
-	// print any resulting messages to stdout.
 	builder, _, err := strategies.Strategy(client, cfg, build.Overrides{})
 	if err != nil {
 		return
 	}
 
-	// Build
 	result, err := builder.Build(cfg)
 	if err != nil {
 		return
 	}
+
 	if b.verbose {
 		for _, message := range result.Messages {
 			fmt.Println(message)
