@@ -2,8 +2,9 @@ package cmd
 
 import (
 	"fmt"
-	"golang.org/x/sys/unix"
 	"syscall"
+
+	"golang.org/x/sys/unix"
 )
 
 const (
