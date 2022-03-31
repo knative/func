@@ -35,12 +35,8 @@ type CredentialsProvider func(ctx context.Context, registry string) (Credentials
 
 // PusherDockerClient is sub-interface of client.CommonAPIClient required by pusher.
 type PusherDockerClient interface {
-	NegotiateAPIVersion(ctx context.Context)
-	ImageSave(context.Context, []string) (io.ReadCloser, error)
-	ImageLoad(context.Context, io.Reader, bool) (types.ImageLoadResponse, error)
-	ImageTag(context.Context, string, string) error
+	daemon.Client
 	ImagePush(ctx context.Context, ref string, options types.ImagePushOptions) (io.ReadCloser, error)
-	ImageInspectWithRaw(context.Context, string) (types.ImageInspect, []byte, error)
 	Close() error
 }
 

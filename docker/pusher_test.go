@@ -308,7 +308,6 @@ func (m *mockPusherDockerClient) ImageTag(ctx context.Context, s string, s2 stri
 
 func (m *mockPusherDockerClient) ImageInspectWithRaw(ctx context.Context, s string) (types.ImageInspect, []byte, error) {
 	return m.imageInspect(ctx, s)
-	//return types.ImageInspect{ID: "1", Config: &container.Config{Image: "1"}}, []byte{}, nil
 }
 
 func (m *mockPusherDockerClient) ImagePush(ctx context.Context, ref string, options types.ImagePushOptions) (io.ReadCloser, error) {
