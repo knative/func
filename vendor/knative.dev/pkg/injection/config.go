@@ -21,7 +21,7 @@ import (
 	"log"
 
 	"k8s.io/client-go/rest"
-	"k8s.io/klog/v2"
+	"k8s.io/klog"
 	"knative.dev/pkg/environment"
 )
 
