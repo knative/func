@@ -42,8 +42,8 @@ func TestBuild_S2I(t *testing.T) {
 	)
 	defer cleanup()
 
-	run(t, bin, prefix, "create", "-v", "--language", "node", cwd)
-	output := run(t, bin, prefix, "build", "-v", "--builder", "s2i")
+	run(t, bin, prefix, "create", "-v", "--language=node", cwd)
+	output := run(t, bin, prefix, "build", "-v", "--builder=s2i", "--registry", GetRegistry())
 	if !strings.Contains(output, "Function image built:") {
 		t.Fatal("image not built")
 	}
