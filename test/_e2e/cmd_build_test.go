@@ -37,8 +37,8 @@ func TestBuild_S2I(t *testing.T) {
 	var (
 		root        = "testdata/e2e/testbuild"
 		bin, prefix = bin()
-		cleanup     = Within(t, root) // TODO: replace with func/testing pkg
-		cwd, _      = os.Getwd()      // absolute path
+		cleanup     = Within(t, root) // TODO: replace with Fromtemp?
+		cwd, _      = os.Getwd()
 	)
 	defer cleanup()
 
