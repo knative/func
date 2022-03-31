@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"os/exec"
 
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
@@ -94,6 +96,11 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 		return
 	}
 	defer job.Stop()
+
+	pid := os.Getpid()
+
+	watcher := exec.Command(os.Args[0], "watch-remove", fmt.Sprintf("--pid=%d", pid), fmt.Sprintf("--ctr=%s", job.ContainerID))
+	watcher.Start()
 
 	fmt.Fprintf(cmd.OutOrStderr(), "Function started on port %v\n", job.Port)
 

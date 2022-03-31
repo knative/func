@@ -1125,7 +1125,7 @@ func TestClient_Invoke_HTTP(t *testing.T) {
 		_, p, _ := net.SplitHostPort(l.Addr().String())
 		errs := make(chan error, 10)
 		stop := func() {}
-		return fn.NewJob(f, p, errs, stop)
+		return fn.NewJob(f, "ctr", p, errs, stop)
 	}
 	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithRunner(runner))
 
@@ -1219,7 +1219,7 @@ func TestClient_Invoke_CloudEvent(t *testing.T) {
 		_, p, _ := net.SplitHostPort(l.Addr().String())
 		errs := make(chan error, 10)
 		stop := func() {}
-		return fn.NewJob(f, p, errs, stop)
+		return fn.NewJob(f, "ctr", p, errs, stop)
 	}
 	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithRunner(runner))
 
@@ -1267,7 +1267,7 @@ func TestClient_Instances(t *testing.T) {
 	runner.RunFn = func(_ context.Context, f fn.Function) (*fn.Job, error) {
 		errs := make(chan error, 10)
 		stop := func() {}
-		return fn.NewJob(f, "8080", errs, stop)
+		return fn.NewJob(f, "ctr", "8080", errs, stop)
 	}
 
 	// Client with the mock runner
