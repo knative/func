@@ -11,8 +11,8 @@ To cut a pre-release:
 To cut a release:
 1. Ensure the relevant spec APIs have been released.
 1. Ensure the `lifecycle/0.99.0` milestone on the [docs repo](https://github.com/buildpacks/docs/blob/main/RELEASE.md#lump-changes) is complete, such that every new feature in the lifecycle is fully explained in the `release/lifecycle/0.99` branch on the docs repo, and [migration guides](https://github.com/buildpacks/docs/tree/main/content/docs/reference/spec/migration) (if relevant) are included.
-1. If applicable, ensure the README is updated with the latest supported apis (example PR: https://github.com/buildpacks/lifecycle/pull/550).
 1. Create a release branch in the format `release/0.99.0`. New commits to this branch will trigger the `build` workflow and produce a lifecycle image: `buildpacksio/lifecycle:<commit sha>`.
+1. If applicable, ensure the README is updated with the latest supported apis (example PR: https://github.com/buildpacks/lifecycle/pull/550) and remove the pre-release note for the latest apis.
 1. When ready to cut the release, manually trigger the `draft-release` workflow: Actions -> draft-release -> Run workflow -> Use workflow from branch: `release/0.99.0`. This will create a draft release on GitHub using the artifacts from the `build` workflow run for the latest commit on the release branch.
 1. Edit the release notes as necessary.
 1. Perform any manual validation of the artifacts.

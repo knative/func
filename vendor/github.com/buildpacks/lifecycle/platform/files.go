@@ -7,7 +7,6 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/buildpacks/lifecycle/buildpack"
-	"github.com/buildpacks/lifecycle/buildpack/layertypes"
 	"github.com/buildpacks/lifecycle/launch"
 	"github.com/buildpacks/lifecycle/layers"
 )
@@ -27,51 +26,41 @@ type ImageIdentifier struct {
 
 // NOTE: This struct MUST be kept in sync with `LayersMetadataCompat`
 type LayersMetadata struct {
-	App          []LayerMetadata           `json:"app" toml:"app"`
-	Buildpacks   []BuildpackLayersMetadata `json:"buildpacks" toml:"buildpacks"`
-	Config       LayerMetadata             `json:"config" toml:"config"`
-	Launcher     LayerMetadata             `json:"launcher" toml:"launcher"`
-	ProcessTypes LayerMetadata             `json:"process-types" toml:"process-types"`
-	RunImage     RunImageMetadata          `json:"runImage" toml:"run-image"`
-	Stack        StackMetadata             `json:"stack" toml:"stack"`
+	App          []LayerMetadata            `json:"app" toml:"app"`
+	BOM          *LayerMetadata             `json:"sbom,omitempty" toml:"sbom,omitempty"`
+	Buildpacks   []buildpack.LayersMetadata `json:"buildpacks" toml:"buildpacks"`
+	Config       LayerMetadata              `json:"config" toml:"config"`
+	Launcher     LayerMetadata              `json:"launcher" toml:"launcher"`
+	ProcessTypes LayerMetadata              `json:"process-types" toml:"process-types"`
+	RunImage     RunImageMetadata           `json:"runImage" toml:"run-image"`
+	Stack        StackMetadata              `json:"stack" toml:"stack"`
 }
 
 // NOTE: This struct MUST be kept in sync with `LayersMetadata`.
 // It exists for situations where the `App` field type cannot be
 // guaranteed, yet the original struct data must be maintained.
 type LayersMetadataCompat struct {
-	App          interface{}               `json:"app" toml:"app"`
-	Buildpacks   []BuildpackLayersMetadata `json:"buildpacks" toml:"buildpacks"`
-	Config       LayerMetadata             `json:"config" toml:"config"`
-	Launcher     LayerMetadata             `json:"launcher" toml:"launcher"`
-	ProcessTypes LayerMetadata             `json:"process-types" toml:"process-types"`
-	RunImage     RunImageMetadata          `json:"runImage" toml:"run-image"`
-	Stack        StackMetadata             `json:"stack" toml:"stack"`
+	App          interface{}                `json:"app" toml:"app"`
+	BOM          *LayerMetadata             `json:"sbom,omitempty" toml:"sbom,omitempty"`
+	Buildpacks   []buildpack.LayersMetadata `json:"buildpacks" toml:"buildpacks"`
+	Config       LayerMetadata              `json:"config" toml:"config"`
+	Launcher     LayerMetadata              `json:"launcher" toml:"launcher"`
+	ProcessTypes LayerMetadata              `json:"process-types" toml:"process-types"`
+	RunImage     RunImageMetadata           `json:"runImage" toml:"run-image"`
+	Stack        StackMetadata              `json:"stack" toml:"stack"`
 }
 
-func (m *LayersMetadata) MetadataForBuildpack(id string) BuildpackLayersMetadata {
+func (m *LayersMetadata) MetadataForBuildpack(id string) buildpack.LayersMetadata {
 	for _, bpMD := range m.Buildpacks {
 		if bpMD.ID == id {
 			return bpMD
 		}
 	}
-	return BuildpackLayersMetadata{}
+	return buildpack.LayersMetadata{}
 }
 
 type LayerMetadata struct {
 	SHA string `json:"sha" toml:"sha"`
-}
-
-type BuildpackLayersMetadata struct {
-	ID      string                            `json:"key" toml:"key"`
-	Version string                            `json:"version" toml:"version"`
-	Layers  map[string]BuildpackLayerMetadata `json:"layers" toml:"layers"`
-	Store   *buildpack.StoreTOML              `json:"store,omitempty" toml:"store"`
-}
-
-type BuildpackLayerMetadata struct {
-	LayerMetadata
-	layertypes.LayerMetadataFile
 }
 
 type RunImageMetadata struct {

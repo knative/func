@@ -96,6 +96,12 @@ func (e *Exporter) Export(opts ExportOptions) (platform.ExportReport, error) {
 		return platform.ExportReport{}, err
 	}
 
+	if e.PlatformAPI.AtLeast("0.8") {
+		if err := e.addSBOMLaunchLayer(opts, &meta); err != nil {
+			return platform.ExportReport{}, err
+		}
+	}
+
 	// app layers (split into 1 or more slices)
 	if err := e.addAppLayers(opts, buildMD.Slices, &meta); err != nil {
 		return platform.ExportReport{}, errors.Wrap(err, "exporting app layers")
@@ -153,29 +159,31 @@ func (e *Exporter) Export(opts ExportOptions) (platform.ExportReport, error) {
 
 func (e *Exporter) addBuildpackLayers(opts ExportOptions, meta *platform.LayersMetadata) error {
 	for _, bp := range e.Buildpacks {
-		bpDir, err := readBuildpackLayersDir(opts.LayersDir, bp, e.Logger)
+		bpDir, err := buildpack.ReadLayersDir(opts.LayersDir, bp, e.Logger)
+		e.Logger.Debugf("Processing buildpack directory: %s", bpDir.Path)
 		if err != nil {
 			return errors.Wrapf(err, "reading layers for buildpack '%s'", bp.ID)
 		}
-		bpMD := platform.BuildpackLayersMetadata{
+		bpMD := buildpack.LayersMetadata{
 			ID:      bp.ID,
 			Version: bp.Version,
-			Layers:  map[string]platform.BuildpackLayerMetadata{},
-			Store:   bpDir.store,
+			Layers:  map[string]buildpack.LayerMetadata{},
+			Store:   bpDir.Store,
 		}
-		for _, fsLayer := range bpDir.findLayers(forLaunch) {
+		for _, fsLayer := range bpDir.FindLayers(buildpack.MadeLaunch) {
 			fsLayer := fsLayer
-			lmd, err := fsLayer.read()
+			e.Logger.Debugf("Processing launch layer: %s", fsLayer.Path())
+			lmd, err := fsLayer.Read()
 			if err != nil {
 				return errors.Wrapf(err, "reading '%s' metadata", fsLayer.Identifier())
 			}
 
-			if fsLayer.hasLocalContents() {
-				layer, err := e.LayerFactory.DirLayer(fsLayer.Identifier(), fsLayer.path)
+			if fsLayer.HasLocalContents() {
+				layer, err := e.LayerFactory.DirLayer(fsLayer.Identifier(), fsLayer.Path())
 				if err != nil {
 					return errors.Wrapf(err, "creating layer")
 				}
-				origLayerMetadata := opts.OrigMetadata.MetadataForBuildpack(bp.ID).Layers[fsLayer.name()]
+				origLayerMetadata := opts.OrigMetadata.MetadataForBuildpack(bp.ID).Layers[fsLayer.Name()]
 				lmd.SHA, err = e.addOrReuseLayer(opts.WorkingImage, layer, origLayerMetadata.SHA)
 				if err != nil {
 					return err
@@ -184,7 +192,7 @@ func (e *Exporter) addBuildpackLayers(opts ExportOptions, meta *platform.LayersM
 				if lmd.Cache {
 					return fmt.Errorf("layer '%s' is cache=true but has no contents", fsLayer.Identifier())
 				}
-				origLayerMetadata, ok := opts.OrigMetadata.MetadataForBuildpack(bp.ID).Layers[fsLayer.name()]
+				origLayerMetadata, ok := opts.OrigMetadata.MetadataForBuildpack(bp.ID).Layers[fsLayer.Name()]
 				if !ok {
 					return fmt.Errorf("cannot reuse '%s', previous image has no metadata for layer '%s'", fsLayer.Identifier(), fsLayer.Identifier())
 				}
@@ -196,11 +204,11 @@ func (e *Exporter) addBuildpackLayers(opts ExportOptions, meta *platform.LayersM
 				}
 				lmd.SHA = origLayerMetadata.SHA
 			}
-			bpMD.Layers[fsLayer.name()] = lmd
+			bpMD.Layers[fsLayer.Name()] = lmd
 		}
 		meta.Buildpacks = append(meta.Buildpacks, bpMD)
 
-		if malformedLayers := bpDir.findLayers(forMalformed); len(malformedLayers) > 0 {
+		if malformedLayers := bpDir.FindLayers(buildpack.Malformed); len(malformedLayers) > 0 {
 			ids := make([]string, 0, len(malformedLayers))
 			for _, ml := range malformedLayers {
 				ids = append(ids, ml.Identifier())
@@ -467,4 +475,32 @@ func (e *Exporter) makeBuildReport(layersDir string) (platform.BuildReport, erro
 		out = append(out, buildpack.WithBuildpack(bp, bpBuildReport.BOM)...)
 	}
 	return platform.BuildReport{BOM: out}, nil
+}
+
+func (e *Exporter) addSBOMLaunchLayer(opts ExportOptions, meta *platform.LayersMetadata) error {
+	sbomLaunchDir, err := readLayersSBOM(opts.LayersDir, "launch", e.Logger)
+	if err != nil {
+		return errors.Wrap(err, "failed to read layers config sbom")
+	}
+
+	if sbomLaunchDir != nil {
+		layer, err := e.LayerFactory.DirLayer(sbomLaunchDir.Identifier(), sbomLaunchDir.Path())
+		if err != nil {
+			return errors.Wrapf(err, "creating layer")
+		}
+
+		var originalSHA string
+		if opts.OrigMetadata.BOM != nil {
+			originalSHA = opts.OrigMetadata.BOM.SHA
+		}
+
+		sha, err := e.addOrReuseLayer(opts.WorkingImage, layer, originalSHA)
+		if err != nil {
+			return errors.Wrapf(err, "exporting layer '%s'", layer.ID)
+		}
+
+		meta.BOM = &platform.LayerMetadata{SHA: sha}
+	}
+
+	return nil
 }

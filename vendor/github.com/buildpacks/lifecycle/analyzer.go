@@ -6,11 +6,13 @@ import (
 
 	"github.com/buildpacks/lifecycle/api"
 	"github.com/buildpacks/lifecycle/buildpack"
+	"github.com/buildpacks/lifecycle/image"
+	"github.com/buildpacks/lifecycle/internal/layer"
 	"github.com/buildpacks/lifecycle/platform"
 )
 
 type Platform interface {
-	API() string
+	API() *api.Version
 }
 
 type Analyzer struct {
@@ -18,11 +20,12 @@ type Analyzer struct {
 	RunImage      imgutil.Image
 	Logger        Logger
 	Platform      Platform
+	SBOMRestorer  layer.SBOMRestorer
 
 	// Platform API < 0.7
 	Buildpacks            []buildpack.GroupBuildpack
 	Cache                 Cache
-	LayerMetadataRestorer LayerMetadataRestorer
+	LayerMetadataRestorer layer.MetadataRestorer
 }
 
 // Analyze fetches the layers metadata from the previous image and writes analyzed.toml.
@@ -42,8 +45,17 @@ func (a *Analyzer) Analyze() (platform.AnalyzedMetadata, error) {
 		}
 
 		// continue even if the label cannot be decoded
-		if err := DecodeLabel(a.PreviousImage, platform.LayerMetadataLabel, &appMeta); err != nil {
+		if err := image.DecodeLabel(a.PreviousImage, platform.LayerMetadataLabel, &appMeta); err != nil {
 			appMeta = platform.LayersMetadata{}
+		}
+
+		if a.Platform.API().AtLeast("0.8") {
+			if appMeta.BOM != nil && appMeta.BOM.SHA != "" {
+				a.Logger.Infof("Restoring data for sbom from previous image")
+				if err := a.SBOMRestorer.RestoreFromPrevious(a.PreviousImage, appMeta.BOM.SHA); err != nil {
+					return platform.AnalyzedMetadata{}, errors.Wrap(err, "retrieving launch sBOM layer")
+				}
+			}
 		}
 	} else {
 		appMeta = platform.LayersMetadata{}
@@ -63,7 +75,7 @@ func (a *Analyzer) Analyze() (platform.AnalyzedMetadata, error) {
 		}
 
 		useShaFiles := true
-		if err := a.LayerMetadataRestorer.Restore(a.Buildpacks, appMeta, cacheMeta, NewLayerSHAStore(useShaFiles)); err != nil {
+		if err := a.LayerMetadataRestorer.Restore(a.Buildpacks, appMeta, cacheMeta, layer.NewSHAStore(useShaFiles)); err != nil {
 			return platform.AnalyzedMetadata{}, err
 		}
 	}
@@ -76,7 +88,7 @@ func (a *Analyzer) Analyze() (platform.AnalyzedMetadata, error) {
 }
 
 func (a *Analyzer) restoresLayerMetadata() bool {
-	return api.MustParse(a.Platform.API()).LessThan("0.7")
+	return a.Platform.API().LessThan("0.7")
 }
 
 func (a *Analyzer) getImageIdentifier(image imgutil.Image) (*platform.ImageIdentifier, error) {
@@ -92,4 +104,23 @@ func (a *Analyzer) getImageIdentifier(image imgutil.Image) (*platform.ImageIdent
 	return &platform.ImageIdentifier{
 		Reference: identifier.String(),
 	}, nil
+}
+
+func retrieveCacheMetadata(cache Cache, logger Logger) (platform.CacheMetadata, error) {
+	// Create empty cache metadata in case a usable cache is not provided.
+	var cacheMeta platform.CacheMetadata
+	if cache != nil {
+		var err error
+		if !cache.Exists() {
+			logger.Info("Layer cache not found")
+		}
+		cacheMeta, err = cache.RetrieveMetadata()
+		if err != nil {
+			return cacheMeta, errors.Wrap(err, "retrieving cache metadata")
+		}
+	} else {
+		logger.Debug("Usable cache not provided, using empty cache metadata")
+	}
+
+	return cacheMeta, nil
 }

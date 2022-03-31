@@ -21,6 +21,6 @@ func (le *Error) Cause() error {
 	return le.RootError
 }
 
-func NewLifecycleError(cause error, errType ErrorType) *Error {
+func NewError(cause error, errType ErrorType) *Error {
 	return &Error{RootError: cause, Type: errType}
 }

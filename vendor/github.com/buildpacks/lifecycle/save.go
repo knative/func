@@ -3,11 +3,10 @@ package lifecycle
 import (
 	"fmt"
 
-	"github.com/pkg/errors"
-
 	"github.com/buildpacks/imgutil"
 	"github.com/buildpacks/imgutil/local"
 	"github.com/buildpacks/imgutil/remote"
+	"github.com/pkg/errors"
 
 	"github.com/buildpacks/lifecycle/platform"
 )
