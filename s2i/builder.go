@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"regexp"
-	"strings"
 
 	dockerClient "github.com/docker/docker/client"
 
@@ -86,8 +84,9 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	}
 	*/
 
-	// s2i builder config
+	// Build Config
 	cfg := &api.Config{}
+	cfg.Quiet = !b.verbose
 	cfg.Tag = f.Image
 	cfg.Source = &git.URL{URL: url.URL{Path: f.Root}, Type: git.URLTypeLocal}
 	cfg.BuilderImage = f.Builder
@@ -97,8 +96,6 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	cfg.DockerConfig = &api.DockerConfig{
 		Endpoint: endpoint,
 	}
-	cfg.Quiet = !b.verbose
-
 	if errs := validation.ValidateConfig(cfg); len(errs) > 0 {
 		for _, e := range errs {
 			fmt.Fprintf(os.Stderr, "ERROR: %s\n", e)
@@ -106,12 +103,15 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		return errors.New("Unable to build via the s2i builder.")
 	}
 
+	// Builder Impl
 	// Create a builder impl from the docker client and config; build and
 	// print any resulting messages to stdout.
 	builder, _, err := strategies.Strategy(client, cfg, build.Overrides{})
 	if err != nil {
 		return
 	}
+
+	// Build
 	result, err := builder.Build(cfg)
 	if err != nil {
 		return
@@ -135,33 +135,4 @@ func defaultBuilderImage(f fn.Function) (string, error) {
 		return "", ErrRuntimeNotSupported
 	}
 	return v, nil
-}
-
-// processEnvValue
-//
-// TODO: The following environment variable processing code/regexes were
-// copied varbatim from the buildpacks package.  It should be refactored to be
-// modular and extracted for use in both places.
-
-var buildEnvRegex = regexp.MustCompile(`^{{\s*(\w+)\s*:(\w+)\s*}}$`)
-
-const (
-	ctxIdx = 1
-	valIdx = 2
-)
-
-func processEnvValue(val string) (string, bool, error) {
-	if strings.HasPrefix(val, "{{") {
-		match := buildEnvRegex.FindStringSubmatch(val)
-		if len(match) > valIdx && match[ctxIdx] == "env" {
-			if v, ok := os.LookupEnv(match[valIdx]); ok {
-				return v, true, nil
-			} else {
-				return "", false, fmt.Errorf("required local environment variable %q is not set", match[valIdx])
-			}
-		} else {
-			return "", false, nil
-		}
-	}
-	return val, true, nil
 }
