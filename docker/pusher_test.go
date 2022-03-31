@@ -179,6 +179,10 @@ func TestNonDaemonPush(t *testing.T) {
 		return f, nil
 	}
 
+	dockerClient.imageInspect = func(ctx context.Context, s string) (types.ImageInspect, []byte, error) {
+		return types.ImageInspect{ID: "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"}, []byte{}, nil
+	}
+
 	dockerClientFactory := func() (docker.PusherDockerClient, error) {
 		return dockerClient, nil
 	}
@@ -284,6 +288,7 @@ type mockPusherDockerClient struct {
 	negotiateAPIVersion func(ctx context.Context)
 	imagePush           func(ctx context.Context, ref string, options types.ImagePushOptions) (io.ReadCloser, error)
 	imageSave           func(ctx context.Context, strings []string) (io.ReadCloser, error)
+	imageInspect        func(ctx context.Context, s string) (types.ImageInspect, []byte, error)
 	close               func() error
 }
 
@@ -301,6 +306,10 @@ func (m *mockPusherDockerClient) ImageLoad(ctx context.Context, reader io.Reader
 
 func (m *mockPusherDockerClient) ImageTag(ctx context.Context, s string, s2 string) error {
 	panic("implement me")
+}
+
+func (m *mockPusherDockerClient) ImageInspectWithRaw(ctx context.Context, s string) (types.ImageInspect, []byte, error) {
+	return m.imageInspect(ctx, s)
 }
 
 func (m *mockPusherDockerClient) ImagePush(ctx context.Context, ref string, options types.ImagePushOptions) (io.ReadCloser, error) {

@@ -317,17 +317,12 @@ func ValidatePodSpec(ctx context.Context, ps corev1.PodSpec) *apis.FieldError {
 	errs = errs.Also(ValidatePodSecurityContext(ctx, ps.SecurityContext).ViaField("securityContext"))
 
 	volumes, err := ValidateVolumes(ctx, ps.Volumes, AllMountedVolumes(append(ps.InitContainers, ps.Containers...)))
+	errs = errs.Also(err.ViaField("volumes"))
 
 	errs = errs.Also(validateInitContainers(ctx, ps.InitContainers, volumes))
 
-	if err != nil {
-		errs = errs.Also(err.ViaField("volumes"))
-	}
-
 	port, err := validateContainersPorts(ps.Containers)
-	if err != nil {
-		errs = errs.Also(err.ViaField("containers[*]"))
-	}
+	errs = errs.Also(err.ViaField("containers[*]"))
 
 	switch len(ps.Containers) {
 	case 0:
@@ -391,29 +386,31 @@ func AllMountedVolumes(containers []corev1.Container) sets.String {
 	return volumeNames
 }
 
-// validateContainersPorts validates port when specified multiple containers,
-// and returns the single serving port if error is nil
+// validateContainersPorts validates that the expected number of container ports are present
+// and returns the single serving port if error is nil.
 func validateContainersPorts(containers []corev1.Container) (corev1.ContainerPort, *apis.FieldError) {
 	var count int
-	var port = corev1.ContainerPort{
-		Name:          "http",
-		ContainerPort: 8080,
-	}
+	var port corev1.ContainerPort
 	for i := range containers {
 		if c := len(containers[i].Ports); c > 0 {
 			count += c
-			if containers[i].Ports[0].ContainerPort != 0 {
-				port.ContainerPort = containers[i].Ports[0].ContainerPort
-			}
-			if containers[i].Ports[0].Name != "" {
-				port.Name = containers[i].Ports[0].Name
-			}
+			port = containers[i].Ports[0]
 		}
 	}
+
+	if port.Name == "" {
+		port.Name = "http"
+	}
+
+	if port.ContainerPort == 0 {
+		port.ContainerPort = 8080
+	}
+
 	// When no container ports are specified.
 	if count == 0 && len(containers) > 1 {
 		return port, apis.ErrMissingField("ports")
 	}
+
 	// More than one container sections have ports.
 	if count > 1 {
 		return port, &apis.FieldError{
@@ -422,6 +419,7 @@ func validateContainersPorts(containers []corev1.Container) (corev1.ContainerPor
 			Details: "Only a single port is allowed across all containers",
 		}
 	}
+
 	return port, nil
 }
 

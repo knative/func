@@ -11,18 +11,19 @@ require (
 	github.com/cloudevents/sdk-go/v2 v2.5.0
 	github.com/containers/image/v5 v5.19.1
 	github.com/coreos/go-semver v0.3.0
-	github.com/docker/cli v20.10.10+incompatible
+	github.com/docker/cli v20.10.12+incompatible
 	github.com/docker/docker v20.10.12+incompatible
 	github.com/docker/docker-credential-helpers v0.6.4
 	github.com/docker/go-connections v0.4.0
 	github.com/go-git/go-billy/v5 v5.3.1
 	github.com/go-git/go-git/v5 v5.4.2
-	github.com/google/go-cmp v0.5.6
-	github.com/google/go-containerregistry v0.6.0
+	github.com/go-logr/logr v1.2.2 // indirect
+	github.com/google/go-cmp v0.5.7
+	github.com/google/go-containerregistry v0.8.1-0.20220219142810-1571d7fdc46e
 	github.com/google/uuid v1.3.0
 	github.com/hinshun/vt10x v0.0.0-20180809195222-d55458df857c
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/opencontainers/image-spec v1.0.3-0.20211202222133-eacdcc10569b
+	github.com/opencontainers/image-spec v1.0.3-0.20220114050600-8b9d41f48198
 	github.com/openshift/source-to-image v1.3.1
 	github.com/ory/viper v1.7.5
 	github.com/pkg/errors v0.9.1
@@ -31,18 +32,19 @@ require (
 	github.com/tektoncd/pipeline v0.32.1
 	github.com/whilp/git-urls v1.0.0
 	golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3
-	golang.org/x/term v0.0.0-20210615171337-6886f2dfbf5b
+	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.22.5
 	k8s.io/apimachinery v0.22.5
 	k8s.io/client-go v0.22.5
+	k8s.io/klog/v2 v2.40.1 // indirect
 	k8s.io/utils v0.0.0-20210819203725-bdf08cb9a70a
-	knative.dev/client v0.27.0
-	knative.dev/eventing v0.27.2
-	knative.dev/hack v0.0.0-20220216040439-0456e8bf6547
-	knative.dev/pkg v0.0.0-20220215153400-3c00bb0157b9
-	knative.dev/serving v0.27.1
+	knative.dev/client v0.28.0
+	knative.dev/eventing v0.28.4
+	knative.dev/hack v0.0.0-20211203062838-e11ac125e707
+	knative.dev/pkg v0.0.0-20220222214539-0b8a9403de7e
+	knative.dev/serving v0.28.4
 )
 
 replace (
