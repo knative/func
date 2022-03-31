@@ -2,10 +2,10 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/docker/docker/client"
 	"time"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/client"
 	"github.com/spf13/cobra"
 
 	"knative.dev/kn-plugin-func/docker"
