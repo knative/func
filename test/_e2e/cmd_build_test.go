@@ -1,7 +1,9 @@
 package e2e
 
 import (
+	"os"
 	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -23,4 +25,21 @@ func Build(t *testing.T, knFunc *TestShellCmdRunner, project *FunctionTestProjec
 	}
 	project.IsBuilt = true
 
+}
+
+// TestBuild_S2I runs `func build` using the S2I builder.
+func TestBuild_S2I(t *testing.T) {
+	var (
+		root        = "testdata/e2e/testbuild"
+		bin, prefix = bin()
+		cleanup     = Within(t, root) // TODO: replace with func/testing pkg
+		cwd, _      = os.Getwd()
+	)
+
+	run(t, bin, prefix, "create", "-v", "--language", "node", cwd)
+	output := run(t, bin, prefix, "build", "-v", "--builder", "s2i")
+	if !strings.Contains(output, "Function image built:") {
+		t.Fatal("funciton image not built")
+	}
+	project.IsBuilt = true // other tests can skip build
 }
