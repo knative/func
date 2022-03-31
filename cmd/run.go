@@ -100,7 +100,10 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 	pid := os.Getpid()
 
 	watcher := exec.Command(os.Args[0], "watch-remove", fmt.Sprintf("--pid=%d", pid), fmt.Sprintf("--ctr=%s", job.ContainerID))
-	watcher.Start()
+	err = watcher.Start()
+	if err != nil {
+		return fmt.Errorf("failed to start 'watch-remove': %w", err)
+	}
 
 	fmt.Fprintf(cmd.OutOrStderr(), "Function started on port %v\n", job.Port)
 
