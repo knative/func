@@ -87,7 +87,6 @@ func NewFunctionCRD(name string) *FunctionResource {
 		Spec: FunctionSpec{
 			ConfigurationSpec: v1.ConfigurationSpec{
 				Template: v1.RevisionTemplateSpec{
-					ObjectMeta: metav1.ObjectMeta{},
 					Spec: v1.RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							Volumes: []corev1.Volume{},
