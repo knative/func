@@ -6,7 +6,8 @@
 
 # Binaries
 BIN         := func
-BIN_DARWIN  ?= $(BIN)_darwin_amd64
+BIN_DARWIN_AMD64   ?= $(BIN)_darwin_amd64
+BIN_DARWIN_ARM64   ?= $(BIN)_darwin_arm64
 BIN_LINUX   ?= $(BIN)_linux_amd64
 BIN_WINDOWS ?= $(BIN)_windows_amd64.exe
 
@@ -88,7 +89,7 @@ zz_filesystem_generated.go: clean_templates
 .PHONY: clean
 
 clean: clean_templates ## Remove generated artifacts such as binaries and schemas
-	rm -f $(BIN) $(BIN_WINDOWS) $(BIN_LINUX) $(BIN_DARWIN)
+	rm -f $(BIN) $(BIN_WINDOWS) $(BIN_LINUX) $(BIN_DARWIN_AMD64) $(BIN_DARWIN_ARM64)
 	rm -f schema/func_yaml-schema.json
 	rm -f coverage.out
 
@@ -140,12 +141,17 @@ test-e2e: ## Run end-to-end tests using an available cluster.
 ##@ Release Artifacts
 ######################
 
-cross-platform: darwin linux windows ## Build all distributable (cross-platform) binaries
+cross-platform: darwin-arm64 darwin-amd64 linux windows ## Build all distributable (cross-platform) binaries
 
-darwin: $(BIN_DARWIN) ## Build for Darwin (macOS)
+darwin-arm64: $(BIN_DARWIN_ARM64) ## Build for mac M1
 
-$(BIN_DARWIN): zz_filesystem_generated.go
-	env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o $(BIN_DARWIN) -ldflags $(LDFLAGS) ./cmd/$(BIN)
+$(BIN_DARWIN_ARM64): zz_filesystem_generated.go
+	env CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o $(BIN_DARWIN_ARM64) -ldflags $(LDFLAGS) ./cmd/$(BIN)
+
+darwin-amd64: $(BIN_DARWIN_AMD64) ## Build for Darwin (macOS)
+
+$(BIN_DARWIN_AMD64): zz_filesystem_generated.go
+	env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o $(BIN_DARWIN_AMD64) -ldflags $(LDFLAGS) ./cmd/$(BIN)
 
 linux: $(BIN_LINUX) ## Build for Linux
 
