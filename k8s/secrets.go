@@ -1,6 +1,7 @@
 package k8s
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -82,29 +83,49 @@ func DeleteSecrets(ctx context.Context, namespaceOverride string, listOptions me
 	return client.CoreV1().Secrets(namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, listOptions)
 }
 
-func CreateDockerRegistrySecret(ctx context.Context, name, namespaceOverride string, labels map[string]string, username, password, server string) (err error) {
+func EnsureDockerRegistrySecretExist(ctx context.Context, name, namespaceOverride string, labels map[string]string, username, password, server string) (err error) {
 	client, namespace, err := NewClientAndResolvedNamespace(namespaceOverride)
 	if err != nil {
 		return
 	}
 
-	secret := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: namespace,
-			Labels:    labels,
-		},
-		Type: corev1.SecretTypeDockerConfigJson,
-		Data: map[string][]byte{},
+	// Check whether Secret with specified name exist
+	createSecret := false
+	currentSecret, err := GetSecret(ctx, name, namespace)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			createSecret = true
+		} else {
+			return
+		}
 	}
 
 	dockerConfigJSONContent, err := handleDockerCfgJSONContent(username, password, "", server)
 	if err != nil {
 		return
 	}
-	secret.Data[corev1.DockerConfigJsonKey] = dockerConfigJSONContent
 
-	_, err = client.CoreV1().Secrets(namespace).Create(ctx, secret, metav1.CreateOptions{})
+	// Check whether we need to create or update the Secret
+	const secretKey = "config.json"
+	if createSecret || !bytes.Equal(currentSecret.Data[secretKey], dockerConfigJSONContent) {
+		secret := &corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: namespace,
+				Labels:    labels,
+			},
+			Type: corev1.SecretTypeOpaque,
+			Data: map[string][]byte{},
+		}
+		secret.Data[secretKey] = dockerConfigJSONContent
+
+		// Decide whether create or update
+		if createSecret {
+			_, err = client.CoreV1().Secrets(namespace).Create(ctx, secret, metav1.CreateOptions{})
+		} else {
+			_, err = client.CoreV1().Secrets(namespace).Update(ctx, secret, metav1.UpdateOptions{})
+		}
+	}
 	return
 }
 

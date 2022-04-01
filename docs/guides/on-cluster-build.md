@@ -2,8 +2,6 @@
 
 This guide describes how you can build a Function on Cluster with Tekton Pipelines. The on cluster build is enabled by fetching Function source code from a remote Git repository.
 
-> Please note that the following approach requires administrator privileges on the cluster and the build is executed on a privileged container.
-
 ## Prerequisite
 1. Install Tekton Pipelines on the cluster. Please refer to [Tekton Pipelines documentation](https://github.com/tektoncd/pipeline/blob/main/docs/install.md) or run the following command:
 ```bash
@@ -16,13 +14,19 @@ In each namespace that you would like to run Pipelines and deploy a Function you
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/tektoncd/catalog/master/task/git-clone/0.4/git-clone.yaml
 ```
-2. Install the Buildpacks Tekton Task to be able to build the Function image:
+2. Install the Functions Buildpacks Tekton Task to be able to build the Function image:
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/tektoncd/catalog/master/task/buildpacks/0.3/buildpacks.yaml
+kubectl apply -f https://raw.githubusercontent.com/knative-sandbox/kn-plugin-func/main/pipelines/resources/tekton/task/func-buildpacks/0.1/func-buildpacks.yaml
 ```
 3. Install the `kn func` Deploy Tekton Task to be able to deploy the Function on in the Pipeline:
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/knative-sandbox/kn-plugin-func/main/pipelines/resources/tekton/task/func-deploy/0.1/func-deploy.yaml
+```
+4. Add permission to deploy on Knative to `default` Service Account: (This is not needed on OpenShift)
+```bash
+export NAMESPACE=<INSERT_YOUR_NAMESPACE>
+kubectl create clusterrolebinding $NAMESPACE:knative-serving-namespaced-admin \
+--clusterrole=knative-serving-namespaced-admin  --serviceaccount=$NAMESPACE:default
 ```
 
 ## Building a Function on Cluster
@@ -57,7 +61,8 @@ git push origin main
 ```bash
 kn func deploy
 ```
-If everything goes fine, you will prompted to provide credentials for the remote container registry that hosts the Function image. You should see output similar to the following:
+If you are not logged in the container registry referenced in your function configuration,
+you will prompted to provide credentials for the remote container registry that hosts the Function image. You should see output similar to the following:
 ```bash
 $ kn func deploy
 🕕 Creating Pipeline resources
@@ -74,16 +79,12 @@ Please provide credentials for image registry used by Pipeline.
 1. In each namespace where Pipelines and Functions were deployed, uninstall following resources:
 ```bash
 export NAMESPACE=<INSERT_YOUR_NAMESPACE>
-kubectl delete serviceaccount knative-deployer-account -n $NAMESPACE
-kubectl delete clusterrolebinding $NAMESPACE:knative-deployer-binding
+kubectl delete clusterrolebinding $NAMESPACE:knative-serving-namespaced-admin
 kubectl delete task.tekton.dev git-clone
-kubectl delete task.tekton.dev buildpacks
+kubectl delete task.tekton.dev func-buildpacks
+kubectl delete task.tekton.dev func-deploy
 ```
-2. Delete Knative Deployer Cluster Role
-```bash
-kubectl delete clusterrole kn-deployer
-```
-3. Uninstall Tekton Pipelines
+2. Uninstall Tekton Pipelines
 ```bash
 kubectl delete -f https://storage.googleapis.com/tekton-releases/pipeline/latest/release.yaml
 ```

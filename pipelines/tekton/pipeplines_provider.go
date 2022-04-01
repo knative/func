@@ -73,21 +73,13 @@ func NewPipelinesProvider(opts ...Opt) *PipelinesProvider {
 // It ensures that all needed resources are present on the cluster so the PipelineRun can be initialized.
 // After the PipelineRun is being intitialized, the progress of the PipelineRun is being watched and printed to the output.
 func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
-	var err error
-
-	if pp.namespace == "" {
-		pp.namespace, err = k8s.GetNamespace(pp.namespace)
-		if err != nil {
-			return err
-		}
-	}
-
 	pp.progressListener.Increment("Creating Pipeline resources")
 
-	client, err := NewTektonClient()
+	client, namespace, err := NewTektonClientAndResolvedNamespace(pp.namespace)
 	if err != nil {
 		return err
 	}
+	pp.namespace = namespace
 
 	// let's specify labels that will be applied to every resouce that is created for a Pipeline
 	labels := map[string]string{labels.FunctionNameKey: f.Name}
@@ -114,40 +106,20 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 		return err
 	}
 
-	_, err = k8s.GetSecret(ctx, getPipelineSecretName(f), pp.namespace)
-	if errors.IsNotFound(err) {
-		pp.progressListener.Stopping()
-		creds, err := pp.credentialsProvider(ctx, registry)
-		if err != nil {
-			return err
-		}
-		pp.progressListener.Increment("Creating Pipeline resources")
+	pp.progressListener.Stopping()
+	creds, err := pp.credentialsProvider(ctx, registry)
+	if err != nil {
+		return err
+	}
+	pp.progressListener.Increment("Creating Pipeline resources")
 
-		if registry == name.DefaultRegistry {
-			registry = authn.DefaultAuthKey
-		}
+	if registry == name.DefaultRegistry {
+		registry = authn.DefaultAuthKey
+	}
 
-		err = k8s.CreateDockerRegistrySecret(ctx, getPipelineSecretName(f), pp.namespace, labels, creds.Username, creds.Password, registry)
-		if err != nil {
-			return err
-		}
-	} else if err != nil {
+	err = k8s.EnsureDockerRegistrySecretExist(ctx, getPipelineSecretName(f), pp.namespace, labels, creds.Username, creds.Password, registry)
+	if err != nil {
 		return fmt.Errorf("problem in creating secret: %v", err)
-	}
-
-	err = k8s.CreateServiceAccountWithSecret(ctx, getPipelineBuilderServiceAccountName(f), pp.namespace, labels, getPipelineSecretName(f))
-	if err != nil {
-		if !errors.IsAlreadyExists(err) {
-			return fmt.Errorf("problem in creating service account: %v", err)
-		}
-	}
-
-	// using ClusterRole `knative-serving-namespaced-admin` that should be present on the cluster after the installation of Knative Serving
-	err = k8s.CreateRoleBindingForServiceAccount(ctx, getPipelineDeployerRoleBindingName(f), pp.namespace, labels, getPipelineBuilderServiceAccountName(f), "ClusterRole", "knative-serving-namespaced-admin")
-	if err != nil {
-		if !errors.IsAlreadyExists(err) {
-			return fmt.Errorf("problem in creating role biding: %v", err)
-		}
 	}
 
 	pp.progressListener.Increment("Running Pipeline with the Function")
@@ -201,8 +173,6 @@ func (pp *PipelinesProvider) Remove(ctx context.Context, f fn.Function) error {
 	deleteFunctions := []func(context.Context, string, metav1.ListOptions) error{
 		deletePipelines,
 		deletePipelineRuns,
-		k8s.DeleteRoleBindings,
-		k8s.DeleteServiceAccounts,
 		k8s.DeleteSecrets,
 		k8s.DeletePersistentVolumeClaims,
 	}
@@ -246,10 +216,9 @@ func (pp *PipelinesProvider) Remove(ctx context.Context, f fn.Function) error {
 // and prints detailed description of the currently executed Tekton Task.
 func (pp *PipelinesProvider) watchPipelineRunProgress(pr *v1beta1.PipelineRun) error {
 	taskProgressMsg := map[string]string{
-		"fetch-repository": "Fetching git repository with the function source code",
-		"build":            "Building function image on the cluster",
-		"image-digest":     "Retrieving digest of the produced function image",
-		"deploy":           "Deploying function to the cluster",
+		taskNameFetchSources: "Fetching git repository with the function source code",
+		taskNameBuild:        "Building function image on the cluster",
+		taskNameDeploy:       "Deploying function to the cluster",
 	}
 
 	clientset, err := NewTektonClientset()
