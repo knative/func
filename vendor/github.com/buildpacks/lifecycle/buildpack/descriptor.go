@@ -2,6 +2,8 @@
 
 package buildpack
 
+import "github.com/BurntSushi/toml"
+
 type Descriptor struct {
 	API       string `toml:"api"`
 	Buildpack Info   `toml:"buildpack"`
@@ -22,17 +24,32 @@ func (b *Descriptor) String() string {
 }
 
 type Info struct {
-	ClearEnv bool   `toml:"clear-env,omitempty"`
-	Homepage string `toml:"homepage,omitempty"`
-	ID       string `toml:"id"`
-	Name     string `toml:"name"`
-	Version  string `toml:"version"`
+	ClearEnv bool     `toml:"clear-env,omitempty"`
+	Homepage string   `toml:"homepage,omitempty"`
+	ID       string   `toml:"id"`
+	Name     string   `toml:"name"`
+	Version  string   `toml:"version"`
+	SBOM     []string `toml:"sbom-formats,omitempty" json:"sbom-formats,omitempty"`
 }
 
 type Order []Group
 
 type Group struct {
 	Group []GroupBuildpack `toml:"group"`
+}
+
+func ReadGroup(path string) (Group, error) {
+	var group Group
+	_, err := toml.DecodeFile(path, &group)
+	return group, err
+}
+
+func ReadOrder(path string) (Order, error) {
+	var order struct {
+		Order Order `toml:"order"`
+	}
+	_, err := toml.DecodeFile(path, &order)
+	return order.Order, err
 }
 
 func (bg Group) Append(group ...Group) Group {

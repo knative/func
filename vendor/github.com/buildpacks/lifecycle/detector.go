@@ -58,9 +58,9 @@ func (d *Detector) Detect(order buildpack.Order) (buildpack.Group, platform.Buil
 func (d *Detector) DetectOrder(order buildpack.Order) (buildpack.Group, platform.BuildPlan, error) {
 	bps, entries, err := d.detectOrder(order, nil, nil, false, &sync.WaitGroup{})
 	if err == ErrBuildpack {
-		err = buildpack.NewLifecycleError(err, buildpack.ErrTypeBuildpack)
+		err = buildpack.NewError(err, buildpack.ErrTypeBuildpack)
 	} else if err == ErrFailedDetection {
-		err = buildpack.NewLifecycleError(err, buildpack.ErrTypeFailedDetection)
+		err = buildpack.NewError(err, buildpack.ErrTypeFailedDetection)
 	}
 	for i := range entries {
 		for j := range entries[i].Requires {

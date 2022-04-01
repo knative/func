@@ -1,10 +1,10 @@
 [apis]
 [apis.buildpack]
-  deprecated = []
-  supported = ["0.2", "0.3", "0.4", "0.5", "0.6"]
+  deprecated = {{.apis_buildpack_deprecated}}
+  supported = {{.apis_buildpack_supported}}
 [apis.platform]
-  deprecated = []
-  supported = ["0.3", "0.4", "0.5", "0.6", "0.7"]
+  deprecated = {{.apis_platform_deprecated}}
+  supported = {{.apis_platform_supported}}
 
 # For backwards compatibility the minimum supported APIs are provided in RFC-0011 format
 # https://github.com/buildpacks/rfcs/blob/main/text/0011-lifecycle-descriptor.md

@@ -7,7 +7,7 @@ require (
 	github.com/Masterminds/semver v1.5.0
 	github.com/Netflix/go-expect v0.0.0-20210722184520-ef0bf57d82b3
 	github.com/alecthomas/jsonschema v0.0.0-20210526225647-edb03dcab7bc
-	github.com/buildpacks/pack v0.22.0
+	github.com/buildpacks/pack v0.24.0
 	github.com/cloudevents/sdk-go/v2 v2.5.0
 	github.com/containers/image/v5 v5.19.1
 	github.com/coreos/go-semver v0.3.0
@@ -47,8 +47,4 @@ require (
 	knative.dev/serving v0.28.4
 )
 
-replace (
-	github.com/buildpacks/imgutil => github.com/buildpacks/imgutil v0.0.0-20211001201950-cf7ae41c3771 // pack: force newer version of imgutil for better performance until pack updates
-
-	github.com/openshift/source-to-image => github.com/boson-project/source-to-image v1.3.2 // updates docker to be compatible with version used by pack and removes invalid pseudo-version
-)
+replace github.com/openshift/source-to-image => github.com/boson-project/source-to-image v1.3.2 // updates docker to be compatible with version used by pack and removes invalid pseudo-version

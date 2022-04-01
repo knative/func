@@ -167,6 +167,9 @@ type BuildOptions struct {
 	// This places registry credentials on the builder's build image.
 	// Only trust builders from reputable sources.
 	TrustBuilder IsTrustedBuilder
+
+	// Directory to output any SBOM artifacts
+	SBOMDestinationDir string
 }
 
 // ProxyConfig specifies proxy setting to be set as environment variables in a container.
@@ -274,10 +277,9 @@ func (c *Client) Build(ctx context.Context, opts BuildOptions) error {
 	}
 	defer c.docker.ImageRemove(context.Background(), ephemeralBuilder.Name(), types.ImageRemoveOptions{Force: true})
 
-	builderPlatformAPIs := append(
-		ephemeralBuilder.LifecycleDescriptor().APIs.Platform.Deprecated,
-		ephemeralBuilder.LifecycleDescriptor().APIs.Platform.Supported...,
-	)
+	var builderPlatformAPIs builder.APISet
+	builderPlatformAPIs = append(builderPlatformAPIs, ephemeralBuilder.LifecycleDescriptor().APIs.Platform.Deprecated...)
+	builderPlatformAPIs = append(builderPlatformAPIs, ephemeralBuilder.LifecycleDescriptor().APIs.Platform.Supported...)
 
 	if !supportsPlatformAPI(builderPlatformAPIs) {
 		c.logger.Debugf("pack %s supports Platform API(s): %s", c.version, strings.Join(build.SupportedPlatformAPIVersions.AsStrings(), ", "))
@@ -352,7 +354,8 @@ func (c *Client) Build(ctx context.Context, opts BuildOptions) error {
 		GID:                opts.GroupID,
 		PreviousImage:      opts.PreviousImage,
 		Interactive:        opts.Interactive,
-		Termui:             termui.NewTermui(),
+		Termui:             termui.NewTermui(imageRef.Name(), ephemeralBuilder, runImageName),
+		SBOMDestinationDir: opts.SBOMDestinationDir,
 	}
 
 	lifecycleVersion := ephemeralBuilder.LifecycleDescriptor().Info.Version
@@ -689,7 +692,7 @@ func (c *Client) processBuildpacks(ctx context.Context, builderImage imgutil.Ima
 
 		for _, bp := range opts.ProjectDescriptor.Build.Buildpacks {
 			switch {
-			case bp.ID != "" && bp.Script.Inline != "" && bp.Version == "" && bp.URI == "":
+			case bp.ID != "" && bp.Script.Inline != "" && bp.URI == "":
 				if bp.Script.API == "" {
 					return nil, nil, errors.New("Missing API version for inline buildpack")
 				}
@@ -892,7 +895,11 @@ func createInlineBuildpack(bp projectTypes.Buildpack, stackID string) (string, e
 		return pathToInlineBuilpack, err
 	}
 
-	if err = createBuildpackTOML(pathToInlineBuilpack, bp.ID, "0.0.0", bp.Script.API, []dist.Stack{{ID: stackID}}, nil); err != nil {
+	if bp.Version == "" {
+		bp.Version = "0.0.0"
+	}
+
+	if err = createBuildpackTOML(pathToInlineBuilpack, bp.ID, bp.Version, bp.Script.API, []dist.Stack{{ID: stackID}}, nil); err != nil {
 		return pathToInlineBuilpack, err
 	}
 

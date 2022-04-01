@@ -76,7 +76,7 @@ func (f *Factory) writeLayer(id string, addEntries func(tw *archive.NormalizingT
 }
 
 func escape(id string) string {
-	return strings.Replace(id, "/", "_", -1)
+	return strings.ReplaceAll(id, "/", "_")
 }
 
 func parents(file string) ([]archive.PathInfo, error) {
