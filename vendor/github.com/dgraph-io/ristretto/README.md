@@ -1,13 +1,15 @@
 # Ristretto
 [![Go Doc](https://img.shields.io/badge/godoc-reference-blue.svg)](http://godoc.org/github.com/dgraph-io/ristretto)
 [![Go Report Card](https://img.shields.io/badge/go%20report-A%2B-brightgreen)](https://goreportcard.com/report/github.com/dgraph-io/ristretto)
-[![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)](https://gocover.io/github.com/dgraph-io/ristretto)
+[![Coverage](https://gocover.io/_badge/github.com/dgraph-io/ristretto)](https://gocover.io/github.com/dgraph-io/ristretto)
 ![Tests](https://github.com/dgraph-io/ristretto/workflows/tests/badge.svg)
 
 Ristretto is a fast, concurrent cache library built with a focus on performance and correctness.
 
 The motivation to build Ristretto comes from the need for a contention-free
 cache in [Dgraph][].
+
+**Use [Discuss Issues](https://discuss.dgraph.io/tags/c/issues/35/ristretto/40) for reporting issues about this repository.**
 
 [Dgraph]: https://github.com/dgraph-io/dgraph
 
@@ -24,7 +26,7 @@ cache in [Dgraph][].
 
 ## Status
 
-Ristretto is usable but still under active development. We expect it to be production ready in the near future.
+Ristretto is production-ready. See [Projects using Ristretto](#projects-using-ristretto).
 
 ## Table of Contents
 
@@ -48,6 +50,7 @@ Ristretto is usable but still under active development. We expect it to be produ
 		* [Mixed](#Mixed)
 		* [Read](#Read)
 		* [Write](#Write)
+* [Projects using Ristretto](#projects-using-ristretto)
 * [FAQ](#FAQ)
 
 ## Usage
@@ -144,7 +147,7 @@ This trace is described as "disk read accesses initiated by a large commercial
 search engine in response to various web search requests."
 
 <p align="center">
-	<img src="https://raw.githubusercontent.com/karlmcguire/karlmcguire.com/master/docs/Hit%20Ratios%20-%20Search%20(ARC-S3).svg?sanitize=true">
+	<img src="https://raw.githubusercontent.com/dgraph-io/ristretto/master/benchmarks/Hit%20Ratios%20-%20Search%20(ARC-S3).svg">
 </p>
 
 #### Database
@@ -153,7 +156,7 @@ This trace is described as "a database server running at a commercial site
 running an ERP application on top of a commercial database."
 
 <p align="center">
-	<img src="https://raw.githubusercontent.com/karlmcguire/karlmcguire.com/master/docs/Hit%20Ratios%20-%20Database%20(ARC-DS1).svg?sanitize=true">
+	<img src="https://raw.githubusercontent.com/dgraph-io/ristretto/master/benchmarks/Hit%20Ratios%20-%20Database%20(ARC-DS1).svg">
 </p>
 
 #### Looping
@@ -161,7 +164,7 @@ running an ERP application on top of a commercial database."
 This trace demonstrates a looping access pattern.
 
 <p align="center">
-	<img src="https://raw.githubusercontent.com/karlmcguire/karlmcguire.com/master/docs/Hit%20Ratios%20-%20Glimpse%20(LIRS-GLI).svg?sanitize=true">
+	<img src="https://raw.githubusercontent.com/dgraph-io/ristretto/master/benchmarks/Hit%20Ratios%20-%20Glimpse%20(LIRS-GLI).svg">
 </p>
 
 #### CODASYL
@@ -170,7 +173,7 @@ This trace is described as "references to a CODASYL database for a one hour
 period."
 
 <p align="center">
-	<img src="https://raw.githubusercontent.com/karlmcguire/karlmcguire.com/master/docs/Hit%20Ratios%20-%20CODASYL%20(ARC-OLTP).svg?sanitize=true">
+	<img src="https://raw.githubusercontent.com/dgraph-io/ristretto/master/benchmarks/Hit%20Ratios%20-%20CODASYL%20(ARC-OLTP).svg">
 </p>
 
 ### Throughput
@@ -181,20 +184,28 @@ of RAM.
 #### Mixed
 
 <p align="center">
-	<img src="https://raw.githubusercontent.com/karlmcguire/karlmcguire.com/master/docs/Throughput%20-%20Mixed.svg?sanitize=true">
+	<img src="https://raw.githubusercontent.com/dgraph-io/ristretto/master/benchmarks/Throughput%20-%20Mixed.svg">
 </p>
 
 #### Read
 
 <p align="center">
-	<img src="https://raw.githubusercontent.com/karlmcguire/karlmcguire.com/master/docs/Throughput%20-%20Read%20(Zipfian).svg?sanitize=true">
+	<img src="https://raw.githubusercontent.com/dgraph-io/ristretto/master/benchmarks/Throughput%20-%20Read%20(Zipfian).svg">
 </p>
 
 #### Write
 
 <p align="center">
-	<img src="https://raw.githubusercontent.com/karlmcguire/karlmcguire.com/master/docs/Throughput%20-%20Write%20(Zipfian).svg?sanitize=true">
+	<img src="https://raw.githubusercontent.com/dgraph-io/ristretto/master/benchmarks/Throughput%20-%20Write%20(Zipfian).svg">
 </p>
+
+## Projects Using Ristretto
+
+Below is a list of known projects that use Ristretto:
+
+- [Badger](https://github.com/dgraph-io/badger) - Embeddable key-value DB in Go
+- [Dgraph](https://github.com/dgraph-io/dgraph) - Horizontally scalable and distributed GraphQL database with a graph backend
+- [Vitess](https://github.com/vitessio/vitess) - database clustering system for horizontal scaling of MySQL
 
 ## FAQ
 
