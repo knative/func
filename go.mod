@@ -45,7 +45,7 @@ require (
 )
 
 replace (
-	// Pin k8s.io depedencies to align with Knative and Tekton needs
+	// Pin k8s.io dependencies to align with Knative and Tekton needs
 	k8s.io/api => k8s.io/api v0.22.5
 	k8s.io/apimachinery => k8s.io/apimachinery v0.22.5
 	k8s.io/client-go => k8s.io/client-go v0.22.5
