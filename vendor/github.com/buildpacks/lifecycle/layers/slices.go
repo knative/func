@@ -33,7 +33,7 @@ func (f *Factory) SliceLayers(dir string, slices []Slice) ([]Layer, error) {
 		return nil, err
 	}
 
-	//add one layer per slice
+	// add one layer per slice
 	for i, slice := range slices {
 		layerID := fmt.Sprintf("slice-%d", i+1)
 		layer, err := f.createLayerFromSlice(slice, sdir, layerID)
@@ -43,7 +43,7 @@ func (f *Factory) SliceLayers(dir string, slices []Slice) ([]Layer, error) {
 		sliceLayers = append(sliceLayers, layer)
 	}
 
-	//add remaining files in a single layer
+	// add remaining files in a single layer
 	layerID := fmt.Sprintf("slice-%d", len(slices)+1)
 	finalLayer, err := f.createLayerFromFiles(layerID, sdir, sdir.remainingFiles())
 	if err != nil {

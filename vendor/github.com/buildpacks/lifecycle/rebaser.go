@@ -10,6 +10,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/buildpacks/lifecycle/api"
+	"github.com/buildpacks/lifecycle/image"
+	"github.com/buildpacks/lifecycle/internal/str"
 	"github.com/buildpacks/lifecycle/platform"
 )
 
@@ -24,7 +26,7 @@ type RebaseReport struct {
 
 func (r *Rebaser) Rebase(appImage imgutil.Image, newBaseImage imgutil.Image, additionalNames []string) (RebaseReport, error) {
 	var origMetadata platform.LayersMetadataCompat
-	if err := DecodeLabel(appImage, platform.LayerMetadataLabel, &origMetadata); err != nil {
+	if err := image.DecodeLabel(appImage, platform.LayerMetadataLabel, &origMetadata); err != nil {
 		return RebaseReport{}, errors.Wrap(err, "get image metadata")
 	}
 
@@ -47,7 +49,7 @@ func (r *Rebaser) Rebase(appImage imgutil.Image, newBaseImage imgutil.Image, add
 	}
 
 	if appStackID != newBaseStackID {
-		return RebaseReport{}, errors.New(fmt.Sprintf("incompatible stack: '%s' is not compatible with '%s'", newBaseStackID, appStackID))
+		return RebaseReport{}, fmt.Errorf("incompatible stack: '%s' is not compatible with '%s'", newBaseStackID, appStackID)
 	}
 
 	if err := validateMixins(appImage, newBaseImage); err != nil {
@@ -79,7 +81,7 @@ func (r *Rebaser) Rebase(appImage imgutil.Image, newBaseImage imgutil.Image, add
 	}
 
 	hasPrefix := func(l string) bool { return strings.HasPrefix(l, "io.buildpacks.stack.") }
-	if err := syncLabels(newBaseImage, appImage, hasPrefix); err != nil {
+	if err := image.SyncLabels(newBaseImage, appImage, hasPrefix); err != nil {
 		return RebaseReport{}, errors.Wrap(err, "set stack labels")
 	}
 
@@ -100,18 +102,18 @@ func validateMixins(appImg, newBaseImg imgutil.Image) error {
 	var appImageMixins []string
 	var newBaseImageMixins []string
 
-	if err := DecodeLabel(appImg, platform.MixinsLabel, &appImageMixins); err != nil {
+	if err := image.DecodeLabel(appImg, platform.MixinsLabel, &appImageMixins); err != nil {
 		return errors.Wrap(err, "get app image mixins")
 	}
 
-	if err := DecodeLabel(newBaseImg, platform.MixinsLabel, &newBaseImageMixins); err != nil {
+	if err := image.DecodeLabel(newBaseImg, platform.MixinsLabel, &newBaseImageMixins); err != nil {
 		return errors.Wrap(err, "get run image mixins")
 	}
 
 	appImageMixins = removeStagePrefixes(appImageMixins)
 	newBaseImageMixins = removeStagePrefixes(newBaseImageMixins)
 
-	_, missing, _ := compare(newBaseImageMixins, appImageMixins)
+	_, missing, _ := str.Compare(newBaseImageMixins, appImageMixins)
 
 	if len(missing) > 0 {
 		sort.Strings(missing)

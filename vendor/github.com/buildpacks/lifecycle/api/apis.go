@@ -1,17 +1,30 @@
 package api
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/pkg/errors"
 )
 
 var (
-	Platform  = newApisMustParse([]string{"0.3", "0.4", "0.5", "0.6", "0.7"}, nil)
-	Buildpack = newApisMustParse([]string{"0.2", "0.3", "0.4", "0.5", "0.6"}, nil)
+	Platform  = newApisMustParse([]string{"0.3", "0.4", "0.5", "0.6", "0.7", "0.8"}, nil)
+	Buildpack = newApisMustParse([]string{"0.2", "0.3", "0.4", "0.5", "0.6", "0.7"}, nil)
 )
 
 type APIs struct {
-	Supported  []*Version
-	Deprecated []*Version
+	Supported  List
+	Deprecated List
+}
+
+type List []*Version
+
+func (l List) String() string {
+	var els []string
+	for _, el := range l {
+		els = append(els, fmt.Sprintf("%q", el.String()))
+	}
+	return "[" + strings.Join(els, ", ") + "]"
 }
 
 // newApisMustParse calls NewApis and panics on error

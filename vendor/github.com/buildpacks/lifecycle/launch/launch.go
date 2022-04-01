@@ -45,7 +45,7 @@ type Buildpack struct {
 }
 
 func EscapeID(id string) string {
-	return strings.Replace(id, "/", "_", -1)
+	return strings.ReplaceAll(id, "/", "_")
 }
 
 func GetMetadataFilePath(layersDir string) string {

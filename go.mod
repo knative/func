@@ -7,7 +7,7 @@ require (
 	github.com/Masterminds/semver v1.5.0
 	github.com/Netflix/go-expect v0.0.0-20210722184520-ef0bf57d82b3
 	github.com/alecthomas/jsonschema v0.0.0-20210526225647-edb03dcab7bc
-	github.com/buildpacks/pack v0.22.0
+	github.com/buildpacks/pack v0.24.0
 	github.com/cloudevents/sdk-go/v2 v2.5.0
 	github.com/containers/image/v5 v5.10.6
 	github.com/coreos/go-semver v0.3.0
@@ -45,7 +45,3 @@ require (
 	knative.dev/pkg v0.0.0-20220222214539-0b8a9403de7e
 	knative.dev/serving v0.28.4
 )
-
-// temporary set higher version of buildpacks/imgutil to get better performance for podman
-// rever this once there will be buildpacks/pack with newer version
-replace github.com/buildpacks/imgutil => github.com/buildpacks/imgutil v0.0.0-20211001201950-cf7ae41c3771
