@@ -144,13 +144,11 @@ test-e2e: ## Run end-to-end tests using an available cluster.
 cross-platform: darwin-arm64 darwin-amd64 linux windows ## Build all distributable (cross-platform) binaries
 
 darwin-arm64: $(BIN_DARWIN_ARM64) ## Build for mac M1
-	env CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o $(BIN_DARWIN_ARM64) -ldflags $(LDFLAGS) ./cmd/$(BIN)
 
 $(BIN_DARWIN_ARM64): zz_filesystem_generated.go
 	env CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o $(BIN_DARWIN_ARM64) -ldflags $(LDFLAGS) ./cmd/$(BIN)
 
 darwin-amd64: $(BIN_DARWIN_AMD64) ## Build for Darwin (macOS)
-	env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o $(BIN_DARWIN_AMD64) -ldflags $(LDFLAGS) ./cmd/$(BIN)
 
 $(BIN_DARWIN_AMD64): zz_filesystem_generated.go
 	env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o $(BIN_DARWIN_AMD64) -ldflags $(LDFLAGS) ./cmd/$(BIN)
