@@ -40,8 +40,12 @@ jobs:
       # Upload all build artifacts
       - uses: actions/upload-artifact@v2
         with:
-          name: OSX Binary
+          name: OSX Binary (AMD)
           path: func_darwin_amd64
+      - uses: actions/upload-artifact@v2
+        with:
+          name: OSX Binary (ARM)
+          path: func_darwin_arm64
       - uses: actions/upload-artifact@v2
         with:
           name: Linux Binary
