@@ -125,15 +125,8 @@ func GetDockerCredentialLoaders() []creds.CredentialsCallback {
 	}
 	authInfo := rawConf.AuthInfos[cc.AuthInfo]
 
-	var user string
-	parts := strings.SplitN(cc.AuthInfo, "/", 2)
-	if len(parts) >= 1 {
-		user = parts[0]
-	} else {
-		return nil
-	}
 	credentials := docker.Credentials{
-		Username: user,
+		Username: "openshift",
 		Password: authInfo.Token,
 	}
 
