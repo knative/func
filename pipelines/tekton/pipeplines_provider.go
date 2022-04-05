@@ -139,7 +139,8 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 	}
 
 	if pr.Status.GetCondition(apis.ConditionSucceeded).Status == corev1.ConditionFalse {
-		return fmt.Errorf("function pipeline run has failed, please inspect logs of Tekton PipelineRun \"%s\"", pr.Name)
+		message := getFailedPipelineRunLog(ctx, pr, pp.namespace)
+		return fmt.Errorf("function pipeline run has failed with message: \n\n%s", message)
 	}
 
 	kClient, err := knative.NewServingClient(pp.namespace)
@@ -250,4 +251,31 @@ func (pp *PipelinesProvider) watchPipelineRunProgress(pr *v1beta1.PipelineRun) e
 	wg.Wait()
 
 	return nil
+}
+
+// getFailedPipelineRunLog returns log message for a failed PipelineRun,
+// returns log from a container where the failing TaskRun is running, if available.
+func getFailedPipelineRunLog(ctx context.Context, pr *v1beta1.PipelineRun, namespace string) string {
+	// Reason "Failed" usually means there is a specific failure in some step,
+	// let's find the failed step and try to get log directly from the container.
+	// If we are not able to get the container's log, we return the generic message from the PipelineRun.Status.
+	message := pr.Status.GetCondition(apis.ConditionSucceeded).Message
+	if pr.Status.GetCondition(apis.ConditionSucceeded).Reason == "Failed" {
+		for _, t := range pr.Status.TaskRuns {
+			if t.Status.GetCondition(apis.ConditionSucceeded).Status == corev1.ConditionFalse {
+				for _, s := range t.Status.Steps {
+					if s.Terminated != nil && s.Terminated.ExitCode == 1 {
+						podLogs, err := k8s.GetPodLogs(ctx, namespace, t.Status.PodName, s.ContainerName)
+						if err == nil {
+							return podLogs
+						}
+						return message
+					}
+				}
+
+			}
+		}
+	}
+
+	return message
 }
