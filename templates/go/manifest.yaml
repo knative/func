@@ -1,14 +1,5 @@
-# Required. One or more Buildpack builder image names capable of transforming
-# this language pack's function source code into a container image. These values
-# are copied directly to a function project's func.yaml file, allowing the
-# function developer to choose between them in local build configurations
-builders:
-  default: gcr.io/paketo-buildpacks/builder:base
-  base: gcr.io/paketo-buildpacks/builder:base
-  full: gcr.io/paketo-buildpacks/builder:full
-
-# Optional. A list of additional Buildpacks to be applied to the language pack's
-# builder image when the function is built
+# Optional list of additional Buildpacks to be applied to the language pack's
+# builder image when the Function is built using a Buildpack builder.
 buildpacks:
   - paketo-buildpacks/go-dist
   - ghcr.io/boson-project/go-function-buildpack:tip

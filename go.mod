@@ -9,7 +9,7 @@ require (
 	github.com/alecthomas/jsonschema v0.0.0-20210526225647-edb03dcab7bc
 	github.com/buildpacks/pack v0.24.0
 	github.com/cloudevents/sdk-go/v2 v2.5.0
-	github.com/containers/image/v5 v5.10.6
+	github.com/containers/image/v5 v5.19.1
 	github.com/coreos/go-semver v0.3.0
 	github.com/docker/cli v20.10.12+incompatible
 	github.com/docker/docker v20.10.12+incompatible
@@ -23,6 +23,7 @@ require (
 	github.com/hinshun/vt10x v0.0.0-20180809195222-d55458df857c
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/opencontainers/image-spec v1.0.3-0.20220114050600-8b9d41f48198
+	github.com/openshift/source-to-image v1.3.1
 	github.com/ory/viper v1.7.5
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.3.0
@@ -45,6 +46,9 @@ require (
 )
 
 replace (
+	// update docker to be compatible with version used by pack and removes invalid pseudo-version
+	github.com/openshift/source-to-image => github.com/boson-project/source-to-image v1.3.2
+
 	// Pin k8s.io dependencies to align with Knative and Tekton needs
 	k8s.io/api => k8s.io/api v0.22.5
 	k8s.io/apimachinery => k8s.io/apimachinery v0.22.5

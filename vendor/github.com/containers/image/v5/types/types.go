@@ -147,7 +147,7 @@ type BlobInfo struct {
 }
 
 // BICTransportScope encapsulates transport-dependent representation of a “scope” where blobs are or are not present.
-// BlobInfocache.RecordKnownLocations / BlobInfocache.CandidateLocations record data aboud blobs keyed by (scope, digest).
+// BlobInfocache.RecordKnownLocations / BlobInfocache.CandidateLocations record data about blobs keyed by (scope, digest).
 // The scope will typically be similar to an ImageReference, or a superset of it within which blobs are reusable.
 //
 // NOTE: The contents of this structure may be recorded in a persistent file, possibly shared across different
@@ -179,7 +179,7 @@ type BICReplacementCandidate struct {
 // It records two kinds of data:
 // - Sets of corresponding digest vs. uncompressed digest ("DiffID") pairs:
 //   One of the two digests is known to be uncompressed, and a single uncompressed digest may correspond to more than one compressed digest.
-//   This allows matching compressed layer blobs to existing local uncompressed layers (to avoid unnecessary download and decompresssion),
+//   This allows matching compressed layer blobs to existing local uncompressed layers (to avoid unnecessary download and decompression),
 //   or uncompressed layer blobs to existing remote compressed layers (to avoid unnecessary compression and upload)/
 //
 //   It is allowed to record an (uncompressed digest, the same uncompressed digest) correspondence, to express that the digest is known
@@ -219,7 +219,7 @@ type BlobInfoCache interface {
 	// CandidateLocations returns a prioritized, limited, number of blobs and their locations that could possibly be reused
 	// within the specified (transport scope) (if they still exist, which is not guaranteed).
 	//
-	// If !canSubstitute, the returned cadidates will match the submitted digest exactly; if canSubstitute,
+	// If !canSubstitute, the returned candidates will match the submitted digest exactly; if canSubstitute,
 	// data from previous RecordDigestUncompressedPair calls is used to also look up variants of the blob which have the same
 	// uncompressed digest.
 	CandidateLocations(transport ImageTransport, scope BICTransportScope, digest digest.Digest, canSubstitute bool) []BICReplacementCandidate
@@ -299,7 +299,7 @@ type ImageDestination interface {
 	IgnoresEmbeddedDockerReference() bool
 
 	// PutBlob writes contents of stream and returns data representing the result.
-	// inputInfo.Digest can be optionally provided if known; it is not mandatory for the implementation to verify it.
+	// inputInfo.Digest can be optionally provided if known; if provided, and stream is read to the end without error, the digest MUST match the stream contents.
 	// inputInfo.Size is the expected length of stream, if known.
 	// inputInfo.MediaType describes the blob format, if known.
 	// May update cache.
@@ -334,6 +334,9 @@ type ImageDestination interface {
 	// MUST be called after PutManifest (signatures may reference manifest contents).
 	PutSignatures(ctx context.Context, signatures [][]byte, instanceDigest *digest.Digest) error
 	// Commit marks the process of storing the image as successful and asks for the image to be persisted.
+	// unparsedToplevel contains data about the top-level manifest of the source (which may be a single-arch image or a manifest list
+	// if PutManifest was only called for the single-arch image with instanceDigest == nil), primarily to allow lookups by the
+	// original manifest list digest, if desired.
 	// WARNING: This does not have any transactional semantics:
 	// - Uploaded data MAY be visible to others before Commit() is called
 	// - Uploaded data MAY be removed or MAY remain around if Close() is called without Commit() (i.e. rollback is allowed but not guaranteed)
@@ -558,6 +561,11 @@ type SystemContext struct {
 	UserShortNameAliasConfPath string
 	// If set, short-name resolution in pkg/shortnames must follow the specified mode
 	ShortNameMode *ShortNameMode
+	// If set, short names will resolve in pkg/shortnames to docker.io only, and unqualified-search registries and
+	// short-name aliases in registries.conf are ignored.  Note that this field is only intended to help enforce
+	// resolving to Docker Hub in the Docker-compatible REST API of Podman; it should never be used outside this
+	// specific context.
+	PodmanOnlyShortNamesIgnoreRegistriesConfAndForceDockerHub bool
 	// If not "", overrides the default path for the authentication file, but only new format files
 	AuthFilePath string
 	// if not "", overrides the default path for the authentication file, but with the legacy format;
@@ -582,7 +590,7 @@ type SystemContext struct {
 
 	// === OCI.Transport overrides ===
 	// If not "", a directory containing a CA certificate (ending with ".crt"),
-	// a client certificate (ending with ".cert") and a client ceritificate key
+	// a client certificate (ending with ".cert") and a client certificate key
 	// (ending with ".key") used when downloading OCI image layers.
 	OCICertPath string
 	// Allow downloading OCI image layers over HTTP, or HTTPS with failed TLS verification. Note that this does not affect other TLS connections.
@@ -594,13 +602,13 @@ type SystemContext struct {
 
 	// === docker.Transport overrides ===
 	// If not "", a directory containing a CA certificate (ending with ".crt"),
-	// a client certificate (ending with ".cert") and a client ceritificate key
-	// (ending with ".key") used when talking to a Docker Registry.
+	// a client certificate (ending with ".cert") and a client certificate key
+	// (ending with ".key") used when talking to a container registry.
 	DockerCertPath string
 	// If not "", overrides the system’s default path for a directory containing host[:port] subdirectories with the same structure as DockerCertPath above.
 	// Ignored if DockerCertPath is non-empty.
 	DockerPerHostCertDirPath string
-	// Allow contacting docker registries over HTTP, or HTTPS with failed TLS verification. Note that this does not affect other TLS connections.
+	// Allow contacting container registries over HTTP, or HTTPS with failed TLS verification. Note that this does not affect other TLS connections.
 	DockerInsecureSkipTLSVerify OptionalBool
 	// if nil, the library tries to parse ~/.docker/config.json to retrieve credentials
 	// Ignored if DockerBearerRegistryToken is non-empty.
@@ -619,6 +627,10 @@ type SystemContext struct {
 	DockerLogMirrorChoice bool
 	// Directory to use for OSTree temporary files
 	OSTreeTmpDirPath string
+	// If true, all blobs will have precomputed digests to ensure layers are not uploaded that already exist on the registry.
+	// Note that this requires writing blobs to temporary files, and takes more time than the default behavior,
+	// when the digest for a blob is unknown.
+	DockerRegistryPushPrecomputeDigests bool
 
 	// === docker/daemon.Transport overrides ===
 	// A directory containing a CA certificate (ending with ".crt"),
@@ -633,6 +645,8 @@ type SystemContext struct {
 	// === dir.Transport overrides ===
 	// DirForceCompress compresses the image layers if set to true
 	DirForceCompress bool
+	// DirForceDecompress decompresses the image layers if set to true
+	DirForceDecompress bool
 
 	// CompressionFormat is the format to use for the compression of the blobs
 	CompressionFormat *compression.Algorithm

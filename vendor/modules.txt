@@ -36,7 +36,7 @@ github.com/Microsoft/go-winio
 github.com/Microsoft/go-winio/pkg/guid
 github.com/Microsoft/go-winio/pkg/security
 github.com/Microsoft/go-winio/vhd
-# github.com/Microsoft/hcsshim v0.8.23
+# github.com/Microsoft/hcsshim v0.9.2
 github.com/Microsoft/hcsshim
 github.com/Microsoft/hcsshim/computestorage
 github.com/Microsoft/hcsshim/internal/cow
@@ -60,7 +60,7 @@ github.com/Microsoft/hcsshim/osversion
 # github.com/Netflix/go-expect v0.0.0-20210722184520-ef0bf57d82b3
 ## explicit
 github.com/Netflix/go-expect
-# github.com/ProtonMail/go-crypto v0.0.0-20210428141323-04723f9f07d7
+# github.com/ProtonMail/go-crypto v0.0.0-20211112122917-428f8eabeeb3
 github.com/ProtonMail/go-crypto/bitcurves
 github.com/ProtonMail/go-crypto/brainpool
 github.com/ProtonMail/go-crypto/eax
@@ -92,8 +92,6 @@ github.com/antlr/antlr4/runtime/Go/antlr
 github.com/apex/log
 # github.com/beorn7/perks v1.0.1
 github.com/beorn7/perks/quantile
-# github.com/bits-and-blooms/bitset v1.2.0
-github.com/bits-and-blooms/bitset
 # github.com/blendle/zapdriver v1.3.1
 github.com/blendle/zapdriver
 # github.com/buildpacks/imgutil v0.0.0-20211203200417-76206845baac
@@ -180,19 +178,23 @@ github.com/containerd/containerd/sys
 # github.com/containerd/stargz-snapshotter/estargz v0.11.0
 github.com/containerd/stargz-snapshotter/estargz
 github.com/containerd/stargz-snapshotter/estargz/errorutil
-# github.com/containers/image/v5 v5.10.6
+# github.com/containers/image/v5 v5.19.1
 ## explicit
 github.com/containers/image/v5/docker/reference
 github.com/containers/image/v5/internal/pkg/keyctl
+github.com/containers/image/v5/internal/rootless
 github.com/containers/image/v5/pkg/compression/internal
 github.com/containers/image/v5/pkg/compression/types
 github.com/containers/image/v5/pkg/docker/config
+github.com/containers/image/v5/pkg/sysregistriesv2
 github.com/containers/image/v5/types
-# github.com/containers/storage v1.24.8
+# github.com/containers/storage v1.38.2
 github.com/containers/storage/pkg/homedir
 github.com/containers/storage/pkg/idtools
+github.com/containers/storage/pkg/lockfile
 github.com/containers/storage/pkg/mount
 github.com/containers/storage/pkg/reexec
+github.com/containers/storage/pkg/stringid
 github.com/containers/storage/pkg/system
 github.com/containers/storage/pkg/unshare
 # github.com/coreos/go-semver v0.3.0
@@ -238,6 +240,7 @@ github.com/docker/docker/api/types/swarm/runtime
 github.com/docker/docker/api/types/time
 github.com/docker/docker/api/types/versions
 github.com/docker/docker/api/types/volume
+github.com/docker/docker/cli/config
 github.com/docker/docker/client
 github.com/docker/docker/errdefs
 github.com/docker/docker/pkg/archive
@@ -539,7 +542,7 @@ github.com/json-iterator/go
 github.com/kballard/go-shellquote
 # github.com/kelseyhightower/envconfig v1.4.0
 github.com/kelseyhightower/envconfig
-# github.com/kevinburke/ssh_config v0.0.0-20201106050909-4977a11b4351
+# github.com/kevinburke/ssh_config v1.1.0
 github.com/kevinburke/ssh_config
 # github.com/klauspost/compress v1.14.4
 github.com/klauspost/compress
@@ -582,7 +585,7 @@ github.com/moby/spdystream
 github.com/moby/spdystream/spdy
 # github.com/moby/sys/mount v0.2.0
 github.com/moby/sys/mount
-# github.com/moby/sys/mountinfo v0.4.1
+# github.com/moby/sys/mountinfo v0.5.0
 github.com/moby/sys/mountinfo
 # github.com/moby/term v0.0.0-20210619224110-3f7ff695adc6
 github.com/moby/term
@@ -601,14 +604,44 @@ github.com/opencontainers/go-digest
 ## explicit
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
-# github.com/opencontainers/runc v1.0.2
+# github.com/opencontainers/runc v1.1.0
 github.com/opencontainers/runc/libcontainer/user
 # github.com/opencontainers/runtime-spec v1.0.3-0.20210326190908-1c3f411f0417
 github.com/opencontainers/runtime-spec/specs-go
-# github.com/opencontainers/selinux v1.8.2
+# github.com/opencontainers/selinux v1.10.0
 github.com/opencontainers/selinux/go-selinux
 github.com/opencontainers/selinux/go-selinux/label
 github.com/opencontainers/selinux/pkg/pwalk
+github.com/opencontainers/selinux/pkg/pwalkdir
+# github.com/openshift/source-to-image v1.3.1 => github.com/boson-project/source-to-image v1.3.2
+## explicit
+github.com/openshift/source-to-image/pkg/api
+github.com/openshift/source-to-image/pkg/api/constants
+github.com/openshift/source-to-image/pkg/api/validation
+github.com/openshift/source-to-image/pkg/build
+github.com/openshift/source-to-image/pkg/build/strategies
+github.com/openshift/source-to-image/pkg/build/strategies/dockerfile
+github.com/openshift/source-to-image/pkg/build/strategies/layered
+github.com/openshift/source-to-image/pkg/build/strategies/onbuild
+github.com/openshift/source-to-image/pkg/build/strategies/sti
+github.com/openshift/source-to-image/pkg/docker
+github.com/openshift/source-to-image/pkg/errors
+github.com/openshift/source-to-image/pkg/ignore
+github.com/openshift/source-to-image/pkg/scm
+github.com/openshift/source-to-image/pkg/scm/downloaders/empty
+github.com/openshift/source-to-image/pkg/scm/downloaders/file
+github.com/openshift/source-to-image/pkg/scm/downloaders/git
+github.com/openshift/source-to-image/pkg/scm/git
+github.com/openshift/source-to-image/pkg/scripts
+github.com/openshift/source-to-image/pkg/tar
+github.com/openshift/source-to-image/pkg/util
+github.com/openshift/source-to-image/pkg/util/cmd
+github.com/openshift/source-to-image/pkg/util/cygpath
+github.com/openshift/source-to-image/pkg/util/fs
+github.com/openshift/source-to-image/pkg/util/interrupt
+github.com/openshift/source-to-image/pkg/util/log
+github.com/openshift/source-to-image/pkg/util/status
+github.com/openshift/source-to-image/pkg/util/user
 # github.com/ory/viper v1.7.5
 ## explicit
 github.com/ory/viper
@@ -740,7 +773,7 @@ github.com/vbatts/tar-split/archive/tar
 # github.com/whilp/git-urls v1.0.0
 ## explicit
 github.com/whilp/git-urls
-# github.com/xanzy/ssh-agent v0.3.0
+# github.com/xanzy/ssh-agent v0.3.1
 github.com/xanzy/ssh-agent
 # github.com/xlab/treeprint v0.0.0-20181112141820-a009c3971eca
 github.com/xlab/treeprint
@@ -1447,6 +1480,7 @@ sigs.k8s.io/structured-merge-diff/v4/typed
 sigs.k8s.io/structured-merge-diff/v4/value
 # sigs.k8s.io/yaml v1.3.0
 sigs.k8s.io/yaml
+# github.com/openshift/source-to-image => github.com/boson-project/source-to-image v1.3.2
 # k8s.io/api => k8s.io/api v0.22.5
 # k8s.io/apimachinery => k8s.io/apimachinery v0.22.5
 # k8s.io/client-go => k8s.io/client-go v0.22.5

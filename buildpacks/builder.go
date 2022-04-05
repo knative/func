@@ -3,7 +3,6 @@ package buildpacks
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -20,6 +19,12 @@ import (
 	pack "github.com/buildpacks/pack/pkg/client"
 	"github.com/buildpacks/pack/pkg/logging"
 )
+
+// DefaultBuilderImages for Pack builders indexed by Runtime Language
+var DefaultBuilderImages = map[string]string{
+	"node": "gcr.io/paketo-buildpacks/builder:base",
+	"go":   "gcr.io/paketo-buildpacks/builder:base",
+}
 
 //Builder holds the configuration that will be passed to
 //Buildpack builder
@@ -46,7 +51,10 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 			packBuilder = pb
 		}
 	} else {
-		return errors.New("no buildpack configured for function")
+		packBuilder, err = defaultBuilderImage(f)
+		if err != nil {
+			return
+		}
 	}
 
 	// Build options for the pack client.
@@ -137,6 +145,16 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	}
 
 	return
+}
+
+// defaultBuilderImage for the given function based on its runtime, or an
+// error if no default is defined for the given runtime.
+func defaultBuilderImage(f fn.Function) (string, error) {
+	v, ok := DefaultBuilderImages[f.Runtime]
+	if !ok {
+		return "", fmt.Errorf("Pack builder has no default builder image specified for the '%v' language runtime.  Please provide one.", f.Runtime)
+	}
+	return v, nil
 }
 
 // hack this makes stdout non-closeable

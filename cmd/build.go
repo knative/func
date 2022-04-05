@@ -9,6 +9,9 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
+	"knative.dev/kn-plugin-func/buildpacks"
+	"knative.dev/kn-plugin-func/s2i"
+
 	fn "knative.dev/kn-plugin-func"
 )
 
@@ -40,17 +43,18 @@ and the image name is stored in the configuration file.
 {{.Name}} build --builder cnbs/sample-builder:bionic
 `,
 		SuggestFor: []string{"biuld", "buidl", "built"},
-		PreRunE:    bindEnv("image", "path", "builder", "registry", "confirm", "push"),
+		PreRunE:    bindEnv("image", "path", "builder", "registry", "confirm", "push", "builder-image"),
 	}
 
-	cmd.Flags().StringP("builder", "b", "", "Buildpack builder, either an as a an image name or a mapping name.\nSpecified value is stored in func.yaml for subsequent builds.")
+	cmd.Flags().StringP("builder", "b", "pack", "builder to use when creating the underlying image. Currently supported builders are 'pack' and 's2i'.")
+	cmd.Flags().StringP("builder-image", "", "", "builder image, either an as a an image name or a mapping name.\nSpecified value is stored in func.yaml for subsequent builds. ($FUNC_BUILDER_IMAGE)")
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
 	cmd.Flags().StringP("image", "i", "", "Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE)")
 	cmd.Flags().StringP("registry", "r", GetDefaultRegistry(), "Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined based on the local directory name. If not provided the registry will be taken from func.yaml (Env: $FUNC_REGISTRY)")
 	cmd.Flags().BoolP("push", "u", false, "Attempt to push the function image after being successfully built")
 	setPathFlag(cmd)
 
-	if err := cmd.RegisterFlagCompletionFunc("builder", CompleteBuilderList); err != nil {
+	if err := cmd.RegisterFlagCompletionFunc("builder", CompleteBuilderImageList); err != nil {
 		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
 	}
 
@@ -89,7 +93,7 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		return
 	}
 
-	function, err := functionWithOverrides(config.Path, functionOverrides{Builder: config.Builder, Image: config.Image})
+	function, err := functionWithOverrides(config.Path, functionOverrides{BuilderImage: config.BuilderImage, Image: config.Image})
 	if err != nil {
 		return
 	}
@@ -144,15 +148,22 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		config.Registry = ""
 	}
 
-	// TODO(lkingland): The below deferred options gathering is what will
-	// re-enable the addition of alternative implementations of the Builder,
-	// unblocking PR https://github.com/knative-sandbox/kn-plugin-func/pull/842
-	// the implementation of which will be inserted here.
+	// Choose a builder based on the value of the --builder flag
+	var builder fn.Builder
+	if config.Builder == "pack" {
+		builder = buildpacks.NewBuilder(config.Verbose)
+	} else if config.Builder == "s2i" {
+		builder = s2i.NewBuilder(config.Verbose)
+	} else {
+		err = errors.New("unrecognized builder")
+		return
+	}
 
 	// Create a client using the registry defined in config plus any additional
 	// options provided (such as mocks for testing)
 	client, done := newClient(ClientConfig{Verbose: config.Verbose},
-		fn.WithRegistry(config.Registry))
+		fn.WithRegistry(config.Registry),
+		fn.WithBuilder(builder))
 	defer done()
 
 	err = client.Build(cmd.Context(), config.Path)
@@ -184,18 +195,27 @@ type buildConfig struct {
 	// Confirm: confirm values arrived upon from environment plus flags plus defaults,
 	// with interactive prompting (only applicable when attached to a TTY).
 	Confirm bool
+
+	// Builder is the name of the subsystem that will complete the underlying
+	// build (Pack, s2i, remote pipeline, etc).  Currently ad-hoc rather than
+	// an enumerated field.  See the Client constructory for logic.
 	Builder string
+
+	// BuilderImage is the image (name or mapping) to use for building.  Usually
+	// set automatically.
+	BuilderImage string
 }
 
 func newBuildConfig() buildConfig {
 	return buildConfig{
-		Image:    viper.GetString("image"),
-		Path:     viper.GetString("path"),
-		Registry: viper.GetString("registry"),
-		Verbose:  viper.GetBool("verbose"), // defined on root
-		Confirm:  viper.GetBool("confirm"),
-		Builder:  viper.GetString("builder"),
-		Push:     viper.GetBool("push"),
+		Image:        viper.GetString("image"),
+		Path:         viper.GetString("path"),
+		Registry:     viper.GetString("registry"),
+		Verbose:      viper.GetBool("verbose"), // defined on root
+		Confirm:      viper.GetBool("confirm"),
+		Builder:      viper.GetString("builder"),
+		BuilderImage: viper.GetString("builder-image"),
+		Push:         viper.GetBool("push"),
 	}
 }
 
