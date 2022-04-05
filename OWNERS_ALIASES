@@ -22,7 +22,6 @@ aliases:
   - julz
   - psschwei
   control-protocol-approvers:
-  - devguyio
   - eric-sap
   - lionelvillard
   - matzew
@@ -65,7 +64,6 @@ aliases:
   eventing-kafka-approvers:
   - aliok
   - davyodom
-  - devguyio
   - eric-sap
   - lberk
   - matzew
@@ -80,11 +78,9 @@ aliases:
   eventing-kafka-mtsource-approvers:
   - steven0711dong
   eventing-kafka-wg-leads:
-  - devguyio
   - lionelvillard
   - travis-minke-sap
   eventing-kafka-writers:
-  - devguyio
   - lionelvillard
   - travis-minke-sap
   eventing-kogito-approvers:
@@ -92,13 +88,13 @@ aliases:
   - spolti
   - vaibhavjainwiz
   eventing-natss-approvers:
-  - devguyio
   - zhaojizhuang
   eventing-prometheus-approvers:
   - lberk
   - matzew
   eventing-rabbitmq-approvers:
   - chunyilyu
+  - gab-satchi
   - gabo1208
   - gvmw
   - ikvmw
@@ -109,11 +105,9 @@ aliases:
   - lionelvillard
   - matzew
   eventing-wg-leads:
-  - devguyio
   - lionelvillard
   eventing-writers:
   - aliok
-  - devguyio
   - lionelvillard
   - matzew
   - odacremolbap
@@ -182,27 +176,25 @@ aliases:
   - nicolaferraro
   - rhuss
   knative-admin:
-  - carlisia
   - csantanapr
   - dprotaso
   - evankanderson
+  - ikvmw
   - itsmurugappan
   - julz
   - knative-prow-releaser-robot
   - knative-prow-robot
   - knative-prow-updater-robot
   - knative-test-reporter-robot
-  - kvmware
   - lance
+  - nader-ziada
   - pmorie
   - rhuss
   - thisisnotapril
   - vaikas
-  - xtreme-sameer-vohra
   knative-release-leads:
-  - carlisia
-  - kvmware
-  - xtreme-sameer-vohra
+  - ikvmw
+  - nader-ziada
   knative-robots:
   - knative-prow-releaser-robot
   - knative-prow-robot
@@ -228,11 +220,13 @@ aliases:
   - JRBANCEL
   - ZhiminXiang
   - nak3
+  - skonto
   - tcnghia
   - vagababov
   net-kourier-approvers:
   - davidor
   - jmprusi
+  - skonto
   - tcnghia
   networking-wg-leads:
   - ZhiminXiang
