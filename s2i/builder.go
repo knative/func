@@ -13,6 +13,7 @@ import (
 	"github.com/openshift/source-to-image/pkg/api/validation"
 	"github.com/openshift/source-to-image/pkg/build"
 	"github.com/openshift/source-to-image/pkg/build/strategies"
+	s2idocker "github.com/openshift/source-to-image/pkg/docker"
 	"github.com/openshift/source-to-image/pkg/scm/git"
 
 	fn "knative.dev/kn-plugin-func"
@@ -52,17 +53,11 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		}
 	}
 
-	client, endpoint, err := docker.NewClient(dockerClient.DefaultDockerHost)
+	client, _, err := docker.NewClient(dockerClient.DefaultDockerHost)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
-	// TODO: this defaulting of endpoint should perhaps not be necessary?  The
-	// default is explicitly passed to NewClient, thus the returned endpoint
-	// should at least be that.
-	if endpoint == "" {
-		endpoint = dockerClient.DefaultDockerHost
-	}
 
 	// Build Config
 	cfg := &api.Config{}
@@ -73,9 +68,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	cfg.BuilderPullPolicy = api.DefaultBuilderPullPolicy
 	cfg.PreviousImagePullPolicy = api.DefaultPreviousImagePullPolicy
 	cfg.RuntimeImagePullPolicy = api.DefaultRuntimeImagePullPolicy
-	cfg.DockerConfig = &api.DockerConfig{
-		Endpoint: endpoint,
-	}
+	cfg.DockerConfig = s2idocker.GetDefaultDockerConfig()
 	if errs := validation.ValidateConfig(cfg); len(errs) > 0 {
 		for _, e := range errs {
 			fmt.Fprintf(os.Stderr, "ERROR: %s\n", e)
