@@ -14,18 +14,23 @@ const (
 	DefaultWaitingTimeout = 120 * time.Second
 )
 
-func NewTektonClient() (*v1beta1.TektonV1beta1Client, error) {
+func NewTektonClientAndResolvedNamespace(defaultNamespace string) (*v1beta1.TektonV1beta1Client, string, error) {
+	namespace, err := k8s.GetNamespace(defaultNamespace)
+	if err != nil {
+		return nil, "", err
+	}
+
 	restConfig, err := k8s.GetClientConfig().ClientConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create new tekton client: %w", err)
+		return nil, "", fmt.Errorf("failed to create new tekton client: %w", err)
 	}
 
 	client, err := v1beta1.NewForConfig(restConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create new tekton client: %v", err)
+		return nil, "", fmt.Errorf("failed to create new tekton client: %v", err)
 	}
 
-	return client, nil
+	return client, namespace, nil
 }
 
 func NewTektonClientset() (versioned.Interface, error) {

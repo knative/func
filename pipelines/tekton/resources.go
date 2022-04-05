@@ -12,8 +12,8 @@ import (
 	fn "knative.dev/kn-plugin-func"
 )
 
-func deletePipelines(ctx context.Context, namespace string, listOptions metav1.ListOptions) (err error) {
-	client, err := NewTektonClient()
+func deletePipelines(ctx context.Context, namespaceOverride string, listOptions metav1.ListOptions) (err error) {
+	client, namespace, err := NewTektonClientAndResolvedNamespace(namespaceOverride)
 	if err != nil {
 		return
 	}
@@ -21,8 +21,8 @@ func deletePipelines(ctx context.Context, namespace string, listOptions metav1.L
 	return client.Pipelines(namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, listOptions)
 }
 
-func deletePipelineRuns(ctx context.Context, namespace string, listOptions metav1.ListOptions) (err error) {
-	client, err := NewTektonClient()
+func deletePipelineRuns(ctx context.Context, namespaceOverride string, listOptions metav1.ListOptions) (err error) {
+	client, namespace, err := NewTektonClientAndResolvedNamespace(namespaceOverride)
 	if err != nil {
 		return
 	}
@@ -60,14 +60,14 @@ func generatePipeline(f fn.Function, labels map[string]string) *pplnv1beta1.Pipe
 
 	workspaces := []pplnv1beta1.PipelineWorkspaceDeclaration{
 		{Name: "source-workspace", Description: "Directory where function source is located."},
-		{Name: "cache-workspace", Description: "Directory where Buildpacks cache is stored"},
+		{Name: "cache-workspace", Description: "Directory where Buildpacks cache is stored."},
+		{Name: "dockerconfig-workspace", Description: "Directory containing image registry credentials stored in `config.json` file.", Optional: true},
 	}
 
 	tasks := pplnv1beta1.PipelineTaskList{
-		taskFetchRepository(),
-		taskBuild("fetch-repository"),
-		taskImageDigest("build"),
-		taskFuncDeploy("image-digest"),
+		taskFetchSources(),
+		taskBuild(taskNameFetchSources),
+		taskDeploy(taskNameBuild),
 	}
 
 	return &pplnv1beta1.Pipeline{
@@ -104,8 +104,6 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 			PipelineRef: &pplnv1beta1.PipelineRef{
 				Name: getPipelineName(f),
 			},
-
-			ServiceAccountName: getPipelineBuilderServiceAccountName(f),
 
 			Params: []pplnv1beta1.Param{
 				{
@@ -145,6 +143,12 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 					},
 					SubPath: "cache",
 				},
+				{
+					Name: "dockerconfig-workspace",
+					Secret: &corev1.SecretVolumeSource{
+						SecretName: getPipelineSecretName(f),
+					},
+				},
 			},
 		},
 	}
@@ -160,12 +164,4 @@ func getPipelineSecretName(f fn.Function) string {
 
 func getPipelinePvcName(f fn.Function) string {
 	return fmt.Sprintf("%s-pvc", getPipelineName(f))
-}
-
-func getPipelineBuilderServiceAccountName(f fn.Function) string {
-	return fmt.Sprintf("%s-builder-secret", getPipelineName(f))
-}
-
-func getPipelineDeployerRoleBindingName(f fn.Function) string {
-	return fmt.Sprintf("%s-deployer-binding", getPipelineName(f))
 }
