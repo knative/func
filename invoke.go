@@ -45,14 +45,15 @@ func NewInvokeMessage() InvokeMessage {
 }
 
 // invoke the Function instance in the target environment with the
-// invocation message.
-func invoke(ctx context.Context, c *Client, f Function, target string, m InvokeMessage) (string, error) {
+// invocation message.  Returned is metadata (such as HTTP headers or
+// CloudEvent fields) and a stringified version of the payload.
+func invoke(ctx context.Context, c *Client, f Function, target string, m InvokeMessage) (metadata map[string][]string, body string, err error) {
 
 	// Get the first available route from 'local', 'remote', a named environment
 	// or treat target
 	route, err := invocationRoute(ctx, c, f, target) // choose instance to invoke
 	if err != nil {
-		return "", err
+		return
 	}
 
 	// Format" either 'http' or 'cloudevent'
@@ -76,7 +77,8 @@ func invoke(ctx context.Context, c *Client, f Function, target string, m InvokeM
 	case "cloudevent":
 		return sendEvent(ctx, route, m, c.transport)
 	default:
-		return "", fmt.Errorf("format '%v' not supported.", format)
+		err = fmt.Errorf("format '%v' not supported.", format)
+		return
 	}
 }
 
@@ -131,7 +133,7 @@ func invocationRoute(ctx context.Context, c *Client, f Function, target string) 
 }
 
 // sendEvent to the route populated with data in the invoke message.
-func sendEvent(ctx context.Context, route string, m InvokeMessage, t http.RoundTripper) (resp string, err error) {
+func sendEvent(ctx context.Context, route string, m InvokeMessage, t http.RoundTripper) (meta map[string][]string, resp string, err error) {
 	event := cloudevents.NewEvent()
 	event.SetID(m.ID)
 	event.SetSource(m.Source)
@@ -154,11 +156,20 @@ func sendEvent(ctx context.Context, route string, m InvokeMessage, t http.RoundT
 		resp = evt.String()
 	}
 
+	// return metdata about the CloudEvent that just so happens to be the same
+	// data structure as HTTP headers such that they are interchangeable at the
+	// higher level of the Invoke... invocation.
+	meta = make(map[string][]string)
+	meta["id"] = []string{evt.ID()}
+	meta["type"] = []string{evt.Type()}
+	meta["source"] = []string{evt.Source()}
+	meta["subject"] = []string{evt.Subject()}
+
 	return
 }
 
 // sendPost to the route populated with data in the invoke message.
-func sendPost(ctx context.Context, route string, m InvokeMessage, t http.RoundTripper) (string, error) {
+func sendPost(ctx context.Context, route string, m InvokeMessage, t http.RoundTripper) (map[string][]string, string, error) {
 	client := http.Client{
 		Transport: t,
 		Timeout:   10 * time.Second,
@@ -171,12 +182,12 @@ func sendPost(ctx context.Context, route string, m InvokeMessage, t http.RoundTr
 		"Data":        {m.Data},
 	})
 	if err != nil {
-		return "", err
+		return nil, "", err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode > 299 {
-		return "", fmt.Errorf("failure invoking '%v' (HTTP %v)", route, resp.StatusCode)
+		return nil, "", fmt.Errorf("failure invoking '%v' (HTTP %v)", route, resp.StatusCode)
 	}
 	b, err := io.ReadAll(resp.Body)
-	return string(b), err
+	return resp.Header, string(b), err
 }
