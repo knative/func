@@ -75,7 +75,11 @@ func invoke(ctx context.Context, c *Client, f Function, target string, m InvokeM
 	case "http":
 		return sendPost(ctx, route, m, c.transport)
 	case "cloudevent":
-		return sendEvent(ctx, route, m, c.transport)
+		// CouldEvents return a string which always includes a fairly verbose
+		// summation of fields, so metadata is not applicable
+		meta := make(map[string][]string)
+		body, err = sendEvent(ctx, route, m, c.transport)
+		return meta, body, err
 	default:
 		err = fmt.Errorf("format '%v' not supported.", format)
 		return
@@ -133,7 +137,7 @@ func invocationRoute(ctx context.Context, c *Client, f Function, target string) 
 }
 
 // sendEvent to the route populated with data in the invoke message.
-func sendEvent(ctx context.Context, route string, m InvokeMessage, t http.RoundTripper) (meta map[string][]string, resp string, err error) {
+func sendEvent(ctx context.Context, route string, m InvokeMessage, t http.RoundTripper) (resp string, err error) {
 	event := cloudevents.NewEvent()
 	event.SetID(m.ID)
 	event.SetSource(m.Source)
@@ -155,15 +159,6 @@ func sendEvent(ctx context.Context, route string, m InvokeMessage, t http.RoundT
 	} else if evt != nil { // Check for nil in case no event is returned
 		resp = evt.String()
 	}
-
-	// return metdata about the CloudEvent that just so happens to be the same
-	// data structure as HTTP headers such that they are interchangeable at the
-	// higher level of the Invoke... invocation.
-	meta = make(map[string][]string)
-	meta["id"] = []string{evt.ID()}
-	meta["type"] = []string{evt.Type()}
-	meta["source"] = []string{evt.Source()}
-	meta["subject"] = []string{evt.Subject()}
 
 	return
 }

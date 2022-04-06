@@ -1242,14 +1242,9 @@ func TestClient_Invoke_CloudEvent(t *testing.T) {
 	defer job.Stop()
 
 	// Invoke the Function, which will use the mock Runner
-	h, r, err := client.Invoke(context.Background(), f.Root, "", message)
+	_, r, err := client.Invoke(context.Background(), f.Root, "", message)
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	// Assert metadata was returned by spot-checking id
-	if _, ok := h["id"]; !ok {
-		t.Fatal("expected metadata not returned")
 	}
 
 	// Test the contents of the returned string.
