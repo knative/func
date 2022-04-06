@@ -71,6 +71,7 @@ func main() {
 			if err != nil {
 				return err
 			}
+			defer f.Close()
 
 			_, err = io.CopyBuffer(w, f, buff)
 			if err != nil {
