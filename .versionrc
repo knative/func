@@ -1,0 +1,16 @@
+{
+  "bumpFiles": [{
+    "filename": "version.txt",
+    "type": "plain-text"
+  }],
+  "types":  [
+    {"type":"feat","section":"Features"},
+    {"type":"fix","section":"Bug Fixes"},
+    {"type":"chore","section":"Miscellaneous"},
+    {"type":"docs","section":"Documentation"},
+    {"type":"refactor","section":"Miscellaneous"}
+  ],
+  "skip": {
+    "tag": true
+  }
+}
