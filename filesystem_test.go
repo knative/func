@@ -9,13 +9,13 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"reflect"
 	"runtime"
 	"sort"
 	"testing"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestFileSystems(t *testing.T) {
@@ -79,11 +79,8 @@ func TestFileSystems(t *testing.T) {
 			sort.Strings(embeddedFiles)
 			sort.Strings(localFiles)
 
-			if !reflect.DeepEqual(embeddedFiles, localFiles) {
-				t.Log("embedded files: ", embeddedFiles)
-				t.Log("local files: ", localFiles)
-				t.Error("content of embedded files doesn't match the filesystem")
-				return
+			if diff := cmp.Diff(localFiles, embeddedFiles); diff != "" {
+				t.Error("filesystem content missmatch (-want, +got):", diff)
 			}
 
 			err = fs.WalkDir(templatesFS, ".", func(path string, d fs.DirEntry, err error) error {
