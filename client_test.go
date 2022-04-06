@@ -1143,9 +1143,14 @@ func TestClient_Invoke_HTTP(t *testing.T) {
 	defer job.Stop()
 
 	// Invoke the Function, which will use the mock Runner
-	r, err := client.Invoke(context.Background(), f.Root, "", message)
+	h, r, err := client.Invoke(context.Background(), f.Root, "", message)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	// Assert the response includes headers by spot-checking Content-Type
+	if _, ok := h["Content-Type"]; !ok {
+		t.Fatal("expected headers not returned")
 	}
 
 	// Check the response value
@@ -1237,10 +1242,11 @@ func TestClient_Invoke_CloudEvent(t *testing.T) {
 	defer job.Stop()
 
 	// Invoke the Function, which will use the mock Runner
-	r, err := client.Invoke(context.Background(), f.Root, "", message)
+	_, r, err := client.Invoke(context.Background(), f.Root, "", message)
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	// Test the contents of the returned string.
 	if r != evt.String() {
 		t.Fatal("Invoke failed to return a response")

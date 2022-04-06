@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/google/uuid"
@@ -156,12 +157,24 @@ func runInvoke(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 	}
 
 	// Invoke
-	s, err := client.Invoke(cmd.Context(), cfg.Path, cfg.Target, m)
+	metadata, body, err := client.Invoke(cmd.Context(), cfg.Path, cfg.Target, m)
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintln(cmd.OutOrStderr(), s)
+	// Print metadata (headers for HTTP, CloudEvents include metadat in their
+	// default stringification) if in
+	if cfg.Verbose {
+		for k, vv := range metadata {
+			values := strings.Join(vv, ";")
+			fmt.Fprintf(cmd.OutOrStdout(), "%v: %v\n", k, values)
+		}
+		if len(metadata) > 0 {
+			fmt.Fprintln(cmd.OutOrStdout())
+		}
+	}
+
+	fmt.Fprintln(cmd.OutOrStdout(), body)
 	return
 }
 

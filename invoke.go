@@ -45,14 +45,15 @@ func NewInvokeMessage() InvokeMessage {
 }
 
 // invoke the Function instance in the target environment with the
-// invocation message.
-func invoke(ctx context.Context, c *Client, f Function, target string, m InvokeMessage) (string, error) {
+// invocation message.  Returned is metadata (such as HTTP headers or
+// CloudEvent fields) and a stringified version of the payload.
+func invoke(ctx context.Context, c *Client, f Function, target string, m InvokeMessage) (metadata map[string][]string, body string, err error) {
 
 	// Get the first available route from 'local', 'remote', a named environment
 	// or treat target
 	route, err := invocationRoute(ctx, c, f, target) // choose instance to invoke
 	if err != nil {
-		return "", err
+		return
 	}
 
 	// Format" either 'http' or 'cloudevent'
@@ -74,9 +75,14 @@ func invoke(ctx context.Context, c *Client, f Function, target string, m InvokeM
 	case "http":
 		return sendPost(ctx, route, m, c.transport)
 	case "cloudevent":
-		return sendEvent(ctx, route, m, c.transport)
+		// CouldEvents return a string which always includes a fairly verbose
+		// summation of fields, so metadata is not applicable
+		meta := make(map[string][]string)
+		body, err = sendEvent(ctx, route, m, c.transport)
+		return meta, body, err
 	default:
-		return "", fmt.Errorf("format '%v' not supported.", format)
+		err = fmt.Errorf("format '%v' not supported.", format)
+		return
 	}
 }
 
@@ -158,7 +164,7 @@ func sendEvent(ctx context.Context, route string, m InvokeMessage, t http.RoundT
 }
 
 // sendPost to the route populated with data in the invoke message.
-func sendPost(ctx context.Context, route string, m InvokeMessage, t http.RoundTripper) (string, error) {
+func sendPost(ctx context.Context, route string, m InvokeMessage, t http.RoundTripper) (map[string][]string, string, error) {
 	client := http.Client{
 		Transport: t,
 		Timeout:   10 * time.Second,
@@ -171,12 +177,12 @@ func sendPost(ctx context.Context, route string, m InvokeMessage, t http.RoundTr
 		"Data":        {m.Data},
 	})
 	if err != nil {
-		return "", err
+		return nil, "", err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode > 299 {
-		return "", fmt.Errorf("failure invoking '%v' (HTTP %v)", route, resp.StatusCode)
+		return nil, "", fmt.Errorf("failure invoking '%v' (HTTP %v)", route, resp.StatusCode)
 	}
 	b, err := io.ReadAll(resp.Body)
-	return string(b), err
+	return resp.Header, string(b), err
 }

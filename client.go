@@ -836,7 +836,8 @@ func (c *Client) Remove(ctx context.Context, cfg Function, deleteAll bool) error
 }
 
 // Invoke is a convenience method for triggering the execution of a Function
-// for testing and development.
+// for testing and development.  Returned is a map of metadata and a stringified
+// version of the content.
 // The target argument is optional, naming the running instance of the Function
 // which should be invoked.  This can be the literal names "local" or "remote",
 // or can be a URL to an arbitrary endpoint.  If not provided, a running local
@@ -848,7 +849,7 @@ func (c *Client) Remove(ctx context.Context, cfg Function, deleteAll bool) error
 // See NewInvokeMessage for its defaults.
 // Functions are invoked in a manner consistent with the settings defined in
 // their metadata.  For example HTTP vs CloudEvent
-func (c *Client) Invoke(ctx context.Context, root string, target string, m InvokeMessage) (s string, err error) {
+func (c *Client) Invoke(ctx context.Context, root string, target string, m InvokeMessage) (metadata map[string][]string, body string, err error) {
 	go func() {
 		<-ctx.Done()
 		c.progressListener.Stopping()
