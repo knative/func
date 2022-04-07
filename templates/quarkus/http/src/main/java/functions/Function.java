@@ -14,7 +14,9 @@ public class Function {
      */
     @Funq
     public Output function(Input input) {
+
         // Add business logic here
+
         return new Output(input.getMessage());
     }
 

@@ -17,7 +17,9 @@ public class Function {
      */
     @Funq
     public CloudEvent<Output> function(CloudEvent<Input> input) {
+
         // Add your business logic here
+
         System.out.println(input);
         Output output = new Output(input.data().getMessage());
         return CloudEventBuilder.create().build(output);
