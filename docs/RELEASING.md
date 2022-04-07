@@ -21,7 +21,7 @@ git fetch
 git reset --hard origin/main
 ```
 
-- Update CHANGELOG.md and version.txt. Running this will command will update both of these files, and commit the changes with a "release" commit. To see what will happen before actually doing it, use the `--dry-run` flag. 
+- Update CHANGELOG.md and version.txt. Running this will command will update both of these files, and commit the changes with a "release" commit. To see what will happen before actually doing it, use the `--dry-run` flag.
 ```
 standard-version
 ```
@@ -53,7 +53,7 @@ git reset --hard origin/release-X.Y
 git cherry-pick [SHA]
 ```
 
-- Update CHANGELOG.md and version.txt on this branch. Running this will command will update both of these files, and commit the changes with a "release" commit. To see what will happen before actually doing it, use the `--dry-run` flag. 
+- Update CHANGELOG.md and version.txt on this branch. Running this will command will update both of these files, and commit the changes with a "release" commit. To see what will happen before actually doing it, use the `--dry-run` flag.
 ```
 standard-version
 ```
