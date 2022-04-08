@@ -482,7 +482,7 @@ func (r *Repository) Write(path string) (err error) {
 		}
 		fs = billyFilesystem{fs: wt.Filesystem}
 	}
-	return copy(".", path, fs)
+	return copyFromFS(".", path, fs)
 }
 
 // URL attempts to read the remote git origin URL of the repository.  Best

@@ -144,9 +144,10 @@ func (o osFilesystem) Stat(name string) (fs.FileInfo, error) {
 	return os.Stat(filepath.Join(o.root, name))
 }
 
-// copy
-
-func copy(src, dest string, accessor Filesystem) (err error) {
+// copyFromFS copies files from the `src` dir on the accessor Filesystem to local filesystem into `dest` dir.
+// The src path uses slashes as their separator.
+// The dest path uses OS specific separator.
+func copyFromFS(src, dest string, accessor Filesystem) (err error) {
 
 	return fs.WalkDir(accessor, src, func(path string, de fs.DirEntry, err error) error {
 		if err != nil {
