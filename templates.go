@@ -163,7 +163,7 @@ func (t *Templates) Write(f Function) (Function, error) {
 
 	// Copy the template files from the repo filesystem to the new Function's root
 	// removing the manifest (if it exists; errors ignored)
-	err = copy(templatePath, f.Root, repo.FS)              // copy everything
+	err = copyFromFS(templatePath, f.Root, repo.FS)        // copy everything
 	_ = os.Remove(filepath.Join(f.Root, templateManifest)) // except the manifest
 
 	return f, err
