@@ -2,7 +2,7 @@
 
 Language Packs is the mechanism by which the Knative Functions binary can be extended to support additional runtimes, function signatures, even operating systems and installed tooling for a Function. Language Packs are typically distributed via Git repositories but may also simply exist as a directory on a disc.
 
-A Language Pack is the basis for what is written to the filesystem when a Function developer types `func create`. It can be thought of in a simplistic way as a "template" that provides the Function developer a source code file within which she may write her Function. When a Language Pack template is manifested on the filesystem, it also includes standard supporting files as would exist with traditional projects such as `pom.xml` or `package.json`, as well as a `func.yaml` file which has values derived from metadata supplied in the Language Pack. The Language Pack metadata includes information about the Function language runtime, invocation and build, and is used by the `func` CLI to manage the full Function lifecycle; from creation to deployment. 
+A Language Pack is the basis for what is written to the filesystem when a Function developer types `func create`. It can be thought of in a simplistic way as a "template" that provides the Function developer a source code file within which she may write her Function. When a Language Pack template is manifested on the filesystem, it also includes standard supporting files as would exist with traditional projects such as `pom.xml` or `package.json`, as well as a `func.yaml` file which has values derived from metadata supplied in the Language Pack. The Language Pack metadata includes information about the Function language runtime, invocation and build, and is used by the `func` CLI to manage the full Function lifecycle; from creation to deployment.
 
 ## Purpose
 
@@ -110,7 +110,7 @@ builders:
 
 #### `buildpacks`
 
-OPTIONAL: An ordered list of additional buildpacks to be applied to the builder image in addition to those already known by the builder. For example, the Paketo builder is widely used for Node.js, but it does not include a Buildpack for Kotlin. A Language Pack may use the Paketo builder in combination wtih a custom Kotlin buildpack, by specifying the additional Kotlin buildpack here.
+OPTIONAL: An ordered list of additional buildpacks to be applied to the builder image in addition to those already known by the builder. For example, the Paketo builder is widely used for Node.js, but it does not include a Buildpack for Kotlin. A Language Pack may use the Paketo builder in combination with a custom Kotlin buildpack, by specifying the additional Kotlin buildpack here.
 
 ```
 builders:
@@ -149,7 +149,7 @@ See the `repository` section of the [commands guide](../reference/commands.md) f
 
 ### Repository Manifests
 
-In the root directory of a Langauge Pack Git repository there may be a `manifest.yaml` file describing the language packs therein. This file can be used to set the default values for builders, buildpacks and health endpoints for all Language Packs within a repository.
+In the root directory of a Language Pack Git repository there may be a `manifest.yaml` file describing the language packs therein. This file can be used to set the default values for builders, buildpacks and health endpoints for all Language Packs within a repository.
 
 ```yaml
 # The name used for this language pack repository
@@ -178,7 +178,7 @@ runtimes:
 - `build` The Function project is converted into a runnable OCI container image using the `func build` command with metadata provided by the Language Pack's `manifest.yaml` if provided. Any dependencies declared by the Function are installed onto the image filesystem, and the Function invocation code is applied.
 - `run` Using the `func run` command to start the image, a controlling process loads the function project into memory and listens on port 8080 for incoming HTTP requests. The process is determined by the Language Pack. For example, a Node.js Language Pack may use `npm start` as the controlling process, while a Go Language Pack may invoke a binary compiled during the `build` phase.
 - `invoke` When an incoming HTTP request is received by the controlling process, the CloudEvent, if sent, is unmarshalled and the Function invoked with the payload.
-- `response` After a Function has been invoked by the invocation framework, the return value is sent to the caller. If the Function returns a CloudEvent, the invocation framework should respond to the caller with the CloudEvent unchanged. If the Function returns any other data, it is sent to the caller. Function invocation frameworks may each provide their own APIs and specifications to augment a Function developer's experience. For example, the Function developer may be able to return a structure containing a numeric HTTP response code, HTTP headers, and response data. These APIs and specifications are typically unique to the runtime environment and language, and as such are left to Language Pack implementors to provide and document. API capabilities for built-in `default` Language Pack runtimes are documented in the Function templates themselves. 
+- `response` After a Function has been invoked by the invocation framework, the return value is sent to the caller. If the Function returns a CloudEvent, the invocation framework should respond to the caller with the CloudEvent unchanged. If the Function returns any other data, it is sent to the caller. Function invocation frameworks may each provide their own APIs and specifications to augment a Function developer's experience. For example, the Function developer may be able to return a structure containing a numeric HTTP response code, HTTP headers, and response data. These APIs and specifications are typically unique to the runtime environment and language, and as such are left to Language Pack implementors to provide and document. API capabilities for built-in `default` Language Pack runtimes are documented in the Function templates themselves.
 
 ## Execution Scope
 
@@ -194,7 +194,7 @@ When `func create` is used to generate a Function project, the Language Pack pro
 Using external Language Packs is made possible through the `func repository` command, which allows Function developers to add and remove Language Packs from their local development environment. For example:
 
 ```
-❯ func repository add https://github.com/knative-sandbox/func-tastic functastic # Add the func-tastic repo to the local environment 
+❯ func repository add https://github.com/knative-sandbox/func-tastic functastic # Add the func-tastic repo to the local environment
 ❯ func repo list # list repos
 default
 functastic
