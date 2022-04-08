@@ -1,5 +1,7 @@
 # Language Packs and Function Templates
 
+Language Packs is the mechanism by which the Knative Functions binary can be extended to support additional runtimes, function signatures, even operating systems and installed tooling for a Function. Language Packs are typically distributed via Git repositories but may also simply exist as a directory on a disc.
+
 A Language Pack is the basis for what is written to the filesystem when a Function developer types `func create`. It can be thought of in a simplistic way as a "template" that provides the Function developer a source code file within which she may write her Function. When a Language Pack template is manifested on the filesystem, it also includes standard supporting files as would exist with traditional projects such as `pom.xml` or `package.json`, as well as a `func.yaml` file which has values derived from metadata supplied in the Language Pack. The Language Pack metadata includes information about the Function language runtime, invocation and build, and is used by the `func` CLI to manage the full Function lifecycle; from creation to deployment. 
 
 ## Purpose
@@ -43,13 +45,13 @@ The Knative Functions project provides the ability to customize its function tem
 
 A Knative Function Language Pack provides runtime and invocation capabilities for user-provided Function code.
 
-- A Language Pack must be accessible as a git repository(???)
-- A Language Pack must provide utf8(plain?) text code template for function developers via `func create`
-- A Language Pack must expose an invokable function interface for function developers in the code template
-- A Language Pack must provide create, build, runtime and invocation metadata with a `manifest.yaml` file
-- A Language Pack project must be buildable in the form of an OCI container image via `func build`
-- A Language Pack OCI container image must be runnable via `func run`
-- A Language Pack project may be executable natively on a local host via host-specific tooling (e.g. `npm start`)
+- A Language Pack must be accessible as a git repository or a path to a location on disk.
+- A Language Pack must provide code template for function developers via `func create`.
+- A Language Pack must expose an invokable function interface for function developers in the code template.
+- A Language Pack project must be buildable in the form of an OCI container image via `func build`.
+- A Language Pack OCI container image must be runnable via `func run`.
+- A Language Pack may provide create, build, runtime and invocation metadata with a `manifest.yaml` file.
+- A Language Pack project may be executable natively on a local host via host-specific tooling (e.g. `npm start`).
 
 ## Components
 
@@ -60,11 +62,117 @@ A Knative Function Language Pack consists, broadly, of two conceptual components
 
 ## Build and Runtime Metadata
 
-// TODO(lance) inline this, or restructure the whole thing so that Lifecycle and this are all just one
+A Language Pack is a directory of files, typically named for the language or runtime being templated. Its structure is
 
-The build and runtime metadata specification for language packs can be found in the [Language Pack Guide](guides/language-packs.md).
+- The `root` directory containing one or more Language Packs
+- A [`manifest.yaml`](#language-pack-manifests) file in the root directory with metadata about the Language Pack
+- One or more "runtime" directories in `root` named for the languages or runtimes being templated
+- An optional `manifest.yaml` file in the runtime directory which may override metadata provided in a `manifest.yaml` at the `root`
+- One or more template directories within a runtime containing templates for the Language Pack's recognized function signatures
+- An optional `manifest.yaml` file in each template directory which may override the values set in the `root` or runtime `manifest.yaml` files
+- tests and documentation
 
-### Lifecycle
+For example, a Language Pack directory for Ruby with templates for both a CloudEvent function signature and an HTTP function signature, may look similar to the following directory tree.
+
+```
+root
+├── ruby
+|    ├── cloudevent
+|    │   ├── func.rb
+|    |   ├── manifest.yaml
+|    │   ├── Gemfile
+|    │   ├── Rakefile
+|    │   └── README.md
+|    ├── http
+|    │   ├── func.rb
+|    |   ├── manifest.yaml
+|    │   ├── Gemfile
+|    │   ├── Rakefile
+|    │   └── README.md
+|    └── manifest.yaml
+└── manifest.yaml
+```
+
+### Language Pack Manifests
+
+A Language Pack's root level `manifest.yaml` file contains metadata that Language Pack providers may include to configure the build and deployment of Function projects created with the Language Pack. The following fields are recognized and may be used to override any defaults set in the repository's root directory `manifest.yaml`.
+
+#### `builders`
+
+OPTIONAL: A set of key value pairs identifying builder images capable of building a project from this Language Pack. The `default` key will be set as the builder image in `func.yaml` for a newly created project from the template. If not set in the Language Pack's `manifest.yaml`, these values must be provided in repository root `manifest.yaml`
+
+```
+builders:
+  default: paketobuildpacks/builder:base
+  base: paketobuildpacks/builder:base
+  full: paketobuildpacks/builder:full
+```
+
+#### `buildpacks`
+
+OPTIONAL: An ordered list of additional buildpacks to be applied to the builder image in addition to those already known by the builder. For example, the Paketo builder is widely used for Node.js, but it does not include a Buildpack for Kotlin. A Language Pack may use the Paketo builder in combination wtih a custom Kotlin buildpack, by specifying the additional Kotlin buildpack here.
+
+```
+builders:
+  default: gcr.io/paketo-buildpacks/builder:base
+  base: gcr.io/paketo-buildpacks/builder:base
+  full: gcr.io/paketo-buildpacks/builder:full
+
+buildpacks:
+  - paketo-buildpacks/nodejs
+  - ghcr.io/boson-project/kotlin-function-buildpack:tip
+```
+
+#### `healthEndpoints`
+OPTIONAL: A set of key value pairs for `liveness` and `readiness` endpoints for functions created using the language pack. For example
+
+```
+healthEndpoints:
+  liveness: /health/liveness
+  readiness: /health/readiness
+```
+
+If not provided, the values `/health/liveness` and `/health/readiness` will be used by default.
+
+Built in to the Functions library are Language Packs for Go, Node.js, Python, Quarkus, Rust, SpringBoot and TypeScript, each of which provide templates for HTTP and CloudEvents.
+
+### Distributing Language Packs
+
+Language Packs are distributed as a set of templates for one or more languages via Git repositories, and installed by the developer locally using the `func` CLI.
+
+```
+func repository add func https://github.com/knative-sandbox/func-tastic
+func create -l go -t func/hello-world
+```
+
+See the `repository` section of the [commands guide](../reference/commands.md) for more information on installing and managing Language Pack repositories.
+
+### Repository Manifests
+
+In the root directory of a Langauge Pack Git repository there may be a `manifest.yaml` file describing the language packs therein. This file can be used to set the default values for builders, buildpacks and health endpoints for all Language Packs within a repository.
+
+```yaml
+# The name used for this language pack repository
+name: examples
+
+# Optional. Health endpoints for deployed functions in all runtimes.
+# May be overridden by manifest.yaml settings at the language level.
+healthEndpoints:
+  liveness: /health/liveness
+  readiness: /health/readiness
+
+# Runtimes is a list of language packs supported by this repository
+runtimes:
+  - path: go       # Required. The path of the runtime directory from the repository root
+    name: go       # Optional. Name of the runtime; if not provided, path will be used
+
+    # A list of templates supplied by this language pack
+    templates:     # Required. One or more templates that correspond to directories within this language pack
+    - path: events # Required. The path to the template directory from the language pack root
+      name: events # Optional. The name of the template; if not provided path will be used
+```
+
+## Lifecycle
 
 - `create` Function projects are created using the `func create` command, during which, template and metadata files are copied from the Language Pack to a directory structure on the developer's local host.
 - `build` The Function project is converted into a runnable OCI container image using the `func build` command with metadata provided by the Language Pack's `manifest.yaml` if provided. Any dependencies declared by the Function are installed onto the image filesystem, and the Function invocation code is applied.
