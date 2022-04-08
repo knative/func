@@ -46,7 +46,7 @@ The Knative Functions project provides the ability to customize its function tem
 A Knative Function Language Pack provides runtime and invocation capabilities for user-provided Function code.
 
 - A Language Pack must be accessible as a git repository or a path to a location on disk.
-- A Language Pack must provide code template for function developers via `func create`.
+- A Language Pack must provide one or more code templates generated via `func create`.
 - A Language Pack must expose an invokable function interface for function developers in the code template.
 - A Language Pack project must be buildable in the form of an OCI container image via `func build`.
 - A Language Pack OCI container image must be runnable via `func run`.
