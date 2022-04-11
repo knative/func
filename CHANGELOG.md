@@ -1,6 +1,84 @@
 # Change Log
 
 <a name="unreleased"></a>
+
+
+---
+### [0.23.0](https://github.com/knative-sandbox/kn-plugin-func/compare/v0.23.0...v0.22.0) (2022-04-06)
+
+
+### Features
+
+* command help text template preprocessing ([#875](https://github.com/knative-sandbox/kn-plugin-func/issues/875)) ([2bd5254](https://github.com/knative-sandbox/kn-plugin-func/commit/2bd5254f19a14d6aae9bd4a4b59971ef36e96fad))
+* invoke verbose metadata ([#944](https://github.com/knative-sandbox/kn-plugin-func/issues/944)) ([c3c1456](https://github.com/knative-sandbox/kn-plugin-func/commit/c3c1456ede7b471a271d0680107657ac0e4f0568))
+* on cluster build doens't require privileged cluster permissions ([#934](https://github.com/knative-sandbox/kn-plugin-func/issues/934)) ([e9251f5](https://github.com/knative-sandbox/kn-plugin-func/commit/e9251f518cc806768f0221f11e39f04fa4619537))
+* s2i builder with preliminary node support ([#923](https://github.com/knative-sandbox/kn-plugin-func/issues/923)) ([a91bcc5](https://github.com/knative-sandbox/kn-plugin-func/commit/a91bcc5fcfe66948c86ce3e33cf0d28230536f1c)), closes [#921](https://github.com/knative-sandbox/kn-plugin-func/issues/921)
+
+
+### Bug Fixes
+
+* apply updated spring-boot-function dependency ([#936](https://github.com/knative-sandbox/kn-plugin-func/issues/936)) ([4a4cebb](https://github.com/knative-sandbox/kn-plugin-func/commit/4a4cebb1ea7226e7d7c1dbfb9e3fa8e5ec22c31d))
+* bind verbose flag to root ([#884](https://github.com/knative-sandbox/kn-plugin-func/issues/884)) ([25524a1](https://github.com/knative-sandbox/kn-plugin-func/commit/25524a1f8435cd310b45f283e987eee7a8736ceb))
+* full clone of template repos on add ([#904](https://github.com/knative-sandbox/kn-plugin-func/issues/904)) ([564a34b](https://github.com/knative-sandbox/kn-plugin-func/commit/564a34b3f53381bdd59262dcb78d2953f973c8bb))
+* minor typos in docs ([#862](https://github.com/knative-sandbox/kn-plugin-func/issues/862)) ([efc3b20](https://github.com/knative-sandbox/kn-plugin-func/commit/efc3b208cb5ab76f1eb73801501bcbfc23f16928))
+* use full root name for cmd help prefixes ([#873](https://github.com/knative-sandbox/kn-plugin-func/issues/873)) ([3f30c91](https://github.com/knative-sandbox/kn-plugin-func/commit/3f30c91116344b592bf392e92b63cb845b25428a))
+
+
+### Miscellaneous
+
+* add Apple M1 build in cross-platform target ([#932](https://github.com/knative-sandbox/kn-plugin-func/issues/932)) ([00d5a82](https://github.com/knative-sandbox/kn-plugin-func/commit/00d5a8272284ea40ebeefa4f22f12c2d375aadae))
+---
+## [0.22.0](https://www.github.com/knative-sandbox/kn-plugin-func/compare/v0.21.2...v0.22.0) (2022-02-22)
+
+### Chore
+
+- Bump Node.js builder image to the latest paketo builder, removing a non-fatal warning that was issued at function startup. (#[8](https://github.com/knative-sandbox/kn-plugin-func/runs/5297690460?check_suite_focus=true#step:6:8)26, @lance)
+- Update boson builder images to most recent versions (#8[10](https://github.com/knative-sandbox/kn-plugin-func/runs/5297690460?check_suite_focus=true#step:6:10), @matejvasek)
+
+### Enhancement
+
+- Adds the --build flag for 'func deploy' to the shell completions (#802, @matejvasek)
+
+### Documentation
+
+- Clarify podman requirements on Linux vs. MacOS and Linux in podman.md guide (#836, @matejvasek)
+
+### Bug or Regression
+
+- Fix a bug where interactive prompt defaults were not being used (#821, @lkingland)
+- Fixes a bug during func create when confirm option is used with the go language runtime (#8[15](https://github.com/knative-sandbox/kn-plugin-func/runs/5297690460?check_suite_focus=true#step:6:15), @senthilnathan)
+- Fixes a bug where the invoke and describe commands could fail if Knative Eventing is not installed on the cluster. (#8[23](https://github.com/knative-sandbox/kn-plugin-func/runs/5297690460?check_suite_focus=true#step:6:23), @lance)
+- Fixes missing `cloudevent` invocation format for Node.js, SpringBoot and Rust CloudEvent templates (#846, @lance)
+
+### Uncategorized
+
+- Detects when deploying to OpenShift and use internal registry (#8[25](https://github.com/knative-sandbox/kn-plugin-func/runs/5297690460?check_suite_focus=true#step:6:25), @matejvasek)
+
+---
+## [0.21.2](https://www.github.com/knative-sandbox/kn-plugin-func/compare/v0.21.1...v0.21.2) (2022-01-28)
+
+## What's Changed
+* backport: bug fixes for 0.21 by @lance in https://github.com/knative-sandbox/kn-plugin-func/pull/793
+
+
+**Full Changelog**: https://github.com/knative-sandbox/kn-plugin-func/compare/v0.21.1...v0.21.2
+
+---
+## [0.21.1](https://www.github.com/knative-sandbox/kn-plugin-func/compare/v0.21.0...v0.21.1) (2022-01-27)
+
+### Enhancement
+
+- Adds a label `function.knative.dev/name: functionName` to every resouce created for a Function ([#757](https://github.com/knative-sandbox/kn-plugin-func/pull/757), [@zroubalik](https://github.com/zroubalik))
+- Adds the ability to build a Function on the cluster using Tekton Pipelines. The build on the cluster is enabled by fetching Function source code from a remote Git repository. ([#743](https://github.com/knative-sandbox/kn-plugin-func/pull/743), [@zroubalik](https://github.com/zroubalik))
+
+### Bug or Regression
+
+- Changes the springboot function templates to use the base builder instead of the tiny builder. ([#792](https://github.com/knative-sandbox/kn-plugin-func/pull/792), [@lance](https://github.com/lance))
+
+
+**Full Changelog**: https://github.com/knative-sandbox/kn-plugin-func/compare/v0.21.0...v0.21.1
+
+---
 ## [0.21.0](https://www.github.com/knative-sandbox/kn-plugin-func/compare/v0.20.0...v0.21.0) (2022-01-12)
 
 
