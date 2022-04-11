@@ -289,10 +289,14 @@ func repositoryRuntimes(r Repository) (runtimes []Runtime, err error) {
 // runtime for defaults of BuildConfig andHealthEndpoints.  The template itself
 // can override these by including a manifest.
 func runtimeTemplates(r Repository, runtime Runtime) (templates []Template, err error) {
-	templates = []Template{}
+
+	tp := r.TemplatesPath
+	if tp == "" {
+		tp = "."
+	}
 
 	// Validate runtime directory exists and is a directory
-	runtimePath := path.Join(r.TemplatesPath, runtime.Name)
+	runtimePath := path.Join(tp, runtime.Name)
 	if err = checkDir(r.FS, runtimePath); err != nil {
 		err = fmt.Errorf("runtime path '%v' not found. %v", runtimePath, err)
 		return
@@ -309,14 +313,17 @@ func runtimeTemplates(r Repository, runtime Runtime) (templates []Template, err 
 			continue
 		}
 		// Template, defaulted to values inherited from the runtime
-		t := Template{
-			Name:            fi.Name(),
-			Repository:      r.Name,
-			Runtime:         runtime.Name,
-			BuildConfig:     runtime.BuildConfig,
-			HealthEndpoints: runtime.HealthEndpoints,
-			BuildEnvs:       runtime.BuildEnvs,
-			Invocation:      runtime.Invocation,
+		t := template{
+			name:       fi.Name(),
+			repository: r.Name,
+			runtime:    runtime.Name,
+			manifest: templateConfig{
+				BuildConfig:     runtime.BuildConfig,
+				HealthEndpoints: runtime.HealthEndpoints,
+				BuildEnvs:       runtime.BuildEnvs,
+				Invocation:      runtime.Invocation,
+			},
+			fs: subFS{root: path.Join(runtimePath, fi.Name()), fs: r.FS},
 		}
 
 		// Template Manifeset
@@ -326,7 +333,7 @@ func runtimeTemplates(r Repository, runtime Runtime) (templates []Template, err 
 		if err != nil {
 			return
 		}
-		templates = append(templates, t)
+		templates = append(templates, &t)
 	}
 	return
 }
@@ -390,8 +397,8 @@ func applyRuntimeManifest(repo Repository, runtime Runtime) (Runtime, error) {
 // is the template with values from the manifest populated preferentailly.  An
 // error is not returned for a missing manifest file (the passed template is
 // returned), but errors decoding the file are.
-func applyTemplateManifest(repo Repository, t Template) (Template, error) {
-	file, err := repo.FS.Open(path.Join(repo.TemplatesPath, t.Runtime, t.Name, templateManifest))
+func applyTemplateManifest(repo Repository, t template) (template, error) {
+	file, err := repo.FS.Open(path.Join(repo.TemplatesPath, t.runtime, t.Name(), templateManifest))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return t, nil
@@ -399,7 +406,7 @@ func applyTemplateManifest(repo Repository, t Template) (Template, error) {
 		return t, err
 	}
 	decoder := yaml.NewDecoder(file)
-	return t, decoder.Decode(&t)
+	return t, decoder.Decode(&t.manifest)
 }
 
 // check that the given path is an accessible directory or error.
@@ -421,11 +428,11 @@ func (r *Repository) Template(runtimeName, name string) (t Template, err error) 
 		return
 	}
 	for _, t := range runtime.Templates {
-		if t.Name == name {
+		if t.Name() == name {
 			return t, nil
 		}
 	}
-	return Template{}, ErrTemplateNotFound
+	return nil, ErrTemplateNotFound
 }
 
 // Templates returns the set of all templates for a given runtime.
@@ -436,7 +443,7 @@ func (r *Repository) Templates(runtimeName string) ([]Template, error) {
 			return runtime.Templates, nil
 		}
 	}
-	return []Template{}, nil
+	return nil, nil
 }
 
 // Runtime of the given name within the repository.

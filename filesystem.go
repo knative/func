@@ -144,6 +144,24 @@ func (o osFilesystem) Stat(name string) (fs.FileInfo, error) {
 	return os.Stat(filepath.Join(o.root, name))
 }
 
+// subFS exposes subdirectory of underlying FS, this is similar to `chroot`.
+type subFS struct {
+	root string
+	fs   Filesystem
+}
+
+func (o subFS) Open(name string) (fs.File, error) {
+	return o.fs.Open(path.Join(o.root, name))
+}
+
+func (o subFS) ReadDir(name string) ([]fs.DirEntry, error) {
+	return o.fs.ReadDir(path.Join(o.root, name))
+}
+
+func (o subFS) Stat(name string) (fs.FileInfo, error) {
+	return o.fs.Stat(path.Join(o.root, name))
+}
+
 // copyFromFS copies files from the `src` dir on the accessor Filesystem to local filesystem into `dest` dir.
 // The src path uses slashes as their separator.
 // The dest path uses OS specific separator.

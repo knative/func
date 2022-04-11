@@ -78,9 +78,9 @@ func TestTemplates_Get(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if embedded.Runtime != "go" || embedded.Repository != "default" || embedded.Name != "http" {
+	if embedded.Runtime() != "go" || embedded.Repository() != "default" || embedded.Name() != "http" {
 		t.Logf("Expected template from embedded to have runtime 'go' repo 'default' name 'http', got '%v', '%v', '%v',",
-			embedded.Runtime, embedded.Repository, embedded.Name)
+			embedded.Runtime(), embedded.Repository(), embedded.Name())
 	}
 
 	// Check extended
@@ -89,9 +89,9 @@ func TestTemplates_Get(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if embedded.Runtime != "go" || embedded.Repository != "default" || embedded.Name != "http" {
+	if embedded.Runtime() != "go" || embedded.Repository() != "default" || embedded.Name() != "http" {
 		t.Logf("Expected template from extended repo to have runtime 'go' repo 'customTemplateRepo' name 'customTemplate', got '%v', '%v', '%v',",
-			extended.Runtime, extended.Repository, extended.Name)
+			extended.Runtime(), extended.Repository(), extended.Name())
 	}
 }
 
