@@ -1,13 +1,16 @@
 # Installing the CLI
 
-The CLI is used to create, build and deploy functions.  To use it, install one of the pre-built binaries, or compile from source.
+The CLI is used to create, build, manage and deploy Functions.  There are a few different ways you can install the binary.
 
 ## From Homebrew
 
 ```
 brew tap knative-sandbox/kn-plugins
+brew install kn
 brew install func
 ```
+
+Installed in this way, Knative Functions are managed as a plugin of the Knative CLI, via `kn func`. You may also invoke the Functions client directly from the Homebrew path, often `/opt/homebrew/bin`, as `kn-func`.
 
 ## Prebuilt Binary
 
@@ -19,9 +22,11 @@ Each version is built and made available as a prebuilt binary.  See [All Release
 
 To build and install from source check out the repository, run `make`, and install the resultant binary:
 ```
+git clone git@github.com:knative-sandbox/kn-plugin-func.git
+cd kn-plugin-func
 make
-mv func /usr/local/bin/
+sudo mv func /usr/local/bin/
 ```
 
 ## Integration with `kn`
-See [plugins](https://github.com/knative/client/blob/main/docs/README.md#plugin-configuration) section of `kn`
+See [plugins](https://github.com/knative/client/blob/main/docs/README.md#plugin-configuration) section of `kn`.
