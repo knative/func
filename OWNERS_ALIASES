@@ -26,7 +26,6 @@ aliases:
   - lionelvillard
   - matzew
   - travis-minke-sap
-  - vaikas
   discovery-approvers:
   - lberk
   - n3wscott
@@ -113,7 +112,6 @@ aliases:
   - matzew
   - odacremolbap
   - pierDipi
-  - vaikas
   func-tastic-approvers:
   - lance
   - lkingland
