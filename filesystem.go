@@ -60,7 +60,7 @@ func (z zipFS) Stat(name string) (fs.FileInfo, error) {
 	return f.Stat()
 }
 
-//go:generate go run ./generate/templates/main.go
+//go:generate go run ./generate/templates/main.go templates zz_filesystem_generated.go templatesZip
 
 func newEmbeddedTemplatesFS() Filesystem {
 	archive, err := zip.NewReader(bytes.NewReader(templatesZip), int64(len(templatesZip)))
