@@ -2,8 +2,6 @@ package function
 
 import (
 	"context"
-	"os"
-	"path/filepath"
 )
 
 type Template interface {
@@ -103,13 +101,5 @@ func (t *template) Write(ctx context.Context, f *Function) error {
 		f.Invocation.Format = t.manifest.Invocation.Format
 	}
 
-	// Copy the template files from the repo filesystem to the new Function's root
-	// removing the manifest (if it exists; errors ignored)
-	err := copyFromFS(".", f.Root, t.fs) // copy everything
-	if err != nil {
-		return err
-	}
-
-	_ = os.Remove(filepath.Join(f.Root, templateManifest)) // except the manifest
-	return nil
+	return copyFromFS(".", f.Root, t.fs) // copy everything
 }

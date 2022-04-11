@@ -323,7 +323,13 @@ func runtimeTemplates(r Repository, runtime Runtime) (templates []Template, err 
 				BuildEnvs:       runtime.BuildEnvs,
 				Invocation:      runtime.Invocation,
 			},
-			fs: subFS{root: path.Join(runtimePath, fi.Name()), fs: r.FS},
+			fs: maskingFS{
+				fs: subFS{root: path.Join(runtimePath, fi.Name()), fs: r.FS},
+				masked: func(p string) bool {
+					_, f := path.Split(p)
+					return f == templateManifest
+				},
+			},
 		}
 
 		// Template Manifeset
