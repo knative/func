@@ -27,7 +27,7 @@ func Update(t *testing.T, knFunc *TestShellCmdRunner, project *FunctionTestProje
 
 	// Template folder exists for given runtime / template.
 	// Let's update the project and redeploy
-	err := projectUpdater{}.UpdateFolderContent(templatePath, project)
+	err := projectUpdaterFor(project).UpdateFolderContent(templatePath, project)
 	if err != nil {
 		t.Fatal("an error has occurred while updating project folder with new sources.", err.Error())
 	}
@@ -46,11 +46,24 @@ func Update(t *testing.T, knFunc *TestShellCmdRunner, project *FunctionTestProje
 // projectUpdater offers methods to update the project source content by the
 // source provided on update_templates folder
 // The strategy used consists in
-// 1. Create a temporary project folder with func.yaml (copied from test folder)
+// 1. Create a temporary project folder with some files from original test folder (such as func.yaml, pom.xml)
 // 2. Copy recursivelly all files from ./update_template/<runtime>/<template>/** to the temporary project folder
 // 3. Replace current project folder by the temporary one (rm -rf <project folder> && mv <tmp folder> <project folder>
 //
-type projectUpdater struct{}
+type projectUpdater struct {
+	retainList []string // List of files to retain from original test project
+}
+
+func projectUpdaterFor(project *FunctionTestProject) projectUpdater {
+	updater := projectUpdater{retainList: []string{"func.yaml"}}
+	if project.Runtime == "springboot" {
+		updater.retainList = append(updater.retainList, "pom.xml")
+	}
+	if project.Runtime == "quarkus" {
+		updater.retainList = append(updater.retainList, "pom.xml")
+	}
+	return updater
+}
 
 func (p projectUpdater) UpdateFolderContent(templatePath string, project *FunctionTestProject) error {
 	// Create temp project folder (reuse func.yaml)
@@ -64,10 +77,20 @@ func (p projectUpdater) UpdateFolderContent(templatePath string, project *Functi
 		_ = projectTmp.RemoveProjectFolder()
 	}()
 
-	// Copy contentious existing file (let's reuse it)
-	err = p.copyFile(filepath.Join(project.ProjectPath, "func.yaml"), filepath.Join(projectTmp.ProjectPath, "func.yaml"))
-	if err != nil {
-		return err
+	// Copy files to retain (let's reuse some such as func.yaml, pom.xml)
+	for _, sourceFile := range p.retainList {
+		targetDir := filepath.Join(projectTmp.ProjectPath, filepath.Dir(sourceFile))
+		_, err = os.Stat(targetDir)
+		if err != nil && os.IsNotExist(err) {
+			err = os.MkdirAll(targetDir, os.ModePerm)
+			if err != nil {
+				return err
+			}
+		}
+		err = p.copyFile(filepath.Join(project.ProjectPath, sourceFile), filepath.Join(projectTmp.ProjectPath, sourceFile))
+		if err != nil {
+			return err
+		}
 	}
 
 	// Copy from template structure to new project folders and files

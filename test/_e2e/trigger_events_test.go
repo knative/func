@@ -41,6 +41,7 @@ type FunctionCloudEventsValidatorEntry struct {
 	targetUrl   string
 	contentType string
 	data        string
+	expectsBody string
 }
 
 var defaultFunctionsCloudEventsValidators = map[string]FunctionCloudEventsValidatorEntry{
@@ -50,9 +51,10 @@ var defaultFunctionsCloudEventsValidators = map[string]FunctionCloudEventsValida
 		data:        `{"message":"hello"}`,
 	},
 	"springboot": {
-		targetUrl:   "%s/uppercase",
+		targetUrl:   "%s/echo",
 		contentType: "application/json",
-		data:        `{"input":"hello"}`,
+		data:        `hello function`,
+		expectsBody: "hello function",
 	},
 }
 
@@ -77,12 +79,15 @@ func DefaultFunctionEventsTest(t *testing.T, knFunc *TestShellCmdRunner, project
 			targetUrl = fmt.Sprintf(customData.targetUrl, project.FunctionURL)
 		}
 
-		_, statusCode, err := simpleEvent.pushTo(targetUrl, t)
+		body, statusCode, err := simpleEvent.pushTo(targetUrl, t)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if statusCode != 200 {
 			t.Fatalf("Expected status code 200, received %v", statusCode)
+		}
+		if customData.expectsBody != "" && !strings.Contains(body, customData.expectsBody) {
+			t.Fatalf("Body does not contains expected sentence [%v]", customData.expectsBody)
 		}
 
 	} else {
