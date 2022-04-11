@@ -162,6 +162,42 @@ func (o subFS) Stat(name string) (fs.FileInfo, error) {
 	return o.fs.Stat(path.Join(o.root, name))
 }
 
+type maskingFS struct {
+	masked func(path string) bool
+	fs     Filesystem
+}
+
+func (m maskingFS) Open(name string) (fs.File, error) {
+	if m.masked(name) {
+		return nil, &fs.PathError{Op: "open", Path: name, Err: fs.ErrNotExist}
+	}
+	return m.fs.Open(name)
+}
+
+func (m maskingFS) ReadDir(name string) ([]fs.DirEntry, error) {
+	if m.masked(name) {
+		return nil, &fs.PathError{Op: "readdir", Path: name, Err: fs.ErrNotExist}
+	}
+	des, err := m.fs.ReadDir(name)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]fs.DirEntry, 0, len(des))
+	for _, de := range des {
+		if !m.masked(path.Join(name, de.Name())) {
+			result = append(result, de)
+		}
+	}
+	return result, nil
+}
+
+func (m maskingFS) Stat(name string) (fs.FileInfo, error) {
+	if m.masked(name) {
+		return nil, &fs.PathError{Op: "stat", Path: name, Err: fs.ErrNotExist}
+	}
+	return m.fs.Stat(name)
+}
+
 // copyFromFS copies files from the `src` dir on the accessor Filesystem to local filesystem into `dest` dir.
 // The src path uses slashes as their separator.
 // The dest path uses OS specific separator.
