@@ -546,7 +546,7 @@ func (c *Client) Create(cfg Function) (err error) {
 	// Templates contain values which may result in the Function being mutated
 	// (default builders, etc), so a new (potentially mutated) Function is
 	// returned from Templates.Write
-	f, err = c.Templates().Write(f)
+	err = c.Templates().Write(&f)
 	if err != nil {
 		return
 	}
