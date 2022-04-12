@@ -25,6 +25,16 @@ type Filesystem interface {
 	fs.StatFS
 }
 
+func newZipFS(data []byte) Filesystem {
+	archive, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		panic(err)
+	}
+	return zipFS{
+		archive: archive,
+	}
+}
+
 type zipFS struct {
 	archive *zip.Reader
 }
@@ -61,18 +71,7 @@ func (z zipFS) Stat(name string) (fs.FileInfo, error) {
 }
 
 //go:generate go run ./generate/templates/main.go templates zz_filesystem_generated.go templatesZip
-
-func newEmbeddedTemplatesFS() Filesystem {
-	archive, err := zip.NewReader(bytes.NewReader(templatesZip), int64(len(templatesZip)))
-	if err != nil {
-		panic(err)
-	}
-	return zipFS{
-		archive: archive,
-	}
-}
-
-var EmbeddedTemplatesFS Filesystem = newEmbeddedTemplatesFS()
+var EmbeddedTemplatesFS Filesystem = newZipFS(templatesZip)
 
 // billyFilesystem is a template file accessor backed by a billy FS
 type billyFilesystem struct{ fs billy.Filesystem }
