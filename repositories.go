@@ -75,6 +75,21 @@ func (r *Repositories) List() ([]string, error) {
 	return names, nil
 }
 
+func defaultRepo() (repo Repository, err error) {
+	if repo, err = NewRepository("", ""); err != nil {
+		return
+	}
+	repo.Runtimes = append(repo.Runtimes, Runtime{
+		Name: "quarkus",
+		Templates: []Template{
+			quarkusHttpTemplate,
+			quarkusCloudEventTemplate,
+		},
+	})
+
+	return repo, nil
+}
+
 // All repositories under management
 // The default repository is always first.
 // If a path to custom repositories is defined, these are included next.
@@ -95,7 +110,7 @@ func (r *Repositories) All() (repos []Repository, err error) {
 
 	// When not in single-repo mode (above), the default repository is always
 	// first in the list
-	if repo, err = NewRepository("", ""); err != nil {
+	if repo, err = defaultRepo(); err != nil {
 		return
 	}
 	repos = append(repos, repo)

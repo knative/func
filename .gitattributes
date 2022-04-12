@@ -2,3 +2,4 @@ testdata/repository-a.git/objects/*/* ignore-lint=true
 testdata/repository.git/objects/*/* ignore-lint=true
 version.txt linguist-generated=true
 zz_filesystem_generated.go linguist-generated=true
+zz_quarkus_template_static_files_generated.go linguist-generated=true

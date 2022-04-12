@@ -24,7 +24,7 @@ VERS    ?= $(shell [ -z $(VTAG) ] && echo 'tip' || echo $(VTAG) )
 LDFLAGS := "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)"
 
 # All Code prerequisites, including generated files, etc.
-CODE := $(shell find . -name '*.go') zz_filesystem_generated.go go.mod schema/func_yaml-schema.json
+CODE := $(shell find . -name '*.go') go_generate go.mod schema/func_yaml-schema.json
 TEMPLATES := $(shell find templates -name '*' -type f)
 
 .PHONY: test
@@ -75,16 +75,15 @@ clean_templates:
 	@rm -rf templates/typescript/http/node_modules
 	@rm -rf templates/rust/cloudevents/target
 	@rm -rf templates/rust/http/target
-	@rm -rf templates/quarkus/cloudevents/target
-	@rm -rf templates/quarkus/http/target
 	@rm -rf templates/springboot/cloudevents/target
 	@rm -rf templates/springboot/http/target
 	@rm -f templates/**/.DS_Store
 
-.PHONY: zz_filesystem_generated.go
+.PHONY: go_generate
 
-zz_filesystem_generated.go: clean_templates
+go_generate: clean_templates
 	go generate filesystem.go
+	go generate quarkus_templates.go
 
 .PHONY: clean
 
@@ -98,7 +97,7 @@ clean: clean_templates ## Remove generated artifacts such as binaries and schema
 ##@ Templates
 #############
 
-test-templates: test-go test-node test-python test-quarkus test-rust test-typescript ## Run all template tests
+test-templates: test-go test-node test-python test-rust test-typescript ## Run all template tests
 
 test-go: ## Test Go templates
 	cd templates/go/cloudevents && go mod tidy && go test
@@ -111,10 +110,6 @@ test-node: ## Test Node templates
 test-python: ## Test Python templates
 	cd templates/python/cloudevents && pip3 install -r requirements.txt && python3 test_func.py && rm -rf __pycache__
 	cd templates/python/http && python3 test_func.py && rm -rf __pycache__
-
-test-quarkus: ## Test Quarkus templates
-	cd templates/quarkus/cloudevents && mvn test && mvn clean
-	cd templates/quarkus/http && mvn test && mvn clean
 
 test-rust: ## Test Rust templates
 	cd templates/rust/cloudevents && cargo test && cargo clean
@@ -145,22 +140,22 @@ cross-platform: darwin-arm64 darwin-amd64 linux windows ## Build all distributab
 
 darwin-arm64: $(BIN_DARWIN_ARM64) ## Build for mac M1
 
-$(BIN_DARWIN_ARM64): zz_filesystem_generated.go
+$(BIN_DARWIN_ARM64): go_generate
 	env CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o $(BIN_DARWIN_ARM64) -ldflags $(LDFLAGS) ./cmd/$(BIN)
 
 darwin-amd64: $(BIN_DARWIN_AMD64) ## Build for Darwin (macOS)
 
-$(BIN_DARWIN_AMD64): zz_filesystem_generated.go
+$(BIN_DARWIN_AMD64): go_generate
 	env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o $(BIN_DARWIN_AMD64) -ldflags $(LDFLAGS) ./cmd/$(BIN)
 
 linux: $(BIN_LINUX) ## Build for Linux
 
-$(BIN_LINUX): zz_filesystem_generated.go
+$(BIN_LINUX): go_generate
 	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BIN_LINUX) -ldflags $(LDFLAGS) ./cmd/$(BIN)
 
 windows: $(BIN_WINDOWS) ## Build for Windows
 
-$(BIN_WINDOWS): zz_filesystem_generated.go
+$(BIN_WINDOWS): go_generate
 	env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o $(BIN_WINDOWS) -ldflags $(LDFLAGS) ./cmd/$(BIN)
 
 ######################

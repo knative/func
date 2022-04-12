@@ -1,7 +1,0 @@
-builders:
-  default: quay.io/boson/faas-jvm-builder:v0.9.2
-  jvm: quay.io/boson/faas-jvm-builder:v0.9.2
-  native: quay.io/boson/faas-quarkus-native-builder:v0.9.2
-
-invocation:
-  format: "cloudevent"
