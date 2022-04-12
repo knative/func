@@ -12,24 +12,6 @@ type Template interface {
 	Write(ctx context.Context, f *Function) error
 }
 
-type templateConfig struct {
-	// BuildConfig defines builders and buildpacks.  the denormalized view of
-	// members which can be defined per repo or per runtime first.
-	BuildConfig `yaml:",inline"`
-
-	// HealthEndpoints.  The denormalized view of members which can be defined
-	// first per repo or per runtime.
-	HealthEndpoints `yaml:"healthEndpoints,omitempty"`
-
-	// BuildEnvs defines environment variables related to the builders,
-	// this can be used to parameterize the builders
-	BuildEnvs []Env `yaml:"buildEnvs,omitempty"`
-
-	// Invocation defines invocation hints for a Functions which is created
-	// from this template prior to being materially modified.
-	Invocation Invocation `yaml:"invocation,omitempty"`
-}
-
 // template
 type template struct {
 	name string
