@@ -244,7 +244,7 @@ func repositoryRuntimes(r Repository) (runtimes []Runtime, err error) {
 
 	// Load runtimes
 	if r.TemplatesPath == "" {
-		r.TemplatesPath = "."
+		r.TemplatesPath = DefaultTemplatesPath
 	}
 
 	fis, err := r.FS.ReadDir(r.TemplatesPath)
@@ -292,7 +292,7 @@ func runtimeTemplates(r Repository, runtime Runtime) (templates []Template, err 
 
 	tp := r.TemplatesPath
 	if tp == "" {
-		tp = "."
+		tp = DefaultTemplatesPath
 	}
 
 	// Validate runtime directory exists and is a directory
