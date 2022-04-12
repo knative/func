@@ -50,26 +50,26 @@ type template struct {
 	manifest templateConfig
 }
 
-func (t *template) Name() string {
+func (t template) Name() string {
 	return t.name
 }
 
-func (t *template) Runtime() string {
+func (t template) Runtime() string {
 	return t.runtime
 }
 
-func (t *template) Repository() string {
+func (t template) Repository() string {
 	return t.repository
 }
 
 // Fullname is a calculated field of [repo]/[name] used
 // to uniquely reference a template which may share a name
 // with one in another repository.
-func (t *template) Fullname() string {
+func (t template) Fullname() string {
 	return t.repository + "/" + t.name
 }
 
-func (t *template) Write(ctx context.Context, f *Function) error {
+func (t template) Write(ctx context.Context, f *Function) error {
 
 	// Apply fields from the template onto the function itself (Denormalize).
 	// The template is already the denormalized view of repo->runtime->template
