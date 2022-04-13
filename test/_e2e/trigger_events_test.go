@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 )
 
 type SimpleTestEvent struct {
@@ -16,7 +17,7 @@ type SimpleTestEvent struct {
 }
 
 func (s SimpleTestEvent) pushTo(url string, t *testing.T) (body string, statusCode int, err error) {
-	client := &http.Client{}
+	client := &http.Client{Timeout: time.Second * 15}
 	req, err := http.NewRequest("POST", url, strings.NewReader(s.Data))
 	req.Header.Add("Ce-Id", "message-1")
 	req.Header.Add("Ce-Specversion", "1.0")
