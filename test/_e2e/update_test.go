@@ -3,6 +3,7 @@ package e2e
 import (
 	"io"
 	"io/ioutil"
+
 	"os"
 	"path/filepath"
 	"testing"
@@ -32,11 +33,13 @@ func Update(t *testing.T, knFunc *TestShellCmdRunner, project *FunctionTestProje
 		t.Fatal("an error has occurred while updating project folder with new sources.", err.Error())
 	}
 
+	previousRevision := GetCurrentServiceRevision(t, project)
+
 	// Redeploy function
 	Deploy(t, knFunc, project)
 
-	// Waits to become ready
-	ReadyCheck(t, knFunc, *project)
+	// Waits New Revision to become ready
+	NewRevisionCheck(t, previousRevision, project)
 
 	// Indicates new project (from update templates) is in use
 	project.IsNewRevision = true
