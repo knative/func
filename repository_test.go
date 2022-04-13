@@ -4,6 +4,7 @@
 package function_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -42,16 +43,20 @@ func TestRepository_Inheritance(t *testing.T) {
 	var err error
 	client := fn.New(fn.WithRepositoriesPath("testdata/repositories"))
 
+	repo, err := client.Repositories().Get("customLanguagePackRepo")
+
 	// Template A:  from a path containing no settings other than the repo root.
 	// Should have a readiness and liveness equivalent to that defined in
 	// [repo]/manifest.yaml
 	fA := fn.Function{
-		Name:     "fn-a",
-		Root:     t.TempDir(),
-		Runtime:  "customRuntime",
-		Template: "customLanguagePackRepo/customTemplate",
+		Name: "fn-a",
+		Root: t.TempDir(),
 	}
-	err = client.Templates().Write(&fA)
+	tA, err := repo.Template("customRuntime", "customTemplate")
+	if err != nil {
+		t.Error(err)
+	}
+	err = tA.Write(context.Background(), &fA)
 	if err != nil {
 		t.Error(err)
 	}
@@ -59,12 +64,14 @@ func TestRepository_Inheritance(t *testing.T) {
 	// Template B: from a path containing runtime-wide settings, but no
 	// template-level settings.
 	fB := fn.Function{
-		Name:     "fn-b",
-		Root:     t.TempDir(),
-		Runtime:  "manifestedRuntime",
-		Template: "customLanguagePackRepo/customTemplate",
+		Name: "fn-b",
+		Root: t.TempDir(),
 	}
-	err = client.Templates().Write(&fB)
+	tB, err := repo.Template("manifestedRuntime", "customTemplate")
+	if err != nil {
+		t.Error(err)
+	}
+	err = tB.Write(context.Background(), &fB)
 	if err != nil {
 		t.Error(err)
 	}
@@ -72,12 +79,14 @@ func TestRepository_Inheritance(t *testing.T) {
 	// Template C: from a runtime with a manifest which sets endpoints, and
 	// itself includes a manifest which explicitly sets.
 	fC := fn.Function{
-		Name:     "fn-c",
-		Root:     t.TempDir(),
-		Runtime:  "manifestedRuntime",
-		Template: "customLanguagePackRepo/manifestedTemplate",
+		Name: "fn-c",
+		Root: t.TempDir(),
 	}
-	err = client.Templates().Write(&fC)
+	tC, err := repo.Template("manifestedRuntime", "manifestedTemplate")
+	if err != nil {
+		t.Error(err)
+	}
+	err = tC.Write(context.Background(), &fC)
 	if err != nil {
 		t.Error(err)
 	}
