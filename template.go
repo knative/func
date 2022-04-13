@@ -6,10 +6,20 @@ import (
 )
 
 type Template interface {
+	// Name of this template.
 	Name() string
+	// Runtime for which this template applies.
 	Runtime() string
+	// Repository within which this template is contained.  Value is set to the
+	// currently effective name of the repository, which may vary. It is user-
+	// defined when the repository is added, and can be set to "default" when
+	// the client is loaded in single repo mode. I.e. not canonical.
 	Repository() string
+	// Fullname is a calculated field of [repo]/[name] used
+	// to uniquely reference a template which may share a name
+	// with one in another repository.
 	Fullname() string
+	// Write updates fields of Function f and writes project files to path pointed by f.Root.
 	Write(ctx context.Context, f *Function) error
 }
 
@@ -33,22 +43,11 @@ type templateConfig struct {
 
 // template
 type template struct {
-	name string
-
-	// Runtime for which this template applies.
-	runtime string
-
-	// Repository within which this template is contained.  Value is set to the
-	// currently effective name of the repository, which may vary. It is user-
-	// defined when the repository is added, and can be set to "default" when
-	// the client is loaded in single repo mode. I.e. not canonical.
+	name       string
+	runtime    string
 	repository string
-
-	// filesystem containing template files
-	fs Filesystem
-
-	// manifest containing defaults for `fn.Function` struct
-	manifest templateConfig
+	fs         Filesystem
+	manifest   templateConfig
 }
 
 func (t template) Name() string {
@@ -63,9 +62,6 @@ func (t template) Repository() string {
 	return t.repository
 }
 
-// Fullname is a calculated field of [repo]/[name] used
-// to uniquely reference a template which may share a name
-// with one in another repository.
 func (t template) Fullname() string {
 	return t.repository + "/" + t.name
 }
