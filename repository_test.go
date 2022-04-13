@@ -44,6 +44,9 @@ func TestRepository_Inheritance(t *testing.T) {
 	client := fn.New(fn.WithRepositoriesPath("testdata/repositories"))
 
 	repo, err := client.Repositories().Get("customLanguagePackRepo")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Template A:  from a path containing no settings other than the repo root.
 	// Should have a readiness and liveness equivalent to that defined in
