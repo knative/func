@@ -2,6 +2,7 @@ package function
 
 import (
 	"context"
+	"path"
 )
 
 type Template interface {
@@ -101,5 +102,10 @@ func (t template) Write(ctx context.Context, f *Function) error {
 		f.Invocation.Format = t.manifest.Invocation.Format
 	}
 
-	return copyFromFS(".", f.Root, t.fs) // copy everything
+	isManifest := func(p string) bool {
+		_, f := path.Split(p)
+		return f == templateManifest
+	}
+
+	return copyFromFS(".", f.Root, maskingFS{fs: t.fs, masked: isManifest}) // copy everything but manifest.yaml
 }
