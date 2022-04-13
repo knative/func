@@ -225,27 +225,26 @@ func copyFromFS(src, dest string, accessor Filesystem) (err error) {
 			// See https://github.com/go-git/go-git/issues/364
 			// Upon resolution, return accessor.Stat(src).Mode()
 			return os.MkdirAll(dest, 0755)
-		} else {
-			fi, err := de.Info()
-			if err != nil {
-				return err
-			}
-
-			destFile, err := os.OpenFile(dest, os.O_RDWR|os.O_CREATE|os.O_TRUNC, fi.Mode())
-			if err != nil {
-				return err
-			}
-			defer destFile.Close()
-
-			srcFile, err := accessor.Open(path)
-			if err != nil {
-				return err
-			}
-			defer srcFile.Close()
-
-			_, err = io.Copy(destFile, srcFile)
+		}
+		fi, err := de.Info()
+		if err != nil {
 			return err
 		}
+
+		destFile, err := os.OpenFile(dest, os.O_RDWR|os.O_CREATE|os.O_TRUNC, fi.Mode())
+		if err != nil {
+			return err
+		}
+		defer destFile.Close()
+
+		srcFile, err := accessor.Open(path)
+		if err != nil {
+			return err
+		}
+		defer srcFile.Close()
+
+		_, err = io.Copy(destFile, srcFile)
+		return err
 	})
 
 }
