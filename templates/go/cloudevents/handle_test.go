@@ -18,8 +18,8 @@ func TestHandle(t *testing.T) {
 	event.SetType("MyEvent")
 	event.SetSource("http://localhost:8080/")
 	event.SetSubject("Echo")
-	input := "hello"
-	event.SetData(cloudevents.ApplicationJSON, &input)
+	input := Echo{Message: "hello"}
+	event.SetData(cloudevents.ApplicationJSON, input)
 	// Invoke the defined handler.
 	ce, err := Handle(context.Background(), event)
 	if err != nil {
@@ -32,13 +32,13 @@ func TestHandle(t *testing.T) {
 	if ce.Type() != "Echo" {
 		t.Errorf("Wrong CloudEvent Type received: %v , expected Echo", ce.Type())
 	}
-	output := ""
+	var output Echo
 	err = json.Unmarshal(ce.Data(), &output)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if output != "echo "+input {
-		t.Errorf("The expected output should be: 'echo hello and it was: %v", output)
+	if expected := "echo " + input.Message; output.Message != expected {
+		t.Errorf("The expected output should be: %v, and it was: %v", expected, output.Message)
 	}
 
 }

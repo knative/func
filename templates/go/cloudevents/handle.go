@@ -20,22 +20,26 @@ func Handle(ctx context.Context, event cloudevents.Event) (*event.Event, error) 
 	 */
 
 	fmt.Printf("Incoming Event: %v\n", event) // print the received event to standard output
-	payload := ""
+	var payload Echo
 	err := json.Unmarshal(event.Data(), &payload)
 	if err != nil {
 		fmt.Printf("%v\n", err)
 		return nil, err
 	}
 
-	payload = "echo " + payload
+	payload.Message = "echo " + payload.Message
 	outputEvent := cloudevents.NewEvent()
 	outputEvent.SetSource("http://example.com/echo")
 	outputEvent.SetType("Echo")
-	outputEvent.SetData(cloudevents.ApplicationJSON, &payload)
+	outputEvent.SetData(cloudevents.ApplicationJSON, payload)
 
 	fmt.Printf("Outgoing Event: %v\n", outputEvent)
 
 	return &outputEvent, nil
+}
+
+type Echo struct {
+	Message string `json:"message"`
 }
 
 /*
