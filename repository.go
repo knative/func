@@ -145,6 +145,18 @@ func NewRepository(name, uri string) (r Repository, err error) {
 	if err != nil {
 		return
 	}
+
+	// Validate custom path if defined
+	if r.TemplatesPath != "" {
+		if err = checkDir(r.FS, r.TemplatesPath); err != nil {
+			err = fmt.Errorf("templates path '%v' does not exist in repo '%v'. %v",
+				r.TemplatesPath, r.Name, err)
+			return
+		}
+	} else {
+		r.TemplatesPath = DefaultTemplatesPath
+	}
+
 	r.Name, err = repositoryDefaultName(r.DefaultName, uri) // choose default name
 	if err != nil {
 		return
@@ -233,20 +245,7 @@ func filesystemFromPath(uri string) (f Filesystem, err error) {
 func repositoryRuntimes(r Repository) (runtimes []Runtime, err error) {
 	runtimes = []Runtime{}
 
-	// Validate custom path if defined
-	if r.TemplatesPath != "" {
-		if err = checkDir(r.FS, r.TemplatesPath); err != nil {
-			err = fmt.Errorf("templates path '%v' does not exist in repo '%v'. %v",
-				r.TemplatesPath, r.Name, err)
-			return
-		}
-	}
-
 	// Load runtimes
-	if r.TemplatesPath == "" {
-		r.TemplatesPath = DefaultTemplatesPath
-	}
-
 	fis, err := r.FS.ReadDir(r.TemplatesPath)
 	if err != nil {
 		return
@@ -289,14 +288,8 @@ func repositoryRuntimes(r Repository) (runtimes []Runtime, err error) {
 // runtime for defaults of BuildConfig andHealthEndpoints.  The template itself
 // can override these by including a manifest.
 func runtimeTemplates(r Repository, runtime Runtime) (templates []Template, err error) {
-
-	tp := r.TemplatesPath
-	if tp == "" {
-		tp = DefaultTemplatesPath
-	}
-
 	// Validate runtime directory exists and is a directory
-	runtimePath := path.Join(tp, runtime.Name)
+	runtimePath := path.Join(r.TemplatesPath, runtime.Name)
 	if err = checkDir(r.FS, runtimePath); err != nil {
 		err = fmt.Errorf("runtime path '%v' not found. %v", runtimePath, err)
 		return
