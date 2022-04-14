@@ -31,7 +31,8 @@ var (
 
 // DefaultBuilderImages for s2i builders indexed by Runtime Language
 var DefaultBuilderImages = map[string]string{
-	"node": "registry.access.redhat.com/ubi8/nodejs-16", // TODO: finalize choice and include version
+	"node":       "registry.access.redhat.com/ubi8/nodejs-16",
+	"typescript": "registry.access.redhat.com/ubi8/nodejs-16",
 }
 
 // Builder of Functions using the s2i subsystem.

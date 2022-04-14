@@ -1,7 +1,4 @@
-builders:
-  default: gcr.io/paketo-buildpacks/builder:base
-  base: gcr.io/paketo-buildpacks/builder:base
-  full: gcr.io/paketo-buildpacks/builder:full
+# Used by buildback builders, buildEnvs are passed to the build image
 buildEnvs:
 - name: BP_NODE_RUN_SCRIPTS
   value: build
