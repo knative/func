@@ -25,8 +25,8 @@ export TERM="${TERM:-dumb}"
 main() {
 
   local kubernetes_version=v1.21.1
-  local knative_version=v0.23.0
-  local kourier_version=v0.23.0
+  local knative_version=v1.3.1
+  local kourier_version=v1.3.0
 
   local em=$(tput bold)$(tput setaf 2)
   local me=$(tput sgr0)
@@ -73,12 +73,12 @@ EOF
 serving() {
   echo "${em}② Knative Serving${me}"
 
-  kubectl apply --filename https://github.com/knative/serving/releases/download/$knative_version/serving-crds.yaml
+  kubectl apply --filename https://github.com/knative/serving/releases/download/knative-$knative_version/serving-crds.yaml
 
   sleep 5
   kubectl wait --for=condition=Established --all crd --timeout=5m
 
-  curl -L -s https://github.com/knative/serving/releases/download/$knative_version/serving-core.yaml | yq 'del(.spec.template.spec.containers[]?.resources)' -y | yq 'del(.metadata.annotations."knative.dev/example-checksum")' -y | kubectl apply -f -
+  curl -L -s https://github.com/knative/serving/releases/download/knative-$knative_version/serving-core.yaml | yq 'del(.spec.template.spec.containers[]?.resources)' -y | yq 'del(.metadata.annotations."knative.dev/example-checksum")' -y | yq | kubectl apply -f -
 
 
   sleep 5
@@ -111,7 +111,7 @@ networking() {
   echo "${em}④ Kourier Networking${me}"
 
   # Install Eourier
-  kubectl apply --filename https://github.com/knative/net-kourier/releases/download/$kourier_version/kourier.yaml
+  kubectl apply --filename https://github.com/knative/net-kourier/releases/download/knative-$kourier_version/kourier.yaml
   sleep 5
   kubectl wait pod --for=condition=Ready -l '!job-name' -n kourier-system --timeout=5m
   kubectl wait pod --for=condition=Ready -l '!job-name' -n knative-serving --timeout=5m
@@ -154,22 +154,22 @@ eventing() {
   echo "${em}⑤ Knative Eventing${me}"
 
   # CRDs
-  kubectl apply -f https://github.com/knative/eventing/releases/download/$knative_version/eventing-crds.yaml
+  kubectl apply -f https://github.com/knative/eventing/releases/download/knative-$knative_version/eventing-crds.yaml
   sleep 5
   kubectl wait --for=condition=Established --all crd --timeout=5m
 
   # Core
-  curl -L -s https://github.com/knative/eventing/releases/download/$knative_version/eventing-core.yaml | yq 'del(.spec.template.spec.containers[]?.resources)' -y | yq 'del(.metadata.annotations."knative.dev/example-checksum")' -y | kubectl apply -f -
+  curl -L -s https://github.com/knative/eventing/releases/download/knative-$knative_version/eventing-core.yaml | yq 'del(.spec.template.spec.containers[]?.resources)' -y | yq 'del(.metadata.annotations."knative.dev/example-checksum")' -y | yq | kubectl apply -f -
   sleep 5
   kubectl wait pod --for=condition=Ready -l '!job-name' -n knative-eventing --timeout=5m
 
   # Channel
-  curl -L -s https://github.com/knative/eventing/releases/download/$knative_version/in-memory-channel.yaml | kubectl apply -f -
+  curl -L -s https://github.com/knative/eventing/releases/download/knative-$knative_version/in-memory-channel.yaml | kubectl apply -f -
   sleep 5
   kubectl wait pod --for=condition=Ready -l '!job-name' -n knative-eventing --timeout=5m
 
   # Broker
-  curl -L -s https://github.com/knative/eventing/releases/download/$knative_version/mt-channel-broker.yaml | yq 'del(.spec.template.spec.containers[]?.resources)' -y | yq 'del(.metadata.annotations."knative.dev/example-checksum")' -y | kubectl apply -f -
+  curl -L -s https://github.com/knative/eventing/releases/download/knative-$knative_version/mt-channel-broker.yaml | yq 'del(.spec.template.spec.containers[]?.resources)' -y | yq 'del(.metadata.annotations."knative.dev/example-checksum")' -y | yq | kubectl apply -f -
   sleep 5
   kubectl wait pod --for=condition=Ready -l '!job-name' -n knative-eventing --timeout=5m
 
