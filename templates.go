@@ -1,10 +1,8 @@
 package function
 
 import (
+	"context"
 	"errors"
-	"os"
-	"path"
-	"path/filepath"
 	"strings"
 )
 
@@ -49,7 +47,7 @@ func (t *Templates) List(runtime string) ([]string, error) {
 		}
 		for _, t := range tt {
 			if r.Name == DefaultRepositoryName {
-				names = append(names, t.Name)
+				names = append(names, t.Name())
 			} else {
 				extended.Add(t.Fullname())
 			}
@@ -95,76 +93,18 @@ func (t *Templates) Get(runtime, fullname string) (Template, error) {
 // Returns a Function which may have been modified dependent on the content
 // of the template (which can define default Function fields, builders,
 // buildpacks, etc)
-func (t *Templates) Write(f Function) (Function, error) {
+func (t *Templates) Write(f *Function) error {
 	// Templates require an initially valid Function to write
 	// (has name, path, runtime etc)
 	if err := f.Validate(); err != nil {
-		return f, err
+		return err
 	}
 
 	// The Function's Template
 	template, err := t.Get(f.Runtime, f.Template)
 	if err != nil {
-		return f, err
+		return err
 	}
 
-	// The Function's Template Repository
-	repo, err := t.client.Repositories().Get(template.Repository)
-	if err != nil {
-		return f, err
-	}
-
-	// Validate paths:  (repo/)[templates/]<runtime>/<template>
-	templatesPath := repo.TemplatesPath
-	if templatesPath == "" {
-		templatesPath = "."
-	}
-	if _, err := repo.FS.Stat(templatesPath); err != nil {
-		return f, ErrTemplatesNotFound
-	}
-	runtimePath := path.Join(templatesPath, template.Runtime)
-	if _, err := repo.FS.Stat(runtimePath); err != nil {
-		return f, ErrRuntimeNotFound
-	}
-	templatePath := path.Join(runtimePath, template.Name)
-	if _, err := repo.FS.Stat(templatePath); err != nil {
-		return f, ErrTemplateNotFound
-	}
-
-	// Apply fields from the template onto the function itself (Denormalize).
-	// The template is already the denormalized view of repo->runtime->template
-	// so it's values are treated as defaults.
-	// TODO: this begs the question: should the Template's manifest.yaml actually
-	// be a partially-populated func.yaml?
-	if f.Builder == "" { // as a special first case, this default comes from itself
-		f.Builder = f.Builders["default"]
-		if f.Builder == "" { // still nothing?  then use the template
-			f.Builder = template.Builders["default"]
-		}
-	}
-	if len(f.Builders) == 0 {
-		f.Builders = template.Builders
-	}
-	if len(f.Buildpacks) == 0 {
-		f.Buildpacks = template.Buildpacks
-	}
-	if len(f.BuildEnvs) == 0 {
-		f.BuildEnvs = template.BuildEnvs
-	}
-	if f.HealthEndpoints.Liveness == "" {
-		f.HealthEndpoints.Liveness = template.HealthEndpoints.Liveness
-	}
-	if f.HealthEndpoints.Readiness == "" {
-		f.HealthEndpoints.Readiness = template.HealthEndpoints.Readiness
-	}
-	if f.Invocation.Format == "" {
-		f.Invocation.Format = template.Invocation.Format
-	}
-
-	// Copy the template files from the repo filesystem to the new Function's root
-	// removing the manifest (if it exists; errors ignored)
-	err = copy(templatePath, f.Root, repo.FS)              // copy everything
-	_ = os.Remove(filepath.Join(f.Root, templateManifest)) // except the manifest
-
-	return f, err
+	return template.Write(context.TODO(), f)
 }
