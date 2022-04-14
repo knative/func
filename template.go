@@ -5,49 +5,13 @@ import (
 	"path"
 )
 
-type Template interface {
-	// Name of this template.
-	Name() string
-	// Runtime for which this template applies.
-	Runtime() string
-	// Repository within which this template is contained.  Value is set to the
-	// currently effective name of the repository, which may vary. It is user-
-	// defined when the repository is added, and can be set to "default" when
-	// the client is loaded in single repo mode. I.e. not canonical.
-	Repository() string
-	// Fullname is a calculated field of [repo]/[name] used
-	// to uniquely reference a template which may share a name
-	// with one in another repository.
-	Fullname() string
-	// Write updates fields of Function f and writes project files to path pointed by f.Root.
-	Write(ctx context.Context, f *Function) error
-}
-
-type templateConfig struct {
-	// BuildConfig defines builders and buildpacks.  the denormalized view of
-	// members which can be defined per repo or per runtime first.
-	BuildConfig `yaml:",inline"`
-
-	// HealthEndpoints.  The denormalized view of members which can be defined
-	// first per repo or per runtime.
-	HealthEndpoints `yaml:"healthEndpoints,omitempty"`
-
-	// BuildEnvs defines environment variables related to the builders,
-	// this can be used to parameterize the builders
-	BuildEnvs []Env `yaml:"buildEnvs,omitempty"`
-
-	// Invocation defines invocation hints for a Functions which is created
-	// from this template prior to being materially modified.
-	Invocation Invocation `yaml:"invocation,omitempty"`
-}
-
 // template
 type template struct {
-	name       string
-	runtime    string
-	repository string
-	fs         Filesystem
-	manifest   templateConfig
+	name        string
+	runtime     string
+	repository  string
+	fs          Filesystem
+	templConfig templateConfig
 }
 
 func (t template) Name() string {
@@ -76,26 +40,26 @@ func (t template) Write(ctx context.Context, f *Function) error {
 	if f.Builder == "" { // as a special first case, this default comes from itself
 		f.Builder = f.Builders["default"]
 		if f.Builder == "" { // still nothing?  then use the template
-			f.Builder = t.manifest.Builders["default"]
+			f.Builder = t.templConfig.Builders["default"]
 		}
 	}
 	if len(f.Builders) == 0 {
-		f.Builders = t.manifest.Builders
+		f.Builders = t.templConfig.Builders
 	}
 	if len(f.Buildpacks) == 0 {
-		f.Buildpacks = t.manifest.Buildpacks
+		f.Buildpacks = t.templConfig.Buildpacks
 	}
 	if len(f.BuildEnvs) == 0 {
-		f.BuildEnvs = t.manifest.BuildEnvs
+		f.BuildEnvs = t.templConfig.BuildEnvs
 	}
 	if f.HealthEndpoints.Liveness == "" {
-		f.HealthEndpoints.Liveness = t.manifest.HealthEndpoints.Liveness
+		f.HealthEndpoints.Liveness = t.templConfig.HealthEndpoints.Liveness
 	}
 	if f.HealthEndpoints.Readiness == "" {
-		f.HealthEndpoints.Readiness = t.manifest.HealthEndpoints.Readiness
+		f.HealthEndpoints.Readiness = t.templConfig.HealthEndpoints.Readiness
 	}
 	if f.Invocation.Format == "" {
-		f.Invocation.Format = t.manifest.Invocation.Format
+		f.Invocation.Format = t.templConfig.Invocation.Format
 	}
 
 	isManifest := func(p string) bool {
