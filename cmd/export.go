@@ -72,9 +72,9 @@ func runExport(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 	funcCRD.ObjectMeta.CreationTimestamp = api.Date(function.Created.Year(), function.Created.Month(),
 		function.Created.Day(), function.Created.Hour(), function.Created.Minute(), function.Created.Second(), function.Created.Nanosecond(), function.Created.Location())
 	funcCRD.ObjectMeta.Namespace = function.Namespace
-	funcCRD.Spec.ConfigurationSpec.Template.Spec.PodSpec.Containers[0].Image = function.Image
-	funcCRD.Spec.ConfigurationSpec.Template.Spec.PodSpec.Containers[0].LivenessProbe.HTTPGet.Path = function.HealthEndpoints.Liveness
-	funcCRD.Spec.ConfigurationSpec.Template.Spec.PodSpec.Containers[0].ReadinessProbe.HTTPGet.Path = function.HealthEndpoints.Readiness
+	funcCRD.Spec.PodSpec.Containers[0].Image = function.Image
+	funcCRD.Spec.PodSpec.Containers[0].LivenessProbe.HTTPGet.Path = function.HealthEndpoints.Liveness
+	funcCRD.Spec.PodSpec.Containers[0].ReadinessProbe.HTTPGet.Path = function.HealthEndpoints.Readiness
 	funcCRD.Spec.FunctionBuildSpec.BuildType = function.BuildType
 	funcCRD.Spec.FunctionBuildSpec.Builder = function.Builder
 	funcCRD.Spec.FunctionBuildSpec.BuildEnvs = function.BuildEnvs
@@ -120,7 +120,10 @@ func runExportHelp(cmd *cobra.Command, args []string, newClient ClientFactory) {
 	cfg, err := newCreateConfig(cmd, args, newClient)
 	failSoft(err)
 
-	client := newClient(createConfigToClientOptions(cfg))
+	// Create a client using the registry defined in config plus any additional
+	// options provided (such as mocks for testing)
+	client, done := newClient(ClientConfig{Verbose: cfg.Verbose})
+	defer done()
 
 	options, err := runtimeTemplateOptions(client) // human-friendly
 	failSoft(err)

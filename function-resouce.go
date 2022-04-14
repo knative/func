@@ -41,7 +41,7 @@ type FunctionResource struct {
 type FunctionSpec struct {
 	// ConfigurationSpec holds the latest configuration for the Function PodSpec Template.
 	// +optional
-	v1.ConfigurationSpec `json:",inline"`
+	v1.RevisionSpec `json:"runtime"`
 	// FunctionBuildSpec holds the latest configuration for the Function build configuration.
 	// +optional
 	FunctionBuildSpec `json:"build"`
@@ -85,21 +85,19 @@ func NewFunctionCRD(name string) *FunctionResource {
 			Annotations: make(map[string]string),
 		},
 		Spec: FunctionSpec{
-			ConfigurationSpec: v1.ConfigurationSpec{
-				Template: v1.RevisionTemplateSpec{
-					Spec: v1.RevisionSpec{
-						PodSpec: corev1.PodSpec{
-							Volumes: []corev1.Volume{},
-							Containers: []corev1.Container{
-								{
-									Name:           name,
-									LivenessProbe:  &probe,
-									ReadinessProbe: &probe,
-								}},
-						},
-					},
+
+			RevisionSpec: v1.RevisionSpec{
+				PodSpec: corev1.PodSpec{
+					Volumes: []corev1.Volume{},
+					Containers: []corev1.Container{
+						{
+							Name:           name,
+							LivenessProbe:  &probe,
+							ReadinessProbe: &probe,
+						}},
 				},
 			},
+
 			FunctionBuildSpec: FunctionBuildSpec{
 				Git:       Git{},
 				BuildEnvs: []Env{},
