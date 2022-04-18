@@ -106,6 +106,18 @@ type Function struct {
 	Invocation Invocation `yaml:"invocation,omitempty"`
 }
 
+// HealthEndpoints specify the liveness and readiness endpoints for a Runtime
+type HealthEndpoints struct {
+	Liveness  string `yaml:"liveness,omitempty"`
+	Readiness string `yaml:"readiness,omitempty"`
+}
+
+// BuildConfig defines builders and buildpacks
+type BuildConfig struct {
+	Buildpacks []string          `yaml:"buildpacks,omitempty"`
+	Builders   map[string]string `yaml:"builders,omitempty"`
+}
+
 // Invocation defines hints on how to accomplish a Function invocation.
 type Invocation struct {
 	// Format indicates the expected format of the invocation.  Either 'http'
