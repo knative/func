@@ -7,11 +7,11 @@ import (
 
 // template
 type template struct {
-	name        string
-	runtime     string
-	repository  string
-	fs          Filesystem
-	templConfig templateConfig
+	name       string
+	runtime    string
+	repository string
+	fs         Filesystem
+	config     templateConfig
 }
 
 func (t template) Name() string {
@@ -40,26 +40,26 @@ func (t template) Write(ctx context.Context, f *Function) error {
 	if f.Builder == "" { // as a special first case, this default comes from itself
 		f.Builder = f.Builders["default"]
 		if f.Builder == "" { // still nothing?  then use the template
-			f.Builder = t.templConfig.Builders["default"]
+			f.Builder = t.config.Builders["default"]
 		}
 	}
 	if len(f.Builders) == 0 {
-		f.Builders = t.templConfig.Builders
+		f.Builders = t.config.Builders
 	}
 	if len(f.Buildpacks) == 0 {
-		f.Buildpacks = t.templConfig.Buildpacks
+		f.Buildpacks = t.config.Buildpacks
 	}
 	if len(f.BuildEnvs) == 0 {
-		f.BuildEnvs = t.templConfig.BuildEnvs
+		f.BuildEnvs = t.config.BuildEnvs
 	}
 	if f.HealthEndpoints.Liveness == "" {
-		f.HealthEndpoints.Liveness = t.templConfig.HealthEndpoints.Liveness
+		f.HealthEndpoints.Liveness = t.config.HealthEndpoints.Liveness
 	}
 	if f.HealthEndpoints.Readiness == "" {
-		f.HealthEndpoints.Readiness = t.templConfig.HealthEndpoints.Readiness
+		f.HealthEndpoints.Readiness = t.config.HealthEndpoints.Readiness
 	}
 	if f.Invocation.Format == "" {
-		f.Invocation.Format = t.templConfig.Invocation.Format
+		f.Invocation.Format = t.config.Invocation.Format
 	}
 
 	isManifest := func(p string) bool {

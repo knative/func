@@ -310,11 +310,11 @@ func runtimeTemplates(fs Filesystem, templatesPath, repoName, runtimeName string
 		}
 		// Template, defaulted to values inherited from the runtime
 		t := template{
-			name:        fi.Name(),
-			repository:  repoName,
-			runtime:     runtimeName,
-			templConfig: runtimeConfig,
-			fs:          subFS{root: path.Join(runtimePath, fi.Name()), fs: fs},
+			name:       fi.Name(),
+			repository: repoName,
+			runtime:    runtimeName,
+			config:     runtimeConfig,
+			fs:         subFS{root: path.Join(runtimePath, fi.Name()), fs: fs},
 		}
 
 		// Template Manifeset
@@ -398,7 +398,7 @@ func applyTemplateManifest(fs Filesystem, templatesPath string, t template) (tem
 		return t, err
 	}
 	decoder := yaml.NewDecoder(file)
-	return t, decoder.Decode(&t.templConfig)
+	return t, decoder.Decode(&t.config)
 }
 
 // check that the given path is an accessible directory or error.
