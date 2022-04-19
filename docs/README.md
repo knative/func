@@ -27,9 +27,9 @@ Functions can be deployed on the following platforms:
 
 [Install the latest CLI](installing_cli.md)
 
-Functions can be created and managed using the CLI interactively, scripted, or by direct integration with the client library. The [Function Developer's Guide](guides/developers_guide.md) and examples herein demonstrate the CLI-based approach.  
+Functions can be created and managed using the CLI interactively, scripted, or by direct integration with the client library. The [Function Developer's Guide](function-developers/developers_guide.md) and examples herein demonstrate the CLI-based approach.  
 
-For direct integration using the Go client library, it is advisible to first follow these CLI-based guides to become familiar with creating and deploying software in this way, and then proceed to the [Function Integrator's Guide](guides/integrators_guide.md).
+For direct integration using the Go client library, it is advisible to first follow these CLI-based guides to become familiar with creating and deploying software in this way, and then proceed to the [Function Integrator's Guide](reference/integrators_guide.md).
 
 ## Platform Configuration
 
@@ -41,7 +41,7 @@ Functions are portable between different infrastructure configurations.  While y
 
 ## Function Development
 
-[Function Developer's Guide](guides/developers_guide.md)
+[Function Developer's Guide](function-developers/developers_guide.md)
 
 Any code which provides one of a set of supported function signatures can be deployed to any of the supported platforms using this client library.  No process boundary code, container, or configuration outside of the function itself is required.
 
@@ -49,5 +49,5 @@ At their most fundamental, a Function is a set of instructions which export a pu
 
 ## Contributing
 
-We are always looking for contributions to the project from the Function Developer community.  For more information on how to participate, see the [Development Guide](DEVELOPMENT.md)
+We are always looking for contributions to the project from the Function Developer community.  For more information on how to participate, see the [Contributing Guide](CONTRIBUTING.md)
 
