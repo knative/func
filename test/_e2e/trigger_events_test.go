@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 )
 
 type SimpleTestEvent struct {
@@ -16,7 +17,7 @@ type SimpleTestEvent struct {
 }
 
 func (s SimpleTestEvent) pushTo(url string, t *testing.T) (body string, statusCode int, err error) {
-	client := &http.Client{}
+	client := &http.Client{Timeout: time.Second * 15}
 	req, err := http.NewRequest("POST", url, strings.NewReader(s.Data))
 	req.Header.Add("Ce-Id", "message-1")
 	req.Header.Add("Ce-Specversion", "1.0")
@@ -58,16 +59,30 @@ var defaultFunctionsCloudEventsValidators = map[string]FunctionCloudEventsValida
 	},
 }
 
+var defaultFunctionsCloudEventsMessage = map[string]SimpleTestEvent{
+	"default": {
+		Type:        "e2e.test",
+		Source:      "e2e:test",
+		ContentType: "text/plain",
+		Data:        "hello",
+	},
+	"go": {
+		Type:        "e2e.test",
+		Source:      "e2e:test",
+		ContentType: "application/json",
+		Data:        `{"message": "hello"}`,
+	},
+}
+
 // DefaultFunctionEventsTest executes a common test (applied for all runtimes) against a deployed
 // functions that responds to CloudEvents
 func DefaultFunctionEventsTest(t *testing.T, knFunc *TestShellCmdRunner, project FunctionTestProject) {
 	if project.Template == "cloudevents" && project.IsDeployed {
 
-		simpleEvent := SimpleTestEvent{
-			Type:        "e2e.test",
-			Source:      "e2e:test",
-			ContentType: "text/plain",
-			Data:        "hello",
+		simpleEvent, ok := defaultFunctionsCloudEventsMessage[project.Runtime]
+		if !ok {
+			t.Log("Using default message template")
+			simpleEvent = defaultFunctionsCloudEventsMessage["default"]
 		}
 		targetUrl := project.FunctionURL
 

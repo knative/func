@@ -136,6 +136,8 @@ test-e2e: ## Run end-to-end tests using an available cluster.
 	./test/e2e_lifecycle_tests.sh node
 	./test/e2e_extended_tests.sh
 
+test-e2e-runtime: ## Run end-to-end lifecycle tests using an available cluster for a single runtime.
+	./test/e2e_lifecycle_tests.sh $(runtime)
 
 ######################
 ##@ Release Artifacts
