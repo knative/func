@@ -1,5 +1,5 @@
 # Function Developer's Guide
-Here you will find links to getting started guides, reference documents and other information important to know as a Knaive Function developer.
+Here you will find links to getting started guides, reference documents and other information important to know as a Knative Function developer.
 
 ## Prerequisites and Installation
 Before learning to develop Functions, you should have the client [installed](../installing_cli.md) and a configured [Kubernetes cluster](../getting_started_kubernetes.md) with Knative installed.
