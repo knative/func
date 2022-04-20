@@ -30,8 +30,23 @@ echo "export FUNC_REGISTRY=docker.io/johndoe" >> ~/.bashrc
 This command builds OCI image for the function.
 
 ```shell script
-func build                  # build jar
-func build --builder native # build native binary
+func build
+```
+
+By default, JVM build is used.
+To enable native build set following environment variables to `func.yaml`:
+```yaml
+buildEnvs:
+  - name: BP_NATIVE_IMAGE
+    value: "true"
+  - name: BP_MAVEN_BUILT_ARTIFACT
+    value: target/native-sources/*
+  - name: BP_MAVEN_BUILD_ARGUMENTS
+    value: package -DskipTests=true -Dmaven.javadoc.skip=true -Dquarkus.package.type=native-sources
+  - name: BP_NATIVE_IMAGE_BUILD_ARGUMENTS_FILE
+    value: native-image.args
+  - name: BP_NATIVE_IMAGE_BUILT_ARTIFACT
+    value: '*-runner.jar'
 ```
 
 ### Running
