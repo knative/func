@@ -25,6 +25,7 @@ var DefaultBuilderImages = map[string]string{
 	"node":       "gcr.io/paketo-buildpacks/builder:base",
 	"typescript": "gcr.io/paketo-buildpacks/builder:base",
 	"go":         "gcr.io/paketo-buildpacks/builder:base",
+	"python":     "gcr.io/paketo-buildpacks/builder:base",
 }
 
 //Builder holds the configuration that will be passed to
