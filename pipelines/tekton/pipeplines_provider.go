@@ -186,7 +186,7 @@ func (pp *PipelinesProvider) Remove(ctx context.Context, f fn.Function) error {
 		go func() {
 			defer wg.Done()
 			err := df(ctx, pp.namespace, listOptions)
-			if err != nil && !errors.IsNotFound(err) {
+			if err != nil && !errors.IsNotFound(err) && !errors.IsForbidden(err) {
 				errChan <- err
 			}
 		}()
