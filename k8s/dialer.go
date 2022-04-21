@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	socatImage = "alpine/socat:1.7.4.2-r0"
+	socatImage = "quay.io/boson/alpine-socat:1.7.4.3-r"
 )
 
 // NewInClusterDialer creates context dialer that will dial TCP connections via POD running in k8s cluster.
