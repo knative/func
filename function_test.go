@@ -81,3 +81,44 @@ func TestFunction_NameDefault(t *testing.T) {
 		t.Fatalf("expected name 'testFunctionNameDefault', got '%v'", f.Name)
 	}
 }
+
+// Test_Interpolate ensures environment variable interpolation processes
+// environment variables by interpolating properly formatted references to
+// local environment variables, returning a final simple map structure.
+// TODO: Perhaps referring to a nonexistent local env var should be treated
+// as a "leave as is" (do not set) rather than "required" resulting in error?
+// TODO: What use case does a nil pointer in the Env struct serve?  Add it
+// explicitly here ore get rid of the nils.
+func Test_Interpolate(t *testing.T) {
+	defer WithEnvVar(t, "INTERPOLATE", "interpolated")()
+	cases := []struct {
+		Value    string
+		Expected string
+		Error    bool
+	}{
+		// Simple values are kept unchanged
+		{Value: "simple value", Expected: "simple value"},
+		// Properly referenced environment variables are interpolated
+		{Value: "{{ env:INTERPOLATE }}", Expected: "interpolated"},
+		// Other interpolation types other than "env" are left unchanged
+		{Value: "{{ other:TYPE }}", Expected: "{{ other:TYPE }}", Error: false},
+		// Properly formatted references to missing variables error
+		{Value: "{{ env:MISSING }}", Expected: "", Error: true},
+	}
+
+	name := "NAME" // default name for all tests
+	for _, c := range cases {
+		t.Logf("Value: %v\n", c.Value)
+		var (
+			envs    = []fn.Env{{Name: &name, Value: &c.Value}} // pre-interpolated
+			vv, err = fn.Interpolate(envs)                     // interpolated
+			v       = vv[name]                                 // final value
+		)
+		if c.Error && err == nil {
+			t.Fatal("expected error in Envs interpolation not received")
+		}
+		if v != c.Expected {
+			t.Fatalf("expected env value '%v' to be interpolated as '%v', but got '%v'", c.Value, c.Expected, v)
+		}
+	}
+}

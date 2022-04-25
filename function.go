@@ -222,6 +222,56 @@ func (f Function) Validate() error {
 	return errors.New(b.String())
 }
 
+var envPattern = regexp.MustCompile(`^{{\s*(\w+)\s*:(\w+)\s*}}$`)
+
+// Interpolate Env slice
+// Values with no special format are preserved as simple values.
+// Values which do include the interpolation format (begin with {{) but are not
+// keyed as "env" are also preserved as is.
+// Values properly formated as {{ env:NAME }} are interpolated (substituted)
+// with the value of the local environment variable "NAME", and an error is
+// returned if that environment variable does not exist.
+func Interpolate(ee []Env) (map[string]string, error) {
+	envs := make(map[string]string, len(ee))
+	for _, e := range ee {
+		// Assert non-nil and dereference.
+		// See comment in assocaited test re: using pointers at all.
+		if e.Name == nil {
+			return envs, errors.New("env name may not be nil")
+		}
+		if e.Value == nil {
+			return envs, errors.New("env value may not be nil")
+		}
+		k, v := *e.Name, *e.Value
+
+		// Simple Values are preserved.
+		// If not prefixed by {{, no interpolation required (simple value)
+		if !strings.HasPrefix(v, "{{") {
+			envs[k] = v // no interpolation required.
+			continue
+		}
+
+		// Values not matching the interpolation pattern are preserved.
+		// If not in the form "{{ env:XYZ }}" then return the value as-is for
+		//                     0  1   2   3
+		// possible match and interpolation in different ways.
+		parts := envPattern.FindStringSubmatch(v)
+		if len(parts) <= 2 || parts[1] != "env" {
+			envs[k] = v
+			continue
+		}
+
+		// Properly formatted local env var references are interpolated.
+		localName := parts[2]
+		localValue, ok := os.LookupEnv(localName)
+		if !ok {
+			return envs, fmt.Errorf("expected environment variable '%v' not found", localName)
+		}
+		envs[k] = localValue
+	}
+	return envs, nil
+}
+
 // nameFromPath returns the default name for a Function derived from a path.
 // This consists of the last directory in the given path, if derivable (empty
 // paths, paths consisting of all slashes, etc. return the zero value "")
