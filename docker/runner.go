@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"regexp"
-	"strings"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -183,21 +181,32 @@ func newContainer(ctx context.Context, c client.CommonAPIClient, f fn.Function, 
 }
 
 func newContainerConfig(f fn.Function, _ string, verbose bool) (c container.Config, err error) {
-	envs, err := newEnvironmentVariables(f, verbose)
-	if err != nil {
-		return
-	}
 	// httpPort := nat.Port(fmt.Sprintf("%v/tcp", port))
 	httpPort := nat.Port("8080/tcp")
-	return container.Config{
+	c = container.Config{
 		Image:        f.Image,
-		Env:          envs,
 		Tty:          false,
 		AttachStderr: true,
 		AttachStdout: true,
 		AttachStdin:  false,
 		ExposedPorts: map[nat.Port]struct{}{httpPort: {}},
-	}, nil
+	}
+
+	// Environment Variables
+	// Interpolate references to local environment variables and convert to a
+	// simple string slice for use with container.Config
+	envs, err := fn.Interpolate(f.Envs)
+	if err != nil {
+		return
+	}
+	for k, v := range envs {
+		c.Env = append(c.Env, k+"="+v)
+	}
+	if verbose {
+		c.Env = append(c.Env, "VERBOSE=true")
+	}
+
+	return
 }
 
 func newHostConfig(port string) (c container.HostConfig, err error) {
@@ -212,58 +221,6 @@ func newHostConfig(port string) (c container.HostConfig, err error) {
 		},
 	}
 	return container.HostConfig{PortBindings: ports}, nil
-}
-
-func newEnvironmentVariables(f fn.Function, verbose bool) ([]string, error) {
-	// TODO: this has code-smell.  It may not be ideal to have fn.Function
-	// represent Envs as pointers, as this causes the clearly odd situation of
-	// needing to check if an env defined in f is just nil pointers: an invalid
-	// data structure.
-	envs := []string{}
-	for _, env := range f.Envs {
-		if env.Name != nil && env.Value != nil {
-			value, set, err := processEnvValue(*env.Value)
-			if err != nil {
-				return envs, err
-			}
-			if set {
-				envs = append(envs, *env.Name+"="+value)
-			}
-		}
-	}
-	if verbose {
-		envs = append(envs, "VERBOSE=true")
-	}
-	return envs, nil
-}
-
-// run command supports only ENV values in form:
-// FOO=bar or FOO={{ env:LOCAL_VALUE }}
-var evRegex = regexp.MustCompile(`^{{\s*(\w+)\s*:(\w+)\s*}}$`)
-
-const (
-	ctxIdx = 1
-	valIdx = 2
-)
-
-// processEnvValue returns only value for ENV variable, that is defined in form FOO=bar or FOO={{ env:LOCAL_VALUE }}
-// if the value is correct, it is returned and the second return parameter is set to `true`
-// otherwise it is set to `false`
-// if the specified value is correct, but the required local variable is not set, error is returned as well
-func processEnvValue(val string) (string, bool, error) {
-	if strings.HasPrefix(val, "{{") {
-		match := evRegex.FindStringSubmatch(val)
-		if len(match) > valIdx && match[ctxIdx] == "env" {
-			if v, ok := os.LookupEnv(match[valIdx]); ok {
-				return v, true, nil
-			} else {
-				return "", false, fmt.Errorf("required local environment variable %q is not set", match[valIdx])
-			}
-		} else {
-			return "", false, nil
-		}
-	}
-	return val, true, nil
 }
 
 // copy stdin and stdout from the container of the given ID.  Errors encountered
