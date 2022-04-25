@@ -86,7 +86,7 @@ func TestFunction_NameDefault(t *testing.T) {
 // environment variables by interpolating properly formatted references to
 // local environment variables, returning a final simple map structure.
 // Also ensures that nil value references are interpreted as meaning the
-// environment is to be disincluded from the resultant map, rathern than included
+// environment is to be disincluded from the resultant map, rather than included
 // with an empty value.
 // TODO: Perhaps referring to a nonexistent local env var should be treated
 // as a "leave as is" (do not set) rather than "required" resulting in error?
