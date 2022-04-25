@@ -85,6 +85,9 @@ func TestFunction_NameDefault(t *testing.T) {
 // Test_Interpolate ensures environment variable interpolation processes
 // environment variables by interpolating properly formatted references to
 // local environment variables, returning a final simple map structure.
+// Also ensures that nil value references are interpreted as meaning the
+// environment is to be disincluded from the resultant map, rathern than included
+// with an empty value.
 // TODO: Perhaps referring to a nonexistent local env var should be treated
 // as a "leave as is" (do not set) rather than "required" resulting in error?
 // TODO: What use case does a nil pointer in the Env struct serve?  Add it
@@ -120,5 +123,15 @@ func Test_Interpolate(t *testing.T) {
 		if v != c.Expected {
 			t.Fatalf("expected env value '%v' to be interpolated as '%v', but got '%v'", c.Value, c.Expected, v)
 		}
+	}
+
+	// Nil value should be treated as being disincluded from the resultant map.
+	envs := []fn.Env{{Name: &name}} // has a nil *Value ptr
+	vv, err := fn.Interpolate(envs)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(vv) != 0 {
+		t.Fatalf("expected envs with a nil value to not be included in interpolation result")
 	}
 }

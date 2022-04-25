@@ -234,13 +234,13 @@ var envPattern = regexp.MustCompile(`^{{\s*(\w+)\s*:(\w+)\s*}}$`)
 func Interpolate(ee []Env) (map[string]string, error) {
 	envs := make(map[string]string, len(ee))
 	for _, e := range ee {
-		// Assert non-nil and dereference.
-		// See comment in assocaited test re: using pointers at all.
+		// Assert non-nil name.
 		if e.Name == nil {
 			return envs, errors.New("env name may not be nil")
 		}
+		// Nil value indicates the resultant map should not include this env var.
 		if e.Value == nil {
-			return envs, errors.New("env value may not be nil")
+			continue
 		}
 		k, v := *e.Name, *e.Value
 
