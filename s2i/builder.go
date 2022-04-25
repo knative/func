@@ -70,6 +70,19 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	cfg.PreviousImagePullPolicy = api.DefaultPreviousImagePullPolicy
 	cfg.RuntimeImagePullPolicy = api.DefaultRuntimeImagePullPolicy
 	cfg.DockerConfig = s2idocker.GetDefaultDockerConfig()
+
+	// Environment variables
+	// Build Envs have local env var references interpolated then added to the
+	// config as an S2I EnvironmentList struct
+	buildEnvs, err := fn.Interpolate(f.BuildEnvs)
+	if err != nil {
+		return err
+	}
+	for k, v := range buildEnvs {
+		cfg.Environment = append(cfg.Environment, api.EnvironmentSpec{Name: k, Value: v})
+	}
+
+	// Validate the config
 	if errs := validation.ValidateConfig(cfg); len(errs) > 0 {
 		for _, e := range errs {
 			fmt.Fprintf(os.Stderr, "ERROR: %s\n", e)
