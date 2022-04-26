@@ -83,19 +83,6 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		cfg.Environment = append(cfg.Environment, api.EnvironmentSpec{Name: k, Value: v})
 	}
 
-	// Implementation-Specific Env Vars
-	// Some builders (currently only Quarkus) requires special "hints" to the
-	// S2I Builder image to trigger a build correctly.  This seems inconvenient
-	// to have here, but allows us to rely entirely on the shared S2I builder
-	// without needing to roll our own.
-	// Source: https://quarkus.pro/guides/deploying-to-openshift-s2i.html
-	if f.Runtime == "quarkus" {
-		cfg.Environment = append(cfg.Environment, api.EnvironmentSpec{
-			Name: "MAVEN_S2I_ARTIFACT_DIRS", Value: "target"})
-		cfg.Environment = append(cfg.Environment, api.EnvironmentSpec{
-			Name: "S2I_SOURCE_DEPLOYMENTS_FILTER", Value: "*-runner.jar lib"})
-	}
-
 	// Validate the config
 	if errs := validation.ValidateConfig(cfg); len(errs) > 0 {
 		for _, e := range errs {
