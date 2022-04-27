@@ -119,7 +119,7 @@ func newTransport() fnhttp.RoundTripCloser {
 // of features or configuration nuances of cluster variants.
 func newCredentialsProvider(t http.RoundTripper) docker.CredentialsProvider {
 	options := []creds.Opt{
-		creds.WithPromptForCredentials(newPromptForCredentials()),
+		creds.WithPromptForCredentials(newPromptForCredentials(os.Stdin, os.Stdout, os.Stderr)),
 		creds.WithPromptForCredentialStore(newPromptForCredentialStore()),
 		creds.WithTransport(t),
 	}
