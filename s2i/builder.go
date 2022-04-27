@@ -33,6 +33,7 @@ var (
 var DefaultBuilderImages = map[string]string{
 	"node":       "registry.access.redhat.com/ubi8/nodejs-16",
 	"typescript": "registry.access.redhat.com/ubi8/nodejs-16",
+	"quarkus":    "registry.access.redhat.com/ubi8/openjdk-17",
 }
 
 // Builder of Functions using the s2i subsystem.

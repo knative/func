@@ -1,5 +1,3 @@
-builders:
-  default: gcr.io/paketo-buildpacks/builder:base
 buildEnvs:
   - name: BP_NATIVE_IMAGE
     value: "false"
@@ -7,3 +5,7 @@ buildEnvs:
     value: target/quarkus-app/lib/ target/quarkus-app/*.jar target/quarkus-app/app/ target/quarkus-app/quarkus/
   - name: BP_MAVEN_BUILD_ARGUMENTS
     value: package -DskipTests=true -Dmaven.javadoc.skip=true -Dquarkus.package.type=fast-jar
+  - name: MAVEN_S2I_ARTIFACT_DIRS
+    value: target
+  - name: S2I_SOURCE_DEPLOYMENTS_FILTER
+    value: "*-runner.jar lib"
