@@ -178,7 +178,7 @@ aliases:
   - csantanapr
   - dprotaso
   - evankanderson
-  - ikvmw
+  - gab-satchi
   - itsmurugappan
   - julz
   - knative-automation
@@ -187,14 +187,13 @@ aliases:
   - knative-prow-updater-robot
   - knative-test-reporter-robot
   - lance
-  - nader-ziada
   - pmorie
   - rhuss
   - thisisnotapril
   - vaikas
   knative-release-leads:
-  - ikvmw
-  - nader-ziada
+  - dprotaso
+  - gab-satchi
   knative-robots:
   - knative-automation
   - knative-prow-releaser-robot
