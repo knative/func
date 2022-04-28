@@ -1,10 +1,14 @@
 package cmd
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
+
+	"golang.org/x/term"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
@@ -202,10 +206,18 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 	return client.Deploy(cmd.Context(), config.Path)
 }
 
-func newPromptForCredentials() func(registry string) (docker.Credentials, error) {
+func newPromptForCredentials(in io.Reader, out, errOut io.Writer) func(registry string) (docker.Credentials, error) {
 	firstTime := true
 	return func(registry string) (docker.Credentials, error) {
 		var result docker.Credentials
+
+		if firstTime {
+			firstTime = false
+			fmt.Fprintf(out, "Please provide credentials for image registry (%s).\n", registry)
+		} else {
+			fmt.Fprintln(out, "Incorrect credentials, please try again.")
+		}
+
 		var qs = []*survey.Question{
 			{
 				Name: "username",
@@ -222,16 +234,42 @@ func newPromptForCredentials() func(registry string) (docker.Credentials, error)
 				Validate: survey.Required,
 			},
 		}
-		if firstTime {
-			firstTime = false
-			fmt.Printf("Please provide credentials for image registry (%s).\n", registry)
+
+		var (
+			fr terminal.FileReader
+			ok bool
+		)
+
+		isTerm := false
+		if fr, ok = in.(terminal.FileReader); ok {
+			isTerm = term.IsTerminal(int(fr.Fd()))
+		}
+
+		if isTerm {
+			err := survey.Ask(qs, &result, survey.WithStdio(fr, out.(terminal.FileWriter), errOut))
+			if err != nil {
+				return docker.Credentials{}, err
+			}
 		} else {
-			fmt.Println("Incorrect credentials, please try again.")
+			reader := bufio.NewReader(in)
+
+			fmt.Fprintf(out, "Username: ")
+			u, err := reader.ReadString('\n')
+			if err != nil {
+				return docker.Credentials{}, err
+			}
+			u = strings.Trim(u, "\r\n")
+
+			fmt.Fprintf(out, "Password: ")
+			p, err := reader.ReadString('\n')
+			if err != nil {
+				return docker.Credentials{}, err
+			}
+			p = strings.Trim(p, "\r\n")
+
+			result = docker.Credentials{Username: u, Password: p}
 		}
-		err := survey.Ask(qs, &result)
-		if err != nil {
-			return docker.Credentials{}, err
-		}
+
 		return result, nil
 	}
 }
