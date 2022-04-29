@@ -26,6 +26,8 @@ var DefaultBuilderImages = map[string]string{
 	"go":         "gcr.io/paketo-buildpacks/builder:base",
 	"python":     "gcr.io/paketo-buildpacks/builder:base",
 	"quarkus":    "gcr.io/paketo-buildpacks/builder:base",
+	"rust":       "gcr.io/paketo-buildpacks/builder:base",
+	"springboot": "gcr.io/paketo-buildpacks/builder:base",
 }
 
 //Builder holds the configuration that will be passed to
