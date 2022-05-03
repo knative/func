@@ -36,13 +36,6 @@ type VerifyCredentialsCallback func(ctx context.Context, registry string, creden
 
 // CheckAuth verifies that credentials are correct
 func CheckAuth(ctx context.Context, registry string, credentials docker.Credentials, trans http.RoundTripper) error {
-	serverAddress := registry
-	if !strings.HasPrefix(serverAddress, "https://") && !strings.HasPrefix(serverAddress, "http://") {
-		serverAddress = "https://" + serverAddress
-	}
-
-	url := fmt.Sprintf("%s/v2/", serverAddress)
-
 	authenticator := &authn.Basic{
 		Username: credentials.Username,
 		Password: credentials.Password,
@@ -52,6 +45,13 @@ func CheckAuth(ctx context.Context, registry string, credentials docker.Credenti
 	if err != nil {
 		return err
 	}
+
+	serverAddress := registry
+	if !strings.HasPrefix(serverAddress, "https://") && !strings.HasPrefix(serverAddress, "http://") {
+		serverAddress = reg.Scheme() + "://" + serverAddress
+	}
+
+	url := fmt.Sprintf("%s/v2/", serverAddress)
 
 	tr, err := transport.NewWithContext(ctx, reg, authenticator, trans, nil)
 	if err != nil {
@@ -189,6 +189,9 @@ func NewCredentialsProvider(opts ...Opt) docker.CredentialsProvider {
 	dockerConfigPath := filepath.Join(home, ".docker", "config.json")
 
 	var defaultCredentialLoaders = []CredentialsCallback{
+		func(registry string) (docker.Credentials, error) { // empty credentials provider for unsecured registries
+			return docker.Credentials{}, nil
+		},
 		func(registry string) (docker.Credentials, error) {
 			creds, err := config.GetCredentials(sys, registry)
 			if err != nil {
@@ -220,20 +223,22 @@ func (c *credentialsProvider) getCredentials(ctx context.Context, registry strin
 
 		result, err = load(registry)
 
-		if err != nil && !errors.Is(err, errCredentialsNotFound) {
+		if err != nil {
+			if errors.Is(err, errCredentialsNotFound) {
+				continue
+			}
 			return docker.Credentials{}, err
 		}
 
-		if result != (docker.Credentials{}) {
-			err = c.verifyCredentials(ctx, registry, result)
-			if err == nil {
-				return result, nil
-			} else {
-				if !errors.Is(err, ErrUnauthorized) {
-					return docker.Credentials{}, err
-				}
+		err = c.verifyCredentials(ctx, registry, result)
+		if err == nil {
+			return result, nil
+		} else {
+			if !errors.Is(err, ErrUnauthorized) {
+				return docker.Credentials{}, err
 			}
 		}
+
 	}
 
 	if c.promptForCredentials == nil {
