@@ -68,8 +68,15 @@ func Test_registryEquals(t *testing.T) {
 }
 
 func TestCheckAuth(t *testing.T) {
-	localhost, localhostTLS, stopServer := startServer(t)
-	defer stopServer()
+
+	const (
+		uname        = "testuser"
+		pwd          = "testpwd"
+		incorrectPwd = "badpwd"
+	)
+
+	localhost, localhostTLS, stopServer := startServer(t, uname, pwd)
+	t.Cleanup(stopServer)
 
 	_, portTLS, err := net.SplitHostPort(localhostTLS)
 	if err != nil {
@@ -93,8 +100,8 @@ func TestCheckAuth(t *testing.T) {
 			name: "correct credentials localhost no-TLS",
 			args: args{
 				ctx:      context.Background(),
-				username: "testuser",
-				password: "testpwd",
+				username: uname,
+				password: pwd,
 				registry: localhost,
 			},
 			wantErr: false,
@@ -103,8 +110,8 @@ func TestCheckAuth(t *testing.T) {
 			name: "correct credentials localhost",
 			args: args{
 				ctx:      context.Background(),
-				username: "testuser",
-				password: "testpwd",
+				username: uname,
+				password: pwd,
 				registry: localhostTLS,
 			},
 			wantErr: false,
@@ -114,8 +121,8 @@ func TestCheckAuth(t *testing.T) {
 			name: "correct credentials non-localhost",
 			args: args{
 				ctx:      context.Background(),
-				username: "testuser",
-				password: "testpwd",
+				username: uname,
+				password: pwd,
 				registry: nonLocalhostTLS,
 			},
 			wantErr: false,
@@ -124,8 +131,8 @@ func TestCheckAuth(t *testing.T) {
 			name: "incorrect credentials localhost no-TLS",
 			args: args{
 				ctx:      context.Background(),
-				username: "testuser",
-				password: "badpwd",
+				username: uname,
+				password: incorrectPwd,
 				registry: localhost,
 			},
 			wantErr: true,
@@ -134,8 +141,8 @@ func TestCheckAuth(t *testing.T) {
 			name: "incorrect credentials localhost",
 			args: args{
 				ctx:      context.Background(),
-				username: "testuser",
-				password: "badpwd",
+				username: uname,
+				password: incorrectPwd,
 				registry: localhostTLS,
 			},
 			wantErr: true,
@@ -154,7 +161,17 @@ func TestCheckAuth(t *testing.T) {
 	}
 }
 
-func startServer(t *testing.T) (addr, addrTLS string, stopServer func()) {
+func TestCheckAuthEmptyCreds(t *testing.T) {
+
+	localhost, _, stopServer := startServer(t, "", "")
+	t.Cleanup(stopServer)
+	err := creds.CheckAuth(context.Background(), localhost, docker.Credentials{}, http.DefaultTransport)
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func startServer(t *testing.T, uname, pwd string) (addr, addrTLS string, stopServer func()) {
 	// TODO: this should be refactored to use OS-chosen ports so as not to
 	// fail when a user is running a Function on the default port.)
 	listener, err := net.Listen("tcp", "localhost:0")
@@ -170,10 +187,14 @@ func startServer(t *testing.T) (addr, addrTLS string, stopServer func()) {
 	addrTLS = listenerTLS.Addr().String()
 
 	handler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
+		if uname == "" || pwd == "" {
+			resp.WriteHeader(http.StatusOK)
+			return
+		}
 		// TODO add also test for token based auth
 		resp.Header().Add("WWW-Authenticate", "basic")
-		if user, pwd, ok := req.BasicAuth(); ok {
-			if user == "testuser" && pwd == "testpwd" {
+		if u, p, ok := req.BasicAuth(); ok {
+			if u == uname && p == pwd {
 				resp.WriteHeader(http.StatusOK)
 				return
 			}
@@ -398,6 +419,23 @@ func TestNewCredentialsProvider(t *testing.T) {
 				t.Errorf("credentialsProvider() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestNewCredentialsProviderEmptyCreds(t *testing.T) {
+	credentialsProvider := creds.NewCredentialsProvider(creds.WithVerifyCredentials(func(ctx context.Context, registry string, credentials docker.Credentials) error {
+		if registry == "localhost:5000" && credentials == (docker.Credentials{}) {
+			return nil
+		}
+		t.Fatal("unreachable")
+		return nil
+	}))
+	c, err := credentialsProvider(context.Background(), "localhost:5000")
+	if err != nil {
+		t.Error(err)
+	}
+	if c != (docker.Credentials{}) {
+		t.Error("unexpected credentials")
 	}
 }
 
