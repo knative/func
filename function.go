@@ -67,10 +67,6 @@ type Function struct {
 	// Builder represents the CNCF Buildpack builder image for a function
 	Builder string `yaml:"builder"`
 
-	// Map containing known builders.
-	// e.g. { "jvm": "docker.io/example/quarkus-jvm-builder" }
-	Builders map[string]string `yaml:"builders"`
-
 	// Optional list of buildpacks to use when building the function
 	Buildpacks []string `yaml:"buildpacks"`
 
@@ -114,8 +110,8 @@ type HealthEndpoints struct {
 
 // BuildConfig defines builders and buildpacks
 type BuildConfig struct {
-	Buildpacks []string          `yaml:"buildpacks,omitempty"`
-	Builders   map[string]string `yaml:"builders,omitempty"`
+	Buildpacks []string `yaml:"buildpacks,omitempty"`
+	Builder    string   `yaml:"builder,omitempty"`
 }
 
 // Invocation defines hints on how to accomplish a Function invocation.
@@ -162,7 +158,7 @@ func NewFunction(path string) (f Function, err error) {
 	if err != nil {
 		return
 	}
-	if err = yaml.UnmarshalStrict(bb, &f); err != nil {
+	if err = yaml.Unmarshal(bb, &f); err != nil {
 		err = formatUnmarshalError(err) // human-friendly unmarshalling errors
 		return
 	}
@@ -479,7 +475,7 @@ func hasInitializedFunction(path string) (bool, error) {
 		return false, err
 	}
 	f := Function{}
-	if err = yaml.UnmarshalStrict(bb, &f); err != nil {
+	if err = yaml.Unmarshal(bb, &f); err != nil {
 		return false, err
 	}
 	if f, err = f.Migrate(); err != nil {

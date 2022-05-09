@@ -19,17 +19,6 @@ import (
 	"github.com/buildpacks/pack/pkg/logging"
 )
 
-// DefaultBuilderImages for Pack builders indexed by Runtime Language
-var DefaultBuilderImages = map[string]string{
-	"node":       "gcr.io/paketo-buildpacks/builder:base",
-	"typescript": "gcr.io/paketo-buildpacks/builder:base",
-	"go":         "gcr.io/paketo-buildpacks/builder:base",
-	"python":     "gcr.io/paketo-buildpacks/builder:base",
-	"quarkus":    "gcr.io/paketo-buildpacks/builder:base",
-	"rust":       "gcr.io/paketo-buildpacks/builder:base",
-	"springboot": "gcr.io/paketo-buildpacks/builder:base",
-}
-
 //Builder holds the configuration that will be passed to
 //Buildpack builder
 type Builder struct {
@@ -50,15 +39,8 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	var packBuilder string
 	if f.Builder != "" {
 		packBuilder = f.Builder
-		pb, ok := f.Builders[packBuilder]
-		if ok {
-			packBuilder = pb
-		}
 	} else {
-		packBuilder, err = defaultBuilderImage(f)
-		if err != nil {
-			return
-		}
+		return fmt.Errorf("No builder image configured")
 	}
 
 	// Build options for the pack client.
@@ -143,16 +125,6 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	}
 
 	return
-}
-
-// defaultBuilderImage for the given function based on its runtime, or an
-// error if no default is defined for the given runtime.
-func defaultBuilderImage(f fn.Function) (string, error) {
-	v, ok := DefaultBuilderImages[f.Runtime]
-	if !ok {
-		return "", fmt.Errorf("Pack builder has no default builder image specified for the '%v' language runtime.  Please provide one.", f.Runtime)
-	}
-	return v, nil
 }
 
 // hack this makes stdout non-closeable

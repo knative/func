@@ -68,6 +68,7 @@ EXAMPLES
 	  $ {{.Name}} create myfunc
 
 	o Create a Go Function which handles CloudEvents in ./myfunc.
+	
 	  $ {{.Name}} create -l go -t cloudevents myfunc
 		`,
 		SuggestFor: []string{"vreate", "creaet", "craete", "new"},

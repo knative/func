@@ -54,10 +54,6 @@ and the image name is stored in the configuration file.
 	cmd.Flags().BoolP("push", "u", false, "Attempt to push the function image after being successfully built")
 	setPathFlag(cmd)
 
-	if err := cmd.RegisterFlagCompletionFunc("builder", CompleteBuilderImageList); err != nil {
-		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
-	}
-
 	cmd.SetHelpFunc(defaultTemplatedHelp)
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {

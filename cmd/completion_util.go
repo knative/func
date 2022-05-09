@@ -95,34 +95,6 @@ func CompleteRegistryList(cmd *cobra.Command, args []string, toComplete string) 
 	return
 }
 
-func CompleteBuilderImageList(cmd *cobra.Command, args []string, complete string) (strings []string, directive cobra.ShellCompDirective) {
-	directive = cobra.ShellCompDirectiveError
-
-	var (
-		err  error
-		path string
-		f    fn.Function
-	)
-
-	path, err = cmd.Flags().GetString("path")
-	if err != nil {
-		return
-	}
-
-	f, err = fn.NewFunction(path)
-	if err != nil {
-		return
-	}
-
-	strings = make([]string, 0, len(f.Builders))
-	for name := range f.Builders {
-		strings = append(strings, name)
-	}
-
-	directive = cobra.ShellCompDirectiveDefault
-	return
-}
-
 func CompleteDeployBuildType(cmd *cobra.Command, args []string, complete string) (buildTypes []string, directive cobra.ShellCompDirective) {
 	buildTypes = fn.AllBuildTypes()
 	directive = cobra.ShellCompDirectiveDefault

@@ -34,9 +34,8 @@ const (
 	// helper .Invoke.  It is usually set at the template level.  The default
 	// ('http') is a plain HTTP POST.
 	DefaultInvocationFormat = "http"
-
-	// Defaults for Builder and Builders not expressly defined as a purposeful
-	// delegation of choice.
+	// DefaultBuilder is the base Paketo builder which should work for most runtimes
+	DefaultBuilder = "gcr.io/paketo-buildpacks/builder:base"
 )
 
 // Repository represents a collection of runtimes, each containing templates.
@@ -141,9 +140,10 @@ func NewRepository(name, uri string) (r Repository, err error) {
 		funcDefaults: funcDefaults{
 			HealthEndpoints: HealthEndpoints{
 				Liveness:  DefaultLivenessEndpoint,
-				Readiness: DefaultLivenessEndpoint,
+				Readiness: DefaultReadinessEndpoint,
 			},
-			Invocation: Invocation{Format: DefaultInvocationFormat},
+			BuildConfig: BuildConfig{Builder: DefaultBuilder},
+			Invocation:  Invocation{Format: DefaultInvocationFormat},
 		},
 	}
 

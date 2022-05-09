@@ -4,9 +4,3 @@ schema_version: 0.0.1 # The version for manifest.yaml schema
 # in the UX, and its version
 name: default
 version: 0.0.1
-
-# Optional. Health endpoints for deployed functions in all runtimes.
-# May be overridden by runtime.yaml settings at the language level.
-healthEndpoints:
-  liveness: /health/liveness
-  readiness: /health/readiness

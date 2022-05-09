@@ -20,14 +20,6 @@ The following fields are used in `func.yaml`.
 Specifies the buildpack builder image to use when building the function.
 In most cases, this value should not be changed.
 
-### `builders`
-
-Some function runtimes may be built in multiple ways. For example, a Quarkus
-function may be built for the JVM, or as a native binary. The `builders`
-field will contain all of the available builders for a given runtime. Although
-it's typically unnecessary to modify the `builder` field, using values from
-`builders` is OK.
-
 ### `buildEnvs`
 This field allows you to set environment variables available to the builder/buildpack that builds the function. This environment variable is NOT set at runtime, use [envs](#envs) instead
 1. Environment variable can be set directly from a value

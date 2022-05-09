@@ -30,7 +30,6 @@
 				"build",
 				"git",
 				"builder",
-				"builders",
 				"buildpacks",
 				"volumes",
 				"buildEnvs",
@@ -77,14 +76,6 @@
 				},
 				"builder": {
 					"type": "string"
-				},
-				"builders": {
-					"patternProperties": {
-						".*": {
-							"type": "string"
-						}
-					},
-					"type": "object"
 				},
 				"buildpacks": {
 					"items": {
