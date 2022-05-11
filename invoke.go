@@ -47,13 +47,16 @@ func NewInvokeMessage() InvokeMessage {
 // invoke the Function instance in the target environment with the
 // invocation message.  Returned is metadata (such as HTTP headers or
 // CloudEvent fields) and a stringified version of the payload.
-func invoke(ctx context.Context, c *Client, f Function, target string, m InvokeMessage) (metadata map[string][]string, body string, err error) {
+func invoke(ctx context.Context, c *Client, f Function, target string, m InvokeMessage, verbose bool) (metadata map[string][]string, body string, err error) {
 
 	// Get the first available route from 'local', 'remote', a named environment
 	// or treat target
 	route, err := invocationRoute(ctx, c, f, target) // choose instance to invoke
 	if err != nil {
 		return
+	}
+	if verbose {
+		fmt.Printf("Invoking '%v' Function at %v\n", f.Invocation.Format, route)
 	}
 
 	// Format" either 'http' or 'cloudevent'
@@ -69,16 +72,19 @@ func invoke(ctx context.Context, c *Client, f Function, target string, m InvokeM
 	if m.Format != "" {
 		// Use the override specified on the message if provided
 		format = m.Format
+		if verbose {
+			fmt.Printf("Invoking '%v' Function using '%v' format\n", f.Invocation.Format, m.Format)
+		}
 	}
 
 	switch format {
 	case "http":
-		return sendPost(ctx, route, m, c.transport)
+		return sendPost(ctx, route, m, c.transport, verbose)
 	case "cloudevent":
 		// CouldEvents return a string which always includes a fairly verbose
 		// summation of fields, so metadata is not applicable
 		meta := make(map[string][]string)
-		body, err = sendEvent(ctx, route, m, c.transport)
+		body, err = sendEvent(ctx, route, m, c.transport, verbose)
 		return meta, body, err
 	default:
 		err = fmt.Errorf("format '%v' not supported.", format)
@@ -137,7 +143,7 @@ func invocationRoute(ctx context.Context, c *Client, f Function, target string) 
 }
 
 // sendEvent to the route populated with data in the invoke message.
-func sendEvent(ctx context.Context, route string, m InvokeMessage, t http.RoundTripper) (resp string, err error) {
+func sendEvent(ctx context.Context, route string, m InvokeMessage, t http.RoundTripper, verbose bool) (resp string, err error) {
 	event := cloudevents.NewEvent()
 	event.SetID(m.ID)
 	event.SetSource(m.Source)
@@ -153,6 +159,11 @@ func sendEvent(ctx context.Context, route string, m InvokeMessage, t http.RoundT
 		return
 	}
 
+	if verbose {
+		fmt.Printf("Sending event\n%v", event)
+		// note event's stringification already includes a trailing linebreak.
+	}
+
 	evt, result := c.Request(cloudevents.ContextWithTarget(ctx, route), event)
 	if cloudevents.IsUndelivered(result) {
 		err = fmt.Errorf("unable to invoke: %v", result)
@@ -164,18 +175,25 @@ func sendEvent(ctx context.Context, route string, m InvokeMessage, t http.RoundT
 }
 
 // sendPost to the route populated with data in the invoke message.
-func sendPost(ctx context.Context, route string, m InvokeMessage, t http.RoundTripper) (map[string][]string, string, error) {
+func sendPost(ctx context.Context, route string, m InvokeMessage, t http.RoundTripper, verbose bool) (map[string][]string, string, error) {
 	client := http.Client{
 		Transport: t,
 		Timeout:   10 * time.Second,
 	}
-	resp, err := client.PostForm(route, url.Values{
+	values := url.Values{
 		"ID":          {m.ID},
 		"Source":      {m.Source},
 		"Type":        {m.Type},
 		"ContentType": {m.ContentType},
 		"Data":        {m.Data},
-	})
+	}
+	if verbose {
+		fmt.Println("Sending values")
+		for k, v := range values {
+			fmt.Printf("  %v: %v\n", k, v[0]) // NOTE len==1 value slices assumed
+		}
+	}
+	resp, err := client.PostForm(route, values)
 	if err != nil {
 		return nil, "", err
 	}

@@ -861,7 +861,7 @@ func (c *Client) Invoke(ctx context.Context, root string, target string, m Invok
 	}
 
 	// See invoke.go for implementation details
-	return invoke(ctx, c, f, target, m)
+	return invoke(ctx, c, f, target, m, c.verbose)
 }
 
 // Push the image for the named service to the configured registry

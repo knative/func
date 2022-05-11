@@ -14,21 +14,12 @@ func TestHandle(t *testing.T) {
 		w   = httptest.NewRecorder()
 		req = httptest.NewRequest("GET", "http://example.com/test", nil)
 		res *http.Response
-		err error
 	)
 
-	// Invoke the Handler via a standard Go http.Handler
-	func(w http.ResponseWriter, req *http.Request) {
-		Handle(context.Background(), w, req)
-	}(w, req)
-
+	Handle(context.Background(), w, req)
 	res = w.Result()
 	defer res.Body.Close()
 
-	// Assert postconditions
-	if err != nil {
-		t.Fatalf("unepected error in Handle: %v", err)
-	}
 	if res.StatusCode != 200 {
 		t.Fatalf("unexpected response code: %v", res.StatusCode)
 	}

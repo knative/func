@@ -162,19 +162,30 @@ func runInvoke(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 		return err
 	}
 
-	// Print metadata (headers for HTTP, CloudEvents include metadat in their
-	// default stringification) if in
+	// Always print a "Received response" message because a simple echo to
+	// stdout could be confusing on a first-time run, viewing a proper echo.
+	fmt.Println("Received response")
+
+	// When Verbose
+	// - Print an explicit "Received response" indicator
+	// - Print metadata (headers for HTTP requests, CloudEvents already include
+	//   metadata in their data value.
 	if cfg.Verbose {
+		if len(metadata) > 0 {
+			fmt.Println("Metadata:")
+		}
 		for k, vv := range metadata {
 			values := strings.Join(vv, ";")
-			fmt.Fprintf(cmd.OutOrStdout(), "%v: %v\n", k, values)
+			fmt.Fprintf(cmd.OutOrStdout(), "  %v: %v\n", k, values)
 		}
 		if len(metadata) > 0 {
-			fmt.Fprintln(cmd.OutOrStdout())
+			fmt.Println("Content:")
 		}
 	}
 
-	fmt.Fprintln(cmd.OutOrStdout(), body)
+	// Always print the response's default stringification
+	// Note body already includes a linebreak.
+	fmt.Fprint(cmd.OutOrStdout(), body)
 	return
 }
 

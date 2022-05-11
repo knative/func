@@ -74,7 +74,7 @@ var defaultFunctionsHttpValidators = []FunctionHttpResponsivenessValidator{
 		expects:   `{"message":"hello"}`,
 	},
 	{runtime: "go",
-		targetUrl: "%s",
+		targetUrl: "%s?message=OK",
 		expects:   `OK`,
 	},
 	{runtime: "python",
