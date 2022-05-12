@@ -61,6 +61,10 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	}
 	defer client.Close()
 
+	if isPodman(ctx, client) {
+		client = podmanDockerClient{client}
+	}
+
 	// Build Config
 	cfg := &api.Config{}
 	cfg.Quiet = !b.verbose
