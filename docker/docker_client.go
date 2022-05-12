@@ -90,7 +90,7 @@ func NewClient(defaultHost string) (dockerClient client.CommonAPIClient, dockerH
 
 	if closer, ok := contextDialer.(io.Closer); ok {
 		dockerClient = clientWithAdditionalCleanup{
-			pimpl: dockerClient,
+			CommonAPIClient: dockerClient,
 			cleanUp: func() {
 				closer.Close()
 			},
@@ -128,8 +128,8 @@ func newClientWithPodmanService() (dockerClient client.CommonAPIClient, dockerHo
 		_ = os.RemoveAll(tmpDir)
 	}
 	dockerClient = clientWithAdditionalCleanup{
-		pimpl:   dockerClient,
-		cleanUp: stopPodmanService,
+		CommonAPIClient: dockerClient,
+		cleanUp:         stopPodmanService,
 	}
 
 	podmanServiceRunning := false
@@ -151,12 +151,12 @@ func newClientWithPodmanService() (dockerClient client.CommonAPIClient, dockerHo
 }
 
 type clientWithAdditionalCleanup struct {
+	client.CommonAPIClient
 	cleanUp func()
-	pimpl   client.CommonAPIClient
 }
 
 // Close function need to stop associated podman service
 func (w clientWithAdditionalCleanup) Close() error {
 	defer w.cleanUp()
-	return w.pimpl.Close()
+	return w.CommonAPIClient.Close()
 }
