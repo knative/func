@@ -76,6 +76,13 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	cfg.RuntimeImagePullPolicy = api.DefaultRuntimeImagePullPolicy
 	cfg.DockerConfig = s2idocker.GetDefaultDockerConfig()
 
+	// Excludes
+	// Do not include .git, .env, .func or any language-specific cache directories
+	// (node_modules, etc) in the tar file sent to the builder, as this both
+	// bloats the build process and can cause unexpected errors in the resultant
+	// Function.
+	cfg.ExcludeRegExp = "(^|/)\\.git|\\.env|\\.func|node_modules(/|$)"
+
 	// Environment variables
 	// Build Envs have local env var references interpolated then added to the
 	// config as an S2I EnvironmentList struct
