@@ -5,7 +5,7 @@ const test = require('tape');
 const { CloudEvent } = require('cloudevents');
 
 // Ensure that the function completes cleanly when passed a valid event.
-test('Unit: handles a valid event', t => {
+test('Unit: handles a valid event', async t => {
   t.plan(4);
   const data = {
     name: 'tiger',
@@ -22,7 +22,7 @@ test('Unit: handles a valid event', t => {
   const mockContext = new MockContext(cloudevent);
 
   // Invoke the function with the valid event, which should complete without error.
-  const result =  func(mockContext, data);
+  const result =  await func(mockContext, data);
   t.ok(result);
   t.equal(result.body, JSON.stringify(data));
   t.equal(result.headers['ce-type'], 'echo');

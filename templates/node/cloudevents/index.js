@@ -18,7 +18,7 @@ const { CloudEvent, HTTP } = require('cloudevents');
  * See: https://github.com/knative-sandbox/kn-plugin-func/blob/main/docs/guides/nodejs.md#the-context-object
  * @param {CloudEvent} event the CloudEvent
  */
-function handle(context, event) {
+const handle = async (context, event) => {
   // YOUR CODE HERE
   context.log.info("context");
   context.log.info(JSON.stringify(context, null, 2));

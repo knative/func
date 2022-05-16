@@ -6,7 +6,7 @@ import { Context } from 'faas-js-runtime';
 import { handle, Customer } from '../src';
 
 // Ensure that the function completes cleanly when passed a valid event.
-test('Unit: handles a valid event', (t) => {
+test('Unit: handles a valid event', async (t) => {
   t.plan(4);
   const data = {
     name: 'tiger',
@@ -21,7 +21,7 @@ test('Unit: handles a valid event', (t) => {
   });
 
   // Invoke the function with the valid event, which should complete without error.
-  const result = handle({} as Context, cloudevent);
+  const result = await handle({} as Context, cloudevent);
   t.ok(result);
   t.deepEqual(JSON.parse(result.body as string), data);
   t.equal(result.headers['ce-type'], 'echo');

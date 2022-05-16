@@ -15,7 +15,7 @@
  * @param {string} context.httpVersion the HTTP protocol version
  * See: https://github.com/knative-sandbox/kn-plugin-func/blob/main/docs/guides/nodejs.md#the-context-object
  */
-function handle(context) {
+const handle = async (context) => {
   // YOUR CODE HERE
   context.log.info(JSON.stringify(context, null, 2));
 
