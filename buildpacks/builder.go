@@ -46,19 +46,11 @@ var v330 = semver.MustParse("v3.3.0")
 // Build the Function at path.
 func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 
-	// Use the builder found in the Function configuration file
-	var packBuilder string
-	if f.Builder != "" {
-		packBuilder = f.Builder
-		pb, ok := f.Builders[packBuilder]
-		if ok {
-			packBuilder = pb
-		}
-	} else {
-		packBuilder, err = defaultBuilderImage(f)
-		if err != nil {
-			return
-		}
+	// Use the builder found in the Function configuration file if it exists,
+	// or a default for the language if not provided
+	packBuilder := BuilderImage(f)
+	if packBuilder == "" {
+		return fmt.Errorf("builder image not found for function of language '%v'", f.Runtime)
 	}
 
 	// Build options for the pack client.
@@ -162,4 +154,25 @@ type stdoutWrapper struct {
 
 func (s stdoutWrapper) Write(p []byte) (n int, err error) {
 	return s.impl.Write(p)
+}
+
+// Builder Image for a Function being built using Buildpack.
+//
+// A value defined on the Function itself takes precidence.  If not defined,
+// the default builder image for the Function's language runtime is used.
+// An inability to determine a builder image (such as an unknown language),
+// will return empty string.
+//
+// Exported for use by Tekton in-cluster builds wich do not have access to this
+// library at this time, and can therefore not instantiate and invoke this
+// package's buildpacks.Builder.Build.  Instead, they must transmit information
+// to the cluster using a Pipeline definition.
+func BuilderImage(f fn.Function) (builder string) {
+	// NOTE this will be updated when func.yaml is expanded to support
+	// differing builder images for different build strategies (buildpac vs s2i)
+	if f.Builder != "" {
+		return f.Builder
+	}
+	builder = DefaultBuilderImages[f.Runtime]
+	return
 }

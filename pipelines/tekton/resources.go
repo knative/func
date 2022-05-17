@@ -10,6 +10,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/buildpacks"
 )
 
 func deletePipelines(ctx context.Context, namespaceOverride string, listOptions metav1.ListOptions) (err error) {
@@ -124,7 +125,7 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 				},
 				{
 					Name:  "builderImage",
-					Value: *pplnv1beta1.NewArrayOrString(f.Builder),
+					Value: *pplnv1beta1.NewArrayOrString(buildpacks.BuilderImage(f)),
 				},
 			},
 
