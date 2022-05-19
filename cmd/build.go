@@ -39,22 +39,29 @@ and the image name is stored in the configuration file.
 # Re-build, picking up a previously supplied image name from a local func.yml
 {{.Name}} build
 
+# Build using s2i instead of Buildpacks
+{{.Name}} build --builder=s2i
+
 # Build with a custom buildpack builder
-{{.Name}} build --builder cnbs/sample-builder:bionic
+{{.Name}} build --builder=pack --builder-image cnbs/sample-builder:bionic
 `,
 		SuggestFor: []string{"biuld", "buidl", "built"},
 		PreRunE:    bindEnv("image", "path", "builder", "registry", "confirm", "push", "builder-image"),
 	}
 
-	cmd.Flags().StringP("builder", "b", "pack", "builder to use when creating the underlying image. Currently supported builders are 'pack' and 's2i'.")
-	cmd.Flags().StringP("builder-image", "", "", "builder image, either an as a an image name or a mapping name.\nSpecified value is stored in func.yaml for subsequent builds. ($FUNC_BUILDER_IMAGE)")
+	cmd.Flags().StringP("builder", "b", "pack", "build strategy to use when creating the underlying image. Currently supported build strategies are 'pack' and 's2i'.")
+	cmd.Flags().StringP("builder-image", "", "", "builder image, either an as a an image name or a mapping name.\nSpecified value is stored in func.yaml (as 'builder' field) for subsequent builds. ($FUNC_BUILDER_IMAGE)")
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
 	cmd.Flags().StringP("image", "i", "", "Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE)")
 	cmd.Flags().StringP("registry", "r", GetDefaultRegistry(), "Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined based on the local directory name. If not provided the registry will be taken from func.yaml (Env: $FUNC_REGISTRY)")
 	cmd.Flags().BoolP("push", "u", false, "Attempt to push the function image after being successfully built")
 	setPathFlag(cmd)
 
-	if err := cmd.RegisterFlagCompletionFunc("builder", CompleteBuilderImageList); err != nil {
+	if err := cmd.RegisterFlagCompletionFunc("builder", CompleteBuildStrategyList); err != nil {
+		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
+	}
+
+	if err := cmd.RegisterFlagCompletionFunc("builder-image", CompleteBuilderImageList); err != nil {
 		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
 	}
 
@@ -155,7 +162,7 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	} else if config.Builder == "s2i" {
 		builder = s2i.NewBuilder(config.Verbose)
 	} else {
-		err = errors.New("unrecognized builder")
+		err = errors.New("unrecognized builder: valid values are: s2i, pack")
 		return
 	}
 
