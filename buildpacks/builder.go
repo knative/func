@@ -153,7 +153,7 @@ func (s stdoutWrapper) Write(p []byte) (n int, err error) {
 // An inability to determine a builder image (such as an unknown language),
 // will return empty string.
 //
-// Exported for use by Tekton in-cluster builds wich do not have access to this
+// Exported for use by Tekton in-cluster builds which do not have access to this
 // library at this time, and can therefore not instantiate and invoke this
 // package's buildpacks.Builder.Build.  Instead, they must transmit information
 // to the cluster using a Pipeline definition.
