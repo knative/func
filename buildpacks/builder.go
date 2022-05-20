@@ -137,16 +137,6 @@ func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	return
 }
 
-// defaultBuilderImage for the given function based on its runtime, or an
-// error if no default is defined for the given runtime.
-func defaultBuilderImage(f fn.Function) (string, error) {
-	v, ok := DefaultBuilderImages[f.Runtime]
-	if !ok {
-		return "", fmt.Errorf("Pack builder has no default builder image specified for the '%v' language runtime.  Please provide one.", f.Runtime)
-	}
-	return v, nil
-}
-
 // hack this makes stdout non-closeable
 type stdoutWrapper struct {
 	impl io.Writer
