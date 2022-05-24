@@ -71,6 +71,13 @@ type Function struct {
 	// e.g. { "jvm": "docker.io/example/quarkus-jvm-builder" }
 	Builders map[string]string `yaml:"builders"`
 
+	// BuilderImages define optional explicit builder images to use by
+	// builder implementations in leau of the in-code defaults.
+	// builderImages:
+	//   pack: example.com/user/my-pack-node-builder
+	//   s2i: example.com/user/my-s2i-node-builder
+	BuilderImages map[string]string `yaml:"builderImages,omitempty"`
+
 	// Optional list of buildpacks to use when building the function
 	Buildpacks []string `yaml:"buildpacks"`
 

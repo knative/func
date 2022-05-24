@@ -86,6 +86,14 @@
 					},
 					"type": "object"
 				},
+				"builderImages": {
+					"patternProperties": {
+						".*": {
+							"type": "string"
+						}
+					},
+					"type": "object"
+				},
 				"buildpacks": {
 					"items": {
 						"type": "string"
