@@ -203,7 +203,7 @@ func TestRemoteRepositories(t *testing.T) {
 // newClient creates an instance of the func client whose concrete impls
 // match those created by the kn func plugin CLI.
 func newClient(verbose bool) *fn.Client {
-	builder := buildpacks.NewBuilder(verbose)
+	builder := buildpacks.NewBuilder(buildpacks.WithVerbose(verbose))
 	pusher := docker.NewPusher(docker.WithVerbose(verbose))
 	deployer := knative.NewDeployer(DefaultNamespace, verbose)
 	remover := knative.NewRemover(DefaultNamespace, verbose)

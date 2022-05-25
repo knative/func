@@ -68,7 +68,7 @@ func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 			fn.WithVerbose(cfg.Verbose),
 			fn.WithProgressListener(p),
 			fn.WithTransport(t),
-			fn.WithBuilder(buildpacks.NewBuilder(cfg.Verbose)),
+			fn.WithBuilder(buildpacks.NewBuilder(buildpacks.WithVerbose(cfg.Verbose))),
 			fn.WithRemover(knative.NewRemover(cfg.Namespace, cfg.Verbose)),
 			fn.WithDescriber(knative.NewDescriber(cfg.Namespace, cfg.Verbose)),
 			fn.WithLister(knative.NewLister(cfg.Namespace, cfg.Verbose)),

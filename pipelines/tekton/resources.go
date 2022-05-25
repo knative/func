@@ -125,7 +125,7 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 				},
 				{
 					Name:  "builderImage",
-					Value: *pplnv1beta1.NewArrayOrString(buildpacks.BuilderImage(f)),
+					Value: *pplnv1beta1.NewArrayOrString(getBuilderImage(f)),
 				},
 			},
 
@@ -153,6 +153,15 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 			},
 		},
 	}
+}
+
+// guilderImage returns the builder image to use when building the Function
+// with the Pack strategy if it can be calculated (the Function has a defined
+// language runtime.  Errors are checked elsewhere, so at this level they
+// manifest as an inability to get a builder image = empty string.
+func getBuilderImage(f fn.Function) (name string) {
+	name, _ = buildpacks.BuilderImage(f)
+	return
 }
 
 func getPipelineName(f fn.Function) string {
