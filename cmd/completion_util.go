@@ -95,7 +95,7 @@ func CompleteRegistryList(cmd *cobra.Command, args []string, toComplete string) 
 	return
 }
 
-func CompleteBuilderImageList(cmd *cobra.Command, args []string, complete string) (strings []string, directive cobra.ShellCompDirective) {
+func CompleteBuilderImageList(cmd *cobra.Command, args []string, complete string) (builderImages []string, directive cobra.ShellCompDirective) {
 	directive = cobra.ShellCompDirectiveError
 
 	var (
@@ -114,12 +114,18 @@ func CompleteBuilderImageList(cmd *cobra.Command, args []string, complete string
 		return
 	}
 
-	strings = make([]string, 0, len(f.Builders))
+	builderImages = make([]string, 0, len(f.Builders))
 	for name := range f.Builders {
-		strings = append(strings, name)
+		if len(complete) == 0 {
+			builderImages = append(builderImages, name)
+			continue
+		}
+		if strings.HasPrefix(name, complete) {
+			builderImages = append(builderImages, name)
+		}
 	}
 
-	directive = cobra.ShellCompDirectiveDefault
+	directive = cobra.ShellCompDirectiveNoFileComp
 	return
 }
 
@@ -127,4 +133,16 @@ func CompleteDeployBuildType(cmd *cobra.Command, args []string, complete string)
 	buildTypes = fn.AllBuildTypes()
 	directive = cobra.ShellCompDirectiveDefault
 	return
+}
+
+func CompleteBuildStrategyList(cmd *cobra.Command, args []string, complete string) ([]string, cobra.ShellCompDirective) {
+	if len(complete) >= 1 {
+		if strings.HasPrefix("pack", complete) {
+			return []string{"pack"}, cobra.ShellCompDirectiveNoFileComp
+		}
+		if strings.HasPrefix("s2i", complete) {
+			return []string{"s2i"}, cobra.ShellCompDirectiveNoFileComp
+		}
+	}
+	return []string{"pack", "s2i"}, cobra.ShellCompDirectiveNoFileComp
 }
