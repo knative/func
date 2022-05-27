@@ -19,10 +19,10 @@ import { Context } from 'faas-js-runtime';
  * See: https://github.com/knative-sandbox/kn-plugin-func/blob/main/docs/guides/nodejs.md#the-context-object
  * @param {CloudEvent} cloudevent the CloudEvent
  */
-const handle = function (
+const handle = async (
   context: Context,
-  cloudevent?: CloudEvent<string> | CloudEvent<Customer>
-): Message {
+  cloudevent?: CloudEvent<string | Customer>
+): Promise<Message> => {
   const meta = {
     source: 'function.eventViewer',
     type: 'echo'

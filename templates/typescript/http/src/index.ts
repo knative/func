@@ -1,4 +1,4 @@
-import { Context, Invokable } from 'faas-js-runtime';
+import { Context } from 'faas-js-runtime';
 
 /**
  * Your HTTP handling function, invoked with each request. This is an example
@@ -19,7 +19,7 @@ import { Context, Invokable } from 'faas-js-runtime';
  * @param {string} context.httpVersion the HTTP protocol version
  * See: https://github.com/knative-sandbox/kn-plugin-func/blob/main/docs/guides/nodejs.md#the-context-object
  */
-export const handle: Invokable = function (context: Context): string {
+export const handle = async (context: Context): Promise<string> => {
   // YOUR CODE HERE
   // eslint-disable-next-line no-console
   console.log(`
