@@ -313,7 +313,7 @@ func (f Function) Initialized() bool {
 // image indicated actually exists, just that it _should_ exist based off
 // the current state of the Function object, in particular the value of
 // the Image and ImageDiget fields.
-func (f Function) Built() bool {
+func (f Function) HasImage() bool {
 	// If Image (the override) and ImageDigest (the most recent build stamp) are
 	// both empty, the Function is considered unbuilt.
 	// TODO: upgrade to a "build complete" timestamp.

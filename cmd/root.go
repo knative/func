@@ -287,8 +287,10 @@ func envFromCmd(cmd *cobra.Command) (*util.OrderedMap, []string, error) {
 	return util.NewOrderedMap(), []string{}, nil
 }
 
-func mergeEnvs(envs []fn.Env, envToUpdate *util.OrderedMap, envToRemove []string) ([]fn.Env, error) {
+func mergeEnvs(envs []fn.Env, envToUpdate *util.OrderedMap, envToRemove []string) ([]fn.Env, int, error) {
 	updated := sets.NewString()
+
+	var counter int
 
 	for i := range envs {
 		if envs[i].Name != nil {
@@ -296,6 +298,7 @@ func mergeEnvs(envs []fn.Env, envToUpdate *util.OrderedMap, envToRemove []string
 			if present {
 				envs[i].Value = &value
 				updated.Insert(*envs[i].Name)
+				counter++
 			}
 		}
 	}
@@ -306,6 +309,7 @@ func mergeEnvs(envs []fn.Env, envToUpdate *util.OrderedMap, envToRemove []string
 			n := name
 			v := value
 			envs = append(envs, fn.Env{Name: &n, Value: &v})
+			counter++
 		}
 	}
 
@@ -313,6 +317,7 @@ func mergeEnvs(envs []fn.Env, envToUpdate *util.OrderedMap, envToRemove []string
 		for i, envVar := range envs {
 			if *envVar.Name == name {
 				envs = append(envs[:i], envs[i+1:]...)
+				counter++
 				break
 			}
 		}
@@ -320,10 +325,10 @@ func mergeEnvs(envs []fn.Env, envToUpdate *util.OrderedMap, envToRemove []string
 
 	errMsg := fn.ValidateEnvs(envs)
 	if len(errMsg) > 0 {
-		return []fn.Env{}, fmt.Errorf(strings.Join(errMsg, "\n"))
+		return []fn.Env{}, 0, fmt.Errorf(strings.Join(errMsg, "\n"))
 	}
 
-	return envs, nil
+	return envs, counter, nil
 }
 
 // setPathFlag ensures common text/wording when the --path flag is used

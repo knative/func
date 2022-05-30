@@ -1288,3 +1288,99 @@ func TestClient_Instances(t *testing.T) {
 		t.Fatalf("Expected endpoint '%v', got '%v'", expectedEndpoint, instance.Route)
 	}
 }
+
+// TestClient_BuiltStamps ensures that the client creates and considers a
+// buildstamp on build which reports whther or not a given path contains a built
+// Function.
+func TestClient_BuiltStamps(t *testing.T) {
+	root, rm := Mktemp(t)
+	defer rm()
+	builder := mock.NewBuilder()
+	client := fn.New(fn.WithBuilder(builder), fn.WithRegistry(TestRegistry))
+
+	// paths that do not contain a Function are !Built - Degenerate case
+	if client.Built(root) {
+		t.Fatal("path not containing a Function returned as being built")
+	}
+
+	// a freshly-created Function should be !Built
+	if err := client.Create(fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
+		t.Fatal(err)
+	}
+	if client.Built(root) {
+		t.Fatal("newly created Function returned Built==true")
+	}
+
+	// a Function which was successfully built should return as being Built
+	if err := client.Build(context.Background(), root); err != nil {
+		t.Fatal(err)
+	}
+	if !client.Built(root) {
+		t.Fatal("freshly built Funciton should return Built==true")
+	}
+}
+
+// TestClient_BuiltDetects ensures that the client's Built command detects
+// filesystem changes as indicating the Function is no longer Built (aka stale)
+// This includes modifying timestamps, removing or adding files.
+func TestClient_BuiltDetects(t *testing.T) {
+	root, rm := Mktemp(t)
+	defer rm()
+	ctx := context.Background()
+	builder := mock.NewBuilder()
+	client := fn.New(fn.WithBuilder(builder), fn.WithRegistry(TestRegistry))
+	testfile := "example.go"
+
+	// Create and build a Function
+	if err := client.Create(fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
+		t.Fatal(err)
+	}
+	if err := client.Build(ctx, root); err != nil {
+		t.Fatal(err)
+	}
+
+	// Prior to a filesystem edit, it will be Built.
+	if !client.Built(root) {
+		t.Fatal("feshly built Function reported Built==false (1)")
+	}
+
+	// Edit the filesystem by touching a file (updating modified timestamp)
+	if err := os.Chtimes(filepath.Join(root, "func.yaml"), time.Now(), time.Now()); err != nil {
+		fmt.Println(err)
+	}
+	if client.Built(root) {
+		t.Fatal("client did not detect file timestamp change as indicating build staleness")
+	}
+
+	// Build and double-check Built has been reset
+	if err := client.Build(ctx, root); err != nil {
+		t.Fatal(err)
+	}
+	if !client.Built(root) {
+		t.Fatal("freshly built Function reported Built==false (2)")
+	}
+
+	// Edit the Function's filesystem by adding a file.
+	if _, err := os.Create(filepath.Join(root, testfile)); err != nil {
+		t.Fatal(err)
+	}
+
+	// The system should now detect the Function is stale
+	if client.Built(root) {
+		t.Fatal("client did not detect an added file as indicating build staleness")
+	}
+
+	// Build and double-check Built has been reset
+	if err := client.Build(ctx, root); err != nil {
+		t.Fatal(err)
+	}
+	if !client.Built(root) {
+		t.Fatal("freshly built Function reported Built==false (3)")
+	}
+
+	// Remove the testfile, which should result in the client reporting that
+	// the Function is no longer Built (stale)
+	if err := os.Remove(filepath.Join(root, testfile)); err != nil {
+		t.Fatal(err)
+	}
+}

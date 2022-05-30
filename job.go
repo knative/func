@@ -6,12 +6,6 @@ import (
 	"path/filepath"
 )
 
-const (
-	// RunDataDir holds transient runtime metadata
-	// By default it is excluded from source control.
-	RunDataDir = ".func"
-)
-
 // Job represents a running Function job (presumably started by this process'
 // Runner instance.
 type Job struct {
