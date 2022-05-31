@@ -29,8 +29,6 @@
 				"imageDigest",
 				"build",
 				"git",
-				"builder",
-				"builders",
 				"buildpacks",
 				"volumes",
 				"buildEnvs",
@@ -74,17 +72,6 @@
 				"git": {
 					"$schema": "http://json-schema.org/draft-04/schema#",
 					"$ref": "#/definitions/Git"
-				},
-				"builder": {
-					"type": "string"
-				},
-				"builders": {
-					"patternProperties": {
-						".*": {
-							"type": "string"
-						}
-					},
-					"type": "object"
 				},
 				"builderImages": {
 					"patternProperties": {
