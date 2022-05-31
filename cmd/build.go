@@ -160,7 +160,7 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	if config.Builder == "pack" {
 		builder = buildpacks.NewBuilder(config.Verbose)
 	} else if config.Builder == "s2i" {
-		builder = s2i.NewBuilder(config.Verbose)
+		builder = s2i.NewBuilder(s2i.WithVerbose(config.Verbose))
 	} else {
 		err = errors.New("unrecognized builder: valid values are: s2i, pack")
 		return
