@@ -64,15 +64,9 @@ type Function struct {
 	// in case build type "git" is being used
 	Git Git `yaml:"git"`
 
-	// Builder represents the CNCF Buildpack builder image for a function
-	Builder string `yaml:"builder"`
-
-	// Map containing known builders.
-	// e.g. { "jvm": "docker.io/example/quarkus-jvm-builder" }
-	Builders map[string]string `yaml:"builders"`
-
 	// BuilderImages define optional explicit builder images to use by
-	// builder implementations in leau of the in-code defaults.
+	// builder implementations in leau of the in-code defaults.  They key
+	// is the builder's short name.  For example:
 	// builderImages:
 	//   pack: example.com/user/my-pack-node-builder
 	//   s2i: example.com/user/my-s2i-node-builder
@@ -121,8 +115,8 @@ type HealthEndpoints struct {
 
 // BuildConfig defines builders and buildpacks
 type BuildConfig struct {
-	Buildpacks []string          `yaml:"buildpacks,omitempty"`
-	Builders   map[string]string `yaml:"builders,omitempty"`
+	Buildpacks    []string          `yaml:"buildpacks,omitempty"`
+	BuilderImages map[string]string `yaml:"builderImages,omitempty"`
 }
 
 // Invocation defines hints on how to accomplish a Function invocation.
@@ -169,7 +163,7 @@ func NewFunction(path string) (f Function, err error) {
 	if err != nil {
 		return
 	}
-	if err = yaml.UnmarshalStrict(bb, &f); err != nil {
+	if err = yaml.Unmarshal(bb, &f); err != nil {
 		err = formatUnmarshalError(err) // human-friendly unmarshalling errors
 		return
 	}
@@ -486,7 +480,7 @@ func hasInitializedFunction(path string) (bool, error) {
 		return false, err
 	}
 	f := Function{}
-	if err = yaml.UnmarshalStrict(bb, &f); err != nil {
+	if err = yaml.Unmarshal(bb, &f); err != nil {
 		return false, err
 	}
 	if f, err = f.Migrate(); err != nil {

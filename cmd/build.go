@@ -100,7 +100,7 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		return
 	}
 
-	function, err := functionWithOverrides(config.Path, functionOverrides{BuilderImage: config.BuilderImage, Image: config.Image})
+	function, err := functionWithOverrides(config.Path, functionOverrides{Image: config.Image})
 	if err != nil {
 		return
 	}
@@ -164,6 +164,11 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	} else {
 		err = errors.New("unrecognized builder: valid values are: s2i, pack")
 		return
+	}
+
+	// Use the user-provided builder image, if supplied
+	if config.BuilderImage != "" {
+		function.BuilderImages[config.Builder] = config.BuilderImage
 	}
 
 	// Create a client using the registry defined in config plus any additional
