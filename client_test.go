@@ -1324,12 +1324,14 @@ func TestClient_BuiltStamps(t *testing.T) {
 // filesystem changes as indicating the Function is no longer Built (aka stale)
 // This includes modifying timestamps, removing or adding files.
 func TestClient_BuiltDetects(t *testing.T) {
-	root, rm := Mktemp(t)
+	var (
+		ctx      = context.Background()
+		builder  = mock.NewBuilder()
+		client   = fn.New(fn.WithBuilder(builder), fn.WithRegistry(TestRegistry))
+		testfile = "example.go"
+		root, rm = Mktemp(t)
+	)
 	defer rm()
-	ctx := context.Background()
-	builder := mock.NewBuilder()
-	client := fn.New(fn.WithBuilder(builder), fn.WithRegistry(TestRegistry))
-	testfile := "example.go"
 
 	// Create and build a Function
 	if err := client.Create(fn.Function{Runtime: TestRuntime, Root: root}); err != nil {

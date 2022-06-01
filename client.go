@@ -956,22 +956,17 @@ func (c *Client) Built(path string) bool {
 // the files within a Function's root.
 func fingerprint(f Function) (string, error) {
 	h := sha256.New()
-
 	err := filepath.Walk(f.Root, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		// Always ignore .func (runtime data) and .git for purposes of fingerprinting)
-		// NOTE: will be expanded to include all values in .funcignore as well
+		// Always ignore .func, .git (TODO: .funcignore)
 		if info.IsDir() && (info.Name() == ".func" || info.Name() == ".git") {
 			return filepath.SkipDir
 		}
-
-		// Write full path and modification timestamp as hash data
 		fmt.Fprintf(h, "%v:%v:", path, info.ModTime().UnixNano())
 		return nil
 	})
-
 	return fmt.Sprintf("%x", h.Sum(nil)), err
 }
 
