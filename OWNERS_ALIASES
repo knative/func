@@ -5,11 +5,10 @@ aliases:
   api-core-wg-leads:
   - dprotaso
   async-component-approvers:
+  - AngeloDanducci
   - bvennam
   - julz
   - maximilien
-  autoscaling-wg-leads:
-  - julz
   client-wg-leads:
   - dsimansk
   - navidshaikh
@@ -230,7 +229,6 @@ aliases:
   - skonto
   - tcnghia
   networking-wg-leads:
-  - ZhiminXiang
   - nak3
   operations-wg-leads:
   - houshengbo
@@ -255,11 +253,12 @@ aliases:
   security-writers:
   - evankanderson
   - julz
-  serving-writers:
-  - ZhiminXiang
+  serving-wg-leads:
   - dprotaso
-  - julz
+  serving-writers:
+  - dprotaso
   - nak3
+  - psschwei
   steering-committee:
   - csantanapr
   - itsmurugappan
