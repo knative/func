@@ -1,4 +1,45 @@
-# Change Log
+# Changelog
+
+All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
+
+## [0.24.0](https://github.com/knative-sandbox/kn-plugin-func/compare/v0.23.0...v0.24.0) (2022-06-01)
+
+
+### Features
+
+* configurable s2i builder images ([#1024](https://github.com/knative-sandbox/kn-plugin-func/issues/1024)) ([096085d](https://github.com/knative-sandbox/kn-plugin-func/commit/096085d751f105b5592a09c849fef364b84145b3))
+* enable Paketo builders for Python functions ([#979](https://github.com/knative-sandbox/kn-plugin-func/issues/979)) ([5af934b](https://github.com/knative-sandbox/kn-plugin-func/commit/5af934be8d97b0de676fb7d81e07f7b07a33a9e3))
+* expose default builder image logic for in-cluster builds ([#1021](https://github.com/knative-sandbox/kn-plugin-func/issues/1021)) ([dc8abf1](https://github.com/knative-sandbox/kn-plugin-func/commit/dc8abf179c63582d197e5a9add2006ad0c026ff6))
+* improved invoke verbosity ([#1007](https://github.com/knative-sandbox/kn-plugin-func/issues/1007)) ([867d4c2](https://github.com/knative-sandbox/kn-plugin-func/commit/867d4c26d6dd0b4d06cf6428dc932004e20ca981))
+* invoke verbose metadata ([#944](https://github.com/knative-sandbox/kn-plugin-func/issues/944)) ([c3c1456](https://github.com/knative-sandbox/kn-plugin-func/commit/c3c1456ede7b471a271d0680107657ac0e4f0568))
+* make templates consistent across runtimes ([#948](https://github.com/knative-sandbox/kn-plugin-func/issues/948)) ([13d4222](https://github.com/knative-sandbox/kn-plugin-func/commit/13d4222461c553d5da1c8448713cba9e4a3e828a))
+* s2i builder env var interpolation ([#991](https://github.com/knative-sandbox/kn-plugin-func/issues/991)) ([1424831](https://github.com/knative-sandbox/kn-plugin-func/commit/14248311b1254fe8601b394f064e2fdd92dd4ced))
+* s2i builder quarkus support ([#993](https://github.com/knative-sandbox/kn-plugin-func/issues/993)) ([397ce65](https://github.com/knative-sandbox/kn-plugin-func/commit/397ce65598c1f61d2312c62016ed78453e1299a3))
+* s2i builder typescript support ([#957](https://github.com/knative-sandbox/kn-plugin-func/issues/957)) ([3be1a77](https://github.com/knative-sandbox/kn-plugin-func/commit/3be1a77388647055dc67e3901da323c240dc77f4))
+
+
+### Bug Fixes
+
+* ignore `is forbidden` errors when deleting function and resources ([#988](https://github.com/knative-sandbox/kn-plugin-func/issues/988)) ([ce26a23](https://github.com/knative-sandbox/kn-plugin-func/commit/ce26a23352513747cad25b7668def43edff6f0fe))
+* ignore node_modules for s2i builds ([#1019](https://github.com/knative-sandbox/kn-plugin-func/issues/1019)) ([1d367c6](https://github.com/knative-sandbox/kn-plugin-func/commit/1d367c6be50d36e045b475c7ff173001b1eaa3d0))
+* read pwd from non-tty input ([#996](https://github.com/knative-sandbox/kn-plugin-func/issues/996)) ([e9932cd](https://github.com/knative-sandbox/kn-plugin-func/commit/e9932cdf43eb560ff496a98f83766d1c3e1fdc96))
+* update various doc links ([#980](https://github.com/knative-sandbox/kn-plugin-func/issues/980)) ([bc6383e](https://github.com/knative-sandbox/kn-plugin-func/commit/bc6383e55c89349e8e25a79e0f90be1760818e50))
+
+
+### Documentation
+
+* add a language pack "contract" document ([#918](https://github.com/knative-sandbox/kn-plugin-func/issues/918)) ([76c647a](https://github.com/knative-sandbox/kn-plugin-func/commit/76c647a1c72f57efa8fad89c6802796d02254bd0))
+
+
+### Miscellaneous
+
+* add release process and func_darwin_arm64 to the release artifacts ([#945](https://github.com/knative-sandbox/kn-plugin-func/issues/945)) ([4e369a0](https://github.com/knative-sandbox/kn-plugin-func/commit/4e369a013ac3109bfea06dc730082b22f6d1cf36))
+* add version.txt to .gitattributes for style ([#966](https://github.com/knative-sandbox/kn-plugin-func/issues/966)) ([23d1188](https://github.com/knative-sandbox/kn-plugin-func/commit/23d118831923bf798c5d839c276382f48c048a32))
+* clean Repository and Runtimes structs ([#973](https://github.com/knative-sandbox/kn-plugin-func/issues/973)) ([e502d55](https://github.com/knative-sandbox/kn-plugin-func/commit/e502d554c8aafacc0f4d75bb7f6e1aef57e218fa))
+* **deps:** bump faas-js-runtime version ([#1000](https://github.com/knative-sandbox/kn-plugin-func/issues/1000)) ([83c081d](https://github.com/knative-sandbox/kn-plugin-func/commit/83c081d34a08b4775787c61eb00f9ca39cfcd33d))
+* templates ([#961](https://github.com/knative-sandbox/kn-plugin-func/issues/961)) ([34cb893](https://github.com/knative-sandbox/kn-plugin-func/commit/34cb893545a5f74a120783f66bb3a37d2b283d64))
+* update allocate script with latest knative ([#965](https://github.com/knative-sandbox/kn-plugin-func/issues/965)) ([4ffb1f9](https://github.com/knative-sandbox/kn-plugin-func/commit/4ffb1f9cba3ee1bac248a033ece6e8473965f7a7))
+* use paketo builders for all runtimes ([#1001](https://github.com/knative-sandbox/kn-plugin-func/issues/1001)) ([31c1d66](https://github.com/knative-sandbox/kn-plugin-func/commit/31c1d66eb3f0089541f8219f07722c75c8a82692))
 
 <a name="unreleased"></a>
 
