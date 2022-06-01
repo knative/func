@@ -1,7 +1,6 @@
 package function
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"errors"
@@ -956,7 +955,7 @@ func (c *Client) Built(path string) bool {
 // fingerprint returns a hash of the filenames and modification timestamps of
 // the files within a Function's root.
 func fingerprint(f Function) (string, error) {
-	b := bytes.Buffer{}
+	h := sha256.New()
 
 	err := filepath.Walk(f.Root, func(path string, info fs.FileInfo, err error) error {
 		if err != nil {
@@ -968,17 +967,12 @@ func fingerprint(f Function) (string, error) {
 			return filepath.SkipDir
 		}
 
-		// Append full path and modification time to the buffer which will be used
-		// to generate the final fingerprint.
-		b.WriteString(fmt.Sprintf("%v:%v:", path, info.ModTime().UnixNano()))
+		// Write full path and modification timestamp as hash data
+		fmt.Fprintf(h, "%v:%v:", path, info.ModTime().UnixNano())
 		return nil
 	})
-	if err != nil {
-		return "", err
-	}
 
-	sum := sha256.Sum256(b.Bytes())
-	return fmt.Sprintf("%x", sum), nil
+	return fmt.Sprintf("%x", h.Sum(nil)), err
 }
 
 // DEFAULTS
