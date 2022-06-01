@@ -102,7 +102,7 @@ func TestMigrateToBuilderImagesDefault(t *testing.T) {
 }
 
 // TestMigrateToBuilderImagesCustom ensures that the migration to builderImages
-// correcty carries forward a customized value for 'builder'.
+// correctly carries forward a customized value for 'builder'.
 func TestMigrateToBuilderImagesCustom(t *testing.T) {
 	// An early version of a Function which includes a customized value for
 	// the 'builder'.  This should be correctly carried forward to

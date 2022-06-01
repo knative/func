@@ -557,8 +557,6 @@ func (c *Client) Create(cfg Function) (err error) {
 		return
 	}
 
-	// TODO: merge PR which updates this return to being the finalized
-	// Function, allowing the CLI to choose whether or not to print.
 	return
 }
 

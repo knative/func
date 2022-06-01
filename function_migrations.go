@@ -144,7 +144,7 @@ func migrateToCreationStamp(f Function, m migration) (Function, error) {
 // implementation (currently 'pack' and 's2i').  Its existence is optional,
 // with the default value being provided in the associated builder's impl.
 // Should the value exist, this indicates the user has overridden the value,
-// or is using a fully custom langauge pack.
+// or is using a fully custom language pack.
 //
 // This migration allows pre-builder-image Functions to load despite their
 // inclusion of the now removed 'builder' member.  If the user had provided
