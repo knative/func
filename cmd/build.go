@@ -158,7 +158,7 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	// Choose a builder based on the value of the --builder flag
 	var builder fn.Builder
 	if config.Builder == "pack" {
-		builder = buildpacks.NewBuilder(config.Verbose)
+		builder = buildpacks.NewBuilder(buildpacks.WithVerbose(config.Verbose))
 	} else if config.Builder == "s2i" {
 		builder = s2i.NewBuilder(s2i.WithVerbose(config.Verbose))
 	} else {

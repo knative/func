@@ -19,125 +19,197 @@ import (
 	"github.com/buildpacks/pack/pkg/logging"
 )
 
-// DefaultBuilderImages for Pack builders indexed by Runtime Language
-var DefaultBuilderImages = map[string]string{
-	"node":       "gcr.io/paketo-buildpacks/builder:base",
-	"typescript": "gcr.io/paketo-buildpacks/builder:base",
-	"go":         "gcr.io/paketo-buildpacks/builder:base",
-	"python":     "gcr.io/paketo-buildpacks/builder:base",
-	"quarkus":    "gcr.io/paketo-buildpacks/builder:base",
-	"rust":       "gcr.io/paketo-buildpacks/builder:base",
-	"springboot": "gcr.io/paketo-buildpacks/builder:base",
-}
+var (
+	DefaultBuilderImages = map[string]string{
+		"node":       "gcr.io/paketo-buildpacks/builder:base",
+		"typescript": "gcr.io/paketo-buildpacks/builder:base",
+		"go":         "gcr.io/paketo-buildpacks/builder:base",
+		"python":     "gcr.io/paketo-buildpacks/builder:base",
+		"quarkus":    "gcr.io/paketo-buildpacks/builder:base",
+		"rust":       "gcr.io/paketo-buildpacks/builder:base",
+		"springboot": "gcr.io/paketo-buildpacks/builder:base",
+	}
 
-//Builder holds the configuration that will be passed to
-//Buildpack builder
+	trustedBuilderImagePrefixes = []string{
+		"quay.io/boson",
+		"gcr.io/paketo-buildpacks",
+		"docker.io/paketobuildpacks",
+	}
+
+	v330 = semver.MustParse("v3.3.0") // for checking podman version
+)
+
+// Builder will build Function using Pack.
 type Builder struct {
 	verbose bool
+	logger  io.Writer
+	impl    Impl
 }
 
-//NewBuilder builds the new Builder configuration
-func NewBuilder(verbose bool) *Builder {
-	return &Builder{verbose: verbose}
+// Impl allows for the underlying implementation to be mocked for tests.
+type Impl interface {
+	Build(context.Context, pack.BuildOptions) error
 }
 
-var v330 = semver.MustParse("v3.3.0")
+// NewBuilder instantiates a Buildpack-based Builder
+func NewBuilder(options ...Option) *Builder {
+	b := &Builder{}
+	for _, o := range options {
+		o(b)
+	}
+
+	// Stream logs to stdout or buffer only for display on error.
+	if b.verbose {
+		b.logger = stdoutWrapper{os.Stdout}
+	} else {
+		b.logger = &bytes.Buffer{}
+	}
+
+	return b
+}
+
+type Option func(*Builder)
+
+func WithVerbose(v bool) Option {
+	return func(b *Builder) {
+		b.verbose = v
+	}
+}
+
+func WithImpl(i Impl) Option {
+	return func(b *Builder) {
+		b.impl = i
+	}
+}
 
 // Build the Function at path.
-func (builder *Builder) Build(ctx context.Context, f fn.Function) (err error) {
-
-	// Use the builder found in the Function configuration file if it exists,
-	// or a default for the language if not provided
-	packBuilder := BuilderImage(f)
-	if packBuilder == "" {
-		return fmt.Errorf("builder image not found for function of language '%v'", f.Runtime)
-	}
-
-	// Build options for the pack client.
-	var network string
-	if runtime.GOOS == "linux" {
-		network = "host"
-	}
-
-	// log output is either STDOUt or kept in a buffer to be printed on error.
-	var logWriter io.Writer
-	if builder.verbose {
-		// pass stdout as non-closeable writer
-		// otherwise pack client would close it which is bad
-		logWriter = stdoutWrapper{os.Stdout}
-	} else {
-		logWriter = &bytes.Buffer{}
-	}
-
-	cli, dockerHost, err := docker.NewClient(client.DefaultDockerHost)
-	if err != nil {
-		return err
-	}
-	defer cli.Close()
-
-	version, err := cli.ServerVersion(ctx)
-	if err != nil {
-		return err
-	}
-
-	var daemonIsPodmanBeforeV330 bool
-	for _, component := range version.Components {
-		if component.Name == "Podman Engine" {
-			v := semver.MustParse(version.Version)
-			if v.Compare(v330) < 0 {
-				daemonIsPodmanBeforeV330 = true
-			}
-			break
-		}
-	}
-
-	buildEnvs, err := fn.Interpolate(f.BuildEnvs)
-	if err != nil {
-		return err
-	}
-
-	var isTrustedBuilderFunc = func(b string) bool {
-		return !daemonIsPodmanBeforeV330 &&
-			(strings.HasPrefix(packBuilder, "quay.io/boson") ||
-				strings.HasPrefix(packBuilder, "gcr.io/paketo-buildpacks") ||
-				strings.HasPrefix(packBuilder, "docker.io/paketobuildpacks"))
-	}
-	packOpts := pack.BuildOptions{
-		AppPath:        f.Root,
-		Image:          f.Image,
-		LifecycleImage: "quay.io/boson/lifecycle:0.13.2",
-		Builder:        packBuilder,
-		Env:            buildEnvs,
-		Buildpacks:     f.Buildpacks,
-		TrustBuilder:   isTrustedBuilderFunc,
-		DockerHost:     dockerHost,
-		ContainerConfig: struct {
-			Network string
-			Volumes []string
-		}{Network: network, Volumes: nil},
-	}
-
-	// Client with a logger which is enabled if in Verbose mode and a dockerClient that supports SSH docker daemon connection.
-	packClient, err := pack.NewClient(pack.WithLogger(logging.NewSimpleLogger(logWriter)), pack.WithDockerClient(cli))
+func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
+	// Builder image defined on the Function if set, or from the default map.
+	image, err := BuilderImage(f)
 	if err != nil {
 		return
 	}
 
-	// Build based using the given builder.
-	if err = packClient.Build(ctx, packOpts); err != nil {
-		if ctx.Err() != nil {
-			// received SIGINT
+	// Pack build options
+	opts := pack.BuildOptions{
+		AppPath:        f.Root,
+		Image:          f.Image,
+		LifecycleImage: "quay.io/boson/lifecycle:0.13.2",
+		Builder:        image,
+		Buildpacks:     f.Buildpacks,
+		ContainerConfig: struct {
+			Network string
+			Volumes []string
+		}{Network: "", Volumes: nil},
+	}
+	if opts.Env, err = fn.Interpolate(f.BuildEnvs); err != nil {
+		return err
+	}
+	if runtime.GOOS == "linux" {
+		opts.ContainerConfig.Network = "host"
+	}
+
+	// Instantate the pack build client implementation
+	// (and update build opts as necessary)
+	if b.impl == nil {
+		if b.impl, err = newImpl(ctx, &opts, b.logger); err != nil {
 			return
-		} else if !builder.verbose {
-			// If the builder was not showing logs, embed the full logs in the error.
-			err = fmt.Errorf("failed to build the function (output: %q): %w", logWriter.(*bytes.Buffer).String(), err)
 		}
 	}
 
+	// Perform the build
+	if err = b.impl.Build(ctx, opts); err != nil {
+		if ctx.Err() != nil {
+			return // SIGINT
+		} else if !b.verbose {
+			err = fmt.Errorf("failed to build the function (output: %q): %w", b.logger.(*bytes.Buffer).String(), err)
+		}
+	}
 	return
 }
 
-// hack this makes stdout non-closeable
+// newImpl returns an instance of the builder implementatoin.  Note that this
+// also mutates the provided options' DockerHost and TrustBuilder.
+func newImpl(ctx context.Context, opts *pack.BuildOptions, logger io.Writer) (impl Impl, err error) {
+	cli, dockerHost, err := docker.NewClient(client.DefaultDockerHost)
+	if err != nil {
+		return
+	}
+	defer cli.Close()
+
+	opts.DockerHost = dockerHost
+
+	daemonIsPodmanPreV330, err := podmanPreV330(ctx, cli)
+	if err != nil {
+		return
+	}
+
+	opts.TrustBuilder = func(_ string) bool {
+		if daemonIsPodmanPreV330 {
+			return false
+		}
+		for _, v := range trustedBuilderImagePrefixes {
+			if strings.HasPrefix(opts.Builder, v) {
+				return true
+			}
+		}
+		return false
+	}
+
+	// Client with a logger which is enabled if in Verbose mode and a dockerClient that supports SSH docker daemon connection.
+	return pack.NewClient(pack.WithLogger(logging.NewSimpleLogger(logger)), pack.WithDockerClient(cli))
+}
+
+// Builder Image
+//
+// A value defined on the Function itself takes precidence.  If not defined,
+// the default builder image for the Function's language runtime is used.
+// An inability to determine a builder image (such as an unknown language),
+// will return empty string. Errors are returned if either the runtime is not
+// populated or an inability to locate a default.
+//
+// Exported for use by Tekton in-cluster builds which do not have access to this
+// library at this time, and can therefore not instantiate and invoke this
+// package's buildpacks.Builder.Build.  Instead, they must transmit information
+// to the cluster using a Pipeline definition.
+func BuilderImage(f fn.Function) (string, error) {
+	if f.Runtime == "" {
+		return "", ErrRuntimeRequired{}
+	}
+
+	v, ok := f.BuilderImages["pack"]
+	if ok {
+		return v, nil
+	}
+
+	v, ok = DefaultBuilderImages[f.Runtime]
+	if ok {
+		return v, nil
+	}
+
+	return "", ErrRuntimeNotSupported{f.Runtime}
+}
+
+// podmanPreV330 returns if the daemon is podman pre v330 or errors trying.
+func podmanPreV330(ctx context.Context, cli client.CommonAPIClient) (b bool, err error) {
+	version, err := cli.ServerVersion(ctx)
+	if err != nil {
+		return
+	}
+
+	for _, component := range version.Components {
+		if component.Name == "Podman Engine" {
+			v := semver.MustParse(version.Version)
+			if v.Compare(v330) < 0 {
+				return true, nil
+			}
+			break
+		}
+	}
+	return
+}
+
+// stdoutWrapper is a hack that makes stdout non-closeable
 type stdoutWrapper struct {
 	impl io.Writer
 }
@@ -146,23 +218,18 @@ func (s stdoutWrapper) Write(p []byte) (n int, err error) {
 	return s.impl.Write(p)
 }
 
-// Builder Image for a Function being built using Buildpack.
-//
-// A value defined on the Function itself takes precidence.  If not defined,
-// the default builder image for the Function's language runtime is used.
-// An inability to determine a builder image (such as an unknown language),
-// will return empty string.
-//
-// Exported for use by Tekton in-cluster builds which do not have access to this
-// library at this time, and can therefore not instantiate and invoke this
-// package's buildpacks.Builder.Build.  Instead, they must transmit information
-// to the cluster using a Pipeline definition.
-func BuilderImage(f fn.Function) (builder string) {
-	// NOTE this will be updated when func.yaml is expanded to support
-	// differing builder images for different build strategies (buildpac vs s2i)
-	if f.Builder != "" {
-		return f.Builder
-	}
-	builder = DefaultBuilderImages[f.Runtime]
-	return
+// Errors
+
+type ErrRuntimeRequired struct{}
+
+func (e ErrRuntimeRequired) Error() string {
+	return "Pack requires the Function define a language runtime"
+}
+
+type ErrRuntimeNotSupported struct {
+	Runtime string
+}
+
+func (e ErrRuntimeNotSupported) Error() string {
+	return fmt.Sprintf("Pack builder has no default builder image for the '%v' language runtime.  Please provide one.", e.Runtime)
 }
