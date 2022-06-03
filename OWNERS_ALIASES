@@ -2,8 +2,6 @@
 # Do not modify this file, instead modify peribolos/knative-sandbox.yaml
 
 aliases:
-  api-core-wg-leads:
-  - dprotaso
   async-component-approvers:
   - AngeloDanducci
   - bvennam
@@ -54,7 +52,6 @@ aliases:
   - lberk
   - matzew
   eventing-gitlab-approvers:
-  - antoineco
   - lberk
   - matzew
   - sebgoa
@@ -201,10 +198,12 @@ aliases:
   - knative-test-reporter-robot
   kperf-approvers:
   - maximilien
+  - nader-ziada
   - psschwei
   - zhanggbj
   net-certmanager-approvers:
   - ZhiminXiang
+  - carlisia
   - tcnghia
   net-contour-approvers:
   - carlisia
@@ -215,15 +214,18 @@ aliases:
   - nak3
   - tcnghia
   net-http01-approvers:
+  - carlisia
   - tcnghia
   net-istio-approvers:
   - JRBANCEL
   - ZhiminXiang
+  - carlisia
   - nak3
   - skonto
   - tcnghia
   - vagababov
   net-kourier-approvers:
+  - carlisia
   - davidor
   - jmprusi
   - skonto
