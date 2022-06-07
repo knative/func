@@ -8,12 +8,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -1042,7 +1044,7 @@ func TestClient_Invoke_HTTP(t *testing.T) {
 	defer Using(t, root)()
 
 	// Flag indicating the Function was invoked
-	var invoked bool
+	var invoked int32
 
 	// The message to send to the Function
 	// Individual fields can be overridden, by default all fields are populeted
@@ -1053,21 +1055,31 @@ func TestClient_Invoke_HTTP(t *testing.T) {
 	// invoker POSTed the invocation message.
 	handler := http.NewServeMux()
 	handler.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
-		invoked = true
-		if err := req.ParseForm(); err != nil {
-			t.Fatal(err)
-		}
+		atomic.StoreInt32(&invoked, 1)
+
 		// Verify that we POST to HTTP endpoints by default
 		if req.Method != "POST" {
-			t.Fatalf("expected 'POST' request, got '%v'", req.Method)
+			t.Errorf("expected 'POST' request, got %q", req.Method)
+			return
 		}
-		// Verify the values came through via a spot-check of the unique ID
-		if req.Form.Get("ID") != message.ID {
-			t.Fatalf("expected message ID '%v', got '%v'", message.ID, req.Form.Get("ID"))
-		}
-		_, err := res.Write([]byte("hello world"))
+
+		data, err := io.ReadAll(req.Body)
 		if err != nil {
-			t.Fatal(err)
+			t.Errorf("cannot read request body: %v", err)
+			return
+		}
+		dataAsStr := string(data)
+
+		// Verify the body is correct
+		if dataAsStr != message.Data {
+			t.Errorf("expected message data %q, got %q", message.Data, dataAsStr)
+			return
+		}
+
+		_, err = res.Write([]byte("hello world"))
+		if err != nil {
+			t.Error(err)
+			return
 		}
 	})
 
@@ -1082,7 +1094,9 @@ func TestClient_Invoke_HTTP(t *testing.T) {
 			fmt.Fprintf(os.Stderr, "error serving: %v", err)
 		}
 	}()
-	defer s.Close()
+	t.Cleanup(func() {
+		_ = s.Close()
+	})
 
 	// Create a client with a mock runner which will report the port at which the
 	// interloping Function is listening.
@@ -1106,8 +1120,7 @@ func TestClient_Invoke_HTTP(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer job.Stop()
-
+	t.Cleanup(job.Stop)
 	// Invoke the Function, which will use the mock Runner
 	h, r, err := client.Invoke(context.Background(), f.Root, "", message)
 	if err != nil {
@@ -1125,7 +1138,7 @@ func TestClient_Invoke_HTTP(t *testing.T) {
 	}
 
 	// Fail if the Function was never invoked.
-	if !invoked {
+	if atomic.LoadInt32(&invoked) == 0 {
 		t.Fatal("Function was not invoked")
 	}
 
