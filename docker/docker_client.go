@@ -172,7 +172,7 @@ func newClientWithPodmanService() (dockerClient client.CommonAPIClient, dockerHo
 		if err != nil {
 			err = fmt.Errorf("failed to start the podman service (cmd out: %q): %w", outBuff.String(), err)
 		} else {
-			err = fmt.Errorf("the podman process had exited before the service come up (cmd out: %q)", outBuff.String())
+			err = fmt.Errorf("the podman process exited before the service come up (cmd out: %q)", outBuff.String())
 		}
 	}
 
