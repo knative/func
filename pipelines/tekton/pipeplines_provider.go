@@ -264,7 +264,8 @@ func getFailedPipelineRunLog(ctx context.Context, pr *v1beta1.PipelineRun, names
 		for _, t := range pr.Status.TaskRuns {
 			if t.Status.GetCondition(apis.ConditionSucceeded).Status == corev1.ConditionFalse {
 				for _, s := range t.Status.Steps {
-					if s.Terminated != nil && s.Terminated.ExitCode == 1 {
+					// let's try to print logs of the first unsuccessful step
+					if s.Terminated != nil && s.Terminated.ExitCode != 0 {
 						podLogs, err := k8s.GetPodLogs(ctx, namespace, t.Status.PodName, s.ContainerName)
 						if err == nil {
 							return podLogs
