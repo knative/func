@@ -51,7 +51,7 @@ EOF
 
   # Wait for the test to become available
   echo "${em}  Waiting for echo route${me}"
-  if ! kubectl wait --for=condition=Ready route echo -n func --timeout=120s; then
+  if ! kubectl wait --for=condition=Ready route echo -n func --timeout=300s; then
     return $?
   fi
 
