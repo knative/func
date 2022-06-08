@@ -47,11 +47,11 @@ EOF
   # Sleep to avoid a racing condition where `kubectl wait` below will fail
   # immediately that the "echo" route is not found and can thus not be waited
   # upon to complete.
-  sleep 30
+  sleep 60
 
   # Wait for the test to become available
   echo "${em}  Waiting for echo route${me}"
-  kubectl wait --for=condition=Ready route echo -n func --timeout=120s
+  kubectl wait --for=condition=Ready route echo -n func --timeout=600s
 
   echo "${em}  Invoking echo server${me}"
   curl http://echo.func.127.0.0.1.sslip.io/
