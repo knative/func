@@ -5,9 +5,9 @@
 # invoking an http echoing server.
 #
 
-set -o errexit
 set -o nounset
 set -o pipefail
+set -o xtrace
 
 export TERM="${TERM:-dumb}"
 
@@ -38,7 +38,7 @@ EOF
     (( i+=1 ))
     if (( i>=n )); then
       echo "Unable to create echo service"
-      exit 1
+      return 1
     fi
     echo "Retrying..."
     sleep 10
@@ -51,15 +51,25 @@ EOF
 
   # Wait for the test to become available
   echo "${em}  Waiting for echo route${me}"
-  kubectl wait --for=condition=Ready route echo -n func --timeout=120s
+  if ! kubectl wait --for=condition=Ready route echo -n func --timeout=120s; then
+    return $?
+  fi
 
   echo "${em}  Invoking echo server${me}"
-  curl http://echo.func.127.0.0.1.sslip.io/
+  if ! curl http://echo.func.127.0.0.1.sslip.io/; then
+    return $?
+  fi
 
   echo "${em}DONE${me}"
 
 }
 
 main "$@"
+ret=$?
+
+kubectl get events -A
+kubectl get events --namespace=func
+
+exit $ret
 
 
