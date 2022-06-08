@@ -17,8 +17,8 @@ import (
 const (
 	DefaultInvokeSource      = "/boson/fn"
 	DefaultInvokeType        = "boson.fn"
-	DefaultInvokeContentType = "text/plain"
-	DefaultInvokeData        = "Hello World"
+	DefaultInvokeContentType = "application/json"
+	DefaultInvokeData        = `{"message":"Hello World"}`
 	DefaultInvokeFormat      = "http"
 )
 
