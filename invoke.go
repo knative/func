@@ -1,6 +1,7 @@
 package function
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -193,10 +194,18 @@ func sendPost(ctx context.Context, route string, m InvokeMessage, t http.RoundTr
 			fmt.Printf("  %v: %v\n", k, v[0]) // NOTE len==1 value slices assumed
 		}
 	}
-	resp, err := client.PostForm(route, values)
+
+	req, err := http.NewRequestWithContext(ctx, "POST", route, bytes.NewBufferString(m.Data))
+	if err != nil {
+		return nil, "", fmt.Errorf("failure to create request: %w", err)
+	}
+	req.Header.Add("Content-Type", m.ContentType)
+
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, "", err
 	}
+
 	defer resp.Body.Close()
 	if resp.StatusCode > 299 {
 		return nil, "", fmt.Errorf("failure invoking '%v' (HTTP %v)", route, resp.StatusCode)
