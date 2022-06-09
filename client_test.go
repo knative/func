@@ -1362,9 +1362,11 @@ func TestClient_BuiltDetects(t *testing.T) {
 	}
 
 	// Edit the Function's filesystem by adding a file.
-	if _, err := os.Create(filepath.Join(root, testfile)); err != nil {
+	f, err := os.Create(filepath.Join(root, testfile))
+	if err != nil {
 		t.Fatal(err)
 	}
+	f.Close()
 
 	// The system should now detect the Function is stale
 	if client.Built(root) {
