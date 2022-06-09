@@ -1289,7 +1289,7 @@ func TestClient_Instances(t *testing.T) {
 }
 
 // TestClient_BuiltStamps ensures that the client creates and considers a
-// buildstamp on build which reports whther or not a given path contains a built
+// buildstamp on build which reports whether or not a given path contains a built
 // Function.
 func TestClient_BuiltStamps(t *testing.T) {
 	root, rm := Mktemp(t)
@@ -1315,7 +1315,7 @@ func TestClient_BuiltStamps(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !client.Built(root) {
-		t.Fatal("freshly built Funciton should return Built==true")
+		t.Fatal("freshly built Function should return Built==true")
 	}
 }
 
