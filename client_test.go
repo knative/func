@@ -362,7 +362,6 @@ func TestClient_New_RegistryRequired(t *testing.T) {
 	if err = client.New(context.Background(), fn.Function{Root: root}); err == nil {
 		t.Fatal("did not receive expected error creating a Function without specifying Registry")
 	}
-	fmt.Println(err)
 }
 
 // TestClient_New_ImageNameDerived ensures that the full image (tag) of the resultant OCI
