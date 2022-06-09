@@ -549,7 +549,7 @@ func (c *Client) Create(cfg Function) (err error) {
 	f := NewFunctionWith(cfg)
 
 	// Create a .func diretory which is also added to a .gitignore
-	if err = createRuntimeDir(f); err != nil {
+	if err = ensureRuntimeDir(f); err != nil {
 		return
 	}
 
@@ -571,12 +571,30 @@ func (c *Client) Create(cfg Function) (err error) {
 	return
 }
 
-// createRuntimeDir creates a .func directory in the root of the given
+// Tag the Function as having been built
+// This is locally-scoped data, only indicating there presumably exists
+// a container image in the cache the configured builder, thus this info
+// is placed in a .func (non-source controlled) local metadata directory, which is not stritly required to exist, so it is created if needed.
+func updateBuildStamp(f Function) (err error) {
+	if err = ensureRuntimeDir(f); err != nil {
+		return err
+	}
+	hash, err := fingerprint(f)
+	if err != nil {
+		return err
+	}
+	if err = os.WriteFile(filepath.Join(f.Root, RunDataDir, buildstamp), []byte(hash), os.ModePerm); err != nil {
+		return err
+	}
+	return
+}
+
+// ensureRuntimeDir creates a .func directory in the root of the given
 // Function which is also registered as ignored in .gitignore
 // TODO: Mutate extant .gitignore file if it exists rather than failing
 // if present (see contentious files in function.go), such that a user
 // can `git init` a directory prior to `func init` in the same directory).
-func createRuntimeDir(f Function) error {
+func ensureRuntimeDir(f Function) error {
 	if err := os.MkdirAll(filepath.Join(f.Root, RunDataDir), os.ModePerm); err != nil {
 		return err
 	}
@@ -622,16 +640,8 @@ func (c *Client) Build(ctx context.Context, path string) (err error) {
 		return
 	}
 
-	// Tag the Function as having been built
-	// This is locally-scoped data, only indicating there presumably exists
-	// a container image in the cache the configured builder, thus this info
-	// is placed in the .func (non-source controlled) local metadata directory.
-	hash, err := fingerprint(f)
-	if err != nil {
-		return
-	}
-	err = os.WriteFile(filepath.Join(f.Root, RunDataDir, buildstamp), []byte(hash), os.ModePerm)
-	if err != nil {
+	// Tag the function as having been built
+	if err = updateBuildStamp(f); err != nil {
 		return
 	}
 
@@ -961,7 +971,7 @@ func fingerprint(f Function) (string, error) {
 			return err
 		}
 		// Always ignore .func, .git (TODO: .funcignore)
-		if info.IsDir() && (info.Name() == ".func" || info.Name() == ".git") {
+		if info.IsDir() && (info.Name() == RunDataDir || info.Name() == ".git") {
 			return filepath.SkipDir
 		}
 		fmt.Fprintf(h, "%v:%v:", path, info.ModTime().UnixNano())

@@ -146,7 +146,7 @@ func TestRoot_mergeEnvMaps(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := mergeEnvs(tt.args.envs, tt.args.toUpdate, tt.args.toRemove)
+			got, _, err := mergeEnvs(tt.args.envs, tt.args.toUpdate, tt.args.toRemove)
 			if err != nil {
 				t.Errorf("mergeEnvs() for initial vars %v and toUpdate %v and toRemove %v got error %v",
 					tt.args.envs, tt.args.toUpdate, tt.args.toRemove, err)

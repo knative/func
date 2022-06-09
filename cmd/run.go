@@ -104,13 +104,12 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 	// since the last build).
 	if config.Build == "auto" {
 		if !client.Built(function.Root) {
-			fmt.Println("Detected a Function rebuild is required")
 			if err = client.Build(cmd.Context(), config.Path); err != nil {
 				return
 			}
 		}
 		fmt.Println("Detected Function was already built.  Use --build to override this behavior.")
-		// Otherwise, --build should parse to a falsy value which indicates an explicit
+		// Otherwise, --build should parse to a truthy value which indicates an explicit
 		// override.
 	} else {
 		build, err := strconv.ParseBool(config.Build)
@@ -118,7 +117,6 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 			return fmt.Errorf("invalid value for --build '%v'.  accepts 'auto', 'true' or 'false' (or similarly truthy value)", build)
 		}
 		if build {
-			fmt.Println("Function build requested.  Building.")
 			if err = client.Build(cmd.Context(), config.Path); err != nil {
 				return err
 			}
@@ -162,7 +160,7 @@ type runConfig struct {
 	// Envs passed via cmd to removed
 	EnvToRemove []string
 
-	// Perform build.  Acceptable values are the keyword 'auto', or a falsy
+	// Perform build.  Acceptable values are the keyword 'auto', or a truthy
 	// value such as 'true', 'false, '1' or '0'.
 	Build string
 

@@ -6,7 +6,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/ory/viper"
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/mock"
 	. "knative.dev/kn-plugin-func/testing"
@@ -14,57 +13,85 @@ import (
 
 func TestRun_Run(t *testing.T) {
 	tests := []struct {
-		name         string // name of the test
-		desc         string // description of the test
-		funcState    string // Function state, as described in func.yaml
-		buildFlag    bool   // value to which the --build flag should be set
-		buildError   error  // Set the builder to yield this error
-		runError     error  // Set the runner to yield this error
-		buildInvoked bool   // should Builder.Build be invoked?
-		runInvoked   bool   // should Runner.Run be invoked?
+		name         string   // name of the test
+		desc         string   // description of the test
+		funcState    string   // Function state, as described in func.yaml
+		args         []string // args for the test case
+		buildError   error    // Set the builder to yield this error
+		runError     error    // Set the runner to yield this error
+		buildInvoked bool     // should Builder.Build be invoked?
+		runInvoked   bool     // should Runner.Run be invoked?
 	}{
 		{
-			name: "run when not building",
-			desc: "Should run when build is not enabled",
+			name: "run and build by default",
+			desc: "Should run and build when build flag is not specified",
 			funcState: `name: test-func
 runtime: go
 created: 2009-11-10 23:00:00`,
-			buildFlag:    false,
-			buildInvoked: false,
-			runInvoked:   true,
-		},
-		{
-			name: "run and build",
-			desc: "Should run and build when build is enabled and there is no image",
-			funcState: `name: test-func
-runtime: go
-created: 2009-11-10 23:00:00`,
-			buildFlag:    true,
+			args:         []string{},
 			buildInvoked: true,
 			runInvoked:   true,
 		},
 		{
-			name: "skip rebuild",
-			desc: "Built image doesn't get built again",
-			// TODO: this might be improved by checking if the user provided
-			// the --build=true flag, allowing an override to force rebuild.
-			// This could be accomplished by adding a 'provideBuildFlag' struct
-			// member.
+			name: "run and build flag",
+			desc: "Should run and build when build is merely provided (defaults to true on presence)",
+			funcState: `name: test-func
+runtime: go
+created: 2009-11-10 23:00:00`,
+			args:         []string{"--build"},
+			buildInvoked: true,
+			runInvoked:   true,
+		},
+		{
+			name: "run and build",
+			desc: "Should run and build when build is specifically requested",
+			funcState: `name: test-func
+runtime: go
+created: 2009-11-10 23:00:00`,
+			args:         []string{"--build=true"},
+			buildInvoked: true,
+			runInvoked:   true,
+		},
+		{
+			name: "run without build when disabled",
+			desc: "Should run but not build when build is expressly disabled",
+			funcState: `name: test-func
+runtime: go
+created: 2009-11-10 23:00:00`,
+			args:         []string{"--build=false"}, // can be any truthy value: 0, 'false' etc.
+			buildInvoked: false,
+			runInvoked:   true,
+		},
+		{
+			name: "run and build on auto",
+			desc: "Should run and buil when build flag set to auto",
+			funcState: `name: test-func
+runtime: go
+created: 2009-11-10 23:00:00`,
+			args:         []string{"--build=auto"}, // can be any truthy value: 0, 'false' etc.
+			buildInvoked: true,
+			runInvoked:   true,
+		},
+		{
+			name: "image existence builds",
+			desc: "Should build when image tag exists",
+			// The existence of an image tag value does not mean the Function
+			// is built; that is the purvew of the buld stamp staleness check.
 			funcState: `name: test-func
 runtime: go
 image: exampleimage
 created: 2009-11-10 23:00:00`,
-			buildFlag:    true,
-			buildInvoked: false,
+			args:         []string{},
+			buildInvoked: true,
 			runInvoked:   true,
 		},
 		{
 			name: "Build errors return",
 			desc: "Errors building cause an immediate return with error",
 			funcState: `name: test-func
-runtime: go
-created: 2009-11-10 23:00:00`,
-			buildFlag:    true,
+			runtime: go
+			created: 2009-11-10 23:00:00`,
+			args:         []string{},
 			buildError:   fmt.Errorf("generic build error"),
 			buildInvoked: true,
 			runInvoked:   false,
@@ -95,10 +122,7 @@ created: 2009-11-10 23:00:00`,
 					fn.WithRegistry("ghcr.com/reg"),
 				)
 			}))
-			cmd.SetArgs([]string{}) // Do not use test command args
-
-			// set test case's build
-			viper.SetDefault("build", tt.buildFlag)
+			cmd.SetArgs(tt.args) // Do not use test command args
 
 			// set test case's func.yaml
 			if err := os.WriteFile("func.yaml", []byte(tt.funcState), os.ModePerm); err != nil {
