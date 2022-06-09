@@ -2,6 +2,7 @@ package docker_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -11,7 +12,7 @@ import (
 
 // Test that we are starting podman service on behalf of user
 // if docker daemon is not present.
-func TestNewDockerClientWithAutomaticPodman(t *testing.T) {
+func TestNewDockerClientWithAutomaticPodmanSuccess(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*1)
 	defer cancel()
@@ -21,7 +22,7 @@ func TestNewDockerClientWithAutomaticPodman(t *testing.T) {
 
 	dockerClient, _, err := docker.NewClient("unix:///var/run/nonexistent.sock")
 	if err != nil {
-		t.Error(err)
+		t.Fatal(err)
 	}
 	defer dockerClient.Close()
 
@@ -30,6 +31,22 @@ func TestNewDockerClientWithAutomaticPodman(t *testing.T) {
 		t.Error(err)
 	}
 
+}
+
+func TestNewDockerClientWithAutomaticPodmanFail(t *testing.T) {
+	src := `package main;import ("os";"fmt");func main(){fmt.Println("something went wrong");os.Exit(1);}`
+
+	defer WithExecutable(t, "podman", src)()
+	defer WithEnvVar(t, "DOCKER_HOST", "")()
+
+	_, _, err := docker.NewClient("unix:///var/run/nonexistent.sock")
+	if err == nil {
+		t.Error("expected error but got nil")
+		return
+	}
+	if !strings.Contains(err.Error(), "something went wrong") {
+		t.Error("error doesn't contain stdout of the podman command")
+	}
 }
 
 // Go source code of mock podman implementation.
