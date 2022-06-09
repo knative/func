@@ -208,6 +208,7 @@ func newInvokeConfig(newClient ClientFactory) (cfg invokeConfig, err error) {
 	cfg = invokeConfig{
 		Path:        viper.GetString("path"),
 		Target:      viper.GetString("target"),
+		Format:      viper.GetString("format"),
 		ID:          viper.GetString("id"),
 		Source:      viper.GetString("source"),
 		Type:        viper.GetString("type"),
