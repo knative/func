@@ -173,6 +173,7 @@ aliases:
   knative-admin:
   - csantanapr
   - dprotaso
+  - dsimansk
   - evankanderson
   - itsmurugappan
   - knative-automation
@@ -184,9 +185,9 @@ aliases:
   - n3wscott
   - pmorie
   - psschwei
-  - rhuss
   - thisisnotapril
   - vaikas
+  - zroubalik
   knative-release-leads:
   - evankanderson
   - psschwei
@@ -270,9 +271,10 @@ aliases:
   - vaikas
   technical-oversight-committee:
   - dprotaso
+  - dsimansk
   - evankanderson
   - n3wscott
-  - rhuss
+  - zroubalik
   ux-wg-leads:
   - csantanapr
   - snneji
