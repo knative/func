@@ -27,6 +27,7 @@ aliases:
   - lberk
   - n3wscott
   docs-wg-leads:
+  - abrennan89
   - csantanapr
   - snneji
   docs-writers:
@@ -242,6 +243,7 @@ aliases:
   productivity-wg-leads:
   - chizhg
   - kvmware
+  - upodroid
   productivity-writers:
   - cardil
   - chaodaiG
@@ -276,8 +278,10 @@ aliases:
   - n3wscott
   - zroubalik
   ux-wg-leads:
+  - abrennan89
   - csantanapr
   - snneji
   ux-writers:
+  - abrennan89
   - csantanapr
   - snneji
