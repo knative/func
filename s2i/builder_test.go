@@ -3,6 +3,9 @@ package s2i_test
 import (
 	"context"
 	"errors"
+	"github.com/docker/docker/api/types"
+	"io"
+	"strings"
 	"testing"
 
 	"github.com/openshift/source-to-image/pkg/api"
@@ -37,9 +40,10 @@ func Test_ErrRuntimeNotSupported(t *testing.T) {
 // define a Builder Image will default.
 func Test_ImageDefault(t *testing.T) {
 	var (
-		i = &mockImpl{}                     // mock underlying s2i implementation
-		b = s2i.NewBuilder(s2i.WithImpl(i)) // Func S2I Builder logic
-		f = fn.Function{Runtime: "node"}    // Function with no builder image set
+		i = &mockImpl{}                                              // mock underlying s2i implementation
+		c = noopDockerClient{}                                       // mock docker client
+		b = s2i.NewBuilder(s2i.WithImpl(i), s2i.WithDockerClient(c)) // Func S2I Builder logic
+		f = fn.Function{Runtime: "node"}                             // Function with no builder image set
 	)
 
 	// An implementation of the underlying S2I implementation which verifies
@@ -63,9 +67,10 @@ func Test_ImageDefault(t *testing.T) {
 // image defined on the given Function if provided.
 func Test_BuilderImageConfigurable(t *testing.T) {
 	var (
-		i = &mockImpl{}                     // mock underlying s2i implementation
-		b = s2i.NewBuilder(s2i.WithImpl(i)) // Func S2I Builder logic
-		f = fn.Function{                    // Function with a builder image set
+		i = &mockImpl{}                                              // mock underlying s2i implementation
+		c = noopDockerClient{}                                       // mock docker client
+		b = s2i.NewBuilder(s2i.WithImpl(i), s2i.WithDockerClient(c)) // Func S2I Builder logic
+		f = fn.Function{                                             // Function with a builder image set
 			Runtime: "node",
 			BuilderImages: map[string]string{
 				"s2i": "example.com/user/builder-image",
@@ -93,6 +98,7 @@ func Test_BuilderImageConfigurable(t *testing.T) {
 // Test_Verbose ensures that the verbosity flag is propagated to the
 // S2I builder implementation.
 func Test_BuilderVerbose(t *testing.T) {
+	c := noopDockerClient{} // mock docker client
 	assert := func(verbose bool) {
 		i := &mockImpl{
 			BuildFn: func(cfg *api.Config) (r *api.Result, err error) {
@@ -101,7 +107,7 @@ func Test_BuilderVerbose(t *testing.T) {
 				}
 				return &api.Result{Messages: []string{"message"}}, nil
 			}}
-		if err := s2i.NewBuilder(s2i.WithVerbose(verbose), s2i.WithImpl(i)).Build(context.Background(), fn.Function{Runtime: "node"}); err != nil {
+		if err := s2i.NewBuilder(s2i.WithVerbose(verbose), s2i.WithImpl(i), s2i.WithDockerClient(c)).Build(context.Background(), fn.Function{Runtime: "node"}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -122,7 +128,8 @@ func Test_BuildEnvs(t *testing.T) {
 			BuildEnvs: []fn.Env{{Name: &envName, Value: &envValue}},
 		}
 		i = &mockImpl{}
-		b = s2i.NewBuilder(s2i.WithImpl(i))
+		c = noopDockerClient{}
+		b = s2i.NewBuilder(s2i.WithImpl(i), s2i.WithDockerClient(c))
 	)
 	i.BuildFn = func(cfg *api.Config) (r *api.Result, err error) {
 		for _, v := range cfg.Environment {
@@ -147,4 +154,14 @@ type mockImpl struct {
 
 func (i *mockImpl) Build(cfg *api.Config) (*api.Result, error) {
 	return i.BuildFn(cfg)
+}
+
+type noopDockerClient struct{}
+
+func (n noopDockerClient) ImageBuild(ctx context.Context, context io.Reader, options types.ImageBuildOptions) (types.ImageBuildResponse, error) {
+	_, _ = io.Copy(io.Discard, context)
+	return types.ImageBuildResponse{
+		Body:   io.NopCloser(strings.NewReader("")),
+		OSType: "linux",
+	}, nil
 }

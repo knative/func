@@ -41,10 +41,16 @@ var DefaultBuilderImages = map[string]string{
 	"quarkus":    "registry.access.redhat.com/ubi8/openjdk-17",
 }
 
+// DockerClient is subset of dockerClient.CommonAPIClient required by this package
+type DockerClient interface {
+	ImageBuild(ctx context.Context, context io.Reader, options types.ImageBuildOptions) (types.ImageBuildResponse, error)
+}
+
 // Builder of Functions using the s2i subsystem.
 type Builder struct {
 	verbose bool
 	impl    build.Builder // S2I builder implementation (aka "Strategy")
+	cli     DockerClient
 }
 
 type Option func(*Builder)
@@ -62,6 +68,12 @@ func WithVerbose(v bool) Option {
 func WithImpl(s build.Builder) Option {
 	return func(b *Builder) {
 		b.impl = s
+	}
+}
+
+func WithDockerClient(cli DockerClient) Option {
+	return func(b *Builder) {
+		b.cli = cli
 	}
 }
 
@@ -146,9 +158,11 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		}
 	}
 
-	client, _, err := docker.NewClient(dockerClient.DefaultDockerHost)
-	if err != nil {
-		return fmt.Errorf("cannot create docker client: %w", err)
+	if b.cli == nil {
+		b.cli, _, err = docker.NewClient(dockerClient.DefaultDockerHost)
+		if err != nil {
+			return fmt.Errorf("cannot create docker client: %w", err)
+		}
 	}
 
 	pr, pw := io.Pipe()
@@ -197,7 +211,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		Tags: []string{f.Image},
 	}
 
-	resp, err := client.ImageBuild(ctx, pr, opts)
+	resp, err := b.cli.ImageBuild(ctx, pr, opts)
 	if err != nil {
 		return fmt.Errorf("cannot build the app image: %w", err)
 	}
