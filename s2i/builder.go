@@ -1,14 +1,19 @@
 package s2i
 
 import (
+	"archive/tar"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"net/url"
 	"os"
+	"path/filepath"
 
+	"github.com/docker/docker/api/types"
 	dockerClient "github.com/docker/docker/client"
-
 	"github.com/openshift/source-to-image/pkg/api"
 	"github.com/openshift/source-to-image/pkg/api/validation"
 	"github.com/openshift/source-to-image/pkg/build"
@@ -17,7 +22,7 @@ import (
 	"github.com/openshift/source-to-image/pkg/scm/git"
 
 	fn "knative.dev/kn-plugin-func"
-	docker "knative.dev/kn-plugin-func/docker"
+	"knative.dev/kn-plugin-func/docker"
 )
 
 var (
@@ -87,6 +92,14 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	cfg.RuntimeImagePullPolicy = api.DefaultRuntimeImagePullPolicy
 	cfg.DockerConfig = s2idocker.GetDefaultDockerConfig()
 
+	tmp, err := os.MkdirTemp("", "s2i-build")
+	if err != nil {
+		return fmt.Errorf("cannot create temporary dir for s2i build: %w", err)
+	}
+	defer os.RemoveAll(tmp)
+
+	cfg.AsDockerfile = filepath.Join(tmp, "Dockerfile")
+
 	// Excludes
 	// Do not include .git, .env, .func or any language-specific cache directories
 	// (node_modules, etc) in the tar file sent to the builder, as this both
@@ -115,8 +128,9 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 
 	// Create the S2I builder instance if not overridden
 	if b.impl == nil {
-		if b.impl, err = newImpl(ctx, cfg); err != nil {
-			return
+		b.impl, _, err = strategies.Strategy(nil, cfg, build.Overrides{})
+		if err != nil {
+			return fmt.Errorf("cannot create s2i builder: %w", err)
 		}
 	}
 
@@ -131,7 +145,95 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 			fmt.Println(message)
 		}
 	}
-	return
+
+	client, _, err := docker.NewClient(dockerClient.DefaultDockerHost)
+	if err != nil {
+		return fmt.Errorf("cannot create docker client: %w", err)
+	}
+
+	pr, pw := io.Pipe()
+
+	go func() {
+		tw := tar.NewWriter(pw)
+		err := filepath.Walk(tmp, func(path string, fi fs.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+
+			p, err := filepath.Rel(tmp, path)
+			if err != nil {
+				return fmt.Errorf("cannot get relative path: %w", err)
+			}
+
+			hdr, err := tar.FileInfoHeader(fi, p)
+			if err != nil {
+				return fmt.Errorf("cannot create tar header: %w", err)
+			}
+			hdr.Name = p
+
+			err = tw.WriteHeader(hdr)
+			if err != nil {
+				return fmt.Errorf("cannot write header to thar stream: %w", err)
+			}
+			if fi.Mode().IsRegular() {
+				var r io.ReadCloser
+				r, err = os.Open(path)
+				if err != nil {
+					return fmt.Errorf("cannot open source file: %w", err)
+				}
+				_, err = io.Copy(tw, r)
+				if err != nil {
+					return fmt.Errorf("cannot copy file to tar stream :%w", err)
+				}
+			}
+
+			return nil
+		})
+		_ = tw.Close()
+		_ = pw.CloseWithError(err)
+	}()
+
+	opts := types.ImageBuildOptions{
+		Tags: []string{f.Image},
+	}
+
+	resp, err := client.ImageBuild(ctx, pr, opts)
+	if err != nil {
+		return fmt.Errorf("cannot build the app image: %w", err)
+	}
+	defer resp.Body.Close()
+
+	errMsg, err := readErrMsg(resp.Body)
+	if err != nil {
+		return fmt.Errorf("cannot parse response body: %w", err)
+	}
+	if errMsg != "" {
+		return fmt.Errorf("cannot build the app: %s", errMsg)
+	}
+
+	return nil
+}
+
+func readErrMsg(r io.Reader) (string, error) {
+	obj := struct {
+		ErrorDetail struct {
+			Message string `json:"message"`
+		} `json:"errorDetail"`
+	}{}
+	d := json.NewDecoder(r)
+	for {
+		err := d.Decode(&obj)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return "", err
+		}
+		if obj.ErrorDetail.Message != "" {
+			return obj.ErrorDetail.Message, nil
+		}
+	}
+	return "", nil
 }
 
 // builderImage for Function
@@ -156,19 +258,4 @@ func builderImage(f fn.Function) (string, error) {
 	}
 
 	return "", ErrRuntimeNotSupported
-}
-
-// new S2I implementation using a docker client wrapped as necessary in the
-// case of podman.
-func newImpl(ctx context.Context, cfg *api.Config) (impl build.Builder, err error) {
-	client, _, err := docker.NewClient(dockerClient.DefaultDockerHost)
-	if err != nil {
-		return
-	}
-	defer client.Close()
-	if isPodman(ctx, client) {
-		client = podmanDockerClient{client}
-	}
-	impl, _, err = strategies.Strategy(client, cfg, build.Overrides{})
-	return
 }
