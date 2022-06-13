@@ -82,6 +82,48 @@ func TestMigrateToCreationStamp(t *testing.T) {
 	}
 }
 
+// TestMigrateToBuilderImages ensures that the migration which migrates
+// from "builder" and "builders" to "builderImages" is applied.  This results
+// in the attributes being removed and no errors on load of the function with
+// old schema.
+func TestMigrateToBuilderImagesDefault(t *testing.T) {
+	// Load a Function created prior to the adoption of the builder images map
+	// (was created with 'builder' and 'builders' which does not support different
+	// builder implementations.
+	root := "testdata/migrations/v0.23.0"
+
+	// Without the migration, instantiating the older Function would error
+	// because its strict unmarshalling would fail parsing the unexpected
+	// 'builder' and 'builders' members.
+	_, err := NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestMigrateToBuilderImagesCustom ensures that the migration to builderImages
+// correctly carries forward a customized value for 'builder'.
+func TestMigrateToBuilderImagesCustom(t *testing.T) {
+	// An early version of a Function which includes a customized value for
+	// the 'builder'.  This should be correctly carried forward to
+	// the namespaced 'builderImages' map as image for the "pack" builder.
+	root := "testdata/migrations/v0.23.0-customized"
+	expected := "example.com/user/custom-builder" // set in testdata func.yaml
+
+	f, err := NewFunction(root)
+	if err != nil {
+		t.Fatal(f)
+	}
+	i, ok := f.BuilderImages["pack"]
+	if !ok {
+		t.Fatal("migrated Function does not include the pack builder images")
+	}
+	if i != expected {
+		t.Fatalf("migrated Function expected builder image '%v', got '%v'", expected, i)
+	}
+
+}
+
 func latestMigrationVersion() string {
 	return migrations[len(migrations)-1].version
 }

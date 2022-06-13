@@ -899,8 +899,8 @@ func TestClient_Deploy_UnbuiltErrors(t *testing.T) {
 	}
 }
 
-// TestClient_New_BuildersPersisted Asserts that the client preserves user-
-// provided Builders
+// TestClient_New_BuilderImagesPersisted Asserts that the client preserves user-
+// provided Builder Images
 func TestClient_New_BuildersPersisted(t *testing.T) {
 	root := "testdata/example.com/testConfiguredBuilders" // Root from which to run the test
 	defer Using(t, root)()
@@ -910,8 +910,9 @@ func TestClient_New_BuildersPersisted(t *testing.T) {
 	f0 := fn.Function{
 		Runtime: TestRuntime,
 		Root:    root,
-		Builders: map[string]string{
-			"custom": "docker.io/example/custom",
+		BuilderImages: map[string]string{
+			"pack": "example.com/my/custom-pack-builder",
+			"s2i":  "example.com/my/custom-s2i-builder",
 		}}
 
 	// Create the Function, which should preserve custom builders
@@ -926,8 +927,8 @@ func TestClient_New_BuildersPersisted(t *testing.T) {
 	}
 
 	// Assert that our custom builders were retained
-	if !reflect.DeepEqual(f0.Builders, f1.Builders) {
-		t.Fatalf("Expected %v but got %v", f0.Builders, f1.Builders)
+	if !reflect.DeepEqual(f0.BuilderImages, f1.BuilderImages) {
+		t.Fatalf("Expected %v but got %v", f0.BuilderImages, f1.BuilderImages)
 	}
 
 	// A Default Builder(image) is not asserted here, because that is
@@ -935,41 +936,6 @@ func TestClient_New_BuildersPersisted(t *testing.T) {
 	// The builder (Buildpack,s2i, etc) will have a default builder image for
 	// the given Function or will error that the Function is not supported.
 	// A builder image may also be manually specified of course.
-}
-
-// TestClient_New_BuilderDefault ensures that if a custom builder is
-// provided of name "default", this is chosen as the default builder instead
-// of the inbuilt static default.
-func TestClient_New_BuilderDefault(t *testing.T) {
-	root := "testdata/example.com/testConfiguredBuildersWithDefault" // Root from which to run the test
-	defer Using(t, root)()
-
-	builders := map[string]string{
-		"custom":  "docker.io/example/custom",
-		"default": "docker.io/example/default",
-	}
-	client := fn.New(fn.WithRegistry(TestRegistry))
-	if err := client.New(context.Background(), fn.Function{
-		Runtime:  TestRuntime,
-		Root:     root,
-		Builders: builders,
-	}); err != nil {
-		t.Fatal(err)
-	}
-	f, err := fn.NewFunction(root)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Assert that our custom builder array was set
-	if !reflect.DeepEqual(f.Builders, builders) {
-		t.Fatalf("Expected %v but got %v", builders, f.Builders)
-	}
-
-	// Asser that the default is also set
-	if f.Builder != builders["default"] {
-		t.Fatalf("Expected %s but got %s", builders["default"], f.Builder)
-	}
 }
 
 // TestClient_New_BuildpacksPersisted ensures that provided buildpacks are

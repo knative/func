@@ -1,9 +1,12 @@
 package function
 
 import (
+	"io/ioutil"
+	"path/filepath"
 	"time"
 
 	"github.com/coreos/go-semver/semver"
+	"gopkg.in/yaml.v2"
 )
 
 // Migrate applies any necessary migrations, returning a new migrated
@@ -74,13 +77,15 @@ func (f Function) Migrated() bool {
 // version for the migration if necessary)
 var migrations = []migration{
 	{"0.19.0", migrateToCreationStamp},
+	{"0.23.0", migrateToBuilderImages},
 	// New Migrations Here.
 }
 
 // Individual Migration implementations
 // ------------------------------------
 
-// migrateToCreationStamp is the initial migration which brings a Function from
+// migrateToCreationStamp
+// The initial migration which brings a Function from
 // some unknown point in the past to the point at which it is versioned,
 // migrated and includes a creation timestamp.  Without this migration,
 // instantiation of old functions will fail with a "Function at path X not
@@ -111,4 +116,74 @@ func migrateToCreationStamp(f Function, m migration) (Function, error) {
 	}
 	f.Version = m.version // Record this migration was evaluated.
 	return f, nil
+}
+
+// migrateToBuilderImages
+// Prior to this migration, 'builder' and 'builders' attributes of a Function
+// were specific to buildpack builds.  In addition, the separation of the two
+// fields was to facilitate the use of "named" inbuilt builders, which ended
+// up not being necessary.  With the addition of the S2I builder implementation,
+// it is necessary to differentiate builders for use when building via Pack vs
+// builder for use when building with S2I.  Furthermore, now that the builder
+// itself is a user-supplied parameter, the short-hand of calling builder images
+// simply "builder" is not possible, since that term more correctly refers to
+// the builder being used (S2I, pack, or some future implementation), while this
+// field very specifically refers to the image the chosen builder should use
+// (in leau of the inbuilt default).
+//
+// For an example of the situation:  the 'builder' member used to instruct the
+// system to use that builder _image_ in all cases.  This of course restricts
+// the system from being able to build with anything other than the builder
+// implementation to which that builder image applies (pack or s2i).  Further,
+// always including this value in the serialized func.yaml causes this value to
+// be pegged/immutable (without manual intervention), which hampers our ability
+// to change out the underlying builder image with future versions.
+//
+// The 'builder' and 'builders' members have therefore been removed in favor
+// of 'builderImages', which is keyed by the short name of the builder
+// implementation (currently 'pack' and 's2i').  Its existence is optional,
+// with the default value being provided in the associated builder's impl.
+// Should the value exist, this indicates the user has overridden the value,
+// or is using a fully custom language pack.
+//
+// This migration allows pre-builder-image Functions to load despite their
+// inclusion of the now removed 'builder' member.  If the user had provided
+// a customized builder image, that value is preserved as the builder image
+// for the 'pack' builder in the new version (s2i did not exist prior).
+// See associated unit tests.
+func migrateToBuilderImages(f1 Function, m migration) (Function, error) {
+	// Load the Function using pertinent parts of the previous version's schema:
+	f0Filename := filepath.Join(f1.Root, FunctionFile)
+	bb, err := ioutil.ReadFile(f0Filename)
+	if err != nil {
+		return f1, err
+	}
+	f0 := migrateToBuilderImages_previousFunction{}
+	if err = yaml.Unmarshal(bb, &f0); err != nil {
+		return f1, err
+	}
+
+	// At time of this migration, the default pack builder image for all language
+	// runtimes is:
+	defaultPackBuilderImage := "gcr.io/paketo-buildpacks/builder:base"
+
+	// If the old Function had defined something custom
+	if f0.Builder != "" && f0.Builder != defaultPackBuilderImage {
+		// carry it forward as the new pack builder image
+		if f1.BuilderImages == nil {
+			f1.BuilderImages = make(map[string]string)
+		}
+		f1.BuilderImages["pack"] = f0.Builder
+	}
+
+	// Flag f1 as having had the migration applied
+	f1.Version = m.version
+	return f1, nil
+
+}
+
+// The pertinent asspects of the Function schema prior to the builder images
+// migration.
+type migrateToBuilderImages_previousFunction struct {
+	Builder string `yaml:"builder"`
 }

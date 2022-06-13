@@ -557,18 +557,6 @@ func (c *Client) Create(cfg Function) (err error) {
 		return
 	}
 
-	// TODO: Create a status structure and return it for clients to use
-	// for output, such as from the CLI.
-	if c.verbose {
-		fmt.Printf("Builder:       %s\n", f.Builder)
-		if len(f.Buildpacks) > 0 {
-			fmt.Println("Buildpacks:")
-			for _, b := range f.Buildpacks {
-				fmt.Printf("           ... %s\n", b)
-			}
-		}
-		fmt.Println("Function project created")
-	}
 	return
 }
 

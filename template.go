@@ -37,14 +37,8 @@ func (t template) Write(ctx context.Context, f *Function) error {
 	// so it's values are treated as defaults.
 	// TODO: this begs the question: should the Template's manifest.yaml actually
 	// be a partially-populated func.yaml?
-	if f.Builder == "" { // as a special first case, this default comes from itself
-		f.Builder = f.Builders["default"]
-		if f.Builder == "" { // still nothing?  then use the template
-			f.Builder = t.config.Builders["default"]
-		}
-	}
-	if len(f.Builders) == 0 {
-		f.Builders = t.config.Builders
+	if len(f.BuilderImages) == 0 {
+		f.BuilderImages = t.config.BuilderImages
 	}
 	if len(f.Buildpacks) == 0 {
 		f.Buildpacks = t.config.Buildpacks
