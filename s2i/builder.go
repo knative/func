@@ -115,7 +115,19 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 
 	// Create the S2I builder instance if not overridden
 	if b.impl == nil {
-		if b.impl, err = newImpl(ctx, cfg); err != nil {
+		var client dockerClient.CommonAPIClient
+		client, _, err = docker.NewClient(dockerClient.DefaultDockerHost)
+		if err != nil {
+			return
+		}
+		defer client.Close()
+
+		if isPodman(ctx, client) {
+			client = podmanDockerClient{client}
+		}
+
+		b.impl, _, err = strategies.Strategy(client, cfg, build.Overrides{})
+		if err != nil {
 			return
 		}
 	}
@@ -156,19 +168,4 @@ func builderImage(f fn.Function) (string, error) {
 	}
 
 	return "", ErrRuntimeNotSupported
-}
-
-// new S2I implementation using a docker client wrapped as necessary in the
-// case of podman.
-func newImpl(ctx context.Context, cfg *api.Config) (impl build.Builder, err error) {
-	client, _, err := docker.NewClient(dockerClient.DefaultDockerHost)
-	if err != nil {
-		return
-	}
-	defer client.Close()
-	if isPodman(ctx, client) {
-		client = podmanDockerClient{client}
-	}
-	impl, _, err = strategies.Strategy(client, cfg, build.Overrides{})
-	return
 }
