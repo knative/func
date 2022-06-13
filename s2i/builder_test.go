@@ -3,10 +3,11 @@ package s2i_test
 import (
 	"context"
 	"errors"
-	"github.com/docker/docker/api/types"
 	"io"
 	"strings"
 	"testing"
+
+	"github.com/docker/docker/api/types"
 
 	"github.com/openshift/source-to-image/pkg/api"
 	fn "knative.dev/kn-plugin-func"
