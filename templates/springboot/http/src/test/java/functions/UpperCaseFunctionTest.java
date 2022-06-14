@@ -10,7 +10,7 @@ import org.springframework.http.RequestEntity;
 import org.springframework.http.ResponseEntity;
 
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.*;  
+import static org.hamcrest.Matchers.*;
 
 @SpringBootTest(classes = CloudFunctionApplication.class,
   webEnvironment = WebEnvironment.RANDOM_PORT)
