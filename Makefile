@@ -98,7 +98,7 @@ clean: clean_templates ## Remove generated artifacts such as binaries and schema
 ##@ Templates
 #############
 
-test-templates: test-go test-node test-python test-quarkus test-rust test-typescript ## Run all template tests
+test-templates: test-go test-node test-python test-quarkus test-springboot test-rust test-typescript ## Run all template tests
 
 test-go: ## Test Go templates
 	cd templates/go/cloudevents && go mod tidy && go test
@@ -115,6 +115,10 @@ test-python: ## Test Python templates
 test-quarkus: ## Test Quarkus templates
 	cd templates/quarkus/cloudevents && mvn test && mvn clean
 	cd templates/quarkus/http && mvn test && mvn clean
+
+test-springboot: ## Test Spring Boot templates
+	cd templates/springboot/cloudevents && mvn test && mvn clean
+	cd templates/springboot/http && mvn test && mvn clean
 
 test-rust: ## Test Rust templates
 	cd templates/rust/cloudevents && cargo test && cargo clean
