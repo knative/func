@@ -116,6 +116,10 @@ test-quarkus: ## Test Quarkus templates
 	cd templates/quarkus/cloudevents && mvn test && mvn clean
 	cd templates/quarkus/http && mvn test && mvn clean
 
+test-springboot: ## Test Spring Boot templates
+	cd templates/springboot/cloudevents && mvn test && mvn clean
+	cd templates/springboot/http && mvn test && mvn clean
+
 test-rust: ## Test Rust templates
 	cd templates/rust/cloudevents && cargo test && cargo clean
 	cd templates/rust/http && cargo test && cargo clean
