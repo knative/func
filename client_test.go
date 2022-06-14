@@ -1386,4 +1386,7 @@ func TestClient_BuiltDetects(t *testing.T) {
 	if err := os.Remove(filepath.Join(root, testfile)); err != nil {
 		t.Fatal(err)
 	}
+	if client.Built(root) {
+		t.Fatal("client did not detect a removed file as indicating build staleness")
+	}
 }

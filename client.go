@@ -573,8 +573,9 @@ func (c *Client) Create(cfg Function) (err error) {
 
 // Tag the Function as having been built
 // This is locally-scoped data, only indicating there presumably exists
-// a container image in the cache the configured builder, thus this info
-// is placed in a .func (non-source controlled) local metadata directory, which is not stritly required to exist, so it is created if needed.
+// a container image in the cache of the the configured builder, thus this info
+// is placed in a .func (non-source controlled) local metadata directory, which
+// is not stritly required to exist, so it is created if needed.
 func updateBuildStamp(f Function) (err error) {
 	if err = ensureRuntimeDir(f); err != nil {
 		return err
@@ -908,7 +909,7 @@ func (c *Client) Push(ctx context.Context, path string) (err error) {
 }
 
 // Built returns true if the given path contains a Function which has been
-// built prior to there being any filesystem modificaitons (is not stale).
+// built without any filesystem modificaitons since (is not stale).
 func (c *Client) Built(path string) bool {
 	f, err := NewFunction(path)
 	if err != nil {
@@ -933,7 +934,7 @@ func (c *Client) Built(path string) bool {
 	buildstampPath := filepath.Join(path, RunDataDir, buildstamp)
 
 	// If there is no build stamp, it is also not built.
-	// This case should be redundante with the above check for an image, but is
+	// This case should be redundant with the above check for an image, but is
 	// temporarily necessary (see the long-winded caviat note above).
 	if _, err := os.Stat(buildstampPath); err != nil {
 		return false
