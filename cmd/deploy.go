@@ -49,7 +49,7 @@ that is pushed to an image registry, and finally the function's Knative service 
 {{.Name}} deploy --image quay.io/myuser/myfunc -n myns
 `,
 		SuggestFor: []string{"delpoy", "deplyo"},
-		PreRunE:    bindEnv("image", "path", "registry", "confirm", "build", "push", "git-url", "git-branch", "git-dir"),
+		PreRunE:    bindEnv("image", "path", "registry", "confirm", "build", "push", "git-url", "git-branch", "git-dir", "builder", "builder-image"),
 	}
 
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
