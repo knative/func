@@ -2,9 +2,11 @@ package function
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -36,6 +38,15 @@ const (
 
 	// DefaultBuildType is the default build type for a Function
 	DefaultBuildType = BuildTypeLocal
+
+	// RunDataDir holds transient runtime metadata
+	// By default it is excluded from source control.
+	RunDataDir = ".func"
+
+	// buildstamp is the name of the file within the run data directory whose
+	// existence indicates the Function has been built, and whose content is
+	// a fingerprint of the filesystem at the time of the build.
+	buildstamp = "built"
 )
 
 // Client for managing Function instances.
@@ -538,7 +549,7 @@ func (c *Client) Create(cfg Function) (err error) {
 	f := NewFunctionWith(cfg)
 
 	// Create a .func diretory which is also added to a .gitignore
-	if err = createRuntimeDir(f); err != nil {
+	if err = ensureRuntimeDir(f); err != nil {
 		return
 	}
 
@@ -560,12 +571,31 @@ func (c *Client) Create(cfg Function) (err error) {
 	return
 }
 
-// createRuntimeDir creates a .func directory in the root of the given
+// Tag the Function as having been built
+// This is locally-scoped data, only indicating there presumably exists
+// a container image in the cache of the the configured builder, thus this info
+// is placed in a .func (non-source controlled) local metadata directory, which
+// is not stritly required to exist, so it is created if needed.
+func updateBuildStamp(f Function) (err error) {
+	if err = ensureRuntimeDir(f); err != nil {
+		return err
+	}
+	hash, err := fingerprint(f)
+	if err != nil {
+		return err
+	}
+	if err = os.WriteFile(filepath.Join(f.Root, RunDataDir, buildstamp), []byte(hash), os.ModePerm); err != nil {
+		return err
+	}
+	return
+}
+
+// ensureRuntimeDir creates a .func directory in the root of the given
 // Function which is also registered as ignored in .gitignore
 // TODO: Mutate extant .gitignore file if it exists rather than failing
 // if present (see contentious files in function.go), such that a user
 // can `git init` a directory prior to `func init` in the same directory).
-func createRuntimeDir(f Function) error {
+func ensureRuntimeDir(f Function) error {
 	if err := os.MkdirAll(filepath.Join(f.Root, RunDataDir), os.ModePerm); err != nil {
 		return err
 	}
@@ -608,6 +638,11 @@ func (c *Client) Build(ctx context.Context, path string) (err error) {
 	// Write (save) - Serialize the Function to disk
 	// Will now contain populated image tag.
 	if err = f.Write(); err != nil {
+		return
+	}
+
+	// Tag the function as having been built
+	if err = updateBuildStamp(f); err != nil {
 		return
 	}
 
@@ -663,7 +698,7 @@ func (c *Client) Deploy(ctx context.Context, path string) (err error) {
 
 	// Functions must be built (have an associated image) before being deployed.
 	// Note that externally built images may be specified in the func.yaml
-	if !f.Built() {
+	if !f.HasImage() {
 		return ErrNotBuilt
 	}
 
@@ -859,7 +894,7 @@ func (c *Client) Push(ctx context.Context, path string) (err error) {
 		return
 	}
 
-	if !f.Built() {
+	if !f.HasImage() {
 		return ErrNotBuilt
 	}
 
@@ -871,6 +906,79 @@ func (c *Client) Push(ctx context.Context, path string) (err error) {
 	// Record the Image Digest pushed.
 	f.ImageDigest = imageDigest
 	return f.Write()
+}
+
+// Built returns true if the given path contains a Function which has been
+// built without any filesystem modificaitons since (is not stale).
+func (c *Client) Built(path string) bool {
+	f, err := NewFunction(path)
+	if err != nil {
+		return false
+	}
+
+	// Missing a build image always means !Built (but does not satisfy staleness
+	// checks).
+	// NOTE: This will be updated in the future such that a build does not
+	// automatically update the Function's serialized, source-controlled state,
+	// because merely building does not indicate the Function has changed, but
+	// rather that field should be populated on deploy.  I.e. the Image name
+	// and image stamp should reside as transient data in .func until such time
+	// as the given image has been deployed.
+	// An example of how this bug manifests is that every rebuild of a Function
+	// registers the func.yaml as being dirty for source-control purposes, when
+	// this should only happen on deploy.
+	if !f.HasImage() {
+		return false
+	}
+
+	buildstampPath := filepath.Join(path, RunDataDir, buildstamp)
+
+	// If there is no build stamp, it is also not built.
+	// This case should be redundant with the above check for an image, but is
+	// temporarily necessary (see the long-winded caviat note above).
+	if _, err := os.Stat(buildstampPath); err != nil {
+		return false
+	}
+
+	// Calculate the Function's Filesystem hash and see if it has changed.
+	hash, err := fingerprint(f)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error calculating Function's fingerprint: %v\n", err)
+		return false
+	}
+	b, err := os.ReadFile(buildstampPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error reading Function's fingerprint: %v\n", err)
+		return false
+	}
+	if string(b) != hash {
+		return false // changes detected
+	}
+
+	// Function has a populated image, existing buildstamp, and the calculated
+	// fingerprint has not changed.
+	// It's a pretty good chance the thing doesn't need to be rebuilt, though
+	// of course filesystem racing conditions do exist, including both direct
+	// source code modifications or changes to the image cache.
+	return true
+}
+
+// fingerprint returns a hash of the filenames and modification timestamps of
+// the files within a Function's root.
+func fingerprint(f Function) (string, error) {
+	h := sha256.New()
+	err := filepath.Walk(f.Root, func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		// Always ignore .func, .git (TODO: .funcignore)
+		if info.IsDir() && (info.Name() == RunDataDir || info.Name() == ".git") {
+			return filepath.SkipDir
+		}
+		fmt.Fprintf(h, "%v:%v:", path, info.ModTime().UnixNano())
+		return nil
+	})
+	return fmt.Sprintf("%x", h.Sum(nil)), err
 }
 
 // DEFAULTS
