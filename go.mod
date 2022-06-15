@@ -22,6 +22,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/hinshun/vt10x v0.0.0-20180809195222-d55458df857c
 	github.com/mitchellh/go-homedir v1.1.0
+	github.com/opencontainers/image-spec v1.0.3-0.20220114050600-8b9d41f48198
 	github.com/openshift/source-to-image v1.3.1
 	github.com/ory/viper v1.7.5
 	github.com/pkg/errors v0.9.1

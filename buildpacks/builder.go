@@ -5,17 +5,17 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"knative.dev/kn-plugin-func/docker"
 	"os"
 	"runtime"
 	"strings"
 
-	"github.com/docker/docker/client"
-
 	"github.com/Masterminds/semver"
 	pack "github.com/buildpacks/pack/pkg/client"
 	"github.com/buildpacks/pack/pkg/logging"
+	"github.com/docker/docker/client"
+
 	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/docker"
 )
 
 var (

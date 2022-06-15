@@ -2,3 +2,5 @@ ignore:
   - third_party
   - vendor
   - testdata
+  - docker/zz_close_guarding_client_generated.go
+
