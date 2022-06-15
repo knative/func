@@ -5,18 +5,17 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"knative.dev/kn-plugin-func/docker"
 	"os"
 	"runtime"
 	"strings"
 
 	"github.com/docker/docker/client"
 
-	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/docker"
-
 	"github.com/Masterminds/semver"
 	pack "github.com/buildpacks/pack/pkg/client"
 	"github.com/buildpacks/pack/pkg/logging"
+	fn "knative.dev/kn-plugin-func"
 )
 
 var (
@@ -109,16 +108,28 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		opts.ContainerConfig.Network = "host"
 	}
 
+	var impl = b.impl
 	// Instantate the pack build client implementation
 	// (and update build opts as necessary)
-	if b.impl == nil {
-		if b.impl, err = newImpl(ctx, &opts, b.logger); err != nil {
-			return
+	if impl == nil {
+		var (
+			cli        client.CommonAPIClient
+			dockerHost string
+		)
+
+		cli, dockerHost, err = docker.NewClient(client.DefaultDockerHost)
+		if err != nil {
+			return fmt.Errorf("cannot craete docker client: %w", err)
+		}
+		defer cli.Close()
+
+		if impl, err = newImpl(ctx, cli, dockerHost, &opts, b.logger); err != nil {
+			return fmt.Errorf("cannot create pack client: %w", err)
 		}
 	}
 
 	// Perform the build
-	if err = b.impl.Build(ctx, opts); err != nil {
+	if err = impl.Build(ctx, opts); err != nil {
 		if ctx.Err() != nil {
 			return // SIGINT
 		} else if !b.verbose {
@@ -130,13 +141,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 
 // newImpl returns an instance of the builder implementatoin.  Note that this
 // also mutates the provided options' DockerHost and TrustBuilder.
-func newImpl(ctx context.Context, opts *pack.BuildOptions, logger io.Writer) (impl Impl, err error) {
-	cli, dockerHost, err := docker.NewClient(client.DefaultDockerHost)
-	if err != nil {
-		return
-	}
-	defer cli.Close()
-
+func newImpl(ctx context.Context, cli client.CommonAPIClient, dockerHost string, opts *pack.BuildOptions, logger io.Writer) (impl Impl, err error) {
 	opts.DockerHost = dockerHost
 
 	daemonIsPodmanPreV330, err := podmanPreV330(ctx, cli)
