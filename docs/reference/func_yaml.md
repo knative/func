@@ -3,30 +3,46 @@
 The `func.yaml` file contains configuration information for your function
 project. Generally, these values are used when you execute a `func` CLI
 command. For example, when `func build` is run, the CLI uses the value for
-the `builder` field. In many cases, these values may be overridden by
+the `builder` field. In some cases, these values may be overridden by
 command line flags or environment variables. For more information about
 overriding these values, consult the [Commands](command.md) document.
 
 Many of the fields are generated for you when you create, build and deploy
-your function. However there are a few that you may use to tweak things
+your function. Generally, function developers do not need to manually edit
+this file. However there are a few that you may use to tweak things
 such as the function name, and the image name.
 
 ## Fields
 
 The following fields are used in `func.yaml`.
 
-### `builder`
+### `builderImages`
 
-Specifies the buildpack builder image to use when building the function.
-In most cases, this value should not be changed.
+Defines the builder images to use by builder implementations in lieu of the defaults.
+They key is the builder's short name.  For example:
 
-### `builders`
+```
+builderImages:
+	pack: example.com/user/my-pack-node-builder
+  s2i: example.com/user/my-s2i-node-builder
+```
 
-Some function runtimes may be built in multiple ways. For example, a Quarkus
-function may be built for the JVM, or as a native binary. The `builders`
-field will contain all of the available builders for a given runtime. Although
-it's typically unnecessary to modify the `builder` field, using values from
-`builders` is OK.
+### `build`
+
+Specifies how to build the fuction. Possible values are "local" to build on your local
+computer, or "git" to build on the cluster by pulling function source code from a git
+repository.
+
+### `git`
+
+If using a `git` build strategy, this field is used to specify the git URL as well
+as an optional context directory. For example:
+
+```
+git:
+  url: github.com/boson-project/example
+  contextDir: subdirectory
+```
 
 ### `buildEnvs`
 This field allows you to set environment variables available to the builder/buildpack that builds the function. This environment variable is NOT set at runtime, use [envs](#envs) instead
