@@ -207,6 +207,8 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 				if err != nil {
 					return fmt.Errorf("cannot open source file: %w", err)
 				}
+				defer r.Close()
+
 				_, err = io.Copy(tw, r)
 				if err != nil {
 					return fmt.Errorf("cannot copy file to tar stream :%w", err)
