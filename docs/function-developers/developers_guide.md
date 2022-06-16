@@ -18,7 +18,7 @@ For a detailed description of the `func.yaml` file that is used for the Function
 
 ## Building Functions on Cluster
 
-For a detailed description of how to build a Function on a cluster with Tekton Pipelines, please see the [On Cluster Build Guide](../reference/on_cluster_build.yaml).
+For a detailed description of how to build a Function on a cluster with Tekton Pipelines, please see the [On Cluster Build Guide](../reference/on_cluster_build.md).
 
 ## Language Guides
 
