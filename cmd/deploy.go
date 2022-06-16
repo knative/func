@@ -131,7 +131,7 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 	}
 
 	// If the Function does not yet have an image name and one was not provided on the command line
-	if function.Image == "" {
+	if function.Image == "" && currentBuildType != "disabled" {
 		//  AND a --registry was not provided, then we need to
 		// prompt for a registry from which we can derive an image name.
 		if config.Registry == "" {
