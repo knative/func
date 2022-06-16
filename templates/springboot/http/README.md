@@ -2,7 +2,7 @@
 
 Welcome to your new Function project!
 
-This sample project contains a single function based on Spring Cloud Function: `functions.CloudFunctionApplication.uppercase()`, which returns the uppercase of the data passed.
+This sample project contains a single function based on Spring Cloud Function: `functions.CloudFunctionApplication.echo()`, which returns an echo of the data passed via HTTP request.
 
 ## Local execution
 
@@ -86,7 +86,7 @@ export URL=$(kn service describe $(basename $PWD) -ourl)
 Using `func invoke` command with Path-Based routing:
 
 ```shell script
-func invoke --target "$URL/uppercase" --data "$(whoami)"
+func invoke --target "$URL/echo" --data "$(whoami)"
 ```
 
 If your function class only contains one function, then you can leave out the target path:
@@ -98,7 +98,7 @@ func invoke --data "$(whoami)"
 ### cURL
 
 ```shell script
-curl -v "$URL/uppercase" \
+curl -v "$URL/echo" \
   -H "Content-Type:text/plain" \
   -w "\n" \
   -d "$(whoami)"
@@ -116,7 +116,7 @@ curl -v "$URL" \
 ### HTTPie
 
 ```shell script
-echo "$(whoami)" | http -v "$URL/uppercase"
+echo "$(whoami)" | http -v "$URL/echo"
 ```
 
 If your function class only contains one function, then you can leave out the target path:
