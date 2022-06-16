@@ -54,7 +54,7 @@ fi
 export E2E_FUNC_BIN_PATH=$(pwd)/func
 
 go clean -testcache
-go test -v -test.v -test.timeout=30m -tags="e2elc" ./test/_e2e/
+go test -v -test.v -test.timeout=45m -tags="e2elc" ./test/_e2e/
 ret=$?
 
 cd $curdir

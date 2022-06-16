@@ -909,7 +909,7 @@ func (c *Client) Push(ctx context.Context, path string) (err error) {
 }
 
 // Built returns true if the given path contains a Function which has been
-// built without any filesystem modificaitons since (is not stale).
+// built without any filesystem modifications since (is not stale).
 func (c *Client) Built(path string) bool {
 	f, err := NewFunction(path)
 	if err != nil {
