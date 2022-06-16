@@ -44,6 +44,7 @@ func NewClient(defaultHost string) (dockerClient client.CommonAPIClient, dockerH
 			return
 		case os.IsNotExist(err):
 			dockerClient, dockerHost, err = newClientWithPodmanService()
+			dockerClient = &closeGuardingClient{pimpl: dockerClient}
 			return
 		}
 	}
@@ -61,6 +62,7 @@ func NewClient(defaultHost string) (dockerClient client.CommonAPIClient, dockerH
 
 	if !isSSH {
 		dockerClient, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+		dockerClient = &closeGuardingClient{pimpl: dockerClient}
 		return
 	}
 
@@ -98,6 +100,7 @@ func NewClient(defaultHost string) (dockerClient client.CommonAPIClient, dockerH
 		}
 	}
 
+	dockerClient = &closeGuardingClient{pimpl: dockerClient}
 	return dockerClient, dockerHost, err
 }
 

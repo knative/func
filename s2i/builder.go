@@ -118,14 +118,18 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 
 	cfg.AsDockerfile = filepath.Join(tmp, "Dockerfile")
 
-	if b.cli == nil {
-		b.cli, _, err = docker.NewClient(dockerClient.DefaultDockerHost)
+	var client = b.cli
+	if client == nil {
+		var c dockerClient.CommonAPIClient
+		c, _, err = docker.NewClient(dockerClient.DefaultDockerHost)
 		if err != nil {
 			return fmt.Errorf("cannot create docker client: %w", err)
 		}
+		defer c.Close()
+		client = c
 	}
 
-	scriptURL, err := s2iScriptURL(ctx, b.cli, cfg.BuilderImage)
+	scriptURL, err := s2iScriptURL(ctx, client, cfg.BuilderImage)
 	if err != nil {
 		return fmt.Errorf("cannot get s2i script url: %w", err)
 	}
@@ -157,16 +161,17 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		return errors.New("Unable to build via the s2i builder.")
 	}
 
+	var impl = b.impl
 	// Create the S2I builder instance if not overridden
-	if b.impl == nil {
-		b.impl, _, err = strategies.Strategy(nil, cfg, build.Overrides{})
+	if impl == nil {
+		impl, _, err = strategies.Strategy(nil, cfg, build.Overrides{})
 		if err != nil {
 			return fmt.Errorf("cannot create s2i builder: %w", err)
 		}
 	}
 
 	// Perform the build
-	result, err := b.impl.Build(cfg)
+	result, err := impl.Build(cfg)
 	if err != nil {
 		return
 	}
@@ -223,7 +228,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		Tags: []string{f.Image},
 	}
 
-	resp, err := b.cli.ImageBuild(ctx, pr, opts)
+	resp, err := client.ImageBuild(ctx, pr, opts)
 	if err != nil {
 		return fmt.Errorf("cannot build the app image: %w", err)
 	}
