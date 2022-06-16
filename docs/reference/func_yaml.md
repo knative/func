@@ -18,7 +18,7 @@ The following fields are used in `func.yaml`.
 
 ### `builderImages`
 
-Defines the builder images to use by builder implementations in lieu of the defaults. 
+Defines the builder images to use by builder implementations in lieu of the defaults.
 They key is the builder's short name.  For example:
 
 ```
