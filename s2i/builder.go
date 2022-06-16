@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/docker/docker/api/types"
 	dockerClient "github.com/docker/docker/client"
@@ -179,6 +180,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 
 	pr, pw := io.Pipe()
 
+	const up = ".." + string(os.PathSeparator)
 	go func() {
 		tw := tar.NewWriter(pw)
 		err := filepath.Walk(tmp, func(path string, fi fs.FileInfo, err error) error {
@@ -190,8 +192,28 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 			if err != nil {
 				return fmt.Errorf("cannot get relative path: %w", err)
 			}
+			if p == "." {
+				return nil
+			}
 
-			hdr, err := tar.FileInfoHeader(fi, p)
+			lnk := ""
+			if fi.Mode()&fs.ModeSymlink != 0 {
+				lnk, err = os.Readlink(path)
+				if err != nil {
+					return fmt.Errorf("cannot read link: %w", err)
+				}
+				if filepath.IsAbs(lnk) {
+					lnk, err = filepath.Rel(tmp, lnk)
+					if err != nil {
+						return fmt.Errorf("cannot get relative path for symlink: %w", err)
+					}
+					if strings.HasPrefix(lnk, up) || lnk == ".." {
+						return fmt.Errorf("link %q points outside source root", p)
+					}
+				}
+			}
+
+			hdr, err := tar.FileInfoHeader(fi, lnk)
 			if err != nil {
 				return fmt.Errorf("cannot create tar header: %w", err)
 			}
