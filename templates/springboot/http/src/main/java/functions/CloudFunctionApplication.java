@@ -23,7 +23,7 @@ public class CloudFunctionApplication {
       var stringBuilder = new StringBuilder();
       inputMessage.getHeaders()
         .forEach((key, value) -> {
-          stringBuilder.append(key).append(": ").append(value);
+          stringBuilder.append(key).append(": ").append(value).append(" ");
         });
 
       var payload = inputMessage.getPayload();
