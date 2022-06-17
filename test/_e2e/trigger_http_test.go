@@ -86,7 +86,7 @@ var defaultFunctionsHttpValidators = []FunctionHttpResponsivenessValidator{
 		expects:   `{"message":"hello"}`,
 	},
 	{runtime: "springboot",
-		targetUrl: "%s/uppercase",
+		targetUrl: "%s/echo",
 		method:    "POST",
 		bodyData:  "message=hello",
 		expects:   `MESSAGE=HELLO`,
