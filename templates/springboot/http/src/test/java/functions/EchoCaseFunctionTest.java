@@ -14,18 +14,29 @@ import static org.hamcrest.Matchers.*;
 
 @SpringBootTest(classes = CloudFunctionApplication.class,
   webEnvironment = WebEnvironment.RANDOM_PORT)
-public class UpperCaseFunctionTest {
+public class EchoCaseFunctionTest {
 
   @Autowired
   private TestRestTemplate rest;
 
   @Test
-  public void testUpperCase() throws Exception {
+  public void testEchoWithBody() throws Exception {
     ResponseEntity<String> response = this.rest.exchange(
-      RequestEntity.post(new URI("/uppercase"))
+      RequestEntity.post(new URI("/echo"))
                    .body("hello"), String.class);
     assertThat(response.getStatusCode()
                        .value(), equalTo(200));
-    assertThat(response.getBody(), equalTo("HELLO"));
+    assertThat(response.getBody(), containsString("echo: hello"));
+  }
+
+  @Test
+  public void testEchoWithoutBody() throws Exception {
+    ResponseEntity<String> response = this.rest.exchange(
+      RequestEntity.get(new URI("/echo/"))
+          .header("custom-header", "custom-value")
+            .build(), String.class);
+    assertThat(response.getStatusCode()
+      .value(), equalTo(200));
+    assertThat(response.getBody(), containsString("custom-header: custom-value"));
   }
 }
