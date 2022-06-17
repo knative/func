@@ -14,7 +14,7 @@ import static org.hamcrest.Matchers.*;
 
 @SpringBootTest(classes = CloudFunctionApplication.class,
   webEnvironment = WebEnvironment.RANDOM_PORT)
-public class UpperCaseFunctionTest {
+public class EchoCaseFunctionTest {
 
   @Autowired
   private TestRestTemplate rest;
@@ -26,7 +26,6 @@ public class UpperCaseFunctionTest {
                    .body("hello"), String.class);
     assertThat(response.getStatusCode()
                        .value(), equalTo(200));
-    
     assertThat(response.getBody(), containsString("echo: hello"));
   }
 
@@ -36,10 +35,8 @@ public class UpperCaseFunctionTest {
       RequestEntity.get(new URI("/echo/"))
           .header("custom-header", "custom-value")
             .build(), String.class);
-    
     assertThat(response.getStatusCode()
       .value(), equalTo(200));
-
     assertThat(response.getBody(), containsString("custom-header: custom-value"));
   }
 }
