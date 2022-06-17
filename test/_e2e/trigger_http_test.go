@@ -89,7 +89,7 @@ var defaultFunctionsHttpValidators = []FunctionHttpResponsivenessValidator{
 		targetUrl: "%s/echo",
 		method:    "POST",
 		bodyData:  "message=hello",
-		expects:   `MESSAGE=HELLO`,
+		expects:   `message=hello`,
 	},
 	{runtime: "typescript",
 		targetUrl:   "%s",
