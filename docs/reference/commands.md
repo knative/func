@@ -163,6 +163,7 @@ kn func invoke --path /path/to/fn --id fn.test
 
 # Send a CloudEvent to an arbitrary endpoint
 kn func invoke --target "http://my.event.broker.com" --format=cloudevent
+```
 
 
 ## `config`
