@@ -53,9 +53,10 @@ type DockerClient interface {
 
 // Builder of Functions using the s2i subsystem.
 type Builder struct {
-	verbose bool
-	impl    build.Builder // S2I builder implementation (aka "Strategy")
-	cli     DockerClient
+	verbose  bool
+	impl     build.Builder // S2I builder implementation (aka "Strategy")
+	cli      DockerClient
+	platform string
 }
 
 type Option func(*Builder)
@@ -82,6 +83,12 @@ func WithDockerClient(cli DockerClient) Option {
 	}
 }
 
+func WithPlatform(platform string) Option {
+	return func(b *Builder) {
+		b.platform = platform
+	}
+}
+
 // NewBuilder creates a new instance of a Builder with static defaults.
 func NewBuilder(options ...Option) *Builder {
 	b := &Builder{}
@@ -98,6 +105,13 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	builderImage, err := builderImage(f)
 	if err != nil {
 		return
+	}
+
+	if b.platform != "" {
+		builderImage, err = docker.GetPlatformImage(builderImage, b.platform)
+		if err != nil {
+			return fmt.Errorf("cannot get platform specific image reference: %w", err)
+		}
 	}
 
 	// Build Config
