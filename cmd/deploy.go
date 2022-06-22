@@ -49,7 +49,7 @@ that is pushed to an image registry, and finally the function's Knative service 
 {{.Name}} deploy --image quay.io/myuser/myfunc -n myns
 `,
 		SuggestFor: []string{"delpoy", "deplyo"},
-		PreRunE:    bindEnv("image", "path", "registry", "confirm", "build", "push", "git-url", "git-branch", "git-dir", "builder", "builder-image"),
+		PreRunE:    bindEnv("image", "path", "registry", "confirm", "build", "push", "git-url", "git-branch", "git-dir", "builder", "builder-image", "platform"),
 	}
 
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
@@ -66,6 +66,7 @@ that is pushed to an image registry, and finally the function's Knative service 
 	cmd.Flags().StringP("image", "i", "", "Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE)")
 	cmd.Flags().StringP("registry", "r", GetDefaultRegistry(), "Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined based on the local directory name. If not provided the registry will be taken from func.yaml (Env: $FUNC_REGISTRY)")
 	cmd.Flags().BoolP("push", "u", true, "Attempt to push the function image to registry before deploying (Env: $FUNC_PUSH)")
+	cmd.Flags().StringP("platform", "", "", "Target platform to build (e.g. linux/amd64).")
 	setPathFlag(cmd)
 
 	if err := cmd.RegisterFlagCompletionFunc("build", CompleteDeployBuildType); err != nil {
@@ -174,9 +175,12 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 	// Choose a builder based on the value of the --builder flag
 	var builder fn.Builder
 	if config.Builder == "pack" {
+		if config.Platform != "" {
+			fmt.Fprintln(os.Stderr, "the --platform flag works only with s2i build")
+		}
 		builder = buildpacks.NewBuilder(buildpacks.WithVerbose(config.Verbose))
 	} else if config.Builder == "s2i" {
-		builder = s2i.NewBuilder(s2i.WithVerbose(config.Verbose))
+		builder = s2i.NewBuilder(s2i.WithVerbose(config.Verbose), s2i.WithPlatform(config.Platform))
 	} else {
 		err = errors.New("unrecognized builder: valid values are: s2i, pack")
 		return

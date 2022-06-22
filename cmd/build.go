@@ -3,6 +3,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"os"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
@@ -46,7 +47,7 @@ and the image name is stored in the configuration file.
 {{.Name}} build --builder=pack --builder-image cnbs/sample-builder:bionic
 `,
 		SuggestFor: []string{"biuld", "buidl", "built"},
-		PreRunE:    bindEnv("image", "path", "builder", "registry", "confirm", "push", "builder-image"),
+		PreRunE:    bindEnv("image", "path", "builder", "registry", "confirm", "push", "builder-image", "platform"),
 	}
 
 	cmd.Flags().StringP("builder", "b", "pack", "build strategy to use when creating the underlying image. Currently supported build strategies are 'pack' and 's2i'.")
@@ -55,6 +56,7 @@ and the image name is stored in the configuration file.
 	cmd.Flags().StringP("image", "i", "", "Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE)")
 	cmd.Flags().StringP("registry", "r", GetDefaultRegistry(), "Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined based on the local directory name. If not provided the registry will be taken from func.yaml (Env: $FUNC_REGISTRY)")
 	cmd.Flags().BoolP("push", "u", false, "Attempt to push the function image after being successfully built")
+	cmd.Flags().StringP("platform", "", "", "Target platform to build (e.g. linux/amd64).")
 	setPathFlag(cmd)
 
 	if err := cmd.RegisterFlagCompletionFunc("builder", CompleteBuildStrategyList); err != nil {
@@ -158,9 +160,12 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	// Choose a builder based on the value of the --builder flag
 	var builder fn.Builder
 	if config.Builder == "pack" {
+		if config.Platform != "" {
+			fmt.Fprintln(os.Stderr, "the --platform flag works only with s2i build")
+		}
 		builder = buildpacks.NewBuilder(buildpacks.WithVerbose(config.Verbose))
 	} else if config.Builder == "s2i" {
-		builder = s2i.NewBuilder(s2i.WithVerbose(config.Verbose))
+		builder = s2i.NewBuilder(s2i.WithVerbose(config.Verbose), s2i.WithPlatform(config.Platform))
 	} else {
 		err = errors.New("unrecognized builder: valid values are: s2i, pack")
 		return
@@ -216,6 +221,8 @@ type buildConfig struct {
 	// BuilderImage is the image (name or mapping) to use for building.  Usually
 	// set automatically.
 	BuilderImage string
+
+	Platform string
 }
 
 func newBuildConfig() buildConfig {
@@ -228,6 +235,7 @@ func newBuildConfig() buildConfig {
 		Builder:      viper.GetString("builder"),
 		BuilderImage: viper.GetString("builder-image"),
 		Push:         viper.GetBool("push"),
+		Platform:     viper.GetString("platform"),
 	}
 }
 
