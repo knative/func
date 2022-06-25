@@ -1,4 +1,13 @@
 from parliament import Context
+from flask import Request
+
+
+def pretty_print(req: Request) -> str:
+    ret = str(req.method) + ' ' + str(req.url) + ' ' + str(req.host) + '\n'
+    for (header, values) in req.headers:
+        ret += str(header) + ": " + values + '\n'
+
+    return ret
 
  
 def main(context: Context):
@@ -9,5 +18,12 @@ def main(context: Context):
     """
 
     # Add your business logic here
+    print("Received request")
 
-    return { "message": "Howdy!" }, 200
+    if 'request' in context.keys():
+        ret = pretty_print(context.request)
+        print(ret)
+        return { "message": ret }, 200
+    else:
+        print("Empty request")
+        return { "message": "Empty request" }, 200
