@@ -47,7 +47,7 @@ func Test_ErrRuntimeNotSupported(t *testing.T) {
 	b := s2i.NewBuilder()
 	err := b.Build(context.Background(), fn.Function{Runtime: "unsupported"})
 
-	if !errors.Is(err, s2i.ErrRuntimeNotSupported) {
+	if !s2i.IsErrRuntimeNotSupported(err) {
 		t.Fatal("expected ErrRuntimeNotSupported not received")
 	}
 }
