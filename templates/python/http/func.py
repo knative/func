@@ -23,7 +23,7 @@ def main(context: Context):
     if 'request' in context.keys():
         ret = pretty_print(context.request)
         print(ret)
-        return { "message": ret }, 200
+        return { "message": "hello" }, 200
     else:
         print("Empty request")
         return { "message": "Empty request" }, 200
