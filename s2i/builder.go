@@ -32,10 +32,6 @@ import (
 var (
 	// ErrRuntimeRequired indicates the required value of Function Runtime was not provided
 	ErrRuntimeRequired = errors.New("runtime is required to build")
-
-	// ErrRuntimeNotSupported indicates the given runtime is not (yet) supported
-	// by this builder.
-	ErrRuntimeNotSupported = errors.New("runtime not supported")
 )
 
 // DefaultBuilderImages for s2i builders indexed by Runtime Language
@@ -386,5 +382,18 @@ func builderImage(f fn.Function) (string, error) {
 		return v, nil
 	}
 
-	return "", ErrRuntimeNotSupported
+	return "", ErrRuntimeNotSupported{f.Runtime}
+}
+
+func IsErrRuntimeNotSupported(err error) bool {
+	var e ErrRuntimeNotSupported
+	return errors.As(err, &e)
+}
+
+type ErrRuntimeNotSupported struct {
+	Runtime string
+}
+
+func (e ErrRuntimeNotSupported) Error() string {
+	return fmt.Sprintf("the s2i builder has no default builder image for the %q language runtime (try specifying builder image or use different build strategy)", e.Runtime)
 }
