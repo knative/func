@@ -104,6 +104,7 @@ func TestConfigEnvs(t *testing.T) {
 	project.FunctionName = "test-config-envs"
 	project.ProjectPath = filepath.Join(os.TempDir(), project.FunctionName)
 	project.RemoteRepository = "http://github.com/boson-project/test-templates.git"
+	project.Builder = "pack"
 
 	Create(t, knFunc.TestShell, project)
 	defer func() { _ = project.RemoveProjectFolder() }()
@@ -164,6 +165,7 @@ func TestConfigEnvs(t *testing.T) {
 
 	// Deploy
 	knFunc.TestShell.WithEnv(testEnvName, testEnvValue)
+	Build(t, knFunc.TestShell, &project)
 	Deploy(t, knFunc.TestShell, &project)
 	defer Delete(t, knFunc.TestShell, &project)
 	ReadyCheck(t, knFunc.TestShell, project)
