@@ -79,7 +79,7 @@ var defaultFunctionsHttpValidators = []FunctionHttpResponsivenessValidator{
 	},
 	{runtime: "python",
 		targetUrl: "%s?message=hello",
-		expects:   `{'message': 'hello'}`,
+		expects:   `{"message": "hello"}`,
 	},
 	{runtime: "quarkus",
 		targetUrl: "%s?message=hello",

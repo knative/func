@@ -1,18 +1,19 @@
 from parliament import Context
 from flask import Request
+import json
 
 
 # parse request body, json data or URL query parameters
 def payload_print(req: Request) -> str:
     if req.method == "POST":
         if req.is_json:
-            return str(req.json)
+            return json.dumps(req.json) + "\n"
         else:
             # MultiDict needs some iteration
             ret = "{"
 
             for key in req.form.keys():
-                ret += "'" + key + "': '" + req.form[key] + "', "
+                ret += '"' + key + '": "'+ req.form[key] + '", '
 
             return ret[:-2] + "}\n" if len(ret) > 2 else "{}"
 
@@ -21,7 +22,7 @@ def payload_print(req: Request) -> str:
         ret = "{"
 
         for key in req.args.keys():
-            ret += "'" + key + "': '" + req.args[key] + "', "
+            ret += '"' + key + '": "' + req.args[key] + '", '
 
         return ret[:-2] + "}\n" if len(ret) > 2 else "{}"
 
