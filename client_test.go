@@ -1319,6 +1319,30 @@ func TestClient_BuiltStamps(t *testing.T) {
 	}
 }
 
+// TestClient_CreateMigration ensures that the client includes the most recent
+// migration version when creating a new function
+func TestClient_CreateMigration(t *testing.T) {
+	root, rm := Mktemp(t)
+	defer rm()
+	client := fn.New()
+
+	// create a new function
+	if err := client.Create(fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
+		t.Fatal(err)
+	}
+
+	// create a new function
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// A freshly created function should have the latest migration
+	if f.SpecVersion != fn.LastMigration() {
+		t.Fatal("freshly created function should have the latest migration")
+	}
+}
+
 // TestClient_BuiltDetects ensures that the client's Built command detects
 // filesystem changes as indicating the Function is no longer Built (aka stale)
 // This includes modifying timestamps, removing or adding files.

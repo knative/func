@@ -568,6 +568,21 @@ func (c *Client) Create(cfg Function) (err error) {
 		return
 	}
 
+	// Load the created function that was just written to disc
+	f, err = NewFunction(cfg.Root)
+	if err != nil {
+		return
+	}
+
+	// ensure the most recent migration is recorded
+	f, err = f.Migrate()
+	if err != nil {
+		return
+	}
+
+	// finally write again
+	err = f.Write()
+
 	return
 }
 

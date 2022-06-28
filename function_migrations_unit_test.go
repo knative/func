@@ -10,7 +10,7 @@ import (
 // TestMigrated ensures that the .Migrated() method returns whether or not the
 // migrations were applied based on its self-reported .Version member.
 func TestMigrated(t *testing.T) {
-	vNext := semver.New(latestMigrationVersion())
+	vNext := semver.New(LastMigration())
 	vNext.BumpMajor()
 
 	tests := []struct {
@@ -23,15 +23,15 @@ func TestMigrated(t *testing.T) {
 		migrated: false, // function with no version stamp should be not migrated.
 	}, {
 		name:     "explicit small version",
-		f:        Function{Version: "0.0.1"},
+		f:        Function{SpecVersion: "0.0.1"},
 		migrated: false,
 	}, {
 		name:     "latest version",
-		f:        Function{Version: latestMigrationVersion()},
+		f:        Function{SpecVersion: LastMigration()},
 		migrated: true,
 	}, {
 		name:     "future version",
-		f:        Function{Version: vNext.String()},
+		f:        Function{SpecVersion: vNext.String()},
 		migrated: true,
 	}}
 
@@ -39,7 +39,7 @@ func TestMigrated(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			if test.f.Migrated() != test.migrated {
 				t.Errorf("Expected %q.Migrated() to be %t when latest is %q",
-					test.f.Version, test.migrated, latestMigrationVersion())
+					test.f.SpecVersion, test.migrated, LastMigration())
 			}
 		})
 	}
@@ -59,9 +59,9 @@ func TestMigrate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if f.Version != latestMigrationVersion() {
+	if f.SpecVersion != LastMigration() {
 		t.Fatalf("Function was not migrated to %v on instantiation: version is %v",
-			latestMigrationVersion(), f.Version)
+			LastMigration(), f.SpecVersion)
 	}
 }
 
@@ -124,6 +124,15 @@ func TestMigrateToBuilderImagesCustom(t *testing.T) {
 
 }
 
-func latestMigrationVersion() string {
-	return migrations[len(migrations)-1].version
+// TestMigrateToSpecVersion ensures that a func.yaml file with a "version" field
+// is migrated to use the field name "specVersion"
+func TestMigrateToSpecVersion(t *testing.T) {
+	root := "testdata/migrations/v0.25.0"
+	f, err := NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.SpecVersion != LastMigration() {
+		t.Fatal("migrated Function does not include the Migration field")
+	}
 }

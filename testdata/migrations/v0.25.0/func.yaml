@@ -1,0 +1,22 @@
+version: 0.23.0
+name: testfunc
+namespace: ""
+runtime: node
+registry: ""
+image: ""
+imageDigest: ""
+build: local
+git: {}
+buildpacks: []
+volumes: []
+buildEnvs: []
+envs: []
+annotations: {}
+options: {}
+labels: []
+healthEndpoints:
+  liveness: /health/liveness
+  readiness: /health/readiness
+created: 2022-06-28T18:33:40.585047-04:00
+invocation:
+  format: http

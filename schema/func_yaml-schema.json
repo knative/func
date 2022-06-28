@@ -20,7 +20,7 @@
 		},
 		"Function": {
 			"required": [
-				"version",
+				"specVersion",
 				"name",
 				"namespace",
 				"runtime",
@@ -40,7 +40,7 @@
 				"created"
 			],
 			"properties": {
-				"version": {
+				"specVersion": {
 					"type": "string"
 				},
 				"name": {
