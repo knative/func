@@ -183,7 +183,7 @@ func migrateToBuilderImages(f1 Function, m migration) (Function, error) {
 
 }
 
-// migrateToSpecVersion updates a func.yaml file to use Migration
+// migrateToSpecVersion updates a func.yaml file to use SpecVersion
 // instead of Version to track the migration numbers
 func migrateToSpecVersion(f Function, m migration) (Function, error) {
 	// Load the Function func.yaml file

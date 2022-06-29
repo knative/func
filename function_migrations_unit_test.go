@@ -8,7 +8,7 @@ import (
 )
 
 // TestMigrated ensures that the .Migrated() method returns whether or not the
-// migrations were applied based on its self-reported .Version member.
+// migrations were applied based on its self-reported .SpecVersion member.
 func TestMigrated(t *testing.T) {
 	vNext := semver.New(LastSpecVersion())
 	vNext.BumpMajor()
@@ -20,17 +20,17 @@ func TestMigrated(t *testing.T) {
 	}{{
 		name:     "no migration stamp",
 		f:        Function{},
-		migrated: false, // function with no version stamp should be not migrated.
+		migrated: false, // function with no specVersion stamp should be not migrated.
 	}, {
-		name:     "explicit small version",
+		name:     "explicit small specVersion",
 		f:        Function{SpecVersion: "0.0.1"},
 		migrated: false,
 	}, {
-		name:     "latest version",
+		name:     "latest specVersion",
 		f:        Function{SpecVersion: LastSpecVersion()},
 		migrated: true,
 	}, {
-		name:     "future version",
+		name:     "future specVersion",
 		f:        Function{SpecVersion: vNext.String()},
 		migrated: true,
 	}}
@@ -45,7 +45,7 @@ func TestMigrated(t *testing.T) {
 	}
 }
 
-// TestMigrate ensures that Functions have migrations apply the version
+// TestMigrate ensures that Functions have migrations apply the specVersion
 // stamp on instantiation indicating migrations have been applied.
 func TestMigrate(t *testing.T) {
 	// Load an old Function, as it an earlier version it has registered migrations
@@ -60,7 +60,7 @@ func TestMigrate(t *testing.T) {
 		t.Fatal(err)
 	}
 	if f.SpecVersion != LastSpecVersion() {
-		t.Fatalf("Function was not migrated to %v on instantiation: version is %v",
+		t.Fatalf("Function was not migrated to %v on instantiation: specVersion is %v",
 			LastSpecVersion(), f.SpecVersion)
 	}
 }
