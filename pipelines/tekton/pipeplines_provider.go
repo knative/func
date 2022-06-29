@@ -11,7 +11,7 @@ import (
 	"github.com/tektoncd/cli/pkg/taskrun"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	errors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
@@ -74,6 +74,10 @@ func NewPipelinesProvider(opts ...Opt) *PipelinesProvider {
 // After the PipelineRun is being intitialized, the progress of the PipelineRun is being watched and printed to the output.
 func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 	pp.progressListener.Increment("Creating Pipeline resources")
+
+	if err := validatePipeline(f); err != nil {
+		return err
+	}
 
 	client, namespace, err := NewTektonClientAndResolvedNamespace(pp.namespace)
 	if err != nil {
