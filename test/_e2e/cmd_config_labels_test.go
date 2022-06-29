@@ -57,6 +57,7 @@ func TestConfigLabel(t *testing.T) {
 	project.Template = "http"
 	project.FunctionName = "test-config-labels"
 	project.ProjectPath = filepath.Join(os.TempDir(), project.FunctionName)
+	project.Builder = "pack"
 
 	Create(t, knFunc.TestShell, project)
 	defer func() { _ = project.RemoveProjectFolder() }()
@@ -75,6 +76,7 @@ func TestConfigLabel(t *testing.T) {
 
 	// Deploy
 	knFunc.TestShell.WithEnv(testEnvName, testEnvValue)
+	Build(t, knFunc.TestShell, &project)
 	Deploy(t, knFunc.TestShell, &project)
 	defer Delete(t, knFunc.TestShell, &project)
 

@@ -8,7 +8,7 @@ import (
 // Intended to provide setup configuration for E2E tests
 const (
 	defaultRegistry        = "localhost:50000/user"
-	testTemplateRepository = "http://github.com/lance/test-templates.git" //nolint:varcheck,deadcode
+	testTemplateRepository = "http://github.com/boson-project/test-templates.git" //nolint:varcheck,deadcode
 )
 
 // GetRegistry returns registry

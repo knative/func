@@ -22,6 +22,8 @@ type FunctionTestProject struct {
 	Template string
 	// Git Location of a Remote Repository used to pull the template
 	RemoteRepository string
+	// Indicates which builder should be uses (i.e: pack|s2i)
+	Builder string
 	// Indicates function is already built
 	IsBuilt bool
 	// Indicates function is already deployed
