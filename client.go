@@ -27,10 +27,6 @@ const (
 	// includes an HTTP Handler ("http") and Cloud Events handler ("events")
 	DefaultTemplate = "http"
 
-	// DefaultVersion is the initial value for string members whose implicit type
-	// is a semver.
-	DefaultVersion = "0.0.0"
-
 	// DefaultConfigPath is used in the unlikely event that
 	// the user has no home directory (no ~), there is no
 	// XDG_CONFIG_HOME set, and no WithConfigPath was used.
@@ -509,6 +505,7 @@ func (c *Client) New(ctx context.Context, cfg Function) (err error) {
 func (c *Client) Create(cfg Function) (err error) {
 	// convert Root path to absolute
 	cfg.Root, err = filepath.Abs(cfg.Root)
+	cfg.SpecVersion = LastMigration()
 	if err != nil {
 		return
 	}
@@ -564,25 +561,7 @@ func (c *Client) Create(cfg Function) (err error) {
 
 	// Mark the Function as having been created
 	f.Created = time.Now()
-	if err = f.Write(); err != nil {
-		return
-	}
-
-	// Load the created function that was just written to disc
-	f, err = NewFunction(cfg.Root)
-	if err != nil {
-		return
-	}
-
-	// ensure the most recent migration is recorded
-	f, err = f.Migrate()
-	if err != nil {
-		return
-	}
-
-	// finally write again
 	err = f.Write()
-
 	return
 }
 

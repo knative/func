@@ -19,16 +19,11 @@ func (f Function) Migrate() (migrated Function, err error) {
 		return f, nil
 	}
 
-	// If the migration is empty, treat it as 0.0.0
-	if f.SpecVersion == "" {
-		f.SpecVersion = DefaultVersion
-	}
-
 	migrated = f // initially equivalent
 	for _, m := range migrations {
 		// Skip this migration if the current function's version is not less than
 		// the migration's applicable verion.
-		if !semver.New(migrated.SpecVersion).LessThan(*semver.New(m.version)) {
+		if f.SpecVersion != "" && !semver.New(migrated.SpecVersion).LessThan(*semver.New(m.version)) {
 			continue
 		}
 		// Apply this migration when the Function's version is less than that which
