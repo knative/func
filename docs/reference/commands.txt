@@ -1,4 +1,6 @@
-Command Reference
+CLI Command Reference
+
+------------------------------------------------------------------------------
 
 CREATE
 
@@ -442,7 +444,7 @@ Flags:
       --file string           Path to a file to use as data. Overrides --data flag and should be sent with a correct --content-type. (Env: $FUNC_FILE)
   -f, --format string         Format of message to send, 'http' or 'cloudevent'.  Default is to choose automatically. (Env: $FUNC_FORMAT)
   -h, --help                  help for invoke
-      --id string             ID for the request data. (Env: $FUNC_ID) (default "efb94847-9c38-4e20-b685-44d4ce9c69dc")
+      --id string             ID for the request data. (Env: $FUNC_ID) (default "94ec3f4c-21a2-42ef-97c0-a40fb888460a")
   -p, --path string           Path to the Function which should have its instance invoked. (Env: $FUNC_PATH) (default "/Users/lball/src/github.com/knative-sandbox/kn-plugin-func")
       --source string         Source value for the request data. (Env: $FUNC_SOURCE) (default "/boson/fn")
   -t, --target string         Function instance to invoke.  Can be 'local', 'remote' or a URL.  Defaults to auto-discovery if not provided. (Env: $FUNC_TARGET)
