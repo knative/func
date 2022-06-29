@@ -505,7 +505,7 @@ func (c *Client) New(ctx context.Context, cfg Function) (err error) {
 func (c *Client) Create(cfg Function) (err error) {
 	// convert Root path to absolute
 	cfg.Root, err = filepath.Abs(cfg.Root)
-	cfg.SpecVersion = LastMigration()
+	cfg.SpecVersion = LastSpecVersion()
 	if err != nil {
 		return
 	}

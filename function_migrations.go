@@ -21,12 +21,12 @@ func (f Function) Migrate() (migrated Function, err error) {
 
 	migrated = f // initially equivalent
 	for _, m := range migrations {
-		// Skip this migration if the current function's version is not less than
-		// the migration's applicable verion.
+		// Skip this migration if the current function's specVersion is not less than
+		// the migration's applicable specVerion.
 		if f.SpecVersion != "" && !semver.New(migrated.SpecVersion).LessThan(*semver.New(m.version)) {
 			continue
 		}
-		// Apply this migration when the Function's version is less than that which
+		// Apply this migration when the Function's specVersion is less than that which
 		// the migration will impart.
 		migrated, err = m.migrate(migrated, m)
 		if err != nil {
@@ -50,22 +50,22 @@ type migrator func(Function, migration) (Function, error)
 // level the currently executing system is aware of (or beyond).
 // returns true.
 func (f Function) Migrated() bool {
-	// If the function has no Version, it is pre-migrations and is implicitly
+	// If the function has no specVersion, it is pre-migrations and is implicitly
 	// not migrated.
 	if f.SpecVersion == "" {
 		return false
 	}
 
 	// lastMigration is the last registered migration.
-	lastMigration := semver.New(LastMigration())
+	lastMigration := semver.New(LastSpecVersion())
 
 	// Fail the migration test if the Function's version is less than
 	// the latest available.
 	return !semver.New(f.SpecVersion).LessThan(*lastMigration)
 }
 
-// LastMigration returns the string value for the most recent migration
-func LastMigration() string {
+// LastSpecVersion returns the string value for the most recent migration
+func LastSpecVersion() string {
 	return migrations[len(migrations)-1].version
 }
 

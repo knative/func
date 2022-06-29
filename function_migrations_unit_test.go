@@ -10,7 +10,7 @@ import (
 // TestMigrated ensures that the .Migrated() method returns whether or not the
 // migrations were applied based on its self-reported .Version member.
 func TestMigrated(t *testing.T) {
-	vNext := semver.New(LastMigration())
+	vNext := semver.New(LastSpecVersion())
 	vNext.BumpMajor()
 
 	tests := []struct {
@@ -27,7 +27,7 @@ func TestMigrated(t *testing.T) {
 		migrated: false,
 	}, {
 		name:     "latest version",
-		f:        Function{SpecVersion: LastMigration()},
+		f:        Function{SpecVersion: LastSpecVersion()},
 		migrated: true,
 	}, {
 		name:     "future version",
@@ -39,7 +39,7 @@ func TestMigrated(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			if test.f.Migrated() != test.migrated {
 				t.Errorf("Expected %q.Migrated() to be %t when latest is %q",
-					test.f.SpecVersion, test.migrated, LastMigration())
+					test.f.SpecVersion, test.migrated, LastSpecVersion())
 			}
 		})
 	}
@@ -59,9 +59,9 @@ func TestMigrate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if f.SpecVersion != LastMigration() {
+	if f.SpecVersion != LastSpecVersion() {
 		t.Fatalf("Function was not migrated to %v on instantiation: version is %v",
-			LastMigration(), f.SpecVersion)
+			LastSpecVersion(), f.SpecVersion)
 	}
 }
 
@@ -132,7 +132,7 @@ func TestMigrateToSpecVersion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if f.SpecVersion != LastMigration() {
+	if f.SpecVersion != LastSpecVersion() {
 		t.Fatal("migrated Function does not include the Migration field")
 	}
 }

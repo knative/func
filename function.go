@@ -134,7 +134,7 @@ type Invocation struct {
 // NewFunctionWith defaults as provided.
 func NewFunctionWith(defaults Function) Function {
 	if defaults.SpecVersion == "" {
-		defaults.SpecVersion = LastMigration()
+		defaults.SpecVersion = LastSpecVersion()
 	}
 	if defaults.Template == "" {
 		defaults.Template = DefaultTemplate

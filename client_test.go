@@ -1338,7 +1338,7 @@ func TestClient_CreateMigration(t *testing.T) {
 	}
 
 	// A freshly created function should have the latest migration
-	if f.SpecVersion != fn.LastMigration() {
+	if f.SpecVersion != fn.LastSpecVersion() {
 		t.Fatal("freshly created function should have the latest migration")
 	}
 }
