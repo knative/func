@@ -255,6 +255,13 @@ func (c *credentialsProvider) getCredentials(ctx context.Context, registry strin
 		if err == nil {
 			err = setCredentialsByCredentialHelper(c.authFilePath, registry, result.Username, result.Password)
 			if err != nil {
+
+				// This shouldn't be fatal error.
+				if strings.Contains(err.Error(), "not implemented") {
+					fmt.Fprintf(os.Stderr, "the cred-helper does not support write operation (consider changing the cred-helper it in auth.json)\n")
+					return docker.Credentials{}, nil
+				}
+
 				if !errors.Is(err, errNoCredentialHelperConfigured) {
 					return docker.Credentials{}, err
 				}
@@ -269,8 +276,17 @@ func (c *credentialsProvider) getCredentials(ctx context.Context, registry strin
 					return docker.Credentials{}, fmt.Errorf("faild to set the helper to the config: %w", err)
 				}
 				err = setCredentialsByCredentialHelper(c.authFilePath, registry, result.Username, result.Password)
-				if err != nil && !errors.Is(err, errNoCredentialHelperConfigured) {
-					return docker.Credentials{}, err
+				if err != nil {
+
+					// This shouldn't be fatal error.
+					if strings.Contains(err.Error(), "not implemented") {
+						fmt.Fprintf(os.Stderr, "the cred-helper does not support write operation (consider changing the cred-helper it in auth.json)\n")
+						return docker.Credentials{}, nil
+					}
+
+					if !errors.Is(err, errNoCredentialHelperConfigured) {
+						return docker.Credentials{}, err
+					}
 				}
 			}
 			return result, nil
