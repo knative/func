@@ -32,12 +32,12 @@ func Deploy(t *testing.T, knFunc *TestShellCmdRunner, project *FunctionTestProje
 		t.Fatal("Function was not deployed")
 	}
 
-	urlMatch := regexp.MustCompile("(URL: http.*)").FindString(cleanStdout)
+	urlMatch := regexp.MustCompile("(URL: \nhttp.*)").FindString(cleanStdout)
 	if urlMatch == "" {
 		t.Fatal("URL not returned on output")
 	}
 
-	project.FunctionURL = strings.Split(urlMatch, " ")[1]
+	project.FunctionURL = strings.Split(urlMatch, "\n")[1]
 	project.IsDeployed = true
 
 }
