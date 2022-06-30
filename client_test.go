@@ -581,7 +581,16 @@ func TestClient_Update(t *testing.T) {
 		expectedImage = "example.com/alice/testUpdate:latest"
 		builder       = mock.NewBuilder()
 		pusher        = mock.NewPusher()
-		deployer      = mock.NewDeployer()
+		deployer      = mock.NewDeployerWithResult(&fn.DeploymentResult{
+			Status:    fn.Deployed,
+			URL:       "example.com",
+			Namespace: "test-ns",
+		})
+		deployerUpdated = mock.NewDeployerWithResult(&fn.DeploymentResult{
+			Status:    fn.Updated,
+			URL:       "example.com",
+			Namespace: "test-ns",
+		})
 	)
 
 	// Create the root Function directory
@@ -644,6 +653,28 @@ func TestClient_Update(t *testing.T) {
 		t.Fatal("pusher was not invoked")
 	}
 	if !deployer.DeployInvoked {
+		t.Fatal("deployer was not invoked")
+	}
+
+	client = fn.New(
+		fn.WithRegistry(TestRegistry),
+		fn.WithBuilder(builder),
+		fn.WithPusher(pusher),
+		fn.WithDeployer(deployerUpdated))
+
+	// Invoke the update, triggering the Function delegates, and
+	// perform follow-up assertions that the Functions were indeed invoked during the update.
+	if err := client.Deploy(context.Background(), root); err != nil {
+		t.Fatal(err)
+	}
+
+	if !builder.BuildInvoked {
+		t.Fatal("builder was not invoked")
+	}
+	if !pusher.PushInvoked {
+		t.Fatal("pusher was not invoked")
+	}
+	if !deployerUpdated.DeployInvoked {
 		t.Fatal("deployer was not invoked")
 	}
 }
