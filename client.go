@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/mitchellh/go-homedir"
-	"knative.dev/kn-plugin-func/k8s"
 )
 
 const (
@@ -95,8 +94,9 @@ type Deployer interface {
 }
 
 type DeploymentResult struct {
-	Status Status
-	URL    string
+	Status    Status
+	URL       string
+	Namespace string
 }
 
 // Status of the Function from the DeploymentResult
@@ -707,20 +707,10 @@ func (c *Client) Deploy(ctx context.Context, path string) (err error) {
 	c.progressListener.Increment("Deploying function to the cluster")
 	result, err := c.deployer.Deploy(ctx, f)
 
-	var namespace string
-	if f.Namespace == "" {
-		var err1 error
-		namespace, err1 = k8s.GetNamespace("")
-		if err1 != nil {
-			return err1
-		}
-	} else {
-		namespace = f.Namespace
-	}
 	if result.Status == Deployed {
-		c.progressListener.Increment(fmt.Sprintf("Function deployed in namespace %q and exposed at URL: %v", namespace, result.URL))
+		c.progressListener.Increment(fmt.Sprintf("Function deployed in namespace %q and exposed at URL: \n%v", result.Namespace, result.URL))
 	} else if result.Status == Updated {
-		c.progressListener.Increment(fmt.Sprintf("Function updated in namespace %q and exposed at URL: %v", namespace, result.URL))
+		c.progressListener.Increment(fmt.Sprintf("Function updated in namespace %q and exposed at URL: \n%v", result.Namespace, result.URL))
 	}
 
 	return err
