@@ -2,7 +2,7 @@ buildEnvs:
   - name: BP_NATIVE_IMAGE
     value: "false"
   - name: BP_MAVEN_BUILT_ARTIFACT
-    value: target/quarkus-app/lib/ target/quarkus-app/*.jar target/quarkus-app/app/ target/quarkus-app/quarkus/
+    value: func.yaml target/quarkus-app/lib/ target/quarkus-app/*.jar target/quarkus-app/app/ target/quarkus-app/quarkus/
   - name: BP_MAVEN_BUILD_ARGUMENTS
     value: package -DskipTests=true -Dmaven.javadoc.skip=true -Dquarkus.package.type=fast-jar
   - name: MAVEN_S2I_ARTIFACT_DIRS
