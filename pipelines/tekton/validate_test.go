@@ -44,9 +44,9 @@ func Test_validatePipeline(t *testing.T) {
 			wantErr:  true,
 		},
 		{
-			name:     "Unsupported runtime - Quarkus - without additional Buildpacks",
+			name:     "Supported runtime - Quarkus - without additional Buildpacks",
 			function: fn.Function{Runtime: "quarkus"},
-			wantErr:  true,
+			wantErr:  false,
 		},
 		{
 			name:     "Unsupported runtime - Rust - without additional Buildpacks",
