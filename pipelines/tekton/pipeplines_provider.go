@@ -75,6 +75,10 @@ func NewPipelinesProvider(opts ...Opt) *PipelinesProvider {
 func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 	pp.progressListener.Increment("Creating Pipeline resources")
 
+	if err := validatePipeline(f); err != nil {
+		return err
+	}
+
 	client, namespace, err := NewTektonClientAndResolvedNamespace(pp.namespace)
 	if err != nil {
 		return err
