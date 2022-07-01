@@ -318,18 +318,42 @@ you can install docker credential helper https://github.com/docker/docker-creden
 			return "", nil
 		}
 
+		isTerm := term.IsTerminal(int(os.Stdin.Fd()))
+
 		var resp string
-		err := survey.AskOne(&survey.Select{
-			Message: "Choose credentials helper",
-			Options: append(availableHelpers, "None"),
-		}, &resp, survey.WithValidator(survey.Required))
-		if err != nil {
-			return "", err
+
+		if isTerm {
+			err := survey.AskOne(&survey.Select{
+				Message: "Choose credentials helper",
+				Options: append(availableHelpers, "None"),
+			}, &resp, survey.WithValidator(survey.Required))
+			if err != nil {
+				return "", err
+			}
+			if resp == "None" {
+				fmt.Fprintf(os.Stderr, "No helper selected. Credentials will not be saved.\n")
+				return "", nil
+			}
+		} else {
+			fmt.Fprintf(os.Stderr, "Available credential helpers:\n")
+			for _, helper := range availableHelpers {
+				fmt.Fprintf(os.Stderr, "%s\n", helper)
+			}
+			fmt.Fprintf(os.Stderr, "Choose credentials helper: ")
+
+			reader := bufio.NewReader(os.Stdin)
+
+			var err error
+			resp, err = reader.ReadString('\n')
+			if err != nil {
+				return "", err
+			}
+			resp = strings.Trim(resp, "\r\n")
+			if resp == "" {
+				fmt.Fprintf(os.Stderr, "No helper selected. Credentials will not be saved.\n")
+			}
 		}
-		if resp == "None" {
-			fmt.Fprintf(os.Stderr, "No helper selected. Credentials will not be saved.\n")
-			return "", nil
-		}
+
 		return resp, nil
 	}
 }
