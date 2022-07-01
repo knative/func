@@ -114,18 +114,19 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		}
 
 		if len(imageSplit[1][7:]) != 64 {
-			return fmt.Errorf("sha256 hash '%s' from --image has the wrong length (%d), should be 64", imageSplit[1], len(imageSplit[1][7:]))
+			return fmt.Errorf("sha256 hash in '%s' from --image has the wrong length (%d), should be 64", imageSplit[1], len(imageSplit[1][7:]))
 		}
 
 		config.Image = imageSplit[0]
 
+		// if BuidType was not explicitly set via CLI, set to 'disabled' without an error
 		if config.BuildType != "" && config.BuildType != "disabled" {
 			return fmt.Errorf("build type '%s' is not accepted with --image with digest. Use 'disabled' or none", config.BuildType)
 		}
 		config.BuildType = "disabled"
 
 		if config.Push {
-			return fmt.Errorf("--image was specified with digest, therefore push is not allowed")
+			return fmt.Errorf("--image was specified with digest, therefore --push is not allowed")
 		}
 	}
 
