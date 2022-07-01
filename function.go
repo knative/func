@@ -17,10 +17,10 @@ import (
 const FunctionFile = "func.yaml"
 
 type Function struct {
-	// Version at which this function is known to be compatible.
+	// SpecVersion at which this function is known to be compatible.
 	// More specifically, it is the highest migration which has been applied.
 	// For details see the .Migrated() and .Migrate() methods.
-	Version string `yaml:"version"` // semver format
+	SpecVersion string `yaml:"specVersion"` // semver format
 
 	// Root on disk at which to find/create source and config files.
 	Root string `yaml:"-"`
@@ -133,8 +133,8 @@ type Invocation struct {
 
 // NewFunctionWith defaults as provided.
 func NewFunctionWith(defaults Function) Function {
-	if defaults.Version == "" {
-		defaults.Version = DefaultVersion
+	if defaults.SpecVersion == "" {
+		defaults.SpecVersion = LastSpecVersion()
 	}
 	if defaults.Template == "" {
 		defaults.Template = DefaultTemplate

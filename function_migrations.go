@@ -19,19 +19,14 @@ func (f Function) Migrate() (migrated Function, err error) {
 		return f, nil
 	}
 
-	// If the version is empty, treat it as 0.0.0
-	if f.Version == "" {
-		f.Version = DefaultVersion
-	}
-
 	migrated = f // initially equivalent
 	for _, m := range migrations {
-		// Skip this migration if the current function's version is not less than
-		// the migration's applicable verion.
-		if !semver.New(migrated.Version).LessThan(*semver.New(m.version)) {
+		// Skip this migration if the current function's specVersion is not less than
+		// the migration's applicable specVerion.
+		if f.SpecVersion != "" && !semver.New(migrated.SpecVersion).LessThan(*semver.New(m.version)) {
 			continue
 		}
-		// Apply this migration when the Function's version is less than that which
+		// Apply this migration when the Function's specVersion is less than that which
 		// the migration will impart.
 		migrated, err = m.migrate(migrated, m)
 		if err != nil {
@@ -55,18 +50,23 @@ type migrator func(Function, migration) (Function, error)
 // level the currently executing system is aware of (or beyond).
 // returns true.
 func (f Function) Migrated() bool {
-	// If the function has no Version, it is pre-migrations and is implicitly
+	// If the function has no specVersion, it is pre-migrations and is implicitly
 	// not migrated.
-	if f.Version == "" {
+	if f.SpecVersion == "" {
 		return false
 	}
 
 	// lastMigration is the last registered migration.
-	lastMigration := semver.New(migrations[len(migrations)-1].version)
+	lastMigration := semver.New(LastSpecVersion())
 
 	// Fail the migration test if the Function's version is less than
 	// the latest available.
-	return !semver.New(f.Version).LessThan(*lastMigration)
+	return !semver.New(f.SpecVersion).LessThan(*lastMigration)
+}
+
+// LastSpecVersion returns the string value for the most recent migration
+func LastSpecVersion() string {
+	return migrations[len(migrations)-1].version
 }
 
 // Migrations registry
@@ -78,6 +78,7 @@ func (f Function) Migrated() bool {
 var migrations = []migration{
 	{"0.19.0", migrateToCreationStamp},
 	{"0.23.0", migrateToBuilderImages},
+	{"0.25.0", migrateToSpecVersion},
 	// New Migrations Here.
 }
 
@@ -114,7 +115,7 @@ func migrateToCreationStamp(f Function, m migration) (Function, error) {
 			f.Created = time.Now() // Migrate it to having a timestamp.
 		}
 	}
-	f.Version = m.version // Record this migration was evaluated.
+	f.SpecVersion = m.version // Record this migration was evaluated.
 	return f, nil
 }
 
@@ -177,9 +178,34 @@ func migrateToBuilderImages(f1 Function, m migration) (Function, error) {
 	}
 
 	// Flag f1 as having had the migration applied
-	f1.Version = m.version
+	f1.SpecVersion = m.version
 	return f1, nil
 
+}
+
+// migrateToSpecVersion updates a func.yaml file to use SpecVersion
+// instead of Version to track the migration numbers
+func migrateToSpecVersion(f Function, m migration) (Function, error) {
+	// Load the Function func.yaml file
+	f0Filename := filepath.Join(f.Root, FunctionFile)
+	bb, err := ioutil.ReadFile(f0Filename)
+	if err != nil {
+		return f, err
+	}
+
+	// Only handle the Version field if it exists
+	f0 := migrateToSpecVersion_previousFunction{}
+	if err = yaml.Unmarshal(bb, &f0); err != nil {
+		return f, err
+	}
+
+	f.SpecVersion = m.version
+	return f, nil
+}
+
+// Functions prior to 0.25 will have a Version field
+type migrateToSpecVersion_previousFunction struct {
+	Version string `yaml:"version"`
 }
 
 // The pertinent asspects of the Function schema prior to the builder images
