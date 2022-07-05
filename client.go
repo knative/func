@@ -90,7 +90,7 @@ type Pusher interface {
 // Deployer of Function source to running status.
 type Deployer interface {
 	// Deploy a Function of given name, using given backing image.
-	Deploy(context.Context, Function) (DeploymentResult, error)
+	Deploy(context.Context, Function, bool) (DeploymentResult, error)
 }
 
 type DeploymentResult struct {
@@ -478,9 +478,9 @@ func (c *Client) New(ctx context.Context, cfg Function) (err error) {
 	}
 
 	// Deploy the initialized Function, returning its publicly
-	// addressible name for possible registration.
+	// addressable name for possible registration.
 	c.progressListener.Increment("Deploying Function to cluster")
-	if err = c.Deploy(ctx, f.Root); err != nil {
+	if err = c.Deploy(ctx, f.Root, false); err != nil {
 		return
 	}
 
@@ -685,7 +685,7 @@ func (c *Client) printBuildActivity(ctx context.Context) {
 
 // Deploy the Function at path. Errors if the Function has not been
 // initialized with an image tag.
-func (c *Client) Deploy(ctx context.Context, path string) (err error) {
+func (c *Client) Deploy(ctx context.Context, path string, dryrun bool) (err error) {
 	go func() {
 		<-ctx.Done()
 		c.progressListener.Stopping()
@@ -703,12 +703,16 @@ func (c *Client) Deploy(ctx context.Context, path string) (err error) {
 	}
 
 	// Deploy a new or Update the previously-deployed Function
-	c.progressListener.Increment("Deploying function to the cluster")
-	result, err := c.deployer.Deploy(ctx, f)
-	if result.Status == Deployed {
-		c.progressListener.Increment(fmt.Sprintf("Function deployed at URL: %v", result.URL))
-	} else if result.Status == Updated {
-		c.progressListener.Increment(fmt.Sprintf("Function updated at URL: %v", result.URL))
+	if !dryrun {
+		c.progressListener.Increment("Deploying function to the cluster")
+	}
+	result, err := c.deployer.Deploy(ctx, f, dryrun)
+	if !dryrun {
+		if result.Status == Deployed {
+			c.progressListener.Increment(fmt.Sprintf("Function deployed at URL: %v", result.URL))
+		} else if result.Status == Updated {
+			c.progressListener.Increment(fmt.Sprintf("Function updated at URL: %v", result.URL))
+		}
 	}
 
 	return err
@@ -1009,7 +1013,11 @@ func (n *noopPusher) Push(ctx context.Context, f Function) (string, error) { ret
 // Deployer
 type noopDeployer struct{ output io.Writer }
 
-func (n *noopDeployer) Deploy(ctx context.Context, _ Function) (DeploymentResult, error) {
+func (n *noopDeployer) Deploy(ctx context.Context, _ Function, _ bool) (DeploymentResult, error) {
+	return DeploymentResult{}, nil
+}
+
+func (n *noopDeployer) DeployDryRun(ctx context.Context, _ Function) (DeploymentResult, error) {
 	return DeploymentResult{}, nil
 }
 

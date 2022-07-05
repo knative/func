@@ -49,7 +49,7 @@ that is pushed to an image registry, and finally the function's Knative service 
 {{.Name}} deploy --image quay.io/myuser/myfunc -n myns
 `,
 		SuggestFor: []string{"delpoy", "deplyo"},
-		PreRunE:    bindEnv("image", "path", "registry", "confirm", "build", "push", "git-url", "git-branch", "git-dir", "builder", "builder-image", "platform"),
+		PreRunE:    bindEnv("image", "path", "registry", "confirm", "dry-run", "build", "push", "git-url", "git-branch", "git-dir", "builder", "builder-image", "platform"),
 	}
 
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
@@ -67,6 +67,7 @@ that is pushed to an image registry, and finally the function's Knative service 
 	cmd.Flags().StringP("registry", "r", GetDefaultRegistry(), "Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined based on the local directory name. If not provided the registry will be taken from func.yaml (Env: $FUNC_REGISTRY)")
 	cmd.Flags().BoolP("push", "u", true, "Attempt to push the function image to registry before deploying (Env: $FUNC_PUSH)")
 	cmd.Flags().StringP("platform", "", "", "Target platform to build (e.g. linux/amd64).")
+	cmd.Flags().BoolP("dry-run", "", false, "Output Kubernetes Resources without applying to cluster.")
 	setPathFlag(cmd)
 
 	if err := cmd.RegisterFlagCompletionFunc("build", CompleteDeployBuildType); err != nil {
@@ -190,11 +191,14 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 	if config.BuilderImage != "" {
 		function.BuilderImages[config.Builder] = config.BuilderImage
 	}
-
 	client, done := newClient(ClientConfig{Namespace: config.Namespace, Verbose: config.Verbose},
 		fn.WithRegistry(config.Registry),
 		fn.WithBuilder(builder))
 	defer done()
+
+	if config.DryRun {
+		return client.Deploy(cmd.Context(), config.Path, config.DryRun)
+	}
 
 	switch currentBuildType {
 	case fn.BuildTypeLocal, "":
@@ -237,7 +241,7 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		}
 	}
 
-	return client.Deploy(cmd.Context(), config.Path)
+	return client.Deploy(cmd.Context(), config.Path, config.DryRun)
 }
 
 func newPromptForCredentials(in io.Reader, out, errOut io.Writer) func(registry string) (docker.Credentials, error) {
@@ -356,6 +360,9 @@ type deployConfig struct {
 	// with interactive prompting (only applicable when attached to a TTY).
 	Confirm bool
 
+	//DryRun: don't do the deploy operation and just print the Knative resources that were created
+	DryRun bool
+
 	// Build the associated Function before deploying.
 	BuildType string
 
@@ -399,6 +406,7 @@ func newDeployConfig(cmd *cobra.Command) (deployConfig, error) {
 		Path:        viper.GetString("path"),
 		Verbose:     viper.GetBool("verbose"), // defined on root
 		Confirm:     viper.GetBool("confirm"),
+		DryRun:      viper.GetBool("dry-run"),
 		BuildType:   buildType,
 		Push:        viper.GetBool("push"),
 		EnvToUpdate: envToUpdate,

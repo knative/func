@@ -73,17 +73,54 @@ func (d *Deployer) isImageInPrivateRegistry(ctx context.Context, client clientse
 	return false
 }
 
-func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (result fn.DeploymentResult, err error) {
+func (d *Deployer) Deploy(ctx context.Context, f fn.Function, dryRun bool) (result fn.DeploymentResult, err error) {
+	if dryRun {
+		return d.DeployWithGitOpsClient(ctx, f)
+	} else {
+		return d.DeployWithServingClient(ctx, f)
+	}
+
+}
+
+func (d *Deployer) DeployWithGitOpsClient(ctx context.Context, f fn.Function) (result fn.DeploymentResult, err error) {
+	client, err := NewServingClientGitOps(d.Namespace)
+	if err != nil {
+		return fn.DeploymentResult{}, err
+	}
+
+	referencedSecrets := sets.NewString()
+	referencedConfigMaps := sets.NewString()
+
+	service, err := generateNewService(f)
+	if err != nil {
+		err = fmt.Errorf("knative deployer failed to generate the Knative Service: %v", err)
+		return fn.DeploymentResult{}, err
+	}
+
+	err = checkSecretsConfigMapsArePresent(ctx, d.Namespace, &referencedSecrets, &referencedConfigMaps)
+	if err != nil {
+		err = fmt.Errorf("knative deployer failed to generate the Knative Service: %v", err)
+		return fn.DeploymentResult{}, err
+	}
+	err = client.CreateService(ctx, service)
+	if err != nil {
+		err = fmt.Errorf("knative deployer failed to deploy the Knative Service: %v", err)
+		return fn.DeploymentResult{}, err
+	}
+	return fn.DeploymentResult{}, nil
+}
+
+func (d *Deployer) DeployWithServingClient(ctx context.Context, f fn.Function) (result fn.DeploymentResult, err error) {
+
+	client, err := NewServingClient(d.Namespace)
+	if err != nil {
+		return fn.DeploymentResult{}, err
+	}
 	if d.Namespace == "" {
 		d.Namespace, err = k8s.GetNamespace(d.Namespace)
 		if err != nil {
 			return fn.DeploymentResult{}, err
 		}
-	}
-
-	client, err := NewServingClient(d.Namespace)
-	if err != nil {
-		return fn.DeploymentResult{}, err
 	}
 
 	_, err = client.GetService(ctx, f.Name)

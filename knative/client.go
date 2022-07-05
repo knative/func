@@ -33,6 +33,12 @@ func NewServingClient(namespace string) (clientservingv1.KnServingClient, error)
 	return client, nil
 }
 
+func NewServingClientGitOps(namespace string) (clientservingv1.KnServingClient, error) {
+
+	client := clientservingv1.NewKnServingGitOpsClient(namespace, "out")
+	return client, nil
+}
+
 func NewEventingClient(namespace string) (clienteventingv1.KnEventingClient, error) {
 
 	restConfig, err := k8s.GetClientConfig().ClientConfig()

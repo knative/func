@@ -25,7 +25,7 @@ type ClientConfig struct {
 	// currently configured in the client's connection should be used.
 	Namespace string
 
-	// Verbose logging.  By default logging output is kept to the bare minimum.
+	// Verbose logging.  By default, logging output is kept to the bare minimum.
 	// Use this flag to configure verbose logging throughout.
 	Verbose bool
 }
@@ -34,7 +34,7 @@ type ClientConfig struct {
 // for use by commands.
 // See the NewClient constructor which is the fully populated ClientFactory used
 // by commands by default.
-// See NewClientFactory which constructs a minimal CientFactory for use
+// See NewClientFactory which constructs a minimal ClientFactory for use
 // during testing.
 type ClientFactory func(ClientConfig, ...fn.Option) (*fn.Client, func())
 
@@ -49,10 +49,10 @@ func NewClientFactory(n func() *fn.Client) ClientFactory {
 	}
 }
 
-// NewClient constructs an fn.Client with the majority of
+// NewClient constructs a fn.Client with the majority of
 // the concrete implementations set.  Provide additional Options to this constructor
 // to override or augment as needed, or override the ClientFactory passed to
-// commands entirely to mock for testing. Note the reutrned cleanup function.
+// commands entirely to mock for testing. Note the returned cleanup function.
 // 'Namespace' is optional.  If not provided (see DefaultNamespace commentary),
 // the currently configured is used.
 // 'Verbose' indicates the system should write out a higher amount of logging.
