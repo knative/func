@@ -73,7 +73,8 @@ func (d *Deployer) isImageInPrivateRegistry(ctx context.Context, client clientse
 	return false
 }
 
-func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (result fn.DeploymentResult, err error) {
+func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResult, error) {
+	var err error
 	if d.Namespace == "" {
 		d.Namespace, err = k8s.GetNamespace(d.Namespace)
 		if err != nil {
@@ -161,11 +162,12 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (result fn.Deploym
 			}
 
 			if d.verbose {
-				fmt.Println("Function deployed at URL: " + route.Status.URL.String())
+				fmt.Printf("Function deployed in namespace %q and exposed at URL:\n%s\n", d.Namespace, route.Status.URL.String())
 			}
 			return fn.DeploymentResult{
-				Status: fn.Deployed,
-				URL:    route.Status.URL.String(),
+				Status:    fn.Deployed,
+				URL:       route.Status.URL.String(),
+				Namespace: d.Namespace,
 			}, nil
 
 		} else {
@@ -206,8 +208,9 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (result fn.Deploym
 		}
 
 		return fn.DeploymentResult{
-			Status: fn.Updated,
-			URL:    route.Status.URL.String(),
+			Status:    fn.Updated,
+			URL:       route.Status.URL.String(),
+			Namespace: d.Namespace,
 		}, nil
 	}
 }

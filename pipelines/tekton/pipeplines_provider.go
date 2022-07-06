@@ -158,9 +158,9 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 	}
 
 	if ksvc.Generation == 1 {
-		pp.progressListener.Increment(fmt.Sprintf("Function deployed at URL: %s", ksvc.Status.URL.String()))
+		pp.progressListener.Increment(fmt.Sprintf("Function deployed in namespace %q and exposed at URL: \n%s", ksvc.Namespace, ksvc.Status.URL.String()))
 	} else {
-		pp.progressListener.Increment(fmt.Sprintf("Function updated at URL: %s", ksvc.Status.URL.String()))
+		pp.progressListener.Increment(fmt.Sprintf("Function updated in namespace %q and exposed at URL: \n%s", ksvc.Namespace, ksvc.Status.URL.String()))
 	}
 
 	return nil
