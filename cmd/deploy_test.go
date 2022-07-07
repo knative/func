@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 
@@ -175,6 +176,86 @@ created: 2009-11-10 23:00:00`,
 				}
 				if captureDir, expectedDir := pointer.StringPtrDerefOr(captureFn.Git.ContextDir, ""), pointer.StringPtrDerefOr(tt.expectCallContextDir, ""); captureDir != expectedDir {
 					t.Fatalf("call Git Dir expected to be (%v) but was (%v)", expectedDir, captureDir)
+				}
+			}
+		})
+	}
+}
+
+func Test_imageWithDigest(t *testing.T) {
+	tests := []struct {
+		name      string
+		image     string
+		buildType string
+		pushBool  bool
+		funcFile  string
+		errString string
+	}{
+		{
+			name:      "valid full name with digest, expect success",
+			image:     "docker.io/4141gauron3268/app:latest@sha256:59294b4d7dfb96c3e589376a360b9019e1887e7538d50ceda877084910c1c838",
+			errString: "",
+			funcFile: `name: test-func
+runtime: go`,
+		},
+		{
+			name:      "valid image name, build not 'disabled', expect error",
+			image:     "docker.io/4141gauron3268/app:latest@sha256:59294b4d7dfb96c3e589376a360b9019e1887e7538d50ceda877084910c1c838",
+			buildType: "local",
+			errString: "build type 'local' is not accepted with --image with digest. Use 'disabled' or none",
+			funcFile: `name: test-func
+runtime: go`,
+		},
+		{
+			name:      "valid image name, --push specified, expect error",
+			image:     "docker.io/4141gauron3268/app:latest@sha256:59294b4d7dfb96c3e589376a360b9019e1887e7538d50ceda877084910c1c838",
+			pushBool:  true,
+			errString: "--image was specified with digest, therefore --push is not allowed",
+			funcFile: `name: test-func
+runtime: go`,
+		},
+		{
+			name:      "invalid digest prefix, expect error",
+			image:     "docker.io/4141gauron3268/app:latest@Xsha256:59294b4d7dfb96c3e589376a360b9019e1887e7538d50ceda877084910c1c838",
+			errString: "value 'docker.io/4141gauron3268/app:latest@Xsha256:59294b4d7dfb96c3e589376a360b9019e1887e7538d50ceda877084910c1c838' in --image has invalid prefix syntax for digest (should be 'sha256:')",
+			funcFile: `name: test-func
+runtime: go`,
+		},
+		{
+			name:      "invalid sha hash length(added X at the end), expect error",
+			image:     "docker.io/4141gauron3268/app:latest@sha256:59294b4d7dfb96c3e589376a360b9019e1887e7538d50ceda877084910c1c838X",
+			errString: "sha256 hash in 'sha256:59294b4d7dfb96c3e589376a360b9019e1887e7538d50ceda877084910c1c838X' from --image has the wrong length (65), should be 64",
+			funcFile: `name: test-func
+runtime: go`,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			deployer := mock.NewDeployer()
+			cmd := NewDeployCmd(NewClientFactory(func() *fn.Client {
+				return fn.New(
+					fn.WithDeployer(deployer))
+			}))
+
+			// set flags manually & reset after
+			cmd.SetArgs([]string{
+				fmt.Sprintf("--image=%s", tt.image),
+				fmt.Sprintf("--build=%s", tt.buildType),
+				fmt.Sprintf("--push=%t", tt.pushBool),
+			})
+			defer cmd.ResetFlags()
+
+			// set test case's func.yaml
+			if err := os.WriteFile("func.yaml", []byte(tt.funcFile), os.ModePerm); err != nil {
+				t.Fatal(err)
+			}
+
+			ctx := context.TODO()
+
+			_, err := cmd.ExecuteContextC(ctx)
+			if err != nil {
+				if err := err.Error(); tt.errString != err {
+					t.Fatalf("Error expected to be (%v) but was (%v)", tt.errString, err)
 				}
 			}
 		})
