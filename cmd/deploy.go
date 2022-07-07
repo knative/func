@@ -106,28 +106,14 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 	//if --image contains '@', validate image digest and disable build if valid, otherwise return an error
 	imageSplit := strings.Split(config.Image, "@")
 	imageDigestProvided := false
+
 	if len(imageSplit) == 2 {
+		if err := parseImageDigest(imageSplit, config); err != nil {
+			return err
+		}
 		imageDigestProvided = true
-
-		if !strings.HasPrefix(imageSplit[1], "sha256:") {
-			return fmt.Errorf("value '%s' in --image has invalid prefix syntax for digest (should be 'sha256:')", config.Image)
-		}
-
-		if len(imageSplit[1][7:]) != 64 {
-			return fmt.Errorf("sha256 hash in '%s' from --image has the wrong length (%d), should be 64", imageSplit[1], len(imageSplit[1][7:]))
-		}
-
-		config.Image = imageSplit[0]
-
-		// if BuidType was not explicitly set via CLI, set to 'disabled' without an error
-		if config.BuildType != "" && config.BuildType != "disabled" {
-			return fmt.Errorf("build type '%s' is not accepted with --image with digest. Use 'disabled' or none", config.BuildType)
-		}
 		config.BuildType = "disabled"
-
-		if config.Push {
-			return fmt.Errorf("--image was specified with digest, therefore --push is not allowed")
-		}
+		config.Image = imageSplit[0]
 	}
 
 	function, err := functionWithOverrides(config.Path, functionOverrides{Namespace: config.Namespace, Image: config.Image})
@@ -502,5 +488,27 @@ func validateBuildType(buildType string) error {
 	if errs := fn.ValidateBuildType(buildType, false, true); len(errs) > 0 {
 		return ErrInvalidBuildType(errors.New(strings.Join(errs, "")))
 	}
+	return nil
+}
+
+func parseImageDigest(imageSplit []string, config deployConfig) error {
+
+	if !strings.HasPrefix(imageSplit[1], "sha256:") {
+		return fmt.Errorf("value '%s' in --image has invalid prefix syntax for digest (should be 'sha256:')", config.Image)
+	}
+
+	if len(imageSplit[1][7:]) != 64 {
+		return fmt.Errorf("sha256 hash in '%s' from --image has the wrong length (%d), should be 64", imageSplit[1], len(imageSplit[1][7:]))
+	}
+
+	// if BuidType was not explicitly set via CLI, set to 'disabled' without an error
+	if config.BuildType != "" && config.BuildType != "disabled" {
+		return fmt.Errorf("build type '%s' is not accepted with --image with digest. Use 'disabled' or none", config.BuildType)
+	}
+
+	if config.Push {
+		return fmt.Errorf("--image was specified with digest, therefore --push is not allowed")
+	}
+
 	return nil
 }

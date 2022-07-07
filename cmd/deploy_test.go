@@ -193,14 +193,14 @@ func Test_imageWithDigest(t *testing.T) {
 	}{
 		{
 			name:      "valid full name with digest, expect success",
-			image:     "docker.io/4141gauron3268/app:latest@sha256:59294b4d7dfb96c3e589376a360b9019e1887e7538d50ceda877084910c1c838",
+			image:     "docker.io/4141gauron3268/static_test_digest:latest@sha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4e",
 			errString: "",
 			funcFile: `name: test-func
 runtime: go`,
 		},
 		{
 			name:      "valid image name, build not 'disabled', expect error",
-			image:     "docker.io/4141gauron3268/app:latest@sha256:59294b4d7dfb96c3e589376a360b9019e1887e7538d50ceda877084910c1c838",
+			image:     "docker.io/4141gauron3268/static_test_digest:latest@sha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4e",
 			buildType: "local",
 			errString: "build type 'local' is not accepted with --image with digest. Use 'disabled' or none",
 			funcFile: `name: test-func
@@ -208,7 +208,7 @@ runtime: go`,
 		},
 		{
 			name:      "valid image name, --push specified, expect error",
-			image:     "docker.io/4141gauron3268/app:latest@sha256:59294b4d7dfb96c3e589376a360b9019e1887e7538d50ceda877084910c1c838",
+			image:     "docker.io/4141gauron3268/static_test_digest:latest@sha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4e",
 			pushBool:  true,
 			errString: "--image was specified with digest, therefore --push is not allowed",
 			funcFile: `name: test-func
@@ -216,15 +216,15 @@ runtime: go`,
 		},
 		{
 			name:      "invalid digest prefix, expect error",
-			image:     "docker.io/4141gauron3268/app:latest@Xsha256:59294b4d7dfb96c3e589376a360b9019e1887e7538d50ceda877084910c1c838",
-			errString: "value 'docker.io/4141gauron3268/app:latest@Xsha256:59294b4d7dfb96c3e589376a360b9019e1887e7538d50ceda877084910c1c838' in --image has invalid prefix syntax for digest (should be 'sha256:')",
+			image:     "docker.io/4141gauron3268/static_test_digest:latest@Xsha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4e",
+			errString: "value 'docker.io/4141gauron3268/static_test_digest:latest@Xsha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4e' in --image has invalid prefix syntax for digest (should be 'sha256:')",
 			funcFile: `name: test-func
 runtime: go`,
 		},
 		{
 			name:      "invalid sha hash length(added X at the end), expect error",
-			image:     "docker.io/4141gauron3268/app:latest@sha256:59294b4d7dfb96c3e589376a360b9019e1887e7538d50ceda877084910c1c838X",
-			errString: "sha256 hash in 'sha256:59294b4d7dfb96c3e589376a360b9019e1887e7538d50ceda877084910c1c838X' from --image has the wrong length (65), should be 64",
+			image:     "docker.io/4141gauron3268/static_test_digest:latest@sha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4eX",
+			errString: "sha256 hash in 'sha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4eX' from --image has the wrong length (65), should be 64",
 			funcFile: `name: test-func
 runtime: go`,
 		},
