@@ -202,7 +202,7 @@ runtime: go`,
 			name:      "valid image name, build not 'disabled', expect error",
 			image:     "docker.io/4141gauron3268/static_test_digest:latest@sha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4e",
 			buildType: "local",
-			errString: "build type 'local' is not accepted with --image with digest. Use 'disabled' or none",
+			errString: "the --build flag 'local' is not valid when using --image with digest",
 			funcFile: `name: test-func
 runtime: go`,
 		},
@@ -210,7 +210,7 @@ runtime: go`,
 			name:      "valid image name, --push specified, expect error",
 			image:     "docker.io/4141gauron3268/static_test_digest:latest@sha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4e",
 			pushBool:  true,
-			errString: "--image was specified with digest, therefore --push is not allowed",
+			errString: "the --push flag 'true' is not valid when using --image with digest",
 			funcFile: `name: test-func
 runtime: go`,
 		},
@@ -237,12 +237,21 @@ runtime: go`,
 					fn.WithDeployer(deployer))
 			}))
 
-			// set flags manually & reset after
-			cmd.SetArgs([]string{
-				fmt.Sprintf("--image=%s", tt.image),
-				fmt.Sprintf("--build=%s", tt.buildType),
-				fmt.Sprintf("--push=%t", tt.pushBool),
-			})
+			// Set flags manually & reset after.
+			// Differs whether build was set via CLI (gives an error if not 'disabled')
+			// or not (prints just a warning)
+			if tt.buildType == "" {
+				cmd.SetArgs([]string{
+					fmt.Sprintf("--image=%s", tt.image),
+					fmt.Sprintf("--push=%t", tt.pushBool),
+				})
+			} else {
+				cmd.SetArgs([]string{
+					fmt.Sprintf("--image=%s", tt.image),
+					fmt.Sprintf("--build=%s", tt.buildType),
+					fmt.Sprintf("--push=%t", tt.pushBool),
+				})
+			}
 			defer cmd.ResetFlags()
 
 			// set test case's func.yaml

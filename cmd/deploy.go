@@ -63,7 +63,7 @@ that is pushed to an image registry, and finally the function's Knative service 
 	// Flags shared with Build specifically related to building:
 	cmd.Flags().StringP("builder", "", "pack", "build strategy to use when creating the underlying image. Currently supported build strategies are 'pack' and 's2i'.")
 	cmd.Flags().StringP("builder-image", "", "", "builder image, either an as a an image name or a mapping name.\nSpecified value is stored in func.yaml (as 'builder' field) for subsequent builds. ($FUNC_BUILDER_IMAGE)")
-	cmd.Flags().StringP("image", "i", "", "Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE). If digest is given, build and push have to be disabled.")
+	cmd.Flags().StringP("image", "i", "", "Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE). If digest is given, build and push are disabled.")
 	cmd.Flags().StringP("registry", "r", GetDefaultRegistry(), "Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined based on the local directory name. If not provided the registry will be taken from func.yaml (Env: $FUNC_REGISTRY)")
 	cmd.Flags().BoolP("push", "u", true, "Attempt to push the function image to registry before deploying (Env: $FUNC_PUSH)")
 	setPathFlag(cmd)
@@ -103,17 +103,15 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		return
 	}
 
-	//if --image contains '@', validate image digest and disable build if valid, otherwise return an error
+	//if --image contains '@', validate image digest and disable build and push if not set, otherwise return an error
 	imageSplit := strings.Split(config.Image, "@")
 	imageDigestProvided := false
 
 	if len(imageSplit) == 2 {
-		if err := parseImageDigest(imageSplit, config); err != nil {
-			return err
+		if config, err = parseImageDigest(imageSplit, config, cmd); err != nil {
+			return
 		}
 		imageDigestProvided = true
-		config.BuildType = "disabled"
-		config.Image = imageSplit[0]
 	}
 
 	function, err := functionWithOverrides(config.Path, functionOverrides{Namespace: config.Namespace, Image: config.Image})
@@ -491,24 +489,39 @@ func validateBuildType(buildType string) error {
 	return nil
 }
 
-func parseImageDigest(imageSplit []string, config deployConfig) error {
+func parseImageDigest(imageSplit []string, config deployConfig, cmd *cobra.Command) (deployConfig, error) {
 
 	if !strings.HasPrefix(imageSplit[1], "sha256:") {
-		return fmt.Errorf("value '%s' in --image has invalid prefix syntax for digest (should be 'sha256:')", config.Image)
+		return config, fmt.Errorf("value '%s' in --image has invalid prefix syntax for digest (should be 'sha256:')", config.Image)
 	}
 
 	if len(imageSplit[1][7:]) != 64 {
-		return fmt.Errorf("sha256 hash in '%s' from --image has the wrong length (%d), should be 64", imageSplit[1], len(imageSplit[1][7:]))
+		return config, fmt.Errorf("sha256 hash in '%s' from --image has the wrong length (%d), should be 64", imageSplit[1], len(imageSplit[1][7:]))
 	}
 
-	// if BuidType was not explicitly set via CLI, set to 'disabled' without an error
-	if config.BuildType != "" && config.BuildType != "disabled" {
-		return fmt.Errorf("build type '%s' is not accepted with --image with digest. Use 'disabled' or none", config.BuildType)
+	// if --build was set but not as 'disabled', return an error
+	if cmd.Flags().Changed("build") && config.BuildType != "disabled" {
+		return config, fmt.Errorf("the --build flag '%s' is not valid when using --image with digest", config.BuildType)
 	}
 
-	if config.Push {
-		return fmt.Errorf("--image was specified with digest, therefore --push is not allowed")
+	// if --build was not explicitly set via CLI, print a warning
+	if config.BuildType == "" {
+		fmt.Printf("Warning: --build flag not set when using --image with digest, setting to 'disabled'\n")
 	}
 
-	return nil
+	// if the --push flag was set by a user to 'true', return an error
+	if cmd.Flags().Changed("push") && config.Push {
+		return config, fmt.Errorf("the --push flag '%v' is not valid when using --image with digest", config.Push)
+	}
+
+	// if the --push flag was not set by a user, print a warning
+	if !cmd.Flags().Changed("push") {
+		fmt.Printf("Warning: --push flag not set when using --image with digest, setting to 'false'\n")
+	}
+
+	config.BuildType = "disabled"
+	config.Push = false
+	config.Image = imageSplit[0]
+
+	return config, nil
 }
