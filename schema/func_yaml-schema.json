@@ -30,6 +30,7 @@
 				"build",
 				"git",
 				"buildpacks",
+				"builder",
 				"volumes",
 				"buildEnvs",
 				"envs",
@@ -86,6 +87,9 @@
 						"type": "string"
 					},
 					"type": "array"
+				},
+				"builder": {
+					"type": "string"
 				},
 				"volumes": {
 					"items": {

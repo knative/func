@@ -75,6 +75,10 @@ type Function struct {
 	// Optional list of buildpacks to use when building the function
 	Buildpacks []string `yaml:"buildpacks"`
 
+	// Builder is the name of the subsystem that will complete the underlying
+	// build (Pack, s2i, remote pipeline, etc)
+	Builder string `yaml:"builder"`
+
 	// List of volumes to be mounted to the function
 	Volumes []Volume `yaml:"volumes"`
 

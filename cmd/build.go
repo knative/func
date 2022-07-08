@@ -50,7 +50,7 @@ and the image name is stored in the configuration file.
 		PreRunE:    bindEnv("image", "path", "builder", "registry", "confirm", "push", "builder-image", "platform"),
 	}
 
-	cmd.Flags().StringP("builder", "b", "pack", "build strategy to use when creating the underlying image. Currently supported build strategies are 'pack' and 's2i'.")
+	cmd.Flags().StringP("builder", "b", "", "build strategy to use when creating the underlying image. Currently supported build strategies are 'pack' and 's2i'.")
 	cmd.Flags().StringP("builder-image", "", "", "builder image, either an as a an image name or a mapping name.\nSpecified value is stored in func.yaml (as 'builder' field) for subsequent builds. ($FUNC_BUILDER_IMAGE)")
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
 	cmd.Flags().StringP("image", "i", "", "Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE)")
@@ -144,6 +144,30 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		function.Image = config.Image
 	}
 
+	// Choose a builder based on the value of the --builder flag
+	var builder fn.Builder
+	if config.Builder == "" {
+		if function.Builder == "" {
+			config.Builder, function.Builder = "pack", "pack"
+		} else {
+			config.Builder = function.Builder
+		}
+	} else {
+		function.Builder = config.Builder
+	}
+
+	if config.Builder == "pack" {
+		if config.Platform != "" {
+			fmt.Fprintln(os.Stderr, "the --platform flag works only with s2i build")
+		}
+		builder = buildpacks.NewBuilder(buildpacks.WithVerbose(config.Verbose))
+	} else if config.Builder == "s2i" {
+		builder = s2i.NewBuilder(s2i.WithVerbose(config.Verbose), s2i.WithPlatform(config.Platform))
+	} else {
+		err = errors.New("unrecognized builder: valid values are: s2i, pack")
+		return
+	}
+
 	// All set, let's write changes in the config to the disk
 	err = function.Write()
 	if err != nil {
@@ -155,20 +179,6 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	// trust viper to override the env variable with the given flag if both are specified
 	if regFlag, _ := cmd.Flags().GetString("registry"); regFlag == "" {
 		config.Registry = ""
-	}
-
-	// Choose a builder based on the value of the --builder flag
-	var builder fn.Builder
-	if config.Builder == "pack" {
-		if config.Platform != "" {
-			fmt.Fprintln(os.Stderr, "the --platform flag works only with s2i build")
-		}
-		builder = buildpacks.NewBuilder(buildpacks.WithVerbose(config.Verbose))
-	} else if config.Builder == "s2i" {
-		builder = s2i.NewBuilder(s2i.WithVerbose(config.Verbose), s2i.WithPlatform(config.Platform))
-	} else {
-		err = errors.New("unrecognized builder: valid values are: s2i, pack")
-		return
 	}
 
 	// Use the user-provided builder image, if supplied
