@@ -189,9 +189,6 @@ func NewCredentialsProvider(opts ...Opt) docker.CredentialsProvider {
 	dockerConfigPath := filepath.Join(home, ".docker", "config.json")
 
 	var defaultCredentialLoaders = []CredentialsCallback{
-		func(registry string) (docker.Credentials, error) { // empty credentials provider for unsecured registries
-			return docker.Credentials{}, nil
-		},
 		func(registry string) (docker.Credentials, error) {
 			creds, err := config.GetCredentials(sys, registry)
 			if err != nil {
@@ -207,6 +204,9 @@ func NewCredentialsProvider(opts ...Opt) docker.CredentialsProvider {
 		},
 		func(registry string) (docker.Credentials, error) {
 			return getCredentialsByCredentialHelper(dockerConfigPath, registry)
+		},
+		func(registry string) (docker.Credentials, error) { // empty credentials provider for unsecured registries
+			return docker.Credentials{}, nil
 		},
 	}
 
