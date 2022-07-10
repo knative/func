@@ -31,9 +31,9 @@ Docs: https://knative.dev/docs/install/any-kubernetes-cluster/ )
 
 Serving with Kourier networking
 ```
-kubectl apply --filename https://github.com/knative/serving/releases/download/v0.16.0/serving-crds.yaml
-kubectl apply --filename https://github.com/knative/serving/releases/download/v0.16.0/serving-core.yaml
-kubectl apply --filename https://github.com/knative/net-kourier/releases/download/v0.16.0/kourier.yaml
+kubectl apply --filename https://github.com/knative/serving/releases/download/knative-v1.5.0/serving-crds.yaml
+kubectl apply --filename https://github.com/knative/serving/releases/download/knative-v1.5.0/serving-core.yaml
+kubectl apply --filename https://github.com/knative/net-kourier/releases/download/knative-v1.5.0/kourier.yaml
 ```
 Update the networking layer to
 - Use Kourier
@@ -74,7 +74,7 @@ In order to provision HTTPS routes, we optionally set up a Certificate Manager f
 
 Docs: https://cert-manager.io/docs/installation/kubernetes/
 ```
-kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v0.16.0/cert-manager.yaml
+kubectl apply --validate=false -f https://github.com/cert-manager/cert-manager/releases/download/v1.9.0-beta.1/cert-manager.yaml
 ```
 Create a Cluster Issuer by updating `tls/letsencrypt-issuer.yaml` with an email addresses for the LetsEncrypt registration and for the associated CloudFlare account:
 ```
@@ -100,7 +100,7 @@ Install the latest networking certmanager packaged with KNative Serving:
 Docs: https://knative.dev/docs/serving/using-auto-tls/
 
 ```
-kubectl apply --filename https://github.com/knative/net-certmanager/releases/download/v0.16.0/release.yaml
+kubectl apply --filename https://github.com/knative-sandbox/net-certmanager/releases/download/knative-v1.5.0/release.yaml
 ```
 Edit config-certmanager to reference the letsencrypt issuer.  There should be an issuerRef pointing to a ClusterIssuer of name `letsencrypt-issuer`:
 ```
@@ -111,10 +111,10 @@ kubectl edit configmap config-certmanager --namespace knative-serving
 
 Eventing with In-memory channels, a Channel broker, and enable the default broker in the func namespace.
 ```
-kubectl apply --filename https://github.com/knative/eventing/releases/download/v0.16.0/eventing-crds.yaml
-kubectl apply --filename https://github.com/knative/eventing/releases/download/v0.16.0/eventing-core.yaml
-kubectl apply --filename https://github.com/knative/eventing/releases/download/v0.16.0/in-memory-channel.yaml
-kubectl apply --filename https://github.com/knative/eventing/releases/download/v0.16.0/mt-channel-broker.yaml
+kubectl apply --filename https://github.com/knative/eventing/releases/download/knative-v1.5.1/eventing-crds.yaml
+kubectl apply --filename https://github.com/knative/eventing/releases/download/knative-v1.5.1/eventing-core.yaml
+kubectl apply --filename https://github.com/knative/eventing/releases/download/knative-v1.5.1/in-memory-channel.yaml
+kubectl apply --filename https://github.com/knative/eventing/releases/download/knative-v1.5.1/mt-channel-broker.yaml
 ```
 GitHub events source:
 ```
