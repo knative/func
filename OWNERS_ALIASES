@@ -219,6 +219,7 @@ aliases:
   - carlisia
   - tcnghia
   net-istio-approvers:
+  - AngeloDanducci
   - JRBANCEL
   - ZhiminXiang
   - carlisia
