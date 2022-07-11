@@ -58,7 +58,9 @@ spec:
       default: "1000"
     - name: GROUP_ID
       description: The group ID of the builder image user.
-      default: "1000"
+      default: "0"
+      ##############################################################
+      #####  "default" has been changed to "0" for Knative Functions
     - name: PLATFORM_DIR
       description: The name of the platform directory.
       default: empty-dir
@@ -87,8 +89,8 @@ spec:
           chown -R "$(params.USER_ID):$(params.GROUP_ID)" "$(workspaces.cache.path)"
         fi
 
-        ############################################
-        #  "/emptyDir" has been added for Knative Functions
+        #######################################################
+        #####  "/emptyDir" has been added for Knative Functions
         for path in "/tekton/home" "/layers" "/emptyDir" "$(workspaces.source.path)"; do
           echo "> Setting permissions on '$path'..."
           chown -R "$(params.USER_ID):$(params.GROUP_ID)" "$path"
@@ -143,8 +145,8 @@ spec:
           mountPath: /layers
         - name: $(params.PLATFORM_DIR)
           mountPath: /platform
-          ############################################
-          #   "/emptyDir" has been added for Knative Functions
+          ########################################################
+          #####   "/emptyDir" has been added for Knative Functions
         - name: empty-dir
           mountPath: /emptyDir
 
@@ -176,7 +178,9 @@ spec:
           mountPath: /platform
       securityContext:
         runAsUser: 1000
-        runAsGroup: 1000
+        #################################################################
+        #####  "runAsGroup" has been changed to "0" for Knative Functions
+        runAsGroup: 0
 
     - name: results
       image: docker.io/library/bash:5.1.4@sha256:b208215a4655538be652b2769d82e576bc4d0a2bb132144c060efc5be8c3f5d6
@@ -213,8 +217,8 @@ spec:
       volumeMounts:
         - name: layers-dir
           mountPath: /layers
-          ############################################
-          #   "/emptyDir" has been added for Knative Functions
+          ########################################################
+          #####   "/emptyDir" has been added for Knative Functions
         - name: empty-dir
           mountPath: /emptyDir
 
