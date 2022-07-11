@@ -30,6 +30,8 @@ type CredentialsCallback func(registry string) (docker.Credentials, error)
 
 var ErrUnauthorized = errors.New("bad credentials")
 
+var ErrCredentialsNotFound = errors.New("credentials not found")
+
 // VerifyCredentialsCallback checks if credentials are accepted by the registry.
 // If credentials are incorrect this callback shall return ErrUnauthorized.
 type VerifyCredentialsCallback func(ctx context.Context, registry string, credentials docker.Credentials) error
@@ -130,6 +132,7 @@ func WithTransport(transport http.RoundTripper) Opt {
 }
 
 // WithAdditionalCredentialLoaders adds custom callbacks for credential retrieval.
+// The callbacks shall return ErrCredentialsNotFound if the credentials are not found.
 // The callbacks are supposed to be non-interactive as opposed to WithPromptForCredentials.
 //
 // This might be useful when credentials are shared with some other service.
@@ -224,7 +227,7 @@ func (c *credentialsProvider) getCredentials(ctx context.Context, registry strin
 		result, err = load(registry)
 
 		if err != nil {
-			if errors.Is(err, errCredentialsNotFound) {
+			if errors.Is(err, ErrCredentialsNotFound) {
 				continue
 			}
 			return docker.Credentials{}, err
@@ -242,7 +245,7 @@ func (c *credentialsProvider) getCredentials(ctx context.Context, registry strin
 	}
 
 	if c.promptForCredentials == nil {
-		return docker.Credentials{}, errCredentialsNotFound
+		return docker.Credentials{}, ErrCredentialsNotFound
 	}
 
 	for {
@@ -299,7 +302,6 @@ func (c *credentialsProvider) getCredentials(ctx context.Context, registry strin
 	}
 }
 
-var errCredentialsNotFound = errors.New("credentials not found")
 var errNoCredentialHelperConfigured = errors.New("no credential helper configure")
 
 func getCredentialHelperFromConfig(confFilePath string) (string, error) {
@@ -355,7 +357,7 @@ func getCredentialsByCredentialHelper(confFilePath, registry string) (docker.Cre
 		return result, fmt.Errorf("failed to get helper from config: %w", err)
 	}
 	if helper == "" {
-		return result, errCredentialsNotFound
+		return result, ErrCredentialsNotFound
 	}
 
 	helperName := fmt.Sprintf("docker-credential-%s", helper)
@@ -378,7 +380,7 @@ func getCredentialsByCredentialHelper(confFilePath, registry string) (docker.Cre
 		}
 	}
 
-	return result, fmt.Errorf("failed to get credentials from helper specified in ~/.docker/config.json: %w", errCredentialsNotFound)
+	return result, fmt.Errorf("failed to get credentials from helper specified in ~/.docker/config.json: %w", ErrCredentialsNotFound)
 }
 
 func setCredentialsByCredentialHelper(confFilePath, registry, username, secret string) error {

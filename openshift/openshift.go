@@ -135,7 +135,7 @@ func GetDockerCredentialLoaders() []creds.CredentialsCallback {
 			if registry == registryHostPort {
 				return credentials, nil
 			}
-			return docker.Credentials{}, nil
+			return docker.Credentials{}, creds.ErrCredentialsNotFound
 		},
 	}
 
