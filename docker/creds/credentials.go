@@ -190,6 +190,12 @@ func NewCredentialsProvider(opts ...Opt) docker.CredentialsProvider {
 
 	var defaultCredentialLoaders = []CredentialsCallback{
 		func(registry string) (docker.Credentials, error) {
+			return getCredentialsByCredentialHelper(c.authFilePath, registry)
+		},
+		func(registry string) (docker.Credentials, error) {
+			return getCredentialsByCredentialHelper(dockerConfigPath, registry)
+		},
+		func(registry string) (docker.Credentials, error) {
 			creds, err := config.GetCredentials(sys, registry)
 			if err != nil {
 				return docker.Credentials{}, err
@@ -198,12 +204,6 @@ func NewCredentialsProvider(opts ...Opt) docker.CredentialsProvider {
 				Username: creds.Username,
 				Password: creds.Password,
 			}, nil
-		},
-		func(registry string) (docker.Credentials, error) {
-			return getCredentialsByCredentialHelper(c.authFilePath, registry)
-		},
-		func(registry string) (docker.Credentials, error) {
-			return getCredentialsByCredentialHelper(dockerConfigPath, registry)
 		},
 		func(registry string) (docker.Credentials, error) { // empty credentials provider for unsecured registries
 			return docker.Credentials{}, nil
