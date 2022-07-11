@@ -383,7 +383,9 @@ func TestNewCredentialsProvider(t *testing.T) {
 				promptUser:        pwdCbkThatShallNotBeCalled(t),
 				verifyCredentials: correctVerifyCbk,
 				registry:          "docker.io",
-				setUpEnv:          withPopulatedDockerAuthConfig,
+				setUpEnv: all(
+					withPopulatedDockerAuthConfig,
+					setUpMockHelper("docker-credential-mock", newInMemoryHelper())),
 			},
 			want: Credentials{Username: dockerIoUser, Password: dockerIoUserPwd},
 		},
