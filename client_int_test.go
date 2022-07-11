@@ -205,7 +205,7 @@ func TestRemoteRepositories(t *testing.T) {
 func newClient(verbose bool) *fn.Client {
 	builder := buildpacks.NewBuilder(buildpacks.WithVerbose(verbose))
 	pusher := docker.NewPusher(docker.WithVerbose(verbose))
-	deployer := knative.NewDeployer(DefaultNamespace, verbose)
+	deployer := knative.NewDeployer(knative.WithDeployerNamespace(DefaultNamespace), knative.WithDeployerVerbose(verbose))
 	remover := knative.NewRemover(DefaultNamespace, verbose)
 	lister := knative.NewLister(DefaultNamespace, verbose)
 
