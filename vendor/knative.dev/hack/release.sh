@@ -122,10 +122,10 @@ function git_push() {
    git push "${repo_url}" ${git_args} )
 }
 
-# Return the master version of a release.
+# Return the major+minor version of a release.
 # For example, "v0.2.1" returns "0.2"
 # Parameters: $1 - release version label.
-function master_version() {
+function major_minor_version() {
   local release="${1//v/}"
   local tokens=(${release//\./ })
   echo "${tokens[0]}.${tokens[1]}"
@@ -141,8 +141,7 @@ function hash_from_tag() {
 # Setup the repository upstream, if not set.
 function setup_upstream() {
   # hub and checkout need the upstream URL to be set
-  # TODO(adrcunha): Use "git remote get-url" once available on Prow.
-  local upstream="$(git config --get remote.upstream.url)"
+  local upstream="$(git remote get-url upstream)"
   echo "Remote upstream URL is '${upstream}'"
   if [[ -z "${upstream}" ]]; then
     echo "Setting remote upstream URL to '${REPO_UPSTREAM}'"
@@ -223,7 +222,7 @@ function prepare_dot_release() {
   if [[ -z "${RELEASE_BRANCH}" ]]; then
     echo "Last release is ${last_version}"
     # Determine branch
-    major_minor_version="$(master_version "${last_version}")"
+    major_minor_version="$(major_minor_version "${last_version}")"
     RELEASE_BRANCH="release-${major_minor_version}"
     echo "Last release branch is ${RELEASE_BRANCH}"
   else
@@ -235,13 +234,15 @@ function prepare_dot_release() {
   # Use the original tag (ie. potentially with a knative- prefix) when determining the last version commit sha
   local github_tag="$(hub_tool release | grep "${last_version}")"
   local last_release_commit="$(git rev-list -n 1 "${github_tag}")"
+  local last_release_commit_filtered="$(git rev-list --invert-grep --grep "\[skip-dot-release\]" -n 1 "${github_tag}")"
   local release_branch_commit="$(git rev-list -n 1 upstream/"${RELEASE_BRANCH}")"
+  local release_branch_commit_filtered="$(git rev-list --invert-grep --grep "\[skip-dot-release\]" -n 1 upstream/"${RELEASE_BRANCH}")"
   [[ -n "${last_release_commit}" ]] || abort "cannot get last release commit"
   [[ -n "${release_branch_commit}" ]] || abort "cannot get release branch last commit"
-  echo "Version ${last_version} is at commit ${last_release_commit}"
-  echo "Branch ${RELEASE_BRANCH} is at commit ${release_branch_commit}"
-  if [[ "${last_release_commit}" == "${release_branch_commit}" ]]; then
-    echo "*** Branch ${RELEASE_BRANCH} has no new cherry-picks since release ${last_version}"
+  echo "Version ${last_version} is at commit ${last_release_commit}. Comparing using ${last_release_commit_filtered}. If it is different is because commits with the [skip-dot-release] flag in their commit body are not being considered."
+  echo "Branch ${RELEASE_BRANCH} is at commit ${release_branch_commit}. Comparing using ${release_branch_commit_filtered}. If it is different is because commits with the [skip-dot-release] flag in their commit body are not being considered."
+  if [[ "${last_release_commit_filtered}" == "${release_branch_commit_filtered}" ]]; then
+    echo "*** Branch ${RELEASE_BRANCH} has no new cherry-picks (ignoring commits with [skip-dot-release]) since release ${last_version}."
     echo "*** No dot release will be generated, as no changes exist"
     exit 0
   fi
@@ -428,7 +429,7 @@ function parse_flags() {
     # TODO(adrcunha): "dot" releases from release branches require releasing nightlies
     # for such branches, which we don't do yet.
     [[ "${RELEASE_VERSION}" =~ ^[0-9]+\.[0-9]+\.0$ ]] || abort "version format must be 'X.Y.0'"
-    RELEASE_BRANCH="release-$(master_version "${RELEASE_VERSION}")"
+    RELEASE_BRANCH="release-$(major_minor_version "${RELEASE_VERSION}")"
     prepare_from_nightly_release
     setup_upstream
   fi
