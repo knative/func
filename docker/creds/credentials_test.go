@@ -154,7 +154,7 @@ func TestCheckAuth(t *testing.T) {
 				Username: tt.args.username,
 				Password: tt.args.password,
 			}
-			if err := creds.CheckAuth(tt.args.ctx, tt.args.registry, c, http.DefaultTransport); (err != nil) != tt.wantErr {
+			if err := creds.CheckAuth(tt.args.ctx, tt.args.registry+"/someorg/someimage:sometag", c, http.DefaultTransport); (err != nil) != tt.wantErr {
 				t.Errorf("CheckAuth() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
@@ -165,7 +165,7 @@ func TestCheckAuthEmptyCreds(t *testing.T) {
 
 	localhost, _, stopServer := startServer(t, "", "")
 	t.Cleanup(stopServer)
-	err := creds.CheckAuth(context.Background(), localhost, docker.Credentials{}, http.DefaultTransport)
+	err := creds.CheckAuth(context.Background(), localhost+"/someorg/someimage:sometag", docker.Credentials{}, http.DefaultTransport)
 	if err != nil {
 		t.Error(err)
 	}
@@ -412,7 +412,7 @@ func TestNewCredentialsProvider(t *testing.T) {
 				creds.WithPromptForCredentials(tt.args.promptUser),
 				creds.WithVerifyCredentials(tt.args.verifyCredentials),
 				creds.WithAdditionalCredentialLoaders(tt.args.additionalLoaders...))
-			got, err := credentialsProvider(context.Background(), tt.args.registry)
+			got, err := credentialsProvider(context.Background(), tt.args.registry+"/someorg/someimage:sometag")
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 				return
@@ -425,14 +425,14 @@ func TestNewCredentialsProvider(t *testing.T) {
 }
 
 func TestNewCredentialsProviderEmptyCreds(t *testing.T) {
-	credentialsProvider := creds.NewCredentialsProvider(creds.WithVerifyCredentials(func(ctx context.Context, registry string, credentials docker.Credentials) error {
-		if registry == "localhost:5000" && credentials == (docker.Credentials{}) {
+	credentialsProvider := creds.NewCredentialsProvider(creds.WithVerifyCredentials(func(ctx context.Context, image string, credentials docker.Credentials) error {
+		if image == "localhost:5555/someorg/someimage:sometag" && credentials == (docker.Credentials{}) {
 			return nil
 		}
 		t.Fatal("unreachable")
 		return nil
 	}))
-	c, err := credentialsProvider(context.Background(), "localhost:5000")
+	c, err := credentialsProvider(context.Background(), "localhost:5555/someorg/someimage:sometag")
 	if err != nil {
 		t.Error(err)
 	}
@@ -474,7 +474,7 @@ func TestCredentialsProviderSavingFromUserInput(t *testing.T) {
 		creds.WithPromptForCredentials(pwdCbk),
 		creds.WithVerifyCredentials(correctVerifyCbk),
 		creds.WithPromptForCredentialStore(chooseNoStore))
-	_, err := credentialsProvider(context.Background(), "docker.io")
+	_, err := credentialsProvider(context.Background(), "docker.io/someorg/someimage:sometag")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 		return
@@ -493,7 +493,7 @@ func TestCredentialsProviderSavingFromUserInput(t *testing.T) {
 		creds.WithPromptForCredentials(pwdCbk),
 		creds.WithVerifyCredentials(correctVerifyCbk),
 		creds.WithPromptForCredentialStore(chooseMockStore))
-	_, err = credentialsProvider(context.Background(), "docker.io")
+	_, err = credentialsProvider(context.Background(), "docker.io/someorg/someimage:sometag")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 		return
@@ -515,7 +515,7 @@ func TestCredentialsProviderSavingFromUserInput(t *testing.T) {
 		creds.WithPromptForCredentials(pwdCbkThatShallNotBeCalled(t)),
 		creds.WithVerifyCredentials(correctVerifyCbk),
 		creds.WithPromptForCredentialStore(shallNotBeInvoked))
-	_, err = credentialsProvider(context.Background(), "docker.io")
+	_, err = credentialsProvider(context.Background(), "docker.io/someorg/someimage:sometag")
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 		return
@@ -609,7 +609,7 @@ func pwdCbkFirstWrongThenCorrect(t *testing.T) func(registry string) (Credential
 	t.Helper()
 	var firstInvocation bool
 	return func(registry string) (Credentials, error) {
-		if registry != "docker.io" && registry != "quay.io" {
+		if registry != "index.docker.io" && registry != "quay.io" {
 			return Credentials{}, fmt.Errorf("unexpected registry: %s", registry)
 		}
 		if firstInvocation {
@@ -621,7 +621,7 @@ func pwdCbkFirstWrongThenCorrect(t *testing.T) func(registry string) (Credential
 }
 
 func correctPwdCallback(registry string) (Credentials, error) {
-	if registry == "docker.io" {
+	if registry == "index.docker.io" {
 		return Credentials{Username: dockerIoUser, Password: dockerIoUserPwd}, nil
 	}
 	if registry == "quay.io" {
@@ -630,12 +630,12 @@ func correctPwdCallback(registry string) (Credentials, error) {
 	return Credentials{}, errors.New("this cbk don't know the pwd")
 }
 
-func correctVerifyCbk(ctx context.Context, registry string, credentials Credentials) error {
+func correctVerifyCbk(ctx context.Context, image string, credentials Credentials) error {
 	username, password := credentials.Username, credentials.Password
-	if username == dockerIoUser && password == dockerIoUserPwd && registry == "docker.io" {
+	if username == dockerIoUser && password == dockerIoUserPwd && image == "docker.io/someorg/someimage:sometag" {
 		return nil
 	}
-	if username == quayIoUser && password == quayIoUserPwd && registry == "quay.io" {
+	if username == quayIoUser && password == quayIoUserPwd && image == "quay.io/someorg/someimage:sometag" {
 		return nil
 	}
 	return creds.ErrUnauthorized

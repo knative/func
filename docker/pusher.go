@@ -31,7 +31,7 @@ type Credentials struct {
 	Password string
 }
 
-type CredentialsProvider func(ctx context.Context, registry string) (Credentials, error)
+type CredentialsProvider func(ctx context.Context, image string) (Credentials, error)
 
 // PusherDockerClient is sub-interface of client.CommonAPIClient required by pusher.
 type PusherDockerClient interface {
@@ -133,7 +133,7 @@ func (n *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err er
 	}
 
 	n.progressListener.Stopping()
-	credentials, err := n.credentialsProvider(ctx, registry)
+	credentials, err := n.credentialsProvider(ctx, f.Image)
 	if err != nil {
 		return "", fmt.Errorf("failed to get credentials: %w", err)
 	}
