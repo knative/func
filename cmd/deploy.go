@@ -504,20 +504,12 @@ func parseImageDigest(imageSplit []string, config deployConfig, cmd *cobra.Comma
 		return config, fmt.Errorf("the --build flag '%s' is not valid when using --image with digest", config.BuildType)
 	}
 
-	// if --build was not explicitly set via CLI, print a warning
-	if config.BuildType == "" {
-		fmt.Printf("Warning: --build flag not set when using --image with digest, setting to 'disabled'\n")
-	}
-
 	// if the --push flag was set by a user to 'true', return an error
 	if cmd.Flags().Changed("push") && config.Push {
 		return config, fmt.Errorf("the --push flag '%v' is not valid when using --image with digest", config.Push)
 	}
 
-	// if the --push flag was not set by a user, print a warning
-	if !cmd.Flags().Changed("push") {
-		fmt.Printf("Warning: --push flag not set when using --image with digest, setting to 'false'\n")
-	}
+	fmt.Printf("Deploying existing image with digest %s. Build and push are disabled.\n", imageSplit[1])
 
 	config.BuildType = "disabled"
 	config.Push = false
