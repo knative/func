@@ -109,7 +109,9 @@ func validateFloats(m map[string]string) (errs *apis.FieldError) {
 	}
 
 	if k, v, ok := TargetAnnotation.Get(m); ok {
-		if fv, err := strconv.ParseFloat(v, 64); err != nil || fv < TargetMin {
+		if fv, err := strconv.ParseFloat(v, 64); err != nil {
+			errs = errs.Also(apis.ErrInvalidValue(v, k))
+		} else if fv < TargetMin {
 			errs = errs.Also(apis.ErrGeneric(fmt.Sprintf("target %s should be at least %g", v, TargetMin), k))
 		}
 	}
@@ -242,8 +244,12 @@ func validateMetric(m map[string]string) *apis.FieldError {
 func validateInitialScale(config *autoscalerconfig.Config, m map[string]string) *apis.FieldError {
 	if k, v, ok := InitialScaleAnnotation.Get(m); ok {
 		initScaleInt, err := strconv.Atoi(v)
-		if err != nil || initScaleInt < 0 || (!config.AllowZeroInitialScale && initScaleInt == 0) {
+		if err != nil {
 			return apis.ErrInvalidValue(v, k)
+		} else if initScaleInt < 0 {
+			return apis.ErrInvalidValue(v, fmt.Sprintf("%s must be greater than 0", k))
+		} else if !config.AllowZeroInitialScale && initScaleInt == 0 {
+			return apis.ErrInvalidValue(v, fmt.Sprintf("%s=0 not allowed by cluster", k))
 		}
 	}
 	return nil
