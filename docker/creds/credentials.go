@@ -32,30 +32,28 @@ var ErrUnauthorized = errors.New("bad credentials")
 
 var ErrCredentialsNotFound = errors.New("credentials not found")
 
-// VerifyCredentialsCallback checks if credentials are accepted by the registry.
+// VerifyCredentialsCallback checks if credentials are authorized for image push.
 // If credentials are incorrect this callback shall return ErrUnauthorized.
-type VerifyCredentialsCallback func(ctx context.Context, registry string, credentials docker.Credentials) error
+type VerifyCredentialsCallback func(ctx context.Context, image string, credentials docker.Credentials) error
 
-// CheckAuth verifies that credentials are correct
-func CheckAuth(ctx context.Context, registry string, credentials docker.Credentials, trans http.RoundTripper) error {
+// CheckAuth verifies that credentials can be used for image push
+func CheckAuth(ctx context.Context, image string, credentials docker.Credentials, trans http.RoundTripper) error {
 	authenticator := &authn.Basic{
 		Username: credentials.Username,
 		Password: credentials.Password,
 	}
 
-	reg, err := name.NewRegistry(registry)
+	ref, err := name.ParseReference(image)
 	if err != nil {
-		return err
+		return fmt.Errorf("cannot parse image reference: %w", err)
 	}
 
-	serverAddress := registry
-	if !strings.HasPrefix(serverAddress, "https://") && !strings.HasPrefix(serverAddress, "http://") {
-		serverAddress = reg.Scheme() + "://" + serverAddress
-	}
+	url := fmt.Sprintf("%s://%s/v2/%s/blobs/uploads/",
+		ref.Context().Registry.Scheme(),
+		ref.Context().RegistryStr(),
+		ref.Context().RepositoryStr())
 
-	url := fmt.Sprintf("%s/v2/", serverAddress)
-
-	tr, err := transport.NewWithContext(ctx, reg, authenticator, trans, nil)
+	tr, err := transport.NewWithContext(ctx, ref.Context().Registry, authenticator, trans, nil)
 	if err != nil {
 		var transportErr *transport.Error
 		if errors.As(err, &transportErr) && transportErr.StatusCode == 401 {
@@ -66,7 +64,7 @@ func CheckAuth(ctx context.Context, registry string, credentials docker.Credenti
 
 	cli := http.Client{Transport: tr}
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	req, err := http.NewRequestWithContext(ctx, "POST", url, nil)
 	if err != nil {
 		return err
 	}
@@ -80,7 +78,7 @@ func CheckAuth(ctx context.Context, registry string, credentials docker.Credenti
 	switch {
 	case resp.StatusCode == http.StatusUnauthorized:
 		return ErrUnauthorized
-	case resp.StatusCode != http.StatusOK:
+	case resp.StatusCode < 200 || resp.StatusCode >= 300:
 		return fmt.Errorf("failed to verify credentials: status code: %d", resp.StatusCode)
 	default:
 		return nil
@@ -218,9 +216,16 @@ func NewCredentialsProvider(opts ...Opt) docker.CredentialsProvider {
 	return c.getCredentials
 }
 
-func (c *credentialsProvider) getCredentials(ctx context.Context, registry string) (docker.Credentials, error) {
+func (c *credentialsProvider) getCredentials(ctx context.Context, image string) (docker.Credentials, error) {
 	var err error
 	result := docker.Credentials{}
+
+	ref, err := name.ParseReference(image)
+	if err != nil {
+		return docker.Credentials{}, fmt.Errorf("cannot parse the image reference: %w", err)
+	}
+
+	registry := ref.Context().RegistryStr()
 
 	for _, load := range c.credentialLoaders {
 
@@ -233,7 +238,7 @@ func (c *credentialsProvider) getCredentials(ctx context.Context, registry strin
 			return docker.Credentials{}, err
 		}
 
-		err = c.verifyCredentials(ctx, registry, result)
+		err = c.verifyCredentials(ctx, image, result)
 		if err == nil {
 			return result, nil
 		} else {
@@ -254,7 +259,7 @@ func (c *credentialsProvider) getCredentials(ctx context.Context, registry strin
 			return docker.Credentials{}, err
 		}
 
-		err = c.verifyCredentials(ctx, registry, result)
+		err = c.verifyCredentials(ctx, image, result)
 		if err == nil {
 			err = setCredentialsByCredentialHelper(c.authFilePath, registry, result.Username, result.Password)
 			if err != nil {

@@ -111,7 +111,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 	}
 
 	pp.progressListener.Stopping()
-	creds, err := pp.credentialsProvider(ctx, registry)
+	creds, err := pp.credentialsProvider(ctx, f.Image)
 	if err != nil {
 		return err
 	}
