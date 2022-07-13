@@ -9,7 +9,7 @@ require (
 	github.com/alecthomas/jsonschema v0.0.0-20210526225647-edb03dcab7bc
 	github.com/buildpacks/pack v0.24.0
 	github.com/cloudevents/sdk-go/v2 v2.8.0
-	github.com/containerd/containerd v1.6.0
+	github.com/containerd/containerd v1.6.6
 	github.com/containers/image/v5 v5.19.1
 	github.com/coreos/go-semver v0.3.0
 	github.com/docker/cli v20.10.12+incompatible

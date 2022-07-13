@@ -36,7 +36,7 @@ github.com/Microsoft/go-winio
 github.com/Microsoft/go-winio/pkg/guid
 github.com/Microsoft/go-winio/pkg/security
 github.com/Microsoft/go-winio/vhd
-# github.com/Microsoft/hcsshim v0.9.2
+# github.com/Microsoft/hcsshim v0.9.3
 github.com/Microsoft/hcsshim
 github.com/Microsoft/hcsshim/computestorage
 github.com/Microsoft/hcsshim/internal/cow
@@ -46,11 +46,13 @@ github.com/Microsoft/hcsshim/internal/hcs/schema2
 github.com/Microsoft/hcsshim/internal/hcserror
 github.com/Microsoft/hcsshim/internal/hns
 github.com/Microsoft/hcsshim/internal/interop
+github.com/Microsoft/hcsshim/internal/jobobject
 github.com/Microsoft/hcsshim/internal/log
 github.com/Microsoft/hcsshim/internal/logfields
 github.com/Microsoft/hcsshim/internal/longpath
 github.com/Microsoft/hcsshim/internal/mergemaps
 github.com/Microsoft/hcsshim/internal/oc
+github.com/Microsoft/hcsshim/internal/queue
 github.com/Microsoft/hcsshim/internal/safefile
 github.com/Microsoft/hcsshim/internal/timeout
 github.com/Microsoft/hcsshim/internal/vmcompute
@@ -177,7 +179,7 @@ github.com/cloudevents/sdk-go/v2/protocol/http
 github.com/cloudevents/sdk-go/v2/types
 # github.com/containerd/cgroups v1.0.3
 github.com/containerd/cgroups/stats/v1
-# github.com/containerd/containerd v1.6.0
+# github.com/containerd/containerd v1.6.6
 ## explicit
 github.com/containerd/containerd/errdefs
 github.com/containerd/containerd/log
@@ -612,11 +614,11 @@ github.com/opencontainers/go-digest
 ## explicit
 github.com/opencontainers/image-spec/specs-go
 github.com/opencontainers/image-spec/specs-go/v1
-# github.com/opencontainers/runc v1.1.0
+# github.com/opencontainers/runc v1.1.2
 github.com/opencontainers/runc/libcontainer/user
 # github.com/opencontainers/runtime-spec v1.0.3-0.20210326190908-1c3f411f0417
 github.com/opencontainers/runtime-spec/specs-go
-# github.com/opencontainers/selinux v1.10.0
+# github.com/opencontainers/selinux v1.10.1
 github.com/opencontainers/selinux/go-selinux
 github.com/opencontainers/selinux/go-selinux/label
 github.com/opencontainers/selinux/pkg/pwalk
@@ -867,7 +869,7 @@ golang.org/x/oauth2/jwt
 # golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.0.0-20220227234510-4e6760a101f9
+# golang.org/x/sys v0.0.0-20220412211240-33da011f77ad
 golang.org/x/sys/cpu
 golang.org/x/sys/execabs
 golang.org/x/sys/internal/unsafeheader
