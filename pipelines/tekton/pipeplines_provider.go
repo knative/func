@@ -24,6 +24,10 @@ import (
 	"knative.dev/pkg/apis"
 )
 
+type PipelineDecorator interface {
+	UpdateLabels(fn.Function, map[string]string) map[string]string
+}
+
 type Opt func(*PipelinesProvider)
 
 type PipelinesProvider struct {
@@ -33,6 +37,7 @@ type PipelinesProvider struct {
 	verbose             bool
 	progressListener    fn.ProgressListener
 	credentialsProvider docker.CredentialsProvider
+	decorator           PipelineDecorator
 }
 
 func WithNamespace(namespace string) Opt {
@@ -56,6 +61,12 @@ func WithCredentialsProvider(credentialsProvider docker.CredentialsProvider) Opt
 func WithVerbose(verbose bool) Opt {
 	return func(pp *PipelinesProvider) {
 		pp.verbose = verbose
+	}
+}
+
+func WithPipelineDecorator(decorator PipelineDecorator) Opt {
+	return func(pp *PipelinesProvider) {
+		pp.decorator = decorator
 	}
 }
 
@@ -87,6 +98,9 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 
 	// let's specify labels that will be applied to every resouce that is created for a Pipeline
 	labels := map[string]string{labels.FunctionNameKey: f.Name}
+	if pp.decorator != nil {
+		labels = pp.decorator.UpdateLabels(f, labels)
+	}
 
 	err = k8s.CreatePersistentVolumeClaim(ctx, getPipelinePvcName(f), pp.namespace, labels, corev1.ReadWriteOnce, *resource.NewQuantity(DefaultPersistentVolumeClaimSize, resource.DecimalSI))
 	if err != nil {

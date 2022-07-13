@@ -28,18 +28,48 @@ import (
 const LIVENESS_ENDPOINT = "/health/liveness"
 const READINESS_ENDPOINT = "/health/readiness"
 
+type DeployDecorator interface {
+	UpdateAnnotations(fn.Function, map[string]string) map[string]string
+	UpdateLabels(fn.Function, map[string]string) map[string]string
+}
+
+type DeployerOpt func(*Deployer)
+
 type Deployer struct {
 	// Namespace with which to override that set on the default configuration (such as the ~/.kube/config).
 	// If left blank, deployment will commence to the configured namespace.
 	Namespace string
 	// verbose logging enablement flag.
 	verbose bool
+
+	decorator DeployDecorator
 }
 
-func NewDeployer(namespaceOverride string, verbose bool) *Deployer {
-	return &Deployer{
-		Namespace: namespaceOverride,
-		verbose:   verbose,
+func NewDeployer(opts ...DeployerOpt) *Deployer {
+	d := &Deployer{}
+
+	for _, opt := range opts {
+		opt(d)
+	}
+
+	return d
+}
+
+func WithDeployerNamespace(namespace string) DeployerOpt {
+	return func(d *Deployer) {
+		d.Namespace = namespace
+	}
+}
+
+func WithDeployerVerbose(verbose bool) DeployerOpt {
+	return func(d *Deployer) {
+		d.verbose = verbose
+	}
+}
+
+func WithDeployerDecorator(decorator DeployDecorator) DeployerOpt {
+	return func(d *Deployer) {
+		d.decorator = decorator
 	}
 }
 
@@ -94,7 +124,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			referencedSecrets := sets.NewString()
 			referencedConfigMaps := sets.NewString()
 
-			service, err := generateNewService(f)
+			service, err := generateNewService(f, d.decorator)
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to generate the Knative Service: %v", err)
 				return fn.DeploymentResult{}, err
@@ -195,7 +225,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			return fn.DeploymentResult{}, err
 		}
 
-		_, err = client.UpdateServiceWithRetry(ctx, f.Name, updateService(f, newEnv, newEnvFrom, newVolumes, newVolumeMounts), 3)
+		_, err = client.UpdateServiceWithRetry(ctx, f.Name, updateService(f, newEnv, newEnvFrom, newVolumes, newVolumeMounts, d.decorator), 3)
 		if err != nil {
 			err = fmt.Errorf("knative deployer failed to update the Knative Service: %v", err)
 			return fn.DeploymentResult{}, err
@@ -240,7 +270,7 @@ func setHealthEndpoints(f fn.Function, c *corev1.Container) *corev1.Container {
 	return c
 }
 
-func generateNewService(f fn.Function) (*v1.Service, error) {
+func generateNewService(f fn.Function, decorator DeployDecorator) (*v1.Service, error) {
 	container := corev1.Container{
 		Image: f.ImageWithDigest(),
 	}
@@ -262,16 +292,21 @@ func generateNewService(f fn.Function) (*v1.Service, error) {
 	}
 	container.VolumeMounts = newVolumeMounts
 
-	labels, err := processLabels(f)
+	labels, err := processLabels(f, decorator)
 	if err != nil {
 		return nil, err
+	}
+
+	annotations := f.Annotations
+	if decorator != nil {
+		annotations = decorator.UpdateAnnotations(f, annotations)
 	}
 
 	service := &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        f.Name,
 			Labels:      labels,
-			Annotations: f.Annotations,
+			Annotations: annotations,
 		},
 		Spec: v1.ServiceSpec{
 			ConfigurationSpec: v1.ConfigurationSpec{
@@ -297,7 +332,7 @@ func generateNewService(f fn.Function) (*v1.Service, error) {
 	return service, nil
 }
 
-func updateService(f fn.Function, newEnv []corev1.EnvVar, newEnvFrom []corev1.EnvFromSource, newVolumes []corev1.Volume, newVolumeMounts []corev1.VolumeMount) func(service *v1.Service) (*v1.Service, error) {
+func updateService(f fn.Function, newEnv []corev1.EnvVar, newEnvFrom []corev1.EnvFromSource, newVolumes []corev1.Volume, newVolumeMounts []corev1.VolumeMount, decorator DeployDecorator) func(service *v1.Service) (*v1.Service, error) {
 	return func(service *v1.Service) (*v1.Service, error) {
 		// Removing the name so the k8s server can fill it in with generated name,
 		// this prevents conflicts in Revision name when updating the KService from multiple places.
@@ -305,6 +340,10 @@ func updateService(f fn.Function, newEnv []corev1.EnvVar, newEnvFrom []corev1.En
 
 		// Don't bother being as clever as we are with env variables
 		// Just set the annotations and labels to be whatever we find in func.yaml
+		if decorator != nil {
+			service.ObjectMeta.Annotations = decorator.UpdateAnnotations(f, service.ObjectMeta.Annotations)
+		}
+
 		for k, v := range f.Annotations {
 			service.ObjectMeta.Annotations[k] = v
 		}
@@ -328,7 +367,7 @@ func updateService(f fn.Function, newEnv []corev1.EnvVar, newEnvFrom []corev1.En
 			return service, err
 		}
 
-		labels, err := processLabels(f)
+		labels, err := processLabels(f, decorator)
 		if err != nil {
 			return service, err
 		}
@@ -354,7 +393,7 @@ func updateService(f fn.Function, newEnv []corev1.EnvVar, newEnvFrom []corev1.En
 //     value: value1
 //   - key: EXAMPLE2                            # Label from the local ENV var
 //     value: {{ env:MY_ENV }}
-func processLabels(f fn.Function) (map[string]string, error) {
+func processLabels(f fn.Function, decorator DeployDecorator) (map[string]string, error) {
 	labels := map[string]string{
 		labels.FunctionKey:        labels.FunctionValue,
 		labels.FunctionNameKey:    f.Name,
@@ -365,6 +404,11 @@ func processLabels(f fn.Function) (map[string]string, error) {
 		labels.DeprecatedFunctionRuntimeKey: f.Runtime,
 		// --- end of handling usage of deprecated runtime labels
 	}
+
+	if decorator != nil {
+		labels = decorator.UpdateLabels(f, labels)
+	}
+
 	for _, label := range f.Labels {
 		if label.Key != nil && label.Value != nil {
 			if strings.HasPrefix(*label.Value, "{{") {

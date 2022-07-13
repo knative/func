@@ -61,10 +61,12 @@ func NewClientFactory(n func() *fn.Client) ClientFactory {
 //   defer done()
 func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 	var (
-		p = progress.New(cfg.Verbose) // updates the CLI
-		t = newTransport()            // may provide a custom impl which proxies
-		c = newCredentialsProvider(t) // for accessing registries
-		o = []fn.Option{              // standard (shared) options for all commands
+		p  = progress.New(cfg.Verbose) // updates the CLI
+		t  = newTransport()            // may provide a custom impl which proxies
+		c  = newCredentialsProvider(t) // for accessing registries
+		d  = newKnativeDeployer(cfg.Namespace, cfg.Verbose)
+		pp = newTektonPipelinesProvider(cfg.Namespace, p, c, cfg.Verbose)
+		o  = []fn.Option{ // standard (shared) options for all commands
 			fn.WithVerbose(cfg.Verbose),
 			fn.WithProgressListener(p),
 			fn.WithTransport(t),
@@ -73,12 +75,8 @@ func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 			fn.WithDescriber(knative.NewDescriber(cfg.Namespace, cfg.Verbose)),
 			fn.WithLister(knative.NewLister(cfg.Namespace, cfg.Verbose)),
 			fn.WithRunner(docker.NewRunner(cfg.Verbose)),
-			fn.WithDeployer(knative.NewDeployer(cfg.Namespace, cfg.Verbose)),
-			fn.WithPipelinesProvider(tekton.NewPipelinesProvider(
-				tekton.WithNamespace(cfg.Namespace),
-				tekton.WithProgressListener(p),
-				tekton.WithCredentialsProvider(c),
-				tekton.WithVerbose(cfg.Verbose))),
+			fn.WithDeployer(d),
+			fn.WithPipelinesProvider(pp),
 			fn.WithPusher(docker.NewPusher(
 				docker.WithCredentialsProvider(c),
 				docker.WithProgressListener(p),
@@ -130,6 +128,35 @@ func newCredentialsProvider(t http.RoundTripper) docker.CredentialsProvider {
 	}
 	// Other cluster variants can be supported here
 	return creds.NewCredentialsProvider(options...)
+}
+
+func newTektonPipelinesProvider(namespace string, progress *progress.Bar, creds docker.CredentialsProvider, verbose bool) *tekton.PipelinesProvider {
+	options := []tekton.Opt{
+		tekton.WithNamespace(namespace),
+		tekton.WithProgressListener(progress),
+		tekton.WithCredentialsProvider(creds),
+		tekton.WithVerbose(verbose),
+	}
+
+	if openshift.IsOpenShift() {
+		options = append(options, tekton.WithPipelineDecorator(openshift.OpenshiftMetadataDecorator{}))
+	}
+
+	return tekton.NewPipelinesProvider(options...)
+
+}
+
+func newKnativeDeployer(namespace string, verbose bool) fn.Deployer {
+	options := []knative.DeployerOpt{
+		knative.WithDeployerNamespace(namespace),
+		knative.WithDeployerVerbose(verbose),
+	}
+
+	if openshift.IsOpenShift() {
+		options = append(options, knative.WithDeployerDecorator(openshift.OpenshiftMetadataDecorator{}))
+	}
+
+	return knative.NewDeployer(options...)
 }
 
 func GetDefaultRegistry() string {
