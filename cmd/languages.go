@@ -23,7 +23,7 @@ SYNOPSIS
 	{{.Name}} languages [--json] [-r|--repository]
 
 DESCRIPTION
-	List the language runtimes that are currently available. 
+	List the language runtimes that are currently available.
 	This includes embedded (included) language runtimes as well as any installed
 	via the 'repositories add' command.
 
@@ -53,7 +53,6 @@ EXAMPLES
 		PreRunE: bindEnv("json", "repository"),
 	}
 
-	// Flags
 	cmd.Flags().BoolP("json", "", false, "Set output to JSON format: $FUNC_JSON)")
 	cmd.Flags().StringP("repository", "r", "", "URI to a specific repository to consider (Env: $FUNC_REPOSITORY)")
 
