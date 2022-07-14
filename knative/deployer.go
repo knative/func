@@ -311,6 +311,10 @@ func generateNewService(f fn.Function, decorator DeployDecorator) (*v1.Service, 
 		Spec: v1.ServiceSpec{
 			ConfigurationSpec: v1.ConfigurationSpec{
 				Template: v1.RevisionTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Labels:      labels,
+						Annotations: annotations,
+					},
 					Spec: v1.RevisionSpec{
 						PodSpec: corev1.PodSpec{
 							Containers: []corev1.Container{
@@ -346,6 +350,7 @@ func updateService(f fn.Function, newEnv []corev1.EnvVar, newEnvFrom []corev1.En
 
 		for k, v := range f.Annotations {
 			service.ObjectMeta.Annotations[k] = v
+			service.Spec.Template.ObjectMeta.Annotations[k] = v
 		}
 		// I hate that we have to do this. Users should not see these values.
 		// It is an implementation detail. These health endpoints should not be
@@ -372,6 +377,7 @@ func updateService(f fn.Function, newEnv []corev1.EnvVar, newEnvFrom []corev1.En
 			return service, err
 		}
 		service.ObjectMeta.Labels = labels
+		service.Spec.Template.ObjectMeta.Labels = labels
 
 		err = flags.UpdateImage(&service.Spec.Template.Spec.PodSpec, f.ImageWithDigest())
 		if err != nil {
