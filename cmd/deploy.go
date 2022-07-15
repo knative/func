@@ -559,7 +559,7 @@ func parseImageDigest(imageSplit []string, config deployConfig, cmd *cobra.Comma
 }
 
 // checkNamespaceDeploy checks current namespace against func.yaml and warns if its different
-// or sets namespace to be writen in func.yaml if its the first deployment
+// or sets namespace to be written in func.yaml if its the first deployment
 func checkNamespaceDeploy(funcNamespace string, confNamespace string) (string, error) {
 	currNamespace, err := k8s.GetNamespace("")
 	if err != nil {
