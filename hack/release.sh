@@ -25,7 +25,7 @@ function build_release() {
   echo "🚧 🐧 Building cross platform binaries: Linux 🐧 (amd64), MacOS 🍏, and Windows 🎠"
   ETAG=${TAG} make cross-platform
 
-  ARTIFACTS_TO_PUBLISH="func_darwin_amd64 func_darwin_arm64 func_linux_amd64 func_windows_amd64.exe"
+  ARTIFACTS_TO_PUBLISH="func_darwin_amd64 func_darwin_arm64 func_linux_amd64 func_linux_arm64 func_windows_amd64.exe"
   sha256sum ${ARTIFACTS_TO_PUBLISH} > checksums.txt
   ARTIFACTS_TO_PUBLISH="${ARTIFACTS_TO_PUBLISH} checksums.txt"
   echo "🧮     Checksum:"

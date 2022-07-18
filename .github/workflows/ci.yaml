@@ -48,8 +48,12 @@ jobs:
           path: func_darwin_arm64
       - uses: actions/upload-artifact@v2
         with:
-          name: Linux Binary
+          name: Linux Binary (AMD)
           path: func_linux_amd64
+      - uses: actions/upload-artifact@v2
+        with:
+          name: Linux Binary (ARM)
+          path: func_linux_arm64
       - uses: actions/upload-artifact@v2
         with:
           name: Windows Binary
