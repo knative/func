@@ -172,18 +172,16 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 
 	// Choose a builder based on the value of the --builder flag
 	var builder fn.Builder
-	if config.Builder == "" {
-		if function.Builder == "" {
-			config.Builder, function.Builder = "pack", "pack"
-		} else {
-			config.Builder = function.Builder
-		}
-	} else {
+	if function.Builder == "" || cmd.Flags().Changed("builder") {
 		function.Builder = config.Builder
+	} else {
+		config.Builder = function.Builder
 	}
 	if config.Builder == "pack" {
 		if config.Platform != "" {
-			fmt.Fprintln(os.Stderr, "the --platform flag works only with s2i build")
+			err = fmt.Errorf("the --platform flag works only with s2i build")
+			fmt.Fprintln(os.Stderr, err)
+			return
 		}
 		builder = buildpacks.NewBuilder(buildpacks.WithVerbose(config.Verbose))
 	} else if config.Builder == "s2i" {

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -148,5 +149,96 @@ created: 2009-11-10 23:00:00`,
 				t.Errorf("Push execution expected: %v but was actually mockPusher invoked: %v failPusher invoked %v", tt.shouldPush, mockPusher.PushInvoked, failPusher.PushInvoked)
 			}
 		})
+	}
+}
+
+// TestBuild_BuilderPersistence ensures that the builder chosen is read from
+// the Function by default, and is able to be overridden by flags/env vars.
+func TestBuild_BuilderPersistence(t *testing.T) {
+	testRegistry := "docker.io/tigerteam"
+	root, rm := Mktemp(t)
+	defer rm()
+
+	client := fn.New(fn.WithRegistry(testRegistry))
+
+	f := fn.Function{Runtime: "go", Root: root, Name: "myfunc", Registry: testRegistry}
+
+	if err := client.New(context.Background(), f); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := NewBuildCmd(NewClientFactory(func() *fn.Client {
+		return client
+	}))
+
+	cmd.SetArgs([]string{"--registry", testRegistry})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	var err error
+	// Assert the Function has persisted a value of builder (has a default)
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	if f.Builder != "pack" {
+		t.Fatal("value of builder not persisted using a flag default")
+	}
+
+	// Build the Function, specifying a Builder
+	cmd.SetArgs([]string{"--builder=s2i"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	// Assert the Function has persisted the value of builder
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	if f.Builder != "s2i" {
+		t.Fatal("value of builder flag not persisted when provided")
+	}
+	// Build the function without specifying a Builder
+	cmd = NewBuildCmd(NewClientFactory(func() *fn.Client {
+		return client
+	}))
+	cmd.SetArgs([]string{"--registry", testRegistry})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Assert the function has retained its original value
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+
+	if f.Builder != "s2i" {
+		t.Fatal("value of builder updated when not provided")
+	}
+
+	// Build the Function again using a different builder
+	cmd.SetArgs([]string{"--builder=pack"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Assert the Function has persisted the new value
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	if f.Builder != "pack" {
+		t.Fatal("value of builder flag not persisted on subsequent build")
+	}
+
+	// Build the Function, specifying a platform with "pack" Builder
+	cmd.SetArgs([]string{"--platform", "linux"})
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("Expected error")
+	}
+
+	// Set an invalid builder
+	cmd.SetArgs([]string{"--builder", "invalid"})
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("Expected error")
 	}
 }
