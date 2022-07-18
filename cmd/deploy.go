@@ -180,7 +180,6 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 	if config.Builder == "pack" {
 		if config.Platform != "" {
 			err = fmt.Errorf("the --platform flag works only with s2i build")
-			fmt.Fprintln(os.Stderr, err)
 			return
 		}
 		builder = buildpacks.NewBuilder(buildpacks.WithVerbose(config.Verbose))

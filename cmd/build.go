@@ -3,7 +3,6 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"os"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
@@ -161,7 +160,6 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	if config.Builder == "pack" {
 		if config.Platform != "" {
 			err = fmt.Errorf("the --platform flag works only with s2i build")
-			fmt.Fprintln(os.Stderr, err)
 			return
 		}
 		builder = buildpacks.NewBuilder(buildpacks.WithVerbose(config.Verbose))
