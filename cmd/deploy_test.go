@@ -101,6 +101,8 @@ created: 2009-11-10 23:00:00`,
 			errString: "remote git arguments require the --build=git flag",
 		},
 	}
+
+	defer WithEnvVar(t, "KUBECONFIG", fmt.Sprintf("%s/testdata/kubeconfig_deploy_namespace", cwd()))()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var captureFn fn.Function
@@ -229,6 +231,8 @@ runtime: go`,
 runtime: go`,
 		},
 	}
+
+	defer WithEnvVar(t, "KUBECONFIG", fmt.Sprintf("%s/testdata/kubeconfig_deploy_namespace", cwd()))()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			deployer := mock.NewDeployer()
@@ -319,8 +323,9 @@ runtime: go`,
 		},
 	}
 
-	// save current dir to use later when tempdir is set
-	testPath := cwd()
+	// create mock kubeconfig with set namespace as 'default'
+	defer WithEnvVar(t, "KUBECONFIG", fmt.Sprintf("%s/testdata/kubeconfig_deploy_namespace", cwd()))()
+
 	for _, tt := range tests {
 
 		t.Run(tt.name, func(t *testing.T) {
@@ -330,9 +335,6 @@ runtime: go`,
 				return fn.New(
 					fn.WithDeployer(deployer))
 			}))
-
-			// create mock kubeconfig with set namespace as 'default'
-			defer WithEnvVar(t, "KUBECONFIG", fmt.Sprintf("%s/testdata/kubeconfig_deploy_namespace", testPath))()
 
 			// set namespace argument if given & reset after
 			cmd.SetArgs([]string{}) // Do not use test command args
