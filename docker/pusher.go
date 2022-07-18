@@ -137,7 +137,7 @@ func (n *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err er
 	if err != nil {
 		return "", fmt.Errorf("failed to get credentials: %w", err)
 	}
-	n.progressListener.Increment("Pushing function image to the registry")
+	n.progressListener.Increment(fmt.Sprintf("Pushing function image to the registry %q using the %q user credentials", registry, credentials.Username))
 
 	// if the registry is not cluster private do push directly from daemon
 	if _, err = net.DefaultResolver.LookupHost(ctx, registry); err == nil {
