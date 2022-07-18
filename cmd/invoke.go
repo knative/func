@@ -22,7 +22,7 @@ func NewInvokeCmd(newClient ClientFactory) *cobra.Command {
 		Short: "Invoke a Function",
 		Long: `
 NAME
-	{{.Name}} invoke - Invoke a Function.
+	{{.Name}} invoke - test a Function by invoking it with test data
 
 SYNOPSIS
 	{{.Name}} invoke [-t|--target] [-f|--format]
