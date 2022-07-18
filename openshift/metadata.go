@@ -5,11 +5,20 @@ import (
 )
 
 const (
-	AnnotationOpenShiftVcsUri = "app.openshift.io/vcs-uri"
-	AnnotationOpenShiftVcsRef = "app.openshift.io/vcs-ref"
+	annotationOpenShiftVcsUri = "app.openshift.io/vcs-uri"
+	annotationOpenShiftVcsRef = "app.openshift.io/vcs-ref"
 
-	LabelAppK8sInstance = "app.kubernetes.io/instance"
+	labelAppK8sInstance   = "app.kubernetes.io/instance"
+	labelOpenShiftRuntime = "app.openshift.io/runtime"
 )
+
+var iconValuesForRuntimes = map[string]string{
+	"go":         "golang",
+	"node":       "nodejs",
+	"python":     "python",
+	"quarkus":    "quarkus",
+	"springboot": "spring-boot",
+}
 
 type OpenshiftMetadataDecorator struct{}
 
@@ -18,10 +27,10 @@ func (o OpenshiftMetadataDecorator) UpdateAnnotations(f fn.Function, annotations
 		annotations = map[string]string{}
 	}
 	if f.Git.URL != nil {
-		annotations[AnnotationOpenShiftVcsUri] = *f.Git.URL
+		annotations[annotationOpenShiftVcsUri] = *f.Git.URL
 	}
 	if f.Git.Revision != nil {
-		annotations[AnnotationOpenShiftVcsRef] = *f.Git.Revision
+		annotations[annotationOpenShiftVcsRef] = *f.Git.Revision
 	}
 
 	return annotations
@@ -32,7 +41,14 @@ func (o OpenshiftMetadataDecorator) UpdateLabels(f fn.Function, labels map[strin
 		labels = map[string]string{}
 	}
 
-	labels[LabelAppK8sInstance] = f.Name
+	// this label is used for referencing a Tekton Pipeline and deployed KService
+	labels[labelAppK8sInstance] = f.Name
+
+	// if supported, set the label representing a runtime icon in Developer Console
+	iconValue, ok := iconValuesForRuntimes[f.Runtime]
+	if ok {
+		labels[labelOpenShiftRuntime] = iconValue
+	}
 
 	return labels
 }
