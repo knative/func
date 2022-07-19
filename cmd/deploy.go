@@ -568,7 +568,7 @@ func checkNamespaceDeploy(funcNamespace string, confNamespace string) (string, e
 
 	// If ns exists in func.yaml & NOT given via CLI (--namespace flag) & current ns does NOT match func.yaml ns
 	if funcNamespace != "" && confNamespace == "" && (currNamespace != funcNamespace) {
-		fmt.Printf("Warning: Current namespace '%s' does not match namespace '%s' in func.yaml. Function is deployed at '%s' namespace\n", currNamespace, funcNamespace, funcNamespace)
+		fmt.Fprintf(os.Stderr, "Warning: Current namespace '%s' does not match namespace '%s' in func.yaml. Function is deployed at '%s' namespace\n", currNamespace, funcNamespace, funcNamespace)
 	}
 
 	// Add current namespace to func.yaml if it is NOT set yet & NOT given via --namespace.
