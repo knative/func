@@ -23,6 +23,7 @@ import (
 	"github.com/docker/docker-credential-helpers/credentials"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 )
 
@@ -36,24 +37,32 @@ var ErrCredentialsNotFound = errors.New("credentials not found")
 // If credentials are incorrect this callback shall return ErrUnauthorized.
 type VerifyCredentialsCallback func(ctx context.Context, image string, credentials docker.Credentials) error
 
+type keyChain struct {
+	user string
+	pwd  string
+}
+
+func (k keyChain) Resolve(resource authn.Resource) (authn.Authenticator, error) {
+	return &authn.Basic{
+		Username: k.user,
+		Password: k.pwd,
+	}, nil
+}
+
 // CheckAuth verifies that credentials can be used for image push
 func CheckAuth(ctx context.Context, image string, credentials docker.Credentials, trans http.RoundTripper) error {
-	authenticator := &authn.Basic{
-		Username: credentials.Username,
-		Password: credentials.Password,
-	}
 
 	ref, err := name.ParseReference(image)
 	if err != nil {
 		return fmt.Errorf("cannot parse image reference: %w", err)
 	}
 
-	url := fmt.Sprintf("%s://%s/v2/%s/blobs/uploads/",
-		ref.Context().Registry.Scheme(),
-		ref.Context().RegistryStr(),
-		ref.Context().RepositoryStr())
+	kc := keyChain{
+		user: credentials.Username,
+		pwd:  credentials.Password,
+	}
 
-	tr, err := transport.NewWithContext(ctx, ref.Context().Registry, authenticator, trans, nil)
+	err = remote.CheckPushPermission(ref, kc, trans)
 	if err != nil {
 		var transportErr *transport.Error
 		if errors.As(err, &transportErr) && transportErr.StatusCode == 401 {
@@ -62,27 +71,7 @@ func CheckAuth(ctx context.Context, image string, credentials docker.Credentials
 		return err
 	}
 
-	cli := http.Client{Transport: tr}
-
-	req, err := http.NewRequestWithContext(ctx, "POST", url, nil)
-	if err != nil {
-		return err
-	}
-
-	resp, err := cli.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to verify credentials: %w", err)
-	}
-	defer resp.Body.Close()
-
-	switch {
-	case resp.StatusCode == http.StatusUnauthorized:
-		return ErrUnauthorized
-	case resp.StatusCode < 200 || resp.StatusCode >= 300:
-		return fmt.Errorf("failed to verify credentials: status code: %d", resp.StatusCode)
-	default:
-		return nil
-	}
+	return nil
 }
 
 type ChooseCredentialHelperCallback func(available []string) (string, error)

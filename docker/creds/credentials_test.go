@@ -188,14 +188,22 @@ func startServer(t *testing.T, uname, pwd string) (addr, addrTLS string, stopSer
 
 	handler := http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
 		if uname == "" || pwd == "" {
-			resp.WriteHeader(http.StatusOK)
+			if req.Method == http.MethodPost {
+				resp.WriteHeader(http.StatusCreated)
+			} else {
+				resp.WriteHeader(http.StatusOK)
+			}
 			return
 		}
 		// TODO add also test for token based auth
 		resp.Header().Add("WWW-Authenticate", "basic")
 		if u, p, ok := req.BasicAuth(); ok {
 			if u == uname && p == pwd {
-				resp.WriteHeader(http.StatusOK)
+				if req.Method == http.MethodPost {
+					resp.WriteHeader(http.StatusCreated)
+				} else {
+					resp.WriteHeader(http.StatusOK)
+				}
 				return
 			}
 		}
