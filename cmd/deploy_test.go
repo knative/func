@@ -140,7 +140,7 @@ created: 2009-11-10 23:00:00`,
 				t.Fatal(err)
 			}
 
-			ctx := context.TODO()
+			ctx := context.Background()
 
 			_, err := cmd.ExecuteContextC(ctx)
 			if err != nil {
@@ -263,7 +263,7 @@ runtime: go`,
 				t.Fatal(err)
 			}
 
-			ctx := context.TODO()
+			ctx := context.Background()
 
 			_, err := cmd.ExecuteContextC(ctx)
 			if err != nil {
@@ -347,7 +347,7 @@ runtime: go`,
 				t.Fatal(err)
 			}
 
-			ctx := context.TODO()
+			ctx := context.Background()
 
 			_, err := cmd.ExecuteContextC(ctx)
 			if err != nil {
