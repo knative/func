@@ -7,6 +7,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/spf13/cobra"
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/mock"
 	. "knative.dev/kn-plugin-func/testing"
@@ -152,10 +153,7 @@ created: 2009-11-10 23:00:00`,
 	}
 }
 
-// TestBuild_BuilderPersistence ensures that the builder chosen is read from
-// the Function by default, and is able to be overridden by flags/env vars.
-func TestBuild_BuilderPersistence(t *testing.T) {
-	testRegistry := "docker.io/tigerteam"
+func testBuilderPersistence(t *testing.T, testRegistry string, cmdBuilder func(ClientFactory) *cobra.Command) {
 	root, rm := Mktemp(t)
 	defer rm()
 
@@ -167,7 +165,7 @@ func TestBuild_BuilderPersistence(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cmd := NewBuildCmd(NewClientFactory(func() *fn.Client {
+	cmd := cmdBuilder(NewClientFactory(func() *fn.Client {
 		return client
 	}))
 
@@ -181,7 +179,7 @@ func TestBuild_BuilderPersistence(t *testing.T) {
 	if f, err = fn.NewFunction(root); err != nil {
 		t.Fatal(err)
 	}
-	if f.Builder != "pack" {
+	if f.Builder == "" {
 		t.Fatal("value of builder not persisted using a flag default")
 	}
 
@@ -198,7 +196,7 @@ func TestBuild_BuilderPersistence(t *testing.T) {
 		t.Fatal("value of builder flag not persisted when provided")
 	}
 	// Build the function without specifying a Builder
-	cmd = NewBuildCmd(NewClientFactory(func() *fn.Client {
+	cmd = cmdBuilder(NewClientFactory(func() *fn.Client {
 		return client
 	}))
 	cmd.SetArgs([]string{"--registry", testRegistry})
@@ -241,4 +239,10 @@ func TestBuild_BuilderPersistence(t *testing.T) {
 	if err := cmd.Execute(); err == nil {
 		t.Fatal("Expected error")
 	}
+}
+
+// TestBuild_BuilderPersistence ensures that the builder chosen is read from
+// the Function by default, and is able to be overridden by flags/env vars.
+func TestBuild_BuilderPersistence(t *testing.T) {
+	testBuilderPersistence(t, "docker.io/tigerteam", NewBuildCmd)
 }
