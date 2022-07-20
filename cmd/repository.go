@@ -35,7 +35,7 @@ DESCRIPTION
 	Manage template repositories installed on disk at either the default location
 	(~/.config/func/repositories) or the location specified by the --repository
 	flag.  Once added, a template from the repository can be used when creating
-	a new Function.
+	a new function.
 
 	Interactive Prompts:
 	To complete these commands interactively, pass the --confirm (-c) flag to
@@ -44,7 +44,7 @@ DESCRIPTION
 	The Default Repository:
 	The default repository is not stored on disk, but embedded in the binary and
 	can be used without explicitly specifying the name.  The default repository
-	is always listed first, and is assumed when creating a new Function without
+	is always listed first, and is assumed when creating a new function without
 	specifying a repository name prefix.
 	For example, to create a new Go function using the 'http' template from the
 	default repository.
@@ -53,7 +53,7 @@ DESCRIPTION
 	The Repository Flag:
 	Installing repositories locally is optional.  To use a template from a remote
 	repository directly, it is possible to use the --repository flag on create.
-	This leaves the local disk untouched.  For example, To create a Function using
+	This leaves the local disk untouched.  For example, To create a function using
 	the Boson Project Hello-World template without installing the template
 	repository locally, use the --repository (-r) flag on create:
 		$ {{.Name}} create -l go \
@@ -79,9 +79,9 @@ COMMANDS
 	  For Example, to add the Boson Project repository:
 	    $ {{.Name}} repository add boson https://github.com/boson-project/templates
 
-	  Once added, a Function can be created with templates from the new repository
+	  Once added, a function can be created with templates from the new repository
 	  by prefixing the template name with the repository.  For example, to create
-	  a new Function using the Go Hello World template:
+	  a new function using the Go Hello World template:
 	    $ {{.Name}} create -l go -t boson/hello-world
 
 	list
@@ -106,7 +106,7 @@ EXAMPLES
 	o Run in confirmation mode (interactive prompts) using the --confirm flag
 	  $ {{.Name}} repository -c
 
-	o Add a repository and create a new Function using a template from it:
+	o Add a repository and create a new function using a template from it:
 	  $ {{.Name}} repository add boson https://github.com/boson-project/templates
 	  $ {{.Name}} repository list
 	  default

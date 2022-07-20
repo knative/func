@@ -19,10 +19,10 @@ import (
 func NewInvokeCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "invoke",
-		Short: "Invoke a Function",
+		Short: "Invoke a function",
 		Long: `
 NAME
-	{{.Name}} invoke - test a Function by invoking it with test data
+	{{.Name}} invoke - test a function by invoking it with test data
 
 SYNOPSIS
 	{{.Name}} invoke [-t|--target] [-f|--format]
@@ -30,12 +30,12 @@ SYNOPSIS
 	             [-s|--save] [-p|--path] [-c|--confirm] [-v|--verbose]
 
 DESCRIPTION
-	Invokes the Function by sending a test request to the currently running
-	Function instance, either locally or remote.  If the Function is running
+	Invokes the function by sending a test request to the currently running
+	function instance, either locally or remote.  If the function is running
 	both locally and remote, the local instance will be invoked.  This behavior
 	can be manually overridden using the --target flag.
 
-	Functions are invoked with a test data structure consisting of five values:
+	functions are invoked with a test data structure consisting of five values:
 		id:            A unique identifier for the request.
 		source:        A sender name for the request (sender).
 		type:          A type for the request.
@@ -47,49 +47,49 @@ DESCRIPTION
 	--file flag.
 
 	Invocation Target
-	  The Function instance to invoke can be specified using the --target flag
+	  The function instance to invoke can be specified using the --target flag
 	  which accepts the values "local", "remote", or <URL>.  By default the
-	  local Function instance is chosen if running (see {{.Name}} run).
-	  To explicitly target the remote (deployed) Function:
+	  local function instance is chosen if running (see {{.Name}} run).
+	  To explicitly target the remote (deployed) function:
 	    {{.Name}} invoke --target=remote
 	  To target an arbitrary endpoint, provide a URL:
 	    {{.Name}} invoke --target=https://myfunction.example.com
 
 	Invocation Data
 	  Providing a filename in the --file flag will base64 encode its contents
-	  as the "data" parameter sent to the Function.  The value of --content-type
+	  as the "data" parameter sent to the function.  The value of --content-type
 	  should be set to the type from the source file.  For example, the following
 	  would send a JPEG base64 encoded in the "data" POST parameter:
 	    {{.Name}} invoke --file=example.jpeg --content-type=image/jpeg
 
 	Message Format
-	  By default Functions are sent messages which match the invocation format
+	  By default functions are sent messages which match the invocation format
 	  of the template they were created using; for example "http" or "cloudevent".
 	  To override this behavior, use the --format (-f) flag.
 	    {{.Name}} invoke -f=cloudevent -t=http://my-sink.my-cluster
 
 EXAMPLES
 
-	o Invoke the default (local or remote) running Function with default values
+	o Invoke the default (local or remote) running function with default values
 	  $ {{.Name}} invoke
 
-	o Run the Function locally and then invoke it with a test request:
+	o Run the function locally and then invoke it with a test request:
 	  (run in two terminals or by running the first in the background)
 	  $ {{.Name}} run
 	  $ {{.Name}} invoke
 
-	o Deploy and then invoke the remote Function:
+	o Deploy and then invoke the remote function:
 	  $ {{.Name}} deploy
 	  $ {{.Name}} invoke
 
-	o Invoke a remote (deployed) Function when it is already running locally:
+	o Invoke a remote (deployed) function when it is already running locally:
 	  (overrides the default behavior of preferring locally running instances)
 	  $ {{.Name}} invoke --target=remote
 
-	o Specify the data to send to the Function as a flag
+	o Specify the data to send to the function as a flag
 	  $ {{.Name}} invoke --data="Hello World!"
 
-	o Send a JPEG to the Function
+	o Send a JPEG to the function
 	  $ {{.Name}} invoke --file=example.jpeg --content-type=image/jpeg
 
 	o Invoke an arbitrary endpoint (HTTP POST)
@@ -104,9 +104,9 @@ EXAMPLES
 	}
 
 	// Flags
-	cmd.Flags().StringP("path", "p", cwd(), "Path to the Function which should have its instance invoked. (Env: $FUNC_PATH)")
+	cmd.Flags().StringP("path", "p", cwd(), "Path to the function which should have its instance invoked. (Env: $FUNC_PATH)")
 	cmd.Flags().StringP("format", "f", "", "Format of message to send, 'http' or 'cloudevent'.  Default is to choose automatically. (Env: $FUNC_FORMAT)")
-	cmd.Flags().StringP("target", "t", "", "Function instance to invoke.  Can be 'local', 'remote' or a URL.  Defaults to auto-discovery if not provided. (Env: $FUNC_TARGET)")
+	cmd.Flags().StringP("target", "t", "", "function instance to invoke.  Can be 'local', 'remote' or a URL.  Defaults to auto-discovery if not provided. (Env: $FUNC_TARGET)")
 	cmd.Flags().StringP("id", "", uuid.NewString(), "ID for the request data. (Env: $FUNC_ID)")
 	cmd.Flags().StringP("source", "", fn.DefaultInvokeSource, "Source value for the request data. (Env: $FUNC_SOURCE)")
 	cmd.Flags().StringP("type", "", fn.DefaultInvokeType, "Type value for the request data. (Env: $FUNC_TYPE)")
@@ -136,7 +136,7 @@ func runInvoke(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 	client, done := newClient(ClientConfig{Namespace: cfg.Namespace, Verbose: cfg.Verbose})
 	defer done()
 
-	// Message to send the running Function built from parameters gathered
+	// Message to send the running function built from parameters gathered
 	// from the user (or defaults)
 	m := fn.InvokeMessage{
 		ID:          cfg.ID,
@@ -259,7 +259,7 @@ func newInvokeConfig(newClient ClientFactory) (cfg invokeConfig, err error) {
 func (c invokeConfig) prompt(client *fn.Client) (invokeConfig, error) {
 	var qs []*survey.Question
 
-	// First get path to effective Function
+	// First get path to effective function
 	qs = []*survey.Question{
 		{
 			Name: "Path",
@@ -308,7 +308,7 @@ func (c invokeConfig) prompt(client *fn.Client) (invokeConfig, error) {
 		return c, err
 	}
 
-	// Prompt for the next set of values, with defaults set first by the Function
+	// Prompt for the next set of values, with defaults set first by the function
 	// as it exists on disk, followed by environment variables, and finally flags.
 	// user interactive prompts therefore are the last applied, and thus highest
 	// precidence values.

@@ -106,7 +106,7 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		return
 	}
 
-	// Check if the Function has been initialized
+	// Check if the function has been initialized
 	if !function.Initialized() {
 		return fmt.Errorf("the given path '%v' does not contain an initialized function. Please create one at this path before deploying", config.Path)
 	}
@@ -119,15 +119,15 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		}
 	}
 
-	// If the Function does not yet have an image name and one was not provided on the command line
+	// If the function does not yet have an image name and one was not provided on the command line
 	if function.Image == "" {
 		//  AND a --registry was not provided, then we need to
 		// prompt for a registry from which we can derive an image name.
 		if config.Registry == "" {
-			fmt.Println("A registry for Function images is required. For example, 'docker.io/tigerteam'.")
+			fmt.Println("A registry for function images is required. For example, 'docker.io/tigerteam'.")
 
 			err = survey.AskOne(
-				&survey.Input{Message: "Registry for Function images:"},
+				&survey.Input{Message: "Registry for function images:"},
 				&config.Registry, survey.WithValidator(ValidNamespaceAndRegistry(config.Path)))
 			if err != nil {
 				if errors.Is(err, terminal.InterruptErr) {
@@ -135,10 +135,10 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 				}
 				return
 			}
-			fmt.Println("Note: building a Function the first time will take longer than subsequent builds")
+			fmt.Println("Note: building a function the first time will take longer than subsequent builds")
 		}
 
-		// We have the registry, so let's use it to derive the Function image name
+		// We have the registry, so let's use it to derive the function image name
 		config.Image = deriveImage(config.Image, config.Registry, config.Path)
 		function.Image = config.Image
 	}
@@ -198,10 +198,10 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 
 type buildConfig struct {
 	// Image name in full, including registry, repo and tag (overrides
-	// image name derivation based on Registry and Function Name)
+	// image name derivation based on Registry and function Name)
 	Image string
 
-	// Path of the Function implementation on local disk. Defaults to current
+	// Path of the function implementation on local disk. Defaults to current
 	// working directory of the process.
 	Path string
 
