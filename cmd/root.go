@@ -98,6 +98,7 @@ EXAMPLES
 	cmd.AddCommand(NewRunCmd(newClient))
 	cmd.AddCommand(NewCompletionCmd())
 	cmd.AddCommand(NewVersionCmd(config.Version))
+	cmd.AddCommand(NewLanguagesCmd(newClient))
 
 	// Help
 	// Overridden to process the help text as a template and have

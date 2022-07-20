@@ -14,7 +14,7 @@ import (
 func NewLanguagesCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "languages",
-		Short: "Languages",
+		Short: "List available function language runtimes",
 		Long: `
 NAME
 	{{.Name}} languages - list available language runtimes.
@@ -33,7 +33,7 @@ DESCRIPTION
 
 	To specify a URI of a single, specific repository for which languages
 	should be displayed, use the --repository flag.
-	
+
 	To see templates available for a given language, see the 'templates' command.
 
 
