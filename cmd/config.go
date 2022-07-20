@@ -42,17 +42,16 @@ func (s standardLoaderSaver) Save(f fn.Function) error {
 	return f.Write()
 }
 
-var defaultLoaderSaver standardLoaderSaver
+var DefaultLoaderSaver standardLoaderSaver
 
 func NewConfigCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",
 		Short: "Configure a function",
-		Long: `Configure a function
-
-Interactive prompt that allows configuration of Volume mounts, Environment
+		Long: `
+Interactive propmt that allows configuration of Volume mounts, Environment
 variables, and Labels for a function project present in the current directory
-or from the directory specified with --path.
+or from the directory specified with ` + "`--path`" + `.
 `,
 		SuggestFor: []string{"cfg", "cofnig"},
 		PreRunE:    bindEnv("path"),
@@ -62,7 +61,7 @@ or from the directory specified with --path.
 
 	setPathFlag(cmd)
 
-	cmd.AddCommand(NewConfigLabelsCmd(defaultLoaderSaver))
+	cmd.AddCommand(NewConfigLabelsCmd(DefaultLoaderSaver))
 	cmd.AddCommand(NewConfigEnvsCmd())
 	cmd.AddCommand(NewConfigVolumesCmd())
 
@@ -71,7 +70,7 @@ or from the directory specified with --path.
 
 func runConfigCmd(cmd *cobra.Command, args []string) (err error) {
 
-	function, err := initConfigCommand(args, defaultLoaderSaver)
+	function, err := initConfigCommand(args, DefaultLoaderSaver)
 	if err != nil {
 		return
 	}
@@ -115,7 +114,7 @@ func runConfigCmd(cmd *cobra.Command, args []string) (err error) {
 		} else if answers.SelectedConfig == "Environment variables" {
 			err = runAddEnvsPrompt(cmd.Context(), function)
 		} else if answers.SelectedConfig == "Labels" {
-			err = runAddLabelsPrompt(cmd.Context(), function, defaultLoaderSaver)
+			err = runAddLabelsPrompt(cmd.Context(), function, DefaultLoaderSaver)
 		}
 	case "Remove":
 		if answers.SelectedConfig == "Volumes" {
@@ -123,7 +122,7 @@ func runConfigCmd(cmd *cobra.Command, args []string) (err error) {
 		} else if answers.SelectedConfig == "Environment variables" {
 			err = runRemoveEnvsPrompt(function)
 		} else if answers.SelectedConfig == "Labels" {
-			err = runRemoveLabelsPrompt(function, defaultLoaderSaver)
+			err = runRemoveLabelsPrompt(function, DefaultLoaderSaver)
 		}
 	case "List":
 		if answers.SelectedConfig == "Volumes" {

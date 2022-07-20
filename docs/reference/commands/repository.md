@@ -1,0 +1,179 @@
+## func repository
+
+Manage installed template repositories
+
+### Synopsis
+
+
+Manage template repositories installed on disk at either the default location
+(~/.config/func/repositories) or the location specified by the `--repository`
+flag.  Once added, a template from the repository can be used when creating
+a new Function.
+
+`func repo [-c|--confirm] [-v|--verbose]`
+
+<<<<<<< HEAD
+DESCRIPTION
+	Manage template repositories installed on disk at either the default location
+	(~/.config/func/repositories) or the location specified by the --repository
+	flag.  Once added, a template from the repository can be used when creating
+	a new function.
+=======
+`func repo list [-r|--repositories] [-c|--confirm] [-v|--verbose]`
+>>>>>>> 11afc5ae (checkpoint)
+
+`func repo add <name> <url>[-r|--repositories] [-c|--confirm] [-v|--verbose]`
+
+<<<<<<< HEAD
+	The Default Repository:
+	The default repository is not stored on disk, but embedded in the binary and
+	can be used without explicitly specifying the name.  The default repository
+	is always listed first, and is assumed when creating a new function without
+	specifying a repository name prefix.
+	For example, to create a new Go function using the 'http' template from the
+	default repository.
+		$ func create -l go -t http
+
+	The Repository Flag:
+	Installing repositories locally is optional.  To use a template from a remote
+	repository directly, it is possible to use the --repository flag on create.
+	This leaves the local disk untouched.  For example, To create a function using
+	the Boson Project Hello-World template without installing the template
+	repository locally, use the --repository (-r) flag on create:
+		$ func create -l go \
+			--template hello-world \
+			--repository https://github.com/boson-project/templates
+=======
+`func repo rename <old> <new> [-r|--repositories] [-c|--confirm] [-v|--verbose]`
+
+`func repo remove <name> [-r|--repositories] [-c|--confirm] [-v|--verbose]`
+>>>>>>> 11afc5ae (checkpoint)
+
+#### Interactive Prompts
+
+To complete these commands interactively, pass the `--confirm` (`-c`) flag to
+the 'repository' command, or any of the inidivual subcommands.
+
+#### The Default Repository
+
+The default repository is not stored on disk, but embedded in the binary and
+can be used without explicitly specifying the name.  The default repository
+is always listed first, and is assumed when creating a new Function without
+specifying a repository name prefix.
+For example, to create a new Go function using the 'http' template from the
+default repository.
+
+`$ func create -l go -t http`
+
+#### The Repository Flag
+
+<<<<<<< HEAD
+	  Once added, a function can be created with templates from the new repository
+	  by prefixing the template name with the repository.  For example, to create
+	  a new function using the Go Hello World template:
+	    $ func create -l go -t boson/hello-world
+=======
+Installing repositories locally is optional.  To use a template from a remote
+repository directly, it is possible to use the `--repository` flag on create.
+This leaves the local disk untouched.  For example, To create a Function using
+the Boson Project Hello-World template without installing the template
+repository locally, use the `--repository` (`-r`) flag on create:
+>>>>>>> 11afc5ae (checkpoint)
+
+`$ func create -l go --template hello-world --repository https://github.com/boson-project/templates`
+
+#### Alternative Repositories Location
+
+Repositories are stored on disk in ~/.config/func/repositories by default.
+This location can be altered by setting the FUNC_REPOSITORIES_PATH
+environment variable.
+
+#### Commands
+
+With no arguments, this help text is shown.  To manage repositories with
+an interactive prompt, use the use the --confirm (-c) flag.
+
+`$ func repository -c`
+
+- *add: Add a new repository to the installed set*
+
+`$ func repository add <name> <URL>`
+
+`$ func repository add boson https://github.com/boson-project/templates`
+
+Once added, a function can be created with templates from the new repository by prefixing the template name with the repository. For example, to create a new function using the Go Hello World template:
+
+`$ func create -l go -t boson/hello-world`
+
+- *list: List all available repositories, including the installed default repository.
+
+`$ func list -v`
+
+Repositories available are listed by name. To see the URL which was used to install remotes, use `--verbose` (`-v`).
+
+- *rename: Rename a previously installed repository from [old] to [new]*
+
+`$ func repository rename <name> <new name>`
+
+Only installed repositories can be renamed.
+
+- *remove: Remove a repository by name*
+
+`$ func repository remove <name>`
+
+Removes the repository from local storage entirely.  When in confirm mode (`--confirm`) it will confirm before deletion, but in regular mode this is done immediately, so please use caution, especially when using an altered repositories location (via the FUNC_REPOSITORIES_PATH environment variable).
+
+### Examples
+
+- Run in confirmation mode (interactive prompts) using the `--confirm` flag
+
+`$ func repository -c`
+
+- Add a repository and create a new function using a template from it
+
+`$ func repository add boson https://github.com/boson-project/templates`
+
+`$ func create -l go -t boson/hello-world`
+
+
+
+- List all repositories including the URL from which remotes were installed
+
+`$ func repository list -v`
+
+- Rename an installed repository
+
+`$ func repository rename boson boson-examples`
+
+- Remove an installed repository
+
+`$ func repository remove boson-examples`
+
+
+```
+func repository [flags]
+```
+
+### Options
+
+```
+  -c, --confirm   Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)
+  -h, --help      help for repository
+```
+
+### Options inherited from parent commands
+
+```
+  -n, --namespace string   The namespace on the cluster used for remote commands. By default, the namespace func.yaml is used or the currently active namespace if not set in the configuration. (Env: $FUNC_NAMESPACE)
+  -v, --verbose            Print verbose logs ($FUNC_VERBOSE)
+```
+
+### SEE ALSO
+
+* [func](func.md)	 - Serverless functions
+* [func repository add](func_repository_add.md)	 - Add a repository
+* [func repository list](func_repository_list.md)	 - List repositories
+* [func repository remove](func_repository_remove.md)	 - Remove a repository
+* [func repository rename](func_repository_rename.md)	 - Rename a repository
+
+###### Auto generated by spf13/cobra on 27-Jul-2022

@@ -20,82 +20,92 @@ func NewInvokeCmd(newClient ClientFactory) *cobra.Command {
 		Use:   "invoke",
 		Short: "Invoke a function",
 		Long: `
-NAME
-	{{.Name}} invoke - test a function by invoking it with test data
+Invokes the function by sending a test request to the currently running
+Function instance, either locally or remote.  If the function is running
+both locally and remote, the local instance will be invoked.  This behavior
+can be manually overridden using the ` + "`--target`" + ` flag.
 
-SYNOPSIS
-	{{.Name}} invoke [-t|--target] [-f|--format]
-	             [--id] [--source] [--type] [--data] [--file] [--content-type]
-	             [-s|--save] [-p|--path] [-c|--confirm] [-v|--verbose]
+Functions are invoked with a test data structure consisting of five values:
 
-DESCRIPTION
-	Invokes the function by sending a test request to the currently running
-	function instance, either locally or remote.  If the function is running
-	both locally and remote, the local instance will be invoked.  This behavior
-	can be manually overridden using the --target flag.
+	- id:            A unique identifier for the request.
+	- source:        A sender name for the request (sender).
+	- type:          A type for the request.
+	- data:          Data (content) for this request.
+	- content-type:  The MIME type of the value contained in 'data'.
 
-	Functions are invoked with a test data structure consisting of five values:
-		id:            A unique identifier for the request.
-		source:        A sender name for the request (sender).
-		type:          A type for the request.
-		data:          Data (content) for this request.
-		content-type:  The MIME type of the value contained in 'data'.
+The values of these parameters can be individually altered from their defaults
+using their associated flags. Data can also be provided from a file using the
+` + "`--file`" + ` flag.
 
-	The values of these parameters can be individually altered from their defaults
-	using their associated flags. Data can also be provided from a file using the
-	--file flag.
+### Invocation Target
 
-	Invocation Target
-	  The function instance to invoke can be specified using the --target flag
-	  which accepts the values "local", "remote", or <URL>.  By default the
-	  local function instance is chosen if running (see {{.Name}} run).
-	  To explicitly target the remote (deployed) function:
-	    {{.Name}} invoke --target=remote
-	  To target an arbitrary endpoint, provide a URL:
-	    {{.Name}} invoke --target=https://myfunction.example.com
+The function instance to invoke can be specified using the --target flag
+which accepts the values "local", "remote", or <URL>.  By default the
+local function instance is chosen if running (see {{.Name}} run).
+To explicitly target the remote (deployed) Function:
 
-	Invocation Data
-	  Providing a filename in the --file flag will base64 encode its contents
-	  as the "data" parameter sent to the function.  The value of --content-type
-	  should be set to the type from the source file.  For example, the following
-	  would send a JPEG base64 encoded in the "data" POST parameter:
-	    {{.Name}} invoke --file=example.jpeg --content-type=image/jpeg
+` + "`{{.Name}} invoke --target=remote`" + `
 
-	Message Format
-	  By default functions are sent messages which match the invocation format
-	  of the template they were created using; for example "http" or "cloudevent".
-	  To override this behavior, use the --format (-f) flag.
-	    {{.Name}} invoke -f=cloudevent -t=http://my-sink.my-cluster
+	To target an arbitrary endpoint, provide a URL:
 
-EXAMPLES
+` + "`{{.Name}} invoke --target=https://myfunction.example.com`" + `
 
-	o Invoke the default (local or remote) running function with default values
-	  $ {{.Name}} invoke
+### Invocation Data
 
-	o Run the function locally and then invoke it with a test request:
-	  (run in two terminals or by running the first in the background)
-	  $ {{.Name}} run
-	  $ {{.Name}} invoke
+Providing a filename in the ` + "`--file`" + ` flag will base64 encode its contents
+as the "data" parameter sent to the function.  The value of ` + "`--content-type`" + `
+should be set to the type from the source file.  For example, the following
+would send a JPEG base64 encoded in the "data" POST parameter:
 
-	o Deploy and then invoke the remote function:
-	  $ {{.Name}} deploy
-	  $ {{.Name}} invoke
+` + "`{{.Name}} invoke --file=example.jpeg --content-type=image/jpeg`" + `
 
-	o Invoke a remote (deployed) function when it is already running locally:
-	  (overrides the default behavior of preferring locally running instances)
-	  $ {{.Name}} invoke --target=remote
+### Message Format
 
-	o Specify the data to send to the function as a flag
-	  $ {{.Name}} invoke --data="Hello World!"
+By default functions are sent messages which match the invocation format
+of the template they were created using; for example "http" or "cloudevent".
+To override this behavior, use the --format (-f) flag.
 
-	o Send a JPEG to the function
-	  $ {{.Name}} invoke --file=example.jpeg --content-type=image/jpeg
+` + "`{{.Name}} invoke -f=cloudevent -t=http://my-sink.my-cluster`" + `
 
-	o Invoke an arbitrary endpoint (HTTP POST)
-		$ {{.Name}} invoke --target="https://my-http-handler.example.com"
+## Examples
 
-	o Invoke an arbitrary endpoint (CloudEvent)
-		$ {{.Name}} invoke -f=cloudevent -t="https://my-event-broker.example.com"
+- Invoke the default (local or remote) running function with default values
+
+` + "`$ {{.Name}} invoke`" + `
+
+- Run the function locally and then invoke it with a test request:
+	(run in two terminals or by running the first in the background)
+
+` + "`$ {{.Name}} run`" + `
+
+` + "`$ {{.Name}} invoke`" + `
+
+- Deploy and then invoke the remote function:
+
+` + "`$ {{.Name}} deploy`" + `
+
+` + "`$ {{.Name}} invoke`" + `
+
+- Invoke a remote (deployed) function when it is already running locally:
+	(overrides the default behavior of preferring locally running instances)
+
+` + "`$ {{.Name}} invoke --target=remote`" + `
+
+- Specify the data to send to the function as a flag
+
+` + "`$ {{.Name}} invoke --data=\"Hello World!\"`" + `
+
+- Send a JPEG to the function
+
+` + "`$ {{.Name}} invoke --file=example.jpeg --content-type=image/jpeg`" + `
+
+- Invoke an arbitrary endpoint (HTTP POST)
+
+` + "`$ {{.Name}} invoke --target=\"https://my-http-handler.example.com\"`" + `
+
+- Invoke an arbitrary endpoint (CloudEvent)
+
+` + "`$ {{.Name}} invoke -f=cloudevent -t=\"https://my-event-broker.example.com\"`" + `
 
 `,
 		SuggestFor: []string{"emit", "emti", "send", "emit", "exec", "nivoke", "onvoke", "unvoke", "knvoke", "imvoke", "ihvoke", "ibvoke"},

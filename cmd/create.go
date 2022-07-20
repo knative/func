@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"text/tabwriter"
-	"text/template"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/ory/viper"
@@ -28,60 +26,35 @@ type ErrInvalidTemplate error
 // NewCreateCmd creates a create command using the given client creator.
 func NewCreateCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "create",
-		Short: "Create a function project",
-		Long: `
-NAME
-	{{.Name}} create - Create a function project.
-
-SYNOPSIS
-	{{.Name}} create [-l|--language] [-t|--template] [-r|--repository]
-	            [-c|--confirm]  [-v|--verbose]  [path]
-
-DESCRIPTION
-	Creates a new function project.
-
-	  $ {{.Name}} create -l node -t http
-
-	Creates a function in the current directory '.' which is written in the
-	language/runtime 'node' and handles HTTP events.
-
-	If [path] is provided, the function is initialized at that path, creating
-	the path if necessary.
-
-	To complete this command interactively, use --confirm (-c):
-	  $ {{.Name}} create -c
-
-	Available Language Runtimes and Templates:
-{{ .Options | indent 2 " " | indent 1 "\t" }}
-
-	To install more language runtimes and their templates see '{{.Name}} repository'.
-
-
-EXAMPLES
-	o Create a Node.js function (the default language runtime) in the current
-	  directory (the default path) which handles http events (the default
-	  template).
-	  $ {{.Name}} create
-
-	o Create a Node.js function in the directory 'myfunc'.
-	  $ {{.Name}} create myfunc
-
-	o Create a Go function which handles CloudEvents in ./myfunc.
-	  $ {{.Name}} create -l go -t cloudevents myfunc
-		`,
+		Use:        "create",
+		Short:      "Create a function project",
+		Long:       createLongHelpString,
 		SuggestFor: []string{"vreate", "creaet", "craete", "new"},
 		PreRunE:    bindEnv("language", "template", "repository", "confirm"),
 	}
 
 	// Flags
-	cmd.Flags().StringP("language", "l", "", "Language Runtime (see help text for list) (Env: $FUNC_LANGUAGE)")
-	cmd.Flags().StringP("template", "t", fn.DefaultTemplate, "Function template. (see help text for list) (Env: $FUNC_TEMPLATE)")
-	cmd.Flags().StringP("repository", "r", "", "URI to a Git repository containing the specified template (Env: $FUNC_REPOSITORY)")
-	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
+	cmd.Flags().StringP("language", "l", "", "Language Runtime (see help text for list) (Env: $FUNC_LANGUAGE)\n")
+	cmd.Flags().StringP("template", "t", fn.DefaultTemplate, "Function template. (see help text for list) (Env: $FUNC_TEMPLATE)\n")
+	cmd.Flags().StringP("repository", "r", "", "URI to a Git repository containing the specified template (Env: $FUNC_REPOSITORY)\n")
+	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)\n")
 
 	// Help Action
-	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) { runCreateHelp(cmd, args, newClient) })
+	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
+		cfg, err := newCreateConfig(cmd, args, newClient)
+		if err != nil {
+			fmt.Fprintf(cmd.OutOrStderr(), "error: help text may be partial: %v", err)
+		}
+
+		// Create a new client with the provided config
+		client, done := newClient(ClientConfig{Verbose: cfg.Verbose},
+			fn.WithRepositoriesPath(cfg.RepositoriesPath),
+			fn.WithRepository(cfg.Repository))
+		defer done()
+
+		// Generate and print out help text
+		runCreateHelp(cmd, client)
+	})
 
 	// Run Action
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
@@ -137,43 +110,6 @@ func runCreate(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 	// Confirm
 	fmt.Fprintf(cmd.OutOrStderr(), "Created %v function in %v\n", cfg.Runtime, cfg.Path)
 	return nil
-}
-
-// Run Help
-func runCreateHelp(cmd *cobra.Command, args []string, newClient ClientFactory) {
-	// Error-tolerant implementataion:
-	// Help can not fail when creating the client config (such as on invalid
-	// flag values) because help text is needed in that situation.   Therefore
-	// this implementation must be resilient to cfg zero value.
-	failSoft := func(err error) {
-		if err != nil {
-			fmt.Fprintf(cmd.OutOrStderr(), "error: help text may be partial: %v", err)
-		}
-	}
-
-	tpl := createHelpTemplate(cmd)
-
-	cfg, err := newCreateConfig(cmd, args, newClient)
-	failSoft(err)
-
-	client, done := newClient(ClientConfig{Verbose: cfg.Verbose},
-		fn.WithRepositoriesPath(cfg.RepositoriesPath),
-		fn.WithRepository(cfg.Repository))
-	defer done()
-
-	options, err := runtimeTemplateOptions(client) // human-friendly
-	failSoft(err)
-
-	var data = struct {
-		Options string
-		Name    string
-	}{
-		Options: options,
-		Name:    cmd.Root().Use,
-	}
-	if err := tpl.Execute(cmd.OutOrStdout(), data); err != nil {
-		fmt.Fprintf(cmd.ErrOrStderr(), "unable to display help text: %v", err)
-	}
 }
 
 type createConfig struct {
@@ -539,48 +475,4 @@ func templatesWithPrefix(prefix, runtime string, client *fn.Client) ([]string, e
 		}
 	}
 	return suggestions, nil
-}
-
-// Template Helpers
-// ---------------
-
-// createHelpTemplate is the template for the create command help
-func createHelpTemplate(cmd *cobra.Command) *template.Template {
-	body := cmd.Long + "\n\n" + cmd.UsageString()
-	t := template.New("help")
-	fm := template.FuncMap{
-		"indent": func(i int, c string, v string) string {
-			indentation := strings.Repeat(c, i)
-			return indentation + strings.Replace(v, "\n", "\n"+indentation, -1)
-		},
-	}
-	t.Funcs(fm)
-	return template.Must(t.Parse(body))
-}
-
-// runtimeTemplateOptions is a human-friendly table of valid Language Runtime
-// to Template combinations.
-func runtimeTemplateOptions(client *fn.Client) (string, error) {
-	runtimes, err := client.Runtimes()
-	if err != nil {
-		return "", err
-	}
-	builder := strings.Builder{}
-	writer := tabwriter.NewWriter(&builder, 0, 0, 3, ' ', 0)
-
-	fmt.Fprint(writer, "Language\tTemplate\n")
-	fmt.Fprint(writer, "--------\t--------\n")
-	for _, r := range runtimes {
-		templates, err := client.Templates().List(r)
-		// Not all language packs will have templates for
-		// all available runtimes. Without this check
-		if err != nil && !errors.Is(err, fn.ErrTemplateNotFound) {
-			return "", err
-		}
-		for _, t := range templates {
-			fmt.Fprintf(writer, "%v\t%v\n", r, t) // write tabbed
-		}
-	}
-	writer.Flush()
-	return builder.String(), nil
 }

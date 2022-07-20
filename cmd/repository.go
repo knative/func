@@ -21,26 +21,26 @@ func NewRepositoryCmd(newClient ClientFactory) *cobra.Command {
 		Use:     "repository",
 		Aliases: []string{"repo", "repositories"},
 		Long: `
-NAME
-	{{.Name}} - Manage set of installed repositories.
+Manage template repositories installed on disk at either the default location
+(~/.config/func/repositories) or the location specified by the ` + "`--repository`" + `
+flag.  Once added, a template from the repository can be used when creating
+a new Function.
 
-SYNOPSIS
-	{{.Name}} repo [-c|--confirm] [-v|--verbose]
-	{{.Name}} repo list [-r|--repositories] [-c|--confirm] [-v|--verbose]
-	{{.Name}} repo add <name> <url>[-r|--repositories] [-c|--confirm] [-v|--verbose]
-	{{.Name}} repo rename <old> <new> [-r|--repositories] [-c|--confirm] [-v|--verbose]
-	{{.Name}} repo remove <name> [-r|--repositories] [-c|--confirm] [-v|--verbose]
+` + "`{{.Name}} repo [-c|--confirm] [-v|--verbose]`" + `
 
+<<<<<<< HEAD
 DESCRIPTION
 	Manage template repositories installed on disk at either the default location
 	(~/.config/func/repositories) or the location specified by the --repository
 	flag.  Once added, a template from the repository can be used when creating
 	a new function.
+=======
+` + "`{{.Name}} repo list [-r|--repositories] [-c|--confirm] [-v|--verbose]`" + `
+>>>>>>> 11afc5ae (checkpoint)
 
-	Interactive Prompts:
-	To complete these commands interactively, pass the --confirm (-c) flag to
-	the 'repository' command, or any of the inidivual subcommands.
+` + "`{{.Name}} repo add <name> <url>[-r|--repositories] [-c|--confirm] [-v|--verbose]`" + `
 
+<<<<<<< HEAD
 	The Default Repository:
 	The default repository is not stored on disk, but embedded in the binary and
 	can be used without explicitly specifying the name.  The default repository
@@ -59,82 +59,110 @@ DESCRIPTION
 		$ {{.Name}} create -l go \
 			--template hello-world \
 			--repository https://github.com/boson-project/templates
+=======
+` + "`{{.Name}} repo rename <old> <new> [-r|--repositories] [-c|--confirm] [-v|--verbose]`" + `
 
-	Alternative Repositories Location:
-	Repositories are stored on disk in ~/.config/func/repositories by default.
-	This location can be altered by setting the FUNC_REPOSITORIES_PATH
-	environment variable.
+` + "`{{.Name}} repo remove <name> [-r|--repositories] [-c|--confirm] [-v|--verbose]`" + `
+>>>>>>> 11afc5ae (checkpoint)
 
+#### Interactive Prompts
 
-COMMANDS
+To complete these commands interactively, pass the ` + "`--confirm` (`-c`)" + ` flag to
+the 'repository' command, or any of the inidivual subcommands.
 
-	With no arguments, this help text is shown.  To manage repositories with
-	an interactive prompt, use the use the --confirm (-c) flag.
-	  $ {{.Name}} repository -c
+#### The Default Repository
 
-	add
-	  Add a new repository to the installed set.
-	    $ {{.Name}} repository add <name> <URL>
+The default repository is not stored on disk, but embedded in the binary and
+can be used without explicitly specifying the name.  The default repository
+is always listed first, and is assumed when creating a new Function without
+specifying a repository name prefix.
+For example, to create a new Go function using the 'http' template from the
+default repository.
 
-	  For Example, to add the Boson Project repository:
-	    $ {{.Name}} repository add boson https://github.com/boson-project/templates
+` + "`$ {{.Name}} create -l go -t http`" + `
 
+#### The Repository Flag
+
+<<<<<<< HEAD
 	  Once added, a function can be created with templates from the new repository
 	  by prefixing the template name with the repository.  For example, to create
 	  a new function using the Go Hello World template:
 	    $ {{.Name}} create -l go -t boson/hello-world
+=======
+Installing repositories locally is optional.  To use a template from a remote
+repository directly, it is possible to use the ` + "`--repository`" + ` flag on create.
+This leaves the local disk untouched.  For example, To create a Function using
+the Boson Project Hello-World template without installing the template
+repository locally, use the ` + "`--repository` (`-r`)" + ` flag on create:
+>>>>>>> 11afc5ae (checkpoint)
 
-	list
-	  List all available repositories, including the installed default
-	  repository.  Repositories available are listed by name.  To see the URL
-	  which was used to install remotes, use --verbose (-v).
+` + "`$ {{.Name}} create -l go --template hello-world --repository https://github.com/boson-project/templates`" + `
 
-	rename
-	  Rename a previously installed repository from <old> to <new>. Only installed
-	  repositories can be renamed.
-	    $ {{.Name}} repository rename <name> <new name>
+#### Alternative Repositories Location
 
-	remove
-	  Remove a repository by name.  Removes the repository from local storage
-	  entirely.  When in confirm mode (--confirm) it will confirm before
-	  deletion, but in regular mode this is done immediately, so please use
-	  caution, especially when using an altered repositories location
-	  (via the FUNC_REPOSITORIES_PATH environment variable).
-	    $ {{.Name}} repository remove <name>
+Repositories are stored on disk in ~/.config/func/repositories by default.
+This location can be altered by setting the FUNC_REPOSITORIES_PATH
+environment variable.
 
-EXAMPLES
-	o Run in confirmation mode (interactive prompts) using the --confirm flag
-	  $ {{.Name}} repository -c
+#### Commands
 
-	o Add a repository and create a new function using a template from it:
-	  $ {{.Name}} repository add boson https://github.com/boson-project/templates
-	  $ {{.Name}} repository list
-	  default
-	  boson
-	  $ {{.Name}} create -l go -t boson/hello-world
-	  ...
+With no arguments, this help text is shown.  To manage repositories with
+an interactive prompt, use the use the --confirm (-c) flag.
 
-	o List all repositories including the URL from which remotes were installed
-	  $ {{.Name}} repository list -v
-	  default
-	  boson	https://github.com/boson-project/templates
+` + "`$ {{.Name}} repository -c`" + `
 
-	o Rename an installed repository
-	  $ {{.Name}} repository list
-	  default
-	  boson
-	  $ {{.Name}} repository rename boson boson-examples
-	  $ {{.Name}} repository list
-	  default
-	  boson-examples
+- *add: Add a new repository to the installed set*
 
-	o Remove an installed repository
-	  $ {{.Name}} repository list
-	  default
-	  boson-examples
-	  $ {{.Name}} repository remove boson-examples
-	  $ {{.Name}} repository list
-	  default
+` + "`$ {{.Name}} repository add <name> <URL>`" + `
+
+` + "`$ {{.Name}} repository add boson https://github.com/boson-project/templates`" + `
+
+Once added, a function can be created with templates from the new repository by prefixing the template name with the repository. For example, to create a new function using the Go Hello World template:
+
+` + "`$ {{.Name}} create -l go -t boson/hello-world`" + `
+
+- *list: List all available repositories, including the installed default repository.
+
+` + "`$ {{.Name}} list -v`" + `
+
+Repositories available are listed by name. To see the URL which was used to install remotes, use ` + "`--verbose` (`-v`)" + `.
+
+- *rename: Rename a previously installed repository from [old] to [new]*
+
+` + "`$ {{.Name}} repository rename <name> <new name>`" + `
+
+Only installed repositories can be renamed.
+
+- *remove: Remove a repository by name*
+
+` + "`$ {{.Name}} repository remove <name>`" + `
+
+Removes the repository from local storage entirely.  When in confirm mode (` + "`--confirm`" + `) it will confirm before deletion, but in regular mode this is done immediately, so please use caution, especially when using an altered repositories location (via the FUNC_REPOSITORIES_PATH environment variable).
+
+### Examples
+
+- Run in confirmation mode (interactive prompts) using the ` + "`--confirm`" + ` flag
+
+` + "`$ {{.Name}} repository -c`" + `
+
+- Add a repository and create a new function using a template from it
+
+` +
+			"`$ {{.Name}} repository add boson https://github.com/boson-project/templates`\n\n" +
+			"`$ {{.Name}} create -l go -t boson/hello-world`\n\n" +
+			`
+
+- List all repositories including the URL from which remotes were installed
+
+` + "`$ {{.Name}} repository list -v`" + `
+
+- Rename an installed repository
+
+` + "`$ {{.Name}} repository rename boson boson-examples`" + `
+
+- Remove an installed repository
+
+` + "`$ {{.Name}} repository remove boson-examples`" + `
 `,
 		SuggestFor: []string{"repositories", "repos", "template", "templates", "pack", "packs"},
 		PreRunE:    bindEnv("confirm"),

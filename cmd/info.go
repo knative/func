@@ -18,17 +18,19 @@ func NewInfoCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "info <name>",
 		Short: "Show details of a function",
-		Long: `Show details of a function
-
+		Long: `
 Prints the name, route and any event subscriptions for a deployed function in
-the current directory or from the directory specified with --path.
-`,
-		Example: `
-# Show the details of a function as declared in the local func.yaml
-{{.Name}} info
+the current directory or from the directory specified with ` + "`--path`" + `.
 
-# Show the details of the function in the myotherfunc directory with yaml output
-{{.Name}} info --output yaml --path myotherfunc
+### Example
+
+Show the details of a function as declared in the local func.yaml
+
+` + "`{{.Name}} info`" + `
+
+Show the details of the function in the myotherfunc directory with yaml output
+
+` + "`{{.Name}} info --output yaml --path myotherfunc`" + `
 `,
 		SuggestFor:        []string{"ifno", "describe", "fino", "get"},
 		ValidArgsFunction: CompleteFunctionList,

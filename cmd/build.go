@@ -19,31 +19,36 @@ func NewBuildCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "build",
 		Short: "Build a function project as a container image",
-		Long: `Build a function project as a container image
-
+		Long: `
 This command builds the function project in the current directory or in the directory
-specified by --path. The result will be a container image that is pushed to a registry.
-The func.yaml file is read to determine the image name and registry. 
-If the project has not already been built, either --registry or --image must be provided 
+specified by ` + "`--path`" + `. The result will be a container image that is pushed to a registry.
+The func.yaml file is read to determine the image name and registry.
+If the project has not already been built, either ` + "`--registry` or `--image`" + ` must be provided
 and the image name is stored in the configuration file.
-`,
-		Example: `
-# Build from the local directory, using the given registry as target.
-# The full image name will be determined automatically based on the
-# project directory name
-{{.Name}} build --registry quay.io/myuser
 
-# Build from the local directory, specifying the full image name
-{{.Name}} build --image quay.io/myuser/myfunc
+### Example:
 
-# Re-build, picking up a previously supplied image name from a local func.yml
-{{.Name}} build
+Build from the local directory, using the given registry as target.
+The full image name will be determined automatically based on the
+project directory name
 
-# Build using s2i instead of Buildpacks
-{{.Name}} build --builder=s2i
+` + "`{{.Name}} build --registry quay.io/myuser`" + `
 
-# Build with a custom buildpack builder
-{{.Name}} build --builder=pack --builder-image cnbs/sample-builder:bionic
+Build from the local directory, specifying the full image name
+
+` + "`{{.Name}} build --image quay.io/myuser/myfunc`" + `
+
+Re-build, picking up a previously supplied image name from a local func.yml
+
+` + "`{{.Name}} build`" + `
+
+Build using s2i instead of Buildpacks
+
+` + "`{{.Name}} build --builder=s2i`" + `
+
+Build with a custom buildpack builder
+
+` + "`{{.Name}} build --builder=pack --builder-image cnbs/sample-builder:bionic`" + `
 `,
 		SuggestFor: []string{"biuld", "buidl", "built"},
 		PreRunE:    bindEnv("image", "path", "builder", "registry", "confirm", "push", "builder-image", "platform"),

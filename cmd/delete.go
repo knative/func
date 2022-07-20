@@ -15,20 +15,22 @@ func NewDeleteCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete [NAME]",
 		Short: "Undeploy a function",
-		Long: `Undeploy a function
-
-This command undeploys a function from the cluster. By default the function from 
-the project in the current directory is undeployed. Alternatively either the name 
-of the function can be given as argument or the project path provided with --path.
+		Long: `
+This command undeploys a function from the cluster. By default the function from
+the project in the current directory is undeployed. Alternatively either the name
+of the function can be given as argument or the project path provided with ` + "`--path`" + `.
 
 No local files are deleted.
-`,
-		Example: `
-# Undeploy the function defined in the local directory
-{{.Name}} delete
 
-# Undeploy the function 'myfunc' in namespace 'apps'
-{{.Name}} delete -n apps myfunc
+### Example
+
+Undeploy the function defined in the local directory
+
+` + "`{{.Name}} delete`" + `
+
+Undeploy the function 'myfunc' in namespace 'apps'
+
+` + "`{{.Name}} delete -n apps myfunc`" + `
 `,
 		SuggestFor:        []string{"remove", "rm", "del"},
 		ValidArgsFunction: CompleteFunctionList,

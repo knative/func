@@ -14,14 +14,17 @@ func NewCompletionCmd() *cobra.Command {
 		Long: `To load completion run
 
 For zsh:
-source <(func completion zsh)
+
+` + "`source <(func completion zsh)`" + `
 
 If you would like to use alias:
-alias f=func
-compdef _func f
+
+` + "`alias f=func`" + `
+` + "`compdef _func f`" + `
 
 For bash:
-source <(func completion bash)
+
+` + "`source <(func completion bash)`" + `
 
 `,
 		ValidArgs: []string{"bash", "zsh", "fish"},

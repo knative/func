@@ -20,19 +20,22 @@ func NewListCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List functions",
-		Long: `List functions
-
+		Long: `
 Lists all deployed functions in a given namespace.
-`,
-		Example: `
-# List all functions in the current namespace with human readable output
-{{.Name}} list
 
-# List all functions in the 'test' namespace with yaml output
-{{.Name}} list --namespace test --output yaml
+### Examples
 
-# List all functions in all namespaces with JSON output
-{{.Name}} list --all-namespaces --output json
+- List all functions in the current namespace with human readable output
+
+` + "`{{.Name}} list`" + `
+
+List all functions in the 'test' namespace with yaml output
+
+` + "`{{.Name}} list --namespace test --output yaml`" + `
+
+List all functions in all namespaces with JSON output
+
+` + "`{{.Name}} list --all-namespaces --output json`" + `
 `,
 		SuggestFor: []string{"ls", "lsit"},
 		PreRunE:    bindEnv("all-namespaces", "output"),

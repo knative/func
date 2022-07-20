@@ -16,37 +16,31 @@ func NewLanguagesCmd(newClient ClientFactory) *cobra.Command {
 		Use:   "languages",
 		Short: "List available function language runtimes",
 		Long: `
-NAME
-	{{.Name}} languages - list available language runtimes.
+This includes embedded (included) language runtimes as well as any installed
+via the 'repositories add' command.
 
-SYNOPSIS
-	{{.Name}} languages [--json] [-r|--repository]
+Installed repositories are by default located at ~/.func/repositories
+($XDG_CONFIG_HOME/.func/repositories).  This can be overridden with
+$FUNC_REPOSITORIES_PATH.
 
-DESCRIPTION
-	List the language runtimes that are currently available.
-	This includes embedded (included) language runtimes as well as any installed
-	via the 'repositories add' command.
+To specify a URI of a single, specific repository for which languages
+should be displayed, use the ` + "`--repository`" + ` flag.
 
-	Installed repositories are by default located at ~/.func/repositories
-	($XDG_CONFIG_HOME/.func/repositories).  This can be overridden with
-	$FUNC_REPOSITORIES_PATH.
+To see templates available for a given language, see the 'templates' command.
 
-	To specify a URI of a single, specific repository for which languages
-	should be displayed, use the --repository flag.
+### Examples
 
-	To see templates available for a given language, see the 'templates' command.
+- Show a list of all available language runtimes
 
+` + "`$ {{.Name}} languages`" + `
 
-EXAMPLES
+- Return a list of all language runtimes in JSON
 
-	o Show a list of all available language runtimes
-	  $ {{.Name}} languages
+` + "`$ {{.Name}} languages --json`" + `
 
-	o Return a list of all language runtimes in JSON
-	  $ {{.Name}} languages --json
+- Return language runtimes in a specific repository
 
-	o Return language runtimes in a specific repository
-		$ {{.Name}} languages --repository=https://github.com/boson-project/func-templates
+` + "`$ {{.Name}} languages --repository=https://github.com/boson-project/func-templates`" + `
 `,
 		SuggestFor: []string{"language", "runtime", "runtimes", "lnaguages", "languagse",
 			"panguages", "manguages", "kanguages", "lsnguages", "lznguages"},

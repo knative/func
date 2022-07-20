@@ -8,6 +8,7 @@ require (
 	github.com/Netflix/go-expect v0.0.0-20210722184520-ef0bf57d82b3
 	github.com/alecthomas/jsonschema v0.0.0-20210526225647-edb03dcab7bc
 	github.com/buildpacks/pack v0.24.0
+	github.com/charmbracelet/glamour v0.5.0
 	github.com/cloudevents/sdk-go/v2 v2.8.0
 	github.com/containerd/containerd v1.6.6
 	github.com/containers/image/v5 v5.19.1
@@ -27,7 +28,7 @@ require (
 	github.com/openshift/source-to-image v1.3.1
 	github.com/ory/viper v1.7.5
 	github.com/pkg/errors v0.9.1
-	github.com/spf13/cobra v1.3.0
+	github.com/spf13/cobra v1.5.0
 	github.com/tektoncd/cli v0.23.1
 	github.com/tektoncd/pipeline v0.34.1
 	github.com/whilp/git-urls v1.0.0

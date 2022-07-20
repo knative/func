@@ -1,14 +1,17 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"text/template"
 
+	"github.com/charmbracelet/glamour"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
+	"github.com/spf13/cobra/doc"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/client/pkg/util"
 	fn "knative.dev/kn-plugin-func"
@@ -114,11 +117,6 @@ EXAMPLES
 }
 
 func runRootHelp(cmd *cobra.Command, args []string, version Version) {
-	var (
-		body = cmd.Long + "\n\n" + cmd.UsageString()
-		t    = template.New("root")
-		tpl  = template.Must(t.Parse(body))
-	)
 	var data = struct {
 		Name    string
 		Version Version
@@ -127,9 +125,21 @@ func runRootHelp(cmd *cobra.Command, args []string, version Version) {
 		Version: version,
 	}
 
-	if err := tpl.Execute(cmd.OutOrStdout(), data); err != nil {
+	// generate markdown
+	out := new(bytes.Buffer)
+	doc.GenMarkdown(cmd, out)
+
+	// create the template
+	t := template.New("root")
+	tpl := template.Must(t.Parse(out.String()))
+
+	// execute the template
+	templated := new(bytes.Buffer)
+	if err := tpl.Execute(templated, data); err != nil {
 		fmt.Fprintf(cmd.ErrOrStderr(), "unable to display help text: %v", err)
 	}
+
+	renderAndPrintHelp(cmd, templated.String())
 }
 
 // Helpers
@@ -447,17 +457,49 @@ func surveySelectDefault(value string, options []string) string {
 }
 
 // defaultTemplatedHelp evaluates the given command's help text as a template
+// and renders the markdown for CLI
 // some commands define their own help command when additional values are
 // required beyond these basics.
 func defaultTemplatedHelp(cmd *cobra.Command, args []string) {
-	var (
-		body = cmd.Long + "\n\n" + cmd.UsageString()
-		t    = template.New("help")
-		tpl  = template.Must(t.Parse(body))
-	)
+	renderAndPrintHelp(cmd, HelpTemplateFor(cmd, args))
+}
+
+func HelpTemplateFor(cmd *cobra.Command, args []string) string {
+	if cmd.Name() == "create" {
+		// Create a new client with the provided config
+		client, done := NewClient(ClientConfig{})
+		defer done()
+		return CreateHelp(cmd, client)
+	}
 	var data = struct{ Name string }{Name: cmd.Root().Use}
 
-	if err := tpl.Execute(cmd.OutOrStdout(), data); err != nil {
+	// generate markdown text
+	out := new(bytes.Buffer)
+	doc.GenMarkdown(cmd, out)
+
+	// create the template
+	t := template.New("help")
+	tpl := template.Must(t.Parse(out.String()))
+
+	// execute the template
+	templated := new(bytes.Buffer)
+	if err := tpl.Execute(templated, data); err != nil {
 		fmt.Fprintf(cmd.ErrOrStderr(), "unable to display help text: %v", err)
 	}
+	return templated.String()
+}
+
+func renderAndPrintHelp(cmd *cobra.Command, out string) {
+	// configure markdown renderer
+	r, _ := glamour.NewTermRenderer(
+		// detect background color and pick either the default dark or light theme
+		glamour.WithAutoStyle(),
+	)
+
+	// render the markdown template for the CLI
+	rendered, err := r.Render(out)
+	failSoftFor(cmd)(err)
+
+	// print the rendered help text to the command stdout
+	fmt.Fprint(cmd.OutOrStdout(), rendered)
 }

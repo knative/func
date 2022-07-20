@@ -19,15 +19,14 @@ func NewConfigEnvsCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "envs",
 		Short: "List and manage configured environment variable for a function",
-		Long: `List and manage configured environment variable for a function
-
+		Long: `
 Prints configured Environment variable for a function project present in
-the current directory or from the directory specified with --path.
+the current directory or from the directory specified with ` + "`--path`" + `.
 `,
 		SuggestFor: []string{"ensv", "env"},
 		PreRunE:    bindEnv("path"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			function, err := initConfigCommand(args, defaultLoaderSaver)
+			function, err := initConfigCommand(args, DefaultLoaderSaver)
 			if err != nil {
 				return
 			}
@@ -66,7 +65,7 @@ from an environment variable on the local machine or from Secrets and ConfigMaps
 		SuggestFor: []string{"ad", "create", "insert", "append"},
 		PreRunE:    bindEnv("path"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			function, err := initConfigCommand(args, defaultLoaderSaver)
+			function, err := initConfigCommand(args, DefaultLoaderSaver)
 			if err != nil {
 				return
 			}
@@ -90,7 +89,7 @@ in the current directory or from the directory specified with --path.
 		SuggestFor: []string{"rm", "del", "delete", "rmeove"},
 		PreRunE:    bindEnv("path"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			function, err := initConfigCommand(args, defaultLoaderSaver)
+			function, err := initConfigCommand(args, DefaultLoaderSaver)
 			if err != nil {
 				return
 			}

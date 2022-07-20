@@ -17,29 +17,32 @@ func NewRunCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "run",
 		Short: "Run the function locally",
-		Long: `Run the function locally
-
+		Long: `
 Runs the function locally in the current directory or in the directory
-specified by --path flag.
+specified by ` + "`--path`" + ` flag.
 
-Building
+### Building
+
 By default the function will be built if never built, or if changes are detected
-to the function's source.  Use --build to override this behavior.
+to the function's source.  Use ` + "`--build`" + ` to override this behavior.
 
-`,
-		Example: `
-# Run the function locally, building if necessary
-{{.Name}} run
+### Example
 
-# Run the function, forcing a rebuild of the image.
-#   This is useful when the function's image was manually deleted, necessitating
-#   A rebuild even when no changes have been made the function's source.
-{{.Name}} run --build
+Run the function locally, building if necessary
 
-# Run the function's existing image, disabling auto-build.
-#   This is useful when filesystem changes have been made, but one wishes to
-#   run the previously built image without rebuilding.
-{{.Name}} run --build=false
+` + "`{{.Name}} run`" + `
+
+Run the function, forcing a rebuild of the image.
+This is useful when the function's image was manually deleted, necessitating
+A rebuild even when no changes have been made the function's source.
+
+` + "`{{.Name}} run --build`" + `
+
+Run the function's existing image, disabling auto-build.
+This is useful when filesystem changes have been made, but one wishes to
+run the previously built image without rebuilding.
+
+` + "`{{.Name}} run --build=false`" + `
 
 `,
 		SuggestFor: []string{"rnu"},

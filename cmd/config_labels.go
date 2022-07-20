@@ -17,10 +17,8 @@ func NewConfigLabelsCmd(loaderSaver functionLoaderSaver) *cobra.Command {
 	var configLabelsCmd = &cobra.Command{
 		Use:   "labels",
 		Short: "List and manage configured labels for a function",
-		Long: `List and manage configured labels for a function
-
-Prints configured labels for a function project present in
-the current directory or from the directory specified with --path.
+		Long: `Prints configured labels for a function project present in
+the current directory or from the directory specified with ` + "`--path`" + `.
 `,
 		SuggestFor: []string{"albels", "abels", "label"},
 		PreRunE:    bindEnv("path"),
