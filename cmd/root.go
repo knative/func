@@ -209,7 +209,7 @@ func deriveName(explicitName string, path string) string {
 		return explicitName
 	}
 
-	// If the directory at path contains an initialized fnction, use the name therein
+	// If the directory at path contains an initialized function, use the name therein
 	f, err := fn.NewFunction(path)
 	if err == nil && f.Name != "" {
 		return f.Name

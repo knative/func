@@ -35,7 +35,7 @@ DESCRIPTION
 	both locally and remote, the local instance will be invoked.  This behavior
 	can be manually overridden using the --target flag.
 
-	functions are invoked with a test data structure consisting of five values:
+	Functions are invoked with a test data structure consisting of five values:
 		id:            A unique identifier for the request.
 		source:        A sender name for the request (sender).
 		type:          A type for the request.
