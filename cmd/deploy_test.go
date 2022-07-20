@@ -101,6 +101,8 @@ created: 2009-11-10 23:00:00`,
 			errString: "remote git arguments require the --build=git flag",
 		},
 	}
+
+	defer WithEnvVar(t, "KUBECONFIG", fmt.Sprintf("%s/testdata/kubeconfig_deploy_namespace", cwd()))()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var captureFn fn.Function
@@ -138,7 +140,7 @@ created: 2009-11-10 23:00:00`,
 				t.Fatal(err)
 			}
 
-			ctx := context.TODO()
+			ctx := context.Background()
 
 			_, err := cmd.ExecuteContextC(ctx)
 			if err != nil {
@@ -229,6 +231,8 @@ runtime: go`,
 runtime: go`,
 		},
 	}
+
+	defer WithEnvVar(t, "KUBECONFIG", fmt.Sprintf("%s/testdata/kubeconfig_deploy_namespace", cwd()))()
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			deployer := mock.NewDeployer()
@@ -259,7 +263,7 @@ runtime: go`,
 				t.Fatal(err)
 			}
 
-			ctx := context.TODO()
+			ctx := context.Background()
 
 			_, err := cmd.ExecuteContextC(ctx)
 			if err != nil {
@@ -275,4 +279,89 @@ runtime: go`,
 // the Function by default, and is able to be overridden by flags/env vars.
 func TestDeploy_BuilderPersistence(t *testing.T) {
 	testBuilderPersistence(t, "docker.io/tigerteam", NewDeployCmd)
+}
+
+func Test_namespaceCheck(t *testing.T) {
+	tests := []struct {
+		name      string
+		registry  string
+		namespace string
+		funcFile  string
+		expectNS  string
+	}{
+		{
+			name:     "first deployment(no ns in func.yaml), not given via cli, expect write in func.yaml",
+			registry: "docker.io/4141gauron3268",
+			expectNS: "test-ns-deploy",
+			funcFile: `name: test-func
+runtime: go`,
+		},
+		{
+			name:     "ns in func.yaml, not given via cli, current ns matches func.yaml",
+			registry: "docker.io/4141gauron3268",
+			expectNS: "test-ns-deploy",
+			funcFile: `name: test-func
+namespace: "test-ns-deploy"
+runtime: go`,
+		},
+		{
+			name:      "ns in func.yaml, given via cli (always override)",
+			namespace: "test-ns-deploy",
+			expectNS:  "test-ns-deploy",
+			registry:  "docker.io/4141gauron3268",
+			funcFile: `name: test-func
+namespace: "non-default"
+runtime: go`,
+		},
+		{
+			name:     "ns in func.yaml, not given via cli, current ns does NOT match func.yaml",
+			registry: "docker.io/4141gauron3268",
+			expectNS: "non-default",
+			funcFile: `name: test-func
+namespace: "non-default"
+runtime: go`,
+		},
+	}
+
+	// create mock kubeconfig with set namespace as 'default'
+	defer WithEnvVar(t, "KUBECONFIG", fmt.Sprintf("%s/testdata/kubeconfig_deploy_namespace", cwd()))()
+
+	for _, tt := range tests {
+
+		t.Run(tt.name, func(t *testing.T) {
+			deployer := mock.NewDeployer()
+			defer Fromtemp(t)()
+			cmd := NewDeployCmd(NewClientFactory(func() *fn.Client {
+				return fn.New(
+					fn.WithDeployer(deployer))
+			}))
+
+			// set namespace argument if given & reset after
+			cmd.SetArgs([]string{}) // Do not use test command args
+			viper.SetDefault("namespace", tt.namespace)
+			viper.SetDefault("registry", tt.registry)
+			defer viper.Reset()
+
+			// set test case's func.yaml
+			if err := os.WriteFile("func.yaml", []byte(tt.funcFile), os.ModePerm); err != nil {
+				t.Fatal(err)
+			}
+
+			ctx := context.Background()
+
+			_, err := cmd.ExecuteContextC(ctx)
+			if err != nil {
+				t.Fatalf("Got error '%s' but expected success", err)
+			}
+
+			fileFunction, err := fn.NewFunction(".")
+			if err != nil {
+				t.Fatalf("problem creating function: %v", err)
+			}
+
+			if fileFunction.Namespace != tt.expectNS {
+				t.Fatalf("Expected namespace '%s' but function has '%s' namespace", tt.expectNS, fileFunction.Namespace)
+			}
+		})
+	}
 }
