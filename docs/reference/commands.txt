@@ -309,7 +309,7 @@ Flags:
   -d, --git-dir string         Directory in the repo where the function is located (Env: $FUNC_GIT_DIR)
   -g, --git-url string         Repo url to push the code to be built (Env: $FUNC_GIT_URL)
   -h, --help                   help for deploy
-  -i, --image string           Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE)
+  -i, --image string           Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. (Env: $FUNC_IMAGE)
   -p, --path string            Path to the project directory (Env: $FUNC_PATH) (default "/Users/lball/src/github.com/knative-sandbox/kn-plugin-func")
       --platform string        Target platform to build (e.g. linux/amd64).
   -u, --push                   Attempt to push the function image to registry before deploying (Env: $FUNC_PUSH) (default true)
@@ -356,7 +356,7 @@ INVOKE
 
 
 NAME
-	func invoke - Invoke a Function.
+	func invoke - test a Function by invoking it with test data
 
 SYNOPSIS
 	func invoke [-t|--target] [-f|--format]
@@ -444,7 +444,7 @@ Flags:
       --file string           Path to a file to use as data. Overrides --data flag and should be sent with a correct --content-type. (Env: $FUNC_FILE)
   -f, --format string         Format of message to send, 'http' or 'cloudevent'.  Default is to choose automatically. (Env: $FUNC_FORMAT)
   -h, --help                  help for invoke
-      --id string             ID for the request data. (Env: $FUNC_ID) (default "94ec3f4c-21a2-42ef-97c0-a40fb888460a")
+      --id string             ID for the request data. (Env: $FUNC_ID) (default "11f9c29a-9667-4aa3-a2da-3b7cf6ac8a69")
   -p, --path string           Path to the Function which should have its instance invoked. (Env: $FUNC_PATH) (default "/Users/lball/src/github.com/knative-sandbox/kn-plugin-func")
       --source string         Source value for the request data. (Env: $FUNC_SOURCE) (default "/boson/fn")
   -t, --target string         Function instance to invoke.  Can be 'local', 'remote' or a URL.  Defaults to auto-discovery if not provided. (Env: $FUNC_TARGET)
