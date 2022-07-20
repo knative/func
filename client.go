@@ -608,7 +608,8 @@ func ensureRuntimeDir(f Function) error {
 // not contain a populated Image.
 func (c *Client) Build(ctx context.Context, path string) (err error) {
 	c.progressListener.Increment("Building function image")
-
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	// If not logging verbosely, the ongoing progress of the build will not
 	// be streaming to stdout, and the lack of activity has been seen to cause
 	// users to prematurely exit due to the sluggishness of pulling large images
