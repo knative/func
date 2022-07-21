@@ -49,7 +49,7 @@ DESCRIPTION
 	If [path] is provided, the function is initialized at that path, creating
 	the path if necessary.
 
-	To complete this command interactivly, use --confirm (-c):
+	To complete this command interactively, use --confirm (-c):
 	  $ {{.Name}} create -c
 
 	Available Language Runtimes and Templates:
