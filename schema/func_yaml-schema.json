@@ -89,6 +89,10 @@
 					"type": "array"
 				},
 				"builder": {
+					"enum": [
+						"pack",
+						"s2i"
+					],
 					"type": "string"
 				},
 				"volumes": {

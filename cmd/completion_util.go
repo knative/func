@@ -135,14 +135,6 @@ func CompleteDeployBuildType(cmd *cobra.Command, args []string, complete string)
 	return
 }
 
-func CompleteBuildStrategyList(cmd *cobra.Command, args []string, complete string) ([]string, cobra.ShellCompDirective) {
-	if len(complete) >= 1 {
-		if strings.HasPrefix("pack", complete) {
-			return []string{"pack"}, cobra.ShellCompDirectiveNoFileComp
-		}
-		if strings.HasPrefix("s2i", complete) {
-			return []string{"s2i"}, cobra.ShellCompDirectiveNoFileComp
-		}
-	}
-	return []string{"pack", "s2i"}, cobra.ShellCompDirectiveNoFileComp
+func CompleteBuildersList(cmd *cobra.Command, args []string, complete string) ([]string, cobra.ShellCompDirective) {
+	return fn.AllBuilders(), cobra.ShellCompDirectiveNoFileComp
 }
