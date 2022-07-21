@@ -106,7 +106,7 @@ EXAMPLES
 	// Flags
 	cmd.Flags().StringP("path", "p", cwd(), "Path to the function which should have its instance invoked. (Env: $FUNC_PATH)")
 	cmd.Flags().StringP("format", "f", "", "Format of message to send, 'http' or 'cloudevent'.  Default is to choose automatically. (Env: $FUNC_FORMAT)")
-	cmd.Flags().StringP("target", "t", "", "function instance to invoke.  Can be 'local', 'remote' or a URL.  Defaults to auto-discovery if not provided. (Env: $FUNC_TARGET)")
+	cmd.Flags().StringP("target", "t", "", "Function instance to invoke.  Can be 'local', 'remote' or a URL.  Defaults to auto-discovery if not provided. (Env: $FUNC_TARGET)")
 	cmd.Flags().StringP("id", "", uuid.NewString(), "ID for the request data. (Env: $FUNC_ID)")
 	cmd.Flags().StringP("source", "", fn.DefaultInvokeSource, "Source value for the request data. (Env: $FUNC_SOURCE)")
 	cmd.Flags().StringP("type", "", fn.DefaultInvokeType, "Type value for the request data. (Env: $FUNC_TYPE)")

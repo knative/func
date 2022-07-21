@@ -76,7 +76,7 @@ EXAMPLES
 
 	// Flags
 	cmd.Flags().StringP("language", "l", "", "Language Runtime (see help text for list) (Env: $FUNC_LANGUAGE)")
-	cmd.Flags().StringP("template", "t", fn.DefaultTemplate, "function template. (see help text for list) (Env: $FUNC_TEMPLATE)")
+	cmd.Flags().StringP("template", "t", fn.DefaultTemplate, "Function template. (see help text for list) (Env: $FUNC_TEMPLATE)")
 	cmd.Flags().StringP("repository", "r", "", "URI to a Git repository containing the specified template (Env: $FUNC_REPOSITORY)")
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
 
@@ -177,7 +177,7 @@ func runCreateHelp(cmd *cobra.Command, args []string, newClient ClientFactory) {
 }
 
 type createConfig struct {
-	Path       string // Absolute path to function sourcsource
+	Path       string // Absolute path to function source
 	Runtime    string // Language Runtime
 	Repository string // Repository URI (overrides builtin and installed)
 	Verbose    bool   // Verbose output

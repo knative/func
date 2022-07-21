@@ -198,7 +198,7 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 
 type buildConfig struct {
 	// Image name in full, including registry, repo and tag (overrides
-	// image name derivation based on Registry and function Name)
+	// image name derivation based on registry and function name)
 	Image string
 
 	// Path of the function implementation on local disk. Defaults to current
