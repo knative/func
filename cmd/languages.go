@@ -27,12 +27,12 @@ DESCRIPTION
 	This includes embedded (included) language runtimes as well as any installed
 	via the 'repositories add' command.
 
+	To specify a URI of a single, specific repository for which languages
+	should be displayed, use the --repository flag.
+
 	Installed repositories are by default located at ~/.func/repositories
 	($XDG_CONFIG_HOME/.func/repositories).  This can be overridden with
 	$FUNC_REPOSITORIES_PATH.
-
-	To specify a URI of a single, specific repository for which languages
-	should be displayed, use the --repository flag.
 
 	To see templates available for a given language, see the 'templates' command.
 
@@ -53,7 +53,7 @@ EXAMPLES
 		PreRunE: bindEnv("json", "repository"),
 	}
 
-	cmd.Flags().BoolP("json", "", false, "Set output to JSON format: $FUNC_JSON)")
+	cmd.Flags().BoolP("json", "", false, "Set output to JSON format. (Env: $FUNC_JSON)")
 	cmd.Flags().StringP("repository", "r", "", "URI to a specific repository to consider (Env: $FUNC_REPOSITORY)")
 
 	cmd.SetHelpFunc(defaultTemplatedHelp)
