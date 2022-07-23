@@ -18,10 +18,10 @@ import (
 )
 
 const (
-	// DefaultRegistry through which containers of Functions will be shuttled.
+	// DefaultRegistry through which containers of functions will be shuttled.
 	DefaultRegistry = "docker.io"
 
-	// DefaultTemplate is the default Function signature / environmental context
+	// DefaultTemplate is the default function signature / environmental context
 	// of the resultant function.  All runtimes are expected to have at least
 	// one implementation of each supported function signature.  Currently that
 	// includes an HTTP Handler ("http") and Cloud Events handler ("events")
@@ -32,7 +32,7 @@ const (
 	// XDG_CONFIG_HOME set, and no WithConfigPath was used.
 	DefaultConfigPath = ".config/func"
 
-	// DefaultBuildType is the default build type for a Function
+	// DefaultBuildType is the default build type for a function
 	DefaultBuildType = BuildTypeLocal
 
 	// RunDataDir holds transient runtime metadata
@@ -40,23 +40,23 @@ const (
 	RunDataDir = ".func"
 
 	// buildstamp is the name of the file within the run data directory whose
-	// existence indicates the Function has been built, and whose content is
+	// existence indicates the function has been built, and whose content is
 	// a fingerprint of the filesystem at the time of the build.
 	buildstamp = "built"
 )
 
-// Client for managing Function instances.
+// Client for managing function instances.
 type Client struct {
 	repositoriesPath  string            // path to repositories
 	repositoriesURI   string            // repo URI (overrides repositories path)
 	verbose           bool              // print verbose logs
 	builder           Builder           // Builds a runnable image source
-	pusher            Pusher            // Pushes Funcation image to a remote
-	deployer          Deployer          // Deploys or Updates a Function
-	runner            Runner            // Runs the Function locally
+	pusher            Pusher            // Pushes funcation image to a remote
+	deployer          Deployer          // Deploys or Updates a function
+	runner            Runner            // Runs the function locally
 	remover           Remover           // Removes remote services
 	lister            Lister            // Lists remote services
-	describer         Describer         // Describes Function instances
+	describer         Describer         // Describes function instances
 	dnsProvider       DNSProvider       // Provider of DNS services
 	registry          string            // default registry for OCI image tags
 	progressListener  ProgressListener  // progress listener
@@ -67,25 +67,25 @@ type Client struct {
 	pipelinesProvider PipelinesProvider // CI/CD pipelines management
 }
 
-// ErrNotBuilt indicates the Function has not yet been built.
+// ErrNotBuilt indicates the function has not yet been built.
 var ErrNotBuilt = errors.New("not built")
 
-// Builder of Function source to runnable image.
+// Builder of function source to runnable image.
 type Builder interface {
-	// Build a Function project with source located at path.
+	// Build a function project with source located at path.
 	Build(context.Context, Function) error
 }
 
-// Pusher of Function image to a registry.
+// Pusher of function image to a registry.
 type Pusher interface {
-	// Push the image of the Function.
+	// Push the image of the function.
 	// Returns Image Digest - SHA256 hash of the produced image
 	Push(ctx context.Context, f Function) (string, error)
 }
 
-// Deployer of Function source to running status.
+// Deployer of function source to running status.
 type Deployer interface {
-	// Deploy a Function of given name, using given backing image.
+	// Deploy a function of given name, using given backing image.
 	Deploy(context.Context, Function) (DeploymentResult, error)
 }
 
@@ -95,7 +95,7 @@ type DeploymentResult struct {
 	Namespace string
 }
 
-// Status of the Function from the DeploymentResult
+// Status of the function from the DeploymentResult
 type Status int
 
 const (
@@ -104,9 +104,9 @@ const (
 	Updated
 )
 
-// Runner runs the Function locally.
+// Runner runs the function locally.
 type Runner interface {
-	// Run the Function, returning a Job with metadata, error channels, and
+	// Run the function, returning a Job with metadata, error channels, and
 	// a stop function.The process can be stopped by running the returned stop
 	// function, either on context cancellation or in a defer.
 	Run(context.Context, Function) (*Job, error)
@@ -114,13 +114,13 @@ type Runner interface {
 
 // Remover of deployed services.
 type Remover interface {
-	// Remove the Function from remote.
+	// Remove the function from remote.
 	Remove(ctx context.Context, name string) error
 }
 
 // Lister of deployed functions.
 type Lister interface {
-	// List the Functions currently deployed.
+	// List the functions currently deployed.
 	List(ctx context.Context) ([]ListItem, error)
 }
 
@@ -150,25 +150,25 @@ type ProgressListener interface {
 	Done()
 }
 
-// Describer of Function instances
+// Describer of function instances
 type Describer interface {
-	// Describe the named Function in the remote environment.
+	// Describe the named function in the remote environment.
 	Describe(ctx context.Context, name string) (Instance, error)
 }
 
-// Instance data about the runtime state of a Function in a given environment.
+// Instance data about the runtime state of a function in a given environment.
 //
-// A Function instance is a logical running Function space, which share
+// A function instance is a logical running function space, which share
 // a unique route (or set of routes).  Due to autoscaling and load balancing,
 // there is a one to many relationship between a given route and processes.
 // By default the system creates the 'local' and 'remote' named instances
-// when a Function is run (locally) and deployed, respectively.
+// when a function is run (locally) and deployed, respectively.
 // See the .Instances(f) accessor for the map of named environments to these
-// Function Information structures.
+// function information structures.
 type Instance struct {
-	// Route is the primary route of a Function instance.
+	// Route is the primary route of a function instance.
 	Route string
-	// Routes is the primary route plus any other route at which the Function
+	// Routes is the primary route plus any other route at which the function
 	// can be contacted.
 	Routes        []string       `json:"routes" yaml:"routes"`
 	Name          string         `json:"name" yaml:"name"`
@@ -184,19 +184,19 @@ type Subscription struct {
 	Broker string `json:"broker" yaml:"broker"`
 }
 
-// DNSProvider exposes DNS services necessary for serving the Function.
+// DNSProvider exposes DNS services necessary for serving the function.
 type DNSProvider interface {
 	// Provide the given name by routing requests to address.
 	Provide(Function) error
 }
 
-// PipelinesProvider manages lifecyle of CI/CD pipelines used by a Function
+// PipelinesProvider manages lifecyle of CI/CD pipelines used by a function
 type PipelinesProvider interface {
 	Run(context.Context, Function) error
 	Remove(context.Context, Function) error
 }
 
-// New client for Function management.
+// New client for function management.
 func New(options ...Option) *Client {
 	// Instantiate client with static defaults.
 	c := &Client{
@@ -273,7 +273,7 @@ func RepositoriesPath() string {
 // OPTIONS
 // ---------
 
-// Option defines a Function which when passed to the Client constructor
+// Option defines a function which when passed to the Client constructor
 // optionally mutates private members at time of instantiation.
 type Option func(*Client)
 
@@ -326,7 +326,7 @@ func WithLister(l Lister) Option {
 	}
 }
 
-// WithDescriber provides a concrete implementation of a Function describer.
+// WithDescriber provides a concrete implementation of a function describer.
 func WithDescriber(describer Describer) Option {
 	return func(c *Client) {
 		c.describer = describer
@@ -437,7 +437,7 @@ func (c *Client) Runtimes() ([]string, error) {
 // LIFECYCLE METHODS
 // -----------------
 
-// New Function.
+// New function.
 // Use Create, Build and Deploy independently for lower level control.
 func (c *Client) New(ctx context.Context, cfg Function) (err error) {
 	c.progressListener.SetTotal(3)
@@ -451,18 +451,18 @@ func (c *Client) New(ctx context.Context, cfg Function) (err error) {
 		c.progressListener.Stopping()
 	}()
 
-	// Create Function at path indidcated by Config
+	// Create function at path indidcated by Config
 	if err = c.Create(cfg); err != nil {
 		return
 	}
 
-	// Load the now-initialized Function.
+	// Load the now-initialized function.
 	f, err := NewFunction(cfg.Root)
 	if err != nil {
 		return
 	}
 
-	// Build the now-initialized Function
+	// Build the now-initialized function
 	c.progressListener.Increment("Building container image")
 	if err = c.Build(ctx, f.Root); err != nil {
 		return
@@ -474,15 +474,15 @@ func (c *Client) New(ctx context.Context, cfg Function) (err error) {
 		return
 	}
 
-	// Deploy the initialized Function, returning its publicly
+	// Deploy the initialized function, returning its publicly
 	// addressible name for possible registration.
-	c.progressListener.Increment("Deploying Function to cluster")
+	c.progressListener.Increment("Deploying function to cluster")
 	if err = c.Deploy(ctx, f.Root); err != nil {
 		return
 	}
 
-	// Create an external route to the Function
-	c.progressListener.Increment("Creating route to Function")
+	// Create an external route to the function
+	c.progressListener.Increment("Creating route to function")
 	if err = c.Route(f.Root); err != nil {
 		return
 	}
@@ -498,7 +498,7 @@ func (c *Client) New(ctx context.Context, cfg Function) (err error) {
 	return
 }
 
-// Create a new Function from the given defaults.
+// Create a new function from the given defaults.
 // <path> will default to the absolute path of the current working directory.
 // <name> will default to the current working directory.
 // When <name> is provided but <path> is not, a directory <name> is created
@@ -516,7 +516,7 @@ func (c *Client) Create(cfg Function) (err error) {
 		return
 	}
 
-	// Create should never clobber a pre-existing Function
+	// Create should never clobber a pre-existing function
 	hasFunc, err := hasInitializedFunction(cfg.Root)
 	if err != nil {
 		return err
@@ -537,13 +537,13 @@ func (c *Client) Create(cfg Function) (err error) {
 		cfg.Name = nameFromPath(cfg.Root)
 	}
 
-	// The path for the new Function should not have any contentious files
-	// (hidden files OK, unless it's one used by Func)
+	// The path for the new function should not have any contentious files
+	// (hidden files OK, unless it's one used by func)
 	if err := assertEmptyRoot(cfg.Root); err != nil {
 		return err
 	}
 
-	// Create a new Function (in memory)
+	// Create a new function (in memory)
 	f := NewFunctionWith(cfg)
 
 	// Create a .func diretory which is also added to a .gitignore
@@ -551,22 +551,22 @@ func (c *Client) Create(cfg Function) (err error) {
 		return
 	}
 
-	// Write out the new Function's Template files.
-	// Templates contain values which may result in the Function being mutated
-	// (default builders, etc), so a new (potentially mutated) Function is
+	// Write out the new function's Template files.
+	// Templates contain values which may result in the function being mutated
+	// (default builders, etc), so a new (potentially mutated) function is
 	// returned from Templates.Write
 	err = c.Templates().Write(&f)
 	if err != nil {
 		return
 	}
 
-	// Mark the Function as having been created
+	// Mark the function as having been created
 	f.Created = time.Now()
 	err = f.Write()
 	return
 }
 
-// Tag the Function as having been built
+// Tag the function as having been built
 // This is locally-scoped data, only indicating there presumably exists
 // a container image in the cache of the the configured builder, thus this info
 // is placed in a .func (non-source controlled) local metadata directory, which
@@ -586,7 +586,7 @@ func updateBuildStamp(f Function) (err error) {
 }
 
 // ensureRuntimeDir creates a .func directory in the root of the given
-// Function which is also registered as ignored in .gitignore
+// function which is also registered as ignored in .gitignore
 // TODO: Mutate extant .gitignore file if it exists rather than failing
 // if present (see contentious files in function.go), such that a user
 // can `git init` a directory prior to `func init` in the same directory).
@@ -604,7 +604,7 @@ func ensureRuntimeDir(f Function) error {
 
 }
 
-// Build the Function at path. Errors if the Function is either unloadable or does
+// Build the function at path. Errors if the function is either unloadable or does
 // not contain a populated Image.
 func (c *Client) Build(ctx context.Context, path string) (err error) {
 	c.progressListener.Increment("Building function image")
@@ -630,7 +630,7 @@ func (c *Client) Build(ctx context.Context, path string) (err error) {
 		return
 	}
 
-	// Write (save) - Serialize the Function to disk
+	// Write (save) - Serialize the function to disk
 	// Will now contain populated image tag.
 	if err = f.Write(); err != nil {
 		return
@@ -678,7 +678,7 @@ func (c *Client) printBuildActivity(ctx context.Context) {
 	}()
 }
 
-// Deploy the Function at path. Errors if the Function has not been
+// Deploy the function at path. Errors if the function has not been
 // initialized with an image tag.
 func (c *Client) Deploy(ctx context.Context, path string) (err error) {
 	go func() {
@@ -697,7 +697,7 @@ func (c *Client) Deploy(ctx context.Context, path string) (err error) {
 		return ErrNotBuilt
 	}
 
-	// Deploy a new or Update the previously-deployed Function
+	// Deploy a new or Update the previously-deployed function
 	c.progressListener.Increment("Deploying function to the cluster")
 	result, err := c.deployer.Deploy(ctx, f)
 
@@ -710,7 +710,7 @@ func (c *Client) Deploy(ctx context.Context, path string) (err error) {
 	return err
 }
 
-// RunPipeline runs a Pipeline to Build and deploy the Function at path.
+// RunPipeline runs a Pipeline to Build and deploy the function at path.
 func (c *Client) RunPipeline(ctx context.Context, path string, git Git) (err error) {
 	go func() {
 		<-ctx.Done()
@@ -749,7 +749,7 @@ func (c *Client) Route(path string) (err error) {
 	return c.dnsProvider.Provide(f)
 }
 
-// Run the Function whose code resides at root.
+// Run the function whose code resides at root.
 // On start, the chosen port is sent to the provided started channel
 func (c *Client) Run(ctx context.Context, root string) (job *Job, err error) {
 	go func() {
@@ -757,7 +757,7 @@ func (c *Client) Run(ctx context.Context, root string) (job *Job, err error) {
 		c.progressListener.Stopping()
 	}()
 
-	// Load the Function
+	// Load the function
 	f, err := NewFunction(root)
 	if err != nil {
 		return
@@ -765,11 +765,11 @@ func (c *Client) Run(ctx context.Context, root string) (job *Job, err error) {
 	if !f.Initialized() {
 		// TODO: this needs a test.
 		err = fmt.Errorf("the given path '%v' does not contain an initialized "+
-			"Function.  Please create one at this path in order to run", root)
+			"function.  Please create one at this path in order to run", root)
 		return
 	}
 
-	// Run the Function, which returns a Job for use interacting (at arms length)
+	// Run the function, which returns a Job for use interacting (at arms length)
 	// with that running task (which is likely inside a container process).
 	if job, err = c.runner.Run(ctx, f); err != nil {
 		return
@@ -780,15 +780,15 @@ func (c *Client) Run(ctx context.Context, root string) (job *Job, err error) {
 	return job, nil
 }
 
-// Info for a Function.  Name takes precidence.  If no name is provided,
-// the Function defined at root is used.
+// Info for a function.  Name takes precidence.  If no name is provided,
+// the function defined at root is used.
 func (c *Client) Info(ctx context.Context, name, root string) (d Instance, err error) {
 	go func() {
 		<-ctx.Done()
 		c.progressListener.Stopping()
 	}()
 	// If name is provided, it takes precidence.
-	// Otherwise load the Function defined at root.
+	// Otherwise load the function defined at root.
 	if name != "" {
 		return c.describer.Describe(ctx, name)
 	}
@@ -803,21 +803,21 @@ func (c *Client) Info(ctx context.Context, name, root string) (d Instance, err e
 	return c.describer.Describe(ctx, f.Name)
 }
 
-// List currently deployed Functions.
+// List currently deployed functions.
 func (c *Client) List(ctx context.Context) ([]ListItem, error) {
 	// delegate to concrete implementation of lister entirely.
 	return c.lister.List(ctx)
 }
 
-// Remove a Function.  Name takes precidence.  If no name is provided,
-// the Function defined at root is used if it exists.
+// Remove a function.  Name takes precidence.  If no name is provided,
+// the function defined at root is used if it exists.
 func (c *Client) Remove(ctx context.Context, cfg Function, deleteAll bool) error {
 	go func() {
 		<-ctx.Done()
 		c.progressListener.Stopping()
 	}()
 	// If name is provided, it takes precidence.
-	// Otherwise load the Function defined at root.
+	// Otherwise load the function defined at root.
 	functionName := cfg.Name
 	if cfg.Name == "" {
 		f, err := NewFunction(cfg.Root)
@@ -854,17 +854,17 @@ func (c *Client) Remove(ctx context.Context, cfg Function, deleteAll bool) error
 	return errService
 }
 
-// Invoke is a convenience method for triggering the execution of a Function
+// Invoke is a convenience method for triggering the execution of a function
 // for testing and development.  Returned is a map of metadata and a stringified
 // version of the content.
-// The target argument is optional, naming the running instance of the Function
+// The target argument is optional, naming the running instance of the function
 // which should be invoked.  This can be the literal names "local" or "remote",
 // or can be a URL to an arbitrary endpoint.  If not provided, a running local
-// instance is preferred, with the remote Function triggered if there is no
+// instance is preferred, with the remote function triggered if there is no
 // locally running instance.
 // Example:
 //  myClient.Invoke(myContext, myFunction, "local", NewInvokeMessage())
-// The message sent to the Function is defined by the invoke message.
+// The message sent to the function is defined by the invoke message.
 // See NewInvokeMessage for its defaults.
 // Functions are invoked in a manner consistent with the settings defined in
 // their metadata.  For example HTTP vs CloudEvent
@@ -904,7 +904,7 @@ func (c *Client) Push(ctx context.Context, path string) (err error) {
 	return f.Write()
 }
 
-// Built returns true if the given path contains a Function which has been
+// Built returns true if the given path contains a function which has been
 // built without any filesystem modifications since (is not stale).
 func (c *Client) Built(path string) bool {
 	f, err := NewFunction(path)
@@ -915,12 +915,12 @@ func (c *Client) Built(path string) bool {
 	// Missing a build image always means !Built (but does not satisfy staleness
 	// checks).
 	// NOTE: This will be updated in the future such that a build does not
-	// automatically update the Function's serialized, source-controlled state,
-	// because merely building does not indicate the Function has changed, but
+	// automatically update the function's serialized, source-controlled state,
+	// because merely building does not indicate the function has changed, but
 	// rather that field should be populated on deploy.  I.e. the Image name
 	// and image stamp should reside as transient data in .func until such time
 	// as the given image has been deployed.
-	// An example of how this bug manifests is that every rebuild of a Function
+	// An example of how this bug manifests is that every rebuild of a function
 	// registers the func.yaml as being dirty for source-control purposes, when
 	// this should only happen on deploy.
 	if !f.HasImage() {
@@ -936,15 +936,15 @@ func (c *Client) Built(path string) bool {
 		return false
 	}
 
-	// Calculate the Function's Filesystem hash and see if it has changed.
+	// Calculate the function's Filesystem hash and see if it has changed.
 	hash, err := fingerprint(f)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error calculating Function's fingerprint: %v\n", err)
+		fmt.Fprintf(os.Stderr, "error calculating function's fingerprint: %v\n", err)
 		return false
 	}
 	b, err := os.ReadFile(buildstampPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error reading Function's fingerprint: %v\n", err)
+		fmt.Fprintf(os.Stderr, "error reading function's fingerprint: %v\n", err)
 		return false
 	}
 	if string(b) != hash {
@@ -960,7 +960,7 @@ func (c *Client) Built(path string) bool {
 }
 
 // fingerprint returns a hash of the filenames and modification timestamps of
-// the files within a Function's root.
+// the files within a function's root.
 func fingerprint(f Function) (string, error) {
 	h := sha256.New()
 	err := filepath.Walk(f.Root, func(path string, info fs.FileInfo, err error) error {
