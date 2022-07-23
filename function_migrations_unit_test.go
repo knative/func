@@ -45,14 +45,14 @@ func TestMigrated(t *testing.T) {
 	}
 }
 
-// TestMigrate ensures that Functions have migrations apply the specVersion
+// TestMigrate ensures that functions have migrations apply the specVersion
 // stamp on instantiation indicating migrations have been applied.
 func TestMigrate(t *testing.T) {
-	// Load an old Function, as it an earlier version it has registered migrations
+	// Load an old function, as it an earlier version it has registered migrations
 	// that will need to be applied.
 	root := "testdata/migrations/v0.19.0"
 
-	// Instantiate the Function with the antiquated structure, which should cause
+	// Instantiate the function with the antiquated structure, which should cause
 	// migrations to be applied in order, and result in a function whose version
 	// compatibility is equivalent to the latest registered migration.
 	f, err := NewFunction(root)
@@ -68,7 +68,7 @@ func TestMigrate(t *testing.T) {
 // TestMigrateToCreationStamp ensures that the creation timestamp migration
 // introduced for functions 0.19.0 and earlier is applied.
 func TestMigrateToCreationStamp(t *testing.T) {
-	// Load a Function of version 0.19.0, which should have the migration applied
+	// Load a function of version 0.19.0, which should have the migration applied
 	root := "testdata/migrations/v0.19.0"
 
 	now := time.Now()
@@ -87,12 +87,12 @@ func TestMigrateToCreationStamp(t *testing.T) {
 // in the attributes being removed and no errors on load of the function with
 // old schema.
 func TestMigrateToBuilderImagesDefault(t *testing.T) {
-	// Load a Function created prior to the adoption of the builder images map
+	// Load a function created prior to the adoption of the builder images map
 	// (was created with 'builder' and 'builders' which does not support different
 	// builder implementations.
 	root := "testdata/migrations/v0.23.0"
 
-	// Without the migration, instantiating the older Function would error
+	// Without the migration, instantiating the older function would error
 	// because its strict unmarshalling would fail parsing the unexpected
 	// 'builder' and 'builders' members.
 	_, err := NewFunction(root)
@@ -104,7 +104,7 @@ func TestMigrateToBuilderImagesDefault(t *testing.T) {
 // TestMigrateToBuilderImagesCustom ensures that the migration to builderImages
 // correctly carries forward a customized value for 'builder'.
 func TestMigrateToBuilderImagesCustom(t *testing.T) {
-	// An early version of a Function which includes a customized value for
+	// An early version of a function which includes a customized value for
 	// the 'builder'.  This should be correctly carried forward to
 	// the namespaced 'builderImages' map as image for the "pack" builder.
 	root := "testdata/migrations/v0.23.0-customized"
@@ -116,10 +116,10 @@ func TestMigrateToBuilderImagesCustom(t *testing.T) {
 	}
 	i, ok := f.BuilderImages["pack"]
 	if !ok {
-		t.Fatal("migrated Function does not include the pack builder images")
+		t.Fatal("migrated function does not include the pack builder images")
 	}
 	if i != expected {
-		t.Fatalf("migrated Function expected builder image '%v', got '%v'", expected, i)
+		t.Fatalf("migrated function expected builder image '%v', got '%v'", expected, i)
 	}
 
 }
@@ -133,6 +133,6 @@ func TestMigrateToSpecVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 	if f.SpecVersion != LastSpecVersion() {
-		t.Fatal("migrated Function does not include the Migration field")
+		t.Fatal("migrated function does not include the Migration field")
 	}
 }

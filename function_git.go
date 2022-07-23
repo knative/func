@@ -13,7 +13,7 @@ type Git struct {
 	ContextDir *string `yaml:"contextDir,omitempty"`
 }
 
-// validateGit validates input Git option from Function config
+// validateGit validates input Git option from function config
 // if mandatoryGit==true, it checks that Git options are specified (ie. build type == git)
 func validateGit(git Git, mandatoryGit bool) (errors []string) {
 	if git.URL != nil {
