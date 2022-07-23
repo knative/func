@@ -175,7 +175,7 @@ func testBuilderPersistence(t *testing.T, testRegistry string, cmdBuilder func(C
 	}
 
 	var err error
-	// Assert the Function has persisted a value of builder (has a default)
+	// Assert the function has persisted a value of builder (has a default)
 	if f, err = fn.NewFunction(root); err != nil {
 		t.Fatal(err)
 	}
@@ -183,12 +183,12 @@ func testBuilderPersistence(t *testing.T, testRegistry string, cmdBuilder func(C
 		t.Fatal("value of builder not persisted using a flag default")
 	}
 
-	// Build the Function, specifying a Builder
+	// Build the function, specifying a Builder
 	cmd.SetArgs([]string{"--builder=s2i"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	// Assert the Function has persisted the value of builder
+	// Assert the function has persisted the value of builder
 	if f, err = fn.NewFunction(root); err != nil {
 		t.Fatal(err)
 	}
@@ -214,13 +214,13 @@ func testBuilderPersistence(t *testing.T, testRegistry string, cmdBuilder func(C
 		t.Fatal("value of builder updated when not provided")
 	}
 
-	// Build the Function again using a different builder
+	// Build the function again using a different builder
 	cmd.SetArgs([]string{"--builder=pack"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
 
-	// Assert the Function has persisted the new value
+	// Assert the function has persisted the new value
 	if f, err = fn.NewFunction(root); err != nil {
 		t.Fatal(err)
 	}
@@ -228,7 +228,7 @@ func testBuilderPersistence(t *testing.T, testRegistry string, cmdBuilder func(C
 		t.Fatal("value of builder flag not persisted on subsequent build")
 	}
 
-	// Build the Function, specifying a platform with "pack" Builder
+	// Build the function, specifying a platform with "pack" Builder
 	cmd.SetArgs([]string{"--platform", "linux"})
 	if err := cmd.Execute(); err == nil {
 		t.Fatal("Expected error")
@@ -242,7 +242,7 @@ func testBuilderPersistence(t *testing.T, testRegistry string, cmdBuilder func(C
 }
 
 // TestBuild_BuilderPersistence ensures that the builder chosen is read from
-// the Function by default, and is able to be overridden by flags/env vars.
+// the function by default, and is able to be overridden by flags/env vars.
 func TestBuild_BuilderPersistence(t *testing.T) {
 	testBuilderPersistence(t, "docker.io/tigerteam", NewBuildCmd)
 }

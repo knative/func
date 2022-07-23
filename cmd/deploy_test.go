@@ -272,7 +272,7 @@ runtime: go`,
 }
 
 // TestDeploy_BuilderPersistence ensures that the builder chosen is read from
-// the Function by default, and is able to be overridden by flags/env vars.
+// the function by default, and is able to be overridden by flags/env vars.
 func TestDeploy_BuilderPersistence(t *testing.T) {
 	testBuilderPersistence(t, "docker.io/tigerteam", NewDeployCmd)
 }
