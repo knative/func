@@ -112,7 +112,7 @@ func GetRegistry(img string) (string, error) {
 	return registry, nil
 }
 
-// Push the image of the Function.
+// Push the image of the function.
 func (n *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err error) {
 
 	var output io.Writer
