@@ -51,7 +51,7 @@ type Client struct {
 	repositoriesURI   string            // repo URI (overrides repositories path)
 	verbose           bool              // print verbose logs
 	builder           Builder           // Builds a runnable image source
-	pusher            Pusher            // Pushes funcation image to a remote
+	pusher            Pusher            // Pushes function image to a remote
 	deployer          Deployer          // Deploys or Updates a function
 	runner            Runner            // Runs the function locally
 	remover           Remover           // Removes remote services
@@ -780,14 +780,14 @@ func (c *Client) Run(ctx context.Context, root string) (job *Job, err error) {
 	return job, nil
 }
 
-// Info for a function.  Name takes precidence.  If no name is provided,
+// Info for a function.  Name takes precedence.  If no name is provided,
 // the function defined at root is used.
 func (c *Client) Info(ctx context.Context, name, root string) (d Instance, err error) {
 	go func() {
 		<-ctx.Done()
 		c.progressListener.Stopping()
 	}()
-	// If name is provided, it takes precidence.
+	// If name is provided, it takes precedence.
 	// Otherwise load the function defined at root.
 	if name != "" {
 		return c.describer.Describe(ctx, name)
@@ -809,7 +809,7 @@ func (c *Client) List(ctx context.Context) ([]ListItem, error) {
 	return c.lister.List(ctx)
 }
 
-// Remove a function.  Name takes precidence.  If no name is provided,
+// Remove a function.  Name takes precedence.  If no name is provided,
 // the function defined at root is used if it exists.
 func (c *Client) Remove(ctx context.Context, cfg Function, deleteAll bool) error {
 	go func() {

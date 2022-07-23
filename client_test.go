@@ -96,7 +96,7 @@ func TestClient_New_RuntimeRequired(t *testing.T) {
 }
 
 // TestClient_New_NameDefaults ensures that a newly created function has its name defaulted
-// to a name which can be dervied from the last part of the given root path.
+// to a name which can be derived from the last part of the given root path.
 func TestClient_New_NameDefaults(t *testing.T) {
 	root := "testdata/example.com/testNameDefaults"
 	defer Using(t, root)()
@@ -174,20 +174,20 @@ func TestClient_New_NonemptyAborts(t *testing.T) {
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
 
-	// Write a visible file which should cause an aboert
+	// Write a visible file which should cause an abort
 	visibleFile := filepath.Join(root, "file.txt")
 	if err := ioutil.WriteFile(visibleFile, []byte{}, 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	// Ceation should abort due to the visible file
+	// Creation should abort due to the visible file
 	if err := client.New(context.Background(), fn.Function{Root: root}); err == nil {
 		t.Fatal("error expected initilizing a function in a nonempty directory")
 	}
 }
 
 // TestClient_New_HiddenFilesIgnored ensures that initializing in a directory that
-// only contains hidden files does not error, protecting against the naieve
+// only contains hidden files does not error, protecting against the naive
 // implementation of aborting initialization if any files exist, which would
 // break functions tracked in source control (.git), or when used in
 // conjunction with other tools (.envrc, etc)
@@ -1397,7 +1397,7 @@ func TestClient_BuiltDetects(t *testing.T) {
 
 	// Prior to a filesystem edit, it will be Built.
 	if !client.Built(root) {
-		t.Fatal("feshly built function reported Built==false (1)")
+		t.Fatal("freshly built function reported Built==false (1)")
 	}
 
 	// Edit the filesystem by touching a file (updating modified timestamp)
