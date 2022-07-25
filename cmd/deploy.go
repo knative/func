@@ -184,7 +184,7 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 	} else {
 		config.Builder = function.Builder
 	}
-	if err = validateBuilder(config.Builder); err != nil {
+	if err = fn.ValidateBuilder(config.Builder); err != nil {
 		return err
 	}
 	if config.Builder == fn.BuilderPack {
@@ -526,17 +526,6 @@ type ErrInvalidBuildType error
 func validateBuildType(buildType string) error {
 	if errs := fn.ValidateBuildType(buildType, false, true); len(errs) > 0 {
 		return ErrInvalidBuildType(errors.New(strings.Join(errs, "")))
-	}
-	return nil
-}
-
-// ErrInvalidBuilder indicates that the passed builder was invalid.
-type ErrInvalidBuilder error
-
-// ValidateBuilder validatest that the input Build type is valid for deploy command
-func validateBuilder(buildType string) error {
-	if errs := fn.ValidateBuilder(buildType, false); len(errs) > 0 {
-		return ErrInvalidBuilder(errors.New(strings.Join(errs, "")))
 	}
 	return nil
 }

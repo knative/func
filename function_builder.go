@@ -14,22 +14,17 @@ func AllBuilders() []string {
 	return []string{BuilderPack, BuilderS2i}
 }
 
-func ValidateBuilder(builder string, allowUnset bool) (errors []string) {
-	valid := false
+// ErrInvalidBuilder indicates that the passed builder was invalid.
+type ErrInvalidBuilder error
 
-	switch builder {
-	case BuilderPack, BuilderS2i:
-		valid = true
-	case "":
-		if allowUnset {
-			valid = true
-		}
+// ValidateBuilder validatest that the input Build type is valid for deploy command
+func ValidateBuilder(builder string) error {
+
+	if builder == BuilderPack || builder == BuilderS2i {
+		return nil
 	}
 
-	if !valid {
-		return []string{fmt.Sprintf("specified builder %q is not valid, allowed builders are %s", builder, SupportedBuilders())}
-	}
-	return
+	return ErrInvalidBuilder(fmt.Errorf("specified builder %q is not valid, allowed builders are %s", builder, SupportedBuilders()))
 }
 
 // SupportedBuilders prints string with supported build types

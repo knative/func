@@ -150,7 +150,7 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	} else {
 		config.Builder = function.Builder
 	}
-	if err = validateBuilder(config.Builder); err != nil {
+	if err = fn.ValidateBuilder(config.Builder); err != nil {
 		return err
 	}
 	if config.Builder == fn.BuilderPack {
