@@ -182,7 +182,7 @@ func BuilderImage(f fn.Function) (string, error) {
 		return "", ErrRuntimeRequired{}
 	}
 
-	v, ok := f.BuilderImages["pack"]
+	v, ok := f.BuilderImages[fn.BuilderPack]
 	if ok {
 		return v, nil
 	}

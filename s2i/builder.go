@@ -372,7 +372,7 @@ func builderImage(f fn.Function) (string, error) {
 		return "", ErrRuntimeRequired
 	}
 
-	v, ok := f.BuilderImages["s2i"]
+	v, ok := f.BuilderImages[fn.BuilderS2i]
 	if ok {
 		return v, nil
 	}

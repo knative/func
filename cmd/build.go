@@ -49,7 +49,7 @@ and the image name is stored in the configuration file.
 		PreRunE:    bindEnv("image", "path", "builder", "registry", "confirm", "push", "builder-image", "platform"),
 	}
 
-	cmd.Flags().StringP("builder", "b", "pack", "build strategy to use when creating the underlying image. Currently supported build strategies are 'pack' and 's2i'.")
+	cmd.Flags().StringP("builder", "b", fn.DefaultBuilder, fmt.Sprintf("build strategy to use when creating the underlying image. Currently supported build strategies are %s.", fn.SupportedBuilders()))
 	cmd.Flags().StringP("builder-image", "", "", "builder image, either an as a an image name or a mapping name.\nSpecified value is stored in func.yaml (as 'builder' field) for subsequent builds. ($FUNC_BUILDER_IMAGE)")
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
 	cmd.Flags().StringP("image", "i", "", "Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE)")
@@ -58,7 +58,7 @@ and the image name is stored in the configuration file.
 	cmd.Flags().StringP("platform", "", "", "Target platform to build (e.g. linux/amd64).")
 	setPathFlag(cmd)
 
-	if err := cmd.RegisterFlagCompletionFunc("builder", CompleteBuildStrategyList); err != nil {
+	if err := cmd.RegisterFlagCompletionFunc("builder", CompleteBuildersList); err != nil {
 		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
 	}
 
@@ -150,23 +150,22 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	} else {
 		config.Builder = function.Builder
 	}
-
-	// All set, let's write changes in the config to the disk
-	err = function.Write()
-	if err != nil {
-		return
+	if err = fn.ValidateBuilder(config.Builder); err != nil {
+		return err
 	}
-
-	if config.Builder == "pack" {
+	if config.Builder == fn.BuilderPack {
 		if config.Platform != "" {
 			err = fmt.Errorf("the --platform flag works only with s2i build")
 			return
 		}
 		builder = buildpacks.NewBuilder(buildpacks.WithVerbose(config.Verbose))
-	} else if config.Builder == "s2i" {
+	} else if config.Builder == fn.BuilderS2i {
 		builder = s2i.NewBuilder(s2i.WithVerbose(config.Verbose), s2i.WithPlatform(config.Platform))
-	} else {
-		err = errors.New("unrecognized builder: valid values are: s2i, pack")
+	}
+
+	// All set, let's write changes in the config to the disk
+	err = function.Write()
+	if err != nil {
 		return
 	}
 
