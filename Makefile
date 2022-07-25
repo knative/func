@@ -31,7 +31,7 @@ TEMPLATES := $(shell find templates -name '*' -type f)
 .PHONY: test
 
 # Default Targets
-all: build
+all: build docs
 
 # Help Text
 # Headings: lines with `##$` comment prefix
@@ -94,6 +94,9 @@ clean: clean_templates ## Remove generated artifacts such as binaries and schema
 	rm -f schema/func_yaml-schema.json
 	rm -f coverage.out
 
+docs: build
+	# Generating command reference doc
+	@./hack/build-docs.sh
 
 #############
 ##@ Templates

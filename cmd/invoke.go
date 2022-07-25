@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/google/uuid"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
@@ -107,7 +106,7 @@ EXAMPLES
 	cmd.Flags().StringP("path", "p", cwd(), "Path to the Function which should have its instance invoked. (Env: $FUNC_PATH)")
 	cmd.Flags().StringP("format", "f", "", "Format of message to send, 'http' or 'cloudevent'.  Default is to choose automatically. (Env: $FUNC_FORMAT)")
 	cmd.Flags().StringP("target", "t", "", "Function instance to invoke.  Can be 'local', 'remote' or a URL.  Defaults to auto-discovery if not provided. (Env: $FUNC_TARGET)")
-	cmd.Flags().StringP("id", "", uuid.NewString(), "ID for the request data. (Env: $FUNC_ID)")
+	cmd.Flags().StringP("id", "", "", "ID for the request data. (Env: $FUNC_ID)")
 	cmd.Flags().StringP("source", "", fn.DefaultInvokeSource, "Source value for the request data. (Env: $FUNC_SOURCE)")
 	cmd.Flags().StringP("type", "", fn.DefaultInvokeType, "Type value for the request data. (Env: $FUNC_TYPE)")
 	cmd.Flags().StringP("content-type", "", fn.DefaultInvokeContentType, "Content Type of the data. (Env: $FUNC_CONTENT_TYPE)")
