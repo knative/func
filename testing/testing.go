@@ -1,7 +1,7 @@
 // package testing includes minor testing helpers.
 //
 // These helpers include extensions to the testing nomenclature which exist to
-// ease the development of tests for Functions.  It is mostly just syntactic
+// ease the development of tests for functions.  It is mostly just syntactic
 // sugar and closures for creating an removing test directories etc.
 // It was originally included in each of the requisite testing packages, but
 // since we use both private-access enabled tests (in the function package),
