@@ -83,7 +83,7 @@ func ConfigEnvsRemove(knFunc *TestShellInteractiveCmdRunner, project *FunctionTe
 
 // TestConfigEnvs verifies function environment variables are properly set on the deployed functions.
 // Test consist in explore all available options to add environment variables and ensure they get deployed
-// It setup "configMaps" and "secrets" on the cluster. A custom kn Function template (from a remote repository)
+// It setup "configMaps" and "secrets" on the cluster. A custom kn function template (from a remote repository)
 // is used to validate the environment variables are properly resolved.
 func TestConfigEnvs(t *testing.T) {
 

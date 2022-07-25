@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// HTTP Based Function Test Validator
+// HTTP Based function Test Validator
 type FunctionHttpResponsivenessValidator struct {
 	runtime           string
 	targetUrl         string
