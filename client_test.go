@@ -36,7 +36,7 @@ const (
 	TestRuntime = "go"
 )
 
-// TestClient_New Function completes without error using defaults and zero values.
+// TestClient_New function completes without error using defaults and zero values.
 // New is the superset of creating a new fully deployed function, and
 // thus implicitly tests Create, Build and Deploy, which are exposed
 // by the client API for those who prefer manual transmissions.
@@ -148,7 +148,7 @@ func TestClient_New_WritesTemplate(t *testing.T) {
 }
 
 // TestClient_New_ExtantAborts ensures that a directory which contains an extant
-// Function does not reinitialize.
+// function does not reinitialize.
 func TestClient_New_ExtantAborts(t *testing.T) {
 	root := "testdata/example.com/testExtantAborts"
 	defer Using(t, root)()
@@ -1330,7 +1330,7 @@ func TestClient_BuiltStamps(t *testing.T) {
 
 	// paths that do not contain a function are !Built - Degenerate case
 	if client.Built(root) {
-		t.Fatal("path not containing a Function returned as being built")
+		t.Fatal("path not containing a function returned as being built")
 	}
 
 	// a freshly-created function should be !Built
