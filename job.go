@@ -64,7 +64,7 @@ func (j *Job) remove() error {
 
 // jobPorts returns all the ports on which an instance of the given function is
 // running.  len is 0 when not running.
-// Improperly initialized or nonexistent (zero value) Functions are considered
+// Improperly initialized or nonexistent (zero value) functions are considered
 // to not be running.
 func jobPorts(f Function) []string {
 	if f.Root == "" || !f.Initialized() {

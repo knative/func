@@ -7,8 +7,8 @@ import (
 	fn "knative.dev/kn-plugin-func"
 )
 
-// Runner runs a Function in a separate process, canceling it on context.Cancel.
-// Immediately returned is the port of the running Function.
+// Runner runs a function in a separate process, canceling it on context.Cancel.
+// Immediately returned is the port of the running function.
 type Runner struct {
 	RunInvoked    bool
 	RootRequested string
