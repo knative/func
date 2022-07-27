@@ -16,17 +16,15 @@ spec:
   - name: path
     description: Path to the function project
     default: ""
+  - name: image
+    description: Container image to be deployed
+    default: ""
   workspaces:
     - name: source
       description: The workspace containing the function project
   steps:
   - name: func-deploy
     image: "ghcr.io/knative-sandbox/kn-plugin-func/func:latest"
-    command: ["func"]
-    args:
-      - "deploy"
-      - "--verbose"
-      - "--build=disabled"
-      - "--push=false"
-      - "--path"
-      - "$(params.path)"
+    script: |
+      [[ "$(params.image)" != "" ]] && export FUNC_IMAGE="$(params.image)"
+      func deploy --verbose --build=disabled --push=false --path=$(params.path)
