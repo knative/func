@@ -26,6 +26,7 @@ import (
 
 type PipelineDecorator interface {
 	UpdateLabels(fn.Function, map[string]string) map[string]string
+	GetS2iTektonTaskProperties(fn.Function) (string, string, bool)
 }
 
 type Opt func(*PipelinesProvider)
@@ -109,7 +110,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 		}
 	}
 
-	_, err = client.Pipelines(pp.namespace).Create(ctx, generatePipeline(f, labels), metav1.CreateOptions{})
+	_, err = client.Pipelines(pp.namespace).Create(ctx, pp.generatePipeline(f, labels), metav1.CreateOptions{})
 	if err != nil {
 		if !errors.IsAlreadyExists(err) {
 			if errors.IsNotFound(err) {
@@ -141,7 +142,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 	}
 
 	pp.progressListener.Increment("Running Pipeline with the Function")
-	pr, err := client.PipelineRuns(pp.namespace).Create(ctx, generatePipelineRun(f, labels), metav1.CreateOptions{})
+	pr, err := client.PipelineRuns(pp.namespace).Create(ctx, pp.generatePipelineRun(f, labels), metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("problem in creating pipeline run: %v", err)
 	}

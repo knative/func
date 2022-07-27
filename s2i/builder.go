@@ -103,8 +103,8 @@ func NewBuilder(options ...Option) *Builder {
 func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	// TODO this function currently doesn't support private s2i builder images since credentials are not set
 
-	// Builder image from the function if defined, default otherwise.
-	builderImage, err := BuilderImage(f, b.name)
+	// Builder image from the function  if defined, default otherwise.
+	builderImage, err := BuilderImage(f)
 	if err != nil {
 		return
 	}
@@ -367,8 +367,39 @@ func s2iScriptURL(ctx context.Context, cli DockerClient, image string) (string, 
 	return "", nil
 }
 
-// Builder Image chooses the correct builder image or defaults.
-func BuilderImage(f fn.Function, builderName string) (string, error) {
-	// delegate as the logic is shared amongst builders
-	return builders.Image(f, builderName, DefaultBuilderImages)
+// BuilderImage for function
+// Uses the image defined on the function by default (for the given runtime)
+// or uses the static defaults if not defined. Returns an  ErrRuntimeRequired
+// if the function failed to define a Runtime, and ErrRuntimeNotSupported if
+// defined but an image exists neither in the static defaults nor in the
+// function's Builders map.
+func BuilderImage(f fn.Function) (string, error) {
+	if f.Runtime == "" {
+		return "", ErrRuntimeRequired
+	}
+
+	v, ok := f.BuilderImages[fn.BuilderS2i]
+	if ok {
+		return v, nil
+	}
+
+	v, ok = DefaultBuilderImages[f.Runtime]
+	if ok {
+		return v, nil
+	}
+
+	return "", ErrRuntimeNotSupported{f.Runtime}
+}
+
+func IsErrRuntimeNotSupported(err error) bool {
+	var e ErrRuntimeNotSupported
+	return errors.As(err, &e)
+}
+
+type ErrRuntimeNotSupported struct {
+	Runtime string
+}
+
+func (e ErrRuntimeNotSupported) Error() string {
+	return fmt.Sprintf("the s2i builder has no default builder image for the %q language runtime (try specifying builder image or use different build strategy)", e.Runtime)
 }
