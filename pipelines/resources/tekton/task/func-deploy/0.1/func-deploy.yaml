@@ -26,5 +26,5 @@ spec:
   - name: func-deploy
     image: "ghcr.io/knative-sandbox/kn-plugin-func/func:latest"
     script: |
-      [[ "$(params.image)" != "" ]] && export FUNC_IMAGE="$(params.image)"
+      export FUNC_IMAGE="$(params.image)"
       func deploy --verbose --build=disabled --push=false --path=$(params.path)
