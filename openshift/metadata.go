@@ -20,6 +20,12 @@ var iconValuesForRuntimes = map[string]string{
 	"springboot": "spring-boot",
 }
 
+var s2iTektonTaskNameForRuntime = map[string]string{
+	"node":       "s2i-nodejs",
+	"typescript": "s2i-nodejs",
+	"quarkus":    "s2i-java",
+}
+
 type OpenshiftMetadataDecorator struct{}
 
 func (o OpenshiftMetadataDecorator) UpdateAnnotations(f fn.Function, annotations map[string]string) map[string]string {
@@ -51,4 +57,21 @@ func (o OpenshiftMetadataDecorator) UpdateLabels(f fn.Function, labels map[strin
 	}
 
 	return labels
+}
+
+// GetS2iTektonTaskProperties returns a kind and name of Tekton Task then can be used on OpenShift for S2I builds
+// Also returns whether the task should define Builder Image Parameter
+func (o OpenshiftMetadataDecorator) GetS2iTektonTaskProperties(f fn.Function) (kind, taskName string, defineBuilderImageParam bool) {
+	kind = "ClusterTask"
+
+	// don't define Builder image param -> let's use the default builder image for each task on OpenShift
+	defineBuilderImageParam = false
+
+	// select the proper TektonTask
+	name, ok := s2iTektonTaskNameForRuntime[f.Runtime]
+	if ok {
+		taskName = name
+	}
+
+	return
 }

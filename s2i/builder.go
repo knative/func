@@ -98,7 +98,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	// TODO this function currently doesn't support private s2i builder images since credentials are not set
 
 	// Builder image from the function  if defined, default otherwise.
-	builderImage, err := builderImage(f)
+	builderImage, err := BuilderImage(f)
 	if err != nil {
 		return
 	}
@@ -361,13 +361,13 @@ func s2iScriptURL(ctx context.Context, cli DockerClient, image string) (string, 
 	return "", nil
 }
 
-// builderImage for function
+// BuilderImage for function
 // Uses the image defined on the function by default (for the given runtime)
 // or uses the static defaults if not defined. Returns an  ErrRuntimeRequired
 // if the function failed to define a Runtime, and ErrRuntimeNotSupported if
 // defined but an image exists neither in the static defaults nor in the
 // function's Builders map.
-func builderImage(f fn.Function) (string, error) {
+func BuilderImage(f fn.Function) (string, error) {
 	if f.Runtime == "" {
 		return "", ErrRuntimeRequired
 	}

@@ -30,6 +30,62 @@ import (
 	. "knative.dev/kn-plugin-func/testing"
 )
 
+// Test_BuildImages ensures that supported runtimes returns builder image
+func Test_BuildImages(t *testing.T) {
+
+	tests := []struct {
+		name     string
+		function fn.Function
+		wantErr  bool
+	}{
+		{
+			name:     "Without builder - without runtime",
+			function: fn.Function{},
+			wantErr:  true,
+		},
+		{
+			name:     "Without builder - supported runtime - node",
+			function: fn.Function{Runtime: "node"},
+			wantErr:  false,
+		},
+		{
+			name:     "Without builder - supported runtime - typescript",
+			function: fn.Function{Runtime: "typescript"},
+			wantErr:  false,
+		},
+		{
+			name:     "Without builder - supported runtime - quarkus",
+			function: fn.Function{Runtime: "quarkus"},
+			wantErr:  false,
+		},
+		{
+			name:     "Without builder - unsupported runtime - go",
+			function: fn.Function{Runtime: "go"},
+			wantErr:  true,
+		},
+		{
+			name:     "Without builder - unsupported runtime - python",
+			function: fn.Function{Runtime: "python"},
+			wantErr:  true,
+		},
+		{
+			name:     "Without builder - unsupported runtime - rust",
+			function: fn.Function{Runtime: "rust"},
+			wantErr:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := s2i.BuilderImage(tt.function)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("BuilderImage() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+		})
+	}
+}
+
 // Test_ErrRuntimeRequired ensures that a request to build without a runtime
 // defined for the function yields an ErrRuntimeRequired
 func Test_ErrRuntimeRequired(t *testing.T) {
