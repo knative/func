@@ -73,7 +73,7 @@ func TestList(t *testing.T) {
 
 	// Assert
 	if len(names) != 0 {
-		t.Fatalf("Expected no Functions, got %v", names)
+		t.Fatalf("Expected no functions, got %v", names)
 	}
 }
 
@@ -142,11 +142,11 @@ func TestRemove(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(names) != 0 {
-		t.Fatalf("Expected empty Functions list, got %v", names)
+		t.Fatalf("Expected empty functions list, got %v", names)
 	}
 }
 
-// TestRemoteRepositories ensures that initializing a Function
+// TestRemoteRepositories ensures that initializing a function
 // defined in a remote repository finds the template, writes
 // the expected files, and retains the expected modes.
 // NOTE: this test only succeeds due to an override in
@@ -238,7 +238,7 @@ func del(t *testing.T, c *fn.Client, name string) {
 	}
 }
 
-// waitFor the named Function to become available in List output.
+// waitFor the named function to become available in List output.
 // TODO: the API should be synchronous, but that depends first on
 // Create returning the derived name such that we can bake polling in.
 // Ideally the Boson provider's Creaet would be made syncrhonous.

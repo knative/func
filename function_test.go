@@ -12,7 +12,7 @@ import (
 	. "knative.dev/kn-plugin-func/testing"
 )
 
-// TestFunction_WriteIdempotency ensures that a Function can be written repeatedly
+// TestFunction_WriteIdempotency ensures that a function can be written repeatedly
 // without change.
 func TestFunction_WriteIdempotency(t *testing.T) {
 	root, rm := Mktemp(t)
@@ -47,20 +47,20 @@ func TestFunction_WriteIdempotency(t *testing.T) {
 	}
 }
 
-// TestFunction_NameDefault ensures that a Function's name is defaulted to that
+// TestFunction_NameDefault ensures that a function's name is defaulted to that
 // which can be derived from the last part of its path.
-// Creating a new Function from a path will error if there is no Function at
+// Creating a new function from a path will error if there is no function at
 // that path.  Creating using the client initializes the default.
 func TestFunction_NameDefault(t *testing.T) {
-	// A path at which there is no Function currently
+	// A path at which there is no function currently
 	root := "testdata/testFunctionNameDefault"
 	defer Using(t, root)()
 	f, err := fn.NewFunction(root)
 	if err == nil {
-		t.Fatal("expected error instantiating a nonexistant Function")
+		t.Fatal("expected error instantiating a nonexistant function")
 	}
 
-	// Create the Function at the path
+	// Create the function at the path
 	client := fn.New(fn.WithRegistry(TestRegistry))
 	f = fn.Function{
 		Runtime: TestRuntime,
@@ -70,7 +70,7 @@ func TestFunction_NameDefault(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Load the (now extant) Function
+	// Load the (now extant) function
 	f, err = fn.NewFunction(root)
 	if err != nil {
 		t.Fatal(err)

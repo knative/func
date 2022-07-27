@@ -68,7 +68,7 @@ func TestCreate_InvalidTemplate(t *testing.T) {
 }
 
 // TestCreate_ValidatesName ensures that the create command only accepts
-// DNS-1123 labels for Function name.
+// DNS-1123 labels for function name.
 func TestCreate_ValidatesName(t *testing.T) {
 	defer Fromtemp(t)()
 

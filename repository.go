@@ -24,9 +24,9 @@ const (
 )
 
 const (
-	// DefaultReadinessEndpoint for final deployed Function instances
+	// DefaultReadinessEndpoint for final deployed function instances
 	DefaultReadinessEndpoint = "/health/readiness"
-	// DefaultLivenessEndpoint for final deployed Function instances
+	// DefaultLivenessEndpoint for final deployed function instances
 	DefaultLivenessEndpoint = "/health/liveness"
 	// DefaultTemplatesPath is the root of the defined repository
 	DefaultTemplatesPath = "."
@@ -62,8 +62,8 @@ type Runtime struct {
 	Templates []Template
 }
 
-// Template is a Function project template.
-// It can be used to instantiate new Function project.
+// Template is a function project template.
+// It can be used to instantiate new function project.
 type Template interface {
 	// Name of this template.
 	Name() string
@@ -78,11 +78,11 @@ type Template interface {
 	// to uniquely reference a template which may share a name
 	// with one in another repository.
 	Fullname() string
-	// Write updates fields of Function f and writes project files to path pointed by f.Root.
+	// Write updates fields of function f and writes project files to path pointed by f.Root.
 	Write(ctx context.Context, f *Function) error
 }
 
-// This structure defines defaults for a Function when generating project by a template.Write().
+// This structure defines defaults for a function when generating project by a template.Write().
 // The structure can be read from manifest.yaml which can exist at level of repository, runtime or template.
 type funcDefaults struct {
 	// BuildConfig defines builders and buildpacks.  the denormalized view of
@@ -97,7 +97,7 @@ type funcDefaults struct {
 	// this can be used to parameterize the builders
 	BuildEnvs []Env `yaml:"buildEnvs,omitempty"`
 
-	// Invocation defines invocation hints for a Functions which is created
+	// Invocation defines invocation hints for a functions which is created
 	// from this template prior to being materially modified.
 	Invocation Invocation `yaml:"invocation,omitempty"`
 }

@@ -32,7 +32,7 @@ const (
 	DefaultStopTimeout = 10 * time.Second
 )
 
-// Runner starts and stops Functions as local contaieners.
+// Runner starts and stops functions as local containers.
 type Runner struct {
 	verbose bool // Verbose logging
 }
@@ -42,7 +42,7 @@ func NewRunner(verbose bool) *Runner {
 	return &Runner{verbose: verbose}
 }
 
-// Run the Function.
+// Run the function.
 func (n *Runner) Run(ctx context.Context, f fn.Function) (job *fn.Job, err error) {
 
 	var (

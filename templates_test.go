@@ -366,7 +366,7 @@ func TestTemplates_ModeRemote(t *testing.T) {
 // TODO: test typed errors for custom and remote (embedded checked)
 
 // TestTemplates_RuntimeManifestBuildEnvs ensures that BuildEnvs specified in a
-// runtimes's manifest are included in the final Function.
+// runtimes's manifest are included in the final function.
 func TestTemplates_RuntimeManifestBuildEnvs(t *testing.T) {
 	// create test directory
 	root := "testdata/testTemplatesRuntimeManifestBuildEnvs"
@@ -408,12 +408,12 @@ func TestTemplates_RuntimeManifestBuildEnvs(t *testing.T) {
 		t.Fatal(err)
 	}
 	if diff := cmp.Diff(envs, f.BuildEnvs); diff != "" {
-		t.Fatalf("Unexpected difference between runtime's manifest.yaml buildEnvs and Function BuildEnvs (-want, +got): %v", diff)
+		t.Fatalf("Unexpected difference between runtime's manifest.yaml buildEnvs and function BuildEnvs (-want, +got): %v", diff)
 	}
 }
 
 // TestTemplates_ManifestBuildEnvs ensures that BuildEnvs specified in a
-// template's manifest are included in the final Function.
+// template's manifest are included in the final function.
 func TestTemplates_ManifestBuildEnvs(t *testing.T) {
 	// create test directory
 	root := "testdata/testTemplatesManifestBuildEnvs"
@@ -455,12 +455,12 @@ func TestTemplates_ManifestBuildEnvs(t *testing.T) {
 		t.Fatal(err)
 	}
 	if diff := cmp.Diff(envs, f.BuildEnvs); diff != "" {
-		t.Fatalf("Unexpected difference between template's manifest.yaml buildEnvs and Function BuildEnvs (-want, +got): %v", diff)
+		t.Fatalf("Unexpected difference between template's manifest.yaml buildEnvs and function BuildEnvs (-want, +got): %v", diff)
 	}
 }
 
 // TestTemplates_RepositoryManifestBuildEnvs ensures that BuildEnvs specified in a
-// repository's manifest are included in the final Function.
+// repository's manifest are included in the final function.
 func TestTemplates_RepositoryManifestBuildEnvs(t *testing.T) {
 	// create test directory
 	root := "testdata/testRepositoryManifestBuildEnvs"
@@ -502,12 +502,12 @@ func TestTemplates_RepositoryManifestBuildEnvs(t *testing.T) {
 		t.Fatal(err)
 	}
 	if diff := cmp.Diff(envs, f.BuildEnvs); diff != "" {
-		t.Fatalf("Unexpected difference between repository's manifest.yaml buildEnvs and Function BuildEnvs (-want, +got): %v", diff)
+		t.Fatalf("Unexpected difference between repository's manifest.yaml buildEnvs and function BuildEnvs (-want, +got): %v", diff)
 	}
 }
 
 // TestTemplates_ManifestInvocationHints ensures that invocation hints
-// from a template's manifest are included in the final Function.
+// from a template's manifest are included in the final function.
 func TestTemplates_ManifestInvocationHints(t *testing.T) {
 	root := "testdata/testTemplatesManifestInvocationHints"
 	defer Using(t, root)()
@@ -536,7 +536,7 @@ func TestTemplates_ManifestInvocationHints(t *testing.T) {
 }
 
 // TestTemplates_ManifestRemoved ensures that the manifest is not left in
-// the resultant Function after write.
+// the resultant function after write.
 func TestTemplates_ManifestRemoved(t *testing.T) {
 	// create test directory
 	root := "testdata/testTemplateManifestRemoved"
@@ -570,7 +570,7 @@ func TestTemplates_ManifestRemoved(t *testing.T) {
 
 }
 
-// TestTemplates_InvocationDefault ensures that creating a Function which
+// TestTemplates_InvocationDefault ensures that creating a function which
 // does not define an invocation hint defaults to the DefaultInvocationFormat
 // (http post)
 func TestTemplates_InvocationDefault(t *testing.T) {

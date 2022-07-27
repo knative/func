@@ -23,14 +23,14 @@ const (
 )
 
 // InvokeMesage is the message used by the convenience method Invoke to provide
-// a simple way to trigger the execution of a Function during development.
+// a simple way to trigger the execution of a function during development.
 type InvokeMessage struct {
 	ID          string
 	Source      string
 	Type        string
 	ContentType string
 	Data        string
-	Format      string //optional override for Function-defined message format
+	Format      string //optional override for function-defined message format
 }
 
 // NewInvokeMessage creates a new InvokeMessage with fields populated
@@ -41,11 +41,11 @@ func NewInvokeMessage() InvokeMessage {
 		Type:        DefaultInvokeType,
 		ContentType: DefaultInvokeContentType,
 		Data:        DefaultInvokeData,
-		// Format override not set by default: value from Function being preferred.
+		// Format override not set by default: value from function being preferred.
 	}
 }
 
-// invoke the Function instance in the target environment with the
+// invoke the function instance in the target environment with the
 // invocation message.  Returned is metadata (such as HTTP headers or
 // CloudEvent fields) and a stringified version of the payload.
 func invoke(ctx context.Context, c *Client, f Function, target string, m InvokeMessage, verbose bool) (metadata map[string][]string, body string, err error) {
@@ -57,24 +57,24 @@ func invoke(ctx context.Context, c *Client, f Function, target string, m InvokeM
 		return
 	}
 	if verbose {
-		fmt.Printf("Invoking '%v' Function at %v\n", f.Invocation.Format, route)
+		fmt.Printf("Invoking '%v' function at %v\n", f.Invocation.Format, route)
 	}
 
 	// Format" either 'http' or 'cloudevent'
 	// TODO: discuss if providing a Format on Message should a) update the
-	// Function to use the new format if none is defined already (backwards
-	// compatibility fix) or b) always update the Function, even if it was already
+	// function to use the new format if none is defined already (backwards
+	// compatibility fix) or b) always update the function, even if it was already
 	// set. Once decided, codify in a test.
 	format := DefaultInvokeFormat
 	if f.Invocation.Format != "" {
-		// Prefer the format set during Function creation if defined.
+		// Prefer the format set during function creation if defined.
 		format = f.Invocation.Format
 	}
 	if m.Format != "" {
 		// Use the override specified on the message if provided
 		format = m.Format
 		if verbose {
-			fmt.Printf("Invoking '%v' Function using '%v' format\n", f.Invocation.Format, m.Format)
+			fmt.Printf("Invoking '%v' function using '%v' format\n", f.Invocation.Format, m.Format)
 		}
 	}
 
@@ -93,8 +93,8 @@ func invoke(ctx context.Context, c *Client, f Function, target string, m InvokeM
 	}
 }
 
-// invocationRoute returns a route to the named target instance of a Func:
-// 'local': local environment; locally running Function (error if not running)
+// invocationRoute returns a route to the named target instance of a func:
+// 'local': local environment; locally running function (error if not running)
 // 'remote': remote environment; first available instance (error if none)
 // '<environment>': A valid alternate target which contains instances.
 // '<url>': An explicit URL

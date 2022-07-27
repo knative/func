@@ -31,7 +31,7 @@ import (
 )
 
 // Test_ErrRuntimeRequired ensures that a request to build without a runtime
-// defined for the Function yields an ErrRuntimeRequired
+// defined for the function yields an ErrRuntimeRequired
 func Test_ErrRuntimeRequired(t *testing.T) {
 	b := s2i.NewBuilder()
 	err := b.Build(context.Background(), fn.Function{})
@@ -52,18 +52,18 @@ func Test_ErrRuntimeNotSupported(t *testing.T) {
 	}
 }
 
-// Test_BuilderImageDefault ensures that a Function being built which does not
+// Test_BuilderImageDefault ensures that a function being built which does not
 // define a Builder Image will default.
 func Test_ImageDefault(t *testing.T) {
 	var (
 		i = &mockImpl{}                                              // mock underlying s2i implementation
 		c = mockDocker{}                                             // mock docker client
-		b = s2i.NewBuilder(s2i.WithImpl(i), s2i.WithDockerClient(c)) // Func S2I Builder logic
-		f = fn.Function{Runtime: "node"}                             // Function with no builder image set
+		b = s2i.NewBuilder(s2i.WithImpl(i), s2i.WithDockerClient(c)) // func S2I Builder logic
+		f = fn.Function{Runtime: "node"}                             // function with no builder image set
 	)
 
 	// An implementation of the underlying S2I implementation which verifies
-	// the config has arrived as expected (correct Functions logic applied)
+	// the config has arrived as expected (correct functions logic applied)
 	i.BuildFn = func(cfg *api.Config) (*api.Result, error) {
 		expected := s2i.DefaultBuilderImages["node"]
 		if cfg.BuilderImage != expected {
@@ -72,7 +72,7 @@ func Test_ImageDefault(t *testing.T) {
 		return nil, nil
 	}
 
-	// Invoke Build, which runs Function Builder logic before invoking the
+	// Invoke Build, which runs function Builder logic before invoking the
 	// mock impl above.
 	if err := b.Build(context.Background(), f); err != nil {
 		t.Fatal(err)
@@ -80,13 +80,13 @@ func Test_ImageDefault(t *testing.T) {
 }
 
 // Test_BuilderImageConfigurable ensures that the builder will use the builder
-// image defined on the given Function if provided.
+// image defined on the given function if provided.
 func Test_BuilderImageConfigurable(t *testing.T) {
 	var (
 		i = &mockImpl{}                                              // mock underlying s2i implementation
 		c = mockDocker{}                                             // mock docker client
-		b = s2i.NewBuilder(s2i.WithImpl(i), s2i.WithDockerClient(c)) // Func S2I Builder logic
-		f = fn.Function{                                             // Function with a builder image set
+		b = s2i.NewBuilder(s2i.WithImpl(i), s2i.WithDockerClient(c)) // func S2I Builder logic
+		f = fn.Function{                                             // function with a builder image set
 			Runtime: "node",
 			BuilderImages: map[string]string{
 				"s2i": "example.com/user/builder-image",
@@ -95,7 +95,7 @@ func Test_BuilderImageConfigurable(t *testing.T) {
 	)
 
 	// An implementation of the underlying S2I implementation which verifies
-	// the config has arrived as expected (correct Functions logic applied)
+	// the config has arrived as expected (correct functions logic applied)
 	i.BuildFn = func(cfg *api.Config) (*api.Result, error) {
 		expected := f.BuilderImages["s2i"]
 		if cfg.BuilderImage != expected {
@@ -104,7 +104,7 @@ func Test_BuilderImageConfigurable(t *testing.T) {
 		return nil, nil
 	}
 
-	// Invoke Build, which runs Function Builder logic before invoking the
+	// Invoke Build, which runs function Builder logic before invoking the
 	// mock impl above.
 	if err := b.Build(context.Background(), f); err != nil {
 		t.Fatal(err)
@@ -131,7 +131,7 @@ func Test_BuilderVerbose(t *testing.T) {
 	assert(false) // when verbose is off, quiet should be toggled on
 }
 
-// Test_BuildEnvs ensures that build environment variables on the Function
+// Test_BuildEnvs ensures that build environment variables on the function
 // are interpolated and passed to the S2I build implementation in the final
 // build config.
 func Test_BuildEnvs(t *testing.T) {

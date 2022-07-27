@@ -46,11 +46,11 @@ func Handle(ctx context.Context, event ce.Event) (*ce.Event, error) {
 }
 `
 
-// TestInvoke ensures that invoking a CloudEvent Function succeeds, including
+// TestInvoke ensures that invoking a CloudEvent function succeeds, including
 // preserving custom values through the full round-trip.
 func TestInvoke(t *testing.T) {
 	var (
-		root        = "testdata/e2e/testinvoke" // root path for the test Function
+		root        = "testdata/e2e/testinvoke" // root path for the test function
 		bin, prefix = bin()                     // path to test binary and prefix args
 		cleanup     = Within(t, root)           // Create and CD to root.
 		cwd, _      = os.Getwd()                // the current working directory (absolute)
@@ -70,7 +70,7 @@ func TestInvoke(t *testing.T) {
 		targetUrl = matches[1]
 	}
 
-	// Validate by fetching the contents of the Function's data global
+	// Validate by fetching the contents of the function's data global
 	fmt.Println("Validate:")
 	req := cloudevents.NewEvent()
 	req.SetID("1")

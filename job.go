@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 )
 
-// Job represents a running Function job (presumably started by this process'
+// Job represents a running function job (presumably started by this process'
 // Runner instance.
 type Job struct {
 	Function Function
@@ -15,7 +15,7 @@ type Job struct {
 	onStop   func()
 }
 
-// Create a new Job which represents a running Function task by providing
+// Create a new Job which represents a running function task by providing
 // the port on which it was started, a channel on which runtime errors can
 // be received, and a stop function.
 func NewJob(f Function, port string, errs chan error, onStop func()) (*Job, error) {
@@ -62,9 +62,9 @@ func (j *Job) remove() error {
 	return os.Remove(filename)
 }
 
-// jobPorts returns all the ports on which an instance of the given Function is
+// jobPorts returns all the ports on which an instance of the given function is
 // running.  len is 0 when not running.
-// Improperly initialized or nonexistent (zero value) Functions are considered
+// Improperly initialized or nonexistent (zero value) functions are considered
 // to not be running.
 func jobPorts(f Function) []string {
 	if f.Root == "" || !f.Initialized() {

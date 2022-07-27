@@ -23,20 +23,20 @@ Runs the function locally in the current directory or in the directory
 specified by --path flag.
 
 Building
-By default the Function will be built if never built, or if changes are detected
-to the Function's source.  Use --build to override this behavior.
+By default the function will be built if never built, or if changes are detected
+to the function's source.  Use --build to override this behavior.
 
 `,
 		Example: `
-# Run the Function locally, building if necessary
+# Run the function locally, building if necessary
 {{.Name}} run
 
-# Run the Function, forcing a rebuild of the image.
-#   This is useful when the Function's image was manually deleted, necessitating
-#   A rebuild even when no changes have been made the Function's source.
+# Run the function, forcing a rebuild of the image.
+#   This is useful when the function's image was manually deleted, necessitating
+#   A rebuild even when no changes have been made the function's source.
 {{.Name}} run --build
 
-# Run the Function's existing image, disabling auto-build.
+# Run the function's existing image, disabling auto-build.
 #   This is useful when filesystem changes have been made, but one wishes to
 #   run the previously built image without rebuilding.
 {{.Name}} run --build=false
@@ -87,7 +87,7 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 		}
 	}
 
-	// Check if the Function has been initialized
+	// Check if the function has been initialized
 	if !function.Initialized() {
 		return fmt.Errorf("the given path '%v' does not contain an initialized function", config.Path)
 	}
@@ -99,7 +99,7 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 	defer done()
 
 	// Build?
-	// If --build was set to 'auto', only build if client detects the Function
+	// If --build was set to 'auto', only build if client detects the function
 	// is stale (has either never been built or has had filesystem modifications
 	// since the last build).
 	if config.Build == "auto" {
@@ -108,7 +108,7 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 				return
 			}
 		}
-		fmt.Println("Detected Function was already built.  Use --build to override this behavior.")
+		fmt.Println("Detected function was already built.  Use --build to override this behavior.")
 		// Otherwise, --build should parse to a truthy value which indicates an explicit
 		// override.
 	} else {
@@ -126,7 +126,7 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 
 	}
 
-	// Run the Function at path
+	// Run the function at path
 	job, err := client.Run(cmd.Context(), config.Path)
 	if err != nil {
 		return
@@ -147,7 +147,7 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 }
 
 type runConfig struct {
-	// Path of the Function implementation on local disk. Defaults to current
+	// Path of the function implementation on local disk. Defaults to current
 	// working directory of the process.
 	Path string
 

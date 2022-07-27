@@ -50,7 +50,7 @@ func NewConfigCmd() *cobra.Command {
 		Short: "Configure a function",
 		Long: `Configure a function
 
-Interactive propmt that allows configuration of Volume mounts, Environment
+Interactive prompt that allows configuration of Volume mounts, Environment
 variables, and Labels for a function project present in the current directory
 or from the directory specified with --path.
 `,

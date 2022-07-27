@@ -10,10 +10,10 @@ import (
 )
 
 // TestDelete_ByName ensures that running delete specifying the name of the
-// Function explicitly as an argument invokes the remover appropriately.
+// function explicitly as an argument invokes the remover appropriately.
 func TestDelete_ByName(t *testing.T) {
 	var (
-		testname = "testname"        // explicit name for the Function
+		testname = "testname"        // explicit name for the function
 		remover  = mock.NewRemover() // with a mock remover
 	)
 
@@ -98,7 +98,7 @@ created: 2021-01-01T00:00:00+00:00
 // TestDelete_NameAndPathExclusivity ensures that providing both a name and a
 // path generates an error.
 // Providing the --path (-p) flag indicates the name of the function to delete
-// is to be taken from the Function at the given path.  Providing the name as
+// is to be taken from the function at the given path.  Providing the name as
 // an argument as well is therefore redundant and an error.
 func TestDelete_NameAndPathExclusivity(t *testing.T) {
 

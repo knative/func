@@ -59,7 +59,7 @@ func runInfo(cmd *cobra.Command, args []string, newClient ClientFactory) (err er
 		return
 	}
 
-	// Check if the Function has been initialized
+	// Check if the function has been initialized
 	if !function.Initialized() {
 		return fmt.Errorf("the given path '%v' does not contain an initialized function", config.Path)
 	}

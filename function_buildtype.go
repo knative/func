@@ -15,7 +15,7 @@ func AllBuildTypes() []string {
 	return []string{BuildTypeLocal, BuildTypeGit, BuildTypeDisabled}
 }
 
-// ValidateBuild validates input Build type option from Function config.
+// ValidateBuild validates input Build type option from function config.
 // If "allowUnset" is set to true, the specified type could be "" -> fallback to DefaultBuildType,
 // this option should be used for validating func.yaml file, where users don't have to specify the build type.
 // Type "disabled" is allowed only if parameter "allowDisabledBuildType" is set to true,

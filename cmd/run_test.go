@@ -15,7 +15,7 @@ func TestRun_Run(t *testing.T) {
 	tests := []struct {
 		name         string   // name of the test
 		desc         string   // description of the test
-		funcState    string   // Function state, as described in func.yaml
+		funcState    string   // function state, as described in func.yaml
 		args         []string // args for the test case
 		buildError   error    // Set the builder to yield this error
 		runError     error    // Set the runner to yield this error
@@ -75,7 +75,7 @@ created: 2009-11-10 23:00:00`,
 		{
 			name: "image existence builds",
 			desc: "Should build when image tag exists",
-			// The existence of an image tag value does not mean the Function
+			// The existence of an image tag value does not mean the function
 			// is built; that is the purvew of the buld stamp staleness check.
 			funcState: `name: test-func
 runtime: go

@@ -29,27 +29,27 @@ type ErrInvalidTemplate error
 func NewCreateCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
-		Short: "Create a Function Project",
+		Short: "Create a function project",
 		Long: `
 NAME
-	{{.Name}} create - Create a Function project.
+	{{.Name}} create - Create a function project.
 
 SYNOPSIS
 	{{.Name}} create [-l|--language] [-t|--template] [-r|--repository]
 	            [-c|--confirm]  [-v|--verbose]  [path]
 
 DESCRIPTION
-	Creates a new Function project.
+	Creates a new function project.
 
 	  $ {{.Name}} create -l node -t http
 
-	Creates a Function in the current directory '.' which is written in the
+	Creates a function in the current directory '.' which is written in the
 	language/runtime 'node' and handles HTTP events.
 
-	If [path] is provided, the Function is initialized at that path, creating
+	If [path] is provided, the function is initialized at that path, creating
 	the path if necessary.
 
-	To complete this command interactivly, use --confirm (-c):
+	To complete this command interactively, use --confirm (-c):
 	  $ {{.Name}} create -c
 
 	Available Language Runtimes and Templates:
@@ -59,15 +59,15 @@ DESCRIPTION
 
 
 EXAMPLES
-	o Create a Node.js Function (the default language runtime) in the current
+	o Create a Node.js function (the default language runtime) in the current
 	  directory (the default path) which handles http events (the default
 	  template).
 	  $ {{.Name}} create
 
-	o Create a Node.js Function in the directory 'myfunc'.
+	o Create a Node.js function in the directory 'myfunc'.
 	  $ {{.Name}} create myfunc
 
-	o Create a Go Function which handles CloudEvents in ./myfunc.
+	o Create a Go function which handles CloudEvents in ./myfunc.
 	  $ {{.Name}} create -l go -t cloudevents myfunc
 		`,
 		SuggestFor: []string{"vreate", "creaet", "craete", "new"},
@@ -135,7 +135,7 @@ func runCreate(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 	}
 
 	// Confirm
-	fmt.Fprintf(cmd.OutOrStderr(), "Created %v Function in %v\n", cfg.Runtime, cfg.Path)
+	fmt.Fprintf(cmd.OutOrStderr(), "Created %v function in %v\n", cfg.Runtime, cfg.Path)
 	return nil
 }
 
@@ -177,22 +177,22 @@ func runCreateHelp(cmd *cobra.Command, args []string, newClient ClientFactory) {
 }
 
 type createConfig struct {
-	Path       string // Absolute path to Function sourcsource
+	Path       string // Absolute path to function source
 	Runtime    string // Language Runtime
 	Repository string // Repository URI (overrides builtin and installed)
 	Verbose    bool   // Verbose output
 	Confirm    bool   // Confirm values via an interactive prompt
 
-	// Template is the code written into the new Function project, including
+	// Template is the code written into the new function project, including
 	// an implementation adhering to one of the supported function signatures.
 	// May also include additional configuration settings or examples.
-	// For example, embedded are 'http' for a Function whose function signature
-	// is invoked via straight HTTP requests, or 'events' for a Function which
+	// For example, embedded are 'http' for a function whose function signature
+	// is invoked via straight HTTP requests, or 'events' for a function which
 	// will be invoked with CloudEvents.  These embedded templates contain a
 	// minimum implementation of the signature itself and example tests.
 	Template string
 
-	// Name of the Function
+	// Name of the function
 	Name string
 
 	// RepositoriesPath is an optional configuration setting (not set via flags)

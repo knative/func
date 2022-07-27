@@ -30,7 +30,7 @@ import (
 )
 
 var (
-	// ErrRuntimeRequired indicates the required value of Function Runtime was not provided
+	// ErrRuntimeRequired indicates the required value of function runtime was not provided
 	ErrRuntimeRequired = errors.New("runtime is required to build")
 )
 
@@ -47,7 +47,7 @@ type DockerClient interface {
 	ImageInspectWithRaw(ctx context.Context, image string) (types.ImageInspect, []byte, error)
 }
 
-// Builder of Functions using the s2i subsystem.
+// Builder of functions using the s2i subsystem.
 type Builder struct {
 	verbose  bool
 	impl     build.Builder // S2I builder implementation (aka "Strategy")
@@ -97,7 +97,7 @@ func NewBuilder(options ...Option) *Builder {
 func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	// TODO this function currently doesn't support private s2i builder images since credentials are not set
 
-	// Builder image from the Function  if defined, default otherwise.
+	// Builder image from the function  if defined, default otherwise.
 	builderImage, err := builderImage(f)
 	if err != nil {
 		return
@@ -150,7 +150,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	// Do not include .git, .env, .func or any language-specific cache directories
 	// (node_modules, etc) in the tar file sent to the builder, as this both
 	// bloats the build process and can cause unexpected errors in the resultant
-	// Function.
+	// function.
 	cfg.ExcludeRegExp = "(^|/)\\.git|\\.env|\\.func|node_modules(/|$)"
 
 	// Environment variables
@@ -361,12 +361,12 @@ func s2iScriptURL(ctx context.Context, cli DockerClient, image string) (string, 
 	return "", nil
 }
 
-// builderImage for Function
-// Uses the image defined on the Function by default (for the given runtime)
+// builderImage for function
+// Uses the image defined on the function by default (for the given runtime)
 // or uses the static defaults if not defined. Returns an  ErrRuntimeRequired
-// if the Function failed to define a Runtime, and ErrRuntimeNotSupported if
+// if the function failed to define a Runtime, and ErrRuntimeNotSupported if
 // defined but an image exists neither in the static defaults nor in the
-// Function's Builders map.
+// function's Builders map.
 func builderImage(f fn.Function) (string, error) {
 	if f.Runtime == "" {
 		return "", ErrRuntimeRequired

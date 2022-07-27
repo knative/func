@@ -28,27 +28,27 @@ func NewRootCmd(config RootCommandConfig) *cobra.Command {
 		// Use must be set to exactly config.Name, as this field is overloaded to
 		// be used in subcommand help text as the command with possible prefix:
 		Use:           config.Name,
-		Short:         "Serverless Functions",
+		Short:         "Serverless functions",
 		SilenceErrors: true, // we explicitly handle errors in Execute()
 		SilenceUsage:  true, // no usage dump on error
-		Long: `Serverless Functions {{.Version}}
+		Long: `Serverless functions {{.Version}}
 
-	Create, build and deploy Knative Functions
+	Create, build and deploy Knative functions
 
 SYNOPSIS
 	{{.Name}} [-v|--verbose] <command> [args]
 
 EXAMPLES
 
-	o Create a Node Function in the current directory
+	o Create a Node function in the current directory
 	  $ {{.Name}} create --language node .
 
-	o Deploy the Function defined in the current working directory to the
+	o Deploy the function defined in the current working directory to the
 	  currently connected cluster, specifying a container registry in place of
-	  quay.io/user for the Function's container.
+	  quay.io/user for the function's container.
 	  $ {{.Name}} deploy --registry quay.io.user
 
-	o Invoke the Function defined in the current working directory with an example
+	o Invoke the function defined in the current working directory with an example
 	  request.
 	  $ {{.Name}} invoke
 
@@ -174,7 +174,7 @@ type functionOverrides struct {
 }
 
 // functionWithOverrides sets the namespace and image strings for the
-// Function project at root, if provided, and returns the Function
+// function project at root, if provided, and returns the function
 // configuration values.
 // Please note that When this function is called, the overrides are not persisted.
 func functionWithOverrides(root string, overrides functionOverrides) (f fn.Function, err error) {
@@ -202,14 +202,14 @@ func functionWithOverrides(root string, overrides functionOverrides) (f fn.Funct
 
 // deriveName returns the explicit value (if provided) or attempts to derive
 // from the given path.  Path is defaulted to current working directory, where
-// a Function configuration, if it exists and contains a name, is used.
+// a function configuration, if it exists and contains a name, is used.
 func deriveName(explicitName string, path string) string {
 	// If the name was explicitly provided, use it.
 	if explicitName != "" {
 		return explicitName
 	}
 
-	// If the directory at path contains an initialized Function, use the name therein
+	// If the directory at path contains an initialized function, use the name therein
 	f, err := fn.NewFunction(path)
 	if err == nil && f.Name != "" {
 		return f.Name
@@ -218,8 +218,8 @@ func deriveName(explicitName string, path string) string {
 	return ""
 }
 
-// deriveNameAndAbsolutePathFromPath returns resolved Function name and absolute path
-// to the Function project root. The input parameter path could be one of:
+// deriveNameAndAbsolutePathFromPath returns resolved function name and absolute path
+// to the function project root. The input parameter path could be one of:
 // 'relative/path/to/foo', '/absolute/path/to/foo', 'foo' or ''
 func deriveNameAndAbsolutePathFromPath(path string) (string, string) {
 	var absPath string
@@ -229,20 +229,20 @@ func deriveNameAndAbsolutePathFromPath(path string) (string, string) {
 		path = cwd()
 	}
 
-	// Expand the passed Function name to its absolute path
+	// Expand the passed function name to its absolute path
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return "", ""
 	}
 
-	// Get the name of the Function, which equals to name of the current directory
+	// Get the name of the function, which equals to name of the current directory
 	pathParts := strings.Split(strings.TrimRight(path, string(os.PathSeparator)), string(os.PathSeparator))
 	return pathParts[len(pathParts)-1], absPath
 }
 
 // deriveImage returns the same image name which will be used if no explicit
 // image is provided.  I.e. derived from the configured registry (registry
-// plus username) and the Function's name.
+// plus username) and the function's name.
 //
 // This is calculated preemptively here in the CLI (prior to invoking the
 // client), only in order to provide information to the user via the prompt.
@@ -251,16 +251,16 @@ func deriveNameAndAbsolutePathFromPath(path string) (string, string) {
 //
 // Derivation logic:
 // deriveImage attempts to arrive at a final, full image name:
-//   format:  [registry]/[username]/[FunctionName]:[tag]
+//   format:  [registry]/[username]/[functionName]:[tag]
 //   example: quay.io/myname/my.function.name:tag.
 //
 // Registry can optionally be omitted, in which case DefaultRegistry
 // will be prepended.
 //
 // If the image flag is provided, this value is used directly (the user supplied
-// --image or $FUNC_IMAGE).  Otherwise, the Function at 'path' is loaded, and
+// --image or $FUNC_IMAGE).  Otherwise, the function at 'path' is loaded, and
 // the Image name therein is used (i.e. it was previously calculated).
-// Finally, the default registry is used, which is prepended to the Function
+// Finally, the default registry is used, which is prepended to the function
 // name, and appended with ':latest':
 func deriveImage(explicitImage, defaultRegistry, path string) string {
 	if explicitImage != "" {

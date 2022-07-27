@@ -13,7 +13,7 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
-// FunctionFile is the file used for the serialized form of a Function.
+// FunctionFile is the file used for the serialized form of a function.
 const FunctionFile = "func.yaml"
 
 type Function struct {
@@ -25,17 +25,17 @@ type Function struct {
 	// Root on disk at which to find/create source and config files.
 	Root string `yaml:"-"`
 
-	// Name of the Function.  If not provided, path derivation is attempted when
+	// Name of the function.  If not provided, path derivation is attempted when
 	// requried (such as for initialization).
 	Name string `yaml:"name" jsonschema:"pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"`
 
-	// Namespace into which the Function is deployed on supported platforms.
+	// Namespace into which the function is deployed on supported platforms.
 	Namespace string `yaml:"namespace"`
 
 	// Runtime is the language plus context.  nodejs|go|quarkus|rust etc.
 	Runtime string `yaml:"runtime"`
 
-	// Template for the Function.
+	// Template for the function.
 	Template string `yaml:"-"`
 
 	// Registry at which to store interstitial containers, in the form
@@ -123,7 +123,7 @@ type BuildConfig struct {
 	BuilderImages map[string]string `yaml:"builderImages,omitempty"`
 }
 
-// Invocation defines hints on how to accomplish a Function invocation.
+// Invocation defines hints on how to accomplish a function invocation.
 type Invocation struct {
 	// Format indicates the expected format of the invocation.  Either 'http'
 	// (a basic HTTP POST of standard form fields) or 'cloudevent'
@@ -150,7 +150,7 @@ func NewFunctionWith(defaults Function) Function {
 }
 
 // NewFunction from a given path.
-// Invalid paths, or no Function at path are errors.
+// Invalid paths, or no function at path are errors.
 // Syntactic errors are returned immediately (yaml unmarshal errors).
 // Functions which are syntactically valid are also then logically validated.
 // Functions from earlier versions are brought up to current using migrations.
@@ -177,7 +177,7 @@ func NewFunction(path string) (f Function, err error) {
 	return f, f.Validate()
 }
 
-// Validate Function is logically correct, returning a bundled, and quite
+// Validate function is logically correct, returning a bundled, and quite
 // verbose, formatted error detailing any issues.
 func (f Function) Validate() error {
 	if f.Name == "" {
@@ -277,7 +277,7 @@ func Interpolate(ee []Env) (map[string]string, error) {
 	return envs, nil
 }
 
-// nameFromPath returns the default name for a Function derived from a path.
+// nameFromPath returns the default name for a function derived from a path.
 // This consists of the last directory in the given path, if derivable (empty
 // paths, paths consisting of all slashes, etc. return the zero value "")
 func nameFromPath(path string) string {
@@ -295,7 +295,7 @@ func nameFromPath(path string) string {
 	*/
 }
 
-// Write aka (save, serialize, marshal) the Function to disk at its path.
+// Write aka (save, serialize, marshal) the function to disk at its path.
 func (f Function) Write() (err error) {
 	path := filepath.Join(f.Root, FunctionFile)
 	var bb []byte
@@ -307,19 +307,19 @@ func (f Function) Write() (err error) {
 	return ioutil.WriteFile(path, bb, 0644)
 }
 
-// Initialized returns if the Function has been initialized.
+// Initialized returns if the function has been initialized.
 // Any errors are considered failure (invalid or inaccessible root, config file, etc).
 func (f Function) Initialized() bool {
 	return !f.Created.IsZero()
 }
 
-// Built indicates the Function has been built.  Does not guarantee the
+// Built indicates the function has been built.  Does not guarantee the
 // image indicated actually exists, just that it _should_ exist based off
 // the current state of the Function object, in particular the value of
-// the Image and ImageDiget fields.
+// the Image and ImageDigest fields.
 func (f Function) HasImage() bool {
 	// If Image (the override) and ImageDigest (the most recent build stamp) are
-	// both empty, the Function is considered unbuilt.
+	// both empty, the function is considered unbuilt.
 	// TODO: upgrade to a "build complete" timestamp.
 	return f.Image != "" || f.ImageDigest != ""
 }
@@ -345,7 +345,7 @@ func (f Function) ImageWithDigest() string {
 }
 
 // DerivedImage returns the derived image name (OCI container tag) of the
-// Function whose source is at root, with the default registry for when
+// function whose source is at root, with the default registry for when
 // the image has to be calculated (derived).
 // The following are equivalent due to the use of DefaultRegistry:
 // registry:  docker.io/myname
@@ -360,15 +360,15 @@ func (f Function) ImageWithDigest() string {
 func DerivedImage(root, registry string) (image string, err error) {
 	f, err := NewFunction(root)
 	if err != nil {
-		// an inability to load the Function means it is not yet initialized
-		// We could try to be smart here and fall through to the Function name
+		// an inability to load the function means it is not yet initialized
+		// We could try to be smart here and fall through to the function name
 		// deriviation logic, but that's likely to be confusing.  Better to
 		// stay simple and say that derivation of Image depends on first having
-		// the Function initialized.
+		// the function initialized.
 		return
 	}
 
-	// If the Function has already had image populated
+	// If the function has already had image populated
 	// and a new registry hasn't been provided, use this pre-calculated value.
 	if f.Image != "" && f.Registry == registry {
 		image = f.Image
@@ -382,7 +382,7 @@ func DerivedImage(root, registry string) (image string, err error) {
 		return
 	}
 
-	// If the Function loaded, and there is not yet an Image set, then this is
+	// If the function loaded, and there is not yet an Image set, then this is
 	// the first build and no explicit image override was specified.  We should
 	// therefore derive the image tag from the defined registry and name.
 	// form:    [registry]/[user]/[function]:latest
@@ -412,14 +412,14 @@ func DerivedImage(root, registry string) (image string, err error) {
 }
 
 // assertEmptyRoot ensures that the directory is empty enough to be used for
-// initializing a new Function.
+// initializing a new function.
 func assertEmptyRoot(path string) (err error) {
-	// If there exists contentious files (congig files for instance), this Function may have already been initialized.
+	// If there exists contentious files (congig files for instance), this function may have already been initialized.
 	files, err := contentiousFilesIn(path)
 	if err != nil {
 		return
 	} else if len(files) > 0 {
-		return fmt.Errorf("the chosen directory '%v' contains contentious files: %v.  Has the Service Function already been created?  Try either using a different directory, deleting the Function if it exists, or manually removing the files", path, files)
+		return fmt.Errorf("the chosen directory '%v' contains contentious files: %v.  Has the Service function already been created?  Try either using a different directory, deleting the function if it exists, or manually removing the files", path, files)
 	}
 
 	// Ensure there are no non-hidden files, and again none of the aforementioned contentious files.
@@ -434,7 +434,7 @@ func assertEmptyRoot(path string) (err error) {
 }
 
 // contentiousFiles are files which, if extant, preclude the creation of a
-// Function rooted in the given directory.
+// function rooted in the given directory.
 var contentiousFiles = []string{
 	FunctionFile,
 	".gitignore",
@@ -468,7 +468,7 @@ func isEffectivelyEmpty(dir string) (bool, error) {
 	return true, nil
 }
 
-// returns true if the given path contains an initialized Function.
+// returns true if the given path contains an initialized function.
 func hasInitializedFunction(path string) (bool, error) {
 	var err error
 	var filename = filepath.Join(path, FunctionFile)
@@ -512,7 +512,7 @@ func formatUnmarshalError(err error) error {
 	return errors.New(e)
 }
 
-// Regex used during instantiation and validation of various Function fields
+// Regex used during instantiation and validation of various function fields
 // by labels, envs, options, etc.
 var (
 	regWholeSecret      = regexp.MustCompile(`^{{\s*secret:((?:\w|['-]\w)+)\s*}}$`)
