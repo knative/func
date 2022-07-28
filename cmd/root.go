@@ -127,7 +127,9 @@ func runRootHelp(cmd *cobra.Command, args []string, version Version) {
 
 	// generate markdown
 	out := new(bytes.Buffer)
-	doc.GenMarkdown(cmd, out)
+	if err := doc.GenMarkdown(cmd, out); err != nil {
+		fmt.Fprintf(cmd.ErrOrStderr(), "unable to render help text markdown: %v", err)
+	}
 
 	// create the template
 	t := template.New("root")
@@ -475,7 +477,9 @@ func HelpTemplateFor(cmd *cobra.Command, args []string) string {
 
 	// generate markdown text
 	out := new(bytes.Buffer)
-	doc.GenMarkdown(cmd, out)
+	if err := doc.GenMarkdown(cmd, out); err != nil {
+		fmt.Fprintf(cmd.ErrOrStderr(), "unable to render help text markdown: %v", err)
+	}
 
 	// create the template
 	t := template.New("help")

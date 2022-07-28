@@ -13,15 +13,12 @@ func main() {
 	generateMarkdownDocs()
 }
 
-type Command struct {
-	Impl *cobra.Command
-	Name string
-}
-
 func writeDoc(c *cobra.Command, name string) {
 	fmt.Printf("Generating %s documentation\n", name)
 	help := cmd.HelpTemplateFor(c, []string{})
-	ioutil.WriteFile("docs/reference/commands/"+name+".md", []byte(help), 0644)
+	if err := ioutil.WriteFile("docs/reference/commands/"+name+".md", []byte(help), 0644); err != nil {
+		fmt.Fprintf(c.ErrOrStderr(), "unable to write command help: %v", err)
+	}
 }
 
 // generateMarkdownDocs generates markdown docs for all commands
