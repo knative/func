@@ -176,7 +176,7 @@ func TestRoot_mergeEnvMaps(t *testing.T) {
 // of the root command.  This allows, for example, to have help text correct
 // when both embedded as a plugin or standalone.
 func TestRoot_CommandNameParameterized(t *testing.T) {
-	expectedSynopsis := "%v [-v|--verbose] <command> [args]"
+	expectedSynopsis := "## %v"
 
 	tests := []string{
 		"func",    // standalone
