@@ -182,11 +182,13 @@ aliases:
   - knative-prow-robot
   - knative-prow-updater-robot
   - knative-test-reporter-robot
+  - kvmware
   - lance
   - n3wscott
   - pmorie
   - psschwei
   - thisisnotapril
+  - upodroid
   - vaikas
   - zroubalik
   knative-release-leads:
@@ -240,6 +242,9 @@ aliases:
   operations-writers:
   - dprotaso
   - houshengbo
+  - upodroid
+  productivity-leads:
+  - kvmware
   - upodroid
   productivity-wg-leads:
   - kvmware
