@@ -46,10 +46,10 @@ git add ./templates/quarkus/cloudevents/pom.xml ./templates/quarkus/http/pom.xml
 git commit -m "chore: update Quarkus platform to $LATEST_PLATFORM"
 git push --set-upstream origin "$PR_BRANCH"
 
-curl -v \
+curl -s --fail \
   -X POST \
   -H "Accept: application/vnd.github+json" \
   -H "Authorization: token ${GITHUB_TOKEN}" \
   "https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls" \
-  -d "{\"title\":\"chore: update Quarkus Platform to ${LATEST_PLATFORM}\",\"body\":\"chore: update Quarkus Platform to ${LATEST_PLATFORM}\",\"head\":\"${GITHUB_REPOSITORY_OWNER}:${PR_BRANCH}\",\"base\":\"master\"}"
+  -d "{\"title\":\"chore: update Quarkus Platform to ${LATEST_PLATFORM}\",\"body\":\"chore: update Quarkus Platform to ${LATEST_PLATFORM}\",\"head\":\"${GITHUB_REPOSITORY_OWNER}:${PR_BRANCH}\",\"base\":\"main\"}"
 
