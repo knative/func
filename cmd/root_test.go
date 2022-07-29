@@ -186,19 +186,16 @@ func TestRoot_CommandNameParameterized(t *testing.T) {
 	for _, testName := range tests {
 		var (
 			cmd = NewRootCmd(RootCommandConfig{Name: testName})
-			out = strings.Builder{}
+			out string
 		)
 		cmd.SetArgs([]string{}) // Do not use test command args
-		cmd.SetOut(&out)
-		if err := cmd.Help(); err != nil {
-			t.Fatal(err)
-		}
+		out = cmd.HelpTemplate()
 		if cmd.Use != testName {
 			t.Fatalf("expected command Use '%v', got '%v'", testName, cmd.Use)
 		}
-		if !strings.Contains(out.String(), fmt.Sprintf(expectedSynopsis, testName)) {
+		if !strings.Contains(out, fmt.Sprintf(expectedSynopsis, testName)) {
 			t.Logf("Testing '%v'\n", testName)
-			t.Log(out.String())
+			t.Log(out)
 			t.Fatalf("Help text does not include substituted name '%v'", testName)
 		}
 	}
