@@ -30,6 +30,9 @@ sed -i -E "s#<quarkus.platform.version>.+</quarkus.platform.version>#<quarkus.pl
 make zz_filesystem_generated.go
 
 BRANCH="update-quarkus-platform-${LATEST_PLATFORM}"
+
+git config --global user.email "quarkus-bot@example.com"
+git config --global user.name "quarkus-platform-update-bot"
 git checkout -b "$BRANCH"
 git add ./templates/quarkus/cloudevents/pom.xml ./templates/quarkus/http/pom.xml zz_filesystem_generated.go
 git commit -m "chore: update Quarkus platform to $LATEST_PLATFORM"
