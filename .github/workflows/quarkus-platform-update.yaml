@@ -8,6 +8,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - name: Install xmllint
+        run: sudo apt -y install libxml2-utils
       - name: Create Branch
         run: ./hack/update-quarkus-platform.sh
 
