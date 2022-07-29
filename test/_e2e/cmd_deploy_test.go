@@ -37,7 +37,7 @@ func Deploy(t *testing.T, knFunc *TestShellCmdRunner, project *FunctionTestProje
 		t.Fatal("URL not returned on output")
 	}
 
-	project.FunctionURL = strings.Split(urlMatch, "\n")[1]
+	project.FunctionURL = strings.TrimSpace(strings.Split(urlMatch, "\n")[1])
 	project.IsDeployed = true
 
 }
