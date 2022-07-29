@@ -699,13 +699,13 @@ func (c *Client) Deploy(ctx context.Context, path string) (err error) {
 	}
 
 	// Deploy a new or Update the previously-deployed function
-	c.progressListener.Increment("Deploying function to the cluster")
+	c.progressListener.Increment("⬆️  Deploying function to the cluster")
 	result, err := c.deployer.Deploy(ctx, f)
 
 	if result.Status == Deployed {
-		c.progressListener.Increment(fmt.Sprintf("Function deployed in namespace %q and exposed at URL: \n%v", result.Namespace, result.URL))
+		c.progressListener.Increment(fmt.Sprintf("✅ Function deployed in namespace %q and exposed at URL: \n   %v", result.Namespace, result.URL))
 	} else if result.Status == Updated {
-		c.progressListener.Increment(fmt.Sprintf("Function updated in namespace %q and exposed at URL: \n%v", result.Namespace, result.URL))
+		c.progressListener.Increment(fmt.Sprintf("✅ Function updated in namespace %q and exposed at URL: \n   %v", result.Namespace, result.URL))
 	}
 
 	return err
