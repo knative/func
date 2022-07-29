@@ -1,0 +1,13 @@
+name: Update Quarkus Platform in embedded templates
+
+on: [pull_request]
+
+jobs:
+  update:
+    name: Update Quarkus Platform
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Create Branch
+        run: ./hack/update-quarkus-platform.sh
+
