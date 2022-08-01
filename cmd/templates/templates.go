@@ -31,7 +31,7 @@ const (
 {{end}}`
 
 	// sectionAliases is the help template section that displays the command's aliases.
-	sectionAliases = `{{ if ne (len .Aliases) 0}}Aliases: 
+	sectionAliases = `{{ if ne (len .Aliases) 0}}Aliases:
   {{.NameAndAliases}}
 
 {{end}}`
