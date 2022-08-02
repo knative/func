@@ -27,17 +27,17 @@ func Deploy(t *testing.T, knFunc *TestShellCmdRunner, project *FunctionTestProje
 	// "Function [deployed|updated] at URL: http://nodefunc.default.192.168.39.188.nip.io"
 	// Here we extract the URL and store on project setting so that can be used later
 	// to validate actual function responsiveness.
-	wasDeployed := regexp.MustCompile("Function [a-z]* in namespace .* at URL: \nhttp.*").MatchString(cleanStdout)
+	wasDeployed := regexp.MustCompile("✅ Function [a-z]* in namespace .* at URL: \n   http.*").MatchString(cleanStdout)
 	if !wasDeployed {
 		t.Fatal("Function was not deployed")
 	}
 
-	urlMatch := regexp.MustCompile("(URL: \nhttp.*)").FindString(cleanStdout)
+	urlMatch := regexp.MustCompile("(URL: \n   http.*)").FindString(cleanStdout)
 	if urlMatch == "" {
 		t.Fatal("URL not returned on output")
 	}
 
-	project.FunctionURL = strings.Split(urlMatch, "\n")[1]
+	project.FunctionURL = strings.TrimSpace(strings.Split(urlMatch, "\n")[1])
 	project.IsDeployed = true
 
 }
