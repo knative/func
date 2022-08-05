@@ -256,6 +256,11 @@ aliases:
   - kvmware
   - psschwei
   - upodroid
+  security-guard-approvers:
+  - davidhadas
+  - maximilien
+  - psschwei
+  - rhuss
   security-wg-leads:
   - evankanderson
   - julz
