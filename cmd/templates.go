@@ -55,7 +55,7 @@ EXAMPLES
 		SuggestFor: []string{"template", "templtaes", "templatse", "remplates",
 			"gemplates", "yemplates", "tenplates", "tekplates", "tejplates",
 			"temolates", "temllates", "temppates", "tempmates", "tempkates",
-			"templstes", "templztes", "templqtes", "templares", "templages",
+			"templstes", "templztes", "templqtes", "templares", "templages", //nolint:misspell
 			"templayes", "templatee", "templatea", "templated", "templatew"},
 		PreRunE: bindEnv("json", "repository"),
 	}
