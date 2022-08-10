@@ -56,6 +56,14 @@ jobs:
           path: func_linux_arm64
       - uses: actions/upload-artifact@v2
         with:
+          name: Linux Binary (PPC64LE)
+          path: func_linux_ppc64le
+      - uses: actions/upload-artifact@v2
+        with:
+          name: Linux Binary (S390X)
+          path: func_linux_s390x
+      - uses: actions/upload-artifact@v2
+        with:
           name: Windows Binary
           path: func_windows_amd64.exe
   publish-image:
