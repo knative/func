@@ -25,7 +25,7 @@ any Go project. For now, we will ignore the `func.yaml` file, and just
 say that it is a configuration file that is used when building your project.
 If you're really interested, check out the [reference doc](func_yaml.md).
 To learn more about the CLI and the details for each supported command, see
-the [CLI Commands document](commands.md#cli-commands).
+the [CLI Commands document](../reference/commands.txt).
 
 ## Running the function locally
 
