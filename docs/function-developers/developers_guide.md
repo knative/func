@@ -10,7 +10,7 @@ To learn how to work with functions quickly, have a look at the [Getting Started
 
 ## CLI Command Reference
 
-For detailed documentation on the CLI and its commands, please see the [Command reference](../reference/commands.md).
+For detailed documentation on the CLI and its commands, please see the [Command reference](../reference/commands.txt).
 
 ## Function Project Configuration
 
