@@ -10,6 +10,8 @@ BIN_DARWIN_AMD64   ?= $(BIN)_darwin_amd64
 BIN_DARWIN_ARM64   ?= $(BIN)_darwin_arm64
 BIN_LINUX_AMD64   ?= $(BIN)_linux_amd64
 BIN_LINUX_ARM64   ?= $(BIN)_linux_arm64
+BIN_LINUX_PPC64LE ?= $(BIN)_linux_ppc64le
+BIN_LINUX_S390X   ?= $(BIN)_linux_s390x
 BIN_WINDOWS ?= $(BIN)_windows_amd64.exe
 
 # Version
@@ -151,7 +153,7 @@ test-e2e-runtime: ## Run end-to-end lifecycle tests using an available cluster f
 ##@ Release Artifacts
 ######################
 
-cross-platform: darwin-arm64 darwin-amd64 linux-amd64 linux-arm64 windows ## Build all distributable (cross-platform) binaries
+cross-platform: darwin-arm64 darwin-amd64 linux-amd64 linux-arm64 linux-ppc64le linux-s390x windows ## Build all distributable (cross-platform) binaries
 
 darwin-arm64: $(BIN_DARWIN_ARM64) ## Build for mac M1
 
@@ -172,6 +174,16 @@ linux-arm64: $(BIN_LINUX_ARM64) ## Build for Linux arm64
 
 $(BIN_LINUX_ARM64): zz_filesystem_generated.go
 	env CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o $(BIN_LINUX_ARM64) -ldflags $(LDFLAGS) ./cmd/$(BIN)
+
+linux-ppc64le: $(BIN_LINUX_PPC64LE) ## Build for Linux ppc64le
+
+$(BIN_LINUX_PPC64LE): zz_filesystem_generated.go
+	env CGO_ENABLED=0 GOOS=linux GOARCH=ppc64le go build -o $(BIN_LINUX_PPC64LE) -ldflags $(LDFLAGS) ./cmd/$(BIN)
+
+linux-s390x: $(BIN_LINUX_S390X) ## Build for Linux s390x
+
+$(BIN_LINUX_S390X): zz_filesystem_generated.go
+	env CGO_ENABLED=0 GOOS=linux GOARCH=s390x go build -o $(BIN_LINUX_S390X) -ldflags $(LDFLAGS) ./cmd/$(BIN)
 
 windows: $(BIN_WINDOWS) ## Build for Windows
 
