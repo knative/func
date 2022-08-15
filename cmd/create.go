@@ -161,7 +161,7 @@ func runCreateHelp(cmd *cobra.Command, args []string, newClient ClientFactory) {
 		fn.WithRepository(cfg.Repository))
 	defer done()
 
-	options, err := runtimeTemplateOptions(client) // human-friendly
+	options, err := RuntimeTemplateOptions(client) // human-friendly
 	failSoft(err)
 
 	var data = struct {
@@ -558,9 +558,9 @@ func createHelpTemplate(cmd *cobra.Command) *template.Template {
 	return template.Must(t.Parse(body))
 }
 
-// runtimeTemplateOptions is a human-friendly table of valid Language Runtime
+// RuntimeTemplateOptions is a human-friendly table of valid Language Runtime
 // to Template combinations.
-func runtimeTemplateOptions(client *fn.Client) (string, error) {
+func RuntimeTemplateOptions(client *fn.Client) (string, error) {
 	runtimes, err := client.Runtimes()
 	if err != nil {
 		return "", err

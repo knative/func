@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
@@ -395,6 +396,9 @@ func (v Version) StringVerbose() string {
 	}
 	if hash == "" {
 		hash = "source"
+	}
+	if date == "" {
+		date = time.Now().Format(time.RFC3339)
 	}
 	return fmt.Sprintf("%s-%s-%s", vers, hash, date)
 }
