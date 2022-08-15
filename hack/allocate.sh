@@ -24,9 +24,9 @@ export TERM="${TERM:-dumb}"
 
 main() {
 
-  local kubernetes_version=v1.21.1
-  local knative_version=v1.3.1
-  local kourier_version=v1.3.0
+  local kubernetes_version=v1.24.3
+  local knative_version=v1.6.0
+  local kourier_version=v1.6.0
 
   local em=$(tput bold)$(tput setaf 2)
   local me=$(tput sgr0)
@@ -40,8 +40,9 @@ main() {
   networking
   registry
   configure
+  tekton
   next_steps
-  
+
   echo "${em}DONE${me}"
 }
 
@@ -110,7 +111,7 @@ dns() {
 networking() {
   echo "${em}④ Kourier Networking${me}"
 
-  # Install Eourier
+  # Install Kourier
   kubectl apply --filename https://github.com/knative/net-kourier/releases/download/knative-$kourier_version/kourier.yaml
   sleep 5
   kubectl wait pod --for=condition=Ready -l '!job-name' -n kourier-system --timeout=5m
@@ -240,6 +241,26 @@ data:
       namespace: knative-eventing
 EOF
 
+}
+
+tekton() {
+  echo "${em}⑧ Tekton Pipelines and build tasks${me}"
+
+  # Install latest tekton pipelines release
+  kubectl apply --filename https://storage.googleapis.com/tekton-releases/pipeline/latest/release.yaml
+
+  # Install git clone task for on-cluster builds
+  kubectl apply --filename https://raw.githubusercontent.com/tektoncd/catalog/main/task/git-clone/0.8/git-clone.yaml --namespace func
+
+  # Install functions buildpacks task for on-cluster builds from func main branch
+  kubectl apply --filename https://raw.githubusercontent.com/knative-sandbox/kn-plugin-func/main/pipelines/resources/tekton/task/func-buildpacks/0.1/func-buildpacks.yaml --namespace func
+
+  # Install functions deploy tekton task
+  kubectl apply --filename https://raw.githubusercontent.com/knative-sandbox/kn-plugin-func/main/pipelines/resources/tekton/task/func-deploy/0.1/func-deploy.yaml --namespace func
+
+  # Add permission for default service account to deploy
+  kubectl create clusterrolebinding func:knative-serving-namespaced-admin \
+--clusterrole=knative-serving-namespaced-admin  --serviceaccount=func:default
 }
 
 next_steps() {

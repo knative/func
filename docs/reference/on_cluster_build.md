@@ -12,7 +12,7 @@ kubectl apply -f https://storage.googleapis.com/tekton-releases/pipeline/latest/
 In each namespace that you would like to run Pipelines and deploy a Function you need to create or install the following resources.
 1. Install the Git Clone Tekton Task to fetch the Function source code:
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/tektoncd/catalog/master/task/git-clone/0.4/git-clone.yaml
+kubectl apply -f https://raw.githubusercontent.com/tektoncd/catalog/main/task/git-clone/0.8/git-clone.yaml
 ```
 2. Install the Functions Buildpacks Tekton Task to be able to build the Function image:
 ```bash
