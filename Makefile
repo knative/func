@@ -98,7 +98,7 @@ clean: clean_templates ## Remove generated artifacts such as binaries and schema
 
 docs: build
 	# Generating command reference doc
-	@./hack/build-docs.sh
+	go run docs/generator/main.go
 
 #############
 ##@ Templates

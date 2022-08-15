@@ -211,6 +211,8 @@ github.com/containers/storage/pkg/unshare
 # github.com/coreos/go-semver v0.3.0
 ## explicit
 github.com/coreos/go-semver/semver
+# github.com/cpuguy83/go-md2man/v2 v2.0.2
+github.com/cpuguy83/go-md2man/v2/md2man
 # github.com/creack/pty v1.1.11
 github.com/creack/pty
 # github.com/davecgh/go-spew v1.1.1
@@ -691,6 +693,8 @@ github.com/rivo/tview
 github.com/rivo/uniseg
 # github.com/robfig/cron/v3 v3.0.1
 github.com/robfig/cron/v3
+# github.com/russross/blackfriday/v2 v2.1.0
+github.com/russross/blackfriday/v2
 # github.com/sabhiram/go-gitignore v0.0.0-20201211074657-223ce5d391b0
 github.com/sabhiram/go-gitignore
 # github.com/sergi/go-diff v1.2.0
@@ -702,9 +706,10 @@ github.com/spf13/afero
 github.com/spf13/afero/mem
 # github.com/spf13/cast v1.4.1
 github.com/spf13/cast
-# github.com/spf13/cobra v1.3.0
+# github.com/spf13/cobra v1.5.0
 ## explicit
 github.com/spf13/cobra
+github.com/spf13/cobra/doc
 # github.com/spf13/jwalterweatherman v1.1.0
 github.com/spf13/jwalterweatherman
 # github.com/spf13/pflag v1.0.5
