@@ -54,6 +54,40 @@ created: 2021-01-01T00:00:00+00:00
 	}
 }
 
+// TestBuild_registryConfigurationInYaml tests that a build will execute sucessfully
+// when there is no
+func TestBuild_registryConfigurationInYaml(t *testing.T) {
+	var (
+		builder = mock.NewBuilder() // with a mock builder
+	)
+
+	// Run this test in a temporary directory
+	defer Fromtemp(t)()
+	// Write a func.yaml config which does not specify an image
+	// but does specify a registry
+	funcYaml := `name: registrytest
+namespace: ""
+runtime: go
+image: ""
+registry: quay.io/boson/foo
+created: 2021-01-01T00:00:00+00:00
+`
+	if err := ioutil.WriteFile("func.yaml", []byte(funcYaml), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create build command that will use a mock builder.
+	cmd := NewBuildCmd(NewClientFactory(func() *fn.Client {
+		return fn.New(fn.WithBuilder(builder), fn.WithRegistry("quay.io/boson/foo"))
+	}))
+
+	// Execute the command
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestBuild_runBuild(t *testing.T) {
 	tests := []struct {
 		name         string

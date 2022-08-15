@@ -23,8 +23,8 @@ func NewBuildCmd(newClient ClientFactory) *cobra.Command {
 
 This command builds the function project in the current directory or in the directory
 specified by --path. The result will be a container image that is pushed to a registry.
-The func.yaml file is read to determine the image name and registry. 
-If the project has not already been built, either --registry or --image must be provided 
+The func.yaml file is read to determine the image name and registry.
+If the project has not already been built, either --registry or --image must be provided
 and the image name is stored in the configuration file.
 `,
 		Example: `
@@ -117,6 +117,14 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		if err != nil {
 			return
 		}
+	} else if function.Registry != "" {
+		// Otherwise, if a registry name was provided in func.config, set that value
+		// for the command configuration and validate it
+		config.Registry = function.Registry
+		err = ValidNamespaceAndRegistry(config.Path)(config.Registry)
+		if err != nil {
+			return
+		}
 	}
 
 	// If the function does not yet have an image name and one was not provided on the command line
@@ -167,13 +175,6 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	err = function.Write()
 	if err != nil {
 		return
-	}
-
-	// if registry was not changed via command line flag meaning it's empty
-	// keep the same registry by setting the config.registry to empty otherwise
-	// trust viper to override the env variable with the given flag if both are specified
-	if regFlag, _ := cmd.Flags().GetString("registry"); regFlag == "" {
-		config.Registry = ""
 	}
 
 	// Use the user-provided builder image, if supplied
