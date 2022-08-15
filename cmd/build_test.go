@@ -54,8 +54,8 @@ created: 2021-01-01T00:00:00+00:00
 	}
 }
 
-// TestBuild_registryConfigurationInYaml tests that a build will execute sucessfully
-// when there is no
+// TestBuild_registryConfigurationInYaml tests that a build will execute successfully
+// when there is no registry provided on the command line, but one exists in func.yaml
 func TestBuild_registryConfigurationInYaml(t *testing.T) {
 	var (
 		builder = mock.NewBuilder() // with a mock builder
