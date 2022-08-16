@@ -30,7 +30,7 @@ LDFLAGS := "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)"
 CODE := $(shell find . -name '*.go') zz_filesystem_generated.go go.mod schema/func_yaml-schema.json
 TEMPLATES := $(shell find templates -name '*' -type f)
 
-.PHONY: test
+.PHONY: test docs
 
 # Default Targets
 all: build docs
@@ -96,9 +96,9 @@ clean: clean_templates ## Remove generated artifacts such as binaries and schema
 	rm -f schema/func_yaml-schema.json
 	rm -f coverage.out
 
-docs: build
+docs:
 	# Generating command reference doc
-	go run docs/generator/main.go
+	go run docs/generator/main.go -ldflags $(LDFLAGS)
 
 #############
 ##@ Templates
