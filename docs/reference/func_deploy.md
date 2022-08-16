@@ -6,10 +6,10 @@ Deploy a function
 
 Deploy a function
 
-Builds a container image for the function and deploys it to the connected Knative enabled cluster. 
+Builds a container image for the function and deploys it to the connected Knative enabled cluster.
 The function is picked up from the project in the current directory or from the path provided
 with --path.
-If not already configured, either --registry or --image has to be provided and is then stored 
+If not already configured, either --registry or --image has to be provided and is then stored
 in the configuration file.
 
 If the function is already deployed, it is updated with a new container image
@@ -25,11 +25,11 @@ func deploy [flags]
 ```
 
 # Build and deploy the function from the current directory's project. The image will be
-# pushed to "quay.io/myuser/<function name>" and deployed as Knative service with the 
+# pushed to "quay.io/myuser/<function name>" and deployed as Knative service with the
 # same name as the function to the currently connected cluster.
 func deploy --registry quay.io/myuser
 
-# Same as above but using a full image name, that will create a Knative service "myfunc" in 
+# Same as above but using a full image name, that will create a Knative service "myfunc" in
 # the namespace "myns"
 func deploy --image quay.io/myuser/myfunc -n myns
 

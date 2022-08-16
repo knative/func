@@ -6,8 +6,8 @@ Undeploy a function
 
 Undeploy a function
 
-This command undeploys a function from the cluster. By default the function from 
-the project in the current directory is undeployed. Alternatively either the name 
+This command undeploys a function from the cluster. By default the function from
+the project in the current directory is undeployed. Alternatively either the name
 of the function can be given as argument or the project path provided with --path.
 
 No local files are deleted.

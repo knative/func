@@ -8,8 +8,8 @@ Build a function project as a container image
 
 This command builds the function project in the current directory or in the directory
 specified by --path. The result will be a container image that is pushed to a registry.
-The func.yaml file is read to determine the image name and registry. 
-If the project has not already been built, either --registry or --image must be provided 
+The func.yaml file is read to determine the image name and registry.
+If the project has not already been built, either --registry or --image must be provided
 and the image name is stored in the configuration file.
 
 

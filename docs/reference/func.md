@@ -4,7 +4,7 @@ Serverless functions
 
 ### Synopsis
 
-Serverless functions v0.0.0-source-2022-08-16T11:55:47-04:00
+Serverless functions v0.0.0-source-2022-08-16T16:04:05-04:00
 
 	Create, build and deploy Knative functions
 
