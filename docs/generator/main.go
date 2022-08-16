@@ -32,8 +32,8 @@ var (
 		},
 	}
 
-	rootCommand = "func"
-	targetDir   = "docs/reference"
+	rootName  = "func"
+	targetDir = "docs/reference"
 )
 
 // String substitutions in command help docs
@@ -58,19 +58,23 @@ func main() {
 
 	// Initialize an options struct
 	templateOptions := TemplateOptions{
-		Name:    rootCommand,
+		Name:    rootName,
 		Options: opts,
 		Version: version.StringVerbose(),
 	}
 
 	// Create the root command
-	var root = cmd.NewRootCmd(cmd.RootCommandConfig{Name: rootCommand})
+	var root = cmd.NewRootCmd(cmd.RootCommandConfig{Name: rootName})
 
 	// Write the markdown for the root command
-	writeMarkdown(rootCommand, root, templateOptions)
+	if err := writeMarkdown(root, rootName, templateOptions); err != nil {
+		fmt.Fprintf(os.Stderr, "Error writing help markdown %s", err)
+	}
 
 	// Recurse all subcommands and write the markdown for them
-	processSubCommands(root, rootCommand, templateOptions)
+	if err := processSubCommands(root, rootName, templateOptions); err != nil {
+		fmt.Fprintf(os.Stderr, "Error processing subcommands %s", err)
+	}
 }
 
 // processSubCommands is a recursive function which writes the markdown text
@@ -85,8 +89,12 @@ func processSubCommands(c *cobra.Command, parent string, opts TemplateOptions) e
 		if parent != "" {
 			name = parent + "_" + name
 		}
-		writeMarkdown(name, cc, opts)
-		processSubCommands(cc, name, opts)
+		if err := writeMarkdown(cc, name, opts); err != nil {
+			return err
+		}
+		if err := processSubCommands(cc, name, opts); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -94,7 +102,7 @@ func processSubCommands(c *cobra.Command, parent string, opts TemplateOptions) e
 // writeMarkdown generates the untemplated markdown string for the given
 // command, then does standard template substitution on the generated markdown,
 // ultimately writing the markdown file to docs/reference/[command_name].md
-func writeMarkdown(name string, c *cobra.Command, opts TemplateOptions) error {
+func writeMarkdown(c *cobra.Command, name string, opts TemplateOptions) error {
 	out := new(bytes.Buffer)
 	c.DisableAutoGenTag = true
 	err := doc.GenMarkdown(c, out)
