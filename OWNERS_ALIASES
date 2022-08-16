@@ -184,16 +184,16 @@ aliases:
   - knative-test-reporter-robot
   - kvmware
   - lance
+  - matzew
   - n3wscott
   - pmorie
-  - psschwei
   - thisisnotapril
   - upodroid
   - vaikas
   - zroubalik
   knative-release-leads:
-  - evankanderson
-  - psschwei
+  - dprotaso
+  - matzew
   knative-robots:
   - knative-automation
   - knative-prow-releaser-robot
