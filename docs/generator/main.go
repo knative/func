@@ -117,6 +117,8 @@ func writeMarkdown(c *cobra.Command, name string, opts TemplateOptions) error {
 		fmt.Fprintf(os.Stderr, "unable to process help text: %v", err)
 	}
 
-	ioutil.WriteFile(targetDir+"/"+name+".md", out.Bytes(), 0666)
+	if err := ioutil.WriteFile(targetDir+"/"+name+".md", out.Bytes(), 0666); err != nil {
+		return err
+	}
 	return nil
 }
