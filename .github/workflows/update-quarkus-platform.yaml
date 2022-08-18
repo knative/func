@@ -14,10 +14,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Install xmllint
-        run: sudo apt -y install libxml2-utils
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 14
+      - name: Install NPM deps.
+        run: npm install axios xml2js octokit --location=global
       - name: Create PR
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: ./hack/update-quarkus-platform.sh
+        run: node ./hack/update-quarkus-platform.js
 
