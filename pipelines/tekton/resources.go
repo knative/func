@@ -57,6 +57,11 @@ func generatePipeline(f fn.Function, labels map[string]string) *pplnv1beta1.Pipe
 			Name:        "builderImage",
 			Description: "Buildpacks builder image to be used",
 		},
+		{
+			Name:        "buildEnvs",
+			Description: "Environment variables to set during build time",
+			Type:        "array",
+		},
 	}
 
 	workspaces := []pplnv1beta1.PipelineWorkspaceDeclaration{
@@ -95,6 +100,18 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 		contextDir = *f.Git.ContextDir
 	}
 
+	buildEnvs := &pplnv1beta1.ArrayOrString{
+		Type:     pplnv1beta1.ParamTypeArray,
+		ArrayVal: []string{},
+	}
+	if len(f.BuildEnvs) > 0 {
+		var envs []string
+		for _, e := range f.BuildEnvs {
+			envs = append(envs, e.KeyValuePair())
+		}
+		buildEnvs = pplnv1beta1.NewArrayOrString(envs[0], envs[1:]...)
+	}
+
 	return &pplnv1beta1.PipelineRun{
 		ObjectMeta: v1.ObjectMeta{
 			GenerateName: fmt.Sprintf("%s-run-", getPipelineName(f)),
@@ -126,6 +143,10 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 				{
 					Name:  "builderImage",
 					Value: *pplnv1beta1.NewArrayOrString(getBuilderImage(f)),
+				},
+				{
+					Name:  "buildEnvs",
+					Value: *buildEnvs,
 				},
 			},
 

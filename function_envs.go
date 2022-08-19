@@ -41,20 +41,36 @@ func (e Env) String() string {
 	return ""
 }
 
+// KeyValuePair returns a string representation of the Env field in form NAME=VALUE
+// if NAME is not defined for an Env, empty string is returned
+func (e Env) KeyValuePair() string {
+	keyValue := ""
+	if e.Name != nil {
+		value := ""
+		if e.Value != nil {
+			value = *e.Value
+		}
+
+		keyValue = fmt.Sprintf("%s=%s", *e.Name, value)
+	}
+
+	return keyValue
+}
+
 // ValidateEnvs checks that input Envs are correct and contain all necessary fields.
 // Returns array of error messages, empty if no errors are found
 //
 // Allowed settings:
-// - name: EXAMPLE1                					# ENV directly from a value
-//   value: value1
-// - name: EXAMPLE2                 				# ENV from the local ENV var
-//   value: {{ env:MY_ENV }}
-// - name: EXAMPLE3
-//   value: {{ secret:secretName:key }}   			# ENV from a key in secret
-// - value: {{ secret:secretName }}          		# all key-pair values from secret are set as ENV
-// - name: EXAMPLE4
-//   value: {{ configMap:configMapName:key }}   	# ENV from a key in configMap
-// - value: {{ configMap:configMapName }}          	# all key-pair values from configMap are set as ENV
+//   - name: EXAMPLE1                					# ENV directly from a value
+//     value: value1
+//   - name: EXAMPLE2                 				# ENV from the local ENV var
+//     value: {{ env:MY_ENV }}
+//   - name: EXAMPLE3
+//     value: {{ secret:secretName:key }}   			# ENV from a key in secret
+//   - value: {{ secret:secretName }}          		# all key-pair values from secret are set as ENV
+//   - name: EXAMPLE4
+//     value: {{ configMap:configMapName:key }}   	# ENV from a key in configMap
+//   - value: {{ configMap:configMapName }}          	# all key-pair values from configMap are set as ENV
 func ValidateEnvs(envs []Env) (errors []string) {
 	for i, env := range envs {
 		if env.Name == nil && env.Value == nil {
@@ -94,10 +110,10 @@ func ValidateEnvs(envs []Env) (errors []string) {
 // Returns array of error messages, empty if no errors are found
 //
 // Allowed settings:
-// - name: EXAMPLE1                					# ENV directly from a value
-//   value: value1
-// - name: EXAMPLE2                 				# ENV from the local ENV var
-//   value: {{ env:MY_ENV }}
+//   - name: EXAMPLE1                					# ENV directly from a value
+//     value: value1
+//   - name: EXAMPLE2                 				# ENV from the local ENV var
+//     value: {{ env:MY_ENV }}
 func ValidateBuildEnvs(envs []Env) (errors []string) {
 	for i, env := range envs {
 		if env.Name == nil && env.Value == nil {

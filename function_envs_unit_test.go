@@ -3,7 +3,10 @@
 
 package function
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 func Test_validateBuildEnvs(t *testing.T) {
 
@@ -608,4 +611,49 @@ func Test_validateEnvs(t *testing.T) {
 		})
 	}
 
+}
+
+func Test_KeyValuePair(t *testing.T) {
+	name := "name"
+	value := "value"
+
+	tests := []struct {
+		name string
+		env  Env
+		want string
+	}{
+		{
+			"name & value",
+			Env{
+
+				Name:  &name,
+				Value: &value,
+			},
+			fmt.Sprintf("%s=%s", name, value),
+		},
+		{
+			"name only",
+			Env{
+
+				Name: &name,
+			},
+			fmt.Sprintf("%s=", name),
+		},
+		{
+			"value only",
+			Env{
+
+				Value: &value,
+			},
+			"",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.env.KeyValuePair(); got != tt.want {
+				t.Errorf("KeyValuePair() for env = %v\n got %q errors but want %q", tt.env, got, tt.want)
+			}
+		})
+	}
 }
