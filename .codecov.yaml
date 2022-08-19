@@ -18,6 +18,6 @@ ignore:
   - third_party
   - vendor
   - testdata
-  - "**/zz_generated*.go"
+  - "**/zz_*generated*.go"
   - templates
 
