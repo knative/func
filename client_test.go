@@ -1400,10 +1400,17 @@ func TestClient_BuiltDetects(t *testing.T) {
 		t.Fatal("freshly built function reported Built==false (1)")
 	}
 
+	// Release thread and wait to ensure that the clock advances even in constrained CI environments
+	time.Sleep(100 * time.Millisecond)
+
 	// Edit the filesystem by touching a file (updating modified timestamp)
 	if err := os.Chtimes(filepath.Join(root, "func.yaml"), time.Now(), time.Now()); err != nil {
 		fmt.Println(err)
 	}
+
+	// Release thread and wait to ensure that the clock advances even in constrained CI environments
+	time.Sleep(100 * time.Millisecond)
+
 	if client.Built(root) {
 		t.Fatal("client did not detect file timestamp change as indicating build staleness")
 	}
