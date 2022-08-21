@@ -67,3 +67,29 @@ func TestImage_Defaults(t *testing.T) {
 		t.Fatalf("the default was not chosen")
 	}
 }
+
+// Test_ErrUnknownBuilder ensures that the error properfly formats.
+// This error is used externally by packages which share builders but may
+// define their own custom builder, thus actually throwing this error
+// is the responsibility of whomever is instantiating builders.
+func Test_ErrUnknownBuilder(t *testing.T) {
+	var tests = []struct {
+		Known    []string
+		Expected string
+	}{
+		{[]string{},
+			"'test' is not a known builder"},
+		{[]string{"pack"},
+			"'test' is not a known builder. The available builder is 'pack'"},
+		{[]string{"pack", "s2i"},
+			"'test' is not a known builder. Available builders are 'pack' and 's2i'"},
+		{[]string{"pack", "s2i", "custom"},
+			"'test' is not a known builder. Available builders are 'pack', 's2i' and 'custom'"},
+	}
+	for _, test := range tests {
+		e := builders.ErrUnknownBuilder{Name: "test", Known: test.Known}
+		if e.Error() != test.Expected {
+			t.Fatalf("expected error \"%v\". got \"%v\"", test.Expected, e.Error())
+		}
+	}
+}

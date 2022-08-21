@@ -6,6 +6,7 @@ package builders
 
 import (
 	"fmt"
+	"strings"
 
 	fn "knative.dev/kn-plugin-func"
 )
@@ -16,9 +17,42 @@ const (
 	Default = Pack
 )
 
-// All builder short names as a slice.
-func All() []string {
-	return []string{Pack, S2I}
+// Known builder names with a pretty-printed string representation
+type Known []string
+
+func All() Known {
+	return Known([]string{Pack, S2I})
+}
+
+func (k Known) String() string {
+	var b strings.Builder
+	for i, v := range k {
+		if i < len(k)-2 {
+			b.WriteString("'" + v + "', ")
+		} else if i < len(k)-1 {
+			b.WriteString("'" + v + "' and ")
+		} else {
+			b.WriteString("'" + v + "'")
+		}
+	}
+	return b.String()
+}
+
+// ErrUnknownBuilder may be used by whomever is choosing a concrete
+// implementation of a builder to invoke based on potentially invalid input.
+type ErrUnknownBuilder struct {
+	Name  string
+	Known Known
+}
+
+func (e ErrUnknownBuilder) Error() string {
+	if len(e.Known) == 0 {
+		return fmt.Sprintf("'%v' is not a known builder", e.Name)
+	}
+	if len(e.Known) == 1 {
+		return fmt.Sprintf("'%v' is not a known builder. The available builder is %v", e.Name, e.Known)
+	}
+	return fmt.Sprintf("'%v' is not a known builder. Available builders are %s", e.Name, e.Known)
 }
 
 // ErrRuntimeRequired
@@ -28,16 +62,6 @@ type ErrRuntimeRequired struct {
 
 func (e ErrRuntimeRequired) Error() string {
 	return fmt.Sprintf("runtime required to choose a default '%v' builder image", e.Builder)
-}
-
-// ErrUnknownRuntime
-type ErrUnknownRuntime struct {
-	Builder string
-	Runtime string
-}
-
-func (e ErrUnknownRuntime) Error() string {
-	return fmt.Sprintf("'%v' is not a known language runtime for the '%v' builder", e.Runtime, e.Builder)
 }
 
 // ErrNoDefaultImage
