@@ -19,7 +19,7 @@ import (
 	"unicode"
 )
 
-// Templates for help & usage messages. These has been initially taken over from
+// Templates for help & usage messages. These have been initially taken over from
 // https://github.com/kubernetes/kubectl/blob/f9e4fa6b9cff11b6e2949b76680b8cd5b8192eab/pkg/util/templates/templates.go
 // and adapted to the specific needs of `kn`
 
@@ -31,7 +31,7 @@ const (
 {{end}}`
 
 	// sectionAliases is the help template section that displays the command's aliases.
-	sectionAliases = `{{ if ne (len .Aliases) 0}}Aliases:
+	sectionAliases = `{{if ne (len .Aliases) 0}}Aliases:
   {{.NameAndAliases}}
 
 {{end}}`
@@ -97,7 +97,7 @@ func helpTemplate() string {
 
 // optionsTemplate is the template used by "kn options"
 func optionsTemplate() string {
-	return `{{ if .HasInheritedFlags}}The following options can be passed to any command:
+	return `{{if .HasInheritedFlags}}The following options can be passed to any command:
 
 {{flagsUsages .InheritedFlags}}{{end}}`
 }

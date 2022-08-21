@@ -119,8 +119,19 @@ func TestUsageFlags(t *testing.T) {
 	assert.Equal(t, usage, "  -t, --test='default': test-option\n")
 	usage = flagsUsagesCobra(f)
 	assert.Equal(t, usage, "  -t, --test string   test-option (default \"default\")\n")
-
+	// test for flag with no shorthand
+	fl := f.Lookup("test")
+	assert.Assert(t, fl != nil)
+	fl.Shorthand = ""
+	usage = flagsUsagesKubectl(f)
+	assert.Equal(t, usage, "      --test='default': test-option\n")
+	// test for hidden flag
+	err := f.MarkHidden("test")
+	assert.NilError(t, err)
+	usage = flagsUsagesKubectl(f)
+	assert.Equal(t, usage, "")
 }
+
 func validateRootUsageOutput(t *testing.T, stdOut string) {
 	assert.Assert(t, util.ContainsAll(stdOut, "root"))
 	assert.Assert(t, util.ContainsAll(stdOut, "header-1", "g1.1", "desc-g1.1", "g1.2", "desc-g1.2"))

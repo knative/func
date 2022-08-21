@@ -82,7 +82,6 @@ func (e templateEngine) fillTemplate(name string, c *cobra.Command, templ string
 		fmt.Fprintf(c.ErrOrStderr(), "\nINTERNAL: >>>>> %v\n", err)
 		return err
 	}
-	// out := term.NewResponsiveWriter(c.OutOrStdout())
 	return t.Execute(c.OutOrStdout(), c)
 }
 
