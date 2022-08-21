@@ -50,7 +50,7 @@ and the image name is stored in the configuration file.
 		PreRunE:    bindEnv("image", "path", "builder", "registry", "confirm", "push", "builder-image", "platform"),
 	}
 
-	cmd.Flags().StringP("builder", "b", builders.Default, fmt.Sprintf("build strategy to use when creating the underlying image. Currently supported build strategies are %s.", SupportedBuilders()))
+	cmd.Flags().StringP("builder", "b", builders.Default, fmt.Sprintf("build strategy to use when creating the underlying image. Currently supported build strategies are %s.", KnownBuilders()))
 	cmd.Flags().StringP("builder-image", "", "", "builder image, either an as a an image name or a mapping name.\nSpecified value is stored in func.yaml (as 'builder' field) for subsequent builds. ($FUNC_BUILDER_IMAGE)")
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
 	cmd.Flags().StringP("image", "i", "", "Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE)")
@@ -77,19 +77,18 @@ and the image name is stored in the configuration file.
 }
 
 // ValidateBuilder ensures that the given builder is one that the CLI
-// knows how to instantiate.
+// knows how to instantiate, returning a builkder.ErrUnknownBuilder otherwise.
 func ValidateBuilder(name string) (err error) {
-	if name != builders.Pack && name != builders.S2I {
-		err = builders.ErrUnknown(fmt.Errorf(
-			"specified builder %q is not recognized.  Known builders are %s",
-			name, SupportedBuilders()))
+	for _, known := range KnownBuilders() {
+		if name == known {
+			return
+		}
 	}
-	return
+	return builders.ErrUnknownBuilder{Name: name, Known: KnownBuilders()}
 }
 
-// SupportedBuilders prints string with the build types supported by this cli.
-func SupportedBuilders() string {
-	return fmt.Sprintf("%q or %q", builders.Pack, builders.S2I)
+func KnownBuilders() []string {
+	return []string{builders.Pack, builders.S2I}
 }
 
 func ValidNamespaceAndRegistry(path string) survey.Validator {

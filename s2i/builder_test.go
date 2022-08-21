@@ -33,7 +33,7 @@ import (
 
 // Test_BuilderImageDefault ensures that a function being built which does not
 // define a Builder Image will default.
-func Test_ImageBuilderImageDefault(t *testing.T) {
+func Test_BuilderImageDefault(t *testing.T) {
 	var (
 		i = &mockImpl{}                  // mock underlying s2i implementation
 		c = mockDocker{}                 // mock docker client
@@ -64,10 +64,11 @@ func Test_ImageBuilderImageDefault(t *testing.T) {
 // image defined on the given function if provided.
 func Test_BuilderImageConfigurable(t *testing.T) {
 	var (
-		i = &mockImpl{}                                              // mock underlying s2i implementation
-		c = mockDocker{}                                             // mock docker client
-		b = s2i.NewBuilder(s2i.WithImpl(i), s2i.WithDockerClient(c)) // func S2I Builder logic
-		f = fn.Function{                                             // function with a builder image set
+		i = &mockImpl{}     // mock underlying s2i implementation
+		c = mockDocker{}    // mock docker client
+		b = s2i.NewBuilder( // func S2I Builder logic
+			s2i.WithName(builders.S2I), s2i.WithImpl(i), s2i.WithDockerClient(c))
+		f = fn.Function{ // function with a builder image set
 			Runtime: "node",
 			BuilderImages: map[string]string{
 				builders.S2I: "example.com/user/builder-image",
@@ -78,7 +79,7 @@ func Test_BuilderImageConfigurable(t *testing.T) {
 	// An implementation of the underlying S2I implementation which verifies
 	// the config has arrived as expected (correct functions logic applied)
 	i.BuildFn = func(cfg *api.Config) (*api.Result, error) {
-		expected := f.BuilderImages[builders.S2I]
+		expected := "example.com/user/builder-image"
 		if cfg.BuilderImage != expected {
 			t.Fatalf("expected s2i config builder image for node to be '%v', got '%v'", expected, cfg.BuilderImage)
 		}
@@ -205,7 +206,7 @@ func TestS2IScriptURL(t *testing.T) {
 				},
 			}
 
-			b := s2i.NewBuilder(s2i.WithImpl(impl), s2i.WithDockerClient(cli))
+			b := s2i.NewBuilder(s2i.WithName(builders.S2I), s2i.WithImpl(impl), s2i.WithDockerClient(cli))
 			err = b.Build(context.Background(), f)
 			if err != nil {
 				t.Error(err)
