@@ -17,6 +17,7 @@ import (
 	"knative.dev/client/pkg/util"
 
 	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/builders"
 	"knative.dev/kn-plugin-func/buildpacks"
 	"knative.dev/kn-plugin-func/docker"
 	"knative.dev/kn-plugin-func/docker/creds"
@@ -62,7 +63,7 @@ that is pushed to an image registry, and finally the function's Knative service 
 	cmd.Flags().StringP("git-dir", "d", "", "Directory in the repo where the function is located (Env: $FUNC_GIT_DIR)")
 	cmd.Flags().StringP("build", "b", fn.DefaultBuildType, fmt.Sprintf("Build specifies the way the function should be built. Supported types are %s (Env: $FUNC_BUILD)", fn.SupportedBuildTypes(true)))
 	// Flags shared with Build specifically related to building:
-	cmd.Flags().StringP("builder", "", fn.DefaultBuilder, fmt.Sprintf("build strategy to use when creating the underlying image. Currently supported build strategies are %s.", fn.SupportedBuilders()))
+	cmd.Flags().StringP("builder", "", builders.Default, fmt.Sprintf("build strategy to use when creating the underlying image. Currently supported build strategies are %s.", SupportedBuilders()))
 	cmd.Flags().StringP("builder-image", "", "", "builder image, either an as a an image name or a mapping name.\nSpecified value is stored in func.yaml (as 'builder' field) for subsequent builds. ($FUNC_BUILDER_IMAGE)")
 	cmd.Flags().StringP("image", "i", "", "Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. (Env: $FUNC_IMAGE)")
 	cmd.Flags().StringP("registry", "r", GetDefaultRegistry(), "Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined based on the local directory name. If not provided the registry will be taken from func.yaml (Env: $FUNC_REGISTRY)")
@@ -184,16 +185,16 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 	} else {
 		config.Builder = function.Builder
 	}
-	if err = fn.ValidateBuilder(config.Builder); err != nil {
+	if err = ValidateBuilder(config.Builder); err != nil {
 		return err
 	}
-	if config.Builder == fn.BuilderPack {
+	if config.Builder == builders.Pack {
 		if config.Platform != "" {
 			err = fmt.Errorf("the --platform flag works only with s2i build")
 			return
 		}
 		builder = buildpacks.NewBuilder(buildpacks.WithVerbose(config.Verbose))
-	} else if config.Builder == fn.BuilderS2i {
+	} else if config.Builder == builders.S2I {
 		builder = s2i.NewBuilder(s2i.WithVerbose(config.Verbose), s2i.WithPlatform(config.Platform))
 	}
 

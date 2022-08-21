@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"knative.dev/kn-plugin-func/builders"
 )
 
 // TestRemoteRepository verifies function created using an
@@ -20,7 +22,7 @@ func TestRemoteRepository(t *testing.T) {
 	project.Template = "e2e"
 	project.FunctionName = "func-remote-repo"
 	project.ProjectPath = filepath.Join(os.TempDir(), project.FunctionName)
-	project.Builder = "pack"
+	project.Builder = builders.Pack
 
 	result := knFunc.Exec("create", project.ProjectPath,
 		"--language", project.Runtime,

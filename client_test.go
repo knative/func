@@ -21,6 +21,7 @@ import (
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/builders"
 	"knative.dev/kn-plugin-func/mock"
 	. "knative.dev/kn-plugin-func/testing"
 )
@@ -943,8 +944,8 @@ func TestClient_New_BuildersPersisted(t *testing.T) {
 		Runtime: TestRuntime,
 		Root:    root,
 		BuilderImages: map[string]string{
-			"pack": "example.com/my/custom-pack-builder",
-			"s2i":  "example.com/my/custom-s2i-builder",
+			builders.Pack: "example.com/my/custom-pack-builder",
+			builders.S2I:  "example.com/my/custom-s2i-builder",
 		}}
 
 	// Create the function, which should preserve custom builders

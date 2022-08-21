@@ -26,13 +26,11 @@ import (
 	"github.com/openshift/source-to-image/pkg/scm/git"
 
 	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/builders"
 	"knative.dev/kn-plugin-func/docker"
 )
 
-var (
-	// ErrRuntimeRequired indicates the required value of function runtime was not provided
-	ErrRuntimeRequired = errors.New("runtime is required to build")
-)
+// DefaultName when no WithName option is provided to NewBuilder
 
 // DefaultBuilderImages for s2i builders indexed by Runtime Language
 var DefaultBuilderImages = map[string]string{
@@ -49,6 +47,7 @@ type DockerClient interface {
 
 // Builder of functions using the s2i subsystem.
 type Builder struct {
+	name     string
 	verbose  bool
 	impl     build.Builder // S2I builder implementation (aka "Strategy")
 	cli      DockerClient
@@ -56,6 +55,12 @@ type Builder struct {
 }
 
 type Option func(*Builder)
+
+func WithName(n string) Option {
+	return func(b *Builder) {
+		b.name = n
+	}
+}
 
 // WithVerbose toggles verbose logging.
 func WithVerbose(v bool) Option {
@@ -98,7 +103,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	// TODO this function currently doesn't support private s2i builder images since credentials are not set
 
 	// Builder image from the function  if defined, default otherwise.
-	builderImage, err := builderImage(f)
+	builderImage, err := BuilderImage(f, b.name)
 	if err != nil {
 		return
 	}
@@ -361,39 +366,14 @@ func s2iScriptURL(ctx context.Context, cli DockerClient, image string) (string, 
 	return "", nil
 }
 
-// builderImage for function
-// Uses the image defined on the function by default (for the given runtime)
-// or uses the static defaults if not defined. Returns an  ErrRuntimeRequired
-// if the function failed to define a Runtime, and ErrRuntimeNotSupported if
-// defined but an image exists neither in the static defaults nor in the
-// function's Builders map.
-func builderImage(f fn.Function) (string, error) {
-	if f.Runtime == "" {
-		return "", ErrRuntimeRequired
-	}
-
-	v, ok := f.BuilderImages[fn.BuilderS2i]
-	if ok {
-		return v, nil
-	}
-
-	v, ok = DefaultBuilderImages[f.Runtime]
-	if ok {
-		return v, nil
-	}
-
-	return "", ErrRuntimeNotSupported{f.Runtime}
-}
-
-func IsErrRuntimeNotSupported(err error) bool {
-	var e ErrRuntimeNotSupported
-	return errors.As(err, &e)
-}
-
-type ErrRuntimeNotSupported struct {
-	Runtime string
-}
-
-func (e ErrRuntimeNotSupported) Error() string {
-	return fmt.Sprintf("the s2i builder has no default builder image for the %q language runtime (try specifying builder image or use different build strategy)", e.Runtime)
+// Builder Image
+//
+// A value defined on the Function itself takes precidence.  If not defined,
+// the default builder image for the Function's language runtime is used.
+// An inability to determine a builder image (such as an unknown language),
+// will return empty string. Errors are returned if either the runtime is not
+// populated or an inability to locate a default.
+func BuilderImage(f fn.Function, builderName string) (string, error) {
+	// delegate as the logic is shared amongst builders
+	return builders.Image(f, builderName, DefaultBuilderImages)
 }

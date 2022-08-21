@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/builders"
 	"knative.dev/kn-plugin-func/knative"
 )
 
@@ -136,5 +137,5 @@ func CompleteDeployBuildType(cmd *cobra.Command, args []string, complete string)
 }
 
 func CompleteBuildersList(cmd *cobra.Command, args []string, complete string) ([]string, cobra.ShellCompDirective) {
-	return fn.AllBuilders(), cobra.ShellCompDirectiveNoFileComp
+	return builders.All(), cobra.ShellCompDirectiveNoFileComp
 }

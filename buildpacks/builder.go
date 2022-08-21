@@ -15,8 +15,12 @@ import (
 	"github.com/docker/docker/client"
 
 	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/builders"
 	"knative.dev/kn-plugin-func/docker"
 )
+
+// DefaultName when no WithName option is provided to NewBuilder
+const DefaultName = "pack"
 
 var (
 	DefaultBuilderImages = map[string]string{
@@ -40,6 +44,7 @@ var (
 
 // Builder will build Function using Pack.
 type Builder struct {
+	name    string
 	verbose bool
 	logger  io.Writer
 	impl    Impl
@@ -69,6 +74,15 @@ func NewBuilder(options ...Option) *Builder {
 
 type Option func(*Builder)
 
+// WithName allows for the customization of the short name used by this
+// instance of a builder to, for example, choose which builder image on
+// a function should be used (they are grouped by builder short name).
+func WithName(n string) Option {
+	return func(b *Builder) {
+		b.name = n
+	}
+}
+
 func WithVerbose(v bool) Option {
 	return func(b *Builder) {
 		b.verbose = v
@@ -83,8 +97,9 @@ func WithImpl(i Impl) Option {
 
 // Build the Function at path.
 func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
-	// Builder image defined on the Function if set, or from the default map.
-	image, err := BuilderImage(f)
+	// Builder image to use is chosen first from the funciton, indexed by
+	// the builder's assigned short name.
+	image, err := BuilderImage(f, b.name)
 	if err != nil {
 		return
 	}
@@ -177,22 +192,8 @@ func newImpl(ctx context.Context, cli client.CommonAPIClient, dockerHost string,
 // library at this time, and can therefore not instantiate and invoke this
 // package's buildpacks.Builder.Build.  Instead, they must transmit information
 // to the cluster using a Pipeline definition.
-func BuilderImage(f fn.Function) (string, error) {
-	if f.Runtime == "" {
-		return "", ErrRuntimeRequired{}
-	}
-
-	v, ok := f.BuilderImages[fn.BuilderPack]
-	if ok {
-		return v, nil
-	}
-
-	v, ok = DefaultBuilderImages[f.Runtime]
-	if ok {
-		return v, nil
-	}
-
-	return "", ErrRuntimeNotSupported{f.Runtime}
+func BuilderImage(f fn.Function, builderName string) (string, error) {
+	return builders.Image(f, builderName, DefaultBuilderImages)
 }
 
 // podmanPreV330 returns if the daemon is podman pre v330 or errors trying.
