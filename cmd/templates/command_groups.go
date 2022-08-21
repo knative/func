@@ -20,7 +20,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// A command group is for grouping together commands
+// CommandGroup is for grouping together commands
 type CommandGroup struct {
 
 	// Title for command group shown in help/usage messages
@@ -32,7 +32,7 @@ type CommandGroup struct {
 
 type CommandGroups []CommandGroup
 
-// Add all commands from this group slice to the given command
+// AddTo adds all commands from this group slice to the given command
 func (g CommandGroups) AddTo(cmd *cobra.Command) {
 	for _, group := range g {
 		for _, sub := range group.Commands {

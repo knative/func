@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"knative.dev/kn-plugin-func/cmd/templates"
 	"os"
 	"path/filepath"
 	"strings"
@@ -87,51 +88,39 @@ EXAMPLES
 		newClient = NewClient
 	}
 
-	cmd.AddCommand(NewCreateCmd(newClient))
-	cmd.AddCommand(NewConfigCmd(defaultLoaderSaver))
-	cmd.AddCommand(NewBuildCmd(newClient))
-	cmd.AddCommand(NewDeployCmd(newClient))
-	cmd.AddCommand(NewDeleteCmd(newClient))
-	cmd.AddCommand(NewInfoCmd(newClient))
-	cmd.AddCommand(NewListCmd(newClient))
-	cmd.AddCommand(NewInvokeCmd(newClient))
-	cmd.AddCommand(NewRepositoryCmd(newClient))
-	cmd.AddCommand(NewRunCmd(newClient))
-	cmd.AddCommand(NewCompletionCmd())
-	cmd.AddCommand(NewVersionCmd(config.Version))
-	cmd.AddCommand(NewLanguagesCmd(newClient))
-	cmd.AddCommand(NewTemplatesCmd(newClient))
+	// Grouped commands
+	groups := templates.CommandGroups{
+		{
+			Header: "Main Commands:",
+			Commands: []*cobra.Command{
+				NewBuildCmd(newClient),
+				NewConfigCmd(defaultLoaderSaver),
+				NewCreateCmd(newClient),
+				NewDeleteCmd(newClient),
+				NewDeployCmd(newClient),
+				NewInfoCmd(newClient),
+				NewInvokeCmd(newClient),
+				NewListCmd(newClient),
+				NewRepositoryCmd(newClient),
+				NewRunCmd(newClient),
+				NewLanguagesCmd(newClient),
+				NewTemplatesCmd(newClient),
+			},
+		},
+		{
+			Header: "Other Commands:",
+			Commands: []*cobra.Command{
+				NewCompletionCmd(),
+				NewVersionCmd(config.Version),
+			},
+		},
+	}
 
-	// Help
-	// Overridden to process the help text as a template and have
-	// access to the provided Client instance.
-	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
-		runRootHelp(cmd, args, config.Version)
-	})
+	// Add all commands o the root command, and initialize
+	groups.AddTo(cmd)
+	groups.SetRootUsage(cmd, nil)
 
 	return cmd
-
-	// NOTE Default Action
-	// No default action is provided triggering the default of displaying the help
-}
-
-func runRootHelp(cmd *cobra.Command, args []string, version Version) {
-	var (
-		body = cmd.Long + "\n\n" + cmd.UsageString()
-		t    = template.New("root")
-		tpl  = template.Must(t.Parse(body))
-	)
-	var data = struct {
-		Name    string
-		Version Version
-	}{
-		Name:    cmd.Root().Use,
-		Version: version,
-	}
-
-	if err := tpl.Execute(cmd.OutOrStdout(), data); err != nil {
-		fmt.Fprintf(cmd.ErrOrStderr(), "unable to display help text: %v", err)
-	}
 }
 
 // Helpers

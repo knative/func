@@ -160,7 +160,7 @@ func newTestTemplateEngine() (*cobra.Command, templateEngine) {
 			[]*cobra.Command{newCmd("g2.1"), newCmd("g2.2"), newCmd("g2.3")},
 		},
 	}
-	engine := newTemplateEngine(rootCmd, cmdGroups, getTestFuncMap())
+	engine := newTemplateEngine(rootCmd, cmdGroups, nil)
 	cmdGroups.AddTo(rootCmd)
 
 	// Add a sub-command to first command

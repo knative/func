@@ -52,13 +52,6 @@ const (
 
 {{end}}`
 
-	// sectionPlugins lists all plugins (if any)
-	sectionPlugins = `{{$plugins := listPlugins .}}{{ if ne (len $plugins) 0}}Plugins:
-{{trimRight $plugins}}
-
-{{end}}
-`
-
 	// sectionFlags is the help template section that displays the command's flags.
 	sectionFlags = `{{$visibleFlags := visibleFlags .}}{{ if $visibleFlags.HasFlags}}Options:
 {{trimRight (flagsUsages $visibleFlags)}}
@@ -82,7 +75,6 @@ func usageTemplate() string {
 		sectionExamples,
 		sectionCommandGroups,
 		sectionSubCommands,
-		sectionPlugins,
 		sectionFlags,
 		sectionTipsHelp,
 		sectionTipsGlobalOptions,
