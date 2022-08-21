@@ -2,12 +2,13 @@ package cmd
 
 import (
 	"fmt"
-	"knative.dev/kn-plugin-func/cmd/templates"
 	"os"
 	"path/filepath"
 	"strings"
 	"text/template"
 	"time"
+
+	"knative.dev/kn-plugin-func/cmd/templates"
 
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
@@ -30,31 +31,10 @@ func NewRootCmd(config RootCommandConfig) *cobra.Command {
 		// Use must be set to exactly config.Name, as this field is overloaded to
 		// be used in subcommand help text as the command with possible prefix:
 		Use:           config.Name,
-		Short:         "Serverless functions",
+		Short:         "Serverless Functions",
 		SilenceErrors: true, // we explicitly handle errors in Execute()
 		SilenceUsage:  true, // no usage dump on error
-		Long: `Serverless functions {{.Version}}
-
-	Create, build and deploy Knative functions
-
-SYNOPSIS
-	{{.Name}} [-v|--verbose] <command> [args]
-
-EXAMPLES
-
-	o Create a Node function in the current directory
-	  $ {{.Name}} create --language node .
-
-	o Deploy the function defined in the current working directory to the
-	  currently connected cluster, specifying a container registry in place of
-	  quay.io/user for the function's container.
-	  $ {{.Name}} deploy --registry quay.io.user
-
-	o Invoke the function defined in the current working directory with an example
-	  request.
-	  $ {{.Name}} invoke
-
-	For more examples, see '{{.Name}} <command> --help'.`,
+		Long:          "Serverless Functions",
 	}
 
 	// Environment Variables
@@ -116,7 +96,7 @@ EXAMPLES
 		},
 	}
 
-	// Add all commands o the root command, and initialize
+	// Add all commands to the root command, and initialize
 	groups.AddTo(cmd)
 	groups.SetRootUsage(cmd, nil)
 

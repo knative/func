@@ -24,6 +24,31 @@ import (
 // and adapted to the specific needs of `kn`
 
 const (
+	sectionRootUsage = `{{if isRootCmd .}} {{.Version}}
+
+	Create, build and deploy Knative functions
+
+SYNOPSIS
+	{{.Use}} [-v|--verbose] <command> [args]
+
+EXAMPLES
+
+	o Create a Node function in the current directory
+	  $ {{.Use}} create --language node .
+
+	o Deploy the function defined in the current working directory to the
+	  currently connected cluster, specifying a container registry in place of
+	  quay.io/user for the function's container.
+	  $ {{.Use}} deploy --registry quay.io.user
+
+	o Invoke the function defined in the current working directory with an example
+	  request.
+	  $ {{.Use}} invoke
+
+	For more examples, see '{{.Use}} <command> --help'.
+
+{{end}}`
+
 	// sectionUsage is the help template section that displays the command's usage.
 	sectionUsage = `{{if and .Runnable (ne .UseLine "") (not (isRootCmd .))}}Usage:
   {{useLine .}}
@@ -69,7 +94,7 @@ const (
 // usageTemplate if the template for 'usage' used by most commands.
 func usageTemplate() string {
 	sections := []string{
-		"\n\n",
+		sectionRootUsage,
 		sectionUsage,
 		sectionAliases,
 		sectionExamples,
