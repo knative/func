@@ -57,7 +57,7 @@ type Impl interface {
 
 // NewBuilder instantiates a Buildpack-based Builder
 func NewBuilder(options ...Option) *Builder {
-	b := &Builder{}
+	b := &Builder{name: DefaultName}
 	for _, o := range options {
 		o(b)
 	}
@@ -74,9 +74,6 @@ func NewBuilder(options ...Option) *Builder {
 
 type Option func(*Builder)
 
-// WithName allows for the customization of the short name used by this
-// instance of a builder to, for example, choose which builder image on
-// a function should be used (they are grouped by builder short name).
 func WithName(n string) Option {
 	return func(b *Builder) {
 		b.name = n

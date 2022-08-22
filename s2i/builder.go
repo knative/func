@@ -31,6 +31,7 @@ import (
 )
 
 // DefaultName when no WithName option is provided to NewBuilder
+const DefaultName = "s2i"
 
 // DefaultBuilderImages for s2i builders indexed by Runtime Language
 var DefaultBuilderImages = map[string]string{
@@ -92,7 +93,7 @@ func WithPlatform(platform string) Option {
 
 // NewBuilder creates a new instance of a Builder with static defaults.
 func NewBuilder(options ...Option) *Builder {
-	b := &Builder{}
+	b := &Builder{name: DefaultName}
 	for _, o := range options {
 		o(b)
 	}
