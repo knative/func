@@ -6,6 +6,7 @@ package builders
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	fn "knative.dev/kn-plugin-func"
@@ -28,11 +29,11 @@ func (k Known) String() string {
 	var b strings.Builder
 	for i, v := range k {
 		if i < len(k)-2 {
-			b.WriteString("'" + v + "', ")
+			b.WriteString(strconv.Quote(v) + ", ")
 		} else if i < len(k)-1 {
-			b.WriteString("'" + v + "' and ")
+			b.WriteString(strconv.Quote(v) + " and ")
 		} else {
-			b.WriteString("'" + v + "'")
+			b.WriteString(strconv.Quote(v))
 		}
 	}
 	return b.String()
@@ -47,12 +48,12 @@ type ErrUnknownBuilder struct {
 
 func (e ErrUnknownBuilder) Error() string {
 	if len(e.Known) == 0 {
-		return fmt.Sprintf("'%v' is not a known builder", e.Name)
+		return fmt.Sprintf("\"%v\" is not a known builder", e.Name)
 	}
 	if len(e.Known) == 1 {
-		return fmt.Sprintf("'%v' is not a known builder. The available builder is %v", e.Name, e.Known)
+		return fmt.Sprintf("\"%v\" is not a known builder. The available builder is %v", e.Name, e.Known)
 	}
-	return fmt.Sprintf("'%v' is not a known builder. Available builders are %s", e.Name, e.Known)
+	return fmt.Sprintf("\"%v\" is not a known builder. Available builders are %s", e.Name, e.Known)
 }
 
 // ErrRuntimeRequired

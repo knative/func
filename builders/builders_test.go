@@ -78,13 +78,13 @@ func Test_ErrUnknownBuilder(t *testing.T) {
 		Expected string
 	}{
 		{[]string{},
-			"'test' is not a known builder"},
+			`"test" is not a known builder`},
 		{[]string{"pack"},
-			"'test' is not a known builder. The available builder is 'pack'"},
+			`"test" is not a known builder. The available builder is "pack"`},
 		{[]string{"pack", "s2i"},
-			"'test' is not a known builder. Available builders are 'pack' and 's2i'"},
+			`"test" is not a known builder. Available builders are "pack" and "s2i"`},
 		{[]string{"pack", "s2i", "custom"},
-			"'test' is not a known builder. Available builders are 'pack', 's2i' and 'custom'"},
+			`"test" is not a known builder. Available builders are "pack", "s2i" and "custom"`},
 	}
 	for _, test := range tests {
 		e := builders.ErrUnknownBuilder{Name: "test", Known: test.Known}

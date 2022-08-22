@@ -87,10 +87,6 @@ func ValidateBuilder(name string) (err error) {
 	return builders.ErrUnknownBuilder{Name: name, Known: KnownBuilders()}
 }
 
-func KnownBuilders() []string {
-	return []string{builders.Pack, builders.S2I}
-}
-
 func ValidNamespaceAndRegistry(path string) survey.Validator {
 	return func(val interface{}) error {
 
@@ -106,6 +102,13 @@ func ValidNamespaceAndRegistry(path string) survey.Validator {
 		}
 		return nil
 	}
+}
+
+// KnownBuilders are a typed string slice of builder short names which this
+// CLI understands.  Includes a customized String() representation intended
+// for use in flags and help text.
+func KnownBuilders() builders.Known {
+	return builders.Known([]string{builders.Pack, builders.S2I})
 }
 
 func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err error) {
