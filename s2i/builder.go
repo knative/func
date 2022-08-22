@@ -103,7 +103,7 @@ func NewBuilder(options ...Option) *Builder {
 func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	// TODO this function currently doesn't support private s2i builder images since credentials are not set
 
-	// Builder image from the function  if defined, default otherwise.
+	// Builder image from the function if defined, default otherwise.
 	builderImage, err := BuilderImage(f, b.name)
 	if err != nil {
 		return
@@ -367,13 +367,7 @@ func s2iScriptURL(ctx context.Context, cli DockerClient, image string) (string, 
 	return "", nil
 }
 
-// Builder Image
-//
-// A value defined on the Function itself takes precidence.  If not defined,
-// the default builder image for the Function's language runtime is used.
-// An inability to determine a builder image (such as an unknown language),
-// will return empty string. Errors are returned if either the runtime is not
-// populated or an inability to locate a default.
+// Builder Image chooses the correct builder image or defaults.
 func BuilderImage(f fn.Function, builderName string) (string, error) {
 	// delegate as the logic is shared amongst builders
 	return builders.Image(f, builderName, DefaultBuilderImages)

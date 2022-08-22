@@ -52,7 +52,7 @@ func TestImage_ErrNoDefaultImage(t *testing.T) {
 }
 
 // TestImage_Defaults ensures that, when a default exists in the provided
-// map, it is chosen when both runtime is defined on the funciton and no
+// map, it is chosen when both runtime is defined on the function and no
 // builder image has yet to be defined on the function.
 func TestImage_Defaults(t *testing.T) {
 	defaults := map[string]string{

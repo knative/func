@@ -94,8 +94,7 @@ func WithImpl(i Impl) Option {
 
 // Build the Function at path.
 func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
-	// Builder image to use is chosen first from the funciton, indexed by
-	// the builder's assigned short name.
+	// Builder image from the function if defined, default otherwise.
 	image, err := BuilderImage(f, b.name)
 	if err != nil {
 		return
@@ -177,18 +176,7 @@ func newImpl(ctx context.Context, cli client.CommonAPIClient, dockerHost string,
 	return pack.NewClient(pack.WithLogger(logging.NewSimpleLogger(logger)), pack.WithDockerClient(cli))
 }
 
-// Builder Image
-//
-// A value defined on the Function itself takes precidence.  If not defined,
-// the default builder image for the Function's language runtime is used.
-// An inability to determine a builder image (such as an unknown language),
-// will return empty string. Errors are returned if either the runtime is not
-// populated or an inability to locate a default.
-//
-// Exported for use by Tekton in-cluster builds which do not have access to this
-// library at this time, and can therefore not instantiate and invoke this
-// package's buildpacks.Builder.Build.  Instead, they must transmit information
-// to the cluster using a Pipeline definition.
+// Builder Image chooses the correct builder image or defaults.
 func BuilderImage(f fn.Function, builderName string) (string, error) {
 	return builders.Image(f, builderName, DefaultBuilderImages)
 }
