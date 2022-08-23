@@ -335,7 +335,7 @@ func mergeEnvs(envs []fn.Env, envToUpdate *util.OrderedMap, envToRemove []string
 
 // setPathFlag ensures common text/wording when the --path flag is used
 func setPathFlag(cmd *cobra.Command) {
-	cmd.Flags().StringP("path", "p", cwd(), "Path to the project directory (Env: $FUNC_PATH)")
+	cmd.Flags().StringP("path", "p", ".", "Path to the project directory (Env: $FUNC_PATH)")
 }
 
 type Version struct {

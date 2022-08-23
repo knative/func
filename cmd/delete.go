@@ -109,13 +109,17 @@ func newDeleteConfig(args []string) deleteConfig {
 	if len(args) > 0 {
 		name = args[0]
 	}
-	return deleteConfig{
+	cfg := deleteConfig{
 		Path:      viper.GetString("path"),
 		Namespace: viper.GetString("namespace"),
 		DeleteAll: viper.GetBool("all"),
 		Name:      deriveName(name, viper.GetString("path")), // args[0] or derived
 		Verbose:   viper.GetBool("verbose"),                  // defined on root
 	}
+	if cfg.Path == "." {
+		cfg.Path = cwd()
+	}
+	return cfg
 }
 
 // Prompt the user with value of config members, allowing for interaractive changes.

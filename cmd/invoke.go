@@ -103,7 +103,7 @@ EXAMPLES
 	}
 
 	// Flags
-	cmd.Flags().StringP("path", "p", cwd(), "Path to the function which should have its instance invoked. (Env: $FUNC_PATH)")
+	cmd.Flags().StringP("path", "p", ".", "Path to the function which should have its instance invoked. (Env: $FUNC_PATH)")
 	cmd.Flags().StringP("format", "f", "", "Format of message to send, 'http' or 'cloudevent'.  Default is to choose automatically. (Env: $FUNC_FORMAT)")
 	cmd.Flags().StringP("target", "t", "", "Function instance to invoke.  Can be 'local', 'remote' or a URL.  Defaults to auto-discovery if not provided. (Env: $FUNC_TARGET)")
 	cmd.Flags().StringP("id", "", "", "ID for the request data. (Env: $FUNC_ID)")
@@ -217,6 +217,11 @@ func newInvokeConfig(newClient ClientFactory) (cfg invokeConfig, err error) {
 		Confirm:     viper.GetBool("confirm"),
 		Verbose:     viper.GetBool("verbose"),
 		Namespace:   viper.GetString("namespace"),
+	}
+
+	// If path is ".", convert to absolute path
+	if cfg.Path == "." {
+		cfg.Path = cwd()
 	}
 
 	// If file was passed, read it in as data

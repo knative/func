@@ -95,13 +95,17 @@ func newInfoConfig(args []string) infoConfig {
 	if len(args) > 0 {
 		name = args[0]
 	}
-	return infoConfig{
+	cfg := infoConfig{
 		Name:      deriveName(name, viper.GetString("path")),
 		Namespace: viper.GetString("namespace"),
 		Output:    viper.GetString("output"),
 		Path:      viper.GetString("path"),
 		Verbose:   viper.GetBool("verbose"),
 	}
+	if cfg.Path == "." {
+		cfg.Path = cwd()
+	}
+	return cfg
 }
 
 // Output Formatting (serializers)
