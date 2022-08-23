@@ -28,7 +28,6 @@ aliases:
   - n3wscott
   docs-wg-leads:
   - abrennan89
-  - csantanapr
   - snneji
   docs-writers:
   - abrennan89
@@ -114,9 +113,18 @@ aliases:
   - lkingland
   - matejvasek
   - nainaz
-  - omerbensaadon
   - salaboy
   - zroubalik
+  func-writers:
+  - lance
+  - lkingland
+  - matejvasek
+  - nainaz
+  - salaboy
+  - zroubalik
+  functions-wg-leads:
+  - lance
+  - salaboy
   homebrew-kn-plugins-approvers:
   - dsimansk
   - maximilien
@@ -138,14 +146,12 @@ aliases:
   - lkingland
   - matejvasek
   - nainaz
-  - omerbensaadon
   - salaboy
   - zroubalik
   kn-plugin-migration-approvers:
   - maximilien
   - zhangtbj
   kn-plugin-operator-approvers:
-  - csantanapr
   - dsimansk
   - houshengbo
   - maximilien
@@ -290,9 +296,7 @@ aliases:
   - zroubalik
   ux-wg-leads:
   - abrennan89
-  - csantanapr
   - snneji
   ux-writers:
   - abrennan89
-  - csantanapr
   - snneji
