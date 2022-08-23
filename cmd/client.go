@@ -57,8 +57,9 @@ func NewClientFactory(n func() *fn.Client) ClientFactory {
 // the currently configured is used.
 // 'Verbose' indicates the system should write out a higher amount of logging.
 // Example:
-//   client, done := NewClient("",false)
-//   defer done()
+//
+//	client, done := NewClient("",false)
+//	defer done()
 func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 	var (
 		p  = progress.New(cfg.Verbose) // updates the CLI
@@ -138,12 +139,7 @@ func newTektonPipelinesProvider(namespace string, progress *progress.Bar, creds 
 		tekton.WithVerbose(verbose),
 	}
 
-	if openshift.IsOpenShift() {
-		options = append(options, tekton.WithPipelineDecorator(openshift.OpenshiftMetadataDecorator{}))
-	}
-
 	return tekton.NewPipelinesProvider(options...)
-
 }
 
 func newKnativeDeployer(namespace string, verbose bool) fn.Deployer {

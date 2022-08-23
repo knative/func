@@ -19,9 +19,9 @@ kubectl apply -f https://raw.githubusercontent.com/tektoncd/catalog/master/task/
       ```bash
       kubectl apply -f https://raw.githubusercontent.com/knative-sandbox/kn-plugin-func/main/pipelines/resources/tekton/task/func-buildpacks/0.1/func-buildpacks.yaml
       ```
-   2. For S2I builder install the S2I task: (This is not needed on OpenShift)
+   2. For S2I builder install the S2I task:
       ```bash
-      kubectl apply -f https://raw.githubusercontent.com/tektoncd/catalog/main/task/s2i/0.3/s2i.yaml
+      kubectl apply -f https://raw.githubusercontent.com/tektoncd/catalog/main/task/s2i/0.4/s2i.yaml
       ```
 3. Install the `kn func` Deploy Tekton Task to be able to deploy the Function on in the Pipeline:
 ```bash

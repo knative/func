@@ -10,8 +10,6 @@ import (
 )
 
 func Test_generatePipeline(t *testing.T) {
-
-	pp := NewPipelinesProvider()
 	testGitRepo := "http://git-repo/git.git"
 	testGit := fn.Git{
 		URL: &testGitRepo,
@@ -36,7 +34,7 @@ func Test_generatePipeline(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ppl := pp.generatePipeline(tt.function, map[string]string{})
+			ppl := generatePipeline(tt.function, map[string]string{})
 
 			for _, task := range ppl.Spec.Tasks {
 				// let's check what is the Task used for build task

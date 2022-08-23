@@ -33,7 +33,7 @@ func deletePipelineRuns(ctx context.Context, namespaceOverride string, listOptio
 	return client.PipelineRuns(namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, listOptions)
 }
 
-func (pp *PipelinesProvider) generatePipeline(f fn.Function, labels map[string]string) *pplnv1beta1.Pipeline {
+func generatePipeline(f fn.Function, labels map[string]string) *pplnv1beta1.Pipeline {
 
 	// -----  General properties
 	pipelineName := getPipelineName(f)
@@ -57,6 +57,15 @@ func (pp *PipelinesProvider) generatePipeline(f fn.Function, labels map[string]s
 			Name:        "imageName",
 			Description: "Function image name",
 		},
+		{
+			Name:        "builderImage",
+			Description: "Builder image to be used",
+		},
+		{
+			Name:        "buildEnvs",
+			Description: "Environment variables to set during build time",
+			Type:        "array",
+		},
 	}
 
 	workspaces := []pplnv1beta1.PipelineWorkspaceDeclaration{
@@ -71,38 +80,12 @@ func (pp *PipelinesProvider) generatePipeline(f fn.Function, labels map[string]s
 
 	if f.Builder == fn.BuilderPack {
 		// ----- Buildpacks related properties
-
 		workspaces = append(workspaces, pplnv1beta1.PipelineWorkspaceDeclaration{Name: "cache-workspace", Description: "Directory where Buildpacks cache is stored."})
-		params = append(params,
-			pplnv1beta1.ParamSpec{
-				Name:        "builderImage",
-				Description: "Buildpacks builder image to be used",
-			},
-			pplnv1beta1.ParamSpec{
-				Name:        "buildEnvs",
-				Description: "Environment variables to set during build time",
-				Type:        "array",
-			})
 		taskBuild = taskBuildpacks(taskNameFetchSources)
 
 	} else if f.Builder == fn.BuilderS2i {
 		// ----- S2I build related properties
-
-		taskKind := "Task"
-		taskName := "s2i"
-		defineBuilderImageParam := true
-
-		// Decorator for a specific platform could define a different Task, Kind and other parts of the Task
-		if pp.decorator != nil {
-			taskKind, taskName, defineBuilderImageParam = pp.decorator.GetS2iTektonTaskProperties(f)
-		}
-
-		if defineBuilderImageParam {
-			params = append(params, pplnv1beta1.ParamSpec{Name: "builderImage", Description: "S2I builder image to be used"})
-		}
-
-		taskBuild = taskS2iBuild(taskNameFetchSources, taskKind, taskName, defineBuilderImageParam)
-
+		taskBuild = taskS2iBuild(taskNameFetchSources)
 		referenceImageFromPreviousTaskResults = true
 	}
 
@@ -126,7 +109,7 @@ func (pp *PipelinesProvider) generatePipeline(f fn.Function, labels map[string]s
 	}
 }
 
-func (pp *PipelinesProvider) generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.PipelineRun {
+func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.PipelineRun {
 
 	// -----  General properties
 	revision := ""
@@ -139,6 +122,18 @@ func (pp *PipelinesProvider) generatePipelineRun(f fn.Function, labels map[strin
 	}
 	if f.Git.ContextDir != nil {
 		contextDir = *f.Git.ContextDir
+	}
+
+	buildEnvs := &pplnv1beta1.ArrayOrString{
+		Type:     pplnv1beta1.ParamTypeArray,
+		ArrayVal: []string{},
+	}
+	if len(f.BuildEnvs) > 0 {
+		var envs []string
+		for _, e := range f.BuildEnvs {
+			envs = append(envs, e.KeyValuePair())
+		}
+		buildEnvs = pplnv1beta1.NewArrayOrString(envs[0], envs[1:]...)
 	}
 
 	params := []pplnv1beta1.Param{
@@ -157,6 +152,14 @@ func (pp *PipelinesProvider) generatePipelineRun(f fn.Function, labels map[strin
 		{
 			Name:  "imageName",
 			Value: *pplnv1beta1.NewArrayOrString(f.Image),
+		},
+		{
+			Name:  "builderImage",
+			Value: *pplnv1beta1.NewArrayOrString(getBuilderImage(f)),
+		},
+		{
+			Name:  "buildEnvs",
+			Value: *buildEnvs,
 		},
 	}
 
@@ -186,40 +189,6 @@ func (pp *PipelinesProvider) generatePipelineRun(f fn.Function, labels map[strin
 			},
 			SubPath: "cache",
 		})
-		buildEnvs := &pplnv1beta1.ArrayOrString{
-			Type:     pplnv1beta1.ParamTypeArray,
-			ArrayVal: []string{},
-		}
-		if len(f.BuildEnvs) > 0 {
-			var envs []string
-			for _, e := range f.BuildEnvs {
-				envs = append(envs, e.KeyValuePair())
-			}
-			buildEnvs = pplnv1beta1.NewArrayOrString(envs[0], envs[1:]...)
-		}
-		params = append(params,
-			pplnv1beta1.Param{
-				Name:  "builderImage",
-				Value: *pplnv1beta1.NewArrayOrString(getBuilderImage(f)),
-			},
-			pplnv1beta1.Param{
-				Name:  "buildEnvs",
-				Value: *buildEnvs,
-			})
-
-	} else if f.Builder == fn.BuilderS2i {
-		// ----- S2I build related properties
-
-		defineBuilderImageParam := true
-
-		// Decorator for a specific platform could define a different Task, Kind and other parts of the Task
-		if pp.decorator != nil {
-			_, _, defineBuilderImageParam = pp.decorator.GetS2iTektonTaskProperties(f)
-		}
-
-		if defineBuilderImageParam {
-			params = append(params, pplnv1beta1.Param{Name: "builderImage", Value: *pplnv1beta1.NewArrayOrString(getBuilderImage(f))})
-		}
 	}
 
 	// ----- PipelineRun definition
