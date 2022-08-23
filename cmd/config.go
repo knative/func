@@ -152,11 +152,10 @@ func newConfigCmdConfig(args []string) configCmdConfig {
 	if len(args) > 0 {
 		name = args[0]
 	}
-	cfg := configCmdConfig{
+	return configCmdConfig{
 		Name: deriveName(name, viper.GetString("path")),
 		Path: getPathFlag(),
 	}
-	return cfg
 
 }
 

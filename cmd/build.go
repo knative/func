@@ -232,7 +232,7 @@ type buildConfig struct {
 }
 
 func newBuildConfig() buildConfig {
-	cfg := buildConfig{
+	return buildConfig{
 		Image:        viper.GetString("image"),
 		Path:         getPathFlag(),
 		Registry:     viper.GetString("registry"),
@@ -243,7 +243,6 @@ func newBuildConfig() buildConfig {
 		Push:         viper.GetBool("push"),
 		Platform:     viper.GetString("platform"),
 	}
-	return cfg
 }
 
 // Prompt the user with value of config members, allowing for interaractive changes.

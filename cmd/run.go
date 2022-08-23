@@ -181,8 +181,5 @@ func newRunConfig(cmd *cobra.Command) (cfg runConfig, err error) {
 		EnvToUpdate: envToUpdate,
 		EnvToRemove: envToRemove,
 	}
-	if cfg.Path == "." {
-		cfg.Path = cwd()
-	}
 	return
 }

@@ -446,7 +446,7 @@ func newDeployConfig(cmd *cobra.Command) (deployConfig, error) {
 		buildType = viper.GetString("build")
 	}
 
-	cfg := deployConfig{
+	return deployConfig{
 		buildConfig: newBuildConfig(),
 		Namespace:   viper.GetString("namespace"),
 		Path:        getPathFlag(),
@@ -459,8 +459,7 @@ func newDeployConfig(cmd *cobra.Command) (deployConfig, error) {
 		GitURL:      viper.GetString("git-url"),
 		GitBranch:   viper.GetString("git-branch"),
 		GitDir:      viper.GetString("git-dir"),
-	}
-	return cfg, nil
+	}, nil
 }
 
 // Prompt the user with value of config members, allowing for interaractive changes.
