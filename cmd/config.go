@@ -154,10 +154,7 @@ func newConfigCmdConfig(args []string) configCmdConfig {
 	}
 	cfg := configCmdConfig{
 		Name: deriveName(name, viper.GetString("path")),
-		Path: viper.GetString("path"),
-	}
-	if cfg.Path == "." {
-		cfg.Path = cwd()
+		Path: getPathFlag(),
 	}
 	return cfg
 

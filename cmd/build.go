@@ -234,7 +234,7 @@ type buildConfig struct {
 func newBuildConfig() buildConfig {
 	cfg := buildConfig{
 		Image:        viper.GetString("image"),
-		Path:         viper.GetString("path"),
+		Path:         getPathFlag(),
 		Registry:     viper.GetString("registry"),
 		Verbose:      viper.GetBool("verbose"), // defined on root
 		Confirm:      viper.GetBool("confirm"),
@@ -242,9 +242,6 @@ func newBuildConfig() buildConfig {
 		BuilderImage: viper.GetString("builder-image"),
 		Push:         viper.GetBool("push"),
 		Platform:     viper.GetString("platform"),
-	}
-	if cfg.Path == "." {
-		cfg.Path = cwd()
 	}
 	return cfg
 }

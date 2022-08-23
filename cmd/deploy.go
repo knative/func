@@ -449,7 +449,7 @@ func newDeployConfig(cmd *cobra.Command) (deployConfig, error) {
 	cfg := deployConfig{
 		buildConfig: newBuildConfig(),
 		Namespace:   viper.GetString("namespace"),
-		Path:        viper.GetString("path"),
+		Path:        getPathFlag(),
 		Verbose:     viper.GetBool("verbose"), // defined on root
 		Confirm:     viper.GetBool("confirm"),
 		BuildType:   buildType,
@@ -459,9 +459,6 @@ func newDeployConfig(cmd *cobra.Command) (deployConfig, error) {
 		GitURL:      viper.GetString("git-url"),
 		GitBranch:   viper.GetString("git-branch"),
 		GitDir:      viper.GetString("git-dir"),
-	}
-	if cfg.Path == "." {
-		cfg.Path = cwd()
 	}
 	return cfg, nil
 }

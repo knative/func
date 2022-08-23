@@ -99,11 +99,8 @@ func newInfoConfig(args []string) infoConfig {
 		Name:      deriveName(name, viper.GetString("path")),
 		Namespace: viper.GetString("namespace"),
 		Output:    viper.GetString("output"),
-		Path:      viper.GetString("path"),
+		Path:      getPathFlag(),
 		Verbose:   viper.GetBool("verbose"),
-	}
-	if cfg.Path == "." {
-		cfg.Path = cwd()
 	}
 	return cfg
 }

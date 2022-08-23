@@ -144,16 +144,6 @@ func interactiveTerminal() bool {
 	return err == nil && ((fi.Mode() & os.ModeCharDevice) != 0)
 }
 
-// cwd returns the current working directory or exits 1 printing the error.
-func cwd() (cwd string) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to determine current working directory: %v", err)
-		os.Exit(1)
-	}
-	return cwd
-}
-
 // bindFunc which conforms to the cobra PreRunE method signature
 type bindFunc func(*cobra.Command, []string) error
 
@@ -336,6 +326,27 @@ func mergeEnvs(envs []fn.Env, envToUpdate *util.OrderedMap, envToRemove []string
 // setPathFlag ensures common text/wording when the --path flag is used
 func setPathFlag(cmd *cobra.Command) {
 	cmd.Flags().StringP("path", "p", ".", "Path to the project directory (Env: $FUNC_PATH)")
+}
+
+// getPathFlag returns the value of the --path flag.
+// The special value '.' is returned as the abolute path to the current
+// working directory.
+func getPathFlag() string {
+	path := viper.GetString("path")
+	if path == "." {
+		path = cwd()
+	}
+	return path
+}
+
+// cwd returns the current working directory or exits 1 printing the error.
+func cwd() (cwd string) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Unable to determine current working directory: %v", err)
+		os.Exit(1)
+	}
+	return cwd
 }
 
 type Version struct {
