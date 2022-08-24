@@ -343,8 +343,7 @@ func getPathFlag() string {
 func cwd() (cwd string) {
 	cwd, err := os.Getwd()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to determine current working directory: %v", err)
-		os.Exit(1)
+		panic(fmt.Sprintf("Unable to determine current working directory: %v", err))
 	}
 	return cwd
 }
