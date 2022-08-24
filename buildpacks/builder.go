@@ -20,7 +20,7 @@ import (
 )
 
 // DefaultName when no WithName option is provided to NewBuilder
-const DefaultName = "pack"
+const DefaultName = builders.Pack
 
 var (
 	DefaultBuilderImages = map[string]string{

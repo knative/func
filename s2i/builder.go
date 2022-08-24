@@ -31,7 +31,7 @@ import (
 )
 
 // DefaultName when no WithName option is provided to NewBuilder
-const DefaultName = "s2i"
+const DefaultName = builders.S2I
 
 // DefaultBuilderImages for s2i builders indexed by Runtime Language
 var DefaultBuilderImages = map[string]string{
