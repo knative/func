@@ -108,7 +108,11 @@ func ValidNamespaceAndRegistry(path string) survey.Validator {
 // CLI understands.  Includes a customized String() representation intended
 // for use in flags and help text.
 func KnownBuilders() builders.Known {
-	return builders.Known([]string{builders.Pack, builders.S2I})
+	// The set of builders supported by this CLI will likely always equate to
+	// the set of builders enumerated in the builders pacakage.
+	// However, future third-party integrations may support less than, or more
+	// builders, and certain environmental considerations may alter this list.
+	return builders.All()
 }
 
 func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err error) {
