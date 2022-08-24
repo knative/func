@@ -449,7 +449,7 @@ func newDeployConfig(cmd *cobra.Command) (deployConfig, error) {
 	return deployConfig{
 		buildConfig: newBuildConfig(),
 		Namespace:   viper.GetString("namespace"),
-		Path:        viper.GetString("path"),
+		Path:        getPathFlag(),
 		Verbose:     viper.GetBool("verbose"), // defined on root
 		Confirm:     viper.GetBool("confirm"),
 		BuildType:   buildType,

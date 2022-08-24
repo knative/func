@@ -103,7 +103,7 @@ EXAMPLES
 	}
 
 	// Flags
-	cmd.Flags().StringP("path", "p", cwd(), "Path to the function which should have its instance invoked. (Env: $FUNC_PATH)")
+	setPathFlag(cmd)
 	cmd.Flags().StringP("format", "f", "", "Format of message to send, 'http' or 'cloudevent'.  Default is to choose automatically. (Env: $FUNC_FORMAT)")
 	cmd.Flags().StringP("target", "t", "", "Function instance to invoke.  Can be 'local', 'remote' or a URL.  Defaults to auto-discovery if not provided. (Env: $FUNC_TARGET)")
 	cmd.Flags().StringP("id", "", "", "ID for the request data. (Env: $FUNC_ID)")
@@ -205,7 +205,7 @@ type invokeConfig struct {
 
 func newInvokeConfig(newClient ClientFactory) (cfg invokeConfig, err error) {
 	cfg = invokeConfig{
-		Path:        viper.GetString("path"),
+		Path:        getPathFlag(),
 		Target:      viper.GetString("target"),
 		Format:      viper.GetString("format"),
 		ID:          viper.GetString("id"),

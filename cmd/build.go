@@ -108,7 +108,7 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 
 	// Check if the function has been initialized
 	if !function.Initialized() {
-		return fmt.Errorf("the given path '%v' does not contain an initialized function. Please create one at this path before deploying", config.Path)
+		return fmt.Errorf("'%v' does not contain an initialized function", config.Path)
 	}
 
 	// If a registry name was provided as a command line flag, it should be validated
@@ -234,7 +234,7 @@ type buildConfig struct {
 func newBuildConfig() buildConfig {
 	return buildConfig{
 		Image:        viper.GetString("image"),
-		Path:         viper.GetString("path"),
+		Path:         getPathFlag(),
 		Registry:     viper.GetString("registry"),
 		Verbose:      viper.GetBool("verbose"), // defined on root
 		Confirm:      viper.GetBool("confirm"),

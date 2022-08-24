@@ -110,11 +110,11 @@ func newDeleteConfig(args []string) deleteConfig {
 		name = args[0]
 	}
 	return deleteConfig{
-		Path:      viper.GetString("path"),
+		Path:      getPathFlag(),
 		Namespace: viper.GetString("namespace"),
 		DeleteAll: viper.GetBool("all"),
-		Name:      deriveName(name, viper.GetString("path")), // args[0] or derived
-		Verbose:   viper.GetBool("verbose"),                  // defined on root
+		Name:      deriveName(name, getPathFlag()), // args[0] or derived
+		Verbose:   viper.GetBool("verbose"),        // defined on root
 	}
 }
 

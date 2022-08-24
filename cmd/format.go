@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"io"
-	"os"
 )
 
 type Format string
@@ -48,7 +47,6 @@ func write(out io.Writer, s Formatter, formatName string) {
 		err = fmt.Errorf("format not recognized: %v\n", formatName)
 	}
 	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(2)
+		panic(err)
 	}
 }
