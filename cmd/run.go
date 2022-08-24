@@ -175,7 +175,7 @@ func newRunConfig(cmd *cobra.Command) (cfg runConfig, err error) {
 	}
 	cfg = runConfig{
 		Build:       viper.GetString("build"),
-		Path:        viper.GetString("path"),
+		Path:        getPathFlag(),
 		Verbose:     viper.GetBool("verbose"), // defined on root
 		Registry:    viper.GetString("registry"),
 		EnvToUpdate: envToUpdate,

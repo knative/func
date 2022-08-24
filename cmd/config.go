@@ -6,7 +6,6 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
-	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
 	fn "knative.dev/kn-plugin-func"
@@ -153,7 +152,7 @@ func newConfigCmdConfig(args []string) configCmdConfig {
 		name = args[0]
 	}
 	return configCmdConfig{
-		Name: deriveName(name, viper.GetString("path")),
+		Name: deriveName(name, getPathFlag()),
 		Path: getPathFlag(),
 	}
 

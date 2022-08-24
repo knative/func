@@ -96,7 +96,7 @@ func newInfoConfig(args []string) infoConfig {
 		name = args[0]
 	}
 	return infoConfig{
-		Name:      deriveName(name, viper.GetString("path")),
+		Name:      deriveName(name, getPathFlag()),
 		Namespace: viper.GetString("namespace"),
 		Output:    viper.GetString("output"),
 		Path:      getPathFlag(),
