@@ -110,6 +110,9 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	// Load the Function at path, and if it is initialized, update it with
 	// pertinent values from the config.
 	f, err := fn.NewFunction(config.Path)
+	if err != nil {
+		return
+	}
 	if !f.Initialized() {
 		return fmt.Errorf("'%v' does not contain an initialized function", config.Path)
 	}
