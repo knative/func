@@ -15,8 +15,12 @@ import (
 	"github.com/docker/docker/client"
 
 	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/builders"
 	"knative.dev/kn-plugin-func/docker"
 )
+
+// DefaultName when no WithName option is provided to NewBuilder
+const DefaultName = builders.Pack
 
 var (
 	DefaultBuilderImages = map[string]string{
@@ -40,6 +44,7 @@ var (
 
 // Builder will build Function using Pack.
 type Builder struct {
+	name    string
 	verbose bool
 	logger  io.Writer
 	impl    Impl
@@ -52,7 +57,7 @@ type Impl interface {
 
 // NewBuilder instantiates a Buildpack-based Builder
 func NewBuilder(options ...Option) *Builder {
-	b := &Builder{}
+	b := &Builder{name: DefaultName}
 	for _, o := range options {
 		o(b)
 	}
@@ -69,6 +74,12 @@ func NewBuilder(options ...Option) *Builder {
 
 type Option func(*Builder)
 
+func WithName(n string) Option {
+	return func(b *Builder) {
+		b.name = n
+	}
+}
+
 func WithVerbose(v bool) Option {
 	return func(b *Builder) {
 		b.verbose = v
@@ -83,8 +94,8 @@ func WithImpl(i Impl) Option {
 
 // Build the Function at path.
 func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
-	// Builder image defined on the Function if set, or from the default map.
-	image, err := BuilderImage(f)
+	// Builder image from the function if defined, default otherwise.
+	image, err := BuilderImage(f, b.name)
 	if err != nil {
 		return
 	}
@@ -165,34 +176,9 @@ func newImpl(ctx context.Context, cli client.CommonAPIClient, dockerHost string,
 	return pack.NewClient(pack.WithLogger(logging.NewSimpleLogger(logger)), pack.WithDockerClient(cli))
 }
 
-// Builder Image
-//
-// A value defined on the Function itself takes precidence.  If not defined,
-// the default builder image for the Function's language runtime is used.
-// An inability to determine a builder image (such as an unknown language),
-// will return empty string. Errors are returned if either the runtime is not
-// populated or an inability to locate a default.
-//
-// Exported for use by Tekton in-cluster builds which do not have access to this
-// library at this time, and can therefore not instantiate and invoke this
-// package's buildpacks.Builder.Build.  Instead, they must transmit information
-// to the cluster using a Pipeline definition.
-func BuilderImage(f fn.Function) (string, error) {
-	if f.Runtime == "" {
-		return "", ErrRuntimeRequired{}
-	}
-
-	v, ok := f.BuilderImages[fn.BuilderPack]
-	if ok {
-		return v, nil
-	}
-
-	v, ok = DefaultBuilderImages[f.Runtime]
-	if ok {
-		return v, nil
-	}
-
-	return "", ErrRuntimeNotSupported{f.Runtime}
+// Builder Image chooses the correct builder image or defaults.
+func BuilderImage(f fn.Function, builderName string) (string, error) {
+	return builders.Image(f, builderName, DefaultBuilderImages)
 }
 
 // podmanPreV330 returns if the daemon is podman pre v330 or errors trying.

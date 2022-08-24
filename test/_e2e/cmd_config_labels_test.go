@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 
 	"testing"
+
+	"knative.dev/kn-plugin-func/builders"
 )
 
 const (
@@ -57,7 +59,7 @@ func TestConfigLabel(t *testing.T) {
 	project.Template = "http"
 	project.FunctionName = "test-config-labels"
 	project.ProjectPath = filepath.Join(os.TempDir(), project.FunctionName)
-	project.Builder = "pack"
+	project.Builder = builders.Pack
 
 	Create(t, knFunc.TestShell, project)
 	defer func() { _ = project.RemoveProjectFolder() }()

@@ -13,6 +13,7 @@ import (
 	"knative.dev/kn-plugin-func/s2i"
 
 	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/builders"
 )
 
 func NewBuildCmd(newClient ClientFactory) *cobra.Command {
@@ -49,7 +50,7 @@ and the image name is stored in the configuration file.
 		PreRunE:    bindEnv("image", "path", "builder", "registry", "confirm", "push", "builder-image", "platform"),
 	}
 
-	cmd.Flags().StringP("builder", "b", fn.DefaultBuilder, fmt.Sprintf("build strategy to use when creating the underlying image. Currently supported build strategies are %s.", fn.SupportedBuilders()))
+	cmd.Flags().StringP("builder", "b", builders.Default, fmt.Sprintf("build strategy to use when creating the underlying image. Currently supported build strategies are %s.", KnownBuilders()))
 	cmd.Flags().StringP("builder-image", "", "", "builder image, either an as a an image name or a mapping name.\nSpecified value is stored in func.yaml (as 'builder' field) for subsequent builds. ($FUNC_BUILDER_IMAGE)")
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
 	cmd.Flags().StringP("image", "i", "", "Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE)")
@@ -75,6 +76,17 @@ and the image name is stored in the configuration file.
 	return cmd
 }
 
+// ValidateBuilder ensures that the given builder is one that the CLI
+// knows how to instantiate, returning a builkder.ErrUnknownBuilder otherwise.
+func ValidateBuilder(name string) (err error) {
+	for _, known := range KnownBuilders() {
+		if name == known {
+			return
+		}
+	}
+	return builders.ErrUnknownBuilder{Name: name, Known: KnownBuilders()}
+}
+
 func ValidNamespaceAndRegistry(path string) survey.Validator {
 	return func(val interface{}) error {
 
@@ -90,6 +102,17 @@ func ValidNamespaceAndRegistry(path string) survey.Validator {
 		}
 		return nil
 	}
+}
+
+// KnownBuilders are a typed string slice of builder short names which this
+// CLI understands.  Includes a customized String() representation intended
+// for use in flags and help text.
+func KnownBuilders() builders.Known {
+	// The set of builders supported by this CLI will likely always equate to
+	// the set of builders enumerated in the builders pacakage.
+	// However, future third-party integrations may support less than, or more
+	// builders, and certain environmental considerations may alter this list.
+	return builders.All()
 }
 
 func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err error) {
@@ -158,17 +181,22 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	} else {
 		config.Builder = function.Builder
 	}
-	if err = fn.ValidateBuilder(config.Builder); err != nil {
+	if err = ValidateBuilder(config.Builder); err != nil {
 		return err
 	}
-	if config.Builder == fn.BuilderPack {
+	if config.Builder == builders.Pack {
 		if config.Platform != "" {
 			err = fmt.Errorf("the --platform flag works only with s2i build")
 			return
 		}
-		builder = buildpacks.NewBuilder(buildpacks.WithVerbose(config.Verbose))
-	} else if config.Builder == fn.BuilderS2i {
-		builder = s2i.NewBuilder(s2i.WithVerbose(config.Verbose), s2i.WithPlatform(config.Platform))
+		builder = buildpacks.NewBuilder(
+			buildpacks.WithName(builders.Pack),
+			buildpacks.WithVerbose(config.Verbose))
+	} else if config.Builder == builders.S2I {
+		builder = s2i.NewBuilder(
+			s2i.WithName(builders.S2I),
+			s2i.WithVerbose(config.Verbose),
+			s2i.WithPlatform(config.Platform))
 	}
 
 	// All set, let's write changes in the config to the disk

@@ -10,6 +10,7 @@ import (
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/builders"
 	"knative.dev/kn-plugin-func/buildpacks"
 )
 
@@ -181,7 +182,7 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 // language runtime.  Errors are checked elsewhere, so at this level they
 // manifest as an inability to get a builder image = empty string.
 func getBuilderImage(f fn.Function) (name string) {
-	name, _ = buildpacks.BuilderImage(f)
+	name, _ = buildpacks.BuilderImage(f, builders.Pack)
 	return
 }
 

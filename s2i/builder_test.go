@@ -26,40 +26,20 @@ import (
 
 	"github.com/openshift/source-to-image/pkg/api"
 	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/builders"
 	"knative.dev/kn-plugin-func/s2i"
 	. "knative.dev/kn-plugin-func/testing"
 )
 
-// Test_ErrRuntimeRequired ensures that a request to build without a runtime
-// defined for the function yields an ErrRuntimeRequired
-func Test_ErrRuntimeRequired(t *testing.T) {
-	b := s2i.NewBuilder()
-	err := b.Build(context.Background(), fn.Function{})
-
-	if !errors.Is(err, s2i.ErrRuntimeRequired) {
-		t.Fatal("expected ErrRuntimeRequired not received")
-	}
-}
-
-// Test_ErrRuntimeNotSupported ensures that a request to build a function whose
-// runtime is not yet supported yields an ErrRuntimeNotSupported
-func Test_ErrRuntimeNotSupported(t *testing.T) {
-	b := s2i.NewBuilder()
-	err := b.Build(context.Background(), fn.Function{Runtime: "unsupported"})
-
-	if !s2i.IsErrRuntimeNotSupported(err) {
-		t.Fatal("expected ErrRuntimeNotSupported not received")
-	}
-}
-
 // Test_BuilderImageDefault ensures that a function being built which does not
 // define a Builder Image will default.
-func Test_ImageDefault(t *testing.T) {
+func Test_BuilderImageDefault(t *testing.T) {
 	var (
-		i = &mockImpl{}                                              // mock underlying s2i implementation
-		c = mockDocker{}                                             // mock docker client
-		b = s2i.NewBuilder(s2i.WithImpl(i), s2i.WithDockerClient(c)) // func S2I Builder logic
-		f = fn.Function{Runtime: "node"}                             // function with no builder image set
+		i = &mockImpl{}                  // mock underlying s2i implementation
+		c = mockDocker{}                 // mock docker client
+		f = fn.Function{Runtime: "node"} // function with no builder image set
+		b = s2i.NewBuilder(              // func S2I Builder logic
+			s2i.WithImpl(i), s2i.WithDockerClient(c))
 	)
 
 	// An implementation of the underlying S2I implementation which verifies
@@ -67,7 +47,8 @@ func Test_ImageDefault(t *testing.T) {
 	i.BuildFn = func(cfg *api.Config) (*api.Result, error) {
 		expected := s2i.DefaultBuilderImages["node"]
 		if cfg.BuilderImage != expected {
-			t.Fatalf("expected s2i config builder image '%v', got '%v'", expected, cfg.BuilderImage)
+			t.Fatalf("expected s2i config builder image '%v', got '%v'",
+				expected, cfg.BuilderImage)
 		}
 		return nil, nil
 	}
@@ -83,13 +64,14 @@ func Test_ImageDefault(t *testing.T) {
 // image defined on the given function if provided.
 func Test_BuilderImageConfigurable(t *testing.T) {
 	var (
-		i = &mockImpl{}                                              // mock underlying s2i implementation
-		c = mockDocker{}                                             // mock docker client
-		b = s2i.NewBuilder(s2i.WithImpl(i), s2i.WithDockerClient(c)) // func S2I Builder logic
-		f = fn.Function{                                             // function with a builder image set
+		i = &mockImpl{}     // mock underlying s2i implementation
+		c = mockDocker{}    // mock docker client
+		b = s2i.NewBuilder( // func S2I Builder logic
+			s2i.WithName(builders.S2I), s2i.WithImpl(i), s2i.WithDockerClient(c))
+		f = fn.Function{ // function with a builder image set
 			Runtime: "node",
 			BuilderImages: map[string]string{
-				"s2i": "example.com/user/builder-image",
+				builders.S2I: "example.com/user/builder-image",
 			},
 		}
 	)
@@ -97,7 +79,7 @@ func Test_BuilderImageConfigurable(t *testing.T) {
 	// An implementation of the underlying S2I implementation which verifies
 	// the config has arrived as expected (correct functions logic applied)
 	i.BuildFn = func(cfg *api.Config) (*api.Result, error) {
-		expected := f.BuilderImages["s2i"]
+		expected := "example.com/user/builder-image"
 		if cfg.BuilderImage != expected {
 			t.Fatalf("expected s2i config builder image for node to be '%v', got '%v'", expected, cfg.BuilderImage)
 		}
@@ -220,11 +202,11 @@ func TestS2IScriptURL(t *testing.T) {
 			f := fn.Function{
 				Runtime: "node",
 				BuilderImages: map[string]string{
-					"s2i": tt.builderImage,
+					builders.S2I: tt.builderImage,
 				},
 			}
 
-			b := s2i.NewBuilder(s2i.WithImpl(impl), s2i.WithDockerClient(cli))
+			b := s2i.NewBuilder(s2i.WithName(builders.S2I), s2i.WithImpl(impl), s2i.WithDockerClient(cli))
 			err = b.Build(context.Background(), f)
 			if err != nil {
 				t.Error(err)

@@ -15,6 +15,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	"knative.dev/kn-plugin-func/builders"
 	"knative.dev/kn-plugin-func/k8s"
 )
 
@@ -104,7 +105,7 @@ func TestConfigEnvs(t *testing.T) {
 	project.FunctionName = "test-config-envs"
 	project.ProjectPath = filepath.Join(os.TempDir(), project.FunctionName)
 	project.RemoteRepository = "http://github.com/boson-project/test-templates.git"
-	project.Builder = "pack"
+	project.Builder = builders.Pack
 
 	Create(t, knFunc.TestShell, project)
 	defer func() { _ = project.RemoveProjectFolder() }()

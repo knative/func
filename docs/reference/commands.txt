@@ -114,7 +114,7 @@ func build --builder=pack --builder-image cnbs/sample-builder:bionic
 
 
 Flags:
-  -b, --builder string         build strategy to use when creating the underlying image. Currently supported build strategies are "pack" or "s2i". (default "pack")
+  -b, --builder string         build strategy to use when creating the underlying image. Currently supported build strategies are "pack" and "s2i". (default "pack")
       --builder-image string   builder image, either an as a an image name or a mapping name.
                                Specified value is stored in func.yaml (as 'builder' field) for subsequent builds. ($FUNC_BUILDER_IMAGE)
   -c, --confirm                Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)
@@ -304,7 +304,7 @@ func deploy --image quay.io/myuser/myfunc -n myns
 
 Flags:
   -b, --build string           Build specifies the way the function should be built. Supported types are "disabled", "local" or "git" (Env: $FUNC_BUILD) (default "local")
-      --builder string         build strategy to use when creating the underlying image. Currently supported build strategies are "pack" or "s2i". (default "pack")
+      --builder string         build strategy to use when creating the underlying image. Currently supported build strategies are "pack" and "s2i". (default "pack")
       --builder-image string   builder image, either an as a an image name or a mapping name.
                                Specified value is stored in func.yaml (as 'builder' field) for subsequent builds. ($FUNC_BUILDER_IMAGE)
   -c, --confirm                Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)
@@ -449,7 +449,7 @@ Flags:
   -f, --format string         Format of message to send, 'http' or 'cloudevent'.  Default is to choose automatically. (Env: $FUNC_FORMAT)
   -h, --help                  help for invoke
       --id string             ID for the request data. (Env: $FUNC_ID)
-  -p, --path string           Path to the function which should have its instance invoked. (Env: $FUNC_PATH) (default ".")
+  -p, --path string           Path to the project directory (Env: $FUNC_PATH) (default ".")
       --source string         Source value for the request data. (Env: $FUNC_SOURCE) (default "/boson/fn")
   -t, --target string         Function instance to invoke.  Can be 'local', 'remote' or a URL.  Defaults to auto-discovery if not provided. (Env: $FUNC_TARGET)
       --type string           Type value for the request data. (Env: $FUNC_TYPE) (default "boson.fn")

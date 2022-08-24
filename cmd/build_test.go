@@ -9,6 +9,7 @@ import (
 
 	"github.com/spf13/cobra"
 	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/builders"
 	"knative.dev/kn-plugin-func/mock"
 	. "knative.dev/kn-plugin-func/testing"
 )
@@ -229,7 +230,7 @@ func testBuilderPersistence(t *testing.T, testRegistry string, cmdBuilder func(C
 	if f, err = fn.NewFunction(root); err != nil {
 		t.Fatal(err)
 	}
-	if f.Builder != "s2i" {
+	if f.Builder != builders.S2I {
 		t.Fatal("value of builder flag not persisted when provided")
 	}
 	// Build the function without specifying a Builder
@@ -247,7 +248,7 @@ func testBuilderPersistence(t *testing.T, testRegistry string, cmdBuilder func(C
 		t.Fatal(err)
 	}
 
-	if f.Builder != "s2i" {
+	if f.Builder != builders.S2I {
 		t.Fatal("value of builder updated when not provided")
 	}
 
@@ -261,7 +262,7 @@ func testBuilderPersistence(t *testing.T, testRegistry string, cmdBuilder func(C
 	if f, err = fn.NewFunction(root); err != nil {
 		t.Fatal(err)
 	}
-	if f.Builder != "pack" {
+	if f.Builder != builders.Pack {
 		t.Fatal("value of builder flag not persisted on subsequent build")
 	}
 
@@ -282,4 +283,23 @@ func testBuilderPersistence(t *testing.T, testRegistry string, cmdBuilder func(C
 // the function by default, and is able to be overridden by flags/env vars.
 func TestBuild_BuilderPersistence(t *testing.T) {
 	testBuilderPersistence(t, "docker.io/tigerteam", NewBuildCmd)
+}
+
+// TestBuild_ValidateBuilder ensures that the validation function correctly
+// identifies valid and invalid builder short names.
+func Test_ValidateBuilder(t *testing.T) {
+	for _, name := range builders.All() {
+		if err := ValidateBuilder(name); err != nil {
+			t.Fatalf("expected builder '%v' to be valid, but got error: %v", name, err)
+		}
+	}
+
+	// This CLI creates no builders beyond those in the core reposiory.  Other
+	// users of the client library may provide their own named implementation of
+	// the fn.Builder interface. Those would have a different set of valid
+	// builders.
+
+	if err := ValidateBuilder("invalid"); err == nil {
+		t.Fatalf("did not get expected error validating an invalid builder name")
+	}
 }
