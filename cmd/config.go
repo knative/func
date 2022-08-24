@@ -6,6 +6,7 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
+	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
 	fn "knative.dev/kn-plugin-func"
@@ -43,7 +44,7 @@ func (s standardLoaderSaver) Save(f fn.Function) error {
 
 var defaultLoaderSaver standardLoaderSaver
 
-func NewConfigCmd() *cobra.Command {
+func NewConfigCmd(loadSaver functionLoaderSaver) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "config",
 		Short: "Configure a function",
@@ -61,8 +62,8 @@ or from the directory specified with --path.
 
 	setPathFlag(cmd)
 
-	cmd.AddCommand(NewConfigLabelsCmd(defaultLoaderSaver))
-	cmd.AddCommand(NewConfigEnvsCmd())
+	cmd.AddCommand(NewConfigLabelsCmd(loadSaver))
+	cmd.AddCommand(NewConfigEnvsCmd(loadSaver))
 	cmd.AddCommand(NewConfigVolumesCmd())
 
 	return cmd
@@ -70,7 +71,7 @@ or from the directory specified with --path.
 
 func runConfigCmd(cmd *cobra.Command, args []string) (err error) {
 
-	function, err := initConfigCommand(args, defaultLoaderSaver)
+	function, err := initConfigCommand(defaultLoaderSaver)
 	if err != nil {
 		return
 	}
@@ -128,7 +129,7 @@ func runConfigCmd(cmd *cobra.Command, args []string) (err error) {
 		if answers.SelectedConfig == "Volumes" {
 			listVolumes(function)
 		} else if answers.SelectedConfig == "Environment variables" {
-			listEnvs(function)
+			err = listEnvs(function, cmd.OutOrStdout(), Human)
 		} else if answers.SelectedConfig == "Labels" {
 			listLabels(function)
 		}
@@ -141,25 +142,19 @@ func runConfigCmd(cmd *cobra.Command, args []string) (err error) {
 // ------------------------------
 
 type configCmdConfig struct {
-	Name    string
 	Path    string
 	Verbose bool
 }
 
-func newConfigCmdConfig(args []string) configCmdConfig {
-	var name string
-	if len(args) > 0 {
-		name = args[0]
-	}
+func newConfigCmdConfig() configCmdConfig {
 	return configCmdConfig{
-		Name: deriveName(name, getPathFlag()),
-		Path: getPathFlag(),
+		Path:    getPathFlag(),
+		Verbose: viper.GetBool("verbose"),
 	}
-
 }
 
-func initConfigCommand(args []string, loader functionLoader) (fn.Function, error) {
-	config := newConfigCmdConfig(args)
+func initConfigCommand(loader functionLoader) (fn.Function, error) {
+	config := newConfigCmdConfig()
 
 	function, err := loader.Load(config.Path)
 	if err != nil {

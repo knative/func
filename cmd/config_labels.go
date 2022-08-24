@@ -25,7 +25,7 @@ the current directory or from the directory specified with --path.
 		SuggestFor: []string{"albels", "abels", "label"},
 		PreRunE:    bindEnv("path"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			function, err := initConfigCommand(args, loaderSaver)
+			function, err := initConfigCommand(loaderSaver)
 			if err != nil {
 				return
 			}
@@ -51,7 +51,7 @@ the local machine.
 		SuggestFor: []string{"ad", "create", "insert", "append"},
 		PreRunE:    bindEnv("path"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			function, err := initConfigCommand(args, loaderSaver)
+			function, err := initConfigCommand(loaderSaver)
 			if err != nil {
 				return
 			}
@@ -72,7 +72,7 @@ directory or from the directory specified with --path.
 		SuggestFor: []string{"del", "delete", "rmeove"},
 		PreRunE:    bindEnv("path"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			function, err := initConfigCommand(args, loaderSaver)
+			function, err := initConfigCommand(loaderSaver)
 			if err != nil {
 				return
 			}

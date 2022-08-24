@@ -2,12 +2,15 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
+	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
 	fn "knative.dev/kn-plugin-func"
@@ -15,7 +18,7 @@ import (
 	"knative.dev/kn-plugin-func/utils"
 )
 
-func NewConfigEnvsCmd() *cobra.Command {
+func NewConfigEnvsCmd(loadSaver functionLoaderSaver) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "envs",
 		Short: "List and manage configured environment variable for a function",
@@ -25,20 +28,20 @@ Prints configured Environment variable for a function project present in
 the current directory or from the directory specified with --path.
 `,
 		SuggestFor: []string{"ensv", "env"},
-		PreRunE:    bindEnv("path"),
+		PreRunE:    bindEnv("path", "output"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			function, err := initConfigCommand(args, defaultLoaderSaver)
+			function, err := initConfigCommand(loadSaver)
 			if err != nil {
 				return
 			}
 
-			listEnvs(function)
-
-			return
+			return listEnvs(function, cmd.OutOrStdout(), Format(viper.GetString("output")))
 		},
 	}
 
-	configEnvsAddCmd := NewConfigEnvsAddCmd()
+	cmd.Flags().StringP("output", "o", "human", "Output format (human|json) (Env: $FUNC_OUTPUT)")
+
+	configEnvsAddCmd := NewConfigEnvsAddCmd(loadSaver)
 	configEnvsRemoveCmd := NewConfigEnvsRemoveCmd()
 
 	setPathFlag(cmd)
@@ -51,29 +54,78 @@ the current directory or from the directory specified with --path.
 	return cmd
 }
 
-func NewConfigEnvsAddCmd() *cobra.Command {
+func NewConfigEnvsAddCmd(loadSaver functionLoaderSaver) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add",
 		Short: "Add environment variable to the function configuration",
-		Long: `Add environment variable to the function configuration
+		Long: `Add environment variable to the function configuration.
 
-Interactive prompt to add Environment variables to the function project
-in the current directory or from the directory specified with --path.
+If environment variable is not set explicitly by flag, interactive prompt is used.
 
 The environment variable can be set directly from a value,
 from an environment variable on the local machine or from Secrets and ConfigMaps.
-`,
+It is also possible to import all keys as environment variables from a Secret or ConfigMap.`,
+		Example: `# set environment variable directly
+{{.Name}} config envs add --name=VARNAME --value=myValue
+
+# set environment variable from local env $LOC_ENV
+{{.Name}} config envs add --name=VARNAME --value='{{"{{"}} env:LOC_ENV {{"}}"}}'
+
+set environment variable from a secret
+{{.Name}} config envs add --name=VARNAME --value='{{"{{"}} secret:secretName:key {{"}}"}}'
+
+# set all key as environment variables from a secret
+{{.Name}} config envs add --value='{{"{{"}} secret:secretName {{"}}"}}'
+
+# set environment variable from a configMap
+{{.Name}} config envs add --name=VARNAME --value='{{"{{"}} configMap:confMapName:key {{"}}"}}'
+
+# set all key as environment variables from a configMap
+{{.Name}} config envs add --value='{{"{{"}} configMap:confMapName {{"}}"}}'`,
 		SuggestFor: []string{"ad", "create", "insert", "append"},
-		PreRunE:    bindEnv("path"),
+		PreRunE:    bindEnv("path", "name", "value"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			function, err := initConfigCommand(args, defaultLoaderSaver)
+			function, err := initConfigCommand(loadSaver)
 			if err != nil {
 				return
+			}
+
+			var np *string
+			var vp *string
+
+			if cmd.Flags().Changed("name") {
+				s, e := cmd.Flags().GetString("name")
+				if e != nil {
+					return e
+				}
+				np = &s
+			}
+			if cmd.Flags().Changed("value") {
+				s, e := cmd.Flags().GetString("value")
+				if e != nil {
+					return e
+				}
+				vp = &s
+			}
+
+			if np != nil || vp != nil {
+				if np != nil {
+					if err := utils.ValidateEnvVarName(*np); err != nil {
+						return err
+					}
+				}
+
+				function.Envs = append(function.Envs, fn.Env{Name: np, Value: vp})
+				return loadSaver.Save(function)
 			}
 
 			return runAddEnvsPrompt(cmd.Context(), function)
 		},
 	}
+
+	cmd.Flags().StringP("name", "", "", "Name of the environment variable.")
+	cmd.Flags().StringP("value", "", "", "Value of the environment variable.")
+
 	cmd.SetHelpFunc(defaultTemplatedHelp)
 	return cmd
 }
@@ -90,7 +142,7 @@ in the current directory or from the directory specified with --path.
 		SuggestFor: []string{"rm", "del", "delete", "rmeove"},
 		PreRunE:    bindEnv("path"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			function, err := initConfigCommand(args, defaultLoaderSaver)
+			function, err := initConfigCommand(defaultLoaderSaver)
 			if err != nil {
 				return
 			}
@@ -101,15 +153,27 @@ in the current directory or from the directory specified with --path.
 
 }
 
-func listEnvs(f fn.Function) {
-	if len(f.Envs) == 0 {
-		fmt.Println("There aren't any configured Environment variables")
-		return
-	}
+func listEnvs(f fn.Function, w io.Writer, outputFormat Format) error {
+	switch outputFormat {
+	case Human:
+		if len(f.Envs) == 0 {
+			_, err := fmt.Fprintln(w, "There aren't any configured Environment variables")
+			return err
+		}
 
-	fmt.Println("Configured Environment variables:")
-	for _, e := range f.Envs {
-		fmt.Println(" - ", e.String())
+		fmt.Println("Configured Environment variables:")
+		for _, e := range f.Envs {
+			_, err := fmt.Fprintln(w, " - ", e.String())
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	case JSON:
+		enc := json.NewEncoder(w)
+		return enc.Encode(f.Envs)
+	default:
+		return fmt.Errorf("bad format: %v", outputFormat)
 	}
 }
 

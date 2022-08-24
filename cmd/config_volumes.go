@@ -25,7 +25,7 @@ the current directory or from the directory specified with --path.
 		SuggestFor: []string{"volums", "volume", "vols"},
 		PreRunE:    bindEnv("path"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			function, err := initConfigCommand(args, defaultLoaderSaver)
+			function, err := initConfigCommand(defaultLoaderSaver)
 			if err != nil {
 				return
 			}
@@ -62,7 +62,7 @@ in the current directory or from the directory specified with --path.
 		SuggestFor: []string{"ad", "create", "insert", "append"},
 		PreRunE:    bindEnv("path"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			function, err := initConfigCommand(args, defaultLoaderSaver)
+			function, err := initConfigCommand(defaultLoaderSaver)
 			if err != nil {
 				return
 			}
@@ -86,7 +86,7 @@ in the current directory or from the directory specified with --path.
 		SuggestFor: []string{"del", "delete", "rmeove"},
 		PreRunE:    bindEnv("path"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			function, err := initConfigCommand(args, defaultLoaderSaver)
+			function, err := initConfigCommand(defaultLoaderSaver)
 			if err != nil {
 				return
 			}
