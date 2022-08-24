@@ -184,6 +184,10 @@ func filesystemFromURI(uri string) (f Filesystem, err error) {
 		return EmbeddedTemplatesFS, nil
 	}
 
+	if isNonBareGitRepo(uri) {
+		return filesystemFromPath(uri)
+	}
+
 	// Attempt to get a filesystem from the uri as a remote repo.
 	f, err = filesystemFromRepo(uri)
 	if f != nil || err != nil {
@@ -192,6 +196,22 @@ func filesystemFromURI(uri string) (f Filesystem, err error) {
 
 	// Attempt to get a filesystem from the uri as a file path.
 	return filesystemFromPath(uri)
+}
+
+func isNonBareGitRepo(uri string) bool {
+	parsed, err := url.Parse(uri)
+	if err != nil {
+		return false
+	}
+	if parsed.Scheme != "file" {
+		return false
+	}
+	p := filepath.Join(filepath.FromSlash(uri[7:]), ".git")
+	fi, err := os.Stat(p)
+	if err != nil {
+		return false
+	}
+	return fi.IsDir()
 }
 
 // filesystemFromRepo attempts to fetch a filesystem from a git repository
