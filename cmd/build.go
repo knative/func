@@ -87,23 +87,6 @@ func ValidateBuilder(name string) (err error) {
 	return builders.ErrUnknownBuilder{Name: name, Known: KnownBuilders()}
 }
 
-func ValidNamespaceAndRegistry(path string) survey.Validator {
-	return func(val interface{}) error {
-
-		// if the value passed in is the zero value of the appropriate type
-		if len(val.(string)) == 0 {
-			return errors.New("Value is required")
-		}
-
-		_, err := fn.DerivedImage(path, val.(string)) //image can be derived without any error
-
-		if err != nil {
-			return fmt.Errorf("invalid registry [%q]: %w", val.(string), err)
-		}
-		return nil
-	}
-}
-
 // KnownBuilders are a typed string slice of builder short names which this
 // CLI understands.  Includes a customized String() representation intended
 // for use in flags and help text.
@@ -124,63 +107,29 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		return
 	}
 
-	function, err := functionWithOverrides(config.Path, functionOverrides{Image: config.Image})
-	if err != nil {
-		return
-	}
-
-	// Check if the function has been initialized
-	if !function.Initialized() {
+	// Load the Function at path, and if it is initialized, update it with
+	// pertinent values from the config.
+	f, err := fn.NewFunction(config.Path)
+	if !f.Initialized() {
 		return fmt.Errorf("'%v' does not contain an initialized function", config.Path)
 	}
 
-	// If a registry name was provided as a command line flag, it should be validated
 	if config.Registry != "" {
-		err = ValidNamespaceAndRegistry(config.Path)(config.Registry)
-		if err != nil {
-			return
-		}
-	} else if function.Registry != "" {
-		// Otherwise, if a registry name was provided in func.config, set that value
-		// for the command configuration and validate it
-		config.Registry = function.Registry
-		err = ValidNamespaceAndRegistry(config.Path)(config.Registry)
-		if err != nil {
-			return
-		}
+		f.Registry = config.Registry
 	}
-
-	// If the function does not yet have an image name and one was not provided on the command line
-	if function.Image == "" && config.Image == "" {
-		//  AND a --registry was not provided, then we need to
-		// prompt for a registry from which we can derive an image name.
-		if config.Registry == "" {
-			fmt.Println("A registry for function images is required. For example, 'docker.io/tigerteam'.")
-
-			err = survey.AskOne(
-				&survey.Input{Message: "Registry for function images:"},
-				&config.Registry, survey.WithValidator(ValidNamespaceAndRegistry(config.Path)))
-			if err != nil {
-				if errors.Is(err, terminal.InterruptErr) {
-					return nil
-				}
-				return
-			}
-			fmt.Println("Note: building a function the first time will take longer than subsequent builds")
-		}
-
-		// We have the registry, so let's use it to derive the function image name
-		config.Image = deriveImage(config.Image, config.Registry, config.Path)
-
-		function.Image = config.Image
+	if config.Image != "" {
+		f.Image = config.Image
+	}
+	if config.Builder != "" {
+		f.Builder = config.Builder
 	}
 
 	// Choose a builder based on the value of the --builder flag
 	var builder fn.Builder
-	if function.Builder == "" || cmd.Flags().Changed("builder") {
-		function.Builder = config.Builder
+	if f.Builder == "" || cmd.Flags().Changed("builder") {
+		f.Builder = config.Builder
 	} else {
-		config.Builder = function.Builder
+		config.Builder = f.Builder
 	}
 	if err = ValidateBuilder(config.Builder); err != nil {
 		return err
@@ -200,28 +149,35 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 			s2i.WithPlatform(config.Platform))
 	}
 
-	// All set, let's write changes in the config to the disk
-	err = function.Write()
-	if err != nil {
-		return
-	}
-
 	// Use the user-provided builder image, if supplied
 	if config.BuilderImage != "" {
-		function.BuilderImages[config.Builder] = config.BuilderImage
+		f.BuilderImages[config.Builder] = config.BuilderImage
 	}
 
-	// Create a client using the registry defined in config plus any additional
-	// options provided (such as mocks for testing)
 	client, done := newClient(ClientConfig{Verbose: config.Verbose},
 		fn.WithRegistry(config.Registry),
 		fn.WithBuilder(builder))
 	defer done()
 
-	err = client.Build(cmd.Context(), config.Path)
-	if err == nil && config.Push {
+	// Default Client Registry, Function Registry or explicit Image is required
+	if client.Registry() == "" && f.Registry == "" && f.Image == "" {
+		return ErrRegistryRequired
+	}
+
+	// This preemptive write call will be unnecessary when the API is updated
+	// to use Function instances rather than file paths. For now it must write
+	// even if the command fails later.  Not ideal.
+	if err = f.Write(); err != nil {
+		return
+	}
+
+	if err = client.Build(cmd.Context(), config.Path); err != nil {
+		return
+	}
+	if config.Push {
 		err = client.Push(cmd.Context(), config.Path)
 	}
+
 	return
 }
 
@@ -278,12 +234,11 @@ func newBuildConfig() buildConfig {
 // Skipped if not in an interactive terminal (non-TTY), or if --confirm false (agree to
 // all prompts) was set (default).
 func (c buildConfig) Prompt() (buildConfig, error) {
-	imageName := deriveImage(c.Image, c.Registry, c.Path)
 	if !interactiveTerminal() || !c.Confirm {
 		return c, nil
 	}
 
-	bc := buildConfig{Verbose: c.Verbose}
+	imageName := deriveImage(c.Image, c.Registry, c.Path)
 
 	var qs = []*survey.Question{
 		{
@@ -303,7 +258,26 @@ func (c buildConfig) Prompt() (buildConfig, error) {
 			Validate: survey.Required,
 		},
 	}
-	err := survey.Ask(qs, &bc)
+	err := survey.Ask(qs, &c)
+	if err != nil {
+		return c, err
+	}
 
-	return bc, err
+	// if the result of imageName is empty (unset, underivable),
+	// and the value of config.Image is empty (none provided explicitly by
+	// either flag, env variable or prompt), then try one more time to
+	// get enough to derive an image name by explicitly asking for registry.
+	if imageName == "" && c.Image == "" {
+		qs = []*survey.Question{
+			{
+				Name: "registry",
+				Prompt: &survey.Input{
+					Message: "Registry for funciton image:",
+					Default: c.Registry, // This should be innefectual
+				},
+			},
+		}
+	}
+	err = survey.Ask(qs, &c)
+	return c, err
 }

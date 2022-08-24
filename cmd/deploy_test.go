@@ -2,16 +2,210 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"testing"
 
 	"github.com/ory/viper"
+	"github.com/spf13/cobra"
 	"k8s.io/utils/pointer"
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/mock"
 	. "knative.dev/kn-plugin-func/testing"
 )
+
+const TestRegistry = "example.com/alice"
+
+type commandConstructor func(ClientFactory) *cobra.Command
+
+// TestDeploy_RegistryOrImageRequired ensures that when no registry or image are
+// provided (or exist on the function already), and the client has not been
+// instantiated with a default registry, an ErrRegistryRequired is received.
+func TestDeploy_RegistryOrImageRequired(t *testing.T) {
+	testRegistryOrImageRequired(NewDeployCmd, t) // shared with build
+}
+
+func testRegistryOrImageRequired(cmdFn commandConstructor, t *testing.T) {
+	t.Helper()
+	root, rm := Mktemp(t)
+	defer rm()
+
+	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root}); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := cmdFn(NewClientFactory(func() *fn.Client {
+		return fn.New()
+	}))
+
+	// If neither --registry nor --image are provided, and the client was not
+	// instantiated with a default registry, a ErrRegistryRequired is expected.
+	cmd.SetArgs([]string{}) // this explicit clearing of args may not be necessary
+	if err := cmd.Execute(); err != nil {
+		if !errors.Is(err, ErrRegistryRequired) {
+			t.Fatalf("expected ErrRegistryRequired, got error: %v", err)
+		}
+	}
+
+	// earlire test covers the --registry only case, test here that --image
+	// also succeeds.
+	cmd.SetArgs([]string{"--image=example.com/alice/myfunc"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestDeploy_ImageAndRegistry ensures that both --image and --registry flags
+// are persisted to the Function and visible downstream to the deployer
+// (plumbed through and persisted without being exclusive), and that  --image
+// is used as an override to the default which is to use --registry to
+// generate an image name.
+func TestDeploy_ImageAndRegistry(t *testing.T) {
+	testImageAndRegistry(NewDeployCmd, t)
+}
+
+func testImageAndRegistry(cmdFn commandConstructor, t *testing.T) {
+	t.Helper()
+	root, rm := Mktemp(t)
+	defer rm()
+
+	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root}); err != nil {
+		t.Fatal(err)
+	}
+
+	var (
+		builder  = mock.NewBuilder()
+		deployer = mock.NewDeployer()
+		cmd      = cmdFn(NewClientFactory(func() *fn.Client {
+			return fn.New(
+				fn.WithBuilder(builder),
+				fn.WithDeployer(deployer),
+				fn.WithRegistry(TestRegistry))
+		}))
+	)
+
+	// If only --registry is provided:
+	// the resultant Function should have the registry populated and image
+	// derived from the name.
+	cmd.SetArgs([]string{"--registry=example.com/alice"})
+	deployer.DeployFn = func(f fn.Function) error {
+		if f.Registry != "example.com/alice" {
+			t.Fatal("registry flag not provided to deployer")
+		}
+		return nil
+	}
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// If only --image is provided:
+	// the deploy should not fail, and the resultant Function should have the
+	// Image member set to what was explicitly provided via the --image flag
+	// (not a derived name)
+	cmd.SetArgs([]string{"--image=example.com/alice/myfunc"})
+	deployer.DeployFn = func(f fn.Function) error {
+		if f.Image != "example.com/alice/myfunc" {
+			t.Fatalf("deployer expected f.Image 'example.com/alice/myfunc', got '%v'", f.Image)
+		}
+		return nil
+	}
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// If both --registry and --image are provided:
+	// they should both be plumbed through such that downstream agents (deployer
+	// in this case) see them set on the Function and can act accordingly.
+	cmd.SetArgs([]string{"--registry=example.com/alice", "--image=example.com/alice/subnamespace/myfunc"})
+	deployer.DeployFn = func(f fn.Function) error {
+		if f.Registry != "example.com/alice" {
+			t.Fatal("registry flag value not seen on the Function by the deployer")
+		}
+		if f.Image != "example.com/alice/subnamespace/myfunc" {
+			t.Fatal("image flag value not seen on the Function by deployer")
+		}
+		return nil
+	}
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestDepoy_InvalidRegistry ensures that providing an invalid registry
+// fails with the expected error.
+func TestDeploy_InvalidRegistry(t *testing.T) {
+	testInvalidRegistry(NewDeployCmd, t)
+}
+
+func testInvalidRegistry(cmdFn commandConstructor, t *testing.T) {
+	t.Helper()
+	root, rm := Mktemp(t)
+	defer rm()
+
+	f := fn.Function{
+		Root:    root,
+		Name:    "myFunc",
+		Runtime: "go",
+	}
+	if err := fn.New().Create(f); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := cmdFn(NewClientFactory(func() *fn.Client {
+		return fn.New()
+	}))
+
+	cmd.SetArgs([]string{"--registry=foo/bar/invald/myfunc"})
+
+	if err := cmd.Execute(); err == nil {
+		// TODO: typed ErrInvalidRegistry
+		t.Fatal("invalid registry did not generate expected error")
+	}
+}
+
+// TestDeploy_RegistryLoads ensures that a function with a defined registry
+// will use this when recalculating .Image on deploy when no --image is
+// explicitly provided.
+func TestDeploy_RegistryLoads(t *testing.T) {
+	testRegistryLoads(NewDeployCmd, t)
+}
+
+func testRegistryLoads(cmdFn commandConstructor, t *testing.T) {
+	t.Helper()
+	root, rm := Mktemp(t)
+	defer rm()
+
+	f := fn.Function{
+		Root:     root,
+		Name:     "myFunc",
+		Runtime:  "go",
+		Registry: "example.com/alice",
+	}
+	if err := fn.New().Create(f); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := cmdFn(NewClientFactory(func() *fn.Client {
+		return fn.New(
+			fn.WithBuilder(mock.NewBuilder()),
+			fn.WithDeployer(mock.NewDeployer()))
+	}))
+	cmd.SetArgs([]string{})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if f.Image != "example.com/alice/myFunc:latest" {
+		t.Fatalf("unexpected image name: %v", f.Image)
+	}
+}
 
 func Test_runDeploy(t *testing.T) {
 	tests := []struct {

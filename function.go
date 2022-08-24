@@ -344,73 +344,6 @@ func (f Function) ImageWithDigest() string {
 	return part1 + strings.Split(part2, ":")[0] + "@" + f.ImageDigest
 }
 
-// DerivedImage returns the derived image name (OCI container tag) of the
-// function whose source is at root, with the default registry for when
-// the image has to be calculated (derived).
-// The following are equivalent due to the use of DefaultRegistry:
-// registry:  docker.io/myname
-//            myname
-// A full image name consists of registry, image name and tag.
-// in form [registry]/[image-name]:[tag]
-// example docker.io/alice/my.example.func:latest
-// Default if not provided is --registry (a required global setting)
-// followed by the provided (or derived) image name.
-// TODO: this calculated field should probably be generated on instantiation
-// to avoid confusion.
-func DerivedImage(root, registry string) (image string, err error) {
-	f, err := NewFunction(root)
-	if err != nil {
-		// an inability to load the function means it is not yet initialized
-		// We could try to be smart here and fall through to the function name
-		// deriviation logic, but that's likely to be confusing.  Better to
-		// stay simple and say that derivation of Image depends on first having
-		// the function initialized.
-		return
-	}
-
-	// If the function has already had image populated
-	// and a new registry hasn't been provided, use this pre-calculated value.
-	if f.Image != "" && f.Registry == registry {
-		image = f.Image
-		return
-	}
-
-	// registry is currently required until such time as we support
-	// pushing to an implicitly-available in-cluster registry by default.
-	if registry == "" {
-		err = errors.New("registry name is required")
-		return
-	}
-
-	// If the function loaded, and there is not yet an Image set, then this is
-	// the first build and no explicit image override was specified.  We should
-	// therefore derive the image tag from the defined registry and name.
-	// form:    [registry]/[user]/[function]:latest
-	// example: quay.io/alice/my.function.name:latest
-	// Also nested namespaces should be supported:
-	// form:    [registry]/[parent]/[user]/[function]:latest
-	// example: quay.io/project/alice/my.function.name:latest
-	registry = strings.Trim(registry, "/") // too defensive?
-	registryTokens := strings.Split(registry, "/")
-	if len(registryTokens) == 1 {
-		//namespace provided only 'alice'
-		image = DefaultRegistry + "/" + registry + "/" + f.Name
-	} else if len(registryTokens) == 2 || len(registryTokens) == 3 {
-		// registry/namespace provided `quay.io/alice` or registry/parent-namespace/namespace provided `quay.io/project/alice`
-		image = registry + "/" + f.Name
-	} else if len(registryTokens) > 3 { // the name of the image is also provided `quay.io/alice/my.function.name`
-		err = fmt.Errorf("registry should be either 'namespace', 'registry/namespace' or 'registry/parent/namespace', the name of the image will be derived from the function name.")
-		return
-	}
-
-	// Explicitly append :latest.  We currently expect source control to drive
-	// versioning, rather than rely on Docker Hub tags with explicit version
-	// numbers, as is seen in many serverless solutions.  This will be updated
-	// to branch name when we add source-driven canary/ bluegreen deployments.
-	image = image + ":latest"
-	return
-}
-
 // assertEmptyRoot ensures that the directory is empty enough to be used for
 // initializing a new function.
 func assertEmptyRoot(path string) (err error) {
@@ -431,6 +364,50 @@ func assertEmptyRoot(path string) (err error) {
 		return
 	}
 	return
+}
+
+// ImageName returns a full image name (OCI container tag) for the
+// Function based off of the Function's `Registry` member plus `Name`.
+// Used to calculate the final value for .Image when none is provided
+// explicitly.
+//
+// form:    [registry]/[user]/[function]:latest
+// example: quay.io/alice/my.function.name:latest
+//
+// Also nested namespaces should be supported:
+// form:    [registry]/[parent]/[user]/[function]:latest
+// example: quay.io/project/alice/my.function.name:latest
+//
+// Registry values which only contain a single token are presumed to
+// indicate the namespace at the default registry.
+func (f Function) ImageName() (image string, err error) {
+	if f.Registry == "" {
+		return "", errors.New("registry is required")
+	}
+	if f.Name == "" {
+		return "", errors.New("name is required")
+	}
+
+	f.Registry = strings.Trim(f.Registry, "/") // too defensive?
+
+	registryTokens := strings.Split(f.Registry, "/")
+	if len(registryTokens) == 1 { // only namespace provided: ex. 'alice'
+		image = DefaultRegistry + "/" + f.Registry + "/" + f.Name
+	} else if len(registryTokens) == 2 || len(registryTokens) == 3 {
+		// registry/namespace ('quay.io/alice') or
+		// registry/parent-namespace/namespace ('quay.io/project/alice') provided
+		image = f.Registry + "/" + f.Name
+	} else if len(registryTokens) > 3 { // the name of the image is also provided `quay.io/alice/my.function.name`
+		return "", fmt.Errorf("registry should be either 'namespace', 'registry/namespace' or 'registry/parent/namespace', the name of the image will be derived from the function name.")
+	}
+
+	// Explicitly append :latest tag.  We expect source control to drive
+	// versioning, rather than rely on image tags with explicitly pinned version
+	// numbers, as is seen in many serverless solutions.  This will be updated
+	// to branch name when we add source-driven canary/ bluegreen deployments.
+
+	// For pinning to an exact container image, see ImageWithDigest
+	return image + ":latest", nil
 }
 
 // contentiousFiles are files which, if extant, preclude the creation of a

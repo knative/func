@@ -160,38 +160,6 @@ func bindEnv(flags ...string) bindFunc {
 	}
 }
 
-type functionOverrides struct {
-	Image     string
-	Namespace string
-}
-
-// functionWithOverrides sets the namespace and image strings for the
-// function project at root, if provided, and returns the function
-// configuration values.
-// Please note that When this function is called, the overrides are not persisted.
-func functionWithOverrides(root string, overrides functionOverrides) (f fn.Function, err error) {
-	f, err = fn.NewFunction(root)
-	if err != nil {
-		return
-	}
-
-	overrideMapping := []struct {
-		src  string
-		dest *string
-	}{
-		{overrides.Image, &f.Image},
-		{overrides.Namespace, &f.Namespace},
-	}
-
-	for _, m := range overrideMapping {
-		if m.src != "" {
-			*m.dest = m.src
-		}
-	}
-
-	return
-}
-
 // deriveName returns the explicit value (if provided) or attempts to derive
 // from the given path.  Path is defaulted to current working directory, where
 // a function configuration, if it exists and contains a name, is used.
@@ -232,9 +200,9 @@ func deriveNameAndAbsolutePathFromPath(path string) (string, string) {
 	return pathParts[len(pathParts)-1], absPath
 }
 
-// deriveImage returns the same image name which will be used if no explicit
-// image is provided.  I.e. derived from the configured registry (registry
-// plus username) and the function's name.
+// deriveImage returns the same image name which will be used.
+// I.e. if the explicit name is empty, derive one from the configured registry
+// (registry plus username) and the function's name.
 //
 // This is calculated preemptively here in the CLI (prior to invoking the
 // client), only in order to provide information to the user via the prompt.
@@ -265,8 +233,10 @@ func deriveImage(explicitImage, defaultRegistry, path string) string {
 	if f.Image != "" {
 		return f.Image // use value previously provided or derived.
 	}
-	derivedValue, _ := fn.DerivedImage(path, defaultRegistry)
-	return derivedValue // Use the func system's derivation logic.
+	// Use the func system's derivation logic.
+	// Errors deriving result in an empty return
+	derivedValue, _ := f.ImageName()
+	return derivedValue
 }
 
 func envFromCmd(cmd *cobra.Command) (*util.OrderedMap, []string, error) {

@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -50,79 +49,29 @@ func TestBuild_ImageFlag(t *testing.T) {
 	}
 }
 
-// TestBuild_InvalidRegistry ensures that running build specifying the name of the
-// registry explicitly as an argument invokes the registry validation code.
-func TestBuild_InvalidRegistry(t *testing.T) {
-	var (
-		args    = []string{"--registry", "foo/bar/foobar/boofar"} // provide an invalid registry name
-		builder = mock.NewBuilder()                               // with a mock builder
-	)
-
-	// Run this test in a temporary directory
-	defer Fromtemp(t)()
-	// Write a func.yaml config which does not specify an image
-	funcYaml := `name: testymctestface
-namespace: ""
-runtime: go
-image: ""
-imageDigest: ""
-builder: quay.io/boson/faas-go-builder
-builders:
-  default: quay.io/boson/faas-go-builder
-envs: []
-annotations: {}
-labels: []
-created: 2021-01-01T00:00:00+00:00
-`
-	if err := ioutil.WriteFile("func.yaml", []byte(funcYaml), 0600); err != nil {
-		t.Fatal(err)
-	}
-
-	// Create build command that will use a mock builder.
-	cmd := NewBuildCmd(NewClientFactory(func() *fn.Client {
-		return fn.New(fn.WithBuilder(builder))
-	}))
-
-	// Execute the command
-	cmd.SetArgs(args)
-	err := cmd.Execute()
-	if err == nil {
-		t.Fatal("Expected error")
-	}
+// TestBuild_RegistryOrImageRequired ensures that when no registry or image are
+// provided, and the client has not been instantiated with a default registry,
+// an ErrRegistryRequired is received.
+func TestBuild_RegistryOrImageRequired(t *testing.T) {
+	testRegistryOrImageRequired(NewBuildCmd, t)
 }
 
-// TestBuild_registryConfigurationInYaml tests that a build will execute successfully
-// when there is no registry provided on the command line, but one exists in func.yaml
-func TestBuild_registryConfigurationInYaml(t *testing.T) {
-	var (
-		builder = mock.NewBuilder() // with a mock builder
-	)
+// TestBuild_ImageAndRegistry
+func TestBuild_ImageAndRegistry(t *testing.T) {
+	testRegistryOrImageRequired(NewBuildCmd, t)
+}
 
-	// Run this test in a temporary directory
-	defer Fromtemp(t)()
-	// Write a func.yaml config which does not specify an image
-	// but does specify a registry
-	funcYaml := `name: registrytest
-namespace: ""
-runtime: go
-image: ""
-registry: quay.io/boson/foo
-created: 2021-01-01T00:00:00+00:00
-`
-	if err := ioutil.WriteFile("func.yaml", []byte(funcYaml), 0600); err != nil {
-		t.Fatal(err)
-	}
+// TestBuild_InvalidRegistry ensures that providing an invalid resitry
+// fails with the expected error.
+func TestBuild_InvalidRegistry(t *testing.T) {
+	testInvalidRegistry(NewBuildCmd, t)
+}
 
-	// Create build command that will use a mock builder.
-	cmd := NewBuildCmd(NewClientFactory(func() *fn.Client {
-		return fn.New(fn.WithBuilder(builder), fn.WithRegistry("quay.io/boson/foo"))
-	}))
-
-	// Execute the command
-	err := cmd.Execute()
-	if err != nil {
-		t.Fatal(err)
-	}
+// TestBuild_RegistryLoads ensures that a function with a defined registry
+// will use this when recalculating .Image on build when no --image is
+// explicitly provided.
+func TestBuild_RegistryLoads(t *testing.T) {
+	testRegistryLoads(NewBuildCmd, t)
 }
 
 func TestBuild_runBuild(t *testing.T) {

@@ -5,8 +5,6 @@ package function
 
 import (
 	"testing"
-
-	. "knative.dev/kn-plugin-func/testing"
 )
 
 func TestFunction_ImageWithDigest(t *testing.T) {
@@ -48,91 +46,39 @@ func TestFunction_ImageWithDigest(t *testing.T) {
 	}
 }
 
-func Test_DerivedImage(t *testing.T) {
+// TestFunction_ImageName ensures that the full image name is
+// returned for a Function, based on the Function's Registry and Name,
+// including utilizing the DefaultRegistry if the Function's defined
+// registry is a single token (just the namespace).
+func TestFunction_ImageName(t *testing.T) {
+	var (
+		f   Function
+		got string
+		err error
+	)
 	tests := []struct {
-		name     string
-		fnName   string
-		image    string
-		registry string
-		want     string
+		registry      string
+		name          string
+		expectedImage string
+		expectError   bool
 	}{
-		{
-			name:     "No change",
-			fnName:   "testDerivedImage",
-			image:    "docker.io/foo/testDerivedImage:latest",
-			registry: "docker.io/foo",
-			want:     "docker.io/foo/testDerivedImage:latest",
-		},
-		{
-			name:     "Same registry without docker.io/, original with docker.io/",
-			fnName:   "testDerivedImage0",
-			image:    "docker.io/foo/testDerivedImage0:latest",
-			registry: "foo",
-			want:     "docker.io/foo/testDerivedImage0:latest",
-		},
-		{
-			name:     "Same registry, original without docker.io/",
-			fnName:   "testDerivedImage1",
-			image:    "foo/testDerivedImage1:latest",
-			registry: "foo",
-			want:     "docker.io/foo/testDerivedImage1:latest",
-		},
-		{
-			name:     "Different registry without docker.io/, original without docker.io/",
-			fnName:   "testDerivedImage2",
-			image:    "foo/testDerivedImage2:latest",
-			registry: "bar",
-			want:     "docker.io/bar/testDerivedImage2:latest",
-		},
-		{
-			name:     "Different registry with docker.io/, original without docker.io/",
-			fnName:   "testDerivedImage3",
-			image:    "foo/testDerivedImage3:latest",
-			registry: "docker.io/bar",
-			want:     "docker.io/bar/testDerivedImage3:latest",
-		},
-		{
-			name:     "Different registry with docker.io/, original with docker.io/",
-			fnName:   "testDerivedImage4",
-			image:    "docker.io/foo/testDerivedImage4:latest",
-			registry: "docker.io/bar",
-			want:     "docker.io/bar/testDerivedImage4:latest",
-		},
-		{
-			name:     "Different registry with quay.io/, original without docker.io/",
-			fnName:   "testDerivedImage5",
-			image:    "foo/testDerivedImage5:latest",
-			registry: "quay.io/foo",
-			want:     "quay.io/foo/testDerivedImage5:latest",
-		},
-		{
-			name:     "Different registry with quay.io/, original with docker.io/",
-			fnName:   "testDerivedImage6",
-			image:    "docker.io/foo/testDerivedImage6:latest",
-			registry: "quay.io/foo",
-			want:     "quay.io/foo/testDerivedImage6:latest",
-		},
+		{"alice", "myfunc", DefaultRegistry + "/alice/myfunc:latest", false},
+		{"quay.io/alice", "myfunc", "quay.io/alice/myfunc:latest", false},
+		{"docker.io/alice", "myfunc", "docker.io/alice/myfunc:latest", false},
+		{"docker.io/alice/sub", "myfunc", "docker.io/alice/sub/myfunc:latest", false},
+		{"alice", "", "", true},
+		{"", "myfunc", "", true},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-
-			root := "testdata/" + tt.fnName
-			defer Using(t, root)()
-
-			// write out the function
-			client := New()
-			err := client.Create(Function{Runtime: "go", Name: tt.fnName, Root: root})
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			got, err := DerivedImage(root, tt.registry)
-			if err != nil {
-				t.Errorf("DerivedImage() for image %v and registry %v; got error %v", tt.image, tt.registry, err)
-			}
-			if got != tt.want {
-				t.Errorf("DerivedImage() for image %v and registry %v; got %v, want %v", tt.image, tt.registry, got, tt.want)
-			}
-		})
+	for _, test := range tests {
+		f = Function{Registry: test.registry, Name: test.name}
+		got, err = f.ImageName()
+		if test.expectError && err == nil {
+			t.Errorf("registry '%v' and name '%v' did not yield the expected error",
+				test.registry, test.name)
+		}
+		if got != test.expectedImage {
+			t.Errorf("expected registry '%v' name '%v' to yield image '%v', got '%v'",
+				test.registry, test.name, test.expectedImage, got)
+		}
 	}
 }
