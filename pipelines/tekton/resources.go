@@ -12,6 +12,7 @@ import (
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/builders"
 	"knative.dev/kn-plugin-func/buildpacks"
+	"knative.dev/kn-plugin-func/s2i"
 )
 
 func deletePipelines(ctx context.Context, namespaceOverride string, listOptions metav1.ListOptions) (err error) {
@@ -33,6 +34,8 @@ func deletePipelineRuns(ctx context.Context, namespaceOverride string, listOptio
 }
 
 func generatePipeline(f fn.Function, labels map[string]string) *pplnv1beta1.Pipeline {
+
+	// -----  General properties
 	pipelineName := getPipelineName(f)
 
 	params := []pplnv1beta1.ParamSpec{
@@ -56,7 +59,7 @@ func generatePipeline(f fn.Function, labels map[string]string) *pplnv1beta1.Pipe
 		},
 		{
 			Name:        "builderImage",
-			Description: "Buildpacks builder image to be used",
+			Description: "Builder image to be used",
 		},
 		{
 			Name:        "buildEnvs",
@@ -67,14 +70,30 @@ func generatePipeline(f fn.Function, labels map[string]string) *pplnv1beta1.Pipe
 
 	workspaces := []pplnv1beta1.PipelineWorkspaceDeclaration{
 		{Name: "source-workspace", Description: "Directory where function source is located."},
-		{Name: "cache-workspace", Description: "Directory where Buildpacks cache is stored."},
 		{Name: "dockerconfig-workspace", Description: "Directory containing image registry credentials stored in `config.json` file.", Optional: true},
 	}
 
+	var taskBuild pplnv1beta1.PipelineTask
+
+	// Deploy step that uses an image produced by S2I builds needs explicit reference to the image
+	referenceImageFromPreviousTaskResults := false
+
+	if f.Builder == builders.Pack {
+		// ----- Buildpacks related properties
+		workspaces = append(workspaces, pplnv1beta1.PipelineWorkspaceDeclaration{Name: "cache-workspace", Description: "Directory where Buildpacks cache is stored."})
+		taskBuild = taskBuildpacks(taskNameFetchSources)
+
+	} else if f.Builder == builders.S2I {
+		// ----- S2I build related properties
+		taskBuild = taskS2iBuild(taskNameFetchSources)
+		referenceImageFromPreviousTaskResults = true
+	}
+
+	// ----- Pipeline definition
 	tasks := pplnv1beta1.PipelineTaskList{
 		taskFetchSources(),
-		taskBuild(taskNameFetchSources),
-		taskDeploy(taskNameBuild),
+		taskBuild,
+		taskDeploy(taskNameBuild, referenceImageFromPreviousTaskResults),
 	}
 
 	return &pplnv1beta1.Pipeline{
@@ -92,11 +111,15 @@ func generatePipeline(f fn.Function, labels map[string]string) *pplnv1beta1.Pipe
 
 func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.PipelineRun {
 
+	// -----  General properties
 	revision := ""
 	if f.Git.Revision != nil {
 		revision = *f.Git.Revision
 	}
 	contextDir := ""
+	if f.Builder == builders.S2I {
+		contextDir = "."
+	}
 	if f.Git.ContextDir != nil {
 		contextDir = *f.Git.ContextDir
 	}
@@ -113,66 +136,73 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 		buildEnvs = pplnv1beta1.NewArrayOrString(envs[0], envs[1:]...)
 	}
 
+	params := []pplnv1beta1.Param{
+		{
+			Name:  "gitRepository",
+			Value: *pplnv1beta1.NewArrayOrString(*f.Git.URL),
+		},
+		{
+			Name:  "gitRevision",
+			Value: *pplnv1beta1.NewArrayOrString(revision),
+		},
+		{
+			Name:  "contextDir",
+			Value: *pplnv1beta1.NewArrayOrString(contextDir),
+		},
+		{
+			Name:  "imageName",
+			Value: *pplnv1beta1.NewArrayOrString(f.Image),
+		},
+		{
+			Name:  "builderImage",
+			Value: *pplnv1beta1.NewArrayOrString(getBuilderImage(f)),
+		},
+		{
+			Name:  "buildEnvs",
+			Value: *buildEnvs,
+		},
+	}
+
+	workspaces := []pplnv1beta1.WorkspaceBinding{
+		{
+			Name: "source-workspace",
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+				ClaimName: getPipelinePvcName(f),
+			},
+			SubPath: "source",
+		},
+		{
+			Name: "dockerconfig-workspace",
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: getPipelineSecretName(f),
+			},
+		},
+	}
+
+	if f.Builder == builders.Pack {
+		// ----- Buildpacks related properties
+
+		workspaces = append(workspaces, pplnv1beta1.WorkspaceBinding{
+			Name: "cache-workspace",
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+				ClaimName: getPipelinePvcName(f),
+			},
+			SubPath: "cache",
+		})
+	}
+
+	// ----- PipelineRun definition
 	return &pplnv1beta1.PipelineRun{
 		ObjectMeta: v1.ObjectMeta{
 			GenerateName: fmt.Sprintf("%s-run-", getPipelineName(f)),
 			Labels:       labels,
 		},
-
 		Spec: pplnv1beta1.PipelineRunSpec{
 			PipelineRef: &pplnv1beta1.PipelineRef{
 				Name: getPipelineName(f),
 			},
-
-			Params: []pplnv1beta1.Param{
-				{
-					Name:  "gitRepository",
-					Value: *pplnv1beta1.NewArrayOrString(*f.Git.URL),
-				},
-				{
-					Name:  "gitRevision",
-					Value: *pplnv1beta1.NewArrayOrString(revision),
-				},
-				{
-					Name:  "contextDir",
-					Value: *pplnv1beta1.NewArrayOrString(contextDir),
-				},
-				{
-					Name:  "imageName",
-					Value: *pplnv1beta1.NewArrayOrString(f.Image),
-				},
-				{
-					Name:  "builderImage",
-					Value: *pplnv1beta1.NewArrayOrString(getBuilderImage(f)),
-				},
-				{
-					Name:  "buildEnvs",
-					Value: *buildEnvs,
-				},
-			},
-
-			Workspaces: []pplnv1beta1.WorkspaceBinding{
-				{
-					Name: "source-workspace",
-					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-						ClaimName: getPipelinePvcName(f),
-					},
-					SubPath: "source",
-				},
-				{
-					Name: "cache-workspace",
-					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-						ClaimName: getPipelinePvcName(f),
-					},
-					SubPath: "cache",
-				},
-				{
-					Name: "dockerconfig-workspace",
-					Secret: &corev1.SecretVolumeSource{
-						SecretName: getPipelineSecretName(f),
-					},
-				},
-			},
+			Params:     params,
+			Workspaces: workspaces,
 		},
 	}
 }
@@ -182,12 +212,16 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 // language runtime.  Errors are checked elsewhere, so at this level they
 // manifest as an inability to get a builder image = empty string.
 func getBuilderImage(f fn.Function) (name string) {
-	name, _ = buildpacks.BuilderImage(f, builders.Pack)
+	if f.Builder == builders.S2I {
+		name, _ = s2i.BuilderImage(f, builders.S2I)
+	} else {
+		name, _ = buildpacks.BuilderImage(f, builders.Pack)
+	}
 	return
 }
 
 func getPipelineName(f fn.Function) string {
-	return fmt.Sprintf("%s-%s-pipeline", f.Name, f.BuildType)
+	return fmt.Sprintf("%s-%s-%s-pipeline", f.Name, f.BuildType, f.Builder)
 }
 
 func getPipelineSecretName(f fn.Function) string {

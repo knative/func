@@ -1,6 +1,8 @@
 package tekton
 
 import (
+	"fmt"
+
 	pplnv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 )
 
@@ -27,7 +29,7 @@ func taskFetchSources() pplnv1beta1.PipelineTask {
 	}
 }
 
-func taskBuild(runAfter string) pplnv1beta1.PipelineTask {
+func taskBuildpacks(runAfter string) pplnv1beta1.PipelineTask {
 	return pplnv1beta1.PipelineTask{
 		Name: taskNameBuild,
 		TaskRef: &pplnv1beta1.TaskRef{
@@ -57,9 +59,47 @@ func taskBuild(runAfter string) pplnv1beta1.PipelineTask {
 			}},
 		},
 	}
+
+}
+func taskS2iBuild(runAfter string) pplnv1beta1.PipelineTask {
+	params := []pplnv1beta1.Param{
+		{Name: "IMAGE", Value: *pplnv1beta1.NewArrayOrString("$(params.imageName)")},
+		{Name: "PATH_CONTEXT", Value: *pplnv1beta1.NewArrayOrString("$(params.contextDir)")},
+		{Name: "BUILDER_IMAGE", Value: *pplnv1beta1.NewArrayOrString("$(params.builderImage)")},
+		{Name: "ENV_VARS", Value: pplnv1beta1.ArrayOrString{
+			Type:     pplnv1beta1.ParamTypeArray,
+			ArrayVal: []string{"$(params.buildEnvs[*])"},
+		}},
+	}
+	return pplnv1beta1.PipelineTask{
+		Name: taskNameBuild,
+		TaskRef: &pplnv1beta1.TaskRef{
+			Name: "func-s2i",
+		},
+		RunAfter: []string{runAfter},
+		Workspaces: []pplnv1beta1.WorkspacePipelineTaskBinding{
+			{
+				Name:      "source",
+				Workspace: "source-workspace",
+			},
+			{
+				Name:      "dockerconfig",
+				Workspace: "dockerconfig-workspace",
+			}},
+		Params: params,
+	}
+
 }
 
-func taskDeploy(runAfter string) pplnv1beta1.PipelineTask {
+func taskDeploy(runAfter string, referenceImageFromPreviousTaskResults bool) pplnv1beta1.PipelineTask {
+
+	params := []pplnv1beta1.Param{{Name: "path", Value: *pplnv1beta1.NewArrayOrString("$(workspaces.source.path)/$(params.contextDir)")}}
+
+	// Deploy step that uses an image produced by S2I builds needs explicit reference to the image
+	if referenceImageFromPreviousTaskResults {
+		params = append(params, pplnv1beta1.Param{Name: "image", Value: *pplnv1beta1.NewArrayOrString(fmt.Sprintf("$(params.imageName)@$(tasks.%s.results.IMAGE_DIGEST)", runAfter))})
+	}
+
 	return pplnv1beta1.PipelineTask{
 		Name: taskNameDeploy,
 		TaskRef: &pplnv1beta1.TaskRef{
@@ -70,8 +110,6 @@ func taskDeploy(runAfter string) pplnv1beta1.PipelineTask {
 			Name:      "source",
 			Workspace: "source-workspace",
 		}},
-		Params: []pplnv1beta1.Param{
-			{Name: "path", Value: *pplnv1beta1.NewArrayOrString("$(workspaces.source.path)/$(params.contextDir)")},
-		},
+		Params: params,
 	}
 }

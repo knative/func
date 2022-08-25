@@ -1,6 +1,6 @@
 # Building Functions on Cluster with Tekton Pipelines
 
-This guide describes how you can build a Function on Cluster with Tekton Pipelines. The on cluster build is enabled by fetching Function source code from a remote Git repository.
+This guide describes how you can build a Function on Cluster with Tekton Pipelines. The on cluster build is enabled by fetching Function source code from a remote Git repository. Buildpacks or S2I builder strategy can be used to build the Function image.
 
 ## Prerequisite
 1. Install Tekton Pipelines on the cluster. Please refer to [Tekton Pipelines documentation](https://github.com/tektoncd/pipeline/blob/main/docs/install.md) or run the following command:
@@ -14,10 +14,15 @@ In each namespace that you would like to run Pipelines and deploy a Function you
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/tektoncd/catalog/master/task/git-clone/0.4/git-clone.yaml
 ```
-2. Install the Functions Buildpacks Tekton Task to be able to build the Function image:
-```bash
-kubectl apply -f https://raw.githubusercontent.com/knative-sandbox/kn-plugin-func/main/pipelines/resources/tekton/task/func-buildpacks/0.1/func-buildpacks.yaml
-```
+2. Install a Tekton Task responsible for building the Function, based on the builder preference (Buildpacks or S2I)
+   1. For Buildpacks builder install the Functions Buildpacks Tekton Task:
+      ```bash
+      kubectl apply -f https://raw.githubusercontent.com/knative-sandbox/kn-plugin-func/main/pipelines/resources/tekton/task/func-buildpacks/0.1/func-buildpacks.yaml
+      ```
+   2. For S2I builder install the S2I task:
+      ```bash
+      kubectl apply -f https://raw.githubusercontent.com/knative-sandbox/kn-plugin-func/main/pipelines/resources/tekton/task/func-s2i/0.1/func-s2i.yaml
+      ```
 3. Install the `kn func` Deploy Tekton Task to be able to deploy the Function on in the Pipeline:
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/knative-sandbox/kn-plugin-func/main/pipelines/resources/tekton/task/func-deploy/0.1/func-deploy.yaml
@@ -82,6 +87,7 @@ export NAMESPACE=<INSERT_YOUR_NAMESPACE>
 kubectl delete clusterrolebinding $NAMESPACE:knative-serving-namespaced-admin
 kubectl delete task.tekton.dev git-clone
 kubectl delete task.tekton.dev func-buildpacks
+kubectl delete task.tekton.dev func-s2i
 kubectl delete task.tekton.dev func-deploy
 ```
 2. Uninstall Tekton Pipelines

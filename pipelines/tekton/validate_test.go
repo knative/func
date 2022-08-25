@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/builders"
 )
 
 func Test_validatePipeline(t *testing.T) {
@@ -19,43 +20,88 @@ func Test_validatePipeline(t *testing.T) {
 		wantErr  bool
 	}{
 		{
-			name:     "Without runtime - without additional Buildpacks",
+			name:     "Without runtime - without builder - without additional Buildpacks",
 			function: fn.Function{},
 			wantErr:  true,
 		},
 		{
-			name:     "Without runtime - with additional Buildpacks",
+			name:     "Without runtime - pack builder - without additional Buildpacks",
+			function: fn.Function{Builder: builders.Pack},
+			wantErr:  true,
+		},
+		{
+			name:     "Without runtime - s2i builder",
+			function: fn.Function{Builder: builders.S2I},
+			wantErr:  true,
+		},
+		{
+			name:     "Without runtime - without builder - with additional Buildpacks",
 			function: fn.Function{Buildpacks: testBuildpacks},
 			wantErr:  true,
 		},
 		{
-			name:     "Supported runtime - without additional Buildpacks",
+			name:     "Without runtime - pack builder - with additional Buildpacks",
+			function: fn.Function{Builder: builders.Pack, Buildpacks: testBuildpacks},
+			wantErr:  true,
+		},
+		{
+			name:     "Without runtime - s2i builder",
+			function: fn.Function{Builder: builders.S2I, Buildpacks: testBuildpacks},
+			wantErr:  true,
+		},
+		{
+			name:     "Supported runtime - without builder - without additional Buildpacks",
 			function: fn.Function{Runtime: "node"},
+			wantErr:  true,
+		},
+		{
+			name:     "Supported runtime - pack builder - without additional Buildpacks",
+			function: fn.Function{Builder: builders.Pack, Runtime: "node"},
 			wantErr:  false,
 		},
 		{
-			name:     "Supported runtime - with additional Buildpacks",
-			function: fn.Function{Runtime: "node", Buildpacks: testBuildpacks},
-			wantErr:  true,
-		},
-		{
-			name:     "Unsupported runtime - Go - without additional Buildpacks",
-			function: fn.Function{Runtime: "go"},
-			wantErr:  true,
-		},
-		{
-			name:     "Supported runtime - Quarkus - without additional Buildpacks",
-			function: fn.Function{Runtime: "quarkus"},
+			name:     "Supported runtime - s2i builder",
+			function: fn.Function{Builder: builders.S2I, Runtime: "node"},
 			wantErr:  false,
 		},
 		{
-			name:     "Unsupported runtime - Rust - without additional Buildpacks",
-			function: fn.Function{Runtime: "rust"},
+			name:     "Supported runtime - pack builder - with additional Buildpacks",
+			function: fn.Function{Builder: builders.Pack, Runtime: "node", Buildpacks: testBuildpacks},
 			wantErr:  true,
 		},
 		{
-			name:     "Unsupported runtime - Go - with additional Buildpacks",
+			name:     "Unsupported runtime - Go - pack builder - without additional Buildpacks",
+			function: fn.Function{Builder: builders.Pack, Runtime: "go"},
+			wantErr:  true,
+		},
+		{
+			name:     "Unsupported runtime - Go - pack builder - with additional Buildpacks",
 			function: fn.Function{Runtime: "go", Buildpacks: testBuildpacks},
+			wantErr:  true,
+		},
+		{
+			name:     "Unsupported runtime - Go - s2i builder",
+			function: fn.Function{Builder: builders.S2I, Runtime: "go"},
+			wantErr:  true,
+		},
+		{
+			name:     "Supported runtime - Quarkus - pack builder - without additional Buildpacks",
+			function: fn.Function{Builder: builders.Pack, Runtime: "quarkus"},
+			wantErr:  false,
+		},
+		{
+			name:     "Supported runtime - Quarkus - s2i builder",
+			function: fn.Function{Builder: builders.S2I, Runtime: "quarkus"},
+			wantErr:  false,
+		},
+		{
+			name:     "Unsupported runtime - Rust - pack builder - without additional Buildpacks",
+			function: fn.Function{Builder: builders.Pack, Runtime: "rust"},
+			wantErr:  true,
+		},
+		{
+			name:     "Unsupported runtime - Rust - s2i builder",
+			function: fn.Function{Builder: builders.S2I, Runtime: "rust"},
 			wantErr:  true,
 		},
 	}
