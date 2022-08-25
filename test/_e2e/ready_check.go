@@ -22,9 +22,9 @@ func ReadyCheck(t *testing.T, knFunc *TestShellCmdRunner, project FunctionTestPr
 }
 
 // NewRevisionCheck waits for a new revision to report as ready
-func NewRevisionCheck(t *testing.T, previousRevision string, project *FunctionTestProject) (newRevision string) {
+func NewRevisionCheck(t *testing.T, previousRevision string, serviceName string) (newRevision string) {
 	err := wait.PollImmediate(5*time.Second, 1*time.Minute, func() (done bool, err error) {
-		newRevision = GetCurrentServiceRevision(t, project)
+		newRevision = GetCurrentServiceRevision(t, serviceName)
 		t.Logf("Waiting for new revision deployment (previous revision [%v], current revision [%v])", previousRevision, newRevision)
 		return newRevision != "" && newRevision != previousRevision, nil
 	})

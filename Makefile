@@ -149,6 +149,9 @@ test-e2e: ## Run end-to-end tests using an available cluster.
 test-e2e-runtime: ## Run end-to-end lifecycle tests using an available cluster for a single runtime.
 	./test/e2e_lifecycle_tests.sh $(runtime)
 
+test-e2e-on-cluster: ## Run end-to-end on-cluster build tests using an available cluster.
+	./test/e2e_oncluster_tests.sh
+
 ######################
 ##@ Release Artifacts
 ######################

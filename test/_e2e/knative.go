@@ -39,10 +39,18 @@ func RetrieveKnativeServiceResource(t *testing.T, serviceName string) *unstructu
 }
 
 // GetCurrentServiceRevision retrieves current revision name for the deployed function
-func GetCurrentServiceRevision(t *testing.T, project *FunctionTestProject) string {
-	resource := RetrieveKnativeServiceResource(t, project.FunctionName)
+func GetCurrentServiceRevision(t *testing.T, serviceName string) string {
+	resource := RetrieveKnativeServiceResource(t, serviceName)
 	rootMap := resource.UnstructuredContent()
 	statusMap := rootMap["status"].(map[string]interface{})
 	latestReadyRevision := statusMap["latestReadyRevisionName"].(string)
 	return latestReadyRevision
+}
+
+func GetKnativeServiceUrl(t *testing.T, functionName string) string {
+	resource := RetrieveKnativeServiceResource(t, functionName)
+	rootMap := resource.UnstructuredContent()
+	statusMap := rootMap["status"].(map[string]interface{})
+	url := statusMap["url"].(string)
+	return url
 }
