@@ -22,12 +22,11 @@ import (
 	"strings"
 	"time"
 
+	"knative.dev/client/pkg/kn/flags"
 	"knative.dev/pkg/ptr"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	servingconfig "knative.dev/serving/pkg/apis/config"
 	servingv1 "knative.dev/serving/pkg/apis/serving/v1"
-
-	"knative.dev/client/pkg/kn/flags"
 )
 
 // VolumeSourceType is a type standing for enumeration of ConfigMap and Secret
@@ -213,6 +212,14 @@ func UpdateRevisionTemplateAnnotations(template *servingv1.RevisionTemplateSpec,
 // Also validates the autoscaling annotation values
 func UpdateRevisionTemplateAnnotation(template *servingv1.RevisionTemplateSpec, annotation string, value string) error {
 	return UpdateRevisionTemplateAnnotations(template, map[string]string{annotation: value}, []string{})
+}
+
+// UpdateScaleMetric updates the metric annotation for the given Revision Template
+func UpdateScaleMetric(template *servingv1.RevisionTemplateSpec, metric string) {
+	if template.Annotations == nil {
+		template.Annotations = make(map[string]string)
+	}
+	template.Annotations[autoscaling.MetricAnnotationKey] = metric
 }
 
 // =======================================================================================
