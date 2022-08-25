@@ -139,6 +139,10 @@ func newTektonPipelinesProvider(namespace string, progress *progress.Bar, creds 
 		tekton.WithVerbose(verbose),
 	}
 
+	if openshift.IsOpenShift() {
+		options = append(options, tekton.WithPipelineDecorator(openshift.OpenshiftMetadataDecorator{}))
+	}
+
 	return tekton.NewPipelinesProvider(options...)
 }
 

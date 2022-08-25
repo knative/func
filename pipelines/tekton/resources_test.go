@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/builders"
 )
 
 func Test_generatePipeline(t *testing.T) {
@@ -22,13 +23,13 @@ func Test_generatePipeline(t *testing.T) {
 	}{
 		{
 			name:          "Pack builder - use buildpacks",
-			function:      fn.Function{Builder: fn.BuilderPack, Git: testGit},
+			function:      fn.Function{Builder: builders.Pack, Git: testGit},
 			taskBuildName: "func-buildpacks",
 		},
 		{
 			name:          "s2i builder - use",
-			function:      fn.Function{Builder: fn.BuilderS2i, Git: testGit},
-			taskBuildName: "s2i",
+			function:      fn.Function{Builder: builders.S2I, Git: testGit},
+			taskBuildName: "func-s2i",
 		},
 	}
 

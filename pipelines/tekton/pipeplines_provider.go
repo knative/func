@@ -26,7 +26,6 @@ import (
 
 type PipelineDecorator interface {
 	UpdateLabels(fn.Function, map[string]string) map[string]string
-	GetS2iTektonTaskProperties(fn.Function) (string, string, bool)
 }
 
 type Opt func(*PipelinesProvider)

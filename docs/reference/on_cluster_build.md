@@ -21,7 +21,7 @@ kubectl apply -f https://raw.githubusercontent.com/tektoncd/catalog/master/task/
       ```
    2. For S2I builder install the S2I task:
       ```bash
-      kubectl apply -f https://raw.githubusercontent.com/tektoncd/catalog/main/task/s2i/0.4/s2i.yaml
+      kubectl apply -f https://raw.githubusercontent.com/knative-sandbox/kn-plugin-func/main/pipelines/resources/tekton/task/func-s2i/0.1/func-s2i.yaml
       ```
 3. Install the `kn func` Deploy Tekton Task to be able to deploy the Function on in the Pipeline:
 ```bash
@@ -87,7 +87,7 @@ export NAMESPACE=<INSERT_YOUR_NAMESPACE>
 kubectl delete clusterrolebinding $NAMESPACE:knative-serving-namespaced-admin
 kubectl delete task.tekton.dev git-clone
 kubectl delete task.tekton.dev func-buildpacks
-kubectl delete task.tekton.dev s2i
+kubectl delete task.tekton.dev func-s2i
 kubectl delete task.tekton.dev func-deploy
 ```
 2. Uninstall Tekton Pipelines

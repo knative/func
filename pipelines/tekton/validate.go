@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/builders"
 	"knative.dev/kn-plugin-func/s2i"
 )
 
@@ -24,7 +25,7 @@ func (e ErrRuntimeNotSupported) Error() string {
 }
 
 func validatePipeline(f fn.Function) error {
-	if f.Builder == fn.BuilderPack {
+	if f.Builder == builders.Pack {
 		if f.Runtime == "" {
 			return ErrRuntimeRequired
 		}
@@ -36,11 +37,11 @@ func validatePipeline(f fn.Function) error {
 		if len(f.Buildpacks) > 0 {
 			return ErrBuilpacksNotSupported
 		}
-	} else if f.Builder == fn.BuilderS2i {
-		_, err := s2i.BuilderImage(f)
+	} else if f.Builder == builders.S2I {
+		_, err := s2i.BuilderImage(f, builders.S2I)
 		return err
 	} else {
-		return fn.ValidateBuilder(f.Builder)
+		return builders.ErrUnknownBuilder{Name: f.Builder}
 	}
 
 	return nil

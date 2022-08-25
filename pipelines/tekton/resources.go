@@ -78,12 +78,12 @@ func generatePipeline(f fn.Function, labels map[string]string) *pplnv1beta1.Pipe
 	// Deploy step that uses an image produced by S2I builds needs explicit reference to the image
 	referenceImageFromPreviousTaskResults := false
 
-	if f.Builder == fn.BuilderPack {
+	if f.Builder == builders.Pack {
 		// ----- Buildpacks related properties
 		workspaces = append(workspaces, pplnv1beta1.PipelineWorkspaceDeclaration{Name: "cache-workspace", Description: "Directory where Buildpacks cache is stored."})
 		taskBuild = taskBuildpacks(taskNameFetchSources)
 
-	} else if f.Builder == fn.BuilderS2i {
+	} else if f.Builder == builders.S2I {
 		// ----- S2I build related properties
 		taskBuild = taskS2iBuild(taskNameFetchSources)
 		referenceImageFromPreviousTaskResults = true
@@ -117,7 +117,7 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 		revision = *f.Git.Revision
 	}
 	contextDir := ""
-	if f.Builder == fn.BuilderS2i {
+	if f.Builder == builders.S2I {
 		contextDir = "."
 	}
 	if f.Git.ContextDir != nil {
@@ -179,7 +179,7 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 		},
 	}
 
-	if f.Builder == fn.BuilderPack {
+	if f.Builder == builders.Pack {
 		// ----- Buildpacks related properties
 
 		workspaces = append(workspaces, pplnv1beta1.WorkspaceBinding{
@@ -212,10 +212,10 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 // language runtime.  Errors are checked elsewhere, so at this level they
 // manifest as an inability to get a builder image = empty string.
 func getBuilderImage(f fn.Function) (name string) {
-	if f.Builder == fn.BuilderS2i {
-		name, _ = s2i.BuilderImage(f)
+	if f.Builder == builders.S2I {
+		name, _ = s2i.BuilderImage(f, builders.S2I)
 	} else {
-		name, _ = buildpacks.BuilderImage(f)
+		name, _ = buildpacks.BuilderImage(f, builders.Pack)
 	}
 	return
 }

@@ -78,34 +78,12 @@ func Test_BuildImages(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := s2i.BuilderImage(tt.function)
+			_, err := s2i.BuilderImage(tt.function, builders.S2I)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("BuilderImage() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 		})
-	}
-}
-
-// Test_ErrRuntimeRequired ensures that a request to build without a runtime
-// defined for the function yields an ErrRuntimeRequired
-func Test_ErrRuntimeRequired(t *testing.T) {
-	b := s2i.NewBuilder()
-	err := b.Build(context.Background(), fn.Function{})
-
-	if !errors.Is(err, s2i.ErrRuntimeRequired) {
-		t.Fatal("expected ErrRuntimeRequired not received")
-	}
-}
-
-// Test_ErrRuntimeNotSupported ensures that a request to build a function whose
-// runtime is not yet supported yields an ErrRuntimeNotSupported
-func Test_ErrRuntimeNotSupported(t *testing.T) {
-	b := s2i.NewBuilder()
-	err := b.Build(context.Background(), fn.Function{Runtime: "unsupported"})
-
-	if !s2i.IsErrRuntimeNotSupported(err) {
-		t.Fatal("expected ErrRuntimeNotSupported not received")
 	}
 }
 

@@ -74,7 +74,7 @@ func taskS2iBuild(runAfter string) pplnv1beta1.PipelineTask {
 	return pplnv1beta1.PipelineTask{
 		Name: taskNameBuild,
 		TaskRef: &pplnv1beta1.TaskRef{
-			Name: "s2i",
+			Name: "func-s2i",
 		},
 		RunAfter: []string{runAfter},
 		Workspaces: []pplnv1beta1.WorkspacePipelineTaskBinding{
