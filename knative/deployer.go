@@ -157,7 +157,9 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 				close(chprivate)
 			}()
 			go func() {
-				err, _ := client.WaitForService(ctx, f.Name, DefaultWaitingTimeout, wait.NoopMessageCallback())
+				err, _ := client.WaitForService(ctx, f.Name,
+					clientservingv1.WaitConfig{Timeout: DefaultWaitingTimeout, ErrorWindow: DefaultErrorWindowTimeout},
+					wait.NoopMessageCallback())
 				cherr <- err
 				close(cherr)
 			}()
@@ -247,7 +249,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 
 func probeFor(url string) *corev1.Probe {
 	return &corev1.Probe{
-		Handler: corev1.Handler{
+		ProbeHandler: corev1.ProbeHandler{
 			HTTPGet: &corev1.HTTPGetAction{
 				Path: url,
 			},
@@ -620,12 +622,12 @@ func processLocalEnvValue(val string) (string, error) {
 	}
 }
 
-/// processVolumes generates Volumes and VolumeMounts from a function config
+// / processVolumes generates Volumes and VolumeMounts from a function config
 // volumes:
-// - secret: example-secret               # mount Secret as Volume
-//   path: /etc/secret-volume
-// - configMap: example-cm                # mount ConfigMap as Volume
-//   path: /etc/cm-volume
+//   - secret: example-secret               # mount Secret as Volume
+//     path: /etc/secret-volume
+//   - configMap: example-cm                # mount ConfigMap as Volume
+//     path: /etc/cm-volume
 func processVolumes(volumes []fn.Volume, referencedSecrets, referencedConfigMaps *sets.String) ([]corev1.Volume, []corev1.VolumeMount, error) {
 
 	createdVolumes := sets.NewString()

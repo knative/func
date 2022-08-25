@@ -39,11 +39,11 @@ require (
 	k8s.io/apimachinery v0.23.5
 	k8s.io/client-go v1.5.2
 	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9
-	knative.dev/client v0.30.1
-	knative.dev/eventing v0.30.4-0.20220601140224-ec844245369e
-	knative.dev/hack v0.0.0-20220629135030-82afbd367967
-	knative.dev/pkg v0.0.0-20220314165618-a637a96a1bd9
-	knative.dev/serving v0.30.3-0.20220630163432-b5f775538f3d
+	knative.dev/client v0.31.1
+	knative.dev/eventing v0.31.3-0.20220802083815-e345f5f3695d
+	knative.dev/hack v0.0.0-20220629135029-9e09abcd61f0
+	knative.dev/pkg v0.0.0-20220412134708-e325df66cb51
+	knative.dev/serving v0.31.1-0.20220630164831-69a88e92b069
 )
 
 require (
@@ -106,7 +106,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/btree v1.0.1 // indirect
-	github.com/google/cel-go v0.7.3 // indirect
+	github.com/google/cel-go v0.9.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/googleapis/gnostic v0.5.5 // indirect
@@ -210,13 +210,14 @@ require (
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 	gotest.tools/v3 v3.1.0 // indirect
-	k8s.io/apiextensions-apiserver v0.22.5 // indirect
-	k8s.io/cli-runtime v0.22.5 // indirect
-	k8s.io/klog/v2 v2.40.1 // indirect
+	k8s.io/apiextensions-apiserver v0.23.4 // indirect
+	k8s.io/cli-runtime v0.23.4 // indirect
+	k8s.io/klog/v2 v2.60.1-0.20220317184644-43cc75f9ae89 // indirect
 	k8s.io/kube-openapi v0.0.0-20220124234850-424119656bbf // indirect
-	knative.dev/networking v0.0.0-20220302134042-e8b2eb995165 // indirect
-	sigs.k8s.io/kustomize/api v0.8.11 // indirect
-	sigs.k8s.io/kustomize/kyaml v0.11.0 // indirect
+	knative.dev/networking v0.0.0-20220412163509-1145ec58c8be // indirect
+	sigs.k8s.io/json v0.0.0-20211208200746-9f7c6b3444d2 // indirect
+	sigs.k8s.io/kustomize/api v0.10.1 // indirect
+	sigs.k8s.io/kustomize/kyaml v0.13.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
@@ -227,7 +228,7 @@ replace (
 	// update docker to be compatible with version used by pack and removes invalid pseudo-version
 	github.com/openshift/source-to-image => github.com/boson-project/source-to-image v1.3.2
 	// Pin k8s.io dependencies to align with Knative and Tekton needs
-	k8s.io/api => k8s.io/api v0.22.5
-	k8s.io/apimachinery => k8s.io/apimachinery v0.22.5
-	k8s.io/client-go => k8s.io/client-go v0.22.5
+	k8s.io/api => k8s.io/api v0.23.5
+	k8s.io/apimachinery => k8s.io/apimachinery v0.23.5
+	k8s.io/client-go => k8s.io/client-go v0.23.5
 )
