@@ -28,13 +28,14 @@ import (
 // PodSpecFlags to hold the container resource requirements values
 type PodSpecFlags struct {
 	// Direct field manipulation
-	Image        uniqueStringArg
-	Env          []string
-	EnvFrom      []string
-	EnvValueFrom []string
-	EnvFile      string
-	Mount        []string
-	Volume       []string
+	Image           uniqueStringArg
+	ImagePullPolicy string
+	Env             []string
+	EnvFrom         []string
+	EnvValueFrom    []string
+	EnvFile         string
+	Mount           []string
+	Volume          []string
 
 	Command []string
 	Arg     []string
@@ -129,6 +130,9 @@ func (p *PodSpecFlags) AddFlags(flagset *pflag.FlagSet) []string {
 	flagset.VarP(&p.Image, "image", "", "Image to run.")
 	flagNames = append(flagNames, "image")
 
+	flagset.StringVar(&p.ImagePullPolicy, "pull-policy", "",
+		"Image pull policy. Valid values (case insensitive): Always | Never | IfNotPresent")
+
 	flagset.StringVarP(&p.EnvFile, "env-file", "", "", "Path to a file containing environment variables (e.g. --env-file=/home/knative/service1/env).")
 	flagNames = append(flagNames, "env-file")
 
@@ -136,6 +140,8 @@ func (p *PodSpecFlags) AddFlags(flagset *pflag.FlagSet) []string {
 		"Mount a ConfigMap (prefix cm: or config-map:), a Secret (prefix secret: or sc:), or an existing Volume (without any prefix) on the specified directory. "+
 			"Example: --mount /mydir=cm:myconfigmap, --mount /mydir=secret:mysecret, or --mount /mydir=myvolume. "+
 			"When a configmap or a secret is specified, a corresponding volume is automatically generated. "+
+			"You can specify a volume subpath by following the volume name with slash separated path. "+
+			"Example: --mount /mydir=cm:myconfigmap/subpath/to/be/mounted. "+
 			"You can use this flag multiple times. "+
 			"For unmounting a directory, append \"-\", e.g. --mount /mydir-, which also removes any auto-generated volume.")
 	flagNames = append(flagNames, "mount")
@@ -280,6 +286,14 @@ func (p *PodSpecFlags) ResolvePodSpec(podSpec *corev1.PodSpec, flags *pflag.Flag
 
 	if flags.Changed("image") {
 		err = UpdateImage(podSpec, p.Image.String())
+		if err != nil {
+			return err
+		}
+	}
+
+	if flags.Changed("pull-policy") {
+
+		err = UpdateImagePullPolicy(podSpec, p.ImagePullPolicy)
 		if err != nil {
 			return err
 		}
