@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"k8s.io/utils/pointer"
 	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/builders"
 	"knative.dev/kn-plugin-func/mock"
 	. "knative.dev/kn-plugin-func/testing"
 )
@@ -56,11 +57,10 @@ func testRegistryOrImageRequired(cmdFn commandConstructor, t *testing.T) {
 	}
 }
 
-// TestDeploy_ImageAndRegistry ensures that both --image and --registry flags
-// are persisted to the Function and visible downstream to the deployer
-// (plumbed through and persisted without being exclusive), and that  --image
-// is used as an override to the default which is to use --registry to
-// generate an image name.
+// TestBuild_ImageAndRegistry ensures that image is derived when --registry
+// is provided without --image; that --image is used if provided; that when
+// both are provided, they are both passed to the deployer; and that these
+// values are persisted.
 func TestDeploy_ImageAndRegistry(t *testing.T) {
 	testImageAndRegistry(NewDeployCmd, t)
 }
@@ -130,6 +130,9 @@ func testImageAndRegistry(cmdFn commandConstructor, t *testing.T) {
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
+
+	// TODO it may be cleaner to error if both registry and image are provided,
+	// allowing deployer implementations to avoid arbitration logic.
 }
 
 // TestDepoy_InvalidRegistry ensures that providing an invalid registry
@@ -204,6 +207,142 @@ func testRegistryLoads(cmdFn commandConstructor, t *testing.T) {
 
 	if f.Image != "example.com/alice/myFunc:latest" {
 		t.Fatalf("unexpected image name: %v", f.Image)
+	}
+}
+
+// TestDeploy_BuilderPersists ensures that the builder chosen is read from
+// the function by default, and is able to be overridden by flags/env vars.
+func TestDeploy_BuilderPersists(t *testing.T) {
+	testBuilderPersists(NewDeployCmd, t)
+}
+
+func testBuilderPersists(cmdFn commandConstructor, t *testing.T) {
+	t.Helper()
+	root, rm := Mktemp(t)
+	defer rm()
+
+	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root}); err != nil {
+		t.Fatal(err)
+	}
+	cmd := cmdFn(NewClientFactory(func() *fn.Client {
+		return fn.New(fn.WithRegistry(TestRegistry))
+	}))
+	cmd.SetArgs([]string{})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	var err error
+	var f fn.Function
+
+	// Assert the function has persisted a value of builder (has a default)
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	if f.Builder == "" {
+		t.Fatal("value of builder not persisted using a flag default")
+	}
+
+	// Build the function, specifying a Builder
+	viper.Reset()
+	cmd.SetArgs([]string{"--builder=s2i"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	// Assert the function has persisted the value of builder
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	if f.Builder != builders.S2I {
+		t.Fatal("value of builder flag not persisted when provided")
+	}
+
+	// Build the function again without specifying a Builder
+	viper.Reset()
+	cmd.SetArgs([]string{})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Assert the function has retained its original value
+	// (was not reset back to a flag default)
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	if f.Builder != builders.S2I {
+		t.Fatal("value of builder updated when not provided")
+	}
+
+	// Build the function again using a different builder
+	viper.Reset()
+	cmd.SetArgs([]string{"--builder=pack"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Assert the function has persisted the new value
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	if f.Builder != builders.Pack {
+		t.Fatal("value of builder flag not persisted on subsequent build")
+	}
+
+	// Build the function, specifying a platform with "pack" Builder
+	cmd.SetArgs([]string{"--platform", "linux"})
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("Expected error")
+	}
+
+	// Set an invalid builder
+	cmd.SetArgs([]string{"--builder", "invalid"})
+	if err := cmd.Execute(); err == nil {
+		t.Fatal("Expected error")
+	}
+}
+
+// TestDeploy_BuilderValidated ensures that the validation function correctly
+// identifies valid and invalid builder short names.
+func TestDeploy_BuilderValidated(t *testing.T) {
+	testBuilderValidated(NewDeployCmd, t)
+}
+
+func testBuilderValidated(cmdFn commandConstructor, t *testing.T) {
+	t.Helper()
+	root, rm := Mktemp(t)
+	defer rm()
+
+	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root}); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := cmdFn(NewClientFactory(func() *fn.Client {
+		return fn.New()
+	}))
+
+	cmd.SetArgs([]string{"--builder=invalid"})
+	if err := cmd.Execute(); err == nil {
+		t.Fatalf("expected error string '%v', got '%v'", "expected", err.Error())
+	}
+
+}
+
+// TestDeploy_ValidateBuilder tests that the ValidateBuilder validator
+// accepts === the set of known builders.
+func Test_ValidateBuilder(t *testing.T) {
+	for _, name := range builders.All() {
+		if err := ValidateBuilder(name); err != nil {
+			t.Fatalf("expected builder '%v' to be valid, but got error: %v", name, err)
+		}
+	}
+
+	// This CLI creates no builders beyond those in the core reposiory.  Other
+	// users of the client library may provide their own named implementation of
+	// the fn.Builder interface. Those would have a different set of valid
+	// builders.
+
+	if err := ValidateBuilder("invalid"); err == nil {
+		t.Fatalf("did not get expected error validating an invalid builder name")
 	}
 }
 
@@ -467,12 +606,6 @@ runtime: go`,
 			}
 		})
 	}
-}
-
-// TestDeploy_BuilderPersistence ensures that the builder chosen is read from
-// the function by default, and is able to be overridden by flags/env vars.
-func TestDeploy_BuilderPersistence(t *testing.T) {
-	testBuilderPersistence(t, "docker.io/tigerteam", NewDeployCmd)
 }
 
 func Test_namespaceCheck(t *testing.T) {

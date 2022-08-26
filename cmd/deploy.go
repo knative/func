@@ -92,6 +92,28 @@ that is pushed to an image registry, and finally the function's Knative service 
 	return cmd
 }
 
+// ValidateBuilder ensures that the given builder is one that the CLI
+// knows how to instantiate, returning a builkder.ErrUnknownBuilder otherwise.
+func ValidateBuilder(name string) (err error) {
+	for _, known := range KnownBuilders() {
+		if name == known {
+			return
+		}
+	}
+	return builders.ErrUnknownBuilder{Name: name, Known: KnownBuilders()}
+}
+
+// KnownBuilders are a typed string slice of builder short names which this
+// CLI understands.  Includes a customized String() representation intended
+// for use in flags and help text.
+func KnownBuilders() builders.Known {
+	// The set of builders supported by this CLI will likely always equate to
+	// the set of builders enumerated in the builders pacakage.
+	// However, future third-party integrations may support less than, or more
+	// builders, and certain environmental considerations may alter this list.
+	return builders.All()
+}
+
 func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err error) {
 	config, err := newDeployConfig(cmd)
 	if err != nil {
@@ -107,6 +129,8 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 	}
 
 	//if --image contains '@', validate image digest and disable build and push if not set, otherwise return an error
+	// TODO(lkingland): this logic could be assimilated into the Deploy Config
+	// struct and it's constructor.
 	imageSplit := strings.Split(config.Image, "@")
 	imageDigestProvided := false
 
@@ -124,7 +148,7 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		return
 	}
 	if !f.Initialized() {
-		return fmt.Errorf("the given path '%v' does not contain an initialized function.", config.Path)
+		return fmt.Errorf("'%v' does not contain an initialized function", config.Path)
 	}
 	if config.Registry != "" {
 		f.Registry = config.Registry
@@ -135,6 +159,7 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 	if config.Builder != "" {
 		f.Builder = config.Builder
 	}
+
 	f.Namespace, err = checkNamespaceDeploy(f.Namespace, config.Namespace)
 	if err != nil {
 		return
@@ -367,7 +392,9 @@ you can install docker credential helper https://github.com/docker/docker-creden
 }
 
 type deployConfig struct {
-	buildConfig
+	// Image name in full, including registry, repo and tag (overrides
+	// image name derivation based on registry and function name)
+	Image string
 
 	// Namespace override for the deployed function.  If provided, the
 	// underlying platform will be instructed to deploy the function to the given
@@ -388,11 +415,26 @@ type deployConfig struct {
 	// with interactive prompting (only applicable when attached to a TTY).
 	Confirm bool
 
+	// Builder is the name of the subsystem that will complete the underlying
+	// build (Pack, s2i, remote pipeline, etc).  Currently ad-hoc rather than
+	// an enumerated field.  See the Client constructory for logic.
+	Builder string
+
+	// BuilderImage is the image (name or mapping) to use for building.  Usually
+	// set automatically.
+	BuilderImage string
+
+	Platform string
+
 	// Build the associated function before deploying.
 	BuildType string
 
 	// Push function image to the registry before deploying.
 	Push bool
+
+	// Registry at which interstitial build artifacts should be kept.
+	// This setting is ignored if Image is specified, which includes the full
+	Registry string
 
 	// Envs passed via cmd to be added/updated
 	EnvToUpdate *util.OrderedMap
@@ -426,18 +468,22 @@ func newDeployConfig(cmd *cobra.Command) (deployConfig, error) {
 	}
 
 	return deployConfig{
-		buildConfig: newBuildConfig(),
-		Namespace:   viper.GetString("namespace"),
-		Path:        getPathFlag(),
-		Verbose:     viper.GetBool("verbose"), // defined on root
-		Confirm:     viper.GetBool("confirm"),
-		BuildType:   buildType,
-		Push:        viper.GetBool("push"),
-		EnvToUpdate: envToUpdate,
-		EnvToRemove: envToRemove,
-		GitURL:      viper.GetString("git-url"),
-		GitBranch:   viper.GetString("git-branch"),
-		GitDir:      viper.GetString("git-dir"),
+		Image:        viper.GetString("image"),
+		Namespace:    viper.GetString("namespace"),
+		Path:         getPathFlag(),
+		Verbose:      viper.GetBool("verbose"), // defined on root
+		Confirm:      viper.GetBool("confirm"),
+		Builder:      viper.GetString("builder"),
+		BuilderImage: viper.GetString("builder-image"),
+		Platform:     viper.GetString("platform"),
+		BuildType:    buildType,
+		Push:         viper.GetBool("push"),
+		Registry:     viper.GetString("registry"),
+		EnvToUpdate:  envToUpdate,
+		EnvToRemove:  envToRemove,
+		GitURL:       viper.GetString("git-url"),
+		GitBranch:    viper.GetString("git-branch"),
+		GitDir:       viper.GetString("git-dir"),
 	}, nil
 }
 
@@ -445,55 +491,53 @@ func newDeployConfig(cmd *cobra.Command) (deployConfig, error) {
 // Skipped if not in an interactive terminal (non-TTY), or if --yes (agree to
 // all prompts) was explicitly set.
 func (c deployConfig) Prompt() (deployConfig, error) {
+	imageName := deriveImage(c.Image, c.Registry, c.Path)
 	if !interactiveTerminal() || !c.Confirm {
 		return c, nil
 	}
 
 	var qs = []*survey.Question{
 		{
-			Name: "registry",
-			Prompt: &survey.Input{
-				Message: "Registry for function images:",
-				Default: c.buildConfig.Registry,
-			},
-			Validate: survey.Required,
-		},
-		{
-			Name: "namespace",
-			Prompt: &survey.Input{
-				Message: "Namespace:",
-				Default: c.Namespace,
-			},
-		},
-		{
 			Name: "path",
 			Prompt: &survey.Input{
 				Message: "Project path:",
 				Default: c.Path,
 			},
-			Validate: survey.Required,
+		},
+		{
+			Name: "registry",
+			Prompt: &survey.Input{
+				Message: "Registry for function images:",
+				Default: c.Registry,
+			},
 		},
 	}
-	answers := struct {
-		Registry  string
-		Namespace string
-		Path      string
-	}{}
-	err := survey.Ask(qs, &answers)
-	if err != nil {
-		return deployConfig{}, err
+	if err := survey.Ask(qs, &c); err != nil {
+		return c, err
 	}
 
-	dc := deployConfig{
-		buildConfig: buildConfig{
-			Registry: answers.Registry,
+	// recalculate imageName with potentially new registry/path
+	imageName = deriveImage(c.Image, c.Registry, c.Path)
+
+	qs = []*survey.Question{
+		{
+			Name: "image",
+			Prompt: &survey.Input{
+				Message: "Full image name (e.g. quay.io/boson/node-sample):",
+				Default: imageName,
+			},
 		},
-		Namespace: answers.Namespace,
-		Path:      answers.Path,
-		Verbose:   c.Verbose,
+		{
+			Name: "namespace",
+			Prompt: &survey.Input{
+				Message: "Namespace into which the funciton is (re)deployed",
+				Default: c.Namespace,
+			},
+		},
 	}
+	err := survey.Ask(qs, &c)
 
-	return dc, nil
+	return c, err
 }
 
 // ErrInvalidBuildType indicates that the passed build type was invalid.
