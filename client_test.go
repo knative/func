@@ -959,6 +959,83 @@ func TestClient_List_OutsideRoot(t *testing.T) {
 	}
 }
 
+// TestClient_Deploy_Image ensures that initilally the function's image
+// member has no value (not initially deployed); the value is populated
+// upon deployment with a value derived from the function's name and currently
+// effective client registry; that the value of f.Image will take precidence
+// over .Registry, which is used to calculate a default value for image.
+func TestClient_Deploy_Image(t *testing.T) {
+	root, rm := Mktemp(t)
+	defer rm()
+
+	client := fn.New(
+		fn.WithBuilder(mock.NewBuilder()),
+		fn.WithDeployer(mock.NewDeployer()),
+		fn.WithRegistry("example.com/alice"))
+
+	err := client.Create(fn.Function{Name: "myfunc", Runtime: "go", Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Upon initial creation, the value of .Image is empty
+	if f.Image != "" {
+		t.Fatalf("new function should have no image, got '%v'", f.Image)
+	}
+
+	// Upon deployment, the function should be populated;
+	if err = client.Build(context.Background(), root); err != nil {
+		t.Fatal(err)
+	}
+	if err = client.Deploy(context.Background(), root); err != nil {
+		t.Fatal(err)
+	}
+	f, err = fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := "example.com/alice/myfunc:latest"
+	if f.Image != expected {
+		t.Fatalf("expected image '%v', got '%v'", expected, f.Image)
+	}
+	expected = "example.com/alice"
+	if f.Registry != "example.com/alice" {
+		t.Fatalf("expected registry '%v', got '%v'", expected, f.Registry)
+	}
+
+	// The value of .Image always takes precidence
+	f.Image = "registry2.example.com/bob/myfunc:latest"
+	if err = f.Write(); err != nil {
+		t.Fatal(err)
+	}
+	if err = client.Build(context.Background(), root); err != nil {
+		t.Fatal(err)
+	}
+	if err = client.Deploy(context.Background(), root); err != nil {
+		t.Fatal(err)
+	}
+	expected = "registry2.example.com/bob/myfunc:latest"
+	if f.Image != expected {
+		t.Fatalf("expected image '%v', got '%v'", expected, f.Image)
+	}
+	expected = "example.com/alice"
+	if f.Registry != "example.com/alice" {
+		// Note that according to current logic, the function's defined registry
+		// may be inaccurate.  Consider an initial deploy to registryA, followed by
+		// an explicit mutaiton of the funciton's .Image member.
+		// This could either remain as a documented nuance:
+		//   'The value of f.Registry is only used in the event an image name
+		//    need be derived (f.Image =="")
+		// Or we could update .Registry to always be in sync by parsing the .Image
+		t.Fatalf("expected registry '%v', got '%v'", expected, f.Registry)
+	}
+}
+
 // TestClient_Deploy_UnbuiltErrors ensures that a call to deploy a function which was not
 // fully created (ie. was only initialized, not actually built and deploys)
 // yields an expected, and informative, error.
