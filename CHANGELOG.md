@@ -2,6 +2,58 @@
 
 All notable changes to this project will be documented in this file. See [standard-version](https://github.com/conventional-changelog/standard-version) for commit guidelines.
 
+## [0.26.0](https://github.com/knative-sandbox/kn-plugin-func/compare/v0.25.0...v0.26.0) (2022-08-26)
+
+
+### Features
+
+* add OpenShift related Annotations & Labels ([#1106](https://github.com/knative-sandbox/kn-plugin-func/issues/1106)) ([b4b4cc3](https://github.com/knative-sandbox/kn-plugin-func/commit/b4b4cc34c3b32ad5f00d90ee8244702bef9e3673))
+* add runtime icons on OpenShift ([#1116](https://github.com/knative-sandbox/kn-plugin-func/issues/1116)) ([a7671e4](https://github.com/knative-sandbox/kn-plugin-func/commit/a7671e45a791b88bed464becc79d419ed8eb803c))
+* always store namespace in func.yaml and warn if current ns & func.yaml ns is different ([#1118](https://github.com/knative-sandbox/kn-plugin-func/issues/1118)) ([8cb7080](https://github.com/knative-sandbox/kn-plugin-func/commit/8cb70808f59dc0a4e19fc7d1b2f1ff3389bed4f2))
+* build for Linux ARM64 ([#1123](https://github.com/knative-sandbox/kn-plugin-func/issues/1123)) ([819b433](https://github.com/knative-sandbox/kn-plugin-func/commit/819b433edbb313f4119d88cdf066b48813333a27))
+* deploy Tekton task supports optional `image` parameter ([#1140](https://github.com/knative-sandbox/kn-plugin-func/issues/1140)) ([65c30ab](https://github.com/knative-sandbox/kn-plugin-func/commit/65c30abb39e05eaa6b4ebf9ba25d5cdfc0971cee))
+* func deploy accepts image digest in --image ([#1098](https://github.com/knative-sandbox/kn-plugin-func/issues/1098)) ([c57af36](https://github.com/knative-sandbox/kn-plugin-func/commit/c57af36f7413e670d44f5111acd477e733aea2e4))
+* languages list command ([#1114](https://github.com/knative-sandbox/kn-plugin-func/issues/1114)) ([d1f935f](https://github.com/knative-sandbox/kn-plugin-func/commit/d1f935fde991639c80b369797733e9e48b82805e))
+* persist builder value in func.yaml ([#1099](https://github.com/knative-sandbox/kn-plugin-func/issues/1099)) ([b1fd9f7](https://github.com/knative-sandbox/kn-plugin-func/commit/b1fd9f71b16bd5d83d37cbaed47890775886d807))
+* S2I strategy for on cluster build ([#1191](https://github.com/knative-sandbox/kn-plugin-func/issues/1191)) ([1112aaa](https://github.com/knative-sandbox/kn-plugin-func/commit/1112aaa2fe5fb5aa349251a34c2fccc529498b0d))
+* templates list command ([#1134](https://github.com/knative-sandbox/kn-plugin-func/issues/1134)) ([2f8d82b](https://github.com/knative-sandbox/kn-plugin-func/commit/2f8d82bec283ad29e67bdeaef80f039d87f1a523))
+
+
+### Bug Fixes
+
+* add languages command to cmd root ([#1127](https://github.com/knative-sandbox/kn-plugin-func/issues/1127)) ([59df756](https://github.com/knative-sandbox/kn-plugin-func/commit/59df756e49eda6717d82caf8c8f54422fc79fcb0))
+* correct error in OpenShift reg.cred.provider ([#1104](https://github.com/knative-sandbox/kn-plugin-func/issues/1104)) ([a197f8b](https://github.com/knative-sandbox/kn-plugin-func/commit/a197f8b330d6f5fdbc9c16585e605cdf74f9b8b9))
+* ensure registry in func.yaml is respected ([#1168](https://github.com/knative-sandbox/kn-plugin-func/issues/1168)) ([80657c9](https://github.com/knative-sandbox/kn-plugin-func/commit/80657c90e3df49bd4a55c61ada0cbadbdff7a56d))
+* image push authorization check ([#1109](https://github.com/knative-sandbox/kn-plugin-func/issues/1109)) ([3b198cb](https://github.com/knative-sandbox/kn-plugin-func/commit/3b198cb78164e751d293edc6467907cecd626643))
+* image push authorization check ([#1130](https://github.com/knative-sandbox/kn-plugin-func/issues/1130)) ([36216e7](https://github.com/knative-sandbox/kn-plugin-func/commit/36216e7fed34d3cd20aed951a27ed5fdf995bafb))
+* performance of template loading ([#1189](https://github.com/knative-sandbox/kn-plugin-func/issues/1189)) ([dca11da](https://github.com/knative-sandbox/kn-plugin-func/commit/dca11dad5bfefeb05b0d3ea2a88bc4f9b159a2b7))
+* stop build progress loop when build completes ([#1133](https://github.com/knative-sandbox/kn-plugin-func/issues/1133)) ([cf5be9a](https://github.com/knative-sandbox/kn-plugin-func/commit/cf5be9a6161085a92f60d5345b15e8d394d69f0f))
+* use 0 group id for func-buildpacks Task ([#1105](https://github.com/knative-sandbox/kn-plugin-func/issues/1105)) ([f4537dd](https://github.com/knative-sandbox/kn-plugin-func/commit/f4537dd3d5d5130c27ad8c1d1ff0df92569fbc25))
+* use creds from creds store first ([#1103](https://github.com/knative-sandbox/kn-plugin-func/issues/1103)) ([e1d5229](https://github.com/knative-sandbox/kn-plugin-func/commit/e1d522990016f46beff26117f8b80ee16b098402))
+* use space prefix for deploy output text ([#1144](https://github.com/knative-sandbox/kn-plugin-func/issues/1144)) ([3b8c240](https://github.com/knative-sandbox/kn-plugin-func/commit/3b8c24092b0e3c7863715ec9b96c8a86b10af245))
+
+
+### Documentation
+
+* replace commands.md with generated text file ([#1089](https://github.com/knative-sandbox/kn-plugin-func/issues/1089)) ([df022f5](https://github.com/knative-sandbox/kn-plugin-func/commit/df022f5c93911687e4356f4c58ccbb5d10b7a895))
+
+
+### Miscellaneous
+
+* add some milliseconds in client tests ([#1178](https://github.com/knative-sandbox/kn-plugin-func/issues/1178)) ([3ac5d46](https://github.com/knative-sandbox/kn-plugin-func/commit/3ac5d468bfdbb326375ebc5bc640729b59fec7f2))
+* add validation for `builder` ([#1136](https://github.com/knative-sandbox/kn-plugin-func/issues/1136)) ([71b0ddd](https://github.com/knative-sandbox/kn-plugin-func/commit/71b0dddc556bcc6767354e66b25091eb001d0700))
+* adjust codecov configuration ([#1177](https://github.com/knative-sandbox/kn-plugin-func/issues/1177)) ([a52b7d5](https://github.com/knative-sandbox/kn-plugin-func/commit/a52b7d5ecd895cd65e2844bc5b4d68974d8f3e6f))
+* **deps:** bump github.com/containerd/containerd from 1.6.0 to 1.6.6 ([#1112](https://github.com/knative-sandbox/kn-plugin-func/issues/1112)) ([7a760fb](https://github.com/knative-sandbox/kn-plugin-func/commit/7a760fbf57925104b7d68dbc987183594cf0bc48))
+* **deps:** update node/typescript deps in e2e tests ([#1119](https://github.com/knative-sandbox/kn-plugin-func/issues/1119)) ([cccb283](https://github.com/knative-sandbox/kn-plugin-func/commit/cccb2833d1ad8f77cfb200ef4f43a7e4098af92d))
+* update node and typescript dependencies ([#1110](https://github.com/knative-sandbox/kn-plugin-func/issues/1110)) ([29f3aad](https://github.com/knative-sandbox/kn-plugin-func/commit/29f3aadb47ecd59a0783b2a20643b6963e82af2e))
+* update Quarkus platform to 2.11.2.Final ([#1157](https://github.com/knative-sandbox/kn-plugin-func/issues/1157)) ([849c2cd](https://github.com/knative-sandbox/kn-plugin-func/commit/849c2cd7a187d37693ba963b6cd1fc9a0377ad4d))
+* update Quarkus platform version to 2.11.3.Final ([#1187](https://github.com/knative-sandbox/kn-plugin-func/issues/1187)) ([b3ced5e](https://github.com/knative-sandbox/kn-plugin-func/commit/b3ced5ebd5353568a63bbbc0ecdd986ac52ad706))
+* update Quarkus templates to 2.10.3.Final ([#1132](https://github.com/knative-sandbox/kn-plugin-func/issues/1132)) ([a906b88](https://github.com/knative-sandbox/kn-plugin-func/commit/a906b8866cb97894a676aeada9212df0e76a7ee0))
+* update springboot dependencies ([#1183](https://github.com/knative-sandbox/kn-plugin-func/issues/1183)) ([e465348](https://github.com/knative-sandbox/kn-plugin-func/commit/e4653482101443ce81949c04f2c011b8470302a0))
+* use dot as path default rather than absolute path ([#1184](https://github.com/knative-sandbox/kn-plugin-func/issues/1184)) ([fecbc4e](https://github.com/knative-sandbox/kn-plugin-func/commit/fecbc4ef8bc7a1e9007f8bc912af7d7a2cc9d0fa))
+* use lower case *functions* in all CLI outputs ([#1135](https://github.com/knative-sandbox/kn-plugin-func/issues/1135)) ([e659256](https://github.com/knative-sandbox/kn-plugin-func/commit/e659256005cdc5231759beef2e706466820c129d))
+* Use NodeJS for script instead of Shell ([#1170](https://github.com/knative-sandbox/kn-plugin-func/issues/1170)) ([62b7232](https://github.com/knative-sandbox/kn-plugin-func/commit/62b723263688336c4d5ff85d9652a2cd460d941a))
+
 ## [0.24.0](https://github.com/knative-sandbox/kn-plugin-func/compare/v0.23.0...v0.24.0) (2022-06-01)
 
 
