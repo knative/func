@@ -491,7 +491,6 @@ func newDeployConfig(cmd *cobra.Command) (deployConfig, error) {
 // Skipped if not in an interactive terminal (non-TTY), or if --yes (agree to
 // all prompts) was explicitly set.
 func (c deployConfig) Prompt() (deployConfig, error) {
-	imageName := deriveImage(c.Image, c.Registry, c.Path)
 	if !interactiveTerminal() || !c.Confirm {
 		return c, nil
 	}
@@ -516,8 +515,8 @@ func (c deployConfig) Prompt() (deployConfig, error) {
 		return c, err
 	}
 
-	// recalculate imageName with potentially new registry/path
-	imageName = deriveImage(c.Image, c.Registry, c.Path)
+	// calculate imageName with potentially new registry/path
+	imageName := deriveImage(c.Image, c.Registry, c.Path)
 
 	qs = []*survey.Question{
 		{
