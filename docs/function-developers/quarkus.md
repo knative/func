@@ -36,7 +36,7 @@ fn
 Aside from the `func.yaml` file, this looks like the beginning of just about
 any Java Maven project. For now, we will ignore the `func.yaml` file, and just
 say that it is a configuration file that is used when building your project.
-If you're really interested, check out the [reference doc](func_yaml.md).
+If you're really interested, check out the [reference doc](../reference/func_yaml.md).
 To learn more about the CLI and the details for each supported command, see
 the [CLI Commands document](../reference/commands.txt).
 
