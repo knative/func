@@ -760,6 +760,9 @@ github.com/openshift/source-to-image/pkg/util/interrupt
 github.com/openshift/source-to-image/pkg/util/log
 github.com/openshift/source-to-image/pkg/util/status
 github.com/openshift/source-to-image/pkg/util/user
+# github.com/openzipkin/zipkin-go v0.3.0
+## explicit; go 1.14
+github.com/openzipkin/zipkin-go/model
 # github.com/ory/viper v1.7.5
 ## explicit; go 1.12
 github.com/ory/viper
@@ -939,6 +942,9 @@ go.opencensus.io/metric/metricdata
 go.opencensus.io/metric/metricexport
 go.opencensus.io/metric/metricproducer
 go.opencensus.io/plugin/ocgrpc
+go.opencensus.io/plugin/ochttp
+go.opencensus.io/plugin/ochttp/propagation/b3
+go.opencensus.io/plugin/ochttp/propagation/tracecontext
 go.opencensus.io/resource
 go.opencensus.io/stats
 go.opencensus.io/stats/internal
@@ -1508,6 +1514,9 @@ k8s.io/utils/pointer
 k8s.io/utils/trace
 # knative.dev/client v0.31.1
 ## explicit; go 1.17
+knative.dev/client/lib/test
+knative.dev/client/pkg/apis/client
+knative.dev/client/pkg/apis/client/v1alpha1
 knative.dev/client/pkg/config
 knative.dev/client/pkg/errors
 knative.dev/client/pkg/eventing/v1
@@ -1578,6 +1587,16 @@ knative.dev/pkg/reconciler
 knative.dev/pkg/resolver
 knative.dev/pkg/signals
 knative.dev/pkg/system
+knative.dev/pkg/test
+knative.dev/pkg/test/environment
+knative.dev/pkg/test/ingress
+knative.dev/pkg/test/logging
+knative.dev/pkg/test/monitoring
+knative.dev/pkg/test/spoof
+knative.dev/pkg/test/zipkin
+knative.dev/pkg/tracing/config
+knative.dev/pkg/tracing/propagation
+knative.dev/pkg/tracing/propagation/tracecontextb3
 knative.dev/pkg/tracker
 # knative.dev/serving v0.31.1-0.20220630164831-69a88e92b069
 ## explicit; go 1.17
@@ -1592,7 +1611,14 @@ knative.dev/serving/pkg/autoscaler/config
 knative.dev/serving/pkg/autoscaler/config/autoscalerconfig
 knative.dev/serving/pkg/client/clientset/versioned/scheme
 knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1
+knative.dev/serving/pkg/gc
 knative.dev/serving/pkg/networking
+knative.dev/serving/pkg/reconciler/route/config
+knative.dev/serving/pkg/reconciler/route/domains
+knative.dev/serving/pkg/reconciler/route/resources/labels
+knative.dev/serving/pkg/reconciler/route/resources/names
+knative.dev/serving/pkg/reconciler/service/resources/names
+knative.dev/serving/pkg/testing/v1
 # sigs.k8s.io/json v0.0.0-20211208200746-9f7c6b3444d2
 ## explicit; go 1.17
 sigs.k8s.io/json
