@@ -43,7 +43,7 @@ DESCRIPTION
 	  springboot   http
 	  typescript   cloudevents
 	  typescript   http
-	  
+
 
 	To install more language runtimes and their templates see 'func repository'.
 
@@ -59,7 +59,7 @@ EXAMPLES
 
 	o Create a Go function which handles CloudEvents in ./myfunc.
 	  $ func create -l go -t cloudevents myfunc
-		
+
 
 ```
 func create [flags]

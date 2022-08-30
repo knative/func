@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"io/ioutil"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -117,7 +118,10 @@ func writeMarkdown(c *cobra.Command, name string, opts TemplateOptions) error {
 		fmt.Fprintf(os.Stderr, "unable to process help text: %v", err)
 	}
 
-	if err := ioutil.WriteFile(targetDir+"/"+name+".md", out.Bytes(), 0666); err != nil {
+	re := regexp.MustCompile(`[^\S\r\n]+\n`)
+	data := re.ReplaceAll(out.Bytes(), []byte{'\n'}) // trim white spaces before EOL
+
+	if err := ioutil.WriteFile(targetDir+"/"+name+".md", data, 0666); err != nil {
 		return err
 	}
 	return nil
