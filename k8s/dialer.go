@@ -148,6 +148,7 @@ func (c *contextDialer) startDialerPod(ctx context.Context) (err error) {
 						Privileged:               new(bool),
 						AllowPrivilegeEscalation: new(bool),
 						RunAsNonRoot:             &runAsNonRoot,
+						Capabilities:             &coreV1.Capabilities{Drop: []coreV1.Capability{"ALL"}},
 					},
 				},
 			},
