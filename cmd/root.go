@@ -88,7 +88,7 @@ EXAMPLES
 	}
 
 	cmd.AddCommand(NewCreateCmd(newClient))
-	cmd.AddCommand(NewConfigCmd())
+	cmd.AddCommand(NewConfigCmd(defaultLoaderSaver))
 	cmd.AddCommand(NewBuildCmd(newClient))
 	cmd.AddCommand(NewDeployCmd(newClient))
 	cmd.AddCommand(NewDeleteCmd(newClient))
