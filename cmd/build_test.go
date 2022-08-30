@@ -14,6 +14,48 @@ import (
 	. "knative.dev/kn-plugin-func/testing"
 )
 
+// TestBuild_ImageFlag ensures that the image flag is used when specified.
+func TestBuild_ImageFlag(t *testing.T) {
+	var (
+		args    = []string{"--image", "docker.io/tigerteam/foo"}
+		builder = mock.NewBuilder()
+	)
+
+	root, cleanup := Mktemp(t)
+	defer cleanup()
+
+	// Write a func.yaml config which does not specify an image
+	funcYaml := `name: foo
+runtime: go
+builder: pack
+created: 2022-01-01T00:00:00+00:00
+`
+	if err := ioutil.WriteFile("func.yaml", []byte(funcYaml), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create build command that will use a mock builder.
+	cmd := NewBuildCmd(NewClientFactory(func() *fn.Client {
+		return fn.New(fn.WithBuilder(builder))
+	}))
+
+	// Execute the command
+	cmd.SetArgs(args)
+	err := cmd.Execute()
+	if err != nil {
+		t.Fatal("Expected error")
+	}
+
+	// Now load the function and ensure that the image is set correctly.
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Image != "docker.io/tigerteam/foo" {
+		t.Fatalf("Expected image to be 'docker.io/tigerteam/foo', but got '%v'", f.Image)
+	}
+}
+
 // TestBuild_InvalidRegistry ensures that running build specifying the name of the
 // registry explicitly as an argument invokes the registry validation code.
 func TestBuild_InvalidRegistry(t *testing.T) {
