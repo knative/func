@@ -133,7 +133,7 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 		for _, e := range f.BuildEnvs {
 			envs = append(envs, e.KeyValuePair())
 		}
-		buildEnvs = pplnv1beta1.NewArrayOrString(envs[0], envs[1:]...)
+		buildEnvs.ArrayVal = envs
 	}
 
 	params := []pplnv1beta1.Param{
