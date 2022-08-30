@@ -1,6 +1,7 @@
 package function
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -72,4 +73,21 @@ func ValidateLabels(labels []Label) (errors []string) {
 	}
 
 	return
+}
+
+func LabelsMap(labels []Label) (map[string]string, error) {
+	if err := ValidateLabels(labels); len(err) != 0 {
+		return nil, errors.New(strings.Join(err, " "))
+	}
+
+	l := map[string]string{}
+	for _, label := range labels {
+		if label.Value == nil {
+			l[*label.Key] = ""
+		} else {
+			l[*label.Key] = *label.Value
+		}
+	}
+
+	return l, nil
 }

@@ -19,7 +19,7 @@ import (
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/docker"
 	"knative.dev/kn-plugin-func/k8s"
-	"knative.dev/kn-plugin-func/k8s/labels"
+	fnlabels "knative.dev/kn-plugin-func/k8s/labels"
 	"knative.dev/kn-plugin-func/knative"
 	"knative.dev/pkg/apis"
 )
@@ -97,7 +97,11 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 	pp.namespace = namespace
 
 	// let's specify labels that will be applied to every resouce that is created for a Pipeline
-	labels := map[string]string{labels.FunctionNameKey: f.Name}
+	labels, err := fn.LabelsMap(f.Labels)
+	if err != nil {
+		return err
+	}
+	labels[fnlabels.FunctionNameKey] = f.Name
 	if pp.decorator != nil {
 		labels = pp.decorator.UpdateLabels(f, labels)
 	}
@@ -182,7 +186,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 
 func (pp *PipelinesProvider) Remove(ctx context.Context, f fn.Function) error {
 
-	l := k8slabels.SelectorFromSet(k8slabels.Set(map[string]string{labels.FunctionNameKey: f.Name}))
+	l := k8slabels.SelectorFromSet(k8slabels.Set(map[string]string{fnlabels.FunctionNameKey: f.Name}))
 	listOptions := metav1.ListOptions{
 		LabelSelector: l.String(),
 	}
