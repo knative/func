@@ -594,7 +594,7 @@ func checkNamespaceDeploy(funcNamespace string, confNamespace string) (string, e
 		// Try to derive a default from the current k8s context, if any.
 		namespace, err = k8s.GetNamespace("")
 		if err != nil {
-			return "", err
+			return "", nil // configured k8s environment not required
 		}
 	}
 
