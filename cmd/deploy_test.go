@@ -608,6 +608,78 @@ runtime: go`,
 	}
 }
 
+func Test_checkNamespaceDeploy(t *testing.T) {
+	tests := []struct {
+		name          string
+		confNamespace string
+		funcNamespace string
+		context       bool
+		expected      string
+		expectedError string
+	}{
+		{
+			name: "defaults and no context returns empty with no error",
+		},
+		{
+			name:     "defaults with a context returns the context",
+			context:  true,
+			expected: "test-ns-deploy", // from ./testdata
+		},
+		{
+			name:          "extant value takes precidence when none provided",
+			confNamespace: "",
+			funcNamespace: "last-deploy-value",
+			context:       true,
+			expected:      "last-deploy-value",
+		},
+		{
+			name:          "config values take precidence",
+			confNamespace: "flag-value",
+			funcNamespace: "last-deploy-value",
+			context:       true,
+			expected:      "flag-value",
+		},
+	}
+
+	// contains a kube config with active namespace "test-ns-deploy"
+	contextPath := fmt.Sprintf("%s/testdata/kubeconfig_deploy_namespace", cwd())
+
+	defer WithEnvVar(t, "KUBECONFIG", contextPath)()
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+
+			root, rm := Mktemp(t)
+			defer rm()
+
+			if test.context {
+				defer WithEnvVar(t, "KUBECONFIG", contextPath)()
+			} else {
+				defer WithEnvVar(t, "KUBECONFIG", cwd())()
+			}
+
+			f := fn.Function{
+				Runtime:   "go",
+				Root:      root,
+				Namespace: test.funcNamespace,
+			}
+
+			if err := fn.New().Create(f); err != nil {
+				t.Fatal(err)
+			}
+
+			ns, err := checkNamespaceDeploy(test.funcNamespace, test.confNamespace)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if ns != test.expected {
+				t.Errorf("expected namespace '%v' got '%v'", test.expected, ns)
+			}
+
+		})
+	}
+}
+
 func Test_namespaceCheck(t *testing.T) {
 	tests := []struct {
 		name      string
