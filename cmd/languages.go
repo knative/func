@@ -46,7 +46,7 @@ EXAMPLES
 	  $ {{.Name}} languages --json
 
 	o Return language runtimes in a specific repository
-		$ {{.Name}} languages --repository=https://github.com/boson-project/func-templates
+		$ {{.Name}} languages --repository=https://github.com/boson-project/templates
 `,
 		SuggestFor: []string{"language", "runtime", "runtimes", "lnaguages", "languagse",
 			"panguages", "manguages", "kanguages", "lsnguages", "lznguages"},
