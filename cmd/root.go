@@ -31,17 +31,17 @@ func NewRootCmd(config RootCommandConfig) *cobra.Command {
 		// Use must be set to exactly config.Name, as this field is overloaded to
 		// be used in subcommand help text as the command with possible prefix:
 		Use:           config.Name,
-		Short:         "Serverless Functions",
+		Short:         "Serverless functions",
 		SilenceErrors: true, // we explicitly handle errors in Execute()
 		SilenceUsage:  true, // no usage dump on error
-		Long:          "Serverless Functions",
+		Long:          "Serverless functions",
 	}
 
 	// Environment Variables
 	// Evaluated first after static defaults, set all flags to be associated with
 	// a version prefixed by "FUNC_"
 	viper.AutomaticEnv()       // read in environment variables for FUNC_<flag>
-	viper.SetEnvPrefix("func") // ensure thay all have the prefix
+	viper.SetEnvPrefix("func") // ensure that all have the prefix
 
 	// Flags
 	// persistent flags are available to all subcommands implicitly
@@ -153,7 +153,7 @@ func deriveName(explicitName string, path string) string {
 func deriveNameAndAbsolutePathFromPath(path string) (string, string) {
 	var absPath string
 
-	// If path is not specifed, we would like to use current working dir
+	// If path is not specified, we would like to use current working dir
 	if path == "" {
 		path = cwd()
 	}
