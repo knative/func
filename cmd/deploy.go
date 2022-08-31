@@ -529,7 +529,7 @@ func (c deployConfig) Prompt() (deployConfig, error) {
 		{
 			Name: "namespace",
 			Prompt: &survey.Input{
-				Message: "Namespace into which the funciton is (re)deployed",
+				Message: "Namespace into which the function is (re)deployed",
 				Default: c.Namespace,
 			},
 		},

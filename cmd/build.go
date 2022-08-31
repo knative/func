@@ -251,7 +251,7 @@ func (c buildConfig) Prompt() (buildConfig, error) {
 			{
 				Name: "registry",
 				Prompt: &survey.Input{
-					Message: "Registry for funciton image:",
+					Message: "Registry for function image:",
 					Default: c.Registry, // This should be innefectual
 				},
 			},

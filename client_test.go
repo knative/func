@@ -693,7 +693,8 @@ func TestClient_Deploy_RegistryUpdate(t *testing.T) {
 	defer rm()
 	client := fn.New(fn.WithRegistry("example.com/alice"))
 
-	// Initial instantiation should result in the member being populated
+	// New runs build and deploy, thus the initial instantiation should result in
+	// the member being populated from the client's registry and function name.
 	if err := client.New(context.Background(), fn.Function{Runtime: "go", Name: "f", Root: root}); err != nil {
 		t.Fatal(err)
 	}
@@ -709,6 +710,9 @@ func TestClient_Deploy_RegistryUpdate(t *testing.T) {
 	// in the image member being updated to the new value: registry is only used
 	// when calculating a nonexistent value
 	f.Registry = "example.com/bob"
+	if err := f.Write(); err != nil {
+		t.Fatal(err)
+	}
 	if err := client.Build(context.Background(), root); err != nil {
 		t.Fatal(err)
 	}
@@ -1042,7 +1046,7 @@ func TestClient_Deploy_Image(t *testing.T) {
 	if f.Registry != "example.com/alice" {
 		// Note that according to current logic, the function's defined registry
 		// may be inaccurate.  Consider an initial deploy to registryA, followed by
-		// an explicit mutaiton of the funciton's .Image member.
+		// an explicit mutaiton of the function's .Image member.
 		// This could either remain as a documented nuance:
 		//   'The value of f.Registry is only used in the event an image name
 		//    need be derived (f.Image =="")
