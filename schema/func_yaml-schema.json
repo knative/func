@@ -160,6 +160,12 @@
 				},
 				"contextDir": {
 					"type": "string"
+				},
+				"sshSecret": {
+					"type": "string"
+				},
+				"basicAuthSecret": {
+					"type": "string"
 				}
 			},
 			"additionalProperties": false,

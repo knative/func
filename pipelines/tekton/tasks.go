@@ -18,10 +18,20 @@ func taskFetchSources() pplnv1beta1.PipelineTask {
 		TaskRef: &pplnv1beta1.TaskRef{
 			Name: "git-clone",
 		},
-		Workspaces: []pplnv1beta1.WorkspacePipelineTaskBinding{{
-			Name:      "output",
-			Workspace: "source-workspace",
-		}},
+		Workspaces: []pplnv1beta1.WorkspacePipelineTaskBinding{
+			{
+				Name:      "output",
+				Workspace: "source-workspace",
+			},
+			{
+				Name:      "ssh-directory",
+				Workspace: "ssh-workspace",
+			},
+			{
+				Name:      "basic-auth",
+				Workspace: "basic-auth-workspace",
+			},
+		},
 		Params: []pplnv1beta1.Param{
 			{Name: "url", Value: *pplnv1beta1.NewArrayOrString("$(params.gitRepository)")},
 			{Name: "revision", Value: *pplnv1beta1.NewArrayOrString("$(params.gitRevision)")},

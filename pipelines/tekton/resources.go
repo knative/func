@@ -13,6 +13,7 @@ import (
 	"knative.dev/kn-plugin-func/builders"
 	"knative.dev/kn-plugin-func/buildpacks"
 	"knative.dev/kn-plugin-func/s2i"
+	"knative.dev/pkg/ptr"
 )
 
 func deletePipelines(ctx context.Context, namespaceOverride string, listOptions metav1.ListOptions) (err error) {
@@ -71,6 +72,8 @@ func generatePipeline(f fn.Function, labels map[string]string) *pplnv1beta1.Pipe
 	workspaces := []pplnv1beta1.PipelineWorkspaceDeclaration{
 		{Name: "source-workspace", Description: "Directory where function source is located."},
 		{Name: "dockerconfig-workspace", Description: "Directory containing image registry credentials stored in `config.json` file.", Optional: true},
+		{Name: "ssh-workspace", Description: "Directory containing ssh files (private key, known_hosts and config) to pull from a private repository.", Optional: true},
+		{Name: "basic-auth-workspace", Description: "Directory containing .gitconfig and .gitcredentials to pull from a private repository.", Optional: true},
 	}
 
 	var taskBuild pplnv1beta1.PipelineTask
@@ -177,6 +180,26 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 				SecretName: getPipelineSecretName(f),
 			},
 		},
+	}
+
+	if f.Git.SSHSecret != nil {
+		workspaces = append(workspaces, pplnv1beta1.WorkspaceBinding{
+			Name: "ssh-workspace",
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: *f.Git.SSHSecret,
+				Optional:   ptr.Bool(true),
+			},
+		})
+	}
+
+	if f.Git.BasicAuthSecret != nil {
+		workspaces = append(workspaces, pplnv1beta1.WorkspaceBinding{
+			Name: "basic-auth-workspace",
+			Secret: &corev1.SecretVolumeSource{
+				SecretName: *f.Git.BasicAuthSecret,
+				Optional:   ptr.Bool(true),
+			},
+		})
 	}
 
 	if f.Builder == builders.Pack {
