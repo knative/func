@@ -1,5 +1,7 @@
+# Project
 /func
 /func_*
+/cmd/func.yaml
 /templates/go/cloudevents/go.sum
 /templates/go/http/go.sum
 /templates/typescript/cloudevents/build
@@ -7,12 +9,23 @@
 /coverage.out
 /bin
 /target
-.DS_Store
-node_modules
-__pycache__
-/coverage.out
-/bin
 
+# Nodejs
+node_modules
+
+# Python
+__pycache__
+
+# VSCode
 .vscode
+
+# IntelliJ
 .idea
+
+# Operating system temporary files
 .DS_Store
+
+# Non relevant vendor files
+BUILD.bazel
+OWNERS
+OWNERS_ALIASES
