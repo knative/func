@@ -392,9 +392,7 @@ you can install docker credential helper https://github.com/docker/docker-creden
 }
 
 type deployConfig struct {
-	// Image name in full, including registry, repo and tag (overrides
-	// image name derivation based on registry and function name)
-	Image string
+	buildConfig
 
 	// Namespace override for the deployed function.  If provided, the
 	// underlying platform will be instructed to deploy the function to the given
@@ -404,37 +402,8 @@ type deployConfig struct {
 	// (~/.kube/config) in the case of Kubernetes.
 	Namespace string
 
-	// Path of the function implementation on local disk. Defaults to current
-	// working directory of the process.
-	Path string
-
-	// Verbose logging.
-	Verbose bool
-
-	// Confirm: confirm values arrived upon from environment plus flags plus defaults,
-	// with interactive prompting (only applicable when attached to a TTY).
-	Confirm bool
-
-	// Builder is the name of the subsystem that will complete the underlying
-	// build (Pack, s2i, remote pipeline, etc).  Currently ad-hoc rather than
-	// an enumerated field.  See the Client constructory for logic.
-	Builder string
-
-	// BuilderImage is the image (name or mapping) to use for building.  Usually
-	// set automatically.
-	BuilderImage string
-
-	Platform string
-
 	// Build the associated function before deploying.
 	BuildType string
-
-	// Push function image to the registry before deploying.
-	Push bool
-
-	// Registry at which interstitial build artifacts should be kept.
-	// This setting is ignored if Image is specified, which includes the full
-	Registry string
 
 	// Envs passed via cmd to be added/updated
 	EnvToUpdate *util.OrderedMap
@@ -468,22 +437,14 @@ func newDeployConfig(cmd *cobra.Command) (deployConfig, error) {
 	}
 
 	return deployConfig{
-		Image:        viper.GetString("image"),
-		Namespace:    viper.GetString("namespace"),
-		Path:         getPathFlag(),
-		Verbose:      viper.GetBool("verbose"), // defined on root
-		Confirm:      viper.GetBool("confirm"),
-		Builder:      viper.GetString("builder"),
-		BuilderImage: viper.GetString("builder-image"),
-		Platform:     viper.GetString("platform"),
-		BuildType:    buildType,
-		Push:         viper.GetBool("push"),
-		Registry:     viper.GetString("registry"),
-		EnvToUpdate:  envToUpdate,
-		EnvToRemove:  envToRemove,
-		GitURL:       viper.GetString("git-url"),
-		GitBranch:    viper.GetString("git-branch"),
-		GitDir:       viper.GetString("git-dir"),
+		buildConfig: newBuildConfig(),
+		Namespace:   viper.GetString("namespace"),
+		BuildType:   buildType,
+		EnvToUpdate: envToUpdate,
+		EnvToRemove: envToRemove,
+		GitURL:      viper.GetString("git-url"),
+		GitBranch:   viper.GetString("git-branch"),
+		GitDir:      viper.GetString("git-dir"),
 	}, nil
 }
 
