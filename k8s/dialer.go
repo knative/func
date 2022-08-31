@@ -102,6 +102,7 @@ func (c *contextDialer) startDialerPod(ctx context.Context) (err error) {
 	if err != nil {
 		return
 	}
+	c.restConf.WarningHandler = restclient.NoWarnings{}
 
 	err = setConfigDefaults(c.restConf)
 	if err != nil {
