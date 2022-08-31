@@ -24,13 +24,7 @@ func TestBuild_ImageFlag(t *testing.T) {
 	root, cleanup := Mktemp(t)
 	defer cleanup()
 
-	// Write a func.yaml config which does not specify an image
-	funcYaml := `name: foo
-runtime: go
-builder: pack
-created: 2022-01-01T00:00:00+00:00
-`
-	if err := ioutil.WriteFile("func.yaml", []byte(funcYaml), 0600); err != nil {
+	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
