@@ -50,7 +50,7 @@ EXAMPLES
 	  $ {{.Name}} templates --json
 
 	o Return Go templates in a specific repository
-		$ {{.Name}} templates go --repository=https://github.com/boson-project/func-templates
+		$ {{.Name}} templates go --repository=https://github.com/boson-project/templates
 `,
 		SuggestFor: []string{"template", "templtaes", "templatse", "remplates",
 			"gemplates", "yemplates", "tenplates", "tekplates", "tejplates",

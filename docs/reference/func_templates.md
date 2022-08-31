@@ -36,7 +36,7 @@ EXAMPLES
 	  $ func templates --json
 
 	o Return Go templates in a specific repository
-		$ func templates go --repository=https://github.com/boson-project/func-templates
+		$ func templates go --repository=https://github.com/boson-project/templates
 
 
 ```

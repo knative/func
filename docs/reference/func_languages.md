@@ -35,7 +35,7 @@ EXAMPLES
 	  $ func languages --json
 
 	o Return language runtimes in a specific repository
-		$ func languages --repository=https://github.com/boson-project/func-templates
+		$ func languages --repository=https://github.com/boson-project/templates
 
 
 ```
