@@ -94,7 +94,6 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	if !f.Initialized() {
 		return fmt.Errorf("'%v' does not contain an initialized function", config.Path)
 	}
-
 	if config.Registry != "" {
 		f.Registry = config.Registry
 	}
@@ -142,6 +141,9 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 
 	// Default Client Registry, Function Registry or explicit Image is required
 	if client.Registry() == "" && f.Registry == "" && f.Image == "" {
+		// It is not necessary that we validate here, since the client API has
+		// its own validation, but it does give us the opportunity to show a very
+		// cli-specific and detailed error message.
 		return ErrRegistryRequired
 	}
 
@@ -243,9 +245,9 @@ func (c buildConfig) Prompt() (buildConfig, error) {
 	}
 
 	// if the result of imageName is empty (unset, underivable),
-	// and the value of config.Image is empty (none provided explicitly by
-	// either flag, env variable or prompt), then try one more time to
-	// get enough to derive an image name by explicitly asking for registry.
+	// and the value of c.Image is empty (none provided explicitly by flag, env
+	// variable or prompt), then try one more time to get enough to to derive an
+	// image name: explicitly ask for registry.
 	if imageName == "" && c.Image == "" {
 		qs = []*survey.Question{
 			{

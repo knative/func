@@ -92,28 +92,6 @@ that is pushed to an image registry, and finally the function's Knative service 
 	return cmd
 }
 
-// ValidateBuilder ensures that the given builder is one that the CLI
-// knows how to instantiate, returning a builkder.ErrUnknownBuilder otherwise.
-func ValidateBuilder(name string) (err error) {
-	for _, known := range KnownBuilders() {
-		if name == known {
-			return
-		}
-	}
-	return builders.ErrUnknownBuilder{Name: name, Known: KnownBuilders()}
-}
-
-// KnownBuilders are a typed string slice of builder short names which this
-// CLI understands.  Includes a customized String() representation intended
-// for use in flags and help text.
-func KnownBuilders() builders.Known {
-	// The set of builders supported by this CLI will likely always equate to
-	// the set of builders enumerated in the builders pacakage.
-	// However, future third-party integrations may support less than, or more
-	// builders, and certain environmental considerations may alter this list.
-	return builders.All()
-}
-
 func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err error) {
 	config, err := newDeployConfig(cmd)
 	if err != nil {
@@ -271,6 +249,28 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 	}
 
 	return client.Deploy(cmd.Context(), config.Path)
+}
+
+// ValidateBuilder ensures that the given builder is one that the CLI
+// knows how to instantiate, returning a builkder.ErrUnknownBuilder otherwise.
+func ValidateBuilder(name string) (err error) {
+	for _, known := range KnownBuilders() {
+		if name == known {
+			return
+		}
+	}
+	return builders.ErrUnknownBuilder{Name: name, Known: KnownBuilders()}
+}
+
+// KnownBuilders are a typed string slice of builder short names which this
+// CLI understands.  Includes a customized String() representation intended
+// for use in flags and help text.
+func KnownBuilders() builders.Known {
+	// The set of builders supported by this CLI will likely always equate to
+	// the set of builders enumerated in the builders pacakage.
+	// However, future third-party integrations may support less than, or more
+	// builders, and certain environmental considerations may alter this list.
+	return builders.All()
 }
 
 func newPromptForCredentials(in io.Reader, out, errOut io.Writer) func(registry string) (docker.Credentials, error) {

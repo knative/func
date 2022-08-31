@@ -719,18 +719,16 @@ func TestClient_Deploy_RegistryUpdate(t *testing.T) {
 	if err := client.Deploy(context.Background(), root); err != nil {
 		t.Fatal(err)
 	}
-
-	// Reload and check ensures that both the member was updaed and persisted
-	f, err = fn.NewFunction(root)
+	expected := "example.com/alice/f:latest"
+	f, err = fn.NewFunction(root) // reload and check
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := "example.com/alice/f:latest"
 	if f.Image != expected { // NOT changed to bob
 		t.Errorf("expected image name to stay '%v' and not be updated, but got '%v'", expected, f.Image)
 	}
 
-	// Reset the value of .Image to default "" and ensure it is recalculated.
+	// Reset the value of .Image to default "" and ensure this triggers recalc.
 	f.Image = ""
 	f.Registry = "example.com/bob"
 	if err := f.Write(); err != nil {
@@ -742,11 +740,11 @@ func TestClient_Deploy_RegistryUpdate(t *testing.T) {
 	if err := client.Deploy(context.Background(), root); err != nil {
 		t.Fatal(err)
 	}
+	expected = "example.com/bob/f:latest"
 	f, err = fn.NewFunction(root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected = "example.com/bob/f:latest"
 	if f.Image != expected { // DOES change to bob
 		t.Errorf("expected image name to stay '%v' and not be updated, but got '%v'", expected, f.Image)
 	}
