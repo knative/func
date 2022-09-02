@@ -137,9 +137,8 @@ func TestMigrateToSpecVersion(t *testing.T) {
 	}
 }
 
-// TestMigrateTo100 ensures that the migration to 1.0.0 format from the
-//
-//	previous Function structure works
+// TestMigrateTo100 ensures that the migration to 1.0.0 format from
+// the previous Function structure works
 func TestMigrateTo100(t *testing.T) {
 
 	root := "testdata/migrations/v1.0.0"

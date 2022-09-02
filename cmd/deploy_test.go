@@ -60,6 +60,7 @@ created: 2009-11-10 23:00:00`,
 			gitBranch: "main",
 			gitDir:    "func",
 			funcFile: `name: test-func
+specVersion: 1.0.0
 runtime: go
 created: 2009-11-10 23:00:00
 build:
@@ -78,6 +79,7 @@ build:
 		{
 			name: "Git properties work without arguments",
 			funcFile: `name: test-func
+specVersion: 1.0.0
 runtime: go
 created: 2009-11-10 23:00:00
 build:

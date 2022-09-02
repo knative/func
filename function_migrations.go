@@ -76,10 +76,11 @@ func LastSpecVersion() string {
 // No two migrations may have the exact version number (introduce a patch
 // version for the migration if necessary)
 var migrations = []migration{
+	{"1.0.0", migrateTo100Structure},
 	{"0.19.0", migrateToCreationStamp},
 	{"0.23.0", migrateToBuilderImages},
 	{"0.25.0", migrateToSpecVersion},
-	{"1.0.0", migrateTo100Structure},
+
 	// New Migrations Here.
 }
 
@@ -227,28 +228,74 @@ func migrateTo100Structure(f1 Function, m migration) (Function, error) {
 		return f1, err
 	}
 
+	f1.Name = f0.Name
+	f1.Runtime = f0.Runtime
+	f1.Template = f0.Template
+	f1.Registry = f0.Registry
+	f1.Image = f0.Image
+	f1.ImageDigest = f0.ImageDigest
+	f1.Invocation = f0.Invocation
+
 	f1.Build.Git = f0.Git
 	f1.Build.BuildType = f0.BuildType
 	f1.Build.BuilderImages = f0.BuilderImages
 	f1.Build.Buildpacks = f0.Buildpacks
 	f1.Build.BuildEnvs = f0.BuildEnvs
-	f1.Deploy.Namespace = f0.Namespace
+	f1.Build.Builder = f0.Builder
 	f1.Run.Volumes = f0.Volumes
 	f1.Run.Envs = f0.Envs
 	f1.Run.Annotations = f0.Annotations
 	f1.Run.Options = f0.Options
 	f1.Run.Labels = f0.Labels
 	f1.Run.HealthEndpoints = f0.HealthEndpoints
+	f1.Deploy.Namespace = f0.Namespace
 
 	f1.SpecVersion = m.version
 	return f1, nil
 }
 
-// The pertinent aspects of the Functions schema prior the 1.0.0 version migrations
+// The pertinent aspects of the Function's schema prior the 1.0.0 version migrations
 type migrateTo100_previousFunction struct {
-	// New Build Section
+	// SpecVersion at which this function is known to be compatible.
+	// More specifically, it is the highest migration which has been applied.
+	// For details see the .Migrated() and .Migrate() methods.
+	SpecVersion string `yaml:"specVersion"` // semver format
 
-	// BuildType represents the specified way of building the function
+	// Root on disk at which to find/create source and config files.
+	Root string `yaml:"-"`
+
+	// Name of the function.  If not provided, path derivation is attempted when
+	// requried (such as for initialization).
+	Name string `yaml:"name" jsonschema:"pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"`
+
+	// Namespace into which the function is deployed on supported platforms.
+	Namespace string `yaml:"namespace"`
+
+	// Runtime is the language plus context.  nodejs|go|quarkus|rust etc.
+	Runtime string `yaml:"runtime"`
+
+	// Template for the function.
+	Template string `yaml:"-"`
+
+	// Registry at which to store interstitial containers, in the form
+	// [registry]/[user].
+	Registry string `yaml:"registry"`
+
+	// Optional full OCI image tag in form:
+	//   [registry]/[namespace]/[name]:[tag]
+	// example:
+	//   quay.io/alice/my.function.name
+	// Registry is optional and is defaulted to DefaultRegistry
+	// example:
+	//   alice/my.function.name
+	// If Image is provided, it overrides the default of concatenating
+	// "Registry+Name:latest" to derive the Image.
+	Image string `yaml:"image"`
+
+	// SHA256 hash of the latest image that has been built
+	ImageDigest string `yaml:"imageDigest"`
+
+	// BuildType represents the specified way of building the fuction
 	// ie. "local" or "git"
 	BuildType string `yaml:"build" jsonschema:"enum=local,enum=git"`
 
@@ -271,11 +318,6 @@ type migrateTo100_previousFunction struct {
 	// build (pack, s2i, etc)
 	Builder string `yaml:"builder" jsonschema:"enum=pack,enum=s2i"`
 
-	// New Run Section
-
-	//Namespace into which the function is deployed on supported platforms.
-	Namespace string `yaml:"namespace"`
-
 	// List of volumes to be mounted to the function
 	Volumes []Volume `yaml:"volumes"`
 
@@ -297,4 +339,13 @@ type migrateTo100_previousFunction struct {
 
 	// Health endpoints specified by the language pack
 	HealthEndpoints HealthEndpoints `yaml:"healthEndpoints"`
+
+	// Created time is the moment that creation was successfully completed
+	// according to the client which is in charge of what constitutes being
+	// fully "Created" (aka initialized)
+	Created time.Time `yaml:"created"`
+
+	// Invocation defines hints for use when invoking this function.
+	// See Client.Invoke for usage.
+	Invocation Invocation `yaml:"invocation,omitempty"`
 }
