@@ -1,6 +1,6 @@
 /*
-	Package builders provides constants for builder implementation short names,
-	shared error types and convienience functions.
+Package builders provides constants for builder implementation short names,
+shared error types and convienience functions.
 */
 package builders
 
@@ -77,11 +77,11 @@ func (e ErrNoDefaultImage) Error() string {
 
 // Image is a convenience function for choosing the correct builder image
 // given a function, a builder, and defaults grouped by runtime.
-// - ErrRuntimeRequired if no runtime was provided on the given function
-// - ErrNoDefaultImage if the function has no builder image already defined
-//   for the given runtieme and there is no default in the provided map.
+//   - ErrRuntimeRequired if no runtime was provided on the given function
+//   - ErrNoDefaultImage if the function has no builder image already defined
+//     for the given runtime and there is no default in the provided map.
 func Image(f fn.Function, builder string, defaults map[string]string) (string, error) {
-	v, ok := f.BuilderImages[builder]
+	v, ok := f.Build.BuilderImages[builder]
 	if ok {
 		return v, nil // found value
 	}
