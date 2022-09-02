@@ -12,9 +12,11 @@ import (
 // it exists on the function for a given builder, no defaults.
 func TestImage_Named(t *testing.T) {
 	f := fn.Function{
-		Builder: builders.Pack,
-		BuilderImages: map[string]string{
-			builders.Pack: "example.com/my/builder-image",
+		Build: fn.BuildSpec{
+			Builder: builders.Pack,
+			BuilderImages: map[string]string{
+				builders.Pack: "example.com/my/builder-image",
+			},
 		},
 	}
 

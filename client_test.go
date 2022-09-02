@@ -964,8 +964,8 @@ func TestClient_New_BuildersPersisted(t *testing.T) {
 	}
 
 	// Assert that our custom builders were retained
-	if !reflect.DeepEqual(f0.BuilderImages, f1.BuilderImages) {
-		t.Fatalf("Expected %v but got %v", f0.BuilderImages, f1.BuilderImages)
+	if !reflect.DeepEqual(f0.Build.BuilderImages, f1.Build.BuilderImages) {
+		t.Fatalf("Expected %v but got %v", f0.Build.BuilderImages, f1.Build.BuilderImages)
 	}
 
 	// A Default Builder(image) is not asserted here, because that is
@@ -986,9 +986,9 @@ func TestClient_New_BuildpacksPersisted(t *testing.T) {
 	}
 	client := fn.New(fn.WithRegistry(TestRegistry))
 	if err := client.New(context.Background(), fn.Function{
-		Runtime:    TestRuntime,
-		Root:       root,
-		Buildpacks: buildpacks,
+		Runtime: TestRuntime,
+		Root:    root,
+		Build:   fn.BuildSpec{Buildpacks: buildpacks},
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -998,8 +998,8 @@ func TestClient_New_BuildpacksPersisted(t *testing.T) {
 	}
 
 	// Assert that our custom buildpacks were set
-	if !reflect.DeepEqual(f.Buildpacks, buildpacks) {
-		t.Fatalf("Expected %v but got %v", buildpacks, f.Buildpacks)
+	if !reflect.DeepEqual(f.Build.Buildpacks, buildpacks) {
+		t.Fatalf("Expected %v but got %v", buildpacks, f.Build.Buildpacks)
 	}
 }
 

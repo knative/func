@@ -62,7 +62,7 @@ created: 2009-11-10 23:00:00`,
 			funcFile: `name: test-func
 runtime: go
 created: 2009-11-10 23:00:00
-build: 
+build:
   type: git
   git:
     url: git@github.com:my-repo/my-function.git
@@ -80,7 +80,7 @@ build:
 			funcFile: `name: test-func
 runtime: go
 created: 2009-11-10 23:00:00
-build: 
+build:
   type: git
   git:
     url: git@github.com:my-repo/my-function.git

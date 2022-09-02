@@ -23,7 +23,7 @@ func TestListEnvs(t *testing.T) {
 		if path != "<path>" {
 			t.Fatalf("bad path, got %q but expected <path>", path)
 		}
-		return fn.Function{Envs: envs}, nil
+		return fn.Function{Run: fn.RunSpec{Envs: envs}}, nil
 	}
 
 	cmd := fnCmd.NewConfigCmd(mock)
@@ -58,12 +58,12 @@ func TestListEnvAdd(t *testing.T) {
 
 	mock := newMockLoaderSaver()
 	mock.load = func(path string) (fn.Function, error) {
-		return fn.Function{Envs: []fn.Env{{Name: &foo, Value: &bar}}}, nil
+		return fn.Function{Run: fn.RunSpec{Envs: []fn.Env{{Name: &foo, Value: &bar}}}}, nil
 	}
 	var expectedEnvs []fn.Env
 	mock.save = func(f fn.Function) error {
-		if !envsEqual(expectedEnvs, f.Envs) {
-			return fmt.Errorf("unexpected envs: got %v but %v was expected", f.Envs, expectedEnvs)
+		if !envsEqual(expectedEnvs, f.Run.Envs) {
+			return fmt.Errorf("unexpected envs: got %v but %v was expected", f.Run.Envs, expectedEnvs)
 		}
 		return nil
 	}
