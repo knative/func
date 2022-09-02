@@ -76,7 +76,7 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 	}
 
 	var updated int
-	function.Envs, updated, err = mergeEnvs(function.Envs, config.EnvToUpdate, config.EnvToRemove)
+	function.Run.Envs, updated, err = mergeEnvs(function.Run.Envs, config.EnvToUpdate, config.EnvToRemove)
 	if err != nil {
 		return
 	}

@@ -42,7 +42,7 @@ func generatePipeline(f fn.Function, labels map[string]string) *pplnv1beta1.Pipe
 		{
 			Name:        "gitRepository",
 			Description: "Git repository that hosts the function project",
-			Default:     pplnv1beta1.NewArrayOrString(*f.Git.URL),
+			Default:     pplnv1beta1.NewArrayOrString(*f.Build.Git.URL),
 		},
 		{
 			Name:        "gitRevision",
@@ -78,12 +78,12 @@ func generatePipeline(f fn.Function, labels map[string]string) *pplnv1beta1.Pipe
 	// Deploy step that uses an image produced by S2I builds needs explicit reference to the image
 	referenceImageFromPreviousTaskResults := false
 
-	if f.Builder == builders.Pack {
+	if f.Build.Builder == builders.Pack {
 		// ----- Buildpacks related properties
 		workspaces = append(workspaces, pplnv1beta1.PipelineWorkspaceDeclaration{Name: "cache-workspace", Description: "Directory where Buildpacks cache is stored."})
 		taskBuild = taskBuildpacks(taskNameFetchSources)
 
-	} else if f.Builder == builders.S2I {
+	} else if f.Build.Builder == builders.S2I {
 		// ----- S2I build related properties
 		taskBuild = taskS2iBuild(taskNameFetchSources)
 		referenceImageFromPreviousTaskResults = true
@@ -113,24 +113,24 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 
 	// -----  General properties
 	revision := ""
-	if f.Git.Revision != nil {
-		revision = *f.Git.Revision
+	if f.Build.Git.Revision != nil {
+		revision = *f.Build.Git.Revision
 	}
 	contextDir := ""
-	if f.Builder == builders.S2I {
+	if f.Build.Builder == builders.S2I {
 		contextDir = "."
 	}
-	if f.Git.ContextDir != nil {
-		contextDir = *f.Git.ContextDir
+	if f.Build.Git.ContextDir != nil {
+		contextDir = *f.Build.Git.ContextDir
 	}
 
 	buildEnvs := &pplnv1beta1.ArrayOrString{
 		Type:     pplnv1beta1.ParamTypeArray,
 		ArrayVal: []string{},
 	}
-	if len(f.BuildEnvs) > 0 {
+	if len(f.Build.BuildEnvs) > 0 {
 		var envs []string
-		for _, e := range f.BuildEnvs {
+		for _, e := range f.Build.BuildEnvs {
 			envs = append(envs, e.KeyValuePair())
 		}
 		buildEnvs.ArrayVal = envs
@@ -139,7 +139,7 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 	params := []pplnv1beta1.Param{
 		{
 			Name:  "gitRepository",
-			Value: *pplnv1beta1.NewArrayOrString(*f.Git.URL),
+			Value: *pplnv1beta1.NewArrayOrString(*f.Build.Git.URL),
 		},
 		{
 			Name:  "gitRevision",
@@ -179,7 +179,7 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 		},
 	}
 
-	if f.Builder == builders.Pack {
+	if f.Build.Builder == builders.Pack {
 		// ----- Buildpacks related properties
 
 		workspaces = append(workspaces, pplnv1beta1.WorkspaceBinding{
@@ -212,7 +212,7 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 // language runtime.  Errors are checked elsewhere, so at this level they
 // manifest as an inability to get a builder image = empty string.
 func getBuilderImage(f fn.Function) (name string) {
-	if f.Builder == builders.S2I {
+	if f.Build.Builder == builders.S2I {
 		name, _ = s2i.BuilderImage(f, builders.S2I)
 	} else {
 		name, _ = buildpacks.BuilderImage(f, builders.Pack)
@@ -221,7 +221,7 @@ func getBuilderImage(f fn.Function) (name string) {
 }
 
 func getPipelineName(f fn.Function) string {
-	return fmt.Sprintf("%s-%s-%s-pipeline", f.Name, f.BuildType, f.Builder)
+	return fmt.Sprintf("%s-%s-%s-pipeline", f.Name, f.Build.BuildType, f.Build.Builder)
 }
 
 func getPipelineSecretName(f fn.Function) string {

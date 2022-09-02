@@ -126,8 +126,10 @@ func Test_BuilderImageConfigurable(t *testing.T) {
 			s2i.WithName(builders.S2I), s2i.WithImpl(i), s2i.WithDockerClient(c))
 		f = fn.Function{ // function with a builder image set
 			Runtime: "node",
-			BuilderImages: map[string]string{
-				builders.S2I: "example.com/user/builder-image",
+			Build: fn.BuildSpec{
+				BuilderImages: map[string]string{
+					builders.S2I: "example.com/user/builder-image",
+				},
 			},
 		}
 	)
@@ -178,8 +180,10 @@ func Test_BuildEnvs(t *testing.T) {
 		envName  = "NAME"
 		envValue = "{{ env:INTERPOLATE_ME }}"
 		f        = fn.Function{
-			Runtime:   "node",
-			BuildEnvs: []fn.Env{{Name: &envName, Value: &envValue}},
+			Runtime: "node",
+			Build: fn.BuildSpec{
+				BuildEnvs: []fn.Env{{Name: &envName, Value: &envValue}},
+			},
 		}
 		i = &mockImpl{}
 		c = mockDocker{}
@@ -257,8 +261,10 @@ func TestS2IScriptURL(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			f := fn.Function{
 				Runtime: "node",
-				BuilderImages: map[string]string{
-					builders.S2I: tt.builderImage,
+				Build: fn.BuildSpec{
+					BuilderImages: map[string]string{
+						builders.S2I: tt.builderImage,
+					},
 				},
 			}
 

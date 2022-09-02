@@ -177,10 +177,10 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 
 	// Choose a builder based on the value of the --builder flag
 	var builder fn.Builder
-	if function.Builder == "" || cmd.Flags().Changed("builder") {
-		function.Builder = config.Builder
+	if function.Build.Builder == "" || cmd.Flags().Changed("builder") {
+		function.Build.Builder = config.Builder
 	} else {
-		config.Builder = function.Builder
+		config.Builder = function.Build.Builder
 	}
 	if err = ValidateBuilder(config.Builder); err != nil {
 		return err
@@ -208,7 +208,7 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 
 	// Use the user-provided builder image, if supplied
 	if config.BuilderImage != "" {
-		function.BuilderImages[config.Builder] = config.BuilderImage
+		function.Build.BuilderImages[config.Builder] = config.BuilderImage
 	}
 
 	// Create a client using the registry defined in config plus any additional

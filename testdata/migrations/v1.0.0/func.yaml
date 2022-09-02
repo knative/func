@@ -1,0 +1,20 @@
+version: 0.0.0
+name: testfunc
+namespace: ""
+runtime: go
+registry: ""
+image: ""
+imageDigest: ""
+build: local
+git: {}
+volumes: []
+buildEnvs: []
+envs: []
+annotations: {}
+options: {}
+labels: []
+healthEndpoints:
+  liveness: /health/liveness
+  readiness: /health/readiness
+invocation:
+  format: http

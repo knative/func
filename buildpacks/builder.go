@@ -106,13 +106,13 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		Image:          f.Image,
 		LifecycleImage: "quay.io/boson/lifecycle:0.13.2",
 		Builder:        image,
-		Buildpacks:     f.Buildpacks,
+		Buildpacks:     f.Build.Buildpacks,
 		ContainerConfig: struct {
 			Network string
 			Volumes []string
 		}{Network: "", Volumes: nil},
 	}
-	if opts.Env, err = fn.Interpolate(f.BuildEnvs); err != nil {
+	if opts.Env, err = fn.Interpolate(f.Build.BuildEnvs); err != nil {
 		return err
 	}
 	if runtime.GOOS == "linux" {
@@ -150,7 +150,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	return
 }
 
-// newImpl returns an instance of the builder implementatoin.  Note that this
+// newImpl returns an instance of the builder implementation.  Note that this
 // also mutates the provided options' DockerHost and TrustBuilder.
 func newImpl(ctx context.Context, cli client.CommonAPIClient, dockerHost string, opts *pack.BuildOptions, logger io.Writer) (impl Impl, err error) {
 	opts.DockerHost = dockerHost

@@ -22,7 +22,7 @@ func (f Function) Migrate() (migrated Function, err error) {
 	migrated = f // initially equivalent
 	for _, m := range migrations {
 		// Skip this migration if the current function's specVersion is not less than
-		// the migration's applicable specVerion.
+		// the migration's applicable specVersion.
 		if f.SpecVersion != "" && !semver.New(migrated.SpecVersion).LessThan(*semver.New(m.version)) {
 			continue
 		}
@@ -79,6 +79,7 @@ var migrations = []migration{
 	{"0.19.0", migrateToCreationStamp},
 	{"0.23.0", migrateToBuilderImages},
 	{"0.25.0", migrateToSpecVersion},
+	{"1.0.0", migrateTo100Structure},
 	// New Migrations Here.
 }
 
@@ -171,10 +172,10 @@ func migrateToBuilderImages(f1 Function, m migration) (Function, error) {
 	// If the old function had defined something custom
 	if f0.Builder != "" && f0.Builder != defaultPackBuilderImage {
 		// carry it forward as the new pack builder image
-		if f1.BuilderImages == nil {
-			f1.BuilderImages = make(map[string]string)
+		if f1.Build.BuilderImages == nil {
+			f1.Build.BuilderImages = make(map[string]string)
 		}
-		f1.BuilderImages["pack"] = f0.Builder
+		f1.Build.BuilderImages["pack"] = f0.Builder
 	}
 
 	// Flag f1 as having had the migration applied
@@ -212,4 +213,88 @@ type migrateToSpecVersion_previousFunction struct {
 // migration.
 type migrateToBuilderImages_previousFunction struct {
 	Builder string `yaml:"builder"`
+}
+
+func migrateTo100Structure(f1 Function, m migration) (Function, error) {
+	// Load the Function using pertinent parts of the previous version's schema:
+	f0Filename := filepath.Join(f1.Root, FunctionFile)
+	bb, err := ioutil.ReadFile(f0Filename)
+	if err != nil {
+		return f1, err
+	}
+	f0 := migrateTo100_previousFunction{}
+	if err = yaml.Unmarshal(bb, &f0); err != nil {
+		return f1, err
+	}
+
+	f1.Build.Git = f0.Git
+	f1.Build.BuildType = f0.BuildType
+	f1.Build.BuilderImages = f0.BuilderImages
+	f1.Build.Buildpacks = f0.Buildpacks
+	f1.Build.BuildEnvs = f0.BuildEnvs
+	f1.Deploy.Namespace = f0.Namespace
+	f1.Run.Volumes = f0.Volumes
+	f1.Run.Envs = f0.Envs
+	f1.Run.Annotations = f0.Annotations
+	f1.Run.Options = f0.Options
+	f1.Run.Labels = f0.Labels
+	f1.Run.HealthEndpoints = f0.HealthEndpoints
+
+	f1.SpecVersion = m.version
+	return f1, nil
+}
+
+// The pertinent aspects of the Functions schema prior the 1.0.0 version migrations
+type migrateTo100_previousFunction struct {
+	// New Build Section
+
+	// BuildType represents the specified way of building the function
+	// ie. "local" or "git"
+	BuildType string `yaml:"build" jsonschema:"enum=local,enum=git"`
+
+	// Git stores information about remote git repository,
+	// in case build type "git" is being used
+	Git Git `yaml:"git"`
+
+	// BuilderImages define optional explicit builder images to use by
+	// builder implementations in leau of the in-code defaults.  They key
+	// is the builder's short name.  For example:
+	// builderImages:
+	//   pack: example.com/user/my-pack-node-builder
+	//   s2i: example.com/user/my-s2i-node-builder
+	BuilderImages map[string]string `yaml:"builderImages,omitempty"`
+
+	// Optional list of buildpacks to use when building the function
+	Buildpacks []string `yaml:"buildpacks"`
+
+	// Builder is the name of the subsystem that will complete the underlying
+	// build (pack, s2i, etc)
+	Builder string `yaml:"builder" jsonschema:"enum=pack,enum=s2i"`
+
+	// New Run Section
+
+	//Namespace into which the function is deployed on supported platforms.
+	Namespace string `yaml:"namespace"`
+
+	// List of volumes to be mounted to the function
+	Volumes []Volume `yaml:"volumes"`
+
+	// Build Env variables to be set
+	BuildEnvs []Env `yaml:"buildEnvs"`
+
+	// Env variables to be set
+	Envs []Env `yaml:"envs"`
+
+	// Map containing user-supplied annotations
+	// Example: { "division": "finance" }
+	Annotations map[string]string `yaml:"annotations"`
+
+	// Options to be set on deployed function (scaling, etc.)
+	Options Options `yaml:"options"`
+
+	// Map of user-supplied labels
+	Labels []Label `yaml:"labels"`
+
+	// Health endpoints specified by the language pack
+	HealthEndpoints HealthEndpoints `yaml:"healthEndpoints"`
 }

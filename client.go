@@ -723,7 +723,7 @@ func (c *Client) RunPipeline(ctx context.Context, path string, git Git) (err err
 		err = fmt.Errorf("failed to laod function: %w", err)
 		return
 	}
-	f.Git = git
+	f.Build.Git = git
 
 	// Build and deploy function using Pipeline
 	err = c.pipelinesProvider.Run(ctx, f)
@@ -864,7 +864,9 @@ func (c *Client) Remove(ctx context.Context, cfg Function, deleteAll bool) error
 // instance is preferred, with the remote function triggered if there is no
 // locally running instance.
 // Example:
-//  myClient.Invoke(myContext, myFunction, "local", NewInvokeMessage())
+//
+//	myClient.Invoke(myContext, myFunction, "local", NewInvokeMessage())
+//
 // The message sent to the function is defined by the invoke message.
 // See NewInvokeMessage for its defaults.
 // Functions are invoked in a manner consistent with the settings defined in

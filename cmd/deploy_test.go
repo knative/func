@@ -62,11 +62,12 @@ created: 2009-11-10 23:00:00`,
 			funcFile: `name: test-func
 runtime: go
 created: 2009-11-10 23:00:00
-build: git
-git:
-  url: git@github.com:my-repo/my-function.git
-  revision: master
-  contextDir: pwd`,
+build: 
+  type: git
+  git:
+    url: git@github.com:my-repo/my-function.git
+    revision: master
+    contextDir: pwd`,
 			expectCallURL:        pointer.StringPtr("git@github.com:knative-sandbox/kn-plugin-func.git"),
 			expectCallBranch:     pointer.StringPtr("main"),
 			expectCallContextDir: pointer.StringPtr("func"),
@@ -79,11 +80,12 @@ git:
 			funcFile: `name: test-func
 runtime: go
 created: 2009-11-10 23:00:00
-build: git
-git:
-  url: git@github.com:my-repo/my-function.git
-  revision: master
-  contextDir: pwd`,
+build: 
+  type: git
+  git:
+    url: git@github.com:my-repo/my-function.git
+    revision: master
+    contextDir: pwd`,
 			expectFileURL:        pointer.StringPtr("git@github.com:my-repo/my-function.git"),
 			expectFileBranch:     pointer.StringPtr("master"),
 			expectFileContextDir: pointer.StringPtr("pwd"),
@@ -158,25 +160,25 @@ created: 2009-11-10 23:00:00`,
 			}
 
 			{
-				if fileURL, expectedURL := pointer.StringPtrDerefOr(fileFunction.Git.URL, ""), pointer.StringPtrDerefOr(tt.expectFileURL, ""); fileURL != expectedURL {
+				if fileURL, expectedURL := pointer.StringPtrDerefOr(fileFunction.Build.Git.URL, ""), pointer.StringPtrDerefOr(tt.expectFileURL, ""); fileURL != expectedURL {
 					t.Fatalf("file Git URL expected to be (%v) but was (%v)", expectedURL, fileURL)
 				}
-				if fileBranch, expectedBranch := pointer.StringPtrDerefOr(fileFunction.Git.Revision, ""), pointer.StringPtrDerefOr(tt.expectFileBranch, ""); fileBranch != expectedBranch {
+				if fileBranch, expectedBranch := pointer.StringPtrDerefOr(fileFunction.Build.Git.Revision, ""), pointer.StringPtrDerefOr(tt.expectFileBranch, ""); fileBranch != expectedBranch {
 					t.Fatalf("file Git branch expected to be (%v) but was (%v)", expectedBranch, fileBranch)
 				}
-				if fileDir, expectedDir := pointer.StringPtrDerefOr(fileFunction.Git.ContextDir, ""), pointer.StringPtrDerefOr(tt.expectFileContextDir, ""); fileDir != expectedDir {
+				if fileDir, expectedDir := pointer.StringPtrDerefOr(fileFunction.Build.Git.ContextDir, ""), pointer.StringPtrDerefOr(tt.expectFileContextDir, ""); fileDir != expectedDir {
 					t.Fatalf("file Git contextDir expected to be (%v) but was (%v)", expectedDir, fileDir)
 				}
 			}
 
 			{
-				if caputureURL, expectedURL := pointer.StringPtrDerefOr(captureFn.Git.URL, ""), pointer.StringPtrDerefOr(tt.expectCallURL, ""); caputureURL != expectedURL {
+				if caputureURL, expectedURL := pointer.StringPtrDerefOr(captureFn.Build.Git.URL, ""), pointer.StringPtrDerefOr(tt.expectCallURL, ""); caputureURL != expectedURL {
 					t.Fatalf("call Git URL expected to be (%v) but was (%v)", expectedURL, caputureURL)
 				}
-				if captureBranch, expectedBranch := pointer.StringPtrDerefOr(captureFn.Git.Revision, ""), pointer.StringPtrDerefOr(tt.expectCallBranch, ""); captureBranch != expectedBranch {
+				if captureBranch, expectedBranch := pointer.StringPtrDerefOr(captureFn.Build.Git.Revision, ""), pointer.StringPtrDerefOr(tt.expectCallBranch, ""); captureBranch != expectedBranch {
 					t.Fatalf("call Git Branch expected to be (%v) but was (%v)", expectedBranch, captureBranch)
 				}
-				if captureDir, expectedDir := pointer.StringPtrDerefOr(captureFn.Git.ContextDir, ""), pointer.StringPtrDerefOr(tt.expectCallContextDir, ""); captureDir != expectedDir {
+				if captureDir, expectedDir := pointer.StringPtrDerefOr(captureFn.Build.Git.ContextDir, ""), pointer.StringPtrDerefOr(tt.expectCallContextDir, ""); captureDir != expectedDir {
 					t.Fatalf("call Git Dir expected to be (%v) but was (%v)", expectedDir, captureDir)
 				}
 			}
@@ -359,8 +361,8 @@ runtime: go`,
 				t.Fatalf("problem creating function: %v", err)
 			}
 
-			if fileFunction.Namespace != tt.expectNS {
-				t.Fatalf("Expected namespace '%s' but function has '%s' namespace", tt.expectNS, fileFunction.Namespace)
+			if fileFunction.Deploy.Namespace != tt.expectNS {
+				t.Fatalf("Expected namespace '%s' but function has '%s' namespace", tt.expectNS, fileFunction.Deploy.Namespace)
 			}
 		})
 	}

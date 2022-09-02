@@ -211,12 +211,12 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		referencedSecrets := sets.NewString()
 		referencedConfigMaps := sets.NewString()
 
-		newEnv, newEnvFrom, err := processEnvs(f.Envs, &referencedSecrets, &referencedConfigMaps)
+		newEnv, newEnvFrom, err := processEnvs(f.Run.Envs, &referencedSecrets, &referencedConfigMaps)
 		if err != nil {
 			return fn.DeploymentResult{}, err
 		}
 
-		newVolumes, newVolumeMounts, err := processVolumes(f.Volumes, &referencedSecrets, &referencedConfigMaps)
+		newVolumes, newVolumeMounts, err := processVolumes(f.Run.Volumes, &referencedSecrets, &referencedConfigMaps)
 		if err != nil {
 			return fn.DeploymentResult{}, err
 		}
@@ -263,11 +263,11 @@ func setHealthEndpoints(f fn.Function, c *corev1.Container) *corev1.Container {
 	c.ReadinessProbe = probeFor(READINESS_ENDPOINT)
 
 	// If specified in func.yaml, the provided values override the defaults
-	if f.HealthEndpoints.Liveness != "" {
-		c.LivenessProbe = probeFor(f.HealthEndpoints.Liveness)
+	if f.Run.HealthEndpoints.Liveness != "" {
+		c.LivenessProbe = probeFor(f.Run.HealthEndpoints.Liveness)
 	}
-	if f.HealthEndpoints.Readiness != "" {
-		c.ReadinessProbe = probeFor(f.HealthEndpoints.Readiness)
+	if f.Run.HealthEndpoints.Readiness != "" {
+		c.ReadinessProbe = probeFor(f.Run.HealthEndpoints.Readiness)
 	}
 	return c
 }
@@ -281,14 +281,14 @@ func generateNewService(f fn.Function, decorator DeployDecorator) (*v1.Service, 
 	referencedSecrets := sets.NewString()
 	referencedConfigMaps := sets.NewString()
 
-	newEnv, newEnvFrom, err := processEnvs(f.Envs, &referencedSecrets, &referencedConfigMaps)
+	newEnv, newEnvFrom, err := processEnvs(f.Run.Envs, &referencedSecrets, &referencedConfigMaps)
 	if err != nil {
 		return nil, err
 	}
 	container.Env = newEnv
 	container.EnvFrom = newEnvFrom
 
-	newVolumes, newVolumeMounts, err := processVolumes(f.Volumes, &referencedSecrets, &referencedConfigMaps)
+	newVolumes, newVolumeMounts, err := processVolumes(f.Run.Volumes, &referencedSecrets, &referencedConfigMaps)
 	if err != nil {
 		return nil, err
 	}
@@ -299,7 +299,7 @@ func generateNewService(f fn.Function, decorator DeployDecorator) (*v1.Service, 
 		return nil, err
 	}
 
-	annotations := f.Annotations
+	annotations := f.Run.Annotations
 	if decorator != nil {
 		annotations = decorator.UpdateAnnotations(f, annotations)
 	}
@@ -330,7 +330,7 @@ func generateNewService(f fn.Function, decorator DeployDecorator) (*v1.Service, 
 		},
 	}
 
-	err = setServiceOptions(&service.Spec.Template, f.Options)
+	err = setServiceOptions(&service.Spec.Template, f.Run.Options)
 	if err != nil {
 		return service, err
 	}
@@ -350,7 +350,7 @@ func updateService(f fn.Function, newEnv []corev1.EnvVar, newEnvFrom []corev1.En
 			service.ObjectMeta.Annotations = decorator.UpdateAnnotations(f, service.ObjectMeta.Annotations)
 		}
 
-		for k, v := range f.Annotations {
+		for k, v := range f.Run.Annotations {
 			service.ObjectMeta.Annotations[k] = v
 			service.Spec.Template.ObjectMeta.Annotations[k] = v
 		}
@@ -369,7 +369,7 @@ func updateService(f fn.Function, newEnv []corev1.EnvVar, newEnvFrom []corev1.En
 		cp := &service.Spec.Template.Spec.Containers[0]
 		setHealthEndpoints(f, cp)
 
-		err := setServiceOptions(&service.Spec.Template, f.Options)
+		err := setServiceOptions(&service.Spec.Template, f.Run.Options)
 		if err != nil {
 			return service, err
 		}
@@ -417,7 +417,7 @@ func processLabels(f fn.Function, decorator DeployDecorator) (map[string]string,
 		labels = decorator.UpdateLabels(f, labels)
 	}
 
-	for _, label := range f.Labels {
+	for _, label := range f.Run.Labels {
 		if label.Key != nil && label.Value != nil {
 			if strings.HasPrefix(*label.Value, "{{") {
 				slices := strings.Split(strings.Trim(*label.Value, "{} "), ":")

@@ -348,8 +348,10 @@ func TestClient_New_Named(t *testing.T) {
 // Registry is the namespace at the container image registry.
 // If not prepended with the registry, it will be defaulted:
 // Examples:  "docker.io/alice"
-//            "quay.io/bob"
-//            "charlie" (becomes [DefaultRegistry]/charlie
+//
+//	"quay.io/bob"
+//	"charlie" (becomes [DefaultRegistry]/charlie
+//
 // At this time a registry namespace is required as we rely on a third-party
 // registry in all cases.  When we support in-cluster container registries,
 // this configuration parameter will become optional.
@@ -943,10 +945,12 @@ func TestClient_New_BuildersPersisted(t *testing.T) {
 	f0 := fn.Function{
 		Runtime: TestRuntime,
 		Root:    root,
-		BuilderImages: map[string]string{
-			builders.Pack: "example.com/my/custom-pack-builder",
-			builders.S2I:  "example.com/my/custom-s2i-builder",
-		}}
+		Build: fn.BuildSpec{
+			BuilderImages: map[string]string{
+				builders.Pack: "example.com/my/custom-pack-builder",
+				builders.S2I:  "example.com/my/custom-s2i-builder",
+			}},
+	}
 
 	// Create the function, which should preserve custom builders
 	if err := client.New(context.Background(), f0); err != nil {

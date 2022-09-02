@@ -128,12 +128,12 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 	}
 
 	// add ns to func.yaml on first deploy and warn if current context differs from func.yaml
-	function.Namespace, err = checkNamespaceDeploy(function.Namespace, config.Namespace)
+	function.Deploy.Namespace, err = checkNamespaceDeploy(function.Deploy.Namespace, config.Namespace)
 	if err != nil {
 		return
 	}
 
-	function.Envs, _, err = mergeEnvs(function.Envs, config.EnvToUpdate, config.EnvToRemove)
+	function.Run.Envs, _, err = mergeEnvs(function.Run.Envs, config.EnvToUpdate, config.EnvToRemove)
 	if err != nil {
 		return
 	}
@@ -147,7 +147,7 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 			return err
 		}
 	} else {
-		currentBuildType = function.BuildType
+		currentBuildType = function.Build.BuildType
 	}
 
 	// Check if the function has been initialized
@@ -180,10 +180,10 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 
 	// Choose a builder based on the value of the --builder flag
 	var builder fn.Builder
-	if function.Builder == "" || cmd.Flags().Changed("builder") {
-		function.Builder = config.Builder
+	if function.Build.Builder == "" || cmd.Flags().Changed("builder") {
+		function.Build.Builder = config.Builder
 	} else {
-		config.Builder = function.Builder
+		config.Builder = function.Build.Builder
 	}
 	if err = ValidateBuilder(config.Builder); err != nil {
 		return err
@@ -206,7 +206,7 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 
 	// Default config namespace is the function's namespace
 	if config.Namespace == "" {
-		config.Namespace = function.Namespace
+		config.Namespace = function.Deploy.Namespace
 	}
 
 	// if registry was not changed via command line flag meaning it's empty
@@ -218,7 +218,7 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 
 	// Use the user-provided builder image, if supplied
 	if config.BuilderImage != "" {
-		function.BuilderImages[config.Builder] = config.BuilderImage
+		function.Build.BuilderImages[config.Builder] = config.BuilderImage
 	}
 
 	client, done := newClient(ClientConfig{Namespace: config.Namespace, Verbose: config.Verbose},
@@ -235,7 +235,7 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 			return err
 		}
 	case fn.BuildTypeGit:
-		git := function.Git
+		git := function.Build.Git
 
 		if config.GitURL != "" {
 			git.URL = &config.GitURL
@@ -463,7 +463,7 @@ func newDeployConfig(cmd *cobra.Command) (deployConfig, error) {
 	}, nil
 }
 
-// Prompt the user with value of config members, allowing for interaractive changes.
+// Prompt the user with value of config members, allowing for interactive changes.
 // Skipped if not in an interactive terminal (non-TTY), or if --yes (agree to
 // all prompts) was explicitly set.
 func (c deployConfig) Prompt() (deployConfig, error) {
@@ -523,7 +523,7 @@ func (c deployConfig) Prompt() (deployConfig, error) {
 // ErrInvalidBuildType indicates that the passed build type was invalid.
 type ErrInvalidBuildType error
 
-// ValidateBuildType validatest that the input Build type is valid for deploy command
+// ValidateBuildType validates that the input Build type is valid for deploy command
 func validateBuildType(buildType string) error {
 	if errs := fn.ValidateBuildType(buildType, false, true); len(errs) > 0 {
 		return ErrInvalidBuildType(errors.New(strings.Join(errs, "")))
@@ -561,7 +561,7 @@ func parseImageDigest(imageSplit []string, config deployConfig, cmd *cobra.Comma
 }
 
 // checkNamespaceDeploy checks current namespace against func.yaml and warns if its different
-// or sets namespace to be written in func.yaml if its the first deployment
+// or sets namespace to be written in func.yaml if it's the first deployment
 func checkNamespaceDeploy(funcNamespace string, confNamespace string) (string, error) {
 	currNamespace, err := k8s.GetNamespace("")
 	if err != nil {

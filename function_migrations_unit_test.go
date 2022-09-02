@@ -114,7 +114,7 @@ func TestMigrateToBuilderImagesCustom(t *testing.T) {
 	if err != nil {
 		t.Fatal(f)
 	}
-	i, ok := f.BuilderImages["pack"]
+	i, ok := f.Build.BuilderImages["pack"]
 	if !ok {
 		t.Fatal("migrated function does not include the pack builder images")
 	}
@@ -135,4 +135,44 @@ func TestMigrateToSpecVersion(t *testing.T) {
 	if f.SpecVersion != LastSpecVersion() {
 		t.Fatal("migrated function does not include the Migration field")
 	}
+}
+
+// TestMigrateTo100 ensures that the migration to 1.0.0 format from the
+//
+//	previous Function structure works
+func TestMigrateTo100(t *testing.T) {
+
+	root := "testdata/migrations/v1.0.0"
+	expectedBuildType := "local" // set in testdata func.yaml
+	expectedGit := Git{}
+	expectedNamespace := ""
+	var expectedEnvs []Env
+	var expectedVolumes []Volume
+
+	f, err := NewFunction(root)
+	if err != nil {
+		t.Error(err)
+		t.Fatal(f)
+	}
+
+	if f.Build.BuildType != expectedBuildType {
+		t.Fatalf("migrated Function expected BuildType '%v', got '%v'", expectedBuildType, f.Build.BuildType)
+	}
+
+	if f.Build.Git != expectedGit {
+		t.Fatalf("migrated Function expected Git '%v', got '%v'", expectedGit, f.Build.Git)
+	}
+
+	if f.Deploy.Namespace != expectedNamespace {
+		t.Fatalf("migrated Function expected Namespace '%v', got '%v'", expectedNamespace, f.Deploy.Namespace)
+	}
+
+	if len(f.Run.Envs) != len(expectedEnvs) {
+		t.Fatalf("migrated Function expected Run Envs '%v', got '%v'", len(expectedEnvs), len(f.Run.Envs))
+	}
+
+	if len(f.Run.Volumes) != len(expectedVolumes) {
+		t.Fatalf("migrated Function expected Run Volumes '%v', got '%v'", len(expectedEnvs), len(f.Run.Envs))
+	}
+
 }
