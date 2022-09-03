@@ -216,6 +216,8 @@ type migrateToBuilderImages_previousFunction struct {
 	Builder string `yaml:"builder"`
 }
 
+// This migration makes sure use the 1.0.0 format. To avoid unmarshalling issues with the old format
+// this migration needs to be executed first. Further migrations will operate on this new struct
 func migrateTo100Structure(f1 Function, m migration) (Function, error) {
 	// Load the Function using pertinent parts of the previous version's schema:
 	f0Filename := filepath.Join(f1.Root, FunctionFile)
@@ -244,10 +246,10 @@ func migrateTo100Structure(f1 Function, m migration) (Function, error) {
 	f1.Build.Builder = f0.Builder
 	f1.Run.Volumes = f0.Volumes
 	f1.Run.Envs = f0.Envs
-	f1.Run.Annotations = f0.Annotations
-	f1.Run.Options = f0.Options
-	f1.Run.Labels = f0.Labels
-	f1.Run.HealthEndpoints = f0.HealthEndpoints
+	f1.Deploy.Annotations = f0.Annotations
+	f1.Deploy.Options = f0.Options
+	f1.Deploy.Labels = f0.Labels
+	f1.Deploy.HealthEndpoints = f0.HealthEndpoints
 	f1.Deploy.Namespace = f0.Namespace
 
 	f1.SpecVersion = m.version

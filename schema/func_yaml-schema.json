@@ -56,11 +56,38 @@
 		},
 		"DeploySpec": {
 			"required": [
-				"namespace"
+				"namespace",
+				"annotations",
+				"labels",
+				"healthEndpoints",
+				"options"
 			],
 			"properties": {
 				"namespace": {
 					"type": "string"
+				},
+				"annotations": {
+					"patternProperties": {
+						".*": {
+							"type": "string"
+						}
+					},
+					"type": "object"
+				},
+				"labels": {
+					"items": {
+						"$schema": "http://json-schema.org/draft-04/schema#",
+						"$ref": "#/definitions/Label"
+					},
+					"type": "array"
+				},
+				"healthEndpoints": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/HealthEndpoints"
+				},
+				"options": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/Options"
 				}
 			},
 			"additionalProperties": false,
@@ -255,11 +282,7 @@
 		"RunSpec": {
 			"required": [
 				"volumes",
-				"envs",
-				"annotations",
-				"options",
-				"labels",
-				"healthEndpoints"
+				"envs"
 			],
 			"properties": {
 				"volumes": {
@@ -274,29 +297,6 @@
 						"$ref": "#/definitions/Env"
 					},
 					"type": "array"
-				},
-				"annotations": {
-					"patternProperties": {
-						".*": {
-							"type": "string"
-						}
-					},
-					"type": "object"
-				},
-				"options": {
-					"$schema": "http://json-schema.org/draft-04/schema#",
-					"$ref": "#/definitions/Options"
-				},
-				"labels": {
-					"items": {
-						"$schema": "http://json-schema.org/draft-04/schema#",
-						"$ref": "#/definitions/Label"
-					},
-					"type": "array"
-				},
-				"healthEndpoints": {
-					"$schema": "http://json-schema.org/draft-04/schema#",
-					"$ref": "#/definitions/HealthEndpoints"
 				}
 			},
 			"additionalProperties": false,

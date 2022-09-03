@@ -263,11 +263,11 @@ func setHealthEndpoints(f fn.Function, c *corev1.Container) *corev1.Container {
 	c.ReadinessProbe = probeFor(READINESS_ENDPOINT)
 
 	// If specified in func.yaml, the provided values override the defaults
-	if f.Run.HealthEndpoints.Liveness != "" {
-		c.LivenessProbe = probeFor(f.Run.HealthEndpoints.Liveness)
+	if f.Deploy.HealthEndpoints.Liveness != "" {
+		c.LivenessProbe = probeFor(f.Deploy.HealthEndpoints.Liveness)
 	}
-	if f.Run.HealthEndpoints.Readiness != "" {
-		c.ReadinessProbe = probeFor(f.Run.HealthEndpoints.Readiness)
+	if f.Deploy.HealthEndpoints.Readiness != "" {
+		c.ReadinessProbe = probeFor(f.Deploy.HealthEndpoints.Readiness)
 	}
 	return c
 }
@@ -299,7 +299,7 @@ func generateNewService(f fn.Function, decorator DeployDecorator) (*v1.Service, 
 		return nil, err
 	}
 
-	annotations := f.Run.Annotations
+	annotations := f.Deploy.Annotations
 	if decorator != nil {
 		annotations = decorator.UpdateAnnotations(f, annotations)
 	}
@@ -330,7 +330,7 @@ func generateNewService(f fn.Function, decorator DeployDecorator) (*v1.Service, 
 		},
 	}
 
-	err = setServiceOptions(&service.Spec.Template, f.Run.Options)
+	err = setServiceOptions(&service.Spec.Template, f.Deploy.Options)
 	if err != nil {
 		return service, err
 	}
@@ -350,7 +350,7 @@ func updateService(f fn.Function, newEnv []corev1.EnvVar, newEnvFrom []corev1.En
 			service.ObjectMeta.Annotations = decorator.UpdateAnnotations(f, service.ObjectMeta.Annotations)
 		}
 
-		for k, v := range f.Run.Annotations {
+		for k, v := range f.Deploy.Annotations {
 			service.ObjectMeta.Annotations[k] = v
 			service.Spec.Template.ObjectMeta.Annotations[k] = v
 		}
@@ -369,7 +369,7 @@ func updateService(f fn.Function, newEnv []corev1.EnvVar, newEnvFrom []corev1.En
 		cp := &service.Spec.Template.Spec.Containers[0]
 		setHealthEndpoints(f, cp)
 
-		err := setServiceOptions(&service.Spec.Template, f.Run.Options)
+		err := setServiceOptions(&service.Spec.Template, f.Deploy.Options)
 		if err != nil {
 			return service, err
 		}
@@ -417,7 +417,7 @@ func processLabels(f fn.Function, decorator DeployDecorator) (map[string]string,
 		labels = decorator.UpdateLabels(f, labels)
 	}
 
-	for _, label := range f.Run.Labels {
+	for _, label := range f.Deploy.Labels {
 		if label.Key != nil && label.Value != nil {
 			if strings.HasPrefix(*label.Value, "{{") {
 				slices := strings.Split(strings.Trim(*label.Value, "{} "), ":")

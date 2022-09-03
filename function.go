@@ -53,24 +53,25 @@ type RunSpec struct {
 
 	// Env variables to be set
 	Envs []Env `yaml:"envs"`
+}
+
+// DeploySpec
+type DeploySpec struct {
+
+	// Namespace into which the Function is deployed on supported platforms.
+	Namespace string `yaml:"namespace"`
+
 	// Map containing user-supplied annotations
 	// Example: { "division": "finance" }
 	Annotations map[string]string `yaml:"annotations"`
-
-	// Options to be set on deployed function (scaling, etc.)
-	Options Options `yaml:"options"`
-
 	// Map of user-supplied labels
 	Labels []Label `yaml:"labels"`
 
 	// Health endpoints specified by the language pack
 	HealthEndpoints HealthEndpoints `yaml:"healthEndpoints"`
-}
 
-// DeploySpec
-type DeploySpec struct {
-	// Namespace into which the Function is deployed on supported platforms.
-	Namespace string `yaml:"namespace"`
+	// Options to be set on deployed function (scaling, etc.)
+	Options Options `yaml:"options"`
 }
 
 type Function struct {
@@ -223,8 +224,8 @@ func (f Function) Validate() error {
 		validateVolumes(f.Run.Volumes),
 		ValidateBuildEnvs(f.Build.BuildEnvs),
 		ValidateEnvs(f.Run.Envs),
-		validateOptions(f.Run.Options),
-		ValidateLabels(f.Run.Labels),
+		validateOptions(f.Deploy.Options),
+		ValidateLabels(f.Deploy.Labels),
 		ValidateBuildType(f.Build.BuildType, true, false),
 		validateGit(f.Build.Git, mandatoryGitOption),
 	}
