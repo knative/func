@@ -2,68 +2,16 @@
 	"$schema": "http://json-schema.org/draft-04/schema#",
 	"$ref": "#/definitions/Function",
 	"definitions": {
-		"Env": {
+		"BuildSpec": {
 			"required": [
-				"value"
-			],
-			"properties": {
-				"name": {
-					"pattern": "^[-._a-zA-Z][-._a-zA-Z0-9]*$",
-					"type": "string"
-				},
-				"value": {
-					"type": "string"
-				}
-			},
-			"additionalProperties": false,
-			"type": "object"
-		},
-		"Function": {
-			"required": [
-				"specVersion",
-				"name",
-				"namespace",
-				"runtime",
-				"registry",
-				"image",
-				"imageDigest",
-				"build",
+				"type",
 				"git",
 				"buildpacks",
 				"builder",
-				"volumes",
-				"buildEnvs",
-				"envs",
-				"annotations",
-				"options",
-				"labels",
-				"healthEndpoints",
-				"created"
+				"buildEnvs"
 			],
 			"properties": {
-				"specVersion": {
-					"type": "string"
-				},
-				"name": {
-					"pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
-					"type": "string"
-				},
-				"namespace": {
-					"type": "string"
-				},
-				"runtime": {
-					"type": "string"
-				},
-				"registry": {
-					"type": "string"
-				},
-				"image": {
-					"type": "string"
-				},
-				"imageDigest": {
-					"type": "string"
-				},
-				"build": {
+				"type": {
 					"enum": [
 						"local",
 						"git"
@@ -95,48 +43,77 @@
 					],
 					"type": "string"
 				},
-				"volumes": {
-					"items": {
-						"$schema": "http://json-schema.org/draft-04/schema#",
-						"$ref": "#/definitions/Volume"
-					},
-					"type": "array"
-				},
 				"buildEnvs": {
 					"items": {
 						"$schema": "http://json-schema.org/draft-04/schema#",
 						"$ref": "#/definitions/Env"
 					},
 					"type": "array"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
+		},
+		"DeploySpec": {
+			"required": [
+				"namespace"
+			],
+			"properties": {
+				"namespace": {
+					"type": "string"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
+		},
+		"Env": {
+			"required": [
+				"value"
+			],
+			"properties": {
+				"name": {
+					"pattern": "^[-._a-zA-Z][-._a-zA-Z0-9]*$",
+					"type": "string"
 				},
-				"envs": {
-					"items": {
-						"$ref": "#/definitions/Env"
-					},
-					"type": "array"
+				"value": {
+					"type": "string"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
+		},
+		"Function": {
+			"required": [
+				"specVersion",
+				"name",
+				"runtime",
+				"registry",
+				"image",
+				"imageDigest",
+				"created",
+				"build",
+				"run",
+				"deploy"
+			],
+			"properties": {
+				"specVersion": {
+					"type": "string"
 				},
-				"annotations": {
-					"patternProperties": {
-						".*": {
-							"type": "string"
-						}
-					},
-					"type": "object"
+				"name": {
+					"pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+					"type": "string"
 				},
-				"options": {
-					"$schema": "http://json-schema.org/draft-04/schema#",
-					"$ref": "#/definitions/Options"
+				"runtime": {
+					"type": "string"
 				},
-				"labels": {
-					"items": {
-						"$schema": "http://json-schema.org/draft-04/schema#",
-						"$ref": "#/definitions/Label"
-					},
-					"type": "array"
+				"registry": {
+					"type": "string"
 				},
-				"healthEndpoints": {
-					"$schema": "http://json-schema.org/draft-04/schema#",
-					"$ref": "#/definitions/HealthEndpoints"
+				"image": {
+					"type": "string"
+				},
+				"imageDigest": {
+					"type": "string"
 				},
 				"created": {
 					"type": "string",
@@ -145,6 +122,18 @@
 				"invocation": {
 					"$schema": "http://json-schema.org/draft-04/schema#",
 					"$ref": "#/definitions/Invocation"
+				},
+				"build": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/BuildSpec"
+				},
+				"run": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/RunSpec"
+				},
+				"deploy": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/DeploySpec"
 				}
 			},
 			"additionalProperties": false,
@@ -258,6 +247,56 @@
 				"memory": {
 					"pattern": "^([+-]?[0-9.]+)([eEinumkKMGTP]*[-+]?[0-9]*)$",
 					"type": "string"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
+		},
+		"RunSpec": {
+			"required": [
+				"volumes",
+				"envs",
+				"annotations",
+				"options",
+				"labels",
+				"healthEndpoints"
+			],
+			"properties": {
+				"volumes": {
+					"items": {
+						"$schema": "http://json-schema.org/draft-04/schema#",
+						"$ref": "#/definitions/Volume"
+					},
+					"type": "array"
+				},
+				"envs": {
+					"items": {
+						"$ref": "#/definitions/Env"
+					},
+					"type": "array"
+				},
+				"annotations": {
+					"patternProperties": {
+						".*": {
+							"type": "string"
+						}
+					},
+					"type": "object"
+				},
+				"options": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/Options"
+				},
+				"labels": {
+					"items": {
+						"$schema": "http://json-schema.org/draft-04/schema#",
+						"$ref": "#/definitions/Label"
+					},
+					"type": "array"
+				},
+				"healthEndpoints": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/HealthEndpoints"
 				}
 			},
 			"additionalProperties": false,
