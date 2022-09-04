@@ -107,6 +107,8 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 	}
 
 	//if --image contains '@', validate image digest and disable build and push if not set, otherwise return an error
+	// TODO(lkingland): this logic could be assimilated into the Deploy Config
+	// struct and it's constructor.
 	imageSplit := strings.Split(config.Image, "@")
 	imageDigestProvided := false
 
@@ -117,23 +119,30 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		imageDigestProvided = true
 	}
 
-	function, err := functionWithOverrides(config.Path, functionOverrides{Namespace: config.Namespace, Image: config.Image})
+	// Load the function, and if it exists (path initialized as a function), merge
+	// in any updates from flags/env vars (namespace, explicit image name, envs).
+	f, err := fn.NewFunction(config.Path)
 	if err != nil {
 		return
 	}
-
-	// save image digest if provided in --image
-	if imageDigestProvided {
-		function.ImageDigest = imageSplit[1]
+	if !f.Initialized() {
+		return fmt.Errorf("'%v' does not contain an initialized function", config.Path)
+	}
+	if config.Registry != "" {
+		f.Registry = config.Registry
+	}
+	if config.Image != "" {
+		f.Image = config.Image
+	}
+	if config.Builder != "" {
+		f.Builder = config.Builder
 	}
 
-	// add ns to func.yaml on first deploy and warn if current context differs from func.yaml
-	function.Namespace, err = checkNamespaceDeploy(function.Namespace, config.Namespace)
+	f.Namespace, err = checkNamespaceDeploy(f.Namespace, config.Namespace)
 	if err != nil {
 		return
 	}
-
-	function.Envs, _, err = mergeEnvs(function.Envs, config.EnvToUpdate, config.EnvToRemove)
+	f.Envs, _, err = mergeEnvs(f.Envs, config.EnvToUpdate, config.EnvToRemove)
 	if err != nil {
 		return
 	}
@@ -147,43 +156,21 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 			return err
 		}
 	} else {
-		currentBuildType = function.BuildType
+		currentBuildType = f.BuildType
 	}
 
-	// Check if the function has been initialized
-	if !function.Initialized() {
-		return fmt.Errorf("the given path '%v' does not contain an initialized function. Please create one at this path before deploying", config.Path)
-	}
-
-	// If the function does not yet have an image name and one was not provided on the command line
-	if function.Image == "" && currentBuildType != "disabled" {
-		//  AND a --registry was not provided, then we need to
-		// prompt for a registry from which we can derive an image name.
-		if config.Registry == "" {
-			fmt.Println("A registry for function images is required. For example, 'docker.io/tigerteam'.")
-
-			err = survey.AskOne(
-				&survey.Input{Message: "Registry for function images:"},
-				&config.Registry, survey.WithValidator(survey.Required))
-			if err != nil {
-				if err == terminal.InterruptErr {
-					return nil
-				}
-				return
-			}
-		}
-
-		// We have the registry, so let's use it to derive the function image name
-		config.Image = deriveImage(config.Image, config.Registry, config.Path)
-		function.Image = config.Image
+	if imageDigestProvided {
+		// TODO(lkingland):  This could instead be part of the config, relying on
+		// zero values rather than a flag indicating "Image Digest was Provided"
+		f.ImageDigest = imageSplit[1] // save image digest if provided in --image
 	}
 
 	// Choose a builder based on the value of the --builder flag
 	var builder fn.Builder
-	if function.Builder == "" || cmd.Flags().Changed("builder") {
-		function.Builder = config.Builder
+	if f.Builder == "" || cmd.Flags().Changed("builder") {
+		f.Builder = config.Builder
 	} else {
-		config.Builder = function.Builder
+		config.Builder = f.Builder
 	}
 	if err = ValidateBuilder(config.Builder); err != nil {
 		return err
@@ -198,33 +185,27 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		builder = s2i.NewBuilder(s2i.WithVerbose(config.Verbose), s2i.WithPlatform(config.Platform))
 	}
 
-	// All set, let's write changes in the config to the disk
-	err = function.Write()
-	if err != nil {
-		return
-	}
-
-	// Default config namespace is the function's namespace
-	if config.Namespace == "" {
-		config.Namespace = function.Namespace
-	}
-
-	// if registry was not changed via command line flag meaning it's empty
-	// keep the same registry by setting the config.registry to empty otherwise
-	// trust viper to override the env variable with the given flag if both are specified
-	if regFlag, _ := cmd.Flags().GetString("registry"); regFlag == "" {
-		config.Registry = ""
-	}
-
 	// Use the user-provided builder image, if supplied
 	if config.BuilderImage != "" {
-		function.BuilderImages[config.Builder] = config.BuilderImage
+		f.BuilderImages[config.Builder] = config.BuilderImage
 	}
 
-	client, done := newClient(ClientConfig{Namespace: config.Namespace, Verbose: config.Verbose},
+	client, done := newClient(ClientConfig{Namespace: f.Namespace, Verbose: config.Verbose},
 		fn.WithRegistry(config.Registry),
 		fn.WithBuilder(builder))
 	defer done()
+
+	// Default Client Registry, Function Registry or explicit Image required
+	if client.Registry() == "" && f.Registry == "" && f.Image == "" {
+		return ErrRegistryRequired
+	}
+
+	// NOTE: curently need to preemptively write out function state until
+	// the API is updated to use instances, at which point we will only
+	// write on success.
+	if err = f.Write(); err != nil {
+		return
+	}
 
 	switch currentBuildType {
 	case fn.BuildTypeLocal, "":
@@ -235,7 +216,7 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 			return err
 		}
 	case fn.BuildTypeGit:
-		git := function.Git
+		git := f.Git
 
 		if config.GitURL != "" {
 			git.URL = &config.GitURL
@@ -268,6 +249,28 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 	}
 
 	return client.Deploy(cmd.Context(), config.Path)
+}
+
+// ValidateBuilder ensures that the given builder is one that the CLI
+// knows how to instantiate, returning a builkder.ErrUnknownBuilder otherwise.
+func ValidateBuilder(name string) (err error) {
+	for _, known := range KnownBuilders() {
+		if name == known {
+			return
+		}
+	}
+	return builders.ErrUnknownBuilder{Name: name, Known: KnownBuilders()}
+}
+
+// KnownBuilders are a typed string slice of builder short names which this
+// CLI understands.  Includes a customized String() representation intended
+// for use in flags and help text.
+func KnownBuilders() builders.Known {
+	// The set of builders supported by this CLI will likely always equate to
+	// the set of builders enumerated in the builders pacakage.
+	// However, future third-party integrations may support less than, or more
+	// builders, and certain environmental considerations may alter this list.
+	return builders.All()
 }
 
 func newPromptForCredentials(in io.Reader, out, errOut io.Writer) func(registry string) (docker.Credentials, error) {
@@ -399,22 +402,8 @@ type deployConfig struct {
 	// (~/.kube/config) in the case of Kubernetes.
 	Namespace string
 
-	// Path of the function implementation on local disk. Defaults to current
-	// working directory of the process.
-	Path string
-
-	// Verbose logging.
-	Verbose bool
-
-	// Confirm: confirm values arrived upon from environment plus flags plus defaults,
-	// with interactive prompting (only applicable when attached to a TTY).
-	Confirm bool
-
 	// Build the associated function before deploying.
 	BuildType string
-
-	// Push function image to the registry before deploying.
-	Push bool
 
 	// Envs passed via cmd to be added/updated
 	EnvToUpdate *util.OrderedMap
@@ -450,11 +439,7 @@ func newDeployConfig(cmd *cobra.Command) (deployConfig, error) {
 	return deployConfig{
 		buildConfig: newBuildConfig(),
 		Namespace:   viper.GetString("namespace"),
-		Path:        getPathFlag(),
-		Verbose:     viper.GetBool("verbose"), // defined on root
-		Confirm:     viper.GetBool("confirm"),
 		BuildType:   buildType,
-		Push:        viper.GetBool("push"),
 		EnvToUpdate: envToUpdate,
 		EnvToRemove: envToRemove,
 		GitURL:      viper.GetString("git-url"),
@@ -473,51 +458,46 @@ func (c deployConfig) Prompt() (deployConfig, error) {
 
 	var qs = []*survey.Question{
 		{
-			Name: "registry",
-			Prompt: &survey.Input{
-				Message: "Registry for function images:",
-				Default: c.buildConfig.Registry,
-			},
-			Validate: survey.Required,
-		},
-		{
-			Name: "namespace",
-			Prompt: &survey.Input{
-				Message: "Namespace:",
-				Default: c.Namespace,
-			},
-		},
-		{
 			Name: "path",
 			Prompt: &survey.Input{
 				Message: "Project path:",
 				Default: c.Path,
 			},
-			Validate: survey.Required,
+		},
+		{
+			Name: "registry",
+			Prompt: &survey.Input{
+				Message: "Registry for function images:",
+				Default: c.Registry,
+			},
 		},
 	}
-	answers := struct {
-		Registry  string
-		Namespace string
-		Path      string
-	}{}
-	err := survey.Ask(qs, &answers)
-	if err != nil {
-		return deployConfig{}, err
+	if err := survey.Ask(qs, &c); err != nil {
+		return c, err
 	}
 
-	dc := deployConfig{
-		buildConfig: buildConfig{
-			Registry: answers.Registry,
+	// calculate imageName with potentially new registry/path
+	imageName := deriveImage(c.Image, c.Registry, c.Path)
+
+	qs = []*survey.Question{
+		{
+			Name: "image",
+			Prompt: &survey.Input{
+				Message: "Full image name (e.g. quay.io/boson/node-sample):",
+				Default: imageName,
+			},
 		},
-		Namespace: answers.Namespace,
-		Path:      answers.Path,
-		Verbose:   c.Verbose,
+		{
+			Name: "namespace",
+			Prompt: &survey.Input{
+				Message: "Namespace into which the function is (re)deployed",
+				Default: c.Namespace,
+			},
+		},
 	}
+	err := survey.Ask(qs, &c)
 
-	dc.Image = deriveImage(dc.Image, dc.Registry, dc.Path)
-
-	return dc, nil
+	return c, err
 }
 
 // ErrInvalidBuildType indicates that the passed build type was invalid.
@@ -563,20 +543,39 @@ func parseImageDigest(imageSplit []string, config deployConfig, cmd *cobra.Comma
 // checkNamespaceDeploy checks current namespace against func.yaml and warns if its different
 // or sets namespace to be written in func.yaml if its the first deployment
 func checkNamespaceDeploy(funcNamespace string, confNamespace string) (string, error) {
+	var namespace string
+	var err error
+
+	// Choose target namespace
+	if confNamespace != "" {
+		namespace = confNamespace // --namespace takes precidence
+	} else if funcNamespace != "" {
+		namespace = funcNamespace // value from previous deployment (func.yaml) 2nd priority
+	} else {
+		// Try to derive a default from the current k8s context, if any.
+		namespace, err = k8s.GetNamespace("")
+		if err != nil {
+			return "", nil // configured k8s environment not required
+		}
+	}
+
 	currNamespace, err := k8s.GetNamespace("")
-	if err != nil {
-		return funcNamespace, err
+	if err == nil && namespace != currNamespace {
+		fmt.Fprintf(os.Stderr, "Warning: Current namespace '%s' does not match function which is deployed at '%s' namespace\n", currNamespace, funcNamespace)
 	}
 
-	// If ns exists in func.yaml & NOT given via CLI (--namespace flag) & current ns does NOT match func.yaml ns
-	if funcNamespace != "" && confNamespace == "" && (currNamespace != funcNamespace) {
-		fmt.Fprintf(os.Stderr, "Warning: Current namespace '%s' does not match namespace '%s' in func.yaml. Function is deployed at '%s' namespace\n", currNamespace, funcNamespace, funcNamespace)
+	if funcNamespace != "" && namespace != funcNamespace {
+		fmt.Fprintf(os.Stderr, "Warning: New namespace '%s' does not match current namespace '%s'\n", namespace, funcNamespace)
 	}
 
-	// Add current namespace to func.yaml if it is NOT set yet & NOT given via --namespace.
-	if funcNamespace == "" {
-		funcNamespace = currNamespace
-	}
-
-	return funcNamespace, nil
+	return namespace, nil
 }
+
+var ErrRegistryRequired = errors.New(`A container registry is required.  For example:
+--registry docker.io/myusername
+
+For more advanced usage, it is also possible to specify the exact image to use. For example:
+
+--image docker.io/myusername/myfunc:latest
+
+To run the command in an interactive mode, use --confirm (-c)`)

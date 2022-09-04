@@ -70,9 +70,14 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 		return
 	}
 
+	// Load the Function, and if it exists (path initialized as a Function), merge
+	// in any env vars from the context and save.
 	function, err := fn.NewFunction(config.Path)
 	if err != nil {
 		return
+	}
+	if !function.Initialized() {
+		return fmt.Errorf("the given path '%v' does not contain an initialized function", config.Path)
 	}
 
 	var updated int
@@ -85,11 +90,6 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 		if err != nil {
 			return
 		}
-	}
-
-	// Check if the function has been initialized
-	if !function.Initialized() {
-		return fmt.Errorf("the given path '%v' does not contain an initialized function", config.Path)
 	}
 
 	// Client for use running (and potentially building), using the config

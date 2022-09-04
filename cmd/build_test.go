@@ -1,15 +1,11 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"testing"
 
-	"github.com/spf13/cobra"
 	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/builders"
 	"knative.dev/kn-plugin-func/mock"
 	. "knative.dev/kn-plugin-func/testing"
 )
@@ -50,79 +46,41 @@ func TestBuild_ImageFlag(t *testing.T) {
 	}
 }
 
-// TestBuild_InvalidRegistry ensures that running build specifying the name of the
-// registry explicitly as an argument invokes the registry validation code.
-func TestBuild_InvalidRegistry(t *testing.T) {
-	var (
-		args    = []string{"--registry", "foo/bar/foobar/boofar"} // provide an invalid registry name
-		builder = mock.NewBuilder()                               // with a mock builder
-	)
-
-	// Run this test in a temporary directory
-	defer Fromtemp(t)()
-	// Write a func.yaml config which does not specify an image
-	funcYaml := `name: testymctestface
-namespace: ""
-runtime: go
-image: ""
-imageDigest: ""
-builder: quay.io/boson/faas-go-builder
-builders:
-  default: quay.io/boson/faas-go-builder
-envs: []
-annotations: {}
-labels: []
-created: 2021-01-01T00:00:00+00:00
-`
-	if err := ioutil.WriteFile("func.yaml", []byte(funcYaml), 0600); err != nil {
-		t.Fatal(err)
-	}
-
-	// Create build command that will use a mock builder.
-	cmd := NewBuildCmd(NewClientFactory(func() *fn.Client {
-		return fn.New(fn.WithBuilder(builder))
-	}))
-
-	// Execute the command
-	cmd.SetArgs(args)
-	err := cmd.Execute()
-	if err == nil {
-		t.Fatal("Expected error")
-	}
+// TestBuild_RegistryOrImageRequired ensures that when no registry or image are
+// provided, and the client has not been instantiated with a default registry,
+// an ErrRegistryRequired is received.
+func TestBuild_RegistryOrImageRequired(t *testing.T) {
+	testRegistryOrImageRequired(NewBuildCmd, t)
 }
 
-// TestBuild_registryConfigurationInYaml tests that a build will execute successfully
-// when there is no registry provided on the command line, but one exists in func.yaml
-func TestBuild_registryConfigurationInYaml(t *testing.T) {
-	var (
-		builder = mock.NewBuilder() // with a mock builder
-	)
+// TestBuild_ImageAndRegistry
+func TestBuild_ImageAndRegistry(t *testing.T) {
+	testRegistryOrImageRequired(NewBuildCmd, t)
+}
 
-	// Run this test in a temporary directory
-	defer Fromtemp(t)()
-	// Write a func.yaml config which does not specify an image
-	// but does specify a registry
-	funcYaml := `name: registrytest
-namespace: ""
-runtime: go
-image: ""
-registry: quay.io/boson/foo
-created: 2021-01-01T00:00:00+00:00
-`
-	if err := ioutil.WriteFile("func.yaml", []byte(funcYaml), 0600); err != nil {
-		t.Fatal(err)
-	}
+// TestBuild_InvalidRegistry ensures that providing an invalid resitry
+// fails with the expected error.
+func TestBuild_InvalidRegistry(t *testing.T) {
+	testInvalidRegistry(NewBuildCmd, t)
+}
 
-	// Create build command that will use a mock builder.
-	cmd := NewBuildCmd(NewClientFactory(func() *fn.Client {
-		return fn.New(fn.WithBuilder(builder), fn.WithRegistry("quay.io/boson/foo"))
-	}))
+// TestBuild_RegistryLoads ensures that a function with a defined registry
+// will use this when recalculating .Image on build when no --image is
+// explicitly provided.
+func TestBuild_RegistryLoads(t *testing.T) {
+	testRegistryLoads(NewBuildCmd, t)
+}
 
-	// Execute the command
-	err := cmd.Execute()
-	if err != nil {
-		t.Fatal(err)
-	}
+// TestBuild_BuilderPersists ensures that the builder chosen is read from
+// the function by default, and is able to be overridden by flags/env vars.
+func TestBuild_BuilderPersists(t *testing.T) {
+	testBuilderPersists(NewBuildCmd, t)
+}
+
+// TestBuild_ValidateBuilder ensures that the validation function correctly
+// identifies valid and invalid builder short names.
+func TestBuild_BuilderValidated(t *testing.T) {
+	testBuilderValidated(NewBuildCmd, t)
 }
 
 func TestBuild_runBuild(t *testing.T) {
@@ -221,121 +179,5 @@ created: 2009-11-10 23:00:00`,
 				t.Errorf("Push execution expected: %v but was actually mockPusher invoked: %v failPusher invoked %v", tt.shouldPush, mockPusher.PushInvoked, failPusher.PushInvoked)
 			}
 		})
-	}
-}
-
-func testBuilderPersistence(t *testing.T, testRegistry string, cmdBuilder func(ClientFactory) *cobra.Command) {
-	//add this to work with all other tests in deploy_test.go
-	defer WithEnvVar(t, "KUBECONFIG", fmt.Sprintf("%s/testdata/kubeconfig_deploy_namespace", cwd()))()
-
-	root, rm := Mktemp(t)
-	defer rm()
-
-	client := fn.New(fn.WithRegistry(testRegistry))
-
-	f := fn.Function{Runtime: "go", Root: root, Name: "myfunc", Registry: testRegistry}
-
-	if err := client.New(context.Background(), f); err != nil {
-		t.Fatal(err)
-	}
-
-	cmd := cmdBuilder(NewClientFactory(func() *fn.Client {
-		return client
-	}))
-
-	cmd.SetArgs([]string{"--registry", testRegistry})
-	if err := cmd.Execute(); err != nil {
-		t.Fatal(err)
-	}
-
-	var err error
-	// Assert the function has persisted a value of builder (has a default)
-	if f, err = fn.NewFunction(root); err != nil {
-		t.Fatal(err)
-	}
-	if f.Builder == "" {
-		t.Fatal("value of builder not persisted using a flag default")
-	}
-
-	// Build the function, specifying a Builder
-	cmd.SetArgs([]string{"--builder=s2i"})
-	if err := cmd.Execute(); err != nil {
-		t.Fatal(err)
-	}
-	// Assert the function has persisted the value of builder
-	if f, err = fn.NewFunction(root); err != nil {
-		t.Fatal(err)
-	}
-	if f.Builder != builders.S2I {
-		t.Fatal("value of builder flag not persisted when provided")
-	}
-	// Build the function without specifying a Builder
-	cmd = cmdBuilder(NewClientFactory(func() *fn.Client {
-		return client
-	}))
-	cmd.SetArgs([]string{"--registry", testRegistry})
-
-	if err := cmd.Execute(); err != nil {
-		t.Fatal(err)
-	}
-
-	// Assert the function has retained its original value
-	if f, err = fn.NewFunction(root); err != nil {
-		t.Fatal(err)
-	}
-
-	if f.Builder != builders.S2I {
-		t.Fatal("value of builder updated when not provided")
-	}
-
-	// Build the function again using a different builder
-	cmd.SetArgs([]string{"--builder=pack"})
-	if err := cmd.Execute(); err != nil {
-		t.Fatal(err)
-	}
-
-	// Assert the function has persisted the new value
-	if f, err = fn.NewFunction(root); err != nil {
-		t.Fatal(err)
-	}
-	if f.Builder != builders.Pack {
-		t.Fatal("value of builder flag not persisted on subsequent build")
-	}
-
-	// Build the function, specifying a platform with "pack" Builder
-	cmd.SetArgs([]string{"--platform", "linux"})
-	if err := cmd.Execute(); err == nil {
-		t.Fatal("Expected error")
-	}
-
-	// Set an invalid builder
-	cmd.SetArgs([]string{"--builder", "invalid"})
-	if err := cmd.Execute(); err == nil {
-		t.Fatal("Expected error")
-	}
-}
-
-// TestBuild_BuilderPersistence ensures that the builder chosen is read from
-// the function by default, and is able to be overridden by flags/env vars.
-func TestBuild_BuilderPersistence(t *testing.T) {
-	testBuilderPersistence(t, "docker.io/tigerteam", NewBuildCmd)
-}
-
-// TestBuild_ValidateBuilder ensures that the validation function correctly
-// identifies valid and invalid builder short names.
-func Test_ValidateBuilder(t *testing.T) {
-	for _, name := range builders.All() {
-		if err := ValidateBuilder(name); err != nil {
-			t.Fatalf("expected builder '%v' to be valid, but got error: %v", name, err)
-		}
-	}
-
-	// This CLI creates no builders beyond those in the core reposiory.  Other
-	// users of the client library may provide their own named implementation of
-	// the fn.Builder interface. Those would have a different set of valid
-	// builders.
-
-	if err := ValidateBuilder("invalid"); err == nil {
-		t.Fatalf("did not get expected error validating an invalid builder name")
 	}
 }

@@ -365,10 +365,9 @@ func TestClient_New_RegistryRequired(t *testing.T) {
 	}
 }
 
-// TestClient_New_ImageNameDerived ensures that the full image (tag) of the resultant OCI
-// container is populated based of a derivation using configured registry
-// plus the service name.
-func TestClient_New_ImageNameDerived(t *testing.T) {
+// TestClient_New_ImageNamePopulated ensures that the full image (tag) of the
+// resultant OCI container is populated.
+func TestClient_New_ImageNamePopulated(t *testing.T) {
 	// Create the root function directory
 	root := "testdata/example.com/testDeriveImage"
 	defer Using(t, root)()
@@ -385,10 +384,16 @@ func TestClient_New_ImageNameDerived(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// In form: [Default Registry]/[Registry Namespace]/[Service Name]:latest
-	expected := TestRegistry + "/" + f.Name + ":latest"
-	if f.Image != expected {
-		t.Fatalf("expected image '%v' got '%v'", expected, f.Image)
+	// This opaque-box unit test ensures NewImageTag is invoked and applied.
+	// See the Test_NewImageTag clear-box unit test for an in-depth exploration of
+	// how the values of image and registry are treated to create, by default:
+	//   [Default Registry]/[Registry Namespace]/[Service Name]:latest
+	imageTag, err := f.ImageName()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Image != imageTag {
+		t.Fatalf("expected image '%v' got '%v'", imageTag, f.Image)
 	}
 }
 
@@ -680,6 +685,71 @@ func TestClient_Update(t *testing.T) {
 	}
 }
 
+// TestClient_Deploy_RegistryUpdate ensures that deploying a Function updates
+// its image member on initial deploy, and on subsequent deploys only
+// if reset to it zero value.
+func TestClient_Deploy_RegistryUpdate(t *testing.T) {
+	root, rm := Mktemp(t)
+	defer rm()
+	client := fn.New(fn.WithRegistry("example.com/alice"))
+
+	// New runs build and deploy, thus the initial instantiation should result in
+	// the member being populated from the client's registry and function name.
+	if err := client.New(context.Background(), fn.Function{Runtime: "go", Name: "f", Root: root}); err != nil {
+		t.Fatal(err)
+	}
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Image != "example.com/alice/f:latest" {
+		t.Error("image name was not initially set")
+	}
+
+	// Updating the registry and performing a subsequent update should not result
+	// in the image member being updated to the new value: registry is only used
+	// when calculating a nonexistent value
+	f.Registry = "example.com/bob"
+	if err := f.Write(); err != nil {
+		t.Fatal(err)
+	}
+	if err := client.Build(context.Background(), root); err != nil {
+		t.Fatal(err)
+	}
+	if err := client.Deploy(context.Background(), root); err != nil {
+		t.Fatal(err)
+	}
+	expected := "example.com/alice/f:latest"
+	f, err = fn.NewFunction(root) // reload and check
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Image != expected { // NOT changed to bob
+		t.Errorf("expected image name to stay '%v' and not be updated, but got '%v'", expected, f.Image)
+	}
+
+	// Reset the value of .Image to default "" and ensure this triggers recalc.
+	f.Image = ""
+	f.Registry = "example.com/bob"
+	if err := f.Write(); err != nil {
+		t.Fatal(err)
+	}
+	if err := client.Build(context.Background(), root); err != nil {
+		t.Fatal(err)
+	}
+	if err := client.Deploy(context.Background(), root); err != nil {
+		t.Fatal(err)
+	}
+	expected = "example.com/bob/f:latest"
+	f, err = fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Image != expected { // DOES change to bob
+		t.Errorf("expected image name to stay '%v' and not be updated, but got '%v'", expected, f.Image)
+	}
+}
+
 // TestClient_Remove_ByPath ensures that the remover is invoked to remove
 // the function with the name of the function at the provided root.
 func TestClient_Remove_ByPath(t *testing.T) {
@@ -903,6 +973,83 @@ func TestClient_List_OutsideRoot(t *testing.T) {
 
 	if !lister.ListInvoked {
 		t.Fatal("list did not invoke lister implementation")
+	}
+}
+
+// TestClient_Deploy_Image ensures that initilally the function's image
+// member has no value (not initially deployed); the value is populated
+// upon deployment with a value derived from the function's name and currently
+// effective client registry; that the value of f.Image will take precidence
+// over .Registry, which is used to calculate a default value for image.
+func TestClient_Deploy_Image(t *testing.T) {
+	root, rm := Mktemp(t)
+	defer rm()
+
+	client := fn.New(
+		fn.WithBuilder(mock.NewBuilder()),
+		fn.WithDeployer(mock.NewDeployer()),
+		fn.WithRegistry("example.com/alice"))
+
+	err := client.Create(fn.Function{Name: "myfunc", Runtime: "go", Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Upon initial creation, the value of .Image is empty
+	if f.Image != "" {
+		t.Fatalf("new function should have no image, got '%v'", f.Image)
+	}
+
+	// Upon deployment, the function should be populated;
+	if err = client.Build(context.Background(), root); err != nil {
+		t.Fatal(err)
+	}
+	if err = client.Deploy(context.Background(), root); err != nil {
+		t.Fatal(err)
+	}
+	f, err = fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := "example.com/alice/myfunc:latest"
+	if f.Image != expected {
+		t.Fatalf("expected image '%v', got '%v'", expected, f.Image)
+	}
+	expected = "example.com/alice"
+	if f.Registry != "example.com/alice" {
+		t.Fatalf("expected registry '%v', got '%v'", expected, f.Registry)
+	}
+
+	// The value of .Image always takes precidence
+	f.Image = "registry2.example.com/bob/myfunc:latest"
+	if err = f.Write(); err != nil {
+		t.Fatal(err)
+	}
+	if err = client.Build(context.Background(), root); err != nil {
+		t.Fatal(err)
+	}
+	if err = client.Deploy(context.Background(), root); err != nil {
+		t.Fatal(err)
+	}
+	expected = "registry2.example.com/bob/myfunc:latest"
+	if f.Image != expected {
+		t.Fatalf("expected image '%v', got '%v'", expected, f.Image)
+	}
+	expected = "example.com/alice"
+	if f.Registry != "example.com/alice" {
+		// Note that according to current logic, the function's defined registry
+		// may be inaccurate.  Consider an initial deploy to registryA, followed by
+		// an explicit mutaiton of the function's .Image member.
+		// This could either remain as a documented nuance:
+		//   'The value of f.Registry is only used in the event an image name
+		//    need be derived (f.Image =="")
+		// Or we could update .Registry to always be in sync by parsing the .Image
+		t.Fatalf("expected registry '%v', got '%v'", expected, f.Registry)
 	}
 }
 
