@@ -31,12 +31,14 @@ DESCRIPTION
 	  --------     --------
 	  go           cloudevents
 	  go           http
+	  go           lkingland/e2e
 	  node         cloudevents
 	  node         http
 	  python       cloudevents
 	  python       http
 	  quarkus      cloudevents
 	  quarkus      http
+	  runtime      lkingland/template
 	  rust         cloudevents
 	  rust         http
 	  springboot   cloudevents

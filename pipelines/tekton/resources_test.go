@@ -13,7 +13,7 @@ import (
 func Test_generatePipeline(t *testing.T) {
 	testGitRepo := "http://git-repo/git.git"
 	testGit := fn.Git{
-		URL: &testGitRepo,
+		URL: testGitRepo,
 	}
 
 	tests := []struct {

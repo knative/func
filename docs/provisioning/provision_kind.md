@@ -6,7 +6,7 @@ This guide walks through the process of configuring a kind cluster to run Functi
 * kind   v0.8.1 - [Install Kind](https://kind.sigs.k8s.io/docs/user/quick-start/#installation)
 * Kubectl v1.17.3 - [Install kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl) 
 
-Follow either the Local Access configuraiton step or the (optional) more lengthy remote configuration section.
+Follow either the Local Access configuration step or the (optional) more lengthy remote configuration section.
 
 ## Configuring for local access
 
@@ -108,7 +108,7 @@ The nodes should now be able to ping each other using their wireguard-protected 
 ```
 wg show
 ```
-For OS X hosts, skip the aforementioned systemd configuraiton, and instead install the Wireguard app from the App store, and then import the following configuration file.
+For OS X hosts, skip the aforementioned systemd configuration, and instead install the Wireguard app from the App store, and then import the following configuration file.
 ```
 [Interface]
 Address=10.10.10.2/32

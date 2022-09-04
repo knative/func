@@ -74,9 +74,9 @@ func runList(cmd *cobra.Command, _ []string, newClient ClientFactory) (err error
 		// prints bo only on --verbose.  Possible future tweak, as I don't want to
 		// make functional changes during a refactor.
 		if config.Namespace != "" && !config.AllNamespaces {
-			fmt.Printf("No functions found in '%v' namespace\n", config.Namespace)
+			fmt.Printf("no functions found in namespace '%v'\n", config.Namespace)
 		} else {
-			fmt.Println("No functions found")
+			fmt.Println("no functions found")
 		}
 		return
 	}

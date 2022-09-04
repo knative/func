@@ -70,8 +70,6 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 		return
 	}
 
-	// Load the Function, and if it exists (path initialized as a Function), merge
-	// in any env vars from the context and save.
 	function, err := fn.NewFunction(config.Path)
 	if err != nil {
 		return
@@ -79,7 +77,6 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 	if !function.Initialized() {
 		return fmt.Errorf("the given path '%v' does not contain an initialized function", config.Path)
 	}
-
 	var updated int
 	function.Envs, updated, err = mergeEnvs(function.Envs, config.EnvToUpdate, config.EnvToRemove)
 	if err != nil {
@@ -108,20 +105,20 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 				return
 			}
 		}
-		fmt.Println("Detected function was already built.  Use --build to override this behavior.")
+		fmt.Println("Function already built.  Use --build to force a rebuild.")
 		// Otherwise, --build should parse to a truthy value which indicates an explicit
 		// override.
 	} else {
 		build, err := strconv.ParseBool(config.Build)
 		if err != nil {
-			return fmt.Errorf("invalid value for --build '%v'.  accepts 'auto', 'true' or 'false' (or similarly truthy value)", build)
+			return fmt.Errorf("unrecognized value for --build '%v'.  accepts 'auto', 'true' or 'false' (or similarly truthy value)", build)
 		}
 		if build {
 			if err = client.Build(cmd.Context(), config.Path); err != nil {
 				return err
 			}
 		} else {
-			fmt.Println("Function build disabled.  Skipping build.")
+			fmt.Println("Function build disabled.")
 		}
 
 	}

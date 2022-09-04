@@ -130,12 +130,14 @@ func CompleteBuilderImageList(cmd *cobra.Command, args []string, complete string
 	return
 }
 
-func CompleteDeployBuildType(cmd *cobra.Command, args []string, complete string) (buildTypes []string, directive cobra.ShellCompDirective) {
-	buildTypes = fn.AllBuildTypes()
-	directive = cobra.ShellCompDirectiveDefault
-	return
-}
-
-func CompleteBuildersList(cmd *cobra.Command, args []string, complete string) ([]string, cobra.ShellCompDirective) {
-	return builders.All(), cobra.ShellCompDirectiveNoFileComp
+func CompleteBuilderList(cmd *cobra.Command, args []string, complete string) ([]string, cobra.ShellCompDirective) {
+	if len(complete) >= 1 {
+		if strings.HasPrefix(builders.Pack, complete) {
+			return []string{builders.Pack}, cobra.ShellCompDirectiveNoFileComp
+		}
+		if strings.HasPrefix(builders.S2I, complete) {
+			return []string{builders.S2I}, cobra.ShellCompDirectiveNoFileComp
+		}
+	}
+	return []string{builders.Pack, builders.S2I}, cobra.ShellCompDirectiveNoFileComp
 }

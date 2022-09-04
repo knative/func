@@ -580,7 +580,7 @@ func TestClient_Run_DataDir(t *testing.T) {
 	t.Errorf(".gitignore does not include '/%v' ignore directive", fn.RunDataDir)
 }
 
-// TestClient_Update ensures that the deployer properly invokes the build/push/deploy
+// TestClient_Update ensures that updating invokes the build/push/deploy
 // process, erroring if run on a directory uncreated.
 func TestClient_Update(t *testing.T) {
 	var (
@@ -749,6 +749,33 @@ func TestClient_Deploy_RegistryUpdate(t *testing.T) {
 	}
 	if f.Image != expected { // DOES change to bob
 		t.Errorf("expected image name to stay '%v' and not be updated, but got '%v'", expected, f.Image)
+
+	}
+}
+
+// TestClient_Deploy_UnbuiltErrors ensures that a call to deploy a Function which was not
+// fully created (ie. was only initialized, not actually built and deploys)
+// yields an expected, and informative, error.
+func TestClient_Deploy_UnbuiltErrors(t *testing.T) {
+	root := "testdata/example.com/testDeployUnbuilt" // Root from which to run the test
+	defer Using(t, root)()
+
+	// New Client
+	client := fn.New(fn.WithRegistry(TestRegistry))
+
+	// Initialize (half-create) a new Function at root
+	if err := client.Create(fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Now try to deploy it.  Ie. without having run the necessary build step.
+	err := client.Deploy(context.Background(), root)
+	if err == nil {
+		t.Fatal("did not receive an error attempting to deploy an unbuilt Function")
+	}
+
+	if !errors.Is(err, fn.ErrNotBuilt) {
+		t.Fatalf("did not receive expected error type.  Expected ErrNotBuilt, got %T", err)
 	}
 }
 
@@ -1068,9 +1095,8 @@ func TestClient_Pipelines_Deploy_Image(t *testing.T) {
 		fn.WithPipelinesProvider(mock.NewPipelinesProvider()),
 		fn.WithRegistry("example.com/alice"))
 
-	repoUrl := "http://example-git.com/alice/myfunc.gi"
 	git := fn.Git{
-		URL: &repoUrl,
+		URL: "http://example-git.com/alice/myfunc.gi",
 	}
 
 	err := client.Create(fn.Function{Name: "myfunc", Runtime: "node", Root: root})
@@ -1089,7 +1115,7 @@ func TestClient_Pipelines_Deploy_Image(t *testing.T) {
 	}
 
 	// Upon pipeline run, the function should be populated;
-	if err = client.RunPipeline(context.Background(), root, git); err != nil {
+	if err = client.RunPipeline(context.Background(), f, git); err != nil {
 		t.Fatal(err)
 	}
 	f, err = fn.NewFunction(root)
@@ -1111,7 +1137,7 @@ func TestClient_Pipelines_Deploy_Image(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Upon pipeline run, the function should be populated;
-	if err = client.RunPipeline(context.Background(), root, git); err != nil {
+	if err = client.RunPipeline(context.Background(), f, git); err != nil {
 		t.Fatal(err)
 	}
 	expected = "registry2.example.com/bob/myfunc:latest"
@@ -1128,32 +1154,6 @@ func TestClient_Pipelines_Deploy_Image(t *testing.T) {
 		//    need be derived (f.Image =="")
 		// Or we could update .Registry to always be in sync by parsing the .Image
 		t.Fatalf("expected registry '%v', got '%v'", expected, f.Registry)
-	}
-}
-
-// TestClient_Deploy_UnbuiltErrors ensures that a call to deploy a function which was not
-// fully created (ie. was only initialized, not actually built and deploys)
-// yields an expected, and informative, error.
-func TestClient_Deploy_UnbuiltErrors(t *testing.T) {
-	root := "testdata/example.com/testDeployUnbuilt" // Root from which to run the test
-	defer Using(t, root)()
-
-	// New Client
-	client := fn.New(fn.WithRegistry(TestRegistry))
-
-	// Initialize (half-create) a new function at root
-	if err := client.Create(fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
-		t.Fatal(err)
-	}
-
-	// Now try to deploy it.  Ie. without having run the necessary build step.
-	err := client.Deploy(context.Background(), root)
-	if err == nil {
-		t.Fatal("did not receive an error attempting to deploy an unbuilt function")
-	}
-
-	if !errors.Is(err, fn.ErrNotBuilt) {
-		t.Fatalf("did not receive expected error type.  Expected ErrNotBuilt, got %T", err)
 	}
 }
 
