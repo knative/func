@@ -33,13 +33,13 @@ func Update(t *testing.T, knFunc *TestShellCmdRunner, project *FunctionTestProje
 		t.Fatal("an error has occurred while updating project folder with new sources.", err.Error())
 	}
 
-	previousRevision := GetCurrentServiceRevision(t, project)
+	previousRevision := GetCurrentServiceRevision(t, project.FunctionName)
 
 	// Redeploy function
 	Deploy(t, knFunc, project)
 
 	// Waits New Revision to become ready
-	NewRevisionCheck(t, previousRevision, project)
+	NewRevisionCheck(t, previousRevision, project.FunctionName)
 
 	// Indicates new project (from update templates) is in use
 	project.IsNewRevision = true

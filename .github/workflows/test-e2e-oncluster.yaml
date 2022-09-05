@@ -1,0 +1,29 @@
+name: Func E2E OnCluster Test
+
+on: [pull_request]
+
+jobs:
+  test:
+    name: On Cluster Test
+    strategy:
+      matrix:
+        go: [1.17.x]
+        os: ["ubuntu-latest"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: ${{ matrix.go }}
+      - name: Install Binaries
+        run: ./hack/binaries.sh
+      - name: Allocate Cluster
+        run: ./hack/allocate.sh
+      - name: Deploy Tekton
+        run: ./hack/tekton.sh
+      - name: Deploy Test Git Server
+        run: ./test/gitserver.sh
+      - name: E2E On Cluster Test
+        env:
+          E2E_RUNTIMES: ""
+        run: make && make test-e2e-on-cluster

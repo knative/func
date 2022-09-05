@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+#
+# Install Tekton and required tasks in the cluster
+#
+
+set -o errexit
+set -o nounset
+set -o pipefail
+
+export TERM="${TERM:-dumb}"
+
+tekton_release="previous/v0.38.3"
+git_clone_release="0.4"
+source_path="https://raw.githubusercontent.com/knative-sandbox/kn-plugin-func/main"
+namespace="${NAMESPACE:-default}"
+
+tekton() {
+  echo "Installing Tekton..."
+  kubectl apply -f https://storage.googleapis.com/tekton-releases/pipeline/${tekton_release}/release.yaml
+  sleep 10
+  kubectl wait pod --for=condition=Ready --timeout=180s -n tekton-pipelines -l "app=tekton-pipelines-controller"
+
+  kubectl create clusterrolebinding ${namespace}:knative-serving-namespaced-admin \
+  --clusterrole=knative-serving-namespaced-admin  --serviceaccount=${namespace}:default
+}
+
+tekton_tasks() {
+  echo "Creating Pipeline tasks..."
+  kubectl apply -f https://raw.githubusercontent.com/tektoncd/catalog/master/task/git-clone/${git_clone_release}/git-clone.yaml
+  kubectl apply -f ${source_path}/pipelines/resources/tekton/task/func-buildpacks/0.1/func-buildpacks.yaml
+  kubectl apply -f ${source_path}/pipelines/resources/tekton/task/func-deploy/0.1/func-deploy.yaml
+}
+
+tekton
+tekton_tasks
+
+echo Done
