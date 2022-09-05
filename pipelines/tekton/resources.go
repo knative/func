@@ -134,6 +134,10 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 			envs = append(envs, e.KeyValuePair())
 		}
 		buildEnvs.ArrayVal = envs
+	} else {
+		// need to hack empty BuildEnvs array on Tekton v0.39.0+
+		// until https://github.com/tektoncd/pipeline/issues/5149 is resolved and released
+		buildEnvs.ArrayVal = append(buildEnvs.ArrayVal, "=")
 	}
 
 	params := []pplnv1beta1.Param{
