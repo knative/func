@@ -728,6 +728,7 @@ func (c *Client) Deploy(ctx context.Context, path string) (err error) {
 }
 
 // RunPipeline runs a Pipeline to Build and deploy the function at path.
+// In a parameter accepts git configuration options that we don't want to persist into func.yaml.
 func (c *Client) RunPipeline(ctx context.Context, path string, git Git) (err error) {
 	go func() {
 		<-ctx.Done()
@@ -739,6 +740,29 @@ func (c *Client) RunPipeline(ctx context.Context, path string, git Git) (err err
 		err = fmt.Errorf("failed to laod function: %w", err)
 		return
 	}
+
+	// Default function registry to the client's global registry
+	if f.Registry == "" {
+		f.Registry = c.registry
+	}
+
+	// If no image name has been yet defined (not yet built/deployed), calculate.
+	// Image name is stored on the function for later use by deploy, etc.
+	// TODO: write this to .func/build instead, and populate f.Image on deploy
+	// such that local builds do not dirty the work tree.
+	if f.Image == "" {
+		if f.Image, err = f.ImageName(); err != nil {
+			return
+		}
+		//Write (save) - Serialize the function to disk
+		//Will now contain populated image name.
+		if err = f.Write(); err != nil {
+			return
+		}
+	}
+
+	// Git configuration options specified as arguments don't get saved to func.yaml,
+	// but are used in the pipeline invocation
 	f.Git = git
 
 	// Build and deploy function using Pipeline
@@ -880,7 +904,9 @@ func (c *Client) Remove(ctx context.Context, cfg Function, deleteAll bool) error
 // instance is preferred, with the remote function triggered if there is no
 // locally running instance.
 // Example:
-//  myClient.Invoke(myContext, myFunction, "local", NewInvokeMessage())
+//
+//	myClient.Invoke(myContext, myFunction, "local", NewInvokeMessage())
+//
 // The message sent to the function is defined by the invoke message.
 // See NewInvokeMessage for its defaults.
 // Functions are invoked in a manner consistent with the settings defined in

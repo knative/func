@@ -121,7 +121,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 
 	registry, err := docker.GetRegistry(f.Image)
 	if err != nil {
-		return err
+		return fmt.Errorf("problem in resolving image registry name: %v", err)
 	}
 
 	pp.progressListener.Stopping()
