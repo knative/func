@@ -348,8 +348,10 @@ func TestClient_New_Named(t *testing.T) {
 // Registry is the namespace at the container image registry.
 // If not prepended with the registry, it will be defaulted:
 // Examples:  "docker.io/alice"
-//            "quay.io/bob"
-//            "charlie" (becomes [DefaultRegistry]/charlie
+//
+//	"quay.io/bob"
+//	"charlie" (becomes [DefaultRegistry]/charlie
+//
 // At this time a registry namespace is required as we rely on a third-party
 // registry in all cases.  When we support in-cluster container registries,
 // this configuration parameter will become optional.
@@ -976,7 +978,7 @@ func TestClient_List_OutsideRoot(t *testing.T) {
 	}
 }
 
-// TestClient_Deploy_Image ensures that initilally the function's image
+// TestClient_Deploy_Image ensures that initially the function's image
 // member has no value (not initially deployed); the value is populated
 // upon deployment with a value derived from the function's name and currently
 // effective client registry; that the value of f.Image will take precidence
@@ -1034,6 +1036,82 @@ func TestClient_Deploy_Image(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err = client.Deploy(context.Background(), root); err != nil {
+		t.Fatal(err)
+	}
+	expected = "registry2.example.com/bob/myfunc:latest"
+	if f.Image != expected {
+		t.Fatalf("expected image '%v', got '%v'", expected, f.Image)
+	}
+	expected = "example.com/alice"
+	if f.Registry != "example.com/alice" {
+		// Note that according to current logic, the function's defined registry
+		// may be inaccurate.  Consider an initial deploy to registryA, followed by
+		// an explicit mutaiton of the function's .Image member.
+		// This could either remain as a documented nuance:
+		//   'The value of f.Registry is only used in the event an image name
+		//    need be derived (f.Image =="")
+		// Or we could update .Registry to always be in sync by parsing the .Image
+		t.Fatalf("expected registry '%v', got '%v'", expected, f.Registry)
+	}
+}
+
+// TestClient_Pipelines_Deploy_Image ensures that initially the function's image
+// member has no value (not initially deployed); the value is populated
+// upon pipeline run execution with a value derived from the function's name and currently
+// effective client registry; that the value of f.Image will take precidence
+// over .Registry, which is used to calculate a default value for image.
+func TestClient_Pipelines_Deploy_Image(t *testing.T) {
+	root, rm := Mktemp(t)
+	defer rm()
+
+	client := fn.New(
+		fn.WithPipelinesProvider(mock.NewPipelinesProvider()),
+		fn.WithRegistry("example.com/alice"))
+
+	repoUrl := "http://example-git.com/alice/myfunc.gi"
+	git := fn.Git{
+		URL: &repoUrl,
+	}
+
+	err := client.Create(fn.Function{Name: "myfunc", Runtime: "node", Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Upon initial creation, the value of .Image is empty
+	if f.Image != "" {
+		t.Fatalf("new function should have no image, got '%v'", f.Image)
+	}
+
+	// Upon pipeline run, the function should be populated;
+	if err = client.RunPipeline(context.Background(), root, git); err != nil {
+		t.Fatal(err)
+	}
+	f, err = fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := "example.com/alice/myfunc:latest"
+	if f.Image != expected {
+		t.Fatalf("expected image '%v', got '%v'", expected, f.Image)
+	}
+	expected = "example.com/alice"
+	if f.Registry != "example.com/alice" {
+		t.Fatalf("expected registry '%v', got '%v'", expected, f.Registry)
+	}
+
+	// The value of .Image always takes precidence
+	f.Image = "registry2.example.com/bob/myfunc:latest"
+	if err = f.Write(); err != nil {
+		t.Fatal(err)
+	}
+	// Upon pipeline run, the function should be populated;
+	if err = client.RunPipeline(context.Background(), root, git); err != nil {
 		t.Fatal(err)
 	}
 	expected = "registry2.example.com/bob/myfunc:latest"
