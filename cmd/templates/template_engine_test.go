@@ -100,18 +100,6 @@ func TestHelpFunc(t *testing.T) {
 	}
 }
 
-func TestOptionsFunc(t *testing.T) {
-	rootCmd, _ := newTestTemplateEngine()
-	subCmd := rootCmd.Commands()[0]
-	capture := test.CaptureOutput(t)
-	err := NewGlobalOptionsFunc()(subCmd)
-	assert.NilError(t, err)
-	stdOut, stdErr := capture.Close()
-
-	assert.Equal(t, stdErr, "")
-	assert.Assert(t, util.ContainsAll(stdOut, "options", "any command", "--global-opt", "global option"))
-}
-
 func TestUsageFlags(t *testing.T) {
 	f := flag.NewFlagSet("test", flag.ContinueOnError)
 	f.StringP("test", "t", "default", "test-option")
@@ -137,13 +125,12 @@ func validateRootUsageOutput(t *testing.T, stdOut string) {
 	assert.Assert(t, util.ContainsAll(stdOut, "header-1", "g1.1", "desc-g1.1", "g1.2", "desc-g1.2"))
 	assert.Assert(t, util.ContainsAll(stdOut, "header-2", "g2.1", "desc-g2.1", "g2.2", "desc-g2.2", "g2.3", "desc-g2.3"))
 	assert.Assert(t, util.ContainsAll(stdOut, "Use", "root", "--help"))
-	assert.Assert(t, util.ContainsAll(stdOut, "Use", "root", "[command]", "global"))
+	assert.Assert(t, util.ContainsAll(stdOut, "Use", "root", "[command]"))
 }
 
 func validateSubUsageOutput(t *testing.T, stdOut string, cmd *cobra.Command) {
 	assert.Assert(t, util.ContainsAll(stdOut, "Usage", cmd.CommandPath()+" [flags]"))
 	assert.Assert(t, util.ContainsAll(stdOut, "Flags", "--local-opt", "local option"))
-	assert.Assert(t, util.ContainsAll(stdOut, "Use", "root", "options", "global"))
 	assert.Assert(t, util.ContainsAll(stdOut, "Aliases", "alias"))
 }
 

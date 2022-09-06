@@ -45,7 +45,7 @@ EXAMPLES
 	  request.
 	  $ {{.Use}} invoke
 
-	For more examples, see '{{.Use}} <command> --help'.
+	For more examples, see '{{.Use}} [command] --help'.
 
 {{end}}`
 
@@ -83,12 +83,15 @@ EXAMPLES
 
 {{end}}`
 
-	// sectionTipsHelp is the help template section that displays the '--help' hint.
-	sectionTipsHelp = `{{if .HasSubCommands}}Use "{{rootCmdName}} <command> --help" for more information about a given command.
+	// sectionGlobalFlags is the help template section that displays inherited flags.
+	sectionGlobalFlags = `{{if .HasInheritedFlags}}Global Flags:
+{{trimRight (flagsUsages .InheritedFlags)}}
+
 {{end}}`
 
-	// sectionTipsGlobalOptions is the help template section that displays the 'options' hint for displaying global flags.
-	sectionTipsGlobalOptions = `Use "{{rootCmdName}} options" for a list of global command-line options (applies to all commands).`
+	// sectionTipsHelp is the help template section that displays the '--help' hint.
+	sectionTipsHelp = `{{if .HasSubCommands}}Use "{{rootCmdName}} [command] --help" for more information about a given command.
+{{end}}`
 )
 
 // usageTemplate if the template for 'usage' used by most commands.
@@ -101,8 +104,8 @@ func usageTemplate() string {
 		sectionCommandGroups,
 		sectionSubCommands,
 		sectionFlags,
+		sectionGlobalFlags,
 		sectionTipsHelp,
-		sectionTipsGlobalOptions,
 	}
 	return strings.TrimRightFunc(strings.Join(sections, ""), unicode.IsSpace) + "\n"
 }
@@ -110,11 +113,4 @@ func usageTemplate() string {
 // helpTemplate is the template for 'help' used by most commands.
 func helpTemplate() string {
 	return `{{with or .Long .Short }}{{. | trim}}{{end}}{{if or .Runnable .HasSubCommands}}{{.UsageString}}{{end}}`
-}
-
-// optionsTemplate is the template used by "kn options"
-func optionsTemplate() string {
-	return `{{if .HasInheritedFlags}}The following options can be passed to any command:
-
-{{flagsUsages .InheritedFlags}}{{end}}`
 }

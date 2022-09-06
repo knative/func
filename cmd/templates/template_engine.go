@@ -33,11 +33,6 @@ type templateEngine struct {
 	functions template.FuncMap
 }
 
-// Get the function to show the global options
-func NewGlobalOptionsFunc() func(command *cobra.Command) error {
-	return newTemplateEngine(nil, nil, nil).optionsFunc()
-}
-
 // Create new template engine
 func newTemplateEngine(rootCmd *cobra.Command, g CommandGroups, extraFunctions *template.FuncMap) templateEngine {
 	engine := templateEngine{
@@ -65,12 +60,6 @@ func (e templateEngine) helpFunc() func(*cobra.Command, []string) {
 		if err != nil {
 			c.Println(err)
 		}
-	}
-}
-
-func (e templateEngine) optionsFunc() func(command *cobra.Command) error {
-	return func(c *cobra.Command) error {
-		return e.fillTemplate("options", c, optionsTemplate())
 	}
 }
 
