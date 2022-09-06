@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	socatImage = "quay.io/boson/alpine-socat:1.7.4.3-r"
+	socatImage = "quay.io/boson/alpine-socat:1.7.4.3-r1-non-root"
 )
 
 // NewInClusterDialer creates context dialer that will dial TCP connections via POD running in k8s cluster.
@@ -102,6 +102,7 @@ func (c *contextDialer) startDialerPod(ctx context.Context) (err error) {
 	if err != nil {
 		return
 	}
+	c.restConf.WarningHandler = restclient.NoWarnings{}
 
 	err = setConfigDefaults(c.restConf)
 	if err != nil {
@@ -129,6 +130,7 @@ func (c *contextDialer) startDialerPod(ctx context.Context) (err error) {
 		}
 	}()
 
+	runAsNonRoot := true
 	pod := &coreV1.Pod{
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:        c.podName,
@@ -143,6 +145,12 @@ func (c *contextDialer) startDialerPod(ctx context.Context) (err error) {
 					Stdin:     true,
 					StdinOnce: true,
 					Args:      []string{"-u", "-", "OPEN:/dev/null,append"},
+					SecurityContext: &coreV1.SecurityContext{
+						Privileged:               new(bool),
+						AllowPrivilegeEscalation: new(bool),
+						RunAsNonRoot:             &runAsNonRoot,
+						Capabilities:             &coreV1.Capabilities{Drop: []coreV1.Capability{"ALL"}},
+					},
 				},
 			},
 			DNSPolicy:     coreV1.DNSClusterFirst,
