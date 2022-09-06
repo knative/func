@@ -59,7 +59,7 @@ func TestInvoke(t *testing.T) {
 
 	run(t, bin, prefix, "create", "--language=go", "--template=cloudevents", cwd)
 	set(t, "handle.go", TestInvokeFunctionImpl)
-	run(t, bin, prefix, "deploy", "--registry", GetRegistry())
+	run(t, bin, prefix, "deploy", "--builder=pack", "--registry", GetRegistry())
 	infoOut := run(t, bin, prefix, "info", "--output", "plain")
 	run(t, bin, prefix, "invoke", "--verbose=true", "--content-type=text/plain", "--source=func:set", "--data=TEST")
 
