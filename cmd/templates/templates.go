@@ -50,7 +50,7 @@ EXAMPLES
 {{end}}`
 
 	// sectionUsage is the help template section that displays the command's usage.
-	sectionUsage = `{{if and .Runnable (ne .UseLine "") (not (isRootCmd .))}}Usage:
+	sectionUsage = `{{if (ne .UseLine "")}}Usage:
   {{useLine .}}
 
 {{end}}`
@@ -78,7 +78,7 @@ EXAMPLES
 {{end}}`
 
 	// sectionFlags is the help template section that displays the command's flags.
-	sectionFlags = `{{$visibleFlags := visibleFlags .}}{{ if $visibleFlags.HasFlags}}Options:
+	sectionFlags = `{{$visibleFlags := visibleFlags .}}{{ if $visibleFlags.HasFlags}}Flags:
 {{trimRight (flagsUsages $visibleFlags)}}
 
 {{end}}`

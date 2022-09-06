@@ -140,17 +140,19 @@ func visibleFlags(c *cobra.Command) *flag.FlagSet {
 }
 
 func useLine(c *cobra.Command) string {
-	var useline string
+	var useLine string
+	var suffix string
 	if c.HasParent() {
-		useline = c.Parent().CommandPath() + " " + c.Use
+		useLine = c.Parent().CommandPath() + " " + c.Use
+		suffix = "[flags]"
 	} else {
-		useline = c.Use
+		useLine = c.Use
+		suffix = "[command]"
 	}
-	suffix := "[options]"
-	if c.HasFlags() && !strings.Contains(useline, suffix) {
-		useline += " " + suffix
+	if c.HasFlags() && !strings.Contains(useLine, suffix) {
+		useLine += " " + suffix
 	}
-	return useline
+	return useLine
 }
 
 func formatCommandGroup(cmdGroup CommandGroup) string {
