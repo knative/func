@@ -128,14 +128,16 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 	if !f.Initialized() {
 		return fmt.Errorf("'%v' does not contain an initialized function", config.Path)
 	}
-	if config.Registry != "" {
+	if f.Registry == "" || cmd.Flags().Changed("registry") {
+		// Sets default AND accepts any user-provided overrides
 		f.Registry = config.Registry
+	}
+	if f.Builder == "" || cmd.Flags().Changed("builder") {
+		// Sets default AND accepts any user-provided overrides
+		f.Builder = config.Builder
 	}
 	if config.Image != "" {
 		f.Image = config.Image
-	}
-	if config.Builder != "" {
-		f.Builder = config.Builder
 	}
 
 	f.Namespace, err = checkNamespaceDeploy(f.Namespace, config.Namespace)
