@@ -122,7 +122,7 @@ for more information.
 #### Example
 ```python
 def main(context: Context):
-    data = { "message": "Howdy!" }
+    body = { "message": "Howdy!" }
     headers = { "content-type": "application/json" }
     return body, 200, headers
 ```
