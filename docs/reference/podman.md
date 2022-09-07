@@ -1,11 +1,13 @@
 # Podman
 
-Under Linux, it is possible to use [podman](https://podman.io/) instead of [docker](https://www.docker.com/). With Functions, you'll need `podman` version `v3.3` or better for this to work properly.
+It is possible to use [podman](https://podman.io/) instead of [docker](https://www.docker.com/). With Functions, you'll need `podman` version `v3.3` or better for this to work properly.
+
+## Linux
 
 For `func` version `v0.20.0` and later on Linux no further setup is needed,
 `func` should use `podman` automatically.
 
-For older versions or if you use Windows or macOS some setup is required:
+For older versions some setup is required:
 
 In order to do this you need to run `podman` as a service. You can do this with the following command.
 ```
@@ -20,19 +22,25 @@ Then set the environment variable `DOCKER_HOST` to the socket so `func` knows wh
 ```
 Now you may use `func` as usual.
 
-## macOS
+## macOS and Windows
 
-Under macOS you need to use `podman machine` as `podman` is native to Linux.
+For macOS and Windows we recommend [Podman Desktop](https://podman-desktop.io/).
 
+The docs will guide you trough `podman machine` setup.
+The `podman machine start` command it will output path to API socket.
+
+Example output:
 ```
-❯ brew install podman
-❯ podman machine init --cpus=2 --disk-size=30 --memory=8192
-❯ podman machine start
-❯ ssh-add -k $HOME/.ssh/podman-machine-default
-❯ export DOCKER_HOST=$(podman system connection ls --format="{{.URI}}" | grep root)
-```
+You can still connect Docker API clients by setting DOCKER_HOST using the
+following command in your terminal session:
 
-### Remote connections
+	export DOCKER_HOST='unix:///Users/jdoe/.local/share/containers/podman/machine/podman-machine-default/podman.sock'
+```
+It's required to export the DOCKER_HOST environment variable in shell where `func` is used.
+
+*Tip*: Put the export to your shell rc file (e.g. `~/.bashrc`).
+
+## Remote connections
 
 You may also connect to a remote `podman` running on a remote Linux server. Follow the instructions above for running `podman` as a service on a Linux server. You will connect to this via SSH when `func` builds a project. In addition to having `podman` on the remote Linux server, you will also need to run the SSH daemon. Installing, configuring and running SSH is outside of the scope of this project. Please work with a system administrator to ensure that this prerequisite is met.
 
