@@ -87,6 +87,13 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 
 	// Load the Function at path, and if it is initialized, update it with
 	// pertinent values from the config.
+	//
+	// NOTE: the checks for .Changed and altered conditionals for defaults will
+	// be removed when Global Config is integreated, because the config object
+	// will at that time contain the final value for the attribute, taking into
+	// account whether or not the value was altered via flags or env variables.
+	// This condition is also only necessary for config members whose default
+	// value deviates from the zero value.
 	f, err := fn.NewFunction(config.Path)
 	if err != nil {
 		return
@@ -94,14 +101,16 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	if !f.Initialized() {
 		return fmt.Errorf("'%v' does not contain an initialized function", config.Path)
 	}
-	if config.Registry != "" {
+	if f.Registry == "" || cmd.Flags().Changed("registry") {
+		// Sets default AND accepts any user-provided overrides
 		f.Registry = config.Registry
+	}
+	if f.Builder == "" || cmd.Flags().Changed("builder") {
+		// Sets default AND accepts any user-provided overrides
+		f.Builder = config.Builder
 	}
 	if config.Image != "" {
 		f.Image = config.Image
-	}
-	if config.Builder != "" {
-		f.Builder = config.Builder
 	}
 
 	// Choose a builder based on the value of the --builder flag
