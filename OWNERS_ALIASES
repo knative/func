@@ -159,9 +159,10 @@ aliases:
   - omerbensaadon
   - rhuss
   kn-plugin-quickstart-approvers:
-  - csantanapr
-  - omerbensaadon
+  - dsimansk
+  - navidshaikh
   - psschwei
+  - rhuss
   kn-plugin-sample-approvers:
   - maximilien
   - navidshaikh
