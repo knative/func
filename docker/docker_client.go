@@ -3,6 +3,7 @@ package docker
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -15,10 +16,12 @@ import (
 	"syscall"
 	"time"
 
-	"knative.dev/kn-plugin-func/ssh"
-
 	"github.com/docker/docker/client"
+
+	"knative.dev/kn-plugin-func/ssh"
 )
+
+var ErrNoDocker = errors.New("docker/podman API not available")
 
 // NewClient creates a new docker client.
 // reads the DOCKER_HOST envvar but it may or may not return it as dockerHost.
@@ -28,26 +31,44 @@ import (
 //  - For TCP connections it returns "" so it defaults in the remote (note that
 //    one should not be use client.DefaultDockerHost in this situation). This is
 //    needed beaus of TCP+tls connections.
-func NewClient(defaultHost string) (dockerClient client.CommonAPIClient, dockerHost string, err error) {
+func NewClient(defaultHost string) (dockerClient client.CommonAPIClient, dockerHostInRemote string, err error) {
 	var _url *url.URL
 
-	dockerHost = os.Getenv("DOCKER_HOST")
+	dockerHost := os.Getenv("DOCKER_HOST")
+	dockerHostSSHIdentity := os.Getenv("DOCKER_HOST_SSH_IDENTITY")
 
-	if dockerHost == "" && runtime.GOOS == "linux" && podmanPresent() {
+	if dockerHost == "" {
 		_url, err = url.Parse(defaultHost)
 		if err != nil {
 			return
 		}
 		_, err = os.Stat(_url.Path)
 		switch {
+		case err == nil:
+			dockerHost = defaultHost
 		case err != nil && !os.IsNotExist(err):
 			return
-		case os.IsNotExist(err):
-			dockerClient, dockerHost, err = newClientWithPodmanService()
-			dockerClient = &closeGuardingClient{pimpl: dockerClient}
-			return
+		case os.IsNotExist(err) && podmanPresent():
+			if runtime.GOOS == "linux" {
+				// on Linux: spawn temporary podman service
+				dockerClient, dockerHostInRemote, err = newClientWithPodmanService()
+				dockerClient = &closeGuardingClient{pimpl: dockerClient}
+				return
+			} else {
+				// on non-Linux: try to use connection to podman machine
+				dh, dhid := tryGetPodmanRemoteConn()
+				if dh != "" {
+					dockerHost, dockerHostSSHIdentity = dh, dhid
+				}
+			}
 		}
 	}
+
+	if dockerHost == "" {
+		return nil, "", ErrNoDocker
+	}
+
+	dockerHostInRemote = dockerHost
 
 	_url, err = url.Parse(dockerHost)
 	isSSH := err == nil && _url.Scheme == "ssh"
@@ -57,23 +78,23 @@ func NewClient(defaultHost string) (dockerClient client.CommonAPIClient, dockerH
 		// With TCP, it's difficult to determine how to expose the daemon socket to lifecycle containers,
 		// so we are defaulting to standard docker location by returning empty string.
 		// This should work well most of the time.
-		dockerHost = ""
+		dockerHostInRemote = ""
 	}
 
 	if !isSSH {
-		dockerClient, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+		dockerClient, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(dockerHost))
 		dockerClient = &closeGuardingClient{pimpl: dockerClient}
 		return
 	}
 
 	credentialsConfig := ssh.Config{
-		Identity:           os.Getenv("DOCKER_HOST_SSH_IDENTITY"),
+		Identity:           dockerHostSSHIdentity,
 		PassPhrase:         os.Getenv("DOCKER_HOST_SSH_IDENTITY_PASSPHRASE"),
 		PasswordCallback:   ssh.NewPasswordCbk(),
 		PassPhraseCallback: ssh.NewPassPhraseCbk(),
 		HostKeyCallback:    ssh.NewHostKeyCbk(),
 	}
-	contextDialer, dockerHost, err := ssh.NewDialContext(_url, credentialsConfig)
+	contextDialer, dockerHostInRemote, err := ssh.NewDialContext(_url, credentialsConfig)
 	if err != nil {
 		return
 	}
@@ -101,7 +122,36 @@ func NewClient(defaultHost string) (dockerClient client.CommonAPIClient, dockerH
 	}
 
 	dockerClient = &closeGuardingClient{pimpl: dockerClient}
-	return dockerClient, dockerHost, err
+	return dockerClient, dockerHostInRemote, err
+}
+
+// tries to get connection to default podman machine
+func tryGetPodmanRemoteConn() (uri string, identity string) {
+	cmd := exec.Command("podman", "system", "connection", "list", "--format=json")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", ""
+	}
+	var connections []struct {
+		Name     string
+		URI      string
+		Identity string
+		Default  bool
+	}
+	err = json.Unmarshal(out, &connections)
+	if err != nil {
+		return "", ""
+	}
+
+	for _, c := range connections {
+		if c.Default {
+			uri = c.URI
+			identity = c.Identity
+			break
+		}
+	}
+
+	return uri, identity
 }
 
 func podmanPresent() bool {
