@@ -231,7 +231,7 @@ func initGitFS(t *testing.T) Filesystem {
 
 	result, err := filesystemFromRepo(uri)
 	if err != nil {
-		t.Fatal(t)
+		t.Fatal(err)
 	}
 	return result
 }
