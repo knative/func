@@ -98,8 +98,9 @@ func generatePipeline(f fn.Function, labels map[string]string) *pplnv1beta1.Pipe
 
 	return &pplnv1beta1.Pipeline{
 		ObjectMeta: v1.ObjectMeta{
-			Name:   pipelineName,
-			Labels: labels,
+			Name:        pipelineName,
+			Labels:      labels,
+			Annotations: f.Annotations,
 		},
 		Spec: pplnv1beta1.PipelineSpec{
 			Params:     params,
@@ -200,6 +201,7 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 		ObjectMeta: v1.ObjectMeta{
 			GenerateName: fmt.Sprintf("%s-run-", getPipelineName(f)),
 			Labels:       labels,
+			Annotations:  f.Annotations,
 		},
 		Spec: pplnv1beta1.PipelineRunSpec{
 			PipelineRef: &pplnv1beta1.PipelineRef{

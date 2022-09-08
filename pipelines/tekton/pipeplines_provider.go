@@ -101,12 +101,11 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 	if err != nil {
 		return err
 	}
-	labels[fnlabels.FunctionNameKey] = f.Name
 	if pp.decorator != nil {
 		labels = pp.decorator.UpdateLabels(f, labels)
 	}
 
-	err = k8s.CreatePersistentVolumeClaim(ctx, getPipelinePvcName(f), pp.namespace, labels, corev1.ReadWriteOnce, *resource.NewQuantity(DefaultPersistentVolumeClaimSize, resource.DecimalSI))
+	err = k8s.CreatePersistentVolumeClaim(ctx, getPipelinePvcName(f), pp.namespace, labels, f.Annotations, corev1.ReadWriteOnce, *resource.NewQuantity(DefaultPersistentVolumeClaimSize, resource.DecimalSI))
 	if err != nil {
 		if !errors.IsAlreadyExists(err) {
 			return fmt.Errorf("problem creating persistent volume claim: %v", err)
@@ -139,7 +138,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 		registry = authn.DefaultAuthKey
 	}
 
-	err = k8s.EnsureDockerRegistrySecretExist(ctx, getPipelineSecretName(f), pp.namespace, labels, creds.Username, creds.Password, registry)
+	err = k8s.EnsureDockerRegistrySecretExist(ctx, getPipelineSecretName(f), pp.namespace, labels, f.Annotations, creds.Username, creds.Password, registry)
 	if err != nil {
 		return fmt.Errorf("problem in creating secret: %v", err)
 	}
