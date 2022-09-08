@@ -97,7 +97,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 	pp.namespace = namespace
 
 	// let's specify labels that will be applied to every resouce that is created for a Pipeline
-	labels, err := fn.LabelsMap(f.Labels)
+	labels, err := f.LabelsMap()
 	if err != nil {
 		return err
 	}

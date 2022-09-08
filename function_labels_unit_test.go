@@ -4,7 +4,6 @@
 package function
 
 import (
-	"reflect"
 	"testing"
 
 	. "knative.dev/kn-plugin-func/testing"
@@ -241,79 +240,6 @@ func Test_validateLabels(t *testing.T) {
 		t.Run(tt.key, func(t *testing.T) {
 			if got := ValidateLabels(tt.labels); len(got) != tt.errs {
 				t.Errorf("validateLabels() = %v\n got %d errors but want %d", got, len(got), tt.errs)
-			}
-		})
-	}
-}
-
-func Test_labelsMap(t *testing.T) {
-	key1 := "key1"
-	key2 := "key2"
-	value1 := "value1"
-	value2 := "value2"
-
-	tests := []struct {
-		name        string
-		labels      []Label
-		expectErr   bool
-		expectedMap map[string]string
-	}{
-		{
-			name: "invalid Labels should return err",
-			labels: []Label{
-				{
-					Value: &value1,
-				},
-			},
-			expectErr:   true,
-			expectedMap: nil,
-		},
-		{
-			name: "empty labels allowed",
-			labels: []Label{
-				{
-					Key: &key1,
-				},
-			},
-			expectErr: false,
-			expectedMap: map[string]string{
-				key1: "",
-			},
-		},
-		{
-			name: "full set of labels",
-			labels: []Label{
-				{
-					Key:   &key1,
-					Value: &value1,
-				},
-				{
-					Key:   &key2,
-					Value: &value2,
-				},
-			},
-			expectErr: false,
-			expectedMap: map[string]string{
-				key1: value1,
-				key2: value2,
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := LabelsMap(tt.labels)
-			if tt.expectErr {
-				if err == nil {
-					t.Error("expected error but didn't get an error from LabelsMap")
-				}
-			} else {
-				if err != nil {
-					t.Errorf("got unexpected err: %s", err)
-				}
-			}
-			if res := reflect.DeepEqual(got, tt.expectedMap); !res {
-				t.Errorf("mismatch in actual and expected labels return. actual: %#v, expected: %#v", got, tt.expectedMap)
 			}
 		})
 	}

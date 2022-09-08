@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v2"
+	fnlabels "knative.dev/kn-plugin-func/k8s/labels"
+	"knative.dev/pkg/ptr"
 )
 
 // FunctionFile is the file used for the serialized form of a function.
@@ -342,6 +344,128 @@ func (f Function) ImageWithDigest() string {
 
 	// Remove tag from the image name and append SHA256 hash instead
 	return part1 + strings.Split(part2, ":")[0] + "@" + f.ImageDigest
+}
+
+// LabelsMap combines default labels with the labels slice provided.
+// It will the resulting slice with ValidateLabels and return a key/value map.
+//   - key: EXAMPLE1                            # Label directly from a value
+//     value: value1
+//   - key: EXAMPLE2                            # Label from the local ENV var
+//     value: {{ env:MY_ENV }}
+func (f Function) LabelsMap() (map[string]string, error) {
+	defaultLabels := []Label{
+		{
+			Key:   ptr.String(fnlabels.FunctionKey),
+			Value: ptr.String(fnlabels.FunctionValue),
+		},
+		{
+			Key:   ptr.String(fnlabels.FunctionNameKey),
+			Value: ptr.String(f.Name),
+		},
+		{
+			Key:   ptr.String(fnlabels.FunctionRuntimeKey),
+			Value: ptr.String(f.Runtime),
+		},
+		// --- handle usage of deprecated labels (`boson.dev/function`, `boson.dev/runtime`)
+		{
+			Key:   ptr.String(fnlabels.DeprecatedFunctionKey),
+			Value: ptr.String(fnlabels.FunctionValue),
+		},
+		{
+			Key:   ptr.String(fnlabels.DeprecatedFunctionRuntimeKey),
+			Value: ptr.String(f.Runtime),
+		},
+		// --- end of handling usage of deprecated runtime labels
+	}
+
+	labels := append(defaultLabels, f.Labels...)
+	if err := ValidateLabels(labels); len(err) != 0 {
+		return nil, errors.New(strings.Join(err, " "))
+	}
+
+	l := map[string]string{}
+	for _, label := range labels {
+		if label.Value == nil {
+			l[*label.Key] = ""
+		} else {
+			if strings.HasPrefix(*label.Value, "{{") {
+				// env variable format is validated above in ValidateLabels
+				match := regLocalEnv.FindStringSubmatch(*label.Value)
+				l[*label.Key] = os.Getenv(match[1])
+			} else {
+				l[*label.Key] = *label.Value
+			}
+		}
+	}
+
+	return l, nil
+}
+
+// DerivedImage returns the derived image name (OCI container tag) of the
+// function whose source is at root, with the default registry for when
+// the image has to be calculated (derived).
+// The following are equivalent due to the use of DefaultRegistry:
+// registry:  docker.io/myname
+//            myname
+// A full image name consists of registry, image name and tag.
+// in form [registry]/[image-name]:[tag]
+// example docker.io/alice/my.example.func:latest
+// Default if not provided is --registry (a required global setting)
+// followed by the provided (or derived) image name.
+// TODO: this calculated field should probably be generated on instantiation
+// to avoid confusion.
+func DerivedImage(root, registry string) (image string, err error) {
+	f, err := NewFunction(root)
+	if err != nil {
+		// an inability to load the function means it is not yet initialized
+		// We could try to be smart here and fall through to the function name
+		// deriviation logic, but that's likely to be confusing.  Better to
+		// stay simple and say that derivation of Image depends on first having
+		// the function initialized.
+		return
+	}
+
+	// If the function has already had image populated
+	// and a new registry hasn't been provided, use this pre-calculated value.
+	if f.Image != "" && f.Registry == registry {
+		image = f.Image
+		return
+	}
+
+	// registry is currently required until such time as we support
+	// pushing to an implicitly-available in-cluster registry by default.
+	if registry == "" {
+		err = errors.New("registry name is required")
+		return
+	}
+
+	// If the function loaded, and there is not yet an Image set, then this is
+	// the first build and no explicit image override was specified.  We should
+	// therefore derive the image tag from the defined registry and name.
+	// form:    [registry]/[user]/[function]:latest
+	// example: quay.io/alice/my.function.name:latest
+	// Also nested namespaces should be supported:
+	// form:    [registry]/[parent]/[user]/[function]:latest
+	// example: quay.io/project/alice/my.function.name:latest
+	registry = strings.Trim(registry, "/") // too defensive?
+	registryTokens := strings.Split(registry, "/")
+	if len(registryTokens) == 1 {
+		//namespace provided only 'alice'
+		image = DefaultRegistry + "/" + registry + "/" + f.Name
+	} else if len(registryTokens) == 2 || len(registryTokens) == 3 {
+		// registry/namespace provided `quay.io/alice` or registry/parent-namespace/namespace provided `quay.io/project/alice`
+		image = registry + "/" + f.Name
+	} else if len(registryTokens) > 3 { // the name of the image is also provided `quay.io/alice/my.function.name`
+		err = fmt.Errorf("registry should be either 'namespace', 'registry/namespace' or 'registry/parent/namespace', the name of the image will be derived from the function name.")
+		return
+	}
+
+	// Explicitly append :latest.  We currently expect source control to drive
+	// versioning, rather than rely on Docker Hub tags with explicit version
+	// numbers, as is seen in many serverless solutions.  This will be updated
+	// to branch name when we add source-driven canary/ bluegreen deployments.
+	image = image + ":latest"
+	return
 }
 
 // assertEmptyRoot ensures that the directory is empty enough to be used for
