@@ -39,11 +39,15 @@ func TestNewDockerClientWithSSH(t *testing.T) {
 
 	defer WithEnvVar(t, "DOCKER_HOST", fmt.Sprintf("ssh://user:pwd@%s", sshConf.address))()
 
-	dockerClient, _, err := docker.NewClient(client.DefaultDockerHost)
+	dockerClient, dockerHostInRemote, err := docker.NewClient(client.DefaultDockerHost)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer dockerClient.Close()
+
+	if dockerHostInRemote != `unix://`+sshDockerSocket {
+		t.Errorf("bad remote DOCKER_HOST: expected %q but got %q", `unix://`+sshDockerSocket, dockerHostInRemote)
+	}
 
 	_, err = dockerClient.Ping(ctx)
 	if err != nil {

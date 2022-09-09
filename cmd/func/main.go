@@ -2,12 +2,15 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"os/signal"
 	"syscall"
 
 	"knative.dev/kn-plugin-func/cmd"
+	"knative.dev/kn-plugin-func/docker"
 )
 
 // Statically-populated build metadata set by `make build`.
@@ -39,6 +42,29 @@ func main() {
 		if ctx.Err() != nil {
 			os.Exit(130)
 		}
+
+		if errors.Is(err, docker.ErrNoDocker) {
+			if !dockerOrPodmanInstalled() {
+				fmt.Fprintln(os.Stderr, `Docker/Podman not installed.
+Please consider installing one of these:
+  https://podman-desktop.io/
+  https://www.docker.com/products/docker-desktop/`)
+			} else {
+				fmt.Fprintln(os.Stderr, `Possible causes:
+  The docker/podman daemon is not running.
+  The DOCKER_HOST environment variable is not set.`)
+			}
+		}
+
 		os.Exit(1)
 	}
+}
+
+func dockerOrPodmanInstalled() bool {
+	_, err := exec.LookPath("podman")
+	if err == nil {
+		return true
+	}
+	_, err = exec.LookPath("docker")
+	return err == nil
 }
