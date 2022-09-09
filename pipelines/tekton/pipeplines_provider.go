@@ -19,7 +19,7 @@ import (
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/docker"
 	"knative.dev/kn-plugin-func/k8s"
-	"knative.dev/kn-plugin-func/k8s/labels"
+	fnlabels "knative.dev/kn-plugin-func/k8s/labels"
 	"knative.dev/kn-plugin-func/knative"
 	"knative.dev/pkg/apis"
 )
@@ -97,12 +97,15 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 	pp.namespace = namespace
 
 	// let's specify labels that will be applied to every resouce that is created for a Pipeline
-	labels := map[string]string{labels.FunctionNameKey: f.Name}
+	labels, err := f.LabelsMap()
+	if err != nil {
+		return err
+	}
 	if pp.decorator != nil {
 		labels = pp.decorator.UpdateLabels(f, labels)
 	}
 
-	err = k8s.CreatePersistentVolumeClaim(ctx, getPipelinePvcName(f), pp.namespace, labels, corev1.ReadWriteOnce, *resource.NewQuantity(DefaultPersistentVolumeClaimSize, resource.DecimalSI))
+	err = k8s.CreatePersistentVolumeClaim(ctx, getPipelinePvcName(f), pp.namespace, labels, f.Annotations, corev1.ReadWriteOnce, *resource.NewQuantity(DefaultPersistentVolumeClaimSize, resource.DecimalSI))
 	if err != nil {
 		if !errors.IsAlreadyExists(err) {
 			return fmt.Errorf("problem creating persistent volume claim: %v", err)
@@ -135,7 +138,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 		registry = authn.DefaultAuthKey
 	}
 
-	err = k8s.EnsureDockerRegistrySecretExist(ctx, getPipelineSecretName(f), pp.namespace, labels, creds.Username, creds.Password, registry)
+	err = k8s.EnsureDockerRegistrySecretExist(ctx, getPipelineSecretName(f), pp.namespace, labels, f.Annotations, creds.Username, creds.Password, registry)
 	if err != nil {
 		return fmt.Errorf("problem in creating secret: %v", err)
 	}
@@ -182,7 +185,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 
 func (pp *PipelinesProvider) Remove(ctx context.Context, f fn.Function) error {
 
-	l := k8slabels.SelectorFromSet(k8slabels.Set(map[string]string{labels.FunctionNameKey: f.Name}))
+	l := k8slabels.SelectorFromSet(k8slabels.Set(map[string]string{fnlabels.FunctionNameKey: f.Name}))
 	listOptions := metav1.ListOptions{
 		LabelSelector: l.String(),
 	}

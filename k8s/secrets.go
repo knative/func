@@ -83,7 +83,7 @@ func DeleteSecrets(ctx context.Context, namespaceOverride string, listOptions me
 	return client.CoreV1().Secrets(namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, listOptions)
 }
 
-func EnsureDockerRegistrySecretExist(ctx context.Context, name, namespaceOverride string, labels map[string]string, username, password, server string) (err error) {
+func EnsureDockerRegistrySecretExist(ctx context.Context, name, namespaceOverride string, labels map[string]string, annotations map[string]string, username, password, server string) (err error) {
 	client, namespace, err := NewClientAndResolvedNamespace(namespaceOverride)
 	if err != nil {
 		return
@@ -110,9 +110,10 @@ func EnsureDockerRegistrySecretExist(ctx context.Context, name, namespaceOverrid
 	if createSecret || !bytes.Equal(currentSecret.Data[secretKey], dockerConfigJSONContent) {
 		secret := &corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      name,
-				Namespace: namespace,
-				Labels:    labels,
+				Name:        name,
+				Namespace:   namespace,
+				Labels:      labels,
+				Annotations: annotations,
 			},
 			Type: corev1.SecretTypeOpaque,
 			Data: map[string][]byte{},

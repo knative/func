@@ -4,7 +4,11 @@
 package function
 
 import (
+	"reflect"
 	"testing"
+
+	fnlabels "knative.dev/kn-plugin-func/k8s/labels"
+	. "knative.dev/kn-plugin-func/testing"
 )
 
 func TestFunction_ImageWithDigest(t *testing.T) {
@@ -80,5 +84,128 @@ func TestFunction_ImageName(t *testing.T) {
 			t.Errorf("expected registry '%v' name '%v' to yield image '%v', got '%v'",
 				test.registry, test.name, test.expectedImage, got)
 		}
+	}
+}
+
+func Test_LabelsMap(t *testing.T) {
+	key1 := "key1"
+	key2 := "key2"
+	value1 := "value1"
+	value2 := "value2"
+
+	defer WithEnvVar(t, "BAD_EXAMPLE", ":invalid")()
+	valueLocalEnvIncorrect4 := "{{env:BAD_EXAMPLE}}"
+
+	defer WithEnvVar(t, "GOOD_EXAMPLE", "valid")()
+	valueLocalEnv4 := "{{env:GOOD_EXAMPLE}}"
+
+	tests := []struct {
+		name        string
+		labels      []Label
+		expectErr   bool
+		expectedMap map[string]string
+	}{
+		{
+			name: "invalid Labels should return err",
+			labels: []Label{
+				{
+					Value: &value1,
+				},
+			},
+			expectErr: true,
+		},
+		{
+			name: "with valid env var",
+			labels: []Label{
+				{
+					Key:   &key1,
+					Value: &valueLocalEnv4,
+				},
+			},
+			expectErr: false,
+			expectedMap: map[string]string{
+				key1: "valid",
+			},
+		},
+		{
+			name: "with invalid env var",
+			labels: []Label{
+				{
+					Key:   &key1,
+					Value: &valueLocalEnvIncorrect4,
+				},
+			},
+			expectErr: true,
+		},
+		{
+			name: "empty labels allowed. returns default labels",
+			labels: []Label{
+				{
+					Key: &key1,
+				},
+			},
+			expectErr: false,
+			expectedMap: map[string]string{
+				key1: "",
+			},
+		},
+		{
+			name: "full set of labels",
+			labels: []Label{
+				{
+					Key:   &key1,
+					Value: &value1,
+				},
+				{
+					Key:   &key2,
+					Value: &value2,
+				},
+			},
+			expectErr: false,
+			expectedMap: map[string]string{
+				key1: value1,
+				key2: value2,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := Function{
+				Name:    "some-function",
+				Runtime: "golang",
+				Labels:  tt.labels,
+			}
+			got, err := f.LabelsMap()
+
+			if tt.expectErr {
+				if err == nil {
+					t.Error("expected error but didn't get an error from LabelsMap")
+				}
+			} else {
+				if err != nil {
+					t.Errorf("got unexpected err: %s", err)
+				}
+			}
+			if err == nil {
+				defaultLabels := expectedDefaultLabels(f)
+				for k, v := range defaultLabels {
+					tt.expectedMap[k] = v
+				}
+				if res := reflect.DeepEqual(got, tt.expectedMap); !res {
+					t.Errorf("mismatch in actual and expected labels return. actual: %#v, expected: %#v", got, tt.expectedMap)
+				}
+			}
+		})
+	}
+}
+
+func expectedDefaultLabels(f Function) map[string]string {
+	return map[string]string{
+		fnlabels.FunctionKey:                  fnlabels.FunctionValue,
+		fnlabels.FunctionNameKey:              f.Name,
+		fnlabels.FunctionRuntimeKey:           f.Runtime,
+		fnlabels.DeprecatedFunctionKey:        fnlabels.FunctionValue,
+		fnlabels.DeprecatedFunctionRuntimeKey: f.Runtime,
 	}
 }

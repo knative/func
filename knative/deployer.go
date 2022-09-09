@@ -22,7 +22,6 @@ import (
 
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/k8s"
-	"knative.dev/kn-plugin-func/k8s/labels"
 )
 
 const LIVENESS_ENDPOINT = "/health/liveness"
@@ -294,9 +293,12 @@ func generateNewService(f fn.Function, decorator DeployDecorator) (*v1.Service, 
 	}
 	container.VolumeMounts = newVolumeMounts
 
-	labels, err := processLabels(f, decorator)
+	labels, err := f.LabelsMap()
 	if err != nil {
 		return nil, err
+	}
+	if decorator != nil {
+		labels = decorator.UpdateLabels(f, labels)
 	}
 
 	annotations := f.Annotations
@@ -374,10 +376,14 @@ func updateService(f fn.Function, newEnv []corev1.EnvVar, newEnvFrom []corev1.En
 			return service, err
 		}
 
-		labels, err := processLabels(f, decorator)
+		labels, err := f.LabelsMap()
 		if err != nil {
-			return service, err
+			return nil, err
 		}
+		if decorator != nil {
+			labels = decorator.UpdateLabels(f, labels)
+		}
+
 		service.ObjectMeta.Labels = labels
 		service.Spec.Template.ObjectMeta.Labels = labels
 
@@ -393,54 +399,6 @@ func updateService(f fn.Function, newEnv []corev1.EnvVar, newEnvFrom []corev1.En
 
 		return service, nil
 	}
-}
-
-// processLabels generates a map of labels as key/value pairs from a function config
-// labels:
-//   - key: EXAMPLE1                            # Label directly from a value
-//     value: value1
-//   - key: EXAMPLE2                            # Label from the local ENV var
-//     value: {{ env:MY_ENV }}
-func processLabels(f fn.Function, decorator DeployDecorator) (map[string]string, error) {
-	labels := map[string]string{
-		labels.FunctionKey:        labels.FunctionValue,
-		labels.FunctionNameKey:    f.Name,
-		labels.FunctionRuntimeKey: f.Runtime,
-
-		// --- handle usage of deprecated labels (`boson.dev/function`, `boson.dev/runtime`)
-		labels.DeprecatedFunctionKey:        labels.FunctionValue,
-		labels.DeprecatedFunctionRuntimeKey: f.Runtime,
-		// --- end of handling usage of deprecated runtime labels
-	}
-
-	if decorator != nil {
-		labels = decorator.UpdateLabels(f, labels)
-	}
-
-	for _, label := range f.Labels {
-		if label.Key != nil && label.Value != nil {
-			if strings.HasPrefix(*label.Value, "{{") {
-				slices := strings.Split(strings.Trim(*label.Value, "{} "), ":")
-				if len(slices) == 2 {
-					// label from the local ENV var, eg. author={{ env:$USER }}
-					localValue, err := processLocalEnvValue(*label.Value)
-					if err != nil {
-						return nil, err
-					}
-					labels[*label.Key] = localValue
-					continue
-				}
-			} else {
-				// a standard label with key and value, eg. author=alice@example.com
-				labels[*label.Key] = *label.Value
-				continue
-			}
-		} else if label.Key != nil && label.Value == nil {
-			labels[*label.Key] = ""
-		}
-	}
-
-	return labels, nil
 }
 
 // processEnvs generates array of EnvVars and EnvFromSources from a function config

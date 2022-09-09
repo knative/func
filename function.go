@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v2"
+	fnlabels "knative.dev/kn-plugin-func/k8s/labels"
+	"knative.dev/pkg/ptr"
 )
 
 // FunctionFile is the file used for the serialized form of a function.
@@ -342,6 +344,61 @@ func (f Function) ImageWithDigest() string {
 
 	// Remove tag from the image name and append SHA256 hash instead
 	return part1 + strings.Split(part2, ":")[0] + "@" + f.ImageDigest
+}
+
+// LabelsMap combines default labels with the labels slice provided.
+// It will the resulting slice with ValidateLabels and return a key/value map.
+//   - key: EXAMPLE1                            # Label directly from a value
+//     value: value1
+//   - key: EXAMPLE2                            # Label from the local ENV var
+//     value: {{ env:MY_ENV }}
+func (f Function) LabelsMap() (map[string]string, error) {
+	defaultLabels := []Label{
+		{
+			Key:   ptr.String(fnlabels.FunctionKey),
+			Value: ptr.String(fnlabels.FunctionValue),
+		},
+		{
+			Key:   ptr.String(fnlabels.FunctionNameKey),
+			Value: ptr.String(f.Name),
+		},
+		{
+			Key:   ptr.String(fnlabels.FunctionRuntimeKey),
+			Value: ptr.String(f.Runtime),
+		},
+		// --- handle usage of deprecated labels (`boson.dev/function`, `boson.dev/runtime`)
+		{
+			Key:   ptr.String(fnlabels.DeprecatedFunctionKey),
+			Value: ptr.String(fnlabels.FunctionValue),
+		},
+		{
+			Key:   ptr.String(fnlabels.DeprecatedFunctionRuntimeKey),
+			Value: ptr.String(f.Runtime),
+		},
+		// --- end of handling usage of deprecated runtime labels
+	}
+
+	labels := append(defaultLabels, f.Labels...)
+	if err := ValidateLabels(labels); len(err) != 0 {
+		return nil, errors.New(strings.Join(err, " "))
+	}
+
+	l := map[string]string{}
+	for _, label := range labels {
+		if label.Value == nil {
+			l[*label.Key] = ""
+		} else {
+			if strings.HasPrefix(*label.Value, "{{") {
+				// env variable format is validated above in ValidateLabels
+				match := regLocalEnv.FindStringSubmatch(*label.Value)
+				l[*label.Key] = os.Getenv(match[1])
+			} else {
+				l[*label.Key] = *label.Value
+			}
+		}
+	}
+
+	return l, nil
 }
 
 // assertEmptyRoot ensures that the directory is empty enough to be used for
