@@ -29,16 +29,24 @@ func TestNewClient(t *testing.T) {
 
 	tmpDir := t.TempDir()
 	sock := filepath.Join(tmpDir, "docker.sock")
+	dockerHost := fmt.Sprintf("unix://%s", sock)
 
 	defer startMockDaemonUnix(t, sock)()
 
-	defer WithEnvVar(t, "DOCKER_HOST", fmt.Sprintf("unix://%s", sock))()
+	defer WithEnvVar(t, "DOCKER_HOST", dockerHost)()
 
-	dockerClient, _, err := docker.NewClient(client.DefaultDockerHost)
+	dockerClient, dockerHostInRemote, err := docker.NewClient(client.DefaultDockerHost)
 	if err != nil {
 		t.Error(err)
 	}
 	defer dockerClient.Close()
+
+	if runtime.GOOS == "linux" && dockerHostInRemote != dockerHost {
+		t.Errorf("unexpected dockerHostInRemote: expected %q, but got %q", dockerHost, dockerHostInRemote)
+	}
+	if runtime.GOOS == "darwin" && dockerHostInRemote != "" {
+		t.Errorf("unexpected dockerHostInRemote: expected empty string, but got %q", dockerHostInRemote)
+	}
 
 	_, err = dockerClient.Ping(ctx)
 	if err != nil {
@@ -50,17 +58,17 @@ func TestNewClient_DockerHost(t *testing.T) {
 	tests := []struct {
 		name                     string
 		dockerHostEnvVar         string
-		expectedRemoteDockerHost string
+		expectedRemoteDockerHost map[string]string
 	}{
 		{
 			name:                     "tcp",
 			dockerHostEnvVar:         "tcp://10.0.0.1:1234",
-			expectedRemoteDockerHost: "",
+			expectedRemoteDockerHost: map[string]string{"darwin": "", "windows": "", "linux": ""},
 		},
 		{
 			name:                     "unix",
 			dockerHostEnvVar:         "unix:///some/path/docker.sock",
-			expectedRemoteDockerHost: "unix:///some/path/docker.sock",
+			expectedRemoteDockerHost: map[string]string{"darwin": "", "windows": "", "linux": "unix:///some/path/docker.sock"},
 		},
 	}
 	for _, tt := range tests {
@@ -74,8 +82,9 @@ func TestNewClient_DockerHost(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if host != tt.expectedRemoteDockerHost {
-				t.Errorf("expected docker host %q, but got %q", tt.expectedRemoteDockerHost, host)
+			expectedRemoteDockerHost := tt.expectedRemoteDockerHost[runtime.GOOS]
+			if host != expectedRemoteDockerHost {
+				t.Errorf("expected docker host %q, but got %q", expectedRemoteDockerHost, host)
 			}
 		})
 	}

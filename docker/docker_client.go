@@ -79,11 +79,18 @@ func NewClient(defaultHost string) (dockerClient client.CommonAPIClient, dockerH
 	isSSH := err == nil && _url.Scheme == "ssh"
 	isTCP := err == nil && _url.Scheme == "tcp"
 	isNPipe := err == nil && _url.Scheme == "npipe"
+	isUnix := err == nil && _url.Scheme == "unix"
 
 	if isTCP || isNPipe {
 		// With TCP or npipe, it's difficult to determine how to expose the daemon socket to lifecycle containers,
 		// so we are defaulting to standard docker location by returning empty string.
 		// This should work well most of the time.
+		dockerHostInRemote = ""
+	}
+
+	if isUnix && runtime.GOOS == "darwin" {
+		// A unix socket on macOS is most likely tunneled from VM,
+		// so it cannot be mounted under that path.
 		dockerHostInRemote = ""
 	}
 
