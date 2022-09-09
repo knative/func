@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"runtime"
 	"strings"
 
@@ -13,6 +12,7 @@ import (
 	pack "github.com/buildpacks/pack/pkg/client"
 	"github.com/buildpacks/pack/pkg/logging"
 	"github.com/docker/docker/client"
+	"github.com/heroku/color"
 
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/builders"
@@ -46,7 +46,9 @@ var (
 type Builder struct {
 	name    string
 	verbose bool
-	logger  io.Writer
+	// in non-verbose mode contains std[err,out], so it can be printed on error
+	outBuff bytes.Buffer
+	logger  logging.Logger
 	impl    Impl
 }
 
@@ -64,9 +66,9 @@ func NewBuilder(options ...Option) *Builder {
 
 	// Stream logs to stdout or buffer only for display on error.
 	if b.verbose {
-		b.logger = stdoutWrapper{os.Stdout}
+		b.logger = logging.NewLogWithWriters(color.Stdout(), color.Stderr(), logging.WithVerbose())
 	} else {
-		b.logger = &bytes.Buffer{}
+		b.logger = logging.NewSimpleLogger(&b.outBuff)
 	}
 
 	return b
@@ -144,7 +146,10 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		if ctx.Err() != nil {
 			return // SIGINT
 		} else if !b.verbose {
-			err = fmt.Errorf("failed to build the function (output: %q): %w", b.logger.(*bytes.Buffer).String(), err)
+			err = fmt.Errorf("failed to build the function: %w", err)
+			fmt.Fprintln(color.Stderr(), "")
+			_, _ = io.Copy(color.Stderr(), &b.outBuff)
+			fmt.Fprintln(color.Stderr(), "")
 		}
 	}
 	return
@@ -152,7 +157,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 
 // newImpl returns an instance of the builder implementatoin.  Note that this
 // also mutates the provided options' DockerHost and TrustBuilder.
-func newImpl(ctx context.Context, cli client.CommonAPIClient, dockerHost string, opts *pack.BuildOptions, logger io.Writer) (impl Impl, err error) {
+func newImpl(ctx context.Context, cli client.CommonAPIClient, dockerHost string, opts *pack.BuildOptions, logger logging.Logger) (impl Impl, err error) {
 	opts.DockerHost = dockerHost
 
 	daemonIsPodmanPreV330, err := podmanPreV330(ctx, cli)
@@ -173,7 +178,7 @@ func newImpl(ctx context.Context, cli client.CommonAPIClient, dockerHost string,
 	}
 
 	// Client with a logger which is enabled if in Verbose mode and a dockerClient that supports SSH docker daemon connection.
-	return pack.NewClient(pack.WithLogger(logging.NewSimpleLogger(logger)), pack.WithDockerClient(cli))
+	return pack.NewClient(pack.WithLogger(logger), pack.WithDockerClient(cli))
 }
 
 // Builder Image chooses the correct builder image or defaults.
@@ -198,15 +203,6 @@ func podmanPreV330(ctx context.Context, cli client.CommonAPIClient) (b bool, err
 		}
 	}
 	return
-}
-
-// stdoutWrapper is a hack that makes stdout non-closeable
-type stdoutWrapper struct {
-	impl io.Writer
-}
-
-func (s stdoutWrapper) Write(p []byte) (n int, err error) {
-	return s.impl.Write(p)
 }
 
 // Errors
