@@ -20,11 +20,14 @@ func TestNewDockerClientWithAutomaticPodmanSuccess(t *testing.T) {
 	defer WithExecutable(t, "podman", mockPodmanSrc)()
 	defer WithEnvVar(t, "DOCKER_HOST", "")()
 
-	dockerClient, _, err := docker.NewClient("unix:///var/run/nonexistent.sock")
+	dockerClient, dockerHostToMount, err := docker.NewClient("unix:///var/run/nonexistent.sock")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer dockerClient.Close()
+	if !strings.Contains(dockerHostToMount, "func-podman") {
+		t.Error("got bad socket to mount")
+	}
 
 	_, err = dockerClient.Ping(ctx)
 	if err != nil {

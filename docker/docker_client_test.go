@@ -30,7 +30,7 @@ func TestNewClient(t *testing.T) {
 	tmpDir := t.TempDir()
 	sock := filepath.Join(tmpDir, "docker.sock")
 
-	defer startMockDaemon(t, sock)()
+	defer startMockDaemonUnix(t, sock)()
 
 	defer WithEnvVar(t, "DOCKER_HOST", fmt.Sprintf("unix://%s", sock))()
 
@@ -82,13 +82,8 @@ func TestNewClient_DockerHost(t *testing.T) {
 
 }
 
-func startMockDaemon(t *testing.T, sock string) func() {
-
+func startMockDaemon(t *testing.T, listener net.Listener) func() {
 	server := http.Server{}
-	listener, err := net.Listen("unix", sock)
-	if err != nil {
-		t.Fatal(err)
-	}
 	// mimics /_ping endpoint
 	server.Handler = http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		writer.Header().Add("Content-Type", "text/plain")
@@ -110,4 +105,12 @@ func startMockDaemon(t *testing.T, sock string) func() {
 			t.Fatal(err)
 		}
 	}
+}
+
+func startMockDaemonUnix(t *testing.T, sock string) func() {
+	l, err := net.Listen("unix", sock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return startMockDaemon(t, l)
 }
