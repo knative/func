@@ -26,6 +26,8 @@ Now you may use `func` as usual.
 
 For macOS and Windows we recommend [Podman Desktop](https://podman-desktop.io/).
 
+It's recommended to run podman machine in rootful mode (`podman machine set --rootful`).
+
 The docs will guide you trough `podman machine` setup.
 The `podman machine start` command it will output path to API socket.
 
