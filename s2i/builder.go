@@ -238,7 +238,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 			if err != nil {
 				return fmt.Errorf("cannot create tar header: %w", err)
 			}
-			hdr.Name = p
+			hdr.Name = filepath.ToSlash(p)
 
 			err = tw.WriteHeader(hdr)
 			if err != nil {
