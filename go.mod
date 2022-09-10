@@ -37,7 +37,6 @@ require (
 	github.com/whilp/git-urls v1.0.0
 	golang.org/x/crypto v0.0.0-20220214200702-86341886e292
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
-	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce
 	gopkg.in/yaml.v2 v2.4.0
 	k8s.io/api v0.23.5
 	k8s.io/apimachinery v0.23.5
