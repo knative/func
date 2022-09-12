@@ -1,4 +1,4 @@
-package main_test
+package main
 
 import (
 	"bytes"
@@ -9,8 +9,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-
-	"github.com/matejvasek/socat"
 )
 
 func TestRootCmd(t *testing.T) {
@@ -71,7 +69,7 @@ func TestRootCmd(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var out, errOut bytes.Buffer
 
-			cmd := main.NewRootCmd()
+			cmd := NewRootCmd()
 			cmd.SetIn(io.NopCloser(strings.NewReader(tt.args.inputString)))
 			cmd.SetOut(noopWriterCloser{&out})
 			cmd.SetErr(noopWriterCloser{&errOut})
