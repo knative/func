@@ -17,8 +17,9 @@ import (
 	"time"
 
 	"github.com/docker/docker/client"
+	"golang.org/x/crypto/ssh"
 
-	"knative.dev/kn-plugin-func/ssh"
+	fnssh "knative.dev/kn-plugin-func/ssh"
 )
 
 var ErrNoDocker = errors.New("docker/podman API not available")
@@ -36,6 +37,7 @@ func NewClient(defaultHost string) (dockerClient client.CommonAPIClient, dockerH
 
 	dockerHost := os.Getenv("DOCKER_HOST")
 	dockerHostSSHIdentity := os.Getenv("DOCKER_HOST_SSH_IDENTITY")
+	hostKeyCallback := fnssh.NewHostKeyCbk()
 
 	if dockerHost == "" {
 		_url, err = url.Parse(defaultHost)
@@ -59,6 +61,9 @@ func NewClient(defaultHost string) (dockerClient client.CommonAPIClient, dockerH
 				dh, dhid := tryGetPodmanRemoteConn()
 				if dh != "" {
 					dockerHost, dockerHostSSHIdentity = dh, dhid
+					hostKeyCallback = func(hostPort string, pubKey ssh.PublicKey) error {
+						return nil
+					}
 				}
 			}
 		}
@@ -73,11 +78,19 @@ func NewClient(defaultHost string) (dockerClient client.CommonAPIClient, dockerH
 	_url, err = url.Parse(dockerHost)
 	isSSH := err == nil && _url.Scheme == "ssh"
 	isTCP := err == nil && _url.Scheme == "tcp"
+	isNPipe := err == nil && _url.Scheme == "npipe"
+	isUnix := err == nil && _url.Scheme == "unix"
 
-	if isTCP {
-		// With TCP, it's difficult to determine how to expose the daemon socket to lifecycle containers,
+	if isTCP || isNPipe {
+		// With TCP or npipe, it's difficult to determine how to expose the daemon socket to lifecycle containers,
 		// so we are defaulting to standard docker location by returning empty string.
 		// This should work well most of the time.
+		dockerHostInRemote = ""
+	}
+
+	if isUnix && runtime.GOOS == "darwin" {
+		// A unix socket on macOS is most likely tunneled from VM,
+		// so it cannot be mounted under that path.
 		dockerHostInRemote = ""
 	}
 
@@ -87,14 +100,14 @@ func NewClient(defaultHost string) (dockerClient client.CommonAPIClient, dockerH
 		return
 	}
 
-	credentialsConfig := ssh.Config{
+	credentialsConfig := fnssh.Config{
 		Identity:           dockerHostSSHIdentity,
 		PassPhrase:         os.Getenv("DOCKER_HOST_SSH_IDENTITY_PASSPHRASE"),
-		PasswordCallback:   ssh.NewPasswordCbk(),
-		PassPhraseCallback: ssh.NewPassPhraseCbk(),
-		HostKeyCallback:    ssh.NewHostKeyCbk(),
+		PasswordCallback:   fnssh.NewPasswordCbk(),
+		PassPhraseCallback: fnssh.NewPassPhraseCbk(),
+		HostKeyCallback:    hostKeyCallback,
 	}
-	contextDialer, dockerHostInRemote, err := ssh.NewDialContext(_url, credentialsConfig)
+	contextDialer, dockerHostInRemote, err := fnssh.NewDialContext(_url, credentialsConfig)
 	if err != nil {
 		return
 	}

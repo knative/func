@@ -1,6 +1,7 @@
 package docker_test
 
 import (
+	"bytes"
 	"context"
 	"crypto/ecdsa"
 	"crypto/elliptic"
@@ -63,7 +64,7 @@ type sshConfig struct {
 }
 
 // emulates remote machine with docker unix socket at "/some/path/docker.sock"
-func startSSH(t *testing.T) (settings sshConfig, stopSSH func()) {
+func startSSH(t *testing.T, authorizedKeys ...ssh.PublicKey) (settings sshConfig, stopSSH func()) {
 	var err error
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -76,6 +77,14 @@ func startSSH(t *testing.T) (settings sshConfig, stopSSH func()) {
 				return nil, errors.New("bad pwd")
 			}
 			return &ssh.Permissions{}, nil
+		},
+		PublicKeyCallback: func(conn ssh.ConnMetadata, key ssh.PublicKey) (*ssh.Permissions, error) {
+			for _, authKey := range authorizedKeys {
+				if bytes.Equal(authKey.Marshal(), key.Marshal()) {
+					return &ssh.Permissions{}, nil
+				}
+			}
+			return nil, fmt.Errorf("unknown public key")
 		},
 	}
 
