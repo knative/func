@@ -29,7 +29,7 @@ a Kubernetes Cluster with the following deployed:
 
 For your convenience you can run the following script to setup Tekton and required Tasks:
 ```
-$ ../hack/tekton.sh
+$ ./hack/tekton.sh
 ```
 
 To install the Git Server required by tests, run:
