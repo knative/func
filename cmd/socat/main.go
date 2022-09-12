@@ -28,12 +28,16 @@ Implements only TCP, OPEN and stdio ("-") addresses with no options.
 Only supported flag is -u.`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			left, err := createConnection(args[0])
+			stdio := rwc{
+				ReadCloser:  cmd.InOrStdin().(io.ReadCloser),
+				WriteCloser: cmd.OutOrStdout().(io.WriteCloser),
+			}
+			left, err := createConnection(args[0], stdio)
 			if err != nil {
 				return err
 			}
 			defer left.Close()
-			right, err := createConnection(args[1])
+			right, err := createConnection(args[1], stdio)
 			if err != nil {
 				return err
 			}
@@ -47,7 +51,7 @@ Only supported flag is -u.`,
 	return &cmd
 }
 
-func createConnection(address string) (connection, error) {
+func createConnection(address string, stdio connection) (connection, error) {
 	if address == "-" {
 		return stdio, nil
 	}
@@ -132,9 +136,4 @@ func tryCloseWriteSide(c connection) {
 			fmt.Fprintf(os.Stderr, "waring: cannot close write side: %+v\n", err)
 		}
 	}
-}
-
-var stdio = rwc{
-	ReadCloser:  os.Stdin,
-	WriteCloser: os.Stdout,
 }
