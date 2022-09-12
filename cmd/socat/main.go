@@ -11,14 +11,14 @@ import (
 )
 
 func main() {
-	cmd := newRootCmd()
+	cmd := NewRootCmd()
 	err := cmd.Execute()
 	if err != nil {
 		os.Exit(1)
 	}
 }
 
-func newRootCmd() *cobra.Command {
+func NewRootCmd() *cobra.Command {
 	var uniDir bool
 	cmd := cobra.Command{
 		Use:   "socat <address> <address>",
@@ -28,15 +28,17 @@ Implements only TCP, OPEN and stdio ("-") addresses with no options.
 Only supported flag is -u.`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			right, err := createConnection(args[0])
+			left, err := createConnection(args[0])
 			if err != nil {
 				return err
 			}
-			left, err := createConnection(args[1])
+			defer left.Close()
+			right, err := createConnection(args[1])
 			if err != nil {
 				return err
 			}
-			return connect(right, left, uniDir)
+			defer right.Close()
+			return connect(left, right, uniDir)
 		},
 	}
 
@@ -56,7 +58,7 @@ func createConnection(address string) (connection, error) {
 	typ := strings.ToLower(parts[0])
 	parts = strings.Split(parts[1], ",")
 	if len(parts) > 1 {
-		_, _ = fmt.Fprintf(os.Stderr, "flags ignored: %q\n", parts[1])
+		_, _ = fmt.Fprintf(os.Stderr, "ignored options: %q\n", parts[1])
 	}
 	addr := parts[0]
 	switch typ {
@@ -69,25 +71,26 @@ func createConnection(address string) (connection, error) {
 		return net.DialTCP(typ, &laddr, raddr)
 	case "open":
 		return os.OpenFile(addr, os.O_RDWR, 0644)
+	default:
+		return nil, fmt.Errorf("unsupported address: %q", address)
 	}
-	return nil, fmt.Errorf("unsupported address: %q", address)
 }
 
-func connect(a, b connection, uniDir bool) error {
+func connect(left, right connection, uniDir bool) error {
 	errChan := make(chan error, 1)
 
 	if !uniDir {
 		go func() {
-			_, err := io.Copy(a, b)
-			_ = tryCloseWriter(a)
+			_, err := io.Copy(left, right)
+			tryCloseWriteSide(left)
 			errChan <- err
 		}()
 	} else {
 		errChan <- nil
 	}
 
-	_, err := io.Copy(b, a)
-	_ = tryCloseWriter(b)
+	_, err := io.Copy(right, left)
+	tryCloseWriteSide(right)
 	if err != nil {
 		return err
 	}
@@ -106,38 +109,32 @@ type writeCloser interface {
 }
 
 type rwc struct {
-	r io.ReadCloser
-	w io.WriteCloser
-}
-
-func (r rwc) Read(p []byte) (n int, err error) {
-	return r.r.Read(p)
-}
-
-func (r rwc) Write(p []byte) (n int, err error) {
-	return r.w.Write(p)
+	io.ReadCloser
+	io.WriteCloser
 }
 
 func (r rwc) Close() error {
-	err := r.w.Close()
+	err := r.WriteCloser.Close()
 	if err != nil {
 		return err
 	}
-	return r.r.Close()
+	return r.ReadCloser.Close()
 }
 
 func (r rwc) CloseWrite() error {
-	return r.w.Close()
+	return r.WriteCloser.Close()
 }
 
-func tryCloseWriter(c connection) error {
+func tryCloseWriteSide(c connection) {
 	if wc, ok := c.(writeCloser); ok {
-		return wc.CloseWrite()
+		err := wc.CloseWrite()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "waring: cannot close write side: %+v\n", err)
+		}
 	}
-	return nil
 }
 
 var stdio = rwc{
-	r: os.Stdin,
-	w: os.Stdout,
+	ReadCloser:  os.Stdin,
+	WriteCloser: os.Stdout,
 }
