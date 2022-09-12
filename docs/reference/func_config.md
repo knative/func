@@ -12,7 +12,7 @@ or from the directory specified with --path.
 
 
 ```
-func config [flags]
+func config
 ```
 
 ### Options

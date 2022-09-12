@@ -19,7 +19,7 @@ source &lt;(func completion bash)
 
 
 ```
-func completion <bash|zsh|fish> [flags]
+func completion <bash|zsh|fish>
 ```
 
 ### Options

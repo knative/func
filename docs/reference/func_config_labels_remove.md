@@ -11,7 +11,7 @@ directory or from the directory specified with --path.
 
 
 ```
-func config labels remove [flags]
+func config labels remove
 ```
 
 ### Options

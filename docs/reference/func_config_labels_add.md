@@ -14,7 +14,7 @@ the local machine.
 
 
 ```
-func config labels add [flags]
+func config labels add
 ```
 
 ### Options

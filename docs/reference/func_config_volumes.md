@@ -11,7 +11,7 @@ the current directory or from the directory specified with --path.
 
 
 ```
-func config volumes [flags]
+func config volumes
 ```
 
 ### Options

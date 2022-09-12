@@ -3,7 +3,7 @@
 List repositories
 
 ```
-func repository list [flags]
+func repository list
 ```
 
 ### Options

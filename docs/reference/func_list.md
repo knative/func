@@ -10,7 +10,7 @@ Lists all deployed functions in a given namespace.
 
 
 ```
-func list [flags]
+func list
 ```
 
 ### Examples

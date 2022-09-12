@@ -3,7 +3,7 @@
 Rename a repository
 
 ```
-func repository rename <old> <new> [flags]
+func repository rename <old> <new>
 ```
 
 ### Options

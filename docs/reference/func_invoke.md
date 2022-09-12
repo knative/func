@@ -85,7 +85,7 @@ EXAMPLES
 
 
 ```
-func invoke [flags]
+func invoke
 ```
 
 ### Options

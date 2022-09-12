@@ -13,7 +13,7 @@ from an environment variable on the local machine or from Secrets and ConfigMaps
 It is also possible to import all keys as environment variables from a Secret or ConfigMap.
 
 ```
-func config envs add [flags]
+func config envs add
 ```
 
 ### Examples

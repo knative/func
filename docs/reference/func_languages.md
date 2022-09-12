@@ -39,7 +39,7 @@ EXAMPLES
 
 
 ```
-func languages [flags]
+func languages
 ```
 
 ### Options

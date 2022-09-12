@@ -11,7 +11,7 @@ in the current directory or from the directory specified with --path.
 
 
 ```
-func config volumes remove [flags]
+func config volumes remove
 ```
 
 ### Options

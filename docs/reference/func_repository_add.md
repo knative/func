@@ -3,7 +3,7 @@
 Add a repository
 
 ```
-func repository add <name> <url> [flags]
+func repository add <name> <url>
 ```
 
 ### Options
