@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"sync"
 	"time"
 
@@ -130,6 +131,11 @@ func (c *contextDialer) startDialerPod(ctx context.Context) (err error) {
 		}
 	}()
 
+	img := socatImage
+	if i, ok := os.LookupEnv("SOCAT_IMAGE"); ok {
+		img = i
+	}
+
 	runAsNonRoot := true
 	pod := &coreV1.Pod{
 		ObjectMeta: metaV1.ObjectMeta{
@@ -141,10 +147,10 @@ func (c *contextDialer) startDialerPod(ctx context.Context) (err error) {
 			Containers: []coreV1.Container{
 				{
 					Name:      c.podName,
-					Image:     socatImage,
+					Image:     img,
 					Stdin:     true,
 					StdinOnce: true,
-					Args:      []string{"-u", "-", "OPEN:/dev/null,append"},
+					Command:   []string{"socat", "-u", "-", "OPEN:/dev/null"},
 					SecurityContext: &coreV1.SecurityContext{
 						Privileged:               new(bool),
 						AllowPrivilegeEscalation: new(bool),
