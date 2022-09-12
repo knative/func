@@ -85,6 +85,10 @@ func generatePipeline(f fn.Function, labels map[string]string) *pplnv1beta1.Pipe
 
 	} else if f.Builder == builders.S2I {
 		// ----- S2I build related properties
+
+		params = append(params, pplnv1beta1.ParamSpec{Name: "s2iImageScriptsUrl", Description: "URL containing the default assemble and run scripts for the builder image.",
+			Default: pplnv1beta1.NewArrayOrString("image:///usr/libexec/s2i")})
+
 		taskBuild = taskS2iBuild(taskNameFetchSources)
 		referenceImageFromPreviousTaskResults = true
 	}
@@ -194,6 +198,10 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 			},
 			SubPath: "cache",
 		})
+	} else if f.Builder == builders.S2I {
+		if f.Runtime == "quarkus" {
+			params = append(params, pplnv1beta1.Param{Name: "s2iImageScriptsUrl", Value: *pplnv1beta1.NewArrayOrString("image:///usr/local/s2i")})
+		}
 	}
 
 	// ----- PipelineRun definition

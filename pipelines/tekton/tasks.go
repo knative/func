@@ -70,6 +70,7 @@ func taskS2iBuild(runAfter string) pplnv1beta1.PipelineTask {
 			Type:     pplnv1beta1.ParamTypeArray,
 			ArrayVal: []string{"$(params.buildEnvs[*])"},
 		}},
+		{Name: "S2I_IMAGE_SCRIPTS_URL", Value: *pplnv1beta1.NewArrayOrString("$(params.s2iImageScriptsUrl)")},
 	}
 	return pplnv1beta1.PipelineTask{
 		Name: taskNameBuild,
