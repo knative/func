@@ -34,7 +34,28 @@ func NewRootCmd(config RootCommandConfig) *cobra.Command {
 		Short:         "Serverless functions",
 		SilenceErrors: true, // we explicitly handle errors in Execute()
 		SilenceUsage:  true, // no usage dump on error
-		Long:          "Serverless functions",
+		Long: `Serverless functions {{.Version}}
+
+	Create, build and deploy Knative functions
+
+SYNOPSIS
+	{{.Use}} [-v|--verbose] <command> [args]
+
+EXAMPLES
+
+	o Create a Node function in the current directory
+	  $ {{.Use}} create --language node .
+
+	o Deploy the function defined in the current working directory to the
+	  currently connected cluster, specifying a container registry in place of
+	  quay.io/user for the function's container.
+	  $ {{.Use}} deploy --registry quay.io.user
+
+	o Invoke the function defined in the current working directory with an example
+	  request.
+	  $ {{.Use}} invoke
+
+	For more examples, see '{{.Use}} [command] --help'.`,
 	}
 
 	// Environment Variables

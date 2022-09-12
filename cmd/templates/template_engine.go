@@ -56,7 +56,7 @@ func (e templateEngine) usageFunc() func(*cobra.Command) error {
 
 func (e templateEngine) helpFunc() func(*cobra.Command, []string) {
 	return func(c *cobra.Command, s []string) {
-		err := e.fillTemplate("help", c, helpTemplate())
+		err := e.fillTemplate("help", c, helpTemplate(c.Long))
 		if err != nil {
 			c.Println(err)
 		}

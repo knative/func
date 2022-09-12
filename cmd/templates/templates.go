@@ -24,31 +24,6 @@ import (
 // and adapted to the specific needs of `kn`
 
 const (
-	sectionRootUsage = `{{if isRootCmd .}} {{.Version}}
-
-	Create, build and deploy Knative functions
-
-SYNOPSIS
-	{{.Use}} [-v|--verbose] <command> [args]
-
-EXAMPLES
-
-	o Create a Node function in the current directory
-	  $ {{.Use}} create --language node .
-
-	o Deploy the function defined in the current working directory to the
-	  currently connected cluster, specifying a container registry in place of
-	  quay.io/user for the function's container.
-	  $ {{.Use}} deploy --registry quay.io.user
-
-	o Invoke the function defined in the current working directory with an example
-	  request.
-	  $ {{.Use}} invoke
-
-	For more examples, see '{{.Use}} [command] --help'.
-
-{{end}}`
-
 	// sectionUsage is the help template section that displays the command's usage.
 	sectionUsage = `{{if (ne .UseLine "")}}Usage:
   {{useLine .}}
@@ -97,7 +72,6 @@ EXAMPLES
 // usageTemplate if the template for 'usage' used by most commands.
 func usageTemplate() string {
 	sections := []string{
-		sectionRootUsage,
 		sectionUsage,
 		sectionAliases,
 		sectionExamples,
@@ -111,6 +85,9 @@ func usageTemplate() string {
 }
 
 // helpTemplate is the template for 'help' used by most commands.
-func helpTemplate() string {
-	return `{{with or .Long .Short }}{{. | trim}}{{end}}{{if or .Runnable .HasSubCommands}}{{.UsageString}}{{end}}`
+func helpTemplate(message string) string {
+	if len(message) == 0 {
+		message = `{{with or .Long .Short }}{{. | trim}}{{end}}`
+	}
+	return message + "\n\n" + `{{if or .Runnable .HasSubCommands}}{{.UsageString}}{{end}}`
 }
