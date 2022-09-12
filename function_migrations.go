@@ -76,10 +76,10 @@ func LastSpecVersion() string {
 // No two migrations may have the exact version number (introduce a patch
 // version for the migration if necessary)
 var migrations = []migration{
-	{"1.0.0", migrateTo100Structure},
 	{"0.19.0", migrateToCreationStamp},
 	{"0.23.0", migrateToBuilderImages},
 	{"0.25.0", migrateToSpecVersion},
+	{"1.0.0", migrateTo100Structure},
 
 	// New Migrations Here.
 }
@@ -297,7 +297,7 @@ type migrateTo100_previousFunction struct {
 	// SHA256 hash of the latest image that has been built
 	ImageDigest string `yaml:"imageDigest"`
 
-	// BuildType represents the specified way of building the fuction
+	// BuildType represents the specified way of building the function
 	// ie. "local" or "git"
 	BuildType string `yaml:"build" jsonschema:"enum=local,enum=git"`
 
