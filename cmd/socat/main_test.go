@@ -171,3 +171,49 @@ func startTCPEcho(t *testing.T) (addr string) {
 	})
 	return addr
 }
+
+func TestNewRootCmdWithPipe(t *testing.T) {
+	addr := startTCPEcho(t)
+
+	r, stdOut, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	stdIn, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const data = "Hello!"
+
+	go func() {
+		_, err = w.Write([]byte(data))
+		if err != nil {
+			panic(err)
+		}
+		err = w.Close()
+		if err != nil {
+			panic(err)
+		}
+	}()
+
+	var errBuff bytes.Buffer
+	cmd := NewRootCmd()
+	cmd.SetIn(stdIn)
+	cmd.SetOut(stdOut)
+	cmd.SetErr(&errBuff)
+	cmd.SetArgs([]string{"-", "TCP:" + addr})
+
+	err = cmd.Execute()
+	if err != nil {
+		t.Error(err)
+		t.Logf("errOut: %q", errBuff.String())
+		return
+	}
+
+	bs, err := io.ReadAll(r)
+	if string(bs) != data {
+		t.Fatal("bad data")
+	}
+}
