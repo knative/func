@@ -185,35 +185,35 @@ func TestNewRootCmdWithPipe(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	const data = "Hello!"
+	var data = make([]byte, 1<<20)
 
 	go func() {
-		_, err = w.Write([]byte(data))
+		_, err = w.Write(data)
 		if err != nil {
-			panic(err)
+			t.Error(err)
 		}
 		err = w.Close()
 		if err != nil {
-			panic(err)
+			t.Error(err)
 		}
 	}()
 
-	var errBuff bytes.Buffer
-	cmd := NewRootCmd()
-	cmd.SetIn(stdIn)
-	cmd.SetOut(stdOut)
-	cmd.SetErr(&errBuff)
-	cmd.SetArgs([]string{"-", "TCP:" + addr})
+	go func() {
+		var errBuff bytes.Buffer
+		cmd := NewRootCmd()
+		cmd.SetIn(stdIn)
+		cmd.SetOut(stdOut)
+		cmd.SetErr(&errBuff)
+		cmd.SetArgs([]string{"-", "TCP:" + addr})
 
-	err = cmd.Execute()
-	if err != nil {
-		t.Error(err)
-		t.Logf("errOut: %q", errBuff.String())
-		return
-	}
+		err = cmd.Execute()
+		if err != nil {
+			t.Error(err)
+		}
+	}()
 
 	bs, err := io.ReadAll(r)
-	if string(bs) != data {
-		t.Fatal("bad data")
+	if !bytes.Equal(data, bs) {
+		t.Error("bad data")
 	}
 }
