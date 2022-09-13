@@ -11,7 +11,7 @@ in the current directory or from the directory specified with --path.
 
 
 ```
-func config envs remove [flags]
+func config envs remove
 ```
 
 ### Options

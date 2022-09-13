@@ -42,6 +42,7 @@ type TemplateOptions struct {
 	Name    string
 	Options string
 	Version string
+	Use     string
 }
 
 // This helper application generates markdown help documents
@@ -62,6 +63,7 @@ func main() {
 		Name:    rootName,
 		Options: opts,
 		Version: version.StringVerbose(),
+		Use:     rootName,
 	}
 
 	// Create the root command

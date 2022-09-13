@@ -122,7 +122,7 @@ EXAMPLES
 
 
 ```
-func repository [flags]
+func repository
 ```
 
 ### Options

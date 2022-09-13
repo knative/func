@@ -16,7 +16,7 @@ to the function's source.  Use --build to override this behavior.
 
 
 ```
-func run [flags]
+func run
 ```
 
 ### Examples

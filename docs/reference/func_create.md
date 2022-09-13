@@ -62,7 +62,7 @@ EXAMPLES
 
 
 ```
-func create [flags]
+func create
 ```
 
 ### Options

@@ -14,7 +14,7 @@ No local files are deleted.
 
 
 ```
-func delete [NAME] [flags]
+func delete [NAME]
 ```
 
 ### Examples

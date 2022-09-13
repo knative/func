@@ -40,7 +40,7 @@ EXAMPLES
 
 
 ```
-func templates [flags]
+func templates
 ```
 
 ### Options

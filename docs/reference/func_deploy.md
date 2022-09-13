@@ -17,7 +17,7 @@ that is pushed to an image registry, and finally the function's Knative service 
 
 
 ```
-func deploy [flags]
+func deploy
 ```
 
 ### Examples

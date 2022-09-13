@@ -8,6 +8,8 @@ import (
 	"text/template"
 	"time"
 
+	"knative.dev/kn-plugin-func/cmd/templates"
+
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -37,30 +39,30 @@ func NewRootCmd(config RootCommandConfig) *cobra.Command {
 	Create, build and deploy Knative functions
 
 SYNOPSIS
-	{{.Name}} [-v|--verbose] <command> [args]
+	{{.Use}} [-v|--verbose] <command> [args]
 
 EXAMPLES
 
 	o Create a Node function in the current directory
-	  $ {{.Name}} create --language node .
+	  $ {{.Use}} create --language node .
 
 	o Deploy the function defined in the current working directory to the
 	  currently connected cluster, specifying a container registry in place of
 	  quay.io/user for the function's container.
-	  $ {{.Name}} deploy --registry quay.io.user
+	  $ {{.Use}} deploy --registry quay.io.user
 
 	o Invoke the function defined in the current working directory with an example
 	  request.
-	  $ {{.Name}} invoke
+	  $ {{.Use}} invoke
 
-	For more examples, see '{{.Name}} <command> --help'.`,
+	For more examples, see '{{.Use}} [command] --help'.`,
 	}
 
 	// Environment Variables
 	// Evaluated first after static defaults, set all flags to be associated with
 	// a version prefixed by "FUNC_"
 	viper.AutomaticEnv()       // read in environment variables for FUNC_<flag>
-	viper.SetEnvPrefix("func") // ensure thay all have the prefix
+	viper.SetEnvPrefix("func") // ensure that all have the prefix
 
 	// Flags
 	// persistent flags are available to all subcommands implicitly
@@ -87,51 +89,39 @@ EXAMPLES
 		newClient = NewClient
 	}
 
-	cmd.AddCommand(NewCreateCmd(newClient))
-	cmd.AddCommand(NewConfigCmd(defaultLoaderSaver))
-	cmd.AddCommand(NewBuildCmd(newClient))
-	cmd.AddCommand(NewDeployCmd(newClient))
-	cmd.AddCommand(NewDeleteCmd(newClient))
-	cmd.AddCommand(NewInfoCmd(newClient))
-	cmd.AddCommand(NewListCmd(newClient))
-	cmd.AddCommand(NewInvokeCmd(newClient))
-	cmd.AddCommand(NewRepositoryCmd(newClient))
-	cmd.AddCommand(NewRunCmd(newClient))
-	cmd.AddCommand(NewCompletionCmd())
-	cmd.AddCommand(NewVersionCmd(config.Version))
-	cmd.AddCommand(NewLanguagesCmd(newClient))
-	cmd.AddCommand(NewTemplatesCmd(newClient))
+	// Grouped commands
+	groups := templates.CommandGroups{
+		{
+			Header: "Main Commands:",
+			Commands: []*cobra.Command{
+				NewBuildCmd(newClient),
+				NewConfigCmd(defaultLoaderSaver),
+				NewCreateCmd(newClient),
+				NewDeleteCmd(newClient),
+				NewDeployCmd(newClient),
+				NewInfoCmd(newClient),
+				NewInvokeCmd(newClient),
+				NewLanguagesCmd(newClient),
+				NewListCmd(newClient),
+				NewRepositoryCmd(newClient),
+				NewRunCmd(newClient),
+				NewTemplatesCmd(newClient),
+			},
+		},
+		{
+			Header: "Other Commands:",
+			Commands: []*cobra.Command{
+				NewCompletionCmd(),
+				NewVersionCmd(config.Version),
+			},
+		},
+	}
 
-	// Help
-	// Overridden to process the help text as a template and have
-	// access to the provided Client instance.
-	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) {
-		runRootHelp(cmd, args, config.Version)
-	})
+	// Add all commands to the root command, and initialize
+	groups.AddTo(cmd)
+	groups.SetRootUsage(cmd, nil)
 
 	return cmd
-
-	// NOTE Default Action
-	// No default action is provided triggering the default of displaying the help
-}
-
-func runRootHelp(cmd *cobra.Command, args []string, version Version) {
-	var (
-		body = cmd.Long + "\n\n" + cmd.UsageString()
-		t    = template.New("root")
-		tpl  = template.Must(t.Parse(body))
-	)
-	var data = struct {
-		Name    string
-		Version Version
-	}{
-		Name:    cmd.Root().Use,
-		Version: version,
-	}
-
-	if err := tpl.Execute(cmd.OutOrStdout(), data); err != nil {
-		fmt.Fprintf(cmd.ErrOrStderr(), "unable to display help text: %v", err)
-	}
 }
 
 // Helpers
@@ -184,7 +174,7 @@ func deriveName(explicitName string, path string) string {
 func deriveNameAndAbsolutePathFromPath(path string) (string, string) {
 	var absPath string
 
-	// If path is not specifed, we would like to use current working dir
+	// If path is not specified, we would like to use current working dir
 	if path == "" {
 		path = cwd()
 	}

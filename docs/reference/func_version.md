@@ -24,7 +24,7 @@ DESCRIPTION
 
 
 ```
-func version [flags]
+func version
 ```
 
 ### Options

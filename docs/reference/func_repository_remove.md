@@ -3,7 +3,7 @@
 Remove a repository
 
 ```
-func repository remove <name> [flags]
+func repository remove <name>
 ```
 
 ### Options
