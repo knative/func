@@ -242,6 +242,8 @@ func TestDeploy_BuilderPersists(t *testing.T) {
 }
 
 func testBuilderPersists(cmdFn commandConstructor, t *testing.T) {
+	defer WithEnvVar(t, "KUBECONFIG", fmt.Sprintf("%s/testdata/kubeconfig_deploy_namespace", cwd()))()
+
 	t.Helper()
 	root, rm := Mktemp(t)
 	defer rm()
@@ -352,7 +354,7 @@ func testBuilderValidated(cmdFn commandConstructor, t *testing.T) {
 
 }
 
-// TestDeploy_ValidateBuilder tests that the ValidateBuilder validator
+// Test_ValidateBuilder tests that the bulder validation accepts the
 // accepts === the set of known builders.
 func Test_ValidateBuilder(t *testing.T) {
 	for _, name := range builders.All() {
@@ -621,70 +623,78 @@ func Test_ImageWithDigestErrors(t *testing.T) {
 	}
 }
 
-func Test_checkNamespaceDeploy(t *testing.T) {
+// Test_namespace ensures that the combinations of
+// a configured (provided via flag or env variable) namespace
+// takes highest precidence, the previously existing namespace
+// on the function has second precidence, the namespace
+// from the current context (if available) is used next, and finally
+// the default namespace.
+func Test_namespace(t *testing.T) {
 	tests := []struct {
 		name          string
 		confNamespace string
 		funcNamespace string
 		context       bool
 		expected      string
-		expectedError string
 	}{
 		{
-			name: "defaults and no context returns empty with no error",
+			name:          "flag or env takes highest precidence",
+			confNamespace: "conf-ns",
+			funcNamespace: "func-ns",
+			context:       true,
+			expected:      "conf-ns",
 		},
 		{
-			name:     "defaults with a context returns the context",
-			context:  true,
-			expected: "test-ns-deploy", // from ./testdata
-		},
-		{
-			name:          "extant value takes precidence when none provided",
+			name:          "preexisting func namespace takes second precidence",
 			confNamespace: "",
-			funcNamespace: "last-deploy-value",
+			funcNamespace: "func-ns",
 			context:       true,
-			expected:      "last-deploy-value",
+			expected:      "func-ns",
 		},
 		{
-			name:          "config values take precidence",
-			confNamespace: "flag-value",
-			funcNamespace: "last-deploy-value",
+			name:          "namespace from active context is default if available",
+			confNamespace: "",
+			funcNamespace: "",
 			context:       true,
-			expected:      "flag-value",
+			expected:      "test-ns-deploy", // see ./testdata
+		},
+		{
+			name:          "default",
+			confNamespace: "",
+			funcNamespace: "",
+			context:       false,
+			expected:      "",
 		},
 	}
 
 	// contains a kube config with active namespace "test-ns-deploy"
 	contextPath := fmt.Sprintf("%s/testdata/kubeconfig_deploy_namespace", cwd())
 
-	defer WithEnvVar(t, "KUBECONFIG", contextPath)()
-
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-
+			t.Helper()
 			root, rm := Mktemp(t)
 			defer rm()
 
+			// if running with an active kubeconfig
 			if test.context {
 				defer WithEnvVar(t, "KUBECONFIG", contextPath)()
 			} else {
 				defer WithEnvVar(t, "KUBECONFIG", cwd())()
 			}
 
+			// Creat a funcction which may be already deployed
+			// (have a namespace)
 			f := fn.Function{
 				Runtime:   "go",
 				Root:      root,
 				Namespace: test.funcNamespace,
 			}
-
 			if err := fn.New().Create(f); err != nil {
 				t.Fatal(err)
 			}
 
-			ns, err := checkNamespaceDeploy(test.funcNamespace, test.confNamespace, os.Stderr)
-			if err != nil {
-				t.Fatal(err)
-			}
+			ns := namespace(deployConfig{Namespace: test.confNamespace}, f, os.Stderr)
 			if ns != test.expected {
 				t.Errorf("expected namespace '%v' got '%v'", test.expected, ns)
 			}

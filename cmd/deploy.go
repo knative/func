@@ -80,12 +80,16 @@ EXAMPLES
 	  $ {{.Name}} deploy -c
 
 	o Deploy the function in the current working directory.
-	  The function image will be pushed to "quay.io/alice/<Function Name>"
-	  $ {{.Name}} deploy --registry quay.io/alice
+	  The function image will be pushed to "ghcr.io/alice/<Function Name>"
+	  $ {{.Name}} deploy --registry ghcr.io/alice
 
 	o Deploy the function in the current working directory, manually specifying
 	  the final image name and target cluster namespace.
-	  $ {{.Name}} deploy --image quay.io/alice/myfunc --namespace myns
+	  $ {{.Name}} deploy --image ghcr.io/alice/myfunc --namespace myns
+
+	o Trigger a remote deploy, which instructs the cluster to build and deploy
+	  the function in the specified git repository.
+	  $ {{.Name}} deploy --remote --git-url=https://example.com/alice/myfunc.git
 
 	o Deploy the function, rebuilding the image even if no changes have been
 	  detected in the local filesystem (source).
@@ -95,9 +99,6 @@ EXAMPLES
 	  local filesystem.
 	  $ {{.Name}} deploy --build=false
 
-	o Trigger a remote deploy, which instructs the cluster to build and deploy
-	  the function in the specified git repository.
-	  $ {{.Name}} deploy --remote --git-url=https://example.com/alice/myfunc.git
 `,
 		SuggestFor: []string{"delpoy", "deplyo"},
 		PreRunE:    bindEnv("confirm", "env", "git-url", "git-branch", "git-dir", "remote", "build", "builder", "builder-image", "image", "registry", "push", "platform", "path", "namespace"),
@@ -118,7 +119,7 @@ EXAMPLES
 	cmd.Flags().StringP("builder", "b", builders.Default, fmt.Sprintf("builder to use when creating the underlying image. Currently supported builders are %s.", KnownBuilders()))
 	cmd.Flags().StringP("builder-image", "", "", "The image the specified builder should use; either an as an image name or a mapping. ($FUNC_BUILDER_IMAGE)")
 	cmd.Flags().StringP("image", "i", "", "Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. (Env: $FUNC_IMAGE)")
-	cmd.Flags().StringP("registry", "r", GetDefaultRegistry(), "Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined based on the local directory name. If not provided the registry will be taken from func.yaml (Env: $FUNC_REGISTRY)")
+	cmd.Flags().StringP("registry", "r", GetDefaultRegistry(), "Registry + namespace part of the image to build, ex 'ghcr.io/myuser'.  The full image name is automatically determined based on the local directory name. If not provided the registry will be taken from func.yaml (Env: $FUNC_REGISTRY)")
 	cmd.Flags().BoolP("push", "u", true, "Push the function image to registry before deploying (Env: $FUNC_PUSH)")
 	cmd.Flags().StringP("platform", "", "", "Target platform to build (e.g. linux/amd64).")
 	cmd.Flags().StringP("namespace", "n", "", "Deploy into a specific namespace. (Env: $FUNC_NAMESPACE)")
@@ -145,7 +146,6 @@ EXAMPLES
 // merges these into the function requested, and triggers either a remote or
 // local build-and-deploy.
 func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err error) {
-	fmt.Fprintln(cmd.OutOrStdout(), "Test error 2")
 	// Create a deploy config from environment variables and flags
 	config, err := newDeployConfig(cmd)
 	if err != nil {
@@ -155,6 +155,9 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 	// Prompt the user to potentially change config interactively.
 	config, err = config.Prompt()
 	if err != nil {
+		if err == terminal.InterruptErr {
+			return nil
+		}
 		return
 	}
 
@@ -193,8 +196,21 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 	if config.BuilderImage != "" {
 		f.BuilderImages[config.Builder] = config.BuilderImage
 	}
+	if config.GitURL != "" {
+		parts := strings.Split(config.GitURL, "#")
+		f.Git.URL = parts[0]
+		if len(parts) == 2 { // see Validatee() where len enforced to be <= 2
+			f.Git.Revision = parts[1]
+		}
+	}
+	if config.GitBranch != "" {
+		f.Git.Revision = config.GitBranch
+	}
+	if config.GitDir != "" {
+		f.Git.ContextDir = config.GitDir
+	}
 
-	f.Namespace, err = checkNamespaceDeploy(f.Namespace, config.Namespace, cmd.ErrOrStderr())
+	f.Namespace = namespace(config, f, cmd.ErrOrStderr())
 	if err != nil {
 		return
 	}
@@ -205,7 +221,7 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 	}
 
 	// Validate that a builder short-name was obtained, whether that be from
-	// the funciton's prior state, or the value of flags/environment.
+	// the function's prior state, or the value of flags/environment.
 	if err = ValidateBuilder(f.Builder); err != nil {
 		return
 	}
@@ -228,7 +244,7 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		return
 	}
 
-	client, done := newClient(ClientConfig{Namespace: config.Namespace, Verbose: config.Verbose},
+	client, done := newClient(ClientConfig{Namespace: f.Namespace, Verbose: config.Verbose},
 		fn.WithRegistry(config.Registry),
 		fn.WithBuilder(builder))
 	defer done()
@@ -242,7 +258,7 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 			if err = survey.AskOne(
 				&survey.Input{Message: "Registry for function images:"},
 				&config.Registry, survey.WithValidator(
-					ValidNamespaceAndRegistry(config.Path))); err != nil {
+					NewRegistryValidator(config.Path))); err != nil {
 				return ErrRegistryRequired
 			}
 			fmt.Println("Note: building a function the first time will take longer than subsequent builds")
@@ -251,112 +267,58 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		return ErrRegistryRequired
 	}
 
-	// NOTE: curently need to preemptively write out function state until
-	// the API is updated to use instances, at which point we will only
-	// write on success.
-	if err = f.Write(); err != nil {
-		return
-	}
-
 	// Perform the deployment either remote or local.
-	// TODO: Extract
 	if config.Remote {
-		// Remote
-		// ------
-		// If a remote deploy was requested, trigger the remote to deploy (and build
-		// by default) using the configured git repository URL
-
-		// Populate f.Git from config
-		if config.GitURL != "" {
-			if strings.Contains(config.GitURL, "#") {
-				parts := strings.Split(config.GitURL, "#")
-				if len(parts) == 2 {
-					f.Git.URL = parts[0]
-					f.Git.Revision = parts[1]
-				} else {
-					return fmt.Errorf("invalid --git-url '%v'", config.GitURL)
-				}
-			} else {
-				f.Git.URL = config.GitURL
-			}
-		}
-		if config.GitBranch != "" {
-			f.Git.Revision = config.GitBranch
-		}
-		if config.GitDir != "" {
-			f.Git.ContextDir = config.GitDir
-		}
-
-		// Validate the Function contains a URL.
-		// TODO: This should be a check performed by the Pipeline Runner as well,
-		// but by checking here, we can provide a verbose error message with cli-
-		// specific recommendations.  We could refactor such that the Pipeline
-		// runner returns a typed error and wrap here with the detailed message.
 		if f.Git.URL == "" {
-			return ErrURLRequired
+			return ErrURLRequired // Provides CLI-specific help text
 		}
-
-		// NOTE: writing in this case is handled as the others should: as the last
-		// step of the process, after successful run.  This is because the
-		// RunPipeline method was updated to use a funciton reference, so the
-		// latter write captures changes to the function struct from the Git
-		// options gathered from config above.
-
 		// Invoke a remote build/push/deploy pipeline
-		if err = client.RunPipeline(cmd.Context(), f); err != nil {
-			return err
+		// Returned is the function with fields like Registry and Image populated.
+		if f, err = client.RunPipeline(cmd.Context(), f); err != nil {
+			return
 		}
-
 	} else {
-		// Local
-		// -----
-		// build unbuilt, filesystem changed since last build or --build forced
-		// after validating no --git-x flags.
-		if config.GitURL != "" || config.GitDir != "" || config.GitBranch != "" {
-			return fmt.Errorf("Git settings (--git-url --git-dir and --git-branch) are currently only available when triggering remote deployments using --remote.")
+		if err = f.Write(); err != nil { // TODO: remove when client API uses 'f'
+			return
 		}
-		if config.Build == "auto" {
-			if !client.Built(f.Root) {
-				if err = client.Build(cmd.Context(), config.Path); err != nil {
-					return
-				}
-				if f, err = fn.NewFunction(config.Path); err != nil {
-					return
-				}
-			} else {
-				fmt.Println("function already built.  Use --build to force a rebuild.")
-			}
-		} else {
-			var build bool
-			if build, err = strconv.ParseBool(config.Build); err != nil {
-				return fmt.Errorf("unrecognized value for --build '%v'.  accepts 'auto', 'true' or 'false' (or similarly truthy value)", build)
-			}
-			if build {
-				if err = client.Build(cmd.Context(), config.Path); err != nil {
-					return
-				}
-			} else {
-				fmt.Println("function build disabled.")
-			}
-		}
-		// Push built image for the function at path to registry
-		if config.Push {
-			if err = client.Push(cmd.Context(), config.Path); err != nil {
+		if build(config.Build, f, client) { // --build or "auto" with FS changes
+			if err = client.Build(cmd.Context(), f.Root); err != nil {
 				return
 			}
 		}
-		// Deploy pushed image for function at path to current platform
-		if err = client.Deploy(cmd.Context(), config.Path); err != nil {
+		if f, err = fn.NewFunction(f.Root); err != nil { // TODO: remove when client API uses 'f'
+			return
+		}
+		if config.Push {
+			if err = client.Push(cmd.Context(), f.Root); err != nil {
+				return
+			}
+		}
+		if err = client.Deploy(cmd.Context(), f.Root); err != nil {
+			return
+		}
+		if f, err = fn.NewFunction(f.Root); err != nil { // TODO: remove when client API uses 'f'
 			return
 		}
 	}
 
-	// TODO: this should be the only write once the API is uing all function
-	// structs
+	// mutations persisted on success
 	return f.Write()
 }
 
-func ValidNamespaceAndRegistry(path string) survey.Validator {
+// build returns true if the value of buildStr is a truthy value, or if
+// it is the literal "auto" and the function reports as being currently
+// unbuilt.  Invalid errors are not reported as this is the purview of
+// deployConfig.Validate
+func build(buildCfg string, f fn.Function, client *fn.Client) bool {
+	if buildCfg == "auto" {
+		return !client.Built(f.Root) // first build or modified filesystem
+	}
+	build, _ := strconv.ParseBool(buildCfg)
+	return build
+}
+
+func NewRegistryValidator(path string) survey.Validator {
 	return func(val interface{}) error {
 
 		// if the value passed in is the zero value of the appropriate type
@@ -646,23 +608,43 @@ func (c deployConfig) Prompt() (deployConfig, error) {
 	return c, err
 }
 
-// Validate the config passes an initial sanity check
+// Validate the config passes an initial consistency check
 func (c deployConfig) Validate() (err error) {
+	// Bubble validation
 	if err = c.buildConfig.Validate(); err != nil {
 		return
 	}
 
+	// Can not enable build when specifying an --image
 	truthy := func(s string) bool {
 		v, _ := strconv.ParseBool(s)
 		return v
 	}
-
 	if c.ImageDigest != "" && truthy(c.Build) {
 		return errors.New("building can not be enabled when using an image with digest")
 	}
 
+	// Can not push when specifying an --image
 	if c.ImageDigest != "" && c.Push {
 		return errors.New("pushing is not valid when specifying an image with digest")
+	}
+
+	// Git settings are only avaolabe with --remote
+	if (c.GitURL != "" || c.GitDir != "" || c.GitBranch != "") && !c.Remote {
+		return errors.New("git settings (--git-url --git-dir and --git-branch) are currently only available when triggering remote deployments (--remote)")
+	}
+
+	// Git URL can contain at maximum one '#'
+	urlParts := strings.Split(c.GitURL, "#")
+	if len(urlParts) > 2 {
+		return fmt.Errorf("invalid --git-url '%v'", c.GitURL)
+	}
+
+	// --build can be "auto"|true|false
+	if c.Build != "auto" {
+		if _, err := strconv.ParseBool(c.Build); err != nil {
+			return fmt.Errorf("unrecognized value for --build '%v'.  accepts 'auto', 'true' or 'false' (or similarly truthy value)", c.Build)
+		}
 	}
 
 	return
@@ -688,35 +670,38 @@ func parseImage(v string) (name, digest string, err error) {
 	return
 }
 
-// checkNamespaceDeploy checks current namespace against func.yaml and warns if its different
-// or sets namespace to be written in func.yaml if its the first deployment
-func checkNamespaceDeploy(funcNamespace string, confNamespace string, stderr io.Writer) (string, error) {
-	var namespace string
+// namespace returns the final namespace to use when considering
+// both provided values (flag or environment variables), the
+// namespace at which the function is currently deployed, and the
+// default of the currently active namespace.
+// Warnings are printed to stderr when the combination may be
+// confusing to the user.
+func namespace(cfg deployConfig, f fn.Function, stderr io.Writer) (namespace string) {
 	var err error
 
-	// Choose target namespace
-	if confNamespace != "" {
-		namespace = confNamespace // --namespace takes precidence
-	} else if funcNamespace != "" {
-		namespace = funcNamespace // value from previous deployment (func.yaml) 2nd priority
+	if cfg.Namespace != "" {
+		namespace = cfg.Namespace // --namespace takes precidence
+	} else if f.Namespace != "" {
+		namespace = f.Namespace // value from previous deployment (func.yaml) 2nd priority
 	} else {
 		// Try to derive a default from the current k8s context, if any.
-		namespace, err = k8s.GetNamespace("")
-		if err != nil {
-			return "", nil // configured k8s environment not required
+		if namespace, err = k8s.GetNamespace(""); err != nil {
+			fmt.Fprintln(stderr, "Warning: no namespace provided, and none currently active. Continuing to attempt deployment")
 		}
 	}
 
-	currNamespace, err := k8s.GetNamespace("")
-	if err == nil && namespace != currNamespace {
-		fmt.Fprintf(stderr, "Warning: Function is in namespace '%s', but currently active namespace is '%s'. Continuing with redeployment to '%s'.\n", funcNamespace, currNamespace, funcNamespace)
+	// Warn if in a different namespace than active
+	active, err := k8s.GetNamespace("")
+	if err == nil && namespace != active {
+		fmt.Fprintf(stderr, "Warning: Function is in namespace '%s', but currently active namespace is '%s'. Continuing with redeployment to '%s'.\n", f.Namespace, active, f.Namespace)
 	}
 
-	if funcNamespace != "" && namespace != funcNamespace {
-		fmt.Fprintf(stderr, "Warning: function is in namespace '%s', but requested namespace is '%s'. Continuing with deployment to '%v'.\n", funcNamespace, namespace, namespace)
+	// Warn if potentially creating an orphan
+	if f.Namespace != "" && namespace != f.Namespace {
+		fmt.Fprintf(stderr, "Warning: function is in namespace '%s', but requested namespace is '%s'. Continuing with deployment to '%v'.\n", f.Namespace, namespace, namespace)
 	}
 
-	return namespace, nil
+	return
 }
 
 var ErrRegistryRequired = errors.New(`A container registry is required.  For example:

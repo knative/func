@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/AlecAivazis/survey/v2/terminal"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
@@ -81,7 +82,9 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	// interactive user prompts if in confirm mode.
 	config, err := newBuildConfig().Prompt()
 	if err != nil {
-		return
+		if errors.Is(err, terminal.InterruptErr) {
+			return nil
+		}
 	}
 
 	// Validate the config
@@ -124,7 +127,7 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	}
 
 	// Validate that a builder short-name was obtained, whether that be from
-	// the funciton's prior state, or the value of flags/environment.
+	// the function's prior state, or the value of flags/environment.
 	if err = ValidateBuilder(f.Builder); err != nil {
 		return
 	}
@@ -161,7 +164,7 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 			if err = survey.AskOne(
 				&survey.Input{Message: "Registry for function images:"},
 				&config.Registry, survey.WithValidator(
-					ValidNamespaceAndRegistry(config.Path))); err != nil {
+					NewRegistryValidator(config.Path))); err != nil {
 				return ErrRegistryRequired
 			}
 			fmt.Println("Note: building a function the first time will take longer than subsequent builds")
@@ -286,7 +289,7 @@ func (c buildConfig) Prompt() (buildConfig, error) {
 	return c, err
 }
 
-// Validate the config passes an initial sanity check
+// Validate the config passes an initial consistency check
 func (c buildConfig) Validate() (err error) {
 
 	if c.Platform != "" && c.Builder != builders.S2I {

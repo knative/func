@@ -725,7 +725,9 @@ func (c *Client) Deploy(ctx context.Context, path string) (err error) {
 }
 
 // RunPipeline runs a Pipeline to build and deploy the function.
-func (c *Client) RunPipeline(ctx context.Context, f Function) (err error) {
+// Returned function contains applicable registry and deployed image name.
+func (c *Client) RunPipeline(ctx context.Context, f Function) (Function, error) {
+	var err error
 	go func() {
 		<-ctx.Done()
 		c.progressListener.Stopping()
@@ -740,17 +742,16 @@ func (c *Client) RunPipeline(ctx context.Context, f Function) (err error) {
 	// Image name is stored on the function for later use by deploy, etc.
 	if f.Image == "" {
 		if f.Image, err = f.ImageName(); err != nil {
-			return
+			return f, err
 		}
 	}
 
 	// Build and deploy function using Pipeline
-	if err = c.pipelinesProvider.Run(ctx, f); err != nil {
-		return
+	if err := c.pipelinesProvider.Run(ctx, f); err != nil {
+		return f, fmt.Errorf("failed to run pipeline: %w", err)
 	}
 
-	return f.Write() // will contain populated registry and imag field
-
+	return f, nil
 }
 
 func (c *Client) Route(path string) (err error) {

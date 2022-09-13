@@ -54,12 +54,16 @@ EXAMPLES
 	  $ func deploy -c
 
 	o Deploy the function in the current working directory.
-	  The function image will be pushed to "quay.io/alice/<Function Name>"
-	  $ func deploy --registry quay.io/alice
+	  The function image will be pushed to "ghcr.io/alice/<Function Name>"
+	  $ func deploy --registry ghcr.io/alice
 
 	o Deploy the function in the current working directory, manually specifying
 	  the final image name and target cluster namespace.
-	  $ func deploy --image quay.io/alice/myfunc --namespace myns
+	  $ func deploy --image ghcr.io/alice/myfunc --namespace myns
+
+	o Trigger a remote deploy, which instructs the cluster to build and deploy
+	  the function in the specified git repository.
+	  $ func deploy --remote --git-url=https://example.com/alice/myfunc.git
 
 	o Deploy the function, rebuilding the image even if no changes have been
 	  detected in the local filesystem (source).
@@ -69,9 +73,6 @@ EXAMPLES
 	  local filesystem.
 	  $ func deploy --build=false
 
-	o Trigger a remote deploy, which instructs the cluster to build and deploy
-	  the function in the specified git repository.
-	  $ func deploy --remote --git-url=https://example.com/alice/myfunc.git
 
 
 ```
@@ -94,7 +95,7 @@ func deploy [flags]
   -p, --path string             Path to the project directory (Env: $FUNC_PATH) (default ".")
       --platform string         Target platform to build (e.g. linux/amd64).
   -u, --push                    Push the function image to registry before deploying (Env: $FUNC_PUSH) (default true)
-  -r, --registry string         Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined based on the local directory name. If not provided the registry will be taken from func.yaml (Env: $FUNC_REGISTRY)
+  -r, --registry string         Registry + namespace part of the image to build, ex 'ghcr.io/myuser'.  The full image name is automatically determined based on the local directory name. If not provided the registry will be taken from func.yaml (Env: $FUNC_REGISTRY)
       --remote                  Trigger a remote deployment.  Default is to deploy and build from the local system: $FUNC_REMOTE)
 ```
 

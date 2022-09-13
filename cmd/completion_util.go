@@ -11,7 +11,6 @@ import (
 	"github.com/spf13/cobra"
 
 	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/builders"
 	"knative.dev/kn-plugin-func/knative"
 )
 
@@ -130,14 +129,20 @@ func CompleteBuilderImageList(cmd *cobra.Command, args []string, complete string
 	return
 }
 
-func CompleteBuilderList(cmd *cobra.Command, args []string, complete string) ([]string, cobra.ShellCompDirective) {
-	if len(complete) >= 1 {
-		if strings.HasPrefix(builders.Pack, complete) {
-			return []string{builders.Pack}, cobra.ShellCompDirectiveNoFileComp
-		}
-		if strings.HasPrefix(builders.S2I, complete) {
-			return []string{builders.S2I}, cobra.ShellCompDirectiveNoFileComp
+func CompleteBuilderList(cmd *cobra.Command, args []string, complete string) (matches []string, d cobra.ShellCompDirective) {
+	d = cobra.ShellCompDirectiveNoFileComp
+	matches = []string{}
+
+	if len(complete) == 0 {
+		matches = KnownBuilders()
+		return
+	}
+
+	for _, b := range KnownBuilders() {
+		if strings.HasPrefix(b, complete) {
+			matches = append(matches, b)
 		}
 	}
-	return []string{builders.Pack, builders.S2I}, cobra.ShellCompDirectiveNoFileComp
+
+	return
 }
