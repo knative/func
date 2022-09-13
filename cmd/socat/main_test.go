@@ -114,7 +114,7 @@ func TestRootCmd(t *testing.T) {
 			if err == nil && tt.args.wantErr {
 				t.Error("expected error but got nil")
 			}
-			
+
 			if tt.args.outMatcher != nil && !tt.args.outMatcher(out.String()) {
 				t.Error("bad standard output")
 			}
