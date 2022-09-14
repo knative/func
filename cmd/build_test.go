@@ -44,10 +44,10 @@ func TestBuild_ImageFlag(t *testing.T) {
 	}
 }
 
-// TestBuild_RegistryRequired ensures that when no registry is provided, and
-// the client has not been instantiated with a default registry, an
-// ErrRegistryRequired is received.
-func TestBuild_RegistryRequired(t *testing.T) {
+// TestDeploy_RegistryOrImageRequired ensures that when no registry or image are
+// provided (or exist on the function already), and the client has not been
+// instantiated with a default registry, an ErrRegistryRequired is received.
+func TestBuild_RegistryOrImageRequired(t *testing.T) {
 	t.Helper()
 	root, rm := Mktemp(t)
 	defer rm()
@@ -65,6 +65,13 @@ func TestBuild_RegistryRequired(t *testing.T) {
 		if !errors.Is(err, ErrRegistryRequired) {
 			t.Fatalf("expected ErrRegistryRequired, got error: %v", err)
 		}
+	}
+
+	// earlire test covers the --registry only case, test here that --image
+	// also succeeds.
+	cmd.SetArgs([]string{"--image=example.com/alice/myfunc"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
 	}
 }
 

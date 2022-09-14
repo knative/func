@@ -2,20 +2,15 @@ apiVersion: v1
 clusters:
 - cluster:
     insecure-skip-tls-verify: true
-    server: https://example-cluster.serverless.devcluster.openshift.com:6443
-  name: example-cluster-serverless-devcluster-openshift-com:6443
+    server: https://cluster.example.com.com:6443
+  name: cluster.example.com-com:6443
 contexts:
 - context:
-    cluster: example-cluster-serverless-devcluster-openshift-com:6443
-    namespace: default
-    user: kube:admin/example-cluster-serverless-devcluster-openshift-com:6443
-  name: default/example-cluster-serverless-devcluster-openshift-com:6443/kube:admin
-- context:
-    cluster: example-cluster-serverless-devcluster-openshift-com:6443
+    cluster: cluster.example.com-com:6443
     namespace: test-ns-deploy
-    user: kube:admin/example-cluster-serverless-devcluster-openshift-com:6443
-  name: test-ns-deploy/example-cluster-serverless-devcluster-openshift-com:6443/kube:admin
-current-context: test-ns-deploy/example-cluster-serverless-devcluster-openshift-com:6443/kube:admin
+    user: kube:admin/cluster.example.com-com:6443
+  name: test-ns-deploy/cluster.example.com-com:6443/kube:admin
+current-context: test-ns-deploy/cluster.example.com-com:6443/kube:admin
 kind: Config
 preferences: {}
 users:

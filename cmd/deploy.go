@@ -119,7 +119,7 @@ EXAMPLES
 	cmd.Flags().StringP("builder", "b", builders.Default, fmt.Sprintf("builder to use when creating the underlying image. Currently supported builders are %s.", KnownBuilders()))
 	cmd.Flags().StringP("builder-image", "", "", "The image the specified builder should use; either an as an image name or a mapping. ($FUNC_BUILDER_IMAGE)")
 	cmd.Flags().StringP("image", "i", "", "Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. (Env: $FUNC_IMAGE)")
-	cmd.Flags().StringP("registry", "r", GetDefaultRegistry(), "Registry + namespace part of the image to build, ex 'ghcr.io/myuser'.  The full image name is automatically determined based on the local directory name. If not provided the registry will be taken from func.yaml (Env: $FUNC_REGISTRY)")
+	cmd.Flags().StringP("registry", "r", GetDefaultRegistry(), "Registry + namespace part of the image to build, ex 'ghcr.io/myuser'.  The full image name is automatically determined. (Env: $FUNC_REGISTRY)")
 	cmd.Flags().BoolP("push", "u", true, "Push the function image to registry before deploying (Env: $FUNC_PUSH)")
 	cmd.Flags().StringP("platform", "", "", "Target platform to build (e.g. linux/amd64).")
 	cmd.Flags().StringP("namespace", "n", "", "Deploy into a specific namespace. (Env: $FUNC_NAMESPACE)")
@@ -707,14 +707,10 @@ func namespace(cfg deployConfig, f fn.Function, stderr io.Writer) (namespace str
 var ErrRegistryRequired = errors.New(`A container registry is required.  For example:
 --registry docker.io/myusername
 
-For more advanced usage, it is also possible to specify the exact image to use. For example:
-
---image docker.io/myusername/myfunc:latest
-
 To run the command in an interactive mode, use --confirm (-c)`)
 
 var ErrURLRequired = errors.New(`The function is not associated with a Git repository, and needs one in order to perform a remote deployment.  For example:
 
---git-url = https://git.example.com/namespace/myFunction
+--remote --git-url=https://git.example.com/namespace/myFunction
 
 To run the deploy command in an interactive mode, use --confirm (-c)`)

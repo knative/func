@@ -52,6 +52,10 @@ func TestDeploy_Default(t *testing.T) {
 // provided (or exist on the function already), and the client has not been
 // instantiated with a default registry, an ErrRegistryRequired is received.
 func TestDeploy_RegistryOrImageRequired(t *testing.T) {
+	testRegistryOrImageRequired(NewDeployCmd, t)
+}
+
+func testRegistryOrImageRequired(cmdFn commandConstructor, t *testing.T) {
 	t.Helper()
 	root, rm := Mktemp(t)
 	defer rm()
@@ -60,7 +64,7 @@ func TestDeploy_RegistryOrImageRequired(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cmd := NewDeployCmd(NewClientFactory(func() *fn.Client {
+	cmd := cmdFn(NewClientFactory(func() *fn.Client {
 		return fn.New()
 	}))
 
