@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"text/tabwriter"
@@ -13,6 +14,9 @@ import (
 
 	fn "knative.dev/kn-plugin-func"
 )
+
+// ErrTemplateRepoDoesNotExist is a sentinel error if a template repository responds with 404 status code
+var ErrTemplateRepoDoesNotExist = errors.New("template repo does not exist")
 
 func NewTemplatesCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
@@ -60,7 +64,7 @@ EXAMPLES
 		PreRunE: bindEnv("json", "repository"),
 	}
 
-	cmd.Flags().BoolP("json", "", false, "Set output to JSON format. (Env: $FUNC_JSON)")
+	cmd.Flags().Bool("json", false, "Set output to JSON format. (Env: $FUNC_JSON)")
 	cmd.Flags().StringP("repository", "r", "", "URI to a specific repository to consider (Env: $FUNC_REPOSITORY)")
 
 	cmd.SetHelpFunc(defaultTemplatedHelp)
@@ -79,13 +83,25 @@ func runTemplates(cmd *cobra.Command, args []string, newClient ClientFactory) (e
 		return
 	}
 
+	// Simple ping to the repo to avoid subsequent errors from http package if it does not exist
+	if cfg.Repository != "" {
+		res, err := http.Get(cfg.Repository)
+		if err != nil {
+			return err
+		}
+		defer res.Body.Close()
+		if res.StatusCode == http.StatusNotFound {
+			return ErrTemplateRepoDoesNotExist
+		}
+	}
+
 	// Client which will provide data
 	client, done := newClient(ClientConfig{Verbose: cfg.Verbose},
 		fn.WithRepository(cfg.Repository),             // Use exactly this repo OR
 		fn.WithRepositoriesPath(cfg.RepositoriesPath)) // Path on disk to installed repos
 	defer done()
 
-	// For a singl language runtime
+	// For a single language runtime
 	// -------------------
 	if len(args) == 1 {
 		templates, err := client.Templates().List(args[0])
@@ -105,7 +121,7 @@ func runTemplates(cmd *cobra.Command, args []string, newClient ClientFactory) (e
 		}
 		return nil
 	} else if len(args) > 1 {
-		return errors.New("unexpected extra arguments.")
+		return errors.New("unexpected extra arguments")
 	}
 
 	// All language runtimes
