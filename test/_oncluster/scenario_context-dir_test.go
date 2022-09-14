@@ -42,10 +42,13 @@ func TestContextDirFunc(t *testing.T) {
 		// Initial commit to repository: git init + commit + push
 		GitInitialCommitAndPush(t, gitProjectPath, remoteRepo.ExternalCloneURL)
 
-		// Update func.yaml build as git + url + context-dir
-		UpdateFuncYamlGit(t, funcPath, Git{URL: remoteRepo.ClusterCloneURL, ContextDir: funcContextDir})
-
-		knFunc.Exec("deploy", "-r", e2e.GetRegistry(), "-p", funcPath)
+		knFunc.Exec("deploy",
+			"-p", funcPath,
+			"-r", e2e.GetRegistry(),
+			"--remote",
+			"--git-url", remoteRepo.ClusterCloneURL,
+			"--git-dir", funcContextDir,
+		)
 		defer knFunc.Exec("delete", "-p", funcPath)
 
 		// -- Assertions --

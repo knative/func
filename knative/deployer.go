@@ -44,6 +44,18 @@ type Deployer struct {
 	decorator DeployDecorator
 }
 
+// DefaultNamespace attempts to read the kubernetes active namepsace.
+// Missing configs or not having an active kuberentes configuration are
+// equivalent to having no default namespace (empty string).
+func DefaultNamespace() string {
+	// Get client config, if it exists, and from that the namespace
+	ns, _, err := k8s.GetClientConfig().Namespace()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: unable to get active namespace: %v\n", err)
+	}
+	return ns
+}
+
 func NewDeployer(opts ...DeployerOpt) *Deployer {
 	d := &Deployer{}
 

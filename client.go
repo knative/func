@@ -32,9 +32,6 @@ const (
 	// XDG_CONFIG_HOME set, and no WithConfigPath was used.
 	DefaultConfigPath = ".config/func"
 
-	// DefaultBuildType is the default build type for a function
-	DefaultBuildType = BuildTypeLocal
-
 	// RunDataDir holds transient runtime metadata
 	// By default it is excluded from source control.
 	RunDataDir = ".func"
@@ -528,7 +525,7 @@ func (c *Client) Create(cfg Function) (err error) {
 		return err
 	}
 	if hasFunc {
-		return fmt.Errorf("Function at '%v' already initialized", cfg.Root)
+		return fmt.Errorf("function at '%v' already initialized", cfg.Root)
 	}
 
 	// Path is defaulted to the current working directory
@@ -727,19 +724,14 @@ func (c *Client) Deploy(ctx context.Context, path string) (err error) {
 	return err
 }
 
-// RunPipeline runs a Pipeline to Build and deploy the function at path.
-// In a parameter accepts git configuration options that we don't want to persist into func.yaml.
-func (c *Client) RunPipeline(ctx context.Context, path string, git Git) (err error) {
+// RunPipeline runs a Pipeline to build and deploy the function.
+// Returned function contains applicable registry and deployed image name.
+func (c *Client) RunPipeline(ctx context.Context, f Function) (Function, error) {
+	var err error
 	go func() {
 		<-ctx.Done()
 		c.progressListener.Stopping()
 	}()
-
-	f, err := NewFunction(path)
-	if err != nil {
-		err = fmt.Errorf("failed to laod function: %w", err)
-		return
-	}
 
 	// Default function registry to the client's global registry
 	if f.Registry == "" {
@@ -748,31 +740,18 @@ func (c *Client) RunPipeline(ctx context.Context, path string, git Git) (err err
 
 	// If no image name has been yet defined (not yet built/deployed), calculate.
 	// Image name is stored on the function for later use by deploy, etc.
-	// TODO: write this to .func/build instead, and populate f.Image on deploy
-	// such that local builds do not dirty the work tree.
 	if f.Image == "" {
 		if f.Image, err = f.ImageName(); err != nil {
-			return
-		}
-		//Write (save) - Serialize the function to disk
-		//Will now contain populated image name.
-		if err = f.Write(); err != nil {
-			return
+			return f, err
 		}
 	}
-
-	// Git configuration options specified as arguments don't get saved to func.yaml,
-	// but are used in the pipeline invocation
-	f.Git = git
 
 	// Build and deploy function using Pipeline
-	err = c.pipelinesProvider.Run(ctx, f)
-	if err != nil {
-		err = fmt.Errorf("failed to run pipeline: %w", err)
-		return
+	if err := c.pipelinesProvider.Run(ctx, f); err != nil {
+		return f, fmt.Errorf("failed to run pipeline: %w", err)
 	}
 
-	return err
+	return f, nil
 }
 
 func (c *Client) Route(path string) (err error) {
@@ -866,7 +845,7 @@ func (c *Client) Remove(ctx context.Context, cfg Function, deleteAll bool) error
 			return err
 		}
 		if !f.Initialized() {
-			return fmt.Errorf("Function at %v can not be removed unless initialized. Try removing by name", f.Root)
+			return fmt.Errorf("function at %v can not be removed unless initialized. Try removing by name", f.Root)
 		}
 		functionName = f.Name
 		cfg = f

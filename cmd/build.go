@@ -54,12 +54,13 @@ and the image name is stored in the configuration file.
 	cmd.Flags().StringP("builder-image", "", "", "builder image, either an as a an image name or a mapping name.\nSpecified value is stored in func.yaml (as 'builder' field) for subsequent builds. ($FUNC_BUILDER_IMAGE)")
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
 	cmd.Flags().StringP("image", "i", "", "Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE)")
-	cmd.Flags().StringP("registry", "r", GetDefaultRegistry(), "Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined based on the local directory name. If not provided the registry will be taken from func.yaml (Env: $FUNC_REGISTRY)")
+	cmd.Flags().StringP("registry", "r", GetDefaultRegistry(), "Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined (Env: $FUNC_REGISTRY)")
 	cmd.Flags().BoolP("push", "u", false, "Attempt to push the function image after being successfully built")
+	cmd.Flags().Lookup("push").NoOptDefVal = "true" // --push == --push=true
 	cmd.Flags().StringP("platform", "", "", "Target platform to build (e.g. linux/amd64).")
 	setPathFlag(cmd)
 
-	if err := cmd.RegisterFlagCompletionFunc("builder", CompleteBuildersList); err != nil {
+	if err := cmd.RegisterFlagCompletionFunc("builder", CompleteBuilderList); err != nil {
 		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
 	}
 
@@ -77,11 +78,17 @@ and the image name is stored in the configuration file.
 }
 
 func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err error) {
+	// Populate a command config from environment variables, flags and potentially
+	// interactive user prompts if in confirm mode.
 	config, err := newBuildConfig().Prompt()
 	if err != nil {
 		if errors.Is(err, terminal.InterruptErr) {
 			return nil
 		}
+	}
+
+	// Validate the config
+	if err = config.Validate(); err != nil {
 		return
 	}
 
@@ -112,35 +119,33 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	if config.Image != "" {
 		f.Image = config.Image
 	}
+	if config.Builder != "" {
+		f.Builder = config.Builder
+	}
+	if config.BuilderImage != "" {
+		f.BuilderImages[config.Builder] = config.BuilderImage
+	}
+
+	// Validate that a builder short-name was obtained, whether that be from
+	// the function's prior state, or the value of flags/environment.
+	if err = ValidateBuilder(f.Builder); err != nil {
+		return
+	}
 
 	// Choose a builder based on the value of the --builder flag
 	var builder fn.Builder
-	if f.Builder == "" || cmd.Flags().Changed("builder") {
-		f.Builder = config.Builder
-	} else {
-		config.Builder = f.Builder
-	}
-	if err = ValidateBuilder(config.Builder); err != nil {
-		return err
-	}
-	if config.Builder == builders.Pack {
-		if config.Platform != "" {
-			err = fmt.Errorf("the --platform flag works only with s2i build")
-			return
-		}
+	if f.Builder == builders.Pack {
 		builder = buildpacks.NewBuilder(
 			buildpacks.WithName(builders.Pack),
 			buildpacks.WithVerbose(config.Verbose))
-	} else if config.Builder == builders.S2I {
+	} else if f.Builder == builders.S2I {
 		builder = s2i.NewBuilder(
 			s2i.WithName(builders.S2I),
-			s2i.WithVerbose(config.Verbose),
-			s2i.WithPlatform(config.Platform))
-	}
-
-	// Use the user-provided builder image, if supplied
-	if config.BuilderImage != "" {
-		f.BuilderImages[config.Builder] = config.BuilderImage
+			s2i.WithPlatform(config.Platform),
+			s2i.WithVerbose(config.Verbose))
+	} else {
+		err = fmt.Errorf("builder '%v' is not recognized", f.Builder)
+		return
 	}
 
 	client, done := newClient(ClientConfig{Verbose: config.Verbose},
@@ -152,7 +157,19 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	if client.Registry() == "" && f.Registry == "" && f.Image == "" {
 		// It is not necessary that we validate here, since the client API has
 		// its own validation, but it does give us the opportunity to show a very
-		// cli-specific and detailed error message.
+		// cli-specific and detailed error message and (at least for now) default
+		// to an interactive prompt.
+		if interactiveTerminal() {
+			fmt.Println("A registry for function images is required. For example, 'docker.io/tigerteam'.")
+			if err = survey.AskOne(
+				&survey.Input{Message: "Registry for function images:"},
+				&config.Registry, survey.WithValidator(
+					NewRegistryValidator(config.Path))); err != nil {
+				return ErrRegistryRequired
+			}
+			fmt.Println("Note: building a function the first time will take longer than subsequent builds")
+		}
+
 		return ErrRegistryRequired
 	}
 
@@ -270,4 +287,15 @@ func (c buildConfig) Prompt() (buildConfig, error) {
 	}
 	err = survey.Ask(qs, &c)
 	return c, err
+}
+
+// Validate the config passes an initial consistency check
+func (c buildConfig) Validate() (err error) {
+
+	if c.Platform != "" && c.Builder != builders.S2I {
+		err = errors.New("Only S2I builds currently support specifying platform")
+		return
+	}
+
+	return
 }

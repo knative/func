@@ -1,8 +1,7 @@
 package cmd
 
 import (
-	"fmt"
-	"os"
+	"errors"
 	"testing"
 
 	fn "knative.dev/kn-plugin-func"
@@ -20,11 +19,10 @@ func TestBuild_ImageFlag(t *testing.T) {
 	root, cleanup := Mktemp(t)
 	defer cleanup()
 
-	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root}); err != nil {
+	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root, Registry: TestRegistry}); err != nil {
 		t.Fatal(err)
 	}
 
-	// Create build command that will use a mock builder.
 	cmd := NewBuildCmd(NewClientFactory(func() *fn.Client {
 		return fn.New(fn.WithBuilder(builder))
 	}))
@@ -33,7 +31,7 @@ func TestBuild_ImageFlag(t *testing.T) {
 	cmd.SetArgs(args)
 	err := cmd.Execute()
 	if err != nil {
-		t.Fatal("Expected error")
+		t.Fatal(err)
 	}
 
 	// Now load the function and ensure that the image is set correctly.
@@ -46,16 +44,35 @@ func TestBuild_ImageFlag(t *testing.T) {
 	}
 }
 
-// TestBuild_RegistryOrImageRequired ensures that when no registry or image are
-// provided, and the client has not been instantiated with a default registry,
-// an ErrRegistryRequired is received.
+// TestDeploy_RegistryOrImageRequired ensures that when no registry or image are
+// provided (or exist on the function already), and the client has not been
+// instantiated with a default registry, an ErrRegistryRequired is received.
 func TestBuild_RegistryOrImageRequired(t *testing.T) {
-	testRegistryOrImageRequired(NewBuildCmd, t)
-}
+	t.Helper()
+	root, rm := Mktemp(t)
+	defer rm()
 
-// TestBuild_ImageAndRegistry
-func TestBuild_ImageAndRegistry(t *testing.T) {
-	testRegistryOrImageRequired(NewBuildCmd, t)
+	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root}); err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := NewBuildCmd(NewClientFactory(func() *fn.Client {
+		return fn.New()
+	}))
+
+	cmd.SetArgs([]string{}) // this explicit clearing of args may not be necessary
+	if err := cmd.Execute(); err != nil {
+		if !errors.Is(err, ErrRegistryRequired) {
+			t.Fatalf("expected ErrRegistryRequired, got error: %v", err)
+		}
+	}
+
+	// earlire test covers the --registry only case, test here that --image
+	// also succeeds.
+	cmd.SetArgs([]string{"--image=example.com/alice/myfunc"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // TestBuild_InvalidRegistry ensures that providing an invalid resitry
@@ -83,101 +100,61 @@ func TestBuild_BuilderValidated(t *testing.T) {
 	testBuilderValidated(NewBuildCmd, t)
 }
 
-func TestBuild_runBuild(t *testing.T) {
-	tests := []struct {
-		name         string
-		pushFlag     bool
-		fileContents string
-		shouldBuild  bool
-		shouldPush   bool
-		wantErr      bool
-	}{
-		{
-			name:     "push flag triggers push after build",
-			pushFlag: true,
-			fileContents: `name: test-func
-runtime: go
-created: 2009-11-10 23:00:00`,
-			shouldBuild: true,
-			shouldPush:  true,
-		},
-		{
-			name:     "do not push when --push=false",
-			pushFlag: false,
-			fileContents: `name: test-func
-runtime: go
-created: 2009-11-10 23:00:00`,
-			shouldBuild: true,
-			shouldPush:  false,
-		},
-		{
-			name:     "push flag with failing push",
-			pushFlag: true,
-			fileContents: `name: test-func
-runtime: go
-created: 2009-11-10 23:00:00`,
-			shouldBuild: true,
-			shouldPush:  true,
-			wantErr:     true,
-		},
+// TestBuild_Push ensures that the build command properly pushes and respects
+// the --push flag.
+// - Push triggered after a successful build
+// - Push not triggered after an unsuccessful build
+// - Push can be disabled
+func TestBuild_Push(t *testing.T) {
+	root, rm := Mktemp(t)
+	defer rm()
+
+	f := fn.Function{
+		Root:     root,
+		Name:     "myfunc",
+		Runtime:  "go",
+		Registry: "example.com/alice",
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			mockPusher := mock.NewPusher()
-			failPusher := &mock.Pusher{
-				PushFn: func(f fn.Function) (string, error) {
-					return "", fmt.Errorf("push failed")
-				},
-			}
-			mockBuilder := mock.NewBuilder()
-			cmd := NewBuildCmd(NewClientFactory(func() *fn.Client {
-				pusher := mockPusher
-				if tt.wantErr {
-					pusher = failPusher
-				}
-				return fn.New(
-					fn.WithBuilder(mockBuilder),
-					fn.WithPusher(pusher),
-				)
-			}))
+	if err := fn.New().Create(f); err != nil {
+		t.Fatal(err)
+	}
 
-			tempDir, err := os.MkdirTemp("", "func-tests")
-			if err != nil {
-				t.Fatalf("temp dir couldn't be created %v", err)
-			}
-			t.Log("tempDir created:", tempDir)
-			t.Cleanup(func() {
-				os.RemoveAll(tempDir)
-			})
+	var (
+		builder = mock.NewBuilder()
+		pusher  = mock.NewPusher()
+		cmd     = NewBuildCmd(NewClientFactory(func() *fn.Client {
+			return fn.New(fn.WithRegistry(TestRegistry), fn.WithBuilder(builder), fn.WithPusher(pusher))
+		}))
+	)
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
 
-			fullPath := tempDir + "/func.yaml"
-			tempFile, err := os.Create(fullPath)
-			if err != nil {
-				t.Fatalf("temp file couldn't be created %v", err)
-			}
-			_, err = tempFile.WriteString(tt.fileContents)
-			if err != nil {
-				t.Fatalf("file content was not written %v", err)
-			}
+	// Assert there was no push
+	if pusher.PushInvoked {
+		t.Fatal("push should not be invoked by default")
+	}
 
-			cmd.SetArgs([]string{
-				"--path=" + tempDir,
-				fmt.Sprintf("--push=%t", tt.pushFlag),
-				"--registry=docker.io/tigerteam",
-			})
+	// Execute with push enabled
+	cmd.SetArgs([]string{"--push"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
 
-			err = cmd.Execute()
-			if tt.wantErr != (err != nil) {
-				t.Errorf("Wanted error %v but actually got %v", tt.wantErr, err)
-			}
+	// Assert there was a push
+	if !pusher.PushInvoked {
+		t.Fatal("push should be invoked when requested and a successful build")
+	}
 
-			if mockBuilder.BuildInvoked != tt.shouldBuild {
-				t.Errorf("Build execution expected: %v but was actually %v", tt.shouldBuild, mockBuilder.BuildInvoked)
-			}
+	// Exeute with push enabled but with a failed build
+	builder.BuildFn = func(f fn.Function) error {
+		return errors.New("mock error")
+	}
+	pusher.PushInvoked = false
+	_ = cmd.Execute() // expected error
 
-			if tt.shouldPush != (mockPusher.PushInvoked || failPusher.PushInvoked) {
-				t.Errorf("Push execution expected: %v but was actually mockPusher invoked: %v failPusher invoked %v", tt.shouldPush, mockPusher.PushInvoked, failPusher.PushInvoked)
-			}
-		})
+	// Assert push was not invoked when the build failed
+	if pusher.PushInvoked {
+		t.Fatal("push should not be invoked on a failed build")
 	}
 }

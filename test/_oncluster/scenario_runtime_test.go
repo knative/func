@@ -56,7 +56,7 @@ func runtimeImpl(t *testing.T, lang string) {
 	knFunc.Exec("deploy",
 		"-r", e2e.GetRegistry(),
 		"-p", funcPath,
-		"--build", "git",
+		"--remote",
 		"--git-url", remoteRepo.ClusterCloneURL)
 
 	defer knFunc.Exec("delete", "-p", funcPath)

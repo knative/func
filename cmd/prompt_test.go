@@ -33,8 +33,8 @@ func Test_newPromptForCredentials(t *testing.T) {
 	go func() {
 		chars := expectedCreds.Username + enter + expectedCreds.Password + enter
 		for _, ch := range chars {
+			time.Sleep(time.Millisecond * 100)
 			_, _ = console.Send(string(ch))
-			time.Sleep(time.Millisecond * 50)
 		}
 	}()
 

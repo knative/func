@@ -1,50 +1,19 @@
 package oncluster
 
 import (
-	"fmt"
-	"os"
 	"testing"
 
-	yaml "gopkg.in/yaml.v2"
+	fn "knative.dev/kn-plugin-func"
 	common "knative.dev/kn-plugin-func/test/_common"
 )
 
-type Git struct {
-	URL        string
-	Revision   string
-	ContextDir string
-}
-
-// UpdateFuncYamlGit update func.yaml file by setting build to git as well as git fields.
-func UpdateFuncYamlGit(t *testing.T, projectDir string, git Git) {
-
-	funcYamlPath := projectDir + "/func.yaml"
-	data, err := os.ReadFile(funcYamlPath)
+// UpdateFuncGit updates a function's git settings
+func UpdateFuncGit(t *testing.T, projectDir string, git fn.Git) {
+	f, err := fn.NewFunction(projectDir)
 	AssertNoError(t, err)
-
-	m := make(map[interface{}]interface{})
-	err = yaml.Unmarshal([]byte(data), &m)
+	f.Git = git
+	err = f.Write()
 	AssertNoError(t, err)
-
-	gitMap := make(map[interface{}]interface{})
-	m["build"] = "git"
-	m["git"] = gitMap
-
-	changeLog := fmt.Sprintln("build:", "git")
-	updateGitField := func(targetField string, targetValue string) {
-		if targetValue != "" {
-			gitMap[targetField] = targetValue
-			changeLog += fmt.Sprintln("git.", targetField, ":", targetValue)
-		}
-	}
-	updateGitField("url", git.URL)
-	updateGitField("revision", git.Revision)
-	updateGitField("contextDir", git.ContextDir)
-
-	outData, _ := yaml.Marshal(m)
-	err = os.WriteFile(funcYamlPath, outData, 0644)
-	AssertNoError(t, err)
-	t.Logf("func.yaml changed:\n%v", changeLog)
 }
 
 // GitInitialCommitAndPush Runs repeatable git commands used on every initial repository setup

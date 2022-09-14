@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	fn "knative.dev/kn-plugin-func"
 	common "knative.dev/kn-plugin-func/test/_common"
 	e2e "knative.dev/kn-plugin-func/test/_e2e"
 )
@@ -24,9 +25,13 @@ func TestFromCliBuildLocal(t *testing.T) {
 	defer os.RemoveAll(funcPath)
 
 	// Update func.yaml build as local + some fake url (it should not call it anyway)
-	UpdateFuncYamlGit(t, funcPath, Git{URL: "http://fake-repo/repo.git"})
+	UpdateFuncGit(t, funcPath, fn.Git{URL: "http://fake-repo/repo.git"})
 
-	knFunc.Exec("deploy", "-r", e2e.GetRegistry(), "-p", funcPath, "--build", "local")
+	knFunc.Exec("deploy",
+		"-p", funcPath,
+		"-r", e2e.GetRegistry(),
+		// "--remote",  // NOTE: Intentionally omitted
+	)
 	defer knFunc.Exec("delete", "-p", funcPath)
 
 	// -- Assertions --
