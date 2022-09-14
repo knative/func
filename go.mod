@@ -9,7 +9,7 @@ require (
 	github.com/Netflix/go-expect v0.0.0-20210722184520-ef0bf57d82b3
 	github.com/alecthomas/jsonschema v0.0.0-20210526225647-edb03dcab7bc
 	github.com/buildpacks/pack v0.24.0
-	github.com/cloudevents/sdk-go/v2 v2.8.0
+	github.com/cloudevents/sdk-go/v2 v2.10.1
 	github.com/containerd/containerd v1.6.6
 	github.com/containers/image/v5 v5.19.1
 	github.com/coreos/go-semver v0.3.0
@@ -41,15 +41,15 @@ require (
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools/v3 v3.1.0
-	k8s.io/api v0.23.5
-	k8s.io/apimachinery v0.23.5
+	k8s.io/api v0.23.9
+	k8s.io/apimachinery v0.23.9
 	k8s.io/client-go v1.5.2
 	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9 // indirect
-	knative.dev/client v0.31.1
-	knative.dev/eventing v0.31.3-0.20220802083815-e345f5f3695d
-	knative.dev/hack v0.0.0-20220629135029-9e09abcd61f0
-	knative.dev/pkg v0.0.0-20220412134708-e325df66cb51
-	knative.dev/serving v0.31.1-0.20220630164831-69a88e92b069
+	knative.dev/client v0.34.0
+	knative.dev/eventing v0.34.2
+	knative.dev/hack v0.0.0-20220823140917-8d1e4ccf9dc3
+	knative.dev/pkg v0.0.0-20220818004048-4a03844c0b15
+	knative.dev/serving v0.34.1
 )
 
 require (
@@ -188,12 +188,12 @@ require (
 	go.opencensus.io v0.23.0 // indirect
 	go.starlark.net v0.0.0-20200306205701-8dd3e2ee1dd5 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
-	go.uber.org/multierr v1.7.0 // indirect
-	go.uber.org/zap v1.20.0 // indirect
+	go.uber.org/multierr v1.8.0 // indirect
+	go.uber.org/zap v1.21.0 // indirect
 	golang.org/x/mod v0.5.1 // indirect
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f // indirect
 	golang.org/x/oauth2 v0.0.0-20220223155221-ee480838109b // indirect
-	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
+	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4 // indirect
 	golang.org/x/sys v0.0.0-20220412211240-33da011f77ad // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/time v0.0.0-20220224211638-0e9765cccd65 // indirect
@@ -209,12 +209,12 @@ require (
 	gopkg.in/src-d/go-billy.v4 v4.3.2 // indirect
 	gopkg.in/src-d/go-git.v4 v4.13.1 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
-	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
-	k8s.io/apiextensions-apiserver v0.23.4 // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
+	k8s.io/apiextensions-apiserver v0.23.9 // indirect
 	k8s.io/cli-runtime v0.23.4 // indirect
-	k8s.io/klog/v2 v2.60.1-0.20220317184644-43cc75f9ae89 // indirect
+	k8s.io/klog/v2 v2.70.2-0.20220707122935-0990e81f1a8f // indirect
 	k8s.io/kube-openapi v0.0.0-20220124234850-424119656bbf // indirect
-	knative.dev/networking v0.0.0-20220412163509-1145ec58c8be // indirect
+	knative.dev/networking v0.0.0-20220818010248-e51df7cdf571 // indirect
 	sigs.k8s.io/json v0.0.0-20211208200746-9f7c6b3444d2 // indirect
 	sigs.k8s.io/kustomize/api v0.10.1 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.13.0 // indirect
@@ -228,7 +228,5 @@ replace (
 	// update docker to be compatible with version used by pack and removes invalid pseudo-version
 	github.com/openshift/source-to-image => github.com/boson-project/source-to-image v1.3.2
 	// Pin k8s.io dependencies to align with Knative and Tekton needs
-	k8s.io/api => k8s.io/api v0.23.5
-	k8s.io/apimachinery => k8s.io/apimachinery v0.23.5
-	k8s.io/client-go => k8s.io/client-go v0.23.5
+	k8s.io/client-go => k8s.io/client-go v0.23.9
 )
