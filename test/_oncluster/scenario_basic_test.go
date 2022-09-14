@@ -36,11 +36,13 @@ func TestBasicDefault(t *testing.T) {
 
 		sh := GitInitialCommitAndPush(t, funcPath, remoteRepo.ExternalCloneURL)
 
-		// Update func.yaml build as git + url + context-dir
-		UpdateFuncYamlGit(t, funcPath, Git{URL: remoteRepo.ClusterCloneURL})
-
 		// Deploy it
-		knFunc.Exec("deploy", "-r", e2e.GetRegistry(), "-p", funcPath)
+		knFunc.Exec("deploy",
+			"-p", funcPath,
+			"-r", e2e.GetRegistry(),
+			"--remote",
+			"--git-url", remoteRepo.ClusterCloneURL,
+		)
 		defer knFunc.Exec("delete", "-p", funcPath)
 
 		// Assert "first revision" is returned
@@ -56,7 +58,10 @@ func TestBasicDefault(t *testing.T) {
 		sh.Exec(`git push`)
 
 		// Re-Deploy Func
-		knFunc.Exec("deploy", "-r", e2e.GetRegistry(), "-p", funcPath)
+		knFunc.Exec("deploy",
+			"-r", e2e.GetRegistry(),
+			"-p", funcPath,
+			"--remote")
 		e2e.NewRevisionCheck(t, previousServiceRevision, funcName) // Wait New Service Revision
 
 		// -- Assertions --

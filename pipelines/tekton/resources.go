@@ -42,7 +42,7 @@ func generatePipeline(f fn.Function, labels map[string]string) *pplnv1beta1.Pipe
 		{
 			Name:        "gitRepository",
 			Description: "Git repository that hosts the function project",
-			Default:     pplnv1beta1.NewArrayOrString(*f.Git.URL),
+			Default:     pplnv1beta1.NewArrayOrString(f.Git.URL),
 		},
 		{
 			Name:        "gitRevision",
@@ -116,17 +116,12 @@ func generatePipeline(f fn.Function, labels map[string]string) *pplnv1beta1.Pipe
 
 func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.PipelineRun {
 
-	// -----  General properties
-	revision := ""
-	if f.Git.Revision != nil {
-		revision = *f.Git.Revision
-	}
-	contextDir := ""
-	if f.Builder == builders.S2I {
+	revision := f.Git.Revision
+	contextDir := f.Git.ContextDir
+	if contextDir == "" && f.Builder == builders.S2I {
+		// TODO(lkingland): could instead update S2I to interpret empty string
+		// as cwd, such that builder-specific code can be kept out of here.
 		contextDir = "."
-	}
-	if f.Git.ContextDir != nil {
-		contextDir = *f.Git.ContextDir
 	}
 
 	buildEnvs := &pplnv1beta1.ArrayOrString{
@@ -148,7 +143,7 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 	params := []pplnv1beta1.Param{
 		{
 			Name:  "gitRepository",
-			Value: *pplnv1beta1.NewArrayOrString(*f.Git.URL),
+			Value: *pplnv1beta1.NewArrayOrString(f.Git.URL),
 		},
 		{
 			Name:  "gitRevision",
@@ -235,7 +230,7 @@ func getBuilderImage(f fn.Function) (name string) {
 }
 
 func getPipelineName(f fn.Function) string {
-	return fmt.Sprintf("%s-%s-%s-pipeline", f.Name, f.BuildType, f.Builder)
+	return fmt.Sprintf("%s-%s-pipeline", f.Name, f.Builder)
 }
 
 func getPipelineSecretName(f fn.Function) string {

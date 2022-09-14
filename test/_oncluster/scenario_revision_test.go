@@ -18,6 +18,7 @@ import (
 	"strings"
 	"testing"
 
+	fn "knative.dev/kn-plugin-func"
 	common "knative.dev/kn-plugin-func/test/_common"
 	e2e "knative.dev/kn-plugin-func/test/_e2e"
 )
@@ -31,7 +32,7 @@ func TestFromFeatureBranch(t *testing.T) {
 		sh.Exec("git add index.js")
 		sh.Exec(`git commit -m "feature branch change"`)
 		sh.Exec("git push -u origin feature/branch")
-		UpdateFuncYamlGit(t, funcProjectPath, Git{URL: clusterCloneUrl, Revision: "feature/branch"})
+		UpdateFuncGit(t, funcProjectPath, fn.Git{URL: clusterCloneUrl, Revision: "feature/branch"})
 
 	}
 	assertBodyFn := func(response string) bool {
@@ -54,7 +55,7 @@ func TestFromRevisionTag(t *testing.T) {
 		sh.Exec("git add index.js")
 		sh.Exec(`git commit -m "version 2"`)
 		sh.Exec("git push origin main")
-		UpdateFuncYamlGit(t, funcProjectPath, Git{URL: clusterCloneUrl, Revision: "tag-v1"})
+		UpdateFuncGit(t, funcProjectPath, fn.Git{URL: clusterCloneUrl, Revision: "tag-v1"})
 
 	}
 	assertBodyFn := func(response string) bool {
@@ -77,7 +78,7 @@ func TestFromCommitHash(t *testing.T) {
 		sh.Exec(`git commit -m "version 2"`)
 		sh.Exec("git push origin main")
 		commitHash := strings.TrimSpace(gitRevParse.Stdout)
-		UpdateFuncYamlGit(t, funcProjectPath, Git{URL: clusterCloneUrl, Revision: commitHash})
+		UpdateFuncGit(t, funcProjectPath, fn.Git{URL: clusterCloneUrl, Revision: commitHash})
 
 		t.Logf("Revision Check: commit hash resolved to [%v]", commitHash)
 	}
@@ -109,7 +110,10 @@ func GitRevisionCheck(
 	// Setup specific code
 	setupCodeFn(sh, funcPath, remoteRepo.ClusterCloneURL)
 
-	knFunc.Exec("deploy", "-r", e2e.GetRegistry(), "-p", funcPath)
+	knFunc.Exec("deploy",
+		"-r", e2e.GetRegistry(),
+		"-p", funcPath,
+		"--remote")
 	defer knFunc.Exec("delete", "-p", funcPath)
 
 	// -- Assertions --

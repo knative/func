@@ -4,17 +4,16 @@
 package oncluster
 
 /*
-Tests on this file covers the scenarios when func.yaml is not modified (build: local)
-and git build strategy is specified thru CLI.
+Tests on this file covers the following scenarios:
 
 A) Default Branch Test
-func deploy --build=git --git-url=http://gitserver/myfunc.git
+func deploy --remote --git-url=http://gitserver/myfunc.git
 
 b) Feature Branch Test
-func deploy --build=git --git-url=http://gitserver/myfunc.git --git-branch=feature/my-branch
+func deploy --remote --git-url=http://gitserver/myfunc.git --git-branch=feature/my-branch
 
 c) Context Dir test
-func deploy --build=git --git-url=http://gitserver/myfunc.git --git-dir=functions/myfunc
+func deploy --remote --git-url=http://gitserver/myfunc.git --git-dir=functions/myfunc
 */
 
 import (
@@ -50,7 +49,7 @@ func TestFromCliDefaultBranch(t *testing.T) {
 	knFunc.Exec("deploy",
 		"-r", e2e.GetRegistry(),
 		"-p", funcPath,
-		"--build", "git",
+		"--remote",
 		"--git-url", remoteRepo.ClusterCloneURL)
 
 	defer knFunc.Exec("delete", "-p", funcPath)
@@ -91,7 +90,7 @@ func TestFromCliFeatureBranch(t *testing.T) {
 	knFunc.Exec("deploy",
 		"-r", e2e.GetRegistry(),
 		"-p", funcPath,
-		"--build", "git",
+		"--remote",
 		"--git-url", remoteRepo.ClusterCloneURL,
 		"--git-branch", "feature/branch")
 
@@ -129,7 +128,7 @@ func TestFromCliContextDirFunc(t *testing.T) {
 	knFunc.Exec("deploy",
 		"-r", e2e.GetRegistry(),
 		"-p", funcPath,
-		"--build", "git",
+		"--remote",
 		"--git-url", remoteRepo.ClusterCloneURL,
 		"--git-dir", funcContextDir)
 

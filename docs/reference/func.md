@@ -4,7 +4,7 @@ Serverless functions
 
 ### Synopsis
 
-Serverless functions v0.0.0-source-2022-08-24T12:32:04-04:00
+Serverless functions v0.0.0-source-2022-09-12T14:54:32-06:00
 
 	Create, build and deploy Knative functions
 
@@ -42,7 +42,7 @@ EXAMPLES
 * [func config](func_config.md)	 - Configure a function
 * [func create](func_create.md)	 - Create a function project
 * [func delete](func_delete.md)	 - Undeploy a function
-* [func deploy](func_deploy.md)	 - Deploy a function
+* [func deploy](func_deploy.md)	 - Deploy a Function
 * [func info](func_info.md)	 - Show details of a function
 * [func invoke](func_invoke.md)	 - Invoke a function
 * [func languages](func_languages.md)	 - List available function language runtimes

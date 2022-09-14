@@ -27,8 +27,6 @@
 				"registry",
 				"image",
 				"imageDigest",
-				"build",
-				"git",
 				"buildpacks",
 				"builder",
 				"volumes",
@@ -61,13 +59,6 @@
 					"type": "string"
 				},
 				"imageDigest": {
-					"type": "string"
-				},
-				"build": {
-					"enum": [
-						"local",
-						"git"
-					],
 					"type": "string"
 				},
 				"git": {
