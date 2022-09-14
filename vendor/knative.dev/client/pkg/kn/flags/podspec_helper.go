@@ -20,6 +20,9 @@ import (
 	"strconv"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/util/intstr"
+
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	corev1 "k8s.io/api/core/v1"
@@ -35,6 +38,8 @@ type VolumeSourceType int
 const (
 	ConfigMapVolumeSourceType VolumeSourceType = iota
 	SecretVolumeSourceType
+	EmptyDirVolumeSourceType
+	PVCVolumeSourceType
 	PortFormatErr = "the port specification '%s' is not valid. Please provide in the format 'NAME:PORT', where 'NAME' is optional. Examples: '--port h2c:8080' , '--port 8080'."
 )
 
@@ -307,6 +312,60 @@ func UpdateContainers(spec *corev1.PodSpec, containers []corev1.Container) {
 	}
 }
 
+// UpdateLivenessProbe updates container liveness probe based on provided string
+func UpdateLivenessProbe(spec *corev1.PodSpec, probeString string) error {
+	c := containerOfPodSpec(spec)
+	handler, err := resolveProbeHandler(probeString)
+	if err != nil {
+		return err
+	}
+	if c.LivenessProbe == nil {
+		c.LivenessProbe = &corev1.Probe{}
+	}
+	c.LivenessProbe.ProbeHandler = *handler
+	return nil
+}
+
+// UpdateLivenessProbeOpts updates container liveness probe commons options based on provided string
+func UpdateLivenessProbeOpts(spec *corev1.PodSpec, probeString string) error {
+	c := containerOfPodSpec(spec)
+	if c.LivenessProbe == nil {
+		c.LivenessProbe = &corev1.Probe{}
+	}
+	err := resolveProbeOptions(c.LivenessProbe, probeString)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// UpdateReadinessProbe updates container readiness probe based on provided string
+func UpdateReadinessProbe(spec *corev1.PodSpec, probeString string) error {
+	c := containerOfPodSpec(spec)
+	handler, err := resolveProbeHandler(probeString)
+	if err != nil {
+		return err
+	}
+	if c.ReadinessProbe == nil {
+		c.ReadinessProbe = &corev1.Probe{}
+	}
+	c.ReadinessProbe.ProbeHandler = *handler
+	return nil
+}
+
+// UpdateReadinessProbeOpts updates container readiness probe commons options based on provided string
+func UpdateReadinessProbeOpts(spec *corev1.PodSpec, probeString string) error {
+	c := containerOfPodSpec(spec)
+	if c.ReadinessProbe == nil {
+		c.ReadinessProbe = &corev1.Probe{}
+	}
+	err := resolveProbeOptions(c.ReadinessProbe, probeString)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // UpdateImagePullPolicy updates the pull policy for the given revision template
 func UpdateImagePullPolicy(spec *corev1.PodSpec, imagePullPolicy string) error {
 	container := containerOfPodSpec(spec)
@@ -466,6 +525,10 @@ func updateVolume(volume *corev1.Volume, info *volumeSourceInfo) error {
 	case SecretVolumeSourceType:
 		volume.ConfigMap = nil
 		volume.Secret = &corev1.SecretVolumeSource{SecretName: info.volumeSourceName}
+	case EmptyDirVolumeSourceType:
+		volume.EmptyDir = &corev1.EmptyDirVolumeSource{Medium: corev1.StorageMedium(info.emptyDirMemoryType), SizeLimit: info.emptyDirSize}
+	case PVCVolumeSourceType:
+		volume.PersistentVolumeClaim = &corev1.PersistentVolumeClaimVolumeSource{ClaimName: info.volumeSourceName}
 	default:
 		return fmt.Errorf("Invalid VolumeSourceType")
 	}
@@ -486,8 +549,7 @@ func updateVolumeMountsFromMap(volumeMounts []corev1.VolumeMount, toUpdate *util
 			if !existsVolumeNameInVolumes(name, volumes) {
 				return nil, fmt.Errorf("There is no volume matched with %q", name)
 			}
-
-			volumeMount.ReadOnly = true
+			volumeMount.ReadOnly = isReadOnlyVolume(name, volumes)
 			volumeMount.Name = name
 			volumeMount.SubPath = volumeMountInfo.SubPath
 			set[volumeMount.MountPath] = true
@@ -501,7 +563,7 @@ func updateVolumeMountsFromMap(volumeMounts []corev1.VolumeMount, toUpdate *util
 		if !set[mountPath] {
 			volumeMounts = append(volumeMounts, corev1.VolumeMount{
 				Name:      name,
-				ReadOnly:  true,
+				ReadOnly:  isReadOnlyVolume(name, volumes),
 				MountPath: mountPath,
 				SubPath:   volumeMountInfo.SubPath,
 			})
@@ -579,38 +641,67 @@ func removeVolumes(volumes []corev1.Volume, toRemove []string, volumeMounts []co
 // =======================================================================================
 
 type volumeSourceInfo struct {
-	volumeSourceType VolumeSourceType
-	volumeSourceName string
+	volumeSourceType   VolumeSourceType
+	volumeSourceName   string
+	emptyDirMemoryType string
+	emptyDirSize       *resource.Quantity
 }
 
 func newVolumeSourceInfoWithSpecString(spec string) (*volumeSourceInfo, error) {
-	slices := strings.SplitN(spec, ":", 2)
-	if len(slices) != 2 {
-		return nil, fmt.Errorf("argument requires a value that contains the : character; got %q", spec)
+	slices := strings.SplitN(spec, ":", 3)
+	if len(slices) < 2 {
+		return nil, fmt.Errorf("argument requires a value that contains the : character; got %q, %q", spec, slices)
 	}
 
-	var volumeSourceType VolumeSourceType
+	if len(slices) == 2 {
+		var volumeSourceType VolumeSourceType
 
-	typeString := strings.TrimSpace(slices[0])
-	volumeSourceName := strings.TrimSpace(slices[1])
+		typeString := strings.TrimSpace(slices[0])
+		volumeSourceName := strings.TrimSpace(slices[1])
 
-	switch typeString {
-	case "config-map", "cm":
-		volumeSourceType = ConfigMapVolumeSourceType
-	case "secret", "sc":
-		volumeSourceType = SecretVolumeSourceType
-	default:
-		return nil, fmt.Errorf("unsupported volume source type \"%q\"; supported volume source types are \"config-map\" and \"secret\"", slices[0])
+		switch typeString {
+		case "config-map", "cm":
+			volumeSourceType = ConfigMapVolumeSourceType
+		case "secret", "sc":
+			volumeSourceType = SecretVolumeSourceType
+		case "emptyDir", "ed":
+			volumeSourceType = EmptyDirVolumeSourceType
+		case "persistentVolumeClaim", "pvc":
+			volumeSourceType = PVCVolumeSourceType
+		default:
+			return nil, fmt.Errorf("unsupported volume source type \"%q\"; supported volume source types are \"config-map\" and \"secret\"", slices[0])
+		}
+
+		if len(volumeSourceName) == 0 {
+			return nil, fmt.Errorf("the name of %s cannot be an empty string", volumeSourceType)
+		}
+
+		return &volumeSourceInfo{
+			volumeSourceType: volumeSourceType,
+			volumeSourceName: volumeSourceName,
+		}, nil
+	} else {
+		typeString := strings.TrimSpace(slices[0])
+		switch typeString {
+		case "config-map", "cm", "secret", "sc", "persistentVolumeClaim", "pvc":
+			return nil, fmt.Errorf("incorrect mount details for type %q", typeString)
+		case "emptyDir", "ed":
+			volName := slices[1]
+			edType, edSize, err := getEmptyDirTypeAndSize(slices[2])
+			if err != nil {
+				return nil, err
+			}
+			return &volumeSourceInfo{
+				volumeSourceType:   EmptyDirVolumeSourceType,
+				volumeSourceName:   volName,
+				emptyDirMemoryType: edType,
+				emptyDirSize:       edSize,
+			}, nil
+		default:
+			return nil, fmt.Errorf("unsupported volume type \"%q\"; supported volume types are \"config-map or cm\", \"secret or sc\", \"volume or vo\", and \"emptyDir or ed\"", slices[0])
+		}
+
 	}
-
-	if len(volumeSourceName) == 0 {
-		return nil, fmt.Errorf("the name of %s cannot be an empty string", volumeSourceType)
-	}
-
-	return &volumeSourceInfo{
-		volumeSourceType: volumeSourceType,
-		volumeSourceName: volumeSourceName,
-	}, nil
 }
 
 func (vol *volumeSourceInfo) getCanonicalName() string {
@@ -648,6 +739,15 @@ func (vol *volumeSourceInfo) createEnvFromSource() *corev1.EnvFromSource {
 }
 
 // =======================================================================================
+
+func isReadOnlyVolume(volumeName string, volumes []corev1.Volume) bool {
+	for _, volume := range volumes {
+		if volume.Name == volumeName {
+			return volume.EmptyDir == nil
+		}
+	}
+	return true
+}
 
 func existsVolumeNameInVolumes(volumeName string, volumes []corev1.Volume) bool {
 	for _, volume := range volumes {
@@ -714,9 +814,27 @@ func reviseVolumeInfoAndMountsToUpdate(mountsToUpdate *util.OrderedMap, volumesT
 				})
 				mountInfo.VolumeName = generatedName
 				mountsToUpdateRevised.Set(path, mountInfo)
-
+			case "emptyDir", "ed":
+				generatedName := util.GenerateVolumeName(path)
+				mountInfo := getMountInfo(slices[1])
+				volumeSourceInfoByName.Set(generatedName, &volumeSourceInfo{
+					volumeSourceType:   EmptyDirVolumeSourceType,
+					volumeSourceName:   slices[1],
+					emptyDirMemoryType: "",
+				})
+				mountInfo.VolumeName = generatedName
+				mountsToUpdateRevised.Set(path, mountInfo)
+			case "persistentVolumeClaim", "pvc":
+				generatedName := util.GenerateVolumeName(path)
+				mountInfo := getMountInfo(slices[1])
+				volumeSourceInfoByName.Set(generatedName, &volumeSourceInfo{
+					volumeSourceType: PVCVolumeSourceType,
+					volumeSourceName: mountInfo.VolumeName,
+				})
+				mountInfo.VolumeName = generatedName
+				mountsToUpdateRevised.Set(path, mountInfo)
 			default:
-				return nil, nil, fmt.Errorf("unsupported volume type \"%q\"; supported volume types are \"config-map or cm\", \"secret or sc\", and \"volume or vo\"", slices[0])
+				return nil, nil, fmt.Errorf("unsupported volume type \"%q\"; supported volume types are \"config-map or cm\", \"secret or sc\", \"volume or vo\", and \"emptyDir or ed\"", slices[0])
 			}
 		}
 	}
@@ -731,6 +849,61 @@ func reviseVolumeInfoAndMountsToUpdate(mountsToUpdate *util.OrderedMap, volumesT
 	}
 
 	return volumeSourceInfoByName, mountsToUpdateRevised, nil
+}
+
+func getEmptyDirTypeAndSize(value string) (string, *resource.Quantity, error) {
+	slices := strings.SplitN(value, ",", 2)
+	formatErr := fmt.Errorf("incorrect format to specify emptyDir type")
+	repeatErrStr := "cannot repeat the key %q"
+	var dirType string
+	var size *resource.Quantity
+	switch len(slices) {
+	case 0:
+		return "", nil, nil
+	case 1:
+		typeSizeSlices := strings.SplitN(slices[0], "=", 2)
+		if len(typeSizeSlices) < 2 {
+			return "", nil, formatErr
+		}
+		switch strings.ToLower(typeSizeSlices[0]) {
+		case "type":
+			dirType = typeSizeSlices[1]
+		case "size":
+			quantity, err := resource.ParseQuantity(typeSizeSlices[1])
+			if err != nil {
+				return "", nil, formatErr
+			}
+			size = &quantity
+		default:
+			return "", nil, formatErr
+		}
+	case 2:
+		for _, slice := range slices {
+			typeSizeSlices := strings.SplitN(slice, "=", 2)
+			if len(typeSizeSlices) < 2 {
+				return "", nil, formatErr
+			}
+			switch strings.ToLower(typeSizeSlices[0]) {
+			case "type":
+				if dirType != "" {
+					return "", nil, fmt.Errorf(repeatErrStr, "type")
+				}
+				dirType = typeSizeSlices[1]
+			case "size":
+				if size != nil {
+					return "", nil, fmt.Errorf(repeatErrStr, "size")
+				}
+				quantity, err := resource.ParseQuantity(typeSizeSlices[1])
+				if err != nil {
+					return "", nil, formatErr
+				}
+				size = &quantity
+			default:
+				return "", nil, formatErr
+			}
+		}
+	}
+	return dirType, size, nil
 }
 
 func reviseVolumesToRemove(volumeMounts []corev1.VolumeMount, volumesToRemove []string, mountsToRemove []string) []string {
@@ -762,3 +935,112 @@ func decodeContainersFromFile(filename string) (*corev1.PodSpec, error) {
 	}
 	return podSpec, nil
 }
+
+// =======================================================================================
+// Probes
+
+// resolveProbe parses probes as a string
+// It's split into two functions:
+//   - resolveProbeOptions() -> common probe opts
+//   - resolveProbeHandler() -> probe handler [HTTPGet, Exec, TCPSocket]
+// Format:
+//	- [http,https]:host:port:path
+//	- exec:cmd,cmd,...
+//  - tcp:host:port
+// Common opts (comma separated, case insensitive):
+//	- InitialDelaySeconds=<int_value>,FailureThreshold=<int_value>,
+//  	SuccessThreshold=<int_value>,PeriodSeconds==<int_value>,TimeoutSeconds=<int_value>
+
+// resolveProbeOptions parses probe commons options
+func resolveProbeOptions(probe *corev1.Probe, probeString string) error {
+	options := strings.Split(probeString, ",")
+	mappedOptions, err := util.MapFromArray(options, "=")
+	if err != nil {
+		return err
+	}
+	for k, v := range mappedOptions {
+		// Trim & verify value is convertible to int
+		intValue, err := strconv.ParseInt(strings.TrimSpace(v), 0, 32)
+		if err != nil {
+			return fmt.Errorf("not a nummeric value for parameter '%s'", k)
+		}
+		// Lower case param name mapping
+		switch strings.TrimSpace(strings.ToLower(k)) {
+		case "initialdelayseconds":
+			probe.InitialDelaySeconds = int32(intValue)
+		case "timeoutseconds":
+			probe.TimeoutSeconds = int32(intValue)
+		case "periodseconds":
+			probe.PeriodSeconds = int32(intValue)
+		case "successthreshold":
+			probe.SuccessThreshold = int32(intValue)
+		case "failurethreshold":
+			probe.FailureThreshold = int32(intValue)
+		default:
+			return fmt.Errorf("not a valid probe parameter name '%s'", k)
+		}
+	}
+	return nil
+}
+
+// resolveProbeHandler parses probe handler options
+func resolveProbeHandler(probeString string) (*corev1.ProbeHandler, error) {
+	if len(probeString) == 0 {
+		return nil, fmt.Errorf("no probe parameters detected")
+	}
+	probeParts := strings.Split(probeString, ":")
+	if len(probeParts) > 4 {
+		return nil, fmt.Errorf("too many probe parameters provided, please check the format")
+	}
+	var probeHandler *corev1.ProbeHandler
+	switch probeParts[0] {
+	case "http", "https":
+		if len(probeParts) != 4 {
+			return nil, fmt.Errorf("unexpected probe format, please use 'http:host:port:path'")
+		}
+		handler := corev1.ProbeHandler{
+			HTTPGet: &corev1.HTTPGetAction{},
+		}
+		if probeParts[0] == "https" {
+			handler.HTTPGet.Scheme = v1.URISchemeHTTPS
+		}
+		handler.HTTPGet.Host = probeParts[1]
+		if probeParts[2] != "" {
+			// Cosmetic fix to have default 'port: 0' instead of empty string 'port: ""'
+			handler.HTTPGet.Port = intstr.Parse(probeParts[2])
+		}
+		handler.HTTPGet.Path = probeParts[3]
+
+		probeHandler = &handler
+	case "exec":
+		if len(probeParts) != 2 {
+			return nil, fmt.Errorf("unexpected probe format, please use 'exec:<exec_command>[,<exec_command>,...]'")
+		}
+		if len(probeParts[1]) == 0 {
+			return nil, fmt.Errorf("at least one command parameter is required for Exec probe")
+		}
+		handler := corev1.ProbeHandler{
+			Exec: &corev1.ExecAction{},
+		}
+		cmd := strings.Split(probeParts[1], ",")
+		handler.Exec.Command = cmd
+
+		probeHandler = &handler
+	case "tcp":
+		if len(probeParts) != 3 {
+			return nil, fmt.Errorf("unexpected probe format, please use 'tcp:host:port")
+		}
+		handler := corev1.ProbeHandler{
+			TCPSocket: &corev1.TCPSocketAction{},
+		}
+		handler.TCPSocket.Host = probeParts[1]
+		handler.TCPSocket.Port = intstr.Parse(probeParts[2])
+
+		probeHandler = &handler
+	default:
+		return nil, fmt.Errorf("unsupported probe type '%s'; supported types: http, https, exec, tcp", probeParts[0])
+	}
+	return probeHandler, nil
+}
+
+// =======================================================================================
