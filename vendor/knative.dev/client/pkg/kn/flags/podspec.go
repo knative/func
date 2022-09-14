@@ -40,6 +40,11 @@ type PodSpecFlags struct {
 	Command []string
 	Arg     []string
 
+	LivenessProbe      string
+	LivenessProbeOpts  string
+	ReadinessProbe     string
+	ReadinessProbeOpts string
+
 	ExtraContainers string
 
 	Resources          ResourceOptions
@@ -137,18 +142,20 @@ func (p *PodSpecFlags) AddFlags(flagset *pflag.FlagSet) []string {
 	flagNames = append(flagNames, "env-file")
 
 	flagset.StringArrayVarP(&p.Mount, "mount", "", []string{},
-		"Mount a ConfigMap (prefix cm: or config-map:), a Secret (prefix secret: or sc:), or an existing Volume (without any prefix) on the specified directory. "+
-			"Example: --mount /mydir=cm:myconfigmap, --mount /mydir=secret:mysecret, or --mount /mydir=myvolume. "+
-			"When a configmap or a secret is specified, a corresponding volume is automatically generated. "+
-			"You can specify a volume subpath by following the volume name with slash separated path. "+
+		"Mount a ConfigMap (prefix cm: or config-map:), a Secret (prefix secret: or sc:), an EmptyDir (prefix ed: or emptyDir:), "+
+			"a PersistentVolumeClaim (prefix pvc: or persistentVolumeClaim) or an existing Volume (without any prefix) on the specified directory. "+
+			"Example: --mount /mydir=cm:myconfigmap, --mount /mydir=secret:mysecret, --mount /mydir=emptyDir:myvol "+
+			"or --mount /mydir=myvolume. When a configmap or a secret is specified, a corresponding volume is "+
+			"automatically generated. You can specify a volume subpath by following the volume name with slash separated path. "+
 			"Example: --mount /mydir=cm:myconfigmap/subpath/to/be/mounted. "+
 			"You can use this flag multiple times. "+
 			"For unmounting a directory, append \"-\", e.g. --mount /mydir-, which also removes any auto-generated volume.")
 	flagNames = append(flagNames, "mount")
 
 	flagset.StringArrayVarP(&p.Volume, "volume", "", []string{},
-		"Add a volume from a ConfigMap (prefix cm: or config-map:) or a Secret (prefix secret: or sc:). "+
-			"Example: --volume myvolume=cm:myconfigmap or --volume myvolume=secret:mysecret. "+
+		"Add a volume from a ConfigMap (prefix cm: or config-map:) a Secret (prefix secret: or sc:), "+
+			"an EmptyDir (prefix ed: or emptyDir:) or a PersistentVolumeClaim (prefix pvc: or persistentVolumeClaim). "+
+			"Example: --volume myvolume=cm:myconfigmap, --volume myvolume=secret:mysecret or --volume emptyDir:myvol:size=1Gi,type=Memory. "+
 			"You can use this flag multiple times. "+
 			"To unset a ConfigMap/Secret reference, append \"-\" to the name, e.g. --volume myvolume-.")
 	flagNames = append(flagNames, "volume")
@@ -174,6 +181,24 @@ func (p *PodSpecFlags) AddFlags(flagset *pflag.FlagSet) []string {
 		"Specify path to file including definition for additional containers, alternatively use '-' to read from stdin. "+
 			"Example: --containers ./containers.yaml or --containers -.")
 	flagNames = append(flagNames, "containers")
+
+	// Probes
+	commonProbeDescription := "Supported probe types are HTTGet, Exec and TCPSocket. " +
+		"Format: [http,https]:host:port:path, exec:cmd[,cmd,...], tcp:host:port."
+	commonProbeOptsDesc := "Common opts (comma separated, case insensitive): InitialDelaySeconds=<int_value>, FailureThreshold=<int_value>, " +
+		"SuccessThreshold=<int_value>, PeriodSeconds=<int_value>, TimeoutSeconds=<int_value>"
+	flagset.StringVarP(&p.LivenessProbe, "probe-liveness", "", "", "Add liveness probe to Service deployment. "+
+		commonProbeDescription)
+	flagNames = append(flagNames, "probe-liveness")
+	flagset.StringVarP(&p.LivenessProbeOpts, "probe-liveness-opts", "", "", "Add common options to liveness probe. "+
+		commonProbeOptsDesc)
+	flagNames = append(flagNames, "probe-liveness-opts")
+	flagset.StringVarP(&p.ReadinessProbe, "probe-readiness", "", "", "Add readiness probe to Service deployment. "+
+		commonProbeDescription)
+	flagNames = append(flagNames, "probe-readiness")
+	flagset.StringVarP(&p.ReadinessProbeOpts, "probe-readiness-opts", "", "", "Add common options to readiness probe. "+
+		commonProbeOptsDesc)
+	flagNames = append(flagNames, "probe-liveness-opts")
 
 	flagset.StringSliceVar(&p.Resources.Limits,
 		"limit",
@@ -352,6 +377,30 @@ func (p *PodSpecFlags) ResolvePodSpec(podSpec *corev1.PodSpec, flags *pflag.Flag
 			return err
 		}
 		UpdateContainers(podSpec, fromFile.Containers)
+	}
+
+	if flags.Changed("probe-liveness") {
+		if err := UpdateLivenessProbe(podSpec, p.LivenessProbe); err != nil {
+			return err
+		}
+	}
+
+	if flags.Changed("probe-liveness-opts") {
+		if err := UpdateLivenessProbeOpts(podSpec, p.LivenessProbeOpts); err != nil {
+			return err
+		}
+	}
+
+	if flags.Changed("probe-readiness") {
+		if err := UpdateReadinessProbe(podSpec, p.ReadinessProbe); err != nil {
+			return err
+		}
+	}
+
+	if flags.Changed("probe-readiness-opts") {
+		if err := UpdateReadinessProbeOpts(podSpec, p.ReadinessProbeOpts); err != nil {
+			return err
+		}
 	}
 
 	return nil

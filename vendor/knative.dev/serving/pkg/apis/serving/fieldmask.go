@@ -33,21 +33,12 @@ func VolumeMask(ctx context.Context, in *corev1.Volume) *corev1.Volume {
 	if in == nil {
 		return nil
 	}
-	cfg := config.FromContextOrDefaults(ctx)
 
 	out := new(corev1.Volume)
 
 	// Allowed fields
 	out.Name = in.Name
 	out.VolumeSource = in.VolumeSource
-
-	if cfg.Features.PodSpecVolumesEmptyDir != config.Disabled {
-		out.EmptyDir = in.EmptyDir
-	}
-
-	if cfg.Features.PodSpecPersistentVolumeClaim != config.Disabled {
-		out.PersistentVolumeClaim = in.PersistentVolumeClaim
-	}
 
 	return out
 }
@@ -227,13 +218,18 @@ func PodSpecMask(ctx context.Context, in *corev1.PodSpec) *corev1.PodSpec {
 	if cfg.Features.PodSpecInitContainers != config.Disabled {
 		out.InitContainers = in.InitContainers
 	}
+	if cfg.Features.PodSpecDNSPolicy != config.Disabled {
+		out.DNSPolicy = in.DNSPolicy
+	}
+	if cfg.Features.PodSpecDNSConfig != config.Disabled {
+		out.DNSConfig = in.DNSConfig
+	}
 
 	// Disallowed fields
 	// This list is unnecessary, but added here for clarity
 	out.RestartPolicy = ""
 	out.TerminationGracePeriodSeconds = nil
 	out.ActiveDeadlineSeconds = nil
-	out.DNSPolicy = ""
 	out.NodeName = ""
 	out.HostNetwork = false
 	out.HostPID = false
@@ -242,7 +238,6 @@ func PodSpecMask(ctx context.Context, in *corev1.PodSpec) *corev1.PodSpec {
 	out.Hostname = ""
 	out.Subdomain = ""
 	out.Priority = nil
-	out.DNSConfig = nil
 	out.ReadinessGates = nil
 
 	return out
