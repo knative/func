@@ -62,7 +62,7 @@ check: bin/golangci-lint ## Check code quality (lint)
 	cd test/_e2e && ../../bin/golangci-lint run --timeout 300s
 
 bin/golangci-lint:
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./bin v1.43.0
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./bin v1.49.0
 
 .PHONY: clean_templates
 
