@@ -10,9 +10,12 @@ import (
 
 	fnhttp "knative.dev/kn-plugin-func/http"
 	"knative.dev/kn-plugin-func/openshift"
+	. "knative.dev/kn-plugin-func/testing"
 )
 
 func TestRoundTripper(t *testing.T) {
+	defer WithEnvVar(t, "SOCAT_IMAGE", "quay.io/boson/alpine-socat:1.7.4.3-r1-non-root")()
+
 	if !openshift.IsOpenShift() {
 		t.Skip("The cluster in not an instance of OpenShift.")
 		return
