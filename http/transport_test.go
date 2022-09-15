@@ -15,11 +15,14 @@ import (
 	"time"
 
 	fnhttp "knative.dev/kn-plugin-func/http"
+	. "knative.dev/kn-plugin-func/testing"
 )
 
 const inClusterHostName = "a-testing-service.a-testing-namespace.svc"
 
 func TestCustomCA(t *testing.T) {
+	defer WithEnvVar(t, "SOCAT_IMAGE", "quay.io/boson/alpine-socat:1.7.4.3-r1-non-root")()
+
 	var err error
 	inClusterAddr, inClusterCA := startServer(t, inClusterHostName)
 	localhostAddr, localhostCA := startServer(t, "localhost")

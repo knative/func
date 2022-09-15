@@ -29,6 +29,8 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+export SOCAT_IMAGE="quay.io/boson/alpine-socat:1.7.4.3-r1-non-root"
+
 use_kn_func=${E2E_USE_KN_FUNC:-}
 
 curdir=$(pwd)

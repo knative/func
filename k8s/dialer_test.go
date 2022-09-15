@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"knative.dev/kn-plugin-func/k8s"
+	. "knative.dev/kn-plugin-func/testing"
 
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -24,6 +25,8 @@ import (
 )
 
 func TestDialInClusterService(t *testing.T) {
+	defer WithEnvVar(t, "SOCAT_IMAGE", "quay.io/boson/alpine-socat:1.7.4.3-r1-non-root")()
+
 	var err error
 	var ctx = context.Background()
 
@@ -158,6 +161,8 @@ func TestDialInClusterService(t *testing.T) {
 }
 
 func TestDialUnreachable(t *testing.T) {
+	defer WithEnvVar(t, "SOCAT_IMAGE", "quay.io/boson/alpine-socat:1.7.4.3-r1-non-root")()
+
 	var ctx = context.Background()
 
 	dialer, err := k8s.NewInClusterDialer(ctx)
