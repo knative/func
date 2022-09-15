@@ -21,7 +21,7 @@ BIN_WINDOWS ?= $(BIN)_windows_amd64.exe
 # is a TAG environment variable. Precedence is git tag, environment variable, 'tip'
 DATE    := $(shell date -u +"%Y%m%dT%H%M%SZ")
 HASH    := $(shell git rev-parse --short HEAD 2>/dev/null)
-VTAG    := $(shell git tag --points-at HEAD)
+VTAG    := $(shell git tag --points-at HEAD | head -1)
 VTAG    := $(shell [ -z $(VTAG) ] && echo $(ETAG) || echo $(VTAG))
 VERS    ?= $(shell [ -z $(VTAG) ] && echo 'tip' || echo $(VTAG) )
 LDFLAGS := "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)"
