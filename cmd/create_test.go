@@ -97,7 +97,11 @@ func TestCreateConfig_RepositoriesPath(t *testing.T) {
 	expected := filepath.Join(xdgConfigHome, "func", "repositories")
 
 	cmd := NewCreateCmd(NewClient)
-	cmd.SetArgs([]string{}) // Do not use test command args
+	cmd.SetArgs([]string{})                             // Do not use test command args
+	err := cmd.ParseFlags([]string{"--language", "go"}) // Add an arbitrary flag to avoid test errors due to interactive mode
+	if err != nil {
+		t.Fatal(err)
+	}
 	cfg, err := newCreateConfig(cmd, []string{}, NewClient)
 	if err != nil {
 		t.Fatal(err)

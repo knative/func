@@ -11,7 +11,7 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
-
+	flag "github.com/spf13/pflag"
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/utils"
 )
@@ -247,13 +247,22 @@ func newCreateConfig(cmd *cobra.Command, args []string, newClient ClientFactory)
 		Confirm:          viper.GetBool("confirm"),
 		Verbose:          viper.GetBool("verbose"),
 	}
+
+	// Using Visit func to count the number of flags set at prompt. If 0 then set confirm mode to true.
+	var cf int
+	cmd.Flags().Visit(func(f *flag.Flag) {
+		cf++
+	})
+	if cf == 0 {
+		cfg.Confirm = true
+	}
+
 	// If not in confirm/prompting mode, this cfg structure is complete.
 	if !cfg.Confirm {
 		return
 	}
 
-	// Create a tempoarary client for use by the following prompts to complete
-	// runtime/template suggestions etc
+	// Create a temporary client for use by the following prompts to complete
 	client, done := newClient(ClientConfig{Verbose: cfg.Verbose})
 	defer done()
 
