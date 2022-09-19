@@ -173,7 +173,7 @@ func Test_LabelsMap(t *testing.T) {
 			f := Function{
 				Name:    "some-function",
 				Runtime: "golang",
-				Labels:  tt.labels,
+				Deploy:  DeploySpec{Labels: tt.labels},
 			}
 			got, err := f.LabelsMap()
 

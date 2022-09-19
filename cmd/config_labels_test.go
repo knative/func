@@ -103,7 +103,7 @@ const (
 func TestNewConfigLabelsCmd(t *testing.T) {
 
 	var loaderSaver mockFunctionLoaderSaver
-	labels := &loaderSaver.f.Labels
+	labels := &loaderSaver.f.Deploy.Labels
 
 	cmd := NewConfigLabelsCmd(&loaderSaver)
 	cmd.SetArgs([]string{}) // Do not use test command args
@@ -139,7 +139,7 @@ func TestListLabels(t *testing.T) {
 	}
 
 	var loaderSaver mockFunctionLoaderSaver
-	labels := &loaderSaver.f.Labels
+	labels := &loaderSaver.f.Deploy.Labels
 
 	*labels = append(*labels, p("a", "b"), p("c", "d"))
 

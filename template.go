@@ -37,20 +37,20 @@ func (t template) Write(ctx context.Context, f *Function) error {
 	// so it's values are treated as defaults.
 	// TODO: this begs the question: should the Template's manifest.yaml actually
 	// be a partially-populated func.yaml?
-	if len(f.BuilderImages) == 0 {
-		f.BuilderImages = t.config.BuilderImages
+	if len(f.Build.BuilderImages) == 0 {
+		f.Build.BuilderImages = t.config.BuilderImages
 	}
-	if len(f.Buildpacks) == 0 {
-		f.Buildpacks = t.config.Buildpacks
+	if len(f.Build.Buildpacks) == 0 {
+		f.Build.Buildpacks = t.config.Buildpacks
 	}
-	if len(f.BuildEnvs) == 0 {
-		f.BuildEnvs = t.config.BuildEnvs
+	if len(f.Build.BuildEnvs) == 0 {
+		f.Build.BuildEnvs = t.config.BuildEnvs
 	}
-	if f.HealthEndpoints.Liveness == "" {
-		f.HealthEndpoints.Liveness = t.config.HealthEndpoints.Liveness
+	if f.Deploy.HealthEndpoints.Liveness == "" {
+		f.Deploy.HealthEndpoints.Liveness = t.config.HealthEndpoints.Liveness
 	}
-	if f.HealthEndpoints.Readiness == "" {
-		f.HealthEndpoints.Readiness = t.config.HealthEndpoints.Readiness
+	if f.Deploy.HealthEndpoints.Readiness == "" {
+		f.Deploy.HealthEndpoints.Readiness = t.config.HealthEndpoints.Readiness
 	}
 	if f.Invocation.Format == "" {
 		f.Invocation.Format = t.config.Invocation.Format

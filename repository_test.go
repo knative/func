@@ -95,18 +95,18 @@ func TestRepository_Inheritance(t *testing.T) {
 	}
 
 	// Assert Template A reflects repo-level settings
-	if fA.HealthEndpoints.Readiness != "/repoReadiness" {
-		t.Errorf("Repository-level HealthEndpoint not loaded to template, got %q", fA.HealthEndpoints.Readiness)
+	if fA.Deploy.HealthEndpoints.Readiness != "/repoReadiness" {
+		t.Errorf("Repository-level HealthEndpoint not loaded to template, got %q", fA.Deploy.HealthEndpoints.Readiness)
 	}
-	if diff := cmp.Diff([]string{"repoBuildpack"}, fA.Buildpacks); diff != "" {
+	if diff := cmp.Diff([]string{"repoBuildpack"}, fA.Build.Buildpacks); diff != "" {
 		t.Errorf("Repository-level Buildpack differs (-want, +got): %s", diff)
 	}
 
 	// Assert Template B reflects runtime-level settings
-	if fB.HealthEndpoints.Readiness != "/runtimeReadiness" {
-		t.Errorf("Runtime-level HealthEndpoint not loaded to template, got %q", fB.HealthEndpoints.Readiness)
+	if fB.Deploy.HealthEndpoints.Readiness != "/runtimeReadiness" {
+		t.Errorf("Runtime-level HealthEndpoint not loaded to template, got %q", fB.Deploy.HealthEndpoints.Readiness)
 	}
-	if diff := cmp.Diff([]string{"runtimeBuildpack"}, fB.Buildpacks); diff != "" {
+	if diff := cmp.Diff([]string{"runtimeBuildpack"}, fB.Build.Buildpacks); diff != "" {
 		t.Errorf("Runtime-level Buildpack differs (-want, +got): %s", diff)
 	}
 
@@ -119,15 +119,15 @@ func TestRepository_Inheritance(t *testing.T) {
 		},
 	}
 
-	if diff := cmp.Diff(envs, fB.BuildEnvs); diff != "" {
+	if diff := cmp.Diff(envs, fB.Build.BuildEnvs); diff != "" {
 		t.Fatalf("Unexpected difference between repository's manifest.yaml buildEnvs and function BuildEnvs (-want, +got): %v", diff)
 	}
 
 	// Assert Template C reflects template-level settings
-	if fC.HealthEndpoints.Readiness != "/templateReadiness" {
-		t.Fatalf("Template-level HealthEndpoint not loaded to template, got %q", fC.HealthEndpoints.Readiness)
+	if fC.Deploy.HealthEndpoints.Readiness != "/templateReadiness" {
+		t.Fatalf("Template-level HealthEndpoint not loaded to template, got %q", fC.Deploy.HealthEndpoints.Readiness)
 	}
-	if diff := cmp.Diff([]string{"templateBuildpack"}, fC.Buildpacks); diff != "" {
+	if diff := cmp.Diff([]string{"templateBuildpack"}, fC.Build.Buildpacks); diff != "" {
 		t.Fatalf("Template-level Buildpack differs (-want, +got): %s", diff)
 	}
 }

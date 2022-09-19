@@ -42,7 +42,7 @@ func generatePipeline(f fn.Function, labels map[string]string) *pplnv1beta1.Pipe
 		{
 			Name:        "gitRepository",
 			Description: "Git repository that hosts the function project",
-			Default:     pplnv1beta1.NewArrayOrString(f.Git.URL),
+			Default:     pplnv1beta1.NewArrayOrString(f.Build.Git.URL),
 		},
 		{
 			Name:        "gitRevision",
@@ -78,12 +78,12 @@ func generatePipeline(f fn.Function, labels map[string]string) *pplnv1beta1.Pipe
 	// Deploy step that uses an image produced by S2I builds needs explicit reference to the image
 	referenceImageFromPreviousTaskResults := false
 
-	if f.Builder == builders.Pack {
+	if f.Build.Builder == builders.Pack {
 		// ----- Buildpacks related properties
 		workspaces = append(workspaces, pplnv1beta1.PipelineWorkspaceDeclaration{Name: "cache-workspace", Description: "Directory where Buildpacks cache is stored."})
 		taskBuild = taskBuildpacks(taskNameFetchSources)
 
-	} else if f.Builder == builders.S2I {
+	} else if f.Build.Builder == builders.S2I {
 		// ----- S2I build related properties
 
 		params = append(params, pplnv1beta1.ParamSpec{Name: "s2iImageScriptsUrl", Description: "URL containing the default assemble and run scripts for the builder image.",
@@ -104,7 +104,7 @@ func generatePipeline(f fn.Function, labels map[string]string) *pplnv1beta1.Pipe
 		ObjectMeta: v1.ObjectMeta{
 			Name:        pipelineName,
 			Labels:      labels,
-			Annotations: f.Annotations,
+			Annotations: f.Deploy.Annotations,
 		},
 		Spec: pplnv1beta1.PipelineSpec{
 			Params:     params,
@@ -116,9 +116,9 @@ func generatePipeline(f fn.Function, labels map[string]string) *pplnv1beta1.Pipe
 
 func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.PipelineRun {
 
-	revision := f.Git.Revision
-	contextDir := f.Git.ContextDir
-	if contextDir == "" && f.Builder == builders.S2I {
+	revision := f.Build.Git.Revision
+	contextDir := f.Build.Git.ContextDir
+	if contextDir == "" && f.Build.Builder == builders.S2I {
 		// TODO(lkingland): could instead update S2I to interpret empty string
 		// as cwd, such that builder-specific code can be kept out of here.
 		contextDir = "."
@@ -128,9 +128,9 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 		Type:     pplnv1beta1.ParamTypeArray,
 		ArrayVal: []string{},
 	}
-	if len(f.BuildEnvs) > 0 {
+	if len(f.Build.BuildEnvs) > 0 {
 		var envs []string
-		for _, e := range f.BuildEnvs {
+		for _, e := range f.Build.BuildEnvs {
 			envs = append(envs, e.KeyValuePair())
 		}
 		buildEnvs.ArrayVal = envs
@@ -143,7 +143,7 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 	params := []pplnv1beta1.Param{
 		{
 			Name:  "gitRepository",
-			Value: *pplnv1beta1.NewArrayOrString(f.Git.URL),
+			Value: *pplnv1beta1.NewArrayOrString(f.Build.Git.URL),
 		},
 		{
 			Name:  "gitRevision",
@@ -183,7 +183,7 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 		},
 	}
 
-	if f.Builder == builders.Pack {
+	if f.Build.Builder == builders.Pack {
 		// ----- Buildpacks related properties
 
 		workspaces = append(workspaces, pplnv1beta1.WorkspaceBinding{
@@ -193,7 +193,7 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 			},
 			SubPath: "cache",
 		})
-	} else if f.Builder == builders.S2I {
+	} else if f.Build.Builder == builders.S2I {
 		if f.Runtime == "quarkus" {
 			params = append(params, pplnv1beta1.Param{Name: "s2iImageScriptsUrl", Value: *pplnv1beta1.NewArrayOrString("image:///usr/local/s2i")})
 		}
@@ -204,7 +204,7 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 		ObjectMeta: v1.ObjectMeta{
 			GenerateName: fmt.Sprintf("%s-run-", getPipelineName(f)),
 			Labels:       labels,
-			Annotations:  f.Annotations,
+			Annotations:  f.Deploy.Annotations,
 		},
 		Spec: pplnv1beta1.PipelineRunSpec{
 			PipelineRef: &pplnv1beta1.PipelineRef{
@@ -221,7 +221,7 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 // language runtime.  Errors are checked elsewhere, so at this level they
 // manifest as an inability to get a builder image = empty string.
 func getBuilderImage(f fn.Function) (name string) {
-	if f.Builder == builders.S2I {
+	if f.Build.Builder == builders.S2I {
 		name, _ = s2i.BuilderImage(f, builders.S2I)
 	} else {
 		name, _ = buildpacks.BuilderImage(f, builders.Pack)
@@ -230,7 +230,7 @@ func getBuilderImage(f fn.Function) (name string) {
 }
 
 func getPipelineName(f fn.Function) string {
-	return fmt.Sprintf("%s-%s-pipeline", f.Name, f.Builder)
+	return fmt.Sprintf("%s-%s-pipeline", f.Name, f.Build.Builder)
 }
 
 func getPipelineSecretName(f fn.Function) string {

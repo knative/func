@@ -18,6 +18,58 @@ import (
 // FunctionFile is the file used for the serialized form of a function.
 const FunctionFile = "func.yaml"
 
+// BuildSpec
+type BuildSpec struct {
+	// Git stores information about an optionally associated git repository.
+	Git Git `yaml:"git,omitempty"`
+
+	// BuilderImages define optional explicit builder images to use by
+	// builder implementations in leau of the in-code defaults.  They key
+	// is the builder's short name.  For example:
+	// builderImages:
+	//   pack: example.com/user/my-pack-node-builder
+	//   s2i: example.com/user/my-s2i-node-builder
+	BuilderImages map[string]string `yaml:"builderImages,omitempty"`
+
+	// Optional list of buildpacks to use when building the function
+	Buildpacks []string `yaml:"buildpacks"`
+
+	// Builder is the name of the subsystem that will complete the underlying
+	// build (pack, s2i, etc)
+	Builder string `yaml:"builder" jsonschema:"enum=pack,enum=s2i"`
+
+	// Build Env variables to be set
+	BuildEnvs []Env `yaml:"buildEnvs"`
+}
+
+// RunSpec
+type RunSpec struct {
+	// List of volumes to be mounted to the function
+	Volumes []Volume `yaml:"volumes"`
+
+	// Env variables to be set
+	Envs []Env `yaml:"envs"`
+}
+
+// DeploySpec
+type DeploySpec struct {
+	// Namespace into which the function is deployed on supported platforms.
+	Namespace string `yaml:"namespace"`
+
+	// Map containing user-supplied annotations
+	// Example: { "division": "finance" }
+	Annotations map[string]string `yaml:"annotations"`
+
+	// Options to be set on deployed function (scaling, etc.)
+	Options Options `yaml:"options"`
+
+	// Map of user-supplied labels
+	Labels []Label `yaml:"labels"`
+
+	// Health endpoints specified by the language pack
+	HealthEndpoints HealthEndpoints `yaml:"healthEndpoints"`
+}
+
 type Function struct {
 	// SpecVersion at which this function is known to be compatible.
 	// More specifically, it is the highest migration which has been applied.
@@ -30,9 +82,6 @@ type Function struct {
 	// Name of the function.  If not provided, path derivation is attempted when
 	// requried (such as for initialization).
 	Name string `yaml:"name" jsonschema:"pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"`
-
-	// Namespace into which the function is deployed on supported platforms.
-	Namespace string `yaml:"namespace"`
 
 	// Runtime is the language plus context.  nodejs|go|quarkus|rust etc.
 	Runtime string `yaml:"runtime"`
@@ -58,46 +107,6 @@ type Function struct {
 	// SHA256 hash of the latest image that has been built
 	ImageDigest string `yaml:"imageDigest"`
 
-	// Git stores information about an optionally associated git repository.
-	Git Git `yaml:"git,omitempty"`
-
-	// BuilderImages define optional explicit builder images to use by
-	// builder implementations in leau of the in-code defaults.  They key
-	// is the builder's short name.  For example:
-	// builderImages:
-	//   pack: example.com/user/my-pack-node-builder
-	//   s2i: example.com/user/my-s2i-node-builder
-	BuilderImages map[string]string `yaml:"builderImages,omitempty"`
-
-	// Optional list of buildpacks to use when building the function
-	Buildpacks []string `yaml:"buildpacks"`
-
-	// Builder is the name of the subsystem that will complete the underlying
-	// build (pack, s2i, etc)
-	Builder string `yaml:"builder" jsonschema:"enum=pack,enum=s2i"`
-
-	// List of volumes to be mounted to the function
-	Volumes []Volume `yaml:"volumes"`
-
-	// Build Env variables to be set
-	BuildEnvs []Env `yaml:"buildEnvs"`
-
-	// Env variables to be set
-	Envs []Env `yaml:"envs"`
-
-	// Map containing user-supplied annotations
-	// Example: { "division": "finance" }
-	Annotations map[string]string `yaml:"annotations"`
-
-	// Options to be set on deployed function (scaling, etc.)
-	Options Options `yaml:"options"`
-
-	// Map of user-supplied labels
-	Labels []Label `yaml:"labels"`
-
-	// Health endpoints specified by the language pack
-	HealthEndpoints HealthEndpoints `yaml:"healthEndpoints"`
-
 	// Created time is the moment that creation was successfully completed
 	// according to the client which is in charge of what constitutes being
 	// fully "Created" (aka initialized)
@@ -106,6 +115,15 @@ type Function struct {
 	// Invocation defines hints for use when invoking this function.
 	// See Client.Invoke for usage.
 	Invocation Invocation `yaml:"invocation,omitempty"`
+
+	//BuildSpec define the build properties for a function
+	Build BuildSpec `yaml:"build"`
+
+	//RunSpec define the runtime properties for a function
+	Run RunSpec `yaml:"run"`
+
+	//DeploySpec define the deployment properties for a function
+	Deploy DeploySpec `yaml:"deploy"`
 }
 
 // HealthEndpoints specify the liveness and readiness endpoints for a Runtime
@@ -150,11 +168,12 @@ func NewFunctionWith(defaults Function) Function {
 // Functions from earlier versions are brought up to current using migrations.
 // Migrations are run prior to validators such that validation can omit
 // concerning itself with backwards compatibility.  Migrators must therefore
-// selectively consider the minimal validation necesssary to ehable migration.
+// selectively consider the minimal validation necessary to enable migration.
 func NewFunction(path string) (f Function, err error) {
+	f.Root = path // path is not persisted, as this is the purview of the FS itself
 	f.Root = path // path is not persisted, as this is the purvew of the FS itself
-	f.BuilderImages = make(map[string]string)
-	f.Annotations = make(map[string]string)
+	f.Build.BuilderImages = make(map[string]string)
+	f.Deploy.Annotations = make(map[string]string)
 	var filename = filepath.Join(path, FunctionFile)
 	if _, err = os.Stat(filename); err != nil {
 		return
@@ -165,7 +184,7 @@ func NewFunction(path string) (f Function, err error) {
 	}
 	if err = yaml.Unmarshal(bb, &f); err != nil {
 		err = formatUnmarshalError(err) // human-friendly unmarshalling errors
-		return
+		//return
 	}
 	if f, err = f.Migrate(); err != nil {
 		return
@@ -188,12 +207,12 @@ func (f Function) Validate() error {
 
 	var ctr int
 	errs := [][]string{
-		validateVolumes(f.Volumes),
-		ValidateBuildEnvs(f.BuildEnvs),
-		ValidateEnvs(f.Envs),
-		validateOptions(f.Options),
-		ValidateLabels(f.Labels),
-		validateGit(f.Git),
+		validateVolumes(f.Run.Volumes),
+		ValidateBuildEnvs(f.Build.BuildEnvs),
+		ValidateEnvs(f.Run.Envs),
+		validateOptions(f.Deploy.Options),
+		ValidateLabels(f.Deploy.Labels),
+		validateGit(f.Build.Git),
 	}
 
 	var b strings.Builder
@@ -222,7 +241,7 @@ var envPattern = regexp.MustCompile(`^{{\s*(\w+)\s*:(\w+)\s*}}$`)
 // Values with no special format are preserved as simple values.
 // Values which do include the interpolation format (begin with {{) but are not
 // keyed as "env" are also preserved as is.
-// Values properly formated as {{ env:NAME }} are interpolated (substituted)
+// Values properly formatted as {{ env:NAME }} are interpolated (substituted)
 // with the value of the local environment variable "NAME", and an error is
 // returned if that environment variable does not exist.
 func Interpolate(ee []Env) (map[string]string, error) {
@@ -365,7 +384,7 @@ func (f Function) LabelsMap() (map[string]string, error) {
 		// --- end of handling usage of deprecated runtime labels
 	}
 
-	labels := append(defaultLabels, f.Labels...)
+	labels := append(defaultLabels, f.Deploy.Labels...)
 	if err := ValidateLabels(labels); len(err) != 0 {
 		return nil, errors.New(strings.Join(err, " "))
 	}
