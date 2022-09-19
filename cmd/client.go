@@ -28,6 +28,9 @@ type ClientConfig struct {
 	// Verbose logging.  By default logging output is kept to the bare minimum.
 	// Use this flag to configure verbose logging throughout.
 	Verbose bool
+
+	// Allow insecure server connections when using SSL
+	InsecureSkipVerify bool
 }
 
 // ClientFactory defines a constructor which assists in the creation of a Client
@@ -62,9 +65,9 @@ func NewClientFactory(n func() *fn.Client) ClientFactory {
 //	defer done()
 func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 	var (
-		p  = progress.New(cfg.Verbose) // updates the CLI
-		t  = newTransport()            // may provide a custom impl which proxies
-		c  = newCredentialsProvider(t) // for accessing registries
+		p  = progress.New(cfg.Verbose)            // updates the CLI
+		t  = newTransport(cfg.InsecureSkipVerify) // may provide a custom impl which proxies
+		c  = newCredentialsProvider(t)            // for accessing registries
 		d  = newKnativeDeployer(cfg.Namespace, cfg.Verbose)
 		pp = newTektonPipelinesProvider(cfg.Namespace, p, c, cfg.Verbose)
 		o  = []fn.Option{ // standard (shared) options for all commands
@@ -103,14 +106,14 @@ func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 
 // newTransport returns a transport with cluster-flavor-specific variations
 // which take advantage of additional features offered by cluster variants.
-func newTransport() fnhttp.RoundTripCloser {
+func newTransport(insecureSkipVerify bool) fnhttp.RoundTripCloser {
 	if openshift.IsOpenShift() {
-		return fnhttp.NewRoundTripper(openshift.WithOpenShiftServiceCA())
+		return fnhttp.NewRoundTripper(fnhttp.WithInsecureSkipVerify(insecureSkipVerify), openshift.WithOpenShiftServiceCA())
 	}
 
 	// Other cluster variants ...
 
-	return fnhttp.NewRoundTripper() // Default (vanilla k8s)
+	return fnhttp.NewRoundTripper(fnhttp.WithInsecureSkipVerify(insecureSkipVerify)) // Default (vanilla k8s)
 }
 
 // newCredentialsProvider returns a credentials provider which possibly

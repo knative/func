@@ -25,8 +25,9 @@ type RoundTripCloser interface {
 }
 
 type options struct {
-	selectCA        func(ctx context.Context, serverName string) (*x509.Certificate, error)
-	inClusterDialer ContextDialer
+	selectCA           func(ctx context.Context, serverName string) (*x509.Certificate, error)
+	inClusterDialer    ContextDialer
+	insecureSkipVerify bool
 }
 
 type Option func(*options)
@@ -43,13 +44,20 @@ func WithInClusterDialer(inClusterDialer ContextDialer) Option {
 	}
 }
 
+func WithInsecureSkipVerify(insecureSkipVerify bool) Option {
+	return func(o *options) {
+		o.insecureSkipVerify = insecureSkipVerify
+	}
+}
+
 // NewRoundTripper returns new closable RoundTripper that first tries to dial connection in standard way,
 // if the dial operation fails due to hostname resolution the RoundTripper tries to dial from in cluster pod.
 //
 // This is useful for accessing cluster internal services (pushing a CloudEvent into Knative broker).
 func NewRoundTripper(opts ...Option) RoundTripCloser {
 	o := options{
-		inClusterDialer: k8s.NewLazyInitInClusterDialer(),
+		inClusterDialer:    k8s.NewLazyInitInClusterDialer(),
+		insecureSkipVerify: false,
 	}
 	for _, option := range opts {
 		option(&o)
@@ -61,6 +69,8 @@ func NewRoundTripper(opts ...Option) RoundTripCloser {
 	secondaryDialer := o.inClusterDialer
 
 	combinedDialer := newDialerWithFallback(primaryDialer, secondaryDialer)
+
+	httpTransport.TLSClientConfig = &tls.Config{InsecureSkipVerify: o.insecureSkipVerify}
 
 	httpTransport.DialContext = combinedDialer.DialContext
 
