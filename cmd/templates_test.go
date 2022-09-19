@@ -1,7 +1,10 @@
 package cmd
 
 import (
+	"errors"
 	"testing"
+
+	"gotest.tools/v3/assert"
 
 	fn "knative.dev/kn-plugin-func"
 	. "knative.dev/kn-plugin-func/testing"
@@ -139,4 +142,25 @@ http`
 		t.Fatalf("expected JSON:\n'%v'\ngot:\n'%v'\n", expected, output)
 	}
 
+}
+
+func TestTemplates_ErrTemplateRepoDoesNotExist(t *testing.T) {
+	defer t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	cmd := NewTemplatesCmd(NewClientFactory(func() *fn.Client {
+		return fn.New()
+	}))
+	cmd.SetArgs([]string{"--repository", "https://github.com/boson-project/repo-does-not-exist"})
+	err := cmd.Execute()
+	assert.Assert(t, err != nil)
+	assert.Assert(t, errors.Is(err, ErrTemplateRepoDoesNotExist))
+}
+
+func TestTemplates_WrongRepositoryUrl(t *testing.T) {
+	defer t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	cmd := NewTemplatesCmd(NewClientFactory(func() *fn.Client {
+		return fn.New()
+	}))
+	cmd.SetArgs([]string{"--repository", "wrong://github.com/boson-project/repo-does-not-exist"})
+	err := cmd.Execute()
+	assert.Assert(t, err != nil)
 }
