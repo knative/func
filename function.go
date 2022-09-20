@@ -29,7 +29,7 @@ type Function struct {
 	Root string `yaml:"-"`
 
 	// Name of the function.  If not provided, path derivation is attempted when
-	// requried (such as for initialization).
+	// required (such as for initialization).
 	Name string `yaml:"name" jsonschema:"pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"`
 
 	// Runtime is the language plus context.  nodejs|go|quarkus|rust etc.
@@ -184,8 +184,8 @@ func NewFunction(path string) (f Function, err error) {
 		return
 	}
 	if marshallingErr := yaml.Unmarshal(bb, &f); err != nil {
-		marshallingErr = formatUnmarshalError(marshallingErr) // human-friendly unmarshalling errors
-		// I need to do something with this error if migration fails
+		formatUnmarshalError(marshallingErr) // human-friendly unmarshalling errors
+		// TODO: I need to do something with this error if migration fails
 	}
 	if f, err = f.Migrate(); err != nil {
 		return
