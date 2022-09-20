@@ -41,8 +41,8 @@ require (
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools/v3 v3.1.0
-	k8s.io/api v0.24.4
-	k8s.io/apimachinery v0.24.4
+	k8s.io/api v0.24.5
+	k8s.io/apimachinery v0.24.5
 	k8s.io/client-go v1.5.2
 	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9 // indirect
 	knative.dev/client v0.34.1-0.20220919093209-9bbef97106bc
@@ -115,7 +115,6 @@ require (
 	github.com/google/gnostic v0.5.7-v3refs // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
-	github.com/googleapis/gnostic v0.5.5 // indirect
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0 // indirect
 	github.com/hako/durafmt v0.0.0-20210608085754-5c1018a4e16b // indirect
@@ -151,6 +150,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
+	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/runc v1.1.2 // indirect
 	github.com/opencontainers/runtime-spec v1.0.3-0.20210326190908-1c3f411f0417 // indirect
@@ -229,7 +229,5 @@ replace (
 	// update docker to be compatible with version used by pack and removes invalid pseudo-version
 	github.com/openshift/source-to-image => github.com/boson-project/source-to-image v1.3.2
 	// Pin k8s.io dependencies to align with Knative and Tekton needs
-	k8s.io/api => k8s.io/api v0.23.5
-	k8s.io/apimachinery => k8s.io/apimachinery v0.23.5
-	k8s.io/client-go => k8s.io/client-go v0.23.5
+	k8s.io/client-go => k8s.io/client-go v0.24.5
 )
