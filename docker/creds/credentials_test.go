@@ -27,7 +27,7 @@ import (
 	"testing"
 	"time"
 
-	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/config"
 	"knative.dev/kn-plugin-func/docker"
 	"knative.dev/kn-plugin-func/docker/creds"
 	. "knative.dev/kn-plugin-func/testing"
@@ -536,7 +536,7 @@ func cleanUpConfigs(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	os.RemoveAll(fn.ConfigPath())
+	os.RemoveAll(config.Path())
 
 	os.RemoveAll(filepath.Join(home, ".docker"))
 }
@@ -581,7 +581,7 @@ func withPopulatedFuncAuthConfig(t *testing.T) func() {
 
 	var err error
 
-	authConfig := filepath.Join(fn.ConfigPath(), "auth.json")
+	authConfig := filepath.Join(config.Path(), "auth.json")
 	err = os.MkdirAll(filepath.Dir(authConfig), 0700)
 	if err != nil {
 		t.Fatal(err)
@@ -602,7 +602,7 @@ func withPopulatedFuncAuthConfig(t *testing.T) func() {
 		t.Fatal(err)
 	}
 	return func() {
-		os.RemoveAll(fn.ConfigPath())
+		os.RemoveAll(config.Path())
 	}
 }
 

@@ -316,7 +316,7 @@ func testBuilderPersists(cmdFn commandConstructor, t *testing.T) {
 		t.Fatal(err)
 	}
 	if f.Builder != builders.Pack {
-		t.Fatal("value of builder flag not persisted on subsequent build. Expected '%v' got '%v'", builders.Pack, f.Builder)
+		t.Fatalf("value of builder flag not persisted on subsequent build. Expected '%v' got '%v'", builders.Pack, f.Builder)
 	}
 
 	// Build the function, specifying a platform with "pack" Builder

@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/config"
 )
 
 func NewDeleteCmd(newClient ClientFactory) *cobra.Command {
@@ -36,7 +37,14 @@ No local files are deleted.
 		SilenceUsage:      true, // no usage dump on error
 	}
 
-	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
+	// Config
+	cfg, err := config.NewDefault()
+	if err != nil {
+		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.ConfigPath(), err)
+	}
+
+	// Flag
+	cmd.Flags().BoolP("confirm", "c", cfg.Confirm, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
 	cmd.Flags().StringP("all", "a", "true", "Delete all resources created for a function, eg. Pipelines, Secrets, etc. (Env: $FUNC_ALL) (allowed values: \"true\", \"false\")")
 	setPathFlag(cmd)
 

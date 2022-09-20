@@ -107,3 +107,27 @@ func TestCreateConfig_RepositoriesPath(t *testing.T) {
 		t.Fatalf("expected repositories default path to be '%v', got '%v'", expected, cfg.RepositoriesPath)
 	}
 }
+
+// TestCreate_ConfigOptional ensures that the system can be used without
+// any additional configuration being required.
+func TestCreate_ConfigOptional(t *testing.T) {
+	// Empty Home
+	// the func directory, and other static assets will be created here
+	// if they do not exist.
+	home, rm := Mktemp(t)
+	defer rm()
+	t.Setenv("XDG_CONFIG_HOME", home)
+
+	// Immediately using "create" in a new empty directory should not fail;
+	// even when this home directory is devoid of config files.
+	_, rm2 := Mktemp(t)
+	defer rm2()
+	cmd := NewCreateCmd(NewClient)
+	cmd.SetArgs([]string{"--language=go"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Not failing is success.  Config files or settings beyond what are
+	// automatically written to to the given config home are currently optional.
+}
