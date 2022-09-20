@@ -1,4 +1,4 @@
-specVersion: 0.34.0
+specVersion: 0.25.0
 name: testfunc
 namespace: "test-namespace"
 runtime: go

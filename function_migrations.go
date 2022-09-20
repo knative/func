@@ -79,7 +79,7 @@ var migrations = []migration{
 	{"0.19.0", migrateToCreationStamp},
 	{"0.23.0", migrateToBuilderImages},
 	{"0.25.0", migrateToSpecVersion},
-	{"1.0.0", migrateTo100Structure},
+	{"0.34.0", migrateTo100Structure},
 	// New Migrations Here.
 }
 
