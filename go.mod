@@ -41,15 +41,15 @@ require (
 	golang.org/x/term v0.0.0-20210927222741-03fcf44c2211
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools/v3 v3.1.0
-	k8s.io/api v0.23.9
-	k8s.io/apimachinery v0.23.9
+	k8s.io/api v0.24.5
+	k8s.io/apimachinery v0.24.5
 	k8s.io/client-go v1.5.2
 	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9 // indirect
-	knative.dev/client v0.34.0
-	knative.dev/eventing v0.34.2
-	knative.dev/hack v0.0.0-20220823140917-8d1e4ccf9dc3
-	knative.dev/pkg v0.0.0-20220818004048-4a03844c0b15
-	knative.dev/serving v0.34.1
+	knative.dev/client v0.34.1-0.20220919093209-9bbef97106bc
+	knative.dev/eventing v0.34.1-0.20220919143309-645fd887ce0c
+	knative.dev/hack v0.0.0-20220914183605-d1317b08c0c3
+	knative.dev/pkg v0.0.0-20220914154704-5f66ecf267fe
+	knative.dev/serving v0.34.1-0.20220919222015-dadd0b6ced6e
 )
 
 require (
@@ -111,10 +111,10 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/btree v1.0.1 // indirect
-	github.com/google/cel-go v0.9.0 // indirect
+	github.com/google/cel-go v0.10.1 // indirect
+	github.com/google/gnostic v0.5.7-v3refs // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
-	github.com/googleapis/gnostic v0.5.5 // indirect
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0 // indirect
 	github.com/hako/durafmt v0.0.0-20210608085754-5c1018a4e16b // indirect
@@ -150,6 +150,7 @@ require (
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
+	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/runc v1.1.2 // indirect
 	github.com/opencontainers/runtime-spec v1.0.3-0.20210326190908-1c3f411f0417 // indirect
@@ -158,7 +159,7 @@ require (
 	github.com/pelletier/go-toml v1.9.4 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/prometheus/client_golang v1.11.1 // indirect
+	github.com/prometheus/client_golang v1.12.1 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/common v0.32.1 // indirect
 	github.com/prometheus/procfs v0.7.3 // indirect
@@ -178,7 +179,7 @@ require (
 	github.com/spf13/viper v1.10.1 // indirect
 	github.com/src-d/gcfg v1.4.0 // indirect
 	github.com/stoewer/go-strcase v1.2.0 // indirect
-	github.com/stretchr/testify v1.7.0 // indirect
+	github.com/stretchr/testify v1.8.0 // indirect
 	github.com/subosito/gotenv v1.2.0 // indirect
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635 // indirect
 	github.com/tektoncd/triggers v0.19.0 // indirect
@@ -190,7 +191,7 @@ require (
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.21.0 // indirect
-	golang.org/x/mod v0.5.1 // indirect
+	golang.org/x/mod v0.6.0-dev.0.20220106191415-9b9b3d81d5e3 // indirect
 	golang.org/x/net v0.0.0-20220225172249-27dd8689420f // indirect
 	golang.org/x/oauth2 v0.0.0-20220223155221-ee480838109b // indirect
 	golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4 // indirect
@@ -210,14 +211,14 @@ require (
 	gopkg.in/src-d/go-git.v4 v4.13.1 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiextensions-apiserver v0.23.9 // indirect
-	k8s.io/cli-runtime v0.23.4 // indirect
+	k8s.io/apiextensions-apiserver v0.24.4 // indirect
+	k8s.io/cli-runtime v0.24.4 // indirect
 	k8s.io/klog/v2 v2.70.2-0.20220707122935-0990e81f1a8f // indirect
-	k8s.io/kube-openapi v0.0.0-20220124234850-424119656bbf // indirect
-	knative.dev/networking v0.0.0-20220818010248-e51df7cdf571 // indirect
+	k8s.io/kube-openapi v0.0.0-20220328201542-3ee0da9b0b42 // indirect
+	knative.dev/networking v0.0.0-20220914020748-cefed20d561c // indirect
 	sigs.k8s.io/json v0.0.0-20211208200746-9f7c6b3444d2 // indirect
-	sigs.k8s.io/kustomize/api v0.10.1 // indirect
-	sigs.k8s.io/kustomize/kyaml v0.13.0 // indirect
+	sigs.k8s.io/kustomize/api v0.11.4 // indirect
+	sigs.k8s.io/kustomize/kyaml v0.13.6 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
@@ -228,7 +229,5 @@ replace (
 	// update docker to be compatible with version used by pack and removes invalid pseudo-version
 	github.com/openshift/source-to-image => github.com/boson-project/source-to-image v1.3.2
 	// Pin k8s.io dependencies to align with Knative and Tekton needs
-	k8s.io/api => k8s.io/api v0.23.5
-	k8s.io/apimachinery => k8s.io/apimachinery v0.23.5
-	k8s.io/client-go => k8s.io/client-go v0.23.5
+	k8s.io/client-go => k8s.io/client-go v0.24.5
 )
