@@ -11,7 +11,7 @@ NAME
 SYNOPSIS
 	func invoke [-t|--target] [-f|--format]
 	             [--id] [--source] [--type] [--data] [--file] [--content-type]
-	             [-s|--save] [-p|--path] [-c|--confirm] [-v|--verbose]
+	             [-s|--save] [-p|--path] [-i|--insecure] [-c|--confirm] [-v|--verbose]
 
 DESCRIPTION
 	Invokes the function by sending a test request to the currently running
@@ -82,6 +82,9 @@ EXAMPLES
 	o Invoke an arbitrary endpoint (CloudEvent)
 		$ func invoke -f=cloudevent -t="https://my-event-broker.example.com"
 
+	o Allow insecure server connections when using SSL
+		$ func invoke --insecure
+
 
 
 ```
@@ -98,6 +101,7 @@ func invoke
   -f, --format string         Format of message to send, 'http' or 'cloudevent'.  Default is to choose automatically. (Env: $FUNC_FORMAT)
   -h, --help                  help for invoke
       --id string             ID for the request data. (Env: $FUNC_ID)
+  -i, --insecure              Allow insecure server connections when using SSL. (Env: $FUNC_INSECURE)
   -p, --path string           Path to the project directory (Env: $FUNC_PATH) (default ".")
       --source string         Source value for the request data. (Env: $FUNC_SOURCE) (default "/boson/fn")
   -t, --target string         Function instance to invoke.  Can be 'local', 'remote' or a URL.  Defaults to auto-discovery if not provided. (Env: $FUNC_TARGET)

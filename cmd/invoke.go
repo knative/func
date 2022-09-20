@@ -26,7 +26,7 @@ NAME
 SYNOPSIS
 	{{.Name}} invoke [-t|--target] [-f|--format]
 	             [--id] [--source] [--type] [--data] [--file] [--content-type]
-	             [-s|--save] [-p|--path] [-c|--confirm] [-v|--verbose]
+	             [-s|--save] [-p|--path] [-i|--insecure] [-c|--confirm] [-v|--verbose]
 
 DESCRIPTION
 	Invokes the function by sending a test request to the currently running
@@ -97,9 +97,12 @@ EXAMPLES
 	o Invoke an arbitrary endpoint (CloudEvent)
 		$ {{.Name}} invoke -f=cloudevent -t="https://my-event-broker.example.com"
 
+	o Allow insecure server connections when using SSL
+		$ {{.Name}} invoke --insecure
+
 `,
 		SuggestFor: []string{"emit", "emti", "send", "emit", "exec", "nivoke", "onvoke", "unvoke", "knvoke", "imvoke", "ihvoke", "ibvoke"},
-		PreRunE:    bindEnv("path", "format", "target", "id", "source", "type", "data", "content-type", "file", "confirm"),
+		PreRunE:    bindEnv("path", "format", "target", "id", "source", "type", "data", "content-type", "file", "insecure", "confirm"),
 	}
 
 	// Flags
@@ -112,6 +115,7 @@ EXAMPLES
 	cmd.Flags().StringP("content-type", "", fn.DefaultInvokeContentType, "Content Type of the data. (Env: $FUNC_CONTENT_TYPE)")
 	cmd.Flags().StringP("data", "", fn.DefaultInvokeData, "Data to send in the request. (Env: $FUNC_DATA)")
 	cmd.Flags().StringP("file", "", "", "Path to a file to use as data. Overrides --data flag and should be sent with a correct --content-type. (Env: $FUNC_FILE)")
+	cmd.Flags().BoolP("insecure", "i", false, "Allow insecure server connections when using SSL. (Env: $FUNC_INSECURE)")
 	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all options interactively. (Env: $FUNC_CONFIRM)")
 
 	cmd.SetHelpFunc(defaultTemplatedHelp)
@@ -132,7 +136,7 @@ func runInvoke(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 	}
 
 	// Client instance from env vars, flags, args and user prompts (if --confirm)
-	client, done := newClient(ClientConfig{Namespace: cfg.Namespace, Verbose: cfg.Verbose})
+	client, done := newClient(ClientConfig{Namespace: cfg.Namespace, Verbose: cfg.Verbose, InsecureSkipVerify: cfg.Insecure})
 	defer done()
 
 	// Message to send the running function built from parameters gathered
@@ -201,6 +205,7 @@ type invokeConfig struct {
 	Namespace   string
 	Confirm     bool
 	Verbose     bool
+	Insecure    bool
 }
 
 func newInvokeConfig(newClient ClientFactory) (cfg invokeConfig, err error) {
@@ -217,6 +222,7 @@ func newInvokeConfig(newClient ClientFactory) (cfg invokeConfig, err error) {
 		Confirm:     viper.GetBool("confirm"),
 		Verbose:     viper.GetBool("verbose"),
 		Namespace:   viper.GetString("namespace"),
+		Insecure:    viper.GetBool("insecure"),
 	}
 
 	// If file was passed, read it in as data
@@ -234,7 +240,7 @@ func newInvokeConfig(newClient ClientFactory) (cfg invokeConfig, err error) {
 	}
 
 	// Client instance for use during prompting.
-	client, done := newClient(ClientConfig{Namespace: cfg.Namespace, Verbose: cfg.Verbose})
+	client, done := newClient(ClientConfig{Namespace: cfg.Namespace, Verbose: cfg.Verbose, InsecureSkipVerify: cfg.Insecure})
 	defer done()
 
 	// If in interactive terminal mode, prompt to modify defaults.
@@ -252,6 +258,7 @@ func newInvokeConfig(newClient ClientFactory) (cfg invokeConfig, err error) {
 	fmt.Printf("Data: %v\n", cfg.Data)
 	fmt.Printf("Content Type: %v\n", cfg.ContentType)
 	fmt.Printf("File: %v\n", cfg.File)
+	fmt.Printf("Insecure: %v\n", cfg.Insecure)
 	return
 }
 
@@ -369,6 +376,18 @@ func (c invokeConfig) prompt(client *fn.Client) (invokeConfig, error) {
 			Prompt: &survey.Input{
 				Message: contentTypeMessage,
 				Default: c.ContentType,
+			},
+		}}
+	if err := survey.Ask(qs, &c); err != nil {
+		return c, err
+	}
+
+	qs = []*survey.Question{
+		{
+			Name: "Insecure",
+			Prompt: &survey.Confirm{
+				Message: "Allow insecure server connections when using SSL",
+				Default: c.Insecure,
 			},
 		}}
 	if err := survey.Ask(qs, &c); err != nil {
