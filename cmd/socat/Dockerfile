@@ -1,8 +1,12 @@
 FROM registry.redhat.io/rhel8/go-toolset as builder
 
-COPY go.mod go.sum main.go /opt/app-root/src/
+COPY main.go /opt/app-root/src/
 
-RUN CGO_ENABLED=0 go build -o socat -ldflags "-s -w" main.go
+ENV CGO_ENABLED=0
+
+RUN go mod init go-socat
+RUN go get github.com/spf13/cobra@v1.5.0
+RUN go build -o socat -ldflags "-s -w" main.go
 
 FROM scratch
 
