@@ -5,6 +5,7 @@
 [![Issues](https://img.shields.io/github/issues/knative-sandbox/kn-plugin-func.svg)](https://github.com/knative-sandbox/kn-plugin-func/issues)
 [![License](https://img.shields.io/github/license/knative-sandbox/kn-plugin-func)](https://github.com/knative-sandbox/kn-plugin-func/blob/main/LICENSE)
 [![Releases](https://img.shields.io/github/v/release/knative-sandbox/kn-plugin-func.svg?label=Release)](https://github.com/knative-sandbox/kn-plugin-func/releases)
+[![codecov](https://codecov.io/gh/knative-sandbox/kn-plugin-func/branch/main/graph/badge.svg)](https://codecov.io/gh/knative-sandbox/kn-plugin-func)
 
 `func` is a Client Library and CLI enabling the development and deployment of Functions.
 
