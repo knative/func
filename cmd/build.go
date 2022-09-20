@@ -147,8 +147,13 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		return
 	}
 
+	client, done := newClient(ClientConfig{Verbose: config.Verbose},
+		fn.WithRegistry(config.Registry),
+		fn.WithBuilder(builder))
+	defer done()
+
 	// Default Client Registry, Function Registry or explicit Image is required
-	if config.Registry == "" && f.Registry == "" && f.Image == "" {
+	if client.Registry() == "" && f.Registry == "" && f.Image == "" {
 		// It is not necessary that we validate here, since the client API has
 		// its own validation, but it does give us the opportunity to show a very
 		// cli-specific and detailed error message and (at least for now) default
@@ -161,16 +166,16 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 					NewRegistryValidator(config.Path))); err != nil {
 				return ErrRegistryRequired
 			}
+			done()
+			client, done = newClient(ClientConfig{Verbose: config.Verbose},
+				fn.WithRegistry(config.Registry),
+				fn.WithBuilder(builder))
+			defer done()
 			fmt.Println("Note: building a function the first time will take longer than subsequent builds")
 		} else {
 			return ErrRegistryRequired
 		}
 	}
-
-	client, done := newClient(ClientConfig{Verbose: config.Verbose},
-		fn.WithRegistry(config.Registry),
-		fn.WithBuilder(builder))
-	defer done()
 
 	// This preemptive write call will be unnecessary when the API is updated
 	// to use Function instances rather than file paths. For now it must write
