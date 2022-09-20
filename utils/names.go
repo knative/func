@@ -23,18 +23,18 @@ type ErrInvalidSecretKey error
 // ErrInvalidLabel indicates the name did not pass label key validation, or the value did not pass label value validation.
 type ErrInvalidLabel error
 
-// ValidateFunctionName validatest that the input name is a valid function name, ie. valid DNS-1123 label.
-// It must consist of lower case alphanumeric characters or '-' and start and end with an alphanumeric character
-// (e.g. 'my-name',  or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?')
+// ValidateFunctionName validates that the input name is a valid function name, ie. valid DNS-1035 label.
+// It must consist of lower case alphanumeric characters or '-' and start with an alphabetic character and end with an alphanumeric character.
+// (e.g. 'my-name',  or 'abc-1', regex used for validation is '[a-z]([-a-z0-9]*[a-z0-9])?')
 func ValidateFunctionName(name string) error {
 
-	if errs := validation.IsDNS1123Label(name); len(errs) > 0 {
+	if errs := validation.IsDNS1035Label(name); len(errs) > 0 {
 		// In case of invalid name the error is this:
-		//	"a lowercase RFC 1123 label must consist of lower case alphanumeric characters or '-',
-		//   and must start and end with an alphanumeric character (e.g. 'my-name',
-		//   or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?')"
-		// Let's reuse it for our purposes, ie. replace "a lowercase RFC 1123 label" substring with "Function name" and the actual function name
-		return ErrInvalidFunctionName(errors.New(strings.Replace(strings.Join(errs, ""), "a lowercase RFC 1123 label", fmt.Sprintf("Function name '%v'", name), 1)))
+		// "a DNS-1035 label must consist of lower case alphanumeric characters or '-',
+		// start with an alphabetic character,
+		// and end with an alphanumeric character".
+		// Let's reuse it for our purposes, ie. replace "a DNS-1035 label" substring with "Function name" and the actual function name
+		return ErrInvalidFunctionName(errors.New(strings.Replace(strings.Join(errs, ""), "a DNS-1035 label", fmt.Sprintf("Function name '%v'", name), 1)))
 	}
 
 	return nil
