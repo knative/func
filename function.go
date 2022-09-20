@@ -18,58 +18,7 @@ import (
 // FunctionFile is the file used for the serialized form of a function.
 const FunctionFile = "func.yaml"
 
-// BuildSpec
-type BuildSpec struct {
-	// Git stores information about an optionally associated git repository.
-	Git Git `yaml:"git,omitempty"`
-
-	// BuilderImages define optional explicit builder images to use by
-	// builder implementations in leau of the in-code defaults.  They key
-	// is the builder's short name.  For example:
-	// builderImages:
-	//   pack: example.com/user/my-pack-node-builder
-	//   s2i: example.com/user/my-s2i-node-builder
-	BuilderImages map[string]string `yaml:"builderImages,omitempty"`
-
-	// Optional list of buildpacks to use when building the function
-	Buildpacks []string `yaml:"buildpacks"`
-
-	// Builder is the name of the subsystem that will complete the underlying
-	// build (pack, s2i, etc)
-	Builder string `yaml:"builder" jsonschema:"enum=pack,enum=s2i"`
-
-	// Build Env variables to be set
-	BuildEnvs []Env `yaml:"buildEnvs"`
-}
-
-// RunSpec
-type RunSpec struct {
-	// List of volumes to be mounted to the function
-	Volumes []Volume `yaml:"volumes"`
-
-	// Env variables to be set
-	Envs []Env `yaml:"envs"`
-}
-
-// DeploySpec
-type DeploySpec struct {
-	// Namespace into which the function is deployed on supported platforms.
-	Namespace string `yaml:"namespace"`
-
-	// Map containing user-supplied annotations
-	// Example: { "division": "finance" }
-	Annotations map[string]string `yaml:"annotations"`
-
-	// Options to be set on deployed function (scaling, etc.)
-	Options Options `yaml:"options"`
-
-	// Map of user-supplied labels
-	Labels []Label `yaml:"labels"`
-
-	// Health endpoints specified by the language pack
-	HealthEndpoints HealthEndpoints `yaml:"healthEndpoints"`
-}
-
+// Function
 type Function struct {
 	// SpecVersion at which this function is known to be compatible.
 	// More specifically, it is the highest migration which has been applied.
@@ -126,6 +75,58 @@ type Function struct {
 	Deploy DeploySpec `yaml:"deploy"`
 }
 
+// BuildSpec
+type BuildSpec struct {
+	// Git stores information about an optionally associated git repository.
+	Git Git `yaml:"git,omitempty"`
+
+	// BuilderImages define optional explicit builder images to use by
+	// builder implementations in leau of the in-code defaults.  They key
+	// is the builder's short name.  For example:
+	// builderImages:
+	//   pack: example.com/user/my-pack-node-builder
+	//   s2i: example.com/user/my-s2i-node-builder
+	BuilderImages map[string]string `yaml:"builderImages,omitempty"`
+
+	// Optional list of buildpacks to use when building the function
+	Buildpacks []string `yaml:"buildpacks"`
+
+	// Builder is the name of the subsystem that will complete the underlying
+	// build (pack, s2i, etc)
+	Builder string `yaml:"builder" jsonschema:"enum=pack,enum=s2i"`
+
+	// Build Env variables to be set
+	BuildEnvs []Env `yaml:"buildEnvs"`
+}
+
+// RunSpec
+type RunSpec struct {
+	// List of volumes to be mounted to the function
+	Volumes []Volume `yaml:"volumes"`
+
+	// Env variables to be set
+	Envs []Env `yaml:"envs"`
+}
+
+// DeploySpec
+type DeploySpec struct {
+	// Namespace into which the function is deployed on supported platforms.
+	Namespace string `yaml:"namespace"`
+
+	// Map containing user-supplied annotations
+	// Example: { "division": "finance" }
+	Annotations map[string]string `yaml:"annotations"`
+
+	// Options to be set on deployed function (scaling, etc.)
+	Options Options `yaml:"options"`
+
+	// Map of user-supplied labels
+	Labels []Label `yaml:"labels"`
+
+	// Health endpoints specified by the language pack
+	HealthEndpoints HealthEndpoints `yaml:"healthEndpoints"`
+}
+
 // HealthEndpoints specify the liveness and readiness endpoints for a Runtime
 type HealthEndpoints struct {
 	Liveness  string `yaml:"liveness,omitempty"`
@@ -178,13 +179,13 @@ func NewFunction(path string) (f Function, err error) {
 	if _, err = os.Stat(filename); err != nil {
 		return
 	}
-	bb, err := ioutil.ReadFile(filename)
+	bb, err := os.ReadFile(filename)
 	if err != nil {
 		return
 	}
-	if err = yaml.Unmarshal(bb, &f); err != nil {
-		err = formatUnmarshalError(err) // human-friendly unmarshalling errors
-		//return
+	if marshallingErr := yaml.Unmarshal(bb, &f); err != nil {
+		marshallingErr = formatUnmarshalError(marshallingErr) // human-friendly unmarshalling errors
+		// I need to do something with this error if migration fails
 	}
 	if f, err = f.Migrate(); err != nil {
 		return
@@ -312,7 +313,7 @@ func (f Function) Write() (err error) {
 	}
 	// TODO: open existing file for writing, such that existing permissions
 	// are preserved.
-	return ioutil.WriteFile(path, bb, 0644)
+	return os.WriteFile(path, bb, 0644)
 }
 
 // Initialized returns if the function has been initialized.

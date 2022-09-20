@@ -141,7 +141,7 @@ func TestMigrateToSpecVersion(t *testing.T) {
 // the previous Function structure works
 func TestMigrateTo100(t *testing.T) {
 
-	root := "testdata/migrations/v0.25.1"
+	root := "testdata/migrations/v0.34.0"
 	expectedGit := Git{URL: "http://test-url", Revision: "test revision", ContextDir: "/test/context/dir"}
 	expectedNamespace := "test-namespace"
 	var expectedEnvs []Env

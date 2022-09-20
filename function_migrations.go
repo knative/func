@@ -1,7 +1,7 @@
 package function
 
 import (
-	"io/ioutil"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -22,7 +22,7 @@ func (f Function) Migrate() (migrated Function, err error) {
 	migrated = f // initially equivalent
 	for _, m := range migrations {
 		// Skip this migration if the current function's specVersion is not less than
-		// the migration's applicable specVerion.
+		// the migration's applicable specVersion.
 		if f.SpecVersion != "" && !semver.New(migrated.SpecVersion).LessThan(*semver.New(m.version)) {
 			continue
 		}
@@ -36,7 +36,7 @@ func (f Function) Migrate() (migrated Function, err error) {
 	return
 }
 
-// migration is a migration which should be applied to functions whose version
+// migration is a migration which should be applied to function's whose version
 // is below that indicated.
 type migration struct {
 	version string   // version before which this migration may be needed.
@@ -46,7 +46,7 @@ type migration struct {
 // migrator is a function which returns a migrated copy of an inbound function.
 type migrator func(Function, migration) (Function, error)
 
-// Migrated returns whether or not the function has been migrated to the highest
+// Migrated returns whether the function has been migrated to the highest
 // level the currently executing system is aware of (or beyond).
 // returns true.
 func (f Function) Migrated() bool {
@@ -96,9 +96,9 @@ var migrations = []migration{
 // This migration must be aware of the difference between a function which
 // was previously created (but with no create stamp), and a function which
 // exists only in memory and should legitimately fail the .Initialized() check.
-// The only way to know is to check a side-effect of earlier versions:
-// are the .Name and .Runtime fields populated.  This was the way the
-// .Initialized check was implemented prior to versioning being introduced, so
+// The only way to know is to check a side effect of earlier versions:
+// are the `.Name` and `.Runtime` fields populated.  This was the way the
+// `.Initialized` check was implemented prior to versioning being introduced, so
 // it is equivalent logically to use this here as well.
 
 // In summary:  if the creation stamp is zero, but name and runtime fields are
@@ -109,7 +109,7 @@ var migrations = []migration{
 func migrateToCreationStamp(f Function, m migration) (Function, error) {
 	// For functions with no creation timestamp, but appear to have been pre-
 	// existing, populate their create stamp and version.
-	// Yes, it's a little gnarly, but bootstrapping into the lovelieness of a
+	// Yes, it's a little gnarly, but bootstrapping into the loveliness of a
 	// versioned/migrated system takes cleaning up the trash.
 	if f.Created.IsZero() { // If there is no create stamp
 		if f.Name != "" && f.Runtime != "" { // and it appears to be an old function
@@ -156,7 +156,7 @@ func migrateToCreationStamp(f Function, m migration) (Function, error) {
 func migrateToBuilderImages(f1 Function, m migration) (Function, error) {
 	// Load the function using pertinent parts of the previous version's schema:
 	f0Filename := filepath.Join(f1.Root, FunctionFile)
-	bb, err := ioutil.ReadFile(f0Filename)
+	bb, err := os.ReadFile(f0Filename)
 	if err != nil {
 		return f1, err
 	}
@@ -189,7 +189,7 @@ func migrateToBuilderImages(f1 Function, m migration) (Function, error) {
 func migrateToSpecVersion(f Function, m migration) (Function, error) {
 	// Load the function func.yaml file
 	f0Filename := filepath.Join(f.Root, FunctionFile)
-	bb, err := ioutil.ReadFile(f0Filename)
+	bb, err := os.ReadFile(f0Filename)
 	if err != nil {
 		return f, err
 	}
@@ -209,7 +209,7 @@ func migrateToSpecVersion(f Function, m migration) (Function, error) {
 func migrateTo100Structure(f1 Function, m migration) (Function, error) {
 	// Load the Function using pertinent parts of the previous version's schema:
 	f0Filename := filepath.Join(f1.Root, FunctionFile)
-	bb, err := ioutil.ReadFile(f0Filename)
+	bb, err := os.ReadFile(f0Filename)
 	if err != nil {
 		return f1, err
 	}
@@ -218,27 +218,64 @@ func migrateTo100Structure(f1 Function, m migration) (Function, error) {
 		return f1, err
 	}
 
-	f1.Name = f0.Name
-	f1.Runtime = f0.Runtime
-	f1.Template = f0.Template
-	f1.Registry = f0.Registry
-	f1.Image = f0.Image
-	f1.ImageDigest = f0.ImageDigest
-	f1.Invocation = f0.Invocation
+	if f0.Git.URL != "" {
+		f1.Build.Git.URL = f0.Git.URL
+	}
+	if f0.Git.Revision != "" {
+		f1.Build.Git.Revision = f0.Git.Revision
+	}
+	if f0.Git.ContextDir != "" {
+		f1.Build.Git.ContextDir = f0.Git.ContextDir
+	}
+	//Append BuilderImages from old format, without destroying previous migrations
+	if f0.BuilderImages != nil {
+		for k, v := range f0.BuilderImages {
+			f1.Build.BuilderImages[k] = v
+		}
+	}
+	if f0.Buildpacks != nil {
+		f1.Build.Buildpacks = append(f1.Build.Buildpacks, f0.Buildpacks...)
+	}
+	if f0.BuildEnvs != nil {
+		f1.Build.BuildEnvs = append(f1.Build.BuildEnvs, f0.BuildEnvs...)
+	}
 
-	f1.Build.Git = f0.Git
-	f1.Build.BuilderImages = f0.BuilderImages
-	f1.Build.Buildpacks = f0.Buildpacks
-	f1.Build.BuildEnvs = f0.BuildEnvs
-	f1.Build.Builder = f0.Builder
-	f1.Run.Volumes = f0.Volumes
-	f1.Run.Envs = f0.Envs
-	f1.Deploy.Annotations = f0.Annotations
-	f1.Deploy.Options = f0.Options
-	f1.Deploy.Labels = f0.Labels
-	f1.Deploy.HealthEndpoints = f0.HealthEndpoints
+	if f0.Volumes != nil {
+		f1.Run.Volumes = append(f1.Run.Volumes, f0.Volumes...)
+	}
+
+	if f0.Envs != nil {
+		f1.Run.Envs = append(f1.Run.Envs, f0.Envs...)
+	}
+
+	if f0.Annotations != nil {
+		for k, v := range f0.Annotations {
+			f1.Deploy.Annotations[k] = v
+		}
+	}
+
+	if f0.Options.Resources != nil {
+		f1.Deploy.Options.Resources = f0.Options.Resources
+	}
+
+	if f0.Options.Scale != nil {
+		f1.Deploy.Options.Scale = f0.Options.Scale
+	}
+
+	if f0.Labels != nil {
+		f1.Deploy.Labels = append(f1.Deploy.Labels, f0.Labels...)
+	}
+
+	if f0.HealthEndpoints.Readiness != "" {
+		f1.Deploy.HealthEndpoints.Readiness = f0.HealthEndpoints.Readiness
+	}
+
+	if f0.HealthEndpoints.Liveness != "" {
+		f1.Deploy.HealthEndpoints.Liveness = f0.HealthEndpoints.Liveness
+	}
+
 	f1.Deploy.Namespace = f0.Namespace
-
+	f1.Build.Builder = f0.Builder
 	f1.SpecVersion = m.version
 	return f1, nil
 }
@@ -254,7 +291,7 @@ type migrateTo100_previousFunction struct {
 	Root string `yaml:"-"`
 
 	// Name of the function.  If not provided, path derivation is attempted when
-	// requried (such as for initialization).
+	// required (such as for initialization).
 	Name string `yaml:"name" jsonschema:"pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"`
 
 	// Namespace into which the function is deployed on supported platforms.
