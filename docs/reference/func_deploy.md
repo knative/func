@@ -12,7 +12,7 @@ SYNOPSIS
 	func deploy [-R|--remote] [-r|--registry] [-i|--image] [-n|--namespace]
 	             [-e|env] [-g|--git-url] [-t|git-branch] [-d|--git-dir]
 	             [-b|--build] [--builder] [--builder-image] [-p|--push]
-	             [-c|--confirm] [-v|--verbose]
+	             [--platform] [-c|--confirm] [-v|--verbose]
 
 DESCRIPTION
 
@@ -95,7 +95,7 @@ func deploy
   -p, --path string             Path to the project directory (Env: $FUNC_PATH) (default ".")
       --platform string         Target platform to build (e.g. linux/amd64).
   -u, --push                    Push the function image to registry before deploying (Env: $FUNC_PUSH) (default true)
-  -r, --registry string         Registry + namespace part of the image to build, ex 'ghcr.io/myuser'.  The full image name is automatically determined based on the local directory name. If not provided the registry will be taken from func.yaml (Env: $FUNC_REGISTRY)
+  -r, --registry string         Registry + namespace part of the image to build, ex 'ghcr.io/myuser'.  The full image name is automatically determined. (Env: $FUNC_REGISTRY)
       --remote                  Trigger a remote deployment.  Default is to deploy and build from the local system: $FUNC_REMOTE)
 ```
 
