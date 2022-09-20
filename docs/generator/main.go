@@ -17,14 +17,6 @@ import (
 )
 
 var (
-	// Statically-populated build metadata set by `make build`.
-	date, vers, hash string
-	version          = cmd.Version{
-		Date: date,
-		Vers: vers,
-		Hash: hash,
-	}
-
 	// Helper function for indenting template values correctly
 	fm = template.FuncMap{
 		"indent": func(i int, c string, v string) string {
@@ -41,7 +33,6 @@ var (
 type TemplateOptions struct {
 	Name    string
 	Options string
-	Version string
 	Use     string
 }
 
@@ -62,7 +53,6 @@ func main() {
 	templateOptions := TemplateOptions{
 		Name:    rootName,
 		Options: opts,
-		Version: version.StringVerbose(),
 		Use:     rootName,
 	}
 
