@@ -690,10 +690,16 @@ func namespace(cfg deployConfig, f fn.Function, stderr io.Writer) (namespace str
 		}
 	}
 
+	// If the Function is not yet deployed, then immediately return the chosen
+	// final namespace
+	if f.Namespace == "" {
+		return
+	}
+
 	// Warn if in a different namespace than active
 	active, err := k8s.GetNamespace("")
 	if err == nil && namespace != active {
-		fmt.Fprintf(stderr, "Warning: Function is in namespace '%s', but currently active namespace is '%s'. Continuing with redeployment to '%s'.\n", f.Namespace, active, f.Namespace)
+		fmt.Fprintf(stderr, "Warning: Function is in namespace '%s', but currently active namespace is '%s'. Continuing with redeployment to '%s'.\n", f.Namespace, active, namespace)
 	}
 
 	// Warn if potentially creating an orphan
