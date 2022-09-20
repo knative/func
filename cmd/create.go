@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 
 	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/config"
 	"knative.dev/kn-plugin-func/utils"
 )
 
@@ -74,11 +75,17 @@ EXAMPLES
 		PreRunE:    bindEnv("language", "template", "repository", "confirm"),
 	}
 
+	// Config
+	cfg, err := config.NewDefault()
+	if err != nil {
+		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.ConfigPath(), err)
+	}
+
 	// Flags
-	cmd.Flags().StringP("language", "l", "", "Language Runtime (see help text for list) (Env: $FUNC_LANGUAGE)")
+	cmd.Flags().StringP("language", "l", cfg.Language, "Language Runtime (see help text for list) (Env: $FUNC_LANGUAGE)")
 	cmd.Flags().StringP("template", "t", fn.DefaultTemplate, "Function template. (see help text for list) (Env: $FUNC_TEMPLATE)")
 	cmd.Flags().StringP("repository", "r", "", "URI to a Git repository containing the specified template (Env: $FUNC_REPOSITORY)")
-	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
+	cmd.Flags().BoolP("confirm", "c", cfg.Confirm, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
 
 	// Help Action
 	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) { runCreateHelp(cmd, args, newClient) })

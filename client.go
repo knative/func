@@ -14,7 +14,7 @@ import (
 	"runtime/debug"
 	"time"
 
-	"github.com/mitchellh/go-homedir"
+	"knative.dev/kn-plugin-func/config"
 )
 
 const (
@@ -26,11 +26,6 @@ const (
 	// one implementation of each supported function signature.  Currently that
 	// includes an HTTP Handler ("http") and Cloud Events handler ("events")
 	DefaultTemplate = "http"
-
-	// DefaultConfigPath is used in the unlikely event that
-	// the user has no home directory (no ~), there is no
-	// XDG_CONFIG_HOME set, and no WithConfigPath was used.
-	DefaultConfigPath = ".config/func"
 
 	// RunDataDir holds transient runtime metadata
 	// By default it is excluded from source control.
@@ -207,7 +202,7 @@ func New(options ...Option) *Client {
 		dnsProvider:       &noopDNSProvider{output: os.Stdout},
 		progressListener:  &NoopProgressListener{},
 		pipelinesProvider: &noopPipelinesProvider{},
-		repositoriesPath:  filepath.Join(ConfigPath(), "repositories"),
+		repositoriesPath:  filepath.Join(config.Path(), "repositories"),
 		transport:         http.DefaultTransport,
 	}
 	for _, o := range options {
@@ -220,33 +215,10 @@ func New(options ...Option) *Client {
 	c.instances = newInstances(c)
 
 	// Trigger the creation of the config and repository paths
-	_ = ConfigPath()         // Config is package-global scoped
+	_ = config.Path()
 	_ = c.RepositoriesPath() // Repositories is Client-specific
 
 	return c
-}
-
-// The default config path is evaluated in the following order, from lowest
-// to highest precedence.
-// 1.  The static default is DefaultConfigPath (./.config/func)
-// 2.  ~/.config/func if it exists (can be expanded: user has a home dir)
-// 3.  The value of $XDG_CONFIG_PATH/func if the environment variable exists.
-// The path will be created if it does not already exist.
-func ConfigPath() (path string) {
-	path = DefaultConfigPath
-
-	// ~/.config/func is the default if ~ can be expanded
-	if home, err := homedir.Expand("~"); err == nil {
-		path = filepath.Join(home, ".config", "func")
-	}
-
-	// 'XDG_CONFIG_HOME/func' takes precidence if defined
-	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
-		path = filepath.Join(xdg, "func")
-	}
-
-	mkdir(path) // make sure it exists
-	return
 }
 
 // RepositoriesPath accesses the currently effective repositories path,
