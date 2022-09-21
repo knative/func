@@ -167,10 +167,15 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 					NewRegistryValidator(config.Path))); err != nil {
 				return ErrRegistryRequired
 			}
+			done()
+			client, done = newClient(ClientConfig{Verbose: config.Verbose},
+				fn.WithRegistry(config.Registry),
+				fn.WithBuilder(builder))
+			defer done()
 			fmt.Println("Note: building a function the first time will take longer than subsequent builds")
+		} else {
+			return ErrRegistryRequired
 		}
-
-		return ErrRegistryRequired
 	}
 
 	// This preemptive write call will be unnecessary when the API is updated
