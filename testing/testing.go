@@ -146,25 +146,6 @@ func TestRepoURI(name string, t *testing.T) string {
 	return fmt.Sprintf(`http://%s/%s.git`, hostPort, name)
 }
 
-// WithEnvVar sets an environment variable
-// and returns deferrable function that restores previous value of the environment variable.
-// TODO: replace with t.Setenv when we upgrade to go.1.17
-func WithEnvVar(t *testing.T, name, value string) func() {
-	t.Helper()
-	oldDh, hadDh := os.LookupEnv(name)
-	err := os.Setenv(name, value)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return func() {
-		if hadDh {
-			_ = os.Setenv(name, oldDh)
-		} else {
-			_ = os.Unsetenv(name)
-		}
-	}
-}
-
 // WithExecutable creates an executable of the given name and source in a temp
 // directory which is then added to PATH.  Returned is a deferrable which will
 // clean up both the script and PATH.
