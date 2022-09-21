@@ -4,6 +4,7 @@
 package function_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -57,7 +58,7 @@ func TestFunction_NameDefault(t *testing.T) {
 	defer Using(t, root)()
 	f, err := fn.NewFunction(root)
 	if err == nil {
-		t.Fatal("expected error instantiating a nonexistant function")
+		t.Fatal("expected error instantiating a nonexistent function")
 	}
 
 	// Create the function at the path
@@ -86,7 +87,7 @@ func TestFunction_NameDefault(t *testing.T) {
 // environment variables by interpolating properly formatted references to
 // local environment variables, returning a final simple map structure.
 // Also ensures that nil value references are interpreted as meaning the
-// environment is to be disincluded from the resultant map, rather than included
+// environment is not to be included in the resultant map, rather than included
 // with an empty value.
 // TODO: Perhaps referring to a nonexistent local env var should be treated
 // as a "leave as is" (do not set) rather than "required" resulting in error?
@@ -134,4 +135,35 @@ func Test_Interpolate(t *testing.T) {
 	if len(vv) != 0 {
 		t.Fatalf("expected envs with a nil value to not be included in interpolation result")
 	}
+}
+
+// TestFunction_MarshallingError check that the correct error gets reported back to the
+// user if the function that is being loaded is failing marshalling and cannot be migrated
+func TestFunction_MarshallingError(t *testing.T) {
+	root := "testdata/testFunctionMarshallingError"
+
+	// Load the function to see it fail with a marshalling error
+	_, err := fn.NewFunction(root)
+	if err != nil {
+		if !strings.Contains(err.Error(), "line 2: cannot unmarshal !!seq into string") {
+			t.Fatalf("expected unmarshalling error")
+		}
+
+	}
+}
+
+// TestFunction_MigrationError check that the correct error gets reported back to the
+// user if the function that is being loaded is failing marshalling and cannot be migrated
+func TestFunction_MigrationError(t *testing.T) {
+	root := "testdata/testFunctionMigrationError"
+
+	// Load the function to see it fail with a migration error
+	_, err := fn.NewFunction(root)
+	if err != nil {
+		// This function makes the migration fails
+		if !strings.Contains(err.Error(), "migration 'migrateToBuilderImages' error") {
+			t.Fatalf("expected migration error")
+		}
+	}
+
 }

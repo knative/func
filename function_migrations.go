@@ -1,6 +1,7 @@
 package function
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"time"
@@ -79,7 +80,7 @@ var migrations = []migration{
 	{"0.19.0", migrateToCreationStamp},
 	{"0.23.0", migrateToBuilderImages},
 	{"0.25.0", migrateToSpecVersion},
-	{"0.34.0", migrateTo100Structure},
+	{"0.34.0", migrateToGAStructure},
 	// New Migrations Here.
 }
 
@@ -94,7 +95,7 @@ var migrations = []migration{
 // initialized" in func versions above v0.19.0
 //
 // This migration must be aware of the difference between a function which
-// was previously created (but with no create stamp), and a function which
+// was previously created (but with no created stamp), and a function which
 // exists only in memory and should legitimately fail the .Initialized() check.
 // The only way to know is to check a side effect of earlier versions:
 // are the `.Name` and `.Runtime` fields populated.  This was the way the
@@ -103,15 +104,15 @@ var migrations = []migration{
 
 // In summary:  if the creation stamp is zero, but name and runtime fields are
 // populated, then this is an old function and should be migrated to having a
-// create stamp.  Otherwise, this is an in-memory (new) function that is
+// created stamp.  Otherwise, this is an in-memory (new) function that is
 // currently in the process of being created and as such need not be mutated
 // to consider this migration having been evaluated.
 func migrateToCreationStamp(f Function, m migration) (Function, error) {
 	// For functions with no creation timestamp, but appear to have been pre-
-	// existing, populate their create stamp and version.
+	// existing, populate their created stamp and version.
 	// Yes, it's a little gnarly, but bootstrapping into the loveliness of a
 	// versioned/migrated system takes cleaning up the trash.
-	if f.Created.IsZero() { // If there is no create stamp
+	if f.Created.IsZero() { // If there is no created stamp
 		if f.Name != "" && f.Runtime != "" { // and it appears to be an old function
 			f.Created = time.Now() // Migrate it to having a timestamp.
 		}
@@ -158,11 +159,11 @@ func migrateToBuilderImages(f1 Function, m migration) (Function, error) {
 	f0Filename := filepath.Join(f1.Root, FunctionFile)
 	bb, err := os.ReadFile(f0Filename)
 	if err != nil {
-		return f1, err
+		return f1, errors.New("migration 'migrateToBuilderImages' error: " + err.Error())
 	}
 	f0 := migrateToBuilderImages_previousFunction{}
 	if err = yaml.Unmarshal(bb, &f0); err != nil {
-		return f1, err
+		return f1, errors.New("migration 'migrateToBuilderImages' error: " + err.Error())
 	}
 
 	// At time of this migration, the default pack builder image for all language
@@ -191,31 +192,31 @@ func migrateToSpecVersion(f Function, m migration) (Function, error) {
 	f0Filename := filepath.Join(f.Root, FunctionFile)
 	bb, err := os.ReadFile(f0Filename)
 	if err != nil {
-		return f, err
+		return f, errors.New("migration 'migrateToSpecVersion' error: " + err.Error())
 	}
 
 	// Only handle the Version field if it exists
 	f0 := migrateToSpecVersion_previousFunction{}
 	if err = yaml.Unmarshal(bb, &f0); err != nil {
-		return f, err
+		return f, errors.New("migration 'migrateToSpecVersion' error: " + err.Error())
 	}
 
 	f.SpecVersion = m.version
 	return f, nil
 }
 
-// This migration makes sure use the 1.0.0 format. To avoid unmarshalling issues with the old format
+// This migration makes sure use the GA format. To avoid unmarshalling issues with the old format
 // this migration needs to be executed first. Further migrations will operate on this new struct
-func migrateTo100Structure(f1 Function, m migration) (Function, error) {
+func migrateToGAStructure(f1 Function, m migration) (Function, error) {
 	// Load the Function using pertinent parts of the previous version's schema:
 	f0Filename := filepath.Join(f1.Root, FunctionFile)
 	bb, err := os.ReadFile(f0Filename)
 	if err != nil {
-		return f1, err
+		return f1, errors.New("migration 'migrateToGAStructure' error: " + err.Error())
 	}
-	f0 := migrateTo100_previousFunction{}
+	f0 := migrateToGA_previousFunction{}
 	if err = yaml.Unmarshal(bb, &f0); err != nil {
-		return f1, err
+		return f1, errors.New("migration 'migrateToGAStructure' error: " + err.Error())
 	}
 
 	if f0.Git.URL != "" {
@@ -281,7 +282,7 @@ func migrateTo100Structure(f1 Function, m migration) (Function, error) {
 }
 
 // The pertinent aspects of the Function's schema prior the 1.0.0 version migrations
-type migrateTo100_previousFunction struct {
+type migrateToGA_previousFunction struct {
 	// SpecVersion at which this function is known to be compatible.
 	// More specifically, it is the highest migration which has been applied.
 	// For details see the .Migrated() and .Migrate() methods.

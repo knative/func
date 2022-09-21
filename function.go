@@ -183,12 +183,23 @@ func NewFunction(path string) (f Function, err error) {
 	if err != nil {
 		return
 	}
-	if marshallingErr := yaml.Unmarshal(bb, &f); err != nil {
-		formatUnmarshalError(marshallingErr) // human-friendly unmarshalling errors
-		// TODO: I need to do something with this error if migration fails
+	var functionMarshallingError error
+	var functionMigrationError error
+	if marshallingErr := yaml.Unmarshal(bb, &f); marshallingErr != nil {
+		functionMarshallingError = formatUnmarshalError(marshallingErr) // human-friendly unmarshalling errors
 	}
 	if f, err = f.Migrate(); err != nil {
-		return
+		functionMigrationError = err
+	}
+	// Only if migration fail return errors to the user. include marshalling error if present
+	if functionMigrationError != nil {
+		//returning both  migrations and marshalling errors to the user
+		errorText := "Error: \n"
+		if functionMarshallingError != nil {
+			errorText += "Marshalling: " + functionMarshallingError.Error()
+		}
+		errorText += "\n" + "Migration: " + functionMigrationError.Error()
+		return Function{}, errors.New(errorText)
 	}
 	return f, f.Validate()
 }
