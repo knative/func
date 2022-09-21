@@ -15,9 +15,11 @@ comment:
   # Update existing comment or create new if deleted.
   behavior: default
 ignore:
-  - third_party
-  - vendor
-  - testdata
+  - "testdata"
   - "**/zz_*generated*.go"
-  - templates
+  - "templates"
+  - "hack"
+  - "test"
+  - "third_party"
+  - "vendor
 
