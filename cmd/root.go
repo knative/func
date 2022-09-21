@@ -34,7 +34,7 @@ func NewRootCmd(config RootCommandConfig) *cobra.Command {
 		Short:         "Serverless functions",
 		SilenceErrors: true, // we explicitly handle errors in Execute()
 		SilenceUsage:  true, // no usage dump on error
-		Long: `Serverless functions {{.Version}}
+		Long: `Knative serverless functions
 
 	Create, build and deploy Knative functions
 
