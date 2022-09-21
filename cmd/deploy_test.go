@@ -246,7 +246,7 @@ func TestDeploy_BuilderPersists(t *testing.T) {
 }
 
 func testBuilderPersists(cmdFn commandConstructor, t *testing.T) {
-	defer WithEnvVar(t, "KUBECONFIG", fmt.Sprintf("%s/testdata/kubeconfig_deploy_namespace", cwd()))()
+	t.Setenv("KUBECONFIG", fmt.Sprintf("%s/testdata/kubeconfig_deploy_namespace", cwd()))
 
 	t.Helper()
 	root, rm := Mktemp(t)
@@ -575,7 +575,7 @@ func Test_ImageWithDigestErrors(t *testing.T) {
 		},
 	}
 
-	defer WithEnvVar(t, "KUBECONFIG", fmt.Sprintf("%s/testdata/kubeconfig_deploy_namespace", cwd()))()
+	t.Setenv("KUBECONFIG", fmt.Sprintf("%s/testdata/kubeconfig_deploy_namespace", cwd()))
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -682,9 +682,9 @@ func Test_namespace(t *testing.T) {
 
 			// if running with an active kubeconfig
 			if test.context {
-				defer WithEnvVar(t, "KUBECONFIG", contextPath)()
+				t.Setenv("KUBECONFIG", contextPath)
 			} else {
-				defer WithEnvVar(t, "KUBECONFIG", cwd())()
+				t.Setenv("KUBECONFIG", cwd())
 			}
 
 			// Creat a funcction which may be already deployed
@@ -860,7 +860,7 @@ func TestDeploy_GitURLBranch(t *testing.T) {
 // active kubernetes context is used for the namespace if available.
 func TestDeploy_NamespaceDefaults(t *testing.T) {
 	// Set kube context to test context
-	defer WithEnvVar(t, "KUBECONFIG", filepath.Join(cwd(), "testdata", "kubeconfig_deploy_namespace"))()
+	t.Setenv("KUBECONFIG", filepath.Join(cwd(), "testdata", "kubeconfig_deploy_namespace"))
 
 	// from a temp directory
 	root, rm := Mktemp(t)
@@ -970,7 +970,7 @@ func TestDeploy_NamespaceUpdateWarning(t *testing.T) {
 // not instructed otherwise.
 func TestDeploy_NamespaceRedeployWarning(t *testing.T) {
 	// Change profile to one whose current profile is 'test-ns-deploy'
-	defer WithEnvVar(t, "KUBECONFIG", filepath.Join(cwd(), "testdata", "kubeconfig_deploy_namespace"))()
+	t.Setenv("KUBECONFIG", filepath.Join(cwd(), "testdata", "kubeconfig_deploy_namespace"))
 
 	// From within a temp directory
 	root, rm := Mktemp(t)

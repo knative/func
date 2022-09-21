@@ -28,7 +28,6 @@ import (
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/builders"
 	"knative.dev/kn-plugin-func/s2i"
-	. "knative.dev/kn-plugin-func/testing"
 )
 
 // Test_BuildImages ensures that supported runtimes returns builder image
@@ -173,7 +172,7 @@ func Test_BuilderVerbose(t *testing.T) {
 // are interpolated and passed to the S2I build implementation in the final
 // build config.
 func Test_BuildEnvs(t *testing.T) {
-	defer WithEnvVar(t, "INTERPOLATE_ME", "interpolated")()
+	t.Setenv("INTERPOLATE_ME", "interpolated")
 	var (
 		envName  = "NAME"
 		envValue = "{{ env:INTERPOLATE_ME }}"

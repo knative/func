@@ -93,7 +93,7 @@ func TestFunction_NameDefault(t *testing.T) {
 // TODO: What use case does a nil pointer in the Env struct serve?  Add it
 // explicitly here ore get rid of the nils.
 func Test_Interpolate(t *testing.T) {
-	defer WithEnvVar(t, "INTERPOLATE", "interpolated")()
+	t.Setenv("INTERPOLATE", "interpolated")
 	cases := []struct {
 		Value    string
 		Expected string

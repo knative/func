@@ -91,7 +91,7 @@ func TestCreateConfig_RepositoriesPath(t *testing.T) {
 
 	// Update XDG_CONFIG_HOME to point to some arbitrary location.
 	xdgConfigHome := t.TempDir()
-	defer WithEnvVar(t, "XDG_CONFIG_HOME", xdgConfigHome)()
+	t.Setenv("XDG_CONFIG_HOME", xdgConfigHome)
 
 	// The expected full path is XDG_CONFIG_HOME/func/repositories
 	expected := filepath.Join(xdgConfigHome, "func", "repositories")

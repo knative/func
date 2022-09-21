@@ -11,10 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"knative.dev/kn-plugin-func/docker"
-	. "knative.dev/kn-plugin-func/testing"
-
 	"github.com/docker/docker/client"
+	"knative.dev/kn-plugin-func/docker"
 )
 
 // Test that we are creating client in accordance
@@ -33,7 +31,7 @@ func TestNewClient(t *testing.T) {
 
 	defer startMockDaemonUnix(t, sock)()
 
-	defer WithEnvVar(t, "DOCKER_HOST", dockerHost)()
+	t.Setenv("DOCKER_HOST", dockerHost)
 
 	dockerClient, dockerHostInRemote, err := docker.NewClient(client.DefaultDockerHost)
 	if err != nil {
@@ -77,7 +75,7 @@ func TestNewClient_DockerHost(t *testing.T) {
 				t.Skip("Windows cannot handle Unix sockets")
 			}
 
-			defer WithEnvVar(t, "DOCKER_HOST", tt.dockerHostEnvVar)()
+			t.Setenv("DOCKER_HOST", tt.dockerHostEnvVar)
 			_, host, err := docker.NewClient(client.DefaultDockerHost)
 			if err != nil {
 				t.Fatal(err)

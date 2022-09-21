@@ -20,11 +20,9 @@ import (
 	"testing"
 	"time"
 
-	"knative.dev/kn-plugin-func/docker"
-	. "knative.dev/kn-plugin-func/testing"
-
 	"github.com/docker/docker/client"
 	"golang.org/x/crypto/ssh"
+	"knative.dev/kn-plugin-func/docker"
 )
 
 func TestNewDockerClientWithSSH(t *testing.T) {
@@ -38,7 +36,7 @@ func TestNewDockerClientWithSSH(t *testing.T) {
 
 	defer withKnowHosts(t, sshConf.address, sshConf.pubHostKey)()
 
-	defer WithEnvVar(t, "DOCKER_HOST", fmt.Sprintf("ssh://user:pwd@%s", sshConf.address))()
+	t.Setenv("DOCKER_HOST", fmt.Sprintf("ssh://user:pwd@%s", sshConf.address))
 
 	dockerClient, dockerHostInRemote, err := docker.NewClient(client.DefaultDockerHost)
 	if err != nil {

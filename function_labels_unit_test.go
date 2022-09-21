@@ -5,8 +5,6 @@ package function
 
 import (
 	"testing"
-
-	. "knative.dev/kn-plugin-func/testing"
 )
 
 func Test_validateLabels(t *testing.T) {
@@ -29,10 +27,10 @@ func Test_validateLabels(t *testing.T) {
 	valueLocalEnvIncorrect2 := "{{ MY_ENV }}"
 	valueLocalEnvIncorrect3 := "{{env:MY_ENV}}foo"
 
-	defer WithEnvVar(t, "BAD_EXAMPLE", ":invalid")()
+	t.Setenv("BAD_EXAMPLE", ":invalid")
 	valueLocalEnvIncorrect4 := "{{env:BAD_EXAMPLE}}"
 
-	defer WithEnvVar(t, "GOOD_EXAMPLE", "valid")()
+	t.Setenv("GOOD_EXAMPLE", "valid")
 	valueLocalEnv4 := "{{env:GOOD_EXAMPLE}}"
 
 	tests := []struct {

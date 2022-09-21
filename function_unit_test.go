@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	fnlabels "knative.dev/kn-plugin-func/k8s/labels"
-	. "knative.dev/kn-plugin-func/testing"
 )
 
 func TestFunction_ImageWithDigest(t *testing.T) {
@@ -93,10 +92,10 @@ func Test_LabelsMap(t *testing.T) {
 	value1 := "value1"
 	value2 := "value2"
 
-	defer WithEnvVar(t, "BAD_EXAMPLE", ":invalid")()
+	t.Setenv("BAD_EXAMPLE", ":invalid")
 	valueLocalEnvIncorrect4 := "{{env:BAD_EXAMPLE}}"
 
-	defer WithEnvVar(t, "GOOD_EXAMPLE", "valid")()
+	t.Setenv("GOOD_EXAMPLE", "valid")
 	valueLocalEnv4 := "{{env:GOOD_EXAMPLE}}"
 
 	tests := []struct {
