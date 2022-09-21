@@ -168,12 +168,12 @@ func WithEnvVar(t *testing.T, name, value string) func() {
 // WithExecutable creates an executable of the given name and source in a temp
 // directory which is then added to PATH.  Returned is a deferrable which will
 // clean up both the script and PATH.
-func WithExecutable(t *testing.T, name, goSrc string) func() {
+func WithExecutable(t *testing.T, name, goSrc string) {
 	var err error
 	binDir := t.TempDir()
 
 	newPath := binDir + string(os.PathListSeparator) + os.Getenv("PATH")
-	cleanUpPath := WithEnvVar(t, "PATH", newPath)
+	t.Setenv("PATH", newPath)
 
 	goSrcPath := filepath.Join(binDir, fmt.Sprintf("%s.go", name))
 
@@ -203,10 +203,6 @@ go.exe run GO_SCRIPT_PATH %*
 	err = ioutil.WriteFile(runnerScriptPath, []byte(runnerScriptSrc), 0700)
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	return func() {
-		cleanUpPath()
 	}
 }
 

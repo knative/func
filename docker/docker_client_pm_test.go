@@ -40,7 +40,7 @@ func TestNewDockerClientWithPodmanMachine(t *testing.T) {
 	goSrc := fmt.Sprintf("package main; import \"fmt\"; func main() { fmt.Println(%q); }", out)
 
 	t.Setenv("DOCKER_HOST", "")
-	defer WithExecutable(t, "podman", goSrc)()
+	WithExecutable(t, "podman", goSrc)
 
 	dockerClient, dockerHostInRemote, err := docker.NewClient("")
 	if err != nil {
