@@ -46,17 +46,10 @@ func New() Config {
 func NewDefault() (cfg Config, err error) {
 	cfg = New()       // cfg now populated by static defaults
 	p := ConfigPath() // applies ~/.config/func/config.yaml if it exists
-	if _, err = os.Stat(p); err != nil {
-		if os.IsNotExist(err) {
-			err = nil // config file is not required
-		}
-		return
+    cfg, err = Load(p)
+    if os.IsNotExist(err) {
+		err = nil // config file is not required
 	}
-	bb, err := os.ReadFile(p)
-	if err != nil {
-		return
-	}
-	err = yaml.Unmarshal(bb, &cfg) // cfg now has applied config.yaml
 	return
 }
 
