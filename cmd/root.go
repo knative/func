@@ -12,6 +12,7 @@ import (
 
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/client/pkg/util"
 	fn "knative.dev/kn-plugin-func"
@@ -131,8 +132,7 @@ EXAMPLES
 // terminal is interactive.  Used for determining whether or not to
 // interactively prompt the user to confirm default choices, etc.
 func interactiveTerminal() bool {
-	fi, err := os.Stdin.Stat()
-	return err == nil && ((fi.Mode() & os.ModeCharDevice) != 0)
+	return term.IsTerminal(int(os.Stdin.Fd()))
 }
 
 // bindFunc which conforms to the cobra PreRunE method signature
