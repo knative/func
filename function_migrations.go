@@ -80,7 +80,7 @@ var migrations = []migration{
 	{"0.19.0", migrateToCreationStamp},
 	{"0.23.0", migrateToBuilderImages},
 	{"0.25.0", migrateToSpecVersion},
-	{"0.34.0", migrateToGAStructure},
+	{"0.34.0", migrateToSpecsStructure},
 	// New Migrations Here.
 }
 
@@ -205,7 +205,7 @@ func migrateToSpecVersion(f Function, m migration) (Function, error) {
 	return f, nil
 }
 
-// migrateToSpecsStructure  migration makes sure use the sub-specs structs for build, run and deploy phases.
+// migrateToSpecsStructure migration makes sure use the sub-specs structs for build, run and deploy phases.
 // To avoid unmarshalling issues with the old format this migration needs to be executed first.
 // Further migrations will operate on this new struct with sub-specs
 func migrateToSpecsStructure(f1 Function, m migration) (Function, error) {
@@ -213,11 +213,11 @@ func migrateToSpecsStructure(f1 Function, m migration) (Function, error) {
 	f0Filename := filepath.Join(f1.Root, FunctionFile)
 	bb, err := os.ReadFile(f0Filename)
 	if err != nil {
-		return f1, errors.New("migration 'migrateToGAStructure' error: " + err.Error())
+		return f1, errors.New("migration 'migrateToSpecsStructure' error: " + err.Error())
 	}
 	f0 := migrateToSpecs_previousFunction{}
 	if err = yaml.Unmarshal(bb, &f0); err != nil {
-		return f1, errors.New("migration 'migrateToGAStructure' error: " + err.Error())
+		return f1, errors.New("migration 'migrateToSpecsStructure' error: " + err.Error())
 	}
 
 	if f0.Git.URL != "" {
