@@ -10,7 +10,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	fn "knative.dev/kn-plugin-func"
-	. "knative.dev/kn-plugin-func/testing"
 )
 
 // Test_DefaultNamespace ensures that if there is an active kubeconfig,
@@ -19,7 +18,7 @@ import (
 func Test_DefaultNamespace(t *testing.T) {
 	// Update Kubeconfig to indicate the currently active namespace is:
 	// "test-ns-deploy"
-	defer WithEnvVar(t, "KUBECONFIG", fmt.Sprintf("%s/testdata/test_default_namespace", cwd()))()
+	t.Setenv("KUBECONFIG", fmt.Sprintf("%s/testdata/test_default_namespace", cwd()))
 
 	if DefaultNamespace() != "test-ns-deploy" {
 		t.Fatalf("expected 'test-ns-deploy', got '%v'", DefaultNamespace())

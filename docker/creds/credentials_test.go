@@ -310,7 +310,7 @@ const (
 type Credentials = docker.Credentials
 
 func TestNewCredentialsProvider(t *testing.T) {
-	defer withCleanHome(t)()
+	withCleanHome(t)
 
 	helperWithQuayIO := newInMemoryHelper()
 
@@ -413,7 +413,7 @@ func TestNewCredentialsProvider(t *testing.T) {
 			defer cleanUpConfigs(t)
 
 			if tt.args.setUpEnv != nil {
-				defer tt.args.setUpEnv(t)()
+				tt.args.setUpEnv(t)
 			}
 
 			credentialsProvider := creds.NewCredentialsProvider(
@@ -450,10 +450,10 @@ func TestNewCredentialsProviderEmptyCreds(t *testing.T) {
 }
 
 func TestCredentialsProviderSavingFromUserInput(t *testing.T) {
-	defer withCleanHome(t)()
+	withCleanHome(t)
 
 	helper := newInMemoryHelper()
-	defer setUpMockHelper("docker-credential-mock", helper)(t)()
+	setUpMockHelper("docker-credential-mock", helper)(t)
 
 	var pwdCbkInvocations int
 	pwdCbk := func(r string) (Credentials, error) {
@@ -531,7 +531,7 @@ func TestCredentialsProviderSavingFromUserInput(t *testing.T) {
 }
 
 func cleanUpConfigs(t *testing.T) {
-	home, err := os.Hostname()
+	home, err := os.UserHomeDir()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -541,9 +541,9 @@ func cleanUpConfigs(t *testing.T) {
 	os.RemoveAll(filepath.Join(home, ".docker"))
 }
 
-type setUpEnv = func(t *testing.T) func()
+type setUpEnv = func(t *testing.T)
 
-func withPopulatedDockerAuthConfig(t *testing.T) func() {
+func withPopulatedDockerAuthConfig(t *testing.T) {
 	t.Helper()
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -555,6 +555,7 @@ func withPopulatedDockerAuthConfig(t *testing.T) func() {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { _ = os.RemoveAll(dockerConfigDir) })
 
 	configJSON := `{
 	"auths": {
@@ -569,14 +570,9 @@ func withPopulatedDockerAuthConfig(t *testing.T) func() {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	return func() {
-
-		os.RemoveAll(dockerConfigDir)
-	}
 }
 
-func withPopulatedFuncAuthConfig(t *testing.T) func() {
+func withPopulatedFuncAuthConfig(t *testing.T) {
 	t.Helper()
 
 	var err error
@@ -586,6 +582,8 @@ func withPopulatedFuncAuthConfig(t *testing.T) func() {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	t.Cleanup(func() { _ = os.RemoveAll(authConfig) })
 
 	authJSON := `{
 	"auths": {
@@ -600,9 +598,6 @@ func withPopulatedFuncAuthConfig(t *testing.T) func() {
 	err = ioutil.WriteFile(authConfig, []byte(authJSON), 0600)
 	if err != nil {
 		t.Fatal(err)
-	}
-	return func() {
-		os.RemoveAll(fn.ConfigPath())
 	}
 }
 
@@ -649,33 +644,17 @@ func correctVerifyCbk(ctx context.Context, image string, credentials Credentials
 	return creds.ErrUnauthorized
 }
 
-func withCleanHome(t *testing.T) func() {
+func withCleanHome(t *testing.T) {
 	t.Helper()
 	homeName := "HOME"
 	if runtime.GOOS == "windows" {
 		homeName = "USERPROFILE"
 	}
 	tmpHome := t.TempDir()
-	oldHome, hadHome := os.LookupEnv(homeName)
-	os.Setenv(homeName, tmpHome)
-
-	oldXDGConfigHome, hadXDGConfigHome := os.LookupEnv("XDG_CONFIG_HOME")
+	t.Setenv(homeName, tmpHome)
 
 	if runtime.GOOS == "linux" {
-		os.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpHome, ".config"))
-	}
-
-	return func() {
-		if hadHome {
-			os.Setenv(homeName, oldHome)
-		} else {
-			os.Unsetenv(homeName)
-		}
-		if hadXDGConfigHome {
-			os.Setenv("XDG_CONFIG_HOME", oldXDGConfigHome)
-		} else {
-			os.Unsetenv("XDG_CONFIG_HOME")
-		}
+		t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpHome, ".config"))
 	}
 }
 
@@ -807,23 +786,20 @@ func main() {
 // The executable behaves like docker credential helper (https://github.com/docker/docker-credential-helpers).
 //
 // The content of the store presented by the executable is backed by the helper parameter.
-func setUpMockHelper(helperName string, helper credentials.Helper) func(t *testing.T) func() {
-	var cleanUps []func()
-	return func(t *testing.T) func() {
+func setUpMockHelper(helperName string, helper credentials.Helper) func(t *testing.T) {
+	return func(t *testing.T) {
 
-		cleanUps = append(cleanUps, WithExecutable(t, helperName, helperGoSrc))
+		WithExecutable(t, helperName, helperGoSrc)
 
 		listener, err := net.Listen("tcp", "localhost:0")
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		cleanUps = append(cleanUps, func() {
-			_ = listener.Close()
-		})
+		t.Cleanup(func() { _ = listener.Close() })
 
 		baseURL := fmt.Sprintf("http://%s", listener.Addr().String())
-		cleanUps = append(cleanUps, WithEnvVar(t, "HELPER_BASE_URL", baseURL))
+		t.Setenv("HELPER_BASE_URL", baseURL)
 
 		server := http.Server{Handler: handlerForCredHelper(t, helper)}
 		servErrChan := make(chan error)
@@ -831,7 +807,7 @@ func setUpMockHelper(helperName string, helper credentials.Helper) func(t *testi
 			servErrChan <- server.Serve(listener)
 		}()
 
-		cleanUps = append(cleanUps, func() {
+		t.Cleanup(func() {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 			defer cancel()
 			_ = server.Shutdown(ctx)
@@ -840,28 +816,15 @@ func setUpMockHelper(helperName string, helper credentials.Helper) func(t *testi
 				t.Fatal(e)
 			}
 		})
-
-		return func() {
-			for i := len(cleanUps) - 1; i <= 0; i-- {
-				cleanUps[i]()
-			}
-		}
 	}
 }
 
 // combines multiple setUp routines into one setUp routine
 func all(fns ...setUpEnv) setUpEnv {
-	return func(t *testing.T) func() {
+	return func(t *testing.T) {
 		t.Helper()
-		var cleanUps []func()
 		for _, fn := range fns {
-			cleanUps = append(cleanUps, fn(t))
-		}
-
-		return func() {
-			for i := len(cleanUps) - 1; i >= 0; i-- {
-				cleanUps[i]()
-			}
+			fn(t)
 		}
 	}
 }

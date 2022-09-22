@@ -17,8 +17,8 @@ func TestNewDockerClientWithAutomaticPodmanSuccess(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*1)
 	defer cancel()
 
-	defer WithExecutable(t, "podman", mockPodmanSrc)()
-	defer WithEnvVar(t, "DOCKER_HOST", "")()
+	WithExecutable(t, "podman", mockPodmanSrc)
+	t.Setenv("DOCKER_HOST", "")
 
 	dockerClient, dockerHostToMount, err := docker.NewClient("unix:///var/run/nonexistent.sock")
 	if err != nil {
@@ -39,8 +39,8 @@ func TestNewDockerClientWithAutomaticPodmanSuccess(t *testing.T) {
 func TestNewDockerClientWithAutomaticPodmanFail(t *testing.T) {
 	src := `package main;import ("os";"fmt");func main(){fmt.Println("something went wrong");os.Exit(1);}`
 
-	defer WithExecutable(t, "podman", src)()
-	defer WithEnvVar(t, "DOCKER_HOST", "")()
+	WithExecutable(t, "podman", src)
+	t.Setenv("DOCKER_HOST", "")
 
 	_, _, err := docker.NewClient("unix:///var/run/nonexistent.sock")
 	if err == nil {

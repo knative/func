@@ -13,7 +13,7 @@ import (
 // set of repositories by name for builtin repositories, by explicitly
 // setting the repositories path to a new path which includes no others.
 func TestRepository_List(t *testing.T) {
-	defer WithEnvVar(t, "XDG_CONFIG_HOME", t.TempDir())()
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	cmd := NewRepositoryListCmd(NewClient)
 	cmd.SetArgs([]string{}) // Do not use test command args
 
@@ -35,7 +35,7 @@ func TestRepository_List(t *testing.T) {
 // arguments, respects the repositories path flag, and the expected name is echoed
 // upon subsequent 'list'.
 func TestRepository_Add(t *testing.T) {
-	defer WithEnvVar(t, "XDG_CONFIG_HOME", t.TempDir())()
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	var (
 		add    = NewRepositoryAddCmd(NewClient)
 		list   = NewRepositoryListCmd(NewClient)
@@ -73,7 +73,7 @@ func TestRepository_Add(t *testing.T) {
 // positional arguments, respects the repositories path flag, and the name is
 // reflected as having been reanamed upon subsequent 'list'.
 func TestRepository_Rename(t *testing.T) {
-	defer WithEnvVar(t, "XDG_CONFIG_HOME", t.TempDir())()
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	var (
 		add    = NewRepositoryAddCmd(NewClient)
 		rename = NewRepositoryRenameCmd(NewClient)
@@ -119,7 +119,7 @@ func TestRepository_Rename(t *testing.T) {
 // its argument, respects the repositorieis flag, and the entry is removed upon
 // subsequent 'list'.
 func TestRepository_Remove(t *testing.T) {
-	defer WithEnvVar(t, "XDG_CONFIG_HOME", t.TempDir())()
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	var (
 		add    = NewRepositoryAddCmd(NewClient)
 		remove = NewRepositoryRemoveCmd(NewClient)

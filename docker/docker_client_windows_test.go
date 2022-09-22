@@ -9,8 +9,6 @@ import (
 	winio "github.com/Microsoft/go-winio"
 	"github.com/docker/docker/client"
 	"knative.dev/kn-plugin-func/docker"
-
-	. "knative.dev/kn-plugin-func/testing"
 )
 
 func TestNewClientWinPipe(t *testing.T) {
@@ -18,7 +16,7 @@ func TestNewClientWinPipe(t *testing.T) {
 	const testNPipe = "test-npipe"
 
 	defer startMockDaemonWinPipe(t, testNPipe)()
-	defer WithEnvVar(t, "DOCKER_HOST", fmt.Sprintf("npipe:////./pipe/%s", testNPipe))()
+	t.Setenv("DOCKER_HOST", fmt.Sprintf("npipe:////./pipe/%s", testNPipe))
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*1)
 	defer cancel()

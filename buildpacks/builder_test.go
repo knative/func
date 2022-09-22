@@ -7,7 +7,6 @@ import (
 	pack "github.com/buildpacks/pack/pkg/client"
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/builders"
-	. "knative.dev/kn-plugin-func/testing"
 )
 
 // Test_BuilderImageDefault ensures that a Function bing built which does not
@@ -64,7 +63,7 @@ func Test_BuilderImageConfigurable(t *testing.T) {
 // Test_BuildEnvs ensures that build environment variables are interpolated and
 // provided in Build Options
 func Test_BuildEnvs(t *testing.T) {
-	defer WithEnvVar(t, "INTERPOLATE_ME", "interpolated")()
+	t.Setenv("INTERPOLATE_ME", "interpolated")
 	var (
 		envName  = "NAME"
 		envValue = "{{ env:INTERPOLATE_ME }}"

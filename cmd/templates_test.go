@@ -7,14 +7,13 @@ import (
 	"gotest.tools/v3/assert"
 
 	fn "knative.dev/kn-plugin-func"
-	. "knative.dev/kn-plugin-func/testing"
 )
 
 // TestTemplates_Default ensures that the default behavior is listing all
 // templates for all language runtimes.
 func TestTemplates_Default(t *testing.T) {
-	defer WithEnvVar(t, "XDG_CONFIG_HOME", t.TempDir())() // ignore user-added
-	buf := piped(t)                                       // gather output
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir()) // ignore user-added
+	buf := piped(t)                          // gather output
 	cmd := NewTemplatesCmd(NewClientFactory(func() *fn.Client {
 		return fn.New()
 	}))
@@ -46,8 +45,8 @@ typescript   http`
 // TestTemplates_JSON ensures that listing templates respects the --json
 // output format.
 func TestTemplates_JSON(t *testing.T) {
-	defer WithEnvVar(t, "XDG_CONFIG_HOME", t.TempDir())() // ignore user-added
-	buf := piped(t)                                       // gather output
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir()) // ignore user-added
+	buf := piped(t)                          // gather output
 	cmd := NewTemplatesCmd(NewClientFactory(func() *fn.Client {
 		return fn.New()
 	}))
@@ -105,7 +104,7 @@ func TestTemplates_JSON(t *testing.T) {
 // TestTemplates_ByLanguage ensures that the output is correctly filtered
 // by language runtime when provided.
 func TestTemplates_ByLanguage(t *testing.T) {
-	defer WithEnvVar(t, "XDG_CONFIG_HOME", t.TempDir())() // ignore user-added
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir()) // ignore user-added
 	cmd := NewTemplatesCmd(NewClientFactory(func() *fn.Client {
 		return fn.New()
 	}))
