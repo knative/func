@@ -137,9 +137,9 @@ func TestMigrateToSpecVersion(t *testing.T) {
 	}
 }
 
-// TestMigrateTo100 ensures that the migration to 1.0.0 format from
+// TestMigrateToSpecs ensures that the migration to the sub-specs format from
 // the previous Function structure works
-func TestMigrateTo100(t *testing.T) {
+func TestMigrateToSpecs(t *testing.T) {
 
 	root := "testdata/migrations/v0.34.0"
 	expectedGit := Git{URL: "http://test-url", Revision: "test revision", ContextDir: "/test/context/dir"}

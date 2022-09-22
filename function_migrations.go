@@ -205,16 +205,17 @@ func migrateToSpecVersion(f Function, m migration) (Function, error) {
 	return f, nil
 }
 
-// This migration makes sure use the GA format. To avoid unmarshalling issues with the old format
-// this migration needs to be executed first. Further migrations will operate on this new struct
-func migrateToGAStructure(f1 Function, m migration) (Function, error) {
+// migrateToSpecsStructure  migration makes sure use the sub-specs structs for build, run and deploy phases.
+// To avoid unmarshalling issues with the old format this migration needs to be executed first.
+// Further migrations will operate on this new struct with sub-specs
+func migrateToSpecsStructure(f1 Function, m migration) (Function, error) {
 	// Load the Function using pertinent parts of the previous version's schema:
 	f0Filename := filepath.Join(f1.Root, FunctionFile)
 	bb, err := os.ReadFile(f0Filename)
 	if err != nil {
 		return f1, errors.New("migration 'migrateToGAStructure' error: " + err.Error())
 	}
-	f0 := migrateToGA_previousFunction{}
+	f0 := migrateToSpecs_previousFunction{}
 	if err = yaml.Unmarshal(bb, &f0); err != nil {
 		return f1, errors.New("migration 'migrateToGAStructure' error: " + err.Error())
 	}
@@ -282,45 +283,10 @@ func migrateToGAStructure(f1 Function, m migration) (Function, error) {
 }
 
 // The pertinent aspects of the Function's schema prior the 1.0.0 version migrations
-type migrateToGA_previousFunction struct {
-	// SpecVersion at which this function is known to be compatible.
-	// More specifically, it is the highest migration which has been applied.
-	// For details see the .Migrated() and .Migrate() methods.
-	SpecVersion string `yaml:"specVersion"` // semver format
-
-	// Root on disk at which to find/create source and config files.
-	Root string `yaml:"-"`
-
-	// Name of the function.  If not provided, path derivation is attempted when
-	// required (such as for initialization).
-	Name string `yaml:"name" jsonschema:"pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"`
+type migrateToSpecs_previousFunction struct {
 
 	// Namespace into which the function is deployed on supported platforms.
 	Namespace string `yaml:"namespace"`
-
-	// Runtime is the language plus context.  nodejs|go|quarkus|rust etc.
-	Runtime string `yaml:"runtime"`
-
-	// Template for the function.
-	Template string `yaml:"-"`
-
-	// Registry at which to store interstitial containers, in the form
-	// [registry]/[user].
-	Registry string `yaml:"registry"`
-
-	// Optional full OCI image tag in form:
-	//   [registry]/[namespace]/[name]:[tag]
-	// example:
-	//   quay.io/alice/my.function.name
-	// Registry is optional and is defaulted to DefaultRegistry
-	// example:
-	//   alice/my.function.name
-	// If Image is provided, it overrides the default of concatenating
-	// "Registry+Name:latest" to derive the Image.
-	Image string `yaml:"image"`
-
-	// SHA256 hash of the latest image that has been built
-	ImageDigest string `yaml:"imageDigest"`
 
 	// Git stores information about remote git repository,
 	// in case build type "git" is being used
@@ -362,15 +328,6 @@ type migrateToGA_previousFunction struct {
 
 	// Health endpoints specified by the language pack
 	HealthEndpoints HealthEndpoints `yaml:"healthEndpoints"`
-
-	// Created time is the moment that creation was successfully completed
-	// according to the client which is in charge of what constitutes being
-	// fully "Created" (aka initialized)
-	Created time.Time `yaml:"created"`
-
-	// Invocation defines hints for use when invoking this function.
-	// See Client.Invoke for usage.
-	Invocation Invocation `yaml:"invocation,omitempty"`
 }
 
 // Functions prior to 0.25 will have a Version field
