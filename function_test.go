@@ -145,7 +145,7 @@ func TestFunction_MarshallingError(t *testing.T) {
 	// Load the function to see it fail with a marshalling error
 	_, err := fn.NewFunction(root)
 	if err != nil {
-		if !strings.Contains(err.Error(), "'func.yaml' is not valid:\n  found unexpected end of stream") {
+		if !strings.Contains(err.Error(), "Marshalling: 'func.yaml' is not valid:") {
 			t.Fatalf("expected unmarshalling error")
 		}
 
