@@ -531,7 +531,7 @@ func TestCredentialsProviderSavingFromUserInput(t *testing.T) {
 }
 
 func cleanUpConfigs(t *testing.T) {
-	home, err := os.Hostname()
+	home, err := os.UserHomeDir()
 	if err != nil {
 		t.Fatal(err)
 	}
