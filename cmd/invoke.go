@@ -145,7 +145,7 @@ func runInvoke(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 	}
 
 	// Client instance from env vars, flags, args and user prompts (if --confirm)
-	client, done := newClient(ClientConfig{Verbose: cfg.Verbose, InsecureSkipVerify: cfg.Insecure})
+	client, done := newClient(ClientConfig{Namespace: f.Namespace, Verbose: cfg.Verbose, InsecureSkipVerify: cfg.Insecure})
 	defer done()
 
 	// Message to send the running function built from parameters gathered
