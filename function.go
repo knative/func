@@ -153,6 +153,8 @@ func NewFunctionWith(defaults Function) Function {
 // selectively consider the minimal validation necesssary to ehable migration.
 func NewFunction(path string) (f Function, err error) {
 	f.Root = path // path is not persisted, as this is the purvew of the FS itself
+	f.BuilderImages = make(map[string]string)
+	f.Annotations = make(map[string]string)
 	var filename = filepath.Join(path, FunctionFile)
 	if _, err = os.Stat(filename); err != nil {
 		return
