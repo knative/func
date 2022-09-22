@@ -179,9 +179,9 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		// Sets default AND accepts any user-provided overrides
 		f.Registry = config.Registry
 	}
-	if f.Builder == "" || cmd.Flags().Changed("builder") {
+	if f.Build.Builder == "" || cmd.Flags().Changed("builder") {
 		// Sets default AND accepts any user-provided overrides
-		f.Builder = config.Builder
+		f.Build.Builder = config.Builder
 	}
 	if config.Image != "" {
 		f.Image = config.Image
@@ -191,38 +191,38 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		f.ImageDigest = config.ImageDigest
 	}
 	if config.Builder != "" {
-		f.Builder = config.Builder
+		f.Build.Builder = config.Builder
 	}
 	if config.BuilderImage != "" {
-		f.BuilderImages[config.Builder] = config.BuilderImage
+		f.Build.BuilderImages[config.Builder] = config.BuilderImage
 	}
 	if config.GitURL != "" {
 		parts := strings.Split(config.GitURL, "#")
-		f.Git.URL = parts[0]
-		if len(parts) == 2 { // see Validatee() where len enforced to be <= 2
-			f.Git.Revision = parts[1]
+		f.Build.Git.URL = parts[0]
+		if len(parts) == 2 { // see Validate() where len enforced to be <= 2
+			f.Build.Git.Revision = parts[1]
 		}
 	}
 	if config.GitBranch != "" {
-		f.Git.Revision = config.GitBranch
+		f.Build.Git.Revision = config.GitBranch
 	}
 	if config.GitDir != "" {
-		f.Git.ContextDir = config.GitDir
+		f.Build.Git.ContextDir = config.GitDir
 	}
 
-	f.Namespace = namespace(config, f, cmd.ErrOrStderr())
+	f.Deploy.Namespace = namespace(config, f, cmd.ErrOrStderr())
 	if err != nil {
 		return
 	}
 
-	f.Envs, _, err = mergeEnvs(f.Envs, config.EnvToUpdate, config.EnvToRemove)
+	f.Run.Envs, _, err = mergeEnvs(f.Run.Envs, config.EnvToUpdate, config.EnvToRemove)
 	if err != nil {
 		return
 	}
 
 	// Validate that a builder short-name was obtained, whether that be from
 	// the function's prior state, or the value of flags/environment.
-	if err = ValidateBuilder(f.Builder); err != nil {
+	if err = ValidateBuilder(f.Build.Builder); err != nil {
 		return
 	}
 
@@ -230,21 +230,21 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 	// override for the build image for that builder to use from the optional
 	// builder-image flag.
 	var builder fn.Builder
-	if f.Builder == builders.Pack {
+	if f.Build.Builder == builders.Pack {
 		builder = buildpacks.NewBuilder(
 			buildpacks.WithName(builders.Pack),
 			buildpacks.WithVerbose(config.Verbose))
-	} else if f.Builder == builders.S2I {
+	} else if f.Build.Builder == builders.S2I {
 		builder = s2i.NewBuilder(
 			s2i.WithName(builders.S2I),
 			s2i.WithPlatform(config.Platform),
 			s2i.WithVerbose(config.Verbose))
 	} else {
-		err = fmt.Errorf("builder '%v' is not recognized", f.Builder)
+		err = fmt.Errorf("builder '%v' is not recognized", f.Build.Builder)
 		return
 	}
 
-	client, done := newClient(ClientConfig{Namespace: f.Namespace, Verbose: config.Verbose},
+	client, done := newClient(ClientConfig{Namespace: f.Deploy.Namespace, Verbose: config.Verbose},
 		fn.WithRegistry(config.Registry),
 		fn.WithBuilder(builder))
 	defer done()
@@ -269,7 +269,7 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 
 	// Perform the deployment either remote or local.
 	if config.Remote {
-		if f.Git.URL == "" {
+		if f.Build.Git.URL == "" {
 			return ErrURLRequired // Provides CLI-specific help text
 		}
 		// Invoke a remote build/push/deploy pipeline
@@ -681,8 +681,8 @@ func namespace(cfg deployConfig, f fn.Function, stderr io.Writer) (namespace str
 
 	if cfg.Namespace != "" {
 		namespace = cfg.Namespace // --namespace takes precidence
-	} else if f.Namespace != "" {
-		namespace = f.Namespace // value from previous deployment (func.yaml) 2nd priority
+	} else if f.Deploy.Namespace != "" {
+		namespace = f.Deploy.Namespace // value from previous deployment (func.yaml) 2nd priority
 	} else {
 		// Try to derive a default from the current k8s context, if any.
 		if namespace, err = k8s.GetNamespace(""); err != nil {
@@ -692,19 +692,19 @@ func namespace(cfg deployConfig, f fn.Function, stderr io.Writer) (namespace str
 
 	// If the Function is not yet deployed, then immediately return the chosen
 	// final namespace
-	if f.Namespace == "" {
+	if f.Deploy.Namespace == "" {
 		return
 	}
 
 	// Warn if in a different namespace than active
 	active, err := k8s.GetNamespace("")
 	if err == nil && namespace != active {
-		fmt.Fprintf(stderr, "Warning: Function is in namespace '%s', but currently active namespace is '%s'. Continuing with redeployment to '%s'.\n", f.Namespace, active, namespace)
+		fmt.Fprintf(stderr, "Warning: Function is in namespace '%s', but currently active namespace is '%s'. Continuing with redeployment to '%s'.\n", f.Deploy.Namespace, active, namespace)
 	}
 
 	// Warn if potentially creating an orphan
-	if f.Namespace != "" && namespace != f.Namespace {
-		fmt.Fprintf(stderr, "Warning: function is in namespace '%s', but requested namespace is '%s'. Continuing with deployment to '%v'.\n", f.Namespace, namespace, namespace)
+	if f.Deploy.Namespace != "" && namespace != f.Deploy.Namespace {
+		fmt.Fprintf(stderr, "Warning: function is in namespace '%s', but requested namespace is '%s'. Continuing with deployment to '%v'.\n", f.Deploy.Namespace, namespace, namespace)
 	}
 
 	return

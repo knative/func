@@ -18,6 +18,7 @@ import (
 // FunctionFile is the file used for the serialized form of a function.
 const FunctionFile = "func.yaml"
 
+// Function
 type Function struct {
 	// SpecVersion at which this function is known to be compatible.
 	// More specifically, it is the highest migration which has been applied.
@@ -28,11 +29,8 @@ type Function struct {
 	Root string `yaml:"-"`
 
 	// Name of the function.  If not provided, path derivation is attempted when
-	// requried (such as for initialization).
+	// required (such as for initialization).
 	Name string `yaml:"name" jsonschema:"pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"`
-
-	// Namespace into which the function is deployed on supported platforms.
-	Namespace string `yaml:"namespace"`
 
 	// Runtime is the language plus context.  nodejs|go|quarkus|rust etc.
 	Runtime string `yaml:"runtime"`
@@ -58,6 +56,27 @@ type Function struct {
 	// SHA256 hash of the latest image that has been built
 	ImageDigest string `yaml:"imageDigest"`
 
+	// Created time is the moment that creation was successfully completed
+	// according to the client which is in charge of what constitutes being
+	// fully "Created" (aka initialized)
+	Created time.Time `yaml:"created"`
+
+	// Invocation defines hints for use when invoking this function.
+	// See Client.Invoke for usage.
+	Invocation Invocation `yaml:"invocation,omitempty"`
+
+	//BuildSpec define the build properties for a function
+	Build BuildSpec `yaml:"build"`
+
+	//RunSpec define the runtime properties for a function
+	Run RunSpec `yaml:"run"`
+
+	//DeploySpec define the deployment properties for a function
+	Deploy DeploySpec `yaml:"deploy"`
+}
+
+// BuildSpec
+type BuildSpec struct {
 	// Git stores information about an optionally associated git repository.
 	Git Git `yaml:"git,omitempty"`
 
@@ -76,14 +95,23 @@ type Function struct {
 	// build (pack, s2i, etc)
 	Builder string `yaml:"builder" jsonschema:"enum=pack,enum=s2i"`
 
+	// Build Env variables to be set
+	BuildEnvs []Env `yaml:"buildEnvs"`
+}
+
+// RunSpec
+type RunSpec struct {
 	// List of volumes to be mounted to the function
 	Volumes []Volume `yaml:"volumes"`
 
-	// Build Env variables to be set
-	BuildEnvs []Env `yaml:"buildEnvs"`
-
 	// Env variables to be set
 	Envs []Env `yaml:"envs"`
+}
+
+// DeploySpec
+type DeploySpec struct {
+	// Namespace into which the function is deployed on supported platforms.
+	Namespace string `yaml:"namespace"`
 
 	// Map containing user-supplied annotations
 	// Example: { "division": "finance" }
@@ -97,15 +125,6 @@ type Function struct {
 
 	// Health endpoints specified by the language pack
 	HealthEndpoints HealthEndpoints `yaml:"healthEndpoints"`
-
-	// Created time is the moment that creation was successfully completed
-	// according to the client which is in charge of what constitutes being
-	// fully "Created" (aka initialized)
-	Created time.Time `yaml:"created"`
-
-	// Invocation defines hints for use when invoking this function.
-	// See Client.Invoke for usage.
-	Invocation Invocation `yaml:"invocation,omitempty"`
 }
 
 // HealthEndpoints specify the liveness and readiness endpoints for a Runtime
@@ -150,25 +169,37 @@ func NewFunctionWith(defaults Function) Function {
 // Functions from earlier versions are brought up to current using migrations.
 // Migrations are run prior to validators such that validation can omit
 // concerning itself with backwards compatibility.  Migrators must therefore
-// selectively consider the minimal validation necesssary to ehable migration.
+// selectively consider the minimal validation necessary to enable migration.
 func NewFunction(path string) (f Function, err error) {
+	f.Root = path // path is not persisted, as this is the purview of the FS itself
 	f.Root = path // path is not persisted, as this is the purvew of the FS itself
-	f.BuilderImages = make(map[string]string)
-	f.Annotations = make(map[string]string)
+	f.Build.BuilderImages = make(map[string]string)
+	f.Deploy.Annotations = make(map[string]string)
 	var filename = filepath.Join(path, FunctionFile)
 	if _, err = os.Stat(filename); err != nil {
 		return
 	}
-	bb, err := ioutil.ReadFile(filename)
+	bb, err := os.ReadFile(filename)
 	if err != nil {
 		return
 	}
-	if err = yaml.Unmarshal(bb, &f); err != nil {
-		err = formatUnmarshalError(err) // human-friendly unmarshalling errors
-		return
+	var functionMarshallingError error
+	var functionMigrationError error
+	if marshallingErr := yaml.Unmarshal(bb, &f); marshallingErr != nil {
+		functionMarshallingError = formatUnmarshalError(marshallingErr) // human-friendly unmarshalling errors
 	}
 	if f, err = f.Migrate(); err != nil {
-		return
+		functionMigrationError = err
+	}
+	// Only if migration fail return errors to the user. include marshalling error if present
+	if functionMigrationError != nil {
+		//returning both  migrations and marshalling errors to the user
+		errorText := "Error: \n"
+		if functionMarshallingError != nil {
+			errorText += "Marshalling: " + functionMarshallingError.Error()
+		}
+		errorText += "\n" + "Migration: " + functionMigrationError.Error()
+		return Function{}, errors.New(errorText)
 	}
 	return f, f.Validate()
 }
@@ -188,12 +219,12 @@ func (f Function) Validate() error {
 
 	var ctr int
 	errs := [][]string{
-		validateVolumes(f.Volumes),
-		ValidateBuildEnvs(f.BuildEnvs),
-		ValidateEnvs(f.Envs),
-		validateOptions(f.Options),
-		ValidateLabels(f.Labels),
-		validateGit(f.Git),
+		validateVolumes(f.Run.Volumes),
+		ValidateBuildEnvs(f.Build.BuildEnvs),
+		ValidateEnvs(f.Run.Envs),
+		validateOptions(f.Deploy.Options),
+		ValidateLabels(f.Deploy.Labels),
+		validateGit(f.Build.Git),
 	}
 
 	var b strings.Builder
@@ -222,7 +253,7 @@ var envPattern = regexp.MustCompile(`^{{\s*(\w+)\s*:(\w+)\s*}}$`)
 // Values with no special format are preserved as simple values.
 // Values which do include the interpolation format (begin with {{) but are not
 // keyed as "env" are also preserved as is.
-// Values properly formated as {{ env:NAME }} are interpolated (substituted)
+// Values properly formatted as {{ env:NAME }} are interpolated (substituted)
 // with the value of the local environment variable "NAME", and an error is
 // returned if that environment variable does not exist.
 func Interpolate(ee []Env) (map[string]string, error) {
@@ -293,7 +324,7 @@ func (f Function) Write() (err error) {
 	}
 	// TODO: open existing file for writing, such that existing permissions
 	// are preserved.
-	return ioutil.WriteFile(path, bb, 0644)
+	return os.WriteFile(path, bb, 0644)
 }
 
 // Initialized returns if the function has been initialized.
@@ -365,7 +396,7 @@ func (f Function) LabelsMap() (map[string]string, error) {
 		// --- end of handling usage of deprecated runtime labels
 	}
 
-	labels := append(defaultLabels, f.Labels...)
+	labels := append(defaultLabels, f.Deploy.Labels...)
 	if err := ValidateLabels(labels); len(err) != 0 {
 		return nil, errors.New(strings.Join(err, " "))
 	}

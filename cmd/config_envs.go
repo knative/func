@@ -115,7 +115,7 @@ set environment variable from a secret
 					}
 				}
 
-				function.Envs = append(function.Envs, fn.Env{Name: np, Value: vp})
+				function.Run.Envs = append(function.Run.Envs, fn.Env{Name: np, Value: vp})
 				return loadSaver.Save(function)
 			}
 
@@ -156,13 +156,13 @@ in the current directory or from the directory specified with --path.
 func listEnvs(f fn.Function, w io.Writer, outputFormat Format) error {
 	switch outputFormat {
 	case Human:
-		if len(f.Envs) == 0 {
+		if len(f.Run.Envs) == 0 {
 			_, err := fmt.Fprintln(w, "There aren't any configured Environment variables")
 			return err
 		}
 
 		fmt.Println("Configured Environment variables:")
-		for _, e := range f.Envs {
+		for _, e := range f.Run.Envs {
 			_, err := fmt.Fprintln(w, " - ", e.String())
 			if err != nil {
 				return err
@@ -171,7 +171,7 @@ func listEnvs(f fn.Function, w io.Writer, outputFormat Format) error {
 		return nil
 	case JSON:
 		enc := json.NewEncoder(w)
-		return enc.Encode(f.Envs)
+		return enc.Encode(f.Run.Envs)
 	default:
 		return fmt.Errorf("bad format: %v", outputFormat)
 	}
@@ -182,9 +182,9 @@ func runAddEnvsPrompt(ctx context.Context, f fn.Function) (err error) {
 	insertToIndex := 0
 
 	// SECTION - if there are some envs already set, let choose the position of the new entry
-	if len(f.Envs) > 0 {
+	if len(f.Run.Envs) > 0 {
 		options := []string{}
-		for _, e := range f.Envs {
+		for _, e := range f.Run.Envs {
 			options = append(options, fmt.Sprintf("Insert before:  %s", e.String()))
 		}
 		options = append(options, "Insert here.")
@@ -212,11 +212,11 @@ func runAddEnvsPrompt(ctx context.Context, f fn.Function) (err error) {
 	}
 
 	// SECTION - select the type of Environment variable to be added
-	secrets, err := k8s.ListSecretsNamesIfConnected(ctx, f.Namespace)
+	secrets, err := k8s.ListSecretsNamesIfConnected(ctx, f.Deploy.Namespace)
 	if err != nil {
 		return
 	}
-	configMaps, err := k8s.ListConfigMapsNamesIfConnected(ctx, f.Namespace)
+	configMaps, err := k8s.ListConfigMapsNamesIfConnected(ctx, f.Deploy.Namespace)
 	if err != nil {
 		return
 	}
@@ -445,11 +445,11 @@ func runAddEnvsPrompt(ctx context.Context, f fn.Function) (err error) {
 	}
 
 	// we have all necessary information -> let's insert the env to the selected position in the list
-	if insertToIndex == len(f.Envs) {
-		f.Envs = append(f.Envs, newEnv)
+	if insertToIndex == len(f.Run.Envs) {
+		f.Run.Envs = append(f.Run.Envs, newEnv)
 	} else {
-		f.Envs = append(f.Envs[:insertToIndex+1], f.Envs[insertToIndex:]...)
-		f.Envs[insertToIndex] = newEnv
+		f.Run.Envs = append(f.Run.Envs[:insertToIndex+1], f.Run.Envs[insertToIndex:]...)
+		f.Run.Envs[insertToIndex] = newEnv
 	}
 
 	err = f.Write()
@@ -461,13 +461,13 @@ func runAddEnvsPrompt(ctx context.Context, f fn.Function) (err error) {
 }
 
 func runRemoveEnvsPrompt(f fn.Function) (err error) {
-	if len(f.Envs) == 0 {
+	if len(f.Run.Envs) == 0 {
 		fmt.Println("There aren't any configured Environment variables")
 		return
 	}
 
 	options := []string{}
-	for _, e := range f.Envs {
+	for _, e := range f.Run.Envs {
 		options = append(options, e.String())
 	}
 
@@ -486,16 +486,16 @@ func runRemoveEnvsPrompt(f fn.Function) (err error) {
 
 	var newEnvs []fn.Env
 	removed := false
-	for i, e := range f.Envs {
+	for i, e := range f.Run.Envs {
 		if e.String() == selectedEnv {
-			newEnvs = append(f.Envs[:i], f.Envs[i+1:]...)
+			newEnvs = append(f.Run.Envs[:i], f.Run.Envs[i+1:]...)
 			removed = true
 			break
 		}
 	}
 
 	if removed {
-		f.Envs = newEnvs
+		f.Run.Envs = newEnvs
 		err = f.Write()
 		if err == nil {
 			fmt.Println("Environment variable entry was removed from the function configuration")

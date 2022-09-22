@@ -11,7 +11,7 @@ import (
 func UpdateFuncGit(t *testing.T, projectDir string, git fn.Git) {
 	f, err := fn.NewFunction(projectDir)
 	AssertNoError(t, err)
-	f.Git = git
+	f.Build.Git = git
 	err = f.Write()
 	AssertNoError(t, err)
 }

@@ -114,8 +114,8 @@ func CompleteBuilderImageList(cmd *cobra.Command, args []string, complete string
 		return
 	}
 
-	builderImages = make([]string, 0, len(f.BuilderImages))
-	for name := range f.BuilderImages {
+	builderImages = make([]string, 0, len(f.Build.BuilderImages))
+	for name := range f.Build.BuilderImages {
 		if len(complete) == 0 {
 			builderImages = append(builderImages, name)
 			continue

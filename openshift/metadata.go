@@ -26,8 +26,8 @@ func (o OpenshiftMetadataDecorator) UpdateAnnotations(f fn.Function, annotations
 	if annotations == nil {
 		annotations = map[string]string{}
 	}
-	annotations[annotationOpenShiftVcsUri] = f.Git.URL
-	annotations[annotationOpenShiftVcsRef] = f.Git.Revision
+	annotations[annotationOpenShiftVcsUri] = f.Build.Git.URL
+	annotations[annotationOpenShiftVcsRef] = f.Build.Git.Revision
 
 	return annotations
 }
