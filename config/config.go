@@ -29,6 +29,9 @@ type Config struct {
 
 	// Confirm Prompts
 	Confirm bool `yaml:"confirm"`
+
+	// Remote builds
+	Remote bool `yaml:"remote"`
 }
 
 // New Config struct with all members set to static defaults.  See NewDefaults
@@ -46,8 +49,8 @@ func New() Config {
 func NewDefault() (cfg Config, err error) {
 	cfg = New()       // cfg now populated by static defaults
 	p := ConfigPath() // applies ~/.config/func/config.yaml if it exists
-    cfg, err = Load(p)
-    if os.IsNotExist(err) {
+	cfg, err = Load(p)
+	if os.IsNotExist(err) {
 		err = nil // config file is not required
 	}
 	return

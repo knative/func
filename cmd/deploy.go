@@ -20,7 +20,7 @@ import (
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/builders"
 	"knative.dev/kn-plugin-func/buildpacks"
-	"knative.dev/kn-plugin-func/config"
+	fc "knative.dev/kn-plugin-func/config"
 	"knative.dev/kn-plugin-func/docker"
 	"knative.dev/kn-plugin-func/docker/creds"
 	"knative.dev/kn-plugin-func/k8s"
@@ -42,7 +42,7 @@ SYNOPSIS
 	             [--platform] [-c|--confirm] [-v|--verbose]
 
 DESCRIPTION
-	
+
 	Deploys a function to the currently configured Knative-enabled cluster.
 
 	By default the function in the current working directory is deployed, or at
@@ -56,7 +56,7 @@ DESCRIPTION
 	determine the final built image tag for the function.  This final image name
 	can be provided explicitly using --image, in which case it is used in place
 	of --registry.
-	
+
 	To run deploy using an interactive mode, use the --confirm (-c) option.
 	This mode is useful for the first deployment in particular, since subsdequent
 	deployments remember most of the settings provided.
@@ -106,9 +106,9 @@ EXAMPLES
 	}
 
 	// Config
-	cfg, err := config.NewDefault()
+	cfg, err := fc.NewDefault()
 	if err != nil {
-		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.ConfigPath(), err)
+		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", fc.ConfigPath(), err)
 	}
 
 	// Flags
@@ -119,7 +119,7 @@ EXAMPLES
 	cmd.Flags().StringP("git-url", "g", "", "Repo url to push the code to be built (Env: $FUNC_GIT_URL)")
 	cmd.Flags().StringP("git-branch", "t", "", "Git branch to be used for remote builds (Env: $FUNC_GIT_BRANCH)")
 	cmd.Flags().StringP("git-dir", "d", "", "Directory in the repo where the function is located (Env: $FUNC_GIT_DIR)")
-	cmd.Flags().BoolP("remote", "", false, "Trigger a remote deployment.  Default is to deploy and build from the local system: $FUNC_REMOTE)")
+	cmd.Flags().BoolP("remote", "", cfg.Remote, "Trigger a remote deployment. Default is to deploy and build from the local system: ($FUNC_REMOTE)")
 
 	// Flags shared with Build (specifically related to the build step):
 	cmd.Flags().StringP("build", "", "auto", "Build the function. [auto|true|false]. [Env: $FUNC_BUILD]")
@@ -154,14 +154,14 @@ EXAMPLES
 // merges these into the function requested, and triggers either a remote or
 // local build-and-deploy.
 func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err error) {
-	// Create a deploy config from environment variables and flags
-	config, err := newDeployConfig(cmd)
+	// Create a deploy cfg from environment variables and flags
+	cfg, err := newDeployConfig(cmd)
 	if err != nil {
 		return
 	}
 
 	// Prompt the user to potentially change config interactively.
-	config, err = config.Prompt()
+	cfg, err = cfg.Prompt()
 	if err != nil {
 		if err == terminal.InterruptErr {
 			return nil
@@ -170,60 +170,60 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 	}
 
 	// Validate the config
-	if err = config.Validate(); err != nil {
+	if err = cfg.Validate(); err != nil {
 		return
 	}
 
 	// Load the function, and if it exists (path initialized as a function), merge
 	// in any updates from flags/env vars (namespace, explicit image name, envs).
-	f, err := fn.NewFunction(config.Path)
+	f, err := fn.NewFunction(cfg.Path)
 	if err != nil {
 		return
 	}
 	if !f.Initialized() {
-		return fmt.Errorf("'%v' does not contain an initialized function", config.Path)
+		return fmt.Errorf("'%v' does not contain an initialized function", cfg.Path)
 	}
 	if f.Registry == "" || cmd.Flags().Changed("registry") {
 		// Sets default AND accepts any user-provided overrides
-		f.Registry = config.Registry
+		f.Registry = cfg.Registry
 	}
 	if f.Builder == "" || cmd.Flags().Changed("builder") {
 		// Sets default AND accepts any user-provided overrides
-		f.Builder = config.Builder
+		f.Builder = cfg.Builder
 	}
-	if config.Image != "" {
-		f.Image = config.Image
+	if cfg.Image != "" {
+		f.Image = cfg.Image
 	}
-	if config.ImageDigest != "" {
+	if cfg.ImageDigest != "" {
 		fmt.Fprintf(cmd.OutOrStdout(), "Deploying image '%v' with digest '%s'. Build and push are disabled.\n", f.Image, f.ImageDigest)
-		f.ImageDigest = config.ImageDigest
+		f.ImageDigest = cfg.ImageDigest
 	}
-	if config.Builder != "" {
-		f.Builder = config.Builder
+	if cfg.Builder != "" {
+		f.Builder = cfg.Builder
 	}
-	if config.BuilderImage != "" {
-		f.BuilderImages[config.Builder] = config.BuilderImage
+	if cfg.BuilderImage != "" {
+		f.BuilderImages[cfg.Builder] = cfg.BuilderImage
 	}
-	if config.GitURL != "" {
-		parts := strings.Split(config.GitURL, "#")
+	if cfg.GitURL != "" {
+		parts := strings.Split(cfg.GitURL, "#")
 		f.Git.URL = parts[0]
 		if len(parts) == 2 { // see Validatee() where len enforced to be <= 2
 			f.Git.Revision = parts[1]
 		}
 	}
-	if config.GitBranch != "" {
-		f.Git.Revision = config.GitBranch
+	if cfg.GitBranch != "" {
+		f.Git.Revision = cfg.GitBranch
 	}
-	if config.GitDir != "" {
-		f.Git.ContextDir = config.GitDir
+	if cfg.GitDir != "" {
+		f.Git.ContextDir = cfg.GitDir
 	}
 
-	f.Namespace = namespace(config, f, cmd.ErrOrStderr())
+	f.Namespace = namespace(cfg, f, cmd.ErrOrStderr())
 	if err != nil {
 		return
 	}
 
-	f.Envs, _, err = mergeEnvs(f.Envs, config.EnvToUpdate, config.EnvToRemove)
+	f.Envs, _, err = mergeEnvs(f.Envs, cfg.EnvToUpdate, cfg.EnvToRemove)
 	if err != nil {
 		return
 	}
@@ -241,19 +241,19 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 	if f.Builder == builders.Pack {
 		builder = buildpacks.NewBuilder(
 			buildpacks.WithName(builders.Pack),
-			buildpacks.WithVerbose(config.Verbose))
+			buildpacks.WithVerbose(cfg.Verbose))
 	} else if f.Builder == builders.S2I {
 		builder = s2i.NewBuilder(
 			s2i.WithName(builders.S2I),
-			s2i.WithPlatform(config.Platform),
-			s2i.WithVerbose(config.Verbose))
+			s2i.WithPlatform(cfg.Platform),
+			s2i.WithVerbose(cfg.Verbose))
 	} else {
 		err = fmt.Errorf("builder '%v' is not recognized", f.Builder)
 		return
 	}
 
-	client, done := newClient(ClientConfig{Namespace: f.Namespace, Verbose: config.Verbose},
-		fn.WithRegistry(config.Registry),
+	client, done := newClient(ClientConfig{Namespace: f.Namespace, Verbose: cfg.Verbose},
+		fn.WithRegistry(cfg.Registry),
 		fn.WithBuilder(builder))
 	defer done()
 
@@ -265,8 +265,8 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 			fmt.Println("A registry for function images is required. For example, 'docker.io/tigerteam'.")
 			if err = survey.AskOne(
 				&survey.Input{Message: "Registry for function images:"},
-				&config.Registry, survey.WithValidator(
-					NewRegistryValidator(config.Path))); err != nil {
+				&cfg.Registry, survey.WithValidator(
+					NewRegistryValidator(cfg.Path))); err != nil {
 				return ErrRegistryRequired
 			}
 			fmt.Println("Note: building a function the first time will take longer than subsequent builds")
@@ -275,8 +275,15 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		return ErrRegistryRequired
 	}
 
+	// Load global config to persist the --remote flag
+	gc, err := fc.NewDefault()
+	if err != nil {
+		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", fc.ConfigPath(), err)
+	}
+	gc.Remote = cfg.Remote
+
 	// Perform the deployment either remote or local.
-	if config.Remote {
+	if cfg.Remote {
 		if f.Git.URL == "" {
 			return ErrURLRequired // Provides CLI-specific help text
 		}
@@ -289,7 +296,7 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		if err = f.Write(); err != nil { // TODO: remove when client API uses 'f'
 			return
 		}
-		if build(config.Build, f, client) { // --build or "auto" with FS changes
+		if build(cfg.Build, f, client) { // --build or "auto" with FS changes
 			if err = client.Build(cmd.Context(), f.Root); err != nil {
 				return
 			}
@@ -297,7 +304,7 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		if f, err = fn.NewFunction(f.Root); err != nil { // TODO: remove when client API uses 'f'
 			return
 		}
-		if config.Push {
+		if cfg.Push {
 			if err = client.Push(cmd.Context(), f.Root); err != nil {
 				return
 			}
@@ -311,6 +318,7 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 	}
 
 	// mutations persisted on success
+	gc.Save(fc.ConfigPath())
 	return f.Write()
 }
 
@@ -637,8 +645,8 @@ func (c deployConfig) Validate() (err error) {
 		return errors.New("pushing is not valid when specifying an image with digest")
 	}
 
-	// Git settings are only avaolabe with --remote
-	if (c.GitURL != "" || c.GitDir != "" || c.GitBranch != "") && !c.Remote {
+	// Git settings are only available with --remote
+	if (c.GitURL != "" || c.GitDir != "" || c.GitBranch != "") && (!c.Remote && !viper.IsSet("git-url") && !viper.IsSet("git-dir") && !viper.IsSet("git-branch")) {
 		return errors.New("git settings (--git-url --git-dir and --git-branch) are currently only available when triggering remote deployments (--remote)")
 	}
 

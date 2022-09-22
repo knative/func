@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/cobra"
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/builders"
+	"knative.dev/kn-plugin-func/config"
 	"knative.dev/kn-plugin-func/mock"
 	. "knative.dev/kn-plugin-func/testing"
 )
@@ -1017,4 +1018,61 @@ func TestDeploy_NamespaceRedeployWarning(t *testing.T) {
 	if f.Namespace != "myns" {
 		t.Fatalf("expected function to be updated with namespace 'myns'.  got '%v'", f.Namespace)
 	}
+}
+
+// TestDeploy_NamespaceRedeployNoWarning ensures that the --remote flag is
+// persisted in the global config.
+func TestDeploy_persistRemoteFlag(t *testing.T) {
+	root, rm := Mktemp(t)
+	defer rm()
+
+	// A function with minimum required values for deployment
+	f := fn.Function{
+		Root:     root,
+		Name:     "myfunc",
+		Runtime:  "go",
+		Registry: "example.com/alice",
+	}
+	if err := fn.New().Create(f); err != nil {
+		t.Fatal(err)
+	}
+
+	// Deploy using an instance of the deploy command which uses a fully default
+	// (noop filled) Client.  Execution should complete without error.
+	cmd := NewDeployCmd(NewClientFactory(func() *fn.Client {
+		return fn.New()
+	}))
+
+	// Set the --remote flag
+	cmd.SetArgs([]string{"--git-url=https://git.hub.com/alice/myfunc", "--remote"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Ensure that successfully executing the command results in the --remote
+	// flag being persisted. Load the global config and check the value.
+	cfg, err := config.NewDefault()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cfg.Remote {
+		t.Fatal("expected remote flag to be persisted as true in global config")
+	}
+
+	// Run the command again with the --remote flag set to false
+	cmd.SetArgs([]string{"--remote=false"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Ensure that successfully executing the command results in the --remote
+	// flag being persisted. Load the global config and check the value.
+	cfg, err = config.NewDefault()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Remote {
+		t.Fatal("expected remote flag to be persisted as false in global config")
+	}
+
 }
