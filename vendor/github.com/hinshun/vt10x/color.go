@@ -24,13 +24,12 @@ const (
 // For example, a transparent background. Otherwise, the simple case is to
 // map default colors to another color.
 const (
-	DefaultFG Color = 1<<24 + iota
+	DefaultFG Color = 0xff80 + iota
 	DefaultBG
-	DefaultCursor
 )
 
 // Color maps to the ANSI colors [0, 16) and the xterm colors [16, 256).
-type Color uint32
+type Color uint16
 
 // ANSI returns true if Color is within [0, 16).
 func (c Color) ANSI() bool {

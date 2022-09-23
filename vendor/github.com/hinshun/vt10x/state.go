@@ -62,18 +62,18 @@ const (
 	ChangedTitle
 )
 
-type Glyph struct {
-	Char   rune
-	Mode   int16
-	FG, BG Color
+type glyph struct {
+	c      rune
+	mode   int16
+	fg, bg Color
 }
 
-type line []Glyph
+type line []glyph
 
-type Cursor struct {
-	Attr  Glyph
-	X, Y  int
-	State uint8
+type cursor struct {
+	attr  glyph
+	x, y  int
+	state uint8
 }
 
 type parseState func(c rune)
@@ -91,7 +91,7 @@ type State struct {
 	altLines      []line
 	dirty         []bool // line dirtiness
 	anydirty      bool
-	cur, curSaved Cursor
+	cur, curSaved cursor
 	top, bottom   int // scroll limits
 	mode          ModeFlag
 	state         parseState
@@ -100,14 +100,6 @@ type State struct {
 	numlock       bool
 	tabs          []bool
 	title         string
-	colorOverride map[Color]Color
-}
-
-func newState(w io.Writer) *State {
-	return &State{
-		w:             w,
-		colorOverride: make(map[Color]Color),
-	}
 }
 
 func (t *State) logf(format string, args ...interface{}) {
@@ -141,24 +133,15 @@ func (t *State) Unlock() {
 	t.mu.Unlock()
 }
 
-// Cell returns the glyph containing the character code, foreground color, and
-// background color at position (x, y) relative to the top left of the terminal.
-func (t *State) Cell(x, y int) Glyph {
-	cell := t.lines[y][x]
-	fg, ok := t.colorOverride[cell.FG]
-	if ok {
-		cell.FG = fg
-	}
-	bg, ok := t.colorOverride[cell.BG]
-	if ok {
-		cell.BG = bg
-	}
-	return cell
+// Cell returns the character code, foreground color, and background
+// color at position (x, y) relative to the top left of the terminal.
+func (t *State) Cell(x, y int) (ch rune, fg Color, bg Color) {
+	return t.lines[y][x].c, Color(t.lines[y][x].fg), Color(t.lines[y][x].bg)
 }
 
 // Cursor returns the current position of the cursor.
-func (t *State) Cursor() Cursor {
-	return t.cur
+func (t *State) Cursor() (int, int) {
+	return t.cur.x, t.cur.y
 }
 
 // CursorVisible returns the visible state of the cursor.
@@ -166,9 +149,9 @@ func (t *State) CursorVisible() bool {
 	return t.mode&ModeHide == 0
 }
 
-// Mode returns the current terminal mode.
-func (t *State) Mode() ModeFlag {
-	return t.mode
+// Mode tests if mode is currently set.
+func (t *State) Mode(mode ModeFlag) bool {
+	return t.mode&mode != 0
 }
 
 // Title returns the current title set via the tty.
@@ -203,7 +186,7 @@ func (t *State) saveCursor() {
 
 func (t *State) restoreCursor() {
 	t.cur = t.curSaved
-	t.moveTo(t.cur.X, t.cur.Y)
+	t.moveTo(t.cur.x, t.cur.y)
 }
 
 func (t *State) put(c rune) {
@@ -211,7 +194,7 @@ func (t *State) put(c rune) {
 }
 
 func (t *State) putTab(forward bool) {
-	x := t.cur.X
+	x := t.cur.x
 	if forward {
 		if x == t.cols {
 			return
@@ -225,11 +208,11 @@ func (t *State) putTab(forward bool) {
 		for x--; x > 0 && !t.tabs[x]; x-- {
 		}
 	}
-	t.moveTo(x, t.cur.Y)
+	t.moveTo(x, t.cur.y)
 }
 
 func (t *State) newline(firstCol bool) {
-	y := t.cur.Y
+	y := t.cur.y
 	if y == t.bottom {
 		cur := t.cur
 		t.cur = t.defaultCursor()
@@ -241,7 +224,7 @@ func (t *State) newline(firstCol bool) {
 	if firstCol {
 		t.moveTo(0, y)
 	} else {
-		t.moveTo(t.cur.X, y)
+		t.moveTo(t.cur.x, y)
 	}
 }
 
@@ -257,8 +240,8 @@ var gfxCharTable = [62]rune{
 	'│', '≤', '≥', 'π', '≠', '£', '·', // x - ~
 }
 
-func (t *State) setChar(c rune, attr *Glyph, x, y int) {
-	if attr.Mode&attrGfx != 0 {
+func (t *State) setChar(c rune, attr *glyph, x, y int) {
+	if attr.mode&attrGfx != 0 {
 		if c >= 0x41 && c <= 0x7e && gfxCharTable[c-0x41] != 0 {
 			c = gfxCharTable[c-0x41]
 		}
@@ -266,21 +249,21 @@ func (t *State) setChar(c rune, attr *Glyph, x, y int) {
 	t.changed |= ChangedScreen
 	t.dirty[y] = true
 	t.lines[y][x] = *attr
-	t.lines[y][x].Char = c
-	//if t.options.BrightBold && attr.Mode&attrBold != 0 && attr.FG < 8 {
-	if attr.Mode&attrBold != 0 && attr.FG < 8 {
-		t.lines[y][x].FG = attr.FG + 8
+	t.lines[y][x].c = c
+	//if t.options.BrightBold && attr.mode&attrBold != 0 && attr.fg < 8 {
+	if attr.mode&attrBold != 0 && attr.fg < 8 {
+		t.lines[y][x].fg = attr.fg + 8
 	}
-	if attr.Mode&attrReverse != 0 {
-		t.lines[y][x].FG = attr.BG
-		t.lines[y][x].BG = attr.FG
+	if attr.mode&attrReverse != 0 {
+		t.lines[y][x].fg = attr.bg
+		t.lines[y][x].bg = attr.fg
 	}
 }
 
-func (t *State) defaultCursor() Cursor {
-	c := Cursor{}
-	c.Attr.FG = DefaultFG
-	c.Attr.BG = DefaultBG
+func (t *State) defaultCursor() cursor {
+	c := cursor{}
+	c.attr.fg = DefaultFG
+	c.attr.bg = DefaultBG
 	return c
 }
 
@@ -308,7 +291,7 @@ func (t *State) resize(cols, rows int) bool {
 	if cols < 1 || rows < 1 {
 		return false
 	}
-	slide := t.cur.Y - rows + 1
+	slide := t.cur.y - rows + 1
 	if slide > 0 {
 		copy(t.lines, t.lines[slide:slide+rows])
 		copy(t.altLines, t.altLines[slide:slide+rows])
@@ -346,7 +329,7 @@ func (t *State) resize(cols, rows int) bool {
 	t.cols = cols
 	t.rows = rows
 	t.setScroll(0, rows-1)
-	t.moveTo(t.cur.X, t.cur.Y)
+	t.moveTo(t.cur.x, t.cur.y)
 	for i := 0; i < 2; i++ {
 		if mincols < cols && minrows > 0 {
 			t.clear(mincols, 0, cols-1, minrows-1)
@@ -374,8 +357,8 @@ func (t *State) clear(x0, y0, x1, y1 int) {
 	for y := y0; y <= y1; y++ {
 		t.dirty[y] = true
 		for x := x0; x <= x1; x++ {
-			t.lines[y][x] = t.cur.Attr
-			t.lines[y][x].Char = ' '
+			t.lines[y][x] = t.cur.attr
+			t.lines[y][x].c = ' '
 		}
 	}
 }
@@ -385,7 +368,7 @@ func (t *State) clearAll() {
 }
 
 func (t *State) moveAbsTo(x, y int) {
-	if t.cur.State&cursorOrigin != 0 {
+	if t.cur.state&cursorOrigin != 0 {
 		y += t.top
 	}
 	t.moveTo(x, y)
@@ -393,7 +376,7 @@ func (t *State) moveAbsTo(x, y int) {
 
 func (t *State) moveTo(x, y int) {
 	var miny, maxy int
-	if t.cur.State&cursorOrigin != 0 {
+	if t.cur.state&cursorOrigin != 0 {
 		miny = t.top
 		maxy = t.bottom
 	} else {
@@ -403,9 +386,9 @@ func (t *State) moveTo(x, y int) {
 	x = clamp(x, 0, t.cols-1)
 	y = clamp(y, miny, maxy)
 	t.changed |= ChangedScreen
-	t.cur.State &^= cursorWrapNext
-	t.cur.X = x
-	t.cur.Y = y
+	t.cur.state &^= cursorWrapNext
+	t.cur.x = x
+	t.cur.y = y
 }
 
 func (t *State) swapScreen() {
@@ -509,9 +492,9 @@ func (t *State) setMode(priv bool, set bool, args []int) {
 				}
 			case 6: // DECOM - origin
 				if set {
-					t.cur.State |= cursorOrigin
+					t.cur.state |= cursorOrigin
 				} else {
-					t.cur.State &^= cursorOrigin
+					t.cur.state &^= cursorOrigin
 				}
 				t.moveAbsTo(0, 0)
 			case 7: // DECAWM - auto wrap
@@ -611,80 +594,64 @@ func (t *State) setAttr(attr []int) {
 		a := attr[i]
 		switch a {
 		case 0:
-			t.cur.Attr.Mode &^= attrReverse | attrUnderline | attrBold | attrItalic | attrBlink
-			t.cur.Attr.FG = DefaultFG
-			t.cur.Attr.BG = DefaultBG
+			t.cur.attr.mode &^= attrReverse | attrUnderline | attrBold | attrItalic | attrBlink
+			t.cur.attr.fg = DefaultFG
+			t.cur.attr.bg = DefaultBG
 		case 1:
-			t.cur.Attr.Mode |= attrBold
+			t.cur.attr.mode |= attrBold
 		case 3:
-			t.cur.Attr.Mode |= attrItalic
+			t.cur.attr.mode |= attrItalic
 		case 4:
-			t.cur.Attr.Mode |= attrUnderline
+			t.cur.attr.mode |= attrUnderline
 		case 5, 6: // slow, rapid blink
-			t.cur.Attr.Mode |= attrBlink
+			t.cur.attr.mode |= attrBlink
 		case 7:
-			t.cur.Attr.Mode |= attrReverse
+			t.cur.attr.mode |= attrReverse
 		case 21, 22:
-			t.cur.Attr.Mode &^= attrBold
+			t.cur.attr.mode &^= attrBold
 		case 23:
-			t.cur.Attr.Mode &^= attrItalic
+			t.cur.attr.mode &^= attrItalic
 		case 24:
-			t.cur.Attr.Mode &^= attrUnderline
+			t.cur.attr.mode &^= attrUnderline
 		case 25, 26:
-			t.cur.Attr.Mode &^= attrBlink
+			t.cur.attr.mode &^= attrBlink
 		case 27:
-			t.cur.Attr.Mode &^= attrReverse
+			t.cur.attr.mode &^= attrReverse
 		case 38:
 			if i+2 < len(attr) && attr[i+1] == 5 {
 				i += 2
 				if between(attr[i], 0, 255) {
-					t.cur.Attr.FG = Color(attr[i])
+					t.cur.attr.fg = Color(attr[i])
 				} else {
 					t.logf("bad fgcolor %d\n", attr[i])
-				}
-			} else if i+4 < len(attr) && attr[i+1] == 2 {
-				i += 4
-				r, g, b := attr[i-2], attr[i-1], attr[i]
-				if !between(r, 0, 255) || !between(g, 0, 255) || !between(b, 0, 255) {
-					t.logf("bad fg rgb color (%d,%d,%d)\n", r, g, b)
-				} else {
-					t.cur.Attr.FG = Color(r<<16 | g<<8 | b)
 				}
 			} else {
 				t.logf("gfx attr %d unknown\n", a)
 			}
 		case 39:
-			t.cur.Attr.FG = DefaultFG
+			t.cur.attr.fg = DefaultFG
 		case 48:
 			if i+2 < len(attr) && attr[i+1] == 5 {
 				i += 2
 				if between(attr[i], 0, 255) {
-					t.cur.Attr.BG = Color(attr[i])
+					t.cur.attr.bg = Color(attr[i])
 				} else {
 					t.logf("bad bgcolor %d\n", attr[i])
-				}
-			} else if i+4 < len(attr) && attr[i+1] == 2 {
-				i += 4
-				r, g, b := attr[i-2], attr[i-1], attr[i]
-				if !between(r, 0, 255) || !between(g, 0, 255) || !between(b, 0, 255) {
-					t.logf("bad bg rgb color (%d,%d,%d)\n", r, g, b)
-				} else {
-					t.cur.Attr.BG = Color(r<<16 | g<<8 | b)
 				}
 			} else {
 				t.logf("gfx attr %d unknown\n", a)
 			}
 		case 49:
-			t.cur.Attr.BG = DefaultBG
+			t.cur.attr.bg = DefaultBG
 		default:
 			if between(a, 30, 37) {
-				t.cur.Attr.FG = Color(a - 30)
+				t.cur.attr.fg = Color(a - 30)
 			} else if between(a, 40, 47) {
-				t.cur.Attr.BG = Color(a - 40)
+				t.cur.attr.bg = Color(a - 40)
 			} else if between(a, 90, 97) {
-				t.cur.Attr.FG = Color(a - 90 + 8)
+				t.cur.attr.fg = Color(a - 90 + 8)
 			} else if between(a, 100, 107) {
-				t.cur.Attr.BG = Color(a - 100 + 8)
+				t.cur.attr.bg = Color(a - 100 + 8)
 			} else {
 				t.logf("gfx attr %d unknown\n", a)
 			}
@@ -693,46 +660,46 @@ func (t *State) setAttr(attr []int) {
 }
 
 func (t *State) insertBlanks(n int) {
-	src := t.cur.X
+	src := t.cur.x
 	dst := src + n
 	size := t.cols - dst
 	t.changed |= ChangedScreen
-	t.dirty[t.cur.Y] = true
+	t.dirty[t.cur.y] = true
 
 	if dst >= t.cols {
-		t.clear(t.cur.X, t.cur.Y, t.cols-1, t.cur.Y)
+		t.clear(t.cur.x, t.cur.y, t.cols-1, t.cur.y)
 	} else {
-		copy(t.lines[t.cur.Y][dst:dst+size], t.lines[t.cur.Y][src:src+size])
-		t.clear(src, t.cur.Y, dst-1, t.cur.Y)
+		copy(t.lines[t.cur.y][dst:dst+size], t.lines[t.cur.y][src:src+size])
+		t.clear(src, t.cur.y, dst-1, t.cur.y)
 	}
 }
 
 func (t *State) insertBlankLines(n int) {
-	if t.cur.Y < t.top || t.cur.Y > t.bottom {
+	if t.cur.y < t.top || t.cur.y > t.bottom {
 		return
 	}
-	t.scrollDown(t.cur.Y, n)
+	t.scrollDown(t.cur.y, n)
 }
 
 func (t *State) deleteLines(n int) {
-	if t.cur.Y < t.top || t.cur.Y > t.bottom {
+	if t.cur.y < t.top || t.cur.y > t.bottom {
 		return
 	}
-	t.scrollUp(t.cur.Y, n)
+	t.scrollUp(t.cur.y, n)
 }
 
 func (t *State) deleteChars(n int) {
-	src := t.cur.X + n
-	dst := t.cur.X
+	src := t.cur.x + n
+	dst := t.cur.x
 	size := t.cols - src
 	t.changed |= ChangedScreen
-	t.dirty[t.cur.Y] = true
+	t.dirty[t.cur.y] = true
 
 	if src >= t.cols {
-		t.clear(t.cur.X, t.cur.Y, t.cols-1, t.cur.Y)
+		t.clear(t.cur.x, t.cur.y, t.cols-1, t.cur.y)
 	} else {
-		copy(t.lines[t.cur.Y][dst:dst+size], t.lines[t.cur.Y][src:src+size])
-		t.clear(t.cols-n, t.cur.Y, t.cols-1, t.cur.Y)
+		copy(t.lines[t.cur.y][dst:dst+size], t.lines[t.cur.y][src:src+size])
+		t.clear(t.cols-n, t.cur.y, t.cols-1, t.cur.y)
 	}
 }
 
@@ -741,8 +708,8 @@ func (t *State) setTitle(title string) {
 	t.title = title
 }
 
-func (t *State) Size() (cols, rows int) {
-	return t.cols, t.rows
+func (t *State) Size() (rows int, cols int) {
+	return t.rows, t.cols
 }
 
 func (t *State) String() string {
@@ -752,8 +719,8 @@ func (t *State) String() string {
 	var view []rune
 	for y := 0; y < t.rows; y++ {
 		for x := 0; x < t.cols; x++ {
-			attr := t.Cell(x, y)
-			view = append(view, attr.Char)
+			c, _, _ := t.Cell(x, y)
+			view = append(view, c)
 		}
 		view = append(view, '\n')
 	}

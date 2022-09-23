@@ -708,8 +708,8 @@ github.com/hashicorp/hcl/json/token
 # github.com/heroku/color v0.0.6
 ## explicit; go 1.13
 github.com/heroku/color
-# github.com/hinshun/vt10x v0.0.0-20220228203356-1ab2cad5fd82
-## explicit; go 1.14
+# github.com/hinshun/vt10x v0.0.0-20220228203356-1ab2cad5fd82 => github.com/hinshun/vt10x v0.0.0-20180809195222-d55458df857c
+## explicit
 github.com/hinshun/vt10x
 # github.com/iancoleman/orderedmap v0.0.0-20190318233801-ac98e3ecb4b0
 ## explicit
@@ -753,6 +753,9 @@ github.com/klauspost/compress/internal/cpuinfo
 github.com/klauspost/compress/internal/snapref
 github.com/klauspost/compress/zstd
 github.com/klauspost/compress/zstd/internal/xxhash
+# github.com/kr/pty v1.1.8
+## explicit; go 1.12
+github.com/kr/pty
 # github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de
 ## explicit
 github.com/liggitt/tabwriter
@@ -1854,5 +1857,6 @@ sigs.k8s.io/structured-merge-diff/v4/value
 sigs.k8s.io/yaml
 # github.com/antlr/antlr4/runtime/Go/antlr => github.com/antlr/antlr4/runtime/Go/antlr v0.0.0-20220209173558-ad29539cd2e9
 # github.com/google/cel-go => github.com/google/cel-go v0.11.2
+# github.com/hinshun/vt10x => github.com/hinshun/vt10x v0.0.0-20180809195222-d55458df857c
 # github.com/openshift/source-to-image => github.com/boson-project/source-to-image v1.3.2
 # k8s.io/client-go => k8s.io/client-go v0.24.5
