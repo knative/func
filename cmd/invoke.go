@@ -135,8 +135,17 @@ func runInvoke(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 		return
 	}
 
+	// Load the function
+	f, err := fn.NewFunction(cfg.Path)
+	if err != nil {
+		return
+	}
+	if !f.Initialized() {
+		return fmt.Errorf("'%v' does not contain an initialized function", cfg.Path)
+	}
+
 	// Client instance from env vars, flags, args and user prompts (if --confirm)
-	client, done := newClient(ClientConfig{Namespace: cfg.Namespace, Verbose: cfg.Verbose, InsecureSkipVerify: cfg.Insecure})
+	client, done := newClient(ClientConfig{Namespace: f.Deploy.Namespace, Verbose: cfg.Verbose, InsecureSkipVerify: cfg.Insecure})
 	defer done()
 
 	// Message to send the running function built from parameters gathered
@@ -202,7 +211,6 @@ type invokeConfig struct {
 	Data        string
 	ContentType string
 	File        string
-	Namespace   string
 	Confirm     bool
 	Verbose     bool
 	Insecure    bool
@@ -221,7 +229,6 @@ func newInvokeConfig(newClient ClientFactory) (cfg invokeConfig, err error) {
 		File:        viper.GetString("file"),
 		Confirm:     viper.GetBool("confirm"),
 		Verbose:     viper.GetBool("verbose"),
-		Namespace:   viper.GetString("namespace"),
 		Insecure:    viper.GetBool("insecure"),
 	}
 
@@ -239,13 +246,9 @@ func newInvokeConfig(newClient ClientFactory) (cfg invokeConfig, err error) {
 		return
 	}
 
-	// Client instance for use during prompting.
-	client, done := newClient(ClientConfig{Namespace: cfg.Namespace, Verbose: cfg.Verbose, InsecureSkipVerify: cfg.Insecure})
-	defer done()
-
 	// If in interactive terminal mode, prompt to modify defaults.
 	if interactiveTerminal() {
-		return cfg.prompt(client)
+		return cfg.prompt()
 	}
 
 	// Confirming, but noninteractive, is essentially a selective verbose mode
@@ -262,7 +265,7 @@ func newInvokeConfig(newClient ClientFactory) (cfg invokeConfig, err error) {
 	return
 }
 
-func (c invokeConfig) prompt(client *fn.Client) (invokeConfig, error) {
+func (c invokeConfig) prompt() (invokeConfig, error) {
 	var qs []*survey.Question
 
 	// First get path to effective function
