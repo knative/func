@@ -44,7 +44,7 @@ func (v *defaultBOMValidator) validateBOM(bom []BOMEntry) error {
 	case len(bom) > 0 && len(sbomMatches) > 0:
 		// no-op: Don't show a warning here.
 		// This code path represents buildpack authors providing a
-		// migration path from old BOM to new SBoM.
+		// migration path from old BOM to new SBOM.
 	case len(bom) > 0:
 		v.logger.Warn("BOM table is deprecated in this buildpack api version, though it remains supported for backwards compatibility. Buildpack authors should write BOM information to <layer>.sbom.<ext>, launch.sbom.<ext>, or build.sbom.<ext>.")
 	}

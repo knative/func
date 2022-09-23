@@ -2,12 +2,12 @@ package cmd
 
 import (
 	"flag"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
 
 	"github.com/buildpacks/lifecycle/api"
+	"github.com/buildpacks/lifecycle/internal/str"
 )
 
 var (
@@ -180,7 +180,7 @@ func FlagStackPath(stackPath *string) {
 	flagSet.StringVar(stackPath, "stack", EnvOrDefault(EnvStackPath, DefaultStackPath), "path to stack.toml")
 }
 
-func FlagTags(tags *StringSlice) {
+func FlagTags(tags *str.Slice) {
 	flagSet.Var(tags, "tag", "additional tags")
 }
 
@@ -216,15 +216,9 @@ func DeprecatedFlagRunImage(image *string) {
 	flagSet.StringVar(image, "image", "", "reference to run image")
 }
 
-type StringSlice []string
-
-func (s *StringSlice) String() string {
-	return fmt.Sprintf("%+v", *s)
-}
-
-func (s *StringSlice) Set(value string) error {
-	*s = append(*s, value)
-	return nil
+type StringSlice interface {
+	String() string
+	Set(value string) error
 }
 
 func intEnv(k string) int {

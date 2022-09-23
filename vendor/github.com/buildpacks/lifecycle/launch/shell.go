@@ -16,12 +16,13 @@ type Shell interface {
 }
 
 type ShellProcess struct {
-	Script   bool // Script indicates whether Command is a script or should be a token in a generated script
-	Args     []string
-	Command  string
-	Caller   string // Caller used to set argv0 for Bash profile scripts and is ignored in Cmd
-	Profiles []string
-	Env      []string
+	Script           bool // Script indicates whether Command is a script or should be a token in a generated script
+	Args             []string
+	Command          string
+	Caller           string // Caller used to set argv0 for Bash profile scripts and is ignored in Cmd
+	Profiles         []string
+	Env              []string
+	WorkingDirectory string
 }
 
 func (l *Launcher) launchWithShell(self string, proc Process) error {
@@ -34,12 +35,13 @@ func (l *Launcher) launchWithShell(self string, proc Process) error {
 		return err
 	}
 	return l.Shell.Launch(ShellProcess{
-		Script:   script,
-		Caller:   self,
-		Command:  proc.Command,
-		Args:     proc.Args,
-		Profiles: profs,
-		Env:      l.Env.List(),
+		Script:           script,
+		Caller:           self,
+		Command:          proc.Command,
+		Args:             proc.Args,
+		Profiles:         profs,
+		Env:              l.Env.List(),
+		WorkingDirectory: proc.WorkingDirectory,
 	})
 }
 

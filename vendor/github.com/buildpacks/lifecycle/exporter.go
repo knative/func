@@ -90,6 +90,7 @@ func (e *Exporter) Export(opts ExportOptions) (platform.ExportReport, error) {
 	if _, err := toml.DecodeFile(launch.GetMetadataFilePath(opts.LayersDir), buildMD); err != nil {
 		return platform.ExportReport{}, errors.Wrap(err, "read build metadata")
 	}
+	buildMD.PlatformAPI = e.PlatformAPI
 
 	// buildpack-provided layers
 	if err := e.addBuildpackLayers(opts, &meta); err != nil {
@@ -459,7 +460,7 @@ func (e *Exporter) addOrReuseLayer(image imgutil.Image, layer layers.Layer, prev
 }
 
 func (e *Exporter) makeBuildReport(layersDir string) (platform.BuildReport, error) {
-	if e.PlatformAPI.LessThan("0.5") {
+	if e.PlatformAPI.LessThan("0.5") || e.PlatformAPI.AtLeast("0.9") {
 		return platform.BuildReport{}, nil
 	}
 	var out []buildpack.BOMEntry

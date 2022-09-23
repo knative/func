@@ -12,23 +12,23 @@ import (
 	"github.com/buildpacks/lifecycle/platform"
 )
 
-//go:generate mockgen -package testmock -destination testmock/metadata_restorer.go github.com/buildpacks/lifecycle/internal/layer MetadataRestorer
+//go:generate mockgen -package testmock -destination ../../testmock/metadata_restorer.go github.com/buildpacks/lifecycle/internal/layer MetadataRestorer
 type MetadataRestorer interface {
 	Restore(buildpacks []buildpack.GroupBuildpack, appMeta platform.LayersMetadata, cacheMeta platform.CacheMetadata, layerSHAStore SHAStore) error
 }
 
-func NewMetadataRestorer(logger Logger, layersDir string, skipLayers bool) MetadataRestorer {
+func NewDefaultMetadataRestorer(layersDir string, skipLayers bool, logger Logger) *DefaultMetadataRestorer {
 	return &DefaultMetadataRestorer{
-		logger:     logger,
-		layersDir:  layersDir,
-		skipLayers: skipLayers,
+		Logger:     logger,
+		LayersDir:  layersDir,
+		SkipLayers: skipLayers,
 	}
 }
 
 type DefaultMetadataRestorer struct {
-	logger     Logger
-	layersDir  string
-	skipLayers bool
+	LayersDir  string
+	SkipLayers bool
+	Logger     Logger
 }
 
 func (r *DefaultMetadataRestorer) Restore(buildpacks []buildpack.GroupBuildpack, appMeta platform.LayersMetadata, cacheMeta platform.CacheMetadata, layerSHAStore SHAStore) error {
@@ -46,7 +46,7 @@ func (r *DefaultMetadataRestorer) Restore(buildpacks []buildpack.GroupBuildpack,
 func (r *DefaultMetadataRestorer) restoreStoreTOML(appMeta platform.LayersMetadata, buildpacks []buildpack.GroupBuildpack) error {
 	for _, bp := range buildpacks {
 		if store := appMeta.MetadataForBuildpack(bp.ID).Store; store != nil {
-			if err := encoding.WriteTOML(filepath.Join(r.layersDir, launch.EscapeID(bp.ID), "store.toml"), store); err != nil {
+			if err := encoding.WriteTOML(filepath.Join(r.LayersDir, launch.EscapeID(bp.ID), "store.toml"), store); err != nil {
 				return err
 			}
 		}
@@ -55,13 +55,13 @@ func (r *DefaultMetadataRestorer) restoreStoreTOML(appMeta platform.LayersMetada
 }
 
 func (r *DefaultMetadataRestorer) restoreLayerMetadata(layerSHAStore SHAStore, appMeta platform.LayersMetadata, cacheMeta platform.CacheMetadata, buildpacks []buildpack.GroupBuildpack) error {
-	if r.skipLayers {
-		r.logger.Infof("Skipping buildpack layer analysis")
+	if r.SkipLayers {
+		r.Logger.Infof("Skipping buildpack layer analysis")
 		return nil
 	}
 
 	for _, bp := range buildpacks {
-		buildpackDir, err := buildpack.ReadLayersDir(r.layersDir, bp, r.logger)
+		buildpackDir, err := buildpack.ReadLayersDir(r.LayersDir, bp, r.Logger)
 		if err != nil {
 			return errors.Wrap(err, "reading buildpack layer directory")
 		}
@@ -73,13 +73,13 @@ func (r *DefaultMetadataRestorer) restoreLayerMetadata(layerSHAStore SHAStore, a
 		for layerName, layer := range appLayers {
 			identifier := fmt.Sprintf("%s:%s", bp.ID, layerName)
 			if !layer.Launch {
-				r.logger.Debugf("Not restoring metadata for %q, marked as launch=false", identifier)
+				r.Logger.Debugf("Not restoring metadata for %q, marked as launch=false", identifier)
 				continue
 			}
 			if layer.Build && !layer.Cache {
 				// layer is launch=true, build=true. Because build=true, the layer contents must be present in the build container.
 				// There is no reason to restore the metadata file, because the buildpack will always recreate the layer.
-				r.logger.Debugf("Not restoring metadata for %q, marked as build=true, cache=false", identifier)
+				r.Logger.Debugf("Not restoring metadata for %q, marked as build=true, cache=false", identifier)
 				continue
 			}
 			if layer.Cache {
@@ -87,11 +87,11 @@ func (r *DefaultMetadataRestorer) restoreLayerMetadata(layerSHAStore SHAStore, a
 					// The layer is not cache=true in the cache metadata and will not be restored.
 					// Do not write the metadata file so that it is clear to the buildpack that it needs to recreate the layer.
 					// Although a launch=true (only) layer still needs a metadata file, the restorer will remove the file anyway when it does its cleanup (for buildpack apis < 0.6).
-					r.logger.Debugf("Not restoring metadata for %q, marked as cache=true, but not found in cache", identifier)
+					r.Logger.Debugf("Not restoring metadata for %q, marked as cache=true, but not found in cache", identifier)
 					continue
 				}
 			}
-			r.logger.Infof("Restoring metadata for %q from app image", identifier)
+			r.Logger.Infof("Restoring metadata for %q from app image", identifier)
 			if err := r.writeLayerMetadata(layerSHAStore, buildpackDir, layerName, layer, bp.ID); err != nil {
 				return err
 			}
@@ -102,15 +102,15 @@ func (r *DefaultMetadataRestorer) restoreLayerMetadata(layerSHAStore SHAStore, a
 		for layerName, layer := range cachedLayers {
 			identifier := fmt.Sprintf("%s:%s", bp.ID, layerName)
 			if !layer.Cache {
-				r.logger.Debugf("Not restoring %q from cache, marked as cache=false", identifier)
+				r.Logger.Debugf("Not restoring %q from cache, marked as cache=false", identifier)
 				continue
 			}
 			// If launch=true, the metadata was restored from the app image or the layer is stale.
 			if layer.Launch {
-				r.logger.Debugf("Not restoring %q from cache, marked as launch=true", identifier)
+				r.Logger.Debugf("Not restoring %q from cache, marked as launch=true", identifier)
 				continue
 			}
-			r.logger.Infof("Restoring metadata for %q from cache", identifier)
+			r.Logger.Infof("Restoring metadata for %q from cache", identifier)
 			if err := r.writeLayerMetadata(layerSHAStore, buildpackDir, layerName, layer, bp.ID); err != nil {
 				return err
 			}
@@ -120,12 +120,18 @@ func (r *DefaultMetadataRestorer) restoreLayerMetadata(layerSHAStore SHAStore, a
 }
 
 func (r *DefaultMetadataRestorer) writeLayerMetadata(layerSHAStore SHAStore, buildpackDir buildpack.LayersDir, layerName string, metadata buildpack.LayerMetadata, buildpackID string) error {
-	layer := buildpackDir.NewLayer(layerName, buildpackDir.Buildpack.API, r.logger)
-	r.logger.Debugf("Writing layer metadata for %q", layer.Identifier())
+	layer := buildpackDir.NewLayer(layerName, buildpackDir.Buildpack.API, r.Logger)
+	r.Logger.Debugf("Writing layer metadata for %q", layer.Identifier())
 	if err := layer.WriteMetadata(metadata.LayerMetadataFile); err != nil {
 		return err
 	}
 	return layerSHAStore.add(buildpackID, metadata.SHA, layer)
+}
+
+type NopMetadataRestorer struct{}
+
+func (r *NopMetadataRestorer) Restore(_ []buildpack.GroupBuildpack, _ platform.LayersMetadata, _ platform.CacheMetadata, _ SHAStore) error {
+	return nil
 }
 
 type SHAStore interface {

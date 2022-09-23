@@ -19,6 +19,8 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"net/http"
+
 	v1alpha1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1alpha1"
 	"github.com/tektoncd/pipeline/pkg/client/clientset/versioned/scheme"
 	rest "k8s.io/client-go/rest"
@@ -26,13 +28,7 @@ import (
 
 type TektonV1alpha1Interface interface {
 	RESTClient() rest.Interface
-	ClusterTasksGetter
-	ConditionsGetter
-	PipelinesGetter
-	PipelineRunsGetter
 	RunsGetter
-	TasksGetter
-	TaskRunsGetter
 }
 
 // TektonV1alpha1Client is used to interact with features provided by the tekton.dev group.
@@ -40,41 +36,33 @@ type TektonV1alpha1Client struct {
 	restClient rest.Interface
 }
 
-func (c *TektonV1alpha1Client) ClusterTasks() ClusterTaskInterface {
-	return newClusterTasks(c)
-}
-
-func (c *TektonV1alpha1Client) Conditions(namespace string) ConditionInterface {
-	return newConditions(c, namespace)
-}
-
-func (c *TektonV1alpha1Client) Pipelines(namespace string) PipelineInterface {
-	return newPipelines(c, namespace)
-}
-
-func (c *TektonV1alpha1Client) PipelineRuns(namespace string) PipelineRunInterface {
-	return newPipelineRuns(c, namespace)
-}
-
 func (c *TektonV1alpha1Client) Runs(namespace string) RunInterface {
 	return newRuns(c, namespace)
 }
 
-func (c *TektonV1alpha1Client) Tasks(namespace string) TaskInterface {
-	return newTasks(c, namespace)
-}
-
-func (c *TektonV1alpha1Client) TaskRuns(namespace string) TaskRunInterface {
-	return newTaskRuns(c, namespace)
-}
-
 // NewForConfig creates a new TektonV1alpha1Client for the given config.
+// NewForConfig is equivalent to NewForConfigAndClient(c, httpClient),
+// where httpClient was generated with rest.HTTPClientFor(c).
 func NewForConfig(c *rest.Config) (*TektonV1alpha1Client, error) {
 	config := *c
 	if err := setConfigDefaults(&config); err != nil {
 		return nil, err
 	}
-	client, err := rest.RESTClientFor(&config)
+	httpClient, err := rest.HTTPClientFor(&config)
+	if err != nil {
+		return nil, err
+	}
+	return NewForConfigAndClient(&config, httpClient)
+}
+
+// NewForConfigAndClient creates a new TektonV1alpha1Client for the given config and http client.
+// Note the http client provided takes precedence over the configured transport values.
+func NewForConfigAndClient(c *rest.Config, h *http.Client) (*TektonV1alpha1Client, error) {
+	config := *c
+	if err := setConfigDefaults(&config); err != nil {
+		return nil, err
+	}
+	client, err := rest.RESTClientForConfigAndClient(&config, h)
 	if err != nil {
 		return nil, err
 	}

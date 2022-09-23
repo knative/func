@@ -14,7 +14,11 @@ import (
 	"github.com/buildpacks/lifecycle/api"
 )
 
-const EnvBuildpackDir = "CNB_BUILDPACK_DIR"
+const (
+	EnvBuildpackDir  = "CNB_BUILDPACK_DIR"
+	EnvPlatformDir   = "CNB_PLATFORM_DIR"
+	EnvBuildPlanPath = "CNB_BUILD_PLAN_PATH"
+)
 
 type Logger interface {
 	Debug(msg string)
@@ -75,6 +79,14 @@ func (b *Descriptor) Detect(config *DetectConfig, bpEnv BuildEnv) DetectRun {
 		}
 	}
 	cmd.Env = append(cmd.Env, EnvBuildpackDir+"="+b.Dir)
+
+	if api.MustParse(b.API).AtLeast("0.8") {
+		cmd.Env = append(
+			cmd.Env,
+			EnvPlatformDir+"="+platformDir,
+			EnvBuildPlanPath+"="+planPath,
+		)
+	}
 
 	if err := cmd.Run(); err != nil {
 		if err, ok := err.(*exec.ExitError); ok {

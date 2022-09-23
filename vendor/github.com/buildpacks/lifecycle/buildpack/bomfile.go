@@ -1,6 +1,8 @@
 package buildpack
 
 import (
+	"fmt"
+	"mime"
 	"path/filepath"
 	"strings"
 
@@ -46,7 +48,7 @@ func (b *BOMFile) Name() (string, error) {
 	case mediaTypeSyft:
 		return "sbom.syft.json", nil
 	default:
-		return "", errors.Errorf("unsupported sbom format: '%s'", b.Path)
+		return "", errors.Errorf("unsupported SBOM format: '%s'", b.Path)
 	}
 }
 
@@ -65,24 +67,28 @@ func (b *BOMFile) mediaType() string {
 	}
 }
 
-func validateMediaTypes(bp GroupBuildpack, bomfiles []BOMFile, sbomMediaTypes []string) error {
-	contains := func(vs []string, t string) bool {
-		for _, v := range vs {
-			if v == t {
-				return true
+func validateMediaTypes(bp GroupBuildpack, bomfiles []BOMFile, declaredTypes []string) error {
+	ensureDeclared := func(declaredTypes []string, foundType string) error {
+		for _, declaredType := range declaredTypes {
+			dType, _, err := mime.ParseMediaType(declaredType)
+			if err != nil {
+				return errors.Wrap(err, "parsing declared media type")
+			}
+			if foundType == dType {
+				return nil
 			}
 		}
-		return false
+		return errors.Errorf("undeclared SBOM media type: '%s'", foundType)
 	}
 
 	for _, bomFile := range bomfiles {
-		mediaType := bomFile.mediaType()
-		switch mediaType {
+		fileType := bomFile.mediaType()
+		switch fileType {
 		case mediaTypeUnsupported:
-			return errors.Errorf("unsupported sbom format: '%s'", bomFile.Path)
+			return errors.Errorf("unsupported SBOM file format: '%s'", bomFile.Path)
 		default:
-			if !contains(sbomMediaTypes, mediaType) {
-				return errors.Errorf("sbom type '%s' not declared for buildpack: '%s'", mediaType, bp.String())
+			if err := ensureDeclared(declaredTypes, fileType); err != nil {
+				return errors.Wrap(err, fmt.Sprintf("validating SBOM file '%s' for buildpack: '%s'", bomFile.Path, bp.String()))
 			}
 		}
 	}
@@ -108,7 +114,7 @@ func (b *Descriptor) processBOMFiles(layersDir string, bp GroupBuildpack, bpLaye
 
 	if api.MustParse(b.API).LessThan("0.7") {
 		if len(matches) != 0 {
-			logger.Warnf("the following SBoM files will be ignored for buildpack api version < 0.7 [%s]", strings.Join(matches, ", "))
+			logger.Warnf("the following SBOM files will be ignored for buildpack api version < 0.7 [%s]", strings.Join(matches, ", "))
 		}
 
 		return nil, nil

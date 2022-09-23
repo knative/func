@@ -16,6 +16,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
+	"github.com/google/go-containerregistry/pkg/v1/static"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/pkg/errors"
@@ -26,23 +27,27 @@ import (
 const maxRetries = 2
 
 type Image struct {
-	keychain   authn.Keychain
-	repoName   string
-	image      v1.Image
-	prevLayers []v1.Layer
+	keychain            authn.Keychain
+	repoName            string
+	image               v1.Image
+	prevLayers          []v1.Layer
+	createdAt           time.Time
+	addEmptyLayerOnSave bool
 }
 
 type options struct {
-	platform          imgutil.Platform
-	baseImageRepoName string
-	prevImageRepoName string
+	platform            imgutil.Platform
+	baseImageRepoName   string
+	prevImageRepoName   string
+	createdAt           time.Time
+	addEmptyLayerOnSave bool
 }
 
 type ImageOption func(*options) error
 
-//WithPreviousImage loads an existing image as a source for reusable layers.
-//Use with ReuseLayer().
-//Ignored if image is not found.
+// WithPreviousImage loads an existing image as a source for reusable layers.
+// Use with ReuseLayer().
+// Ignored if image is not found.
 func WithPreviousImage(imageName string) ImageOption {
 	return func(opts *options) error {
 		opts.prevImageRepoName = imageName
@@ -50,8 +55,8 @@ func WithPreviousImage(imageName string) ImageOption {
 	}
 }
 
-//FromBaseImage loads an existing image as the config and layers for the new image.
-//Ignored if image is not found.
+// FromBaseImage loads an existing image as the config and layers for the new image.
+// Ignored if image is not found.
 func FromBaseImage(imageName string) ImageOption {
 	return func(opts *options) error {
 		opts.baseImageRepoName = imageName
@@ -59,9 +64,9 @@ func FromBaseImage(imageName string) ImageOption {
 	}
 }
 
-//WithDefaultPlatform provides Architecture/OS/OSVersion defaults for the new image.
-//Defaults for a new image are ignored when FromBaseImage returns an image.
-//FromBaseImage and WithPreviousImage will use the platform to choose an image from a manifest list.
+// WithDefaultPlatform provides Architecture/OS/OSVersion defaults for the new image.
+// Defaults for a new image are ignored when FromBaseImage returns an image.
+// FromBaseImage and WithPreviousImage will use the platform to choose an image from a manifest list.
 func WithDefaultPlatform(platform imgutil.Platform) ImageOption {
 	return func(opts *options) error {
 		opts.platform = platform
@@ -69,7 +74,26 @@ func WithDefaultPlatform(platform imgutil.Platform) ImageOption {
 	}
 }
 
-//NewImage returns a new Image that can be modified and saved to a Docker daemon.
+// WithCreatedAt lets a caller set the created at timestamp for the image.
+// Defaults for a new image is imgutil.NormalizedDateTime
+func WithCreatedAt(createdAt time.Time) ImageOption {
+	return func(opts *options) error {
+		opts.createdAt = createdAt
+		return nil
+	}
+}
+
+// AddEmptyLayerOnSave adds an empty layer before saving if the image has no layer at all.
+// This option is useful when exporting to registries that do not allow saving an image without layers,
+// for example: gcr.io
+func AddEmptyLayerOnSave() ImageOption {
+	return func(opts *options) error {
+		opts.addEmptyLayerOnSave = true
+		return nil
+	}
+}
+
+// NewImage returns a new Image that can be modified and saved to a Docker daemon.
 func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Image, error) {
 	imageOpts := &options{}
 	for _, op := range ops {
@@ -89,9 +113,10 @@ func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Im
 	}
 
 	ri := &Image{
-		keychain: keychain,
-		repoName: repoName,
-		image:    image,
+		keychain:            keychain,
+		repoName:            repoName,
+		image:               image,
+		addEmptyLayerOnSave: imageOpts.addEmptyLayerOnSave,
 	}
 
 	if imageOpts.prevImageRepoName != "" {
@@ -114,6 +139,12 @@ func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Im
 		if err := prepareNewWindowsImage(ri); err != nil {
 			return nil, err
 		}
+	}
+
+	if imageOpts.createdAt.IsZero() {
+		ri.createdAt = imgutil.NormalizedDateTime
+	} else {
+		ri.createdAt = imageOpts.createdAt
 	}
 
 	return ri, nil
@@ -161,7 +192,7 @@ func prepareNewWindowsImage(ri *Image) error {
 		return err
 	}
 
-	windowsBaseLayer, err := tarball.LayerFromReader(layerBytes)
+	windowsBaseLayer, err := tarball.LayerFromReader(layerBytes) // TODO: LayerFromReader is deprecated; LayerFromOpener or stream.NewLayer are suggested alternatives however the tests do not pass when they are used
 	if err != nil {
 		return err
 	}
@@ -286,6 +317,17 @@ func (i *Image) Env(key string) (string, error) {
 		}
 	}
 	return "", nil
+}
+
+func (i *Image) WorkingDir() (string, error) {
+	cfg, err := i.image.ConfigFile()
+	if err != nil {
+		return "", errors.Wrapf(err, "getting config file for image %q", i.repoName)
+	}
+	if cfg == nil {
+		return "", fmt.Errorf("missing config for image %q", i.repoName)
+	}
+	return cfg.Config.WorkingDir, nil
 }
 
 func (i *Image) Entrypoint() ([]string, error) {
@@ -634,7 +676,7 @@ func (i *Image) Save(additionalNames ...string) error {
 
 	allNames := append([]string{i.repoName}, additionalNames...)
 
-	i.image, err = mutate.CreatedAt(i.image, v1.Time{Time: imgutil.NormalizedDateTime})
+	i.image, err = mutate.CreatedAt(i.image, v1.Time{Time: i.createdAt})
 	if err != nil {
 		return errors.Wrap(err, "set creation time")
 	}
@@ -650,9 +692,9 @@ func (i *Image) Save(additionalNames ...string) error {
 		return errors.Wrap(err, "get image layers")
 	}
 	cfg.History = make([]v1.History, len(layers))
-	for i := range cfg.History {
-		cfg.History[i] = v1.History{
-			Created: v1.Time{Time: imgutil.NormalizedDateTime},
+	for j := range cfg.History {
+		cfg.History[j] = v1.History{
+			Created: v1.Time{Time: i.createdAt},
 		}
 	}
 
@@ -661,6 +703,14 @@ func (i *Image) Save(additionalNames ...string) error {
 	i.image, err = mutate.ConfigFile(i.image, cfg)
 	if err != nil {
 		return errors.Wrap(err, "zeroing history")
+	}
+
+	if len(layers) == 0 && i.addEmptyLayerOnSave {
+		empty := static.NewLayer([]byte{}, types.OCILayer)
+		i.image, err = mutate.AppendLayers(i.image, empty)
+		if err != nil {
+			return errors.Wrap(err, "empty layer could not be added")
+		}
 	}
 
 	var diagnostics []imgutil.SaveDiagnostic

@@ -15,8 +15,14 @@ import (
 	"github.com/buildpacks/lifecycle/api"
 	"github.com/buildpacks/lifecycle/env"
 	"github.com/buildpacks/lifecycle/internal/encoding"
+	"github.com/buildpacks/lifecycle/internal/fsutil"
 	"github.com/buildpacks/lifecycle/launch"
 	"github.com/buildpacks/lifecycle/layers"
+)
+
+const (
+	EnvLayersDir  = "CNB_LAYERS_DIR"
+	EnvBpPlanPath = "CNB_BP_PLAN_PATH"
 )
 
 type BuildEnv interface {
@@ -36,7 +42,8 @@ type BuildConfig struct {
 }
 
 type BuildResult struct {
-	BOM         []BOMEntry
+	BuildBOM    []BOMEntry
+	LaunchBOM   []BOMEntry
 	BOMFiles    []BOMFile
 	Labels      []Label
 	MetRequires []string
@@ -108,10 +115,7 @@ func (b *Descriptor) Build(bpPlan Plan, config BuildConfig, bpEnv BuildEnv) (Bui
 func renameLayerDirIfNeeded(layerMetadataFile LayerMetadataFile, layerDir string) error {
 	// rename <layers>/<layer> to <layers>/<layer>.ignore if buildpack API >= 0.6 and all of the types flags are set to false
 	if !layerMetadataFile.Launch && !layerMetadataFile.Cache && !layerMetadataFile.Build {
-		if err := os.Rename(layerDir, layerDir+".ignore"); err != nil {
-			if os.IsNotExist(err) {
-				return nil
-			}
+		if err := fsutil.RenameWithWindowsFallback(layerDir, layerDir+".ignore"); err != nil && !os.IsNotExist(err) {
 			return err
 		}
 	}
@@ -185,6 +189,13 @@ func (b *Descriptor) runBuildCmd(bpLayersDir, bpPlanPath string, config BuildCon
 		}
 	}
 	cmd.Env = append(cmd.Env, EnvBuildpackDir+"="+b.Dir)
+	if api.MustParse(b.API).AtLeast("0.8") {
+		cmd.Env = append(cmd.Env,
+			EnvLayersDir+"="+bpLayersDir,
+			EnvPlatformDir+"="+config.PlatformDir,
+			EnvBpPlanPath+"="+bpPlanPath,
+		)
+	}
 
 	if err := cmd.Run(); err != nil {
 		return NewError(err, ErrTypeBuildpack)
@@ -252,7 +263,7 @@ func (b *Descriptor) readOutputFiles(bpLayersDir, bpPlanPath string, bpPlanIn Pl
 		}
 
 		// set BOM and MetRequires
-		br.BOM, err = bomValidator.ValidateBOM(bpFromBpInfo, bpPlanOut.toBOM())
+		br.LaunchBOM, err = bomValidator.ValidateBOM(bpFromBpInfo, bpPlanOut.toBOM())
 		if err != nil {
 			return BuildResult{}, err
 		}
@@ -272,20 +283,24 @@ func (b *Descriptor) readOutputFiles(bpLayersDir, bpPlanPath string, bpPlanIn Pl
 		}
 	} else {
 		// read build.toml
-		var bpBuild BuildTOML
+		var buildTOML BuildTOML
 		buildPath := filepath.Join(bpLayersDir, "build.toml")
-		if _, err := toml.DecodeFile(buildPath, &bpBuild); err != nil && !os.IsNotExist(err) {
+		if _, err := toml.DecodeFile(buildPath, &buildTOML); err != nil && !os.IsNotExist(err) {
 			return BuildResult{}, err
 		}
-		if _, err := bomValidator.ValidateBOM(bpFromBpInfo, bpBuild.BOM); err != nil {
+		if _, err := bomValidator.ValidateBOM(bpFromBpInfo, buildTOML.BOM); err != nil {
+			return BuildResult{}, err
+		}
+		br.BuildBOM, err = bomValidator.ValidateBOM(bpFromBpInfo, buildTOML.BOM)
+		if err != nil {
 			return BuildResult{}, err
 		}
 
 		// set MetRequires
-		if err := validateUnmet(bpBuild.Unmet, bpPlanIn); err != nil {
+		if err := validateUnmet(buildTOML.Unmet, bpPlanIn); err != nil {
 			return BuildResult{}, err
 		}
-		br.MetRequires = names(bpPlanIn.filter(bpBuild.Unmet).Entries)
+		br.MetRequires = names(bpPlanIn.filter(buildTOML.Unmet).Entries)
 
 		// set BOM files
 		br.BOMFiles, err = b.processBOMFiles(bpLayersDir, bpFromBpInfo, bpLayers, logger)
@@ -301,7 +316,7 @@ func (b *Descriptor) readOutputFiles(bpLayersDir, bpPlanPath string, bpPlanIn Pl
 		}
 
 		// set BOM
-		br.BOM, err = bomValidator.ValidateBOM(bpFromBpInfo, launchTOML.BOM)
+		br.LaunchBOM, err = bomValidator.ValidateBOM(bpFromBpInfo, launchTOML.BOM)
 		if err != nil {
 			return BuildResult{}, err
 		}
@@ -319,6 +334,12 @@ func (b *Descriptor) readOutputFiles(bpLayersDir, bpPlanPath string, bpPlanIn Pl
 	br.Labels = append([]Label{}, launchTOML.Labels...)
 	for i := range launchTOML.Processes {
 		launchTOML.Processes[i].BuildpackID = b.Buildpack.ID
+		if api.MustParse(b.API).LessThan("0.8") {
+			if launchTOML.Processes[i].WorkingDirectory != "" {
+				logger.Warn(fmt.Sprintf("Warning: process working directory isn't supported in this buildpack api version. Ignoring working directory for process '%s'", launchTOML.Processes[i].Type))
+				launchTOML.Processes[i].WorkingDirectory = ""
+			}
+		}
 	}
 	br.Processes = append([]launch.Process{}, launchTOML.Processes...)
 	br.Slices = append([]layers.Slice{}, launchTOML.Slices...)
