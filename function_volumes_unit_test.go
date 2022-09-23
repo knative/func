@@ -21,6 +21,15 @@ func Test_validateVolumes(t *testing.T) {
 		errs    int
 	}{
 		{
+			"incorrect entry - no secret or configMap only path",
+			[]Volume{
+				{
+					Path: &path,
+				},
+			},
+			1,
+		},
+		{
 			"correct entry - single volume with secret",
 			[]Volume{
 				{
@@ -137,6 +146,53 @@ func Test_validateVolumes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := validateVolumes(tt.volumes); len(got) != tt.errs {
 				t.Errorf("validateVolumes() = %v\n got %d errors but want %d", got, len(got), tt.errs)
+			}
+		})
+	}
+}
+
+func Test_validateVolumesString(t *testing.T) {
+
+	secret := "secret"
+	path := "path"
+
+	cm := "configMap"
+
+	tests := []struct {
+		key    string
+		volume Volume
+		want   string
+	}{
+		{
+			"volume with secret and path",
+			Volume{
+				Secret: &secret,
+				Path:   &path,
+			},
+			"Secret \"secret\" mounted at path: \"path\"",
+		},
+		{
+			"volume with configMap and path",
+			Volume{
+				ConfigMap: &cm,
+				Path:      &path,
+			},
+			"ConfigMap \"configMap\" mounted at path: \"path\"",
+		},
+		{
+			//@TODO:this is and edge case that we are not covering
+			"volume with no configMap and no secret but with path",
+			Volume{
+				Path: &path,
+			},
+			"",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.key, func(t *testing.T) {
+			if tt.volume.String() != tt.want {
+				t.Errorf("validateVolumeString() = \n got %v but expected %v", tt.volume.String(), tt.want)
 			}
 		})
 	}

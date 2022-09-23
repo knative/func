@@ -715,7 +715,8 @@ func Test_validateEnvString(t *testing.T) {
 			"Env \"name\" with value set from key \"key\" from Secret \"mysecret\"",
 		},
 		{
-			"env with name and no value", // is this an edge-case that we are not covering?
+			//@TODO: is this an edge-case that we are not covering?
+			"env with name and no value",
 			Env{
 				Name: &name,
 			},
