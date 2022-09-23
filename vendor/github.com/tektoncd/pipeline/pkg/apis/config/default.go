@@ -18,13 +18,14 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"time"
 
-	"github.com/ghodss/yaml"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/pod"
 	corev1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -38,24 +39,30 @@ const (
 	DefaultManagedByLabelValue = "tekton-pipelines"
 	// DefaultCloudEventSinkValue is the default value for cloud event sinks.
 	DefaultCloudEventSinkValue = ""
+	// DefaultMaxMatrixCombinationsCount is used when no max matrix combinations count is specified.
+	DefaultMaxMatrixCombinationsCount = 256
 
-	defaultTimeoutMinutesKey       = "default-timeout-minutes"
-	defaultServiceAccountKey       = "default-service-account"
-	defaultManagedByLabelValueKey  = "default-managed-by-label-value"
-	defaultPodTemplateKey          = "default-pod-template"
-	defaultCloudEventsSinkKey      = "default-cloud-events-sink"
-	defaultTaskRunWorkspaceBinding = "default-task-run-workspace-binding"
+	defaultTimeoutMinutesKey             = "default-timeout-minutes"
+	defaultServiceAccountKey             = "default-service-account"
+	defaultManagedByLabelValueKey        = "default-managed-by-label-value"
+	defaultPodTemplateKey                = "default-pod-template"
+	defaultAAPodTemplateKey              = "default-affinity-assistant-pod-template"
+	defaultCloudEventsSinkKey            = "default-cloud-events-sink"
+	defaultTaskRunWorkspaceBinding       = "default-task-run-workspace-binding"
+	defaultMaxMatrixCombinationsCountKey = "default-max-matrix-combinations-count"
 )
 
 // Defaults holds the default configurations
 // +k8s:deepcopy-gen=true
 type Defaults struct {
-	DefaultTimeoutMinutes          int
-	DefaultServiceAccount          string
-	DefaultManagedByLabelValue     string
-	DefaultPodTemplate             *pod.Template
-	DefaultCloudEventsSink         string
-	DefaultTaskRunWorkspaceBinding string
+	DefaultTimeoutMinutes             int
+	DefaultServiceAccount             string
+	DefaultManagedByLabelValue        string
+	DefaultPodTemplate                *pod.Template
+	DefaultAAPodTemplate              *pod.AffinityAssistantTemplate
+	DefaultCloudEventsSink            string
+	DefaultTaskRunWorkspaceBinding    string
+	DefaultMaxMatrixCombinationsCount int
 }
 
 // GetDefaultsConfigName returns the name of the configmap containing all
@@ -81,17 +88,20 @@ func (cfg *Defaults) Equals(other *Defaults) bool {
 		other.DefaultServiceAccount == cfg.DefaultServiceAccount &&
 		other.DefaultManagedByLabelValue == cfg.DefaultManagedByLabelValue &&
 		other.DefaultPodTemplate.Equals(cfg.DefaultPodTemplate) &&
+		other.DefaultAAPodTemplate.Equals(cfg.DefaultAAPodTemplate) &&
 		other.DefaultCloudEventsSink == cfg.DefaultCloudEventsSink &&
-		other.DefaultTaskRunWorkspaceBinding == cfg.DefaultTaskRunWorkspaceBinding
+		other.DefaultTaskRunWorkspaceBinding == cfg.DefaultTaskRunWorkspaceBinding &&
+		other.DefaultMaxMatrixCombinationsCount == cfg.DefaultMaxMatrixCombinationsCount
 }
 
 // NewDefaultsFromMap returns a Config given a map corresponding to a ConfigMap
 func NewDefaultsFromMap(cfgMap map[string]string) (*Defaults, error) {
 	tc := Defaults{
-		DefaultTimeoutMinutes:      DefaultTimeoutMinutes,
-		DefaultServiceAccount:      DefaultServiceAccountValue,
-		DefaultManagedByLabelValue: DefaultManagedByLabelValue,
-		DefaultCloudEventsSink:     DefaultCloudEventSinkValue,
+		DefaultTimeoutMinutes:             DefaultTimeoutMinutes,
+		DefaultServiceAccount:             DefaultServiceAccountValue,
+		DefaultManagedByLabelValue:        DefaultManagedByLabelValue,
+		DefaultCloudEventsSink:            DefaultCloudEventSinkValue,
+		DefaultMaxMatrixCombinationsCount: DefaultMaxMatrixCombinationsCount,
 	}
 
 	if defaultTimeoutMin, ok := cfgMap[defaultTimeoutMinutesKey]; ok {
@@ -112,10 +122,18 @@ func NewDefaultsFromMap(cfgMap map[string]string) (*Defaults, error) {
 
 	if defaultPodTemplate, ok := cfgMap[defaultPodTemplateKey]; ok {
 		var podTemplate pod.Template
-		if err := yaml.Unmarshal([]byte(defaultPodTemplate), &podTemplate); err != nil {
+		if err := yamlUnmarshal(defaultPodTemplate, defaultPodTemplateKey, &podTemplate); err != nil {
 			return nil, fmt.Errorf("failed to unmarshal %v", defaultPodTemplate)
 		}
 		tc.DefaultPodTemplate = &podTemplate
+	}
+
+	if defaultAAPodTemplate, ok := cfgMap[defaultAAPodTemplateKey]; ok {
+		var podTemplate pod.AffinityAssistantTemplate
+		if err := yamlUnmarshal(defaultAAPodTemplate, defaultAAPodTemplateKey, &podTemplate); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal %v", defaultAAPodTemplate)
+		}
+		tc.DefaultAAPodTemplate = &podTemplate
 	}
 
 	if defaultCloudEventsSink, ok := cfgMap[defaultCloudEventsSinkKey]; ok {
@@ -125,7 +143,25 @@ func NewDefaultsFromMap(cfgMap map[string]string) (*Defaults, error) {
 	if bindingYAML, ok := cfgMap[defaultTaskRunWorkspaceBinding]; ok {
 		tc.DefaultTaskRunWorkspaceBinding = bindingYAML
 	}
+
+	if defaultMaxMatrixCombinationsCount, ok := cfgMap[defaultMaxMatrixCombinationsCountKey]; ok {
+		matrixCombinationsCount, err := strconv.ParseInt(defaultMaxMatrixCombinationsCount, 10, 0)
+		if err != nil {
+			return nil, fmt.Errorf("failed parsing tracing config %q", defaultMaxMatrixCombinationsCountKey)
+		}
+		tc.DefaultMaxMatrixCombinationsCount = int(matrixCombinationsCount)
+	}
+
 	return &tc, nil
+}
+
+func yamlUnmarshal(s string, key string, o interface{}) error {
+	b := []byte(s)
+	if err := yaml.UnmarshalStrict(b, o); err != nil {
+		log.Printf("warning: failed to decode %q: %q. Trying decode with non-strict mode", key, err)
+		return yaml.Unmarshal(b, o)
+	}
+	return nil
 }
 
 // NewDefaultsFromConfigMap returns a Config for the given configmap

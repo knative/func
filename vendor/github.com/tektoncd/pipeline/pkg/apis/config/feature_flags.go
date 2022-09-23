@@ -17,6 +17,7 @@ limitations under the License.
 package config
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"strconv"
@@ -30,34 +31,46 @@ const (
 	StableAPIFields = "stable"
 	// AlphaAPIFields is the value used for "enable-api-fields" when alpha APIs should be usable as well.
 	AlphaAPIFields = "alpha"
+	// FullEmbeddedStatus is the value used for "embedded-status" when the full statuses of TaskRuns and Runs should be
+	// embedded in PipelineRunStatusFields, but ChildReferences should not be used.
+	FullEmbeddedStatus = "full"
+	// BothEmbeddedStatus is the value used for "embedded-status" when full embedded statuses of TaskRuns and Runs as
+	// well as ChildReferences should be used in PipelineRunStatusFields.
+	BothEmbeddedStatus = "both"
+	// MinimalEmbeddedStatus is the value used for "embedded-status" when only ChildReferences should be used in
+	// PipelineRunStatusFields.
+	MinimalEmbeddedStatus = "minimal"
 	// DefaultDisableAffinityAssistant is the default value for "disable-affinity-assistant".
 	DefaultDisableAffinityAssistant = false
 	// DefaultDisableCredsInit is the default value for "disable-creds-init".
 	DefaultDisableCredsInit = false
 	// DefaultRunningInEnvWithInjectedSidecars is the default value for "running-in-environment-with-injected-sidecars".
 	DefaultRunningInEnvWithInjectedSidecars = true
+	// DefaultAwaitSidecarReadiness is the default value for "await-sidecar-readiness".
+	DefaultAwaitSidecarReadiness = true
 	// DefaultRequireGitSSHSecretKnownHosts is the default value for "require-git-ssh-secret-known-hosts".
 	DefaultRequireGitSSHSecretKnownHosts = false
 	// DefaultEnableTektonOciBundles is the default value for "enable-tekton-oci-bundles".
 	DefaultEnableTektonOciBundles = false
 	// DefaultEnableCustomTasks is the default value for "enable-custom-tasks".
 	DefaultEnableCustomTasks = false
-	// DefaultScopeWhenExpressionsToTask is the default value for "scope-when-expressions-to-task".
-	DefaultScopeWhenExpressionsToTask = true
 	// DefaultEnableAPIFields is the default value for "enable-api-fields".
 	DefaultEnableAPIFields = StableAPIFields
 	// DefaultSendCloudEventsForRuns is the default value for "send-cloudevents-for-runs".
 	DefaultSendCloudEventsForRuns = false
+	// DefaultEmbeddedStatus is the default value for "embedded-status".
+	DefaultEmbeddedStatus = FullEmbeddedStatus
 
 	disableAffinityAssistantKey         = "disable-affinity-assistant"
 	disableCredsInitKey                 = "disable-creds-init"
 	runningInEnvWithInjectedSidecarsKey = "running-in-environment-with-injected-sidecars"
+	awaitSidecarReadinessKey            = "await-sidecar-readiness"
 	requireGitSSHSecretKnownHostsKey    = "require-git-ssh-secret-known-hosts" // nolint: gosec
 	enableTektonOCIBundles              = "enable-tekton-oci-bundles"
 	enableCustomTasks                   = "enable-custom-tasks"
 	enableAPIFields                     = "enable-api-fields"
-	scopeWhenExpressionsToTask          = "scope-when-expressions-to-task"
 	sendCloudEventsForRuns              = "send-cloudevents-for-runs"
+	embeddedStatus                      = "embedded-status"
 )
 
 // FeatureFlags holds the features configurations
@@ -72,6 +85,8 @@ type FeatureFlags struct {
 	ScopeWhenExpressionsToTask       bool
 	EnableAPIFields                  string
 	SendCloudEventsForRuns           bool
+	AwaitSidecarReadiness            bool
+	EmbeddedStatus                   string
 }
 
 // GetFeatureFlagsConfigName returns the name of the configmap containing all
@@ -108,16 +123,19 @@ func NewFeatureFlagsFromMap(cfgMap map[string]string) (*FeatureFlags, error) {
 	if err := setFeature(runningInEnvWithInjectedSidecarsKey, DefaultRunningInEnvWithInjectedSidecars, &tc.RunningInEnvWithInjectedSidecars); err != nil {
 		return nil, err
 	}
-	if err := setFeature(requireGitSSHSecretKnownHostsKey, DefaultRequireGitSSHSecretKnownHosts, &tc.RequireGitSSHSecretKnownHosts); err != nil {
+	if err := setFeature(awaitSidecarReadinessKey, DefaultAwaitSidecarReadiness, &tc.AwaitSidecarReadiness); err != nil {
 		return nil, err
 	}
-	if err := setFeature(scopeWhenExpressionsToTask, DefaultScopeWhenExpressionsToTask, &tc.ScopeWhenExpressionsToTask); err != nil {
+	if err := setFeature(requireGitSSHSecretKnownHostsKey, DefaultRequireGitSSHSecretKnownHosts, &tc.RequireGitSSHSecretKnownHosts); err != nil {
 		return nil, err
 	}
 	if err := setEnabledAPIFields(cfgMap, DefaultEnableAPIFields, &tc.EnableAPIFields); err != nil {
 		return nil, err
 	}
 	if err := setFeature(sendCloudEventsForRuns, DefaultSendCloudEventsForRuns, &tc.SendCloudEventsForRuns); err != nil {
+		return nil, err
+	}
+	if err := setEmbeddedStatus(cfgMap, DefaultEmbeddedStatus, &tc.EmbeddedStatus); err != nil {
 		return nil, err
 	}
 
@@ -157,7 +175,37 @@ func setEnabledAPIFields(cfgMap map[string]string, defaultValue string, feature 
 	return nil
 }
 
+// setEmbeddedStatus sets the "embedded-status" flag based on the content of a given map.
+// If the feature gate is invalid or missing then an error is returned.
+func setEmbeddedStatus(cfgMap map[string]string, defaultValue string, feature *string) error {
+	value := defaultValue
+	if cfg, ok := cfgMap[embeddedStatus]; ok {
+		value = strings.ToLower(cfg)
+	}
+	switch value {
+	case FullEmbeddedStatus, BothEmbeddedStatus, MinimalEmbeddedStatus:
+		*feature = value
+	default:
+		return fmt.Errorf("invalid value for feature flag %q: %q", embeddedStatus, value)
+	}
+	return nil
+}
+
 // NewFeatureFlagsFromConfigMap returns a Config for the given configmap
 func NewFeatureFlagsFromConfigMap(config *corev1.ConfigMap) (*FeatureFlags, error) {
 	return NewFeatureFlagsFromMap(config.Data)
+}
+
+// EnableAlphaAPIFields enables alpha feature in an existing context (for use in testing)
+func EnableAlphaAPIFields(ctx context.Context) context.Context {
+	featureFlags, _ := NewFeatureFlagsFromMap(map[string]string{
+		"enable-api-fields": "alpha",
+	})
+	cfg := &Config{
+		Defaults: &Defaults{
+			DefaultTimeoutMinutes: 60,
+		},
+		FeatureFlags: featureFlags,
+	}
+	return ToContext(ctx, cfg)
 }
