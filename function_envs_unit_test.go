@@ -84,7 +84,7 @@ func Test_validateBuildEnvs(t *testing.T) {
 			0,
 		},
 		{
-			"incorrect entry - mmissing value - multiple envs",
+			"incorrect entry - missing value - multiple envs",
 			[]Env{
 				{
 					Name: &name,
@@ -246,6 +246,13 @@ func Test_validateEnvs(t *testing.T) {
 			1,
 		},
 		{
+			"incorrect entry - no name no value",
+			[]Env{
+				{},
+			},
+			1,
+		},
+		{
 			"correct entry - multiple envs with value",
 			[]Env{
 				{
@@ -260,7 +267,7 @@ func Test_validateEnvs(t *testing.T) {
 			0,
 		},
 		{
-			"incorrect entry - mmissing value - multiple envs",
+			"incorrect entry - missing value - multiple envs",
 			[]Env{
 				{
 					Name: &name,
@@ -653,6 +660,78 @@ func Test_KeyValuePair(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.env.KeyValuePair(); got != tt.want {
 				t.Errorf("KeyValuePair() for env = %v\n got %q errors but want %q", tt.env, got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_validateEnvString(t *testing.T) {
+
+	name := "name"
+
+	value := "value"
+
+	valueLocalEnv := "{{ env:MY_ENV }}"
+	valueConfigMapKey := "{{ configMap:myconfigmap:key }}"
+
+	valueSecretKey := "{{ secret:mysecret:key }}"
+
+	tests := []struct {
+		key  string
+		env  Env
+		want string
+	}{
+		{
+			"env with name and value",
+			Env{
+				Name:  &name,
+				Value: &value,
+			},
+			"Env \"name\" with value \"value\"",
+		},
+		{
+			"env with name and value from local env",
+			Env{
+				Name:  &name,
+				Value: &valueLocalEnv,
+			},
+			"Env \"name\" with value set from local env variable \"MY_ENV\"",
+		},
+
+		{
+			"env with name and value from configmap",
+			Env{
+				Name:  &name,
+				Value: &valueConfigMapKey,
+			},
+			"Env \"name\" with value set from key \"key\" from ConfigMap \"myconfigmap\"",
+		},
+		{
+			"env with name and value from secret",
+			Env{
+				Name:  &name,
+				Value: &valueSecretKey,
+			},
+			"Env \"name\" with value set from key \"key\" from Secret \"mysecret\"",
+		},
+		{
+			"env with name and no value", // is this an edge-case that we are not covering?
+			Env{
+				Name: &name,
+			},
+			"",
+		},
+		{
+			"env with no name and no value",
+			Env{},
+			"",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.key, func(t *testing.T) {
+			if tt.env.String() != tt.want {
+				t.Errorf("validateEnvString() = \n got %v but expected %v", tt.env.String(), tt.want)
 			}
 		})
 	}
