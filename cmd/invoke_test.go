@@ -82,7 +82,7 @@ func TestInvoke_Namespace(t *testing.T) {
 	defer rm()
 
 	// Create a Function in a non-active namespace
-	f := fn.Function{Runtime: "go", Root: root, Namespace: "ns"}
+	f := fn.Function{Runtime: "go", Root: root, Deploy: fn.DeploySpec{Namespace: "ns"}}
 	if err := fn.New().Create(f); err != nil {
 		t.Fatal(err)
 	}
