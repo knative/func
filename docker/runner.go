@@ -195,7 +195,7 @@ func newContainerConfig(f fn.Function, _ string, verbose bool) (c container.Conf
 	// Environment Variables
 	// Interpolate references to local environment variables and convert to a
 	// simple string slice for use with container.Config
-	envs, err := fn.Interpolate(f.Envs)
+	envs, err := fn.Interpolate(f.Run.Envs)
 	if err != nil {
 		return
 	}

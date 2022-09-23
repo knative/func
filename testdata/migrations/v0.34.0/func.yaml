@@ -1,0 +1,27 @@
+specVersion: 0.25.0
+name: testfunc
+namespace: "test-namespace"
+runtime: go
+registry: ""
+image: ""
+imageDigest: ""
+buildpacks:
+  - paketo-buildpacks/go-dist
+  - ghcr.io/boson-project/go-function-buildpack:tip
+builder: ""
+git:
+  url: "http://test-url"
+  revision: "test revision"
+  contextDir: "/test/context/dir"
+volumes: []
+buildEnvs: []
+envs: []
+annotations: {}
+options: {}
+labels: []
+healthEndpoints:
+  liveness: /health/liveness
+  readiness: /health/readiness
+created: 2022-09-19T09:56:17.933191+01:00
+invocation:
+  format: http

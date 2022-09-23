@@ -91,7 +91,7 @@ func runDelete(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 
 	// If not provided, use the function's extant namespace
 	if config.Namespace == "" {
-		config.Namespace = function.Namespace
+		config.Namespace = function.Deploy.Namespace
 	}
 
 	// Create a client instance from the now-final config

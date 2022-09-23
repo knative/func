@@ -25,7 +25,7 @@ type ClientConfig struct {
 	// currently configured in the client's connection should be used.
 	Namespace string
 
-	// Verbose logging.  By default logging output is kept to the bare minimum.
+	// Verbose logging.  By default, logging output is kept to the bare minimum.
 	// Use this flag to configure verbose logging throughout.
 	Verbose bool
 

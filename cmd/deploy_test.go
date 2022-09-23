@@ -270,7 +270,7 @@ func testBuilderPersists(cmdFn commandConstructor, t *testing.T) {
 	if f, err = fn.NewFunction(root); err != nil {
 		t.Fatal(err)
 	}
-	if f.Builder == "" {
+	if f.Build.Builder == "" {
 		t.Fatal("value of builder not persisted using a flag default")
 	}
 
@@ -284,8 +284,8 @@ func testBuilderPersists(cmdFn commandConstructor, t *testing.T) {
 	if f, err = fn.NewFunction(root); err != nil {
 		t.Fatal(err)
 	}
-	if f.Builder != builders.S2I {
-		t.Fatalf("value of builder flag not persisted when provided. Expected '%v' got '%v'", builders.S2I, f.Builder)
+	if f.Build.Builder != builders.S2I {
+		t.Fatalf("value of builder flag not persisted when provided. Expected '%v' got '%v'", builders.S2I, f.Build.Builder)
 	}
 
 	// Build the function again without specifying a Builder
@@ -300,8 +300,8 @@ func testBuilderPersists(cmdFn commandConstructor, t *testing.T) {
 	if f, err = fn.NewFunction(root); err != nil {
 		t.Fatal(err)
 	}
-	if f.Builder != builders.S2I {
-		t.Fatalf("value of builder updated when not provided.  Expected '%v' got '%v'", builders.S2I, f.Builder)
+	if f.Build.Builder != builders.S2I {
+		t.Fatal("value of builder updated when not provided")
 	}
 
 	// Build the function again using a different builder
@@ -315,8 +315,8 @@ func testBuilderPersists(cmdFn commandConstructor, t *testing.T) {
 	if f, err = fn.NewFunction(root); err != nil {
 		t.Fatal(err)
 	}
-	if f.Builder != builders.Pack {
-		t.Fatalf("value of builder flag not persisted on subsequent build. Expected '%v' got '%v'", builders.Pack, f.Builder)
+	if f.Build.Builder != builders.Pack {
+		t.Fatalf("value of builder flag not persisted on subsequent build. Expected '%v' got '%v'", builders.Pack, f.Build.Builder)
 	}
 
 	// Build the function, specifying a platform with "pack" Builder
@@ -690,9 +690,11 @@ func Test_namespace(t *testing.T) {
 			// Creat a funcction which may be already deployed
 			// (have a namespace)
 			f := fn.Function{
-				Runtime:   "go",
-				Root:      root,
-				Namespace: test.funcNamespace,
+				Runtime: "go",
+				Root:    root,
+				Deploy: fn.DeploySpec{
+					Namespace: test.funcNamespace,
+				},
 			}
 			if err := fn.New().Create(f); err != nil {
 				t.Fatal(err)
@@ -762,14 +764,14 @@ func TestDeploy_GitArgsPersist(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if f.Git.URL != url {
-		t.Errorf("expected git URL '%v' got '%v'", url, f.Git.URL)
+	if f.Build.Git.URL != url {
+		t.Errorf("expected git URL '%v' got '%v'", url, f.Build.Git.URL)
 	}
-	if f.Git.Revision != branch {
-		t.Errorf("expected git branch '%v' got '%v'", branch, f.Git.Revision)
+	if f.Build.Git.Revision != branch {
+		t.Errorf("expected git branch '%v' got '%v'", branch, f.Build.Git.Revision)
 	}
-	if f.Git.ContextDir != dir {
-		t.Errorf("expected git dir '%v' got '%v'", dir, f.Git.ContextDir)
+	if f.Build.Git.ContextDir != dir {
+		t.Errorf("expected git dir '%v' got '%v'", dir, f.Build.Git.ContextDir)
 	}
 }
 
@@ -792,14 +794,14 @@ func TestDeploy_GitArgsUsed(t *testing.T) {
 	// A Pipelines Provider which will validate the expected values were received
 	pipeliner := mock.NewPipelinesProvider()
 	pipeliner.RunFn = func(f fn.Function) error {
-		if f.Git.URL != url {
-			t.Errorf("Pipeline Provider expected git URL '%v' got '%v'", url, f.Git.URL)
+		if f.Build.Git.URL != url {
+			t.Errorf("Pipeline Provider expected git URL '%v' got '%v'", url, f.Build.Git.URL)
 		}
-		if f.Git.Revision != branch {
-			t.Errorf("Pipeline Provider expected git branch '%v' got '%v'", branch, f.Git.Revision)
+		if f.Build.Git.Revision != branch {
+			t.Errorf("Pipeline Provider expected git branch '%v' got '%v'", branch, f.Build.Git.Revision)
 		}
-		if f.Git.ContextDir != dir {
-			t.Errorf("Pipeline Provider expected git dir '%v' got '%v'", url, f.Git.ContextDir)
+		if f.Build.Git.ContextDir != dir {
+			t.Errorf("Pipeline Provider expected git dir '%v' got '%v'", url, f.Build.Git.ContextDir)
 		}
 		return nil
 	}
@@ -848,11 +850,11 @@ func TestDeploy_GitURLBranch(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if f.Git.URL != expectedUrl {
-		t.Errorf("expected git URL '%v' got '%v'", expectedUrl, f.Git.URL)
+	if f.Build.Git.URL != expectedUrl {
+		t.Errorf("expected git URL '%v' got '%v'", expectedUrl, f.Build.Git.URL)
 	}
-	if f.Git.Revision != expectedBranch {
-		t.Errorf("expected git branch '%v' got '%v'", expectedBranch, f.Git.Revision)
+	if f.Build.Git.Revision != expectedBranch {
+		t.Errorf("expected git branch '%v' got '%v'", expectedBranch, f.Build.Git.Revision)
 	}
 }
 
@@ -874,7 +876,7 @@ func TestDeploy_NamespaceDefaults(t *testing.T) {
 	// Assert it has no default namespace set
 	f, err := fn.NewFunction(root)
 	if err != nil {
-		t.Fatalf("newly created functions should not have a namespace set until deployed.  Got '%v'", f.Namespace)
+		t.Fatalf("newly created functions should not have a namespace set until deployed.  Got '%v'", f.Deploy.Namespace)
 	}
 
 	// New deploy command that will not actually deploy or build (mocked)
@@ -899,8 +901,8 @@ func TestDeploy_NamespaceDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if f.Namespace != "test-ns-deploy" { // from testdata/kubeconfig_deploy_namespace
-		t.Fatalf("expected function to have active namespace 'test-ns-deploy' by default.  got '%v'", f.Namespace)
+	if f.Deploy.Namespace != "test-ns-deploy" { // from testdata/kubeconfig_deploy_namespace
+		t.Fatalf("expected function to have active namespace 'test-ns-deploy' by default.  got '%v'", f.Deploy.Namespace)
 	}
 	// See the knative package's tests for an example of tests which require
 	// the knative or kubernetes API dependency.
@@ -916,9 +918,11 @@ func TestDeploy_NamespaceUpdateWarning(t *testing.T) {
 
 	// Create a Function which appears to have been deployed to 'myns'
 	f := fn.Function{
-		Runtime:   "go",
-		Root:      root,
-		Namespace: "myns",
+		Runtime: "go",
+		Root:    root,
+		Deploy: fn.DeploySpec{
+			Namespace: "myns",
+		},
 	}
 	if err := fn.New().Create(f); err != nil {
 		t.Fatal(err)
@@ -957,8 +961,8 @@ func TestDeploy_NamespaceUpdateWarning(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if f.Namespace != "newns" {
-		t.Fatalf("expected function to be deoployed into namespace 'newns'.  got '%v'", f.Namespace)
+	if f.Deploy.Namespace != "newns" {
+		t.Fatalf("expected function to be deoployed into namespace 'newns'.  got '%v'", f.Deploy.Namespace)
 	}
 
 }
@@ -978,9 +982,9 @@ func TestDeploy_NamespaceRedeployWarning(t *testing.T) {
 
 	// Create a Function which appears to have been deployed to 'myns'
 	f := fn.Function{
-		Runtime:   "go",
-		Root:      root,
-		Namespace: "myns",
+		Runtime: "go",
+		Root:    root,
+		Deploy:  fn.DeploySpec{Namespace: "myns"},
 	}
 	if err := fn.New().Create(f); err != nil {
 		t.Fatal(err)
@@ -1014,7 +1018,7 @@ func TestDeploy_NamespaceRedeployWarning(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if f.Namespace != "myns" {
-		t.Fatalf("expected function to be updated with namespace 'myns'.  got '%v'", f.Namespace)
+	if f.Deploy.Namespace != "myns" {
+		t.Fatalf("expected function to be updated with namespace 'myns'.  got '%v'", f.Deploy.Namespace)
 	}
 }

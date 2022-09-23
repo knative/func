@@ -1073,7 +1073,9 @@ func TestClient_Pipelines_Deploy_Image(t *testing.T) {
 		Name:    "myfunc",
 		Runtime: "node",
 		Root:    root,
-		Git:     fn.Git{URL: "http://example-git.com/alice/myfunc.git"},
+		Build: fn.BuildSpec{
+			Git: fn.Git{URL: "http://example-git.com/alice/myfunc.git"},
+		},
 	}
 
 	err := client.Create(f)
@@ -1167,10 +1169,12 @@ func TestClient_New_BuildersPersisted(t *testing.T) {
 	f0 := fn.Function{
 		Runtime: TestRuntime,
 		Root:    root,
-		BuilderImages: map[string]string{
-			builders.Pack: "example.com/my/custom-pack-builder",
-			builders.S2I:  "example.com/my/custom-s2i-builder",
-		}}
+		Build: fn.BuildSpec{
+			BuilderImages: map[string]string{
+				builders.Pack: "example.com/my/custom-pack-builder",
+				builders.S2I:  "example.com/my/custom-s2i-builder",
+			}},
+	}
 
 	// Create the function, which should preserve custom builders
 	if err := client.New(context.Background(), f0); err != nil {
@@ -1184,8 +1188,8 @@ func TestClient_New_BuildersPersisted(t *testing.T) {
 	}
 
 	// Assert that our custom builders were retained
-	if !reflect.DeepEqual(f0.BuilderImages, f1.BuilderImages) {
-		t.Fatalf("Expected %v but got %v", f0.BuilderImages, f1.BuilderImages)
+	if !reflect.DeepEqual(f0.Build.BuilderImages, f1.Build.BuilderImages) {
+		t.Fatalf("Expected %v but got %v", f0.Build.BuilderImages, f1.Build.BuilderImages)
 	}
 
 	// A Default Builder(image) is not asserted here, because that is
@@ -1206,9 +1210,11 @@ func TestClient_New_BuildpacksPersisted(t *testing.T) {
 	}
 	client := fn.New(fn.WithRegistry(TestRegistry))
 	if err := client.New(context.Background(), fn.Function{
-		Runtime:    TestRuntime,
-		Root:       root,
-		Buildpacks: buildpacks,
+		Runtime: TestRuntime,
+		Root:    root,
+		Build: fn.BuildSpec{
+			Buildpacks: buildpacks,
+		},
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -1218,8 +1224,8 @@ func TestClient_New_BuildpacksPersisted(t *testing.T) {
 	}
 
 	// Assert that our custom buildpacks were set
-	if !reflect.DeepEqual(f.Buildpacks, buildpacks) {
-		t.Fatalf("Expected %v but got %v", buildpacks, f.Buildpacks)
+	if !reflect.DeepEqual(f.Build.Buildpacks, buildpacks) {
+		t.Fatalf("Expected %v but got %v", buildpacks, f.Build.Buildpacks)
 	}
 }
 

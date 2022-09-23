@@ -23,12 +23,12 @@ func Test_generatePipeline(t *testing.T) {
 	}{
 		{
 			name:          "Pack builder - use buildpacks",
-			function:      fn.Function{Builder: builders.Pack, Git: testGit},
+			function:      fn.Function{Build: fn.BuildSpec{Builder: builders.Pack, Git: testGit}},
 			taskBuildName: "func-buildpacks",
 		},
 		{
 			name:          "s2i builder - use",
-			function:      fn.Function{Builder: builders.S2I, Git: testGit},
+			function:      fn.Function{Build: fn.BuildSpec{Builder: builders.S2I, Git: testGit}},
 			taskBuildName: "func-s2i",
 		},
 	}
@@ -41,7 +41,7 @@ func Test_generatePipeline(t *testing.T) {
 				// let's check what is the Task used for build task
 				if task.Name == taskNameBuild {
 					if task.TaskRef.Name != tt.taskBuildName {
-						t.Errorf("generatePipeline(), for builder = %q: wanted build Task = %q, got = %q", tt.function.Builder, tt.taskBuildName, task.TaskRef.Name)
+						t.Errorf("generatePipeline(), for builder = %q: wanted build Task = %q, got = %q", tt.function.Build.Builder, tt.taskBuildName, task.TaskRef.Name)
 					}
 					return
 				}

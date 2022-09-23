@@ -148,9 +148,9 @@ func runCreate(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 
 // Run Help
 func runCreateHelp(cmd *cobra.Command, args []string, newClient ClientFactory) {
-	// Error-tolerant implementataion:
+	// Error-tolerant implementation:
 	// Help can not fail when creating the client config (such as on invalid
-	// flag values) because help text is needed in that situation.   Therefore
+	// flag values) because help text is needed in that situation.   Therefore,
 	// this implementation must be resilient to cfg zero value.
 	failSoft := func(err error) {
 		if err != nil {

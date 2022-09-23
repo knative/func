@@ -119,39 +119,39 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		// Sets default AND accepts any user-provided overrides
 		f.Registry = config.Registry
 	}
-	if f.Builder == "" || cmd.Flags().Changed("builder") {
+	if f.Build.Builder == "" || cmd.Flags().Changed("builder") {
 		// Sets default AND accepts any user-provided overrides
-		f.Builder = config.Builder
+		f.Build.Builder = config.Builder
 	}
 	if config.Image != "" {
 		f.Image = config.Image
 	}
 	if config.Builder != "" {
-		f.Builder = config.Builder
+		f.Build.Builder = config.Builder
 	}
 	if config.BuilderImage != "" {
-		f.BuilderImages[config.Builder] = config.BuilderImage
+		f.Build.BuilderImages[config.Builder] = config.BuilderImage
 	}
 
 	// Validate that a builder short-name was obtained, whether that be from
 	// the function's prior state, or the value of flags/environment.
-	if err = ValidateBuilder(f.Builder); err != nil {
+	if err = ValidateBuilder(f.Build.Builder); err != nil {
 		return
 	}
 
 	// Choose a builder based on the value of the --builder flag
 	var builder fn.Builder
-	if f.Builder == builders.Pack {
+	if f.Build.Builder == builders.Pack {
 		builder = buildpacks.NewBuilder(
 			buildpacks.WithName(builders.Pack),
 			buildpacks.WithVerbose(config.Verbose))
-	} else if f.Builder == builders.S2I {
+	} else if f.Build.Builder == builders.S2I {
 		builder = s2i.NewBuilder(
 			s2i.WithName(builders.S2I),
 			s2i.WithPlatform(config.Platform),
 			s2i.WithVerbose(config.Verbose))
 	} else {
-		err = fmt.Errorf("builder '%v' is not recognized", f.Builder)
+		err = fmt.Errorf("builder '%v' is not recognized", f.Build.Builder)
 		return
 	}
 

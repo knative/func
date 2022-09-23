@@ -37,9 +37,11 @@ func cwd() (cwd string) {
 func Test_setHealthEndpoints(t *testing.T) {
 	f := fn.Function{
 		Name: "testing",
-		HealthEndpoints: fn.HealthEndpoints{
-			Liveness:  "/lively",
-			Readiness: "/readyAsIllEverBe",
+		Deploy: fn.DeploySpec{
+			HealthEndpoints: fn.HealthEndpoints{
+				Liveness:  "/lively",
+				Readiness: "/readyAsIllEverBe",
+			},
 		},
 	}
 	c := corev1.Container{}

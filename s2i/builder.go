@@ -162,7 +162,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	// Environment variables
 	// Build Envs have local env var references interpolated then added to the
 	// config as an S2I EnvironmentList struct
-	buildEnvs, err := fn.Interpolate(f.BuildEnvs)
+	buildEnvs, err := fn.Interpolate(f.Build.BuildEnvs)
 	if err != nil {
 		return err
 	}

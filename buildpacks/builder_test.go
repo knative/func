@@ -41,8 +41,10 @@ func Test_BuilderImageConfigurable(t *testing.T) {
 			WithName(builders.Pack), WithImpl(i))
 		f = fn.Function{ // Function with a builder image set
 			Runtime: "node",
-			BuilderImages: map[string]string{
-				builders.Pack: "example.com/user/builder-image",
+			Build: fn.BuildSpec{
+				BuilderImages: map[string]string{
+					builders.Pack: "example.com/user/builder-image",
+				},
 			},
 		}
 	)
@@ -68,8 +70,10 @@ func Test_BuildEnvs(t *testing.T) {
 		envName  = "NAME"
 		envValue = "{{ env:INTERPOLATE_ME }}"
 		f        = fn.Function{
-			Runtime:   "node",
-			BuildEnvs: []fn.Env{{Name: &envName, Value: &envValue}},
+			Runtime: "node",
+			Build: fn.BuildSpec{
+				BuildEnvs: []fn.Env{{Name: &envName, Value: &envValue}},
+			},
 		}
 		i = &mockImpl{}
 		b = NewBuilder(WithImpl(i))
