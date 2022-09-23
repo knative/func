@@ -14,10 +14,10 @@ import (
 	"runtime"
 	"strings"
 
-	fn "knative.dev/kn-plugin-func"
+	"knative.dev/kn-plugin-func/config"
 	"knative.dev/kn-plugin-func/docker"
 
-	"github.com/containers/image/v5/pkg/docker/config"
+	dockerConfig "github.com/containers/image/v5/pkg/docker/config"
 	containersTypes "github.com/containers/image/v5/types"
 	"github.com/docker/docker-credential-helpers/client"
 	"github.com/docker/docker-credential-helpers/credentials"
@@ -167,7 +167,7 @@ func NewCredentialsProvider(opts ...Opt) docker.CredentialsProvider {
 		}
 	}
 
-	c.authFilePath = filepath.Join(fn.ConfigPath(), "auth.json")
+	c.authFilePath = filepath.Join(config.Path(), "auth.json")
 	sys := &containersTypes.SystemContext{
 		AuthFilePath: c.authFilePath,
 	}
@@ -186,7 +186,7 @@ func NewCredentialsProvider(opts ...Opt) docker.CredentialsProvider {
 			return getCredentialsByCredentialHelper(dockerConfigPath, registry)
 		},
 		func(registry string) (docker.Credentials, error) {
-			creds, err := config.GetCredentials(sys, registry)
+			creds, err := dockerConfig.GetCredentials(sys, registry)
 			if err != nil {
 				return docker.Credentials{}, err
 			}

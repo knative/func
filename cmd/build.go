@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"knative.dev/kn-plugin-func/buildpacks"
+	"knative.dev/kn-plugin-func/config"
 	"knative.dev/kn-plugin-func/s2i"
 
 	fn "knative.dev/kn-plugin-func"
@@ -50,9 +51,15 @@ and the image name is stored in the configuration file.
 		PreRunE:    bindEnv("image", "path", "builder", "registry", "confirm", "push", "builder-image", "platform"),
 	}
 
+	// Config
+	cfg, err := config.NewDefault()
+	if err != nil {
+		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.ConfigPath(), err)
+	}
+
 	cmd.Flags().StringP("builder", "b", builders.Default, fmt.Sprintf("build strategy to use when creating the underlying image. Currently supported build strategies are %s.", KnownBuilders()))
 	cmd.Flags().StringP("builder-image", "", "", "builder image, either an as a an image name or a mapping name.\nSpecified value is stored in func.yaml (as 'builder' field) for subsequent builds. ($FUNC_BUILDER_IMAGE)")
-	cmd.Flags().BoolP("confirm", "c", false, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
+	cmd.Flags().BoolP("confirm", "c", cfg.Confirm, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
 	cmd.Flags().StringP("image", "i", "", "Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE)")
 	cmd.Flags().StringP("registry", "r", GetDefaultRegistry(), "Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined (Env: $FUNC_REGISTRY)")
 	cmd.Flags().BoolP("push", "u", false, "Attempt to push the function image after being successfully built")

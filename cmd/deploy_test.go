@@ -285,7 +285,7 @@ func testBuilderPersists(cmdFn commandConstructor, t *testing.T) {
 		t.Fatal(err)
 	}
 	if f.Build.Builder != builders.S2I {
-		t.Fatal("value of builder flag not persisted when provided")
+		t.Fatalf("value of builder flag not persisted when provided. Expected '%v' got '%v'", builders.S2I, f.Build.Builder)
 	}
 
 	// Build the function again without specifying a Builder
@@ -316,19 +316,19 @@ func testBuilderPersists(cmdFn commandConstructor, t *testing.T) {
 		t.Fatal(err)
 	}
 	if f.Build.Builder != builders.Pack {
-		t.Fatal("value of builder flag not persisted on subsequent build")
+		t.Fatalf("value of builder flag not persisted on subsequent build. Expected '%v' got '%v'", builders.Pack, f.Build.Builder)
 	}
 
 	// Build the function, specifying a platform with "pack" Builder
 	cmd.SetArgs([]string{"--platform", "linux"})
 	if err := cmd.Execute(); err == nil {
-		t.Fatal("Expected error")
+		t.Fatal("Expected error using --platform without s2i builder was not received")
 	}
 
 	// Set an invalid builder
 	cmd.SetArgs([]string{"--builder", "invalid"})
 	if err := cmd.Execute(); err == nil {
-		t.Fatal("Expected error")
+		t.Fatal("Expected error using an invalid --builder not received")
 	}
 }
 
