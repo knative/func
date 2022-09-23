@@ -14,11 +14,19 @@ const (
 	BuildError                                // generic build error
 	ExportError                               // generic export error
 	RebaseError                               // generic rebase error
-	LaunchError                               // generic launch error
 )
 
 type Exiter interface {
 	CodeFor(errType LifecycleExitError) int
+}
+
+func NewExiter(platformAPI string) Exiter {
+	switch platformAPI {
+	case "0.3", "0.4", "0.5":
+		return &LegacyExiter{}
+	default:
+		return &DefaultExiter{}
+	}
 }
 
 type DefaultExiter struct{}
@@ -44,9 +52,6 @@ var defaultExitCodes = map[LifecycleExitError]int{
 
 	// rebase phase errors: 70-79
 	RebaseError: 72, // RebaseError indicates generic rebase error
-
-	// launch phase errors: 80-89
-	LaunchError: 82, // LaunchError indicates generic launch error
 }
 
 func (e *DefaultExiter) CodeFor(errType LifecycleExitError) int {
@@ -76,9 +81,6 @@ var legacyExitCodes = map[LifecycleExitError]int{
 
 	// rebase phase errors: 600-699
 	RebaseError: 602, // RebaseError indicates generic rebase error
-
-	// launch phase errors: 700-799
-	LaunchError: 702, // LaunchError indicates generic launch error
 }
 
 func (e *LegacyExiter) CodeFor(errType LifecycleExitError) int {

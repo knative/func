@@ -24,6 +24,7 @@ func (b *BashShell) Launch(proc ShellProcess) error {
 	for _, profile := range proc.Profiles {
 		launcher += fmt.Sprintf("source \"%s\"\n", profile)
 	}
+	launcher += fmt.Sprintf("cd \"%s\"\n", proc.WorkingDirectory)
 	var bashCommand string
 	if proc.Script {
 		bashCommand = bashCommandWithScript

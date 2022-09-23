@@ -75,3 +75,10 @@ func (l *Launcher) userProvidedProcess(cmd []string) (Process, error) {
 
 	return Process{Command: cmd[0], Args: cmd[1:]}, nil
 }
+
+func getProcessWorkingDirectory(process Process, appDir string) string {
+	if process.WorkingDirectory == "" {
+		return appDir
+	}
+	return process.WorkingDirectory
+}

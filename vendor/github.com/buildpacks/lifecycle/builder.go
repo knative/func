@@ -12,7 +12,8 @@ import (
 	"github.com/buildpacks/lifecycle/api"
 	"github.com/buildpacks/lifecycle/buildpack"
 	"github.com/buildpacks/lifecycle/env"
-	io2 "github.com/buildpacks/lifecycle/internal/io"
+	"github.com/buildpacks/lifecycle/internal/encoding"
+	"github.com/buildpacks/lifecycle/internal/fsutil"
 	"github.com/buildpacks/lifecycle/launch"
 	"github.com/buildpacks/lifecycle/layers"
 	"github.com/buildpacks/lifecycle/platform"
@@ -50,9 +51,9 @@ type Builder struct {
 func (b *Builder) Build() (*platform.BuildMetadata, error) {
 	b.Logger.Debug("Starting build")
 
-	// ensure layers sbom directory is removed
+	// ensure layers SBOM directory is removed
 	if err := os.RemoveAll(filepath.Join(b.LayersDir, "sbom")); err != nil {
-		return nil, errors.Wrap(err, "cleaning layers sbom directory")
+		return nil, errors.Wrap(err, "cleaning layers SBOM directory")
 	}
 
 	config, err := b.BuildConfig()
@@ -62,7 +63,8 @@ func (b *Builder) Build() (*platform.BuildMetadata, error) {
 
 	processMap := newProcessMap()
 	plan := b.Plan
-	var bom []buildpack.BOMEntry
+	var buildBOM []buildpack.BOMEntry
+	var launchBOM []buildpack.BOMEntry
 	var bomFiles []buildpack.BOMFile
 	var slices []layers.Slice
 	var labels []buildpack.Label
@@ -89,7 +91,8 @@ func (b *Builder) Build() (*platform.BuildMetadata, error) {
 		b.Logger.Debug("Updating buildpack processes")
 		updateDefaultProcesses(br.Processes, api.MustParse(bp.API), b.Platform.API())
 
-		bom = append(bom, br.BOM...)
+		buildBOM = append(buildBOM, br.BuildBOM...)
+		launchBOM = append(launchBOM, br.LaunchBOM...)
 		bomFiles = append(bomFiles, br.BOMFiles...)
 		labels = append(labels, br.Labels...)
 		plan = plan.Filter(br.MetRequires)
@@ -107,17 +110,28 @@ func (b *Builder) Build() (*platform.BuildMetadata, error) {
 
 	if b.Platform.API().LessThan("0.4") {
 		config.Logger.Debug("Updating BOM entries")
-		for i := range bom {
-			bom[i].ConvertMetadataToVersion()
+		for i := range launchBOM {
+			launchBOM[i].ConvertMetadataToVersion()
 		}
 	}
 
 	if b.Platform.API().AtLeast("0.8") {
-		b.Logger.Debug("Copying sBOM files")
+		b.Logger.Debug("Copying SBOM files")
 		err = b.copyBOMFiles(config.LayersDir, bomFiles)
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	if b.Platform.API().AtLeast("0.9") {
+		b.Logger.Debug("Creating SBOM files for legacy BOM")
+		if err := encoding.WriteJSON(filepath.Join(b.LayersDir, "sbom", "launch", "sbom.legacy.json"), launchBOM); err != nil {
+			return nil, errors.Wrap(err, "encoding launch bom")
+		}
+		if err := encoding.WriteJSON(filepath.Join(b.LayersDir, "sbom", "build", "sbom.legacy.json"), buildBOM); err != nil {
+			return nil, errors.Wrap(err, "encoding build bom")
+		}
+		launchBOM = []buildpack.BOMEntry{}
 	}
 
 	b.Logger.Debug("Listing processes")
@@ -125,7 +139,7 @@ func (b *Builder) Build() (*platform.BuildMetadata, error) {
 
 	b.Logger.Debug("Finished build")
 	return &platform.BuildMetadata{
-		BOM:                         bom,
+		BOM:                         launchBOM,
 		Buildpacks:                  b.Group.Group,
 		Labels:                      labels,
 		Processes:                   procList,
@@ -172,7 +186,7 @@ func (b *Builder) copyBOMFiles(layersDir string, bomFiles []buildpack.BOMFile) e
 				return err
 			}
 
-			return io2.Copy(bomFile.Path, filepath.Join(targetDir, name))
+			return fsutil.Copy(bomFile.Path, filepath.Join(targetDir, name))
 		}
 	)
 

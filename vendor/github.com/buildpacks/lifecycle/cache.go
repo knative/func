@@ -107,7 +107,7 @@ func (e *Exporter) addOrReuseCacheLayer(cache Cache, layerDir LayerDir, previous
 func (e *Exporter) addSBOMCacheLayer(layersDir string, cacheStore Cache, origMetadata platform.CacheMetadata, meta *platform.CacheMetadata) error {
 	sbomCacheDir, err := readLayersSBOM(layersDir, "cache", e.Logger)
 	if err != nil {
-		return errors.Wrap(err, "failed to read layers config sbom")
+		return errors.Wrap(err, "failed to read layers SBOM")
 	}
 
 	if sbomCacheDir != nil {
@@ -138,7 +138,7 @@ func readLayersSBOM(layersDir string, bomType string, logger Logger) (LayerDir, 
 		return nil, err
 	}
 
-	logger.Debugf("Found BOM of type %s for at %s", bomType, path)
+	logger.Debugf("Found SBOM of type %s for at %s", bomType, path)
 	return &layerDir{
 		path:       path,
 		identifier: fmt.Sprintf("%s.sbom", bomType),

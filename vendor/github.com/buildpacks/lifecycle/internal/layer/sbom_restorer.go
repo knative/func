@@ -12,13 +12,14 @@ import (
 	"github.com/buildpacks/imgutil"
 	"github.com/pkg/errors"
 
+	"github.com/buildpacks/lifecycle/api"
 	"github.com/buildpacks/lifecycle/buildpack"
-	io2 "github.com/buildpacks/lifecycle/internal/io"
+	"github.com/buildpacks/lifecycle/internal/fsutil"
 	"github.com/buildpacks/lifecycle/launch"
 	"github.com/buildpacks/lifecycle/layers"
 )
 
-//go:generate mockgen -package testmock -destination testmock/sbom_restorer.go github.com/buildpacks/lifecycle/internal/layer SBOMRestorer
+//go:generate mockgen -package testmock -destination ../../testmock/sbom_restorer.go github.com/buildpacks/lifecycle/internal/layer SBOMRestorer
 type SBOMRestorer interface {
 	RestoreFromPrevious(image imgutil.Image, layerDigest string) error
 	RestoreFromCache(cache Cache, layerDigest string) error
@@ -29,16 +30,25 @@ type Cache interface {
 	RetrieveLayer(sha string) (io.ReadCloser, error)
 }
 
-func NewSBOMRestorer(layersDir string, logger Logger) SBOMRestorer {
+type SBOMRestorerOpts struct {
+	LayersDir string
+	Logger    Logger
+	Nop       bool
+}
+
+func NewSBOMRestorer(opts SBOMRestorerOpts, platformAPI *api.Version) SBOMRestorer {
+	if opts.Nop || platformAPI.LessThan("0.8") {
+		return &NopSBOMRestorer{}
+	}
 	return &DefaultSBOMRestorer{
-		layersDir: layersDir,
-		logger:    logger,
+		LayersDir: opts.LayersDir,
+		Logger:    opts.Logger,
 	}
 }
 
 type DefaultSBOMRestorer struct {
-	layersDir string
-	logger    Logger
+	LayersDir string
+	Logger    Logger
 }
 
 func (r *DefaultSBOMRestorer) RestoreFromPrevious(image imgutil.Image, layerDigest string) error {
@@ -46,8 +56,13 @@ func (r *DefaultSBOMRestorer) RestoreFromPrevious(image imgutil.Image, layerDige
 	if image == nil {
 		return errors.Errorf("restoring layer: previous image not found for %q", layerDigest)
 	}
-	r.logger.Debugf("Retrieving previous image sbom layer for %q", layerDigest)
 
+	if !image.Found() || layerDigest == "" {
+		return nil
+	}
+	r.Logger.Infof("Restoring data for SBOM from previous image")
+
+	r.Logger.Debugf("Retrieving previous image SBOM layer for %q", layerDigest)
 	rc, err := image.GetLayer(layerDigest)
 	if err != nil {
 		return err
@@ -62,7 +77,7 @@ func (r *DefaultSBOMRestorer) RestoreFromCache(cache Cache, layerDigest string) 
 	if cache == nil {
 		return errors.New("restoring layer: cache not provided")
 	}
-	r.logger.Debugf("Retrieving sbom layer data for %q", layerDigest)
+	r.Logger.Debugf("Retrieving SBOM layer data for %q", layerDigest)
 
 	rc, err := cache.RetrieveLayer(layerDigest)
 	if err != nil {
@@ -75,10 +90,10 @@ func (r *DefaultSBOMRestorer) RestoreFromCache(cache Cache, layerDigest string) 
 
 func (r *DefaultSBOMRestorer) RestoreToBuildpackLayers(detectedBps []buildpack.GroupBuildpack) error {
 	var (
-		cacheDir  = filepath.Join(r.layersDir, "sbom", "cache")
-		launchDir = filepath.Join(r.layersDir, "sbom", "launch")
+		cacheDir  = filepath.Join(r.LayersDir, "sbom", "cache")
+		launchDir = filepath.Join(r.LayersDir, "sbom", "launch")
 	)
-	defer os.RemoveAll(filepath.Join(r.layersDir, "sbom"))
+	defer os.RemoveAll(filepath.Join(r.LayersDir, "sbom"))
 
 	if err := filepath.Walk(cacheDir, r.restoreSBOMFunc(detectedBps, "cache")); err != nil {
 		return err
@@ -110,14 +125,20 @@ func (r *DefaultSBOMRestorer) restoreSBOMFunc(detectedBps []buildpack.GroupBuild
 			bpID      = matches[1]
 			layerName = matches[2]
 			fileName  = matches[3]
-			dest      = filepath.Join(r.layersDir, bpID, fmt.Sprintf("%s.%s", layerName, fileName))
+			destDir   = filepath.Join(r.LayersDir, bpID)
 		)
+
+		// don't try to restore sbom files when the bp layers directory doesn't exist
+		// this can happen when there are sbom files for launch but the cache is empty
+		if _, err := os.Stat(destDir); os.IsNotExist(err) {
+			return nil
+		}
 
 		if !r.contains(detectedBps, bpID) {
 			return nil
 		}
 
-		return io2.Copy(path, dest)
+		return fsutil.Copy(path, filepath.Join(destDir, fmt.Sprintf("%s.%s", layerName, fileName)))
 	}
 }
 
@@ -128,4 +149,18 @@ func (r *DefaultSBOMRestorer) contains(detectedBps []buildpack.GroupBuildpack, i
 		}
 	}
 	return false
+}
+
+type NopSBOMRestorer struct{}
+
+func (r *NopSBOMRestorer) RestoreFromPrevious(_ imgutil.Image, _ string) error {
+	return nil
+}
+
+func (r *NopSBOMRestorer) RestoreFromCache(_ Cache, _ string) error {
+	return nil
+}
+
+func (r *NopSBOMRestorer) RestoreToBuildpackLayers(_ []buildpack.GroupBuildpack) error {
+	return nil
 }

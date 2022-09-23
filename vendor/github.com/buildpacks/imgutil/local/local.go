@@ -35,6 +35,7 @@ type Image struct {
 	layerPaths       []string
 	prevImage        *Image // reused layers will be fetched from prevImage
 	downloadBaseOnce *sync.Once
+	createdAt        time.Time
 }
 
 type ImageOption func(*options) error
@@ -43,11 +44,12 @@ type options struct {
 	platform          imgutil.Platform
 	baseImageRepoName string
 	prevImageRepoName string
+	createdAt         time.Time
 }
 
-//WithPreviousImage loads an existing image as a source for reusable layers.
-//Use with ReuseLayer().
-//Ignored if image is not found.
+// WithPreviousImage loads an existing image as a source for reusable layers.
+// Use with ReuseLayer().
+// Ignored if image is not found.
 func WithPreviousImage(imageName string) ImageOption {
 	return func(i *options) error {
 		i.prevImageRepoName = imageName
@@ -55,8 +57,8 @@ func WithPreviousImage(imageName string) ImageOption {
 	}
 }
 
-//FromBaseImage loads an existing image as the config and layers for the new image.
-//Ignored if image is not found.
+// FromBaseImage loads an existing image as the config and layers for the new image.
+// Ignored if image is not found.
 func FromBaseImage(imageName string) ImageOption {
 	return func(i *options) error {
 		i.baseImageRepoName = imageName
@@ -64,8 +66,8 @@ func FromBaseImage(imageName string) ImageOption {
 	}
 }
 
-//WithDefaultPlatform provides Architecture/OS/OSVersion defaults for the new image.
-//Defaults for a new image are ignored when FromBaseImage returns an image.
+// WithDefaultPlatform provides Architecture/OS/OSVersion defaults for the new image.
+// Defaults for a new image are ignored when FromBaseImage returns an image.
 func WithDefaultPlatform(platform imgutil.Platform) ImageOption {
 	return func(i *options) error {
 		i.platform = platform
@@ -73,7 +75,16 @@ func WithDefaultPlatform(platform imgutil.Platform) ImageOption {
 	}
 }
 
-//NewImage returns a new Image that can be modified and saved to a registry.
+// WithCreatedAt lets a caller set the created at timestamp for the image.
+// Defaults for a new image is imgutil.NormalizedDateTime
+func WithCreatedAt(createdAt time.Time) ImageOption {
+	return func(opts *options) error {
+		opts.createdAt = createdAt
+		return nil
+	}
+}
+
+// NewImage returns a new Image that can be modified and saved to a registry.
 func NewImage(repoName string, dockerClient client.CommonAPIClient, ops ...ImageOption) (*Image, error) {
 	imageOpts := &options{}
 	for _, op := range ops {
@@ -120,6 +131,12 @@ func NewImage(repoName string, dockerClient client.CommonAPIClient, ops ...Image
 		if err := prepareNewWindowsImage(image); err != nil {
 			return nil, err
 		}
+	}
+
+	if imageOpts.createdAt.IsZero() {
+		image.createdAt = imgutil.NormalizedDateTime
+	} else {
+		image.createdAt = imageOpts.createdAt
 	}
 
 	return image, nil
@@ -215,6 +232,10 @@ func (i *Image) Env(key string) (string, error) {
 		}
 	}
 	return "", nil
+}
+
+func (i *Image) WorkingDir() (string, error) {
+	return i.inspect.Config.WorkingDir, nil
 }
 
 func (i *Image) Entrypoint() ([]string, error) {
@@ -571,7 +592,7 @@ func (i *Image) doSave() (types.ImageInspect, error) {
 }
 
 func (i *Image) newConfigFile() ([]byte, error) {
-	cfg, err := v1Config(i.inspect)
+	cfg, err := v1Config(i.inspect, i.createdAt)
 	if err != nil {
 		return nil, err
 	}
@@ -710,7 +731,10 @@ func untar(r io.Reader, dest string) error {
 			return err
 		}
 
-		path := filepath.Join(dest, hdr.Name)
+		path, err := cleanPath(dest, hdr.Name)
+		if err != nil {
+			return err
+		}
 
 		switch hdr.Typeflag {
 		case tar.TypeDir:
@@ -732,7 +756,7 @@ func untar(r io.Reader, dest string) error {
 			if _, err := io.Copy(fh, tr); err != nil {
 				fh.Close()
 				return err
-			}
+			} // #nosec G110
 			fh.Close()
 		case tar.TypeSymlink:
 			_, err := os.Stat(filepath.Dir(path))
@@ -749,6 +773,14 @@ func untar(r io.Reader, dest string) error {
 			return fmt.Errorf("unknown file type in tar %d", hdr.Typeflag)
 		}
 	}
+}
+
+func cleanPath(dest, header string) (string, error) {
+	joined := filepath.Join(dest, header)
+	if strings.HasPrefix(joined, filepath.Clean(dest)) {
+		return joined, nil
+	}
+	return "", fmt.Errorf("bad filepath: %s", header)
 }
 
 func inspectOptionalImage(docker client.CommonAPIClient, imageName string, platform imgutil.Platform) (types.ImageInspect, error) {
@@ -789,12 +821,12 @@ func defaultPlatform(dockerClient client.CommonAPIClient) (imgutil.Platform, err
 	}, nil
 }
 
-func v1Config(inspect types.ImageInspect) (v1.ConfigFile, error) {
+func v1Config(inspect types.ImageInspect, createdAt time.Time) (v1.ConfigFile, error) {
 	history := make([]v1.History, len(inspect.RootFS.Layers))
 	for i := range history {
 		// zero history
 		history[i] = v1.History{
-			Created: v1.Time{Time: imgutil.NormalizedDateTime},
+			Created: v1.Time{Time: createdAt},
 		}
 	}
 	diffIDs := make([]v1.Hash, len(inspect.RootFS.Layers))
@@ -850,7 +882,7 @@ func v1Config(inspect types.ImageInspect) (v1.ConfigFile, error) {
 	}
 	return v1.ConfigFile{
 		Architecture: inspect.Architecture,
-		Created:      v1.Time{Time: imgutil.NormalizedDateTime},
+		Created:      v1.Time{Time: createdAt},
 		History:      history,
 		OS:           inspect.Os,
 		OSVersion:    inspect.OsVersion,

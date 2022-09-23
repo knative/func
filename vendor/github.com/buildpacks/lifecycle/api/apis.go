@@ -8,8 +8,8 @@ import (
 )
 
 var (
-	Platform  = newApisMustParse([]string{"0.3", "0.4", "0.5", "0.6", "0.7", "0.8"}, nil)
-	Buildpack = newApisMustParse([]string{"0.2", "0.3", "0.4", "0.5", "0.6", "0.7"}, nil)
+	Platform  = newApisMustParse([]string{"0.3", "0.4", "0.5", "0.6", "0.7", "0.8", "0.9"}, nil)
+	Buildpack = newApisMustParse([]string{"0.2", "0.3", "0.4", "0.5", "0.6", "0.7", "0.8"}, nil)
 )
 
 type APIs struct {

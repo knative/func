@@ -7,7 +7,7 @@ import (
 )
 
 // Generate using `make generate`
-//go:generate docker run --rm -v $PWD:/out/ bcdhive-generator -file=/out/layer/bcdhive_generated.go -package=layer -func=BaseLayerBCD
+//go:generate docker run --rm -v $PWD:/out/ bcdhive-generator -file=/out/bcdhive_generated.go -package=layer -func=BaseLayerBCD
 
 // Windows base layers must follow this pattern:
 //  \-> UtilityVM/Files/EFI/Microsoft/Boot/BCD   (file must exist and a valid BCD format - from bcdhive_gen)

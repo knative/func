@@ -11,6 +11,11 @@
     * macOS: `brew install go`
     * Windows: `choco install golang -y`
 * [Docker](https://www.docker.com/products/docker-desktop)
+* [jq](https://stedolan.github.io/jq/) and [yj](https://github.com/sclevine/yj) utilities
+    * macOS: `brew install jq yj`
+    * Windows:
+        * `choco insall jq -y`
+        * `go get github.com/sclevine/yj`
 * Make (and build tools)
     * macOS: `xcode-select --install`
     * Windows:
