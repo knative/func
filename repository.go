@@ -141,7 +141,7 @@ func NewRepository(name, uri string) (r Repository, err error) {
 		funcDefaults: funcDefaults{
 			HealthEndpoints: HealthEndpoints{
 				Liveness:  DefaultLivenessEndpoint,
-				Readiness: DefaultLivenessEndpoint,
+				Readiness: DefaultReadinessEndpoint,
 			},
 			Invocation: Invocation{Format: DefaultInvocationFormat},
 		},
