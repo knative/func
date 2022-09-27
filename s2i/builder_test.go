@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -318,7 +317,7 @@ func TestBuildContextUpload(t *testing.T) {
 				switch hdr.Name {
 				case ".":
 				case "Dockerfile":
-					bs, err := ioutil.ReadAll(tr)
+					bs, err := io.ReadAll(tr)
 					if err != nil {
 						return types.ImageBuildResponse{}, err
 					}
@@ -326,7 +325,7 @@ func TestBuildContextUpload(t *testing.T) {
 						return types.ImageBuildResponse{}, errors.New("bad content for Dockerfile")
 					}
 				case "a.txt":
-					bs, err := ioutil.ReadAll(tr)
+					bs, err := io.ReadAll(tr)
 					if err != nil {
 						return types.ImageBuildResponse{}, err
 					}
@@ -346,11 +345,11 @@ func TestBuildContextUpload(t *testing.T) {
 
 	impl := &mockImpl{
 		BuildFn: func(config *api.Config) (*api.Result, error) {
-			err := ioutil.WriteFile(config.AsDockerfile, dockerfileContent, 0644)
+			err := os.WriteFile(config.AsDockerfile, dockerfileContent, 0644)
 			if err != nil {
 				return nil, err
 			}
-			err = ioutil.WriteFile(filepath.Join(filepath.Dir(config.AsDockerfile), "a.txt"), atxtContent, 0644)
+			err = os.WriteFile(filepath.Join(filepath.Dir(config.AsDockerfile), "a.txt"), atxtContent, 0644)
 			if err != nil {
 				return nil, err
 			}

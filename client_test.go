@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -177,7 +176,7 @@ func TestClient_New_NonemptyAborts(t *testing.T) {
 
 	// Write a visible file which should cause an abort
 	visibleFile := filepath.Join(root, "file.txt")
-	if err := ioutil.WriteFile(visibleFile, []byte{}, 0644); err != nil {
+	if err := os.WriteFile(visibleFile, []byte{}, 0644); err != nil {
 		t.Fatal(err)
 	}
 
@@ -201,7 +200,7 @@ func TestClient_New_HiddenFilesIgnored(t *testing.T) {
 
 	// Create a hidden file that should be ignored.
 	hiddenFile := filepath.Join(root, ".envrc")
-	if err := ioutil.WriteFile(hiddenFile, []byte{}, 0644); err != nil {
+	if err := os.WriteFile(hiddenFile, []byte{}, 0644); err != nil {
 		t.Fatal(err)
 	}
 

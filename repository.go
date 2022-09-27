@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"path"
@@ -492,7 +491,7 @@ func (r *Repository) Write(path string) (err error) {
 			clone   *git.Repository
 			wt      *git.Worktree
 		)
-		if tempDir, err = ioutil.TempDir("", "func"); err != nil {
+		if tempDir, err = os.MkdirTemp("", "func"); err != nil {
 			return
 		}
 		if clone, err = git.PlainClone(tempDir, false, // not bare

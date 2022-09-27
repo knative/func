@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"io/ioutil"
+	"os"
 	"testing"
 
 	fn "knative.dev/kn-plugin-func"
@@ -63,7 +63,7 @@ annotations: {}
 labels: []
 created: 2021-01-01T00:00:00+00:00
 `
-	if err := ioutil.WriteFile("func.yaml", []byte(funcYaml), 0600); err != nil {
+	if err := os.WriteFile("func.yaml", []byte(funcYaml), 0600); err != nil {
 		t.Fatal(err)
 	}
 

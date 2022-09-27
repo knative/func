@@ -8,7 +8,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
 	urlPkg "net/url"
 	"os"
@@ -355,7 +354,7 @@ func NewSSHClientConfig(url *urlPkg.URL, credentialsConfig Config) (*ssh.ClientC
 }
 
 func publicKey(path string, passphrase []byte, passPhraseCallback PassPhraseCallback) (ssh.Signer, error) {
-	key, err := ioutil.ReadFile(path)
+	key, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read key file: %w", err)
 	}

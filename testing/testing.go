@@ -17,7 +17,6 @@ package testing
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/http/cgi"
@@ -32,7 +31,8 @@ import (
 // Using the given path, create it as a new directory and return a deferrable
 // which will remove it.
 // usage:
-//  defer using(t, "testdata/example.com/someExampleTest")()
+//
+//	defer using(t, "testdata/example.com/someExampleTest")()
 func Using(t *testing.T, root string) func() {
 	t.Helper()
 	mkdir(t, root)
@@ -103,7 +103,7 @@ func tempdir(t *testing.T) string {
 	// NOTE: Not using t.TempDir() because it is sometimes helpful during
 	// debugging to skip running the returned deferred cleanup function
 	// and manually inspect the contents of the test's temp directory.
-	d, err := ioutil.TempDir("", "dir")
+	d, err := os.MkdirTemp("", "dir")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -132,7 +132,6 @@ func cd(t *testing.T, dir string) {
 // TestRepoURI starts serving HTTP git server with GIT_PROJECT_ROOT=$(pwd)/testdata
 // and returns URL for project named `name` under the git root.
 //
-//
 // For example TestRepoURI("my-repo", t) returns string that could look like:
 // http://localhost:4242/my-repo.git
 func TestRepoURI(name string, t *testing.T) string {
@@ -158,7 +157,7 @@ func WithExecutable(t *testing.T, name, goSrc string) {
 
 	goSrcPath := filepath.Join(binDir, fmt.Sprintf("%s.go", name))
 
-	err = ioutil.WriteFile(goSrcPath,
+	err = os.WriteFile(goSrcPath,
 		[]byte(goSrc),
 		0400)
 	if err != nil {
@@ -181,7 +180,7 @@ go.exe run GO_SCRIPT_PATH %*
 
 	runnerScriptPath := filepath.Join(binDir, runnerScriptName)
 	runnerScriptSrc = strings.ReplaceAll(runnerScriptSrc, "GO_SCRIPT_PATH", goSrcPath)
-	err = ioutil.WriteFile(runnerScriptPath, []byte(runnerScriptSrc), 0700)
+	err = os.WriteFile(runnerScriptPath, []byte(runnerScriptSrc), 0700)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -299,7 +298,7 @@ func (c *credentialsProvider) getCredentials(ctx context.Context, image string) 
 var errNoCredentialHelperConfigured = errors.New("no credential helper configure")
 
 func getCredentialHelperFromConfig(confFilePath string) (string, error) {
-	data, err := ioutil.ReadFile(confFilePath)
+	data, err := os.ReadFile(confFilePath)
 	if err != nil {
 		return "", err
 	}
@@ -321,7 +320,7 @@ func setCredentialHelperToConfig(confFilePath, helper string) error {
 
 	configData := make(map[string]interface{})
 
-	if data, err := ioutil.ReadFile(confFilePath); err == nil {
+	if data, err := os.ReadFile(confFilePath); err == nil {
 		err = json.Unmarshal(data, &configData)
 		if err != nil {
 			return err
@@ -335,7 +334,7 @@ func setCredentialHelperToConfig(confFilePath, helper string) error {
 		return err
 	}
 
-	err = ioutil.WriteFile(confFilePath, data, 0600)
+	err = os.WriteFile(confFilePath, data, 0600)
 	if err != nil {
 		return err
 	}
@@ -399,7 +398,7 @@ func listCredentialHelpers() []string {
 
 	helpers := make(map[string]bool)
 	for _, p := range paths {
-		fss, err := ioutil.ReadDir(p)
+		fss, err := os.ReadDir(p)
 		if err != nil {
 			continue
 		}

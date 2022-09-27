@@ -3,7 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
+	"os"
 
 	"github.com/alecthomas/jsonschema"
 
@@ -37,5 +37,5 @@ func generateFuncYamlSchema() error {
 	}
 
 	// write schema to the file
-	return ioutil.WriteFile("schema/func_yaml-schema.json", indentedSchema.Bytes(), 0644)
+	return os.WriteFile("schema/func_yaml-schema.json", indentedSchema.Bytes(), 0644)
 }
