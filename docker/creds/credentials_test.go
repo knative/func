@@ -15,7 +15,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math/big"
 	"net"
 	"net/http"
@@ -566,7 +565,7 @@ func withPopulatedDockerAuthConfig(t *testing.T) {
 }`
 	configJSON = fmt.Sprintf(configJSON, base64.StdEncoding.EncodeToString([]byte(dockerIoUser+":"+dockerIoUserPwd)))
 
-	err = ioutil.WriteFile(dockerConfigPath, []byte(configJSON), 0600)
+	err = os.WriteFile(dockerConfigPath, []byte(configJSON), 0600)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -595,7 +594,7 @@ func withPopulatedFuncAuthConfig(t *testing.T) {
 		base64.StdEncoding.EncodeToString([]byte(dockerIoUser+":"+dockerIoUserPwd)),
 		base64.StdEncoding.EncodeToString([]byte(quayIoUser+":"+quayIoUserPwd)))
 
-	err = ioutil.WriteFile(authConfig, []byte(authJSON), 0600)
+	err = os.WriteFile(authConfig, []byte(authJSON), 0600)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -669,7 +668,7 @@ func handlerForCredHelper(t *testing.T, credHelper credentials.Helper) http.Hand
 
 		var serverURL string
 		if uri == "get" || uri == "erase" {
-			data, err := ioutil.ReadAll(request.Body)
+			data, err := io.ReadAll(request.Body)
 			if err != nil {
 				writer.WriteHeader(http.StatusInternalServerError)
 				return

@@ -2,7 +2,7 @@ package e2e
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -48,7 +48,7 @@ func (f FunctionHttpResponsivenessValidator) Validate(t *testing.T, project Func
 	defer resp.Body.Close()
 	t.Logf("%v %v -> %v", method, url, resp.Status)
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		t.Fatalf("Error reading response body: %v", err.Error())
 	}

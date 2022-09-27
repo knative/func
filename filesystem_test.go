@@ -5,8 +5,8 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"io/fs"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -124,12 +124,12 @@ func TestFileSystems(t *testing.T) {
 					return err
 				}
 
-				localFileContent, err := ioutil.ReadFile(localFilePath)
+				localFileContent, err := os.ReadFile(localFilePath)
 				if err != nil {
 					return err
 				}
 
-				embeddedFileContent, err := ioutil.ReadAll(embeddedFile)
+				embeddedFileContent, err := io.ReadAll(embeddedFile)
 				if err != nil {
 					return err
 				}

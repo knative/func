@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -79,7 +78,7 @@ func (c Config) Save(path string) (err error) {
 	if bb, err = yaml.Marshal(&c); err != nil {
 		return
 	}
-	return ioutil.WriteFile(path, bb, os.ModePerm)
+	return os.WriteFile(path, bb, os.ModePerm)
 }
 
 // Path is derived in the following order, from lowest

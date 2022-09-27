@@ -22,10 +22,10 @@ func (v Volume) String() string {
 // Returns array of error messages, empty if no errors are found
 //
 // Allowed settings:
-// - secret: example-secret              		# mount Secret as Volume
-// 	 path: /etc/secret-volume
-// - configMap: example-configMap              	# mount ConfigMap as Volume
-// 	 path: /etc/configMap-volume
+//   - secret: example-secret              		# mount Secret as Volume
+//     path: /etc/secret-volume
+//   - configMap: example-configMap              	# mount ConfigMap as Volume
+//     path: /etc/configMap-volume
 func validateVolumes(volumes []Volume) (errors []string) {
 
 	for i, vol := range volumes {

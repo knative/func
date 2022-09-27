@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"os"
@@ -338,7 +337,7 @@ func withCleanHome(t *testing.T) func() {
 	if runtime.GOOS == "windows" {
 		homeName = "USERPROFILE"
 	}
-	tmpDir, err := ioutil.TempDir("", "tmpHome")
+	tmpDir, err := os.MkdirTemp("", "tmpHome")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -2,8 +2,6 @@ package e2e
 
 import (
 	"io"
-	"io/ioutil"
-
 	"os"
 	"path/filepath"
 	"testing"
@@ -45,14 +43,12 @@ func Update(t *testing.T, knFunc *TestShellCmdRunner, project *FunctionTestProje
 	project.IsNewRevision = true
 }
 
-//
 // projectUpdater offers methods to update the project source content by the
 // source provided on update_templates folder
 // The strategy used consists in
 // 1. Create a temporary project folder with some files from original test folder (such as func.yaml, pom.xml)
 // 2. Copy recursivelly all files from ./update_template/<runtime>/<template>/** to the temporary project folder
 // 3. Replace current project folder by the temporary one (rm -rf <project folder> && mv <tmp folder> <project folder>
-//
 type projectUpdater struct {
 	retainList []string // List of files to retain from original test project
 }
@@ -133,12 +129,16 @@ func (p projectUpdater) UpdateFolderContent(templatePath string, project *Functi
 // walkThru recursive visit files in the filesystem and invokes fn for each of them
 // it can be replaced in future by filepath.WalkDir when project moves to 1.16+)
 func (p projectUpdater) walkThru(dir string, fn func(path string, f os.FileInfo) error) error {
-	files, err := ioutil.ReadDir(dir)
+	files, err := os.ReadDir(dir)
 	if err != nil {
 		return err
 	}
 	for _, file := range files {
-		err := fn(dir, file)
+		fileInfo, err := file.Info()
+		if err != nil {
+			return err
+		}
+		err = fn(dir, fileInfo)
 		if err != nil {
 			return err
 		}

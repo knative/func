@@ -2,7 +2,7 @@ package e2e
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 	"testing"
@@ -31,7 +31,7 @@ func (s SimpleTestEvent) pushTo(url string, t *testing.T) (body string, statusCo
 	}
 	t.Logf("event POST %v -> %v", url, resp.Status)
 	defer resp.Body.Close()
-	b, err := ioutil.ReadAll(resp.Body)
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", resp.StatusCode, fmt.Errorf("Error reading response body: %v", err.Error())
 	}

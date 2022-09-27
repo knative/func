@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"html/template"
-	"io/ioutil"
 	"os"
 	"regexp"
 	"strings"
@@ -113,7 +112,7 @@ func writeMarkdown(c *cobra.Command, name string, opts TemplateOptions) error {
 	re := regexp.MustCompile(`[^\S\r\n]+\n`)
 	data := re.ReplaceAll(out.Bytes(), []byte{'\n'}) // trim white spaces before EOL
 
-	if err := ioutil.WriteFile(targetDir+"/"+name+".md", data, 0666); err != nil {
+	if err := os.WriteFile(targetDir+"/"+name+".md", data, 0666); err != nil {
 		return err
 	}
 	return nil

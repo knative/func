@@ -3,7 +3,6 @@ package cmd
 import (
 	"encoding/base64"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 
@@ -241,7 +240,7 @@ func newInvokeConfig(newClient ClientFactory) (cfg invokeConfig, err error) {
 
 	// If file was passed, read it in as data
 	if cfg.File != "" {
-		b, err := ioutil.ReadFile(cfg.File)
+		b, err := os.ReadFile(cfg.File)
 		if err != nil {
 			return cfg, err
 		}

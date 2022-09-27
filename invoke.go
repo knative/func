@@ -98,8 +98,9 @@ func invoke(ctx context.Context, c *Client, f Function, target string, m InvokeM
 // 'remote': remote environment; first available instance (error if none)
 // '<environment>': A valid alternate target which contains instances.
 // '<url>': An explicit URL
-// '': Default if no target is passed is to first use local, then remote.
-//     errors if neither are available.
+// ”: Default if no target is passed is to first use local, then remote.
+//
+//	errors if neither are available.
 func invocationRoute(ctx context.Context, c *Client, f Function, target string) (string, error) {
 	// TODO: this function has code-smell;  will de-smellify it in next pass.
 	if target == EnvironmentLocal {
