@@ -1,8 +1,10 @@
 package knative
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"regexp"
 	"strings"
@@ -128,6 +130,17 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		return fn.DeploymentResult{}, err
 	}
 
+	var outBuff bytes.Buffer
+	var out io.Writer = &outBuff
+
+	if d.verbose {
+		out = os.Stderr
+	}
+	since := time.Now()
+	go func() {
+		_ = GetKServiceLogs(ctx, d.Namespace, f.Name, f.ImageWithDigest(), &since, out)
+	}()
+
 	_, err = client.GetService(ctx, f.Name)
 	if err != nil {
 		if errors.IsNotFound(err) {
@@ -195,6 +208,11 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			}
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to wait for the Knative Service to become ready: %v", err)
+				if !d.verbose {
+					fmt.Fprintln(os.Stderr, "\nService output:")
+					_, _ = io.Copy(os.Stderr, &outBuff)
+					fmt.Fprintln(os.Stderr)
+				}
 				return fn.DeploymentResult{}, err
 			}
 
@@ -241,6 +259,18 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		_, err = client.UpdateServiceWithRetry(ctx, f.Name, updateService(f, newEnv, newEnvFrom, newVolumes, newVolumeMounts, d.decorator), 3)
 		if err != nil {
 			err = fmt.Errorf("knative deployer failed to update the Knative Service: %v", err)
+			return fn.DeploymentResult{}, err
+		}
+
+		err, _ = client.WaitForService(ctx, f.Name,
+			clientservingv1.WaitConfig{Timeout: DefaultWaitingTimeout, ErrorWindow: DefaultErrorWindowTimeout},
+			wait.NoopMessageCallback())
+		if err != nil {
+			if !d.verbose {
+				fmt.Fprintln(os.Stderr, "\nService output:")
+				_, _ = io.Copy(os.Stderr, &outBuff)
+				fmt.Fprintln(os.Stderr)
+			}
 			return fn.DeploymentResult{}, err
 		}
 
