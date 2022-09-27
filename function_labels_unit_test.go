@@ -203,6 +203,16 @@ func Test_validateLabels(t *testing.T) {
 			1,
 		},
 		{
+			"incorrect entry - no key no value",
+			[]Label{
+				{
+					Key:   nil,
+					Value: nil,
+				},
+			},
+			1,
+		},
+		{
 			"correct entry - all combinations",
 			[]Label{
 				{
@@ -238,6 +248,59 @@ func Test_validateLabels(t *testing.T) {
 		t.Run(tt.key, func(t *testing.T) {
 			if got := ValidateLabels(tt.labels); len(got) != tt.errs {
 				t.Errorf("validateLabels() = %v\n got %d errors but want %d", got, len(got), tt.errs)
+			}
+		})
+	}
+}
+
+func Test_validateLabelsString(t *testing.T) {
+
+	key := "name"
+
+	value := "value"
+
+	t.Setenv("GOOD_EXAMPLE", "valid")
+
+	valueLocalEnv := "{{env:GOOD_EXAMPLE}}"
+
+	tests := []struct {
+		key      string
+		label    Label
+		expected string
+	}{
+		{
+			"label with key and value",
+			Label{
+				Key:   &key,
+				Value: &value,
+			},
+			"Label with key \"name\" and value \"value\"",
+		},
+		{
+			"label with key and value nil",
+			Label{
+				Key: &key,
+			},
+			"Label with key \"name\"",
+		},
+		{
+			"label with no key and no value",
+			Label{},
+			"",
+		},
+		{
+			"label with  key and value from local env variable",
+			Label{
+				Key:   &key,
+				Value: &valueLocalEnv,
+			},
+			"Label with key \"name\" and value set from local env variable \"GOOD_EXAMPLE\"",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.key, func(t *testing.T) {
+			if tt.label.String() != "" && tt.label.String() != tt.expected {
+				t.Errorf("validateLabelsString() = \n got %v but expected %v", tt.label.String(), tt.expected)
 			}
 		})
 	}
