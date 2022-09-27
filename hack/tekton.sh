@@ -44,7 +44,28 @@ tekton_tasks() {
   kubectl apply -f ./pipelines/resources/tekton/task/func-deploy/0.1/func-deploy.yaml
 }
 
-tekton
+## Parse input parameters
+# Supported parameters:
+# --tasks-only - install only Tekton Tasks
+tasks_only=false
+if [ $# -gt 1 ] ; then
+  echo "Unknown parameters, use '--tasks-only' to only install Tekton Tasks"
+  exit 1
+fi
+if [ $# -eq 1 ] ; then
+    if [ $1 == "--tasks-only" ]
+      then
+        tasks_only=true
+    else
+      echo "Unknown parameter '${1}', use '--tasks-only' to only install Tekton Tasks"
+      exit 1
+    fi
+fi
+
+## Installation phase
+if [ $tasks_only = false ] ; then
+  tekton
+fi
 tekton_tasks
 
 echo Done
