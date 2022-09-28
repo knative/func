@@ -85,7 +85,7 @@ func TestRepositories_All(t *testing.T) {
 	}
 
 	// Add one
-	_, err = client.Repositories().Add("", uri)
+	_, err = client.Repositories().Add("", uri, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -116,7 +116,7 @@ func TestRepositories_Add(t *testing.T) {
 
 	// Add the repository, explicitly specifying a name.  See other tests for
 	// defaulting from repository names and manifest-defined name.
-	if _, err := client.Repositories().Add("example", uri); err != nil {
+	if _, err := client.Repositories().Add("example", uri, ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -150,7 +150,7 @@ func TestRepositories_AddDeafultName(t *testing.T) {
 
 	client := fn.New(fn.WithRepositoriesPath(root))
 
-	name, err := client.Repositories().Add("", uri)
+	name, err := client.Repositories().Add("", uri, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,7 +185,7 @@ func TestRepositories_AddWithManifest(t *testing.T) {
 
 	client := fn.New(fn.WithRepositoriesPath(root))
 
-	name, err := client.Repositories().Add("", uri)
+	name, err := client.Repositories().Add("", uri, "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -220,10 +220,10 @@ func TestRepositories_AddExistingErrors(t *testing.T) {
 
 	// Add twice.
 	name := "example"
-	if _, err := client.Repositories().Add(name, uri); err != nil {
+	if _, err := client.Repositories().Add(name, uri, ""); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := client.Repositories().Add(name, uri); err == nil {
+	if _, err := client.Repositories().Add(name, uri, ""); err == nil {
 		t.Fatalf("did not receive expected error adding an existing repository")
 	}
 
@@ -253,7 +253,7 @@ func TestRepositories_Rename(t *testing.T) {
 	client := fn.New(fn.WithRepositoriesPath(root))
 
 	// Add and Rename
-	if _, err := client.Repositories().Add("foo", uri); err != nil {
+	if _, err := client.Repositories().Add("foo", uri, ""); err != nil {
 		t.Fatal(err)
 	}
 	if err := client.Repositories().Rename("foo", "bar"); err != nil {
@@ -288,7 +288,7 @@ func TestRepositories_Remove(t *testing.T) {
 
 	// Add and Remove
 	name := "example"
-	if _, err := client.Repositories().Add(name, uri); err != nil {
+	if _, err := client.Repositories().Add(name, uri, ""); err != nil {
 		t.Fatal(err)
 	}
 	if err := client.Repositories().Remove(name); err != nil {
@@ -320,7 +320,7 @@ func TestRepositories_URL(t *testing.T) {
 	client := fn.New(fn.WithRepositoriesPath(root))
 
 	// Add the test repo
-	_, err := client.Repositories().Add("newrepo", uri)
+	_, err := client.Repositories().Add("newrepo", uri, "")
 	if err != nil {
 		t.Fatal(err)
 	}

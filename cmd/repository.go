@@ -180,7 +180,7 @@ func NewRepositoryAddCmd(newClient ClientFactory) *cobra.Command {
 		Short:      "Add a repository",
 		Use:        "add <name> <url>",
 		SuggestFor: []string{"ad", "install"},
-		PreRunE:    bindEnv("confirm"),
+		PreRunE:    bindEnv("confirm", "branch"),
 	}
 
 	cfg, err := config.NewDefault()
@@ -189,6 +189,7 @@ func NewRepositoryAddCmd(newClient ClientFactory) *cobra.Command {
 	}
 
 	cmd.Flags().BoolP("confirm", "c", cfg.Confirm, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
+	cmd.Flags().StringP("branch", "", "", "The repository branch to be added.")
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		return runRepositoryAdd(cmd, args, newClient)
@@ -348,8 +349,9 @@ func runRepositoryAdd(_ *cobra.Command, args []string, newClient ClientFactory) 
 	// Extract Params
 	// Populate a struct with the arguments (if provided)
 	params := struct {
-		Name string
-		URL  string
+		Name   string
+		URL    string
+		Branch string
 	}{}
 	if len(args) > 0 {
 		params.Name = args[0]
@@ -357,6 +359,7 @@ func runRepositoryAdd(_ *cobra.Command, args []string, newClient ClientFactory) 
 	if len(args) > 1 {
 		params.URL = args[1]
 	}
+	params.Branch = viper.GetString("branch")
 
 	// Prompt/Confirm
 	// If confirming/prompting, interactively populate the params from the user
@@ -401,7 +404,7 @@ func runRepositoryAdd(_ *cobra.Command, args []string, newClient ClientFactory) 
 
 	// Add repository
 	var n string
-	if n, err = client.Repositories().Add(params.Name, params.URL); err != nil {
+	if n, err = client.Repositories().Add(params.Name, params.URL, params.Branch); err != nil {
 		return
 	}
 	if cfg.Verbose {
