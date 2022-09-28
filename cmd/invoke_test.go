@@ -12,13 +12,11 @@ import (
 
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/mock"
-	. "knative.dev/kn-plugin-func/testing"
 )
 
 // TestInvoke command executes the invocation path.
 func TestInvoke(t *testing.T) {
-	root, rm := Mktemp(t)
-	defer rm()
+	root := fromTempDirectory(t)
 
 	var invoked int32
 
@@ -78,8 +76,7 @@ func TestInvoke(t *testing.T) {
 // TestInvoke_Namespace ensures that invocation uses the Function's namespace
 // despite the currently active.
 func TestInvoke_Namespace(t *testing.T) {
-	root, rm := Mktemp(t)
-	defer rm()
+	root := fromTempDirectory(t)
 
 	// Create a Function in a non-active namespace
 	f := fn.Function{Runtime: "go", Root: root, Deploy: fn.DeploySpec{Namespace: "ns"}}

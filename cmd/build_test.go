@@ -6,7 +6,6 @@ import (
 
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/mock"
-	. "knative.dev/kn-plugin-func/testing"
 )
 
 // TestBuild_ImageFlag ensures that the image flag is used when specified.
@@ -15,9 +14,7 @@ func TestBuild_ImageFlag(t *testing.T) {
 		args    = []string{"--image", "docker.io/tigerteam/foo"}
 		builder = mock.NewBuilder()
 	)
-
-	root, cleanup := Mktemp(t)
-	defer cleanup()
+	root := fromTempDirectory(t)
 
 	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root, Registry: TestRegistry}); err != nil {
 		t.Fatal(err)
@@ -48,9 +45,7 @@ func TestBuild_ImageFlag(t *testing.T) {
 // provided (or exist on the function already), and the client has not been
 // instantiated with a default registry, an ErrRegistryRequired is received.
 func TestBuild_RegistryOrImageRequired(t *testing.T) {
-	t.Helper()
-	root, rm := Mktemp(t)
-	defer rm()
+	root := fromTempDirectory(t)
 
 	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root}); err != nil {
 		t.Fatal(err)
@@ -106,8 +101,7 @@ func TestBuild_BuilderValidated(t *testing.T) {
 // - Push not triggered after an unsuccessful build
 // - Push can be disabled
 func TestBuild_Push(t *testing.T) {
-	root, rm := Mktemp(t)
-	defer rm()
+	root := fromTempDirectory(t)
 
 	f := fn.Function{
 		Root:     root,

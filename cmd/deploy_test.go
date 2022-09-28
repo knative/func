@@ -14,7 +14,6 @@ import (
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/builders"
 	"knative.dev/kn-plugin-func/mock"
-	. "knative.dev/kn-plugin-func/testing"
 )
 
 const TestRegistry = "example.com/alice"
@@ -24,8 +23,7 @@ type commandConstructor func(ClientFactory) *cobra.Command
 // TestDeploy_Default ensures that running deploy on a valid default Function
 // (only required options populated; all else default) completes successfully.
 func TestDeploy_Default(t *testing.T) {
-	root, rm := Mktemp(t)
-	defer rm()
+	root := fromTempDirectory(t)
 
 	// A Function with the minimum required values for deployment populated.
 	f := fn.Function{
@@ -57,8 +55,7 @@ func TestDeploy_RegistryOrImageRequired(t *testing.T) {
 
 func testRegistryOrImageRequired(cmdFn commandConstructor, t *testing.T) {
 	t.Helper()
-	root, rm := Mktemp(t)
-	defer rm()
+	root := fromTempDirectory(t)
 
 	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root}); err != nil {
 		t.Fatal(err)
@@ -95,8 +92,7 @@ func TestDeploy_ImageAndRegistry(t *testing.T) {
 
 func testImageAndRegistry(cmdFn commandConstructor, t *testing.T) {
 	t.Helper()
-	root, rm := Mktemp(t)
-	defer rm()
+	root := fromTempDirectory(t)
 
 	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root}); err != nil {
 		t.Fatal(err)
@@ -171,8 +167,7 @@ func TestDeploy_InvalidRegistry(t *testing.T) {
 
 func testInvalidRegistry(cmdFn commandConstructor, t *testing.T) {
 	t.Helper()
-	root, rm := Mktemp(t)
-	defer rm()
+	root := fromTempDirectory(t)
 
 	f := fn.Function{
 		Root:    root,
@@ -204,8 +199,7 @@ func TestDeploy_RegistryLoads(t *testing.T) {
 
 func testRegistryLoads(cmdFn commandConstructor, t *testing.T) {
 	t.Helper()
-	root, rm := Mktemp(t)
-	defer rm()
+	root := fromTempDirectory(t)
 
 	f := fn.Function{
 		Root:     root,
@@ -246,11 +240,9 @@ func TestDeploy_BuilderPersists(t *testing.T) {
 }
 
 func testBuilderPersists(cmdFn commandConstructor, t *testing.T) {
-	t.Setenv("KUBECONFIG", fmt.Sprintf("%s/testdata/kubeconfig_deploy_namespace", cwd()))
-
 	t.Helper()
-	root, rm := Mktemp(t)
-	defer rm()
+	t.Setenv("KUBECONFIG", fmt.Sprintf("%s/testdata/kubeconfig_deploy_namespace", cwd()))
+	root := fromTempDirectory(t)
 
 	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root}); err != nil {
 		t.Fatal(err)
@@ -340,8 +332,7 @@ func TestDeploy_BuilderValidated(t *testing.T) {
 
 func testBuilderValidated(cmdFn commandConstructor, t *testing.T) {
 	t.Helper()
-	root, rm := Mktemp(t)
-	defer rm()
+	root := fromTempDirectory(t)
 
 	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root}); err != nil {
 		t.Fatal(err)
@@ -406,8 +397,7 @@ func TestDeploy_RemoteBuildURLPermutations(t *testing.T) {
 	// returns a single test function for one possible permutation of the flags.
 	newTestFn := func(remote, build, url string) func(t *testing.T) {
 		return func(t *testing.T) {
-			root, rm := Mktemp(t)
-			defer rm()
+			root := fromTempDirectory(t)
 
 			// Create a new Function in the temp directory
 			if err := fn.New().Create(fn.Function{Runtime: "go", Root: root}); err != nil {
@@ -580,8 +570,7 @@ func Test_ImageWithDigestErrors(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Move into a new temp directory
-			root, rm := Mktemp(t)
-			defer rm()
+			root := fromTempDirectory(t)
 
 			// Create a new Function in the temp directory
 			if err := fn.New().Create(fn.Function{Runtime: "go", Root: root}); err != nil {
@@ -677,8 +666,7 @@ func Test_namespace(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Helper()
-			root, rm := Mktemp(t)
-			defer rm()
+			root := fromTempDirectory(t)
 
 			// if running with an active kubeconfig
 			if test.context {
@@ -736,8 +724,7 @@ Test_namespaceCheck cases were refactored into:
 // TestDeploy_GitArgsPersist ensures that the git flags, if provided, are
 // persisted to the Function for subsequent deployments.
 func TestDeploy_GitArgsPersist(t *testing.T) {
-	root, rm := Mktemp(t)
-	defer rm()
+	root := fromTempDirectory(t)
 
 	var (
 		url    = "https://example.com/user/repo"
@@ -778,8 +765,7 @@ func TestDeploy_GitArgsPersist(t *testing.T) {
 // TestDeploy_GitArgsUsed ensures that any git values provided as flags are used
 // when invoking a remote deployment.
 func TestDeploy_GitArgsUsed(t *testing.T) {
-	root, rm := Mktemp(t)
-	defer rm()
+	root := fromTempDirectory(t)
 
 	var (
 		url    = "https://example.com/user/repo"
@@ -821,8 +807,7 @@ func TestDeploy_GitArgsUsed(t *testing.T) {
 // TestDeploy_GitURLBranch ensures that a --git-url which specifies the branch
 // in the URL is equivalent to providing --git-branch
 func TestDeploy_GitURLBranch(t *testing.T) {
-	root, rm := Mktemp(t)
-	defer rm()
+	root := fromTempDirectory(t)
 
 	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root}); err != nil {
 		t.Fatal(err)
@@ -861,12 +846,8 @@ func TestDeploy_GitURLBranch(t *testing.T) {
 // TestDeploy_NamespaceDefaults ensures that when not specified, a users's
 // active kubernetes context is used for the namespace if available.
 func TestDeploy_NamespaceDefaults(t *testing.T) {
-	// Set kube context to test context
 	t.Setenv("KUBECONFIG", filepath.Join(cwd(), "testdata", "kubeconfig_deploy_namespace"))
-
-	// from a temp directory
-	root, rm := Mktemp(t)
-	defer rm()
+	root := fromTempDirectory(t)
 
 	// Create a new function
 	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root}); err != nil {
@@ -913,8 +894,7 @@ func TestDeploy_NamespaceDefaults(t *testing.T) {
 // Also implicitly checks that the --namespace flag takes precidence over
 // the namespace of a previously deployed Function.
 func TestDeploy_NamespaceUpdateWarning(t *testing.T) {
-	root, rm := Mktemp(t)
-	defer rm()
+	root := fromTempDirectory(t)
 
 	// Create a Function which appears to have been deployed to 'myns'
 	f := fn.Function{
@@ -975,10 +955,7 @@ func TestDeploy_NamespaceUpdateWarning(t *testing.T) {
 func TestDeploy_NamespaceRedeployWarning(t *testing.T) {
 	// Change profile to one whose current profile is 'test-ns-deploy'
 	t.Setenv("KUBECONFIG", filepath.Join(cwd(), "testdata", "kubeconfig_deploy_namespace"))
-
-	// From within a temp directory
-	root, rm := Mktemp(t)
-	defer rm()
+	root := fromTempDirectory(t)
 
 	// Create a Function which appears to have been deployed to 'myns'
 	f := fn.Function{

@@ -8,7 +8,6 @@ import (
 
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/mock"
-	. "knative.dev/kn-plugin-func/testing"
 )
 
 func TestRun_Run(t *testing.T) {
@@ -100,7 +99,7 @@ created: 2009-11-10 23:00:00`,
 	for _, tt := range tests {
 		// run as a sub-test
 		t.Run(tt.name, func(t *testing.T) {
-			defer Fromtemp(t)()
+			_ = fromTempDirectory(t)
 
 			runner := mock.NewRunner()
 			if tt.runError != nil {

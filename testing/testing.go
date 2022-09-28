@@ -82,11 +82,10 @@ func Within(t *testing.T, root string) func() {
 // errors encountererd fail the current test.
 func Mktemp(t *testing.T) (string, func()) {
 	t.Helper()
-	tmp := tempdir(t)
+	tmp := t.TempDir()
 	owd := pwd(t)
 	cd(t, tmp)
 	return tmp, func() {
-		os.RemoveAll(tmp)
 		cd(t, owd)
 	}
 }
@@ -95,19 +94,6 @@ func Mktemp(t *testing.T) (string, func()) {
 func Fromtemp(t *testing.T) func() {
 	_, done := Mktemp(t)
 	return done
-}
-
-// tempdir creates a new temporary directory and returns its path.
-// errors fail the current test.
-func tempdir(t *testing.T) string {
-	// NOTE: Not using t.TempDir() because it is sometimes helpful during
-	// debugging to skip running the returned deferred cleanup function
-	// and manually inspect the contents of the test's temp directory.
-	d, err := os.MkdirTemp("", "dir")
-	if err != nil {
-		t.Fatal(err)
-	}
-	return d
 }
 
 // pwd prints the current working directory.
@@ -129,20 +115,20 @@ func cd(t *testing.T, dir string) {
 	}
 }
 
-// TestRepoURI starts serving HTTP git server with GIT_PROJECT_ROOT=$(pwd)/testdata
-// and returns URL for project named `name` under the git root.
-//
-// For example TestRepoURI("my-repo", t) returns string that could look like:
-// http://localhost:4242/my-repo.git
-func TestRepoURI(name string, t *testing.T) string {
+// ServeRepositry [name] from ./testdata/[name] returning URL at which
+// the named repository is available.
+// Must be called before any helpers which change test working directory
+// such as fromTempDirectory(t)
+func ServeRepo(name string, t *testing.T) string {
 	t.Helper()
-	wd, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	gitRoot := filepath.Join(wd, "testdata")
-	hostPort := RunGitServer(t, gitRoot)
-	return fmt.Sprintf(`http://%s/%s.git`, hostPort, name)
+	var (
+		path   = filepath.Join("./testdata", name)
+		dir    = filepath.Dir(path)
+		abs, _ = filepath.Abs(dir)
+		repo   = filepath.Base(path)
+		url    = RunGitServer(abs, t)
+	)
+	return fmt.Sprintf("%v/%v", url, repo)
 }
 
 // WithExecutable creates an executable of the given name and source in a temp
@@ -186,13 +172,13 @@ go.exe run GO_SCRIPT_PATH %*
 	}
 }
 
-// RunGitServer starts serving git HTTP server and returns its address including port
-func RunGitServer(t *testing.T, gitRoot string) (hostPort string) {
-	l, err := net.Listen("tcp", "localhost:0")
+// RunGitServer starts serving git HTTP server and returns its address
+func RunGitServer(root string, t *testing.T) (url string) {
+	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
-	hostPort = l.Addr().String()
+	url = l.Addr().String()
 
 	cmd := exec.Command("git", "--exec-path")
 	out, err := cmd.CombinedOutput()
@@ -203,7 +189,7 @@ func RunGitServer(t *testing.T, gitRoot string) (hostPort string) {
 	server := &http.Server{
 		Handler: &cgi.Handler{
 			Path: filepath.Join(strings.Trim(string(out), "\n"), "git-http-backend"),
-			Env:  []string{"GIT_HTTP_EXPORT_ALL=true", fmt.Sprintf("GIT_PROJECT_ROOT=%s", gitRoot)},
+			Env:  []string{"GIT_HTTP_EXPORT_ALL=true", fmt.Sprintf("GIT_PROJECT_ROOT=%s", root)},
 		},
 	}
 
@@ -218,7 +204,7 @@ func RunGitServer(t *testing.T, gitRoot string) (hostPort string) {
 		server.Close()
 	})
 
-	return hostPort
+	return "http://" + url
 }
 
 // Cwd returns the current working directory or panic if unable to determine.
