@@ -25,7 +25,6 @@ aliases:
   - travis-minke-sap
   discovery-approvers:
   - lberk
-  - n3wscott
   docs-wg-leads:
   - abrennan89
   - snneji
@@ -193,7 +192,6 @@ aliases:
   - kvmware
   - lance
   - matzew
-  - n3wscott
   - pmorie
   - thisisnotapril
   - upodroid
@@ -294,7 +292,6 @@ aliases:
   - dprotaso
   - dsimansk
   - evankanderson
-  - n3wscott
   - zroubalik
   ux-wg-leads:
   - abrennan89
