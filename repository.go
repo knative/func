@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-git/go-billy/v5/memfs"
 	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/storage/memory"
 	"gopkg.in/yaml.v2"
 )
@@ -47,8 +48,9 @@ type Repository struct {
 	// Runtimes containing Templates loaded from the repo
 	Runtimes []Runtime
 	// TODO get rid of fs and uri members
-	fs  Filesystem
-	uri string // URI which was used when initially creating
+	fs     Filesystem
+	uri    string // URI which was used when initially creating
+	branch string //branch name when URI is a remote git repository
 }
 
 // Runtime is a division of templates within a repository of templates for a
@@ -124,12 +126,15 @@ type templateConfig = funcDefaults
 //   the given URI.
 // URI (optional), the path either locally or remote from which to load
 //    the repository files.  If not provided, the internal default is assumed.
-func NewRepository(name, uri string) (r Repository, err error) {
+// branch (optional), the branch of the repository from which to load the files.
+//    If not provided, the default branch is assumed.
+func NewRepository(name, uri, branch string) (r Repository, err error) {
 	r = Repository{
-		uri: uri,
+		uri:    uri,
+		branch: branch,
 	}
 
-	fs, err := filesystemFromURI(uri) // Get a Filesystem from the URI
+	fs, err := filesystemFromURI(uri, branch) // Get a Filesystem from the URI
 	if err != nil {
 		return Repository{}, fmt.Errorf("failed to get repository from URI (%q): %w", uri, err)
 	}
@@ -177,7 +182,7 @@ func NewRepository(name, uri string) (r Repository, err error) {
 // given URI.  If URI is not provided, indicates the embedded repo should
 // be loaded.  URI can be a remote git repository (http:// https:// etc.),
 // or a local file path (file://) which can be a git repo or a plain directory.
-func filesystemFromURI(uri string) (f Filesystem, err error) {
+func filesystemFromURI(uri, branch string) (f Filesystem, err error) {
 	// If not provided, indicates embedded.
 	if uri == "" {
 		return EmbeddedTemplatesFS, nil
@@ -188,7 +193,7 @@ func filesystemFromURI(uri string) (f Filesystem, err error) {
 	}
 
 	// Attempt to get a filesystem from the uri as a remote repo.
-	f, err = filesystemFromRepo(uri)
+	f, err = filesystemFromRepo(uri, branch)
 	if f != nil || err != nil {
 		return // found a filesystem and/or an error
 	}
@@ -215,16 +220,18 @@ func isNonBareGitRepo(uri string) bool {
 
 // filesystemFromRepo attempts to fetch a filesystem from a git repository
 // indicated by the given URI.  Returns nil if there is not a repo at the URI.
-func filesystemFromRepo(uri string) (Filesystem, error) {
+func filesystemFromRepo(uri, branch string) (Filesystem, error) {
 	clone, err := git.Clone(
 		memory.NewStorage(),
 		memfs.New(),
-		&git.CloneOptions{URL: uri, Depth: 1, Tags: git.NoTags,
-			RecurseSubmodules: git.NoRecurseSubmodules,
-		})
+		getGitCloneOptions(uri, branch),
+	)
 	if err != nil {
 		if isRepoNotFoundError(err) {
 			return nil, nil
+		}
+		if isBranchNotFoundError(err) {
+			return nil, fmt.Errorf("failed to clone repository: branch %s not found", branch)
 		}
 		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}
@@ -241,6 +248,12 @@ func isRepoNotFoundError(err error) bool {
 	// This would be better if the error being tested for was typed, but it is
 	// currently a simple string value comparison.
 	return (err != nil && err.Error() == "repository not found")
+}
+
+func isBranchNotFoundError(err error) bool {
+	// This would be better if the error being tested for was typed, but it is
+	// currently a simple string value comparison.
+	return (err != nil && err.Error() == "reference not found")
 }
 
 // filesystemFromPath attempts to return a filesystem from a URI as a file:// path
@@ -435,6 +448,15 @@ func checkDir(fs Filesystem, path string) error {
 	return err
 }
 
+func getGitCloneOptions(uri, branch string) *git.CloneOptions {
+	opt := &git.CloneOptions{URL: uri, Depth: 1, Tags: git.NoTags,
+		RecurseSubmodules: git.NoRecurseSubmodules}
+	if branch != "" {
+		opt.ReferenceName = plumbing.NewBranchReferenceName(branch)
+	}
+	return opt
+}
+
 // Template from repo for given runtime.
 func (r *Repository) Template(runtimeName, name string) (t Template, err error) {
 	runtime, err := r.Runtime(runtimeName)
@@ -498,8 +520,7 @@ func (r *Repository) Write(path string) (err error) {
 			return
 		}
 		if clone, err = git.PlainClone(tempDir, false, // not bare
-			&git.CloneOptions{URL: r.uri, Depth: 1, Tags: git.NoTags,
-				RecurseSubmodules: git.NoRecurseSubmodules}); err != nil {
+			getGitCloneOptions(r.uri, r.branch)); err != nil {
 			return fmt.Errorf("failed to plain clone repository: %w", err)
 		}
 		if wt, err = clone.Worktree(); err != nil {

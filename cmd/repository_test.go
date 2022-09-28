@@ -47,6 +47,7 @@ func TestRepository_Add(t *testing.T) {
 
 	// add [flags] <old> <new>
 	add.SetArgs([]string{
+		"--branch=tag",
 		"newrepo",
 		url,
 	})

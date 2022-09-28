@@ -229,7 +229,7 @@ func initGitFS(t *testing.T) Filesystem {
 
 	uri := fmt.Sprintf(`file://%s`, filepath.ToSlash(repoDir))
 
-	result, err := filesystemFromRepo(uri)
+	result, err := filesystemFromRepo(uri, "")
 	if err != nil {
 		t.Fatal(err)
 	}

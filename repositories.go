@@ -86,7 +86,7 @@ func (r *Repositories) All() (repos []Repository, err error) {
 	// Create a new repository from the remote URI, and set its name to
 	// the default so that it is treated as the default in place of the embedded.
 	if r.remote != "" {
-		if repo, err = NewRepository(DefaultRepositoryName, r.remote); err != nil {
+		if repo, err = NewRepository(DefaultRepositoryName, r.remote, ""); err != nil {
 			return
 		}
 		repos = []Repository{repo}
@@ -95,7 +95,7 @@ func (r *Repositories) All() (repos []Repository, err error) {
 
 	// When not in single-repo mode (above), the default repository is always
 	// first in the list
-	if repo, err = NewRepository("", ""); err != nil {
+	if repo, err = NewRepository("", "", ""); err != nil {
 		return
 	}
 	repos = append(repos, repo)
@@ -127,7 +127,7 @@ func (r *Repositories) All() (repos []Repository, err error) {
 		if err != nil {
 			return
 		}
-		if repo, err = NewRepository("", "file://"+filepath.ToSlash(abspath)+"/"+f.Name()); err != nil {
+		if repo, err = NewRepository("", "file://"+filepath.ToSlash(abspath)+"/"+f.Name(), ""); err != nil {
 			return
 		}
 		repos = append(repos, repo)
@@ -166,14 +166,14 @@ func (r *Repositories) Get(name string) (repo Repository, err error) {
 // Add a repository of the given name from the URI.  Name, if not provided,
 // defaults to the repo name (sans optional .git suffix). Returns the final
 // name as added.
-func (r *Repositories) Add(name, uri string) (string, error) {
+func (r *Repositories) Add(name, uri, branch string) (string, error) {
 	if r.path == "" {
 		return "", fmt.Errorf("repository %v(%v) not added. "+
 			"No repositories path provided", name, uri)
 	}
 
 	// Create a repo (in-memory FS) from the URI
-	repo, err := NewRepository(name, uri)
+	repo, err := NewRepository(name, uri, branch)
 	if err != nil {
 		return "", fmt.Errorf("failed to create new repository: %w", err)
 	}
