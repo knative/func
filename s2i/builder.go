@@ -265,7 +265,8 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	}()
 
 	opts := types.ImageBuildOptions{
-		Tags: []string{f.Image},
+		Tags:       []string{f.Image},
+		PullParent: true,
 	}
 
 	resp, err := client.ImageBuild(ctx, pr, opts)
