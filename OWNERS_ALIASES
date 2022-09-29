@@ -191,15 +191,17 @@ aliases:
   - knative-test-reporter-robot
   - kvmware
   - lance
-  - matzew
+  - lionelvillard
+  - nak3
   - pmorie
+  - psschwei
   - thisisnotapril
   - upodroid
   - vaikas
   - zroubalik
   knative-release-leads:
-  - dprotaso
-  - matzew
+  - lionelvillard
+  - nak3
   knative-robots:
   - knative-automation
   - knative-prow-releaser-robot
@@ -292,6 +294,7 @@ aliases:
   - dprotaso
   - dsimansk
   - evankanderson
+  - psschwei
   - zroubalik
   ux-wg-leads:
   - abrennan89
