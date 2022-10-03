@@ -18,7 +18,7 @@ import (
 // test.  Others do eist with specific test requirements that are mutually
 // exclusive, such as manifest differences, and are specified inline to their
 // requisite test.
-const RepositoriesTestRepo = "repository"
+const RepositoriesTestRepo = "repository.git"
 
 // TestRepositories_List ensures the base case of listing
 // repositories without error in the default scenario of builtin only.
@@ -69,7 +69,7 @@ func TestRepositories_Get(t *testing.T) {
 // TestRepositories_All ensures repos are returned from
 // .All accessor.  Tests both builtin and buitlin+extensible cases.
 func TestRepositories_All(t *testing.T) {
-	uri := TestRepoURI(RepositoriesTestRepo, t)
+	uri := ServeRepo(RepositoriesTestRepo, t)
 	root, rm := Mktemp(t)
 	defer rm()
 
@@ -99,15 +99,15 @@ func TestRepositories_All(t *testing.T) {
 	// Assert it now includes both builtin and extended
 	if len(repositories) != 2 ||
 		repositories[0].Name != fn.DefaultRepositoryName ||
-		repositories[1].Name != RepositoriesTestRepo {
+		repositories[1].Name != "repository" {
 		t.Fatal("Repositories list does not pass shallow repository membership check")
 	}
 }
 
 // TestRepositories_Add checks basic adding of a repository by URI.
 func TestRepositories_Add(t *testing.T) {
-	uri := TestRepoURI(RepositoriesTestRepo, t) // ./testdata/$RepositoriesTestRepo.git
-	root, rm := Mktemp(t)                       // create and cd to a temp dir, returning path.
+	uri := ServeRepo(RepositoriesTestRepo, t) // ./testdata/$RepositoriesTestRepo.git
+	root, rm := Mktemp(t)                     // create and cd to a temp dir, returning path.
 	defer rm()
 
 	// Instantiate the client using the current temp directory as the
@@ -144,7 +144,7 @@ func TestRepositories_AddDeafultName(t *testing.T) {
 	// repo meant to exemplify the simplest use case:  a repo with no metadata
 	// that simply contains templates, grouped by runtime.  It therefore does
 	// not have a manifest and the default name will therefore be the repo name
-	uri := TestRepoURI(RepositoriesTestRepo, t) // ./testdata/$RepositoriesTestRepo.git
+	uri := ServeRepo(RepositoriesTestRepo, t) // ./testdata/$RepositoriesTestRepo.git
 	root, rm := Mktemp(t)
 	defer rm()
 
@@ -156,7 +156,7 @@ func TestRepositories_AddDeafultName(t *testing.T) {
 	}
 
 	// The name returned should be the repo name
-	if name != RepositoriesTestRepo {
+	if name != "repository" {
 		t.Fatalf("expected returned name '%v', got '%v'", RepositoriesTestRepo, name)
 	}
 
@@ -165,7 +165,7 @@ func TestRepositories_AddDeafultName(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := []string{"default", RepositoriesTestRepo}
+	expected := []string{"default", "repository"}
 	if diff := cmp.Diff(expected, rr); diff != "" {
 		t.Error("Repositories differed (-want, +got):", diff)
 	}
@@ -179,7 +179,7 @@ func TestRepositories_AddWithManifest(t *testing.T) {
 	// defines a custom language pack and makes full use of the manifest.yaml.
 	// The manifest.yaml is included which specifies things like custom templates
 	// location and (appropos to this test) a default name/
-	uri := TestRepoURI("repository-a", t) // ./testdata/repository-a.git
+	uri := ServeRepo("repository-a", t) // ./testdata/repository-a.git
 	root, rm := Mktemp(t)
 	defer rm()
 
@@ -210,7 +210,7 @@ func TestRepositories_AddWithManifest(t *testing.T) {
 // TestRepositories_AddExistingErrors ensures that adding a repository that
 // already exists yields an error.
 func TestRepositories_AddExistingErrors(t *testing.T) {
-	uri := TestRepoURI(RepositoriesTestRepo, t)
+	uri := ServeRepo(RepositoriesTestRepo, t)
 	root, rm := Mktemp(t) // create and cd to a temp dir, returning path.
 	defer rm()
 
@@ -244,7 +244,7 @@ func TestRepositories_AddExistingErrors(t *testing.T) {
 
 // TestRepositories_Rename ensures renaming a repository succeeds.
 func TestRepositories_Rename(t *testing.T) {
-	uri := TestRepoURI(RepositoriesTestRepo, t)
+	uri := ServeRepo(RepositoriesTestRepo, t)
 	root, rm := Mktemp(t) // create and cd to a temp dir, returning path.
 	defer rm()
 
@@ -278,8 +278,8 @@ func TestRepositories_Rename(t *testing.T) {
 // TestRepositories_Remove ensures that removing a repository by name
 // removes it from the list and FS.
 func TestRepositories_Remove(t *testing.T) {
-	uri := TestRepoURI(RepositoriesTestRepo, t) // ./testdata/repository.git
-	root, rm := Mktemp(t)                       // create and cd to a temp dir
+	uri := ServeRepo(RepositoriesTestRepo, t) // ./testdata/repository.git
+	root, rm := Mktemp(t)                     // create and cd to a temp dir
 	defer rm()
 
 	// Instantiate the client using the current temp directory as the
@@ -313,7 +313,7 @@ func TestRepositories_Remove(t *testing.T) {
 // TestRepositories_URL ensures that a repository populates its URL member
 // from the git repository's origin url (if it is a git repo and exists)
 func TestRepositories_URL(t *testing.T) {
-	uri := TestRepoURI(RepositoriesTestRepo, t)
+	uri := ServeRepo(RepositoriesTestRepo, t)
 	root, rm := Mktemp(t)
 	defer rm()
 

@@ -163,7 +163,7 @@ func TestTemplates_Remote(t *testing.T) {
 	root := "testdata/testTemplatesRemote"
 	defer Using(t, root)()
 
-	url := TestRepoURI(RepositoriesTestRepo, t)
+	url := ServeRepo(RepositoriesTestRepo, t)
 
 	// Create a client which explicitly specifies the Git repo at URL
 	// rather than relying on the default internally builtin template repo
@@ -328,7 +328,7 @@ func TestTemplates_ModeRemote(t *testing.T) {
 	root := "testdata/testTemplates_ModeRemote"
 	defer Using(t, root)()
 
-	url := TestRepoURI(RepositoriesTestRepo, t)
+	url := ServeRepo(RepositoriesTestRepo, t)
 
 	client := fn.New(
 		fn.WithRegistry(TestRegistry),

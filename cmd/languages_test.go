@@ -10,8 +10,9 @@ import (
 // all supported languages is to print a plain text list of all the builtin
 // language runtimes.
 func TestLanguages_Default(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir()) // ignore user-added
-	buf := piped(t)                          // gather output
+	_ = fromTempDirectory(t)
+
+	buf := piped(t) // gather output
 	cmd := NewLanguagesCmd(NewClientFactory(func() *fn.Client {
 		return fn.New()
 	}))
@@ -35,8 +36,9 @@ typescript`
 // TestLanguages_JSON ensures that listing languages in --json format returns
 // builtin languages as a JSON array.
 func TestLanguages_JSON(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir()) // ignore user-added
-	buf := piped(t)                          // gather output
+	_ = fromTempDirectory(t)
+
+	buf := piped(t) // gather output
 	cmd := NewLanguagesCmd(NewClientFactory(func() *fn.Client {
 		return fn.New()
 	}))

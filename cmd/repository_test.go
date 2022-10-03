@@ -1,9 +1,6 @@
 package cmd
 
 import (
-	"io"
-	"os"
-	"strings"
 	"testing"
 
 	. "knative.dev/kn-plugin-func/testing"
@@ -13,7 +10,8 @@ import (
 // set of repositories by name for builtin repositories, by explicitly
 // setting the repositories' path to a new path which includes no others.
 func TestRepository_List(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	_ = fromTempDirectory(t)
+
 	cmd := NewRepositoryListCmd(NewClient)
 	cmd.SetArgs([]string{}) // Do not use test command args
 
@@ -35,7 +33,9 @@ func TestRepository_List(t *testing.T) {
 // arguments, respects the repositories' path flag, and the expected name is echoed
 // upon subsequent 'list'.
 func TestRepository_Add(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	url := ServeRepo("repository.git", t)
+	_ = fromTempDirectory(t)
+
 	var (
 		add    = NewRepositoryAddCmd(NewClient)
 		list   = NewRepositoryListCmd(NewClient)
@@ -48,7 +48,7 @@ func TestRepository_Add(t *testing.T) {
 	// add [flags] <old> <new>
 	add.SetArgs([]string{
 		"newrepo",
-		TestRepoURI("repository", t),
+		url,
 	})
 
 	// Parse flags and args, performing action
@@ -73,7 +73,9 @@ func TestRepository_Add(t *testing.T) {
 // positional arguments, respects the repositories' path flag, and the name is
 // reflected as having been renamed upon subsequent 'list'.
 func TestRepository_Rename(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	url := ServeRepo("repository.git", t)
+	_ = fromTempDirectory(t)
+
 	var (
 		add    = NewRepositoryAddCmd(NewClient)
 		rename = NewRepositoryRenameCmd(NewClient)
@@ -86,7 +88,7 @@ func TestRepository_Rename(t *testing.T) {
 	list.SetArgs([]string{})
 
 	// add a repo which will be renamed
-	add.SetArgs([]string{"newrepo", TestRepoURI("repository", t)})
+	add.SetArgs([]string{"newrepo", url})
 	if err := add.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -119,7 +121,9 @@ func TestRepository_Rename(t *testing.T) {
 // its argument, respects the repositories' flag, and the entry is removed upon
 // subsequent 'list'.
 func TestRepository_Remove(t *testing.T) {
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	url := ServeRepo("repository.git", t)
+	_ = fromTempDirectory(t)
+
 	var (
 		add    = NewRepositoryAddCmd(NewClient)
 		remove = NewRepositoryRemoveCmd(NewClient)
@@ -132,7 +136,7 @@ func TestRepository_Remove(t *testing.T) {
 	list.SetArgs([]string{})
 
 	// add a repo which will be removed
-	add.SetArgs([]string{"newrepo", TestRepoURI("repository", t)})
+	add.SetArgs([]string{"newrepo", url})
 	if err := add.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -157,44 +161,5 @@ func TestRepository_Remove(t *testing.T) {
 	output := stdout()
 	if output != expect {
 		t.Fatalf("expected:\n'%v'\ngot:\n'%v'\n", expect, output)
-	}
-}
-
-// Helpers
-// -------
-
-// pipe the output of stdout to a buffer whose value is returned
-// from the returned function.  Call pipe() to start piping output
-// to the buffer, call the returned function to access the data in
-// the buffer.
-func piped(t *testing.T) func() string {
-	t.Helper()
-	var (
-		o = os.Stdout
-		c = make(chan error, 1)
-		b strings.Builder
-	)
-
-	r, w, err := os.Pipe()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	os.Stdout = w
-
-	go func() {
-		_, err := io.Copy(&b, r)
-		r.Close()
-		c <- err
-	}()
-
-	return func() string {
-		os.Stdout = o
-		w.Close()
-		err := <-c
-		if err != nil {
-			t.Fatal(err)
-		}
-		return strings.TrimSpace(b.String())
 	}
 }

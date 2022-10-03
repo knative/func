@@ -14,7 +14,6 @@ import (
 )
 
 func TestListEnvs(t *testing.T) {
-
 	mock := newMockLoaderSaver()
 	foo := "foo"
 	bar := "bar"

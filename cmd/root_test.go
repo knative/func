@@ -3,6 +3,8 @@ package cmd
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
@@ -37,10 +39,11 @@ func TestRoot_PersistentFlags(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			defer Fromtemp(t)()                       // from a temp dir, deferred cleanup
-			cmd := NewCreateCmd(NewClient)            // Create a new function
-			cmd.SetArgs([]string{"--language", "go"}) // providing language (the only required param)
-			if err := cmd.Execute(); err != nil {     // fail on any errors
+			_ = fromTempDirectory(t)
+
+			cmd := NewCreateCmd(NewClient)                      // Create a function
+			cmd.SetArgs([]string{"--language", "go", "myfunc"}) // providing language
+			if err := cmd.Execute(); err != nil {               // fail on any errors
 				t.Fatal(err)
 			}
 
@@ -251,4 +254,56 @@ func TestVerbose(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Helpers
+// -------
+
+// pipe the output of stdout to a buffer whose value is returned
+// from the returned function.  Call pipe() to start piping output
+// to the buffer, call the returned function to access the data in
+// the buffer.
+func piped(t *testing.T) func() string {
+	t.Helper()
+	var (
+		o = os.Stdout
+		c = make(chan error, 1)
+		b strings.Builder
+	)
+
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	os.Stdout = w
+
+	go func() {
+		_, err := io.Copy(&b, r)
+		r.Close()
+		c <- err
+	}()
+
+	return func() string {
+		os.Stdout = o
+		w.Close()
+		err := <-c
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.TrimSpace(b.String())
+	}
+}
+
+// fromTempDirectory is a cli-specific test helper which
+// - creates a temp directory and changes to it as the new working directory
+// - creates a temp directory and uses it for XDG_CONFIG_HOME
+// - removes temp directories on cleanup
+// - resets viper on cleanum (the reason this is "cli-specific")
+func fromTempDirectory(t *testing.T) string {
+	t.Helper()
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+	d, done := Mktemp(t) // creates and CDs to 'tmp'
+	t.Cleanup(func() { done(); viper.Reset() })
+	return d
 }
