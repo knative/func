@@ -383,6 +383,7 @@ func applyRepositoryManifest(fs Filesystem, repoConfig repositoryConfig) (reposi
 		}
 		return repoConfig, err
 	}
+	defer file.Close()
 	decoder := yaml.NewDecoder(file)
 	return repoConfig, decoder.Decode(&repoConfig)
 }
@@ -400,6 +401,7 @@ func applyRuntimeManifest(fs Filesystem, runtimeName string, repoConfig reposito
 		}
 		return rtCfg, err
 	}
+	defer file.Close()
 	decoder := yaml.NewDecoder(file)
 	return rtCfg, decoder.Decode(&rtCfg)
 }
@@ -416,6 +418,7 @@ func applyTemplateManifest(fs Filesystem, templatesPath string, t template) (tem
 		}
 		return t, err
 	}
+	defer file.Close()
 	decoder := yaml.NewDecoder(file)
 	return t, decoder.Decode(&t.config)
 }
