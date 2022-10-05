@@ -1,4 +1,4 @@
-# Boson Functions
+# Knative Functions
 
 ### Telegram Image Analysis Demo Screencast
 [![Telegram Image Analysis Demo Screencast](http://img.youtube.com/vi/CsYo0SmQ0Uk/0.jpg)](https://youtu.be/CsYo0SmQ0Uk "Telegram Image Analysis Demo Screencast")
@@ -45,7 +45,7 @@ Functions are portable between different infrastructure configurations.  While y
 
 Any code which provides one of a set of supported function signatures can be deployed to any of the supported platforms using this client library.  No process boundary code, container, or configuration outside of the function itself is required.
 
-At their most fundamental, a Function is a set of instructions which export a public function whose method signature conforms to one of the supported forms.  It is implicitly deployed to a supported platform when created using the client library, and can be migrated between platforms without code changes.  Runtime execution is handled by the platform, which may offer guarantees such as autoscaling and load balancing.  
+At their most fundamental, a Function is a set of instructions which export a public function whose method signature conforms to one of the supported forms.  It is implicitly deployed to a supported platform when created using the client library, and can be migrated between platforms without code changes.  Runtime execution is handled by the platform, which may offer guarantees such as autoscaling and load balancing.
 
 ## Contributing
 
