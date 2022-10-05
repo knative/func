@@ -270,7 +270,10 @@ func podReady(ctx context.Context, core v1.CoreV1Interface, podName, namespace s
 		defer watcher.Stop()
 		ch := watcher.ResultChan()
 		for event := range ch {
-			pod := event.Object.(*coreV1.Pod)
+			pod, ok := event.Object.(*coreV1.Pod)
+			if !ok {
+				continue
+			}
 
 			if event.Type == watch.Modified {
 				for _, status := range pod.Status.ContainerStatuses {
