@@ -134,7 +134,6 @@ func (c *contextDialer) startDialerPod(ctx context.Context) (err error) {
 		img = i
 	}
 
-	runAsNonRoot := true
 	pod := &coreV1.Pod{
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:        c.podName,
@@ -144,17 +143,12 @@ func (c *contextDialer) startDialerPod(ctx context.Context) (err error) {
 		Spec: coreV1.PodSpec{
 			Containers: []coreV1.Container{
 				{
-					Name:      c.podName,
-					Image:     img,
-					Stdin:     true,
-					StdinOnce: true,
-					Command:   []string{"socat", "-u", "-", "OPEN:/dev/null"},
-					SecurityContext: &coreV1.SecurityContext{
-						Privileged:               new(bool),
-						AllowPrivilegeEscalation: new(bool),
-						RunAsNonRoot:             &runAsNonRoot,
-						Capabilities:             &coreV1.Capabilities{Drop: []coreV1.Capability{"ALL"}},
-					},
+					Name:            c.podName,
+					Image:           img,
+					Stdin:           true,
+					StdinOnce:       true,
+					Command:         []string{"socat", "-u", "-", "OPEN:/dev/null"},
+					SecurityContext: defaultSecurityContext(),
 				},
 			},
 			DNSPolicy:     coreV1.DNSClusterFirst,

@@ -105,7 +105,6 @@ func runWithVolumeMounted(ctx context.Context, podImage string, podCommand []str
 		_ = pods.Delete(ctx, podName, metav1.DeleteOptions{})
 	}()
 
-	runAsNonRoot := true
 	const volumeMntPoint = "/tmp/volume_mnt"
 	const pVol = "p-vol"
 	pod := &corev1.Pod{
@@ -129,12 +128,7 @@ func runWithVolumeMounted(ctx context.Context, podImage string, podCommand []str
 							MountPath: volumeMntPoint,
 						},
 					},
-					SecurityContext: &corev1.SecurityContext{
-						Privileged:               new(bool),
-						AllowPrivilegeEscalation: new(bool),
-						RunAsNonRoot:             &runAsNonRoot,
-						Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
-					},
+					SecurityContext: defaultSecurityContext(),
 				},
 			},
 			Volumes: []corev1.Volume{{
