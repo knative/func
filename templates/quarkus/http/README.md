@@ -34,7 +34,7 @@ func build
 ```
 
 By default, JVM build is used.
-To enable native build set following enviromnet variables to `func.yaml`:
+To enable native build set following environment variables to `func.yaml`:
 ```yaml
 buildEnvs:
 - name: BP_NATIVE_IMAGE
