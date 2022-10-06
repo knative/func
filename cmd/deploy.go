@@ -567,6 +567,20 @@ func (c deployConfig) Prompt() (deployConfig, error) {
 
 	var qs = []*survey.Question{
 		{
+			Name: "remote",
+			Prompt: &survey.Confirm{
+				Message: "Trigger a remote (on-cluster) build?",
+				Default: c.Remote,
+			},
+		},
+		{
+			Name: "GitURL",
+			Prompt: &survey.Input{
+				Message: "Git URL",
+				Default: c.GitURL,
+			},
+		},
+		{
 			Name: "namespace",
 			Prompt: &survey.Input{
 				Message: "Destination namespace:",
