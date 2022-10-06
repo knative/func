@@ -568,9 +568,9 @@ func (c deployConfig) Prompt() (deployConfig, error) {
 	var qs = []*survey.Question{
 		{
 			Name: "remote",
-			Prompt: &survey.Input{
-				Message: "Build on remote cluster",
-				Default: strconv.FormatBool(c.Remote),
+			Prompt: &survey.Confirm{
+				Message: "Trigger a remote (on-cluster) build?",
+				Default: c.Remote,
 			},
 		},
 		{
