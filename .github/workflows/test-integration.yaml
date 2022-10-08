@@ -4,7 +4,7 @@ on: [pull_request]
 
 jobs:
   test:
-    name: Integration Test 
+    name: Integration Test
     strategy:
       matrix:
         go: [1.18.x]
@@ -23,3 +23,7 @@ jobs:
         run: ./hack/registry.sh
       - name: Integration Test
         run: make test-integration
+      - uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage.txt
+          flags: integration-tests

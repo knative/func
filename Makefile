@@ -55,7 +55,7 @@ $(BIN): $(CODE)
 	env CGO_ENABLED=0 go build -ldflags $(LDFLAGS) ./cmd/$(BIN)
 
 test: $(CODE) ## Run core unit tests
-	go test -race -cover -coverprofile=coverage.out ./...
+	go test -race -cover -coverprofile=coverage.txt ./...
 
 check: bin/golangci-lint ## Check code quality (lint)
 	./bin/golangci-lint run --timeout 300s
@@ -94,7 +94,7 @@ zz_filesystem_generated.go: clean_templates
 clean: clean_templates ## Remove generated artifacts such as binaries and schemas
 	rm -f $(BIN) $(BIN_WINDOWS) $(BIN_LINUX) $(BIN_DARWIN_AMD64) $(BIN_DARWIN_ARM64)
 	rm -f schema/func_yaml-schema.json
-	rm -f coverage.out
+	rm -f coverage.txt
 
 docs:
 	# Generating command reference doc
@@ -140,7 +140,7 @@ test-typescript: ## Test Typescript templates
 ###################
 
 test-integration: ## Run integration tests using an available cluster.
-	go test -tags integration ./... -v
+	go test -tags integration --coverprofile=coverage.txt ./... -v
 
 test-e2e: ## Run end-to-end tests using an available cluster.
 	./test/e2e_lifecycle_tests.sh node
