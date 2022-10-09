@@ -3,6 +3,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
@@ -103,7 +104,7 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	// pertinent values from the config.
 	//
 	// NOTE: the checks for .Changed and altered conditionals for defaults will
-	// be removed when Global Config is integreated, because the config object
+	// be removed when Global Config is integrated, because the config object
 	// will at that time contain the final value for the attribute, taking into
 	// account whether or not the value was altered via flags or env variables.
 	// This condition is also only necessary for config members whose default
@@ -119,12 +120,25 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		// Sets default AND accepts any user-provided overrides
 		f.Registry = config.Registry
 	}
+	if config.Image != "" {
+		f.Image = config.Image
+	}
+	// Checks if there is a difference between defined registry and its value used as a prefix in the image tag
+	// In case of a mismatch a new image tag is created and used for build
+	// Do not react if image tag has been changed outside configuration
+	if f.Registry != "" && !cmd.Flags().Changed("image") && strings.Index(f.Image, "/") > 0 && !strings.HasPrefix(f.Image, f.Registry) {
+		prfx := f.Registry
+		if prfx[len(prfx)-1:] != "/" {
+			prfx = prfx + "/"
+		}
+		sps := strings.Split(f.Image, "/")
+		updImg := prfx + sps[len(sps)-1]
+		fmt.Fprintf(cmd.ErrOrStderr(), "Warning: image tag '%s' contains different registry than the specified '%s'. It will be overwritten with value '%s'\n", f.Image, f.Registry, updImg)
+		f.Image = updImg
+	}
 	if f.Build.Builder == "" || cmd.Flags().Changed("builder") {
 		// Sets default AND accepts any user-provided overrides
 		f.Build.Builder = config.Builder
-	}
-	if config.Image != "" {
-		f.Image = config.Image
 	}
 	if config.Builder != "" {
 		f.Build.Builder = config.Builder

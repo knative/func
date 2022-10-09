@@ -2,7 +2,10 @@ package cmd
 
 import (
 	"errors"
+	"fmt"
 	"testing"
+
+	"gotest.tools/v3/assert"
 
 	fn "knative.dev/kn-plugin-func"
 	"knative.dev/kn-plugin-func/mock"
@@ -62,7 +65,7 @@ func TestBuild_RegistryOrImageRequired(t *testing.T) {
 		}
 	}
 
-	// earlire test covers the --registry only case, test here that --image
+	// earlier test covers the --registry only case, test here that --image
 	// also succeeds.
 	cmd.SetArgs([]string{"--image=example.com/alice/myfunc"})
 	if err := cmd.Execute(); err != nil {
@@ -70,7 +73,7 @@ func TestBuild_RegistryOrImageRequired(t *testing.T) {
 	}
 }
 
-// TestBuild_InvalidRegistry ensures that providing an invalid resitry
+// TestBuild_InvalidRegistry ensures that providing an invalid registry
 // fails with the expected error.
 func TestBuild_InvalidRegistry(t *testing.T) {
 	testInvalidRegistry(NewBuildCmd, t)
@@ -151,4 +154,33 @@ func TestBuild_Push(t *testing.T) {
 	if pusher.PushInvoked {
 		t.Fatal("push should not be invoked on a failed build")
 	}
+}
+
+// TestBuild_UpdateImageTagIfMismatchWithRegistry ensures that the image tag is in sync with defined registry
+func TestBuild_UpdateImageTagIfMismatchWithRegistry(t *testing.T) {
+	var (
+		builder = mock.NewBuilder()
+	)
+	root := fromTempDirectory(t)
+
+	err := fn.New().Create(fn.Function{
+		Runtime:  "go",
+		Root:     root,
+		Registry: TestRegistry,              // defined as "example.com/alice"
+		Image:    "docker.io/tigerteam/foo", // image uses different registry in its tag, so it has to be updated
+	})
+	assert.Assert(t, err == nil)
+
+	cmd := NewBuildCmd(NewClientFactory(func() *fn.Client {
+		return fn.New(fn.WithBuilder(builder))
+	}))
+
+	err = cmd.Execute()
+	assert.Assert(t, err == nil)
+
+	f, err := fn.NewFunction(root)
+	assert.Assert(t, err == nil)
+
+	expected := TestRegistry + "/foo"
+	assert.Assert(t, f.Image == expected, fmt.Sprintf("Expected image to be '"+expected+"', but got '%v'", f.Image))
 }
