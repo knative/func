@@ -23,15 +23,14 @@ import (
 )
 
 func TestNewDockerClientWithPodmanMachine(t *testing.T) {
-	defer withCleanHome(t)()
+	withCleanHome(t)
 
 	publicKey, privateKeyPath := prepareKeys(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*1)
 	defer cancel()
 
-	sshConf, stopSSH := startSSH(t, publicKey)
-	defer stopSSH()
+	sshConf := startSSH(t, publicKey)
 	_ = sshConf
 
 	uri := fmt.Sprintf("ssh://user@%s%s", sshConf.address, sshDockerSocket)

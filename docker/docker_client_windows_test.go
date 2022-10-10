@@ -15,7 +15,7 @@ func TestNewClientWinPipe(t *testing.T) {
 
 	const testNPipe = "test-npipe"
 
-	defer startMockDaemonWinPipe(t, testNPipe)()
+	startMockDaemonWinPipe(t, testNPipe)
 	t.Setenv("DOCKER_HOST", fmt.Sprintf("npipe:////./pipe/%s", testNPipe))
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*1)
@@ -37,10 +37,10 @@ func TestNewClientWinPipe(t *testing.T) {
 	}
 }
 
-func startMockDaemonWinPipe(t *testing.T, pipeName string) func() {
+func startMockDaemonWinPipe(t *testing.T, pipeName string) {
 	p, err := winio.ListenPipe(`\\.\pipe\`+pipeName, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return startMockDaemon(t, p)
+	startMockDaemon(t, p)
 }
