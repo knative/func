@@ -10,8 +10,8 @@ import (
 	"testing"
 
 	"gotest.tools/v3/assert"
-	common "knative.dev/kn-plugin-func/test/_common"
-	e2e "knative.dev/kn-plugin-func/test/_e2e"
+	common "knative.dev/func/test/_common"
+	e2e "knative.dev/func/test/_e2e"
 )
 
 // TestDefault covers basic test scenario that ensure on cluster build from a "default branch" and

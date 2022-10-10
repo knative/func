@@ -24,9 +24,9 @@ import (
 	"github.com/docker/docker/api/types/container"
 
 	"github.com/openshift/source-to-image/pkg/api"
-	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/builders"
-	"knative.dev/kn-plugin-func/s2i"
+	fn "knative.dev/func"
+	"knative.dev/func/builders"
+	"knative.dev/func/s2i"
 )
 
 // Test_BuildImages ensures that supported runtimes returns builder image

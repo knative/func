@@ -5,15 +5,15 @@ import (
 	"net/http"
 	"os"
 
-	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/buildpacks"
-	"knative.dev/kn-plugin-func/docker"
-	"knative.dev/kn-plugin-func/docker/creds"
-	fnhttp "knative.dev/kn-plugin-func/http"
-	"knative.dev/kn-plugin-func/knative"
-	"knative.dev/kn-plugin-func/openshift"
-	"knative.dev/kn-plugin-func/pipelines/tekton"
-	"knative.dev/kn-plugin-func/progress"
+	fn "knative.dev/func"
+	"knative.dev/func/buildpacks"
+	"knative.dev/func/docker"
+	"knative.dev/func/docker/creds"
+	fnhttp "knative.dev/func/http"
+	"knative.dev/func/knative"
+	"knative.dev/func/openshift"
+	"knative.dev/func/pipelines/tekton"
+	"knative.dev/func/progress"
 )
 
 // ClientConfig settings for use with NewClient

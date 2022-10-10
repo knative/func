@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"knative.dev/kn-plugin-func/utils"
+	"knative.dev/func/utils"
 )
 
 type Label struct {
@@ -33,10 +33,10 @@ func (l Label) String() string {
 // Returns array of error messages, empty if no errors are found
 //
 // Allowed settings:
-// - key: EXAMPLE1                				# label directly from a value
-//   value: value1
-// - key: EXAMPLE2                 				# label from the local ENV var
-//   value: {{ env:MY_ENV }}
+//   - key: EXAMPLE1                				# label directly from a value
+//     value: value1
+//   - key: EXAMPLE2                 				# label from the local ENV var
+//     value: {{ env:MY_ENV }}
 func ValidateLabels(labels []Label) (errors []string) {
 	for i, label := range labels {
 		if label.Key == nil && label.Value == nil {

@@ -12,8 +12,8 @@ import (
 	"github.com/ory/viper"
 	"knative.dev/client/pkg/util"
 
-	fn "knative.dev/kn-plugin-func"
-	. "knative.dev/kn-plugin-func/testing"
+	fn "knative.dev/func"
+	. "knative.dev/func/testing"
 )
 
 func TestRoot_PersistentFlags(t *testing.T) {

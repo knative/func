@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	fnhttp "knative.dev/kn-plugin-func/http"
+	fnhttp "knative.dev/func/http"
 )
 
 const inClusterHostName = "a-testing-service.a-testing-namespace.svc"

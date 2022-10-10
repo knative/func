@@ -15,10 +15,10 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/rand"
 
-	"knative.dev/kn-plugin-func/docker"
-	"knative.dev/kn-plugin-func/docker/creds"
-	fnhttp "knative.dev/kn-plugin-func/http"
-	"knative.dev/kn-plugin-func/k8s"
+	"knative.dev/func/docker"
+	"knative.dev/func/docker/creds"
+	fnhttp "knative.dev/func/http"
+	"knative.dev/func/k8s"
 )
 
 const (

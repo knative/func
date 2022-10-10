@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	common "knative.dev/kn-plugin-func/test/_common"
-	e2e "knative.dev/kn-plugin-func/test/_e2e"
+	common "knative.dev/func/test/_common"
+	e2e "knative.dev/func/test/_e2e"
 )
 
 // TestRuntime will invoke a language runtime test against (by default) to all runtimes.

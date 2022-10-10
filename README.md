@@ -1,10 +1,10 @@
 # Func
 
-[![CI Status](https://github.com/knative-sandbox/kn-plugin-func/actions/workflows/ci.yaml/badge.svg)](https://github.com/knative-sandbox/kn-plugin-func/actions/workflows/ci.yaml)
-[![Client API Documentation](https://pkg.go.dev/badge/knative.dev/kn-plugin-func?utm_source=godoc)](https://pkg.go.dev/knative.dev/kn-plugin-func)
-[![Issues](https://img.shields.io/github/issues/knative-sandbox/kn-plugin-func.svg)](https://github.com/knative-sandbox/kn-plugin-func/issues)
-[![License](https://img.shields.io/github/license/knative-sandbox/kn-plugin-func)](https://github.com/knative-sandbox/kn-plugin-func/blob/main/LICENSE)
-[![Releases](https://img.shields.io/github/v/release/knative-sandbox/kn-plugin-func.svg?label=Release)](https://github.com/knative-sandbox/kn-plugin-func/releases)
+[![CI Status](https://github.com/knative/func/actions/workflows/ci.yaml/badge.svg)](https://github.com/knative/func/actions/workflows/ci.yaml)
+[![Client API Documentation](https://pkg.go.dev/badge/knative.dev/func?utm_source=godoc)](https://pkg.go.dev/knative.dev/func)
+[![Issues](https://img.shields.io/github/issues/knative-sandbox/kn-plugin-func.svg)](https://github.com/knative/func/issues)
+[![License](https://img.shields.io/github/license/knative-sandbox/kn-plugin-func)](https://github.com/knative/func/blob/main/LICENSE)
+[![Releases](https://img.shields.io/github/v/release/knative-sandbox/kn-plugin-func.svg?label=Release)](https://github.com/knative/func/releases)
 [![codecov](https://codecov.io/gh/knative-sandbox/kn-plugin-func/branch/main/graph/badge.svg)](https://codecov.io/gh/knative-sandbox/kn-plugin-func)
 
 `func` is a Client Library and CLI enabling the development and deployment of Functions.

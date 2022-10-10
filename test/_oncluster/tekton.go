@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"knative.dev/kn-plugin-func/k8s"
-	"knative.dev/kn-plugin-func/pipelines/tekton"
+	"knative.dev/func/k8s"
+	"knative.dev/func/pipelines/tekton"
 )
 
 // TektonPipelineExists verifies pipeline with a given prefix exists on cluster

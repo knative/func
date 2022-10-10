@@ -23,8 +23,8 @@ import (
 	"testing"
 
 	"gotest.tools/v3/assert"
-	common "knative.dev/kn-plugin-func/test/_common"
-	e2e "knative.dev/kn-plugin-func/test/_e2e"
+	common "knative.dev/func/test/_common"
+	e2e "knative.dev/func/test/_e2e"
 )
 
 // TestFromCliDefaultBranch triggers a default branch test by using CLI flags

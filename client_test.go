@@ -19,10 +19,10 @@ import (
 	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
-	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/builders"
-	"knative.dev/kn-plugin-func/mock"
-	. "knative.dev/kn-plugin-func/testing"
+	fn "knative.dev/func"
+	"knative.dev/func/builders"
+	"knative.dev/func/mock"
+	. "knative.dev/func/testing"
 )
 
 const (

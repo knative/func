@@ -8,14 +8,14 @@ import (
 	"text/template"
 	"time"
 
-	"knative.dev/kn-plugin-func/cmd/templates"
+	"knative.dev/func/cmd/templates"
 
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/client/pkg/util"
-	fn "knative.dev/kn-plugin-func"
+	fn "knative.dev/func"
 )
 
 type RootCommandConfig struct {
@@ -170,7 +170,7 @@ func deriveName(explicitName string, path string) string {
 
 // deriveNameAndAbsolutePathFromPath returns resolved function name and absolute path
 // to the function project root. The input parameter path could be one of:
-// 'relative/path/to/foo', '/absolute/path/to/foo', 'foo' or ''
+// 'relative/path/to/foo', '/absolute/path/to/foo', 'foo' or ”.
 func deriveNameAndAbsolutePathFromPath(path string) (string, string) {
 	var absPath string
 
@@ -201,8 +201,9 @@ func deriveNameAndAbsolutePathFromPath(path string) (string, string) {
 //
 // Derivation logic:
 // deriveImage attempts to arrive at a final, full image name:
-//   format:  [registry]/[username]/[functionName]:[tag]
-//   example: quay.io/myname/my.function.name:tag.
+//
+//	format:  [registry]/[username]/[functionName]:[tag]
+//	example: quay.io/myname/my.function.name:tag.
 //
 // Registry can optionally be omitted, in which case DefaultRegistry
 // will be prepended.
@@ -368,11 +369,11 @@ func (v Version) StringVerbose() string {
 //
 // Usage Example:
 //
-//  languages := []string{ "go", "node", "rust" },
-//  survey.Select{
-//    Options: options,
-//    Default: surveySelectDefaut(cfg.Language, languages),
-//  }
+//	languages := []string{ "go", "node", "rust" },
+//	survey.Select{
+//	  Options: options,
+//	  Default: surveySelectDefaut(cfg.Language, languages),
+//	}
 //
 // Summary:
 //
@@ -385,10 +386,11 @@ func (v Version) StringVerbose() string {
 //
 // The above example chooses the default for the Survey (--confirm) question
 // in a way that works with user-provided flag and environment variable values.
-//  `cfg.Language` is the current value set in the config struct, which is
-//     populated from (in ascending order of precedence):
-//     static flag default, associated environment variable, or command flag.
-//  `languages` are the options which are being used by the survey select.
+//
+//	`cfg.Language` is the current value set in the config struct, which is
+//	   populated from (in ascending order of precedence):
+//	   static flag default, associated environment variable, or command flag.
+//	`languages` are the options which are being used by the survey select.
 //
 // This cascade allows for the Survey questions to be properly pre-initialzed
 // with their associated environment variables or flags.  For example,

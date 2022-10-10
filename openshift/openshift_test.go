@@ -8,8 +8,8 @@ import (
 
 	"testing"
 
-	fnhttp "knative.dev/kn-plugin-func/http"
-	"knative.dev/kn-plugin-func/openshift"
+	fnhttp "knative.dev/func/http"
+	"knative.dev/func/openshift"
 )
 
 func TestRoundTripper(t *testing.T) {

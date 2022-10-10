@@ -9,7 +9,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	fn "knative.dev/kn-plugin-func"
+	fn "knative.dev/func"
 )
 
 // TestRepository_TemplatesPath ensures that repositories can specify

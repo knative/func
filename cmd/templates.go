@@ -12,7 +12,7 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
-	fn "knative.dev/kn-plugin-func"
+	fn "knative.dev/func"
 )
 
 // ErrTemplateRepoDoesNotExist is a sentinel error if a template repository responds with 404 status code
@@ -34,7 +34,7 @@ DESCRIPTION
 
 	To specify a URI of a single, specific repository for which templates
 	should be displayed, use the --repository flag.
-	
+
 	Installed repositories are by default located at ~/.func/repositories
 	($XDG_CONFIG_HOME/.func/repositories).  This can be overridden with
 	$FUNC_REPOSITORIES_PATH.

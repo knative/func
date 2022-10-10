@@ -3,7 +3,7 @@ package mock
 import (
 	"context"
 
-	fn "knative.dev/kn-plugin-func"
+	fn "knative.dev/func"
 )
 
 type Describer struct {

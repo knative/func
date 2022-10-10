@@ -13,19 +13,19 @@ import (
 	"github.com/docker/docker/client"
 	"golang.org/x/crypto/ssh"
 
-	fnssh "knative.dev/kn-plugin-func/ssh"
+	fnssh "knative.dev/func/ssh"
 )
 
 var ErrNoDocker = errors.New("docker/podman API not available")
 
 // NewClient creates a new docker client.
 // reads the DOCKER_HOST envvar but it may or may not return it as dockerHost.
-//  - For local connection (unix socket and windows named pipe) it returns the
-//    DOCKER_HOST directly.
-//  - For ssh connections it reads the DOCKER_HOST from the ssh remote.
-//  - For TCP connections it returns "" so it defaults in the remote (note that
-//    one should not be use client.DefaultDockerHost in this situation). This is
-//    needed beaus of TCP+tls connections.
+//   - For local connection (unix socket and windows named pipe) it returns the
+//     DOCKER_HOST directly.
+//   - For ssh connections it reads the DOCKER_HOST from the ssh remote.
+//   - For TCP connections it returns "" so it defaults in the remote (note that
+//     one should not be use client.DefaultDockerHost in this situation). This is
+//     needed beaus of TCP+tls connections.
 func NewClient(defaultHost string) (dockerClient client.CommonAPIClient, dockerHostInRemote string, err error) {
 	var _url *url.URL
 

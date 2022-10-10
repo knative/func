@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	. "knative.dev/kn-plugin-func/testing"
+	. "knative.dev/func/testing"
 )
 
 // Build runs `func build' command for a given test project.

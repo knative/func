@@ -26,10 +26,10 @@ import (
 	"testing"
 	"time"
 
-	"knative.dev/kn-plugin-func/config"
-	"knative.dev/kn-plugin-func/docker"
-	"knative.dev/kn-plugin-func/docker/creds"
-	. "knative.dev/kn-plugin-func/testing"
+	"knative.dev/func/config"
+	"knative.dev/func/docker"
+	"knative.dev/func/docker/creds"
+	. "knative.dev/func/testing"
 
 	"github.com/docker/docker-credential-helpers/credentials"
 )

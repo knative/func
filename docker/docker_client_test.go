@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/docker/docker/client"
-	"knative.dev/kn-plugin-func/docker"
+	"knative.dev/func/docker"
 )
 
 // Test that we are creating client in accordance

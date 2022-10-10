@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"knative.dev/kn-plugin-func/k8s"
+	"knative.dev/func/k8s"
 )
 
 func TestListSecretsNamesIfConnectedWrongKubeconfig(t *testing.T) {

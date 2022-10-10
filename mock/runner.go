@@ -4,7 +4,7 @@ import (
 	"context"
 	"sync"
 
-	fn "knative.dev/kn-plugin-func"
+	fn "knative.dev/func"
 )
 
 // Runner runs a function in a separate process, canceling it on context.Cancel.

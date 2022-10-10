@@ -12,7 +12,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
-	"knative.dev/kn-plugin-func/k8s"
+	"knative.dev/func/k8s"
 )
 
 // GetKServiceLogs will get logs of Knative service.

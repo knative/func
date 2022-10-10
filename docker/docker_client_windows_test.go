@@ -8,7 +8,7 @@ import (
 
 	winio "github.com/Microsoft/go-winio"
 	"github.com/docker/docker/client"
-	"knative.dev/kn-plugin-func/docker"
+	"knative.dev/func/docker"
 )
 
 func TestNewClientWinPipe(t *testing.T) {

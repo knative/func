@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 
-	fn "knative.dev/kn-plugin-func"
+	fn "knative.dev/func"
 )
 
 const (

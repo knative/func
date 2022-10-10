@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
-	fn "knative.dev/kn-plugin-func"
+	fn "knative.dev/func"
 )
 
 // Test_DefaultNamespace ensures that if there is an active kubeconfig,

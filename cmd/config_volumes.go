@@ -9,8 +9,8 @@ import (
 	"github.com/AlecAivazis/survey/v2/terminal"
 	"github.com/spf13/cobra"
 
-	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/k8s"
+	fn "knative.dev/func"
+	"knative.dev/func/k8s"
 )
 
 func NewConfigVolumesCmd() *cobra.Command {

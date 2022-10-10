@@ -7,8 +7,8 @@ import (
 
 	"gotest.tools/v3/assert"
 
-	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/mock"
+	fn "knative.dev/func"
+	"knative.dev/func/mock"
 )
 
 // TestBuild_ImageFlag ensures that the image flag is used when specified.

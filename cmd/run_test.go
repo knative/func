@@ -6,8 +6,8 @@ import (
 	"os"
 	"testing"
 
-	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/mock"
+	fn "knative.dev/func"
+	"knative.dev/func/mock"
 )
 
 func TestRun_Run(t *testing.T) {

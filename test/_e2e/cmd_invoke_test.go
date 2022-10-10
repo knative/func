@@ -15,7 +15,7 @@ import (
 	"testing"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
-	. "knative.dev/kn-plugin-func/testing"
+	. "knative.dev/func/testing"
 )
 
 // TestInvokeFunction is used when testing the 'func invoke' subcommand.
@@ -108,7 +108,9 @@ func bin() (path string, args []string) {
 // run the given binary with the given two sets of arguments
 // This allows for swappable running between the two forms:
 // func [subcommand] [flags]
-//   and
+//
+//	and
+//
 // kn func [subcommand] [flags]
 func run(t *testing.T, bin string, prefix []string, suffix ...string) string {
 	t.Helper()

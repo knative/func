@@ -12,9 +12,9 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
-	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/config"
-	"knative.dev/kn-plugin-func/utils"
+	fn "knative.dev/func"
+	"knative.dev/func/config"
+	"knative.dev/func/utils"
 )
 
 // ErrNoRuntime indicates that the language runtime flag was not passed.

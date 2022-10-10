@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"time"
 
-	"knative.dev/kn-plugin-func/k8s"
+	"knative.dev/func/k8s"
 )
 
 type ContextDialer interface {

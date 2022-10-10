@@ -10,8 +10,8 @@ import (
 	"os"
 	"testing"
 
-	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/docker"
+	fn "knative.dev/func"
+	"knative.dev/func/docker"
 )
 
 // Docker Run Integraiton Test

@@ -17,14 +17,14 @@ import (
 	"github.com/spf13/cobra"
 	"knative.dev/client/pkg/util"
 
-	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/builders"
-	"knative.dev/kn-plugin-func/buildpacks"
-	"knative.dev/kn-plugin-func/config"
-	"knative.dev/kn-plugin-func/docker"
-	"knative.dev/kn-plugin-func/docker/creds"
-	"knative.dev/kn-plugin-func/k8s"
-	"knative.dev/kn-plugin-func/s2i"
+	fn "knative.dev/func"
+	"knative.dev/func/builders"
+	"knative.dev/func/buildpacks"
+	"knative.dev/func/config"
+	"knative.dev/func/docker"
+	"knative.dev/func/docker/creds"
+	"knative.dev/func/k8s"
+	"knative.dev/func/s2i"
 )
 
 func NewDeployCmd(newClient ClientFactory) *cobra.Command {
@@ -42,7 +42,7 @@ SYNOPSIS
 	             [--platform] [-c|--confirm] [-v|--verbose]
 
 DESCRIPTION
-	
+
 	Deploys a function to the currently configured Knative-enabled cluster.
 
 	By default the function in the current working directory is deployed, or at
@@ -56,7 +56,7 @@ DESCRIPTION
 	determine the final built image tag for the function.  This final image name
 	can be provided explicitly using --image, in which case it is used in place
 	of --registry.
-	
+
 	To run deploy using an interactive mode, use the --confirm (-c) option.
 	This mode is useful for the first deployment in particular, since subsdequent
 	deployments remember most of the settings provided.

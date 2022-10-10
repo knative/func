@@ -4,9 +4,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"knative.dev/kn-plugin-func/config"
+	"knative.dev/func/config"
 
-	. "knative.dev/kn-plugin-func/testing"
+	. "knative.dev/func/testing"
 )
 
 // TestNewDefaults ensures that the default Config

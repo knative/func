@@ -11,8 +11,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
-	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/cmd"
+	fn "knative.dev/func"
+	"knative.dev/func/cmd"
 )
 
 var (

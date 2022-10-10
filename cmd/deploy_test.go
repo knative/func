@@ -11,9 +11,9 @@ import (
 
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
-	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/builders"
-	"knative.dev/kn-plugin-func/mock"
+	fn "knative.dev/func"
+	"knative.dev/func/builders"
+	"knative.dev/func/mock"
 )
 
 const TestRegistry = "example.com/alice"

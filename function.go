@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v2"
-	fnlabels "knative.dev/kn-plugin-func/k8s/labels"
+	fnlabels "knative.dev/func/k8s/labels"
 	"knative.dev/pkg/ptr"
 )
 

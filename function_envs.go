@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"knative.dev/kn-plugin-func/utils"
+	"knative.dev/func/utils"
 )
 
 type Env struct {

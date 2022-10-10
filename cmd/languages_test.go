@@ -3,7 +3,7 @@ package cmd
 import (
 	"testing"
 
-	fn "knative.dev/kn-plugin-func"
+	fn "knative.dev/func"
 )
 
 // TestLanguages_Default ensures that the default behavior of listing

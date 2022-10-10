@@ -18,9 +18,9 @@ import (
 	"strings"
 	"testing"
 
-	fn "knative.dev/kn-plugin-func"
-	common "knative.dev/kn-plugin-func/test/_common"
-	e2e "knative.dev/kn-plugin-func/test/_e2e"
+	fn "knative.dev/func"
+	common "knative.dev/func/test/_common"
+	e2e "knative.dev/func/test/_e2e"
 )
 
 func TestFromFeatureBranch(t *testing.T) {

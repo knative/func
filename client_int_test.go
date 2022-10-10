@@ -10,11 +10,11 @@ import (
 	"testing"
 	"time"
 
-	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/buildpacks"
-	"knative.dev/kn-plugin-func/docker"
-	"knative.dev/kn-plugin-func/knative"
-	. "knative.dev/kn-plugin-func/testing"
+	fn "knative.dev/func"
+	"knative.dev/func/buildpacks"
+	"knative.dev/func/docker"
+	"knative.dev/func/knative"
+	. "knative.dev/func/testing"
 )
 
 /*

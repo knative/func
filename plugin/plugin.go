@@ -10,7 +10,7 @@ import (
 
 	"knative.dev/client/pkg/kn/plugin"
 
-	"knative.dev/kn-plugin-func/cmd"
+	"knative.dev/func/cmd"
 )
 
 func init() {
@@ -39,7 +39,7 @@ func (f *funcPlugin) Execute(args []string) error {
 
 	info, _ := debug.ReadBuildInfo()
 	for _, dep := range info.Deps {
-		if strings.Contains(dep.Path, "knative.dev/kn-plugin-func") {
+		if strings.Contains(dep.Path, "knative.dev/func") {
 			version.Vers = dep.Version
 			version.Hash = dep.Sum
 		}

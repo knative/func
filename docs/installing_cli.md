@@ -14,9 +14,9 @@ Installed in this way, Knative Functions are managed as a plugin of the Knative 
 
 ## Prebuilt Binary
 
-Download the latest binary appropriate for your system from the [Latest Release](https://github.com/knative-sandbox/kn-plugin-func/releases/latest/).
+Download the latest binary appropriate for your system from the [Latest Release](https://github.com/knative/func/releases/latest/).
 
-Each version is built and made available as a prebuilt binary.  See [All Releases](https://github.com/knative-sandbox/kn-plugin-func/releases/).
+Each version is built and made available as a prebuilt binary.  See [All Releases](https://github.com/knative/func/releases/).
 
 ## From Source
 

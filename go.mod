@@ -1,4 +1,4 @@
-module knative.dev/kn-plugin-func
+module knative.dev/func
 
 go 1.18
 

@@ -7,7 +7,7 @@ import (
 	"reflect"
 	"testing"
 
-	fnlabels "knative.dev/kn-plugin-func/k8s/labels"
+	fnlabels "knative.dev/func/k8s/labels"
 )
 
 func TestFunction_ImageWithDigest(t *testing.T) {

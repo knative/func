@@ -18,20 +18,20 @@ The Language Pack contract is implemented in the following built-in templates.
 
 |Language|Format|
 |---|---|
-|Go|[CloudEvents](https://github.com/knative-sandbox/kn-plugin-func/tree/main/templates/go/cloudevents)|
-|Go|[HTTP](https://github.com/knative-sandbox/kn-plugin-func/tree/main/templates/go/http)|
-|Node.js|[CloudEvents](https://github.com/knative-sandbox/kn-plugin-func/tree/main/templates/node/cloudevents)|
-|Node.js|[HTTP](https://github.com/knative-sandbox/kn-plugin-func/tree/main/templates/node/http)|
-|Python|[CloudEvents](https://github.com/knative-sandbox/kn-plugin-func/tree/main/templates/python/cloudevents)|
-|Python|[HTTP](https://github.com/knative-sandbox/kn-plugin-func/tree/main/templates/python/http)|
-|Quarkus|[CloudEvents](https://github.com/knative-sandbox/kn-plugin-func/tree/main/templates/quarkus/cloudevents)|
-|Quarkus|[HTTP](https://github.com/knative-sandbox/kn-plugin-func/tree/main/templates/quarkus/http)|
-|Rust|[CloudEvents](https://github.com/knative-sandbox/kn-plugin-func/tree/main/templates/rust/cloudevents)|
-|Rust|[HTTP](https://github.com/knative-sandbox/kn-plugin-func/tree/main/templates/rust/http)|
-|Springboot|[CloudEvents](https://github.com/knative-sandbox/kn-plugin-func/tree/main/templates/springboot/cloudevents)|
-|Springboot|[HTTP](https://github.com/knative-sandbox/kn-plugin-func/tree/main/templates/springboot/http)|
-|TypeScript|[CloudEvents](https://github.com/knative-sandbox/kn-plugin-func/tree/main/templates/typescript/cloudevents)|
-|TypeScript|[HTTP](https://github.com/knative-sandbox/kn-plugin-func/tree/main/templates/typescript/http)|
+|Go|[CloudEvents](https://github.com/knative/func/tree/main/templates/go/cloudevents)|
+|Go|[HTTP](https://github.com/knative/func/tree/main/templates/go/http)|
+|Node.js|[CloudEvents](https://github.com/knative/func/tree/main/templates/node/cloudevents)|
+|Node.js|[HTTP](https://github.com/knative/func/tree/main/templates/node/http)|
+|Python|[CloudEvents](https://github.com/knative/func/tree/main/templates/python/cloudevents)|
+|Python|[HTTP](https://github.com/knative/func/tree/main/templates/python/http)|
+|Quarkus|[CloudEvents](https://github.com/knative/func/tree/main/templates/quarkus/cloudevents)|
+|Quarkus|[HTTP](https://github.com/knative/func/tree/main/templates/quarkus/http)|
+|Rust|[CloudEvents](https://github.com/knative/func/tree/main/templates/rust/cloudevents)|
+|Rust|[HTTP](https://github.com/knative/func/tree/main/templates/rust/http)|
+|Springboot|[CloudEvents](https://github.com/knative/func/tree/main/templates/springboot/cloudevents)|
+|Springboot|[HTTP](https://github.com/knative/func/tree/main/templates/springboot/http)|
+|TypeScript|[CloudEvents](https://github.com/knative/func/tree/main/templates/typescript/cloudevents)|
+|TypeScript|[HTTP](https://github.com/knative/func/tree/main/templates/typescript/http)|
 
 ### Built-in Template APIs
 

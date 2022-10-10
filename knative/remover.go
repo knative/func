@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"knative.dev/kn-plugin-func/k8s"
+	"knative.dev/func/k8s"
 )
 
 const RemoveTimeout = 120 * time.Second

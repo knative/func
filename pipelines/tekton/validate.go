@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 
-	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/builders"
-	"knative.dev/kn-plugin-func/s2i"
+	fn "knative.dev/func"
+	"knative.dev/func/builders"
+	"knative.dev/func/s2i"
 )
 
 var (

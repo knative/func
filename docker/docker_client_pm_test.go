@@ -18,8 +18,8 @@ import (
 
 	"golang.org/x/crypto/ssh"
 
-	"knative.dev/kn-plugin-func/docker"
-	. "knative.dev/kn-plugin-func/testing"
+	"knative.dev/func/docker"
+	. "knative.dev/func/testing"
 )
 
 func TestNewDockerClientWithPodmanMachine(t *testing.T) {
