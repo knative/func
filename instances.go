@@ -16,6 +16,7 @@ var (
 	ErrNotRunning          = errors.New("function not running")
 	ErrRootRequired        = errors.New("function root path is required")
 	ErrEnvironmentNotFound = errors.New("environment not found")
+	ErrMismatchedName      = errors.New("name passed does not match name of the function at root")
 )
 
 // Instances manager
@@ -100,9 +101,7 @@ func (s *Instances) Remote(ctx context.Context, name, root string) (Instance, er
 			return Instance{}, err
 		}
 		if name != f.Name {
-			return Instance{}, errors.New(
-				"name passed does not match name of the function at root. " +
-					"Try passing either name or root rather than both.")
+			return Instance{}, errors.New("name passed does not match name of the function at root")
 		}
 	}
 
