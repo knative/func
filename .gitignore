@@ -7,6 +7,7 @@
 /templates/typescript/cloudevents/build
 /templates/typescript/http/build
 /coverage.out
+/coverage.txt
 /bin
 /target
 
