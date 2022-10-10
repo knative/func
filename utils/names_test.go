@@ -25,6 +25,7 @@ func TestValidateFunctionName(t *testing.T) {
 		{"example-com-", false},
 		{"Example", false},
 		{"EXAMPLE", false},
+		{"42", false},
 	}
 
 	for _, c := range cases {
