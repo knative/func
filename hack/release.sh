@@ -16,7 +16,7 @@
 
 # Documentation about this script and how to use it can be found
 # at https://github.com/knative/hack
-ORG_NAME=knative-sandbox
+ORG_NAME=knative
 VALIDATION_TESTS="make test"
 
 source $(dirname $0)/../vendor/knative.dev/hack/release.sh
