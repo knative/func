@@ -29,13 +29,13 @@ func taskFetchSources() pplnv1beta1.PipelineTask {
 	}
 }
 
-func taskBuildpacks(runAfter string) pplnv1beta1.PipelineTask {
+func taskBuildpacks(runAfter []string) pplnv1beta1.PipelineTask {
 	return pplnv1beta1.PipelineTask{
 		Name: taskNameBuild,
 		TaskRef: &pplnv1beta1.TaskRef{
 			Name: "func-buildpacks",
 		},
-		RunAfter: []string{runAfter},
+		RunAfter: runAfter,
 		Workspaces: []pplnv1beta1.WorkspacePipelineTaskBinding{
 			{
 				Name:      "source",
@@ -61,7 +61,7 @@ func taskBuildpacks(runAfter string) pplnv1beta1.PipelineTask {
 	}
 
 }
-func taskS2iBuild(runAfter string) pplnv1beta1.PipelineTask {
+func taskS2iBuild(runAfter []string) pplnv1beta1.PipelineTask {
 	params := []pplnv1beta1.Param{
 		{Name: "IMAGE", Value: *pplnv1beta1.NewArrayOrString("$(params.imageName)")},
 		{Name: "PATH_CONTEXT", Value: *pplnv1beta1.NewArrayOrString("$(params.contextDir)")},
@@ -77,7 +77,7 @@ func taskS2iBuild(runAfter string) pplnv1beta1.PipelineTask {
 		TaskRef: &pplnv1beta1.TaskRef{
 			Name: "func-s2i",
 		},
-		RunAfter: []string{runAfter},
+		RunAfter: runAfter,
 		Workspaces: []pplnv1beta1.WorkspacePipelineTaskBinding{
 			{
 				Name:      "source",

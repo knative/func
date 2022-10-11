@@ -78,10 +78,20 @@ func generatePipeline(f fn.Function, labels map[string]string) *pplnv1beta1.Pipe
 	// Deploy step that uses an image produced by S2I builds needs explicit reference to the image
 	referenceImageFromPreviousTaskResults := false
 
+	var tasks []pplnv1beta1.PipelineTask
+	var buildPreReq []string
+
+	if f.Build.Git.URL != "" {
+		// If Git is set up create fetch task,
+		// otherwise sources have been already uploaded to workspace PVC.
+		buildPreReq = []string{taskNameFetchSources}
+		tasks = append(tasks, taskFetchSources())
+	}
+
 	if f.Build.Builder == builders.Pack {
 		// ----- Buildpacks related properties
 		workspaces = append(workspaces, pplnv1beta1.PipelineWorkspaceDeclaration{Name: "cache-workspace", Description: "Directory where Buildpacks cache is stored."})
-		taskBuild = taskBuildpacks(taskNameFetchSources)
+		taskBuild = taskBuildpacks(buildPreReq)
 
 	} else if f.Build.Builder == builders.S2I {
 		// ----- S2I build related properties
@@ -89,16 +99,12 @@ func generatePipeline(f fn.Function, labels map[string]string) *pplnv1beta1.Pipe
 		params = append(params, pplnv1beta1.ParamSpec{Name: "s2iImageScriptsUrl", Description: "URL containing the default assemble and run scripts for the builder image.",
 			Default: pplnv1beta1.NewArrayOrString("image:///usr/libexec/s2i")})
 
-		taskBuild = taskS2iBuild(taskNameFetchSources)
+		taskBuild = taskS2iBuild(buildPreReq)
 		referenceImageFromPreviousTaskResults = true
 	}
 
 	// ----- Pipeline definition
-	tasks := pplnv1beta1.PipelineTaskList{
-		taskFetchSources(),
-		taskBuild,
-		taskDeploy(taskNameBuild, referenceImageFromPreviousTaskResults),
-	}
+	tasks = append(tasks, taskBuild, taskDeploy(taskNameBuild, referenceImageFromPreviousTaskResults))
 
 	return &pplnv1beta1.Pipeline{
 		ObjectMeta: v1.ObjectMeta{
@@ -230,7 +236,13 @@ func getBuilderImage(f fn.Function) (name string) {
 }
 
 func getPipelineName(f fn.Function) string {
-	return fmt.Sprintf("%s-%s-pipeline", f.Name, f.Build.Builder)
+	var source string
+	if f.Build.Git.URL == "" {
+		source = "upload"
+	} else {
+		source = "git"
+	}
+	return fmt.Sprintf("%s-%s-%s-pipeline", f.Name, f.Build.Builder, source)
 }
 
 func getPipelineSecretName(f fn.Function) string {

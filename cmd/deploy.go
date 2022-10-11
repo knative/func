@@ -277,9 +277,6 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 
 	// Perform the deployment either remote or local.
 	if config.Remote {
-		if f.Build.Git.URL == "" {
-			return ErrURLRequired // Provides CLI-specific help text
-		}
 		// Invoke a remote build/push/deploy pipeline
 		// Returned is the function with fields like Registry and Image populated.
 		if f, err = client.RunPipeline(cmd.Context(), f); err != nil {
@@ -736,9 +733,3 @@ var ErrRegistryRequired = errors.New(`A container registry is required.  For exa
 --registry docker.io/myusername
 
 To run the command in an interactive mode, use --confirm (-c)`)
-
-var ErrURLRequired = errors.New(`The function is not associated with a Git repository, and needs one in order to perform a remote deployment.  For example:
-
---remote --git-url=https://git.example.com/namespace/myFunction
-
-To run the deploy command in an interactive mode, use --confirm (-c)`)
