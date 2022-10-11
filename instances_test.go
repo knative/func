@@ -5,6 +5,7 @@ package function
 
 import (
 	"context"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -74,6 +75,11 @@ func TestInstance_RemoteErrors(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	var badRoot = "func.yaml: no such file or directory"
+	if runtime.GOOS == "windows" {
+		badRoot = "The system cannot find the path specified"
+	}
+
 	tests := []struct {
 		name string
 		root string
@@ -82,7 +88,7 @@ func TestInstance_RemoteErrors(t *testing.T) {
 		{
 			name: "foo",
 			root: "foo", // bad root
-			want: "func.yaml: no such file or directory",
+			want: badRoot,
 		},
 		{
 			name: "foo", // name and root are mismatched
