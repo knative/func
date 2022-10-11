@@ -5,6 +5,7 @@ package function
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	. "knative.dev/kn-plugin-func/testing"
@@ -81,7 +82,7 @@ func TestInstance_RemoteErrors(t *testing.T) {
 		{
 			name: "foo",
 			root: "foo", // bad root
-			want: "stat foo/func.yaml: no such file or directory",
+			want: "func.yaml: no such file or directory",
 		},
 		{
 			name: "foo", // name and root are mismatched
@@ -91,7 +92,7 @@ func TestInstance_RemoteErrors(t *testing.T) {
 	}
 	for _, tt := range tests {
 		i := Instances{}
-		if _, err := i.Remote(context.TODO(), tt.name, tt.root); err.Error() != tt.want {
+		if _, err := i.Remote(context.TODO(), tt.name, tt.root); !strings.Contains(err.Error(), tt.want) {
 			t.Errorf("Remote() %v error = %v, wantErr %v", "Mismatched name and root", err.Error(), tt.want)
 		}
 	}
