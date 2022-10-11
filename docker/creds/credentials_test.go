@@ -74,8 +74,7 @@ func TestCheckAuth(t *testing.T) {
 		incorrectPwd = "badpwd"
 	)
 
-	localhost, localhostTLS, stopServer := startServer(t, uname, pwd)
-	t.Cleanup(stopServer)
+	localhost, localhostTLS := startServer(t, uname, pwd)
 
 	_, portTLS, err := net.SplitHostPort(localhostTLS)
 	if err != nil {
@@ -162,15 +161,14 @@ func TestCheckAuth(t *testing.T) {
 
 func TestCheckAuthEmptyCreds(t *testing.T) {
 
-	localhost, _, stopServer := startServer(t, "", "")
-	t.Cleanup(stopServer)
+	localhost, _ := startServer(t, "", "")
 	err := creds.CheckAuth(context.Background(), localhost+"/someorg/someimage:sometag", docker.Credentials{}, http.DefaultTransport)
 	if err != nil {
 		t.Error(err)
 	}
 }
 
-func startServer(t *testing.T, uname, pwd string) (addr, addrTLS string, stopServer func()) {
+func startServer(t *testing.T, uname, pwd string) (addr, addrTLS string) {
 	// TODO: this should be refactored to use OS-chosen ports so as not to
 	// fail when a user is running a function on the default port.)
 	listener, err := net.Listen("tcp", "localhost:0")
@@ -290,13 +288,15 @@ func startServer(t *testing.T, uname, pwd string) (addr, addrTLS string, stopSer
 		return dc(ctx, network, addr)
 	}
 
-	return addr, addrTLS, func() {
+	t.Cleanup(func() {
 		err := server.Shutdown(context.Background())
 		if err != nil {
 			t.Fatal(err)
 		}
 		http.DefaultTransport = oldDefaultTransport
-	}
+	})
+
+	return addr, addrTLS
 }
 
 const (

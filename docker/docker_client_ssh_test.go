@@ -25,15 +25,14 @@ import (
 )
 
 func TestNewDockerClientWithSSH(t *testing.T) {
-	defer withCleanHome(t)()
+	withCleanHome(t)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*1)
 	defer cancel()
 
-	sshConf, stopSSH := startSSH(t)
-	defer stopSSH()
+	sshConf := startSSH(t)
 
-	defer withKnowHosts(t, sshConf.address, sshConf.pubHostKey)()
+	withKnowHosts(t, sshConf.address, sshConf.pubHostKey)
 
 	t.Setenv("DOCKER_HOST", fmt.Sprintf("ssh://user:pwd@%s", sshConf.address))
 
@@ -61,7 +60,7 @@ type sshConfig struct {
 }
 
 // emulates remote machine with docker unix socket at "/some/path/docker.sock"
-func startSSH(t *testing.T, authorizedKeys ...ssh.PublicKey) (settings sshConfig, stopSSH func()) {
+func startSSH(t *testing.T, authorizedKeys ...ssh.PublicKey) (settings sshConfig) {
 	var err error
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -102,7 +101,7 @@ func startSSH(t *testing.T, authorizedKeys ...ssh.PublicKey) (settings sshConfig
 	}
 
 	dockerDaemonServer := http.Server{}
-	stopSSH = func() {
+	t.Cleanup(func() {
 		var err error
 		cancel()
 
@@ -125,7 +124,7 @@ func startSSH(t *testing.T, authorizedKeys ...ssh.PublicKey) (settings sshConfig
 			t.Error(err)
 		}
 
-	}
+	})
 
 	settings.address = sshTCPListener.Addr().String()
 
@@ -331,7 +330,7 @@ func (l listener) Addr() net.Addr {
 
 // sets clean temporary $HOME for test
 // this prevents interaction with actual user home which may contain .ssh/
-func withCleanHome(t *testing.T) func() {
+func withCleanHome(t *testing.T) {
 	t.Helper()
 	homeName := "HOME"
 	if runtime.GOOS == "windows" {
@@ -344,18 +343,18 @@ func withCleanHome(t *testing.T) func() {
 	oldHome, hadHome := os.LookupEnv(homeName)
 	os.Setenv(homeName, tmpDir)
 
-	return func() {
+	t.Cleanup(func() {
 		if hadHome {
 			os.Setenv(homeName, oldHome)
 		} else {
 			os.Unsetenv(homeName)
 		}
 		os.RemoveAll(tmpDir)
-	}
+	})
 }
 
 // withKnowHosts creates $HOME/.ssh/known_hosts that trust the host
-func withKnowHosts(t *testing.T, host string, pubKey ssh.PublicKey) func() {
+func withKnowHosts(t *testing.T, host string, pubKey ssh.PublicKey) {
 	t.Helper()
 
 	var err error
@@ -385,7 +384,7 @@ func withKnowHosts(t *testing.T, host string, pubKey ssh.PublicKey) func() {
 
 	fmt.Fprintf(knownHostFile, "%s %s\n", host, string(ssh.MarshalAuthorizedKey(pubKey)))
 
-	return func() {
+	t.Cleanup(func() {
 		os.Remove(knownHosts)
-	}
+	})
 }
