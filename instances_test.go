@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	. "knative.dev/kn-plugin-func/testing"
+	. "knative.dev/func/testing"
 )
 
 // TestInstances_LocalErrors tests the three possible error states for a function
