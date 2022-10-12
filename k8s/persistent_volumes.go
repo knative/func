@@ -158,7 +158,7 @@ func runWithVolumeMounted(ctx context.Context, podImage string, podCommand []str
 	case <-ctx.Done():
 		err = ctx.Err()
 	case <-time.After(time.Minute * 5):
-		err = errors.New("timeout")
+		err = errors.New("timeout waiting for pod to start")
 	}
 
 	if err != nil {
