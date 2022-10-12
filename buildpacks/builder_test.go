@@ -94,6 +94,33 @@ func Test_BuildEnvs(t *testing.T) {
 	}
 }
 
+func Test_BuildErrors(t *testing.T) {
+	testCases := []struct {
+		name, runtime, expectedErr string
+	}{
+		{name: "test runtime required error", expectedErr: "Pack requires the Function define a language runtime"},
+		{
+			name:        "test runtime not supported error",
+			runtime:     "test-runtime-language",
+			expectedErr: "Pack builder has no default builder image for the 'test-runtime-language' language runtime.  Please provide one.",
+		},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tc := tc
+			t.Parallel()
+			gotErr := ErrRuntimeRequired{}.Error()
+			if tc.runtime != "" {
+				gotErr = ErrRuntimeNotSupported{Runtime: tc.runtime}.Error()
+			}
+
+			if tc.expectedErr != gotErr {
+				t.Fatalf("Unexpected error want:\n%v\ngot:\n%v", tc.expectedErr, gotErr)
+			}
+		})
+	}
+}
+
 type mockImpl struct {
 	BuildFn func(context.Context, pack.BuildOptions) error
 }

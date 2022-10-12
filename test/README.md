@@ -48,7 +48,7 @@ The below instructions will run all the tests on KinD using an **ephemeral** con
 make build
 
 # Run tests
-./test/e2e_oncluter_tests.sh
+./test/e2e_oncluster_tests.sh
 ```
 
 #### Running "runtime" only scenario
@@ -56,7 +56,7 @@ make build
 You can run only e2e tests to exercise a given language/runtime, for example *python*
 
 ```
-env E2E_RUNTIMES=python TEST_TAGS=runtime ./test/e2e_oncluster_test.sh
+env E2E_RUNTIMES=python TEST_TAGS=runtime ./test/e2e_oncluster_tests.sh
 ```
 
 #### Running tests except "runtime" ones
@@ -64,5 +64,5 @@ env E2E_RUNTIMES=python TEST_TAGS=runtime ./test/e2e_oncluster_test.sh
 You can run most of on cluster builds e2e scenarios, except the language/runtime specific
 ones, by running:
 ```
-env E2E_RUNTIMES="" ./test/e2e_oncluster_test.sh
+env E2E_RUNTIMES="" ./test/e2e_oncluster_tests.sh
 ```
