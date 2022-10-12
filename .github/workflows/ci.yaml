@@ -54,8 +54,8 @@ jobs:
           files: ./coverage.txt
           flags: integration-tests
 
-  build-and-publish:
-    needs: test
+  build:
+    needs: [check, test-unit, test-integration]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -94,8 +94,9 @@ jobs:
         with:
           name: Windows Binary
           path: func_windows_amd64.exe
+
   publish-image:
-    needs: test
+    needs: build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
