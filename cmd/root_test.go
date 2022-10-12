@@ -299,7 +299,7 @@ func piped(t *testing.T) func() string {
 // - creates a temp directory and changes to it as the new working directory
 // - creates a temp directory and uses it for XDG_CONFIG_HOME
 // - removes temp directories on cleanup
-// - resets viper on cleanum (the reason this is "cli-specific")
+// - resets viper on cleanup (the reason this is "cli-specific")
 func fromTempDirectory(t *testing.T) string {
 	t.Helper()
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
