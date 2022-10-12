@@ -5,7 +5,35 @@ on:
     branches:
       - "main"
 jobs:
-  test:
+  check:
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: "1.18"
+      - name: Lint
+        run: make check
+      - name: Check that 'func.yaml schema' is up-to-date
+        run: make schema-check
+      - name: Check embedded templates content
+        run: go test -run "^\QTestFileSystems\E$/^\Qembedded\E$"
+
+  test-unit:
+    runs-on: "ubuntu-latest"
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: "1.18"
+      - name: Unit Test
+        run:  make test
+      - uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage.txt
+          flags: unit-tests
+
+  test-integration:
     runs-on: "ubuntu-latest"
     steps:
       - uses: actions/checkout@v2
@@ -15,16 +43,16 @@ jobs:
       - uses: actions/setup-java@v1
         with:
           java-version: '11'
-      - name: Check embedded templates content
-        run: go test -run "^\QTestFileSystems\E$/^\Qembedded\E$"
       - name: Unit Test
         run:  make test
       - name: Template Unit Tests
         run:  make test-templates
-      - name: Lint
-        run: make check
-      - name: Check that 'func.yaml schema' is up-to-date
-        run: make schema-check
+      - name: Integration Tests
+        run: make test-integration
+      - uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage.txt
+          flags: integration-tests
 
   build-and-publish:
     needs: test
