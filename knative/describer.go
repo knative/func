@@ -7,8 +7,8 @@ import (
 	clientservingv1 "knative.dev/client/pkg/serving/v1"
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
 
-	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/k8s"
+	fn "knative.dev/func"
+	"knative.dev/func/k8s"
 )
 
 type Describer struct {

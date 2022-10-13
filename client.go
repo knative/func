@@ -14,7 +14,7 @@ import (
 	"runtime/debug"
 	"time"
 
-	"knative.dev/kn-plugin-func/config"
+	"knative.dev/func/config"
 )
 
 const (

@@ -9,8 +9,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	fn "knative.dev/kn-plugin-func"
-	. "knative.dev/kn-plugin-func/testing"
+	fn "knative.dev/func"
+	. "knative.dev/func/testing"
 )
 
 // TestFunction_WriteIdempotency ensures that a function can be written repeatedly

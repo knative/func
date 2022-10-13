@@ -9,8 +9,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"knative.dev/kn-plugin-func/cmd"
-	"knative.dev/kn-plugin-func/docker"
+	"knative.dev/func/cmd"
+	"knative.dev/func/docker"
 )
 
 // Statically-populated build metadata set by `make build`.

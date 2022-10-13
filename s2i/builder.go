@@ -25,9 +25,9 @@ import (
 	s2idocker "github.com/openshift/source-to-image/pkg/docker"
 	"github.com/openshift/source-to-image/pkg/scm/git"
 
-	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/builders"
-	"knative.dev/kn-plugin-func/docker"
+	fn "knative.dev/func"
+	"knative.dev/func/builders"
+	"knative.dev/func/docker"
 )
 
 // DefaultName when no WithName option is provided to NewBuilder

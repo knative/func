@@ -7,9 +7,9 @@ import (
 	clientservingv1 "knative.dev/client/pkg/serving/v1"
 	"knative.dev/pkg/apis"
 
-	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/k8s"
-	"knative.dev/kn-plugin-func/k8s/labels"
+	fn "knative.dev/func"
+	"knative.dev/func/k8s"
+	"knative.dev/func/k8s/labels"
 )
 
 type Lister struct {

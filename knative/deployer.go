@@ -22,8 +22,8 @@ import (
 	"knative.dev/serving/pkg/apis/autoscaling"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 
-	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/k8s"
+	fn "knative.dev/func"
+	"knative.dev/func/k8s"
 )
 
 const LIVENESS_ENDPOINT = "/health/liveness"

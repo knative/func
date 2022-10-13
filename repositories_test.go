@@ -10,8 +10,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	fn "knative.dev/kn-plugin-func"
-	. "knative.dev/kn-plugin-func/testing"
+	fn "knative.dev/func"
+	. "knative.dev/func/testing"
 )
 
 // RepositoriesTestRepo is the general-purpose example repository for most

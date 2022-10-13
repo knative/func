@@ -32,11 +32,11 @@ The primary interface for Knative Functions is the `func` CLI.
 [Download][func-download] the most recent version and install it some place
 within your `$PATH`.
 
-[func-download]: https://github.com/knative-sandbox/kn-plugin-func/releases/latest
+[func-download]: https://github.com/knative/func/releases/latest
 
 ```sh
 # Be sure to download the correct binary for your operating system
-curl -L -o - func.gz https://github.com/knative-sandbox/kn-plugin-func/releases/latest/download/func_linux_amd64.gz | gunzip > func && chmod 755 func
+curl -L -o - func.gz https://github.com/knative/func/releases/latest/download/func_linux_amd64.gz | gunzip > func && chmod 755 func
 sudo mv func /usr/local/bin
 ```
 
@@ -78,8 +78,8 @@ export FUNC_REGISTRY=docker.io/developer
 
 With your Knative enabled cluster up and running, you can now create a new
 Function Project. Let's start by creating a project directory. Function name
-must consist of lower case alphanumeric characters or '-', 
-and must start and end with an alphanumeric character 
+must consist of lower case alphanumeric characters or '-',
+and must start and end with an alphanumeric character
 (e.g. 'my-name',  or '123-abc', regex used for validation is `[a-z0-9]([-a-z0-9]*[a-z0-9])?`).
 
 
@@ -184,7 +184,7 @@ func create -l node -t http
 ```
 
 You can also create a Quarkus, SpringBoot, Python or a Golang project by providing
-`quarkus`, `springboot`, `python` or `go` respectively to the `-l` flag. 
+`quarkus`, `springboot`, `python` or `go` respectively to the `-l` flag.
 To create a project with a template for CloudEvents, provide `events` to the `-t` flag.
 
 ### `func build`

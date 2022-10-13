@@ -27,7 +27,7 @@ kubectl config set-context --current --namespace=func
 
 ### Serving
 
-Docs: https://knative.dev/docs/install/any-kubernetes-cluster/ ) 
+Docs: https://knative.dev/docs/install/any-kubernetes-cluster/ )
 
 Serving with Kourier networking
 ```
@@ -55,9 +55,9 @@ First edit `knative/config-domain.yaml` to contain your domain of choice and the
 ```
 kubectl apply -f knative/config-domain.yaml
 ```
-Note that this step is [pending automation](https://github.com/knative-sandbox/kn-plugin-func/issues/47)
+Note that this step is [pending automation](https://github.com/knative/func/issues/47)
 
-### DNS 
+### DNS
 
 For external routing to the cluster, register domain(s) to be used with a registrar and configure a DNS CNAME to the DNS or IP returned from:
 (May also register a wildcard subdomain match).

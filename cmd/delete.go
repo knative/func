@@ -8,8 +8,8 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
-	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/config"
+	fn "knative.dev/func"
+	"knative.dev/func/config"
 )
 
 func NewDeleteCmd(newClient ClientFactory) *cobra.Command {

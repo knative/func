@@ -14,7 +14,7 @@ import (
 	"github.com/Netflix/go-expect"
 	"github.com/hinshun/vt10x"
 	"github.com/spf13/cobra"
-	fn "knative.dev/kn-plugin-func"
+	fn "knative.dev/func"
 )
 
 type mockFunctionLoaderSaver struct {

@@ -16,11 +16,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
 
-	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/docker"
-	"knative.dev/kn-plugin-func/k8s"
-	fnlabels "knative.dev/kn-plugin-func/k8s/labels"
-	"knative.dev/kn-plugin-func/knative"
+	fn "knative.dev/func"
+	"knative.dev/func/docker"
+	"knative.dev/func/k8s"
+	fnlabels "knative.dev/func/k8s/labels"
+	"knative.dev/func/knative"
 	"knative.dev/pkg/apis"
 )
 

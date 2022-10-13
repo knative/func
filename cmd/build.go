@@ -10,12 +10,12 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
-	"knative.dev/kn-plugin-func/buildpacks"
-	"knative.dev/kn-plugin-func/config"
-	"knative.dev/kn-plugin-func/s2i"
+	"knative.dev/func/buildpacks"
+	"knative.dev/func/config"
+	"knative.dev/func/s2i"
 
-	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/builders"
+	fn "knative.dev/func"
+	"knative.dev/func/builders"
 )
 
 func NewBuildCmd(newClient ClientFactory) *cobra.Command {

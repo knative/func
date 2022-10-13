@@ -17,7 +17,7 @@ import { Context } from 'faas-js-runtime';
  * @param {object} context.headers the HTTP request headers
  * @param {string} context.method the HTTP request method
  * @param {string} context.httpVersion the HTTP protocol version
- * See: https://github.com/knative-sandbox/kn-plugin-func/blob/main/docs/guides/nodejs.md#the-context-object
+ * See: https://github.com/knative/func/blob/main/docs/guides/nodejs.md#the-context-object
  */
 export const handle = async (context: Context): Promise<string> => {
   // YOUR CODE HERE

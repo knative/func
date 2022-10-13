@@ -3,8 +3,8 @@ package oncluster
 import (
 	"testing"
 
-	fn "knative.dev/kn-plugin-func"
-	common "knative.dev/kn-plugin-func/test/_common"
+	fn "knative.dev/func"
+	common "knative.dev/func/test/_common"
 )
 
 // UpdateFuncGit updates a function's git settings

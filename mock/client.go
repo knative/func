@@ -1,7 +1,7 @@
 package mock
 
 import (
-	fn "knative.dev/kn-plugin-func"
+	fn "knative.dev/func"
 )
 
 type Client struct {

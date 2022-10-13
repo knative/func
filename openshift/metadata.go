@@ -1,7 +1,7 @@
 package openshift
 
 import (
-	fn "knative.dev/kn-plugin-func"
+	fn "knative.dev/func"
 )
 
 const (

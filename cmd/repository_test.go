@@ -3,7 +3,7 @@ package cmd
 import (
 	"testing"
 
-	. "knative.dev/kn-plugin-func/testing"
+	. "knative.dev/func/testing"
 )
 
 // TestRepository_List ensures that the 'list' subcommand shows the client's

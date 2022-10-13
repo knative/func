@@ -18,7 +18,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	gcrTypes "github.com/google/go-containerregistry/pkg/v1/types"
 
-	"knative.dev/kn-plugin-func/docker"
+	"knative.dev/func/docker"
 )
 
 func TestPlatform(t *testing.T) {

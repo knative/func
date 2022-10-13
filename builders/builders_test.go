@@ -4,8 +4,8 @@ import (
 	"errors"
 	"testing"
 
-	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/builders"
+	fn "knative.dev/func"
+	"knative.dev/func/builders"
 )
 
 // TestImage_Named ensures that a builder image is returned when

@@ -6,8 +6,8 @@ package tekton
 import (
 	"testing"
 
-	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/builders"
+	fn "knative.dev/func"
+	"knative.dev/func/builders"
 )
 
 func Test_generatePipeline(t *testing.T) {

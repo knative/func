@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	pack "github.com/buildpacks/pack/pkg/client"
-	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/builders"
+	fn "knative.dev/func"
+	"knative.dev/func/builders"
 )
 
 // Test_BuilderImageDefault ensures that a Function bing built which does not

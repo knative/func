@@ -7,7 +7,7 @@ import (
 	"github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
 	"github.com/tektoncd/pipeline/pkg/client/clientset/versioned/typed/pipeline/v1beta1"
 
-	"knative.dev/kn-plugin-func/k8s"
+	"knative.dev/func/k8s"
 )
 
 const (

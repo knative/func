@@ -19,5 +19,5 @@ curl -v -X POST -d '{"message": "hello"}' \
   http://localhost:8080/
 ```
 
-For more, see [the complete documentation]('https://github.com/knative-sandbox/kn-plugin-func/tree/main/docs')
+For more, see [the complete documentation]('https://github.com/knative/func/tree/main/docs')
 

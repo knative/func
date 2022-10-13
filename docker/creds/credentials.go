@@ -13,8 +13,8 @@ import (
 	"runtime"
 	"strings"
 
-	"knative.dev/kn-plugin-func/config"
-	"knative.dev/kn-plugin-func/docker"
+	"knative.dev/func/config"
+	"knative.dev/func/docker"
 
 	dockerConfig "github.com/containers/image/v5/pkg/docker/config"
 	containersTypes "github.com/containers/image/v5/types"

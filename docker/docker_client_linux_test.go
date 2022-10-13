@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"knative.dev/kn-plugin-func/docker"
-	. "knative.dev/kn-plugin-func/testing"
+	"knative.dev/func/docker"
+	. "knative.dev/func/testing"
 )
 
 // Test that we are starting podman service on behalf of user

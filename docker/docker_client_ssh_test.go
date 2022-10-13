@@ -21,7 +21,7 @@ import (
 
 	"github.com/docker/docker/client"
 	"golang.org/x/crypto/ssh"
-	"knative.dev/kn-plugin-func/docker"
+	"knative.dev/func/docker"
 )
 
 func TestNewDockerClientWithSSH(t *testing.T) {

@@ -10,8 +10,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/knative"
+	fn "knative.dev/func"
+	"knative.dev/func/knative"
 )
 
 func CompleteFunctionList(cmd *cobra.Command, args []string, toComplete string) (strings []string, directive cobra.ShellCompDirective) {

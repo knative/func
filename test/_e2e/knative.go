@@ -7,7 +7,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
-	"knative.dev/kn-plugin-func/k8s"
+	"knative.dev/func/k8s"
 
 	"testing"
 )

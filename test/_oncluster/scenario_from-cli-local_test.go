@@ -8,9 +8,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	fn "knative.dev/kn-plugin-func"
-	common "knative.dev/kn-plugin-func/test/_common"
-	e2e "knative.dev/kn-plugin-func/test/_e2e"
+	fn "knative.dev/func"
+	common "knative.dev/func/test/_common"
+	e2e "knative.dev/func/test/_e2e"
 )
 
 // TestFromCliBuildLocal tests the scenario which func.yaml indicates that builds should be on cluster

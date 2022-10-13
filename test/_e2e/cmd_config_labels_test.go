@@ -9,7 +9,7 @@ import (
 
 	"testing"
 
-	"knative.dev/kn-plugin-func/builders"
+	"knative.dev/func/builders"
 )
 
 const (

@@ -8,7 +8,7 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
-	fn "knative.dev/kn-plugin-func"
+	fn "knative.dev/func"
 )
 
 func NewLanguagesCmd(newClient ClientFactory) *cobra.Command {

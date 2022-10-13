@@ -2,7 +2,7 @@ style: github
 template: CHANGELOG.tpl.md
 info:
   title: CHANGELOG
-  repository_url: https://github.com/knative-sandbox/kn-plugin-func
+  repository_url: https://github.com/knative/func
 options:
   commits:
     filters:

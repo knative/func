@@ -11,7 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
-	fn "knative.dev/kn-plugin-func"
+	fn "knative.dev/func"
 )
 
 func NewInfoCmd(newClient ClientFactory) *cobra.Command {

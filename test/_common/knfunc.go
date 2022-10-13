@@ -3,7 +3,7 @@ package common
 import (
 	"testing"
 
-	e2e "knative.dev/kn-plugin-func/test/_e2e"
+	e2e "knative.dev/func/test/_e2e"
 )
 
 func NewKnFuncShellCli(t *testing.T) *TestExecCmd {

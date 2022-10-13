@@ -14,9 +14,9 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/heroku/color"
 
-	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/builders"
-	"knative.dev/kn-plugin-func/docker"
+	fn "knative.dev/func"
+	"knative.dev/func/builders"
+	"knative.dev/func/docker"
 )
 
 // DefaultName when no WithName option is provided to NewBuilder

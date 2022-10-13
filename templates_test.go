@@ -12,8 +12,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	fn "knative.dev/kn-plugin-func"
-	. "knative.dev/kn-plugin-func/testing"
+	fn "knative.dev/func"
+	. "knative.dev/func/testing"
 )
 
 // TestTemplates_List ensures that all templates are listed taking into account

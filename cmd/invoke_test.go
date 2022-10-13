@@ -10,8 +10,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/mock"
+	fn "knative.dev/func"
+	"knative.dev/func/mock"
 )
 
 // TestInvoke command executes the invocation path.

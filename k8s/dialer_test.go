@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"knative.dev/kn-plugin-func/k8s"
+	"knative.dev/func/k8s"
 
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"

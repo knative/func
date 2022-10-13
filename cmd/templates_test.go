@@ -6,7 +6,7 @@ import (
 
 	"gotest.tools/v3/assert"
 
-	fn "knative.dev/kn-plugin-func"
+	fn "knative.dev/func"
 )
 
 // TestTemplates_Default ensures that the default behavior is listing all

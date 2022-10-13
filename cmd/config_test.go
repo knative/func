@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"github.com/ory/viper"
-	fn "knative.dev/kn-plugin-func"
-	fnCmd "knative.dev/kn-plugin-func/cmd"
+	fn "knative.dev/func"
+	fnCmd "knative.dev/func/cmd"
 )
 
 func TestListEnvs(t *testing.T) {

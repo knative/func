@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"knative.dev/kn-plugin-func/utils"
+	"knative.dev/func/utils"
 )
 
 // TestCreate_Execute ensures that an invocation of create with minimal settings

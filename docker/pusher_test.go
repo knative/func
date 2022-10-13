@@ -32,8 +32,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/registry"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 
-	fn "knative.dev/kn-plugin-func"
-	"knative.dev/kn-plugin-func/docker"
+	fn "knative.dev/func"
+	"knative.dev/func/docker"
 )
 
 func TestGetRegistry(t *testing.T) {
