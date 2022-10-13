@@ -3,6 +3,7 @@ package docker
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"time"
@@ -35,11 +36,17 @@ const (
 // Runner starts and stops functions as local containers.
 type Runner struct {
 	verbose bool // Verbose logging
+	out     io.Writer
+	errOut  io.Writer
 }
 
 // NewRunner creates an instance of a docker-backed runner.
-func NewRunner(verbose bool) *Runner {
-	return &Runner{verbose: verbose}
+func NewRunner(verbose bool, out, errOut io.Writer) *Runner {
+	return &Runner{
+		verbose: verbose,
+		out:     out,
+		errOut:  errOut,
+	}
 }
 
 // Run the function.
@@ -69,7 +76,7 @@ func (n *Runner) Run(ctx context.Context, f fn.Function) (job *fn.Job, err error
 	if id, err = newContainer(ctx, c, f, port, n.verbose); err != nil {
 		return job, errors.Wrap(err, "runner unable to create container")
 	}
-	if conn, err = copyStdio(ctx, c, id, copyErrCh); err != nil {
+	if conn, err = copyStdio(ctx, c, id, copyErrCh, n.out, n.errOut); err != nil {
 		return
 	}
 
@@ -225,7 +232,7 @@ func newHostConfig(port string) (c container.HostConfig, err error) {
 
 // copy stdin and stdout from the container of the given ID.  Errors encountered
 // during copy are communicated via a provided errs channel.
-func copyStdio(ctx context.Context, c client.CommonAPIClient, id string, errs chan error) (conn net.Conn, err error) {
+func copyStdio(ctx context.Context, c client.CommonAPIClient, id string, errs chan error, out, errOut io.Writer) (conn net.Conn, err error) {
 	var (
 		res types.HijackedResponse
 		opt = types.ContainerAttachOptions{
@@ -239,7 +246,7 @@ func copyStdio(ctx context.Context, c client.CommonAPIClient, id string, errs ch
 		return conn, errors.Wrap(err, "runner unable to attach to container's stdio")
 	}
 	go func() {
-		_, err := stdcopy.StdCopy(os.Stdout, os.Stderr, res.Reader)
+		_, err := stdcopy.StdCopy(out, errOut, res.Reader)
 		errs <- err
 	}()
 	return res.Conn, nil
