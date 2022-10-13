@@ -26,8 +26,13 @@ jobs:
       - uses: actions/setup-go@v2
         with:
           go-version: "1.18"
+      - uses: actions/setup-java@v1
+        with:
+          java-version: '11'
       - name: Unit Test
         run:  make test
+      - name: Template Unit Tests
+        run:  make test-templates
       - uses: codecov/codecov-action@v3
         with:
           files: ./coverage.txt
@@ -40,13 +45,12 @@ jobs:
       - uses: actions/setup-go@v2
         with:
           go-version: "1.18"
-      - uses: actions/setup-java@v1
-        with:
-          java-version: '11'
-      - name: Unit Test
-        run:  make test
-      - name: Template Unit Tests
-        run:  make test-templates
+      - name: Install Binaries
+        run: ./hack/binaries.sh
+      - name: Allocate Cluster
+        run: ./hack/allocate.sh
+      - name: Local Registry
+        run: ./hack/registry.sh
       - name: Integration Tests
         run: make test-integration
       - uses: codecov/codecov-action@v3
