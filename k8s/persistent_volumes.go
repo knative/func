@@ -178,7 +178,11 @@ func runWithVolumeMounted(ctx context.Context, podImage string, podCommand []str
 	termCh := make(chan corev1.ContainerStateTerminated, 1)
 	go func() {
 		for event := range watcher.ResultChan() {
-			if len(event.Object.(*corev1.Pod).Status.ContainerStatuses) > 0 {
+			p, ok := event.Object.(*corev1.Pod)
+			if !ok {
+				continue
+			}
+			if len(p.Status.ContainerStatuses) > 0 {
 				termState := event.Object.(*corev1.Pod).Status.ContainerStatuses[0].State.Terminated
 				if termState != nil {
 					termCh <- *termState
