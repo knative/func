@@ -78,7 +78,7 @@ func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 			fn.WithRemover(knative.NewRemover(cfg.Namespace, cfg.Verbose)),
 			fn.WithDescriber(knative.NewDescriber(cfg.Namespace, cfg.Verbose)),
 			fn.WithLister(knative.NewLister(cfg.Namespace, cfg.Verbose)),
-			fn.WithRunner(docker.NewRunner(cfg.Verbose)),
+			fn.WithRunner(docker.NewRunner(cfg.Verbose, os.Stdout, os.Stderr)),
 			fn.WithDeployer(d),
 			fn.WithPipelinesProvider(pp),
 			fn.WithPusher(docker.NewPusher(
