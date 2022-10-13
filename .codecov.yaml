@@ -17,7 +17,6 @@ comment:
 ignore:
   - "testdata"
   - "**/zz_*generated*.go"
-  - "docker/zz_close_guarding_client_generated.go"
   - "templates"
   - "hack"
   - "test"
