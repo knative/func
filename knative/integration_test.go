@@ -45,6 +45,11 @@ func TestIntegration(t *testing.T) {
 	t.Cleanup(func() { _ = cliSet.CoreV1().Namespaces().Delete(ctx, namespace, metav1.DeleteOptions{}) })
 	t.Log("created namespace: ", namespace)
 
+	minScale := int64(3)
+	maxScale := int64(100)
+	varName := "FUNC_TEST_PWD"
+	varVal := "nbusr123"
+
 	functionName := "fn"
 	function := fn.Function{
 		SpecVersion: "SNAPSHOT",
@@ -52,12 +57,21 @@ func TestIntegration(t *testing.T) {
 		Name:        functionName,
 		Runtime:     "blub",
 		Template:    "cloudevents",
-		Image:       "quay.io/mvasek/fn-q",
-		ImageDigest: "sha256:6d90f31447374299db2ee204eb5bb933a6b4e9870f5f945ac000f25b52d1ced6",
+		Image:       "quay.io/mvasek/func-test-service",
+		ImageDigest: "sha256:85d199814a09e68b2f7e4ca2ff049531c6397e903ae558347aba5d94dd24fb07",
 		Created:     time.Time{},
 		Deploy: fn.DeploySpec{
 			Namespace: namespace,
+			Options: fn.Options{
+				Scale: &fn.ScaleOptions{
+					Min: &minScale,
+					Max: &maxScale,
+				},
+			},
 		},
+		Run: fn.RunSpec{Envs: []fn.Env{
+			{Name: &varName, Value: &varVal},
+		}},
 	}
 
 	var buff = &buffer{}
@@ -77,8 +91,12 @@ func TestIntegration(t *testing.T) {
 	t.Logf("deploy result: %+v", depRes)
 	t.Log("out:\n" + outStr)
 
-	if !strings.Contains(outStr, "Starting the Java application") {
-		t.Error("application log doesn't contain expected string")
+	if strings.Count(outStr, "starting app") < int(minScale) {
+		t.Errorf("application should be scaled at least to %d pods", minScale)
+	}
+
+	if !strings.Contains(outStr, varName+"="+varVal) {
+		t.Error("runtime environment variable not propagated")
 	}
 
 	describer := knative.NewDescriber(namespace, false)
