@@ -11,6 +11,10 @@
 
 [Read the Documentation](docs/README.md)
 
+## Roadmap
+
+We use GitHub issues and project to track our roadmap. Please see our roadmap [here](https://github.com/orgs/knative/projects/49).
+
 ## Contributing
 
 We are always looking for contributions from the Function Developer community.  For more information on how to participate, see the [Contribuiting Guide](docs/CONTRIBUTING.md)
