@@ -18,7 +18,7 @@ jobs:
         with:
           node-version: 18
       - name: Install NPM deps.
-        run: npm install axios xml2js octokit --location=global
+        run: npm install axios xml2js octokit
       - name: Create PR
         env:
           GITHUB_TOKEN: ${{ github.token }}
