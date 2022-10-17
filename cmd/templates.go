@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 	"text/tabwriter"
 
@@ -96,9 +95,9 @@ func runTemplates(cmd *cobra.Command, args []string, newClient ClientFactory) (e
 	}
 
 	// Client which will provide data
-	client, done := newClient(ClientConfig{Verbose: cfg.Verbose},
-		fn.WithRepository(cfg.Repository),             // Use exactly this repo OR
-		fn.WithRepositoriesPath(cfg.RepositoriesPath)) // Path on disk to installed repos
+	client, done := newClient(
+		ClientConfig{Verbose: cfg.Verbose},
+		fn.WithRepository(cfg.Repository))
 	defer done()
 
 	// For a single language runtime
@@ -166,26 +165,16 @@ func runTemplates(cmd *cobra.Command, args []string, newClient ClientFactory) (e
 }
 
 type templatesConfig struct {
-	Verbose          bool
-	Repository       string // Consider only a specific repository (URI)
-	RepositoriesPath string // Override location on disk of "installed" repos
-	JSON             bool   // output as JSON
+	Verbose    bool
+	Repository string // Consider only a specific repository (URI)
+	JSON       bool   // output as JSON
 }
 
 func newTemplatesConfig(newClient ClientFactory) (cfg templatesConfig, err error) {
-	// Repositories Path
-	// Not exposed as a flag due to potential confusion with the more likely
-	// "repository" flag, but still available as an environment variable
-	repositoriesPath := os.Getenv("FUNC_REPOSITORIES_PATH")
-	if repositoriesPath == "" { // if no env var provided
-		repositoriesPath = fn.New().RepositoriesPath() // default to ~/.config/func/repositories
-	}
-
 	cfg = templatesConfig{
-		Verbose:          viper.GetBool("verbose"),
-		Repository:       viper.GetString("repository"),
-		RepositoriesPath: repositoriesPath,
-		JSON:             viper.GetBool("json"),
+		Verbose:    viper.GetBool("verbose"),
+		Repository: viper.GetString("repository"),
+		JSON:       viper.GetBool("json"),
 	}
 
 	return

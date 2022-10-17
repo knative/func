@@ -3,7 +3,6 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
@@ -71,9 +70,9 @@ func runLanguages(cmd *cobra.Command, args []string, newClient ClientFactory) (e
 		return
 	}
 
-	client, done := newClient(ClientConfig{Verbose: cfg.Verbose},
-		fn.WithRepository(cfg.Repository),             // Use exactly this repo OR
-		fn.WithRepositoriesPath(cfg.RepositoriesPath)) // Path on disk to installed repos
+	client, done := newClient(
+		ClientConfig{Verbose: cfg.Verbose},
+		fn.WithRepository(cfg.Repository))
 	defer done()
 
 	runtimes, err := client.Runtimes()
@@ -97,26 +96,16 @@ func runLanguages(cmd *cobra.Command, args []string, newClient ClientFactory) (e
 }
 
 type languagesConfig struct {
-	Verbose          bool
-	Repository       string // Consider only a specific repository (URI)
-	RepositoriesPath string // Override location on disk of "installed" repos
-	JSON             bool   // output as JSON
+	Verbose    bool
+	Repository string // Consider only a specific repository (URI)
+	JSON       bool   // output as JSON
 }
 
 func newLanguagesConfig(newClient ClientFactory) (cfg languagesConfig, err error) {
-	// Repositories Path
-	// Not exposed as a flag due to potential confusion with the more likely
-	// "repository" flag, but still available as an environment variable
-	repositoriesPath := os.Getenv("FUNC_REPOSITORIES_PATH")
-	if repositoriesPath == "" { // if no env var provided
-		repositoriesPath = fn.New().RepositoriesPath() // default to ~/.config/func/repositories
-	}
-
 	cfg = languagesConfig{
-		Verbose:          viper.GetBool("verbose"),
-		Repository:       viper.GetString("repository"),
-		RepositoriesPath: repositoriesPath,
-		JSON:             viper.GetBool("json"),
+		Verbose:    viper.GetBool("verbose"),
+		Repository: viper.GetString("repository"),
+		JSON:       viper.GetBool("json"),
 	}
 
 	return

@@ -13,7 +13,6 @@ import (
 	"runtime"
 	"strings"
 
-	"knative.dev/func/config"
 	"knative.dev/func/docker"
 
 	dockerConfig "github.com/containers/image/v5/pkg/docker/config"
@@ -143,7 +142,7 @@ func WithAdditionalCredentialLoaders(loaders ...CredentialsCallback) Opt {
 // The picked value will be saved in the func config.
 //
 // To verify that credentials are correct custom callback can be used (see WithVerifyCredentials).
-func NewCredentialsProvider(opts ...Opt) docker.CredentialsProvider {
+func NewCredentialsProvider(configPath string, opts ...Opt) docker.CredentialsProvider {
 	var c credentialsProvider
 
 	for _, o := range opts {
@@ -166,7 +165,7 @@ func NewCredentialsProvider(opts ...Opt) docker.CredentialsProvider {
 		}
 	}
 
-	c.authFilePath = filepath.Join(config.Path(), "auth.json")
+	c.authFilePath = filepath.Join(configPath, "auth.json")
 	sys := &containersTypes.SystemContext{
 		AuthFilePath: c.authFilePath,
 	}

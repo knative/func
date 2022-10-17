@@ -11,10 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"runtime/debug"
 	"time"
-
-	"knative.dev/func/config"
 )
 
 const (
@@ -202,7 +199,6 @@ func New(options ...Option) *Client {
 		dnsProvider:       &noopDNSProvider{output: os.Stdout},
 		progressListener:  &NoopProgressListener{},
 		pipelinesProvider: &noopPipelinesProvider{},
-		repositoriesPath:  filepath.Join(config.Path(), "repositories"),
 		transport:         http.DefaultTransport,
 	}
 	for _, o := range options {
@@ -214,20 +210,13 @@ func New(options ...Option) *Client {
 	c.templates = newTemplates(c)
 	c.instances = newInstances(c)
 
-	// Trigger the creation of the config and repository paths
-	_ = config.Path()
-	_ = c.RepositoriesPath() // Repositories is Client-specific
-
 	return c
 }
 
 // RepositoriesPath accesses the currently effective repositories path,
-// which defaults to [ConfigPath]/repositories but can be set explicitly using
-// the WithRepositoriesPath option when creating the client..
-// The path will be created if it does not already exist.
+// which can be set using the WithRepositoriesPath option.
 func (c *Client) RepositoriesPath() (path string) {
 	path = c.repositories.Path()
-	mkdir(path) // make sure it exists
 	return
 }
 
@@ -1046,14 +1035,3 @@ func (p *NoopProgressListener) Increment(m string) {}
 func (p *NoopProgressListener) Complete(m string)  {}
 func (p *NoopProgressListener) Stopping()          {}
 func (p *NoopProgressListener) Done()              {}
-
-// mkdir attempts to mkdir, writing any errors to stderr.
-func mkdir(path string) {
-	// Since it is expected that the code elsewhere never assume directories
-	// exist (doing so is a racing condition), it is valid to simply
-	// handle errors at this level.
-	if err := os.MkdirAll(path, 0700); err != nil {
-		fmt.Fprintf(os.Stderr, "Error creating '%v': %v", path, err)
-		debug.PrintStack()
-	}
-}

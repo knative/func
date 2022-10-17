@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"errors"
-	"path/filepath"
 	"testing"
 
 	"knative.dev/func/utils"
@@ -79,32 +78,6 @@ func TestCreate_ValidatesName(t *testing.T) {
 	var e utils.ErrInvalidFunctionName
 	if !errors.As(err, &e) {
 		t.Fatalf("Did not receive ErrInvalidFunctionName. Got %v", err)
-	}
-}
-
-// TestCreateConfig_RepositoriesPath ensures that the create command utilizes
-// the expected repositories path, respecting the setting for XDG_CONFIG_PATH
-// when deriving the default
-func TestCreateConfig_RepositoriesPath(t *testing.T) {
-	_ = fromTempDirectory(t)
-
-	// Update XDG_CONFIG_HOME to point to some arbitrary location which we know
-	// The above call to fromTempDirectory also updates, but value is not returned.
-	xdgConfigHome := t.TempDir()
-	t.Setenv("XDG_CONFIG_HOME", xdgConfigHome)
-
-	// The expected full path is XDG_CONFIG_HOME/func/repositories
-	expected := filepath.Join(xdgConfigHome, "func", "repositories")
-
-	cmd := NewCreateCmd(NewClient)
-	cmd.SetArgs([]string{"myfunc"}) // Do not use test command args
-	cfg, err := newCreateConfig(cmd, []string{}, NewClient)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if cfg.RepositoriesPath != expected {
-		t.Fatalf("expected repositories default path to be '%v', got '%v'", expected, cfg.RepositoriesPath)
 	}
 }
 

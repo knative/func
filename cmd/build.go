@@ -55,7 +55,7 @@ and the image name is stored in the configuration file.
 	// Config
 	cfg, err := config.NewDefault()
 	if err != nil {
-		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.ConfigPath(), err)
+		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
 
 	cmd.Flags().StringP("builder", "b", builders.Default, fmt.Sprintf("build strategy to use when creating the underlying image. Currently supported build strategies are %s.", KnownBuilders()))
@@ -86,6 +86,10 @@ and the image name is stored in the configuration file.
 }
 
 func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err error) {
+	if err = config.CreatePaths(); err != nil {
+		return // see docker/creds potential mutation of auth.json
+	}
+
 	// Populate a command config from environment variables, flags and potentially
 	// interactive user prompts if in confirm mode.
 	config, err := newBuildConfig().Prompt()
