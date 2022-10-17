@@ -33,10 +33,10 @@ var _ apis.Validatable = (*TaskRun)(nil)
 
 // Validate taskrun
 func (tr *TaskRun) Validate(ctx context.Context) *apis.FieldError {
-	errs := validate.ObjectMetadata(tr.GetObjectMeta()).ViaField("metadata")
 	if apis.IsInDelete(ctx) {
 		return nil
 	}
+	errs := validate.ObjectMetadata(tr.GetObjectMeta()).ViaField("metadata")
 	return errs.Also(tr.Spec.Validate(apis.WithinSpec(ctx)).ViaField("spec"))
 }
 
@@ -55,10 +55,15 @@ func (ts *TaskRunSpec) Validate(ctx context.Context) (errs *apis.FieldError) {
 	}
 	// Validate TaskSpec if it's present.
 	if ts.TaskSpec != nil {
+		// skip validation of parameter and workspaces variables since we validate them via taskrunspec below.
+		ctx = config.SkipValidationDueToPropagatedParametersAndWorkspaces(ctx, true)
 		errs = errs.Also(ts.TaskSpec.Validate(ctx).ViaField("taskSpec"))
 	}
 
 	errs = errs.Also(ValidateParameters(ctx, ts.Params).ViaField("params"))
+
+	// Validate propagated parameters
+	errs = errs.Also(ts.validateInlineParameters(ctx))
 	errs = errs.Also(ValidateWorkspaceBindings(ctx, ts.Workspaces).ViaField("workspaces"))
 	errs = errs.Also(ts.Resources.Validate(ctx).ViaField("resources"))
 	if ts.Debug != nil {
@@ -83,6 +88,12 @@ func (ts *TaskRunSpec) Validate(ctx context.Context) (errs *apis.FieldError) {
 			errs = errs.Also(apis.ErrInvalidValue(fmt.Sprintf("%s should be %s", ts.Status, TaskRunSpecStatusCancelled), "status"))
 		}
 	}
+	if ts.Status == "" {
+		if ts.StatusMessage != "" {
+			errs = errs.Also(apis.ErrInvalidValue(fmt.Sprintf("statusMessage should not be set if status is not set, but it is currently set to %s", ts.StatusMessage), "statusMessage"))
+		}
+	}
+
 	if ts.Timeout != nil {
 		// timeout should be a valid duration of at least 0.
 		if ts.Timeout.Duration < 0 {
@@ -91,6 +102,92 @@ func (ts *TaskRunSpec) Validate(ctx context.Context) (errs *apis.FieldError) {
 	}
 
 	return errs
+}
+
+// validateInlineParameters validates that any parameters called in the
+// Task spec are declared in the TaskRun.
+// This is crucial for propagated parameters because the parameters could
+// be defined under taskRun and then called directly in the task steps.
+// In this case, parameters cannot be validated by the underlying taskSpec
+// since they may not have the parameters declared because of propagation.
+func (ts *TaskRunSpec) validateInlineParameters(ctx context.Context) (errs *apis.FieldError) {
+	if ts.TaskSpec == nil {
+		return errs
+	}
+	paramSpecForValidation := make(map[string]ParamSpec)
+	for _, p := range ts.Params {
+		paramSpecForValidation = createParamSpecFromParam(p, paramSpecForValidation)
+	}
+
+	for _, p := range ts.TaskSpec.Params {
+		var err *apis.FieldError
+		paramSpecForValidation, err = combineParamSpec(p, paramSpecForValidation)
+		if err != nil {
+			errs = errs.Also(err)
+		}
+	}
+	var paramSpec []ParamSpec
+	for _, v := range paramSpecForValidation {
+		paramSpec = append(paramSpec, v)
+	}
+	if ts.TaskSpec != nil && ts.TaskSpec.Steps != nil {
+		errs = errs.Also(ValidateParameterTypes(ctx, paramSpec))
+		errs = errs.Also(ValidateParameterVariables(config.SkipValidationDueToPropagatedParametersAndWorkspaces(ctx, false), ts.TaskSpec.Steps, paramSpec))
+	}
+	return errs
+}
+
+func createParamSpecFromParam(p Param, paramSpecForValidation map[string]ParamSpec) map[string]ParamSpec {
+	value := p.Value
+	pSpec := ParamSpec{
+		Name:    p.Name,
+		Default: &value,
+		Type:    p.Value.Type,
+	}
+	if p.Value.ObjectVal != nil {
+		pSpec.Properties = make(map[string]PropertySpec)
+		prop := make(map[string]PropertySpec)
+		for k := range p.Value.ObjectVal {
+			prop[k] = PropertySpec{Type: ParamTypeString}
+		}
+		pSpec.Properties = prop
+	}
+	paramSpecForValidation[p.Name] = pSpec
+	return paramSpecForValidation
+}
+
+func combineParamSpec(p ParamSpec, paramSpecForValidation map[string]ParamSpec) (map[string]ParamSpec, *apis.FieldError) {
+	if pSpec, ok := paramSpecForValidation[p.Name]; ok {
+		// Merge defaults with provided values in the taskrun.
+		if p.Default != nil && p.Default.ObjectVal != nil {
+			for k, v := range p.Default.ObjectVal {
+				if pSpec.Default.ObjectVal == nil {
+					pSpec.Default.ObjectVal = map[string]string{k: v}
+				} else {
+					pSpec.Default.ObjectVal[k] = v
+				}
+			}
+			// If Default values of object type are provided then Properties must also be fully declared.
+			if p.Properties == nil {
+				return paramSpecForValidation, apis.ErrMissingField(fmt.Sprintf("%s.properties", p.Name))
+			}
+		}
+
+		// Properties must be defined if paramSpec is of object Type
+		if pSpec.Type == ParamTypeObject {
+			if p.Properties == nil {
+				return paramSpecForValidation, apis.ErrMissingField(fmt.Sprintf("%s.properties", p.Name))
+			}
+			// Expect Properties to be complete
+			pSpec.Properties = p.Properties
+		}
+		paramSpecForValidation[p.Name] = pSpec
+	} else {
+		// No values provided by task run but found a paramSpec declaration.
+		// Expect it to be fully speced out.
+		paramSpecForValidation[p.Name] = p
+	}
+	return paramSpecForValidation, nil
 }
 
 // validateDebug
