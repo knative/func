@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"testing"
 )
 
 // FunctionTestProject
@@ -35,13 +36,13 @@ type FunctionTestProject struct {
 }
 
 // NewFunctionTestProject initiates a project with derived function name an project path
-func NewFunctionTestProject(runtime string, template string) FunctionTestProject {
+func NewFunctionTestProject(t *testing.T, runtime string, template string) FunctionTestProject {
 	project := FunctionTestProject{
 		Runtime:  runtime,
 		Template: template,
 	}
 	project.FunctionName = "func-" + runtime + "-" + template
-	project.ProjectPath = filepath.Join(os.TempDir(), project.FunctionName)
+	project.ProjectPath = filepath.Join(t.TempDir(), project.FunctionName)
 	return project
 }
 
