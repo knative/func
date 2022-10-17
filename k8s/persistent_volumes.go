@@ -128,7 +128,7 @@ func runWithVolumeMounted(ctx context.Context, podImage string, podCommand []str
 							MountPath: volumeMntPoint,
 						},
 					},
-					SecurityContext: defaultSecurityContext(),
+					SecurityContext: defaultSecurityContext(client),
 				},
 			},
 			Volumes: []corev1.Volume{{

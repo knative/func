@@ -148,7 +148,7 @@ func (c *contextDialer) startDialerPod(ctx context.Context) (err error) {
 					Stdin:           true,
 					StdinOnce:       true,
 					Command:         []string{"socat", "-u", "-", "OPEN:/dev/null"},
-					SecurityContext: defaultSecurityContext(),
+					SecurityContext: defaultSecurityContext(client),
 				},
 			},
 			DNSPolicy:     coreV1.DNSClusterFirst,
