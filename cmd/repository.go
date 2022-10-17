@@ -328,6 +328,17 @@ func runRepositoryAdd(_ *cobra.Command, args []string, newClient ClientFactory) 
 		return
 	}
 
+	// Adding a repository requires there be a config path structure on disk
+	if err = config.CreatePaths(); err != nil {
+		return
+	}
+
+	// Create a client instance which utilizes the given repositories path.
+	// Note that this MAY not be in the config structure if the environment
+	// variable to override said path was provided explicitly.
+	// TODO: rectify this inconsitency:  the config default path structure will
+	// be created in XDG_CONFIG_HOME/func even if the repo path environment
+	// was set to some other location on disk.
 	client, done := newClient(ClientConfig{Verbose: cfg.Verbose},
 		fn.WithRepositoriesPath(cfg.RepositoriesPath))
 	defer done()
@@ -604,10 +615,7 @@ func newRepositoryConfig(args []string) (cfg repositoryConfig, err error) {
 
 	// Repositories Path
 	// Use env var to alter the default of ~/.config/func/repositories
-	cfg.RepositoriesPath = os.Getenv("FUNC_REPOSITORIES_PATH")
-	if cfg.RepositoriesPath == "" {
-		cfg.RepositoriesPath = fn.New().RepositoriesPath()
-	}
+	cfg.RepositoriesPath = config.RepositoriesPath()
 
 	// If not in confirm (interactive prompting) mode,
 	// this struct is complete.

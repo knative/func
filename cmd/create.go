@@ -237,9 +237,10 @@ func newCreateConfig(cmd *cobra.Command, args []string, newClient ClientFactory)
 	// Not exposed as a flag due to potential confusion with the more likely
 	// "repository override" flag, and due to its unlikliness of being needed, but
 	// it is still available as an environment variable.
-	repositoriesPath = os.Getenv("FUNC_REPOSITORIES_PATH")
 	if repositoriesPath == "" { // if no env var provided
-		repositoriesPath = fn.New().RepositoriesPath() // use ~/.config/func/repositories
+		client, done := newClient(ClientConfig{})
+		defer done()
+		repositoriesPath = client.RepositoriesPath() // use ~/.config/func/repositories
 	}
 
 	// Config is the final default values based off the execution context.

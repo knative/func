@@ -38,7 +38,9 @@ func (j *Job) Stop() {
 func (j *Job) save() error {
 	instancesDir := filepath.Join(j.Function.Root, RunDataDir, "instances")
 	// job metadata is stored in <root>/.func/instances
-	mkdir(instancesDir)
+	if err := os.MkdirAll(instancesDir, os.ModePerm); err != nil {
+		return err
+	}
 
 	// create a file <root>/.func/instances/<port>
 	file, err := os.Create(filepath.Join(instancesDir, j.Port))
@@ -71,7 +73,9 @@ func jobPorts(f Function) []string {
 		return []string{}
 	}
 	instancesDir := filepath.Join(f.Root, RunDataDir, "instances")
-	mkdir(instancesDir)
+	if _, err := os.Stat(instancesDir); err != nil {
+		return []string{} // never started, so path does not exist
+	}
 
 	files, err := os.ReadDir(instancesDir)
 	if err != nil {

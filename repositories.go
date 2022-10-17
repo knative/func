@@ -15,13 +15,6 @@ const (
 	// Unless a single-repo override is defined, this is usually referring to the
 	// builtin (embedded) repository.
 	DefaultRepositoryName = "default"
-
-	// DefaultRepositoriesPath is the default location for repositories under
-	// management on local disk.
-	// TODO: the logic which defaults this to ~/.config/func/repositories will
-	// be moved from the CLI to the core in the near future.  For now use the
-	// current working directory.
-	DefaultRepositoriesPath = ""
 )
 
 // Repositories manager
@@ -56,6 +49,8 @@ func newRepositories(client *Client) *Repositories {
 }
 
 // Path returns the currently active repositories path under management.
+// Blank indicates that the system was not instantiated to use any
+// repositories on disk.
 func (r *Repositories) Path() string {
 	return r.path
 }

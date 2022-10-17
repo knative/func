@@ -1,6 +1,7 @@
 package config_test
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -20,7 +21,8 @@ func TestNewDefaults(t *testing.T) {
 }
 
 // TestLoad ensures that loading a config reads values
-// in from a config file at path.
+// in from a config file at path, and in this case (unlike NewDefault) the
+// file must exist at path or error.
 func TestLoad(t *testing.T) {
 	cfg, err := config.Load("testdata/func/config.yaml")
 	if err != nil {
@@ -28,6 +30,12 @@ func TestLoad(t *testing.T) {
 	}
 	if cfg.Language != "custom" {
 		t.Fatalf("loaded config did not contain values from config file.  Expected \"custom\" got \"%v\"", cfg.Language)
+	}
+
+	// and ensure error
+	cfg, err = config.Load("invalid/path")
+	if err == nil {
+		t.Fatal("did not receive expected error loading nonexistent config path")
 	}
 }
 
@@ -45,7 +53,7 @@ func TestSave(t *testing.T) {
 	cfg.Language = "testSave"
 
 	// save
-	if err := cfg.Save(filename); err != nil {
+	if err := cfg.Write(filename); err != nil {
 		t.Fatal(err)
 	}
 
@@ -91,4 +99,108 @@ func TestNewDefault(t *testing.T) {
 	if cfg.Language != "custom" {
 		t.Fatalf("config file not loaded")
 	}
+}
+
+// TestCreatePaths ensures that the paths are created when requested.
+func TestCreatePaths(t *testing.T) {
+	home, cleanup := Mktemp(t)
+	t.Cleanup(cleanup)
+
+	t.Setenv("XDG_CONFIG_HOME", home)
+
+	if err := config.CreatePaths(); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := os.Stat(config.Path()); err != nil {
+		if os.IsNotExist(err) {
+			t.Fatalf("config path '%v' not created", config.Path())
+		}
+		t.Fatal(err)
+	}
+
+	if _, err := os.Stat(filepath.Join(config.Path(), "repositories")); err != nil {
+		if os.IsNotExist(err) {
+			t.Fatalf("config path '%v' not created", config.Path())
+		}
+		t.Fatal(err)
+	}
+
+	// Trying to create when repositories path is invalid should error
+	t.Setenv("FUNC_REPOSITORIES_PATH", "/../../invalid")
+	if err := config.CreatePaths(); err == nil {
+		t.Fatal("did not receive error when creating paths with an invalid FUNC_REPOSITORIES_PATH")
+	}
+
+	// Trying to Create config path should bubble errors, for example when HOME is
+	// set to a nonexistent path.
+	t.Setenv("XDG_CONFIG_HOME", "/invalid")
+	if err := config.CreatePaths(); err == nil {
+		t.Fatal("did not receive error when creating paths in an invalid home")
+	}
+
+}
+
+// TestNewDefault_ConfigNotRequired ensures that when creating a new
+// config which would load a global config, its nonexistence causes no error.
+func TestNewDefault_ConfigNotRequired(t *testing.T) {
+	// Custom config home results in a config file default path of
+	// ./testdata/func/config.yaml
+	home, cleanup := Mktemp(t)
+	t.Cleanup(cleanup)
+	t.Setenv("XDG_CONFIG_HOME", home)
+
+	_, err := config.NewDefault() // Should not error despite no config.
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestRepositoriesPath returns the path expected
+// (XDG_CONFIG_HOME/func/repositories by default)
+func TestRepositoriesPath(t *testing.T) {
+	home, cleanup := Mktemp(t)
+	t.Cleanup(cleanup)
+	t.Setenv("XDG_CONFIG_HOME", home)
+
+	expected := filepath.Join(home, "func", config.Repositories)
+	if config.RepositoriesPath() != expected {
+		t.Fatalf("unexpected reposiories path: %v", config.RepositoriesPath())
+	}
+}
+
+// TestWrite ensures that a config is written to the given path and errors
+// are returned correctly when the path does not exist.
+func TestWrite(t *testing.T) {
+	home, cleanup := Mktemp(t)
+	t.Cleanup(cleanup)
+	t.Setenv("XDG_CONFIG_HOME", home)
+
+	cfg := config.New()
+	cfg.Language = "example"
+
+	// First try writing to a nonexistent path
+	if err := cfg.Write(config.ConfigPath()); err == nil {
+		t.Fatal("did not receive error writing to a nonexistent path")
+	}
+
+	// Create the path and try again
+	if err := config.CreatePaths(); err != nil {
+		t.Fatal(err)
+	}
+	if err := cfg.Write(config.ConfigPath()); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestDefaultNamespace ensures that, when thre is a problem determining the
+// active namespace, the static DefaultNamespace ("default") is used.
+func TestDefaultNamespace(t *testing.T) {
+	home, cleanup := Mktemp(t)
+	t.Cleanup(cleanup)
+	t.Setenv("XDG_CONFIG_HOME", home)
+	if config.DefaultNamespace() != "default" {
+		t.Fatalf("did not receive expecetd default namespace 'default', got '%v'", config.DefaultNamespace())
+	}
+
 }
