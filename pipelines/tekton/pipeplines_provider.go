@@ -1,13 +1,20 @@
 package tekton
 
 import (
+	"archive/tar"
 	"context"
 	goErrors "errors"
 	"fmt"
+	"io"
+	"io/fs"
+	"os"
+	"path"
+	"path/filepath"
 	"sync"
 
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
+	gitignore "github.com/sabhiram/go-gitignore"
 	"github.com/tektoncd/cli/pkg/pipelinerun"
 	"github.com/tektoncd/cli/pkg/taskrun"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
@@ -113,6 +120,16 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 		}
 	}
 
+	if f.Build.Git.URL == "" {
+		// Use direct upload to PVC if Git is not set up.
+		content := sourcesAsTarStream(f)
+		defer content.Close()
+		err = k8s.UploadToVolume(ctx, content, getPipelinePvcName(f), pp.namespace)
+		if err != nil {
+			return fmt.Errorf("cannot upload sources to the PVC: %w", err)
+		}
+	}
+
 	_, err = client.Pipelines(pp.namespace).Create(ctx, generatePipeline(f, labels), metav1.CreateOptions{})
 	if err != nil {
 		if !errors.IsAlreadyExists(err) {
@@ -187,6 +204,70 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 	}
 
 	return nil
+}
+
+// Creates tar stream with the function sources as they were in "./source" directory.
+func sourcesAsTarStream(f fn.Function) *io.PipeReader {
+	ignored := func(p string) bool { return false }
+	if gi, err := gitignore.CompileIgnoreFile(filepath.Join(f.Root, ".gitignore")); err == nil {
+		ignored = func(p string) bool { return gi.MatchesPath(p) }
+	}
+
+	pr, pw := io.Pipe()
+	go func() {
+		tw := tar.NewWriter(pw)
+		err := filepath.Walk(f.Root, func(p string, fi fs.FileInfo, err error) error {
+			if err != nil {
+				return fmt.Errorf("error traversing function directory: %w", err)
+			}
+
+			relp, err := filepath.Rel(f.Root, p)
+			if err != nil {
+				return fmt.Errorf("cannot get relative path: %w", err)
+			}
+
+			if relp == "." {
+				return nil
+			}
+
+			if ignored(relp) {
+				return nil
+			}
+
+			hdr, err := tar.FileInfoHeader(fi, "")
+			if err != nil {
+				return fmt.Errorf("cannot create a tar header: %w", err)
+			}
+			// "source" is expected path in workspace pvc
+			hdr.Name = path.Join("source", filepath.ToSlash(relp))
+
+			err = tw.WriteHeader(hdr)
+			if err != nil {
+				return fmt.Errorf("cannot write header to tar stream: %w", err)
+			}
+
+			if fi.Mode().IsRegular() || (fi.Mode()&fs.ModeSymlink != 0) {
+				var file io.ReadCloser
+				file, err = os.Open(p)
+				if err != nil {
+					return fmt.Errorf("cannot open source file: %w", err)
+				}
+				defer file.Close()
+				_, err = io.Copy(tw, file)
+				if err != nil {
+					return fmt.Errorf("cannot copy source file content: %w", err)
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			_ = pw.CloseWithError(fmt.Errorf("error while creating tar stream from sources: %w", err))
+		} else {
+			_ = tw.Close()
+			_ = pw.Close()
+		}
+	}()
+	return pr
 }
 
 func (pp *PipelinesProvider) Remove(ctx context.Context, f fn.Function) error {

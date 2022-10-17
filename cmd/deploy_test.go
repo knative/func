@@ -426,15 +426,6 @@ func TestDeploy_RemoteBuildURLPermutations(t *testing.T) {
 			if remote != "" && remote != "false" { // default "" is == false.
 				// REMOTE Assertions
 
-				// TODO: (enhancement) allow triggering remote deploy without Git.
-				// This would tar up the local filesystem and send it to the cluster
-				// build and deploy. For now URL is required when triggering remote.
-				if url == "" && err == nil {
-					t.Fatal("error expected when --remote without a --git-url")
-				} else {
-					return // test successfully confirmed this error case
-				}
-
 				if !pipeliner.RunInvoked { // Remote deployer should be triggered
 					t.Error("remote was not invoked")
 				}

@@ -53,6 +53,8 @@ require (
 	knative.dev/serving v0.34.1-0.20221005094629-080aaa5c6241
 )
 
+require github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
+
 require (
 	cloud.google.com/go/compute v1.10.0 // indirect
 	contrib.go.opencensus.io/exporter/ocagent v0.7.1-0.20200907061046-05415f1de66d // indirect
@@ -189,7 +191,6 @@ require (
 	github.com/rivo/uniseg v0.2.0 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
-	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06 // indirect
 	github.com/sergi/go-diff v1.2.0 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/spf13/afero v1.9.2 // indirect

@@ -134,7 +134,6 @@ func (c *contextDialer) startDialerPod(ctx context.Context) (err error) {
 		img = i
 	}
 
-	runAsNonRoot := true
 	pod := &coreV1.Pod{
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:        c.podName,
@@ -144,17 +143,12 @@ func (c *contextDialer) startDialerPod(ctx context.Context) (err error) {
 		Spec: coreV1.PodSpec{
 			Containers: []coreV1.Container{
 				{
-					Name:      c.podName,
-					Image:     img,
-					Stdin:     true,
-					StdinOnce: true,
-					Command:   []string{"socat", "-u", "-", "OPEN:/dev/null"},
-					SecurityContext: &coreV1.SecurityContext{
-						Privileged:               new(bool),
-						AllowPrivilegeEscalation: new(bool),
-						RunAsNonRoot:             &runAsNonRoot,
-						Capabilities:             &coreV1.Capabilities{Drop: []coreV1.Capability{"ALL"}},
-					},
+					Name:            c.podName,
+					Image:           img,
+					Stdin:           true,
+					StdinOnce:       true,
+					Command:         []string{"socat", "-u", "-", "OPEN:/dev/null"},
+					SecurityContext: defaultSecurityContext(),
 				},
 			},
 			DNSPolicy:     coreV1.DNSClusterFirst,
@@ -163,7 +157,7 @@ func (c *contextDialer) startDialerPod(ctx context.Context) (err error) {
 	}
 	creatOpts := metaV1.CreateOptions{}
 
-	ready := c.podReady(ctx)
+	ready := podReady(ctx, c.coreV1, c.podName, c.namespace)
 
 	_, err = pods.Create(ctx, pod, creatOpts)
 	if err != nil {
@@ -184,7 +178,7 @@ func (c *contextDialer) startDialerPod(ctx context.Context) (err error) {
 
 	// attaching to the stdin to automatically Complete the pod on exit
 	go func() {
-		_ = c.attach(emptyBlockingReader(c.detachChan), io.Discard, io.Discard)
+		_ = attach(c.coreV1.RESTClient(), c.restConf, c.podName, c.namespace, emptyBlockingReader(c.detachChan), io.Discard, io.Discard)
 	}()
 
 	return nil
@@ -229,23 +223,21 @@ func (c *contextDialer) exec(hostPort string, in io.Reader, out, errOut io.Write
 	})
 }
 
-func (c *contextDialer) attach(in io.Reader, out, errOut io.Writer) error {
-
-	restClient := c.coreV1.RESTClient()
+func attach(restClient restclient.Interface, restConf *restclient.Config, podName, namespace string, in io.Reader, out, errOut io.Writer) error {
 	req := restClient.Post().
 		Resource("pods").
-		Name(c.podName).
-		Namespace(c.namespace).
+		Name(podName).
+		Namespace(namespace).
 		SubResource("attach")
 	req.VersionedParams(&coreV1.PodAttachOptions{
-		Container: c.podName,
+		Container: podName,
 		Stdin:     true,
 		Stdout:    true,
 		Stderr:    true,
 		TTY:       false,
 	}, scheme.ParameterCodec)
 
-	executor, err := remotecommand.NewSPDYExecutor(c.restConf, "POST", req.URL())
+	executor, err := remotecommand.NewSPDYExecutor(restConf, "POST", req.URL())
 	if err != nil {
 		return err
 	}
@@ -258,13 +250,13 @@ func (c *contextDialer) attach(in io.Reader, out, errOut io.Writer) error {
 	})
 }
 
-func (c *contextDialer) podReady(ctx context.Context) (errChan <-chan error) {
+func podReady(ctx context.Context, core v1.CoreV1Interface, podName, namespace string) (errChan <-chan error) {
 	d := make(chan error)
 	errChan = d
 
-	pods := c.coreV1.Pods(c.namespace)
+	pods := core.Pods(namespace)
 
-	nameSelector := fields.OneTermEqualSelector("metadata.name", c.podName).String()
+	nameSelector := fields.OneTermEqualSelector("metadata.name", podName).String()
 	listOpts := metaV1.ListOptions{
 		Watch:         true,
 		FieldSelector: nameSelector,
@@ -278,7 +270,10 @@ func (c *contextDialer) podReady(ctx context.Context) (errChan <-chan error) {
 		defer watcher.Stop()
 		ch := watcher.ResultChan()
 		for event := range ch {
-			pod := event.Object.(*coreV1.Pod)
+			pod, ok := event.Object.(*coreV1.Pod)
+			if !ok {
+				continue
+			}
 
 			if event.Type == watch.Modified {
 				for _, status := range pod.Status.ContainerStatuses {
