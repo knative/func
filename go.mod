@@ -42,15 +42,15 @@ require (
 	golang.org/x/term v0.0.0-20220919170432-7a66f970e087
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools/v3 v3.3.0
-	k8s.io/api v0.24.5
-	k8s.io/apimachinery v0.24.5
+	k8s.io/api v0.25.2
+	k8s.io/apimachinery v0.25.2
 	k8s.io/client-go v1.5.2
-	k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9 // indirect
-	knative.dev/client v0.34.1-0.20221005132429-369321c1db55
-	knative.dev/eventing v0.34.1-0.20221005061829-af2298ff121a
-	knative.dev/hack v0.0.0-20221004153928-92a65f105c37
-	knative.dev/pkg v0.0.0-20221005141429-8cacac2ea6d7
-	knative.dev/serving v0.34.1-0.20221005094629-080aaa5c6241
+	k8s.io/utils v0.0.0-20220728103510-ee6ede2d64ed // indirect
+	knative.dev/client v0.34.1-0.20221013140753-be74c58ae0e5
+	knative.dev/eventing v0.34.1-0.20221017124757-c5ef0686df31
+	knative.dev/hack v0.0.0-20221010154335-3fdc50b9c24a
+	knative.dev/pkg v0.0.0-20221011175852-714b7630a836
+	knative.dev/serving v0.34.1-0.20221017132158-e95e99d6c188
 )
 
 require (
@@ -128,7 +128,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/btree v1.1.2 // indirect
-	github.com/google/cel-go v0.11.3 // indirect
+	github.com/google/cel-go v0.12.5 // indirect
 	github.com/google/gnostic v0.6.9 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
@@ -228,15 +228,15 @@ require (
 	gopkg.in/src-d/go-git.v4 v4.13.1 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/apiextensions-apiserver v0.24.4 // indirect
-	k8s.io/cli-runtime v0.24.4 // indirect
+	k8s.io/apiextensions-apiserver v0.25.2 // indirect
+	k8s.io/cli-runtime v0.25.2 // indirect
 	k8s.io/klog/v2 v2.70.2-0.20220707122935-0990e81f1a8f // indirect
-	k8s.io/kube-openapi v0.0.0-20220328201542-3ee0da9b0b42 // indirect
-	knative.dev/networking v0.0.0-20221003195429-a5c26fe64325 // indirect
-	sigs.k8s.io/json v0.0.0-20211208200746-9f7c6b3444d2 // indirect
-	sigs.k8s.io/kustomize/api v0.11.4 // indirect
-	sigs.k8s.io/kustomize/kyaml v0.13.6 // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.2.1 // indirect
+	k8s.io/kube-openapi v0.0.0-20220803162953-67bda5d908f1 // indirect
+	knative.dev/networking v0.0.0-20221012062251-58f3e6239b4f // indirect
+	sigs.k8s.io/json v0.0.0-20220713155537-f223a00ba0e2 // indirect
+	sigs.k8s.io/kustomize/api v0.12.1 // indirect
+	sigs.k8s.io/kustomize/kyaml v0.13.9 // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
