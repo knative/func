@@ -22,9 +22,9 @@ require (
 	github.com/google/go-cmp v0.5.9
 	github.com/google/go-containerregistry v0.11.0
 	github.com/google/uuid v1.3.0
-	github.com/hashicorp/errwrap v1.1.0 // indirect
-	github.com/hashicorp/golang-lru v0.5.4 // indirect
-	github.com/hashicorp/hcl v1.0.0 // indirect
+	github.com/hashicorp/errwrap v1.1.0
+	github.com/hashicorp/golang-lru v0.5.4
+	github.com/hashicorp/hcl v1.0.0
 	github.com/heroku/color v0.0.6
 	github.com/hinshun/vt10x v0.0.0-20220228203356-1ab2cad5fd82
 	github.com/mitchellh/go-homedir v1.1.0
