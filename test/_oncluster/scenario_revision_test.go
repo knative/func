@@ -94,7 +94,7 @@ func GitRevisionCheck(
 	setupCodeFn func(shell *common.TestExecCmd, funcProjectPath string, clusterCloneUrl string),
 	assertBodyFn func(response string) bool) {
 
-	var funcPath = filepath.Join(os.TempDir(), funcName)
+	var funcPath = filepath.Join(t.TempDir(), funcName)
 
 	gitServer := common.GitTestServerProvider{}
 	gitServer.Init(t)

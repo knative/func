@@ -19,7 +19,7 @@ import (
 func TestBasicDefault(t *testing.T) {
 
 	var funcName = "test-func-basic"
-	var funcPath = filepath.Join(os.TempDir(), funcName)
+	var funcPath = filepath.Join(t.TempDir(), funcName)
 
 	func() {
 		gitServer := common.GitTestServerProvider{}

@@ -38,7 +38,7 @@ func TestRuntime(t *testing.T) {
 func runtimeImpl(t *testing.T, lang string) {
 
 	var gitProjectName = "test-func-lang-" + lang
-	var gitProjectPath = filepath.Join(os.TempDir(), gitProjectName)
+	var gitProjectPath = filepath.Join(t.TempDir(), gitProjectName)
 	var funcName = gitProjectName
 	var funcPath = gitProjectPath
 

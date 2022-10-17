@@ -20,7 +20,7 @@ import (
 func TestContextDirFunc(t *testing.T) {
 
 	var gitProjectName = "test-project"
-	var gitProjectPath = filepath.Join(os.TempDir(), gitProjectName)
+	var gitProjectPath = filepath.Join(t.TempDir(), gitProjectName)
 	var funcName = "test-func-context-dir"
 	var funcContextDir = filepath.Join("functions", funcName)
 	var funcPath = filepath.Join(gitProjectPath, funcContextDir)
