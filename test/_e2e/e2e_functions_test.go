@@ -14,7 +14,7 @@ import (
 // for a function that responds to HTTP
 func TestHttpFunction(t *testing.T) {
 
-	project := NewFunctionTestProject(GetRuntime(), "http")
+	project := NewFunctionTestProject(t, GetRuntime(), "http")
 	knFunc := NewKnFuncShellCli(t)
 
 	Create(t, knFunc, project)
@@ -33,7 +33,7 @@ func TestHttpFunction(t *testing.T) {
 // for a function that responds to CloudEvents
 func TestCloudEventsFunction(t *testing.T) {
 
-	project := NewFunctionTestProject(GetRuntime(), "cloudevents")
+	project := NewFunctionTestProject(t, GetRuntime(), "cloudevents")
 	knFunc := NewKnFuncShellCli(t)
 
 	Create(t, knFunc, project)

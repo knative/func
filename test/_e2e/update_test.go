@@ -26,7 +26,7 @@ func Update(t *testing.T, knFunc *TestShellCmdRunner, project *FunctionTestProje
 
 	// Template folder exists for given runtime / template.
 	// Let's update the project and redeploy
-	err := projectUpdaterFor(project).UpdateFolderContent(templatePath, project)
+	err := projectUpdaterFor(project).UpdateFolderContent(t, templatePath, project)
 	if err != nil {
 		t.Fatal("an error has occurred while updating project folder with new sources.", err.Error())
 	}
@@ -64,9 +64,9 @@ func projectUpdaterFor(project *FunctionTestProject) projectUpdater {
 	return updater
 }
 
-func (p projectUpdater) UpdateFolderContent(templatePath string, project *FunctionTestProject) error {
+func (p projectUpdater) UpdateFolderContent(t *testing.T, templatePath string, project *FunctionTestProject) error {
 	// Create temp project folder (reuse func.yaml)
-	projectTmp := NewFunctionTestProject(project.Runtime, project.Template)
+	projectTmp := NewFunctionTestProject(t, project.Runtime, project.Template)
 	projectTmp.ProjectPath = projectTmp.ProjectPath + "-tmp"
 	err := projectTmp.CreateProjectFolder()
 	if err != nil {
