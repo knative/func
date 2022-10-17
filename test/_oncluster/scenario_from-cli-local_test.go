@@ -18,7 +18,7 @@ import (
 func TestFromCliBuildLocal(t *testing.T) {
 
 	var funcName = "test-func-cli-local"
-	var funcPath = filepath.Join(os.TempDir(), funcName)
+	var funcPath = filepath.Join(t.TempDir(), funcName)
 
 	knFunc := common.NewKnFuncShellCli(t)
 	knFunc.Exec("create", "-l", "node", funcPath)

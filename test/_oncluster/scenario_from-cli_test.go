@@ -31,7 +31,7 @@ import (
 func TestFromCliDefaultBranch(t *testing.T) {
 
 	var gitProjectName = "test-func-yaml-build-local"
-	var gitProjectPath = filepath.Join(os.TempDir(), gitProjectName)
+	var gitProjectPath = filepath.Join(t.TempDir(), gitProjectName)
 	var funcName = gitProjectName
 	var funcPath = gitProjectPath
 
@@ -65,7 +65,7 @@ func TestFromCliDefaultBranch(t *testing.T) {
 func TestFromCliFeatureBranch(t *testing.T) {
 
 	var funcName = "test-func-cli-feature-branch"
-	var funcPath = filepath.Join(os.TempDir(), funcName)
+	var funcPath = filepath.Join(t.TempDir(), funcName)
 
 	gitServer := common.GitTestServerProvider{}
 	gitServer.Init(t)
@@ -107,7 +107,7 @@ func TestFromCliFeatureBranch(t *testing.T) {
 func TestFromCliContextDirFunc(t *testing.T) {
 
 	var gitProjectName = "test-project"
-	var gitProjectPath = filepath.Join(os.TempDir(), gitProjectName)
+	var gitProjectPath = filepath.Join(t.TempDir(), gitProjectName)
 	var funcName = "test-func-context-dir"
 	var funcContextDir = filepath.Join("functions", funcName)
 	var funcPath = filepath.Join(gitProjectPath, funcContextDir)
