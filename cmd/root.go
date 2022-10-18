@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -437,4 +438,32 @@ func defaultTemplatedHelp(cmd *cobra.Command, args []string) {
 	if err := tpl.Execute(cmd.OutOrStdout(), data); err != nil {
 		fmt.Fprintf(cmd.ErrOrStderr(), "unable to display help text: %v", err)
 	}
+}
+
+// effectivePath for this invocation.  Default: "."
+// Directly parses the os.Args for the value of the optional --path|-p flag
+// such that this function can be used during init.
+func effectivePath() string {
+	var (
+		path  = "."
+		env   = os.Getenv("FUNC_PATH")
+		fs    = flag.NewFlagSet("", flag.ContinueOnError)
+		long  = fs.String("path", "", "")
+		short = fs.String("p", "", "")
+		err   = fs.Parse(os.Args)
+	)
+	fs.Parse(os.Args[1:])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: error parsing arguments: %v", err)
+	}
+	if env != "" {
+		path = env
+	}
+	if *short != "" {
+		path = *short
+	}
+	if *long != "" {
+		path = *long
+	}
+	return path
 }

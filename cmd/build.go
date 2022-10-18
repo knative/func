@@ -58,7 +58,16 @@ and the image name is stored in the configuration file.
 		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.ConfigPath(), err)
 	}
 
-	cmd.Flags().StringP("builder", "b", builders.Default, fmt.Sprintf("build strategy to use when creating the underlying image. Currently supported build strategies are %s.", KnownBuilders()))
+	// Function Context
+	// Load the value of the builder from the function at the effective path
+	// if it exists.
+	defaultBuilder := builders.Default
+	f, err := fn.NewFunction(effectivePath())
+	if err != nil && f.Build.Builder != "" {
+		defaultBuilder = f.Build.Builder
+	}
+
+	cmd.Flags().StringP("builder", "b", defaultBuilder, fmt.Sprintf("build strategy to use when creating the underlying image. Currently supported build strategies are %s.", KnownBuilders()))
 	cmd.Flags().StringP("builder-image", "", "", "builder image, either an as a an image name or a mapping name.\nSpecified value is stored in func.yaml (as 'builder' field) for subsequent builds. ($FUNC_BUILDER_IMAGE)")
 	cmd.Flags().BoolP("confirm", "c", cfg.Confirm, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
 	cmd.Flags().StringP("image", "i", "", "Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE)")
@@ -253,8 +262,8 @@ type buildConfig struct {
 
 func newBuildConfig() buildConfig {
 	return buildConfig{
+		Path:         effectivePath(),
 		Image:        viper.GetString("image"),
-		Path:         getPathFlag(),
 		Registry:     viper.GetString("registry"),
 		Verbose:      viper.GetBool("verbose"), // defined on root
 		Confirm:      viper.GetBool("confirm"),

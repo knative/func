@@ -16,6 +16,44 @@ import (
 	. "knative.dev/func/testing"
 )
 
+// Test_effectivePath ensures that the value of the --path flag and FUNC_PATH
+// envs are correctly gathered from the effectivePath method and made available
+// prior to any command instantiations.
+func Test_effectivePath(t *testing.T) {
+	args := os.Args
+	t.Cleanup(func() { os.Args = args })
+
+	// Ensure the default is .
+	if effectivePath() != "." {
+		t.Fatalf("the default path should be '.'. got '%v'", effectivePath())
+	}
+
+	// Ensure it pulls in the env varible
+	t.Setenv("FUNC_PATH", "p1")
+	if effectivePath() != "p1" {
+		t.Fatalf("the effective path did not load the environment variable.  Expected 'p1', got '%v'", effectivePath())
+	}
+
+	// Ensure it pulls in the flag
+	os.Args = []string{"cmd", "--path=p2"}
+	if effectivePath() != "p2" {
+		t.Fatalf("the effective path did not load the --path flag.  Expected 'p2', got '%v'", effectivePath())
+	}
+
+	// Ensure it pulls in the short flag
+	os.Args = []string{"cmd", "-p=p3"}
+	if effectivePath() != "p3" {
+		t.Fatalf("the effective path did not load the -p flag.  Expected 'p3', got '%v'", effectivePath())
+	}
+
+	// Ensure that --path takes precidence over -p (though stopping short of
+	// a panic or error.
+	os.Args = []string{"cmd", "-p=p4", "--path=p5"}
+	if effectivePath() != "p5" {
+		t.Fatalf("the effective path did not take --path with precidence over -p.  Expected 'p5', got '%v'", effectivePath())
+	}
+}
+
 func TestRoot_PersistentFlags(t *testing.T) {
 	tests := []struct {
 		name          string
