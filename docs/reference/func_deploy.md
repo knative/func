@@ -39,13 +39,22 @@ DESCRIPTION
 	  changes are detected in the function's source.  The --build flag can be
 	  used to override this behavior and force building either on or off.
 
+	Pushing
+	  By default the function's image will be pushed to the configured container
+	  registry after being successfully built.  The --push flag can be used
+	  to disable pushing.  This could be used, for example, to trigger a redeploy
+	  of a service without needing to build, or even have the container available
+	  locally with 'func deploy --build=false --push==false'.
+
 	Remote
 	  Building and pushing (deploying) is by default run on localhost.  This
 	  process can also be triggered to run remotely in a Tekton-enabled cluster.
 	  The --remote flag indicates that a build and deploy pipeline should be
-	  invoked in the remote.  Functions deployed in this manner must have their
-	  source code kept in a git repository, and the URL to this source provided
-	  via --git-url.  A specific branch can be specified with --git-branch.
+	  invoked in the remote.  Deploying with 'func deploy --remote' will
+	  send the function's source code to be built and deployed by the cluster,
+	  eliminating the need for a local container engine.  To trigger deployment
+	  of a git repository instead of local source, combine with '--git-url':
+	  'func deploy --remote --git-url=git.example.com/alice/f.git'
 
 EXAMPLES
 
@@ -61,6 +70,10 @@ EXAMPLES
 	  the final image name and target cluster namespace.
 	  $ func deploy --image ghcr.io/alice/myfunc --namespace myns
 
+	o Deploy the current function's source code by sending it to the cluster to
+	  be built and deployed:
+	  $ func deploy --remote
+
 	o Trigger a remote deploy, which instructs the cluster to build and deploy
 	  the function in the specified git repository.
 	  $ func deploy --remote --git-url=https://example.com/alice/myfunc.git
@@ -72,6 +85,11 @@ EXAMPLES
 	o Deploy without rebuilding, even if changes have been detected in the
 	  local filesystem.
 	  $ func deploy --build=false
+
+	o Redeploy a function which has already been built and pushed. Works without
+	  the use of a local container engine.  For example, if the function was
+	  manually deleted from the cluster, it can be quickly redeployed with:
+	  $ func deploy --build=false --push=false
 
 
 
@@ -92,6 +110,7 @@ func deploy
   -g, --git-url string          Repo url to push the code to be built (Env: $FUNC_GIT_URL)
   -h, --help                    help for deploy
   -i, --image string            Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. (Env: $FUNC_IMAGE)
+  -n, --namespace string        Deploy into a specific namespace. (Env: $FUNC_NAMESPACE)
   -p, --path string             Path to the project directory (Env: $FUNC_PATH) (default ".")
       --platform string         Target platform to build (e.g. linux/amd64).
   -u, --push                    Push the function image to registry before deploying (Env: $FUNC_PUSH) (default true)
@@ -102,8 +121,7 @@ func deploy
 ### Options inherited from parent commands
 
 ```
-  -n, --namespace string   The namespace on the cluster used for remote commands. By default, the namespace func.yaml is used or the currently active namespace if not set in the configuration. (Env: $FUNC_NAMESPACE)
-  -v, --verbose            Print verbose logs ($FUNC_VERBOSE)
+  -v, --verbose   Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO

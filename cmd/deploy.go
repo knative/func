@@ -66,13 +66,22 @@ DESCRIPTION
 	  changes are detected in the function's source.  The --build flag can be
 	  used to override this behavior and force building either on or off.
 
+	Pushing
+	  By default the function's image will be pushed to the configured container
+	  registry after being successfully built.  The --push flag can be used
+	  to disable pushing.  This could be used, for example, to trigger a redeploy
+	  of a service without needing to build, or even have the container available
+	  locally with '{{.Name}} deploy --build=false --push==false'.
+
 	Remote
 	  Building and pushing (deploying) is by default run on localhost.  This
 	  process can also be triggered to run remotely in a Tekton-enabled cluster.
 	  The --remote flag indicates that a build and deploy pipeline should be
-	  invoked in the remote.  Functions deployed in this manner must have their
-	  source code kept in a git repository, and the URL to this source provided
-	  via --git-url.  A specific branch can be specified with --git-branch.
+	  invoked in the remote.  Deploying with '{{.Name}} deploy --remote' will
+	  send the function's source code to be built and deployed by the cluster,
+	  eliminating the need for a local container engine.  To trigger deployment
+	  of a git repository instead of local source, combine with '--git-url':
+	  '{{.Name}} deploy --remote --git-url=git.example.com/alice/f.git'
 
 EXAMPLES
 
@@ -88,6 +97,10 @@ EXAMPLES
 	  the final image name and target cluster namespace.
 	  $ {{.Name}} deploy --image ghcr.io/alice/myfunc --namespace myns
 
+	o Deploy the current function's source code by sending it to the cluster to
+	  be built and deployed:
+	  $ {{.Name}} deploy --remote
+
 	o Trigger a remote deploy, which instructs the cluster to build and deploy
 	  the function in the specified git repository.
 	  $ {{.Name}} deploy --remote --git-url=https://example.com/alice/myfunc.git
@@ -99,6 +112,11 @@ EXAMPLES
 	o Deploy without rebuilding, even if changes have been detected in the
 	  local filesystem.
 	  $ {{.Name}} deploy --build=false
+
+	o Redeploy a function which has already been built and pushed. Works without
+	  the use of a local container engine.  For example, if the function was
+	  manually deleted from the cluster, it can be quickly redeployed with:
+	  $ {{.Name}} deploy --build=false --push=false
 
 `,
 		SuggestFor: []string{"delpoy", "deplyo"},
