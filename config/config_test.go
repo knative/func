@@ -195,9 +195,13 @@ func TestWrite(t *testing.T) {
 	}
 }
 
-// TestDefaultNamespace ensures that, when thre is a problem determining the
-// active namespace, the static DefaultNamespace ("default") is used.
+// TestDefaultNamespace ensures that, when there is a problem determining the
+// active namespace, the static DefaultNamespace ("default") is used and that
+// the currently active k8s namespace is used as the default if available.
 func TestDefaultNamespace(t *testing.T) {
+	cwd := Cwd() // store for use after Mktemp which changes working directory
+
+	// shoud be "default" when empty home
 	home, cleanup := Mktemp(t)
 	t.Cleanup(cleanup)
 	t.Setenv("XDG_CONFIG_HOME", home)
@@ -205,4 +209,16 @@ func TestDefaultNamespace(t *testing.T) {
 		t.Fatalf("did not receive expecetd default namespace 'default', got '%v'", config.DefaultNamespace())
 	}
 
+	// shoud be "default" when kubeconfig path has no config.
+	t.Setenv("KUBECONFIG", t.TempDir()) // intentionally nonexistent
+	if config.DefaultNamespace() != "default" {
+		t.Fatalf("expected default namespace 'default' when no active kube config.  Got '%v'", config.DefaultNamespace())
+	}
+
+	// should be "func" when active k8s namespace is "func"
+	kubeconfig := filepath.Join(cwd, "testdata", "TestDefaultNamespace", "kubeconfig")
+	t.Setenv("KUBECONFIG", kubeconfig)
+	if config.DefaultNamespace() != "func" {
+		t.Fatalf("expected default namespace of 'func' when that is the active k8s namespace.  Got '%v'", config.DefaultNamespace())
+	}
 }
