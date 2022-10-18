@@ -39,6 +39,10 @@ var (
 
 // Validate EventListener.
 func (e *EventListener) Validate(ctx context.Context) *apis.FieldError {
+	if apis.IsInDelete(ctx) {
+		return nil
+	}
+
 	var errs *apis.FieldError
 	if len(e.ObjectMeta.Name) > 60 {
 		// Since `el-` is added as the prefix of EventListener services, the name of EventListener must be no more than 60 characters long.
@@ -49,9 +53,6 @@ func (e *EventListener) Validate(ctx context.Context) *apis.FieldError {
 		errs = errs.Also(triggers.ValidateAnnotations(e.ObjectMeta.Annotations))
 	}
 
-	if apis.IsInDelete(ctx) {
-		return nil
-	}
 	return errs.Also(e.Spec.validate(ctx))
 }
 
@@ -286,6 +287,10 @@ func (t *EventListenerTrigger) validate(ctx context.Context) (errs *apis.FieldEr
 
 	// Validate optional Interceptors
 	for i, interceptor := range t.Interceptors {
+		// No continuation if provided interceptor is nil.
+		if interceptor == nil {
+			return errs.Also(apis.ErrInvalidValue(fmt.Sprintf("interceptor '%v' must be a valid value", interceptor), fmt.Sprintf("interceptors[%d]", i)))
+		}
 		errs = errs.Also(interceptor.validate(ctx).ViaField(fmt.Sprintf("interceptors[%d]", i)))
 	}
 

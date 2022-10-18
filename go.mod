@@ -34,7 +34,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.6.0
 	github.com/spf13/pflag v1.0.5
-	github.com/tektoncd/cli v0.23.1
+	github.com/tektoncd/cli v0.27.0
 	github.com/tektoncd/pipeline v0.40.2
 	github.com/whilp/git-urls v1.0.0
 	golang.org/x/crypto v0.0.0-20220919173607-35f4265a4bc0
@@ -46,11 +46,11 @@ require (
 	k8s.io/apimachinery v0.25.2
 	k8s.io/client-go v1.5.2
 	k8s.io/utils v0.0.0-20220728103510-ee6ede2d64ed // indirect
-	knative.dev/client v0.34.1-0.20221018102810-16f26ba1e4e2
+	knative.dev/client v0.34.1-0.20221018194610-0b99fc58d67b
 	knative.dev/eventing v0.35.0
 	knative.dev/hack v0.0.0-20221010154335-3fdc50b9c24a
 	knative.dev/pkg v0.0.0-20221011175852-714b7630a836
-	knative.dev/serving v0.34.1-0.20221018131616-d108ba9b28c0
+	knative.dev/serving v0.34.1-0.20221018142810-e82287df024c
 )
 
 require github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
@@ -97,7 +97,7 @@ require (
 	github.com/census-instrumentation/opencensus-proto v0.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/chrismellard/docker-credential-acr-env v0.0.0-20220327082430-c57b701bfc08 // indirect
-	github.com/cloudevents/sdk-go/sql/v2 v2.0.0-20220930150014-52b12276cc4a // indirect
+	github.com/cloudevents/sdk-go/sql/v2 v2.8.0 // indirect
 	github.com/containerd/cgroups v1.0.3 // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.12.0 // indirect
 	github.com/containers/storage v1.38.2 // indirect
@@ -201,7 +201,7 @@ require (
 	github.com/stoewer/go-strcase v1.2.0 // indirect
 	github.com/subosito/gotenv v1.4.1 // indirect
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635 // indirect
-	github.com/tektoncd/triggers v0.19.1 // indirect
+	github.com/tektoncd/triggers v0.21.0 // indirect
 	github.com/vbatts/tar-split v0.11.2 // indirect
 	github.com/xanzy/ssh-agent v0.3.1 // indirect
 	github.com/xlab/treeprint v1.1.0 // indirect
@@ -241,6 +241,8 @@ require (
 )
 
 replace (
+	// Version used in Eventing
+	github.com/cloudevents/sdk-go/sql/v2 => github.com/cloudevents/sdk-go/sql/v2 v2.0.0-20220930150014-52b12276cc4a
 	// Tekton CLI uses newer version without currently used constructor code
 	github.com/hinshun/vt10x => github.com/hinshun/vt10x v0.0.0-20180809195222-d55458df857c
 	// update docker to be compatible with version used by pack and removes invalid pseudo-version
