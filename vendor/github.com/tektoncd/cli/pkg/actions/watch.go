@@ -23,7 +23,6 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 )
 
-// Watch takes a partial resource, and returns a watcher interface for that resource using the dynamic client
 func Watch(gr schema.GroupVersionResource, clients *cli.Clients, ns string, op metav1.ListOptions) (watch.Interface, error) {
 	gvr, err := GetGroupVersionResource(gr, clients.Tekton.Discovery())
 	if err != nil {

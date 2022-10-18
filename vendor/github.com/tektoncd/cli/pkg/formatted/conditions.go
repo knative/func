@@ -1,4 +1,4 @@
-// Copyright © 2019 The Tekton Authors.
+// Copyright © 2020 The Tekton Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,33 +15,19 @@
 package formatted
 
 import (
-	"github.com/hako/durafmt"
-	"github.com/jonboulle/clockwork"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"strings"
+
+	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 )
 
-func Age(t *metav1.Time, c clockwork.Clock) string {
-	if t.IsZero() {
+// TaskConditions formats a list of conditions
+func TaskConditions(conditions []v1beta1.PipelineTaskCondition) string {
+	if len(conditions) == 0 {
 		return "---"
 	}
-
-	dur := c.Since(t.Time)
-	return durafmt.ParseShort(dur).String() + " ago"
-}
-
-func Duration(t1, t2 *metav1.Time) string {
-	if t1.IsZero() || t2.IsZero() {
-		return "---"
+	var conditionRefs []string
+	for _, c := range conditions {
+		conditionRefs = append(conditionRefs, c.ConditionRef)
 	}
-
-	dur := t2.Time.Sub(t1.Time)
-	return durafmt.ParseShort(dur).String()
-}
-
-func Timeout(t *metav1.Duration) string {
-	if t == nil {
-		return "---"
-	}
-
-	return durafmt.Parse(t.Duration).String()
+	return strings.Join(conditionRefs, ", ")
 }

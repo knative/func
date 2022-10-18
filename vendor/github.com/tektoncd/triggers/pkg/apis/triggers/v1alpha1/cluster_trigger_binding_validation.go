@@ -24,12 +24,11 @@ import (
 )
 
 func (ctb *ClusterTriggerBinding) Validate(ctx context.Context) *apis.FieldError {
-	if apis.IsInDelete(ctx) {
-		return nil
-	}
-
 	if err := validate.ObjectMetadata(ctb.GetObjectMeta()); err != nil {
 		return err.ViaField("metadata")
+	}
+	if apis.IsInDelete(ctx) {
+		return nil
 	}
 	return ctb.Spec.Validate(ctx)
 }

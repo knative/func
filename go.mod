@@ -34,7 +34,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/spf13/cobra v1.6.0
 	github.com/spf13/pflag v1.0.5
-	github.com/tektoncd/cli v0.27.0
+	github.com/tektoncd/cli v0.23.1
 	github.com/tektoncd/pipeline v0.40.2
 	github.com/whilp/git-urls v1.0.0
 	golang.org/x/crypto v0.0.0-20220919173607-35f4265a4bc0
@@ -46,11 +46,11 @@ require (
 	k8s.io/apimachinery v0.25.2
 	k8s.io/client-go v1.5.2
 	k8s.io/utils v0.0.0-20220728103510-ee6ede2d64ed // indirect
-	knative.dev/client v0.34.1-0.20221013140753-be74c58ae0e5
-	knative.dev/eventing v0.34.1-0.20221017124757-c5ef0686df31
+	knative.dev/client v0.34.1-0.20221017200210-0323f52d1274
+	knative.dev/eventing v0.34.1-0.20221017145257-53a186d7d92e
 	knative.dev/hack v0.0.0-20221010154335-3fdc50b9c24a
 	knative.dev/pkg v0.0.0-20221011175852-714b7630a836
-	knative.dev/serving v0.34.1-0.20221017132158-e95e99d6c188
+	knative.dev/serving v0.34.1-0.20221017223110-6e597fa7fd73
 )
 
 require github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
@@ -201,7 +201,7 @@ require (
 	github.com/stoewer/go-strcase v1.2.0 // indirect
 	github.com/subosito/gotenv v1.4.1 // indirect
 	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635 // indirect
-	github.com/tektoncd/triggers v0.21.0 // indirect
+	github.com/tektoncd/triggers v0.19.1 // indirect
 	github.com/vbatts/tar-split v0.11.2 // indirect
 	github.com/xanzy/ssh-agent v0.3.1 // indirect
 	github.com/xlab/treeprint v1.1.0 // indirect
