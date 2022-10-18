@@ -74,8 +74,6 @@ func DecorateAttr(attrString, message string) string {
 		return "📂 "
 	case "skippedtasks":
 		return "⏭️  "
-	case "timeouts":
-		return "⏱  "
 	}
 
 	attr := color.Reset

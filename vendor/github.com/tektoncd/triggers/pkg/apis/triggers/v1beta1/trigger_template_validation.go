@@ -35,11 +35,10 @@ var paramsRegexp = regexp.MustCompile(`\$\(tt.params.(?P<var>[_a-zA-Z][_a-zA-Z0-
 
 // Validate validates a TriggerTemplate.
 func (t *TriggerTemplate) Validate(ctx context.Context) *apis.FieldError {
+	errs := validate.ObjectMetadata(t.GetObjectMeta()).ViaField("metadata")
 	if apis.IsInDelete(ctx) {
 		return nil
 	}
-
-	errs := validate.ObjectMetadata(t.GetObjectMeta()).ViaField("metadata")
 	return errs.Also(t.Spec.validate(ctx).ViaField("spec"))
 }
 
@@ -67,12 +66,12 @@ func validateResourceTemplates(templates []TriggerResourceTemplate) (errs *apis.
 			}
 			if runtime.IsNotRegisteredError(err) {
 				errStr := err.Error()
-				if inSchemeIdx := strings.Index(errStr, " in scheme"); inSchemeIdx > -1 {
+				if strings.Contains(errStr, "in scheme") {
 					// not registered error messages currently include the scheme variable location in your file,
 					// which can of course change if you move the location of the variable in your file.
 					// So will filter it out here to facilitate our unit testing, as the scheme location is not
 					// useful for our purposes.
-					errStr = errStr[:inSchemeIdx]
+					errStr = errStr[:strings.Index(errStr, " in scheme")]
 				}
 				errs = errs.Also(apis.ErrInvalidValue(
 					errStr,

@@ -12,12 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package formatted
+package taskrun
 
-import "strings"
+import (
+	"sort"
 
-// Result will format a given result value
-func Result(value string) string {
-	// remove trailing new-line from value
-	return strings.TrimSuffix(value, "\n")
+	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+)
+
+func SortByStartTime(trs []v1beta1.TaskRun) {
+	sort.Sort(byStartTime(trs))
+}
+
+type byStartTime []v1beta1.TaskRun
+
+func (trs byStartTime) Len() int      { return len(trs) }
+func (trs byStartTime) Swap(i, j int) { trs[i], trs[j] = trs[j], trs[i] }
+func (trs byStartTime) Less(i, j int) bool {
+	if trs[j].Status.StartTime == nil {
+		return false
+	}
+	if trs[i].Status.StartTime == nil {
+		return true
+	}
+	return trs[j].Status.StartTime.Before(trs[i].Status.StartTime)
 }
