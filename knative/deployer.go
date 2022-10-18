@@ -1,7 +1,6 @@
 package knative
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -130,7 +129,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		return fn.DeploymentResult{}, err
 	}
 
-	var outBuff bytes.Buffer
+	var outBuff SynchronizedBuffer
 	var out io.Writer = &outBuff
 
 	if d.verbose {
