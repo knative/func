@@ -2,10 +2,7 @@ package cmd
 
 import (
 	"errors"
-	"fmt"
 	"testing"
-
-	"gotest.tools/v3/assert"
 
 	fn "knative.dev/func"
 	"knative.dev/func/mock"
@@ -156,74 +153,75 @@ func TestBuild_Push(t *testing.T) {
 	}
 }
 
-type buildWithRegistryTestCase struct {
-	desc        string
-	testFn      fn.Function
-	testFnArgs  []string
-	expRegistry string
-	expImage    string
-}
-
 func TestBuild_RegistryHandling(t *testing.T) {
-	root := fromTempDirectory(t)
-	for i, tc := range []buildWithRegistryTestCase{
-
+	tests := []struct {
+		name        string
+		f           fn.Function
+		args        []string
+		expRegistry string
+		expImage    string
+	}{
 		{
-			desc: "should update func.yaml's image tag if mismatch with func.yaml's registry",
-			testFn: fn.Function{
+			name: "should update function's image if mismatch with function's registry",
+			f: fn.Function{
 				Runtime:  "go",
-				Root:     root + "/1",
-				Registry: TestRegistry,              // defined as "example.com/alice"
-				Image:    "docker.io/tigerteam/foo", // image uses different registry in its tag, so it has to be updated
+				Registry: TestRegistry,
+				Image:    "docker.io/tigerteam/foo",
 			},
-			testFnArgs:  []string{"--path", root + "/1"},
+			args:        []string{},
 			expRegistry: TestRegistry,
 			expImage:    TestRegistry + "/foo",
 		},
 		{
-			desc: "should update func.yaml's image tag and registry if mismatch with --registry flag",
-			testFn: fn.Function{
+			name: "should update function's image tag and registry if mismatch with --registry flag",
+			f: fn.Function{
 				Runtime:  "go",
-				Root:     root + "/2",
 				Registry: TestRegistry,
 				Image:    "docker.io/tigerteam/foo",
 			},
-			testFnArgs:  []string{"--path", root + "/2", "--registry", "example.com/test"}, // registry flag should overwrite func.yaml's image and registry
+			args:        []string{"--registry", "example.com/test"},
 			expRegistry: "example.com/test",
 			expImage:    "example.com/test/foo",
 		},
 
 		{
-			desc: "should NOT update func.yaml's registry if --image flag provided",
-			testFn: fn.Function{
+			name: "should not update function's registry if --image flag provided",
+			f: fn.Function{
 				Runtime:  "go",
-				Root:     root + "/3",
 				Registry: TestRegistry,
 				Image:    "docker.io/tigerteam/foo",
 			},
-			testFnArgs:  []string{"--path", root + "/3", "--image", "example.com/test/boo"}, // image flag should NOT overwrite func.yaml's registry
+			args:        []string{"--image", "example.com/test/boo"},
 			expRegistry: TestRegistry,
 			expImage:    "example.com/test/boo",
 		},
-	} {
-		var builder = mock.NewBuilder()
-		cmd := NewBuildCmd(NewClientFactory(func() *fn.Client {
-			return fn.New(fn.WithBuilder(builder))
-		}))
-		tci := i + 1
-		t.Logf("Test case %d: %s", tci, tc.desc)
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			// Assemble
+			root := fromTempDirectory(t)
+			if err := fn.New().Create(test.f); err != nil {
+				t.Fatal(err)
+			}
+			cmd := NewBuildCmd(DefaultClientFactory)
+			cmd.SetArgs(test.args)
 
-		err := fn.New().Create(tc.testFn)
-		assert.Assert(t, err == nil)
+			// Act
+			if err := cmd.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			f, err := fn.NewFunction(root)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-		cmd.SetArgs(tc.testFnArgs)
-		err = cmd.Execute()
-		assert.Assert(t, err == nil)
-
-		f, err := fn.NewFunction(tc.testFn.Root)
-		assert.Assert(t, err == nil)
-
-		assert.Assert(t, f.Registry == tc.expRegistry, fmt.Sprintf("Test case %d: expected registry to be '"+tc.expRegistry+"', but got '%s'", tci, f.Registry))
-		assert.Assert(t, f.Image == tc.expImage, fmt.Sprintf("Test case %d: expected image to be '"+tc.expImage+"', but got '%s'", tci, f.Image))
+			// Assert
+			if f.Registry != test.expRegistry {
+				t.Fatalf("expected registry '%v', got '%v'", test.expRegistry, f.Registry)
+			}
+			if f.Image != test.expImage {
+				t.Fatalf("expected image '%v', got '%v'", test.expImage, f.Image)
+			}
+		})
 	}
 }

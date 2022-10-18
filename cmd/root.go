@@ -450,9 +450,8 @@ func effectivePath() string {
 		fs    = flag.NewFlagSet("", flag.ContinueOnError)
 		long  = fs.String("path", "", "")
 		short = fs.String("p", "", "")
-		err   = fs.Parse(os.Args)
+		err   = fs.Parse(os.Args[1:])
 	)
-	fs.Parse(os.Args[1:])
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "warning: error parsing arguments: %v", err)
 	}

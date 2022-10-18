@@ -53,6 +53,10 @@ func NewClientFactory(n func() *fn.Client) ClientFactory {
 	}
 }
 
+// DefaultClientFactory is a ClientFactory which returns the entirely default
+// (noop) func client (useful for testing).
+var DefaultClientFactory = func(ClientConfig, ...fn.Option) (*fn.Client, func()) { return fn.New(), func() {} }
+
 // NewClient constructs an fn.Client with the majority of
 // the concrete implementations set.  Provide additional Options to this constructor
 // to override or augment as needed, or override the ClientFactory passed to
