@@ -24,7 +24,7 @@ func TestNewDefaults(t *testing.T) {
 // in from a config file at path, and in this case (unlike NewDefault) the
 // file must exist at path or error.
 func TestLoad(t *testing.T) {
-	cfg, err := config.Load("testdata/func/config.yaml")
+	cfg, err := config.Load(filepath.Join("testdata", "TestLoad", "func", "config.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}
