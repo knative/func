@@ -127,14 +127,16 @@ func TestCreatePaths(t *testing.T) {
 	}
 
 	// Trying to create when repositories path is invalid should error
-	t.Setenv("FUNC_REPOSITORIES_PATH", "/../../invalid")
+	_ = os.WriteFile("./invalidRepositoriesPath.txt", []byte{}, os.ModePerm)
+	t.Setenv("FUNC_REPOSITORIES_PATH", "./invalidRepositoriesPath.txt")
 	if err := config.CreatePaths(); err == nil {
 		t.Fatal("did not receive error when creating paths with an invalid FUNC_REPOSITORIES_PATH")
 	}
 
 	// Trying to Create config path should bubble errors, for example when HOME is
 	// set to a nonexistent path.
-	t.Setenv("XDG_CONFIG_HOME", "/invalid")
+	_ = os.WriteFile("./invalidConfigHome.txt", []byte{}, os.ModePerm)
+	t.Setenv("XDG_CONFIG_HOME", "./invalidConfigHome.txt")
 	if err := config.CreatePaths(); err == nil {
 		t.Fatal("did not receive error when creating paths in an invalid home")
 	}
