@@ -39,7 +39,7 @@ SYNOPSIS
 	{{.Name}} deploy [-R|--remote] [-r|--registry] [-i|--image] [-n|--namespace]
 	             [-e|env] [-g|--git-url] [-t|git-branch] [-d|--git-dir]
 	             [-b|--build] [--builder] [--builder-image] [-p|--push]
-	             [--platform] [-c|--confirm] [-v|--verbose]
+	             [--platform] [-p|--path] [-c|--confirm] [-v|--verbose]
 
 DESCRIPTION
 

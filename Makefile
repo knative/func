@@ -98,7 +98,7 @@ clean: clean_templates ## Remove generated artifacts such as binaries and schema
 
 docs:
 	# Generating command reference doc
-	go run docs/generator/main.go -ldflags $(LDFLAGS)
+	go run docs/generator/main.go
 
 #############
 ##@ Templates
