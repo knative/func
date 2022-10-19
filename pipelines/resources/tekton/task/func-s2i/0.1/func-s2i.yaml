@@ -63,7 +63,9 @@ spec:
         echo "" > /env-vars/env-file
         for var in "$@"
         do
-            echo "$var" >> /env-vars/env-file
+            if [[ "$var" != "=" ]]; then
+                echo "$var" >> /env-vars/env-file
+            fi
         done
 
         echo "Generated Build Env Var file"
