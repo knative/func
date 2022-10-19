@@ -197,7 +197,8 @@ func TestIntegration(t *testing.T) {
 
 	// verify that trigger info is included in describe output
 	if len(instance.Subscriptions) != 1 {
-		t.Error("at exactly one subscription is expected")
+		t.Error("exactly one subscription is expected")
+	} else {
 		if instance.Subscriptions[0].Broker != "testing-broker" {
 			t.Fatal("bad broker")
 		}
