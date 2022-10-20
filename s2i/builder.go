@@ -36,6 +36,7 @@ const DefaultName = builders.S2I
 // DefaultBuilderImages for s2i builders indexed by Runtime Language
 var DefaultBuilderImages = map[string]string{
 	"node":       "registry.access.redhat.com/ubi8/nodejs-16",
+	"nodejs":     "registry.access.redhat.com/ubi8/nodejs-16",
 	"typescript": "registry.access.redhat.com/ubi8/nodejs-16",
 	"quarkus":    "registry.access.redhat.com/ubi8/openjdk-17",
 }
