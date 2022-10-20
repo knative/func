@@ -530,8 +530,8 @@ func TestTemplates_ManifestInvocationHints(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if f.Invoke != "http" {
-		t.Fatalf("expected invoke format 'http', got '%v'", f.Invoke)
+	if f.Invoke != "format" {
+		t.Fatalf("expected invoke format 'format', got '%v'", f.Invoke)
 	}
 }
 
