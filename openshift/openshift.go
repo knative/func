@@ -5,12 +5,12 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
+	"os"
+	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	v1 "k8s.io/api/core/v1"
-	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/rand"
@@ -142,20 +142,12 @@ func GetDockerCredentialLoaders() []creds.CredentialsCallback {
 }
 
 var isOpenShift bool
-var checkOpenShiftOnce sync.Once
 
 func IsOpenShift() bool {
-	checkOpenShiftOnce.Do(func() {
-		isOpenShift = false
-		client, err := k8s.NewKubernetesClientset()
-		if err != nil {
-			return
+	if openShiftEnabled, ok := os.LookupEnv("FUNC_OPENSHIFT_ENABLED"); ok {
+		if enabled, err := strconv.ParseBool(openShiftEnabled); err == nil {
+			return enabled
 		}
-		_, err = client.CoreV1().Services("openshift-image-registry").Get(context.TODO(), "image-registry", metav1.GetOptions{})
-		if err == nil || k8sErrors.IsForbidden(err) {
-			isOpenShift = true
-			return
-		}
-	})
+	}
 	return isOpenShift
 }
