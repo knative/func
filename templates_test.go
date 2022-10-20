@@ -530,8 +530,8 @@ func TestTemplates_ManifestInvocationHints(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if f.Invocation.Format != "format" {
-		t.Fatalf("expected invocation format 'format', got '%v'", f.Invocation.Format)
+	if f.Invoke != "http" {
+		t.Fatalf("expected invoke format 'http', got '%v'", f.Invoke)
 	}
 }
 
@@ -597,7 +597,7 @@ func TestTemplates_InvocationDefault(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if f.Invocation.Format != fn.DefaultInvocationFormat {
-		t.Fatalf("expected '%v' invocation format.  Got '%v'", fn.DefaultInvocationFormat, f.Invocation.Format)
+	if f.Invoke != fn.DefaultInvocationFormat {
+		t.Fatalf("expected '%v' invoke format.  Got '%v'", fn.DefaultInvocationFormat, f.Invoke)
 	}
 }
