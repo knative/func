@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -89,16 +90,26 @@ func GetServiceCA(ctx context.Context) (*x509.Certificate, error) {
 
 // WithOpenShiftServiceCA enables trust to OpenShift's service CA for internal image registry
 func WithOpenShiftServiceCA() fnhttp.Option {
-	var selectCA func(ctx context.Context, serverName string) (*x509.Certificate, error)
-	ca, err := GetServiceCA(context.TODO())
-	if err == nil {
-		selectCA = func(ctx context.Context, serverName string) (*x509.Certificate, error) {
-			if strings.HasPrefix(serverName, registryHost) {
-				return ca, nil
+	var err error
+	var ca *x509.Certificate
+	var o sync.Once
+
+	selectCA := func(ctx context.Context, serverName string) (*x509.Certificate, error) {
+		if strings.HasPrefix(serverName, registryHost) {
+			o.Do(func() {
+				ca, err = GetServiceCA(ctx)
+				if err != nil {
+					err = fmt.Errorf("cannot get CA: %w", err)
+				}
+			})
+			if err != nil {
+				return nil, err
 			}
-			return nil, nil
+			return ca, nil
 		}
+		return nil, nil
 	}
+
 	return fnhttp.WithSelectCA(selectCA)
 }
 

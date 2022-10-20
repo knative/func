@@ -109,13 +109,7 @@ func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 // newTransport returns a transport with cluster-flavor-specific variations
 // which take advantage of additional features offered by cluster variants.
 func newTransport(insecureSkipVerify bool) fnhttp.RoundTripCloser {
-	if openshift.IsOpenShift() {
-		return fnhttp.NewRoundTripper(fnhttp.WithInsecureSkipVerify(insecureSkipVerify), openshift.WithOpenShiftServiceCA())
-	}
-
-	// Other cluster variants ...
-
-	return fnhttp.NewRoundTripper(fnhttp.WithInsecureSkipVerify(insecureSkipVerify)) // Default (vanilla k8s)
+	return fnhttp.NewRoundTripper(fnhttp.WithInsecureSkipVerify(insecureSkipVerify), openshift.WithOpenShiftServiceCA())
 }
 
 // newCredentialsProvider returns a credentials provider which possibly
@@ -126,12 +120,9 @@ func newCredentialsProvider(configPath string, t http.RoundTripper) docker.Crede
 		creds.WithPromptForCredentials(newPromptForCredentials(os.Stdin, os.Stdout, os.Stderr)),
 		creds.WithPromptForCredentialStore(newPromptForCredentialStore()),
 		creds.WithTransport(t),
+		creds.WithAdditionalCredentialLoaders(openshift.GetDockerCredentialLoaders()...),
 	}
-	// The OpenShift variant has additional ways to load credentials
-	if openshift.IsOpenShift() {
-		options = append(options,
-			creds.WithAdditionalCredentialLoaders(openshift.GetDockerCredentialLoaders()...))
-	}
+
 	// Other cluster variants can be supported here
 	return creds.NewCredentialsProvider(configPath, options...)
 }
@@ -142,10 +133,7 @@ func newTektonPipelinesProvider(namespace string, progress *progress.Bar, creds 
 		tekton.WithProgressListener(progress),
 		tekton.WithCredentialsProvider(creds),
 		tekton.WithVerbose(verbose),
-	}
-
-	if openshift.IsOpenShift() {
-		options = append(options, tekton.WithPipelineDecorator(openshift.OpenshiftMetadataDecorator{}))
+		tekton.WithPipelineDecorator(deployDecorator{}),
 	}
 
 	return tekton.NewPipelinesProvider(options...)
@@ -155,20 +143,26 @@ func newKnativeDeployer(namespace string, verbose bool) fn.Deployer {
 	options := []knative.DeployerOpt{
 		knative.WithDeployerNamespace(namespace),
 		knative.WithDeployerVerbose(verbose),
-	}
-
-	if openshift.IsOpenShift() {
-		options = append(options, knative.WithDeployerDecorator(openshift.OpenshiftMetadataDecorator{}))
+		knative.WithDeployerDecorator(deployDecorator{}),
 	}
 
 	return knative.NewDeployer(options...)
 }
 
-func GetDefaultRegistry() string {
-	switch {
-	case openshift.IsOpenShift():
-		return openshift.GetDefaultRegistry()
-	default:
-		return ""
+type deployDecorator struct {
+	oshDec openshift.OpenshiftMetadataDecorator
+}
+
+func (d deployDecorator) UpdateAnnotations(function fn.Function, annotations map[string]string) map[string]string {
+	if openshift.IsOpenShift() {
+		return d.oshDec.UpdateAnnotations(function, annotations)
 	}
+	return annotations
+}
+
+func (d deployDecorator) UpdateLabels(function fn.Function, labels map[string]string) map[string]string {
+	if openshift.IsOpenShift() {
+		return d.oshDec.UpdateLabels(function, labels)
+	}
+	return labels
 }

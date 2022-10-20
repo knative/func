@@ -16,6 +16,7 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 	"knative.dev/client/pkg/util"
+	"knative.dev/func/openshift"
 
 	fn "knative.dev/func"
 	"knative.dev/func/builders"
@@ -145,7 +146,7 @@ EXAMPLES
 	cmd.Flags().StringP("builder", "b", builders.Default, fmt.Sprintf("builder to use when creating the underlying image. Currently supported builders are %s.", KnownBuilders()))
 	cmd.Flags().StringP("builder-image", "", "", "The image the specified builder should use; either an as an image name or a mapping. ($FUNC_BUILDER_IMAGE)")
 	cmd.Flags().StringP("image", "i", "", "Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. (Env: $FUNC_IMAGE)")
-	cmd.Flags().StringP("registry", "r", GetDefaultRegistry(), "Registry + namespace part of the image to build, ex 'ghcr.io/myuser'.  The full image name is automatically determined. (Env: $FUNC_REGISTRY)")
+	cmd.Flags().StringP("registry", "r", "", "Registry + namespace part of the image to build, ex 'ghcr.io/myuser'.  The full image name is automatically determined. (Env: $FUNC_REGISTRY)")
 	cmd.Flags().BoolP("push", "u", true, "Push the function image to registry before deploying (Env: $FUNC_PUSH)")
 	cmd.Flags().StringP("platform", "", "", "Target platform to build (e.g. linux/amd64).")
 	cmd.Flags().StringP("namespace", "n", "", "Deploy into a specific namespace. (Env: $FUNC_NAMESPACE)")
@@ -567,6 +568,9 @@ func newDeployConfig(cmd *cobra.Command) (deployConfig, error) {
 		GitBranch:   viper.GetString("git-branch"),
 		GitDir:      viper.GetString("git-dir"),
 		ImageDigest: "", // automatically split off --image if provided below
+	}
+	if c.Registry == "" && openshift.IsOpenShift() {
+		c.Registry = openshift.GetDefaultRegistry()
 	}
 
 	if c.Image, c.ImageDigest, err = parseImage(c.Image); err != nil {

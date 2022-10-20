@@ -9,6 +9,7 @@ import (
 	"github.com/AlecAivazis/survey/v2/terminal"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
+	"knative.dev/func/openshift"
 
 	"knative.dev/func/buildpacks"
 	"knative.dev/func/config"
@@ -62,7 +63,7 @@ and the image name is stored in the configuration file.
 	cmd.Flags().StringP("builder-image", "", "", "builder image, either an as a an image name or a mapping name.\nSpecified value is stored in func.yaml (as 'builder' field) for subsequent builds. ($FUNC_BUILDER_IMAGE)")
 	cmd.Flags().BoolP("confirm", "c", cfg.Confirm, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
 	cmd.Flags().StringP("image", "i", "", "Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE)")
-	cmd.Flags().StringP("registry", "r", GetDefaultRegistry(), "Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined (Env: $FUNC_REGISTRY)")
+	cmd.Flags().StringP("registry", "r", "", "Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined (Env: $FUNC_REGISTRY)")
 	cmd.Flags().BoolP("push", "u", false, "Attempt to push the function image after being successfully built")
 	cmd.Flags().Lookup("push").NoOptDefVal = "true" // --push == --push=true
 	cmd.Flags().StringP("platform", "", "", "Target platform to build (e.g. linux/amd64).")
@@ -256,7 +257,7 @@ type buildConfig struct {
 }
 
 func newBuildConfig() buildConfig {
-	return buildConfig{
+	cfg := buildConfig{
 		Image:        viper.GetString("image"),
 		Path:         getPathFlag(),
 		Registry:     viper.GetString("registry"),
@@ -267,6 +268,10 @@ func newBuildConfig() buildConfig {
 		Push:         viper.GetBool("push"),
 		Platform:     viper.GetString("platform"),
 	}
+	if cfg.Registry == "" && openshift.IsOpenShift() {
+		cfg.Registry = openshift.GetDefaultRegistry()
+	}
+	return cfg
 }
 
 // Prompt the user with value of config members, allowing for interaractive changes.
