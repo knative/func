@@ -137,9 +137,8 @@
 					"type": "string",
 					"format": "date-time"
 				},
-				"invocation": {
-					"$schema": "http://json-schema.org/draft-04/schema#",
-					"$ref": "#/definitions/Invocation"
+				"invoke": {
+					"type": "string"
 				},
 				"build": {
 					"$schema": "http://json-schema.org/draft-04/schema#",
@@ -178,15 +177,6 @@
 					"type": "string"
 				},
 				"readiness": {
-					"type": "string"
-				}
-			},
-			"additionalProperties": false,
-			"type": "object"
-		},
-		"Invocation": {
-			"properties": {
-				"format": {
 					"type": "string"
 				}
 			},
