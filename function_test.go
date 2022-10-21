@@ -4,6 +4,8 @@
 package function_test
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -12,6 +14,33 @@ import (
 	fn "knative.dev/func"
 	. "knative.dev/func/testing"
 )
+
+// TestFunction_PathErrors ensures that instantiating a function errors if
+// the path does not exist or is not a directory, but does not require the
+// path contain an initialized function.
+func TestFunction_PathErrors(t *testing.T) {
+	root, rm := Mktemp(t)
+	defer rm()
+
+	_, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatalf("an empty but valid directory path should not error. got '%v'", err)
+	}
+
+	_, err = fn.NewFunction(filepath.Join(root, "nonexistent"))
+	if err == nil {
+		t.Fatalf("a nonexistent path should error")
+	}
+
+	if err := os.WriteFile("filepath", []byte{}, os.ModePerm); err != nil {
+		t.Fatal(err)
+	}
+	_, err = fn.NewFunction(filepath.Join(root, "filepath"))
+	if err == nil {
+		t.Fatalf("an invalid path (non-directory) should error")
+	}
+
+}
 
 // TestFunction_WriteIdempotency ensures that a function can be written repeatedly
 // without change.
@@ -57,8 +86,11 @@ func TestFunction_NameDefault(t *testing.T) {
 	root := "testdata/testFunctionNameDefault"
 	defer Using(t, root)()
 	f, err := fn.NewFunction(root)
-	if err == nil {
-		t.Fatal("expected error instantiating a nonexistent function")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Initialized() {
+		t.Fatal("a function about an empty, but valid path, shold not be initialized")
 	}
 
 	// Create the function at the path
