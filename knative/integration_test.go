@@ -128,7 +128,7 @@ func TestIntegration(t *testing.T) {
 		//     * files under /etc/cm and /etc/sc.
 		//   * application also prints the same info to stderr on startup
 		Image:       "quay.io/mvasek/func-test-service",
-		ImageDigest: "sha256:b237517b1227775644c14fd6d1f66b8c0e7d525298057e95feafe3173b7c5e70",
+		ImageDigest: "sha256:2eca4de00d7569c8791634bdbb0c4d5ec8fb061b001549314591e839dabd5269",
 		Created:     now,
 		Deploy: fn.DeploySpec{
 			Namespace: namespace,
@@ -217,13 +217,13 @@ func TestIntegration(t *testing.T) {
 		t.Error("exactly one subscription is expected")
 	} else {
 		if instance.Subscriptions[0].Broker != "testing-broker" {
-			t.Fatal("bad broker")
+			t.Error("bad broker")
 		}
 		if instance.Subscriptions[0].Source != "test-event-source" {
-			t.Fatal("bad source")
+			t.Error("bad source")
 		}
 		if instance.Subscriptions[0].Type != "test-event-type" {
-			t.Fatal("bad type")
+			t.Error("bad type")
 		}
 	}
 
