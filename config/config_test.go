@@ -194,15 +194,3 @@ func TestWrite(t *testing.T) {
 		t.Fatal(err)
 	}
 }
-
-// TestDefaultNamespace ensures that, when thre is a problem determining the
-// active namespace, the static DefaultNamespace ("default") is used.
-func TestDefaultNamespace(t *testing.T) {
-	home, cleanup := Mktemp(t)
-	t.Cleanup(cleanup)
-	t.Setenv("XDG_CONFIG_HOME", home)
-	if config.DefaultNamespace() != "default" {
-		t.Fatalf("did not receive expecetd default namespace 'default', got '%v'", config.DefaultNamespace())
-	}
-
-}

@@ -6,9 +6,6 @@ import (
 	"path/filepath"
 
 	"gopkg.in/yaml.v2"
-	"knative.dev/func/builders"
-	"knative.dev/func/k8s"
-	"knative.dev/func/openshift"
 )
 
 const (
@@ -20,48 +17,20 @@ const (
 
 	// DefaultLanguage is intentionaly undefined.
 	DefaultLanguage = ""
-
-	// DefaultBuilder defined by builders
-	DefaultBuilder = builders.Default
 )
-
-func DefaultRegistry() string {
-	switch {
-	case openshift.IsOpenShift():
-		return openshift.GetDefaultRegistry()
-	default:
-		return ""
-	}
-}
-
-// DefaultNamespace for remote operations is the currently active
-// context namespace (if available) or the fallbacl "default".
-func DefaultNamespace() (namespace string) {
-	var err error
-	if namespace, err = k8s.GetNamespace(""); err != nil {
-		return "default"
-	}
-	return
-}
 
 // Global configuration settings.
 type Config struct {
-	Builder   string `yaml:"builder,omitempty"`
-	Confirm   bool   `yaml:"confirm,omitempty"`
-	Language  string `yaml:"language,omitempty"`
-	Namespace string `yaml:"namespace,omitempty"`
-	Registry  string `yaml:"registry,omitempty"`
-	Verbose   bool   `yaml:"verbose,omitempty"`
+	Confirm  bool   `yaml:"confirm,omitempty"`
+	Language string `yaml:"language,omitempty"`
 }
 
 // New Config struct with all members set to static defaults.  See NewDefaults
 // for one which further takes into account the optional config file.
 func New() Config {
 	return Config{
-		Builder:   DefaultBuilder,
-		Language:  DefaultLanguage,
-		Namespace: DefaultNamespace(),
-		Registry:  DefaultRegistry(),
+		Language: DefaultLanguage,
+		// ...
 	}
 }
 
