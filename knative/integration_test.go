@@ -5,6 +5,8 @@ package knative_test
 
 import (
 	"context"
+	"io"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -119,11 +121,14 @@ func TestIntegration(t *testing.T) {
 		Name:        functionName,
 		Runtime:     "blub",
 		Template:    "cloudevents",
-		// Basic "echo" Go Function that in addition:
-		// * prints environment variables starting which name starts with FUNC_TEST to stderr,
-		// * lists files under /etc/cm and /etc/sc stderr.
+		// Basic HTTP service:
+		//   * POST /    will do echo -- return body back
+		//   * GET /info will get info about environment:
+		//     * environment variables starting which name starts with FUNC_TEST,
+		//     * files under /etc/cm and /etc/sc.
+		//   * application also prints the same info to stderr on startup
 		Image:       "quay.io/mvasek/func-test-service",
-		ImageDigest: "sha256:69251ac335693c4d5a503e9f8a829a25b93bff6e6bddbff5b78971fe668dc71a",
+		ImageDigest: "sha256:b237517b1227775644c14fd6d1f66b8c0e7d525298057e95feafe3173b7c5e70",
 		Created:     now,
 		Deploy: fn.DeploySpec{
 			Namespace: namespace,
@@ -194,6 +199,18 @@ func TestIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Logf("instance: %+v", instance)
+
+	// try to invoke the function
+	reqBody := "Hello World!"
+	respBody, err := postText(ctx, instance.Route, reqBody)
+	if err != nil {
+		t.Error(err)
+	} else {
+		t.Log("resp body:\n" + respBody)
+		if !strings.Contains(respBody, reqBody) {
+			t.Error("response body doesn't contain request body")
+		}
+	}
 
 	// verify that trigger info is included in describe output
 	if len(instance.Subscriptions) != 1 {
@@ -267,6 +284,26 @@ func TestIntegration(t *testing.T) {
 	if len(list) != 0 {
 		t.Errorf("expected exactly zero functions but got: %d", len(list))
 	}
+}
+
+func postText(ctx context.Context, url, reqBody string) (respBody string, err error) {
+	req, err := http.NewRequestWithContext(ctx, "POST", url, strings.NewReader(reqBody))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Add("Content-Type", "text/plain")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	bs, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	return string(bs), nil
 }
 
 func ptr[T interface{}](s T) *T {
