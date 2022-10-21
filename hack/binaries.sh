@@ -12,8 +12,8 @@ set -o pipefail
 export TERM="${TERM:-dumb}"
 
 main() {
-  local kubectl_version=v1.21.1
-  local kind_version=v0.11.1
+  local kubectl_version=v1.24.6
+  local kind_version=v0.16.0
 
   local em=$(tput bold)$(tput setaf 2)
   local me=$(tput sgr0)
