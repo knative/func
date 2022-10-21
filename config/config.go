@@ -70,17 +70,13 @@ func (c Config) Write(path string) (err error) {
 
 // Dir is derived in the following order, from lowest
 // to highest precedence.
-// 1.  The static default is DefaultConfigPath (./.config/func)
+// 1.  The default path is the zero value, indicating "no config path available",
+//     and users of this package should act accordingly.
 // 2.  ~/.config/func if it exists (can be expanded: user has a home dir)
 // 3.  The value of $XDG_CONFIG_PATH/func if the environment variable exists.
 // The path is created if it does not already exist.
 func Dir() (path string) {
-	// default path is a relative path used in the unlikely event that
-	// the user has no home directory (no ~), there is no
-	// XDG_CONFIG_HOME set
-	path = filepath.Join(".config", "func")
-
-	// ~/.config/func is the default if ~ can be expanded
+	// Use home if available
 	if home, err := os.UserHomeDir(); err == nil {
 		path = filepath.Join(home, ".config", "func")
 	}
