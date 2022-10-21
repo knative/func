@@ -3,7 +3,6 @@ package s2i
 import (
 	"archive/tar"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	dockerClient "github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
@@ -24,6 +24,7 @@ import (
 	"github.com/openshift/source-to-image/pkg/build/strategies"
 	s2idocker "github.com/openshift/source-to-image/pkg/docker"
 	"github.com/openshift/source-to-image/pkg/scm/git"
+	"golang.org/x/term"
 
 	fn "knative.dev/func"
 	"knative.dev/func/builders"
@@ -281,45 +282,14 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		out = os.Stderr
 	}
 
-	errMsg, err := parseBuildResponse(resp.Body, out)
-	if err != nil {
-		return fmt.Errorf("cannot parse response body: %w", err)
-	}
-	if errMsg != "" {
-		return fmt.Errorf("cannot build the app: %s", errMsg)
+	var isTerminal bool
+	var fd uintptr
+	if outF, ok := out.(*os.File); ok {
+		fd = outF.Fd()
+		isTerminal = term.IsTerminal(int(outF.Fd()))
 	}
 
-	return nil
-}
-
-func parseBuildResponse(r io.Reader, w io.Writer) (errorMessage string, err error) {
-	obj := struct {
-		ErrorDetail struct {
-			Message string `json:"message"`
-		} `json:"errorDetail"`
-		Stream string `json:"stream"`
-	}{}
-	d := json.NewDecoder(r)
-	for {
-		err = d.Decode(&obj)
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			return "", err
-		}
-		if obj.ErrorDetail.Message != "" {
-			errorMessage = obj.ErrorDetail.Message
-			return errorMessage, nil
-		}
-		if obj.Stream != "" {
-			_, err = w.Write([]byte(obj.Stream))
-			if err != nil {
-				return "", err
-			}
-		}
-	}
-	return "", nil
+	return jsonmessage.DisplayJSONMessagesStream(resp.Body, out, fd, isTerminal, nil)
 }
 
 func s2iScriptURL(ctx context.Context, cli DockerClient, image string) (string, error) {

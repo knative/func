@@ -17,11 +17,13 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/daemon"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"golang.org/x/term"
 )
 
 type Opt func(*Pusher)
@@ -176,34 +178,19 @@ func (n *Pusher) daemonPush(ctx context.Context, f fn.Function, credentials Cred
 	var outBuff bytes.Buffer
 	output = io.MultiWriter(&outBuff, output)
 
-	decoder := json.NewDecoder(r)
-	li := logItem{}
-	for {
-		err = decoder.Decode(&li)
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				err = nil
-			}
-			break
-		}
-		if li.Error != "" {
-			return "", errors.New(li.ErrorDetail.Message)
-		}
-		if li.Id != "" {
-			fmt.Fprintf(output, "%s: ", li.Id)
-		}
-		var percent int
-		if li.ProgressDetail.Total == 0 {
-			percent = 100
-		} else {
-			percent = (li.ProgressDetail.Current * 100) / li.ProgressDetail.Total
-		}
-		fmt.Fprintf(output, "%s (%d%%)\n", li.Status, percent)
+	var isTerminal bool
+	var fd uintptr
+	if outF, ok := output.(*os.File); ok {
+		fd = outF.Fd()
+		isTerminal = term.IsTerminal(int(outF.Fd()))
 	}
 
-	digest = ParseDigest(outBuff.String())
+	err = jsonmessage.DisplayJSONMessagesStream(r, output, fd, isTerminal, nil)
+	if err != nil {
+		return "", err
+	}
 
-	return digest, nil
+	return ParseDigest(outBuff.String()), nil
 }
 
 var digestRE = regexp.MustCompile(`digest:\s+(sha256:\w{64})`)
@@ -217,24 +204,6 @@ func ParseDigest(output string) string {
 		return match[1]
 	}
 	return ""
-}
-
-type errorDetail struct {
-	Message string `json:"message"`
-}
-
-type progressDetail struct {
-	Current int `json:"current"`
-	Total   int `json:"total"`
-}
-
-type logItem struct {
-	Id             string         `json:"id"`
-	Status         string         `json:"status"`
-	Error          string         `json:"error"`
-	ErrorDetail    errorDetail    `json:"errorDetail"`
-	Progress       string         `json:"progress"`
-	ProgressDetail progressDetail `json:"progressDetail"`
 }
 
 func (n *Pusher) push(ctx context.Context, f fn.Function, credentials Credentials, output io.Writer) (digest string, err error) {
