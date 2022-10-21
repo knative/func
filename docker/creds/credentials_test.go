@@ -26,7 +26,6 @@ import (
 	"testing"
 	"time"
 
-	"knative.dev/func/config"
 	"knative.dev/func/docker"
 	"knative.dev/func/docker/creds"
 	. "knative.dev/func/testing"
@@ -416,6 +415,7 @@ func TestNewCredentialsProvider(t *testing.T) {
 			}
 
 			credentialsProvider := creds.NewCredentialsProvider(
+				testConfigPath(t),
 				creds.WithPromptForCredentials(tt.args.promptUser),
 				creds.WithVerifyCredentials(tt.args.verifyCredentials),
 				creds.WithAdditionalCredentialLoaders(tt.args.additionalLoaders...))
@@ -432,7 +432,7 @@ func TestNewCredentialsProvider(t *testing.T) {
 }
 
 func TestNewCredentialsProviderEmptyCreds(t *testing.T) {
-	credentialsProvider := creds.NewCredentialsProvider(creds.WithVerifyCredentials(func(ctx context.Context, image string, credentials docker.Credentials) error {
+	credentialsProvider := creds.NewCredentialsProvider(testConfigPath(t), creds.WithVerifyCredentials(func(ctx context.Context, image string, credentials docker.Credentials) error {
 		if image == "localhost:5555/someorg/someimage:sometag" && credentials == (docker.Credentials{}) {
 			return nil
 		}
@@ -478,6 +478,7 @@ func TestCredentialsProviderSavingFromUserInput(t *testing.T) {
 	}
 
 	credentialsProvider := creds.NewCredentialsProvider(
+		testConfigPath(t),
 		creds.WithPromptForCredentials(pwdCbk),
 		creds.WithVerifyCredentials(correctVerifyCbk),
 		creds.WithPromptForCredentialStore(chooseNoStore))
@@ -497,6 +498,7 @@ func TestCredentialsProviderSavingFromUserInput(t *testing.T) {
 		t.Errorf("expected to have zero credentials in store, but has: %d", credsInStore)
 	}
 	credentialsProvider = creds.NewCredentialsProvider(
+		testConfigPath(t),
 		creds.WithPromptForCredentials(pwdCbk),
 		creds.WithVerifyCredentials(correctVerifyCbk),
 		creds.WithPromptForCredentialStore(chooseMockStore))
@@ -519,6 +521,7 @@ func TestCredentialsProviderSavingFromUserInput(t *testing.T) {
 		t.Errorf("expected to have exactly one credentials in store, but has: %d", credsInStore)
 	}
 	credentialsProvider = creds.NewCredentialsProvider(
+		testConfigPath(t),
 		creds.WithPromptForCredentials(pwdCbkThatShallNotBeCalled(t)),
 		creds.WithVerifyCredentials(correctVerifyCbk),
 		creds.WithPromptForCredentialStore(shallNotBeInvoked))
@@ -534,8 +537,6 @@ func cleanUpConfigs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	os.RemoveAll(config.Path())
 
 	os.RemoveAll(filepath.Join(home, ".docker"))
 }
@@ -576,7 +577,7 @@ func withPopulatedFuncAuthConfig(t *testing.T) {
 
 	var err error
 
-	authConfig := filepath.Join(config.Path(), "auth.json")
+	authConfig := filepath.Join(testConfigPath(t), "auth.json")
 	err = os.MkdirAll(filepath.Dir(authConfig), 0700)
 	if err != nil {
 		t.Fatal(err)
@@ -643,18 +644,32 @@ func correctVerifyCbk(ctx context.Context, image string, credentials Credentials
 	return creds.ErrUnauthorized
 }
 
+func testHomeEnvName(t *testing.T) string {
+	t.Helper()
+	if runtime.GOOS == "windows" {
+		return "USERPROFILE"
+	}
+	return "HOME"
+}
+
 func withCleanHome(t *testing.T) {
 	t.Helper()
-	homeName := "HOME"
-	if runtime.GOOS == "windows" {
-		homeName = "USERPROFILE"
-	}
 	tmpHome := t.TempDir()
-	t.Setenv(homeName, tmpHome)
+	t.Setenv(testHomeEnvName(t), tmpHome)
 
 	if runtime.GOOS == "linux" {
 		t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpHome, ".config"))
 	}
+}
+
+func testConfigPath(t *testing.T) string {
+	t.Helper()
+	home := os.Getenv(testHomeEnvName(t))
+	configPath := filepath.Join(home, ".config", "func")
+	if err := os.MkdirAll(configPath, os.ModePerm); err != nil {
+		t.Fatal(err)
+	}
+	return configPath
 }
 
 func handlerForCredHelper(t *testing.T, credHelper credentials.Helper) http.Handler {

@@ -126,7 +126,7 @@ EXAMPLES
 	// Config
 	cfg, err := config.NewDefault()
 	if err != nil {
-		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.ConfigPath(), err)
+		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
 
 	// Flags
@@ -172,6 +172,10 @@ EXAMPLES
 // merges these into the function requested, and triggers either a remote or
 // local build-and-deploy.
 func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err error) {
+	if err = config.CreatePaths(); err != nil {
+		return // see docker/creds potential mutation of auth.json
+	}
+
 	// Create a deploy config from environment variables and flags
 	config, err := newDeployConfig(cmd)
 	if err != nil {

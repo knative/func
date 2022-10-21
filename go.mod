@@ -27,7 +27,7 @@ require (
 	github.com/hashicorp/hcl v1.0.0
 	github.com/heroku/color v0.0.6
 	github.com/hinshun/vt10x v0.0.0-20220228203356-1ab2cad5fd82
-	github.com/mitchellh/go-homedir v1.1.0
+	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/opencontainers/image-spec v1.0.3-0.20220114050600-8b9d41f48198
 	github.com/openshift/source-to-image v1.3.1
 	github.com/ory/viper v1.7.5

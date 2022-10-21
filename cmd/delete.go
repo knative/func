@@ -40,7 +40,7 @@ No local files are deleted.
 	// Config
 	cfg, err := config.NewDefault()
 	if err != nil {
-		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.ConfigPath(), err)
+		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
 
 	// Flag

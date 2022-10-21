@@ -7,6 +7,7 @@ import (
 
 	fn "knative.dev/func"
 	"knative.dev/func/buildpacks"
+	"knative.dev/func/config"
 	"knative.dev/func/docker"
 	"knative.dev/func/docker/creds"
 	fnhttp "knative.dev/func/http"
@@ -65,15 +66,16 @@ func NewClientFactory(n func() *fn.Client) ClientFactory {
 //	defer done()
 func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 	var (
-		p  = progress.New(cfg.Verbose)            // updates the CLI
-		t  = newTransport(cfg.InsecureSkipVerify) // may provide a custom impl which proxies
-		c  = newCredentialsProvider(t)            // for accessing registries
+		p  = progress.New(cfg.Verbose)               // updates the CLI
+		t  = newTransport(cfg.InsecureSkipVerify)    // may provide a custom impl which proxies
+		c  = newCredentialsProvider(config.Dir(), t) // for accessing registries
 		d  = newKnativeDeployer(cfg.Namespace, cfg.Verbose)
 		pp = newTektonPipelinesProvider(cfg.Namespace, p, c, cfg.Verbose)
 		o  = []fn.Option{ // standard (shared) options for all commands
 			fn.WithVerbose(cfg.Verbose),
 			fn.WithProgressListener(p),
 			fn.WithTransport(t),
+			fn.WithRepositoriesPath(config.RepositoriesPath()),
 			fn.WithBuilder(buildpacks.NewBuilder(buildpacks.WithVerbose(cfg.Verbose))),
 			fn.WithRemover(knative.NewRemover(cfg.Namespace, cfg.Verbose)),
 			fn.WithDescriber(knative.NewDescriber(cfg.Namespace, cfg.Verbose)),
@@ -119,7 +121,7 @@ func newTransport(insecureSkipVerify bool) fnhttp.RoundTripCloser {
 // newCredentialsProvider returns a credentials provider which possibly
 // has cluster-flavor specific additional credential loaders to take advantage
 // of features or configuration nuances of cluster variants.
-func newCredentialsProvider(t http.RoundTripper) docker.CredentialsProvider {
+func newCredentialsProvider(configPath string, t http.RoundTripper) docker.CredentialsProvider {
 	options := []creds.Opt{
 		creds.WithPromptForCredentials(newPromptForCredentials(os.Stdin, os.Stdout, os.Stderr)),
 		creds.WithPromptForCredentialStore(newPromptForCredentialStore()),
@@ -131,7 +133,7 @@ func newCredentialsProvider(t http.RoundTripper) docker.CredentialsProvider {
 			creds.WithAdditionalCredentialLoaders(openshift.GetDockerCredentialLoaders()...))
 	}
 	// Other cluster variants can be supported here
-	return creds.NewCredentialsProvider(options...)
+	return creds.NewCredentialsProvider(configPath, options...)
 }
 
 func newTektonPipelinesProvider(namespace string, progress *progress.Bar, creds docker.CredentialsProvider, verbose bool) *tekton.PipelinesProvider {

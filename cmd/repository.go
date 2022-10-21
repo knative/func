@@ -144,7 +144,7 @@ EXAMPLES
 	// Config
 	cfg, err := config.NewDefault()
 	if err != nil {
-		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.ConfigPath(), err)
+		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
 
 	// Flags
@@ -187,7 +187,7 @@ func NewRepositoryAddCmd(newClient ClientFactory) *cobra.Command {
 
 	cfg, err := config.NewDefault()
 	if err != nil {
-		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.ConfigPath(), err)
+		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
 
 	cmd.Flags().BoolP("confirm", "c", cfg.Confirm, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
@@ -208,7 +208,7 @@ func NewRepositoryRenameCmd(newClient ClientFactory) *cobra.Command {
 
 	cfg, err := config.NewDefault()
 	if err != nil {
-		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.ConfigPath(), err)
+		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
 
 	cmd.Flags().BoolP("confirm", "c", cfg.Confirm, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
@@ -231,7 +231,7 @@ func NewRepositoryRemoveCmd(newClient ClientFactory) *cobra.Command {
 
 	cfg, err := config.NewDefault()
 	if err != nil {
-		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.ConfigPath(), err)
+		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
 
 	cmd.Flags().BoolP("confirm", "c", cfg.Confirm, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
@@ -294,8 +294,7 @@ func runRepositoryList(_ *cobra.Command, args []string, newClient ClientFactory)
 		return
 	}
 
-	client, done := newClient(ClientConfig{Verbose: cfg.Verbose},
-		fn.WithRepositoriesPath(cfg.RepositoriesPath))
+	client, done := newClient(ClientConfig{Verbose: cfg.Verbose})
 	defer done()
 
 	// List all repositories given a client instantiated about config.
@@ -328,8 +327,19 @@ func runRepositoryAdd(_ *cobra.Command, args []string, newClient ClientFactory) 
 		return
 	}
 
-	client, done := newClient(ClientConfig{Verbose: cfg.Verbose},
-		fn.WithRepositoriesPath(cfg.RepositoriesPath))
+	// Adding a repository requires there be a config path structure on disk
+	if err = config.CreatePaths(); err != nil {
+		return
+	}
+
+	// Create a client instance which utilizes the given repositories path.
+	// Note that this MAY not be in the config structure if the environment
+	// variable to override said path was provided explicitly.
+	// TODO: rectify this inconsitency:  the config default path structure will
+	// be created in XDG_CONFIG_HOME/func even if the repo path environment
+	// was set to some other location on disk.
+	client, done := newClient(ClientConfig{Verbose: cfg.Verbose})
+
 	defer done()
 
 	// Preconditions
@@ -409,8 +419,7 @@ func runRepositoryRename(_ *cobra.Command, args []string, newClient ClientFactor
 	if err != nil {
 		return
 	}
-	client, done := newClient(ClientConfig{Verbose: cfg.Verbose},
-		fn.WithRepositoriesPath(cfg.RepositoriesPath))
+	client, done := newClient(ClientConfig{Verbose: cfg.Verbose})
 	defer done()
 
 	// Preconditions
@@ -480,8 +489,7 @@ func runRepositoryRemove(_ *cobra.Command, args []string, newClient ClientFactor
 	if err != nil {
 		return
 	}
-	client, done := newClient(ClientConfig{Verbose: cfg.Verbose},
-		fn.WithRepositoriesPath(cfg.RepositoriesPath))
+	client, done := newClient(ClientConfig{Verbose: cfg.Verbose})
 	defer done()
 
 	// Preconditions
@@ -585,9 +593,8 @@ func installedRepositories(client *fn.Client) ([]string, error) {
 
 // repositoryConfig used for instantiating a fn.Client
 type repositoryConfig struct {
-	RepositoriesPath string // Path to repos to be managed
-	Verbose          bool   // Enables verbose logging
-	Confirm          bool   // Enables interactive confirmation/prompting mode
+	Verbose bool // Enables verbose logging
+	Confirm bool // Enables interactive confirmation/prompting mode
 }
 
 // newRepositoryConfig creates a configuration suitable for use instantiating the
@@ -600,13 +607,6 @@ func newRepositoryConfig(args []string) (cfg repositoryConfig, err error) {
 	cfg = repositoryConfig{
 		Verbose: viper.GetBool("verbose"),
 		Confirm: viper.GetBool("confirm"),
-	}
-
-	// Repositories Path
-	// Use env var to alter the default of ~/.config/func/repositories
-	cfg.RepositoriesPath = os.Getenv("FUNC_REPOSITORIES_PATH")
-	if cfg.RepositoriesPath == "" {
-		cfg.RepositoriesPath = fn.New().RepositoriesPath()
 	}
 
 	// If not in confirm (interactive prompting) mode,
@@ -623,7 +623,6 @@ func newRepositoryConfig(args []string) (cfg repositoryConfig, err error) {
 
 	// Noninteractive terminals in confirm/prompt mode simply echo
 	// effective values to stdout.
-	fmt.Fprintf(os.Stdout, "Repositories path: %v\n", cfg.RepositoriesPath)
 	fmt.Fprintf(os.Stdout, "Verbose logging:   %v\n", cfg.Verbose)
 	return
 }
@@ -643,17 +642,8 @@ func (c repositoryConfig) prompt() (repositoryConfig, error) {
 		return c, nil
 	}
 
-	// Prompt the user for the "global" settings Repositories Path and Verbose.
-	// Not prompted for unless already in verbose mode (ex: func repo add -cv)
 	qs := []*survey.Question{
 		{
-			Name: "Repositories",
-			Prompt: &survey.Input{
-				Message: "Path to repositories:",
-				Default: c.RepositoriesPath,
-			},
-			Validate: survey.Required,
-		}, {
 			Name: "Verbose",
 			Prompt: &survey.Confirm{
 				Message: "Enable verbose logging:",
