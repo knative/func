@@ -173,10 +173,27 @@ func NewFunction(path string) (f Function, err error) {
 	f.Root = path // path is not persisted, as this is the purview of the FS itself
 	f.Build.BuilderImages = make(map[string]string)
 	f.Deploy.Annotations = make(map[string]string)
+
+	// Path must exist and be a directory
+	fd, err := os.Stat(path)
+	if err != nil {
+		return f, err
+	}
+	if !fd.IsDir() {
+		return f, fmt.Errorf("function path must be a directory")
+	}
+
+	// If no func.yaml in directory, return the default function which will
+	// have f.Initialized() == false
 	var filename = filepath.Join(path, FunctionFile)
 	if _, err = os.Stat(filename); err != nil {
+		if os.IsNotExist(err) {
+			err = nil
+		}
 		return
 	}
+
+	// Path is valid and func.yaml exists: load it
 	bb, err := os.ReadFile(filename)
 	if err != nil {
 		return

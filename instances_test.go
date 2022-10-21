@@ -5,6 +5,7 @@ package function
 
 import (
 	"context"
+	"fmt"
 	"runtime"
 	"strings"
 	"testing"
@@ -69,15 +70,15 @@ func TestInstance_RemoteErrors(t *testing.T) {
 	if err := New().Create(Function{Runtime: "go", Root: root}); err != nil {
 		t.Fatal(err)
 	}
+
 	// Load the function
-	_, err := NewFunction(root)
-	if err != nil {
+	if _, err := NewFunction(root); err != nil {
 		t.Fatal(err)
 	}
 
-	var badRoot = "func.yaml: no such file or directory"
+	var badRoot = "no such file or directory"
 	if runtime.GOOS == "windows" {
-		badRoot = "The system cannot find the path specified"
+		badRoot = "The system cannot find the file specified"
 	}
 
 	tests := []struct {
@@ -86,7 +87,7 @@ func TestInstance_RemoteErrors(t *testing.T) {
 		want string
 	}{
 		{
-			name: "foo",
+			name: "",
 			root: "foo", // bad root
 			want: badRoot,
 		},
@@ -96,11 +97,18 @@ func TestInstance_RemoteErrors(t *testing.T) {
 			want: "name passed does not match name of the function at root",
 		},
 	}
-	for _, tt := range tests {
-		i := Instances{}
-		if _, err := i.Remote(context.TODO(), tt.name, tt.root); !strings.Contains(err.Error(), tt.want) {
-			t.Errorf("Remote() %v error = %v, wantErr %v", "Mismatched name and root", err.Error(), tt.want)
-		}
+	for _, test := range tests {
+		testName := fmt.Sprintf("name '%v' and root '%v'", test.name, test.root)
+		t.Run(testName, func(t *testing.T) {
+			i := Instances{}
+			_, err := i.Remote(context.Background(), test.name, test.root)
+			if err == nil {
+				t.Fatal("did not receive expected error")
+			}
+			if !strings.Contains(err.Error(), test.want) {
+				t.Errorf("expected error to contain '%v', got '%v'", test.want, err)
+			}
+		})
 	}
 
 }
