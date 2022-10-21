@@ -14,6 +14,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	fn "knative.dev/func"
+	"knative.dev/func/k8s"
 )
 
 func NewListCmd(newClient ClientFactory) *cobra.Command {
@@ -35,10 +36,17 @@ Lists all deployed functions in a given namespace.
 {{.Name}} list --all-namespaces --output json
 `,
 		SuggestFor: []string{"ls", "lsit"},
-		PreRunE:    bindEnv("all-namespaces", "output"),
+		PreRunE:    bindEnv("all-namespaces", "output", "namespace"),
+	}
+
+	// TODO(lkingland): replace with cfg.Namespace when Global Config available:
+	cfgNamespace, err := k8s.GetNamespace("")
+	if err != nil {
+		cfgNamespace = "default"
 	}
 
 	cmd.Flags().BoolP("all-namespaces", "A", false, "List functions in all namespaces. If set, the --namespace flag is ignored.")
+	cmd.Flags().StringP("namespace", "n", cfgNamespace, "The namespace for which to list functions. (Env: $FUNC_NAMESPACE)")
 	cmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|xml|yaml) (Env: $FUNC_OUTPUT)")
 
 	if err := cmd.RegisterFlagCompletionFunc("output", CompleteOutputFormatList); err != nil {
@@ -55,13 +63,13 @@ Lists all deployed functions in a given namespace.
 }
 
 func runList(cmd *cobra.Command, _ []string, newClient ClientFactory) (err error) {
-	config := newListConfig()
+	cfg := newListConfig()
 
-	if err := config.Validate(); err != nil {
+	if err := cfg.Validate(cmd); err != nil {
 		return err
 	}
 
-	client, done := newClient(ClientConfig{Namespace: config.Namespace, Verbose: config.Verbose})
+	client, done := newClient(ClientConfig{Namespace: cfg.Namespace, Verbose: cfg.Verbose})
 	defer done()
 
 	items, err := client.List(cmd.Context())
@@ -70,18 +78,15 @@ func runList(cmd *cobra.Command, _ []string, newClient ClientFactory) (err error
 	}
 
 	if len(items) == 0 {
-		// TODO(lkingland): this isn't particularly script friendly.  Suggest this
-		// prints bo only on --verbose.  Possible future tweak, as I don't want to
-		// make functional changes during a refactor.
-		if config.Namespace != "" && !config.AllNamespaces {
-			fmt.Printf("no functions found in namespace '%v'\n", config.Namespace)
+		if cfg.Namespace != "" {
+			fmt.Printf("no functions found in namespace '%v'\n", cfg.Namespace)
 		} else {
 			fmt.Println("no functions found")
 		}
 		return
 	}
 
-	write(os.Stdout, listItems(items), config.Output)
+	write(os.Stdout, listItems(items), cfg.Output)
 
 	return
 }
@@ -90,23 +95,28 @@ func runList(cmd *cobra.Command, _ []string, newClient ClientFactory) (err error
 // ------------------------------
 
 type listConfig struct {
-	Namespace     string
-	Output        string
-	AllNamespaces bool
-	Verbose       bool
+	Namespace string
+	Output    string
+	Verbose   bool
 }
 
 func newListConfig() listConfig {
-	return listConfig{
-		Namespace:     viper.GetString("namespace"),
-		Output:        viper.GetString("output"),
-		AllNamespaces: viper.GetBool("all-namespaces"),
-		Verbose:       viper.GetBool("verbose"),
+	c := listConfig{
+		Namespace: viper.GetString("namespace"),
+		Output:    viper.GetString("output"),
+		Verbose:   viper.GetBool("verbose"),
 	}
+	// Lister instantiated by newClient explicitly expects "" namespace to
+	// inidicate it should list from all namespaces, so remove default "default"
+	// when -A.
+	if viper.GetBool("all-namespaces") {
+		c.Namespace = ""
+	}
+	return c
 }
 
-func (c listConfig) Validate() error {
-	if c.Namespace != "" && c.AllNamespaces {
+func (c listConfig) Validate(cmd *cobra.Command) error {
+	if cmd.Flags().Changed("namespace") && viper.GetBool("all-namespaces") {
 		return errors.New("Both --namespace and --all-namespaces specified.")
 	}
 	return nil
