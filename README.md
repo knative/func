@@ -9,7 +9,8 @@
 
 `func` is a Client Library and CLI enabling the development and deployment of Functions.
 
-[Read the Documentation](docs/README.md)
+[Try the QuickStart](https://knative.dev/docs/getting-started/about-knative-functions/)
+[Read the Documentation](https://knative.dev/docs/functions/)
 
 ## Roadmap
 
@@ -19,4 +20,4 @@ We use GitHub issues and project to track our roadmap. Please see our roadmap [h
 
 We are always looking for contributions from the Function Developer community.  For more information on how to participate, see the [Contribuiting Guide](docs/CONTRIBUTING.md)
 
-The `func` Task Force meets @ 10:30 PST every Tuesday, we'd love to have you! For more information, see the invitation on the [Knative Team Calendar](https://calendar.google.com/calendar/u/0/embed?src=knative.team_9q83bg07qs5b9rrslp5jor4l6s@group.calendar.google.com).
+The `func` Working Group meets @ 10:00 US Eastern every Tuesday, we'd love to have you! For more information, see the invitation on the [Knative Team Calendar](https://calendar.google.com/calendar/u/0/embed?src=knative.team_9q83bg07qs5b9rrslp5jor4l6s@group.calendar.google.com).
