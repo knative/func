@@ -96,7 +96,7 @@ EXAMPLES
 				NewCreateCmd(newClient),
 				NewDeleteCmd(newClient),
 				NewDeployCmd(newClient),
-				NewInfoCmd(newClient),
+				NewDescribeCmd(newClient),
 				NewInvokeCmd(newClient),
 				NewLanguagesCmd(newClient),
 				NewListCmd(newClient),

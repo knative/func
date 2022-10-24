@@ -42,7 +42,7 @@ EXAMPLES
 * [func create](func_create.md)	 - Create a function project
 * [func delete](func_delete.md)	 - Undeploy a function
 * [func deploy](func_deploy.md)	 - Deploy a Function
-* [func info](func_info.md)	 - Show details of a function
+* [func describe](func_describe.md)	 - Describe Function
 * [func invoke](func_invoke.md)	 - Invoke a function
 * [func languages](func_languages.md)	 - List available function language runtimes
 * [func list](func_list.md)	 - List functions

@@ -44,8 +44,7 @@ func build --builder=pack --builder-image cnbs/sample-builder:bionic
 
 ```
   -b, --builder string         build strategy to use when creating the underlying image. Currently supported build strategies are "pack" and "s2i". (default "pack")
-      --builder-image string   builder image, either an as a an image name or a mapping name.
-                               Specified value is stored in func.yaml (as 'builder' field) for subsequent builds. ($FUNC_BUILDER_IMAGE)
+      --builder-image string   builder image, either an as a an image name or a mapping name. Specified value is stored in func.yaml (as 'builder' field) for subsequent builds. ($FUNC_BUILDER_IMAGE)
   -c, --confirm                Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)
   -h, --help                   help for build
   -i, --image string           Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE)
