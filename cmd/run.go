@@ -52,7 +52,7 @@ to the function's source.  Use --build to override this behavior.
 			"To unset, specify the environment variable name followed by a \"-\" (e.g., NAME-).")
 	cmd.Flags().StringP("build", "b", "auto", "Build the function. [auto|true|false].")
 	cmd.Flags().Lookup("build").NoOptDefVal = "true" // --build is equivalient to --build=true
-	cmd.Flags().StringP("registry", "r", GetDefaultRegistry(), "Registry + namespace part of the image if building, ex 'quay.io/myuser' (Env: $FUNC_REGISTRY)")
+	cmd.Flags().StringP("registry", "r", "", "Registry + namespace part of the image if building, ex 'quay.io/myuser' (Env: $FUNC_REGISTRY)")
 	setPathFlag(cmd)
 
 	cmd.SetHelpFunc(defaultTemplatedHelp)
