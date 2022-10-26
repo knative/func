@@ -70,44 +70,36 @@ func UploadToVolume(ctx context.Context, content io.Reader, claimName, namespace
 	return runWithVolumeMounted(ctx, TarImage, []string{"tar", "-xmf", "-"}, content, claimName, namespace)
 }
 
-// Runs a pod with given image, command and stdin
-// while having the volume mounted and working directory set to it.
-func runWithVolumeMounted(ctx context.Context, podImage string, podCommand []string, podInput io.Reader, claimName, namespace string) error {
-	var err error
-
+func getClientSetAndRestConfig(namespace string) (kubernetes.Interface, *restclient.Config, string, error) {
 	cliConf := GetClientConfig()
 	restConf, err := cliConf.ClientConfig()
 	if err != nil {
-		return fmt.Errorf("cannot get client config: %w", err)
+		return nil, nil, "", fmt.Errorf("cannot get client config: %w", err)
 	}
 	restConf.WarningHandler = restclient.NoWarnings{}
 
 	err = setConfigDefaults(restConf)
 	if err != nil {
-		return fmt.Errorf("cannot set config defaults: %w", err)
+		return nil, nil, "", fmt.Errorf("cannot set config defaults: %w", err)
 	}
 
 	client, err := kubernetes.NewForConfig(restConf)
 	if err != nil {
-		return fmt.Errorf("cannot create k8s client: %w", err)
+		return nil, nil, "", fmt.Errorf("cannot create k8s client: %w", err)
 	}
 
 	namespace, err = GetNamespace(namespace)
 	if err != nil {
-		return fmt.Errorf("cannot get namespace: %w", err)
+		return nil, nil, "", fmt.Errorf("cannot get namespace: %w", err)
 	}
 
-	podName := "volume-uploader-" + rand.String(5)
+	return client, restConf, namespace, nil
+}
 
-	pods := client.CoreV1().Pods(namespace)
-
-	defer func() {
-		_ = pods.Delete(ctx, podName, metav1.DeleteOptions{})
-	}()
-
+func podWithVolumeMounted(podName, claimName, podImage string, podCommand []string) *corev1.Pod {
 	const volumeMntPoint = "/tmp/volume_mnt"
 	const pVol = "p-vol"
-	pod := &corev1.Pod{
+	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        podName,
 			Labels:      nil,
@@ -144,7 +136,27 @@ func runWithVolumeMounted(ctx context.Context, podImage string, podCommand []str
 			RestartPolicy: corev1.RestartPolicyNever,
 		},
 	}
+}
 
+// Runs a pod with given image, command and stdin
+// while having the volume mounted and working directory set to it.
+func runWithVolumeMounted(ctx context.Context, podImage string, podCommand []string, podInput io.Reader, claimName, namespace string) error {
+	var err error
+
+	client, restConf, namespace, err := getClientSetAndRestConfig(namespace)
+	if err != nil {
+		return err
+	}
+
+	podName := "volume-uploader-" + rand.String(5)
+
+	pods := client.CoreV1().Pods(namespace)
+
+	defer func() {
+		_ = pods.Delete(ctx, podName, metav1.DeleteOptions{})
+	}()
+
+	pod := podWithVolumeMounted(podName, claimName, podImage, podCommand)
 	localCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	ready := podReady(localCtx, client.CoreV1(), podName, namespace)
