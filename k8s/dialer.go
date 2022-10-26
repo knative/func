@@ -72,7 +72,7 @@ func (c *contextDialer) DialContext(ctx context.Context, network string, addr st
 	go func() {
 		defer close(execDone)
 		errOut := bytes.NewBuffer(nil)
-		err := c.exec(addr, pr, pw, errOut)
+		err := c.execSocat(addr, pr, pw, errOut)
 		if err != nil {
 			err = fmt.Errorf("failed to exec in pod: %w (stderr: %q)", err, errOut.String())
 			_ = pr.CloseWithError(err)
@@ -188,24 +188,29 @@ func (e emptyBlockingReader) Read(p []byte) (n int, err error) {
 	return 0, io.EOF
 }
 
-func (c *contextDialer) exec(hostPort string, in io.Reader, out, errOut io.Writer) error {
+func (c *contextDialer) execSocat(hostPort string, in io.Reader, out, errOut io.Writer) error {
+	return exec(c.coreV1.RESTClient(), c.restConf,
+		c.podName, c.namespace,
+		[]string{"socat", "-", fmt.Sprintf("TCP:%s", hostPort)},
+		in, out, errOut)
+}
 
-	restClient := c.coreV1.RESTClient()
+func exec(restClient restclient.Interface, restConf *restclient.Config, podName, namespace string, command []string, in io.Reader, out, errOut io.Writer) error {
 	req := restClient.Post().
 		Resource("pods").
-		Name(c.podName).
-		Namespace(c.namespace).
+		Name(podName).
+		Namespace(namespace).
 		SubResource("exec")
 	req.VersionedParams(&coreV1.PodExecOptions{
-		Command:   []string{"socat", "-", fmt.Sprintf("TCP:%s", hostPort)},
-		Container: c.podName,
+		Command:   command,
+		Container: podName,
 		Stdin:     true,
 		Stdout:    true,
 		Stderr:    true,
 		TTY:       false,
 	}, scheme.ParameterCodec)
 
-	executor, err := remotecommand.NewSPDYExecutor(c.restConf, "POST", req.URL())
+	executor, err := remotecommand.NewSPDYExecutor(restConf, "POST", req.URL())
 	if err != nil {
 		return err
 	}
