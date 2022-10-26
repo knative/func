@@ -6,10 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"strings"
 	"sync"
 	"time"
 
+	"golang.org/x/sync/errgroup"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -236,4 +238,82 @@ func (t *tsBuff) Write(p []byte) (n int, err error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	return t.buff.Write(p)
+}
+
+func ServeRsyncOnVolume(ctx context.Context, listener net.Listener, claimName, namespace string) error {
+	client, restConf, namespace, err := getClientSetAndRestConfig(namespace)
+	if err != nil {
+		return err
+	}
+
+	podName := "volume-rsync-" + rand.String(5)
+	volumeHelperImage := "quay.io/mvasek/volume-helper:latest"
+	pod := podWithVolumeMounted(podName, claimName, volumeHelperImage, []string{"socat", "-u", "-", "OPEN:/dev/null"})
+
+	pods := client.CoreV1().Pods(namespace)
+
+	defer func() {
+		_ = pods.Delete(ctx, podName, metav1.DeleteOptions{})
+	}()
+
+	localCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	ready := podReady(localCtx, client.CoreV1(), podName, namespace)
+
+	_, err = pods.Create(ctx, pod, metav1.CreateOptions{})
+	if err != nil {
+		return fmt.Errorf("cannot create pod: %w", err)
+	}
+
+	select {
+	case err = <-ready:
+	case <-ctx.Done():
+		err = ctx.Err()
+	case <-time.After(time.Minute * 5):
+		err = errors.New("timeout waiting for pod to start")
+	}
+
+	if err != nil {
+		return fmt.Errorf("cannot start the pod: %w", err)
+	}
+
+	detachChan := make(chan struct{})
+	defer close(detachChan)
+	go func() {
+		_ = attach(client.CoreV1().RESTClient(), restConf, podName, namespace, emptyBlockingReader(detachChan), io.Discard, io.Discard)
+	}()
+
+	handleRsyncConnection := func(conn net.Conn) error {
+		defer conn.Close()
+		errOut := &tsBuff{}
+		err := exec(client.CoreV1().RESTClient(), restConf,
+			podName, namespace,
+			[]string{"socat", "-", "EXEC:rsync --daemon"},
+			conn, conn, errOut,
+		)
+		if err != nil {
+			return fmt.Errorf("errow while exec (err out: %q): %w", errOut.String(), err)
+		}
+		return nil
+	}
+
+	var eg errgroup.Group
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			if errors.Is(err, net.ErrClosed) {
+				break
+			}
+			return fmt.Errorf("cannot accpet connection: %w", err)
+
+		}
+		eg.Go(func() error { return handleRsyncConnection(conn) })
+	}
+
+	err = eg.Wait()
+	if err != nil {
+		err = fmt.Errorf("error while handling connection(s): %w", err)
+	}
+	return err
 }

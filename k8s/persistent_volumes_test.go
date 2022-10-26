@@ -6,7 +6,9 @@ package k8s_test
 import (
 	"bytes"
 	"context"
+	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -141,5 +143,142 @@ func TestUploadToVolume(t *testing.T) {
 
 	if !strings.Contains(out, "Hello World!") {
 		t.Error("unexpected output")
+	}
+}
+
+func TestServeRsyncOnVolume(t *testing.T) {
+	var err error
+
+	_, err = exec.LookPath("rsync")
+	if err != nil {
+		t.Skip("skipping rsync test")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*5)
+	t.Cleanup(cancel)
+
+	cliSet, err := k8s.NewKubernetesClientset()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testingNS := "volume-rsync-test-ns-" + rand.String(5)
+
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: testingNS,
+		},
+		Spec: corev1.NamespaceSpec{},
+	}
+
+	_, err = cliSet.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = cliSet.CoreV1().Namespaces().Delete(ctx, testingNS, metav1.DeleteOptions{})
+	})
+	t.Log("created namespace: ", testingNS)
+
+	testingPVCName := "testing-pvc"
+
+	err = k8s.CreatePersistentVolumeClaim(ctx, testingPVCName, testingNS,
+		nil, nil,
+		corev1.ReadWriteOnce, *resource.NewQuantity(1024, resource.DecimalSI))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log("created PVC: " + testingPVCName)
+
+	l, err := net.Listen("tcp", "localhost:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = l.Close() })
+	t.Log("will serve rsync daemon at:", l.Addr())
+
+	go func() {
+		err = k8s.ServeRsyncOnVolume(ctx, l, testingPVCName, testingNS)
+		if err != nil {
+			t.Error(err)
+		}
+	}()
+
+	cmd := exec.Command("rsync",
+		filepath.Join("testData", "content", "hello.txt"),
+		filepath.Join("testData", "content", "world.txt"),
+		"rsync://"+l.Addr().String()+"/volume")
+	rsyncOut, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Log("rsync out\n", string(rsyncOut))
+		t.Fatal(err)
+	}
+
+	testingPodName := "testing-pod"
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        testingPodName,
+			Labels:      nil,
+			Annotations: nil,
+		},
+		Spec: corev1.PodSpec{
+			Volumes: []corev1.Volume{{
+				Name: "pvol",
+				VolumeSource: corev1.VolumeSource{
+					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+						ClaimName: testingPVCName,
+					},
+				},
+			}},
+			Containers: []corev1.Container{
+				{
+					Name:    testingPodName,
+					Image:   "alpine",
+					Command: []string{"cat", "/tmp/mnt/hello.txt", "/tmp/mnt/world.txt"},
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      "pvol",
+							MountPath: "/tmp/mnt/",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	pod, err = cliSet.CoreV1().Pods(testingNS).Create(ctx, pod, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log("created pod: " + testingPodName)
+
+	nameSelector := fields.OneTermEqualSelector("metadata.name", testingPodName).String()
+	listOpts := metav1.ListOptions{
+		FieldSelector: nameSelector,
+		Watch:         true,
+	}
+	watcher, err := cliSet.CoreV1().Pods(testingNS).Watch(ctx, listOpts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { watcher.Stop() })
+	for event := range watcher.ResultChan() {
+		if len(event.Object.(*corev1.Pod).Status.ContainerStatuses) > 0 {
+			termState := event.Object.(*corev1.Pod).Status.ContainerStatuses[0].State.Terminated
+			if termState != nil {
+				break
+			}
+		}
+	}
+	t.Log("the testing pod has exited")
+
+	out, err := k8s.GetPodLogs(ctx, testingNS, testingPodName, testingPodName)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !strings.Contains(out, "Hello World!") {
+		t.Errorf("unexpected output: %q", out)
 	}
 }
