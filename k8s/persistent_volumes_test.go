@@ -278,7 +278,7 @@ func TestServeRsyncOnVolume(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if !strings.Contains(out, "Hello World!") {
+	if !strings.Contains(out, "Hello\nWorld!\n") {
 		t.Errorf("unexpected output: %q", out)
 	}
 }
