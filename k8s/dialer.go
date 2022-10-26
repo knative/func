@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"os"
 	"sync"
 	"time"
 
@@ -23,7 +22,7 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 )
 
-var socatImage = "quay.io/boson/alpine-socat:1.7.4.3-r1-non-root"
+var SocatImage = "quay.io/boson/alpine-socat:1.7.4.3-r1-non-root"
 
 // NewInClusterDialer creates context dialer that will dial TCP connections via POD running in k8s cluster.
 // This is useful when accessing k8s services that are not exposed outside cluster (e.g. openshift image registry).
@@ -129,11 +128,6 @@ func (c *contextDialer) startDialerPod(ctx context.Context) (err error) {
 		}
 	}()
 
-	img := socatImage
-	if i, ok := os.LookupEnv("SOCAT_IMAGE"); ok {
-		img = i
-	}
-
 	pod := &coreV1.Pod{
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:        c.podName,
@@ -144,7 +138,7 @@ func (c *contextDialer) startDialerPod(ctx context.Context) (err error) {
 			Containers: []coreV1.Container{
 				{
 					Name:            c.podName,
-					Image:           img,
+					Image:           SocatImage,
 					Stdin:           true,
 					StdinOnce:       true,
 					Command:         []string{"socat", "-u", "-", "OPEN:/dev/null"},
