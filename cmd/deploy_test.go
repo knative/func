@@ -613,7 +613,7 @@ func Test_ImageWithDigestErrors(t *testing.T) {
 func Test_namespace(t *testing.T) {
 	tests := []struct {
 		name          string
-		confNamespace string // namespace as configured in kubeconfig
+		confNamespace string
 		funcNamespace string
 		context       bool
 		expected      string
@@ -637,19 +637,19 @@ func Test_namespace(t *testing.T) {
 			confNamespace: "",
 			funcNamespace: "",
 			context:       true,
-			expected:      "test-ns-deploy", // see ./testdata/kubeconfig_deploy_namespace
+			expected:      "mynamespace", // see ./testdata/Test_namespace/kubeconfig
 		},
 		{
 			name:          "default",
 			confNamespace: "",
 			funcNamespace: "",
 			context:       false,
-			expected:      "func", // see default ./testdata/default_kubeconfig
+			expected:      "func", // see ./testdata/default_kubeconfig
 		},
 	}
 
 	// contains a kube config with active namespace "test-ns-deploy"
-	contextPath := fmt.Sprintf("%s/testdata/kubeconfig_deploy_namespace", cwd())
+	contextPath := fmt.Sprintf("%s/testdata/Test_namespace/kubeconfig", cwd())
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -832,7 +832,8 @@ func TestDeploy_GitURLBranch(t *testing.T) {
 // TestDeploy_NamespaceDefaults ensures that when not specified, a users's
 // active kubernetes context is used for the namespace if available.
 func TestDeploy_NamespaceDefaults(t *testing.T) {
-	kubeconfig := filepath.Join(cwd(), "testdata", "kubeconfig_deploy_namespace")
+	kubeconfig := filepath.Join(cwd(), "testdata", "TestDeploy_NamespaceDefaults/kubeconfig")
+	expected := "mynamespace"
 	root := fromTempDirectory(t) // clears envs and cds to empty root
 	t.Setenv("KUBECONFIG", kubeconfig)
 
@@ -872,8 +873,8 @@ func TestDeploy_NamespaceDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if f.Deploy.Namespace != "test-ns-deploy" { // from testdata/kubeconfig_deploy_namespace
-		t.Fatalf("expected function to have active namespace 'test-ns-deploy' by default.  got '%v'", f.Deploy.Namespace)
+	if f.Deploy.Namespace != expected { // see ./testdata/TestDeploy_NamespaceDefaults
+		t.Fatalf("expected function to have active namespace '%v'.  got '%v'", expected, f.Deploy.Namespace)
 	}
 	// See the knative package's tests for an example of tests which require
 	// the knative or kubernetes API dependency.
@@ -944,15 +945,15 @@ func TestDeploy_NamespaceUpdateWarning(t *testing.T) {
 // not instructed otherwise.
 func TestDeploy_NamespaceRedeployWarning(t *testing.T) {
 	// Change profile to one whose current profile is 'test-ns-deploy'
-	kubeconfig := filepath.Join(cwd(), "testdata", "kubeconfig_deploy_namespace")
+	kubeconfig := filepath.Join(cwd(), "testdata", "TestDeploy_NamespaceRedeployWarning/kubeconfig")
 	root := fromTempDirectory(t)
 	t.Setenv("KUBECONFIG", kubeconfig)
 
-	// Create a Function which appears to have been deployed to 'myns'
+	// Create a Function which appears to have been deployed to 'funcns'
 	f := fn.Function{
 		Runtime: "go",
 		Root:    root,
-		Deploy:  fn.DeploySpec{Namespace: "myns"},
+		Deploy:  fn.DeploySpec{Namespace: "funcns"},
 	}
 	if err := fn.New().Create(f); err != nil {
 		t.Fatal(err)
@@ -973,7 +974,7 @@ func TestDeploy_NamespaceRedeployWarning(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expected := "Warning: Function is in namespace 'myns', but currently active namespace is 'test-ns-deploy'. Continuing with redeployment to 'myns'."
+	expected := "Warning: Function is in namespace 'funcns', but currently active namespace is 'mynamespace'. Continuing with redeployment to 'funcns'."
 
 	// Ensure output contained warning if changing namespace
 	if !strings.Contains(stderr.String(), expected) {
@@ -981,12 +982,12 @@ func TestDeploy_NamespaceRedeployWarning(t *testing.T) {
 		t.Fatalf("Expected warning not found:\n%v", expected)
 	}
 
-	// Ensure the function was saved as having been deployed to
+	// Ensure the function was saved as having been deployed to the correct ns
 	f, err := fn.NewFunction(root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if f.Deploy.Namespace != "myns" {
-		t.Fatalf("expected function to be updated with namespace 'myns'.  got '%v'", f.Deploy.Namespace)
+	if f.Deploy.Namespace != "funcns" {
+		t.Fatalf("expected function to be namespace 'funcns'.  got '%v'", f.Deploy.Namespace)
 	}
 }

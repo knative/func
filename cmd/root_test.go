@@ -298,12 +298,6 @@ func piped(t *testing.T) func() string {
 
 // fromTempDirectory is a cli-specific test helper which endeavors to create
 // an environment clean of developer's settings for use during CLI testing.
-// - sets KUBECONFIG to empty
-// - sets XDG_CONFIG_HOME to an empty temp directory
-// - Creates and changes context to an empty temp directory
-// On test Cleanup:
-// - changes context back to the original directory
-// - resets viper (the reason this is "cli-specific")
 func fromTempDirectory(t *testing.T) string {
 	t.Helper()
 	// We have to define KUBECONFIG, or the file at ~/.kube/config (if extant)
@@ -317,8 +311,10 @@ func fromTempDirectory(t *testing.T) string {
 	// By default unit tests presum no config exists unless provided in testdata.
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
-	// creates and CDs to 'tmp'
+	// creates and CDs to a temp directory
 	d, done := Mktemp(t)
+
+	// Return to original directory and resets viper.
 	t.Cleanup(func() { done(); viper.Reset() })
 	return d
 }
