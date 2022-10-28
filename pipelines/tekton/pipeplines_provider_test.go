@@ -4,14 +4,25 @@ import (
 	"archive/tar"
 	"errors"
 	"io"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	fn "knative.dev/func"
 )
 
 func TestSourcesAsTarStream(t *testing.T) {
-	rc := sourcesAsTarStream(fn.Function{Root: filepath.Join("testData", "fn-src")})
+	root := filepath.Join("testData", "fn-src")
+
+	if err := os.Mkdir(filepath.Join(root, ".git"), 0755); err != nil && !errors.Is(err, os.ErrExist) {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, ".git", "a.txt"), []byte("hello"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	rc := sourcesAsTarStream(fn.Function{Root: root})
 	t.Cleanup(func() { _ = rc.Close() })
 
 	var helloTxtContent []byte
@@ -26,6 +37,9 @@ func TestSourcesAsTarStream(t *testing.T) {
 		}
 		if hdr.Name == "source/bin/release/a.out" {
 			t.Error("stream contains file that should have been ignored")
+		}
+		if strings.HasPrefix(hdr.Name, "source/.git") {
+			t.Errorf(".git files were included: %q", hdr.Name)
 		}
 		if hdr.Name == "source/hello.txt" {
 			helloTxtContent, err = io.ReadAll(tr)
