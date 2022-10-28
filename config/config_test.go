@@ -39,8 +39,8 @@ func TestLoad(t *testing.T) {
 	}
 }
 
-// TestSave ensures that saving an update config persists.
-func TestSave(t *testing.T) {
+// TestWrite ensures that writing a config persists.
+func TestWrite(t *testing.T) {
 	// mktmp
 	root, rm := Mktemp(t)
 	defer rm()

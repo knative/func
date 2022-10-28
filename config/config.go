@@ -118,7 +118,7 @@ func File() string {
 	return path
 }
 
-// RepositoriesPath returns the full at which to look for repositories.
+// RepositoriesPath returns the full path at which to look for repositories.
 // Use FUNC_REPOSITORIES_PATH to override default.
 func RepositoriesPath() string {
 	path := filepath.Join(Dir(), Repositories)
