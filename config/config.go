@@ -7,6 +7,7 @@ import (
 
 	"gopkg.in/yaml.v2"
 	"knative.dev/func/builders"
+	"knative.dev/func/k8s"
 )
 
 const (
@@ -23,19 +24,31 @@ const (
 	DefaultBuilder = builders.Default
 )
 
+// DefaultNamespace for remote operations is the currently active
+// context namespace (if available) or the fallback "default".
+func DefaultNamespace() (namespace string) {
+	var err error
+	if namespace, err = k8s.GetNamespace(""); err != nil {
+		return "default"
+	}
+	return
+}
+
 // Global configuration settings.
 type Config struct {
-	Builder  string `yaml:"builder,omitempty"`
-	Confirm  bool   `yaml:"confirm,omitempty"`
-	Language string `yaml:"language,omitempty"`
+	Builder   string `yaml:"builder,omitempty"`
+	Confirm   bool   `yaml:"confirm,omitempty"`
+	Language  string `yaml:"language,omitempty"`
+	Namespace string `yaml:"namespace,omitempty"`
 }
 
 // New Config struct with all members set to static defaults.  See NewDefaults
 // for one which further takes into account the optional config file.
 func New() Config {
 	return Config{
-		Language: DefaultLanguage,
-		Builder:  DefaultBuilder,
+		Builder:   DefaultBuilder,
+		Language:  DefaultLanguage,
+		Namespace: DefaultNamespace(),
 		// ...
 	}
 }

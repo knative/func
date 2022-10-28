@@ -24,7 +24,7 @@ func TestNewDefaults(t *testing.T) {
 // in from a config file at path, and in this case (unlike NewDefault) the
 // file must exist at path or error.
 func TestLoad(t *testing.T) {
-	cfg, err := config.Load("testdata/func/config.yaml")
+	cfg, err := config.Load(filepath.Join("testdata", "TestLoad", "func", "config.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -140,7 +140,6 @@ func TestCreatePaths(t *testing.T) {
 	if err := config.CreatePaths(); err == nil {
 		t.Fatal("did not receive error when creating paths in an invalid home")
 	}
-
 }
 
 // TestNewDefault_ConfigNotRequired ensures that when creating a new
@@ -192,5 +191,30 @@ func TestWrite(t *testing.T) {
 	}
 	if err := cfg.Write(config.File()); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// TestDefaultNamespace ensures that, when there is a problem determining the
+// active namespace, the static DefaultNamespace ("default") is used and that
+// the currently active k8s namespace is used as the default if available.
+func TestDefaultNamespace(t *testing.T) {
+	cwd := Cwd() // store for use after Mktemp which changes working directory
+
+	// Namespace "default" when empty home
+	// Note that KUBECONFIG must be defined, or the current user's ~/.kube/config
+	// will be used (and thus whichever namespace they have currently active)
+	home, cleanup := Mktemp(t)
+	t.Cleanup(cleanup)
+	t.Setenv("KUBECONFIG", filepath.Join(t.TempDir(), "nonexistent"))
+	t.Setenv("XDG_CONFIG_HOME", home)
+	if config.DefaultNamespace() != "default" {
+		t.Fatalf("did not receive expected default namespace 'default', got '%v'", config.DefaultNamespace())
+	}
+
+	// should be "func" when active k8s namespace is "func"
+	kubeconfig := filepath.Join(cwd, "testdata", "TestDefaultNamespace", "kubeconfig")
+	t.Setenv("KUBECONFIG", kubeconfig)
+	if config.DefaultNamespace() != "func" {
+		t.Fatalf("expected default namespace of 'func' when that is the active k8s namespace.  Got '%v'", config.DefaultNamespace())
 	}
 }
