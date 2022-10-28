@@ -19,22 +19,29 @@ import (
 
 func TestRoot_PersistentFlags(t *testing.T) {
 	tests := []struct {
-		name          string
-		args          []string
-		skipNamespace bool
+		name     string
+		args     []string
+		expected bool
 	}{
 		{
-			name: "provided as root flags",
-			args: []string{"--verbose", "--namespace=namespace", "list"},
+			name:     "not provided",
+			args:     []string{"list"},
+			expected: false,
 		},
 		{
-			name: "provided as sub-command flags",
-			args: []string{"list", "--verbose", "--namespace=namespace"},
+			name:     "provided as root flags",
+			args:     []string{"--verbose", "list"},
+			expected: true,
 		},
 		{
-			name:          "provided as sub-sub-command flags",
-			args:          []string{"repositories", "list", "--verbose"},
-			skipNamespace: true, // NOTE: no sub-sub commands yet use namespace, so it is not checked.
+			name:     "provided as sub-command flags",
+			args:     []string{"list", "--verbose"},
+			expected: true,
+		},
+		{
+			name:     "provided as sub-sub-command flags",
+			args:     []string{"repositories", "list", "--verbose"},
+			expected: true,
 		},
 	}
 
@@ -51,11 +58,8 @@ func TestRoot_PersistentFlags(t *testing.T) {
 			// Assert the persistent variables were propagated to the Client constructor
 			// when the command is actually invoked.
 			cmd = NewRootCmd(RootCommandConfig{NewClient: func(cfg ClientConfig, _ ...fn.Option) (*fn.Client, func()) {
-				if cfg.Namespace != "namespace" && !tt.skipNamespace {
-					t.Fatal("namespace not propagated")
-				}
-				if cfg.Verbose != true {
-					t.Fatal("verbose not propagated")
+				if cfg.Verbose != tt.expected {
+					t.Fatal("verbose persistent flag not propagated correctly")
 				}
 				return fn.New(), func() {}
 			}})

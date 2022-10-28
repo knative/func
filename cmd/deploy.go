@@ -729,9 +729,13 @@ func namespace(cfg deployConfig, f fn.Function, stderr io.Writer) (namespace str
 	} else if f.Deploy.Namespace != "" {
 		namespace = f.Deploy.Namespace // value from previous deployment (func.yaml) 2nd priority
 	} else {
-		// Try to derive a default from the current k8s context, if any.
-		if namespace, err = k8s.GetNamespace(""); err != nil {
-			fmt.Fprintln(stderr, "Warning: no namespace provided, and none currently active. Continuing to attempt deployment")
+		// If global config setting exists, use that, followed by the active
+		// k8s namesapce if not set.
+		gc, err := config.NewDefault()
+		if err != nil {
+			fmt.Fprintf(stderr, "Warning: error reading global config.%v", err)
+		} else {
+			namespace = gc.Namespace
 		}
 	}
 

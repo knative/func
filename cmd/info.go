@@ -12,6 +12,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	fn "knative.dev/func"
+	"knative.dev/func/config"
 )
 
 func NewInfoCmd(newClient ClientFactory) *cobra.Command {
@@ -35,7 +36,15 @@ the current directory or from the directory specified with --path.
 		PreRunE:           bindEnv("output", "path"),
 	}
 
+	// Config
+	cfg, err := config.NewDefault()
+	if err != nil {
+		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
+	}
+
+	// Flags
 	cmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|xml|yaml|url) (Env: $FUNC_OUTPUT)")
+	cmd.Flags().StringP("namespace", "n", cfg.Namespace, "The namespace in which to look for the named function. (Env: $FUNC_NAMESPACE)")
 	setPathFlag(cmd)
 
 	if err := cmd.RegisterFlagCompletionFunc("output", CompleteOutputFormatList); err != nil {
