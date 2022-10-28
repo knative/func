@@ -93,7 +93,7 @@ func TestInvoke_Namespace(t *testing.T) {
 		return NewClient(conf, opts...)
 	}
 	cmd := NewInvokeCmd(newClient)
-	_ = cmd.Execute()
+	_ = cmd.Execute() // invocation error expected
 
 	if namespace != "ns" {
 		t.Fatalf("expected client to receive function's current namespace 'ns', got '%v'", namespace)

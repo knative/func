@@ -41,6 +41,7 @@ func TestDeploy_Default(t *testing.T) {
 	cmd := NewDeployCmd(NewClientFactory(func() *fn.Client {
 		return fn.New()
 	}))
+	cmd.SetArgs([]string{})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -410,17 +411,17 @@ func TestDeploy_RemoteBuildURLPermutations(t *testing.T) {
 				deployer  = mock.NewDeployer()
 				builder   = mock.NewBuilder()
 				pipeliner = mock.NewPipelinesProvider()
-				cmd       = NewDeployCmd(NewClientFactory(func() *fn.Client {
-					return fn.New(
-						fn.WithDeployer(deployer),
-						fn.WithBuilder(builder),
-						fn.WithPipelinesProvider(pipeliner),
-						fn.WithRegistry(TestRegistry),
-					)
-				}))
 			)
+			cmd := NewDeployCmd(NewClientFactory(func() *fn.Client {
+				return fn.New(
+					fn.WithDeployer(deployer),
+					fn.WithBuilder(builder),
+					fn.WithPipelinesProvider(pipeliner),
+					fn.WithRegistry(TestRegistry),
+				)
+			}))
 			cmd.SetArgs(toArgs(remote, build, url))
-			err := cmd.Execute()
+			err := cmd.Execute() // err is checked below
 
 			// Assertions
 			if remote != "" && remote != "false" { // default "" is == false.
@@ -573,15 +574,15 @@ func Test_ImageWithDigestErrors(t *testing.T) {
 				deployer  = mock.NewDeployer()
 				builder   = mock.NewBuilder()
 				pipeliner = mock.NewPipelinesProvider()
-				cmd       = NewDeployCmd(NewClientFactory(func() *fn.Client {
-					return fn.New(
-						fn.WithDeployer(deployer),
-						fn.WithBuilder(builder),
-						fn.WithPipelinesProvider(pipeliner),
-						fn.WithRegistry(TestRegistry),
-					)
-				}))
 			)
+			cmd := NewDeployCmd(NewClientFactory(func() *fn.Client {
+				return fn.New(
+					fn.WithDeployer(deployer),
+					fn.WithBuilder(builder),
+					fn.WithPipelinesProvider(pipeliner),
+					fn.WithRegistry(TestRegistry),
+				)
+			}))
 			args := []string{fmt.Sprintf("--image=%s", tt.image)}
 			if tt.build != "" {
 				args = append(args, fmt.Sprintf("--build=%s", tt.build))

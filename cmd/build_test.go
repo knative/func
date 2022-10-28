@@ -26,9 +26,9 @@ func TestBuild_ImageFlag(t *testing.T) {
 	cmd := NewBuildCmd(NewClientFactory(func() *fn.Client {
 		return fn.New(fn.WithBuilder(builder))
 	}))
+	cmd.SetArgs(args)
 
 	// Execute the command
-	cmd.SetArgs(args)
 	err := cmd.Execute()
 	if err != nil {
 		t.Fatal(err)
@@ -57,8 +57,8 @@ func TestBuild_RegistryOrImageRequired(t *testing.T) {
 	cmd := NewBuildCmd(NewClientFactory(func() *fn.Client {
 		return fn.New()
 	}))
+	cmd.SetArgs([]string{})
 
-	cmd.SetArgs([]string{}) // this explicit clearing of args may not be necessary
 	if err := cmd.Execute(); err != nil {
 		if !errors.Is(err, ErrRegistryRequired) {
 			t.Fatalf("expected ErrRegistryRequired, got error: %v", err)
@@ -119,10 +119,11 @@ func TestBuild_Push(t *testing.T) {
 	var (
 		builder = mock.NewBuilder()
 		pusher  = mock.NewPusher()
-		cmd     = NewBuildCmd(NewClientFactory(func() *fn.Client {
-			return fn.New(fn.WithRegistry(TestRegistry), fn.WithBuilder(builder), fn.WithPusher(pusher))
-		}))
 	)
+	cmd := NewBuildCmd(NewClientFactory(func() *fn.Client {
+		return fn.New(fn.WithRegistry(TestRegistry), fn.WithBuilder(builder), fn.WithPusher(pusher))
+	}))
+	cmd.SetArgs([]string{})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -210,13 +211,14 @@ func TestBuild_RegistryHandling(t *testing.T) {
 		cmd := NewBuildCmd(NewClientFactory(func() *fn.Client {
 			return fn.New(fn.WithBuilder(builder))
 		}))
+		cmd.SetArgs(tc.testFnArgs)
+
 		tci := i + 1
 		t.Logf("Test case %d: %s", tci, tc.desc)
 
 		err := fn.New().Create(tc.testFn)
 		assert.Assert(t, err == nil)
 
-		cmd.SetArgs(tc.testFnArgs)
 		err = cmd.Execute()
 		assert.Assert(t, err == nil)
 

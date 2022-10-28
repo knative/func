@@ -18,6 +18,7 @@ func TestTemplates_Default(t *testing.T) {
 	cmd := NewTemplatesCmd(NewClientFactory(func() *fn.Client {
 		return fn.New()
 	}))
+	cmd.SetArgs([]string{})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -111,10 +112,10 @@ func TestTemplates_ByLanguage(t *testing.T) {
 	cmd := NewTemplatesCmd(NewClientFactory(func() *fn.Client {
 		return fn.New()
 	}))
+	cmd.SetArgs([]string{"go"})
 
 	// Test plain text
 	buf := piped(t)
-	cmd.SetArgs([]string{"go"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
