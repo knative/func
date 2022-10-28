@@ -16,6 +16,7 @@ func TestLanguages_Default(t *testing.T) {
 	cmd := NewLanguagesCmd(NewClientFactory(func() *fn.Client {
 		return fn.New()
 	}))
+	cmd.SetArgs([]string{})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}

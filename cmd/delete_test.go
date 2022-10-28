@@ -30,8 +30,8 @@ func TestDelete_ByName(t *testing.T) {
 	cmd := NewDeleteCmd(NewClientFactory(func() *fn.Client {
 		return fn.New(fn.WithRemover(remover))
 	}))
-
 	cmd.SetArgs([]string{testname})
+
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
