@@ -41,31 +41,32 @@ func TestLoad(t *testing.T) {
 
 // TestWrite ensures that writing a config persists.
 func TestWrite(t *testing.T) {
-	// mktmp
-	root, rm := Mktemp(t)
-	defer rm()
+	root, cleanup := Mktemp(t)
+	t.Cleanup(cleanup)
+	t.Setenv("XDG_CONFIG_HOME", root)
+	var err error
 
-	// touch config.yaml
-	filename := filepath.Join(root, "config.yaml")
-
-	// update
+	// Ensure error writing when config paths do not exist
 	cfg := config.New()
-	cfg.Language = "testSave"
+	cfg.Language = "example"
+	if err = cfg.Write(config.File()); err == nil {
+		t.Fatal("did not receive error writing to a nonexistent path")
+	}
 
-	// save
-	if err := cfg.Write(filename); err != nil {
+	// Create the path and ensure writing generates no error
+	if err = config.CreatePaths(); err != nil {
+		t.Fatal(err)
+	}
+	if err = cfg.Write(config.File()); err != nil {
 		t.Fatal(err)
 	}
 
-	// reload
-	cfg, err := config.Load(filename)
-	if err != nil {
+	// Confirm value was persisted
+	if cfg, err = config.Load(config.File()); err != nil {
 		t.Fatal(err)
 	}
-
-	// assert persisted
-	if cfg.Language != "testSave" {
-		t.Fatalf("config did not persist.  expected 'testSave', got '%v'", cfg.Language)
+	if cfg.Language != "example" {
+		t.Fatalf("config did not persist.  expected 'example', got '%v'", cfg.Language)
 	}
 }
 
@@ -167,30 +168,6 @@ func TestRepositoriesPath(t *testing.T) {
 	expected := filepath.Join(home, "func", config.Repositories)
 	if config.RepositoriesPath() != expected {
 		t.Fatalf("unexpected reposiories path: %v", config.RepositoriesPath())
-	}
-}
-
-// TestWrite ensures that a config is written to the given path and errors
-// are returned correctly when the path does not exist.
-func TestWrite(t *testing.T) {
-	home, cleanup := Mktemp(t)
-	t.Cleanup(cleanup)
-	t.Setenv("XDG_CONFIG_HOME", home)
-
-	cfg := config.New()
-	cfg.Language = "example"
-
-	// First try writing to a nonexistent path
-	if err := cfg.Write(config.File()); err == nil {
-		t.Fatal("did not receive error writing to a nonexistent path")
-	}
-
-	// Create the path and try again
-	if err := config.CreatePaths(); err != nil {
-		t.Fatal(err)
-	}
-	if err := cfg.Write(config.File()); err != nil {
-		t.Fatal(err)
 	}
 }
 
