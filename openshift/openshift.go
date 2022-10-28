@@ -134,11 +134,11 @@ func GetDockerCredentialLoaders() []creds.CredentialsCallback {
 	if !ok {
 		return nil
 	}
-	authInfo := rawConf.AuthInfos[cc.AuthInfo]
+	var credentials docker.Credentials
 
-	credentials := docker.Credentials{
-		Username: "openshift",
-		Password: authInfo.Token,
+	if authInfo := rawConf.AuthInfos[cc.AuthInfo]; authInfo != nil {
+		credentials.Username = "openshift"
+		credentials.Password = authInfo.Token
 	}
 
 	return []creds.CredentialsCallback{
