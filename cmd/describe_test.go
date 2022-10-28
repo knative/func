@@ -25,7 +25,6 @@ func TestDescribe_ByName(t *testing.T) {
 	cmd := NewDescribeCmd(NewClientFactory(func() *fn.Client {
 		return fn.New(fn.WithDescriber(describer))
 	}))
-
 	cmd.SetArgs([]string{testname})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -62,6 +61,7 @@ func TestDescribe_ByProject(t *testing.T) {
 	cmd := NewDescribeCmd(NewClientFactory(func() *fn.Client {
 		return fn.New(fn.WithDescriber(describer))
 	}))
+	cmd.SetArgs([]string{})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -123,6 +123,7 @@ func TestDescribe_Namespace(t *testing.T) {
 		}
 		return client, func() {}
 	})
+	cmd.SetArgs([]string{})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
