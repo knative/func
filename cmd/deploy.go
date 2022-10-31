@@ -16,7 +16,6 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 	"knative.dev/client/pkg/util"
-	"knative.dev/func/openshift"
 
 	fn "knative.dev/func"
 	"knative.dev/func/builders"
@@ -569,10 +568,6 @@ func newDeployConfig(cmd *cobra.Command) (deployConfig, error) {
 		GitDir:      viper.GetString("git-dir"),
 		ImageDigest: "", // automatically split off --image if provided below
 	}
-	if c.Registry == "" && openshift.IsOpenShift() {
-		c.Registry = openshift.GetDefaultRegistry()
-	}
-
 	if c.Image, c.ImageDigest, err = parseImage(c.Image); err != nil {
 		return c, err
 	}

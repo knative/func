@@ -8,6 +8,7 @@ import (
 	"gopkg.in/yaml.v2"
 	"knative.dev/func/builders"
 	"knative.dev/func/k8s"
+	"knative.dev/func/openshift"
 )
 
 const (
@@ -40,6 +41,7 @@ type Config struct {
 	Confirm   bool   `yaml:"confirm,omitempty"`
 	Language  string `yaml:"language,omitempty"`
 	Namespace string `yaml:"namespace,omitempty"`
+	Registry  string `yaml:"registry,omitempty"`
 }
 
 // New Config struct with all members set to static defaults.  See NewDefaults
@@ -50,6 +52,22 @@ func New() Config {
 		Language:  DefaultLanguage,
 		Namespace: DefaultNamespace(),
 		// ...
+	}
+}
+
+// RegistyDefault is a convenience method for deferred calculation of a
+// default registry taking into account both the global config file and cluster
+// detection.
+func (c Config) RegistryDefault() string {
+	// If defined, the user's choice for global registry default value is used
+	if c.Registry != "" {
+		return c.Registry
+	}
+	switch {
+	case openshift.IsOpenShift():
+		return openshift.GetDefaultRegistry()
+	default:
+		return ""
 	}
 }
 

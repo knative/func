@@ -9,7 +9,6 @@ import (
 	"github.com/AlecAivazis/survey/v2/terminal"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
-	"knative.dev/func/openshift"
 
 	"knative.dev/func/buildpacks"
 	"knative.dev/func/config"
@@ -257,10 +256,10 @@ type buildConfig struct {
 }
 
 func newBuildConfig() buildConfig {
-	cfg := buildConfig{
+	return buildConfig{
 		Image:        viper.GetString("image"),
 		Path:         getPathFlag(),
-		Registry:     viper.GetString("registry"),
+		Registry:     registry(),
 		Verbose:      viper.GetBool("verbose"), // defined on root
 		Confirm:      viper.GetBool("confirm"),
 		Builder:      viper.GetString("builder"),
@@ -268,10 +267,6 @@ func newBuildConfig() buildConfig {
 		Push:         viper.GetBool("push"),
 		Platform:     viper.GetString("platform"),
 	}
-	if cfg.Registry == "" && openshift.IsOpenShift() {
-		cfg.Registry = openshift.GetDefaultRegistry()
-	}
-	return cfg
 }
 
 // Prompt the user with value of config members, allowing for interaractive changes.
