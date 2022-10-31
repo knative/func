@@ -1,6 +1,6 @@
 ## func describe
 
-Describe Function
+Describe a Function
 
 ### Synopsis
 

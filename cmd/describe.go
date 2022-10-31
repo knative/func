@@ -18,7 +18,7 @@ import (
 func NewDescribeCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "describe <name>",
-		Short: "Describe Function",
+		Short: "Describe a Function",
 		Long: `Describe a Function
 
 Prints the name, route and event subscriptions for a deployed function in
