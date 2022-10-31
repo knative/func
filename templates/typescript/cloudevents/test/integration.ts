@@ -6,7 +6,13 @@ import request from 'supertest';
 import * as func from '../build';
 import test, { Test } from 'tape';
 
-const data = {
+// Test typed CloudEvent data
+interface Customer {
+  name: string;
+  customerId: string;
+}
+
+const data: Customer = {
   name: 'tiger',
   customerId: '01234'
 };
