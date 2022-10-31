@@ -653,7 +653,7 @@ func TestDeploy_Namespace(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Ensure an explict name (a flag) is taken with highest precidence
+	// Ensure an explicit name (a flag) is taken with highest precidence
 	expectedNamespace = "flagValueNamespace"
 	cmd = NewDeployCmd(NewClientFactory(func() *fn.Client {
 		return fn.New(fn.WithDeployer(deployer))

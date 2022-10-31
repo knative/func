@@ -130,13 +130,6 @@ EXAMPLES
 		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
 
-	// TODO(lkingland): replace with cfg.Namespace when attribute available
-	// on the global config
-	cfgNamespace, err := k8s.GetNamespace("")
-	if err != nil {
-		cfgNamespace = "default"
-	}
-
 	// Flags
 	cmd.Flags().BoolP("confirm", "c", cfg.Confirm, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
 	cmd.Flags().StringArrayP("env", "e", []string{}, "Environment variable to set in the form NAME=VALUE. "+
@@ -156,7 +149,7 @@ EXAMPLES
 	cmd.Flags().StringP("registry", "r", "", "Registry + namespace part of the image to build, ex 'ghcr.io/myuser'.  The full image name is automatically determined. (Env: $FUNC_REGISTRY)")
 	cmd.Flags().BoolP("push", "u", true, "Push the function image to registry before deploying (Env: $FUNC_PUSH)")
 	cmd.Flags().StringP("platform", "", "", "Target platform to build (e.g. linux/amd64).")
-	cmd.Flags().StringP("namespace", "n", cfgNamespace, "Deploy into a specific namespace. Will use function's current namespace by default if already deployed. (Env: $FUNC_NAMESPACE)")
+	cmd.Flags().StringP("namespace", "n", cfg.Namespace, "Deploy into a specific namespace. Will use function's current namespace by default if already deployed. (Env: $FUNC_NAMESPACE)")
 	setPathFlag(cmd)
 
 	if err := cmd.RegisterFlagCompletionFunc("builder", CompleteBuilderList); err != nil {
@@ -719,50 +712,6 @@ func parseImage(v string) (name, digest string, err error) {
 
 	if len(digest[7:]) != 64 {
 		return v, "", fmt.Errorf("sha256 hash in '%s' has the wrong length (%d), should be 64", digest, len(digest[7:]))
-	}
-
-	return
-}
-
-// namespace returns the final namespace to use when considering
-// both provided values (flag or environment variables), the
-// namespace at which the function is currently deployed, and the
-// default of the currently active namespace.
-// Warnings are printed to stderr when the combination may be
-// confusing to the user.
-func namespace(cfg deployConfig, f fn.Function, stderr io.Writer) (namespace string) {
-	var err error
-
-	if cfg.Namespace != "" {
-		namespace = cfg.Namespace // --namespace takes precidence
-	} else if f.Deploy.Namespace != "" {
-		namespace = f.Deploy.Namespace // value from previous deployment (func.yaml) 2nd priority
-	} else {
-		// If global config setting exists, use that, followed by the active
-		// k8s namesapce if not set.
-		gc, err := config.NewDefault()
-		if err != nil {
-			fmt.Fprintf(stderr, "warning: error reading global config.%v", err)
-		} else {
-			namespace = gc.Namespace
-		}
-	}
-
-	// If the Function is not yet deployed, then immediately return the chosen
-	// final namespace
-	if f.Deploy.Namespace == "" {
-		return
-	}
-
-	// Warn if in a different namespace than active
-	active, err := k8s.GetNamespace("")
-	if err == nil && namespace != active {
-		fmt.Fprintf(stderr, "Warning: Function is in namespace '%s', but currently active namespace is '%s'. Continuing with redeployment to '%s'.\n", f.Deploy.Namespace, active, namespace)
-	}
-
-	// Warn if potentially creating an orphan
-	if f.Deploy.Namespace != "" && namespace != f.Deploy.Namespace {
-		fmt.Fprintf(stderr, "Warning: function is in namespace '%s', but requested namespace is '%s'. Continuing with deployment to '%v'.\n", f.Deploy.Namespace, namespace, namespace)
 	}
 
 	return
