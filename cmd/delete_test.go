@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	fn "knative.dev/func"
@@ -16,7 +17,8 @@ import (
 func TestDelete_Namespace(t *testing.T) {
 	root := fromTempDirectory(t)
 
-	// Ensre that the default is "default" when no context can be identified
+	// Ensure that the default is "default" when no context can be identified
+	t.Setenv("KUBECONFIG", filepath.Join(cwd(), "nonexistent"))
 	cmd := NewDeleteCmd(func(cc ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 		if cc.Namespace != "default" {
 			t.Fatalf("expected 'default', got '%v'", cc.Namespace)
