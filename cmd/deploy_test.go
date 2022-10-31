@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -606,108 +605,64 @@ func Test_ImageWithDigestErrors(t *testing.T) {
 	}
 }
 
-// Test_namespace ensures that the combinations of
-// a configured (provided via flag or env variable) namespace
-// takes highest precidence, the previously existing namespace
-// on the function has second precidence, the namespace
-// from the current context (if available) is used next, and finally
-// the default namespace.
-func Test_namespace(t *testing.T) {
-	tests := []struct {
-		name          string
-		confNamespace string
-		funcNamespace string
-		context       bool
-		expected      string
-	}{
-		{
-			name:          "flag or env takes highest precidence",
-			confNamespace: "conf-ns",
-			funcNamespace: "func-ns",
-			context:       true,
-			expected:      "conf-ns",
-		},
-		{
-			name:          "preexisting func namespace takes second precidence",
-			confNamespace: "",
-			funcNamespace: "func-ns",
-			context:       true,
-			expected:      "func-ns",
-		},
-		{
-			name:          "namespace from active context is default if available",
-			confNamespace: "",
-			funcNamespace: "",
-			context:       true,
-			expected:      "mynamespace", // see ./testdata/Test_namespace/kubeconfig
-		},
-		{
-			name:          "default",
-			confNamespace: "",
-			funcNamespace: "",
-			context:       false,
-			expected:      "func", // see ./testdata/default_kubeconfig
-		},
+// TestDeploy_Namespace ensures that the namespace provided to the client
+// for use when describing a function is set
+// 1. The flag /env variable if provided
+// 2. The namespace of the function at path if provided
+// 3. The user's current active namespace
+func TestDeploy_Namespace(t *testing.T) {
+	root := fromTempDirectory(t)
+
+	var expectedNamespace string
+
+	// A mock deployer which validates the namespace received is that expected
+	deployer := mock.NewDeployer()
+	deployer.DeployFn = func(_ context.Context, f fn.Function) (res fn.DeploymentResult, err error) {
+		e := &expectedNamespace // closure
+		if f.Deploy.Namespace != *e {
+			t.Fatalf("expected namespace '%v', got '%v'", *e, f.Deploy.Namespace)
+		}
+		return
 	}
 
-	// contains a kube config with active namespace "test-ns-deploy"
-	contextPath := fmt.Sprintf("%s/testdata/Test_namespace/kubeconfig", cwd())
+	// A function which will be repeatedly, mockingly deployed
+	if err := fn.New().Create(fn.Function{Root: root, Runtime: "go", Registry: TestRegistry}); err != nil {
+		t.Fatal(err)
+	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			t.Helper()
-			root := fromTempDirectory(t)
+	// Ensure the default "func" which is gathered from the default kubeconfig
+	// path of ./tesdata/default_kubeconfig
+	expectedNamespace = "func" // see ./testdata/default_kubeconfig
+	cmd := NewDeployCmd(NewClientFactory(func() *fn.Client {
+		return fn.New(fn.WithDeployer(deployer))
+	}))
+	cmd.SetArgs([]string{})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
 
-			// if running with an active kubeconfig
-			if test.context {
-				t.Setenv("KUBECONFIG", contextPath)
-			}
+	// Change the function's active namespace and ensure it is used, preempting
+	// the 'func' namespace gathered from kubeconfig.
+	expectedNamespace = "alreadyDeployedNamespace"
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Deploy.Namespace = expectedNamespace
+	if err := f.Write(); err != nil {
+		t.Fatal(err)
+	}
 
-			// Creat a funcction which may be already deployed
-			// (have a namespace)
-			f := fn.Function{
-				Runtime: "go",
-				Root:    root,
-				Deploy: fn.DeploySpec{
-					Namespace: test.funcNamespace,
-				},
-			}
-			if err := fn.New().Create(f); err != nil {
-				t.Fatal(err)
-			}
-
-			ns := namespace(deployConfig{Namespace: test.confNamespace}, f, os.Stderr)
-			if ns != test.expected {
-				t.Errorf("expected namespace '%v' got '%v'", test.expected, ns)
-			}
-
-		})
+	// Ensure an explicit name (a flag) is taken with highest precidence
+	expectedNamespace = "flagValueNamespace"
+	cmd = NewDeployCmd(NewClientFactory(func() *fn.Client {
+		return fn.New(fn.WithDeployer(deployer))
+	}))
+	cmd.SetArgs([]string{"--namespace", expectedNamespace})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
 	}
 }
-
-/*
-Test_namespaceCheck cases were refactored into:
-			"first deployment(no ns in func.yaml), not given via cli, expect write in func.yaml"
-			AKA: Undeployed Function, deploying with no ns specified: use defaults
-			See TestDeploy_NamespaceDefaults
-
-			"ns in func.yaml, not given via cli, current ns matches func.yaml",
-			AKA: Function Deployed, should redeploy to the same namespace.
-			See TestDeploy_NamespaceRedeployWarning
-
-			"ns in func.yaml, given via cli (always override)",
-			AKA: Function Deployed, but should deploy wherever --namespace says
-			See TestDeploy_NamespaceUpdateWarning which confirms this case exists
-			  and yields a warning message.
-
-			"ns in func.yaml, not given via cli, current ns does NOT match func.yaml",
-			AKA: A previously deployed function should stay in its namespace, even
-			  when the user's active namespace differs.
-			See TestDeploy_NamespaceRedeployWarning which confirms this case exists
-			  and yields a warning message.
-
-
-*/
 
 // TestDeploy_GitArgsPersist ensures that the git flags, if provided, are
 // persisted to the Function for subsequent deployments.
@@ -976,7 +931,7 @@ func TestDeploy_NamespaceRedeployWarning(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expected := "Warning: Function is in namespace 'funcns', but currently active namespace is 'mynamespace'. Continuing with redeployment to 'funcns'."
+	expected := "Warning: target namespace 'funcns' is not the currently active namespace 'mynamespace'. Continuing with deployment to 'funcns'."
 
 	// Ensure output contained warning if changing namespace
 	if !strings.Contains(stderr.String(), expected) {
