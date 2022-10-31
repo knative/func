@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"path/filepath"
 	"testing"
 
 	fn "knative.dev/func"
@@ -94,7 +95,8 @@ func TestDescribe_Namespace(t *testing.T) {
 
 	client := fn.New(fn.WithDescriber(mock.NewDescriber()))
 
-	// Ensre that the default is "default" when no context can be identified
+	// Ensure that the default is "default" when no context can be identified
+	t.Setenv("KUBECONFIG", filepath.Join(cwd(), "nonexistent"))
 	cmd := NewDescribeCmd(func(cc ClientConfig, _ ...fn.Option) (*fn.Client, func()) {
 		if cc.Namespace != "default" {
 			t.Fatalf("expected 'default', got '%v'", cc.Namespace)
