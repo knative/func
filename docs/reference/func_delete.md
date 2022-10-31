@@ -35,7 +35,7 @@ func delete -n apps myfunc
   -a, --all string         Delete all resources created for a function, eg. Pipelines, Secrets, etc. (Env: $FUNC_ALL) (allowed values: "true", "false") (default "true")
   -c, --confirm            Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)
   -h, --help               help for delete
-  -n, --namespace string   The namespace in which to delete. (Env: $FUNC_NAMESPACE)
+  -n, --namespace string   The namespace in which to delete. (Env: $FUNC_NAMESPACE) (default "default")
   -p, --path string        Path to the project directory (Env: $FUNC_PATH) (default ".")
 ```
 

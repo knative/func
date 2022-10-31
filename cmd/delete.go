@@ -33,7 +33,7 @@ No local files are deleted.
 `,
 		SuggestFor:        []string{"remove", "rm", "del"},
 		ValidArgsFunction: CompleteFunctionList,
-		PreRunE:           bindEnv("path", "confirm", "all"),
+		PreRunE:           bindEnv("path", "confirm", "all", "namespace"),
 		SilenceUsage:      true, // no usage dump on error
 	}
 
@@ -45,7 +45,7 @@ No local files are deleted.
 
 	// Flags
 	cmd.Flags().BoolP("confirm", "c", cfg.Confirm, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
-	cmd.Flags().StringP("namespace", "n", "", "The namespace in which to delete. (Env: $FUNC_NAMESPACE)")
+	cmd.Flags().StringP("namespace", "n", cfg.Namespace, "The namespace in which to delete. (Env: $FUNC_NAMESPACE)")
 	cmd.Flags().StringP("all", "a", "true", "Delete all resources created for a function, eg. Pipelines, Secrets, etc. (Env: $FUNC_ALL) (allowed values: \"true\", \"false\")")
 	setPathFlag(cmd)
 
@@ -59,7 +59,7 @@ No local files are deleted.
 }
 
 func runDelete(cmd *cobra.Command, args []string, newClient ClientFactory) (err error) {
-	config, err := newDeleteConfig(args).Prompt()
+	cfg, err := newDeleteConfig(args).Prompt()
 	if err != nil {
 		if err == terminal.InterruptErr {
 			return nil
@@ -79,28 +79,29 @@ func runDelete(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 			Name: args[0],
 		}
 	} else {
-		function, err = fn.NewFunction(config.Path)
+		function, err = fn.NewFunction(cfg.Path)
 		if err != nil {
 			return
 		}
 
 		// Check if the function has been initialized
 		if !function.Initialized() {
-			return fmt.Errorf("the given path '%v' does not contain an initialized function", config.Path)
+			return fmt.Errorf("the given path '%v' does not contain an initialized function", cfg.Path)
 		}
-	}
 
-	// If not provided, use the function's extant namespace
-	if config.Namespace == "" {
-		config.Namespace = function.Deploy.Namespace
+		// If not provided, use the function's extant namespace
+		if !cmd.Flags().Changed("namespace") {
+			cfg.Namespace = function.Deploy.Namespace
+		}
+
 	}
 
 	// Create a client instance from the now-final config
-	client, done := newClient(ClientConfig{Namespace: config.Namespace, Verbose: config.Verbose})
+	client, done := newClient(ClientConfig{Namespace: cfg.Namespace, Verbose: cfg.Verbose})
 	defer done()
 
 	// Invoke remove using the concrete client impl
-	return client.Remove(cmd.Context(), function, config.DeleteAll)
+	return client.Remove(cmd.Context(), function, cfg.DeleteAll)
 }
 
 type deleteConfig struct {

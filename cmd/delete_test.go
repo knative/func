@@ -2,11 +2,68 @@ package cmd
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	fn "knative.dev/func"
 	"knative.dev/func/mock"
 )
+
+// TestDelete_Namespace ensures that the namespace provided to the client
+// for use when deleting a function is set
+// 1. The flag /env variable if provided
+// 2. The namespace of the function at path if provided
+// 3. The user's current active namespace
+func TestDelete_Namespace(t *testing.T) {
+	root := fromTempDirectory(t)
+
+	// Ensure that the default is "default" when no context can be identified
+	t.Setenv("KUBECONFIG", filepath.Join(cwd(), "nonexistent"))
+	cmd := NewDeleteCmd(func(cc ClientConfig, options ...fn.Option) (*fn.Client, func()) {
+		if cc.Namespace != "default" {
+			t.Fatalf("expected 'default', got '%v'", cc.Namespace)
+		}
+		return fn.New(), func() {}
+	})
+	cmd.SetArgs([]string{"somefunc"}) // delete by name such that no f need be created
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Ensure the extant function's namespace is used
+	f := fn.Function{
+		Root:    root,
+		Runtime: "go",
+		Deploy: fn.DeploySpec{
+			Namespace: "deployed",
+		},
+	}
+	if err := fn.New().Create(f); err != nil {
+		t.Fatal(err)
+	}
+	cmd = NewDeleteCmd(func(cc ClientConfig, options ...fn.Option) (*fn.Client, func()) {
+		if cc.Namespace != "deployed" {
+			t.Fatalf("expected 'deployed', got '%v'", cc.Namespace)
+		}
+		return fn.New(), func() {}
+	})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Ensure an explicit namespace is plumbed through
+	cmd = NewDeleteCmd(func(cc ClientConfig, options ...fn.Option) (*fn.Client, func()) {
+		if cc.Namespace != "ns" {
+			t.Fatalf("expected 'ns', got '%v'", cc.Namespace)
+		}
+		return fn.New(), func() {}
+	})
+	cmd.SetArgs([]string{"--namespace", "ns"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+}
 
 // TestDelete_ByName ensures that running delete specifying the name of the
 // function explicitly as an argument invokes the remover appropriately.
