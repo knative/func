@@ -130,6 +130,13 @@ EXAMPLES
 		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
 
+	// TODO(lkingland): replace with cfg.Namespace when attribute available
+	// on the global config
+	cfgNamespace, err := k8s.GetNamespace("")
+	if err != nil {
+		cfgNamespace = "default"
+	}
+
 	// Flags
 	cmd.Flags().BoolP("confirm", "c", cfg.Confirm, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
 	cmd.Flags().StringArrayP("env", "e", []string{}, "Environment variable to set in the form NAME=VALUE. "+
@@ -149,7 +156,7 @@ EXAMPLES
 	cmd.Flags().StringP("registry", "r", "", "Registry + namespace part of the image to build, ex 'ghcr.io/myuser'.  The full image name is automatically determined. (Env: $FUNC_REGISTRY)")
 	cmd.Flags().BoolP("push", "u", true, "Push the function image to registry before deploying (Env: $FUNC_PUSH)")
 	cmd.Flags().StringP("platform", "", "", "Target platform to build (e.g. linux/amd64).")
-	cmd.Flags().StringP("namespace", "n", "", "Deploy into a specific namespace. (Env: $FUNC_NAMESPACE)")
+	cmd.Flags().StringP("namespace", "n", cfgNamespace, "Deploy into a specific namespace. Will use function's current namespace by default if already deployed. (Env: $FUNC_NAMESPACE)")
 	setPathFlag(cmd)
 
 	if err := cmd.RegisterFlagCompletionFunc("builder", CompleteBuilderList); err != nil {
@@ -197,6 +204,9 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		return
 	}
 
+	// Print warnings regarding namespace target
+	namespaceWarnings(config, cmd)
+
 	// Load the function, and if it exists (path initialized as a function), merge
 	// in any updates from flags/env vars (namespace, explicit image name, envs).
 	f, err := fn.NewFunction(config.Path)
@@ -213,6 +223,10 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 	if f.Build.Builder == "" || cmd.Flags().Changed("builder") {
 		// Sets default AND accepts any user-provided overrides
 		f.Build.Builder = config.Builder
+	}
+	if f.Deploy.Namespace == "" || cmd.Flags().Changed("namespace") {
+		// Sets default AND accepts andy user-provided overrides
+		f.Deploy.Namespace = config.Namespace
 	}
 	if config.Image != "" {
 		f.Image = config.Image
@@ -239,11 +253,6 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 	}
 	if config.GitDir != "" {
 		f.Build.Git.ContextDir = config.GitDir
-	}
-
-	f.Deploy.Namespace = namespace(config, f, cmd.ErrOrStderr())
-	if err != nil {
-		return
 	}
 
 	f.Run.Envs, _, err = mergeEnvs(f.Run.Envs, config.EnvToUpdate, config.EnvToRemove)
@@ -757,6 +766,45 @@ func namespace(cfg deployConfig, f fn.Function, stderr io.Writer) (namespace str
 	}
 
 	return
+}
+
+// Warnings are printed to the output when the evaluation of effective namespace
+// may be confusing to the user.
+//   active = the curently active kube cluster namespace (or "default")
+//   current = the namespace in which the function is currently deployed (or "")
+func namespaceWarnings(cfg deployConfig, cmd *cobra.Command) {
+	// NOTE(lkingland): This function can largely be removed when Namespace is
+	// gathered from the Global Config struct, because this logic will implicitly
+	// exist in the way it is instantiated.
+
+	active, err := k8s.GetNamespace("")
+	if err != nil {
+		active = "default"
+	}
+	var (
+		f, _         = fn.NewFunction(cfg.Path)
+		current      = f.Deploy.Namespace               // Current
+		target       = current                          // Target Current by default
+		flagValue    = cfg.Namespace                    // Flag Value
+		flagProvided = cmd.Flags().Changed("namespace") // Flag Provided
+		out          = cmd.ErrOrStderr()
+	)
+	if current == "" {
+		target = active
+	}
+	if flagProvided {
+		target = flagValue
+	}
+
+	// Warn if deploying to a namespace other than the active (user might not see it):
+	if target != active {
+		fmt.Fprintf(out, "Warning: target namespace '%s' is not the currently active namespace '%s'. Continuing with deployment to '%s'.\n", target, active, target)
+	}
+
+	// Warn if deploying to a different namespace than it already exists within (creates orphan):
+	if target != current && current != "" {
+		fmt.Fprintf(out, "Warning: function is in namespace '%s', but requested namespace is '%s'. Continuing with deployment to '%v'.\n", current, target, target)
+	}
 }
 
 var ErrRegistryRequired = errors.New(`A container registry is required.  For example:
