@@ -733,7 +733,7 @@ func namespace(cfg deployConfig, f fn.Function, stderr io.Writer) (namespace str
 		// k8s namesapce if not set.
 		gc, err := config.NewDefault()
 		if err != nil {
-			fmt.Fprintf(stderr, "Warning: error reading global config.%v", err)
+			fmt.Fprintf(stderr, "warning: error reading global config.%v", err)
 		} else {
 			namespace = gc.Namespace
 		}

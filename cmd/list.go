@@ -14,7 +14,6 @@ import (
 	"gopkg.in/yaml.v2"
 
 	fn "knative.dev/func"
-	"knative.dev/func/config"
 )
 
 func NewListCmd(newClient ClientFactory) *cobra.Command {
@@ -39,15 +38,9 @@ Lists all deployed functions in a given namespace.
 		PreRunE:    bindEnv("all-namespaces", "output"),
 	}
 
-	// Config
-	cfg, err := config.NewDefault()
-	if err != nil {
-		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
-	}
-
 	// Flags
 	cmd.Flags().BoolP("all-namespaces", "A", false, "List functions in all namespaces. If set, the --namespace flag is ignored.")
-	cmd.Flags().StringP("namespace", "n", cfg.Namespace, "The namespace for which to list functions. (Env: $FUNC_NAMESPACE)")
+	cmd.Flags().StringP("namespace", "n", "", "The namespace for which to list functions. (Env: $FUNC_NAMESPACE)")
 	cmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|xml|yaml) (Env: $FUNC_OUTPUT)")
 
 	if err := cmd.RegisterFlagCompletionFunc("output", CompleteOutputFormatList); err != nil {
