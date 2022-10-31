@@ -1,30 +1,32 @@
 # This file is auto-generated from peribolos.
-# Do not modify this file, instead modify peribolos/knative-sandbox.yaml
+# Do not modify this file, instead modify peribolos/knative.yaml
 
 aliases:
-  async-component-approvers:
-  - AngeloDanducci
-  - bvennam
-  - julz
-  - maximilien
+  api-core-wg-leads:
+  - dprotaso
+  client-reviewers:
+  - itsmurugappan
   client-wg-leads:
   - dsimansk
   - navidshaikh
   - rhuss
   client-writers:
   - dsimansk
+  - maximilien
   - navidshaikh
   - rhuss
-  container-freezer-approvers:
-  - julz
-  - psschwei
-  control-protocol-approvers:
-  - eric-sap
-  - lionelvillard
-  - matzew
-  - travis-minke-sap
-  discovery-approvers:
-  - lberk
+  - vyasgun
+  conformance-task-force-leads:
+  - omerbensaadon
+  - salaboy
+  conformance-writers:
+  - omerbensaadon
+  - salaboy
+  docs-reviewers:
+  - nainaz
+  - omerbensaadon
+  - pmbanugo
+  - snneji
   docs-wg-leads:
   - abrennan89
   - snneji
@@ -33,151 +35,36 @@ aliases:
   - csantanapr
   - psschwei
   - snneji
-  eventing-autoscaler-keda-approvers:
-  - zroubalik
-  eventing-awssqs-approvers:
+  eventing-reviewers:
+  - aslom
+  - tayarani
+  - tommyreddad
+  eventing-triage:
+  - akashrv
   - lberk
-  - matzew
-  eventing-camel-approvers:
-  - nicolaferraro
-  eventing-ceph-approvers:
-  - lberk
-  - matzew
-  eventing-couchdb-approvers:
-  - lberk
-  - lionelvillard
-  - matzew
-  eventing-github-approvers:
-  - lberk
-  - matzew
-  eventing-gitlab-approvers:
-  - lberk
-  - matzew
-  - sebgoa
-  - tzununbekov
-  eventing-kafka-approvers:
-  - aliok
-  - davyodom
-  - eric-sap
-  - lberk
-  - matzew
-  - phamilton
-  - pierDipi
-  - steven0711dong
-  - travis-minke-sap
-  eventing-kafka-broker-approvers:
-  - aliok
-  - matzew
-  - pierDipi
-  eventing-kafka-mtsource-approvers:
-  - steven0711dong
-  eventing-kafka-wg-leads:
-  - lionelvillard
-  - travis-minke-sap
-  eventing-kafka-writers:
-  - lionelvillard
-  - travis-minke-sap
-  eventing-kogito-approvers:
-  - ricardozanini
-  - spolti
-  - vaibhavjainwiz
-  eventing-natss-approvers:
-  - zhaojizhuang
-  eventing-prometheus-approvers:
-  - lberk
-  - matzew
-  eventing-rabbitmq-approvers:
-  - chunyilyu
-  - gab-satchi
-  - gabo1208
-  - gvmw
-  - ikvmw
-  - salaboy
-  - xtreme-sameer-vohra
-  eventing-redis-approvers:
-  - aavarghese
-  - lionelvillard
-  - matzew
   eventing-wg-leads:
   - lionelvillard
   - pierDipi
   eventing-writers:
+  - akashrv
   - aliok
+  - lberk
   - lionelvillard
   - matzew
   - odacremolbap
   - pierDipi
-  func-tastic-approvers:
-  - lance
-  - lkingland
-  - matejvasek
+  func-reviewers:
+  - jrangelramos
   - nainaz
-  - salaboy
-  - zroubalik
   func-writers:
   - lance
   - lkingland
   - matejvasek
-  - nainaz
   - salaboy
   - zroubalik
   functions-wg-leads:
   - lance
   - salaboy
-  homebrew-kn-plugins-approvers:
-  - dsimansk
-  - maximilien
-  - rhuss
-  kn-plugin-admin-approvers:
-  - maximilien
-  - navidshaikh
-  - rhuss
-  - zhanggbj
-  kn-plugin-diag-approvers:
-  - cdlliuy
-  - maximilien
-  - navidshaikh
-  kn-plugin-event-approvers:
-  - cardil
-  - rhuss
-  kn-plugin-func-approvers:
-  - jrangelramos
-  - lance
-  - lkingland
-  - matejvasek
-  - nainaz
-  - salaboy
-  - zroubalik
-  kn-plugin-migration-approvers:
-  - maximilien
-  - zhangtbj
-  kn-plugin-operator-approvers:
-  - dsimansk
-  - houshengbo
-  - maximilien
-  - omerbensaadon
-  - rhuss
-  kn-plugin-quickstart-approvers:
-  - dsimansk
-  - navidshaikh
-  - psschwei
-  - rhuss
-  kn-plugin-sample-approvers:
-  - maximilien
-  - navidshaikh
-  - rhuss
-  kn-plugin-service-log-approvers:
-  - rhuss
-  kn-plugin-source-kafka-approvers:
-  - daisy-ycguo
-  - dsimansk
-  - maximilien
-  - navidshaikh
-  - rhuss
-  kn-plugin-source-kamelet-approvers:
-  - christophd
-  - nicolaferraro
-  - rhuss
   knative-admin:
   - csantanapr
   - dprotaso
@@ -192,9 +79,11 @@ aliases:
   - kvmware
   - lance
   - lionelvillard
+  - mchmarny
   - nak3
   - pmorie
   - psschwei
+  - smoser-ibm
   - thisisnotapril
   - upodroid
   - vaikas
@@ -208,53 +97,68 @@ aliases:
   - knative-prow-robot
   - knative-prow-updater-robot
   - knative-test-reporter-robot
-  kperf-approvers:
-  - chzhyang
-  - maximilien
-  - nader-ziada
-  - psschwei
-  - zhanggbj
-  net-certmanager-approvers:
-  - ZhiminXiang
-  - carlisia
-  - tcnghia
-  net-contour-approvers:
-  - carlisia
-  - dprotaso
-  - tcnghia
-  net-gateway-api-approvers:
-  - carlisia
-  - nak3
-  - tcnghia
-  net-http01-approvers:
-  - carlisia
-  - tcnghia
-  net-istio-approvers:
-  - AngeloDanducci
+  networking-reviewers:
   - JRBANCEL
   - ZhiminXiang
+  - andrew-su
+  - arturenault
   - carlisia
   - nak3
-  - skonto
+  - shashwathi
   - tcnghia
   - vagababov
-  net-kourier-approvers:
-  - carlisia
-  - davidor
-  - jmprusi
-  - skonto
-  - tcnghia
+  - yanweiguo
   networking-wg-leads:
   - nak3
+  networking-writers:
+  - JRBANCEL
+  - nak3
+  - vagababov
+  operations-reviewers:
+  - Cynocracy
+  - aliok
+  - houshengbo
+  - jcrossley3
+  - matzew
+  - maximilien
+  - trshafer
   operations-wg-leads:
   - houshengbo
   operations-writers:
-  - dprotaso
+  - Cynocracy
+  - aliok
   - houshengbo
-  - upodroid
+  - jcrossley3
+  - matzew
+  - maximilien
+  - trshafer
+  pkg-configmap-reviewers:
+  - dprotaso
+  - mattmoor
+  - vagababov
+  pkg-configmap-writers:
+  - dprotaso
+  - mattmoor
+  - vagababov
+  pkg-controller-reviewers:
+  - dprotaso
+  - mattmoor
+  - tcnghia
+  - vagababov
+  - whaught
+  pkg-controller-writers:
+  - dprotaso
+  - mattmoor
+  - tcnghia
+  - vagababov
   productivity-leads:
   - kvmware
   - upodroid
+  productivity-reviewers:
+  - albertomilan
+  - evankanderson
+  - mgencur
+  - shinigambit
   productivity-wg-leads:
   - kvmware
   - upodroid
@@ -265,24 +169,34 @@ aliases:
   - kvmware
   - psschwei
   - upodroid
-  security-guard-approvers:
-  - davidhadas
-  - maximilien
-  - psschwei
-  - rhuss
   security-wg-leads:
   - evankanderson
   - julz
   security-writers:
   - evankanderson
   - julz
+  serving-observability-reviewers:
+  - skonto
+  - yanweiguo
+  serving-observability-writers:
+  - yanweiguo
+  serving-reviewers:
+  - carlisia
+  - julz
+  - nader-ziada
+  - nealhu
+  - psschwei
+  - skonto
+  - whaught
   serving-wg-leads:
   - dprotaso
   - psschwei
   serving-writers:
   - dprotaso
-  - nak3
+  - julz
   - psschwei
+  - tcnghia
+  - vagababov
   steering-committee:
   - csantanapr
   - itsmurugappan
@@ -296,6 +210,10 @@ aliases:
   - evankanderson
   - psschwei
   - zroubalik
+  trademark-committee:
+  - evankanderson
+  - mchmarny
+  - smoser-ibm
   ux-wg-leads:
   - abrennan89
   - snneji
