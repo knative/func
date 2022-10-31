@@ -35,7 +35,9 @@ the current directory or from the directory specified with --path.
 		PreRunE:           bindEnv("output", "path"),
 	}
 
+	// Flags
 	cmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|xml|yaml|url) (Env: $FUNC_OUTPUT)")
+	cmd.Flags().StringP("namespace", "n", "", "The namespace in which to look for the named function. (Env: $FUNC_NAMESPACE)")
 	setPathFlag(cmd)
 
 	if err := cmd.RegisterFlagCompletionFunc("output", CompleteOutputFormatList); err != nil {
