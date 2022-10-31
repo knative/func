@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"gopkg.in/yaml.v2"
+	"knative.dev/func/builders"
 )
 
 const (
@@ -17,10 +18,14 @@ const (
 
 	// DefaultLanguage is intentionaly undefined.
 	DefaultLanguage = ""
+
+	// DefaultBuilder is statically defined by the builders package.
+	DefaultBuilder = builders.Default
 )
 
 // Global configuration settings.
 type Config struct {
+	Builder  string `yaml:"builder,omitempty"`
 	Confirm  bool   `yaml:"confirm,omitempty"`
 	Language string `yaml:"language,omitempty"`
 }
@@ -30,6 +35,7 @@ type Config struct {
 func New() Config {
 	return Config{
 		Language: DefaultLanguage,
+		Builder:  DefaultBuilder,
 		// ...
 	}
 }
