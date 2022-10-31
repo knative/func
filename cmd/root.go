@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"knative.dev/func/cmd/templates"
+	"knative.dev/func/config"
 
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
@@ -123,6 +124,16 @@ EXAMPLES
 
 // Helpers
 // ------------------------------------------
+
+// registry to use is that provided as --registry or FUNC_REGISTRY.
+// If not provided, global configuration determines the default to use.
+func registry() string {
+	if r := viper.GetString("registry"); r != "" {
+		return r
+	}
+	cfg, _ := config.NewDefault()
+	return cfg.RegistryDefault()
+}
 
 // interactiveTerminal returns whether or not the currently attached process
 // terminal is interactive.  Used for determining whether or not to
