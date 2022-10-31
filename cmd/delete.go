@@ -45,7 +45,7 @@ No local files are deleted.
 
 	// Flags
 	cmd.Flags().BoolP("confirm", "c", cfg.Confirm, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
-	cmd.Flags().StringP("namespace", "n", cfg.Namespace, "The namespace for which to list functions. (Env: $FUNC_NAMESPACE)")
+	cmd.Flags().StringP("namespace", "n", cfg.Namespace, "The namespace in which to delete. (Env: $FUNC_NAMESPACE)")
 	cmd.Flags().StringP("all", "a", "true", "Delete all resources created for a function, eg. Pipelines, Secrets, etc. (Env: $FUNC_ALL) (allowed values: \"true\", \"false\")")
 	setPathFlag(cmd)
 
