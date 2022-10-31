@@ -115,7 +115,7 @@ func TestDelete_NameAndPathExclusivity(t *testing.T) {
 	if err == nil {
 		// TODO should really either parse the output or use typed errors to ensure it's
 		// failing for the expected reason.
-		t.Fatal(err)
+		t.Fatalf("expected error on conflicting flags not received")
 	}
 
 	// Also fail if remover's .Remove is invoked.

@@ -761,9 +761,9 @@ func (c *Client) Run(ctx context.Context, root string) (job *Job, err error) {
 	return job, nil
 }
 
-// Info for a function.  Name takes precedence.  If no name is provided,
+// Describe a function.  Name takes precedence.  If no name is provided,
 // the function defined at root is used.
-func (c *Client) Info(ctx context.Context, name, root string) (d Instance, err error) {
+func (c *Client) Describe(ctx context.Context, name, root string) (d Instance, err error) {
 	go func() {
 		<-ctx.Done()
 		c.progressListener.Stopping()

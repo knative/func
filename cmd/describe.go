@@ -12,32 +12,41 @@ import (
 	"gopkg.in/yaml.v2"
 
 	fn "knative.dev/func"
+	"knative.dev/func/config"
 )
 
-func NewInfoCmd(newClient ClientFactory) *cobra.Command {
+func NewDescribeCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "info <name>",
-		Short: "Show details of a function",
-		Long: `Show details of a function
+		Use:   "describe <name>",
+		Short: "Describe a Function",
+		Long: `Describe a Function
 
-Prints the name, route and any event subscriptions for a deployed function in
+Prints the name, route and event subscriptions for a deployed function in
 the current directory or from the directory specified with --path.
 `,
 		Example: `
 # Show the details of a function as declared in the local func.yaml
 {{.Name}} info
 
-# Show the details of the function in the myotherfunc directory with yaml output
+# Show the details of the function in the directory with yaml output
 {{.Name}} info --output yaml --path myotherfunc
 `,
-		SuggestFor:        []string{"ifno", "describe", "fino", "get"},
+		SuggestFor: []string{"ifno", "fino", "get"},
+
 		ValidArgsFunction: CompleteFunctionList,
-		PreRunE:           bindEnv("output", "path"),
+		Aliases:           []string{"info", "desc"},
+		PreRunE:           bindEnv("output", "path", "namespace"),
+	}
+
+	// Config
+	cfg, err := config.NewDefault()
+	if err != nil {
+		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
 
 	// Flags
 	cmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|xml|yaml|url) (Env: $FUNC_OUTPUT)")
-	cmd.Flags().StringP("namespace", "n", "", "The namespace in which to look for the named function. (Env: $FUNC_NAMESPACE)")
+	cmd.Flags().StringP("namespace", "n", cfg.Namespace, "The namespace in which to look for the named function. (Env: $FUNC_NAMESPACE)")
 	setPathFlag(cmd)
 
 	if err := cmd.RegisterFlagCompletionFunc("output", CompleteOutputFormatList); err != nil {
@@ -47,44 +56,57 @@ the current directory or from the directory specified with --path.
 	cmd.SetHelpFunc(defaultTemplatedHelp)
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runInfo(cmd, args, newClient)
+		return runDescribe(cmd, args, newClient)
 	}
 
 	return cmd
 }
 
-func runInfo(cmd *cobra.Command, args []string, newClient ClientFactory) (err error) {
-	config := newInfoConfig(args)
+func runDescribe(cmd *cobra.Command, args []string, newClient ClientFactory) (err error) {
+	cfg := newDescribeConfig(args)
 
-	function, err := fn.NewFunction(config.Path)
-	if err != nil {
+	if err = cfg.Validate(cmd); err != nil {
 		return
 	}
 
-	// Check if the function has been initialized
-	if !function.Initialized() {
-		return fmt.Errorf("the given path '%v' does not contain an initialized function", config.Path)
+	var f fn.Function
+
+	if cfg.Name == "" {
+		if f, err = fn.NewFunction(cfg.Path); err != nil {
+			return
+		}
+		if !f.Initialized() {
+			return fmt.Errorf("the given path '%v' does not contain an initialized function.", cfg.Path)
+		}
+		// Use Function's Namespace with precidence
+		//
+		// Unless the namespace flag was explicitly provided (not the default),
+		// use the function's current namespace.
+		//
+		// TODO(lkingland): this stanza can be removed when Global Config: Function
+		// Context is merged.
+		if !cmd.Flags().Changed("namespace") {
+			cfg.Namespace = f.Deploy.Namespace
+		}
 	}
 
-	// Create a client
-	client, done := newClient(ClientConfig{Namespace: config.Namespace, Verbose: config.Verbose})
+	client, done := newClient(ClientConfig{Namespace: cfg.Namespace, Verbose: cfg.Verbose})
 	defer done()
 
-	// Get the description
-	d, err := client.Info(cmd.Context(), config.Name, config.Path)
+	// TODO(lkingland): update API to use the above function instance rather than path
+	d, err := client.Describe(cmd.Context(), cfg.Name, f.Root)
 	if err != nil {
 		return
 	}
-	d.Image = function.Image
 
-	write(os.Stdout, info(d), config.Output)
+	write(os.Stdout, info(d), cfg.Output)
 	return
 }
 
 // CLI Configuration (parameters)
 // ------------------------------
 
-type infoConfig struct {
+type describeConfig struct {
 	Name      string
 	Namespace string
 	Output    string
@@ -92,18 +114,24 @@ type infoConfig struct {
 	Verbose   bool
 }
 
-func newInfoConfig(args []string) infoConfig {
-	var name string
-	if len(args) > 0 {
-		name = args[0]
-	}
-	return infoConfig{
-		Name:      deriveName(name, getPathFlag()),
+func newDescribeConfig(args []string) describeConfig {
+	c := describeConfig{
 		Namespace: viper.GetString("namespace"),
 		Output:    viper.GetString("output"),
 		Path:      getPathFlag(),
 		Verbose:   viper.GetBool("verbose"),
 	}
+	if len(args) > 0 {
+		c.Name = args[0]
+	}
+	return c
+}
+
+func (c describeConfig) Validate(cmd *cobra.Command) (err error) {
+	if c.Name != "" && c.Path != "" && cmd.Flags().Changed("path") {
+		return fmt.Errorf("Only one of --path or [NAME] should be provided")
+	}
+	return
 }
 
 // Output Formatting (serializers)
