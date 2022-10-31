@@ -29,16 +29,16 @@ func info --output yaml --path myotherfunc
 ### Options
 
 ```
-  -h, --help            help for info
-  -o, --output string   Output format (human|plain|json|xml|yaml|url) (Env: $FUNC_OUTPUT) (default "human")
-  -p, --path string     Path to the project directory (Env: $FUNC_PATH) (default ".")
+  -h, --help               help for info
+  -n, --namespace string   The namespace in which to look for the named function. (Env: $FUNC_NAMESPACE)
+  -o, --output string      Output format (human|plain|json|xml|yaml|url) (Env: $FUNC_OUTPUT) (default "human")
+  -p, --path string        Path to the project directory (Env: $FUNC_PATH) (default ".")
 ```
 
 ### Options inherited from parent commands
 
 ```
-  -n, --namespace string   The namespace on the cluster used for remote commands. By default, the namespace func.yaml is used or the currently active namespace if not set in the configuration. (Env: $FUNC_NAMESPACE)
-  -v, --verbose            Print verbose logs ($FUNC_VERBOSE)
+  -v, --verbose   Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO

@@ -32,17 +32,17 @@ func delete -n apps myfunc
 ### Options
 
 ```
-  -a, --all string    Delete all resources created for a function, eg. Pipelines, Secrets, etc. (Env: $FUNC_ALL) (allowed values: "true", "false") (default "true")
-  -c, --confirm       Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)
-  -h, --help          help for delete
-  -p, --path string   Path to the project directory (Env: $FUNC_PATH) (default ".")
+  -a, --all string         Delete all resources created for a function, eg. Pipelines, Secrets, etc. (Env: $FUNC_ALL) (allowed values: "true", "false") (default "true")
+  -c, --confirm            Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)
+  -h, --help               help for delete
+  -n, --namespace string   The namespace in which to delete. (Env: $FUNC_NAMESPACE)
+  -p, --path string        Path to the project directory (Env: $FUNC_PATH) (default ".")
 ```
 
 ### Options inherited from parent commands
 
 ```
-  -n, --namespace string   The namespace on the cluster used for remote commands. By default, the namespace func.yaml is used or the currently active namespace if not set in the configuration. (Env: $FUNC_NAMESPACE)
-  -v, --verbose            Print verbose logs ($FUNC_VERBOSE)
+  -v, --verbose   Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO
