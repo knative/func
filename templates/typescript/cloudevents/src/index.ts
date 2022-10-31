@@ -19,25 +19,21 @@ import { Context } from 'faas-js-runtime';
  * See: https://github.com/knative/func/blob/main/docs/guides/nodejs.md#the-context-object
  * @param {CloudEvent} cloudevent the CloudEvent
  */
-const handle = async (
-  context: Context,
-  cloudevent?: CloudEvent<string | Customer>
-): Promise<Message> => {
+const handle = async (_: Context, cloudevent?: CloudEvent<unknown>): Promise<Message> => {
+  // YOUR CODE HERE
   const meta = {
     source: 'function.eventViewer',
     type: 'echo'
   };
-  // YOUR CODE HERE
   // The incoming CloudEvent
   if (!cloudevent) {
     const response: CloudEvent<string> = new CloudEvent<string>({
       ...meta,
       ...{ type: 'error', data: 'No event received' }
     });
-    context.log.warn(response.toString());
+    console.log(response.toString());
     return HTTP.binary(response);
   }
-  // eslint-disable-next-line no-console
   console.log(`
 -----------------------------------------------------------
 CloudEvent:
@@ -51,9 +47,4 @@ ${JSON.stringify(cloudevent.data)}
   return HTTP.binary(new CloudEvent({ ...meta, data: cloudevent.data }));
 };
 
-interface Customer {
-  name: string;
-  customerId: string;
-}
-
-export { handle, Customer };
+export { handle };

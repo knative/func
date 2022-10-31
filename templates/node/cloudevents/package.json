@@ -19,6 +19,6 @@
   },
   "dependencies": {
     "cloudevents": "^6.0.2",
-    "faas-js-runtime": "^0.9.0"
+    "faas-js-runtime": "^0.9.1"
   }
 }
