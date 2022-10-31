@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -114,11 +115,11 @@ func testImageAndRegistry(cmdFn commandConstructor, t *testing.T) {
 	// the resultant Function should have the registry populated and image
 	// derived from the name.
 	cmd.SetArgs([]string{"--registry=example.com/alice"})
-	deployer.DeployFn = func(f fn.Function) error {
+	deployer.DeployFn = func(_ context.Context, f fn.Function) (res fn.DeploymentResult, err error) {
 		if f.Registry != "example.com/alice" {
 			t.Fatal("registry flag not provided to deployer")
 		}
-		return nil
+		return
 	}
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -129,11 +130,11 @@ func testImageAndRegistry(cmdFn commandConstructor, t *testing.T) {
 	// Image member set to what was explicitly provided via the --image flag
 	// (not a derived name)
 	cmd.SetArgs([]string{"--image=example.com/alice/myfunc"})
-	deployer.DeployFn = func(f fn.Function) error {
+	deployer.DeployFn = func(_ context.Context, f fn.Function) (res fn.DeploymentResult, err error) {
 		if f.Image != "example.com/alice/myfunc" {
 			t.Fatalf("deployer expected f.Image 'example.com/alice/myfunc', got '%v'", f.Image)
 		}
-		return nil
+		return
 	}
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -143,14 +144,14 @@ func testImageAndRegistry(cmdFn commandConstructor, t *testing.T) {
 	// they should both be plumbed through such that downstream agents (deployer
 	// in this case) see them set on the Function and can act accordingly.
 	cmd.SetArgs([]string{"--registry=example.com/alice", "--image=example.com/alice/subnamespace/myfunc"})
-	deployer.DeployFn = func(f fn.Function) error {
+	deployer.DeployFn = func(_ context.Context, f fn.Function) (res fn.DeploymentResult, err error) {
 		if f.Registry != "example.com/alice" {
 			t.Fatal("registry flag value not seen on the Function by the deployer")
 		}
 		if f.Image != "example.com/alice/subnamespace/myfunc" {
 			t.Fatal("image flag value not seen on the Function by deployer")
 		}
-		return nil
+		return
 	}
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)

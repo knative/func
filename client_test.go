@@ -441,14 +441,14 @@ func TestClient_New_Delegation(t *testing.T) {
 		return "", nil
 	}
 
-	deployer.DeployFn = func(f fn.Function) error {
+	deployer.DeployFn = func(_ context.Context, f fn.Function) (res fn.DeploymentResult, err error) {
 		if f.Name != expectedName {
 			t.Fatalf("deployer expected name '%v', got '%v'", expectedName, f.Name)
 		}
 		if f.Image != expectedImage {
 			t.Fatalf("deployer expected image '%v', got '%v'", expectedImage, f.Image)
 		}
-		return nil
+		return
 	}
 
 	// Invocation
@@ -559,12 +559,12 @@ func TestClient_Update(t *testing.T) {
 		expectedImage = "example.com/alice/testUpdate:latest"
 		builder       = mock.NewBuilder()
 		pusher        = mock.NewPusher()
-		deployer      = mock.NewDeployerWithResult(&fn.DeploymentResult{
+		deployer      = mock.NewDeployerWithResult(fn.DeploymentResult{
 			Status:    fn.Deployed,
 			URL:       "example.com",
 			Namespace: "test-ns",
 		})
-		deployerUpdated = mock.NewDeployerWithResult(&fn.DeploymentResult{
+		deployerUpdated = mock.NewDeployerWithResult(fn.DeploymentResult{
 			Status:    fn.Updated,
 			URL:       "example.com",
 			Namespace: "test-ns",
@@ -608,14 +608,14 @@ func TestClient_Update(t *testing.T) {
 	}
 
 	// Update whose implementaiton verifed the expected name and image
-	deployer.DeployFn = func(f fn.Function) error {
+	deployer.DeployFn = func(_ context.Context, f fn.Function) (res fn.DeploymentResult, err error) {
 		if f.Name != expectedName {
 			t.Fatalf("updater expected name '%v', got '%v'", expectedName, f.Name)
 		}
 		if f.Image != expectedImage {
 			t.Fatalf("updater expected image '%v', got '%v'", expectedImage, f.Image)
 		}
-		return nil
+		return
 	}
 
 	// Invoke the creation, triggering the function delegates, and
