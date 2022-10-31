@@ -24,7 +24,7 @@ func TestNewDefaults(t *testing.T) {
 // in from a config file at path, and in this case (unlike NewDefault) the
 // file must exist at path or error.
 func TestLoad(t *testing.T) {
-	cfg, err := config.Load("testdata/func/config.yaml")
+	cfg, err := config.Load(filepath.Join("testdata", "TestLoad", "func", "config.yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -39,33 +39,34 @@ func TestLoad(t *testing.T) {
 	}
 }
 
-// TestSave ensures that saving an update config persists.
-func TestSave(t *testing.T) {
-	// mktmp
-	root, rm := Mktemp(t)
-	defer rm()
+// TestWrite ensures that writing a config persists.
+func TestWrite(t *testing.T) {
+	root, cleanup := Mktemp(t)
+	t.Cleanup(cleanup)
+	t.Setenv("XDG_CONFIG_HOME", root)
+	var err error
 
-	// touch config.yaml
-	filename := filepath.Join(root, "config.yaml")
-
-	// update
+	// Ensure error writing when config paths do not exist
 	cfg := config.New()
-	cfg.Language = "testSave"
+	cfg.Language = "example"
+	if err = cfg.Write(config.File()); err == nil {
+		t.Fatal("did not receive error writing to a nonexistent path")
+	}
 
-	// save
-	if err := cfg.Write(filename); err != nil {
+	// Create the path and ensure writing generates no error
+	if err = config.CreatePaths(); err != nil {
+		t.Fatal(err)
+	}
+	if err = cfg.Write(config.File()); err != nil {
 		t.Fatal(err)
 	}
 
-	// reload
-	cfg, err := config.Load(filename)
-	if err != nil {
+	// Confirm value was persisted
+	if cfg, err = config.Load(config.File()); err != nil {
 		t.Fatal(err)
 	}
-
-	// assert persisted
-	if cfg.Language != "testSave" {
-		t.Fatalf("config did not persist.  expected 'testSave', got '%v'", cfg.Language)
+	if cfg.Language != "example" {
+		t.Fatalf("config did not persist.  expected 'example', got '%v'", cfg.Language)
 	}
 }
 
@@ -140,7 +141,6 @@ func TestCreatePaths(t *testing.T) {
 	if err := config.CreatePaths(); err == nil {
 		t.Fatal("did not receive error when creating paths in an invalid home")
 	}
-
 }
 
 // TestNewDefault_ConfigNotRequired ensures that when creating a new
@@ -171,26 +171,27 @@ func TestRepositoriesPath(t *testing.T) {
 	}
 }
 
-// TestWrite ensures that a config is written to the given path and errors
-// are returned correctly when the path does not exist.
-func TestWrite(t *testing.T) {
+// TestDefaultNamespace ensures that, when there is a problem determining the
+// active namespace, the static DefaultNamespace ("default") is used and that
+// the currently active k8s namespace is used as the default if available.
+func TestDefaultNamespace(t *testing.T) {
+	cwd := Cwd() // store for use after Mktemp which changes working directory
+
+	// Namespace "default" when empty home
+	// Note that KUBECONFIG must be defined, or the current user's ~/.kube/config
+	// will be used (and thus whichever namespace they have currently active)
 	home, cleanup := Mktemp(t)
 	t.Cleanup(cleanup)
+	t.Setenv("KUBECONFIG", filepath.Join(t.TempDir(), "nonexistent"))
 	t.Setenv("XDG_CONFIG_HOME", home)
-
-	cfg := config.New()
-	cfg.Language = "example"
-
-	// First try writing to a nonexistent path
-	if err := cfg.Write(config.File()); err == nil {
-		t.Fatal("did not receive error writing to a nonexistent path")
+	if config.DefaultNamespace() != "default" {
+		t.Fatalf("did not receive expected default namespace 'default', got '%v'", config.DefaultNamespace())
 	}
 
-	// Create the path and try again
-	if err := config.CreatePaths(); err != nil {
-		t.Fatal(err)
-	}
-	if err := cfg.Write(config.File()); err != nil {
-		t.Fatal(err)
+	// should be "func" when active k8s namespace is "func"
+	kubeconfig := filepath.Join(cwd, "testdata", "TestDefaultNamespace", "kubeconfig")
+	t.Setenv("KUBECONFIG", kubeconfig)
+	if config.DefaultNamespace() != "func" {
+		t.Fatalf("expected default namespace of 'func' when that is the active k8s namespace.  Got '%v'", config.DefaultNamespace())
 	}
 }

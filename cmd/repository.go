@@ -339,7 +339,6 @@ func runRepositoryAdd(_ *cobra.Command, args []string, newClient ClientFactory) 
 	// be created in XDG_CONFIG_HOME/func even if the repo path environment
 	// was set to some other location on disk.
 	client, done := newClient(ClientConfig{Verbose: cfg.Verbose})
-
 	defer done()
 
 	// Preconditions
