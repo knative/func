@@ -22,7 +22,7 @@ func TestList_Namespace(t *testing.T) {
 	}{
 		{
 			name:     "default",
-			expected: "default",
+			expected: "func", // see ./testdata/default_kubeconfig
 		},
 		{
 			name:      "namespace provided",
