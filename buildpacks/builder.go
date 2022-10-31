@@ -107,7 +107,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	opts := pack.BuildOptions{
 		AppPath:        f.Root,
 		Image:          f.Image,
-		LifecycleImage: "quay.io/boson/lifecycle:0.13.2",
+		LifecycleImage: "quay.io/boson/lifecycle:0.14.3",
 		Builder:        image,
 		Buildpacks:     f.Build.Buildpacks,
 		ContainerConfig: struct {
