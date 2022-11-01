@@ -5,7 +5,7 @@ approvers:
 - knative-release-leads
 - client-writers
 - func-writers
-- function-wg-leads
+- functions-wg-leads
 
 reviewers:
 - client-writers
