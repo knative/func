@@ -26,6 +26,7 @@ func TestSourcesAsTarStream(t *testing.T) {
 	t.Cleanup(func() { _ = rc.Close() })
 
 	var helloTxtContent []byte
+	var symlinkFound bool
 	tr := tar.NewReader(rc)
 	for {
 		hdr, err := tr.Next()
@@ -47,6 +48,12 @@ func TestSourcesAsTarStream(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
+		if hdr.Name == "source/hello.txt.lnk" {
+			symlinkFound = true
+			if hdr.Linkname != "hello.txt" {
+				t.Errorf("bad symlink target: %q", hdr.Linkname)
+			}
+		}
 	}
 	if helloTxtContent == nil {
 		t.Error("the hello.txt file is missing in the stream")
@@ -54,5 +61,8 @@ func TestSourcesAsTarStream(t *testing.T) {
 		if string(helloTxtContent) != "Hello World!\n" {
 			t.Error("the hello.txt file has incorrect content")
 		}
+	}
+	if !symlinkFound {
+		t.Error("symlink missing in the stream")
 	}
 }
