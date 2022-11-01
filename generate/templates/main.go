@@ -56,12 +56,15 @@ func main() {
 		// Coercing permission to 755 for directories/executables and to 644 for non-executable files.
 		// This is needed to ensure reproducible builds on machines with different values of `umask`.
 		var mode fs.FileMode
-		if info.Mode()&fs.ModeSymlink != 0 {
+		switch {
+		case info.Mode()&fs.ModeSymlink != 0:
 			mode = 0777 | fs.ModeSymlink
-		} else if info.IsDir() || (info.Mode().Perm()&0111) != 0 {
+		case info.IsDir() || (info.Mode().Perm()&0111) != 0: // dir or executable
 			mode = 0755
-		} else {
+		case info.Mode()&fs.ModeType == 0: // regular file
 			mode = 0644
+		default:
+			return fmt.Errorf("unsupported file type: %s", info.Mode().String())
 		}
 		header.SetMode(mode)
 
@@ -70,18 +73,15 @@ func main() {
 			return err
 		}
 
-		if info.Mode()&fs.ModeSymlink != 0 {
+		switch {
+		case info.Mode()&fs.ModeSymlink != 0:
 			symlinkTarget, err := os.Readlink(path)
 			if err != nil {
 				return err
 			}
 			_, err = w.Write([]byte(symlinkTarget))
-			if err != nil {
-				return err
-			}
-		}
-
-		if info.Mode()&fs.ModeType == 0 { // regular file
+			return err
+		case info.Mode()&fs.ModeType == 0: // regular file
 			f, err := os.Open(path)
 			if err != nil {
 				return err
@@ -89,12 +89,10 @@ func main() {
 			defer f.Close()
 
 			_, err = io.CopyBuffer(w, f, buff)
-			if err != nil {
-				return err
-			}
+			return err
+		default:
+			return nil
 		}
-
-		return nil
 	})
 	zipWriter.Close()
 	if err != nil {

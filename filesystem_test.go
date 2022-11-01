@@ -104,6 +104,10 @@ func TestFileSystems(t *testing.T) {
 					return err
 				}
 
+				if localFileStat.Mode()&fs.ModeType != embeddedFileStats.Mode()&fs.ModeType {
+					t.Errorf("file type mismatch")
+				}
+
 				if localFileStat.IsDir() && embeddedFileStats.IsDir() {
 					return nil
 				}
@@ -122,10 +126,6 @@ func TestFileSystems(t *testing.T) {
 						t.Fatalf("symlink mismatch, %q != %q ", locSym, embSym)
 					}
 					return nil
-				}
-
-				if localFileStat.Mode()&fs.ModeType != embeddedFileStats.Mode()&fs.ModeType {
-					t.Errorf("file type mismatch")
 				}
 
 				if localFileStat.Size() != embeddedFileStats.Size() {
@@ -197,14 +197,13 @@ func initGitFS(t *testing.T) Filesystem {
 			return nil
 		}
 
-		if fi.IsDir() {
+		switch {
+		case fi.IsDir():
 			err = os.Mkdir(filepath.Join(repoDir, rel), fi.Mode().Perm())
 			if err != nil {
 				return err
 			}
-		}
-
-		if fi.Mode()&fs.ModeSymlink != 0 {
+		case fi.Mode()&fs.ModeSymlink != 0:
 			symlinkTarget, err := os.Readlink(path)
 			if err != nil {
 				t.Fatal(err)
@@ -213,9 +212,7 @@ func initGitFS(t *testing.T) Filesystem {
 			if err != nil {
 				t.Fatal(err)
 			}
-		}
-
-		if fi.Mode()&fs.ModeType == 0 { // regular file
+		case fi.Mode()&fs.ModeType == 0: // regular file
 			data, err := os.ReadFile(path)
 			if err != nil {
 				return err
@@ -224,8 +221,9 @@ func initGitFS(t *testing.T) Filesystem {
 			if err != nil {
 				return err
 			}
+		default:
+			return fmt.Errorf("unsupported file type: %s", fi.Mode().String())
 		}
-
 		return nil
 	})
 
