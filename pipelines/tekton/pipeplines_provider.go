@@ -220,6 +220,8 @@ func sourcesAsTarStream(f fn.Function) *io.PipeReader {
 	}
 
 	pr, pw := io.Pipe()
+
+	const up = ".." + string(os.PathSeparator)
 	go func() {
 		tw := tar.NewWriter(pw)
 		err := filepath.Walk(f.Root, func(p string, fi fs.FileInfo, err error) error {
@@ -240,7 +242,24 @@ func sourcesAsTarStream(f fn.Function) *io.PipeReader {
 				return nil
 			}
 
-			hdr, err := tar.FileInfoHeader(fi, "")
+			lnk := ""
+			if fi.Mode()&fs.ModeSymlink != 0 {
+				lnk, err = os.Readlink(p)
+				if err != nil {
+					return fmt.Errorf("cannot read link: %w", err)
+				}
+				if filepath.IsAbs(lnk) {
+					lnk, err = filepath.Rel(f.Root, lnk)
+					if err != nil {
+						return fmt.Errorf("cannot get relative path for symlink: %w", err)
+					}
+				}
+				if strings.HasPrefix(lnk, up) || lnk == ".." {
+					return fmt.Errorf("link %q points outside source root", p)
+				}
+			}
+
+			hdr, err := tar.FileInfoHeader(fi, lnk)
 			if err != nil {
 				return fmt.Errorf("cannot create a tar header: %w", err)
 			}
@@ -252,7 +271,7 @@ func sourcesAsTarStream(f fn.Function) *io.PipeReader {
 				return fmt.Errorf("cannot write header to tar stream: %w", err)
 			}
 
-			if fi.Mode().IsRegular() || (fi.Mode()&fs.ModeSymlink != 0) {
+			if fi.Mode().IsRegular() {
 				var file io.ReadCloser
 				file, err = os.Open(p)
 				if err != nil {
