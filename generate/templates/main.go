@@ -55,18 +55,33 @@ func main() {
 
 		// Coercing permission to 755 for directories/executables and to 644 for non-executable files.
 		// This is needed to ensure reproducible builds on machines with different values of `umask`.
-		if info.IsDir() || (info.Mode().Perm()&0111) != 0 {
-			header.SetMode(0755)
+		var mode fs.FileMode
+		if info.Mode()&fs.ModeSymlink != 0 {
+			mode = 0777 | fs.ModeSymlink
+		} else if info.IsDir() || (info.Mode().Perm()&0111) != 0 {
+			mode = 0755
 		} else {
-			header.SetMode(0644)
+			mode = 0644
 		}
+		header.SetMode(mode)
 
 		w, err := zipWriter.CreateHeader(header)
 		if err != nil {
 			return err
 		}
 
-		if !info.IsDir() {
+		if info.Mode()&fs.ModeSymlink != 0 {
+			symlinkTarget, err := os.Readlink(path)
+			if err != nil {
+				return err
+			}
+			_, err = w.Write([]byte(symlinkTarget))
+			if err != nil {
+				return err
+			}
+		}
+
+		if info.Mode()&fs.ModeType == 0 { // regular file
 			f, err := os.Open(path)
 			if err != nil {
 				return err

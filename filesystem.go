@@ -3,6 +3,7 @@ package function
 import (
 	"archive/zip"
 	"bytes"
+	"errors"
 	"io"
 	"io/fs"
 	"os"
@@ -23,6 +24,7 @@ import (
 type Filesystem interface {
 	fs.ReadDirFS
 	fs.StatFS
+	Readlink(link string) (string, error)
 }
 
 type zipFS struct {
@@ -52,6 +54,30 @@ func (z zipFS) ReadDir(name string) ([]fs.DirEntry, error) {
 	return dirEntries, nil
 }
 
+func (z zipFS) Readlink(link string) (string, error) {
+	f, err := z.archive.Open(link)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	fi, err := f.Stat()
+	if err != nil {
+		return "", err
+	}
+
+	if fi.Mode()&fs.ModeSymlink == 0 {
+		return "", errors.New("not a symlink")
+	}
+
+	bs, err := io.ReadAll(f)
+	if err != nil {
+		return "", err
+	}
+
+	return string(bs), nil
+}
+
 func (z zipFS) Stat(name string) (fs.FileInfo, error) {
 	f, err := z.archive.Open(name)
 	if err != nil {
@@ -76,6 +102,10 @@ var EmbeddedTemplatesFS Filesystem = newEmbeddedTemplatesFS()
 
 // billyFilesystem is a template file accessor backed by a billy FS
 type billyFilesystem struct{ fs billy.Filesystem }
+
+func (b billyFilesystem) Readlink(link string) (string, error) {
+	return b.fs.Readlink(link)
+}
 
 type bfsFile struct {
 	billy.File
@@ -123,7 +153,7 @@ func (b billyFilesystem) ReadDir(name string) ([]fs.DirEntry, error) {
 }
 
 func (b billyFilesystem) Stat(name string) (fs.FileInfo, error) {
-	return b.fs.Stat(name)
+	return b.fs.Lstat(name)
 }
 
 // osFilesystem is a template file accessor backed by the os.
@@ -141,7 +171,12 @@ func (o osFilesystem) ReadDir(name string) ([]fs.DirEntry, error) {
 
 func (o osFilesystem) Stat(name string) (fs.FileInfo, error) {
 	name = filepath.FromSlash(name)
-	return os.Stat(filepath.Join(o.root, name))
+	return os.Lstat(filepath.Join(o.root, name))
+}
+
+func (o osFilesystem) Readlink(link string) (string, error) {
+	link = filepath.FromSlash(link)
+	return os.Readlink(filepath.Join(o.root, link))
 }
 
 // subFS exposes subdirectory of underlying FS, this is similar to `chroot`.
@@ -160,6 +195,10 @@ func (o subFS) ReadDir(name string) ([]fs.DirEntry, error) {
 
 func (o subFS) Stat(name string) (fs.FileInfo, error) {
 	return o.fs.Stat(path.Join(o.root, name))
+}
+
+func (o subFS) Readlink(link string) (string, error) {
+	return o.fs.Readlink(path.Join(o.root, link))
 }
 
 type maskingFS struct {
@@ -198,6 +237,13 @@ func (m maskingFS) Stat(name string) (fs.FileInfo, error) {
 	return m.fs.Stat(name)
 }
 
+func (m maskingFS) Readlink(link string) (string, error) {
+	if m.masked(link) {
+		return "", &fs.PathError{Op: "stat", Path: link, Err: fs.ErrNotExist}
+	}
+	return m.fs.Readlink(link)
+}
+
 // copyFromFS copies files from the `src` dir on the accessor Filesystem to local filesystem into `dest` dir.
 // The src path uses slashes as their separator.
 // The dest path uses OS specific separator.
@@ -229,6 +275,15 @@ func copyFromFS(src, dest string, accessor Filesystem) (err error) {
 		fi, err := de.Info()
 		if err != nil {
 			return err
+		}
+
+		if de.Type()&fs.ModeSymlink != 0 {
+			var t string
+			t, err = accessor.Readlink(path)
+			if err != nil {
+				return err
+			}
+			return os.Symlink(t, dest)
 		}
 
 		destFile, err := os.OpenFile(dest, os.O_RDWR|os.O_CREATE|os.O_TRUNC, fi.Mode())
