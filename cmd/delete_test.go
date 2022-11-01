@@ -47,6 +47,7 @@ func TestDelete_Namespace(t *testing.T) {
 		}
 		return fn.New(), func() {}
 	})
+	cmd.SetArgs([]string{})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
