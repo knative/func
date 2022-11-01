@@ -4,9 +4,10 @@ approvers:
 - technical-oversight-committee
 - knative-release-leads
 - client-writers
-- kn-plugin-func-approvers
+- func-writers
+- functions-wg-leads
 
 reviewers:
 - client-writers
-- kn-plugin-func-approvers
+- func-reviewers
 
