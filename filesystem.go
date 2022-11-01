@@ -3,7 +3,7 @@ package function
 import (
 	"archive/zip"
 	"bytes"
-	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -67,7 +67,7 @@ func (z zipFS) Readlink(link string) (string, error) {
 	}
 
 	if fi.Mode()&fs.ModeSymlink == 0 {
-		return "", errors.New("not a symlink")
+		return "", &fs.PathError{Op: "readlink", Path: link, Err: fs.ErrInvalid}
 	}
 
 	bs, err := io.ReadAll(f)
@@ -239,7 +239,7 @@ func (m maskingFS) Stat(name string) (fs.FileInfo, error) {
 
 func (m maskingFS) Readlink(link string) (string, error) {
 	if m.masked(link) {
-		return "", &fs.PathError{Op: "stat", Path: link, Err: fs.ErrNotExist}
+		return "", &fs.PathError{Op: "readlink", Path: link, Err: fs.ErrNotExist}
 	}
 	return m.fs.Readlink(link)
 }
@@ -264,42 +264,44 @@ func copyFromFS(src, dest string, accessor Filesystem) (err error) {
 		}
 
 		dest := filepath.Join(dest, p)
-		if de.IsDir() {
+
+		switch {
+		case de.IsDir():
 			// Ideally we should use the file mode of the src node
 			// but it seems the git module is reporting directories
 			// as 0644 instead of 0755. For now, just do it this way.
 			// See https://github.com/go-git/go-git/issues/364
 			// Upon resolution, return accessor.Stat(src).Mode()
 			return os.MkdirAll(dest, 0755)
-		}
-		fi, err := de.Info()
-		if err != nil {
-			return err
-		}
-
-		if de.Type()&fs.ModeSymlink != 0 {
-			var t string
-			t, err = accessor.Readlink(path)
+		case de.Type()&fs.ModeSymlink != 0:
+			var symlinkTarget string
+			symlinkTarget, err = accessor.Readlink(path)
 			if err != nil {
 				return err
 			}
-			return os.Symlink(t, dest)
-		}
+			return os.Symlink(symlinkTarget, dest)
+		case de.Type().IsRegular():
+			fi, err := de.Info()
+			if err != nil {
+				return err
+			}
+			destFile, err := os.OpenFile(dest, os.O_RDWR|os.O_CREATE|os.O_TRUNC, fi.Mode())
+			if err != nil {
+				return err
+			}
+			defer destFile.Close()
 
-		destFile, err := os.OpenFile(dest, os.O_RDWR|os.O_CREATE|os.O_TRUNC, fi.Mode())
-		if err != nil {
+			srcFile, err := accessor.Open(path)
+			if err != nil {
+				return err
+			}
+			defer srcFile.Close()
+
+			_, err = io.Copy(destFile, srcFile)
 			return err
+		default:
+			return fmt.Errorf("unsuported file type: %s", de.Type().String())
 		}
-		defer destFile.Close()
-
-		srcFile, err := accessor.Open(path)
-		if err != nil {
-			return err
-		}
-		defer srcFile.Close()
-
-		_, err = io.Copy(destFile, srcFile)
-		return err
 	})
 
 }
