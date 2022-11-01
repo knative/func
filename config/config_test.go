@@ -183,6 +183,7 @@ func TestDefaultNamespace(t *testing.T) {
 	home, cleanup := Mktemp(t)
 	t.Cleanup(cleanup)
 	t.Setenv("KUBECONFIG", filepath.Join(t.TempDir(), "nonexistent"))
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
 	t.Setenv("XDG_CONFIG_HOME", home)
 	if config.DefaultNamespace() != "default" {
 		t.Fatalf("did not receive expected default namespace 'default', got '%v'", config.DefaultNamespace())
