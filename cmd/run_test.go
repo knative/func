@@ -114,13 +114,11 @@ created: 2009-11-10 23:00:00`,
 			// using a command whose client will be populated with mock
 			// builder and mock runner, each of which may be set to error if the
 			// test has an error defined.
-			cmd := NewRunCmd(NewClientFactory(func() *fn.Client {
-				return fn.New(
-					fn.WithRunner(runner),
-					fn.WithBuilder(builder),
-					fn.WithRegistry("ghcr.com/reg"),
-				)
-			}))
+			cmd := NewRunCmd(NewTestClient(
+				fn.WithRunner(runner),
+				fn.WithBuilder(builder),
+				fn.WithRegistry("ghcr.com/reg"),
+			))
 			cmd.SetArgs(tt.args) // Do not use test command args
 
 			// set test case's func.yaml

@@ -42,14 +42,12 @@ type ClientConfig struct {
 // during testing.
 type ClientFactory func(ClientConfig, ...fn.Option) (*fn.Client, func())
 
-// NewClientFactory enables simple instantiation of an fn.Client, such as
-// for mocking during tests or for minimal api usage.
-// Given is a minimal Client constructor, Returned is full ClientFactory
-// with the aspects of normal (full) Client construction (namespace, verbosity
-// level, additional options and the returned cleanup function) ignored.
-func NewClientFactory(n func() *fn.Client) ClientFactory {
+// NewTestClient returns a client factory which will ignore options used,
+// instead using those provided when creating the factory.  This allows
+// for tests to create an entirely default client but with N mocks.
+func NewTestClient(options ...fn.Option) ClientFactory {
 	return func(_ ClientConfig, _ ...fn.Option) (*fn.Client, func()) {
-		return n(), func() {}
+		return fn.New(options...), func() {}
 	}
 }
 

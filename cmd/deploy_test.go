@@ -38,9 +38,7 @@ func TestDeploy_Default(t *testing.T) {
 
 	// Deploy using an instance of the deploy command which uses a fully default
 	// (noop filled) Client.  Execution should complete without error.
-	cmd := NewDeployCmd(NewClientFactory(func() *fn.Client {
-		return fn.New()
-	}))
+	cmd := NewDeployCmd(NewTestClient())
 	cmd.SetArgs([]string{})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -62,9 +60,7 @@ func testRegistryOrImageRequired(cmdFn commandConstructor, t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cmd := cmdFn(NewClientFactory(func() *fn.Client {
-		return fn.New()
-	}))
+	cmd := cmdFn(NewTestClient())
 
 	// If neither --registry nor --image are provided, and the client was not
 	// instantiated with a default registry, a ErrRegistryRequired is expected.
@@ -102,12 +98,7 @@ func testImageAndRegistry(cmdFn commandConstructor, t *testing.T) {
 	var (
 		builder  = mock.NewBuilder()
 		deployer = mock.NewDeployer()
-		cmd      = cmdFn(NewClientFactory(func() *fn.Client {
-			return fn.New(
-				fn.WithBuilder(builder),
-				fn.WithDeployer(deployer),
-				fn.WithRegistry(TestRegistry))
-		}))
+		cmd      = cmdFn(NewTestClient(fn.WithBuilder(builder), fn.WithDeployer(deployer), fn.WithRegistry(TestRegistry)))
 	)
 
 	// If only --registry is provided:
@@ -179,9 +170,7 @@ func testInvalidRegistry(cmdFn commandConstructor, t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cmd := cmdFn(NewClientFactory(func() *fn.Client {
-		return fn.New()
-	}))
+	cmd := cmdFn(NewTestClient())
 
 	cmd.SetArgs([]string{"--registry=foo/bar/invald/myfunc"})
 
@@ -212,11 +201,7 @@ func testRegistryLoads(cmdFn commandConstructor, t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cmd := cmdFn(NewClientFactory(func() *fn.Client {
-		return fn.New(
-			fn.WithBuilder(mock.NewBuilder()),
-			fn.WithDeployer(mock.NewDeployer()))
-	}))
+	cmd := cmdFn(NewTestClient(fn.WithBuilder(mock.NewBuilder()), fn.WithDeployer(mock.NewDeployer())))
 	cmd.SetArgs([]string{})
 
 	if err := cmd.Execute(); err != nil {
@@ -247,9 +232,7 @@ func testBuilderPersists(cmdFn commandConstructor, t *testing.T) {
 	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root}); err != nil {
 		t.Fatal(err)
 	}
-	cmd := cmdFn(NewClientFactory(func() *fn.Client {
-		return fn.New(fn.WithRegistry(TestRegistry))
-	}))
+	cmd := cmdFn(NewTestClient(fn.WithRegistry(TestRegistry)))
 	cmd.SetArgs([]string{})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -338,9 +321,7 @@ func testBuilderValidated(cmdFn commandConstructor, t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cmd := cmdFn(NewClientFactory(func() *fn.Client {
-		return fn.New()
-	}))
+	cmd := cmdFn(NewTestClient())
 
 	cmd.SetArgs([]string{"--builder=invalid"})
 	if err := cmd.Execute(); err == nil {
@@ -411,14 +392,12 @@ func TestDeploy_RemoteBuildURLPermutations(t *testing.T) {
 				builder   = mock.NewBuilder()
 				pipeliner = mock.NewPipelinesProvider()
 			)
-			cmd := NewDeployCmd(NewClientFactory(func() *fn.Client {
-				return fn.New(
-					fn.WithDeployer(deployer),
-					fn.WithBuilder(builder),
-					fn.WithPipelinesProvider(pipeliner),
-					fn.WithRegistry(TestRegistry),
-				)
-			}))
+			cmd := NewDeployCmd(NewTestClient(
+				fn.WithDeployer(deployer),
+				fn.WithBuilder(builder),
+				fn.WithPipelinesProvider(pipeliner),
+				fn.WithRegistry(TestRegistry),
+			))
 			cmd.SetArgs(toArgs(remote, build, url))
 			err := cmd.Execute() // err is checked below
 
@@ -572,14 +551,12 @@ func Test_ImageWithDigestErrors(t *testing.T) {
 				builder   = mock.NewBuilder()
 				pipeliner = mock.NewPipelinesProvider()
 			)
-			cmd := NewDeployCmd(NewClientFactory(func() *fn.Client {
-				return fn.New(
-					fn.WithDeployer(deployer),
-					fn.WithBuilder(builder),
-					fn.WithPipelinesProvider(pipeliner),
-					fn.WithRegistry(TestRegistry),
-				)
-			}))
+			cmd := NewDeployCmd(NewTestClient(
+				fn.WithDeployer(deployer),
+				fn.WithBuilder(builder),
+				fn.WithPipelinesProvider(pipeliner),
+				fn.WithRegistry(TestRegistry),
+			))
 			args := []string{fmt.Sprintf("--image=%s", tt.image)}
 			if tt.build != "" {
 				args = append(args, fmt.Sprintf("--build=%s", tt.build))
@@ -633,9 +610,7 @@ func TestDeploy_Namespace(t *testing.T) {
 	// Ensure the default "func" which is gathered from the default kubeconfig
 	// path of ./tesdata/default_kubeconfig
 	expectedNamespace = "func" // see ./testdata/default_kubeconfig
-	cmd := NewDeployCmd(NewClientFactory(func() *fn.Client {
-		return fn.New(fn.WithDeployer(deployer))
-	}))
+	cmd := NewDeployCmd(NewTestClient(fn.WithDeployer(deployer)))
 	cmd.SetArgs([]string{})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -655,9 +630,7 @@ func TestDeploy_Namespace(t *testing.T) {
 
 	// Ensure an explicit name (a flag) is taken with highest precidence
 	expectedNamespace = "flagValueNamespace"
-	cmd = NewDeployCmd(NewClientFactory(func() *fn.Client {
-		return fn.New(fn.WithDeployer(deployer))
-	}))
+	cmd = NewDeployCmd(NewTestClient(fn.WithDeployer(deployer)))
 	cmd.SetArgs([]string{"--namespace", expectedNamespace})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -681,9 +654,10 @@ func TestDeploy_GitArgsPersist(t *testing.T) {
 	}
 
 	// Deploy the Function specifying all of the git-related flags
-	cmd := NewDeployCmd(NewClientFactory(func() *fn.Client {
-		return fn.New(fn.WithPipelinesProvider(mock.NewPipelinesProvider()), fn.WithRegistry(TestRegistry))
-	}))
+	cmd := NewDeployCmd(NewTestClient(
+		fn.WithPipelinesProvider(mock.NewPipelinesProvider()),
+		fn.WithRegistry(TestRegistry),
+	))
 	cmd.SetArgs([]string{"--remote", "--git-url=" + url, "--git-branch=" + branch, "--git-dir=" + dir, "."})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -737,9 +711,10 @@ func TestDeploy_GitArgsUsed(t *testing.T) {
 
 	// Deploy the Function specifying all of the git-related flags and --remote
 	// such that the mock pipelines provider is invoked.
-	cmd := NewDeployCmd(NewClientFactory(func() *fn.Client {
-		return fn.New(fn.WithPipelinesProvider(pipeliner), fn.WithRegistry(TestRegistry))
-	}))
+	cmd := NewDeployCmd(NewTestClient(
+		fn.WithPipelinesProvider(pipeliner),
+		fn.WithRegistry(TestRegistry),
+	))
 
 	cmd.SetArgs([]string{"--remote=true", "--git-url=" + url, "--git-branch=" + branch, "--git-dir=" + dir})
 	if err := cmd.Execute(); err != nil {
@@ -761,13 +736,12 @@ func TestDeploy_GitURLBranch(t *testing.T) {
 		expectedUrl    = "https://example.com/user/repo"
 		expectedBranch = "branch"
 	)
-	cmd := NewDeployCmd(NewClientFactory(func() *fn.Client {
-		return fn.New(
-			fn.WithDeployer(mock.NewDeployer()),
-			fn.WithBuilder(mock.NewBuilder()),
-			fn.WithPipelinesProvider(mock.NewPipelinesProvider()),
-			fn.WithRegistry(TestRegistry))
-	}))
+	cmd := NewDeployCmd(NewTestClient(
+		fn.WithDeployer(mock.NewDeployer()),
+		fn.WithBuilder(mock.NewBuilder()),
+		fn.WithPipelinesProvider(mock.NewPipelinesProvider()),
+		fn.WithRegistry(TestRegistry),
+	))
 	cmd.SetArgs([]string{"--remote", "--git-url=" + url})
 
 	if err := cmd.Execute(); err != nil {
@@ -809,13 +783,12 @@ func TestDeploy_NamespaceDefaults(t *testing.T) {
 	}
 
 	// New deploy command that will not actually deploy or build (mocked)
-	cmd := NewDeployCmd(NewClientFactory(func() *fn.Client {
-		return fn.New(
-			fn.WithDeployer(mock.NewDeployer()),
-			fn.WithBuilder(mock.NewBuilder()),
-			fn.WithPipelinesProvider(mock.NewPipelinesProvider()),
-			fn.WithRegistry(TestRegistry))
-	}))
+	cmd := NewDeployCmd(NewTestClient(
+		fn.WithDeployer(mock.NewDeployer()),
+		fn.WithBuilder(mock.NewBuilder()),
+		fn.WithPipelinesProvider(mock.NewPipelinesProvider()),
+		fn.WithRegistry(TestRegistry),
+	))
 	cmd.SetArgs([]string{})
 
 	// Execute, capturing stderr
@@ -857,13 +830,12 @@ func TestDeploy_NamespaceUpdateWarning(t *testing.T) {
 	}
 
 	// Redeploy the function, specifying 'newns'
-	cmd := NewDeployCmd(NewClientFactory(func() *fn.Client {
-		return fn.New(
-			fn.WithDeployer(mock.NewDeployer()),
-			fn.WithBuilder(mock.NewBuilder()),
-			fn.WithPipelinesProvider(mock.NewPipelinesProvider()),
-			fn.WithRegistry(TestRegistry))
-	}))
+	cmd := NewDeployCmd(NewTestClient(
+		fn.WithDeployer(mock.NewDeployer()),
+		fn.WithBuilder(mock.NewBuilder()),
+		fn.WithPipelinesProvider(mock.NewPipelinesProvider()),
+		fn.WithRegistry(TestRegistry),
+	))
 	cmd.SetArgs([]string{"--namespace=newns"})
 	out := strings.Builder{}
 	fmt.Fprintln(&out, "Test errpr")
@@ -917,13 +889,12 @@ func TestDeploy_NamespaceRedeployWarning(t *testing.T) {
 	}
 
 	// Redeploy the function without specifying namespace.
-	cmd := NewDeployCmd(NewClientFactory(func() *fn.Client {
-		return fn.New(
-			fn.WithDeployer(mock.NewDeployer()),
-			fn.WithBuilder(mock.NewBuilder()),
-			fn.WithPipelinesProvider(mock.NewPipelinesProvider()),
-			fn.WithRegistry(TestRegistry))
-	}))
+	cmd := NewDeployCmd(NewTestClient(
+		fn.WithDeployer(mock.NewDeployer()),
+		fn.WithBuilder(mock.NewBuilder()),
+		fn.WithPipelinesProvider(mock.NewPipelinesProvider()),
+		fn.WithRegistry(TestRegistry),
+	))
 	cmd.SetArgs([]string{})
 	stderr := strings.Builder{}
 	cmd.SetErr(&stderr)
