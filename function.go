@@ -111,6 +111,10 @@ type DeploySpec struct {
 	// Namespace into which the function is deployed on supported platforms.
 	Namespace string `yaml:"namespace"`
 
+	// Remote indicates the deployment (and possibly build) process are to
+	// be triggered in a remote environment rather than run locally.
+	Remote bool `yaml:"remote"`
+
 	// Map containing user-supplied annotations
 	// Example: { "division": "finance" }
 	Annotations map[string]string `yaml:"annotations"`
