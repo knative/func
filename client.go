@@ -1013,7 +1013,7 @@ func (n *noopLister) List(context.Context) ([]ListItem, error) { return []ListIt
 type noopDescriber struct{ output io.Writer }
 
 func (n *noopDescriber) Describe(context.Context, string) (Instance, error) {
-	return Instance{}, errors.New("no describer provided")
+	return Instance{}, nil
 }
 
 // PipelinesProvider
