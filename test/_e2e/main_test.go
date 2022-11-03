@@ -25,11 +25,9 @@ func TestMain(t *testing.M) {
 	t.Run()
 }
 
-//
 // Here is a trick to avoid calling docker or podman at e2e tests.
 // Let's check for default registry credentials in one of the auth sources
 // In case it is not present let's create it.
-//
 func patchOrCreateDockerConfigFile() error {
 	userHome, err := os.UserHomeDir()
 	if err != nil {

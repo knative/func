@@ -61,7 +61,8 @@ func rm(t *testing.T, dir string) {
 // closure that when executed (intended in a defer) removes the given dirctory
 // and returns the caller to the initial working directory.
 // usage:
-//   defer within(t, "somedir")()
+//
+//	defer within(t, "somedir")()
 func Within(t *testing.T, root string) func() {
 	t.Helper()
 	cwd := pwd(t)
@@ -76,9 +77,11 @@ func Within(t *testing.T, root string) func() {
 // Mktemp creates a temporary directory, CDs the current processes (test) to
 // said directory, and returns the path to said directory.
 // Usage:
-//   path, rm := Mktemp(t)
-//   defer rm()
-//   CWD is now 'path'
+//
+//	path, rm := Mktemp(t)
+//	defer rm()
+//	CWD is now 'path'
+//
 // errors encountererd fail the current test.
 func Mktemp(t *testing.T) (string, func()) {
 	t.Helper()

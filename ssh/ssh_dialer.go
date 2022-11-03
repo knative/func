@@ -49,7 +49,6 @@ type DialContextFn = func(ctx context.Context, network, addr string) (net.Conn, 
 //
 // - Use SSH to execute the "docker system dial-stdio" command in the remote and forward its stdio.
 //
-//
 // The tunnel method is used whenever possible.
 // The "stdio" method is used as a fallback when tunneling is not possible:
 // e.g. when remote uses Windows' named pipe.
