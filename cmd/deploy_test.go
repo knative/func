@@ -919,3 +919,74 @@ func TestDeploy_NamespaceRedeployWarning(t *testing.T) {
 		t.Fatalf("expected function to be namespace 'funcns'.  got '%v'", f.Deploy.Namespace)
 	}
 }
+
+// TestDeploy_RemotePersists ensures that the remote field is read from
+// the function by default, and is able to be overridden by flags/env vars.
+func TestDeploy_RemotePersists(t *testing.T) {
+	testRemotePersists(NewDeployCmd, t)
+}
+
+func testRemotePersists(cmdFn commandConstructor, t *testing.T) {
+	t.Helper()
+	root := fromTempDirectory(t)
+
+	if err := fn.New().Create(fn.Function{Runtime: "node", Root: root}); err != nil {
+		t.Fatal(err)
+	}
+	cmd := cmdFn(NewClientFactory(func() *fn.Client {
+		return fn.New(fn.WithRegistry(TestRegistry))
+	}))
+	cmd.SetArgs([]string{})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	var err error
+	var f fn.Function
+
+	// Deploy the function, specifying remote deployment(on-cluster)
+	viper.Reset()
+	cmd.SetArgs([]string{"--remote"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	// Assert the function has persisted the value of remote
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	if !f.Deploy.Remote {
+		t.Fatalf("value of remote flag not persisted when provided. Expected '%v' got '%v'", true, f.Deploy.Remote)
+	}
+
+	// Deploy the function again without specifying remote
+	viper.Reset()
+	cmd.SetArgs([]string{})
+	cmd.Flag("remote").Changed = false
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Assert the function has retained its original value
+	// (was not reset back to a flag default)
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	if !f.Deploy.Remote {
+		t.Fatalf("value of remote flag not persisted when provided. Expected '%v' got '%v'", true, f.Deploy.Remote)
+	}
+
+	// Deploy the function again using a different value for remote
+	viper.Reset()
+	cmd.SetArgs([]string{"--remote=false"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Assert the function has persisted the new value
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	if f.Deploy.Remote {
+		t.Fatalf("value of remote flag not persisted when provided. Expected '%v' got '%v'", false, f.Deploy.Remote)
+	}
+}
