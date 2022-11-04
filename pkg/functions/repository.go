@@ -124,16 +124,14 @@ type templateConfig = funcDefaults
 // NewRepository creates a repository instance from any of: a path on disk, a
 // remote or local URI, or from the embedded default repo if uri not provided.
 // Name (optional), if provided takes precedence over name derived from repo at
-//
-//	the given URI.
+// the given URI.
 //
 // URI (optional), the path either locally or remote from which to load
 //
 //	the repository files.  If not provided, the internal default is assumed.
 func NewRepository(name, uri string) (r Repository, err error) {
 	r = Repository{
-		uri:    uri,
-		branch: branch,
+		uri: uri,
 	}
 
 	fs, err := filesystemFromURI(uri, branch) // Get a Filesystem from the URI
@@ -226,7 +224,7 @@ func FilesystemFromRepo(uri string) (filesystem.Filesystem, error) {
 	clone, err := git.Clone(
 		memory.NewStorage(),
 		memfs.New(),
-		getGitCloneOptions(uri, branch),
+		getGitCloneOptions(uri),
 	)
 	if err != nil {
 		if isRepoNotFoundError(err) {
@@ -450,7 +448,7 @@ func checkDir(fs filesystem.Filesystem, path string) error {
 	return err
 }
 
-func getGitCloneOptions(uri, branch string) *git.CloneOptions {
+func getGitCloneOptions(uri) *git.CloneOptions {
 	opt := &git.CloneOptions{URL: uri, Depth: 1, Tags: git.NoTags,
 		RecurseSubmodules: git.NoRecurseSubmodules}
 	if branch != "" {
@@ -525,7 +523,7 @@ func (r *Repository) Write(path string) (err error) {
 			return
 		}
 		if clone, err = git.PlainClone(tempDir, false, // not bare
-			getGitCloneOptions(r.uri, r.branch)); err != nil {
+			getGitCloneOptions(r.uri)); err != nil {
 			return fmt.Errorf("failed to plain clone repository: %w", err)
 		}
 		if wt, err = clone.Worktree(); err != nil {
