@@ -2,6 +2,7 @@ package function
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -81,6 +82,7 @@ var migrations = []migration{
 	{"0.23.0", migrateToBuilderImages},
 	{"0.25.0", migrateToSpecVersion},
 	{"0.34.0", migrateToSpecsStructure},
+	{"0.35.0", migrateToInvokeStructure},
 	// New Migrations Here.
 }
 
@@ -282,6 +284,30 @@ func migrateToSpecsStructure(f1 Function, m migration) (Function, error) {
 	return f1, nil
 }
 
+func migrateToInvokeStructure(f1 Function, m migration) (Function, error) {
+	// Load the Function using pertinent parts of the previous version's schema:
+	f0Filename := filepath.Join(f1.Root, FunctionFile)
+	bb, err := os.ReadFile(f0Filename)
+	if err != nil {
+		return f1, errors.New("migration 'migrateToInvokeStructure' error: " + err.Error())
+	}
+	f0 := migrateToInvokeStructure_previousFunction{}
+	if err = yaml.Unmarshal(bb, &f0); err != nil {
+		return f1, errors.New("migration 'migrateToInvokeStructure' error: " + err.Error())
+	}
+
+	// TODO
+	fmt.Println("old:", f0.Invocation.Format, "; new:", f1.Invoke)
+	if f0.Invocation.Format != "" && f0.Invocation.Format != DefaultInvocationFormat {
+		f1.Invoke = f0.Invocation.Format
+	}
+	fmt.Println("after:", f1.Invoke)
+
+	// Flag f1 as having had the migration applied
+	f1.SpecVersion = m.version
+	return f1, nil
+}
+
 // The pertinent aspects of the Function's schema prior the 1.0.0 version migrations
 type migrateToSpecs_previousFunction struct {
 
@@ -339,4 +365,15 @@ type migrateToSpecVersion_previousFunction struct {
 // migration.
 type migrateToBuilderImages_previousFunction struct {
 	Builder string `yaml:"builder"`
+}
+
+// (Defined only for previous versions migration)
+// Invocation defines hints on how to accomplish a function invocation.
+type Invocation struct {
+	Format string `yaml:"format,omitempty"`
+}
+
+// Functions prior to 0.35.0 will have Invocation.Format instead of Invoke
+type migrateToInvokeStructure_previousFunction struct {
+	Invocation Invocation `yaml:"invocation,omitempty"`
 }

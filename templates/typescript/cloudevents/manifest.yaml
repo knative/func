@@ -1,2 +1,1 @@
-invocation:
-  format: "cloudevent"
+invoke: "cloudevent"

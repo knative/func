@@ -170,3 +170,16 @@ func TestMigrateToSpecs(t *testing.T) {
 	}
 
 }
+
+// TestMigrateToInvokeStructure tests that migration from f.Invocation.Format to
+// f.Invoke works
+// func TestMigrateToInvokeStructure(t *testing.T) {
+// 	root := "testdata/migrations/v0.35.0"
+// 	expectedInvoke := "http"
+
+// 	f, err := NewFunction(root)
+// 	if err != nil {
+// 		t.Error(err)
+// 		t.Fatal(f)
+// 	}
+// }
