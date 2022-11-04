@@ -48,7 +48,7 @@ func TestFunction_Validate(t *testing.T) {
 	// NOTE: this depends on an implementation detail of the package: the yaml
 	// serialization of the Function struct to a known filename. This is why this
 	// test belongs here in the same package as the implementation rather than in
-	// package function_test which treats the function package as a black-box.
+	// package function_test which treats the function package as an opaque-box.
 	path := filepath.Join(root, FunctionFile)
 	bb, err := yaml.Marshal(&f)
 	if err != nil {
@@ -62,7 +62,7 @@ func TestFunction_Validate(t *testing.T) {
 	if f, err = NewFunction(root); err != nil {
 		t.Fatal(err)
 	}
-	if err = f.Validate(); err == nil { // sanity check; not strictly part of this test
+	if err = f.Validate(); err == nil { // axiom check; not strictly part of this test
 		t.Fatal("did not receive an error validating a known-invlaid (incomplete) function")
 	}
 
