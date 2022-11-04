@@ -91,16 +91,12 @@ spec:
         [[ "$(workspaces.sslcertdir.bound)" == "true" ]] && CERT_DIR_FLAG="--cert-dir $(workspaces.sslcertdir.path)"
         ARTIFACTS_CACHE_PATH="$(workspaces.cache.path)/mvn-artifacts"
         [ -d "${ARTIFACTS_CACHE_PATH}" ] || mkdir "${ARTIFACTS_CACHE_PATH}"
-        BUILDAH_ROOT="$(workspaces.cache.path)/ctr-storage"
-        [ -d "${BUILDAH_ROOT}" ] || mkdir "${BUILDAH_ROOT}"
         buildah ${CERT_DIR_FLAG} bud --storage-driver=vfs --tls-verify=$(params.TLSVERIFY) --layers \
           -v "${ARTIFACTS_CACHE_PATH}:/tmp/artifacts/:rw,z,U" \
-          --root "${BUILDAH_ROOT}" \
           -f /gen-source/Dockerfile.gen -t $(params.IMAGE) .
 
         [[ "$(workspaces.dockerconfig.bound)" == "true" ]] && export DOCKER_CONFIG="$(workspaces.dockerconfig.path)"
         buildah ${CERT_DIR_FLAG} push --storage-driver=vfs --tls-verify=$(params.TLSVERIFY) --digestfile $(workspaces.source.path)/image-digest \
-          --root "${BUILDAH_ROOT}" \
           $(params.IMAGE) docker://$(params.IMAGE)
 
         cat $(workspaces.source.path)/image-digest | tee /tekton/results/IMAGE_DIGEST
