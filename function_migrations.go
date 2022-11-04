@@ -2,7 +2,6 @@ package function
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -296,12 +295,9 @@ func migrateToInvokeStructure(f1 Function, m migration) (Function, error) {
 		return f1, errors.New("migration 'migrateToInvokeStructure' error: " + err.Error())
 	}
 
-	// TODO
-	fmt.Println("old:", f0.Invocation.Format, "; new:", f1.Invoke)
 	if f0.Invocation.Format != "" && f0.Invocation.Format != DefaultInvocationFormat {
 		f1.Invoke = f0.Invocation.Format
 	}
-	fmt.Println("after:", f1.Invoke)
 
 	// Flag f1 as having had the migration applied
 	f1.SpecVersion = m.version
