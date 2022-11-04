@@ -8,6 +8,7 @@ import (
 	"gotest.tools/v3/assert"
 
 	fn "knative.dev/func"
+	"knative.dev/func/builders"
 	"knative.dev/func/mock"
 )
 
@@ -222,5 +223,75 @@ func TestBuild_RegistryHandling(t *testing.T) {
 
 		assert.Assert(t, f.Registry == tc.expRegistry, fmt.Sprintf("Test case %d: expected registry to be '"+tc.expRegistry+"', but got '%s'", tci, f.Registry))
 		assert.Assert(t, f.Image == tc.expImage, fmt.Sprintf("Test case %d: expected image to be '"+tc.expImage+"', but got '%s'", tci, f.Image))
+	}
+}
+
+// TestBuild_FunctionContext ensures that the function contectually relevant
+// to the current command execution is loaded and used for flag defaults by
+// spot-checking the builder setting.
+func TestBuild_FunctionContext(t *testing.T) {
+	root := fromTempDirectory(t)
+	fmt.Printf("root: %v\n", root)
+
+	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root, Registry: TestRegistry}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Build the function explicitly setting the builder to !builders.Default
+	cmd := NewBuildCmd(NewClientFactory(func() *fn.Client {
+		// TODO: replace with NewTestClient() when available
+		return fn.New()
+	}))
+	dflt := cmd.Flags().Lookup("builder").DefValue
+	fmt.Printf("dflt: %v\n", dflt)
+
+	// The initial default value should be builders.Default (see global config)
+	if dflt != builders.Default {
+		t.Fatalf("expected flag default value '%v', got '%v'", builders.Default, dflt)
+	}
+
+	// Choose the value that is not the default
+	// We must calculate this because downstream changes the default via patches.
+	var builder string
+	if builders.Default == builders.Pack {
+		builder = builders.S2I
+	} else {
+		builder = builders.Pack
+	}
+
+	// Build with the other
+	fmt.Printf("build --builder %v\n", builder)
+	cmd.SetArgs([]string{"--builder", builder})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a new
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// The function should now have the builder set to the new builder
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Build.Builder != builder {
+		t.Fatalf("expected function to have new builder '%v', got '%v'", builder, f.Build.Builder)
+	}
+	fmt.Printf("f.Build.Builder = %v\n", f.Build.Builder)
+
+	// The command default should now take into account the function when
+	// determining the flag default
+	cmd = NewBuildCmd(NewClientFactory(func() *fn.Client {
+		// TODO: replace with NewTestClient() when available
+		return fn.New()
+	}))
+	dflt = cmd.Flags().Lookup("builder").DefValue
+
+	fmt.Printf("dflt: %v\n", dflt)
+
+	if dflt != builder {
+		t.Fatalf("expected flag default to be function's current builder '%v', got '%v'", builder, dflt)
 	}
 }

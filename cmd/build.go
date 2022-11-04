@@ -57,7 +57,27 @@ and the image name is stored in the configuration file.
 		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
 
-	cmd.Flags().StringP("builder", "b", cfg.Builder, fmt.Sprintf("build strategy to use when creating the underlying image. Currently supported build strategies are %s.", KnownBuilders()))
+	// Function Context
+	// Load the value of the builder from the function at the effective path
+	// if it exists.
+	// This value takes precidence over the global config value, which encapsulates
+	// both the static default (builders.default) and any extant user setting in
+	// their global config file.
+	// The defaulting of path to cwd() can be removed when the open PR #
+	// is merged which updates the system to treat an empty path as indicating
+	// CWD by default.
+	builder := cfg.Builder
+	path := effectivePath()
+	if path == "" {
+		path = cwd()
+	}
+	if f, err := fn.NewFunction(path); err == nil && f.Build.Builder != "" {
+		// no errors loading the function at path, and it has a builder specified:
+		// The "function with context" takes precidence determining flag defaults
+		builder = f.Build.Builder
+	}
+
+	cmd.Flags().StringP("builder", "b", builder, fmt.Sprintf("build strategy to use when creating the underlying image. Currently supported build strategies are %s.", KnownBuilders()))
 	cmd.Flags().StringP("builder-image", "", "", "builder image, either an as a an image name or a mapping name.\nSpecified value is stored in func.yaml (as 'builder' field) for subsequent builds. ($FUNC_BUILDER_IMAGE)")
 	cmd.Flags().BoolP("confirm", "c", cfg.Confirm, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
 	cmd.Flags().StringP("image", "i", "", "Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE)")
