@@ -135,7 +135,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 
 		cli, dockerHost, err = docker.NewClient(client.DefaultDockerHost)
 		if err != nil {
-			return fmt.Errorf("cannot craete docker client: %w", err)
+			return fmt.Errorf("cannot create docker client: %w", err)
 		}
 		defer cli.Close()
 

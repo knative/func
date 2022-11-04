@@ -32,7 +32,7 @@ func info --output yaml --path myotherfunc
   -h, --help               help for describe
   -n, --namespace string   The namespace in which to look for the named function. (Env: $FUNC_NAMESPACE) (default "default")
   -o, --output string      Output format (human|plain|json|xml|yaml|url) (Env: $FUNC_OUTPUT) (default "human")
-  -p, --path string        Path to the project directory (Env: $FUNC_PATH) (default ".")
+  -p, --path string        Path to the project directory.  Default is current working directory (Env: $FUNC_PATH)
 ```
 
 ### Options inherited from parent commands

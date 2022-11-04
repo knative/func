@@ -148,7 +148,7 @@ type configCmdConfig struct {
 
 func newConfigCmdConfig() configCmdConfig {
 	return configCmdConfig{
-		Path:    getPathFlag(),
+		Path:    viper.GetString("path"),
 		Verbose: viper.GetBool("verbose"),
 	}
 }

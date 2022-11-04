@@ -19,7 +19,7 @@ func config
 
 ```
   -h, --help          help for config
-  -p, --path string   Path to the project directory (Env: $FUNC_PATH) (default ".")
+  -p, --path string   Path to the project directory.  Default is current working directory (Env: $FUNC_PATH)
 ```
 
 ### Options inherited from parent commands
