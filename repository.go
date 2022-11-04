@@ -465,6 +465,9 @@ func (r *Repository) Templates(runtimeName string) ([]Template, error) {
 
 // Runtime of the given name within the repository.
 func (r *Repository) Runtime(name string) (runtime Runtime, err error) {
+	if name == "" {
+		return Runtime{}, ErrRuntimeRequired
+	}
 	for _, runtime = range r.Runtimes {
 		if runtime.Name == name {
 			return runtime, err
