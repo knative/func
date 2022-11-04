@@ -38,9 +38,7 @@ type TemplateOptions struct {
 // This helper application generates markdown help documents
 func main() {
 	// Create a new client so that we can get builtin repo options
-	factory := cmd.NewClientFactory(func() *fn.Client { return fn.New() })
-	client, done := factory(cmd.ClientConfig{}, func(*fn.Client) {})
-	defer done()
+	client := fn.New()
 
 	// Generate options for templates
 	opts, err := cmd.RuntimeTemplateOptions(client)

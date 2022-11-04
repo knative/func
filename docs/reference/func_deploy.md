@@ -110,7 +110,7 @@ func deploy
   -g, --git-url string          Repo url to push the code to be built (Env: $FUNC_GIT_URL)
   -h, --help                    help for deploy
   -i, --image string            Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. (Env: $FUNC_IMAGE)
-  -n, --namespace string        Deploy into a specific namespace. (Env: $FUNC_NAMESPACE)
+  -n, --namespace string        Deploy into a specific namespace. Will use function's current namespace by default if already deployed. (Env: $FUNC_NAMESPACE) (default "default")
   -p, --path string             Path to the project directory (Env: $FUNC_PATH) (default ".")
       --platform string         Target platform to build (e.g. linux/amd64).
   -u, --push                    Push the function image to registry before deploying (Env: $FUNC_PUSH) (default true)
