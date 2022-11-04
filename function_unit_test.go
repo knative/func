@@ -4,11 +4,81 @@
 package function
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 
+	"gopkg.in/yaml.v2"
 	fnlabels "knative.dev/func/k8s/labels"
+
+	. "knative.dev/func/testing"
 )
+
+// TestFunction_Validate ensures that we are permissive on what we accept and
+// strict on what we emit.  This takes the form of not validating a function
+// on instantiation, but rather on write.  A function is expected to be in a
+// partial, even invalid state on disk; mostly due to the possibility of manual
+// editing of the func.yaml.  Writing, however, should always to write a
+// function in a known valid state.
+func TestFunction_Validate(t *testing.T) {
+	root, cleanup := Mktemp(t)
+	t.Cleanup(cleanup)
+
+	var f Function
+	var err error
+
+	// Loading a nonexistent (new) function should not fail
+	// I.e. it will not run .Validate, or it would error that the function at
+	// root has no language or name.
+	if f, err = NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+
+	// Attempting to write the function will fail as being invalid
+	invalidEnv := "*invalid"
+	f.Build.BuildEnvs = []Env{{Name: &invalidEnv}}
+	if err = f.Write(); err == nil {
+		t.Fatalf("expected error writing an incomplete (invalid) function")
+	}
+
+	// Write the invalid Function
+	//
+	// Write this intentionally invalid function to disk.
+	// NOTE: this depends on an implementation detail of the package: the yaml
+	// serialization of the Function struct to a known filename. This is why this
+	// test belongs here in the same package as the implementation rather than in
+	// package function_test which treats the function package as a black-box.
+	path := filepath.Join(root, FunctionFile)
+	bb, err := yaml.Marshal(&f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.WriteFile(path, bb, os.ModePerm); err != nil {
+		t.Fatal(err)
+	}
+
+	// Loading the invalid function should not fail, but validation should.
+	if f, err = NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	if err = f.Validate(); err == nil { // sanity check; not strictly part of this test
+		t.Fatal("did not receive an error validating a known-invlaid (incomplete) function")
+	}
+
+	// Remove the invalid structures... write should complete without error.
+	f.Build.BuildEnvs = []Env{}
+	if err = f.Write(); err != nil {
+		t.Fatal(err)
+	}
+	if f, err = NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	if err = f.Validate(); err != nil {
+		t.Fatal(err)
+	}
+
+}
 
 func TestFunction_ImageWithDigest(t *testing.T) {
 	type fields struct {
