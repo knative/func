@@ -11,7 +11,8 @@ import (
 	"knative.dev/func/mock"
 )
 
-// TestBuild_ImageFlag ensures that the image flag is used when specified.
+// TestBuild_ImageFlag ensures that the image flag is used when specified, and
+// is used in place of a configured registry.
 func TestBuild_ImageFlag(t *testing.T) {
 	var (
 		args    = []string{"--image", "docker.io/tigerteam/foo"}
@@ -19,7 +20,7 @@ func TestBuild_ImageFlag(t *testing.T) {
 	)
 	root := fromTempDirectory(t)
 
-	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root, Registry: TestRegistry}); err != nil {
+	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -27,6 +28,7 @@ func TestBuild_ImageFlag(t *testing.T) {
 	cmd.SetArgs(args)
 
 	// Execute the command
+	// Should not error that registry is missing because --image was provided.
 	err := cmd.Execute()
 	if err != nil {
 		t.Fatal(err)
@@ -56,7 +58,7 @@ func TestBuild_RegistryOrImageRequired(t *testing.T) {
 	cmd.SetArgs([]string{})
 
 	if err := cmd.Execute(); err != nil {
-		if !errors.Is(err, ErrRegistryRequired) {
+		if !errors.Is(err, fn.ErrRegistryRequired) {
 			t.Fatalf("expected ErrRegistryRequired, got error: %v", err)
 		}
 	}
