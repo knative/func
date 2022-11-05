@@ -92,7 +92,7 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 
 	// Populate a command config from environment variables, flags and potentially
 	// interactive user prompts if in confirm mode.
-	config, err := newBuildConfig().Prompt()
+	cfg, err := newBuildConfig().Prompt()
 	if err != nil {
 		if errors.Is(err, terminal.InterruptErr) {
 			return nil
@@ -100,7 +100,7 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	}
 
 	// Validate the config
-	if err = config.Validate(); err != nil {
+	if err = cfg.Validate(); err != nil {
 		return
 	}
 
@@ -113,19 +113,19 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	// account whether or not the value was altered via flags or env variables.
 	// This condition is also only necessary for config members whose default
 	// value deviates from the zero value.
-	f, err := fn.NewFunction(config.Path)
+	f, err := fn.NewFunction(cfg.Path)
 	if err != nil {
 		return
 	}
 	if !f.Initialized() {
-		return fmt.Errorf("'%v' does not contain an initialized function", config.Path)
+		return fmt.Errorf("'%v' does not contain an initialized function", cfg.Path)
 	}
 	if f.Registry == "" || cmd.Flags().Changed("registry") {
 		// Sets default AND accepts any user-provided overrides
-		f.Registry = config.Registry
+		f.Registry = cfg.Registry
 	}
-	if config.Image != "" {
-		f.Image = config.Image
+	if cfg.Image != "" {
+		f.Image = cfg.Image
 	}
 	// Checks if there is a difference between defined registry and its value used as a prefix in the image tag
 	// In case of a mismatch a new image tag is created and used for build
@@ -142,13 +142,13 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	}
 	if f.Build.Builder == "" || cmd.Flags().Changed("builder") {
 		// Sets default AND accepts any user-provided overrides
-		f.Build.Builder = config.Builder
+		f.Build.Builder = cfg.Builder
 	}
-	if config.Builder != "" {
-		f.Build.Builder = config.Builder
+	if cfg.Builder != "" {
+		f.Build.Builder = cfg.Builder
 	}
-	if config.BuilderImage != "" {
-		f.Build.BuilderImages[config.Builder] = config.BuilderImage
+	if cfg.BuilderImage != "" {
+		f.Build.BuilderImages[cfg.Builder] = cfg.BuilderImage
 	}
 
 	// Validate that a builder short-name was obtained, whether that be from
@@ -162,19 +162,19 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	if f.Build.Builder == builders.Pack {
 		builder = buildpacks.NewBuilder(
 			buildpacks.WithName(builders.Pack),
-			buildpacks.WithVerbose(config.Verbose))
+			buildpacks.WithVerbose(cfg.Verbose))
 	} else if f.Build.Builder == builders.S2I {
 		builder = s2i.NewBuilder(
 			s2i.WithName(builders.S2I),
-			s2i.WithPlatform(config.Platform),
-			s2i.WithVerbose(config.Verbose))
+			s2i.WithPlatform(cfg.Platform),
+			s2i.WithVerbose(cfg.Verbose))
 	} else {
 		err = fmt.Errorf("builder '%v' is not recognized", f.Build.Builder)
 		return
 	}
 
-	client, done := newClient(ClientConfig{Verbose: config.Verbose},
-		fn.WithRegistry(config.Registry),
+	client, done := newClient(ClientConfig{Verbose: cfg.Verbose},
+		fn.WithRegistry(cfg.Registry),
 		fn.WithBuilder(builder))
 	defer done()
 
@@ -188,13 +188,13 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 			fmt.Println("A registry for function images is required. For example, 'docker.io/tigerteam'.")
 			if err = survey.AskOne(
 				&survey.Input{Message: "Registry for function images:"},
-				&config.Registry, survey.WithValidator(
-					NewRegistryValidator(config.Path))); err != nil {
+				&cfg.Registry, survey.WithValidator(
+					NewRegistryValidator(cfg.Path))); err != nil {
 				return ErrRegistryRequired
 			}
 			done()
-			client, done = newClient(ClientConfig{Verbose: config.Verbose},
-				fn.WithRegistry(config.Registry),
+			client, done = newClient(ClientConfig{Verbose: cfg.Verbose},
+				fn.WithRegistry(cfg.Registry),
 				fn.WithBuilder(builder))
 			defer done()
 			fmt.Println("Note: building a function the first time will take longer than subsequent builds")
@@ -210,11 +210,11 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		return
 	}
 
-	if err = client.Build(cmd.Context(), config.Path); err != nil {
+	if err = client.Build(cmd.Context(), cfg.Path); err != nil {
 		return
 	}
-	if config.Push {
-		err = client.Push(cmd.Context(), config.Path)
+	if cfg.Push {
+		err = client.Push(cmd.Context(), cfg.Path)
 	}
 
 	return
