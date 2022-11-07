@@ -52,7 +52,7 @@ func (t template) Write(ctx context.Context, f *Function) error {
 	if f.Deploy.HealthEndpoints.Readiness == "" {
 		f.Deploy.HealthEndpoints.Readiness = t.config.HealthEndpoints.Readiness
 	}
-	if f.Invoke == "" && t.config.Invoke != DefaultInvokeFormat {
+	if f.Invoke == "" && t.config.Invoke != "http" {
 		f.Invoke = t.config.Invoke
 	}
 

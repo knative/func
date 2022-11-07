@@ -879,10 +879,6 @@ func (c *Client) Invoke(ctx context.Context, root string, target string, m Invok
 	if err != nil {
 		return
 	}
-	// if invoke is empty, use default 'http'
-	if f.Invoke == "" {
-		f.Invoke = DefaultInvocationFormat
-	}
 	// See invoke.go for implementation details
 	return invoke(ctx, c, f, target, m, c.verbose)
 }
