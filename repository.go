@@ -121,9 +121,12 @@ type templateConfig = funcDefaults
 // NewRepository creates a repository instance from any of: a path on disk, a
 // remote or local URI, or from the embedded default repo if uri not provided.
 // Name (optional), if provided takes precedence over name derived from repo at
-//   the given URI.
+//
+//	the given URI.
+//
 // URI (optional), the path either locally or remote from which to load
-//    the repository files.  If not provided, the internal default is assumed.
+//
+//	the repository files.  If not provided, the internal default is assumed.
 func NewRepository(name, uri string) (r Repository, err error) {
 	r = Repository{
 		uri: uri,
@@ -462,6 +465,9 @@ func (r *Repository) Templates(runtimeName string) ([]Template, error) {
 
 // Runtime of the given name within the repository.
 func (r *Repository) Runtime(name string) (runtime Runtime, err error) {
+	if name == "" {
+		return Runtime{}, ErrRuntimeRequired
+	}
 	for _, runtime = range r.Runtimes {
 		if runtime.Name == name {
 			return runtime, err

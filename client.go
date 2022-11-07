@@ -59,6 +59,12 @@ type Client struct {
 // ErrNotBuilt indicates the function has not yet been built.
 var ErrNotBuilt = errors.New("not built")
 
+// ErrNameRequired indicates the operation requires a name to complete.
+var ErrNameRequired = errors.New("name required")
+
+// ErrRegistryRequired indicates the operation requires a registry to complete.
+var ErrRegistryRequired = errors.New("registry required")
+
 // Builder of function source to runnable image.
 type Builder interface {
 	// Build a function project with source located at path.
@@ -672,6 +678,12 @@ func (c *Client) Deploy(ctx context.Context, path string) (err error) {
 		return ErrNotBuilt
 	}
 
+	// Functions must have a name to be deployed (a path on the network at which
+	// it should take up residence.
+	if f.Name == "" {
+		return ErrNameRequired
+	}
+
 	// Deploy a new or Update the previously-deployed function
 	c.progressListener.Increment("⬆️  Deploying function to the cluster")
 	result, err := c.deployer.Deploy(ctx, f)
@@ -779,7 +791,10 @@ func (c *Client) Describe(ctx context.Context, name, root string) (d Instance, e
 		return d, err
 	}
 	if !f.Initialized() {
-		return d, fmt.Errorf("%v is not initialized", f.Name)
+		return d, fmt.Errorf("function not initialized: %v", root)
+	}
+	if f.Name == "" {
+		return d, fmt.Errorf("unable to describe without a name. %v", ErrNameRequired)
 	}
 	return c.describer.Describe(ctx, f.Name)
 }
@@ -810,6 +825,9 @@ func (c *Client) Remove(ctx context.Context, cfg Function, deleteAll bool) error
 		}
 		functionName = f.Name
 		cfg = f
+	}
+	if functionName == "" {
+		return ErrNameRequired
 	}
 
 	// Delete Knative Service and dependent resources in parallel

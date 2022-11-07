@@ -714,8 +714,9 @@ func parseImage(v string) (name, digest string, err error) {
 
 // Warnings are printed to the output when the evaluation of effective namespace
 // may be confusing to the user.
-//   active = the curently active kube cluster namespace (or "default")
-//   current = the namespace in which the function is currently deployed (or "")
+//
+//	active = the curently active kube cluster namespace (or "default")
+//	current = the namespace in which the function is currently deployed (or "")
 func namespaceWarnings(cfg deployConfig, cmd *cobra.Command) {
 	// NOTE(lkingland): This function can largely be removed when Namespace is
 	// gathered from the Global Config struct, because this logic will implicitly

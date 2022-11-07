@@ -15,6 +15,31 @@ import (
 	. "knative.dev/func/testing"
 )
 
+// TestFunction_PathDefault ensures that the default path when instantiating
+// a NewFunciton is to use the current working directory.
+func TestFunction_PathDefault(t *testing.T) {
+	root, rm := Mktemp(t)
+	defer rm()
+
+	var f fn.Function
+	var err error
+
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	f.Name = "f"
+	f.Runtime = "go"
+	if err := f.Write(); err != nil {
+		t.Fatal(err)
+	}
+	if f, err = fn.NewFunction(""); err != nil {
+		t.Fatal(err)
+	}
+	if f.Name != "f" {
+		t.Fatalf("expected function 'f', got '%v'", f.Name)
+	}
+}
+
 // TestFunction_PathErrors ensures that instantiating a function errors if
 // the path does not exist or is not a directory, but does not require the
 // path contain an initialized function.

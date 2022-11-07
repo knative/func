@@ -10,7 +10,8 @@ var (
 	ErrRepositoryNotFound        = errors.New("repository not found")
 	ErrRepositoriesNotDefined    = errors.New("custom template repositories location not specified")
 	ErrTemplatesNotFound         = errors.New("templates path (runtimes) not found")
-	ErrRuntimeNotFound           = errors.New("runtime not found")
+	ErrRuntimeNotFound           = errors.New("language runtime not found")
+	ErrRuntimeRequired           = errors.New("language runtime required")
 	ErrTemplateNotFound          = errors.New("template not found")
 	ErrTemplateMissingRepository = errors.New("template name missing repository prefix")
 )
@@ -94,8 +95,7 @@ func (t *Templates) Get(runtime, fullname string) (Template, error) {
 // of the template (which can define default function fields, builders,
 // buildpacks, etc)
 func (t *Templates) Write(f *Function) error {
-	// Templates require an initially valid function to write
-	// (has name, path, runtime etc)
+	// Ensure the function itself is syntactically valid
 	if err := f.Validate(); err != nil {
 		return err
 	}

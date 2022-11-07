@@ -49,7 +49,7 @@ func build --builder=pack --builder-image cnbs/sample-builder:bionic
   -c, --confirm                Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)
   -h, --help                   help for build
   -i, --image string           Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE)
-  -p, --path string            Path to the project directory (Env: $FUNC_PATH) (default ".")
+  -p, --path string            Path to the project directory.  Default is current working directory (Env: $FUNC_PATH)
       --platform string        Target platform to build (e.g. linux/amd64).
   -u, --push                   Attempt to push the function image after being successfully built
   -r, --registry string        Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined (Env: $FUNC_REGISTRY)

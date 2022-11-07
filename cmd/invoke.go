@@ -224,7 +224,7 @@ type invokeConfig struct {
 
 func newInvokeConfig(newClient ClientFactory) (cfg invokeConfig, err error) {
 	cfg = invokeConfig{
-		Path:        getPathFlag(),
+		Path:        viper.GetString("path"),
 		Target:      viper.GetString("target"),
 		Format:      viper.GetString("format"),
 		ID:          viper.GetString("id"),

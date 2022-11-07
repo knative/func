@@ -113,5 +113,12 @@ func (s *Instances) Remote(ctx context.Context, name, root string) (Instance, er
 			return Instance{}, err
 		}
 	}
+
+	// If the function has no name, it is not deployed and thus has no remote
+	// instances
+	if f.Name == "" {
+		return Instance{}, nil
+	}
+
 	return s.client.describer.Describe(ctx, f.Name)
 }

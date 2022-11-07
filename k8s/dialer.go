@@ -29,19 +29,19 @@ var SocatImage = "quay.io/boson/alpine-socat:1.7.4.3-r1-non-root"
 //
 // Usage:
 //
-//     dialer, err := k8s.NewInClusterDialer(ctx)
-//     if err != nil {
-//         return err
-//     }
-//     defer dialer.Close()
+//	dialer, err := k8s.NewInClusterDialer(ctx)
+//	if err != nil {
+//	    return err
+//	}
+//	defer dialer.Close()
 //
-//     transport := &http.Transport{
-//         DialContext: dialer.DialContext,
-//     }
+//	transport := &http.Transport{
+//	    DialContext: dialer.DialContext,
+//	}
 //
-//     var client = http.Client{
-//         Transport: transport,
-//     }
+//	var client = http.Client{
+//	    Transport: transport,
+//	}
 func NewInClusterDialer(ctx context.Context) (*contextDialer, error) {
 	c := &contextDialer{
 		detachChan: make(chan struct{}),

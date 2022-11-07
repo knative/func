@@ -27,8 +27,7 @@ type Function struct {
 	// Root on disk at which to find/create source and config files.
 	Root string `yaml:"-"`
 
-	// Name of the function.  If not provided, path derivation is attempted when
-	// required (such as for initialization).
+	// Name of the function.
 	Name string `yaml:"name" jsonschema:"pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"`
 
 	// Runtime is the language plus context.  nodejs|go|quarkus|rust etc.
@@ -170,9 +169,17 @@ func NewFunctionWith(defaults Function) Function {
 // concerning itself with backwards compatibility. Migrators must therefore
 // selectively consider the minimal validation necessary to enable migration.
 func NewFunction(path string) (f Function, err error) {
-	f.Root = path // path is not persisted, as this is the purview of the FS itself
 	f.Build.BuilderImages = make(map[string]string)
 	f.Deploy.Annotations = make(map[string]string)
+
+	// Path defaults to current working directory, and if provided explicitly
+	// Path must exist and be a directory
+	if path == "" {
+		if path, err = os.Getwd(); err != nil {
+			return
+		}
+	}
+	f.Root = path // path is not persisted, as this is the purview of the FS
 
 	// Path must exist and be a directory
 	fd, err := os.Stat(path)
@@ -216,18 +223,12 @@ func NewFunction(path string) (f Function, err error) {
 		errorText += "\n" + "Migration: " + functionMigrationError.Error()
 		return Function{}, errors.New(errorText)
 	}
-	return f, f.Validate()
+	return
 }
 
 // Validate function is logically correct, returning a bundled, and quite
 // verbose, formatted error detailing any issues.
 func (f Function) Validate() error {
-	if f.Name == "" {
-		return errors.New("function name is required")
-	}
-	if f.Runtime == "" {
-		return errors.New("function language runtime is required")
-	}
 	if f.Root == "" {
 		return errors.New("function root path is required")
 	}
@@ -331,7 +332,11 @@ func nameFromPath(path string) string {
 }
 
 // Write aka (save, serialize, marshal) the function to disk at its path.
+// Only valid functions can be written.
 func (f Function) Write() (err error) {
+	if err = f.Validate(); err != nil {
+		return
+	}
 	path := filepath.Join(f.Root, FunctionFile)
 	var bb []byte
 	if bb, err = yaml.Marshal(&f); err != nil {
@@ -472,10 +477,10 @@ func assertEmptyRoot(path string) (err error) {
 // indicate the namespace at the default registry.
 func (f Function) ImageName() (image string, err error) {
 	if f.Registry == "" {
-		return "", errors.New("registry is required")
+		return "", ErrRegistryRequired
 	}
 	if f.Name == "" {
-		return "", errors.New("name is required")
+		return "", ErrNameRequired
 	}
 
 	f.Registry = strings.Trim(f.Registry, "/") // too defensive?

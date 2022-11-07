@@ -10,13 +10,14 @@ import (
 
 // Bar - a simple, unobtrusive progress indicator
 // Usage:
-//   bar := New()
-//   bar.SetTotal(3)
-//   defer bar.Done()
-//   bar.Increment("Step 1")
-//   bar.Increment("Step 2")
-//   bar.Increment("Step 3")
-//   bar.Complete("Done")
+//
+//	bar := New()
+//	bar.SetTotal(3)
+//	defer bar.Done()
+//	bar.Increment("Step 1")
+//	bar.Increment("Step 2")
+//	bar.Increment("Step 3")
+//	bar.Complete("Done")
 //
 // Instantiation creates a progress bar consisiting of an optional spinner
 // prefix followed by an indicator of the current step, the total steps, and a
@@ -34,7 +35,8 @@ import (
 // method but the single status update in the same manner as when verbosity is
 // enabled.
 // Format:
-//   [spinner] i/n t
+//
+//	[spinner] i/n t
 type Bar struct {
 	out   io.Writer
 	index int    // Current step index

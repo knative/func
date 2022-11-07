@@ -294,18 +294,7 @@ func mergeEnvs(envs []fn.Env, envToUpdate *util.OrderedMap, envToRemove []string
 
 // setPathFlag ensures common text/wording when the --path flag is used
 func setPathFlag(cmd *cobra.Command) {
-	cmd.Flags().StringP("path", "p", ".", "Path to the project directory (Env: $FUNC_PATH)")
-}
-
-// getPathFlag returns the value of the --path flag.
-// The special value '.' is returned as the abolute path to the current
-// working directory.
-func getPathFlag() string {
-	path := viper.GetString("path")
-	if path == "." {
-		path = cwd()
-	}
-	return path
+	cmd.Flags().StringP("path", "p", "", "Path to the project directory.  Default is current working directory (Env: $FUNC_PATH)")
 }
 
 // cwd returns the current working directory or exits 1 printing the error.

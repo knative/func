@@ -84,6 +84,10 @@ func taskS2iBuild(runAfter []string) pplnv1beta1.PipelineTask {
 				Workspace: "source-workspace",
 			},
 			{
+				Name:      "cache",
+				Workspace: "cache-workspace",
+			},
+			{
 				Name:      "dockerconfig",
 				Workspace: "dockerconfig-workspace",
 			}},

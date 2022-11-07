@@ -73,7 +73,9 @@ func (c Config) RegistryDefault() string {
 
 // NewDefault returns a config populated by global defaults as defined by the
 // config file located in .Path() (the global func settings path, which is
-//  usually ~/.config/func).
+//
+//	usually ~/.config/func).
+//
 // The config path is not required to be present.
 func NewDefault() (cfg Config, err error) {
 	cfg = New()
@@ -107,10 +109,11 @@ func (c Config) Write(path string) (err error) {
 
 // Dir is derived in the following order, from lowest
 // to highest precedence.
-// 1.  The default path is the zero value, indicating "no config path available",
+//  1. The default path is the zero value, indicating "no config path available",
 //     and users of this package should act accordingly.
-// 2.  ~/.config/func if it exists (can be expanded: user has a home dir)
-// 3.  The value of $XDG_CONFIG_PATH/func if the environment variable exists.
+//  2. ~/.config/func if it exists (can be expanded: user has a home dir)
+//  3. The value of $XDG_CONFIG_PATH/func if the environment variable exists.
+//
 // The path is created if it does not already exist.
 func Dir() (path string) {
 	// Use home if available

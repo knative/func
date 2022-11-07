@@ -70,6 +70,7 @@ func generatePipeline(f fn.Function, labels map[string]string) *pplnv1beta1.Pipe
 
 	workspaces := []pplnv1beta1.PipelineWorkspaceDeclaration{
 		{Name: "source-workspace", Description: "Directory where function source is located."},
+		{Name: "cache-workspace", Description: "Directory where build cache is stored."},
 		{Name: "dockerconfig-workspace", Description: "Directory containing image registry credentials stored in `config.json` file.", Optional: true},
 	}
 
@@ -90,7 +91,6 @@ func generatePipeline(f fn.Function, labels map[string]string) *pplnv1beta1.Pipe
 
 	if f.Build.Builder == builders.Pack {
 		// ----- Buildpacks related properties
-		workspaces = append(workspaces, pplnv1beta1.PipelineWorkspaceDeclaration{Name: "cache-workspace", Description: "Directory where Buildpacks cache is stored."})
 		taskBuild = taskBuildpacks(buildPreReq)
 
 	} else if f.Build.Builder == builders.S2I {
@@ -182,6 +182,13 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 			SubPath: "source",
 		},
 		{
+			Name: "cache-workspace",
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+				ClaimName: getPipelinePvcName(f),
+			},
+			SubPath: "cache",
+		},
+		{
 			Name: "dockerconfig-workspace",
 			Secret: &corev1.SecretVolumeSource{
 				SecretName: getPipelineSecretName(f),
@@ -189,17 +196,7 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 		},
 	}
 
-	if f.Build.Builder == builders.Pack {
-		// ----- Buildpacks related properties
-
-		workspaces = append(workspaces, pplnv1beta1.WorkspaceBinding{
-			Name: "cache-workspace",
-			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-				ClaimName: getPipelinePvcName(f),
-			},
-			SubPath: "cache",
-		})
-	} else if f.Build.Builder == builders.S2I {
+	if f.Build.Builder == builders.S2I {
 		if f.Runtime == "quarkus" {
 			params = append(params, pplnv1beta1.Param{Name: "s2iImageScriptsUrl", Value: *pplnv1beta1.NewArrayOrString("image:///usr/local/s2i")})
 		}

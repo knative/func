@@ -15,8 +15,8 @@ import (
 )
 
 // TestContextDirFunc tests the following use case:
-//  - As a Developer I want my function located in a specific directory on my project, hosted on my
-//    public git repository from the main branch, to get deployed on my cluster
+//   - As a Developer I want my function located in a specific directory on my project, hosted on my
+//     public git repository from the main branch, to get deployed on my cluster
 func TestContextDirFunc(t *testing.T) {
 
 	var gitProjectName = "test-project"

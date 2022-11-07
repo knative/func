@@ -21,7 +21,7 @@ func config labels add
 
 ```
   -h, --help          help for add
-  -p, --path string   Path to the project directory (Env: $FUNC_PATH) (default ".")
+  -p, --path string   Path to the project directory.  Default is current working directory (Env: $FUNC_PATH)
 ```
 
 ### Options inherited from parent commands

@@ -102,7 +102,7 @@ func invoke
   -h, --help                  help for invoke
       --id string             ID for the request data. (Env: $FUNC_ID)
   -i, --insecure              Allow insecure server connections when using SSL. (Env: $FUNC_INSECURE)
-  -p, --path string           Path to the project directory (Env: $FUNC_PATH) (default ".")
+  -p, --path string           Path to the project directory.  Default is current working directory (Env: $FUNC_PATH)
       --source string         Source value for the request data. (Env: $FUNC_SOURCE) (default "/boson/fn")
   -t, --target string         Function instance to invoke.  Can be 'local', 'remote' or a URL.  Defaults to auto-discovery if not provided. (Env: $FUNC_TARGET)
       --type string           Type value for the request data. (Env: $FUNC_TYPE) (default "boson.fn")

@@ -95,6 +95,8 @@ func WithImpl(i Impl) Option {
 	}
 }
 
+var DefaultLifecycleImage = "quay.io/boson/lifecycle@sha256:79dac4658ea5e9b42c3aece456f8a9c20f9e1a91d9d4648717967d88eaa7d9ef"
+
 // Build the Function at path.
 func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	// Builder image from the function if defined, default otherwise.
@@ -107,7 +109,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	opts := pack.BuildOptions{
 		AppPath:        f.Root,
 		Image:          f.Image,
-		LifecycleImage: "quay.io/boson/lifecycle:0.14.3",
+		LifecycleImage: DefaultLifecycleImage,
 		Builder:        image,
 		Buildpacks:     f.Build.Buildpacks,
 		ContainerConfig: struct {
@@ -133,7 +135,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 
 		cli, dockerHost, err = docker.NewClient(client.DefaultDockerHost)
 		if err != nil {
-			return fmt.Errorf("cannot craete docker client: %w", err)
+			return fmt.Errorf("cannot create docker client: %w", err)
 		}
 		defer cli.Close()
 

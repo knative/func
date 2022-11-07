@@ -258,7 +258,7 @@ type buildConfig struct {
 func newBuildConfig() buildConfig {
 	return buildConfig{
 		Image:        viper.GetString("image"),
-		Path:         getPathFlag(),
+		Path:         viper.GetString("path"),
 		Registry:     registry(),
 		Verbose:      viper.GetBool("verbose"), // defined on root
 		Confirm:      viper.GetBool("confirm"),
