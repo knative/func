@@ -293,7 +293,7 @@ func ServeRsyncOnVolume(ctx context.Context, listener net.Listener, claimName, n
 			conn, conn, errOut,
 		)
 		if err != nil {
-			return fmt.Errorf("errow while exec (err out: %q): %w", errOut.String(), err)
+			return fmt.Errorf("error while exec (err out: %q): %w", errOut.String(), err)
 		}
 		return nil
 	}
@@ -305,7 +305,7 @@ func ServeRsyncOnVolume(ctx context.Context, listener net.Listener, claimName, n
 			if errors.Is(err, net.ErrClosed) {
 				break
 			}
-			return fmt.Errorf("cannot accpet connection: %w", err)
+			return fmt.Errorf("cannot accept connection: %w", err)
 
 		}
 		eg.Go(func() error { return handleRsyncConnection(conn) })
