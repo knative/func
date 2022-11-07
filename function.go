@@ -169,9 +169,17 @@ func NewFunctionWith(defaults Function) Function {
 // concerning itself with backwards compatibility. Migrators must therefore
 // selectively consider the minimal validation necessary to enable migration.
 func NewFunction(path string) (f Function, err error) {
-	f.Root = path // path is not persisted, as this is the purview of the FS itself
 	f.Build.BuilderImages = make(map[string]string)
 	f.Deploy.Annotations = make(map[string]string)
+
+	// Path defaults to current working directory, and if provided explicitly
+	// Path must exist and be a directory
+	if path == "" {
+		if path, err = os.Getwd(); err != nil {
+			return
+		}
+	}
+	f.Root = path // path is not persisted, as this is the purview of the FS
 
 	// Path must exist and be a directory
 	fd, err := os.Stat(path)

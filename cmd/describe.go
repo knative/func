@@ -118,7 +118,7 @@ func newDescribeConfig(args []string) describeConfig {
 	c := describeConfig{
 		Namespace: viper.GetString("namespace"),
 		Output:    viper.GetString("output"),
-		Path:      getPathFlag(),
+		Path:      viper.GetString("path"),
 		Verbose:   viper.GetBool("verbose"),
 	}
 	if len(args) > 0 {

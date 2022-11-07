@@ -19,7 +19,7 @@ func config envs
 ```
   -h, --help            help for envs
   -o, --output string   Output format (human|json) (Env: $FUNC_OUTPUT) (default "human")
-  -p, --path string     Path to the project directory (Env: $FUNC_PATH) (default ".")
+  -p, --path string     Path to the project directory.  Default is current working directory (Env: $FUNC_PATH)
 ```
 
 ### Options inherited from parent commands

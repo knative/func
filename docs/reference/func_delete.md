@@ -36,7 +36,7 @@ func delete -n apps myfunc
   -c, --confirm            Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)
   -h, --help               help for delete
   -n, --namespace string   The namespace in which to delete. (Env: $FUNC_NAMESPACE) (default "default")
-  -p, --path string        Path to the project directory (Env: $FUNC_PATH) (default ".")
+  -p, --path string        Path to the project directory.  Default is current working directory (Env: $FUNC_PATH)
 ```
 
 ### Options inherited from parent commands
