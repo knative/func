@@ -572,7 +572,7 @@ func TestTemplates_ManifestRemoved(t *testing.T) {
 
 // TestTemplates_InvocationDefault ensures that creating a function which
 // does not define an invocation hint defaults to empty string (since 0.35.0
-// default value is omited from func.yaml file for Invoke)
+// default value is omitted from func.yaml file for Invoke)
 func TestTemplates_InvocationDefault(t *testing.T) {
 	expectedInvoke := ""
 	root := "testdata/testTemplatesInvocationDefault"
