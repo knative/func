@@ -5,8 +5,6 @@ import (
 	"testing"
 
 	"gotest.tools/v3/assert"
-
-	fn "knative.dev/func"
 )
 
 // TestTemplates_Default ensures that the default behavior is listing all
@@ -15,9 +13,7 @@ func TestTemplates_Default(t *testing.T) {
 	_ = fromTempDirectory(t)
 
 	buf := piped(t) // gather output
-	cmd := NewTemplatesCmd(NewClientFactory(func() *fn.Client {
-		return fn.New()
-	}))
+	cmd := NewTemplatesCmd(NewClient)
 	cmd.SetArgs([]string{})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -50,9 +46,7 @@ func TestTemplates_JSON(t *testing.T) {
 	_ = fromTempDirectory(t)
 
 	buf := piped(t) // gather output
-	cmd := NewTemplatesCmd(NewClientFactory(func() *fn.Client {
-		return fn.New()
-	}))
+	cmd := NewTemplatesCmd(NewClient)
 	cmd.SetArgs([]string{"--json"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -109,9 +103,7 @@ func TestTemplates_JSON(t *testing.T) {
 func TestTemplates_ByLanguage(t *testing.T) {
 	_ = fromTempDirectory(t)
 
-	cmd := NewTemplatesCmd(NewClientFactory(func() *fn.Client {
-		return fn.New()
-	}))
+	cmd := NewTemplatesCmd(NewClient)
 	cmd.SetArgs([]string{"go"})
 
 	// Test plain text
@@ -150,9 +142,7 @@ http`
 func TestTemplates_ErrTemplateRepoDoesNotExist(t *testing.T) {
 	_ = fromTempDirectory(t)
 
-	cmd := NewTemplatesCmd(NewClientFactory(func() *fn.Client {
-		return fn.New()
-	}))
+	cmd := NewTemplatesCmd(NewClient)
 	cmd.SetArgs([]string{"--repository", "https://github.com/boson-project/repo-does-not-exist"})
 	err := cmd.Execute()
 	assert.Assert(t, err != nil)
@@ -162,9 +152,7 @@ func TestTemplates_ErrTemplateRepoDoesNotExist(t *testing.T) {
 func TestTemplates_WrongRepositoryUrl(t *testing.T) {
 	_ = fromTempDirectory(t)
 
-	cmd := NewTemplatesCmd(NewClientFactory(func() *fn.Client {
-		return fn.New()
-	}))
+	cmd := NewTemplatesCmd(NewClient)
 	cmd.SetArgs([]string{"--repository", "wrong://github.com/boson-project/repo-does-not-exist"})
 	err := cmd.Execute()
 	assert.Assert(t, err != nil)

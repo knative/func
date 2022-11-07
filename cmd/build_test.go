@@ -23,9 +23,7 @@ func TestBuild_ImageFlag(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cmd := NewBuildCmd(NewClientFactory(func() *fn.Client {
-		return fn.New(fn.WithBuilder(builder))
-	}))
+	cmd := NewBuildCmd(NewTestClient(fn.WithBuilder(builder)))
 	cmd.SetArgs(args)
 
 	// Execute the command
@@ -54,9 +52,7 @@ func TestBuild_RegistryOrImageRequired(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cmd := NewBuildCmd(NewClientFactory(func() *fn.Client {
-		return fn.New()
-	}))
+	cmd := NewBuildCmd(NewTestClient())
 	cmd.SetArgs([]string{})
 
 	if err := cmd.Execute(); err != nil {
@@ -120,9 +116,8 @@ func TestBuild_Push(t *testing.T) {
 		builder = mock.NewBuilder()
 		pusher  = mock.NewPusher()
 	)
-	cmd := NewBuildCmd(NewClientFactory(func() *fn.Client {
-		return fn.New(fn.WithRegistry(TestRegistry), fn.WithBuilder(builder), fn.WithPusher(pusher))
-	}))
+	cmd := NewBuildCmd(NewTestClient(fn.WithRegistry(TestRegistry), fn.WithBuilder(builder), fn.WithPusher(pusher)))
+
 	cmd.SetArgs([]string{})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -208,9 +203,7 @@ func TestBuild_RegistryHandling(t *testing.T) {
 		},
 	} {
 		var builder = mock.NewBuilder()
-		cmd := NewBuildCmd(NewClientFactory(func() *fn.Client {
-			return fn.New(fn.WithBuilder(builder))
-		}))
+		cmd := NewBuildCmd(NewTestClient(fn.WithBuilder(builder)))
 		cmd.SetArgs(tc.testFnArgs)
 
 		tci := i + 1

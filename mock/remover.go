@@ -8,7 +8,7 @@ type Remover struct {
 }
 
 func NewRemover() *Remover {
-	return &Remover{}
+	return &Remover{RemoveFn: func(string) error { return nil }}
 }
 
 func (r *Remover) Remove(ctx context.Context, name string) error {

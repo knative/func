@@ -23,9 +23,7 @@ func TestDescribe_ByName(t *testing.T) {
 		return fn.Instance{}, nil
 	}
 
-	cmd := NewDescribeCmd(NewClientFactory(func() *fn.Client {
-		return fn.New(fn.WithDescriber(describer))
-	}))
+	cmd := NewDescribeCmd(NewTestClient(fn.WithDescriber(describer)))
 	cmd.SetArgs([]string{testname})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -59,9 +57,7 @@ func TestDescribe_ByProject(t *testing.T) {
 		}
 		return
 	}
-	cmd := NewDescribeCmd(NewClientFactory(func() *fn.Client {
-		return fn.New(fn.WithDescriber(describer))
-	}))
+	cmd := NewDescribeCmd(NewTestClient(fn.WithDescriber(describer)))
 	cmd.SetArgs([]string{})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -72,9 +68,7 @@ func TestDescribe_ByProject(t *testing.T) {
 // and a path will generate an error.
 func TestDescribe_NameAndPathExclusivity(t *testing.T) {
 	d := mock.NewDescriber()
-	cmd := NewDescribeCmd(NewClientFactory(func() *fn.Client {
-		return fn.New(fn.WithDescriber(d))
-	}))
+	cmd := NewDescribeCmd(NewTestClient(fn.WithDescriber(d)))
 	cmd.SetArgs([]string{"-p", "./testpath", "testname"})
 	if err := cmd.Execute(); err == nil {
 		// TODO(lkingland): use a typed error

@@ -2,8 +2,6 @@ package cmd
 
 import (
 	"testing"
-
-	fn "knative.dev/func"
 )
 
 // TestLanguages_Default ensures that the default behavior of listing
@@ -13,9 +11,7 @@ func TestLanguages_Default(t *testing.T) {
 	_ = fromTempDirectory(t)
 
 	buf := piped(t) // gather output
-	cmd := NewLanguagesCmd(NewClientFactory(func() *fn.Client {
-		return fn.New()
-	}))
+	cmd := NewLanguagesCmd(NewClient)
 	cmd.SetArgs([]string{})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -40,9 +36,7 @@ func TestLanguages_JSON(t *testing.T) {
 	_ = fromTempDirectory(t)
 
 	buf := piped(t) // gather output
-	cmd := NewLanguagesCmd(NewClientFactory(func() *fn.Client {
-		return fn.New()
-	}))
+	cmd := NewLanguagesCmd(NewClient)
 	cmd.SetArgs([]string{"--json"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
