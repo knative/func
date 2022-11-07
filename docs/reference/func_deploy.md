@@ -96,7 +96,7 @@ func deploy
   -p, --path string             Path to the project directory (Env: $FUNC_PATH) (default ".")
       --platform string         Target platform to build (e.g. linux/amd64).
   -u, --push                    Push the function image to registry before deploying (Env: $FUNC_PUSH) (default true)
-  -r, --registry string         Registry + namespace part of the image to build, ex 'ghcr.io/myuser'.  The full image name is automatically determined. (Env: $FUNC_REGISTRY) (default "image-registry.openshift-image-registry.svc:5000/default")
+  -r, --registry string         Registry + namespace part of the image to build, ex 'ghcr.io/myuser'.  The full image name is automatically determined. (Env: $FUNC_REGISTRY)
       --remote                  Trigger a remote deployment.  Default is to deploy and build from the local system: $FUNC_REMOTE)
 ```
 

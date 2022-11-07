@@ -46,7 +46,7 @@ func run --build=false
   -e, --env stringArray         Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
   -h, --help                    help for run
   -p, --path string             Path to the project directory (Env: $FUNC_PATH) (default ".")
-  -r, --registry string         Registry + namespace part of the image if building, ex 'quay.io/myuser' (Env: $FUNC_REGISTRY) (default "image-registry.openshift-image-registry.svc:5000/default")
+  -r, --registry string         Registry + namespace part of the image if building, ex 'quay.io/myuser' (Env: $FUNC_REGISTRY)
 ```
 
 ### Options inherited from parent commands
