@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 
 	"gopkg.in/yaml.v2"
+	fn "knative.dev/func"
 	"knative.dev/func/builders"
 	"knative.dev/func/k8s"
 	"knative.dev/func/openshift"
@@ -36,18 +37,19 @@ func DefaultNamespace() (namespace string) {
 }
 
 // Global configuration settings.
-type Config struct {
+type Global struct {
 	Builder   string `yaml:"builder,omitempty"`
 	Confirm   bool   `yaml:"confirm,omitempty"`
 	Language  string `yaml:"language,omitempty"`
 	Namespace string `yaml:"namespace,omitempty"`
 	Registry  string `yaml:"registry,omitempty"`
+	Verbose   bool   `yaml:"verbose,omitempty"`
 }
 
 // New Config struct with all members set to static defaults.  See NewDefaults
 // for one which further takes into account the optional config file.
-func New() Config {
-	return Config{
+func New() Global {
+	return Global{
 		Builder:   DefaultBuilder,
 		Language:  DefaultLanguage,
 		Namespace: DefaultNamespace(),
@@ -58,7 +60,7 @@ func New() Config {
 // RegistyDefault is a convenience method for deferred calculation of a
 // default registry taking into account both the global config file and cluster
 // detection.
-func (c Config) RegistryDefault() string {
+func (c Global) RegistryDefault() string {
 	// If defined, the user's choice for global registry default value is used
 	if c.Registry != "" {
 		return c.Registry
@@ -77,7 +79,7 @@ func (c Config) RegistryDefault() string {
 //	usually ~/.config/func).
 //
 // The config path is not required to be present.
-func NewDefault() (cfg Config, err error) {
+func NewDefault() (cfg Global, err error) {
 	cfg = New()
 	cp := File()
 	bb, err := os.ReadFile(cp)
@@ -92,7 +94,7 @@ func NewDefault() (cfg Config, err error) {
 }
 
 // Load the config exactly as it exists at path (no static defaults)
-func Load(path string) (c Config, err error) {
+func Load(path string) (c Global, err error) {
 	bb, err := os.ReadFile(path)
 	if err != nil {
 		return c, fmt.Errorf("error reading global config: %v", err)
@@ -102,9 +104,51 @@ func Load(path string) (c Config, err error) {
 }
 
 // Write the config to the given path
-func (c Config) Write(path string) (err error) {
+func (c Global) Write(path string) (err error) {
 	bb, _ := yaml.Marshal(&c) // Marshaling no longer errors; this is back compat
 	return os.WriteFile(path, bb, os.ModePerm)
+}
+
+// Apply populated values from a function to the config.
+// The resulting config is global settings overridden by a given function.
+func (c Global) Apply(f fn.Function) Global {
+	// With no way to automate this mapping easily (even with reflection) because
+	// the function now has a complex structure consiting of XSpec sub-structs,
+	// and in some cases has differing member names (language).  While this is
+	// yes a bit tedious, manually mapping each member (if defined) is simple,
+	// easy to understand and support; with both mapping direction (Apply and
+	// Configure) in one central place here... with tests.
+	if f.Build.Builder != "" {
+		c.Builder = f.Build.Builder
+	}
+	if f.Runtime != "" {
+		c.Language = f.Runtime
+	}
+	if f.Deploy.Namespace != "" {
+		c.Namespace = f.Deploy.Namespace
+	}
+	if f.Registry != "" {
+		c.Registry = f.Registry
+	}
+	return c
+}
+
+// Configure a function with poipulated values of the config.
+// The resulting function is the function overridden by values on config.
+func (c Global) Configure(f fn.Function) fn.Function {
+	if c.Builder != "" {
+		f.Build.Builder = c.Builder
+	}
+	if c.Language != "" {
+		f.Runtime = c.Language
+	}
+	if c.Namespace != "" {
+		f.Deploy.Namespace = c.Namespace
+	}
+	if c.Registry != "" {
+		f.Registry = c.Registry
+	}
+	return f
 }
 
 // Dir is derived in the following order, from lowest

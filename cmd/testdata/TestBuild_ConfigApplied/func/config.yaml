@@ -1,0 +1,3 @@
+verbose: true
+confirm: true
+registry: registry.example.com/alice

@@ -357,6 +357,8 @@ func piped(t *testing.T) func() string {
 // an environment clean of developer's settings for use during CLI testing.
 func fromTempDirectory(t *testing.T) string {
 	t.Helper()
+	clearEnvs(t)
+
 	// We have to define KUBECONFIG, or the file at ~/.kube/config (if extant)
 	// will be used (disrupting tests by using the current user's environment).
 	// The test kubeconfig set below has the current namespace set to 'func'
