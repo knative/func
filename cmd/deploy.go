@@ -185,9 +185,6 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 	// Prompt the user to potentially change config interactively.
 	config, err = config.Prompt()
 	if err != nil {
-		if err == terminal.InterruptErr {
-			return nil
-		}
 		return
 	}
 

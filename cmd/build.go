@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/AlecAivazis/survey/v2/terminal"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
@@ -94,9 +93,7 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	// interactive user prompts if in confirm mode.
 	config, err := newBuildConfig().Prompt()
 	if err != nil {
-		if errors.Is(err, terminal.InterruptErr) {
-			return nil
-		}
+		return
 	}
 
 	// Validate the config

@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/AlecAivazis/survey/v2/terminal"
 	"knative.dev/func/cmd"
 	"knative.dev/func/docker"
 )
@@ -38,7 +39,9 @@ func main() {
 		}}
 
 	if err := cmd.NewRootCmd(cfg).ExecuteContext(ctx); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		if !errors.Is(err, terminal.InterruptErr) {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		}
 		if ctx.Err() != nil {
 			os.Exit(130)
 		}

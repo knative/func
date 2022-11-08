@@ -1,11 +1,9 @@
 package cmd
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/AlecAivazis/survey/v2/terminal"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
@@ -102,9 +100,6 @@ func runConfigCmd(cmd *cobra.Command, args []string) (err error) {
 
 	err = survey.Ask(qs, &answers)
 	if err != nil {
-		if errors.Is(err, terminal.InterruptErr) {
-			return nil
-		}
 		return
 	}
 

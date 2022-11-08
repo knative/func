@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/AlecAivazis/survey/v2/terminal"
 	"github.com/spf13/cobra"
 
 	fn "knative.dev/func"
@@ -123,9 +122,6 @@ func runAddLabelsPrompt(ctx context.Context, f fn.Function, saver functionSaver)
 		}
 		err = survey.AskOne(prompt, &selectedLabel)
 		if err != nil {
-			if err == terminal.InterruptErr {
-				return nil
-			}
 			return
 		}
 
@@ -150,9 +146,6 @@ func runAddLabelsPrompt(ctx context.Context, f fn.Function, saver functionSaver)
 		Options: options,
 	}, &selectedOption)
 	if err != nil {
-		if err == terminal.InterruptErr {
-			return nil
-		}
 		return
 	}
 
@@ -183,9 +176,6 @@ func runAddLabelsPrompt(ctx context.Context, f fn.Function, saver functionSaver)
 
 		err = survey.Ask(qs, &answers)
 		if err != nil {
-			if err == terminal.InterruptErr {
-				return nil
-			}
 			return
 		}
 
@@ -217,9 +207,6 @@ func runAddLabelsPrompt(ctx context.Context, f fn.Function, saver functionSaver)
 
 		err = survey.Ask(qs, &answers)
 		if err != nil {
-			if err == terminal.InterruptErr {
-				return nil
-			}
 			return
 		}
 
@@ -266,9 +253,6 @@ func runRemoveLabelsPrompt(f fn.Function, saver functionSaver) (err error) {
 	}
 	err = survey.AskOne(prompt, &selectedLabel)
 	if err != nil {
-		if err == terminal.InterruptErr {
-			return nil
-		}
 		return
 	}
 
