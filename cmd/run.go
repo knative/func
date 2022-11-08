@@ -65,20 +65,20 @@ to the function's source.  Use --build to override this behavior.
 }
 
 func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err error) {
-	config, err := newRunConfig(cmd)
+	cfg, err := newRunConfig(cmd)
 	if err != nil {
 		return
 	}
 
-	function, err := fn.NewFunction(config.Path)
+	function, err := fn.NewFunction(cfg.Path)
 	if err != nil {
 		return
 	}
 	if !function.Initialized() {
-		return fmt.Errorf("the given path '%v' does not contain an initialized function", config.Path)
+		return fmt.Errorf("the given path '%v' does not contain an initialized function", cfg.Path)
 	}
 	var updated int
-	function.Run.Envs, updated, err = mergeEnvs(function.Run.Envs, config.EnvToUpdate, config.EnvToRemove)
+	function.Run.Envs, updated, err = mergeEnvs(function.Run.Envs, cfg.EnvToUpdate, cfg.EnvToRemove)
 	if err != nil {
 		return
 	}
@@ -92,16 +92,16 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 	// Client for use running (and potentially building), using the config
 	// gathered plus any additional option overrieds (such as for providing
 	// mocks when testing for builder and runner)
-	client, done := newClient(ClientConfig{Verbose: config.Verbose}, fn.WithRegistry(config.Registry))
+	client, done := newClient(ClientConfig{Verbose: cfg.Verbose}, fn.WithRegistry(cfg.Registry))
 	defer done()
 
 	// Build?
 	// If --build was set to 'auto', only build if client detects the function
 	// is stale (has either never been built or has had filesystem modifications
 	// since the last build).
-	if config.Build == "auto" {
+	if cfg.Build == "auto" {
 		if !client.Built(function.Root) {
-			if err = client.Build(cmd.Context(), config.Path); err != nil {
+			if err = client.Build(cmd.Context(), cfg.Path); err != nil {
 				return
 			}
 		}
@@ -109,12 +109,12 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 		// Otherwise, --build should parse to a truthy value which indicates an explicit
 		// override.
 	} else {
-		build, err := strconv.ParseBool(config.Build)
+		build, err := strconv.ParseBool(cfg.Build)
 		if err != nil {
 			return fmt.Errorf("unrecognized value for --build '%v'.  accepts 'auto', 'true' or 'false' (or similarly truthy value)", build)
 		}
 		if build {
-			if err = client.Build(cmd.Context(), config.Path); err != nil {
+			if err = client.Build(cmd.Context(), cfg.Path); err != nil {
 				return err
 			}
 		} else {
@@ -124,7 +124,7 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 	}
 
 	// Run the function at path
-	job, err := client.Run(cmd.Context(), config.Path)
+	job, err := client.Run(cmd.Context(), cfg.Path)
 	if err != nil {
 		return
 	}

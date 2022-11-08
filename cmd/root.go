@@ -28,11 +28,11 @@ type RootCommandConfig struct {
 // NewRootCmd creates the root of the command tree defines the command name, description, globally
 // available flags, etc.  It has no action of its own, such that running the
 // resultant binary with no arguments prints the help/usage text.
-func NewRootCmd(config RootCommandConfig) *cobra.Command {
+func NewRootCmd(cfg RootCommandConfig) *cobra.Command {
 	cmd := &cobra.Command{
 		// Use must be set to exactly config.Name, as this field is overloaded to
 		// be used in subcommand help text as the command with possible prefix:
-		Use:           config.Name,
+		Use:           cfg.Name,
 		Short:         "Serverless functions",
 		SilenceErrors: true, // we explicitly handle errors in Execute()
 		SilenceUsage:  true, // no usage dump on error
@@ -77,12 +77,12 @@ EXAMPLES
 	}
 
 	// Version
-	cmd.Version = config.Version.String()
+	cmd.Version = cfg.Version.String()
 	cmd.SetVersionTemplate(`{{printf "%s\n" .Version}}`)
 
 	// Client
 	// Use the provided ClientFactory or default to NewClient
-	newClient := config.NewClient
+	newClient := cfg.NewClient
 	if newClient == nil {
 		newClient = NewClient
 	}
@@ -110,7 +110,7 @@ EXAMPLES
 			Header: "Other Commands:",
 			Commands: []*cobra.Command{
 				NewCompletionCmd(),
-				NewVersionCmd(config.Version),
+				NewVersionCmd(cfg.Version),
 			},
 		},
 	}

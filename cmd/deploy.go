@@ -177,13 +177,13 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 	}
 
 	// Create a deploy config from environment variables and flags
-	config, err := newDeployConfig(cmd)
+	cfg, err := newDeployConfig(cmd)
 	if err != nil {
 		return
 	}
 
 	// Prompt the user to potentially change config interactively.
-	config, err = config.Prompt()
+	cfg, err = cfg.Prompt()
 	if err != nil {
 		if err == terminal.InterruptErr {
 			return nil
@@ -192,62 +192,62 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 	}
 
 	// Validate the config
-	if err = config.Validate(); err != nil {
+	if err = cfg.Validate(); err != nil {
 		return
 	}
 
 	// Print warnings regarding namespace target
-	namespaceWarnings(config, cmd)
+	namespaceWarnings(cfg, cmd)
 
 	// Load the function, and if it exists (path initialized as a function), merge
 	// in any updates from flags/env vars (namespace, explicit image name, envs).
-	f, err := fn.NewFunction(config.Path)
+	f, err := fn.NewFunction(cfg.Path)
 	if err != nil {
 		return
 	}
 	if !f.Initialized() {
-		return fmt.Errorf("'%v' does not contain an initialized function", config.Path)
+		return fmt.Errorf("'%v' does not contain an initialized function", cfg.Path)
 	}
 	if f.Registry == "" || cmd.Flags().Changed("registry") {
 		// Sets default AND accepts any user-provided overrides
-		f.Registry = config.Registry
+		f.Registry = cfg.Registry
 	}
 	if f.Build.Builder == "" || cmd.Flags().Changed("builder") {
 		// Sets default AND accepts any user-provided overrides
-		f.Build.Builder = config.Builder
+		f.Build.Builder = cfg.Builder
 	}
 	if f.Deploy.Namespace == "" || cmd.Flags().Changed("namespace") {
 		// Sets default AND accepts andy user-provided overrides
-		f.Deploy.Namespace = config.Namespace
+		f.Deploy.Namespace = cfg.Namespace
 	}
-	if config.Image != "" {
-		f.Image = config.Image
+	if cfg.Image != "" {
+		f.Image = cfg.Image
 	}
-	if config.ImageDigest != "" {
+	if cfg.ImageDigest != "" {
 		fmt.Fprintf(cmd.OutOrStdout(), "Deploying image '%v' with digest '%s'. Build and push are disabled.\n", f.Image, f.ImageDigest)
-		f.ImageDigest = config.ImageDigest
+		f.ImageDigest = cfg.ImageDigest
 	}
-	if config.Builder != "" {
-		f.Build.Builder = config.Builder
+	if cfg.Builder != "" {
+		f.Build.Builder = cfg.Builder
 	}
-	if config.BuilderImage != "" {
-		f.Build.BuilderImages[config.Builder] = config.BuilderImage
+	if cfg.BuilderImage != "" {
+		f.Build.BuilderImages[cfg.Builder] = cfg.BuilderImage
 	}
-	if config.GitURL != "" {
-		parts := strings.Split(config.GitURL, "#")
+	if cfg.GitURL != "" {
+		parts := strings.Split(cfg.GitURL, "#")
 		f.Build.Git.URL = parts[0]
 		if len(parts) == 2 { // see Validate() where len enforced to be <= 2
 			f.Build.Git.Revision = parts[1]
 		}
 	}
-	if config.GitBranch != "" {
-		f.Build.Git.Revision = config.GitBranch
+	if cfg.GitBranch != "" {
+		f.Build.Git.Revision = cfg.GitBranch
 	}
-	if config.GitDir != "" {
-		f.Build.Git.ContextDir = config.GitDir
+	if cfg.GitDir != "" {
+		f.Build.Git.ContextDir = cfg.GitDir
 	}
 
-	f.Run.Envs, _, err = mergeEnvs(f.Run.Envs, config.EnvToUpdate, config.EnvToRemove)
+	f.Run.Envs, _, err = mergeEnvs(f.Run.Envs, cfg.EnvToUpdate, cfg.EnvToRemove)
 	if err != nil {
 		return
 	}
@@ -265,19 +265,19 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 	if f.Build.Builder == builders.Pack {
 		builder = buildpacks.NewBuilder(
 			buildpacks.WithName(builders.Pack),
-			buildpacks.WithVerbose(config.Verbose))
+			buildpacks.WithVerbose(cfg.Verbose))
 	} else if f.Build.Builder == builders.S2I {
 		builder = s2i.NewBuilder(
 			s2i.WithName(builders.S2I),
-			s2i.WithPlatform(config.Platform),
-			s2i.WithVerbose(config.Verbose))
+			s2i.WithPlatform(cfg.Platform),
+			s2i.WithVerbose(cfg.Verbose))
 	} else {
 		err = fmt.Errorf("builder '%v' is not recognized", f.Build.Builder)
 		return
 	}
 
-	client, done := newClient(ClientConfig{Namespace: f.Deploy.Namespace, Verbose: config.Verbose},
-		fn.WithRegistry(config.Registry),
+	client, done := newClient(ClientConfig{Namespace: f.Deploy.Namespace, Verbose: cfg.Verbose},
+		fn.WithRegistry(cfg.Registry),
 		fn.WithBuilder(builder))
 	defer done()
 
@@ -285,12 +285,12 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 	if client.Registry() == "" && f.Registry == "" && f.Image == "" {
 		if interactiveTerminal() {
 			// to be consistent, this should throw an error, with the registry
-			// prompting code placed within config.Prompt and triggered with --confirm
+			// prompting code placed within cfg.Prompt and triggered with --confirm
 			fmt.Println("A registry for function images is required. For example, 'docker.io/tigerteam'.")
 			if err = survey.AskOne(
 				&survey.Input{Message: "Registry for function images:"},
-				&config.Registry, survey.WithValidator(
-					NewRegistryValidator(config.Path))); err != nil {
+				&cfg.Registry, survey.WithValidator(
+					NewRegistryValidator(cfg.Path))); err != nil {
 				return ErrRegistryRequired
 			}
 			fmt.Println("Note: building a function the first time will take longer than subsequent builds")
@@ -300,7 +300,7 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 	}
 
 	// Perform the deployment either remote or local.
-	if config.Remote {
+	if cfg.Remote {
 		// Invoke a remote build/push/deploy pipeline
 		// Returned is the function with fields like Registry and Image populated.
 		if f, err = client.RunPipeline(cmd.Context(), f); err != nil {
@@ -310,7 +310,7 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		if err = f.Write(); err != nil { // TODO: remove when client API uses 'f'
 			return
 		}
-		if build(config.Build, f, client) { // --build or "auto" with FS changes
+		if build(cfg.Build, f, client) { // --build or "auto" with FS changes
 			if err = client.Build(cmd.Context(), f.Root); err != nil {
 				return
 			}
@@ -318,7 +318,7 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		if f, err = fn.NewFunction(f.Root); err != nil { // TODO: remove when client API uses 'f'
 			return
 		}
-		if config.Push {
+		if cfg.Push {
 			if err = client.Push(cmd.Context(), f.Root); err != nil {
 				return
 			}
