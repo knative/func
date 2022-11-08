@@ -300,7 +300,7 @@ func migrateFromInvokeStructure(f1 Function, m migration) (Function, error) {
 		return f1, errors.New("migration 'migrateFromInvokeStructure' error: " + err.Error())
 	}
 
-	if f0.Invocation.Format != "" && f0.Invocation.Format != DefaultInvocationFormat {
+	if f0.Invocation.Format != "" && f0.Invocation.Format != "http" {
 		f1.Invoke = f0.Invocation.Format
 	}
 
