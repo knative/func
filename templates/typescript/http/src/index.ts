@@ -1,4 +1,4 @@
-import { Context } from 'faas-js-runtime';
+import { Context, HTTPFunction, StructuredReturn } from 'faas-js-runtime';
 
 /**
  * Your HTTP handling function, invoked with each request. This is an example
@@ -19,7 +19,7 @@ import { Context } from 'faas-js-runtime';
  * @param {string} context.httpVersion the HTTP protocol version
  * See: https://github.com/knative/func/blob/main/docs/guides/nodejs.md#the-context-object
  */
-export const handle = async (context: Context): Promise<string> => {
+export const handle: HTTPFunction = async (context: Context): Promise<StructuredReturn> => {
   // YOUR CODE HERE
   // eslint-disable-next-line no-console
   console.log(`
@@ -34,5 +34,10 @@ Body:
 ${JSON.stringify(context.body)}
 -----------------------------------------------------------
 `);
-  return JSON.stringify(context.body);
+  return {
+    body: context.body,
+    headers: {
+      'content-type': 'application/json'
+    }
+  };
 };

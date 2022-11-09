@@ -26,11 +26,11 @@ const handle = async (context, event) => {
   context.log.info("event");
   context.log.info(JSON.stringify(event, null, 2));
 
-  return HTTP.binary(new CloudEvent({
+  return new CloudEvent({
     source: 'event.handler',
     type: 'echo',
-    data: event
-  }));
+    data: event.data
+  });
 };
 
 module.exports = { handle };

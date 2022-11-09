@@ -14,11 +14,11 @@
   },
   "devDependencies": {
     "nodemon": "^2.0.4",
-    "supertest": "^4.0.2",
+    "supertest": "^6.3.1",
     "tape": "^4.13.0"
   },
   "dependencies": {
-    "cloudevents": "^6.0.2",
-    "faas-js-runtime": "^0.9.1"
+    "cloudevents": "^6.0.3",
+    "faas-js-runtime": "^0.9.5"
   }
 }

@@ -22,11 +22,11 @@ test('Unit: handles a valid event', async t => {
   const mockContext = new MockContext(cloudevent);
 
   // Invoke the function with the valid event, which should complete without error.
-  const result =  await func(mockContext, data);
+  const result = await func(mockContext, cloudevent);
   t.ok(result);
-  t.equal(result.body, JSON.stringify(data));
-  t.equal(result.headers['ce-type'], 'echo');
-  t.equal(result.headers['ce-source'], 'event.handler');
+  t.equal(result.data, data);
+  t.equal(result.type, 'echo');
+  t.equal(result.source, 'event.handler');
   t.end();
 });
 
@@ -42,7 +42,7 @@ class MockContext {
     return new CloudEvent({
       data,
       type: 'com.example.cloudevents.test.response',
-      source: '/test'  
+      source: '/test'
     })
   }
 }

@@ -1,15 +1,10 @@
 'use strict';
 
 import test from 'tape';
+import { expectType } from 'tsd';
 import { CloudEvent } from 'cloudevents';
-import { Context } from 'faas-js-runtime';
-import { handle } from '../src';
-
-// Test typed CloudEvent data
-interface Customer {
-  name: string;
-  customerId: string;
-}
+import { CloudEventFunction, Context } from 'faas-js-runtime';
+import { handle, Customer } from '../src';
 
 // Ensure that the function completes cleanly when passed a valid event.
 test('Unit: handles a valid event', async (t) => {
@@ -29,9 +24,11 @@ test('Unit: handles a valid event', async (t) => {
   // Invoke the function with the valid event, which should complete without error.
   const result = await handle({} as Context, cloudevent);
   t.ok(result);
-  t.deepEqual(JSON.parse(result.body as string), data);
-  console.log(result);
-  t.equal(result.headers['ce-type'], 'echo');
-  t.equal(result.headers['ce-source'], 'function.eventViewer');
+  t.deepEqual(result.data, data);
+  t.equal(result.type, 'echo');
+  t.equal(result.source, 'function.eventViewer');
   t.end();
 });
+
+// Ensure that the handle function is typed correctly.
+expectType<CloudEventFunction>(handle);
