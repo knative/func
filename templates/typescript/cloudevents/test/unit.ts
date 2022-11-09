@@ -13,6 +13,7 @@ test('Unit: handles a valid event', async (t) => {
     name: 'tiger',
     customerId: '01234'
   };
+
   // A valid event includes id, type and source at a minimum.
   const cloudevent: CloudEvent<Customer> = new CloudEvent({
     id: '01234',
@@ -22,7 +23,7 @@ test('Unit: handles a valid event', async (t) => {
   });
 
   // Invoke the function with the valid event, which should complete without error.
-  const result = await handle({} as Context, cloudevent);
+  const result = await handle({ log: { info: (_) => _ } } as Context, cloudevent);
   t.ok(result);
   t.deepEqual(result.data, data);
   t.equal(result.type, 'echo');

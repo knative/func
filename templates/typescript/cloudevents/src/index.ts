@@ -20,7 +20,7 @@ import { Context } from 'faas-js-runtime';
  * @param {CloudEvent} cloudevent the CloudEvent
  */
 // eslint-disable-next-line prettier/prettier
-const handle = async (_: Context, cloudevent?: CloudEvent<Customer>): Promise<CloudEvent<Customer|string>> => {
+const handle = async (context: Context, cloudevent?: CloudEvent<Customer>): Promise<CloudEvent<Customer|string>> => {
   // YOUR CODE HERE
   const meta = {
     source: 'function.eventViewer',
@@ -32,12 +32,10 @@ const handle = async (_: Context, cloudevent?: CloudEvent<Customer>): Promise<Cl
       ...meta,
       ...{ type: 'error', data: 'No event received' }
     });
-    // eslint-disable-next-line no-console
-    console.log(response.toString());
+    context.log.info(response.toString());
     return response;
   }
-  // eslint-disable-next-line no-console
-  console.log(`
+  context.log.info(`
 -----------------------------------------------------------
 CloudEvent:
 ${cloudevent}
@@ -47,7 +45,7 @@ ${JSON.stringify(cloudevent.data)}
 -----------------------------------------------------------
 `);
   // respond with a new CloudEvent
-  return new CloudEvent<Customer>({ ...meta, data: cloudevent.data as Customer });
+  return new CloudEvent<Customer>({ ...meta, data: cloudevent.data });
 };
 
 export interface Customer {

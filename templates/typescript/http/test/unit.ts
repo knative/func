@@ -13,10 +13,8 @@ test('Unit: handles a valid request', async (t) => {
     customerId: '01234'
   };
 
-  const mockContext = { body } as Context;
-
   // Invoke the function which should complete without error and echo the data
-  const result = await handle(mockContext);
+  const result = await handle({ log: { info: (_) => _ } } as Context, body);
   t.ok(result);
   t.equal(result.body, body);
   t.end();

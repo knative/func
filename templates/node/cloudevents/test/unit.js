@@ -11,6 +11,7 @@ test('Unit: handles a valid event', async t => {
     name: 'tiger',
     customerId: '01234'
   }
+
   // A valid event includes id, type and source at a minimum.
   const cloudevent = new CloudEvent({
     id: '01234',
@@ -19,30 +20,11 @@ test('Unit: handles a valid event', async t => {
     data
   });
 
-  const mockContext = new MockContext(cloudevent);
-
   // Invoke the function with the valid event, which should complete without error.
-  const result = await func(mockContext, cloudevent);
+  const result = await func({ log: { info: (_) => _ } }, cloudevent);
   t.ok(result);
   t.equal(result.data, data);
   t.equal(result.type, 'echo');
   t.equal(result.source, 'event.handler');
   t.end();
 });
-
-class MockContext {
-  cloudevent;
-
-  constructor(cloudevent) {
-    this.cloudevent = cloudevent;
-    this.log = { info: console.log, debug: console.debug }
-  }
-
-  cloudEventResponse(data) {
-    return new CloudEvent({
-      data,
-      type: 'com.example.cloudevents.test.response',
-      source: '/test'
-    })
-  }
-}

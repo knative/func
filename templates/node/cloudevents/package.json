@@ -9,7 +9,7 @@
   },
   "scripts": {
     "test": "node test/unit.js && node test/integration.js",
-    "start": "faas-js-runtime ./index.js",
+    "start": "FUNC_LOG_LEVEL=info faas-js-runtime ./index.js",
     "debug": "nodemon --inspect ./node_modules/faas-js-runtime/bin/cli.js ./index.js"
   },
   "devDependencies": {

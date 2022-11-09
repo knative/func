@@ -13,7 +13,7 @@
     "test:unit": "ts-node node_modules/tape/bin/tape test/unit.ts",
     "test:integration": "ts-node node_modules/tape/bin/tape test/integration.ts",
     "test": "npm run test:unit && npm run test:integration",
-    "start": "faas-js-runtime ./build/index.js",
+    "start": "FUNC_LOG_LEVEL=info faas-js-runtime ./build/index.js",
     "lint": "eslint \"src/**/*.{js,ts,tsx}\" \"test/**/*.{js,ts,tsx}\" --quiet",
     "debug": "nodemon --inspect ./node_modules/faas-js-runtime/bin/cli.js ./build/index.js"
   },
