@@ -295,7 +295,7 @@ func migrateFromInvokeStructure(f1 Function, m migration) (Function, error) {
 	if err != nil {
 		return f1, errors.New("migration 'migrateFromInvokeStructure' error: " + err.Error())
 	}
-	f0 := migrateFromInvokeStructure_invocation{}
+	f0 := migrateFromInvokeStructure_previousFunction{}
 	if err = yaml.Unmarshal(bb, &f0); err != nil {
 		return f1, errors.New("migration 'migrateFromInvokeStructure' error: " + err.Error())
 	}
@@ -370,11 +370,11 @@ type migrateToBuilderImages_previousFunction struct {
 
 // (Defined only for previous versions migration)
 // Invocation defines hints on how to accomplish a function invocation.
-type Invocation struct {
+type migrateFromInvokeStructure_invocation struct {
 	Format string `yaml:"format,omitempty"`
 }
 
 // Functions prior to 0.35.0 will have Invocation.Format instead of Invoke
-type migrateFromInvokeStructure_invocation struct {
-	Invocation Invocation `yaml:"invocation,omitempty"`
+type migrateFromInvokeStructure_previousFunction struct {
+	Invocation migrateFromInvokeStructure_invocation `yaml:"invocation,omitempty"`
 }

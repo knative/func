@@ -171,9 +171,9 @@ func TestMigrateToSpecs(t *testing.T) {
 
 }
 
-// TestMigrateToInvokeStructure tests that migration from f.Invocation.Format to
+// TestMigrateFromInvokeStructure tests that migration from f.Invocation.Format to
 // f.Invoke works
-func TestMigrateToInvokeStructure(t *testing.T) {
+func TestMigrateFromInvokeStructure(t *testing.T) {
 	root0 := "testdata/migrations/v0.35.0"
 	expectedInvoke := "" // empty because http is default and not written in yaml file
 
