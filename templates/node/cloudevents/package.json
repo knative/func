@@ -9,16 +9,16 @@
   },
   "scripts": {
     "test": "node test/unit.js && node test/integration.js",
-    "start": "faas-js-runtime ./index.js",
+    "start": "FUNC_LOG_LEVEL=info faas-js-runtime ./index.js",
     "debug": "nodemon --inspect ./node_modules/faas-js-runtime/bin/cli.js ./index.js"
   },
   "devDependencies": {
     "nodemon": "^2.0.4",
-    "supertest": "^4.0.2",
+    "supertest": "^6.3.1",
     "tape": "^4.13.0"
   },
   "dependencies": {
-    "cloudevents": "^6.0.2",
-    "faas-js-runtime": "^0.9.1"
+    "cloudevents": "^6.0.3",
+    "faas-js-runtime": "^0.9.5"
   }
 }

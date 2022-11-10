@@ -76,6 +76,8 @@ clean_templates:
 	@rm -rf templates/python/http/__pycache__
 	@rm -rf templates/typescript/cloudevents/node_modules
 	@rm -rf templates/typescript/http/node_modules
+	@rm -rf templates/typescript/cloudevents/build
+	@rm -rf templates/typescript/http/build
 	@rm -rf templates/rust/cloudevents/target
 	@rm -rf templates/rust/http/target
 	@rm -rf templates/quarkus/cloudevents/target

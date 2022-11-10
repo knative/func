@@ -15,18 +15,17 @@
  * @param {string} context.httpVersion the HTTP protocol version
  * See: https://github.com/knative/func/blob/main/docs/function-developers/nodejs.md#the-context-object
  */
-const handle = async (context) => {
+const handle = async (context, body) => {
   // YOUR CODE HERE
-  context.log.info(JSON.stringify(context, null, 2));
+  context.log.info("query", context.query);
+  context.log.info("body", body);
 
   // If the request is an HTTP POST, the context will contain the request body
   if (context.method === 'POST') {
-    return {
-      body: context.body,
-    }
-  // If the request is an HTTP GET, the context will include a query string, if it exists
+    return { body };
   } else if (context.method === 'GET') {
-    return {
+  // If the request is an HTTP GET, the context will include a query string, if it exists
+  return {
       query: context.query,
     }
   } else {

@@ -1,4 +1,4 @@
-const { CloudEvent, HTTP } = require('cloudevents');
+const { CloudEvent } = require('cloudevents');
 
 /**
  * Your CloudEvent handling function, invoked with each request.
@@ -20,17 +20,14 @@ const { CloudEvent, HTTP } = require('cloudevents');
  */
 const handle = async (context, event) => {
   // YOUR CODE HERE
-  context.log.info("context");
-  context.log.info(JSON.stringify(context, null, 2));
+  context.log.info("context", context);
+  context.log.info("event", event);
 
-  context.log.info("event");
-  context.log.info(JSON.stringify(event, null, 2));
-
-  return HTTP.binary(new CloudEvent({
+  return new CloudEvent({
     source: 'event.handler',
     type: 'echo',
-    data: event
-  }));
+    data: event.data
+  });
 };
 
 module.exports = { handle };
