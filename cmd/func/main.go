@@ -42,7 +42,7 @@ func main() {
 		if !errors.Is(err, terminal.InterruptErr) {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		}
-		if ctx.Err() != nil {
+		if ctx.Err() != nil || errors.Is(err, terminal.InterruptErr) {
 			os.Exit(130)
 		}
 
