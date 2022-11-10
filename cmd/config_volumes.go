@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/AlecAivazis/survey/v2/terminal"
 	"github.com/spf13/cobra"
 
 	fn "knative.dev/func"
@@ -146,9 +145,6 @@ func runAddVolumesPrompt(ctx context.Context, f fn.Function) (err error) {
 			Options: options,
 		}, &selectedOption)
 		if err != nil {
-			if err == terminal.InterruptErr {
-				return nil
-			}
 			return
 		}
 	}
@@ -171,9 +167,6 @@ func runAddVolumesPrompt(ctx context.Context, f fn.Function) (err error) {
 		Options: optionsResoures,
 	}, &selectedResource)
 	if err != nil {
-		if err == terminal.InterruptErr {
-			return nil
-		}
 		return
 	}
 
@@ -189,9 +182,6 @@ func runAddVolumesPrompt(ctx context.Context, f fn.Function) (err error) {
 		return nil
 	}))
 	if err != nil {
-		if err == terminal.InterruptErr {
-			return nil
-		}
 		return
 	}
 
@@ -232,9 +222,6 @@ func runRemoveVolumesPrompt(f fn.Function) (err error) {
 	}
 	err = survey.AskOne(prompt, &selectedVolume)
 	if err != nil {
-		if err == terminal.InterruptErr {
-			return nil
-		}
 		return
 	}
 

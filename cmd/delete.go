@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/AlecAivazis/survey/v2/terminal"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
@@ -61,9 +60,6 @@ No local files are deleted.
 func runDelete(cmd *cobra.Command, args []string, newClient ClientFactory) (err error) {
 	cfg, err := newDeleteConfig(args).Prompt()
 	if err != nil {
-		if err == terminal.InterruptErr {
-			return nil
-		}
 		return
 	}
 
