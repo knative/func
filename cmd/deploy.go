@@ -283,17 +283,17 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		if interactiveTerminal() {
 			// to be consistent, this should throw an error, with the registry
 			// prompting code placed within cfg.Prompt and triggered with --confirm
-			fmt.Println("A registry for function images is required. For example, 'docker.io/tigerteam'.")
+			fmt.Println("Please choose a registry for the function image. For example, 'docker.io/tigerteam'.")
 			if err = survey.AskOne(
 				&survey.Input{Message: "Registry for function images:"},
 				&cfg.Registry, survey.WithValidator(
 					NewRegistryValidator(cfg.Path))); err != nil {
-				return ErrRegistryRequired
+				return fn.ErrRegistryRequired
 			}
 			fmt.Println("Note: building a function the first time will take longer than subsequent builds")
 		}
 
-		return ErrRegistryRequired
+		return fn.ErrRegistryRequired
 	}
 
 	// Perform the deployment either remote or local.
@@ -349,7 +349,7 @@ func NewRegistryValidator(path string) survey.Validator {
 
 		// if the value passed in is the zero value of the appropriate type
 		if len(val.(string)) == 0 {
-			return ErrRegistryRequired
+			return fn.ErrRegistryRequired
 		}
 
 		f, err := fn.NewFunction(path)
@@ -748,8 +748,3 @@ func namespaceWarnings(cfg deployConfig, cmd *cobra.Command) {
 		fmt.Fprintf(out, "Warning: function is in namespace '%s', but requested namespace is '%s'. Continuing with deployment to '%v'.\n", current, target, target)
 	}
 }
-
-var ErrRegistryRequired = errors.New(`A container registry is required.  For example:
---registry docker.io/myusername
-
-To run the command in an interactive mode, use --confirm (-c)`)

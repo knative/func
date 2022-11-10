@@ -66,7 +66,7 @@ func testRegistryOrImageRequired(cmdFn commandConstructor, t *testing.T) {
 	// instantiated with a default registry, a ErrRegistryRequired is expected.
 	cmd.SetArgs([]string{}) // this explicit clearing of args may not be necessary
 	if err := cmd.Execute(); err != nil {
-		if !errors.Is(err, ErrRegistryRequired) {
+		if !errors.Is(err, fn.ErrRegistryRequired) {
 			t.Fatalf("expected ErrRegistryRequired, got error: %v", err)
 		}
 	}

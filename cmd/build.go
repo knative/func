@@ -134,7 +134,7 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		}
 		sps := strings.Split(f.Image, "/")
 		updImg := prfx + sps[len(sps)-1]
-		fmt.Fprintf(cmd.ErrOrStderr(), "Warning: image tag '%s' contains different registry than the specified '%s'. It will be overwritten with value '%s'\n", f.Image, f.Registry, updImg)
+		fmt.Fprintf(cmd.ErrOrStderr(), "Warning: function has current image '%s' which has a different registry than the currently configured registry '%s'. The new image tag will be '%s'.  To use an explicit image, use --image.\n", f.Image, f.Registry, updImg)
 		f.Image = updImg
 	}
 	if f.Build.Builder == "" || cmd.Flags().Changed("builder") {
@@ -174,31 +174,6 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		fn.WithRegistry(cfg.Registry),
 		fn.WithBuilder(builder))
 	defer done()
-
-	// Default Client Registry, Function Registry or explicit Image is required
-	if client.Registry() == "" && f.Registry == "" && f.Image == "" {
-		// It is not necessary that we validate here, since the client API has
-		// its own validation, but it does give us the opportunity to show a very
-		// cli-specific and detailed error message and (at least for now) default
-		// to an interactive prompt.
-		if interactiveTerminal() {
-			fmt.Println("A registry for function images is required. For example, 'docker.io/tigerteam'.")
-			if err = survey.AskOne(
-				&survey.Input{Message: "Registry for function images:"},
-				&cfg.Registry, survey.WithValidator(
-					NewRegistryValidator(cfg.Path))); err != nil {
-				return ErrRegistryRequired
-			}
-			done()
-			client, done = newClient(ClientConfig{Verbose: cfg.Verbose},
-				fn.WithRegistry(cfg.Registry),
-				fn.WithBuilder(builder))
-			defer done()
-			fmt.Println("Note: building a function the first time will take longer than subsequent builds")
-		} else {
-			return ErrRegistryRequired
-		}
-	}
 
 	// This preemptive write call will be unnecessary when the API is updated
 	// to use Function instances rather than file paths. For now it must write
@@ -270,13 +245,53 @@ func newBuildConfig() buildConfig {
 // Skipped if not in an interactive terminal (non-TTY), or if --confirm false (agree to
 // all prompts) was set (default).
 func (c buildConfig) Prompt() (buildConfig, error) {
-	if !interactiveTerminal() || !c.Confirm {
+	if !interactiveTerminal() {
 		return c, nil
 	}
 
-	imageName := deriveImage(c.Image, c.Registry, c.Path)
+	// If there is no registry nor explicit image name defined, the
+	// Registry prompt is shown whether or not we are in confirm mode.
+	// Otherwise, it is only showin if in confirm mode
+	// NOTE: the default in this latter situation will ignore the current function
+	// value and will always use the value from the config (flag or env variable).
+	// This is not strictly correct and will be fixed when Global Config: Function
+	// Context is available (PR#1416)
+	f, err := fn.NewFunction(c.Path)
+	if err != nil {
+		return c, err
+	}
+	if (f.Registry == "" && c.Registry == "" && c.Image == "") || c.Confirm {
+		fmt.Println("A registry for function images is required. For example, 'docker.io/tigerteam'.")
+		err := survey.AskOne(
+			&survey.Input{Message: "Registry for function images:", Default: c.Registry},
+			&c.Registry,
+			survey.WithValidator(NewRegistryValidator(c.Path)))
+		if err != nil {
+			return c, fn.ErrRegistryRequired
+		}
+		fmt.Println("Note: building a function the first time will take longer than subsequent builds")
+	}
 
-	var qs = []*survey.Question{
+	// Remainder of prompts are optional and only shown if in --confirm mode
+	if !c.Confirm {
+		return c, nil
+	}
+
+	// Image Name Override
+	// Calculate a better image name mesage which shows the value of the final
+	// image name as it will be calclated if an explicit image name is not used.
+	var imagePromptMessageSuffix string
+	if name := deriveImage(c.Image, c.Registry, c.Path); name != "" {
+		imagePromptMessageSuffix = fmt.Sprintf(". if not specified, the default '%v' will be used')", name)
+	}
+
+	qs := []*survey.Question{
+		{
+			Name: "image",
+			Prompt: &survey.Input{
+				Message: fmt.Sprintf("Image name to use (e.g. quay.io/boson/node-sample)%v:", imagePromptMessageSuffix),
+			},
+		},
 		{
 			Name: "path",
 			Prompt: &survey.Input{
@@ -284,34 +299,10 @@ func (c buildConfig) Prompt() (buildConfig, error) {
 				Default: c.Path,
 			},
 		},
-		{
-			Name: "image",
-			Prompt: &survey.Input{
-				Message: "Full image name (e.g. quay.io/boson/node-sample):",
-				Default: imageName,
-			},
-		},
 	}
-	err := survey.Ask(qs, &c)
-	if err != nil {
-		return c, err
-	}
-
-	// if the result of imageName is empty (unset, underivable),
-	// and the value of c.Image is empty (none provided explicitly by flag, env
-	// variable or prompt), then try one more time to get enough to to derive an
-	// image name: explicitly ask for registry.
-	if imageName == "" && c.Image == "" {
-		qs = []*survey.Question{
-			{
-				Name: "registry",
-				Prompt: &survey.Input{
-					Message: "Registry for function image:",
-					Default: c.Registry, // This should be innefectual
-				},
-			},
-		}
-	}
+	//
+	// TODO(lkingland): add confirmation prompts for other config members here
+	//
 	err = survey.Ask(qs, &c)
 	return c, err
 }
