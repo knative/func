@@ -262,8 +262,8 @@ func TestVerbose(t *testing.T) {
 }
 
 // TestRoot_effectivePath ensures that the path method returns the effective path
-// to use with the following precidence:  empty by default, then FUNC_PATH
-// environment variable, -p flag, or finally --path with the highest precidence.
+// to use with the following precedence:  empty by default, then FUNC_PATH
+// environment variable, -p flag, or finally --path with the highest precedence.
 func TestRoot_effectivePath(t *testing.T) {
 
 	args := os.Args
@@ -296,10 +296,19 @@ func TestRoot_effectivePath(t *testing.T) {
 		}
 	})
 
-	t.Run("--path highest precidence", func(t *testing.T) {
-		os.Args = []string{"test", "-p=p4", "--path=p5"}
-		if effectivePath() != "p5" {
-			t.Fatalf("the effective path did not take --path with precidence over -p.  Expected 'p5', got '%v'", effectivePath())
+	t.Run("short flag precedence", func(t *testing.T) {
+		t.Setenv("FUNC_PATH", "p1")
+		os.Args = []string{"test", "-p=p3"}
+		if effectivePath() != "p3" {
+			t.Fatalf("the effective path did not load the -p flag with precedence over FUNC_PATH.  Expected 'p3', got '%v'", effectivePath())
+		}
+	})
+
+	t.Run("--path highest precedence", func(t *testing.T) {
+		t.Setenv("FUNC_PATH", "p1")
+		os.Args = []string{"test", "--path=p2", "-p=p3"}
+		if effectivePath() != "p2" {
+			t.Fatalf("the effective path did not take --path with highest precedence over -p and FUNC_PATH.  Expected 'p2', got '%v'", effectivePath())
 		}
 	})
 

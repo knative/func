@@ -848,7 +848,7 @@ func TestClient_Remove_Dont_DeleteAll(t *testing.T) {
 }
 
 // TestClient_Remove_ByName ensures that the remover is invoked to remove the function
-// of the name provided, with precidence over a provided root path.
+// of the name provided, with precedence over a provided root path.
 func TestClient_Remove_ByName(t *testing.T) {
 	var (
 		root         = "testdata/example.com/testRemoveByName"
@@ -952,7 +952,7 @@ func TestClient_List_OutsideRoot(t *testing.T) {
 // TestClient_Deploy_Image ensures that initially the function's image
 // member has no value (not initially deployed); the value is populated
 // upon deployment with a value derived from the function's name and currently
-// effective client registry; that the value of f.Image will take precidence
+// effective client registry; that the value of f.Image will take precedence
 // over .Registry, which is used to calculate a default value for image.
 func TestClient_Deploy_Image(t *testing.T) {
 	root, rm := Mktemp(t)
@@ -998,7 +998,7 @@ func TestClient_Deploy_Image(t *testing.T) {
 		t.Fatalf("expected registry '%v', got '%v'", expected, f.Registry)
 	}
 
-	// The value of .Image always takes precidence
+	// The value of .Image always takes precedence
 	f.Image = "registry2.example.com/bob/myfunc:latest"
 	if err = f.Write(); err != nil {
 		t.Fatal(err)
@@ -1029,7 +1029,7 @@ func TestClient_Deploy_Image(t *testing.T) {
 // TestClient_Pipelines_Deploy_Image ensures that initially the function's image
 // member has no value (not initially deployed); the value is populated
 // upon pipeline run execution with a value derived from the function's name and currently
-// effective client registry; that the value of f.Image will take precidence
+// effective client registry; that the value of f.Image will take precedence
 // over .Registry, which is used to calculate a default value for image.
 func TestClient_Pipelines_Deploy_Image(t *testing.T) {
 	root, rm := Mktemp(t)
@@ -1076,7 +1076,7 @@ func TestClient_Pipelines_Deploy_Image(t *testing.T) {
 		t.Fatalf("expected registry '%v', got '%v'", expected, f.Registry)
 	}
 
-	// The value of .Image always takes precidence
+	// The value of .Image always takes precedence
 	f.Image = "registry2.example.com/bob/myfunc:latest"
 	if err = f.Write(); err != nil {
 		t.Fatal(err)
@@ -1202,7 +1202,7 @@ func TestClient_New_BuildpacksPersisted(t *testing.T) {
 // TestClient_Runtimes ensures that the total set of runtimes are returned.
 func TestClient_Runtimes(t *testing.T) {
 	// TODO: test when a specific repo override is indicated
-	// (remote repo which takes precidence over embedded and extended)
+	// (remote repo which takes precedence over embedded and extended)
 
 	client := fn.New(fn.WithRepositoriesPath("testdata/repositories"))
 

@@ -169,7 +169,7 @@ func NewRepository(name, uri string) (r Repository, err error) {
 	if err != nil {
 		return
 	}
-	if name != "" { // If provided, the explicit name takes precidence
+	if name != "" { // If provided, the explicit name takes precedence
 		r.Name = name
 	}
 	r.Runtimes, err = repositoryRuntimes(fs, r.Name, repoConfig) // load templates grouped by runtime
@@ -355,11 +355,11 @@ func runtimeTemplates(fs Filesystem, templatesPath, repoName, runtimeName string
 // deriving a name from the URI, which if empty then falls back to the
 // statically defined default DefaultRepositoryName.
 func repositoryDefaultName(name, uri string) (string, error) {
-	// explicit name takes precidence
+	// explicit name takes precedence
 	if name != "" {
 		return name, nil
 	}
-	// URI-derived is second precidence
+	// URI-derived is second precedence
 	if uri != "" {
 		parsed, err := url.Parse(uri)
 		if err != nil {

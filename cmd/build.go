@@ -60,7 +60,7 @@ and the image name is stored in the configuration file.
 	// Function Context
 	// Load the value of the builder from the function at the effective path
 	// if it exists.
-	// This value takes precidence over the global config value, which encapsulates
+	// This value takes precedence over the global config value, which encapsulates
 	// both the static default (builders.default) and any extant user setting in
 	// their global config file.
 	// The defaulting of path to cwd() can be removed when the open PR #
@@ -73,7 +73,7 @@ and the image name is stored in the configuration file.
 	}
 	if f, err := fn.NewFunction(path); err == nil && f.Build.Builder != "" {
 		// no errors loading the function at path, and it has a builder specified:
-		// The "function with context" takes precidence determining flag defaults
+		// The "function with context" takes precedence determining flag defaults
 		builder = f.Build.Builder
 	}
 

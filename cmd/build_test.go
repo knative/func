@@ -231,7 +231,6 @@ func TestBuild_RegistryHandling(t *testing.T) {
 // spot-checking the builder setting.
 func TestBuild_FunctionContext(t *testing.T) {
 	root := fromTempDirectory(t)
-	fmt.Printf("root: %v\n", root)
 
 	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root, Registry: TestRegistry}); err != nil {
 		t.Fatal(err)
@@ -243,7 +242,6 @@ func TestBuild_FunctionContext(t *testing.T) {
 		return fn.New()
 	}))
 	dflt := cmd.Flags().Lookup("builder").DefValue
-	fmt.Printf("dflt: %v\n", dflt)
 
 	// The initial default value should be builders.Default (see global config)
 	if dflt != builders.Default {
@@ -260,13 +258,7 @@ func TestBuild_FunctionContext(t *testing.T) {
 	}
 
 	// Build with the other
-	fmt.Printf("build --builder %v\n", builder)
 	cmd.SetArgs([]string{"--builder", builder})
-	if err := cmd.Execute(); err != nil {
-		t.Fatal(err)
-	}
-
-	// Create a new
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -279,7 +271,6 @@ func TestBuild_FunctionContext(t *testing.T) {
 	if f.Build.Builder != builder {
 		t.Fatalf("expected function to have new builder '%v', got '%v'", builder, f.Build.Builder)
 	}
-	fmt.Printf("f.Build.Builder = %v\n", f.Build.Builder)
 
 	// The command default should now take into account the function when
 	// determining the flag default
@@ -288,8 +279,6 @@ func TestBuild_FunctionContext(t *testing.T) {
 		return fn.New()
 	}))
 	dflt = cmd.Flags().Lookup("builder").DefValue
-
-	fmt.Printf("dflt: %v\n", dflt)
 
 	if dflt != builder {
 		t.Fatalf("expected flag default to be function's current builder '%v', got '%v'", builder, dflt)
