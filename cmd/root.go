@@ -1,7 +1,9 @@
 package cmd
 
 import (
+	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -133,6 +135,30 @@ func registry() string {
 	}
 	cfg, _ := config.NewDefault()
 	return cfg.RegistryDefault()
+}
+
+// effectivePath to use is that which was provided by --path or FUNC_PATH.
+// Manually parses flags such that this can be used during (cobra/viper) flag
+// definition (prior to parsing).
+func effectivePath() (path string) {
+	var (
+		env   = os.Getenv("FUNC_PATH")
+		fs    = flag.NewFlagSet("", flag.ContinueOnError)
+		long  = fs.String("path", "", "")
+		short = fs.String("p", "", "")
+	)
+	fs.SetOutput(io.Discard)
+	_ = fs.Parse(os.Args[1:])
+	if env != "" {
+		path = env
+	}
+	if *short != "" {
+		path = *short
+	}
+	if *long != "" {
+		path = *long
+	}
+	return path
 }
 
 // interactiveTerminal returns whether or not the currently attached process

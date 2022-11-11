@@ -118,7 +118,7 @@ func runCreate(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 
 	// Client
 	// From environment variables, flags, arguments, and user prompts if --confirm
-	// (in increasing levels of precidence)
+	// (in increasing levels of precedence)
 	client, done := newClient(
 		ClientConfig{Verbose: cfg.Verbose},
 		fn.WithRepository(cfg.Repository))
@@ -258,7 +258,7 @@ func newCreateConfig(cmd *cobra.Command, args []string, newClient ClientFactory)
 
 	// Confirming, but noninteractive
 	// Print out the final values as a confirmation.  Only show Repository or
-	// Repositories, not both (repository takes precidence) in order to avoid
+	// Repositories, not both (repository takes precedence) in order to avoid
 	// likely confusion if both are displayed and one is empty.
 	// be removed and both displayed.
 	fmt.Printf("Path:         %v\n", cfg.Path)

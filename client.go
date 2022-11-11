@@ -812,7 +812,7 @@ func (c *Client) Remove(ctx context.Context, cfg Function, deleteAll bool) error
 		<-ctx.Done()
 		c.progressListener.Stopping()
 	}()
-	// If name is provided, it takes precidence.
+	// If name is provided, it takes precedence.
 	// Otherwise load the function defined at root.
 	functionName := cfg.Name
 	if cfg.Name == "" {

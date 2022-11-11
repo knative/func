@@ -121,7 +121,7 @@ func Dir() (path string) {
 		path = filepath.Join(home, ".config", "func")
 	}
 
-	// 'XDG_CONFIG_HOME/func' takes precidence if defined
+	// 'XDG_CONFIG_HOME/func' takes precedence if defined
 	if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" {
 		path = filepath.Join(xdg, "func")
 	}

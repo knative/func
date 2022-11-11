@@ -628,7 +628,7 @@ func TestDeploy_Namespace(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Ensure an explicit name (a flag) is taken with highest precidence
+	// Ensure an explicit name (a flag) is taken with highest precedence
 	expectedNamespace = "flagValueNamespace"
 	cmd = NewDeployCmd(NewTestClient(fn.WithDeployer(deployer)))
 	cmd.SetArgs([]string{"--namespace", expectedNamespace})
@@ -812,7 +812,7 @@ func TestDeploy_NamespaceDefaults(t *testing.T) {
 
 // TestDeploy_NamespaceUpdateWarning ensures that, deploying a Function
 // to a new namespace issues a warning.
-// Also implicitly checks that the --namespace flag takes precidence over
+// Also implicitly checks that the --namespace flag takes precedence over
 // the namespace of a previously deployed Function.
 func TestDeploy_NamespaceUpdateWarning(t *testing.T) {
 	root := fromTempDirectory(t)

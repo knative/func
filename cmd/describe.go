@@ -78,7 +78,7 @@ func runDescribe(cmd *cobra.Command, args []string, newClient ClientFactory) (er
 		if !f.Initialized() {
 			return fmt.Errorf("the given path '%v' does not contain an initialized function.", cfg.Path)
 		}
-		// Use Function's Namespace with precidence
+		// Use Function's Namespace with precedence
 		//
 		// Unless the namespace flag was explicitly provided (not the default),
 		// use the function's current namespace.

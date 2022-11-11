@@ -326,7 +326,7 @@ func (c invokeConfig) prompt() (invokeConfig, error) {
 	// Prompt for the next set of values, with defaults set first by the function
 	// as it exists on disk, followed by environment variables, and finally flags.
 	// user interactive prompts therefore are the last applied, and thus highest
-	// precidence values.
+	// precedence values.
 	qs = []*survey.Question{
 		{
 			Name: "ID",
