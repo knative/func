@@ -237,10 +237,7 @@ func TestBuild_FunctionContext(t *testing.T) {
 	}
 
 	// Build the function explicitly setting the builder to !builders.Default
-	cmd := NewBuildCmd(NewClientFactory(func() *fn.Client {
-		// TODO: replace with NewTestClient() when available
-		return fn.New()
-	}))
+	cmd := NewBuildCmd(NewTestClient())
 	dflt := cmd.Flags().Lookup("builder").DefValue
 
 	// The initial default value should be builders.Default (see global config)
@@ -274,10 +271,7 @@ func TestBuild_FunctionContext(t *testing.T) {
 
 	// The command default should now take into account the function when
 	// determining the flag default
-	cmd = NewBuildCmd(NewClientFactory(func() *fn.Client {
-		// TODO: replace with NewTestClient() when available
-		return fn.New()
-	}))
+	cmd = NewBuildCmd(NewTestClient())
 	dflt = cmd.Flags().Lookup("builder").DefValue
 
 	if dflt != builder {
