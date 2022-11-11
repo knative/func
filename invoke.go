@@ -56,9 +56,6 @@ func invoke(ctx context.Context, c *Client, f Function, target string, m InvokeM
 	if err != nil {
 		return
 	}
-	if verbose {
-		fmt.Printf("Invoking '%v' function at %v\n", f.Invocation.Format, route)
-	}
 
 	// Format" either 'http' or 'cloudevent'
 	// TODO: discuss if providing a Format on Message should a) update the
@@ -66,15 +63,20 @@ func invoke(ctx context.Context, c *Client, f Function, target string, m InvokeM
 	// compatibility fix) or b) always update the function, even if it was already
 	// set. Once decided, codify in a test.
 	format := DefaultInvokeFormat
-	if f.Invocation.Format != "" {
+
+	if verbose {
+		fmt.Printf("Invoking '%v' function at %v\n", f.Invoke, route)
+	}
+
+	if f.Invoke != "" {
 		// Prefer the format set during function creation if defined.
-		format = f.Invocation.Format
+		format = f.Invoke
 	}
 	if m.Format != "" {
 		// Use the override specified on the message if provided
 		format = m.Format
 		if verbose {
-			fmt.Printf("Invoking '%v' function using '%v' format\n", f.Invocation.Format, m.Format)
+			fmt.Printf("Invoking '%v' function using '%v' format\n", f.Invoke, m.Format)
 		}
 	}
 

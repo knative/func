@@ -1,0 +1,10 @@
+specVersion: 0.34.0
+name: testfunc
+namespace: ""
+runtime: go
+registry: ""
+image: ""
+imageDigest: ""
+builder: ""
+invocation:
+  format: cloudevent

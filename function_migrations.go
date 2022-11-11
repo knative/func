@@ -81,6 +81,7 @@ var migrations = []migration{
 	{"0.23.0", migrateToBuilderImages},
 	{"0.25.0", migrateToSpecVersion},
 	{"0.34.0", migrateToSpecsStructure},
+	{"0.35.0", migrateFromInvokeStructure},
 	// New Migrations Here.
 }
 
@@ -282,6 +283,32 @@ func migrateToSpecsStructure(f1 Function, m migration) (Function, error) {
 	return f1, nil
 }
 
+// migrateFromInvokeStructure migrates functions prior 0.35.0 via changing
+// the Invocation.format(string) to new Invoke(string) to minimalize func.yaml
+// file. When Invoke now holds default value (http) it will not show up in
+// func.yaml as the default value is implicitly expected. Otherwise if Invoke
+// is non-default value, it will be written in func.yaml.
+func migrateFromInvokeStructure(f1 Function, m migration) (Function, error) {
+	// Load the Function using pertinent parts of the previous version's schema:
+	f0Filename := filepath.Join(f1.Root, FunctionFile)
+	bb, err := os.ReadFile(f0Filename)
+	if err != nil {
+		return f1, errors.New("migration 'migrateFromInvokeStructure' error: " + err.Error())
+	}
+	f0 := migrateFromInvokeStructure_previousFunction{}
+	if err = yaml.Unmarshal(bb, &f0); err != nil {
+		return f1, errors.New("migration 'migrateFromInvokeStructure' error: " + err.Error())
+	}
+
+	if f0.Invocation.Format != "" && f0.Invocation.Format != "http" {
+		f1.Invoke = f0.Invocation.Format
+	}
+
+	// Flag f1 as having had the migration applied
+	f1.SpecVersion = m.version
+	return f1, nil
+}
+
 // The pertinent aspects of the Function's schema prior the 1.0.0 version migrations
 type migrateToSpecs_previousFunction struct {
 
@@ -339,4 +366,15 @@ type migrateToSpecVersion_previousFunction struct {
 // migration.
 type migrateToBuilderImages_previousFunction struct {
 	Builder string `yaml:"builder"`
+}
+
+// (Defined only for previous versions migration)
+// Invocation defines hints on how to accomplish a function invocation.
+type migrateFromInvokeStructure_invocation struct {
+	Format string `yaml:"format,omitempty"`
+}
+
+// Functions prior to 0.35.0 will have Invocation.Format instead of Invoke
+type migrateFromInvokeStructure_previousFunction struct {
+	Invocation migrateFromInvokeStructure_invocation `yaml:"invocation,omitempty"`
 }

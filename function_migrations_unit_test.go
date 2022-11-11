@@ -170,3 +170,30 @@ func TestMigrateToSpecs(t *testing.T) {
 	}
 
 }
+
+// TestMigrateFromInvokeStructure tests that migration from f.Invocation.Format to
+// f.Invoke works
+func TestMigrateFromInvokeStructure(t *testing.T) {
+	root0 := "testdata/migrations/v0.35.0"
+	expectedInvoke := "" // empty because http is default and not written in yaml file
+
+	f0, err := NewFunction(root0)
+	if err != nil {
+		t.Error(err)
+		t.Fatal(f0)
+	}
+	if f0.Invoke != expectedInvoke {
+		t.Fatalf("migrated Function expected Invoke '%v', got '%v'", expectedInvoke, f0.Invoke)
+	}
+
+	root1 := "testdata/migrations/v0.35.0-nondefault"
+	expectedInvoke = "cloudevent"
+	f1, err := NewFunction(root1)
+	if err != nil {
+		t.Error(err)
+		t.Fatal(f1)
+	}
+	if f1.Invoke != expectedInvoke {
+		t.Fatalf("migrated Function expected Invoke '%v', got '%v'", expectedInvoke, f0.Invoke)
+	}
+}

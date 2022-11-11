@@ -52,8 +52,8 @@ func (t template) Write(ctx context.Context, f *Function) error {
 	if f.Deploy.HealthEndpoints.Readiness == "" {
 		f.Deploy.HealthEndpoints.Readiness = t.config.HealthEndpoints.Readiness
 	}
-	if f.Invocation.Format == "" {
-		f.Invocation.Format = t.config.Invocation.Format
+	if f.Invoke == "" && t.config.Invoke != "http" {
+		f.Invoke = t.config.Invoke
 	}
 
 	isManifest := func(p string) bool {

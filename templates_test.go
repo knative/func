@@ -530,8 +530,8 @@ func TestTemplates_ManifestInvocationHints(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if f.Invocation.Format != "format" {
-		t.Fatalf("expected invocation format 'format', got '%v'", f.Invocation.Format)
+	if f.Invoke != "format" {
+		t.Fatalf("expected invoke format 'format', got '%v'", f.Invoke)
 	}
 }
 
@@ -571,9 +571,10 @@ func TestTemplates_ManifestRemoved(t *testing.T) {
 }
 
 // TestTemplates_InvocationDefault ensures that creating a function which
-// does not define an invocation hint defaults to the DefaultInvocationFormat
-// (http post)
+// does not define an invocation hint defaults to empty string (since 0.35.0
+// default value is omitted from func.yaml file for Invoke)
 func TestTemplates_InvocationDefault(t *testing.T) {
+	expectedInvoke := ""
 	root := "testdata/testTemplatesInvocationDefault"
 	defer Using(t, root)()
 
@@ -597,7 +598,7 @@ func TestTemplates_InvocationDefault(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if f.Invocation.Format != fn.DefaultInvocationFormat {
-		t.Fatalf("expected '%v' invocation format.  Got '%v'", fn.DefaultInvocationFormat, f.Invocation.Format)
+	if f.Invoke != expectedInvoke {
+		t.Fatalf("expected '%v' invoke format.  Got '%v'", expectedInvoke, f.Invoke)
 	}
 }
