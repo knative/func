@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html/template"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -37,6 +38,9 @@ type TemplateOptions struct {
 
 // This helper application generates markdown help documents
 func main() {
+	// Ignore global config.yaml if it exists
+	defer ignoreConfigEnv()()
+
 	// Create a new client so that we can get builtin repo options
 	client := fn.New()
 
@@ -64,6 +68,23 @@ func main() {
 	// Recurse all subcommands and write the markdown for them
 	if err := processSubCommands(root, rootName, templateOptions); err != nil {
 		fmt.Fprintf(os.Stderr, "Error processing subcommands %s", err)
+	}
+}
+
+// ignoreConfigEnv sets FUNC_CONFIG_FILE to a nonexistent path and
+// returns a function which undoes this change.
+func ignoreConfigEnv() (done func()) {
+	var (
+		env   = "FUNC_CONFIG_FILE"
+		v, ok = os.LookupEnv(env)
+	)
+	os.Setenv(env, filepath.Join(os.TempDir(), "nonexistent.yaml"))
+	return func() {
+		if ok {
+			os.Setenv(env, v)
+		} else {
+			os.Unsetenv(env)
+		}
 	}
 }
 
