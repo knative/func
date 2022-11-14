@@ -48,6 +48,7 @@
 		"DeploySpec": {
 			"required": [
 				"namespace",
+				"remote",
 				"annotations",
 				"options",
 				"labels",
@@ -56,6 +57,9 @@
 			"properties": {
 				"namespace": {
 					"type": "string"
+				},
+				"remote": {
+					"type": "boolean"
 				},
 				"annotations": {
 					"patternProperties": {

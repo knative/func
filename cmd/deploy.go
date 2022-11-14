@@ -217,6 +217,12 @@ func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		// Sets default AND accepts andy user-provided overrides
 		f.Deploy.Namespace = cfg.Namespace
 	}
+
+	if cmd.Flags().Changed("remote") {
+		f.Deploy.Remote = cfg.Remote
+	} else {
+		cfg.Remote = f.Deploy.Remote
+	}
 	if cfg.Image != "" {
 		f.Image = cfg.Image
 	}
