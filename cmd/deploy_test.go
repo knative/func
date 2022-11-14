@@ -923,19 +923,14 @@ func TestDeploy_NamespaceRedeployWarning(t *testing.T) {
 // TestDeploy_RemotePersists ensures that the remote field is read from
 // the function by default, and is able to be overridden by flags/env vars.
 func TestDeploy_RemotePersists(t *testing.T) {
-	testRemotePersists(NewDeployCmd, t)
-}
-
-func testRemotePersists(cmdFn commandConstructor, t *testing.T) {
 	t.Helper()
 	root := fromTempDirectory(t)
+	cmdFn := NewDeployCmd
 
 	if err := fn.New().Create(fn.Function{Runtime: "node", Root: root}); err != nil {
 		t.Fatal(err)
 	}
-	cmd := cmdFn(NewClientFactory(func() *fn.Client {
-		return fn.New(fn.WithRegistry(TestRegistry))
-	}))
+	cmd := cmdFn(NewTestClient(fn.WithRegistry(TestRegistry)))
 	cmd.SetArgs([]string{})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -945,7 +940,7 @@ func testRemotePersists(cmdFn commandConstructor, t *testing.T) {
 	var f fn.Function
 
 	// Deploy the function, specifying remote deployment(on-cluster)
-	viper.Reset()
+	cmd = cmdFn(NewTestClient(fn.WithRegistry(TestRegistry)))
 	cmd.SetArgs([]string{"--remote"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -955,13 +950,12 @@ func testRemotePersists(cmdFn commandConstructor, t *testing.T) {
 		t.Fatal(err)
 	}
 	if !f.Deploy.Remote {
-		t.Fatalf("value of remote flag not persisted when provided. Expected '%v' got '%v'", true, f.Deploy.Remote)
+		t.Fatalf("value of remote flag not persisted")
 	}
 
 	// Deploy the function again without specifying remote
-	viper.Reset()
+	cmd = cmdFn(NewTestClient(fn.WithRegistry(TestRegistry)))
 	cmd.SetArgs([]string{})
-	cmd.Flag("remote").Changed = false
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -972,7 +966,7 @@ func testRemotePersists(cmdFn commandConstructor, t *testing.T) {
 		t.Fatal(err)
 	}
 	if !f.Deploy.Remote {
-		t.Fatalf("value of remote flag not persisted when provided. Expected '%v' got '%v'", true, f.Deploy.Remote)
+		t.Fatalf("value of remote flag not persisted")
 	}
 
 	// Deploy the function again using a different value for remote
@@ -987,6 +981,6 @@ func testRemotePersists(cmdFn commandConstructor, t *testing.T) {
 		t.Fatal(err)
 	}
 	if f.Deploy.Remote {
-		t.Fatalf("value of remote flag not persisted when provided. Expected '%v' got '%v'", false, f.Deploy.Remote)
+		t.Fatalf("value of remote flag not persisted")
 	}
 }
