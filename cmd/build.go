@@ -19,7 +19,8 @@ import (
 
 func NewBuildCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
-		Use: "build",
+		Use:   "build",
+		Short: "Build a Function",
 		Long: `
 NAME
 	{{.Name}} build - Build a Function

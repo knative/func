@@ -36,7 +36,7 @@ EXAMPLES
 
 ### SEE ALSO
 
-* [func build](func_build.md)	 - Build a function project as a container image
+* [func build](func_build.md)	 - Build a Function
 * [func completion](func_completion.md)	 - Generate completion scripts for bash, fish and zsh
 * [func config](func_config.md)	 - Configure a function
 * [func create](func_create.md)	 - Create a function project
