@@ -12,6 +12,7 @@ import (
 
 	"knative.dev/func/cmd/templates"
 	"knative.dev/func/config"
+	"knative.dev/func/k8s"
 
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
@@ -383,7 +384,12 @@ func (v Version) StringVerbose() string {
 	if date == "" {
 		date = time.Now().Format(time.RFC3339)
 	}
-	return fmt.Sprintf("%s-%s-%s", vers, hash, date)
+	funcVersion := fmt.Sprintf("%s-%s-%s", vers, hash, date)
+	return fmt.Sprintf("Version: %s\n"+
+		"SocatImage: %s\n"+
+		"TarImage: %s", funcVersion,
+		k8s.SocatImage,
+		k8s.TarImage)
 }
 
 // surveySelectDefault returns 'value' if defined and exists in 'options'.
