@@ -1,8 +1,0 @@
-# Cluster users
-# Used to patch configmap/aws-auth in the kube-system namespace.
-data:
-  mapUsers: |
-    - userarn: $(USER_ARN)
-      username: $(USERNAME)
-      groups:
-        - system:masters
