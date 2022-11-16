@@ -114,6 +114,7 @@ func runWithVolumeMounted(ctx context.Context, podImage string, podCommand []str
 			Annotations: nil,
 		},
 		Spec: corev1.PodSpec{
+			SecurityContext: defaultPodSecurityContext(),
 			Containers: []corev1.Container{
 				{
 					Name:       podName,

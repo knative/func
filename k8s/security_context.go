@@ -8,6 +8,17 @@ import (
 
 var oneTwentyFour = semver.MustParse("1.24")
 
+func defaultPodSecurityContext() *corev1.PodSecurityContext {
+	// change ownership of the mounted volume to the first non-root user uid=1000
+	runAsUser := int64(1000)
+	runAsGroup := int64(1000)
+	return &corev1.PodSecurityContext{
+		RunAsUser:  &runAsUser,
+		RunAsGroup: &runAsGroup,
+		FSGroup:    &runAsGroup,
+	}
+}
+
 func defaultSecurityContext(client *kubernetes.Clientset) *corev1.SecurityContext {
 	runAsNonRoot := true
 	sc := &corev1.SecurityContext{
