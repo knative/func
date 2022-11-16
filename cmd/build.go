@@ -20,32 +20,49 @@ import (
 func NewBuildCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "build",
-		Short: "Build a function project as a container image",
-		Long: `Build a function project as a container image
+		Short: "Build a Function",
+		Long: `
+NAME
+	{{.Name}} build - Build a Function
 
-This command builds the function project in the current directory or in the directory
-specified by --path. The result will be a container image that is pushed to a registry.
-The func.yaml file is read to determine the image name and registry.
-If the project has not already been built, either --registry or --image must be provided
-and the image name is stored in the configuration file.
-`,
-		Example: `
-# Build from the local directory, using the given registry as target.
-# The full image name will be determined automatically based on the
-# project directory name
-{{.Name}} build --registry quay.io/myuser
+SYNOPSIS
+	{{.Name}} build [-r|--registry] [--builder] [--builder-image] [--push]
+	             [--palatform] [-p|--path] [-c|--confirm] [-v|--verbose]
 
-# Build from the local directory, specifying the full image name
-{{.Name}} build --image quay.io/myuser/myfunc
+DESCRIPTION
 
-# Re-build, picking up a previously supplied image name from a local func.yml
-{{.Name}} build
+	Builds a function's container image and optionally pushes it to the
+	configured container registry.
 
-# Build using s2i instead of Buildpacks
-{{.Name}} build --builder=s2i
+	By default building is handled automatically when deploying (see the deploy
+	subcommand). However, sometimes it is useful to build a function container
+	outside of this normal deployment process, for example for testing or during
+	composition when integrationg with other systems. Additionally, the container
+	can be pushed to the configured registry using the --push option.
 
-# Build with a custom buildpack builder
-{{.Name}} build --builder=pack --builder-image cnbs/sample-builder:bionic
+	When building a function for the first time, either a registry or explicit
+	image name is required.  Subsequent builds will reuse these option values.
+
+EXAMPLES
+
+	o Build a function container using the given registry.
+	  The full image name will be calculated using the registry and function name.
+	  $ {{.Name}} build --registry registry.example.com/alice
+
+	o Build a function container using an explicit image name, ignoring registry
+	  and function name.
+		$ {{.Name}} build --image registry.example.com/alice/f:latest
+
+	o Rebuild a function using prior values to determine container name.
+	  $ {{.Name}} build
+
+	o Build a function specifying the Source-to-Image (S2I) builder
+	  $ {{.Name}} build --builder=s2i
+
+	o Build a function specifying the Pack builder with a custom Buildpack
+	  builder image.
+		$ {{.Name}} build --builder=pack --builder-image=cnbs/sample-builder:bionic
+
 `,
 		SuggestFor: []string{"biuld", "buidl", "built"},
 		PreRunE:    bindEnv("image", "path", "builder", "registry", "confirm", "push", "builder-image", "platform"),
