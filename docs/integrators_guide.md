@@ -1,18 +1,18 @@
 # Integrator's Guide
 
-Developers can integrate directly with the Function system using the client library upon which the `func` CLI is based.  Before beginning this section, you should have a configured provider and be familiar with the topics covered in the [developer's guide](developers_guide.md).
+Developers can integrate directly with the function system using the client library upon which the `func` CLI is based.
 
 ## Using the Client Library
 
-To create a Client which uses the included buildpacks-based function builder, pushes to a Quay.io registry function container artifacts and deploys to a Knative enabled cluster: 
+To create a Client which uses the included buildpacks-based function builder, pushes to a Quay.io registry function container artifacts and deploys to a Knative enabled cluster:
 ```go
 package main
 
 import (
-	fn "github.com/boson-project/func"
-	"github.com/boson-project/func/buildpacks"
-	"github.com/boson-project/func/docker"
-	"github.com/boson-project/func/knative"
+	fn "github.com/knative/func"
+	"github.com/knative/func/buildpacks"
+	"github.com/knative/func/docker"
+	"github.com/knative/func/knative"
 	"log"
 )
 
