@@ -125,6 +125,16 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		opts.ContainerConfig.Network = "host"
 	}
 
+	// only trust our known builders
+	opts.TrustBuilder = func(_ string) bool {
+		for _, v := range trustedBuilderImagePrefixes {
+			if strings.HasPrefix(opts.Builder, v) {
+				return true
+			}
+		}
+		return false
+	}
+
 	var impl = b.impl
 	// Instantiate the pack build client implementation
 	// (and update build opts as necessary)
@@ -139,8 +149,10 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 			return fmt.Errorf("cannot create docker client: %w", err)
 		}
 		defer cli.Close()
+		opts.DockerHost = dockerHost
 
-		if impl, err = newImpl(ctx, cli, dockerHost, &opts, b.logger); err != nil {
+		// Client with a logger which is enabled if in Verbose mode and a dockerClient that supports SSH docker daemon connection.
+		if impl, err = pack.NewClient(pack.WithLogger(b.logger), pack.WithDockerClient(cli)); err != nil {
 			return fmt.Errorf("cannot create pack client: %w", err)
 		}
 	}
@@ -159,54 +171,9 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	return
 }
 
-// newImpl returns an instance of the builder implementation.  Note that this
-// also mutates the provided options' DockerHost and TrustBuilder.
-func newImpl(ctx context.Context, cli client.CommonAPIClient, dockerHost string, opts *pack.BuildOptions, logger logging.Logger) (impl Impl, err error) {
-	opts.DockerHost = dockerHost
-
-	daemonIsPodmanPreV330, err := podmanPreV330(ctx, cli)
-	if err != nil {
-		return
-	}
-
-	opts.TrustBuilder = func(_ string) bool {
-		if daemonIsPodmanPreV330 {
-			return false
-		}
-		for _, v := range trustedBuilderImagePrefixes {
-			if strings.HasPrefix(opts.Builder, v) {
-				return true
-			}
-		}
-		return false
-	}
-
-	// Client with a logger which is enabled if in Verbose mode and a dockerClient that supports SSH docker daemon connection.
-	return pack.NewClient(pack.WithLogger(logger), pack.WithDockerClient(cli))
-}
-
 // Builder Image chooses the correct builder image or defaults.
 func BuilderImage(f fn.Function, builderName string) (string, error) {
 	return builders.Image(f, builderName, DefaultBuilderImages)
-}
-
-// podmanPreV330 returns if the daemon is podman pre v330 or errors trying.
-func podmanPreV330(ctx context.Context, cli client.CommonAPIClient) (b bool, err error) {
-	version, err := cli.ServerVersion(ctx)
-	if err != nil {
-		return
-	}
-
-	for _, component := range version.Components {
-		if component.Name == "Podman Engine" {
-			v := semver.MustParse(version.Version)
-			if v.Compare(v330) < 0 {
-				return true, nil
-			}
-			break
-		}
-	}
-	return
 }
 
 // Errors
