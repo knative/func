@@ -8,7 +8,6 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/Masterminds/semver"
 	pack "github.com/buildpacks/pack/pkg/client"
 	"github.com/buildpacks/pack/pkg/logging"
 	"github.com/docker/docker/client"
@@ -38,8 +37,6 @@ var (
 		"gcr.io/paketo-buildpacks",
 		"docker.io/paketobuildpacks",
 	}
-
-	v330 = semver.MustParse("v3.3.0") // for checking podman version
 )
 
 // Builder will build Function using Pack.
