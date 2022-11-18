@@ -9,6 +9,34 @@ import (
 	"knative.dev/func/builders"
 )
 
+// Test_BuilderImageTrusted ensures that only known builder images
+// are to be considered trusted.
+func Test_BuilderImageTrusted(t *testing.T) {
+	var (
+		i = &mockImpl{}
+		b = NewBuilder(WithImpl(i))
+		f = fn.Function{Runtime: "node"}
+	)
+
+	for _, builder := range trustedBuilderImagePrefixes {
+		f.Build = fn.BuildSpec{
+			BuilderImages: map[string]string{
+				builders.Pack: builder,
+			},
+		}
+		i.BuildFn = func(ctx context.Context, opts pack.BuildOptions) error {
+			if opts.TrustBuilder("") != true {
+				t.Fatalf("expected pack builder image %v to be trusted", f.Build.BuilderImages[builders.Pack])
+			}
+			return nil
+		}
+
+		if err := b.Build(context.Background(), f); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 // Test_BuilderImageDefault ensures that a Function bing built which does not
 // define a Builder Image will get the internally-defined default.
 func Test_BuilderImageDefault(t *testing.T) {
