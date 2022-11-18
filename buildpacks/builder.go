@@ -32,10 +32,13 @@ var (
 		"springboot": "gcr.io/paketo-buildpacks/builder:base",
 	}
 
+	// Ensure that all entries in this list are terminated with a trailing "/"
+	// See GHSA-5336-2g3f-9g3m for details
 	trustedBuilderImagePrefixes = []string{
-		"quay.io/boson",
-		"gcr.io/paketo-buildpacks",
-		"docker.io/paketobuildpacks",
+		"quay.io/boson/",
+		"gcr.io/paketo-buildpacks/",
+		"docker.io/paketobuildpacks/",
+		"ghcr.io/vmware-tanzu/function-buildpacks-for-knative/",
 	}
 )
 
@@ -121,6 +124,10 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	// only trust our known builders
 	opts.TrustBuilder = func(_ string) bool {
 		for _, v := range trustedBuilderImagePrefixes {
+			// Ensure that all entries in this list are terminated with a trailing "/"
+			if !strings.HasSuffix(v, "/") {
+				v = v + "/"
+			}
 			if strings.HasPrefix(opts.Builder, v) {
 				return true
 			}
