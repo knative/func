@@ -9,6 +9,43 @@ import (
 	"knative.dev/func/builders"
 )
 
+// Test_BuilderImageUntrusted ensures that only known builder images
+// are to be considered trusted.
+func Test_BuilderImageUntrusted(t *testing.T) {
+	var (
+		i = &mockImpl{}
+		b = NewBuilder(WithImpl(i))
+		f = fn.Function{Runtime: "node"}
+	)
+
+	var untrusted = []string{
+		// Check prefixes that end in a slash
+		"quay.io/bosonhack/",
+		"gcr.io/paketo-buildpackshack/",
+		// And those that don't
+		"docker.io/paketobuildpackshack",
+		"ghcr.io/vmware-tanzu/function-buildpacks-for-knativehack",
+	}
+
+	for _, builder := range untrusted {
+		f.Build = fn.BuildSpec{
+			BuilderImages: map[string]string{
+				builders.Pack: builder,
+			},
+		}
+		i.BuildFn = func(ctx context.Context, opts pack.BuildOptions) error {
+			if opts.TrustBuilder("") != false {
+				t.Fatalf("expected pack builder image %v to be untrusted", f.Build.BuilderImages[builders.Pack])
+			}
+			return nil
+		}
+
+		if err := b.Build(context.Background(), f); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
 // Test_BuilderImageTrusted ensures that only known builder images
 // are to be considered trusted.
 func Test_BuilderImageTrusted(t *testing.T) {
