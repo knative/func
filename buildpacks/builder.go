@@ -131,7 +131,6 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 			if !strings.HasSuffix(v, "/") {
 				v = v + "/"
 			}
-			fmt.Println("Checking if", b, "starts with", v)
 			if strings.HasPrefix(b, v) {
 				return true
 			}
