@@ -125,13 +125,14 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	}
 
 	// only trust our known builders
-	opts.TrustBuilder = func(_ string) bool {
+	opts.TrustBuilder = func(b string) bool {
 		for _, v := range trustedBuilderImagePrefixes {
 			// Ensure that all entries in this list are terminated with a trailing "/"
 			if !strings.HasSuffix(v, "/") {
 				v = v + "/"
 			}
-			if strings.HasPrefix(opts.Builder, v) {
+			fmt.Println("Checking if", b, "starts with", v)
+			if strings.HasPrefix(b, v) {
 				return true
 			}
 		}

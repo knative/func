@@ -34,7 +34,7 @@ func Test_BuilderImageUntrusted(t *testing.T) {
 			},
 		}
 		i.BuildFn = func(ctx context.Context, opts pack.BuildOptions) error {
-			if opts.TrustBuilder("") != false {
+			if opts.TrustBuilder(builder) != false {
 				t.Fatalf("expected pack builder image %v to be untrusted", f.Build.BuilderImages[builders.Pack])
 			}
 			return nil
@@ -62,7 +62,7 @@ func Test_BuilderImageTrusted(t *testing.T) {
 			},
 		}
 		i.BuildFn = func(ctx context.Context, opts pack.BuildOptions) error {
-			if opts.TrustBuilder("") != true {
+			if opts.TrustBuilder(builder) != true {
 				t.Fatalf("expected pack builder image %v to be trusted", f.Build.BuilderImages[builders.Pack])
 			}
 			return nil
