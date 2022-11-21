@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	fn "knative.dev/func"
 	"knative.dev/func/config"
 
 	. "knative.dev/func/testing"
@@ -195,4 +196,100 @@ func TestDefaultNamespace(t *testing.T) {
 	if config.DefaultNamespace() != "func" {
 		t.Fatalf("expected default namespace of 'func' when that is the active k8s namespace.  Got '%v'", config.DefaultNamespace())
 	}
+}
+
+// TestApply ensures that applying a function as context to a config results
+// in every member of config in the intersection of the two sets, global config
+// and function, to be set to the values of the function.
+// (See the associated cfg.Configure)
+func TestApply(t *testing.T) {
+	// Yes, every member needs to be painstakingly enumerated by hand, because
+	// the sets are not equivalent.  Not all global settings have an associated
+	// member on the function (example: confirm), and not all members of a
+	// function are globally configurable (example: image).
+	f := fn.Function{
+		Build: fn.BuildSpec{
+			Builder: "builder",
+		},
+		Deploy: fn.DeploySpec{
+			Namespace: "namespace",
+		},
+		Runtime:  "runtime",
+		Registry: "registry",
+	}
+	cfg := config.Global{}.Apply(f)
+
+	if cfg.Builder != "builder" {
+		t.Error("apply missing map of f.Build.Builder")
+	}
+	if cfg.Language != "runtime" {
+		t.Error("apply missing map of f.Runtime ")
+	}
+	if cfg.Namespace != "namespace" {
+		t.Error("apply missing map of f.Namespace")
+	}
+	if cfg.Registry != "registry" {
+		t.Error("apply missing map of f.Registry")
+	}
+
+	// empty values in the function context should not zero out
+	// populated values in the global config when applying.
+	cfg.Apply(fn.Function{})
+	if cfg.Builder == "" {
+		t.Error("empty f.Build.Builder should not be mapped")
+	}
+	if cfg.Language == "" {
+		t.Error("empty f.Runtime should not be mapped")
+	}
+	if cfg.Namespace == "" {
+		t.Error("empty f.Namespace should not be mapped")
+	}
+	if cfg.Registry == "" {
+		t.Error("empty f.Registry should not be mapped")
+	}
+}
+
+// TestConfigyre ensures that configuring a function results in every member
+// of the function in the intersection of the two sets, global config and function
+// members, to be set to the values of the config.
+// (See the associated cfg.Apply)
+func TestConfigure(t *testing.T) {
+	f := fn.Function{}
+	cfg := config.Global{
+		Builder:   "builder",
+		Language:  "runtime",
+		Namespace: "namespace",
+		Registry:  "registry",
+	}
+	f = cfg.Configure(f)
+
+	if f.Build.Builder != "builder" {
+		t.Error("configure missing map for f.Build.Builder")
+	}
+	if f.Deploy.Namespace != "namespace" {
+		t.Error("configure missing map for f.Deploy.Namespace")
+	}
+	if f.Runtime != "runtime" {
+		t.Error("configure missing map for f.Language")
+	}
+	if f.Registry != "registry" {
+		t.Error("configure missing map for f.Registry")
+	}
+
+	// empty values in the global config shoul not zero out function values
+	// when configuring.
+	f = config.Global{}.Configure(f)
+	if f.Build.Builder == "" {
+		t.Error("empty cfg.Builder should not mutate f")
+	}
+	if f.Deploy.Namespace == "" {
+		t.Error("empty cfg.Namespace should not mutate f")
+	}
+	if f.Runtime == "" {
+		t.Error("empty cfg.Runtime should not mutate f")
+	}
+	if f.Registry == "" {
+		t.Error("empty cfg.Registry should not mutate f")
+	}
+
 }

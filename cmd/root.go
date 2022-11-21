@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"testing"
 	"text/template"
 	"time"
 
@@ -180,6 +181,8 @@ func bindEnv(flags ...string) bindFunc {
 				return
 			}
 		}
+		viper.AutomaticEnv()       // read in environment variables for FUNC_<flag>
+		viper.SetEnvPrefix("func") // ensure that all have the prefix
 		return
 	}
 }
@@ -464,5 +467,17 @@ func defaultTemplatedHelp(cmd *cobra.Command, args []string) {
 
 	if err := tpl.Execute(cmd.OutOrStdout(), data); err != nil {
 		fmt.Fprintf(cmd.ErrOrStderr(), "unable to display help text: %v", err)
+	}
+}
+
+// clearEnvs sets all environment variables with the prefix of FUNC_ to
+// empty (unsets) for the duration of the test t.
+func clearEnvs(t *testing.T) {
+	t.Helper()
+	for _, v := range os.Environ() {
+		if strings.HasPrefix(v, "FUNC_") {
+			parts := strings.SplitN(v, "=", 2)
+			t.Setenv(parts[0], "")
+		}
 	}
 }

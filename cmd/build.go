@@ -66,57 +66,68 @@ EXAMPLES
 `,
 		SuggestFor: []string{"biuld", "buidl", "built"},
 		PreRunE:    bindEnv("image", "path", "builder", "registry", "confirm", "push", "builder-image", "platform"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runBuild(cmd, args, newClient)
+		},
 	}
 
-	// Config
+	// Global Config
 	cfg, err := config.NewDefault()
 	if err != nil {
 		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
 
 	// Function Context
-	// Load the value of the builder from the function at the effective path
-	// if it exists.
-	// This value takes precedence over the global config value, which encapsulates
-	// both the static default (builders.default) and any extant user setting in
-	// their global config file.
-	// The defaulting of path to cwd() can be removed when the open PR #
-	// is merged which updates the system to treat an empty path as indicating
-	// CWD by default.
-	builder := cfg.Builder
-	path := effectivePath()
-	if path == "" {
-		path = cwd()
-	}
-	if f, err := fn.NewFunction(path); err == nil && f.Build.Builder != "" {
-		// no errors loading the function at path, and it has a builder specified:
-		// The "function with context" takes precedence determining flag defaults
-		builder = f.Build.Builder
+	f, _ := fn.NewFunction(effectivePath())
+	if f.Initialized() {
+		cfg = cfg.Apply(f) // defined values on f take precidence over cfg defaults
 	}
 
-	cmd.Flags().StringP("builder", "b", builder, fmt.Sprintf("build strategy to use when creating the underlying image. Currently supported build strategies are %s.", KnownBuilders()))
-	cmd.Flags().StringP("builder-image", "", "", "builder image, either an as a an image name or a mapping name.\nSpecified value is stored in func.yaml (as 'builder' field) for subsequent builds. ($FUNC_BUILDER_IMAGE)")
-	cmd.Flags().BoolP("confirm", "c", cfg.Confirm, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
-	cmd.Flags().StringP("image", "i", "", "Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE)")
-	cmd.Flags().StringP("registry", "r", "", "Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined (Env: $FUNC_REGISTRY)")
-	cmd.Flags().BoolP("push", "u", false, "Attempt to push the function image after being successfully built")
-	cmd.Flags().Lookup("push").NoOptDefVal = "true" // --push == --push=true
-	cmd.Flags().StringP("platform", "", "", "Target platform to build (e.g. linux/amd64).")
+	// Flags
+	//
+	// NOTE on falag defaults:
+	// Use the config value when available, as this will include global static
+	// defaults, user settings and the value from the function with context.
+	// Use the function struct for flag flags which are not globally configurable
+	//
+	// Globally-Configurable Flags:
+	// Options whose value may be defined globally may also exist on the
+	// contextually relevant function; sets are flattened above via cfg.Apply(f)
+	cmd.Flags().StringP("builder", "b", cfg.Builder,
+		fmt.Sprintf("build strategy to use when creating the underlying image. Currently supported build strategies are %s.", KnownBuilders()))
+	cmd.Flags().BoolP("confirm", "c", cfg.Confirm,
+		"Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
+	cmd.Flags().StringP("registry", "r", cfg.Registry,
+		"Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined (Env: $FUNC_REGISTRY)")
+
+	// Function-Context Flags:
+	// Options whose value is available on the function with context only
+	// (persisted but not globally configurable)
+	builderImage := f.Build.BuilderImages[f.Build.Builder]
+	cmd.Flags().StringP("builder-image", "", builderImage,
+		"Specify a custom builder image for use by the builder other than its default. (Env: $FUNC_BUILDER_IMAGE)")
+	cmd.Flags().StringP("image", "i", f.Image,
+		"Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE)")
+
+	// Static Flags:
+	// Options which have static defaults only (not globally configurable nor
+	// persisted with the function)
+	cmd.Flags().BoolP("push", "u", false,
+		"Attempt to push the function image to the configured registry after being successfully built")
+	cmd.Flags().StringP("platform", "", "",
+		"Optionally specify a target platform, for example \"linux/amd64\" when using the s2i build strategy")
 	setPathFlag(cmd)
 
+	// Tab Completion
 	if err := cmd.RegisterFlagCompletionFunc("builder", CompleteBuilderList); err != nil {
 		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
 	}
-
 	if err := cmd.RegisterFlagCompletionFunc("builder-image", CompleteBuilderImageList); err != nil {
 		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
 	}
 
+	// Help Text
 	cmd.SetHelpFunc(defaultTemplatedHelp)
-
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runBuild(cmd, args, newClient)
-	}
 
 	return cmd
 }
@@ -126,41 +137,21 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		return // see docker/creds potential mutation of auth.json
 	}
 
-	// Populate a command config from environment variables, flags and potentially
-	// interactive user prompts if in confirm mode.
 	cfg, err := newBuildConfig().Prompt()
 	if err != nil {
 		return
 	}
 
-	// Validate the config
 	if err = cfg.Validate(); err != nil {
 		return
 	}
 
-	// Load the Function at path, and if it is initialized, update it with
-	// pertinent values from the config.
-	//
-	// NOTE: the checks for .Changed and altered conditionals for defaults will
-	// be removed when Global Config is integrated, because the config object
-	// will at that time contain the final value for the attribute, taking into
-	// account whether or not the value was altered via flags or env variables.
-	// This condition is also only necessary for config members whose default
-	// value deviates from the zero value.
 	f, err := fn.NewFunction(cfg.Path)
 	if err != nil {
 		return
 	}
-	if !f.Initialized() {
-		return fmt.Errorf("'%v' does not contain an initialized function", cfg.Path)
-	}
-	if f.Registry == "" || cmd.Flags().Changed("registry") {
-		// Sets default AND accepts any user-provided overrides
-		f.Registry = cfg.Registry
-	}
-	if cfg.Image != "" {
-		f.Image = cfg.Image
-	}
+	f = cfg.Configure(f) // Updates f at path to include buil request values
+
 	// Checks if there is a difference between defined registry and its value used as a prefix in the image tag
 	// In case of a mismatch a new image tag is created and used for build
 	// Do not react if image tag has been changed outside configuration
@@ -174,24 +165,9 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		fmt.Fprintf(cmd.ErrOrStderr(), "Warning: function has current image '%s' which has a different registry than the currently configured registry '%s'. The new image tag will be '%s'.  To use an explicit image, use --image.\n", f.Image, f.Registry, updImg)
 		f.Image = updImg
 	}
-	if f.Build.Builder == "" || cmd.Flags().Changed("builder") {
-		// Sets default AND accepts any user-provided overrides
-		f.Build.Builder = cfg.Builder
-	}
-	if cfg.Builder != "" {
-		f.Build.Builder = cfg.Builder
-	}
-	if cfg.BuilderImage != "" {
-		f.Build.BuilderImages[cfg.Builder] = cfg.BuilderImage
-	}
 
-	// Validate that a builder short-name was obtained, whether that be from
-	// the function's prior state, or the value of flags/environment.
-	if err = ValidateBuilder(f.Build.Builder); err != nil {
-		return
-	}
-
-	// Choose a builder based on the value of the --builder flag
+	// Client
+	// Concrete implementations (ex builder) vary based on final effective config
 	var builder fn.Builder
 	if f.Build.Builder == builders.Pack {
 		builder = buildpacks.NewBuilder(
@@ -203,8 +179,7 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 			s2i.WithPlatform(cfg.Platform),
 			s2i.WithVerbose(cfg.Verbose))
 	} else {
-		err = fmt.Errorf("builder '%v' is not recognized", f.Build.Builder)
-		return
+		return builders.ErrUnknownBuilder{Name: f.Build.Builder, Known: KnownBuilders()}
 	}
 
 	client, done := newClient(ClientConfig{Verbose: cfg.Verbose},
@@ -212,13 +187,13 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		fn.WithBuilder(builder))
 	defer done()
 
-	// This preemptive write call will be unnecessary when the API is updated
-	// to use Function instances rather than file paths. For now it must write
-	// even if the command fails later.  Not ideal.
+	// TODO(lkingland): this write will be unnecessary when the client API is
+	// udated to accept function structs rather than a path as argument.
 	if err = f.Write(); err != nil {
 		return
 	}
 
+	// Build and (optionally) push
 	if err = client.Build(cmd.Context(), cfg.Path); err != nil {
 		return
 	}
@@ -226,10 +201,23 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		err = client.Push(cmd.Context(), cfg.Path)
 	}
 
+	// TODO(lkingland): when the above Build and Push calls are refactored to not
+	// write the function but instead take and return a function struct, use
+	// `reuturn f.Write()` below and remove from above such that function on disk
+	// is only written on success and thus is always in a known valid state unless
+	// manually edited.
+	// return f.Write()
 	return
 }
 
 type buildConfig struct {
+	// Globals (builder, confirm, registry, verbose)
+	config.Global
+
+	// BuilderImage is the image (name or mapping) to use for building.  Usually
+	// set automatically.
+	BuilderImage string
+
 	// Image name in full, including registry, repo and tag (overrides
 	// image name derivation based on registry and function name)
 	Image string
@@ -238,44 +226,42 @@ type buildConfig struct {
 	// working directory of the process.
 	Path string
 
+	// Platform ofr resultant image (s2i builder only)
+	Platform string
+
 	// Push the resulting image to the registry after building.
 	Push bool
-
-	// Registry at which interstitial build artifacts should be kept.
-	// This setting is ignored if Image is specified, which includes the full
-	Registry string
-
-	// Verbose logging.
-	Verbose bool
-
-	// Confirm: confirm values arrived upon from environment plus flags plus defaults,
-	// with interactive prompting (only applicable when attached to a TTY).
-	Confirm bool
-
-	// Builder is the name of the subsystem that will complete the underlying
-	// build (Pack, s2i, remote pipeline, etc).  Currently ad-hoc rather than
-	// an enumerated field.  See the Client constructory for logic.
-	Builder string
-
-	// BuilderImage is the image (name or mapping) to use for building.  Usually
-	// set automatically.
-	BuilderImage string
-
-	Platform string
 }
 
+// newBuildConfig gathers options into a single build request.
 func newBuildConfig() buildConfig {
 	return buildConfig{
+		Global: config.Global{
+			Builder:  viper.GetString("builder"),
+			Confirm:  viper.GetBool("confirm"),
+			Registry: registry(), // deferred defaulting
+			Verbose:  viper.GetBool("verbose"),
+		},
+		BuilderImage: viper.GetString("builder-image"),
 		Image:        viper.GetString("image"),
 		Path:         viper.GetString("path"),
-		Registry:     registry(),
-		Verbose:      viper.GetBool("verbose"), // defined on root
-		Confirm:      viper.GetBool("confirm"),
-		Builder:      viper.GetString("builder"),
-		BuilderImage: viper.GetString("builder-image"),
-		Push:         viper.GetBool("push"),
 		Platform:     viper.GetString("platform"),
+		Push:         viper.GetBool("push"),
 	}
+}
+
+// Configure the given function.  Updates a function struct with all
+// configurable values.  Note that buildConfig already includes function's
+// current values, as they were passed through vi flag defaults, so overwriting
+// is a noop.
+func (c buildConfig) Configure(f fn.Function) fn.Function {
+	f = c.Global.Configure(f)
+	if f.Build.Builder != "" && c.BuilderImage != "" {
+		f.Build.BuilderImages[f.Build.Builder] = c.BuilderImage
+	}
+	f.Image = c.Image
+	// Path, Platform and Push are not part of a function's state.
+	return f
 }
 
 // Prompt the user with value of config members, allowing for interaractive changes.
@@ -346,7 +332,12 @@ func (c buildConfig) Prompt() (buildConfig, error) {
 
 // Validate the config passes an initial consistency check
 func (c buildConfig) Validate() (err error) {
+	// Builder value must refer to a known builder short name
+	if err = ValidateBuilder(c.Builder); err != nil {
+		return
+	}
 
+	// Platform is only supportd with the S2I builder at this time
 	if c.Platform != "" && c.Builder != builders.S2I {
 		err = errors.New("Only S2I builds currently support specifying platform")
 		return

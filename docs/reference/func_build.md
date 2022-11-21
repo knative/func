@@ -56,14 +56,13 @@ func build
 
 ```
   -b, --builder string         build strategy to use when creating the underlying image. Currently supported build strategies are "pack" and "s2i". (default "pack")
-      --builder-image string   builder image, either an as a an image name or a mapping name.
-                               Specified value is stored in func.yaml (as 'builder' field) for subsequent builds. ($FUNC_BUILDER_IMAGE)
+      --builder-image string   Specify a custom builder image for use by the builder other than its default. (Env: $FUNC_BUILDER_IMAGE)
   -c, --confirm                Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)
   -h, --help                   help for build
   -i, --image string           Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE)
   -p, --path string            Path to the project directory.  Default is current working directory (Env: $FUNC_PATH)
-      --platform string        Target platform to build (e.g. linux/amd64).
-  -u, --push                   Attempt to push the function image after being successfully built
+      --platform string        Optionally specify a target platform, for example "linux/amd64" when using the s2i build strategy
+  -u, --push                   Attempt to push the function image to the configured registry after being successfully built
   -r, --registry string        Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined (Env: $FUNC_REGISTRY)
 ```
 
