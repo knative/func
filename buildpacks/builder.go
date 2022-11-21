@@ -125,18 +125,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 	}
 
 	// only trust our known builders
-	opts.TrustBuilder = func(_ string) bool {
-		for _, v := range trustedBuilderImagePrefixes {
-			// Ensure that all entries in this list are terminated with a trailing "/"
-			if !strings.HasSuffix(v, "/") {
-				v = v + "/"
-			}
-			if strings.HasPrefix(opts.Builder, v) {
-				return true
-			}
-		}
-		return false
-	}
+	opts.TrustBuilder = TrustBuilder
 
 	var impl = b.impl
 	// Instantiate the pack build client implementation
@@ -172,6 +161,21 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		}
 	}
 	return
+}
+
+// TrustBuilder determines whether the builder image should be trusted
+// based on a set of trusted builder image registry prefixes.
+func TrustBuilder(b string) bool {
+	for _, v := range trustedBuilderImagePrefixes {
+		// Ensure that all entries in this list are terminated with a trailing "/"
+		if !strings.HasSuffix(v, "/") {
+			v = v + "/"
+		}
+		if strings.HasPrefix(b, v) {
+			return true
+		}
+	}
+	return false
 }
 
 // Builder Image chooses the correct builder image or defaults.

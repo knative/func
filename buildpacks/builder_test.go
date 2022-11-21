@@ -12,12 +12,6 @@ import (
 // Test_BuilderImageUntrusted ensures that only known builder images
 // are to be considered trusted.
 func Test_BuilderImageUntrusted(t *testing.T) {
-	var (
-		i = &mockImpl{}
-		b = NewBuilder(WithImpl(i))
-		f = fn.Function{Runtime: "node"}
-	)
-
 	var untrusted = []string{
 		// Check prefixes that end in a slash
 		"quay.io/bosonhack/",
@@ -28,20 +22,8 @@ func Test_BuilderImageUntrusted(t *testing.T) {
 	}
 
 	for _, builder := range untrusted {
-		f.Build = fn.BuildSpec{
-			BuilderImages: map[string]string{
-				builders.Pack: builder,
-			},
-		}
-		i.BuildFn = func(ctx context.Context, opts pack.BuildOptions) error {
-			if opts.TrustBuilder("") != false {
-				t.Fatalf("expected pack builder image %v to be untrusted", f.Build.BuilderImages[builders.Pack])
-			}
-			return nil
-		}
-
-		if err := b.Build(context.Background(), f); err != nil {
-			t.Fatal(err)
+		if TrustBuilder(builder) {
+			t.Fatalf("expected pack builder image %v to be untrusted", builder)
 		}
 	}
 }
@@ -49,27 +31,9 @@ func Test_BuilderImageUntrusted(t *testing.T) {
 // Test_BuilderImageTrusted ensures that only known builder images
 // are to be considered trusted.
 func Test_BuilderImageTrusted(t *testing.T) {
-	var (
-		i = &mockImpl{}
-		b = NewBuilder(WithImpl(i))
-		f = fn.Function{Runtime: "node"}
-	)
-
 	for _, builder := range trustedBuilderImagePrefixes {
-		f.Build = fn.BuildSpec{
-			BuilderImages: map[string]string{
-				builders.Pack: builder,
-			},
-		}
-		i.BuildFn = func(ctx context.Context, opts pack.BuildOptions) error {
-			if opts.TrustBuilder("") != true {
-				t.Fatalf("expected pack builder image %v to be trusted", f.Build.BuilderImages[builders.Pack])
-			}
-			return nil
-		}
-
-		if err := b.Build(context.Background(), f); err != nil {
-			t.Fatal(err)
+		if !TrustBuilder(builder) {
+			t.Fatalf("expected pack builder image %v to be trusted", builder)
 		}
 	}
 }
