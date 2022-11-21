@@ -88,7 +88,7 @@ and the image name is stored in the configuration file.
 	// (persisted but not globally configurable)
 	builderImage := f.Build.BuilderImages[f.Build.Builder]
 	cmd.Flags().StringP("builder-image", "", builderImage,
-		"Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)")
+		"Specify a custom builder image for use by the builder other than its default. (Env: $FUNC_BUILDER_IMAGE)")
 	cmd.Flags().StringP("image", "i", f.Image,
 		"Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE)")
 
