@@ -39,7 +39,7 @@ var (
 		"gcr.io/paketo-buildpacks",
 		"docker.io/paketobuildpacks",
 		"ghcr.io/vmware-tanzu/function-buildpacks-for-knative",
-		"gcr.io/buildpacks/builder"
+		"gcr.io/buildpacks/"
 	}
 
 	v330 = semver.MustParse("v3.3.0") // for checking podman version
