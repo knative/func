@@ -98,7 +98,7 @@ and the image name is stored in the configuration file.
 	cmd.Flags().BoolP("push", "u", false,
 		"Attempt to push the function image to the configured registry after being successfully built")
 	cmd.Flags().StringP("platform", "", "",
-		"Optionally specify a specific platform to build for (e.g. linux/amd64).")
+		"Optionally specify a target platform, for example \"linux/amd64\" when using the s2i build strategy")
 	setPathFlag(cmd)
 
 	// Tab Completion
