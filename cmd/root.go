@@ -448,18 +448,6 @@ func surveySelectDefault(value string, options []string) string {
 	return ""
 }
 
-// clearEnvs sets all environment variables with the prefix of FUNC_ to
-// empty (unsets) for the duration of the test t.
-func clearEnvs(t *testing.T) {
-	t.Helper()
-	for _, v := range os.Environ() {
-		if strings.HasPrefix(v, "FUNC_") {
-			parts := strings.SplitN(v, "=", 2)
-			t.Setenv(parts[0], "")
-		}
-	}
-}
-
 // defaultTemplatedHelp evaluates the given command's help text as a template
 // some commands define their own help command when additional values are
 // required beyond these basics.
@@ -473,5 +461,17 @@ func defaultTemplatedHelp(cmd *cobra.Command, args []string) {
 
 	if err := tpl.Execute(cmd.OutOrStdout(), data); err != nil {
 		fmt.Fprintf(cmd.ErrOrStderr(), "unable to display help text: %v", err)
+	}
+}
+
+// clearEnvs sets all environment variables with the prefix of FUNC_ to
+// empty (unsets) for the duration of the test t.
+func clearEnvs(t *testing.T) {
+	t.Helper()
+	for _, v := range os.Environ() {
+		if strings.HasPrefix(v, "FUNC_") {
+			parts := strings.SplitN(v, "=", 2)
+			t.Setenv(parts[0], "")
+		}
 	}
 }
