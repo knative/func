@@ -96,7 +96,7 @@ and the image name is stored in the configuration file.
 	// Options which have static defaults only (not globally configurable nor
 	// persisted with the function)
 	cmd.Flags().BoolP("push", "u", false,
-		"Attempt to push the function image after being successfully built")
+		"Attempt to push the function image to the configured registry after being successfully built")
 	cmd.Flags().StringP("platform", "", "",
 		"Optionally specify a specific platform to build for (e.g. linux/amd64).")
 	setPathFlag(cmd)
