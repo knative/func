@@ -616,9 +616,10 @@ func (c deployConfig) Prompt() (deployConfig, error) {
 			return c, err
 		}
 	}
-	if c.GitURL != "" {
-		// TODO(lkingland) prompt for optional additional git settings
-	}
+
+	// TODO(lkingland) prompt for optional additional git settings
+	// if c.GitURL != "" {
+	// }
 
 	return c, err
 }
