@@ -125,7 +125,7 @@ EXAMPLES
 		SuggestFor: []string{"delpoy", "deplyo"},
 		PreRunE:    bindEnv("confirm", "env", "git-url", "git-branch", "git-dir", "remote", "build", "builder", "builder-image", "image", "registry", "push", "platform", "path", "namespace"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runDeploy(cmd, args, newClient)
+			return runDeploy(cmd, newClient)
 		},
 	}
 
@@ -172,7 +172,7 @@ EXAMPLES
 		"Git revision (branch) to be used when deploying via a git repository (Env: $FUNC_GIT_BRANCH)")
 	cmd.Flags().StringP("git-dir", "d", f.Build.Git.ContextDir,
 		"Directory in the repo to find the function (default is the root) (Env: $FUNC_GIT_DIR)")
-	cmd.Flags().BoolP("remote", "", false,
+	cmd.Flags().BoolP("remote", "", f.Deploy.Remote,
 		"Trigger a remote deployment.  Default is to deploy and build from the local system (Env: $FUNC_REMOTE)")
 
 	// Static Flags:
@@ -199,7 +199,7 @@ EXAMPLES
 	return cmd
 }
 
-func runDeploy(cmd *cobra.Command, _ []string, newClient ClientFactory) (err error) {
+func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	var (
 		cfg deployConfig
 		f   fn.Function
@@ -546,7 +546,7 @@ func (c deployConfig) Configure(f fn.Function) (fn.Function, error) {
 	f.Build.Git.ContextDir = c.GitDir
 	f.Build.Git.Revision = c.GitBranch // TODO: shouild match; perhaps be "refSpec"
 	f.Deploy.Namespace = c.Namespace
-	// f.Remote is not (yet) reflected on f.  see pending PR #1176
+	f.Deploy.Remote = c.Remote
 
 	// TODO: validate env test cases completely validate:
 	envsToUpdate, envsToRemove, err := util.OrderedMapAndRemovalListFromArray(c.Env, "=")
@@ -725,7 +725,7 @@ func printDeployMessages(out io.Writer, cfg deployConfig) {
 	// If potentially creating a duplicate deployed function in a different
 	// namespace.  TODO: perhaps add a --delete or --force flag which will
 	// automagically delete the deployment in the "old" namespace.
-	if targetNamespace != currentNamespace {
+	if targetNamespace != currentNamespace && currentNamespace != "" {
 		fmt.Fprintf(out, "Warning: function is in namespace '%s', but requested namespace is '%s'. Continuing with deployment to '%v'.\n", currentNamespace, targetNamespace, targetNamespace)
 	}
 
