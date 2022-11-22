@@ -665,11 +665,6 @@ func (c deployConfig) Validate() (err error) {
 		return errors.New("git settings (--git-url --git-dir and --git-branch) are currently only available when triggering remote deployments (--remote)")
 	}
 
-	// When --remote, at least the --git-url is required
-	if c.Remote && c.GitURL == "" {
-		return ErrURLRequired // Provides CLI-specific help text
-	}
-
 	// Git URL can contain at maximum one '#'
 	urlParts := strings.Split(c.GitURL, "#")
 	if len(urlParts) > 2 {
@@ -743,9 +738,3 @@ func printDeployMessages(out io.Writer, cfg deployConfig) {
 		fmt.Fprintf(out, "Warning: namespace chosen is '%s', but currently active namespace is '%s'. Continuing with deployment to '%s'.\n", cfg.Namespace, activeNamespace, cfg.Namespace)
 	}
 }
-
-var ErrURLRequired = errors.New(`The function is not associated with a Git repository, and needs one in order to perform a remote deployment.  For example:
-
---remote --git-url=https://git.example.com/namespace/myFunction
-
-To run the deploy command in an interactive mode, use --confirm (-c)`)
