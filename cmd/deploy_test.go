@@ -16,9 +16,258 @@ import (
 	"knative.dev/func/mock"
 )
 
-const TestRegistry = "example.com/alice"
-
+// commandConstructor is used to share test implementations between commands
+// which only differ in the command being tested (ex: build and deploy share
+// a large overlap in tests because building is a subset of the deploy task)
 type commandConstructor func(ClientFactory) *cobra.Command
+
+// TestDeploy_ConfigApplied ensures that the deploy command applies config
+// settings at each level (static, global, function, envs, flags)
+func TestDeploy_ConfigApplied(t *testing.T) {
+	testConfigApplied(NewDeployCmd, t)
+}
+
+func testConfigApplied(cmdFn commandConstructor, t *testing.T) {
+	t.Helper()
+	var (
+		err      error
+		home     = fmt.Sprintf("%s/testdata/TestX_ConfigApplied", cwd())
+		root     = fromTempDirectory(t)
+		f        = fn.Function{Runtime: "go", Root: root, Name: "f"}
+		pusher   = mock.NewPusher()
+		clientFn = NewTestClient(fn.WithPusher(pusher))
+	)
+	t.Setenv("XDG_CONFIG_HOME", home)
+
+	if err = fn.New().Create(f); err != nil {
+		t.Fatal(err)
+	}
+
+	// Ensure the global config setting was loaded: Registry
+	// global config in ./testdata/TestBuild_ConfigApplied sets registry
+	if err = cmdFn(clientFn).Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	if f.Registry != "registry.example.com/alice" {
+		t.Fatalf("expected registry 'registry.example.com/alice' got '%v'", f.Registry)
+	}
+
+	// Ensure flags are evaluated
+	cmd := cmdFn(clientFn)
+	cmd.SetArgs([]string{"--builder-image", "example.com/builder/image:v1.2.3"})
+	if err = cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	if f.Build.BuilderImages[f.Build.Builder] != "example.com/builder/image:v1.2.3" {
+		t.Fatalf("expected builder image not set. Flags not evaluated? got %v", f.Build.BuilderImages[f.Build.Builder])
+	}
+
+	// Ensure function context loaded
+	// Update registry on the function and ensure it takes precidence (overrides)
+	// the global setting defined in home.
+	f.Registry = "registry.example.com/charlie"
+	if err := f.Write(); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmdFn(clientFn).Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	if f.Image != "registry.example.com/charlie/f:latest" {
+		t.Fatalf("expected image 'registry.example.com/charlie/f:latest' got '%v'", f.Image)
+	}
+
+	// Ensure environment variables loaded: Push
+	// Test environment variable evaluation using FUNC_PUSH
+	t.Setenv("FUNC_PUSH", "true")
+	if err := cmdFn(clientFn).Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	if !pusher.PushInvoked {
+		t.Fatalf("push was not invoked when FUNC_PUSH=true")
+	}
+}
+
+// TestDeploy_ConfigPrecedence ensures that the correct precidence for config
+// are applied: static < global < function context < envs < flags
+func TestDeploy_ConfigPrecedence(t *testing.T) {
+	testConfigPrecedence(NewDeployCmd, t)
+}
+
+func testConfigPrecedence(cmdFn commandConstructor, t *testing.T) {
+	t.Helper()
+	var (
+		err      error
+		home     = fmt.Sprintf("%s/testdata/TestX_ConfigPrecedence", cwd())
+		builder  = mock.NewBuilder()
+		clientFn = NewTestClient(fn.WithBuilder(builder))
+	)
+
+	// Ensure static default applied via 'builder'
+	// (a degenerate case, mostly just ensuring config values are not wiped to a
+	// zero value struct, etc)
+	root := fromTempDirectory(t)
+	t.Setenv("XDG_CONFIG_HOME", home) // sets registry.example.com/global
+	f := fn.Function{Runtime: "go", Root: root, Name: "f"}
+	if err = fn.New().Create(f); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmdFn(clientFn).Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	if f.Build.Builder != builders.Default {
+		t.Fatalf("expected static default builder '%v', got '%v'", builders.Default, f.Build.Builder)
+	}
+
+	// Ensure Global Config applied via config in ./testdata
+	root = fromTempDirectory(t)
+	t.Setenv("XDG_CONFIG_HOME", home) // sets registry.example.com/global
+	f = fn.Function{Runtime: "go", Root: root, Name: "f"}
+	if err := fn.New().Create(f); err != nil {
+		t.Fatal(err)
+	}
+	if err = cmdFn(clientFn).Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	if f.Registry != "registry.example.com/global" { // from ./testdata
+		t.Fatalf("expected registry 'example.com/global', got '%v'", f.Registry)
+	}
+
+	// Ensure Function context overrides global config
+	// The stanza above ensures the global config is applied.  This stanza
+	// ensures that, if set on the function, it will take precidence.
+	root = fromTempDirectory(t)
+	t.Setenv("XDG_CONFIG_HOME", home) // sets registry=example.com/global
+	f = fn.Function{Runtime: "go", Root: root, Name: "f",
+		Registry: "example.com/function"}
+	if err := fn.New().Create(f); err != nil {
+		t.Fatal(err)
+	}
+	if err = cmdFn(clientFn).Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	if f.Registry != "example.com/function" {
+		t.Fatalf("expected function's value for registry of 'example.com/function' to override global config setting of 'example.com/global', but got '%v'", f.Registry)
+	}
+
+	// Ensure Environment Variable overrides function context.
+	root = fromTempDirectory(t)
+	t.Setenv("XDG_CONFIG_HOME", home) // sets registry.example.com/global
+	t.Setenv("FUNC_REGISTRY", "example.com/env")
+	f = fn.Function{Runtime: "go", Root: root, Name: "f",
+		Registry: "example.com/function"}
+	if err := fn.New().Create(f); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmdFn(clientFn).Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	if f.Registry != "example.com/env" {
+		t.Fatalf("expected FUNC_REGISTRY=example.com/env to override function's value of 'example.com/function', but got '%v'", f.Registry)
+	}
+
+	// Ensure flags override environment variables.
+	root = fromTempDirectory(t)
+	t.Setenv("XDG_CONFIG_HOME", home) // sets registry=example.com/global
+	t.Setenv("FUNC_REGISTRY", "example.com/env")
+	f = fn.Function{Runtime: "go", Root: root, Name: "f",
+		Registry: "example.com/function"}
+	if err := fn.New().Create(f); err != nil {
+		t.Fatal(err)
+	}
+	cmd := cmdFn(clientFn)
+	cmd.SetArgs([]string{"--registry=example.com/flag"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	if f.Registry != "example.com/flag" {
+		t.Fatalf("expected flag 'example.com/flag' to take precidence over env var, but got '%v'", f.Registry)
+	}
+}
+
+// TestDeploy_FunctionContext ensures that the function contextually relevant
+// to the current command is loaded and used for flag defaults by spot-checking
+// the builder setting.
+func TestDeploy_FunctionContext(t *testing.T) {
+	testFunctionContext(NewDeployCmd, t)
+}
+
+func testFunctionContext(cmdFn commandConstructor, t *testing.T) {
+	t.Helper()
+	root := fromTempDirectory(t)
+
+	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root, Registry: TestRegistry}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Build the function explicitly setting the builder to !builders.Default
+	cmd := cmdFn(NewTestClient())
+	dflt := cmd.Flags().Lookup("builder").DefValue
+
+	// The initial default value should be builders.Default (see global config)
+	if dflt != builders.Default {
+		t.Fatalf("expected flag default value '%v', got '%v'", builders.Default, dflt)
+	}
+
+	// Choose the value that is not the default
+	// We must calculate this because downstream changes the default via patches.
+	var builder string
+	if builders.Default == builders.Pack {
+		builder = builders.S2I
+	} else {
+		builder = builders.Pack
+	}
+
+	// Build with the other
+	cmd.SetArgs([]string{"--builder", builder})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// The function should now have the builder set to the new builder
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Build.Builder != builder {
+		t.Fatalf("expected function to have new builder '%v', got '%v'", builder, f.Build.Builder)
+	}
+
+	// The command default should now take into account the function when
+	// determining the flag default
+	cmd = cmdFn(NewTestClient())
+	dflt = cmd.Flags().Lookup("builder").DefValue
+
+	if dflt != builder {
+		t.Fatalf("expected flag default to be function's current builder '%v', got '%v'", builder, dflt)
+	}
+}
 
 // TestDeploy_Default ensures that running deploy on a valid default Function
 // (only required options populated; all else default) completes successfully.
@@ -355,11 +604,13 @@ func TestDeploy_RemoteBuildURLPermutations(t *testing.T) {
 	// Valid flag permutations (empty indicates flag should be omitted)
 	// and a functon which will convert a permutation into flags for use
 	// by the subtests.
+	// The empty string indicates the case in which the flag is not provided.
 	var (
 		remoteValues = []string{"", "true", "false"}
 		buildValues  = []string{"", "true", "false", "auto"}
 		urlValues    = []string{"", "https://example.com/user/repo"}
 
+		// toArgs converts one permutaton of the values into command arguments
 		toArgs = func(remote, build, url string) []string {
 			args := []string{}
 			if remote != "" {
@@ -385,7 +636,7 @@ func TestDeploy_RemoteBuildURLPermutations(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			// deploy it using the deploy commnand with flags set to the currently
+			// deploy it using the deploy command with flags set to the currently
 			// effective flag permutation.
 			var (
 				deployer  = mock.NewDeployer()
@@ -402,9 +653,9 @@ func TestDeploy_RemoteBuildURLPermutations(t *testing.T) {
 			err := cmd.Execute() // err is checked below
 
 			// Assertions
-			if remote != "" && remote != "false" { // default "" is == false.
-				// REMOTE Assertions
+			if remote != "" && remote != "false" { // the default of "" is == false
 
+				// REMOTE Assertions
 				if !pipeliner.RunInvoked { // Remote deployer should be triggered
 					t.Error("remote was not invoked")
 				}
@@ -526,12 +777,12 @@ func Test_ImageWithDigestErrors(t *testing.T) {
 		{
 			name:      "invalid digest prefix 'Xsha256', expect error",
 			image:     "example.com/myNamespace/myFunction:latest@Xsha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4e",
-			errString: "image 'example.com/myNamespace/myFunction:latest@Xsha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4e' has an invalid prefix syntax for digest (should be 'sha256:')",
+			errString: "image digest 'Xsha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4e' requires 'sha256:' prefix",
 		},
 		{
 			name:      "invalid sha hash length(added X at the end), expect error",
 			image:     "example.com/myNamespace/myFunction:latest@sha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4eX",
-			errString: "sha256 hash in 'sha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4eX' has the wrong length (65), should be 64",
+			errString: "image digest 'sha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4eX' has an invalid sha256 hash length of 65 when it should be 64",
 		},
 	}
 
@@ -896,17 +1147,17 @@ func TestDeploy_NamespaceRedeployWarning(t *testing.T) {
 		fn.WithRegistry(TestRegistry),
 	))
 	cmd.SetArgs([]string{})
-	stderr := strings.Builder{}
-	cmd.SetErr(&stderr)
+	stdout := strings.Builder{}
+	cmd.SetOut(&stdout)
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
 
-	expected := "Warning: target namespace 'funcns' is not the currently active namespace 'mynamespace'. Continuing with deployment to 'funcns'."
+	expected := "Warning: namespace chosen is 'funcns', but currently active namespace is 'mynamespace'. Continuing with deployment to 'funcns'."
 
 	// Ensure output contained warning if changing namespace
-	if !strings.Contains(stderr.String(), expected) {
-		t.Log("STDERR:\n" + stderr.String())
+	if !strings.Contains(stdout.String(), expected) {
+		t.Log("STDOUT:\n" + stdout.String())
 		t.Fatalf("Expected warning not found:\n%v", expected)
 	}
 

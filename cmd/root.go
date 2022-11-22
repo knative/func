@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"testing"
 	"time"
 
 	"knative.dev/func/cmd/templates"
@@ -447,16 +446,4 @@ func surveySelectDefault(value string, options []string) string {
 	// Either the value is not an option or there are no options.  Either of
 	// which should fail proper validation
 	return ""
-}
-
-// clearEnvs sets all environment variables with the prefix of FUNC_ to
-// empty (unsets) for the duration of the test t.
-func clearEnvs(t *testing.T) {
-	t.Helper()
-	for _, v := range os.Environ() {
-		if strings.HasPrefix(v, "FUNC_") {
-			parts := strings.SplitN(v, "=", 2)
-			t.Setenv(parts[0], "")
-		}
-	}
 }

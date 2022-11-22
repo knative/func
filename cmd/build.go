@@ -94,11 +94,11 @@ EXAMPLES
 	// Options whose value may be defined globally may also exist on the
 	// contextually relevant function; sets are flattened above via cfg.Apply(f)
 	cmd.Flags().StringP("builder", "b", cfg.Builder,
-		fmt.Sprintf("build strategy to use when creating the underlying image. Currently supported build strategies are %s.", KnownBuilders()))
+		fmt.Sprintf("Builder to use when creating the function's container. Currently supported builders are %s. (Env: $FUNC_BUILDER)", KnownBuilders()))
 	cmd.Flags().BoolP("confirm", "c", cfg.Confirm,
 		"Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
 	cmd.Flags().StringP("registry", "r", cfg.Registry,
-		"Registry + namespace part of the image to build, ex 'quay.io/myuser'.  The full image name is automatically determined (Env: $FUNC_REGISTRY)")
+		"Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. (Env: $FUNC_REGISTRY)")
 
 	// Function-Context Flags:
 	// Options whose value is available on the function with context only
@@ -130,21 +130,20 @@ EXAMPLES
 }
 
 func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err error) {
-	if err = config.CreatePaths(); err != nil {
-		return // see docker/creds potential mutation of auth.json
-	}
-
-	cfg, err := newBuildConfig().Prompt()
-	if err != nil {
+	var (
+		cfg buildConfig
+		f   fn.Function
+	)
+	if err = config.CreatePaths(); err != nil { // for possible auth.json usage
 		return
 	}
-
+	if cfg, err = newBuildConfig().Prompt(); err != nil {
+		return
+	}
 	if err = cfg.Validate(); err != nil {
 		return
 	}
-
-	f, err := fn.NewFunction(cfg.Path)
-	if err != nil {
+	if f, err = fn.NewFunction(cfg.Path); err != nil {
 		return
 	}
 	f = cfg.Configure(f) // Updates f at path to include build request values
@@ -249,7 +248,7 @@ func newBuildConfig() buildConfig {
 
 // Configure the given function.  Updates a function struct with all
 // configurable values.  Note that buildConfig already includes function's
-// current values, as they were passed through vi flag defaults, so overwriting
+// current values, as they were passed through via flag defaults, so overwriting
 // is a noop.
 func (c buildConfig) Configure(f fn.Function) fn.Function {
 	f = c.Global.Configure(f)

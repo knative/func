@@ -17,6 +17,8 @@ import (
 	. "knative.dev/func/testing"
 )
 
+const TestRegistry = "example.com/alice"
+
 func TestRoot_PersistentFlags(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -384,4 +386,16 @@ func fromTempDirectory(t *testing.T) string {
 	// Return to original directory and resets viper.
 	t.Cleanup(func() { done(); viper.Reset() })
 	return d
+}
+
+// clearEnvs sets all environment variables with the prefix of FUNC_ to
+// empty (unsets) for the duration of the test t.
+func clearEnvs(t *testing.T) {
+	t.Helper()
+	for _, v := range os.Environ() {
+		if strings.HasPrefix(v, "FUNC_") {
+			parts := strings.SplitN(v, "=", 2)
+			t.Setenv(parts[0], "")
+		}
+	}
 }
