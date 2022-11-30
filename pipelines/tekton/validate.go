@@ -30,7 +30,7 @@ func validatePipeline(f fn.Function) error {
 			return ErrRuntimeRequired
 		}
 
-		if f.Runtime == "go" || f.Runtime == "rust" {
+		if f.Runtime == "rust" {
 			return ErrRuntimeNotSupported{f.Runtime}
 		}
 

@@ -53,7 +53,10 @@ require (
 	knative.dev/serving v0.35.1-0.20221114131921-874ccebb8063
 )
 
-require github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
+require (
+	github.com/gorilla/mux v1.8.0
+	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
+)
 
 require (
 	cloud.google.com/go/compute v1.10.0 // indirect
