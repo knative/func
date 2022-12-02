@@ -1366,7 +1366,7 @@ gotest.tools/v3/internal/assert
 gotest.tools/v3/internal/difflib
 gotest.tools/v3/internal/format
 gotest.tools/v3/internal/source
-# k8s.io/api v0.25.2
+# k8s.io/api v0.25.4
 ## explicit; go 1.19
 k8s.io/api/admissionregistration/v1
 k8s.io/api/admissionregistration/v1beta1
@@ -1414,11 +1414,11 @@ k8s.io/api/scheduling/v1beta1
 k8s.io/api/storage/v1
 k8s.io/api/storage/v1alpha1
 k8s.io/api/storage/v1beta1
-# k8s.io/apiextensions-apiserver v0.25.2
+# k8s.io/apiextensions-apiserver v0.25.4
 ## explicit; go 1.19
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1
-# k8s.io/apimachinery v0.25.2
+# k8s.io/apimachinery v0.25.4
 ## explicit; go 1.19
 k8s.io/apimachinery/pkg/api/equality
 k8s.io/apimachinery/pkg/api/errors
@@ -1618,7 +1618,7 @@ k8s.io/client-go/util/jsonpath
 k8s.io/client-go/util/keyutil
 k8s.io/client-go/util/retry
 k8s.io/client-go/util/workqueue
-# k8s.io/klog/v2 v2.70.2-0.20220707122935-0990e81f1a8f
+# k8s.io/klog/v2 v2.80.2-0.20221028030830-9ae4992afb54
 ## explicit; go 1.13
 k8s.io/klog/v2
 k8s.io/klog/v2/internal/buffer
@@ -1638,8 +1638,8 @@ k8s.io/kube-openapi/pkg/schemamutation
 k8s.io/kube-openapi/pkg/spec3
 k8s.io/kube-openapi/pkg/util/proto
 k8s.io/kube-openapi/pkg/validation/spec
-# k8s.io/utils v0.0.0-20220728103510-ee6ede2d64ed
-## explicit; go 1.12
+# k8s.io/utils v0.0.0-20221108210102-8e77b1f39fe2
+## explicit; go 1.18
 k8s.io/utils/buffer
 k8s.io/utils/clock
 k8s.io/utils/clock/testing
@@ -1651,7 +1651,7 @@ k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/strings/slices
 k8s.io/utils/trace
-# knative.dev/client v0.34.1-0.20221107145322-daa3c65ab933
+# knative.dev/client v0.34.1-0.20221124095043-bad1ba305197
 ## explicit; go 1.18
 knative.dev/client/lib/test
 knative.dev/client/pkg/apis/client
@@ -1667,7 +1667,7 @@ knative.dev/client/pkg/serving/v1
 knative.dev/client/pkg/util
 knative.dev/client/pkg/util/mock
 knative.dev/client/pkg/wait
-# knative.dev/eventing v0.35.1-0.20221110161316-82bf83cd7768
+# knative.dev/eventing v0.35.1-0.20221202062718-c4da68a6d55a
 ## explicit; go 1.18
 knative.dev/eventing/pkg/apis/config
 knative.dev/eventing/pkg/apis/duck
@@ -1687,10 +1687,10 @@ knative.dev/eventing/pkg/apis/sources/v1
 knative.dev/eventing/pkg/apis/sources/v1beta2
 knative.dev/eventing/pkg/client/clientset/versioned/scheme
 knative.dev/eventing/pkg/client/clientset/versioned/typed/eventing/v1
-# knative.dev/hack v0.0.0-20221104013908-8f3c7050408b
+# knative.dev/hack v0.0.0-20221201154717-7233e77996f1
 ## explicit; go 1.18
 knative.dev/hack
-# knative.dev/networking v0.0.0-20221104155004-0d4e93709170
+# knative.dev/networking v0.0.0-20221123133043-c037e29a5cf4
 ## explicit; go 1.18
 knative.dev/networking/pkg
 knative.dev/networking/pkg/apis/networking
@@ -1702,7 +1702,7 @@ knative.dev/networking/pkg/http/probe
 knative.dev/networking/pkg/http/proxy
 knative.dev/networking/pkg/http/stats
 knative.dev/networking/pkg/k8s
-# knative.dev/pkg v0.0.0-20221107171117-0243d641354d
+# knative.dev/pkg v0.0.0-20221123154742-05b694ec4d3a
 ## explicit; go 1.18
 knative.dev/pkg/apis
 knative.dev/pkg/apis/duck
@@ -1744,7 +1744,7 @@ knative.dev/pkg/tracing/config
 knative.dev/pkg/tracing/propagation
 knative.dev/pkg/tracing/propagation/tracecontextb3
 knative.dev/pkg/tracker
-# knative.dev/serving v0.35.1-0.20221114131921-874ccebb8063
+# knative.dev/serving v0.35.1-0.20221130145416-327bf9168f44
 ## explicit; go 1.18
 knative.dev/serving/pkg/apis/autoscaling
 knative.dev/serving/pkg/apis/autoscaling/v1alpha1
