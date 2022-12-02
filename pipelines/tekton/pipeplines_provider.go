@@ -145,12 +145,10 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 		return fmt.Errorf("problem in resolving image registry name: %v", err)
 	}
 
-	pp.progressListener.Stopping()
 	creds, err := pp.credentialsProvider(ctx, f.Image)
 	if err != nil {
 		return err
 	}
-	pp.progressListener.Increment("Creating Pipeline resources")
 
 	if registry == name.DefaultRegistry {
 		registry = authn.DefaultAuthKey
@@ -161,7 +159,6 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 		return fmt.Errorf("problem in creating secret: %v", err)
 	}
 
-	pp.progressListener.Increment("Running Pipeline with the Function")
 	pr, err := client.PipelineRuns(pp.namespace).Create(ctx, generatePipelineRun(f, labels), metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("problem in creating pipeline run: %v", err)
@@ -365,7 +362,7 @@ out:
 				if val, ok := taskProgressMsg[tr.Task]; ok {
 					taskDescription = val
 				}
-				pp.progressListener.Increment(fmt.Sprintf("Running Pipeline: %s", taskDescription))
+				pp.progressListener.Increment(fmt.Sprintf("Running Pipeline Task: %s", taskDescription))
 
 			}(run)
 		}
