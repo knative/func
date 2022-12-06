@@ -24,7 +24,7 @@ HASH    := $(shell git rev-parse --short HEAD 2>/dev/null)
 VTAG    := $(shell git tag --points-at HEAD | head -1)
 VTAG    := $(shell [ -z $(VTAG) ] && echo $(ETAG) || echo $(VTAG))
 VERS    ?= $(shell [ -z $(VTAG) ] && echo 'tip' || echo $(VTAG) )
-LDFLAGS := "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)"
+LDFLAGS := "-s -w -X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)"
 
 # All Code prerequisites, including generated files, etc.
 CODE := $(shell find . -name '*.go') zz_filesystem_generated.go go.mod schema/func_yaml-schema.json
