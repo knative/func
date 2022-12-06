@@ -1,6 +1,7 @@
 package function
 
 import (
+	"bufio"
 	"context"
 	"crypto/sha256"
 	"errors"
@@ -565,12 +566,34 @@ func ensureRuntimeDir(f Function) error {
 		return err
 	}
 
-	gitignore := `
-# Functions use the .func directory for local runtime data which should
+	gitignoreHeader := `# Functions use the .func directory for local runtime data which should
 # generally not be tracked in source control:
 /.func
 `
-	return os.WriteFile(filepath.Join(f.Root, ".gitignore"), []byte(gitignore), os.ModePerm)
+
+	// if the file exists, ensure /.func is present, otherwise add it to the beginning
+	if _, err := os.Stat(filepath.Join(f.Root, ".gitignore")); err == nil {
+		file, err := os.OpenFile(filepath.Join(f.Root, ".gitignore"), os.O_APPEND|os.O_WRONLY, os.ModePerm)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+
+		// check if /.func is present
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			if scanner.Text() == "/.func" || scanner.Text() == ".func" || scanner.Text() == ".func/" || scanner.Text() == "/.func/" {
+				return nil
+			}
+		}
+
+		// if not, add it to the beginning
+		_, err = file.WriteString(gitignoreHeader)
+		return err
+	} else {
+		// if the file does not exist, create it and write the header
+		return os.WriteFile(filepath.Join(f.Root, ".gitignore"), []byte(gitignoreHeader), os.ModePerm)
+	}
 
 }
 
