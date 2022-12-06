@@ -64,12 +64,12 @@ git push origin main
 ```
 6. Deploy your Function
 ```bash
-kn func deploy
+kn func deploy --remote
 ```
 If you are not logged in the container registry referenced in your function configuration,
 you will prompted to provide credentials for the remote container registry that hosts the Function image. You should see output similar to the following:
 ```bash
-$ kn func deploy
+$ kn func deploy --remote
 🕕 Creating Pipeline resources
 Please provide credentials for image registry used by Pipeline.
 ? Server: https://index.docker.io/v1/
@@ -78,7 +78,7 @@ Please provide credentials for image registry used by Pipeline.
    Function deployed at URL: http://test-function.default.svc.cluster.local
 ```
 
-7. To update your Function, commit and push new changes, then run `kn func deploy` again.
+7. To update your Function, commit and push new changes, then run `kn func deploy --remote` again.
 
 ## Uninstall and clean-up
 1. In each namespace where Pipelines and Functions were deployed, uninstall following resources:
