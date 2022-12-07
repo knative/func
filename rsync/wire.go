@@ -105,36 +105,22 @@ func writeFileInfo(w io.Writer, f FileInfo) error {
 func readFileInfo(r io.Reader) (FileInfo, error) {
 	var err error
 	var f FileInfo
-	var buff [8]byte
+	var buff [24]byte
 
 	f.Path, err = readString(r)
 	if err != nil {
 		return FileInfo{}, err
 	}
 
-	_, err = io.ReadFull(r, buff[:8])
+	_, err = io.ReadFull(r, buff[:24])
 	if err != nil {
 		return FileInfo{}, err
 	}
-	f.Size = int64(binary.BigEndian.Uint64(buff[:8]))
 
-	_, err = io.ReadFull(r, buff[:4])
-	if err != nil {
-		return FileInfo{}, err
-	}
-	f.Mode = fs.FileMode(binary.BigEndian.Uint32(buff[:4]))
-
-	_, err = io.ReadFull(r, buff[:8])
-	if err != nil {
-		return FileInfo{}, err
-	}
-	sec := int64(binary.BigEndian.Uint64(buff[:8]))
-
-	_, err = io.ReadFull(r, buff[:4])
-	if err != nil {
-		return FileInfo{}, err
-	}
-	nsec := int64(binary.BigEndian.Uint32(buff[:4]))
+	f.Size = int64(binary.BigEndian.Uint64(buff[:]))
+	f.Mode = fs.FileMode(binary.BigEndian.Uint32(buff[8:]))
+	sec := int64(binary.BigEndian.Uint64(buff[12:]))
+	nsec := int64(binary.BigEndian.Uint32(buff[20:]))
 
 	f.ModTime = time.Unix(sec, nsec)
 
