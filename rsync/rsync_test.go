@@ -97,7 +97,7 @@ func TestSyncBasic(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	
+
 	sendErr, recvErr = runSync(t, dirA, dirB)
 	if sendErr != nil {
 		t.Fatal(sendErr)

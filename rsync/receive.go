@@ -15,7 +15,7 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	librsync "github.com/balena-os/librsync-go"
+	"github.com/balena-os/librsync-go"
 )
 
 func ReceiveFiles(conn io.ReadWriteCloser, root string) error {
