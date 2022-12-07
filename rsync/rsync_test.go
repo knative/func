@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -219,6 +220,28 @@ func TestSyncSenderError(t *testing.T) {
 		t.Errorf("expected RemoteErr on sender end, but got: %v", sendErr)
 	}
 	if sendErr == nil {
+		t.Error("expected error on receiver end")
+	}
+}
+
+func TestPermDenied(t *testing.T) {
+	dir := "/etc/"
+	if runtime.GOOS == "windows" {
+		dir = "C:\\Windows\\"
+	}
+	sendErr, recvErr := runSync(t, "testdata", dir)
+	t.Log("send error:", sendErr)
+	t.Log("recv error:", recvErr)
+
+	t.Skip("TODO: fix this")
+
+	if (sendErr == nil) != (recvErr == nil) {
+		t.Error("sender and receiver error state mismatch")
+	}
+	if !errors.Is(sendErr, rsync.RemoteError) {
+		t.Errorf("expected RemoteErr on sender end, but got: %v", sendErr)
+	}
+	if recvErr == nil {
 		t.Error("expected error on receiver end")
 	}
 }

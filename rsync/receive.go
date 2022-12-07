@@ -217,7 +217,7 @@ func ReceiveFiles(conn io.ReadWriteCloser, root string) error {
 		case fileData:
 			err = receiveFile(r, files[id], paths[id], buff)
 			if err != nil {
-				_, _ = fmt.Fprintf(os.Stderr, "cannot download file: %v", err)
+				_, _ = fmt.Fprintf(os.Stderr, "cannot download file: %v\n", err)
 				continue
 			}
 		case deltaData:
@@ -375,6 +375,8 @@ func processFile(ctx context.Context, id uint32, fi FileInfo, missingFiles chan<
 func receiveFile(r io.Reader, fi FileInfo, path string, buff []byte) error {
 	var f *os.File
 	var err error
+	var n int64
+
 	_, err = io.ReadFull(r, buff[:8])
 	if err != nil {
 		return fmt.Errorf("cannot read file size: %w", err)
@@ -384,16 +386,17 @@ func receiveFile(r io.Reader, fi FileInfo, path string, buff []byte) error {
 	if fi.Mode.Perm()&0111 != 0 {
 		perm = 0755
 	}
+	defer func() {
+		_, _ = io.CopyBuffer(io.Discard, io.LimitReader(r, size-n), buff)
+	}()
 	f, err = os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, perm)
 	if err != nil {
 		return fmt.Errorf("cannot create file for download: %w", err)
 	}
 	defer f.Close()
-	var n int64
 	n, err = io.CopyBuffer(f, io.LimitReader(r, size), buff)
 	_ = f.Close()
 	if err != nil {
-		_, _ = io.CopyBuffer(io.Discard, io.LimitReader(r, size-n), buff)
 		return fmt.Errorf("cannot download the file %w", err)
 	}
 	err = os.Chtimes(path, time.Now(), fi.ModTime)
