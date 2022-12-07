@@ -4,7 +4,7 @@ When creating a Node.js function using the `func` CLI, the project directory
 looks like a typical Node.js project. Both HTTP and Event functions have the same
 template structure.
 
-```
+```bash
 ❯ func create fn
 Project path: /home/developer/projects/fn
 Function name: fn
@@ -34,21 +34,21 @@ To run a function, you'll first need to build it. This step creates an OCI
 container image that can be run locally on your computer, or on a Kubernetes
 cluster.
 
-```
+```bash
 ❯ func build
 ```
 
 After the function has been built, it can be run locally.
 
-```
+```bash
 ❯ func run
 ```
 
-Functions can be invoked with a simple HTTP request. 
+Functions can be invoked with a simple HTTP request.
 You can test to see if the function is working by using your browser to visit
-http://localhost:8080. You can also access liveness and readiness
-endpoints at http://localhost:8080/health/liveness and
-http://localhost:8080/health/readiness. These two endpoints are used
+<http://localhost:8080>. You can also access liveness and readiness
+endpoints at <http://localhost:8080/health/liveness> and
+<http://localhost:8080/health/readiness>. These two endpoints are used
 by Kubernetes to determine the health of your function. If everything
 is good, both of these will return `OK`.
 
@@ -56,25 +56,24 @@ is good, both of these will return `OK`.
 
 To deploy your function to a Kubernetes cluster, use the `deploy` command.
 
-```
+```bash
 ❯ func deploy
 ```
 
 You can get the URL for your deployed function with the `info` command.
 
-```
+```bash
 ❯ func info
 ```
 
 ## Testing a function locally
-
 
 Node.js functions can be tested locally on your computer. In the project there is
 a `test` folder which contains some simple unit and integration tests. To run these
 locally, you'll need to install the required dependencies. You do this as you would
 with any Node.js project.
 
-```
+```bash
 ❯ npm install
 ```
 
@@ -89,7 +88,7 @@ Boson Node.js functions have very few restrictions. You can add any
 required dependencies in `package.json`, and you may include
 additional local JavaScript files. The only real requirements are that
 your project contain an `index.js` file which exports a single
-function.  In this section, we will look in a little more detail at
+function. In this section, we will look in a little more detail at
 how Boson functions are invoked, and what APIs are available to you as
 a developer.
 
@@ -99,7 +98,7 @@ When using the `func` CLI to create a function project, you may choose
 to generate a project that responds to a `CloudEvent` or simple
 HTTP. `CloudEvents` in Knative are transported over HTTP as a `POST`
 request, so in many ways, the two types of functions are very much the
-same.  They each will listen and respond to incoming HTTP events.
+same. They each will listen and respond to incoming HTTP events.
 
 When an incoming request is received, your function will be invoked
 with a `Context` object as the first parameter. If the incoming
@@ -108,7 +107,7 @@ parameter. For example, a `CloudEvent` is received which contains a
 JSON string such as this in its data property,
 
 ```json
-{ 
+{
   "customerId": "0123456",
   "productId": "6543210"
 }
@@ -121,7 +120,9 @@ function handle(context, event) {
   console.log(JSON.stringify(event.data, null, 2));
 }
 ```
+
 ### Return Values
+
 Functions may return any valid JavaScript type, or nothing at all. When a
 function returns nothing, and no failure is indicated, the caller will receive
 a `204 No Content"` response. Functions may also return a `CloudEvent`, or a
@@ -131,50 +132,56 @@ CloudEvent messaging specification. Headers and other relevant information from
 the returned values are extracted and sent with the response.
 
 #### Example
+
 ```js
 function handle(context, event) {
-  return processCustomer(event.data)
+  return processCustomer(event.data);
 }
 function processCustomer(customer) {
   // process customer and return a new CloudEvent
   return new CloudEvent({
-    source: 'customer.processor',
-    type: 'customer.processed'
-  })
+    source: "customer.processor",
+    type: "customer.processed",
+  });
 }
 ```
 
 ### Response headers
+
 Functions may additionally set headers to be sent with the response by adding a
 `headers` property to the object being returned. These headers will be
 extracted and sent with the response to the caller.
 
 #### Example
+
 ```js
 function processCustomer(customer) {
   // process customer and return custom headers
   // the response will be '204 No content'
-  return { headers: { customerid: customer.id } }; 
+  return { headers: { customerid: customer.id } };
 }
 ```
 
 ### Response codes
+
 Developers may set the response code returned to the caller by adding a
 `statusCode` property to the response.
 
 #### Example
+
 ```js
 function processCustomer(customer) {
   // process customer
   if (customer.restricted) {
-    return { statusCode: 451 }
-  } 
+    return { statusCode: 451 };
+  }
 }
 ```
 
 This also works with `Error` objects thrown from the function.
 
 #### Example
+
 ```js
 function processCustomer(customer) {
   // process customer
@@ -182,11 +189,12 @@ function processCustomer(customer) {
     const err = new Error(‘Unavailable for legal reasons’);
     err.statusCode = 451;
     throw err;
-  } 
+  }
 }
 ```
 
 ## The Context Object
+
 Functions are invoked with a context object as the first parameter. This object
 provides access to the incoming request information. Developers can get the
 HTTP request method, any query strings sent with the request, the headers, the
@@ -197,13 +205,15 @@ The `Context` object has several properties that may be accessed by the
 function developer.
 
 ### `log`
+
 Provides a logging object that can be used to write output to the cluster logs.
 The log adheres to the Pino logging API. For detailed documentation on this
-logging instance, see the Pino API documentation (https://getpino.io/#/docs/api).
+logging instance, see the Pino API documentation (<https://getpino.io/#/docs/api>).
 
 #### Example
+
 ```js
-Function handle(context) {
+function handle(context) {
   context.log.info(“Processing customer”);
 }
 ```
@@ -214,16 +224,25 @@ Access the function via `curl` to invoke it.
 curl http://example.com
 ```
 
-The function will log 
+The function will log
 
-```console
-{"level":30,"time":1604511655265,"pid":3430203,"hostname":"localhost.localdomain","reqId":1,"msg":"Processing customer"}
+```json
+{
+  "level": 30,
+  "time": 1604511655265,
+  "pid": 3430203,
+  "hostname": "localhost.localdomain",
+  "reqId": 1,
+  "msg": "Processing customer"
+}
 ```
+
 #### Setting the log level
+
 Developers can control the log level by setting the `logLevel` value in
 `func.yaml` The possible options for this adhere to the options available
 for [`pino`](https://getpino.io/#/docs/api?id=level-string),
-and may be one of 
+and may be one of
 `'fatal'`, `'error'`, `'warn'`, `'info'`, `'debug'`, `'trace'` or `'silent'`.
 
 To temporarily override this value, set the environment variable `FUNC_LOG_LEVEL`
@@ -231,12 +250,14 @@ to one of the options listed above. To set the environment variable, use the
 [`config` command](commands#config).
 
 ### `query`
+
 Returns the query string for the request, if any, as key value pairs. These
 attributes are also found on the context object itself.
 
 #### Example
+
 ```js
-Function handle(context) {
+function handle(context) {
   // Log the 'name' query parameter
   context.log.info(context.query.name);
   // Query parameters also are attached to the context
@@ -246,23 +267,26 @@ Function handle(context) {
 
 Access the function via `curl` to invoke it.
 
-```sh
+```bash
 curl http://example.com?name=tiger
 ```
-The function will log 
 
-```console
+The function will log
+
+```json
 {"level":30,"time":1604511655265,"pid":3430203,"hostname":"localhost.localdomain","reqId":1,"msg":"tiger"}
 {"level":30,"time":1604511655265,"pid":3430203,"hostname":"localhost.localdomain","reqId":1,"msg":"tiger"}
 ```
 
 ### `body`
+
 Returns the request body if any. If the request body contains JSON, this will
 be parsed so that the attributes are directly available.
 
 #### Example
+
 ```js
-Function handle(context) {
+function handle(context) {
   // log the incoming request body's 'hello' parameter
   context.log.info(context.body.hello);
 }
@@ -274,26 +298,32 @@ Access the function via `curl` to invoke it.
 curl -X POST -d '{"hello": "world"}'  -H'Content-type: application/json' http://example.com
 ```
 
-The function will log 
+The function will log
+
 ```console
 {"level":30,"time":1604511655265,"pid":3430203,"hostname":"localhost.localdomain","reqId":1,"msg":"world"}
 ```
 
 ### `headers`
+
 Returns the HTTP request headers as an object.
 
 #### Example
+
 ```js
-Function handle(context) {
-  context.log.info(context.headers[custom-header]);
+function handle(context) {
+  context.log.info(context.headers[custom - header]);
 }
 ```
+
 Access the function via `curl` to invoke it.
 
 ```console
 curl -H'x-custom-header: some-value’' http://example.com
 ```
-The function will log 
+
+The function will log
+
 ```console
 {"level":30,"time":1604511655265,"pid":3430203,"hostname":"localhost.localdomain","reqId":1,"msg":"some-value"}
 ```
@@ -302,8 +332,8 @@ The function will log
 
 Returns the HTTP request method as a string.
 
-
 ### `httpVersion`
+
 Returns the HTTP version as a string.
 
 ### `httpVersionMajor`
@@ -311,12 +341,15 @@ Returns the HTTP version as a string.
 Returns the HTTP major version number as a string.
 
 ### `httpVersionMinor`
+
 Returns the HTTP minor version number as a string.
 
 ### `httpVersionMinor`
+
 Returns the HTTP minor version number as a string.
 
 ## Context Methods
+
 There is a single method on the `Context` object which is a convenience
 function for returning a `CloudEvent` object. In Knative systems, if a function
 service is invoked by an event broker with a `CloudEvent`, the broker will
@@ -324,9 +357,11 @@ examine the response. If the response is a `CloudEvent`, this event will then
 be handled by the broker just as with any other event it receives.
 
 ### cloudEventResponse()
+
 A function which accepts a data value and returns a CloudEvent.
 
 #### Example
+
 ```js
 // Expects to receive a CloudEvent with customer data
 function handle(context, event) {
@@ -337,11 +372,13 @@ function handle(context, event) {
 ```
 
 ## Dependencies
+
 Developers are not restricted to the dependencies provided in the template
 `package.json` file. Additional dependencies can be added as they would be in any
 other Node.js project.
 
 ### Example
+
 ```console
 npm install --save opossum
 ```
