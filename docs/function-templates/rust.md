@@ -4,7 +4,7 @@ When creating a Rust function using the `func` CLI, the project
 directory looks like a typical Rust project. Both HTTP and Event
 functions have the same template structure:
 
-```
+```bash
 ❯ func create -l rust fn
 Project path: /home/jim/src/func/fn
 Function name: fn
@@ -37,11 +37,11 @@ For an event-triggered function, pass the `-t events` option to
 generate an app capable of responding to
 [CloudEvents](https://cloudevents.io):
 
-```
+```bash
 ❯ func create -l rust -t events fn
 ```
 
 The handlers of each app differ slightly. See its generated
-[README.md](../../templates/rust/events/README.md) for more details.
+[README.md](../../templates/rust/cloudevents/README.md) for more details.
 
 Have fun!
