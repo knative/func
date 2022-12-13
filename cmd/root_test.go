@@ -209,24 +209,28 @@ func TestRoot_CommandNameParameterized(t *testing.T) {
 
 func TestVerbose(t *testing.T) {
 	tests := []struct {
-		name string
-		args []string
-		want string
+		name   string
+		args   []string
+		want   string
+		wantLF int
 	}{
 		{
-			name: "verbose as version's flag",
-			args: []string{"version", "-v"},
-			want: "v0.42.0-cafe-1970-01-01\n",
+			name:   "verbose as version's flag",
+			args:   []string{"version", "-v"},
+			want:   "Version: v0.42.0-cafe-1970-01-01",
+			wantLF: 3,
 		},
 		{
-			name: "no verbose",
-			args: []string{"version"},
-			want: "v0.42.0\n",
+			name:   "no verbose",
+			args:   []string{"version"},
+			want:   "v0.42.0",
+			wantLF: 1,
 		},
 		{
-			name: "verbose as root's flag",
-			args: []string{"--verbose", "version"},
-			want: "v0.42.0-cafe-1970-01-01\n",
+			name:   "verbose as root's flag",
+			args:   []string{"--verbose", "version"},
+			want:   "Version: v0.42.0-cafe-1970-01-01",
+			wantLF: 3,
 		},
 	}
 	for _, tt := range tests {
@@ -249,8 +253,12 @@ func TestVerbose(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if out.String() != tt.want {
-				t.Errorf("expected output: %q but got: %q", tt.want, out.String())
+			outLines := strings.Split(out.String(), "\n")
+			if len(outLines)-1 != tt.wantLF {
+				t.Errorf("expected output with %v line breaks but got %v:", tt.wantLF, len(outLines)-1)
+			}
+			if outLines[0] != tt.want {
+				t.Errorf("expected output: %q but got: %q", tt.want, outLines[0])
 			}
 		})
 	}
