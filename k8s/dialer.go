@@ -135,6 +135,7 @@ func (c *contextDialer) startDialerPod(ctx context.Context) (err error) {
 			Annotations: nil,
 		},
 		Spec: coreV1.PodSpec{
+			SecurityContext: defaultPodSecurityContext(),
 			Containers: []coreV1.Container{
 				{
 					Name:            c.podName,
