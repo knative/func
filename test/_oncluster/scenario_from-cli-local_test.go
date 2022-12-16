@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/util/rand"
 	fn "knative.dev/func"
 	common "knative.dev/func/test/_common"
 	e2e "knative.dev/func/test/_e2e"
@@ -17,7 +18,7 @@ import (
 // but users wants to run a local build on its machine
 func TestFromCliBuildLocal(t *testing.T) {
 
-	var funcName = "test-func-cli-local"
+	var funcName = "test-func-cli-local" + rand.String(5)
 	var funcPath = filepath.Join(t.TempDir(), funcName)
 
 	knFunc := common.NewKnFuncShellCli(t)

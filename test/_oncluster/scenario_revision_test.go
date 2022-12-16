@@ -18,6 +18,7 @@ import (
 	"strings"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/util/rand"
 	fn "knative.dev/func"
 	common "knative.dev/func/test/_common"
 	e2e "knative.dev/func/test/_e2e"
@@ -38,7 +39,7 @@ func TestFromFeatureBranch(t *testing.T) {
 	assertBodyFn := func(response string) bool {
 		return strings.Contains(response, "hello branch")
 	}
-	GitRevisionCheck(t, "test-func-feature-branch", setupCodeFn, assertBodyFn)
+	GitRevisionCheck(t, "test-func-feature-branch"+rand.String(5), setupCodeFn, assertBodyFn)
 }
 
 func TestFromRevisionTag(t *testing.T) {
@@ -61,7 +62,7 @@ func TestFromRevisionTag(t *testing.T) {
 	assertBodyFn := func(response string) bool {
 		return strings.Contains(response, "hello v1")
 	}
-	GitRevisionCheck(t, "test-func-tag", setupCodeFn, assertBodyFn)
+	GitRevisionCheck(t, "test-func-tag"+rand.String(5), setupCodeFn, assertBodyFn)
 }
 
 func TestFromCommitHash(t *testing.T) {
@@ -85,7 +86,7 @@ func TestFromCommitHash(t *testing.T) {
 	assertBodyFn := func(response string) bool {
 		return strings.Contains(response, "hello v1")
 	}
-	GitRevisionCheck(t, "test-func-commit", setupCodeFn, assertBodyFn)
+	GitRevisionCheck(t, "test-func-commit"+rand.String(5), setupCodeFn, assertBodyFn)
 }
 
 func GitRevisionCheck(

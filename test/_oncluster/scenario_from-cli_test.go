@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"gotest.tools/v3/assert"
+	"k8s.io/apimachinery/pkg/util/rand"
 	common "knative.dev/func/test/_common"
 	e2e "knative.dev/func/test/_e2e"
 )
@@ -30,7 +31,7 @@ import (
 // TestFromCliDefaultBranch triggers a default branch test by using CLI flags
 func TestFromCliDefaultBranch(t *testing.T) {
 
-	var gitProjectName = "test-func-yaml-build-local"
+	var gitProjectName = "test-func-yaml-build-local" + rand.String(5)
 	var gitProjectPath = filepath.Join(t.TempDir(), gitProjectName)
 	var funcName = gitProjectName
 	var funcPath = gitProjectPath
@@ -64,7 +65,7 @@ func TestFromCliDefaultBranch(t *testing.T) {
 // TestFromCliFeatureBranch trigger a feature branch test by using CLI flags
 func TestFromCliFeatureBranch(t *testing.T) {
 
-	var funcName = "test-func-cli-feature-branch"
+	var funcName = "test-func-cli-feature-branch" + rand.String(5)
 	var funcPath = filepath.Join(t.TempDir(), funcName)
 
 	gitServer := common.GitTestServerProvider{}
@@ -106,7 +107,7 @@ func TestFromCliFeatureBranch(t *testing.T) {
 // TestFromCliContextDirFunc triggers a context dir test by using CLI flags
 func TestFromCliContextDirFunc(t *testing.T) {
 
-	var gitProjectName = "test-project"
+	var gitProjectName = "test-project" + rand.String(5)
 	var gitProjectPath = filepath.Join(t.TempDir(), gitProjectName)
 	var funcName = "test-func-context-dir"
 	var funcContextDir = filepath.Join("functions", funcName)

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"k8s.io/apimachinery/pkg/util/rand"
 	common "knative.dev/func/test/_common"
 	e2e "knative.dev/func/test/_e2e"
 )
@@ -52,7 +53,7 @@ func TestRuntime(t *testing.T) {
 
 func runtimeImpl(t *testing.T, lang string, builder string) {
 
-	var gitProjectName = fmt.Sprintf("test-runtime-%v-%v", lang, builder)
+	var gitProjectName = fmt.Sprintf("test-runtime-%v-%v-%v", lang, builder, rand.String(5))
 	var gitProjectPath = filepath.Join(t.TempDir(), gitProjectName)
 	var funcName = gitProjectName
 	var funcPath = gitProjectPath

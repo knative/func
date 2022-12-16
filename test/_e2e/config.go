@@ -3,6 +3,8 @@ package e2e
 import (
 	"os"
 	"strings"
+
+	"knative.dev/func/openshift"
 )
 
 // Intended to provide setup configuration for E2E tests
@@ -11,9 +13,23 @@ const (
 	testTemplateRepository = "http://github.com/boson-project/test-templates.git" //nolint:varcheck,deadcode
 )
 
+var testRegistry = ""
+
+func init() {
+	// Setup test Registry.
+	testRegistry = os.Getenv("E2E_REGISTRY_URL")
+	if testRegistry == "" || testRegistry == "default" {
+		if openshift.IsOpenShift() {
+			testRegistry = openshift.GetDefaultRegistry()
+		} else {
+			testRegistry = defaultRegistry
+		}
+	}
+}
+
 // GetRegistry returns registry
 func GetRegistry() string {
-	return getOsEnvOrDefault("E2E_REGISTRY_URL", defaultRegistry)
+	return testRegistry
 }
 
 // GetFuncBinaryPath should return the Path of 'func' binary under test
