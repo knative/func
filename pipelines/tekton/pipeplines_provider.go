@@ -13,6 +13,8 @@ import (
 	"strings"
 	"sync"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	gitignore "github.com/sabhiram/go-gitignore"
@@ -21,7 +23,6 @@ import (
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
 
@@ -91,7 +92,7 @@ func NewPipelinesProvider(opts ...Opt) *PipelinesProvider {
 
 // Run creates a Tekton Pipeline and all necessary resources (PVCs, Secrets, SAs,...) for the input Function.
 // It ensures that all needed resources are present on the cluster so the PipelineRun can be initialized.
-// After the PipelineRun is being intitialized, the progress of the PipelineRun is being watched and printed to the output.
+// After the PipelineRun is being initialized, the progress of the PipelineRun is being watched and printed to the output.
 func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 	pp.progressListener.Increment("Creating Pipeline resources")
 
@@ -105,7 +106,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 	}
 	pp.namespace = namespace
 
-	// let's specify labels that will be applied to every resouce that is created for a Pipeline
+	// let's specify labels that will be applied to every resource that is created for a Pipeline
 	labels, err := f.LabelsMap()
 	if err != nil {
 		return err
@@ -114,11 +115,9 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 		labels = pp.decorator.UpdateLabels(f, labels)
 	}
 
-	err = k8s.CreatePersistentVolumeClaim(ctx, getPipelinePvcName(f), pp.namespace, labels, f.Deploy.Annotations, corev1.ReadWriteOnce, *resource.NewQuantity(DefaultPersistentVolumeClaimSize, resource.DecimalSI))
+	err = createPipelinePersistentVolumeClaim(ctx, f, pp.namespace, labels, DefaultPersistentVolumeClaimSize)
 	if err != nil {
-		if !errors.IsAlreadyExists(err) {
-			return fmt.Errorf("problem creating persistent volume claim: %v", err)
-		}
+		return err
 	}
 
 	if f.Build.Git.URL == "" {
@@ -423,4 +422,15 @@ func getFailedPipelineRunLog(ctx context.Context, pr *v1beta1.PipelineRun, names
 	}
 
 	return message
+}
+
+// allows simple mocking in unit tests, use with caution regarding concurrency
+var createPersistentVolumeClaim = k8s.CreatePersistentVolumeClaim
+
+func createPipelinePersistentVolumeClaim(ctx context.Context, f fn.Function, namespace string, labels map[string]string, size int64) error {
+	err := createPersistentVolumeClaim(ctx, getPipelinePvcName(f), namespace, labels, f.Deploy.Annotations, corev1.ReadWriteOnce, *resource.NewQuantity(size, resource.DecimalSI))
+	if err != nil && !errors.IsAlreadyExists(err) {
+		return fmt.Errorf("problem creating persistent volume claim: %v", err)
+	}
+	return nil
 }
