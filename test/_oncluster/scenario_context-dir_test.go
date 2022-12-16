@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"gotest.tools/v3/assert"
+	"k8s.io/apimachinery/pkg/util/rand"
 	common "knative.dev/func/test/_common"
 	e2e "knative.dev/func/test/_e2e"
 )
@@ -19,7 +20,7 @@ import (
 //     public git repository from the main branch, to get deployed on my cluster
 func TestContextDirFunc(t *testing.T) {
 
-	var gitProjectName = "test-project"
+	var gitProjectName = "test-project" + rand.String(5)
 	var gitProjectPath = filepath.Join(t.TempDir(), gitProjectName)
 	var funcName = "test-func-context-dir"
 	var funcContextDir = filepath.Join("functions", funcName)

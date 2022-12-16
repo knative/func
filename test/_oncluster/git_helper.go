@@ -22,7 +22,7 @@ func GitInitialCommitAndPush(t *testing.T, gitProjectPath string, originCloneURL
 
 	sh = common.NewShellCmd(t, gitProjectPath)
 	sh.ShouldFailOnError = true
-	sh.ShouldDumpOnSuccess = true
+	sh.ShouldDumpOnSuccess = false
 	sh.Exec(`git init`)
 	sh.Exec(`git branch -M main`)
 	sh.Exec(`git add .`)

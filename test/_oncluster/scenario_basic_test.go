@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"gotest.tools/v3/assert"
+	"k8s.io/apimachinery/pkg/util/rand"
 	common "knative.dev/func/test/_common"
 	e2e "knative.dev/func/test/_e2e"
 )
@@ -17,7 +18,7 @@ import (
 // TestBasicUpload check if direct source upload works
 func TestBasicUpload(t *testing.T) {
 
-	var funcName = "test-func-basic-upload"
+	var funcName = "test-func-basic-upload" + rand.String(5)
 	var funcPath = filepath.Join(t.TempDir(), funcName)
 
 	func() {
@@ -64,7 +65,7 @@ func TestBasicUpload(t *testing.T) {
 // code changes (new commits) will be properly built and deployed on new revision
 func TestBasicGit(t *testing.T) {
 
-	var funcName = "test-func-basic-git"
+	var funcName = "test-func-basic-git" + rand.String(5)
 	var funcPath = filepath.Join(t.TempDir(), funcName)
 
 	func() {

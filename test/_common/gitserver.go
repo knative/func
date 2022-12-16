@@ -90,10 +90,11 @@ func (g *GitTestServerProvider) CreateRepository(repoName string) *GitRemoteRepo
 	if !strings.Contains(cmdResult.Stdout, "created") {
 		g.t.Fatal("unable to create git bare repository " + repoName)
 	}
+	namespace, _, _ := k8s.GetClientConfig().Namespace()
 	gitRepo := &GitRemoteRepo{
 		RepoName:         repoName,
 		ExternalCloneURL: g.ServiceUrl + "/" + repoName + ".git",
-		ClusterCloneURL:  "http://func-git.default.svc.cluster.local/" + repoName + ".git",
+		ClusterCloneURL:  "http://func-git." + namespace + ".svc.cluster.local/" + repoName + ".git",
 	}
 	return gitRepo
 }
