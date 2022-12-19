@@ -2,12 +2,18 @@ package tekton
 
 import (
 	"archive/tar"
+	"context"
 	"errors"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	corev1 "k8s.io/api/core/v1"
+	apiErrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	fn "knative.dev/func"
 )
@@ -64,5 +70,64 @@ func TestSourcesAsTarStream(t *testing.T) {
 	}
 	if !symlinkFound {
 		t.Error("symlink missing in the stream")
+	}
+}
+
+func Test_createPipelinePersistentVolumeClaim(t *testing.T) {
+	type mockType func(ctx context.Context, name, namespaceOverride string, labels map[string]string, annotations map[string]string, accessMode corev1.PersistentVolumeAccessMode, resourceRequest resource.Quantity) (err error)
+
+	type args struct {
+		ctx       context.Context
+		f         fn.Function
+		namespace string
+		labels    map[string]string
+		size      int64
+	}
+	tests := []struct {
+		name    string
+		args    args
+		mock    mockType
+		wantErr bool
+	}{
+		{
+			name: "returns error if pvc creation failed",
+			args: args{
+				ctx:       context.Background(),
+				f:         fn.Function{},
+				namespace: "test-ns",
+				labels:    nil,
+				size:      DefaultPersistentVolumeClaimSize,
+			},
+			mock: func(ctx context.Context, name, namespaceOverride string, labels map[string]string, annotations map[string]string, accessMode corev1.PersistentVolumeAccessMode, resourceRequest resource.Quantity) (err error) {
+				return errors.New("creation of pvc failed")
+			},
+			wantErr: true,
+		},
+		{
+			name: "returns nil if pvc already exists",
+			args: args{
+				ctx:       context.Background(),
+				f:         fn.Function{},
+				namespace: "test-ns",
+				labels:    nil,
+				size:      DefaultPersistentVolumeClaimSize,
+			},
+			mock: func(ctx context.Context, name, namespaceOverride string, labels map[string]string, annotations map[string]string, accessMode corev1.PersistentVolumeAccessMode, resourceRequest resource.Quantity) (err error) {
+				return &apiErrors.StatusError{ErrStatus: metav1.Status{Reason: metav1.StatusReasonAlreadyExists}}
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// save current function and restore it at the end
+			old := createPersistentVolumeClaim
+			defer func() { createPersistentVolumeClaim = old }()
+
+			createPersistentVolumeClaim = tt.mock
+			if err := createPipelinePersistentVolumeClaim(tt.args.ctx, tt.args.f, tt.args.namespace, tt.args.labels, tt.args.size); (err != nil) != tt.wantErr {
+				t.Errorf("createPipelinePersistentVolumeClaim() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
 	}
 }
