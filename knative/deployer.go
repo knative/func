@@ -347,6 +347,13 @@ func generateNewService(f fn.Function, decorator DeployDecorator) (*v1.Service, 
 		annotations = decorator.UpdateAnnotations(f, annotations)
 	}
 
+	// we need to create a separate map for Annotations specified in a Revision,
+	// in case we will need to specify autoscaling annotations -> these could be only in a Revision not in a Service
+	revisionAnnotations := make(map[string]string)
+	for k, v := range annotations {
+		revisionAnnotations[k] = v
+	}
+
 	service := &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        f.Name,
@@ -358,7 +365,7 @@ func generateNewService(f fn.Function, decorator DeployDecorator) (*v1.Service, 
 				Template: v1.RevisionTemplateSpec{
 					ObjectMeta: metav1.ObjectMeta{
 						Labels:      labels,
-						Annotations: annotations,
+						Annotations: revisionAnnotations,
 					},
 					Spec: v1.RevisionSpec{
 						PodSpec: corev1.PodSpec{
