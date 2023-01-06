@@ -15,6 +15,7 @@ import (
 	"knative.dev/func/docker"
 	"knative.dev/func/knative"
 	. "knative.dev/func/testing"
+	"knative.dev/pkg/ptr"
 )
 
 /*
@@ -115,6 +116,46 @@ func TestDeploy(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer del(t, client, "deploy")
+
+	if err := client.Deploy(context.Background(), "."); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestDeployWithOptions deploys function with all options explicitly set
+func TestDeployWithOptions(t *testing.T) {
+	defer Within(t, "testdata/example.com/deployoptions")()
+	verbose := true
+
+	ds := fn.DeploySpec{
+		Options: fn.Options{
+			Scale: &fn.ScaleOptions{
+				Min:         ptr.Int64(1),
+				Max:         ptr.Int64(10),
+				Metric:      ptr.String("concurrency"),
+				Target:      ptr.Float64(5),
+				Utilization: ptr.Float64(5),
+			},
+			Resources: &fn.ResourcesOptions{
+				Requests: &fn.ResourcesRequestsOptions{
+					CPU:    ptr.String("10m"),
+					Memory: ptr.String("100m"),
+				},
+				Limits: &fn.ResourcesLimitsOptions{
+					CPU:         ptr.String("1000m"),
+					Memory:      ptr.String("1000M"),
+					Concurrency: ptr.Int64(10),
+				},
+			},
+		},
+	}
+
+	client := newClient(verbose)
+
+	if err := client.New(context.Background(), fn.Function{Name: "deployoptions", Root: ".", Runtime: "go", Deploy: ds}); err != nil {
+		t.Fatal(err)
+	}
+	defer del(t, client, "deployoptions")
 
 	if err := client.Deploy(context.Background(), "."); err != nil {
 		t.Fatal(err)
