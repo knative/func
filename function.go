@@ -30,7 +30,7 @@ type Function struct {
 	// Name of the function.
 	Name string `yaml:"name" jsonschema:"pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"`
 
-	// Runtime is the language plus context.  nodejs|go|quarkus|rust etc.
+	// Runtime is the language plus context.  nodejs|go|quarkus|rust|csharp etc.
 	Runtime string `yaml:"runtime"`
 
 	// Template for the function.

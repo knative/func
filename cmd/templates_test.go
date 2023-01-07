@@ -33,7 +33,9 @@ rust         http
 springboot   cloudevents
 springboot   http
 typescript   cloudevents
-typescript   http`
+typescript   http
+csharp		 cloudevents
+csharp		 http`
 	output := buf()
 	if output != expected {
 		t.Fatalf("expected:\n'%v'\n\ngot:\n'%v'\n", expected, output)
@@ -78,6 +80,10 @@ func TestTemplates_JSON(t *testing.T) {
     "http"
   ],
   "typescript": [
+    "cloudevents",
+    "http"
+  ],
+  "csharp": [
     "cloudevents",
     "http"
   ]

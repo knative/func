@@ -1235,6 +1235,7 @@ func TestClient_Runtimes(t *testing.T) {
 		"springboot",
 		"test",
 		"typescript",
+		"csharp",
 	}
 
 	if !reflect.DeepEqual(runtimes, expected) {

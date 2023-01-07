@@ -104,6 +104,16 @@ func Test_validatePipeline(t *testing.T) {
 			function: fn.Function{Build: fn.BuildSpec{Builder: builders.S2I}, Runtime: "rust"},
 			wantErr:  true,
 		},
+		{
+			name:     "Unsupported runtime - CSharp - pack builder - without additional Buildpacks",
+			function: fn.Function{Build: fn.BuildSpec{Builder: builders.Pack}, Runtime: "csharp"},
+			wantErr:  true,
+		},
+		{
+			name:     "Unsupported runtime - CSharp - s2i builder",
+			function: fn.Function{Build: fn.BuildSpec{Builder: builders.S2I}, Runtime: "csharp"},
+			wantErr:  true,
+		},
 	}
 
 	for _, tt := range tests {
