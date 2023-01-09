@@ -23,11 +23,11 @@ func NewBuildCmd(newClient ClientFactory) *cobra.Command {
 		Short: "Build a Function",
 		Long: `
 NAME
-	{{.Name}} build - Build a Function
+	{{rootCmdUse}} {{.Use}} - Build a Function
 
 SYNOPSIS
-	{{.Name}} build [-r|--registry] [--builder] [--builder-image] [--push]
-	             [--palatform] [-p|--path] [-c|--confirm] [-v|--verbose]
+	{{rootCmdUse}} {{.Use}} [-r|--registry] [--builder] [--builder-image] [--push]
+	             [--platform] [-p|--path] [-c|--confirm] [-v|--verbose]
 
 DESCRIPTION
 
@@ -37,7 +37,7 @@ DESCRIPTION
 	By default building is handled automatically when deploying (see the deploy
 	subcommand). However, sometimes it is useful to build a function container
 	outside of this normal deployment process, for example for testing or during
-	composition when integrationg with other systems. Additionally, the container
+	composition when integrating with other systems. Additionally, the container
 	can be pushed to the configured registry using the --push option.
 
 	When building a function for the first time, either a registry or explicit
@@ -47,21 +47,21 @@ EXAMPLES
 
 	o Build a function container using the given registry.
 	  The full image name will be calculated using the registry and function name.
-	  $ {{.Name}} build --registry registry.example.com/alice
+	  $ {{rootCmdUse}} {{.Use}} --registry registry.example.com/alice
 
 	o Build a function container using an explicit image name, ignoring registry
 	  and function name.
-		$ {{.Name}} build --image registry.example.com/alice/f:latest
+      $ {{rootCmdUse}} {{.Use}} --image registry.example.com/alice/f:latest
 
 	o Rebuild a function using prior values to determine container name.
-	  $ {{.Name}} build
+	  $ {{rootCmdUse}} {{.Use}}
 
 	o Build a function specifying the Source-to-Image (S2I) builder
-	  $ {{.Name}} build --builder=s2i
+	  $ {{rootCmdUse}} {{.Use}} --builder=s2i
 
 	o Build a function specifying the Pack builder with a custom Buildpack
 	  builder image.
-		$ {{.Name}} build --builder=pack --builder-image=cnbs/sample-builder:bionic
+      $ {{rootCmdUse}} {{.Use}} --builder=pack --builder-image=cnbs/sample-builder:bionic
 
 `,
 		SuggestFor: []string{"biuld", "buidl", "built"},
@@ -125,9 +125,6 @@ EXAMPLES
 	if err := cmd.RegisterFlagCompletionFunc("builder-image", CompleteBuilderImageList); err != nil {
 		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
 	}
-
-	// Help Text
-	cmd.SetHelpFunc(defaultTemplatedHelp)
 
 	return cmd
 }
