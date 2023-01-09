@@ -6,7 +6,6 @@ import (
 	"os"
 	"strings"
 	"text/tabwriter"
-	"text/template"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/ory/viper"
@@ -141,43 +140,6 @@ func runCreate(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 	// Confirm
 	fmt.Fprintf(cmd.OutOrStderr(), "Created %v function in %v\n", cfg.Runtime, cfg.Path)
 	return nil
-}
-
-// Run Help
-func runCreateHelp(cmd *cobra.Command, args []string, newClient ClientFactory) {
-	// Error-tolerant implementation:
-	// Help can not fail when creating the client config (such as on invalid
-	// flag values) because help text is needed in that situation.   Therefore,
-	// this implementation must be resilient to cfg zero value.
-	failSoft := func(err error) {
-		if err != nil {
-			fmt.Fprintf(cmd.OutOrStderr(), "error: help text may be partial: %v", err)
-		}
-	}
-
-	tpl := createHelpTemplate(cmd)
-
-	cfg, err := newCreateConfig(cmd, args, newClient)
-	failSoft(err)
-
-	client, done := newClient(
-		ClientConfig{Verbose: cfg.Verbose},
-		fn.WithRepository(cfg.Repository))
-	defer done()
-
-	options, err := RuntimeTemplateOptions(client) // human-friendly
-	failSoft(err)
-
-	var data = struct {
-		Options string
-		Name    string
-	}{
-		Options: options,
-		Name:    cmd.Root().Use,
-	}
-	if err := tpl.Execute(cmd.OutOrStdout(), data); err != nil {
-		fmt.Fprintf(cmd.ErrOrStderr(), "unable to display help text: %v", err)
-	}
 }
 
 type createConfig struct {
@@ -524,23 +486,6 @@ func templatesWithPrefix(prefix, runtime string, client *fn.Client) ([]string, e
 		}
 	}
 	return suggestions, nil
-}
-
-// Template Helpers
-// ---------------
-
-// createHelpTemplate is the template for the create command help
-func createHelpTemplate(cmd *cobra.Command) *template.Template {
-	body := cmd.Long + "\n\n" + cmd.UsageString()
-	t := template.New("help")
-	fm := template.FuncMap{
-		"indent": func(i int, c string, v string) string {
-			indentation := strings.Repeat(c, i)
-			return indentation + strings.Replace(v, "\n", "\n"+indentation, -1)
-		},
-	}
-	t.Funcs(fm)
-	return template.Must(t.Parse(body))
 }
 
 // RuntimeTemplateOptions is a human-friendly table of valid Language Runtime
