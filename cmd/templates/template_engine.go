@@ -85,6 +85,7 @@ func (e templateEngine) templateFunctions() template.FuncMap {
 		"visibleFlags":      visibleFlags,
 		"rpad":              rpad,
 		"rootCmdName":       e.rootCmdName,
+		"rootCmdUse":        e.rootCmdUse,
 		"isRootCmd":         e.isRootCmd,
 		"flagsUsages":       flagsUsagesCobra, // or use flagsUsagesKubectl for kubectl like flag styles
 		"trim":              strings.TrimSpace,
@@ -110,6 +111,10 @@ func (e templateEngine) subCommandsString(c *cobra.Command) string {
 
 func (e templateEngine) rootCmdName() string {
 	return e.RootCmd.CommandPath()
+}
+
+func (e templateEngine) rootCmdUse() string {
+	return e.RootCmd.Use
 }
 
 func (e templateEngine) isRootCmd(c *cobra.Command) bool {
