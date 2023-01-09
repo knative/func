@@ -23,10 +23,10 @@ func NewBuildCmd(newClient ClientFactory) *cobra.Command {
 		Short: "Build a Function",
 		Long: `
 NAME
-	{{rootCmdUse}} {{.Use}} - Build a Function
+	{{rootCmdUse}} build - Build a Function
 
 SYNOPSIS
-	{{rootCmdUse}} {{.Use}} [-r|--registry] [--builder] [--builder-image] [--push]
+	{{rootCmdUse}} build [-r|--registry] [--builder] [--builder-image] [--push]
 	             [--platform] [-p|--path] [-c|--confirm] [-v|--verbose]
 
 DESCRIPTION
@@ -47,21 +47,21 @@ EXAMPLES
 
 	o Build a function container using the given registry.
 	  The full image name will be calculated using the registry and function name.
-	  $ {{rootCmdUse}} {{.Use}} --registry registry.example.com/alice
+	  $ {{rootCmdUse}} build --registry registry.example.com/alice
 
 	o Build a function container using an explicit image name, ignoring registry
 	  and function name.
-      $ {{rootCmdUse}} {{.Use}} --image registry.example.com/alice/f:latest
+      $ {{rootCmdUse}} build --image registry.example.com/alice/f:latest
 
 	o Rebuild a function using prior values to determine container name.
-	  $ {{rootCmdUse}} {{.Use}}
+	  $ {{rootCmdUse}} build
 
 	o Build a function specifying the Source-to-Image (S2I) builder
-	  $ {{rootCmdUse}} {{.Use}} --builder=s2i
+	  $ {{rootCmdUse}} build --builder=s2i
 
 	o Build a function specifying the Pack builder with a custom Buildpack
 	  builder image.
-      $ {{rootCmdUse}} {{.Use}} --builder=pack --builder-image=cnbs/sample-builder:bionic
+      $ {{rootCmdUse}} build --builder=pack --builder-image=cnbs/sample-builder:bionic
 
 `,
 		SuggestFor: []string{"biuld", "buidl", "built"},

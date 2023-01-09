@@ -29,17 +29,17 @@ to the function's source.  Use --build to override this behavior.
 `,
 		Example: `
 # Run the function locally, building if necessary
-{{.Name}} run
+{{rootCmdUse}} run
 
 # Run the function, forcing a rebuild of the image.
 #   This is useful when the function's image was manually deleted, necessitating
 #   A rebuild even when no changes have been made the function's source.
-{{.Name}} run --build
+{{rootCmdUse}} run --build
 
 # Run the function's existing image, disabling auto-build.
 #   This is useful when filesystem changes have been made, but one wishes to
 #   run the previously built image without rebuilding.
-{{.Name}} run --build=false
+{{rootCmdUse}} run --build=false
 
 `,
 		SuggestFor: []string{"rnu"},
@@ -54,8 +54,6 @@ to the function's source.  Use --build to override this behavior.
 	cmd.Flags().Lookup("build").NoOptDefVal = "true" // --build is equivalient to --build=true
 	cmd.Flags().StringP("registry", "r", "", "Registry + namespace part of the image if building, ex 'quay.io/myuser' (Env: $FUNC_REGISTRY)")
 	setPathFlag(cmd)
-
-	cmd.SetHelpFunc(defaultTemplatedHelp)
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		return runRun(cmd, args, newClient)

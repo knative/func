@@ -23,10 +23,10 @@ func NewTemplatesCmd(newClient ClientFactory) *cobra.Command {
 		Short: "Templates",
 		Long: `
 NAME
-	{{.Name}} templates - list available templates
+	{{rootCmdUse}} templates - list available templates
 
 SYNOPSIS
-	{{.Name}} templates [language] [--json] [-r|--repository]
+	{{rootCmdUse}} templates [language] [--json] [-r|--repository]
 
 DESCRIPTION
 	List all templates available, optionally for a specific language runtime.
@@ -44,16 +44,16 @@ DESCRIPTION
 EXAMPLES
 
 	o Show a list of all available templates grouped by language runtime
-	  $ {{.Name}} templates
+	  $ {{rootCmdUse}} templates
 
 	o Show a list of all templates for the Go runtime
-	  $ {{.Name}} templates go
+	  $ {{rootCmdUse}} templates go
 
 	o Return a list of all template runtimes in JSON output format
-	  $ {{.Name}} templates --json
+	  $ {{rootCmdUse}} templates --json
 
 	o Return Go templates in a specific repository
-		$ {{.Name}} templates go --repository=https://github.com/boson-project/templates
+		$ {{rootCmdUse}} templates go --repository=https://github.com/boson-project/templates
 `,
 		SuggestFor: []string{"template", "templtaes", "templatse", "remplates",
 			"gemplates", "yemplates", "tenplates", "tekplates", "tejplates",
@@ -65,8 +65,6 @@ EXAMPLES
 
 	cmd.Flags().Bool("json", false, "Set output to JSON format. (Env: $FUNC_JSON)")
 	cmd.Flags().StringP("repository", "r", "", "URI to a specific repository to consider (Env: $FUNC_REPOSITORY)")
-
-	cmd.SetHelpFunc(defaultTemplatedHelp)
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		return runTemplates(cmd, args, newClient)

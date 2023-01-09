@@ -33,10 +33,10 @@ func NewDeployCmd(newClient ClientFactory) *cobra.Command {
 		Short: "Deploy a Function",
 		Long: `
 NAME
-	{{rootCmdUse}} {{.Use}} - Deploy a Function
+	{{rootCmdUse}} deploy - Deploy a Function
 
 SYNOPSIS
-	{{rootCmdUse}} {{.Use}} [-R|--remote] [-r|--registry] [-i|--image] [-n|--namespace]
+	{{rootCmdUse}} deploy [-R|--remote] [-r|--registry] [-i|--image] [-n|--namespace]
 	             [-e|env] [-g|--git-url] [-t|git-branch] [-d|--git-dir]
 	             [-b|--build] [--builder] [--builder-image] [-p|--push]
 	             [--platform] [-c|--confirm] [-v|--verbose]
@@ -57,7 +57,7 @@ DESCRIPTION
 	can be provided explicitly using --image, in which case it is used in place
 	of --registry.
 
-	To run {{.Use}} using an interactive mode, use the --confirm (-c) option.
+	To run deploy using an interactive mode, use the --confirm (-c) option.
 	This mode is useful for the first deployment in particular, since subsdequent
 	deployments remember most of the settings provided.
 
@@ -71,52 +71,52 @@ DESCRIPTION
 	  registry after being successfully built.  The --push flag can be used
 	  to disable pushing.  This could be used, for example, to trigger a redeploy
 	  of a service without needing to build, or even have the container available
-	  locally with '{{rootCmdUse}} {{.Use}} --build=false --push==false'.
+	  locally with '{{rootCmdUse}} deploy --build=false --push==false'.
 
 	Remote
 	  Building and pushing (deploying) is by default run on localhost.  This
 	  process can also be triggered to run remotely in a Tekton-enabled cluster.
 	  The --remote flag indicates that a build and deploy pipeline should be
-	  invoked in the remote.  Deploying with '{{rootCmdUse}} {{.Use}} --remote' will
+	  invoked in the remote.  Deploying with '{{rootCmdUse}} deploy --remote' will
 	  send the function's source code to be built and deployed by the cluster,
 	  eliminating the need for a local container engine.  To trigger deployment
 	  of a git repository instead of local source, combine with '--git-url':
-	  '{{rootCmdUse}} {{.Use}} --remote --git-url=git.example.com/alice/f.git'
+	  '{{rootCmdUse}} deploy --remote --git-url=git.example.com/alice/f.git'
 
 EXAMPLES
 
 	o Deploy the function using interactive prompts. This is useful for the first
 	  deployment, since most settings will be remembered for future deployments.
-	  $ {{rootCmdUse}} {{.Use}} -c
+	  $ {{rootCmdUse}} deploy -c
 
 	o Deploy the function in the current working directory.
 	  The function image will be pushed to "ghcr.io/alice/<Function Name>"
-	  $ {{rootCmdUse}} {{.Use}} --registry ghcr.io/alice
+	  $ {{rootCmdUse}} deploy --registry ghcr.io/alice
 
 	o Deploy the function in the current working directory, manually specifying
 	  the final image name and target cluster namespace.
-	  $ {{rootCmdUse}} {{.Use}} --image ghcr.io/alice/myfunc --namespace myns
+	  $ {{rootCmdUse}} deploy --image ghcr.io/alice/myfunc --namespace myns
 
 	o Deploy the current function's source code by sending it to the cluster to
 	  be built and deployed:
-	  $ {{rootCmdUse}} {{.Use}} --remote
+	  $ {{rootCmdUse}} deploy --remote
 
-	o Trigger a remote {{.Use}}, which instructs the cluster to build and deploy
+	o Trigger a remote deploy, which instructs the cluster to build and deploy
 	  the function in the specified git repository.
-	  $ {{rootCmdUse}} {{.Use}} --remote --git-url=https://example.com/alice/myfunc.git
+	  $ {{rootCmdUse}} deploy --remote --git-url=https://example.com/alice/myfunc.git
 
 	o Deploy the function, rebuilding the image even if no changes have been
 	  detected in the local filesystem (source).
-	  $ {{rootCmdUse}} {{.Use}} --build
+	  $ {{rootCmdUse}} deploy --build
 
 	o Deploy without rebuilding, even if changes have been detected in the
 	  local filesystem.
-	  $ {{rootCmdUse}} {{.Use}} --build=false
+	  $ {{rootCmdUse}} deploy --build=false
 
 	o Redeploy a function which has already been built and pushed. Works without
 	  the use of a local container engine.  For example, if the function was
 	  manually deleted from the cluster, it can be quickly redeployed with:
-	  $ {{rootCmdUse}} {{.Use}} --build=false --push=false
+	  $ {{rootCmdUse}} deploy --build=false --push=false
 
 `,
 		SuggestFor: []string{"delpoy", "deplyo"},

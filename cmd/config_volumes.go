@@ -34,7 +34,6 @@ the current directory or from the directory specified with --path.
 			return
 		},
 	}
-	cmd.SetHelpFunc(defaultTemplatedHelp)
 
 	configVolumesAddCmd := NewConfigVolumesAddCmd()
 	configVolumesRemoveCmd := NewConfigVolumesRemoveCmd()
@@ -69,7 +68,7 @@ in the current directory or from the directory specified with --path.
 			return runAddVolumesPrompt(cmd.Context(), function)
 		},
 	}
-	cmd.SetHelpFunc(defaultTemplatedHelp)
+
 	return cmd
 }
 
@@ -93,7 +92,7 @@ in the current directory or from the directory specified with --path.
 			return runRemoveVolumesPrompt(function)
 		},
 	}
-	cmd.SetHelpFunc(defaultTemplatedHelp)
+
 	return cmd
 }
 

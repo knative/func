@@ -33,16 +33,16 @@ func NewCreateCmd(newClient ClientFactory) *cobra.Command {
 		Short: "Create a function project",
 		Long: `
 NAME
-	{{.Name}} create - Create a function project.
+	{{rootCmdUse}} create - Create a function project.
 
 SYNOPSIS
-	{{.Name}} create [-l|--language] [-t|--template] [-r|--repository]
+	{{rootCmdUse}} create [-l|--language] [-t|--template] [-r|--repository]
 	            [-c|--confirm]  [-v|--verbose]  [path]
 
 DESCRIPTION
 	Creates a new function project.
 
-	  $ {{.Name}} create -l node -t http
+    $ {{rootCmdUse}} create -l node -t http
 
 	Creates a function in the current directory '.' which is written in the
 	language/runtime 'node' and handles HTTP events.
@@ -51,25 +51,25 @@ DESCRIPTION
 	the path if necessary.
 
 	To complete this command interactively, use --confirm (-c):
-	  $ {{.Name}} create -c
+    $ {{rootCmdUse}} create -c
 
 	Available Language Runtimes and Templates:
 {{ .Options | indent 2 " " | indent 1 "\t" }}
 
-	To install more language runtimes and their templates see '{{.Name}} repository'.
+	To install more language runtimes and their templates see '{{rootCmdUse}} repository'.
 
 
 EXAMPLES
 	o Create a Node.js function (the default language runtime) in the current
 	  directory (the default path) which handles http events (the default
 	  template).
-	  $ {{.Name}} create
+	  $ {{rootCmdUse}} create
 
 	o Create a Node.js function in the directory 'myfunc'.
-	  $ {{.Name}} create myfunc
+	  $ {{rootCmdUse}} create myfunc
 
 	o Create a Go function which handles CloudEvents in ./myfunc.
-	  $ {{.Name}} create -l go -t cloudevents myfunc
+	  $ {{rootCmdUse}} create -l go -t cloudevents myfunc
 		`,
 		SuggestFor: []string{"vreate", "creaet", "craete", "new"},
 		PreRunE:    bindEnv("language", "template", "repository", "confirm"),
@@ -86,9 +86,6 @@ EXAMPLES
 	cmd.Flags().StringP("template", "t", fn.DefaultTemplate, "Function template. (see help text for list) (Env: $FUNC_TEMPLATE)")
 	cmd.Flags().StringP("repository", "r", "", "URI to a Git repository containing the specified template (Env: $FUNC_REPOSITORY)")
 	cmd.Flags().BoolP("confirm", "c", cfg.Confirm, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
-
-	// Help Action
-	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) { runCreateHelp(cmd, args, newClient) })
 
 	// Run Action
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {

@@ -13,28 +13,25 @@ func NewVersionCmd(version Version) *cobra.Command {
 		Short: "Show the version",
 		Long: `
 NAME
-	{{.Name}} version - function version information.
+	{{rootCmdUse}} version - function version information.
 
 SYNOPSIS
-	{{.Name}} version [-v|--verbose]
+	{{rootCmdUse}} version [-v|--verbose]
 
 DESCRIPTION
 	Print version information.  Use the --verbose option to see date stamp and
 	associated git source control hash if available.
 
 	o Print the functions version
-	  $ {{.Name}} version
+	  $ {{rootCmdUse}} version
 
 	o Print the functions version along with date and associated git commit hash.
-	  $ {{.Name}} version -v
+	  $ {{rootCmdUse}} version -v
 
 `,
 		SuggestFor: []string{"vers", "verison"}, //nolint:misspell
 		PreRunE:    bindEnv("verbose"),
 	}
-
-	// Help Action
-	cmd.SetHelpFunc(defaultTemplatedHelp)
 
 	// Run Action
 	cmd.Run = func(cmd *cobra.Command, args []string) {
