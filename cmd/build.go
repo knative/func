@@ -51,7 +51,7 @@ EXAMPLES
 
 	o Build a function container using an explicit image name, ignoring registry
 	  and function name.
-      $ {{rootCmdUse}} build --image registry.example.com/alice/f:latest
+	  $ {{rootCmdUse}} build --image registry.example.com/alice/f:latest
 
 	o Rebuild a function using prior values to determine container name.
 	  $ {{rootCmdUse}} build
@@ -61,7 +61,7 @@ EXAMPLES
 
 	o Build a function specifying the Pack builder with a custom Buildpack
 	  builder image.
-      $ {{rootCmdUse}} build --builder=pack --builder-image=cnbs/sample-builder:bionic
+	  $ {{rootCmdUse}} build --builder=pack --builder-image=cnbs/sample-builder:bionic
 
 `,
 		SuggestFor: []string{"biuld", "buidl", "built"},
@@ -80,12 +80,12 @@ EXAMPLES
 	// Function Context
 	f, _ := fn.NewFunction(effectivePath())
 	if f.Initialized() {
-		cfg = cfg.Apply(f) // defined values on f take precidence over cfg defaults
+		cfg = cfg.Apply(f) // defined values on f take precedence over cfg defaults
 	}
 
 	// Flags
 	//
-	// NOTE on falag defaults:
+	// NOTE on flag defaults:
 	// Use the config value when available, as this will include global static
 	// defaults, user settings and the value from the function with context.
 	// Use the function struct for flag flags which are not globally configurable
@@ -147,7 +147,7 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	if err != nil {
 		return
 	}
-	f = cfg.Configure(f) // Updates f at path to include buil request values
+	f = cfg.Configure(f) // Updates f at path to include build request values
 
 	// Checks if there is a difference between defined registry and its value used as a prefix in the image tag
 	// In case of a mismatch a new image tag is created and used for build
@@ -185,7 +185,7 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	defer done()
 
 	// TODO(lkingland): this write will be unnecessary when the client API is
-	// udated to accept function structs rather than a path as argument.
+	// updated to accept function structs rather than a path as argument.
 	if err = f.Write(); err != nil {
 		return
 	}
@@ -200,7 +200,7 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 
 	// TODO(lkingland): when the above Build and Push calls are refactored to not
 	// write the function but instead take and return a function struct, use
-	// `reuturn f.Write()` below and remove from above such that function on disk
+	// `return f.Write()` below and remove from above such that function on disk
 	// is only written on success and thus is always in a known valid state unless
 	// manually edited.
 	// return f.Write()
@@ -261,7 +261,7 @@ func (c buildConfig) Configure(f fn.Function) fn.Function {
 	return f
 }
 
-// Prompt the user with value of config members, allowing for interaractive changes.
+// Prompt the user with value of config members, allowing for interactive changes.
 // Skipped if not in an interactive terminal (non-TTY), or if --confirm false (agree to
 // all prompts) was set (default).
 func (c buildConfig) Prompt() (buildConfig, error) {
@@ -298,8 +298,8 @@ func (c buildConfig) Prompt() (buildConfig, error) {
 	}
 
 	// Image Name Override
-	// Calculate a better image name mesage which shows the value of the final
-	// image name as it will be calclated if an explicit image name is not used.
+	// Calculate a better image name message which shows the value of the final
+	// image name as it will be calculated if an explicit image name is not used.
 	var imagePromptMessageSuffix string
 	if name := deriveImage(c.Image, c.Registry, c.Path); name != "" {
 		imagePromptMessageSuffix = fmt.Sprintf(". if not specified, the default '%v' will be used')", name)
@@ -334,7 +334,7 @@ func (c buildConfig) Validate() (err error) {
 		return
 	}
 
-	// Platform is only supportd with the S2I builder at this time
+	// Platform is only supported with the S2I builder at this time
 	if c.Platform != "" && c.Builder != builders.S2I {
 		err = errors.New("Only S2I builds currently support specifying platform")
 		return
