@@ -38,7 +38,7 @@ const (
 
 	// sectionExamples is the help template section that displays command examples.
 	sectionExamples = `{{if .HasExample}}Examples:
-{{trimRight .Example}}
+{{trimRight (execTemplate .Example .)}}
 
 {{end}}`
 
