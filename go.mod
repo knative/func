@@ -9,7 +9,7 @@ require (
 	github.com/Netflix/go-expect v0.0.0-20220104043353-73e0943537d2
 	github.com/alecthomas/jsonschema v0.0.0-20210526225647-edb03dcab7bc
 	github.com/buildpacks/pack v0.27.0
-	github.com/cloudevents/sdk-go/v2 v2.12.0
+	github.com/cloudevents/sdk-go/v2 v2.13.0
 	github.com/containerd/containerd v1.6.8
 	github.com/containers/image/v5 v5.19.1
 	github.com/coreos/go-semver v0.3.0
@@ -46,11 +46,11 @@ require (
 	k8s.io/apimachinery v0.25.4
 	k8s.io/client-go v1.5.2
 	k8s.io/utils v0.0.0-20221108210102-8e77b1f39fe2 // indirect
-	knative.dev/client v0.34.1-0.20221209015217-d72eb5490b9b
-	knative.dev/eventing v0.35.1-0.20221222110658-271c9bb53a52
-	knative.dev/hack v0.0.0-20221209013717-b9801b4f5a4d
-	knative.dev/pkg v0.0.0-20221221230956-4fd6eb8652b7
-	knative.dev/serving v0.35.1-0.20221223180151-aaa992e30bee
+	knative.dev/client v0.34.1-0.20230110014447-2593aa6dbcab
+	knative.dev/eventing v0.35.1-0.20230111115149-049f0049f8f0
+	knative.dev/hack v0.0.0-20230110013548-af8745e34e08
+	knative.dev/pkg v0.0.0-20230110144649-ecf386394194
+	knative.dev/serving v0.35.1-0.20230110162849-11d88dbbf303
 )
 
 require github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
@@ -97,7 +97,7 @@ require (
 	github.com/census-instrumentation/opencensus-proto v0.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/chrismellard/docker-credential-acr-env v0.0.0-20220327082430-c57b701bfc08 // indirect
-	github.com/cloudevents/sdk-go/sql/v2 v2.8.0 // indirect
+	github.com/cloudevents/sdk-go/sql/v2 v2.13.0 // indirect
 	github.com/containerd/cgroups v1.0.3 // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.12.0 // indirect
 	github.com/containers/storage v1.38.2 // indirect
