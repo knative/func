@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"text/template"
 	"time"
 
 	"knative.dev/func/cmd/templates"
@@ -452,22 +451,6 @@ func surveySelectDefault(value string, options []string) string {
 	// Either the value is not an option or there are no options.  Either of
 	// which should fail proper validation
 	return ""
-}
-
-// defaultTemplatedHelp evaluates the given command's help text as a template
-// some commands define their own help command when additional values are
-// required beyond these basics.
-func defaultTemplatedHelp(cmd *cobra.Command, args []string) {
-	var (
-		body = cmd.Long + "\n\n" + cmd.UsageString()
-		t    = template.New("help")
-		tpl  = template.Must(t.Parse(body))
-	)
-	var data = struct{ Name string }{Name: cmd.Root().Use}
-
-	if err := tpl.Execute(cmd.OutOrStdout(), data); err != nil {
-		fmt.Fprintf(cmd.ErrOrStderr(), "unable to display help text: %v", err)
-	}
 }
 
 // clearEnvs sets all environment variables with the prefix of FUNC_ to

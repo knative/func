@@ -13,7 +13,7 @@ import (
 
 func NewDeleteCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "delete [NAME]",
+		Use:   "delete <name>",
 		Short: "Undeploy a function",
 		Long: `Undeploy a function
 
@@ -25,10 +25,10 @@ No local files are deleted.
 `,
 		Example: `
 # Undeploy the function defined in the local directory
-{{.Name}} delete
+{{rootCmdUse}} delete
 
 # Undeploy the function 'myfunc' in namespace 'apps'
-{{.Name}} delete -n apps myfunc
+{{rootCmdUse}} delete -n apps myfunc
 `,
 		SuggestFor:        []string{"remove", "rm", "del"},
 		ValidArgsFunction: CompleteFunctionList,
@@ -47,8 +47,6 @@ No local files are deleted.
 	cmd.Flags().StringP("namespace", "n", cfg.Namespace, "The namespace in which to delete. (Env: $FUNC_NAMESPACE)")
 	cmd.Flags().StringP("all", "a", "true", "Delete all resources created for a function, eg. Pipelines, Secrets, etc. (Env: $FUNC_ALL) (allowed values: \"true\", \"false\")")
 	setPathFlag(cmd)
-
-	cmd.SetHelpFunc(defaultTemplatedHelp)
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		return runDelete(cmd, args, newClient)

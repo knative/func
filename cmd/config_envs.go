@@ -66,22 +66,22 @@ The environment variable can be set directly from a value,
 from an environment variable on the local machine or from Secrets and ConfigMaps.
 It is also possible to import all keys as environment variables from a Secret or ConfigMap.`,
 		Example: `# set environment variable directly
-{{.Name}} config envs add --name=VARNAME --value=myValue
+{{rootCmdUse}} config envs add --name=VARNAME --value=myValue
 
 # set environment variable from local env $LOC_ENV
-{{.Name}} config envs add --name=VARNAME --value='{{"{{"}} env:LOC_ENV {{"}}"}}'
+{{rootCmdUse}} config envs add --name=VARNAME --value='{{"{{"}} env:LOC_ENV {{"}}"}}'
 
 set environment variable from a secret
-{{.Name}} config envs add --name=VARNAME --value='{{"{{"}} secret:secretName:key {{"}}"}}'
+{{rootCmdUse}} config envs add --name=VARNAME --value='{{"{{"}} secret:secretName:key {{"}}"}}'
 
 # set all key as environment variables from a secret
-{{.Name}} config envs add --value='{{"{{"}} secret:secretName {{"}}"}}'
+{{rootCmdUse}} config envs add --value='{{"{{"}} secret:secretName {{"}}"}}'
 
 # set environment variable from a configMap
-{{.Name}} config envs add --name=VARNAME --value='{{"{{"}} configMap:confMapName:key {{"}}"}}'
+{{rootCmdUse}} config envs add --name=VARNAME --value='{{"{{"}} configMap:confMapName:key {{"}}"}}'
 
 # set all key as environment variables from a configMap
-{{.Name}} config envs add --value='{{"{{"}} configMap:confMapName {{"}}"}}'`,
+{{rootCmdUse}} config envs add --value='{{"{{"}} configMap:confMapName {{"}}"}}'`,
 		SuggestFor: []string{"ad", "create", "insert", "append"},
 		PreRunE:    bindEnv("path", "name", "value"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
@@ -126,7 +126,6 @@ set environment variable from a secret
 	cmd.Flags().StringP("name", "", "", "Name of the environment variable.")
 	cmd.Flags().StringP("value", "", "", "Value of the environment variable.")
 
-	cmd.SetHelpFunc(defaultTemplatedHelp)
 	return cmd
 }
 

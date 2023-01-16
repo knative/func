@@ -19,10 +19,10 @@ func describe <name>
 ```
 
 # Show the details of a function as declared in the local func.yaml
-func info
+func describe
 
 # Show the details of the function in the directory with yaml output
-func info --output yaml --path myotherfunc
+func describe --output yaml --path myotherfunc
 
 ```
 

@@ -56,7 +56,6 @@ or from the directory specified with --path.
 		PreRunE:    bindEnv("path"),
 		RunE:       runConfigCmd,
 	}
-	cmd.SetHelpFunc(defaultTemplatedHelp)
 
 	setPathFlag(cmd)
 

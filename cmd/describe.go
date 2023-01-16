@@ -26,10 +26,10 @@ the current directory or from the directory specified with --path.
 `,
 		Example: `
 # Show the details of a function as declared in the local func.yaml
-{{.Name}} info
+{{rootCmdUse}} describe
 
 # Show the details of the function in the directory with yaml output
-{{.Name}} info --output yaml --path myotherfunc
+{{rootCmdUse}} describe --output yaml --path myotherfunc
 `,
 		SuggestFor: []string{"ifno", "fino", "get"},
 
@@ -52,8 +52,6 @@ the current directory or from the directory specified with --path.
 	if err := cmd.RegisterFlagCompletionFunc("output", CompleteOutputFormatList); err != nil {
 		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
 	}
-
-	cmd.SetHelpFunc(defaultTemplatedHelp)
 
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
 		return runDescribe(cmd, args, newClient)

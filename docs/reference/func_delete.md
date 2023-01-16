@@ -14,7 +14,7 @@ No local files are deleted.
 
 
 ```
-func delete [NAME]
+func delete <name>
 ```
 
 ### Examples
