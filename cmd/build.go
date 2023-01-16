@@ -148,6 +148,8 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	}
 	f = cfg.Configure(f) // Updates f at path to include build request values
 
+	// TODO: this logic is duplicated with runDeploy.  Shouild be in buildConfig
+	// constructor.
 	// Checks if there is a difference between defined registry and its value used as a prefix in the image tag
 	// In case of a mismatch a new image tag is created and used for build
 	// Do not react if image tag has been changed outside configuration

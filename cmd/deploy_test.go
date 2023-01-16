@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -1174,14 +1175,12 @@ func TestDeploy_NamespaceRedeployWarning(t *testing.T) {
 // TestDeploy_RemotePersists ensures that the remote field is read from
 // the function by default, and is able to be overridden by flags/env vars.
 func TestDeploy_RemotePersists(t *testing.T) {
-	t.Helper()
 	root := fromTempDirectory(t)
-	cmdFn := NewDeployCmd
 
 	if err := fn.New().Init(fn.Function{Runtime: "node", Root: root}); err != nil {
 		t.Fatal(err)
 	}
-	cmd := cmdFn(NewTestClient(fn.WithRegistry(TestRegistry)))
+	cmd := NewDeployCmd(NewTestClient(fn.WithRegistry(TestRegistry)))
 	cmd.SetArgs([]string{})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -1191,7 +1190,7 @@ func TestDeploy_RemotePersists(t *testing.T) {
 	var f fn.Function
 
 	// Deploy the function, specifying remote deployment(on-cluster)
-	cmd = cmdFn(NewTestClient(fn.WithRegistry(TestRegistry)))
+	cmd = NewDeployCmd(NewTestClient(fn.WithRegistry(TestRegistry)))
 	cmd.SetArgs([]string{"--remote"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -1205,7 +1204,7 @@ func TestDeploy_RemotePersists(t *testing.T) {
 	}
 
 	// Deploy the function again without specifying remote
-	cmd = cmdFn(NewTestClient(fn.WithRegistry(TestRegistry)))
+	cmd = NewDeployCmd(NewTestClient(fn.WithRegistry(TestRegistry)))
 	cmd.SetArgs([]string{})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -1234,4 +1233,93 @@ func TestDeploy_RemotePersists(t *testing.T) {
 	if f.Deploy.Remote {
 		t.Fatalf("value of remote flag not persisted")
 	}
+}
+
+// TestDeploy_Envs ensures that environment variable for the function, provided
+// as arguments, are correctly evaluated.  This includes:
+// - Multiple Envs are supported (flag can be provided multiple times)
+// - Existing Envs on the function are retained
+// - Flags provided with the minus '-' suffix are treated as a removal
+func TestDeploy_Envs(t *testing.T) {
+	var (
+		root     = fromTempDirectory(t)
+		ptr      = func(s string) *string { return &s } // TODO: remove pointers from Envs.
+		f        fn.Function
+		cmd      *cobra.Command
+		err      error
+		expected []fn.Env
+	)
+
+	if err = fn.New().Create(fn.Function{Runtime: "go", Root: root, Registry: TestRegistry}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Deploy the function with two environment variables specified.
+	cmd = NewDeployCmd(NewTestClient())
+	cmd.SetArgs([]string{"--env=ENV1=VAL1", "--env=ENV2=VAL2"})
+	if err = cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	// Assert it contains the two environment variables
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	expected = []fn.Env{
+		{ptr("ENV1"), ptr("VAL1")},
+		{ptr("ENV2"), ptr("VAL2")},
+	}
+	if !reflect.DeepEqual(f.Run.Envs, expected) {
+		t.Fatalf("Expected envs '%v', got '%v'", expected, f.Run.Envs)
+	}
+
+	// Deploy the function with an additinal environment variable.
+	cmd = NewDeployCmd(NewTestClient())
+	cmd.SetArgs([]string{"--env=ENV3=VAL3"})
+	if err = cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	// Assert the original envs were retained and the new env was added.
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	expected = []fn.Env{
+		{ptr("ENV1"), ptr("VAL1")},
+		{ptr("ENV2"), ptr("VAL2")},
+		{ptr("ENV3"), ptr("VAL3")},
+	}
+	if !reflect.DeepEqual(f.Run.Envs, expected) {
+		t.Fatalf("Expected envs '%v', got '%v'", expected, f.Run.Envs)
+	}
+
+	// Deploy the function with a removal instruction
+	cmd = NewDeployCmd(NewTestClient())
+	cmd.SetArgs([]string{"--env=ENV1-"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	expected = []fn.Env{
+		{ptr("ENV2"), ptr("VAL2")},
+		{ptr("ENV3"), ptr("VAL3")},
+	}
+	if !reflect.DeepEqual(f.Run.Envs, expected) {
+		t.Fatalf("Expected envs '%v', got '%v'", expected, f.Run.Envs)
+	}
+
+	// Try removing the rest for good measure
+	cmd = NewDeployCmd(NewTestClient())
+	cmd.SetArgs([]string{"--env=ENV2-", "--env=ENV3-"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.Run.Envs) != 0 {
+		t.Fatalf("Expected no envs to remain, got '%v'", f.Run.Envs)
+	}
+
+	// TODO: create and test typed errors for ErrEnvNotExist etc.
 }

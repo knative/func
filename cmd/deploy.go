@@ -531,29 +531,34 @@ func newDeployConfig(cmd *cobra.Command) (c deployConfig) {
 // current values, as they were passed through via flag defaults.
 func (c deployConfig) Configure(f fn.Function) (fn.Function, error) {
 	var err error
+
+	// Bubble configure request
+	//
 	// The member values on the config object now take absolute precidence
 	// because they include 1) static config 2) user's global config
 	// 3) Environment variables and 4) flag values (which were set with their
 	// default being 1-3).
 	f = c.buildConfig.Configure(f) // also configures .buildConfig.Global
-	// deploy adds the ability to specify a digest on the associated image
+
+	// Configure basic members
+	f.Build.Git.URL = c.GitURL
+	f.Build.Git.ContextDir = c.GitDir
+	f.Build.Git.Revision = c.GitBranch // TODO: shouild match; perhaps "refSpec"
+	f.Deploy.Namespace = c.Namespace
+	f.Deploy.Remote = c.Remote
+
+	// ImageDigest
+	// Parsed off f.Image if provided.  Deploying adds the ability to specify a
+	// digest on the associated image (not available on build as nonsensical).
 	f.ImageDigest, err = imageDigest(f.Image)
 	if err != nil {
 		return f, err
 	}
-	// f.Build is not necessary
-	f.Build.Git.URL = c.GitURL
-	f.Build.Git.ContextDir = c.GitDir
-	f.Build.Git.Revision = c.GitBranch // TODO: shouild match; perhaps be "refSpec"
-	f.Deploy.Namespace = c.Namespace
-	f.Deploy.Remote = c.Remote
 
-	// TODO: validate env test cases completely validate:
-	envsToUpdate, envsToRemove, err := util.OrderedMapAndRemovalListFromArray(c.Env, "=")
-	if err != nil {
-		return f, err
-	}
-	f.Run.Envs, _, err = mergeEnvs(f.Run.Envs, envsToUpdate, envsToRemove)
+	// Envs
+	// Preprocesses any Envs provided (which may include removals) into a final
+	// set
+	f.Run.Envs, err = applyEnvs(f.Run.Envs, c.Env)
 	if err != nil {
 		return f, err
 	}
@@ -567,6 +572,20 @@ func (c deployConfig) Configure(f fn.Function) (fn.Function, error) {
 		f.Build.Git.Revision = parts[1]
 	}
 	return f, nil
+}
+
+// Apply Env additions/removals to a set of extant envs, returning the final
+// merged list.
+func applyEnvs(current []fn.Env, args []string) (final []fn.Env, err error) {
+	// TODO: validate env test cases completely validate this functionality
+
+	// Parse and Merge
+	inserts, removals, err := util.OrderedMapAndRemovalListFromArray(args, "=")
+	if err != nil {
+		return
+	}
+	final, _, err = mergeEnvs(current, inserts, removals)
+	return
 }
 
 // Prompt the user with value of config members, allowing for interaractive changes.
@@ -617,7 +636,7 @@ func (c deployConfig) Prompt() (deployConfig, error) {
 		}
 	}
 
-	// TODO(lkingland) prompt for optional additional git settings
+	// TODO: prompt for optional additional git settings here:
 	// if c.GitURL != "" {
 	// }
 
@@ -671,16 +690,15 @@ func (c deployConfig) Validate() (err error) {
 		return fmt.Errorf("invalid --git-url '%v'", c.GitURL)
 	}
 
-	// NOTE: (--registry) no explicit check for --registry or --image here, because
-	// this logic is being baked into the core, and it will validate the cases
-	// and return fn.ErrNameRequired, fn.ErrImageRequired etc as needed.
+	// NOTE: There is no explicit check for --registry or --image here, because
+	// this logic is baked into core, which will validate the cases and return
+	// an fn.ErrNameRequired, fn.ErrImageRequired etc as needed.
 
 	return
 }
 
-// imageDigest splits out and returns the image digest from a full image
-// string if it is included, and an error if an image digest is provided but
-// is in an invalid format.
+// imageDigest returns the image digest from a full image string if it exists,
+// and includes basic validation that a provided digest is correctly formatted.
 func imageDigest(v string) (digest string, err error) {
 	vv := strings.Split(v, "@")
 	if len(vv) < 2 {
