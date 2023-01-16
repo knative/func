@@ -1301,8 +1301,8 @@ func TestDeploy_Envs(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected = []fn.Env{
-		{ptr("ENV2"), ptr("VAL2")},
-		{ptr("ENV3"), ptr("VAL3")},
+		{Name: ptr("ENV2"), Value: ptr("VAL2")},
+		{Name: ptr("ENV3"), Value: ptr("VAL3")},
 	}
 	if !reflect.DeepEqual(f.Run.Envs, expected) {
 		t.Fatalf("Expected envs '%v', got '%v'", expected, f.Run.Envs)
