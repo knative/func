@@ -59,7 +59,7 @@ test: $(CODE) ## Run core unit tests
 
 check: bin/golangci-lint ## Check code quality (lint)
 	./bin/golangci-lint run --timeout 300s
-	cd test/_e2e && ../../bin/golangci-lint run --timeout 300s
+	cd test/e2e && ../../bin/golangci-lint run --timeout 300s
 
 bin/golangci-lint:
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./bin v1.49.0

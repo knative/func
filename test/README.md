@@ -15,7 +15,7 @@ other scenarios.
 ## On Cluster Builds tests
 
 On cluster builds e2e tests exercises functions built directly on cluster.
-The tests are organized per scenarios under `./_oncluster` folder.
+The tests are organized per scenarios under `./oncluster` folder.
 
 ### Pre-requisites
 

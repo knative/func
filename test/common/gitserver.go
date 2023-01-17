@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"knative.dev/func/k8s"
-	e2e "knative.dev/func/test/_e2e"
+	e2e "knative.dev/func/test/e2e"
 
 	"strings"
 	"testing"
