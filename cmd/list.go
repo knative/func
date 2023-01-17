@@ -39,15 +39,19 @@ Lists all deployed functions in a given namespace.
 		PreRunE:    bindEnv("all-namespaces", "output", "namespace"),
 	}
 
-	// Config
-	cfg, err := config.NewDefault()
-	if err != nil {
-		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
-	}
+	// Namespace Config
+	// Differing from other commands, the default namespace for the list
+	// command is always the currently active namespace as returned by
+	// config.DefaultNamespace().  The -A flag clears this value indicating
+	// the lister implementation should not filter by namespace and instead
+	// list from all namespaces.  This logic is sligtly inverse to the other
+	// namespace-sensitive commands which default to the currently active
+	// function if available, and delegate to the implementation to use
+	// the config default otherwise.
 
 	// Flags
 	cmd.Flags().BoolP("all-namespaces", "A", false, "List functions in all namespaces. If set, the --namespace flag is ignored.")
-	cmd.Flags().StringP("namespace", "n", cfg.Namespace, "The namespace for which to list functions. (Env: $FUNC_NAMESPACE)")
+	cmd.Flags().StringP("namespace", "n", config.DefaultNamespace(), "The namespace for which to list functions. (Env: $FUNC_NAMESPACE)")
 	cmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|xml|yaml) (Env: $FUNC_OUTPUT)")
 
 	if err := cmd.RegisterFlagCompletionFunc("output", CompleteOutputFormatList); err != nil {
