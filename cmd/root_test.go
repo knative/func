@@ -363,11 +363,11 @@ func piped(t *testing.T) func() string {
 	}
 }
 
-// fromTempDirectory is a cli-specific test helper which endeavors to create
+// fromTempDirectory is a test helper which endeavors to create
 // an environment clean of developer's settings for use during CLI testing.
 func fromTempDirectory(t *testing.T) string {
 	t.Helper()
-	clearEnvs(t)
+	ClearEnvs(t)
 
 	// We have to define KUBECONFIG, or the file at ~/.kube/config (if extant)
 	// will be used (disrupting tests by using the current user's environment).
@@ -386,16 +386,4 @@ func fromTempDirectory(t *testing.T) string {
 	// Return to original directory and resets viper.
 	t.Cleanup(func() { done(); viper.Reset() })
 	return d
-}
-
-// clearEnvs sets all environment variables with the prefix of FUNC_ to
-// empty (unsets) for the duration of the test t.
-func clearEnvs(t *testing.T) {
-	t.Helper()
-	for _, v := range os.Environ() {
-		if strings.HasPrefix(v, "FUNC_") {
-			parts := strings.SplitN(v, "=", 2)
-			t.Setenv(parts[0], "")
-		}
-	}
 }
