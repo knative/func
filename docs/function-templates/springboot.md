@@ -1,7 +1,7 @@
 # Spring Boot Function Developer's Guide
 
 When creating a Spring Boot function using the `func` CLI, the project
-directory looks like a typical Boot project. 
+directory looks like a typical Boot project.
 To create a HTTP function that echos the input run the following command:
 
 ```
