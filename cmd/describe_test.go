@@ -80,10 +80,10 @@ func TestDescribe_NameAndPathExclusivity(t *testing.T) {
 
 // TestDescribe_Namespace ensures that the namespace provided to the client
 // for use when describing a function is set
-// 1. Blank when not provided nor available (delegate to the describer impl to
-//    choose current kube context)
-// 2. The namespace of the contextually active function
-// 3. The flag /env variable if provided
+//  1. Blank when not provided nor available (delegate to the describer impl to
+//     choose current kube context)
+//  2. The namespace of the contextually active function
+//  3. The flag /env variable if provided
 func TestDescribe_Namespace(t *testing.T) {
 	root := fromTempDirectory(t)
 
