@@ -237,6 +237,11 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	// Informative non-error messages regarding the final deployment request
 	printDeployMessages(cmd.OutOrStdout(), cfg)
 
+	// Save the function which has now been updated with flags/config
+	if err = f.Write(); err != nil { // TODO: remove when client API uses 'f'
+		return
+	}
+
 	// Client
 	// Concrete implementations (ex builder) vary  based on final effective cfg.
 	var builder fn.Builder
@@ -265,10 +270,10 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		if f, err = client.RunPipeline(cmd.Context(), f); err != nil {
 			return
 		}
+		// TODO: remote deployments currently have no way to update the function
+		// state with values generated during the deployment process such as the
+		// ImageDigest (from pusing) or the deployed namespace (on deploy)a.
 	} else {
-		if err = f.Write(); err != nil { // TODO: remove when client API uses 'f'
-			return
-		}
 		if shouldBuild(cfg.Build, f, client) { // --build or "auto" with FS changes
 			if err = client.Build(cmd.Context(), f.Root); err != nil {
 				return
@@ -300,7 +305,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 // deployConfig.Validate
 func shouldBuild(buildCfg string, f fn.Function, client *fn.Client) bool {
 	if buildCfg == "auto" {
-		return !client.Built(f.Root) // first build or modified filesystem
+		return !fn.Built(f.Root) // first build or modified filesystem
 	}
 	build, _ := strconv.ParseBool(buildCfg)
 	return build
@@ -749,10 +754,11 @@ func printDeployMessages(out io.Writer, cfg deployConfig) {
 
 	// Namespace Changing
 	// -------------------
-	// If the target namespace is not active, warn because it wont be visible
-	// to other commands such as kubectl unless context namespace is switched.
+	// If the target namespace is provided but differs from active, warn because
+	// the function wont be visible to other commands such as kubectl unless
+	// context namespace is switched.
 	activeNamespace, err := k8s.GetNamespace("")
-	if err == nil && targetNamespace != activeNamespace {
+	if err == nil && targetNamespace != "" && targetNamespace != activeNamespace {
 		fmt.Fprintf(out, "Warning: namespace chosen is '%s', but currently active namespace is '%s'. Continuing with deployment to '%s'.\n", cfg.Namespace, activeNamespace, cfg.Namespace)
 	}
 }

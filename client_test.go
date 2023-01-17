@@ -1530,7 +1530,7 @@ func TestClient_BuiltStamps(t *testing.T) {
 	client := fn.New(fn.WithBuilder(builder), fn.WithRegistry(TestRegistry))
 
 	// paths that do not contain a function are !Built - Degenerate case
-	if client.Built(root) {
+	if fn.Built(root) {
 		t.Fatal("path not containing a function returned as being built")
 	}
 
@@ -1538,7 +1538,7 @@ func TestClient_BuiltStamps(t *testing.T) {
 	if err := client.Init(fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
 		t.Fatal(err)
 	}
-	if client.Built(root) {
+	if fn.Built(root) {
 		t.Fatal("newly created function returned Built==true")
 	}
 
@@ -1546,7 +1546,7 @@ func TestClient_BuiltStamps(t *testing.T) {
 	if err := client.Build(context.Background(), root); err != nil {
 		t.Fatal(err)
 	}
-	if !client.Built(root) {
+	if !fn.Built(root) {
 		t.Fatal("freshly built function should return Built==true")
 	}
 }
@@ -1597,7 +1597,7 @@ func TestClient_BuiltDetects(t *testing.T) {
 	}
 
 	// Prior to a filesystem edit, it will be Built.
-	if !client.Built(root) {
+	if !fn.Built(root) {
 		t.Fatal("freshly built function reported Built==false (1)")
 	}
 
@@ -1612,7 +1612,7 @@ func TestClient_BuiltDetects(t *testing.T) {
 	// Release thread and wait to ensure that the clock advances even in constrained CI environments
 	time.Sleep(100 * time.Millisecond)
 
-	if client.Built(root) {
+	if fn.Built(root) {
 		t.Fatal("client did not detect file timestamp change as indicating build staleness")
 	}
 
@@ -1620,7 +1620,7 @@ func TestClient_BuiltDetects(t *testing.T) {
 	if err := client.Build(ctx, root); err != nil {
 		t.Fatal(err)
 	}
-	if !client.Built(root) {
+	if !fn.Built(root) {
 		t.Fatal("freshly built function reported Built==false (2)")
 	}
 
@@ -1632,7 +1632,7 @@ func TestClient_BuiltDetects(t *testing.T) {
 	f.Close()
 
 	// The system should now detect the function is stale
-	if client.Built(root) {
+	if fn.Built(root) {
 		t.Fatal("client did not detect an added file as indicating build staleness")
 	}
 
@@ -1640,7 +1640,7 @@ func TestClient_BuiltDetects(t *testing.T) {
 	if err := client.Build(ctx, root); err != nil {
 		t.Fatal(err)
 	}
-	if !client.Built(root) {
+	if !fn.Built(root) {
 		t.Fatal("freshly built function reported Built==false (3)")
 	}
 
@@ -1649,7 +1649,7 @@ func TestClient_BuiltDetects(t *testing.T) {
 	if err := os.Remove(filepath.Join(root, testfile)); err != nil {
 		t.Fatal(err)
 	}
-	if client.Built(root) {
+	if fn.Built(root) {
 		t.Fatal("client did not detect a removed file as indicating build staleness")
 	}
 }

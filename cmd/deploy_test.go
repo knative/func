@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 	fn "knative.dev/func"
 	"knative.dev/func/builders"
+	"knative.dev/func/config"
 	"knative.dev/func/mock"
 )
 
@@ -842,51 +843,58 @@ func Test_ImageWithDigestErrors(t *testing.T) {
 func TestDeploy_Namespace(t *testing.T) {
 	root := fromTempDirectory(t)
 
-	var expectedNamespace string
-
-	// A mock deployer which validates the namespace received is that expected
-	deployer := mock.NewDeployer()
-	deployer.DeployFn = func(_ context.Context, f fn.Function) (res fn.DeploymentResult, err error) {
-		e := &expectedNamespace // closure
-		if f.Deploy.Namespace != *e {
-			t.Fatalf("expected namespace '%v', got '%v'", *e, f.Deploy.Namespace)
-		}
-		return
-	}
-
 	// A function which will be repeatedly, mockingly deployed
-	if err := fn.New().Init(fn.Function{Root: root, Runtime: "go", Registry: TestRegistry}); err != nil {
+	f := fn.Function{Root: root, Runtime: "go", Registry: TestRegistry}
+	if err := fn.New().Create(f); err != nil {
 		t.Fatal(err)
 	}
 
-	// Ensure the default "func" which is gathered from the default kubeconfig
-	// path of ./tesdata/default_kubeconfig
-	expectedNamespace = "func" // see ./testdata/default_kubeconfig
+	// The mock deployer responds that the given function was deployed
+	// to the namespace indicated in f.Deploy.Namespace or "default" if empty
+	// (it does not actually consider the current kubernetes context)
+	deployer := mock.NewDeployer()
+
 	cmd := NewDeployCmd(NewTestClient(fn.WithDeployer(deployer)))
 	cmd.SetArgs([]string{})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
+	f, _ = fn.NewFunction(root)
+	if f.Deploy.Namespace != "default" {
+		t.Fatalf("expected namespace 'default', got '%v'", f.Deploy.Namespace)
+	}
 
 	// Change the function's active namespace and ensure it is used, preempting
-	// the 'func' namespace gathered from kubeconfig.
-	expectedNamespace = "alreadyDeployedNamespace"
+	// the 'default' namespace from the mock
 	f, err := fn.NewFunction(root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.Deploy.Namespace = expectedNamespace
+	f.Deploy.Namespace = "alreadyDeployed"
 	if err := f.Write(); err != nil {
 		t.Fatal(err)
 	}
-
-	// Ensure an explicit name (a flag) is taken with highest precedence
-	expectedNamespace = "flagValueNamespace"
 	cmd = NewDeployCmd(NewTestClient(fn.WithDeployer(deployer)))
-	cmd.SetArgs([]string{"--namespace", expectedNamespace})
+	cmd.SetArgs([]string{})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
+	f, _ = fn.NewFunction(root)
+	if f.Deploy.Namespace != "alreadyDeployed" {
+		t.Fatalf("expected namespace 'alreadyDeployed', got '%v'", f.Deploy.Namespace)
+	}
+
+	// Ensure an explicit name (a flag) is taken with highest precedence
+	cmd = NewDeployCmd(NewTestClient(fn.WithDeployer(deployer)))
+	cmd.SetArgs([]string{"--namespace=newNamespace"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	f, _ = fn.NewFunction(root)
+	if f.Deploy.Namespace != "newNamespace" {
+		t.Fatalf("expected namespace 'newNamespace', got '%v'", f.Deploy.Namespace)
+	}
+
 }
 
 // TestDeploy_GitArgsPersist ensures that the git flags, if provided, are
@@ -1034,9 +1042,27 @@ func TestDeploy_NamespaceDefaults(t *testing.T) {
 		t.Fatalf("newly created functions should not have a namespace set until deployed.  Got '%v'", f.Deploy.Namespace)
 	}
 
+	// a deployer which actually uses config.DefaultNamespace
+	// This is not the default implementation of mock.NewDeployer as this would
+	// be likely to be confusing, since it would vary on developer machines
+	// unless they remember to clear local envs, such as is done here within
+	// fromTempDirectory(t).  To avert this potential confusion, the use of
+	// config.DefaultNamespace() is kept local to this test.
+	deployer := mock.NewDeployer()
+	deployer.DeployFn = func(_ context.Context, f fn.Function) (result fn.DeploymentResult, err error) {
+		// deployer implementations shuld have integration tests which confirm
+		// this logic:
+		if f.Deploy.Namespace != "" {
+			result.Namespace = f.Deploy.Namespace
+		} else {
+			result.Namespace = config.DefaultNamespace()
+		}
+		return
+	}
+
 	// New deploy command that will not actually deploy or build (mocked)
 	cmd := NewDeployCmd(NewTestClient(
-		fn.WithDeployer(mock.NewDeployer()),
+		fn.WithDeployer(deployer),
 		fn.WithBuilder(mock.NewBuilder()),
 		fn.WithPipelinesProvider(mock.NewPipelinesProvider()),
 		fn.WithRegistry(TestRegistry),
@@ -1265,8 +1291,8 @@ func TestDeploy_Envs(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected = []fn.Env{
-		{ptr("ENV1"), ptr("VAL1")},
-		{ptr("ENV2"), ptr("VAL2")},
+		{Name: ptr("ENV1"), Value: ptr("VAL1")},
+		{Name: ptr("ENV2"), Value: ptr("VAL2")},
 	}
 	if !reflect.DeepEqual(f.Run.Envs, expected) {
 		t.Fatalf("Expected envs '%v', got '%v'", expected, f.Run.Envs)
@@ -1283,9 +1309,9 @@ func TestDeploy_Envs(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected = []fn.Env{
-		{ptr("ENV1"), ptr("VAL1")},
-		{ptr("ENV2"), ptr("VAL2")},
-		{ptr("ENV3"), ptr("VAL3")},
+		{Name: ptr("ENV1"), Value: ptr("VAL1")},
+		{Name: ptr("ENV2"), Value: ptr("VAL2")},
+		{Name: ptr("ENV3"), Value: ptr("VAL3")},
 	}
 	if !reflect.DeepEqual(f.Run.Envs, expected) {
 		t.Fatalf("Expected envs '%v', got '%v'", expected, f.Run.Envs)

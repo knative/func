@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -325,7 +326,15 @@ func nameFromPath(path string) string {
 
 // Write aka (save, serialize, marshal) the function to disk at its path.
 // Only valid functions can be written.
+// In order to retain built status (staleness checks), the file is only
+// modified if the structure actually changes.
 func (f Function) Write() (err error) {
+	// Skip writing (and dirtying the work tree) if there were no modifications.
+	f1, _ := NewFunction(f.Root)
+	if reflect.DeepEqual(f, f1) {
+		return
+	}
+
 	if err = f.Validate(); err != nil {
 		return
 	}
@@ -343,17 +352,6 @@ func (f Function) Write() (err error) {
 // Any errors are considered failure (invalid or inaccessible root, config file, etc).
 func (f Function) Initialized() bool {
 	return !f.Created.IsZero()
-}
-
-// Built indicates the function has been built.  Does not guarantee the
-// image indicated actually exists, just that it _should_ exist based off
-// the current state of the Function object, in particular the value of
-// the Image and ImageDigest fields.
-func (f Function) HasImage() bool {
-	// If Image (the override) and ImageDigest (the most recent build stamp) are
-	// both empty, the function is considered unbuilt.
-	// TODO: upgrade to a "build complete" timestamp.
-	return f.Image != "" || f.ImageDigest != ""
 }
 
 // ImageWithDigest returns the full reference to the image including SHA256 Digest.
