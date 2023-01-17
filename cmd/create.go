@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 	"text/tabwriter"
+	"text/template"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/ory/viper"
@@ -32,16 +33,16 @@ func NewCreateCmd(newClient ClientFactory) *cobra.Command {
 		Short: "Create a function project",
 		Long: `
 NAME
-	{{rootCmdUse}} create - Create a function project.
+	{{.Name}} create - Create a function project.
 
 SYNOPSIS
-	{{rootCmdUse}} create [-l|--language] [-t|--template] [-r|--repository]
+	{{.Name}} create [-l|--language] [-t|--template] [-r|--repository]
 	            [-c|--confirm]  [-v|--verbose]  [path]
 
 DESCRIPTION
 	Creates a new function project.
 
-    $ {{rootCmdUse}} create -l node -t http
+	  $ {{.Name}} create -l node
 
 	Creates a function in the current directory '.' which is written in the
 	language/runtime 'node' and handles HTTP events.
@@ -50,25 +51,25 @@ DESCRIPTION
 	the path if necessary.
 
 	To complete this command interactively, use --confirm (-c):
-    $ {{rootCmdUse}} create -c
+	  $ {{.Name}} create -c
 
 	Available Language Runtimes and Templates:
 {{ .Options | indent 2 " " | indent 1 "\t" }}
 
-	To install more language runtimes and their templates see '{{rootCmdUse}} repository'.
+	To install more language runtimes and their templates see '{{.Name}} repository'.
 
 
 EXAMPLES
 	o Create a Node.js function (the default language runtime) in the current
 	  directory (the default path) which handles http events (the default
 	  template).
-	  $ {{rootCmdUse}} create
+	  $ {{.Name}} create
 
 	o Create a Node.js function in the directory 'myfunc'.
-	  $ {{rootCmdUse}} create myfunc
+	  $ {{.Name}} create myfunc
 
 	o Create a Go function which handles CloudEvents in ./myfunc.
-	  $ {{rootCmdUse}} create -l go -t cloudevents myfunc
+	  $ {{.Name}} create -l go -t cloudevents myfunc
 		`,
 		SuggestFor: []string{"vreate", "creaet", "craete", "new"},
 		PreRunE:    bindEnv("language", "template", "repository", "confirm"),
@@ -85,6 +86,9 @@ EXAMPLES
 	cmd.Flags().StringP("template", "t", fn.DefaultTemplate, "Function template. (see help text for list) (Env: $FUNC_TEMPLATE)")
 	cmd.Flags().StringP("repository", "r", "", "URI to a Git repository containing the specified template (Env: $FUNC_REPOSITORY)")
 	cmd.Flags().BoolP("confirm", "c", cfg.Confirm, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
+
+	// Help Action
+	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) { runCreateHelp(cmd, args, newClient) })
 
 	// Run Action
 	cmd.RunE = func(cmd *cobra.Command, args []string) error {
@@ -488,8 +492,58 @@ func templatesWithPrefix(prefix, runtime string, client *fn.Client) ([]string, e
 	return suggestions, nil
 }
 
+// runCreateHelp prints help for the create command using a template
+// and options.
+func runCreateHelp(cmd *cobra.Command, args []string, newClient ClientFactory) {
+	failSoft := func(err error) {
+		if err != nil {
+			fmt.Fprintf(cmd.OutOrStderr(), "error: help text may be partial: %v", err)
+		}
+	}
+
+	tpl := newHelpTemplate(cmd)
+
+	cfg, err := newCreateConfig(cmd, args, newClient)
+	failSoft(err)
+
+	client, done := newClient(
+		ClientConfig{Verbose: cfg.Verbose},
+		fn.WithRepository(cfg.Repository))
+	defer done()
+
+	options, err := RuntimeTemplateOptions(client) // human-friendly
+	failSoft(err)
+
+	var data = struct {
+		Options string
+		Name    string
+	}{
+		Options: options,
+		Name:    cmd.Root().Use,
+	}
+
+	if err := tpl.Execute(cmd.OutOrStdout(), data); err != nil {
+		fmt.Fprintf(cmd.ErrOrStderr(), "unable to display help text: %v", err)
+	}
+}
+
+// newHelpTemplate returns a template for the create command's help text
+func newHelpTemplate(cmd *cobra.Command) *template.Template {
+	body := cmd.Long + "\n\n" + cmd.UsageString()
+	t := template.New("help")
+	fm := template.FuncMap{
+		"indent": func(i int, c string, v string) string {
+			indentation := strings.Repeat(c, i)
+			return indentation + strings.Replace(v, "\n", "\n"+indentation, -1)
+		},
+	}
+	t.Funcs(fm)
+	return template.Must(t.Parse(body))
+}
+
 // RuntimeTemplateOptions is a human-friendly table of valid Language Runtime
 // to Template combinations.
+// Exported for use in docs.
 func RuntimeTemplateOptions(client *fn.Client) (string, error) {
 	runtimes, err := client.Runtimes()
 	if err != nil {
