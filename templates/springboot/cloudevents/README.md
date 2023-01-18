@@ -60,6 +60,17 @@ This command will build and deploy the function into cluster.
 func deploy -v # also triggers build
 ```
 
+### For ARM processor based systems
+
+Building Spring Boot apps with Paketo Buildpacks on an ARM processor based system, like an Apple Macbook with an M1 or M2 chip, doesn't work well at the moment.
+To work around this you can build the image on your local system using [Jib](https://github.com/GoogleContainerTools/jib).
+Then, you would deploy the Jib generated image.
+
+```
+./mvnw compile com.google.cloud.tools:jib-maven-plugin:3.3.1:dockerBuild -Dimage=$FUNC_REGISTRY/echo
+func deploy --build=false --image=$FUNC_REGISTRY/echo
+```
+
 ## Function invocation
 
 Spring Cloud Functions allows you to route CloudEvents to specific functions using the `Ce-Type` attribute.
