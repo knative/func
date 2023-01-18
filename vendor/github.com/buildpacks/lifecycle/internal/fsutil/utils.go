@@ -2,7 +2,6 @@ package fsutil
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -38,7 +37,7 @@ func copyDir(src, dst string) error {
 		return err
 	}
 
-	children, err := ioutil.ReadDir(src)
+	children, err := os.ReadDir(src)
 	if err != nil {
 		return err
 	}

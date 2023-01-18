@@ -8,7 +8,8 @@ import (
 
 // DirLayer creates a layer from the given directory
 // DirLayer will set the UID and GID of entries describing dir and its children (but not its parents)
-//    to Factory.UID and Factory.GID
+//
+//	to Factory.UID and Factory.GID
 func (f *Factory) DirLayer(id string, dir string) (layer Layer, err error) {
 	dir, err = filepath.Abs(dir)
 	if err != nil {

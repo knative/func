@@ -3,6 +3,7 @@
 *.coverprofile
 *.test
 *~
+.tool-versions
 /out
 
 acceptance/testdata/*/**/container/cnb/lifecycle/*

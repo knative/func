@@ -30,7 +30,7 @@ LDFLAGS+=-X 'github.com/buildpacks/lifecycle/cmd.Version=$(LIFECYCLE_VERSION)'
 GOBUILD:=go build $(GOFLAGS) -ldflags "$(LDFLAGS)"
 GOTEST=$(GOCMD) test $(GOFLAGS)
 BUILD_DIR?=$(PWD)$/out
-WINDOWS_COMPILATION_IMAGE?=golang:1.17-windowsservercore-1809
+WINDOWS_COMPILATION_IMAGE?=golang:1.18-windowsservercore-1809
 SOURCE_COMPILATION_IMAGE?=lifecycle-img
 BUILD_CTR?=lifecycle-ctr
 DOCKER_CMD?=make test
@@ -118,6 +118,7 @@ build-linux-amd64-symlinks:
 	ln -sf lifecycle $(OUT_DIR)/exporter
 	ln -sf lifecycle $(OUT_DIR)/rebaser
 	ln -sf lifecycle $(OUT_DIR)/creator
+	ln -sf lifecycle $(OUT_DIR)/extender
 
 build-linux-arm64-symlinks: export GOOS:=linux
 build-linux-arm64-symlinks: export GOARCH:=arm64
@@ -131,6 +132,7 @@ build-linux-arm64-symlinks:
 	ln -sf lifecycle $(OUT_DIR)/exporter
 	ln -sf lifecycle $(OUT_DIR)/rebaser
 	ln -sf lifecycle $(OUT_DIR)/creator
+	ln -sf lifecycle $(OUT_DIR)/extender
 
 build-windows-amd64-lifecycle: $(BUILD_DIR)/windows-amd64/lifecycle/lifecycle.exe
 
@@ -225,7 +227,7 @@ install-mockgen:
 
 install-golangci-lint:
 	@echo "> Installing golangci-lint..."
-	$(GOCMD) install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.42.1
+	$(GOCMD) install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.49.0
 
 lint: install-golangci-lint
 	@echo "> Linting code..."
@@ -242,7 +244,7 @@ format: install-goimports
 
 tidy:
 	@echo "> Tidying modules..."
-	$(GOCMD) mod tidy -compat=1.17
+	$(GOCMD) mod tidy -compat=1.18
 
 test: unit acceptance
 

@@ -9,15 +9,16 @@ import (
 	"github.com/buildpacks/lifecycle/buildpack"
 	"github.com/buildpacks/lifecycle/internal/encoding"
 	"github.com/buildpacks/lifecycle/launch"
+	"github.com/buildpacks/lifecycle/log"
 	"github.com/buildpacks/lifecycle/platform"
 )
 
 //go:generate mockgen -package testmock -destination ../../testmock/metadata_restorer.go github.com/buildpacks/lifecycle/internal/layer MetadataRestorer
 type MetadataRestorer interface {
-	Restore(buildpacks []buildpack.GroupBuildpack, appMeta platform.LayersMetadata, cacheMeta platform.CacheMetadata, layerSHAStore SHAStore) error
+	Restore(buildpacks []buildpack.GroupElement, appMeta platform.LayersMetadata, cacheMeta platform.CacheMetadata, layerSHAStore SHAStore) error
 }
 
-func NewDefaultMetadataRestorer(layersDir string, skipLayers bool, logger Logger) *DefaultMetadataRestorer {
+func NewDefaultMetadataRestorer(layersDir string, skipLayers bool, logger log.Logger) *DefaultMetadataRestorer {
 	return &DefaultMetadataRestorer{
 		Logger:     logger,
 		LayersDir:  layersDir,
@@ -28,10 +29,10 @@ func NewDefaultMetadataRestorer(layersDir string, skipLayers bool, logger Logger
 type DefaultMetadataRestorer struct {
 	LayersDir  string
 	SkipLayers bool
-	Logger     Logger
+	Logger     log.Logger
 }
 
-func (r *DefaultMetadataRestorer) Restore(buildpacks []buildpack.GroupBuildpack, appMeta platform.LayersMetadata, cacheMeta platform.CacheMetadata, layerSHAStore SHAStore) error {
+func (r *DefaultMetadataRestorer) Restore(buildpacks []buildpack.GroupElement, appMeta platform.LayersMetadata, cacheMeta platform.CacheMetadata, layerSHAStore SHAStore) error {
 	if err := r.restoreStoreTOML(appMeta, buildpacks); err != nil {
 		return err
 	}
@@ -43,7 +44,7 @@ func (r *DefaultMetadataRestorer) Restore(buildpacks []buildpack.GroupBuildpack,
 	return nil
 }
 
-func (r *DefaultMetadataRestorer) restoreStoreTOML(appMeta platform.LayersMetadata, buildpacks []buildpack.GroupBuildpack) error {
+func (r *DefaultMetadataRestorer) restoreStoreTOML(appMeta platform.LayersMetadata, buildpacks []buildpack.GroupElement) error {
 	for _, bp := range buildpacks {
 		if store := appMeta.MetadataForBuildpack(bp.ID).Store; store != nil {
 			if err := encoding.WriteTOML(filepath.Join(r.LayersDir, launch.EscapeID(bp.ID), "store.toml"), store); err != nil {
@@ -54,7 +55,7 @@ func (r *DefaultMetadataRestorer) restoreStoreTOML(appMeta platform.LayersMetada
 	return nil
 }
 
-func (r *DefaultMetadataRestorer) restoreLayerMetadata(layerSHAStore SHAStore, appMeta platform.LayersMetadata, cacheMeta platform.CacheMetadata, buildpacks []buildpack.GroupBuildpack) error {
+func (r *DefaultMetadataRestorer) restoreLayerMetadata(layerSHAStore SHAStore, appMeta platform.LayersMetadata, cacheMeta platform.CacheMetadata, buildpacks []buildpack.GroupElement) error {
 	if r.SkipLayers {
 		r.Logger.Infof("Skipping buildpack layer analysis")
 		return nil
@@ -130,7 +131,7 @@ func (r *DefaultMetadataRestorer) writeLayerMetadata(layerSHAStore SHAStore, bui
 
 type NopMetadataRestorer struct{}
 
-func (r *NopMetadataRestorer) Restore(_ []buildpack.GroupBuildpack, _ platform.LayersMetadata, _ platform.CacheMetadata, _ SHAStore) error {
+func (r *NopMetadataRestorer) Restore(_ []buildpack.GroupElement, _ platform.LayersMetadata, _ platform.CacheMetadata, _ SHAStore) error {
 	return nil
 }
 

@@ -1,6 +1,7 @@
 package remote
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
@@ -33,6 +34,7 @@ type Image struct {
 	prevLayers          []v1.Layer
 	createdAt           time.Time
 	addEmptyLayerOnSave bool
+	registrySettings    []registrySetting
 }
 
 type options struct {
@@ -41,6 +43,13 @@ type options struct {
 	prevImageRepoName   string
 	createdAt           time.Time
 	addEmptyLayerOnSave bool
+	registrySettings    []registrySetting
+}
+
+type registrySetting struct {
+	prefix             string
+	insecure           bool
+	insecureSkipVerify bool
 }
 
 type ImageOption func(*options) error
@@ -93,6 +102,19 @@ func AddEmptyLayerOnSave() ImageOption {
 	}
 }
 
+// WithRegistrySetting registers options to use when accessing images in a registry in order to construct
+// the image. The referenced images could include the base image, a previous image, or the image itself.
+func WithRegistrySetting(repository string, insecure, insecureSkipVerify bool) ImageOption {
+	return func(opts *options) error {
+		opts.registrySettings = append(opts.registrySettings, registrySetting{
+			prefix:             repository,
+			insecure:           insecure,
+			insecureSkipVerify: insecureSkipVerify,
+		})
+		return nil
+	}
+}
+
 // NewImage returns a new Image that can be modified and saved to a Docker daemon.
 func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Image, error) {
 	imageOpts := &options{}
@@ -117,6 +139,7 @@ func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Im
 		repoName:            repoName,
 		image:               image,
 		addEmptyLayerOnSave: imageOpts.addEmptyLayerOnSave,
+		registrySettings:    imageOpts.registrySettings,
 	}
 
 	if imageOpts.prevImageRepoName != "" {
@@ -150,8 +173,20 @@ func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Im
 	return ri, nil
 }
 
+func getRegistry(repoName string, registrySettings []registrySetting) registrySetting {
+	for _, r := range registrySettings {
+		if strings.HasPrefix(repoName, r.prefix) {
+			return r
+		}
+	}
+
+	return registrySetting{}
+}
+
 func processPreviousImageOption(ri *Image, prevImageRepoName string, platform imgutil.Platform) error {
-	prevImage, err := newV1Image(ri.keychain, prevImageRepoName, platform)
+	reg := getRegistry(prevImageRepoName, ri.registrySettings)
+
+	prevImage, err := newV1Image(ri.keychain, prevImageRepoName, platform, reg)
 	if err != nil {
 		return err
 	}
@@ -167,7 +202,9 @@ func processPreviousImageOption(ri *Image, prevImageRepoName string, platform im
 }
 
 func processBaseImageOption(ri *Image, baseImageRepoName string, platform imgutil.Platform) error {
-	baseImage, err := newV1Image(ri.keychain, baseImageRepoName, platform)
+	reg := getRegistry(baseImageRepoName, ri.registrySettings)
+
+	baseImage, err := newV1Image(ri.keychain, baseImageRepoName, platform, reg)
 	if err != nil {
 		return err
 	}
@@ -207,8 +244,8 @@ func prepareNewWindowsImage(ri *Image) error {
 	return nil
 }
 
-func newV1Image(keychain authn.Keychain, repoName string, platform imgutil.Platform) (v1.Image, error) {
-	ref, auth, err := referenceForRepoName(keychain, repoName)
+func newV1Image(keychain authn.Keychain, repoName string, platform imgutil.Platform, reg registrySetting) (v1.Image, error) {
+	ref, auth, err := referenceForRepoName(keychain, repoName, reg.insecure)
 	if err != nil {
 		return nil, err
 	}
@@ -219,10 +256,22 @@ func newV1Image(keychain authn.Keychain, repoName string, platform imgutil.Platf
 		OSVersion:    platform.OSVersion,
 	}
 
+	opts := []remote.Option{remote.WithAuth(auth), remote.WithPlatform(v1Platform)}
+	// #nosec G402
+	if reg.insecureSkipVerify {
+		opts = append(opts, remote.WithTransport(&http.Transport{
+			TLSClientConfig: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+		}))
+	} else {
+		opts = append(opts, remote.WithTransport(http.DefaultTransport))
+	}
+
 	var image v1.Image
 	for i := 0; i <= maxRetries; i++ {
 		time.Sleep(100 * time.Duration(i) * time.Millisecond) // wait if retrying
-		image, err = remote.Image(ref, remote.WithAuth(auth), remote.WithTransport(http.DefaultTransport), remote.WithPlatform(v1Platform))
+		image, err = remote.Image(ref, opts...)
 		if err != nil {
 			if err == io.EOF && i != maxRetries {
 				continue // retry if EOF
@@ -265,9 +314,13 @@ func defaultPlatform() imgutil.Platform {
 	}
 }
 
-func referenceForRepoName(keychain authn.Keychain, ref string) (name.Reference, authn.Authenticator, error) {
+func referenceForRepoName(keychain authn.Keychain, ref string, insecure bool) (name.Reference, authn.Authenticator, error) {
 	var auth authn.Authenticator
-	r, err := name.ParseReference(ref, name.WeakValidation)
+	opts := []name.Option{name.WeakValidation}
+	if insecure {
+		opts = append(opts, name.Insecure)
+	}
+	r, err := name.ParseReference(ref, opts...)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -394,7 +447,8 @@ func (i *Image) Found() bool {
 }
 
 func (i *Image) CheckReadWriteAccess() bool {
-	ref, _, err := referenceForRepoName(i.keychain, i.repoName)
+	reg := getRegistry(i.repoName, i.registrySettings)
+	ref, _, err := referenceForRepoName(i.keychain, i.repoName, reg.insecure)
 	if err != nil {
 		return false
 	}
@@ -414,7 +468,8 @@ func (i *Image) CheckReadAccess() bool {
 }
 
 func (i *Image) found() (*v1.Descriptor, error) {
-	ref, auth, err := referenceForRepoName(i.keychain, i.repoName)
+	reg := getRegistry(i.repoName, i.registrySettings)
+	ref, auth, err := referenceForRepoName(i.keychain, i.repoName, reg.insecure)
 	if err != nil {
 		return nil, err
 	}
@@ -726,8 +781,13 @@ func (i *Image) Save(additionalNames ...string) error {
 	return nil
 }
 
+func (i *Image) SaveFile() (string, error) {
+	return "", errors.New("not yet implemented")
+}
+
 func (i *Image) doSave(imageName string) error {
-	ref, auth, err := referenceForRepoName(i.keychain, imageName)
+	reg := getRegistry(i.repoName, i.registrySettings)
+	ref, auth, err := referenceForRepoName(i.keychain, imageName, reg.insecure)
 	if err != nil {
 		return err
 	}
@@ -739,7 +799,8 @@ func (i *Image) Delete() error {
 	if err != nil {
 		return err
 	}
-	ref, auth, err := referenceForRepoName(i.keychain, id.String())
+	reg := getRegistry(i.repoName, i.registrySettings)
+	ref, auth, err := referenceForRepoName(i.keychain, id.String(), reg.insecure)
 	if err != nil {
 		return err
 	}

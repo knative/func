@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"golang.org/x/sync/errgroup"
 	"io"
 	"io/ioutil"
 	"os"
@@ -28,8 +29,18 @@ import (
 	"github.com/buildpacks/imgutil"
 )
 
+// DockerClient is subset of client.CommonAPIClient required by this package
+type DockerClient interface {
+	ImageInspectWithRaw(ctx context.Context, image string) (types.ImageInspect, []byte, error)
+	ImageTag(ctx context.Context, image, ref string) error
+	ImageLoad(ctx context.Context, input io.Reader, quiet bool) (types.ImageLoadResponse, error)
+	ImageSave(ctx context.Context, images []string) (io.ReadCloser, error)
+	ImageRemove(ctx context.Context, image string, options types.ImageRemoveOptions) ([]types.ImageDeleteResponseItem, error)
+	Info(ctx context.Context) (types.Info, error)
+}
+
 type Image struct {
-	docker           client.CommonAPIClient
+	docker           DockerClient
 	repoName         string
 	inspect          types.ImageInspect
 	layerPaths       []string
@@ -85,7 +96,7 @@ func WithCreatedAt(createdAt time.Time) ImageOption {
 }
 
 // NewImage returns a new Image that can be modified and saved to a registry.
-func NewImage(repoName string, dockerClient client.CommonAPIClient, ops ...ImageOption) (*Image, error) {
+func NewImage(repoName string, dockerClient DockerClient, ops ...ImageOption) (*Image, error) {
 	imageOpts := &options{}
 	for _, op := range ops {
 		if err := op(imageOpts); err != nil {
@@ -150,7 +161,7 @@ func validatePlatformOption(defaultPlatform imgutil.Platform, optionPlatform img
 	return nil
 }
 
-func processPreviousImageOption(image *Image, prevImageRepoName string, platform imgutil.Platform, dockerClient client.CommonAPIClient) error {
+func processPreviousImageOption(image *Image, prevImageRepoName string, platform imgutil.Platform, dockerClient DockerClient) error {
 	if _, err := inspectOptionalImage(dockerClient, prevImageRepoName, platform); err != nil {
 		return err
 	}
@@ -165,7 +176,7 @@ func processPreviousImageOption(image *Image, prevImageRepoName string, platform
 	return nil
 }
 
-func processBaseImageOption(image *Image, baseImageRepoName string, platform imgutil.Platform, dockerClient client.CommonAPIClient) error {
+func processBaseImageOption(image *Image, baseImageRepoName string, platform imgutil.Platform, dockerClient DockerClient) error {
 	inspect, err := inspectOptionalImage(dockerClient, baseImageRepoName, platform)
 	if err != nil {
 		return err
@@ -484,6 +495,109 @@ func (i *Image) Save(additionalNames ...string) error {
 	return nil
 }
 
+func (i *Image) SaveFile() (string, error) {
+	f, err := os.CreateTemp("", "imgutil.local.image.export.*.tar")
+	if err != nil {
+		return "", errors.Wrap(err, "failed to create temporary file")
+	}
+	defer func() {
+		f.Close()
+		if err != nil {
+			os.Remove(f.Name())
+		}
+	}()
+
+	// All layers need to be present here. Missing layers are either due to utilization of: (1) WithPreviousImage(),
+	// or (2) FromBaseImage(). The former is only relevant if ReuseLayers() has been called which takes care of
+	// resolving them. The latter case needs to be handled explicitly.
+	if err := i.downloadBaseLayersOnce(); err != nil {
+		return "", errors.Wrap(err, "failed to fetch base layers")
+	}
+
+	errs, _ := errgroup.WithContext(context.Background())
+	pr, pw := io.Pipe()
+
+	// File writer
+	errs.Go(func() error {
+		defer pr.Close()
+		_, err = f.ReadFrom(pr)
+		return err
+	})
+
+	// Tar producer
+	errs.Go(func() error {
+		defer pw.Close()
+
+		tw := tar.NewWriter(pw)
+		defer tw.Close()
+
+		config, err := i.newConfigFile()
+		if err != nil {
+			return errors.Wrap(err, "failed to generate config file")
+		}
+
+		configName := fmt.Sprintf("/%x.json", sha256.Sum256(config))
+		if err := addTextToTar(tw, configName, config); err != nil {
+			return errors.Wrap(err, "failed to add config file to tar archive")
+		}
+
+		for _, path := range i.layerPaths {
+			err := func() error {
+				f, err := os.Open(filepath.Clean(path))
+				if err != nil {
+					return errors.Wrapf(err, "failed to open layer path: %s", path)
+				}
+				defer f.Close()
+
+				layerName := fmt.Sprintf("/%x.tar", sha256.Sum256([]byte(path)))
+				if err := addFileToTar(tw, layerName, f); err != nil {
+					return errors.Wrapf(err, "failed to add layer to tar archive from path: %s", path)
+				}
+
+				return nil
+			}()
+
+			if err != nil {
+				return err
+			}
+		}
+
+		t, err := name.NewTag(i.repoName, name.WeakValidation)
+		if err != nil {
+			return errors.Wrap(err, "failed to create tag")
+		}
+
+		layers := make([]string, 0, len(i.layerPaths))
+		for _, path := range i.layerPaths {
+			layers = append(layers, fmt.Sprintf("/%x.tar", sha256.Sum256([]byte(path))))
+		}
+
+		manifest, err := json.Marshal([]map[string]interface{}{
+			{
+				"Config":   configName,
+				"RepoTags": []string{t.Name()},
+				"Layers":   layers,
+			},
+		})
+		if err != nil {
+			return errors.Wrap(err, "failed to create manifest")
+		}
+
+		if err := addTextToTar(tw, "/manifest.json", manifest); err != nil {
+			return errors.Wrap(err, "failed to add manifest to tar archive")
+		}
+
+		return nil
+	})
+
+	err = errs.Wait()
+	if err != nil {
+		return "", err
+	}
+
+	return f.Name(), nil
+}
+
 func (i *Image) doSave() (types.ImageInspect, error) {
 	ctx := context.Background()
 	done := make(chan error)
@@ -783,7 +897,7 @@ func cleanPath(dest, header string) (string, error) {
 	return "", fmt.Errorf("bad filepath: %s", header)
 }
 
-func inspectOptionalImage(docker client.CommonAPIClient, imageName string, platform imgutil.Platform) (types.ImageInspect, error) {
+func inspectOptionalImage(docker DockerClient, imageName string, platform imgutil.Platform) (types.ImageInspect, error) {
 	var (
 		err     error
 		inspect types.ImageInspect
@@ -809,7 +923,7 @@ func defaultInspect(platform imgutil.Platform) types.ImageInspect {
 	}
 }
 
-func defaultPlatform(dockerClient client.CommonAPIClient) (imgutil.Platform, error) {
+func defaultPlatform(dockerClient DockerClient) (imgutil.Platform, error) {
 	daemonInfo, err := dockerClient.Info(context.Background())
 	if err != nil {
 		return imgutil.Platform{}, err

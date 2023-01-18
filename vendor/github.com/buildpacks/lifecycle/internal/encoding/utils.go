@@ -1,6 +1,7 @@
 package encoding
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -30,4 +31,12 @@ func WriteTOML(path string, data interface{}) error {
 	}
 	defer f.Close()
 	return toml.NewEncoder(f).Encode(data)
+}
+
+func MarshalTOML(v interface{}) ([]byte, error) {
+	buf := new(bytes.Buffer)
+	if err := toml.NewEncoder(buf).Encode(v); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
