@@ -104,8 +104,9 @@ func (f *TestExecCmd) Exec(args ...string) TestExecCmdResult {
 		}
 	}
 	if err != nil {
-		f.T.Log(err.Error())
+		f.T.Log(result.Stdout)
 		f.T.Log(result.Stderr)
+		f.T.Log(err.Error())
 		if f.ShouldFailOnError {
 			f.T.Fail()
 		}
