@@ -8,10 +8,11 @@ import (
 	"github.com/buildpacks/imgutil/remote"
 	"github.com/pkg/errors"
 
+	"github.com/buildpacks/lifecycle/log"
 	"github.com/buildpacks/lifecycle/platform"
 )
 
-func saveImage(image imgutil.Image, additionalNames []string, logger Logger) (platform.ImageReport, error) {
+func saveImage(image imgutil.Image, additionalNames []string, logger log.Logger) (platform.ImageReport, error) {
 	var saveErr error
 	imageReport := platform.ImageReport{}
 	logger.Infof("Saving %s...\n", image.Name())

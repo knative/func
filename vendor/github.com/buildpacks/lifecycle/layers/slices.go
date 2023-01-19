@@ -2,7 +2,6 @@ package layers
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -131,7 +130,7 @@ func newSlicableDir(appDir string) (*sliceableDir, error) {
 		sdir.slicedFiles[path] = false
 		sdir.pathInfos[path] = fi
 		if fi.IsDir() {
-			children, err := ioutil.ReadDir(path)
+			children, err := os.ReadDir(path)
 			if err != nil {
 				return err
 			}

@@ -1,0 +1,5 @@
+ignore:
+  - vulnerability: CVE-2015-5237 # false positive, see https://github.com/anchore/grype/issues/558
+  - vulnerability: CVE-2021-22570 # false positive, see https://github.com/anchore/grype/issues/558
+  - vulnerability: GHSA-f3fp-gc8g-vw66 # can't update github.com/opencontainers/runc until it is updated in github.com/docker/docker
+  - vulnerability: GHSA-v95c-p5hm-xq8f # can't update github.com/opencontainers/runc until it is updated in github.com/docker/docker

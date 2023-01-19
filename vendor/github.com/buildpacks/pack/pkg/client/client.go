@@ -40,7 +40,7 @@ import (
 
 //go:generate mockgen -package testmocks -destination ../testmocks/mock_image_fetcher.go github.com/buildpacks/pack/pkg/client ImageFetcher
 
-// ImageFetcher is an interface representing the ability to fetch local and images.
+// ImageFetcher is an interface representing the ability to fetch local and remote images.
 type ImageFetcher interface {
 	// Fetch fetches an image by resolving it both remotely and locally depending on provided parameters.
 	// The pull behavior is dictated by the pullPolicy, which can have the following behavior
@@ -77,7 +77,7 @@ type ImageFactory interface {
 // BuildpackDownloader is an interface for downloading and extracting buildpacks from various sources
 type BuildpackDownloader interface {
 	// Download parses a buildpack URI and downloads the buildpack and any dependencies buildpacks from the appropriate source
-	Download(ctx context.Context, buildpackURI string, opts buildpack.DownloadOptions) (buildpack.Buildpack, []buildpack.Buildpack, error)
+	Download(ctx context.Context, buildpackURI string, opts buildpack.DownloadOptions) (buildpack.BuildModule, []buildpack.BuildModule, error)
 }
 
 // Client is an orchestration object, it contains all parameters needed to

@@ -60,8 +60,8 @@ func (f *Factory) LauncherLayer(path string) (layer Layer, err error) {
 }
 
 // ProcessTypesLayer creates a Layer containing symlinks pointing to target where:
-//    * any parents of the symlink files will also be added to the layer
-//    * symlinks and their parent directories shall be root owned and world readable
+//   - any parents of the symlink files will also be added to the layer
+//   - symlinks and their parent directories shall be root owned and world readable
 func (f *Factory) ProcessTypesLayer(config launch.Metadata) (layer Layer, err error) {
 	hdrs := []*tar.Header{
 		rootOwnedDir(launch.CNBDir),

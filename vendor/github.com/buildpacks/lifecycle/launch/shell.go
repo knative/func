@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/pkg/errors"
 
@@ -34,10 +35,14 @@ func (l *Launcher) launchWithShell(self string, proc Process) error {
 	if err != nil {
 		return err
 	}
+	command := ""
+	if len(proc.Command.Entries) > 0 {
+		command = strings.Join(proc.Command.Entries, " ")
+	}
 	return l.Shell.Launch(ShellProcess{
 		Script:           script,
 		Caller:           self,
-		Command:          proc.Command,
+		Command:          command, // TODO: support multiple commands
 		Args:             proc.Args,
 		Profiles:         profs,
 		Env:              l.Env.List(),

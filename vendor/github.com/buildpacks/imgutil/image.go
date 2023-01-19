@@ -58,6 +58,8 @@ type Image interface {
 	TopLayer() (string, error)
 	// Save saves the image as `Name()` and any additional names provided to this method.
 	Save(additionalNames ...string) error
+	// SaveFile saves the image as a docker archive and provides the filesystem location
+	SaveFile() (string, error)
 	// Found tells whether the image exists in the repository by `Name()`.
 	Found() bool
 	// GetLayer retrieves layer by diff id. Returns a reader of the uncompressed contents of the layer.

@@ -34,7 +34,7 @@ func EncodeLayerMetadataFile(lmf LayerMetadataFile, path, buildpackAPI string) e
 	return errors.New("couldn't find an encoder")
 }
 
-func DecodeLayerMetadataFile(path, buildpackAPI string) (LayerMetadataFile, string, error) { // TODO: pass the logger and print the warning inside (instead of returning a message)
+func DecodeLayerMetadataFile(path, buildpackAPI string) (LayerMetadataFile, string, error) { // FIXME: pass the logger and print the warning inside (instead of returning a message)
 	fh, err := os.Open(path)
 	if os.IsNotExist(err) {
 		return LayerMetadataFile{}, "", nil

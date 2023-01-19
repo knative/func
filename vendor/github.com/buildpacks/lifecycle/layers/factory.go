@@ -6,12 +6,13 @@ import (
 	"strings"
 
 	"github.com/buildpacks/lifecycle/archive"
+	"github.com/buildpacks/lifecycle/log"
 )
 
 type Factory struct {
 	ArtifactsDir string // ArtifactsDir is the directory where layer files are written
 	UID, GID     int    // UID and GID are used to normalize layer entries
-	Logger       Logger
+	Logger       log.Logger
 
 	tarHashes map[string]string // tarHases Stores hashes of layer tarballs for reuse between the export and cache steps.
 }
@@ -20,20 +21,6 @@ type Layer struct {
 	ID      string
 	TarPath string
 	Digest  string
-}
-
-type Logger interface {
-	Debug(msg string)
-	Debugf(fmt string, v ...interface{})
-
-	Info(msg string)
-	Infof(fmt string, v ...interface{})
-
-	Warn(msg string)
-	Warnf(fmt string, v ...interface{})
-
-	Error(msg string)
-	Errorf(fmt string, v ...interface{})
 }
 
 func (f *Factory) writeLayer(id string, addEntries func(tw *archive.NormalizingTarWriter) error) (layer Layer, err error) {

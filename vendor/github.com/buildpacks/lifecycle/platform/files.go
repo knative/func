@@ -5,6 +5,7 @@ package platform
 import (
 	"encoding/json"
 
+	"github.com/BurntSushi/toml"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/pkg/errors"
 
@@ -20,6 +21,7 @@ type AnalyzedMetadata struct {
 	PreviousImage *ImageIdentifier `toml:"image"`
 	Metadata      LayersMetadata   `toml:"metadata"`
 	RunImage      *ImageIdentifier `toml:"run-image,omitempty"`
+	BuildImage    *ImageIdentifier `toml:"build-image,omitempty"`
 }
 
 // FIXME: fix key names to be accurate in the daemon case
@@ -74,14 +76,34 @@ type RunImageMetadata struct {
 // metadata.toml
 
 type BuildMetadata struct {
-	BOM                         []buildpack.BOMEntry       `toml:"bom,omitempty" json:"bom"`
-	Buildpacks                  []buildpack.GroupBuildpack `toml:"buildpacks" json:"buildpacks"`
-	Labels                      []buildpack.Label          `toml:"labels" json:"-"`
-	Launcher                    LauncherMetadata           `toml:"-" json:"launcher"`
-	Processes                   []launch.Process           `toml:"processes" json:"processes"`
-	Slices                      []layers.Slice             `toml:"slices" json:"-"`
-	BuildpackDefaultProcessType string                     `toml:"buildpack-default-process-type,omitempty" json:"buildpack-default-process-type,omitempty"`
-	PlatformAPI                 *api.Version               `toml:"-" json:"-"`
+	BOM                         []buildpack.BOMEntry     `toml:"bom,omitempty" json:"bom"`
+	Buildpacks                  []buildpack.GroupElement `toml:"buildpacks" json:"buildpacks"`
+	Extensions                  []buildpack.GroupElement `toml:"extensions,omitempty" json:"extensions,omitempty"`
+	Labels                      []buildpack.Label        `toml:"labels" json:"-"`
+	Launcher                    LauncherMetadata         `toml:"-" json:"launcher"`
+	Processes                   []launch.Process         `toml:"processes" json:"processes"`
+	Slices                      []layers.Slice           `toml:"slices" json:"-"`
+	BuildpackDefaultProcessType string                   `toml:"buildpack-default-process-type,omitempty" json:"buildpack-default-process-type,omitempty"`
+	PlatformAPI                 *api.Version             `toml:"-" json:"-"`
+}
+
+// DecodeBuildMetadataTOML reads a metadata.toml file
+func DecodeBuildMetadataTOML(path string, platformAPI *api.Version, buildmd *BuildMetadata) error {
+	// decode the common bits
+	_, err := toml.DecodeFile(path, &buildmd)
+	if err != nil {
+		return err
+	}
+
+	// set the platform API on all the appropriate fields
+	// this will allow us to re-encode the metadata.toml file with
+	// the current platform API
+	buildmd.PlatformAPI = platformAPI
+	for i, process := range buildmd.Processes {
+		buildmd.Processes[i] = process.WithPlatformAPI(platformAPI)
+	}
+
+	return nil
 }
 
 func (md *BuildMetadata) MarshalJSON() ([]byte, error) {
@@ -131,11 +153,15 @@ type BuildPlan struct {
 	Entries []BuildPlanEntry `toml:"entries"`
 }
 
-func (p BuildPlan) Find(bpID string) buildpack.Plan {
+func (p BuildPlan) Find(kind, id string) buildpack.Plan {
+	var extension bool
+	if kind == buildpack.KindExtension {
+		extension = true
+	}
 	var out []buildpack.Require
 	for _, entry := range p.Entries {
 		for _, provider := range entry.Providers {
-			if provider.ID == bpID {
+			if provider.ID == id && provider.Extension == extension {
 				out = append(out, entry.Requires...)
 				break
 			}
@@ -144,7 +170,7 @@ func (p BuildPlan) Find(bpID string) buildpack.Plan {
 	return buildpack.Plan{Entries: out}
 }
 
-// TODO: ensure at least one claimed entry of each name is provided by the BP
+// FIXME: ensure at least one claimed entry of each name is provided by the BP
 func (p BuildPlan) Filter(metRequires []string) BuildPlan {
 	var out []BuildPlanEntry
 	for _, planEntry := range p.Entries {
@@ -167,12 +193,12 @@ func containsEntry(metRequires []string, entry BuildPlanEntry) bool {
 }
 
 type BuildPlanEntry struct {
-	Providers []buildpack.GroupBuildpack `toml:"providers"`
-	Requires  []buildpack.Require        `toml:"requires"`
+	Providers []buildpack.GroupElement `toml:"providers"`
+	Requires  []buildpack.Require      `toml:"requires"`
 }
 
 func (be BuildPlanEntry) NoOpt() BuildPlanEntry {
-	var out []buildpack.GroupBuildpack
+	var out []buildpack.GroupElement
 	for _, p := range be.Providers {
 		out = append(out, p.NoOpt().NoAPI().NoHomepage())
 	}
