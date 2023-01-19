@@ -6,7 +6,7 @@
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
-    <version>2.7.7</version>
+    <version>3.0.2</version>
     <relativePath/>
   </parent>
 
@@ -17,13 +17,12 @@
   <description>A Spring Cloud Function, using Cloud Events</description>
 
   <properties>
-    <java.version>11</java.version>
-    <spring-cloud.version>2021.0.5</spring-cloud.version>
-    <spring-native.version>0.12.2</spring-native.version>
+    <java.version>17</java.version>
+    <spring-cloud.version>2022.0.0</spring-cloud.version>
     <compiler-plugin.version>3.10.1</compiler-plugin.version>
     <maven.compiler.parameters>true</maven.compiler.parameters>
-    <maven.compiler.source>11</maven.compiler.source>
-    <maven.compiler.target>11</maven.compiler.target>
+    <maven.compiler.source>17</maven.compiler.source>
+    <maven.compiler.target>17</maven.compiler.target>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
   </properties>
@@ -72,13 +71,4 @@
       </plugin>
     </plugins>
   </build>
-
 </project>
-
-
-
-
-
-
-
-

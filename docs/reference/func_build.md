@@ -34,7 +34,7 @@ EXAMPLES
 
 	o Build a function container using an explicit image name, ignoring registry
 	  and function name.
-      $ func build --image registry.example.com/alice/f:latest
+	  $ func build --image registry.example.com/alice/f:latest
 
 	o Rebuild a function using prior values to determine container name.
 	  $ func build
@@ -44,7 +44,7 @@ EXAMPLES
 
 	o Build a function specifying the Pack builder with a custom Buildpack
 	  builder image.
-      $ func build --builder=pack --builder-image=cnbs/sample-builder:bionic
+	  $ func build --builder=pack --builder-image=cnbs/sample-builder:bionic
 
 
 
