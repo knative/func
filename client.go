@@ -63,7 +63,7 @@ var ErrNotBuilt = errors.New("not built")
 var ErrNameRequired = errors.New("name required")
 
 // ErrRegistryRequired indicates the operation requires a registry to complete.
-var ErrRegistryRequired = errors.New("registry required")
+var ErrRegistryRequired = errors.New("registry required to build function, please set with `--registry` or the FUNC_REGISTRY environment variable")
 
 // Builder of function source to runnable image.
 type Builder interface {
