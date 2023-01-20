@@ -11,8 +11,8 @@ import (
 	"testing"
 
 	"k8s.io/apimachinery/pkg/util/rand"
-	common "knative.dev/func/test/_common"
-	e2e "knative.dev/func/test/_e2e"
+	common "knative.dev/func/test/common"
+	e2e "knative.dev/func/test/e2e"
 )
 
 var runtimeSupportMap = map[string][]string{

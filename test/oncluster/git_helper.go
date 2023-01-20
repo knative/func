@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	fn "knative.dev/func"
-	common "knative.dev/func/test/_common"
+	common "knative.dev/func/test/common"
 )
 
 // UpdateFuncGit updates a function's git settings

@@ -51,7 +51,7 @@ fi
 
 
 go clean -testcache
-go test -v -test.v -test.timeout=90m -tags="${TEST_TAGS:-oncluster}" ./test/_oncluster/
+go test -v -test.v -test.timeout=90m -tags="${TEST_TAGS:-oncluster}" ./test/oncluster/
 ret=$?
 
 cd $curdir

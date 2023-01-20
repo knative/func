@@ -20,8 +20,8 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/rand"
 	fn "knative.dev/func"
-	common "knative.dev/func/test/_common"
-	e2e "knative.dev/func/test/_e2e"
+	common "knative.dev/func/test/common"
+	e2e "knative.dev/func/test/e2e"
 )
 
 func TestFromFeatureBranch(t *testing.T) {

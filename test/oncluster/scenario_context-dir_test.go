@@ -11,8 +11,8 @@ import (
 
 	"gotest.tools/v3/assert"
 	"k8s.io/apimachinery/pkg/util/rand"
-	common "knative.dev/func/test/_common"
-	e2e "knative.dev/func/test/_e2e"
+	common "knative.dev/func/test/common"
+	e2e "knative.dev/func/test/e2e"
 )
 
 // TestContextDirFunc tests the following use case:

@@ -44,7 +44,7 @@ fi
 export E2E_FUNC_BIN_PATH=$(pwd)/func
 
 go clean -testcache
-go test -v -test.v -tags="e2e" ./test/_e2e/
+go test -v -test.v -tags="e2e" ./test/e2e/
 ret=$?
 
 cd $curdir
