@@ -119,7 +119,7 @@ spec:
         mkdir -p "$ENV_DIR"
 
         for env in "${envs[@]}"; do
-            IFS='=' read -r key value string <<< "$env"
+            IFS='=' read -r key value <<< "$env"
             if [[ "$key" != "" && "$value" != "" ]]; then
                 path="${ENV_DIR}/${key}"
                 echo "--> Writing ${path}..."
