@@ -775,7 +775,7 @@ func printDeployMessages(out io.Writer, cfg deployConfig) {
 	// is retained.  Subsequent runs of deploy then need not have these arguments
 	// present.
 	//
-	// However, when building _locally_ therafter, the deploy command should
+	// However, when building _locally_ thereafter, the deploy command should
 	// prefer the local source code, ignoring the values for --git-url etc.
 	// Since this might be confusing, a warning is issued below that the local
 	// function source does include a reference to a git reposotiry, but that it
