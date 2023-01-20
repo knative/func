@@ -210,7 +210,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	if cfg, err = newDeployConfig(cmd).Prompt(); err != nil {
 		return
 	}
-	if err = cfg.Validate(); err != nil {
+	if err = cfg.Validate(cmd); err != nil {
 		return
 	}
 	if f, err = fn.NewFunction(cfg.Path); err != nil {
@@ -649,7 +649,7 @@ func (c deployConfig) Prompt() (deployConfig, error) {
 }
 
 // Validate the config passes an initial consistency check
-func (c deployConfig) Validate() (err error) {
+func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 	// Bubble validation
 	if err = c.buildConfig.Validate(); err != nil {
 		return
@@ -684,9 +684,11 @@ func (c deployConfig) Validate() (err error) {
 		return errors.New("pushing is not valid when specifying an image with digest")
 	}
 
-	// Git settings are (currently) only available with --remote
-	if (c.GitURL != "" || c.GitDir != "" || c.GitBranch != "") && !c.Remote {
-		return errors.New("git settings (--git-url --git-dir and --git-branch) are currently only available when triggering remote deployments (--remote)")
+	// Git references can only be supplied explicitly when coupled with --remote
+	// See `printDeployMessages` which issues informative messages to the user
+	// regarding this potentially confusing nuance.
+	if !c.Remote && (cmd.Flags().Changed("git-url") || cmd.Flags().Changed("git-dir") || cmd.Flags().Changed("git-branch")) {
+		return errors.New("git settings (--git-url --git-dir and --git-branch) are only applicable when triggering remote deployments (--remote)")
 	}
 
 	// Git URL can contain at maximum one '#'
@@ -761,4 +763,26 @@ func printDeployMessages(out io.Writer, cfg deployConfig) {
 	if err == nil && targetNamespace != "" && targetNamespace != activeNamespace {
 		fmt.Fprintf(out, "Warning: namespace chosen is '%s', but currently active namespace is '%s'. Continuing with deployment to '%s'.\n", cfg.Namespace, activeNamespace, cfg.Namespace)
 	}
+
+	// Git Args
+	// -----------------
+	// Print a warning if the function already contains Git attributes, but the
+	// current invocation is not remote.  (providing Git attributes directly
+	// via flags without --remote will error elsewhere).
+	//
+	// When invoking a remote build with --remote, the --git-X arguments
+	// are persisted to the local function's source code such that the reference
+	// is retained.  Subsequent runs of deploy then need not have these arguments
+	// present.
+	//
+	// However, when building _locally_ therafter, the deploy command should
+	// prefer the local source code, ignoring the values for --git-url etc.
+	// Since this might be confusing, a warning is issued below that the local
+	// function source does include a reference to a git reposotiry, but that it
+	// will be ignored in favor of the local source code since --remote was not
+	// specified.
+	if !cfg.Remote && (cfg.GitURL != "" || cfg.GitBranch != "" || cfg.GitDir != "") {
+		fmt.Fprintf(out, "Warning: git settings are only applicable when running with --remote.  Local source function source code will be used.")
+	}
+
 }
