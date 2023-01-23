@@ -15,7 +15,7 @@ SYNOPSIS
 DESCRIPTION
 	Creates a new function project.
 
-    $ func create -l node -t http
+	  $ func create -l node
 
 	Creates a function in the current directory '.' which is written in the
 	language/runtime 'node' and handles HTTP events.
@@ -24,7 +24,7 @@ DESCRIPTION
 	the path if necessary.
 
 	To complete this command interactively, use --confirm (-c):
-    $ func create -c
+	  $ func create -c
 
 	Available Language Runtimes and Templates:
 	  Language     Template
