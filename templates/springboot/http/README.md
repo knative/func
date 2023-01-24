@@ -6,7 +6,7 @@ This sample project contains a single function based on Spring Cloud Function: `
 
 ## Local execution
 
-Make sure that `Java 11 SDK` is installed.
+Make sure that `Java 17 SDK` is installed since Spring Boot 3.0 requires Java 17.
 
 To start server locally run `./mvnw spring-boot:run`.
 The command starts http server and automatically watches for changes of source code.
@@ -35,13 +35,23 @@ func build -v                  # build image
 ```
 
 **Note**: If you want to enable the native build, you need to edit the `func.yaml` file and
-set the following BuilderEnv variable:
+set the `BP_NATIVE_IMAGE` BuilderEnv variable to true:
 
 ```yaml
 buildEnvs:
   - name: BP_NATIVE_IMAGE
     value: "true"
 ```
+
+**Note**: If you have issues with the [Spring AOT](https://docs.spring.io/spring-framework/docs/current/reference/html/core.html#core.aot) processing in your build, you can turn this off by editing the `func.yaml` file and remove the `-Pnative` profile from the `BP_MAVEN_BUILD_ARGUMENTS` BuilderEnv variable:
+
+```yaml
+buildEnvs:
+  - name: BP_MAVEN_BUILD_ARGUMENTS
+    value: -Pnative -Dmaven.test.skip=true --no-transfer-progress package
+```
+
+> Removing the `-Pnative` profile means that you no longer will be able to build as a native image.
 
 ### Running
 
