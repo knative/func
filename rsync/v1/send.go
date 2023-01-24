@@ -1,4 +1,4 @@
-package rsync
+package v1
 
 import (
 	"bufio"

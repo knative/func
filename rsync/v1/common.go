@@ -1,11 +1,10 @@
-package rsync
+package v1
 
 import (
 	"context"
 	"runtime"
 
 	"github.com/balena-os/librsync-go"
-	"github.com/pkg/errors"
 )
 
 type messageType = byte
@@ -48,5 +47,3 @@ func (s chunkWriter) Write(p []byte) (n int, err error) {
 		return len(p), nil
 	}
 }
-
-var RemoteError = errors.New("remote error")
