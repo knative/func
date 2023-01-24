@@ -50,7 +50,7 @@ require (
 	knative.dev/eventing v0.35.1-0.20230120082502-7e899fd166de
 	knative.dev/hack v0.0.0-20230113013652-c7cfcb062de9
 	knative.dev/pkg v0.0.0-20230117181655-247510c00e9d
-	knative.dev/serving v0.35.1-0.20230120130903-5b59ae029c18
+	knative.dev/serving v0.35.1-0.20230123130505-8b28d4103e0c
 )
 
 require github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
