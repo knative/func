@@ -1349,3 +1349,48 @@ func TestDeploy_Envs(t *testing.T) {
 
 	// TODO: create and test typed errors for ErrEnvNotExist etc.
 }
+
+// TestDeploy_UnsetFlag ensures that unsetting a flag on the command
+// line causes the pertinent value to be zeroed out.
+func TestDeploy_UnsetFlag(t *testing.T) {
+	// From a temp directory
+	root := fromTempDirectory(t)
+
+	// Create a function
+	f := fn.Function{Runtime: "go", Root: root, Registry: TestRegistry}
+	if err := fn.New().Create(f); err != nil {
+		t.Fatal(err)
+	}
+
+	// Deploy it, specifying a Git URL
+	cmd := NewDeployCmd(NewTestClient())
+	cmd.SetArgs([]string{"--remote", "--git-url=https://git.example.com/alice/f"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Load the function and confirm the URL was persisted
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Build.Git.URL != "https://git.example.com/alice/f" {
+		t.Fatalf("url not persisted")
+	}
+
+	// Deploy it again, unsetting the value
+	cmd = NewDeployCmd(NewTestClient())
+	cmd.SetArgs([]string{"--git-url="})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Load the function and confirm the URL was unset
+	f, err = fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Build.Git.URL != "" {
+		t.Fatalf("url not cleared")
+	}
+}
