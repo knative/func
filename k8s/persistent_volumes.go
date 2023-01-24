@@ -72,7 +72,7 @@ func UploadToVolume(ctx context.Context, content io.Reader, claimName, namespace
 	return runWithVolumeMounted(ctx, TarImage, []string{"tar", "-xmf", "-"}, content, claimName, namespace)
 }
 
-func getClientSetAndRestConfig(namespace string) (kubernetes.Interface, *restclient.Config, string, error) {
+func getClientSetAndRestConfig(namespace string) (*kubernetes.Clientset, *restclient.Config, string, error) {
 	cliConf := GetClientConfig()
 	restConf, err := cliConf.ClientConfig()
 	if err != nil {
@@ -98,7 +98,7 @@ func getClientSetAndRestConfig(namespace string) (kubernetes.Interface, *restcli
 	return client, restConf, namespace, nil
 }
 
-func podWithVolumeMounted(podName, claimName, podImage string, podCommand []string) *corev1.Pod {
+func podWithVolumeMounted(client *kubernetes.Clientset, podName, claimName, podImage string, podCommand []string) *corev1.Pod {
 	const volumeMntPoint = "/tmp/volume_mnt"
 	const pVol = "p-vol"
 	return &corev1.Pod{
@@ -158,7 +158,7 @@ func runWithVolumeMounted(ctx context.Context, podImage string, podCommand []str
 		_ = pods.Delete(ctx, podName, metav1.DeleteOptions{})
 	}()
 
-	pod := podWithVolumeMounted(podName, claimName, podImage, podCommand)
+	pod := podWithVolumeMounted(client, podName, claimName, podImage, podCommand)
 	localCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	ready := podReady(localCtx, client.CoreV1(), podName, namespace)
@@ -248,7 +248,7 @@ func ServeRsyncOnVolume(ctx context.Context, listener net.Listener, claimName, n
 
 	podName := "volume-rsync-" + rand.String(5)
 	volumeHelperImage := "quay.io/mvasek/volume-helper:latest"
-	pod := podWithVolumeMounted(podName, claimName, volumeHelperImage, []string{"socat", "-u", "-", "OPEN:/dev/null"})
+	pod := podWithVolumeMounted(client, podName, claimName, volumeHelperImage, []string{"socat", "-u", "-", "OPEN:/dev/null"})
 
 	pods := client.CoreV1().Pods(namespace)
 
