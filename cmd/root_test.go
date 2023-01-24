@@ -312,11 +312,11 @@ func TestRoot_effectivePath(t *testing.T) {
 		}
 	})
 
-	t.Run("--path highest precedence", func(t *testing.T) {
+	t.Run("-p highest precedence", func(t *testing.T) {
 		t.Setenv("FUNC_PATH", "p1")
 		os.Args = []string{"test", "--path=p2", "-p=p3"}
-		if effectivePath() != "p2" {
-			t.Fatalf("the effective path did not take --path with highest precedence over -p and FUNC_PATH.  Expected 'p2', got '%v'", effectivePath())
+		if effectivePath() != "p3" {
+			t.Fatalf("the effective path did not take -p with highest precedence over --path and FUNC_PATH.  Expected 'p3', got '%v'", effectivePath())
 		}
 	})
 
