@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"golang.org/x/term"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/client/pkg/util"
@@ -143,18 +143,14 @@ func registry() string {
 // definition (prior to parsing).
 func effectivePath() (path string) {
 	var (
-		env   = os.Getenv("FUNC_PATH")
-		fs    = flag.NewFlagSet("", flag.ContinueOnError)
-		long  = fs.String("path", "", "")
-		short = fs.String("p", "", "")
+		env  = os.Getenv("FUNC_PATH")
+		fs   = pflag.NewFlagSet("", pflag.ContinueOnError)
+		long = fs.StringP("path", "p", "", "")
 	)
 	fs.SetOutput(io.Discard)
 	_ = fs.Parse(os.Args[1:])
 	if env != "" {
 		path = env
-	}
-	if *short != "" {
-		path = *short
 	}
 	if *long != "" {
 		path = *long
