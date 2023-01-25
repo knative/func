@@ -9,7 +9,9 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"path"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -33,6 +35,14 @@ func ReceiveFiles(conn io.ReadWriteCloser, root string) error {
 		if f.Path == fileListEndSentinel {
 			break
 		}
+		f.Path = path.Clean(f.Path)
+		if path.IsAbs(f.Path) {
+			continue
+		}
+		if strings.HasPrefix(f.Path, "..") {
+			continue
+		}
+
 		files = append(files, f)
 		paths = append(paths, filepath.Join(root, filepath.FromSlash(f.Path)))
 	}
