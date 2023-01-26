@@ -78,7 +78,7 @@ func TestFromCommitHash(t *testing.T) {
 		sh.Exec("git add index.js")
 		sh.Exec(`git commit -m "version 2"`)
 		sh.Exec("git push origin main")
-		commitHash := strings.TrimSpace(gitRevParse.Stdout)
+		commitHash := strings.TrimSpace(gitRevParse.Out)
 		UpdateFuncGit(t, funcProjectPath, fn.Git{URL: clusterCloneUrl, Revision: commitHash})
 
 		t.Logf("Revision Check: commit hash resolved to [%v]", commitHash)
@@ -119,7 +119,7 @@ func GitRevisionCheck(
 
 	// -- Assertions --
 	result := knFunc.Exec("invoke", "-p", funcPath)
-	if !assertBodyFn(result.Stdout) {
+	if !assertBodyFn(result.Out) {
 		t.Error("Func Body does not contains expected expression")
 	}
 	AssertThatTektonPipelineRunSucceed(t, funcName)

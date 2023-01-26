@@ -38,7 +38,7 @@ func TestBasicUpload(t *testing.T) {
 
 		// Assert "first revision" is returned
 		result := knFunc.Exec("invoke", "-p", funcPath)
-		assert.Assert(t, strings.Contains(result.Stdout, "first revision"), "Func body does not contain 'first revision'")
+		assert.Assert(t, strings.Contains(result.Out, "first revision"), "Func body does not contain 'first revision'")
 
 		previousServiceRevision := e2e.GetCurrentServiceRevision(t, funcName)
 
@@ -54,7 +54,7 @@ func TestBasicUpload(t *testing.T) {
 
 		// -- Assertions --
 		result = knFunc.Exec("invoke", "-p", funcPath)
-		assert.Assert(t, strings.Contains(result.Stdout, "new revision"), "Func body does not contain 'new revision'")
+		assert.Assert(t, strings.Contains(result.Out, "new revision"), "Func body does not contain 'new revision'")
 		AssertThatTektonPipelineRunSucceed(t, funcName)
 	}()
 
@@ -94,7 +94,7 @@ func TestBasicGit(t *testing.T) {
 
 		// Assert "first revision" is returned
 		result := knFunc.Exec("invoke", "-p", funcPath)
-		assert.Assert(t, strings.Contains(result.Stdout, "first revision"), "Func body does not contain 'first revision'")
+		assert.Assert(t, strings.Contains(result.Out, "first revision"), "Func body does not contain 'first revision'")
 
 		previousServiceRevision := e2e.GetCurrentServiceRevision(t, funcName)
 
@@ -113,7 +113,7 @@ func TestBasicGit(t *testing.T) {
 
 		// -- Assertions --
 		result = knFunc.Exec("invoke", "-p", funcPath)
-		assert.Assert(t, strings.Contains(result.Stdout, "new revision"), "Func body does not contain 'new revision'")
+		assert.Assert(t, strings.Contains(result.Out, "new revision"), "Func body does not contain 'new revision'")
 		AssertThatTektonPipelineRunSucceed(t, funcName)
 
 	}()
