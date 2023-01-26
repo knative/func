@@ -142,17 +142,21 @@ func registry() string {
 // definition (prior to parsing).
 func effectivePath() (path string) {
 	var (
-		env  = os.Getenv("FUNC_PATH")
-		fs   = pflag.NewFlagSet("", pflag.ContinueOnError)
-		long = fs.StringP("path", "p", "", "")
+		env = os.Getenv("FUNC_PATH")
+		fs  = pflag.NewFlagSet("", pflag.ContinueOnError)
+		p   = fs.StringP("path", "p", "", "")
 	)
 	fs.SetOutput(io.Discard)
-	_ = fs.Parse(os.Args[1:])
+	fs.ParseErrorsWhitelist.UnknownFlags = true
+	err := fs.Parse(os.Args[1:])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error preparsing flags: %v\n", err)
+	}
 	if env != "" {
 		path = env
 	}
-	if *long != "" {
-		path = *long
+	if *p != "" {
+		path = *p
 	}
 	return path
 }

@@ -322,6 +322,13 @@ func TestRoot_effectivePath(t *testing.T) {
 		}
 	})
 
+	t.Run("continues on unrecognized flags", func(t *testing.T) {
+		os.Args = []string{"test", "-r=repo.example.com/bob", "-p=p3"}
+		if effectivePath() != "p3" {
+			t.Fatalf("the effective path did not evaluate when unexpected flags were present")
+		}
+	})
+
 }
 
 // Helpers
