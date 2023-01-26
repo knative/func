@@ -2,9 +2,11 @@ package cmd
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	fn "knative.dev/func"
+	"knative.dev/func/builders"
 	"knative.dev/func/mock"
 )
 
@@ -14,10 +16,188 @@ func TestBuild_ConfigApplied(t *testing.T) {
 	testConfigApplied(NewBuildCmd, t)
 }
 
+func testConfigApplied(cmdFn commandConstructor, t *testing.T) {
+	t.Helper()
+	var (
+		err      error
+		home     = fmt.Sprintf("%s/testdata/TestX_ConfigApplied", cwd())
+		root     = fromTempDirectory(t)
+		f        = fn.Function{Runtime: "go", Root: root, Name: "f"}
+		pusher   = mock.NewPusher()
+		clientFn = NewTestClient(fn.WithPusher(pusher))
+	)
+	t.Setenv("XDG_CONFIG_HOME", home)
+
+	if err = fn.New().Create(f); err != nil {
+		t.Fatal(err)
+	}
+
+	// Ensure the global config setting was loaded: Registry
+	// global config in ./testdata/TestBuild_ConfigApplied sets registry
+	if err = cmdFn(clientFn).Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	if f.Registry != "registry.example.com/alice" {
+		t.Fatalf("expected registry 'registry.example.com/alice' got '%v'", f.Registry)
+	}
+
+	// Ensure flags are evaluated
+	cmd := cmdFn(clientFn)
+	cmd.SetArgs([]string{"--builder-image", "example.com/builder/image:v1.2.3"})
+	if err = cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	if f.Build.BuilderImages[f.Build.Builder] != "example.com/builder/image:v1.2.3" {
+		t.Fatalf("expected builder image not set. Flags not evaluated? got %v", f.Build.BuilderImages[f.Build.Builder])
+	}
+
+	// Ensure function context loaded
+	// Update registry on the function and ensure it takes precidence (overrides)
+	// the global setting defined in home.
+	f.Registry = "registry.example.com/charlie"
+	if err := f.Write(); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmdFn(clientFn).Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	if f.Image != "registry.example.com/charlie/f:latest" {
+		t.Fatalf("expected image 'registry.example.com/charlie/f:latest' got '%v'", f.Image)
+	}
+
+	// Ensure environment variables loaded: Push
+	// Test environment variable evaluation using FUNC_PUSH
+	t.Setenv("FUNC_PUSH", "true")
+	if err := cmdFn(clientFn).Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	if !pusher.PushInvoked {
+		t.Fatalf("push was not invoked when FUNC_PUSH=true")
+	}
+}
+
 // TestBuild_ConfigPrecedence ensures that the correct precidence for config
 // are applied: static < global < function context < envs < flags
 func TestBuild_ConfigPrecedence(t *testing.T) {
 	testConfigPrecedence(NewBuildCmd, t)
+}
+
+func testConfigPrecedence(cmdFn commandConstructor, t *testing.T) {
+	t.Helper()
+	var (
+		err      error
+		home     = fmt.Sprintf("%s/testdata/TestX_ConfigPrecedence", cwd())
+		builder  = mock.NewBuilder()
+		clientFn = NewTestClient(fn.WithBuilder(builder))
+	)
+
+	// Ensure static default applied via 'builder'
+	// (a degenerate case, mostly just ensuring config values are not wiped to a
+	// zero value struct, etc)
+	root := fromTempDirectory(t)
+	t.Setenv("XDG_CONFIG_HOME", home) // sets registry.example.com/global
+	f := fn.Function{Runtime: "go", Root: root, Name: "f"}
+	if err = fn.New().Create(f); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmdFn(clientFn).Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	if f.Build.Builder != builders.Default {
+		t.Fatalf("expected static default builder '%v', got '%v'", builders.Default, f.Build.Builder)
+	}
+
+	// Ensure Global Config applied via config in ./testdata
+	root = fromTempDirectory(t)
+	t.Setenv("XDG_CONFIG_HOME", home) // sets registry.example.com/global
+	f = fn.Function{Runtime: "go", Root: root, Name: "f"}
+	if err := fn.New().Create(f); err != nil {
+		t.Fatal(err)
+	}
+	if err = cmdFn(clientFn).Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	if f.Registry != "registry.example.com/global" { // from ./testdata
+		t.Fatalf("expected registry 'example.com/global', got '%v'", f.Registry)
+	}
+
+	// Ensure Function context overrides global config
+	// The stanza above ensures the global config is applied.  This stanza
+	// ensures that, if set on the function, it will take precidence.
+	root = fromTempDirectory(t)
+	t.Setenv("XDG_CONFIG_HOME", home) // sets registry=example.com/global
+	f = fn.Function{Runtime: "go", Root: root, Name: "f",
+		Registry: "example.com/function"}
+	if err := fn.New().Create(f); err != nil {
+		t.Fatal(err)
+	}
+	if err = cmdFn(clientFn).Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	if f.Registry != "example.com/function" {
+		t.Fatalf("expected function's value for registry of 'example.com/function' to override global config setting of 'example.com/global', but got '%v'", f.Registry)
+	}
+
+	// Ensure Environment Variable overrides function context.
+	root = fromTempDirectory(t)
+	t.Setenv("XDG_CONFIG_HOME", home) // sets registry.example.com/global
+	t.Setenv("FUNC_REGISTRY", "example.com/env")
+	f = fn.Function{Runtime: "go", Root: root, Name: "f",
+		Registry: "example.com/function"}
+	if err := fn.New().Create(f); err != nil {
+		t.Fatal(err)
+	}
+	if err := cmdFn(clientFn).Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	if f.Registry != "example.com/env" {
+		t.Fatalf("expected FUNC_REGISTRY=example.com/env to override function's value of 'example.com/function', but got '%v'", f.Registry)
+	}
+
+	// Ensure flags override environment variables.
+	root = fromTempDirectory(t)
+	t.Setenv("XDG_CONFIG_HOME", home) // sets registry=example.com/global
+	t.Setenv("FUNC_REGISTRY", "example.com/env")
+	f = fn.Function{Runtime: "go", Root: root, Name: "f",
+		Registry: "example.com/function"}
+	if err := fn.New().Create(f); err != nil {
+		t.Fatal(err)
+	}
+	cmd := cmdFn(clientFn)
+	cmd.SetArgs([]string{"--registry=example.com/flag"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	if f.Registry != "example.com/flag" {
+		t.Fatalf("expected flag 'example.com/flag' to take precidence over env var, but got '%v'", f.Registry)
+	}
 }
 
 // TestBuild_ImageFlag ensures that the image flag is used when specified.
@@ -247,4 +427,55 @@ func TestBuild_Registry(t *testing.T) {
 // spot-checking the builder setting.
 func TestBuild_FunctionContext(t *testing.T) {
 	testFunctionContext(NewBuildCmd, t)
+}
+
+func testFunctionContext(cmdFn commandConstructor, t *testing.T) {
+	t.Helper()
+	root := fromTempDirectory(t)
+
+	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root, Registry: TestRegistry}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Build the function explicitly setting the builder to !builders.Default
+	cmd := cmdFn(NewTestClient())
+	dflt := cmd.Flags().Lookup("builder").DefValue
+
+	// The initial default value should be builders.Default (see global config)
+	if dflt != builders.Default {
+		t.Fatalf("expected flag default value '%v', got '%v'", builders.Default, dflt)
+	}
+
+	// Choose the value that is not the default
+	// We must calculate this because downstream changes the default via patches.
+	var builder string
+	if builders.Default == builders.Pack {
+		builder = builders.S2I
+	} else {
+		builder = builders.Pack
+	}
+
+	// Build with the other
+	cmd.SetArgs([]string{"--builder", builder})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// The function should now have the builder set to the new builder
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Build.Builder != builder {
+		t.Fatalf("expected function to have new builder '%v', got '%v'", builder, f.Build.Builder)
+	}
+
+	// The command default should now take into account the function when
+	// determining the flag default
+	cmd = cmdFn(NewTestClient())
+	dflt = cmd.Flags().Lookup("builder").DefValue
+
+	if dflt != builder {
+		t.Fatalf("expected flag default to be function's current builder '%v', got '%v'", builder, dflt)
+	}
 }

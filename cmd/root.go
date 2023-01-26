@@ -147,7 +147,7 @@ func effectivePath() (path string) {
 		p   = fs.StringP("path", "p", "", "")
 	)
 	fs.SetOutput(io.Discard)
-	fs.ParseErrorsWhitelist.UnknownFlags = true
+	fs.ParseErrorsWhitelist.UnknownFlags = true // wokeignore:rule=whitelist
 	err := fs.Parse(os.Args[1:])
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error preparsing flags: %v\n", err)

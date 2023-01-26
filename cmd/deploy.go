@@ -270,9 +270,6 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		if f, err = client.RunPipeline(cmd.Context(), f); err != nil {
 			return
 		}
-		// TODO: remote deployments currently have no way to update the function
-		// state with values generated during the deployment process such as the
-		// ImageDigest (from pusing) or the deployed namespace (on deploy)a.
 	} else {
 		if shouldBuild(cfg.Build, f, client) { // --build or "auto" with FS changes
 			if err = client.Build(cmd.Context(), f.Root); err != nil {
@@ -679,7 +676,6 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 	}
 
 	// Can not push when specifying an --image with digest
-	// TODO: test
 	if digest != "" && c.Push {
 		return errors.New("pushing is not valid when specifying an image with digest")
 	}
@@ -782,7 +778,7 @@ func printDeployMessages(out io.Writer, cfg deployConfig) {
 	// will be ignored in favor of the local source code since --remote was not
 	// specified.
 	if !cfg.Remote && (cfg.GitURL != "" || cfg.GitBranch != "" || cfg.GitDir != "") {
-		fmt.Fprintf(out, "Warning: git settings are only applicable when running with --remote.  Local source function source code will be used.")
+		fmt.Fprintf(out, "Warning: git settings are only applicable when running with --remote.  Local source code will be used.")
 	}
 
 }
