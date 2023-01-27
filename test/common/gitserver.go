@@ -87,7 +87,7 @@ func (g *GitTestServerProvider) Init(T *testing.T) {
 func (g *GitTestServerProvider) CreateRepository(repoName string) *GitRemoteRepo {
 	// kubectl exec $podname -c user-container -- git-repo create $reponame
 	cmdResult := g.Kubectl.Exec("exec", g.PodName, "-c", "user-container", "--", "git-repo", "create", repoName)
-	if !strings.Contains(cmdResult.Stdout, "created") {
+	if !strings.Contains(cmdResult.Out, "created") {
 		g.t.Fatal("unable to create git bare repository " + repoName)
 	}
 	namespace, _, _ := k8s.GetClientConfig().Namespace()
@@ -101,7 +101,7 @@ func (g *GitTestServerProvider) CreateRepository(repoName string) *GitRemoteRepo
 
 func (g *GitTestServerProvider) DeleteRepository(repoName string) {
 	cmdResult := g.Kubectl.Exec("exec", g.PodName, "-c", "user-container", "--", "git-repo", "delete", repoName)
-	if !strings.Contains(cmdResult.Stdout, "deleted") {
+	if !strings.Contains(cmdResult.Out, "deleted") {
 		g.t.Fatal("unable to delete git bare repository " + repoName)
 	}
 }

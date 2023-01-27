@@ -42,9 +42,8 @@ type TestExecCmd struct {
 
 // TestExecCmdResult stored command result
 type TestExecCmdResult struct {
-	Stdout string
-	Stderr string
-	Error  error
+	Out   string
+	Error error
 }
 
 func (f *TestExecCmd) WithEnv(envKey string, envValue string) *TestExecCmd {
@@ -76,12 +75,11 @@ func (f *TestExecCmd) Exec(args ...string) TestExecCmdResult {
 		f.T.Log(f.Binary, strings.Join(finalArgs, " "))
 	}
 
-	var stderr bytes.Buffer
-	var stdout bytes.Buffer
+	var out bytes.Buffer
 
 	cmd := exec.Command(f.Binary, finalArgs...)
-	cmd.Stderr = &stderr
-	cmd.Stdout = &stdout
+	cmd.Stderr = &out
+	cmd.Stdout = &out
 	if f.SourceDir != "" {
 		cmd.Dir = f.SourceDir
 	}
@@ -89,23 +87,22 @@ func (f *TestExecCmd) Exec(args ...string) TestExecCmdResult {
 	err := cmd.Run()
 
 	result := TestExecCmdResult{
-		Stdout: stdout.String(),
-		Stderr: stderr.String(),
-		Error:  err,
+		Out:   out.String(),
+		Error: err,
 	}
 
 	if err == nil && f.ShouldDumpOnSuccess {
-		if result.Stdout != "" {
+		if result.Out != "" {
 			if f.DumpLogger != nil {
-				f.DumpLogger(result.Stdout)
+				f.DumpLogger(result.Out)
 			} else {
-				f.T.Logf("%v", result.Stdout)
+				f.T.Logf("%v", result.Out)
 			}
 		}
 	}
 	if err != nil {
+		f.T.Log(result.Out)
 		f.T.Log(err.Error())
-		f.T.Log(result.Stderr)
 		if f.ShouldFailOnError {
 			f.T.Fail()
 		}

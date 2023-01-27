@@ -57,7 +57,7 @@ func TestFromCliDefaultBranch(t *testing.T) {
 
 	// ## ASSERTIONS
 	result := knFunc.Exec("invoke", "-p", funcPath)
-	assert.Assert(t, strings.Contains(result.Stdout, "Hello"), "Func body does not contain 'Hello'")
+	assert.Assert(t, strings.Contains(result.Out, "Hello"), "Func body does not contain 'Hello'")
 	AssertThatTektonPipelineRunSucceed(t, funcName)
 
 }
@@ -99,7 +99,7 @@ func TestFromCliFeatureBranch(t *testing.T) {
 
 	// ## ASSERTIONS
 	result := knFunc.Exec("invoke", "-p", funcPath)
-	assert.Assert(t, strings.Contains(result.Stdout, "hello branch"), "Func body does not contain 'hello branch'")
+	assert.Assert(t, strings.Contains(result.Out, "hello branch"), "Func body does not contain 'hello branch'")
 	AssertThatTektonPipelineRunSucceed(t, funcName)
 
 }
@@ -137,7 +137,7 @@ func TestFromCliContextDirFunc(t *testing.T) {
 
 	// -- Assertions --
 	result := knFunc.Exec("invoke", "-p", funcPath)
-	assert.Assert(t, strings.Contains(result.Stdout, "hello dir"), "Func body does not contain 'hello dir'")
+	assert.Assert(t, strings.Contains(result.Out, "hello dir"), "Func body does not contain 'hello dir'")
 	AssertThatTektonPipelineRunSucceed(t, funcName)
 
 }

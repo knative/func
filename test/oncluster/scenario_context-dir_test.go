@@ -54,7 +54,7 @@ func TestContextDirFunc(t *testing.T) {
 
 		// -- Assertions --
 		result := knFunc.Exec("invoke", "-p", funcPath)
-		assert.Assert(t, strings.Contains(result.Stdout, "hello dir"), "Func body does not contain 'hello dir'")
+		assert.Assert(t, strings.Contains(result.Out, "hello dir"), "Func body does not contain 'hello dir'")
 		AssertThatTektonPipelineRunSucceed(t, funcName)
 
 	}()
