@@ -412,7 +412,7 @@ func (c *Client) Runtimes() ([]string, error) {
 // Invokes all lower-level methods as necessary to create a running function
 // whose source code and metadata match that provided by the passed
 // function instance.
-func (c *Client) Apply(ctx context.Context, f Function) (err error) {
+func (c *Client) Apply(ctx context.Context, f Function) (route string, err error) {
 	if f, err = NewFunction(f.Root); err != nil {
 		return
 	}
@@ -429,13 +429,14 @@ func (c *Client) Apply(ctx context.Context, f Function) (err error) {
 // source code.
 //
 // Use Init, Build, Push and Deploy independently for lower level control.
-func (c *Client) Update(ctx context.Context, root string) (err error) {
+// Returns the primary route to the function or any errors.
+func (c *Client) Update(ctx context.Context, root string) (route string, err error) {
 	f, err := NewFunction(root)
 	if err != nil {
 		return
 	}
 	if !f.Initialized() {
-		return ErrNotInitialized
+		return "", ErrNotInitialized
 	}
 	if err = c.Build(ctx, f.Root); err != nil {
 		return
@@ -446,7 +447,7 @@ func (c *Client) Update(ctx context.Context, root string) (err error) {
 	if err = c.Deploy(ctx, f.Root); err != nil {
 		return
 	}
-	return c.Route(f.Root)
+	return c.Route(ctx, f.Root)
 }
 
 // New function.
@@ -456,7 +457,8 @@ func (c *Client) Update(ctx context.Context, root string) (err error) {
 // Errors if the path is alrady an initialized function.
 //
 // Use Init, Build, Push, Deploy etc. independently for lower level control.
-func (c *Client) New(ctx context.Context, cfg Function) (err error) {
+// Returns the primary route to the function or error.
+func (c *Client) New(ctx context.Context, cfg Function) (route string, err error) {
 	c.progressListener.SetTotal(3)
 	// Always start a concurrent routine listening for context cancellation.
 	// On this event, immediately indicate the task is canceling.
@@ -500,18 +502,12 @@ func (c *Client) New(ctx context.Context, cfg Function) (err error) {
 
 	// Create an external route to the function
 	c.progressListener.Increment("Creating route to function")
-	if err = c.Route(f.Root); err != nil {
+	if route, err = c.Route(ctx, f.Root); err != nil {
 		return
 	}
 
 	c.progressListener.Complete("Done")
 
-	// TODO: use the knative client during deployment such that the actual final
-	// route can be returned from the deployment step, passed to the DNS Router
-	// for routing actual traffic, and returned here.
-	if c.verbose {
-		fmt.Printf("https://%v/\n", f.Name)
-	}
 	return
 }
 
@@ -777,7 +773,16 @@ func (c *Client) RunPipeline(ctx context.Context, f Function) (Function, error) 
 	return f, nil
 }
 
-func (c *Client) Route(path string) (err error) {
+// Route returns the current primary route to the function at root.
+//
+// Note that local instances of the Function created by the .Run
+// method are not considered here.  This method is intended to specifically
+// apply to the logical group of function instances actually available as
+// network sevices; this excludes local testing instances.
+//
+// For access to these local test function instances routes, use the instances
+// manager directly ( see .Instances().Get() ).
+func (c *Client) Route(ctx context.Context, path string) (route string, err error) {
 	// Ensure that the allocated final address is enabled with the
 	// configured DNS provider.
 	// NOTE:
@@ -789,7 +794,16 @@ func (c *Client) Route(path string) (err error) {
 	if err != nil {
 		return
 	}
-	return c.dnsProvider.Provide(f)
+	if err = c.dnsProvider.Provide(f); err != nil {
+		return
+	}
+
+	// Return the correct route.
+	instance, err := c.Instances().Remote(ctx, "", path)
+	if err != nil {
+		return
+	}
+	return instance.Route, nil
 }
 
 // Run the function whose code resides at root.
