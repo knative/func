@@ -409,9 +409,12 @@ func (c *Client) Runtimes() ([]string, error) {
 
 // Apply (aka upsert)
 //
-// Invokes all lower-level methods as necessary to create a running function
-// whose source code and metadata match that provided by the passed
-// function instance.
+// The general-purpose high-level method to initiate a synchronization of
+// a function's source code and it's deployed instance(s).
+//
+// Invokes all lower-level methods, including initialization, as necessary to
+// create a running function whose source code and metadata match that provided
+// by the passed function instance, returning the final route and any errors.
 func (c *Client) Apply(ctx context.Context, f Function) (route string, err error) {
 	if f, err = NewFunction(f.Root); err != nil {
 		return
@@ -429,7 +432,7 @@ func (c *Client) Apply(ctx context.Context, f Function) (route string, err error
 // source code.
 //
 // Use Init, Build, Push and Deploy independently for lower level control.
-// Returns the primary route to the function or any errors.
+// Returns final primary route to the Function and any errors.
 func (c *Client) Update(ctx context.Context, root string) (route string, err error) {
 	f, err := NewFunction(root)
 	if err != nil {
@@ -705,8 +708,7 @@ func (c *Client) printBuildActivity(ctx context.Context) {
 	}()
 }
 
-// Deploy the function at path. Errors if the function has not been
-// initialized with an image tag.
+// Deploy the function at path. Errors if the function has not been built.
 func (c *Client) Deploy(ctx context.Context, path string) (err error) {
 	go func() {
 		<-ctx.Done()

@@ -40,7 +40,8 @@ main() {
   eventing
   networking
   registry
-  configure
+  namespace
+  dapr_runtime
   next_steps
   
   echo "${em}DONE${me}"
@@ -195,7 +196,7 @@ data:
 EOF
 }
 
-configure() {
+namespace() {
   echo "${em}⑦ Configure Namespace${me}"
 
   # Create Namespace
@@ -243,10 +244,74 @@ EOF
 
 }
 
+dapr_runtime() {
+  echo "${em}⑦ Dapr${me}"
+
+  # Install Dapr Runtime
+  dapr init --kubernetes --wait
+
+  # Enalble Redis Persistence and Pub/Sub
+  #
+  # 1) Redis
+  # Creates a Redis leader with three replicas
+  # TODO: helm and the bitnami charts are likely not necessary.  The Bitnami
+  # charts do tweak quite a few settings, but I am skeptical it is necessary
+  # in a CI/CD environment, as it does add nontrivial support overhead.
+  # TODO: If the bitnami redis chart seems worth the effort, munge this command
+  # to only start a single instance rather than four.
+  # helm repo add bitnami https://charts.bitnami.com/bitnami
+  echo "${em}- Redis ${me}"
+  helm repo add bitnami https://charts.bitnami.com/bitnami
+  helm install redis bitnami/redis --set image.tag=6.2
+  helm repo update
+
+  # 2) Expose a Redis-backed Dapr State Storage component
+  echo "${em}- State Storage Component${me}"
+  kubectl apply -f - << EOF
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: statestore
+  namespace: default
+spec:
+  type: state.redis
+  version: v1
+  metadata:
+  - name: redisHost
+    value: redis-master.default.svc.cluster.local:6379
+  - name: redisPassword
+    secretKeyRef:
+      name: redis
+      key: redis-password
+EOF
+
+  # 3) Expose A Redis-backed Dapr Pub/Sub Component
+  echo "${em}- Pub/Sub Component${me}"
+  kubectl apply -f - << EOF
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: pubsub
+  namespace: default
+spec:
+  type: pubsub.redis
+  version: v1
+  metadata:
+  - name: redisHost
+    value: redis-master.default.svc.cluster.local:6379
+  - name: redisPassword
+    secretKeyRef:
+      name: redis
+      key: redis-password
+EOF
+
+}
+
+
 next_steps() {
   local red=$(tput bold)$(tput setaf 1)
 
-  echo "${em}Configure Registry${me}"
+  echo "${em}Image Registry${me}"
   echo "If not in CI (running ci.sh): "
   echo "  ${red}set registry as insecure${me} in the docker daemon config (/etc/docker/daemon.json on linux or ~/.docker/daemon.json on OSX):"
   echo "    { \"insecure-registries\": [ \"localhost:50000\" ] }"

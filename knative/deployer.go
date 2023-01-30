@@ -342,10 +342,7 @@ func generateNewService(f fn.Function, decorator DeployDecorator) (*v1.Service, 
 		labels = decorator.UpdateLabels(f, labels)
 	}
 
-	annotations := f.Deploy.Annotations
-	if decorator != nil {
-		annotations = decorator.UpdateAnnotations(f, annotations)
-	}
+	annotations := newServiceAnnotations(f, decorator)
 
 	// we need to create a separate map for Annotations specified in a Revision,
 	// in case we will need to specify autoscaling annotations -> these could be only in a Revision not in a Service
@@ -386,6 +383,32 @@ func generateNewService(f fn.Function, decorator DeployDecorator) (*v1.Service, 
 	}
 
 	return service, nil
+}
+
+// newServiceAnnotations creates a final map of service annotations based
+// on static defaults plus the function's defined annotations plus the
+// application of any provided annotation decorator.
+func newServiceAnnotations(f fn.Function, d DeployDecorator) (aa map[string]string) {
+	aa = make(map[string]string)
+
+	// Static default: Dapr support
+	aa["dapr.io/enabled"] = "true"
+	aa["dapr.io/app-id"] = f.Name
+	aa["dapr.io/app-port"] = "8080"           // Funcs listen on 8080
+	aa["dapr.io/metrics-port"] = "9092"       // Default is 9090
+	aa["dapr.io/enable-api-logging"] = "true" // dee dapr docs
+
+	// Function-defined annotations
+	for k, v := range f.Deploy.Annotations {
+		aa[k] = v
+	}
+
+	// Decorator
+	if d != nil {
+		aa = d.UpdateAnnotations(f, aa)
+	}
+
+	return
 }
 
 func updateService(f fn.Function, newEnv []corev1.EnvVar, newEnvFrom []corev1.EnvFromSource, newVolumes []corev1.Volume, newVolumeMounts []corev1.VolumeMount, decorator DeployDecorator) func(service *v1.Service) (*v1.Service, error) {

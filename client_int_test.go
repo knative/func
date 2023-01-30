@@ -5,7 +5,11 @@ package function_test
 
 import (
 	"context"
+	"fmt"
+	"io"
+	"net/http"
 	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 	"time"
@@ -18,32 +22,26 @@ import (
 	"knative.dev/pkg/ptr"
 )
 
-/*
- NOTE:  Running integration tests locally requires a configured test cluster.
-        Test failures may require manual removal of dangling resources.
+// # Integration Tsets
+//
+// go test -tags integration ./...
+//
+// ## Cluster Required
+//
+// These integration tests require a properly configured cluster,
+// such as that which is setup and configured in CI (see .github/workflows).
+// Linux developers can set up the cluster via:
+//
+//   ./hack/binaries.sh && ./hack/allocate.sh && ./hack/registry.sh
+//
+// ## Cluster Cleanup
+//
+// The test cluster and most resources can be removed with:
 
- ## Integration Cluster
-
- These integration tests require a properly configured cluster,
- such as that which is setup and configured in CI (see .github/workflows).
- A local KinD cluster can be started via:
-   ./hack/allocate.sh && ./hack/configure.sh
-
- ## Integration Testing
-
- These tests can be run via the make target:
-   make test-integration
-  or manually by specifying the tag
-   go test -v -tags integration ./...
-
- ## Teardown and Cleanup
-
- Tests should clean up after themselves.  In the event of failures, one may
- need to manually remove files:
-   rm -rf ./testdata/example.com
- The test cluster is not automatically removed, as it can be reused.  To remove:
-   ./hack/delete.sh
-*/
+//   ./hack/delete.sh
+//
+// NOTE: Downloaded images are not removed.
+//
 
 const (
 	// DefaultRegistry must contain both the registry host and
@@ -237,16 +235,171 @@ func TestRemoteRepositories(t *testing.T) {
 	}
 }
 
+// TestInvoke_ClientToService ensures that the client can invoke a remotely
+// deployed service, both by the route returned directly as well as using
+// the invocation helper client.Invoke.
+func TestInvoke_ClientToService(t *testing.T) {
+	var (
+		root, done = Mktemp(t)
+		verbose    = true
+		ctx        = context.Background()
+		client     = newClient(verbose)
+		route      string
+		err        error
+	)
+	defer done()
+
+	// Create a function
+	f := fn.Function{Name: "f", Runtime: "go"}
+	if err = client.Init(f); err != nil {
+		t.Fatal(err)
+	}
+	source := `
+package function
+
+import (
+  "context"
+  "net/http"
+)
+
+func Handle(ctx context.Context, res http.ResponseWriter, req *http.Request) {
+  res.Write([]byte("TestInvoke_ClientToService OK"))
+}
+`
+	os.WriteFile(filepath.Join(root, "handle.go"), []byte(source), os.ModePerm)
+
+	if route, err = client.Apply(ctx, f); err != nil {
+		t.Fatal(err)
+	}
+	defer client.Remove(ctx, f, true)
+
+	// Invoke via the route
+	resp, err := http.Get(route)
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if string(b) != "TestInvoke_ClientToService OK" {
+		t.Fatalf("unexpected response from HTTP GET: %v", b)
+	}
+
+	// Invoke using the helper
+	_, body, err := client.Invoke(ctx, root, "", fn.NewInvokeMessage())
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if body != "TestInvoke_ClientToService OK" {
+		t.Fatalf("unexpected response from client.Invoke: %v", b)
+	}
+}
+
+// TestInvoke_ServiceToService ensures that a Function can invoke another
+// service via localhost service discovery api provided by the Dapr sidecar.
+func TestInvoke_ServiceToService(t *testing.T) {
+	var (
+		verbose = true
+		ctx     = context.Background()
+		client  = newClient(verbose)
+		err     error
+		source  string
+		route   string
+	)
+
+	// Create function A
+	// A function which responds to GET requests with a static value.
+	root, done := Mktemp(t)
+	defer done()
+	f := fn.Function{Name: "a", Runtime: "go"}
+	if err := client.Init(f); err != nil {
+		t.Fatal(err)
+	}
+	source = `
+package function
+
+import (
+  "context"
+  "net/http"
+)
+
+func Handle(ctx context.Context, res http.ResponseWriter, req *http.Request) {
+  res.Write([]byte("TestInvoke_ServiceToService OK"))
+}
+`
+	os.WriteFile(filepath.Join(root, "handle.go"), []byte(source), os.ModePerm)
+	if _, err = client.Apply(ctx, f); err != nil {
+		t.Fatal(err)
+	}
+	defer client.Remove(ctx, f, true)
+
+	// Create Function B
+	// which responds with the response from an invocation of 'a' via the
+	// localhost service discovery and invocation API.
+	root, done = Mktemp(t)
+	defer done()
+	f = fn.Function{Name: "b", Runtime: "go"}
+	if err := client.Init(f); err != nil {
+		t.Fatal(err)
+	}
+
+	source = `
+package function
+
+import (
+  "context"
+  "net/http"
+	"fmt"
+	"io"
+)
+
+func Handle(ctx context.Context, res http.ResponseWriter, req *http.Request) {
+	r, err := http.Get("http://localhost:3500/v1.0/invoke/a/method/")
+	if err != nil {
+		fmt.Printf("unable to invoke function a", err)
+	  http.Error(res, "unable to invoke function a", http.StatusServiceUnavailable)
+	}
+	defer r.Body.Close()
+	io.Copy(res,r.Body)
+}
+`
+	os.WriteFile(filepath.Join(root, "handle.go"), []byte(source), os.ModePerm)
+	if route, err = client.Apply(ctx, f); err != nil {
+		t.Fatal(err)
+	}
+	defer client.Remove(ctx, f, true)
+
+	resp, err := http.Get(route)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	fmt.Printf("### function a response body: %s\n", body)
+
+	if string(body) != "TestInvoke_ServiceToService OK" {
+		t.Fatalf("Unexpected response from Function B: %v", body)
+	}
+}
+
 // ***********
 //   Helpers
 // ***********
 
-// newClient creates an instance of the func client whose concrete impls
-// match those created by the kn func plugin CLI.
+// newClient creates an instance of the func client with concrete impls
+// sufficient for running integration tests.
 func newClient(verbose bool) *fn.Client {
 	builder := buildpacks.NewBuilder(buildpacks.WithVerbose(verbose))
 	pusher := docker.NewPusher(docker.WithVerbose(verbose))
 	deployer := knative.NewDeployer(knative.WithDeployerNamespace(DefaultNamespace), knative.WithDeployerVerbose(verbose))
+	describer := knative.NewDescriber(DefaultNamespace, verbose)
 	remover := knative.NewRemover(DefaultNamespace, verbose)
 	lister := knative.NewLister(DefaultNamespace, verbose)
 
@@ -256,6 +409,7 @@ func newClient(verbose bool) *fn.Client {
 		fn.WithBuilder(builder),
 		fn.WithPusher(pusher),
 		fn.WithDeployer(deployer),
+		fn.WithDescriber(describer),
 		fn.WithRemover(remover),
 		fn.WithLister(lister),
 	)
