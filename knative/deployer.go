@@ -391,12 +391,11 @@ func generateNewService(f fn.Function, decorator DeployDecorator) (*v1.Service, 
 func newServiceAnnotations(f fn.Function, d DeployDecorator) (aa map[string]string) {
 	aa = make(map[string]string)
 
-	// Static default: Dapr support
-	aa["dapr.io/enabled"] = "true"
-	aa["dapr.io/app-id"] = f.Name
-	aa["dapr.io/app-port"] = "8080"           // Funcs listen on 8080
-	aa["dapr.io/metrics-port"] = "9092"       // Default is 9090
-	aa["dapr.io/enable-api-logging"] = "true" // dee dapr docs
+	// Enables Dapr support.
+	// Has no effect unless the target cluster has Dapr control plane installed.
+	for k, v := range daprAnnotations(f.Name) {
+		aa[k] = v
+	}
 
 	// Function-defined annotations
 	for k, v := range f.Deploy.Annotations {
@@ -409,6 +408,19 @@ func newServiceAnnotations(f fn.Function, d DeployDecorator) (aa map[string]stri
 	}
 
 	return
+}
+
+// annotations which, if included and Dapr control plane is installed in
+// the target cluster will result in a sidecar exposing the dapr HTTP API
+// on localhost:3500 and metrics on 9092
+func daprAnnotations(appid string) map[string]string {
+	aa := make(map[string]string)
+	aa["dapr.io/app-id"] = appid
+	aa["dapr.io/enabled"] = DaprEnabled
+	aa["dapr.io/metrics-port"] = DaprMetricsPort
+	aa["dapr.io/app-port"] = "8080"
+	aa["dapr.io/enable-api-logging"] = DaprEnableAPILogging
+	return aa
 }
 
 func updateService(f fn.Function, newEnv []corev1.EnvVar, newEnvFrom []corev1.EnvFromSource, newVolumes []corev1.Volume, newVolumeMounts []corev1.VolumeMount, decorator DeployDecorator) func(service *v1.Service) (*v1.Service, error) {
