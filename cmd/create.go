@@ -73,6 +73,7 @@ EXAMPLES
 		`,
 		SuggestFor: []string{"vreate", "creaet", "craete", "new"},
 		PreRunE:    bindEnv("language", "template", "repository", "confirm"),
+		Aliases:    []string{"init"},
 	}
 
 	// Config
@@ -131,7 +132,7 @@ func runCreate(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 	}
 
 	// Create
-	err = client.Create(fn.Function{
+	err = client.Init(fn.Function{
 		Name:     cfg.Name,
 		Root:     cfg.Path,
 		Runtime:  cfg.Runtime,

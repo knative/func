@@ -105,7 +105,7 @@ func TestTemplates_Embedded(t *testing.T) {
 	client := fn.New(fn.WithRegistry(TestRegistry))
 
 	// write out a template
-	err := client.Create(fn.Function{
+	err := client.Init(fn.Function{
 		Root:     root,
 		Runtime:  TestRuntime,
 		Template: "http",
@@ -138,7 +138,7 @@ func TestTemplates_Custom(t *testing.T) {
 
 	// Create a function specifying a template from
 	// the custom provider's directory in the on-disk template repo.
-	err := client.Create(fn.Function{
+	err := client.Init(fn.Function{
 		Root:     root,
 		Runtime:  "customRuntime",
 		Template: "customTemplateRepo/customTemplate",
@@ -173,7 +173,7 @@ func TestTemplates_Remote(t *testing.T) {
 
 	// Create a default function, which should override builtin and use
 	// that from the specified url (git repo)
-	err = client.Create(fn.Function{
+	err = client.Init(fn.Function{
 		Root:     root,
 		Runtime:  "go",
 		Template: "remote",
@@ -200,7 +200,7 @@ func TestTemplates_Default(t *testing.T) {
 
 	// The runtime is specified, and explicitly includes a
 	// file for the default template of fn.DefaultTemplate
-	err := client.Create(fn.Function{Root: root, Runtime: TestRuntime})
+	err := client.Init(fn.Function{Root: root, Runtime: TestRuntime})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -225,7 +225,7 @@ func TestTemplates_InvalidErrors(t *testing.T) {
 	var err error
 
 	// Test for error writing an invalid runtime
-	err = client.Create(fn.Function{
+	err = client.Init(fn.Function{
 		Root:    root,
 		Runtime: "invalid",
 	})
@@ -235,7 +235,7 @@ func TestTemplates_InvalidErrors(t *testing.T) {
 	os.Remove(filepath.Join(root, ".gitignore"))
 
 	// Test for error writing an invalid template
-	err = client.Create(fn.Function{
+	err = client.Init(fn.Function{
 		Root:     root,
 		Runtime:  TestRuntime,
 		Template: "invalid",
@@ -261,7 +261,7 @@ func TestTemplates_ModeEmbedded(t *testing.T) {
 
 	// Write the embedded template that contains a file which
 	// needs to be executable (only such is mvnw in quarkus)
-	err := client.Create(fn.Function{
+	err := client.Init(fn.Function{
 		Root:     root,
 		Runtime:  "quarkus",
 		Template: "http",
@@ -296,7 +296,7 @@ func TestTemplates_ModeCustom(t *testing.T) {
 		fn.WithRepositoriesPath("testdata/repositories"))
 
 	// Write executable from custom repo
-	err := client.Create(fn.Function{
+	err := client.Init(fn.Function{
 		Root:     root,
 		Runtime:  "test",
 		Template: "customTemplateRepo/tplb",
@@ -335,7 +335,7 @@ func TestTemplates_ModeRemote(t *testing.T) {
 		fn.WithRepository(url))
 
 	// Write executable from custom repo
-	err = client.Create(fn.Function{
+	err = client.Init(fn.Function{
 		Root:     root,
 		Runtime:  "node",
 		Template: "remote",
@@ -378,7 +378,7 @@ func TestTemplates_RuntimeManifestBuildEnvs(t *testing.T) {
 		fn.WithRepositoriesPath("testdata/repositories"))
 
 	// write out a template
-	err := client.Create(fn.Function{
+	err := client.Init(fn.Function{
 		Root:     root,
 		Runtime:  "manifestedRuntime",
 		Template: "customLanguagePackRepo/customTemplate",
@@ -425,7 +425,7 @@ func TestTemplates_ManifestBuildEnvs(t *testing.T) {
 		fn.WithRepositoriesPath("testdata/repositories"))
 
 	// write out a template
-	err := client.Create(fn.Function{
+	err := client.Init(fn.Function{
 		Root:     root,
 		Runtime:  "manifestedRuntime",
 		Template: "customLanguagePackRepo/manifestedTemplate",
@@ -472,7 +472,7 @@ func TestTemplates_RepositoryManifestBuildEnvs(t *testing.T) {
 		fn.WithRepositoriesPath("testdata/repositories"))
 
 	// write out a template
-	err := client.Create(fn.Function{
+	err := client.Init(fn.Function{
 		Root:     root,
 		Runtime:  "customRuntime",
 		Template: "customLanguagePackRepo/customTemplate",
@@ -516,7 +516,7 @@ func TestTemplates_ManifestInvocationHints(t *testing.T) {
 		fn.WithRegistry(TestRegistry),
 		fn.WithRepositoriesPath("testdata/repositories"))
 
-	err := client.Create(fn.Function{
+	err := client.Init(fn.Function{
 		Root:     root,
 		Runtime:  "manifestedRuntime",
 		Template: "customLanguagePackRepo/manifestedTemplate",
@@ -548,7 +548,7 @@ func TestTemplates_ManifestRemoved(t *testing.T) {
 		fn.WithRepositoriesPath("testdata/repositories"))
 
 	// write out a template
-	err := client.Create(fn.Function{
+	err := client.Init(fn.Function{
 		Root:     root,
 		Runtime:  "manifestedRuntime",
 		Template: "customLanguagePackRepo/manifestedTemplate",
@@ -584,7 +584,7 @@ func TestTemplates_InvocationDefault(t *testing.T) {
 
 	// The customTemplateRepo explicitly does not
 	// include manifests as it exemplifies an entirely default template repo.
-	err := client.Create(fn.Function{
+	err := client.Init(fn.Function{
 		Root:     root,
 		Runtime:  "customRuntime",
 		Template: "customTemplateRepo/customTemplate",

@@ -862,7 +862,7 @@ func TestClient_Remove_ByName(t *testing.T) {
 		fn.WithRegistry(TestRegistry),
 		fn.WithRemover(remover))
 
-	if err := client.Create(fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
+	if err := client.Init(fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -963,7 +963,7 @@ func TestClient_Deploy_Image(t *testing.T) {
 		fn.WithDeployer(mock.NewDeployer()),
 		fn.WithRegistry("example.com/alice"))
 
-	err := client.Create(fn.Function{Name: "myfunc", Runtime: "go", Root: root})
+	err := client.Init(fn.Function{Name: "myfunc", Runtime: "go", Root: root})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1048,7 +1048,7 @@ func TestClient_Pipelines_Deploy_Image(t *testing.T) {
 		},
 	}
 
-	err := client.Create(f)
+	err := client.Init(f)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1113,7 +1113,7 @@ func TestClient_Deploy_UnbuiltErrors(t *testing.T) {
 	client := fn.New(fn.WithRegistry(TestRegistry))
 
 	// Initialize (half-create) a new function at root
-	if err := client.Create(fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
+	if err := client.Init(fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1535,7 +1535,7 @@ func TestClient_BuiltStamps(t *testing.T) {
 	}
 
 	// a freshly-created function should be !Built
-	if err := client.Create(fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
+	if err := client.Init(fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
 		t.Fatal(err)
 	}
 	if client.Built(root) {
@@ -1559,7 +1559,7 @@ func TestClient_CreateMigration(t *testing.T) {
 	client := fn.New()
 
 	// create a new function
-	if err := client.Create(fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
+	if err := client.Init(fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1589,7 +1589,7 @@ func TestClient_BuiltDetects(t *testing.T) {
 	defer rm()
 
 	// Create and build a function
-	if err := client.Create(fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
+	if err := client.Init(fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
 		t.Fatal(err)
 	}
 	if err := client.Build(ctx, root); err != nil {

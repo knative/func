@@ -40,7 +40,7 @@ func TestDescribe_ByName(t *testing.T) {
 func TestDescribe_ByProject(t *testing.T) {
 	root := fromTempDirectory(t)
 
-	err := fn.New().Create(fn.Function{
+	err := fn.New().Init(fn.Function{
 		Name:     "testname",
 		Runtime:  "go",
 		Registry: TestRegistry,
@@ -111,7 +111,7 @@ func TestDescribe_Namespace(t *testing.T) {
 			Namespace: "deployed",
 		},
 	}
-	if err := client.Create(f); err != nil {
+	if err := client.Init(f); err != nil {
 		t.Fatal(err)
 	}
 	cmd = NewDescribeCmd(func(cc ClientConfig, _ ...fn.Option) (*fn.Client, func()) {

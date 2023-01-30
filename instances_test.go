@@ -20,7 +20,7 @@ func TestInstances_LocalErrors(t *testing.T) {
 	defer rm()
 
 	// Create a function that will not be running
-	if err := New().Create(Function{Runtime: "go", Root: root}); err != nil {
+	if err := New().Init(Function{Runtime: "go", Root: root}); err != nil {
 		t.Fatal(err)
 	}
 	// Load the function
@@ -67,7 +67,7 @@ func TestInstance_RemoteErrors(t *testing.T) {
 	defer rm()
 
 	// Create a function that will not be running
-	if err := New().Create(Function{Runtime: "go", Root: root}); err != nil {
+	if err := New().Init(Function{Runtime: "go", Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
