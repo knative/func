@@ -23,7 +23,7 @@ func TestBuild_ConfigApplied(t *testing.T) {
 	)
 	t.Setenv("XDG_CONFIG_HOME", home)
 
-	if err = fn.New().Create(f); err != nil {
+	if err = fn.New().Init(f); err != nil {
 		t.Fatal(err)
 	}
 
@@ -100,7 +100,7 @@ func TestBuild_ConfigPrecidence(t *testing.T) {
 	root := fromTempDirectory(t)
 	t.Setenv("XDG_CONFIG_HOME", home) // sets registry.example.com/global
 	f := fn.Function{Runtime: "go", Root: root, Name: "f"}
-	if err = fn.New().Create(f); err != nil {
+	if err = fn.New().Init(f); err != nil {
 		t.Fatal(err)
 	}
 	if err := NewBuildCmd(clientFn).Execute(); err != nil {
@@ -117,7 +117,7 @@ func TestBuild_ConfigPrecidence(t *testing.T) {
 	root = fromTempDirectory(t)
 	t.Setenv("XDG_CONFIG_HOME", home) // sets registry.example.com/global
 	f = fn.Function{Runtime: "go", Root: root, Name: "f"}
-	if err := fn.New().Create(f); err != nil {
+	if err := fn.New().Init(f); err != nil {
 		t.Fatal(err)
 	}
 	if err = NewBuildCmd(clientFn).Execute(); err != nil {
@@ -137,7 +137,7 @@ func TestBuild_ConfigPrecidence(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", home) // sets registry=example.com/global
 	f = fn.Function{Runtime: "go", Root: root, Name: "f",
 		Registry: "example.com/function"}
-	if err := fn.New().Create(f); err != nil {
+	if err := fn.New().Init(f); err != nil {
 		t.Fatal(err)
 	}
 	if err = NewBuildCmd(clientFn).Execute(); err != nil {
@@ -156,7 +156,7 @@ func TestBuild_ConfigPrecidence(t *testing.T) {
 	t.Setenv("FUNC_REGISTRY", "example.com/env")
 	f = fn.Function{Runtime: "go", Root: root, Name: "f",
 		Registry: "example.com/function"}
-	if err := fn.New().Create(f); err != nil {
+	if err := fn.New().Init(f); err != nil {
 		t.Fatal(err)
 	}
 	if err := NewBuildCmd(clientFn).Execute(); err != nil {
@@ -175,7 +175,7 @@ func TestBuild_ConfigPrecidence(t *testing.T) {
 	t.Setenv("FUNC_REGISTRY", "example.com/env")
 	f = fn.Function{Runtime: "go", Root: root, Name: "f",
 		Registry: "example.com/function"}
-	if err := fn.New().Create(f); err != nil {
+	if err := fn.New().Init(f); err != nil {
 		t.Fatal(err)
 	}
 	cmd := NewBuildCmd(clientFn)
@@ -199,7 +199,7 @@ func TestBuild_ImageFlag(t *testing.T) {
 	)
 	root := fromTempDirectory(t)
 
-	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root}); err != nil {
+	if err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -229,7 +229,7 @@ func TestBuild_ImageFlag(t *testing.T) {
 func TestBuild_RegistryOrImageRequired(t *testing.T) {
 	root := fromTempDirectory(t)
 
-	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root}); err != nil {
+	if err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -289,7 +289,7 @@ func TestBuild_Push(t *testing.T) {
 		Runtime:  "go",
 		Registry: "example.com/alice",
 	}
-	if err := fn.New().Create(f); err != nil {
+	if err := fn.New().Init(f); err != nil {
 		t.Fatal(err)
 	}
 
@@ -391,7 +391,7 @@ func TestBuild_Registry(t *testing.T) {
 			root := fromTempDirectory(t)
 			test.f.Runtime = "go"
 			test.f.Name = "f"
-			if err := fn.New().Create(test.f); err != nil {
+			if err := fn.New().Init(test.f); err != nil {
 				t.Fatal(err)
 			}
 			cmd := NewBuildCmd(NewTestClient())
@@ -419,7 +419,7 @@ func TestBuild_Registry(t *testing.T) {
 func TestBuild_FunctionContext(t *testing.T) {
 	root := fromTempDirectory(t)
 
-	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root, Registry: TestRegistry}); err != nil {
+	if err := fn.New().Init(fn.Function{Runtime: "go", Root: root, Registry: TestRegistry}); err != nil {
 		t.Fatal(err)
 	}
 

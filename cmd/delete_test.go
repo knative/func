@@ -39,7 +39,7 @@ func TestDelete_Namespace(t *testing.T) {
 			Namespace: "deployed",
 		},
 	}
-	if err := fn.New().Create(f); err != nil {
+	if err := fn.New().Init(f); err != nil {
 		t.Fatal(err)
 	}
 	cmd = NewDeleteCmd(func(cc ClientConfig, options ...fn.Option) (*fn.Client, func()) {

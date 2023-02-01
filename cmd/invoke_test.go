@@ -21,7 +21,7 @@ func TestInvoke(t *testing.T) {
 	var invoked int32
 
 	// Create a test function to be invoked
-	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root}); err != nil {
+	if err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -80,7 +80,7 @@ func TestInvoke_Namespace(t *testing.T) {
 
 	// Create a Function in a non-active namespace
 	f := fn.Function{Runtime: "go", Root: root, Deploy: fn.DeploySpec{Namespace: "ns"}}
-	if err := fn.New().Create(f); err != nil {
+	if err := fn.New().Init(f); err != nil {
 		t.Fatal(err)
 	}
 

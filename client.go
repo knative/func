@@ -407,8 +407,55 @@ func (c *Client) Runtimes() ([]string, error) {
 // LIFECYCLE METHODS
 // -----------------
 
+// Apply (aka upsert)
+//
+// Invokes all lower-level methods as necessary to create a running function
+// whose source code and metadata match that provided by the passed
+// function instance.
+func (c *Client) Apply(ctx context.Context, f Function) (err error) {
+	if f, err = NewFunction(f.Root); err != nil {
+		return
+	}
+	if !f.Initialized() {
+		return c.New(ctx, f)
+	} else {
+		return c.Update(ctx, f.Root)
+	}
+}
+
+// Update function
+//
+// Updates a function which has already been initialized to run the latest
+// source code.
+//
+// Use Init, Build, Push and Deploy independently for lower level control.
+func (c *Client) Update(ctx context.Context, root string) (err error) {
+	f, err := NewFunction(root)
+	if err != nil {
+		return
+	}
+	if !f.Initialized() {
+		return ErrNotInitialized
+	}
+	if err = c.Build(ctx, f.Root); err != nil {
+		return
+	}
+	if err = c.Push(ctx, f.Root); err != nil {
+		return
+	}
+	if err = c.Deploy(ctx, f.Root); err != nil {
+		return
+	}
+	return c.Route(f.Root)
+}
+
 // New function.
-// Use Create, Build and Deploy independently for lower level control.
+//
+// Creates a new running function from the path indicated by the config
+// Function. Used by Apply when the path is not yet an initialized function.
+// Errors if the path is alrady an initialized function.
+//
+// Use Init, Build, Push, Deploy etc. independently for lower level control.
 func (c *Client) New(ctx context.Context, cfg Function) (err error) {
 	c.progressListener.SetTotal(3)
 	// Always start a concurrent routine listening for context cancellation.
@@ -421,8 +468,8 @@ func (c *Client) New(ctx context.Context, cfg Function) (err error) {
 		c.progressListener.Stopping()
 	}()
 
-	// Create function at path indidcated by Config
-	if err = c.Create(cfg); err != nil {
+	// Init the path as a new Function
+	if err = c.Init(cfg); err != nil {
 		return
 	}
 
@@ -468,12 +515,15 @@ func (c *Client) New(ctx context.Context, cfg Function) (err error) {
 	return
 }
 
-// Create a new function from the given defaults.
+// Initialize a new function with the given function struct defaults.
+// Does not build/push/deploy. Local FS changes only.  For higher-level
+// control see New or Apply.
+//
 // <path> will default to the absolute path of the current working directory.
 // <name> will default to the current working directory.
 // When <name> is provided but <path> is not, a directory <name> is created
 // in the current working directory and used for <path>.
-func (c *Client) Create(cfg Function) (err error) {
+func (c *Client) Init(cfg Function) (err error) {
 	// convert Root path to absolute
 	cfg.Root, err = filepath.Abs(cfg.Root)
 	cfg.SpecVersion = LastSpecVersion()

@@ -79,7 +79,7 @@ func TestFunction_WriteIdempotency(t *testing.T) {
 		Runtime: TestRuntime,
 		Root:    root,
 	}
-	if err := client.Create(f); err != nil {
+	if err := client.Init(f); err != nil {
 		t.Fatal(err)
 	}
 
@@ -124,7 +124,7 @@ func TestFunction_NameDefault(t *testing.T) {
 		Runtime: TestRuntime,
 		Root:    root,
 	}
-	if err := client.Create(f); err != nil {
+	if err := client.Init(f); err != nil {
 		t.Fatal(err)
 	}
 

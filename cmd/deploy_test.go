@@ -32,7 +32,7 @@ func TestDeploy_Default(t *testing.T) {
 		Runtime:  "go",
 		Registry: "example.com/alice",
 	}
-	if err := fn.New().Create(f); err != nil {
+	if err := fn.New().Init(f); err != nil {
 		t.Fatal(err)
 	}
 
@@ -56,7 +56,7 @@ func testRegistryOrImageRequired(cmdFn commandConstructor, t *testing.T) {
 	t.Helper()
 	root := fromTempDirectory(t)
 
-	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root}); err != nil {
+	if err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -91,7 +91,7 @@ func testImageAndRegistry(cmdFn commandConstructor, t *testing.T) {
 	t.Helper()
 	root := fromTempDirectory(t)
 
-	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root}); err != nil {
+	if err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -166,7 +166,7 @@ func testInvalidRegistry(cmdFn commandConstructor, t *testing.T) {
 		Name:    "myFunc",
 		Runtime: "go",
 	}
-	if err := fn.New().Create(f); err != nil {
+	if err := fn.New().Init(f); err != nil {
 		t.Fatal(err)
 	}
 
@@ -197,7 +197,7 @@ func testRegistryLoads(cmdFn commandConstructor, t *testing.T) {
 		Runtime:  "go",
 		Registry: "example.com/alice",
 	}
-	if err := fn.New().Create(f); err != nil {
+	if err := fn.New().Init(f); err != nil {
 		t.Fatal(err)
 	}
 
@@ -229,7 +229,7 @@ func testBuilderPersists(cmdFn commandConstructor, t *testing.T) {
 	t.Helper()
 	root := fromTempDirectory(t)
 
-	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root}); err != nil {
+	if err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
 		t.Fatal(err)
 	}
 	cmd := cmdFn(NewTestClient(fn.WithRegistry(TestRegistry)))
@@ -317,7 +317,7 @@ func testBuilderValidated(cmdFn commandConstructor, t *testing.T) {
 	t.Helper()
 	root := fromTempDirectory(t)
 
-	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root}); err != nil {
+	if err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -381,7 +381,7 @@ func TestDeploy_RemoteBuildURLPermutations(t *testing.T) {
 			root := fromTempDirectory(t)
 
 			// Create a new Function in the temp directory
-			if err := fn.New().Create(fn.Function{Runtime: "go", Root: root}); err != nil {
+			if err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
 				t.Fatal(err)
 			}
 
@@ -541,7 +541,7 @@ func Test_ImageWithDigestErrors(t *testing.T) {
 			root := fromTempDirectory(t)
 
 			// Create a new Function in the temp directory
-			if err := fn.New().Create(fn.Function{Runtime: "go", Root: root}); err != nil {
+			if err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
 				t.Fatal(err)
 			}
 
@@ -603,7 +603,7 @@ func TestDeploy_Namespace(t *testing.T) {
 	}
 
 	// A function which will be repeatedly, mockingly deployed
-	if err := fn.New().Create(fn.Function{Root: root, Runtime: "go", Registry: TestRegistry}); err != nil {
+	if err := fn.New().Init(fn.Function{Root: root, Runtime: "go", Registry: TestRegistry}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -649,7 +649,7 @@ func TestDeploy_GitArgsPersist(t *testing.T) {
 	)
 
 	// Create a new Function in the temp directory
-	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root}); err != nil {
+	if err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -690,7 +690,7 @@ func TestDeploy_GitArgsUsed(t *testing.T) {
 		dir    = "function"
 	)
 	// Create a new Function in the temp dir
-	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root}); err != nil {
+	if err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -727,7 +727,7 @@ func TestDeploy_GitArgsUsed(t *testing.T) {
 func TestDeploy_GitURLBranch(t *testing.T) {
 	root := fromTempDirectory(t)
 
-	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root}); err != nil {
+	if err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -769,7 +769,7 @@ func TestDeploy_NamespaceDefaults(t *testing.T) {
 	t.Setenv("KUBECONFIG", kubeconfig)
 
 	// Create a new function
-	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root}); err != nil {
+	if err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -825,7 +825,7 @@ func TestDeploy_NamespaceUpdateWarning(t *testing.T) {
 			Namespace: "myns",
 		},
 	}
-	if err := fn.New().Create(f); err != nil {
+	if err := fn.New().Init(f); err != nil {
 		t.Fatal(err)
 	}
 
@@ -884,7 +884,7 @@ func TestDeploy_NamespaceRedeployWarning(t *testing.T) {
 		Root:    root,
 		Deploy:  fn.DeploySpec{Namespace: "funcns"},
 	}
-	if err := fn.New().Create(f); err != nil {
+	if err := fn.New().Init(f); err != nil {
 		t.Fatal(err)
 	}
 
@@ -927,7 +927,7 @@ func TestDeploy_RemotePersists(t *testing.T) {
 	root := fromTempDirectory(t)
 	cmdFn := NewDeployCmd
 
-	if err := fn.New().Create(fn.Function{Runtime: "node", Root: root}); err != nil {
+	if err := fn.New().Init(fn.Function{Runtime: "node", Root: root}); err != nil {
 		t.Fatal(err)
 	}
 	cmd := cmdFn(NewTestClient(fn.WithRegistry(TestRegistry)))
