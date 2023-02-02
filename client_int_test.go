@@ -86,7 +86,7 @@ func TestNew(t *testing.T) {
 	client := newClient(verbose)
 
 	// Act
-	if err := client.New(context.Background(), fn.Function{Name: "testnew", Root: ".", Runtime: "go"}); err != nil {
+	if _, err := client.New(context.Background(), fn.Function{Name: "testnew", Root: ".", Runtime: "go"}); err != nil {
 		t.Fatal(err)
 	}
 	defer del(t, client, "testnew")
@@ -112,7 +112,7 @@ func TestDeploy(t *testing.T) {
 
 	client := newClient(verbose)
 
-	if err := client.New(context.Background(), fn.Function{Name: "deploy", Root: ".", Runtime: "go"}); err != nil {
+	if _, err := client.New(context.Background(), fn.Function{Name: "deploy", Root: ".", Runtime: "go"}); err != nil {
 		t.Fatal(err)
 	}
 	defer del(t, client, "deploy")
@@ -152,7 +152,7 @@ func TestDeployWithOptions(t *testing.T) {
 
 	client := newClient(verbose)
 
-	if err := client.New(context.Background(), fn.Function{Name: "deployoptions", Root: ".", Runtime: "go", Deploy: ds}); err != nil {
+	if _, err := client.New(context.Background(), fn.Function{Name: "deployoptions", Root: ".", Runtime: "go", Deploy: ds}); err != nil {
 		t.Fatal(err)
 	}
 	defer del(t, client, "deployoptions")
@@ -169,7 +169,7 @@ func TestRemove(t *testing.T) {
 
 	client := newClient(verbose)
 
-	if err := client.New(context.Background(), fn.Function{Name: "remove", Root: ".", Runtime: "go"}); err != nil {
+	if _, err := client.New(context.Background(), fn.Function{Name: "remove", Root: ".", Runtime: "go"}); err != nil {
 		t.Fatal(err)
 	}
 	waitFor(t, client, "remove")
