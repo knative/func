@@ -5,7 +5,6 @@ package e2e
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -70,7 +69,7 @@ func createConfigAuth(dockerConfigFile string, content string) error {
 
 func updateConfigAuth(dockerConfigFile string) error {
 
-	bcontent, err := ioutil.ReadFile(dockerConfigFile)
+	bcontent, err := os.ReadFile(dockerConfigFile)
 	if err != nil {
 		return err
 	}
