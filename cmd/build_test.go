@@ -28,7 +28,7 @@ func testConfigApplied(cmdFn commandConstructor, t *testing.T) {
 	)
 	t.Setenv("XDG_CONFIG_HOME", home)
 
-	if err = fn.New().Create(f); err != nil {
+	if err = fn.New().Init(f); err != nil {
 		t.Fatal(err)
 	}
 
@@ -109,7 +109,7 @@ func testConfigPrecedence(cmdFn commandConstructor, t *testing.T) {
 	root := fromTempDirectory(t)
 	t.Setenv("XDG_CONFIG_HOME", home) // sets registry.example.com/global
 	f := fn.Function{Runtime: "go", Root: root, Name: "f"}
-	if err = fn.New().Create(f); err != nil {
+	if err = fn.New().Init(f); err != nil {
 		t.Fatal(err)
 	}
 	if err := cmdFn(clientFn).Execute(); err != nil {
@@ -126,7 +126,7 @@ func testConfigPrecedence(cmdFn commandConstructor, t *testing.T) {
 	root = fromTempDirectory(t)
 	t.Setenv("XDG_CONFIG_HOME", home) // sets registry.example.com/global
 	f = fn.Function{Runtime: "go", Root: root, Name: "f"}
-	if err := fn.New().Create(f); err != nil {
+	if err := fn.New().Init(f); err != nil {
 		t.Fatal(err)
 	}
 	if err = cmdFn(clientFn).Execute(); err != nil {
@@ -146,7 +146,7 @@ func testConfigPrecedence(cmdFn commandConstructor, t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", home) // sets registry=example.com/global
 	f = fn.Function{Runtime: "go", Root: root, Name: "f",
 		Registry: "example.com/function"}
-	if err := fn.New().Create(f); err != nil {
+	if err := fn.New().Init(f); err != nil {
 		t.Fatal(err)
 	}
 	if err = cmdFn(clientFn).Execute(); err != nil {
@@ -165,7 +165,7 @@ func testConfigPrecedence(cmdFn commandConstructor, t *testing.T) {
 	t.Setenv("FUNC_REGISTRY", "example.com/env")
 	f = fn.Function{Runtime: "go", Root: root, Name: "f",
 		Registry: "example.com/function"}
-	if err := fn.New().Create(f); err != nil {
+	if err := fn.New().Init(f); err != nil {
 		t.Fatal(err)
 	}
 	if err := cmdFn(clientFn).Execute(); err != nil {
@@ -184,7 +184,7 @@ func testConfigPrecedence(cmdFn commandConstructor, t *testing.T) {
 	t.Setenv("FUNC_REGISTRY", "example.com/env")
 	f = fn.Function{Runtime: "go", Root: root, Name: "f",
 		Registry: "example.com/function"}
-	if err := fn.New().Create(f); err != nil {
+	if err := fn.New().Init(f); err != nil {
 		t.Fatal(err)
 	}
 	cmd := cmdFn(clientFn)
@@ -433,7 +433,7 @@ func testFunctionContext(cmdFn commandConstructor, t *testing.T) {
 	t.Helper()
 	root := fromTempDirectory(t)
 
-	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root, Registry: TestRegistry}); err != nil {
+	if err := fn.New().Init(fn.Function{Runtime: "go", Root: root, Registry: TestRegistry}); err != nil {
 		t.Fatal(err)
 	}
 

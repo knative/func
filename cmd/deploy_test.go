@@ -616,7 +616,7 @@ func TestDeploy_Namespace(t *testing.T) {
 
 	// A function which will be repeatedly, mockingly deployed
 	f := fn.Function{Root: root, Runtime: "go", Registry: TestRegistry}
-	if err := fn.New().Create(f); err != nil {
+	if err := fn.New().Init(f); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1047,7 +1047,7 @@ func TestDeploy_Envs(t *testing.T) {
 		expected []fn.Env
 	)
 
-	if err = fn.New().Create(fn.Function{Runtime: "go", Root: root, Registry: TestRegistry}); err != nil {
+	if err = fn.New().Init(fn.Function{Runtime: "go", Root: root, Registry: TestRegistry}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1129,7 +1129,7 @@ func TestDeploy_UnsetFlag(t *testing.T) {
 
 	// Create a function
 	f := fn.Function{Runtime: "go", Root: root, Registry: TestRegistry}
-	if err := fn.New().Create(f); err != nil {
+	if err := fn.New().Init(f); err != nil {
 		t.Fatal(err)
 	}
 
