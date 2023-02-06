@@ -8,7 +8,7 @@ import (
 )
 
 // TestList_Namespace ensures that list command options for specifying a
-// namespace (--namespace) or all namespaces (--all-namespacs) are  properly
+// namespace (--namespace) or all namespaces (--all-namespaces) are  properly
 // evaluated.
 func TestList_Namespace(t *testing.T) {
 	_ = fromTempDirectory(t)

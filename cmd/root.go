@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"testing"
 	"time"
 
 	"knative.dev/func/cmd/templates"
@@ -143,17 +142,21 @@ func registry() string {
 // definition (prior to parsing).
 func effectivePath() (path string) {
 	var (
-		env  = os.Getenv("FUNC_PATH")
-		fs   = pflag.NewFlagSet("", pflag.ContinueOnError)
-		long = fs.StringP("path", "p", "", "")
+		env = os.Getenv("FUNC_PATH")
+		fs  = pflag.NewFlagSet("", pflag.ContinueOnError)
+		p   = fs.StringP("path", "p", "", "")
 	)
 	fs.SetOutput(io.Discard)
-	_ = fs.Parse(os.Args[1:])
+	fs.ParseErrorsWhitelist.UnknownFlags = true // wokeignore:rule=whitelist
+	err := fs.Parse(os.Args[1:])
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error preparsing flags: %v\n", err)
+	}
 	if env != "" {
 		path = env
 	}
-	if *long != "" {
-		path = *long
+	if *p != "" {
+		path = *p
 	}
 	return path
 }
@@ -447,16 +450,4 @@ func surveySelectDefault(value string, options []string) string {
 	// Either the value is not an option or there are no options.  Either of
 	// which should fail proper validation
 	return ""
-}
-
-// clearEnvs sets all environment variables with the prefix of FUNC_ to
-// empty (unsets) for the duration of the test t.
-func clearEnvs(t *testing.T) {
-	t.Helper()
-	for _, v := range os.Environ() {
-		if strings.HasPrefix(v, "FUNC_") {
-			parts := strings.SplitN(v, "=", 2)
-			t.Setenv(parts[0], "")
-		}
-	}
 }

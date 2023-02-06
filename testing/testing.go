@@ -218,3 +218,16 @@ func Cwd() (cwd string) {
 	}
 	return cwd
 }
+
+// ClearEnvs sets all environment variables with the prefix of FUNC_ to
+// empty (unsets) for the duration of the test t and is used when
+// a test needs to completely clear func-releated envs prior to running.
+func ClearEnvs(t *testing.T) {
+	t.Helper()
+	for _, v := range os.Environ() {
+		if strings.HasPrefix(v, "FUNC_") {
+			parts := strings.SplitN(v, "=", 2)
+			t.Setenv(parts[0], "")
+		}
+	}
+}

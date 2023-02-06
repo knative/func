@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -13,12 +14,33 @@ import (
 	"github.com/spf13/cobra"
 	fn "knative.dev/func"
 	"knative.dev/func/builders"
+	"knative.dev/func/config"
 	"knative.dev/func/mock"
 )
 
-const TestRegistry = "example.com/alice"
-
+// commandConstructor is used to share test implementations between commands
+// which only differ in the command being tested (ex: build and deploy share
+// a large overlap in tests because building is a subset of the deploy task)
 type commandConstructor func(ClientFactory) *cobra.Command
+
+// TestDeploy_ConfigApplied ensures that the deploy command applies config
+// settings at each level (static, global, function, envs, flags)
+func TestDeploy_ConfigApplied(t *testing.T) {
+	testConfigApplied(NewDeployCmd, t)
+}
+
+// TestDeploy_ConfigPrecedence ensures that the correct precidence for config
+// are applied: static < global < function context < envs < flags
+func TestDeploy_ConfigPrecedence(t *testing.T) {
+	testConfigPrecedence(NewDeployCmd, t)
+}
+
+// TestDeploy_FunctionContext ensures that the function contextually relevant
+// to the current command is loaded and used for flag defaults by spot-checking
+// the builder setting.
+func TestDeploy_FunctionContext(t *testing.T) {
+	testFunctionContext(NewDeployCmd, t)
+}
 
 // TestDeploy_Default ensures that running deploy on a valid default Function
 // (only required options populated; all else default) completes successfully.
@@ -355,11 +377,13 @@ func TestDeploy_RemoteBuildURLPermutations(t *testing.T) {
 	// Valid flag permutations (empty indicates flag should be omitted)
 	// and a functon which will convert a permutation into flags for use
 	// by the subtests.
+	// The empty string indicates the case in which the flag is not provided.
 	var (
 		remoteValues = []string{"", "true", "false"}
 		buildValues  = []string{"", "true", "false", "auto"}
 		urlValues    = []string{"", "https://example.com/user/repo"}
 
+		// toArgs converts one permutaton of the values into command arguments
 		toArgs = func(remote, build, url string) []string {
 			args := []string{}
 			if remote != "" {
@@ -385,7 +409,7 @@ func TestDeploy_RemoteBuildURLPermutations(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			// deploy it using the deploy commnand with flags set to the currently
+			// deploy it using the deploy command with flags set to the currently
 			// effective flag permutation.
 			var (
 				deployer  = mock.NewDeployer()
@@ -402,9 +426,9 @@ func TestDeploy_RemoteBuildURLPermutations(t *testing.T) {
 			err := cmd.Execute() // err is checked below
 
 			// Assertions
-			if remote != "" && remote != "false" { // default "" is == false.
-				// REMOTE Assertions
+			if remote != "" && remote != "false" { // the default of "" is == false
 
+				// REMOTE Assertions
 				if !pipeliner.RunInvoked { // Remote deployer should be triggered
 					t.Error("remote was not invoked")
 				}
@@ -526,12 +550,12 @@ func Test_ImageWithDigestErrors(t *testing.T) {
 		{
 			name:      "invalid digest prefix 'Xsha256', expect error",
 			image:     "example.com/myNamespace/myFunction:latest@Xsha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4e",
-			errString: "image 'example.com/myNamespace/myFunction:latest@Xsha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4e' has an invalid prefix syntax for digest (should be 'sha256:')",
+			errString: "image digest 'Xsha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4e' requires 'sha256:' prefix",
 		},
 		{
 			name:      "invalid sha hash length(added X at the end), expect error",
 			image:     "example.com/myNamespace/myFunction:latest@sha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4eX",
-			errString: "sha256 hash in 'sha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4eX' has the wrong length (65), should be 64",
+			errString: "image digest 'sha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4eX' has an invalid sha256 hash length of 65 when it should be 64",
 		},
 	}
 
@@ -590,51 +614,58 @@ func Test_ImageWithDigestErrors(t *testing.T) {
 func TestDeploy_Namespace(t *testing.T) {
 	root := fromTempDirectory(t)
 
-	var expectedNamespace string
-
-	// A mock deployer which validates the namespace received is that expected
-	deployer := mock.NewDeployer()
-	deployer.DeployFn = func(_ context.Context, f fn.Function) (res fn.DeploymentResult, err error) {
-		e := &expectedNamespace // closure
-		if f.Deploy.Namespace != *e {
-			t.Fatalf("expected namespace '%v', got '%v'", *e, f.Deploy.Namespace)
-		}
-		return
-	}
-
 	// A function which will be repeatedly, mockingly deployed
-	if err := fn.New().Init(fn.Function{Root: root, Runtime: "go", Registry: TestRegistry}); err != nil {
+	f := fn.Function{Root: root, Runtime: "go", Registry: TestRegistry}
+	if err := fn.New().Init(f); err != nil {
 		t.Fatal(err)
 	}
 
-	// Ensure the default "func" which is gathered from the default kubeconfig
-	// path of ./tesdata/default_kubeconfig
-	expectedNamespace = "func" // see ./testdata/default_kubeconfig
+	// The mock deployer responds that the given function was deployed
+	// to the namespace indicated in f.Deploy.Namespace or "default" if empty
+	// (it does not actually consider the current kubernetes context)
+	deployer := mock.NewDeployer()
+
 	cmd := NewDeployCmd(NewTestClient(fn.WithDeployer(deployer)))
 	cmd.SetArgs([]string{})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
+	f, _ = fn.NewFunction(root)
+	if f.Deploy.Namespace != "default" {
+		t.Fatalf("expected namespace 'default', got '%v'", f.Deploy.Namespace)
+	}
 
 	// Change the function's active namespace and ensure it is used, preempting
-	// the 'func' namespace gathered from kubeconfig.
-	expectedNamespace = "alreadyDeployedNamespace"
+	// the 'default' namespace from the mock
 	f, err := fn.NewFunction(root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.Deploy.Namespace = expectedNamespace
+	f.Deploy.Namespace = "alreadyDeployed"
 	if err := f.Write(); err != nil {
 		t.Fatal(err)
 	}
-
-	// Ensure an explicit name (a flag) is taken with highest precedence
-	expectedNamespace = "flagValueNamespace"
 	cmd = NewDeployCmd(NewTestClient(fn.WithDeployer(deployer)))
-	cmd.SetArgs([]string{"--namespace", expectedNamespace})
+	cmd.SetArgs([]string{})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
+	f, _ = fn.NewFunction(root)
+	if f.Deploy.Namespace != "alreadyDeployed" {
+		t.Fatalf("expected namespace 'alreadyDeployed', got '%v'", f.Deploy.Namespace)
+	}
+
+	// Ensure an explicit name (a flag) is taken with highest precedence
+	cmd = NewDeployCmd(NewTestClient(fn.WithDeployer(deployer)))
+	cmd.SetArgs([]string{"--namespace=newNamespace"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	f, _ = fn.NewFunction(root)
+	if f.Deploy.Namespace != "newNamespace" {
+		t.Fatalf("expected namespace 'newNamespace', got '%v'", f.Deploy.Namespace)
+	}
+
 }
 
 // TestDeploy_GitArgsPersist ensures that the git flags, if provided, are
@@ -782,9 +813,27 @@ func TestDeploy_NamespaceDefaults(t *testing.T) {
 		t.Fatalf("newly created functions should not have a namespace set until deployed.  Got '%v'", f.Deploy.Namespace)
 	}
 
+	// a deployer which actually uses config.DefaultNamespace
+	// This is not the default implementation of mock.NewDeployer as this would
+	// be likely to be confusing, since it would vary on developer machines
+	// unless they remember to clear local envs, such as is done here within
+	// fromTempDirectory(t).  To avert this potential confusion, the use of
+	// config.DefaultNamespace() is kept local to this test.
+	deployer := mock.NewDeployer()
+	deployer.DeployFn = func(_ context.Context, f fn.Function) (result fn.DeploymentResult, err error) {
+		// deployer implementations shuld have integration tests which confirm
+		// this logic:
+		if f.Deploy.Namespace != "" {
+			result.Namespace = f.Deploy.Namespace
+		} else {
+			result.Namespace = config.DefaultNamespace()
+		}
+		return
+	}
+
 	// New deploy command that will not actually deploy or build (mocked)
 	cmd := NewDeployCmd(NewTestClient(
-		fn.WithDeployer(mock.NewDeployer()),
+		fn.WithDeployer(deployer),
 		fn.WithBuilder(mock.NewBuilder()),
 		fn.WithPipelinesProvider(mock.NewPipelinesProvider()),
 		fn.WithRegistry(TestRegistry),
@@ -896,17 +945,17 @@ func TestDeploy_NamespaceRedeployWarning(t *testing.T) {
 		fn.WithRegistry(TestRegistry),
 	))
 	cmd.SetArgs([]string{})
-	stderr := strings.Builder{}
-	cmd.SetErr(&stderr)
+	stdout := strings.Builder{}
+	cmd.SetOut(&stdout)
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
 
-	expected := "Warning: target namespace 'funcns' is not the currently active namespace 'mynamespace'. Continuing with deployment to 'funcns'."
+	expected := "Warning: namespace chosen is 'funcns', but currently active namespace is 'mynamespace'. Continuing with deployment to 'funcns'."
 
 	// Ensure output contained warning if changing namespace
-	if !strings.Contains(stderr.String(), expected) {
-		t.Log("STDERR:\n" + stderr.String())
+	if !strings.Contains(stdout.String(), expected) {
+		t.Log("STDOUT:\n" + stdout.String())
 		t.Fatalf("Expected warning not found:\n%v", expected)
 	}
 
@@ -923,14 +972,12 @@ func TestDeploy_NamespaceRedeployWarning(t *testing.T) {
 // TestDeploy_RemotePersists ensures that the remote field is read from
 // the function by default, and is able to be overridden by flags/env vars.
 func TestDeploy_RemotePersists(t *testing.T) {
-	t.Helper()
 	root := fromTempDirectory(t)
-	cmdFn := NewDeployCmd
 
 	if err := fn.New().Init(fn.Function{Runtime: "node", Root: root}); err != nil {
 		t.Fatal(err)
 	}
-	cmd := cmdFn(NewTestClient(fn.WithRegistry(TestRegistry)))
+	cmd := NewDeployCmd(NewTestClient(fn.WithRegistry(TestRegistry)))
 	cmd.SetArgs([]string{})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -940,7 +987,7 @@ func TestDeploy_RemotePersists(t *testing.T) {
 	var f fn.Function
 
 	// Deploy the function, specifying remote deployment(on-cluster)
-	cmd = cmdFn(NewTestClient(fn.WithRegistry(TestRegistry)))
+	cmd = NewDeployCmd(NewTestClient(fn.WithRegistry(TestRegistry)))
 	cmd.SetArgs([]string{"--remote"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -954,7 +1001,7 @@ func TestDeploy_RemotePersists(t *testing.T) {
 	}
 
 	// Deploy the function again without specifying remote
-	cmd = cmdFn(NewTestClient(fn.WithRegistry(TestRegistry)))
+	cmd = NewDeployCmd(NewTestClient(fn.WithRegistry(TestRegistry)))
 	cmd.SetArgs([]string{})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -982,5 +1029,139 @@ func TestDeploy_RemotePersists(t *testing.T) {
 	}
 	if f.Deploy.Remote {
 		t.Fatalf("value of remote flag not persisted")
+	}
+}
+
+// TestDeploy_Envs ensures that environment variable for the function, provided
+// as arguments, are correctly evaluated.  This includes:
+// - Multiple Envs are supported (flag can be provided multiple times)
+// - Existing Envs on the function are retained
+// - Flags provided with the minus '-' suffix are treated as a removal
+func TestDeploy_Envs(t *testing.T) {
+	var (
+		root     = fromTempDirectory(t)
+		ptr      = func(s string) *string { return &s } // TODO: remove pointers from Envs.
+		f        fn.Function
+		cmd      *cobra.Command
+		err      error
+		expected []fn.Env
+	)
+
+	if err = fn.New().Init(fn.Function{Runtime: "go", Root: root, Registry: TestRegistry}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Deploy the function with two environment variables specified.
+	cmd = NewDeployCmd(NewTestClient())
+	cmd.SetArgs([]string{"--env=ENV1=VAL1", "--env=ENV2=VAL2"})
+	if err = cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	// Assert it contains the two environment variables
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	expected = []fn.Env{
+		{Name: ptr("ENV1"), Value: ptr("VAL1")},
+		{Name: ptr("ENV2"), Value: ptr("VAL2")},
+	}
+	if !reflect.DeepEqual(f.Run.Envs, expected) {
+		t.Fatalf("Expected envs '%v', got '%v'", expected, f.Run.Envs)
+	}
+
+	// Deploy the function with an additinal environment variable.
+	cmd = NewDeployCmd(NewTestClient())
+	cmd.SetArgs([]string{"--env=ENV3=VAL3"})
+	if err = cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	// Assert the original envs were retained and the new env was added.
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	expected = []fn.Env{
+		{Name: ptr("ENV1"), Value: ptr("VAL1")},
+		{Name: ptr("ENV2"), Value: ptr("VAL2")},
+		{Name: ptr("ENV3"), Value: ptr("VAL3")},
+	}
+	if !reflect.DeepEqual(f.Run.Envs, expected) {
+		t.Fatalf("Expected envs '%v', got '%v'", expected, f.Run.Envs)
+	}
+
+	// Deploy the function with a removal instruction
+	cmd = NewDeployCmd(NewTestClient())
+	cmd.SetArgs([]string{"--env=ENV1-"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	expected = []fn.Env{
+		{Name: ptr("ENV2"), Value: ptr("VAL2")},
+		{Name: ptr("ENV3"), Value: ptr("VAL3")},
+	}
+	if !reflect.DeepEqual(f.Run.Envs, expected) {
+		t.Fatalf("Expected envs '%v', got '%v'", expected, f.Run.Envs)
+	}
+
+	// Try removing the rest for good measure
+	cmd = NewDeployCmd(NewTestClient())
+	cmd.SetArgs([]string{"--env=ENV2-", "--env=ENV3-"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if f, err = fn.NewFunction(root); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.Run.Envs) != 0 {
+		t.Fatalf("Expected no envs to remain, got '%v'", f.Run.Envs)
+	}
+
+	// TODO: create and test typed errors for ErrEnvNotExist etc.
+}
+
+// TestDeploy_UnsetFlag ensures that unsetting a flag on the command
+// line causes the pertinent value to be zeroed out.
+func TestDeploy_UnsetFlag(t *testing.T) {
+	// From a temp directory
+	root := fromTempDirectory(t)
+
+	// Create a function
+	f := fn.Function{Runtime: "go", Root: root, Registry: TestRegistry}
+	if err := fn.New().Init(f); err != nil {
+		t.Fatal(err)
+	}
+
+	// Deploy it, specifying a Git URL
+	cmd := NewDeployCmd(NewTestClient())
+	cmd.SetArgs([]string{"--remote", "--git-url=https://git.example.com/alice/f"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Load the function and confirm the URL was persisted
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Build.Git.URL != "https://git.example.com/alice/f" {
+		t.Fatalf("url not persisted")
+	}
+
+	// Deploy it again, unsetting the value
+	cmd = NewDeployCmd(NewTestClient())
+	cmd.SetArgs([]string{"--git-url="})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Load the function and confirm the URL was unset
+	f, err = fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Build.Git.URL != "" {
+		t.Fatalf("url not cleared")
 	}
 }

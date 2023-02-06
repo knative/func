@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"path/filepath"
 	"testing"
 
 	fn "knative.dev/func"
@@ -81,20 +80,20 @@ func TestDescribe_NameAndPathExclusivity(t *testing.T) {
 
 // TestDescribe_Namespace ensures that the namespace provided to the client
 // for use when describing a function is set
-// 1. The flag /env variable if provided
-// 2. The namespace of the function at path if provided
-// 3. The user's current active namespace
+//  1. Blank when not provided nor available (delegate to the describer impl to
+//     choose current kube context)
+//  2. The namespace of the contextually active function
+//  3. The flag /env variable if provided
 func TestDescribe_Namespace(t *testing.T) {
 	root := fromTempDirectory(t)
 
 	client := fn.New(fn.WithDescriber(mock.NewDescriber()))
 
-	// Ensure that the default is "default" when no context can be identified
-	t.Setenv("KUBECONFIG", filepath.Join(cwd(), "nonexistent"))
-	t.Setenv("KUBERNETES_SERVICE_HOST", "")
+	// Ensure that the default is "", indicating the describer should use
+	// config.DefaultNamespace
 	cmd := NewDescribeCmd(func(cc ClientConfig, _ ...fn.Option) (*fn.Client, func()) {
-		if cc.Namespace != "default" {
-			t.Fatalf("expected 'default', got '%v'", cc.Namespace)
+		if cc.Namespace != "" {
+			t.Fatalf("expected '', got '%v'", cc.Namespace)
 		}
 		return client, func() {}
 	})

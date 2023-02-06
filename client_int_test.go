@@ -37,7 +37,6 @@ import (
 // ## Cluster Cleanup
 //
 // The test cluster and most resources can be removed with:
-
 //   ./hack/delete.sh
 //
 // NOTE: Downloaded images are not removed.

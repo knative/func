@@ -17,6 +17,8 @@ import (
 	. "knative.dev/func/testing"
 )
 
+const TestRegistry = "example.com/alice"
+
 func TestRoot_PersistentFlags(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -320,6 +322,13 @@ func TestRoot_effectivePath(t *testing.T) {
 		}
 	})
 
+	t.Run("continues on unrecognized flags", func(t *testing.T) {
+		os.Args = []string{"test", "-r=repo.example.com/bob", "-p=p3"}
+		if effectivePath() != "p3" {
+			t.Fatalf("the effective path did not evaluate when unexpected flags were present")
+		}
+	})
+
 }
 
 // Helpers
@@ -361,11 +370,11 @@ func piped(t *testing.T) func() string {
 	}
 }
 
-// fromTempDirectory is a cli-specific test helper which endeavors to create
+// fromTempDirectory is a test helper which endeavors to create
 // an environment clean of developer's settings for use during CLI testing.
 func fromTempDirectory(t *testing.T) string {
 	t.Helper()
-	clearEnvs(t)
+	ClearEnvs(t)
 
 	// We have to define KUBECONFIG, or the file at ~/.kube/config (if extant)
 	// will be used (disrupting tests by using the current user's environment).

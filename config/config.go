@@ -28,6 +28,11 @@ const (
 
 // DefaultNamespace for remote operations is the currently active
 // context namespace (if available) or the fallback "default".
+// Namespace, when left blank on the function itself, indicates this
+// value should be used when deploying for the first time.  Subsequelty
+// the value will be populated, indicating the namespace in which the
+// function is currently deployed.  Changes to this value will issue warnings
+// to the user.
 func DefaultNamespace() (namespace string) {
 	var err error
 	if namespace, err = k8s.GetNamespace(""); err != nil {
@@ -50,9 +55,8 @@ type Global struct {
 // for one which further takes into account the optional config file.
 func New() Global {
 	return Global{
-		Builder:   DefaultBuilder,
-		Language:  DefaultLanguage,
-		Namespace: DefaultNamespace(),
+		Builder:  DefaultBuilder,
+		Language: DefaultLanguage,
 		// ...
 	}
 }

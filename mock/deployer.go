@@ -6,6 +6,13 @@ import (
 	fn "knative.dev/func"
 )
 
+// DefaultNamespace for mock deployments
+// See deployer implementations for tests which ensure the currently
+// active kube namespace is chosen when no explicit namespace is provided.
+// This mock emulates a deployer which responds that the function was deployed
+// to that defined on the function, or "default" if not defined.
+const DefaultNamespace = "default"
+
 type Deployer struct {
 	DeployInvoked bool
 	DeployFn      func(context.Context, fn.Function) (fn.DeploymentResult, error)
@@ -13,7 +20,13 @@ type Deployer struct {
 
 func NewDeployer() *Deployer {
 	return &Deployer{
-		DeployFn: func(context.Context, fn.Function) (fn.DeploymentResult, error) { return fn.DeploymentResult{}, nil },
+		DeployFn: func(_ context.Context, f fn.Function) (fn.DeploymentResult, error) {
+			result := fn.DeploymentResult{Namespace: DefaultNamespace}
+			if f.Deploy.Namespace != "" {
+				result.Namespace = f.Deploy.Namespace
+			}
+			return result, nil
+		},
 	}
 }
 

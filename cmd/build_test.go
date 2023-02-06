@@ -13,9 +13,14 @@ import (
 // TestBuild_ConfigApplied ensures that the build command applies config
 // settings at each level (static, global, function, envs, flags).
 func TestBuild_ConfigApplied(t *testing.T) {
+	testConfigApplied(NewBuildCmd, t)
+}
+
+func testConfigApplied(cmdFn commandConstructor, t *testing.T) {
+	t.Helper()
 	var (
 		err      error
-		home     = fmt.Sprintf("%s/testdata/TestBuild_ConfigApplied", cwd())
+		home     = fmt.Sprintf("%s/testdata/TestX_ConfigApplied", cwd())
 		root     = fromTempDirectory(t)
 		f        = fn.Function{Runtime: "go", Root: root, Name: "f"}
 		pusher   = mock.NewPusher()
@@ -29,7 +34,7 @@ func TestBuild_ConfigApplied(t *testing.T) {
 
 	// Ensure the global config setting was loaded: Registry
 	// global config in ./testdata/TestBuild_ConfigApplied sets registry
-	if err = NewBuildCmd(clientFn).Execute(); err != nil {
+	if err = cmdFn(clientFn).Execute(); err != nil {
 		t.Fatal(err)
 	}
 	if f, err = fn.NewFunction(root); err != nil {
@@ -40,7 +45,7 @@ func TestBuild_ConfigApplied(t *testing.T) {
 	}
 
 	// Ensure flags are evaluated
-	cmd := NewBuildCmd(clientFn)
+	cmd := cmdFn(clientFn)
 	cmd.SetArgs([]string{"--builder-image", "example.com/builder/image:v1.2.3"})
 	if err = cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -59,7 +64,7 @@ func TestBuild_ConfigApplied(t *testing.T) {
 	if err := f.Write(); err != nil {
 		t.Fatal(err)
 	}
-	if err := NewBuildCmd(clientFn).Execute(); err != nil {
+	if err := cmdFn(clientFn).Execute(); err != nil {
 		t.Fatal(err)
 	}
 	if f, err = fn.NewFunction(root); err != nil {
@@ -72,7 +77,7 @@ func TestBuild_ConfigApplied(t *testing.T) {
 	// Ensure environment variables loaded: Push
 	// Test environment variable evaluation using FUNC_PUSH
 	t.Setenv("FUNC_PUSH", "true")
-	if err := NewBuildCmd(clientFn).Execute(); err != nil {
+	if err := cmdFn(clientFn).Execute(); err != nil {
 		t.Fatal(err)
 	}
 	if f, err = fn.NewFunction(root); err != nil {
@@ -81,15 +86,19 @@ func TestBuild_ConfigApplied(t *testing.T) {
 	if !pusher.PushInvoked {
 		t.Fatalf("push was not invoked when FUNC_PUSH=true")
 	}
-
 }
 
-// TestBuild_ConfigPrecidence ensures that the correct precidence for config
+// TestBuild_ConfigPrecedence ensures that the correct precidence for config
 // are applied: static < global < function context < envs < flags
-func TestBuild_ConfigPrecidence(t *testing.T) {
+func TestBuild_ConfigPrecedence(t *testing.T) {
+	testConfigPrecedence(NewBuildCmd, t)
+}
+
+func testConfigPrecedence(cmdFn commandConstructor, t *testing.T) {
+	t.Helper()
 	var (
 		err      error
-		home     = fmt.Sprintf("%s/testdata/TestBuild_ConfigPrecidence", cwd())
+		home     = fmt.Sprintf("%s/testdata/TestX_ConfigPrecedence", cwd())
 		builder  = mock.NewBuilder()
 		clientFn = NewTestClient(fn.WithBuilder(builder))
 	)
@@ -103,7 +112,7 @@ func TestBuild_ConfigPrecidence(t *testing.T) {
 	if err = fn.New().Init(f); err != nil {
 		t.Fatal(err)
 	}
-	if err := NewBuildCmd(clientFn).Execute(); err != nil {
+	if err := cmdFn(clientFn).Execute(); err != nil {
 		t.Fatal(err)
 	}
 	if f, err = fn.NewFunction(root); err != nil {
@@ -120,7 +129,7 @@ func TestBuild_ConfigPrecidence(t *testing.T) {
 	if err := fn.New().Init(f); err != nil {
 		t.Fatal(err)
 	}
-	if err = NewBuildCmd(clientFn).Execute(); err != nil {
+	if err = cmdFn(clientFn).Execute(); err != nil {
 		t.Fatal(err)
 	}
 	if f, err = fn.NewFunction(root); err != nil {
@@ -140,7 +149,7 @@ func TestBuild_ConfigPrecidence(t *testing.T) {
 	if err := fn.New().Init(f); err != nil {
 		t.Fatal(err)
 	}
-	if err = NewBuildCmd(clientFn).Execute(); err != nil {
+	if err = cmdFn(clientFn).Execute(); err != nil {
 		t.Fatal(err)
 	}
 	if f, err = fn.NewFunction(root); err != nil {
@@ -159,7 +168,7 @@ func TestBuild_ConfigPrecidence(t *testing.T) {
 	if err := fn.New().Init(f); err != nil {
 		t.Fatal(err)
 	}
-	if err := NewBuildCmd(clientFn).Execute(); err != nil {
+	if err := cmdFn(clientFn).Execute(); err != nil {
 		t.Fatal(err)
 	}
 	if f, err = fn.NewFunction(root); err != nil {
@@ -178,7 +187,7 @@ func TestBuild_ConfigPrecidence(t *testing.T) {
 	if err := fn.New().Init(f); err != nil {
 		t.Fatal(err)
 	}
-	cmd := NewBuildCmd(clientFn)
+	cmd := cmdFn(clientFn)
 	cmd.SetArgs([]string{"--registry=example.com/flag"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -417,6 +426,11 @@ func TestBuild_Registry(t *testing.T) {
 // to the current command execution is loaded and used for flag defaults by
 // spot-checking the builder setting.
 func TestBuild_FunctionContext(t *testing.T) {
+	testFunctionContext(NewBuildCmd, t)
+}
+
+func testFunctionContext(cmdFn commandConstructor, t *testing.T) {
+	t.Helper()
 	root := fromTempDirectory(t)
 
 	if err := fn.New().Init(fn.Function{Runtime: "go", Root: root, Registry: TestRegistry}); err != nil {
@@ -424,7 +438,7 @@ func TestBuild_FunctionContext(t *testing.T) {
 	}
 
 	// Build the function explicitly setting the builder to !builders.Default
-	cmd := NewBuildCmd(NewTestClient())
+	cmd := cmdFn(NewTestClient())
 	dflt := cmd.Flags().Lookup("builder").DefValue
 
 	// The initial default value should be builders.Default (see global config)
@@ -458,7 +472,7 @@ func TestBuild_FunctionContext(t *testing.T) {
 
 	// The command default should now take into account the function when
 	// determining the flag default
-	cmd = NewBuildCmd(NewTestClient())
+	cmd = cmdFn(NewTestClient())
 	dflt = cmd.Flags().Lookup("builder").DefValue
 
 	if dflt != builder {

@@ -98,7 +98,7 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 	// is stale (has either never been built or has had filesystem modifications
 	// since the last build).
 	if cfg.Build == "auto" {
-		if !client.Built(function.Root) {
+		if !fn.Built(function.Root) {
 			if err = client.Build(cmd.Context(), cfg.Path); err != nil {
 				return
 			}

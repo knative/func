@@ -722,7 +722,7 @@ func (c *Client) Deploy(ctx context.Context, path string) (err error) {
 
 	// Functions must be built (have an associated image) before being deployed.
 	// Note that externally built images may be specified in the func.yaml
-	if !f.HasImage() {
+	if !Built(f.Root) {
 		return ErrNotBuilt
 	}
 
@@ -735,6 +735,19 @@ func (c *Client) Deploy(ctx context.Context, path string) (err error) {
 	// Deploy a new or Update the previously-deployed function
 	c.progressListener.Increment("⬆️  Deploying function to the cluster")
 	result, err := c.deployer.Deploy(ctx, f)
+	if err != nil {
+		fmt.Printf("deploy error: %v\n", err)
+		return
+	}
+
+	// Update the function with the namespace into which the function was
+	// deployed
+	f.Deploy.Namespace = result.Namespace
+
+	// saves namespace to function's metadata (func.yaml)
+	if err = f.Write(); err != nil {
+		return
+	}
 
 	if result.Status == Deployed {
 		c.progressListener.Increment(fmt.Sprintf("✅ Function deployed in namespace %q and exposed at URL: \n   %v", result.Namespace, result.URL))
@@ -742,7 +755,9 @@ func (c *Client) Deploy(ctx context.Context, path string) (err error) {
 		c.progressListener.Increment(fmt.Sprintf("✅ Function updated in namespace %q and exposed at URL: \n   %v", result.Namespace, result.URL))
 	}
 
-	return err
+	// Metadata generated from deploying (namespace) should not trigger a rebuild
+	// through a staleness check, so update the build stamp we checked earlier.
+	return updateBuildStamp(f)
 }
 
 // RunPipeline runs a Pipeline to build and deploy the function.
@@ -956,29 +971,40 @@ func (c *Client) Push(ctx context.Context, path string) (err error) {
 		return
 	}
 
-	if !f.HasImage() {
+	if !Built(f.Root) {
 		return ErrNotBuilt
 	}
 
-	imageDigest, err := c.pusher.Push(ctx, f)
-	if err != nil {
+	if f.ImageDigest, err = c.pusher.Push(ctx, f); err != nil {
 		return
 	}
 
-	// Record the Image Digest pushed.
-	f.ImageDigest = imageDigest
-	return f.Write()
+	if err = f.Write(); err != nil { // saves digest to f's metadata (func.yaml)
+		return
+	}
+
+	// Metadata generated from pushing (ImageDigest) should not trigger a rebuild
+	// through a staleness check, so update the build stamp we checked earlier.
+	return updateBuildStamp(f)
 }
 
 // Built returns true if the given path contains a function which has been
 // built without any filesystem modifications since (is not stale).
-func (c *Client) Built(path string) bool {
+func Built(path string) bool {
 	f, err := NewFunction(path)
 	if err != nil {
 		return false
 	}
 
-	// Missing a build image always means !Built (but does not satisfy staleness
+	// If there is no build stamp, it is not built.
+	// This case should be redundant with the below check for an image, but is
+	// temporarily necessary (see the long-winded caviat note below).
+	stamp := buildStamp(path)
+	if stamp == "" {
+		return false
+	}
+
+	// Missing an image name always means !Built (but does not satisfy staleness
 	// checks).
 	// NOTE: This will be updated in the future such that a build does not
 	// automatically update the function's serialized, source-controlled state,
@@ -989,16 +1015,7 @@ func (c *Client) Built(path string) bool {
 	// An example of how this bug manifests is that every rebuild of a function
 	// registers the func.yaml as being dirty for source-control purposes, when
 	// this should only happen on deploy.
-	if !f.HasImage() {
-		return false
-	}
-
-	buildstampPath := filepath.Join(path, RunDataDir, buildstamp)
-
-	// If there is no build stamp, it is also not built.
-	// This case should be redundant with the above check for an image, but is
-	// temporarily necessary (see the long-winded caviat note above).
-	if _, err := os.Stat(buildstampPath); err != nil {
+	if f.Image == "" {
 		return false
 	}
 
@@ -1008,13 +1025,9 @@ func (c *Client) Built(path string) bool {
 		fmt.Fprintf(os.Stderr, "error calculating function's fingerprint: %v\n", err)
 		return false
 	}
-	b, err := os.ReadFile(buildstampPath)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error reading function's fingerprint: %v\n", err)
+
+	if stamp != hash {
 		return false
-	}
-	if string(b) != hash {
-		return false // changes detected
 	}
 
 	// Function has a populated image, existing buildstamp, and the calculated
@@ -1023,6 +1036,20 @@ func (c *Client) Built(path string) bool {
 	// of course filesystem racing conditions do exist, including both direct
 	// source code modifications or changes to the image cache.
 	return true
+}
+
+// buildStamp returns the current (last) build stamp for the function
+// at the given path, if it can be found.
+func buildStamp(path string) string {
+	buildstampPath := filepath.Join(path, RunDataDir, buildstamp)
+	if _, err := os.Stat(buildstampPath); err != nil {
+		return ""
+	}
+	b, err := os.ReadFile(buildstampPath)
+	if err != nil {
+		return ""
+	}
+	return string(b)
 }
 
 // fingerprint returns a hash of the filenames and modification timestamps of
