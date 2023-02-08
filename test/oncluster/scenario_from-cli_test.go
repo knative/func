@@ -51,6 +51,7 @@ func TestFromCliDefaultBranch(t *testing.T) {
 		"-r", e2e.GetRegistry(),
 		"-p", funcPath,
 		"--remote",
+		"--verbose",
 		"--git-url", remoteRepo.ClusterCloneURL)
 
 	defer knFunc.Exec("delete", "-p", funcPath)
@@ -92,6 +93,7 @@ func TestFromCliFeatureBranch(t *testing.T) {
 		"-r", e2e.GetRegistry(),
 		"-p", funcPath,
 		"--remote",
+		"--verbose",
 		"--git-url", remoteRepo.ClusterCloneURL,
 		"--git-branch", "feature/branch")
 
@@ -130,6 +132,7 @@ func TestFromCliContextDirFunc(t *testing.T) {
 		"-r", e2e.GetRegistry(),
 		"-p", funcPath,
 		"--remote",
+		"--verbose",
 		"--git-url", remoteRepo.ClusterCloneURL,
 		"--git-dir", funcContextDir)
 

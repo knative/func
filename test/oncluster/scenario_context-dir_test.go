@@ -47,6 +47,7 @@ func TestContextDirFunc(t *testing.T) {
 			"-p", funcPath,
 			"-r", e2e.GetRegistry(),
 			"--remote",
+			"--verbose",
 			"--git-url", remoteRepo.ClusterCloneURL,
 			"--git-dir", funcContextDir,
 		)

@@ -73,6 +73,7 @@ func runtimeImpl(t *testing.T, lang string, builder string) {
 		"--registry", e2e.GetRegistry(),
 		"--path", funcPath,
 		"--remote",
+		"--verbose",
 		"--builder", builder,
 		"--git-url", remoteRepo.ClusterCloneURL)
 
