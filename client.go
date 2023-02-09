@@ -708,8 +708,25 @@ func (c *Client) printBuildActivity(ctx context.Context) {
 	}()
 }
 
+type DeployParams struct {
+	skipBuiltCheck bool
+}
+type DeployOption func(f *DeployParams)
+
+func WithDeploySkipBuildCheck(skipBuiltCheck bool) DeployOption {
+	return func(f *DeployParams) {
+		f.skipBuiltCheck = skipBuiltCheck
+	}
+}
+
 // Deploy the function at path. Errors if the function has not been built.
-func (c *Client) Deploy(ctx context.Context, path string) (err error) {
+func (c *Client) Deploy(ctx context.Context, path string, opts ...DeployOption) (err error) {
+
+	deployParams := &DeployParams{skipBuiltCheck: false}
+	for _, opt := range opts {
+		opt(deployParams)
+	}
+
 	go func() {
 		<-ctx.Done()
 		c.progressListener.Stopping()
@@ -722,7 +739,7 @@ func (c *Client) Deploy(ctx context.Context, path string) (err error) {
 
 	// Functions must be built (have an associated image) before being deployed.
 	// Note that externally built images may be specified in the func.yaml
-	if !Built(f.Root) {
+	if !deployParams.skipBuiltCheck && !Built(f.Root) {
 		return ErrNotBuilt
 	}
 

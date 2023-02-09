@@ -284,7 +284,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 				return
 			}
 		}
-		if err = client.Deploy(cmd.Context(), f.Root); err != nil {
+		if err = client.Deploy(cmd.Context(), f.Root, fn.WithDeploySkipBuildCheck(cfg.Build == "false")); err != nil {
 			return
 		}
 		if f, err = fn.NewFunction(f.Root); err != nil { // TODO: remove when client API uses 'f'
