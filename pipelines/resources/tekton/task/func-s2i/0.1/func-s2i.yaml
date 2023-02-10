@@ -24,6 +24,8 @@ spec:
       description: The location of the s2i builder image.
     - name: IMAGE
       description: Reference of the image S2I will produce.
+    - name: REGISTRY
+      description: The registry associated with the function image.
     - name: PATH_CONTEXT
       description: The location of the path to run s2i from.
       default: .
@@ -79,6 +81,15 @@ spec:
         /usr/local/bin/s2i --loglevel=$(params.LOGLEVEL) build $(params.PATH_CONTEXT) $(params.BUILDER_IMAGE) \
         --image-scripts-url $(params.S2I_IMAGE_SCRIPTS_URL) \
         --as-dockerfile /gen-source/Dockerfile.gen --environment-file /env-vars/env-file
+
+        echo "Preparing func.yaml for later deployment"
+        func_file="$(workspaces.source.path)/func.yaml"
+        if [ "$(params.PATH_CONTEXT)" != "" ]; then
+          func_file="$(workspaces.source.path)/$(params.PATH_CONTEXT)/func.yaml"
+        fi
+        sed -i "s|^registry:.*$|registry: $(params.REGISTRY)|" "$func_file"
+        echo "Function image registry: $(params.REGISTRY)"
+
       volumeMounts:
         - mountPath: /gen-source
           name: gen-source

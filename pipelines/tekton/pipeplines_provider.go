@@ -159,6 +159,9 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 		return fmt.Errorf("problem in creating secret: %v", err)
 	}
 
+	if f.Registry == "" {
+		f.Registry = registry
+	}
 	pr, err := client.PipelineRuns(pp.namespace).Create(ctx, generatePipelineRun(f, labels), metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("problem in creating pipeline run: %v", err)
