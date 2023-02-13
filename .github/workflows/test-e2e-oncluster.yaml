@@ -15,8 +15,11 @@ jobs:
       - uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go }}
+      - uses: imjasonh/setup-ko@v0.6
       - name: Install Binaries
         run: ./hack/binaries.sh
+      - name: Setup testing func image
+        run: ./hack/create-testing-func-image.sh
       - name: Allocate Cluster
         run: ./hack/allocate.sh
       - name: Deploy Tekton
