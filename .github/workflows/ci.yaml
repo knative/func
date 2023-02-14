@@ -17,7 +17,7 @@ jobs:
       - name: Check that 'func.yaml schema' is up-to-date
         run: make schema-check
       - name: Check embedded templates content
-        run: go test -run "^\QTestFileSystems\E$/^\Qembedded\E$"
+        run: go test -run "^\QTestFileSystems\E$/^\Qembedded\E$" ./pkg/filesystem
 
   test-unit:
     runs-on: "ubuntu-latest"

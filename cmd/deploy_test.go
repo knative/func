@@ -12,10 +12,11 @@ import (
 
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
-	fn "knative.dev/func"
-	"knative.dev/func/builders"
-	"knative.dev/func/config"
-	"knative.dev/func/mock"
+
+	"knative.dev/func/pkg/builders"
+	"knative.dev/func/pkg/config"
+	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/mock"
 )
 
 // commandConstructor is used to share test implementations between commands

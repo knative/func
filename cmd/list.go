@@ -13,8 +13,8 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
-	fn "knative.dev/func"
-	"knative.dev/func/config"
+	"knative.dev/func/pkg/config"
+	fn "knative.dev/func/pkg/functions"
 )
 
 func NewListCmd(newClient ClientFactory) *cobra.Command {

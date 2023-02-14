@@ -11,7 +11,7 @@ import (
 
 	"github.com/AlecAivazis/survey/v2/terminal"
 	"knative.dev/func/cmd"
-	"knative.dev/func/docker"
+	"knative.dev/func/pkg/docker"
 )
 
 // Statically-populated build metadata set by `make build`.

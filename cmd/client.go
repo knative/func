@@ -5,16 +5,16 @@ import (
 	"net/http"
 	"os"
 
-	fn "knative.dev/func"
-	"knative.dev/func/buildpacks"
-	"knative.dev/func/config"
-	"knative.dev/func/docker"
-	"knative.dev/func/docker/creds"
-	fnhttp "knative.dev/func/http"
-	"knative.dev/func/knative"
-	"knative.dev/func/openshift"
-	"knative.dev/func/pipelines/tekton"
-	"knative.dev/func/progress"
+	"knative.dev/func/pkg/builders/buildpacks"
+	"knative.dev/func/pkg/config"
+	"knative.dev/func/pkg/docker"
+	"knative.dev/func/pkg/docker/creds"
+	fn "knative.dev/func/pkg/functions"
+	fnhttp "knative.dev/func/pkg/http"
+	"knative.dev/func/pkg/knative"
+	"knative.dev/func/pkg/openshift"
+	"knative.dev/func/pkg/pipelines/tekton"
+	"knative.dev/func/pkg/progress"
 )
 
 // ClientConfig settings for use with NewClient

@@ -13,8 +13,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"knative.dev/func/builders"
-	"knative.dev/func/k8s"
+
+	"knative.dev/func/pkg/builders"
+	"knative.dev/func/pkg/k8s"
 )
 
 // setupConfigVolumesTest add to cluster config maps and secrets that will be used as volumes

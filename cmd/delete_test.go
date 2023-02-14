@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	fn "knative.dev/func"
-	"knative.dev/func/mock"
+	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/mock"
 )
 
 // TestDelete_Namespace ensures that the namespace provided to the client

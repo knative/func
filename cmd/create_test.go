@@ -4,7 +4,7 @@ import (
 	"errors"
 	"testing"
 
-	"knative.dev/func/utils"
+	"knative.dev/func/pkg/utils"
 )
 
 // TestCreate_Execute ensures that an invocation of create with minimal settings

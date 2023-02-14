@@ -8,17 +8,17 @@ import (
 	"strings"
 	"time"
 
-	"knative.dev/func/cmd/templates"
-	"knative.dev/func/config"
-	"knative.dev/func/k8s"
-
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"golang.org/x/term"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/client/pkg/util"
-	fn "knative.dev/func"
+
+	"knative.dev/func/cmd/templates"
+	"knative.dev/func/pkg/config"
+	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/k8s"
 )
 
 type RootCommandConfig struct {

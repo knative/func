@@ -24,11 +24,11 @@ When a new Function is created, a few files are placed in the new Function's dir
 The source of these templates is `./templates`; a directory subdivided by language and template name.
 For example, the Go HTTP template is located in `./templates/go/http`.
 The client library and CLI are self-contained
-by encoding this directory as a ZIP byte array in the `zz_filesystem_generated.go` file.
+by encoding this directory as a ZIP byte array in the `./generate/zz_filesystem_generated.go` file.
 Therefore, any updates to templates requires re-generating this file.
 
 When changes are made to files in the `./templates` directory,
-regenerate `zz_filesystem_generated.go` by running `make zz_filesystem_generated.go`.
+regenerate `./generate/zz_filesystem_generated.go` by running `make generate/zz_filesystem_generated.go`.
 It is also important to run the unit tests of the template modified.
 For example, to run the unit tests of the Go templates, use `make test-go`.
 For a list of available make targets, use `make help`.
@@ -40,20 +40,20 @@ Put the following script in your `.git/hooks/pre-commit` file.
 #!/bin/sh
 
 if git diff-index --cached --name-only HEAD | grep -i "^templates/.*$" >/dev/null; then
-  if ! git diff-index --cached --name-only HEAD | grep -i "^zz_filesystem_generated.go$" >/dev/null; then
+  if ! git diff-index --cached --name-only HEAD | grep -i "^generate/zz_filesystem_generated.go$" >/dev/null; then
     echo "WARNING: You are about to commit changes to the templates directory," \
-      "but the generated zz_filesystem_generated.go file is not staged."
+      "but the generated generate/zz_filesystem_generated.go file is not staged."
     echo "If this is intentional use '--no-verify' flag."
     exit 1
   fi
 fi
 
-if git diff-index --cached --name-only HEAD | grep -i "^zz_filesystem_generated.go$" >/dev/null; then
+if git diff-index --cached --name-only HEAD | grep -i "^generate/zz_filesystem_generated.go$" >/dev/null; then
   UNVERSIONED=$(git ls-files --others --exclude-standard --ignored -- templates/ 2>/dev/null)
   if [ -n "$UNVERSIONED" ]; then
-    echo "WARNING: You are about to commit zz_filesystem_generated.go," \
+    echo "WARNING: You are about to commit generate/zz_filesystem_generated.go," \
       "but the templates directory contains some unversioned files" \
-      "that may be unintentionally included in zz_filesystem_generated.go"
+      "that may be unintentionally included in generate/zz_filesystem_generated.go"
     for f in $UNVERSIONED; do
       echo "    $f"
     done

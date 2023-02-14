@@ -11,7 +11,7 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
-	fn "knative.dev/func"
+	fn "knative.dev/func/pkg/functions"
 )
 
 // ErrTemplateRepoDoesNotExist is a sentinel error if a template repository responds with 404 status code

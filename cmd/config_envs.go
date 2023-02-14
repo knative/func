@@ -13,9 +13,9 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
-	fn "knative.dev/func"
-	"knative.dev/func/k8s"
-	"knative.dev/func/utils"
+	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/k8s"
+	"knative.dev/func/pkg/utils"
 )
 
 func NewConfigEnvsCmd(loadSaver functionLoaderSaver) *cobra.Command {

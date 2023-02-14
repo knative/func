@@ -13,8 +13,8 @@ import (
 	"github.com/ory/viper"
 	"knative.dev/client/pkg/util"
 
-	fn "knative.dev/func"
-	. "knative.dev/func/testing"
+	fn "knative.dev/func/pkg/functions"
+	. "knative.dev/func/pkg/testing"
 )
 
 const TestRegistry = "example.com/alice"
