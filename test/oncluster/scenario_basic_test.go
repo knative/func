@@ -33,6 +33,7 @@ func TestBasicUpload(t *testing.T) {
 			"-p", funcPath,
 			"-r", e2e.GetRegistry(),
 			"--remote",
+			"--verbose",
 		)
 		defer knFunc.Exec("delete", "-p", funcPath)
 
@@ -49,7 +50,8 @@ func TestBasicUpload(t *testing.T) {
 		knFunc.Exec("deploy",
 			"-r", e2e.GetRegistry(),
 			"-p", funcPath,
-			"--remote")
+			"--remote",
+			"--verbose")
 		e2e.NewRevisionCheck(t, previousServiceRevision, funcName) // Wait New Service Revision
 
 		// -- Assertions --
@@ -88,6 +90,7 @@ func TestBasicGit(t *testing.T) {
 			"-p", funcPath,
 			"-r", e2e.GetRegistry(),
 			"--remote",
+			"--verbose",
 			"--git-url", remoteRepo.ClusterCloneURL,
 		)
 		defer knFunc.Exec("delete", "-p", funcPath)
@@ -108,7 +111,8 @@ func TestBasicGit(t *testing.T) {
 		knFunc.Exec("deploy",
 			"-r", e2e.GetRegistry(),
 			"-p", funcPath,
-			"--remote")
+			"--remote",
+			"--verbose")
 		e2e.NewRevisionCheck(t, previousServiceRevision, funcName) // Wait New Service Revision
 
 		// -- Assertions --

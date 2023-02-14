@@ -114,7 +114,8 @@ func GitRevisionCheck(
 	knFunc.Exec("deploy",
 		"-r", e2e.GetRegistry(),
 		"-p", funcPath,
-		"--remote")
+		"--remote",
+		"--verbose")
 	defer knFunc.Exec("delete", "-p", funcPath)
 
 	// -- Assertions --
