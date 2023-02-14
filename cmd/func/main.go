@@ -18,6 +18,11 @@ import (
 var date, vers, hash string
 
 func main() {
+	p, _ := exec.LookPath("func")
+	if p == "/ko-app/func" {
+		panic("##### CRASH #####")
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
