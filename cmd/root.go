@@ -398,7 +398,7 @@ func (v Version) StringVerbose() string {
 //
 // Usage Example:
 //
-//	languages := []string{ "go", "node", "rust" },
+//	languages := []string{ "go", "node", "rust", "csharp" },
 //	survey.Select{
 //	  Options: options,
 //	  Default: surveySelectDefaut(cfg.Language, languages),

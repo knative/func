@@ -31,6 +31,7 @@ var (
 		"quarkus":    "gcr.io/paketo-buildpacks/builder:base",
 		"rust":       "gcr.io/paketo-buildpacks/builder:base",
 		"springboot": "gcr.io/paketo-buildpacks/builder:base",
+		"csharp": 	  "gcr.io/paketo-buildpacks/builder:base",
 	}
 
 	// Ensure that all entries in this list are terminated with a trailing "/"

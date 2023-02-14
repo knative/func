@@ -72,6 +72,11 @@ func Test_BuildImages(t *testing.T) {
 			function: fn.Function{Runtime: "rust"},
 			wantErr:  true,
 		},
+		{
+			name:     "Without builder - unsupported runtime - csharp",
+			function: fn.Function{Runtime: "csharp"},
+			wantErr:  true,
+		},
 	}
 
 	for _, tt := range tests {

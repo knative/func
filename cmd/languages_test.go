@@ -23,7 +23,8 @@ python
 quarkus
 rust
 springboot
-typescript`
+typescript
+csharp`
 	output := buf()
 	if output != expected {
 		t.Fatalf("expected:\n'%v'\ngot:\n'%v'\n", expected, output)
@@ -49,7 +50,8 @@ func TestLanguages_JSON(t *testing.T) {
   "quarkus",
   "rust",
   "springboot",
-  "typescript"
+  "typescript",
+  "csharp"
 ]`
 	output := buf()
 	if output != expected {

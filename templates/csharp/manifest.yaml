@@ -1,0 +1,5 @@
+# Optional list of additional Buildpacks to be applied to the language pack's
+# builder image when the Function is built using a Buildpack builder.
+buildpacks:
+  - paketo-buildpacks/dotnet-core
+  - gcr.io/paketo-buildpacks/dotnet-core
