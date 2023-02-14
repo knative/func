@@ -11,6 +11,7 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
+	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
 )
 
@@ -20,10 +21,10 @@ var ErrTemplateRepoDoesNotExist = errors.New("template repo does not exist")
 func NewTemplatesCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "templates",
-		Short: "Templates",
+		Short: "List available function source templates",
 		Long: `
 NAME
-	{{rootCmdUse}} templates - list available templates
+	{{rootCmdUse}} templates - list available function source templates
 
 SYNOPSIS
 	{{rootCmdUse}} templates [language] [--json] [-r|--repository]
@@ -60,15 +61,20 @@ EXAMPLES
 			"temolates", "temllates", "temppates", "tempmates", "tempkates",
 			"templstes", "templztes", "templqtes", "templares", "templages", //nolint:misspell
 			"templayes", "templatee", "templatea", "templated", "templatew"},
-		PreRunE: bindEnv("json", "repository"),
+		PreRunE: bindEnv("json", "repository", "verbose"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runTemplates(cmd, args, newClient)
+		},
+	}
+
+	cfg, err := config.NewDefault()
+	if err != nil {
+		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
 
 	cmd.Flags().Bool("json", false, "Set output to JSON format. (Env: $FUNC_JSON)")
 	cmd.Flags().StringP("repository", "r", "", "URI to a specific repository to consider (Env: $FUNC_REPOSITORY)")
-
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runTemplates(cmd, args, newClient)
-	}
+	addVerboseFlag(cmd, cfg.Verbose)
 
 	return cmd
 }

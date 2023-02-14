@@ -1,6 +1,6 @@
 ## func version
 
-Show the version
+Function client version information
 
 ### Synopsis
 
@@ -30,16 +30,11 @@ func version
 ### Options
 
 ```
-  -h, --help   help for version
-```
-
-### Options inherited from parent commands
-
-```
+  -h, --help      help for version
   -v, --verbose   Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO
 
-* [func](func.md)	 - Serverless functions
+* [func](func.md)	 - func manages Knative Functions
 

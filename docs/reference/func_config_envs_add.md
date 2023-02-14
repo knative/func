@@ -43,14 +43,9 @@ func config envs add --value='{{ configMap:confMapName }}'
 ```
   -h, --help           help for add
       --name string    Name of the environment variable.
-  -p, --path string    Path to the project directory.  Default is current working directory (Env: $FUNC_PATH)
+  -p, --path string    Path to the function.  Default is current directory (Env: $FUNC_PATH)
       --value string   Value of the environment variable.
-```
-
-### Options inherited from parent commands
-
-```
-  -v, --verbose   Print verbose logs ($FUNC_VERBOSE)
+  -v, --verbose        Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO

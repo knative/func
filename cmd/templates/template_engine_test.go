@@ -125,7 +125,7 @@ func validateRootUsageOutput(t *testing.T, stdOut string) {
 	assert.Assert(t, util.ContainsAll(stdOut, "header-1", "g1.1", "desc-g1.1", "g1.2", "desc-g1.2"))
 	assert.Assert(t, util.ContainsAll(stdOut, "header-2", "g2.1", "desc-g2.1", "g2.2", "desc-g2.2", "g2.3", "desc-g2.3"))
 	assert.Assert(t, util.ContainsAll(stdOut, "Use", "root", "--help"))
-	assert.Assert(t, util.ContainsAll(stdOut, "Use", "root", "[command]"))
+	assert.Assert(t, util.ContainsAll(stdOut, "Use", "root", "<command>"))
 }
 
 func validateSubUsageOutput(t *testing.T, stdOut string, cmd *cobra.Command) {

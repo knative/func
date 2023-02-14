@@ -1,6 +1,6 @@
 ## func completion
 
-Generate completion scripts for bash, fish and zsh
+Output functions shell completion code
 
 ### Synopsis
 
@@ -28,13 +28,7 @@ func completion <bash|zsh|fish>
   -h, --help   help for completion
 ```
 
-### Options inherited from parent commands
-
-```
-  -v, --verbose   Print verbose logs ($FUNC_VERBOSE)
-```
-
 ### SEE ALSO
 
-* [func](func.md)	 - Serverless functions
+* [func](func.md)	 - func manages Knative Functions
 

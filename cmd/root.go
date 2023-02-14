@@ -32,34 +32,22 @@ type RootCommandConfig struct {
 // resultant binary with no arguments prints the help/usage text.
 func NewRootCmd(cfg RootCommandConfig) *cobra.Command {
 	cmd := &cobra.Command{
-		// Use must be set to exactly config.Name, as this field is overloaded to
-		// be used in subcommand help text as the command with possible prefix:
-		Use:           cfg.Name,
-		Short:         "Serverless functions",
-		SilenceErrors: true, // we explicitly handle errors in Execute()
-		SilenceUsage:  true, // no usage dump on error
-		Long: `Knative serverless functions
+		Use:   cfg.Name,
+		Short: fmt.Sprintf("%s manages Knative Functions", cfg.Name),
+		Long: fmt.Sprintf(`%s is the command line interface for managing Knative Function resources
 
-	Create, build and deploy Knative functions
+	Create a new Node.js function in the current directory:
+	{{.Use}} create --language node myfunction
 
-SYNOPSIS
-	{{.Use}} [-v|--verbose] <command> [args]
+	Deploy the function using Docker hub to host the image:
+	{{.Use}} deploy --registry docker.io/alice
 
-EXAMPLES
+Learn more about Functions:  https://knative.dev/docs/functions/
+Learn more about Knative at: https://knative.dev`, cfg.Name),
 
-	o Create a Node function in the current directory
-	  $ {{.Use}} create --language node .
-
-	o Deploy the function defined in the current working directory to the
-	  currently connected cluster, specifying a container registry in place of
-	  quay.io/user for the function's container.
-	  $ {{.Use}} deploy --registry quay.io.user
-
-	o Invoke the function defined in the current working directory with an example
-	  request.
-	  $ {{.Use}} invoke
-
-	For more examples, see '{{.Use}} [command] --help'.`,
+		DisableAutoGenTag: true, // no docs header
+		SilenceUsage:      true, // no usage dump on error
+		SilenceErrors:     true, // we explicitly handle errors in Execute()
 	}
 
 	// Environment Variables
@@ -68,19 +56,9 @@ EXAMPLES
 	viper.AutomaticEnv()       // read in environment variables for FUNC_<flag>
 	viper.SetEnvPrefix("func") // ensure that all have the prefix
 
-	// Flags
-	// persistent flags are available to all subcommands implicitly
-	// Note they are bound immediately here as opposed to other subcommands
-	// because this root command is not actually executed during tests, and
-	// therefore PreRunE and other event-based listeners are not invoked.
-	cmd.PersistentFlags().BoolP("verbose", "v", false, "Print verbose logs ($FUNC_VERBOSE)")
-	if err := viper.BindPFlag("verbose", cmd.PersistentFlags().Lookup("verbose")); err != nil {
-		fmt.Fprintf(os.Stderr, "error binding flag: %v\n", err)
-	}
-
 	// Version
-	cmd.Version = cfg.Version.String()
-	cmd.SetVersionTemplate(`{{printf "%s\n" .Version}}`)
+	// cmd.Version = cfg.Version.String()
+	// cmd.SetVersionTemplate(`{{printf "%s\n" .Version}}`)
 
 	// Client
 	// Use the provided ClientFactory or default to NewClient
@@ -92,20 +70,30 @@ EXAMPLES
 	// Grouped commands
 	groups := templates.CommandGroups{
 		{
-			Header: "Main Commands:",
+			Header: "Primary Commands:",
 			Commands: []*cobra.Command{
-				NewBuildCmd(newClient),
-				NewConfigCmd(defaultLoaderSaver),
 				NewCreateCmd(newClient),
-				NewDeleteCmd(newClient),
-				NewDeployCmd(newClient),
 				NewDescribeCmd(newClient),
-				NewInvokeCmd(newClient),
-				NewLanguagesCmd(newClient),
+				NewDeployCmd(newClient),
+				NewDeleteCmd(newClient),
 				NewListCmd(newClient),
-				NewRepositoryCmd(newClient),
+			},
+		},
+		{
+			Header: "Development Commands:",
+			Commands: []*cobra.Command{
 				NewRunCmd(newClient),
+				NewInvokeCmd(newClient),
+				NewBuildCmd(newClient),
+			},
+		},
+		{
+			Header: "System Commands:",
+			Commands: []*cobra.Command{
+				NewConfigCmd(defaultLoaderSaver),
+				NewLanguagesCmd(newClient),
 				NewTemplatesCmd(newClient),
+				NewRepositoryCmd(newClient),
 			},
 		},
 		{
@@ -320,9 +308,19 @@ func mergeEnvs(envs []fn.Env, envToUpdate *util.OrderedMap, envToRemove []string
 	return envs, counter, nil
 }
 
-// setPathFlag ensures common text/wording when the --path flag is used
-func setPathFlag(cmd *cobra.Command) {
-	cmd.Flags().StringP("path", "p", "", "Path to the project directory.  Default is current working directory (Env: $FUNC_PATH)")
+// addConfirmFlag ensures common text/wording when the --path flag is used
+func addConfirmFlag(cmd *cobra.Command, dflt bool) {
+	cmd.Flags().BoolP("confirm", "c", dflt, "Prompt to confirm options interactively (Env: $FUNC_CONFIRM)")
+}
+
+// addPathFlag ensures common text/wording when the --path flag is used
+func addPathFlag(cmd *cobra.Command) {
+	cmd.Flags().StringP("path", "p", "", "Path to the function.  Default is current directory (Env: $FUNC_PATH)")
+}
+
+// addVerboseFlag ensures common text/wording when the --path flag is used
+func addVerboseFlag(cmd *cobra.Command, dflt bool) {
+	cmd.Flags().BoolP("verbose", "v", false, "Print verbose logs ($FUNC_VERBOSE)")
 }
 
 // cwd returns the current working directory or exits 1 printing the error.

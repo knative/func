@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	"knative.dev/client/pkg/util"
 
+	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
 )
 
@@ -43,7 +44,15 @@ to the function's source.  Use --build to override this behavior.
 
 `,
 		SuggestFor: []string{"rnu"},
-		PreRunE:    bindEnv("build", "path", "registry"),
+		PreRunE:    bindEnv("build", "path", "registry", "verbose"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runRun(cmd, args, newClient)
+		},
+	}
+
+	cfg, err := config.NewDefault()
+	if err != nil {
+		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
 
 	cmd.Flags().StringArrayP("env", "e", []string{},
@@ -53,11 +62,8 @@ to the function's source.  Use --build to override this behavior.
 	cmd.Flags().StringP("build", "b", "auto", "Build the function. [auto|true|false].")
 	cmd.Flags().Lookup("build").NoOptDefVal = "true" // --build is equivalient to --build=true
 	cmd.Flags().StringP("registry", "r", "", "Registry + namespace part of the image if building, ex 'quay.io/myuser' (Env: $FUNC_REGISTRY)")
-	setPathFlag(cmd)
-
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runRun(cmd, args, newClient)
-	}
+	addPathFlag(cmd)
+	addVerboseFlag(cmd, cfg.Verbose)
 
 	return cmd
 }

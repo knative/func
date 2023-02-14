@@ -1,53 +1,40 @@
 ## func
 
-Serverless functions
+func manages Knative Functions
 
 ### Synopsis
 
-Knative serverless functions
+func is the command line interface for managing Knative Function resources
 
-	Create, build and deploy Knative functions
+	Create a new Node.js function in the current directory:
+	func create --language node myfunction
 
-SYNOPSIS
-	func [-v|--verbose] <command> [args]
+	Deploy the function using Docker hub to host the image:
+	func deploy --registry docker.io/alice
 
-EXAMPLES
-
-	o Create a Node function in the current directory
-	  $ func create --language node .
-
-	o Deploy the function defined in the current working directory to the
-	  currently connected cluster, specifying a container registry in place of
-	  quay.io/user for the function's container.
-	  $ func deploy --registry quay.io.user
-
-	o Invoke the function defined in the current working directory with an example
-	  request.
-	  $ func invoke
-
-	For more examples, see 'func [command] --help'.
+Learn more about Functions:  https://knative.dev/docs/functions/
+Learn more about Knative at: https://knative.dev
 
 ### Options
 
 ```
-  -h, --help      help for func
-  -v, --verbose   Print verbose logs ($FUNC_VERBOSE)
+  -h, --help   help for func
 ```
 
 ### SEE ALSO
 
-* [func build](func_build.md)	 - Build a Function
-* [func completion](func_completion.md)	 - Generate completion scripts for bash, fish and zsh
+* [func build](func_build.md)	 - Build a function container
+* [func completion](func_completion.md)	 - Output functions shell completion code
 * [func config](func_config.md)	 - Configure a function
-* [func create](func_create.md)	 - Create a function project
+* [func create](func_create.md)	 - Create a function
 * [func delete](func_delete.md)	 - Undeploy a function
-* [func deploy](func_deploy.md)	 - Deploy a Function
-* [func describe](func_describe.md)	 - Describe a Function
-* [func invoke](func_invoke.md)	 - Invoke a function
+* [func deploy](func_deploy.md)	 - Deploy a function
+* [func describe](func_describe.md)	 - Describe a function
+* [func invoke](func_invoke.md)	 - Invoke a local or remote function
 * [func languages](func_languages.md)	 - List available function language runtimes
-* [func list](func_list.md)	 - List functions
+* [func list](func_list.md)	 - List deployed functions
 * [func repository](func_repository.md)	 - Manage installed template repositories
 * [func run](func_run.md)	 - Run the function locally
-* [func templates](func_templates.md)	 - Templates
-* [func version](func_version.md)	 - Show the version
+* [func templates](func_templates.md)	 - List available function source templates
+* [func version](func_version.md)	 - Function client version information
 

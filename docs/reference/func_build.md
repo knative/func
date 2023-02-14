@@ -1,12 +1,12 @@
 ## func build
 
-Build a Function
+Build a function container
 
 ### Synopsis
 
 
 NAME
-	func build - Build a Function
+	func build - Build a function container locally withoud deploying
 
 SYNOPSIS
 	func build [-r|--registry] [--builder] [--builder-image] [--push]
@@ -57,22 +57,17 @@ func build
 ```
   -b, --builder string         Builder to use when creating the function's container. Currently supported builders are "pack" and "s2i". (Env: $FUNC_BUILDER) (default "pack")
       --builder-image string   Specify a custom builder image for use by the builder other than its default. (Env: $FUNC_BUILDER_IMAGE)
-  -c, --confirm                Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)
+  -c, --confirm                Prompt to confirm options interactively (Env: $FUNC_CONFIRM)
   -h, --help                   help for build
   -i, --image string           Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE)
-  -p, --path string            Path to the project directory.  Default is current working directory (Env: $FUNC_PATH)
+  -p, --path string            Path to the function.  Default is current directory (Env: $FUNC_PATH)
       --platform string        Optionally specify a target platform, for example "linux/amd64" when using the s2i build strategy
   -u, --push                   Attempt to push the function image to the configured registry after being successfully built
   -r, --registry string        Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. (Env: $FUNC_REGISTRY)
-```
-
-### Options inherited from parent commands
-
-```
-  -v, --verbose   Print verbose logs ($FUNC_VERBOSE)
+  -v, --verbose                Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO
 
-* [func](func.md)	 - Serverless functions
+* [func](func.md)	 - func manages Knative Functions
 

@@ -8,6 +8,7 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/spf13/cobra"
 
+	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/utils"
 )
@@ -22,7 +23,7 @@ Prints configured labels for a function project present in
 the current directory or from the directory specified with --path.
 `,
 		SuggestFor: []string{"albels", "abels", "label"},
-		PreRunE:    bindEnv("path"),
+		PreRunE:    bindEnv("path", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			function, err := initConfigCommand(loaderSaver)
 			if err != nil {
@@ -47,7 +48,7 @@ The label can be set directly from a value or from an environment variable on
 the local machine.
 `,
 		SuggestFor: []string{"ad", "create", "insert", "append"},
-		PreRunE:    bindEnv("path"),
+		PreRunE:    bindEnv("path", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			function, err := initConfigCommand(loaderSaver)
 			if err != nil {
@@ -67,7 +68,7 @@ Interactive prompt to remove labels from the function project in the current
 directory or from the directory specified with --path.
 `,
 		SuggestFor: []string{"del", "delete", "rmeove"},
-		PreRunE:    bindEnv("path"),
+		PreRunE:    bindEnv("path", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			function, err := initConfigCommand(loaderSaver)
 			if err != nil {
@@ -78,9 +79,18 @@ directory or from the directory specified with --path.
 		},
 	}
 
-	setPathFlag(configLabelsCmd)
-	setPathFlag(configLabelsAddCmd)
-	setPathFlag(configLabelsRemoveCmd)
+	cfg, err := config.NewDefault()
+	if err != nil {
+		fmt.Fprintf(configLabelsCmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
+	}
+
+	addPathFlag(configLabelsCmd)
+	addPathFlag(configLabelsAddCmd)
+	addPathFlag(configLabelsRemoveCmd)
+	addVerboseFlag(configLabelsCmd, cfg.Verbose)
+	addVerboseFlag(configLabelsAddCmd, cfg.Verbose)
+	addVerboseFlag(configLabelsRemoveCmd, cfg.Verbose)
+
 	configLabelsCmd.AddCommand(configLabelsAddCmd)
 	configLabelsCmd.AddCommand(configLabelsRemoveCmd)
 

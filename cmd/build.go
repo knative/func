@@ -19,10 +19,10 @@ import (
 func NewBuildCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "build",
-		Short: "Build a Function",
+		Short: "Build a function container",
 		Long: `
 NAME
-	{{rootCmdUse}} build - Build a Function
+	{{rootCmdUse}} build - Build a function container locally withoud deploying
 
 SYNOPSIS
 	{{rootCmdUse}} build [-r|--registry] [--builder] [--builder-image] [--push]
@@ -64,7 +64,7 @@ EXAMPLES
 
 `,
 		SuggestFor: []string{"biuld", "buidl", "built"},
-		PreRunE:    bindEnv("image", "path", "builder", "registry", "confirm", "push", "builder-image", "platform"),
+		PreRunE:    bindEnv("image", "path", "builder", "registry", "confirm", "push", "builder-image", "platform", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runBuild(cmd, args, newClient)
 		},
@@ -94,8 +94,6 @@ EXAMPLES
 	// contextually relevant function; sets are flattened above via cfg.Apply(f)
 	cmd.Flags().StringP("builder", "b", cfg.Builder,
 		fmt.Sprintf("Builder to use when creating the function's container. Currently supported builders are %s. (Env: $FUNC_BUILDER)", KnownBuilders()))
-	cmd.Flags().BoolP("confirm", "c", cfg.Confirm,
-		"Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
 	cmd.Flags().StringP("registry", "r", cfg.Registry,
 		"Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. (Env: $FUNC_REGISTRY)")
 
@@ -115,7 +113,11 @@ EXAMPLES
 		"Attempt to push the function image to the configured registry after being successfully built")
 	cmd.Flags().StringP("platform", "", "",
 		"Optionally specify a target platform, for example \"linux/amd64\" when using the s2i build strategy")
-	setPathFlag(cmd)
+
+	// Oft-shared flags:
+	addConfirmFlag(cmd, cfg.Confirm)
+	addPathFlag(cmd)
+	addVerboseFlag(cmd, cfg.Verbose)
 
 	// Tab Completion
 	if err := cmd.RegisterFlagCompletionFunc("builder", CompleteBuilderList); err != nil {

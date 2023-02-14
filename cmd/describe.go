@@ -18,8 +18,8 @@ import (
 func NewDescribeCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "describe <name>",
-		Short: "Describe a Function",
-		Long: `Describe a Function
+		Short: "Describe a function",
+		Long: `Describe a function
 
 Prints the name, route and event subscriptions for a deployed function in
 the current directory or from the directory specified with --path.
@@ -35,7 +35,10 @@ the current directory or from the directory specified with --path.
 
 		ValidArgsFunction: CompleteFunctionList,
 		Aliases:           []string{"info", "desc"},
-		PreRunE:           bindEnv("output", "path", "namespace"),
+		PreRunE:           bindEnv("output", "path", "namespace", "verbose"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runDescribe(cmd, args, newClient)
+		},
 	}
 
 	// Config
@@ -47,14 +50,11 @@ the current directory or from the directory specified with --path.
 	// Flags
 	cmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|xml|yaml|url) (Env: $FUNC_OUTPUT)")
 	cmd.Flags().StringP("namespace", "n", cfg.Namespace, "The namespace in which to look for the named function. (Env: $FUNC_NAMESPACE)")
-	setPathFlag(cmd)
+	addPathFlag(cmd)
+	addVerboseFlag(cmd, cfg.Verbose)
 
 	if err := cmd.RegisterFlagCompletionFunc("output", CompleteOutputFormatList); err != nil {
 		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
-	}
-
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runDescribe(cmd, args, newClient)
 	}
 
 	return cmd

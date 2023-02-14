@@ -7,6 +7,7 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
+	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
 )
 
@@ -53,11 +54,16 @@ variables, and Labels for a function project present in the current directory
 or from the directory specified with --path.
 `,
 		SuggestFor: []string{"cfg", "cofnig"},
-		PreRunE:    bindEnv("path"),
+		PreRunE:    bindEnv("path", "verbose"),
 		RunE:       runConfigCmd,
 	}
+	cfg, err := config.NewDefault()
+	if err != nil {
+		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
+	}
 
-	setPathFlag(cmd)
+	addPathFlag(cmd)
+	addVerboseFlag(cmd, cfg.Verbose)
 
 	cmd.AddCommand(NewConfigLabelsCmd(loadSaver))
 	cmd.AddCommand(NewConfigEnvsCmd(loadSaver))

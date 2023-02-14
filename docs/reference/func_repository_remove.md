@@ -9,13 +9,8 @@ func repository remove <name>
 ### Options
 
 ```
-  -c, --confirm   Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)
+  -c, --confirm   Prompt to confirm options interactively (Env: $FUNC_CONFIRM)
   -h, --help      help for remove
-```
-
-### Options inherited from parent commands
-
-```
   -v, --verbose   Print verbose logs ($FUNC_VERBOSE)
 ```
 

@@ -45,17 +45,12 @@ func run --build=false
   -b, --build string[="true"]   Build the function. [auto|true|false]. (default "auto")
   -e, --env stringArray         Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
   -h, --help                    help for run
-  -p, --path string             Path to the project directory.  Default is current working directory (Env: $FUNC_PATH)
+  -p, --path string             Path to the function.  Default is current directory (Env: $FUNC_PATH)
   -r, --registry string         Registry + namespace part of the image if building, ex 'quay.io/myuser' (Env: $FUNC_REGISTRY)
-```
-
-### Options inherited from parent commands
-
-```
-  -v, --verbose   Print verbose logs ($FUNC_VERBOSE)
+  -v, --verbose                 Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO
 
-* [func](func.md)	 - Serverless functions
+* [func](func.md)	 - func manages Knative Functions
 

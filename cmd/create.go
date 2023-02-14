@@ -30,10 +30,10 @@ type ErrInvalidTemplate error
 func NewCreateCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
-		Short: "Create a function project",
+		Short: "Create a function",
 		Long: `
 NAME
-	{{.Name}} create - Create a function project.
+	{{.Name}} create - Create a function
 
 SYNOPSIS
 	{{.Name}} create [-l|--language] [-t|--template] [-r|--repository]
@@ -72,8 +72,11 @@ EXAMPLES
 	  $ {{.Name}} create -l go -t cloudevents myfunc
 		`,
 		SuggestFor: []string{"vreate", "creaet", "craete", "new"},
-		PreRunE:    bindEnv("language", "template", "repository", "confirm"),
+		PreRunE:    bindEnv("language", "template", "repository", "confirm", "verbose"),
 		Aliases:    []string{"init"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCreate(cmd, args, newClient)
+		},
 	}
 
 	// Config
@@ -86,15 +89,13 @@ EXAMPLES
 	cmd.Flags().StringP("language", "l", cfg.Language, "Language Runtime (see help text for list) (Env: $FUNC_LANGUAGE)")
 	cmd.Flags().StringP("template", "t", fn.DefaultTemplate, "Function template. (see help text for list) (Env: $FUNC_TEMPLATE)")
 	cmd.Flags().StringP("repository", "r", "", "URI to a Git repository containing the specified template (Env: $FUNC_REPOSITORY)")
-	cmd.Flags().BoolP("confirm", "c", cfg.Confirm, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
+
+	addConfirmFlag(cmd, cfg.Confirm)
+	// TODO: refactor to use --path like all the other commands
+	addVerboseFlag(cmd, cfg.Verbose)
 
 	// Help Action
 	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) { runCreateHelp(cmd, args, newClient) })
-
-	// Run Action
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runCreate(cmd, args, newClient)
-	}
 
 	// Tab completion
 	if err := cmd.RegisterFlagCompletionFunc("language", newRuntimeCompletionFunc(newClient)); err != nil {
