@@ -32,6 +32,8 @@ spec:
   params:
     - name: APP_IMAGE
       description: The name of where to store the app image.
+    - name: REGISTRY
+      description: The registry associated with the function image.
     - name: BUILDER_IMAGE
       description: The image on which builds will run (must include lifecycle and compatible buildpacks).
     - name: SOURCE_SUBPATH
@@ -212,6 +214,9 @@ spec:
 
         sed -i "s/^imageDigest:.*$/imageDigest: $digest/" "$func_file"
         echo "Function image digest: $digest"
+
+        sed -i "s|^registry:.*$|registry: $(params.REGISTRY)|" "$func_file"
+        echo "Function image registry: $(params.REGISTRY)"
 
         ############################################
       volumeMounts:

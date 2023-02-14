@@ -51,6 +51,7 @@ func taskBuildpacks(runAfter []string) pplnv1beta1.PipelineTask {
 			}},
 		Params: []pplnv1beta1.Param{
 			{Name: "APP_IMAGE", Value: *pplnv1beta1.NewArrayOrString("$(params.imageName)")},
+			{Name: "REGISTRY", Value: *pplnv1beta1.NewArrayOrString("$(params.registry)")},
 			{Name: "SOURCE_SUBPATH", Value: *pplnv1beta1.NewArrayOrString("$(params.contextDir)")},
 			{Name: "BUILDER_IMAGE", Value: *pplnv1beta1.NewArrayOrString("$(params.builderImage)")},
 			{Name: "ENV_VARS", Value: pplnv1beta1.ArrayOrString{
@@ -64,6 +65,7 @@ func taskBuildpacks(runAfter []string) pplnv1beta1.PipelineTask {
 func taskS2iBuild(runAfter []string) pplnv1beta1.PipelineTask {
 	params := []pplnv1beta1.Param{
 		{Name: "IMAGE", Value: *pplnv1beta1.NewArrayOrString("$(params.imageName)")},
+		{Name: "REGISTRY", Value: *pplnv1beta1.NewArrayOrString("$(params.registry)")},
 		{Name: "PATH_CONTEXT", Value: *pplnv1beta1.NewArrayOrString("$(params.contextDir)")},
 		{Name: "BUILDER_IMAGE", Value: *pplnv1beta1.NewArrayOrString("$(params.builderImage)")},
 		{Name: "ENV_VARS", Value: pplnv1beta1.ArrayOrString{

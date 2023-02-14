@@ -58,6 +58,10 @@ func generatePipeline(f fn.Function, labels map[string]string) *pplnv1beta1.Pipe
 			Description: "Function image name",
 		},
 		{
+			Name:        "registry",
+			Description: "Function registry",
+		},
+		{
 			Name:        "builderImage",
 			Description: "Builder image to be used",
 		},
@@ -162,6 +166,10 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 		{
 			Name:  "imageName",
 			Value: *pplnv1beta1.NewArrayOrString(f.Image),
+		},
+		{
+			Name:  "registry",
+			Value: *pplnv1beta1.NewArrayOrString(f.Registry),
 		},
 		{
 			Name:  "builderImage",
