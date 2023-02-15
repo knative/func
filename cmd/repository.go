@@ -108,32 +108,40 @@ EXAMPLES
 	  $ {{rootCmdUse}} repository -c
 
 	o Add a repository and create a new function using a template from it:
-	  $ {{rootCmdUse}} repository add boson https://github.com/boson-project/templates
+	  $ {{rootCmdUse}} repository add functastic https://github.com/knative-sandbox/func-tastic
 	  $ {{rootCmdUse}} repository list
 	  default
-	  boson
-	  $ {{rootCmdUse}} create -l go -t boson/hello-world
+	  functastic
+	  $ {{rootCmdUse}} create -l go -t functastic/hello-world
+	  ...
+
+		o Add a repository specifying the branch to use (metacontroller):
+	  $ {{rootCmdUse}} repository add metacontroller https://github.com/knative-sandbox/func-tastic#metacontroler
+	  $ {{rootCmdUse}} repository list
+	  default
+	  metacontroller
+	  $ {{rootCmdUse}} create -l node -t metacontroller/metacontroller
 	  ...
 
 	o List all repositories including the URL from which remotes were installed
 	  $ {{rootCmdUse}} repository list -v
 	  default
-	  boson	https://github.com/boson-project/templates
+	  metacontroller	https://github.com/knative-sandbox/func-tastic#metacontroller
 
 	o Rename an installed repository
 	  $ {{rootCmdUse}} repository list
 	  default
 	  boson
-	  $ {{rootCmdUse}} repository rename boson boson-examples
+	  $ {{rootCmdUse}} repository rename boson functastic
 	  $ {{rootCmdUse}} repository list
 	  default
-	  boson-examples
+	  functastic
 
 	o Remove an installed repository
 	  $ {{rootCmdUse}} repository list
 	  default
-	  boson-examples
-	  $ {{rootCmdUse}} repository remove boson-examples
+	  functastic
+	  $ {{rootCmdUse}} repository remove functastic
 	  $ {{rootCmdUse}} repository list
 	  default
 `,
