@@ -331,9 +331,9 @@ func TestRepositories_URL(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Assert it includes the correct URL
-	if r.URL() != uri {
-		t.Fatalf("expected repository URL '%v', got '%v'", uri, r.URL())
+	// Assert it includes the correct URL, including the refspec fragment
+	if r.URL() != uri+"#master" {
+		t.Fatalf("expected repository URL '%v#master', got '%v'", uri, r.URL())
 	}
 }
 
