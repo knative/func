@@ -126,15 +126,14 @@ type templateConfig = funcDefaults
 // Name (optional), if provided takes precedence over name derived from repo at
 // the given URI.
 //
-// URI (optional), the path either locally or remote from which to load
-//
-//	the repository files.  If not provided, the internal default is assumed.
+// uri (optional), the path either locally or remote from which to load
+// the repository files.  If not provided, the internal default is assumed.
 func NewRepository(name, uri string) (r Repository, err error) {
 	r = Repository{
 		uri: uri,
 	}
 
-	fs, err := filesystemFromURI(uri, branch) // Get a Filesystem from the URI
+	fs, err := filesystemFromURI(uri) // Get a Filesystem from the URI
 	if err != nil {
 		return Repository{}, fmt.Errorf("failed to get repository from URI (%q): %w", uri, err)
 	}
@@ -231,7 +230,7 @@ func FilesystemFromRepo(uri string) (filesystem.Filesystem, error) {
 			return nil, nil
 		}
 		if isBranchNotFoundError(err) {
-			return nil, fmt.Errorf("failed to clone repository: branch %s not found", branch)
+			return nil, fmt.Errorf("failed to clone repository: branch not found for uri %s", uri)
 		}
 		return nil, fmt.Errorf("failed to clone repository: %w", err)
 	}
@@ -449,6 +448,13 @@ func checkDir(fs filesystem.Filesystem, path string) error {
 }
 
 func getGitCloneOptions(uri string) *git.CloneOptions {
+	branch := ""
+	splitUri := strings.Split(uri, "#")
+	if len(splitUri) > 1 {
+		uri = splitUri[0]
+		branch = splitUri[1]
+	}
+
 	opt := &git.CloneOptions{URL: uri, Depth: 1, Tags: git.NoTags,
 		RecurseSubmodules: git.NoRecurseSubmodules}
 	if branch != "" {
@@ -562,10 +568,11 @@ func (r *Repository) URL() string {
 		return "" // Has no .git/config or other error.
 	}
 
+	ref, _ := repo.Head()
 	if _, ok := c.Remotes["origin"]; ok {
 		urls := c.Remotes["origin"].URLs
 		if len(urls) > 0 {
-			return urls[0]
+			return urls[0] + "#" + ref.Name().Short()
 		}
 	}
 	return ""

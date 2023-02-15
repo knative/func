@@ -31,9 +31,6 @@ DESCRIPTION
 	  --------     --------
 	  go           cloudevents
 	  go           http
-	  go           tanstic/improve
-	  go           tanstic/redis
-	  go           tanstic/uppercase
 	  node         cloudevents
 	  node         http
 	  python       cloudevents
@@ -44,7 +41,6 @@ DESCRIPTION
 	  rust         http
 	  springboot   cloudevents
 	  springboot   http
-	  springboot   tanstic/uppercase
 	  typescript   cloudevents
 	  typescript   http
 

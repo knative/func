@@ -161,7 +161,7 @@ func (r *Repositories) Get(name string) (repo Repository, err error) {
 // Add a repository of the given name from the URI.  Name, if not provided,
 // defaults to the repo name (sans optional .git suffix). Returns the final
 // name as added.
-func (r *Repositories) Add(name, uri, branch string) (string, error) {
+func (r *Repositories) Add(name, uri string) (string, error) {
 	if r.path == "" {
 		return "", fmt.Errorf("repository %v(%v) not added. "+
 			"No repositories path provided", name, uri)
