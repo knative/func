@@ -9,7 +9,7 @@ import (
 
 	"testing"
 
-	"knative.dev/func/builders"
+	"knative.dev/func/pkg/builders"
 )
 
 const (

@@ -88,8 +88,8 @@ clean_templates:
 
 .PHONY: zz_filesystem_generated.go
 
-zz_filesystem_generated.go: clean_templates
-	go generate filesystem.go
+generate/zz_filesystem_generated.go: clean_templates
+	go generate pkg/functions/templates_embedded.go
 
 .PHONY: clean
 
@@ -199,7 +199,7 @@ $(BIN_WINDOWS): zz_filesystem_generated.go
 ##@ Schemas
 ######################
 schema-generate: schema/func_yaml-schema.json ## Generate func.yaml schema
-schema/func_yaml-schema.json: function.go
+schema/func_yaml-schema.json: pkg/functions/function.go
 	go run schema/generator/main.go
 
 schema-check: ## Check that func.yaml schema is up-to-date

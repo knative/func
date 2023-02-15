@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"knative.dev/func/builders"
+	"knative.dev/func/pkg/builders"
 )
 
 // TestRemoteRepository verifies function created using an

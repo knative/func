@@ -8,8 +8,8 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/spf13/cobra"
 
-	fn "knative.dev/func"
-	"knative.dev/func/utils"
+	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/utils"
 )
 
 func NewConfigLabelsCmd(loaderSaver functionLoaderSaver) *cobra.Command {

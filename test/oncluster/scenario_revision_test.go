@@ -19,7 +19,7 @@ import (
 	"testing"
 
 	"k8s.io/apimachinery/pkg/util/rand"
-	fn "knative.dev/func"
+	fn "knative.dev/func/pkg/functions"
 	common "knative.dev/func/test/common"
 	e2e "knative.dev/func/test/e2e"
 )

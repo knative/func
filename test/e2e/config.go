@@ -4,7 +4,7 @@ import (
 	"os"
 	"strings"
 
-	"knative.dev/func/openshift"
+	"knative.dev/func/pkg/openshift"
 )
 
 // Intended to provide setup configuration for E2E tests

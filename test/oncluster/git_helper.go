@@ -3,7 +3,7 @@ package oncluster
 import (
 	"testing"
 
-	fn "knative.dev/func"
+	fn "knative.dev/func/pkg/functions"
 	common "knative.dev/func/test/common"
 )
 

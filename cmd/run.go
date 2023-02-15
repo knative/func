@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	"knative.dev/client/pkg/util"
 
-	fn "knative.dev/func"
+	fn "knative.dev/func/pkg/functions"
 )
 
 func NewRunCmd(newClient ClientFactory) *cobra.Command {

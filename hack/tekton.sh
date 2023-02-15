@@ -42,9 +42,9 @@ tekton() {
 tekton_tasks() {
   echo "Creating Pipeline tasks..."
   kubectl apply -f https://raw.githubusercontent.com/tektoncd/catalog/master/task/git-clone/${git_clone_release}/git-clone.yaml
-  kubectl apply -f ${tasks_source_path}/pipelines/resources/tekton/task/func-buildpacks/0.1/func-buildpacks.yaml
-  kubectl apply -f ${tasks_source_path}/pipelines/resources/tekton/task/func-s2i/0.1/func-s2i.yaml
-  kubectl apply -f ${tasks_source_path}/pipelines/resources/tekton/task/func-deploy/0.1/func-deploy.yaml
+  kubectl apply -f ${tasks_source_path}/pkg/pipelines/resources/tekton/task/func-buildpacks/0.1/func-buildpacks.yaml
+  kubectl apply -f ${tasks_source_path}/pkg/pipelines/resources/tekton/task/func-s2i/0.1/func-s2i.yaml
+  kubectl apply -f ${tasks_source_path}/pkg/pipelines/resources/tekton/task/func-deploy/0.1/func-deploy.yaml
 }
 
 ## Parse input parameters

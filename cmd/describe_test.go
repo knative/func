@@ -3,8 +3,8 @@ package cmd
 import (
 	"testing"
 
-	fn "knative.dev/func"
-	"knative.dev/func/mock"
+	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/mock"
 )
 
 // TestDescribe_ByName ensures that describing a function by name invokes

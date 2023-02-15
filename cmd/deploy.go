@@ -17,14 +17,14 @@ import (
 	"github.com/spf13/cobra"
 	"knative.dev/client/pkg/util"
 
-	fn "knative.dev/func"
-	"knative.dev/func/builders"
-	"knative.dev/func/buildpacks"
-	"knative.dev/func/config"
-	"knative.dev/func/docker"
-	"knative.dev/func/docker/creds"
-	"knative.dev/func/k8s"
-	"knative.dev/func/s2i"
+	"knative.dev/func/pkg/builders"
+	"knative.dev/func/pkg/builders/buildpacks"
+	"knative.dev/func/pkg/builders/s2i"
+	"knative.dev/func/pkg/config"
+	"knative.dev/func/pkg/docker"
+	"knative.dev/func/pkg/docker/creds"
+	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/k8s"
 )
 
 func NewDeployCmd(newClient ClientFactory) *cobra.Command {

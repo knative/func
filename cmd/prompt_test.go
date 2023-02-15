@@ -11,7 +11,7 @@ import (
 
 	"github.com/hinshun/vt10x"
 
-	"knative.dev/func/docker"
+	"knative.dev/func/pkg/docker"
 )
 
 func Test_newPromptForCredentials(t *testing.T) {

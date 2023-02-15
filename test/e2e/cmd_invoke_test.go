@@ -15,7 +15,7 @@ import (
 	"testing"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
-	. "knative.dev/func/testing"
+	. "knative.dev/func/pkg/testing"
 )
 
 // TestInvokeFunction is used when testing the 'func invoke' subcommand.

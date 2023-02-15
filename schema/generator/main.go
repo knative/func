@@ -7,7 +7,7 @@ import (
 
 	"github.com/alecthomas/jsonschema"
 
-	fn "knative.dev/func"
+	fn "knative.dev/func/pkg/functions"
 )
 
 // This helper application generates json schemas:

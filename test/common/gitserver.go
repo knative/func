@@ -3,7 +3,7 @@ package common
 import (
 	"context"
 
-	"knative.dev/func/k8s"
+	"knative.dev/func/pkg/k8s"
 	e2e "knative.dev/func/test/e2e"
 
 	"strings"

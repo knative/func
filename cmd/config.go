@@ -7,7 +7,7 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
-	fn "knative.dev/func"
+	fn "knative.dev/func/pkg/functions"
 )
 
 type functionLoader interface {

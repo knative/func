@@ -12,4 +12,4 @@ REF_FILE=$(mktemp)
 ko build --image-refs "${REF_FILE}" --tags "30m" -B ./cmd/func
 
 yq -Y -i ".spec.steps[0].image = \"$(cat "${REF_FILE}")\"" \
-  pipelines/resources/tekton/task/func-deploy/0.1/func-deploy.yaml
+  pkg/pipelines/resources/tekton/task/func-deploy/0.1/func-deploy.yaml

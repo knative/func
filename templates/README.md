@@ -3,12 +3,12 @@
 ## Packaging
 
 When updates are made to these templates, they must be packaged (serialized as a Go byte array)
-by running `make zz_filesystem_generated.go`, and checking in the resultant `zz_filesystem_generated.go` file.
+by running `make generate/zz_filesystem_generated.go`, and checking in the resultant `./generate/zz_filesystem_generated.go` file.
 
 ## How it works
 
-The `./generate/templates` directory contains Go program that generates `zz_filesystem_generated.go`.
-The file defines byte array variable named `templatesZip`.
+The `./generate/templates` directory contains Go program that generates `./generate/zz_filesystem_generated.go`.
+The file defines byte array variable named `TemplatesZip`.
 The variable contains ZIP representation of the templates directory.
 The byte array variable is then used to instantiate exported global variable `function.EmbeddedTemplatesFS`,
 which implements standard Go interfaces `fs.ReadDirFS` and `fs.StatFS`.

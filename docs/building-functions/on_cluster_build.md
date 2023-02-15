@@ -17,15 +17,15 @@ kubectl apply -f https://raw.githubusercontent.com/tektoncd/catalog/master/task/
 2. Install a Tekton Task responsible for building the Function, based on the builder preference (Buildpacks or S2I)
    1. For Buildpacks builder install the Functions Buildpacks Tekton Task:
       ```bash
-      kubectl apply -f https://raw.githubusercontent.com/knative-sandbox/kn-plugin-func/main/pipelines/resources/tekton/task/func-buildpacks/0.1/func-buildpacks.yaml
+      kubectl apply -f https://raw.githubusercontent.com/knative-sandbox/kn-plugin-func/main/pkg/pipelines/resources/tekton/task/func-buildpacks/0.1/func-buildpacks.yaml
       ```
    2. For S2I builder install the S2I task:
       ```bash
-      kubectl apply -f https://raw.githubusercontent.com/knative-sandbox/kn-plugin-func/main/pipelines/resources/tekton/task/func-s2i/0.1/func-s2i.yaml
+      kubectl apply -f https://raw.githubusercontent.com/knative-sandbox/kn-plugin-func/main/pkg/pipelines/resources/tekton/task/func-s2i/0.1/func-s2i.yaml
       ```
 3. Install the `kn func` Deploy Tekton Task to be able to deploy the Function on in the Pipeline:
 ```bash
-kubectl apply -f https://raw.githubusercontent.com/knative-sandbox/kn-plugin-func/main/pipelines/resources/tekton/task/func-deploy/0.1/func-deploy.yaml
+kubectl apply -f https://raw.githubusercontent.com/knative-sandbox/kn-plugin-func/main/pkg/pipelines/resources/tekton/task/func-deploy/0.1/func-deploy.yaml
 ```
 4. Add permission to deploy on Knative to `default` Service Account: (This is not needed on OpenShift)
 ```bash

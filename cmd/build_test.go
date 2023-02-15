@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"testing"
 
-	fn "knative.dev/func"
-	"knative.dev/func/builders"
-	"knative.dev/func/mock"
+	"knative.dev/func/pkg/builders"
+	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/mock"
 )
 
 // TestBuild_ConfigApplied ensures that the build command applies config
