@@ -448,7 +448,7 @@ func checkDir(fs filesystem.Filesystem, path string) error {
 	return err
 }
 
-func getGitCloneOptions(uri) *git.CloneOptions {
+func getGitCloneOptions(uri string) *git.CloneOptions {
 	opt := &git.CloneOptions{URL: uri, Depth: 1, Tags: git.NoTags,
 		RecurseSubmodules: git.NoRecurseSubmodules}
 	if branch != "" {
