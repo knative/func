@@ -40,6 +40,7 @@ var DefaultBuilderImages = map[string]string{
 	"nodejs":     "registry.access.redhat.com/ubi8/nodejs-16",
 	"typescript": "registry.access.redhat.com/ubi8/nodejs-16",
 	"quarkus":    "registry.access.redhat.com/ubi8/openjdk-17",
+	"python":     "registry.access.redhat.com/ubi8/python-39",
 }
 
 // DockerClient is subset of dockerClient.CommonAPIClient required by this package
