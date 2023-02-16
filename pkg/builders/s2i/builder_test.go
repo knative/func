@@ -218,7 +218,7 @@ func TestS2IScriptURL(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	img, err := tarball.ImageFromPath(filepath.Join("testData", "builder.tar"), nil)
+	img, err := tarball.ImageFromPath(filepath.Join("testdata", "builder.tar"), nil)
 	if err != nil {
 		t.Fatal(err)
 	}

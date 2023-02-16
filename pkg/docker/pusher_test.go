@@ -172,7 +172,7 @@ func TestNonDaemonPush(t *testing.T) {
 	var imagesPassedToMock []string
 	dockerClient.imageSave = func(ctx context.Context, images []string) (io.ReadCloser, error) {
 		imagesPassedToMock = images
-		f, err := os.Open("./testData/image.tar")
+		f, err := os.Open("./testdata/image.tar")
 		if err != nil {
 			return nil, fmt.Errorf("failed to load image tar: %w", err)
 		}

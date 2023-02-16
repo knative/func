@@ -65,7 +65,7 @@ func TestUploadToVolume(t *testing.T) {
 		t.Error("got <nil> error, or error with unexpected message")
 	}
 
-	f, err := os.Open(filepath.Join("testData", "content.tar"))
+	f, err := os.Open(filepath.Join("testdata", "content.tar"))
 	if err != nil {
 		t.Fatal(err)
 	}
