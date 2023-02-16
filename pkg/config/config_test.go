@@ -3,6 +3,7 @@ package config_test
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"knative.dev/func/pkg/config"
@@ -291,5 +292,125 @@ func TestConfigure(t *testing.T) {
 	if f.Registry == "" {
 		t.Error("empty cfg.Registry should not mutate f")
 	}
+
+}
+
+// TestGet_Invalid ensures that attempting to get the value of a nonexistent
+// member returns nil.
+func TestGet_Invalid(t *testing.T) {
+	v := config.Get(config.Global{}, "invalid")
+	if v != nil {
+		t.Fatalf("expected accessing a nonexistent member to return nil, but got: %v", v)
+	}
+}
+
+// TestGet_Valid ensures a valid field name returns the value for that field.
+// Name is keyed off the yaml serialization key of the field rather than the
+// (capitalized) exported member name of the struct in order to be consistent
+// with the disk-serialized config file format, and thus integrate nicely with
+// CLIs, etc.
+func TestGet_Valid(t *testing.T) {
+	c := config.Global{
+		Builder: "myBuilder",
+		Confirm: true,
+	}
+	// Get String
+	v := config.Get(c, "builder")
+	if v != "myBuilder" {
+		t.Fatalf("Did not receive expected value for builder.  got: %v", v)
+	}
+	// Get Boolean
+	v = config.Get(c, "confirm")
+	if v != true {
+		t.Fatalf("Did not receive expected value for builder.  got: %v", v)
+	}
+}
+
+// TestSet_Invalid ensures that attemptint to set an invalid field errors.
+func TestSet_Invalid(t *testing.T) {
+	_, err := config.SetString(config.Global{}, "invalid", "foo")
+	if err == nil {
+		t.Fatal("did not receive expected error setting a nonexistent field")
+	}
+}
+
+// TestSet_ValidTyped ensures that attempting to set attributes with valid
+// names and typed values succeeds.
+func TestSet_ValidTyped(t *testing.T) {
+	cfg := config.Global{}
+
+	// Set a String
+	cfg, err := config.SetString(cfg, "builder", "myBuilder")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Builder != "myBuilder" {
+		t.Fatalf("unexpected value for config builder: %v", cfg.Builder)
+	}
+
+	// Set a Bool
+	cfg, err = config.SetBool(cfg, "confirm", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Builder != "myBuilder" {
+		t.Fatalf("unexpected value for config builder: %v", cfg.Builder)
+	}
+
+	// TODO lazily populate typed accessors if/when global config expands to
+	// include types of additional values.
+}
+
+// TestSet_ValidStrings ensures that setting valid attribute names using
+// the string representation of their values succeeds.
+func TestSet_ValidStrings(t *testing.T) {
+	cfg := config.Global{}
+
+	// Set a String from a string
+	// should be the base case
+	cfg, err := config.Set(cfg, "builder", "myBuilder")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Builder != "myBuilder" {
+		t.Fatalf("unexpected value for config builder: %v", cfg.Builder)
+	}
+
+	// Set a Bool
+	cfg, err = config.SetBool(cfg, "confirm", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Builder != "myBuilder" {
+		t.Fatalf("unexpected value for config builder: %v", cfg.Builder)
+	}
+
+	// TODO: lazily populate support of additional types in the implementation
+	// as needed.
+}
+
+// TestList ensures that the expected result is returned when listing
+// the current names and values of the global config.
+// The name is the name that can be used with Get and Set.  The value is the
+// string serialization of the value for the given name.
+func TestList(t *testing.T) {
+	values := config.List()
+	expected := []string{
+		"builder",
+		"confirm",
+		"language",
+		"namespace",
+		"registry",
+		"verbose",
+	}
+
+	if !reflect.DeepEqual(values, expected) {
+		t.Logf("expected:\n%v", expected)
+		t.Logf("received:\n%v", values)
+		t.Fatalf("unexpected list of configurable options.")
+	}
+
+	// NOTE: due to the strictness of this test, a new slice member will need
+	// to be added for each new field added to global config.
 
 }
