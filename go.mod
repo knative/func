@@ -20,7 +20,7 @@ require (
 	github.com/go-git/go-billy/v5 v5.3.1
 	github.com/go-git/go-git/v5 v5.4.2
 	github.com/google/go-cmp v0.5.9
-	github.com/google/go-containerregistry v0.12.1
+	github.com/google/go-containerregistry v0.13.0
 	github.com/google/uuid v1.3.0
 	github.com/hashicorp/errwrap v1.1.0
 	github.com/hashicorp/golang-lru v0.5.4
@@ -46,11 +46,11 @@ require (
 	k8s.io/apimachinery v0.25.4
 	k8s.io/client-go v1.5.2
 	k8s.io/utils v0.0.0-20221108210102-8e77b1f39fe2 // indirect
-	knative.dev/client v0.36.0
-	knative.dev/eventing v0.36.0
-	knative.dev/hack v0.0.0-20230113013652-c7cfcb062de9
-	knative.dev/pkg v0.0.0-20230117181655-247510c00e9d
-	knative.dev/serving v0.36.0
+	knative.dev/client v0.36.1-0.20230215113553-badd909328f3
+	knative.dev/eventing v0.36.1-0.20230214150651-f02203461bfb
+	knative.dev/hack v0.0.0-20230210215449-d71d569c4308
+	knative.dev/pkg v0.0.0-20230215234751-2f55fe00c5a1
+	knative.dev/serving v0.36.1-0.20230215170650-08812b3aa6c1
 )
 
 require github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
@@ -113,7 +113,7 @@ require (
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/docker/libnetwork v0.8.0-dev.2.0.20200917202933-d0951081b35f // indirect
 	github.com/dustin/go-humanize v1.0.0 // indirect
-	github.com/emicklei/go-restful/v3 v3.8.0 // indirect
+	github.com/emicklei/go-restful/v3 v3.9.0 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
@@ -234,8 +234,8 @@ require (
 	k8s.io/apiextensions-apiserver v0.25.4 // indirect
 	k8s.io/cli-runtime v0.25.2 // indirect
 	k8s.io/klog/v2 v2.80.2-0.20221028030830-9ae4992afb54 // indirect
-	k8s.io/kube-openapi v0.0.0-20220803162953-67bda5d908f1 // indirect
-	knative.dev/networking v0.0.0-20230123233838-db2bcbea2560 // indirect
+	k8s.io/kube-openapi v0.0.0-20221012153701-172d655c2280 // indirect
+	knative.dev/networking v0.0.0-20230210015049-195809a6b766 // indirect
 	sigs.k8s.io/json v0.0.0-20220713155537-f223a00ba0e2 // indirect
 	sigs.k8s.io/kustomize/api v0.12.1 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.13.9 // indirect
