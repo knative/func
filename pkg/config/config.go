@@ -4,6 +4,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
+	"sort"
+	"strconv"
+	"strings"
 
 	"gopkg.in/yaml.v2"
 	"knative.dev/func/pkg/builders"
@@ -49,6 +53,9 @@ type Global struct {
 	Namespace string `yaml:"namespace,omitempty"`
 	Registry  string `yaml:"registry,omitempty"`
 	Verbose   bool   `yaml:"verbose,omitempty"`
+	// NOTE: all members must include their yaml serialized names, even when
+	// this is the default, because these tag values are used for the static
+	// getter/setter accessors to match requests.
 }
 
 // New Config struct with all members set to static defaults.  See NewDefaults
@@ -108,6 +115,11 @@ func Load(path string) (c Global, err error) {
 }
 
 // Write the config to the given path
+// To use the currently configured path (used by the constructor) use File()
+//
+//	c := config.NewDefault()
+//	c.Verbose = true
+//	c.Write(config.File())
 func (c Global) Write(path string) (err error) {
 	bb, _ := yaml.Marshal(&c) // Marshaling no longer errors; this is back compat
 	return os.WriteFile(path, bb, os.ModePerm)
@@ -213,4 +225,131 @@ func CreatePaths() (err error) {
 		return fmt.Errorf("error creating global config repositories path: %v", err)
 	}
 	return
+}
+
+// Static Accessors
+//
+// Accessors to globally configurable options are implemented as static
+// package functions to retain the benefits of pass-by-value already in use
+// on most system structures.
+//   c = config.Set(c, "key", "value")
+//
+// This may initially seem confusing to those used to accessors implemented
+// as object member functions (`c.Set("x","y"`), but it appears to be worth it:
+//
+// This method follows the familiar paradigm of other Go builtins (which made
+// their choice for similar reasons):
+//   args = append(args, "newarg")
+//    ... and thus likewise:
+//   c = config.Set(c, "key", "value")
+//
+// We indeed could have implemented these in a more familiar Getter/Setter way
+// by making this method have a pointer receiver:
+//     func (c *Global) Set(key, value string)
+// However, this would require the user of the config object to, likely more
+// confusingly, declare a new local variable to hold their pointer
+// (or perhaps worse, abandon the benefits of pass-by-value from the config
+// constructor and always return a pointer from the constructor):
+//
+//   globalConfig := config.NewDefault()
+//    .... later that day ...
+//   c := &globalConfig
+//   c.Set("builder", "foo")
+//
+// This solution, while it would preserve the very narrow familiar usage of
+// 'Set', fails to be clear due to the setup involved (requiring the allocation
+// of that pointer). Therefore the accessors are herein implemented more
+// functionally, as package static methods.
+
+// List the globally configurable settings by the key which can be used
+// in the accessors Get and Set, and in the associated disk serialized.
+// Sorted.
+// Implemented as a package-static function because Set is implemented as such.
+// See the long-winded explanation above.
+func List() []string {
+	keys := []string{}
+	t := reflect.TypeOf(Global{})
+	for i := 0; i < t.NumField(); i++ {
+		tt := strings.Split(t.Field(i).Tag.Get("yaml"), ",")
+		keys = append(keys, tt[0])
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// Get the named global config value from the given global config struct.
+// Nonexistent values return nil.
+// Implemented as a package-static function because Set is implemented as such.
+// See the long-winded explanation above.
+func Get(c Global, name string) any {
+	t := reflect.TypeOf(c)
+	for i := 0; i < t.NumField(); i++ {
+		if !strings.HasPrefix(t.Field(i).Tag.Get("yaml"), name) {
+			continue
+		}
+		return reflect.ValueOf(c).FieldByName(t.Field(i).Name).Interface()
+	}
+	return nil
+}
+
+// Set value of a member by name and a stringified value.
+// Fails if the passed value can not be coerced into the value expected
+// by the member indicated by name.
+func Set(c Global, name, value string) (Global, error) {
+	fieldValue, err := getField(&c, name)
+	if err != nil {
+		return c, err
+	}
+
+	var v reflect.Value
+	switch fieldValue.Kind() {
+	case reflect.String:
+		v = reflect.ValueOf(value)
+	case reflect.Bool:
+		boolValue, err := strconv.ParseBool(value)
+		if err != nil {
+			return c, err
+		}
+		v = reflect.ValueOf(boolValue)
+	default:
+		return c, fmt.Errorf("global config value type not yet implemented: %v", fieldValue.Kind())
+	}
+	fieldValue.Set(v)
+
+	return c, nil
+}
+
+// SetString value of a member by name, returning the updated config.
+func SetString(c Global, name, value string) (Global, error) {
+	return set(c, name, reflect.ValueOf(value))
+}
+
+// SetBool value of a member by name, returning the updated config.
+func SetBool(c Global, name string, value bool) (Global, error) {
+	return set(c, name, reflect.ValueOf(value))
+}
+
+// TODO: add more typesafe setters as needed.
+
+// set using a reflect.Value
+func set(c Global, name string, value reflect.Value) (Global, error) {
+	fieldValue, err := getField(&c, name)
+	if err != nil {
+		return c, err
+	}
+	fieldValue.Set(value)
+	return c, nil
+}
+
+// Get an assignable reflect.Value for the struct field with the given yaml
+// tag name.
+func getField(c *Global, name string) (reflect.Value, error) {
+	t := reflect.TypeOf(c).Elem()
+	for i := 0; i < t.NumField(); i++ {
+		if strings.HasPrefix(t.Field(i).Tag.Get("yaml"), name) {
+			fieldValue := reflect.ValueOf(c).Elem().FieldByName(t.Field(i).Name)
+			return fieldValue, nil
+		}
+	}
+	return reflect.Value{}, fmt.Errorf("field not found on global config: %v", name)
 }
