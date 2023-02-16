@@ -19,7 +19,7 @@ import (
 )
 
 func TestSourcesAsTarStream(t *testing.T) {
-	root := filepath.Join("testData", "fn-src")
+	root := filepath.Join("testdata", "fn-src")
 
 	if err := os.Mkdir(filepath.Join(root, ".git"), 0755); err != nil && !errors.Is(err, os.ErrExist) {
 		t.Fatal(err)
