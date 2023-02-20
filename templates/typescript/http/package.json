@@ -35,6 +35,6 @@
   },
   "dependencies": {
     "@types/node": "^16.11.12",
-    "faas-js-runtime": "^0.9.7"
+    "faas-js-runtime": "^0.10.0"
   }
 }
