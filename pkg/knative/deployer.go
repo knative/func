@@ -140,7 +140,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		_ = GetKServiceLogs(ctx, d.Namespace, f.Name, f.ImageWithDigest(), &since, out)
 	}()
 
-	_, err = client.GetService(ctx, f.Name)
+	previousService, err := client.GetService(ctx, f.Name)
 	if err != nil {
 		if errors.IsNotFound(err) {
 
@@ -255,7 +255,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			return fn.DeploymentResult{}, err
 		}
 
-		_, err = client.UpdateServiceWithRetry(ctx, f.Name, updateService(f, newEnv, newEnvFrom, newVolumes, newVolumeMounts, d.decorator), 3)
+		_, err = client.UpdateServiceWithRetry(ctx, f.Name, updateService(f, previousService, newEnv, newEnvFrom, newVolumes, newVolumeMounts, d.decorator), 3)
 		if err != nil {
 			err = fmt.Errorf("knative deployer failed to update the Knative Service: %v", err)
 			return fn.DeploymentResult{}, err
@@ -334,15 +334,12 @@ func generateNewService(f fn.Function, decorator DeployDecorator) (*v1.Service, 
 	}
 	container.VolumeMounts = newVolumeMounts
 
-	labels, err := f.LabelsMap()
+	labels, err := generateServiceLabels(f, decorator)
 	if err != nil {
 		return nil, err
 	}
-	if decorator != nil {
-		labels = decorator.UpdateLabels(f, labels)
-	}
 
-	annotations := newServiceAnnotations(f, decorator)
+	annotations := generateServiceAnnotations(f, decorator, nil)
 
 	// we need to create a separate map for Annotations specified in a Revision,
 	// in case we will need to specify autoscaling annotations -> these could be only in a Revision not in a Service
@@ -385,10 +382,28 @@ func generateNewService(f fn.Function, decorator DeployDecorator) (*v1.Service, 
 	return service, nil
 }
 
-// newServiceAnnotations creates a final map of service annotations based
+// generateServiceLabels creates a final map of service labels based
+// on the function's defined labels plus the
+// application of any provided label decorator.
+func generateServiceLabels(f fn.Function, d DeployDecorator) (ll map[string]string, err error) {
+	ll, err = f.LabelsMap()
+	if err != nil {
+		return
+	}
+
+	if d != nil {
+		ll = d.UpdateLabels(f, ll)
+	}
+
+	return
+}
+
+// generateServiceAnnotations creates a final map of service annotations based
 // on static defaults plus the function's defined annotations plus the
 // application of any provided annotation decorator.
-func newServiceAnnotations(f fn.Function, d DeployDecorator) (aa map[string]string) {
+// Also sets `serving.knative.dev/creator` to a value specified in annotations in the service reference in the previousService parameter,
+// this is beneficial when we are updating a service to pass validation on Knative side - the annotation is immutable.
+func generateServiceAnnotations(f fn.Function, d DeployDecorator, previousService *v1.Service) (aa map[string]string) {
 	aa = make(map[string]string)
 
 	// Enables Dapr support.
@@ -407,6 +422,14 @@ func newServiceAnnotations(f fn.Function, d DeployDecorator) (aa map[string]stri
 		aa = d.UpdateAnnotations(f, aa)
 	}
 
+	// Set correct creator if we are updating a function
+	if previousService != nil {
+		knativeCreatorAnnotation := "serving.knative.dev/creator"
+		if val, ok := previousService.Annotations[knativeCreatorAnnotation]; ok {
+			aa[knativeCreatorAnnotation] = val
+		}
+	}
+
 	return
 }
 
@@ -423,26 +446,24 @@ func daprAnnotations(appid string) map[string]string {
 	return aa
 }
 
-func updateService(f fn.Function, newEnv []corev1.EnvVar, newEnvFrom []corev1.EnvFromSource, newVolumes []corev1.Volume, newVolumeMounts []corev1.VolumeMount, decorator DeployDecorator) func(service *v1.Service) (*v1.Service, error) {
+func updateService(f fn.Function, previousService *v1.Service, newEnv []corev1.EnvVar, newEnvFrom []corev1.EnvFromSource, newVolumes []corev1.Volume, newVolumeMounts []corev1.VolumeMount, decorator DeployDecorator) func(service *v1.Service) (*v1.Service, error) {
 	return func(service *v1.Service) (*v1.Service, error) {
 		// Removing the name so the k8s server can fill it in with generated name,
 		// this prevents conflicts in Revision name when updating the KService from multiple places.
 		service.Spec.Template.Name = ""
 
-		if service.Spec.Template.ObjectMeta.Annotations == nil {
-			service.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
+		annotations := generateServiceAnnotations(f, decorator, previousService)
+
+		// we need to create a separate map for Annotations specified in a Revision,
+		// in case we will need to specify autoscaling annotations -> these could be only in a Revision not in a Service
+		revisionAnnotations := make(map[string]string)
+		for k, v := range annotations {
+			revisionAnnotations[k] = v
 		}
 
-		// Don't bother being as clever as we are with env variables
-		// Just set the annotations and labels to be whatever we find in func.yaml
-		if decorator != nil {
-			service.ObjectMeta.Annotations = decorator.UpdateAnnotations(f, service.ObjectMeta.Annotations)
-		}
+		service.ObjectMeta.Annotations = annotations
+		service.Spec.Template.ObjectMeta.Annotations = revisionAnnotations
 
-		for k, v := range f.Deploy.Annotations {
-			service.ObjectMeta.Annotations[k] = v
-			service.Spec.Template.ObjectMeta.Annotations[k] = v
-		}
 		// I hate that we have to do this. Users should not see these values.
 		// It is an implementation detail. These health endpoints should not be
 		// a part of func.yaml since the user can only mess things up by changing
@@ -463,12 +484,9 @@ func updateService(f fn.Function, newEnv []corev1.EnvVar, newEnvFrom []corev1.En
 			return service, err
 		}
 
-		labels, err := f.LabelsMap()
+		labels, err := generateServiceLabels(f, decorator)
 		if err != nil {
 			return nil, err
-		}
-		if decorator != nil {
-			labels = decorator.UpdateLabels(f, labels)
 		}
 
 		service.ObjectMeta.Labels = labels
