@@ -64,6 +64,11 @@ func Test_BuildImages(t *testing.T) {
 			wantErr:  true,
 		},
 		{
+			name:     "Without builder - supported runtime - python",
+			function: fn.Function{Runtime: "python"},
+			wantErr:  false,
+		},
+		{
 			name:     "Without builder - unsupported runtime - rust",
 			function: fn.Function{Runtime: "rust"},
 			wantErr:  true,
