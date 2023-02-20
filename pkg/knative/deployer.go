@@ -429,6 +429,10 @@ func updateService(f fn.Function, newEnv []corev1.EnvVar, newEnvFrom []corev1.En
 		// this prevents conflicts in Revision name when updating the KService from multiple places.
 		service.Spec.Template.Name = ""
 
+		if service.Spec.Template.ObjectMeta.Annotations == nil {
+			service.Spec.Template.ObjectMeta.Annotations = make(map[string]string)
+		}
+
 		// Don't bother being as clever as we are with env variables
 		// Just set the annotations and labels to be whatever we find in func.yaml
 		if decorator != nil {
