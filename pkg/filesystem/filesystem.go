@@ -252,18 +252,14 @@ func (m maskingFS) Readlink(link string) (string, error) {
 // CopyFromFS copies files from the `src` dir on the accessor Filesystem to local filesystem into `dest` dir.
 // The src path uses slashes as their separator.
 // The dest path uses OS specific separator.
-func CopyFromFS(src, dest string, accessor Filesystem) (err error) {
-
-	return fs.WalkDir(accessor, src, func(path string, de fs.DirEntry, err error) error {
+func CopyFromFS(root, dest string, fsys Filesystem) (err error) {
+	// Walks the filesystem rooted at root.
+	return fs.WalkDir(fsys, root, func(path string, de fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
-		if path == src {
-			return nil
-		}
-
-		p, err := filepath.Rel(filepath.FromSlash(src), filepath.FromSlash(path))
+		p, err := filepath.Rel(filepath.FromSlash(root), filepath.FromSlash(path))
 		if err != nil {
 			return err
 		}
@@ -280,7 +276,7 @@ func CopyFromFS(src, dest string, accessor Filesystem) (err error) {
 			return os.MkdirAll(dest, 0755)
 		case de.Type()&fs.ModeSymlink != 0:
 			var symlinkTarget string
-			symlinkTarget, err = accessor.Readlink(path)
+			symlinkTarget, err = fsys.Readlink(path)
 			if err != nil {
 				return err
 			}
@@ -296,7 +292,7 @@ func CopyFromFS(src, dest string, accessor Filesystem) (err error) {
 			}
 			defer destFile.Close()
 
-			srcFile, err := accessor.Open(path)
+			srcFile, err := fsys.Open(path)
 			if err != nil {
 				return err
 			}
