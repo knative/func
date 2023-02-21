@@ -56,10 +56,6 @@ Learn more about Knative at: https://knative.dev`, cfg.Name),
 	viper.AutomaticEnv()       // read in environment variables for FUNC_<flag>
 	viper.SetEnvPrefix("func") // ensure that all have the prefix
 
-	// Version
-	// cmd.Version = cfg.Version.String()
-	// cmd.SetVersionTemplate(`{{printf "%s\n" .Version}}`)
-
 	// Client
 	// Use the provided ClientFactory or default to NewClient
 	newClient := cfg.NewClient
