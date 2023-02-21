@@ -142,7 +142,7 @@ test-typescript: ## Test Typescript templates
 ###################
 
 test-integration: ## Run integration tests using an available cluster.
-	go test -tags integration --coverprofile=coverage.txt ./... -v
+	go test -tags integration -timeout 30m --coverprofile=coverage.txt ./... -v
 
 test-e2e: ## Run end-to-end tests using an available cluster.
 	./test/e2e_lifecycle_tests.sh node
