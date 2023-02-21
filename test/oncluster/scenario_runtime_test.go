@@ -18,7 +18,7 @@ import (
 var runtimeSupportMap = map[string][]string{
 	"node":       {"pack", "s2i"},
 	"go":         {},
-	"python":     {"pack"},
+	"python":     {"pack", "s2i"},
 	"quarkus":    {"pack", "s2i"},
 	"springboot": {"pack"},
 	"typescript": {"pack", "s2i"},
