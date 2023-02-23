@@ -37,13 +37,12 @@ func main() {
 			return err
 		}
 
-		if filepath.Clean(path) == templatesPath {
-			return nil
-		}
-
 		name, err := filepath.Rel(templatesPath, path)
 		if err != nil {
 			return err
+		}
+		if name == "." {
+			return nil
 		}
 		name = filepath.ToSlash(name)
 		if info.IsDir() {
