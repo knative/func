@@ -172,8 +172,9 @@ EXAMPLES
 
 func NewRepositoryListCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
-		Short: "List repositories",
-		Use:   "list",
+		Short:   "List repositories",
+		Use:     "list",
+		Aliases: []string{"ls"},
 	}
 
 	cmd.RunE = func(_ *cobra.Command, args []string) error {
@@ -209,6 +210,7 @@ func NewRepositoryRenameCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Short:   "Rename a repository",
 		Use:     "rename <old> <new>",
+		Aliases: []string{"mv"},
 		PreRunE: bindEnv("confirm"),
 	}
 
