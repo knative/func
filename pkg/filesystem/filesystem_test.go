@@ -1,9 +1,6 @@
 package filesystem_test
 
 import (
-	"bytes"
-	"crypto/md5"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"io/fs"
@@ -44,6 +41,13 @@ func TestFileSystems(t *testing.T) {
 		},
 	}
 
+	type FileInfo struct {
+		Path       string
+		Type       fs.FileMode
+		Executable bool
+		Content    []byte
+	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			templatesFS := tt.fileSystem
@@ -53,127 +57,94 @@ func TestFileSystems(t *testing.T) {
 				// TODO I have no idea why it returns nil on Windows
 			}
 
-			var embeddedFiles []string
+			permMask := fs.FileMode(0111)
+			if runtime.GOOS == "windows" {
+				permMask = 0
+			}
+
+			var embeddedFiles []FileInfo
 			err = fs.WalkDir(templatesFS, ".", func(path string, d fs.DirEntry, err error) error {
 				if err != nil {
 					return err
 				}
-				embeddedFiles = append(embeddedFiles, path)
+				fi, err := templatesFS.Stat(path)
+				if err != nil {
+					return err
+				}
+				var bs []byte
+				switch fi.Mode() & fs.ModeType {
+				case 0:
+					f, err := templatesFS.Open(path)
+					if err != nil {
+						return err
+					}
+					defer f.Close()
+					bs, err = io.ReadAll(f)
+					if err != nil {
+						return err
+					}
+				case fs.ModeSymlink:
+					t, _ := templatesFS.Readlink(path)
+					bs = []byte(t)
+				}
+				embeddedFiles = append(embeddedFiles, FileInfo{
+					Path:       path,
+					Type:       fi.Mode().Type(),
+					Executable: fi.Mode()&permMask == permMask && !fi.IsDir(),
+					Content:    bs,
+				})
 				return nil
 			})
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			var localFiles []string
+			var localFiles []FileInfo
 			err = filepath.Walk(templatesPath, func(path string, info fs.FileInfo, err error) error {
 				if err != nil {
 					return err
+				}
+				fi, err := os.Lstat(path)
+				if err != nil {
+					return err
+				}
+				var bs []byte
+				switch fi.Mode() & fs.ModeType {
+				case 0:
+					bs, err = os.ReadFile(path)
+					if err != nil {
+						return err
+					}
+				case fs.ModeSymlink:
+					t, _ := os.Readlink(path)
+					bs = []byte(t)
 				}
 				path, err = filepath.Rel(templatesPath, path)
 				if err != nil {
 					return err
 				}
-				localFiles = append(localFiles, filepath.ToSlash(path))
+				localFiles = append(localFiles, FileInfo{
+					Path:       filepath.ToSlash(path),
+					Type:       fi.Mode().Type(),
+					Executable: fi.Mode()&permMask == permMask && !fi.IsDir(),
+					Content:    bs,
+				})
 				return nil
 			})
 			if err != nil {
 				t.Fatal(err)
 			}
-
-			sort.Strings(embeddedFiles)
-			sort.Strings(localFiles)
+			compare := func(fis []FileInfo) func(i, j int) bool {
+				return func(i, j int) bool {
+					return fis[i].Path < fis[j].Path
+				}
+			}
+			sort.Slice(embeddedFiles, compare(embeddedFiles))
+			sort.Slice(localFiles, compare(localFiles))
 
 			if diff := cmp.Diff(localFiles, embeddedFiles); diff != "" {
 				t.Error("filesystem content missmatch (-want, +got):", diff)
 			}
-
-			err = fs.WalkDir(templatesFS, ".", func(path string, d fs.DirEntry, err error) error {
-				if err != nil {
-					return err
-				}
-
-				if path == "." {
-					return nil
-				}
-
-				localFilePath := filepath.Join(templatesPath, path)
-
-				localFileStat, err := os.Lstat(localFilePath)
-				if err != nil {
-					return err
-				}
-
-				embeddedFileStats, err := templatesFS.Stat(path)
-				if err != nil {
-					return err
-				}
-
-				if localFileStat.Mode()&fs.ModeType != embeddedFileStats.Mode()&fs.ModeType {
-					t.Errorf("file type mismatch")
-				}
-
-				if localFileStat.IsDir() && embeddedFileStats.IsDir() {
-					return nil
-				}
-
-				if localFileStat.Mode()&fs.ModeSymlink != 0 && embeddedFileStats.Mode()&fs.ModeSymlink != 0 {
-					var locSym, embSym string
-					locSym, err = os.Readlink(localFilePath)
-					if err != nil {
-						t.Fatal(err)
-					}
-					embSym, err = templatesFS.Readlink(path)
-					if err != nil {
-						t.Fatal(err)
-					}
-					if locSym != embSym {
-						t.Fatalf("symlink mismatch, %q != %q ", locSym, embSym)
-					}
-					return nil
-				}
-
-				if localFileStat.Size() != embeddedFileStats.Size() {
-					t.Errorf("size mismatch on %q (expected: %d, actual:%d)",
-						path, localFileStat.Size(), embeddedFileStats.Size())
-					return nil
-				}
-
-				embeddedFile, err := templatesFS.Open(path)
-				if err != nil {
-					return err
-				}
-
-				localFileContent, err := os.ReadFile(localFilePath)
-				if err != nil {
-					return err
-				}
-
-				embeddedFileContent, err := io.ReadAll(embeddedFile)
-				if err != nil {
-					return err
-				}
-
-				if !bytes.Equal(localFileContent, embeddedFileContent) {
-					localSum := md5.Sum(localFileContent)
-					embeddedSum := md5.Sum(embeddedFileContent)
-					t.Errorf("content mismatch on %q (expected hash: %s, actual hash: %s)",
-						path, hex.EncodeToString(localSum[:]), hex.EncodeToString(embeddedSum[:]))
-					return nil
-				}
-
-				if runtime.GOOS != "windows" && (embeddedFileStats.Mode().Perm()&0100) != (localFileStat.Mode().Perm()&0100) {
-					t.Errorf("mode mismatch on %q (expected: %o, actual: %o)",
-						path, localFileStat.Mode().Perm(), embeddedFileStats.Mode().Perm())
-					return nil
-				}
-
-				return nil
-			})
-			if err != nil {
-				t.Error(err)
-			}
-
 		})
 	}
 }
