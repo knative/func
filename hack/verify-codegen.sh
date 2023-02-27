@@ -35,7 +35,6 @@ cp -aR "${REPO_ROOT_DIR}/go.sum" "${REPO_ROOT_DIR}/vendor" "${TMP_DIFFROOT}"
 echo "Diffing ${REPO_ROOT_DIR} against freshly generated codegen"
 ret=0
 diff -Nupr --no-dereference "${REPO_ROOT_DIR}/go.sum" "${TMP_DIFFROOT}/go.sum" || ret=1
-diff -Nupr --no-dereference "${REPO_ROOT_DIR}/generate/zz_filesystem_generated.go" "${TMP_DIFFROOT}/zz_filesystem_generated.go" || ret=1
 diff -Nupr --no-dereference "${REPO_ROOT_DIR}/vendor" "${TMP_DIFFROOT}/vendor" || ret=1
 
 # Restore working tree state
