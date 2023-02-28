@@ -28,7 +28,8 @@ func NewConfigEnvsCmd(loadSaver functionLoaderSaver) *cobra.Command {
 Prints configured Environment variable for a function project present in
 the current directory or from the directory specified with --path.
 `,
-		SuggestFor: []string{"ensv", "env"},
+		Aliases:    []string{"env"},
+		SuggestFor: []string{"ensv"},
 		PreRunE:    bindEnv("path", "output", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			function, err := initConfigCommand(loadSaver)
@@ -147,7 +148,8 @@ func NewConfigEnvsRemoveCmd() *cobra.Command {
 Interactive prompt to remove Environment variables from the function project
 in the current directory or from the directory specified with --path.
 `,
-		SuggestFor: []string{"rm", "del", "delete", "rmeove"},
+		Aliases:    []string{"rm"},
+		SuggestFor: []string{"del", "delete", "rmeove"},
 		PreRunE:    bindEnv("path", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			function, err := initConfigCommand(defaultLoaderSaver)

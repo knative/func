@@ -22,7 +22,7 @@ import (
 	"knative.dev/pkg/ptr"
 )
 
-// # Integration Tsets
+// # Integration Tests
 //
 // go test -tags integration ./...
 //
@@ -156,6 +156,115 @@ func TestDeployWithOptions(t *testing.T) {
 
 	if err := client.Deploy(context.Background(), "."); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestUpdateWithAnnotationsAndLabels(t *testing.T) {
+	functionName := "updateannlab"
+	defer Within(t, "testdata/example.com/"+functionName)()
+	verbose := true
+
+	servingClient, err := knative.NewServingClient(DefaultNamespace)
+
+	// Deploy a function without any annotations or labels
+	client := newClient(verbose)
+
+	if _, err := client.New(context.Background(), fn.Function{Name: functionName, Root: ".", Runtime: "go"}); err != nil {
+		t.Fatal(err)
+	}
+	defer del(t, client, functionName)
+
+	if err := client.Deploy(context.Background(), "."); err != nil {
+		t.Fatal(err)
+	}
+
+	// Update function with a new set of annotations and labels
+	// deploy and check that deployed kcsv contains correct annotations and labels
+	f, err := fn.NewFunction(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	annotations := map[string]string{"ann1": "val1", "ann2": "val2"}
+	labels := []fn.Label{
+		{Key: ptr.String("lab1"), Value: ptr.String("v1")},
+		{Key: ptr.String("lab2"), Value: ptr.String("v2")},
+	}
+	f.Deploy.Annotations = annotations
+	f.Deploy.Labels = labels
+	if err := f.Write(); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := client.Deploy(context.Background(), ".", fn.WithDeploySkipBuildCheck(true)); err != nil {
+		t.Fatal(err)
+	}
+
+	ksvc, err := servingClient.GetService(context.Background(), functionName)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for k, v := range annotations {
+		if val, ok := ksvc.Annotations[k]; ok {
+			if v != val {
+				t.Fatal(fmt.Errorf("expected annotation %q to have value %q, but the annotation in the deployed service has value %q", k, v, val))
+			}
+		} else {
+			t.Fatal(fmt.Errorf("annotation %q not found in the deployed service", k))
+		}
+	}
+	for _, l := range labels {
+		if val, ok := ksvc.Labels[*l.Key]; ok {
+			if *l.Value != val {
+				t.Fatal(fmt.Errorf("expected label %q to have value %q, but the label in the deployed service has value %q", *l.Key, *l.Value, val))
+			}
+		} else {
+			t.Fatal(fmt.Errorf("label %q not found in the deployed service", *l.Key))
+		}
+	}
+
+	// Remove some annotations and labels
+	// deploy and check that deployed kcsv contains correct annotations and labels
+	f, err = fn.NewFunction(".")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	annotations = map[string]string{"ann1": "val1"}
+	labels = []fn.Label{{Key: ptr.String("lab1"), Value: ptr.String("v1")}}
+	f.Deploy.Annotations = annotations
+	f.Deploy.Labels = labels
+	if err := f.Write(); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := client.Deploy(context.Background(), ".", fn.WithDeploySkipBuildCheck(true)); err != nil {
+		t.Fatal(err)
+	}
+
+	ksvc, err = servingClient.GetService(context.Background(), functionName)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for k, v := range annotations {
+		if val, ok := ksvc.Annotations[k]; ok {
+			if v != val {
+				t.Fatal(fmt.Errorf("expected annotation %q to have value %q, but the annotation in the deployed service has value %q", k, v, val))
+			}
+		} else {
+			t.Fatal(fmt.Errorf("annotation %q not found in the deployed service", k))
+		}
+	}
+	for _, l := range labels {
+		if val, ok := ksvc.Labels[*l.Key]; ok {
+			if *l.Value != val {
+				t.Fatal(fmt.Errorf("expected label %q to have value %q, but the label in the deployed service has value %q", *l.Key, *l.Value, val))
+			}
+		} else {
+			t.Fatal(fmt.Errorf("label %q not found in the deployed service", *l.Key))
+		}
 	}
 }
 
@@ -435,7 +544,7 @@ func del(t *testing.T, c *fn.Client, name string) {
 // waitFor the named function to become available in List output.
 // TODO: the API should be synchronous, but that depends first on
 // Create returning the derived name such that we can bake polling in.
-// Ideally the Boson provider's Creaet would be made syncrhonous.
+// Ideally the provider's Create would be made syncrhonous.
 func waitFor(t *testing.T, c *fn.Client, name string) {
 	t.Helper()
 	var pollInterval = 2 * time.Second

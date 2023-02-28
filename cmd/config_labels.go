@@ -22,7 +22,8 @@ func NewConfigLabelsCmd(loaderSaver functionLoaderSaver) *cobra.Command {
 Prints configured labels for a function project present in
 the current directory or from the directory specified with --path.
 `,
-		SuggestFor: []string{"albels", "abels", "label"},
+		Aliases:    []string{"label"},
+		SuggestFor: []string{"albels", "abels"},
 		PreRunE:    bindEnv("path", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			function, err := initConfigCommand(loaderSaver)
@@ -67,6 +68,7 @@ the local machine.
 Interactive prompt to remove labels from the function project in the current
 directory or from the directory specified with --path.
 `,
+		Aliases:    []string{"rm"},
 		SuggestFor: []string{"del", "delete", "rmeove"},
 		PreRunE:    bindEnv("path", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {

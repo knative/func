@@ -22,7 +22,8 @@ func NewConfigVolumesCmd() *cobra.Command {
 Prints configured Volume mounts for a function project present in
 the current directory or from the directory specified with --path.
 `,
-		SuggestFor: []string{"volums", "volume", "vols"},
+		Aliases:    []string{"volume"},
+		SuggestFor: []string{"vol", "volums", "vols"},
 		PreRunE:    bindEnv("path", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			function, err := initConfigCommand(defaultLoaderSaver)
@@ -90,6 +91,7 @@ func NewConfigVolumesRemoveCmd() *cobra.Command {
 Interactive prompt to remove Volume mounts from the function project
 in the current directory or from the directory specified with --path.
 `,
+		Aliases:    []string{"rm"},
 		SuggestFor: []string{"del", "delete", "rmeove"},
 		PreRunE:    bindEnv("path", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {

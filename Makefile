@@ -27,7 +27,7 @@ VERS    ?= $(shell [ -z $(VTAG) ] && echo 'tip' || echo $(VTAG) )
 LDFLAGS := "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)"
 
 # All Code prerequisites, including generated files, etc.
-CODE := $(shell find . -name '*.go') zz_filesystem_generated.go go.mod schema/func_yaml-schema.json
+CODE := $(shell find . -name '*.go') generate/zz_filesystem_generated.go go.mod schema/func_yaml-schema.json
 TEMPLATES := $(shell find templates -name '*' -type f)
 
 .PHONY: test docs
@@ -86,7 +86,7 @@ clean_templates:
 	@rm -rf templates/springboot/http/target
 	@rm -f templates/**/.DS_Store
 
-.PHONY: zz_filesystem_generated.go
+.PHONY: generate/zz_filesystem_generated.go
 
 generate/zz_filesystem_generated.go: clean_templates
 	go generate pkg/functions/templates_embedded.go
@@ -142,7 +142,7 @@ test-typescript: ## Test Typescript templates
 ###################
 
 test-integration: ## Run integration tests using an available cluster.
-	go test -tags integration --coverprofile=coverage.txt ./... -v
+	go test -tags integration -timeout 30m --coverprofile=coverage.txt ./... -v
 
 test-e2e: ## Run end-to-end tests using an available cluster.
 	./test/e2e_lifecycle_tests.sh node
@@ -162,37 +162,37 @@ cross-platform: darwin-arm64 darwin-amd64 linux-amd64 linux-arm64 linux-ppc64le 
 
 darwin-arm64: $(BIN_DARWIN_ARM64) ## Build for mac M1
 
-$(BIN_DARWIN_ARM64): zz_filesystem_generated.go
+$(BIN_DARWIN_ARM64): generate/zz_filesystem_generated.go
 	env CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o $(BIN_DARWIN_ARM64) -ldflags $(LDFLAGS) ./cmd/$(BIN)
 
 darwin-amd64: $(BIN_DARWIN_AMD64) ## Build for Darwin (macOS)
 
-$(BIN_DARWIN_AMD64): zz_filesystem_generated.go
+$(BIN_DARWIN_AMD64): generate/zz_filesystem_generated.go
 	env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o $(BIN_DARWIN_AMD64) -ldflags $(LDFLAGS) ./cmd/$(BIN)
 
 linux-amd64: $(BIN_LINUX_AMD64) ## Build for Linux amd64
 
-$(BIN_LINUX_AMD64): zz_filesystem_generated.go
+$(BIN_LINUX_AMD64): generate/zz_filesystem_generated.go
 	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BIN_LINUX_AMD64) -ldflags $(LDFLAGS) ./cmd/$(BIN)
 
 linux-arm64: $(BIN_LINUX_ARM64) ## Build for Linux arm64
 
-$(BIN_LINUX_ARM64): zz_filesystem_generated.go
+$(BIN_LINUX_ARM64): generate/zz_filesystem_generated.go
 	env CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o $(BIN_LINUX_ARM64) -ldflags $(LDFLAGS) ./cmd/$(BIN)
 
 linux-ppc64le: $(BIN_LINUX_PPC64LE) ## Build for Linux ppc64le
 
-$(BIN_LINUX_PPC64LE): zz_filesystem_generated.go
+$(BIN_LINUX_PPC64LE): generate/zz_filesystem_generated.go
 	env CGO_ENABLED=0 GOOS=linux GOARCH=ppc64le go build -o $(BIN_LINUX_PPC64LE) -ldflags $(LDFLAGS) ./cmd/$(BIN)
 
 linux-s390x: $(BIN_LINUX_S390X) ## Build for Linux s390x
 
-$(BIN_LINUX_S390X): zz_filesystem_generated.go
+$(BIN_LINUX_S390X): generate/zz_filesystem_generated.go
 	env CGO_ENABLED=0 GOOS=linux GOARCH=s390x go build -o $(BIN_LINUX_S390X) -ldflags $(LDFLAGS) ./cmd/$(BIN)
 
 windows: $(BIN_WINDOWS) ## Build for Windows
 
-$(BIN_WINDOWS): zz_filesystem_generated.go
+$(BIN_WINDOWS): generate/zz_filesystem_generated.go
 	env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o $(BIN_WINDOWS) -ldflags $(LDFLAGS) ./cmd/$(BIN)
 
 ######################

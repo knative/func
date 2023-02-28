@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/Masterminds/semver"
 	pack "github.com/buildpacks/pack/pkg/client"
 	"github.com/buildpacks/pack/pkg/logging"
 	"github.com/docker/docker/client"
@@ -144,6 +145,10 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		defer cli.Close()
 		opts.DockerHost = dockerHost
 
+		if ok, _ := isPodmanV43(ctx, cli); ok {
+			return fmt.Errorf("podman 4.3 is not supported, use podman 4.2 or 4.4")
+		}
+
 		// Client with a logger which is enabled if in Verbose mode and a dockerClient that supports SSH docker daemon connection.
 		if impl, err = pack.NewClient(pack.WithLogger(b.logger), pack.WithDockerClient(cli)); err != nil {
 			return fmt.Errorf("cannot create pack client: %w", err)
@@ -159,6 +164,24 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 			fmt.Fprintln(color.Stderr(), "")
 			_, _ = io.Copy(color.Stderr(), &b.outBuff)
 			fmt.Fprintln(color.Stderr(), "")
+		}
+	}
+	return
+}
+
+func isPodmanV43(ctx context.Context, cli client.CommonAPIClient) (b bool, err error) {
+	version, err := cli.ServerVersion(ctx)
+	if err != nil {
+		return
+	}
+
+	for _, component := range version.Components {
+		if component.Name == "Podman Engine" {
+			v := semver.MustParse(version.Version)
+			if v.Major() == 4 && v.Minor() == 3 {
+				return true, nil
+			}
+			break
 		}
 	}
 	return

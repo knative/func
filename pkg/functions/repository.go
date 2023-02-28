@@ -498,7 +498,7 @@ func (r *Repository) Runtime(name string) (runtime Runtime, err error) {
 }
 
 // Write all files in the repository to the given path.
-func (r *Repository) Write(path string) (err error) {
+func (r *Repository) Write(dest string) (err error) {
 	if r.fs == nil {
 		return errors.New("the write operation is not supported on this repo")
 	}
@@ -533,7 +533,7 @@ func (r *Repository) Write(path string) (err error) {
 		}
 		fs = filesystem.NewBillyFilesystem(wt.Filesystem)
 	}
-	return filesystem.CopyFromFS(".", path, fs)
+	return filesystem.CopyFromFS(".", dest, fs)
 }
 
 // URL attempts to read the remote git origin URL of the repository.  Best

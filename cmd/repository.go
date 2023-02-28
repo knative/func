@@ -171,6 +171,7 @@ func NewRepositoryListCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Short:   "List repositories",
 		Use:     "list",
+		Aliases: []string{"ls"},
 		PreRunE: bindEnv("confirm", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runRepositoryList(cmd, args, newClient)
@@ -212,6 +213,7 @@ func NewRepositoryRenameCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Short:   "Rename a repository",
 		Use:     "rename <old> <new>",
+		Aliases: []string{"mv"},
 		PreRunE: bindEnv("confirm", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runRepositoryRename(cmd, args, newClient)

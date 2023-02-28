@@ -150,6 +150,12 @@ func NewFunctionWith(defaults Function) Function {
 	if defaults.Template == "" {
 		defaults.Template = DefaultTemplate
 	}
+	if defaults.Build.BuilderImages == nil {
+		defaults.Build.BuilderImages = make(map[string]string)
+	}
+	if defaults.Deploy.Annotations == nil {
+		defaults.Deploy.Annotations = make(map[string]string)
+	}
 	return defaults
 }
 
