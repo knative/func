@@ -19,18 +19,13 @@ func config
 
 ```
   -h, --help          help for config
-  -p, --path string   Path to the project directory.  Default is current working directory (Env: $FUNC_PATH)
-```
-
-### Options inherited from parent commands
-
-```
-  -v, --verbose   Print verbose logs ($FUNC_VERBOSE)
+  -p, --path string   Path to the function.  Default is current directory (Env: $FUNC_PATH)
+  -v, --verbose       Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO
 
-* [func](func.md)	 - Serverless functions
+* [func](func.md)	 - func manages Knative Functions
 * [func config envs](func_config_envs.md)	 - List and manage configured environment variable for a function
 * [func config labels](func_config_labels.md)	 - List and manage configured labels for a function
 * [func config volumes](func_config_volumes.md)	 - List and manage configured volumes for a function

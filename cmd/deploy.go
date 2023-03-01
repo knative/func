@@ -30,10 +30,10 @@ import (
 func NewDeployCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "deploy",
-		Short: "Deploy a Function",
+		Short: "Deploy a function",
 		Long: `
 NAME
-	{{rootCmdUse}} deploy - Deploy a Function
+	{{rootCmdUse}} deploy - Deploy a function
 
 SYNOPSIS
 	{{rootCmdUse}} deploy [-R|--remote] [-r|--registry] [-i|--image] [-n|--namespace]
@@ -123,7 +123,7 @@ EXAMPLES
 
 `,
 		SuggestFor: []string{"delpoy", "deplyo"},
-		PreRunE:    bindEnv("confirm", "env", "git-url", "git-branch", "git-dir", "remote", "build", "builder", "builder-image", "image", "registry", "push", "platform", "path", "namespace"),
+		PreRunE:    bindEnv("confirm", "env", "git-url", "git-branch", "git-dir", "remote", "build", "builder", "builder-image", "image", "registry", "push", "platform", "namespace", "path", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDeploy(cmd, newClient)
 		},
@@ -148,8 +148,6 @@ EXAMPLES
 	//  contextually relevant function; but sets are flattened via cfg.Apply(f)
 	cmd.Flags().StringP("builder", "b", cfg.Builder,
 		fmt.Sprintf("Builder to use when creating the function's container. Currently supported builders are %s.", KnownBuilders()))
-	cmd.Flags().BoolP("confirm", "c", cfg.Confirm,
-		"Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
 	cmd.Flags().StringP("registry", "r", cfg.Registry,
 		"Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. (Env: $FUNC_REGISTRY)")
 	cmd.Flags().StringP("namespace", "n", cfg.Namespace,
@@ -185,7 +183,11 @@ EXAMPLES
 		"Push the function image to registry before deploying. (Env: $FUNC_PUSH)")
 	cmd.Flags().StringP("platform", "", "",
 		"Optionally specify a specific platform to build for (e.g. linux/amd64). (Env: $FUNC_PLATFORM)")
-	setPathFlag(cmd)
+
+	// Oft-shared flags:
+	addConfirmFlag(cmd, cfg.Confirm)
+	addPathFlag(cmd)
+	addVerboseFlag(cmd, cfg.Verbose)
 
 	// Tab Completion
 	if err := cmd.RegisterFlagCompletionFunc("builder", CompleteBuilderList); err != nil {

@@ -18,7 +18,7 @@ import (
 func NewInvokeCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "invoke",
-		Short: "Invoke a function",
+		Short: "Invoke a local or remote function",
 		Long: `
 NAME
 	{{rootCmdUse}} invoke - test a function by invoking it with test data
@@ -102,7 +102,10 @@ EXAMPLES
 
 `,
 		SuggestFor: []string{"emit", "emti", "send", "emit", "exec", "nivoke", "onvoke", "unvoke", "knvoke", "imvoke", "ihvoke", "ibvoke"},
-		PreRunE:    bindEnv("path", "format", "target", "id", "source", "type", "data", "content-type", "file", "insecure", "confirm"),
+		PreRunE:    bindEnv("path", "format", "target", "id", "source", "type", "data", "content-type", "file", "insecure", "confirm", "verbose"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runInvoke(cmd, args, newClient)
+		},
 	}
 
 	// Config
@@ -112,7 +115,6 @@ EXAMPLES
 	}
 
 	// Flags
-	setPathFlag(cmd)
 	cmd.Flags().StringP("format", "f", "", "Format of message to send, 'http' or 'cloudevent'.  Default is to choose automatically. (Env: $FUNC_FORMAT)")
 	cmd.Flags().StringP("target", "t", "", "Function instance to invoke.  Can be 'local', 'remote' or a URL.  Defaults to auto-discovery if not provided. (Env: $FUNC_TARGET)")
 	cmd.Flags().StringP("id", "", "", "ID for the request data. (Env: $FUNC_ID)")
@@ -122,11 +124,9 @@ EXAMPLES
 	cmd.Flags().StringP("data", "", fn.DefaultInvokeData, "Data to send in the request. (Env: $FUNC_DATA)")
 	cmd.Flags().StringP("file", "", "", "Path to a file to use as data. Overrides --data flag and should be sent with a correct --content-type. (Env: $FUNC_FILE)")
 	cmd.Flags().BoolP("insecure", "i", false, "Allow insecure server connections when using SSL. (Env: $FUNC_INSECURE)")
-	cmd.Flags().BoolP("confirm", "c", cfg.Confirm, "Prompt to confirm all options interactively. (Env: $FUNC_CONFIRM)")
-
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runInvoke(cmd, args, newClient)
-	}
+	addConfirmFlag(cmd, cfg.Confirm)
+	addPathFlag(cmd)
+	addVerboseFlag(cmd, cfg.Verbose)
 
 	return cmd
 }

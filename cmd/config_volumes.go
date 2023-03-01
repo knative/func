@@ -8,6 +8,7 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/spf13/cobra"
 
+	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 )
@@ -23,7 +24,7 @@ the current directory or from the directory specified with --path.
 `,
 		Aliases:    []string{"volume"},
 		SuggestFor: []string{"vol", "volums", "vols"},
-		PreRunE:    bindEnv("path"),
+		PreRunE:    bindEnv("path", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			function, err := initConfigCommand(defaultLoaderSaver)
 			if err != nil {
@@ -35,13 +36,21 @@ the current directory or from the directory specified with --path.
 			return
 		},
 	}
+	cfg, err := config.NewDefault()
+	if err != nil {
+		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
+	}
 
 	configVolumesAddCmd := NewConfigVolumesAddCmd()
 	configVolumesRemoveCmd := NewConfigVolumesRemoveCmd()
 
-	setPathFlag(cmd)
-	setPathFlag(configVolumesAddCmd)
-	setPathFlag(configVolumesRemoveCmd)
+	addPathFlag(cmd)
+	addPathFlag(configVolumesAddCmd)
+	addPathFlag(configVolumesRemoveCmd)
+
+	addVerboseFlag(cmd, cfg.Verbose)
+	addVerboseFlag(configVolumesAddCmd, cfg.Verbose)
+	addVerboseFlag(configVolumesRemoveCmd, cfg.Verbose)
 
 	cmd.AddCommand(configVolumesAddCmd)
 	cmd.AddCommand(configVolumesRemoveCmd)
@@ -59,7 +68,7 @@ Interactive prompt to add Secrets and ConfigMaps as Volume mounts to the functio
 in the current directory or from the directory specified with --path.
 `,
 		SuggestFor: []string{"ad", "create", "insert", "append"},
-		PreRunE:    bindEnv("path"),
+		PreRunE:    bindEnv("path", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			function, err := initConfigCommand(defaultLoaderSaver)
 			if err != nil {
@@ -84,7 +93,7 @@ in the current directory or from the directory specified with --path.
 `,
 		Aliases:    []string{"rm"},
 		SuggestFor: []string{"del", "delete", "rmeove"},
-		PreRunE:    bindEnv("path"),
+		PreRunE:    bindEnv("path", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			function, err := initConfigCommand(defaultLoaderSaver)
 			if err != nil {

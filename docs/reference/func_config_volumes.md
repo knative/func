@@ -18,13 +18,8 @@ func config volumes
 
 ```
   -h, --help          help for volumes
-  -p, --path string   Path to the project directory.  Default is current working directory (Env: $FUNC_PATH)
-```
-
-### Options inherited from parent commands
-
-```
-  -v, --verbose   Print verbose logs ($FUNC_VERBOSE)
+  -p, --path string   Path to the function.  Default is current directory (Env: $FUNC_PATH)
+  -v, --verbose       Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO

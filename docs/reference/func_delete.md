@@ -33,19 +33,14 @@ func delete -n apps myfunc
 
 ```
   -a, --all string         Delete all resources created for a function, eg. Pipelines, Secrets, etc. (Env: $FUNC_ALL) (allowed values: "true", "false") (default "true")
-  -c, --confirm            Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)
+  -c, --confirm            Prompt to confirm options interactively (Env: $FUNC_CONFIRM)
   -h, --help               help for delete
   -n, --namespace string   The namespace in which to delete. (Env: $FUNC_NAMESPACE)
-  -p, --path string        Path to the project directory.  Default is current working directory (Env: $FUNC_PATH)
-```
-
-### Options inherited from parent commands
-
-```
-  -v, --verbose   Print verbose logs ($FUNC_VERBOSE)
+  -p, --path string        Path to the function.  Default is current directory (Env: $FUNC_PATH)
+  -v, --verbose            Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO
 
-* [func](func.md)	 - Serverless functions
+* [func](func.md)	 - func manages Knative Functions
 

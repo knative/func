@@ -19,60 +19,6 @@ import (
 
 const TestRegistry = "example.com/alice"
 
-func TestRoot_PersistentFlags(t *testing.T) {
-	tests := []struct {
-		name     string
-		args     []string
-		expected bool
-	}{
-		{
-			name:     "not provided",
-			args:     []string{"list"},
-			expected: false,
-		},
-		{
-			name:     "provided as root flags",
-			args:     []string{"--verbose", "list"},
-			expected: true,
-		},
-		{
-			name:     "provided as sub-command flags",
-			args:     []string{"list", "--verbose"},
-			expected: true,
-		},
-		{
-			name:     "provided as sub-sub-command flags",
-			args:     []string{"repositories", "list", "--verbose"},
-			expected: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_ = fromTempDirectory(t)
-
-			cmd := NewCreateCmd(NewClient)                      // Create a function
-			cmd.SetArgs([]string{"--language", "go", "myfunc"}) // providing language
-			if err := cmd.Execute(); err != nil {               // fail on any errors
-				t.Fatal(err)
-			}
-
-			// Assert the persistent variables were propagated to the Client constructor
-			// when the command is actually invoked.
-			cmd = NewRootCmd(RootCommandConfig{NewClient: func(cfg ClientConfig, _ ...fn.Option) (*fn.Client, func()) {
-				if cfg.Verbose != tt.expected {
-					t.Fatal("verbose persistent flag not propagated correctly")
-				}
-				return fn.New(), func() {}
-			}})
-			cmd.SetArgs(tt.args)
-			if err := cmd.Execute(); err != nil {
-				t.Fatal(err)
-			}
-		})
-	}
-}
-
 func TestRoot_mergeEnvMaps(t *testing.T) {
 
 	a := "A"
@@ -186,7 +132,7 @@ func TestRoot_mergeEnvMaps(t *testing.T) {
 // of the root command.  This allows, for example, to have help text correct
 // when both embedded as a plugin or standalone.
 func TestRoot_CommandNameParameterized(t *testing.T) {
-	expectedSynopsis := "%v [-v|--verbose] <command> [args]"
+	expectedSynopsis := "%v is the command line interface for"
 
 	tests := []string{
 		"func",    // standalone
@@ -206,7 +152,7 @@ func TestRoot_CommandNameParameterized(t *testing.T) {
 		if cmd.Use != testName {
 			t.Fatalf("expected command Use '%v', got '%v'", testName, cmd.Use)
 		}
-		if !strings.Contains(out.String(), fmt.Sprintf(expectedSynopsis, testName)) {
+		if !strings.HasPrefix(out.String(), fmt.Sprintf(expectedSynopsis, testName)) {
 			t.Logf("Testing '%v'\n", testName)
 			t.Log(out.String())
 			t.Fatalf("Help text does not include substituted name '%v'", testName)
@@ -232,12 +178,6 @@ func TestVerbose(t *testing.T) {
 			args:   []string{"version"},
 			want:   "v0.42.0",
 			wantLF: 1,
-		},
-		{
-			name:   "verbose as root's flag",
-			args:   []string{"--verbose", "version"},
-			want:   "Version: v0.42.0-cafe-1970-01-01",
-			wantLF: 3,
 		},
 	}
 	for _, tt := range tests {

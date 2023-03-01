@@ -146,21 +146,18 @@ EXAMPLES
 	  default
 `,
 		SuggestFor: []string{"repositories", "repos", "template", "templates", "pack", "packs"},
-		PreRunE:    bindEnv("confirm"),
+		PreRunE:    bindEnv("confirm", "verbose"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runRepository(cmd, args, newClient)
+		},
 	}
 
-	// Config
 	cfg, err := config.NewDefault()
 	if err != nil {
 		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
-
-	// Flags
-	cmd.Flags().BoolP("confirm", "c", cfg.Confirm, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
-
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runRepository(cmd, args, newClient)
-	}
+	addConfirmFlag(cmd, cfg.Confirm)
+	addVerboseFlag(cmd, cfg.Verbose)
 
 	cmd.AddCommand(NewRepositoryListCmd(newClient))
 	cmd.AddCommand(NewRepositoryAddCmd(newClient))
@@ -175,11 +172,18 @@ func NewRepositoryListCmd(newClient ClientFactory) *cobra.Command {
 		Short:   "List repositories",
 		Use:     "list",
 		Aliases: []string{"ls"},
+		PreRunE: bindEnv("confirm", "verbose"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runRepositoryList(cmd, args, newClient)
+		},
 	}
 
-	cmd.RunE = func(_ *cobra.Command, args []string) error {
-		return runRepositoryList(cmd, args, newClient)
+	cfg, err := config.NewDefault()
+	if err != nil {
+		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
+	addConfirmFlag(cmd, cfg.Confirm)
+	addVerboseFlag(cmd, cfg.Verbose)
 
 	return cmd
 }
@@ -189,19 +193,18 @@ func NewRepositoryAddCmd(newClient ClientFactory) *cobra.Command {
 		Short:      "Add a repository",
 		Use:        "add <name> <url>",
 		SuggestFor: []string{"ad", "install"},
-		PreRunE:    bindEnv("confirm"),
+		PreRunE:    bindEnv("confirm", "verbose"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runRepositoryAdd(cmd, args, newClient)
+		},
 	}
 
 	cfg, err := config.NewDefault()
 	if err != nil {
 		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
-
-	cmd.Flags().BoolP("confirm", "c", cfg.Confirm, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
-
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runRepositoryAdd(cmd, args, newClient)
-	}
+	addConfirmFlag(cmd, cfg.Confirm)
+	addVerboseFlag(cmd, cfg.Verbose)
 
 	return cmd
 }
@@ -211,19 +214,18 @@ func NewRepositoryRenameCmd(newClient ClientFactory) *cobra.Command {
 		Short:   "Rename a repository",
 		Use:     "rename <old> <new>",
 		Aliases: []string{"mv"},
-		PreRunE: bindEnv("confirm"),
+		PreRunE: bindEnv("confirm", "verbose"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runRepositoryRename(cmd, args, newClient)
+		},
 	}
 
 	cfg, err := config.NewDefault()
 	if err != nil {
 		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
-
-	cmd.Flags().BoolP("confirm", "c", cfg.Confirm, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
-
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runRepositoryRename(cmd, args, newClient)
-	}
+	addConfirmFlag(cmd, cfg.Confirm)
+	addVerboseFlag(cmd, cfg.Verbose)
 
 	return cmd
 }
@@ -234,19 +236,18 @@ func NewRepositoryRemoveCmd(newClient ClientFactory) *cobra.Command {
 		Use:        "remove <name>",
 		Aliases:    []string{"rm"},
 		SuggestFor: []string{"delete", "del"},
-		PreRunE:    bindEnv("confirm"),
+		PreRunE:    bindEnv("confirm", "verbose"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runRepositoryRemove(cmd, args, newClient)
+		},
 	}
 
 	cfg, err := config.NewDefault()
 	if err != nil {
 		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
-
-	cmd.Flags().BoolP("confirm", "c", cfg.Confirm, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
-
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runRepositoryRemove(cmd, args, newClient)
-	}
+	addConfirmFlag(cmd, cfg.Confirm)
+	addVerboseFlag(cmd, cfg.Verbose)
 
 	return cmd
 }

@@ -1,12 +1,12 @@
 ## func create
 
-Create a function project
+Create a function
 
 ### Synopsis
 
 
 NAME
-	func create - Create a function project.
+	func create - Create a function
 
 SYNOPSIS
 	func create [-l|--language] [-t|--template] [-r|--repository]
@@ -68,20 +68,15 @@ func create
 ### Options
 
 ```
-  -c, --confirm             Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)
+  -c, --confirm             Prompt to confirm options interactively (Env: $FUNC_CONFIRM)
   -h, --help                help for create
   -l, --language string     Language Runtime (see help text for list) (Env: $FUNC_LANGUAGE)
   -r, --repository string   URI to a Git repository containing the specified template (Env: $FUNC_REPOSITORY)
   -t, --template string     Function template. (see help text for list) (Env: $FUNC_TEMPLATE) (default "http")
-```
-
-### Options inherited from parent commands
-
-```
-  -v, --verbose   Print verbose logs ($FUNC_VERBOSE)
+  -v, --verbose             Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO
 
-* [func](func.md)	 - Serverless functions
+* [func](func.md)	 - func manages Knative Functions
 

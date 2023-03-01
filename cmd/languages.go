@@ -7,6 +7,7 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
+	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
 )
 
@@ -49,15 +50,21 @@ EXAMPLES
 `,
 		SuggestFor: []string{"language", "runtime", "runtimes", "lnaguages", "languagse",
 			"panguages", "manguages", "kanguages", "lsnguages", "lznguages"},
-		PreRunE: bindEnv("json", "repository"),
+		PreRunE: bindEnv("json", "repository", "verbose"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runLanguages(cmd, args, newClient)
+		},
+	}
+
+	// Global Config
+	cfg, err := config.NewDefault()
+	if err != nil {
+		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
 
 	cmd.Flags().BoolP("json", "", false, "Set output to JSON format. (Env: $FUNC_JSON)")
 	cmd.Flags().StringP("repository", "r", "", "URI to a specific repository to consider (Env: $FUNC_REPOSITORY)")
-
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runLanguages(cmd, args, newClient)
-	}
+	addVerboseFlag(cmd, cfg.Verbose)
 
 	return cmd
 }

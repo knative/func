@@ -10,7 +10,7 @@ import (
 func NewCompletionCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "completion <bash|zsh|fish>",
-		Short: "Generate completion scripts for bash, fish and zsh",
+		Short: "Output functions shell completion code",
 		Long: `To load completion run
 
 For zsh:

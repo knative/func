@@ -20,8 +20,8 @@ import (
 func NewListCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "List functions",
-		Long: `List functions
+		Short: "List deployed functions",
+		Long: `List deployed functions
 
 Lists all deployed functions in a given namespace.
 `,
@@ -36,7 +36,15 @@ Lists all deployed functions in a given namespace.
 {{rootCmdUse}} list --all-namespaces --output json
 `,
 		SuggestFor: []string{"ls", "lsit"},
-		PreRunE:    bindEnv("all-namespaces", "output", "namespace"),
+		PreRunE:    bindEnv("all-namespaces", "output", "namespace", "verbose"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runList(cmd, args, newClient)
+		},
+	}
+
+	cfg, err := config.NewDefault()
+	if err != nil {
+		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
 
 	// Namespace Config
@@ -53,13 +61,10 @@ Lists all deployed functions in a given namespace.
 	cmd.Flags().BoolP("all-namespaces", "A", false, "List functions in all namespaces. If set, the --namespace flag is ignored.")
 	cmd.Flags().StringP("namespace", "n", config.DefaultNamespace(), "The namespace for which to list functions. (Env: $FUNC_NAMESPACE)")
 	cmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|xml|yaml) (Env: $FUNC_OUTPUT)")
+	addVerboseFlag(cmd, cfg.Verbose)
 
 	if err := cmd.RegisterFlagCompletionFunc("output", CompleteOutputFormatList); err != nil {
 		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
-	}
-
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runList(cmd, args, newClient)
 	}
 
 	return cmd

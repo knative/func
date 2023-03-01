@@ -136,19 +136,14 @@ func repository
 ### Options
 
 ```
-  -c, --confirm   Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)
+  -c, --confirm   Prompt to confirm options interactively (Env: $FUNC_CONFIRM)
   -h, --help      help for repository
-```
-
-### Options inherited from parent commands
-
-```
   -v, --verbose   Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO
 
-* [func](func.md)	 - Serverless functions
+* [func](func.md)	 - func manages Knative Functions
 * [func repository add](func_repository_add.md)	 - Add a repository
 * [func repository list](func_repository_list.md)	 - List repositories
 * [func repository remove](func_repository_remove.md)	 - Remove a repository

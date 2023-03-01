@@ -5,12 +5,13 @@ import (
 
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
+	"knative.dev/func/pkg/config"
 )
 
 func NewVersionCmd(version Version) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "version",
-		Short: "Show the version",
+		Short: "Function client version information",
 		Long: `
 NAME
 	{{rootCmdUse}} version - function version information.
@@ -31,12 +32,15 @@ DESCRIPTION
 `,
 		SuggestFor: []string{"vers", "verison"}, //nolint:misspell
 		PreRunE:    bindEnv("verbose"),
+		Run: func(cmd *cobra.Command, args []string) {
+			runVersion(cmd, args, version)
+		},
 	}
-
-	// Run Action
-	cmd.Run = func(cmd *cobra.Command, args []string) {
-		runVersion(cmd, args, version)
+	cfg, err := config.NewDefault()
+	if err != nil {
+		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
+	addVerboseFlag(cmd, cfg.Verbose)
 
 	return cmd
 }

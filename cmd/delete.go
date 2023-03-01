@@ -32,8 +32,11 @@ No local files are deleted.
 `,
 		SuggestFor:        []string{"remove", "rm", "del"},
 		ValidArgsFunction: CompleteFunctionList,
-		PreRunE:           bindEnv("path", "confirm", "all", "namespace"),
+		PreRunE:           bindEnv("path", "confirm", "all", "namespace", "verbose"),
 		SilenceUsage:      true, // no usage dump on error
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runDelete(cmd, args, newClient)
+		},
 	}
 
 	// Config
@@ -43,14 +46,11 @@ No local files are deleted.
 	}
 
 	// Flags
-	cmd.Flags().BoolP("confirm", "c", cfg.Confirm, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
 	cmd.Flags().StringP("namespace", "n", cfg.Namespace, "The namespace in which to delete. (Env: $FUNC_NAMESPACE)")
 	cmd.Flags().StringP("all", "a", "true", "Delete all resources created for a function, eg. Pipelines, Secrets, etc. (Env: $FUNC_ALL) (allowed values: \"true\", \"false\")")
-	setPathFlag(cmd)
-
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runDelete(cmd, args, newClient)
-	}
+	addConfirmFlag(cmd, cfg.Confirm)
+	addPathFlag(cmd)
+	addVerboseFlag(cmd, cfg.Verbose)
 
 	return cmd
 }
