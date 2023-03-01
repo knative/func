@@ -1144,7 +1144,7 @@ golang.org/x/crypto/ssh/knownhosts
 # golang.org/x/mod v0.7.0
 ## explicit; go 1.17
 golang.org/x/mod/semver
-# golang.org/x/net v0.2.0
+# golang.org/x/net v0.7.0
 ## explicit; go 1.17
 golang.org/x/net/context
 golang.org/x/net/context/ctxhttp
@@ -1170,7 +1170,7 @@ golang.org/x/oauth2/jwt
 ## explicit
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.2.0
+# golang.org/x/sys v0.5.0
 ## explicit; go 1.17
 golang.org/x/sys/cpu
 golang.org/x/sys/execabs
@@ -1178,10 +1178,10 @@ golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/plan9
 golang.org/x/sys/unix
 golang.org/x/sys/windows
-# golang.org/x/term v0.2.0
+# golang.org/x/term v0.5.0
 ## explicit; go 1.17
 golang.org/x/term
-# golang.org/x/text v0.4.0
+# golang.org/x/text v0.7.0
 ## explicit; go 1.17
 golang.org/x/text/cases
 golang.org/x/text/encoding
@@ -1642,7 +1642,7 @@ k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/strings/slices
 k8s.io/utils/trace
-# knative.dev/client v0.36.1-0.20230217110752-8a2ed4cea36b
+# knative.dev/client v0.36.1-0.20230228131053-e82e7497da69
 ## explicit; go 1.18
 knative.dev/client/lib/test
 knative.dev/client/pkg/apis/client
@@ -1658,7 +1658,7 @@ knative.dev/client/pkg/serving/v1
 knative.dev/client/pkg/util
 knative.dev/client/pkg/util/mock
 knative.dev/client/pkg/wait
-# knative.dev/eventing v0.36.1-0.20230216140251-5f24569a4249
+# knative.dev/eventing v0.36.1-0.20230228094553-c5847a9d6d1b
 ## explicit; go 1.18
 knative.dev/eventing/pkg/apis/config
 knative.dev/eventing/pkg/apis/duck
@@ -1678,10 +1678,10 @@ knative.dev/eventing/pkg/apis/sources/v1
 knative.dev/eventing/pkg/apis/sources/v1beta2
 knative.dev/eventing/pkg/client/clientset/versioned/scheme
 knative.dev/eventing/pkg/client/clientset/versioned/typed/eventing/v1
-# knative.dev/hack v0.0.0-20230217131352-f2f3107be156
+# knative.dev/hack v0.0.0-20230228173453-3de51aff69a3
 ## explicit; go 1.18
 knative.dev/hack
-# knative.dev/networking v0.0.0-20230217014953-1bd50a5dc1e8
+# knative.dev/networking v0.0.0-20230223104029-5a5f810c489a
 ## explicit; go 1.18
 knative.dev/networking/pkg
 knative.dev/networking/pkg/apis/networking
@@ -1693,7 +1693,7 @@ knative.dev/networking/pkg/http/probe
 knative.dev/networking/pkg/http/proxy
 knative.dev/networking/pkg/http/stats
 knative.dev/networking/pkg/k8s
-# knative.dev/pkg v0.0.0-20230220111620-f306c139ba1c
+# knative.dev/pkg v0.0.0-20230224190030-645afb2d5dad
 ## explicit; go 1.18
 knative.dev/pkg/apis
 knative.dev/pkg/apis/duck
@@ -1735,7 +1735,7 @@ knative.dev/pkg/tracing/config
 knative.dev/pkg/tracing/propagation
 knative.dev/pkg/tracing/propagation/tracecontextb3
 knative.dev/pkg/tracker
-# knative.dev/serving v0.36.1-0.20230217163907-7aeb55d6418d
+# knative.dev/serving v0.36.1-0.20230228155552-59d4c5248675
 ## explicit; go 1.18
 knative.dev/serving/pkg/apis/autoscaling
 knative.dev/serving/pkg/apis/autoscaling/v1alpha1
