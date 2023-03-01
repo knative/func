@@ -39,18 +39,18 @@ require (
 	github.com/whilp/git-urls v1.0.0
 	golang.org/x/crypto v0.3.0
 	golang.org/x/sync v0.1.0
-	golang.org/x/term v0.2.0
+	golang.org/x/term v0.5.0
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools/v3 v3.3.0
 	k8s.io/api v0.25.4
 	k8s.io/apimachinery v0.25.4
 	k8s.io/client-go v1.5.2
 	k8s.io/utils v0.0.0-20221108210102-8e77b1f39fe2 // indirect
-	knative.dev/client v0.36.1-0.20230217110752-8a2ed4cea36b
-	knative.dev/eventing v0.36.1-0.20230216140251-5f24569a4249
-	knative.dev/hack v0.0.0-20230217131352-f2f3107be156
-	knative.dev/pkg v0.0.0-20230220111620-f306c139ba1c
-	knative.dev/serving v0.36.1-0.20230217163907-7aeb55d6418d
+	knative.dev/client v0.36.1-0.20230228131053-e82e7497da69
+	knative.dev/eventing v0.36.1-0.20230228094553-c5847a9d6d1b
+	knative.dev/hack v0.0.0-20230228173453-3de51aff69a3
+	knative.dev/pkg v0.0.0-20230224190030-645afb2d5dad
+	knative.dev/serving v0.36.1-0.20230228155552-59d4c5248675
 )
 
 require github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
@@ -215,10 +215,10 @@ require (
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.23.0 // indirect
 	golang.org/x/mod v0.7.0 // indirect
-	golang.org/x/net v0.2.0 // indirect
+	golang.org/x/net v0.7.0 // indirect
 	golang.org/x/oauth2 v0.2.0 // indirect
-	golang.org/x/sys v0.2.0 // indirect
-	golang.org/x/text v0.4.0 // indirect
+	golang.org/x/sys v0.5.0 // indirect
+	golang.org/x/text v0.7.0 // indirect
 	golang.org/x/time v0.2.0 // indirect
 	golang.org/x/tools v0.2.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
@@ -235,7 +235,7 @@ require (
 	k8s.io/cli-runtime v0.25.2 // indirect
 	k8s.io/klog/v2 v2.80.2-0.20221028030830-9ae4992afb54 // indirect
 	k8s.io/kube-openapi v0.0.0-20221012153701-172d655c2280 // indirect
-	knative.dev/networking v0.0.0-20230217014953-1bd50a5dc1e8 // indirect
+	knative.dev/networking v0.0.0-20230223104029-5a5f810c489a // indirect
 	sigs.k8s.io/json v0.0.0-20220713155537-f223a00ba0e2 // indirect
 	sigs.k8s.io/kustomize/api v0.12.1 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.13.9 // indirect
