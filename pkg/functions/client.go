@@ -191,6 +191,7 @@ type DNSProvider interface {
 type PipelinesProvider interface {
 	Run(context.Context, Function) error
 	Remove(context.Context, Function) error
+	ConfigurePAC(context.Context, Function, any) error
 }
 
 // New client for function management.
@@ -809,6 +810,41 @@ func (c *Client) RunPipeline(ctx context.Context, f Function) (Function, error) 
 	return f, nil
 }
 
+// ConfigurePAC generates Pipeline resources on the local filesystem,
+// on the cluster and also on the remote git provider (ie. GitHub, GitLab or BitBucket repo)
+func (c *Client) ConfigurePAC(ctx context.Context, f Function, metadata any) error {
+	var err error
+	go func() {
+		<-ctx.Done()
+		c.progressListener.Stopping()
+	}()
+
+	// Default function registry to the client's global registry
+	if f.Registry == "" {
+		f.Registry = c.registry
+	}
+
+	// If no image name has been yet defined (not yet built/deployed), calculate.
+	// Image name is stored on the function for later use by deploy, etc.
+	if f.Image == "" {
+		if f.Image, err = f.ImageName(); err != nil {
+			return err
+		}
+	}
+
+	// saves image name/registry to function's metadata (func.yaml)
+	if err = f.Write(); err != nil {
+		return err
+	}
+
+	// Build and deploy function using Pipeline
+	if err := c.pipelinesProvider.ConfigurePAC(ctx, f, metadata); err != nil {
+		return fmt.Errorf("failed to run generate pipeline: %w", err)
+	}
+
+	return nil
+}
+
 // Route returns the current primary route to the function at root.
 //
 // Note that local instances of the Function created by the .Run
@@ -1150,6 +1186,9 @@ type noopPipelinesProvider struct{}
 
 func (n *noopPipelinesProvider) Run(ctx context.Context, _ Function) error    { return nil }
 func (n *noopPipelinesProvider) Remove(ctx context.Context, _ Function) error { return nil }
+func (n *noopPipelinesProvider) ConfigurePAC(ctx context.Context, _ Function, _ any) error {
+	return nil
+}
 
 // DNSProvider
 type noopDNSProvider struct{ output io.Writer }

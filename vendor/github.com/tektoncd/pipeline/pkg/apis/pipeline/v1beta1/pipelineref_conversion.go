@@ -7,7 +7,9 @@ import (
 )
 
 func (pr PipelineRef) convertTo(ctx context.Context, sink *v1.PipelineRef) {
-	sink.Name = pr.Name
+	if pr.Bundle == "" {
+		sink.Name = pr.Name
+	}
 	sink.APIVersion = pr.APIVersion
 	new := v1.ResolverRef{}
 	pr.ResolverRef.convertTo(ctx, &new)
@@ -32,13 +34,13 @@ func (pr PipelineRef) convertBundleToResolver(sink *v1.PipelineRef) {
 			Resolver: "bundles",
 			Params: []v1.Param{{
 				Name:  "bundle",
-				Value: v1.ParamValue{StringVal: pr.Bundle},
+				Value: v1.ParamValue{StringVal: pr.Bundle, Type: v1.ParamTypeString},
 			}, {
 				Name:  "name",
-				Value: v1.ParamValue{StringVal: pr.Name},
+				Value: v1.ParamValue{StringVal: pr.Name, Type: v1.ParamTypeString},
 			}, {
 				Name:  "kind",
-				Value: v1.ParamValue{StringVal: "Task"},
+				Value: v1.ParamValue{StringVal: "Task", Type: v1.ParamTypeString},
 			}},
 		}
 	}

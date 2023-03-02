@@ -3,6 +3,7 @@ package k8s
 import (
 	"fmt"
 
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/tools/clientcmd"
@@ -25,6 +26,15 @@ func NewKubernetesClientset() (*kubernetes.Clientset, error) {
 	}
 
 	return kubernetes.NewForConfig(restConfig)
+}
+
+func NewDynamicClient() (dynamic.Interface, error) {
+	restConfig, err := GetClientConfig().ClientConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create new kubernetes client: %w", err)
+	}
+
+	return dynamic.NewForConfig(restConfig)
 }
 
 func GetNamespace(defaultNamespace string) (namespace string, err error) {

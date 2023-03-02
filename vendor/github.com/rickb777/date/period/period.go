@@ -42,7 +42,6 @@ const hundredMs = 100 * time.Millisecond
 //
 // Note that although fractional weeks can be parsed, they will never be returned via String().
 // This is because the number of weeks is always inferred from the number of days.
-//
 type Period struct {
 	years, months, days, hours, minutes, seconds int16
 }
@@ -519,7 +518,6 @@ func (period Period) Normalise(precise bool) Period {
 // * Two thresholds a, b are equivalent to a, a, b, b.
 // * Three thresholds a, b, c are equivalent to a, b, c, c.
 // * Four thresholds a, b, c, d are used as provided.
-//
 func (period Period) Simplify(precise bool, th ...int) Period {
 	switch len(th) {
 	case 0:

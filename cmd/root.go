@@ -86,7 +86,7 @@ Learn more about Knative at: https://knative.dev`, cfg.Name),
 		{
 			Header: "System Commands:",
 			Commands: []*cobra.Command{
-				NewConfigCmd(defaultLoaderSaver),
+				NewConfigCmd(defaultLoaderSaver, newClient),
 				NewLanguagesCmd(newClient),
 				NewTemplatesCmd(newClient),
 				NewRepositoryCmd(newClient),

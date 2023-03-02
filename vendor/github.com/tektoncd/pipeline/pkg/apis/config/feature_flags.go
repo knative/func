@@ -31,6 +31,8 @@ const (
 	StableAPIFields = "stable"
 	// AlphaAPIFields is the value used for "enable-api-fields" when alpha APIs should be usable as well.
 	AlphaAPIFields = "alpha"
+	// BetaAPIFields is the value used for "enable-api-fields" when beta APIs should be usable as well.
+	BetaAPIFields = "beta"
 	// FullEmbeddedStatus is the value used for "embedded-status" when the full statuses of TaskRuns and Runs should be
 	// embedded in PipelineRunStatusFields, but ChildReferences should not be used.
 	FullEmbeddedStatus = "full"
@@ -40,6 +42,14 @@ const (
 	// MinimalEmbeddedStatus is the value used for "embedded-status" when only ChildReferences should be used in
 	// PipelineRunStatusFields.
 	MinimalEmbeddedStatus = "minimal"
+	// EnforceResourceVerificationMode is the value used for "resource-verification-mode" when verification is applied and fail the
+	// TaskRun or PipelineRun when verification fails
+	EnforceResourceVerificationMode = "enforce"
+	// WarnResourceVerificationMode is the value used for "resource-verification-mode" when verification is applied but only log
+	// the warning when verification fails
+	WarnResourceVerificationMode = "warn"
+	// SkipResourceVerificationMode is the value used for "resource-verification-mode" when verification is skipped
+	SkipResourceVerificationMode = "skip"
 	// DefaultDisableAffinityAssistant is the default value for "disable-affinity-assistant".
 	DefaultDisableAffinityAssistant = false
 	// DefaultDisableCredsInit is the default value for "disable-creds-init".
@@ -60,6 +70,12 @@ const (
 	DefaultSendCloudEventsForRuns = false
 	// DefaultEmbeddedStatus is the default value for "embedded-status".
 	DefaultEmbeddedStatus = FullEmbeddedStatus
+	// DefaultEnableSpire is the default value for "enable-spire".
+	DefaultEnableSpire = false
+	// DefaultResourceVerificationMode is the default value for "resource-verification-mode".
+	DefaultResourceVerificationMode = SkipResourceVerificationMode
+	// DefaultEnableProvenanceInStatus is the default value for "enable-provenance-status".
+	DefaultEnableProvenanceInStatus = false
 
 	disableAffinityAssistantKey         = "disable-affinity-assistant"
 	disableCredsInitKey                 = "disable-creds-init"
@@ -71,6 +87,9 @@ const (
 	enableAPIFields                     = "enable-api-fields"
 	sendCloudEventsForRuns              = "send-cloudevents-for-runs"
 	embeddedStatus                      = "embedded-status"
+	enableSpire                         = "enable-spire"
+	verificationMode                    = "resource-verification-mode"
+	enableProvenanceInStatus            = "enable-provenance-in-status"
 )
 
 // FeatureFlags holds the features configurations
@@ -87,6 +106,9 @@ type FeatureFlags struct {
 	SendCloudEventsForRuns           bool
 	AwaitSidecarReadiness            bool
 	EmbeddedStatus                   string
+	EnableSpire                      bool
+	ResourceVerificationMode         string
+	EnableProvenanceInStatus         bool
 }
 
 // GetFeatureFlagsConfigName returns the name of the configmap containing all
@@ -138,6 +160,12 @@ func NewFeatureFlagsFromMap(cfgMap map[string]string) (*FeatureFlags, error) {
 	if err := setEmbeddedStatus(cfgMap, DefaultEmbeddedStatus, &tc.EmbeddedStatus); err != nil {
 		return nil, err
 	}
+	if err := setResourceVerificationMode(cfgMap, DefaultResourceVerificationMode, &tc.ResourceVerificationMode); err != nil {
+		return nil, err
+	}
+	if err := setFeature(enableProvenanceInStatus, DefaultEnableProvenanceInStatus, &tc.EnableProvenanceInStatus); err != nil {
+		return nil, err
+	}
 
 	// Given that they are alpha features, Tekton Bundles and Custom Tasks should be switched on if
 	// enable-api-fields is "alpha". If enable-api-fields is not "alpha" then fall back to the value of
@@ -148,11 +176,15 @@ func NewFeatureFlagsFromMap(cfgMap map[string]string) (*FeatureFlags, error) {
 	if tc.EnableAPIFields == AlphaAPIFields {
 		tc.EnableTektonOCIBundles = true
 		tc.EnableCustomTasks = true
+		tc.EnableSpire = true
 	} else {
 		if err := setFeature(enableTektonOCIBundles, DefaultEnableTektonOciBundles, &tc.EnableTektonOCIBundles); err != nil {
 			return nil, err
 		}
 		if err := setFeature(enableCustomTasks, DefaultEnableCustomTasks, &tc.EnableCustomTasks); err != nil {
+			return nil, err
+		}
+		if err := setFeature(enableSpire, DefaultEnableSpire, &tc.EnableSpire); err != nil {
 			return nil, err
 		}
 	}
@@ -167,7 +199,7 @@ func setEnabledAPIFields(cfgMap map[string]string, defaultValue string, feature 
 		value = strings.ToLower(cfg)
 	}
 	switch value {
-	case AlphaAPIFields, StableAPIFields:
+	case AlphaAPIFields, BetaAPIFields, StableAPIFields:
 		*feature = value
 	default:
 		return fmt.Errorf("invalid value for feature flag %q: %q", enableAPIFields, value)
@@ -191,15 +223,40 @@ func setEmbeddedStatus(cfgMap map[string]string, defaultValue string, feature *s
 	return nil
 }
 
+// setResourceVerificationMode sets the "resource-verification-mode" flag based on the content of a given map.
+// If the value is invalid or missing then an error is returned.
+func setResourceVerificationMode(cfgMap map[string]string, defaultValue string, feature *string) error {
+	value := defaultValue
+	if cfg, ok := cfgMap[verificationMode]; ok {
+		value = strings.ToLower(cfg)
+	}
+	switch value {
+	case EnforceResourceVerificationMode, WarnResourceVerificationMode, SkipResourceVerificationMode:
+		*feature = value
+	default:
+		return fmt.Errorf("invalid value for feature flag %q: %q", verificationMode, value)
+	}
+	return nil
+}
+
 // NewFeatureFlagsFromConfigMap returns a Config for the given configmap
 func NewFeatureFlagsFromConfigMap(config *corev1.ConfigMap) (*FeatureFlags, error) {
 	return NewFeatureFlagsFromMap(config.Data)
 }
 
-// EnableAlphaAPIFields enables alpha feature in an existing context (for use in testing)
+// EnableAlphaAPIFields enables alpha features in an existing context (for use in testing)
 func EnableAlphaAPIFields(ctx context.Context) context.Context {
+	return setEnableAPIFields(ctx, "alpha")
+}
+
+// EnableBetaAPIFields enables beta features in an existing context (for use in testing)
+func EnableBetaAPIFields(ctx context.Context) context.Context {
+	return setEnableAPIFields(ctx, "beta")
+}
+
+func setEnableAPIFields(ctx context.Context, want string) context.Context {
 	featureFlags, _ := NewFeatureFlagsFromMap(map[string]string{
-		"enable-api-fields": "alpha",
+		"enable-api-fields": want,
 	})
 	cfg := &Config{
 		Defaults: &Defaults{
