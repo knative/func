@@ -1,7 +1,9 @@
 package e2e
 
 import (
+	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -26,7 +28,7 @@ func Update(t *testing.T, knFunc *TestShellCmdRunner, project *FunctionTestProje
 
 	// Template folder exists for given runtime / template.
 	// Let's update the project and redeploy
-	err := projectUpdaterFor(project).UpdateFolderContent(t, templatePath, project)
+	err := UpdateFolderContent(t, templatePath, project)
 	if err != nil {
 		t.Fatal("an error has occurred while updating project folder with new sources.", err.Error())
 	}
@@ -43,130 +45,57 @@ func Update(t *testing.T, knFunc *TestShellCmdRunner, project *FunctionTestProje
 	project.IsNewRevision = true
 }
 
-// projectUpdater offers methods to update the project source content by the
-// source provided on update_templates folder
-// The strategy used consists in
-// 1. Create a temporary project folder with some files from original test folder (such as func.yaml, pom.xml)
-// 2. Copy recursivelly all files from ./update_template/<runtime>/<template>/** to the temporary project folder
-// 3. Replace current project folder by the temporary one (rm -rf <project folder> && mv <tmp folder> <project folder>
-type projectUpdater struct {
-	retainList []string // List of files to retain from original test project
-}
-
-func projectUpdaterFor(project *FunctionTestProject) projectUpdater {
-	updater := projectUpdater{retainList: []string{"func.yaml"}}
-	if project.Runtime == "springboot" {
-		updater.retainList = append(updater.retainList, "pom.xml")
-	}
-	if project.Runtime == "quarkus" {
-		updater.retainList = append(updater.retainList, "pom.xml")
-	}
-	return updater
-}
-
-func (p projectUpdater) UpdateFolderContent(t *testing.T, templatePath string, project *FunctionTestProject) error {
-	// Create temp project folder (reuse func.yaml)
-	projectTmp := NewFunctionTestProject(t, project.Runtime, project.Template)
-	projectTmp.ProjectPath = projectTmp.ProjectPath + "-tmp"
-	err := projectTmp.CreateProjectFolder()
-	if err != nil {
-		return err
-	}
-	defer func() {
-		_ = projectTmp.RemoveProjectFolder()
-	}()
-
-	// Copy files to retain (let's reuse some such as func.yaml, pom.xml)
-	for _, sourceFile := range p.retainList {
-		targetDir := filepath.Join(projectTmp.ProjectPath, filepath.Dir(sourceFile))
-		_, err = os.Stat(targetDir)
-		if err != nil && os.IsNotExist(err) {
-			err = os.MkdirAll(targetDir, os.ModePerm)
-			if err != nil {
-				return err
-			}
-		}
-		err = p.copyFile(filepath.Join(project.ProjectPath, sourceFile), filepath.Join(projectTmp.ProjectPath, sourceFile))
+// UpdateFolderContent overwrites content of project.ProjectPath with content of updatedPath.
+// Similar to `cp -a {updatedPath}/* {project.ProjectPath}/`.
+func UpdateFolderContent(t *testing.T, updatedPath string, project *FunctionTestProject) error {
+	// overwrite files with updated ones
+	buff := make([]byte, 4096)
+	return filepath.Walk(updatedPath, func(srcPath string, srcFi fs.FileInfo, err error) error {
 		if err != nil {
-			return err
+			return fmt.Errorf("walk error: %w", err)
 		}
-	}
+		relPath, err := filepath.Rel(updatedPath, srcPath)
+		if err != nil {
+			return fmt.Errorf("canot get rel path: %w", err)
+		}
 
-	// Copy from template structure to new project folders and files
-	err = p.walkThru(templatePath, func(path string, f os.FileInfo) error {
-		var err error = nil
-		if !f.IsDir() {
-			if templatePath == path { // root path
-				err = p.copyFile(filepath.Join(templatePath, f.Name()), filepath.Join(projectTmp.ProjectPath, f.Name()))
-			} else {
-				// Create dir if not exists
-				relativePath, _ := filepath.Rel(templatePath, path)
-				targetDir := filepath.Join(projectTmp.ProjectPath, relativePath)
-				_, err = os.Stat(targetDir)
-				if err != nil && os.IsNotExist(err) {
-					err = os.MkdirAll(targetDir, os.ModePerm)
-					if err != nil {
-						return err
-					}
+		destPath := filepath.Join(project.ProjectPath, relPath)
+		destFi, err := os.Lstat(destPath)
+		if err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("cannot lstat dest file: %w", err)
+		}
+
+		if destFi != nil && destFi.Mode().Type() != srcFi.Mode().Type() {
+			return fmt.Errorf("dest file already exist but type is not matching")
+		}
+
+		switch srcFi.Mode().Type() {
+		case 0:
+			var dest, src *os.File
+			dest, err = os.OpenFile(destPath, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, srcFi.Mode().Perm())
+			if err != nil {
+				return fmt.Errorf("cannot open dest file: %w", err)
+			}
+			defer dest.Close()
+			src, err = os.Open(srcPath)
+			if err != nil {
+				return fmt.Errorf("cannot open src file: %w", err)
+			}
+			defer src.Close()
+			_, err = io.CopyBuffer(dest, src, buff)
+			if err != nil {
+				return fmt.Errorf("cannot copy file: %w", err)
+			}
+		case fs.ModeDir:
+			if destFi == nil {
+				err = os.MkdirAll(destPath, 0755)
+				if err != nil {
+					return fmt.Errorf("cannot create dir: %w", err)
 				}
-				err = p.copyFile(filepath.Join(templatePath, relativePath, f.Name()), filepath.Join(targetDir, f.Name()))
 			}
+		default:
+			return fmt.Errorf("unspuported type: %s", srcFi.Mode().Type())
 		}
-		return err
+		return nil
 	})
-	if err != nil {
-		return err
-	}
-
-	// Replace project folder
-	err = project.RemoveProjectFolder()
-	if err != nil {
-		return err
-	}
-	return os.Rename(projectTmp.ProjectPath, project.ProjectPath)
-}
-
-// walkThru recursive visit files in the filesystem and invokes fn for each of them
-// it can be replaced in future by filepath.WalkDir when project moves to 1.16+)
-func (p projectUpdater) walkThru(dir string, fn func(path string, f os.FileInfo) error) error {
-	files, err := os.ReadDir(dir)
-	if err != nil {
-		return err
-	}
-	for _, file := range files {
-		fileInfo, err := file.Info()
-		if err != nil {
-			return err
-		}
-		err = fn(dir, fileInfo)
-		if err != nil {
-			return err
-		}
-		if file.IsDir() {
-			err := p.walkThru(filepath.Join(dir, file.Name()), fn)
-			if err != nil {
-				return err
-			}
-		}
-	}
-	return nil
-}
-
-func (p projectUpdater) copyFile(sourceFile string, destFile string) error {
-	_, err := os.Stat(sourceFile)
-	if err != nil {
-		return err
-	}
-	src, err := os.Open(sourceFile)
-	if err != nil {
-		return err
-	}
-	defer src.Close()
-	dst, err := os.Create(destFile)
-	if err != nil {
-		return err
-	}
-	defer dst.Close()
-	_, err = io.Copy(dst, src)
-	return err
 }
