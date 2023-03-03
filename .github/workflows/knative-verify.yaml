@@ -23,4 +23,18 @@ on:
 
 jobs:
   verify:
-    uses: knative/actions/.github/workflows/verify-codegen.yaml@main
+    name: "Verify"
+    runs-on: "macos-latest"
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v3
+      - name: "Install Bash 4"
+        run: |
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          brew update
+          brew install bash
+          brew install gnu-sed
+          echo "/usr/local/bin" >> $GITHUB_PATH
+          echo "$(brew --prefix)/opt/gnu-sed/libexec/gnubin" >> $GITHUB_PATH
+      - name: verify-codegen
+        run: ./hack/verify-codegen.sh
