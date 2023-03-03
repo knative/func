@@ -33,7 +33,7 @@ jobs:
       - name: "Install Utils"
         run: |
           go version
-          find --version
+          find --version || true
           /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
           brew update
           brew install bash
@@ -42,7 +42,7 @@ jobs:
           echo "/usr/local/bin" >> $GITHUB_PATH
           echo "$(brew --prefix)/opt/gnu-sed/libexec/gnubin" >> $GITHUB_PATH
           go version
-          find --version
+          find --version || true
       - name: verify-codegen
         run: |
           ./hack/verify-codegen.sh
