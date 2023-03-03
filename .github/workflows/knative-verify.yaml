@@ -30,7 +30,7 @@ jobs:
       - uses: actions/setup-go@v3
         with:
           go-version: "1.18"
-      - name: "Install Bash 4"
+      - name: "Install Utils"
         run: |
           /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
           brew update
@@ -40,4 +40,6 @@ jobs:
           echo "/usr/local/bin" >> $GITHUB_PATH
           echo "$(brew --prefix)/opt/gnu-sed/libexec/gnubin" >> $GITHUB_PATH
       - name: verify-codegen
-        run: ./hack/verify-codegen.sh
+        run: |
+          go version 
+          ./hack/verify-codegen.sh
