@@ -2,6 +2,9 @@
 
 This guide describes how you can build a Function on Cluster with Tekton Pipelines. The on cluster build is enabled by fetching Function source code from a remote Git repository. Buildpacks or S2I builder strategy can be used to build the Function image.
 
+> **Note**
+> Not all runtiemes support on cluster builds. **Go**, **Rust**, and **Quarkus** are not currently supported.
+
 ## Prerequisite
 1. Install Tekton Pipelines on the cluster. Please refer to [Tekton Pipelines documentation](https://github.com/tektoncd/pipeline/blob/main/docs/install.md) or run the following command:
 ```bash
