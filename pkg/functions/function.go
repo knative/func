@@ -135,6 +135,10 @@ type DeploySpec struct {
 	// be triggered in a remote environment rather than run locally.
 	Remote bool `yaml:"remote,omitempty"`
 
+	// PVCSize specifies the size of persistent volume claim used to store function
+	// when using deployment and remote build process (only relevant when Remote is true).
+	PVCSize string `yaml:"pvc-size"`
+
 	// Map containing user-supplied annotations
 	// Example: { "division": "finance" }
 	Annotations map[string]string `yaml:"annotations,omitempty"`

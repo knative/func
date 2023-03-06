@@ -3,6 +3,11 @@
 	"$ref": "#/definitions/Function",
 	"definitions": {
 		"BuildSpec": {
+			"required": [
+				"buildpacks",
+				"builder",
+				"buildEnvs"
+			],
 			"properties": {
 				"git": {
 					"$schema": "http://json-schema.org/draft-04/schema#",
@@ -55,6 +60,9 @@
 				"remote": {
 					"type": "boolean",
 					"description": "Remote indicates the deployment (and possibly build) process are to\nbe triggered in a remote environment rather than run locally."
+				},
+				"pvc-size": {
+					"type": "string"
 				},
 				"annotations": {
 					"patternProperties": {

@@ -81,7 +81,7 @@ func Test_createPipelinePersistentVolumeClaim(t *testing.T) {
 		f         fn.Function
 		namespace string
 		labels    map[string]string
-		size      int64
+		size      string
 	}
 	tests := []struct {
 		name    string
@@ -125,7 +125,8 @@ func Test_createPipelinePersistentVolumeClaim(t *testing.T) {
 			defer func() { createPersistentVolumeClaim = old }()
 
 			createPersistentVolumeClaim = tt.mock
-			if err := createPipelinePersistentVolumeClaim(tt.args.ctx, tt.args.f, tt.args.namespace, tt.args.labels, tt.args.size); (err != nil) != tt.wantErr {
+			tt.args.f.Deploy.PVCSize = tt.args.size
+			if err := createPipelinePersistentVolumeClaim(tt.args.ctx, tt.args.f, tt.args.namespace, tt.args.labels); (err != nil) != tt.wantErr {
 				t.Errorf("createPipelinePersistentVolumeClaim() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

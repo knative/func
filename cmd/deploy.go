@@ -10,14 +10,15 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"knative.dev/client/pkg/util"
-
 	"knative.dev/func/pkg/builders"
 	"knative.dev/func/pkg/builders/buildpacks"
 	"knative.dev/func/pkg/builders/s2i"
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
+	"knative.dev/func/pkg/pipelines/tekton"
 )
 
 func NewDeployCmd(newClient ClientFactory) *cobra.Command {
@@ -79,7 +80,7 @@ DESCRIPTION
 EXAMPLES
 
 	o Deploy the function
-	  $ {{.Name}} deploy
+	  $ {{rootCmdUse}} deploy
 
 	o Deploy the function using interactive prompts. This is useful for the first
 	  deployment, since most settings will be remembered for future deployments.
@@ -116,7 +117,7 @@ EXAMPLES
 
 `,
 		SuggestFor: []string{"delpoy", "deplyo"},
-		PreRunE:    bindEnv("confirm", "env", "git-url", "git-branch", "git-dir", "remote", "build", "builder", "builder-image", "image", "registry", "push", "platform", "namespace", "path", "verbose"),
+		PreRunE:    bindEnv("confirm", "env", "git-url", "git-branch", "git-dir", "remote", "build", "builder", "builder-image", "image", "registry", "push", "platform", "namespace", "path", "verbose", "pvc-size"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDeploy(cmd, newClient)
 		},
@@ -137,8 +138,8 @@ EXAMPLES
 	// Flags
 	//
 	// Globally-Configurable Flags:
-	//   Options whose value may be defined globally may also exist on the
-	//  contextually relevant function; but sets are flattened via cfg.Apply(f)
+	// Options whose value may be defined globally may also exist on the
+	// contextually relevant function; but sets are flattened via cfg.Apply(f)
 	cmd.Flags().StringP("builder", "b", cfg.Builder,
 		fmt.Sprintf("Builder to use when creating the function's container. Currently supported builders are %s.", KnownBuilders()))
 	cmd.Flags().StringP("registry", "r", cfg.Registry,
@@ -147,10 +148,10 @@ EXAMPLES
 		"Deploy into a specific namespace. Will use function's current namespace by default if already deployed, and the currently active namespace if it can be determined. (Env: $FUNC_NAMESPACE)")
 
 	// Function-Context Flags:
-	// Options whose value is avaolable on the function with context only
+	// Options whose value is available on the function with context only
 	// (persisted but not globally configurable)
 	builderImage := f.Build.BuilderImages[f.Build.Builder]
-	cmd.Flags().StringP("builder-image", "", builderImage,
+	cmd.Flags().String("builder-image", builderImage,
 		"Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)")
 	cmd.Flags().StringP("image", "i", f.Image, "Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. (Env: $FUNC_IMAGE)")
 
@@ -162,19 +163,21 @@ EXAMPLES
 	cmd.Flags().StringP("git-branch", "t", f.Build.Git.Revision,
 		"Git revision (branch) to be used when deploying via the Git repository (Env: $FUNC_GIT_BRANCH)")
 	cmd.Flags().StringP("git-dir", "d", f.Build.Git.ContextDir,
-		"Directory in the Git repository containing the function (default is the root) (Env: $FUNC_GIT_DIR))")
-	cmd.Flags().BoolP("remote", "", f.Deploy.Remote,
-		"Trigger a remote deployment.  Default is to deploy and build from the local system (Env: $FUNC_REMOTE)")
+		"Directory in the Git repository containing the function (default is the root) (Env: $FUNC_GIT_DIR)")
+	cmd.Flags().Bool("remote", f.Deploy.Remote,
+		"Trigger a remote deployment. Default is to deploy and build from the local system (Env: $FUNC_REMOTE)")
+	cmd.Flags().String("pvc-size", tekton.DefaultPersistentVolumeClaimSize,
+		"Configure the PVC size used by a pipeline. This flag can only be set if --remote flag is used.")
 
 	// Static Flags:
-	// Options which have statc defaults only (not globally configurable nor
+	// Options which have static defaults only (not globally configurable nor
 	// persisted with the function)
-	cmd.Flags().StringP("build", "", "auto",
+	cmd.Flags().String("build", "auto",
 		"Build the function. [auto|true|false]. (Env: $FUNC_BUILD)")
 	cmd.Flags().Lookup("build").NoOptDefVal = "true" // register `--build` as equivalient to `--build=true`
 	cmd.Flags().BoolP("push", "u", true,
 		"Push the function image to registry before deploying. (Env: $FUNC_PUSH)")
-	cmd.Flags().StringP("platform", "", "",
+	cmd.Flags().String("platform", "",
 		"Optionally specify a specific platform to build for (e.g. linux/amd64). (Env: $FUNC_PLATFORM)")
 
 	// Oft-shared flags:
@@ -369,6 +372,9 @@ type deployConfig struct {
 	// Remote indicates the deployment (and possibly build) process are to
 	// be triggered in a remote environment rather than run locally.
 	Remote bool
+
+	// PVCSize configures the PVC size used by the pipeline if --remote flag is set.
+	PVCSize string
 }
 
 // newDeployConfig creates a buildConfig populated from command flags and
@@ -383,10 +389,11 @@ func newDeployConfig(cmd *cobra.Command) (c deployConfig) {
 		GitURL:      viper.GetString("git-url"),
 		Namespace:   viper.GetString("namespace"),
 		Remote:      viper.GetBool("remote"),
+		PVCSize:     viper.GetString("pvc-size"),
 	}
-	// NOTE: .Env shold be viper.GetStringSlice, but this returns unparsed
+	// NOTE: .Env should be viper.GetStringSlice, but this returns unparsed
 	// results and appears to be an open issue since 2017:
-	//   https://github.com/spf13/viper/issues/380
+	// https://github.com/spf13/viper/issues/380
 	var err error
 	if c.Env, err = cmd.Flags().GetStringArray("env"); err != nil {
 		fmt.Fprintf(cmd.OutOrStdout(), "error reading envs: %v", err)
@@ -402,7 +409,7 @@ func (c deployConfig) Configure(f fn.Function) (fn.Function, error) {
 
 	// Bubble configure request
 	//
-	// The member values on the config object now take absolute precidence
+	// The member values on the config object now take absolute precedence
 	// because they include 1) static config 2) user's global config
 	// 3) Environment variables and 4) flag values (which were set with their
 	// default being 1-3).
@@ -411,9 +418,16 @@ func (c deployConfig) Configure(f fn.Function) (fn.Function, error) {
 	// Configure basic members
 	f.Build.Git.URL = c.GitURL
 	f.Build.Git.ContextDir = c.GitDir
-	f.Build.Git.Revision = c.GitBranch // TODO: shouild match; perhaps "refSpec"
+	f.Build.Git.Revision = c.GitBranch // TODO: should match; perhaps "refSpec"
 	f.Deploy.Namespace = c.Namespace
 	f.Deploy.Remote = c.Remote
+
+	// Validate if PVC size can be parsed to quantity
+	_, err = resource.ParseQuantity(c.PVCSize)
+	if err != nil {
+		return f, fmt.Errorf("cannot parse the provided PVC size '%s' due to: %w", c.PVCSize, err)
+	}
+	f.Deploy.PVCSize = c.PVCSize
 
 	// ImageDigest
 	// Parsed off f.Image if provided.  Deploying adds the ability to specify a
@@ -456,7 +470,7 @@ func applyEnvs(current []fn.Env, args []string) (final []fn.Env, err error) {
 	return
 }
 
-// Prompt the user with value of config members, allowing for interaractive changes.
+// Prompt the user with value of config members, allowing for interactive changes.
 // Skipped if not in an interactive terminal (non-TTY), or if --yes (agree to
 // all prompts) was explicitly set.
 func (c deployConfig) Prompt() (deployConfig, error) {
@@ -519,7 +533,7 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 	}
 
 	// Check Image Digest was included
-	// (will be set on the function during .Configure
+	// (will be set on the function during .Configure)
 	var digest string
 	if digest, err = imageDigest(c.Image); err != nil {
 		return
@@ -561,7 +575,7 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 
 	// NOTE: There is no explicit check for --registry or --image here, because
 	// this logic is baked into core, which will validate the cases and return
-	// an fn.ErrNameRequired, fn.ErrImageRequired etc as needed.
+	// an fn.ErrNameRequired, fn.ErrImageRequired etc. as needed.
 
 	return
 }
@@ -619,7 +633,7 @@ func printDeployMessages(out io.Writer, cfg deployConfig) {
 	// Namespace Changing
 	// -------------------
 	// If the target namespace is provided but differs from active, warn because
-	// the function wont be visible to other commands such as kubectl unless
+	// the function won't be visible to other commands such as kubectl unless
 	// context namespace is switched.
 	activeNamespace, err := k8s.GetNamespace("")
 	if err == nil && targetNamespace != "" && targetNamespace != activeNamespace {
@@ -640,7 +654,7 @@ func printDeployMessages(out io.Writer, cfg deployConfig) {
 	// However, when building _locally_ thereafter, the deploy command should
 	// prefer the local source code, ignoring the values for --git-url etc.
 	// Since this might be confusing, a warning is issued below that the local
-	// function source does include a reference to a git reposotiry, but that it
+	// function source does include a reference to a git repository, but that it
 	// will be ignored in favor of the local source code since --remote was not
 	// specified.
 	if !cfg.Remote && (cfg.GitURL != "" || cfg.GitBranch != "" || cfg.GitDir != "") {
