@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 
+	"knative.dev/func/cmd/prompt"
 	"knative.dev/func/pkg/builders/buildpacks"
 	"knative.dev/func/pkg/config"
 	"knative.dev/func/pkg/docker"
@@ -115,8 +116,8 @@ func newTransport(insecureSkipVerify bool) fnhttp.RoundTripCloser {
 // of features or configuration nuances of cluster variants.
 func newCredentialsProvider(configPath string, t http.RoundTripper) docker.CredentialsProvider {
 	options := []creds.Opt{
-		creds.WithPromptForCredentials(newPromptForCredentials(os.Stdin, os.Stdout, os.Stderr)),
-		creds.WithPromptForCredentialStore(newPromptForCredentialStore()),
+		creds.WithPromptForCredentials(prompt.NewPromptForCredentials(os.Stdin, os.Stdout, os.Stderr)),
+		creds.WithPromptForCredentialStore(prompt.NewPromptForCredentialStore()),
 		creds.WithTransport(t),
 		creds.WithAdditionalCredentialLoaders(openshift.GetDockerCredentialLoaders()...),
 	}

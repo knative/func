@@ -1,7 +1,7 @@
 //go:build linux
 // +build linux
 
-package cmd
+package prompt
 
 import (
 	"io"
@@ -14,7 +14,11 @@ import (
 	"knative.dev/func/pkg/docker"
 )
 
-func Test_newPromptForCredentials(t *testing.T) {
+const (
+	enter = "\r"
+)
+
+func Test_NewPromptForCredentials(t *testing.T) {
 	expectedCreds := docker.Credentials{
 		Username: "testuser",
 		Password: "testpwd",
@@ -59,7 +63,7 @@ func Test_newPromptForCredentials(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			credPrompt := newPromptForCredentials(tt.in, tt.out, tt.errOut)
+			credPrompt := NewPromptForCredentials(tt.in, tt.out, tt.errOut)
 			cred, err := credPrompt("example.com")
 			if err != nil {
 				t.Fatal(err)
