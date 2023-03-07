@@ -31,9 +31,10 @@ set -o pipefail
 
 use_kn_func=${E2E_USE_KN_FUNC:-}
 
-curdir=$(pwd)
-cd $(dirname $0)
-cd ../
+pushd "$(dirname "$0")/.."
+mkdir -p .coverage
+GOCOVERDIR="$(pwd)/.coverage"
+export GOCOVERDIR
 
 # Make sure 'func' binary is built in case KN FUNC was not required for testing
 if [[ ! -f func && "$use_kn_func" != "true" ]]; then
@@ -47,5 +48,6 @@ go clean -testcache
 go test -v -test.v -tags="e2e" ./test/e2e/
 ret=$?
 
-cd $curdir
+go tool covdata textfmt -i=./.coverage -o coverage.txt
+popd
 exit $ret

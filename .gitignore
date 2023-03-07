@@ -8,6 +8,7 @@
 /templates/typescript/http/build
 /coverage.out
 /coverage.txt
+/.coverage
 /bin
 /target
 
