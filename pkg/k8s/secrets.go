@@ -1,7 +1,6 @@
 package k8s
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -10,6 +9,7 @@ import (
 	"syscall"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sclientcmd "k8s.io/client-go/tools/clientcmd"
@@ -84,49 +84,52 @@ func DeleteSecrets(ctx context.Context, namespaceOverride string, listOptions me
 }
 
 func EnsureDockerRegistrySecretExist(ctx context.Context, name, namespaceOverride string, labels map[string]string, annotations map[string]string, username, password, server string) (err error) {
+	dockerConfigJSONContent, err := HandleDockerCfgJSONContent(username, password, "", server)
+	if err != nil {
+		return
+	}
+
+	// Check whether we need to create or update the Secret
+	secret := corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        name,
+			Labels:      labels,
+			Annotations: annotations,
+		},
+		Type: corev1.SecretTypeOpaque,
+		Data: map[string][]byte{},
+	}
+	secret.Data["config.json"] = dockerConfigJSONContent
+
+	return EnsureSecretExist(ctx, secret, namespaceOverride)
+}
+
+func EnsureSecretExist(ctx context.Context, secret corev1.Secret, namespaceOverride string) (err error) {
 	client, namespace, err := NewClientAndResolvedNamespace(namespaceOverride)
 	if err != nil {
 		return
 	}
 
 	// Check whether Secret with specified name exist
-	createSecret := false
-	currentSecret, err := GetSecret(ctx, name, namespace)
+	secretNotFound := false
+	existingSecret, err := GetSecret(ctx, secret.Name, namespace)
 	if err != nil {
-		if k8serrors.IsNotFound(err) {
-			createSecret = true
-		} else {
+		if !k8serrors.IsNotFound(err) {
 			return
 		}
+		secretNotFound = true
 	}
 
-	dockerConfigJSONContent, err := handleDockerCfgJSONContent(username, password, "", server)
-	if err != nil {
-		return
-	}
-
-	// Check whether we need to create or update the Secret
-	const secretKey = "config.json"
-	if createSecret || !bytes.Equal(currentSecret.Data[secretKey], dockerConfigJSONContent) {
-		secret := &corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:        name,
-				Namespace:   namespace,
-				Labels:      labels,
-				Annotations: annotations,
-			},
-			Type: corev1.SecretTypeOpaque,
-			Data: map[string][]byte{},
-		}
-		secret.Data[secretKey] = dockerConfigJSONContent
-
+	// TODO we should also compare labels and annotations
+	if secretNotFound || !equality.Semantic.DeepDerivative(existingSecret.Data, secret.Data) {
 		// Decide whether create or update
-		if createSecret {
-			_, err = client.CoreV1().Secrets(namespace).Create(ctx, secret, metav1.CreateOptions{})
+		if secretNotFound {
+			_, err = client.CoreV1().Secrets(namespace).Create(ctx, &secret, metav1.CreateOptions{})
 		} else {
-			_, err = client.CoreV1().Secrets(namespace).Update(ctx, secret, metav1.UpdateOptions{})
+			_, err = client.CoreV1().Secrets(namespace).Update(ctx, &secret, metav1.UpdateOptions{})
 		}
 	}
+
 	return
 }
 
@@ -155,7 +158,7 @@ type dockerConfigEntry struct {
 	Auth     string `json:"auth,omitempty" datapolicy:"token"`
 }
 
-func handleDockerCfgJSONContent(username, password, email, server string) ([]byte, error) {
+func HandleDockerCfgJSONContent(username, password, email, server string) ([]byte, error) {
 	dockerConfigAuth := dockerConfigEntry{
 		Username: username,
 		Password: password,

@@ -57,6 +57,18 @@ func rm(t *testing.T, dir string) {
 	}
 }
 
+// FileExists checks whether file on the specified path exists
+func FileExists(t *testing.T, filePath string) (bool, error) {
+	_, err := os.Stat(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 // Within the given root creates the directory, CDs to it, and rturns a
 // closure that when executed (intended in a defer) removes the given dirctory
 // and returns the caller to the initial working directory.

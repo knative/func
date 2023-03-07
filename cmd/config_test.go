@@ -25,7 +25,7 @@ func TestListEnvs(t *testing.T) {
 		return fn.Function{Run: fn.RunSpec{Envs: envs}}, nil
 	}
 
-	cmd := fnCmd.NewConfigCmd(mock)
+	cmd := fnCmd.NewConfigCmd(mock, fnCmd.NewClient)
 	cmd.SetArgs([]string{"envs", "-o=json", "--path=<path>"})
 
 	var buff bytes.Buffer
@@ -68,7 +68,7 @@ func TestListEnvAdd(t *testing.T) {
 	}
 
 	expectedEnvs = []fn.Env{{Name: &foo, Value: &bar}, {Name: &answer, Value: &fortyTwo}}
-	cmd := fnCmd.NewConfigCmd(mock)
+	cmd := fnCmd.NewConfigCmd(mock, fnCmd.NewClient)
 	cmd.SetArgs([]string{"envs", "add", "--name=answer", "--value=42"})
 	cmd.SetOut(io.Discard)
 	cmd.SetErr(io.Discard)
@@ -80,7 +80,7 @@ func TestListEnvAdd(t *testing.T) {
 
 	viper.Reset()
 	expectedEnvs = []fn.Env{{Name: &foo, Value: &bar}, {Name: nil, Value: &configMapExpression}}
-	cmd = fnCmd.NewConfigCmd(mock)
+	cmd = fnCmd.NewConfigCmd(mock, fnCmd.NewClient)
 	cmd.SetArgs([]string{"envs", "add", "--value={{ configMap:myMap }}"})
 	cmd.SetOut(io.Discard)
 	cmd.SetErr(io.Discard)
@@ -91,7 +91,7 @@ func TestListEnvAdd(t *testing.T) {
 	}
 
 	viper.Reset()
-	cmd = fnCmd.NewConfigCmd(mock)
+	cmd = fnCmd.NewConfigCmd(mock, fnCmd.NewClient)
 	cmd.SetArgs([]string{"envs", "add", "--name=1", "--value=abc"})
 	cmd.SetOut(io.Discard)
 	cmd.SetErr(io.Discard)
