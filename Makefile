@@ -147,7 +147,7 @@ test-integration: ## Run integration tests using an available cluster.
 .PHONY: func-instrumented
 
 func-instrumented: ## Func binary that is instrumented for e2e tests
-	env CGO_ENABLED=1 go build -ldflags $(LDFLAGS) -race -cover -o func ./cmd/func
+	env CGO_ENABLED=1 go build -ldflags $(LDFLAGS) -cover -o func ./cmd/func
 
 test-e2e: func-instrumented ## Run end-to-end tests using an available cluster.
 	./test/e2e_lifecycle_tests.sh node
