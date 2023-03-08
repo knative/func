@@ -617,12 +617,20 @@ func ensureRuntimeDir(f Function) error {
 		return err
 	}
 
+	_, err := os.Stat(".gitignore")
+	if err == nil {
+		return nil
+	}
+	if !os.IsNotExist(err) {
+		return err
+	}
+
 	gitignore := `
 # Functions use the .func directory for local runtime data which should
 # generally not be tracked in source control:
 /.func
 `
-	return os.WriteFile(filepath.Join(f.Root, ".gitignore"), []byte(gitignore), os.ModePerm)
+	return os.WriteFile(filepath.Join(f.Root, ".gitignore"), []byte(gitignore), 0644)
 
 }
 
