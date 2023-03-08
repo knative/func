@@ -99,7 +99,7 @@ func (pp *PipelinesProvider) createClusterResources(ctx context.Context, f fn.Fu
 	// figure out pac installation namespace
 	installed, _, err := pac.DetectPACInstallation(ctx, "")
 	if !installed {
-		return fmt.Errorf("pipelines as code not installed")
+		return fmt.Errorf("pipelines as code not installed: %w", err)
 	}
 	if installed && err != nil {
 		return err
@@ -116,7 +116,7 @@ func (pp *PipelinesProvider) createClusterResources(ctx context.Context, f fn.Fu
 
 	registry, err := docker.GetRegistry(f.Image)
 	if err != nil {
-		return fmt.Errorf("problem in resolving image registry name: %v", err)
+		return fmt.Errorf("problem in resolving image registry name: %w", err)
 	}
 
 	if registry == name.DefaultRegistry {
@@ -148,7 +148,7 @@ func (pp *PipelinesProvider) createClusterResources(ctx context.Context, f fn.Fu
 	if err != nil {
 		return err
 	}
-	fmt.Printf(" ✅ Webhook is present on the cluster in repository %q\n", getPipelineRepositoryName(f))
+	fmt.Printf(" ✅ Webhook with payload validation secret %q is present on the cluster in repository %q\n", metadata.WebhookSecret, getPipelineRepositoryName(f))
 
 	return nil
 }
@@ -165,7 +165,7 @@ func (pp *PipelinesProvider) createRemoteResources(ctx context.Context, f fn.Fun
 	// figure out pac installation namespace
 	installed, installationNS, err := pac.DetectPACInstallation(ctx, "")
 	if !installed {
-		return fmt.Errorf("pipelines as code not installed")
+		return fmt.Errorf("pipelines as code not installed: %w", err)
 	}
 	if installed && err != nil {
 		return err
