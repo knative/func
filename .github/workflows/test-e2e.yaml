@@ -7,7 +7,7 @@ jobs:
     name: E2E Test
     strategy:
       matrix:
-        go: [1.18.x]
+        go: [1.20.x]
         os: ["ubuntu-latest"]
     runs-on: ${{ matrix.os }}
     steps:
@@ -22,4 +22,8 @@ jobs:
       - name: Local Registry
         run: ./hack/registry.sh
       - name: E2E Test
-        run: make && make test-e2e
+        run: make test-e2e
+      - uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage.txt
+          flags: e2e-test

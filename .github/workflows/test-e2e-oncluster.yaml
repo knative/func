@@ -7,7 +7,7 @@ jobs:
     name: On Cluster Test
     strategy:
       matrix:
-        go: [1.18.x]
+        go: [1.20.x]
         os: ["ubuntu-latest"]
     runs-on: ${{ matrix.os }}
     steps:
@@ -29,4 +29,8 @@ jobs:
       - name: E2E On Cluster Test
         env:
           E2E_RUNTIMES: ""
-        run: make && make test-e2e-on-cluster
+        run: make test-e2e-on-cluster
+      - uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage.txt
+          flags: e2e-test-oncluster

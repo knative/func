@@ -35,9 +35,10 @@ set -o pipefail
 runtime=${1:-}
 use_kn_func=${E2E_USE_KN_FUNC:-}
 
-curdir=$(pwd)
-cd $(dirname $0)
-cd ../
+pushd "$(dirname "$0")/.."
+mkdir -p .coverage
+GOCOVERDIR="$(pwd)/.coverage"
+export GOCOVERDIR
 
 REGISTRY_PROJ=knfunc$(head -c 128 </dev/urandom | LC_CTYPE=C tr -dc 'a-z0-9' | fold -w 8 | head -n 1)
 export E2E_REGISTRY_URL=${E2E_REGISTRY_URL:-ttl.sh/$REGISTRY_PROJ}
@@ -54,5 +55,6 @@ go clean -testcache
 go test -v -test.v -test.timeout=90m -tags="${TEST_TAGS:-oncluster}" ./test/oncluster/
 ret=$?
 
-cd $curdir
+go tool covdata textfmt -i=./.coverage -o coverage.txt
+popd
 exit $ret
