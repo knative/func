@@ -158,11 +158,11 @@ EXAMPLES
 		"You may provide this flag multiple times for setting multiple environment variables. "+
 		"To unset, specify the environment variable name followed by a \"-\" (e.g., NAME-).")
 	cmd.Flags().StringP("git-url", "g", f.Build.Git.URL,
-		"Repo url to push the code to be built (Env: $FUNC_GIT_URL)")
+		"Repository url containing the function to build (Env: $FUNC_GIT_URL)")
 	cmd.Flags().StringP("git-branch", "t", f.Build.Git.Revision,
-		"Git revision (branch) to be used when deploying via a git repository (Env: $FUNC_GIT_BRANCH)")
+		"Git revision (branch) to be used when deploying via the Git repository (Env: $FUNC_GIT_BRANCH)")
 	cmd.Flags().StringP("git-dir", "d", f.Build.Git.ContextDir,
-		"Directory in the repo to find the function (default is the root) (Env: $FUNC_GIT_DIR)")
+		"Directory in the Git repository containing the function (default is the root) (Env: $FUNC_GIT_DIR))")
 	cmd.Flags().BoolP("remote", "", f.Deploy.Remote,
 		"Trigger a remote deployment.  Default is to deploy and build from the local system (Env: $FUNC_REMOTE)")
 

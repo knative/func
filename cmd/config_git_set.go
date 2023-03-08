@@ -21,7 +21,7 @@ func NewConfigGitSetCmd(newClient ClientFactory) *cobra.Command {
 	directory or from the directory specified with --path.
 	`,
 		SuggestFor: []string{"add", "ad", "update", "create", "insert", "append"},
-		PreRunE:    bindEnv("path", "builder", "builder-image", "image", "registry"),
+		PreRunE:    bindEnv("path", "builder", "builder-image", "image", "registry", "namespace", "git-url", "git-branch", "git-dir", "gh-access-token", "config-local", "config-cluster", "config-remote"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			return runConfigGitSetCmd(cmd, newClient)
 		},
@@ -59,6 +59,25 @@ func NewConfigGitSetCmd(newClient ClientFactory) *cobra.Command {
 		"Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)")
 	cmd.Flags().StringP("image", "i", f.Image, "Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. (Env: $FUNC_IMAGE)")
 
+	// Git related Flags:
+	cmd.Flags().StringP("git-url", "g", "",
+		"Repository url containing the function to build (Env: $FUNC_GIT_URL)")
+	cmd.Flags().StringP("git-branch", "t", "",
+		"Git revision (branch) to be used when deploying via the Git repository (Env: $FUNC_GIT_BRANCH)")
+	cmd.Flags().StringP("git-dir", "d", "",
+		"Directory in the Git repository containing the function (default is the root) (Env: $FUNC_GIT_DIR)")
+
+	// GitHub related Flags:
+	cmd.Flags().String("gh-access-token", "",
+		"GitHub Personal Access Token. For public repositories the scope is 'public_repo', for private is 'repo'. If you want to configure the webhook automatically, 'admin:repo_hook' is needed as well. Get more details: https://pipelines-as-code.pages.dev/docs/install/github_webhook/.")
+	cmd.Flags().String("gh-webhook-secret", "",
+		"GitHub Webhook Secret used for payload validation. If not specified, it will be generated automatically.")
+
+	// Resources generated related Flags:
+	cmd.Flags().Bool("config-local", true, "Configure local resources (pipeline templates).")
+	cmd.Flags().Bool("config-cluster", true, "Configure cluster resources (credentials and config on cluster).")
+	cmd.Flags().Bool("config-remote", true, "Configure remote resources (webhook on the Git provider side).")
+
 	addPathFlag(cmd)
 	addVerboseFlag(cmd, cfg.Verbose)
 
@@ -74,9 +93,8 @@ type configGitSetConfig struct {
 	GitRevision   string
 	GitContextDir string
 
-	WebhookTrigger           bool
-	WebhookTriggerSet        bool // whether WebhookTrigger value has been set
-	WebhookTriggerAutoConfig bool // whether to configure WebhookTrigger automatically
+	WebhookTrigger    bool
+	WebhookTriggerSet bool // whether WebhookTrigger value has been set
 
 	metadata pipelines.PacMetadata
 }
@@ -88,10 +106,17 @@ func newConfigGitSetConfig(cmd *cobra.Command) (c configGitSetConfig) {
 		buildConfig: newBuildConfig(),
 		Namespace:   viper.GetString("namespace"),
 
+		GitURL:        viper.GetString("git-url"),
+		GitRevision:   viper.GetString("git-branch"),
+		GitContextDir: viper.GetString("git-dir"),
+
 		metadata: pipelines.PacMetadata{
-			ConfigureLocalResources:   true,
-			ConfigureClusterResources: true,
-			ConfigureRemoteResources:  true,
+			PersonalAccessToken: viper.GetString("gh-access-token"),
+			WebhookSecret:       viper.GetString("gh-webhook-secret"),
+
+			ConfigureLocalResources:   viper.GetBool("config-local"),
+			ConfigureClusterResources: viper.GetBool("config-cluster"),
+			ConfigureRemoteResources:  viper.GetBool("config-remote"),
 		},
 	}
 
@@ -163,16 +188,13 @@ func (c configGitSetConfig) Prompt(f fn.Function) (configGitSetConfig, error) {
 		if c.metadata.PersonalAccessToken == "" {
 			var personalAccessToken string
 			if err := survey.AskOne(&survey.Password{
-				Message: "Please enter the GitHub access token:",
+				Message: "Please enter the GitHub Personal Access Token:",
+				Help:    "For public repositories the scope is 'public_repo', for private is 'repo'. If you want to configure the webhook automatically 'admin:repo_hook' is needed as well. Get more details: https://pipelines-as-code.pages.dev/docs/install/github_webhook/.",
 			}, &personalAccessToken, survey.WithValidator(survey.Required)); err != nil {
 				return c, err
 			}
 			c.metadata.PersonalAccessToken = personalAccessToken
 		}
-
-		// TODO prompt here if user want to configure remote webhook automatically (default)
-		// or manauly - print neccesary info then
-		// ie: c.WebhookTriggerAutoConfig
 	}
 
 	return c, nil
