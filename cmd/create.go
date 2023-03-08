@@ -60,13 +60,12 @@ DESCRIPTION
 
 
 EXAMPLES
-	o Create a Node.js function (the default language runtime) in the current
-	  directory (the default path) which handles http events (the default
-	  template).
-	  $ {{.Name}} create
+	o Create a Node.js function in the current directory (the default path) which
+	  handles http events (the default template).
+	  $ {{.Name}} create -l node
 
 	o Create a Node.js function in the directory 'myfunc'.
-	  $ {{.Name}} create myfunc
+	  $ {{.Name}} create -l node myfunc
 
 	o Create a Go function which handles CloudEvents in ./myfunc.
 	  $ {{.Name}} create -l go -t cloudevents myfunc
