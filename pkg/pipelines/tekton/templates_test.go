@@ -30,10 +30,10 @@ func Test_createPipelineTemplate(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:    "incorrect - s2i builder", // TODO not yet supported
+			name:    "correct - s2i builder",
 			root:    "testdata/testCreatePipelineTemplateS2I",
 			builder: builders.S2I,
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			name:    "incorrect - foo builder",
@@ -92,10 +92,10 @@ func Test_createPipelineRunTemplate(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:    "incorrect - s2i builder", // TODO not yet supported
+			name:    "correct - s2i builder",
 			root:    "testdata/testCreatePipelineRunTemplateS2I",
 			builder: builders.S2I,
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			name:    "incorrect - foo builder",

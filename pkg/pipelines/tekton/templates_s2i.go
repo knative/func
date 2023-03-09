@@ -1,7 +1,7 @@
 package tekton
 
 const (
-	packPipelineTemplate = `
+	s2iPipelineTemplate = `
 apiVersion: tekton.dev/v1beta1
 kind: Pipeline
 metadata:
@@ -39,6 +39,10 @@ spec:
     - description: Environment variables to set during build time
       name: buildEnvs
       type: array
+    - description: URL containing the default assemble and run scripts for the builder image
+      name: s2iImageScriptsUrl
+      type: string
+      default: 'image:///usr/libexec/s2i'
   tasks:
     - name: fetch-sources
       params:
@@ -54,22 +58,24 @@ spec:
           workspace: source-workspace
     - name: build
       params:
-        - name: APP_IMAGE
+        - name: IMAGE
           value: $(params.imageName)
         - name: REGISTRY
           value: $(params.registry)
-        - name: SOURCE_SUBPATH
+        - name: PATH_CONTEXT
           value: $(params.contextDir)
         - name: BUILDER_IMAGE
           value: $(params.builderImage)
         - name: ENV_VARS
           value:
             - '$(params.buildEnvs[*])'
+        - name: S2I_IMAGE_SCRIPTS_URL
+          value: $(params.s2iImageScriptsUrl)
       runAfter:
         - fetch-sources
       taskRef:
         kind: Task
-        name: func-buildpacks
+        name: func-s2i
       workspaces:
         - name: source
           workspace: source-workspace
@@ -81,6 +87,8 @@ spec:
       params:
         - name: path
           value: $(workspaces.source.path)/$(params.contextDir)
+        - name: image
+          value: $(params.imageName)@$(tasks.build.results.IMAGE_DIGEST)
       runAfter:
         - build
       taskRef:
@@ -99,7 +107,7 @@ spec:
       optional: true
 `
 
-	packRunTemplate = `
+	s2iRunTemplate = `
 apiVersion: tekton.dev/v1beta1
 kind: PipelineRun
 metadata:
@@ -119,8 +127,8 @@ metadata:
     # Fetch the git-clone task from hub
     pipelinesascode.tekton.dev/task: {{.GitCloneTaskRef}}
 
-    # Fetch the func-buildpacks task
-    pipelinesascode.tekton.dev/task-1: {{.FuncBuildpacksTaskRef}}
+    # Fetch the func-s2i task
+    pipelinesascode.tekton.dev/task-1: {{.FuncS2iTaskRef}}
 
     # Fetch the func-deploy task
     pipelinesascode.tekton.dev/task-2: {{.FuncDeployTaskRef}}
@@ -155,6 +163,8 @@ spec:
         {{range .BuildEnvs -}}
            - {{.}}
         {{end}}
+    - name: s2iImageScriptsUrl
+      value: {{.S2iImageScriptsUrl}}
   pipelineRef:
    name: {{.PipelineName}}
   workspaces:
