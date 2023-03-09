@@ -252,9 +252,17 @@ func sourcesAsTarStream(f fn.Function) *io.PipeReader {
 					if err != nil {
 						return fmt.Errorf("cannot get relative path for symlink: %w", err)
 					}
-				}
-				if strings.HasPrefix(lnk, up) || lnk == ".." {
-					return fmt.Errorf("link %q points outside source root", p)
+					if strings.HasPrefix(lnk, up) || lnk == ".." {
+						return fmt.Errorf("link %q points outside source root", p)
+					}
+				} else {
+					t, err := filepath.Rel(f.Root, filepath.Join(filepath.Dir(p), lnk))
+					if err != nil {
+						return fmt.Errorf("cannot get relative path for symlink: %w", err)
+					}
+					if strings.HasPrefix(t, up) || t == ".." {
+						return fmt.Errorf("link %q points outside source root", p)
+					}
 				}
 			}
 
