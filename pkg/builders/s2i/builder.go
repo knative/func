@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/docker/docker/api/types"
@@ -204,6 +205,9 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 
 	pr, pw := io.Pipe()
 
+	// s2i apparently is not excluding the files in --as-dockerfile mode
+	exclude := regexp.MustCompile(cfg.ExcludeRegExp)
+
 	const up = ".." + string(os.PathSeparator)
 	go func() {
 		tw := tar.NewWriter(pw)
@@ -217,6 +221,12 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 				return fmt.Errorf("cannot get relative path: %w", err)
 			}
 			if p == "." {
+				return nil
+			}
+
+			p = filepath.ToSlash(p)
+
+			if exclude.MatchString(p) {
 				return nil
 			}
 
@@ -241,7 +251,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 			if err != nil {
 				return fmt.Errorf("cannot create tar header: %w", err)
 			}
-			hdr.Name = filepath.ToSlash(p)
+			hdr.Name = p
 
 			err = tw.WriteHeader(hdr)
 			if err != nil {

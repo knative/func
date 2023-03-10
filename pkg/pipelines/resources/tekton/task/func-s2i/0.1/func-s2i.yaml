@@ -90,6 +90,9 @@ spec:
         sed -i "s|^registry:.*$|registry: $(params.REGISTRY)|" "$func_file"
         echo "Function image registry: $(params.REGISTRY)"
 
+        s2iignore_file="$(dirname "$func_file")/.s2iignore"
+        [ -f "$s2iignore_file" ] || echo "node_modules" >> "$s2iignore_file"
+
       volumeMounts:
         - mountPath: /gen-source
           name: gen-source

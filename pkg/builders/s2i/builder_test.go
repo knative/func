@@ -334,7 +334,7 @@ func TestBuildContextUpload(t *testing.T) {
 						return types.ImageBuildResponse{}, errors.New("bad content for a.txt")
 					}
 				default:
-					return types.ImageBuildResponse{}, errors.New("unexpected file")
+					return types.ImageBuildResponse{}, fmt.Errorf("unexpected file or directory: %q", hdr.Name)
 				}
 			}
 			return types.ImageBuildResponse{
@@ -351,6 +351,10 @@ func TestBuildContextUpload(t *testing.T) {
 				return nil, err
 			}
 			err = os.WriteFile(filepath.Join(filepath.Dir(config.AsDockerfile), "a.txt"), atxtContent, 0644)
+			if err != nil {
+				return nil, err
+			}
+			err = os.Mkdir(filepath.Join(filepath.Dir(config.AsDockerfile), "node_modules"), 0755)
 			if err != nil {
 				return nil, err
 			}
