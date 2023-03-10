@@ -5,7 +5,7 @@ project. Generally, these values are used when you execute a `func` CLI
 command. For example, when `func build` is run, the CLI uses the value for
 the `builder` field. In some cases, these values may be overridden by
 command line flags or environment variables. For more information about
-overriding these values, consult the [Commands](command.md) document.
+overriding these values, consult the [Commands](func.md) document.
 
 Many of the fields are generated for you when you create, build and deploy
 your function. Generally, function developers do not need to manually edit

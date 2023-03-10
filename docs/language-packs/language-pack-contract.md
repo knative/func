@@ -141,7 +141,7 @@ func repository add func https://github.com/knative-sandbox/func-tastic
 func create -l go -t func/hello-world
 ```
 
-See the `repository` section of the [commands guide](../reference/commands.md) for more information on installing and managing Language Pack repositories.
+See the `repository` section of the [commands guide](../reference/func.md) for more information on installing and managing Language Pack repositories.
 
 ### Repository Manifests
 
