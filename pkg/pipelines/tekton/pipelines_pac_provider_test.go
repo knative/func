@@ -23,10 +23,10 @@ func Test_createLocalResources(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name:    "incorrect - s2i builder", // TODO not yet supported
+			name:    "correct - s2i builder",
 			root:    "testdata/testCreateLocalResourcesS2I",
 			builder: builders.S2I,
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			name:    "incorrect - foo builder",

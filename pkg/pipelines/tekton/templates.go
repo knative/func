@@ -13,9 +13,20 @@ import (
 )
 
 const (
+	// Local resources properties
 	resourcesDirectory  = ".tekton"
 	pipelineFileName    = "pipeline.yaml"
 	pipelineRunFilenane = "pipeline-run.yaml"
+
+	// Tasks references
+	taskGitCloneRef       = "git-clone"
+	taskFuncS2iRef        = "https://raw.githubusercontent.com/knative/func/main/pkg/pipelines/resources/tekton/task/func-s2i/0.1/func-s2i.yaml"
+	taskFuncBuildpacksRef = "https://raw.githubusercontent.com/knative/func/main/pkg/pipelines/resources/tekton/task/func-buildpacks/0.1/func-buildpacks.yaml"
+	taskFuncDeployRef     = "https://raw.githubusercontent.com/knative/func/main/pkg/pipelines/resources/tekton/task/func-deploy/0.1/func-deploy.yaml"
+
+	// S2I related properties
+	defaultS2iImageScriptsUrl = "image:///usr/libexec/s2i"
+	quarkusS2iImageScriptsUrl = "image:///usr/local/s2i"
 )
 
 type templateData struct {
@@ -36,6 +47,17 @@ type templateData struct {
 	// Static entries
 	RepoUrl  string
 	Revision string
+
+	// Task references
+	GitCloneTaskRef       string
+	FuncBuildpacksTaskRef string
+	FuncS2iTaskRef        string
+	FuncDeployTaskRef     string
+
+	PipelineYamlURL string
+
+	// S2I related properties
+	S2iImageScriptsUrl string
 }
 
 func createPipelineTemplate(f fn.Function) error {
@@ -48,6 +70,8 @@ func createPipelineTemplate(f fn.Function) error {
 
 	if f.Build.Builder == builders.Pack {
 		return createResource(f.Root, pipelineFileName, packPipelineTemplate, data)
+	} else if f.Build.Builder == builders.S2I {
+		return createResource(f.Root, pipelineFileName, s2iPipelineTemplate, data)
 	}
 
 	return fmt.Errorf("builder %q is not supported", f.Build.Builder)
@@ -70,6 +94,11 @@ func createPipelineRunTemplate(f fn.Function) error {
 		}
 	}
 
+	s2iImageScriptsUrl := defaultS2iImageScriptsUrl
+	if f.Runtime == "quarkus" {
+		s2iImageScriptsUrl = quarkusS2iImageScriptsUrl
+	}
+
 	data := templateData{
 		FunctionName:  f.Name,
 		Annotations:   f.Deploy.Annotations,
@@ -85,12 +114,23 @@ func createPipelineRunTemplate(f fn.Function) error {
 		PvcName:         getPipelinePvcName(f),
 		SecretName:      getPipelineSecretName(f),
 
+		GitCloneTaskRef:       taskGitCloneRef,
+		FuncBuildpacksTaskRef: taskFuncBuildpacksRef,
+		FuncS2iTaskRef:        taskFuncS2iRef,
+		FuncDeployTaskRef:     taskFuncDeployRef,
+
+		PipelineYamlURL: fmt.Sprintf("%s/%s", resourcesDirectory, pipelineFileName),
+
+		S2iImageScriptsUrl: s2iImageScriptsUrl,
+
 		RepoUrl:  "{{ repo_url }}",
 		Revision: "{{ revision }}",
 	}
 
 	if f.Build.Builder == builders.Pack {
 		return createResource(f.Root, pipelineRunFilenane, packRunTemplate, data)
+	} else if f.Build.Builder == builders.S2I {
+		return createResource(f.Root, pipelineRunFilenane, s2iRunTemplate, data)
 	}
 
 	return fmt.Errorf("builder %q is not supported", f.Build.Builder)
