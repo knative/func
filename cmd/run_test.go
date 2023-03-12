@@ -52,6 +52,37 @@ created: 2009-11-10 23:00:00`,
 			runInvoked:   true,
 		},
 		{
+			name: "run and build with builder pack",
+			desc: "Should run and build when build is specifically requested with builder pack",
+			funcState: `name: test-func
+runtime: go
+created: 2023-03-12 15:00:00`,
+			args:         []string{"--build=true", "--builder=pack"},
+			buildInvoked: true,
+			runInvoked:   true,
+		},
+		{
+			name: "run and build with builder s2i",
+			desc: "Should run and build when build is specifically requested with builder s2i",
+			funcState: `name: test-func
+runtime: go
+created: 2023-03-12 15:00:00`,
+			args:         []string{"--build=true", "--builder=s2i"},
+			buildInvoked: true,
+			runInvoked:   true,
+		},
+		{
+			name: "run and build with builder invalid",
+			desc: "Should run and build when build is specifically requested with builder invalid",
+			funcState: `name: test-func
+runtime: go
+created: 2023-03-12 15:00:00`,
+			args:         []string{"--build=true", "--builder=invalid"},
+			buildError:   fmt.Errorf("\"invalid\" is not a known builder. Available builders are \"pack\" and \"s2i\""),
+			buildInvoked: true,
+			runInvoked:   true,
+		},
+		{
 			name: "run without build when disabled",
 			desc: "Should run but not build when build is expressly disabled",
 			funcState: `name: test-func

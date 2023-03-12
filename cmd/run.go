@@ -10,6 +10,9 @@ import (
 	"github.com/spf13/cobra"
 	"knative.dev/client/pkg/util"
 
+	"knative.dev/func/pkg/builders"
+	"knative.dev/func/pkg/builders/buildpacks"
+	"knative.dev/func/pkg/builders/s2i"
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
 )
@@ -26,16 +29,24 @@ specified by --path flag.
 Building
 By default the function will be built if never built, or if changes are detected
 to the function's source.  Use --build to override this behavior.
+Also a builder strategy (pack, s2i) can be chosen using the --builder option.
+Default builder is pack.
 
 `,
 		Example: `
 # Run the function locally, building if necessary
 {{rootCmdUse}} run
 
+# Run the function locally, building if necessary, with --builder option
+{{rootCmdUse}} run --builder s2i
+
 # Run the function, forcing a rebuild of the image.
 #   This is useful when the function's image was manually deleted, necessitating
 #   A rebuild even when no changes have been made the function's source.
 {{rootCmdUse}} run --build
+
+# Run the function, forcing a rebuild of the image with --builder option.
+{{rootCmdUse}} run --build --builder s2i
 
 # Run the function's existing image, disabling auto-build.
 #   This is useful when filesystem changes have been made, but one wishes to
@@ -44,7 +55,7 @@ to the function's source.  Use --build to override this behavior.
 
 `,
 		SuggestFor: []string{"rnu"},
-		PreRunE:    bindEnv("build", "path", "registry", "verbose"),
+		PreRunE:    bindEnv("build", "path", "builder", "registry", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runRun(cmd, args, newClient)
 		},
@@ -61,9 +72,16 @@ to the function's source.  Use --build to override this behavior.
 			"To unset, specify the environment variable name followed by a \"-\" (e.g., NAME-).")
 	cmd.Flags().StringP("build", "b", "auto", "Build the function. [auto|true|false].")
 	cmd.Flags().Lookup("build").NoOptDefVal = "true" // --build is equivalient to --build=true
+	cmd.Flags().StringP("builder", "", cfg.Builder,
+		fmt.Sprintf("Builder to use when creating the function's container. Currently supported builders are %s. (Env: $FUNC_BUILDER)", KnownBuilders()))
 	cmd.Flags().StringP("registry", "r", "", "Registry + namespace part of the image if building, ex 'quay.io/myuser' (Env: $FUNC_REGISTRY)")
 	addPathFlag(cmd)
 	addVerboseFlag(cmd, cfg.Verbose)
+
+	// Tab Completion
+	if err := cmd.RegisterFlagCompletionFunc("builder", CompleteBuilderList); err != nil {
+		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
+	}
 
 	return cmd
 }
@@ -93,10 +111,24 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 		}
 	}
 
+	// Concrete implementations (ex builder) vary based on final effective config
+	var builder fn.Builder
+	if cfg.Builder == builders.Pack {
+		builder = buildpacks.NewBuilder(
+			buildpacks.WithName(builders.Pack),
+			buildpacks.WithVerbose(cfg.Verbose))
+	} else if cfg.Builder == builders.S2I {
+		builder = s2i.NewBuilder(
+			s2i.WithName(builders.S2I),
+			s2i.WithVerbose(cfg.Verbose))
+	} else {
+		return builders.ErrUnknownBuilder{Name: cfg.Builder, Known: KnownBuilders()}
+	}
+
 	// Client for use running (and potentially building), using the config
 	// gathered plus any additional option overrieds (such as for providing
 	// mocks when testing for builder and runner)
-	client, done := newClient(ClientConfig{Verbose: cfg.Verbose}, fn.WithRegistry(cfg.Registry))
+	client, done := newClient(ClientConfig{Verbose: cfg.Verbose}, fn.WithRegistry(cfg.Registry), fn.WithBuilder(builder))
 	defer done()
 
 	// Build?
@@ -165,6 +197,9 @@ type runConfig struct {
 	// value such as 'true', 'false, '1' or '0'.
 	Build string
 
+	// Builder strategy if building
+	Builder string
+
 	// Registry for the build tag if building
 	Registry string
 }
@@ -178,6 +213,7 @@ func newRunConfig(cmd *cobra.Command) (cfg runConfig, err error) {
 		Build:       viper.GetString("build"),
 		Path:        viper.GetString("path"),
 		Verbose:     viper.GetBool("verbose"), // defined on root
+		Builder:     viper.GetString("builder"),
 		Registry:    viper.GetString("registry"),
 		EnvToUpdate: envToUpdate,
 		EnvToRemove: envToRemove,
