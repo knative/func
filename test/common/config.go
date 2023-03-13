@@ -1,4 +1,4 @@
-package e2e
+package common
 
 import (
 	"os"
@@ -9,8 +9,7 @@ import (
 
 // Intended to provide setup configuration for E2E tests
 const (
-	defaultRegistry        = "localhost:50000/user"
-	testTemplateRepository = "http://github.com/boson-project/test-templates.git" //nolint:varcheck,deadcode
+	DefaultRegistry = "localhost:50000/user"
 )
 
 var testRegistry = ""
@@ -22,7 +21,7 @@ func init() {
 		if openshift.IsOpenShift() {
 			testRegistry = openshift.GetDefaultRegistry()
 		} else {
-			testRegistry = defaultRegistry
+			testRegistry = DefaultRegistry
 		}
 	}
 }

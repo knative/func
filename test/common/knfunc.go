@@ -2,19 +2,17 @@ package common
 
 import (
 	"testing"
-
-	e2e "knative.dev/func/test/e2e"
 )
 
 func NewKnFuncShellCli(t *testing.T) *TestExecCmd {
 	knFunc := TestExecCmd{}
 	knFunc.T = t
 
-	if e2e.IsUseKnFunc() {
+	if IsUseKnFunc() {
 		knFunc.Binary = "kn"
 		knFunc.BinaryArgs = []string{"func"}
 	} else {
-		knFunc.Binary = e2e.GetFuncBinaryPath()
+		knFunc.Binary = GetFuncBinaryPath()
 		if knFunc.Binary == "" {
 			t.Log("'func' binary not defined. Please set E2E_FUNC_BIN_PATH environment variable prior to running tests")
 			t.FailNow()
@@ -26,5 +24,9 @@ func NewKnFuncShellCli(t *testing.T) *TestExecCmd {
 	}
 	knFunc.ShouldDumpCmdLine = true
 	knFunc.ShouldFailOnError = true
+	knFunc.OnFinishCallback = func(result *TestExecCmdResult) {
+		cleanedOut := CleanOutput(result.Out)
+		result.Out = cleanedOut
+	}
 	return &knFunc
 }

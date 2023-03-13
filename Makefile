@@ -59,7 +59,7 @@ test: $(CODE) ## Run core unit tests
 
 check: bin/golangci-lint ## Check code quality (lint)
 	./bin/golangci-lint run --timeout 300s
-	cd test/e2e && ../../bin/golangci-lint run --timeout 300s
+	cd test && ../bin/golangci-lint run --timeout 300s
 
 bin/golangci-lint:
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./bin v1.49.0
@@ -150,7 +150,6 @@ func-instrumented: ## Func binary that is instrumented for e2e tests
 	env CGO_ENABLED=1 go build -ldflags $(LDFLAGS) -cover -o func ./cmd/func
 
 test-e2e: func-instrumented ## Run end-to-end tests using an available cluster.
-	./test/e2e_lifecycle_tests.sh node
 	./test/e2e_extended_tests.sh
 
 test-e2e-runtime: func-instrumented ## Run end-to-end lifecycle tests using an available cluster for a single runtime.

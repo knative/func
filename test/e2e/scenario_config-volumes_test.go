@@ -5,16 +5,19 @@ package e2e
 
 import (
 	"context"
-	"os"
+	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"gotest.tools/v3/assert"
+	"knative.dev/func/test/common"
+	"knative.dev/func/test/testhttp"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"knative.dev/func/pkg/builders"
 	"knative.dev/func/pkg/k8s"
 )
 
@@ -73,13 +76,13 @@ func tearDownConfigVolumesTest() {
 }
 
 // ConfigVolumesAdd generates a go function to test `func config volumes add` with user input
-func ConfigVolumesAdd(knFunc *TestShellInteractiveCmdRunner, project *FunctionTestProject) func(userInput ...string) {
-	return PrepareInteractiveCommand(knFunc, "config", "volumes", "add", "--path", project.ProjectPath)
+func ConfigVolumesAdd(knFunc *common.TestInteractiveCmd) func(userInput ...string) {
+	return PrepareInteractiveCommand(knFunc, "config", "volumes", "add")
 }
 
 // ConfigVolumesRemove generates a go function to test `func config volumes remove` with user input
-func ConfigVolumesRemove(knFunc *TestShellInteractiveCmdRunner, project *FunctionTestProject) func(userInput ...string) {
-	return PrepareInteractiveCommand(knFunc, "config", "volumes", "remove", "--path", project.ProjectPath)
+func ConfigVolumesRemove(knFunc *common.TestInteractiveCmd) func(userInput ...string) {
+	return PrepareInteractiveCommand(knFunc, "config", "volumes", "remove")
 }
 
 // TestConfigVolumes verifies configMaps and secrets were properly mounted as volumes and accessible to the function
@@ -92,28 +95,27 @@ func TestConfigVolumes(t *testing.T) {
 	setupConfigVolumesTest(t)
 	defer tearDownConfigVolumesTest()
 
-	knFunc := NewTestShellInteractiveCmdRunner(t)
-	knFunc.TestShell.ShouldDumpOnSuccess = false
-	knFunc.commandSleepInterval = time.Millisecond * 1500
+	knFunc := common.NewTestShellInteractiveCmd(t)
+	knFunc.TestCmd.ShouldDumpOnSuccess = false
+	knFunc.CommandSleepInterval = time.Millisecond * 1500
 
 	// On When...
-	project := FunctionTestProject{}
-	project.Runtime = "go"
-	project.Template = "volumes"
-	project.FunctionName = "test-config-volumes"
-	project.ProjectPath = filepath.Join(os.TempDir(), project.FunctionName)
-	project.RemoteRepository = "http://github.com/boson-project/test-templates.git"
-	project.Builder = builders.Pack
+	funcName := "test-config-volumes"
+	funcPath := filepath.Join(t.TempDir(), funcName)
 
-	Create(t, knFunc.TestShell, project)
-	defer project.RemoveProjectFolder()
+	knFunc.TestCmd.Exec("create",
+		"--language", "go",
+		"--template", "volumes",
+		"--repository", "http://github.com/boson-project/test-templates.git",
+		funcPath)
+	knFunc.TestCmd.SourceDir = funcPath
 
 	/*
 		? What do you want to mount as a Volume?  [Use arrows to move, type to filter]
 		> ConfigMap
 		  Secret
 	*/
-	configVolumesAdd := ConfigVolumesAdd(knFunc, &project)
+	configVolumesAdd := ConfigVolumesAdd(knFunc)
 
 	configVolumesAdd(
 		enter,                   // > ConfigMap
@@ -137,15 +139,14 @@ func TestConfigVolumes(t *testing.T) {
 		"/test/bad-secret", enter)
 
 	// Delete unwanted entries
-	configVolumesRemove := ConfigVolumesRemove(knFunc, &project)
+	configVolumesRemove := ConfigVolumesRemove(knFunc)
 	configVolumesRemove("/bad-secret", enter)
 	configVolumesRemove("/bad-cm", enter)
 
 	// Deploy
-	Build(t, knFunc.TestShell, &project)
-	Deploy(t, knFunc.TestShell, &project)
-	defer Delete(t, knFunc.TestShell, &project)
-	ReadyCheck(t, knFunc.TestShell, project)
+	knFunc.TestCmd.Exec("deploy", "--builder", "pack", "--registry", common.GetRegistry())
+	defer knFunc.TestCmd.Exec("delete")
+	_, functionUrl := common.WaitForFunctionReady(t, funcName)
 
 	// Validate
 	// The function template used by this test will return
@@ -158,11 +159,11 @@ func TestConfigVolumes(t *testing.T) {
 		"/test/bad-cm/config-key1":        "",
 		"/test/bad-secret/secret-key1":    "",
 	}
-	functionRespValidator := FunctionHttpResponsivenessValidator{runtime: "go"}
+	//functionRespValidator := FuncResponsivenessValidator{}
 	for expectedVolumeEntry, expectedFileContent := range expectedMap {
-		functionRespValidator.targetUrl = "%v?v=" + expectedVolumeEntry
-		functionRespValidator.expects = expectedFileContent
-		functionRespValidator.Validate(t, project)
+		targetUrl := fmt.Sprintf("%s?v=%s", functionUrl, expectedVolumeEntry)
+		_, funcResponse := testhttp.TestGet(t, targetUrl)
+		assert.Assert(t, funcResponse == expectedFileContent)
 	}
 
 }

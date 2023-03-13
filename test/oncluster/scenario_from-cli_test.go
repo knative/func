@@ -25,7 +25,6 @@ import (
 	"gotest.tools/v3/assert"
 	"k8s.io/apimachinery/pkg/util/rand"
 	common "knative.dev/func/test/common"
-	e2e "knative.dev/func/test/e2e"
 )
 
 // TestFromCliDefaultBranch triggers a default branch test by using CLI flags
@@ -48,7 +47,7 @@ func TestFromCliDefaultBranch(t *testing.T) {
 	GitInitialCommitAndPush(t, gitProjectPath, remoteRepo.ExternalCloneURL)
 
 	knFunc.Exec("deploy",
-		"-r", e2e.GetRegistry(),
+		"-r", common.GetRegistry(),
 		"-p", funcPath,
 		"--remote",
 		"--verbose",
@@ -90,7 +89,7 @@ func TestFromCliFeatureBranch(t *testing.T) {
 	sh.Exec("git push -u origin feature/branch")
 
 	knFunc.Exec("deploy",
-		"-r", e2e.GetRegistry(),
+		"-r", common.GetRegistry(),
 		"-p", funcPath,
 		"--remote",
 		"--verbose",
@@ -129,7 +128,7 @@ func TestFromCliContextDirFunc(t *testing.T) {
 	GitInitialCommitAndPush(t, gitProjectPath, remoteRepo.ExternalCloneURL)
 
 	knFunc.Exec("deploy",
-		"-r", e2e.GetRegistry(),
+		"-r", common.GetRegistry(),
 		"-p", funcPath,
 		"--remote",
 		"--verbose",

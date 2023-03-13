@@ -11,11 +11,13 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+
+	"knative.dev/func/test/common"
 )
 
 func TestMain(t *testing.M) {
 
-	if GetRegistry() == defaultRegistry {
+	if common.GetRegistry() == common.DefaultRegistry {
 		err := patchOrCreateDockerConfigFile()
 		if err != nil {
 			panic(err.Error())
@@ -74,7 +76,7 @@ func updateConfigAuth(dockerConfigFile string) error {
 		return err
 	}
 	content := string(bcontent)
-	if !strings.Contains(content, strings.Split(defaultRegistry, "/")[0]) {
+	if !strings.Contains(content, strings.Split(common.DefaultRegistry, "/")[0]) {
 		// default registry is not present on .docker/config.json, so let's add it
 		log.Println("Updating ./docker/config.json file with default registry authentication.")
 		exp := regexp.MustCompile(`"auths"[\s]*?[:][\s]*?{`)

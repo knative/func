@@ -12,7 +12,6 @@ import (
 	"gotest.tools/v3/assert"
 	"k8s.io/apimachinery/pkg/util/rand"
 	common "knative.dev/func/test/common"
-	e2e "knative.dev/func/test/e2e"
 )
 
 // TestBasicUpload check if direct source upload works
@@ -31,7 +30,7 @@ func TestBasicUpload(t *testing.T) {
 		// Deploy it
 		knFunc.Exec("deploy",
 			"-p", funcPath,
-			"-r", e2e.GetRegistry(),
+			"-r", common.GetRegistry(),
 			"--remote",
 			"--verbose",
 		)
@@ -41,18 +40,18 @@ func TestBasicUpload(t *testing.T) {
 		result := knFunc.Exec("invoke", "-p", funcPath)
 		assert.Assert(t, strings.Contains(result.Out, "first revision"), "Func body does not contain 'first revision'")
 
-		previousServiceRevision := e2e.GetCurrentServiceRevision(t, funcName)
+		previousServiceRevision := common.GetCurrentServiceRevision(t, funcName)
 
 		// Update index.js to force node func to return 'new revision'
 		WriteNewSimpleIndexJS(t, funcPath, "new revision")
 
 		// Re-Deploy Func
 		knFunc.Exec("deploy",
-			"-r", e2e.GetRegistry(),
+			"-r", common.GetRegistry(),
 			"-p", funcPath,
 			"--remote",
 			"--verbose")
-		e2e.NewRevisionCheck(t, previousServiceRevision, funcName) // Wait New Service Revision
+		common.WaitForNewRevisionReady(t, previousServiceRevision, funcName) // Wait New Service Revision
 
 		// -- Assertions --
 		result = knFunc.Exec("invoke", "-p", funcPath)
@@ -88,7 +87,7 @@ func TestBasicGit(t *testing.T) {
 		// Deploy it
 		knFunc.Exec("deploy",
 			"-p", funcPath,
-			"-r", e2e.GetRegistry(),
+			"-r", common.GetRegistry(),
 			"--remote",
 			"--verbose",
 			"--git-url", remoteRepo.ClusterCloneURL,
@@ -99,7 +98,7 @@ func TestBasicGit(t *testing.T) {
 		result := knFunc.Exec("invoke", "-p", funcPath)
 		assert.Assert(t, strings.Contains(result.Out, "first revision"), "Func body does not contain 'first revision'")
 
-		previousServiceRevision := e2e.GetCurrentServiceRevision(t, funcName)
+		previousServiceRevision := common.GetCurrentServiceRevision(t, funcName)
 
 		// Update index.js to force node func to return 'new revision'
 		WriteNewSimpleIndexJS(t, funcPath, "new revision")
@@ -109,11 +108,11 @@ func TestBasicGit(t *testing.T) {
 
 		// Re-Deploy Func
 		knFunc.Exec("deploy",
-			"-r", e2e.GetRegistry(),
+			"-r", common.GetRegistry(),
 			"-p", funcPath,
 			"--remote",
 			"--verbose")
-		e2e.NewRevisionCheck(t, previousServiceRevision, funcName) // Wait New Service Revision
+		common.WaitForNewRevisionReady(t, previousServiceRevision, funcName) // Wait New Service Revision
 
 		// -- Assertions --
 		result = knFunc.Exec("invoke", "-p", funcPath)

@@ -3,11 +3,10 @@ package common
 import (
 	"context"
 
-	"knative.dev/func/pkg/k8s"
-	e2e "knative.dev/func/test/e2e"
-
 	"strings"
 	"testing"
+
+	"knative.dev/func/pkg/k8s"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -70,7 +69,7 @@ func (g *GitTestServerProvider) Init(T *testing.T) {
 
 	if g.ServiceUrl == "" {
 		// Get Route Name
-		g.ServiceUrl = e2e.GetKnativeServiceUrl(T, "func-git")
+		_, g.ServiceUrl = GetKnativeServiceRevisionAndUrl(T, "func-git")
 	}
 
 	if g.Kubectl == nil {

@@ -49,13 +49,13 @@ if [[ ! -f func && "$use_kn_func" != "true" ]]; then
 fi
 
 if [[ "$runtime" != "" ]]; then
-  export E2E_RUNTIME=$runtime
+  export E2E_RUNTIMES=$runtime
 fi
 
 export E2E_FUNC_BIN_PATH=$(pwd)/func
 
 go clean -testcache
-go test -v -test.v -test.timeout=45m -tags="e2elc" ./test/e2e/
+go test -v -test.v -test.timeout=60m -tags="e2elc" ./test/e2e/
 ret=$?
 
 go tool covdata textfmt -i=./.coverage -o coverage.txt

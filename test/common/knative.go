@@ -1,4 +1,4 @@
-package e2e
+package common
 
 import (
 	"context"
@@ -47,10 +47,11 @@ func GetCurrentServiceRevision(t *testing.T, serviceName string) string {
 	return latestReadyRevision
 }
 
-func GetKnativeServiceUrl(t *testing.T, functionName string) string {
-	resource := RetrieveKnativeServiceResource(t, functionName)
+func GetKnativeServiceRevisionAndUrl(t *testing.T, serviceName string) (revision string, url string) {
+	resource := RetrieveKnativeServiceResource(t, serviceName)
 	rootMap := resource.UnstructuredContent()
 	statusMap := rootMap["status"].(map[string]interface{})
-	url := statusMap["url"].(string)
-	return url
+	revision = statusMap["latestReadyRevisionName"].(string)
+	url = statusMap["url"].(string)
+	return revision, url
 }
