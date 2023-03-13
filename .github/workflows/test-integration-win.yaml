@@ -11,13 +11,13 @@ jobs:
         os: ["windows-latest"]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
-        with:
-          go-version: ${{ matrix.go }}
+#      - uses: actions/checkout@v3
+#      - uses: actions/setup-go@v3
+#        with:
+#          go-version: ${{ matrix.go }}
       - name: test
         run: |
-          docker.exe run -it --rm --entrypoint echo fedora:latest "hello"
+          docker.exe run -it --rm --entrypoint sh fedora:latest -c "sleep 1 && echo hello && sleep 1"
 #      - name: Install Binaries
 #        run: ./hack/binaries.sh
 #      - name: Allocate Cluster
