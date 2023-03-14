@@ -76,6 +76,15 @@ Learn more about Knative at: https://knative.dev`, cfg.Name),
 			},
 		},
 		{
+			Header: "Function Metadata:",
+			Commands: []*cobra.Command{
+				NewGitCmd(newClient),
+				NewEnvsCmd(newClient),
+				NewLabelsCmd(newClient),
+				NewVolumesCmd(newClient),
+			},
+		},
+		{
 			Header: "Development Commands:",
 			Commands: []*cobra.Command{
 				NewRunCmd(newClient),
@@ -84,16 +93,16 @@ Learn more about Knative at: https://knative.dev`, cfg.Name),
 			},
 		},
 		{
-			Header: "System Commands:",
+			Header: "System Settings:",
 			Commands: []*cobra.Command{
-				NewConfigCmd(defaultLoaderSaver, newClient),
+				// NewConfigCmd(defaultLoaderSaver), // NOTE: Global Config being added in a separate PR
 				NewLanguagesCmd(newClient),
 				NewTemplatesCmd(newClient),
 				NewRepositoryCmd(newClient),
 			},
 		},
 		{
-			Header: "Other Commands:",
+			Header: "Other:",
 			Commands: []*cobra.Command{
 				NewCompletionCmd(),
 				NewVersionCmd(cfg.Version),
@@ -132,10 +141,13 @@ func effectivePath() (path string) {
 	)
 	fs.SetOutput(io.Discard)
 	fs.ParseErrorsWhitelist.UnknownFlags = true // wokeignore:rule=whitelist
-	err := fs.Parse(os.Args[1:])
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error preparsing flags: %v\n", err)
-	}
+	_ = fs.Parse(os.Args[1:])
+	// NOTE: Errors ignored
+	// Preparsing is opportunistic, errors suppressed
+	// For example, if --help were passed this would error, despite
+	// the command which is instantiated and parses flags later understanding,
+	// and implementing the requst.  This pre-parsing step simply looks
+	// for the path flag and is tolerante of any errors.
 	if env != "" {
 		path = env
 	}

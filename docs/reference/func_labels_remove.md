@@ -1,4 +1,4 @@
-## func config labels remove
+## func labels remove
 
 Remove labels from the function configuration
 
@@ -11,7 +11,7 @@ directory or from the directory specified with --path.
 
 
 ```
-func config labels remove
+func labels remove
 ```
 
 ### Options
@@ -24,5 +24,5 @@ func config labels remove
 
 ### SEE ALSO
 
-* [func config labels](func_config_labels.md)	 - List and manage configured labels for a function
+* [func labels](func_labels.md)	 - Manage function labels
 

@@ -1,16 +1,13 @@
 package cmd
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/AlecAivazis/survey/v2/terminal"
-	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
 	"knative.dev/func/pkg/config"
@@ -19,56 +16,85 @@ import (
 	"knative.dev/func/pkg/utils"
 )
 
-func NewConfigEnvsCmd(loadSaver functionLoaderSaver) *cobra.Command {
+func NewEnvsCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "envs",
-		Short: "List and manage configured environment variable for a function",
-		Long: `List and manage configured environment variable for a function
+		Short: "Manage function environment variables",
+		Long: `{{rootCmdUse}} envs
 
-Prints configured Environment variable for a function project present in
-the current directory or from the directory specified with --path.
-`,
+Manages function environment variables.  Default is to list currently configured
+environment variables for the function.  See subcommands 'add' and 'remove'.`,
 		Aliases:    []string{"env"},
 		SuggestFor: []string{"ensv"},
 		PreRunE:    bindEnv("path", "output", "verbose"),
-		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			function, err := initConfigCommand(loadSaver)
-			if err != nil {
-				return
-			}
-
-			return listEnvs(function, cmd.OutOrStdout(), Format(viper.GetString("output")))
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runEnvs(cmd, newClient)
 		},
 	}
+
+	// Global Config
 	cfg, err := config.NewDefault()
 	if err != nil {
 		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
 
+	// Flags
+	addVerboseFlag(cmd, cfg.Verbose)
+	addPathFlag(cmd)
+
+	// TODO: use global config Output setting, treating empty string as deafult
+	// to mean human-optimized.
 	cmd.Flags().StringP("output", "o", "human", "Output format (human|json) (Env: $FUNC_OUTPUT)")
 
-	configEnvsAddCmd := NewConfigEnvsAddCmd(loadSaver)
-	configEnvsRemoveCmd := NewConfigEnvsRemoveCmd()
-
-	addPathFlag(cmd)
-	addPathFlag(configEnvsAddCmd)
-	addPathFlag(configEnvsRemoveCmd)
-
-	addVerboseFlag(cmd, cfg.Verbose)
-	addVerboseFlag(configEnvsAddCmd, cfg.Verbose)
-	addVerboseFlag(configEnvsRemoveCmd, cfg.Verbose)
-
-	cmd.AddCommand(configEnvsAddCmd)
-	cmd.AddCommand(configEnvsRemoveCmd)
+	// Subcommands
+	cmd.AddCommand(NewEnvsAddCmd(newClient))
+	cmd.AddCommand(NewEnvsRemoveCmd(newClient))
 
 	return cmd
 }
 
-func NewConfigEnvsAddCmd(loadSaver functionLoaderSaver) *cobra.Command {
+func runEnvs(cmd *cobra.Command, newClient ClientFactory) (err error) {
+	var (
+		cfg metadataConfig
+		f   fn.Function
+	)
+	if cfg, err = newMetadataConfig().Prompt(); err != nil {
+		return
+	}
+	if err = cfg.Validate(); err != nil {
+		return
+	}
+	if f, err = fn.NewFunction(cfg.Path); err != nil {
+		return
+	}
+	if f, err = cfg.Configure(f); err != nil { // update f with metadata cfg
+		return
+	}
+
+	switch Format(cfg.Output) {
+	case Human:
+		if len(f.Run.Envs) == 0 {
+			fmt.Fprintln(cmd.OutOrStdout(), "No environment variables")
+			return
+		}
+		fmt.Fprintln(cmd.OutOrStdout(), "Environment variables:")
+		for _, v := range f.Run.Envs {
+			fmt.Fprintf(cmd.OutOrStdout(), "  %s\n", v)
+		}
+		return
+	case JSON:
+		return json.NewEncoder(cmd.OutOrStdout()).Encode(f.Run.Envs)
+	default:
+		fmt.Fprintf(cmd.ErrOrStderr(), "invalid format: %v", cfg.Output)
+		return
+	}
+}
+
+func NewEnvsAddCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add",
-		Short: "Add environment variable to the function configuration",
-		Long: `Add environment variable to the function configuration.
+		Short: "Add environment variable to the function",
+		Long: `Add environment variable to the function.
 
 If environment variable is not set explicitly by flag, interactive prompt is used.
 
@@ -76,118 +102,95 @@ The environment variable can be set directly from a value,
 from an environment variable on the local machine or from Secrets and ConfigMaps.
 It is also possible to import all keys as environment variables from a Secret or ConfigMap.`,
 		Example: `# set environment variable directly
-{{rootCmdUse}} config envs add --name=VARNAME --value=myValue
+{{rootCmdUse}} envs add --name=VARNAME --value=myValue
 
 # set environment variable from local env $LOC_ENV
-{{rootCmdUse}} config envs add --name=VARNAME --value='{{"{{"}} env:LOC_ENV {{"}}"}}'
+{{rootCmdUse}} envs add --name=VARNAME --value='{{"{{"}} env:LOC_ENV {{"}}"}}'
 
 set environment variable from a secret
-{{rootCmdUse}} config envs add --name=VARNAME --value='{{"{{"}} secret:secretName:key {{"}}"}}'
+{{rootCmdUse}} envs add --name=VARNAME --value='{{"{{"}} secret:secretName:key {{"}}"}}'
 
 # set all key as environment variables from a secret
-{{rootCmdUse}} config envs add --value='{{"{{"}} secret:secretName {{"}}"}}'
+{{rootCmdUse}} envs add --value='{{"{{"}} secret:secretName {{"}}"}}'
 
 # set environment variable from a configMap
-{{rootCmdUse}} config envs add --name=VARNAME --value='{{"{{"}} configMap:confMapName:key {{"}}"}}'
+{{rootCmdUse}} envs add --name=VARNAME --value='{{"{{"}} configMap:confMapName:key {{"}}"}}'
 
 # set all key as environment variables from a configMap
-{{rootCmdUse}} config envs add --value='{{"{{"}} configMap:confMapName {{"}}"}}'`,
+{{rootCmdUse}} envs add --value='{{"{{"}} configMap:confMapName {{"}}"}}'`,
 		SuggestFor: []string{"ad", "create", "insert", "append"},
-		PreRunE:    bindEnv("path", "name", "value", "verbose"),
-		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			function, err := initConfigCommand(loadSaver)
-			if err != nil {
-				return
-			}
-
-			var np *string
-			var vp *string
-
-			if cmd.Flags().Changed("name") {
-				s, e := cmd.Flags().GetString("name")
-				if e != nil {
-					return e
-				}
-				np = &s
-			}
-			if cmd.Flags().Changed("value") {
-				s, e := cmd.Flags().GetString("value")
-				if e != nil {
-					return e
-				}
-				vp = &s
-			}
-
-			if np != nil || vp != nil {
-				if np != nil {
-					if err := utils.ValidateEnvVarName(*np); err != nil {
-						return err
-					}
-				}
-
-				function.Run.Envs = append(function.Run.Envs, fn.Env{Name: np, Value: vp})
-				return loadSaver.Save(function)
-			}
-
-			return runAddEnvsPrompt(cmd.Context(), function)
+		PreRunE:    bindEnv("verbose", "path", "name", "value"),
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runEnvsAdd(cmd, newClient)
 		},
 	}
+	cfg, err := config.NewDefault()
+	if err != nil {
+		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
+	}
 
+	addVerboseFlag(cmd, cfg.Verbose)
+	addPathFlag(cmd)
 	cmd.Flags().StringP("name", "", "", "Name of the environment variable.")
 	cmd.Flags().StringP("value", "", "", "Value of the environment variable.")
 
 	return cmd
 }
 
-func NewConfigEnvsRemoveCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "remove",
-		Short: "Remove environment variable from the function configuration",
-		Long: `Remove environment variable from the function configuration
-
-Interactive prompt to remove Environment variables from the function project
-in the current directory or from the directory specified with --path.
-`,
-		Aliases:    []string{"rm"},
-		SuggestFor: []string{"del", "delete", "rmeove"},
-		PreRunE:    bindEnv("path", "verbose"),
-		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			function, err := initConfigCommand(defaultLoaderSaver)
-			if err != nil {
-				return
-			}
-
-			return runRemoveEnvsPrompt(function)
-		},
+func runEnvsAdd(cmd *cobra.Command, newClient ClientFactory) (err error) {
+	var (
+		cfg metadataConfig
+		f   fn.Function
+	)
+	if cfg, err = newMetadataConfig().Prompt(); err != nil {
+		return
+	}
+	if err = cfg.Validate(); err != nil {
+		return
+	}
+	if f, err = fn.NewFunction(cfg.Path); err != nil {
+		return
+	}
+	if f, err = cfg.Configure(f); err != nil { // update f with metadata cfg
+		return
 	}
 
-}
+	// TODO:  the below implementation was imported verbatim from config_envs.go
+	//        which was written before global and local config was created.
+	//  As such it needs to be refactored to use name and value flags from config,
+	// the validation function of config, and have its major sections extracted.
+	// Furthermore, the core functionality should probably be in the core
+	// client library and merely invoked from this CLI such that users of the
+	// client library have access to these features.
 
-func listEnvs(f fn.Function, w io.Writer, outputFormat Format) error {
-	switch outputFormat {
-	case Human:
-		if len(f.Run.Envs) == 0 {
-			_, err := fmt.Fprintln(w, "There aren't any configured Environment variables")
-			return err
+	var np *string
+	var vp *string
+
+	if cmd.Flags().Changed("name") {
+		s, e := cmd.Flags().GetString("name")
+		if e != nil {
+			return e
 		}
+		np = &s
+	}
+	if cmd.Flags().Changed("value") {
+		s, e := cmd.Flags().GetString("value")
+		if e != nil {
+			return e
+		}
+		vp = &s
+	}
 
-		fmt.Println("Configured Environment variables:")
-		for _, e := range f.Run.Envs {
-			_, err := fmt.Fprintln(w, " - ", e.String())
-			if err != nil {
+	if np != nil || vp != nil {
+		if np != nil {
+			if err := utils.ValidateEnvVarName(*np); err != nil {
 				return err
 			}
 		}
-		return nil
-	case JSON:
-		enc := json.NewEncoder(w)
-		return enc.Encode(f.Run.Envs)
-	default:
-		return fmt.Errorf("bad format: %v", outputFormat)
-	}
-}
 
-func runAddEnvsPrompt(ctx context.Context, f fn.Function) (err error) {
+		f.Run.Envs = append(f.Run.Envs, fn.Env{Name: np, Value: vp})
+		return f.Write()
+	}
 
 	insertToIndex := 0
 
@@ -219,11 +222,11 @@ func runAddEnvsPrompt(ctx context.Context, f fn.Function) (err error) {
 	}
 
 	// SECTION - select the type of Environment variable to be added
-	secrets, err := k8s.ListSecretsNamesIfConnected(ctx, f.Deploy.Namespace)
+	secrets, err := k8s.ListSecretsNamesIfConnected(cmd.Context(), f.Deploy.Namespace)
 	if err != nil {
 		return
 	}
-	configMaps, err := k8s.ListConfigMapsNamesIfConnected(ctx, f.Deploy.Namespace)
+	configMaps, err := k8s.ListConfigMapsNamesIfConnected(cmd.Context(), f.Deploy.Namespace)
 	if err != nil {
 		return
 	}
@@ -464,7 +467,49 @@ func runAddEnvsPrompt(ctx context.Context, f fn.Function) (err error) {
 	return
 }
 
-func runRemoveEnvsPrompt(f fn.Function) (err error) {
+func NewEnvsRemoveCmd(newClient ClientFactory) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "remove",
+		Short: "Remove environment variable from the function configuration",
+		Long: `Remove environment variable from the function configuration
+
+Interactive prompt to remove Environment variables from the function project
+in the current directory or from the directory specified with --path.
+`,
+		Aliases:    []string{"rm"},
+		SuggestFor: []string{"del", "delete", "rmeove"},
+		PreRunE:    bindEnv("path", "verbose"),
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runEnvsRemove(cmd, newClient)
+		},
+	}
+	cfg, err := config.NewDefault()
+	if err != nil {
+		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
+	}
+	addVerboseFlag(cmd, cfg.Verbose)
+	addPathFlag(cmd)
+	return cmd
+}
+
+func runEnvsRemove(cmd *cobra.Command, newClient ClientFactory) (err error) {
+	var (
+		cfg metadataConfig
+		f   fn.Function
+	)
+	if cfg, err = newMetadataConfig().Prompt(); err != nil {
+		return
+	}
+	if err = cfg.Validate(); err != nil {
+		return
+	}
+	if f, err = fn.NewFunction(cfg.Path); err != nil {
+		return
+	}
+	if f, err = cfg.Configure(f); err != nil { // update f with metadata cfg
+		return
+	}
+
 	if len(f.Run.Envs) == 0 {
 		fmt.Println("There aren't any configured Environment variables")
 		return

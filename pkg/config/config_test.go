@@ -400,6 +400,7 @@ func TestList(t *testing.T) {
 		"confirm",
 		"language",
 		"namespace",
+		"output",
 		"registry",
 		"verbose",
 	}

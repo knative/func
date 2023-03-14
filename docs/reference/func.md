@@ -25,16 +25,19 @@ Learn more about Knative at: https://knative.dev
 
 * [func build](func_build.md)	 - Build a function container
 * [func completion](func_completion.md)	 - Output functions shell completion code
-* [func config](func_config.md)	 - Configure a function
 * [func create](func_create.md)	 - Create a function
 * [func delete](func_delete.md)	 - Undeploy a function
 * [func deploy](func_deploy.md)	 - Deploy a function
 * [func describe](func_describe.md)	 - Describe a function
+* [func envs](func_envs.md)	 - Manage function environment variables
+* [func git](func_git.md)	 - Manage Git configuration of a function
 * [func invoke](func_invoke.md)	 - Invoke a local or remote function
+* [func labels](func_labels.md)	 - Manage function labels
 * [func languages](func_languages.md)	 - List available function language runtimes
 * [func list](func_list.md)	 - List deployed functions
 * [func repository](func_repository.md)	 - Manage installed template repositories
 * [func run](func_run.md)	 - Run the function locally
 * [func templates](func_templates.md)	 - List available function source templates
 * [func version](func_version.md)	 - Function client version information
+* [func volumes](func_volumes.md)	 - Manage function volumes
 

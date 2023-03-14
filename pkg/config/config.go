@@ -28,6 +28,9 @@ const (
 
 	// DefaultBuilder is statically defined by the builders package.
 	DefaultBuilder = builders.Default
+
+	// DefaultOutput is human-optimized.
+	DefaultOutput = "human"
 )
 
 // DefaultNamespace for remote operations is the currently active
@@ -51,6 +54,7 @@ type Global struct {
 	Confirm   bool   `yaml:"confirm,omitempty"`
 	Language  string `yaml:"language,omitempty"`
 	Namespace string `yaml:"namespace,omitempty"`
+	Output    string `yaml:"output,omitempty"`
 	Registry  string `yaml:"registry,omitempty"`
 	Verbose   bool   `yaml:"verbose,omitempty"`
 	// NOTE: all members must include their yaml serialized names, even when
@@ -64,6 +68,7 @@ func New() Global {
 	return Global{
 		Builder:  DefaultBuilder,
 		Language: DefaultLanguage,
+		Output:   DefaultOutput,
 		// ...
 	}
 }
@@ -137,14 +142,14 @@ func (c Global) Apply(f fn.Function) Global {
 	if f.Build.Builder != "" {
 		c.Builder = f.Build.Builder
 	}
-	if f.Runtime != "" {
-		c.Language = f.Runtime
-	}
 	if f.Deploy.Namespace != "" {
 		c.Namespace = f.Deploy.Namespace
 	}
 	if f.Registry != "" {
 		c.Registry = f.Registry
+	}
+	if f.Runtime != "" {
+		c.Language = f.Runtime
 	}
 	return c
 }

@@ -1,4 +1,4 @@
-## func config volumes remove
+## func volumes remove
 
 Remove volume from the function configuration
 
@@ -11,7 +11,7 @@ in the current directory or from the directory specified with --path.
 
 
 ```
-func config volumes remove
+func volumes remove
 ```
 
 ### Options
@@ -24,5 +24,5 @@ func config volumes remove
 
 ### SEE ALSO
 
-* [func config volumes](func_config_volumes.md)	 - List and manage configured volumes for a function
+* [func volumes](func_volumes.md)	 - Manage function volumes
 

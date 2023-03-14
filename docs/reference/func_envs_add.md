@@ -1,10 +1,10 @@
-## func config envs add
+## func envs add
 
-Add environment variable to the function configuration
+Add environment variable to the function
 
 ### Synopsis
 
-Add environment variable to the function configuration.
+Add environment variable to the function.
 
 If environment variable is not set explicitly by flag, interactive prompt is used.
 
@@ -13,29 +13,29 @@ from an environment variable on the local machine or from Secrets and ConfigMaps
 It is also possible to import all keys as environment variables from a Secret or ConfigMap.
 
 ```
-func config envs add
+func envs add
 ```
 
 ### Examples
 
 ```
 # set environment variable directly
-func config envs add --name=VARNAME --value=myValue
+func envs add --name=VARNAME --value=myValue
 
 # set environment variable from local env $LOC_ENV
-func config envs add --name=VARNAME --value='{{ env:LOC_ENV }}'
+func envs add --name=VARNAME --value='{{ env:LOC_ENV }}'
 
 set environment variable from a secret
-func config envs add --name=VARNAME --value='{{ secret:secretName:key }}'
+func envs add --name=VARNAME --value='{{ secret:secretName:key }}'
 
 # set all key as environment variables from a secret
-func config envs add --value='{{ secret:secretName }}'
+func envs add --value='{{ secret:secretName }}'
 
 # set environment variable from a configMap
-func config envs add --name=VARNAME --value='{{ configMap:confMapName:key }}'
+func envs add --name=VARNAME --value='{{ configMap:confMapName:key }}'
 
 # set all key as environment variables from a configMap
-func config envs add --value='{{ configMap:confMapName }}'
+func envs add --value='{{ configMap:confMapName }}'
 ```
 
 ### Options
@@ -50,5 +50,5 @@ func config envs add --value='{{ configMap:confMapName }}'
 
 ### SEE ALSO
 
-* [func config envs](func_config_envs.md)	 - List and manage configured environment variable for a function
+* [func envs](func_envs.md)	 - Manage function environment variables
 
