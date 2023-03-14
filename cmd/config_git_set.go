@@ -74,9 +74,9 @@ func NewConfigGitSetCmd(newClient ClientFactory) *cobra.Command {
 		"GitHub Webhook Secret used for payload validation. If not specified, it will be generated automatically.")
 
 	// Resources generated related Flags:
-	cmd.Flags().Bool("config-local", true, "Configure local resources (pipeline templates).")
-	cmd.Flags().Bool("config-cluster", true, "Configure cluster resources (credentials and config on cluster).")
-	cmd.Flags().Bool("config-remote", true, "Configure remote resources (webhook on the Git provider side).")
+	cmd.Flags().Bool("config-local", false, "Configure local resources (pipeline templates).")
+	cmd.Flags().Bool("config-cluster", false, "Configure cluster resources (credentials and config on cluster).")
+	cmd.Flags().Bool("config-remote", false, "Configure remote resources (webhook on the Git provider side).")
 
 	addPathFlag(cmd)
 	addVerboseFlag(cmd, cfg.Verbose)
@@ -102,6 +102,18 @@ type configGitSetConfig struct {
 // newConfigGitSetConfig creates a buildConfig populated from command flags and
 // environment variables; in that precedence.
 func newConfigGitSetConfig(cmd *cobra.Command) (c configGitSetConfig) {
+	// decide what resources we should configure:
+	// - by default all resources
+	// - if any parameter is explicitly specified then get value from parameters
+	configLocal := true
+	configCluster := true
+	configRemote := true
+	if viper.HasChanged("config-local") || viper.HasChanged("config-cluster") || viper.HasChanged("config-remote") {
+		configLocal = viper.GetBool("config-local")
+		configCluster = viper.GetBool("config-cluster")
+		configRemote = viper.GetBool("config-remote")
+	}
+
 	c = configGitSetConfig{
 		buildConfig: newBuildConfig(),
 		Namespace:   viper.GetString("namespace"),
@@ -114,9 +126,9 @@ func newConfigGitSetConfig(cmd *cobra.Command) (c configGitSetConfig) {
 			PersonalAccessToken: viper.GetString("gh-access-token"),
 			WebhookSecret:       viper.GetString("gh-webhook-secret"),
 
-			ConfigureLocalResources:   viper.GetBool("config-local"),
-			ConfigureClusterResources: viper.GetBool("config-cluster"),
-			ConfigureRemoteResources:  viper.GetBool("config-remote"),
+			ConfigureLocalResources:   configLocal,
+			ConfigureClusterResources: configCluster,
+			ConfigureRemoteResources:  configRemote,
 		},
 	}
 
