@@ -17,6 +17,7 @@ jobs:
 #          go-version: ${{ matrix.go }}
       - name: test
         run: |
+          bash.exe -c "echo hello"
           docker.exe run -i --rm --entrypoint sh fedora:latest -c "sleep 1 && echo hello && sleep 1"
 #      - name: Install Binaries
 #        run: ./hack/binaries.sh
