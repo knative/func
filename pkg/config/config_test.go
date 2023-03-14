@@ -217,6 +217,7 @@ func TestApply(t *testing.T) {
 		},
 		Runtime:  "runtime",
 		Registry: "registry",
+		Enable:   []string{"feature"},
 	}
 	cfg := config.Global{}.Apply(f)
 
@@ -231,6 +232,9 @@ func TestApply(t *testing.T) {
 	}
 	if cfg.Registry != "registry" {
 		t.Error("apply missing map of f.Registry")
+	}
+	if len(cfg.Enable) != 1 && cfg.Enable[0] != "feature" {
+		t.Error("apply missing slice of f.Enable")
 	}
 
 	// empty values in the function context should not zero out
@@ -248,9 +252,12 @@ func TestApply(t *testing.T) {
 	if cfg.Registry == "" {
 		t.Error("empty f.Registry should not be mapped")
 	}
+	if len(cfg.Enable) == 0 {
+		t.Error("empty f.Enable should not be mapped")
+	}
 }
 
-// TestConfigyre ensures that configuring a function results in every member
+// TestConfigure ensures that configuring a function results in every member
 // of the function in the intersection of the two sets, global config and function
 // members, to be set to the values of the config.
 // (See the associated cfg.Apply)
@@ -261,6 +268,7 @@ func TestConfigure(t *testing.T) {
 		Language:  "runtime",
 		Namespace: "namespace",
 		Registry:  "registry",
+		Enable:    []string{"feature"},
 	}
 	f = cfg.Configure(f)
 
@@ -275,6 +283,9 @@ func TestConfigure(t *testing.T) {
 	}
 	if f.Registry != "registry" {
 		t.Error("configure missing map for f.Registry")
+	}
+	if len(f.Enable) != 1 && f.Enable[0] != "feature" {
+		t.Error("configure missing map for f.Enable")
 	}
 
 	// empty values in the global config shoul not zero out function values
@@ -291,6 +302,9 @@ func TestConfigure(t *testing.T) {
 	}
 	if f.Registry == "" {
 		t.Error("empty cfg.Registry should not mutate f")
+	}
+	if len(f.Enable) == 0 {
+		t.Error("empty cfg.Enable should not mutate f")
 	}
 
 }
@@ -357,6 +371,15 @@ func TestSet_ValidTyped(t *testing.T) {
 		t.Fatalf("unexpected value for config builder: %v", cfg.Builder)
 	}
 
+	// Set a String Slice
+	cfg, err = config.SetStringSlice(cfg, "enable", []string{"a", "b"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(cfg.Enable, []string{"a", "b"}) {
+		t.Fatalf("unexpected value for config enable: %v", cfg.Enable)
+	}
+
 	// TODO lazily populate typed accessors if/when global config expands to
 	// include types of additional values.
 }
@@ -376,13 +399,22 @@ func TestSet_ValidStrings(t *testing.T) {
 		t.Fatalf("unexpected value for config builder: %v", cfg.Builder)
 	}
 
-	// Set a Bool
+	// Set a Bool from a string
 	cfg, err = config.SetBool(cfg, "confirm", true)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if cfg.Builder != "myBuilder" {
 		t.Fatalf("unexpected value for config builder: %v", cfg.Builder)
+	}
+
+	// Set a String Slice from a String
+	cfg, err = config.Set(cfg, "enable", "a, b,c ") // Intentional extraneous whitespace
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(cfg.Enable, []string{"a", "b", "c"}) {
+		t.Fatalf("unexpected value for config enable: %v", cfg.Enable)
 	}
 
 	// TODO: lazily populate support of additional types in the implementation
@@ -398,6 +430,7 @@ func TestList(t *testing.T) {
 	expected := []string{
 		"builder",
 		"confirm",
+		"enable",
 		"language",
 		"namespace",
 		"registry",

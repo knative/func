@@ -32,7 +32,7 @@ SYNOPSIS
 	{{rootCmdUse}} deploy [-R|--remote] [-r|--registry] [-i|--image] [-n|--namespace]
 	             [-e|env] [-g|--git-url] [-t|git-branch] [-d|--git-dir]
 	             [-b|--build] [--builder] [--builder-image] [-p|--push]
-	             [--platform] [-c|--confirm] [-v|--verbose]
+	             [--platform] [--enable] [--disable] [-c|--confirm] [-v|--verbose]
 
 DESCRIPTION
 
@@ -76,6 +76,12 @@ DESCRIPTION
 	  of a git repository instead of local source, combine with '--git-url':
 	  '{{rootCmdUse}} deploy --remote --git-url=git.example.com/alice/f.git'
 
+	Enable Integrations
+	  To enable additional integrations supported by the target cluster, use
+	  the --enable flag.  For exampe, if the target cluster has the Dapr runtime
+	  installed, enable the integration on the deployed function using the
+	  flag --enable=dapr.
+
 EXAMPLES
 
 	o Deploy the function
@@ -116,7 +122,7 @@ EXAMPLES
 
 `,
 		SuggestFor: []string{"delpoy", "deplyo"},
-		PreRunE:    bindEnv("confirm", "env", "git-url", "git-branch", "git-dir", "remote", "build", "builder", "builder-image", "image", "registry", "push", "platform", "namespace", "path", "verbose"),
+		PreRunE:    bindEnv("confirm", "env", "git-url", "git-branch", "git-dir", "remote", "build", "builder", "builder-image", "image", "registry", "push", "platform", "enable", "disable", "namespace", "path", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDeploy(cmd, newClient)
 		},
@@ -145,6 +151,10 @@ EXAMPLES
 		"Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. (Env: $FUNC_REGISTRY)")
 	cmd.Flags().StringP("namespace", "n", cfg.Namespace,
 		"Deploy into a specific namespace. Will use function's current namespace by default if already deployed, and the currently active namespace if it can be determined. (Env: $FUNC_NAMESPACE)")
+	cmd.Flags().StringArrayP("enable", "", cfg.Enable,
+		"Enable additional integrations by name.  This flag may be provided multiple times.")
+	cmd.Flags().StringArrayP("disable", "", nil,
+		"Disable integrations enabled via the --enable flag.  This flag may be provided multiple times.")
 
 	// Function-Context Flags:
 	// Options whose value is avaolable on the function with context only
@@ -380,6 +390,12 @@ type deployConfig struct {
 	// Remote indicates the deployment (and possibly build) process are to
 	// be triggered in a remote environment rather than run locally.
 	Remote bool
+
+	// Enable additional integrations
+	Enable []string
+
+	// Disable additional integrations
+	Disable []string
 }
 
 // newDeployConfig creates a buildConfig populated from command flags and
@@ -394,13 +410,25 @@ func newDeployConfig(cmd *cobra.Command) (c deployConfig) {
 		GitURL:      viper.GetString("git-url"),
 		Namespace:   viper.GetString("namespace"),
 		Remote:      viper.GetBool("remote"),
+		Enable:      viper.GetStringSlice("enable"),
+		Disable:     viper.GetStringSlice("disable"),
 	}
-	// NOTE: .Env shold be viper.GetStringSlice, but this returns unparsed
-	// results and appears to be an open issue since 2017:
+	// NOTE: .Env and .Enable shold be viper.GetStringSlice, but this call
+	// returns unparsed results when using an environment variable.  This appears
+	// to be an open issue since 2017:
 	//   https://github.com/spf13/viper/issues/380
+	// Thereofre we use type StringArrayP and fetch the value using GetStringArray
+	// from the flag instances.
+	// TODO: Manually parse environment variables?
 	var err error
 	if c.Env, err = cmd.Flags().GetStringArray("env"); err != nil {
-		fmt.Fprintf(cmd.OutOrStdout(), "error reading envs: %v", err)
+		fmt.Fprintf(cmd.OutOrStdout(), "error reading 'env': %v\n", err)
+	}
+	if c.Enable, err = cmd.Flags().GetStringArray("enable"); err != nil {
+		fmt.Fprintf(cmd.OutOrStdout(), "error reading 'enable': %v\n", err)
+	}
+	if c.Disable, err = cmd.Flags().GetStringArray("disable"); err != nil {
+		fmt.Fprintf(cmd.OutOrStdout(), "error reading 'disable': %v\n", err)
 	}
 	return
 }
@@ -437,12 +465,27 @@ func (c deployConfig) Configure(f fn.Function) (fn.Function, error) {
 	// Envs
 	// Preprocesses any Envs provided (which may include removals) into a final
 	// set
+	// TODO: remove pointers and use applyVector(f.Run.Envs, c.Env)
 	f.Run.Envs, err = applyEnvs(f.Run.Envs, c.Env)
 	if err != nil {
 		return f, err
 	}
 
-	// .Revision
+	// Enabled Integrations
+	// Can disable using the '-' suffix like envs for compatibility, but this is
+	// gently undocumented externally, choosing to isntead prefer the more
+	// explicit --disable in docs. Perhaps in the future we should remove the
+	// minus suffix entirely opting to add a --remove-envs flag as well.
+	f.Enable = applyVector(f.Enable, c.Enable)
+
+	// Disable Integrations
+	removals := make([]string, len(c.Disable))
+	for i, v := range c.Disable {
+		removals[i] = v + "-"
+	}
+	f.Enable = applyVector(f.Enable, removals)
+
+	// Revision
 	// TODO: the system should support specifying revision (refSpec) as a URL
 	// fragment (<url>[#<refspec>]) throughout, which, when implemented, removes
 	// the need for the below split into separate members:
@@ -465,6 +508,30 @@ func applyEnvs(current []fn.Env, args []string) (final []fn.Env, err error) {
 	}
 	final, _, err = mergeEnvs(current, inserts, removals)
 	return
+}
+
+// applyVector takes a slice of values, and either adds or removes
+// the strings of 'vector' where the special suffix '-' indicates a removal;
+// otherwise the value is added.  New values are appended in order.
+func applyVector(values []string, vector []string) []string {
+	m := make(map[string]bool)
+	for _, v := range values { // populate map with existing keys
+		m[v] = true
+	}
+	for _, v := range vector { // add or remove vector
+		if strings.HasSuffix(v, "-") {
+			delete(m, v[:len(v)-1])
+		} else {
+			m[v] = true
+		}
+	}
+	values = make([]string, len(m)) // convert back to a string slice
+	i := 0
+	for k := range m {
+		values[i] = k
+		i++
+	}
+	return values
 }
 
 // Prompt the user with value of config members, allowing for interaractive changes.

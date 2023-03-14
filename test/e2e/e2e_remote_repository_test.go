@@ -33,7 +33,6 @@ func TestRemoteRepository(t *testing.T) {
 	}
 	defer project.RemoveProjectFolder()
 
-	Build(t, knFunc, &project)
 	Deploy(t, knFunc, &project)
 	defer Delete(t, knFunc, &project)
 	ReadyCheck(t, knFunc, project)

@@ -423,7 +423,7 @@ func TestInvoke_ServiceToService(t *testing.T) {
 	// A function which responds to GET requests with a static value.
 	root, done := Mktemp(t)
 	defer done()
-	f := fn.Function{Name: "a", Runtime: "go"}
+	f := fn.Function{Name: "a", Runtime: "go", Enable: []string{"dapr"}}
 	if err := client.Init(f); err != nil {
 		t.Fatal(err)
 	}
@@ -450,7 +450,7 @@ func Handle(ctx context.Context, res http.ResponseWriter, req *http.Request) {
 	// localhost service discovery and invocation API.
 	root, done = Mktemp(t)
 	defer done()
-	f = fn.Function{Name: "b", Runtime: "go"}
+	f = fn.Function{Name: "b", Runtime: "go", Enable: []string{"dapr"}}
 	if err := client.Init(f); err != nil {
 		t.Fatal(err)
 	}
@@ -468,7 +468,7 @@ import (
 func Handle(ctx context.Context, res http.ResponseWriter, req *http.Request) {
 	r, err := http.Get("http://localhost:3500/v1.0/invoke/a/method/")
 	if err != nil {
-		fmt.Printf("unable to invoke function a", err)
+		fmt.Printf("unable to invoke function a: %v", err)
 	  http.Error(res, "unable to invoke function a", http.StatusServiceUnavailable)
 	}
 	defer r.Body.Close()
@@ -493,7 +493,7 @@ func Handle(ctx context.Context, res http.ResponseWriter, req *http.Request) {
 	fmt.Printf("### function a response body: %s\n", body)
 
 	if string(body) != "TestInvoke_ServiceToService OK" {
-		t.Fatalf("Unexpected response from Function B: %v", body)
+		t.Fatalf("Unexpected response from Function B: %s", body)
 	}
 }
 

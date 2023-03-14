@@ -47,12 +47,13 @@ func DefaultNamespace() (namespace string) {
 
 // Global configuration settings.
 type Global struct {
-	Builder   string `yaml:"builder,omitempty"`
-	Confirm   bool   `yaml:"confirm,omitempty"`
-	Language  string `yaml:"language,omitempty"`
-	Namespace string `yaml:"namespace,omitempty"`
-	Registry  string `yaml:"registry,omitempty"`
-	Verbose   bool   `yaml:"verbose,omitempty"`
+	Builder   string   `yaml:"builder,omitempty"`
+	Confirm   bool     `yaml:"confirm,omitempty"`
+	Language  string   `yaml:"language,omitempty"`
+	Namespace string   `yaml:"namespace,omitempty"`
+	Registry  string   `yaml:"registry,omitempty"`
+	Enable    []string `yaml:"enable,omitempty"`
+	Verbose   bool     `yaml:"verbose,omitempty"`
 	// NOTE: all members must include their yaml serialized names, even when
 	// this is the default, because these tag values are used for the static
 	// getter/setter accessors to match requests.
@@ -64,6 +65,7 @@ func New() Global {
 	return Global{
 		Builder:  DefaultBuilder,
 		Language: DefaultLanguage,
+		Enable:   []string{},
 		// ...
 	}
 }
@@ -146,6 +148,9 @@ func (c Global) Apply(f fn.Function) Global {
 	if f.Registry != "" {
 		c.Registry = f.Registry
 	}
+	if len(f.Enable) > 0 {
+		c.Enable = f.Enable
+	}
 	return c
 }
 
@@ -163,6 +168,9 @@ func (c Global) Configure(f fn.Function) fn.Function {
 	}
 	if c.Registry != "" {
 		f.Registry = c.Registry
+	}
+	if len(c.Enable) > 0 {
+		f.Enable = c.Enable
 	}
 	return f
 }
@@ -311,6 +319,12 @@ func Set(c Global, name, value string) (Global, error) {
 			return c, err
 		}
 		v = reflect.ValueOf(boolValue)
+	case reflect.Slice:
+		ss := []string{}
+		for _, s := range strings.Split(value, ",") {
+			ss = append(ss, strings.TrimSpace(s))
+		}
+		v = reflect.ValueOf(ss)
 	default:
 		return c, fmt.Errorf("global config value type not yet implemented: %v", fieldValue.Kind())
 	}
@@ -326,6 +340,11 @@ func SetString(c Global, name, value string) (Global, error) {
 
 // SetBool value of a member by name, returning the updated config.
 func SetBool(c Global, name string, value bool) (Global, error) {
+	return set(c, name, reflect.ValueOf(value))
+}
+
+// SetStringSlice value of a member by name, returning the updated config.
+func SetStringSlice(c Global, name string, value []string) (Global, error) {
 	return set(c, name, reflect.ValueOf(value))
 }
 

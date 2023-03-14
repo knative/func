@@ -142,7 +142,6 @@ func TestConfigVolumes(t *testing.T) {
 	configVolumesRemove("/bad-cm", enter)
 
 	// Deploy
-	Build(t, knFunc.TestShell, &project)
 	Deploy(t, knFunc.TestShell, &project)
 	defer Delete(t, knFunc.TestShell, &project)
 	ReadyCheck(t, knFunc.TestShell, project)

@@ -72,6 +72,11 @@ type Function struct {
 
 	//DeploySpec define the deployment properties for a function
 	Deploy DeploySpec `yaml:"deploy"`
+
+	// Enable extensible integrations
+	// These values are ad-hoc and opaque from the view of the functions core
+	// used to comunicate keys through to concrete implementations.
+	Enable []string `yaml:"enable,omitempty"`
 }
 
 // BuildSpec
@@ -499,6 +504,22 @@ func (f Function) ImageName() (image string, err error) {
 
 	// For pinning to an exact container image, see ImageWithDigest
 	return image + ":latest", nil
+}
+
+// Enabled resturns true if f.Enable contains the named feature.
+func (f Function) Enabled(feature string) bool {
+	if f.Enable == nil {
+		// should never be possible, but a nil pointer here would be
+		// hard to debug in the event a developer skips using NewFunction
+		return false
+	}
+
+	for _, v := range f.Enable {
+		if v == feature {
+			return true
+		}
+	}
+	return false
 }
 
 // contentiousFiles are files which, if extant, preclude the creation of a

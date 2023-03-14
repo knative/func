@@ -166,7 +166,6 @@ func TestConfigEnvs(t *testing.T) {
 
 	// Deploy
 	knFunc.TestShell.WithEnv(testEnvName, testEnvValue)
-	Build(t, knFunc.TestShell, &project)
 	Deploy(t, knFunc.TestShell, &project)
 	defer Delete(t, knFunc.TestShell, &project)
 	ReadyCheck(t, knFunc.TestShell, project)

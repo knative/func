@@ -224,3 +224,42 @@ func TestFunction_MigrationError(t *testing.T) {
 	}
 
 }
+
+// TestFunction_Enabled ensures the convenience method enabled returns whether
+// or note a given function has named features enabled.
+func TestFunction_Enabled(t *testing.T) {
+	root, rm := Mktemp(t)
+	defer rm()
+
+	// Ensure an incorrect instantiation of a Function does not nil pointer
+	f := fn.Function{}
+	if f.Enabled("a") != false { // ensure no nil-pointer
+		t.Fatal("expected false for struct literal")
+	}
+
+	// Ensure initial value is empty and no nil-pointers
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f.Enabled("a") != false { // ensure no nil-pointer
+		t.Fatal("new function should have nothing yet enabled.")
+	}
+
+	// Ensure a value in the enabled list comes back as true
+	f.Enable = []string{"a"}
+	if f.Enabled("a") != true { // ensure no nil-pointer
+		t.Fatal("expected 'a' to be enabled")
+	}
+
+	// Ensure saving/retrieival
+	if err := f.Write(); err != nil {
+		t.Fatal(err)
+	}
+	if f, err = fn.NewFunction(""); err != nil {
+		t.Fatal(err)
+	}
+	if f.Enabled("a") != true { // ensure no nil-pointer
+		t.Fatal("expected persissted 'a' to be enabled")
+	}
+}

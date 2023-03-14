@@ -35,6 +35,9 @@ type DeployDecorator interface {
 
 type DeployerOpt func(*Deployer)
 
+// Deployer implements a Function deployer using Knative Serving
+//
+// Supports optional dapr integrations when f.Enabled("dapr")
 type Deployer struct {
 	// Namespace with which to override that set on the default configuration (such as the ~/.kube/config).
 	// If left blank, deployment will commence to the configured namespace.
@@ -408,8 +411,10 @@ func generateServiceAnnotations(f fn.Function, d DeployDecorator, previousServic
 
 	// Enables Dapr support.
 	// Has no effect unless the target cluster has Dapr control plane installed.
-	for k, v := range daprAnnotations(f.Name) {
-		aa[k] = v
+	if f.Enabled("dapr") {
+		for k, v := range daprAnnotations(f.Name) {
+			aa[k] = v
+		}
 	}
 
 	// Function-defined annotations
