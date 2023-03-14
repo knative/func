@@ -328,7 +328,8 @@ func TestGet_Valid(t *testing.T) {
 
 // TestSet_Invalid ensures that attemptint to set an invalid field errors.
 func TestSet_Invalid(t *testing.T) {
-	_, err := config.SetString(config.Global{}, "invalid", "foo")
+	cfg := config.Global{}
+	cfg, err := config.SetString(cfg, "invalid", "foo")
 	if err == nil {
 		t.Fatal("did not receive expected error setting a nonexistent field")
 	}
@@ -359,6 +360,30 @@ func TestSet_ValidTyped(t *testing.T) {
 
 	// TODO lazily populate typed accessors if/when global config expands to
 	// include types of additional values.
+}
+
+// TestSet_Zero ensures that setting a value to its zero value is respected
+func TestSet_Zero(t *testing.T) {
+	cfg := config.Global{}
+
+	// Set a String from a string
+	// should be the base case
+	cfg, err := config.Set(cfg, "language", "go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Language != "go" {
+		t.Fatalf("unexpected value for config language: %v", cfg.Language)
+	}
+
+	// Set to the zero value via String
+	cfg, err = config.Set(cfg, "language", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Language != "" {
+		t.Fatalf("unexpected value for config builder: %v", cfg.Builder)
+	}
 }
 
 // TestSet_ValidStrings ensures that setting valid attribute names using

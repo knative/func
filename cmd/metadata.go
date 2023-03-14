@@ -26,7 +26,7 @@ func newMetadataConfig() metadataConfig {
 
 func (c metadataConfig) Validate() error {
 	// TODO: validate cascate upwards like the constructor.
-	// c.Global.Validat() // should validate .Output
+	// c.Global.Validate() // should validate .Output
 	return nil
 }
 

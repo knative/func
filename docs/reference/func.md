@@ -25,6 +25,7 @@ Learn more about Knative at: https://knative.dev
 
 * [func build](func_build.md)	 - Build a function container
 * [func completion](func_completion.md)	 - Output functions shell completion code
+* [func config](func_config.md)	 - Manage global system settings
 * [func create](func_create.md)	 - Create a function
 * [func delete](func_delete.md)	 - Undeploy a function
 * [func deploy](func_deploy.md)	 - Deploy a function

@@ -95,7 +95,7 @@ Learn more about Knative at: https://knative.dev`, cfg.Name),
 		{
 			Header: "System Settings:",
 			Commands: []*cobra.Command{
-				// NewConfigCmd(defaultLoaderSaver), // NOTE: Global Config being added in a separate PR
+				NewConfigCmd(newClient),
 				NewLanguagesCmd(newClient),
 				NewTemplatesCmd(newClient),
 				NewRepositoryCmd(newClient),
@@ -316,9 +316,14 @@ func mergeEnvs(envs []fn.Env, envToUpdate *util.OrderedMap, envToRemove []string
 	return envs, counter, nil
 }
 
-// addConfirmFlag ensures common text/wording when the --path flag is used
+// addConfirmFlag ensures common text.wording when the --confirm flag is used
 func addConfirmFlag(cmd *cobra.Command, dflt bool) {
 	cmd.Flags().BoolP("confirm", "c", dflt, "Prompt to confirm options interactively (Env: $FUNC_CONFIRM)")
+}
+
+// addOutputFlag ensures common text.wording when the --output flag is used
+func addOutputFlag(cmd *cobra.Command, dflt string) {
+	cmd.Flags().StringP("output", "o", dflt, "Output format (human|json) (Env: $FUNC_OUTPUT)")
 }
 
 // addPathFlag ensures common text/wording when the --path flag is used

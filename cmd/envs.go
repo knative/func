@@ -85,8 +85,7 @@ func runEnvs(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	case JSON:
 		return json.NewEncoder(cmd.OutOrStdout()).Encode(f.Run.Envs)
 	default:
-		fmt.Fprintf(cmd.ErrOrStderr(), "invalid format: %v", cfg.Output)
-		return
+		return fmt.Errorf("invalid format: %v", cfg.Output)
 	}
 }
 

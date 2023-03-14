@@ -50,13 +50,13 @@ func DefaultNamespace() (namespace string) {
 
 // Global configuration settings.
 type Global struct {
-	Builder   string `yaml:"builder,omitempty"`
-	Confirm   bool   `yaml:"confirm,omitempty"`
-	Language  string `yaml:"language,omitempty"`
-	Namespace string `yaml:"namespace,omitempty"`
-	Output    string `yaml:"output,omitempty"`
-	Registry  string `yaml:"registry,omitempty"`
-	Verbose   bool   `yaml:"verbose,omitempty"`
+	Builder   string `yaml:"builder,omitempty"json:",omitempty"`
+	Confirm   bool   `yaml:"confirm,omitempty"json:",omitempty"`
+	Language  string `yaml:"language,omitempty"json:",omitempty"`
+	Namespace string `yaml:"namespace,omitempty"json:",omitempty"`
+	Output    string `yaml:"output,omitempty"json:",omitempty"`
+	Registry  string `yaml:"registry,omitempty"json:",omitempty"`
+	Verbose   bool   `yaml:"verbose,omitempty"json:",omitempty"`
 	// NOTE: all members must include their yaml serialized names, even when
 	// this is the default, because these tag values are used for the static
 	// getter/setter accessors to match requests.

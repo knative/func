@@ -13,9 +13,6 @@ import (
 	fn "knative.dev/func/pkg/functions"
 )
 
-// command constructors
-// --------------------
-
 func NewRepositoryCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Short:   "Manage installed template repositories",
@@ -262,6 +259,8 @@ func runRepository(cmd *cobra.Command, args []string, newClient ClientFactory) (
 	if err != nil {
 		return
 	}
+
+	// TODO: move the below to repositoryConfig.Prompt()
 
 	// If in noninteractive, normal mode the help text is shown
 	if !cfg.Confirm {
