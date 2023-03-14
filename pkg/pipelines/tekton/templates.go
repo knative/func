@@ -136,6 +136,17 @@ func createPipelineRunTemplate(f fn.Function) error {
 	return fmt.Errorf("builder %q is not supported", f.Build.Builder)
 }
 
+// deleteAllPipelineTemplates deletes all templates and pipeline resources that exists for a function
+// and are stored in the .tekton directory
+func deleteAllPipelineTemplates(f fn.Function) string {
+	err := os.RemoveAll(path.Join(f.Root, resourcesDirectory))
+	if err != nil {
+		return fmt.Sprintf("\n %v", err)
+	}
+
+	return ""
+}
+
 func createResource(projectRoot, fileName, fileTemplate string, data interface{}) error {
 	tmpl, err := template.New(fileName).Parse(fileTemplate)
 	if err != nil {

@@ -127,6 +127,8 @@ func runConfigCmd(cmd *cobra.Command, args []string) (err error) {
 			err = runRemoveEnvsPrompt(function)
 		} else if answers.SelectedConfig == "Labels" {
 			err = runRemoveLabelsPrompt(function, defaultLoaderSaver)
+		} else if answers.SelectedConfig == "Git" {
+			err = runConfigGitRemoveCmd(cmd, NewClient)
 		}
 	case "List":
 		if answers.SelectedConfig == "Volumes" {

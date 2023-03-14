@@ -6,6 +6,7 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
+
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/pipelines"
@@ -75,7 +76,7 @@ func NewConfigGitSetCmd(newClient ClientFactory) *cobra.Command {
 
 	// Resources generated related Flags:
 	cmd.Flags().Bool("config-local", false, "Configure local resources (pipeline templates).")
-	cmd.Flags().Bool("config-cluster", false, "Configure cluster resources (credentials and config on cluster).")
+	cmd.Flags().Bool("config-cluster", false, "Configure cluster resources (credentials and config on the cluster).")
 	cmd.Flags().Bool("config-remote", false, "Configure remote resources (webhook on the Git provider side).")
 
 	addPathFlag(cmd)

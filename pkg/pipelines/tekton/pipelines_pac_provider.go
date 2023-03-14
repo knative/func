@@ -76,6 +76,34 @@ func (pp *PipelinesProvider) ConfigurePAC(ctx context.Context, f fn.Function, me
 	return nil
 }
 
+// RemovePAC tries to remove all local and remote resources that were created for PAC.
+// Resources on the remote GitHub repo are not removed, we would need to store webhook id somewhere locally.
+func (pp *PipelinesProvider) RemovePAC(ctx context.Context, f fn.Function, metadata any) error {
+	data, ok := metadata.(pipelines.PacMetadata)
+	if !ok {
+		return fmt.Errorf("incorrect type of pipelines metadata: %T", metadata)
+	}
+
+	compoundErrMsg := ""
+
+	if data.ConfigureLocalResources {
+		errMsg := deleteAllPipelineTemplates(f)
+		compoundErrMsg += errMsg
+	}
+
+	if data.ConfigureClusterResources {
+		errMsg := pp.removeClusterResources(ctx, f)
+		compoundErrMsg += errMsg
+
+	}
+
+	if compoundErrMsg != "" {
+		return fmt.Errorf("%s", compoundErrMsg)
+	}
+
+	return nil
+}
+
 // createLocalResources creates necessary local resources in .tekton directory:
 // Pipeline and PipelineRun templates
 func (pp *PipelinesProvider) createLocalResources(ctx context.Context, f fn.Function) error {

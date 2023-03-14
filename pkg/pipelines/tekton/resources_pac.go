@@ -92,6 +92,16 @@ func ensurePACRepositoryExists(ctx context.Context, f fn.Function, namespace str
 	return nil
 }
 
+// deletePACRepositories deletes all Repository resources present on the cluster that match input list options
+func deletePACRepositories(ctx context.Context, namespaceOverride string, listOptions metav1.ListOptions) error {
+	client, namespace, err := pac.NewTektonPacClientAndResolvedNamespace(namespaceOverride)
+	if err != nil {
+		return err
+	}
+
+	return client.Repositories(namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, listOptions)
+}
+
 // getPipelineRepositoryName generates name for Repository CR
 func getPipelineRepositoryName(f fn.Function) string {
 	return fmt.Sprintf("%s-repo", getPipelineName(f))
