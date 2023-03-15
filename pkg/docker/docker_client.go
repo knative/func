@@ -1,16 +1,24 @@
 package docker
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
+	"strconv"
+	"time"
 
+	"github.com/docker/cli/cli/config"
 	"github.com/docker/docker/client"
+	"github.com/docker/go-connections/tlsconfig"
 	"golang.org/x/crypto/ssh"
 
 	fnssh "knative.dev/func/pkg/ssh"
@@ -89,7 +97,13 @@ func NewClient(defaultHost string) (dockerClient client.CommonAPIClient, dockerH
 	}
 
 	if !isSSH {
-		dockerClient, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation(), client.WithHost(dockerHost))
+		opts := []client.Opt{client.FromEnv}
+		if isTCP {
+			if httpClient := newHttpClient(); httpClient != nil {
+				opts = append(opts, client.WithHTTPClient(httpClient))
+			}
+		}
+		dockerClient, err = client.NewClientWithOpts(opts...)
 		dockerClient = &closeGuardingClient{pimpl: dockerClient}
 		return
 	}
@@ -130,6 +144,69 @@ func NewClient(defaultHost string) (dockerClient client.CommonAPIClient, dockerH
 
 	dockerClient = &closeGuardingClient{pimpl: dockerClient}
 	return dockerClient, dockerHostInRemote, err
+}
+
+// If the DOCKER_TLS_VERIFY environment variable is set
+// this function returns HTTP client with appropriately configured TLS config.
+// Otherwise, nil is returned.
+func newHttpClient() *http.Client {
+	tlsVerifyStr, tlsVerifyChanged := os.LookupEnv("DOCKER_TLS_VERIFY")
+
+	if !tlsVerifyChanged {
+		return nil
+	}
+
+	var tlsOpts []func(*tls.Config)
+
+	tlsVerify, _ := strconv.ParseBool(tlsVerifyStr)
+	if !tlsVerify {
+		tlsOpts = append(tlsOpts, func(t *tls.Config) {
+			t.InsecureSkipVerify = true
+		})
+	}
+
+	dockerCertPath := os.Getenv("DOCKER_CERT_PATH")
+	if dockerCertPath == "" {
+		dockerCertPath = config.Dir()
+	}
+
+	// Set root CA.
+	caData, err := os.ReadFile(filepath.Join(dockerCertPath, "ca.pem"))
+	if err == nil {
+		certPool := x509.NewCertPool()
+		if certPool.AppendCertsFromPEM(caData) {
+			tlsOpts = append(tlsOpts, func(t *tls.Config) {
+				t.RootCAs = certPool
+			})
+		}
+	}
+
+	// Set client certificate.
+	certData, certErr := os.ReadFile(filepath.Join(dockerCertPath, "cert.pem"))
+	keyData, keyErr := os.ReadFile(filepath.Join(dockerCertPath, "key.pem"))
+	if certErr == nil && keyErr == nil {
+		cliCert, err := tls.X509KeyPair(certData, keyData)
+		if err == nil {
+			tlsOpts = append(tlsOpts, func(cfg *tls.Config) {
+				cfg.Certificates = []tls.Certificate{cliCert}
+			})
+		}
+	}
+
+	dialer := &net.Dialer{
+		KeepAlive: 30 * time.Second,
+		Timeout:   30 * time.Second,
+	}
+
+	tlsConfig := tlsconfig.ClientDefault(tlsOpts...)
+
+	return &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: tlsConfig,
+			DialContext:     dialer.DialContext,
+		},
+		CheckRedirect: client.CheckRedirect,
+	}
 }
 
 // tries to get connection to default podman machine
