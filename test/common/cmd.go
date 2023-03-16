@@ -36,7 +36,15 @@ type TestExecCmd struct {
 	// Optional function to be used to dump stdout command results
 	DumpLogger func(out string)
 
-	// Boolean
+	// Access to Running or Latest command
+	ExecCmd *exec.Cmd
+
+	// Function to be executed while the command is running. This function is executed only once
+	OnWaitCallback func(stdout *bytes.Buffer)
+
+	// Function to be executed after the command is completed (before error and cmd stdout logic is executed)
+	OnFinishCallback func(result *TestExecCmdResult)
+
 	T *testing.T
 }
 
@@ -80,15 +88,30 @@ func (f *TestExecCmd) Exec(args ...string) TestExecCmdResult {
 	cmd := exec.Command(f.Binary, finalArgs...)
 	cmd.Stderr = &out
 	cmd.Stdout = &out
+	f.ExecCmd = cmd
 	if f.SourceDir != "" {
 		cmd.Dir = f.SourceDir
 	}
 	cmd.Env = append(os.Environ(), f.Env...)
-	err := cmd.Run()
+
+	// Start command execution
+	err := cmd.Start()
+	if err == nil {
+		if f.OnWaitCallback != nil {
+			fn := f.OnWaitCallback
+			f.OnWaitCallback = nil
+			go fn(&out)
+		}
+		// Wait for command to complete
+		err = cmd.Wait()
+	}
 
 	result := TestExecCmdResult{
 		Out:   out.String(),
 		Error: err,
+	}
+	if f.OnFinishCallback != nil {
+		f.OnFinishCallback(&result)
 	}
 
 	if err == nil && f.ShouldDumpOnSuccess {

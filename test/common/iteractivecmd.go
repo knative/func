@@ -1,4 +1,4 @@
-package e2e
+package common
 
 import (
 	"bytes"
@@ -13,46 +13,50 @@ import (
 	"github.com/hinshun/vt10x"
 )
 
-type TestShellInteractiveCmdRunner struct {
-	TestShell *TestShellCmdRunner
-	T         *testing.T
+type TestInteractiveCmd struct {
+	TestCmd *TestExecCmd
+	T       *testing.T
+
+	// Sleep interval before first command input
+	StartSleepInterval time.Duration
 
 	// Sleep interval between each subcommand
-	commandSleepInterval time.Duration
+	CommandSleepInterval time.Duration
 
 	// Sleep interval after last command completion.
 	// Required time to give to process to complete before EOF
-	completionSleepInterval time.Duration
+	CompletionSleepInterval time.Duration
 
 	// Timeout before kill the cmd in case of some failure
-	completionTimeout time.Duration
+	CompletionTimeout time.Duration
 }
 
-func NewTestShellInteractiveCmdRunner(t *testing.T) *TestShellInteractiveCmdRunner {
+func NewTestShellInteractiveCmd(t *testing.T) *TestInteractiveCmd {
 	testShell := NewKnFuncShellCli(t)
-	return &TestShellInteractiveCmdRunner{
-		TestShell:               testShell,
+	return &TestInteractiveCmd{
+		TestCmd:                 testShell,
 		T:                       t,
-		commandSleepInterval:    time.Second * 1,
-		completionSleepInterval: time.Second * 2,
-		completionTimeout:       time.Second * 15,
+		StartSleepInterval:      time.Second * 2,
+		CommandSleepInterval:    time.Second * 1,
+		CompletionSleepInterval: time.Second * 2,
+		CompletionTimeout:       time.Second * 15,
 	}
 }
 
-// Prepare creates a go function used to start kn func (binary) that requires user interaction such as `func config command`
-func (f *TestShellInteractiveCmdRunner) PrepareRun(funcCommand ...string) func(args ...string) TestShellCmdResult {
+// PrepareRun creates a go function used to start kn func (binary) that requires user interaction such as `func config command`
+func (f *TestInteractiveCmd) PrepareRun(funcCommand ...string) func(args ...string) TestExecCmdResult {
 
-	return func(userInput ...string) TestShellCmdResult {
+	return func(userInput ...string) TestExecCmdResult {
 
 		// Prepare Command args
-		finalArgs := f.TestShell.BinaryArgs
+		finalArgs := f.TestCmd.BinaryArgs
 		if finalArgs == nil {
 			finalArgs = funcCommand
 		} else if funcCommand != nil {
 			finalArgs = append(finalArgs, funcCommand...)
 		}
-		if f.TestShell.ShouldDumpCmdLine {
-			f.T.Log(f.TestShell.Binary, strings.Join(finalArgs, " "))
+		if f.TestCmd.ShouldDumpCmdLine {
+			f.T.Log(f.TestCmd.Binary, strings.Join(finalArgs, " "))
 		}
 
 		// Prepare terminal emulator
@@ -63,17 +67,16 @@ func (f *TestShellInteractiveCmdRunner) PrepareRun(funcCommand ...string) func(a
 		defer c.Close()
 
 		// Prepare and start command on terminal emulator
-		var stderr bytes.Buffer
 		var stdout bytes.Buffer
 
-		cmd := exec.Command(f.TestShell.Binary, finalArgs...)
+		cmd := exec.Command(f.TestCmd.Binary, finalArgs...)
 		cmd.Stdin = c.Tty()
 		cmd.Stdout = io.MultiWriter(c.Tty(), &stdout)
-		cmd.Stderr = io.MultiWriter(c.Tty(), &stderr)
-		if f.TestShell.SourceDir != "" {
-			cmd.Dir = f.TestShell.SourceDir
+		cmd.Stderr = io.MultiWriter(c.Tty(), &stdout)
+		if f.TestCmd.SourceDir != "" {
+			cmd.Dir = f.TestCmd.SourceDir
 		}
-		cmd.Env = append(os.Environ(), f.TestShell.Env...)
+		cmd.Env = append(os.Environ(), f.TestCmd.Env...)
 
 		err = cmd.Start()
 		if err != nil {
@@ -88,14 +91,18 @@ func (f *TestShellInteractiveCmdRunner) PrepareRun(funcCommand ...string) func(a
 		}()
 
 		// Input user entries on Terminal
-		for _, subcmd := range userInput {
-			time.Sleep(f.commandSleepInterval)
+		for i, subcmd := range userInput {
+			if i == 0 {
+				time.Sleep(f.StartSleepInterval)
+			} else {
+				time.Sleep(f.CommandSleepInterval)
+			}
 			_, err = c.Send(subcmd)
 			if err != nil {
 				f.T.Logf("error sending user input comand to console: %v\n", err)
 			}
 		}
-		time.Sleep(f.completionSleepInterval)
+		time.Sleep(f.CompletionSleepInterval)
 		err = c.Tty().Close()
 		if err != nil {
 			f.T.Logf("error on TTY close: %v\n", err)
@@ -107,7 +114,7 @@ func (f *TestShellInteractiveCmdRunner) PrepareRun(funcCommand ...string) func(a
 			if err != nil {
 				fmt.Printf("process completed with error: %v\n", err)
 			}
-		case <-time.After(f.completionTimeout):
+		case <-time.After(f.CompletionTimeout):
 			err = cmd.Process.Kill()
 			if err != nil {
 				fmt.Printf("error killing process after timeout: %v\n", err)
@@ -117,18 +124,16 @@ func (f *TestShellInteractiveCmdRunner) PrepareRun(funcCommand ...string) func(a
 		}
 
 		// Collect results
-		result := TestShellCmdResult{
-			Stdout: stdout.String(),
-			Stderr: stderr.String(),
-			Error:  err,
+		result := TestExecCmdResult{
+			Out:   stdout.String(),
+			Error: err,
 		}
-		if err == nil && f.TestShell.ShouldDumpOnSuccess {
-			f.T.Log(result.Stdout)
+		if err == nil && f.TestCmd.ShouldDumpOnSuccess {
+			f.T.Log(result.Out)
 		}
 		if err != nil {
-			f.T.Log(result.Stdout)
+			f.T.Log(result.Out)
 			f.T.Log(err.Error())
-			f.T.Log(result.Stderr)
 		}
 		return result
 	}

@@ -21,7 +21,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	fn "knative.dev/func/pkg/functions"
 	common "knative.dev/func/test/common"
-	e2e "knative.dev/func/test/e2e"
 )
 
 func TestFromFeatureBranch(t *testing.T) {
@@ -112,7 +111,7 @@ func GitRevisionCheck(
 	setupCodeFn(sh, funcPath, remoteRepo.ClusterCloneURL)
 
 	knFunc.Exec("deploy",
-		"-r", e2e.GetRegistry(),
+		"-r", common.GetRegistry(),
 		"-p", funcPath,
 		"--remote",
 		"--verbose")

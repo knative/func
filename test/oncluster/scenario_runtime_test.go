@@ -12,7 +12,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/util/rand"
 	common "knative.dev/func/test/common"
-	e2e "knative.dev/func/test/e2e"
 )
 
 var runtimeSupportMap = map[string][]string{
@@ -70,7 +69,7 @@ func runtimeImpl(t *testing.T, lang string, builder string) {
 	GitInitialCommitAndPush(t, gitProjectPath, remoteRepo.ExternalCloneURL)
 
 	knFunc.Exec("deploy",
-		"--registry", e2e.GetRegistry(),
+		"--registry", common.GetRegistry(),
 		"--path", funcPath,
 		"--remote",
 		"--verbose",

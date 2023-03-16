@@ -4,12 +4,12 @@
 package e2e
 
 import (
-	"os"
 	"path/filepath"
 
-	"testing"
+	"gotest.tools/v3/assert"
+	"knative.dev/func/test/common"
 
-	"knative.dev/func/pkg/builders"
+	"testing"
 )
 
 const (
@@ -18,7 +18,7 @@ const (
 )
 
 // PrepareInteractiveCommand generates a generic func that can be used to test interactive `func config` commands with user input
-func PrepareInteractiveCommand(knFunc *TestShellInteractiveCmdRunner, args ...string) func(userInput ...string) {
+func PrepareInteractiveCommand(knFunc *common.TestInteractiveCmd, args ...string) func(userInput ...string) {
 	fn := knFunc.PrepareRun(args...)
 	return func(userInput ...string) {
 		result := fn(userInput...)
@@ -29,13 +29,13 @@ func PrepareInteractiveCommand(knFunc *TestShellInteractiveCmdRunner, args ...st
 }
 
 // ConfigLabelsAdd generate sa go function to test `func config labels add` with user input
-func ConfigLabelsAdd(knFunc *TestShellInteractiveCmdRunner, project *FunctionTestProject) func(userInput ...string) {
-	return PrepareInteractiveCommand(knFunc, "config", "labels", "add", "--path", project.ProjectPath)
+func ConfigLabelsAdd(knFunc *common.TestInteractiveCmd, functionPath string) func(userInput ...string) {
+	return PrepareInteractiveCommand(knFunc, "config", "labels", "add", "--path", functionPath)
 }
 
 // ConfigLabelsRemove generates a go function to test `func config labels remove` with user input
-func ConfigLabelsRemove(knFunc *TestShellInteractiveCmdRunner, project *FunctionTestProject) func(userInput ...string) {
-	return PrepareInteractiveCommand(knFunc, "config", "labels", "remove", "--path", project.ProjectPath)
+func ConfigLabelsRemove(knFunc *common.TestInteractiveCmd, functionPath string) func(userInput ...string) {
+	return PrepareInteractiveCommand(knFunc, "config", "labels", "remove", "--path", functionPath)
 }
 
 // TestConfigLabel verifies function labels are properly set on the deployed functions.
@@ -51,51 +51,42 @@ func TestConfigLabel(t *testing.T) {
 	testEnvName := "TEST_ENV"
 	testEnvValue := "TEST_VALUE"
 
-	knFunc := NewTestShellInteractiveCmdRunner(t)
+	knFunc := common.NewTestShellInteractiveCmd(t)
 
 	// On When...
-	project := FunctionTestProject{}
-	project.Runtime = "go"
-	project.Template = "http"
-	project.FunctionName = "test-config-labels"
-	project.ProjectPath = filepath.Join(os.TempDir(), project.FunctionName)
-	project.Builder = builders.Pack
+	funcName := "test-config-labels"
+	funcPath := filepath.Join(t.TempDir(), funcName)
 
-	Create(t, knFunc.TestShell, project)
-	defer func() { _ = project.RemoveProjectFolder() }()
+	knFunc.TestCmd.Exec("create", "--language", "go", "--template", "http", funcPath)
+	knFunc.TestCmd.SourceDir = funcPath
 
 	// Config labels add
 	// Add 2 labels with specified key/value
 	// Add 1 label with env
-	configLabelsAdd := ConfigLabelsAdd(knFunc, &project)
+	configLabelsAdd := ConfigLabelsAdd(knFunc, funcPath)
 	configLabelsAdd(enter, labelKey1, enter, labelValue1, enter)                   // Add first label with specified key/value
 	configLabelsAdd(enter, enter, labelKey2, enter, "any", enter)                  // Add second label with specified key/value
 	configLabelsAdd(enter, arrowDown, enter, labelKey3, enter, testEnvName, enter) // Add third label using value from local environment variable
 
 	// Delete second label
-	configLabelsRemove := ConfigLabelsRemove(knFunc, &project)
+	configLabelsRemove := ConfigLabelsRemove(knFunc, funcPath)
 	configLabelsRemove(arrowDown, enter)
 
 	// Deploy
-	knFunc.TestShell.WithEnv(testEnvName, testEnvValue)
-	Build(t, knFunc.TestShell, &project)
-	Deploy(t, knFunc.TestShell, &project)
-	defer Delete(t, knFunc.TestShell, &project)
+	knFunc.TestCmd.
+		WithEnv(testEnvName, testEnvValue).
+		Exec("deploy", "--registry", common.GetRegistry(), "--builder", "pack")
+	defer knFunc.TestCmd.Exec("delete")
 
 	// Then assert that...
 	// label1 exists and matches value2
 	// label2 does not exists
 	// label3 exists and matches value3
-	resource := RetrieveKnativeServiceResource(t, project.FunctionName)
+	resource := common.RetrieveKnativeServiceResource(t, funcName)
 	metadataMap := resource.UnstructuredContent()["metadata"].(map[string]interface{})
 	labelsMap := metadataMap["labels"].(map[string]interface{})
-	if labelsMap[labelKey1] != labelValue1 {
-		t.Errorf("Expected label with name %v and value %v not found", labelKey1, labelValue1)
-	}
-	if labelsMap[labelKey2] != nil {
-		t.Errorf("Unexpected label with name %v", labelKey2)
-	}
-	if labelsMap[labelKey3] != testEnvValue {
-		t.Errorf("Expected label with name %v and value %v not found", labelKey3, testEnvValue)
-	}
+
+	assert.Assert(t, labelsMap[labelKey1] == labelValue1, "Expected label with name %v and value %v not found", labelKey1, labelValue1)
+	assert.Assert(t, labelsMap[labelKey2] == nil, "Unexpected label with name %v", labelKey2)
+	assert.Assert(t, labelsMap[labelKey3] == testEnvValue, "Expected label with name %v and value %v not found", labelKey3, testEnvValue)
 }

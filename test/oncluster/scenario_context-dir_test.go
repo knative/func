@@ -12,7 +12,6 @@ import (
 	"gotest.tools/v3/assert"
 	"k8s.io/apimachinery/pkg/util/rand"
 	common "knative.dev/func/test/common"
-	e2e "knative.dev/func/test/e2e"
 )
 
 // TestContextDirFunc tests the following use case:
@@ -45,7 +44,7 @@ func TestContextDirFunc(t *testing.T) {
 
 		knFunc.Exec("deploy",
 			"-p", funcPath,
-			"-r", e2e.GetRegistry(),
+			"-r", common.GetRegistry(),
 			"--remote",
 			"--verbose",
 			"--git-url", remoteRepo.ClusterCloneURL,

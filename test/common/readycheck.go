@@ -1,30 +1,28 @@
-package e2e
+package common
 
 import (
-	"regexp"
 	"testing"
 	"time"
 
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-// ReadyCheck waits deployed function to report as ready.
-func ReadyCheck(t *testing.T, knFunc *TestShellCmdRunner, project FunctionTestProject) {
-	expr := regexp.MustCompile("\n" + project.FunctionName + " .*True")
+func WaitForFunctionReady(t *testing.T, functionName string) (revisionName string, functionUrl string) {
 	err := wait.PollImmediate(5*time.Second, 1*time.Minute, func() (done bool, err error) {
-		result := knFunc.Exec("list")
-		return result.Error == nil && expr.Match([]byte(result.Stdout)), result.Error
+		revisionName, functionUrl = GetKnativeServiceRevisionAndUrl(t, functionName)
+		t.Logf("Waiting function to get ready (revision [%v])", revisionName)
+		return revisionName != "", nil
 	})
 	if err != nil {
-		t.Error("Function never get ready")
-		t.Fatal()
+		t.Fatal("Function never got ready")
 	}
+	return revisionName, functionUrl
 }
 
 // NewRevisionCheck waits for a new revision to report as ready
-func NewRevisionCheck(t *testing.T, previousRevision string, serviceName string) (newRevision string) {
+func WaitForNewRevisionReady(t *testing.T, previousRevision string, functionName string) (newRevision string) {
 	err := wait.PollImmediate(5*time.Second, 1*time.Minute, func() (done bool, err error) {
-		newRevision = GetCurrentServiceRevision(t, serviceName)
+		newRevision = GetCurrentServiceRevision(t, functionName)
 		t.Logf("Waiting for new revision deployment (previous revision [%v], current revision [%v])", previousRevision, newRevision)
 		return newRevision != "" && newRevision != previousRevision, nil
 	})

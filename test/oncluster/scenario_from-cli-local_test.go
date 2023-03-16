@@ -11,7 +11,6 @@ import (
 	"k8s.io/apimachinery/pkg/util/rand"
 	fn "knative.dev/func/pkg/functions"
 	common "knative.dev/func/test/common"
-	e2e "knative.dev/func/test/e2e"
 )
 
 // TestFromCliBuildLocal tests the scenario which func.yaml indicates that builds should be on cluster
@@ -31,7 +30,7 @@ func TestFromCliBuildLocal(t *testing.T) {
 
 	knFunc.Exec("deploy",
 		"-p", funcPath,
-		"-r", e2e.GetRegistry(),
+		"-r", common.GetRegistry(),
 		// "--remote",  // NOTE: Intentionally omitted
 	)
 	defer knFunc.Exec("delete", "-p", funcPath)

@@ -6,17 +6,18 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"gotest.tools/v3/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"knative.dev/func/pkg/builders"
 	"knative.dev/func/pkg/k8s"
+	"knative.dev/func/test/common"
+	"knative.dev/func/test/testhttp"
 )
 
 // setupConfigEnvsTest add to cluster config maps and secrets used by the test
@@ -73,13 +74,13 @@ func tearDownConfigEnvsTest() {
 }
 
 // ConfigEnvsAdd generate sa go function to test `func config labels add` with user input
-func ConfigEnvsAdd(knFunc *TestShellInteractiveCmdRunner, project *FunctionTestProject) func(userInput ...string) {
-	return PrepareInteractiveCommand(knFunc, "config", "envs", "add", "--path", project.ProjectPath)
+func ConfigEnvsAdd(knFunc *common.TestInteractiveCmd, functionPath string) func(userInput ...string) {
+	return PrepareInteractiveCommand(knFunc, "config", "envs", "add", "--path", functionPath)
 }
 
 // ConfigEnvsRemove generates a go function to test `func config labels remove` with user input
-func ConfigEnvsRemove(knFunc *TestShellInteractiveCmdRunner, project *FunctionTestProject) func(userInput ...string) {
-	return PrepareInteractiveCommand(knFunc, "config", "envs", "remove", "--path", project.ProjectPath)
+func ConfigEnvsRemove(knFunc *common.TestInteractiveCmd, functionPath string) func(userInput ...string) {
+	return PrepareInteractiveCommand(knFunc, "config", "envs", "remove", "--path", functionPath)
 }
 
 // TestConfigEnvs verifies function environment variables are properly set on the deployed functions.
@@ -94,21 +95,20 @@ func TestConfigEnvs(t *testing.T) {
 	testEnvName := "TEST_ENV"
 	testEnvValue := "TEST_VALUE"
 
-	knFunc := NewTestShellInteractiveCmdRunner(t)
-	knFunc.TestShell.ShouldDumpOnSuccess = false
-	knFunc.commandSleepInterval = time.Millisecond * 1500
+	knFunc := common.NewTestShellInteractiveCmd(t)
+	knFunc.TestCmd.ShouldDumpOnSuccess = false
+	knFunc.CommandSleepInterval = time.Millisecond * 1500
 
 	// On When...
-	project := FunctionTestProject{}
-	project.Runtime = "go"
-	project.Template = "envs"
-	project.FunctionName = "test-config-envs"
-	project.ProjectPath = filepath.Join(os.TempDir(), project.FunctionName)
-	project.RemoteRepository = "http://github.com/boson-project/test-templates.git"
-	project.Builder = builders.Pack
+	funcName := "test-config-envs"
+	funcPath := filepath.Join(t.TempDir(), funcName)
 
-	Create(t, knFunc.TestShell, project)
-	defer func() { _ = project.RemoveProjectFolder() }()
+	knFunc.TestCmd.Exec("create",
+		"--language", "go",
+		"--template", "envs",
+		"--repository", "http://github.com/boson-project/test-templates.git", // TODO Make on config
+		funcPath)
+	knFunc.TestCmd.SourceDir = funcPath
 
 	/*
 		Config Envs Add command prompts user to add envs with below options:
@@ -120,7 +120,7 @@ func TestConfigEnvs(t *testing.T) {
 			  Secret: all key=value pairs as environment variables
 			  Secret: value from a key
 	*/
-	configEnvsAdd := ConfigEnvsAdd(knFunc, &project)
+	configEnvsAdd := ConfigEnvsAdd(knFunc, funcPath)
 
 	configEnvsAdd(
 		enter,                // Environment variable with a specified value
@@ -161,20 +161,19 @@ func TestConfigEnvs(t *testing.T) {
 	configEnvsAdd(enter, arrowDown, enter, "TEST_WRONG_ENV", enter, "TEST_ENV", enter)
 
 	// Delete last Env var entered
-	configEnvsRemove := ConfigEnvsRemove(knFunc, &project)
+	configEnvsRemove := ConfigEnvsRemove(knFunc, funcPath)
 	configEnvsRemove("TEST_WRONG_ENV", enter)
 
 	// Deploy
-	knFunc.TestShell.WithEnv(testEnvName, testEnvValue)
-	Build(t, knFunc.TestShell, &project)
-	Deploy(t, knFunc.TestShell, &project)
-	defer Delete(t, knFunc.TestShell, &project)
-	ReadyCheck(t, knFunc.TestShell, project)
+	knFunc.TestCmd.WithEnv(testEnvName, testEnvValue)
+	knFunc.TestCmd.Exec("deploy", "--builder", "pack", "--registry", common.GetRegistry())
+	defer knFunc.TestCmd.Exec("delete")
+	_, functionUrl := common.WaitForFunctionReady(t, funcName)
 
 	// Validate
 	// The function template used by this test will return all
 	// environment variable started with TEST_ on default endpoint
-	envValidator := func(responseBody string) error {
+	envValidator := func(statusCode int, responseBody string) error {
 		if responseBody == "" {
 			return fmt.Errorf("expected response body on deployed function")
 		}
@@ -211,7 +210,6 @@ func TestConfigEnvs(t *testing.T) {
 		}
 		return nil
 	}
-	functionRespValidator := FunctionHttpResponsivenessValidator{runtime: "go", targetUrl: "%v", responseValidator: envValidator}
-	functionRespValidator.Validate(t, project)
-
+	statusCode, funcResponse := testhttp.TestGet(t, functionUrl)
+	assert.NilError(t, envValidator(statusCode, funcResponse))
 }
