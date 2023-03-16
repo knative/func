@@ -158,7 +158,11 @@ func newHttpClient() *http.Client {
 
 	var tlsOpts []func(*tls.Config)
 
-	tlsVerify, _ := strconv.ParseBool(tlsVerifyStr)
+	tlsVerify := true
+	if b, err := strconv.ParseBool(tlsVerifyStr); err == nil {
+		tlsVerify = b
+	}
+
 	if !tlsVerify {
 		tlsOpts = append(tlsOpts, func(t *tls.Config) {
 			t.InsecureSkipVerify = true
