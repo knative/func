@@ -302,8 +302,22 @@ func sourcesAsTarStream(f fn.Function) *io.PipeReader {
 	return pr
 }
 
+// Remove tries to remove all resources that are present on the cluster and belongs to the input function and it's pipelines
 func (pp *PipelinesProvider) Remove(ctx context.Context, f fn.Function) error {
+	var err error
 
+	errMsg := pp.removeClusterResources(ctx, f)
+	if errMsg != "" {
+		err = fmt.Errorf("%s", errMsg)
+	}
+
+	return err
+}
+
+// removeClusterResources tries to remove all resources that are present on the cluster and belongs to the input function and it's pipelines
+// if there are any errors during the removal, string with error messages is returned
+// if there are no error the returned string is empty
+func (pp *PipelinesProvider) removeClusterResources(ctx context.Context, f fn.Function) string {
 	l := k8slabels.SelectorFromSet(k8slabels.Set(map[string]string{fnlabels.FunctionNameKey: f.Name}))
 	listOptions := metav1.ListOptions{
 		LabelSelector: l.String(),
@@ -316,6 +330,7 @@ func (pp *PipelinesProvider) Remove(ctx context.Context, f fn.Function) error {
 		deletePipelineRuns,
 		k8s.DeleteSecrets,
 		k8s.DeletePersistentVolumeClaims,
+		deletePACRepositories,
 	}
 
 	wg.Add(len(deleteFunctions))
@@ -334,8 +349,7 @@ func (pp *PipelinesProvider) Remove(ctx context.Context, f fn.Function) error {
 	wg.Wait()
 	close(errChan)
 
-	// collect all errors and print them
-	var err error
+	// collect all errors and return them as a string
 	errMsg := ""
 	anyError := false
 	for e := range errChan {
@@ -346,11 +360,7 @@ func (pp *PipelinesProvider) Remove(ctx context.Context, f fn.Function) error {
 		errMsg += fmt.Sprintf("\n %v", e)
 	}
 
-	if anyError {
-		err = fmt.Errorf("%s", errMsg)
-	}
-
-	return err
+	return errMsg
 }
 
 // watchPipelineRunProgress watches the progress of the input PipelineRun

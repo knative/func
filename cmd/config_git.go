@@ -37,11 +37,13 @@ the current directory or from the directory specified with --path.
 	}
 
 	configGitSetCmd := NewConfigGitSetCmd(newClient)
+	configGitRemoveCmd := NewConfigGitRemoveCmd(newClient)
 
 	addPathFlag(cmd)
 	addVerboseFlag(cmd, cfg.Verbose)
 
 	cmd.AddCommand(configGitSetCmd)
+	cmd.AddCommand(configGitRemoveCmd)
 
 	return cmd
 }

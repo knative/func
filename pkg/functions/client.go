@@ -192,6 +192,7 @@ type PipelinesProvider interface {
 	Run(context.Context, Function) error
 	Remove(context.Context, Function) error
 	ConfigurePAC(context.Context, Function, any) error
+	RemovePAC(context.Context, Function, any) error
 }
 
 // New client for function management.
@@ -853,6 +854,21 @@ func (c *Client) ConfigurePAC(ctx context.Context, f Function, metadata any) err
 	return nil
 }
 
+// RemovePAC deletes generated Pipeline as Code resources on the local filesystem and on the cluster
+func (c *Client) RemovePAC(ctx context.Context, f Function, metadata any) error {
+	go func() {
+		<-ctx.Done()
+		c.progressListener.Stopping()
+	}()
+
+	// Build and deploy function using Pipeline
+	if err := c.pipelinesProvider.RemovePAC(ctx, f, metadata); err != nil {
+		return fmt.Errorf("failed to remove git related resources: %w", err)
+	}
+
+	return nil
+}
+
 // Route returns the current primary route to the function at root.
 //
 // Note that local instances of the Function created by the .Run
@@ -1195,6 +1211,9 @@ type noopPipelinesProvider struct{}
 func (n *noopPipelinesProvider) Run(ctx context.Context, _ Function) error    { return nil }
 func (n *noopPipelinesProvider) Remove(ctx context.Context, _ Function) error { return nil }
 func (n *noopPipelinesProvider) ConfigurePAC(ctx context.Context, _ Function, _ any) error {
+	return nil
+}
+func (n *noopPipelinesProvider) RemovePAC(ctx context.Context, _ Function, _ any) error {
 	return nil
 }
 
