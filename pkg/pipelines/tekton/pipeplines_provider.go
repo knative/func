@@ -449,7 +449,7 @@ func getFailedPipelineRunLog(ctx context.Context, pr *v1beta1.PipelineRun, names
 var createPersistentVolumeClaim = k8s.CreatePersistentVolumeClaim
 
 func createPipelinePersistentVolumeClaim(ctx context.Context, f fn.Function, namespace string, labels map[string]string) error {
-	pvcs, err := resource.ParseQuantity(f.Deploy.PVCSize)
+	pvcs, err := resource.ParseQuantity(f.Build.PVCSize)
 	if err != nil {
 		return fmt.Errorf("PVC size value cannot be parsed due to: %v", err)
 	}

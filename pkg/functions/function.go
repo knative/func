@@ -115,6 +115,10 @@ type BuildSpec struct {
 
 	// Build Env variables to be set
 	BuildEnvs []Env `yaml:"buildEnvs,omitempty"`
+
+	// PVCSize specifies the size of persistent volume claim used to store function
+	// when using deployment and remote build process (only relevant when Remote is true).
+	PVCSize string `yaml:"pvc-size"`
 }
 
 // RunSpec
@@ -134,10 +138,6 @@ type DeploySpec struct {
 	// Remote indicates the deployment (and possibly build) process are to
 	// be triggered in a remote environment rather than run locally.
 	Remote bool `yaml:"remote,omitempty"`
-
-	// PVCSize specifies the size of persistent volume claim used to store function
-	// when using deployment and remote build process (only relevant when Remote is true).
-	PVCSize string `yaml:"pvc-size"`
 
 	// Map containing user-supplied annotations
 	// Example: { "division": "finance" }

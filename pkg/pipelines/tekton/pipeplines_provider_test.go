@@ -119,13 +119,12 @@ func Test_createPipelinePersistentVolumeClaim(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// save current function and restore it at the end
+		t.Run(tt.name, func(t *testing.T) { // save current function and restore it at the end
 			old := createPersistentVolumeClaim
 			defer func() { createPersistentVolumeClaim = old }()
 
 			createPersistentVolumeClaim = tt.mock
-			tt.args.f.Deploy.PVCSize = tt.args.size
+			tt.args.f.Build.PVCSize = tt.args.size
 			if err := createPipelinePersistentVolumeClaim(tt.args.ctx, tt.args.f, tt.args.namespace, tt.args.labels); (err != nil) != tt.wantErr {
 				t.Errorf("createPipelinePersistentVolumeClaim() error = %v, wantErr %v", err, tt.wantErr)
 			}

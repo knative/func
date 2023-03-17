@@ -427,7 +427,7 @@ func (c deployConfig) Configure(f fn.Function) (fn.Function, error) {
 	if err != nil {
 		return f, fmt.Errorf("cannot parse the provided PVC size '%s' due to: %w", c.PVCSize, err)
 	}
-	f.Deploy.PVCSize = c.PVCSize
+	f.Build.PVCSize = c.PVCSize
 
 	// ImageDigest
 	// Parsed off f.Image if provided.  Deploying adds the ability to specify a
