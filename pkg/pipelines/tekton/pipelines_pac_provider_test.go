@@ -2,6 +2,7 @@ package tekton
 
 import (
 	"context"
+	"path/filepath"
 	"testing"
 
 	"knative.dev/func/pkg/builders"
@@ -57,5 +58,40 @@ func Test_createLocalResources(t *testing.T) {
 				return
 			}
 		})
+	}
+}
+
+func Test_deleteAllPipelineTemplates(t *testing.T) {
+	root := "testdata/deleteAllPipelineTemplates"
+	defer Using(t, root)()
+
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f.Build.Builder = builders.Pack
+	f.Build.Git.URL = "https://foo.bar/repo/function"
+	f.Image = "docker.io/alice/" + f.Name
+	f.Registry = TestRegistry
+
+	pp := NewPipelinesProvider()
+	err = pp.createLocalResources(context.Background(), f)
+	if err != nil {
+		t.Errorf("unexpected error while running pp.createLocalResources() error = %v", err)
+	}
+
+	errMsg := deleteAllPipelineTemplates(f)
+	if errMsg != "" {
+		t.Errorf("unexpected error while running deleteAllPipelineTemplates() error message = %s", errMsg)
+	}
+
+	fp := filepath.Join(root, resourcesDirectory)
+	exists, err := FileExists(t, fp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if exists {
+		t.Errorf("directory with pipeline resources shouldn't exist on path = %s", fp)
 	}
 }
