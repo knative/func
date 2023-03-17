@@ -29,6 +29,9 @@ const (
 	// existence indicates the function has been built, and whose content is
 	// a fingerprint of the filesystem at the time of the build.
 	buildstamp = "built"
+
+	// DefaultPersistentVolumeClaimSize represents default size of PVC created for a Pipeline
+	DefaultPersistentVolumeClaimSize string = "256Mi"
 )
 
 // Function
@@ -175,6 +178,9 @@ func NewFunctionWith(defaults Function) Function {
 	}
 	if defaults.Build.BuilderImages == nil {
 		defaults.Build.BuilderImages = make(map[string]string)
+	}
+	if defaults.Build.PVCSize == "" {
+		defaults.Build.PVCSize = DefaultPersistentVolumeClaimSize
 	}
 	if defaults.Deploy.Annotations == nil {
 		defaults.Deploy.Annotations = make(map[string]string)

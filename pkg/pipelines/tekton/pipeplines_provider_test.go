@@ -96,7 +96,7 @@ func Test_createPipelinePersistentVolumeClaim(t *testing.T) {
 				f:         fn.Function{},
 				namespace: "test-ns",
 				labels:    nil,
-				size:      DefaultPersistentVolumeClaimSize,
+				size:      fn.DefaultPersistentVolumeClaimSize,
 			},
 			mock: func(ctx context.Context, name, namespaceOverride string, labels map[string]string, annotations map[string]string, accessMode corev1.PersistentVolumeAccessMode, resourceRequest resource.Quantity) (err error) {
 				return errors.New("creation of pvc failed")
@@ -110,7 +110,7 @@ func Test_createPipelinePersistentVolumeClaim(t *testing.T) {
 				f:         fn.Function{},
 				namespace: "test-ns",
 				labels:    nil,
-				size:      DefaultPersistentVolumeClaimSize,
+				size:      fn.DefaultPersistentVolumeClaimSize,
 			},
 			mock: func(ctx context.Context, name, namespaceOverride string, labels map[string]string, annotations map[string]string, accessMode corev1.PersistentVolumeAccessMode, resourceRequest resource.Quantity) (err error) {
 				return &apiErrors.StatusError{ErrStatus: metav1.Status{Reason: metav1.StatusReasonAlreadyExists}}

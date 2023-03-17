@@ -18,7 +18,6 @@ import (
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
-	"knative.dev/func/pkg/pipelines/tekton"
 )
 
 func NewDeployCmd(newClient ClientFactory) *cobra.Command {
@@ -166,7 +165,7 @@ EXAMPLES
 		"Directory in the Git repository containing the function (default is the root) (Env: $FUNC_GIT_DIR)")
 	cmd.Flags().Bool("remote", f.Deploy.Remote,
 		"Trigger a remote deployment. Default is to deploy and build from the local system (Env: $FUNC_REMOTE)")
-	cmd.Flags().String("pvc-size", tekton.DefaultPersistentVolumeClaimSize,
+	cmd.Flags().String("pvc-size", fn.DefaultPersistentVolumeClaimSize,
 		"Configure the PVC size used by a pipeline. This flag can only be set if --remote flag is used.")
 
 	// Static Flags:
@@ -421,7 +420,6 @@ func (c deployConfig) Configure(f fn.Function) (fn.Function, error) {
 	f.Build.Git.Revision = c.GitBranch // TODO: should match; perhaps "refSpec"
 	f.Deploy.Namespace = c.Namespace
 	f.Deploy.Remote = c.Remote
-
 	// Validate if PVC size can be parsed to quantity
 	_, err = resource.ParseQuantity(c.PVCSize)
 	if err != nil {
