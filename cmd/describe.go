@@ -92,7 +92,7 @@ func runDescribe(cmd *cobra.Command, args []string, newClient ClientFactory) (er
 	defer done()
 
 	// TODO(lkingland): update API to use the above function instance rather than path
-	d, err := client.Describe(cmd.Context(), cfg.Name, f.Root)
+	d, err := client.Describe(cmd.Context(), cfg.Name, f)
 	if err != nil {
 		return
 	}

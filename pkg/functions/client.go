@@ -2,11 +2,9 @@ package functions
 
 import (
 	"context"
-	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -25,15 +23,6 @@ const (
 	// one implementation of each supported function signature.  Currently that
 	// includes an HTTP Handler ("http") and Cloud Events handler ("events")
 	DefaultTemplate = "http"
-
-	// RunDataDir holds transient runtime metadata
-	// By default it is excluded from source control.
-	RunDataDir = ".func"
-
-	// buildstamp is the name of the file within the run data directory whose
-	// existence indicates the function has been built, and whose content is
-	// a fingerprint of the filesystem at the time of the build.
-	buildstamp = "built"
 )
 
 // Client for managing function instances.
@@ -419,14 +408,11 @@ func (c *Client) Runtimes() ([]string, error) {
 // Invokes all lower-level methods, including initialization, as necessary to
 // create a running function whose source code and metadata match that provided
 // by the passed function instance, returning the final route and any errors.
-func (c *Client) Apply(ctx context.Context, f Function) (route string, err error) {
-	if f, err = NewFunction(f.Root); err != nil {
-		return
-	}
+func (c *Client) Apply(ctx context.Context, f Function) (string, Function, error) {
 	if !f.Initialized() {
 		return c.New(ctx, f)
 	} else {
-		return c.Update(ctx, f.Root)
+		return c.Update(ctx, f)
 	}
 }
 
@@ -437,24 +423,21 @@ func (c *Client) Apply(ctx context.Context, f Function) (route string, err error
 //
 // Use Init, Build, Push and Deploy independently for lower level control.
 // Returns final primary route to the Function and any errors.
-func (c *Client) Update(ctx context.Context, root string) (route string, err error) {
-	f, err := NewFunction(root)
-	if err != nil {
-		return
-	}
+func (c *Client) Update(ctx context.Context, f Function) (string, Function, error) {
 	if !f.Initialized() {
-		return "", ErrNotInitialized
+		return "", f, ErrNotInitialized
 	}
-	if err = c.Build(ctx, f.Root); err != nil {
-		return
+	var err error
+	if f, err = c.Build(ctx, f); err != nil {
+		return "", f, err
 	}
-	if err = c.Push(ctx, f.Root); err != nil {
-		return
+	if f, err = c.Push(ctx, f); err != nil {
+		return "", f, err
 	}
-	if err = c.Deploy(ctx, f.Root); err != nil {
-		return
+	if f, err = c.Deploy(ctx, f); err != nil {
+		return "", f, err
 	}
-	return c.Route(ctx, f.Root)
+	return c.Route(ctx, f)
 }
 
 // New function.
@@ -465,7 +448,7 @@ func (c *Client) Update(ctx context.Context, root string) (route string, err err
 //
 // Use Init, Build, Push, Deploy etc. independently for lower level control.
 // Returns the primary route to the function or error.
-func (c *Client) New(ctx context.Context, cfg Function) (route string, err error) {
+func (c *Client) New(ctx context.Context, cfg Function) (string, Function, error) {
 	c.progressListener.SetTotal(3)
 	// Always start a concurrent routine listening for context cancellation.
 	// On this event, immediately indicate the task is canceling.
@@ -477,45 +460,41 @@ func (c *Client) New(ctx context.Context, cfg Function) (route string, err error
 		c.progressListener.Stopping()
 	}()
 
+	var route string
 	// Init the path as a new Function
-	if err = c.Init(cfg); err != nil {
-		return
-	}
-
-	// Load the now-initialized function.
-	f, err := NewFunction(cfg.Root)
+	f, err := c.Init(cfg)
 	if err != nil {
-		return
+		return route, cfg, err
 	}
 
 	// Build the now-initialized function
 	c.progressListener.Increment("Building container image")
-	if err = c.Build(ctx, f.Root); err != nil {
-		return
+	if f, err = c.Build(ctx, f); err != nil {
+		return route, f, err
 	}
 
 	// Push the produced function image
 	c.progressListener.Increment("Pushing container image to registry")
-	if err = c.Push(ctx, f.Root); err != nil {
-		return
+	if f, err = c.Push(ctx, f); err != nil {
+		return route, f, err
 	}
 
 	// Deploy the initialized function, returning its publicly
 	// addressible name for possible registration.
 	c.progressListener.Increment("Deploying function to cluster")
-	if err = c.Deploy(ctx, f.Root); err != nil {
-		return
+	if f, err = c.Deploy(ctx, f); err != nil {
+		return route, f, err
 	}
 
 	// Create an external route to the function
 	c.progressListener.Increment("Creating route to function")
-	if route, err = c.Route(ctx, f.Root); err != nil {
-		return
+	if route, f, err = c.Route(ctx, f); err != nil {
+		return route, f, err
 	}
 
 	c.progressListener.Complete("Done")
 
-	return
+	return route, f, err
 }
 
 // Initialize a new function with the given function struct defaults.
@@ -526,32 +505,34 @@ func (c *Client) New(ctx context.Context, cfg Function) (route string, err error
 // <name> will default to the current working directory.
 // When <name> is provided but <path> is not, a directory <name> is created
 // in the current working directory and used for <path>.
-func (c *Client) Init(cfg Function) (err error) {
+func (c *Client) Init(cfg Function) (Function, error) {
 	// convert Root path to absolute
+	var err error
+	oldRoot := cfg.Root
 	cfg.Root, err = filepath.Abs(cfg.Root)
 	cfg.SpecVersion = LastSpecVersion()
 	if err != nil {
-		return
+		return cfg, err
 	}
 
 	// Create project root directory, if it doesn't already exist
 	if err = os.MkdirAll(cfg.Root, 0755); err != nil {
-		return
+		return cfg, err
 	}
 
 	// Create should never clobber a pre-existing function
 	hasFunc, err := hasInitializedFunction(cfg.Root)
 	if err != nil {
-		return err
+		return cfg, err
 	}
 	if hasFunc {
-		return fmt.Errorf("function at '%v' already initialized", cfg.Root)
+		return cfg, fmt.Errorf("function at '%v' already initialized", cfg.Root)
 	}
 
 	// Path is defaulted to the current working directory
 	if cfg.Root == "" {
 		if cfg.Root, err = os.Getwd(); err != nil {
-			return
+			return cfg, err
 		}
 	}
 
@@ -563,15 +544,15 @@ func (c *Client) Init(cfg Function) (err error) {
 	// The path for the new function should not have any contentious files
 	// (hidden files OK, unless it's one used by func)
 	if err := assertEmptyRoot(cfg.Root); err != nil {
-		return err
+		return cfg, err
 	}
 
 	// Create a new function (in memory)
 	f := NewFunctionWith(cfg)
 
 	// Create a .func diretory which is also added to a .gitignore
-	if err = ensureRuntimeDir(f); err != nil {
-		return
+	if err = f.ensureRuntimeDir(); err != nil {
+		return f, err
 	}
 
 	// Write out the new function's Template files.
@@ -580,64 +561,22 @@ func (c *Client) Init(cfg Function) (err error) {
 	// returned from Templates.Write
 	err = c.Templates().Write(&f)
 	if err != nil {
-		return
+		return f, err
 	}
 
 	// Mark the function as having been created
 	f.Created = time.Now()
 	err = f.Write()
-	return
-}
-
-// Tag the function as having been built
-// This is locally-scoped data, only indicating there presumably exists
-// a container image in the cache of the the configured builder, thus this info
-// is placed in a .func (non-source controlled) local metadata directory, which
-// is not stritly required to exist, so it is created if needed.
-func updateBuildStamp(f Function) (err error) {
-	if err = ensureRuntimeDir(f); err != nil {
-		return err
-	}
-	hash, err := fingerprint(f)
 	if err != nil {
-		return err
+		return f, err
 	}
-	if err = os.WriteFile(filepath.Join(f.Root, RunDataDir, buildstamp), []byte(hash), os.ModePerm); err != nil {
-		return err
-	}
-	return
-}
-
-// ensureRuntimeDir creates a .func directory in the root of the given
-// function which is also registered as ignored in .gitignore
-// TODO: Mutate extant .gitignore file if it exists rather than failing
-// if present (see contentious files in function.go), such that a user
-// can `git init` a directory prior to `func init` in the same directory).
-func ensureRuntimeDir(f Function) error {
-	if err := os.MkdirAll(filepath.Join(f.Root, RunDataDir), os.ModePerm); err != nil {
-		return err
-	}
-
-	_, err := os.Stat(".gitignore")
-	if err == nil {
-		return nil
-	}
-	if !os.IsNotExist(err) {
-		return err
-	}
-
-	gitignore := `
-# Functions use the .func directory for local runtime data which should
-# generally not be tracked in source control:
-/.func
-`
-	return os.WriteFile(filepath.Join(f.Root, ".gitignore"), []byte(gitignore), 0644)
-
+	// Load the now-initialized function.
+	return NewFunction(oldRoot)
 }
 
 // Build the function at path. Errors if the function is either unloadable or does
 // not contain a populated Image.
-func (c *Client) Build(ctx context.Context, path string) (err error) {
+func (c *Client) Build(ctx context.Context, f Function) (Function, error) {
 	c.progressListener.Increment("Building function image")
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
@@ -646,11 +585,6 @@ func (c *Client) Build(ctx context.Context, path string) (err error) {
 	// users to prematurely exit due to the sluggishness of pulling large images
 	if !c.verbose {
 		c.printBuildActivity(ctx) // print friendly messages until context is canceled
-	}
-
-	f, err := NewFunction(path)
-	if err != nil {
-		return
 	}
 
 	// Default function registry to the client's global registry
@@ -662,25 +596,20 @@ func (c *Client) Build(ctx context.Context, path string) (err error) {
 	// Image name is stored on the function for later use by deploy, etc.
 	// TODO: write this to .func/build instead, and populate f.Image on deploy
 	// such that local builds do not dirty the work tree.
+	var err error
 	if f.Image == "" {
 		if f.Image, err = f.ImageName(); err != nil {
-			return
+			return f, err
 		}
 	}
 
 	if err = c.builder.Build(ctx, f); err != nil {
-		return
+		return f, err
 	}
 
-	// Write (save) - Serialize the function to disk
-	// Will now contain populated image tag.
-	if err = f.Write(); err != nil {
-		return
-	}
-
-	// Tag the function as having been built
-	if err = updateBuildStamp(f); err != nil {
-		return
+	f, err = f.updateBuildStamp()
+	if err != nil {
+		return f, err
 	}
 
 	// TODO: create a status structure and return it here for optional
@@ -690,7 +619,7 @@ func (c *Client) Build(ctx context.Context, path string) (err error) {
 		message = fmt.Sprintf("Function image built: %v", f.Image)
 	}
 	c.progressListener.Increment(message)
-	return
+	return f, err
 }
 
 func (c *Client) printBuildActivity(ctx context.Context) {
@@ -732,7 +661,7 @@ func WithDeploySkipBuildCheck(skipBuiltCheck bool) DeployOption {
 }
 
 // Deploy the function at path. Errors if the function has not been built.
-func (c *Client) Deploy(ctx context.Context, path string, opts ...DeployOption) (err error) {
+func (c *Client) Deploy(ctx context.Context, f Function, opts ...DeployOption) (Function, error) {
 
 	deployParams := &DeployParams{skipBuiltCheck: false}
 	for _, opt := range opts {
@@ -744,21 +673,16 @@ func (c *Client) Deploy(ctx context.Context, path string, opts ...DeployOption) 
 		c.progressListener.Stopping()
 	}()
 
-	f, err := NewFunction(path)
-	if err != nil {
-		return
-	}
-
 	// Functions must be built (have an associated image) before being deployed.
 	// Note that externally built images may be specified in the func.yaml
-	if !deployParams.skipBuiltCheck && !Built(f.Root) {
-		return ErrNotBuilt
+	if !deployParams.skipBuiltCheck && !f.Built() {
+		return f, ErrNotBuilt
 	}
 
 	// Functions must have a name to be deployed (a path on the network at which
 	// it should take up residence.
 	if f.Name == "" {
-		return ErrNameRequired
+		return f, ErrNameRequired
 	}
 
 	// Deploy a new or Update the previously-deployed function
@@ -766,17 +690,12 @@ func (c *Client) Deploy(ctx context.Context, path string, opts ...DeployOption) 
 	result, err := c.deployer.Deploy(ctx, f)
 	if err != nil {
 		fmt.Printf("deploy error: %v\n", err)
-		return
+		return f, err
 	}
 
 	// Update the function with the namespace into which the function was
 	// deployed
 	f.Deploy.Namespace = result.Namespace
-
-	// saves namespace to function's metadata (func.yaml)
-	if err = f.Write(); err != nil {
-		return
-	}
 
 	if result.Status == Deployed {
 		c.progressListener.Increment(fmt.Sprintf("✅ Function deployed in namespace %q and exposed at URL: \n   %v", result.Namespace, result.URL))
@@ -786,7 +705,7 @@ func (c *Client) Deploy(ctx context.Context, path string, opts ...DeployOption) 
 
 	// Metadata generated from deploying (namespace) should not trigger a rebuild
 	// through a staleness check, so update the build stamp we checked earlier.
-	return updateBuildStamp(f)
+	return f.updateBuildStamp()
 }
 
 // RunPipeline runs a Pipeline to build and deploy the function.
@@ -878,7 +797,7 @@ func (c *Client) RemovePAC(ctx context.Context, f Function, metadata any) error 
 //
 // For access to these local test function instances routes, use the instances
 // manager directly ( see .Instances().Get() ).
-func (c *Client) Route(ctx context.Context, path string) (route string, err error) {
+func (c *Client) Route(ctx context.Context, f Function) (string, Function, error) {
 	// Ensure that the allocated final address is enabled with the
 	// configured DNS provider.
 	// NOTE:
@@ -886,40 +805,31 @@ func (c *Client) Route(ctx context.Context, path string) (route string, err erro
 	// but DNS subdomain CNAME to the Kourier Load Balancer is
 	// still manual, and the initial cluster config to suppot the TLD
 	// is still manual.
-	f, err := NewFunction(path)
-	if err != nil {
-		return
-	}
-	if err = c.dnsProvider.Provide(f); err != nil {
-		return
+	if err := c.dnsProvider.Provide(f); err != nil {
+		return "", f, err
 	}
 
 	// Return the correct route.
-	instance, err := c.Instances().Remote(ctx, "", path)
+	instance, err := c.Instances().Remote(ctx, "", f.Root)
 	if err != nil {
-		return
+		return "", f, err
 	}
-	return instance.Route, nil
+	return instance.Route, f, nil
 }
 
 // Run the function whose code resides at root.
 // On start, the chosen port is sent to the provided started channel
-func (c *Client) Run(ctx context.Context, root string) (job *Job, err error) {
+func (c *Client) Run(ctx context.Context, f Function) (job *Job, err error) {
 	go func() {
 		<-ctx.Done()
 		c.progressListener.Stopping()
 	}()
 
-	// Load the function
-	f, err := NewFunction(root)
-	if err != nil {
-		return
-	}
 	if !f.Initialized() {
 		// TODO: this needs a test.
 		err = fmt.Errorf("the given path '%v' does not contain an initialized "+
-			"function.  Please create one at this path in order to run", root)
-		return
+			"function.  Please create one at this path in order to run", f.Root)
+		return nil, err
 	}
 
 	// Run the function, which returns a Job for use interacting (at arms length)
@@ -935,7 +845,7 @@ func (c *Client) Run(ctx context.Context, root string) (job *Job, err error) {
 
 // Describe a function.  Name takes precedence.  If no name is provided,
 // the function defined at root is used.
-func (c *Client) Describe(ctx context.Context, name, root string) (d Instance, err error) {
+func (c *Client) Describe(ctx context.Context, name string, f Function) (d Instance, err error) {
 	go func() {
 		<-ctx.Done()
 		c.progressListener.Stopping()
@@ -946,12 +856,8 @@ func (c *Client) Describe(ctx context.Context, name, root string) (d Instance, e
 		return c.describer.Describe(ctx, name)
 	}
 
-	f, err := NewFunction(root)
-	if err != nil {
-		return d, err
-	}
 	if !f.Initialized() {
-		return d, fmt.Errorf("function not initialized: %v", root)
+		return d, fmt.Errorf("function not initialized: %v", f.Root)
 	}
 	if f.Name == "" {
 		return d, fmt.Errorf("unable to describe without a name. %v", ErrNameRequired)
@@ -1044,109 +950,18 @@ func (c *Client) Invoke(ctx context.Context, root string, target string, m Invok
 }
 
 // Push the image for the named service to the configured registry
-func (c *Client) Push(ctx context.Context, path string) (err error) {
-	f, err := NewFunction(path)
-	if err != nil {
-		return
+func (c *Client) Push(ctx context.Context, f Function) (Function, error) {
+	if !f.Built() {
+		return f, ErrNotBuilt
 	}
-
-	if !Built(f.Root) {
-		return ErrNotBuilt
-	}
-
+	var err error
 	if f.ImageDigest, err = c.pusher.Push(ctx, f); err != nil {
-		return
-	}
-
-	if err = f.Write(); err != nil { // saves digest to f's metadata (func.yaml)
-		return
+		return f, err
 	}
 
 	// Metadata generated from pushing (ImageDigest) should not trigger a rebuild
 	// through a staleness check, so update the build stamp we checked earlier.
-	return updateBuildStamp(f)
-}
-
-// Built returns true if the given path contains a function which has been
-// built without any filesystem modifications since (is not stale).
-func Built(path string) bool {
-	f, err := NewFunction(path)
-	if err != nil {
-		return false
-	}
-
-	// If there is no build stamp, it is not built.
-	// This case should be redundant with the below check for an image, but is
-	// temporarily necessary (see the long-winded caviat note below).
-	stamp := buildStamp(path)
-	if stamp == "" {
-		return false
-	}
-
-	// Missing an image name always means !Built (but does not satisfy staleness
-	// checks).
-	// NOTE: This will be updated in the future such that a build does not
-	// automatically update the function's serialized, source-controlled state,
-	// because merely building does not indicate the function has changed, but
-	// rather that field should be populated on deploy.  I.e. the Image name
-	// and image stamp should reside as transient data in .func until such time
-	// as the given image has been deployed.
-	// An example of how this bug manifests is that every rebuild of a function
-	// registers the func.yaml as being dirty for source-control purposes, when
-	// this should only happen on deploy.
-	if f.Image == "" {
-		return false
-	}
-
-	// Calculate the function's Filesystem hash and see if it has changed.
-	hash, err := fingerprint(f)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error calculating function's fingerprint: %v\n", err)
-		return false
-	}
-
-	if stamp != hash {
-		return false
-	}
-
-	// Function has a populated image, existing buildstamp, and the calculated
-	// fingerprint has not changed.
-	// It's a pretty good chance the thing doesn't need to be rebuilt, though
-	// of course filesystem racing conditions do exist, including both direct
-	// source code modifications or changes to the image cache.
-	return true
-}
-
-// buildStamp returns the current (last) build stamp for the function
-// at the given path, if it can be found.
-func buildStamp(path string) string {
-	buildstampPath := filepath.Join(path, RunDataDir, buildstamp)
-	if _, err := os.Stat(buildstampPath); err != nil {
-		return ""
-	}
-	b, err := os.ReadFile(buildstampPath)
-	if err != nil {
-		return ""
-	}
-	return string(b)
-}
-
-// fingerprint returns a hash of the filenames and modification timestamps of
-// the files within a function's root.
-func fingerprint(f Function) (string, error) {
-	h := sha256.New()
-	err := filepath.Walk(f.Root, func(path string, info fs.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		// Always ignore .func, .git (TODO: .funcignore)
-		if info.IsDir() && (info.Name() == RunDataDir || info.Name() == ".git") {
-			return filepath.SkipDir
-		}
-		fmt.Fprintf(h, "%v:%v:", path, info.ModTime().UnixNano())
-		return nil
-	})
-	return fmt.Sprintf("%x", h.Sum(nil)), err
+	return f.updateBuildStamp()
 }
 
 // DEFAULTS

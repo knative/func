@@ -102,7 +102,7 @@ func TestBuild_Push(t *testing.T) {
 		Runtime:  "go",
 		Registry: "example.com/alice",
 	}
-	if err := fn.New().Init(f); err != nil {
+	if _, err := fn.New().Init(f); err != nil {
 		t.Fatal(err)
 	}
 

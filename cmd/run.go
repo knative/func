@@ -136,9 +136,12 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 	// is stale (has either never been built or has had filesystem modifications
 	// since the last build).
 	if cfg.Build == "auto" {
-		if !fn.Built(function.Root) {
-			if err = client.Build(cmd.Context(), cfg.Path); err != nil {
+		if !function.Built() {
+			if function, err = client.Build(cmd.Context(), function); err != nil {
 				return
+			}
+			if err = function.Write(); err != nil {
+				return err
 			}
 		}
 		fmt.Println("Function already built.  Use --build to force a rebuild.")
@@ -150,7 +153,10 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 			return fmt.Errorf("unrecognized value for --build '%v'.  accepts 'auto', 'true' or 'false' (or similarly truthy value)", build)
 		}
 		if build {
-			if err = client.Build(cmd.Context(), cfg.Path); err != nil {
+			if function, err = client.Build(cmd.Context(), function); err != nil {
+				return err
+			}
+			if err = function.Write(); err != nil {
 				return err
 			}
 		} else {
@@ -160,7 +166,7 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 	}
 
 	// Run the function at path
-	job, err := client.Run(cmd.Context(), cfg.Path)
+	job, err := client.Run(cmd.Context(), function)
 	if err != nil {
 		return
 	}

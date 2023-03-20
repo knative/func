@@ -21,7 +21,7 @@ func TestInvoke(t *testing.T) {
 	var invoked int32
 
 	// Create a test function to be invoked
-	if err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
+	if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -53,8 +53,12 @@ func TestInvoke(t *testing.T) {
 	}
 
 	// Run the mock http service function interloper
+	f, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
 	client := fn.New(fn.WithRunner(runner))
-	job, err := client.Run(context.Background(), root)
+	job, err := client.Run(context.Background(), f)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +84,8 @@ func TestInvoke_Namespace(t *testing.T) {
 
 	// Create a Function in a non-active namespace
 	f := fn.Function{Runtime: "go", Root: root, Deploy: fn.DeploySpec{Namespace: "ns"}}
-	if err := fn.New().Init(f); err != nil {
+	_, err := fn.New().Init(f)
+	if err != nil {
 		t.Fatal(err)
 	}
 
