@@ -11,7 +11,8 @@
 			"properties": {
 				"git": {
 					"$schema": "http://json-schema.org/draft-04/schema#",
-					"$ref": "#/definitions/Git"
+					"$ref": "#/definitions/Git",
+					"description": "Git stores information about an optionally associated git repository."
 				},
 				"builderImages": {
 					"patternProperties": {
@@ -19,31 +20,36 @@
 							"type": "string"
 						}
 					},
-					"type": "object"
+					"type": "object",
+					"description": "BuilderImages define optional explicit builder images to use by\nbuilder implementations in leau of the in-code defaults.  They key\nis the builder's short name.  For example:\nbuilderImages:\n  pack: example.com/user/my-pack-node-builder\n  s2i: example.com/user/my-s2i-node-builder"
 				},
 				"buildpacks": {
 					"items": {
 						"type": "string"
 					},
-					"type": "array"
+					"type": "array",
+					"description": "Optional list of buildpacks to use when building the function"
 				},
 				"builder": {
 					"enum": [
 						"pack",
 						"s2i"
 					],
-					"type": "string"
+					"type": "string",
+					"description": "Builder is the name of the subsystem that will complete the underlying\nbuild (pack, s2i, etc)"
 				},
 				"buildEnvs": {
 					"items": {
 						"$schema": "http://json-schema.org/draft-04/schema#",
 						"$ref": "#/definitions/Env"
 					},
-					"type": "array"
+					"type": "array",
+					"description": "Build Env variables to be set"
 				}
 			},
 			"additionalProperties": false,
-			"type": "object"
+			"type": "object",
+			"description": "BuildSpec"
 		},
 		"DeploySpec": {
 			"required": [
@@ -56,10 +62,12 @@
 			],
 			"properties": {
 				"namespace": {
-					"type": "string"
+					"type": "string",
+					"description": "Namespace into which the function is deployed on supported platforms."
 				},
 				"remote": {
-					"type": "boolean"
+					"type": "boolean",
+					"description": "Remote indicates the deployment (and possibly build) process are to\nbe triggered in a remote environment rather than run locally."
 				},
 				"annotations": {
 					"patternProperties": {
@@ -67,26 +75,31 @@
 							"type": "string"
 						}
 					},
-					"type": "object"
+					"type": "object",
+					"description": "Map containing user-supplied annotations\nExample: { \"division\": \"finance\" }"
 				},
 				"options": {
 					"$schema": "http://json-schema.org/draft-04/schema#",
-					"$ref": "#/definitions/Options"
+					"$ref": "#/definitions/Options",
+					"description": "Options to be set on deployed function (scaling, etc.)"
 				},
 				"labels": {
 					"items": {
 						"$schema": "http://json-schema.org/draft-04/schema#",
 						"$ref": "#/definitions/Label"
 					},
-					"type": "array"
+					"type": "array",
+					"description": "Map of user-supplied labels"
 				},
 				"healthEndpoints": {
 					"$schema": "http://json-schema.org/draft-04/schema#",
-					"$ref": "#/definitions/HealthEndpoints"
+					"$ref": "#/definitions/HealthEndpoints",
+					"description": "Health endpoints specified by the language pack"
 				}
 			},
 			"additionalProperties": false,
-			"type": "object"
+			"type": "object",
+			"description": "DeploySpec"
 		},
 		"Env": {
 			"required": [
@@ -119,46 +132,58 @@
 			],
 			"properties": {
 				"specVersion": {
-					"type": "string"
+					"type": "string",
+					"description": "SpecVersion at which this function is known to be compatible.\nMore specifically, it is the highest migration which has been applied.\nFor details see the .Migrated() and .Migrate() methods."
 				},
 				"name": {
 					"pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
-					"type": "string"
+					"type": "string",
+					"description": "Name of the function."
 				},
 				"runtime": {
-					"type": "string"
+					"type": "string",
+					"description": "Runtime is the language plus context.  nodejs|go|quarkus|rust etc."
 				},
 				"registry": {
-					"type": "string"
+					"type": "string",
+					"description": "Registry at which to store interstitial containers, in the form\n[registry]/[user]."
 				},
 				"image": {
-					"type": "string"
+					"type": "string",
+					"description": "Optional full OCI image tag in form:\n  [registry]/[namespace]/[name]:[tag]\nexample:\n  quay.io/alice/my.function.name\nRegistry is optional and is defaulted to DefaultRegistry\nexample:\n  alice/my.function.name\nIf Image is provided, it overrides the default of concatenating\n\"Registry+Name:latest\" to derive the Image."
 				},
 				"imageDigest": {
-					"type": "string"
+					"type": "string",
+					"description": "SHA256 hash of the latest image that has been built"
 				},
 				"created": {
 					"type": "string",
+					"description": "Created time is the moment that creation was successfully completed\naccording to the client which is in charge of what constitutes being\nfully \"Created\" (aka initialized)",
 					"format": "date-time"
 				},
 				"invoke": {
-					"type": "string"
+					"type": "string",
+					"description": "Invoke defines hints for use when invoking this function.\nSee Client.Invoke for usage."
 				},
 				"build": {
 					"$schema": "http://json-schema.org/draft-04/schema#",
-					"$ref": "#/definitions/BuildSpec"
+					"$ref": "#/definitions/BuildSpec",
+					"description": "BuildSpec define the build properties for a function"
 				},
 				"run": {
 					"$schema": "http://json-schema.org/draft-04/schema#",
-					"$ref": "#/definitions/RunSpec"
+					"$ref": "#/definitions/RunSpec",
+					"description": "RunSpec define the runtime properties for a function"
 				},
 				"deploy": {
 					"$schema": "http://json-schema.org/draft-04/schema#",
-					"$ref": "#/definitions/DeploySpec"
+					"$ref": "#/definitions/DeploySpec",
+					"description": "DeploySpec define the deployment properties for a function"
 				}
 			},
 			"additionalProperties": false,
-			"type": "object"
+			"type": "object",
+			"description": "Function"
 		},
 		"Git": {
 			"properties": {
@@ -185,7 +210,8 @@
 				}
 			},
 			"additionalProperties": false,
-			"type": "object"
+			"type": "object",
+			"description": "HealthEndpoints specify the liveness and readiness endpoints for a Runtime"
 		},
 		"Label": {
 			"required": [
@@ -194,7 +220,8 @@
 			"properties": {
 				"key": {
 					"pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\\/)?([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]$",
-					"type": "string"
+					"type": "string",
+					"description": "Key consist of optional prefix part (ended by '/') and name part\nPrefix part validation pattern: [a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\nName part validation pattern: ([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]"
 				},
 				"value": {
 					"pattern": "^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$",
@@ -275,17 +302,20 @@
 						"$schema": "http://json-schema.org/draft-04/schema#",
 						"$ref": "#/definitions/Volume"
 					},
-					"type": "array"
+					"type": "array",
+					"description": "List of volumes to be mounted to the function"
 				},
 				"envs": {
 					"items": {
 						"$ref": "#/definitions/Env"
 					},
-					"type": "array"
+					"type": "array",
+					"description": "Env variables to be set"
 				}
 			},
 			"additionalProperties": false,
-			"type": "object"
+			"type": "object",
+			"description": "RunSpec"
 		},
 		"ScaleOptions": {
 			"properties": {

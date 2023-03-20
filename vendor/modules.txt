@@ -113,7 +113,7 @@ github.com/acomagu/bufpipe
 # github.com/agext/levenshtein v1.2.3
 ## explicit
 github.com/agext/levenshtein
-# github.com/alecthomas/jsonschema v0.0.0-20210526225647-edb03dcab7bc
+# github.com/alecthomas/jsonschema v0.0.0-20220216202328-9eeeec9d044b
 ## explicit; go 1.12
 github.com/alecthomas/jsonschema
 # github.com/antlr/antlr4/runtime/Go/antlr v1.4.10
