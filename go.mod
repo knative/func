@@ -26,7 +26,7 @@ require (
 	github.com/heroku/color v0.0.6
 	github.com/hinshun/vt10x v0.0.0-20220228203356-1ab2cad5fd82
 	github.com/opencontainers/image-spec v1.1.0-rc2
-	github.com/openshift-pipelines/pipelines-as-code v0.17.0
+	github.com/openshift-pipelines/pipelines-as-code v0.17.1
 	github.com/openshift/source-to-image v1.3.1
 	github.com/ory/viper v1.7.5
 	github.com/pkg/errors v0.9.1

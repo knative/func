@@ -880,7 +880,7 @@ github.com/opencontainers/selinux/go-selinux
 github.com/opencontainers/selinux/go-selinux/label
 github.com/opencontainers/selinux/pkg/pwalk
 github.com/opencontainers/selinux/pkg/pwalkdir
-# github.com/openshift-pipelines/pipelines-as-code v0.17.0
+# github.com/openshift-pipelines/pipelines-as-code v0.17.1
 ## explicit; go 1.18
 github.com/openshift-pipelines/pipelines-as-code/pkg/apis/pipelinesascode
 github.com/openshift-pipelines/pipelines-as-code/pkg/apis/pipelinesascode/v1alpha1
@@ -888,6 +888,7 @@ github.com/openshift-pipelines/pipelines-as-code/pkg/cli
 github.com/openshift-pipelines/pipelines-as-code/pkg/formatting
 github.com/openshift-pipelines/pipelines-as-code/pkg/generated/clientset/versioned/scheme
 github.com/openshift-pipelines/pipelines-as-code/pkg/generated/clientset/versioned/typed/pipelinesascode/v1alpha1
+github.com/openshift-pipelines/pipelines-as-code/pkg/git
 # github.com/openshift/source-to-image v1.3.1 => github.com/boson-project/source-to-image v1.3.2
 ## explicit; go 1.13
 github.com/openshift/source-to-image/pkg/api

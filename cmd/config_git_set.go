@@ -7,6 +7,8 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
+	pacgit "github.com/openshift-pipelines/pipelines-as-code/pkg/git"
+
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/pipelines"
@@ -142,10 +144,15 @@ func (c configGitSetConfig) Prompt(f fn.Function) (configGitSetConfig, error) {
 		return c, err
 	}
 
+	// try to read git url from the local .git settings
+	gitInfo := pacgit.GetGitInfo(c.Path)
+
 	// prompt if git URL hasn't been set previously
 	if c.GitURL == "" {
-		// TODO we can try to read git url from the local .git settings
 		url := f.Build.Git.URL
+		if gitInfo.URL != "" {
+			url = gitInfo.URL
+		}
 		if err := survey.AskOne(&survey.Input{
 			Message: "The URL to Git repository with the function source code:",
 			Default: url,
@@ -157,8 +164,10 @@ func (c configGitSetConfig) Prompt(f fn.Function) (configGitSetConfig, error) {
 
 	// prompt if git revision hasn't been set previously
 	if c.GitRevision == "" {
-		// TODO we can try to read git url from the local .git settings
 		revision := f.Build.Git.Revision
+		if gitInfo.Branch != "" {
+			revision = gitInfo.Branch
+		}
 		if err := survey.AskOne(&survey.Input{
 			Message: "The Git branch or tag we are targeting:",
 			Help:    "ie: main, refs/tags/*",
