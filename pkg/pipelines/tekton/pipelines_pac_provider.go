@@ -172,7 +172,7 @@ func (pp *PipelinesProvider) createClusterResources(ctx context.Context, f fn.Fu
 	}
 	fmt.Printf(" ✅ Credentials are present on the cluster in secret %q\n", getPipelineSecretName(f))
 
-	err = ensurePACRepositoryExists(ctx, f, pp.namespace, labels)
+	err = ensurePACRepositoryExists(ctx, f, pp.namespace, metadata, labels)
 	if err != nil {
 		return err
 	}

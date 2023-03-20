@@ -9,6 +9,7 @@ import (
 
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/git"
 	"knative.dev/func/pkg/pipelines"
 )
 
@@ -22,7 +23,7 @@ func NewConfigGitSetCmd(newClient ClientFactory) *cobra.Command {
 	directory or from the directory specified with --path.
 	`,
 		SuggestFor: []string{"add", "ad", "update", "create", "insert", "append"},
-		PreRunE:    bindEnv("path", "builder", "builder-image", "image", "registry", "namespace", "git-url", "git-branch", "git-dir", "gh-access-token", "config-local", "config-cluster", "config-remote"),
+		PreRunE:    bindEnv("path", "builder", "builder-image", "image", "registry", "namespace", "git-provider", "git-url", "git-branch", "git-dir", "gh-access-token", "config-local", "config-cluster", "config-remote"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			return runConfigGitSetCmd(cmd, newClient)
 		},
@@ -61,6 +62,8 @@ func NewConfigGitSetCmd(newClient ClientFactory) *cobra.Command {
 	cmd.Flags().StringP("image", "i", f.Image, "Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. (Env: $FUNC_IMAGE)")
 
 	// Git related Flags:
+	cmd.Flags().String("git-provider", "",
+		fmt.Sprintf("The type of the Git platform provider to setup webhook. This value is usually automatically generated from input URL, use this parameter to override this setting. Currently supported providers are %s.", git.SupportedProvidersList.PrettyString()))
 	cmd.Flags().StringP("git-url", "g", "",
 		"Repository url containing the function to build (Env: $FUNC_GIT_URL)")
 	cmd.Flags().StringP("git-branch", "t", "",
@@ -90,6 +93,7 @@ type configGitSetConfig struct {
 
 	Namespace string
 
+	GitProvider   string
 	GitURL        string
 	GitRevision   string
 	GitContextDir string
@@ -124,6 +128,7 @@ func newConfigGitSetConfig(cmd *cobra.Command) (c configGitSetConfig) {
 		GitContextDir: viper.GetString("git-dir"),
 
 		metadata: pipelines.PacMetadata{
+			GitProvider:         viper.GetString("git-provider"),
 			PersonalAccessToken: viper.GetString("gh-access-token"),
 			WebhookSecret:       viper.GetString("gh-webhook-secret"),
 
@@ -197,6 +202,22 @@ func (c configGitSetConfig) Prompt(f fn.Function) (configGitSetConfig, error) {
 	}
 
 	if c.WebhookTrigger {
+		// Configure Git provider
+		if c.metadata.GitProvider == "" {
+			provider, err := git.GitProviderName(c.GitURL)
+			if err != nil {
+				msg := "Please select the type of the Git platform provider to setup webhook:"
+				if err = survey.AskOne(&survey.Select{
+					Message: msg,
+					Options: git.SupportedProvidersList,
+					Default: 0,
+				}, &provider); err != nil {
+					return c, err
+				}
+			}
+			c.metadata.GitProvider = provider
+		}
+
 		// prompt if PersonalAccessToken hasn't been set previously
 		if c.metadata.PersonalAccessToken == "" {
 			var personalAccessToken string
