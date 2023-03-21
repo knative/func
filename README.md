@@ -1,4 +1,4 @@
-# Func
+# Knative Func
 
 [![CI Status](https://github.com/knative/func/actions/workflows/ci.yaml/badge.svg)](https://github.com/knative/func/actions/workflows/ci.yaml)
 [![Client API Documentation](https://pkg.go.dev/badge/knative.dev/func?utm_source=godoc)](https://pkg.go.dev/knative.dev/func)
