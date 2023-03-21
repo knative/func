@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/docker/docker/api/types"
@@ -242,6 +243,11 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 				return fmt.Errorf("cannot create tar header: %w", err)
 			}
 			hdr.Name = filepath.ToSlash(p)
+
+			if runtime.GOOS == "windows" {
+				// Windows does not have execute permission, we assume that all files are executable.
+				hdr.Mode |= 0111
+			}
 
 			err = tw.WriteHeader(hdr)
 			if err != nil {
