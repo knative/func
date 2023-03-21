@@ -62,7 +62,7 @@ func newClientWithPodmanService() (dockerClient client.CommonAPIClient, dockerHo
 	svcUpCh := make(chan struct{})
 	go func() {
 		// give a time to podman to start
-		for i := 0; i < 40; i++ {
+		for i := 0; i < 6*40; i++ {
 			if _, e := dockerClient.Ping(context.Background()); e == nil {
 				svcUpCh <- struct{}{}
 			}
@@ -73,7 +73,7 @@ func newClientWithPodmanService() (dockerClient client.CommonAPIClient, dockerHo
 	select {
 	case <-svcUpCh:
 		return
-	case <-time.After(time.Second * 10):
+	case <-time.After(time.Second * 10 * 6):
 		stopPodmanService()
 		err = errors.New("the podman service has not come up in time")
 	case err = <-waitErrCh:
