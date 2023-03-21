@@ -16,9 +16,9 @@ jobs:
 #        with:
 #          go-version: ${{ matrix.go }}
       - name: test
+        shell: pwsh
         run: |
-          bash.exe -c "echo hello"
-          docker.exe run -i --rm --entrypoint sh fedora:latest -c "sleep 1 && echo hello && sleep 1"
+          Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V
 #      - name: Install Binaries
 #        run: ./hack/binaries.sh
 #      - name: Allocate Cluster
