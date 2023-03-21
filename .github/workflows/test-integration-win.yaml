@@ -18,6 +18,7 @@ jobs:
       - name: test
         shell: pwsh
         run: |
+          Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V -All
           Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V
           New-Item -Path 'c:\' -Name 'minikube' -ItemType Directory -Force
           Invoke-WebRequest -OutFile 'c:\minikube\minikube.exe' -Uri 'https://github.com/kubernetes/minikube/releases/latest/download/minikube-windows-amd64.exe' -UseBasicParsing
