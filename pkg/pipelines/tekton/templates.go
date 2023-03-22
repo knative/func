@@ -27,6 +27,9 @@ const (
 	// S2I related properties
 	defaultS2iImageScriptsUrl = "image:///usr/libexec/s2i"
 	quarkusS2iImageScriptsUrl = "image:///usr/local/s2i"
+
+	// The branch or tag we are targeting with Pipelines (ie: main, refs/tags/*)
+	defaultPipelinesTargetBranch = "main"
 )
 
 type templateData struct {
@@ -43,6 +46,9 @@ type templateData struct {
 	PipelineRunName string
 	PvcName         string
 	SecretName      string
+
+	// The branch or tag we are targeting with Pipelines (ie: main, refs/tags/*)
+	PipelinesTargetBranch string
 
 	// Static entries
 	RepoUrl  string
@@ -85,6 +91,11 @@ func createPipelineRunTemplate(f fn.Function) error {
 		contextDir = "."
 	}
 
+	pipelinesTargetBranch := f.Build.Git.Revision
+	if pipelinesTargetBranch == "" {
+		pipelinesTargetBranch = defaultPipelinesTargetBranch
+	}
+
 	buildEnvs := []string{}
 	if len(f.Build.BuildEnvs) == 0 {
 		buildEnvs = []string{"="}
@@ -113,6 +124,8 @@ func createPipelineRunTemplate(f fn.Function) error {
 		PipelineRunName: fmt.Sprintf("%s-run", getPipelineName(f)),
 		PvcName:         getPipelinePvcName(f),
 		SecretName:      getPipelineSecretName(f),
+
+		PipelinesTargetBranch: pipelinesTargetBranch,
 
 		GitCloneTaskRef:       taskGitCloneRef,
 		FuncBuildpacksTaskRef: taskFuncBuildpacksRef,

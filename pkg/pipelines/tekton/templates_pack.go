@@ -114,7 +114,7 @@ metadata:
     pipelinesascode.tekton.dev/on-event: "[push]"
 
     # The branch or tag we are targeting (ie: main, refs/tags/*)
-    pipelinesascode.tekton.dev/on-target-branch: "[main]"
+    pipelinesascode.tekton.dev/on-target-branch: "[{{.PipelinesTargetBranch}}]"
 
     # Fetch the git-clone task from hub
     pipelinesascode.tekton.dev/task: {{.GitCloneTaskRef}}
