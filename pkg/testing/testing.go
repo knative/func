@@ -165,24 +165,16 @@ func WithExecutable(t *testing.T, name, goSrc string) {
 		t.Fatal(err)
 	}
 
-	runnerScriptName := name
 	if runtime.GOOS == "windows" {
-		runnerScriptName = runnerScriptName + ".bat"
+		name = name + ".exe"
 	}
 
-	runnerScriptSrc := `#!/bin/sh
-exec go run GO_SCRIPT_PATH $@;
-`
-	if runtime.GOOS == "windows" {
-		runnerScriptSrc = `@echo off
-go.exe run GO_SCRIPT_PATH %*
-`
-	}
+	binaryPath := filepath.Join(binDir, name)
 
-	runnerScriptPath := filepath.Join(binDir, runnerScriptName)
-	runnerScriptSrc = strings.ReplaceAll(runnerScriptSrc, "GO_SCRIPT_PATH", goSrcPath)
-	err = os.WriteFile(runnerScriptPath, []byte(runnerScriptSrc), 0700)
+	cmd := exec.Command("go", "build", "-o="+binaryPath, goSrcPath)
+	o, err := cmd.CombinedOutput()
 	if err != nil {
+		t.Log(string(o))
 		t.Fatal(err)
 	}
 }
