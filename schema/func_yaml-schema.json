@@ -3,11 +3,6 @@
 	"$ref": "#/definitions/Function",
 	"definitions": {
 		"BuildSpec": {
-			"required": [
-				"buildpacks",
-				"builder",
-				"buildEnvs"
-			],
 			"properties": {
 				"git": {
 					"$schema": "http://json-schema.org/draft-04/schema#",
@@ -52,14 +47,6 @@
 			"description": "BuildSpec"
 		},
 		"DeploySpec": {
-			"required": [
-				"namespace",
-				"remote",
-				"annotations",
-				"options",
-				"labels",
-				"healthEndpoints"
-			],
 			"properties": {
 				"namespace": {
 					"type": "string",
@@ -102,9 +89,6 @@
 			"description": "DeploySpec"
 		},
 		"Env": {
-			"required": [
-				"value"
-			],
 			"properties": {
 				"name": {
 					"pattern": "^[-._a-zA-Z][-._a-zA-Z0-9]*$",
@@ -120,15 +104,9 @@
 		"Function": {
 			"required": [
 				"specVersion",
-				"name",
-				"runtime",
 				"registry",
 				"image",
-				"imageDigest",
-				"created",
-				"build",
-				"run",
-				"deploy"
+				"created"
 			],
 			"properties": {
 				"specVersion": {
@@ -292,10 +270,6 @@
 			"type": "object"
 		},
 		"RunSpec": {
-			"required": [
-				"volumes",
-				"envs"
-			],
 			"properties": {
 				"volumes": {
 					"items": {
@@ -348,9 +322,6 @@
 			"type": "object"
 		},
 		"Volume": {
-			"required": [
-				"path"
-			],
 			"properties": {
 				"secret": {
 					"type": "string"

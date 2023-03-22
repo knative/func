@@ -29,10 +29,10 @@ type Function struct {
 	Root string `yaml:"-"`
 
 	// Name of the function.
-	Name string `yaml:"name" jsonschema:"pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"`
+	Name string `yaml:"name,omitempty" jsonschema:"pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"`
 
 	// Runtime is the language plus context.  nodejs|go|quarkus|rust etc.
-	Runtime string `yaml:"runtime"`
+	Runtime string `yaml:"runtime,omitempty"`
 
 	// Template for the function.
 	Template string `yaml:"-"`
@@ -53,7 +53,7 @@ type Function struct {
 	Image string `yaml:"image"`
 
 	// SHA256 hash of the latest image that has been built
-	ImageDigest string `yaml:"imageDigest"`
+	ImageDigest string `yaml:"imageDigest,omitempty"`
 
 	// Created time is the moment that creation was successfully completed
 	// according to the client which is in charge of what constitutes being
@@ -65,13 +65,13 @@ type Function struct {
 	Invoke string `yaml:"invoke,omitempty"`
 
 	//BuildSpec define the build properties for a function
-	Build BuildSpec `yaml:"build"`
+	Build BuildSpec `yaml:"build,omitempty"`
 
 	//RunSpec define the runtime properties for a function
-	Run RunSpec `yaml:"run"`
+	Run RunSpec `yaml:"run,omitempty"`
 
 	//DeploySpec define the deployment properties for a function
-	Deploy DeploySpec `yaml:"deploy"`
+	Deploy DeploySpec `yaml:"deploy,omitempty"`
 }
 
 // BuildSpec
@@ -88,46 +88,46 @@ type BuildSpec struct {
 	BuilderImages map[string]string `yaml:"builderImages,omitempty"`
 
 	// Optional list of buildpacks to use when building the function
-	Buildpacks []string `yaml:"buildpacks"`
+	Buildpacks []string `yaml:"buildpacks,omitempty"`
 
 	// Builder is the name of the subsystem that will complete the underlying
 	// build (pack, s2i, etc)
-	Builder string `yaml:"builder" jsonschema:"enum=pack,enum=s2i"`
+	Builder string `yaml:"builder,omitempty" jsonschema:"enum=pack,enum=s2i"`
 
 	// Build Env variables to be set
-	BuildEnvs []Env `yaml:"buildEnvs"`
+	BuildEnvs []Env `yaml:"buildEnvs,omitempty"`
 }
 
 // RunSpec
 type RunSpec struct {
 	// List of volumes to be mounted to the function
-	Volumes []Volume `yaml:"volumes"`
+	Volumes []Volume `yaml:"volumes,omitempty"`
 
 	// Env variables to be set
-	Envs []Env `yaml:"envs"`
+	Envs []Env `yaml:"envs,omitempty"`
 }
 
 // DeploySpec
 type DeploySpec struct {
 	// Namespace into which the function is deployed on supported platforms.
-	Namespace string `yaml:"namespace"`
+	Namespace string `yaml:"namespace,omitempty"`
 
 	// Remote indicates the deployment (and possibly build) process are to
 	// be triggered in a remote environment rather than run locally.
-	Remote bool `yaml:"remote"`
+	Remote bool `yaml:"remote,omitempty"`
 
 	// Map containing user-supplied annotations
 	// Example: { "division": "finance" }
-	Annotations map[string]string `yaml:"annotations"`
+	Annotations map[string]string `yaml:"annotations,omitempty"`
 
 	// Options to be set on deployed function (scaling, etc.)
-	Options Options `yaml:"options"`
+	Options Options `yaml:"options,omitempty"`
 
 	// Map of user-supplied labels
-	Labels []Label `yaml:"labels"`
+	Labels []Label `yaml:"labels,omitempty"`
 
 	// Health endpoints specified by the language pack
-	HealthEndpoints HealthEndpoints `yaml:"healthEndpoints"`
+	HealthEndpoints HealthEndpoints `yaml:"healthEndpoints,omitempty"`
 }
 
 // HealthEndpoints specify the liveness and readiness endpoints for a Runtime
