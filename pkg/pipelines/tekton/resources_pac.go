@@ -41,7 +41,7 @@ func ensurePACSecretExists(ctx context.Context, f fn.Function, namespace string,
 }
 
 // ensurePACRepositoryExists checks that up-to-date Repository CR is present on the cluster
-func ensurePACRepositoryExists(ctx context.Context, f fn.Function, namespace string, labels map[string]string) error {
+func ensurePACRepositoryExists(ctx context.Context, f fn.Function, namespace string, metadata pipelines.PacMetadata, labels map[string]string) error {
 	client, namespace, err := pac.NewTektonPacClientAndResolvedNamespace(namespace)
 	if err != nil {
 		return err
@@ -57,6 +57,7 @@ func ensurePACRepositoryExists(ctx context.Context, f fn.Function, namespace str
 		Spec: v1alpha1.RepositorySpec{
 			URL: f.Build.Git.URL,
 			GitProvider: &v1alpha1.GitProvider{
+				Type: metadata.GitProvider,
 				Secret: &v1alpha1.Secret{
 					Name: getPipelineSecretName(f),
 				},

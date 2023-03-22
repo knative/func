@@ -8,6 +8,8 @@ type PacMetadata struct {
 	RegistryPassword string
 	RegistryServer   string
 
+	GitProvider string
+
 	PersonalAccessToken string
 	WebhookSecret       string
 
