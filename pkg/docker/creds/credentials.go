@@ -425,7 +425,6 @@ func listCredentialHelpers() []string {
 }
 
 func hostPort(registry string) (host string, port string) {
-	host, port = registry, ""
 	if !strings.Contains(registry, "://") {
 		h, p, err := net.SplitHostPort(registry)
 
