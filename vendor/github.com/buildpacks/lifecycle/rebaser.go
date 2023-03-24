@@ -25,13 +25,13 @@ type RebaseReport struct {
 	Image platform.ImageReport `toml:"image"`
 }
 
-func (r *Rebaser) Rebase(appImage imgutil.Image, newBaseImage imgutil.Image, additionalNames []string) (RebaseReport, error) {
+func (r *Rebaser) Rebase(workingImage imgutil.Image, newBaseImage imgutil.Image, outputImageRef string, additionalNames []string) (RebaseReport, error) {
 	var origMetadata platform.LayersMetadataCompat
-	if err := image.DecodeLabel(appImage, platform.LayerMetadataLabel, &origMetadata); err != nil {
+	if err := image.DecodeLabel(workingImage, platform.LayerMetadataLabel, &origMetadata); err != nil {
 		return RebaseReport{}, errors.Wrap(err, "get image metadata")
 	}
 
-	appStackID, err := appImage.Label(platform.StackIDLabel)
+	appStackID, err := workingImage.Label(platform.StackIDLabel)
 	if err != nil {
 		return RebaseReport{}, errors.Wrap(err, "get app image stack")
 	}
@@ -53,11 +53,11 @@ func (r *Rebaser) Rebase(appImage imgutil.Image, newBaseImage imgutil.Image, add
 		return RebaseReport{}, fmt.Errorf("incompatible stack: '%s' is not compatible with '%s'", newBaseStackID, appStackID)
 	}
 
-	if err := validateMixins(appImage, newBaseImage); err != nil {
+	if err := validateMixins(workingImage, newBaseImage); err != nil {
 		return RebaseReport{}, err
 	}
 
-	if err := appImage.Rebase(origMetadata.RunImage.TopLayer, newBaseImage); err != nil {
+	if err := workingImage.Rebase(origMetadata.RunImage.TopLayer, newBaseImage); err != nil {
 		return RebaseReport{}, errors.Wrap(err, "rebase app image")
 	}
 
@@ -77,17 +77,16 @@ func (r *Rebaser) Rebase(appImage imgutil.Image, newBaseImage imgutil.Image, add
 		return RebaseReport{}, errors.Wrap(err, "marshall metadata")
 	}
 
-	if err := appImage.SetLabel(platform.LayerMetadataLabel, string(data)); err != nil {
+	if err := workingImage.SetLabel(platform.LayerMetadataLabel, string(data)); err != nil {
 		return RebaseReport{}, errors.Wrap(err, "set app image metadata label")
 	}
 
 	hasPrefix := func(l string) bool { return strings.HasPrefix(l, "io.buildpacks.stack.") }
-	if err := image.SyncLabels(newBaseImage, appImage, hasPrefix); err != nil {
+	if err := image.SyncLabels(newBaseImage, workingImage, hasPrefix); err != nil {
 		return RebaseReport{}, errors.Wrap(err, "set stack labels")
 	}
-
 	report := RebaseReport{}
-	report.Image, err = saveImage(appImage, additionalNames, r.Logger)
+	report.Image, err = saveImageAs(workingImage, outputImageRef, additionalNames, r.Logger)
 	if err != nil {
 		return RebaseReport{}, err
 	}

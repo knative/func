@@ -1,9 +1,10 @@
-// Data Format Files for the platform api spec (https://github.com/buildpacks/spec/blob/main/platform.md#data-format).
+// Data Format Files for the Platform API spec (https://github.com/buildpacks/spec/blob/main/platform.md#data-format).
 
 package platform
 
 import (
 	"encoding/json"
+	"os"
 
 	"github.com/BurntSushi/toml"
 	"github.com/google/go-containerregistry/pkg/name"
@@ -13,6 +14,7 @@ import (
 	"github.com/buildpacks/lifecycle/buildpack"
 	"github.com/buildpacks/lifecycle/launch"
 	"github.com/buildpacks/lifecycle/layers"
+	"github.com/buildpacks/lifecycle/log"
 )
 
 // analyzed.toml
@@ -27,6 +29,18 @@ type AnalyzedMetadata struct {
 // FIXME: fix key names to be accurate in the daemon case
 type ImageIdentifier struct {
 	Reference string `toml:"reference"`
+}
+
+func ReadAnalyzed(analyzedPath string, logger log.Logger) (AnalyzedMetadata, error) {
+	var analyzedMD AnalyzedMetadata
+	if _, err := toml.DecodeFile(analyzedPath, &analyzedMD); err != nil {
+		if os.IsNotExist(err) {
+			logger.Warnf("no analyzed metadata found at path '%s'", analyzedPath)
+			return AnalyzedMetadata{}, nil
+		}
+		return AnalyzedMetadata{}, err
+	}
+	return analyzedMD, nil
 }
 
 // NOTE: This struct MUST be kept in sync with `LayersMetadataCompat`
@@ -255,7 +269,7 @@ func (sm *StackMetadata) BestRunImageMirror(registry string) (string, error) {
 	runImageMirrors = append(runImageMirrors, sm.RunImage.Mirrors...)
 	runImageRef, err := byRegistry(registry, runImageMirrors)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to find run-image")
+		return "", errors.Wrap(err, "failed to find run image")
 	}
 	return runImageRef, nil
 }
@@ -275,4 +289,16 @@ func byRegistry(reg string, imgs []string) (string, error) {
 		}
 	}
 	return imgs[0], nil
+}
+
+func ReadStack(stackPath string, logger log.Logger) (StackMetadata, error) {
+	var stackMD StackMetadata
+	if _, err := toml.DecodeFile(stackPath, &stackMD); err != nil {
+		if os.IsNotExist(err) {
+			logger.Infof("no stack metadata found at path '%s'\n", stackPath)
+			return StackMetadata{}, nil
+		}
+		return StackMetadata{}, err
+	}
+	return stackMD, nil
 }

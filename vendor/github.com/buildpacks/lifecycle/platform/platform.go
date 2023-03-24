@@ -1,37 +1,57 @@
 package platform
 
-import (
-	"github.com/buildpacks/lifecycle/api"
+import "github.com/buildpacks/lifecycle/api"
+
+type LifecyclePhase int
+
+const (
+	Analyze LifecyclePhase = iota
+	Detect
+	Restore
+	Extend
+	Build
+	Export
+	Create
+	Rebase
 )
 
-// Platform handles logic pertaining to inputs and outputs from a platform (lifecycle invoker)'s perspective.
+// Platform holds lifecycle inputs and outputs for a given Platform API version and lifecycle phase.
 type Platform struct {
-	*InputsResolver
+	Phase LifecyclePhase
+	LifecycleInputs
 	Exiter
-	api *api.Version
 }
 
-// NewPlatform accepts a platform API and returns a new Platform.
-func NewPlatform(apiStr string) *Platform {
-	platformAPI := api.MustParse(apiStr)
+// NewPlatformFor accepts a lifecycle phase and Platform API version, and returns a Platform.
+func NewPlatformFor(phase LifecyclePhase, platformAPI string) *Platform {
+	var lifecycleInputs LifecycleInputs
+	switch phase {
+	case Analyze:
+		lifecycleInputs = DefaultAnalyzeInputs(api.MustParse(platformAPI))
+	case Detect:
+		lifecycleInputs = DefaultDetectInputs(api.MustParse(platformAPI))
+	case Restore:
+		lifecycleInputs = DefaultRestoreInputs(api.MustParse(platformAPI))
+	case Extend:
+		lifecycleInputs = DefaultExtendInputs(api.MustParse(platformAPI))
+	case Build:
+		lifecycleInputs = DefaultBuildInputs(api.MustParse(platformAPI))
+	case Export:
+		lifecycleInputs = DefaultExportInputs(api.MustParse(platformAPI))
+	case Create:
+		lifecycleInputs = DefaultCreateInputs(api.MustParse(platformAPI))
+	case Rebase:
+		lifecycleInputs = DefaultRebaseInputs(api.MustParse(platformAPI))
+	default:
+		// nop
+	}
 	return &Platform{
-		InputsResolver: NewInputsResolver(platformAPI),
-		Exiter:         NewExiter(apiStr),
-		api:            platformAPI,
+		Phase:           phase,
+		LifecycleInputs: lifecycleInputs,
+		Exiter:          NewExiter(platformAPI),
 	}
 }
 
-// API returns the platform API.
 func (p *Platform) API() *api.Version {
-	return p.api
-}
-
-// InputsResolver resolves inputs for each of the lifecycle phases.
-type InputsResolver struct {
-	platformAPI *api.Version
-}
-
-// NewInputsResolver accepts a platform API and returns a new InputsResolver.
-func NewInputsResolver(platformAPI *api.Version) *InputsResolver {
-	return &InputsResolver{platformAPI: platformAPI}
+	return p.PlatformAPI
 }

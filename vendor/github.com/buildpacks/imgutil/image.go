@@ -58,6 +58,8 @@ type Image interface {
 	TopLayer() (string, error)
 	// Save saves the image as `Name()` and any additional names provided to this method.
 	Save(additionalNames ...string) error
+	// SaveAs ignores the image `Name()` method and saves the image according to name & additional names provided to this method
+	SaveAs(name string, additionalNames ...string) error
 	// SaveFile saves the image as a docker archive and provides the filesystem location
 	SaveFile() (string, error)
 	// Found tells whether the image exists in the repository by `Name()`.
@@ -72,6 +74,9 @@ type Image interface {
 	Architecture() (string, error)
 	// ManifestSize returns the size of the manifest. If a manifest doesn't exist, it returns 0.
 	ManifestSize() (int64, error)
+	// AnnotateRefName set a value for the `org.opencontainers.image.ref.name` annotation
+	AnnotateRefName(refName string) error
+	GetAnnotateRefName() (string, error)
 }
 
 type Identifier fmt.Stringer

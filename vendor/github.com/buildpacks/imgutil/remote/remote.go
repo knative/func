@@ -34,7 +34,7 @@ type Image struct {
 	prevLayers          []v1.Layer
 	createdAt           time.Time
 	addEmptyLayerOnSave bool
-	registrySettings    []registrySetting
+	registrySettings    map[string]registrySetting
 }
 
 type options struct {
@@ -43,11 +43,10 @@ type options struct {
 	prevImageRepoName   string
 	createdAt           time.Time
 	addEmptyLayerOnSave bool
-	registrySettings    []registrySetting
+	registrySettings    map[string]registrySetting
 }
 
 type registrySetting struct {
-	prefix             string
 	insecure           bool
 	insecureSkipVerify bool
 }
@@ -106,11 +105,10 @@ func AddEmptyLayerOnSave() ImageOption {
 // the image. The referenced images could include the base image, a previous image, or the image itself.
 func WithRegistrySetting(repository string, insecure, insecureSkipVerify bool) ImageOption {
 	return func(opts *options) error {
-		opts.registrySettings = append(opts.registrySettings, registrySetting{
-			prefix:             repository,
+		opts.registrySettings[repository] = registrySetting{
 			insecure:           insecure,
 			insecureSkipVerify: insecureSkipVerify,
-		})
+		}
 		return nil
 	}
 }
@@ -173,20 +171,19 @@ func NewImage(repoName string, keychain authn.Keychain, ops ...ImageOption) (*Im
 	return ri, nil
 }
 
-func getRegistry(repoName string, registrySettings []registrySetting) registrySetting {
-	for _, r := range registrySettings {
-		if strings.HasPrefix(repoName, r.prefix) {
+func getRegistry(repoName string, registrySettings map[string]registrySetting) registrySetting {
+	for prefix, r := range registrySettings {
+		if strings.HasPrefix(repoName, prefix) {
 			return r
 		}
 	}
-
 	return registrySetting{}
 }
 
 func processPreviousImageOption(ri *Image, prevImageRepoName string, platform imgutil.Platform) error {
 	reg := getRegistry(prevImageRepoName, ri.registrySettings)
 
-	prevImage, err := newV1Image(ri.keychain, prevImageRepoName, platform, reg)
+	prevImage, err := NewV1Image(prevImageRepoName, ri.keychain, WithV1DefaultPlatform(platform), WithV1RegistrySetting(reg.insecure, reg.insecureSkipVerify))
 	if err != nil {
 		return err
 	}
@@ -204,7 +201,7 @@ func processPreviousImageOption(ri *Image, prevImageRepoName string, platform im
 func processBaseImageOption(ri *Image, baseImageRepoName string, platform imgutil.Platform) error {
 	reg := getRegistry(baseImageRepoName, ri.registrySettings)
 
-	baseImage, err := newV1Image(ri.keychain, baseImageRepoName, platform, reg)
+	baseImage, err := NewV1Image(baseImageRepoName, ri.keychain, WithV1DefaultPlatform(platform), WithV1RegistrySetting(reg.insecure, reg.insecureSkipVerify))
 	if err != nil {
 		return err
 	}
@@ -242,6 +239,59 @@ func prepareNewWindowsImage(ri *Image) error {
 	ri.image = image
 
 	return nil
+}
+
+// v1Options is used to configure the behavior when a v1.Image is created
+type v1Options struct {
+	platform        imgutil.Platform
+	registrySetting registrySetting
+}
+
+type V1ImageOption func(*v1Options) error
+
+// WithV1DefaultPlatform provides Architecture/OS/OSVersion defaults for the new v1.Image.
+func WithV1DefaultPlatform(platform imgutil.Platform) V1ImageOption {
+	return func(opts *v1Options) error {
+		opts.platform = platform
+		return nil
+	}
+}
+
+// WithV1RegistrySetting registers options to use when accessing images in a registry in order to construct a v1.Image.
+func WithV1RegistrySetting(insecure, insecureSkipVerify bool) V1ImageOption {
+	return func(opts *v1Options) error {
+		opts.registrySetting = registrySetting{
+			insecure:           insecure,
+			insecureSkipVerify: insecureSkipVerify,
+		}
+		return nil
+	}
+}
+
+// NewV1Image returns a new v1.Image
+func NewV1Image(baseImageRepoName string, keychain authn.Keychain, ops ...V1ImageOption) (v1.Image, error) {
+	imageOpts := &v1Options{}
+	for _, op := range ops {
+		if err := op(imageOpts); err != nil {
+			return nil, err
+		}
+	}
+
+	platform := defaultPlatform()
+	if (imageOpts.platform != imgutil.Platform{}) {
+		platform = imageOpts.platform
+	}
+
+	reg := registrySetting{}
+	if (imageOpts.registrySetting != registrySetting{}) {
+		reg = imageOpts.registrySetting
+	}
+
+	baseImage, err := newV1Image(keychain, baseImageRepoName, platform, reg)
+	if err != nil {
+		return nil, err
+	}
+	return baseImage, nil
 }
 
 func newV1Image(keychain authn.Keychain, repoName string, platform imgutil.Platform, reg registrySetting) (v1.Image, error) {
@@ -727,9 +777,13 @@ func findLayerWithSha(layers []v1.Layer, diffID string) (v1.Layer, error) {
 }
 
 func (i *Image) Save(additionalNames ...string) error {
+	return i.SaveAs(i.Name(), additionalNames...)
+}
+
+func (i *Image) SaveAs(name string, additionalNames ...string) error {
 	var err error
 
-	allNames := append([]string{i.repoName}, additionalNames...)
+	allNames := append([]string{name}, additionalNames...)
 
 	i.image, err = mutate.CreatedAt(i.image, v1.Time{Time: i.createdAt})
 	if err != nil {
@@ -809,6 +863,16 @@ func (i *Image) Delete() error {
 
 func (i *Image) ManifestSize() (int64, error) {
 	return i.image.Size()
+}
+
+func (i *Image) AnnotateRefName(refName string) error {
+	// TODO issue https://github.com/buildpacks/imgutil/issues/178
+	return errors.New("not yet implemented")
+}
+
+func (i *Image) GetAnnotateRefName() (string, error) {
+	// TODO issue https://github.com/buildpacks/imgutil/issues/178
+	return "", errors.New("not yet implemented")
 }
 
 type subImage struct {

@@ -19,10 +19,14 @@ const (
 )
 
 const (
-	mediaTypeCycloneDX   = "application/vnd.cyclonedx+json"
-	mediaTypeSPDX        = "application/spdx+json"
-	mediaTypeSyft        = "application/vnd.syft+json"
+	MediaTypeCycloneDX   = "application/vnd.cyclonedx+json"
+	MediaTypeSPDX        = "application/spdx+json"
+	MediaTypeSyft        = "application/vnd.syft+json"
 	mediaTypeUnsupported = "unsupported"
+
+	ExtensionCycloneDX = "sbom.cdx.json"
+	ExtensionSPDX      = "sbom.spdx.json"
+	ExtensionSyft      = "sbom.syft.json"
 )
 
 type LayerType int
@@ -42,12 +46,12 @@ type BOMFile struct {
 // will return an error to indicate an unsupported format
 func (b *BOMFile) Name() (string, error) {
 	switch b.mediaType() {
-	case mediaTypeCycloneDX:
-		return "sbom.cdx.json", nil
-	case mediaTypeSPDX:
-		return "sbom.spdx.json", nil
-	case mediaTypeSyft:
-		return "sbom.syft.json", nil
+	case MediaTypeCycloneDX:
+		return ExtensionCycloneDX, nil
+	case MediaTypeSPDX:
+		return ExtensionSPDX, nil
+	case MediaTypeSyft:
+		return ExtensionSyft, nil
 	default:
 		return "", errors.Errorf("unsupported SBOM format: '%s'", b.Path)
 	}
@@ -57,12 +61,12 @@ func (b *BOMFile) mediaType() string {
 	name := filepath.Base(b.Path)
 
 	switch {
-	case strings.HasSuffix(name, ".sbom.cdx.json"):
-		return mediaTypeCycloneDX
-	case strings.HasSuffix(name, ".sbom.spdx.json"):
-		return mediaTypeSPDX
-	case strings.HasSuffix(name, ".sbom.syft.json"):
-		return mediaTypeSyft
+	case strings.HasSuffix(name, "."+ExtensionCycloneDX):
+		return MediaTypeCycloneDX
+	case strings.HasSuffix(name, "."+ExtensionSPDX):
+		return MediaTypeSPDX
+	case strings.HasSuffix(name, "."+ExtensionSyft):
+		return MediaTypeSyft
 	default:
 		return mediaTypeUnsupported
 	}

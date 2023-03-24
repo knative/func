@@ -30,18 +30,19 @@ const (
 )
 
 type BuildInputs struct {
-	AppDir      string
-	LayersDir   string
-	PlatformDir string
-	Env         BuildEnv
-	Out, Err    io.Writer
-	Plan        Plan
+	AppDir         string
+	BuildConfigDir string
+	LayersDir      string
+	PlatformDir    string
+	Env            BuildEnv
+	Out, Err       io.Writer
+	Plan           Plan
 }
 
 type BuildEnv interface {
 	AddRootDir(baseDir string) error
 	AddEnvDir(envDir string, defaultAction env.ActionType) error
-	WithPlatform(platformDir string) ([]string, error)
+	WithOverrides(platformDir string, buildConfigDir string) ([]string, error)
 	List() []string
 }
 
@@ -138,12 +139,12 @@ func runBuildCmd(d BpDescriptor, bpLayersDir, planPath string, inputs BuildInput
 
 	var err error
 	if d.Buildpack.ClearEnv {
-		cmd.Env = buildEnv.List()
+		cmd.Env, err = buildEnv.WithOverrides("", inputs.BuildConfigDir)
 	} else {
-		cmd.Env, err = buildEnv.WithPlatform(inputs.PlatformDir)
-		if err != nil {
-			return err
-		}
+		cmd.Env, err = buildEnv.WithOverrides(inputs.PlatformDir, inputs.BuildConfigDir)
+	}
+	if err != nil {
+		return err
 	}
 	cmd.Env = append(cmd.Env, EnvBuildpackDir+"="+d.WithRootDir)
 	if api.MustParse(d.WithAPI).AtLeast("0.8") {
@@ -154,7 +155,7 @@ func runBuildCmd(d BpDescriptor, bpLayersDir, planPath string, inputs BuildInput
 		)
 	}
 
-	if err := cmd.Run(); err != nil {
+	if err = cmd.Run(); err != nil {
 		return NewError(err, ErrTypeBuildpack)
 	}
 	return nil

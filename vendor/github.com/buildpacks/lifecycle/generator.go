@@ -15,15 +15,16 @@ import (
 )
 
 type Generator struct {
-	AppDir       string
-	GeneratedDir string // e.g., <layers>/generated
-	PlatformDir  string
-	DirStore     DirStore
-	Executor     buildpack.GenerateExecutor
-	Extensions   []buildpack.GroupElement
-	Logger       log.Logger
-	Out, Err     io.Writer
-	Plan         platform.BuildPlan
+	AppDir         string
+	BuildConfigDir string
+	GeneratedDir   string // e.g., <layers>/generated
+	PlatformDir    string
+	DirStore       DirStore
+	Executor       buildpack.GenerateExecutor
+	Extensions     []buildpack.GroupElement
+	Logger         log.Logger
+	Out, Err       io.Writer
+	Plan           platform.BuildPlan
 }
 
 type GeneratorFactory struct {
@@ -43,6 +44,7 @@ func NewGeneratorFactory(
 
 func (f *GeneratorFactory) NewGenerator(
 	appDir string,
+	buildConfigDir string,
 	extensions []buildpack.GroupElement,
 	generatedDir string,
 	plan platform.BuildPlan,
@@ -51,15 +53,16 @@ func (f *GeneratorFactory) NewGenerator(
 	logger log.Logger,
 ) (*Generator, error) {
 	generator := &Generator{
-		AppDir:       appDir,
-		GeneratedDir: generatedDir,
-		PlatformDir:  platformDir,
-		DirStore:     f.dirStore,
-		Executor:     &buildpack.DefaultGenerateExecutor{},
-		Logger:       logger,
-		Plan:         plan,
-		Out:          stdout,
-		Err:          stderr,
+		AppDir:         appDir,
+		BuildConfigDir: buildConfigDir,
+		GeneratedDir:   generatedDir,
+		PlatformDir:    platformDir,
+		DirStore:       f.dirStore,
+		Executor:       &buildpack.DefaultGenerateExecutor{},
+		Logger:         logger,
+		Plan:           plan,
+		Out:            stdout,
+		Err:            stderr,
 	}
 
 	if err := f.setExtensions(generator, extensions, logger); err != nil {
@@ -85,7 +88,7 @@ type GenerateResult struct {
 }
 
 func (g *Generator) Generate() (GenerateResult, error) {
-	inputs := g.getCommonInputs()
+	inputs := g.getGenerateInputs()
 	extensionOutputParentDir, err := os.MkdirTemp("", "cnb-extensions-generated.")
 	if err != nil {
 		return GenerateResult{}, err
@@ -140,13 +143,14 @@ func (g *Generator) Generate() (GenerateResult, error) {
 	return GenerateResult{Plan: filteredPlan, UsePlan: true, RunImage: runImage}, nil
 }
 
-func (g *Generator) getCommonInputs() buildpack.GenerateInputs {
+func (g *Generator) getGenerateInputs() buildpack.GenerateInputs {
 	return buildpack.GenerateInputs{
-		AppDir:      g.AppDir,
-		PlatformDir: g.PlatformDir,
-		Env:         env.NewBuildEnv(os.Environ()),
-		Out:         g.Out,
-		Err:         g.Err,
+		AppDir:         g.AppDir,
+		BuildConfigDir: g.BuildConfigDir,
+		PlatformDir:    g.PlatformDir,
+		Env:            env.NewBuildEnv(os.Environ()),
+		Out:            g.Out,
+		Err:            g.Err,
 	}
 }
 

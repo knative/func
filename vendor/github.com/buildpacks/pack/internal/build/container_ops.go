@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"runtime"
 
@@ -13,7 +12,6 @@ import (
 	"github.com/buildpacks/lifecycle/platform"
 	"github.com/docker/docker/api/types"
 	dcontainer "github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/client"
 	darchive "github.com/docker/docker/pkg/archive"
 	"github.com/pkg/errors"
 
@@ -23,11 +21,11 @@ import (
 	"github.com/buildpacks/pack/pkg/archive"
 )
 
-type ContainerOperation func(ctrClient client.CommonAPIClient, ctx context.Context, containerID string, stdout, stderr io.Writer) error
+type ContainerOperation func(ctrClient DockerClient, ctx context.Context, containerID string, stdout, stderr io.Writer) error
 
 // CopyOut copies container directories to a handler function. The handler is responsible for closing the Reader.
 func CopyOut(handler func(closer io.ReadCloser) error, srcs ...string) ContainerOperation {
-	return func(ctrClient client.CommonAPIClient, ctx context.Context, containerID string, stdout, stderr io.Writer) error {
+	return func(ctrClient DockerClient, ctx context.Context, containerID string, stdout, stderr io.Writer) error {
 		for _, src := range srcs {
 			reader, _, err := ctrClient.CopyFromContainer(ctx, containerID, src)
 			if err != nil {
@@ -59,7 +57,7 @@ func CopyOutTo(src, dest string) ContainerOperation {
 // CopyDir copies a local directory (src) to the destination on the container while filtering files and changing it's UID/GID.
 // if includeRoot is set the UID/GID will be set on the dst directory.
 func CopyDir(src, dst string, uid, gid int, os string, includeRoot bool, fileFilter func(string) bool) ContainerOperation {
-	return func(ctrClient client.CommonAPIClient, ctx context.Context, containerID string, stdout, stderr io.Writer) error {
+	return func(ctrClient DockerClient, ctx context.Context, containerID string, stdout, stderr io.Writer) error {
 		tarPath := dst
 		if os == "windows" {
 			tarPath = paths.WindowsToSlash(dst)
@@ -78,7 +76,7 @@ func CopyDir(src, dst string, uid, gid int, os string, includeRoot bool, fileFil
 	}
 }
 
-func copyDir(ctx context.Context, ctrClient client.CommonAPIClient, containerID string, appReader io.Reader) error {
+func copyDir(ctx context.Context, ctrClient DockerClient, containerID string, appReader io.Reader) error {
 	var clientErr, err error
 
 	doneChan := make(chan interface{})
@@ -105,7 +103,7 @@ func copyDir(ctx context.Context, ctrClient client.CommonAPIClient, containerID 
 // for Windows containers and does not work. Instead, we perform the copy from inside a container
 // using xcopy.
 // See: https://github.com/moby/moby/issues/40771
-func copyDirWindows(ctx context.Context, ctrClient client.CommonAPIClient, containerID string, reader io.Reader, dst string, stdout, stderr io.Writer) error {
+func copyDirWindows(ctx context.Context, ctrClient DockerClient, containerID string, reader io.Reader, dst string, stdout, stderr io.Writer) error {
 	info, err := ctrClient.ContainerInspect(ctx, containerID)
 	if err != nil {
 		return err
@@ -157,7 +155,7 @@ func copyDirWindows(ctx context.Context, ctrClient client.CommonAPIClient, conta
 		ctrClient,
 		ctr.ID,
 		container.DefaultHandler(
-			ioutil.Discard, // Suppress xcopy output
+			io.Discard, // Suppress xcopy output
 			stderr,
 		),
 	)
@@ -174,7 +172,7 @@ func findMount(info types.ContainerJSON, dst string) (types.MountPoint, error) {
 
 // WriteProjectMetadata
 func WriteProjectMetadata(p string, metadata platform.ProjectMetadata, os string) ContainerOperation {
-	return func(ctrClient client.CommonAPIClient, ctx context.Context, containerID string, stdout, stderr io.Writer) error {
+	return func(ctrClient DockerClient, ctx context.Context, containerID string, stdout, stderr io.Writer) error {
 		buf := &bytes.Buffer{}
 		err := toml.NewEncoder(buf).Encode(metadata)
 		if err != nil {
@@ -203,7 +201,7 @@ func WriteProjectMetadata(p string, metadata platform.ProjectMetadata, os string
 
 // WriteStackToml writes a `stack.toml` based on the StackMetadata provided to the destination path.
 func WriteStackToml(dstPath string, stack builder.StackMetadata, os string) ContainerOperation {
-	return func(ctrClient client.CommonAPIClient, ctx context.Context, containerID string, stdout, stderr io.Writer) error {
+	return func(ctrClient DockerClient, ctx context.Context, containerID string, stdout, stderr io.Writer) error {
 		buf := &bytes.Buffer{}
 		err := toml.NewEncoder(buf).Encode(stack)
 		if err != nil {
@@ -253,7 +251,7 @@ func createReader(src, dst string, uid, gid int, includeRoot bool, fileFilter fu
 // Changing permissions on volumes through stopped containers does not work on Docker for Windows so we start the container and make change using icacls
 // See: https://github.com/moby/moby/issues/40771
 func EnsureVolumeAccess(uid, gid int, os string, volumeNames ...string) ContainerOperation {
-	return func(ctrClient client.CommonAPIClient, ctx context.Context, containerID string, stdout, stderr io.Writer) error {
+	return func(ctrClient DockerClient, ctx context.Context, containerID string, stdout, stderr io.Writer) error {
 		if os != "windows" {
 			return nil
 		}
@@ -307,7 +305,7 @@ func EnsureVolumeAccess(uid, gid int, os string, volumeNames ...string) Containe
 			ctrClient,
 			ctr.ID,
 			container.DefaultHandler(
-				ioutil.Discard, // Suppress icacls output
+				io.Discard, // Suppress icacls output
 				stderr,
 			),
 		)

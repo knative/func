@@ -14,15 +14,8 @@ type DirStore struct {
 	extensionsDir string
 }
 
-func NewDirStore(buildpacksDir string, extensionsDir string) (*DirStore, error) {
-	var err error
-	if buildpacksDir, err = absoluteIfNotEmpty(buildpacksDir); err != nil {
-		return nil, err
-	}
-	if extensionsDir, err = absoluteIfNotEmpty(extensionsDir); err != nil {
-		return nil, err
-	}
-	return &DirStore{buildpacksDir: buildpacksDir, extensionsDir: extensionsDir}, nil
+func NewDirStore(buildpacksDir string, extensionsDir string) *DirStore {
+	return &DirStore{buildpacksDir: buildpacksDir, extensionsDir: extensionsDir}
 }
 
 func (s *DirStore) Lookup(kind, id, version string) (buildpack.Descriptor, error) {

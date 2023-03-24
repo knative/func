@@ -141,6 +141,6 @@ func readLayersSBOM(layersDir string, bomType string, logger log.Logger) (LayerD
 	logger.Debugf("Found SBOM of type %s for at %s", bomType, path)
 	return &layerDir{
 		path:       path,
-		identifier: fmt.Sprintf("%s.sbom", bomType),
+		identifier: fmt.Sprintf("buildpacksio/lifecycle:%s.sbom", bomType),
 	}, nil
 }

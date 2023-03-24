@@ -14,6 +14,7 @@ import (
 
 	"github.com/buildpacks/lifecycle/api"
 	"github.com/buildpacks/lifecycle/buildpack"
+	"github.com/buildpacks/lifecycle/internal/fsutil"
 	"github.com/buildpacks/lifecycle/launch"
 	"github.com/buildpacks/lifecycle/layers"
 	"github.com/buildpacks/lifecycle/log"
@@ -48,6 +49,7 @@ type LayerFactory interface {
 
 type LauncherConfig struct {
 	Path     string
+	SBOMDir  string
 	Metadata platform.LauncherMetadata
 }
 
@@ -66,6 +68,12 @@ type ExportOptions struct {
 
 func (e *Exporter) Export(opts ExportOptions) (platform.ExportReport, error) {
 	var err error
+
+	if e.PlatformAPI.AtLeast("0.11") {
+		if err = e.copyBuildpacksioSBOMs(opts); err != nil {
+			return platform.ExportReport{}, errors.Wrapf(err, "failed to copy buildpacksio SBOMs")
+		}
+	}
 
 	opts.LayersDir, err = filepath.Abs(opts.LayersDir)
 	if err != nil {
@@ -157,6 +165,74 @@ func (e *Exporter) Export(opts ExportOptions) (platform.ExportReport, error) {
 	return report, nil
 }
 
+func SBOMExtensions() []string {
+	return []string{buildpack.ExtensionCycloneDX, buildpack.ExtensionSPDX, buildpack.ExtensionSyft}
+}
+
+func (e *Exporter) copyBuildpacksioSBOMs(opts ExportOptions) error {
+	targetBuildDir := filepath.Join(opts.LayersDir, "sbom", "build", launch.EscapeID("buildpacksio/lifecycle"))
+	if err := e.copyDefaultSBOMsForComponent("lifecycle", targetBuildDir); err != nil {
+		return err
+	}
+
+	targetLaunchDir := filepath.Join(opts.LayersDir, "sbom", "launch", launch.EscapeID("buildpacksio/lifecycle"), "launcher")
+	switch {
+	case opts.LauncherConfig.SBOMDir == "" ||
+		opts.LauncherConfig.SBOMDir == platform.DefaultBuildpacksioSBOMDir:
+		return e.copyDefaultSBOMsForComponent("launcher", targetLaunchDir)
+	default:
+		// if provided a custom launcher SBOM directory, copy all files that look like sboms in that directory
+		return e.copyLauncherSBOMs(opts.LauncherConfig.SBOMDir, targetLaunchDir)
+	}
+}
+
+func (e *Exporter) copyLauncherSBOMs(srcDir string, dstDir string) error {
+	sboms, err := fsutil.FilesWithExtensions(srcDir, SBOMExtensions())
+	if err != nil {
+		e.Logger.Warnf("Failed to list contents of directory %s", srcDir)
+		return err
+	}
+
+	if err := os.MkdirAll(dstDir, 0755); err != nil {
+		return err
+	}
+
+	for _, sbom := range sboms {
+		dstPath := filepath.Join(dstDir, filepath.Base(sbom))
+		err = fsutil.Copy(sbom, dstPath)
+		if err != nil {
+			e.Logger.Warnf("failed while copying SBOM from %s to %s", sbom, dstPath)
+			return err
+		}
+	}
+	return nil
+}
+
+func (e *Exporter) copyDefaultSBOMsForComponent(component, dstDir string) error {
+	for _, extension := range SBOMExtensions() {
+		srcFilename := fmt.Sprintf("%s.%s", component, extension)
+		srcPath := filepath.Join(platform.DefaultBuildpacksioSBOMDir, srcFilename)
+		if _, err := os.Stat(srcPath); err != nil {
+			if os.IsNotExist(err) {
+				e.Logger.Warnf("Did not find SBOM %s in %s", srcFilename, platform.DefaultBuildpacksioSBOMDir)
+				continue
+			} else {
+				return err
+			}
+		}
+		// create target directory if not exists
+		if err := os.MkdirAll(dstDir, os.ModePerm); err != nil {
+			return err
+		}
+		dstPath := filepath.Join(dstDir, extension)
+		e.Logger.Debugf("Copying SBOM %s to %s", srcFilename, dstPath)
+		if err := fsutil.Copy(srcPath, dstPath); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (e *Exporter) addBuildpackLayers(opts ExportOptions, meta *platform.LayersMetadata) error {
 	for _, bp := range e.Buildpacks {
 		bpDir, err := buildpack.ReadLayersDir(opts.LayersDir, bp, e.Logger)
@@ -228,7 +304,7 @@ func (e *Exporter) addLauncherLayers(opts ExportOptions, buildMD *platform.Build
 	if err != nil {
 		return errors.Wrap(err, "exporting launcher configLayer")
 	}
-	configLayer, err := e.LayerFactory.DirLayer("config", filepath.Join(opts.LayersDir, "config"))
+	configLayer, err := e.LayerFactory.DirLayer("buildpacksio/lifecycle:config", filepath.Join(opts.LayersDir, "config"))
 	if err != nil {
 		return errors.Wrapf(err, "creating layer '%s'", configLayer.ID)
 	}

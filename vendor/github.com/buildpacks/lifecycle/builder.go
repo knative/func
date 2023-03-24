@@ -28,21 +28,22 @@ type Platform interface {
 type BuildEnv interface {
 	AddRootDir(baseDir string) error
 	AddEnvDir(envDir string, defaultAction env.ActionType) error
-	WithPlatform(platformDir string) ([]string, error)
+	WithOverrides(platformDir string, baseConfigDir string) ([]string, error)
 	List() []string
 }
 
 type Builder struct {
-	AppDir        string
-	LayersDir     string
-	PlatformDir   string
-	BuildExecutor buildpack.BuildExecutor
-	DirStore      DirStore
-	Group         buildpack.Group
-	Logger        log.Logger
-	Out, Err      io.Writer
-	Plan          platform.BuildPlan
-	Platform      Platform
+	AppDir         string
+	BuildConfigDir string
+	LayersDir      string
+	PlatformDir    string
+	BuildExecutor  buildpack.BuildExecutor
+	DirStore       DirStore
+	Group          buildpack.Group
+	Logger         log.Logger
+	Out, Err       io.Writer
+	Plan           platform.BuildPlan
+	PlatformAPI    *api.Version
 }
 
 func (b *Builder) Build() (*platform.BuildMetadata, error) {
@@ -61,10 +62,7 @@ func (b *Builder) Build() (*platform.BuildMetadata, error) {
 		slices    []layers.Slice
 	)
 	processMap := newProcessMap()
-	inputs, err := b.getCommonInputs()
-	if err != nil {
-		return nil, err
-	}
+	inputs := b.getBuildInputs()
 	inputs.Env = env.NewBuildEnv(os.Environ())
 	filteredPlan := b.Plan
 
@@ -86,7 +84,7 @@ func (b *Builder) Build() (*platform.BuildMetadata, error) {
 		}
 
 		b.Logger.Debug("Updating buildpack processes")
-		updateDefaultProcesses(br.Processes, api.MustParse(bp.API), b.Platform.API())
+		updateDefaultProcesses(br.Processes, api.MustParse(bp.API), b.PlatformAPI)
 
 		bomFiles = append(bomFiles, br.BOMFiles...)
 		buildBOM = append(buildBOM, br.BuildBOM...)
@@ -104,22 +102,21 @@ func (b *Builder) Build() (*platform.BuildMetadata, error) {
 		b.Logger.Debugf("Finished running build for buildpack %s", bp)
 	}
 
-	if b.Platform.API().LessThan("0.4") {
+	if b.PlatformAPI.LessThan("0.4") {
 		b.Logger.Debug("Updating BOM entries")
 		for i := range launchBOM {
 			launchBOM[i].ConvertMetadataToVersion()
 		}
 	}
 
-	if b.Platform.API().AtLeast("0.8") {
+	if b.PlatformAPI.AtLeast("0.8") {
 		b.Logger.Debug("Copying SBOM files")
-		err = b.copySBOMFiles(inputs.LayersDir, bomFiles)
-		if err != nil {
+		if err := b.copySBOMFiles(inputs.LayersDir, bomFiles); err != nil {
 			return nil, err
 		}
 	}
 
-	if b.Platform.API().AtLeast("0.9") {
+	if b.PlatformAPI.AtLeast("0.9") {
 		b.Logger.Debug("Creating SBOM files for legacy BOM")
 		if err := encoding.WriteJSON(filepath.Join(b.LayersDir, "sbom", "launch", "sbom.legacy.json"), launchBOM); err != nil {
 			return nil, errors.Wrap(err, "encoding launch bom")
@@ -131,7 +128,7 @@ func (b *Builder) Build() (*platform.BuildMetadata, error) {
 	}
 
 	b.Logger.Debug("Listing processes")
-	procList := processMap.list(b.Platform.API())
+	procList := processMap.list(b.PlatformAPI)
 
 	// Don't redundantly print `extension = true` and `optional = true` in metadata.toml and metadata label
 	for i, ext := range b.Group.GroupExtensions {
@@ -150,27 +147,15 @@ func (b *Builder) Build() (*platform.BuildMetadata, error) {
 	}, nil
 }
 
-func (b *Builder) getCommonInputs() (buildpack.BuildInputs, error) {
-	appDir, err := filepath.Abs(b.AppDir)
-	if err != nil {
-		return buildpack.BuildInputs{}, err
-	}
-	layersDir, err := filepath.Abs(b.LayersDir)
-	if err != nil {
-		return buildpack.BuildInputs{}, err
-	}
-	platformDir, err := filepath.Abs(b.PlatformDir)
-	if err != nil {
-		return buildpack.BuildInputs{}, err
-	}
-
+func (b *Builder) getBuildInputs() buildpack.BuildInputs {
 	return buildpack.BuildInputs{
-		AppDir:      appDir,
-		LayersDir:   layersDir,
-		PlatformDir: platformDir,
-		Out:         b.Out,
-		Err:         b.Err,
-	}, nil
+		AppDir:         b.AppDir,
+		BuildConfigDir: b.BuildConfigDir,
+		LayersDir:      b.LayersDir,
+		PlatformDir:    b.PlatformDir,
+		Out:            b.Out,
+		Err:            b.Err,
+	}
 }
 
 // copySBOMFiles() copies any BOM files written by buildpacks during the Build() process

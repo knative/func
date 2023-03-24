@@ -2,7 +2,6 @@ package platform
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/buildpacks/lifecycle/log"
 )
@@ -27,11 +26,4 @@ func GuardExperimental(requested string, logger log.Logger) error {
 		logger.Warnf("Platform requested experimental feature '%s'", requested)
 	}
 	return nil
-}
-
-func envOrDefault(key string, defaultVal string) string {
-	if envVal := os.Getenv(key); envVal != "" {
-		return envVal
-	}
-	return defaultVal
 }
