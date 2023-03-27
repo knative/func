@@ -5,17 +5,18 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/BurntSushi/toml"
 	"github.com/buildpacks/imgutil"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/pkg/errors"
 
 	"github.com/buildpacks/pack/builder"
@@ -80,6 +81,12 @@ type Builder struct {
 type orderTOML struct {
 	Order    dist.Order `toml:"order,omitempty"`
 	OrderExt dist.Order `toml:"order-extensions,omitempty"`
+}
+
+type toAdd struct {
+	tarPath string
+	diffID  string
+	module  buildpack.BuildModule
 }
 
 // FromImage constructs a builder from a builder image
@@ -310,7 +317,7 @@ func (b *Builder) Save(logger logging.Logger, creatorMetadata CreatorMetadata) e
 		logger.Debugf("-> %s", style.Symbol(bpInfo.FullName()))
 	}
 
-	tmpDir, err := ioutil.TempDir("", "create-builder-scratch")
+	tmpDir, err := os.MkdirTemp("", "create-builder-scratch")
 	if err != nil {
 		return err
 	}
@@ -440,36 +447,58 @@ func (b *Builder) Save(logger logging.Logger, creatorMetadata CreatorMetadata) e
 // Helpers
 
 func (b *Builder) addModules(kind string, logger logging.Logger, tmpDir string, image imgutil.Image, additionalModules []buildpack.BuildModule, layers dist.ModuleLayers) error {
-	type toAdd struct {
-		tarPath string
-		diffID  string
-		module  buildpack.BuildModule
+	collectionToAdd := map[string]toAdd{}
+
+	type modInfo struct {
+		info     dist.ModuleInfo
+		layerTar string
+		diffID   v1.Hash
+		err      error
 	}
 
-	collectionToAdd := map[string]toAdd{}
+	lids := make([]chan modInfo, len(additionalModules))
+	for i := range lids {
+		lids[i] = make(chan modInfo, 1)
+	}
+
 	for i, module := range additionalModules {
-		// create directory
-		modTmpDir := filepath.Join(tmpDir, fmt.Sprintf("%s-%s", kind, strconv.Itoa(i)))
-		if err := os.MkdirAll(modTmpDir, os.ModePerm); err != nil {
-			return errors.Wrapf(err, "creating %s temp dir", kind)
-		}
+		go func(i int, module buildpack.BuildModule) {
+			// create directory
+			modTmpDir := filepath.Join(tmpDir, fmt.Sprintf("%s-%s", kind, strconv.Itoa(i)))
+			if err := os.MkdirAll(modTmpDir, os.ModePerm); err != nil {
+				lids[i] <- modInfo{err: errors.Wrapf(err, "creating %s temp dir", kind)}
+			}
 
-		// create tar file
-		layerTar, err := buildpack.ToLayerTar(modTmpDir, module)
-		if err != nil {
-			return err
-		}
+			// create tar file
+			layerTar, err := buildpack.ToLayerTar(modTmpDir, module)
+			if err != nil {
+				lids[i] <- modInfo{err: err}
+			}
 
-		// generate diff id
-		diffID, err := dist.LayerDiffID(layerTar)
-		info := module.Descriptor().Info()
-		if err != nil {
-			return errors.Wrapf(err,
-				"getting content hashes for %s %s",
-				kind,
-				style.Symbol(info.FullName()),
-			)
+			// generate diff id
+			diffID, err := dist.LayerDiffID(layerTar)
+			info := module.Descriptor().Info()
+			if err != nil {
+				lids[i] <- modInfo{err: errors.Wrapf(err,
+					"getting content hashes for %s %s",
+					kind,
+					style.Symbol(info.FullName()),
+				)}
+			}
+			lids[i] <- modInfo{
+				info:     info,
+				layerTar: layerTar,
+				diffID:   diffID,
+			}
+		}(i, module)
+	}
+
+	for i, module := range additionalModules {
+		mi := <-lids[i]
+		if mi.err != nil {
+			return mi.err
 		}
+		info, diffID, layerTar := mi.info, mi.diffID, mi.layerTar
 
 		// check against builder layers
 		if existingInfo, ok := layers[info.ID][info.Version]; ok {
@@ -508,7 +537,10 @@ func (b *Builder) addModules(kind string, logger logging.Logger, tmpDir string, 
 		}
 	}
 
-	for _, module := range collectionToAdd {
+	// Fixes 1453
+	keys := sortKeys(collectionToAdd)
+	for _, k := range keys {
+		module := collectionToAdd[k]
 		logger.Debugf("Adding %s %s (diffID=%s)", kind, style.Symbol(module.module.Descriptor().Info().FullName()), module.diffID)
 		if err := image.AddLayerWithDiffID(module.tarPath, module.diffID); err != nil {
 			return errors.Wrapf(err,
@@ -808,7 +840,7 @@ func (b *Builder) embedLifecycleTar(tw archive.TarWriter) error {
 				return errors.Wrapf(err, "failed to write header for '%s'", header.Name)
 			}
 
-			buf, err := ioutil.ReadAll(tr)
+			buf, err := io.ReadAll(tr)
 			if err != nil {
 				return errors.Wrapf(err, "failed to read contents of '%s'", header.Name)
 			}
@@ -920,4 +952,13 @@ func (b *Builder) whiteoutLayer(tmpDir string, i int, bpInfo dist.ModuleInfo) (s
 	}
 
 	return fh.Name(), nil
+}
+
+func sortKeys(collection map[string]toAdd) []string {
+	keys := make([]string, 0, len(collection))
+	for k := range collection {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	return keys
 }

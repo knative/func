@@ -18,12 +18,13 @@ const (
 )
 
 type GenerateInputs struct {
-	AppDir      string
-	OutputDir   string // a temp directory provided by the lifecycle to capture extensions output
-	PlatformDir string
-	Env         BuildEnv
-	Out, Err    io.Writer
-	Plan        Plan
+	AppDir         string
+	BuildConfigDir string
+	OutputDir      string // a temp directory provided by the lifecycle to capture extensions output
+	PlatformDir    string
+	Env            BuildEnv
+	Out, Err       io.Writer
+	Plan           Plan
 }
 
 type GenerateOutputs struct {
@@ -81,12 +82,12 @@ func runGenerateCmd(d ExtDescriptor, extOutputDir, planPath string, inputs Gener
 
 	var err error
 	if d.Extension.ClearEnv {
-		cmd.Env = inputs.Env.List()
+		cmd.Env, err = inputs.Env.WithOverrides("", inputs.BuildConfigDir)
 	} else {
-		cmd.Env, err = inputs.Env.WithPlatform(inputs.PlatformDir)
-		if err != nil {
-			return err
-		}
+		cmd.Env, err = inputs.Env.WithOverrides(inputs.PlatformDir, inputs.BuildConfigDir)
+	}
+	if err != nil {
+		return err
 	}
 	cmd.Env = append(cmd.Env,
 		EnvBpPlanPath+"="+planPath,
@@ -128,7 +129,7 @@ func readOutputFilesExt(d ExtDescriptor, extOutputDir string, extPlanIn Plan, lo
 	return br, nil
 }
 
-func addDockerfileByPathAndType(d ExtDescriptor, extOutputDir string, dockerfileName string, dockerfileType string, logger log.Logger) (DockerfileInfo, bool, error) {
+func addDockerfileByPathAndType(d ExtDescriptor, extOutputDir string, dockerfileName string, dockerfileType string, _ log.Logger) (DockerfileInfo, bool, error) {
 	var err error
 	dockerfile := filepath.Join(extOutputDir, dockerfileName)
 	if _, err = os.Stat(dockerfile); err != nil {

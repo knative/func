@@ -93,6 +93,17 @@ func (c *CachingImage) Save(additionalNames ...string) error {
 	return err
 }
 
+func (c *CachingImage) SaveAs(name string, additionalNames ...string) error {
+	err := c.Image.SaveAs(name, additionalNames...)
+
+	if saveSucceededFor(c.Name(), err) {
+		if err := c.cache.Commit(); err != nil {
+			return errors.Wrap(err, "failed to commit cache")
+		}
+	}
+	return err
+}
+
 func saveSucceededFor(imageName string, err error) bool {
 	if err == nil {
 		return true

@@ -26,9 +26,10 @@ const (
 )
 
 type DetectInputs struct {
-	AppDir      string
-	PlatformDir string
-	Env         BuildEnv
+	AppDir         string
+	BuildConfigDir string
+	PlatformDir    string
+	Env            BuildEnv
 }
 
 type DetectOutputs struct {
@@ -57,18 +58,13 @@ func (e *DefaultDetectExecutor) Detect(d Descriptor, inputs DetectInputs, logger
 }
 
 func detectBp(d BpDescriptor, inputs DetectInputs, logger log.Logger) DetectOutputs {
-	appDir, platformDir, err := processPlatformPaths(inputs)
-	if err != nil {
-		return DetectOutputs{Code: -1, Err: err}
-	}
-
 	planDir, planPath, err := processBuildpackPaths()
 	defer os.RemoveAll(planDir)
 	if err != nil {
 		return DetectOutputs{Code: -1, Err: err}
 	}
 
-	result := runDetect(&d, platformDir, planPath, appDir, inputs.Env, EnvBuildpackDir)
+	result := runDetect(&d, inputs, planPath, EnvBuildpackDir)
 	if result.Code != 0 {
 		return result
 	}
@@ -99,11 +95,6 @@ func detectBp(d BpDescriptor, inputs DetectInputs, logger log.Logger) DetectOutp
 }
 
 func detectExt(d ExtDescriptor, inputs DetectInputs, logger log.Logger) DetectOutputs {
-	appDir, platformDir, err := processPlatformPaths(inputs)
-	if err != nil {
-		return DetectOutputs{Code: -1, Err: err}
-	}
-
 	planDir, planPath, err := processBuildpackPaths()
 	defer os.RemoveAll(planDir)
 	if err != nil {
@@ -119,7 +110,7 @@ func detectExt(d ExtDescriptor, inputs DetectInputs, logger log.Logger) DetectOu
 			return DetectOutputs{Code: -1, Err: err}
 		}
 	} else {
-		result = runDetect(&d, platformDir, planPath, appDir, inputs.Env, EnvExtensionDir)
+		result = runDetect(&d, inputs, planPath, EnvExtensionDir)
 		if result.Code != 0 {
 			return result
 		}
@@ -144,18 +135,6 @@ func detectExt(d ExtDescriptor, inputs DetectInputs, logger log.Logger) DetectOu
 	return result
 }
 
-func processPlatformPaths(inputs DetectInputs) (string, string, error) {
-	appDir, err := filepath.Abs(inputs.AppDir)
-	if err != nil {
-		return "", "", nil
-	}
-	platformDir, err := filepath.Abs(inputs.PlatformDir)
-	if err != nil {
-		return "", "", nil
-	}
-	return appDir, platformDir, nil
-}
-
 func processBuildpackPaths() (string, string, error) {
 	planDir, err := os.MkdirTemp("", "plan.")
 	if err != nil {
@@ -174,31 +153,31 @@ type detectable interface {
 	RootDir() string
 }
 
-func runDetect(d detectable, platformDir, planPath, appDir string, bpEnv BuildEnv, envRootDirKey string) DetectOutputs {
+func runDetect(d detectable, inputs DetectInputs, planPath string, envRootDirKey string) DetectOutputs {
 	out := &bytes.Buffer{}
 	cmd := exec.Command(
 		filepath.Join(d.RootDir(), "bin", "detect"),
-		platformDir,
+		inputs.PlatformDir,
 		planPath,
 	) // #nosec G204
-	cmd.Dir = appDir
+	cmd.Dir = inputs.AppDir
 	cmd.Stdout = out
 	cmd.Stderr = out
 
 	var err error
 	if d.ClearEnv() {
-		cmd.Env = bpEnv.List()
+		cmd.Env, err = inputs.Env.WithOverrides("", inputs.BuildConfigDir)
 	} else {
-		cmd.Env, err = bpEnv.WithPlatform(platformDir)
-		if err != nil {
-			return DetectOutputs{Code: -1, Err: err}
-		}
+		cmd.Env, err = inputs.Env.WithOverrides(inputs.PlatformDir, inputs.BuildConfigDir)
+	}
+	if err != nil {
+		return DetectOutputs{Code: -1, Err: err}
 	}
 	cmd.Env = append(cmd.Env, envRootDirKey+"="+d.RootDir())
 	if api.MustParse(d.API()).AtLeast("0.8") {
 		cmd.Env = append(
 			cmd.Env,
-			EnvPlatformDir+"="+platformDir,
+			EnvPlatformDir+"="+inputs.PlatformDir,
 			EnvBuildPlanPath+"="+planPath,
 		)
 	}

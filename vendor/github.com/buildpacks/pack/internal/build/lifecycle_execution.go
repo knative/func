@@ -4,11 +4,11 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"path/filepath"
 	"strconv"
 
 	"github.com/buildpacks/lifecycle/api"
 	"github.com/buildpacks/lifecycle/auth"
-	"github.com/docker/docker/client"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/pkg/errors"
@@ -28,7 +28,7 @@ const (
 
 type LifecycleExecution struct {
 	logger       logging.Logger
-	docker       client.CommonAPIClient
+	docker       DockerClient
 	platformAPI  *api.Version
 	layersVolume string
 	appVolume    string
@@ -37,11 +37,11 @@ type LifecycleExecution struct {
 	opts         LifecycleOptions
 }
 
-func NewLifecycleExecution(logger logging.Logger, docker client.CommonAPIClient, opts LifecycleOptions) (*LifecycleExecution, error) {
-	latestSupportedPlatformAPI, err := findLatestSupported(append(
+func NewLifecycleExecution(logger logging.Logger, docker DockerClient, opts LifecycleOptions) (*LifecycleExecution, error) {
+	latestSupportedPlatformAPI, err := FindLatestSupported(append(
 		opts.Builder.LifecycleDescriptor().APIs.Platform.Deprecated,
 		opts.Builder.LifecycleDescriptor().APIs.Platform.Supported...,
-	))
+	), opts.LifecycleApis)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +69,43 @@ func NewLifecycleExecution(logger logging.Logger, docker client.CommonAPIClient,
 	return exec, nil
 }
 
-func findLatestSupported(apis []*api.Version) (*api.Version, error) {
+// intersection of two sorted lists of api versions
+func apiIntersection(apisA, apisB []*api.Version) []*api.Version {
+	bind := 0
+	aind := 0
+	apis := []*api.Version{}
+	for ; aind < len(apisA); aind++ {
+		for ; bind < len(apisB) && apisA[aind].Compare(apisB[bind]) > 0; bind++ {
+		}
+		if bind == len(apisB) {
+			break
+		}
+		if apisA[aind].Equal(apisB[bind]) {
+			apis = append(apis, apisA[aind])
+		}
+	}
+	return apis
+}
+
+// public for unit test purposes but cmon you probably don't want to actually call this.
+func FindLatestSupported(builderapis []*api.Version, lifecycleapis []string) (*api.Version, error) {
+	var apis []*api.Version
+	// if a custom lifecycle image was used we need to take an intersection of its supported apis with the builder's supported apis.
+	// generally no custom lifecycle is used, which will be indicated by the lifecycleapis list being empty in the struct.
+	if len(lifecycleapis) > 0 {
+		lcapis := []*api.Version{}
+		for _, ver := range lifecycleapis {
+			v, err := api.NewVersion(ver)
+			if err != nil {
+				return nil, fmt.Errorf("unable to parse lifecycle api version %s (%v)", ver, err)
+			}
+			lcapis = append(lcapis, v)
+		}
+		apis = apiIntersection(lcapis, builderapis)
+	} else {
+		apis = builderapis
+	}
+
 	for i := len(SupportedPlatformAPIVersions) - 1; i >= 0; i-- {
 		for _, version := range apis {
 			if SupportedPlatformAPIVersions[i].Equal(version) {
@@ -289,13 +325,24 @@ func (l *LifecycleExecution) Create(ctx context.Context, buildCache, launchCache
 		If(l.opts.SBOMDestinationDir != "", WithPostContainerRunOperations(
 			EnsureVolumeAccess(l.opts.Builder.UID(), l.opts.Builder.GID(), l.os, l.layersVolume, l.appVolume),
 			CopyOutTo(l.mountPaths.sbomDir(), l.opts.SBOMDestinationDir))),
+		If(l.opts.ReportDestinationDir != "", WithPostContainerRunOperations(
+			EnsureVolumeAccess(l.opts.Builder.UID(), l.opts.Builder.GID(), l.os, l.layersVolume, l.appVolume),
+			CopyOutTo(l.mountPaths.reportPath(), l.opts.ReportDestinationDir))),
 		If(l.opts.Interactive, WithPostContainerRunOperations(
 			EnsureVolumeAccess(l.opts.Builder.UID(), l.opts.Builder.GID(), l.os, l.layersVolume, l.appVolume),
 			CopyOut(l.opts.Termui.ReadLayers, l.mountPaths.layersDir(), l.mountPaths.appDir()))),
 		withEnv,
 	}
 
-	if l.opts.Publish {
+	if l.opts.Layout {
+		var err error
+		opts, err = l.appendLayoutOperations(opts)
+		if err != nil {
+			return err
+		}
+	}
+
+	if l.opts.Publish || l.opts.Layout {
 		authConfig, err := auth.BuildEnvVar(authn.DefaultKeychain, l.opts.Image.String(), l.opts.RunImage, l.opts.CacheImage, l.opts.PreviousImage)
 		if err != nil {
 			return err
@@ -652,6 +699,9 @@ func (l *LifecycleExecution) Export(ctx context.Context, buildCache, launchCache
 		If(l.opts.SBOMDestinationDir != "", WithPostContainerRunOperations(
 			EnsureVolumeAccess(l.opts.Builder.UID(), l.opts.Builder.GID(), l.os, l.layersVolume, l.appVolume),
 			CopyOutTo(l.mountPaths.sbomDir(), l.opts.SBOMDestinationDir))),
+		If(l.opts.ReportDestinationDir != "", WithPostContainerRunOperations(
+			EnsureVolumeAccess(l.opts.Builder.UID(), l.opts.Builder.GID(), l.os, l.layersVolume, l.appVolume),
+			CopyOutTo(l.mountPaths.reportPath(), l.opts.ReportDestinationDir))),
 		If(l.opts.Interactive, WithPostContainerRunOperations(
 			EnsureVolumeAccess(l.opts.Builder.UID(), l.opts.Builder.GID(), l.os, l.layersVolume, l.appVolume),
 			CopyOut(l.opts.Termui.ReadLayers, l.mountPaths.layersDir(), l.mountPaths.appDir()))),
@@ -694,6 +744,12 @@ func (l *LifecycleExecution) withLogLevel(args ...string) []string {
 
 func (l *LifecycleExecution) hasExtensions() bool {
 	return len(l.opts.Builder.OrderExtensions()) > 0
+}
+
+func (l *LifecycleExecution) appendLayoutOperations(opts []PhaseConfigProviderOperation) ([]PhaseConfigProviderOperation, error) {
+	layoutDir := filepath.Join(paths.RootDir, "layout-repo")
+	opts = append(opts, WithEnv("CNB_USE_LAYOUT=true", "CNB_LAYOUT_DIR="+layoutDir, "CNB_EXPERIMENTAL_MODE=warn"))
+	return opts, nil
 }
 
 func prependArg(arg string, args []string) []string {

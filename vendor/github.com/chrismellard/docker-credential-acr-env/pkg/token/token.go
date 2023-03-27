@@ -63,6 +63,25 @@ func getServicePrincipalToken(settings auth.EnvironmentSettings, resource string
 		return &adal.ServicePrincipalToken{}, fmt.Errorf("authentication method currently unsupported")
 	}
 
+	// federated OIDC JWT assertion
+	if jwt, isPresent := os.LookupEnv("AZURE_FEDERATED_TOKEN"); isPresent {
+		clientID, isPresent := os.LookupEnv("AZURE_CLIENT_ID")
+		if !isPresent {
+			return &adal.ServicePrincipalToken{}, fmt.Errorf("failed to get client id from environment")
+		}
+		tenantID, isPresent := os.LookupEnv("AZURE_TENANT_ID")
+		if !isPresent {
+			return &adal.ServicePrincipalToken{}, fmt.Errorf("failed to get client id from environment")
+		}
+
+		oAuthConfig, err := adal.NewOAuthConfig(settings.Environment.ActiveDirectoryEndpoint, tenantID)
+		if err != nil {
+			return &adal.ServicePrincipalToken{}, fmt.Errorf("failed to initialise OAuthConfig - %w", err)
+		}
+
+		return adal.NewServicePrincipalTokenFromFederatedToken(*oAuthConfig, clientID, jwt, resource)
+	}
+
 	// 4. MSI
 	return adal.NewServicePrincipalTokenFromManagedIdentity(resource, &adal.ManagedIdentityOptions{
 		ClientID: os.Getenv("AZURE_CLIENT_ID"),

@@ -13,10 +13,14 @@ import (
 )
 
 func saveImage(image imgutil.Image, additionalNames []string, logger log.Logger) (platform.ImageReport, error) {
+	return saveImageAs(image, image.Name(), additionalNames, logger)
+}
+
+func saveImageAs(image imgutil.Image, name string, additionalNames []string, logger log.Logger) (platform.ImageReport, error) {
 	var saveErr error
 	imageReport := platform.ImageReport{}
-	logger.Infof("Saving %s...\n", image.Name())
-	if err := image.Save(additionalNames...); err != nil {
+	logger.Infof("Saving %s...\n", name)
+	if err := image.SaveAs(name, additionalNames...); err != nil {
 		var ok bool
 		if saveErr, ok = err.(imgutil.SaveError); !ok {
 			return platform.ImageReport{}, errors.Wrap(err, "saving image")
@@ -32,7 +36,7 @@ func saveImage(image imgutil.Image, additionalNames []string, logger log.Logger)
 	}
 
 	logger.Infof("*** Images (%s):\n", shortID(id))
-	for _, n := range append([]string{image.Name()}, additionalNames...) {
+	for _, n := range append([]string{name}, additionalNames...) {
 		if ok, message := getSaveStatus(saveErr, n); !ok {
 			logger.Infof("      %s - %s\n", n, message)
 		} else {

@@ -1,119 +1,76 @@
 package platform
 
 import (
-	"github.com/pkg/errors"
+	"os"
 
-	"github.com/buildpacks/lifecycle/image"
+	"github.com/buildpacks/lifecycle/api"
 	"github.com/buildpacks/lifecycle/internal/str"
 	"github.com/buildpacks/lifecycle/log"
 )
 
-// AnalyzeInputs holds the values of command-line flags and args.
-// Fields are the cumulative total of inputs across all supported platform APIs.
-type AnalyzeInputs struct {
-	AdditionalTags   str.Slice // satisfies the `Value` interface required by the `flag` package
-	AnalyzedPath     string
-	CacheImageRef    string
-	LaunchCacheDir   string
-	LayersDir        string
-	LegacyCacheDir   string
-	LegacyGroupPath  string
-	OutputImageRef   string
-	PreviousImageRef string
-	RunImageRef      string
-	StackPath        string
-	UID              int
-	GID              int
-	SkipLayers       bool
-	UseDaemon        bool
+// DefaultAnalyzeInputs accepts a Platform API version and returns a set of lifecycle inputs
+// with default values filled in for the `analyze` phase.
+func DefaultAnalyzeInputs(platformAPI *api.Version) LifecycleInputs {
+	var inputs LifecycleInputs
+	switch {
+	case platformAPI.AtLeast("0.9"):
+		inputs = defaultAnalyzeInputs()
+	case platformAPI.AtLeast("0.7"):
+		inputs = defaultAnalyzeInputs07()
+	case platformAPI.AtLeast("0.5"):
+		inputs = defaultAnalyzeInputs05To06()
+	default:
+		inputs = defaultAnalyzeInputs03To04()
+	}
+	inputs.PlatformAPI = platformAPI
+	return inputs
 }
 
-// RegistryImages returns the inputs that are images in a registry.
-func (a AnalyzeInputs) RegistryImages() []string {
-	var images []string
-	images = appendNotEmpty(images, a.CacheImageRef)
-	if !a.UseDaemon {
-		images = appendNotEmpty(images, a.PreviousImageRef, a.RunImageRef, a.OutputImageRef)
-		images = appendNotEmpty(images, a.AdditionalTags...)
-	}
-	return images
+func defaultAnalyzeInputs() LifecycleInputs {
+	ai := defaultAnalyzeInputs07()
+	ai.LaunchCacheDir = os.Getenv(EnvLaunchCacheDir)
+	return ai
 }
 
-// ResolveAnalyze accepts an AnalyzeInputs and returns a new AnalyzeInputs with default values filled in,
-// or an error if the provided inputs are not valid.
-func (r *InputsResolver) ResolveAnalyze(inputs AnalyzeInputs, logger log.Logger) (AnalyzeInputs, error) {
-	resolvedInputs := inputs
-
-	if err := r.fillAnalyzeDefaultFilePaths(&resolvedInputs, logger); err != nil {
-		return AnalyzeInputs{}, err
-	}
-
-	if err := r.validateAnalyze(resolvedInputs, logger); err != nil {
-		return AnalyzeInputs{}, err
-	}
-	return resolvedInputs, nil
+func defaultAnalyzeInputs07() LifecycleInputs {
+	ai := defaultAnalyzeInputs05To06()
+	ai.AdditionalTags = str.Slice{}
+	ai.CacheDir = "" // removed
+	ai.PreviousImageRef = os.Getenv(EnvPreviousImage)
+	ai.RunImageRef = os.Getenv(EnvRunImage)
+	ai.StackPath = envOrDefault(EnvStackPath, DefaultStackPath)
+	return ai
 }
 
-func (r *InputsResolver) fillAnalyzeDefaultFilePaths(inputs *AnalyzeInputs, logger log.Logger) error {
-	if inputs.AnalyzedPath == PlaceholderAnalyzedPath {
-		inputs.AnalyzedPath = defaultPath(PlaceholderAnalyzedPath, inputs.LayersDir, r.platformAPI)
-	}
-	if inputs.LegacyGroupPath == PlaceholderGroupPath {
-		inputs.LegacyGroupPath = defaultPath(PlaceholderGroupPath, inputs.LayersDir, r.platformAPI)
-	}
-	if inputs.PreviousImageRef == "" {
-		inputs.PreviousImageRef = inputs.OutputImageRef
-	}
-	return r.fillRunImage(inputs, logger)
+func defaultAnalyzeInputs05To06() LifecycleInputs {
+	ai := defaultAnalyzeInputs03To04()
+	ai.AnalyzedPath = envOrDefault(EnvAnalyzedPath, placeholderAnalyzedPath)
+	ai.GroupPath = envOrDefault(EnvGroupPath, placeholderGroupPath)
+	return ai
 }
 
-func (r *InputsResolver) fillRunImage(inputs *AnalyzeInputs, logger log.Logger) error {
-	if r.platformAPI.LessThan("0.7") || inputs.RunImageRef != "" {
+func defaultAnalyzeInputs03To04() LifecycleInputs {
+	return LifecycleInputs{
+		AnalyzedPath:   envOrDefault(EnvAnalyzedPath, DefaultAnalyzedFile), // <analyzed>
+		CacheDir:       os.Getenv(EnvCacheDir),                             // <cache-dir>
+		CacheImageRef:  os.Getenv(EnvCacheImage),                           // <cache-image>
+		UseDaemon:      boolEnv(EnvUseDaemon),                              // <daemon>
+		GID:            intEnv(EnvGID),                                     // <gid>
+		GroupPath:      envOrDefault(EnvGroupPath, DefaultGroupFile),       // <group>
+		OutputImageRef: "",                                                 // <image>
+		LayersDir:      envOrDefault(EnvLayersDir, DefaultLayersDir),       // <layers>
+		LogLevel:       envOrDefault(EnvLogLevel, DefaultLogLevel),         // <log-level>
+		SkipLayers:     boolEnv(EnvSkipLayers),                             // <skip-layers>
+		UID:            intEnv(EnvUID),                                     // <uid>
+	}
+}
+
+func FillAnalyzeImages(i *LifecycleInputs, logger log.Logger) error {
+	if i.PreviousImageRef == "" {
+		i.PreviousImageRef = i.OutputImageRef
+	}
+	if i.PlatformAPI.LessThan("0.7") {
 		return nil
 	}
-
-	targetRegistry, err := parseRegistry(inputs.OutputImageRef)
-	if err != nil {
-		return err
-	}
-
-	stackMD, err := readStack(inputs.StackPath, logger)
-	if err != nil {
-		return err
-	}
-
-	inputs.RunImageRef, err = stackMD.BestRunImageMirror(targetRegistry)
-	if err != nil {
-		return errors.New("-run-image is required when there is no stack metadata available")
-	}
-	return nil
-}
-
-func (r *InputsResolver) validateAnalyze(inputs AnalyzeInputs, logger log.Logger) error {
-	if inputs.OutputImageRef == "" {
-		return errors.New("image argument is required")
-	}
-
-	if !inputs.UseDaemon {
-		if err := ensureSameRegistry(inputs.PreviousImageRef, inputs.OutputImageRef); err != nil {
-			return errors.Wrap(err, "ensuring previous image and exported image are on same registry")
-		}
-
-		if inputs.LaunchCacheDir != "" {
-			logger.Warn("Ignoring -launch-cache, only intended for use with -daemon")
-		}
-	}
-
-	if err := image.ValidateDestinationTags(inputs.UseDaemon, append(inputs.AdditionalTags, inputs.OutputImageRef)...); err != nil {
-		return errors.Wrap(err, "validating image tag(s)")
-	}
-
-	if r.platformAPI.AtLeast("0.7") {
-		return nil
-	}
-
-	if inputs.CacheImageRef == "" && inputs.LegacyCacheDir == "" {
-		logger.Warn("Not restoring cached layer metadata, no cache flag specified.")
-	}
-	return nil
+	return fillRunImageFromStackTOMLIfNeeded(i, logger)
 }
