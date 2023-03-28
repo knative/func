@@ -15,18 +15,31 @@ jobs:
 #      - uses: actions/setup-go@v3
 #        with:
 #          go-version: ${{ matrix.go }}
-      - name: test
+      - name: test Hyper V
         shell: pwsh
         run: |
           Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V -All
           Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V
+      - name: enable Microsoft-Hyper-V-Management-PowerShell
+        shell: pwsh
+        run: |
+          Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-Management-PowerShell
+      - name: test Docker
+        shell: pwsh
+        run: |
           docker.exe info --format '{{.OSType}}'
+      - name: install minikube
+        shell: pwsh
+        run: |
           New-Item -Path 'c:\' -Name 'minikube' -ItemType Directory -Force
           Invoke-WebRequest -OutFile 'c:\minikube\minikube.exe' -Uri 'https://github.com/kubernetes/minikube/releases/latest/download/minikube-windows-amd64.exe' -UseBasicParsing
           $oldPath = [Environment]::GetEnvironmentVariable('Path', [EnvironmentVariableTarget]::Machine)
           if ($oldPath.Split(';') -inotcontains 'C:\minikube'){ `
             [Environment]::SetEnvironmentVariable('Path', $('{0};C:\minikube' -f $oldPath), [EnvironmentVariableTarget]::Machine) `
           }
+      - name: test
+        shell: pwsh
+        run: |
           minikube.exe start --driver=hyperv 
           #minikube.exe start --driver=docker
           #minikube.exe start --driver=virtualbox
