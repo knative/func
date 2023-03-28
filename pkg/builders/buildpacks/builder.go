@@ -97,7 +97,7 @@ func WithImpl(i Impl) Option {
 	}
 }
 
-var DefaultLifecycleImage = "quay.io/boson/lifecycle@sha256:1c22b303836cb31330c4239485c62b9bfb418a6d83cd2b3a842506540300e485"
+var DefaultLifecycleImage = "quay.io/boson/lifecycle@sha256:f53fea9ec9188b92cab0b8a298ff852d76a6c2aaf56f968a08637e13de0e0c59"
 
 // Build the Function at path.
 func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
