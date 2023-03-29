@@ -29,7 +29,7 @@ function build_release() {
 
   ARTIFACTS_TO_PUBLISH="func_darwin_amd64 func_darwin_arm64 func_linux_amd64 func_linux_arm64 func_linux_ppc64le func_linux_s390x func_windows_amd64.exe"
   ARTIFACTS_TO_PUBLISH="${ARTIFACTS_TO_PUBLISH} ${PIPELINE_ARTIFACTS}"
-  sha256sum "${ARTIFACTS_TO_PUBLISH}" > checksums.txt
+  sha256sum ${ARTIFACTS_TO_PUBLISH} > checksums.txt
   ARTIFACTS_TO_PUBLISH="${ARTIFACTS_TO_PUBLISH} checksums.txt"
   echo "🧮     Checksum:"
   cat checksums.txt
