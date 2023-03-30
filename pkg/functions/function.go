@@ -121,7 +121,7 @@ type BuildSpec struct {
 
 	// PVCSize specifies the size of persistent volume claim used to store function
 	// when using deployment and remote build process (only relevant when Remote is true).
-	PVCSize string `yaml:"pvcSize"`
+	PVCSize string `yaml:"pvcSize,omitempty"`
 }
 
 // RunSpec
