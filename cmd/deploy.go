@@ -232,11 +232,6 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	// Informative non-error messages regarding the final deployment request
 	printDeployMessages(cmd.OutOrStdout(), cfg)
 
-	// Save the function which has now been updated with flags/config
-	if err = f.Write(); err != nil { // TODO: remove when client API uses 'f'
-		return
-	}
-
 	// Client
 	// Concrete implementations (ex builder) vary  based on final effective cfg.
 	var builder fn.Builder
@@ -267,22 +262,16 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		}
 	} else {
 		if shouldBuild(cfg.Build, f, client) { // --build or "auto" with FS changes
-			if err = client.Build(cmd.Context(), f.Root); err != nil {
+			if f, err = client.Build(cmd.Context(), f); err != nil {
 				return
 			}
-		}
-		if f, err = fn.NewFunction(f.Root); err != nil { // TODO: remove when client API uses 'f'
-			return
 		}
 		if cfg.Push {
-			if err = client.Push(cmd.Context(), f.Root); err != nil {
+			if f, err = client.Push(cmd.Context(), f); err != nil {
 				return
 			}
 		}
-		if err = client.Deploy(cmd.Context(), f.Root, fn.WithDeploySkipBuildCheck(cfg.Build == "false")); err != nil {
-			return
-		}
-		if f, err = fn.NewFunction(f.Root); err != nil { // TODO: remove when client API uses 'f'
+		if f, err = client.Deploy(cmd.Context(), f, fn.WithDeploySkipBuildCheck(cfg.Build == "false")); err != nil {
 			return
 		}
 	}
@@ -297,7 +286,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 // deployConfig.Validate
 func shouldBuild(buildCfg string, f fn.Function, client *fn.Client) bool {
 	if buildCfg == "auto" {
-		return !fn.Built(f.Root) // first build or modified filesystem
+		return !f.Built() // first build or modified filesystem
 	}
 	build, _ := strconv.ParseBool(buildCfg)
 	return build

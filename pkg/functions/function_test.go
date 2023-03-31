@@ -79,7 +79,8 @@ func TestFunction_WriteIdempotency(t *testing.T) {
 		Runtime: TestRuntime,
 		Root:    root,
 	}
-	if err := client.Init(f); err != nil {
+	_, err := client.Init(f)
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -124,12 +125,7 @@ func TestFunction_NameDefault(t *testing.T) {
 		Runtime: TestRuntime,
 		Root:    root,
 	}
-	if err := client.Init(f); err != nil {
-		t.Fatal(err)
-	}
-
-	// Load the (now extant) function
-	f, err = fn.NewFunction(root)
+	f, err = client.Init(f)
 	if err != nil {
 		t.Fatal(err)
 	}

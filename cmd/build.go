@@ -186,27 +186,17 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		fn.WithBuilder(builder))
 	defer done()
 
-	// TODO(lkingland): this write will be unnecessary when the client API is
-	// updated to accept function structs rather than a path as argument.
-	if err = f.Write(); err != nil {
-		return
-	}
-
 	// Build and (optionally) push
-	if err = client.Build(cmd.Context(), cfg.Path); err != nil {
+	if f, err = client.Build(cmd.Context(), f); err != nil {
 		return
 	}
 	if cfg.Push {
-		err = client.Push(cmd.Context(), cfg.Path)
+		if f, err = client.Push(cmd.Context(), f); err != nil {
+			return
+		}
 	}
 
-	// TODO(lkingland): when the above Build and Push calls are refactored to not
-	// write the function but instead take and return a function struct, use
-	// `return f.Write()` below and remove from above such that function on disk
-	// is only written on success and thus is always in a known valid state unless
-	// manually edited.
-	// return f.Write()
-	return
+	return f.Write()
 }
 
 type buildConfig struct {

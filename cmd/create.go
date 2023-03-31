@@ -132,7 +132,7 @@ func runCreate(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 	}
 
 	// Create
-	err = client.Init(fn.Function{
+	_, err = client.Init(fn.Function{
 		Name:     cfg.Name,
 		Root:     cfg.Path,
 		Runtime:  cfg.Runtime,

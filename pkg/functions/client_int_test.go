@@ -83,7 +83,7 @@ func TestNew(t *testing.T) {
 	client := newClient(verbose)
 
 	// Act
-	if _, err := client.New(context.Background(), fn.Function{Name: "testnew", Root: ".", Runtime: "go"}); err != nil {
+	if _, _, err := client.New(context.Background(), fn.Function{Name: "testnew", Root: ".", Runtime: "go"}); err != nil {
 		t.Fatal(err)
 	}
 	defer del(t, client, "testnew")
@@ -108,13 +108,14 @@ func TestDeploy(t *testing.T) {
 	verbose := true
 
 	client := newClient(verbose)
-
-	if _, err := client.New(context.Background(), fn.Function{Name: "deploy", Root: ".", Runtime: "go"}); err != nil {
+	f := fn.Function{Name: "deploy", Root: ".", Runtime: "go"}
+	var err error
+	if _, f, err = client.New(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
 	defer del(t, client, "deploy")
 
-	if err := client.Deploy(context.Background(), "."); err != nil {
+	if f, err = client.Deploy(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -148,13 +149,14 @@ func TestDeployWithOptions(t *testing.T) {
 	}
 
 	client := newClient(verbose)
-
-	if _, err := client.New(context.Background(), fn.Function{Name: "deployoptions", Root: ".", Runtime: "go", Deploy: ds}); err != nil {
+	f := fn.Function{Name: "deployoptions", Root: ".", Runtime: "go", Deploy: ds}
+	var err error
+	if _, f, err = client.New(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
 	defer del(t, client, "deployoptions")
 
-	if err := client.Deploy(context.Background(), "."); err != nil {
+	if f, err = client.Deploy(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -168,22 +170,19 @@ func TestUpdateWithAnnotationsAndLabels(t *testing.T) {
 
 	// Deploy a function without any annotations or labels
 	client := newClient(verbose)
+	f := fn.Function{Name: functionName, Root: ".", Runtime: "go"}
 
-	if _, err := client.New(context.Background(), fn.Function{Name: functionName, Root: ".", Runtime: "go"}); err != nil {
+	if _, f, err = client.New(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
 	defer del(t, client, functionName)
 
-	if err := client.Deploy(context.Background(), "."); err != nil {
+	if f, err = client.Deploy(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
 
-	// Update function with a new set of annotations and labels
+	// Updated function with a new set of annotations and labels
 	// deploy and check that deployed kcsv contains correct annotations and labels
-	f, err := fn.NewFunction(".")
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	annotations := map[string]string{"ann1": "val1", "ann2": "val2"}
 	labels := []fn.Label{
@@ -192,11 +191,8 @@ func TestUpdateWithAnnotationsAndLabels(t *testing.T) {
 	}
 	f.Deploy.Annotations = annotations
 	f.Deploy.Labels = labels
-	if err := f.Write(); err != nil {
-		t.Fatal(err)
-	}
 
-	if err := client.Deploy(context.Background(), ".", fn.WithDeploySkipBuildCheck(true)); err != nil {
+	if f, err = client.Deploy(context.Background(), f, fn.WithDeploySkipBuildCheck(true)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -226,20 +222,13 @@ func TestUpdateWithAnnotationsAndLabels(t *testing.T) {
 
 	// Remove some annotations and labels
 	// deploy and check that deployed kcsv contains correct annotations and labels
-	f, err = fn.NewFunction(".")
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	annotations = map[string]string{"ann1": "val1"}
 	labels = []fn.Label{{Key: ptr.String("lab1"), Value: ptr.String("v1")}}
 	f.Deploy.Annotations = annotations
 	f.Deploy.Labels = labels
-	if err := f.Write(); err != nil {
-		t.Fatal(err)
-	}
 
-	if err := client.Deploy(context.Background(), ".", fn.WithDeploySkipBuildCheck(true)); err != nil {
+	if f, err = client.Deploy(context.Background(), f, fn.WithDeploySkipBuildCheck(true)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -274,13 +263,14 @@ func TestRemove(t *testing.T) {
 	verbose := true
 
 	client := newClient(verbose)
-
-	if _, err := client.New(context.Background(), fn.Function{Name: "remove", Root: ".", Runtime: "go"}); err != nil {
+	f := fn.Function{Name: "remove", Root: ".", Runtime: "go"}
+	var err error
+	if _, f, err = client.New(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
 	waitFor(t, client, "remove")
 
-	if err := client.Remove(context.Background(), fn.Function{Name: "remove"}, false); err != nil {
+	if err = client.Remove(context.Background(), f, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -307,7 +297,7 @@ func TestRemoteRepositories(t *testing.T) {
 		fn.WithRegistry(DefaultRegistry),
 		fn.WithRepository("https://github.com/boson-project/test-templates"),
 	)
-	err := client.Init(fn.Function{
+	_, err := client.Init(fn.Function{
 		Root:     ".",
 		Runtime:  "runtime",
 		Template: "template",
@@ -359,7 +349,8 @@ func TestInvoke_ClientToService(t *testing.T) {
 
 	// Create a function
 	f := fn.Function{Name: "f", Runtime: "go"}
-	if err = client.Init(f); err != nil {
+	f, err = client.Init(f)
+	if err != nil {
 		t.Fatal(err)
 	}
 	source := `
@@ -376,7 +367,7 @@ func Handle(ctx context.Context, res http.ResponseWriter, req *http.Request) {
 `
 	os.WriteFile(filepath.Join(root, "handle.go"), []byte(source), os.ModePerm)
 
-	if route, err = client.Apply(ctx, f); err != nil {
+	if route, f, err = client.Apply(ctx, f); err != nil {
 		t.Fatal(err)
 	}
 	defer client.Remove(ctx, f, true)
@@ -424,7 +415,8 @@ func TestInvoke_ServiceToService(t *testing.T) {
 	root, done := Mktemp(t)
 	defer done()
 	f := fn.Function{Name: "a", Runtime: "go"}
-	if err := client.Init(f); err != nil {
+	f, err = client.Init(f)
+	if err != nil {
 		t.Fatal(err)
 	}
 	source = `
@@ -440,7 +432,7 @@ func Handle(ctx context.Context, res http.ResponseWriter, req *http.Request) {
 }
 `
 	os.WriteFile(filepath.Join(root, "handle.go"), []byte(source), os.ModePerm)
-	if _, err = client.Apply(ctx, f); err != nil {
+	if _, f, err = client.Apply(ctx, f); err != nil {
 		t.Fatal(err)
 	}
 	defer client.Remove(ctx, f, true)
@@ -451,7 +443,8 @@ func Handle(ctx context.Context, res http.ResponseWriter, req *http.Request) {
 	root, done = Mktemp(t)
 	defer done()
 	f = fn.Function{Name: "b", Runtime: "go"}
-	if err := client.Init(f); err != nil {
+	f, err = client.Init(f)
+	if err != nil {
 		t.Fatal(err)
 	}
 
@@ -476,7 +469,7 @@ func Handle(ctx context.Context, res http.ResponseWriter, req *http.Request) {
 }
 `
 	os.WriteFile(filepath.Join(root, "handle.go"), []byte(source), os.ModePerm)
-	if route, err = client.Apply(ctx, f); err != nil {
+	if route, f, err = client.Apply(ctx, f); err != nil {
 		t.Fatal(err)
 	}
 	defer client.Remove(ctx, f, true)
