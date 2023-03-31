@@ -33,12 +33,12 @@ func GetRegistry() string {
 
 // GetFuncBinaryPath should return the Path of 'func' binary under test
 func GetFuncBinaryPath() string {
-	return getOsEnvOrDefault("E2E_FUNC_BIN_PATH", "")
+	return GetOsEnvOrDefault("E2E_FUNC_BIN_PATH", "")
 }
 
 // GetRuntime returns the runtime that should be tested.
 func GetRuntime() string {
-	return getOsEnvOrDefault("E2E_RUNTIME", "node")
+	return GetOsEnvOrDefault("E2E_RUNTIME", "node")
 }
 
 // IsUseKnFunc indicates that tests should be run against "kn func" instead of "func" binary
@@ -46,7 +46,7 @@ func IsUseKnFunc() bool {
 	return strings.EqualFold(os.Getenv("E2E_USE_KN_FUNC"), "true")
 }
 
-func getOsEnvOrDefault(env string, dflt string) string {
+func GetOsEnvOrDefault(env string, dflt string) string {
 	e := os.Getenv(env)
 	if e == "" {
 		return dflt
