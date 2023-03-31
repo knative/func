@@ -6,7 +6,7 @@ mod handler;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    elog::from_env(elog::Env::default().default_filter_or("info,actix_web=warn")).init();
+    elog::Builder::from_env(elog::Env::default().default_filter_or("info,actix_web=warn")).init();
 
     let port: u16 = match std::env::var("PORT") {
         Ok(v) => v.parse().unwrap(),
