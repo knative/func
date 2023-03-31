@@ -15,7 +15,7 @@ pub async fn index(req: HttpRequest, config: web::Data<HandlerConfig>) -> HttpRe
 #[cfg(test)]
 mod tests {
     use super::*;
-    use actix_web::{body::Body, http, test};
+    use actix_web::{body::to_bytes, http, test, web::Bytes};
 
     fn config() -> web::Data<HandlerConfig> {
         web::Data::new(HandlerConfig::default())
@@ -27,8 +27,8 @@ mod tests {
         let resp = index(req, config()).await;
         assert_eq!(resp.status(), http::StatusCode::OK);
         assert_eq!(
-            &Body::from(format!("Hello {}!\n", "world")),
-            resp.body().as_ref().unwrap()
+            &Bytes::from(format!("Hello {}!\n", "world")),
+            to_bytes(resp.into_body()).await.unwrap().as_ref()
         );
     }
 
@@ -38,8 +38,8 @@ mod tests {
         let resp = index(req, config()).await;
         assert!(resp.status().is_success());
         assert_eq!(
-            &Body::from(format!("Thanks {}!\n", "world")),
-            resp.body().as_ref().unwrap()
+            &Bytes::from(format!("Thanks {}!\n", "world")),
+            to_bytes(resp.into_body()).await.unwrap().as_ref()
         );
     }
 }

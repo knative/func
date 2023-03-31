@@ -1,4 +1,4 @@
-use actix_web::web;
+use actix_web::{web::{self, Data}};
 
 /// Run custom configuration as part of the application building
 /// process.
@@ -23,7 +23,7 @@ use actix_web::web;
 /// }
 pub fn configure(cfg: &mut web::ServiceConfig) {
     log::info!("Configuring service");
-    cfg.data(HandlerConfig::default());
+    cfg.app_data(Data::new(HandlerConfig::default()));
 }
 
 /// An example of the function configuration structure.
