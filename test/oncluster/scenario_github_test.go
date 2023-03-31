@@ -4,7 +4,6 @@
 package oncluster
 
 import (
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -20,7 +19,7 @@ Test scenario covered here:
 Notes:
  * The function used as input for this scenario is stored in this repository at /test/oncluster/testdata/simplefunc
 
- * On a CI Pull Request action (env CI="true") the branch used on the on-cluster test is the pull request reference.
+ * On a CI Pull Request action the branch used on the on-cluster test is the pull request reference.
    The equivalent deploy func command would look like this:
 
    func deploy --remote \
@@ -33,15 +32,11 @@ Notes:
 */
 
 func resolveGitVars() (gitRepoUrl string, gitRef string) {
-	var githubRepository = "knative/func"
-	gitRef = "main"
-	if os.Getenv("CI") == "true" {
-		// On a GitHub Action (Pull Request)
-		// https://docs.github.com/en/actions/learn-github-actions/variables
-		githubRepository, _ = os.LookupEnv("GITHUB_REPOSITORY")
-		gitRef, _ = os.LookupEnv("GITHUB_REF")
-	}
-	gitRepoUrl = "https://github.com/" + githubRepository + ".git"
+	// On a GitHub Action (Pull Request) these variables will be set
+	// https://docs.github.com/en/actions/learn-github-actions/variables
+	gitRepo := common.GetOsEnvOrDefault("GITHUB_REPOSITORY", "knative/func")
+	gitRef = common.GetOsEnvOrDefault("GITHUB_REF", "main")
+	gitRepoUrl = "https://github.com/" + gitRepo + ".git"
 	return
 }
 
