@@ -25,7 +25,7 @@ async fn main() -> std::io::Result<()> {
                 web::get().to(HttpResponse::Ok),
             )
     })
-    .bind(("127.0.0.1", port))?
+    .bind(("0.0.0.0", port))?
     .workers(1)
     .run()
     .await
