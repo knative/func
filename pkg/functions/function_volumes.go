@@ -3,6 +3,7 @@ package functions
 import (
 	"fmt"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
@@ -28,7 +29,7 @@ type EmptyDir struct {
 	// The default is "" which means to use the node's default medium.
 	// Must be an empty string (default) or Memory.
 	// More info: https://kubernetes.io/docs/concepts/storage/volumes#emptydir
-	Medium string `yaml:"medium,omitempty"`
+	Medium corev1.StorageMedium `yaml:"medium,omitempty"`
 	// sizeLimit is the total amount of local storage required for this EmptyDir volume.
 	// The size limit is also applicable for memory medium.
 	// The maximum usage on memory medium EmptyDir would be the minimum value between
@@ -88,13 +89,18 @@ func validateVolumes(volumes []Volume) (errors []string) {
 
 		if vol.EmptyDir != nil {
 			numVolumes++
+			if vol.EmptyDir.Medium != corev1.StorageMediumDefault && vol.EmptyDir.Medium != corev1.StorageMediumMemory {
+				errors = append(errors, fmt.Sprintf("volume entry #%d (%s) has invalid storage medium (%s)", i, vol, vol.EmptyDir.Medium))
+			}
 		}
 
 		if numVolumes == 0 {
 			errors = append(errors, fmt.Sprintf("volume entry #%d (%s) is missing a volume type", i, vol))
 		} else if numVolumes > 1 {
 			errors = append(errors, fmt.Sprintf("volume entry #%d (%s) may not specify more than one volume type", i, vol))
-		} else if vol.Path == nil {
+		}
+
+		if vol.Path == nil {
 			errors = append(errors, fmt.Sprintf("volume entry #%d (%s) is missing path field", i, vol))
 		}
 	}
