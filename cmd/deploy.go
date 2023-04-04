@@ -166,7 +166,7 @@ EXAMPLES
 	cmd.Flags().Bool("remote", f.Deploy.Remote,
 		"Trigger a remote deployment. Default is to deploy and build from the local system (Env: $FUNC_REMOTE)")
 	cmd.Flags().String("pvc-size", fn.DefaultPersistentVolumeClaimSize,
-		"Configure the PVC size used by a pipeline. This flag can only be set if --remote flag is used.")
+		"Configure the PVC size used by a pipeline during remote build.")
 
 	// Static Flags:
 	// Options which have static defaults only (not globally configurable nor

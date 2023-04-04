@@ -117,7 +117,7 @@ func deploy
   -p, --path string             Path to the function.  Default is current directory (Env: $FUNC_PATH)
       --platform string         Optionally specify a specific platform to build for (e.g. linux/amd64). (Env: $FUNC_PLATFORM)
   -u, --push                    Push the function image to registry before deploying. (Env: $FUNC_PUSH) (default true)
-      --pvc-size string         Configure the PVC size used by a pipeline. This flag can only be set if --remote flag is used. (default "256Mi")
+      --pvc-size string         Configure the PVC size used by a pipeline during remote build. (default "256Mi")
   -r, --registry string         Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. (Env: $FUNC_REGISTRY)
       --remote                  Trigger a remote deployment. Default is to deploy and build from the local system (Env: $FUNC_REMOTE)
   -v, --verbose                 Print verbose logs ($FUNC_VERBOSE)
