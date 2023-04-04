@@ -6,17 +6,21 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/client-go/kubernetes"
 	restclient "k8s.io/client-go/rest"
+	k8sclientcmd "k8s.io/client-go/tools/clientcmd"
 )
 
 func GetPersistentVolumeClaim(ctx context.Context, name, namespaceOverride string) (*corev1.PersistentVolumeClaim, error) {
@@ -224,4 +228,54 @@ func (t *tsBuff) Write(p []byte) (n int, err error) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	return t.buff.Write(p)
+}
+
+// ListPersistentVolumeClaimsNamesIfConnected lists names of PersistentVolumeClaims present and the current k8s context
+// returns empty list, if not connected to any cluster
+func ListPersistentVolumeClaimsNamesIfConnected(ctx context.Context, namespaceOverride string) (names []string, err error) {
+	names, err = listPersistentVolumeClaimsNames(ctx, namespaceOverride)
+	if err != nil {
+		// not logged our authorized to access resources
+		if k8serrors.IsForbidden(err) || k8serrors.IsUnauthorized(err) || k8serrors.IsInvalid(err) || k8serrors.IsTimeout(err) {
+			return []string{}, nil
+		}
+
+		// non existent k8s cluster
+		var dnsErr *net.DNSError
+		if errors.As(err, &dnsErr) {
+			if dnsErr.IsNotFound || dnsErr.IsTemporary || dnsErr.IsTimeout {
+				return []string{}, nil
+			}
+		}
+
+		// connection refused
+		if errors.Is(err, syscall.ECONNREFUSED) {
+			return []string{}, nil
+		}
+
+		// invalid configuration: no configuration has been provided
+		if k8sclientcmd.IsEmptyConfig(err) {
+			return []string{}, nil
+		}
+	}
+
+	return
+}
+
+func listPersistentVolumeClaimsNames(ctx context.Context, namespaceOverride string) (names []string, err error) {
+	client, namespace, err := NewClientAndResolvedNamespace(namespaceOverride)
+	if err != nil {
+		return
+	}
+
+	pvcs, err := client.CoreV1().PersistentVolumeClaims(namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return
+	}
+
+	for _, pv := range pvcs.Items {
+		names = append(names, pv.Name)
+	}
+
+	return
 }

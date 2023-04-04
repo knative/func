@@ -144,3 +144,19 @@ func TestUploadToVolume(t *testing.T) {
 		t.Error("unexpected output")
 	}
 }
+
+func TestListPersistentVolumeClaimsNamesIfConnectedWrongKubeconfig(t *testing.T) {
+	t.Setenv("KUBECONFIG", "/tmp/non-existent.config")
+	_, err := k8s.ListPersistentVolumeClaimsNamesIfConnected(context.Background(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestListPersistentVolumeClaimsNamesIfConnectedWrongKubernentesMaster(t *testing.T) {
+	t.Setenv("KUBERNETES_MASTER", "/tmp/non-existent.config")
+	_, err := k8s.ListPersistentVolumeClaimsNamesIfConnected(context.Background(), "")
+	if err != nil {
+		t.Fatal(err)
+	}
+}
