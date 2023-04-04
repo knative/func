@@ -9,11 +9,11 @@ import (
 	"strings"
 	"time"
 
-	strcase "github.com/stoewer/go-strcase"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/client-pkg/pkg/kn/flags"
 	servingclientlib "knative.dev/client-pkg/pkg/serving"
@@ -769,7 +769,7 @@ func processVolumes(volumes []fn.Volume, referencedSecrets, referencedConfigMaps
 				}
 			}
 		} else if vol.EmptyDir != nil {
-			volumeName = "empty-dir-" + strcase.KebabCase(*vol.Path)
+			volumeName = "empty-dir-" + rand.String(7)
 
 			if !createdVolumes.Has(volumeName) {
 				newVolumes = append(newVolumes, corev1.Volume{
