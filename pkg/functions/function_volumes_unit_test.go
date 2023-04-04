@@ -9,11 +9,17 @@ import (
 
 func Test_validateVolumes(t *testing.T) {
 
-	secret := "secret"
 	path := "path"
-	secret2 := "secret2"
 	path2 := "path2"
+	path3 := "path3"
+	path4 := "path4"
+	secret := "secret"
+	secret2 := "secret2"
 	cm := "configMap"
+	pvc := &PersistentVolumeClaim{
+		ClaimName: "pvc",
+	}
+	emptyDir := &EmptyDir{}
 
 	tests := []struct {
 		name    string
@@ -64,7 +70,7 @@ func Test_validateVolumes(t *testing.T) {
 			0,
 		},
 		{
-			"correct entry - multiple volumes with both secret and configMap",
+			"correct entry - multiple volumes with secret, configMap, persistentVolumeClaim, and emptyDir",
 			[]Volume{
 				{
 					Secret: &secret,
@@ -74,11 +80,19 @@ func Test_validateVolumes(t *testing.T) {
 					ConfigMap: &cm,
 					Path:      &path2,
 				},
+				{
+					PresistentVolumeClaim: pvc,
+					Path:                  &path3,
+				},
+				{
+					EmptyDir: emptyDir,
+					Path:     &path4,
+				},
 			},
 			0,
 		},
 		{
-			"missing secret/configMap - single volume",
+			"missing volume type - single volume",
 			[]Volume{
 				{
 					Path: &path,
@@ -105,11 +119,11 @@ func Test_validateVolumes(t *testing.T) {
 			1,
 		},
 		{
-			"missing secret/configMap and path - single volume",
+			"missing volume type and path - single volume",
 			[]Volume{
 				{},
 			},
-			1,
+			2,
 		},
 		{
 			"missing secret/configMap in one volume - multiple volumes",
@@ -125,7 +139,7 @@ func Test_validateVolumes(t *testing.T) {
 			1,
 		},
 		{
-			"missing secret/configMap and path in two different volumes - multiple volumes",
+			"missing volume type and path in two different volumes - multiple volumes",
 			[]Volume{
 				{
 					Secret: &secret,
@@ -136,6 +150,27 @@ func Test_validateVolumes(t *testing.T) {
 				},
 				{
 					Path: &path2,
+				},
+			},
+			2,
+		},
+		{
+			"multiple volume types - single volume with path",
+			[]Volume{
+				{
+					Secret:    &secret,
+					ConfigMap: &cm,
+					Path:      &path,
+				},
+			},
+			1,
+		},
+		{
+			"multiple volume types, missing path - single volume",
+			[]Volume{
+				{
+					Secret:    &secret,
+					ConfigMap: &cm,
 				},
 			},
 			2,
@@ -157,6 +192,9 @@ func Test_validateVolumesString(t *testing.T) {
 	path := "path"
 
 	cm := "configMap"
+	pvc := &PersistentVolumeClaim{
+		ClaimName: "pvc",
+	}
 
 	tests := []struct {
 		key    string
@@ -169,7 +207,7 @@ func Test_validateVolumesString(t *testing.T) {
 				Secret: &secret,
 				Path:   &path,
 			},
-			"Secret \"secret\" mounted at path: \"path\"",
+			"Secret \"secret\" at path: \"path\"",
 		},
 		{
 			"volume with configMap and path",
@@ -177,15 +215,42 @@ func Test_validateVolumesString(t *testing.T) {
 				ConfigMap: &cm,
 				Path:      &path,
 			},
-			"ConfigMap \"configMap\" mounted at path: \"path\"",
+			"ConfigMap \"configMap\" at path: \"path\"",
 		},
 		{
-			//@TODO:this is and edge case that we are not covering
-			"volume with no configMap and no secret but with path",
+			"volume with persistentVolumeClaim and path",
+			Volume{
+				PresistentVolumeClaim: pvc,
+				Path:                  &path,
+			},
+			"PersistentVolumeClaim \"pvc\" at path: \"path\"",
+		},
+		{
+			"volume with emptyDir and path",
+			Volume{
+				EmptyDir: &EmptyDir{},
+				Path:     &path,
+			},
+			"EmptyDir at path: \"path\"",
+		},
+		{
+			"volume with no volume type but with path",
 			Volume{
 				Path: &path,
 			},
-			"",
+			"No volume type at path: \"path\"",
+		},
+		{
+			"volume with secret but no path",
+			Volume{
+				Secret: &secret,
+			},
+			"Secret \"secret\"",
+		},
+		{
+			"volume with no volume type or path",
+			Volume{},
+			"No volume type",
 		},
 	}
 
