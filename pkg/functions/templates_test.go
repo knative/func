@@ -59,7 +59,9 @@ func TestTemplates_List_ExtendedNotFound(t *testing.T) {
 
 	expected := []string{
 		"cloudevents",
+		"flask",
 		"http",
+		"wsgi",
 	}
 
 	if diff := cmp.Diff(expected, templates); diff != "" {

@@ -26,7 +26,9 @@ go           http
 node         cloudevents
 node         http
 python       cloudevents
+python       flask
 python       http
+python       wsgi
 quarkus      cloudevents
 quarkus      http
 rust         cloudevents
@@ -64,7 +66,9 @@ func TestTemplates_JSON(t *testing.T) {
   ],
   "python": [
     "cloudevents",
-    "http"
+    "flask",
+    "http",
+    "wsgi"
   ],
   "quarkus": [
     "cloudevents",
