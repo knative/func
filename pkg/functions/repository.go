@@ -99,6 +99,9 @@ type funcDefaults struct {
 	// this can be used to parameterize the builders
 	BuildEnvs []Env `yaml:"buildEnvs,omitempty"`
 
+	// RunEnvs defines environment variables used in runtime.
+	RunEnvs []Env `yaml:"runEnvs,omitempty"`
+
 	// Invoke defines invocation hints for a functions which is created
 	// from this template prior to being materially modified.
 	Invoke string `yaml:"invoke,omitempty"`
