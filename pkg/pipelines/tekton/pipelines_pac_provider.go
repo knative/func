@@ -160,7 +160,7 @@ func (pp *PipelinesProvider) createClusterResources(ctx context.Context, f fn.Fu
 	metadata.RegistryPassword = creds.Password
 	metadata.RegistryServer = registry
 
-	err = createPipelinePersistentVolumeClaim(ctx, f, pp.namespace, labels, DefaultPersistentVolumeClaimSize)
+	err = createPipelinePersistentVolumeClaim(ctx, f, pp.namespace, labels)
 	if err != nil {
 		return err
 	}

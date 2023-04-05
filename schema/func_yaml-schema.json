@@ -40,6 +40,10 @@
 					},
 					"type": "array",
 					"description": "Build Env variables to be set"
+				},
+				"pvcSize": {
+					"type": "string",
+					"description": "PVCSize specifies the size of persistent volume claim used to store function\nwhen using deployment and remote build process (only relevant when Remote is true)."
 				}
 			},
 			"additionalProperties": false,

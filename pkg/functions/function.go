@@ -29,6 +29,9 @@ const (
 	// existence indicates the function has been built, and whose content is
 	// a fingerprint of the filesystem at the time of the build.
 	buildstamp = "built"
+
+	// DefaultPersistentVolumeClaimSize represents default size of PVC created for a Pipeline
+	DefaultPersistentVolumeClaimSize string = "256Mi"
 )
 
 // Function
@@ -115,6 +118,10 @@ type BuildSpec struct {
 
 	// Build Env variables to be set
 	BuildEnvs []Env `yaml:"buildEnvs,omitempty"`
+
+	// PVCSize specifies the size of persistent volume claim used to store function
+	// when using deployment and remote build process (only relevant when Remote is true).
+	PVCSize string `yaml:"pvcSize,omitempty"`
 }
 
 // RunSpec
@@ -171,6 +178,9 @@ func NewFunctionWith(defaults Function) Function {
 	}
 	if defaults.Build.BuilderImages == nil {
 		defaults.Build.BuilderImages = make(map[string]string)
+	}
+	if defaults.Build.PVCSize == "" {
+		defaults.Build.PVCSize = DefaultPersistentVolumeClaimSize
 	}
 	if defaults.Deploy.Annotations == nil {
 		defaults.Deploy.Annotations = make(map[string]string)

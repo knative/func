@@ -115,7 +115,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 		labels = pp.decorator.UpdateLabels(f, labels)
 	}
 
-	err = createPipelinePersistentVolumeClaim(ctx, f, pp.namespace, labels, DefaultPersistentVolumeClaimSize)
+	err = createPipelinePersistentVolumeClaim(ctx, f, pp.namespace, labels)
 	if err != nil {
 		return err
 	}
@@ -448,8 +448,12 @@ func getFailedPipelineRunLog(ctx context.Context, pr *v1beta1.PipelineRun, names
 // allows simple mocking in unit tests, use with caution regarding concurrency
 var createPersistentVolumeClaim = k8s.CreatePersistentVolumeClaim
 
-func createPipelinePersistentVolumeClaim(ctx context.Context, f fn.Function, namespace string, labels map[string]string, size int64) error {
-	err := createPersistentVolumeClaim(ctx, getPipelinePvcName(f), namespace, labels, f.Deploy.Annotations, corev1.ReadWriteOnce, *resource.NewQuantity(size, resource.DecimalSI))
+func createPipelinePersistentVolumeClaim(ctx context.Context, f fn.Function, namespace string, labels map[string]string) error {
+	pvcs, err := resource.ParseQuantity(f.Build.PVCSize)
+	if err != nil {
+		return fmt.Errorf("PVC size value cannot be parsed due to: %v", err)
+	}
+	err = createPersistentVolumeClaim(ctx, getPipelinePvcName(f), namespace, labels, f.Deploy.Annotations, corev1.ReadWriteOnce, pvcs)
 	if err != nil && !errors.IsAlreadyExists(err) {
 		return fmt.Errorf("problem creating persistent volume claim: %v", err)
 	}

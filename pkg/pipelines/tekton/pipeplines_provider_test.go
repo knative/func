@@ -81,7 +81,7 @@ func Test_createPipelinePersistentVolumeClaim(t *testing.T) {
 		f         fn.Function
 		namespace string
 		labels    map[string]string
-		size      int64
+		size      string
 	}
 	tests := []struct {
 		name    string
@@ -96,7 +96,7 @@ func Test_createPipelinePersistentVolumeClaim(t *testing.T) {
 				f:         fn.Function{},
 				namespace: "test-ns",
 				labels:    nil,
-				size:      DefaultPersistentVolumeClaimSize,
+				size:      fn.DefaultPersistentVolumeClaimSize,
 			},
 			mock: func(ctx context.Context, name, namespaceOverride string, labels map[string]string, annotations map[string]string, accessMode corev1.PersistentVolumeAccessMode, resourceRequest resource.Quantity) (err error) {
 				return errors.New("creation of pvc failed")
@@ -110,7 +110,7 @@ func Test_createPipelinePersistentVolumeClaim(t *testing.T) {
 				f:         fn.Function{},
 				namespace: "test-ns",
 				labels:    nil,
-				size:      DefaultPersistentVolumeClaimSize,
+				size:      fn.DefaultPersistentVolumeClaimSize,
 			},
 			mock: func(ctx context.Context, name, namespaceOverride string, labels map[string]string, annotations map[string]string, accessMode corev1.PersistentVolumeAccessMode, resourceRequest resource.Quantity) (err error) {
 				return &apiErrors.StatusError{ErrStatus: metav1.Status{Reason: metav1.StatusReasonAlreadyExists}}
@@ -119,13 +119,13 @@ func Test_createPipelinePersistentVolumeClaim(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// save current function and restore it at the end
+		t.Run(tt.name, func(t *testing.T) { // save current function and restore it at the end
 			old := createPersistentVolumeClaim
 			defer func() { createPersistentVolumeClaim = old }()
 
 			createPersistentVolumeClaim = tt.mock
-			if err := createPipelinePersistentVolumeClaim(tt.args.ctx, tt.args.f, tt.args.namespace, tt.args.labels, tt.args.size); (err != nil) != tt.wantErr {
+			tt.args.f.Build.PVCSize = tt.args.size
+			if err := createPipelinePersistentVolumeClaim(tt.args.ctx, tt.args.f, tt.args.namespace, tt.args.labels); (err != nil) != tt.wantErr {
 				t.Errorf("createPipelinePersistentVolumeClaim() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
