@@ -203,6 +203,7 @@ $(BIN_WINDOWS): generate/zz_filesystem_generated.go
 ##@ Schemas
 ######################
 schema-generate: schema/func_yaml-schema.json ## Generate func.yaml schema
+.PHONY: schema/func_yaml-schema.json
 schema/func_yaml-schema.json: pkg/functions/function.go
 	go run schema/generator/main.go
 
