@@ -8,7 +8,7 @@ This guide describes how you can build a Function on Cluster with Tekton Pipelin
 ## Prerequisite
 1. Install Tekton Pipelines on the cluster. Please refer to [Tekton Pipelines documentation](https://github.com/tektoncd/pipeline/blob/main/docs/install.md) or run the following command:
 ```bash
-kubectl apply -f https://storage.googleapis.com/tekton-releases/pipeline/latest/release.yaml
+kubectl apply -f https://storage.googleapis.com/tekton-releases/pipeline/previous/v0.42.0/release.yaml
 ```
 
 ## Enabling a namespace to run Function related Tekton Pipelines
