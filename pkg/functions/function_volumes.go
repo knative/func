@@ -8,10 +8,10 @@ import (
 )
 
 type Volume struct {
-	Secret                *string                `yaml:"secret,omitempty" jsonschema:"oneof_required=secret,presistentVolumeClaim,emptyDir"`
-	ConfigMap             *string                `yaml:"configMap,omitempty" jsonschema:"oneof_required=configmap,presistentVolumeClaim,emptyDir"`
-	PresistentVolumeClaim *PersistentVolumeClaim `yaml:"presistentVolumeClaim,omitempty" jsonschema:"oneof_required=configmap,secret,emptyDir"`
-	EmptyDir              *EmptyDir              `yaml:"emptyDir,omitempty" jsonschema:"oneof_required=configmap,secret,presistentVolumeClaim"`
+	Secret                *string                `yaml:"secret,omitempty" jsonschema:"oneof_required=secret"`
+	ConfigMap             *string                `yaml:"configMap,omitempty" jsonschema:"oneof_required=configmap"`
+	PresistentVolumeClaim *PersistentVolumeClaim `yaml:"presistentVolumeClaim,omitempty" jsonschema:"oneof_required=presistentVolumeClaim"`
+	EmptyDir              *EmptyDir              `yaml:"emptyDir,omitempty" jsonschema:"oneof_required=emptyDir"`
 	Path                  *string                `yaml:"path,omitempty"`
 }
 
