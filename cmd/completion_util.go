@@ -45,19 +45,31 @@ func CompleteRuntimeList(cmd *cobra.Command, args []string, toComplete string, c
 }
 
 func CompleteTemplateList(cmd *cobra.Command, args []string, toComplete string, client *fn.Client) (matches []string, directive cobra.ShellCompDirective) {
-	repositories, err := client.Repositories().All()
+	directive = cobra.ShellCompDirectiveError
+
+	lang, err := cmd.Flags().GetString("language")
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "error listing repositories for use in template flag completion: %v", err)
+		fmt.Fprintf(os.Stderr, "cannot list templates: %v", err)
 		return
 	}
-	for _, repository := range repositories {
-		templates, err := client.Templates().List(repository.Name)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "error listing template for use in template flag completion: %v", err)
-			return
-		}
-		matches = append(matches, templates...)
+	if lang == "" {
+		fmt.Fprintln(os.Stderr, "cannot list templates: language not specified")
+		return
 	}
+
+	templates, err := client.Templates().List(lang)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "cannot list templates: %v", err)
+		return
+	}
+
+	directive = cobra.ShellCompDirectiveDefault
+	for _, t := range templates {
+		if strings.HasPrefix(t, toComplete) {
+			matches = append(matches, t)
+		}
+	}
+
 	return
 }
 
