@@ -946,12 +946,6 @@ github.com/ory/viper
 # github.com/pelletier/go-toml v1.9.5
 ## explicit; go 1.12
 github.com/pelletier/go-toml
-# github.com/pelletier/go-toml/v2 v2.0.5
-## explicit; go 1.16
-github.com/pelletier/go-toml/v2
-github.com/pelletier/go-toml/v2/internal/ast
-github.com/pelletier/go-toml/v2/internal/danger
-github.com/pelletier/go-toml/v2/internal/tracker
 # github.com/peterbourgon/diskv v2.0.1+incompatible
 ## explicit
 github.com/peterbourgon/diskv
@@ -1034,17 +1028,6 @@ github.com/spf13/jwalterweatherman
 # github.com/spf13/pflag v1.0.5
 ## explicit; go 1.12
 github.com/spf13/pflag
-# github.com/spf13/viper v1.14.0
-## explicit; go 1.17
-github.com/spf13/viper
-github.com/spf13/viper/internal/encoding
-github.com/spf13/viper/internal/encoding/dotenv
-github.com/spf13/viper/internal/encoding/hcl
-github.com/spf13/viper/internal/encoding/ini
-github.com/spf13/viper/internal/encoding/javaproperties
-github.com/spf13/viper/internal/encoding/json
-github.com/spf13/viper/internal/encoding/toml
-github.com/spf13/viper/internal/encoding/yaml
 # github.com/stoewer/go-strcase v1.2.1
 ## explicit; go 1.11
 github.com/stoewer/go-strcase
@@ -1688,22 +1671,20 @@ k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/strings/slices
 k8s.io/utils/trace
-# knative.dev/client v0.36.1-0.20230323163555-3a8d646264ba
+# knative.dev/client-pkg v0.0.0-20230406095919-30a17e519723
 ## explicit; go 1.18
-knative.dev/client/lib/test
-knative.dev/client/pkg/apis/client
-knative.dev/client/pkg/apis/client/v1alpha1
-knative.dev/client/pkg/config
-knative.dev/client/pkg/errors
-knative.dev/client/pkg/eventing/v1
-knative.dev/client/pkg/kn/config
-knative.dev/client/pkg/kn/flags
-knative.dev/client/pkg/kn/plugin
-knative.dev/client/pkg/serving
-knative.dev/client/pkg/serving/v1
-knative.dev/client/pkg/util
-knative.dev/client/pkg/util/mock
-knative.dev/client/pkg/wait
+knative.dev/client-pkg/pkg/apis/client
+knative.dev/client-pkg/pkg/apis/client/v1alpha1
+knative.dev/client-pkg/pkg/config
+knative.dev/client-pkg/pkg/errors
+knative.dev/client-pkg/pkg/eventing/v1
+knative.dev/client-pkg/pkg/kn/flags
+knative.dev/client-pkg/pkg/kn/plugin
+knative.dev/client-pkg/pkg/serving
+knative.dev/client-pkg/pkg/serving/v1
+knative.dev/client-pkg/pkg/util
+knative.dev/client-pkg/pkg/util/test
+knative.dev/client-pkg/pkg/wait
 # knative.dev/eventing v0.36.1-0.20230405220638-d9910407d0f4
 ## explicit; go 1.18
 knative.dev/eventing/pkg/apis/config

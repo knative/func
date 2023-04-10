@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	clienteventingv1 "knative.dev/client/pkg/eventing/v1"
-	clientservingv1 "knative.dev/client/pkg/serving/v1"
+	clienteventingv1 "knative.dev/client-pkg/pkg/eventing/v1"
+	clientservingv1 "knative.dev/client-pkg/pkg/serving/v1"
 	eventingv1 "knative.dev/eventing/pkg/client/clientset/versioned/typed/eventing/v1"
 	servingv1 "knative.dev/serving/pkg/client/clientset/versioned/typed/serving/v1"
 

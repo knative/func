@@ -11,7 +11,7 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"knative.dev/client/pkg/util"
+	"knative.dev/client-pkg/pkg/util"
 	"knative.dev/func/pkg/builders"
 	"knative.dev/func/pkg/builders/buildpacks"
 	"knative.dev/func/pkg/builders/s2i"
