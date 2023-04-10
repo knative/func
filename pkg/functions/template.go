@@ -48,6 +48,9 @@ func (t template) Write(ctx context.Context, f *Function) error {
 	if len(f.Build.BuildEnvs) == 0 {
 		f.Build.BuildEnvs = t.config.BuildEnvs
 	}
+	if len(f.Run.Envs) == 0 {
+		f.Run.Envs = t.config.RunEnvs
+	}
 	if f.Deploy.HealthEndpoints.Liveness == "" {
 		f.Deploy.HealthEndpoints.Liveness = t.config.HealthEndpoints.Liveness
 	}
