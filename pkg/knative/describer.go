@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"k8s.io/apimachinery/pkg/api/errors"
-	clientservingv1 "knative.dev/client/pkg/serving/v1"
+	clientservingv1 "knative.dev/client-pkg/pkg/serving/v1"
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
 
 	fn "knative.dev/func/pkg/functions"
