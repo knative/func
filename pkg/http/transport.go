@@ -89,8 +89,8 @@ func newHTTPTransport() *http.Transport {
 		return &http.Transport{
 			Proxy: http.ProxyFromEnvironment,
 			DialContext: (&net.Dialer{
-				Timeout:   30 * time.Second,
-				KeepAlive: 30 * time.Second,
+				Timeout:   time.Minute,
+				KeepAlive: time.Minute,
 			}).DialContext,
 			ForceAttemptHTTP2:     true,
 			MaxIdleConns:          100,

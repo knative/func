@@ -182,7 +182,7 @@ func sendEvent(ctx context.Context, route string, m InvokeMessage, t http.RoundT
 func sendPost(ctx context.Context, route string, m InvokeMessage, t http.RoundTripper, verbose bool) (map[string][]string, string, error) {
 	client := http.Client{
 		Transport: t,
-		Timeout:   10 * time.Second,
+		Timeout:   time.Minute,
 	}
 	values := url.Values{
 		"ID":          {m.ID},
