@@ -39,7 +39,7 @@ require (
 	github.com/whilp/git-urls v1.0.0
 	golang.org/x/crypto v0.3.0
 	golang.org/x/sync v0.1.0
-	golang.org/x/term v0.2.0
+	golang.org/x/term v0.5.0
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools/v3 v3.3.0
 	k8s.io/api v0.25.4
@@ -47,9 +47,9 @@ require (
 	k8s.io/client-go v1.5.2
 	k8s.io/utils v0.0.0-20221108210102-8e77b1f39fe2 // indirect
 	knative.dev/client v0.36.0
-	knative.dev/eventing v0.36.0
-	knative.dev/hack v0.0.0-20230113013652-c7cfcb062de9
-	knative.dev/pkg v0.0.0-20230117181655-247510c00e9d
+	knative.dev/eventing v0.36.5
+	knative.dev/hack v0.0.0-20230217102752-199139daec7e
+	knative.dev/pkg v0.0.0-20230224205330-75da922ef055
 	knative.dev/serving v0.36.0
 )
 
@@ -215,10 +215,10 @@ require (
 	go.uber.org/multierr v1.8.0 // indirect
 	go.uber.org/zap v1.23.0 // indirect
 	golang.org/x/mod v0.7.0 // indirect
-	golang.org/x/net v0.2.0 // indirect
+	golang.org/x/net v0.7.0 // indirect
 	golang.org/x/oauth2 v0.2.0 // indirect
-	golang.org/x/sys v0.2.0 // indirect
-	golang.org/x/text v0.4.0 // indirect
+	golang.org/x/sys v0.5.0 // indirect
+	golang.org/x/text v0.7.0 // indirect
 	golang.org/x/time v0.2.0 // indirect
 	golang.org/x/tools v0.2.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
