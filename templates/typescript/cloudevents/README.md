@@ -43,6 +43,40 @@ will respond with `HTTP 503 Service Unavailable` with a `Client-Retry` header if
 your function is determined to be overloaded, based on the memory usage and
 event loop delay.
 
+## The Function Interface
+
+The `src/index.ts` file may export a single function or a `Function`
+object. The `Function` object allows developers to add lifecycle hooks for
+initialization and shutdown, as well as providing a way to implement custom
+health checks.
+
+The `Function` interface is defined as:
+
+```typescript
+export interface Function {
+  // The initialization function, called before the server is started
+  // This function is optional and should be synchronous.
+  init?: () => any;
+
+  // The shutdown function, called after the server is stopped
+  // This function is optional and should be synchronous.
+  shutdown?: () => any;
+
+  // The liveness function, called to check if the server is alive
+  // This function is optional and should return 200/OK if the server is alive.
+  liveness?: HealthCheck;
+
+  // The readiness function, called to check if the server is ready to accept requests
+  // This function is optional and should return 200/OK if the server is ready.
+  readiness?: HealthCheck;
+
+  logLevel?: LogLevel;
+
+  // The function to handle HTTP requests
+  handle: CloudEventFunction | HTTPFunction;
+}
+```
+
 ## Handle Signature
 
 CloudEvent functions are used in environments where the incoming HTTP request is a CloudEvent. The function signature is:
