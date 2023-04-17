@@ -43,6 +43,58 @@ will respond with `HTTP 503 Service Unavailable` with a `Client-Retry` header if
 your function is determined to be overloaded, based on the memory usage and
 event loop delay.
 
+## Handle Signature
+
+CloudEvent functions are used in environments where the incoming HTTP request is a CloudEvent. The function signature is:
+
+```typescript
+interface CloudEventFunction {
+  (context: Context, event: CloudEvent): CloudEventFunctionReturn;
+}
+```
+
+Where the return type is defined as:
+
+```typescript
+type CloudEventFunctionReturn = Promise<CloudEvent> | CloudEvent | HTTPFunctionReturn;
+type HTTPFunctionReturn = Promise<StructuredReturn> | StructuredReturn | ResponseBody | void;
+```
+
+The function return type can be anything that a simple HTTP function can return or a CloudEvent. Whatever is returned, it will be sent back to the caller as a response.
+
+Where the `StructuredReturn` is a JavaScript object with the following properties:
+
+```typescript
+interface StructuredReturn {
+  statusCode?: number;
+  headers?: Record<string, string>;
+  body?: ResponseBody;
+}
+```
+
+If the function returns a `StructuredReturn` object, then the `statusCode` and `headers` properties are used to construct the HTTP response. If the `body` property is present, it is used as the response body. If the function returns `void` or `undefined`, then the response body is empty.
+
+The `ResponseBody` is either a string, a JavaScript object, or a Buffer. JavaScript objects will be serialized as JSON. Buffers will be sent as binary data.
+
+### Health Checks
+
+The `Function` interface also allows for the addition of a `liveness` and `readiness` function. These functions are used to implement health checks for the function. The `liveness` function is called to check if the function is alive. The `readiness` function is called to check if the function is ready to accept requests. If either of these functions returns a non-200 status code, then the function is considered unhealthy.
+
+A health check function is defined as:
+
+```typescript
+/**
+ * The HealthCheck interface describes a health check function,
+ * including the optional path to which it should be bound.
+ */
+export interface HealthCheck {
+  (request: Http2ServerRequest, reply: Http2ServerResponse): any;
+  path?: string;
+}
+```
+
+By default, the health checks are bound to the `/health/liveness` and `/health/readiness` paths. You can override this by setting the `path` property on the `HealthCheck` object, or by setting the `LIVENESS_URL` and `READINESS_URL` environment variables.
+
 ## Testing
 
 This function project includes a [unit test](./test/unit.ts) and an
