@@ -20,8 +20,14 @@ import (
 
 const templatesPath = "../../templates"
 
+type FileInfo struct {
+	Path       string
+	Type       fs.FileMode
+	Executable bool
+	Content    []byte
+}
+
 func TestFileSystems(t *testing.T) {
-	var err error
 
 	tests := []struct {
 		name       string
@@ -41,13 +47,6 @@ func TestFileSystems(t *testing.T) {
 		},
 	}
 
-	type FileInfo struct {
-		Path       string
-		Type       fs.FileMode
-		Executable bool
-		Content    []byte
-	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			templatesFS := tt.fileSystem
@@ -57,80 +56,12 @@ func TestFileSystems(t *testing.T) {
 				// TODO I have no idea why it returns nil on Windows
 			}
 
-			permMask := fs.FileMode(0111)
-			if runtime.GOOS == "windows" {
-				permMask = 0
-			}
-
-			var embeddedFiles []FileInfo
-			err = fs.WalkDir(templatesFS, ".", func(path string, d fs.DirEntry, err error) error {
-				if err != nil {
-					return err
-				}
-				fi, err := templatesFS.Stat(path)
-				if err != nil {
-					return err
-				}
-				var bs []byte
-				switch fi.Mode() & fs.ModeType {
-				case 0:
-					f, err := templatesFS.Open(path)
-					if err != nil {
-						return err
-					}
-					defer f.Close()
-					bs, err = io.ReadAll(f)
-					if err != nil {
-						return err
-					}
-				case fs.ModeSymlink:
-					t, _ := templatesFS.Readlink(path)
-					bs = []byte(t)
-				}
-				embeddedFiles = append(embeddedFiles, FileInfo{
-					Path:       path,
-					Type:       fi.Mode().Type(),
-					Executable: fi.Mode()&permMask == permMask && !fi.IsDir(),
-					Content:    bs,
-				})
-				return nil
-			})
+			embeddedFiles, err := loadFS(templatesFS)
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			var localFiles []FileInfo
-			err = filepath.Walk(templatesPath, func(path string, info fs.FileInfo, err error) error {
-				if err != nil {
-					return err
-				}
-				fi, err := os.Lstat(path)
-				if err != nil {
-					return err
-				}
-				var bs []byte
-				switch fi.Mode() & fs.ModeType {
-				case 0:
-					bs, err = os.ReadFile(path)
-					if err != nil {
-						return err
-					}
-				case fs.ModeSymlink:
-					t, _ := os.Readlink(path)
-					bs = []byte(t)
-				}
-				path, err = filepath.Rel(templatesPath, path)
-				if err != nil {
-					return err
-				}
-				localFiles = append(localFiles, FileInfo{
-					Path:       filepath.ToSlash(path),
-					Type:       fi.Mode().Type(),
-					Executable: fi.Mode()&permMask == permMask && !fi.IsDir(),
-					Content:    bs,
-				})
-				return nil
-			})
+			localFiles, err := loadLocalFiles(templatesPath)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -147,6 +78,95 @@ func TestFileSystems(t *testing.T) {
 			}
 		})
 	}
+}
+
+func loadFS(fileSys filesystem.Filesystem) ([]FileInfo, error) {
+	var err error
+	var files []FileInfo
+
+	permMask := fs.FileMode(0111)
+	if runtime.GOOS == "windows" {
+		permMask = 0
+	}
+
+	err = fs.WalkDir(fileSys, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		fi, err := fileSys.Stat(path)
+		if err != nil {
+			return err
+		}
+		var bs []byte
+		switch fi.Mode() & fs.ModeType {
+		case 0:
+			f, err := fileSys.Open(path)
+			if err != nil {
+				return err
+			}
+			defer f.Close()
+			bs, err = io.ReadAll(f)
+			if err != nil {
+				return err
+			}
+		case fs.ModeSymlink:
+			t, _ := fileSys.Readlink(path)
+			bs = []byte(t)
+		}
+		files = append(files, FileInfo{
+			Path:       path,
+			Type:       fi.Mode().Type(),
+			Executable: fi.Mode()&permMask == permMask && !fi.IsDir(),
+			Content:    bs,
+		})
+		return nil
+	})
+
+	return files, err
+}
+
+func loadLocalFiles(root string) ([]FileInfo, error) {
+	var files []FileInfo
+	var err error
+
+	permMask := fs.FileMode(0111)
+	if runtime.GOOS == "windows" {
+		permMask = 0
+	}
+
+	err = filepath.Walk(root, func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		fi, err := os.Lstat(path)
+		if err != nil {
+			return err
+		}
+		var bs []byte
+		switch fi.Mode() & fs.ModeType {
+		case 0:
+			bs, err = os.ReadFile(path)
+			if err != nil {
+				return err
+			}
+		case fs.ModeSymlink:
+			t, _ := os.Readlink(path)
+			bs = []byte(t)
+		}
+		path, err = filepath.Rel(root, path)
+		if err != nil {
+			return err
+		}
+		files = append(files, FileInfo{
+			Path:       filepath.ToSlash(path),
+			Type:       fi.Mode().Type(),
+			Executable: fi.Mode()&permMask == permMask && !fi.IsDir(),
+			Content:    bs,
+		})
+		return nil
+	})
+
+	return files, err
 }
 
 func initOSFS(t *testing.T) filesystem.Filesystem {
