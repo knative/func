@@ -430,9 +430,12 @@ func (c deployConfig) Configure(f fn.Function) (fn.Function, error) {
 	// ImageDigest
 	// Parsed off f.Image if provided.  Deploying adds the ability to specify a
 	// digest on the associated image (not available on build as nonsensical).
-	f.ImageDigest, err = imageDigest(f.Image)
+	newDigest, err := imageDigest(f.Image)
 	if err != nil {
 		return f, err
+	}
+	if newDigest != "" {
+		f.ImageDigest = newDigest
 	}
 
 	// Envs
