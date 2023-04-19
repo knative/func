@@ -47,6 +47,14 @@ type Function struct {
 	// Name of the function.
 	Name string `yaml:"name,omitempty" jsonschema:"pattern=^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"`
 
+	// Domain of the function optionally specifies the domain to use as the
+	// route of the function. By default the cluster's default will be used.
+	// Note that the value defined here must be one which the cluster is
+	// configured to recognize, or this will have no effect and the cluster
+	// default will be applied.  This value shuld therefore ideally be
+	// validated by the client.
+	Domain string `yaml:"domain,omitempty"`
+
 	// Runtime is the language plus context.  nodejs|go|quarkus|rust etc.
 	Runtime string `yaml:"runtime,omitempty"`
 

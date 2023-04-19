@@ -391,6 +391,10 @@ func generateServiceLabels(f fn.Function, d DeployDecorator) (ll map[string]stri
 		return
 	}
 
+	if f.Domain != "" {
+		ll["func.domain"] = f.Domain
+	}
+
 	if d != nil {
 		ll = d.UpdateLabels(f, ll)
 	}
