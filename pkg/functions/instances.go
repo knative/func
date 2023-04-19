@@ -19,18 +19,18 @@ var (
 	ErrMismatchedName      = errors.New("name passed does not match name of the function at root")
 )
 
-// Instances manager
+// InstanceRefs manager
 //
-// Instances are point-in-time snapshots of a function's runtime state in
+// InstanceRefs are point-in-time snapshots of a function's runtime state in
 // a given environment.  By default 'local' and 'remote' environmnts are
 // available when a function is run locally and deployed (respectively).
-type Instances struct {
+type InstanceRefs struct {
 	client *Client
 }
 
 // newInstances creates a new manager of instances.
-func newInstances(client *Client) *Instances {
-	return &Instances{client: client}
+func newInstances(client *Client) *InstanceRefs {
+	return &InstanceRefs{client: client}
 }
 
 // Get the instance data for a function in the named environment.
@@ -38,7 +38,7 @@ func newInstances(client *Client) *Instances {
 // see the Local and Remote methods, respectively.
 // Instance returned is populated with a point-in-time snapshot of the
 // function state in the named environment.
-func (s *Instances) Get(ctx context.Context, f Function, environment string) (Instance, error) {
+func (s *InstanceRefs) Get(ctx context.Context, f Function, environment string) (Instance, error) {
 	switch environment {
 	case EnvironmentLocal:
 		return s.Local(ctx, f)
@@ -53,7 +53,7 @@ func (s *Instances) Get(ctx context.Context, f Function, environment string) (In
 
 // Local instance details for the function
 // If the function is not running locally the error returned is ErrNotRunning
-func (s *Instances) Local(ctx context.Context, f Function) (Instance, error) {
+func (s *InstanceRefs) Local(ctx context.Context, f Function) (Instance, error) {
 	var i Instance
 	// To create a local instance the function must have a root path defined
 	// which contains an initialized function and be running.
@@ -84,7 +84,7 @@ func (s *Instances) Local(ctx context.Context, f Function) (Instance, error) {
 // either name or root path can be passed.  If name is not passed, the function
 // at root is loaded and its name used for describing the remote instance.
 // Name takes precedence.
-func (s *Instances) Remote(ctx context.Context, name, root string) (Instance, error) {
+func (s *InstanceRefs) Remote(ctx context.Context, name, root string) (Instance, error) {
 	var (
 		f   Function
 		err error

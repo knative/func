@@ -48,7 +48,7 @@ func TestInstances_LocalErrors(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			i := Instances{}
+			i := InstanceRefs{}
 			if _, err := i.Local(context.TODO(), tt.f); err != tt.want {
 				t.Errorf("Local() error = %v, wantErr %v", err, tt.want)
 			}
@@ -97,7 +97,7 @@ func TestInstance_RemoteErrors(t *testing.T) {
 	for _, test := range tests {
 		testName := fmt.Sprintf("name '%v' and root '%v'", test.name, test.root)
 		t.Run(testName, func(t *testing.T) {
-			i := Instances{}
+			i := InstanceRefs{}
 			_, err := i.Remote(context.Background(), test.name, test.root)
 			if err == nil {
 				t.Fatal("did not receive expected error")
