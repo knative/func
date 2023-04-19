@@ -93,18 +93,18 @@ EXAMPLES
 	// Options whose value may be defined globally may also exist on the
 	// contextually relevant function; sets are flattened above via cfg.Apply(f)
 	cmd.Flags().StringP("builder", "b", cfg.Builder,
-		fmt.Sprintf("Builder to use when creating the function's container. Currently supported builders are %s. (Env: $FUNC_BUILDER)", KnownBuilders()))
+		fmt.Sprintf("Builder to use when creating the function's container. Currently supported builders are %s. ($FUNC_BUILDER)", KnownBuilders()))
 	cmd.Flags().StringP("registry", "r", cfg.Registry,
-		"Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. (Env: $FUNC_REGISTRY)")
+		"Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)")
 
 	// Function-Context Flags:
 	// Options whose value is available on the function with context only
 	// (persisted but not globally configurable)
 	builderImage := f.Build.BuilderImages[f.Build.Builder]
 	cmd.Flags().StringP("builder-image", "", builderImage,
-		"Specify a custom builder image for use by the builder other than its default. (Env: $FUNC_BUILDER_IMAGE)")
+		"Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)")
 	cmd.Flags().StringP("image", "i", f.Image,
-		"Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE)")
+		"Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry ($FUNC_IMAGE)")
 
 	// Static Flags:
 	// Options which have static defaults only (not globally configurable nor

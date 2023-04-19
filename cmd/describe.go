@@ -48,8 +48,8 @@ the current directory or from the directory specified with --path.
 	}
 
 	// Flags
-	cmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|xml|yaml|url) (Env: $FUNC_OUTPUT)")
-	cmd.Flags().StringP("namespace", "n", cfg.Namespace, "The namespace in which to look for the named function. (Env: $FUNC_NAMESPACE)")
+	cmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|xml|yaml|url) ($FUNC_OUTPUT)")
+	cmd.Flags().StringP("namespace", "n", cfg.Namespace, "The namespace in which to look for the named function. ($FUNC_NAMESPACE)")
 	addPathFlag(cmd)
 	addVerboseFlag(cmd, cfg.Verbose)
 
