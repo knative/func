@@ -48,8 +48,8 @@ func TestInvoke(t *testing.T) {
 		}()
 		_, port, _ := net.SplitHostPort(l.Addr().String())
 		errs := make(chan error, 10)
-		stop := func() { _ = s.Close() }
-		return fn.NewJob(f, port, errs, stop)
+		stop := func() error { _ = s.Close(); return nil }
+		return fn.NewJob(f, port, errs, stop, false)
 	}
 
 	// Run the mock http service function interloper
@@ -62,7 +62,7 @@ func TestInvoke(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(job.Stop)
+	t.Cleanup(func() { _ = job.Stop() })
 
 	// Test that the invoke command invokes
 	cmd := NewInvokeCmd(NewClient)

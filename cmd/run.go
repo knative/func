@@ -216,6 +216,9 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 			err = cmd.Context().Err()
 		}
 	case err = <-job.Errors:
+		return
+		// Bubble up runtime errors on the optional channel used for async job
+		// such as docker containers.
 	}
 
 	// NOTE: we do not f.Write() here unlike deploy (and build).
