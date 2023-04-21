@@ -7,6 +7,34 @@ import (
 	"knative.dev/func/pkg/utils"
 )
 
+type Envs []Env
+
+// String returns Envs as a space-separated set of environment variable
+// declarations in the form "KEY=VALUE K2=V2"
+func (ee Envs) String() string {
+	return strings.Join(ee.Slice(), " ")
+}
+
+// Slice returns Envs as a []strings in format NAME=VALUE
+// Note that Env structs with a nil pointer for name are ignored because
+// "=VALUE" is an invalid environment variable declaration.
+func (ee Envs) Slice() []string {
+	// TODO: removing pointers from the Env slice type (and the others)
+	// would probably be worth the effort.
+	s := []string{}
+	for _, e := range ee {
+		if e.Name == nil {
+			continue
+		}
+		if e.Value == nil {
+			s = append(s, *e.Name+"=")
+			continue
+		}
+		s = append(s, *e.Name+"="+*e.Value)
+	}
+	return s
+}
+
 type Env struct {
 	Name  *string `yaml:"name,omitempty" jsonschema:"pattern=^[-._a-zA-Z][-._a-zA-Z0-9]*$"`
 	Value *string `yaml:"value,omitempty"`
