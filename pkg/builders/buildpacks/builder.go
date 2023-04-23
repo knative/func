@@ -7,6 +7,7 @@ import (
 	"io"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/Masterminds/semver"
 	pack "github.com/buildpacks/pack/pkg/client"
@@ -107,6 +108,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		return
 	}
 
+	t := time.Now()
 	// Pack build options
 	opts := pack.BuildOptions{
 		AppPath:        f.Root,
@@ -114,6 +116,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		LifecycleImage: DefaultLifecycleImage,
 		Builder:        image,
 		Buildpacks:     f.Build.Buildpacks,
+		CreationTime:   &t,
 		ContainerConfig: struct {
 			Network string
 			Volumes []string
