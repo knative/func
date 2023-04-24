@@ -21,7 +21,7 @@ func NewRunner() *Runner {
 		RunFn: func(ctx context.Context, f fn.Function) (*fn.Job, error) {
 			errs := make(chan error, 1)
 			stop := func() error { return nil }
-			return fn.NewJob(f, "8080", errs, stop, false)
+			return fn.NewJob(f, "127.0.0.1", "8080", errs, stop, false)
 		},
 	}
 }

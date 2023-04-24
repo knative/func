@@ -594,8 +594,9 @@ func TestClient_New_Delegation(t *testing.T) {
 	}
 }
 
-// TestClient_Run ensures that the runner is invoked with the absolute path requested.
+// TestClient_Run ensures that the runner is invoked with the path requested.
 // Implicitly checks that the stop fn returned also is respected.
+// See TestRunner for the unit test for the default runner implementation.
 func TestClient_Run(t *testing.T) {
 	// Create the root function directory
 	root := "testdata/example.com/testRun"
@@ -1474,7 +1475,7 @@ func TestClient_Invoke_HTTP(t *testing.T) {
 		_, p, _ := net.SplitHostPort(l.Addr().String())
 		errs := make(chan error, 10)
 		stop := func() error { return nil }
-		return fn.NewJob(f, p, errs, stop, false)
+		return fn.NewJob(f, "127.0.0.1", p, errs, stop, false)
 	}
 	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithRunner(runner))
 
@@ -1572,7 +1573,7 @@ func TestClient_Invoke_CloudEvent(t *testing.T) {
 		_, p, _ := net.SplitHostPort(l.Addr().String())
 		errs := make(chan error, 10)
 		stop := func() error { return nil }
-		return fn.NewJob(f, p, errs, stop, false)
+		return fn.NewJob(f, "127.0.0.1", p, errs, stop, false)
 	}
 	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithRunner(runner))
 
@@ -1621,7 +1622,7 @@ func TestClient_Instances(t *testing.T) {
 	runner.RunFn = func(_ context.Context, f fn.Function) (*fn.Job, error) {
 		errs := make(chan error, 10)
 		stop := func() error { return nil }
-		return fn.NewJob(f, "8080", errs, stop, false)
+		return fn.NewJob(f, "127.0.0.1", "8080", errs, stop, false)
 	}
 
 	// Client with the mock runner
