@@ -1296,6 +1296,49 @@ func TestClient_New_BuildpacksPersisted(t *testing.T) {
 	}
 }
 
+// TestClient_Scaffold ensures that scaffolding a function writes its
+// scaffolding code to the given directory correctly, including not listing
+// the scaffolding directory as a template (it's a special reserved word).
+func TestClient_Scaffold(t *testing.T) {
+	root, rm := Mktemp(t)
+	defer rm()
+	var out = "result"
+
+	// Assert "scaffolding" is a reserved word; not listed as aavailable
+	// template despite being in the templates' directory.
+	client := fn.New()
+	tt, err := client.Templates().List("go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, v := range tt {
+		if v == "scaffolding" {
+			t.Fatal("scaffolding is a reserved word and should not be listed as an available template")
+		}
+	}
+
+	// Create a Golang function in root and scaffold.
+	f, err := client.Init(fn.Function{Root: root, Runtime: "go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := client.Scaffold(context.Background(), f, filepath.Join(root, out)); err != nil {
+		t.Fatal(err)
+	}
+
+	// Test for the existence of the main.go file we know only exists in the Go
+	// scaffolding.
+	//
+	// TODO: This is admittedly a quick way to check that it was scaffolded, which
+	// creates a dependency between this test and the implementation of the go
+	// scaffolding internals.  A better way would perhaps to be to actually try
+	// to run the scaffolded function; but that's precisely what integration tests
+	// do, so this expedient is probably passable.
+	if _, err := os.Stat(filepath.Join(root, out, "main.go")); err != nil {
+		t.Fatalf("error checking for 'main.go' in the scaffolded Go project. %v", err)
+	}
+}
+
 // TestClient_Runtimes ensures that the total set of runtimes are returned.
 func TestClient_Runtimes(t *testing.T) {
 	// TODO: test when a specific repo override is indicated

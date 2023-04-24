@@ -81,7 +81,7 @@ func TestFileSystems(t *testing.T) {
 			sort.Slice(localFiles, compare(localFiles))
 
 			if diff := cmp.Diff(localFiles, embeddedFiles); diff != "" {
-				t.Error("filesystem content missmatch (-want, +got):", diff)
+				t.Error("filesystem content missmatch (-want, +got) zz_filesystem_generated.go may need to be regenerated (run make):", diff)
 			}
 		})
 	}

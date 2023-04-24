@@ -1,0 +1,6 @@
+github.com/lkingland/func-runtimes/go v0.0.0-20230331021437-a8c5bfbe75cb h1:orlTxxyV1B9KwwtMhHRjGPprt943iRdGuxG+90U3taI=
+github.com/lkingland/func-runtimes/go v0.0.0-20230331021437-a8c5bfbe75cb/go.mod h1:ELN4ppasVTq8+wvD6cxgg0i9AlfM4OMKj0tCkmdOXZg=
+github.com/lkingland/func-runtimes/go v0.0.0-20230331062015-1284f990e1cf h1:TUEougaNZ4UQTpQS/GwJ3/PVX8kZmsd9KLke2DdEgOk=
+github.com/lkingland/func-runtimes/go v0.0.0-20230331062015-1284f990e1cf/go.mod h1:339P4Ba/ZC8UxY8yYo+XkqvvnFNYhLtN2A3hpKsGZXA=
+github.com/lkingland/func-runtimes/go v0.0.0-20230404115549-fe2343822c3c h1:ReQC6FGb/RxY7CyL/NX1loX7z/lsJZY3munSXzEEmII=
+github.com/lkingland/func-runtimes/go v0.0.0-20230404115549-fe2343822c3c/go.mod h1:339P4Ba/ZC8UxY8yYo+XkqvvnFNYhLtN2A3hpKsGZXA=
