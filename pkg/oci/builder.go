@@ -49,13 +49,12 @@ func (e BuildErr) Error() string {
 // the function at path.
 type Builder struct {
 	name    string
-	client  *fn.Client
 	verbose bool
 }
 
 // NewBuilder creates a builder instance.
-func NewBuilder(name string, client *fn.Client, verbose bool) *Builder {
-	return &Builder{name, client, verbose}
+func NewBuilder(name string, verbose bool) *Builder {
+	return &Builder{name, verbose}
 }
 
 // Build an OCI-compliant Mult-arch (v1.ImageIndex) container on disk
@@ -67,16 +66,16 @@ func NewBuilder(name string, client *fn.Client, verbose bool) *Builder {
 //
 //	.func/builds/last
 func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
-	cfg := &buildConfig{ctx, b.client, f, time.Now(), b.verbose, ""}
+	cfg := &buildConfig{ctx, f, time.Now(), b.verbose, ""}
 
 	if err = setup(cfg); err != nil { // create directories and links
 		return
 	}
 	defer teardown(cfg)
 
-	//TODO: Use clien't actual Scaffold when ready:
+	//TODO: Use scaffold package when merged:
 	/*
-		if err = cfg.client.Scaffold(ctx, f, cfg.buildDir()); err != nil {
+		if err = scaffolding.Scaffold(ctx, f, cfg.buildDir()); err != nil {
 			return
 		}
 	*/
@@ -109,7 +108,6 @@ func main () {
 // buildConfig contains various settings for a single build
 type buildConfig struct {
 	ctx     context.Context // build context
-	client  *fn.Client      // backreference to the client for Scaffolding
 	f       fn.Function     // Function being built
 	t       time.Time       // Timestamp for this build
 	verbose bool            // verbose logging

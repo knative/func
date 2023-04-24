@@ -169,7 +169,6 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 
 	// Client
 	// Concrete implementations (ex builder) vary based on final effective config
-	var client *fn.Client
 	o := []fn.Option{fn.WithRegistry(cfg.Registry)}
 	if f.Build.Builder == builders.Pack {
 		o = append(o, fn.WithBuilder(pack.NewBuilder(

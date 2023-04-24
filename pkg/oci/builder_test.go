@@ -24,7 +24,7 @@ func TestBuilder(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	builder := NewBuilder("", client, true)
+	builder := NewBuilder("", true)
 
 	if err := builder.Build(context.Background(), f); err != nil {
 		t.Fatal(err)
