@@ -69,11 +69,11 @@ func create
 ### Options
 
 ```
-  -c, --confirm             Prompt to confirm options interactively (Env: $FUNC_CONFIRM)
+  -c, --confirm             Prompt to confirm options interactively ($FUNC_CONFIRM)
   -h, --help                help for create
-  -l, --language string     Language Runtime (see help text for list) (Env: $FUNC_LANGUAGE)
-  -r, --repository string   URI to a Git repository containing the specified template (Env: $FUNC_REPOSITORY)
-  -t, --template string     Function template. (see help text for list) (Env: $FUNC_TEMPLATE) (default "http")
+  -l, --language string     Language Runtime (see help text for list) ($FUNC_LANGUAGE)
+  -r, --repository string   URI to a Git repository containing the specified template ($FUNC_REPOSITORY)
+  -t, --template string     Function template. (see help text for list) ($FUNC_TEMPLATE) (default "http")
   -v, --verbose             Print verbose logs ($FUNC_VERBOSE)
 ```
 

@@ -49,7 +49,7 @@ func NewConfigGitRemoveCmd(newClient ClientFactory) *cobra.Command {
 	//   Options whose value may be defined globally may also exist on the
 	//  contextually relevant function; but sets are flattened via cfg.Apply(f)
 	cmd.Flags().StringP("namespace", "n", cfg.Namespace,
-		"Deploy into a specific namespace. Will use function's current namespace by default if already deployed, and the currently active namespace if it can be determined. (Env: $FUNC_NAMESPACE)")
+		"Deploy into a specific namespace. Will use function's current namespace by default if already deployed, and the currently active namespace if it can be determined. ($FUNC_NAMESPACE)")
 
 	// Resources generated related Flags:
 	cmd.Flags().Bool("delete-local", false, "Delete local resources (pipeline templates).")

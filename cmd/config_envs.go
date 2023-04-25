@@ -45,7 +45,7 @@ the current directory or from the directory specified with --path.
 		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
 
-	cmd.Flags().StringP("output", "o", "human", "Output format (human|json) (Env: $FUNC_OUTPUT)")
+	cmd.Flags().StringP("output", "o", "human", "Output format (human|json) ($FUNC_OUTPUT)")
 
 	configEnvsAddCmd := NewConfigEnvsAddCmd(loadSaver)
 	configEnvsRemoveCmd := NewConfigEnvsRemoveCmd()

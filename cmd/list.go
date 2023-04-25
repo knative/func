@@ -59,8 +59,8 @@ Lists all deployed functions in a given namespace.
 
 	// Flags
 	cmd.Flags().BoolP("all-namespaces", "A", false, "List functions in all namespaces. If set, the --namespace flag is ignored.")
-	cmd.Flags().StringP("namespace", "n", config.DefaultNamespace(), "The namespace for which to list functions. (Env: $FUNC_NAMESPACE)")
-	cmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|xml|yaml) (Env: $FUNC_OUTPUT)")
+	cmd.Flags().StringP("namespace", "n", config.DefaultNamespace(), "The namespace for which to list functions. ($FUNC_NAMESPACE)")
+	cmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|xml|yaml) ($FUNC_OUTPUT)")
 	addVerboseFlag(cmd, cfg.Verbose)
 
 	if err := cmd.RegisterFlagCompletionFunc("output", CompleteOutputFormatList); err != nil {

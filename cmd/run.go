@@ -73,8 +73,8 @@ Default builder is pack.
 	cmd.Flags().StringP("build", "b", "auto", "Build the function. [auto|true|false].")
 	cmd.Flags().Lookup("build").NoOptDefVal = "true" // --build is equivalient to --build=true
 	cmd.Flags().StringP("builder", "", cfg.Builder,
-		fmt.Sprintf("Builder to use when creating the function's container. Currently supported builders are %s. (Env: $FUNC_BUILDER)", KnownBuilders()))
-	cmd.Flags().StringP("registry", "r", "", "Registry + namespace part of the image if building, ex 'quay.io/myuser' (Env: $FUNC_REGISTRY)")
+		fmt.Sprintf("Builder to use when creating the function's container. Currently supported builders are %s. ($FUNC_BUILDER)", KnownBuilders()))
+	cmd.Flags().StringP("registry", "r", "", "Registry + namespace part of the image if building, ex 'quay.io/myuser' ($FUNC_REGISTRY)")
 	addPathFlag(cmd)
 	addVerboseFlag(cmd, cfg.Verbose)
 

@@ -7,7 +7,27 @@ import (
 	"knative.dev/func/pkg/filesystem"
 )
 
-// template
+// Template is a function project template.
+// It can be used to instantiate new function project.
+type Template interface {
+	// Name of this template.
+	Name() string
+	// Runtime for which this template applies.
+	Runtime() string
+	// Repository within which this template is contained.  Value is set to the
+	// currently effective name of the repository, which may vary. It is user-
+	// defined when the repository is added, and can be set to "default" when
+	// the client is loaded in single repo mode. I.e. not canonical.
+	Repository() string
+	// Fullname is a calculated field of [repo]/[name] used
+	// to uniquely reference a template which may share a name
+	// with one in another repository.
+	Fullname() string
+	// Write updates fields of function f and writes project files to path pointed by f.Root.
+	Write(ctx context.Context, f *Function) error
+}
+
+// template default implementation
 type template struct {
 	name       string
 	runtime    string
@@ -32,6 +52,8 @@ func (t template) Fullname() string {
 	return t.repository + "/" + t.name
 }
 
+// Write the template source files
+// (all source code except manifest.yaml and scaffolding)
 func (t template) Write(ctx context.Context, f *Function) error {
 
 	// Apply fields from the template onto the function itself (Denormalize).

@@ -66,22 +66,10 @@ func (t *Templates) List(runtime string) ([]string, error) {
 func (t *Templates) Get(runtime, fullname string) (Template, error) {
 	var (
 		template Template
-		repoName string
-		tplName  string
 		repo     Repository
 		err      error
 	)
-
-	// Split into repo and template names.
-	// Defaults when unprefixed to DefaultRepository
-	cc := strings.Split(fullname, "/")
-	if len(cc) == 1 {
-		repoName = DefaultRepositoryName
-		tplName = fullname
-	} else {
-		repoName = cc[0]
-		tplName = cc[1]
-	}
+	repoName, tplName := splitTemplateFullname(fullname)
 
 	// Get specified repository
 	repo, err = t.client.Repositories().Get(repoName)
@@ -90,6 +78,24 @@ func (t *Templates) Get(runtime, fullname string) (Template, error) {
 	}
 
 	return repo.Template(runtime, tplName)
+}
+
+// splits a template reference into its constituent parts: repository name
+// and template name.
+// The form '[repo]/[name]'.  The reposititory name and slash prefix are
+// optional, in which case DefaultRepositoryName is returned.
+func splitTemplateFullname(name string) (repoName, tplName string) {
+	// Split into repo and template names.
+	// Defaults when unprefixed to DefaultRepositoryName
+	cc := strings.Split(name, "/")
+	if len(cc) == 1 {
+		repoName = DefaultRepositoryName
+		tplName = name
+	} else {
+		repoName = cc[0]
+		tplName = cc[1]
+	}
+	return
 }
 
 // Write a function's template to disk.

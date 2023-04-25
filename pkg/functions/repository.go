@@ -1,7 +1,6 @@
 package functions
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/url"
@@ -62,26 +61,6 @@ type Runtime struct {
 	Name string
 	// Templates defined for the runtime
 	Templates []Template
-}
-
-// Template is a function project template.
-// It can be used to instantiate new function project.
-type Template interface {
-	// Name of this template.
-	Name() string
-	// Runtime for which this template applies.
-	Runtime() string
-	// Repository within which this template is contained.  Value is set to the
-	// currently effective name of the repository, which may vary. It is user-
-	// defined when the repository is added, and can be set to "default" when
-	// the client is loaded in single repo mode. I.e. not canonical.
-	Repository() string
-	// Fullname is a calculated field of [repo]/[name] used
-	// to uniquely reference a template which may share a name
-	// with one in another repository.
-	Fullname() string
-	// Write updates fields of function f and writes project files to path pointed by f.Root.
-	Write(ctx context.Context, f *Function) error
 }
 
 // This structure defines defaults for a function when generating project by a template.Write().

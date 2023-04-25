@@ -30,9 +30,9 @@ func describe --output yaml --path myotherfunc
 
 ```
   -h, --help               help for describe
-  -n, --namespace string   The namespace in which to look for the named function. (Env: $FUNC_NAMESPACE)
-  -o, --output string      Output format (human|plain|json|xml|yaml|url) (Env: $FUNC_OUTPUT) (default "human")
-  -p, --path string        Path to the function.  Default is current directory (Env: $FUNC_PATH)
+  -n, --namespace string   The namespace in which to look for the named function. ($FUNC_NAMESPACE)
+  -o, --output string      Output format (human|plain|json|xml|yaml|url) ($FUNC_OUTPUT) (default "human")
+  -p, --path string        Path to the function.  Default is current directory ($FUNC_PATH)
   -v, --verbose            Print verbose logs ($FUNC_VERBOSE)
 ```
 

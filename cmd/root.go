@@ -132,10 +132,10 @@ func effectivePath() (path string) {
 	)
 	fs.SetOutput(io.Discard)
 	fs.ParseErrorsWhitelist.UnknownFlags = true // wokeignore:rule=whitelist
-	err := fs.Parse(os.Args[1:])
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "error preparsing flags: %v\n", err)
-	}
+	// Preparsing flags intentionally ignores errors because this is intended
+	// to be an opportunistic parse of the path flags, with actual validation of
+	// flags taking place later in the instantiation process by the cobra pkg.
+	_ = fs.Parse(os.Args[1:])
 	if env != "" {
 		path = env
 	}
@@ -306,12 +306,12 @@ func mergeEnvs(envs []fn.Env, envToUpdate *util.OrderedMap, envToRemove []string
 
 // addConfirmFlag ensures common text/wording when the --path flag is used
 func addConfirmFlag(cmd *cobra.Command, dflt bool) {
-	cmd.Flags().BoolP("confirm", "c", dflt, "Prompt to confirm options interactively (Env: $FUNC_CONFIRM)")
+	cmd.Flags().BoolP("confirm", "c", dflt, "Prompt to confirm options interactively ($FUNC_CONFIRM)")
 }
 
 // addPathFlag ensures common text/wording when the --path flag is used
 func addPathFlag(cmd *cobra.Command) {
-	cmd.Flags().StringP("path", "p", "", "Path to the function.  Default is current directory (Env: $FUNC_PATH)")
+	cmd.Flags().StringP("path", "p", "", "Path to the function.  Default is current directory ($FUNC_PATH)")
 }
 
 // addVerboseFlag ensures common text/wording when the --path flag is used

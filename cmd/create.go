@@ -85,9 +85,9 @@ EXAMPLES
 	}
 
 	// Flags
-	cmd.Flags().StringP("language", "l", cfg.Language, "Language Runtime (see help text for list) (Env: $FUNC_LANGUAGE)")
-	cmd.Flags().StringP("template", "t", fn.DefaultTemplate, "Function template. (see help text for list) (Env: $FUNC_TEMPLATE)")
-	cmd.Flags().StringP("repository", "r", "", "URI to a Git repository containing the specified template (Env: $FUNC_REPOSITORY)")
+	cmd.Flags().StringP("language", "l", cfg.Language, "Language Runtime (see help text for list) ($FUNC_LANGUAGE)")
+	cmd.Flags().StringP("template", "t", fn.DefaultTemplate, "Function template. (see help text for list) ($FUNC_TEMPLATE)")
+	cmd.Flags().StringP("repository", "r", "", "URI to a Git repository containing the specified template ($FUNC_REPOSITORY)")
 
 	addConfirmFlag(cmd, cfg.Confirm)
 	// TODO: refactor to use --path like all the other commands

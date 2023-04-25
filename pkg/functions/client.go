@@ -42,7 +42,7 @@ type Client struct {
 	progressListener  ProgressListener  // progress listener
 	repositories      *Repositories     // Repositories management
 	templates         *Templates        // Templates management
-	instances         *Instances        // Function Instances management
+	instances         *InstanceRefs     // Function Instances management
 	transport         http.RoundTripper // Customizable internal transport
 	pipelinesProvider PipelinesProvider // CI/CD pipelines management
 }
@@ -363,7 +363,7 @@ func (c *Client) Templates() *Templates {
 }
 
 // Instances accessor
-func (c *Client) Instances() *Instances {
+func (c *Client) Instances() *InstanceRefs {
 	return c.instances
 }
 
