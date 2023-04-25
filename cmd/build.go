@@ -26,7 +26,8 @@ NAME
 
 SYNOPSIS
 	{{rootCmdUse}} build [-r|--registry] [--builder] [--builder-image] [--push]
-	             [--platform] [-p|--path] [-c|--confirm] [-v|--verbose]
+	             [--platform] [-p|--path] [-c|--confirm] [-v|--verbose] 
+				 [--build-timestamp]
 
 DESCRIPTION
 
@@ -64,7 +65,7 @@ EXAMPLES
 
 `,
 		SuggestFor: []string{"biuld", "buidl", "built"},
-		PreRunE:    bindEnv("image", "path", "builder", "registry", "confirm", "push", "builder-image", "platform", "verbose"),
+		PreRunE:    bindEnv("image", "path", "builder", "registry", "confirm", "push", "builder-image", "platform", "verbose", "build-timestamp"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runBuild(cmd, args, newClient)
 		},
@@ -105,6 +106,7 @@ EXAMPLES
 		"Specify a custom builder image for use by the builder other than its default. (Env: $FUNC_BUILDER_IMAGE)")
 	cmd.Flags().StringP("image", "i", f.Image,
 		"Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry (Env: $FUNC_IMAGE)")
+	cmd.Flags().BoolP("build-timestamp", "", false, "Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.")
 
 	// Static Flags:
 	// Options which have static defaults only (not globally configurable nor
@@ -171,7 +173,9 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	if f.Build.Builder == builders.Pack {
 		builder = buildpacks.NewBuilder(
 			buildpacks.WithName(builders.Pack),
-			buildpacks.WithVerbose(cfg.Verbose))
+			buildpacks.WithVerbose(cfg.Verbose),
+			buildpacks.WithTimestamp(cfg.WithTimestamp),
+		)
 	} else if f.Build.Builder == builders.S2I {
 		builder = s2i.NewBuilder(
 			s2i.WithName(builders.S2I),
@@ -220,6 +224,10 @@ type buildConfig struct {
 
 	// Push the resulting image to the registry after building.
 	Push bool
+
+	// Build with the current timestamp as the created time for docker image.
+	// This is only useful for buildpacks builder.
+	WithTimestamp bool
 }
 
 // newBuildConfig gathers options into a single build request.
@@ -231,11 +239,12 @@ func newBuildConfig() buildConfig {
 			Registry: registry(), // deferred defaulting
 			Verbose:  viper.GetBool("verbose"),
 		},
-		BuilderImage: viper.GetString("builder-image"),
-		Image:        viper.GetString("image"),
-		Path:         viper.GetString("path"),
-		Platform:     viper.GetString("platform"),
-		Push:         viper.GetBool("push"),
+		BuilderImage:  viper.GetString("builder-image"),
+		Image:         viper.GetString("image"),
+		Path:          viper.GetString("path"),
+		Platform:      viper.GetString("platform"),
+		Push:          viper.GetBool("push"),
+		WithTimestamp: viper.GetBool("build-timestamp"),
 	}
 }
 
