@@ -485,7 +485,7 @@ func TestClient_Run(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer job.Stop()
+	defer func() { _ = job.Stop() }()
 
 	// Assert the runner was invoked, and with the expected root.
 	if !runner.RunInvoked {
@@ -1411,7 +1411,7 @@ func TestClient_Invoke_CloudEvent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer job.Stop()
+	defer func() { _ = job.Stop() }()
 
 	// Invoke the function, which will use the mock Runner
 	_, r, err := client.Invoke(context.Background(), f.Root, "", message)
@@ -1463,7 +1463,7 @@ func TestClient_Instances(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer job.Stop()
+	defer func() { _ = job.Stop() }()
 
 	// Get the local function instance info
 	instance, err := client.Instances().Local(context.Background(), f)

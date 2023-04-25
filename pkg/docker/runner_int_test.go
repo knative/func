@@ -45,7 +45,7 @@ func TestRun(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(j.Stop)
+	t.Cleanup(func() { _ = j.Stop() })
 	time.Sleep(time.Second * 5)
 
 	var (
