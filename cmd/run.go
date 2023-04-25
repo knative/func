@@ -206,7 +206,11 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 	if err != nil {
 		return
 	}
-	defer job.Stop()
+	defer func() {
+		if err = job.Stop(); err != nil {
+			fmt.Fprintf(cmd.OutOrStderr(), "Job stop error. %v", err)
+		}
+	}()
 
 	fmt.Fprintf(cmd.OutOrStderr(), "Running on host port %v\n", job.Port)
 
