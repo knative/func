@@ -103,23 +103,23 @@ func deploy
 ### Options
 
 ```
-      --build string[="true"]   Build the function. [auto|true|false]. (Env: $FUNC_BUILD) (default "auto")
+      --build string[="true"]   Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
   -b, --builder string          Builder to use when creating the function's container. Currently supported builders are "pack" and "s2i". (default "pack")
       --builder-image string    Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
-  -c, --confirm                 Prompt to confirm options interactively (Env: $FUNC_CONFIRM)
+  -c, --confirm                 Prompt to confirm options interactively ($FUNC_CONFIRM)
   -e, --env stringArray         Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
-  -t, --git-branch string       Git revision (branch) to be used when deploying via the Git repository (Env: $FUNC_GIT_BRANCH)
-  -d, --git-dir string          Directory in the Git repository containing the function (default is the root) (Env: $FUNC_GIT_DIR)
-  -g, --git-url string          Repository url containing the function to build (Env: $FUNC_GIT_URL)
+  -t, --git-branch string       Git revision (branch) to be used when deploying via the Git repository ($FUNC_GIT_BRANCH)
+  -d, --git-dir string          Directory in the Git repository containing the function (default is the root) ($FUNC_GIT_DIR)
+  -g, --git-url string          Repository url containing the function to build ($FUNC_GIT_URL)
   -h, --help                    help for deploy
-  -i, --image string            Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. (Env: $FUNC_IMAGE)
-  -n, --namespace string        Deploy into a specific namespace. Will use function's current namespace by default if already deployed, and the currently active namespace if it can be determined. (Env: $FUNC_NAMESPACE)
-  -p, --path string             Path to the function.  Default is current directory (Env: $FUNC_PATH)
-      --platform string         Optionally specify a specific platform to build for (e.g. linux/amd64). (Env: $FUNC_PLATFORM)
-  -u, --push                    Push the function image to registry before deploying. (Env: $FUNC_PUSH) (default true)
+  -i, --image string            Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. ($FUNC_IMAGE)
+  -n, --namespace string        Deploy into a specific namespace. Will use function's current namespace by default if already deployed, and the currently active namespace if it can be determined. ($FUNC_NAMESPACE)
+  -p, --path string             Path to the function.  Default is current directory ($FUNC_PATH)
+      --platform string         Optionally specify a specific platform to build for (e.g. linux/amd64). ($FUNC_PLATFORM)
+  -u, --push                    Push the function image to registry before deploying. ($FUNC_PUSH) (default true)
       --pvc-size string         Configure the PVC size used by a pipeline during remote build. (default "256Mi")
-  -r, --registry string         Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. (Env: $FUNC_REGISTRY)
-      --remote                  Trigger a remote deployment. Default is to deploy and build from the local system (Env: $FUNC_REMOTE)
+  -r, --registry string         Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
+      --remote                  Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)
   -v, --verbose                 Print verbose logs ($FUNC_VERBOSE)
 ```
 

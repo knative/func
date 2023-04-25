@@ -306,12 +306,12 @@ func mergeEnvs(envs []fn.Env, envToUpdate *util.OrderedMap, envToRemove []string
 
 // addConfirmFlag ensures common text/wording when the --path flag is used
 func addConfirmFlag(cmd *cobra.Command, dflt bool) {
-	cmd.Flags().BoolP("confirm", "c", dflt, "Prompt to confirm options interactively (Env: $FUNC_CONFIRM)")
+	cmd.Flags().BoolP("confirm", "c", dflt, "Prompt to confirm options interactively ($FUNC_CONFIRM)")
 }
 
 // addPathFlag ensures common text/wording when the --path flag is used
 func addPathFlag(cmd *cobra.Command) {
-	cmd.Flags().StringP("path", "p", "", "Path to the function.  Default is current directory (Env: $FUNC_PATH)")
+	cmd.Flags().StringP("path", "p", "", "Path to the function.  Default is current directory ($FUNC_PATH)")
 }
 
 // addVerboseFlag ensures common text/wording when the --path flag is used

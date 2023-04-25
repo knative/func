@@ -142,9 +142,9 @@ EXAMPLES
 	cmd.Flags().StringP("builder", "b", cfg.Builder,
 		fmt.Sprintf("Builder to use when creating the function's container. Currently supported builders are %s.", KnownBuilders()))
 	cmd.Flags().StringP("registry", "r", cfg.Registry,
-		"Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. (Env: $FUNC_REGISTRY)")
+		"Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)")
 	cmd.Flags().StringP("namespace", "n", cfg.Namespace,
-		"Deploy into a specific namespace. Will use function's current namespace by default if already deployed, and the currently active namespace if it can be determined. (Env: $FUNC_NAMESPACE)")
+		"Deploy into a specific namespace. Will use function's current namespace by default if already deployed, and the currently active namespace if it can be determined. ($FUNC_NAMESPACE)")
 
 	// Function-Context Flags:
 	// Options whose value is available on the function with context only
@@ -152,19 +152,19 @@ EXAMPLES
 	builderImage := f.Build.BuilderImages[f.Build.Builder]
 	cmd.Flags().String("builder-image", builderImage,
 		"Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)")
-	cmd.Flags().StringP("image", "i", f.Image, "Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. (Env: $FUNC_IMAGE)")
+	cmd.Flags().StringP("image", "i", f.Image, "Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. ($FUNC_IMAGE)")
 
 	cmd.Flags().StringArrayP("env", "e", []string{}, "Environment variable to set in the form NAME=VALUE. "+
 		"You may provide this flag multiple times for setting multiple environment variables. "+
 		"To unset, specify the environment variable name followed by a \"-\" (e.g., NAME-).")
 	cmd.Flags().StringP("git-url", "g", f.Build.Git.URL,
-		"Repository url containing the function to build (Env: $FUNC_GIT_URL)")
+		"Repository url containing the function to build ($FUNC_GIT_URL)")
 	cmd.Flags().StringP("git-branch", "t", f.Build.Git.Revision,
-		"Git revision (branch) to be used when deploying via the Git repository (Env: $FUNC_GIT_BRANCH)")
+		"Git revision (branch) to be used when deploying via the Git repository ($FUNC_GIT_BRANCH)")
 	cmd.Flags().StringP("git-dir", "d", f.Build.Git.ContextDir,
-		"Directory in the Git repository containing the function (default is the root) (Env: $FUNC_GIT_DIR)")
+		"Directory in the Git repository containing the function (default is the root) ($FUNC_GIT_DIR)")
 	cmd.Flags().Bool("remote", f.Deploy.Remote,
-		"Trigger a remote deployment. Default is to deploy and build from the local system (Env: $FUNC_REMOTE)")
+		"Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)")
 	cmd.Flags().String("pvc-size", fn.DefaultPersistentVolumeClaimSize,
 		"Configure the PVC size used by a pipeline during remote build.")
 
@@ -172,12 +172,12 @@ EXAMPLES
 	// Options which have static defaults only (not globally configurable nor
 	// persisted with the function)
 	cmd.Flags().String("build", "auto",
-		"Build the function. [auto|true|false]. (Env: $FUNC_BUILD)")
+		"Build the function. [auto|true|false]. ($FUNC_BUILD)")
 	cmd.Flags().Lookup("build").NoOptDefVal = "true" // register `--build` as equivalient to `--build=true`
 	cmd.Flags().BoolP("push", "u", true,
-		"Push the function image to registry before deploying. (Env: $FUNC_PUSH)")
+		"Push the function image to registry before deploying. ($FUNC_PUSH)")
 	cmd.Flags().String("platform", "",
-		"Optionally specify a specific platform to build for (e.g. linux/amd64). (Env: $FUNC_PLATFORM)")
+		"Optionally specify a specific platform to build for (e.g. linux/amd64). ($FUNC_PLATFORM)")
 
 	// Oft-shared flags:
 	addConfirmFlag(cmd, cfg.Confirm)

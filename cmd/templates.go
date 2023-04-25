@@ -73,7 +73,7 @@ EXAMPLES
 	}
 
 	cmd.Flags().Bool("json", false, "Set output to JSON format. (Env: $FUNC_JSON)")
-	cmd.Flags().StringP("repository", "r", "", "URI to a specific repository to consider (Env: $FUNC_REPOSITORY)")
+	cmd.Flags().StringP("repository", "r", "", "URI to a specific repository to consider ($FUNC_REPOSITORY)")
 	addVerboseFlag(cmd, cfg.Verbose)
 
 	return cmd

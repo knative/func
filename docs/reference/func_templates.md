@@ -48,7 +48,7 @@ func templates
 ```
   -h, --help                help for templates
       --json                Set output to JSON format. (Env: $FUNC_JSON)
-  -r, --repository string   URI to a specific repository to consider (Env: $FUNC_REPOSITORY)
+  -r, --repository string   URI to a specific repository to consider ($FUNC_REPOSITORY)
   -v, --verbose             Print verbose logs ($FUNC_VERBOSE)
 ```
 

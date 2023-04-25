@@ -9,7 +9,7 @@ func repository add <name> <url>
 ### Options
 
 ```
-  -c, --confirm   Prompt to confirm options interactively (Env: $FUNC_CONFIRM)
+  -c, --confirm   Prompt to confirm options interactively ($FUNC_CONFIRM)
   -h, --help      help for add
   -v, --verbose   Print verbose logs ($FUNC_VERBOSE)
 ```
