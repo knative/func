@@ -147,7 +147,9 @@ func Handle() { }
 
 			// NOTE: if/when the default filename changes from handle.go to
 			// function.go, this will also have to change
-			os.WriteFile(filepath.Join(root, "handle.go"), []byte(test.Src), os.ModePerm)
+			if err := os.WriteFile(filepath.Join(root, "handle.go"), []byte(test.Src), os.ModePerm); err != nil {
+				t.Fatal(err)
+			}
 
 			s, err := functionSignature(f)
 			if err != nil && test.Err == nil {

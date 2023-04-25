@@ -78,7 +78,6 @@ func functionSignature(f Function) (s Signature, err error) {
 	} else {
 		return signature(false, f.Invoke), nil
 	}
-	return
 }
 
 // detectorFor runtime returns a signature detector for a given runtime
