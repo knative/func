@@ -826,10 +826,7 @@ func (c *Client) Run(ctx context.Context, f Function) (job *Job, err error) {
 	}()
 
 	if !f.Initialized() {
-		// TODO: this needs a test.
-		err = fmt.Errorf("the given path '%v' does not contain an initialized "+
-			"function.  Please create one at this path in order to run", f.Root)
-		return nil, err
+		return nil, fmt.Errorf("Can not run an uninitialized function")
 	}
 
 	// Run the function, which returns a Job for use interacting (at arms length)
@@ -1000,7 +997,7 @@ func (n *noopDeployer) Deploy(ctx context.Context, _ Function) (DeploymentResult
 type noopRunner struct{ output io.Writer }
 
 func (n *noopRunner) Run(context.Context, Function) (job *Job, err error) {
-	return
+	return nil, errors.New("no runner available")
 }
 
 // Remover

@@ -8,6 +8,8 @@ import (
 
 // Job represents a running function job (presumably started by this process'
 // Runner instance.
+// In order for this to function along with the noop runner used by client,
+// the zero value of the struct is set up to noop without errors.
 type Job struct {
 	Function Function
 	Port     string
@@ -31,6 +33,9 @@ func NewJob(f Function, port string, errs chan error, onStop func()) (*Job, erro
 // Stop the Job, running the provided stop delegate and removing runtime
 // metadata from disk.
 func (j *Job) Stop() {
+	if j == nil {
+		return
+	}
 	_ = j.remove() // Remove representation on disk
 	j.onStop()
 }
