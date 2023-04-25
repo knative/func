@@ -46,8 +46,8 @@ func languages
 
 ```
   -h, --help                help for languages
-      --json                Set output to JSON format. (Env: $FUNC_JSON)
-  -r, --repository string   URI to a specific repository to consider (Env: $FUNC_REPOSITORY)
+      --json                Set output to JSON format. ($FUNC_JSON)
+  -r, --repository string   URI to a specific repository to consider ($FUNC_REPOSITORY)
   -v, --verbose             Print verbose logs ($FUNC_VERBOSE)
 ```
 
