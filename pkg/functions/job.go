@@ -38,7 +38,7 @@ func NewJob(f Function, port string, errs chan error, onStop func() error, verbo
 		return j, errors.New("initialized function required to create job")
 	}
 	if j.Port == "" {
-		return j, errors.New("port requred to create job")
+		return j, errors.New("port required to create job")
 	}
 	if j.Errors == nil {
 		j.Errors = make(chan error, 1)
@@ -93,7 +93,7 @@ func cleanupJobDirs(j *Job) error {
 		_ = ln.Close()
 		orphanedJobDir := filepath.Join(funcJobsDir(j.Function), d.Name())
 		if j.verbose {
-			fmt.Printf("No process listening on port %v.  Removing its job directoy\n", d.Name())
+			fmt.Printf("No process listening on port %v.  Removing its job directory\n", d.Name())
 			fmt.Printf("rm %v\n", orphanedJobDir)
 		}
 		return os.RemoveAll(orphanedJobDir)
