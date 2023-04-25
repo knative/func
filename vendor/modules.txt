@@ -1671,7 +1671,7 @@ k8s.io/utils/net
 k8s.io/utils/pointer
 k8s.io/utils/strings/slices
 k8s.io/utils/trace
-# knative.dev/client-pkg v0.0.0-20230413132753-e1f3e9aba1f4
+# knative.dev/client-pkg v0.0.0-20230424160443-e75f12ea9fa0
 ## explicit; go 1.18
 knative.dev/client-pkg/pkg/apis/client
 knative.dev/client-pkg/pkg/apis/client/v1alpha1
@@ -1685,8 +1685,8 @@ knative.dev/client-pkg/pkg/serving/v1
 knative.dev/client-pkg/pkg/util
 knative.dev/client-pkg/pkg/util/test
 knative.dev/client-pkg/pkg/wait
-# knative.dev/eventing v0.36.1-0.20230418085055-cc3d254d555c
-## explicit; go 1.18
+# knative.dev/eventing v0.36.1-0.20230425111243-034bec97c9c5
+## explicit; go 1.19
 knative.dev/eventing/pkg/apis/config
 knative.dev/eventing/pkg/apis/duck
 knative.dev/eventing/pkg/apis/duck/v1
@@ -1708,7 +1708,7 @@ knative.dev/eventing/pkg/client/clientset/versioned/typed/eventing/v1
 # knative.dev/hack v0.0.0-20230417170854-f591fea109b3
 ## explicit; go 1.18
 knative.dev/hack
-# knative.dev/networking v0.0.0-20230412014752-750a9e4f13f1
+# knative.dev/networking v0.0.0-20230419144338-e5d04e805e50
 ## explicit; go 1.18
 knative.dev/networking/pkg
 knative.dev/networking/pkg/apis/networking
@@ -1763,7 +1763,7 @@ knative.dev/pkg/tracing/propagation
 knative.dev/pkg/tracing/propagation/tracecontextb3
 knative.dev/pkg/tracker
 knative.dev/pkg/webhook/resourcesemantics
-# knative.dev/serving v0.36.1-0.20230418074055-4db179fe5a37
+# knative.dev/serving v0.36.1-0.20230425124544-84fa64c75bd3
 ## explicit; go 1.18
 knative.dev/serving/pkg/apis/autoscaling
 knative.dev/serving/pkg/apis/autoscaling/v1alpha1
