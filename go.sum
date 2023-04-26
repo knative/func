@@ -2527,8 +2527,8 @@ k8s.io/utils v0.0.0-20210802155522-efc7438f0176/go.mod h1:jPW/WVKK9YHAvNhRxK0md/
 k8s.io/utils v0.0.0-20220728103510-ee6ede2d64ed/go.mod h1:jPW/WVKK9YHAvNhRxK0md/EJ228hCsBRufyofKtW8HA=
 k8s.io/utils v0.0.0-20230115233650-391b47cb4029 h1:L8zDtT4jrxj+TaQYD0k8KNlr556WaVQylDXswKmX+dE=
 k8s.io/utils v0.0.0-20230115233650-391b47cb4029/go.mod h1:OLgZIPagt7ERELqWJFomSt595RzquPNLL48iOWgYOg0=
-knative.dev/client-pkg v0.0.0-20230424160443-e75f12ea9fa0 h1:XLYexGE1Z26CVgbIBWjdvDAkcxVJd5MKeyfFwB/wsNc=
-knative.dev/client-pkg v0.0.0-20230424160443-e75f12ea9fa0/go.mod h1:lLJ4XAczLp1b6suYh2VWOaDeoRHA9l89jBRhFs9fNv0=
+knative.dev/client-pkg v0.0.0-20230425201444-4f052f9ef2f2 h1:Xc6zlrbq9X+Qh15xl8iv8Tl/qkknnOv8KwN+HzjDZU8=
+knative.dev/client-pkg v0.0.0-20230425201444-4f052f9ef2f2/go.mod h1:oYnznlTBCj/bVEHo5vUSM/VS3oDFNJKDmH5+k1aC9/8=
 knative.dev/eventing v0.37.0 h1:OtX8B9nvUSTNcbbpoNFDyeGaGU/5+aetj94i6oATpQU=
 knative.dev/eventing v0.37.0/go.mod h1:62baPXiw5GPpPyV3f0GF64X7tOjc5x9cg64RAh1gjs4=
 knative.dev/hack v0.0.0-20230417170854-f591fea109b3 h1:+W4WBOq83tfGXKhtv8OB/uJeYqze3zh69GKiz1ucuqk=
@@ -2537,8 +2537,8 @@ knative.dev/networking v0.0.0-20230419144338-e5d04e805e50 h1:X9rPBYr7Vrm075q0iXT
 knative.dev/networking v0.0.0-20230419144338-e5d04e805e50/go.mod h1:o2MyGpGfU5DoSAWCE2f/jnSC9GjGOplCslbA99yDkGo=
 knative.dev/pkg v0.0.0-20230418073056-dfad48eaa5d0 h1:EFQcoUo8I4bc+U3y6tR1B3ONYZSHWUdAfI7Vh7dae8g=
 knative.dev/pkg v0.0.0-20230418073056-dfad48eaa5d0/go.mod h1:2qWPP9Gjh9Q7ETti+WRHnBnGCSCq+6q7m3p/nmUQviE=
-knative.dev/serving v0.36.1-0.20230425124544-84fa64c75bd3 h1:q/jrXiscC8F2fFQrCUI9MXrArL4qjpr9CdKKndOP7Ac=
-knative.dev/serving v0.36.1-0.20230425124544-84fa64c75bd3/go.mod h1:v0Xbfp7olb0Gljm5l4qNuLsIf8/2p1rIt/mphxvx1z0=
+knative.dev/serving v0.37.0 h1:hp/HconGRzv0kh2az9I/af1K1DY3NG3zcyiVc2rHyOk=
+knative.dev/serving v0.37.0/go.mod h1:v0Xbfp7olb0Gljm5l4qNuLsIf8/2p1rIt/mphxvx1z0=
 modernc.org/cc v1.0.0/go.mod h1:1Sk4//wdnYJiUIxnW8ddKpaOJCF37yAdqYnkxUpaYxw=
 modernc.org/golex v1.0.0/go.mod h1:b/QX9oBD/LhixY6NDh+IdGv17hgB+51fET1i2kPSmvk=
 modernc.org/mathutil v1.0.0/go.mod h1:wU0vUrJsVWBZ4P6e7xtFJEhFSNsfRLJ8H458uRjg03k=
