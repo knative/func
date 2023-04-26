@@ -26,8 +26,8 @@ NAME
 
 SYNOPSIS
 	{{rootCmdUse}} build [-r|--registry] [--builder] [--builder-image] [--push]
-	             [--platform] [-p|--path] [-c|--confirm] [-v|--verbose] 
-				 [--build-timestamp]
+	             [--platform] [-p|--path] [-c|--confirm] [-v|--verbose]
+               [--build-timestamp]
 
 DESCRIPTION
 
