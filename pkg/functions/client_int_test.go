@@ -77,16 +77,18 @@ func TestList(t *testing.T) {
 
 // TestNew creates
 func TestNew(t *testing.T) {
-	defer Within(t, "testdata/example.com/testnew")()
+	// Assemble
+	root, cleanup := Mktemp(t)
+	defer cleanup()
 	verbose := true
-
+	name := "test-new"
 	client := newClient(verbose)
 
 	// Act
-	if _, _, err := client.New(context.Background(), fn.Function{Name: "testnew", Root: ".", Runtime: "go"}); err != nil {
+	if _, _, err := client.New(context.Background(), fn.Function{Name: name, Root: root, Runtime: "go"}); err != nil {
 		t.Fatal(err)
 	}
-	defer del(t, client, "testnew")
+	defer del(t, client, name)
 
 	// Assert
 	items, err := client.List(context.Background())
@@ -97,8 +99,8 @@ func TestNew(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(names, []string{"testnew"}) {
-		t.Fatalf("Expected function list ['testnew'], got %v", names)
+	if !reflect.DeepEqual(names, []string{name}) {
+		t.Fatalf("Expected function list ['%v'], got %v", name, names)
 	}
 }
 
@@ -122,10 +124,12 @@ func TestDeploy(t *testing.T) {
 
 // TestDeployWithOptions deploys function with all options explicitly set
 func TestDeployWithOptions(t *testing.T) {
-	defer Within(t, "testdata/example.com/deployoptions")()
+	root, cleanup := Mktemp(t)
+	defer cleanup()
 	verbose := true
 
-	ds := fn.DeploySpec{
+	f := fn.Function{Runtime: "go", Name: "test-deploy-with-options", Root: root}
+	f.Deploy = fn.DeploySpec{
 		Options: fn.Options{
 			Scale: &fn.ScaleOptions{
 				Min:         ptr.Int64(1),
@@ -149,16 +153,10 @@ func TestDeployWithOptions(t *testing.T) {
 	}
 
 	client := newClient(verbose)
-	f := fn.Function{Name: "deployoptions", Root: ".", Runtime: "go", Deploy: ds}
-	var err error
-	if _, f, err = client.New(context.Background(), f); err != nil {
+	if _, _, err := client.New(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
-	defer del(t, client, "deployoptions")
-
-	if f, err = client.Deploy(context.Background(), f); err != nil {
-		t.Fatal(err)
-	}
+	defer del(t, client, "test-deploy-with-options")
 }
 
 func TestUpdateWithAnnotationsAndLabels(t *testing.T) {
