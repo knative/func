@@ -210,7 +210,7 @@ func runAddVolumesPrompt(ctx context.Context, f fn.Function) (err error) {
 	case optionSecret:
 		newVolume.Secret = &selectedResource
 	case optionPersistentVolumeClaim:
-		newVolume.PresistentVolumeClaim = &fn.PersistentVolumeClaim{ClaimName: selectedResource}
+		newVolume.PresistentVolumeClaim = &fn.PersistentVolumeClaim{ClaimName: &selectedResource}
 	case optionEmptyDir:
 		newVolume.EmptyDir = &fn.EmptyDir{}
 	}

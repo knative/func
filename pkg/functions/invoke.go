@@ -90,7 +90,7 @@ func invoke(ctx context.Context, c *Client, f Function, target string, m InvokeM
 		body, err = sendEvent(ctx, route, m, c.transport, verbose)
 		return meta, body, err
 	default:
-		err = fmt.Errorf("format '%v' not supported.", format)
+		err = fmt.Errorf("format '%v' not supported", format)
 		return
 	}
 }

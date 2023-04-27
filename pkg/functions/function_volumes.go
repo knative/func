@@ -1,11 +1,6 @@
 package functions
 
-import (
-	"fmt"
-
-	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
-)
+import "fmt"
 
 type Volume struct {
 	Secret                *string                `yaml:"secret,omitempty" jsonschema:"oneof_required=secret"`
@@ -18,25 +13,30 @@ type Volume struct {
 type PersistentVolumeClaim struct {
 	// claimName is the name of a PersistentVolumeClaim in the same namespace as the pod using this volume.
 	// More info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims
-	ClaimName string `yaml:"claimName"`
+	ClaimName *string `yaml:"claimName,omitempty"`
 	// readOnly Will force the ReadOnly setting in VolumeMounts.
 	// Default false.
 	ReadOnly bool `yaml:"readOnly,omitempty"`
 }
+
+const (
+	StorageMediumDefault = ""       // use whatever the default is for the node, assume anything we don't explicitly handle is this
+	StorageMediumMemory  = "Memory" // use memory (e.g. tmpfs on linux)
+)
 
 type EmptyDir struct {
 	// medium represents what type of storage medium should back this directory.
 	// The default is "" which means to use the node's default medium.
 	// Must be an empty string (default) or Memory.
 	// More info: https://kubernetes.io/docs/concepts/storage/volumes#emptydir
-	Medium corev1.StorageMedium `yaml:"medium,omitempty"`
+	Medium string `yaml:"medium,omitempty"`
 	// sizeLimit is the total amount of local storage required for this EmptyDir volume.
 	// The size limit is also applicable for memory medium.
 	// The maximum usage on memory medium EmptyDir would be the minimum value between
 	// the SizeLimit specified here and the sum of memory limits of all containers in a pod.
 	// The default is nil which means that the limit is undefined.
 	// More info: http://kubernetes.io/docs/user-guide/volumes#emptydir
-	SizeLimit *resource.Quantity `yaml:"sizeLimit,omitempty"`
+	SizeLimit *string `yaml:"sizeLimit,omitempty"`
 }
 
 func (v Volume) String() string {
@@ -46,9 +46,18 @@ func (v Volume) String() string {
 	} else if v.Secret != nil {
 		result = fmt.Sprintf("Secret \"%s\"", *v.Secret)
 	} else if v.PresistentVolumeClaim != nil {
-		result = fmt.Sprintf("PersistentVolumeClaim \"%s\"", v.PresistentVolumeClaim.ClaimName)
+		result = "PersistentVolumeClaim"
+		if v.PresistentVolumeClaim.ClaimName != nil {
+			result += fmt.Sprintf(" \"%s\"", *v.PresistentVolumeClaim.ClaimName)
+		}
 	} else if v.EmptyDir != nil {
 		result = "EmptyDir"
+		if v.EmptyDir.Medium == StorageMediumMemory {
+			result += " in memory"
+		}
+		if v.EmptyDir.SizeLimit != nil {
+			result += fmt.Sprintf(" with size limit \"%s\"", *v.EmptyDir.SizeLimit)
+		}
 	} else {
 		result = "No volume type"
 	}
@@ -85,11 +94,14 @@ func validateVolumes(volumes []Volume) (errors []string) {
 
 		if vol.PresistentVolumeClaim != nil {
 			numVolumes++
+			if vol.PresistentVolumeClaim.ClaimName == nil {
+				errors = append(errors, fmt.Sprintf("volume entry #%d (%s) is missing claim name", i, vol))
+			}
 		}
 
 		if vol.EmptyDir != nil {
 			numVolumes++
-			if vol.EmptyDir.Medium != corev1.StorageMediumDefault && vol.EmptyDir.Medium != corev1.StorageMediumMemory {
+			if vol.EmptyDir.Medium != StorageMediumDefault && vol.EmptyDir.Medium != StorageMediumMemory {
 				errors = append(errors, fmt.Sprintf("volume entry #%d (%s) has invalid storage medium (%s)", i, vol, vol.EmptyDir.Medium))
 			}
 		}

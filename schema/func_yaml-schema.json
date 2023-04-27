@@ -99,8 +99,7 @@
 					"description": "medium represents what type of storage medium should back this directory.\nThe default is \"\" which means to use the node's default medium.\nMust be an empty string (default) or Memory.\nMore info: https://kubernetes.io/docs/concepts/storage/volumes#emptydir"
 				},
 				"sizeLimit": {
-					"$schema": "http://json-schema.org/draft-04/schema#",
-					"$ref": "#/definitions/Quantity",
+					"type": "string",
 					"description": "sizeLimit is the total amount of local storage required for this EmptyDir volume.\nThe size limit is also applicable for memory medium.\nThe maximum usage on memory medium EmptyDir would be the minimum value between\nthe SizeLimit specified here and the sum of memory limits of all containers in a pod.\nThe default is nil which means that the limit is undefined.\nMore info: http://kubernetes.io/docs/user-guide/volumes#emptydir"
 				}
 			},
@@ -243,9 +242,6 @@
 			"type": "object"
 		},
 		"PersistentVolumeClaim": {
-			"required": [
-				"claimName"
-			],
 			"properties": {
 				"claimName": {
 					"type": "string",
@@ -256,11 +252,6 @@
 					"description": "readOnly Will force the ReadOnly setting in VolumeMounts.\nDefault false."
 				}
 			},
-			"additionalProperties": false,
-			"type": "object"
-		},
-		"Quantity": {
-			"properties": {},
 			"additionalProperties": false,
 			"type": "object"
 		},

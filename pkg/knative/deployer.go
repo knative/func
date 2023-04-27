@@ -750,34 +750,41 @@ func processVolumes(volumes []fn.Volume, referencedSecrets, referencedConfigMaps
 				}
 			}
 		} else if vol.PresistentVolumeClaim != nil {
-			volumeName = "pvc-" + vol.PresistentVolumeClaim.ClaimName
+			volumeName = "pvc-" + *vol.PresistentVolumeClaim.ClaimName
 
 			if !createdVolumes.Has(volumeName) {
 				newVolumes = append(newVolumes, corev1.Volume{
 					Name: volumeName,
 					VolumeSource: corev1.VolumeSource{
 						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-							ClaimName: vol.PresistentVolumeClaim.ClaimName,
+							ClaimName: *vol.PresistentVolumeClaim.ClaimName,
 							ReadOnly:  vol.PresistentVolumeClaim.ReadOnly,
 						},
 					},
 				})
 				createdVolumes.Insert(volumeName)
 
-				if !referencedPVCs.Has(vol.PresistentVolumeClaim.ClaimName) {
-					referencedPVCs.Insert(vol.PresistentVolumeClaim.ClaimName)
+				if !referencedPVCs.Has(*vol.PresistentVolumeClaim.ClaimName) {
+					referencedPVCs.Insert(*vol.PresistentVolumeClaim.ClaimName)
 				}
 			}
 		} else if vol.EmptyDir != nil {
 			volumeName = "empty-dir-" + rand.String(7)
 
 			if !createdVolumes.Has(volumeName) {
+
+				sizeLimit, err := resource.ParseQuantity(*vol.EmptyDir.SizeLimit)
+
+				if err != nil {
+					return nil, nil, fmt.Errorf("invalid quantity for sizeLimit: %s. Error: %s", *vol.EmptyDir.SizeLimit, err)
+				}
+
 				newVolumes = append(newVolumes, corev1.Volume{
 					Name: volumeName,
 					VolumeSource: corev1.VolumeSource{
 						EmptyDir: &corev1.EmptyDirVolumeSource{
-							Medium:    vol.EmptyDir.Medium,
-							SizeLimit: vol.EmptyDir.SizeLimit,
+							Medium:    corev1.StorageMedium(vol.EmptyDir.Medium),
+							SizeLimit: &sizeLimit,
 						},
 					},
 				})

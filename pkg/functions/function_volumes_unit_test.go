@@ -16,8 +16,9 @@ func Test_validateVolumes(t *testing.T) {
 	secret := "secret"
 	secret2 := "secret2"
 	cm := "configMap"
+	pvcName := "pvc"
 	pvc := &PersistentVolumeClaim{
-		ClaimName: "pvc",
+		ClaimName: &pvcName,
 	}
 	emptyDir := &EmptyDir{}
 
@@ -192,8 +193,9 @@ func Test_validateVolumesString(t *testing.T) {
 	path := "path"
 
 	cm := "configMap"
+	pvcName := "pvc"
 	pvc := &PersistentVolumeClaim{
-		ClaimName: "pvc",
+		ClaimName: &pvcName,
 	}
 
 	tests := []struct {
