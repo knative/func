@@ -61,5 +61,7 @@ func RepoOwnerAndNameFromUrl(url string) (string, string, error) {
 	repoOwner := repoArr[0]
 	repoName := repoArr[1]
 
+	repoName = strings.TrimSuffix(repoName, ".git")
+
 	return repoOwner, repoName, nil
 }
