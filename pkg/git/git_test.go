@@ -18,6 +18,13 @@ func TestGetRepoOwnerFromGHURL(t *testing.T) {
 			wantErr:   false,
 		},
 		{
+			name:      "correct with dot git suffix",
+			url:       "https://gh/foo/bar.git",
+			wantOwner: "foo",
+			wantName:  "bar",
+			wantErr:   false,
+		},
+		{
 			name:      "correct with capital letters",
 			url:       "https://gh/FOO/bar",
 			wantOwner: "foo",
