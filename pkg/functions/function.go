@@ -376,7 +376,7 @@ func (f Function) Write() (err error) {
 //
 // This is a performance optimization used when updates to the
 // function are known to have no effect on its built container.  This
-// stamp is checked before certian operations, and if it has been updated,
+// stamp is checked before certain operations, and if it has been updated,
 // the build can be skuipped.  If in doubt, just use .Write only.
 //
 // Updates the build stamp at ./func/built (and the log
@@ -701,7 +701,7 @@ func (f Function) Built() bool {
 
 // BuildStamp accesses the current (last) build stamp for the function.
 // Unbuilt functions return empty string.
-// Modifications to the funciton in-memory which have not been written to
+// Modifications to the function in-memory which have not been written to
 // disk using a f.Write(false) may update this stamp.
 func (f Function) BuildStamp() string {
 	path := filepath.Join(f.Root, RunDataDir, "built")
