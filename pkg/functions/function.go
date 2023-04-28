@@ -117,7 +117,7 @@ type BuildSpec struct {
 	Builder string `yaml:"builder,omitempty" jsonschema:"enum=pack,enum=s2i"`
 
 	// Build Env variables to be set
-	BuildEnvs []Env `yaml:"buildEnvs,omitempty"`
+	BuildEnvs Envs `yaml:"buildEnvs,omitempty"`
 
 	// PVCSize specifies the size of persistent volume claim used to store function
 	// when using deployment and remote build process (only relevant when Remote is true).
@@ -130,7 +130,7 @@ type RunSpec struct {
 	Volumes []Volume `yaml:"volumes,omitempty"`
 
 	// Env variables to be set
-	Envs []Env `yaml:"envs,omitempty"`
+	Envs Envs `yaml:"envs,omitempty"`
 }
 
 // DeploySpec

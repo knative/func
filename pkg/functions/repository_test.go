@@ -119,7 +119,7 @@ func TestRepository_Inheritance(t *testing.T) {
 		},
 	}
 
-	if diff := cmp.Diff(envs, fB.Build.BuildEnvs); diff != "" {
+	if diff := cmp.Diff(fn.Envs(envs), fB.Build.BuildEnvs); diff != "" {
 		t.Fatalf("Unexpected difference between repository's manifest.yaml buildEnvs and function BuildEnvs (-want, +got): %v", diff)
 	}
 

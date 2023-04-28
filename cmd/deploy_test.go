@@ -393,7 +393,7 @@ func TestDeploy_Envs(t *testing.T) {
 		{Name: ptr("ENV1"), Value: ptr("VAL1")},
 		{Name: ptr("ENV2"), Value: ptr("VAL2")},
 	}
-	if !reflect.DeepEqual(f.Run.Envs, expected) {
+	if !reflect.DeepEqual(f.Run.Envs, fn.Envs(expected)) {
 		t.Fatalf("Expected envs '%v', got '%v'", expected, f.Run.Envs)
 	}
 
@@ -412,7 +412,7 @@ func TestDeploy_Envs(t *testing.T) {
 		{Name: ptr("ENV2"), Value: ptr("VAL2")},
 		{Name: ptr("ENV3"), Value: ptr("VAL3")},
 	}
-	if !reflect.DeepEqual(f.Run.Envs, expected) {
+	if !reflect.DeepEqual(f.Run.Envs, fn.Envs(expected)) {
 		t.Fatalf("Expected envs '%v', got '%v'", expected, f.Run.Envs)
 	}
 
@@ -429,7 +429,7 @@ func TestDeploy_Envs(t *testing.T) {
 		{Name: ptr("ENV2"), Value: ptr("VAL2")},
 		{Name: ptr("ENV3"), Value: ptr("VAL3")},
 	}
-	if !reflect.DeepEqual(f.Run.Envs, expected) {
+	if !reflect.DeepEqual(f.Run.Envs, fn.Envs(expected)) {
 		t.Fatalf("Expected envs '%v', got '%v'", expected, f.Run.Envs)
 	}
 
