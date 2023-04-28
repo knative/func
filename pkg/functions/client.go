@@ -557,8 +557,7 @@ func (c *Client) Init(cfg Function) (Function, error) {
 
 	// Write out the new function's Template files.
 	// Templates contain values which may result in the function being mutated
-	// (default builders, etc), so a new (potentially mutated) function is
-	// returned from Templates.Write
+	// (default builders, etc)
 	err = c.Templates().Write(&f)
 	if err != nil {
 		return f, err
@@ -660,9 +659,10 @@ func WithDeploySkipBuildCheck(skipBuiltCheck bool) DeployOption {
 	}
 }
 
-// Deploy the function at path. Errors if the function has not been built.
+// Deploy the function at path.
+// Errors if the function has not been built unless explicitly instructed
+// to ignore this build check.
 func (c *Client) Deploy(ctx context.Context, f Function, opts ...DeployOption) (Function, error) {
-
 	deployParams := &DeployParams{skipBuiltCheck: false}
 	for _, opt := range opts {
 		opt(deployParams)

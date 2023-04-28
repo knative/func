@@ -380,10 +380,17 @@ func (f Function) Write() (err error) {
 // the build can be skuipped.  If in doubt, just use .Write only.
 //
 // Updates the build stamp at ./func/built (and the log
-// at ./func/built.log) to reflect the current state of the filesystem.
+// at .func/built.log) to reflect the current state of the filesystem.
 // Note that the caller should call .Write first to flush any changes to the
 // function in-memory to the filesystem prior to calling stamp.
+//
+// The runtime data directory .func is created in the function root if
+// necessary.
 func (f Function) Stamp() (err error) {
+	if err = f.ensureRuntimeDir(); err != nil {
+		return
+	}
+
 	var hash, log string
 	if hash, log, err = fingerprint(f.Root); err != nil {
 		return
