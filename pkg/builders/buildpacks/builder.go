@@ -7,6 +7,7 @@ import (
 	"io"
 	"runtime"
 	"strings"
+	"time"
 
 	"github.com/Masterminds/semver"
 	pack "github.com/buildpacks/pack/pkg/client"
@@ -50,9 +51,10 @@ type Builder struct {
 	name    string
 	verbose bool
 	// in non-verbose mode contains std[err,out], so it can be printed on error
-	outBuff bytes.Buffer
-	logger  logging.Logger
-	impl    Impl
+	outBuff       bytes.Buffer
+	logger        logging.Logger
+	impl          Impl
+	withTimestamp bool
 }
 
 // Impl allows for the underlying implementation to be mocked for tests.
@@ -97,6 +99,12 @@ func WithImpl(i Impl) Option {
 	}
 }
 
+func WithTimestamp(v bool) Option {
+	return func(b *Builder) {
+		b.withTimestamp = v
+	}
+}
+
 var DefaultLifecycleImage = "quay.io/boson/lifecycle@sha256:f53fea9ec9188b92cab0b8a298ff852d76a6c2aaf56f968a08637e13de0e0c59"
 
 // Build the Function at path.
@@ -118,6 +126,10 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 			Network string
 			Volumes []string
 		}{Network: "", Volumes: nil},
+	}
+	if b.withTimestamp {
+		now := time.Now()
+		opts.CreationTime = &now
 	}
 	if opts.Env, err = fn.Interpolate(f.Build.BuildEnvs); err != nil {
 		return err

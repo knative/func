@@ -32,7 +32,7 @@ SYNOPSIS
 	{{rootCmdUse}} deploy [-R|--remote] [-r|--registry] [-i|--image] [-n|--namespace]
 	             [-e|env] [-g|--git-url] [-t|git-branch] [-d|--git-dir]
 	             [-b|--build] [--builder] [--builder-image] [-p|--push]
-	             [--platform] [-c|--confirm] [-v|--verbose]
+	             [--platform] [-c|--confirm] [-v|--verbose] [--build-timestamp]
 
 DESCRIPTION
 
@@ -116,7 +116,7 @@ EXAMPLES
 
 `,
 		SuggestFor: []string{"delpoy", "deplyo"},
-		PreRunE:    bindEnv("confirm", "env", "git-url", "git-branch", "git-dir", "remote", "build", "builder", "builder-image", "image", "registry", "push", "platform", "namespace", "path", "verbose", "pvc-size"),
+		PreRunE:    bindEnv("confirm", "env", "git-url", "git-branch", "git-dir", "remote", "build", "builder", "builder-image", "image", "registry", "push", "platform", "namespace", "path", "verbose", "pvc-size", "build-timestamp"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDeploy(cmd, newClient)
 		},
@@ -178,6 +178,7 @@ EXAMPLES
 		"Push the function image to registry before deploying. ($FUNC_PUSH)")
 	cmd.Flags().String("platform", "",
 		"Optionally specify a specific platform to build for (e.g. linux/amd64). ($FUNC_PLATFORM)")
+	cmd.Flags().BoolP("build-timestamp", "", false, "Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.")
 
 	// Oft-shared flags:
 	addConfirmFlag(cmd, cfg.Confirm)
@@ -240,7 +241,9 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	if f.Build.Builder == builders.Pack {
 		builder = buildpacks.NewBuilder(
 			buildpacks.WithName(builders.Pack),
-			buildpacks.WithVerbose(cfg.Verbose))
+			buildpacks.WithVerbose(cfg.Verbose),
+			buildpacks.WithTimestamp(cfg.WithTimestamp),
+		)
 	} else if f.Build.Builder == builders.S2I {
 		builder = s2i.NewBuilder(
 			s2i.WithName(builders.S2I),
@@ -374,21 +377,26 @@ type deployConfig struct {
 
 	// PVCSize configures the PVC size used by the pipeline if --remote flag is set.
 	PVCSize string
+
+	// Build with the current timestamp as the created time for docker image.
+	// This is only useful for buildpacks builder.
+	WithTimestamp bool
 }
 
 // newDeployConfig creates a buildConfig populated from command flags and
 // environment variables; in that precedence.
 func newDeployConfig(cmd *cobra.Command) (c deployConfig) {
 	c = deployConfig{
-		buildConfig: newBuildConfig(),
-		Build:       viper.GetString("build"),
-		Env:         viper.GetStringSlice("env"),
-		GitBranch:   viper.GetString("git-branch"),
-		GitDir:      viper.GetString("git-dir"),
-		GitURL:      viper.GetString("git-url"),
-		Namespace:   viper.GetString("namespace"),
-		Remote:      viper.GetBool("remote"),
-		PVCSize:     viper.GetString("pvc-size"),
+		buildConfig:   newBuildConfig(),
+		Build:         viper.GetString("build"),
+		Env:           viper.GetStringSlice("env"),
+		GitBranch:     viper.GetString("git-branch"),
+		GitDir:        viper.GetString("git-dir"),
+		GitURL:        viper.GetString("git-url"),
+		Namespace:     viper.GetString("namespace"),
+		Remote:        viper.GetBool("remote"),
+		PVCSize:       viper.GetString("pvc-size"),
+		WithTimestamp: viper.GetBool("build-timestamp"),
 	}
 	// NOTE: .Env should be viper.GetStringSlice, but this returns unparsed
 	// results and appears to be an open issue since 2017:
