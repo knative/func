@@ -200,7 +200,12 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		}
 	}
 
-	return f.Write()
+	if err = f.Write(); err != nil {
+		return
+	}
+	// Stamp is a performance optimization: treat the function as being built
+	// (cached) unless the fs changes.
+	return f.Stamp()
 }
 
 type buildConfig struct {

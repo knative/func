@@ -1,6 +1,7 @@
 package functions
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"errors"
 	"fmt"
@@ -24,11 +25,6 @@ const (
 	// RunDataDir holds transient runtime metadata
 	// By default it is excluded from source control.
 	RunDataDir = ".func"
-
-	// buildstamp is the name of the file within the run data directory whose
-	// existence indicates the function has been built, and whose content is
-	// a fingerprint of the filesystem at the time of the build.
-	buildstamp = "built"
 
 	// DefaultPersistentVolumeClaimSize represents default size of PVC created for a Pipeline
 	DefaultPersistentVolumeClaimSize string = "256Mi"
@@ -88,12 +84,6 @@ type Function struct {
 
 	//DeploySpec define the deployment properties for a function
 	Deploy DeploySpec `yaml:"deploy,omitempty"`
-
-	// current (last) build stamp for the function if it can be found.
-	BuildStamp string `yaml:"-"`
-
-	// flags that buildstamp needs to be saved to disk
-	NeedsWriteBuildStamp bool `yaml:"-"`
 }
 
 // BuildSpec
@@ -196,21 +186,21 @@ func NewFunctionWith(defaults Function) Function {
 // Migrations are run prior to validators such that validation can omit
 // concerning itself with backwards compatibility. Migrators must therefore
 // selectively consider the minimal validation necessary to enable migration.
-func NewFunction(path string) (f Function, err error) {
+func NewFunction(root string) (f Function, err error) {
 	f.Build.BuilderImages = make(map[string]string)
 	f.Deploy.Annotations = make(map[string]string)
 
 	// Path defaults to current working directory, and if provided explicitly
 	// Path must exist and be a directory
-	if path == "" {
-		if path, err = os.Getwd(); err != nil {
+	if root == "" {
+		if root, err = os.Getwd(); err != nil {
 			return
 		}
 	}
-	f.Root = path // path is not persisted, as this is the purview of the FS
+	f.Root = root // path is not persisted, as this is the purview of the FS
 
 	// Path must exist and be a directory
-	fd, err := os.Stat(path)
+	fd, err := os.Stat(root)
 	if err != nil {
 		return f, err
 	}
@@ -220,7 +210,7 @@ func NewFunction(path string) (f Function, err error) {
 
 	// If no func.yaml in directory, return the default function which will
 	// have f.Initialized() == false
-	var filename = filepath.Join(path, FunctionFile)
+	var filename = filepath.Join(root, FunctionFile)
 	if _, err = os.Stat(filename); err != nil {
 		if os.IsNotExist(err) {
 			err = nil
@@ -251,7 +241,6 @@ func NewFunction(path string) (f Function, err error) {
 		errorText += "\n" + "Migration: " + functionMigrationError.Error()
 		return Function{}, errors.New(errorText)
 	}
-	f.BuildStamp = f.buildStamp()
 	return
 }
 
@@ -360,10 +349,7 @@ func nameFromPath(path string) string {
 	*/
 }
 
-// Write aka (save, serialize, marshal) the function to disk at its path.
-// Only valid functions can be written.
-// In order to retain built status (staleness checks), the file is only
-// modified if the structure actually changes.
+// Write Function struct (metadata) to Disk at f.Root
 func (f Function) Write() (err error) {
 	// Skip writing (and dirtying the work tree) if there were no modifications.
 	f1, _ := NewFunction(f.Root)
@@ -371,27 +357,41 @@ func (f Function) Write() (err error) {
 		return
 	}
 
+	// Do not write invalid functions
 	if err = f.Validate(); err != nil {
 		return
 	}
-	path := filepath.Join(f.Root, FunctionFile)
+
+	// Write
 	var bb []byte
 	if bb, err = yaml.Marshal(&f); err != nil {
 		return
 	}
 	// TODO: open existing file for writing, such that existing permissions
-	// are preserved.
-	if err = os.WriteFile(path, bb, 0644); err != nil {
+	// are preserved?
+	return os.WriteFile(filepath.Join(f.Root, FunctionFile), bb, 0644)
+}
+
+// Stamp a function as being built.
+//
+// This is a performance optimization used when updates to the
+// function are known to have no effect on its built container.  This
+// stamp is checked before certian operations, and if it has been updated,
+// the build can be skuipped.  If in doubt, just use .Write only.
+//
+// Updates the build stamp at ./func/built (and the log
+// at ./func/built.log) to reflect the current state of the filesystem.
+// Note that the caller should call .Write first to flush any changes to the
+// function in-memory to the filesystem prior to calling stamp.
+func (f Function) Stamp() (err error) {
+	var hash, log string
+	if hash, log, err = fingerprint(f.Root); err != nil {
 		return
 	}
-	if f.NeedsWriteBuildStamp {
-		err = f.writeBuildStamp()
-		if err != nil {
-			return
-		}
-		f.NeedsWriteBuildStamp = false
+	if err = os.WriteFile(filepath.Join(f.Root, RunDataDir, "built"), []byte(hash), os.ModePerm); err != nil {
+		return
 	}
-	return
+	return os.WriteFile(filepath.Join(f.Root, RunDataDir, "built.log"), []byte(log), os.ModePerm)
 }
 
 // Initialized returns if the function has been initialized.
@@ -654,87 +654,17 @@ func (f Function) ensureRuntimeDir() error {
 /.func
 `
 	return os.WriteFile(filepath.Join(f.Root, ".gitignore"), []byte(gitignore), 0644)
-
 }
 
-// Tag the function in memory as having been built
-// This is locally-scoped data, only indicating there presumably exists
-// a container image in the cache of the the configured builder, thus this info
-// is placed in a .func (non-source controlled) local metadata directory, which
-// is not stritly required to exist, so it is created if needed.
-func (f Function) updateBuildStamp() (Function, error) {
-	hash, err := f.fingerprint()
-	if err != nil {
-		return f, err
-	}
-	f.BuildStamp = hash
-	f.NeedsWriteBuildStamp = true
-	return f, err
-}
-
-// Tag the function on disk as having been built
-// This is locally-scoped data, only indicating there presumably exists
-// a container image in the cache of the the configured builder, thus this info
-// is placed in a .func (non-source controlled) local metadata directory, which
-// is not stritly required to exist, so it is created if needed.
-func (f Function) writeBuildStamp() (err error) {
-	if err = f.ensureRuntimeDir(); err != nil {
-		return err
-	}
-	hash, err := f.fingerprint()
-	if err != nil {
-		return err
-	}
-	if err = os.WriteFile(filepath.Join(f.Root, RunDataDir, buildstamp), []byte(hash), os.ModePerm); err != nil {
-		return err
-	}
-	return
-}
-
-// fingerprint returns a hash of the filenames and modification timestamps of
-// the files within a function's root.
-func (f Function) fingerprint() (string, error) {
-	h := sha256.New()
-	err := filepath.Walk(f.Root, func(path string, info fs.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		// Always ignore .func, .git (TODO: .funcignore)
-		if info.IsDir() && (info.Name() == RunDataDir || info.Name() == ".git") {
-			return filepath.SkipDir
-		}
-		fmt.Fprintf(h, "%v:%v:", path, info.ModTime().UnixNano())
-		return nil
-	})
-	return fmt.Sprintf("%x", h.Sum(nil)), err
-}
-
-// buildStamp returns the current (last) build stamp for the function
-// at the given path, if it can be found.
-func (f Function) buildStamp() string {
-	buildstampPath := filepath.Join(f.Root, RunDataDir, buildstamp)
-	if _, err := os.Stat(buildstampPath); err != nil {
-		return ""
-	}
-	b, err := os.ReadFile(buildstampPath)
-	if err != nil {
-		return ""
-	}
-	return string(b)
-}
-
-// Built returns true if the given path contains a function which has been
-// built without any filesystem modifications since (is not stale).
-// FIXME: This is very specifically to be used for the logic of determining if
-// a function as it exists on disk has been built, which is why it was
-// originally a package-static function `fn.Built(path string)`.  By moving
-// it to the Function struct, it must also be modified to return false if the
-// serialization of the in-memory struct differs from the function on disk.
+// Built returns true if the function is considered built.
+// Note that this only considers the function as it exists on-disk at
+// f.Root.  A call to f.Write(false) which includes in-memory changes
+// may appreciably alter the function's fingerprint causing a subsequent
+// call to .Build() to return false.
 func (f Function) Built() bool {
 	// If there is no build stamp, it is not built.
-	// This case should be redundant with the below check for an image, but is
-	// temporarily necessary (see the long-winded caviat note below).
-	if f.BuildStamp == "" {
+	stamp := f.BuildStamp()
+	if stamp == "" {
 		return false
 	}
 
@@ -753,21 +683,65 @@ func (f Function) Built() bool {
 		return false
 	}
 
-	// Calculate the function's Filesystem hash and see if it has changed.
-	hash, err := f.fingerprint()
+	// Calculate the current filesystem hash and see if it has changed.
+	//
+	// If this comparison returns true, the Function has a populated image,
+	// existing buildstamp, and the calculated fingerprint has not changed.
+	//
+	// It's a pretty good chance the thing doesn't need to be rebuilt, though
+	// of course filesystem racing conditions do exist, including both direct
+	// source code modifications or changes to the image cache.
+	hash, _, err := fingerprint(f.Root)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error calculating function's fingerprint: %v\n", err)
 		return false
 	}
+	return stamp == hash
+}
 
-	if f.BuildStamp != hash {
-		return false
+// BuildStamp accesses the current (last) build stamp for the function.
+// Unbuilt functions return empty string.
+// Modifications to the funciton in-memory which have not been written to
+// disk using a f.Write(false) may update this stamp.
+func (f Function) BuildStamp() string {
+	path := filepath.Join(f.Root, RunDataDir, "built")
+	if _, err := os.Stat(path); err != nil {
+		return ""
 	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	return string(b)
+}
 
-	// Function has a populated image, existing buildstamp, and the calculated
-	// fingerprint has not changed.
-	// It's a pretty good chance the thing doesn't need to be rebuilt, though
-	// of course filesystem racing conditions do exist, including both direct
-	// source code modifications or changes to the image cache.
-	return true
+// fingerprint the files at a given path.  Returns a hash calculated from the
+// filenames and modification timestamps of the files within the given root.
+// Also returns a logfile consiting of the filenames and modification times
+// which contributed to the hash.
+// Intended to determine if there were appreciable changes to a function's
+// source code, certain directories and files are ignored, such as
+// .git and .func.
+// Future updates will include files explicitly marked as ignored by a
+// .funcignore.
+func fingerprint(root string) (hash, log string, err error) {
+	h := sha256.New()   // Hash builder
+	l := bytes.Buffer{} // Log buffer
+
+	err = filepath.Walk(root, func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if path == root {
+			return nil
+		}
+		// Always ignore .func, .git (TODO: .funcignore)
+		if info.IsDir() && (info.Name() == RunDataDir || info.Name() == ".git") {
+			return filepath.SkipDir
+		}
+		fmt.Fprintf(h, "%v:%v:", path, info.ModTime().UnixNano())   // Write to the Hasher
+		fmt.Fprintf(&l, "%v:%v\n", path, info.ModTime().UnixNano()) // Write to the Log
+		return nil
+	})
+	return fmt.Sprintf("%x", h.Sum(nil)), l.String(), err
 }

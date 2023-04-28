@@ -564,7 +564,8 @@ func (c *Client) Init(cfg Function) (Function, error) {
 		return f, err
 	}
 
-	// Mark the function as having been created
+	// Mark the function as having been created, and that it is not to be
+	// considered built.
 	f.Created = time.Now()
 	err = f.Write()
 	if err != nil {
@@ -607,8 +608,7 @@ func (c *Client) Build(ctx context.Context, f Function) (Function, error) {
 		return f, err
 	}
 
-	f, err = f.updateBuildStamp()
-	if err != nil {
+	if err = f.Stamp(); err != nil {
 		return f, err
 	}
 
@@ -703,9 +703,7 @@ func (c *Client) Deploy(ctx context.Context, f Function, opts ...DeployOption) (
 		c.progressListener.Increment(fmt.Sprintf("✅ Function updated in namespace %q and exposed at URL: \n   %v", result.Namespace, result.URL))
 	}
 
-	// Metadata generated from deploying (namespace) should not trigger a rebuild
-	// through a staleness check, so update the build stamp we checked earlier.
-	return f.updateBuildStamp()
+	return f, nil
 }
 
 // RunPipeline runs a Pipeline to build and deploy the function.
@@ -760,7 +758,10 @@ func (c *Client) ConfigurePAC(ctx context.Context, f Function, metadata any) err
 		}
 	}
 
-	// saves image name/registry to function's metadata (func.yaml)
+	// saves image name/registry to function's metadata (func.yaml), and
+	// does not explicitly update the last created build stamp
+	// (i.e. changes to the function during ConfigurePAC should not cause the
+	// next deploy to skip building)
 	if err = f.Write(); err != nil {
 		return err
 	}
@@ -956,9 +957,7 @@ func (c *Client) Push(ctx context.Context, f Function) (Function, error) {
 		return f, err
 	}
 
-	// Metadata generated from pushing (ImageDigest) should not trigger a rebuild
-	// through a staleness check, so update the build stamp we checked earlier.
-	return f.updateBuildStamp()
+	return f, nil
 }
 
 // DEFAULTS

@@ -280,8 +280,16 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		}
 	}
 
-	// mutations persisted on success
-	return f.Write()
+	// Write
+	if err = f.Write(); err != nil {
+		return
+	}
+	// Stamp is a performance optimization: treat the function as being built
+	// (cached) unless the fs changes.
+	// Updates the build stamp because building must have been accomplished
+	// during this process, and a future call to deploy without any appreciable
+	// changes to the filesystem should not rebuild again unless `--build`
+	return f.Stamp()
 }
 
 // shouldBuild returns true if the value of the build option is a truthy value,
