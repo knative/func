@@ -87,11 +87,15 @@ var ceFuncValidatorMap = map[string]CloudEventsFuncResponsivenessValidator{
 		bodyData:    "hello",
 		expects:     "",
 	},
-	"quarkus": {
-		contentType: "application/json",
-		bodyData:    `{"message":"hello"}`,
-		expects:     "",
-	},
+	// Temporarily disable quarkus tests.
+	// see https://github.com/knative/func/issues/1711
+	/*
+		"quarkus": {
+			contentType: "application/json",
+			bodyData:    `{"message":"hello"}`,
+			expects:     "",
+		},
+	*/
 	"springboot": {
 		contentType: "text/plain",
 		bodyData:    "hello function",

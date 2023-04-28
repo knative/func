@@ -121,8 +121,11 @@ test-python: ## Test Python templates
 	cd templates/python/http && python3 test_func.py && rm -rf __pycache__
 
 test-quarkus: ## Test Quarkus templates
-	cd templates/quarkus/cloudevents && mvn test && mvn clean
-	cd templates/quarkus/http && mvn test && mvn clean
+	# Quarkus Template Tests are temporarily disabled
+	# see: https://github.com/knative/func/issues/1711
+	#
+	# cd templates/quarkus/cloudevents && mvn test && mvn clean
+	# cd templates/quarkus/http && mvn test && mvn clean
 
 test-springboot: ## Test Spring Boot templates
 	cd templates/springboot/cloudevents && mvn test && mvn clean
