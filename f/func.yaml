@@ -1,0 +1,9 @@
+specVersion: 0.35.0
+name: f
+runtime: node
+registry: localhost:50000/user
+image: localhost:50000/user/f:latest
+created: 2023-04-25T16:40:55.329053+09:00
+build:
+  builder: pack
+  pvcSize: 256Mi

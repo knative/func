@@ -1,13 +1,14 @@
-name: Func Check Schema
+name: Template Test Debug
 
 on: [pull_request]
 
 jobs:
-  check:
-    name: Check Schema
+  test:
+    name: Quarkus Template Test
     strategy:
       matrix:
         go: [1.18.x]
+        java: [17]
         os: ["ubuntu-latest"]
     runs-on: ${{ matrix.os }}
     steps:
@@ -15,5 +16,8 @@ jobs:
       - uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go }}
-      - name: Check that 'func.yaml schema' is up-to-date
-        run: make schema-check
+      - uses: actions/setup-java@v1
+        with:
+          java-version: ${{ matrix.java }}
+      - name: Quarkus Template Test
+        run: make test-quarkus
