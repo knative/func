@@ -165,6 +165,11 @@ func runAddVolumesPrompt(ctx context.Context, f fn.Function) (err error) {
 		}
 	}
 
+	// SECTION - display a help message to enable advanced features
+	if selectedOption == optionEmptyDir || selectedOption == optionPersistentVolumeClaim {
+		fmt.Printf("Please make sure to enable the %s extension flag: https://knative.dev/docs/serving/configuration/feature-flags/\n", selectedOption)
+	}
+
 	// SECTION - select the specific resource to be mounted
 	optionsResoures := []string{}
 	switch selectedOption {
@@ -194,12 +199,24 @@ func runAddVolumesPrompt(ctx context.Context, f fn.Function) (err error) {
 		Message: fmt.Sprintf("Please specify the path where the %s should be mounted:", selectedOption),
 	}, &path, survey.WithValidator(func(val interface{}) error {
 		if str, ok := val.(string); !ok || len(str) <= 0 || !strings.HasPrefix(str, "/") {
-			return fmt.Errorf("The input must be non-empty absolute path.")
+			return fmt.Errorf("the input must be non-empty absolute path")
 		}
 		return nil
 	}))
 	if err != nil {
 		return
+	}
+
+	// SECTION - is this read only for pvc
+	readOnly := false
+	if selectedOption == optionPersistentVolumeClaim {
+		err = survey.AskOne(&survey.Confirm{
+			Message: "Is this volume read-only?",
+			Default: false,
+		}, &readOnly)
+		if err != nil {
+			return
+		}
 	}
 
 	// we have all necessary information -> let's store the new Volume
@@ -210,7 +227,10 @@ func runAddVolumesPrompt(ctx context.Context, f fn.Function) (err error) {
 	case optionSecret:
 		newVolume.Secret = &selectedResource
 	case optionPersistentVolumeClaim:
-		newVolume.PresistentVolumeClaim = &fn.PersistentVolumeClaim{ClaimName: &selectedResource}
+		newVolume.PresistentVolumeClaim = &fn.PersistentVolumeClaim{
+			ClaimName: &selectedResource,
+			ReadOnly:  readOnly,
+		}
 	case optionEmptyDir:
 		newVolume.EmptyDir = &fn.EmptyDir{}
 	}
