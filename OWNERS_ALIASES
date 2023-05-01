@@ -115,11 +115,14 @@ aliases:
   - psschwei
   - upodroid
   security-wg-leads:
+  - davidhadas
   - evankanderson
   security-writers:
+  - davidhadas
   - evankanderson
   serving-approvers:
   - nak3
+  - skonto
   serving-reviewers:
   - KauzClay
   - carlisia
@@ -140,6 +143,7 @@ aliases:
   - dprotaso
   - nak3
   - psschwei
+  - skonto
   steering-committee:
   - csantanapr
   - lance
