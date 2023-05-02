@@ -11,6 +11,7 @@ NAME
 SYNOPSIS
 	func build [-r|--registry] [--builder] [--builder-image] [--push]
 	             [--platform] [-p|--path] [-c|--confirm] [-v|--verbose]
+               [--build-timestamp]
 
 DESCRIPTION
 
@@ -55,6 +56,7 @@ func build
 ### Options
 
 ```
+      --build-timestamp        Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
   -b, --builder string         Builder to use when creating the function's container. Currently supported builders are "pack" and "s2i". ($FUNC_BUILDER) (default "pack")
       --builder-image string   Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
   -c, --confirm                Prompt to confirm options interactively ($FUNC_CONFIRM)
