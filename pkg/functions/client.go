@@ -826,7 +826,7 @@ func (c *Client) Run(ctx context.Context, f Function) (job *Job, err error) {
 	}()
 
 	if !f.Initialized() {
-		return nil, fmt.Errorf("Can not run an uninitialized function")
+		return nil, fmt.Errorf("can not run an uninitialized function")
 	}
 
 	// Run the function, which returns a Job for use interacting (at arms length)
