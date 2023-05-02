@@ -17,12 +17,10 @@ import (
 )
 
 var runtimeSupportMap = map[string][]string{
-	"node":   {"pack", "s2i"},
-	"go":     {"pack"},
-	"python": {"pack", "s2i"},
-	// Temporarily disable quarkus tests.
-	// see: https://github.com/knative/func/issues/1711
-	// "quarkus":    {"pack", "s2i"},
+	"node":       {"pack", "s2i"},
+	"go":         {"pack"},
+	"python":     {"pack", "s2i"},
+	"quarkus":    {"pack", "s2i"},
 	"springboot": {"pack"},
 	"typescript": {"pack", "s2i"},
 }
