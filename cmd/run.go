@@ -311,7 +311,7 @@ func (c runConfig) Validate(cmd *cobra.Command) (err error) {
 	// only generate this error when --container==false && the --language is
 	// not yet implemented.
 	if !c.Container {
-		return errors.New("The ability to run functions outside of a container via 'func run' is coming soon.")
+		return errors.New("the ability to run functions outside of a container via 'func run' is coming soon.")
 	}
 	return
 }
