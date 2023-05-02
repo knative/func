@@ -10,9 +10,9 @@ NAME
 
 SYNOPSIS
 	func deploy [-R|--remote] [-r|--registry] [-i|--image] [-n|--namespace]
-	             [-e|env] [-g|--git-url] [-t|git-branch] [-d|--git-dir]
+	             [-e|--env] [-g|--git-url] [-t|--git-branch] [-d|--git-dir]
 	             [-b|--build] [--builder] [--builder-image] [-p|--push]
-	             [--platform] [-c|--confirm] [-v|--verbose]
+	             [--platform] [-c|--confirm] [-v|--verbose] [--build-timestamp]
 
 DESCRIPTION
 
@@ -104,6 +104,7 @@ func deploy
 
 ```
       --build string[="true"]   Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
+      --build-timestamp         Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
   -b, --builder string          Builder to use when creating the function's container. Currently supported builders are "pack" and "s2i". (default "pack")
       --builder-image string    Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
   -c, --confirm                 Prompt to confirm options interactively ($FUNC_CONFIRM)
