@@ -34,7 +34,7 @@ func TestFunctionExtendedFlow(t *testing.T) {
 	// ---------------------------
 	// Func Create Test
 	// ---------------------------
-	knFunc.Exec("create", "--language", "node", "--template", "http", funcPath)
+	knFunc.Exec("create", "--language", "node", funcPath)
 
 	// From here on, all commands will be executed from the func project path
 	knFunc.SourceDir = funcPath
@@ -54,11 +54,14 @@ func TestFunctionExtendedFlow(t *testing.T) {
 
 	portChannel := make(chan string)
 	go func() {
+		t.Log("----Checking for listening port")
 		// set the function that will be executed while "kn func run" is executed
 		knFuncTerm1.OnWaitCallback = func(stdout *bytes.Buffer) {
+			t.Log("-----Executing OnWaitCallback")
 			funcPort, attempts := "", 0
 			for funcPort == "" && attempts < 10 {
-				matches := regexp.MustCompile("Function started on port (.*)").FindStringSubmatch(stdout.String())
+				t.Logf("----Function Output:\n%v\n", stdout.String())
+				matches := regexp.MustCompile("Running on host port (.*)").FindStringSubmatch(stdout.String())
 				attempts++
 				if len(matches) > 1 {
 					funcPort = matches[1]
@@ -69,7 +72,7 @@ func TestFunctionExtendedFlow(t *testing.T) {
 			// can proceed
 			portChannel <- funcPort
 		}
-		knFuncTerm1.Exec("run", "--path", funcPath)
+		knFuncTerm1.Exec("run", "--verbose", "--path", funcPath)
 	}()
 
 	knFuncRunCompleted := false

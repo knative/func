@@ -59,10 +59,6 @@ func NewTestClient(options ...fn.Option) ClientFactory {
 // 'Namespace' is optional.  If not provided (see DefaultNamespace commentary),
 // the currently configured is used.
 // 'Verbose' indicates the system should write out a higher amount of logging.
-// Example:
-//
-//	client, done := NewClient("",false)
-//	defer done()
 func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 	var (
 		p  = progress.New(cfg.Verbose)               // updates the CLI
@@ -79,7 +75,6 @@ func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 			fn.WithRemover(knative.NewRemover(cfg.Namespace, cfg.Verbose)),
 			fn.WithDescriber(knative.NewDescriber(cfg.Namespace, cfg.Verbose)),
 			fn.WithLister(knative.NewLister(cfg.Namespace, cfg.Verbose)),
-			fn.WithRunner(docker.NewRunner(cfg.Verbose, os.Stdout, os.Stderr)),
 			fn.WithDeployer(d),
 			fn.WithPipelinesProvider(pp),
 			fn.WithPusher(docker.NewPusher(

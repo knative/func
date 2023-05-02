@@ -249,17 +249,6 @@ func deriveImage(explicitImage, defaultRegistry, path string) string {
 	return derivedValue
 }
 
-func envFromCmd(cmd *cobra.Command) (*util.OrderedMap, []string, error) {
-	if cmd.Flags().Changed("env") {
-		env, err := cmd.Flags().GetStringArray("env")
-		if err != nil {
-			return nil, []string{}, fmt.Errorf("Invalid --env: %w", err)
-		}
-		return util.OrderedMapAndRemovalListFromArray(env, "=")
-	}
-	return util.NewOrderedMap(), []string{}, nil
-}
-
 func mergeEnvs(envs []fn.Env, envToUpdate *util.OrderedMap, envToRemove []string) ([]fn.Env, int, error) {
 	updated := sets.NewString()
 

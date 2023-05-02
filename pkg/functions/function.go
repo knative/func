@@ -725,6 +725,11 @@ func (f Function) buildStamp() string {
 
 // Built returns true if the given path contains a function which has been
 // built without any filesystem modifications since (is not stale).
+// FIXME: This is very specifically to be used for the logic of determining if
+// a function as it exists on disk has been built, which is why it was
+// originally a package-static function `fn.Built(path string)`.  By moving
+// it to the Function struct, it must also be modified to return false if the
+// serialization of the in-memory struct differs from the function on disk.
 func (f Function) Built() bool {
 	// If there is no build stamp, it is not built.
 	// This case should be redundant with the below check for an image, but is

@@ -13,7 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"knative.dev/client-pkg/pkg/util"
 	"knative.dev/func/pkg/builders"
-	"knative.dev/func/pkg/builders/buildpacks"
+	pack "knative.dev/func/pkg/builders/buildpacks"
 	"knative.dev/func/pkg/builders/s2i"
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
@@ -30,7 +30,7 @@ NAME
 
 SYNOPSIS
 	{{rootCmdUse}} deploy [-R|--remote] [-r|--registry] [-i|--image] [-n|--namespace]
-	             [-e|env] [-g|--git-url] [-t|git-branch] [-d|--git-dir]
+	             [-e|--env] [-g|--git-url] [-t|--git-branch] [-d|--git-dir]
 	             [-b|--build] [--builder] [--builder-image] [-p|--push]
 	             [--platform] [-c|--confirm] [-v|--verbose] [--build-timestamp]
 
@@ -218,7 +218,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		return
 	}
 
-	// TODO: this is duplicate logic with runBuild.
+	// TODO: this is duplicate logic with runBuild and runRun.
 	// Refactor both to have this logic part of creating the buildConfig and thus
 	// shared because newDeployConfig uses newBuildConfig for its embedded struct.
 	if f.Registry != "" && !cmd.Flags().Changed("image") && strings.Index(f.Image, "/") > 0 && !strings.HasPrefix(f.Image, f.Registry) {
@@ -239,11 +239,10 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	// Concrete implementations (ex builder) vary  based on final effective cfg.
 	var builder fn.Builder
 	if f.Build.Builder == builders.Pack {
-		builder = buildpacks.NewBuilder(
-			buildpacks.WithName(builders.Pack),
-			buildpacks.WithVerbose(cfg.Verbose),
-			buildpacks.WithTimestamp(cfg.WithTimestamp),
-		)
+		builder = pack.NewBuilder(
+			pack.WithName(builders.Pack),
+			pack.WithTimestamp(cfg.WithTimestamp),
+			pack.WithVerbose(cfg.Verbose))
 	} else if f.Build.Builder == builders.S2I {
 		builder = s2i.NewBuilder(
 			s2i.WithName(builders.S2I),
@@ -551,7 +550,7 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 	// --build can be "auto"|true|false
 	if c.Build != "auto" {
 		if _, err := strconv.ParseBool(c.Build); err != nil {
-			return fmt.Errorf("unrecognized value for --build '%v'.  accepts 'auto', 'true' or 'false' (or similarly truthy value)", c.Build)
+			return fmt.Errorf("unrecognized value for --build '%v'.  Accepts 'auto', 'true' or 'false' (or similarly truthy value)", c.Build)
 		}
 	}
 
