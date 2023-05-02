@@ -665,9 +665,7 @@ func (f Function) ensureRuntimeDir() error {
 
 // Built returns true if the function is considered built.
 // Note that this only considers the function as it exists on-disk at
-// f.Root.  A call to f.Write(false) which includes in-memory changes
-// may appreciably alter the function's fingerprint causing a subsequent
-// call to .Build() to return false.
+// f.Root.
 func (f Function) Built() bool {
 	// If there is no build stamp, it is not built.
 	stamp := f.BuildStamp()
@@ -708,8 +706,6 @@ func (f Function) Built() bool {
 
 // BuildStamp accesses the current (last) build stamp for the function.
 // Unbuilt functions return empty string.
-// Modifications to the function in-memory which have not been written to
-// disk using a f.Write(false) may update this stamp.
 func (f Function) BuildStamp() string {
 	path := filepath.Join(f.Root, RunDataDir, "built")
 	if _, err := os.Stat(path); err != nil {
