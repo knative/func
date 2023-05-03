@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"os"
 	"testing"
 
 	fn "knative.dev/func/pkg/functions"
@@ -12,92 +11,68 @@ import (
 
 func TestRun_Run(t *testing.T) {
 	tests := []struct {
-		name         string   // name of the test
-		desc         string   // description of the test
-		funcState    string   // function state, as described in func.yaml
-		args         []string // args for the test case
-		buildError   error    // Set the builder to yield this error
-		runError     error    // Set the runner to yield this error
-		buildInvoked bool     // should Builder.Build be invoked?
-		runInvoked   bool     // should Runner.Run be invoked?
+		name         string                              // name of the test
+		desc         string                              // description of the test
+		setup        func(fn.Function, *testing.T) error // Optionally mutate function
+		args         []string                            // args for the test case
+		buildError   error                               // Set the builder to yield this error
+		runError     error                               // Set the runner to yield this error
+		buildInvoked bool                                // should Builder.Build be invoked?
+		runInvoked   bool                                // should Runner.Run be invoked?
 	}{
 		{
-			name: "run and build by default",
-			desc: "Should run and build when build flag is not specified",
-			funcState: `name: test-func
-runtime: go
-created: 2009-11-10 23:00:00`,
+			name:         "run and build by default",
+			desc:         "Should run and build when build flag is not specified",
 			args:         []string{},
 			buildInvoked: true,
 			runInvoked:   true,
 		},
 		{
-			name: "run and build flag",
-			desc: "Should run and build when build is merely provided (defaults to true on presence)",
-			funcState: `name: test-func
-runtime: go
-created: 2009-11-10 23:00:00`,
+			name:         "run and build flag",
+			desc:         "Should run and build when build is merely provided (defaults to true on presence)",
 			args:         []string{"--build"},
 			buildInvoked: true,
 			runInvoked:   true,
 		},
 		{
-			name: "run and build",
-			desc: "Should run and build when build is specifically requested",
-			funcState: `name: test-func
-runtime: go
-created: 2009-11-10 23:00:00`,
+			name:         "run and build",
+			desc:         "Should run and build when build is specifically requested",
 			args:         []string{"--build=true"},
 			buildInvoked: true,
 			runInvoked:   true,
 		},
 		{
-			name: "run and build with builder pack",
-			desc: "Should run and build when build is specifically requested with builder pack",
-			funcState: `name: test-func
-runtime: go
-created: 2023-03-12 15:00:00`,
+			name:         "run and build with builder pack",
+			desc:         "Should run and build when build is specifically requested with builder pack",
 			args:         []string{"--build=true", "--builder=pack"},
 			buildInvoked: true,
 			runInvoked:   true,
 		},
 		{
-			name: "run and build with builder s2i",
-			desc: "Should run and build when build is specifically requested with builder s2i",
-			funcState: `name: test-func
-runtime: go
-created: 2023-03-12 15:00:00`,
+			name:         "run and build with builder s2i",
+			desc:         "Should run and build when build is specifically requested with builder s2i",
 			args:         []string{"--build=true", "--builder=s2i"},
 			buildInvoked: true,
 			runInvoked:   true,
 		},
 		{
-			name: "run and build with builder invalid",
-			desc: "Should run and build when build is specifically requested with builder invalid",
-			funcState: `name: test-func
-runtime: go
-created: 2023-03-12 15:00:00`,
+			name:         "run and build with builder invalid",
+			desc:         "Should run and build when build is specifically requested with builder invalid",
 			args:         []string{"--build=true", "--builder=invalid"},
 			buildError:   fmt.Errorf("\"invalid\" is not a known builder. Available builders are \"pack\" and \"s2i\""),
 			buildInvoked: true,
 			runInvoked:   true,
 		},
 		{
-			name: "run without build when disabled",
-			desc: "Should run but not build when build is expressly disabled",
-			funcState: `name: test-func
-runtime: go
-created: 2009-11-10 23:00:00`,
+			name:         "run without build when disabled",
+			desc:         "Should run but not build when build is expressly disabled",
 			args:         []string{"--build=false"}, // can be any truthy value: 0, 'false' etc.
 			buildInvoked: false,
 			runInvoked:   true,
 		},
 		{
-			name: "run and build on auto",
-			desc: "Should run and buil when build flag set to auto",
-			funcState: `name: test-func
-runtime: go
-created: 2009-11-10 23:00:00`,
+			name:         "run and build on auto",
+			desc:         "Should run and buil when build flag set to auto",
 			args:         []string{"--build=auto"}, // can be any truthy value: 0, 'false' etc.
 			buildInvoked: true,
 			runInvoked:   true,
@@ -107,20 +82,17 @@ created: 2009-11-10 23:00:00`,
 			desc: "Should build when image tag exists",
 			// The existence of an image tag value does not mean the function
 			// is built; that is the purvew of the buld stamp staleness check.
-			funcState: `name: test-func
-runtime: go
-image: exampleimage
-created: 2009-11-10 23:00:00`,
+			setup: func(f fn.Function, t *testing.T) error {
+				f.Image = "exampleimage"
+				return f.Write()
+			},
 			args:         []string{},
 			buildInvoked: true,
 			runInvoked:   true,
 		},
 		{
-			name: "Build errors return",
-			desc: "Errors building cause an immediate return with error",
-			funcState: `name: test-func
-			runtime: go
-			created: 2009-11-10 23:00:00`,
+			name:         "Build errors return",
+			desc:         "Errors building cause an immediate return with error",
 			args:         []string{},
 			buildError:   fmt.Errorf("generic build error"),
 			buildInvoked: true,
@@ -128,9 +100,8 @@ created: 2009-11-10 23:00:00`,
 		},
 	}
 	for _, tt := range tests {
-		// run as a sub-test
 		t.Run(tt.name, func(t *testing.T) {
-			_ = fromTempDirectory(t)
+			root := fromTempDirectory(t)
 
 			runner := mock.NewRunner()
 			if tt.runError != nil {
@@ -152,9 +123,15 @@ created: 2009-11-10 23:00:00`,
 			))
 			cmd.SetArgs(tt.args) // Do not use test command args
 
-			// set test case's func.yaml
-			if err := os.WriteFile("func.yaml", []byte(tt.funcState), os.ModePerm); err != nil {
+			// set test case's function instance
+			f, err := fn.New().Init(fn.Function{Root: root, Runtime: "go"})
+			if err != nil {
 				t.Fatal(err)
+			}
+			if tt.setup != nil {
+				if err := tt.setup(f, t); err != nil {
+					t.Fatal(err)
+				}
 			}
 
 			ctx, cancel := context.WithCancel(context.Background())
