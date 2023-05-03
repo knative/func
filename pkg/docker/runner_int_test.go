@@ -1,3 +1,6 @@
+//go:build integration
+// +build integration
+
 package docker_test
 
 import (
@@ -49,6 +52,7 @@ func TestRun(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = j.Stop() })
+	time.Sleep(time.Second * 5)
 
 	var (
 		id  = "runner-test-id"
