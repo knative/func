@@ -33,7 +33,7 @@ SYNOPSIS
 	             [-e|--env] [-g|--git-url] [-t|--git-branch] [-d|--git-dir]
 	             [-b|--build] [--builder] [--builder-image] [-p|--push]
 	             [--domain] [--platform] [--build-timestamp]
-							 [-c|--confirm] [-v|--verbose] 
+	             [-c|--confirm] [-v|--verbose]
 
 DESCRIPTION
 
