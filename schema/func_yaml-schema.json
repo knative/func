@@ -92,6 +92,20 @@
 			"type": "object",
 			"description": "DeploySpec"
 		},
+		"EmptyDir": {
+			"properties": {
+				"medium": {
+					"type": "string",
+					"description": "medium represents what type of storage medium should back this directory.\nThe default is \"\" which means to use the node's default medium.\nMust be an empty string (default) or Memory.\nMore info: https://kubernetes.io/docs/concepts/storage/volumes#emptydir"
+				},
+				"sizeLimit": {
+					"type": "string",
+					"description": "sizeLimit is the total amount of local storage required for this EmptyDir volume.\nThe size limit is also applicable for memory medium.\nThe maximum usage on memory medium EmptyDir would be the minimum value between\nthe SizeLimit specified here and the sum of memory limits of all containers in a pod.\nThe default is nil which means that the limit is undefined.\nMore info: http://kubernetes.io/docs/user-guide/volumes#emptydir"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
+		},
 		"Env": {
 			"properties": {
 				"name": {
@@ -227,6 +241,20 @@
 			"additionalProperties": false,
 			"type": "object"
 		},
+		"PersistentVolumeClaim": {
+			"properties": {
+				"claimName": {
+					"type": "string",
+					"description": "claimName is the name of a PersistentVolumeClaim in the same namespace as the pod using this volume.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims"
+				},
+				"readOnly": {
+					"type": "boolean",
+					"description": "readOnly Will force the ReadOnly setting in VolumeMounts.\nDefault false."
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
+		},
 		"ResourcesLimitsOptions": {
 			"properties": {
 				"cpu": {
@@ -333,6 +361,14 @@
 				"configMap": {
 					"type": "string"
 				},
+				"presistentVolumeClaim": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/PersistentVolumeClaim"
+				},
+				"emptyDir": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/EmptyDir"
+				},
 				"path": {
 					"type": "string"
 				}
@@ -351,6 +387,18 @@
 						"configMap"
 					],
 					"title": "configmap"
+				},
+				{
+					"required": [
+						"presistentVolumeClaim"
+					],
+					"title": "presistentVolumeClaim"
+				},
+				{
+					"required": [
+						"emptyDir"
+					],
+					"title": "emptyDir"
 				}
 			]
 		}

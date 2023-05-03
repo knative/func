@@ -203,7 +203,7 @@ $(BIN_WINDOWS): generate/zz_filesystem_generated.go
 ##@ Schemas
 ######################
 schema-generate: schema/func_yaml-schema.json ## Generate func.yaml schema
-schema/func_yaml-schema.json: pkg/functions/function.go
+schema/func_yaml-schema.json: pkg/functions/function.go pkg/functions/function_*.go
 	go run schema/generator/main.go
 
 schema-check: ## Check that func.yaml schema is up-to-date

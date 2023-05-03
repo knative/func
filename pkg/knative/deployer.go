@@ -13,6 +13,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"knative.dev/client-pkg/pkg/kn/flags"
 	servingclientlib "knative.dev/client-pkg/pkg/serving"
@@ -146,6 +147,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 
 			referencedSecrets := sets.NewString()
 			referencedConfigMaps := sets.NewString()
+			referencedPVCs := sets.NewString()
 
 			service, err := generateNewService(f, d.decorator)
 			if err != nil {
@@ -153,7 +155,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 				return fn.DeploymentResult{}, err
 			}
 
-			err = checkSecretsConfigMapsArePresent(ctx, d.Namespace, &referencedSecrets, &referencedConfigMaps)
+			err = checkResourcesArePresent(ctx, d.Namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs)
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to generate the Knative Service: %v", err)
 				return fn.DeploymentResult{}, err
@@ -238,18 +240,19 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		// Update the existing Service
 		referencedSecrets := sets.NewString()
 		referencedConfigMaps := sets.NewString()
+		referencedPVCs := sets.NewString()
 
 		newEnv, newEnvFrom, err := processEnvs(f.Run.Envs, &referencedSecrets, &referencedConfigMaps)
 		if err != nil {
 			return fn.DeploymentResult{}, err
 		}
 
-		newVolumes, newVolumeMounts, err := processVolumes(f.Run.Volumes, &referencedSecrets, &referencedConfigMaps)
+		newVolumes, newVolumeMounts, err := processVolumes(f.Run.Volumes, &referencedSecrets, &referencedConfigMaps, &referencedPVCs)
 		if err != nil {
 			return fn.DeploymentResult{}, err
 		}
 
-		err = checkSecretsConfigMapsArePresent(ctx, d.Namespace, &referencedSecrets, &referencedConfigMaps)
+		err = checkResourcesArePresent(ctx, d.Namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs)
 		if err != nil {
 			err = fmt.Errorf("knative deployer failed to update the Knative Service: %v", err)
 			return fn.DeploymentResult{}, err
@@ -320,6 +323,7 @@ func generateNewService(f fn.Function, decorator DeployDecorator) (*v1.Service, 
 
 	referencedSecrets := sets.NewString()
 	referencedConfigMaps := sets.NewString()
+	referencedPVC := sets.NewString()
 
 	newEnv, newEnvFrom, err := processEnvs(f.Run.Envs, &referencedSecrets, &referencedConfigMaps)
 	if err != nil {
@@ -328,7 +332,7 @@ func generateNewService(f fn.Function, decorator DeployDecorator) (*v1.Service, 
 	container.Env = newEnv
 	container.EnvFrom = newEnvFrom
 
-	newVolumes, newVolumeMounts, err := processVolumes(f.Run.Volumes, &referencedSecrets, &referencedConfigMaps)
+	newVolumes, newVolumeMounts, err := processVolumes(f.Run.Volumes, &referencedSecrets, &referencedConfigMaps, &referencedPVC)
 	if err != nil {
 		return nil, err
 	}
@@ -687,11 +691,15 @@ func processLocalEnvValue(val string) (string, error) {
 
 // / processVolumes generates Volumes and VolumeMounts from a function config
 // volumes:
-//   - secret: example-secret               # mount Secret as Volume
+//   - secret: example-secret                              # mount Secret as Volume
 //     path: /etc/secret-volume
-//   - configMap: example-cm                # mount ConfigMap as Volume
-//     path: /etc/cm-volume
-func processVolumes(volumes []fn.Volume, referencedSecrets, referencedConfigMaps *sets.String) ([]corev1.Volume, []corev1.VolumeMount, error) {
+//   - configMap: example-configMap                        # mount ConfigMap as Volume
+//     path: /etc/configMap-volume
+//   - persistentVolumeClaim: { claimName: example-pvc }   # mount PersistentVolumeClaim as Volume
+//     path: /etc/secret-volume
+//   - emptyDir: {}                                         # mount EmptyDir as Volume
+//     path: /etc/configMap-volume
+func processVolumes(volumes []fn.Volume, referencedSecrets, referencedConfigMaps, referencedPVCs *sets.String) ([]corev1.Volume, []corev1.VolumeMount, error) {
 
 	createdVolumes := sets.NewString()
 	usedPaths := sets.NewString()
@@ -741,6 +749,47 @@ func processVolumes(volumes []fn.Volume, referencedSecrets, referencedConfigMaps
 					referencedConfigMaps.Insert(*vol.ConfigMap)
 				}
 			}
+		} else if vol.PresistentVolumeClaim != nil {
+			volumeName = "pvc-" + *vol.PresistentVolumeClaim.ClaimName
+
+			if !createdVolumes.Has(volumeName) {
+				newVolumes = append(newVolumes, corev1.Volume{
+					Name: volumeName,
+					VolumeSource: corev1.VolumeSource{
+						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+							ClaimName: *vol.PresistentVolumeClaim.ClaimName,
+							ReadOnly:  vol.PresistentVolumeClaim.ReadOnly,
+						},
+					},
+				})
+				createdVolumes.Insert(volumeName)
+
+				if !referencedPVCs.Has(*vol.PresistentVolumeClaim.ClaimName) {
+					referencedPVCs.Insert(*vol.PresistentVolumeClaim.ClaimName)
+				}
+			}
+		} else if vol.EmptyDir != nil {
+			volumeName = "empty-dir-" + rand.String(7)
+
+			if !createdVolumes.Has(volumeName) {
+
+				sizeLimit, err := resource.ParseQuantity(*vol.EmptyDir.SizeLimit)
+
+				if err != nil {
+					return nil, nil, fmt.Errorf("invalid quantity for sizeLimit: %s. Error: %s", *vol.EmptyDir.SizeLimit, err)
+				}
+
+				newVolumes = append(newVolumes, corev1.Volume{
+					Name: volumeName,
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{
+							Medium:    corev1.StorageMedium(vol.EmptyDir.Medium),
+							SizeLimit: &sizeLimit,
+						},
+					},
+				})
+				createdVolumes.Insert(volumeName)
+			}
 		}
 
 		if volumeName != "" {
@@ -759,9 +808,9 @@ func processVolumes(volumes []fn.Volume, referencedSecrets, referencedConfigMaps
 	return newVolumes, newVolumeMounts, nil
 }
 
-// checkSecretsConfigMapsArePresent returns error if Secrets or ConfigMaps
+// checkResourcesArePresent returns error if Secrets or ConfigMaps
 // referenced in input sets are not deployed on the cluster in the specified namespace
-func checkSecretsConfigMapsArePresent(ctx context.Context, namespace string, referencedSecrets, referencedConfigMaps *sets.String) error {
+func checkResourcesArePresent(ctx context.Context, namespace string, referencedSecrets, referencedConfigMaps, referencedPVCs *sets.String) error {
 
 	errMsg := ""
 	for s := range *referencedSecrets {
@@ -775,6 +824,13 @@ func checkSecretsConfigMapsArePresent(ctx context.Context, namespace string, ref
 		_, err := k8s.GetConfigMap(ctx, cm, namespace)
 		if err != nil {
 			errMsg += fmt.Sprintf("  referenced ConfigMap \"%s\" is not present in namespace \"%s\"\n", cm, namespace)
+		}
+	}
+
+	for pvc := range *referencedPVCs {
+		_, err := k8s.GetPersistentVolumeClaim(ctx, pvc, namespace)
+		if err != nil {
+			errMsg += fmt.Sprintf("  referenced PersistentVolumeClaim \"%s\" is not present in namespace \"%s\"\n", pvc, namespace)
 		}
 	}
 

@@ -529,7 +529,7 @@ func (f Function) ImageName() (image string, err error) {
 		// registry/parent-namespace/namespace ('quay.io/project/alice') provided
 		image = f.Registry + "/" + f.Name
 	} else if len(registryTokens) > 3 { // the name of the image is also provided `quay.io/alice/my.function.name`
-		return "", fmt.Errorf("registry should be either 'namespace', 'registry/namespace' or 'registry/parent/namespace', the name of the image will be derived from the function name.")
+		return "", fmt.Errorf("registry should be either 'namespace', 'registry/namespace' or 'registry/parent/namespace', the name of the image will be derived from the function name")
 	}
 
 	// Explicitly append :latest tag.  We expect source control to drive
