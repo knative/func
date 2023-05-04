@@ -136,6 +136,10 @@
 					"type": "string",
 					"description": "Name of the function."
 				},
+				"domain": {
+					"type": "string",
+					"description": "Domain of the function optionally specifies the domain to use as the\nroute of the function. By default the cluster's default will be used.\nNote that the value defined here must be one which the cluster is\nconfigured to recognize, or this will have no effect and the cluster\ndefault will be applied.  This value shuld therefore ideally be\nvalidated by the client."
+				},
 				"runtime": {
 					"type": "string",
 					"description": "Runtime is the language plus context.  nodejs|go|quarkus|rust etc."
