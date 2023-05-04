@@ -84,6 +84,19 @@ const updatePlatformInPom = async (pomPath, newPlatform) => {
     await writeFile(pomPath, newPomData)
 }
 
+const smokeTest = () => {
+    const subproc = spawn("make", ["test-quarkus"], {stdio: ['inherit', 'inherit', 'inherit']})
+    return new Promise((resolve, reject) => {
+        subproc.on('exit', code => {
+            if (code === 0) {
+                resolve()
+                return
+            }
+            reject(new Error("smoke test failed: non-zero exit code"))
+        })
+    })
+}
+
 const main = async () => {
     const latestPlatform = await getLatestPlatform()
     const prTitle = `chore: update Quarkus platform version to ${latestPlatform}`
@@ -103,6 +116,7 @@ const main = async () => {
 
     await updatePlatformInPom(cePomPath, latestPlatform)
     await updatePlatformInPom(httpPomPath, latestPlatform)
+    await smokeTest()
     await prepareBranch(branchName, prTitle)
     await octokit.rest.pulls.create({
         owner: owner,
