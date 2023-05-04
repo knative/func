@@ -8,7 +8,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"net"
 	"strings"
 	"testing"
 	"time"
@@ -20,32 +19,39 @@ import (
 
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
+	. "knative.dev/func/pkg/testing"
 )
 
 const displayEventImg = "gcr.io/knative-releases/knative.dev/eventing/cmd/event_display@sha256:610234e4319b767b187398085971d881956da660a4e0fab65a763e0f81881d82"
 
 func TestRun(t *testing.T) {
+	root, cleanup := Mktemp(t)
+	defer cleanup()
+
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	t.Cleanup(cancel)
 
 	prePullTestImages(t)
 
-	// deliberately try to seize 8080
-	l, err := net.Listen("tcp", "localhost:8080")
-	if err == nil {
-		t.Cleanup(func() { _ = l.Close() })
-	}
+	// No need to check for port 8080 since the runner should automatically
+	// choose an open port, with 8080 only being the preferred first choice.
 
-	var out, errOut bytes.Buffer
-	runner := docker.NewRunner(true, &out, &errOut)
-
-	j, err := runner.Run(ctx, fn.Function{
-		Image: displayEventImg,
-	})
+	// Initialize a new function (creates all artifacts on disk necessary
+	// to perform actions such as running)
+	f := fn.Function{Runtime: "go", Root: root, Image: displayEventImg}
+	f, err := fn.New().Init(f)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(j.Stop)
+
+	// Run the function using a docker runner
+	var out, errOut bytes.Buffer
+	runner := docker.NewRunner(true, &out, &errOut)
+	j, err := runner.Run(ctx, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = j.Stop() })
 	time.Sleep(time.Second * 5)
 
 	var (

@@ -206,7 +206,11 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 	if err != nil {
 		return
 	}
-	defer job.Stop()
+	defer func() {
+		if err = job.Stop(); err != nil {
+			fmt.Fprintf(cmd.OutOrStderr(), "Job stop error. %v", err)
+		}
+	}()
 
 	fmt.Fprintf(cmd.OutOrStderr(), "Running on host port %v\n", job.Port)
 
@@ -216,6 +220,9 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 			err = cmd.Context().Err()
 		}
 	case err = <-job.Errors:
+		return
+		// Bubble up runtime errors on the optional channel used for async job
+		// such as docker containers.
 	}
 
 	// NOTE: we do not f.Write() here unlike deploy (and build).

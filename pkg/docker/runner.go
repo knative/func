@@ -107,27 +107,28 @@ func (n *Runner) Run(ctx context.Context, f fn.Function) (job *fn.Job, err error
 	}
 
 	// Stopper
-	stop := func() {
+	stop := func() error {
 		var (
 			timeout = DefaultStopTimeout
 			ctx     = context.Background()
 		)
 		if err = c.ContainerStop(ctx, id, &timeout); err != nil {
-			fmt.Fprintf(os.Stderr, "error stopping container %v: %v\n", id, err)
+			return fmt.Errorf("error stopping container %v: %v\n", id, err)
 		}
 		if err = c.ContainerRemove(ctx, id, types.ContainerRemoveOptions{}); err != nil {
-			fmt.Fprintf(os.Stderr, "error removing container %v: %v\n", id, err)
+			return fmt.Errorf("error removing container %v: %v\n", id, err)
 		}
 		if err = conn.Close(); err != nil {
-			fmt.Fprintf(os.Stderr, "error closing connection to container: %v\n", err)
+			return fmt.Errorf("error closing connection to container: %v\n", err)
 		}
 		if err = c.Close(); err != nil {
-			fmt.Fprintf(os.Stderr, "error closing daemon client: %v\n", err)
+			return fmt.Errorf("error closing daemon client: %v\n", err)
 		}
+		return nil
 	}
 
 	// Job reporting port, runtime errors and provides a mechanism for stopping.
-	return fn.NewJob(f, port, runtimeErrCh, stop)
+	return fn.NewJob(f, port, runtimeErrCh, stop, n.verbose)
 }
 
 // Dial the given (tcp) port on the given interface, returning an error if it is
@@ -146,7 +147,7 @@ func dial(host, port string, dialTimeout time.Duration) (err error) {
 // Note this is not fool-proof becase of a race with any other processes
 // looking for a port at the same time.
 // Note that TCP is presumed.
-func choosePort(host string, preferredPort string, dialTimeout time.Duration) string {
+func choosePort(host, preferredPort string, dialTimeout time.Duration) string {
 	// If we can not dial the preferredPort, it is assumed to be open.
 	if err := dial(host, preferredPort, dialTimeout); err != nil {
 		return preferredPort
