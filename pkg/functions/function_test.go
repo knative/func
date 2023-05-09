@@ -4,14 +4,19 @@
 package functions_test
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/go-cmp/cmp"
 
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/mock"
 	. "knative.dev/func/pkg/testing"
 )
 
@@ -219,4 +224,177 @@ func TestFunction_MigrationError(t *testing.T) {
 		}
 	}
 
+}
+
+// TestFunction_Built ensures that the function's Built method reports
+// filesystem changes as indicating the function is no longer Built (aka stale)
+// This includes modifying timestamps, removing or adding files.
+func TestFunction_Built(t *testing.T) {
+	var (
+		ctx      = context.Background()
+		builder  = mock.NewBuilder()
+		client   = fn.New(fn.WithBuilder(builder), fn.WithRegistry(TestRegistry))
+		testfile = "example.go"
+		root, rm = Mktemp(t)
+	)
+	defer rm()
+
+	// Create and build a function, which also stamps.
+	f, err := client.Init(fn.Function{Runtime: TestRuntime, Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if f, err = client.Build(ctx, f); err != nil {
+		t.Fatal(err)
+	}
+
+	// Prior to a filesystem edit, it will be Built.
+	if !f.Built() {
+		t.Fatal("freshly built function reported Built==false (1)")
+	}
+
+	// Release thread and wait to ensure that the clock advances even in constrained CI environments
+	time.Sleep(100 * time.Millisecond)
+
+	// Edit the filesystem by touching a file (updating modified timestamp)
+	if err := os.Chtimes(filepath.Join(root, "func.yaml"), time.Now(), time.Now()); err != nil {
+		fmt.Println(err)
+	}
+
+	// Release thread and wait to ensure that the clock advances even in constrained CI environments
+	time.Sleep(100 * time.Millisecond)
+
+	if f.Built() {
+		t.Fatal("client did not detect file timestamp change as indicating build staleness")
+	}
+
+	// Build and double-check Built has been reset
+	if f, err = client.Build(ctx, f); err != nil {
+		t.Fatal(err)
+	}
+	if !f.Built() {
+		t.Fatal("freshly built function reported Built==false (2)")
+	}
+
+	// Edit the function's filesystem by adding a file.
+	file, err := os.Create(filepath.Join(root, testfile))
+	if err != nil {
+		t.Fatal(err)
+	}
+	file.Close()
+
+	// The system should now detect the function is stale
+	if f.Built() {
+		t.Fatal("client did not detect an added file as indicating build staleness")
+	}
+
+	// Build and double-check Built has been reset
+	if f, err = client.Build(ctx, f); err != nil {
+		t.Fatal(err)
+	}
+	if !f.Built() {
+		t.Fatal("freshly built function reported Built==false (3)")
+	}
+
+	// Remove the testfile, which should result in the client reporting that
+	// the function is no longer Built (stale)
+	if err := os.Remove(filepath.Join(root, testfile)); err != nil {
+		t.Fatal(err)
+	}
+	if f.Built() {
+		t.Fatal("client did not detect a removed file as indicating build staleness")
+	}
+}
+
+// TestFunction_Stamp ensures that the Stamp method and it's associated
+// accessor BuildStamp:
+//
+//		yields an empty string if the function is unbuilt
+//		yields a build stamp once built
+//		The value is unchanged on multiple invocations with an unchanged fs.
+//		The value changes if the filesystem changes.
+//	 Creates a journal when requested.
+func TestFunction_Stamp(t *testing.T) {
+	root, rm := Mktemp(t)
+	defer rm()
+
+	f := fn.Function{Root: root, Runtime: "go", Name: "f"}
+	client := fn.New(fn.WithBuilder(mock.NewBuilder()), fn.WithRegistry(TestRegistry))
+	stamp := f.BuildStamp()
+
+	// In-memory functions should have no buildstamp
+	if stamp != "" {
+		t.Fatalf("build stamp of an uninitialized function should be '', got '%v'", stamp)
+	}
+
+	// Initialized (but not built) functions should also have no stamp
+	f, err := client.Init(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stamp = f.BuildStamp()
+	if stamp != "" {
+		t.Fatalf("initial build stamp of an unbuilt but initialized function should be empty, got '%v'", stamp)
+	}
+
+	// Built functions should have a stamp
+	f, err = client.Build(context.Background(), f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stamp = f.BuildStamp()
+	if stamp == "" {
+		t.Fatal("building the function did not yield a build stamp")
+	}
+
+	// Explicitly stamping again should have no effect
+	if err = f.Stamp(); err != nil {
+		t.Fatal(err)
+	}
+	stamp2 := f.BuildStamp()
+	if stamp2 != stamp {
+		t.Fatalf("re-stamping an unchanged function changed its stamp.  expected '%v', got '%v'", stamp, stamp2)
+	}
+
+	// Windows is randomly failing the following test.  This is a quick
+	// way to confirm it's a racing condition with fs modification.
+	// Test succeeds reliably on linux, and there is an explicit .Flush
+	time.Sleep(1 * time.Second)
+
+	// Editing the filesystem and re-stamping should have an effect
+	if err := os.Chtimes(filepath.Join(root, "func.yaml"), time.Now(), time.Now()); err != nil {
+		fmt.Println(err)
+	}
+	if err = f.Stamp(); err != nil {
+		t.Fatal(err)
+	}
+	stamp2 = f.BuildStamp()
+	if stamp2 == "" {
+		t.Fatal("stamping a built function which has had disk changes since build resulted in an empty stamp.")
+	}
+	if stamp2 == stamp {
+		t.Fatalf("stamping a changed function did not change stamp.  got '%v' again", stamp2)
+	}
+
+	// Asking to stamp again with a journal should result in there being
+	// a "[timestamp]built.log" file in .func
+	if err = f.Stamp(fn.WithStampJournal()); err != nil {
+		t.Fatal(err)
+	}
+	files, err := os.ReadDir(filepath.Join(root, fn.RunDataDir))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	createdJournal := false
+	rx := regexp.MustCompile(`^\d{4}.*built\.log$`)
+	for _, file := range files {
+		if rx.MatchString(file.Name()) {
+			createdJournal = true
+			break
+		}
+	}
+	if !createdJournal {
+		t.Fatal("expected journal log not found")
+	}
 }

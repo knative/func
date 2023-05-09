@@ -1,11 +1,8 @@
 package functions
 
 import (
-	"bytes"
-	"crypto/sha256"
 	"errors"
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -380,6 +377,19 @@ func (f Function) Write() (err error) {
 	return os.WriteFile(filepath.Join(f.Root, FunctionFile), bb, 0644)
 }
 
+type stampOptions struct{ journal bool }
+type stampOption func(o *stampOptions)
+
+// WithStampJournaling is a Stamp option which causes the stamp logfile
+// to be created with a timestamp prefix.  This has the effect of creating
+// a stamp journal, useful for debugging.  The default behavior is to only
+// retain the most recent log file as "built.log".
+func WithStampJournal() stampOption {
+	return func(o *stampOptions) {
+		o.journal = true
+	}
+}
+
 // Stamp a function as being built.
 //
 // This is a performance optimization used when updates to the
@@ -394,19 +404,46 @@ func (f Function) Write() (err error) {
 //
 // The runtime data directory .func is created in the function root if
 // necessary.
-func (f Function) Stamp() (err error) {
-	if err = f.ensureRuntimeDir(); err != nil {
+func (f Function) Stamp(oo ...stampOption) (err error) {
+	options := &stampOptions{}
+	for _, o := range oo {
+		o(options)
+	}
+	if err = ensureRunDataDir(f.Root); err != nil {
 		return
 	}
 
+	// Cacluate the hash and a logfile of what comprised it
 	var hash, log string
 	if hash, log, err = fingerprint(f.Root); err != nil {
 		return
 	}
+
+	// Write out the hash
 	if err = os.WriteFile(filepath.Join(f.Root, RunDataDir, "built"), []byte(hash), os.ModePerm); err != nil {
 		return
 	}
-	return os.WriteFile(filepath.Join(f.Root, RunDataDir, "built.log"), []byte(log), os.ModePerm)
+
+	// Write out the logfile, optionally timestamped for retention.
+	logfileName := "built.log"
+	if options.journal {
+		logfileName = timestamp(logfileName)
+	}
+	logfile, err := os.Create(filepath.Join(f.Root, RunDataDir, logfileName))
+	if err != nil {
+		return
+	}
+	defer logfile.Close()
+	_, err = fmt.Fprintln(logfile, log)
+	return
+}
+
+// timestamp returns the given string prefixed with a microsecond-precision
+// timestamp followed by a dot.
+// YYYYMMDDHHMMSS.$nanosecond.$s
+func timestamp(s string) string {
+	t := time.Now()
+	return fmt.Sprintf("%s.%09d.%s", t.Format("20060102150405"), t.Nanosecond(), s)
 }
 
 // Initialized returns if the function has been initialized.
@@ -490,28 +527,6 @@ func (f Function) LabelsMap() (map[string]string, error) {
 	return l, nil
 }
 
-// assertEmptyRoot ensures that the directory is empty enough to be used for
-// initializing a new function.
-func assertEmptyRoot(path string) (err error) {
-	// If there exists contentious files (congig files for instance), this function may have already been initialized.
-	files, err := contentiousFilesIn(path)
-	if err != nil {
-		return
-	} else if len(files) > 0 {
-		return fmt.Errorf("the chosen directory '%v' contains contentious files: %v.  Has the Service function already been created?  Try either using a different directory, deleting the function if it exists, or manually removing the files", path, files)
-	}
-
-	// Ensure there are no non-hidden files, and again none of the aforementioned contentious files.
-	empty, err := isEffectivelyEmpty(path)
-	if err != nil {
-		return
-	} else if !empty {
-		err = errors.New("the directory must be empty of visible files and recognized config files before it can be initialized")
-		return
-	}
-	return
-}
-
 // ImageName returns a full image name (OCI container tag) for the
 // Function based off of the Function's `Registry` member plus `Name`.
 // Used to calculate the final value for .Image when none is provided
@@ -556,66 +571,6 @@ func (f Function) ImageName() (image string, err error) {
 	return image + ":latest", nil
 }
 
-// contentiousFiles are files which, if extant, preclude the creation of a
-// function rooted in the given directory.
-var contentiousFiles = []string{
-	FunctionFile,
-	".gitignore",
-}
-
-// contentiousFilesIn the given directory
-func contentiousFilesIn(dir string) (contentious []string, err error) {
-	files, err := os.ReadDir(dir)
-	for _, file := range files {
-		for _, name := range contentiousFiles {
-			if file.Name() == name {
-				contentious = append(contentious, name)
-			}
-		}
-	}
-	return
-}
-
-// effectivelyEmpty directories are those which have no visible files
-func isEffectivelyEmpty(dir string) (bool, error) {
-	// Check for any non-hidden files
-	files, err := os.ReadDir(dir)
-	if err != nil {
-		return false, err
-	}
-	for _, file := range files {
-		if !strings.HasPrefix(file.Name(), ".") {
-			return false, nil
-		}
-	}
-	return true, nil
-}
-
-// returns true if the given path contains an initialized function.
-func hasInitializedFunction(path string) (bool, error) {
-	var err error
-	var filename = filepath.Join(path, FunctionFile)
-
-	if _, err = os.Stat(filename); err != nil {
-		if os.IsNotExist(err) {
-			return false, nil
-		}
-		return false, err // invalid path or access error
-	}
-	bb, err := os.ReadFile(filename)
-	if err != nil {
-		return false, err
-	}
-	f := Function{}
-	if err = yaml.Unmarshal(bb, &f); err != nil {
-		return false, err
-	}
-	if f, err = f.Migrate(); err != nil {
-		return false, err
-	}
-	return f.Initialized(), nil
-}
-
 // Format yaml unmarshall error to be more human friendly.
 func formatUnmarshalError(err error) error {
 	var (
@@ -644,32 +599,6 @@ var (
 	regKeyFromConfigMap = regexp.MustCompile(`^{{\s*configMap:((?:\w|['-]\w)+):([-._a-zA-Z0-9]+)\s*}}$`)
 	regLocalEnv         = regexp.MustCompile(`^{{\s*env:(\w+)\s*}}$`)
 )
-
-// ensureRuntimeDir creates a .func directory in the root of the given
-// function which is also registered as ignored in .gitignore
-// TODO: Mutate extant .gitignore file if it exists rather than failing
-// if present (see contentious files in function.go), such that a user
-// can `git init` a directory prior to `func init` in the same directory).
-func (f Function) ensureRuntimeDir() error {
-	if err := os.MkdirAll(filepath.Join(f.Root, RunDataDir), os.ModePerm); err != nil {
-		return err
-	}
-
-	_, err := os.Stat(".gitignore")
-	if err == nil {
-		return nil
-	}
-	if !os.IsNotExist(err) {
-		return err
-	}
-
-	gitignore := `
-# Functions use the .func directory for local runtime data which should
-# generally not be tracked in source control:
-/.func
-`
-	return os.WriteFile(filepath.Join(f.Root, ".gitignore"), []byte(gitignore), 0644)
-}
 
 // Built returns true if the function is considered built.
 // Note that this only considers the function as it exists on-disk at
@@ -724,35 +653,4 @@ func (f Function) BuildStamp() string {
 		return ""
 	}
 	return string(b)
-}
-
-// fingerprint the files at a given path.  Returns a hash calculated from the
-// filenames and modification timestamps of the files within the given root.
-// Also returns a logfile consiting of the filenames and modification times
-// which contributed to the hash.
-// Intended to determine if there were appreciable changes to a function's
-// source code, certain directories and files are ignored, such as
-// .git and .func.
-// Future updates will include files explicitly marked as ignored by a
-// .funcignore.
-func fingerprint(root string) (hash, log string, err error) {
-	h := sha256.New()   // Hash builder
-	l := bytes.Buffer{} // Log buffer
-
-	err = filepath.Walk(root, func(path string, info fs.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if path == root {
-			return nil
-		}
-		// Always ignore .func, .git (TODO: .funcignore)
-		if info.IsDir() && (info.Name() == RunDataDir || info.Name() == ".git") {
-			return filepath.SkipDir
-		}
-		fmt.Fprintf(h, "%v:%v:", path, info.ModTime().UnixNano())   // Write to the Hasher
-		fmt.Fprintf(&l, "%v:%v\n", path, info.ModTime().UnixNano()) // Write to the Log
-		return nil
-	})
-	return fmt.Sprintf("%x", h.Sum(nil)), l.String(), err
 }
