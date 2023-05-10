@@ -105,7 +105,7 @@ type goDetector struct{}
 func (d goDetector) Detect(dir string) (static, instanced bool, err error) {
 	files, err := os.ReadDir(dir)
 	if err != nil {
-		err = fmt.Errorf("signature detector encountered an error when scanning the function's source code. %w", err)
+		err = fmt.Errorf("signature detector encountered an error when scanning the function's source code %w", err)
 		return
 	}
 	for _, file := range files {
