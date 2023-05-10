@@ -31,7 +31,7 @@ var (
 		"go":         "gcr.io/paketo-buildpacks/builder:base",
 		"python":     "gcr.io/paketo-buildpacks/builder:base",
 		"quarkus":    "gcr.io/paketo-buildpacks/builder:base",
-		"rust":       "gcr.io/paketo-buildpacks/builder:base",
+		"rust":       "gcr.io/paketo-buildpacks/builder:full-cf",
 		"springboot": "gcr.io/paketo-buildpacks/builder:base",
 	}
 
