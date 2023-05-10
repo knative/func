@@ -92,7 +92,7 @@ func detectorFor(runtime string) (detector, error) {
 	case "node":
 		return nil, errors.New("the Node.js signature detector is not yet available")
 	case "quarkus":
-		return nil, errors.New("The TypeScript signature detector is not yet available.")
+		return nil, errors.New("the TypeScript signature detector is not yet available")
 	default:
 		return nil, fmt.Errorf("Unable to detect the signature of the unrecognized runtime language %q", runtime)
 	}
