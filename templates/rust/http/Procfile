@@ -1,1 +1,0 @@
-web: /workspace/bin/function
