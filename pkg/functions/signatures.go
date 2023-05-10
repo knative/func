@@ -90,7 +90,7 @@ func detectorFor(runtime string) (detector, error) {
 	case "rust":
 		return nil, errors.New("the Rust signature detector is not yet available")
 	case "node":
-		return nil, errors.New("The Node.js signature detector is not yet available.")
+		return nil, errors.New("the Node.js signature detector is not yet available")
 	case "quarkus":
 		return nil, errors.New("The TypeScript signature detector is not yet available.")
 	default:
