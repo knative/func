@@ -20,9 +20,9 @@ const (
 
 	// Tasks references
 	taskGitCloneRef       = "git-clone"
-	taskFuncS2iRef        = "https://raw.githubusercontent.com/knative/func/main/pkg/pipelines/resources/tekton/task/func-s2i/0.1/func-s2i.yaml"
-	taskFuncBuildpacksRef = "https://raw.githubusercontent.com/knative/func/main/pkg/pipelines/resources/tekton/task/func-buildpacks/0.1/func-buildpacks.yaml"
-	taskFuncDeployRef     = "https://raw.githubusercontent.com/knative/func/main/pkg/pipelines/resources/tekton/task/func-deploy/0.1/func-deploy.yaml"
+	taskFuncS2iRef        = "https://raw.githubusercontent.com/%s/pkg/pipelines/resources/tekton/task/func-s2i/0.1/func-s2i.yaml"
+	taskFuncBuildpacksRef = "https://raw.githubusercontent.com/%s/pkg/pipelines/resources/tekton/task/func-buildpacks/0.1/func-buildpacks.yaml"
+	taskFuncDeployRef     = "https://raw.githubusercontent.com/%s/pkg/pipelines/resources/tekton/task/func-deploy/0.1/func-deploy.yaml"
 
 	// S2I related properties
 	defaultS2iImageScriptsUrl = "image:///usr/libexec/s2i"
@@ -31,6 +31,8 @@ const (
 	// The branch or tag we are targeting with Pipelines (ie: main, refs/tags/*)
 	defaultPipelinesTargetBranch = "main"
 )
+
+var FuncRepoRef = "knative/func/main"
 
 type templateData struct {
 	FunctionName  string
@@ -128,9 +130,9 @@ func createPipelineRunTemplate(f fn.Function) error {
 		PipelinesTargetBranch: pipelinesTargetBranch,
 
 		GitCloneTaskRef:       taskGitCloneRef,
-		FuncBuildpacksTaskRef: taskFuncBuildpacksRef,
-		FuncS2iTaskRef:        taskFuncS2iRef,
-		FuncDeployTaskRef:     taskFuncDeployRef,
+		FuncBuildpacksTaskRef: fmt.Sprintf(taskFuncBuildpacksRef, FuncRepoRef),
+		FuncS2iTaskRef:        fmt.Sprintf(taskFuncS2iRef, FuncRepoRef),
+		FuncDeployTaskRef:     fmt.Sprintf(taskFuncDeployRef, FuncRepoRef),
 
 		PipelineYamlURL: fmt.Sprintf("%s/%s", resourcesDirectory, pipelineFileName),
 
