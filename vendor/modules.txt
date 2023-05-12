@@ -1709,7 +1709,7 @@ knative.dev/eventing/pkg/client/clientset/versioned/typed/eventing/v1
 # knative.dev/hack v0.0.0-20230501013555-7d81248b4638
 ## explicit; go 1.18
 knative.dev/hack
-# knative.dev/networking v0.0.0-20230504184058-77975a12b2ee
+# knative.dev/networking v0.0.0-20230511122402-33636d99d870
 ## explicit; go 1.18
 knative.dev/networking/pkg
 knative.dev/networking/pkg/apis/networking
@@ -1764,7 +1764,7 @@ knative.dev/pkg/tracing/propagation
 knative.dev/pkg/tracing/propagation/tracecontextb3
 knative.dev/pkg/tracker
 knative.dev/pkg/webhook/resourcesemantics
-# knative.dev/serving v0.37.1-0.20230509123100-fc635835061e
+# knative.dev/serving v0.37.1-0.20230511154540-14ad4d1c6adb
 ## explicit; go 1.18
 knative.dev/serving/pkg/apis/autoscaling
 knative.dev/serving/pkg/apis/autoscaling/v1alpha1
