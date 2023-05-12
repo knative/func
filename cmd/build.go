@@ -189,6 +189,8 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 			s2i.WithName(builders.S2I),
 			s2i.WithPlatform(cfg.Platform),
 			s2i.WithVerbose(cfg.Verbose))))
+	} else {
+		return builders.ErrUnknownBuilder{Name: f.Build.Builder, Known: KnownBuilders()}
 	}
 
 	client, done := newClient(ClientConfig{Verbose: cfg.Verbose}, o...)

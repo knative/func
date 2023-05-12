@@ -13,11 +13,12 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"knative.dev/client-pkg/pkg/util"
 	"knative.dev/func/pkg/builders"
-	"knative.dev/func/pkg/builders/buildpacks"
+	pack "knative.dev/func/pkg/builders/buildpacks"
 	"knative.dev/func/pkg/builders/s2i"
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
+	"knative.dev/func/pkg/oci"
 )
 
 func NewDeployCmd(newClient ClientFactory) *cobra.Command {
@@ -253,25 +254,27 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 
 	// Client
 	// Concrete implementations (ex builder) vary  based on final effective cfg.
-	var builder fn.Builder
-	if f.Build.Builder == builders.Pack {
-		builder = buildpacks.NewBuilder(
-			buildpacks.WithName(builders.Pack),
-			buildpacks.WithVerbose(cfg.Verbose),
-			buildpacks.WithTimestamp(cfg.Timestamp),
-		)
+	var client *fn.Client
+	o := []fn.Option{fn.WithRegistry(cfg.Registry)}
+	if f.Build.Builder == builders.Host {
+		o = append(o,
+			fn.WithBuilder(oci.NewBuilder(builders.Host, client, cfg.Verbose)),
+			fn.WithPusher(oci.NewPusher(false, cfg.Verbose)))
+	} else if f.Build.Builder == builders.Pack {
+		o = append(o, fn.WithBuilder(pack.NewBuilder(
+			pack.WithName(builders.Pack),
+			pack.WithVerbose(cfg.Verbose),
+			pack.WithTimestamp(cfg.Timestamp))))
 	} else if f.Build.Builder == builders.S2I {
-		builder = s2i.NewBuilder(
+		o = append(o, fn.WithBuilder(s2i.NewBuilder(
 			s2i.WithName(builders.S2I),
 			s2i.WithPlatform(cfg.Platform),
-			s2i.WithVerbose(cfg.Verbose))
+			s2i.WithVerbose(cfg.Verbose))))
 	} else {
 		return builders.ErrUnknownBuilder{Name: f.Build.Builder, Known: KnownBuilders()}
 	}
 
-	client, done := newClient(ClientConfig{Namespace: f.Deploy.Namespace, Verbose: cfg.Verbose},
-		fn.WithRegistry(cfg.Registry),
-		fn.WithBuilder(builder))
+	client, done := newClient(ClientConfig{Namespace: f.Deploy.Namespace, Verbose: cfg.Verbose}, o...)
 	defer done()
 
 	// Deploy
@@ -282,10 +285,8 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 			return
 		}
 	} else {
-		if shouldBuild(cfg.Build, f, client) { // --build or "auto" with FS changes
-			if f, err = client.Build(cmd.Context(), f); err != nil {
-				return
-			}
+		if f, err = build(cmd, cfg.Build, f, client); err != nil {
+			return
 		}
 		if cfg.Push {
 			if f, err = client.Push(cmd.Context(), f); err != nil {
@@ -309,16 +310,30 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	return f.Stamp()
 }
 
-// shouldBuild returns true if the value of the build option is a truthy value,
-// or if it is the literal "auto" and the function reports as being currently
-// unbuilt.  Invalid errors are not reported as this is the purview of
-// deployConfig.Validate
-func shouldBuild(buildCfg string, f fn.Function, client *fn.Client) bool {
-	if buildCfg == "auto" {
-		return !f.Built() // first build or modified filesystem
+// build when flag == 'auto' and the function is out-of-date, or when the
+// flag value is explicitly truthy such as 'true' or '1'.  Error if flag
+// is neither 'auto' nor parseable as a boolean.  Return CLI-specific error
+// message verbeage suitable for both Deploy and Run commands which feature an
+// optional build step.
+func build(cmd *cobra.Command, flag string, f fn.Function, client *fn.Client) (fn.Function, error) {
+	var err error
+	if flag == "auto" {
+		if f.Built() {
+			fmt.Fprintln(cmd.OutOrStdout(), "function up-to-date. Force rebuild with --build")
+		} else {
+			if f, err = client.Build(cmd.Context(), f); err != nil {
+				return f, err
+			}
+		}
+	} else if build, _ := strconv.ParseBool(flag); build == true {
+		if f, err = client.Build(cmd.Context(), f); err != nil {
+			return f, err
+		}
+	} else if _, err = strconv.ParseBool(flag); err != nil {
+		return f, fmt.Errorf("--build (FUNC_BUILD) %q not recognized.  Should be 'auto' or a truthy value such as 'true', 'false', '0', or '1'.", flag)
+
 	}
-	build, _ := strconv.ParseBool(buildCfg)
-	return build
+	return f, nil
 }
 
 func NewRegistryValidator(path string) survey.Validator {

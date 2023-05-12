@@ -193,9 +193,9 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 	//
 	// If requesting to run via the container, build the container if it is
 	// either out-of-date or a build was explicitly requested.
-	if cfg.Container && shouldBuild(cfg.Build, f, client) {
-		if f, err = client.Build(cmd.Context(), f); err != nil {
-			return
+	if cfg.Container {
+		if f, err = build(cmd, cfg.Build, f, client); err != nil {
+			return err
 		}
 	}
 
