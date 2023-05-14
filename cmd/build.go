@@ -14,6 +14,7 @@ import (
 	"knative.dev/func/pkg/builders/s2i"
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/oci"
 )
 
 func NewBuildCmd(newClient ClientFactory) *cobra.Command {
@@ -156,8 +157,9 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 
 	// TODO: this logic is duplicated with runDeploy.  Shouild be in buildConfig
 	// constructor.
-	// Checks if there is a difference between defined registry and its value used as a prefix in the image tag
-	// In case of a mismatch a new image tag is created and used for build
+	// Checks if there is a difference between defined registry and its value
+	// used as a prefix in the image tag In case of a mismatch a new image tag is
+	// created and used for build.
 	// Do not react if image tag has been changed outside configuration
 	if f.Registry != "" && !cmd.Flags().Changed("image") && strings.Index(f.Image, "/") > 0 && !strings.HasPrefix(f.Image, f.Registry) {
 		prfx := f.Registry
@@ -173,7 +175,11 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	// Client
 	// Concrete implementations (ex builder) vary based on final effective config
 	o := []fn.Option{fn.WithRegistry(cfg.Registry)}
-	if f.Build.Builder == builders.Pack {
+	if f.Build.Builder == builders.Host {
+		o = append(o,
+			fn.WithBuilder(oci.NewBuilder(builders.Host, cfg.Verbose)),
+			fn.WithPusher(oci.NewPusher(false, cfg.Verbose)))
+	} else if f.Build.Builder == builders.Pack {
 		o = append(o, fn.WithBuilder(pack.NewBuilder(
 			pack.WithName(builders.Pack),
 			pack.WithTimestamp(cfg.WithTimestamp),

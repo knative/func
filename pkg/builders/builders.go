@@ -15,6 +15,7 @@ import (
 const (
 	Pack    = "pack"
 	S2I     = "s2i"
+	Host    = "host"
 	Default = Pack
 )
 
