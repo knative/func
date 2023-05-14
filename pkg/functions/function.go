@@ -415,7 +415,7 @@ func (f Function) Stamp(oo ...stampOption) (err error) {
 
 	// Cacluate the hash and a logfile of what comprised it
 	var hash, log string
-	if hash, log, err = fingerprint(f.Root); err != nil {
+	if hash, log, err = Fingerprint(f.Root); err != nil {
 		return
 	}
 
@@ -633,7 +633,7 @@ func (f Function) Built() bool {
 	// It's a pretty good chance the thing doesn't need to be rebuilt, though
 	// of course filesystem racing conditions do exist, including both direct
 	// source code modifications or changes to the image cache.
-	hash, _, err := fingerprint(f.Root)
+	hash, _, err := Fingerprint(f.Root)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error calculating function's fingerprint: %v\n", err)
 		return false

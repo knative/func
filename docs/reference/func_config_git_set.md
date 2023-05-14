@@ -17,7 +17,7 @@ func config git set
 ### Options
 
 ```
-  -b, --builder string             Builder to use when creating the function's container. Currently supported builders are "pack" and "s2i". (default "pack")
+  -b, --builder string             Builder to use when creating the function's container. Currently supported builders are "pack", "s2i" and "host". (default "pack")
       --builder-image string       Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
       --config-cluster             Configure cluster resources (credentials and config on the cluster).
       --config-local               Configure local resources (pipeline templates).

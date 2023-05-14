@@ -10,10 +10,11 @@ import (
 	"github.com/spf13/cobra"
 
 	"knative.dev/func/pkg/builders"
-	"knative.dev/func/pkg/builders/buildpacks"
+	pack "knative.dev/func/pkg/builders/buildpacks"
 	"knative.dev/func/pkg/builders/s2i"
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/oci"
 )
 
 func NewBuildCmd(newClient ClientFactory) *cobra.Command {
@@ -169,25 +170,23 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 
 	// Client
 	// Concrete implementations (ex builder) vary based on final effective config
-	var builder fn.Builder
-	if f.Build.Builder == builders.Pack {
-		builder = buildpacks.NewBuilder(
-			buildpacks.WithName(builders.Pack),
-			buildpacks.WithVerbose(cfg.Verbose),
-			buildpacks.WithTimestamp(cfg.WithTimestamp),
-		)
+	var client *fn.Client
+	o := []fn.Option{fn.WithRegistry(cfg.Registry)}
+	if f.Build.Builder == builders.Host {
+		o = append(o, fn.WithBuilder(oci.NewBuilder(builders.Host, client, cfg.Verbose)))
+	} else if f.Build.Builder == builders.Pack {
+		o = append(o, fn.WithBuilder(pack.NewBuilder(
+			pack.WithName(builders.Pack),
+			pack.WithTimestamp(cfg.WithTimestamp),
+			pack.WithVerbose(cfg.Verbose))))
 	} else if f.Build.Builder == builders.S2I {
-		builder = s2i.NewBuilder(
+		o = append(o, fn.WithBuilder(s2i.NewBuilder(
 			s2i.WithName(builders.S2I),
 			s2i.WithPlatform(cfg.Platform),
-			s2i.WithVerbose(cfg.Verbose))
-	} else {
-		return builders.ErrUnknownBuilder{Name: f.Build.Builder, Known: KnownBuilders()}
+			s2i.WithVerbose(cfg.Verbose))))
 	}
 
-	client, done := newClient(ClientConfig{Verbose: cfg.Verbose},
-		fn.WithRegistry(cfg.Registry),
-		fn.WithBuilder(builder))
+	client, done := newClient(ClientConfig{Verbose: cfg.Verbose}, o...)
 	defer done()
 
 	// Build and (optionally) push
@@ -195,6 +194,11 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		return
 	}
 	if cfg.Push {
+		if f.Build.Builder == builders.Host && cfg.Push {
+			// Pushing will be enabled when the pusher PR is merged:
+			// https://github.com/knative/func/pull/1702
+			return errors.New("Container built on-disk, but the host builder does not yet support pushing.")
+		}
 		if f, err = client.Push(cmd.Context(), f); err != nil {
 			return
 		}

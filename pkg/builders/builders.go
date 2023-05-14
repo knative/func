@@ -15,6 +15,7 @@ import (
 const (
 	Pack    = "pack"
 	S2I     = "s2i"
+	Host    = "host"
 	Default = Pack
 )
 
@@ -22,7 +23,7 @@ const (
 type Known []string
 
 func All() Known {
-	return Known([]string{Pack, S2I})
+	return Known([]string{Pack, S2I, Host})
 }
 
 func (k Known) String() string {
