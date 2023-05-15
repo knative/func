@@ -80,7 +80,7 @@ func runDelete(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 
 		// Check if the function has been initialized
 		if !function.Initialized() {
-			return fmt.Errorf("the given path '%v' does not contain an initialized function", cfg.Path)
+			return fmt.Errorf("the given path '%v' does not contain an initialized function", function.Root)
 		}
 
 		// If not provided, use the function's extant namespace
