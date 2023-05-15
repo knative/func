@@ -145,7 +145,7 @@ func runInvoke(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 		return
 	}
 	if !f.Initialized() {
-		return fmt.Errorf("'%v' does not contain an initialized function", cfg.Path)
+		return fmt.Errorf("'%v' does not contain an initialized function", f.Root)
 	}
 
 	// Client instance from env vars, flags, args and user prompts (if --confirm)
