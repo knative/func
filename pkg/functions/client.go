@@ -1,16 +1,22 @@
 package functions
 
 import (
+	"bufio"
+	"bytes"
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
+	"gopkg.in/yaml.v2"
 	"knative.dev/func/pkg/utils"
 )
 
@@ -551,7 +557,7 @@ func (c *Client) Init(cfg Function) (Function, error) {
 	f := NewFunctionWith(cfg)
 
 	// Create a .func diretory which is also added to a .gitignore
-	if err = f.ensureRuntimeDir(); err != nil {
+	if err = ensureRunDataDir(f.Root); err != nil {
 		return f, err
 	}
 
@@ -958,6 +964,178 @@ func (c *Client) Push(ctx context.Context, f Function) (Function, error) {
 	}
 
 	return f, nil
+}
+
+// ensureRunDataDir creates a .func directory at the given path, and
+// registers it as ignored in a .gitignore file.
+func ensureRunDataDir(root string) error {
+	// Ensure the runtime directory exists
+	if err := os.MkdirAll(filepath.Join(root, RunDataDir), os.ModePerm); err != nil {
+		return err
+	}
+
+	// Update .gitignore
+	//
+	// Ensure .func is added to .gitignore unless the user explicitly
+	// commented out the ignore line for some awful reason.
+	// Also creates the .gitignore in the function's root directory if it does
+	// not already exist (note that this may not be in the root of the repo
+	// if the function is at a subpath of a monorepo)
+	filePath := filepath.Join(root, ".gitignore")
+	roFile, err := os.Open(filePath)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	defer roFile.Close()
+	if !os.IsNotExist(err) { // if no error openeing it
+		s := bufio.NewScanner(roFile) // create a scanner
+		for s.Scan() {                // scan each line
+			if strings.HasPrefix(s.Text(), "# /"+RunDataDir) { // if it was commented
+				return nil // user wants it
+			}
+			if strings.HasPrefix(s.Text(), "#/"+RunDataDir) {
+				return nil // user wants it
+			}
+			if strings.HasPrefix(s.Text(), "/"+RunDataDir) { // if it is there
+				return nil // we're done
+			}
+		}
+	}
+	// Either .gitignore does not exist or it does not have the ignore
+	// directive for .func yet.
+	roFile.Close()
+	rwFile, err := os.OpenFile(filePath, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
+	if err != nil {
+		return err
+	}
+	defer rwFile.Close()
+	if _, err = rwFile.WriteString(`
+# Functions use the .func directory for local runtime data which should
+# generally not be tracked in source control. To instruct the system to track
+# .func in source control, comment the following line (prefix it with '# ').
+/.func
+`); err != nil {
+		return err
+	}
+
+	// Flush to disk immediately since this may affect subsequent calculations
+	// of the build stamp
+	if err = rwFile.Sync(); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: error when syncing .gitignore. %s", err)
+	}
+	return nil
+}
+
+// fingerprint the files at a given path.  Returns a hash calculated from the
+// filenames and modification timestamps of the files within the given root.
+// Also returns a logfile consiting of the filenames and modification times
+// which contributed to the hash.
+// Intended to determine if there were appreciable changes to a function's
+// source code, certain directories and files are ignored, such as
+// .git and .func.
+// Future updates will include files explicitly marked as ignored by a
+// .funcignore.
+func fingerprint(root string) (hash, log string, err error) {
+	h := sha256.New()   // Hash builder
+	l := bytes.Buffer{} // Log buffer
+
+	err = filepath.Walk(root, func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if path == root {
+			return nil
+		}
+		// Always ignore .func, .git (TODO: .funcignore)
+		if info.IsDir() && (info.Name() == RunDataDir || info.Name() == ".git") {
+			return filepath.SkipDir
+		}
+		fmt.Fprintf(h, "%v:%v:", path, info.ModTime().UnixNano())   // Write to the Hasher
+		fmt.Fprintf(&l, "%v:%v\n", path, info.ModTime().UnixNano()) // Write to the Log
+		return nil
+	})
+	return fmt.Sprintf("%x", h.Sum(nil)), l.String(), err
+}
+
+// assertEmptyRoot ensures that the directory is empty enough to be used for
+// initializing a new function.
+func assertEmptyRoot(path string) (err error) {
+	// If there exists contentious files (congig files for instance), this function may have already been initialized.
+	files, err := contentiousFilesIn(path)
+	if err != nil {
+		return
+	} else if len(files) > 0 {
+		return fmt.Errorf("the chosen directory '%v' contains contentious files: %v.  Has the Service function already been created?  Try either using a different directory, deleting the function if it exists, or manually removing the files", path, files)
+	}
+
+	// Ensure there are no non-hidden files, and again none of the aforementioned contentious files.
+	empty, err := isEffectivelyEmpty(path)
+	if err != nil {
+		return
+	} else if !empty {
+		err = errors.New("the directory must be empty of visible files and recognized config files before it can be initialized")
+		return
+	}
+	return
+}
+
+// contentiousFiles are files which, if extant, preclude the creation of a
+// function rooted in the given directory.
+var contentiousFiles = []string{
+	FunctionFile,
+}
+
+// contentiousFilesIn the given directory
+func contentiousFilesIn(path string) (contentious []string, err error) {
+	files, err := os.ReadDir(path)
+	for _, file := range files {
+		for _, name := range contentiousFiles {
+			if file.Name() == name {
+				contentious = append(contentious, name)
+			}
+		}
+	}
+	return
+}
+
+// effectivelyEmpty directories are those which have no visible files
+func isEffectivelyEmpty(path string) (bool, error) {
+	// Check for any non-hidden files
+	files, err := os.ReadDir(path)
+	if err != nil {
+		return false, err
+	}
+	for _, file := range files {
+		if !strings.HasPrefix(file.Name(), ".") {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
+// returns true if the given path contains an initialized function.
+func hasInitializedFunction(path string) (bool, error) {
+	var err error
+	var filename = filepath.Join(path, FunctionFile)
+
+	if _, err = os.Stat(filename); err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, err // invalid path or access error
+	}
+	bb, err := os.ReadFile(filename)
+	if err != nil {
+		return false, err
+	}
+	f := Function{}
+	if err = yaml.Unmarshal(bb, &f); err != nil {
+		return false, err
+	}
+	if f, err = f.Migrate(); err != nil {
+		return false, err
+	}
+	return f.Initialized(), nil
 }
 
 // DEFAULTS

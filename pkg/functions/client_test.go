@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -49,6 +50,138 @@ func TestClient_New(t *testing.T) {
 	if _, _, err := client.New(context.Background(), fn.Function{Root: root, Runtime: TestRuntime}); err != nil {
 		t.Fatal(err)
 	}
+}
+
+// TestClient_New_RunData ensures that the .func runtime directory is
+// correctly created.
+func TestClient_New_RunDataDir(t *testing.T) {
+	root, rm := Mktemp(t)
+	defer rm()
+	ctx := context.Background()
+
+	// Ensure the run data directory is created when the function is created
+	if _, _, err := fn.New().New(ctx, fn.Function{Root: root, Runtime: "go", Registry: TestRegistry}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(root, fn.RunDataDir)); os.IsNotExist(err) {
+		t.Fatal("runtime directory not created when function created.")
+	}
+
+	// Ensure it is set as ignored in a .gitignore
+	file, err := os.Open(filepath.Join(root, ".gitignore"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	foundEntry := false
+	s := bufio.NewScanner(file)
+	for s.Scan() {
+		if strings.HasPrefix(s.Text(), "/"+fn.RunDataDir) {
+			foundEntry = true
+			break
+		}
+	}
+	if !foundEntry {
+		t.Fatal("run data dir not added to .gitignore")
+	}
+
+	// Ensure that if .gitignore already existed, it is modified not overwritten
+	root, rm = Mktemp(t)
+	defer rm()
+	if err = os.WriteFile(filepath.Join(root, ".gitignore"), []byte("user-directive\n"), os.ModePerm); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := fn.New().New(ctx, fn.Function{Root: root, Runtime: "go", Registry: TestRegistry}); err != nil {
+		t.Fatal(err)
+	}
+	containsUserDirective, containsFuncDirective := false, false
+	if file, err = os.Open(filepath.Join(root, ".gitignore")); err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	s = bufio.NewScanner(file)
+	for s.Scan() { // scan each line
+		if strings.HasPrefix(s.Text(), "user-directive") {
+			containsUserDirective = true
+		}
+		if strings.HasPrefix(s.Text(), "/"+fn.RunDataDir) {
+			containsFuncDirective = true
+		}
+	}
+	if !containsUserDirective {
+		t.Fatal("extant .gitignore did not retain user direcives after creation")
+	}
+	if !containsFuncDirective {
+		t.Fatal("extant .gitignore was not modified with func data ignore directive")
+	}
+
+	// Ensure that the user can cancel this behavior entirely by including the
+	// ignore directive, but commented out.
+	root, rm = Mktemp(t)
+	defer rm()
+
+	userDirective := fmt.Sprintf("# /%v", fn.RunDataDir) // User explicitly commented
+	funcDirective := fmt.Sprintf("/%v", fn.RunDataDir)
+	if err = os.WriteFile(filepath.Join(root, ".gitignore"), []byte(userDirective+"/n"), os.ModePerm); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := fn.New().New(ctx, fn.Function{Root: root, Runtime: "go", Registry: TestRegistry}); err != nil {
+		t.Fatal(err)
+	}
+	containsUserDirective, containsFuncDirective = false, false
+	if file, err = os.Open(filepath.Join(root, ".gitignore")); err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	s = bufio.NewScanner(file)
+	for s.Scan() { // scan each line
+		if strings.HasPrefix(s.Text(), userDirective) {
+			containsUserDirective = true
+		}
+		if strings.HasPrefix(s.Text(), funcDirective) {
+			containsFuncDirective = true
+		}
+	}
+	if !containsUserDirective {
+		t.Fatal("The user's directive to disable modifing .gitignore was removed")
+	}
+	if containsFuncDirective {
+		t.Fatal("The user's directive to explicitly allow .func in source control was not respected")
+	}
+
+	// Ensure that in addition the the correctly formatted comment "# /.func",
+	// it will work if the user omits the space: "#/.func"
+	root, rm = Mktemp(t)
+	defer rm()
+	userDirective = fmt.Sprintf("#/%v", fn.RunDataDir) // User explicitly commented but without space
+	if err = os.WriteFile(filepath.Join(root, ".gitignore"), []byte(userDirective+"/n"), os.ModePerm); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := fn.New().New(ctx, fn.Function{Root: root, Runtime: "go", Registry: TestRegistry}); err != nil {
+		t.Fatal(err)
+	}
+	containsFuncDirective = false
+	if file, err = os.Open(filepath.Join(root, ".gitignore")); err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	s = bufio.NewScanner(file)
+	for s.Scan() { // scan each line
+		if strings.HasPrefix(s.Text(), funcDirective) {
+			containsFuncDirective = true
+			break
+		}
+	}
+	if containsFuncDirective {
+		t.Fatal("The user's directive to explicitly allow .func in source control was not respected")
+	}
+
+	// TODO: It is possible that we need to consider more complex situations,
+	// such as ensuring that files and directories with just the prefix are not
+	// matched, that the user can use non-absolute ignores (no slash prefix), etc.
+	// If this turns out to be necessary, we will need to add the test cases
+	// and have the implementation actually parse the file rather that simple
+	// line prefix checks.
 }
 
 // TestClient_New_RuntimeRequired ensures that the the runtime is an expected value.
@@ -1530,85 +1663,5 @@ func TestClient_CreateMigration(t *testing.T) {
 	// A freshly created function should have the latest migration
 	if f.SpecVersion != fn.LastSpecVersion() {
 		t.Fatal("freshly created function should have the latest migration")
-	}
-}
-
-// TestClient_BuiltDetects ensures that the client's Built command detects
-// filesystem changes as indicating the function is no longer Built (aka stale)
-// This includes modifying timestamps, removing or adding files.
-func TestClient_BuiltDetects(t *testing.T) {
-	var (
-		ctx      = context.Background()
-		builder  = mock.NewBuilder()
-		client   = fn.New(fn.WithBuilder(builder), fn.WithRegistry(TestRegistry))
-		testfile = "example.go"
-		root, rm = Mktemp(t)
-	)
-	defer rm()
-
-	// Create and build a function
-	f, err := client.Init(fn.Function{Runtime: TestRuntime, Root: root})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if f, err = client.Build(ctx, f); err != nil {
-		t.Fatal(err)
-	}
-
-	// Prior to a filesystem edit, it will be Built.
-	if !f.Built() {
-		t.Fatal("freshly built function reported Built==false (1)")
-	}
-
-	// Release thread and wait to ensure that the clock advances even in constrained CI environments
-	time.Sleep(100 * time.Millisecond)
-
-	// Edit the filesystem by touching a file (updating modified timestamp)
-	if err := os.Chtimes(filepath.Join(root, "func.yaml"), time.Now(), time.Now()); err != nil {
-		fmt.Println(err)
-	}
-
-	// Release thread and wait to ensure that the clock advances even in constrained CI environments
-	time.Sleep(100 * time.Millisecond)
-
-	if f.Built() {
-		t.Fatal("client did not detect file timestamp change as indicating build staleness")
-	}
-
-	// Build and double-check Built has been reset
-	if f, err = client.Build(ctx, f); err != nil {
-		t.Fatal(err)
-	}
-	if !f.Built() {
-		t.Fatal("freshly built function reported Built==false (2)")
-	}
-
-	// Edit the function's filesystem by adding a file.
-	file, err := os.Create(filepath.Join(root, testfile))
-	if err != nil {
-		t.Fatal(err)
-	}
-	file.Close()
-
-	// The system should now detect the function is stale
-	if f.Built() {
-		t.Fatal("client did not detect an added file as indicating build staleness")
-	}
-
-	// Build and double-check Built has been reset
-	if f, err = client.Build(ctx, f); err != nil {
-		t.Fatal(err)
-	}
-	if !f.Built() {
-		t.Fatal("freshly built function reported Built==false (3)")
-	}
-
-	// Remove the testfile, which should result in the client reporting that
-	// the function is no longer Built (stale)
-	if err := os.Remove(filepath.Join(root, testfile)); err != nil {
-		t.Fatal(err)
-	}
-	if f.Built() {
-		t.Fatal("client did not detect a removed file as indicating build staleness")
 	}
 }
