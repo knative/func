@@ -127,7 +127,11 @@ func (pp *PipelinesProvider) createClusterResources(ctx context.Context, f fn.Fu
 	// figure out pac installation namespace
 	installed, _, err := pac.DetectPACInstallation(ctx, "")
 	if !installed {
-		return fmt.Errorf("pipelines as code not installed: %w", err)
+		errMsg := ""
+		if err != nil {
+			errMsg = fmt.Sprintf(", %v", err)
+		}
+		return fmt.Errorf("pipelines as code not installed%s", errMsg)
 	}
 	if installed && err != nil {
 		return err
@@ -193,7 +197,11 @@ func (pp *PipelinesProvider) createRemoteResources(ctx context.Context, f fn.Fun
 	// figure out pac installation namespace
 	installed, installationNS, err := pac.DetectPACInstallation(ctx, "")
 	if !installed {
-		return fmt.Errorf("pipelines as code not installed: %w", err)
+		errMsg := ""
+		if err != nil {
+			errMsg = fmt.Sprintf(", %v", err)
+		}
+		return fmt.Errorf("pipelines as code not installed%s", errMsg)
 	}
 	if installed && err != nil {
 		return err
