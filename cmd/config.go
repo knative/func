@@ -32,7 +32,7 @@ func (s standardLoaderSaver) Load(path string) (fn.Function, error) {
 		return fn.Function{}, fmt.Errorf("failed to create new function (path: %q): %w", path, err)
 	}
 	if !f.Initialized() {
-		return fn.Function{}, fmt.Errorf("the given path '%v' does not contain an initialized function", f.Root)
+		return fn.Function{}, fn.NewUninitializedError(f.Root)
 	}
 	return f, nil
 }
@@ -165,7 +165,7 @@ func initConfigCommand(loader functionLoader) (fn.Function, error) {
 
 	function, err := loader.Load(config.Path)
 	if err != nil {
-		return fn.Function{}, fmt.Errorf("failed to load the function (path: %q): %w", config.Path, err)
+		return fn.Function{}, err
 	}
 
 	return function, nil

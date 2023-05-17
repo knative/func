@@ -67,7 +67,7 @@ func runDelete(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 	if len(args) > 0 && args[0] != "" {
 		pathChanged := cmd.Flags().Changed("path")
 		if pathChanged {
-			return fmt.Errorf("Only one of --path and [NAME] should be provided")
+			return fmt.Errorf("only one of --path and [NAME] should be provided")
 		}
 		function = fn.Function{
 			Name: args[0],
@@ -80,7 +80,7 @@ func runDelete(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 
 		// Check if the function has been initialized
 		if !function.Initialized() {
-			return fmt.Errorf("the given path '%v' does not contain an initialized function", function.Root)
+			return fn.NewUninitializedError(function.Root)
 		}
 
 		// If not provided, use the function's extant namespace
