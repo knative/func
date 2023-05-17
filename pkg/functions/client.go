@@ -387,8 +387,7 @@ func (c *Client) Registry() string {
 func (c *Client) Runtimes() ([]string, error) {
 	runtimes := utils.NewSortedSet()
 
-	// Gather all runtimes from all repositories
-	// into a uniqueness map
+	// Gather all runtimes from all repositories into a uniqueness map
 	repositories, err := c.Repositories().All()
 	if err != nil {
 		return []string{}, err
@@ -1026,7 +1025,7 @@ func ensureRunDataDir(root string) error {
 	return nil
 }
 
-// fingerprint the files at a given path.  Returns a hash calculated from the
+// Fingerprint the files at a given path.  Returns a hash calculated from the
 // filenames and modification timestamps of the files within the given root.
 // Also returns a logfile consiting of the filenames and modification times
 // which contributed to the hash.
@@ -1035,7 +1034,7 @@ func ensureRunDataDir(root string) error {
 // .git and .func.
 // Future updates will include files explicitly marked as ignored by a
 // .funcignore.
-func fingerprint(root string) (hash, log string, err error) {
+func Fingerprint(root string) (hash, log string, err error) {
 	h := sha256.New()   // Hash builder
 	l := bytes.Buffer{} // Log buffer
 
