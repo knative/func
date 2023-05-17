@@ -163,6 +163,18 @@ type BuildConfig struct {
 	BuilderImages map[string]string `yaml:"builderImages,omitempty"`
 }
 
+type UninitializedError struct {
+	Path string
+}
+
+func (e *UninitializedError) Error() string {
+	return fmt.Sprintf("'%s' does not contain an initialized function", e.Path)
+}
+
+func NewUninitializedError(path string) error {
+	return &UninitializedError{Path: path}
+}
+
 // NewFunctionWith defaults as provided.
 func NewFunctionWith(defaults Function) Function {
 	if defaults.SpecVersion == "" {

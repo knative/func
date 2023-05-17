@@ -149,6 +149,9 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	if f, err = fn.NewFunction(cfg.Path); err != nil {
 		return
 	}
+	if !f.Initialized() {
+		return fn.NewUninitializedError(f.Root)
+	}
 	f = cfg.Configure(f) // Updates f at path to include build request values
 
 	// TODO: this logic is duplicated with runDeploy.  Shouild be in buildConfig

@@ -144,8 +144,12 @@ func runInvoke(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 	if err != nil {
 		return
 	}
+	if err = f.Validate(); err != nil {
+		fmt.Printf("error validating function at '%v'. %v\n", f.Root, err)
+		return err
+	}
 	if !f.Initialized() {
-		return fmt.Errorf("'%v' does not contain an initialized function", f.Root)
+		return fn.NewUninitializedError(f.Root)
 	}
 
 	// Client instance from env vars, flags, args and user prompts (if --confirm)
