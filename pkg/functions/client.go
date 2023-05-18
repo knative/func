@@ -618,12 +618,59 @@ func (c *Client) Build(ctx context.Context, f Function) (Function, error) {
 
 	// TODO: create a status structure and return it here for optional
 	// use by the cli for user echo (rather than rely on verbose mode here)
-	message := fmt.Sprintf("🙌 Function image built: %v", f.Image)
+	message := fmt.Sprintf("🙌 Function built: %v", f.Image)
 	if runtime.GOOS == "windows" {
-		message = fmt.Sprintf("Function image built: %v", f.Image)
+		message = fmt.Sprintf("Function built: %v", f.Image)
 	}
 	c.progressListener.Increment(message)
 	return f, err
+}
+
+// Scaffold writes a functions's scaffolding to a given path.
+// It also updates the included symlink to function source 'f' to point to
+// the current function's source.
+func (c *Client) Scaffold(ctx context.Context, f Function, dest string) (err error) {
+	// First get a reference to the repository containing the scaffolding to use
+	//
+	// TODO: In order to support extensible scaffolding from external repositories,
+	// Retain the repository reference from which a Function was initialized
+	// in order to re-read out its scaffolding later.  This can be the locally-
+	// installed repository name or the remote reference URL.  There are benefits
+	// and detriments either way.  A third option would be to store the
+	// scaffolding locally, but this also has downsides.
+	//
+	//  If function creatd from a local repository named:
+	//     repo = repoFromURL(f.RepoURL)
+	//  If function created from a remote reference:
+	//    c.Repositories().Get(f.RepoName)
+	//  If function not created from an external repository:
+	repo, err := c.Repositories().Get(DefaultRepositoryName)
+	if err != nil {
+		return
+	}
+
+	// Detect the method signature
+	s, err := functionSignature(f)
+	if err != nil {
+		return
+	}
+
+	// Write Scaffolding from the Repository into the destination
+	if err = repo.WriteScaffolding(ctx, f, s, dest); err != nil {
+		return
+	}
+
+	// Replace the 'f' link of the scaffolding (which is now incorrect) to
+	// link to the function's root.
+	src, err := filepath.Rel(dest, f.Root)
+	if err != nil {
+		return fmt.Errorf("error determining relative path to function source %w", err)
+	}
+	_ = os.Remove(filepath.Join(dest, "f"))
+	if err = os.Symlink(src, filepath.Join(dest, "f")); err != nil {
+		return fmt.Errorf("error linking scaffolding to function source %w", err)
+	}
+	return
 }
 
 func (c *Client) printBuildActivity(ctx context.Context) {
