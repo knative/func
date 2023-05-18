@@ -100,8 +100,7 @@ type configGitSetConfig struct {
 	GitRevision   string
 	GitContextDir string
 
-	WebhookTrigger    bool
-	WebhookTriggerSet bool // whether WebhookTrigger value has been set
+	ConfigureRemoteResourcesSet bool // whether ConfigureRemoteResources value has been set
 
 	metadata pipelines.PacMetadata
 }
@@ -115,10 +114,15 @@ func newConfigGitSetConfig(cmd *cobra.Command) (c configGitSetConfig) {
 	configLocal := true
 	configCluster := true
 	configRemote := true
+
+	configRemoteSet := false
+
 	if viper.HasChanged("config-local") || viper.HasChanged("config-cluster") || viper.HasChanged("config-remote") {
 		configLocal = viper.GetBool("config-local")
 		configCluster = viper.GetBool("config-cluster")
 		configRemote = viper.GetBool("config-remote")
+
+		configRemoteSet = true
 	}
 
 	c = configGitSetConfig{
@@ -128,6 +132,8 @@ func newConfigGitSetConfig(cmd *cobra.Command) (c configGitSetConfig) {
 		GitURL:        viper.GetString("git-url"),
 		GitRevision:   viper.GetString("git-branch"),
 		GitContextDir: viper.GetString("git-dir"),
+
+		ConfigureRemoteResourcesSet: configRemoteSet,
 
 		metadata: pipelines.PacMetadata{
 			GitProvider:         viper.GetString("git-provider"),
@@ -197,7 +203,7 @@ func (c configGitSetConfig) Prompt(f fn.Function) (configGitSetConfig, error) {
 	}
 
 	// prompt if webhook trigger setting hasn't been set previously
-	if !c.WebhookTriggerSet {
+	if !c.ConfigureRemoteResourcesSet {
 		trigger := true
 		if err := survey.AskOne(&survey.Confirm{
 			Message: "Do you want to configure webhook trigger?",
@@ -206,11 +212,11 @@ func (c configGitSetConfig) Prompt(f fn.Function) (configGitSetConfig, error) {
 		}, &trigger, survey.WithValidator(survey.Required)); err != nil {
 			return c, err
 		}
-		c.WebhookTrigger = trigger
-		c.WebhookTriggerSet = true
+		c.metadata.ConfigureRemoteResources = trigger
+		c.ConfigureRemoteResourcesSet = true
 	}
 
-	if c.WebhookTrigger {
+	if c.metadata.ConfigureRemoteResources {
 		// Configure Git provider
 		if c.metadata.GitProvider == "" {
 			provider, err := git.GitProviderName(c.GitURL)
