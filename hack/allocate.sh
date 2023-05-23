@@ -27,7 +27,7 @@ main() {
   local kubernetes_version=v1.24.6
   local knative_serving_version=v1.8.0
   local knative_eventing_version=v1.8.0
-  local kourier_version=v1.8.0
+  local contour_version=v1.8.0
 
   local em=$(tput bold)$(tput setaf 2)
   local me=$(tput sgr0)
@@ -113,12 +113,12 @@ networking() {
   echo "${em}④ Contour Ingress${me}"
 
   # Install a properly configured Contour.
-  kubectl apply -f https://github.com/knative/net-contour/releases/download/knative-v1.10.0/contour.yaml
+  kubectl apply -f "https://github.com/knative/net-contour/releases/download/knative-${contour_version}/contour.yaml"
   sleep 5
   kubectl wait pod --for=condition=Ready -l '!job-name' -n contour-external --timeout=5m
 
   # Install the Knative Contour controller.
-  kubectl apply -f https://github.com/knative/net-contour/releases/download/knative-v1.10.0/net-contour.yaml
+  kubectl apply -f "https://github.com/knative/net-contour/releases/download/knative-${contour_version}/net-contour.yaml"
   sleep 5
   kubectl wait pod --for=condition=Ready -l '!job-name' -n knative-serving --timeout=5m
 
