@@ -29,7 +29,9 @@ main() {
   local knative_eventing_version=v1.8.0
   local contour_version=v1.8.0
 
+  # shellcheck disable=SC2155
   local em=$(tput bold)$(tput setaf 2)
+  # shellcheck disable=SC2155
   local me=$(tput sgr0)
 
   echo "${em}Allocating...${me}"
@@ -316,6 +318,7 @@ EOF
 
 
 next_steps() {
+  # shellcheck disable=SC2155
   local red=$(tput bold)$(tput setaf 1)
 
   echo "${em}Image Registry${me}"
