@@ -110,35 +110,42 @@ dns() {
 }
 
 networking() {
-  echo "${em}④ Kourier Networking${me}"
+  echo "${em}④ Contour Ingress${me}"
 
-  # Install Eourier
-  kubectl apply --filename https://github.com/knative/net-kourier/releases/download/knative-$kourier_version/kourier.yaml
+  # Install a properly configured Contour.
+  kubectl apply -f https://github.com/knative/net-contour/releases/download/knative-v1.10.0/contour.yaml
   sleep 5
-  kubectl wait pod --for=condition=Ready -l '!job-name' -n kourier-system --timeout=5m
+  kubectl wait pod --for=condition=Ready -l '!job-name' -n contour-external --timeout=5m
+
+  # Install the Knative Contour controller.
+  kubectl apply -f https://github.com/knative/net-contour/releases/download/knative-v1.10.0/net-contour.yaml
+  sleep 5
   kubectl wait pod --for=condition=Ready -l '!job-name' -n knative-serving --timeout=5m
 
-  # Configure Knative to use Kourier
+  # Configure Knative Serving to use Contour.
   kubectl patch configmap/config-network \
-      --namespace knative-serving \
-      --type merge \
-      --patch '{"data":{"ingress.class":"kourier.ingress.networking.knative.dev"}}'
+    --namespace knative-serving \
+    --type merge \
+    --patch '{"data":{"ingress-class":"contour.ingress.networking.knative.dev"}}'
 
-  # Create NodePort ingress for kourier
+  # Patch type from LoadBalancer to NodePort and fix nodePorts for http to 30080 and https to 30443
   kubectl apply -f - <<EOF
 apiVersion: v1
 kind: Service
 metadata:
-  name: kourier-ingress
-  namespace: kourier-system
+  name: envoy
+  namespace: contour-external
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
   labels:
-    networking.knative.dev/ingress-provider: kourier
+    networking.knative.dev/ingress-provider: contour
 spec:
   type: NodePort
   selector:
-    app: 3scale-kourier-gateway
+    app: envoy
+  externalTrafficPolicy: Local
   ports:
-    - name: http2
+    - name: http
       nodePort: 30080
       port: 80
       targetPort: 8080
@@ -148,7 +155,7 @@ spec:
       targetPort: 8443
 EOF
 
-  kubectl wait pod --for=condition=Ready -l '!job-name' -n kourier-system --timeout=5m
+  kubectl wait pod --for=condition=Ready -l '!job-name' -n contour-external --timeout=5m
   kubectl wait pod --for=condition=Ready -l '!job-name' -n knative-serving --timeout=5m
 }
 
