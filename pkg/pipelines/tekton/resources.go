@@ -7,7 +7,6 @@ import (
 	pplnv1beta1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/func/pkg/builders"
 	"knative.dev/func/pkg/builders/buildpacks"
@@ -111,7 +110,7 @@ func generatePipeline(f fn.Function, labels map[string]string) *pplnv1beta1.Pipe
 	tasks = append(tasks, taskBuild, taskDeploy(taskNameBuild, referenceImageFromPreviousTaskResults))
 
 	return &pplnv1beta1.Pipeline{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:        pipelineName,
 			Labels:      labels,
 			Annotations: f.Deploy.Annotations,
@@ -134,7 +133,7 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 		contextDir = "."
 	}
 
-	buildEnvs := &pplnv1beta1.ArrayOrString{
+	buildEnvs := &pplnv1beta1.ParamValue{
 		Type:     pplnv1beta1.ParamTypeArray,
 		ArrayVal: []string{},
 	}
@@ -212,7 +211,7 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 
 	// ----- PipelineRun definition
 	return &pplnv1beta1.PipelineRun{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: fmt.Sprintf("%s-run-", getPipelineName(f)),
 			Labels:       labels,
 			Annotations:  f.Deploy.Annotations,

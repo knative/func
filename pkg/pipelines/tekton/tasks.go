@@ -54,7 +54,7 @@ func taskBuildpacks(runAfter []string) pplnv1beta1.PipelineTask {
 			{Name: "REGISTRY", Value: *pplnv1beta1.NewArrayOrString("$(params.registry)")},
 			{Name: "SOURCE_SUBPATH", Value: *pplnv1beta1.NewArrayOrString("$(params.contextDir)")},
 			{Name: "BUILDER_IMAGE", Value: *pplnv1beta1.NewArrayOrString("$(params.builderImage)")},
-			{Name: "ENV_VARS", Value: pplnv1beta1.ArrayOrString{
+			{Name: "ENV_VARS", Value: pplnv1beta1.ParamValue{
 				Type:     pplnv1beta1.ParamTypeArray,
 				ArrayVal: []string{"$(params.buildEnvs[*])"},
 			}},
@@ -68,7 +68,7 @@ func taskS2iBuild(runAfter []string) pplnv1beta1.PipelineTask {
 		{Name: "REGISTRY", Value: *pplnv1beta1.NewArrayOrString("$(params.registry)")},
 		{Name: "PATH_CONTEXT", Value: *pplnv1beta1.NewArrayOrString("$(params.contextDir)")},
 		{Name: "BUILDER_IMAGE", Value: *pplnv1beta1.NewArrayOrString("$(params.builderImage)")},
-		{Name: "ENV_VARS", Value: pplnv1beta1.ArrayOrString{
+		{Name: "ENV_VARS", Value: pplnv1beta1.ParamValue{
 			Type:     pplnv1beta1.ParamTypeArray,
 			ArrayVal: []string{"$(params.buildEnvs[*])"},
 		}},
