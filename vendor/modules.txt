@@ -1655,13 +1655,13 @@ k8s.io/klog/v2/internal/clock
 k8s.io/klog/v2/internal/dbg
 k8s.io/klog/v2/internal/serialize
 k8s.io/klog/v2/internal/severity
-# k8s.io/kube-openapi v0.0.0-20230308215209-15aac26d736a
+# k8s.io/kube-openapi v0.0.0-20230308215209-15aac26d736a => k8s.io/kube-openapi v0.0.0-20230123231816-1cb3ae25d79a
 ## explicit; go 1.18
 k8s.io/kube-openapi/pkg/builder3/util
-k8s.io/kube-openapi/pkg/cached
 k8s.io/kube-openapi/pkg/common
 k8s.io/kube-openapi/pkg/handler3
 k8s.io/kube-openapi/pkg/internal
+k8s.io/kube-openapi/pkg/internal/handler
 k8s.io/kube-openapi/pkg/internal/third_party/go-json-experiment/json
 k8s.io/kube-openapi/pkg/openapiconv
 k8s.io/kube-openapi/pkg/schemaconv
@@ -1899,3 +1899,4 @@ sigs.k8s.io/yaml
 # k8s.io/api => k8s.io/api v0.25.4
 # k8s.io/apimachinery => k8s.io/apimachinery v0.25.4
 # k8s.io/client-go => k8s.io/client-go v0.25.4
+# k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20230123231816-1cb3ae25d79a

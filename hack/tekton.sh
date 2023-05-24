@@ -22,7 +22,7 @@ set -o pipefail
 
 export TERM="${TERM:-dumb}"
 
-tekton_release="previous/v0.42.0"
+tekton_release="previous/v0.47.0"
 git_clone_release="0.4"
 namespace="${NAMESPACE:-default}"
 tasks_source_path="$(dirname "$(cd "$(dirname "$0")" && pwd )")"
