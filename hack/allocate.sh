@@ -58,10 +58,10 @@ nodes:
   - role: control-plane
     image: kindest/node:${kubernetes_version}
     extraPortMappings:
-    - containerPort: 30080
+    - containerPort: 80
       hostPort: 80
       listenAddress: "127.0.0.1"
-    - containerPort: 30443
+    - containerPort: 433
       hostPort: 443
       listenAddress: "127.0.0.1"
 containerdConfigPatches:
@@ -114,6 +114,33 @@ dns() {
 networking() {
   echo "${em}④ Contour Ingress${me}"
 
+  # Install load balancer
+  kubectl apply -f "https://raw.githubusercontent.com/metallb/metallb/v0.13.7/config/manifests/metallb-native.yaml"
+  kubectl wait --namespace metallb-system \
+    --for=condition=ready pod \
+    --selector=app=metallb \
+    --timeout=90s
+
+  local kind_addr
+  kind_addr="$(docker container inspect func-control-plane | jq '.[0].NetworkSettings.Networks.kind.IPAddress' -r)"
+
+  kubectl apply -f - <<EOF
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: example
+  namespace: metallb-system
+spec:
+  addresses:
+  - ${kind_addr}-${kind_addr}
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: empty
+  namespace: metallb-system
+EOF
+
   # Install a properly configured Contour.
   kubectl apply -f "https://github.com/knative/net-contour/releases/download/knative-${contour_version}/contour.yaml"
   sleep 5
@@ -129,33 +156,6 @@ networking() {
     --namespace knative-serving \
     --type merge \
     --patch '{"data":{"ingress-class":"contour.ingress.networking.knative.dev"}}'
-
-  # Patch type from LoadBalancer to NodePort and fix nodePorts for http to 30080 and https to 30443
-  kubectl apply -f - <<EOF
-apiVersion: v1
-kind: Service
-metadata:
-  name: envoy
-  namespace: contour-external
-  annotations:
-    service.beta.kubernetes.io/aws-load-balancer-backend-protocol: tcp
-  labels:
-    networking.knative.dev/ingress-provider: contour
-spec:
-  type: NodePort
-  selector:
-    app: envoy
-  externalTrafficPolicy: Local
-  ports:
-    - name: http
-      nodePort: 30080
-      port: 80
-      targetPort: 8080
-    - name: https
-      nodePort: 30443
-      port: 443
-      targetPort: 8443
-EOF
 
   kubectl wait pod --for=condition=Ready -l '!job-name' -n contour-external --timeout=5m
   kubectl wait pod --for=condition=Ready -l '!job-name' -n knative-serving --timeout=5m
