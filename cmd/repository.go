@@ -108,7 +108,7 @@ EXAMPLES
 	  $ {{rootCmdUse}} repository -c
 
 	o Add a repository and create a new function using a template from it:
-	  $ {{rootCmdUse}} repository add functastic https://github.com/knative-sandbox/func-tastic
+	  $ {{rootCmdUse}} repository add functastic https://github.com/knative-extension/func-tastic
 	  $ {{rootCmdUse}} repository list
 	  default
 	  functastic
@@ -116,7 +116,7 @@ EXAMPLES
 	  ...
 
 		o Add a repository specifying the branch to use (metacontroller):
-	  $ {{rootCmdUse}} repository add metacontroller https://github.com/knative-sandbox/func-tastic#metacontroler
+	  $ {{rootCmdUse}} repository add metacontroller https://github.com/knative-extension/func-tastic#metacontroler
 	  $ {{rootCmdUse}} repository list
 	  default
 	  metacontroller
@@ -126,7 +126,7 @@ EXAMPLES
 	o List all repositories including the URL from which remotes were installed
 	  $ {{rootCmdUse}} repository list -v
 	  default
-	  metacontroller	https://github.com/knative-sandbox/func-tastic#metacontroller
+	  metacontroller	https://github.com/knative-extension/func-tastic#metacontroller
 
 	o Rename an installed repository
 	  $ {{rootCmdUse}} repository list

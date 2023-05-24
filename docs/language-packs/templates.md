@@ -8,11 +8,11 @@ To make use of more complex initial function implementions, or to define runtime
 
 ## External Git Repositories
 
-When creating a new function, a Git repository can be specified as the source for the template files.  For example, the the [knative-sandbox/func-tastic repository](https://github.com/knative-sandbox/func-tastic) contains a set of example functions which can be used during project creation.
+When creating a new function, a Git repository can be specified as the source for the template files.  For example, the the [knative-extension/func-tastic repository](https://github.com/knative-extension/func-tastic) contains a set of example functions which can be used during project creation.
 
 For example, the func-tastic repository contains an example ["metacontroller"](https://metacontroller.github.io/metacontroller) function implementation for Node.js.  To use this template via the CLI, use the flags:
 
-func create <name> --template metacontroller --repository https://github.com/knative-sandbox/func-tastic
+func create <name> --template metacontroller --repository https://github.com/knative-extension/func-tastic
 
 ## Locally Installing Repositories
 
@@ -21,7 +21,7 @@ Template repositories can also be installed locally by placing them in the funct
 To install the func-tastic templates locally, for example, use the `func repository add` command:
 
 ```
-func repository add https://github.com/knative-sandbox/func-tastic
+func repository add https://github.com/knative-extension/func-tastic
 ```
 
 Once installed, the metacontroller template can be specified:
