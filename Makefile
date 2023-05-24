@@ -58,7 +58,7 @@ test: $(CODE) ## Run core unit tests
 	go test -race -cover -coverprofile=coverage.txt ./...
 
 check: bin/golangci-lint ## Check code quality (lint)
-	./bin/golangci-lint run --timeout 1300s
+	./bin/golangci-lint run --timeout 300s
 	cd test && ../bin/golangci-lint run --timeout 300s
 
 bin/golangci-lint:
