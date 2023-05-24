@@ -155,7 +155,7 @@ type Describer interface {
 // there is a one to many relationship between a given route and processes.
 // By default the system creates the 'local' and 'remote' named instances
 // when a function is run (locally) and deployed, respectively.
-// See the .Instances(f) accessor for the map of named environments to these
+// See the .InstanceRefs(f) accessor for the map of named environments to these
 // function information structures.
 type Instance struct {
 	// Route is the primary route of a function instance.
@@ -197,7 +197,6 @@ func New(options ...Option) *Client {
 		builder:           &noopBuilder{output: os.Stdout},
 		pusher:            &noopPusher{output: os.Stdout},
 		deployer:          &noopDeployer{output: os.Stdout},
-		runner:            &noopRunner{output: os.Stdout},
 		remover:           &noopRemover{output: os.Stdout},
 		lister:            &noopLister{output: os.Stdout},
 		describer:         &noopDescriber{output: os.Stdout},
@@ -206,6 +205,7 @@ func New(options ...Option) *Client {
 		pipelinesProvider: &noopPipelinesProvider{},
 		transport:         http.DefaultTransport,
 	}
+	c.runner = newDefaultRunner(c, os.Stdout, os.Stderr)
 	for _, o := range options {
 		o(c)
 	}
@@ -561,10 +561,7 @@ func (c *Client) Init(cfg Function) (Function, error) {
 	}
 
 	// Write out the new function's Template files.
-	// Templates contain values which may result in the function being mutated
-	// (default builders, etc)
-	err = c.Templates().Write(&f)
-	if err != nil {
+	if err = c.Templates().Write(&f); err != nil {
 		return f, err
 	}
 
@@ -1214,13 +1211,6 @@ type noopDeployer struct{ output io.Writer }
 
 func (n *noopDeployer) Deploy(ctx context.Context, _ Function) (DeploymentResult, error) {
 	return DeploymentResult{}, nil
-}
-
-// Runner
-type noopRunner struct{ output io.Writer }
-
-func (n *noopRunner) Run(context.Context, Function) (job *Job, err error) {
-	return nil, errors.New("no runner available")
 }
 
 // Remover

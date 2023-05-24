@@ -49,7 +49,7 @@ func TestInvoke(t *testing.T) {
 		_, port, _ := net.SplitHostPort(l.Addr().String())
 		errs := make(chan error, 10)
 		stop := func() error { _ = s.Close(); return nil }
-		return fn.NewJob(f, port, errs, stop, false)
+		return fn.NewJob(f, "127.0.0.1", port, errs, stop, false)
 	}
 
 	// Run the mock http service function interloper

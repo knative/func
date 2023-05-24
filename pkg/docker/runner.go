@@ -128,7 +128,7 @@ func (n *Runner) Run(ctx context.Context, f fn.Function) (job *fn.Job, err error
 	}
 
 	// Job reporting port, runtime errors and provides a mechanism for stopping.
-	return fn.NewJob(f, port, runtimeErrCh, stop, n.verbose)
+	return fn.NewJob(f, DefaultHost, port, runtimeErrCh, stop, n.verbose)
 }
 
 // Dial the given (tcp) port on the given interface, returning an error if it is
