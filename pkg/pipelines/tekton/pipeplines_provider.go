@@ -372,12 +372,12 @@ func (pp *PipelinesProvider) watchPipelineRunProgress(ctx context.Context, pr *v
 		taskNameDeploy:       "Deploying function to the cluster",
 	}
 
-	clientset, err := NewTektonClientset()
+	clients, err := NewTektonClients()
 	if err != nil {
 		return err
 	}
 
-	prTracker := pipelinerun.NewTracker(pr.Name, pp.namespace, clientset)
+	prTracker := pipelinerun.NewTracker(pr.Name, pp.namespace, clients)
 	trChannel := prTracker.Monitor([]string{})
 	ctxDone := ctx.Done()
 	wg := sync.WaitGroup{}

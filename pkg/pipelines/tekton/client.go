@@ -4,9 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
+	"github.com/tektoncd/cli/pkg/cli"
 	"github.com/tektoncd/pipeline/pkg/client/clientset/versioned/typed/pipeline/v1beta1"
-
 	"knative.dev/func/pkg/k8s"
 )
 
@@ -33,16 +32,18 @@ func NewTektonClientAndResolvedNamespace(defaultNamespace string) (*v1beta1.Tekt
 	return client, namespace, nil
 }
 
-func NewTektonClientset() (versioned.Interface, error) {
+func NewTektonClients() (*cli.Clients, error) {
 	restConfig, err := k8s.GetClientConfig().ClientConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new tekton clientset: %v", err)
 	}
 
-	clientset, err := versioned.NewForConfig(restConfig)
+	params := cli.TektonParams{}
+	clients, err := params.Clients(restConfig)
+
 	if err != nil {
-		return nil, fmt.Errorf("failed to create new tekton clientset: %v", err)
+		return nil, fmt.Errorf("failed to create new tekton clients: %v", err)
 	}
 
-	return clientset, nil
+	return clients, nil
 }

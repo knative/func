@@ -17,11 +17,11 @@ package formatted
 import (
 	"fmt"
 
-	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
 )
 
-func Workspace(ws v1beta1.WorkspaceBinding) string {
+func Workspace(ws v1.WorkspaceBinding) string {
 	if ws.VolumeClaimTemplate != nil {
 		return "VolumeClaimTemplate"
 	}

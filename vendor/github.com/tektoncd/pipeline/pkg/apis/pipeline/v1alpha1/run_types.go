@@ -55,7 +55,7 @@ type RunSpec struct {
 	Spec *EmbeddedRunSpec `json:"spec,omitempty"`
 
 	// +optional
-	Params []v1beta1.Param `json:"params,omitempty"`
+	Params v1beta1.Params `json:"params,omitempty"`
 
 	// Used for cancelling a run (and maybe more later on)
 	// +optional
@@ -262,4 +262,9 @@ func (r *Run) GetTimeout() time.Duration {
 		return apisconfig.DefaultTimeoutMinutes * time.Minute
 	}
 	return r.Spec.Timeout.Duration
+}
+
+// GetRetryCount returns the number of times this Run has already been retried
+func (r *Run) GetRetryCount() int {
+	return len(r.Status.RetriesStatus)
 }
