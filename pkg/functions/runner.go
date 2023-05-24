@@ -86,12 +86,14 @@ func runFunc(ctx context.Context, job *Job) (runFn func() error, err error) {
 		err = runnerNotImplemented{runtime}
 	case "node":
 		err = runnerNotImplemented{runtime}
+	case "typescript":
+		err = runnerNotImplemented{runtime}
 	case "rust":
 		err = runnerNotImplemented{runtime}
 	case "":
 		err = fmt.Errorf("runner requires the function have runtime set")
 	default:
-		err = fmt.Errorf("runner does not recognized the %q runtime", runtime)
+		err = fmt.Errorf("the %q runtime is not supported", runtime)
 	}
 	return
 }
@@ -101,7 +103,7 @@ type runnerNotImplemented struct {
 }
 
 func (e runnerNotImplemented) Error() string {
-	return fmt.Sprintf("the runtime %q is not supported by the host runner.  Try running containerized.", e.Runtime)
+	return fmt.Sprintf("the %q runtime may only be run containerized.", e.Runtime)
 }
 
 func runGo(ctx context.Context, job *Job) (err error) {
