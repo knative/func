@@ -79,7 +79,7 @@ func generatePipeline(f fn.Function, labels map[string]string) *pplnv1beta1.Pipe
 	}
 
 	var taskBuild pplnv1beta1.PipelineTask
-	
+
 	var tasks []pplnv1beta1.PipelineTask
 	var buildPreReq []string
 
