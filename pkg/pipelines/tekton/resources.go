@@ -80,9 +80,6 @@ func generatePipeline(f fn.Function, labels map[string]string) *pplnv1beta1.Pipe
 
 	var taskBuild pplnv1beta1.PipelineTask
 
-	// Deploy step that uses an image produced by S2I builds needs explicit reference to the image
-	referenceImageFromPreviousTaskResults := false
-
 	var tasks []pplnv1beta1.PipelineTask
 	var buildPreReq []string
 
@@ -104,11 +101,10 @@ func generatePipeline(f fn.Function, labels map[string]string) *pplnv1beta1.Pipe
 			Default: pplnv1beta1.NewArrayOrString("image:///usr/libexec/s2i")})
 
 		taskBuild = taskS2iBuild(buildPreReq)
-		referenceImageFromPreviousTaskResults = true
 	}
 
 	// ----- Pipeline definition
-	tasks = append(tasks, taskBuild, taskDeploy(taskNameBuild, referenceImageFromPreviousTaskResults))
+	tasks = append(tasks, taskBuild, taskDeploy(taskNameBuild))
 
 	return &pplnv1beta1.Pipeline{
 		ObjectMeta: v1.ObjectMeta{

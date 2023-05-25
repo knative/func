@@ -68,7 +68,7 @@ spec:
       default: empty-dir
 
   results:
-    - name: APP_IMAGE_DIGEST
+    - name: IMAGE_DIGEST
       description: The digest of the built `APP_IMAGE`.
 
   stepTemplate:
@@ -189,13 +189,13 @@ spec:
       script: |
         #!/usr/bin/env bash
         set -e
-        cat /layers/report.toml | grep "digest" | cut -d'"' -f2 | cut -d'"' -f2 | tr -d '\n' | tee $(results.APP_IMAGE_DIGEST.path)
+        cat /layers/report.toml | grep "digest" | cut -d'"' -f2 | cut -d'"' -f2 | tr -d '\n' | tee $(results.IMAGE_DIGEST.path)
 
         ############################################
         ##### Added part for Knative Functions #####
         ############################################
 
-        digest=$(cat $(results.APP_IMAGE_DIGEST.path))
+        digest=$(cat $(results.IMAGE_DIGEST.path))
 
         func_file="$(workspaces.source.path)/func.yaml"
         if [ "$(params.SOURCE_SUBPATH)" != "" ]; then
