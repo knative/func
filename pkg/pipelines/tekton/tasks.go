@@ -98,14 +98,12 @@ func taskS2iBuild(runAfter []string) pplnv1beta1.PipelineTask {
 
 }
 
-func taskDeploy(runAfter string, referenceImageFromPreviousTaskResults bool) pplnv1beta1.PipelineTask {
+func taskDeploy(runAfter string) pplnv1beta1.PipelineTask {
 
 	params := []pplnv1beta1.Param{{Name: "path", Value: *pplnv1beta1.NewArrayOrString("$(workspaces.source.path)/$(params.contextDir)")}}
 
-	// Deploy step that uses an image produced by S2I builds needs explicit reference to the image
-	if referenceImageFromPreviousTaskResults {
-		params = append(params, pplnv1beta1.Param{Name: "image", Value: *pplnv1beta1.NewArrayOrString(fmt.Sprintf("$(params.imageName)@$(tasks.%s.results.IMAGE_DIGEST)", runAfter))})
-	}
+	// Deploy step that uses an image produced by builds needs explicit reference to the image
+	params = append(params, pplnv1beta1.Param{Name: "image", Value: *pplnv1beta1.NewArrayOrString(fmt.Sprintf("$(params.imageName)@$(tasks.%s.results.IMAGE_DIGEST)", runAfter))})
 
 	return pplnv1beta1.PipelineTask{
 		Name: taskNameDeploy,
