@@ -90,6 +90,7 @@ Learn more about Knative at: https://knative.dev`, cfg.Name),
 				NewLanguagesCmd(newClient),
 				NewTemplatesCmd(newClient),
 				NewRepositoryCmd(newClient),
+				NewEnvironmentCmd(newClient, &cfg.Version),
 			},
 		},
 		{
