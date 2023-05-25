@@ -82,7 +82,7 @@ spec:
         - name: path
           value: $(workspaces.source.path)/$(params.contextDir)
         - name: image
-          value: $(params.imageName)@$(tasks.build.results.APP_IMAGE_DIGEST)
+          value: $(params.imageName)@$(tasks.build.results.IMAGE_DIGEST)
       runAfter:
         - build
       taskRef:
