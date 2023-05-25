@@ -72,7 +72,7 @@ func runEnvironment(cmd *cobra.Command, newClient ClientFactory, v *Version) (er
 
 	defaults, err := config.NewDefault()
 	if err != nil {
-		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
+		return
 	}
 
 	environment := Environment{
