@@ -21,6 +21,7 @@ import (
 	"github.com/tektoncd/cli/pkg/pipelinerun"
 	"github.com/tektoncd/cli/pkg/taskrun"
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	pipelineClient "github.com/tektoncd/pipeline/pkg/client/clientset/versioned/typed/pipeline/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -183,7 +184,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 	}
 
 	if pr.Status.GetCondition(apis.ConditionSucceeded).Status == corev1.ConditionFalse {
-		message := getFailedPipelineRunLog(ctx, pr, pp.namespace)
+		message := getFailedPipelineRunLog(ctx, client, pr, pp.namespace)
 		return fmt.Errorf("function pipeline run has failed with message: \n\n%s", message)
 	}
 
@@ -372,12 +373,12 @@ func (pp *PipelinesProvider) watchPipelineRunProgress(ctx context.Context, pr *v
 		taskNameDeploy:       "Deploying function to the cluster",
 	}
 
-	clientset, err := NewTektonClientset()
+	clients, err := NewTektonClients()
 	if err != nil {
 		return err
 	}
 
-	prTracker := pipelinerun.NewTracker(pr.Name, pp.namespace, clientset)
+	prTracker := pipelinerun.NewTracker(pr.Name, pp.namespace, clients)
 	trChannel := prTracker.Monitor([]string{})
 	ctxDone := ctx.Done()
 	wg := sync.WaitGroup{}
@@ -419,13 +420,17 @@ out:
 
 // getFailedPipelineRunLog returns log message for a failed PipelineRun,
 // returns log from a container where the failing TaskRun is running, if available.
-func getFailedPipelineRunLog(ctx context.Context, pr *v1beta1.PipelineRun, namespace string) string {
+func getFailedPipelineRunLog(ctx context.Context, client *pipelineClient.TektonV1beta1Client, pr *v1beta1.PipelineRun, namespace string) string {
 	// Reason "Failed" usually means there is a specific failure in some step,
 	// let's find the failed step and try to get log directly from the container.
 	// If we are not able to get the container's log, we return the generic message from the PipelineRun.Status.
 	message := pr.Status.GetCondition(apis.ConditionSucceeded).Message
 	if pr.Status.GetCondition(apis.ConditionSucceeded).Reason == "Failed" {
-		for _, t := range pr.Status.TaskRuns {
+		for _, ref := range pr.Status.ChildReferences {
+			t, err := client.TaskRuns(namespace).Get(context.Background(), ref.Name, metav1.GetOptions{})
+			if err != nil {
+				return fmt.Sprintf("error getting TaskRun %s: %v", ref.Name, err)
+			}
 			if t.Status.GetCondition(apis.ConditionSucceeded).Status == corev1.ConditionFalse {
 				for _, s := range t.Status.Steps {
 					// let's try to print logs of the first unsuccessful step

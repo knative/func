@@ -25,16 +25,15 @@ import (
 
 // Delete removes the specified image reference from the remote registry.
 func Delete(ref name.Reference, options ...Option) error {
-	o, err := makeOptions(ref.Context(), options...)
+	o, err := makeOptions(options...)
 	if err != nil {
 		return err
 	}
-	scopes := []string{ref.Scope(transport.DeleteScope)}
-	tr, err := transport.NewWithContext(o.context, ref.Context().Registry, o.auth, o.transport, scopes)
+	w, err := makeWriter(o.context, ref.Context(), nil, o)
 	if err != nil {
 		return err
 	}
-	c := &http.Client{Transport: tr}
+	c := w.client
 
 	u := url.URL{
 		Scheme: ref.Context().Registry.Scheme(),
@@ -54,4 +53,8 @@ func Delete(ref name.Reference, options ...Option) error {
 	defer resp.Body.Close()
 
 	return transport.CheckError(resp, http.StatusOK, http.StatusAccepted)
+
+	// TODO(jason): If the manifest had a `subject`, and if the registry
+	// doesn't support Referrers, update the index pointed to by the
+	// subject's fallback tag to remove the descriptor for this manifest.
 }
