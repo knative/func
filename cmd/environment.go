@@ -54,6 +54,7 @@ type Environment struct {
 	Languages   []string
 	Templates   map[string][]string
 	Environment []string
+	Cluster     string
 	Defaults    config.Global
 }
 
@@ -83,6 +84,14 @@ func runEnvironment(cmd *cobra.Command, newClient ClientFactory, v *Version) (er
 		return
 	}
 
+	var host string
+	cc, err := k8s.GetClientConfig().ClientConfig()
+	if err != nil {
+		fmt.Printf("Error getting client config %v\n", err)
+	} else {
+		host = cc.Host
+	}
+
 	environment := Environment{
 		Version:     v.String(),
 		Build:       v.Hash,
@@ -92,6 +101,7 @@ func runEnvironment(cmd *cobra.Command, newClient ClientFactory, v *Version) (er
 		Languages:   r,
 		Templates:   t,
 		Environment: envs,
+		Cluster:     host,
 		Defaults:    defaults,
 	}
 
