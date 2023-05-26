@@ -99,15 +99,16 @@ const smokeTest = () => {
 
 const main = async () => {
     const latestPlatform = await getLatestPlatform()
-    const prTitle = `chore: update Springboot platform version to ${latestPlatform}`
-    const branchName = `update-springboot-platform-${latestPlatform}`
-    const cePlatform = await platformFromPom(cePomPath)
-    const httpPlatform = await platformFromPom(httpPomPath)
 
     if(latestPlatform === null) {
         console.log("Spring Boot platform latest version is not ready to use!")
         return 
     }
+    
+    const prTitle = `chore: update Springboot platform version to ${latestPlatform}`
+    const branchName = `update-springboot-platform-${latestPlatform}`
+    const cePlatform = await platformFromPom(cePomPath)
+    const httpPlatform = await platformFromPom(httpPomPath)
 
     if (cePlatform === latestPlatform && httpPlatform === latestPlatform) {
         console.log("Spring Boot platform is up-to-date!")
