@@ -11,7 +11,7 @@ const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/')
 
 const getLatestPlatform = async () => {
     const resp = await axios.get("https://api.github.com/repos/spring-projects/spring-boot/releases/latest")
-    return (resp.data.draft === 'false') ? resp.data.name.replace(/[A-Za-z]/g, "") : null;
+    return (resp.data.draft === false) ? resp.data.name.replace(/[A-Za-z]/g, "") : null;
 }
 
 const prExists = async (pred) => {
