@@ -3,6 +3,8 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
@@ -51,6 +53,7 @@ type Environment struct {
 	TarImage    string
 	Languages   []string
 	Templates   map[string][]string
+	Environment []string
 	Defaults    config.Global
 }
 
@@ -69,7 +72,12 @@ func runEnvironment(cmd *cobra.Command, newClient ClientFactory, v *Version) (er
 	if err != nil {
 		return
 	}
-
+	var envs []string
+	for _, e := range os.Environ() {
+		if strings.HasPrefix(e, "FUNC_") {
+			envs = append(envs, e)
+		}
+	}
 	defaults, err := config.NewDefault()
 	if err != nil {
 		return
@@ -83,6 +91,7 @@ func runEnvironment(cmd *cobra.Command, newClient ClientFactory, v *Version) (er
 		TarImage:    k8s.TarImage,
 		Languages:   r,
 		Templates:   t,
+		Environment: envs,
 		Defaults:    defaults,
 	}
 
