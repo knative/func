@@ -102,9 +102,9 @@ const main = async () => {
 
     if(latestPlatform === null) {
         console.log("Spring Boot platform latest version is not ready to use!")
-        return 
+        return
     }
-    
+
     const prTitle = `chore: update Springboot platform version to ${latestPlatform}`
     const branchName = `update-springboot-platform-${latestPlatform}`
     const cePlatform = await platformFromPom(cePomPath)
