@@ -64,6 +64,9 @@ nodes:
     - containerPort: 433
       hostPort: 443
       listenAddress: "127.0.0.1"
+    - containerPort: 30022
+      hostPort: 2222
+      listenAddress: "127.0.0.1"
 containerdConfigPatches:
 - |-
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:50000"]

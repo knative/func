@@ -15,6 +15,7 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/resource"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	gitignore "github.com/sabhiram/go-gitignore"
@@ -41,12 +42,15 @@ type PipelineDecorator interface {
 
 type Opt func(*PipelinesProvider)
 
+type pacURLCallback = func() (string, error)
+
 type PipelinesProvider struct {
 	// namespace with which to override that set on the default configuration (such as the ~/.kube/config).
 	// If left blank, pipeline creation/run will commence to the configured namespace.
 	namespace           string
 	verbose             bool
 	progressListener    fn.ProgressListener
+	getPacURL           pacURLCallback
 	credentialsProvider docker.CredentialsProvider
 	decorator           PipelineDecorator
 }
@@ -81,8 +85,22 @@ func WithPipelineDecorator(decorator PipelineDecorator) Opt {
 	}
 }
 
+func WithPacURLCallback(getPacURL pacURLCallback) Opt {
+	return func(pp *PipelinesProvider) {
+		pp.getPacURL = getPacURL
+	}
+}
+
 func NewPipelinesProvider(opts ...Opt) *PipelinesProvider {
-	pp := &PipelinesProvider{}
+	pp := &PipelinesProvider{
+		getPacURL: func() (string, error) {
+			var url string
+			e := survey.AskOne(&survey.Input{
+				Message: "Please enter your Pipelines As Code controller public route URL: ",
+			}, &url, survey.WithValidator(survey.Required))
+			return url, e
+		},
+	}
 
 	for _, opt := range opts {
 		opt(pp)
