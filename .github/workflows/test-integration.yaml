@@ -25,11 +25,11 @@ jobs:
       - name: Install Tekton
         run: ./hack/tekton.sh
       - name: Install Pipelines as Code
-        run: ./install-pac.sh
+        run: ./hack/install-pac.sh
       - name: Install Gitlab
-        run: ./install-gitlab.sh
+        run: ./hack/install-gitlab.sh
       - name: Patch Hosts
-        run: ./patch-hosts.sh
+        run: ./hack/patch-hosts.sh
       - name: Local Registry
         run: ./hack/registry.sh
       - name: Integration Test
