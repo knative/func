@@ -21,6 +21,14 @@ jobs:
         run: ./hack/allocate.sh
       - name: Local Registry
         run: ./hack/registry.sh
+      - name: Install Tekton
+        run: ./hack/tekton.sh
+      - name: Install Pipelines as Code
+        run: ./install-pac.sh
+      - name: Install Gitlab
+        run: ./install-gitlab.sh
+      - name: Patch Hosts
+        run: ./patch-hosts.sh
       - name: Integration Test
         run: make test-integration
       - uses: codecov/codecov-action@v3
