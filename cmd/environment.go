@@ -47,7 +47,8 @@ DESCRIPTION
 
 type Environment struct {
 	Version     string
-	Build       string
+	GitRevision string
+	BuildDate   string
 	SpecVersion string
 	SocatImage  string
 	TarImage    string
@@ -64,7 +65,9 @@ func runEnvironment(cmd *cobra.Command, newClient ClientFactory, v *Version) (er
 		return
 	}
 
+	// Create a client to get runtimes and templates
 	client := functions.New(functions.WithVerbose(cfg.Verbose))
+
 	r, err := getRuntimes(client)
 	if err != nil {
 		return
@@ -73,28 +76,40 @@ func runEnvironment(cmd *cobra.Command, newClient ClientFactory, v *Version) (er
 	if err != nil {
 		return
 	}
+
+	// Get all environment variables that start with FUNC_
 	var envs []string
 	for _, e := range os.Environ() {
 		if strings.HasPrefix(e, "FUNC_") {
 			envs = append(envs, e)
 		}
 	}
+
+	// If no environment variables are set, make sure we return an empty array
+	// otherwise the output is "null" instead of "[]"
+	if len(envs) == 0 {
+		envs = make([]string, 0)
+	}
+
+	// Get global defaults
 	defaults, err := config.NewDefault()
 	if err != nil {
 		return
 	}
 
+	// Gets the cluster host
 	var host string
 	cc, err := k8s.GetClientConfig().ClientConfig()
 	if err != nil {
-		fmt.Printf("Error getting client config %v\n", err)
+		fmt.Printf("error getting client config %v\n", err)
 	} else {
 		host = cc.Host
 	}
 
 	environment := Environment{
 		Version:     v.String(),
-		Build:       v.Hash,
+		GitRevision: v.Hash,
+		BuildDate:   v.Date,
 		SpecVersion: functions.LastSpecVersion(),
 		SocatImage:  k8s.SocatImage,
 		TarImage:    k8s.TarImage,
