@@ -23,10 +23,7 @@ var path = filepath.Join
 var defaultPlatforms = []v1.Platform{
 	{OS: "linux", Architecture: "amd64"},
 	{OS: "linux", Architecture: "arm64"},
-	// {OS: "linux", Architecture: "arm", Variant: "v6"},
 	{OS: "linux", Architecture: "arm", Variant: "v7"},
-	{OS: "darwin", Architecture: "amd64"},
-	{OS: "darwin", Architecture: "arm64"},
 }
 
 var defaultIgnored = []string{ // TODO: implement and use .funcignore
