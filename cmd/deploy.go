@@ -178,8 +178,8 @@ EXAMPLES
 		"Directory in the Git repository containing the function (default is the root) ($FUNC_GIT_DIR)")
 	cmd.Flags().Bool("remote", f.Deploy.Remote,
 		"Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)")
-	cmd.Flags().String("pvc-size", fn.DefaultPersistentVolumeClaimSize,
-		"Configure the PVC size used by a pipeline during remote build.")
+	cmd.Flags().String("pvc-size", f.Build.PVCSize,
+		"When triggering a remote deployment, set a custom volume size to allocate for the build operation ($FUNC_PVC_SIZE)")
 
 	// Static Flags:
 	// Options which have static defaults only (not globally configurable nor
@@ -490,12 +490,15 @@ func (c deployConfig) Configure(f fn.Function) (fn.Function, error) {
 	f.Build.Git.Revision = c.GitBranch // TODO: should match; perhaps "refSpec"
 	f.Deploy.Namespace = c.Namespace
 	f.Deploy.Remote = c.Remote
-	// Validate if PVC size can be parsed to quantity
-	_, err = resource.ParseQuantity(c.PVCSize)
-	if err != nil {
-		return f, fmt.Errorf("cannot parse the provided PVC size '%s' due to: %w", c.PVCSize, err)
+
+	// PVCSize
+	// If a specific value is requested, ensure it parses as a resource.Quantity
+	if c.PVCSize != "" {
+		if _, err = resource.ParseQuantity(c.PVCSize); err != nil {
+			return f, fmt.Errorf("cannot parse PVC size %q. %w", c.PVCSize, err)
+		}
+		f.Build.PVCSize = c.PVCSize
 	}
-	f.Build.PVCSize = c.PVCSize
 
 	// ImageDigest
 	// Parsed off f.Image if provided.  Deploying adds the ability to specify a
