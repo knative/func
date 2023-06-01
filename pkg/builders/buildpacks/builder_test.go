@@ -2,6 +2,7 @@ package buildpacks
 
 import (
 	"context"
+	"reflect"
 	"testing"
 
 	pack "github.com/buildpacks/pack/pkg/client"
@@ -9,9 +10,9 @@ import (
 	fn "knative.dev/func/pkg/functions"
 )
 
-// Test_BuilderImageUntrusted ensures that only known builder images
+// TestBuild_BuilderImageUntrusted ensures that only known builder images
 // are to be considered trusted.
-func Test_BuilderImageUntrusted(t *testing.T) {
+func TestBuild_BuilderImageUntrusted(t *testing.T) {
 	var untrusted = []string{
 		// Check prefixes that end in a slash
 		"quay.io/bosonhack/",
@@ -28,9 +29,9 @@ func Test_BuilderImageUntrusted(t *testing.T) {
 	}
 }
 
-// Test_BuilderImageTrusted ensures that only known builder images
+// TestBuild_BuilderImageTrusted ensures that only known builder images
 // are to be considered trusted.
-func Test_BuilderImageTrusted(t *testing.T) {
+func TestBuild_BuilderImageTrusted(t *testing.T) {
 	for _, builder := range trustedBuilderImagePrefixes {
 		if !TrustBuilder(builder) {
 			t.Fatalf("expected pack builder image %v to be trusted", builder)
@@ -38,9 +39,9 @@ func Test_BuilderImageTrusted(t *testing.T) {
 	}
 }
 
-// Test_BuilderImageDefault ensures that a Function bing built which does not
+// TestBuild_BuilderImageDefault ensures that a Function bing built which does not
 // define a Builder Image will get the internally-defined default.
-func Test_BuilderImageDefault(t *testing.T) {
+func TestBuild_BuilderImageDefault(t *testing.T) {
 	var (
 		i = &mockImpl{}
 		b = NewBuilder(WithImpl(i))
@@ -61,9 +62,33 @@ func Test_BuilderImageDefault(t *testing.T) {
 
 }
 
-// Test_BuilderImageConfigurable ensures that the builder will use the builder
+// TestBuild_BuildpacksDefault ensures that, if there are default buildpacks
+// defined in-code, but none defined on the function, the defaults will be
+// used.
+func TestBuild_BuildpacksDefault(t *testing.T) {
+	var (
+		i = &mockImpl{}
+		b = NewBuilder(WithImpl(i))
+		f = fn.Function{Runtime: "go"}
+	)
+
+	i.BuildFn = func(ctx context.Context, opts pack.BuildOptions) error {
+		expected := defaultBuildpacks["go"]
+		if !reflect.DeepEqual(expected, opts.Buildpacks) {
+			t.Fatalf("expected buildpacks '%v', got '%v'", expected, opts.Buildpacks)
+		}
+		return nil
+	}
+
+	if err := b.Build(context.Background(), f); err != nil {
+		t.Fatal(err)
+	}
+
+}
+
+// TestBuild_BuilderImageConfigurable ensures that the builder will use the builder
 // image defined on the given Function if provided.
-func Test_BuilderImageConfigurable(t *testing.T) {
+func TestBuild_BuilderImageConfigurable(t *testing.T) {
 	var (
 		i = &mockImpl{} // mock underlying implementation
 		b = NewBuilder( // Func Builder logic
@@ -91,9 +116,9 @@ func Test_BuilderImageConfigurable(t *testing.T) {
 	}
 }
 
-// Test_BuildEnvs ensures that build environment variables are interpolated and
+// TestBuild_Envs ensures that build environment variables are interpolated and
 // provided in Build Options
-func Test_BuildEnvs(t *testing.T) {
+func TestBuild_Envs(t *testing.T) {
 	t.Setenv("INTERPOLATE_ME", "interpolated")
 	var (
 		envName  = "NAME"
@@ -123,7 +148,8 @@ func Test_BuildEnvs(t *testing.T) {
 	}
 }
 
-func Test_BuildErrors(t *testing.T) {
+// TestBuild_Errors confirms error scenarios.
+func TestBuild_Errors(t *testing.T) {
 	testCases := []struct {
 		name, runtime, expectedErr string
 	}{
