@@ -41,6 +41,11 @@ import (
 	"knative.dev/func/pkg/random"
 )
 
+const (
+	gitlabURL        = "http://gitlab.127.0.0.1.sslip.io"
+	pacControllerURL = "http://pac-ctr.127.0.0.1.sslip.io"
+)
+
 func TestGitlab(t *testing.T) {
 	var err error
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
@@ -51,7 +56,7 @@ func TestGitlab(t *testing.T) {
 		t.Skip("GITLAB_ROOT_PASSWORD not set")
 	}
 
-	glabEnv := setupGitlabEnv(ctx, t, "gitlab.127.0.0.1.sslip.io", "root", rootPassword)
+	glabEnv := setupGitlabEnv(ctx, t, gitlabURL, "root", rootPassword)
 
 	tempHome := t.TempDir()
 	projDir := filepath.Join(t.TempDir(), "fn")
@@ -107,7 +112,7 @@ func TestGitlab(t *testing.T) {
 	pp := tekton.NewPipelinesProvider(
 		tekton.WithCredentialsProvider(credentialsProvider),
 		tekton.WithPacURLCallback(func() (string, error) {
-			return "http://pac-ctr.127.0.0.1.sslip.io", nil
+			return pacControllerURL, nil
 		}))
 
 	metadata := pipelines.PacMetadata{
@@ -171,7 +176,7 @@ type gitlabEnv struct {
 	UserIdentityFile string
 }
 
-func setupGitlabEnv(ctx context.Context, t *testing.T, host, username, password string) gitlabEnv {
+func setupGitlabEnv(ctx context.Context, t *testing.T, baseURL, username, password string) gitlabEnv {
 	t.Log("setting up gitlab env")
 	randStr := strings.ToLower(random.AlphaString(5))
 	userName := "func_user_" + randStr
@@ -180,12 +185,11 @@ func setupGitlabEnv(ctx context.Context, t *testing.T, host, username, password 
 	projectName := "func-project-" + randStr
 
 	//region Initialize Root's Gitlab client
-	rootToken, err := getAPIToken(host, username, password)
+	rootToken, err := getAPIToken(baseURL, username, password)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	baseURL := fmt.Sprintf("http://%s", host)
 	glabCli, err := gitlab.NewClient(rootToken, gitlab.WithBaseURL(baseURL))
 	if err != nil {
 		t.Fatal(err)
@@ -295,7 +299,7 @@ func setupGitlabEnv(ctx context.Context, t *testing.T, host, username, password 
 		t.Fatal(err)
 	}
 
-	userToken, err := getAPIToken(host, userName, userPassword)
+	userToken, err := getAPIToken(baseURL, userName, userPassword)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -326,7 +330,7 @@ func setupGitlabEnv(ctx context.Context, t *testing.T, host, username, password 
 	}
 }
 
-func getAPIToken(host, username, password string) (string, error) {
+func getAPIToken(baseURL, username, password string) (string, error) {
 	jar, err := cookiejar.New(nil)
 	if err != nil {
 		return "", fmt.Errorf("cannot create a cookie jar: %w", err)
@@ -339,7 +343,7 @@ func getAPIToken(host, username, password string) (string, error) {
 		},
 	}
 
-	signInURL := fmt.Sprintf("http://%s/users/sign_in", host)
+	signInURL := baseURL + "/users/sign_in"
 
 	resp, err := c.Get(signInURL)
 	if err != nil {
@@ -369,7 +373,7 @@ func getAPIToken(host, username, password string) (string, error) {
 		return "", fmt.Errorf("cannot create sign in request: %w", err)
 	}
 
-	req.Header.Add("Origin", fmt.Sprintf("http://%s", host))
+	req.Header.Add("Origin", baseURL)
 	req.Header.Add("Referer", signInURL)
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
@@ -383,7 +387,7 @@ func getAPIToken(host, username, password string) (string, error) {
 		return "", fmt.Errorf("cannot sign in, unexpected status: %d", resp.StatusCode)
 	}
 
-	personalAccessTokensURL := fmt.Sprintf("http://%s/-/profile/personal_access_tokens", host)
+	personalAccessTokensURL := baseURL + "/-/profile/personal_access_tokens"
 
 	resp, err = c.Get(personalAccessTokensURL)
 	if err != nil {
