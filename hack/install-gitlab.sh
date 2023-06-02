@@ -50,7 +50,7 @@ spec:
         - name: GITLAB_OMNIBUS_CONFIG
           value: |
             external_url 'http://${gitlab_host}'
-            gitlab_rails['gitlab_shell_ssh_port'] = 2222
+            gitlab_rails['gitlab_shell_ssh_port'] = 30022
             gitlab_rails['gitlab_email_enabled'] = false
             puma['worker_processes'] = 0
             sidekiq['max_concurrency'] = 1
@@ -104,7 +104,7 @@ spec:
       targetPort: http
     - name: ssh
       protocol: TCP
-      port: 2222
+      port: 30022
       targetPort: ssh
   type: ClusterIP
 ---
@@ -119,7 +119,7 @@ spec:
   ports:
     - name: ssh
       protocol: TCP
-      port: 2222
+      port: 30022
       targetPort: ssh
       nodePort: 30022
   type: NodePort

@@ -65,7 +65,7 @@ nodes:
       hostPort: 443
       listenAddress: "127.0.0.1"
     - containerPort: 30022
-      hostPort: 2222
+      hostPort: 30022
       listenAddress: "127.0.0.1"
 containerdConfigPatches:
 - |-
