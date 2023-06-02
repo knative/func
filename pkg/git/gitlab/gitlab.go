@@ -27,6 +27,7 @@ func (c Client) CreateWebHook(ctx context.Context, repoOwner, repoName, payloadU
 		Token:                 &webhookSecret,
 		URL:                   &payloadURL,
 	}
+	// TODO check if the WebHook already exists. GitLab doesn't name WebHooks so there is never 403.
 	_, _, err = glabCli.Projects.AddProjectHook(repoOwner+"/"+repoName, webhook)
 	if err != nil {
 		return fmt.Errorf("cannot create gitlab webhook: %w", err)
