@@ -19,7 +19,7 @@ func (c Client) CreateWebHook(ctx context.Context, repoOwner, repoName, payloadU
 		gitlab.WithBaseURL(c.BaseURL),
 		gitlab.WithRequestOptions(gitlab.WithContext(ctx)))
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("cannot create GitLab client: %w", err)
 	}
 	webhook := &gitlab.AddProjectHookOptions{
 		EnableSSLVerification: &f,
