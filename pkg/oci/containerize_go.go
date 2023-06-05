@@ -21,8 +21,7 @@ type goLayerBuilder struct{}
 // the statically linked binary in a tarred layer and return the Descriptor
 // and Layer metadata.
 func (c goLayerBuilder) Build(cfg *buildConfig, p v1.Platform) (desc v1.Descriptor, layer v1.Layer, err error) {
-
-	// Executable
+	// Build the Executable
 	exe, err := goBuild(cfg, p) // Compile binary returning its path
 	if err != nil {
 		return
@@ -65,7 +64,19 @@ func goBuild(cfg *buildConfig, p v1.Platform) (binPath string, err error) {
 	} else {
 		fmt.Printf("   %v\n", filepath.Base(outpath))
 	}
-	cmd := exec.CommandContext(cfg.ctx, gobin, args...)
+
+	// Get the dependencies of the function
+	cmd := exec.CommandContext(cfg.ctx, gobin, "get", "f")
+	cmd.Env = envs
+	cmd.Dir = cfg.buildDir()
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	if err = cmd.Run(); err != nil {
+		return
+	}
+
+	// Build the function
+	cmd = exec.CommandContext(cfg.ctx, gobin, args...)
 	cmd.Env = envs
 	cmd.Dir = cfg.buildDir()
 	cmd.Stderr = os.Stderr
