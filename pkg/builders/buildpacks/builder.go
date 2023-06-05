@@ -44,6 +44,10 @@ var (
 		"ghcr.io/vmware-tanzu/function-buildpacks-for-knative/",
 		"gcr.io/buildpacks/",
 	}
+
+	defaultBuildpacks = map[string][]string{
+		"go": {"paketo-buildpacks/go-dist", "ghcr.io/boson-project/go-function-buildpack:tip"},
+	}
 )
 
 // Builder will build Function using Pack.
@@ -115,13 +119,18 @@ func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
 		return
 	}
 
+	buildpacks := f.Build.Buildpacks
+	if len(buildpacks) == 0 {
+		buildpacks = defaultBuildpacks[f.Runtime]
+	}
+
 	// Pack build options
 	opts := pack.BuildOptions{
 		AppPath:        f.Root,
 		Image:          f.Image,
 		LifecycleImage: DefaultLifecycleImage,
 		Builder:        image,
-		Buildpacks:     f.Build.Buildpacks,
+		Buildpacks:     buildpacks,
 		ContainerConfig: struct {
 			Network string
 			Volumes []string
