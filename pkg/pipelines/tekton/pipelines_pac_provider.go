@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/AlecAivazis/survey/v2"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -13,7 +12,6 @@ import (
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/git"
-	"knative.dev/func/pkg/git/github"
 	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/pipelines"
 	"knative.dev/func/pkg/pipelines/tekton/pac"
@@ -189,10 +187,6 @@ func (pp *PipelinesProvider) createClusterResources(ctx context.Context, f fn.Fu
 // set up a webhook with secrets, access tokens and it tries to detec PAC installation
 // together with PAC controller route url - needed for webhook payload trigger
 func (pp *PipelinesProvider) createRemoteResources(ctx context.Context, f fn.Function, metadata pipelines.PacMetadata) error {
-	repoOwner, repoName, err := git.RepoOwnerAndNameFromUrl(f.Build.Git.URL)
-	if err != nil {
-		return err
-	}
 
 	// figure out pac installation namespace
 	installed, installationNS, err := pac.DetectPACInstallation(ctx, "")
@@ -220,21 +214,19 @@ func (pp *PipelinesProvider) createRemoteResources(ctx context.Context, f fn.Fun
 
 	// we haven't been able to detect PAC controller public route, let's prompt:
 	if controllerURL == "" {
-		if err := survey.AskOne(&survey.Input{
-			Message: "Please enter your Pipelines As Code controller public route URL: ",
-		}, &controllerURL, survey.WithValidator(survey.Required)); err != nil {
+		if controllerURL, err = pp.getPacURL(); err != nil {
 			return err
 		}
 	}
 
-	if err := github.CreateGitHubWebhook(ctx, repoOwner, repoName, controllerURL, metadata.WebhookSecret, metadata.PersonalAccessToken); err != nil {
+	if err := git.CreateWebHook(ctx, f.Build.Git.URL, controllerURL, metadata.WebhookSecret, metadata.PersonalAccessToken); err != nil {
 		// Error: POST https://api.github.com/repos/foobar/test-function/hooks: 422 Validation Failed [{Resource:Hook Field: Code:custom Message:Hook already exists on this repository}]
 		if !strings.Contains(err.Error(), "Hook already exists") {
 			return err
 		}
-		fmt.Printf(" ✅ Webhook already exists on repository %v/%v\n", repoOwner, repoName)
+		fmt.Printf(" ✅ Webhook already exists on repository %v\n", f.Build.Git.URL)
 	} else {
-		fmt.Printf(" ✅ Webhook is created on repository %v/%v\n", repoOwner, repoName)
+		fmt.Printf(" ✅ Webhook is created on repository %v\n", f.Build.Git.URL)
 	}
 
 	return nil

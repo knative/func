@@ -1,11 +1,16 @@
 package git
 
 import (
+	"context"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 
 	"github.com/openshift-pipelines/pipelines-as-code/pkg/formatting"
+
+	"knative.dev/func/pkg/git/github"
+	"knative.dev/func/pkg/git/gitlab"
 )
 
 const (
@@ -16,7 +21,7 @@ const (
 
 type SupportedProviders []string
 
-var SupportedProvidersList = SupportedProviders{GitHubProvider}
+var SupportedProvidersList = SupportedProviders{GitHubProvider, GitLabProvider}
 
 func (sp SupportedProviders) PrettyString() string {
 	var b strings.Builder
@@ -37,7 +42,7 @@ func GitProviderName(url string) (string, error) {
 	case strings.Contains(url, "github"):
 		return GitHubProvider, nil
 	case strings.Contains(url, "gitlab"):
-		//return GitLabProvider, nil
+		return GitLabProvider, nil
 	case strings.Contains(url, "bitbucket-cloud"):
 		//return BitBucketProvider, nil
 	}
@@ -64,4 +69,44 @@ func RepoOwnerAndNameFromUrl(url string) (string, string, error) {
 	repoName = strings.TrimSuffix(repoName, ".git")
 
 	return repoOwner, repoName, nil
+}
+
+func CreateWebHook(ctx context.Context, gitRepoURL, webHookTarget, webHookSecret, personalAccessToken string) error {
+	providerName, err := GitProviderName(gitRepoURL)
+	if err != nil {
+		return err
+	}
+
+	u, err := url.Parse(gitRepoURL)
+	if err != nil {
+		return fmt.Errorf("cannot parse git repo url: %w", err)
+	}
+
+	var cli providerClient
+	switch providerName {
+	case GitHubProvider:
+		cli = github.Client{
+			PersonalAccessToken: personalAccessToken,
+		}
+	case GitLabProvider:
+		cli = gitlab.Client{
+			BaseURL:             u.Scheme + "://" + u.Host,
+			PersonalAccessToken: personalAccessToken,
+		}
+	}
+
+	repoOwner, repoName, err := RepoOwnerAndNameFromUrl(gitRepoURL)
+	if err != nil {
+		return err
+	}
+
+	err = cli.CreateWebHook(ctx, repoOwner, repoName, webHookTarget, webHookSecret)
+	if err != nil {
+		return fmt.Errorf("cannot create web hook: %w", err)
+	}
+	return nil
+}
+
+type providerClient interface {
+	CreateWebHook(ctx context.Context, repoOwner, repoName, payloadURL, webhookSecret string) error
 }
