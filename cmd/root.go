@@ -6,7 +6,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
@@ -319,8 +318,6 @@ func cwd() (cwd string) {
 }
 
 type Version struct {
-	// Date of compilation
-	Date string
 	// Version tag of the git commit, or 'tip' if no tag.
 	Vers string
 	// Hash of the currently active git commit on build.
@@ -351,14 +348,13 @@ func (v Version) String() string {
 }
 
 // StringVerbose returns the verbose version of the version stringification.
-// The format returned is [semver]-[hash]-[date] where the special value
+// The format returned is [semver]-[hash] where the special value
 // 'v0.0.0' and 'source' are used when version is not available and/or the
 // libray has been built from source, respectively.
 func (v Version) StringVerbose() string {
 	var (
 		vers = v.Vers
 		hash = v.Hash
-		date = v.Date
 	)
 	if vers == "" {
 		vers = "v0.0.0"
@@ -366,10 +362,7 @@ func (v Version) StringVerbose() string {
 	if hash == "" {
 		hash = "source"
 	}
-	if date == "" {
-		date = time.Now().Format(time.RFC3339)
-	}
-	funcVersion := fmt.Sprintf("%s-%s-%s", vers, hash, date)
+	funcVersion := fmt.Sprintf("%s-%s", vers, hash)
 	return fmt.Sprintf("Version: %s\n"+
 		"SocatImage: %s\n"+
 		"TarImage: %s", funcVersion,

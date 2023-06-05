@@ -48,7 +48,6 @@ DESCRIPTION
 type Environment struct {
 	Version     string
 	GitRevision string
-	BuildDate   string
 	SpecVersion string
 	SocatImage  string
 	TarImage    string
@@ -109,7 +108,6 @@ func runEnvironment(cmd *cobra.Command, newClient ClientFactory, v *Version) (er
 	environment := Environment{
 		Version:     v.String(),
 		GitRevision: v.Hash,
-		BuildDate:   v.Date,
 		SpecVersion: functions.LastSpecVersion(),
 		SocatImage:  k8s.SocatImage,
 		TarImage:    k8s.TarImage,
