@@ -35,6 +35,9 @@ import (
 	"knative.dev/pkg/apis"
 )
 
+// DefaultPersistentVolumeClaimSize to allocate for the function.
+var DefaultPersistentVolumeClaimSize = resource.MustParse("256Mi")
+
 type PipelineDecorator interface {
 	UpdateLabels(fn.Function, map[string]string) map[string]string
 }
@@ -454,9 +457,12 @@ func getFailedPipelineRunLog(ctx context.Context, client *pipelineClient.TektonV
 var createPersistentVolumeClaim = k8s.CreatePersistentVolumeClaim
 
 func createPipelinePersistentVolumeClaim(ctx context.Context, f fn.Function, namespace string, labels map[string]string) error {
-	pvcs, err := resource.ParseQuantity(f.Build.PVCSize)
-	if err != nil {
-		return fmt.Errorf("PVC size value cannot be parsed due to: %v", err)
+	var err error
+	pvcs := DefaultPersistentVolumeClaimSize
+	if f.Build.PVCSize != "" {
+		if pvcs, err = resource.ParseQuantity(f.Build.PVCSize); err != nil {
+			return fmt.Errorf("PVC size value could not be parsed. %w", err)
+		}
 	}
 	err = createPersistentVolumeClaim(ctx, getPipelinePvcName(f), namespace, labels, f.Deploy.Annotations, corev1.ReadWriteOnce, pvcs)
 	if err != nil && !errors.IsAlreadyExists(err) {

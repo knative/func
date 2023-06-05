@@ -22,9 +22,6 @@ const (
 	// RunDataDir holds transient runtime metadata
 	// By default it is excluded from source control.
 	RunDataDir = ".func"
-
-	// DefaultPersistentVolumeClaimSize represents default size of PVC created for a Pipeline
-	DefaultPersistentVolumeClaimSize string = "256Mi"
 )
 
 // Function
@@ -177,6 +174,10 @@ func NewUninitializedError(path string) error {
 
 // NewFunctionWith defaults as provided.
 func NewFunctionWith(defaults Function) Function {
+	// Deprecatded:  these defaults should be used directly from their
+	// in-code static defaults, config, etc. A function struct is used to hold
+	// overrides (eg. use PVCSize X instead of the default), and to record the
+	// results of operations (eg. the function was deployed with image Y).
 	if defaults.SpecVersion == "" {
 		defaults.SpecVersion = LastSpecVersion()
 	}
@@ -185,9 +186,6 @@ func NewFunctionWith(defaults Function) Function {
 	}
 	if defaults.Build.BuilderImages == nil {
 		defaults.Build.BuilderImages = make(map[string]string)
-	}
-	if defaults.Build.PVCSize == "" {
-		defaults.Build.PVCSize = DefaultPersistentVolumeClaimSize
 	}
 	if defaults.Deploy.Annotations == nil {
 		defaults.Deploy.Annotations = make(map[string]string)
