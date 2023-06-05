@@ -19,12 +19,11 @@ BIN_WINDOWS ?= $(BIN)_windows_amd64.exe
 # hash and the version tag of the current commit (semver) if it exists.
 # If the current commit does not have a semver tag, 'tip' is used, unless there
 # is a TAG environment variable. Precedence is git tag, environment variable, 'tip'
-DATE    := $(shell date -u +"%Y%m%dT%H%M%SZ")
 HASH    := $(shell git rev-parse --short HEAD 2>/dev/null)
 VTAG    := $(shell git tag --points-at HEAD | head -1)
 VTAG    := $(shell [ -z $(VTAG) ] && echo $(ETAG) || echo $(VTAG))
 VERS    ?= $(shell [ -z $(VTAG) ] && echo 'tip' || echo $(VTAG) )
-LDFLAGS := "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)"
+LDFLAGS := "-X main.vers=$(VERS) -X main.hash=$(HASH)"
 
 # All Code prerequisites, including generated files, etc.
 CODE := $(shell find . -name '*.go') generate/zz_filesystem_generated.go go.mod schema/func_yaml-schema.json

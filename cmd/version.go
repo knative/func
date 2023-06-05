@@ -26,7 +26,8 @@ DESCRIPTION
 	o Print the functions version
 	  $ {{rootCmdUse}} version
 
-	o Print the functions version along with date and associated git commit hash.
+	o Print the functions version along with source git commit hash and other
+	  metadata.
 	  $ {{rootCmdUse}} version -v
 
 `,
