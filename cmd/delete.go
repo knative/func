@@ -30,7 +30,8 @@ No local files are deleted.
 # Undeploy the function 'myfunc' in namespace 'apps'
 {{rootCmdUse}} delete -n apps myfunc
 `,
-		SuggestFor:        []string{"remove", "rm", "del"},
+		SuggestFor:        []string{"remove", "del"},
+		Aliases:           []string{"rm"},
 		ValidArgsFunction: CompleteFunctionList,
 		PreRunE:           bindEnv("path", "confirm", "all", "namespace", "verbose"),
 		SilenceUsage:      true, // no usage dump on error
