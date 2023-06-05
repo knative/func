@@ -53,7 +53,7 @@ type Function struct {
 
 	// Registry at which to store interstitial containers, in the form
 	// [registry]/[user].
-	Registry string `yaml:"registry"`
+	Registry string `yaml:"registry,omitempty"`
 
 	// Optional full OCI image tag in form:
 	//   [registry]/[namespace]/[name]:[tag]
@@ -64,7 +64,7 @@ type Function struct {
 	//   alice/my.function.name
 	// If Image is provided, it overrides the default of concatenating
 	// "Registry+Name:latest" to derive the Image.
-	Image string `yaml:"image"`
+	Image string `yaml:"image,omitempty"`
 
 	// SHA256 hash of the latest image that has been built
 	ImageDigest string `yaml:"imageDigest,omitempty"`
