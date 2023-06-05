@@ -182,24 +182,26 @@ func runInvoke(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 		return err
 	}
 
-	// Always print a "Received response" message because a simple echo to
-	// stdout could be confusing on a first-time run, viewing a proper echo.
-	fmt.Println("Received response")
-
 	// When Verbose
 	// - Print an explicit "Received response" indicator
 	// - Print metadata (headers for HTTP requests, CloudEvents already include
 	//   metadata in their data value.
 	if cfg.Verbose {
+		// Print a "Received response" message because a simple echo to
+		// stdout could be confusing on a first-time run, viewing a proper echo.
+		// user feedback suggests this actually be placed behind the --verbose
+		// setting:
+		fmt.Println("Function invoked.  Response:")
+
 		if len(metadata) > 0 {
-			fmt.Println("Metadata:")
+			fmt.Println("  Metadata:")
 		}
 		for k, vv := range metadata {
 			values := strings.Join(vv, ";")
-			fmt.Fprintf(cmd.OutOrStdout(), "  %v: %v\n", k, values)
+			fmt.Fprintf(cmd.OutOrStdout(), "    %v: %v\n", k, values)
 		}
 		if len(metadata) > 0 {
-			fmt.Println("Content:")
+			fmt.Println("  Content:")
 		}
 	}
 
