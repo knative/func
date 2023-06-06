@@ -30,7 +30,7 @@ jobs:
         run: |
           echo "GITLAB_TESTS_ENABLED=1" >> "$GITHUB_ENV"
           echo "GITLAB_HOSTNAME=gitlab.127.0.0.1.sslip.io" >> "$GITHUB_ENV"
-          echo "GITLAB_ROOT_PASSWORD=nbusr123" >> "$GITHUB_ENV"
+          echo "GITLAB_ROOT_PASSWORD=$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c${1:-32})" >> "$GITHUB_ENV"
           echo "PAC_CONTROLLER_HOSTNAME=pac-ctr.127.0.0.1.sslip.io" >> "$GITHUB_ENV"
       - name: Install Pipelines as Code
         run: ./hack/install-pac.sh
