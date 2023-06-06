@@ -154,6 +154,7 @@ EOF
     echo '::endgroup::'
     return 1
   fi
+  echo
   echo '::endgroup::'
   echo "the GitLab server is available at: http://${gitlab_host}"
 }
