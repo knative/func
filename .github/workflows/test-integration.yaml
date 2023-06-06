@@ -26,13 +26,16 @@ jobs:
         run: ./hack/allocate.sh
       - name: Install Tekton
         run: ./hack/tekton.sh
+      - name: Set up environment variables
+        run: |
+          echo "GITLAB_TESTS_ENABLED=1" >> "$GITHUB_ENV"
+          echo "GITLAB_HOSTNAME=gitlab.127.0.0.1.sslip.io" >> "$GITHUB_ENV"
+          echo "GITLAB_ROOT_PASSWORD=nbusr123" >> "$GITHUB_ENV"
+          echo "PAC_CONTROLLER_HOSTNAME=pac-ctr.127.0.0.1.sslip.io" >> "$GITHUB_ENV"
       - name: Install Pipelines as Code
         run: ./hack/install-pac.sh
       - name: Install Gitlab
-        run: |
-          export GITLAB_ROOT_PASSWORD=nbusr123
-          echo "GITLAB_ROOT_PASSWORD=${GITLAB_ROOT_PASSWORD}" >> "$GITHUB_ENV"
-          ./hack/install-gitlab.sh
+        run: ./hack/install-gitlab.sh
       - name: Patch Hosts
         run: ./hack/patch-hosts.sh
       - name: Integration Test
