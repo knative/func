@@ -16,5 +16,5 @@ type ErrBuildInProgress struct {
 }
 
 func (e ErrBuildInProgress) Error() string {
-	return fmt.Sprintf("Build directory already exists for this version hash and is associated with an active PID.  Is a build already in progress? %v", e.Dir)
+	return fmt.Sprintf("a build for this function is associated with an active PID appears to be already in progress %v", e.Dir)
 }
