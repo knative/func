@@ -410,6 +410,12 @@ func (f Function) ImageWithDigest() string {
 		return f.Image
 	}
 
+	// Return image with new Digest if image already contains SHA256 Digest
+	shaIndex := strings.Index(f.Image, "@sha256:")
+	if shaIndex > 0 {
+		return f.Image[:shaIndex] + "@" + f.ImageDigest
+	}
+
 	lastSlashIdx := strings.LastIndexAny(f.Image, "/")
 	imageAsBytes := []byte(f.Image)
 
