@@ -1769,9 +1769,7 @@ func TestClient_RunReadiness(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() {
-		if err := job.Stop(); err != nil {
-			t.Fatalf("error on job stop: %v", err)
-		}
-	}()
+	if err := job.Stop(); err != nil {
+		t.Fatalf("err on job stop. %v", err)
+	}
 }
