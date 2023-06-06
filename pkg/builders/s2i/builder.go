@@ -36,13 +36,17 @@ import (
 // DefaultName when no WithName option is provided to NewBuilder
 const DefaultName = builders.S2I
 
+var DefaultNodeBuilder = "registry.access.redhat.com/ubi8/nodejs-16"
+var DefaultQuarkusBuilder = "registry.access.redhat.com/ubi8/openjdk-17"
+var DefaultPythonBuilder = "registry.access.redhat.com/ubi8/python-39"
+
 // DefaultBuilderImages for s2i builders indexed by Runtime Language
 var DefaultBuilderImages = map[string]string{
-	"node":       "registry.access.redhat.com/ubi8/nodejs-16",
-	"nodejs":     "registry.access.redhat.com/ubi8/nodejs-16",
-	"typescript": "registry.access.redhat.com/ubi8/nodejs-16",
-	"quarkus":    "registry.access.redhat.com/ubi8/openjdk-17",
-	"python":     "registry.access.redhat.com/ubi8/python-39",
+	"node":       DefaultNodeBuilder,
+	"nodejs":     DefaultNodeBuilder,
+	"typescript": DefaultNodeBuilder,
+	"quarkus":    DefaultQuarkusBuilder,
+	"python":     DefaultPythonBuilder,
 }
 
 // DockerClient is subset of dockerClient.CommonAPIClient required by this package
