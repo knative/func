@@ -661,7 +661,7 @@ func TestClient_Runner(t *testing.T) {
 	}
 
 	// Build
-	if f, err = client.Build(ctx, f); err != nil {
+	if f, err = client.Build(ctx, f, fn.BuildWithPlatforms(TestPlatforms)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -779,7 +779,7 @@ func TestClient_RunTimeout(t *testing.T) {
 	defer cancel()
 
 	// Build
-	if f, err = client.Build(ctx, f); err != nil {
+	if f, err = client.Build(ctx, f, fn.BuildWithPlatforms(TestPlatforms)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1828,7 +1828,7 @@ func TestClient_CreateMigration(t *testing.T) {
 
 // TestClient_RunReadiness ensures that the run task awaits a ready response
 // from the job before returning.
-func TestClient_RunReadiness(t *testing.T) {
+func TestClient_RunRediness(t *testing.T) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)
@@ -1871,7 +1871,7 @@ func TestClient_RunReadiness(t *testing.T) {
 	defer cancel()
 
 	// Build
-	if f, err = client.Build(ctx, f); err != nil {
+	if f, err = client.Build(ctx, f, fn.BuildWithPlatforms(TestPlatforms)); err != nil {
 		t.Fatal(err)
 	}
 
