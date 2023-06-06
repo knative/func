@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"testing"
 
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	fn "knative.dev/func/pkg/functions"
 	. "knative.dev/func/pkg/testing"
 )
@@ -47,24 +48,57 @@ func TestBuilder_Concurrency(t *testing.T) {
 
 	client := fn.New()
 
+	// Initialize a new Go Function
 	f, err := client.Init(fn.Function{Root: root, Runtime: "go"})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// Start a build which pauses such that we can start a second.
+	// Concurrency
+	//
+	// The first builder is setup to use a mock implementation of the
+	// builder function which will block until released after first notifying
+	// that it has been paused.
+	//
+	// When the test receives the message that the builder has been paused, it
+	// starts a second, concurrently executing builder to ensure there is a
+	// typed error returned indicating a build is in progress.
+	//
+	// When the second builder completes, having confirmed the error message
+	// received is as expected.  It signals the first (blocked) builder that it
+	// can now continue.
+
+	// Thet test waits until the first builder notifies that it is done, and
+	// has therefore ran its tests as well.
+
+	var (
+		pausedCh   = make(chan bool)
+		continueCh = make(chan bool)
+		doneCh     = make(chan bool)
+	)
+
+	// Build A
 	builder1 := NewBuilder("builder1", true)
-	builder1.tester = newTestHelper()
-	builder1.tester.emulateSlowBuild = true
-	builder1.tester.notifyPaused = true
-	builder1.tester.notifyDone = true
+	builder1.buildFn = func(cfg *buildConfig, p v1.Platform) (d v1.Descriptor, l v1.Layer, err error) {
+		if isFirstBuild(cfg, p) {
+			pausedCh <- true // Notify of being paused
+			<-continueCh     // Block until released
+		}
+		return
+	}
+	builder1.onDone = func() {
+		doneCh <- true // Notify of being done
+	}
 	go func() {
 		if err := builder1.Build(context.Background(), f, TestPlatforms); err != nil {
 			fmt.Fprintf(os.Stderr, "test build error %v", err)
 		}
 	}()
-	<-builder1.tester.pausedCh // wait until it is paused
 
+	//  Wait until build 1 indicates it is paused
+	<-pausedCh
+
+	// Build B
 	builder2 := NewBuilder("builder2", true)
 	go func() {
 		err = builder2.Build(context.Background(), f, TestPlatforms)
@@ -72,8 +106,17 @@ func TestBuilder_Concurrency(t *testing.T) {
 			fmt.Fprintf(os.Stderr, "test build error %v", err)
 		}
 	}()
-	builder1.tester.continueCh <- true // release the paused first builder
-	<-builder1.tester.doneCh           // wait for it to be done
+
+	// Release the blocking Build A and wait until complete.
+	continueCh <- true
+	<-doneCh
+}
+
+func isFirstBuild(cfg *buildConfig, current v1.Platform) bool {
+	first := cfg.platforms[0]
+	return current.OS == first.OS &&
+		current.Architecture == first.Architecture &&
+		current.Variant == first.Variant
 }
 
 // ImageIndex represents the structure of an OCI Image Index.

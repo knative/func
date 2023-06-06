@@ -30,12 +30,13 @@ type Builder struct {
 	name    string
 	verbose bool
 
-	tester *testHelper
+	onDone  func()               // optionally provide a function to be notified on done
+	buildFn languageLayerBuilder // optionally provide a custom build impl
 }
 
 // NewBuilder creates a builder instance.
 func NewBuilder(name string, verbose bool) *Builder {
-	return &Builder{name, verbose, nil}
+	return &Builder{name, verbose, nil, nil}
 }
 
 func newBuildConfig(ctx context.Context, b *Builder, f fn.Function, platforms []fn.Platform) *buildConfig {
@@ -46,8 +47,9 @@ func newBuildConfig(ctx context.Context, b *Builder, f fn.Function, platforms []
 		time.Now(),
 		b.verbose,
 		"",
-		b.tester,
 		toPlatforms(platforms),
+		b.onDone,
+		b.buildFn,
 	}
 	// If the client did not specifically request a certain set of platforms,
 	// use the func core defined set of suggested defaults.
@@ -100,12 +102,8 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, pp []fn.Platform) (e
 	// which includes a general struct which can be used by all builders to
 	// communicate to the pusher where the image can be found.
 	// Tests, however, can use a simple channel:
-	if cfg.tester != nil && cfg.tester.notifyDone {
-		if cfg.verbose {
-			fmt.Println("tester configured to notify on done.  Sending to unbuffered doneCh")
-		}
-		cfg.tester.doneCh <- true
-		fmt.Println("send to doneCh complete")
+	if cfg.onDone != nil {
+		cfg.onDone()
 	}
 	return
 }
@@ -118,8 +116,9 @@ type buildConfig struct {
 	t         time.Time   // Timestamp for this build
 	verbose   bool        // verbose logging
 	h         string      // hash cache (use .hash() accessor)
-	tester    *testHelper
 	platforms []v1.Platform
+	onDone    func()               // optionally provide a function to be notified on done
+	buildFn   languageLayerBuilder // optionally provide a custom build impl
 }
 
 func (c *buildConfig) hash() string {
@@ -275,25 +274,6 @@ func updateLastLink(cfg *buildConfig) error {
 	}
 	_ = os.RemoveAll(cfg.lastLink())
 	return os.Symlink(cfg.buildDir(), cfg.lastLink())
-}
-
-type testHelper struct {
-	emulateSlowBuild bool
-	continueCh       chan any
-
-	notifyDone bool
-	doneCh     chan any
-
-	notifyPaused bool
-	pausedCh     chan any
-}
-
-func newTestHelper() *testHelper {
-	return &testHelper{
-		continueCh: make(chan any),
-		doneCh:     make(chan any),
-		pausedCh:   make(chan any),
-	}
 }
 
 // toPlatforms converts func's implementation-agnostic Platform struct

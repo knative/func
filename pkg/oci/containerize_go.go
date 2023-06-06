@@ -15,13 +15,11 @@ import (
 	fn "knative.dev/func/pkg/functions"
 )
 
-type goLayerBuilder struct{}
-
 // Build the source code as Go, cross compiled for the given platform, placing
 // the statically linked binary in a tarred layer and return the Descriptor
 // and Layer metadata.
-func (c goLayerBuilder) Build(cfg *buildConfig, p v1.Platform) (desc v1.Descriptor, layer v1.Layer, err error) {
-	// Build the Executable
+func buildGoLayer(cfg *buildConfig, p v1.Platform) (desc v1.Descriptor, layer v1.Layer, err error) {
+	// Executable
 	exe, err := goBuild(cfg, p) // Compile binary returning its path
 	if err != nil {
 		return
@@ -54,10 +52,6 @@ func (c goLayerBuilder) Build(cfg *buildConfig, p v1.Platform) (desc v1.Descript
 }
 
 func goBuild(cfg *buildConfig, p v1.Platform) (binPath string, err error) {
-	if cfg.tester != nil && cfg.tester.emulateSlowBuild {
-		pauseBuildUntilReleased(cfg, p)
-	}
-
 	gobin, args, outpath, err := goBuildCmd(p, cfg)
 	if err != nil {
 		return
@@ -87,34 +81,6 @@ func goBuild(cfg *buildConfig, p v1.Platform) (binPath string, err error) {
 	cmd.Stdout = os.Stdout
 
 	return outpath, cmd.Run()
-}
-
-func isFirstBuild(cfg *buildConfig, current v1.Platform) bool {
-	first := cfg.platforms[0]
-	return current.OS == first.OS &&
-		current.Architecture == first.Architecture &&
-		current.Variant == first.Variant
-}
-
-func pauseBuildUntilReleased(cfg *buildConfig, p v1.Platform) {
-	if cfg.verbose {
-		fmt.Println("test set to emulate slow build.  checking if this build should be paused")
-	}
-	if !isFirstBuild(cfg, p) {
-		if cfg.verbose {
-			fmt.Println("not first build.  will not pause")
-		}
-		return
-	}
-	if cfg.verbose {
-		fmt.Println("this is the first build: pausing awaiting release via cfg.tester.continueCh")
-	}
-	fmt.Printf("testing slow builds.  %v paused\n", cfg.name)
-	if cfg.tester.notifyPaused {
-		cfg.tester.pausedCh <- true
-	}
-	<-cfg.tester.continueCh
-	fmt.Printf("continuing build\n")
 }
 
 func goBuildCmd(p v1.Platform, cfg *buildConfig) (gobin string, args []string, outpath string, err error) {
