@@ -1711,7 +1711,7 @@ func TestClient_CreateMigration(t *testing.T) {
 	}
 }
 
-// TestClient_RunWaits ensures that the run task awaits a ready response
+// TestClient_RunReadiness ensures that the run task awaits a ready response
 // from the job before returning.
 func TestClient_RunReadiness(t *testing.T) {
 	cwd, err := os.Getwd()
@@ -1730,7 +1730,7 @@ func TestClient_RunReadiness(t *testing.T) {
 	}
 
 	// Replace the implementation with the test implementation which will
-	// return a non-200 response for the first 10 seconds.  This confirms
+	// return a non-200 response for the first few seconds.  This confirms
 	// the client is waiting and retrying.
 	// TODO: we need an init option which skips writing example source-code.
 	_ = os.Remove(filepath.Join(root, "function.go"))
