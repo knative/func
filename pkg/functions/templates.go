@@ -2,20 +2,9 @@ package functions
 
 import (
 	"context"
-	"errors"
 	"strings"
 
 	"knative.dev/func/pkg/utils"
-)
-
-var (
-	ErrRepositoryNotFound        = errors.New("repository not found")
-	ErrRepositoriesNotDefined    = errors.New("custom template repositories location not specified")
-	ErrTemplatesNotFound         = errors.New("templates path (runtimes) not found")
-	ErrRuntimeNotFound           = errors.New("language runtime not found")
-	ErrRuntimeRequired           = errors.New("language runtime required")
-	ErrTemplateNotFound          = errors.New("template not found")
-	ErrTemplateMissingRepository = errors.New("template name missing repository prefix")
 )
 
 // Templates Manager

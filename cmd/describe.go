@@ -74,7 +74,7 @@ func runDescribe(cmd *cobra.Command, args []string, newClient ClientFactory) (er
 			return
 		}
 		if !f.Initialized() {
-			return fn.NewUninitializedError(f.Root)
+			return fn.NewErrNotInitialized(f.Root)
 		}
 		// Use Function's Namespace with precedence
 		//

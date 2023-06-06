@@ -11,14 +11,6 @@ const (
 	EnvironmentRemote = "remote"
 )
 
-var (
-	ErrNotInitialized      = errors.New("function is not initialized")
-	ErrNotRunning          = errors.New("function not running")
-	ErrRootRequired        = errors.New("function root path is required")
-	ErrEnvironmentNotFound = errors.New("environment not found")
-	ErrMismatchedName      = errors.New("name passed does not match name of the function at root")
-)
-
 // InstanceRefs manager
 //
 // InstanceRefs are point-in-time snapshots of a function's runtime state in
@@ -61,7 +53,7 @@ func (s *InstanceRefs) Local(ctx context.Context, f Function) (Instance, error) 
 		return i, ErrRootRequired
 	}
 	if !f.Initialized() {
-		return i, ErrNotInitialized
+		return i, ErrNotInitialized{f.Root}
 	}
 	ports := jobPorts(f)
 	if len(ports) == 0 {

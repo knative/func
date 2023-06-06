@@ -149,7 +149,7 @@ func runInvoke(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 		return err
 	}
 	if !f.Initialized() {
-		return fn.NewUninitializedError(f.Root)
+		return fn.NewErrNotInitialized(f.Root)
 	}
 
 	// Client instance from env vars, flags, args and user prompts (if --confirm)

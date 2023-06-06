@@ -53,15 +53,6 @@ type Client struct {
 	pipelinesProvider PipelinesProvider // CI/CD pipelines management
 }
 
-// ErrNotBuilt indicates the function has not yet been built.
-var ErrNotBuilt = errors.New("not built")
-
-// ErrNameRequired indicates the operation requires a name to complete.
-var ErrNameRequired = errors.New("name required")
-
-// ErrRegistryRequired indicates the operation requires a registry to complete.
-var ErrRegistryRequired = errors.New("registry required to build function, please set with `--registry` or the FUNC_REGISTRY environment variable")
-
 // Builder of function source to runnable image.
 type Builder interface {
 	// Build a function project with source located at path.
@@ -414,10 +405,10 @@ func (c *Client) Runtimes() ([]string, error) {
 // create a running function whose source code and metadata match that provided
 // by the passed function instance, returning the final route and any errors.
 func (c *Client) Apply(ctx context.Context, f Function) (string, Function, error) {
-	if !f.Initialized() {
-		return c.New(ctx, f)
-	} else {
+	if f.Initialized() {
 		return c.Update(ctx, f)
+	} else {
+		return c.New(ctx, f)
 	}
 }
 
@@ -426,11 +417,12 @@ func (c *Client) Apply(ctx context.Context, f Function) (string, Function, error
 // Updates a function which has already been initialized to run the latest
 // source code.
 //
-// Use Init, Build, Push and Deploy independently for lower level control.
+// Use Apply for higher level control. Use Init, Build, Push and Deploy
+// independently for lower level control.
 // Returns final primary route to the Function and any errors.
 func (c *Client) Update(ctx context.Context, f Function) (string, Function, error) {
 	if !f.Initialized() {
-		return "", f, ErrNotInitialized
+		return "", f, ErrNotInitialized{f.Root}
 	}
 	var err error
 	if f, err = c.Build(ctx, f); err != nil {
@@ -451,7 +443,8 @@ func (c *Client) Update(ctx context.Context, f Function) (string, Function, erro
 // Function. Used by Apply when the path is not yet an initialized function.
 // Errors if the path is alrady an initialized function.
 //
-// Use Init, Build, Push, Deploy etc. independently for lower level control.
+// Use Apply for higher level control.  Use Init, Build, Push, Deploy
+// independently for lower level control.
 // Returns the primary route to the function or error.
 func (c *Client) New(ctx context.Context, cfg Function) (string, Function, error) {
 	c.progressListener.SetTotal(3)
@@ -670,6 +663,8 @@ func (c *Client) Scaffold(ctx context.Context, f Function, dest string) (err err
 	return
 }
 
+// printBuildActivity is a helper for ensuring the user gets feedback from
+// the long task of containerized builds.
 func (c *Client) printBuildActivity(ctx context.Context) {
 	m := []string{
 		"Still building",

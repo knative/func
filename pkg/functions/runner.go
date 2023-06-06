@@ -59,7 +59,7 @@ func (r *defaultRunner) Run(ctx context.Context, f Function) (job *Job, err erro
 	}
 
 	// Runner for the Function's runtime.
-	if runFn, err = runFunc(ctx, job); err != nil {
+	if runFn, err = getRunFunc(ctx, job); err != nil {
 		return
 	}
 
@@ -73,37 +73,31 @@ func (r *defaultRunner) Run(ctx context.Context, f Function) (job *Job, err erro
 	return
 }
 
-// runFunc returns a function which will run the user's Function based on
+// getRunFunc returns a function which will run the user's Function based on
 // the jobs runtime.
-func runFunc(ctx context.Context, job *Job) (runFn func() error, err error) {
+func getRunFunc(ctx context.Context, job *Job) (runFn func() error, err error) {
 	runtime := job.Function.Runtime
 	switch runtime {
+	case "":
+		err = ErrRuntimeRequired
 	case "go":
 		runFn = func() error { return runGo(ctx, job) }
 	case "python":
-		err = runnerNotImplemented{runtime}
+		err = ErrRunnerNotImplemented{runtime}
 	case "java":
-		err = runnerNotImplemented{runtime}
+		err = ErrRunnerNotImplemented{runtime}
 	case "node":
-		err = runnerNotImplemented{runtime}
+		err = ErrRunnerNotImplemented{runtime}
 	case "typescript":
-		err = runnerNotImplemented{runtime}
+		err = ErrRunnerNotImplemented{runtime}
 	case "rust":
-		err = runnerNotImplemented{runtime}
-	case "":
-		err = fmt.Errorf("runner requires the function have runtime set")
+		err = ErrRunnerNotImplemented{runtime}
+	case "quarkus":
+		err = ErrRunnerNotImplemented{runtime}
 	default:
-		err = fmt.Errorf("the %q runtime is not supported", runtime)
+		err = ErrRuntimeNotRecognized{runtime}
 	}
 	return
-}
-
-type runnerNotImplemented struct {
-	Runtime string
-}
-
-func (e runnerNotImplemented) Error() string {
-	return fmt.Sprintf("the %q runtime may only be run containerized.", e.Runtime)
 }
 
 func runGo(ctx context.Context, job *Job) (err error) {
@@ -138,9 +132,10 @@ func runGo(ctx context.Context, job *Job) (err error) {
 	cmd.Stderr = os.Stderr
 
 	// cmd.Cancel = stop // TODO: use when we upgrade to go 1.20
+	//  TODO: Update the functions go runtime to accept LISTEN_ADDRESS rather
+	// than just port in able to allow listening on other interfaces
+	// (keeping the default localhost only)
 	if job.Host != "127.0.0.1" {
-		//  TODO: Update the functions go runtime to accept LISTEN_ADDRESS rather
-		// than just port
 		fmt.Fprintf(os.Stderr, "Warning: the Go functions runtime currently only supports localhost '127.0.0.1'.  Requested listen interface '%v' will be ignored.", job.Host)
 	}
 	// See the 1.19 [release notes](https://tip.golang.org/doc/go1.19) which state:
