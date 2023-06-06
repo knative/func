@@ -81,7 +81,7 @@ func runDelete(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 
 		// Check if the function has been initialized
 		if !function.Initialized() {
-			return fn.NewUninitializedError(function.Root)
+			return fn.NewErrNotInitialized(function.Root)
 		}
 
 		// If not provided, use the function's extant namespace

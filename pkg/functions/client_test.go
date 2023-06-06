@@ -23,6 +23,7 @@ import (
 	"knative.dev/func/pkg/builders"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/mock"
+	"knative.dev/func/pkg/oci"
 	. "knative.dev/func/pkg/testing"
 )
 
@@ -596,7 +597,7 @@ func TestClient_New_Delegation(t *testing.T) {
 
 // TestClient_Run ensures that the runner is invoked with the path requested.
 // Implicitly checks that the stop fn returned also is respected.
-// See TestRunner for the unit test for the default runner implementation.
+// See TestClient_Runner for the test of the default runner implementation.
 func TestClient_Run(t *testing.T) {
 	// Create the root function directory
 	root := "testdata/example.com/testRun"
@@ -628,6 +629,53 @@ func TestClient_Run(t *testing.T) {
 	if runner.RootRequested != root {
 		t.Fatalf("expected path '%v', got '%v'", root, runner.RootRequested)
 	}
+}
+
+// TestClient_Runner ensures that the default internal runner correctly executes
+// a scaffolded function.
+func TestClient_Runner(t *testing.T) {
+	// This integration test explicitly requires the "host" builder due to its
+	// lack of a dependency on a container runtime, and the other builders not
+	// taking advantage of Scaffolding (expected by this runner).
+	// See E2E tests for testing of running functions built using Pack or S2I and
+	// which are dependent on Podman or Docker.
+	// Currently only a Go function is tested because other runtimes do not yet
+	// have scaffolding.
+
+	root, cleanup := Mktemp(t)
+	defer cleanup()
+	ctx, cancel := context.WithCancel(context.Background())
+	client := fn.New(fn.WithBuilder(oci.NewBuilder("", true)), fn.WithVerbose(true))
+
+	// Initialize
+	f, err := client.Init(fn.Function{Root: root, Runtime: "go", Registry: TestRegistry})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Build
+	if f, err = client.Build(ctx, f); err != nil {
+		t.Fatal(err)
+	}
+
+	// Run
+	job, err := client.Run(ctx, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Invoke
+	resp, err := http.Get(fmt.Sprintf("http://%s:%s", job.Host, job.Port))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		t.Fatalf("unexpected response code: %v", resp.StatusCode)
+	}
+
+	cancel()
 }
 
 // TestClient_Run_DataDir ensures that when a function is created, it also

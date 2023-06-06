@@ -228,7 +228,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		return
 	}
 	if !f.Initialized() {
-		return fn.NewUninitializedError(f.Root)
+		return fn.NewErrNotInitialized(f.Root)
 	}
 	if f, err = cfg.Configure(f); err != nil { // Updates f with deploy cfg
 		return

@@ -32,7 +32,7 @@ func (s standardLoaderSaver) Load(path string) (fn.Function, error) {
 		return fn.Function{}, fmt.Errorf("failed to create new function (path: %q): %w", path, err)
 	}
 	if !f.Initialized() {
-		return fn.Function{}, fn.NewUninitializedError(f.Root)
+		return fn.Function{}, fn.NewErrNotInitialized(f.Root)
 	}
 	return f, nil
 }
