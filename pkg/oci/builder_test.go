@@ -3,6 +3,8 @@ package oci
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -33,6 +35,43 @@ func TestBuilder(t *testing.T) {
 	last := path(f.Root, fn.RunDataDir, "builds", "last", "oci")
 
 	validateOCI(last, t)
+}
+
+// TestBuilder_Concurrency
+func TestBuilder_Concurrency(t *testing.T) {
+	root, done := Mktemp(t)
+	defer done()
+
+	client := fn.New()
+
+	f, err := client.Init(fn.Function{Root: root, Runtime: "go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Start a build which pauses such that we can start a second.
+	builder1 := NewBuilder("builder1", true)
+	builder1.tester = newTestHelper()
+	builder1.tester.emulateSlowBuild = true
+	builder1.tester.notifyPaused = true
+	builder1.tester.notifyDone = true
+	go func() {
+		if err := builder1.Build(context.Background(), f); err != nil {
+			fmt.Fprintf(os.Stderr, "test build error %v", err)
+		}
+	}()
+	<-builder1.tester.pausedCh // wait until it is paused
+
+	builder2 := NewBuilder("builder2", true)
+	go func() {
+		err = builder2.Build(context.Background(), f)
+		if !errors.As(err, &ErrBuildInProgress{}) {
+			fmt.Fprintf(os.Stderr, "test build error %v", err)
+
+		}
+	}()
+	builder1.tester.continueCh <- true // release the paused first builder
+	<-builder1.tester.doneCh           // wait for it to be done
 }
 
 // ImageIndex represents the structure of an OCI Image Index.

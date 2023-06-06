@@ -1,7 +1,4 @@
-//go:build !integration
-// +build !integration
-
-package functions
+package scaffolding
 
 import (
 	"errors"
@@ -11,31 +8,6 @@ import (
 
 	. "knative.dev/func/pkg/testing"
 )
-
-// TestSignature_Map ensures via spot-checking that the mappings for the
-// different method signature constants are correctly associated to their
-// string representation, the boolean indicator of instanced, and the
-// invocation hint as defined on the function; and this association is
-// traversable via the `signature` method.
-func TestSignature_Map(t *testing.T) {
-	instanced := false
-	invocation := "http"
-	expectedName := "static-http"
-	expectedSig := StaticHTTP
-
-	s := signature(instanced, invocation)
-	if s != expectedSig {
-		t.Fatal("signature flags incorrectly mapped")
-	}
-	if s.String() != expectedName {
-		t.Fatalf("signature string representation incorrectly mapped.  Expected %q got %q", expectedName, s)
-	}
-
-	// ensure that the default for invocation is http
-	if signature(true, "") != InstancedHTTP {
-		t.Fatalf("expected %v, got %v", InstancedHTTP, signature(true, ""))
-	}
-}
 
 // TestDetector_Go ensures that the go language detector will correctly
 // identify the signature to expect of a function's source.
@@ -50,11 +22,11 @@ func TestDetector_Go(t *testing.T) {
 	// scaffolding code needs to be written to get the user to a proper
 	// complile attempt.
 	tests := []struct {
-		Name string                  // Name of the test
-		Sig  Signature               // Signature Expected
-		Err  error                   // Error Expected
-		Src  string                  // Source code to check
-		Cfg  func(Function) Function // Configure the default function for the test.
+		Name string    // Name of the test
+		Sig  Signature // Signature Expected
+		Err  error     // Error Expected
+		Inv  string    // invocation hint; "http" (default) or "cloudevent"
+		Src  string    // Source code to check
 	}{
 		{
 			Name: "Instanced HTTP",
@@ -78,10 +50,7 @@ func Handle() { }
 			Name: "Instanced Cloudevent",
 			Sig:  InstancedCloudevent,
 			Err:  nil,
-			Cfg: func(f Function) Function {
-				f.Invoke = "cloudevent" // see NOTE above
-				return f
-			},
+			Inv:  "cloudevent",
 			Src: `
 package f
 func New() { }
@@ -90,10 +59,7 @@ func New() { }
 			Name: "Static Cloudevent",
 			Sig:  StaticCloudevent,
 			Err:  nil,
-			Cfg: func(f Function) Function {
-				f.Invoke = "cloudevent" // see NOTE above
-				return f
-			},
+			Inv:  "cloudevent",
 			Src: `
 package f
 func Handle() { }
@@ -130,6 +96,19 @@ func New()
 */
 func Handle() { }
 	`},
+		{
+			Name: "Instanced with Handler",
+			Sig:  InstancedHTTP,
+			Err:  nil,
+			Src: `
+package f
+
+type F struct{}
+
+func New() *F { return &F{} }
+
+func (f *MyFunction) Handle() {}
+	`},
 	}
 
 	for _, test := range tests {
@@ -138,23 +117,11 @@ func Handle() { }
 			root, cleanup := Mktemp(t)
 			defer cleanup()
 
-			f := Function{Runtime: "go", Root: root}
-			if test.Cfg != nil {
-				f = test.Cfg(f)
-			}
-
-			f, err := New().Init(f)
-			if err != nil {
+			if err := os.WriteFile(filepath.Join(root, "function.go"), []byte(test.Src), os.ModePerm); err != nil {
 				t.Fatal(err)
 			}
 
-			// NOTE: if/when the default filename changes from handle.go to
-			// function.go, this will also have to change
-			if err := os.WriteFile(filepath.Join(root, "handle.go"), []byte(test.Src), os.ModePerm); err != nil {
-				t.Fatal(err)
-			}
-
-			s, err := functionSignature(f)
+			s, err := detectSignature(root, "go", test.Inv)
 			if err != nil && test.Err == nil {
 				t.Fatalf("unexpected error. %v", err)
 			}

@@ -45,6 +45,9 @@ func NewJob(f Function, host, port string, errs chan error, onStop func() error,
 	if j.Errors == nil {
 		j.Errors = make(chan error, 1)
 	}
+	if j.onStop == nil {
+		j.onStop = func() error { return nil }
+	}
 	if err = cleanupJobDirs(j); err != nil {
 		return
 	}
