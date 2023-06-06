@@ -78,7 +78,7 @@ func containerize(cfg *buildConfig) (err error) {
 	// Create an image for each platform consisting of the shared data layer
 	// and an os/platform specific layer.
 	imageDescs := []v1.Descriptor{}
-	for _, p := range defaultPlatforms { // TODO: Configurable additions.
+	for _, p := range cfg.platforms {
 		imageDesc, err := newImage(cfg, dataDesc, dataLayer, p, cfg.verbose)
 		if err != nil {
 			return err
@@ -205,6 +205,7 @@ func newDescriptor(layer v1.Layer) (desc v1.Descriptor, err error) {
 // newImage creates an image for the given platform.
 // The image consists of the shared data layer which is provided
 func newImage(cfg *buildConfig, dataDesc v1.Descriptor, dataLayer v1.Layer, p v1.Platform, verbose bool) (imageDesc v1.Descriptor, err error) {
+
 	b, err := newLanguageLayerBuilder(cfg)
 	if err != nil {
 		return

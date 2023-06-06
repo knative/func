@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -36,6 +37,12 @@ const (
 	// TestRuntime is currently Go, the "reference implementation" and is
 	// used for verifying functionality that should be runtime agnostic.
 	TestRuntime = "go"
+)
+
+var (
+	// TestPlatforms to use when a multi-architecture build is not necessary
+	// for testing.
+	TestPlatforms = []fn.Platform{{OS: runtime.GOOS, Architecture: runtime.GOARCH}}
 )
 
 // TestClient_New function completes without error using defaults and zero values.

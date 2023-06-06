@@ -56,7 +56,7 @@ func TestBuild_BuilderImageDefault(t *testing.T) {
 		return nil
 	}
 
-	if err := b.Build(context.Background(), f); err != nil {
+	if err := b.Build(context.Background(), f, nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -80,7 +80,7 @@ func TestBuild_BuildpacksDefault(t *testing.T) {
 		return nil
 	}
 
-	if err := b.Build(context.Background(), f); err != nil {
+	if err := b.Build(context.Background(), f, nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -111,7 +111,7 @@ func TestBuild_BuilderImageConfigurable(t *testing.T) {
 		return nil
 	}
 
-	if err := b.Build(context.Background(), f); err != nil {
+	if err := b.Build(context.Background(), f, nil); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -143,7 +143,7 @@ func TestBuild_Envs(t *testing.T) {
 		t.Fatal("build envs not added to builder options")
 		return nil
 	}
-	if err := b.Build(context.Background(), f); err != nil {
+	if err := b.Build(context.Background(), f, nil); err != nil {
 		t.Fatal(err)
 	}
 }

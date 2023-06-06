@@ -7,11 +7,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	fn "knative.dev/func/pkg/functions"
 	. "knative.dev/func/pkg/testing"
 )
+
+var TestPlatforms = []fn.Platform{{OS: runtime.GOOS, Architecture: runtime.GOARCH}}
 
 // TestBuilder ensures that, when given a Go Function, an OCI-compliant
 // directory structure is created on .Build in the expected path.
@@ -19,7 +22,7 @@ func TestBuilder(t *testing.T) {
 	root, done := Mktemp(t)
 	defer done()
 
-	client := fn.New()
+	client := fn.New(fn.WithVerbose(true))
 
 	f, err := client.Init(fn.Function{Root: root, Runtime: "go"})
 	if err != nil {
@@ -28,7 +31,7 @@ func TestBuilder(t *testing.T) {
 
 	builder := NewBuilder("", true)
 
-	if err := builder.Build(context.Background(), f); err != nil {
+	if err := builder.Build(context.Background(), f, nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -56,7 +59,7 @@ func TestBuilder_Concurrency(t *testing.T) {
 	builder1.tester.notifyPaused = true
 	builder1.tester.notifyDone = true
 	go func() {
-		if err := builder1.Build(context.Background(), f); err != nil {
+		if err := builder1.Build(context.Background(), f, TestPlatforms); err != nil {
 			fmt.Fprintf(os.Stderr, "test build error %v", err)
 		}
 	}()
@@ -64,10 +67,9 @@ func TestBuilder_Concurrency(t *testing.T) {
 
 	builder2 := NewBuilder("builder2", true)
 	go func() {
-		err = builder2.Build(context.Background(), f)
+		err = builder2.Build(context.Background(), f, TestPlatforms)
 		if !errors.As(err, &ErrBuildInProgress{}) {
 			fmt.Fprintf(os.Stderr, "test build error %v", err)
-
 		}
 	}()
 	builder1.tester.continueCh <- true // release the paused first builder
