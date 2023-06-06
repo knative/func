@@ -105,6 +105,16 @@ func TestFunction_ImageWithDigest(t *testing.T) {
 			fields: fields{Image: "bar:latest", ImageDigest: "42"},
 			want:   "bar@42",
 		},
+		{
+			name:   "Full path with port and SHA256 Digest",
+			fields: fields{Image: "image-registry.openshift-image-registry.svc.cluster.local:50000/default/bar@sha256:42", ImageDigest: "sha256:42"},
+			want:   "image-registry.openshift-image-registry.svc.cluster.local:50000/default/bar@sha256:42",
+		},
+		{
+			name:   "Full path with port and SHA256 Digest with empty ImageDigest",
+			fields: fields{Image: "image-registry.openshift-image-registry.svc.cluster.local:50000/default/bar@sha256:42", ImageDigest: ""},
+			want:   "image-registry.openshift-image-registry.svc.cluster.local:50000/default/bar@sha256:42",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
