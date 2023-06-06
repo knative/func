@@ -19,6 +19,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -41,22 +42,17 @@ import (
 	"knative.dev/func/pkg/random"
 )
 
-const (
-	gitlabURL        = "http://gitlab.127.0.0.1.sslip.io"
-	pacControllerURL = "http://pac-ctr.127.0.0.1.sslip.io"
-)
-
 func TestGitlab(t *testing.T) {
 	var err error
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
-	rootPassword := os.Getenv("GITLAB_ROOT_PASSWORD")
-	if rootPassword == "" {
-		t.Skip("GITLAB_ROOT_PASSWORD not set")
+	gitlabHostname, gitlabRootPassword, pacCtrHostname, err := parseEnv(t)
+	if err != nil {
+		t.Fatal(err)
 	}
 
-	glabEnv := setupGitlabEnv(ctx, t, gitlabURL, "root", rootPassword)
+	glabEnv := setupGitlabEnv(ctx, t, "http://"+gitlabHostname, "root", gitlabRootPassword)
 
 	tempHome := t.TempDir()
 	projDir := filepath.Join(t.TempDir(), "fn")
@@ -112,7 +108,7 @@ func TestGitlab(t *testing.T) {
 	pp := tekton.NewPipelinesProvider(
 		tekton.WithCredentialsProvider(credentialsProvider),
 		tekton.WithPacURLCallback(func() (string, error) {
-			return pacControllerURL, nil
+			return "http://" + pacCtrHostname, nil
 		}))
 
 	metadata := pipelines.PacMetadata{
@@ -164,6 +160,31 @@ func TestGitlab(t *testing.T) {
 		t.Error("cancelled")
 	}
 
+}
+
+func parseEnv(t *testing.T) (gitlabHostname string, gitlabRootPassword string, pacCtrHostname string, err error) {
+	if enabled, _ := strconv.ParseBool(os.Getenv("GITLAB_TESTS_ENABLED")); !enabled {
+		t.Skip("GitLab tests are disabled")
+	}
+	envs := map[string]*string{
+		"GITLAB_HOSTNAME":         &gitlabHostname,
+		"GITLAB_ROOT_PASSWORD":    &gitlabRootPassword,
+		"PAC_CONTROLLER_HOSTNAME": &pacCtrHostname,
+	}
+	var missing []string
+	gitlabHostname = os.Getenv("GITLAB_HOSTNAME")
+	for name, ptr := range envs {
+		val := os.Getenv(name)
+		if val == "" {
+			missing = append(missing, name)
+			continue
+		}
+		*ptr = val
+	}
+	if len(missing) > 0 {
+		err = fmt.Errorf("required environment variables are not set: %+v", strings.Join(missing, ", "))
+	}
+	return
 }
 
 type gitlabEnv struct {

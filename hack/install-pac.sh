@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 function install_pac() {
-    local -r pac_ctr_host="pac-ctr.127.0.0.1.sslip.io"
+    local -r pac_ctr_host="${PAC_CONTROLLER_HOSTNAME:-pac-ctr.127.0.0.1.sslip.io}"
     local -r pac_version="v0.17.1"
 
     # Install Pipelines as Code
@@ -30,6 +30,7 @@ spec:
         pathType: Prefix
         path: /
 EOF
+  echo "the Pipeline as Code controller is available at: http://${pac_ctr_host}"
 }
 
 if [ "$0" = "${BASH_SOURCE[0]}" ]; then

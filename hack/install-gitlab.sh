@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 function install_gitlab() {
-  local -r gitlab_host="gitlab.127.0.0.1.sslip.io"
+  local -r gitlab_host="${GITLAB_HOSTNAME:-gitlab.127.0.0.1.sslip.io}"
 
   kubectl apply -f - <<EOF
 kind: Namespace
@@ -154,7 +154,9 @@ EOF
     echo '::endgroup::'
     return 1
   fi
+  echo
   echo '::endgroup::'
+  echo "the GitLab server is available at: http://${gitlab_host}"
 }
 
 if [ "$0" = "${BASH_SOURCE[0]}" ]; then
