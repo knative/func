@@ -12,6 +12,7 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/scaffolding"
 )
 
 var path = filepath.Join
@@ -33,25 +34,18 @@ var defaultIgnored = []string{ // TODO: implement and use .funcignore
 	".gitignore",
 }
 
-// BuildErr indicates a build error occurred.
-type BuildErr struct {
-	Err error
-}
-
-func (e BuildErr) Error() string {
-	return fmt.Sprintf("error performing host build. %v", e.Err)
-}
-
 // Builder which creates an OCI-compliant multi-arch (index) container from
 // the function at path.
 type Builder struct {
 	name    string
 	verbose bool
+
+	tester *testHelper
 }
 
 // NewBuilder creates a builder instance.
 func NewBuilder(name string, verbose bool) *Builder {
-	return &Builder{name, verbose}
+	return &Builder{name, verbose, nil}
 }
 
 // Build an OCI-compliant Mult-arch (v1.ImageIndex) container on disk
@@ -63,52 +57,60 @@ func NewBuilder(name string, verbose bool) *Builder {
 //
 //	.func/builds/last
 func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
-	cfg := &buildConfig{ctx, f, time.Now(), b.verbose, ""}
+	cfg := &buildConfig{ctx, b.name, f, time.Now(), b.verbose, "", b.tester, defaultPlatforms}
 
 	if err = setup(cfg); err != nil { // create directories and links
 		return
 	}
 	defer teardown(cfg)
 
-	//TODO: Use scaffold package when merged:
-	/*
-		if err = scaffolding.Scaffold(ctx, f, cfg.buildDir()); err != nil {
-			return
-		}
-	*/
-	// IN the meantime, use an airball mainfile
-	data := `
-package main
-
-import "fmt"
-
-func main () {
-  fmt.Println("Hello, world!")
-}
-`
-	if err = os.WriteFile(path(cfg.buildDir(), "main.go"), []byte(data), 0664); err != nil {
+	// Load the embedded repository
+	repo, err := fn.NewRepository("", "")
+	if err != nil {
 		return
 	}
 
+	// Write out the scaffolding
+	err = scaffolding.Write(cfg.buildDir(), f.Root, f.Runtime, f.Invoke, repo.FS())
+	if err != nil {
+		return
+	}
+
+	// Create an OCI container from the scaffolded function
 	if err = containerize(cfg); err != nil {
 		return
 	}
-	return updateLastLink(cfg)
+
+	if err = updateLastLink(cfg); err != nil {
+		return
+	}
 
 	// TODO: communicating build completeness throgh returning without error
 	// relies on the implicit availability of the OIC image in this process'
 	// build directory.  Would be better to have a formal build result object
 	// which includes a general struct which can be used by all builders to
 	// communicate to the pusher where the image can be found.
+	// Tests, however, can use a simple channel:
+	if cfg.tester != nil && cfg.tester.notifyDone {
+		if cfg.verbose {
+			fmt.Println("tester configured to notify on done.  Sending to unbuffered doneCh")
+		}
+		cfg.tester.doneCh <- true
+		fmt.Println("send to doneCh complete")
+	}
+	return
 }
 
 // buildConfig contains various settings for a single build
 type buildConfig struct {
-	ctx     context.Context // build context
-	f       fn.Function     // Function being built
-	t       time.Time       // Timestamp for this build
-	verbose bool            // verbose logging
-	h       string          // hash cache (use .hash() accessor)
+	ctx       context.Context // build context
+	name      string
+	f         fn.Function // Function being built
+	t         time.Time   // Timestamp for this build
+	verbose   bool        // verbose logging
+	h         string      // hash cache (use .hash() accessor)
+	tester    *testHelper
+	platforms []v1.Platform
 }
 
 func (c *buildConfig) hash() string {
@@ -151,7 +153,7 @@ func (c *buildConfig) blobsDir() string {
 func setup(cfg *buildConfig) (err error) {
 	// error if already in progress
 	if isActive(cfg, cfg.buildDir()) {
-		return BuildErr{fmt.Errorf("Build directory already exists for this version hash and is associated with an active PID.  Is a build already in progress? %v", cfg.buildDir())}
+		return ErrBuildInProgress{cfg.buildDir()}
 	}
 
 	// create build files directory
@@ -181,10 +183,6 @@ func setup(cfg *buildConfig) (err error) {
 }
 
 func teardown(cfg *buildConfig) {
-	// remove the pid link for the current process indicating the build is
-	// no longer in progress.
-	_ = os.RemoveAll(cfg.pidLink())
-
 	// remove pid links for processes which no longer exist.
 	dd, _ := os.ReadDir(cfg.pidsDir())
 	for _, d := range dd {
@@ -268,4 +266,23 @@ func updateLastLink(cfg *buildConfig) error {
 	}
 	_ = os.RemoveAll(cfg.lastLink())
 	return os.Symlink(cfg.buildDir(), cfg.lastLink())
+}
+
+type testHelper struct {
+	emulateSlowBuild bool
+	continueCh       chan any
+
+	notifyDone bool
+	doneCh     chan any
+
+	notifyPaused bool
+	pausedCh     chan any
+}
+
+func newTestHelper() *testHelper {
+	return &testHelper{
+		continueCh: make(chan any),
+		doneCh:     make(chan any),
+		pausedCh:   make(chan any),
+	}
 }

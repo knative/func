@@ -23,6 +23,7 @@ import (
 	"knative.dev/func/pkg/builders"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/mock"
+	"knative.dev/func/pkg/oci"
 	. "knative.dev/func/pkg/testing"
 )
 
@@ -1708,4 +1709,69 @@ func TestClient_CreateMigration(t *testing.T) {
 	if f.SpecVersion != fn.LastSpecVersion() {
 		t.Fatal("freshly created function should have the latest migration")
 	}
+}
+
+// TestClient_RunWaits ensures that the run task awaits a ready response
+// from the job before returning.
+func TestClient_RunReadiness(t *testing.T) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	root, cleanup := Mktemp(t)
+	defer cleanup()
+
+	client := fn.New(fn.WithBuilder(oci.NewBuilder("", true)), fn.WithVerbose(true))
+
+	// Initialize
+	f, err := client.Init(fn.Function{Root: root, Runtime: "go", Registry: TestRegistry})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Replace the implementation with the test implementation which will
+	// return a non-200 response for the first 10 seconds.  This confirms
+	// the client is waiting and retrying.
+	// TODO: we need an init option which skips writing example source-code.
+	_ = os.Remove(filepath.Join(root, "function.go"))
+	_ = os.Remove(filepath.Join(root, "function_test.go"))
+	_ = os.Remove(filepath.Join(root, "handle.go"))
+	_ = os.Remove(filepath.Join(root, "handle_test.go"))
+	src, err := os.Open(filepath.Join(cwd, "testdata", "testClientRunReadiness", "f.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dst, err := os.Create(filepath.Join(root, "f.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err = io.Copy(dst, src); err != nil {
+		t.Fatal(err)
+	}
+	src.Close()
+	dst.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Build
+	if f, err = client.Build(ctx, f); err != nil {
+		t.Fatal(err)
+	}
+
+	// Run
+	// The function returns a non-200 from its readiness handler at first.
+	// Since we already confirmed in another test that a timeout awaiting a
+	// 200 response from this endpoint does indeed fail the run task, this
+	// delayed 200 confirms there is a retry in place.
+	job, err := client.Run(ctx, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := job.Stop(); err != nil {
+			t.Fatalf("error on job stop: %v", err)
+		}
+	}()
 }
