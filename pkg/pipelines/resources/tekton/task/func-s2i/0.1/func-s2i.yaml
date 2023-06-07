@@ -108,6 +108,7 @@ spec:
         fi
 
         df -h
+        df -h /var/lib/containers
         
         head -n 1 /gen-source/Dockerfile.gen >> /tmp/Dockerfile.new
         echo -e "\nRUN df -h; free -h;\n" >> /tmp/Dockerfile.new
@@ -123,6 +124,9 @@ spec:
           -v "${ARTIFACTS_CACHE_PATH}:/tmp/artifacts/:rw,z,U" \
           -f /gen-source/Dockerfile.gen -t $(params.IMAGE) .
 
+        df -h /var/lib/containers
+        du -sh /var/lib/containers
+        
         [[ "$(workspaces.dockerconfig.bound)" == "true" ]] && export DOCKER_CONFIG="$(workspaces.dockerconfig.path)"
         buildah ${CERT_DIR_FLAG} push --storage-driver=vfs ${TLS_VERIFY_FLAG} --digestfile $(workspaces.source.path)/image-digest \
           $(params.IMAGE) docker://$(params.IMAGE)
