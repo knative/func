@@ -107,6 +107,7 @@ func TestGitlab(t *testing.T) {
 	}
 	pp := tekton.NewPipelinesProvider(
 		tekton.WithCredentialsProvider(credentialsProvider),
+		tekton.WithNamespace(ns),
 		tekton.WithPacURLCallback(func() (string, error) {
 			return "http://" + pacCtrHostname, nil
 		}))
@@ -125,7 +126,7 @@ func TestGitlab(t *testing.T) {
 		_ = pp.RemovePAC(context.Background(), f, metadata)
 	})
 
-	buildDoneCh := awaitBuildCompletion(t, glabEnv.ProjectName)
+	buildDoneCh := awaitBuildCompletion(t, glabEnv.ProjectName, ns)
 
 	gitCommands := `export GIT_TERMINAL_PROMPT=0 && \
   cd "${PROJECT_DIR}" && \
@@ -552,11 +553,7 @@ func usingNamespace(t *testing.T) string {
 	return name
 }
 
-func awaitBuildCompletion(t *testing.T, name string) <-chan struct{} {
-	defaultNS, err := k8s.GetNamespace("")
-	if err != nil {
-		t.Fatal(err)
-	}
+func awaitBuildCompletion(t *testing.T, name, ns string) <-chan struct{} {
 
 	clis, err := tekton.NewTektonClients()
 	if err != nil {
@@ -567,7 +564,7 @@ func awaitBuildCompletion(t *testing.T, name string) <-chan struct{} {
 		LabelSelector: "tekton.dev/pipelineTask=build",
 		Watch:         true,
 	}
-	w, err := clis.Tekton.TektonV1().TaskRuns(defaultNS).Watch(context.Background(), listOpts)
+	w, err := clis.Tekton.TektonV1().TaskRuns(ns).Watch(context.Background(), listOpts)
 	if err != nil {
 		t.Fatal(err)
 	}
