@@ -46,6 +46,9 @@ func TestOnClusterBuild(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Builder, func(t *testing.T) {
+			if test.Builder == "s2i" {
+				t.Skip("Skipping because this causes 'no space left on device' in GH Action.")
+			}
 			ctx, cancel := context.WithCancel(ctx)
 			defer cancel()
 
