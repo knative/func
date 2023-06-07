@@ -71,6 +71,8 @@ containerdConfigPatches:
 - |-
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:50000"]
     endpoint = ["http://func-registry:5000"]
+  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."registry.default.svc.cluster.local:5000"]
+    endpoint = ["http://func-registry:5000"]
 EOF
   sleep 10
   kubectl wait pod --for=condition=Ready -l '!job-name' -n kube-system --timeout=5m
@@ -205,6 +207,19 @@ data:
   localRegistryHosting.v1: |
     host: "localhost:50000"
     help: "https://kind.sigs.k8s.io/docs/user/local-registry/"
+EOF
+
+  # Make the registry available in cluster under registry.default.svc.cluster.local:5000.
+  # This is useful since for "*.local" registries HTTP (not HTTPS) is used by default by some applications.
+  kubectl apply -f - <<EOF
+apiVersion: v1
+kind: Service
+metadata:
+  name: registry
+  namespace: default
+spec:
+  type: ExternalName
+  externalName: func-registry
 EOF
 }
 
