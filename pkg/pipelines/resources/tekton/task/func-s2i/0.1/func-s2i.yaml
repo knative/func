@@ -107,8 +107,13 @@ spec:
           TLS_VERIFY_FLAG="--tls-verify=false"
         fi
 
-        free -h
         df -h
+        
+        head -n 1 /gen-source/Dockerfile.gen >> /tmp/Dockerfile.new
+        echo -e "\nRUN df -h; free -h;\n" >> /tmp/Dockerfile.new
+        tail -n +2 /gen-source/Dockerfile.gen >> /tmp/Dockerfile.new
+        cat /tmp/Dockerfile.new > /gen-source/Dockerfile.gen
+        
         cat /gen-source/Dockerfile.gen
         
         [[ "$(workspaces.sslcertdir.bound)" == "true" ]] && CERT_DIR_FLAG="--cert-dir $(workspaces.sslcertdir.path)"
