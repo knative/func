@@ -1,5 +1,4 @@
 //go:build oncluster || runtime
-// +build oncluster runtime
 
 package oncluster
 
