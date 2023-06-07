@@ -31,6 +31,10 @@ const (
 	// one implementation of each supported function signature.  Currently that
 	// includes an HTTP Handler ("http") and Cloud Events handler ("events")
 	DefaultTemplate = "http"
+
+	// DefaultStartTimeout is the suggested startup timeout to use by
+	// runner implementations.
+	DefaultStartTimeout = 60 * time.Second
 )
 
 var (
@@ -75,6 +79,7 @@ type Client struct {
 	instances         *InstanceRefs     // Function Instances management
 	transport         http.RoundTripper // Customizable internal transport
 	pipelinesProvider PipelinesProvider // CI/CD pipelines management
+	startTimeout      time.Duration     // default start timeout for all runs
 }
 
 // Builder of function source to runnable image.
@@ -114,9 +119,10 @@ const (
 // Runner runs the function locally.
 type Runner interface {
 	// Run the function, returning a Job with metadata, error channels, and
-	// a stop function.The process can be stopped by running the returned stop
+	// a stop function.  The process can be stopped by running the returned stop
 	// function, either on context cancellation or in a defer.
-	Run(context.Context, Function) (*Job, error)
+	// The duration is the time to wait for the job to start.
+	Run(context.Context, Function, time.Duration) (*Job, error)
 }
 
 // Remover of deployed services.
@@ -219,6 +225,7 @@ func New(options ...Option) *Client {
 		progressListener:  &NoopProgressListener{},
 		pipelinesProvider: &noopPipelinesProvider{},
 		transport:         http.DefaultTransport,
+		startTimeout:      DefaultStartTimeout,
 	}
 	c.runner = newDefaultRunner(c, os.Stdout, os.Stderr)
 	for _, o := range options {
@@ -367,6 +374,19 @@ func WithTransport(t http.RoundTripper) Option {
 func WithPipelinesProvider(pp PipelinesProvider) Option {
 	return func(c *Client) {
 		c.pipelinesProvider = pp
+	}
+}
+
+// WithStartTimeout sets a custom default timeout for functions which do not
+// define their own.  This is useful in situations where the client is
+// operating in a restricted environment and all functions tend to take longer
+// to start up than usual, or when the client is running functions which
+// in general take longer to start.  If a timeout is specified on the
+// function itself, that will take precidence.  Use the RunWithTimeout option
+// on the Run method to specify a timeout with precidence.
+func WithStartTimeout(t time.Duration) Option {
+	return func(c *Client) {
+		c.startTimeout = t
 	}
 }
 
@@ -869,21 +889,51 @@ func (c *Client) Route(ctx context.Context, f Function) (string, Function, error
 	return instance.Route, f, nil
 }
 
+type RunOptions struct {
+	StartTimeout time.Duration
+}
+
+type RunOption func(c *RunOptions)
+
+// RunWithStartTimeout sets a specific timeout for this run request to start.
+// If not provided, the client's run timeout (set by default to
+// DefaultRunTimeout and configurable via the WithRunTimeout client
+// instantiation option) is used.
+func RunWithStartTimeout(t time.Duration) RunOption {
+	return func(c *RunOptions) {
+		c.StartTimeout = t
+	}
+}
+
 // Run the function whose code resides at root.
 // On start, the chosen port is sent to the provided started channel
-func (c *Client) Run(ctx context.Context, f Function) (job *Job, err error) {
+func (c *Client) Run(ctx context.Context, f Function, options ...RunOption) (job *Job, err error) {
 	go func() {
 		<-ctx.Done()
 		c.progressListener.Stopping()
 	}()
 
+	oo := RunOptions{}
+	for _, o := range options {
+		o(&oo)
+	}
+
 	if !f.Initialized() {
 		return nil, fmt.Errorf("can not run an uninitialized function")
 	}
 
+	// timeout for this run task.
+	timeout := c.startTimeout    // client's global setting is the default
+	if f.Run.StartTimeout != 0 { // Function value, if defined, takes precidence
+		timeout = f.Run.StartTimeout
+	}
+	if oo.StartTimeout != 0 { // Highest precidence is an option passed to Run
+		timeout = oo.StartTimeout
+	}
+
 	// Run the function, which returns a Job for use interacting (at arms length)
 	// with that running task (which is likely inside a container process).
-	if job, err = c.runner.Run(ctx, f); err != nil {
+	if job, err = c.runner.Run(ctx, f, timeout); err != nil {
 		return
 	}
 

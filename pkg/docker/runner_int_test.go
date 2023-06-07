@@ -47,7 +47,7 @@ func TestRun(t *testing.T) {
 	// Run the function using a docker runner
 	var out, errOut bytes.Buffer
 	runner := docker.NewRunner(true, &out, &errOut)
-	j, err := runner.Run(ctx, f)
+	j, err := runner.Run(ctx, f, fn.DefaultStartTimeout)
 	if err != nil {
 		t.Fatal(err)
 	}

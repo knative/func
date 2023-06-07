@@ -19,10 +19,6 @@ const (
 	defaultRunDialTimeout = 2 * time.Second
 	defaultRunStopTimeout = 10 * time.Second
 	readinessEndpoint     = "/health/readiness"
-
-	// defaultRunTimeout is long to allow for slow-starting functions by default
-	// TODO: allow to be shortened as-needed using a runOption.
-	defaultRunTimeout = 5 * time.Minute
 )
 
 type defaultRunner struct {
@@ -39,7 +35,7 @@ func newDefaultRunner(client *Client, out, err io.Writer) *defaultRunner {
 	}
 }
 
-func (r *defaultRunner) Run(ctx context.Context, f Function) (job *Job, err error) {
+func (r *defaultRunner) Run(ctx context.Context, f Function, startTimeout time.Duration) (job *Job, err error) {
 	var (
 		port    = choosePort(defaultRunHost, defaultRunPort, defaultRunDialTimeout)
 		runFn   func() error
@@ -68,7 +64,7 @@ func (r *defaultRunner) Run(ctx context.Context, f Function) (job *Job, err erro
 	}
 
 	// Wait for it to become available before returning the metadata.
-	err = waitFor(job, defaultRunTimeout)
+	err = waitFor(ctx, job, startTimeout)
 	return
 }
 
@@ -151,44 +147,47 @@ func runGo(ctx context.Context, job *Job) (err error) {
 	return
 }
 
-func waitFor(job *Job, timeout time.Duration) error {
-	url := fmt.Sprintf("http://%s:%s/%s", job.Host, job.Port, readinessEndpoint)
+func waitFor(ctx context.Context, job *Job, timeout time.Duration) (err error) {
+	var (
+		uri      = fmt.Sprintf("http://%s:%s/%s", job.Host, job.Port, readinessEndpoint)
+		interval = 500 * time.Millisecond
+		deadline = time.Now().Add(timeout)
+	)
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
 	if job.verbose {
-		fmt.Printf("Waiting for %v\n", url)
+		fmt.Printf("Waiting for %v\n", uri)
 	}
-	to := time.After(timeout)
+
 	for {
-		select {
-		case <-to:
+		req, err := http.NewRequestWithContext(ctx, "GET", uri, nil)
+		if err != nil {
+			return fmt.Errorf("error creating readiness check context. %w", err)
+		}
+
+		res, err := http.DefaultClient.Do(req)
+		if err, ok := err.(net.Error); ok && err.Timeout() {
 			return ErrRunTimeout{timeout}
-		case <-time.After(500 * time.Millisecond):
-			if checkReady(url, job.verbose) {
-				return nil
+		} else if time.Now().After(deadline) {
+			return ErrRunTimeout{timeout}
+		} else if res != nil && res.StatusCode == 200 {
+			return nil // success
+		}
+		defer res.Body.Close()
+
+		if job.verbose {
+			if err != nil {
+				fmt.Printf("endpoint not available. %v", err)
+			} else {
+				fmt.Printf("endpoint returned HTTP %v.\n", res.StatusCode)
+				dump, _ := httputil.DumpResponse(res, true)
+				fmt.Println(dump)
 			}
 		}
-	}
-}
 
-func checkReady(url string, verbose bool) bool { // checks if the instance has become available
-	resp, err := http.Get(url)
-	if err != nil {
-		if verbose {
-			fmt.Printf("Not ready (%v)\n", err)
-		}
-		return false
+		time.Sleep(interval)
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode == 200 {
-		return true
-	}
-
-	if verbose {
-		fmt.Printf("Endpoint returned HTTP %v.\n", resp.StatusCode)
-		dump, _ := httputil.DumpResponse(resp, true)
-		fmt.Println(dump)
-	}
-	return false
 }
 
 // choosePort returns an unused port on the given interface (host)
