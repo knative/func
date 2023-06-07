@@ -107,6 +107,10 @@ spec:
           TLS_VERIFY_FLAG="--tls-verify=false"
         fi
 
+        free -h
+        df -h
+        cat /gen-source/Dockerfile.gen
+        
         [[ "$(workspaces.sslcertdir.bound)" == "true" ]] && CERT_DIR_FLAG="--cert-dir $(workspaces.sslcertdir.path)"
         ARTIFACTS_CACHE_PATH="$(workspaces.cache.path)/mvn-artifacts"
         [ -d "${ARTIFACTS_CACHE_PATH}" ] || mkdir "${ARTIFACTS_CACHE_PATH}"
