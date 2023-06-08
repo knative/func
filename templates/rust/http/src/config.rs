@@ -1,4 +1,5 @@
-use actix_web::{web::{self, Data}};
+use actix_web::web::{Data, ServiceConfig};
+use log::info;
 
 /// Run custom configuration as part of the application building
 /// process.
@@ -6,7 +7,7 @@ use actix_web::{web::{self, Data}};
 /// This function should contain all custom configuration for your function application.
 ///
 /// ```rust
-/// fn configure(cfg: &mut web::ServiceConfig) {
+/// fn configure(cfg: &mut ServiceConfig) {
 ///     let db_driver = my_db();
 ///     cfg.data(db_driver.clone());
 /// }
@@ -17,12 +18,12 @@ use actix_web::{web::{self, Data}};
 /// ```rust
 /// pub async fn index(
 ///     req: HttpRequest,
-///     driver: web::Data<DbDriver>,
+///     driver: Data<DbDriver>,
 /// ) -> HttpResponse {
 ///     HttpResponse::NoContent()
 /// }
-pub fn configure(cfg: &mut web::ServiceConfig) {
-    log::info!("Configuring service");
+pub fn configure(cfg: &mut ServiceConfig) {
+    info!("Configuring service");
     cfg.app_data(Data::new(HandlerConfig::default()));
 }
 
@@ -35,7 +36,7 @@ pub struct HandlerConfig {
 impl Default for HandlerConfig {
     fn default() -> HandlerConfig {
         HandlerConfig {
-            name: String::from("world"),
+            name: "world".into(),
         }
     }
 }

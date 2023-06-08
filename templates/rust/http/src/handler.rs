@@ -1,9 +1,9 @@
 use crate::config::HandlerConfig;
-use actix_web::{http::Method, web, HttpRequest, HttpResponse};
+use actix_web::{http::Method, web::Data, HttpRequest, HttpResponse};
 use log::info;
 
 // Implement your function's logic here
-pub async fn index(req: HttpRequest, config: web::Data<HandlerConfig>) -> HttpResponse {
+pub async fn index(req: HttpRequest, config: Data<HandlerConfig>) -> HttpResponse {
     info!("{:#?}", req);
     if req.method() == Method::GET {
         HttpResponse::Ok().body(format!("Hello {}!\n", config.name))
@@ -15,15 +15,15 @@ pub async fn index(req: HttpRequest, config: web::Data<HandlerConfig>) -> HttpRe
 #[cfg(test)]
 mod tests {
     use super::*;
-    use actix_web::{body::to_bytes, http, test, web::Bytes};
+    use actix_web::{body::to_bytes, http, test::TestRequest, web::Bytes};
 
-    fn config() -> web::Data<HandlerConfig> {
-        web::Data::new(HandlerConfig::default())
+    fn config() -> Data<HandlerConfig> {
+        Data::new(HandlerConfig::default())
     }
 
     #[actix_rt::test]
     async fn get() {
-        let req = test::TestRequest::get().to_http_request();
+        let req = TestRequest::get().to_http_request();
         let resp = index(req, config()).await;
         assert_eq!(resp.status(), http::StatusCode::OK);
         assert_eq!(
@@ -34,7 +34,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn post() {
-        let req = test::TestRequest::post().to_http_request();
+        let req = TestRequest::post().to_http_request();
         let resp = index(req, config()).await;
         assert!(resp.status().is_success());
         assert_eq!(
