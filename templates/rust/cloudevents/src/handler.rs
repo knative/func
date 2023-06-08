@@ -1,5 +1,5 @@
 use crate::config::HandlerConfig;
-use actix_web::web;
+use actix_web::{error::ErrorInternalServerError, web};
 use cloudevents::{event::Data, Event, EventBuilder, EventBuilderV10};
 use log::info;
 use serde_json::{from_slice, from_str, json};
@@ -23,7 +23,7 @@ pub async fn handle(
         .ty("func.example")
         .data("application/json", json!({ "hello": input["name"] }))
         .build()
-        .map_err(actix_web::error::ErrorInternalServerError)
+        .map_err(ErrorInternalServerError)
 }
 
 #[cfg(test)]
