@@ -1,6 +1,6 @@
 module knative.dev/func
 
-go 1.18
+go 1.20
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.6
@@ -264,6 +264,4 @@ replace (
 	k8s.io/api => k8s.io/api v0.25.4
 	k8s.io/apimachinery => k8s.io/apimachinery v0.25.4
 	k8s.io/client-go => k8s.io/client-go v0.25.4
-	// k8s.io/kube-openapi katest release requires go 1.19
-	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20230123231816-1cb3ae25d79a
 )
