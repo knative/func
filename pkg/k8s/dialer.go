@@ -1,12 +1,14 @@
 package k8s
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"net"
+	"regexp"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -67,18 +69,45 @@ func (c *contextDialer) DialContext(ctx context.Context, network string, addr st
 		return nil, fmt.Errorf("unsupported network: %q", network)
 	}
 
-	pr, pw, conn := newConn()
-
+	ctrStdin, ctrStdout, conn := newConn()
+	connectSuccess := make(chan struct{})
+	connectFailure := make(chan error, 1)
 	go func() {
-		errOut := bytes.NewBuffer(nil)
-		err := c.exec(addr, pr, pw, errOut)
+		stderrBuff := bytes.NewBuffer(nil)
+		ctrStderr := io.MultiWriter(stderrBuff, detectConnSuccess(connectSuccess))
+
+		err := c.exec(addr, ctrStdin, ctrStdout, ctrStderr)
 		if err != nil {
-			err = fmt.Errorf("failed to exec in pod: %w (stderr: %q)", err, errOut.String())
+			err = fmt.Errorf("failed to exec in pod: %w (stderr: %q)", err, stderrBuff.String())
 		}
 		_ = conn.closeWithError(err)
+		connectFailure <- err
 	}()
 
-	return conn, nil
+	select {
+	case <-connectSuccess:
+		return conn, nil
+	case err := <-connectFailure:
+		return nil, err
+	case <-ctx.Done():
+		_ = conn.closeWithError(ctx.Err())
+		return nil, ctx.Err()
+	}
+}
+
+var connSuccessfulRE = regexp.MustCompile("successfully connected")
+
+// Creates io.Writer which closes connectSuccess channel when string "successfully connected" is written to it.
+func detectConnSuccess(connectSuccess chan struct{}) io.Writer {
+	pr, pw := io.Pipe()
+	go func() {
+		ok := connSuccessfulRE.MatchReader(bufio.NewReader(pr))
+		if ok {
+			close(connectSuccess)
+		}
+		_, _ = io.Copy(io.Discard, pr)
+	}()
+	return pw
 }
 
 func (c *contextDialer) Close() error {
@@ -195,7 +224,7 @@ func (c *contextDialer) exec(hostPort string, in io.Reader, out, errOut io.Write
 		Namespace(c.namespace).
 		SubResource("exec")
 	req.VersionedParams(&coreV1.PodExecOptions{
-		Command:   []string{"socat", "-", fmt.Sprintf("TCP:%s", hostPort)},
+		Command:   []string{"socat", "-dd", "-", fmt.Sprintf("TCP:%s", hostPort)},
 		Container: c.podName,
 		Stdin:     true,
 		Stdout:    true,
@@ -348,6 +377,10 @@ func (c *conn) Write(b []byte) (n int, err error) {
 }
 
 func (c *conn) closeWithError(err error) error {
+	if err == nil {
+		err = net.ErrClosed
+	}
+
 	{
 		e := err
 		c.err.CompareAndSwap(nil, &e)
@@ -364,7 +397,7 @@ func (c *conn) closeWithError(err error) error {
 }
 
 func (c *conn) Close() error {
-	return c.closeWithError(net.ErrClosed)
+	return c.closeWithError(nil)
 }
 
 func (c *conn) LocalAddr() net.Addr {

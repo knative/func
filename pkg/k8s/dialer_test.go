@@ -167,16 +167,8 @@ func TestDialUnreachable(t *testing.T) {
 	t.Cleanup(func() {
 		dialer.Close()
 	})
-
-	transport := &http.Transport{
-		DialContext: dialer.DialContext,
-	}
-
-	var client = http.Client{
-		Transport: transport,
-	}
-
-	_, err = client.Get("http://does-not.exists.svc")
+	
+	_, err = dialer.DialContext(ctx, "tcp", "does-not.exists.svc:80")
 	if err == nil {
 		t.Error("error was expected but got nil")
 		return
