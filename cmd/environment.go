@@ -9,6 +9,7 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
+	"knative.dev/func/pkg/builders/s2i"
 	"knative.dev/func/pkg/config"
 	"knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
@@ -46,16 +47,17 @@ DESCRIPTION
 }
 
 type Environment struct {
-	Version     string
-	GitRevision string
-	SpecVersion string
-	SocatImage  string
-	TarImage    string
-	Languages   []string
-	Templates   map[string][]string
-	Environment []string
-	Cluster     string
-	Defaults    config.Global
+	Version         string
+	GitRevision     string
+	SpecVersion     string
+	SocatImage      string
+	TarImage        string
+	Languages       []string
+	DefaultBuilders map[string]string
+	Templates       map[string][]string
+	Environment     []string
+	Cluster         string
+	Defaults        config.Global
 }
 
 func runEnvironment(cmd *cobra.Command, newClient ClientFactory, v *Version) (err error) {
@@ -106,16 +108,17 @@ func runEnvironment(cmd *cobra.Command, newClient ClientFactory, v *Version) (er
 	}
 
 	environment := Environment{
-		Version:     v.String(),
-		GitRevision: v.Hash,
-		SpecVersion: functions.LastSpecVersion(),
-		SocatImage:  k8s.SocatImage,
-		TarImage:    k8s.TarImage,
-		Languages:   r,
-		Templates:   t,
-		Environment: envs,
-		Cluster:     host,
-		Defaults:    defaults,
+		Version:         v.String(),
+		GitRevision:     v.Hash,
+		SpecVersion:     functions.LastSpecVersion(),
+		SocatImage:      k8s.SocatImage,
+		TarImage:        k8s.TarImage,
+		Languages:       r,
+		DefaultBuilders: s2i.DefaultBuilderImages,
+		Templates:       t,
+		Environment:     envs,
+		Cluster:         host,
+		Defaults:        defaults,
 	}
 
 	if s, err := json.MarshalIndent(environment, "", "  "); err != nil {
