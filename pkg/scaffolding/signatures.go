@@ -5,28 +5,32 @@ type Signature int
 const (
 	UnknownSignature Signature = iota
 	InstancedHTTP
-	InstancedCloudevent
+	InstancedCloudevents
 	StaticHTTP
-	StaticCloudevent
+	StaticCloudevents
 )
 
 func (s Signature) String() string {
 	return []string{
 		"unknown",
 		"instanced-http",
-		"instanced-cloudevent",
+		"instanced-cloudevents",
 		"static-http",
-		"static-cloudevent",
+		"static-cloudevents",
 	}[s]
 }
 
+// Note that in all places other than the invocation hint (where singular
+// is logically correct) "cloudevents" is plural in all places (variables,
+// imports, enums etc) to match the Cloudevents library and organization's
+// choice.
 var signatureMap = map[bool]map[string]Signature{
 	true: {
 		"http":       InstancedHTTP,
-		"cloudevent": InstancedCloudevent},
+		"cloudevent": InstancedCloudevents},
 	false: {
 		"http":       StaticHTTP,
-		"cloudevent": StaticCloudevent},
+		"cloudevent": StaticCloudevents},
 }
 
 // toSignature converts an instanced boolean and invocation hint into
