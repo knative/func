@@ -119,7 +119,7 @@ func deploy
   -u, --push                    Push the function image to registry before deploying. ($FUNC_PUSH) (default true)
       --pvc-size string         Configure the PVC size used by a pipeline during remote build. (default "256Mi")
   -r, --registry string         Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
-      --remote                  Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)
+  -R, --remote                  Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)
   -v, --verbose                 Print verbose logs ($FUNC_VERBOSE)
 ```
 
