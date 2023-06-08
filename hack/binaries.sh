@@ -27,6 +27,7 @@ main() {
   install_yq
   install_dapr
   install_helm
+  install_stern
 
   echo "${em}DONE${me}"
 
@@ -70,6 +71,13 @@ install_helm() {
     chmod +x linux-amd64/helm
     sudo mv linux-amd64/helm /usr/local/bin/
     helm version
+}
+
+install_stern() {
+  echo 'Installing stern...'
+  curl -sSL "https://github.com/stern/stern/releases/download/v1.25.0/stern_1.25.0_linux_amd64.tar.gz" | \
+    tar fxz - -C /usr/local/bin/ stern
+  stern -v
 }
 
 main "$@"

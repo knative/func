@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"runtime"
@@ -61,6 +62,7 @@ func TestOnClusterBuild(t *testing.T) {
 
 			f := createSimpleGoProject(t, ns)
 			f.Build.Builder = test.Builder
+			t.Log(f.Name)
 
 			go func() {
 				err := pp.Run(ctx, f)
@@ -83,6 +85,10 @@ func TestOnClusterBuild(t *testing.T) {
 					return
 				}
 				t.Log("call to knative service successful")
+				cmd := exec.Command("stern", "--no-follow", f.Name)
+				cmd.Stdout = os.Stderr
+				cmd.Stderr = os.Stderr
+				_ = cmd.Run()
 			case <-time.After(time.Minute * 10):
 				t.Error("timeout while waiting for service to start")
 			case <-ctx.Done():
