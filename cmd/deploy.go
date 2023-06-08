@@ -176,7 +176,7 @@ EXAMPLES
 		"Git revision (branch) to be used when deploying via the Git repository ($FUNC_GIT_BRANCH)")
 	cmd.Flags().StringP("git-dir", "d", f.Build.Git.ContextDir,
 		"Directory in the Git repository containing the function (default is the root) ($FUNC_GIT_DIR)")
-	cmd.Flags().Bool("remote", f.Deploy.Remote,
+	cmd.Flags().BoolP("remote", "R", f.Deploy.Remote,
 		"Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)")
 	cmd.Flags().String("pvc-size", f.Build.PVCSize,
 		"When triggering a remote deployment, set a custom volume size to allocate for the build operation ($FUNC_PVC_SIZE)")
