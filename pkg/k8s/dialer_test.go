@@ -167,13 +167,22 @@ func TestDialUnreachable(t *testing.T) {
 	t.Cleanup(func() {
 		dialer.Close()
 	})
-	
+
 	_, err = dialer.DialContext(ctx, "tcp", "does-not.exists.svc:80")
 	if err == nil {
 		t.Error("error was expected but got nil")
 		return
 	}
-	if !strings.Contains(err.Error(), "not resolve") {
-		t.Errorf("error %q doesn't containe expected sub-string: ", err.Error())
+	if !strings.Contains(err.Error(), "no such host") {
+		t.Errorf("error %q doesn't containe expected substring: ", err.Error())
+	}
+
+	_, err = dialer.DialContext(ctx, "tcp", "localhost:80")
+	if err == nil {
+		t.Error("error was expected but got nil")
+		return
+	}
+	if !strings.Contains(err.Error(), "connection refused") {
+		t.Errorf("error %q doesn't containe expected substring: ", err.Error())
 	}
 }

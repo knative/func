@@ -8,9 +8,12 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"regexp"
+	"strconv"
 	"sync"
 	"sync/atomic"
+	"syscall"
 	"time"
 
 	coreV1 "k8s.io/api/core/v1"
@@ -78,7 +81,13 @@ func (c *contextDialer) DialContext(ctx context.Context, network string, addr st
 
 		err := c.exec(addr, ctrStdin, ctrStdout, ctrStderr)
 		if err != nil {
-			err = fmt.Errorf("failed to exec in pod: %w (stderr: %q)", err, stderrBuff.String())
+			stderrStr := stderrBuff.String()
+			socatErr := tryParseSocatError(network, addr, stderrStr)
+			if socatErr != nil {
+				err = fmt.Errorf("socat error: %w", socatErr)
+			} else {
+				err = fmt.Errorf("failed to exec in pod: %w (stderr: %q)", err, stderrStr)
+			}
 		}
 		_ = conn.closeWithError(err)
 		connectFailure <- err
@@ -108,6 +117,63 @@ func detectConnSuccess(connectSuccess chan struct{}) io.Writer {
 		_, _ = io.Copy(io.Discard, pr)
 	}()
 	return pw
+}
+
+var (
+	connectionRefusedErrorRE = regexp.MustCompile(`E connect\(\d+, AF=\d+ (?P<hostport>[\[\]0-9.:a-z]+), \d+\): Connection refused`)
+	nameResolutionErrorRE    = regexp.MustCompile(`E getaddrinfo\("(?P<hostname>[a-zA-z-.0-9]+)",.*\): Name does not resolve`)
+)
+
+// tries to detect common errors from `socat` stderr
+func tryParseSocatError(network, address, stderr string) error {
+	groups := nameResolutionErrorRE.FindStringSubmatch(stderr)
+	if groups != nil {
+		var name string
+		if len(groups) > 1 {
+			name = groups[1]
+		}
+		return &net.OpError{
+			Op:     "dial",
+			Net:    network,
+			Source: nil,
+			Addr:   nil,
+			Err: &net.DNSError{
+				Err:        "no such host",
+				Name:       name,
+				IsNotFound: true,
+			},
+		}
+	}
+	groups = connectionRefusedErrorRE.FindStringSubmatch(stderr)
+	if groups != nil {
+		var (
+			addr net.IP
+			port int
+			zone string
+		)
+		if len(groups) > 1 {
+			h, p, err := net.SplitHostPort(groups[1])
+			if err == nil {
+				addr = net.ParseIP(h)
+				p, _ := strconv.ParseInt(p, 10, 16)
+				port = int(p)
+			}
+		}
+		return &net.OpError{
+			Op:  "dial",
+			Net: network,
+			Addr: &net.TCPAddr{
+				IP:   addr,
+				Port: port,
+				Zone: zone,
+			},
+			Err: &os.SyscallError{
+				Syscall: "connect",
+				Err:     syscall.ECONNREFUSED,
+			},
+		}
+	}
+	return nil
 }
 
 func (c *contextDialer) Close() error {
