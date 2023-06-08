@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	coreV1 "k8s.io/api/core/v1"
@@ -66,18 +67,15 @@ func (c *contextDialer) DialContext(ctx context.Context, network string, addr st
 		return nil, fmt.Errorf("unsupported network: %q", network)
 	}
 
-	execDone := make(chan struct{})
-	pr, pw, conn := newConn(execDone)
+	pr, pw, conn := newConn()
 
 	go func() {
-		defer close(execDone)
 		errOut := bytes.NewBuffer(nil)
 		err := c.exec(addr, pr, pw, errOut)
 		if err != nil {
 			err = fmt.Errorf("failed to exec in pod: %w (stderr: %q)", err, errOut.String())
-			_ = pr.CloseWithError(err)
-			_ = pw.CloseWithError(err)
 		}
+		_ = conn.closeWithError(err)
 	}()
 
 	return conn, nil
@@ -324,50 +322,69 @@ func (a addr) String() string {
 }
 
 type conn struct {
-	pr       *io.PipeReader
-	pw       *io.PipeWriter
-	execDone <-chan struct{}
+	pr  *io.PipeReader
+	pw  *io.PipeWriter
+	err atomic.Pointer[error]
 }
 
-func (c conn) Read(b []byte) (n int, err error) {
-	return c.pr.Read(b)
+func (c *conn) Read(b []byte) (n int, err error) {
+	n, err = c.pr.Read(b)
+	if errors.Is(err, io.ErrClosedPipe) {
+		if p := c.err.Load(); p != nil {
+			err = *p
+		}
+	}
+	return
 }
 
-func (c conn) Write(b []byte) (n int, err error) {
-	return c.pw.Write(b)
+func (c *conn) Write(b []byte) (n int, err error) {
+	n, err = c.pw.Write(b)
+	if errors.Is(err, io.ErrClosedPipe) {
+		if p := c.err.Load(); p != nil {
+			err = *p
+		}
+	}
+	return
 }
 
-func (c conn) Close() error {
-	err := c.pw.Close()
+func (c *conn) closeWithError(err error) error {
+	{
+		e := err
+		c.err.CompareAndSwap(nil, &e)
+	}
+	err = c.pw.CloseWithError(io.EOF)
 	if err != nil {
 		return fmt.Errorf("failed to close writer: %w", err)
 	}
-	<-c.execDone
-	err = c.pr.Close()
+	err = c.pr.CloseWithError(net.ErrClosed)
 	if err != nil {
 		return fmt.Errorf("failed to close reader: %w", err)
 	}
 	return nil
 }
 
-func (c conn) LocalAddr() net.Addr {
+func (c *conn) Close() error {
+	return c.closeWithError(net.ErrClosed)
+}
+
+func (c *conn) LocalAddr() net.Addr {
 	return addr{}
 }
 
-func (c conn) RemoteAddr() net.Addr {
+func (c *conn) RemoteAddr() net.Addr {
 	return addr{}
 }
 
-func (c conn) SetDeadline(t time.Time) error { return nil }
+func (c *conn) SetDeadline(t time.Time) error { return nil }
 
-func (c conn) SetReadDeadline(t time.Time) error { return nil }
+func (c *conn) SetReadDeadline(t time.Time) error { return nil }
 
-func (c conn) SetWriteDeadline(t time.Time) error { return nil }
+func (c *conn) SetWriteDeadline(t time.Time) error { return nil }
 
-func newConn(execDone <-chan struct{}) (*io.PipeReader, *io.PipeWriter, conn) {
+func newConn() (*io.PipeReader, *io.PipeWriter, *conn) {
 	pr0, pw0 := io.Pipe()
 	pr1, pw1 := io.Pipe()
-	rwc := conn{pr: pr0, pw: pw1, execDone: execDone}
+	rwc := &conn{pr: pr0, pw: pw1}
 	return pr1, pw0, rwc
 }
 
