@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-# Copyright 2021 The Knative Authors
+# Copyright 2023 The Knative Authors
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,41 +14,74 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# This script runs the presubmit tests; it is started by prow for each PR.
-# For convenience, it can also be executed manually.
-# Running the script without parameters, or with the --all-tests
-# flag, causes all tests to be executed, in the right order.
-# Use the flags --build-tests, --unit-tests and --integration-tests
-# to run a specific set of tests.
-
-# If you call this script after configuring the environment variables
-# $KNATIVE_SERVING_VERSION / $KNATIVE_EVENTING_VERSION with a valid release,
-# e.g. 0.6.0, Knative Serving / Eventing of this specified version will be installed
-# in the Kubernetes cluster, and all the tests will run against Knative
-# Serving / Eventing of this specific version.
+# Documentation about this script and how to use it can be found
+# at https://github.com/knative/hack
 
 export DISABLE_MD_LINTING=1
 export DISABLE_MD_LINK_CHECK=1
 export PRESUBMIT_TEST_FAIL_FAST=1
+export NODE_VERSION=v18.10.0
+export NODE_DISTRO=linux-x64
 
-export GO111MODULE=on
 export KNATIVE_SERVING_VERSION=${KNATIVE_SERVING_VERSION:-latest}
 export KNATIVE_EVENTING_VERSION=${KNATIVE_EVENTING_VERSION:-latest}
 source $(dirname $0)/../vendor/knative.dev/hack/presubmit-tests.sh
 
+function post_build_tests() {
+  local failed=0
+  header "Ensuring code builds cross-platform"
+  make cross-platform || failed=1
+  if (( failed )); then
+    results_banner "Build failed"
+    exit ${failed}
+  fi
+}
+
+function pre_unit_tests() {
+  install_node
+  install_rust
+}
+
+function install_node() {
+  subheader "Installing Node.js"
+  mkdir -p /tmp/nodejs
+  wget https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-${NODE_DISTRO}.tar.xz
+  tar -xJvf node-${NODE_VERSION}-${NODE_DISTRO}.tar.xz -C /tmp/nodejs
+  export PATH=/tmp/nodejs/node-${NODE_VERSION}-${NODE_DISTRO}/bin:$PATH
+  node --version
+  npm version
+  npx --version
+}
+
+function install_rust() {
+  subheader "Installing Rust"
+  curl https://sh.rustup.rs -sSf > install.sh
+  sh install.sh -y
+  rm install.sh
+  source "$HOME/.cargo/env"
+  cargo version
+}
 
 function unit_tests() {
-  header "Running func tests"
+  local failed=0
+  header "Unit tests for $(go_mod_module_name)"
   make test || failed=1
-
   if (( failed )); then
     results_banner "Unit tests failed"
+    exit ${failed}
+  fi
+
+  header "Running built-in template tests"
+  make test-templates || failed=2
+  if (( failed )); then
+    results_banner "Template tests failed"
     exit ${failed}
   fi
 }
 
 function integration_tests() {
-  header "Skipping func integration tests"
+  local failed=0
+  header "Skipping integration tests"
   # make test-integration || failed=1
 
   # if (( failed )); then
@@ -57,4 +90,4 @@ function integration_tests() {
   # fi
 }
 
-main $@
+main "$@"
