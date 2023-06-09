@@ -174,7 +174,7 @@ func TestDialUnreachable(t *testing.T) {
 		return
 	}
 	if !strings.Contains(err.Error(), "no such host") {
-		t.Errorf("error %q doesn't containe expected substring: ", err.Error())
+		t.Errorf("error %q doesn't contain expected substring: ", err.Error())
 	}
 
 	_, err = dialer.DialContext(ctx, "tcp", "localhost:80")
@@ -183,6 +183,6 @@ func TestDialUnreachable(t *testing.T) {
 		return
 	}
 	if !strings.Contains(err.Error(), "connection refused") {
-		t.Errorf("error %q doesn't containe expected substring: ", err.Error())
+		t.Errorf("error %q doesn't contain expected substring: ", err.Error())
 	}
 }
