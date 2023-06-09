@@ -164,16 +164,18 @@ func waitFor(job *Job, timeout time.Duration) error {
 	for {
 		select {
 		case <-time.After(timeout):
-			return errors.New("timed out waiting for function to be ready")
+			timeoutErrMsg := fmt.Sprintf("timed out waiting for function to be ready for %s", timeout)
+			return errors.New(timeoutErrMsg)
 		case <-tick.C:
 			resp, err := http.Get(url)
-			defer resp.Body.Close()
 			if err != nil {
 				if job.verbose {
 					fmt.Printf("Not ready (%v)\n", err)
 				}
 				continue
-			} else if resp.StatusCode != 200 {
+			}
+			defer resp.Body.Close()
+			if resp.StatusCode != 200 {
 				if job.verbose {
 					fmt.Printf("Endpoint returned HTTP %v.\n", resp.StatusCode)
 					dump, _ := httputil.DumpResponse(resp, true)
