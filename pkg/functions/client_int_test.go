@@ -399,6 +399,11 @@ func Handle(ctx context.Context, res http.ResponseWriter, req *http.Request) {
 // TestInvoke_ServiceToService ensures that a Function can invoke another
 // service via localhost service discovery api provided by the Dapr sidecar.
 func TestInvoke_ServiceToService(t *testing.T) {
+	// Temporarily disable tests which require Dapr
+	// See https://github.com/knative/func/issues/1806
+	t.Log("TestInvoke_ServiceToService temporarily disabled as it depends on Dapr runtme which is failing to install")
+	return
+
 	var (
 		verbose = true
 		ctx     = context.Background()

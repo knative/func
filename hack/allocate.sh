@@ -277,6 +277,11 @@ EOF
 dapr_runtime() {
   echo "${em}⑦ Dapr${me}"
 
+  # See https://github.com/knative/func/issues/1806
+  local red=$(tput bold)$(tput setaf 1)
+  echo "  ${red}Temporarily Disabled, see issue #1806${me}"
+  return
+
   echo "Installing dapr runtime using dapr version:\\n$(dapr version)"
 
   # Install Dapr Runtime
