@@ -47,7 +47,7 @@ DESCRIPTION
 		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
 
-	cmd.Flags().StringP("env-format", "e", EnvFormat, "Format of output environment informatio, 'json' or 'yaml'. ($FUNC_ENV_FORMAT)")
+	cmd.Flags().StringP("env-format", "e", EnvFormat, "Format of output environment information, 'json' or 'yaml'. ($FUNC_ENV_FORMAT)")
 	addVerboseFlag(cmd, cfg.Verbose)
 
 	return cmd
