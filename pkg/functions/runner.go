@@ -2,7 +2,6 @@ package functions
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -153,39 +152,42 @@ func runGo(ctx context.Context, job *Job) (err error) {
 }
 
 func waitFor(job *Job, timeout time.Duration) error {
-	var (
-		url  = fmt.Sprintf("http://%s:%s/%s", job.Host, job.Port, readinessEndpoint)
-		tick = time.NewTicker(200 * time.Millisecond)
-	)
-	defer tick.Stop()
+	url := fmt.Sprintf("http://%s:%s/%s", job.Host, job.Port, readinessEndpoint)
 	if job.verbose {
 		fmt.Printf("Waiting for %v\n", url)
 	}
 	for {
 		select {
 		case <-time.After(timeout):
-			timeoutErrMsg := fmt.Sprintf("timed out waiting for function to be ready for %s", timeout)
-			return errors.New(timeoutErrMsg)
-		case <-tick.C:
-			resp, err := http.Get(url)
-			if err != nil {
-				if job.verbose {
-					fmt.Printf("Not ready (%v)\n", err)
-				}
-				continue
+			return ErrRunTimeout{timeout}
+		case <-time.After(500 * time.Millisecond):
+			if checkReady(url, job.verbose) {
+				return nil
 			}
-			defer resp.Body.Close()
-			if resp.StatusCode != 200 {
-				if job.verbose {
-					fmt.Printf("Endpoint returned HTTP %v.\n", resp.StatusCode)
-					dump, _ := httputil.DumpResponse(resp, true)
-					fmt.Println(dump)
-				}
-				continue
-			}
-			return nil // no err and status code 200
 		}
 	}
+}
+
+func checkReady(url string, verbose bool) bool { // checks if the instance has become available
+	resp, err := http.Get(url)
+	if err != nil {
+		if verbose {
+			fmt.Printf("Not ready (%v)\n", err)
+		}
+		return false
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 200 {
+		return true
+	}
+
+	if verbose {
+		fmt.Printf("Endpoint returned HTTP %v.\n", resp.StatusCode)
+		dump, _ := httputil.DumpResponse(resp, true)
+		fmt.Println(dump)
+	}
+	return false
 }
 
 // choosePort returns an unused port on the given interface (host)
