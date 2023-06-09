@@ -274,7 +274,7 @@ EOF
 dapr_runtime() {
   echo "${em}⑦ Dapr${me}"
 
-  echo "Installing dapr runtime using dapr version: \n$(dapr version)"
+  echo "Installing dapr runtime using dapr version:\\n$(dapr version)"
 
   # Install Dapr Runtime
   dapr init --kubernetes --wait

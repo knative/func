@@ -14,7 +14,7 @@ export TERM="${TERM:-dumb}"
 main() {
   local kubectl_version=v1.24.6
   local kind_version=v0.16.0
-  local dapr_version=v1.9.1
+  local dapr_version=v1.10.0
   local helm_version=v3.11.0
 
   local em=$(tput bold)$(tput setaf 2)
