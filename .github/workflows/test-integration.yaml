@@ -43,6 +43,16 @@ jobs:
         run: ./hack/patch-hosts.sh
       - name: Integration Test
         run: make test-integration
+      - name: Dump Cluster Logs
+        if: always()
+        run: |
+          echo "::group::cluster events"
+          kubectl get events -A
+          echo "::endgroup::"
+          
+          echo "::group::cluster containers logs"
+          stern '.*' --all-namespaces --no-follow
+          echo "::endgroup::"
       - uses: codecov/codecov-action@v3
         with:
           files: ./coverage.txt
