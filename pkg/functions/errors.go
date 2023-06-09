@@ -3,6 +3,7 @@ package functions
 import (
 	"errors"
 	"fmt"
+	"time"
 )
 
 var (
@@ -14,7 +15,6 @@ var (
 	ErrRepositoriesNotDefined    = errors.New("custom template repositories location not specified")
 	ErrRepositoryNotFound        = errors.New("repository not found")
 	ErrRootRequired              = errors.New("function root path is required")
-	ErrRunTimeout                = errors.New("timeout waiting for function to report ready")
 	ErrRuntimeNotFound           = errors.New("language runtime not found")
 	ErrRuntimeRequired           = errors.New("language runtime required")
 	ErrTemplateMissingRepository = errors.New("template name missing repository prefix")
@@ -61,4 +61,12 @@ type ErrRunnerNotImplemented struct {
 
 func (e ErrRunnerNotImplemented) Error() string {
 	return fmt.Sprintf("the %q runtime may only be run containerized.", e.Runtime)
+}
+
+type ErrRunTimeout struct {
+	Timeout time.Duration
+}
+
+func (e ErrRunTimeout) Error() string {
+	return fmt.Sprintf("timed out waiting for function to be ready for %s", e.Timeout)
 }
