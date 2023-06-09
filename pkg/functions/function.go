@@ -31,7 +31,7 @@ type Function struct {
 	// For details see the .Migrated() and .Migrate() methods.
 	SpecVersion string `yaml:"specVersion"` // semver format
 
-	// Root on disk at which to find/create source and config files.
+	// Root of the function on disk, including source code and configuration.
 	Root string `yaml:"-"`
 
 	// Name of the function.
@@ -75,7 +75,6 @@ type Function struct {
 	Created time.Time `yaml:"created"`
 
 	// Invoke defines hints for use when invoking this function.
-	// See Client.Invoke for usage.
 	Invoke string `yaml:"invoke,omitempty"`
 
 	// Build defines the build properties for a function

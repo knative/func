@@ -15,11 +15,11 @@ import (
 	. "knative.dev/func/pkg/testing"
 )
 
-var TestPlatforms = []fn.Platform{{OS: runtime.GOOS, Architecture: runtime.GOARCH}}
+var TestPlatforms = []fn.Platform{{OS: "linux", Architecture: runtime.GOARCH}}
 
-// TestBuilder ensures that, when given a Go Function, an OCI-compliant
+// TestBuilder_Build ensures that, when given a Go Function, an OCI-compliant
 // directory structure is created on .Build in the expected path.
-func TestBuilder(t *testing.T) {
+func TestBuilder_Build(t *testing.T) {
 	root, done := Mktemp(t)
 	defer done()
 
@@ -32,7 +32,7 @@ func TestBuilder(t *testing.T) {
 
 	builder := NewBuilder("", true)
 
-	if err := builder.Build(context.Background(), f, nil); err != nil {
+	if err := builder.Build(context.Background(), f, TestPlatforms); err != nil {
 		t.Fatal(err)
 	}
 

@@ -23,7 +23,7 @@ import (
 // Language, by contrast, is fixed at time of initialization.
 //
 //	out:     the path to output scaffolding
-//	src:      the path to the source code to scaffold
+//	src:     the path to the source code to scaffold
 //	runtime: the expected runtime of the target source code "go", "node" etc.
 //	invoke:  the optional invocatin hint (default "http")
 //	fs:      filesytem which contains scaffolding at '[runtime]/scaffolding'
@@ -46,6 +46,14 @@ func Write(out, src, runtime, invoke string, fs filesystem.Filesystem) (err erro
 	// Copy from d -> out from the filesystem
 	if err := filesystem.CopyFromFS(d, out, fs); err != nil {
 		return ScaffoldingError{"filesystem copy failed", err}
+	}
+
+	// Copy the certs from the filesystem to the build directory
+	if _, err := fs.Stat("certs"); err != nil {
+		return ScaffoldingError{"certs directory not found in filesystem", err}
+	}
+	if err := filesystem.CopyFromFS("certs", out, fs); err != nil {
+		return ScaffoldingError{"certs copy failed", err}
 	}
 
 	// Replace the 'f' link of the scaffolding (which is now incorrect) to

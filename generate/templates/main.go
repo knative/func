@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 )
 
+// MODIFIED
+
 const templatesPath = "../../templates"
 
 // This program generates zz_filesystem_generated.go file containing byte array variable named TemplatesZip.
