@@ -156,9 +156,10 @@ func waitFor(job *Job, timeout time.Duration) error {
 	if job.verbose {
 		fmt.Printf("Waiting for %v\n", url)
 	}
+	to := time.After(timeout)
 	for {
 		select {
-		case <-time.After(timeout):
+		case <-to:
 			return ErrRunTimeout{timeout}
 		case <-time.After(500 * time.Millisecond):
 			if checkReady(url, job.verbose) {
