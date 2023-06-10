@@ -17,7 +17,7 @@ import (
 	"knative.dev/func/pkg/k8s"
 )
 
-var EnvFormat string = "json"
+var format string = "json"
 
 func NewEnvironmentCmd(newClient ClientFactory, version *Version) *cobra.Command {
 	cmd := &cobra.Command{
@@ -37,7 +37,7 @@ DESCRIPTION
 	available runtimes, and available templates.
 `,
 		SuggestFor: []string{"env", "environemtn", "enviroment", "enviornment", "enviroment"},
-		PreRunE:    bindEnv("verbose", "env-format"),
+		PreRunE:    bindEnv("verbose", "format"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runEnvironment(cmd, newClient, version)
 		},
@@ -47,7 +47,7 @@ DESCRIPTION
 		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
 
-	cmd.Flags().StringP("env-format", "e", EnvFormat, "Format of output environment information, 'json' or 'yaml'. ($FUNC_ENV_FORMAT)")
+	cmd.Flags().StringP("format", "f", format, "Format of output environment information, 'json' or 'yaml'. ($FUNC_FORMAT)")
 	addVerboseFlag(cmd, cfg.Verbose)
 
 	return cmd
@@ -178,7 +178,7 @@ type environmentConfig struct {
 func newEnvironmentConfig() (cfg environmentConfig, err error) {
 	cfg = environmentConfig{
 		Verbose: viper.GetBool("verbose"),
-		Format:  viper.GetString("env-format"),
+		Format:  viper.GetString("format"),
 	}
 
 	return

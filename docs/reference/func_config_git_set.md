@@ -26,7 +26,7 @@ func config git set
       --gh-webhook-secret string   GitHub Webhook Secret used for payload validation. If not specified, it will be generated automatically.
   -t, --git-branch string          Git revision (branch) to be used when deploying via the Git repository ($FUNC_GIT_BRANCH)
   -d, --git-dir string             Directory in the Git repository containing the function (default is the root) ($FUNC_GIT_DIR)
-      --git-provider string        The type of the Git platform provider to setup webhook. This value is usually automatically generated from input URL, use this parameter to override this setting. Currently supported providers are "github".
+      --git-provider string        The type of the Git platform provider to setup webhook. This value is usually automatically generated from input URL, use this parameter to override this setting. Currently supported providers are "github" and "gitlab".
   -g, --git-url string             Repository url containing the function to build ($FUNC_GIT_URL)
   -h, --help                       help for set
   -i, --image string               Full image name in the form [registry]/[namespace]/[name]:[tag]@[digest]. This option takes precedence over --registry. Specifying digest is optional, but if it is given, 'build' and 'push' phases are disabled. ($FUNC_IMAGE)
