@@ -56,6 +56,10 @@
 					"type": "string",
 					"description": "Namespace into which the function is deployed on supported platforms."
 				},
+				"serviceAccount": {
+					"type": "string",
+					"description": "Service account to be used in the deployed function"
+				},
 				"remote": {
 					"type": "boolean",
 					"description": "Remote indicates the deployment (and possibly build) process are to\nbe triggered in a remote environment rather than run locally."
