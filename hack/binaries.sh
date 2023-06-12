@@ -16,6 +16,7 @@ main() {
   local kind_version=v0.16.0
   local dapr_version=v1.9.1
   local helm_version=v3.11.0
+  local stern_version=1.25.0
 
   local em=$(tput bold)$(tput setaf 2)
   local me=$(tput sgr0)
@@ -75,7 +76,7 @@ install_helm() {
 
 install_stern() {
   echo 'Installing stern...'
-  curl -sSL "https://github.com/stern/stern/releases/download/v1.25.0/stern_1.25.0_linux_amd64.tar.gz" | \
+  curl -sSL "https://github.com/stern/stern/releases/download/v${stern_version}/stern_${stern_version}_linux_amd64.tar.gz" | \
     tar fxz - -C /usr/local/bin/ stern
   stern -v
 }
