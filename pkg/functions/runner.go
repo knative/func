@@ -2,6 +2,7 @@ package functions
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -147,47 +148,69 @@ func runGo(ctx context.Context, job *Job) (err error) {
 	return
 }
 
-func waitFor(ctx context.Context, job *Job, timeout time.Duration) (err error) {
+func waitFor(ctx context.Context, job *Job, timeout time.Duration) error {
 	var (
-		uri      = fmt.Sprintf("http://%s:%s/%s", job.Host, job.Port, readinessEndpoint)
+		uri      = fmt.Sprintf("http://%s:%s%s", job.Host, job.Port, readinessEndpoint)
 		interval = 500 * time.Millisecond
-		deadline = time.Now().Add(timeout)
 	)
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
 
 	if job.verbose {
 		fmt.Printf("Waiting for %v\n", uri)
 	}
 
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
 	for {
-		req, err := http.NewRequestWithContext(ctx, "GET", uri, nil)
-		if err != nil {
-			return fmt.Errorf("error creating readiness check context. %w", err)
+		ok, err := isReady(ctx, uri, timeout, job.verbose)
+		if ok || err != nil {
+			return err
 		}
 
-		res, err := http.DefaultClient.Do(req)
-		if err, ok := err.(net.Error); ok && err.Timeout() {
-			return ErrRunTimeout{timeout}
-		} else if time.Now().After(deadline) {
-			return ErrRunTimeout{timeout}
-		} else if res != nil && res.StatusCode == 200 {
-			return nil // success
-		}
-		defer res.Body.Close()
-
-		if job.verbose {
-			if err != nil {
-				fmt.Printf("endpoint not available. %v", err)
-			} else {
-				fmt.Printf("endpoint returned HTTP %v.\n", res.StatusCode)
-				dump, _ := httputil.DumpResponse(res, true)
-				fmt.Println(dump)
+		select {
+		case <-ctx.Done():
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				return ErrRunTimeout{timeout}
 			}
+			return ErrContextCanceled
+		case <-time.After(interval):
+			continue
 		}
-
-		time.Sleep(interval)
 	}
+}
+
+// isReady returns true if the uri could be reached and returned an HTTP 200.
+// False is returned if a nonfatal error was encountered (which will have been
+// printed to stderr), and an error is returned when an error is encountered
+// that is unlikely to be due to startup (malformed requests).
+func isReady(ctx context.Context, uri string, timeout time.Duration, verbose bool) (ok bool, err error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", uri, nil)
+	if err != nil {
+		return false, fmt.Errorf("error creating readiness check context. %w", err)
+	}
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		if err, ok := err.(net.Error); ok && err.Timeout() {
+			return false, ErrRunTimeout{timeout}
+		}
+		if verbose {
+			fmt.Fprintf(os.Stderr, "endpoint not available. %v\n", err)
+		}
+		return false, nil // nonfatal.  May still be starting up.
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != 200 {
+		if verbose {
+			fmt.Fprintf(os.Stderr, "endpoint returned HTTP %v:\n", res.StatusCode)
+			dump, _ := httputil.DumpResponse(res, true)
+			fmt.Println(string(dump))
+		}
+		return false, nil // nonfatal.  May still be starting up
+	}
+
+	return true, nil
 }
 
 // choosePort returns an unused port on the given interface (host)

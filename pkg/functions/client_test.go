@@ -744,7 +744,7 @@ func TestClient_RunTimeout(t *testing.T) {
 	client := fn.New(
 		fn.WithBuilder(oci.NewBuilder("", true)),
 		fn.WithVerbose(true),
-		fn.WithStartTimeout(1000*time.Millisecond))
+		fn.WithStartTimeout(2*time.Second))
 
 	// Initialize
 	f, err := client.Init(fn.Function{Root: root, Runtime: "go", Registry: TestRegistry})
@@ -784,7 +784,7 @@ func TestClient_RunTimeout(t *testing.T) {
 	}
 
 	// Run
-	// with a fairly short timeout
+	// with a fairly short timeout so as not to hold up tests.
 	_, err = client.Run(ctx, f, fn.RunWithStartTimeout(1*time.Second))
 	if !errors.As(err, &fn.ErrRunTimeout{}) {
 		t.Fatalf("did not receive ErrRunTimeout.  Got %v", err)
