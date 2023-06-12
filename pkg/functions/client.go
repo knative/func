@@ -33,6 +33,28 @@ const (
 	DefaultTemplate = "http"
 )
 
+var (
+	// DefaultPlatforms is a suggestion to builder implementations which
+	// platforms should be the default.  Due to spotty implementation support
+	// use of this set is left up to the discretion of the builders
+	// themselves.  In the event the builder receives build options which
+	// specify a set of platforms to use in leau of the default (see the
+	// BuildWithPlatforms functionl option), the builder should return
+	// an error if the request can not proceed.
+	DefaultPlatforms = []Platform{
+		{OS: "linux", Architecture: "amd64"},
+		{OS: "linux", Architecture: "arm64"},
+		{OS: "linux", Architecture: "arm", Variant: "v7"}, // eg. RPiv4
+	}
+)
+
+// Platform upon which a function may run
+type Platform struct {
+	OS           string
+	Architecture string
+	Variant      string
+}
+
 // Client for managing function instances.
 type Client struct {
 	repositoriesPath  string            // path to repositories
@@ -58,7 +80,7 @@ type Client struct {
 // Builder of function source to runnable image.
 type Builder interface {
 	// Build a function project with source located at path.
-	Build(context.Context, Function) error
+	Build(context.Context, Function, []Platform) error
 }
 
 // Pusher of function image to a registry.
@@ -571,17 +593,36 @@ func (c *Client) Init(cfg Function) (Function, error) {
 	return NewFunction(oldRoot)
 }
 
+type BuildOptions struct {
+	Platforms []Platform
+}
+
+type BuildOption func(c *BuildOptions)
+
+func BuildWithPlatforms(pp []Platform) BuildOption {
+	return func(c *BuildOptions) {
+		c.Platforms = pp
+	}
+}
+
 // Build the function at path. Errors if the function is either unloadable or does
 // not contain a populated Image.
-func (c *Client) Build(ctx context.Context, f Function) (Function, error) {
+func (c *Client) Build(ctx context.Context, f Function, options ...BuildOption) (Function, error) {
 	c.progressListener.Increment("Building function image")
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+
 	// If not logging verbosely, the ongoing progress of the build will not
 	// be streaming to stdout, and the lack of activity has been seen to cause
 	// users to prematurely exit due to the sluggishness of pulling large images
 	if !c.verbose {
 		c.printBuildActivity(ctx) // print friendly messages until context is canceled
+	}
+
+	// Options for the build task
+	oo := BuildOptions{}
+	for _, o := range options {
+		o(&oo)
 	}
 
 	// Default function registry to the client's global registry
@@ -600,7 +641,7 @@ func (c *Client) Build(ctx context.Context, f Function) (Function, error) {
 		}
 	}
 
-	if err = c.builder.Build(ctx, f); err != nil {
+	if err = c.builder.Build(ctx, f, oo.Platforms); err != nil {
 		return f, err
 	}
 
@@ -1160,7 +1201,7 @@ func hasInitializedFunction(path string) (bool, error) {
 // Builder
 type noopBuilder struct{ output io.Writer }
 
-func (n *noopBuilder) Build(ctx context.Context, _ Function) error { return nil }
+func (n *noopBuilder) Build(ctx context.Context, _ Function, _ []Platform) error { return nil }
 
 // Pusher
 type noopPusher struct{ output io.Writer }

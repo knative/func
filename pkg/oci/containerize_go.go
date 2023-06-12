@@ -82,7 +82,6 @@ func isFirstBuild(cfg *buildConfig, current v1.Platform) bool {
 	return current.OS == first.OS &&
 		current.Architecture == first.Architecture &&
 		current.Variant == first.Variant
-
 }
 
 func pauseBuildUntilReleased(cfg *buildConfig, p v1.Platform) {

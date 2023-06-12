@@ -179,7 +179,6 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 	} else if f.Build.Builder == builders.S2I {
 		o = append(o, fn.WithBuilder(s2i.NewBuilder(
 			s2i.WithName(builders.S2I),
-			s2i.WithPlatform(cfg.Platform),
 			s2i.WithVerbose(cfg.Verbose))))
 	}
 	if cfg.Container {
@@ -194,8 +193,12 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 	// If requesting to run via the container, build the container if it is
 	// either out-of-date or a build was explicitly requested.
 	if cfg.Container && shouldBuild(cfg.Build, f, client) {
-		if f, err = client.Build(cmd.Context(), f); err != nil {
-			return
+		buildOptions, err := cfg.buildOptions()
+		if err != nil {
+			return err
+		}
+		if f, err = client.Build(cmd.Context(), f, buildOptions...); err != nil {
+			return err
 		}
 	}
 

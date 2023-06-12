@@ -263,7 +263,6 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	} else if f.Build.Builder == builders.S2I {
 		builder = s2i.NewBuilder(
 			s2i.WithName(builders.S2I),
-			s2i.WithPlatform(cfg.Platform),
 			s2i.WithVerbose(cfg.Verbose))
 	} else {
 		return builders.ErrUnknownBuilder{Name: f.Build.Builder, Known: KnownBuilders()}
@@ -283,8 +282,13 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		}
 	} else {
 		if shouldBuild(cfg.Build, f, client) { // --build or "auto" with FS changes
-			if f, err = client.Build(cmd.Context(), f); err != nil {
-				return
+			buildOptions, err := cfg.buildOptions()
+			if err != nil {
+				return err
+			}
+
+			if f, err = client.Build(cmd.Context(), f, buildOptions...); err != nil {
+				return err
 			}
 		}
 		if cfg.Push {
