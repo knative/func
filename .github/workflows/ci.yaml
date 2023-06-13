@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - "main"
-      - "rust-deps-update2"
 jobs:
   check:
     runs-on: "ubuntu-latest"
