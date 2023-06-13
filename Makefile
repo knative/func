@@ -105,6 +105,13 @@ docs:
 ##@ Templates
 #############
 
+# TODO: add linters for other templates
+check-templates: check-rust
+
+check-rust: ## Lint Rust templates
+	cd templates/rust/cloudevents && cargo clippy && cargo clean
+	cd templates/rust/http && cargo clippy && cargo clean
+
 test-templates: test-go test-node test-python test-quarkus test-springboot test-rust test-typescript ## Run all template tests
 
 test-go: ## Test Go templates
