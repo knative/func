@@ -24,16 +24,19 @@ import (
 // DefaultName when no WithName option is provided to NewBuilder
 const DefaultName = builders.Pack
 
+var DefaultBaseBuilder = "gcr.io/paketo-buildpacks/builder:base"
+var DefaultRustBuilder = "gcr.io/paketo-buildpacks/builder:full-cf"
+
 var (
 	DefaultBuilderImages = map[string]string{
-		"node":       "gcr.io/paketo-buildpacks/builder:base",
-		"nodejs":     "gcr.io/paketo-buildpacks/builder:base",
-		"typescript": "gcr.io/paketo-buildpacks/builder:base",
-		"go":         "gcr.io/paketo-buildpacks/builder:base",
-		"python":     "gcr.io/paketo-buildpacks/builder:base",
-		"quarkus":    "gcr.io/paketo-buildpacks/builder:base",
-		"rust":       "gcr.io/paketo-buildpacks/builder:full-cf",
-		"springboot": "gcr.io/paketo-buildpacks/builder:base",
+		"node":       DefaultBaseBuilder,
+		"nodejs":     DefaultBaseBuilder,
+		"typescript": DefaultBaseBuilder,
+		"go":         DefaultBaseBuilder,
+		"python":     DefaultBaseBuilder,
+		"quarkus":    DefaultBaseBuilder,
+		"rust":       DefaultRustBuilder,
+		"springboot": DefaultBaseBuilder,
 	}
 
 	// Ensure that all entries in this list are terminated with a trailing "/"
