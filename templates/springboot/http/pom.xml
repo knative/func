@@ -18,8 +18,7 @@
 
   <properties>
     <java.version>17</java.version>
-    <springboot.platform.version>3.1.0</springboot.platform.version>
-    <spring-cloud.version>2022.0.2</spring-cloud.version>
+    <spring-cloud.version>2022.0.3</spring-cloud.version>
     <compiler-plugin.version>3.11.0</compiler-plugin.version>
     <surefire-plugin.version>3.0.0</surefire-plugin.version>
     <maven.compiler.parameters>true</maven.compiler.parameters>
@@ -45,16 +44,10 @@
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-actuator</artifactId>
-      <version>${springboot.platform.version}</version>
-      <type>pom</type>
-      <scope>import</scope>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-webflux</artifactId>
-      <version>${springboot.platform.version}</version>
-      <type>pom</type>
-      <scope>import</scope>
     </dependency>
     <dependency>
       <groupId>org.springframework.cloud</groupId>
@@ -63,8 +56,6 @@
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-test</artifactId>
-      <version>${springboot.platform.version}</version>
-      <type>pom</type>
       <scope>test</scope>
     </dependency>
   </dependencies>
