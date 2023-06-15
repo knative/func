@@ -151,6 +151,25 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 	}
 	defer os.RemoveAll(tmp)
 
+	funcignore, err := os.Open(filepath.Join(f.Root, ".funcignore"))
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("error opening funcignore file: %w", err)
+	}
+	defer funcignore.Close()
+
+	s2iignore, err := os.Create(filepath.Join(f.Root, ".s2iignore"))
+	if err != nil {
+		return fmt.Errorf("error creating funcignore file: %w", err)
+
+	}
+	defer s2iignore.Close()
+	defer os.Remove(s2iignore.Name())
+
+	_, err = io.Copy(s2iignore, funcignore)
+	if err != nil {
+		return fmt.Errorf("error copying funcignore file: %w", err)
+
+	}
 	cfg.AsDockerfile = filepath.Join(tmp, "Dockerfile")
 
 	var client = b.cli

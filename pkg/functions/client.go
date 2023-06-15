@@ -577,6 +577,11 @@ func (c *Client) Init(cfg Function) (Function, error) {
 		return f, err
 	}
 
+	//create a .funcignore file
+	if err = ensureFuncIgnore(f.Root); err != nil {
+		return f, err
+	}
+
 	// Write out the new function's Template files.
 	if err = c.Templates().Write(&f); err != nil {
 		return f, err
@@ -1067,6 +1072,41 @@ func ensureRunDataDir(root string) error {
 	// of the build stamp
 	if err = rwFile.Sync(); err != nil {
 		fmt.Fprintf(os.Stderr, "warning: error when syncing .gitignore. %s", err)
+	}
+	return nil
+}
+
+func ensureFuncIgnore(root string) error {
+	filePath := filepath.Join(root, ".funcignore")
+
+	// Check if the file exists
+	_, err := os.Stat(filePath)
+	if err == nil {
+		// File exists, do nothing
+		return nil
+	}
+	if !os.IsNotExist(err) {
+		// Some other error occurred when trying to stat the file
+		return err
+	}
+
+	//file does not exist, create it
+	// Open the file for writing only
+	file, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE, 0644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	// Write the desired string to the file
+	_, err = file.WriteString(`
+# Function use the .funcignore file to exclude data which should not
+# be tracked in the image build. To instruct the system not to track
+# files in the image build, add the regex pattern or file information to  
+# this file.
+`)
+	if err != nil {
+		return err
 	}
 	return nil
 }
