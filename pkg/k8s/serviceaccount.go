@@ -11,7 +11,7 @@ func GetServiceAccount(ctx context.Context, referencedServiceAccount, namespace 
 	if err != nil {
 		return err
 	}
-	_,err = k8sClient.CoreV1().ServiceAccounts(namespace).Get(ctx, referencedServiceAccount, metav1.GetOptions{})
+	_, err = k8sClient.CoreV1().ServiceAccounts(namespace).Get(ctx, referencedServiceAccount, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}

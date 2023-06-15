@@ -125,7 +125,7 @@ EXAMPLES
 
 `,
 		SuggestFor: []string{"delpoy", "deplyo"},
-		PreRunE:    bindEnv("build", "build-timestamp", "builder", "builder-image", "confirm", "domain", "env", "git-branch", "git-dir", "git-url", "image", "namespace", "path", "platform", "push", "pvc-size","service-account", "registry", "remote", "verbose"),
+		PreRunE:    bindEnv("build", "build-timestamp", "builder", "builder-image", "confirm", "domain", "env", "git-branch", "git-dir", "git-url", "image", "namespace", "path", "platform", "push", "pvc-size", "service-account", "registry", "remote", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDeploy(cmd, newClient)
 		},
