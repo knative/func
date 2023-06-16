@@ -55,7 +55,7 @@ type Function struct {
 	// [registry]/[user].
 	Registry string `yaml:"registry,omitempty"`
 
-	// Optional full OCI image tag in form:
+	// Image is the full OCI image tag in form:
 	//   [registry]/[namespace]/[name]:[tag]
 	// example:
 	//   quay.io/alice/my.function.name
@@ -66,7 +66,7 @@ type Function struct {
 	// "Registry+Name:latest" to derive the Image.
 	Image string `yaml:"image,omitempty"`
 
-	// SHA256 hash of the latest image that has been built
+	// ImageDigest is the SHA256 hash of the latest image that has been built
 	ImageDigest string `yaml:"imageDigest,omitempty"`
 
 	// Created time is the moment that creation was successfully completed
@@ -78,13 +78,13 @@ type Function struct {
 	// See Client.Invoke for usage.
 	Invoke string `yaml:"invoke,omitempty"`
 
-	//BuildSpec define the build properties for a function
+	// Build defines the build properties for a function
 	Build BuildSpec `yaml:"build,omitempty"`
 
-	//RunSpec define the runtime properties for a function
+	// Run defines the runtime properties for a function
 	Run RunSpec `yaml:"run,omitempty"`
 
-	//DeploySpec define the deployment properties for a function
+	// Deploy defines the deployment properties for a function
 	Deploy DeploySpec `yaml:"deploy,omitempty"`
 }
 
@@ -123,6 +123,12 @@ type RunSpec struct {
 
 	// Env variables to be set
 	Envs Envs `yaml:"envs,omitempty"`
+
+	// StartTimeout specifies that this function should have a custom timeout
+	// when starting. This setting is currently respected by the host runner,
+	// with containerized docker runner and deployed Knative service integration
+	// in development.
+	StartTimeout time.Duration `yaml:"startTimeout,omitempty"`
 }
 
 // DeploySpec

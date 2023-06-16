@@ -3,6 +3,7 @@ package mock
 import (
 	"context"
 	"sync"
+	"time"
 
 	fn "knative.dev/func/pkg/functions"
 )
@@ -12,13 +13,13 @@ import (
 type Runner struct {
 	RunInvoked    bool
 	RootRequested string
-	RunFn         func(context.Context, fn.Function) (*fn.Job, error)
+	RunFn         func(context.Context, fn.Function, time.Duration) (*fn.Job, error)
 	sync.Mutex
 }
 
 func NewRunner() *Runner {
 	return &Runner{
-		RunFn: func(ctx context.Context, f fn.Function) (*fn.Job, error) {
+		RunFn: func(ctx context.Context, f fn.Function, t time.Duration) (*fn.Job, error) {
 			errs := make(chan error, 1)
 			stop := func() error { return nil }
 			return fn.NewJob(f, "127.0.0.1", "8080", errs, stop, false)
@@ -26,11 +27,11 @@ func NewRunner() *Runner {
 	}
 }
 
-func (r *Runner) Run(ctx context.Context, f fn.Function) (*fn.Job, error) {
+func (r *Runner) Run(ctx context.Context, f fn.Function, t time.Duration) (*fn.Job, error) {
 	r.Lock()
 	defer r.Unlock()
 	r.RunInvoked = true
 	r.RootRequested = f.Root
 
-	return r.RunFn(ctx, f)
+	return r.RunFn(ctx, f, t)
 }

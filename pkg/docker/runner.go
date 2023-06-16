@@ -50,7 +50,7 @@ func NewRunner(verbose bool, out, errOut io.Writer) *Runner {
 }
 
 // Run the function.
-func (n *Runner) Run(ctx context.Context, f fn.Function) (job *fn.Job, err error) {
+func (n *Runner) Run(ctx context.Context, f fn.Function, startTimeout time.Duration) (job *fn.Job, err error) {
 
 	var (
 		port = choosePort(DefaultHost, DefaultPort, DefaultDialTimeout)
@@ -80,7 +80,7 @@ func (n *Runner) Run(ctx context.Context, f fn.Function) (job *fn.Job, err error
 		return
 	}
 
-	// Wait for errors or premature exits
+	// Wait for errors premature exits
 	contBodyCh, contErrCh = c.ContainerWait(ctx, id, container.WaitConditionNextExit)
 	go func() {
 		for {
@@ -101,7 +101,11 @@ func (n *Runner) Run(ctx context.Context, f fn.Function) (job *fn.Job, err error
 		}
 	}()
 
-	// Start
+	// TODO: use StartTimeout
+	//  - Start a goroutine which queries for, or will be notified when, the
+	// container has successfully started.  If the startTimeout is reached
+	// before then, send a timeout error to the runtimeErrCh
+
 	if err = c.ContainerStart(ctx, id, types.ContainerStartOptions{}); err != nil {
 		return job, errors.Wrap(err, "runner unable to start container")
 	}

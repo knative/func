@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/mock"
@@ -105,7 +106,7 @@ func TestRun_Run(t *testing.T) {
 
 			runner := mock.NewRunner()
 			if tt.runError != nil {
-				runner.RunFn = func(context.Context, fn.Function) (*fn.Job, error) { return nil, tt.runError }
+				runner.RunFn = func(context.Context, fn.Function, time.Duration) (*fn.Job, error) { return nil, tt.runError }
 			}
 
 			builder := mock.NewBuilder()

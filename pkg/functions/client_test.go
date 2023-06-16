@@ -730,6 +730,67 @@ func TestClient_Run_DataDir(t *testing.T) {
 	t.Errorf(".gitignore does not include '/%v' ignore directive", fn.RunDataDir)
 }
 
+// TestClient_RunTimeout ensures that the run task bubbles a timeout
+// error if the function does not report ready within the allotted timeout.
+func TestClient_RunTimeout(t *testing.T) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	root, cleanup := Mktemp(t)
+	defer cleanup()
+
+	// A client with a shorter global timeout.
+	client := fn.New(
+		fn.WithBuilder(oci.NewBuilder("", true)),
+		fn.WithVerbose(true),
+		fn.WithStartTimeout(2*time.Second))
+
+	// Initialize
+	f, err := client.Init(fn.Function{Root: root, Runtime: "go", Registry: TestRegistry})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Replace the implementation with the test implementation which will
+	// return a non-200 response for the first 10 seconds.  This confirms
+	// the client is waiting and retrying.
+	// TODO: we need an init option which skips writing example source-code.
+	_ = os.Remove(filepath.Join(root, "function.go"))
+	_ = os.Remove(filepath.Join(root, "function_test.go"))
+	_ = os.Remove(filepath.Join(root, "handle.go"))
+	_ = os.Remove(filepath.Join(root, "handle_test.go"))
+	src, err := os.Open(filepath.Join(cwd, "testdata", "testClientRunTimeout", "f.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dst, err := os.Create(filepath.Join(root, "f.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err = io.Copy(dst, src); err != nil {
+		t.Fatal(err)
+	}
+	src.Close()
+	dst.Close()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Build
+	if f, err = client.Build(ctx, f); err != nil {
+		t.Fatal(err)
+	}
+
+	// Run
+	// with a fairly short timeout so as not to hold up tests.
+	_, err = client.Run(ctx, f, fn.RunWithStartTimeout(1*time.Second))
+	if !errors.As(err, &fn.ErrRunTimeout{}) {
+		t.Fatalf("did not receive ErrRunTimeout.  Got %v", err)
+	}
+}
+
 // TestClient_Update ensures that updating invokes the build/push/deploy
 // process, erroring if run on a directory uncreated.
 func TestClient_Update(t *testing.T) {
@@ -1526,7 +1587,7 @@ func TestClient_Invoke_HTTP(t *testing.T) {
 	// Create a client with a mock runner which will report the port at which the
 	// interloping function is listening.
 	runner := mock.NewRunner()
-	runner.RunFn = func(ctx context.Context, f fn.Function) (*fn.Job, error) {
+	runner.RunFn = func(ctx context.Context, f fn.Function, _ time.Duration) (*fn.Job, error) {
 		_, p, _ := net.SplitHostPort(l.Addr().String())
 		errs := make(chan error, 10)
 		stop := func() error { return nil }
@@ -1624,7 +1685,7 @@ func TestClient_Invoke_CloudEvent(t *testing.T) {
 
 	// Create a client with a mock Runner which returns its address.
 	runner := mock.NewRunner()
-	runner.RunFn = func(ctx context.Context, f fn.Function) (*fn.Job, error) {
+	runner.RunFn = func(ctx context.Context, f fn.Function, _ time.Duration) (*fn.Job, error) {
 		_, p, _ := net.SplitHostPort(l.Addr().String())
 		errs := make(chan error, 10)
 		stop := func() error { return nil }
@@ -1674,7 +1735,7 @@ func TestClient_Instances(t *testing.T) {
 
 	// A mock runner
 	runner := mock.NewRunner()
-	runner.RunFn = func(_ context.Context, f fn.Function) (*fn.Job, error) {
+	runner.RunFn = func(_ context.Context, f fn.Function, _ time.Duration) (*fn.Job, error) {
 		errs := make(chan error, 10)
 		stop := func() error { return nil }
 		return fn.NewJob(f, "127.0.0.1", "8080", errs, stop, false)

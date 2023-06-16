@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
@@ -67,7 +68,7 @@ EXAMPLES
 	  $ {{rootCmdUse}} run --container=false
 `,
 		SuggestFor: []string{"rnu"},
-		PreRunE:    bindEnv("build", "builder", "builder-image", "confirm", "env", "image", "registry", "path", "container", "verbose"),
+		PreRunE:    bindEnv("build", "builder", "builder-image", "confirm", "container", "env", "image", "path", "registry", "start-timeout", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runRun(cmd, args, newClient)
 		},
@@ -105,6 +106,13 @@ EXAMPLES
 		"Environment variable to set in the form NAME=VALUE. "+
 			"You may provide this flag multiple times for setting multiple environment variables. "+
 			"To unset, specify the environment variable name followed by a \"-\" (e.g., NAME-).")
+	cmd.Flags().Duration("start-timeout", f.Run.StartTimeout, fmt.Sprintf("time this function needs in order to start. If not provided, the client default %v will be in effect. ($FUNC_START_TIMEOUT)", fn.DefaultStartTimeout))
+
+	// TODO: Without the "Host" builder enabled, this code-path is unreachable,
+	// so remove hidden flag when either the Host builder path is available,
+	// or when containerized runs support start-timeout (and ideally both).
+	// Also remember to add it to the command help text's synopsis section.
+	_ = cmd.Flags().MarkHidden("start-timeout")
 
 	// Static Flags:
 	//  Options which have static defaults only
@@ -184,6 +192,9 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 	if cfg.Container {
 		o = append(o, fn.WithRunner(docker.NewRunner(cfg.Verbose, os.Stdout, os.Stderr)))
 	}
+	if cfg.StartTimeout != 0 {
+		o = append(o, fn.WithStartTimeout(cfg.StartTimeout))
+	}
 
 	client, done := newClient(ClientConfig{Verbose: cfg.Verbose}, o...)
 	defer done()
@@ -255,14 +266,19 @@ type runConfig struct {
 
 	// Env variables.  may include removals using a "-"
 	Env []string
+
+	// StartTimeout optionally adjusts the startup timeout from the client's
+	// default of fn.DefaultStartTimeout.
+	StartTimeout time.Duration
 }
 
 func newRunConfig(cmd *cobra.Command) (c runConfig) {
 	c = runConfig{
-		buildConfig: newBuildConfig(),
-		Build:       viper.GetString("build"),
-		Env:         viper.GetStringSlice("env"),
-		Container:   viper.GetBool("container"),
+		buildConfig:  newBuildConfig(),
+		Build:        viper.GetString("build"),
+		Env:          viper.GetStringSlice("env"),
+		Container:    viper.GetBool("container"),
+		StartTimeout: viper.GetDuration("start-timeout"),
 	}
 	// NOTE: .Env should be viper.GetStringSlice, but this returns unparsed
 	// results and appears to be an open issue since 2017:
@@ -281,11 +297,13 @@ func (c runConfig) Configure(f fn.Function) (fn.Function, error) {
 	var err error
 	f = c.buildConfig.Configure(f)
 
+	f.Run.StartTimeout = c.StartTimeout
+
 	f.Run.Envs, err = applyEnvs(f.Run.Envs, c.Env)
-	return f, err
 
 	// The other members; build, path, and container; are not part of function
 	// state, so are not mentioned here in Configure.
+	return f, err
 }
 
 func (c runConfig) Prompt() (runConfig, error) {
@@ -326,5 +344,12 @@ func (c runConfig) Validate(cmd *cobra.Command) (err error) {
 	if !c.Container {
 		return errors.New("the ability to run functions outside of a container via 'func run' is coming soon.")
 	}
+
+	// When the docker runner respects the StartTimeout, this validation check
+	// can be removed
+	if c.StartTimeout != 0 && c.Container {
+		return errors.New("the ability to specify the startup timeout for containerized runs is coming soon")
+	}
+
 	return
 }
