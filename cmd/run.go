@@ -31,7 +31,7 @@ NAME
 SYNOPSIS
 	{{rootCmdUse}} run [-t|--container] [-r|--registry] [-i|--image] [-e|--env]
 	             [--build] [-b|--builder] [--builder-image] [-c|--confirm]
-	             [--start-timeout] [-v|--verbose]
+	             [-v|--verbose]
 
 DESCRIPTION
 	Run the function locally.
@@ -102,11 +102,17 @@ EXAMPLES
 		"Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)")
 	cmd.Flags().StringP("image", "i", f.Image,
 		"Full image name in the form [registry]/[namespace]/[name]:[tag]. This option takes precedence over --registry. Specifying tag is optional. ($FUNC_IMAGE)")
-	cmd.Flags().Duration("start-timeout", f.Run.StartTimeout, fmt.Sprintf("time this function needs in order to start. If not provided, the client default %v will be in effect. ($FUNC_START_TIMEOUT)", fn.DefaultStartTimeout))
 	cmd.Flags().StringArrayP("env", "e", []string{},
 		"Environment variable to set in the form NAME=VALUE. "+
 			"You may provide this flag multiple times for setting multiple environment variables. "+
 			"To unset, specify the environment variable name followed by a \"-\" (e.g., NAME-).")
+	cmd.Flags().Duration("start-timeout", f.Run.StartTimeout, fmt.Sprintf("time this function needs in order to start. If not provided, the client default %v will be in effect. ($FUNC_START_TIMEOUT)", fn.DefaultStartTimeout))
+
+	// TODO: Without the "Host" builder enabled, this code-path is unreachable,
+	// so remove hidden flag when either the Host builder path is available,
+	// or when containerized runs support start-timeout (and ideally both).
+	// Also remember to add it to the command help text's synopsis section.
+	_ = cmd.Flags().MarkHidden("start-timeout")
 
 	// Static Flags:
 	//  Options which have static defaults only

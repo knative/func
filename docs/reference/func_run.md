@@ -11,7 +11,7 @@ NAME
 SYNOPSIS
 	func run [-t|--container] [-r|--registry] [-i|--image] [-e|--env]
 	             [--build] [-b|--builder] [--builder-image] [-c|--confirm]
-	             [--start-timeout] [-v|--verbose]
+	             [-v|--verbose]
 
 DESCRIPTION
 	Run the function locally.
@@ -55,18 +55,17 @@ func run
 ### Options
 
 ```
-      --build string[="true"]    Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
-  -b, --builder string           Builder to use when creating the function's container. Currently supported builders are "pack" and "s2i". (default "pack")
-      --builder-image string     Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
-  -c, --confirm                  Prompt to confirm options interactively ($FUNC_CONFIRM)
-  -t, --container                Run the function in a container. ($FUNC_CONTAINER) (default true)
-  -e, --env stringArray          Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
-  -h, --help                     help for run
-  -i, --image string             Full image name in the form [registry]/[namespace]/[name]:[tag]. This option takes precedence over --registry. Specifying tag is optional. ($FUNC_IMAGE)
-  -p, --path string              Path to the function.  Default is current directory ($FUNC_PATH)
-  -r, --registry string          Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
-      --start-timeout duration   time this function needs in order to start. If not provided, the client default 1m0s will be in effect. ($FUNC_START_TIMEOUT)
-  -v, --verbose                  Print verbose logs ($FUNC_VERBOSE)
+      --build string[="true"]   Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
+  -b, --builder string          Builder to use when creating the function's container. Currently supported builders are "pack" and "s2i". (default "pack")
+      --builder-image string    Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
+  -c, --confirm                 Prompt to confirm options interactively ($FUNC_CONFIRM)
+  -t, --container               Run the function in a container. ($FUNC_CONTAINER) (default true)
+  -e, --env stringArray         Environment variable to set in the form NAME=VALUE. You may provide this flag multiple times for setting multiple environment variables. To unset, specify the environment variable name followed by a "-" (e.g., NAME-).
+  -h, --help                    help for run
+  -i, --image string            Full image name in the form [registry]/[namespace]/[name]:[tag]. This option takes precedence over --registry. Specifying tag is optional. ($FUNC_IMAGE)
+  -p, --path string             Path to the function.  Default is current directory ($FUNC_PATH)
+  -r, --registry string         Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
+  -v, --verbose                 Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO
