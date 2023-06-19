@@ -274,44 +274,13 @@ EOF
 
 }
 
-# temporary fix for https://github.com/dapr/cli/issues/1311
-fixup_dapr_dashboard_deployment() {
-  kubectl patch deploy/dapr-dashboard -n dapr-system --patch-file /dev/stdin <<EOF
-{
-  "spec": {
-    "template": {
-      "spec": {
-        "\$setElementOrder/containers": [
-          {
-            "name": "dapr-dashboard"
-          }
-        ],
-        "containers": [
-          {
-            "image": "ghcr.io/dapr/dashboard:0.12.0",
-            "name": "dapr-dashboard"
-          }
-        ]
-      }
-    }
-  }
-}
-EOF
-}
-
 dapr_runtime() {
   echo "${em}⑦ Dapr${me}"
   echo "Version:\\n$(dapr version)"
 
-  local dapr_flags=""
-  if [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
-    (sleep 10; fixup_dapr_dashboard_deployment)&
-    dapr_flags="--image-registry=ghcr.io/dapr --log-as-json"
-  fi
-
   # Install Dapr Runtime
   # shellcheck disable=SC2086
-  dapr init ${dapr_flags} --kubernetes --wait
+  dapr init --kubernetes --wait
 
   # Enalble Redis Persistence and Pub/Sub
   #
