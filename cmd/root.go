@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Masterminds/semver"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -317,55 +318,50 @@ func cwd() (cwd string) {
 	return cwd
 }
 
+// Version information populated on build.
 type Version struct {
 	// Version tag of the git commit, or 'tip' if no tag.
 	Vers string
+	// Kver is the version of knative in which func was most recently
+	// If the build is not tagged as being released with a specific Knative
+	// build, this is the most recent version of knative along with a suffix
+	// consisting of the number of commits which have been added since it was
+	// included in Knative.
+	Kver string
 	// Hash of the currently active git commit on build.
 	Hash string
 	// Verbose printing enabled for the string representation.
 	Verbose bool
 }
 
-// Return the stringification of the Version struct, which takes into account
-// the verbosity setting.
+// Return the stringification of the Version struct.
 func (v Version) String() string {
 	if v.Verbose {
 		return v.StringVerbose()
 	}
-
-	// Ensure that the value returned is parseable as a semver, with the special
-	// value v0.0.0 as the default indicating there is no version information
-	// available.
-	if strings.HasPrefix(v.Vers, "v") {
-		// TODO: this is the naive approach, perhaps consider actually parse it
-		// using the semver lib
-		return v.Vers
-	}
-
-	// Any non-semver value is invalid, and thus indistinguishable from a
-	// nonexistent version value, so the default zero value of v0.0.0 is used.
-	return "v0.0.0"
+	_ = semver.MustParse(v.Vers)
+	return v.Vers
 }
 
-// StringVerbose returns the verbose version of the version stringification.
-// The format returned is [semver]-[hash] where the special value
-// 'v0.0.0' and 'source' are used when version is not available and/or the
-// libray has been built from source, respectively.
+// StringVerbose returns the version along with extended version metadata.
 func (v Version) StringVerbose() string {
 	var (
 		vers = v.Vers
+		kver = v.Kver
 		hash = v.Hash
 	)
-	if vers == "" {
-		vers = "v0.0.0"
+	if strings.HasPrefix(kver, "knative-") {
+		kver = strings.Split(kver, "-")[1]
 	}
-	if hash == "" {
-		hash = "source"
-	}
-	funcVersion := fmt.Sprintf("%s-%s", vers, hash)
-	return fmt.Sprintf("Version: %s\n"+
-		"SocatImage: %s\n"+
-		"TarImage: %s", funcVersion,
+	return fmt.Sprintf(
+		"Version: %s\n"+
+			"Knative: %s\n"+
+			"Commit: %s\n"+
+			"SocatImage: %s\n"+
+			"TarImage: %s\n",
+		vers,
+		kver,
+		hash,
 		k8s.SocatImage,
 		k8s.TarImage)
 }

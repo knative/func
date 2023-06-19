@@ -15,7 +15,7 @@ import (
 )
 
 // Statically-populated build metadata set by `make build`.
-var vers, hash string
+var vers, kver, hash string
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -34,6 +34,7 @@ func main() {
 		Name: "func",
 		Version: cmd.Version{
 			Vers: vers,
+			Kver: kver,
 			Hash: hash,
 		}}
 
