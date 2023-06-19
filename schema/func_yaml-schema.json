@@ -86,6 +86,10 @@
 					"$schema": "http://json-schema.org/draft-04/schema#",
 					"$ref": "#/definitions/HealthEndpoints",
 					"description": "Health endpoints specified by the language pack"
+				},
+				"serviceAccountName": {
+					"type": "string",
+					"description": "ServiceAccountName is the name of the service account used for the\nfunction pod. The service account must exist in the namespace to\nsucceed.\nMore info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/"
 				}
 			},
 			"additionalProperties": false,
