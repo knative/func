@@ -168,20 +168,21 @@ func TestDialUnreachable(t *testing.T) {
 		dialer.Close()
 	})
 
-	transport := &http.Transport{
-		DialContext: dialer.DialContext,
-	}
-
-	var client = http.Client{
-		Transport: transport,
-	}
-
-	_, err = client.Get("http://does-not.exists.svc")
+	_, err = dialer.DialContext(ctx, "tcp", "does-not.exists.svc:80")
 	if err == nil {
 		t.Error("error was expected but got nil")
 		return
 	}
-	if !strings.Contains(err.Error(), "not resolve") {
-		t.Errorf("error %q doesn't containe expected sub-string: ", err.Error())
+	if !strings.Contains(err.Error(), "no such host") {
+		t.Errorf("error %q doesn't contain expected substring: ", err.Error())
+	}
+
+	_, err = dialer.DialContext(ctx, "tcp", "localhost:80")
+	if err == nil {
+		t.Error("error was expected but got nil")
+		return
+	}
+	if !strings.Contains(err.Error(), "connection refused") {
+		t.Errorf("error %q doesn't contain expected substring: ", err.Error())
 	}
 }
