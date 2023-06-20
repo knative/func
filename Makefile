@@ -23,8 +23,9 @@ DATE    := $(shell date -u +"%Y%m%dT%H%M%SZ")
 HASH    := $(shell git rev-parse --short HEAD 2>/dev/null)
 VTAG    := $(shell git tag --points-at HEAD | head -1)
 VTAG    := $(shell [ -z $(VTAG) ] && echo $(ETAG) || echo $(VTAG))
-VERS    ?= $(shell [ -z $(VTAG) ] && echo 'tip' || echo $(VTAG) )
-LDFLAGS := "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.hash=$(HASH)"
+VERS    ?= $(shell git describe --tags --match 'v*')
+KVER    ?= $(shell git describe --tags --match 'knative-*')
+LDFLAGS := "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.kver=$(KVER) -X main.hash=$(HASH)"
 
 # All Code prerequisites, including generated files, etc.
 CODE := $(shell find . -name '*.go') generate/zz_filesystem_generated.go go.mod schema/func_yaml-schema.json
