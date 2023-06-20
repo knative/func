@@ -17,16 +17,6 @@ import (
 
 var path = filepath.Join
 
-// TODO: This may no longer be necessary, delete if e2e and acceptance tests
-// succeed:
-// const DefaultName = builders.Host
-
-var defaultPlatforms = []v1.Platform{
-	{OS: "linux", Architecture: "amd64"},
-	{OS: "linux", Architecture: "arm64"},
-	{OS: "linux", Architecture: "arm", Variant: "v7"},
-}
-
 var defaultIgnored = []string{ // TODO: implement and use .funcignore
 	".git",
 	".func",
@@ -48,6 +38,25 @@ func NewBuilder(name string, verbose bool) *Builder {
 	return &Builder{name, verbose, nil}
 }
 
+func newBuildConfig(ctx context.Context, b *Builder, f fn.Function, platforms []fn.Platform) *buildConfig {
+	c := &buildConfig{
+		ctx,
+		b.name,
+		f,
+		time.Now(),
+		b.verbose,
+		"",
+		b.tester,
+		toPlatforms(platforms),
+	}
+	// If the client did not specifically request a certain set of platforms,
+	// use the func core defined set of suggested defaults.
+	if len(platforms) == 0 {
+		c.platforms = toPlatforms(fn.DefaultPlatforms)
+	}
+	return c
+}
+
 // Build an OCI-compliant Mult-arch (v1.ImageIndex) container on disk
 // in the function's runtime data directory at:
 //
@@ -56,8 +65,8 @@ func NewBuilder(name string, verbose bool) *Builder {
 // Updates a symlink to this directory at:
 //
 //	.func/builds/last
-func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
-	cfg := &buildConfig{ctx, b.name, f, time.Now(), b.verbose, "", b.tester, defaultPlatforms}
+func (b *Builder) Build(ctx context.Context, f fn.Function, pp []fn.Platform) (err error) {
+	cfg := newBuildConfig(ctx, b, f, pp)
 
 	if err = setup(cfg); err != nil { // create directories and links
 		return
@@ -285,4 +294,22 @@ func newTestHelper() *testHelper {
 		doneCh:     make(chan any),
 		pausedCh:   make(chan any),
 	}
+}
+
+// toPlatforms converts func's implementation-agnostic Platform struct
+// into to the OCI builder's implementation-specific go-containerregistry v1
+// palatform.
+// Examples:
+// {OS: "linux", Architecture: "amd64"},
+// {OS: "linux", Architecture: "arm64"},
+// {OS: "linux", Architecture: "arm", Variant: "v6"},
+// {OS: "linux", Architecture: "arm", Variant: "v7"},
+// {OS: "darwin", Architecture: "amd64"},
+// {OS: "darwin", Architecture: "arm64"},
+func toPlatforms(pp []fn.Platform) []v1.Platform {
+	platforms := make([]v1.Platform, len(pp))
+	for i, p := range pp {
+		platforms[i] = v1.Platform{OS: p.OS, Architecture: p.Architecture, Variant: p.Variant}
+	}
+	return platforms
 }

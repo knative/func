@@ -6,10 +6,11 @@ Display function execution environment information
 
 
 NAME
-	func environment
+	func environment - display function execution environment information
 
 SYNOPSIS
-	func environment - display function execution environment information
+	func environment [-e|--env-format] [-v|--verbose]
+
 
 DESCRIPTION
 	Display information about the function execution environment, including
@@ -24,8 +25,9 @@ func environment
 ### Options
 
 ```
-  -h, --help      help for environment
-  -v, --verbose   Print verbose logs ($FUNC_VERBOSE)
+  -f, --format string   Format of output environment information, 'json' or 'yaml'. ($FUNC_FORMAT) (default "json")
+  -h, --help            help for environment
+  -v, --verbose         Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO

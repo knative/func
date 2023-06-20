@@ -17,7 +17,7 @@ func NewBuilder() *Builder {
 	}
 }
 
-func (i *Builder) Build(ctx context.Context, f fn.Function) error {
+func (i *Builder) Build(ctx context.Context, f fn.Function, _ []fn.Platform) error {
 	i.BuildInvoked = true
 	return i.BuildFn(f)
 }

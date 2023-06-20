@@ -181,7 +181,6 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	} else if f.Build.Builder == builders.S2I {
 		o = append(o, fn.WithBuilder(s2i.NewBuilder(
 			s2i.WithName(builders.S2I),
-			s2i.WithPlatform(cfg.Platform),
 			s2i.WithVerbose(cfg.Verbose))))
 	}
 
@@ -189,7 +188,11 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	defer done()
 
 	// Build and (optionally) push
-	if f, err = client.Build(cmd.Context(), f); err != nil {
+	buildOptions, err := cfg.buildOptions()
+	if err != nil {
+		return
+	}
+	if f, err = client.Build(cmd.Context(), f, buildOptions...); err != nil {
 		return
 	}
 	if cfg.Push {
@@ -231,6 +234,26 @@ type buildConfig struct {
 	// Build with the current timestamp as the created time for docker image.
 	// This is only useful for buildpacks builder.
 	WithTimestamp bool
+}
+
+func (c buildConfig) buildOptions() (oo []fn.BuildOption, err error) {
+	oo = []fn.BuildOption{}
+
+	// Platforms
+	//
+	// TODO: upgrade --platform to a multi-value field.  The individual builder
+	// implementations are responsible for bubbling an error if they do
+	// not support this.  Pack  supports none, S2I supports one, host builder
+	// supports multi.
+	if c.Platform != "" {
+		parts := strings.Split(c.Platform, "/")
+		if len(parts) != 2 {
+			return oo, fmt.Errorf("the value for --patform must be in the form [OS]/[Architecture].  eg \"linux/amd64\"")
+		}
+		oo = append(oo, fn.BuildWithPlatforms([]fn.Platform{{OS: parts[0], Architecture: parts[1]}}))
+	}
+
+	return
 }
 
 // newBuildConfig gathers options into a single build request.

@@ -56,10 +56,6 @@
 					"type": "string",
 					"description": "Namespace into which the function is deployed on supported platforms."
 				},
-				"serviceAccount": {
-					"type": "string",
-					"description": "Service account to be used in the deployed function"
-				},
 				"remote": {
 					"type": "boolean",
 					"description": "Remote indicates the deployment (and possibly build) process are to\nbe triggered in a remote environment rather than run locally."
@@ -90,6 +86,10 @@
 					"$schema": "http://json-schema.org/draft-04/schema#",
 					"$ref": "#/definitions/HealthEndpoints",
 					"description": "Health endpoints specified by the language pack"
+				},
+				"serviceAccountName": {
+					"type": "string",
+					"description": "ServiceAccountName is the name of the service account used for the\nfunction pod. The service account must exist in the namespace to\nsucceed.\nMore info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/"
 				}
 			},
 			"additionalProperties": false,
@@ -152,11 +152,11 @@
 				},
 				"image": {
 					"type": "string",
-					"description": "Optional full OCI image tag in form:\n  [registry]/[namespace]/[name]:[tag]\nexample:\n  quay.io/alice/my.function.name\nRegistry is optional and is defaulted to DefaultRegistry\nexample:\n  alice/my.function.name\nIf Image is provided, it overrides the default of concatenating\n\"Registry+Name:latest\" to derive the Image."
+					"description": "Image is the full OCI image tag in form:\n  [registry]/[namespace]/[name]:[tag]\nexample:\n  quay.io/alice/my.function.name\nRegistry is optional and is defaulted to DefaultRegistry\nexample:\n  alice/my.function.name\nIf Image is provided, it overrides the default of concatenating\n\"Registry+Name:latest\" to derive the Image."
 				},
 				"imageDigest": {
 					"type": "string",
-					"description": "SHA256 hash of the latest image that has been built"
+					"description": "ImageDigest is the SHA256 hash of the latest image that has been built"
 				},
 				"created": {
 					"type": "string",
@@ -170,17 +170,17 @@
 				"build": {
 					"$schema": "http://json-schema.org/draft-04/schema#",
 					"$ref": "#/definitions/BuildSpec",
-					"description": "BuildSpec define the build properties for a function"
+					"description": "Build defines the build properties for a function"
 				},
 				"run": {
 					"$schema": "http://json-schema.org/draft-04/schema#",
 					"$ref": "#/definitions/RunSpec",
-					"description": "RunSpec define the runtime properties for a function"
+					"description": "Run defines the runtime properties for a function"
 				},
 				"deploy": {
 					"$schema": "http://json-schema.org/draft-04/schema#",
 					"$ref": "#/definitions/DeploySpec",
-					"description": "DeploySpec define the deployment properties for a function"
+					"description": "Deploy defines the deployment properties for a function"
 				}
 			},
 			"additionalProperties": false,
@@ -323,6 +323,10 @@
 					},
 					"type": "array",
 					"description": "Env variables to be set"
+				},
+				"startTimeout": {
+					"type": "integer",
+					"description": "StartTimeout specifies that this function should have a custom timeout\nwhen starting. This setting is currently respected by the host runner,\nwith containerized docker runner and deployed Knative service integration\nin development."
 				}
 			},
 			"additionalProperties": false,

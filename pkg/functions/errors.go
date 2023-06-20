@@ -20,6 +20,7 @@ var (
 	ErrTemplateMissingRepository = errors.New("template name missing repository prefix")
 	ErrTemplateNotFound          = errors.New("template not found")
 	ErrTemplatesNotFound         = errors.New("templates path (runtimes) not found")
+	ErrContextCanceled           = errors.New("the operation was canceled")
 
 	// TODO: change the wording of this error to not be CLI-specific;
 	// eg "registry required".  Then catch the error in the CLI and add the

@@ -3,6 +3,7 @@ package buildpacks
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"runtime"
@@ -23,16 +24,19 @@ import (
 // DefaultName when no WithName option is provided to NewBuilder
 const DefaultName = builders.Pack
 
+var DefaultBaseBuilder = "gcr.io/paketo-buildpacks/builder:base"
+var DefaultRustBuilder = "gcr.io/paketo-buildpacks/builder:full-cf"
+
 var (
 	DefaultBuilderImages = map[string]string{
-		"node":       "gcr.io/paketo-buildpacks/builder:base",
-		"nodejs":     "gcr.io/paketo-buildpacks/builder:base",
-		"typescript": "gcr.io/paketo-buildpacks/builder:base",
-		"go":         "gcr.io/paketo-buildpacks/builder:base",
-		"python":     "gcr.io/paketo-buildpacks/builder:base",
-		"quarkus":    "gcr.io/paketo-buildpacks/builder:base",
-		"rust":       "gcr.io/paketo-buildpacks/builder:full-cf",
-		"springboot": "gcr.io/paketo-buildpacks/builder:base",
+		"node":       DefaultBaseBuilder,
+		"nodejs":     DefaultBaseBuilder,
+		"typescript": DefaultBaseBuilder,
+		"go":         DefaultBaseBuilder,
+		"python":     DefaultBaseBuilder,
+		"quarkus":    DefaultBaseBuilder,
+		"rust":       DefaultRustBuilder,
+		"springboot": DefaultBaseBuilder,
 	}
 
 	// Ensure that all entries in this list are terminated with a trailing "/"
@@ -112,7 +116,11 @@ func WithTimestamp(v bool) Option {
 var DefaultLifecycleImage = "quay.io/boson/lifecycle@sha256:f53fea9ec9188b92cab0b8a298ff852d76a6c2aaf56f968a08637e13de0e0c59"
 
 // Build the Function at path.
-func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
+func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platform) (err error) {
+	if len(platforms) != 0 {
+		return errors.New("the pack builder does not support specifying target platforms directly.")
+	}
+
 	// Builder image from the function if defined, default otherwise.
 	image, err := BuilderImage(f, b.name)
 	if err != nil {

@@ -2,6 +2,7 @@ package functions
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -19,10 +20,6 @@ const (
 	defaultRunDialTimeout = 2 * time.Second
 	defaultRunStopTimeout = 10 * time.Second
 	readinessEndpoint     = "/health/readiness"
-
-	// defaultRunTimeout is long to allow for slow-starting functions by default
-	// TODO: allow to be shortened as-needed using a runOption.
-	defaultRunTimeout = 5 * time.Minute
 )
 
 type defaultRunner struct {
@@ -39,7 +36,7 @@ func newDefaultRunner(client *Client, out, err io.Writer) *defaultRunner {
 	}
 }
 
-func (r *defaultRunner) Run(ctx context.Context, f Function) (job *Job, err error) {
+func (r *defaultRunner) Run(ctx context.Context, f Function, startTimeout time.Duration) (job *Job, err error) {
 	var (
 		port    = choosePort(defaultRunHost, defaultRunPort, defaultRunDialTimeout)
 		runFn   func() error
@@ -68,7 +65,7 @@ func (r *defaultRunner) Run(ctx context.Context, f Function) (job *Job, err erro
 	}
 
 	// Wait for it to become available before returning the metadata.
-	err = waitFor(job, defaultRunTimeout)
+	err = waitFor(ctx, job, startTimeout)
 	return
 }
 
@@ -151,44 +148,69 @@ func runGo(ctx context.Context, job *Job) (err error) {
 	return
 }
 
-func waitFor(job *Job, timeout time.Duration) error {
-	url := fmt.Sprintf("http://%s:%s/%s", job.Host, job.Port, readinessEndpoint)
+func waitFor(ctx context.Context, job *Job, timeout time.Duration) error {
+	var (
+		uri      = fmt.Sprintf("http://%s:%s%s", job.Host, job.Port, readinessEndpoint)
+		interval = 500 * time.Millisecond
+	)
+
 	if job.verbose {
-		fmt.Printf("Waiting for %v\n", url)
+		fmt.Printf("Waiting for %v\n", uri)
 	}
-	to := time.After(timeout)
+
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
 	for {
+		ok, err := isReady(ctx, uri, timeout, job.verbose)
+		if ok || err != nil {
+			return err
+		}
+
 		select {
-		case <-to:
-			return ErrRunTimeout{timeout}
-		case <-time.After(500 * time.Millisecond):
-			if checkReady(url, job.verbose) {
-				return nil
+		case <-ctx.Done():
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				return ErrRunTimeout{timeout}
 			}
+			return ErrContextCanceled
+		case <-time.After(interval):
+			continue
 		}
 	}
 }
 
-func checkReady(url string, verbose bool) bool { // checks if the instance has become available
-	resp, err := http.Get(url)
+// isReady returns true if the uri could be reached and returned an HTTP 200.
+// False is returned if a nonfatal error was encountered (which will have been
+// printed to stderr), and an error is returned when an error is encountered
+// that is unlikely to be due to startup (malformed requests).
+func isReady(ctx context.Context, uri string, timeout time.Duration, verbose bool) (ok bool, err error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", uri, nil)
 	if err != nil {
-		if verbose {
-			fmt.Printf("Not ready (%v)\n", err)
+		return false, fmt.Errorf("error creating readiness check context. %w", err)
+	}
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		if err, ok := err.(net.Error); ok && err.Timeout() {
+			return false, ErrRunTimeout{timeout}
 		}
-		return false
+		if verbose {
+			fmt.Fprintf(os.Stderr, "endpoint not available. %v\n", err)
+		}
+		return false, nil // nonfatal.  May still be starting up.
 	}
-	defer resp.Body.Close()
+	defer res.Body.Close()
 
-	if resp.StatusCode == 200 {
-		return true
+	if res.StatusCode != 200 {
+		if verbose {
+			fmt.Fprintf(os.Stderr, "endpoint returned HTTP %v:\n", res.StatusCode)
+			dump, _ := httputil.DumpResponse(res, true)
+			fmt.Println(string(dump))
+		}
+		return false, nil // nonfatal.  May still be starting up
 	}
 
-	if verbose {
-		fmt.Printf("Endpoint returned HTTP %v.\n", resp.StatusCode)
-		dump, _ := httputil.DumpResponse(resp, true)
-		fmt.Println(dump)
-	}
-	return false
+	return true, nil
 }
 
 // choosePort returns an unused port on the given interface (host)

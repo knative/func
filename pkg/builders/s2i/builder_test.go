@@ -110,7 +110,7 @@ func Test_BuilderImageDefault(t *testing.T) {
 
 	// Invoke Build, which runs function Builder logic before invoking the
 	// mock impl above.
-	if err := b.Build(context.Background(), f); err != nil {
+	if err := b.Build(context.Background(), f, nil); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -145,7 +145,7 @@ func Test_BuilderImageConfigurable(t *testing.T) {
 
 	// Invoke Build, which runs function Builder logic before invoking the
 	// mock impl above.
-	if err := b.Build(context.Background(), f); err != nil {
+	if err := b.Build(context.Background(), f, nil); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -162,7 +162,8 @@ func Test_BuilderVerbose(t *testing.T) {
 				}
 				return &api.Result{Messages: []string{"message"}}, nil
 			}}
-		if err := s2i.NewBuilder(s2i.WithVerbose(verbose), s2i.WithImpl(i), s2i.WithDockerClient(c)).Build(context.Background(), fn.Function{Runtime: "node"}); err != nil {
+		if err := s2i.NewBuilder(s2i.WithVerbose(verbose), s2i.WithImpl(i), s2i.WithDockerClient(c)).
+			Build(context.Background(), fn.Function{Runtime: "node"}, nil); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -199,7 +200,7 @@ func Test_BuildEnvs(t *testing.T) {
 		t.Fatal("build envs not added to builder impl config")
 		return
 	}
-	if err := b.Build(context.Background(), f); err != nil {
+	if err := b.Build(context.Background(), f, nil); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -268,7 +269,7 @@ func TestS2IScriptURL(t *testing.T) {
 			}
 
 			b := s2i.NewBuilder(s2i.WithName(builders.S2I), s2i.WithImpl(impl), s2i.WithDockerClient(cli))
-			err = b.Build(context.Background(), f)
+			err = b.Build(context.Background(), f, nil)
 			if err != nil {
 				t.Error(err)
 			}
@@ -367,7 +368,7 @@ func TestBuildContextUpload(t *testing.T) {
 		Runtime: "node",
 	}
 	b := s2i.NewBuilder(s2i.WithImpl(impl), s2i.WithDockerClient(cli))
-	err := b.Build(context.Background(), f)
+	err := b.Build(context.Background(), f, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -388,7 +389,7 @@ func TestBuildFail(t *testing.T) {
 		},
 	}
 	b := s2i.NewBuilder(s2i.WithImpl(impl), s2i.WithDockerClient(cli))
-	err := b.Build(context.Background(), fn.Function{Runtime: "node"})
+	err := b.Build(context.Background(), fn.Function{Runtime: "node"}, nil)
 	if err == nil || !strings.Contains(err.Error(), "Error: this is expected") {
 		t.Error("didn't get expected error")
 	}

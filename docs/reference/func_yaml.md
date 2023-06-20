@@ -121,6 +121,14 @@ subsequent deployments.
 
 The Kubernetes namespace where your function will be deployed.
 
+
+### `serviceAccountName`
+
+The name of the service account used for the function pod. The service account
+must exist in the namespace to succeed.
+
+More info: https://k8s.io/docs/tasks/configure-pod-container/configure-service-account
+
 ### `options`
 Options allows you to set specific configuration for the deployed function, allowing you to tweak Knative Service options related to autoscaling and other properties. If these options are not set, the Knative defaults will be used. 
 - `scale`

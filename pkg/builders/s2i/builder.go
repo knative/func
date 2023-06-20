@@ -57,11 +57,10 @@ type DockerClient interface {
 
 // Builder of functions using the s2i subsystem.
 type Builder struct {
-	name     string
-	verbose  bool
-	impl     build.Builder // S2I builder implementation (aka "Strategy")
-	cli      DockerClient
-	platform string
+	name    string
+	verbose bool
+	impl    build.Builder // S2I builder implementation (aka "Strategy")
+	cli     DockerClient
 }
 
 type Option func(*Builder)
@@ -94,12 +93,6 @@ func WithDockerClient(cli DockerClient) Option {
 	}
 }
 
-func WithPlatform(platform string) Option {
-	return func(b *Builder) {
-		b.platform = platform
-	}
-}
-
 // NewBuilder creates a new instance of a Builder with static defaults.
 func NewBuilder(options ...Option) *Builder {
 	b := &Builder{name: DefaultName}
@@ -109,21 +102,37 @@ func NewBuilder(options ...Option) *Builder {
 	return b
 }
 
-func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
-	// TODO this function currently doesn't support private s2i builder images since credentials are not set
+// Build the function using the S2I builder.
+//
+// Platforms:
+// The S2I builder supports at most a single platform to target, and the
+// platform specified must be available in the provided builder image.
+// If the provided builder image is not a multi-architecture image index
+// container, specifying a target platform is redundant, so if provided it
+// must match that of the single-architecture container or the request is
+// invalid.
+func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platform) (err error) {
 
 	// Builder image from the function if defined, default otherwise.
 	builderImage, err := BuilderImage(f, b.name)
 	if err != nil {
 		return
 	}
-
-	if b.platform != "" {
-		builderImage, err = docker.GetPlatformImage(builderImage, b.platform)
-		if err != nil {
-			return fmt.Errorf("cannot get platform specific image reference: %w", err)
+	// If a platform was requestd
+	if len(platforms) == 1 {
+		platform := strings.ToLower(platforms[0].OS + "/" + platforms[0].Architecture)
+		// Try to get the platform image from within the builder image
+		// Will also succeed if the builder image is a single-architecture image
+		// and the requested platform matches.
+		if builderImage, err = docker.GetPlatformImage(builderImage, platform); err != nil {
+			return fmt.Errorf("cannot get platform image reference for %q: %w", platform, err)
 		}
+	} else if len(platforms) > 1 {
+		// Only a single requestd platform supported.
+		return errors.New("the S2I builder currently only supports specifying a single target platform")
 	}
+
+	// TODO this function currently doesn't support private s2i builder images since credentials are not set
 
 	// Build Config
 	cfg := &api.Config{}

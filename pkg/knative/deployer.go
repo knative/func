@@ -155,7 +155,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 				return fn.DeploymentResult{}, err
 			}
 
-			err = checkResourcesArePresent(ctx, d.Namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccount)
+			err = checkResourcesArePresent(ctx, d.Namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName)
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to generate the Knative Service: %v", err)
 				return fn.DeploymentResult{}, err
@@ -252,7 +252,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			return fn.DeploymentResult{}, err
 		}
 
-		err = checkResourcesArePresent(ctx, d.Namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccount)
+		err = checkResourcesArePresent(ctx, d.Namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName)
 		if err != nil {
 			err = fmt.Errorf("knative deployer failed to update the Knative Service: %v", err)
 			return fn.DeploymentResult{}, err
@@ -370,7 +370,7 @@ func generateNewService(f fn.Function, decorator DeployDecorator) (*v1.Service, 
 							Containers: []corev1.Container{
 								container,
 							},
-							ServiceAccountName: f.Deploy.ServiceAccount,
+							ServiceAccountName: f.Deploy.ServiceAccountName,
 							Volumes:            newVolumes,
 						},
 					},
@@ -510,7 +510,7 @@ func updateService(f fn.Function, previousService *v1.Service, newEnv []corev1.E
 		cp.EnvFrom = newEnvFrom
 		cp.VolumeMounts = newVolumeMounts
 		service.Spec.ConfigurationSpec.Template.Spec.Volumes = newVolumes
-		service.Spec.ConfigurationSpec.Template.Spec.PodSpec.ServiceAccountName = f.Deploy.ServiceAccount
+		service.Spec.ConfigurationSpec.Template.Spec.PodSpec.ServiceAccountName = f.Deploy.ServiceAccountName
 		return service, nil
 	}
 }
