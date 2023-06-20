@@ -1516,9 +1516,9 @@ func TestDeploy_UnsetFlag(t *testing.T) {
 }
 
 // Test_ValidateBuilder tests that the bulder validation accepts the
-// accepts === the set of known builders.
+// the set of known builders, and spot-checks an error is thrown for unknown.
 func Test_ValidateBuilder(t *testing.T) {
-	for _, name := range builders.All() {
+	for _, name := range KnownBuilders() {
 		if err := ValidateBuilder(name); err != nil {
 			t.Fatalf("expected builder '%v' to be valid, but got error: %v", name, err)
 		}
