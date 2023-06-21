@@ -278,9 +278,14 @@ dapr_runtime() {
   echo "${em}⑦ Dapr${me}"
   echo "Version:\\n$(dapr version)"
 
+  local dapr_flags=""
+  if [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
+    dapr_flags="--image-registry=ghcr.io/dapr --log-as-json"
+  fi
+
   # Install Dapr Runtime
   # shellcheck disable=SC2086
-  dapr init --kubernetes --wait
+  dapr init ${dapr_flags} --kubernetes --wait
 
   # Enalble Redis Persistence and Pub/Sub
   #
