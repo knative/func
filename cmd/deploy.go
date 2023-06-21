@@ -31,8 +31,8 @@ SYNOPSIS
 	{{rootCmdUse}} deploy [-R|--remote] [-r|--registry] [-i|--image] [-n|--namespace]
 	             [-e|--env] [-g|--git-url] [-t|--git-branch] [-d|--git-dir]
 	             [-b|--build] [--builder] [--builder-image] [-p|--push]
-	             [--domain] [--platform] [--build-timestamp]
-	             [-c|--confirm] [-v|--verbose]
+	             [--domain] [--platform] [--build-timestamp] [--pvc-size]
+	             [--service-account] [-c|--confirm] [-v|--verbose]
 
 DESCRIPTION
 
@@ -124,7 +124,7 @@ EXAMPLES
 
 `,
 		SuggestFor: []string{"delpoy", "deplyo"},
-		PreRunE:    bindEnv("build", "build-timestamp", "builder", "builder-image", "confirm", "domain", "env", "git-branch", "git-dir", "git-url", "image", "namespace", "path", "platform", "push", "pvc-size", "registry", "remote", "verbose"),
+		PreRunE:    bindEnv("build", "build-timestamp", "builder", "builder-image", "confirm", "domain", "env", "git-branch", "git-dir", "git-url", "image", "namespace", "path", "platform", "push", "pvc-size", "service-account", "registry", "remote", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDeploy(cmd, newClient)
 		},
@@ -179,7 +179,8 @@ EXAMPLES
 		"Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)")
 	cmd.Flags().String("pvc-size", f.Build.PVCSize,
 		"When triggering a remote deployment, set a custom volume size to allocate for the build operation ($FUNC_PVC_SIZE)")
-
+	cmd.Flags().String("service-account", f.Deploy.ServiceAccountName,
+		"Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)")
 	// Static Flags:
 	// Options which have static defaults only (not globally configurable nor
 	// persisted with the function)
@@ -443,6 +444,9 @@ type deployConfig struct {
 	// (~/.kube/config) in the case of Kubernetes.
 	Namespace string
 
+	//Service account to be used in deployed function
+	ServiceAccountName string
+
 	// Remote indicates the deployment (and possibly build) process are to
 	// be triggered in a remote environment rather than run locally.
 	Remote bool
@@ -459,17 +463,18 @@ type deployConfig struct {
 // environment variables; in that precedence.
 func newDeployConfig(cmd *cobra.Command) (c deployConfig) {
 	c = deployConfig{
-		buildConfig: newBuildConfig(),
-		Build:       viper.GetString("build"),
-		Env:         viper.GetStringSlice("env"),
-		Domain:      viper.GetString("domain"),
-		GitBranch:   viper.GetString("git-branch"),
-		GitDir:      viper.GetString("git-dir"),
-		GitURL:      viper.GetString("git-url"),
-		Namespace:   viper.GetString("namespace"),
-		Remote:      viper.GetBool("remote"),
-		PVCSize:     viper.GetString("pvc-size"),
-		Timestamp:   viper.GetBool("build-timestamp"),
+		buildConfig:        newBuildConfig(),
+		Build:              viper.GetString("build"),
+		Env:                viper.GetStringSlice("env"),
+		Domain:             viper.GetString("domain"),
+		GitBranch:          viper.GetString("git-branch"),
+		GitDir:             viper.GetString("git-dir"),
+		GitURL:             viper.GetString("git-url"),
+		Namespace:          viper.GetString("namespace"),
+		Remote:             viper.GetBool("remote"),
+		PVCSize:            viper.GetString("pvc-size"),
+		Timestamp:          viper.GetBool("build-timestamp"),
+		ServiceAccountName: viper.GetString("service-account"),
 	}
 	// NOTE: .Env should be viper.GetStringSlice, but this returns unparsed
 	// results and appears to be an open issue since 2017:
@@ -502,6 +507,7 @@ func (c deployConfig) Configure(f fn.Function) (fn.Function, error) {
 	f.Build.Git.Revision = c.GitBranch // TODO: should match; perhaps "refSpec"
 	f.Deploy.Namespace = c.Namespace
 	f.Deploy.Remote = c.Remote
+	f.Deploy.ServiceAccountName = c.ServiceAccountName
 
 	// PVCSize
 	// If a specific value is requested, ensure it parses as a resource.Quantity

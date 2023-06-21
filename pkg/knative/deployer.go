@@ -155,7 +155,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 				return fn.DeploymentResult{}, err
 			}
 
-			err = checkResourcesArePresent(ctx, d.Namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs)
+			err = checkResourcesArePresent(ctx, d.Namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName)
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to generate the Knative Service: %v", err)
 				return fn.DeploymentResult{}, err
@@ -252,7 +252,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			return fn.DeploymentResult{}, err
 		}
 
-		err = checkResourcesArePresent(ctx, d.Namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs)
+		err = checkResourcesArePresent(ctx, d.Namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName)
 		if err != nil {
 			err = fmt.Errorf("knative deployer failed to update the Knative Service: %v", err)
 			return fn.DeploymentResult{}, err
@@ -510,7 +510,7 @@ func updateService(f fn.Function, previousService *v1.Service, newEnv []corev1.E
 		cp.EnvFrom = newEnvFrom
 		cp.VolumeMounts = newVolumeMounts
 		service.Spec.ConfigurationSpec.Template.Spec.Volumes = newVolumes
-
+		service.Spec.ConfigurationSpec.Template.Spec.PodSpec.ServiceAccountName = f.Deploy.ServiceAccountName
 		return service, nil
 	}
 }
@@ -815,7 +815,7 @@ func processVolumes(volumes []fn.Volume, referencedSecrets, referencedConfigMaps
 
 // checkResourcesArePresent returns error if Secrets or ConfigMaps
 // referenced in input sets are not deployed on the cluster in the specified namespace
-func checkResourcesArePresent(ctx context.Context, namespace string, referencedSecrets, referencedConfigMaps, referencedPVCs *sets.String) error {
+func checkResourcesArePresent(ctx context.Context, namespace string, referencedSecrets, referencedConfigMaps, referencedPVCs *sets.String, referencedServiceAccount string) error {
 
 	errMsg := ""
 	for s := range *referencedSecrets {
@@ -836,6 +836,14 @@ func checkResourcesArePresent(ctx context.Context, namespace string, referencedS
 		_, err := k8s.GetPersistentVolumeClaim(ctx, pvc, namespace)
 		if err != nil {
 			errMsg += fmt.Sprintf("  referenced PersistentVolumeClaim \"%s\" is not present in namespace \"%s\"\n", pvc, namespace)
+		}
+	}
+
+	// check if referenced ServiceAccount is present in the namespace if it is not default
+	if referencedServiceAccount != "" && referencedServiceAccount != "default" {
+		err := k8s.GetServiceAccount(ctx, referencedServiceAccount, namespace)
+		if err != nil {
+			errMsg += fmt.Sprintf("  referenced ServiceAccount \"%s\" is not present in namespace \"%s\"\n", referencedServiceAccount, namespace)
 		}
 	}
 
