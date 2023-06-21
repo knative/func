@@ -2,6 +2,9 @@ package buildpacks
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -107,6 +110,46 @@ func TestBuild_BuilderImageConfigurable(t *testing.T) {
 		expected := "example.com/user/builder-image"
 		if opts.Builder != expected {
 			t.Fatalf("expected builder image for node to be '%v', got '%v'", expected, opts.Builder)
+		}
+		return nil
+	}
+
+	if err := b.Build(context.Background(), f, nil); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestBuild_BuilderImageExclude ensures that ignored files are not added to the func
+// image
+func TestBuild_BuilderImageExclude(t *testing.T) {
+	var (
+		i = &mockImpl{} // mock underlying implementation
+		b = NewBuilder( // Func Builder logic
+			WithName(builders.Pack), WithImpl(i))
+		f = fn.Function{
+			Runtime: "go",
+		}
+	)
+	funcIgnoreContent := []byte("hello.txt")
+	//create a .funcignore file containing the details of the files to be ignored
+	err := os.WriteFile(filepath.Join(f.Root, ".funcignore"), funcIgnoreContent, 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// clean up after the test
+	defer func() {
+		err = os.Remove(filepath.Join(f.Root, ".funcignore"))
+		if err != nil {
+			t.Fatal(err)
+		}
+	}()
+
+	i.BuildFn = func(ctx context.Context, opts pack.BuildOptions) error {
+		expected := "hello.txt"
+		if opts.ProjectDescriptor.Build.Exclude[0] != expected {
+			t.Fatalf("expected excluded file to be '%v', got '%v'", expected, opts.ProjectDescriptor.Build.Exclude[0])
+			fmt.Println(opts.ProjectDescriptor.Build.Exclude[0])
 		}
 		return nil
 	}

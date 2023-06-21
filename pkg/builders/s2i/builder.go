@@ -153,25 +153,22 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 
 	funcignorePath := filepath.Join(f.Root, ".funcignore")
 	if _, err := os.Stat(funcignorePath); err == nil {
-		funcignore, err := os.Open(filepath.Join(f.Root, ".funcignore"))
-		if err != nil {
-			return fmt.Errorf("error opening funcignore file: %w", err)
+		s2iignorePath := filepath.Join(f.Root, ".s2iignore")
+
+		// If the .s2iignore file exists, remove it
+		if _, err := os.Stat(s2iignorePath); err == nil {
+			err := os.Remove(s2iignorePath)
+			if err != nil {
+				return fmt.Errorf("error removing existing s2iignore file: %w", err)
+			}
 		}
-		defer funcignore.Close()
-
-		s2iignore, err := os.Create(filepath.Join(f.Root, ".s2iignore"))
+		// Create the symbolic link
+		err = os.Symlink(funcignorePath, s2iignorePath)
 		if err != nil {
-			return fmt.Errorf("error creating funcignore file: %w", err)
-
+			return fmt.Errorf("error creating symlink: %w", err)
 		}
-		defer s2iignore.Close()
-		defer os.Remove(s2iignore.Name())
-
-		_, err = io.Copy(s2iignore, funcignore)
-		if err != nil {
-			return fmt.Errorf("error copying funcignore file: %w", err)
-
-		}
+		// Removing the symbolic link at the end of the function
+		defer os.Remove(s2iignorePath)
 	}
 
 	cfg.AsDockerfile = filepath.Join(tmp, "Dockerfile")
