@@ -24,10 +24,13 @@ export TERM="${TERM:-dumb}"
 
 main() {
 
-  local kubernetes_version=v1.24.6
-  local knative_serving_version=v1.8.0
-  local knative_eventing_version=v1.8.0
-  local contour_version=v1.8.0
+  local knative_serving_version=v1.10.1
+  local knative_eventing_version=v1.10.1
+  local contour_version=v1.10.0
+
+  # Kubernetes Version node image per Kind releases (full hash is suggested):
+  # https://github.com/kubernetes-sigs/kind/releases
+  local kind_node_version=v1.27.1@sha256:b7d12ed662b873bd8510879c1846e87c7e676a79fefc93e17b2a52989d3ff42b
 
   # shellcheck disable=SC2155
   local em=$(tput bold)$(tput setaf 2)
@@ -56,7 +59,7 @@ kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
   - role: control-plane
-    image: kindest/node:${kubernetes_version}
+    image: kindest/node:${kind_node_version}
     extraPortMappings:
     - containerPort: 80
       hostPort: 80
@@ -271,37 +274,12 @@ EOF
 
 }
 
-# temporary fix for https://github.com/dapr/cli/issues/1311
-fixup_dapr_dashboard_deployment() {
-  kubectl patch deploy/dapr-dashboard -n dapr-system --patch-file /dev/stdin <<EOF
-{
-  "spec": {
-    "template": {
-      "spec": {
-        "\$setElementOrder/containers": [
-          {
-            "name": "dapr-dashboard"
-          }
-        ],
-        "containers": [
-          {
-            "image": "ghcr.io/dapr/dashboard:0.12.0",
-            "name": "dapr-dashboard"
-          }
-        ]
-      }
-    }
-  }
-}
-EOF
-}
-
 dapr_runtime() {
   echo "${em}⑦ Dapr${me}"
+  echo "Version:\\n$(dapr version)"
 
   local dapr_flags=""
   if [ "${GITHUB_ACTIONS:-false}" = "true" ]; then
-    (sleep 10; fixup_dapr_dashboard_deployment)&
     dapr_flags="--image-registry=ghcr.io/dapr --log-as-json"
   fi
 
