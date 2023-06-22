@@ -117,11 +117,6 @@ func loadFS(fileSys filesystem.Filesystem) ([]FileInfo, error) {
 				return err
 			}
 		case fs.ModeSymlink:
-			if runtime.GOOS == "windows" {
-				// TODO I have no idea why, but symlinks are ever so slightly different
-				// in Windows and fail the test.
-				return nil
-			}
 			t, _ := fileSys.Readlink(path)
 			bs = []byte(t)
 		}
@@ -162,11 +157,6 @@ func loadLocalFiles(root string) ([]FileInfo, error) {
 				return err
 			}
 		case fs.ModeSymlink:
-			if runtime.GOOS == "windows" {
-				// TODO I have no idea why, but symlinks are ever so slightly different
-				// in Windows and fail the test.
-				return nil
-			}
 			t, _ := os.Readlink(path)
 			bs = []byte(t)
 		}
