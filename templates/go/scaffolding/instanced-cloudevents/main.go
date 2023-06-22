@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	ce "github.com/lkingland/func-runtimes/go/cloudevents"
+	ce "github.com/lkingland/func-runtime-go/cloudevents"
 
 	f "f"
 )

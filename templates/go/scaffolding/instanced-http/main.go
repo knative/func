@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/lkingland/func-runtimes/go/http"
+	"github.com/lkingland/func-runtime-go/http"
 
 	f "f"
 )

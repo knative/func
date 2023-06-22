@@ -22,10 +22,10 @@ func TestSignatures(t *testing.T) {
 	}{
 		{true, "", InstancedHTTP, "instanced-http"},
 		{true, "http", InstancedHTTP, "instanced-http"},
-		{true, "cloudevent", InstancedCloudevent, "instanced-cloudevent"},
+		{true, "cloudevent", InstancedCloudevents, "instanced-cloudevents"},
 		{false, "", StaticHTTP, "static-http"},
 		{false, "http", StaticHTTP, "static-http"},
-		{false, "cloudevent", StaticCloudevent, "static-cloudevent"},
+		{false, "cloudevent", StaticCloudevents, "static-cloudevents"},
 		{true, "invalid", UnknownSignature, "unknown"},
 		{false, "invalid", UnknownSignature, "unknown"},
 	}

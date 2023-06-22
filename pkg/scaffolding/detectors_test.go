@@ -50,17 +50,17 @@ package f
 func Handle() { }
 	`},
 		{
-			Name: "Instanced Cloudevent",
-			Sig:  InstancedCloudevent,
+			Name: "Instanced Cloudevents",
+			Sig:  InstancedCloudevents,
 			Err:  nil,
-			Inv:  "cloudevent",
+			Inv:  "cloudevent", // Invoke is the only place Cloudevents is singular
 			Src: `
 package f
 func New() { }
 	`},
 		{
-			Name: "Static Cloudevent",
-			Sig:  StaticCloudevent,
+			Name: "Static Cloudevents",
+			Sig:  StaticCloudevents,
 			Err:  nil,
 			Inv:  "cloudevent",
 			Src: `

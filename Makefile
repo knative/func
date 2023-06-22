@@ -143,6 +143,16 @@ test-typescript: ## Test Typescript templates
 	cd templates/typescript/cloudevents && npm ci && npm test && rm -rf node_modules build
 	cd templates/typescript/http && npm ci && npm test && rm -rf node_modules build
 
+###############
+##@ Scaffolding
+###############
+
+update-runtimes:  ## Update Scaffolding Runtimes
+	cd templates/go/scaffolding/instanced-http && go get -u github.com/lkingland/func-runtime-go/http
+	cd templates/go/scaffolding/static-http && go get -u github.com/lkingland/func-runtime-go/http
+	cd templates/go/scaffolding/instanced-cloudevents && go get -u github.com/lkingland/func-runtime-go/cloudevents
+	cd templates/go/scaffolding/static-cloudevents && go get -u github.com/lkingland/func-runtime-go/cloudevents
+
 
 ###################
 ##@ Extended Testing (cluster required)
