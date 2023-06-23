@@ -158,6 +158,7 @@ func loadLocalFiles(root string) ([]FileInfo, error) {
 			}
 		case fs.ModeSymlink:
 			t, _ := os.Readlink(path)
+			fmt.Fprintln(os.Stderr, "LINK: ", t)
 			bs = []byte(filepath.ToSlash(t))
 		}
 		path, err = filepath.Rel(root, path)
