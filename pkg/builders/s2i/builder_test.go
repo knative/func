@@ -154,11 +154,14 @@ func Test_BuilderImageConfigurable(t *testing.T) {
 // image
 func Test_BuildImageWithFuncIgnore(t *testing.T) {
 
-	funcIgnoreContent := []byte("hello.txt")
+	funcIgnoreContent := []byte(`#testing comments
+hello.txt
+`)
 	f := fn.Function{
 		Runtime: "node",
-		Root:    ".",
 	}
+	tempdir := t.TempDir()
+	f.Root = tempdir
 	//create a .funcignore file containing the details of the files to be ignored
 	err := os.WriteFile(filepath.Join(f.Root, ".funcignore"), funcIgnoreContent, 0644)
 	if err != nil {
@@ -170,17 +173,6 @@ func Test_BuildImageWithFuncIgnore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	defer func() {
-		err = os.Remove(filepath.Join(filepath.Dir(f.Root), ".funcignore"))
-		if err != nil {
-			t.Fatal(err)
-		}
-		err = os.Remove(filepath.Join(filepath.Dir(f.Root), "hello.txt"))
-		if err != nil {
-			t.Fatal(err)
-		}
-	}()
 
 	cli := mockDocker{
 		build: func(ctx context.Context, context io.Reader, options types.ImageBuildOptions) (types.ImageBuildResponse, error) {
