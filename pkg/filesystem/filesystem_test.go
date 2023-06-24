@@ -118,6 +118,7 @@ func loadFS(fileSys filesystem.Filesystem) ([]FileInfo, error) {
 			}
 		case fs.ModeSymlink:
 			t, _ := fileSys.Readlink(path)
+			_, _ = fmt.Fprintf(os.Stderr, "fs link:\t%q\n", t)
 			bs = []byte(t)
 		}
 		files = append(files, FileInfo{
@@ -158,6 +159,8 @@ func loadLocalFiles(root string) ([]FileInfo, error) {
 			}
 		case fs.ModeSymlink:
 			t, _ := os.Readlink(path)
+			_, _ = fmt.Fprintf(os.Stderr, "os link:\t%q\n", t)
+			_, _ = fmt.Fprintf(os.Stderr, "os link f:\t%q\n", filepath.ToSlash(t))
 			bs = []byte(filepath.ToSlash(t))
 		}
 		path, err = filepath.Rel(root, path)
