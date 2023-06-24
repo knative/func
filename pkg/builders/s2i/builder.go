@@ -180,11 +180,11 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 	// Environment variables
 	// Build Envs have local env var references interpolated then added to the
 	// config as an S2I EnvironmentList struct
-	buildEnvs, err := fn.Interpolate(f.Build.BuildEnvs)
+	envs, err := fn.Interpolate(f.Build.BuildEnvs)
 	if err != nil {
 		return err
 	}
-	for k, v := range buildEnvs {
+	for k, v := range envs {
 		cfg.Environment = append(cfg.Environment, api.EnvironmentSpec{Name: k, Value: v})
 	}
 

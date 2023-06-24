@@ -98,12 +98,12 @@ func createPipelineRunTemplate(f fn.Function) error {
 		pipelinesTargetBranch = defaultPipelinesTargetBranch
 	}
 
-	buildEnvs := []string{}
+	envs := []string{}
 	if len(f.Build.BuildEnvs) == 0 {
-		buildEnvs = []string{"="}
+		envs = []string{"="}
 	} else {
 		for i := range f.Build.BuildEnvs {
-			buildEnvs = append(buildEnvs, f.Build.BuildEnvs[i].KeyValuePair())
+			envs = append(envs, f.Build.BuildEnvs[i].KeyValuePair())
 		}
 	}
 
@@ -120,7 +120,7 @@ func createPipelineRunTemplate(f fn.Function) error {
 		FunctionImage: f.Image,
 		Registry:      f.Registry,
 		BuilderImage:  getBuilderImage(f),
-		BuildEnvs:     buildEnvs,
+		BuildEnvs:     envs,
 
 		PipelineName:    getPipelineName(f),
 		PipelineRunName: fmt.Sprintf("%s-run", getPipelineName(f)),

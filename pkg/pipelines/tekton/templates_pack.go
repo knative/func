@@ -37,7 +37,7 @@ spec:
       name: builderImage
       type: string
     - description: Environment variables to set during build time
-      name: buildEnvs
+      name: envs
       type: array
   tasks:
     - name: fetch-sources
@@ -64,7 +64,7 @@ spec:
           value: $(params.builderImage)
         - name: ENV_VARS
           value:
-            - '$(params.buildEnvs[*])'
+            - '$(params.envs[*])'
       runAfter:
         - fetch-sources
       taskRef:
@@ -152,7 +152,7 @@ spec:
       value: {{.Registry}}
     - name: builderImage
       value: {{.BuilderImage}}
-    - name: buildEnvs
+    - name: envs
       value:
         {{range .BuildEnvs -}}
            - {{.}}

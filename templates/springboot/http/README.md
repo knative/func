@@ -38,7 +38,7 @@ func build -v                  # build image
 set the `BP_NATIVE_IMAGE` BuilderEnv variable to true:
 
 ```yaml
-buildEnvs:
+envs:
   - name: BP_NATIVE_IMAGE
     value: "true"
 ```
@@ -46,7 +46,7 @@ buildEnvs:
 **Note**: If you have issues with the [Spring AOT](https://docs.spring.io/spring-framework/docs/current/reference/html/core.html#core.aot) processing in your build, you can turn this off by editing the `func.yaml` file and remove the `-Pnative` profile from the `BP_MAVEN_BUILD_ARGUMENTS` BuilderEnv variable:
 
 ```yaml
-buildEnvs:
+envs:
   - name: BP_MAVEN_BUILD_ARGUMENTS
     value: -Pnative -Dmaven.test.skip=true --no-transfer-progress package
 ```

@@ -14,6 +14,6 @@ healthEndpoints:
 buildpacks:
   - repoBuildpack
 
-buildEnvs:
+envs:
   - name: "TEST_REPO_VARIABLE"
     value: "test-repo"

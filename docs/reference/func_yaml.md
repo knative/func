@@ -44,13 +44,13 @@ git:
   contextDir: subdirectory
 ```
 
-### `buildEnvs`
+### `envs`
 This field allows you to set environment variables available to the builder/buildpack that builds the function. This environment variable is NOT set at runtime, use [envs](#envs) instead
 1. Environment variable can be set directly from a value
 2. Environment variable can be set from a local environment value. Eg. `'{{ env:LOCAL_ENV_VALUE }}'`, for more details see [Local Environment Variables section](#local-environment-variables).
 
 ```yaml
-buildEnvs:
+envs:
 - name: EXAMPLE1                            # (1) env variable directly from a value
   value: value
 - name: EXAMPLE2                            # (2) env variable from a local environment value
@@ -59,7 +59,7 @@ buildEnvs:
 
 For example, the below `func.yaml` snippet modifies the default Golang buildpack to build source code with 1.15 compiler version. Refer to respective buildpack documentation to know more about environment variables that modify behavior of the `func build`.
 ```yaml
-buildEnvs:
+envs:
 - name: BP_GO_VERSION
   value: '1.15'
 ```

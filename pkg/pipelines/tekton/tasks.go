@@ -56,7 +56,7 @@ func taskBuildpacks(runAfter []string) pplnv1beta1.PipelineTask {
 			{Name: "BUILDER_IMAGE", Value: *pplnv1beta1.NewArrayOrString("$(params.builderImage)")},
 			{Name: "ENV_VARS", Value: pplnv1beta1.ParamValue{
 				Type:     pplnv1beta1.ParamTypeArray,
-				ArrayVal: []string{"$(params.buildEnvs[*])"},
+				ArrayVal: []string{"$(params.envs[*])"},
 			}},
 		},
 	}
@@ -70,7 +70,7 @@ func taskS2iBuild(runAfter []string) pplnv1beta1.PipelineTask {
 		{Name: "BUILDER_IMAGE", Value: *pplnv1beta1.NewArrayOrString("$(params.builderImage)")},
 		{Name: "ENV_VARS", Value: pplnv1beta1.ParamValue{
 			Type:     pplnv1beta1.ParamTypeArray,
-			ArrayVal: []string{"$(params.buildEnvs[*])"},
+			ArrayVal: []string{"$(params.envs[*])"},
 		}},
 		{Name: "S2I_IMAGE_SCRIPTS_URL", Value: *pplnv1beta1.NewArrayOrString("$(params.s2iImageScriptsUrl)")},
 	}
