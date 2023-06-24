@@ -161,7 +161,7 @@ func loadLocalFiles(root string) ([]FileInfo, error) {
 			t, _ := os.Readlink(path)
 			fmt.Fprintln(os.Stderr, "LINK local:\t", t)
 			bs = []byte(filepath.ToSlash(t))
-			fmt.Fprintln(os.Stderr, "LINK local fixed\t: ", string(bs))
+			fmt.Fprintln(os.Stderr, "LINK local fixed:\t ", string(bs))
 		}
 		path, err = filepath.Rel(root, path)
 		if err != nil {
