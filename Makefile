@@ -150,7 +150,10 @@ test-typescript: ## Test Typescript templates
 ##@ Scaffolding
 ###############
 
-update-runtimes:  ## Update Scaffolding Runtimes
+# Pulls runtimes then rebuilds the embedded filesystem
+update-runtimes:  pull-runtimes generate/zz_filesystem_generated.go ## Update Scaffolding Runtimes
+
+pull-runtimes:
 	cd templates/go/scaffolding/instanced-http && go get -u github.com/lkingland/func-runtime-go/http
 	cd templates/go/scaffolding/static-http && go get -u github.com/lkingland/func-runtime-go/http
 	cd templates/go/scaffolding/instanced-cloudevents && go get -u github.com/lkingland/func-runtime-go/cloudevents
