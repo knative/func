@@ -49,7 +49,7 @@ func TestUploadToVolume(t *testing.T) {
 	})
 	t.Log("created namespace: ", testingNS)
 
-	testingPVCName := "testing-pvc"
+	testingPVCName := "testing-pvc-" + rand.String(5)
 
 	err = k8s.CreatePersistentVolumeClaim(ctx, testingPVCName, testingNS,
 		nil, nil,
@@ -57,6 +57,13 @@ func TestUploadToVolume(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() {
+		pp := metav1.DeletePropagationBackground
+		delOpts := metav1.DeleteOptions{
+			PropagationPolicy: &pp,
+		}
+		_ = cliSet.CoreV1().PersistentVolumeClaims(testingNS).Delete(ctx, testingPVCName, delOpts)
+	})
 	t.Log("created PVC: " + testingPVCName)
 
 	// First, test error handling by uploading empty content stream.
@@ -76,7 +83,7 @@ func TestUploadToVolume(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	testingPodName := "testing-pod"
+	testingPodName := "testing-pod-" + rand.String(5)
 
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -113,6 +120,9 @@ func TestUploadToVolume(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() {
+		_ = cliSet.CoreV1().Pods(testingNS).Delete(ctx, testingPodName, metav1.DeleteOptions{})
+	})
 	t.Log("created pod: " + testingPodName)
 
 	nameSelector := fields.OneTermEqualSelector("metadata.name", testingPodName).String()
