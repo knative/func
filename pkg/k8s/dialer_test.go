@@ -15,11 +15,11 @@ import (
 	"testing"
 	"time"
 
+	appsV1 "k8s.io/api/apps/v1"
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
-
 	"knative.dev/func/pkg/k8s"
 )
 
@@ -51,36 +51,59 @@ func TestDialInClusterService(t *testing.T) {
 	})
 	t.Log("created namespace: ", testingNS.Name)
 
-	nginxPod := &coreV1.Pod{
+	one := int32(1)
+	labels := map[string]string{"app.kubernetes.io/name": "helloworld"}
+	deployment := &appsV1.Deployment{
 		ObjectMeta: metaV1.ObjectMeta{
-			Name:        "dialer-test-pod",
-			Labels:      map[string]string{"app": "dialer-test-app"},
-			Annotations: nil,
+			Name:   "helloworld-" + rand.String(5),
+			Labels: labels,
 		},
-		Spec: coreV1.PodSpec{
-			Containers: []coreV1.Container{
-				{
-					Name:  "dialer-testing-nginx",
-					Image: "nginx",
+		Spec: appsV1.DeploymentSpec{
+			Replicas: &one,
+			Selector: &metaV1.LabelSelector{
+				MatchLabels: labels,
+			},
+			Template: coreV1.PodTemplateSpec{
+				ObjectMeta: metaV1.ObjectMeta{
+					Labels: labels,
+				},
+				Spec: coreV1.PodSpec{
+					Containers: []coreV1.Container{
+						{
+							Name:  "helloworld",
+							Image: "gcr.io/knative-samples/helloworld-go@sha256:2babda8ec819e24d5a6342095e8f8a25a67b44eb7231ae253ecc2c448632f07e",
+							Ports: []coreV1.ContainerPort{
+								{
+									Name:          "http",
+									ContainerPort: 8080,
+									Protocol:      coreV1.ProtocolTCP,
+								},
+							},
+							Env: []coreV1.EnvVar{
+								{
+									Name:  "PORT",
+									Value: "8080",
+								},
+							},
+						},
+					},
 				},
 			},
-			DNSPolicy:     coreV1.DNSClusterFirst,
-			RestartPolicy: coreV1.RestartPolicyNever,
 		},
 	}
 
-	_, err = cliSet.CoreV1().Pods(testingNS.Name).Create(ctx, nginxPod, creatOpts)
+	_, err = cliSet.AppsV1().Deployments(testingNS.Name).Create(ctx, deployment, creatOpts)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		cliSet.CoreV1().Pods(testingNS.Name).Delete(ctx, nginxPod.Name, deleteOpts)
+		_ = cliSet.AppsV1().Deployments(testingNS.Name).Delete(ctx, deployment.Name, deleteOpts)
 	})
-	t.Log("created pod: ", nginxPod.Name)
+	t.Log("created deployment:", deployment.Name)
 
-	nginxService := &coreV1.Service{
+	svc := &coreV1.Service{
 		ObjectMeta: metaV1.ObjectMeta{
-			Name: "dialer-test-service",
+			Name: "helloworld",
 		},
 		Spec: coreV1.ServiceSpec{
 			Ports: []coreV1.ServicePort{
@@ -88,26 +111,24 @@ func TestDialInClusterService(t *testing.T) {
 					Name:       "http",
 					Protocol:   coreV1.ProtocolTCP,
 					Port:       80,
-					TargetPort: intstr.FromInt(80),
+					TargetPort: intstr.FromInt(8080),
 				},
 			},
-			Selector: map[string]string{
-				"app": "dialer-test-app",
-			},
+			Selector: labels,
 		},
 	}
 
-	nginxService, err = cliSet.CoreV1().Services(testingNS.Name).Create(ctx, nginxService, creatOpts)
+	svc, err = cliSet.CoreV1().Services(testingNS.Name).Create(ctx, svc, creatOpts)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		cliSet.CoreV1().Services(testingNS.Name).Delete(ctx, nginxService.Name, deleteOpts)
+		_ = cliSet.CoreV1().Services(testingNS.Name).Delete(ctx, svc.Name, deleteOpts)
 	})
-	t.Log("created svc: ", nginxService.Name)
+	t.Log("created svc:", svc.Name)
 
 	// wait for service to start
-	time.Sleep(time.Second * 10)
+	time.Sleep(time.Second * 5)
 
 	dialer := k8s.NewLazyInitInClusterDialer()
 	t.Cleanup(func() {
@@ -122,7 +143,7 @@ func TestDialInClusterService(t *testing.T) {
 		Transport: transport,
 	}
 
-	svcInClusterURL := fmt.Sprintf("http://%s.%s.svc", nginxService.Name, nginxService.Namespace)
+	svcInClusterURL := fmt.Sprintf("http://%s.%s.svc", svc.Name, svc.Namespace)
 	resp, err := client.Get(svcInClusterURL)
 	if err != nil {
 		t.Fatal(err)
@@ -130,7 +151,7 @@ func TestDialInClusterService(t *testing.T) {
 	defer resp.Body.Close()
 
 	runeReader := bufio.NewReader(resp.Body)
-	matched, err := regexp.MatchReader("Welcome to nginx!", runeReader)
+	matched, err := regexp.MatchReader("Hello World!", runeReader)
 	if err != nil {
 		t.Fatal(err)
 	}
