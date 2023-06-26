@@ -17,7 +17,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/rand"
-
 	"knative.dev/func/pkg/k8s"
 )
 
@@ -26,28 +25,10 @@ func TestUploadToVolume(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*5)
 	t.Cleanup(cancel)
 
-	cliSet, err := k8s.NewKubernetesClientset()
+	cliSet, testingNS, err := k8s.NewClientAndResolvedNamespace("")
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	testingNS := "volume-uploader-test-ns-" + rand.String(5)
-
-	ns := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: testingNS,
-		},
-		Spec: corev1.NamespaceSpec{},
-	}
-
-	_, err = cliSet.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		cliSet.CoreV1().Namespaces().Delete(ctx, testingNS, metav1.DeleteOptions{})
-	})
-	t.Log("created namespace: ", testingNS)
 
 	testingPVCName := "testing-pvc-" + rand.String(5)
 

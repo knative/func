@@ -43,21 +43,10 @@ func TestDialInClusterService(t *testing.T) {
 	creatOpts := metaV1.CreateOptions{}
 	deleteOpts := metaV1.DeleteOptions{}
 
-	testingNS := &coreV1.Namespace{
-		ObjectMeta: metaV1.ObjectMeta{
-			Name: "dialer-test-ns-" + rand.String(5),
-		},
-		Spec: coreV1.NamespaceSpec{},
-	}
-
-	_, err = cliSet.CoreV1().Namespaces().Create(ctx, testingNS, creatOpts)
+	testingNS, _, err := clientConfig.Namespace()
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() {
-		cliSet.CoreV1().Namespaces().Delete(ctx, testingNS.Name, deleteOpts)
-	})
-	t.Log("created namespace: ", testingNS.Name)
 
 	one := int32(1)
 	labels := map[string]string{"app.kubernetes.io/name": "helloworld"}
@@ -100,12 +89,12 @@ func TestDialInClusterService(t *testing.T) {
 		},
 	}
 
-	_, err = cliSet.AppsV1().Deployments(testingNS.Name).Create(ctx, deployment, creatOpts)
+	_, err = cliSet.AppsV1().Deployments(testingNS).Create(ctx, deployment, creatOpts)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		_ = cliSet.AppsV1().Deployments(testingNS.Name).Delete(ctx, deployment.Name, deleteOpts)
+		_ = cliSet.AppsV1().Deployments(testingNS).Delete(ctx, deployment.Name, deleteOpts)
 	})
 	t.Log("created deployment:", deployment.Name)
 
@@ -126,12 +115,12 @@ func TestDialInClusterService(t *testing.T) {
 		},
 	}
 
-	svc, err = cliSet.CoreV1().Services(testingNS.Name).Create(ctx, svc, creatOpts)
+	svc, err = cliSet.CoreV1().Services(testingNS).Create(ctx, svc, creatOpts)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		_ = cliSet.CoreV1().Services(testingNS.Name).Delete(ctx, svc.Name, deleteOpts)
+		_ = cliSet.CoreV1().Services(testingNS).Delete(ctx, svc.Name, deleteOpts)
 	})
 	t.Log("created svc:", svc.Name)
 
