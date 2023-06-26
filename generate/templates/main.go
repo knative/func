@@ -80,7 +80,7 @@ func main() {
 			if err != nil {
 				return err
 			}
-			_, err = w.Write([]byte(symlinkTarget))
+			_, err = w.Write([]byte(filepath.ToSlash(symlinkTarget)))
 			return err
 		case info.Mode()&fs.ModeType == 0: // regular file
 			f, err := os.Open(path)

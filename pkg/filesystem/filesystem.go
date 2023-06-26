@@ -173,7 +173,11 @@ func (o osFilesystem) Stat(name string) (fs.FileInfo, error) {
 
 func (o osFilesystem) Readlink(link string) (string, error) {
 	link = filepath.FromSlash(link)
-	return os.Readlink(filepath.Join(o.root, link))
+	t, err := os.Readlink(filepath.Join(o.root, link))
+	if err != nil {
+		return "", err
+	}
+	return filepath.ToSlash(t), nil
 }
 
 // subFS exposes subdirectory of underlying FS, this is similar to `chroot`.
