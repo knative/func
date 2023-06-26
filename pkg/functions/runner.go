@@ -38,10 +38,15 @@ func newDefaultRunner(client *Client, out, err io.Writer) *defaultRunner {
 
 func (r *defaultRunner) Run(ctx context.Context, f Function, startTimeout time.Duration) (job *Job, err error) {
 	var (
-		port    = choosePort(defaultRunHost, defaultRunPort, defaultRunDialTimeout)
+		port    string
 		runFn   func() error
 		verbose = r.client.verbose
 	)
+
+	port, err = choosePort(defaultRunHost, defaultRunPort)
+	if err != nil {
+		return nil, fmt.Errorf("cannot choose port: %w", err)
+	}
 
 	// Job contains metadata and references for the running function.
 	job, err = NewJob(f, defaultRunHost, port, nil, nil, verbose)
@@ -218,28 +223,26 @@ func isReady(ctx context.Context, uri string, timeout time.Duration, verbose boo
 // looking for a port at the same time.  If that is important, we can implement
 // a check-lock-check via the filesystem.
 // Also note that TCP is presumed.
-func choosePort(iface, preferredPort string, dialTimeout time.Duration) string {
+func choosePort(iface, preferredPort string) (string, error) {
 	var (
-		port = defaultRunPort
-		c    net.Conn
+		port = preferredPort
 		l    net.Listener
 		err  error
 	)
 
-	// Try preferreed
-	if c, err = net.DialTimeout("tcp", net.JoinHostPort(iface, port), dialTimeout); err == nil {
-		c.Close() // note err==nil
-		return preferredPort
+	// Try preferred
+	if l, err = net.Listen("tcp", net.JoinHostPort(iface, port)); err == nil {
+		l.Close() // note err==nil
+		return port, nil
 	}
 
 	// OS-chosen
 	if l, err = net.Listen("tcp", net.JoinHostPort(iface, "")); err != nil {
-		fmt.Fprintf(os.Stderr, "unable to check for open ports. using fallback %v. %v", defaultRunPort, err)
-		return port
+		return "", fmt.Errorf("cannot bind tcp: %w", err)
 	}
 	l.Close() // begins aforementioned race
 	if _, port, err = net.SplitHostPort(l.Addr().String()); err != nil {
-		fmt.Fprintf(os.Stderr, "error isolating port from '%v'. %v", l.Addr(), err)
+		return "", fmt.Errorf("cannot parse port: %w", err)
 	}
-	return port
+	return port, nil
 }
