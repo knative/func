@@ -51,11 +51,12 @@ func TestDialInClusterService(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	rnd := rand.String(5)
 	one := int32(1)
 	labels := map[string]string{"app.kubernetes.io/name": "helloworld"}
 	deployment := &appsV1.Deployment{
 		ObjectMeta: metaV1.ObjectMeta{
-			Name:   "helloworld-" + rand.String(5),
+			Name:   "helloworld-" + rnd,
 			Labels: labels,
 		},
 		Spec: appsV1.DeploymentSpec{
@@ -103,7 +104,7 @@ func TestDialInClusterService(t *testing.T) {
 
 	svc := &coreV1.Service{
 		ObjectMeta: metaV1.ObjectMeta{
-			Name: "helloworld",
+			Name: "helloworld-" + rnd,
 		},
 		Spec: coreV1.ServiceSpec{
 			Ports: []coreV1.ServicePort{

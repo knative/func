@@ -30,7 +30,8 @@ func TestUploadToVolume(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	testingPVCName := "testing-pvc-" + rand.String(5)
+	rnd := rand.String(5)
+	testingPVCName := "testing-pvc-" + rnd
 
 	err = k8s.CreatePersistentVolumeClaim(ctx, testingPVCName, testingNS,
 		nil, nil,
@@ -64,7 +65,7 @@ func TestUploadToVolume(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	testingPodName := "testing-pod-" + rand.String(5)
+	testingPodName := "testing-pod-" + rnd
 
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
