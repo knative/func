@@ -154,7 +154,8 @@ func Test_BuilderImageConfigurable(t *testing.T) {
 // image
 func Test_BuildImageWithFuncIgnore(t *testing.T) {
 
-	funcIgnoreContent := []byte(`#testing comments
+	funcIgnoreContent := []byte(`#testing Comments
+#testingComments.txt
 hello.txt
 `)
 	f := fn.Function{
@@ -170,6 +171,10 @@ hello.txt
 
 	// create a test file that should be ignored
 	_, err = os.Create(filepath.Join(f.Root, "hello.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = os.Create(filepath.Join(f.Root, "#testingComments.txt"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -190,6 +195,11 @@ hello.txt
 				if filepath.Base(hdr.Name) == "hello.txt" {
 					return types.ImageBuildResponse{}, fmt.Errorf("test failed, found ignonered file %s:", filepath.Base(hdr.Name))
 				}
+				// If we find the undesired file, return an error
+				if filepath.Base(hdr.Name) == "#tesingComments.txt" {
+					return types.ImageBuildResponse{}, fmt.Errorf("test failed, found ignonered file %s:", filepath.Base(hdr.Name))
+				}
+
 			}
 			return types.ImageBuildResponse{
 				Body:   io.NopCloser(strings.NewReader(`{"stream": "OK!"}`)),

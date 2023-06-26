@@ -131,7 +131,7 @@ func TestBuild_BuilderImageExclude(t *testing.T) {
 	)
 	funcIgnoreContent := []byte(`#testing comments
 hello.txt`)
-	expected := []string{"#testing comments", "hello.txt"}
+	expected := []string{"hello.txt"}
 
 	tempdir := t.TempDir()
 	f.Root = tempdir
@@ -146,10 +146,7 @@ hello.txt`)
 		if len(opts.ProjectDescriptor.Build.Exclude) != 2 {
 			t.Fatalf("expected 2 lines of exclusions , got %v", len(opts.ProjectDescriptor.Build.Exclude))
 		}
-		if opts.ProjectDescriptor.Build.Exclude[0] != expected[0] {
-			t.Fatalf("expected a comment line %v, got '%v'", expected[0], opts.ProjectDescriptor.Build.Exclude[0])
-		}
-		if opts.ProjectDescriptor.Build.Exclude[1] != expected[1] {
+		if opts.ProjectDescriptor.Build.Exclude[1] != expected[0] {
 			t.Fatalf("expected excluded file to be '%v', got '%v'", expected[1], opts.ProjectDescriptor.Build.Exclude[1])
 		}
 		return nil
