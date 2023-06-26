@@ -410,7 +410,7 @@ func TestTemplates_RuntimeManifestBuildEnvs(t *testing.T) {
 		t.Fatal(err)
 	}
 	if diff := cmp.Diff(fn.Envs(envs), f.Build.BuildEnvs); diff != "" {
-		t.Fatalf("Unexpected difference between runtime's manifest.yaml buildEnvs and function BuildEnvs (-want, +got): %v", diff)
+		t.Fatalf("Unexpected difference between runtime's manifest.yaml envs and function BuildEnvs (-want, +got): %v", diff)
 	}
 }
 
@@ -457,7 +457,7 @@ func TestTemplates_ManifestBuildEnvs(t *testing.T) {
 		t.Fatal(err)
 	}
 	if diff := cmp.Diff(fn.Envs(envs), f.Build.BuildEnvs); diff != "" {
-		t.Fatalf("Unexpected difference between template's manifest.yaml buildEnvs and function BuildEnvs (-want, +got): %v", diff)
+		t.Fatalf("Unexpected difference between template's manifest.yaml envs and function BuildEnvs (-want, +got): %v", diff)
 	}
 }
 
@@ -504,7 +504,7 @@ func TestTemplates_RepositoryManifestBuildEnvs(t *testing.T) {
 		t.Fatal(err)
 	}
 	if diff := cmp.Diff(fn.Envs(envs), f.Build.BuildEnvs); diff != "" {
-		t.Fatalf("Unexpected difference between repository's manifest.yaml buildEnvs and function BuildEnvs (-want, +got): %v", diff)
+		t.Fatalf("Unexpected difference between repository's manifest.yaml envs and function BuildEnvs (-want, +got): %v", diff)
 	}
 }
 

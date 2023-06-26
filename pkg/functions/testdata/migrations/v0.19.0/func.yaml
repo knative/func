@@ -15,7 +15,7 @@ healthEndpoints:
   liveness: /health/liveness
   readiness: /health/readiness
 volumes: []
-buildEnvs: []
+envs: []
 envs: []
 annotations: {}
 options: {}

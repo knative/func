@@ -338,7 +338,7 @@ type migrateToSpecs_previousFunction struct {
 	Volumes []Volume `yaml:"volumes"`
 
 	// Build Env variables to be set
-	BuildEnvs []Env `yaml:"buildEnvs"`
+	BuildEnvs []Env `yaml:"envs"`
 
 	// Env variables to be set
 	Envs []Env `yaml:"envs"`

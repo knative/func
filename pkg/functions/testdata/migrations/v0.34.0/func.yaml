@@ -14,7 +14,7 @@ git:
   revision: "test revision"
   contextDir: "/test/context/dir"
 volumes: []
-buildEnvs: []
+envs: []
 envs: []
 annotations: {}
 options: {}

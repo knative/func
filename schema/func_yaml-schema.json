@@ -33,7 +33,7 @@
 					"type": "string",
 					"description": "Builder is the name of the subsystem that will complete the underlying\nbuild (pack, s2i, etc)"
 				},
-				"buildEnvs": {
+				"envs": {
 					"items": {
 						"$schema": "http://json-schema.org/draft-04/schema#",
 						"$ref": "#/definitions/Env"

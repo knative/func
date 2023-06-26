@@ -1,4 +1,4 @@
-buildEnvs:
+envs:
   - name: BP_NATIVE_IMAGE
     value: "false"
   - name: BP_MAVEN_BUILT_ARTIFACT

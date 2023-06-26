@@ -1,4 +1,4 @@
-buildEnvs:
+envs:
   - name: BP_NATIVE_IMAGE
     value: "false"
   - name: BP_JVM_VERSION

@@ -9,7 +9,7 @@ build: local
 git: {}
 buildpacks: []
 volumes: []
-buildEnvs: []
+envs: []
 envs: []
 annotations: {}
 options: {}

@@ -1,4 +1,4 @@
-# Used by buildback builders, buildEnvs are passed to the build image
-buildEnvs:
+# Used by buildback builders, envs are passed to the build image
+envs:
 - name: BP_NODE_RUN_SCRIPTS
   value: build

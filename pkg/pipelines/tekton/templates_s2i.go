@@ -37,7 +37,7 @@ spec:
       name: builderImage
       type: string
     - description: Environment variables to set during build time
-      name: buildEnvs
+      name: envs
       type: array
     - description: URL containing the default assemble and run scripts for the builder image
       name: s2iImageScriptsUrl
@@ -68,7 +68,7 @@ spec:
           value: $(params.builderImage)
         - name: ENV_VARS
           value:
-            - '$(params.buildEnvs[*])'
+            - '$(params.envs[*])'
         - name: S2I_IMAGE_SCRIPTS_URL
           value: $(params.s2iImageScriptsUrl)
       runAfter:
@@ -158,7 +158,7 @@ spec:
       value: {{.Registry}}
     - name: builderImage
       value: {{.BuilderImage}}
-    - name: buildEnvs
+    - name: envs
       value:
         {{range .BuildEnvs -}}
            - {{.}}

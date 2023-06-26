@@ -65,7 +65,7 @@ func generatePipeline(f fn.Function, labels map[string]string) *pplnv1beta1.Pipe
 			Description: "Builder image to be used",
 		},
 		{
-			Name:        "buildEnvs",
+			Name:        "envs",
 			Description: "Environment variables to set during build time",
 			Type:        "array",
 		},
@@ -129,7 +129,7 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 		contextDir = "."
 	}
 
-	buildEnvs := &pplnv1beta1.ParamValue{
+	envs := &pplnv1beta1.ParamValue{
 		Type:     pplnv1beta1.ParamTypeArray,
 		ArrayVal: []string{},
 	}
@@ -138,11 +138,11 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 		for _, e := range f.Build.BuildEnvs {
 			envs = append(envs, e.KeyValuePair())
 		}
-		buildEnvs.ArrayVal = envs
+		envs.ArrayVal = envs
 	} else {
 		// need to hack empty BuildEnvs array on Tekton v0.39.0+
 		// until https://github.com/tektoncd/pipeline/issues/5149 is resolved and released
-		buildEnvs.ArrayVal = append(buildEnvs.ArrayVal, "=")
+		envs.ArrayVal = append(envs.ArrayVal, "=")
 	}
 
 	params := []pplnv1beta1.Param{
@@ -171,8 +171,8 @@ func generatePipelineRun(f fn.Function, labels map[string]string) *pplnv1beta1.P
 			Value: *pplnv1beta1.NewArrayOrString(getBuilderImage(f)),
 		},
 		{
-			Name:  "buildEnvs",
-			Value: *buildEnvs,
+			Name:  "envs",
+			Value: *envs,
 		},
 	}
 

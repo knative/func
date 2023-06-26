@@ -13,7 +13,7 @@ buildpacks:
 - paketo-buildpacks/go-dist
 - ghcr.io/boson-project/go-function-buildpack:tip
 volumes: []
-buildEnvs: []
+envs: []
 envs: []
 annotations: {}
 options: {}

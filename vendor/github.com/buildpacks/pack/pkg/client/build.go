@@ -354,16 +354,16 @@ func (c *Client) Build(ctx context.Context, opts BuildOptions) error {
 		return errors.Wrap(err, "validating stack mixins")
 	}
 
-	buildEnvs := map[string]string{}
+	envs := map[string]string{}
 	for _, envVar := range opts.ProjectDescriptor.Build.Env {
-		buildEnvs[envVar.Name] = envVar.Value
+		envs[envVar.Name] = envVar.Value
 	}
 
 	for k, v := range opts.Env {
-		buildEnvs[k] = v
+		envs[k] = v
 	}
 
-	ephemeralBuilder, err := c.createEphemeralBuilder(rawBuilderImage, buildEnvs, order, fetchedBPs)
+	ephemeralBuilder, err := c.createEphemeralBuilder(rawBuilderImage, envs, order, fetchedBPs)
 	if err != nil {
 		return err
 	}

@@ -76,7 +76,7 @@ type funcDefaults struct {
 
 	// BuildEnvs defines environment variables related to the builders,
 	// this can be used to parameterize the builders
-	BuildEnvs []Env `yaml:"buildEnvs,omitempty"`
+	BuildEnvs []Env `yaml:"envs,omitempty"`
 
 	// RunEnvs defines environment variables used in runtime.
 	RunEnvs []Env `yaml:"runEnvs,omitempty"`
