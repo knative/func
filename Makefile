@@ -27,8 +27,11 @@ KVER    ?= $(shell git describe --tags --match 'knative-*')
 LDFLAGS := "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.kver=$(KVER) -X main.hash=$(HASH)"
 
 # All Code prerequisites, including generated files, etc.
-CODE := $(shell find . -name '*.go') generate/zz_filesystem_generated.go go.mod schema/func_yaml-schema.json
-TEMPLATES := $(shell find templates -name '*' -type f)
+CODE := $(shell find . -name '*.go') \
+				generate/zz_filesystem_generated.go \
+				schema/func_yaml-schema.json \
+				templates/certs/ca-certificates.crt \
+				go.mod
 
 .PHONY: test docs
 
@@ -153,6 +156,13 @@ update-runtimes:  ## Update Scaffolding Runtimes
 	cd templates/go/scaffolding/instanced-cloudevents && go get -u github.com/lkingland/func-runtime-go/cloudevents
 	cd templates/go/scaffolding/static-cloudevents && go get -u github.com/lkingland/func-runtime-go/cloudevents
 
+.PHONY: cert
+certs: templates/certs/ca-certificates.crt ## Update root certificates
+
+.PHONY: templates/certs/ca-certificates.crt
+templates/certs/ca-certificates.crt:
+	# Updating root certificates
+	curl --output templates/certs/ca-certificates.crt https://curl.se/ca/cacert.pem
 
 ###################
 ##@ Extended Testing (cluster required)
@@ -219,6 +229,7 @@ $(BIN_WINDOWS): generate/zz_filesystem_generated.go
 ######################
 ##@ Schemas
 ######################
+
 schema-generate: schema/func_yaml-schema.json ## Generate func.yaml schema
 schema/func_yaml-schema.json: pkg/functions/function.go pkg/functions/function_*.go
 	go run schema/generator/main.go

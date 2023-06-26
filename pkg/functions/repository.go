@@ -275,6 +275,10 @@ func repositoryRuntimes(fs filesystem.Filesystem, repoName string, repoConfig re
 		if !fi.IsDir() || strings.HasPrefix(fi.Name(), ".") {
 			continue
 		}
+		// ignore the reserved word "certs"
+		if fi.Name() == "certs" {
+			continue
+		}
 		// Runtime, defaulted to values inherited from the repository
 		runtime := Runtime{
 			Name: fi.Name(),

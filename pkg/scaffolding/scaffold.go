@@ -48,6 +48,14 @@ func Write(out, src, runtime, invoke string, fs filesystem.Filesystem) (err erro
 		return ScaffoldingError{"filesystem copy failed", err}
 	}
 
+	// Copy the certs from the filesystem to the build directory
+	if _, err := fs.Stat("certs"); err != nil {
+		return ScaffoldingError{"certs directory not found in filesystem", err}
+	}
+	if err := filesystem.CopyFromFS("certs", out, fs); err != nil {
+		return ScaffoldingError{"certs copy failed", err}
+	}
+
 	// Replace the 'f' link of the scaffolding (which is now incorrect) to
 	// link to the function's root.
 	rel, err := filepath.Rel(out, src)

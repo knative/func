@@ -51,7 +51,7 @@ func TestWrite_RuntimeErrors(t *testing.T) {
 }
 
 // TestWrite ensures that the Write method writes Scaffolding to the given
-// destination.  This is a failry shallow test.  See the Scaffolding and
+// destination.  This is a fairly shallow test.  See the Scaffolding and
 // Detector tests for more depth.
 func TestWrite(t *testing.T) {
 	// The filesystem containing scaffolding is expected to conform to the
