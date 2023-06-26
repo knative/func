@@ -40,8 +40,11 @@ func TestDialInClusterService(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	pp := metaV1.DeletePropagationForeground
 	creatOpts := metaV1.CreateOptions{}
-	deleteOpts := metaV1.DeleteOptions{}
+	deleteOpts := metaV1.DeleteOptions{
+		PropagationPolicy: &pp,
+	}
 
 	testingNS, _, err := clientConfig.Namespace()
 	if err != nil {
