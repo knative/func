@@ -20,6 +20,7 @@ import (
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/rand"
+	"k8s.io/client-go/kubernetes"
 	"knative.dev/func/pkg/k8s"
 )
 
@@ -27,7 +28,14 @@ func TestDialInClusterService(t *testing.T) {
 	var err error
 	var ctx = context.Background()
 
-	cliSet, err := k8s.NewKubernetesClientset()
+	clientConfig := k8s.GetClientConfig()
+
+	rc, err := clientConfig.ClientConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cliSet, err := kubernetes.NewForConfig(rc)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,7 +138,7 @@ func TestDialInClusterService(t *testing.T) {
 	// wait for service to start
 	time.Sleep(time.Second * 5)
 
-	dialer := k8s.NewLazyInitInClusterDialer()
+	dialer := k8s.NewLazyInitInClusterDialer(clientConfig)
 	t.Cleanup(func() {
 		dialer.Close()
 	})
@@ -181,7 +189,7 @@ func TestDialInClusterService(t *testing.T) {
 func TestDialUnreachable(t *testing.T) {
 	var ctx = context.Background()
 
-	dialer, err := k8s.NewInClusterDialer(ctx)
+	dialer, err := k8s.NewInClusterDialer(ctx, k8s.GetClientConfig())
 	if err != nil {
 		t.Fatal(err)
 	}
