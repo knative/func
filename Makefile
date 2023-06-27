@@ -131,16 +131,16 @@ test-python: ## Test Python templates
 	cd templates/python/http && python3 test_func.py && rm -rf __pycache__
 
 test-quarkus: ## Test Quarkus templates
-	cd templates/quarkus/cloudevents && mvn test && mvn clean
-	cd templates/quarkus/http && mvn test && mvn clean
+	cd templates/quarkus/cloudevents && mvn -q test && mvn clean
+	cd templates/quarkus/http && mvn -q test && mvn clean
 
 test-springboot: ## Test Spring Boot templates
-	cd templates/springboot/cloudevents && mvn test && mvn clean
-	cd templates/springboot/http && mvn test && mvn clean
+	cd templates/springboot/cloudevents && mvn -q test && mvn clean
+	cd templates/springboot/http && mvn -q test && mvn clean
 
 test-rust: ## Test Rust templates
-	cd templates/rust/cloudevents && cargo test && cargo clean
-	cd templates/rust/http && cargo test && cargo clean
+	cd templates/rust/cloudevents && cargo -q test && cargo clean
+	cd templates/rust/http && cargo -q test && cargo clean
 
 test-typescript: ## Test Typescript templates
 	cd templates/typescript/cloudevents && npm ci && npm test && rm -rf node_modules build
