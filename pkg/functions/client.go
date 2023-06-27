@@ -1100,10 +1100,10 @@ func ensureFuncIgnore(root string) error {
 
 	// Write the desired string to the file
 	_, err = file.WriteString(`
-# Function use the .funcignore file to exclude data which should not
-# be tracked in the image build. To instruct the system not to track
-# files in the image build, add the regex pattern or file information to
-# this file.
+# Use the .funcignore file to exclude files which should not be
+# tracked in the image build. To instruct the system not to track
+# files in the image build, add the regex pattern or file information
+# to this file.
 `)
 	if err != nil {
 		return err
