@@ -82,6 +82,7 @@ var migrations = []migration{
 	{"0.25.0", migrateToSpecVersion},
 	{"0.34.0", migrateToSpecsStructure},
 	{"0.35.0", migrateFromInvokeStructure},
+	{"0.36.0", migrateToEnvs},
 	// New Migrations Here.
 }
 
