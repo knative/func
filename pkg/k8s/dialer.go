@@ -25,6 +25,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	restclient "k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
 )
 
@@ -48,9 +49,10 @@ var SocatImage = "quay.io/boson/alpine-socat:1.7.4.3-r1-non-root"
 //	var client = http.Client{
 //	    Transport: transport,
 //	}
-func NewInClusterDialer(ctx context.Context) (*contextDialer, error) {
+func NewInClusterDialer(ctx context.Context, clientConfig clientcmd.ClientConfig) (*contextDialer, error) {
 	c := &contextDialer{
-		detachChan: make(chan struct{}),
+		clientConfig: clientConfig,
+		detachChan:   make(chan struct{}),
 	}
 	err := c.startDialerPod(ctx)
 	if err != nil {
@@ -60,11 +62,12 @@ func NewInClusterDialer(ctx context.Context) (*contextDialer, error) {
 }
 
 type contextDialer struct {
-	coreV1     v1.CoreV1Interface
-	restConf   *restclient.Config
-	podName    string
-	namespace  string
-	detachChan chan struct{}
+	coreV1       v1.CoreV1Interface
+	clientConfig clientcmd.ClientConfig
+	restConf     *restclient.Config
+	podName      string
+	namespace    string
+	detachChan   chan struct{}
 }
 
 func (c *contextDialer) DialContext(ctx context.Context, network string, addr string) (net.Conn, error) {
@@ -188,8 +191,7 @@ func (c *contextDialer) Close() error {
 }
 
 func (c *contextDialer) startDialerPod(ctx context.Context) (err error) {
-	cliConf := GetClientConfig()
-	c.restConf, err = cliConf.ClientConfig()
+	c.restConf, err = c.clientConfig.ClientConfig()
 	if err != nil {
 		return
 	}
@@ -206,7 +208,7 @@ func (c *contextDialer) startDialerPod(ctx context.Context) (err error) {
 	}
 	c.coreV1 = client.CoreV1()
 
-	c.namespace, err = GetNamespace("")
+	c.namespace, _, err = c.clientConfig.Namespace()
 	if err != nil {
 		return
 	}
@@ -487,11 +489,14 @@ func newConn() (*io.PipeReader, *io.PipeWriter, *conn) {
 	return pr1, pw0, rwc
 }
 
-func NewLazyInitInClusterDialer() *lazyInitInClusterDialer {
-	return &lazyInitInClusterDialer{}
+func NewLazyInitInClusterDialer(clientConfig clientcmd.ClientConfig) *lazyInitInClusterDialer {
+	return &lazyInitInClusterDialer{
+		clientConfig: clientConfig,
+	}
 }
 
 type lazyInitInClusterDialer struct {
+	clientConfig  clientcmd.ClientConfig
 	contextDialer *contextDialer
 	initErr       error
 	o             sync.Once
@@ -499,7 +504,7 @@ type lazyInitInClusterDialer struct {
 
 func (l *lazyInitInClusterDialer) DialContext(ctx context.Context, network string, addr string) (net.Conn, error) {
 	l.o.Do(func() {
-		l.contextDialer, l.initErr = NewInClusterDialer(ctx)
+		l.contextDialer, l.initErr = NewInClusterDialer(ctx, l.clientConfig)
 	})
 	if l.initErr != nil {
 		return nil, l.initErr
