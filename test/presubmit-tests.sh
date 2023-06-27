@@ -43,22 +43,25 @@ function pre_unit_tests() {
 }
 
 function install_node() {
-  subheader "Installing Node.js"
+  header "Installing Node.js"
   mkdir -p /tmp/nodejs
   wget https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-${NODE_DISTRO}.tar.xz
-  tar -xJvf node-${NODE_VERSION}-${NODE_DISTRO}.tar.xz -C /tmp/nodejs
+  tar -xf node-${NODE_VERSION}-${NODE_DISTRO}.tar.xz -C /tmp/nodejs
+  rm node-${NODE_VERSION}-${NODE_DISTRO}.tar.xz
   export PATH=/tmp/nodejs/node-${NODE_VERSION}-${NODE_DISTRO}/bin:$PATH
+  subheader "Node.js version"
   node --version
   npm version
   npx --version
 }
 
 function install_rust() {
-  subheader "Installing Rust"
+  header "Installing Rust"
   curl https://sh.rustup.rs -sSf > install.sh
   sh install.sh -y
   rm install.sh
   source "$HOME/.cargo/env"
+  subheader "Rust version"
   cargo version
 }
 
@@ -70,11 +73,14 @@ function unit_tests() {
     results_banner "Unit tests failed"
     exit ${failed}
   fi
+  template_tests
+}
 
-  header "Running built-in template tests"
+function template_tests() {
+  header "Built-in template tests"
   make test-templates || failed=2
   if (( failed )); then
-    results_banner "Template tests failed"
+    results_banner "Built-in template tests failed"
     exit ${failed}
   fi
 }

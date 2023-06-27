@@ -19,12 +19,13 @@ BIN_WINDOWS ?= $(BIN)_windows_amd64.exe
 # hash and the version tag of the current commit (semver) if it exists.
 # If the current commit does not have a semver tag, 'tip' is used, unless there
 # is a TAG environment variable. Precedence is git tag, environment variable, 'tip'
-HASH    := $(shell git rev-parse --short HEAD 2>/dev/null)
-VTAG    := $(shell git tag --points-at HEAD | head -1)
-VTAG    := $(shell [ -z $(VTAG) ] && echo $(ETAG) || echo $(VTAG))
-VERS    ?= $(shell git describe --tags --match 'v*')
-KVER    ?= $(shell git describe --tags --match 'knative-*')
-LDFLAGS := "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.kver=$(KVER) -X main.hash=$(HASH)"
+HASH         := $(shell git rev-parse --short HEAD 2>/dev/null)
+VTAG         := $(shell git tag --points-at HEAD | head -1)
+VTAG         := $(shell [ -z $(VTAG) ] && echo $(ETAG) || echo $(VTAG))
+VERS         ?= $(shell git describe --tags --match 'v*')
+KVER         ?= $(shell git describe --tags --match 'knative-*')
+LDFLAGS      := "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.kver=$(KVER) -X main.hash=$(HASH)"
+MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
 # All Code prerequisites, including generated files, etc.
 CODE := $(shell find . -name '*.go') \
@@ -104,6 +105,14 @@ clean: clean_templates ## Remove generated artifacts such as binaries and schema
 docs:
 	# Generating command reference doc
 	go run docs/generator/main.go
+
+#############
+##@ Prow Integration
+#############
+
+presubmit-unit-tests: ## Run prow presubmit unit tests locally
+	docker run --platform linux/amd64 -it --rm -v$(MAKEFILE_DIR):/src/ us-docker.pkg.dev/knative-tests/images/prow-tests:v20230616-086ddd644 sh -c 'cd /src && runner.sh ./test/presubmit-tests.sh --unit-tests'
+
 
 #############
 ##@ Templates
