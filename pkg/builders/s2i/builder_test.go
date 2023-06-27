@@ -169,12 +169,13 @@ hello.txt
 		t.Fatal(err)
 	}
 
-	// create a test file that should be ignored
-	_, err = os.Create(filepath.Join(f.Root, "hello.txt"))
+	// creating test files which should be ignored
+	err = os.WriteFile(filepath.Join(f.Root, "hello.txt"), []byte(""), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = os.Create(filepath.Join(f.Root, "#testingComments.txt"))
+
+	err = os.WriteFile(filepath.Join(f.Root, "#testingComments.txt"), []byte(""), 0644)
 	if err != nil {
 		t.Fatal(err)
 	}
