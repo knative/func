@@ -150,6 +150,70 @@ func Test_BuilderImageConfigurable(t *testing.T) {
 	}
 }
 
+// Test_BuildImageWithFuncIgnore ensures that ignored files are not added to the func
+// image
+func Test_BuildImageWithFuncIgnore(t *testing.T) {
+
+	funcIgnoreContent := []byte(`#testing Comments
+#testingComments.txt
+hello.txt
+`)
+	f := fn.Function{
+		Runtime: "node",
+	}
+	tempdir := t.TempDir()
+	f.Root = tempdir
+	//create a .funcignore file containing the details of the files to be ignored
+	err := os.WriteFile(filepath.Join(f.Root, ".funcignore"), funcIgnoreContent, 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// creating test files which should be ignored
+	err = os.WriteFile(filepath.Join(f.Root, "hello.txt"), []byte(""), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = os.WriteFile(filepath.Join(f.Root, "#testingComments.txt"), []byte(""), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cli := mockDocker{
+		build: func(ctx context.Context, context io.Reader, options types.ImageBuildOptions) (types.ImageBuildResponse, error) {
+			tr := tar.NewReader(context)
+			for {
+				hdr, err := tr.Next()
+				if err != nil {
+					if errors.Is(err, io.EOF) {
+						break
+					}
+					return types.ImageBuildResponse{}, err
+				}
+
+				// If we find the undesired file, return an error
+				if filepath.Base(hdr.Name) == "hello.txt" {
+					return types.ImageBuildResponse{}, fmt.Errorf("test failed, found ignonered file %s:", filepath.Base(hdr.Name))
+				}
+				// If we find the undesired file, return an error
+				if filepath.Base(hdr.Name) == "#tesingComments.txt" {
+					return types.ImageBuildResponse{}, fmt.Errorf("test failed, found ignonered file %s:", filepath.Base(hdr.Name))
+				}
+
+			}
+			return types.ImageBuildResponse{
+				Body:   io.NopCloser(strings.NewReader(`{"stream": "OK!"}`)),
+				OSType: "linux",
+			}, nil
+		},
+	}
+	b := s2i.NewBuilder(s2i.WithName(builders.S2I), s2i.WithDockerClient(cli))
+	if err := b.Build(context.Background(), f, nil); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // Test_Verbose ensures that the verbosity flag is propagated to the
 // S2I builder implementation.
 func Test_BuilderVerbose(t *testing.T) {

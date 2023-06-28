@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -13,6 +15,7 @@ import (
 	"github.com/Masterminds/semver"
 	pack "github.com/buildpacks/pack/pkg/client"
 	"github.com/buildpacks/pack/pkg/logging"
+	"github.com/buildpacks/pack/pkg/project/types"
 	"github.com/docker/docker/client"
 	"github.com/heroku/color"
 
@@ -132,6 +135,23 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 		buildpacks = defaultBuildpacks[f.Runtime]
 	}
 
+	// Reading .funcignore file
+	var excludes []string
+	filePath := filepath.Join(f.Root, ".funcignore")
+	file, err := os.Open(filePath)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("\nfailed to open file: %s", err)
+		}
+	} else {
+		defer file.Close()
+		buf := new(bytes.Buffer)
+		_, err := io.Copy(buf, file)
+		if err != nil {
+			return fmt.Errorf("\nfailed to read file: %s", err)
+		}
+		excludes = strings.Split(buf.String(), "\n")
+	}
 	// Pack build options
 	opts := pack.BuildOptions{
 		AppPath:        f.Root,
@@ -139,6 +159,11 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 		LifecycleImage: DefaultLifecycleImage,
 		Builder:        image,
 		Buildpacks:     buildpacks,
+		ProjectDescriptor: types.Descriptor{
+			Build: types.Build{
+				Exclude: excludes,
+			},
+		},
 		ContainerConfig: struct {
 			Network string
 			Volumes []string

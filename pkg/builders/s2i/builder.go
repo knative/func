@@ -151,6 +151,26 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 	}
 	defer os.RemoveAll(tmp)
 
+	funcignorePath := filepath.Join(f.Root, ".funcignore")
+	if _, err := os.Stat(funcignorePath); err == nil {
+		s2iignorePath := filepath.Join(f.Root, ".s2iignore")
+
+		// If the .s2iignore file exists, remove it
+		if _, err := os.Stat(s2iignorePath); err == nil {
+			err := os.Remove(s2iignorePath)
+			if err != nil {
+				return fmt.Errorf("error removing existing s2iignore file: %w", err)
+			}
+		}
+		// Create the symbolic link
+		err = os.Symlink(funcignorePath, s2iignorePath)
+		if err != nil {
+			return fmt.Errorf("error creating symlink: %w", err)
+		}
+		// Removing the symbolic link at the end of the function
+		defer os.Remove(s2iignorePath)
+	}
+
 	cfg.AsDockerfile = filepath.Join(tmp, "Dockerfile")
 
 	var client = b.cli
