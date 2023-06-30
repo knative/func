@@ -5,14 +5,17 @@
 # ##
 
 # Binaries
-BIN         := func
-BIN_DARWIN_AMD64   ?= $(BIN)_darwin_amd64
-BIN_DARWIN_ARM64   ?= $(BIN)_darwin_arm64
+BIN               := func
+BIN_DARWIN_AMD64  ?= $(BIN)_darwin_amd64
+BIN_DARWIN_ARM64  ?= $(BIN)_darwin_arm64
 BIN_LINUX_AMD64   ?= $(BIN)_linux_amd64
 BIN_LINUX_ARM64   ?= $(BIN)_linux_arm64
 BIN_LINUX_PPC64LE ?= $(BIN)_linux_ppc64le
 BIN_LINUX_S390X   ?= $(BIN)_linux_s390x
-BIN_WINDOWS ?= $(BIN)_windows_amd64.exe
+BIN_WINDOWS       ?= $(BIN)_windows_amd64.exe
+
+# Utilities
+BIN_GOLANGCI_LINT ?= "$(PWD)/bin/golangci-lint"
 
 # Version
 # A verbose version is built into the binary including a date stamp, git commit
@@ -61,15 +64,19 @@ $(BIN): $(CODE)
 test: $(CODE) ## Run core unit tests
 	go test -race -cover -coverprofile=coverage.txt ./...
 
-check: bin/golangci-lint ## Check code quality (lint)
-	./bin/golangci-lint run --timeout 300s
-	cd test && ../bin/golangci-lint run --timeout 300s
+.PHONY: check
+check: $(BIN_GOLANGCI_LINT) ## Check code quality (lint)
+	$(BIN_GOLANGCI_LINT) run --timeout 300s
+	cd test && $(BIN_GOLANGCI_LINT) run --timeout 300s
 
-bin/golangci-lint:
+$(BIN_GOLANGCI_LINT):
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./bin v1.53.2
 
-.PHONY: clean_templates
+.PHONY: generate/zz_filesystem_generated.go
+generate/zz_filesystem_generated.go: clean_templates
+	go generate pkg/functions/templates_embedded.go
 
+.PHONY: clean_templates
 clean_templates:
 	# Removing temporary template files
 	@rm -f templates/go/cloudevents/go.sum
@@ -90,18 +97,14 @@ clean_templates:
 	@rm -rf templates/springboot/http/target
 	@rm -f templates/**/.DS_Store
 
-.PHONY: generate/zz_filesystem_generated.go
-
-generate/zz_filesystem_generated.go: clean_templates
-	go generate pkg/functions/templates_embedded.go
-
 .PHONY: clean
-
 clean: clean_templates ## Remove generated artifacts such as binaries and schemas
 	rm -f $(BIN) $(BIN_WINDOWS) $(BIN_LINUX) $(BIN_DARWIN_AMD64) $(BIN_DARWIN_ARM64)
+	rm -f $(BIN_GOLANGCI_LINT)
 	rm -f schema/func_yaml-schema.json
 	rm -f coverage.txt
 
+.PHONY: docs
 docs:
 	# Generating command reference doc
 	go run docs/generator/main.go
@@ -119,9 +122,18 @@ presubmit-unit-tests: ## Run prow presubmit unit tests locally
 #############
 
 # TODO: add linters for other templates
-check-templates: check-rust
+.PHONY: check-templates
+check-templates: check-go check-rust ## Run template source code checks
 
-check-rust: ## Lint Rust templates
+.PHONY: check-go
+check-go: ## Check Go templates' source
+	cd templates/go/scaffolding/instanced-http && go vet ./... &&  $(BIN_GOLANGCI_LINT) run
+	cd templates/go/scaffolding/instanced-cloudevents && go vet && $(BIN_GOLANGCI_LINT) run
+	cd templates/go/scaffolding/static-http && go vet ./... && $(BIN_GOLANGCI_LINT) run
+	cd templates/go/scaffolding/static-cloudevents && go vet ./... && $(BIN_GOLANGCI_LINT) run
+
+.PHONY: check-rust
+check-rust: ## Check Rust templates' source
 	cd templates/rust/cloudevents && cargo clippy && cargo clean
 	cd templates/rust/http && cargo clippy && cargo clean
 
