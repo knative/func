@@ -3,7 +3,7 @@ package tekton
 import (
 	"archive/tar"
 	"context"
-	goErrors "errors"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/resource"
 
@@ -24,7 +25,7 @@ import (
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	pipelineClient "github.com/tektoncd/pipeline/pkg/client/clientset/versioned/typed/pipeline/v1beta1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
 
@@ -152,10 +153,10 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 		}
 	}
 
-	_, err = client.Pipelines(pp.namespace).Create(ctx, generatePipeline(f, labels), metav1.CreateOptions{})
+	err = createAndApplyPipelineTemplate(f, pp.namespace, labels)
 	if err != nil {
-		if !errors.IsAlreadyExists(err) {
-			if errors.IsNotFound(err) {
+		if !k8serrors.IsAlreadyExists(err) {
+			if k8serrors.IsNotFound(err) {
 				return fmt.Errorf("problem creating pipeline, missing tekton?: %v", err)
 			}
 			return fmt.Errorf("problem creating pipeline: %v", err)
@@ -184,28 +185,37 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 	if f.Registry == "" {
 		f.Registry = registry
 	}
-	pr, err := client.PipelineRuns(pp.namespace).Create(ctx, generatePipelineRun(f, labels), metav1.CreateOptions{})
+
+	err = createAndApplyPipelineRunTemplate(f, pp.namespace, labels)
 	if err != nil {
 		return fmt.Errorf("problem in creating pipeline run: %v", err)
 	}
 
-	err = pp.watchPipelineRunProgress(ctx, pr)
+	// we need to give k8s time to actually create the Pipeline Run
+	time.Sleep(1 * time.Second)
+
+	newestPipelineRun, err := findNewestPipelineRunWithRetry(ctx, f, pp.namespace, client)
 	if err != nil {
-		if !goErrors.Is(err, context.Canceled) {
+		return fmt.Errorf("problem in listing pipeline runs: %v", err)
+	}
+
+	err = pp.watchPipelineRunProgress(ctx, newestPipelineRun)
+	if err != nil {
+		if !errors.Is(err, context.Canceled) {
 			return fmt.Errorf("problem in watching started pipeline run: %v", err)
 		}
 		// TODO replace deletion with pipeline-run cancellation
-		_ = client.PipelineRuns(pp.namespace).Delete(context.TODO(), pr.Name, metav1.DeleteOptions{})
+		_ = client.PipelineRuns(pp.namespace).Delete(context.TODO(), newestPipelineRun.Name, metav1.DeleteOptions{})
 		return fmt.Errorf("pipeline run cancelled: %w", context.Canceled)
 	}
 
-	pr, err = client.PipelineRuns(pp.namespace).Get(ctx, pr.Name, metav1.GetOptions{})
+	newestPipelineRun, err = client.PipelineRuns(pp.namespace).Get(ctx, newestPipelineRun.Name, metav1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("problem in retriving pipeline run status: %v", err)
 	}
 
-	if pr.Status.GetCondition(apis.ConditionSucceeded).Status == corev1.ConditionFalse {
-		message := getFailedPipelineRunLog(ctx, client, pr, pp.namespace)
+	if newestPipelineRun.Status.GetCondition(apis.ConditionSucceeded).Status == corev1.ConditionFalse {
+		message := getFailedPipelineRunLog(ctx, client, newestPipelineRun, pp.namespace)
 		return fmt.Errorf("function pipeline run has failed with message: \n\n%s", message)
 	}
 
@@ -363,7 +373,7 @@ func (pp *PipelinesProvider) removeClusterResources(ctx context.Context, f fn.Fu
 		go func() {
 			defer wg.Done()
 			err := df(ctx, pp.namespace, listOptions)
-			if err != nil && !errors.IsNotFound(err) && !errors.IsForbidden(err) {
+			if err != nil && !k8serrors.IsNotFound(err) && !k8serrors.IsForbidden(err) {
 				errChan <- err
 			}
 		}()
@@ -389,9 +399,9 @@ func (pp *PipelinesProvider) removeClusterResources(ctx context.Context, f fn.Fu
 // and prints detailed description of the currently executed Tekton Task.
 func (pp *PipelinesProvider) watchPipelineRunProgress(ctx context.Context, pr *v1beta1.PipelineRun) error {
 	taskProgressMsg := map[string]string{
-		taskNameFetchSources: "Fetching git repository with the function source code",
-		taskNameBuild:        "Building function image on the cluster",
-		taskNameDeploy:       "Deploying function to the cluster",
+		"fetch-sources": "Fetching git repository with the function source code",
+		"build":         "Building function image on the cluster",
+		"deploy":        "Deploying function to the cluster",
 	}
 
 	clients, err := NewTektonClients()
@@ -471,6 +481,41 @@ func getFailedPipelineRunLog(ctx context.Context, client *pipelineClient.TektonV
 	return message
 }
 
+// findNewestPipelineRunWithRetry tries to find newest Pipeline Run for the input function
+func findNewestPipelineRunWithRetry(ctx context.Context, f fn.Function, namespace string, client *pipelineClient.TektonV1beta1Client) (*v1beta1.PipelineRun, error) {
+	l := k8slabels.SelectorFromSet(k8slabels.Set(map[string]string{fnlabels.FunctionNameKey: f.Name}))
+	listOptions := metav1.ListOptions{
+		LabelSelector: l.String(),
+	}
+
+	var newestPipelineRun *v1beta1.PipelineRun
+	for attempt := 1; attempt <= 3; attempt++ {
+		prs, err := client.PipelineRuns(namespace).List(ctx, listOptions)
+		if err != nil {
+			return nil, fmt.Errorf("problem in listing pipeline runs: %v", err)
+		}
+
+		for _, pr := range prs.Items {
+			currentPipelineRun := pr
+			if len(prs.Items) < 1 || currentPipelineRun.Status.StartTime == nil {
+				// Restart if StartTime is nil
+				break
+			}
+
+			if newestPipelineRun == nil || currentPipelineRun.Status.StartTime.After(newestPipelineRun.Status.StartTime.Time) {
+				newestPipelineRun = &currentPipelineRun
+			}
+		}
+
+		// If a non-nil newestPipelineRun is found, break the retry loop
+		if newestPipelineRun != nil {
+			return newestPipelineRun, nil
+		}
+	}
+
+	return nil, fmt.Errorf("problem in listing pipeline runs: haven't found any")
+}
+
 // allows simple mocking in unit tests, use with caution regarding concurrency
 var createPersistentVolumeClaim = k8s.CreatePersistentVolumeClaim
 
@@ -483,7 +528,7 @@ func createPipelinePersistentVolumeClaim(ctx context.Context, f fn.Function, nam
 		}
 	}
 	err = createPersistentVolumeClaim(ctx, getPipelinePvcName(f), namespace, labels, f.Deploy.Annotations, corev1.ReadWriteOnce, pvcs)
-	if err != nil && !errors.IsAlreadyExists(err) {
+	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return fmt.Errorf("problem creating persistent volume claim: %v", err)
 	}
 	return nil

@@ -825,6 +825,17 @@ github.com/magiconair/properties
 github.com/mailru/easyjson/buffer
 github.com/mailru/easyjson/jlexer
 github.com/mailru/easyjson/jwriter
+# github.com/manifestival/client-go-client v0.5.0
+## explicit; go 1.15
+github.com/manifestival/client-go-client
+github.com/manifestival/client-go-client/pkg/dynamic
+# github.com/manifestival/manifestival v0.7.2
+## explicit; go 1.15
+github.com/manifestival/manifestival
+github.com/manifestival/manifestival/fake
+github.com/manifestival/manifestival/internal/overlay
+github.com/manifestival/manifestival/internal/patch
+github.com/manifestival/manifestival/internal/sources
 # github.com/mattn/go-colorable v0.1.13
 ## explicit; go 1.15
 github.com/mattn/go-colorable
@@ -1807,6 +1818,9 @@ knative.dev/serving/pkg/reconciler/route/resources/labels
 knative.dev/serving/pkg/reconciler/route/resources/names
 knative.dev/serving/pkg/reconciler/service/resources/names
 knative.dev/serving/pkg/testing/v1
+# sigs.k8s.io/controller-runtime v0.7.2
+## explicit; go 1.15
+sigs.k8s.io/controller-runtime/pkg/client/apiutil
 # sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd
 ## explicit; go 1.18
 sigs.k8s.io/json

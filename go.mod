@@ -55,6 +55,8 @@ require (
 	knative.dev/serving v0.37.1-0.20230603021539-349b2d61b0e8
 )
 
+require sigs.k8s.io/controller-runtime v0.7.2 // indirect
+
 require (
 	cloud.google.com/go/compute v1.19.0 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
@@ -166,6 +168,8 @@ require (
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
+	github.com/manifestival/client-go-client v0.5.0
+	github.com/manifestival/manifestival v0.7.2
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.17 // indirect
 	github.com/mattn/go-runewidth v0.0.14 // indirect

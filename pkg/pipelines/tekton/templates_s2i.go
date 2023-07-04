@@ -1,17 +1,18 @@
 package tekton
 
 const (
+	// s2iPipelineTemplate contains the S2I template used for both Tekton standard and PAC Pipeline
 	s2iPipelineTemplate = `
 apiVersion: tekton.dev/v1beta1
 kind: Pipeline
 metadata:
   labels:
     {{range $key, $value := .Labels -}}
-     {{$key}}: {{$value}}
+     "{{$key}}": "{{$value}}"
     {{end}}
   annotations:
     {{range $key, $value := .Annotations -}}
-     {{$key}}: {{$value}}
+     "{{$key}}": "{{$value}}"
     {{end}}
   name: {{.PipelineName}}
 spec:
@@ -44,18 +45,7 @@ spec:
       type: string
       default: 'image:///usr/libexec/s2i'
   tasks:
-    - name: fetch-sources
-      params:
-        - name: url
-          value: $(params.gitRepository)
-        - name: revision
-          value: $(params.gitRevision)
-      taskRef:
-        kind: Task
-        name: git-clone
-      workspaces:
-        - name: output
-          workspace: source-workspace
+    {{.GitCloneTaskRef}}
     - name: build
       params:
         - name: IMAGE
@@ -71,11 +61,8 @@ spec:
             - '$(params.buildEnvs[*])'
         - name: S2I_IMAGE_SCRIPTS_URL
           value: $(params.s2iImageScriptsUrl)
-      runAfter:
-        - fetch-sources
-      taskRef:
-        kind: Task
-        name: func-s2i
+      {{.RunAfterFetchSources}}
+      {{.FuncS2iTaskRef}}
       workspaces:
         - name: source
           workspace: source-workspace
@@ -91,9 +78,7 @@ spec:
           value: $(params.imageName)@$(tasks.build.results.IMAGE_DIGEST)
       runAfter:
         - build
-      taskRef:
-        kind: Task
-        name: func-deploy
+      {{.FuncDeployTaskRef}}
       workspaces:
         - name: source
           workspace: source-workspace
@@ -106,14 +91,66 @@ spec:
       name: dockerconfig-workspace
       optional: true
 `
-
+	// s2iRunTemplate contains the S2I template used for Tekton standard PipelineRun
 	s2iRunTemplate = `
 apiVersion: tekton.dev/v1beta1
 kind: PipelineRun
 metadata:
   labels:
     {{range $key, $value := .Labels -}}
-     {{$key}}: {{$value}}
+     "{{$key}}": "{{$value}}"
+    {{end}}
+    tekton.dev/pipeline: {{.PipelineName}}
+  annotations:
+    # User defined Annotations
+    {{range $key, $value := .Annotations -}}
+     "{{$key}}": "{{$value}}"
+    {{end}}
+  generateName: {{.PipelineRunName}}
+spec:
+  params:
+    - name: gitRepository
+      value: {{.RepoUrl}}
+    - name: gitRevision
+      value: {{.Revision}}
+    - name: contextDir
+      value: {{.ContextDir}}
+    - name: imageName
+      value: {{.FunctionImage}}
+    - name: registry
+      value: {{.Registry}}
+    - name: builderImage
+      value: {{.BuilderImage}}
+    - name: buildEnvs
+      value:
+        {{range .BuildEnvs -}}
+           - {{.}}
+        {{end}}
+    - name: s2iImageScriptsUrl
+      value: {{.S2iImageScriptsUrl}}
+  pipelineRef:
+   name: {{.PipelineName}}
+  workspaces:
+    - name: source-workspace
+      persistentVolumeClaim:
+        claimName: {{.PvcName}}
+      subPath: source
+    - name: cache-workspace
+      persistentVolumeClaim:
+        claimName: {{.PvcName}}
+      subPath: cache
+    - name: dockerconfig-workspace
+      secret:
+        secretName: {{.SecretName}}
+`
+	// s2iRunTemplatePAC contains the S2I template used for Tekton PAC PipelineRun
+	s2iRunTemplatePAC = `
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  labels:
+    {{range $key, $value := .Labels -}}
+     "{{$key}}": "{{$value}}"
     {{end}}
     tekton.dev/pipeline: {{.PipelineName}}
   annotations:
@@ -141,7 +178,7 @@ metadata:
 
     # User defined Annotations
     {{range $key, $value := .Annotations -}}
-     {{$key}}: {{$value}}
+     "{{$key}}": "{{$value}}"
     {{end}}
   generateName: {{.PipelineRunName}}
 spec:
