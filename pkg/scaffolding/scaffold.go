@@ -86,7 +86,7 @@ func detectSignature(src, runtime, invoke string) (s Signature, err error) {
 	if static && instanced {
 		return s, fmt.Errorf("function may not implement both the static and instanced method signatures simultaneously")
 	} else if !static && !instanced {
-		return s, fmt.Errorf("function does not implement any known method signatures")
+		return s, fmt.Errorf("function does not implement any known method signatures or does not compile")
 	} else if instanced {
 		return toSignature(true, invoke), nil
 	} else {
