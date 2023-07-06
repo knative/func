@@ -30,6 +30,7 @@ Learn more about Knative at: https://knative.dev
 * [func delete](func_delete.md)	 - Undeploy a function
 * [func deploy](func_deploy.md)	 - Deploy a function
 * [func describe](func_describe.md)	 - Describe a function
+* [func environment](func_environment.md)	 - Display function execution environment information
 * [func invoke](func_invoke.md)	 - Invoke a local or remote function
 * [func languages](func_languages.md)	 - List available function language runtimes
 * [func list](func_list.md)	 - List deployed functions
