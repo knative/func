@@ -70,7 +70,7 @@ func newBuildConfig(ctx context.Context, b *Builder, f fn.Function, platforms []
 func (b *Builder) Build(ctx context.Context, f fn.Function, pp []fn.Platform) (err error) {
 	cfg := newBuildConfig(ctx, b, f, pp)
 
-	if err = setup(cfg); err != nil { // create directories and links
+	if err = setup(cfg); err != nil {
 		return
 	}
 	defer teardown(cfg)
@@ -154,17 +154,20 @@ func (c *buildConfig) blobsDir() string {
 	return path(c.f.Root, fn.RunDataDir, "builds", "by-hash", c.hash(), "oci", "blobs", "sha256")
 }
 
-// setup errors if there already exists a build directory.  Otherwise, it
-// creates a build directory based on the function's hash, and creates
-// a link to this build directory for the current pid to denote the build
-// is in progress.
 func setup(cfg *buildConfig) (err error) {
-	// error if already in progress
 	if isActive(cfg, cfg.buildDir()) {
 		return ErrBuildInProgress{cfg.buildDir()}
 	}
 
-	// create build files directory
+	// create build directory, recreating if it already existed
+	if _, err = os.Stat(cfg.buildDir()); !os.IsNotExist(err) {
+		if cfg.verbose {
+			fmt.Printf("rm -rf %v\n", cfg.buildDir())
+		}
+		if err = os.RemoveAll(cfg.buildDir()); err != nil {
+			return
+		}
+	}
 	if cfg.verbose {
 		fmt.Printf("mkdir -p %v\n", cfg.buildDir())
 	}
