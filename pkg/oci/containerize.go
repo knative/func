@@ -28,7 +28,7 @@ var languageLayerBuilders = map[string]languageLayerBuilder{
 }
 
 func layerBuilderNotImplemented(cfg *buildConfig, _ v1.Platform) (d v1.Descriptor, l v1.Layer, err error) {
-	err = fmt.Errorf("%v functions are not yet supported by the host builder.", cfg.f.Runtime)
+	err = fmt.Errorf("%v functions are not yet supported by the host builder", cfg.f.Runtime)
 	return
 }
 
