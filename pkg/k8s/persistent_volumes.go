@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"time"
 
+	batchV1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -101,65 +102,79 @@ func runWithVolumeMounted(ctx context.Context, podImage string, podCommand []str
 		return fmt.Errorf("cannot get namespace: %w", err)
 	}
 
-	podName := "volume-uploader-" + rand.String(5)
+	jobName := "volume-uploader-" + rand.String(5)
 
 	pods := client.CoreV1().Pods(namespace)
+	jobs := client.BatchV1().Jobs(namespace)
 
 	defer func() {
-		_ = pods.Delete(ctx, podName, metav1.DeleteOptions{})
+		pp := metav1.DeletePropagationForeground
+		delOpts := metav1.DeleteOptions{
+			PropagationPolicy: &pp,
+		}
+		_ = jobs.Delete(ctx, jobName, delOpts)
 	}()
 
 	const volumeMntPoint = "/tmp/volume_mnt"
 	const pVol = "p-vol"
-	pod := &corev1.Pod{
+	job := &batchV1.Job{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        podName,
-			Labels:      nil,
-			Annotations: nil,
+			Name: jobName,
 		},
-		Spec: corev1.PodSpec{
-			SecurityContext: defaultPodSecurityContext(),
-			Containers: []corev1.Container{
-				{
-					Name:       podName,
-					Image:      podImage,
-					Stdin:      true,
-					StdinOnce:  true,
-					WorkingDir: volumeMntPoint,
-					Command:    podCommand,
-					VolumeMounts: []corev1.VolumeMount{
+		Spec: batchV1.JobSpec{
+
+			Template: corev1.PodTemplateSpec{
+				Spec: corev1.PodSpec{
+					Containers: []corev1.Container{
 						{
-							Name:      pVol,
-							MountPath: volumeMntPoint,
+							Name:       "container",
+							Image:      podImage,
+							Stdin:      true,
+							StdinOnce:  true,
+							WorkingDir: volumeMntPoint,
+							Command:    podCommand,
+							VolumeMounts: []corev1.VolumeMount{
+								{
+									Name:      pVol,
+									MountPath: volumeMntPoint,
+								},
+							},
 						},
 					},
-					SecurityContext: defaultSecurityContext(client),
+					Volumes: []corev1.Volume{{
+						Name: pVol,
+						VolumeSource: corev1.VolumeSource{
+							PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+								ClaimName: claimName,
+							},
+						},
+					}},
+					DNSPolicy:     corev1.DNSClusterFirst,
+					RestartPolicy: corev1.RestartPolicyNever,
 				},
 			},
-			Volumes: []corev1.Volume{{
-				Name: pVol,
-				VolumeSource: corev1.VolumeSource{
-					PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-						ClaimName: claimName,
-					},
-				},
-			}},
-			DNSPolicy:     corev1.DNSClusterFirst,
-			RestartPolicy: corev1.RestartPolicyNever,
 		},
 	}
 
 	localCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	ready := podReady(localCtx, client.CoreV1(), podName, namespace)
+	podChan, err := podReady(localCtx, client.CoreV1(), jobName, namespace)
+	if err != nil {
+		return fmt.Errorf("cannot setup pod watch: %w", err)
+	}
 
-	_, err = pods.Create(ctx, pod, metav1.CreateOptions{})
+	_, err = jobs.Create(ctx, job, metav1.CreateOptions{})
 	if err != nil {
 		return fmt.Errorf("cannot create pod: %w", err)
 	}
 
+	var podName string
 	select {
-	case err = <-ready:
+	case poe := <-podChan:
+		if poe.err != nil {
+			return poe.err
+		}
+		podName = poe.pod.Name
 	case <-ctx.Done():
 		err = ctx.Err()
 	case <-time.After(time.Minute * 5):
