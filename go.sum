@@ -1601,8 +1601,8 @@ github.com/tchap/go-patricia v2.2.6+incompatible/go.mod h1:bmLyhP68RS6kStMGxByiQ
 github.com/tchap/go-patricia v2.3.0+incompatible/go.mod h1:bmLyhP68RS6kStMGxByiQ23RP/odRBOTVjwp2cDyi6I=
 github.com/tdakkota/asciicheck v0.0.0-20200416190851-d7f85be797a2/go.mod h1:yHp0ai0Z9gUljN3o0xMhYJnH/IcvkdTBOX2fmJ93JEM=
 github.com/tdakkota/asciicheck v0.0.0-20200416200610-e657995f937b/go.mod h1:yHp0ai0Z9gUljN3o0xMhYJnH/IcvkdTBOX2fmJ93JEM=
-github.com/tektoncd/cli v0.31.0 h1:9euLDdCEL0HnLpcllfzpFy384JglSeEya2VQPLczhZU=
-github.com/tektoncd/cli v0.31.0/go.mod h1:MB0HrmwcGnHjPv9d/oviOWAqNmvuhdNP84UJUZfqy7A=
+github.com/tektoncd/cli v0.31.1 h1:rhVfvwWRilHMXO8Y6bLDx9Ow3nRRWCLeEPuk52PJ/uQ=
+github.com/tektoncd/cli v0.31.1/go.mod h1:MB0HrmwcGnHjPv9d/oviOWAqNmvuhdNP84UJUZfqy7A=
 github.com/tektoncd/pipeline v0.47.0 h1:zZxmp6im8/p9RaH32LgeCP6dwH/4hcsfvEQUrwGsUPA=
 github.com/tektoncd/pipeline v0.47.0/go.mod h1:7H1DeNuEJFGoExGwQTlRul2IziCPxkjXRdDdirWmoQs=
 github.com/tektoncd/triggers v0.23.1-0.20230420080448-bf603123cc0f h1:VwUu2eWgu+c34hoocxCL2IE+1zjNeGigyNHdd9ODfL8=
