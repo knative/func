@@ -34,7 +34,7 @@ require (
 	github.com/schollz/progressbar/v3 v3.13.1
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/pflag v1.0.5
-	github.com/tektoncd/cli v0.31.0
+	github.com/tektoncd/cli v0.31.1
 	github.com/tektoncd/pipeline v0.47.0
 	github.com/whilp/git-urls v1.0.0
 	github.com/xanzy/go-gitlab v0.83.0
