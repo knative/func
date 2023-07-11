@@ -1,17 +1,18 @@
 package tekton
 
 const (
+	// packPipelineTemplate contains the Buildpacks template used for both Tekton standard and PAC Pipeline
 	packPipelineTemplate = `
 apiVersion: tekton.dev/v1beta1
 kind: Pipeline
 metadata:
   labels:
     {{range $key, $value := .Labels -}}
-     {{$key}}: {{$value}}
+     "{{$key}}": "{{$value}}"
     {{end}}
   annotations:
     {{range $key, $value := .Annotations -}}
-     {{$key}}: {{$value}}
+     "{{$key}}": "{{$value}}"
     {{end}}
   name: {{.PipelineName}}
 spec:
@@ -40,18 +41,7 @@ spec:
       name: buildEnvs
       type: array
   tasks:
-    - name: fetch-sources
-      params:
-        - name: url
-          value: $(params.gitRepository)
-        - name: revision
-          value: $(params.gitRevision)
-      taskRef:
-        kind: Task
-        name: git-clone
-      workspaces:
-        - name: output
-          workspace: source-workspace
+    {{.GitCloneTaskRef}}
     - name: build
       params:
         - name: APP_IMAGE
@@ -65,11 +55,8 @@ spec:
         - name: ENV_VARS
           value:
             - '$(params.buildEnvs[*])'
-      runAfter:
-        - fetch-sources
-      taskRef:
-        kind: Task
-        name: func-buildpacks
+      {{.RunAfterFetchSources}}
+      {{.FuncBuildpacksTaskRef}}
       workspaces:
         - name: source
           workspace: source-workspace
@@ -85,9 +72,7 @@ spec:
           value: $(params.imageName)@$(tasks.build.results.IMAGE_DIGEST)
       runAfter:
         - build
-      taskRef:
-        kind: Task
-        name: func-deploy
+      {{.FuncDeployTaskRef}}
       workspaces:
         - name: source
           workspace: source-workspace
@@ -101,13 +86,64 @@ spec:
       optional: true
 `
 
+	// packRunTemplate contains the Buildpacks template used for Tekton standard PipelineRun
 	packRunTemplate = `
 apiVersion: tekton.dev/v1beta1
 kind: PipelineRun
 metadata:
   labels:
     {{range $key, $value := .Labels -}}
-     {{$key}}: {{$value}}
+     "{{$key}}": "{{$value}}"
+    {{end}}
+    tekton.dev/pipeline: {{.PipelineName}}
+  annotations:
+    # User defined Annotations
+    {{range $key, $value := .Annotations -}}
+     "{{$key}}": "{{$value}}"
+    {{end}}
+  generateName: {{.PipelineRunName}}
+spec:
+  params:
+    - name: gitRepository
+      value: {{.RepoUrl}}
+    - name: gitRevision
+      value: {{.Revision}}
+    - name: contextDir
+      value: {{.ContextDir}}
+    - name: imageName
+      value: {{.FunctionImage}}
+    - name: registry
+      value: {{.Registry}}
+    - name: builderImage
+      value: {{.BuilderImage}}
+    - name: buildEnvs
+      value:
+        {{range .BuildEnvs -}}
+           - {{.}}
+        {{end}}
+  pipelineRef:
+   name: {{.PipelineName}}
+  workspaces:
+    - name: source-workspace
+      persistentVolumeClaim:
+        claimName: {{.PvcName}}
+      subPath: source
+    - name: cache-workspace
+      persistentVolumeClaim:
+        claimName: {{.PvcName}}
+      subPath: cache
+    - name: dockerconfig-workspace
+      secret:
+        secretName: {{.SecretName}}
+`
+	// packRunTemplatePAC contains the Buildpacks template used for the Tekton PAC PipelineRun
+	packRunTemplatePAC = `
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  labels:
+    {{range $key, $value := .Labels -}}
+     "{{$key}}": "{{$value}}"
     {{end}}
     tekton.dev/pipeline: {{.PipelineName}}
   annotations:
@@ -135,7 +171,7 @@ metadata:
 
     # User defined Annotations
     {{range $key, $value := .Annotations -}}
-     {{$key}}: {{$value}}
+     "{{$key}}": "{{$value}}"
     {{end}}
   generateName: {{.PipelineRunName}}
 spec:

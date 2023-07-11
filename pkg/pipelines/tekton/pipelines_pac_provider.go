@@ -35,7 +35,7 @@ func (pp *PipelinesProvider) ConfigurePAC(ctx context.Context, f fn.Function, me
 	}
 
 	if data.ConfigureLocalResources {
-		if err := pp.createLocalResources(ctx, f); err != nil {
+		if err := pp.createLocalPACResources(ctx, f); err != nil {
 			return err
 		}
 	}
@@ -60,13 +60,13 @@ func (pp *PipelinesProvider) ConfigurePAC(ctx context.Context, f fn.Function, me
 	}
 
 	if data.ConfigureClusterResources {
-		if err := pp.createClusterResources(ctx, f, data); err != nil {
+		if err := pp.createClusterPACResources(ctx, f, data); err != nil {
 			return err
 		}
 	}
 
 	if data.ConfigureRemoteResources {
-		if err := pp.createRemoteResources(ctx, f, data); err != nil {
+		if err := pp.createRemotePACResources(ctx, f, data); err != nil {
 			return err
 		}
 	}
@@ -102,15 +102,24 @@ func (pp *PipelinesProvider) RemovePAC(ctx context.Context, f fn.Function, metad
 	return nil
 }
 
-// createLocalResources creates necessary local resources in .tekton directory:
+// createLocalPACResources creates necessary local resources in .tekton directory:
 // Pipeline and PipelineRun templates
-func (pp *PipelinesProvider) createLocalResources(ctx context.Context, f fn.Function) error {
-	err := createPipelineTemplate(f)
+func (pp *PipelinesProvider) createLocalPACResources(ctx context.Context, f fn.Function) error {
+	// let's specify labels that will be applied to every resource that is created for a Pipeline
+	labels, err := f.LabelsMap()
+	if err != nil {
+		return err
+	}
+	if pp.decorator != nil {
+		labels = pp.decorator.UpdateLabels(f, labels)
+	}
+
+	err = createPipelineTemplatePAC(f, labels)
 	if err != nil {
 		return err
 	}
 
-	err = createPipelineRunTemplate(f)
+	err = createPipelineRunTemplatePAC(f, labels)
 	if err != nil {
 		return err
 	}
@@ -118,10 +127,10 @@ func (pp *PipelinesProvider) createLocalResources(ctx context.Context, f fn.Func
 	return nil
 }
 
-// createClusterResources create resources on cluster, it tries to detect PAC installation,
+// createClusterPACResources create resources on cluster, it tries to detect PAC installation,
 // creates necessary secret with image registry credentials and git credentials (access tokens, webhook secrets),
 // also creates PVC for the function source code
-func (pp *PipelinesProvider) createClusterResources(ctx context.Context, f fn.Function, metadata pipelines.PacMetadata) error {
+func (pp *PipelinesProvider) createClusterPACResources(ctx context.Context, f fn.Function, metadata pipelines.PacMetadata) error {
 	// figure out pac installation namespace
 	installed, _, err := pac.DetectPACInstallation(ctx, "")
 	if !installed {
@@ -183,10 +192,10 @@ func (pp *PipelinesProvider) createClusterResources(ctx context.Context, f fn.Fu
 	return nil
 }
 
-// createRemoteResources creates resources on the remote git repository
+// createRemotePACResources creates resources on the remote git repository
 // set up a webhook with secrets, access tokens and it tries to detec PAC installation
 // together with PAC controller route url - needed for webhook payload trigger
-func (pp *PipelinesProvider) createRemoteResources(ctx context.Context, f fn.Function, metadata pipelines.PacMetadata) error {
+func (pp *PipelinesProvider) createRemotePACResources(ctx context.Context, f fn.Function, metadata pipelines.PacMetadata) error {
 
 	// figure out pac installation namespace
 	installed, installationNS, err := pac.DetectPACInstallation(ctx, "")

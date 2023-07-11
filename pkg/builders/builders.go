@@ -57,6 +57,15 @@ func (e ErrUnknownBuilder) Error() string {
 	return fmt.Sprintf("\"%v\" is not a known builder. Available builders are %s", e.Name, e.Known)
 }
 
+// ErrBuilderNotSupported
+type ErrBuilderNotSupported struct {
+	Builder string
+}
+
+func (e ErrBuilderNotSupported) Error() string {
+	return fmt.Sprintf("builder %q is not supported", e.Builder)
+}
+
 // ErrRuntimeRequired
 type ErrRuntimeRequired struct {
 	Builder string
