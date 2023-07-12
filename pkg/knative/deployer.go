@@ -529,6 +529,8 @@ func updateService(f fn.Function, previousService *v1.Service, newEnv []corev1.E
 //   - value: {{ configMap:configMapName }}      # all key-pair values from ConfigMap are set as ENV
 func processEnvs(envs []fn.Env, referencedSecrets, referencedConfigMaps *sets.String) ([]corev1.EnvVar, []corev1.EnvFromSource, error) {
 
+	envs = withOpenAddress(envs) // prepends ADDRESS=0.0.0.0 if not extant
+
 	envVars := []corev1.EnvVar{{Name: "BUILT", Value: time.Now().Format("20060102T150405")}}
 	envFrom := []corev1.EnvFromSource{}
 
@@ -573,6 +575,45 @@ func processEnvs(envs []fn.Env, referencedSecrets, referencedConfigMaps *sets.St
 	}
 
 	return envVars, envFrom, nil
+}
+
+// withOpenAddresss prepends ADDRESS=0.0.0.0 to the envs if not present.
+//
+// This is combined with the value of PORT at runtime to determine the full
+// Listener address on which a Function will listen tcp requests.
+//
+// Runtimes should, by default, only listen on the loopback interface by
+// default, as they may be `func run` locally, for security purposes.
+// This environment vriable instructs the runtimes to listen on all interfaces
+// by default when actually being deployed, since they will need to actually
+// listen for client requests and for health readiness/liveness probes.
+//
+// Should a user wish to securely open their function to only receive requests
+// on a specific interface, such as a WireGuar-encrypted mesh network which
+// presents as a specific interface, that can be achieved by setting the
+// ADDRESS value as an environment variable on their function to the interface
+// on which to listen.
+//
+// NOTE this env is currently only respected by scaffolded Go functions, because
+// they are the only ones which support being `func run` locally.  Other
+// runtimes will respect the value as they are updated to support scaffolding.
+func withOpenAddress(ee []fn.Env) []fn.Env {
+	// TODO: this is unnecessarily complex due to both key and value of the
+	// envs slice being being pointers.  There is an outstanding tech-debt item
+	// to remove pointers from Function Envs, Volumes, Labels, and Options.
+	var found bool
+	for _, e := range ee {
+		if e.Name != nil && *e.Name == "ADDRESS" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		k := "ADDRESS"
+		v := "0.0.0.0"
+		ee = append(ee, fn.Env{Name: &k, Value: &v})
+	}
+	return ee
 }
 
 func createEnvFromSource(value string, referencedSecrets, referencedConfigMaps *sets.String) (*corev1.EnvFromSource, error) {
