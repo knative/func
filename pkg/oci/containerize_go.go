@@ -5,8 +5,10 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
+	slashpath "path"
 	"path/filepath"
 	"strings"
 
@@ -169,8 +171,9 @@ func newExecTarball(source, target string, verbose bool) error {
 	if err != nil {
 		return err
 	}
+	header.Mode = (header.Mode & ^int64(fs.ModePerm)) | 0755
 
-	header.Name = path("/func", "f")
+	header.Name = slashpath.Join("/func", "f")
 	// TODO: should we set file timestamps to the build start time of cfg.t?
 	// header.ModTime = timestampArgument
 
