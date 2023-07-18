@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	slashpath "path"
 	"path/filepath"
 	"strings"
 
@@ -159,7 +160,7 @@ func newDataTarball(source, target string, ignored []string, verbose bool) error
 			return err
 		}
 
-		header.Name = filepath.Join("/func", relPath)
+		header.Name = slashpath.Join("/func", filepath.ToSlash(relPath))
 		// TODO: should we set file timestamps to the build start time of cfg.t?
 		// header.ModTime = timestampArgument
 

@@ -1,15 +1,22 @@
 package oci
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
+	"strings"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	fn "knative.dev/func/pkg/functions"
 	. "knative.dev/func/pkg/testing"
@@ -172,8 +179,82 @@ func validateOCI(path string, t *testing.T) {
 		t.Fatalf("invalid schema version, expected 2, got %d", imageIndex.SchemaVersion)
 	}
 
-	// Additional validation of the Image Index structure can be added here
-	// extract. for example checking that the path includes the README.md
-	// and one of the binaries in the exact location expected (the data layer
-	// blob and exec layer blob, respectively)
+	if len(imageIndex.Manifests) < 1 {
+		t.Fatal("fewer manifests")
+	}
+
+	digest := strings.TrimPrefix(imageIndex.Manifests[0].Digest, "sha256:")
+	manifestFile := filepath.Join(path, "blobs", "sha256", digest)
+	manifestFileData, err := os.ReadFile(manifestFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mf := struct {
+		Layers []struct {
+			Digest string `json:"digest"`
+		} `json:"layers"`
+	}{}
+	err = json.Unmarshal(manifestFileData, &mf)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	type fileInfo struct {
+		Path       string
+		Type       fs.FileMode
+		Executable bool
+	}
+	var files []fileInfo
+
+	for _, layer := range mf.Layers {
+		func() {
+			digest = strings.TrimPrefix(layer.Digest, "sha256:")
+			f, err := os.Open(filepath.Join(path, "blobs", "sha256", digest))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer f.Close()
+
+			gr, err := gzip.NewReader(f)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer gr.Close()
+
+			tr := tar.NewReader(gr)
+			for {
+				hdr, err := tr.Next()
+				if err != nil {
+					if errors.Is(err, io.EOF) {
+						break
+					}
+					t.Fatal(err)
+				}
+				files = append(files, fileInfo{
+					Path:       hdr.Name,
+					Type:       hdr.FileInfo().Mode() & fs.ModeType,
+					Executable: (hdr.FileInfo().Mode()&0111 == 0111) && !hdr.FileInfo().IsDir(),
+				})
+			}
+		}()
+	}
+	sort.Slice(files, func(i, j int) bool {
+		return files[i].Path < files[j].Path
+	})
+
+	expectedFiles := []fileInfo{
+		{Path: "/etc/pki/tls/certs/ca-certificates.crt"},
+		{Path: "/etc/ssl/certs/ca-certificates.crt"},
+		{Path: "/func", Type: fs.ModeDir},
+		{Path: "/func/README.md"},
+		{Path: "/func/f", Executable: true},
+		{Path: "/func/func.yaml"},
+		{Path: "/func/go.mod"},
+		{Path: "/func/handle.go"},
+		{Path: "/func/handle_test.go"},
+	}
+
+	if diff := cmp.Diff(expectedFiles, files); diff != "" {
+		t.Error("files in oci differ from expectation (-want, +got):", diff)
+	}
 }
