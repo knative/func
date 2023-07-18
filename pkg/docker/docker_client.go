@@ -131,7 +131,7 @@ func NewClient(defaultHost string) (dockerClient client.CommonAPIClient, dockerH
 	dockerClient, err = client.NewClientWithOpts(
 		client.WithAPIVersionNegotiation(),
 		client.WithHTTPClient(httpClient),
-		client.WithHost("http://placeholder/"))
+		client.WithHost("tcp://placeholder/"))
 
 	if closer, ok := contextDialer.(io.Closer); ok {
 		dockerClient = clientWithAdditionalCleanup{
