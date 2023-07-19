@@ -7,7 +7,7 @@ jobs:
     name: Func Embedded FS Test
     strategy:
       matrix:
-        go: [1.20.x]
+        go: [1.20.2]
         os: ["ubuntu-latest"]
     runs-on: ${{ matrix.os }}
     steps:
