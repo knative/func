@@ -6,7 +6,7 @@ go 1.19
 
 require (
 	f v0.0.0-00010101000000-000000000000
-	github.com/lkingland/func-runtime-go v0.3.2
+	github.com/knative-sandbox/func-go v0.18.1
 )
 
 require (
