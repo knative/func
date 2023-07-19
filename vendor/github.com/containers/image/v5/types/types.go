@@ -11,7 +11,7 @@ import (
 	v1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
-// ImageTransport is a top-level namespace for ways to store/load an image.
+// ImageTransport is a top-level namespace for ways to to store/load an image.
 // It should generally correspond to ImageSource/ImageDestination implementations.
 //
 // Note that ImageTransport is based on "ways the users refer to image storage", not necessarily on the underlying physical transport.
@@ -48,7 +48,7 @@ type ImageReference interface {
 	// StringWithinTransport returns a string representation of the reference, which MUST be such that
 	// reference.Transport().ParseReference(reference.StringWithinTransport()) returns an equivalent reference.
 	// NOTE: The returned string is not promised to be equal to the original input to ParseReference;
-	// e.g. default attribute values omitted by the user may be filled in the return value, or vice versa.
+	// e.g. default attribute values omitted by the user may be filled in in the return value, or vice versa.
 	// WARNING: Do not use the return value in the UI to describe an image, it does not contain the Transport().Name() prefix;
 	// instead, see transports.ImageName().
 	StringWithinTransport() string
@@ -125,20 +125,13 @@ type BlobInfo struct {
 	URLs        []string
 	Annotations map[string]string
 	MediaType   string
-
-	// NOTE: The following fields contain desired _edits_ to blob infos.
-	// Conceptually then don't belong in the BlobInfo object at all;
-	// the edits should be provided specifically as parameters to the edit implementation.
-	// We can’t remove the fields without breaking compatibility, but don’t
-	// add any more.
-
 	// CompressionOperation is used in Image.UpdateLayerInfos to instruct
 	// whether the original layer's "compressed or not" should be preserved,
 	// possibly while changing the compression algorithm from one to another,
 	// or if it should be compressed or decompressed.  The field defaults to
 	// preserve the original layer's compressedness.
 	// TODO: To remove together with CryptoOperation in re-design to remove
-	// field out of BlobInfo.
+	// field out out of BlobInfo.
 	CompressionOperation LayerCompression
 	// CompressionAlgorithm is used in Image.UpdateLayerInfos to set the correct
 	// MIME type for compressed layers (e.g., gzip or zstd). This field MUST be
@@ -149,9 +142,8 @@ type BlobInfo struct {
 	// CryptoOperation is used in Image.UpdateLayerInfos to instruct
 	// whether the original layer was encrypted/decrypted
 	// TODO: To remove together with CompressionOperation in re-design to
-	// remove field out of BlobInfo.
+	// remove field out out of BlobInfo.
 	CryptoOperation LayerCrypto
-	// Before adding any fields to this struct, read the NOTE above.
 }
 
 // BICTransportScope encapsulates transport-dependent representation of a “scope” where blobs are or are not present.
@@ -585,9 +577,9 @@ type SystemContext struct {
 	// resolving to Docker Hub in the Docker-compatible REST API of Podman; it should never be used outside this
 	// specific context.
 	PodmanOnlyShortNamesIgnoreRegistriesConfAndForceDockerHub bool
-	// If not "", overrides the default path for the registry authentication file, but only new format files
+	// If not "", overrides the default path for the authentication file, but only new format files
 	AuthFilePath string
-	// if not "", overrides the default path for the registry authentication file, but with the legacy format;
+	// if not "", overrides the default path for the authentication file, but with the legacy format;
 	// the code currently will by default look for legacy format files like .dockercfg in the $HOME dir;
 	// but in addition to the home dir, openshift may mount .dockercfg files (via secret mount)
 	// in locations other than the home dir; openshift components should then set this field in those cases;
