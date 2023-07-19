@@ -4,11 +4,10 @@ import (
 	"fmt"
 
 	"github.com/BurntSushi/toml"
-	"github.com/buildpacks/imgutil"
 
 	"github.com/buildpacks/lifecycle/buildpack"
 	"github.com/buildpacks/lifecycle/log"
-	"github.com/buildpacks/lifecycle/platform"
+	"github.com/buildpacks/lifecycle/platform/files"
 )
 
 var Config = &DefaultConfigHandler{}
@@ -25,11 +24,7 @@ type DirStore interface {
 	LookupExt(id, version string) (*buildpack.ExtDescriptor, error)
 }
 
-//go:generate mockgen -package testmock -destination testmock/image_handler.go github.com/buildpacks/lifecycle ImageHandler
-type ImageHandler interface {
-	InitImage(imageRef string) (imgutil.Image, error)
-	Docker() bool
-}
+//go:generate mockgen -package testmock -destination testmock/image_handler.go github.com/buildpacks/lifecycle/image Handler
 
 //go:generate mockgen -package testmock -destination testmock/registry_handler.go github.com/buildpacks/lifecycle RegistryHandler
 type RegistryHandler interface {
@@ -44,9 +39,10 @@ type BuildpackAPIVerifier interface {
 
 //go:generate mockgen -package testmock -destination testmock/config_handler.go github.com/buildpacks/lifecycle ConfigHandler
 type ConfigHandler interface {
-	ReadAnalyzed(path string) (platform.AnalyzedMetadata, error)
+	ReadAnalyzed(path string, logger log.Logger) (files.Analyzed, error)
 	ReadGroup(path string) (buildpackGroup []buildpack.GroupElement, extensionsGroup []buildpack.GroupElement, err error)
 	ReadOrder(path string) (buildpack.Order, buildpack.Order, error)
+	ReadRun(runPath string, logger log.Logger) (files.Run, error)
 }
 
 type DefaultConfigHandler struct{}
@@ -55,13 +51,8 @@ func NewConfigHandler() *DefaultConfigHandler {
 	return &DefaultConfigHandler{}
 }
 
-func (h *DefaultConfigHandler) ReadAnalyzed(path string) (platform.AnalyzedMetadata, error) {
-	var analyzedMD platform.AnalyzedMetadata
-	_, err := toml.DecodeFile(path, &analyzedMD)
-	if err != nil {
-		return platform.AnalyzedMetadata{}, fmt.Errorf("failed to read analyzed file: %w", err)
-	}
-	return analyzedMD, nil
+func (h *DefaultConfigHandler) ReadAnalyzed(path string, logr log.Logger) (files.Analyzed, error) {
+	return files.ReadAnalyzed(path, logr)
 }
 
 func (h *DefaultConfigHandler) ReadGroup(path string) (buildpackGroup []buildpack.GroupElement, extensionsGroup []buildpack.GroupElement, err error) {
@@ -108,4 +99,8 @@ func ReadOrder(path string) (buildpack.Order, buildpack.Order, error) {
 		order.OrderExtensions[g] = group
 	}
 	return order.Order, order.OrderExtensions, err
+}
+
+func (h *DefaultConfigHandler) ReadRun(runPath string, logger log.Logger) (files.Run, error) {
+	return files.ReadRun(runPath, logger)
 }

@@ -5,7 +5,6 @@ import (
 	"io"
 	"net"
 	"net/http"
-	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -109,7 +108,7 @@ func (c *closeGuardingClient) ContainerCommit(arg0 context.Context, arg1 string,
 	return c.pimpl.ContainerCommit(arg0, arg1, arg2)
 }
 
-func (c *closeGuardingClient) ContainerCreate(arg0 context.Context, arg1 *container.Config, arg2 *container.HostConfig, arg3 *network.NetworkingConfig, arg4 *v1.Platform, arg5 string) (container.ContainerCreateCreatedBody, error) {
+func (c *closeGuardingClient) ContainerCreate(arg0 context.Context, arg1 *container.Config, arg2 *container.HostConfig, arg3 *network.NetworkingConfig, arg4 *v1.Platform, arg5 string) (container.CreateResponse, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
@@ -118,7 +117,7 @@ func (c *closeGuardingClient) ContainerCreate(arg0 context.Context, arg1 *contai
 	return c.pimpl.ContainerCreate(arg0, arg1, arg2, arg3, arg4, arg5)
 }
 
-func (c *closeGuardingClient) ContainerDiff(arg0 context.Context, arg1 string) ([]container.ContainerChangeResponseItem, error) {
+func (c *closeGuardingClient) ContainerDiff(arg0 context.Context, arg1 string) ([]container.FilesystemChange, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
@@ -262,7 +261,7 @@ func (c *closeGuardingClient) ContainerResize(arg0 context.Context, arg1 string,
 	return c.pimpl.ContainerResize(arg0, arg1, arg2)
 }
 
-func (c *closeGuardingClient) ContainerRestart(arg0 context.Context, arg1 string, arg2 *time.Duration) error {
+func (c *closeGuardingClient) ContainerRestart(arg0 context.Context, arg1 string, arg2 container.StopOptions) error {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
@@ -307,7 +306,7 @@ func (c *closeGuardingClient) ContainerStatsOneShot(arg0 context.Context, arg1 s
 	return c.pimpl.ContainerStatsOneShot(arg0, arg1)
 }
 
-func (c *closeGuardingClient) ContainerStop(arg0 context.Context, arg1 string, arg2 *time.Duration) error {
+func (c *closeGuardingClient) ContainerStop(arg0 context.Context, arg1 string, arg2 container.StopOptions) error {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
@@ -343,7 +342,7 @@ func (c *closeGuardingClient) ContainerUpdate(arg0 context.Context, arg1 string,
 	return c.pimpl.ContainerUpdate(arg0, arg1, arg2)
 }
 
-func (c *closeGuardingClient) ContainerWait(arg0 context.Context, arg1 string, arg2 container.WaitCondition) (<-chan container.ContainerWaitOKBody, <-chan error) {
+func (c *closeGuardingClient) ContainerWait(arg0 context.Context, arg1 string, arg2 container.WaitCondition) (<-chan container.WaitResponse, <-chan error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
@@ -406,13 +405,13 @@ func (c *closeGuardingClient) Dialer() func(context.Context) (net.Conn, error) {
 	return c.pimpl.Dialer()
 }
 
-func (c *closeGuardingClient) DiskUsage(arg0 context.Context) (types.DiskUsage, error) {
+func (c *closeGuardingClient) DiskUsage(arg0 context.Context, arg1 types.DiskUsageOptions) (types.DiskUsage, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
 		panic("use of closed client")
 	}
-	return c.pimpl.DiskUsage(arg0)
+	return c.pimpl.DiskUsage(arg0, arg1)
 }
 
 func (c *closeGuardingClient) DistributionInspect(arg0 context.Context, arg1 string, arg2 string) (registry.DistributionInspect, error) {
@@ -802,7 +801,7 @@ func (c *closeGuardingClient) PluginUpgrade(arg0 context.Context, arg1 string, a
 	return c.pimpl.PluginUpgrade(arg0, arg1, arg2)
 }
 
-func (c *closeGuardingClient) RegistryLogin(arg0 context.Context, arg1 types.AuthConfig) (registry.AuthenticateOKBody, error) {
+func (c *closeGuardingClient) RegistryLogin(arg0 context.Context, arg1 registry.AuthConfig) (registry.AuthenticateOKBody, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
@@ -1009,7 +1008,7 @@ func (c *closeGuardingClient) TaskLogs(arg0 context.Context, arg1 string, arg2 t
 	return c.pimpl.TaskLogs(arg0, arg1, arg2)
 }
 
-func (c *closeGuardingClient) VolumeCreate(arg0 context.Context, arg1 volume.VolumeCreateBody) (types.Volume, error) {
+func (c *closeGuardingClient) VolumeCreate(arg0 context.Context, arg1 volume.CreateOptions) (volume.Volume, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
@@ -1018,7 +1017,7 @@ func (c *closeGuardingClient) VolumeCreate(arg0 context.Context, arg1 volume.Vol
 	return c.pimpl.VolumeCreate(arg0, arg1)
 }
 
-func (c *closeGuardingClient) VolumeInspect(arg0 context.Context, arg1 string) (types.Volume, error) {
+func (c *closeGuardingClient) VolumeInspect(arg0 context.Context, arg1 string) (volume.Volume, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
@@ -1027,7 +1026,7 @@ func (c *closeGuardingClient) VolumeInspect(arg0 context.Context, arg1 string) (
 	return c.pimpl.VolumeInspect(arg0, arg1)
 }
 
-func (c *closeGuardingClient) VolumeInspectWithRaw(arg0 context.Context, arg1 string) (types.Volume, []uint8, error) {
+func (c *closeGuardingClient) VolumeInspectWithRaw(arg0 context.Context, arg1 string) (volume.Volume, []uint8, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
@@ -1036,7 +1035,7 @@ func (c *closeGuardingClient) VolumeInspectWithRaw(arg0 context.Context, arg1 st
 	return c.pimpl.VolumeInspectWithRaw(arg0, arg1)
 }
 
-func (c *closeGuardingClient) VolumeList(arg0 context.Context, arg1 filters.Args) (volume.VolumeListOKBody, error) {
+func (c *closeGuardingClient) VolumeList(arg0 context.Context, arg1 volume.ListOptions) (volume.ListResponse, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
@@ -1061,4 +1060,13 @@ func (c *closeGuardingClient) VolumesPrune(arg0 context.Context, arg1 filters.Ar
 		panic("use of closed client")
 	}
 	return c.pimpl.VolumesPrune(arg0, arg1)
+}
+
+func (c *closeGuardingClient) VolumeUpdate(arg0 context.Context, arg1 string, arg2 swarm.Version, arg3 volume.UpdateOptions) error {
+	c.m.RLock()
+	defer c.m.RUnlock()
+	if c.closed {
+		panic("use of closed client")
+	}
+	return c.pimpl.VolumeUpdate(arg0, arg1, arg2, arg3)
 }

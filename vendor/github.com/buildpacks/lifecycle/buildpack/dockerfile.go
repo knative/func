@@ -2,6 +2,7 @@ package buildpack
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -15,14 +16,38 @@ import (
 const (
 	DockerfileKindBuild = "build"
 	DockerfileKindRun   = "run"
+
+	buildDockerfileName = "build.Dockerfile"
+	runDockerfileName   = "run.Dockerfile"
+
+	baseImageArgName = "base_image"
+	baseImageArgRef  = "${base_image}"
+
+	errArgumentsNotPermitted            = "run.Dockerfile should not expect arguments"
+	errBuildMissingRequiredARGCommand   = "build.Dockerfile did not start with required ARG command"
+	errBuildMissingRequiredFROMCommand  = "build.Dockerfile did not contain required FROM ${base_image} command"
+	errMissingRequiredStage             = "%s should have at least one stage"
+	errMultiStageNotPermitted           = "%s is not permitted to use multistage build"
+	errRunOtherInstructionsNotPermitted = "run.Dockerfile is not permitted to have instructions other than FROM"
+	warnCommandNotRecommended           = "%s command %s on line %d is not recommended"
 )
 
-var permittedCommandsBuild = []string{"FROM", "ADD", "ARG", "COPY", "ENV", "LABEL", "RUN", "SHELL", "USER", "WORKDIR"}
+var recommendedCommands = []string{"FROM", "ADD", "ARG", "COPY", "ENV", "LABEL", "RUN", "SHELL", "USER", "WORKDIR"}
 
 type DockerfileInfo struct {
 	ExtensionID string
 	Kind        string
 	Path        string
+	// WithBase if populated indicates that the Dockerfile switches the image base to the provided value.
+	// If WithBase is empty, Extend should be true, otherwise there is nothing for the Dockerfile to do.
+	// However if WithBase is populated, Extend may be true or false.
+	WithBase string
+	// Extend if true indicates that the Dockerfile contains image modifications
+	// and if false indicates that the Dockerfile only switches the image base.
+	// If Extend is false, WithBase should be non-empty, otherwise there is nothing for the Dockerfile to do.
+	// However if Extend is true, WithBase may be empty or non-empty.
+	Extend bool
+	Ignore bool
 }
 
 type ExtendConfig struct {
@@ -56,7 +81,7 @@ func parseDockerfile(dockerfile string) ([]instructions.Stage, []instructions.Ar
 	return stages, metaArgs, nil
 }
 
-func VerifyBuildDockerfile(dockerfile string, logger log.Logger) error {
+func ValidateBuildDockerfile(dockerfile string, logger log.Logger) error {
 	stages, margs, err := parseDockerfile(dockerfile)
 	if err != nil {
 		return err
@@ -64,80 +89,83 @@ func VerifyBuildDockerfile(dockerfile string, logger log.Logger) error {
 
 	// validate only 1 FROM
 	if len(stages) > 1 {
-		return fmt.Errorf("build.Dockerfile is not permitted to use multistage build")
+		return fmt.Errorf(errMultiStageNotPermitted, buildDockerfileName)
 	}
 
 	// validate only permitted Commands
 	for _, stage := range stages {
 		for _, command := range stage.Commands {
 			found := false
-			for _, permittedCommand := range permittedCommandsBuild {
-				if permittedCommand == strings.ToUpper(command.Name()) {
+			for _, rc := range recommendedCommands {
+				if rc == strings.ToUpper(command.Name()) {
 					found = true
 					break
 				}
 			}
 			if !found {
-				logger.Warnf("build.Dockerfile command %s on line %d is not recommended", strings.ToUpper(command.Name()), command.Location()[0].Start.Line)
+				logger.Warnf(warnCommandNotRecommended, buildDockerfileName, strings.ToUpper(command.Name()), command.Location()[0].Start.Line)
 			}
 		}
 	}
 
 	// validate build.Dockerfile preamble
 	if len(margs) != 1 {
-		return fmt.Errorf("build.Dockerfile did not start with required ARG command")
+		return errors.New(errBuildMissingRequiredARGCommand)
 	}
-	if margs[0].Args[0].Key != "base_image" {
-		return fmt.Errorf("build.Dockerfile did not start with required ARG base_image command")
+	if margs[0].Args[0].Key != baseImageArgName {
+		return errors.New(errBuildMissingRequiredARGCommand)
 	}
 	// sanity check to prevent panic
 	if len(stages) == 0 {
-		return fmt.Errorf("build.Dockerfile should have at least one stage")
+		return fmt.Errorf(errMissingRequiredStage, buildDockerfileName)
 	}
-	if stages[0].BaseName != "${base_image}" {
-		return fmt.Errorf("build.Dockerfile did not contain required FROM ${base_image} command")
+
+	if stages[0].BaseName != baseImageArgRef {
+		return errors.New(errBuildMissingRequiredFROMCommand)
 	}
 
 	return nil
 }
 
-func VerifyRunDockerfile(dockerfile string) error {
-	stages, margs, err := parseDockerfile(dockerfile)
+func ValidateRunDockerfile(dInfo *DockerfileInfo, logger log.Logger) error {
+	stages, _, err := parseDockerfile(dInfo.Path)
 	if err != nil {
 		return err
 	}
 
 	// validate only 1 FROM
 	if len(stages) > 1 {
-		return fmt.Errorf("run.Dockerfile is not permitted to use multistage build")
+		return fmt.Errorf(errMultiStageNotPermitted, runDockerfileName)
 	}
-
-	// validate FROM does not expect argument
-	if len(margs) > 0 {
-		return fmt.Errorf("run.Dockerfile should not expect arguments")
-	}
-
-	// sanity check to prevent panic
 	if len(stages) == 0 {
-		return fmt.Errorf("run.Dockerfile should have at least one stage")
+		return fmt.Errorf(errMissingRequiredStage, runDockerfileName)
 	}
 
-	// validate no instructions in stage
-	if len(stages[0].Commands) != 0 {
-		return fmt.Errorf("run.Dockerfile is not permitted to have instructions other than FROM")
+	var (
+		newBase string
+		extend  bool
+	)
+	// validate only permitted Commands
+	for _, stage := range stages {
+		if stage.BaseName != baseImageArgRef {
+			newBase = stage.BaseName
+		}
+		for _, command := range stage.Commands {
+			extend = true
+			found := false
+			for _, rc := range recommendedCommands {
+				if rc == strings.ToUpper(command.Name()) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				logger.Warnf(warnCommandNotRecommended, runDockerfileName, strings.ToUpper(command.Name()), command.Location()[0].Start.Line)
+			}
+		}
 	}
 
+	dInfo.WithBase = newBase
+	dInfo.Extend = extend
 	return nil
-}
-
-func RetrieveFirstFromImageNameFromDockerfile(dockerfile string) (string, error) {
-	ins, _, err := parseDockerfile(dockerfile)
-	if err != nil {
-		return "", err
-	}
-	// sanity check to prevent panic
-	if len(ins) == 0 {
-		return "", fmt.Errorf("expected at least one instruction")
-	}
-	return ins[0].BaseName, nil
 }

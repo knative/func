@@ -164,23 +164,17 @@ func runBuildCmd(d BpDescriptor, bpLayersDir, planPath string, inputs BuildInput
 func (d BpDescriptor) processLayers(layersDir string, logger log.Logger) (map[string]LayerMetadataFile, error) {
 	if api.MustParse(d.WithAPI).LessThan("0.6") {
 		return eachLayer(layersDir, d.WithAPI, func(path, buildpackAPI string) (LayerMetadataFile, error) {
-			layerMetadataFile, msg, err := DecodeLayerMetadataFile(path+".toml", buildpackAPI)
+			layerMetadataFile, err := DecodeLayerMetadataFile(path+".toml", buildpackAPI, logger)
 			if err != nil {
 				return LayerMetadataFile{}, err
-			}
-			if msg != "" {
-				logger.Warn(msg)
 			}
 			return layerMetadataFile, nil
 		})
 	}
 	return eachLayer(layersDir, d.WithAPI, func(path, buildpackAPI string) (LayerMetadataFile, error) {
-		layerMetadataFile, msg, err := DecodeLayerMetadataFile(path+".toml", buildpackAPI)
+		layerMetadataFile, err := DecodeLayerMetadataFile(path+".toml", buildpackAPI, logger)
 		if err != nil {
 			return LayerMetadataFile{}, err
-		}
-		if msg != "" {
-			return LayerMetadataFile{}, errors.New(msg)
 		}
 		if err := renameLayerDirIfNeeded(layerMetadataFile, path); err != nil {
 			return LayerMetadataFile{}, err

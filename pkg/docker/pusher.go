@@ -16,6 +16,7 @@ import (
 	fn "knative.dev/func/pkg/functions"
 
 	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/registry"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/google/go-containerregistry/pkg/authn"
@@ -157,7 +158,7 @@ func (n *Pusher) daemonPush(ctx context.Context, f fn.Function, credentials Cred
 	}
 	defer cli.Close()
 
-	authConfig := types.AuthConfig{
+	authConfig := registry.AuthConfig{
 		Username: credentials.Username,
 		Password: credentials.Password,
 	}
