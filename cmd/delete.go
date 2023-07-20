@@ -7,13 +7,13 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
-	fn "knative.dev/func"
-	"knative.dev/func/config"
+	"knative.dev/func/pkg/config"
+	fn "knative.dev/func/pkg/functions"
 )
 
 func NewDeleteCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "delete [NAME]",
+		Use:   "delete <name>",
 		Short: "Undeploy a function",
 		Long: `Undeploy a function
 
@@ -25,15 +25,19 @@ No local files are deleted.
 `,
 		Example: `
 # Undeploy the function defined in the local directory
-{{.Name}} delete
+{{rootCmdUse}} delete
 
 # Undeploy the function 'myfunc' in namespace 'apps'
-{{.Name}} delete -n apps myfunc
+{{rootCmdUse}} delete -n apps myfunc
 `,
-		SuggestFor:        []string{"remove", "rm", "del"},
+		SuggestFor:        []string{"remove", "del"},
+		Aliases:           []string{"rm"},
 		ValidArgsFunction: CompleteFunctionList,
-		PreRunE:           bindEnv("path", "confirm", "all", "namespace"),
+		PreRunE:           bindEnv("path", "confirm", "all", "namespace", "verbose"),
 		SilenceUsage:      true, // no usage dump on error
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runDelete(cmd, args, newClient)
+		},
 	}
 
 	// Config
@@ -43,16 +47,11 @@ No local files are deleted.
 	}
 
 	// Flags
-	cmd.Flags().BoolP("confirm", "c", cfg.Confirm, "Prompt to confirm all configuration options (Env: $FUNC_CONFIRM)")
-	cmd.Flags().StringP("namespace", "n", cfg.Namespace, "The namespace in which to delete. (Env: $FUNC_NAMESPACE)")
-	cmd.Flags().StringP("all", "a", "true", "Delete all resources created for a function, eg. Pipelines, Secrets, etc. (Env: $FUNC_ALL) (allowed values: \"true\", \"false\")")
-	setPathFlag(cmd)
-
-	cmd.SetHelpFunc(defaultTemplatedHelp)
-
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runDelete(cmd, args, newClient)
-	}
+	cmd.Flags().StringP("namespace", "n", cfg.Namespace, "The namespace in which to delete. ($FUNC_NAMESPACE)")
+	cmd.Flags().StringP("all", "a", "true", "Delete all resources created for a function, eg. Pipelines, Secrets, etc. ($FUNC_ALL) (allowed values: \"true\", \"false\")")
+	addConfirmFlag(cmd, cfg.Confirm)
+	addPathFlag(cmd)
+	addVerboseFlag(cmd, cfg.Verbose)
 
 	return cmd
 }
@@ -69,7 +68,7 @@ func runDelete(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 	if len(args) > 0 && args[0] != "" {
 		pathChanged := cmd.Flags().Changed("path")
 		if pathChanged {
-			return fmt.Errorf("Only one of --path and [NAME] should be provided")
+			return fmt.Errorf("only one of --path and [NAME] should be provided")
 		}
 		function = fn.Function{
 			Name: args[0],
@@ -82,7 +81,7 @@ func runDelete(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 
 		// Check if the function has been initialized
 		if !function.Initialized() {
-			return fmt.Errorf("the given path '%v' does not contain an initialized function", cfg.Path)
+			return fn.NewErrNotInitialized(function.Root)
 		}
 
 		// If not provided, use the function's extant namespace

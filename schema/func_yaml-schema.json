@@ -3,15 +3,11 @@
 	"$ref": "#/definitions/Function",
 	"definitions": {
 		"BuildSpec": {
-			"required": [
-				"buildpacks",
-				"builder",
-				"buildEnvs"
-			],
 			"properties": {
 				"git": {
 					"$schema": "http://json-schema.org/draft-04/schema#",
-					"$ref": "#/definitions/Git"
+					"$ref": "#/definitions/Git",
+					"description": "Git stores information about an optionally associated git repository."
 				},
 				"builderImages": {
 					"patternProperties": {
@@ -19,47 +15,50 @@
 							"type": "string"
 						}
 					},
-					"type": "object"
+					"type": "object",
+					"description": "BuilderImages define optional explicit builder images to use by\nbuilder implementations in leau of the in-code defaults.  They key\nis the builder's short name.  For example:\nbuilderImages:\n  pack: example.com/user/my-pack-node-builder\n  s2i: example.com/user/my-s2i-node-builder"
 				},
 				"buildpacks": {
 					"items": {
 						"type": "string"
 					},
-					"type": "array"
+					"type": "array",
+					"description": "Optional list of buildpacks to use when building the function"
 				},
 				"builder": {
 					"enum": [
 						"pack",
 						"s2i"
 					],
-					"type": "string"
+					"type": "string",
+					"description": "Builder is the name of the subsystem that will complete the underlying\nbuild (pack, s2i, etc)"
 				},
 				"buildEnvs": {
 					"items": {
 						"$schema": "http://json-schema.org/draft-04/schema#",
 						"$ref": "#/definitions/Env"
 					},
-					"type": "array"
+					"type": "array",
+					"description": "Build Env variables to be set"
+				},
+				"pvcSize": {
+					"type": "string",
+					"description": "PVCSize specifies the size of persistent volume claim used to store function\nwhen using deployment and remote build process (only relevant when Remote is true)."
 				}
 			},
 			"additionalProperties": false,
-			"type": "object"
+			"type": "object",
+			"description": "BuildSpec"
 		},
 		"DeploySpec": {
-			"required": [
-				"namespace",
-				"remote",
-				"annotations",
-				"options",
-				"labels",
-				"healthEndpoints"
-			],
 			"properties": {
 				"namespace": {
-					"type": "string"
+					"type": "string",
+					"description": "Namespace into which the function is deployed on supported platforms."
 				},
 				"remote": {
-					"type": "boolean"
+					"type": "boolean",
+					"description": "Remote indicates the deployment (and possibly build) process are to\nbe triggered in a remote environment rather than run locally."
 				},
 				"annotations": {
 					"patternProperties": {
@@ -67,31 +66,51 @@
 							"type": "string"
 						}
 					},
-					"type": "object"
+					"type": "object",
+					"description": "Map containing user-supplied annotations\nExample: { \"division\": \"finance\" }"
 				},
 				"options": {
 					"$schema": "http://json-schema.org/draft-04/schema#",
-					"$ref": "#/definitions/Options"
+					"$ref": "#/definitions/Options",
+					"description": "Options to be set on deployed function (scaling, etc.)"
 				},
 				"labels": {
 					"items": {
 						"$schema": "http://json-schema.org/draft-04/schema#",
 						"$ref": "#/definitions/Label"
 					},
-					"type": "array"
+					"type": "array",
+					"description": "Map of user-supplied labels"
 				},
 				"healthEndpoints": {
 					"$schema": "http://json-schema.org/draft-04/schema#",
-					"$ref": "#/definitions/HealthEndpoints"
+					"$ref": "#/definitions/HealthEndpoints",
+					"description": "Health endpoints specified by the language pack"
+				},
+				"serviceAccountName": {
+					"type": "string",
+					"description": "ServiceAccountName is the name of the service account used for the\nfunction pod. The service account must exist in the namespace to\nsucceed.\nMore info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object",
+			"description": "DeploySpec"
+		},
+		"EmptyDir": {
+			"properties": {
+				"medium": {
+					"type": "string",
+					"description": "medium represents what type of storage medium should back this directory.\nThe default is \"\" which means to use the node's default medium.\nMust be an empty string (default) or Memory.\nMore info: https://kubernetes.io/docs/concepts/storage/volumes#emptydir"
+				},
+				"sizeLimit": {
+					"type": "string",
+					"description": "sizeLimit is the total amount of local storage required for this EmptyDir volume.\nThe size limit is also applicable for memory medium.\nThe maximum usage on memory medium EmptyDir would be the minimum value between\nthe SizeLimit specified here and the sum of memory limits of all containers in a pod.\nThe default is nil which means that the limit is undefined.\nMore info: http://kubernetes.io/docs/user-guide/volumes#emptydir"
 				}
 			},
 			"additionalProperties": false,
 			"type": "object"
 		},
 		"Env": {
-			"required": [
-				"value"
-			],
 			"properties": {
 				"name": {
 					"pattern": "^[-._a-zA-Z][-._a-zA-Z0-9]*$",
@@ -107,58 +126,66 @@
 		"Function": {
 			"required": [
 				"specVersion",
-				"name",
-				"runtime",
-				"registry",
-				"image",
-				"imageDigest",
-				"created",
-				"build",
-				"run",
-				"deploy"
+				"created"
 			],
 			"properties": {
 				"specVersion": {
-					"type": "string"
+					"type": "string",
+					"description": "SpecVersion at which this function is known to be compatible.\nMore specifically, it is the highest migration which has been applied.\nFor details see the .Migrated() and .Migrate() methods."
 				},
 				"name": {
 					"pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
-					"type": "string"
+					"type": "string",
+					"description": "Name of the function."
+				},
+				"domain": {
+					"type": "string",
+					"description": "Domain of the function optionally specifies the domain to use as the\nroute of the function. By default the cluster's default will be used.\nNote that the value defined here must be one which the cluster is\nconfigured to recognize, or this will have no effect and the cluster\ndefault will be applied.  This value shuld therefore ideally be\nvalidated by the client."
 				},
 				"runtime": {
-					"type": "string"
+					"type": "string",
+					"description": "Runtime is the language plus context.  nodejs|go|quarkus|rust etc."
 				},
 				"registry": {
-					"type": "string"
+					"type": "string",
+					"description": "Registry at which to store interstitial containers, in the form\n[registry]/[user]."
 				},
 				"image": {
-					"type": "string"
+					"type": "string",
+					"description": "Image is the full OCI image tag in form:\n  [registry]/[namespace]/[name]:[tag]\nexample:\n  quay.io/alice/my.function.name\nRegistry is optional and is defaulted to DefaultRegistry\nexample:\n  alice/my.function.name\nIf Image is provided, it overrides the default of concatenating\n\"Registry+Name:latest\" to derive the Image."
 				},
 				"imageDigest": {
-					"type": "string"
+					"type": "string",
+					"description": "ImageDigest is the SHA256 hash of the latest image that has been built"
 				},
 				"created": {
 					"type": "string",
+					"description": "Created time is the moment that creation was successfully completed\naccording to the client which is in charge of what constitutes being\nfully \"Created\" (aka initialized)",
 					"format": "date-time"
 				},
 				"invoke": {
-					"type": "string"
+					"type": "string",
+					"description": "Invoke defines hints for use when invoking this function.\nSee Client.Invoke for usage."
 				},
 				"build": {
 					"$schema": "http://json-schema.org/draft-04/schema#",
-					"$ref": "#/definitions/BuildSpec"
+					"$ref": "#/definitions/BuildSpec",
+					"description": "Build defines the build properties for a function"
 				},
 				"run": {
 					"$schema": "http://json-schema.org/draft-04/schema#",
-					"$ref": "#/definitions/RunSpec"
+					"$ref": "#/definitions/RunSpec",
+					"description": "Run defines the runtime properties for a function"
 				},
 				"deploy": {
 					"$schema": "http://json-schema.org/draft-04/schema#",
-					"$ref": "#/definitions/DeploySpec"
+					"$ref": "#/definitions/DeploySpec",
+					"description": "Deploy defines the deployment properties for a function"
 				}
 			},
 			"additionalProperties": false,
-			"type": "object"
+			"type": "object",
+			"description": "Function"
 		},
 		"Git": {
 			"properties": {
@@ -185,7 +212,8 @@
 				}
 			},
 			"additionalProperties": false,
-			"type": "object"
+			"type": "object",
+			"description": "HealthEndpoints specify the liveness and readiness endpoints for a Runtime"
 		},
 		"Label": {
 			"required": [
@@ -194,7 +222,8 @@
 			"properties": {
 				"key": {
 					"pattern": "^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\\/)?([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]$",
-					"type": "string"
+					"type": "string",
+					"description": "Key consist of optional prefix part (ended by '/') and name part\nPrefix part validation pattern: [a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*\nName part validation pattern: ([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]"
 				},
 				"value": {
 					"pattern": "^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$",
@@ -213,6 +242,20 @@
 				"resources": {
 					"$schema": "http://json-schema.org/draft-04/schema#",
 					"$ref": "#/definitions/ResourcesOptions"
+				}
+			},
+			"additionalProperties": false,
+			"type": "object"
+		},
+		"PersistentVolumeClaim": {
+			"properties": {
+				"claimName": {
+					"type": "string",
+					"description": "claimName is the name of a PersistentVolumeClaim in the same namespace as the pod using this volume.\nMore info: https://kubernetes.io/docs/concepts/storage/persistent-volumes#persistentvolumeclaims"
+				},
+				"readOnly": {
+					"type": "boolean",
+					"description": "readOnly Will force the ReadOnly setting in VolumeMounts.\nDefault false."
 				}
 			},
 			"additionalProperties": false,
@@ -265,27 +308,30 @@
 			"type": "object"
 		},
 		"RunSpec": {
-			"required": [
-				"volumes",
-				"envs"
-			],
 			"properties": {
 				"volumes": {
 					"items": {
 						"$schema": "http://json-schema.org/draft-04/schema#",
 						"$ref": "#/definitions/Volume"
 					},
-					"type": "array"
+					"type": "array",
+					"description": "List of volumes to be mounted to the function"
 				},
 				"envs": {
 					"items": {
 						"$ref": "#/definitions/Env"
 					},
-					"type": "array"
+					"type": "array",
+					"description": "Env variables to be set"
+				},
+				"startTimeout": {
+					"type": "integer",
+					"description": "StartTimeout specifies that this function should have a custom timeout\nwhen starting. This setting is currently respected by the host runner,\nwith containerized docker runner and deployed Knative service integration\nin development."
 				}
 			},
 			"additionalProperties": false,
-			"type": "object"
+			"type": "object",
+			"description": "RunSpec"
 		},
 		"ScaleOptions": {
 			"properties": {
@@ -318,15 +364,20 @@
 			"type": "object"
 		},
 		"Volume": {
-			"required": [
-				"path"
-			],
 			"properties": {
 				"secret": {
 					"type": "string"
 				},
 				"configMap": {
 					"type": "string"
+				},
+				"presistentVolumeClaim": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/PersistentVolumeClaim"
+				},
+				"emptyDir": {
+					"$schema": "http://json-schema.org/draft-04/schema#",
+					"$ref": "#/definitions/EmptyDir"
 				},
 				"path": {
 					"type": "string"
@@ -346,6 +397,18 @@
 						"configMap"
 					],
 					"title": "configmap"
+				},
+				{
+					"required": [
+						"presistentVolumeClaim"
+					],
+					"title": "presistentVolumeClaim"
+				},
+				{
+					"required": [
+						"emptyDir"
+					],
+					"title": "emptyDir"
 				}
 			]
 		}

@@ -5,16 +5,17 @@ import (
 	"net/http"
 	"os"
 
-	fn "knative.dev/func"
-	"knative.dev/func/buildpacks"
-	"knative.dev/func/config"
-	"knative.dev/func/docker"
-	"knative.dev/func/docker/creds"
-	fnhttp "knative.dev/func/http"
-	"knative.dev/func/knative"
-	"knative.dev/func/openshift"
-	"knative.dev/func/pipelines/tekton"
-	"knative.dev/func/progress"
+	"knative.dev/func/cmd/prompt"
+	"knative.dev/func/pkg/builders/buildpacks"
+	"knative.dev/func/pkg/config"
+	"knative.dev/func/pkg/docker"
+	"knative.dev/func/pkg/docker/creds"
+	fn "knative.dev/func/pkg/functions"
+	fnhttp "knative.dev/func/pkg/http"
+	"knative.dev/func/pkg/knative"
+	"knative.dev/func/pkg/openshift"
+	"knative.dev/func/pkg/pipelines/tekton"
+	"knative.dev/func/pkg/progress"
 )
 
 // ClientConfig settings for use with NewClient
@@ -58,10 +59,6 @@ func NewTestClient(options ...fn.Option) ClientFactory {
 // 'Namespace' is optional.  If not provided (see DefaultNamespace commentary),
 // the currently configured is used.
 // 'Verbose' indicates the system should write out a higher amount of logging.
-// Example:
-//
-//	client, done := NewClient("",false)
-//	defer done()
 func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 	var (
 		p  = progress.New(cfg.Verbose)               // updates the CLI
@@ -78,7 +75,6 @@ func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 			fn.WithRemover(knative.NewRemover(cfg.Namespace, cfg.Verbose)),
 			fn.WithDescriber(knative.NewDescriber(cfg.Namespace, cfg.Verbose)),
 			fn.WithLister(knative.NewLister(cfg.Namespace, cfg.Verbose)),
-			fn.WithRunner(docker.NewRunner(cfg.Verbose, os.Stdout, os.Stderr)),
 			fn.WithDeployer(d),
 			fn.WithPipelinesProvider(pp),
 			fn.WithPusher(docker.NewPusher(
@@ -115,8 +111,8 @@ func newTransport(insecureSkipVerify bool) fnhttp.RoundTripCloser {
 // of features or configuration nuances of cluster variants.
 func newCredentialsProvider(configPath string, t http.RoundTripper) docker.CredentialsProvider {
 	options := []creds.Opt{
-		creds.WithPromptForCredentials(newPromptForCredentials(os.Stdin, os.Stdout, os.Stderr)),
-		creds.WithPromptForCredentialStore(newPromptForCredentialStore()),
+		creds.WithPromptForCredentials(prompt.NewPromptForCredentials(os.Stdin, os.Stdout, os.Stderr)),
+		creds.WithPromptForCredentialStore(prompt.NewPromptForCredentialStore()),
 		creds.WithTransport(t),
 		creds.WithAdditionalCredentialLoaders(openshift.GetDockerCredentialLoaders()...),
 	}

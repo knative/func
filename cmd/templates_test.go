@@ -4,6 +4,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	"gotest.tools/v3/assert"
 )
 
@@ -25,7 +26,9 @@ go           http
 node         cloudevents
 node         http
 python       cloudevents
+python       flask
 python       http
+python       wsgi
 quarkus      cloudevents
 quarkus      http
 rust         cloudevents
@@ -34,9 +37,9 @@ springboot   cloudevents
 springboot   http
 typescript   cloudevents
 typescript   http`
-	output := buf()
-	if output != expected {
-		t.Fatalf("expected:\n'%v'\n\ngot:\n'%v'\n", expected, output)
+
+	if d := cmp.Diff(expected, buf()); d != "" {
+		t.Error("output missmatch (-want, +got):", d)
 	}
 }
 
@@ -63,7 +66,9 @@ func TestTemplates_JSON(t *testing.T) {
   ],
   "python": [
     "cloudevents",
-    "http"
+    "flask",
+    "http",
+    "wsgi"
   ],
   "quarkus": [
     "cloudevents",
@@ -83,18 +88,8 @@ func TestTemplates_JSON(t *testing.T) {
   ]
 }`
 
-	output := buf()
-	for i, c := range expected {
-		if len(output) <= i {
-			t.Fatalf("output missing character(s) '%v', '%s' and later\n", i, string(c))
-		}
-		if rune(output[i]) != c {
-			t.Fatalf("Character at index %v expected '%s', got '%s'\n", i, string(c), string(output[i]))
-		}
-	}
-
-	if output != expected {
-		t.Fatalf("expected:\n%v\ngot:\n%v\n", expected, output)
+	if d := cmp.Diff(expected, buf()); d != "" {
+		t.Error("output missmatch (-want, +got):", d)
 	}
 }
 

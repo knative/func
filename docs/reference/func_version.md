@@ -1,6 +1,6 @@
 ## func version
 
-Show the version
+Function client version information
 
 ### Synopsis
 
@@ -18,7 +18,8 @@ DESCRIPTION
 	o Print the functions version
 	  $ func version
 
-	o Print the functions version along with date and associated git commit hash.
+	o Print the functions version along with source git commit hash and other
+	  metadata.
 	  $ func version -v
 
 
@@ -30,16 +31,11 @@ func version
 ### Options
 
 ```
-  -h, --help   help for version
-```
-
-### Options inherited from parent commands
-
-```
+  -h, --help      help for version
   -v, --verbose   Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO
 
-* [func](func.md)	 - Serverless functions
+* [func](func.md)	 - func manages Knative Functions
 

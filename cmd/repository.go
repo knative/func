@@ -9,8 +9,8 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
-	fn "knative.dev/func"
-	"knative.dev/func/config"
+	"knative.dev/func/pkg/config"
+	fn "knative.dev/func/pkg/functions"
 )
 
 // command constructors
@@ -23,14 +23,14 @@ func NewRepositoryCmd(newClient ClientFactory) *cobra.Command {
 		Aliases: []string{"repo", "repositories"},
 		Long: `
 NAME
-	{{.Name}} - Manage set of installed repositories.
+	{{rootCmdUse}} - Manage set of installed repositories.
 
 SYNOPSIS
-	{{.Name}} repo [-c|--confirm] [-v|--verbose]
-	{{.Name}} repo list [-r|--repositories] [-c|--confirm] [-v|--verbose]
-	{{.Name}} repo add <name> <url>[-r|--repositories] [-c|--confirm] [-v|--verbose]
-	{{.Name}} repo rename <old> <new> [-r|--repositories] [-c|--confirm] [-v|--verbose]
-	{{.Name}} repo remove <name> [-r|--repositories] [-c|--confirm] [-v|--verbose]
+	{{rootCmdUse}} repo [-c|--confirm] [-v|--verbose]
+	{{rootCmdUse}} repo list [-r|--repositories] [-c|--confirm] [-v|--verbose]
+	{{rootCmdUse}} repo add <name> <url>[-r|--repositories] [-c|--confirm] [-v|--verbose]
+	{{rootCmdUse}} repo rename <old> <new> [-r|--repositories] [-c|--confirm] [-v|--verbose]
+	{{rootCmdUse}} repo remove <name> [-r|--repositories] [-c|--confirm] [-v|--verbose]
 
 DESCRIPTION
 	Manage template repositories installed on disk at either the default location
@@ -49,7 +49,7 @@ DESCRIPTION
 	specifying a repository name prefix.
 	For example, to create a new Go function using the 'http' template from the
 	default repository.
-		$ {{.Name}} create -l go -t http
+		$ {{rootCmdUse}} create -l go -t http
 
 	The Repository Flag:
 	Installing repositories locally is optional.  To use a template from a remote
@@ -57,7 +57,7 @@ DESCRIPTION
 	This leaves the local disk untouched.  For example, To create a function using
 	the Boson Project Hello-World template without installing the template
 	repository locally, use the --repository (-r) flag on create:
-		$ {{.Name}} create -l go \
+		$ {{rootCmdUse}} create -l go \
 			--template hello-world \
 			--repository https://github.com/boson-project/templates
 
@@ -71,19 +71,19 @@ COMMANDS
 
 	With no arguments, this help text is shown.  To manage repositories with
 	an interactive prompt, use the use the --confirm (-c) flag.
-	  $ {{.Name}} repository -c
+	  $ {{rootCmdUse}} repository -c
 
 	add
 	  Add a new repository to the installed set.
-	    $ {{.Name}} repository add <name> <URL>
+	    $ {{rootCmdUse}} repository add <name> <URL>
 
 	  For Example, to add the Boson Project repository:
-	    $ {{.Name}} repository add boson https://github.com/boson-project/templates
+	    $ {{rootCmdUse}} repository add boson https://github.com/boson-project/templates
 
 	  Once added, a function can be created with templates from the new repository
 	  by prefixing the template name with the repository.  For example, to create
 	  a new function using the Go Hello World template:
-	    $ {{.Name}} create -l go -t boson/hello-world
+	    $ {{rootCmdUse}} create -l go -t boson/hello-world
 
 	list
 	  List all available repositories, including the installed default
@@ -93,7 +93,7 @@ COMMANDS
 	rename
 	  Rename a previously installed repository from <old> to <new>. Only installed
 	  repositories can be renamed.
-	    $ {{.Name}} repository rename <name> <new name>
+	    $ {{rootCmdUse}} repository rename <name> <new name>
 
 	remove
 	  Remove a repository by name.  Removes the repository from local storage
@@ -101,60 +101,63 @@ COMMANDS
 	  deletion, but in regular mode this is done immediately, so please use
 	  caution, especially when using an altered repositories location
 	  (via the FUNC_REPOSITORIES_PATH environment variable).
-	    $ {{.Name}} repository remove <name>
+	    $ {{rootCmdUse}} repository remove <name>
 
 EXAMPLES
 	o Run in confirmation mode (interactive prompts) using the --confirm flag
-	  $ {{.Name}} repository -c
+	  $ {{rootCmdUse}} repository -c
 
 	o Add a repository and create a new function using a template from it:
-	  $ {{.Name}} repository add boson https://github.com/boson-project/templates
-	  $ {{.Name}} repository list
+	  $ {{rootCmdUse}} repository add functastic https://github.com/knative-sandbox/func-tastic
+	  $ {{rootCmdUse}} repository list
 	  default
-	  boson
-	  $ {{.Name}} create -l go -t boson/hello-world
+	  functastic
+	  $ {{rootCmdUse}} create -l go -t functastic/hello-world
+	  ...
+
+		o Add a repository specifying the branch to use (metacontroller):
+	  $ {{rootCmdUse}} repository add metacontroller https://github.com/knative-sandbox/func-tastic#metacontroler
+	  $ {{rootCmdUse}} repository list
+	  default
+	  metacontroller
+	  $ {{rootCmdUse}} create -l node -t metacontroller/metacontroller
 	  ...
 
 	o List all repositories including the URL from which remotes were installed
-	  $ {{.Name}} repository list -v
+	  $ {{rootCmdUse}} repository list -v
 	  default
-	  boson	https://github.com/boson-project/templates
+	  metacontroller	https://github.com/knative-sandbox/func-tastic#metacontroller
 
 	o Rename an installed repository
-	  $ {{.Name}} repository list
+	  $ {{rootCmdUse}} repository list
 	  default
 	  boson
-	  $ {{.Name}} repository rename boson boson-examples
-	  $ {{.Name}} repository list
+	  $ {{rootCmdUse}} repository rename boson functastic
+	  $ {{rootCmdUse}} repository list
 	  default
-	  boson-examples
+	  functastic
 
 	o Remove an installed repository
-	  $ {{.Name}} repository list
+	  $ {{rootCmdUse}} repository list
 	  default
-	  boson-examples
-	  $ {{.Name}} repository remove boson-examples
-	  $ {{.Name}} repository list
+	  functastic
+	  $ {{rootCmdUse}} repository remove functastic
+	  $ {{rootCmdUse}} repository list
 	  default
 `,
 		SuggestFor: []string{"repositories", "repos", "template", "templates", "pack", "packs"},
-		PreRunE:    bindEnv("confirm"),
+		PreRunE:    bindEnv("confirm", "verbose"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runRepository(cmd, args, newClient)
+		},
 	}
 
-	// Config
 	cfg, err := config.NewDefault()
 	if err != nil {
 		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
-
-	// Flags
-	cmd.Flags().BoolP("confirm", "c", cfg.Confirm, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
-
-	cmd.SetHelpFunc(defaultTemplatedHelp)
-
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runRepository(cmd, args, newClient)
-	}
+	addConfirmFlag(cmd, cfg.Confirm)
+	addVerboseFlag(cmd, cfg.Verbose)
 
 	cmd.AddCommand(NewRepositoryListCmd(newClient))
 	cmd.AddCommand(NewRepositoryAddCmd(newClient))
@@ -166,13 +169,21 @@ EXAMPLES
 
 func NewRepositoryListCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
-		Short: "List repositories",
-		Use:   "list",
+		Short:   "List repositories",
+		Use:     "list",
+		Aliases: []string{"ls"},
+		PreRunE: bindEnv("confirm", "verbose"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runRepositoryList(cmd, args, newClient)
+		},
 	}
 
-	cmd.RunE = func(_ *cobra.Command, args []string) error {
-		return runRepositoryList(cmd, args, newClient)
+	cfg, err := config.NewDefault()
+	if err != nil {
+		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
+	addConfirmFlag(cmd, cfg.Confirm)
+	addVerboseFlag(cmd, cfg.Verbose)
 
 	return cmd
 }
@@ -182,19 +193,18 @@ func NewRepositoryAddCmd(newClient ClientFactory) *cobra.Command {
 		Short:      "Add a repository",
 		Use:        "add <name> <url>",
 		SuggestFor: []string{"ad", "install"},
-		PreRunE:    bindEnv("confirm"),
+		PreRunE:    bindEnv("confirm", "verbose"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runRepositoryAdd(cmd, args, newClient)
+		},
 	}
 
 	cfg, err := config.NewDefault()
 	if err != nil {
 		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
-
-	cmd.Flags().BoolP("confirm", "c", cfg.Confirm, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
-
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runRepositoryAdd(cmd, args, newClient)
-	}
+	addConfirmFlag(cmd, cfg.Confirm)
+	addVerboseFlag(cmd, cfg.Verbose)
 
 	return cmd
 }
@@ -203,19 +213,19 @@ func NewRepositoryRenameCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Short:   "Rename a repository",
 		Use:     "rename <old> <new>",
-		PreRunE: bindEnv("confirm"),
+		Aliases: []string{"mv"},
+		PreRunE: bindEnv("confirm", "verbose"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runRepositoryRename(cmd, args, newClient)
+		},
 	}
 
 	cfg, err := config.NewDefault()
 	if err != nil {
 		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
-
-	cmd.Flags().BoolP("confirm", "c", cfg.Confirm, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
-
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runRepositoryRename(cmd, args, newClient)
-	}
+	addConfirmFlag(cmd, cfg.Confirm)
+	addVerboseFlag(cmd, cfg.Verbose)
 
 	return cmd
 }
@@ -226,19 +236,18 @@ func NewRepositoryRemoveCmd(newClient ClientFactory) *cobra.Command {
 		Use:        "remove <name>",
 		Aliases:    []string{"rm"},
 		SuggestFor: []string{"delete", "del"},
-		PreRunE:    bindEnv("confirm"),
+		PreRunE:    bindEnv("confirm", "verbose"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runRepositoryRemove(cmd, args, newClient)
+		},
 	}
 
 	cfg, err := config.NewDefault()
 	if err != nil {
 		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
-
-	cmd.Flags().BoolP("confirm", "c", cfg.Confirm, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
-
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runRepositoryRemove(cmd, args, newClient)
-	}
+	addConfirmFlag(cmd, cfg.Confirm)
+	addVerboseFlag(cmd, cfg.Verbose)
 
 	return cmd
 }

@@ -4,8 +4,8 @@ import (
 	"context"
 	"testing"
 
-	fn "knative.dev/func"
-	"knative.dev/func/mock"
+	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/mock"
 )
 
 // Test_NewTestClient ensures that the convenience method for
@@ -30,7 +30,11 @@ func Test_NewTestClient(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = client.Describe(context.Background(), "test", "")
+	f, err := fn.NewFunction("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = client.Describe(context.Background(), "test", f)
 	if err != nil {
 		t.Fatal(err)
 	}

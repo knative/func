@@ -1,0 +1,5 @@
+# optional.  Invocation defines hints for how Functions created using this
+# template can be invoked.  These settings can be updated on the resultant
+# Function as development progresses to ensure 'invoke' can always trigger the
+# execution of a running Function instance for testing and development.
+invoke: "cloudevent"

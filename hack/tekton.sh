@@ -22,53 +22,21 @@ set -o pipefail
 
 export TERM="${TERM:-dumb}"
 
-tekton_release="previous/v0.38.3"
-git_clone_release="0.4"
+tekton_release="previous/v0.49.0"
 namespace="${NAMESPACE:-default}"
-tasks_source_path=$(dirname $(cd $(dirname $0) && pwd ))
 
 tekton() {
   echo "Installing Tekton..."
-  kubectl apply -f https://storage.googleapis.com/tekton-releases/pipeline/${tekton_release}/release.yaml
+  kubectl apply -f "https://storage.googleapis.com/tekton-releases/pipeline/${tekton_release}/release.yaml"
   sleep 10
   kubectl wait pod --for=condition=Ready --timeout=180s -n tekton-pipelines -l "app=tekton-pipelines-controller"
   kubectl wait pod --for=condition=Ready --timeout=180s -n tekton-pipelines -l "app=tekton-pipelines-webhook"
   sleep 10
 
-  kubectl create clusterrolebinding ${namespace}:knative-serving-namespaced-admin \
-  --clusterrole=knative-serving-namespaced-admin  --serviceaccount=${namespace}:default
+  kubectl create clusterrolebinding "${namespace}:knative-serving-namespaced-admin" \
+  --clusterrole=knative-serving-namespaced-admin  --serviceaccount="${namespace}:default"
 }
 
-tekton_tasks() {
-  echo "Creating Pipeline tasks..."
-  kubectl apply -f https://raw.githubusercontent.com/tektoncd/catalog/master/task/git-clone/${git_clone_release}/git-clone.yaml
-  kubectl apply -f ${tasks_source_path}/pipelines/resources/tekton/task/func-buildpacks/0.1/func-buildpacks.yaml
-  kubectl apply -f ${tasks_source_path}/pipelines/resources/tekton/task/func-s2i/0.1/func-s2i.yaml
-  kubectl apply -f ${tasks_source_path}/pipelines/resources/tekton/task/func-deploy/0.1/func-deploy.yaml
-}
-
-## Parse input parameters
-# Supported parameters:
-# --tasks-only - install only Tekton Tasks
-tasks_only=false
-if [ $# -gt 1 ] ; then
-  echo "Unknown parameters, use '--tasks-only' to only install Tekton Tasks"
-  exit 1
-fi
-if [ $# -eq 1 ] ; then
-    if [ $1 == "--tasks-only" ]
-      then
-        tasks_only=true
-    else
-      echo "Unknown parameter '${1}', use '--tasks-only' to only install Tekton Tasks"
-      exit 1
-    fi
-fi
-
-## Installation phase
-if [ $tasks_only = false ] ; then
-  tekton
-fi
-tekton_tasks
+tekton
 
 echo Done

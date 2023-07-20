@@ -15,6 +15,7 @@
 package formatted
 
 import (
+	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -35,4 +36,22 @@ func RemoveLastAppliedConfig(annotations map[string]string) map[string]string {
 		}
 	}
 	return removed
+}
+
+// Check if PipelineRef exists on a PipelineRunSpec. Returns empty string if not present.
+func PipelineRefExists(spec v1.PipelineRunSpec) string {
+	if spec.PipelineRef == nil {
+		return ""
+	}
+
+	return spec.PipelineRef.Name
+}
+
+// Check if TaskRef exists on a TaskRunSpec. Returns empty string if not present.
+func TaskRefExists(spec v1.TaskRunSpec) string {
+	if spec.TaskRef == nil {
+		return ""
+	}
+
+	return spec.TaskRef.Name
 }

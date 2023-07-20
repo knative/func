@@ -29,7 +29,7 @@ any TypeScript project. For now, we will ignore the `func.yaml` file, and just
 say that it is a configuration file used when building your project.
 If you are interested, check out the [reference doc](../reference/func_yaml.md).
 To learn more about the CLI and the details for each supported command, see
-the [CLI Commands document](../reference/commands.txt).
+the [CLI Commands document](../reference/func.md).
 
 ## Running the function locally
 

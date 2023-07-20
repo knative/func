@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/buildpacks/lifecycle/api"
+	"github.com/buildpacks/lifecycle/log"
 )
 
 const (
@@ -18,10 +19,14 @@ const (
 )
 
 const (
-	mediaTypeCycloneDX   = "application/vnd.cyclonedx+json"
-	mediaTypeSPDX        = "application/spdx+json"
-	mediaTypeSyft        = "application/vnd.syft+json"
+	MediaTypeCycloneDX   = "application/vnd.cyclonedx+json"
+	MediaTypeSPDX        = "application/spdx+json"
+	MediaTypeSyft        = "application/vnd.syft+json"
 	mediaTypeUnsupported = "unsupported"
+
+	ExtensionCycloneDX = "sbom.cdx.json"
+	ExtensionSPDX      = "sbom.spdx.json"
+	ExtensionSyft      = "sbom.syft.json"
 )
 
 type LayerType int
@@ -41,12 +46,12 @@ type BOMFile struct {
 // will return an error to indicate an unsupported format
 func (b *BOMFile) Name() (string, error) {
 	switch b.mediaType() {
-	case mediaTypeCycloneDX:
-		return "sbom.cdx.json", nil
-	case mediaTypeSPDX:
-		return "sbom.spdx.json", nil
-	case mediaTypeSyft:
-		return "sbom.syft.json", nil
+	case MediaTypeCycloneDX:
+		return ExtensionCycloneDX, nil
+	case MediaTypeSPDX:
+		return ExtensionSPDX, nil
+	case MediaTypeSyft:
+		return ExtensionSyft, nil
 	default:
 		return "", errors.Errorf("unsupported SBOM format: '%s'", b.Path)
 	}
@@ -56,18 +61,18 @@ func (b *BOMFile) mediaType() string {
 	name := filepath.Base(b.Path)
 
 	switch {
-	case strings.HasSuffix(name, ".sbom.cdx.json"):
-		return mediaTypeCycloneDX
-	case strings.HasSuffix(name, ".sbom.spdx.json"):
-		return mediaTypeSPDX
-	case strings.HasSuffix(name, ".sbom.syft.json"):
-		return mediaTypeSyft
+	case strings.HasSuffix(name, "."+ExtensionCycloneDX):
+		return MediaTypeCycloneDX
+	case strings.HasSuffix(name, "."+ExtensionSPDX):
+		return MediaTypeSPDX
+	case strings.HasSuffix(name, "."+ExtensionSyft):
+		return MediaTypeSyft
 	default:
 		return mediaTypeUnsupported
 	}
 }
 
-func validateMediaTypes(bp GroupBuildpack, bomfiles []BOMFile, declaredTypes []string) error {
+func validateMediaTypes(bp GroupElement, bomfiles []BOMFile, declaredTypes []string) error {
 	ensureDeclared := func(declaredTypes []string, foundType string) error {
 		for _, declaredType := range declaredTypes {
 			dType, _, err := mime.ParseMediaType(declaredType)
@@ -102,7 +107,7 @@ func sbomGlob(layersDir string) (matches []string, err error) {
 	return
 }
 
-func (b *Descriptor) processBOMFiles(layersDir string, bp GroupBuildpack, bpLayers map[string]LayerMetadataFile, logger Logger) ([]BOMFile, error) {
+func (d *BpDescriptor) processSBOMFiles(layersDir string, bp GroupElement, bpLayers map[string]LayerMetadataFile, logger log.Logger) ([]BOMFile, error) {
 	var (
 		files []BOMFile
 	)
@@ -112,7 +117,7 @@ func (b *Descriptor) processBOMFiles(layersDir string, bp GroupBuildpack, bpLaye
 		return nil, err
 	}
 
-	if api.MustParse(b.API).LessThan("0.7") {
+	if api.MustParse(d.WithAPI).LessThan("0.7") {
 		if len(matches) != 0 {
 			logger.Warnf("the following SBOM files will be ignored for buildpack api version < 0.7 [%s]", strings.Join(matches, ", "))
 		}
@@ -175,5 +180,5 @@ func (b *Descriptor) processBOMFiles(layersDir string, bp GroupBuildpack, bpLaye
 		}
 	}
 
-	return files, validateMediaTypes(bp, files, b.Buildpack.SBOM)
+	return files, validateMediaTypes(bp, files, d.Buildpack.SBOM)
 }

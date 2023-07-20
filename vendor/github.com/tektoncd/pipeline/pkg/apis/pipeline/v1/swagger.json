@@ -63,6 +63,17 @@
           "description": "EnableServiceLinks indicates whether information about services should be injected into pod's environment variables, matching the syntax of Docker links. Optional: Defaults to true.",
           "type": "boolean"
         },
+        "env": {
+          "description": "List of environment variables that can be provided to the containers belonging to the pod.",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1.EnvVar"
+          },
+          "x-kubernetes-list-type": "atomic",
+          "x-kubernetes-patch-merge-key": "name",
+          "x-kubernetes-patch-strategy": "merge"
+        },
         "hostAliases": {
           "description": "HostAliases is an optional list of hosts and IPs that will be injected into the pod's hosts file if specified. This is only valid for non-hostNetwork pods.",
           "type": "array",
@@ -180,6 +191,10 @@
           "description": "Description is a user-facing description of the task that may be used to populate a UI.",
           "type": "string"
         },
+        "displayName": {
+          "description": "DisplayName is a user-facing name of the task that may be used to populate a UI.",
+          "type": "string"
+        },
         "kind": {
           "type": "string"
         },
@@ -252,10 +267,38 @@
         }
       }
     },
+    "v1.IncludeParams": {
+      "description": "IncludeParams allows passing in a specific combinations of Parameters into the Matrix.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Name the specified combination",
+          "type": "string"
+        },
+        "params": {
+          "description": "Params takes only `Parameters` of type `\"string\"` The names of the `params` must match the names of the `params` in the underlying `Task`",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1.Param"
+          },
+          "x-kubernetes-list-type": "atomic"
+        }
+      }
+    },
     "v1.Matrix": {
       "description": "Matrix is used to fan out Tasks in a Pipeline",
       "type": "object",
       "properties": {
+        "include": {
+          "description": "Include is a list of IncludeParams which allows passing in specific combinations of Parameters into the Matrix.",
+          "type": "array",
+          "items": {
+            "default": {},
+            "$ref": "#/definitions/v1.IncludeParams"
+          },
+          "x-kubernetes-list-type": "atomic"
+        },
         "params": {
           "description": "Params is a list of parameters used to fan out the pipelineTask Params takes only `Parameters` of type `\"array\"` Each array element is supplied to the `PipelineTask` by substituting `params` of type `\"string\"` in the underlying `Task`. The names of the `params` in the `Matrix` must match the names of the `params` in the underlying `Task` that they will be substituting.",
           "type": "array",
@@ -323,13 +366,13 @@
       "description": "ResultValue is a type alias of ParamValue",
       "type": "object",
       "required": [
-        "type",
-        "stringVal",
-        "arrayVal",
-        "objectVal"
+        "Type",
+        "StringVal",
+        "ArrayVal",
+        "ObjectVal"
       ],
       "properties": {
-        "arrayVal": {
+        "ArrayVal": {
           "type": "array",
           "items": {
             "type": "string",
@@ -337,19 +380,19 @@
           },
           "x-kubernetes-list-type": "atomic"
         },
-        "objectVal": {
+        "ObjectVal": {
           "type": "object",
           "additionalProperties": {
             "type": "string",
             "default": ""
           }
         },
-        "stringVal": {
+        "StringVal": {
           "description": "Represents the stored type of ParamValues.",
           "type": "string",
           "default": ""
         },
-        "type": {
+        "Type": {
           "type": "string",
           "default": ""
         }
@@ -530,7 +573,7 @@
         },
         "status": {
           "description": "Status is the RunStatus for the corresponding Run",
-          "$ref": "#/definitions/github.com.tektoncd.pipeline.pkg.apis.run.v1alpha1.RunStatus"
+          "$ref": "#/definitions/github.com.tektoncd.pipeline.pkg.apis.run.v1beta1.CustomRunStatus"
         },
         "whenExpressions": {
           "description": "WhenExpressions is the list of checks guarding the execution of the PipelineTask",
@@ -643,6 +686,10 @@
           "description": "PipelineRunSpec contains the exact spec used to instantiate the run",
           "$ref": "#/definitions/v1.PipelineSpec"
         },
+        "provenance": {
+          "description": "Provenance contains some key authenticated metadata about how a software artifact was built (what sources, what inputs/outputs, etc.).",
+          "$ref": "#/definitions/v1.Provenance"
+        },
         "results": {
           "description": "Results are the list of results written out by the pipeline task's containers",
           "type": "array",
@@ -660,6 +707,14 @@
             "$ref": "#/definitions/v1.SkippedTask"
           },
           "x-kubernetes-list-type": "atomic"
+        },
+        "spanContext": {
+          "description": "SpanContext contains tracing span context fields",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "default": ""
+          }
         },
         "startTime": {
           "description": "StartTime is the time the PipelineRun is actually started.",
@@ -692,6 +747,10 @@
           "description": "PipelineRunSpec contains the exact spec used to instantiate the run",
           "$ref": "#/definitions/v1.PipelineSpec"
         },
+        "provenance": {
+          "description": "Provenance contains some key authenticated metadata about how a software artifact was built (what sources, what inputs/outputs, etc.).",
+          "$ref": "#/definitions/v1.Provenance"
+        },
         "results": {
           "description": "Results are the list of results written out by the pipeline task's containers",
           "type": "array",
@@ -709,6 +768,14 @@
             "$ref": "#/definitions/v1.SkippedTask"
           },
           "x-kubernetes-list-type": "atomic"
+        },
+        "spanContext": {
+          "description": "SpanContext contains tracing span context fields",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "default": ""
+          }
         },
         "startTime": {
           "description": "StartTime is the time the PipelineRun is actually started.",
@@ -745,6 +812,10 @@
       "properties": {
         "description": {
           "description": "Description is a user-facing description of the pipeline that may be used to populate a UI.",
+          "type": "string"
+        },
+        "displayName": {
+          "description": "DisplayName is a user-facing name of the pipeline that may be used to populate a UI.",
           "type": "string"
         },
         "finally": {
@@ -798,6 +869,14 @@
       "description": "PipelineTask defines a task in a Pipeline, passing inputs from both Params and from the output of previous tasks.",
       "type": "object",
       "properties": {
+        "description": {
+          "description": "Description is the description of this task within the context of a Pipeline. This description may be used to populate a UI.",
+          "type": "string"
+        },
+        "displayName": {
+          "description": "DisplayName is the display name of this task within the context of a Pipeline. This display name may be used to populate a UI.",
+          "type": "string"
+        },
         "matrix": {
           "description": "Matrix declares parameters used to fan out this task.",
           "$ref": "#/definitions/v1.Matrix"
@@ -927,19 +1006,19 @@
         "serviceAccountName": {
           "type": "string"
         },
-        "sidecarOverrides": {
+        "sidecarSpecs": {
           "type": "array",
           "items": {
             "default": {},
-            "$ref": "#/definitions/v1.TaskRunSidecarOverride"
+            "$ref": "#/definitions/v1.TaskRunSidecarSpec"
           },
           "x-kubernetes-list-type": "atomic"
         },
-        "stepOverrides": {
+        "stepSpecs": {
           "type": "array",
           "items": {
             "default": {},
-            "$ref": "#/definitions/v1.TaskRunStepOverride"
+            "$ref": "#/definitions/v1.TaskRunStepSpec"
           },
           "x-kubernetes-list-type": "atomic"
         }
@@ -958,7 +1037,7 @@
       }
     },
     "v1.PipelineWorkspaceDeclaration": {
-      "description": "WorkspacePipelineDeclaration creates a named slot in a Pipeline that a PipelineRun is expected to populate with a workspace binding. Deprecated: use PipelineWorkspaceDeclaration type instead",
+      "description": "WorkspacePipelineDeclaration creates a named slot in a Pipeline that a PipelineRun is expected to populate with a workspace binding.\n\nDeprecated: use PipelineWorkspaceDeclaration type instead",
       "type": "object",
       "required": [
         "name"
@@ -988,8 +1067,44 @@
         }
       }
     },
+    "v1.Provenance": {
+      "description": "Provenance contains metadata about resources used in the TaskRun/PipelineRun such as the source from where a remote build definition was fetched. This field aims to carry minimum amoumt of metadata in *Run status so that Tekton Chains can capture them in the provenance.",
+      "type": "object",
+      "properties": {
+        "featureFlags": {
+          "description": "FeatureFlags identifies the feature flags that were used during the task/pipeline run",
+          "$ref": "#/definitions/github.com.tektoncd.pipeline.pkg.apis.config.FeatureFlags"
+        },
+        "refSource": {
+          "description": "RefSource identifies the source where a remote task/pipeline came from.",
+          "$ref": "#/definitions/v1.RefSource"
+        }
+      }
+    },
+    "v1.RefSource": {
+      "description": "RefSource contains the information that can uniquely identify where a remote built definition came from i.e. Git repositories, Tekton Bundles in OCI registry and hub.",
+      "type": "object",
+      "properties": {
+        "digest": {
+          "description": "Digest is a collection of cryptographic digests for the contents of the artifact specified by URI. Example: {\"sha1\": \"f99d13e554ffcb696dee719fa85b695cb5b0f428\"}",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "default": ""
+          }
+        },
+        "entryPoint": {
+          "description": "EntryPoint identifies the entry point into the build. This is often a path to a build definition file and/or a target label within that file. Example: \"task/git-clone/0.8/git-clone.yaml\"",
+          "type": "string"
+        },
+        "uri": {
+          "description": "URI indicates the identity of the source of the build definition. Example: \"https://github.com/tektoncd/catalog\"",
+          "type": "string"
+        }
+      }
+    },
     "v1.ResolverRef": {
-      "description": "ResolverRef can be used to refer to a Pipeline or Task in a remote location like a git repo. This feature is in alpha and these fields are only available when the alpha feature gate is enabled.",
+      "description": "ResolverRef can be used to refer to a Pipeline or Task in a remote location like a git repo. This feature is in beta and these fields are only available when the beta feature gate is enabled.",
       "type": "object",
       "properties": {
         "params": {
@@ -1061,6 +1176,11 @@
           },
           "x-kubernetes-list-type": "atomic"
         },
+        "computeResources": {
+          "description": "ComputeResources required by this Sidecar. Cannot be updated. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
+          "default": {},
+          "$ref": "#/definitions/v1.ResourceRequirements"
+        },
         "env": {
           "description": "List of environment variables to set in the Sidecar. Cannot be updated.",
           "type": "array",
@@ -1120,11 +1240,6 @@
         "readinessProbe": {
           "description": "Periodic probe of Sidecar service readiness. Container will be removed from service endpoints if the probe fails. Cannot be updated. More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#container-probes",
           "$ref": "#/definitions/v1.Probe"
-        },
-        "resources": {
-          "description": "Compute Resources required by this Sidecar. Cannot be updated. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
-          "default": {},
-          "$ref": "#/definitions/v1.ResourceRequirements"
         },
         "script": {
           "description": "Script is the contents of an executable file to execute.\n\nIf Script is not empty, the Step cannot have an Command or Args.",
@@ -1276,6 +1391,11 @@
           },
           "x-kubernetes-list-type": "atomic"
         },
+        "computeResources": {
+          "description": "ComputeResources required by this Step. Cannot be updated. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
+          "default": {},
+          "$ref": "#/definitions/v1.ResourceRequirements"
+        },
         "env": {
           "description": "List of environment variables to set in the Step. Cannot be updated.",
           "type": "array",
@@ -1312,11 +1432,6 @@
         "onError": {
           "description": "OnError defines the exiting behavior of a container on error can be set to [ continue | stopAndFail ]",
           "type": "string"
-        },
-        "resources": {
-          "description": "Compute Resources required by this Step. Cannot be updated. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
-          "default": {},
-          "$ref": "#/definitions/v1.ResourceRequirements"
         },
         "script": {
           "description": "Script is the contents of an executable file to execute.\n\nIf Script is not empty, the Step cannot have an Command and the Args will be passed to the Script.",
@@ -1434,6 +1549,11 @@
           },
           "x-kubernetes-list-type": "atomic"
         },
+        "computeResources": {
+          "description": "ComputeResources required by this Step. Cannot be updated. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
+          "default": {},
+          "$ref": "#/definitions/v1.ResourceRequirements"
+        },
         "env": {
           "description": "List of environment variables to set in the Step. Cannot be updated.",
           "type": "array",
@@ -1461,11 +1581,6 @@
         "imagePullPolicy": {
           "description": "Image pull policy. One of Always, Never, IfNotPresent. Defaults to Always if :latest tag is specified, or IfNotPresent otherwise. Cannot be updated. More info: https://kubernetes.io/docs/concepts/containers/images#updating-images",
           "type": "string"
-        },
-        "resources": {
-          "description": "Compute Resources required by this Step. Cannot be updated. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/",
-          "default": {},
-          "$ref": "#/definitions/v1.ResourceRequirements"
         },
         "securityContext": {
           "description": "SecurityContext defines the security options the Step should be run with. If set, the fields of SecurityContext override the equivalent fields of PodSecurityContext. More info: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/",
@@ -1555,11 +1670,11 @@
       "type": "object",
       "properties": {
         "apiVersion": {
-          "description": "API version of the referent",
+          "description": "API version of the referent Note: A Task with non-empty APIVersion and Kind is considered a Custom Task",
           "type": "string"
         },
         "kind": {
-          "description": "TaskKind indicates the kind of the task, namespaced or cluster scoped.",
+          "description": "TaskKind indicates the Kind of the Task: 1. Namespaced Task when Kind is set to \"Task\". If Kind is \"\", it defaults to \"Task\". 2. Custom Task when Kind is non-empty and APIVersion is non-empty",
           "type": "string"
         },
         "name": {
@@ -1704,23 +1819,23 @@
         }
       }
     },
-    "v1.TaskRunSidecarOverride": {
-      "description": "TaskRunSidecarOverride is used to override the values of a Sidecar in the corresponding Task.",
+    "v1.TaskRunSidecarSpec": {
+      "description": "TaskRunSidecarSpec is used to override the values of a Sidecar in the corresponding Task.",
       "type": "object",
       "required": [
         "name",
-        "resources"
+        "computeResources"
       ],
       "properties": {
+        "computeResources": {
+          "description": "The resource requirements to apply to the Sidecar.",
+          "default": {},
+          "$ref": "#/definitions/v1.ResourceRequirements"
+        },
         "name": {
           "description": "The name of the Sidecar to override.",
           "type": "string",
           "default": ""
-        },
-        "resources": {
-          "description": "The resource requirements to apply to the Sidecar.",
-          "default": {},
-          "$ref": "#/definitions/v1.ResourceRequirements"
         }
       }
     },
@@ -1747,33 +1862,38 @@
           "description": "PodTemplate holds pod specific configuration",
           "$ref": "#/definitions/pod.Template"
         },
+        "retries": {
+          "description": "Retries represents how many times this TaskRun should be retried in the event of task failure.",
+          "type": "integer",
+          "format": "int32"
+        },
         "serviceAccountName": {
           "type": "string",
           "default": ""
         },
-        "sidecarOverrides": {
-          "description": "Overrides to apply to Sidecars in this TaskRun. If a field is specified in both a Sidecar and a SidecarOverride, the value from the SidecarOverride will be used. This field is only supported when the alpha feature gate is enabled.",
+        "sidecarSpecs": {
+          "description": "Specs to apply to Sidecars in this TaskRun. If a field is specified in both a Sidecar and a SidecarSpec, the value from the SidecarSpec will be used. This field is only supported when the alpha feature gate is enabled.",
           "type": "array",
           "items": {
             "default": {},
-            "$ref": "#/definitions/v1.TaskRunSidecarOverride"
+            "$ref": "#/definitions/v1.TaskRunSidecarSpec"
           },
           "x-kubernetes-list-type": "atomic"
         },
         "status": {
-          "description": "Used for cancelling a taskrun (and maybe more later on)",
+          "description": "Used for cancelling a TaskRun (and maybe more later on)",
           "type": "string"
         },
         "statusMessage": {
           "description": "Status message for cancellation.",
           "type": "string"
         },
-        "stepOverrides": {
-          "description": "Overrides to apply to Steps in this TaskRun. If a field is specified in both a Step and a StepOverride, the value from the StepOverride will be used. This field is only supported when the alpha feature gate is enabled.",
+        "stepSpecs": {
+          "description": "Specs to apply to Steps in this TaskRun. If a field is specified in both a Step and a StepSpec, the value from the StepSpec will be used. This field is only supported when the alpha feature gate is enabled.",
           "type": "array",
           "items": {
             "default": {},
-            "$ref": "#/definitions/v1.TaskRunStepOverride"
+            "$ref": "#/definitions/v1.TaskRunStepSpec"
           },
           "x-kubernetes-list-type": "atomic"
         },
@@ -1785,7 +1905,7 @@
           "$ref": "#/definitions/v1.TaskSpec"
         },
         "timeout": {
-          "description": "Time after which the build times out. Defaults to 1 hour. Specified build timeout should be less than 24h. Refer Go's ParseDuration documentation for expected format: https://golang.org/pkg/time/#ParseDuration",
+          "description": "Time after which one retry attempt times out. Defaults to 1 hour. Specified build timeout should be less than 24h. Refer Go's ParseDuration documentation for expected format: https://golang.org/pkg/time/#ParseDuration",
           "$ref": "#/definitions/v1.Duration"
         },
         "workspaces": {
@@ -1838,6 +1958,10 @@
           "type": "string",
           "default": ""
         },
+        "provenance": {
+          "description": "Provenance contains some key authenticated metadata about how a software artifact was built (what sources, what inputs/outputs, etc.).",
+          "$ref": "#/definitions/v1.Provenance"
+        },
         "results": {
           "description": "Results are the list of results written out by the task's containers",
           "type": "array",
@@ -1864,6 +1988,14 @@
             "$ref": "#/definitions/v1.SidecarState"
           },
           "x-kubernetes-list-type": "atomic"
+        },
+        "spanContext": {
+          "description": "SpanContext contains tracing span context fields",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "default": ""
+          }
         },
         "startTime": {
           "description": "StartTime is the time the build is actually started.",
@@ -1900,6 +2032,10 @@
           "type": "string",
           "default": ""
         },
+        "provenance": {
+          "description": "Provenance contains some key authenticated metadata about how a software artifact was built (what sources, what inputs/outputs, etc.).",
+          "$ref": "#/definitions/v1.Provenance"
+        },
         "results": {
           "description": "Results are the list of results written out by the task's containers",
           "type": "array",
@@ -1927,6 +2063,14 @@
           },
           "x-kubernetes-list-type": "atomic"
         },
+        "spanContext": {
+          "description": "SpanContext contains tracing span context fields",
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "default": ""
+          }
+        },
         "startTime": {
           "description": "StartTime is the time the build is actually started.",
           "$ref": "#/definitions/v1.Time"
@@ -1946,23 +2090,23 @@
         }
       }
     },
-    "v1.TaskRunStepOverride": {
-      "description": "TaskRunStepOverride is used to override the values of a Step in the corresponding Task.",
+    "v1.TaskRunStepSpec": {
+      "description": "TaskRunStepSpec is used to override the values of a Step in the corresponding Task.",
       "type": "object",
       "required": [
         "name",
-        "resources"
+        "computeResources"
       ],
       "properties": {
+        "computeResources": {
+          "description": "The resource requirements to apply to the Step.",
+          "default": {},
+          "$ref": "#/definitions/v1.ResourceRequirements"
+        },
         "name": {
           "description": "The name of the Step to override.",
           "type": "string",
           "default": ""
-        },
-        "resources": {
-          "description": "The resource requirements to apply to the Step.",
-          "default": {},
-          "$ref": "#/definitions/v1.ResourceRequirements"
         }
       }
     },
@@ -1972,6 +2116,10 @@
       "properties": {
         "description": {
           "description": "Description is a user-facing description of the task that may be used to populate a UI.",
+          "type": "string"
+        },
+        "displayName": {
+          "description": "DisplayName is a user-facing name of the task that may be used to populate a UI.",
           "type": "string"
         },
         "params": {

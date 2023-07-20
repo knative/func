@@ -1,12 +1,12 @@
 ## func create
 
-Create a function project
+Create a function
 
 ### Synopsis
 
 
 NAME
-	func create - Create a function project.
+	func create - Create a function
 
 SYNOPSIS
 	func create [-l|--language] [-t|--template] [-r|--repository]
@@ -15,7 +15,7 @@ SYNOPSIS
 DESCRIPTION
 	Creates a new function project.
 
-	  $ func create -l node -t http
+	  $ func create -l node
 
 	Creates a function in the current directory '.' which is written in the
 	language/runtime 'node' and handles HTTP events.
@@ -34,7 +34,9 @@ DESCRIPTION
 	  node         cloudevents
 	  node         http
 	  python       cloudevents
+	  python       flask
 	  python       http
+	  python       wsgi
 	  quarkus      cloudevents
 	  quarkus      http
 	  rust         cloudevents
@@ -49,13 +51,12 @@ DESCRIPTION
 
 
 EXAMPLES
-	o Create a Node.js function (the default language runtime) in the current
-	  directory (the default path) which handles http events (the default
-	  template).
-	  $ func create
+	o Create a Node.js function in the current directory (the default path) which
+	  handles http events (the default template).
+	  $ func create -l node
 
 	o Create a Node.js function in the directory 'myfunc'.
-	  $ func create myfunc
+	  $ func create -l node myfunc
 
 	o Create a Go function which handles CloudEvents in ./myfunc.
 	  $ func create -l go -t cloudevents myfunc
@@ -68,20 +69,15 @@ func create
 ### Options
 
 ```
-  -c, --confirm             Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)
+  -c, --confirm             Prompt to confirm options interactively ($FUNC_CONFIRM)
   -h, --help                help for create
-  -l, --language string     Language Runtime (see help text for list) (Env: $FUNC_LANGUAGE)
-  -r, --repository string   URI to a Git repository containing the specified template (Env: $FUNC_REPOSITORY)
-  -t, --template string     Function template. (see help text for list) (Env: $FUNC_TEMPLATE) (default "http")
-```
-
-### Options inherited from parent commands
-
-```
-  -v, --verbose   Print verbose logs ($FUNC_VERBOSE)
+  -l, --language string     Language Runtime (see help text for list) ($FUNC_LANGUAGE)
+  -r, --repository string   URI to a Git repository containing the specified template ($FUNC_REPOSITORY)
+  -t, --template string     Function template. (see help text for list) ($FUNC_TEMPLATE) (default "http")
+  -v, --verbose             Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO
 
-* [func](func.md)	 - Serverless functions
+* [func](func.md)	 - func manages Knative Functions
 

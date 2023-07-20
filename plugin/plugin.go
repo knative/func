@@ -8,7 +8,7 @@ import (
 	"strings"
 	"syscall"
 
-	"knative.dev/client/pkg/kn/plugin"
+	"knative.dev/client-pkg/pkg/kn/plugin"
 
 	"knative.dev/func/cmd"
 )

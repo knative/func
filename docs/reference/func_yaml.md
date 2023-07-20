@@ -5,7 +5,7 @@ project. Generally, these values are used when you execute a `func` CLI
 command. For example, when `func build` is run, the CLI uses the value for
 the `builder` field. In some cases, these values may be overridden by
 command line flags or environment variables. For more information about
-overriding these values, consult the [Commands](command.md) document.
+overriding these values, consult the [Commands](func.md) document.
 
 Many of the fields are generated for you when you create, build and deploy
 your function. Generally, function developers do not need to manually edit
@@ -120,6 +120,14 @@ subsequent deployments.
 ### `namespace`
 
 The Kubernetes namespace where your function will be deployed.
+
+
+### `serviceAccountName`
+
+The name of the service account used for the function pod. The service account
+must exist in the namespace to succeed.
+
+More info: https://k8s.io/docs/tasks/configure-pod-container/configure-service-account
 
 ### `options`
 Options allows you to set specific configuration for the deployed function, allowing you to tweak Knative Service options related to autoscaling and other properties. If these options are not set, the Knative defaults will be used. 

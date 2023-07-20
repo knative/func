@@ -18,14 +18,9 @@ func config envs
 
 ```
   -h, --help            help for envs
-  -o, --output string   Output format (human|json) (Env: $FUNC_OUTPUT) (default "human")
-  -p, --path string     Path to the project directory.  Default is current working directory (Env: $FUNC_PATH)
-```
-
-### Options inherited from parent commands
-
-```
-  -v, --verbose   Print verbose logs ($FUNC_VERBOSE)
+  -o, --output string   Output format (human|json) ($FUNC_OUTPUT) (default "human")
+  -p, --path string     Path to the function.  Default is current directory ($FUNC_PATH)
+  -v, --verbose         Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO

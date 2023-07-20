@@ -11,65 +11,13 @@ import (
 	"testing"
 
 	"github.com/ory/viper"
-	"knative.dev/client/pkg/util"
+	"knative.dev/client-pkg/pkg/util"
 
-	fn "knative.dev/func"
-	. "knative.dev/func/testing"
+	fn "knative.dev/func/pkg/functions"
+	. "knative.dev/func/pkg/testing"
 )
 
-func TestRoot_PersistentFlags(t *testing.T) {
-	tests := []struct {
-		name     string
-		args     []string
-		expected bool
-	}{
-		{
-			name:     "not provided",
-			args:     []string{"list"},
-			expected: false,
-		},
-		{
-			name:     "provided as root flags",
-			args:     []string{"--verbose", "list"},
-			expected: true,
-		},
-		{
-			name:     "provided as sub-command flags",
-			args:     []string{"list", "--verbose"},
-			expected: true,
-		},
-		{
-			name:     "provided as sub-sub-command flags",
-			args:     []string{"repositories", "list", "--verbose"},
-			expected: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			_ = fromTempDirectory(t)
-
-			cmd := NewCreateCmd(NewClient)                      // Create a function
-			cmd.SetArgs([]string{"--language", "go", "myfunc"}) // providing language
-			if err := cmd.Execute(); err != nil {               // fail on any errors
-				t.Fatal(err)
-			}
-
-			// Assert the persistent variables were propagated to the Client constructor
-			// when the command is actually invoked.
-			cmd = NewRootCmd(RootCommandConfig{NewClient: func(cfg ClientConfig, _ ...fn.Option) (*fn.Client, func()) {
-				if cfg.Verbose != tt.expected {
-					t.Fatal("verbose persistent flag not propagated correctly")
-				}
-				return fn.New(), func() {}
-			}})
-			cmd.SetArgs(tt.args)
-			if err := cmd.Execute(); err != nil {
-				t.Fatal(err)
-			}
-		})
-	}
-}
+const TestRegistry = "example.com/alice"
 
 func TestRoot_mergeEnvMaps(t *testing.T) {
 
@@ -184,7 +132,7 @@ func TestRoot_mergeEnvMaps(t *testing.T) {
 // of the root command.  This allows, for example, to have help text correct
 // when both embedded as a plugin or standalone.
 func TestRoot_CommandNameParameterized(t *testing.T) {
-	expectedSynopsis := "%v [-v|--verbose] <command> [args]"
+	expectedSynopsis := "%v is the command line interface for"
 
 	tests := []string{
 		"func",    // standalone
@@ -204,7 +152,7 @@ func TestRoot_CommandNameParameterized(t *testing.T) {
 		if cmd.Use != testName {
 			t.Fatalf("expected command Use '%v', got '%v'", testName, cmd.Use)
 		}
-		if !strings.Contains(out.String(), fmt.Sprintf(expectedSynopsis, testName)) {
+		if !strings.HasPrefix(out.String(), fmt.Sprintf(expectedSynopsis, testName)) {
 			t.Logf("Testing '%v'\n", testName)
 			t.Log(out.String())
 			t.Fatalf("Help text does not include substituted name '%v'", testName)
@@ -222,20 +170,14 @@ func TestVerbose(t *testing.T) {
 		{
 			name:   "verbose as version's flag",
 			args:   []string{"version", "-v"},
-			want:   "Version: v0.42.0-cafe-1970-01-01",
-			wantLF: 3,
+			want:   "Version: v0.42.0",
+			wantLF: 6,
 		},
 		{
 			name:   "no verbose",
 			args:   []string{"version"},
 			want:   "v0.42.0",
 			wantLF: 1,
-		},
-		{
-			name:   "verbose as root's flag",
-			args:   []string{"--verbose", "version"},
-			want:   "Version: v0.42.0-cafe-1970-01-01",
-			wantLF: 3,
 		},
 	}
 	for _, tt := range tests {
@@ -247,9 +189,9 @@ func TestVerbose(t *testing.T) {
 			cmd := NewRootCmd(RootCommandConfig{
 				Name: "func",
 				Version: Version{
-					Date: "1970-01-01",
 					Vers: "v0.42.0",
 					Hash: "cafe",
+					Kver: "v1.10.0",
 				}})
 
 			cmd.SetArgs(tt.args)
@@ -312,11 +254,18 @@ func TestRoot_effectivePath(t *testing.T) {
 		}
 	})
 
-	t.Run("--path highest precedence", func(t *testing.T) {
+	t.Run("-p highest precedence", func(t *testing.T) {
 		t.Setenv("FUNC_PATH", "p1")
 		os.Args = []string{"test", "--path=p2", "-p=p3"}
-		if effectivePath() != "p2" {
-			t.Fatalf("the effective path did not take --path with highest precedence over -p and FUNC_PATH.  Expected 'p2', got '%v'", effectivePath())
+		if effectivePath() != "p3" {
+			t.Fatalf("the effective path did not take -p with highest precedence over --path and FUNC_PATH.  Expected 'p3', got '%v'", effectivePath())
+		}
+	})
+
+	t.Run("continues on unrecognized flags", func(t *testing.T) {
+		os.Args = []string{"test", "-r=repo.example.com/bob", "-p=p3"}
+		if effectivePath() != "p3" {
+			t.Fatalf("the effective path did not evaluate when unexpected flags were present")
 		}
 	})
 
@@ -361,11 +310,11 @@ func piped(t *testing.T) func() string {
 	}
 }
 
-// fromTempDirectory is a cli-specific test helper which endeavors to create
+// fromTempDirectory is a test helper which endeavors to create
 // an environment clean of developer's settings for use during CLI testing.
 func fromTempDirectory(t *testing.T) string {
 	t.Helper()
-	clearEnvs(t)
+	ClearEnvs(t)
 
 	// We have to define KUBECONFIG, or the file at ~/.kube/config (if extant)
 	// will be used (disrupting tests by using the current user's environment).

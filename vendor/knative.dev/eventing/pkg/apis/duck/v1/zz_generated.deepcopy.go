@@ -117,11 +117,6 @@ func (in *ChannelableStatus) DeepCopyInto(out *ChannelableStatus) {
 	in.AddressStatus.DeepCopyInto(&out.AddressStatus)
 	in.SubscribableStatus.DeepCopyInto(&out.SubscribableStatus)
 	in.DeliveryStatus.DeepCopyInto(&out.DeliveryStatus)
-	if in.DeadLetterChannel != nil {
-		in, out := &in.DeadLetterChannel, &out.DeadLetterChannel
-		*out = new(duckv1.KReference)
-		**out = **in
-	}
 	return
 }
 
@@ -315,10 +310,20 @@ func (in *SubscriberSpec) DeepCopyInto(out *SubscriberSpec) {
 		*out = new(apis.URL)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.SubscriberCACerts != nil {
+		in, out := &in.SubscriberCACerts, &out.SubscriberCACerts
+		*out = new(string)
+		**out = **in
+	}
 	if in.ReplyURI != nil {
 		in, out := &in.ReplyURI, &out.ReplyURI
 		*out = new(apis.URL)
 		(*in).DeepCopyInto(*out)
+	}
+	if in.ReplyCACerts != nil {
+		in, out := &in.ReplyCACerts, &out.ReplyCACerts
+		*out = new(string)
+		**out = **in
 	}
 	if in.Delivery != nil {
 		in, out := &in.Delivery, &out.Delivery

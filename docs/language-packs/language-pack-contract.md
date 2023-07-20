@@ -97,15 +97,13 @@ root
 
 A Language Pack's root level `manifest.yaml` file contains metadata that Language Pack providers may include to configure the build and deployment of Function projects created with the Language Pack. The following fields are recognized and may be used to override any defaults set in the repository's root directory `manifest.yaml`.
 
-#### `builders`
+#### `builderImages`
 
-OPTIONAL: A set of key value pairs identifying builder images capable of building a project from this Language Pack. The `default` key will be set as the builder image in `func.yaml` for a newly created project from the template. If not set in the Language Pack's `manifest.yaml`, these values must be provided in repository root `manifest.yaml`
+OPTIONAL: A set of key value pairs keying build strategies to builder images capable of building a project from this Language Pack. The `func` CLI is capable of using either the `pack` or `s2i` build strategies. If the Language Pack is using one of the default builtin runtimes: `go`, `nodejs`, `python`, `quarkus`, `springboot` or `rust` then the default Paketo builder (gcr.io/paketo-buildpacks/builder:base) will be used and this field is not necessary. If the Language Pack adds additional runtimes, for example, `csharp` a default builder should be specified using this field.
 
 ```
-builders:
-  default: paketobuildpacks/builder:base
-  base: paketobuildpacks/builder:base
-  full: paketobuildpacks/builder:full
+builderImages:
+  pack: gcr.io/paketo-buildpacks/builder:base
 ```
 
 #### `buildpacks`
@@ -113,10 +111,8 @@ builders:
 OPTIONAL: An ordered list of additional buildpacks to be applied to the builder image in addition to those already known by the builder. For example, the Paketo builder is widely used for Node.js, but it does not include a Buildpack for Kotlin. A Language Pack may use the Paketo builder in combination with a custom Kotlin buildpack, by specifying the additional Kotlin buildpack here.
 
 ```
-builders:
-  default: gcr.io/paketo-buildpacks/builder:base
-  base: gcr.io/paketo-buildpacks/builder:base
-  full: gcr.io/paketo-buildpacks/builder:full
+builderImages:
+  pack: gcr.io/paketo-buildpacks/builder:base
 
 buildpacks:
   - paketo-buildpacks/nodejs
@@ -145,7 +141,7 @@ func repository add func https://github.com/knative-sandbox/func-tastic
 func create -l go -t func/hello-world
 ```
 
-See the `repository` section of the [commands guide](../reference/commands.md) for more information on installing and managing Language Pack repositories.
+See the `repository` section of the [commands guide](../reference/func.md) for more information on installing and managing Language Pack repositories.
 
 ### Repository Manifests
 

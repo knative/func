@@ -3,11 +3,12 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 
 	"github.com/alecthomas/jsonschema"
 
-	fn "knative.dev/func"
+	fn "knative.dev/func/pkg/functions"
 )
 
 // This helper application generates json schemas:
@@ -23,7 +24,15 @@ func main() {
 // Genereated schema is written into schema/func_yaml-schema.json file
 func generateFuncYamlSchema() error {
 	// generate json schema for function struct
-	js := jsonschema.Reflect(&fn.Function{})
+	r := &jsonschema.Reflector{}
+
+	err := r.AddGoComments("knative.dev/func", "./pkg/functions/")
+	if err != nil {
+		return fmt.Errorf("cannot parse docstrings: %w", err)
+	}
+
+	js := r.Reflect(&fn.Function{})
+
 	schema, err := js.MarshalJSON()
 	if err != nil {
 		return err

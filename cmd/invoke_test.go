@@ -9,9 +9,10 @@ import (
 	"os"
 	"sync/atomic"
 	"testing"
+	"time"
 
-	fn "knative.dev/func"
-	"knative.dev/func/mock"
+	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/mock"
 )
 
 // TestInvoke command executes the invocation path.
@@ -21,14 +22,14 @@ func TestInvoke(t *testing.T) {
 	var invoked int32
 
 	// Create a test function to be invoked
-	if err := fn.New().Create(fn.Function{Runtime: "go", Root: root}); err != nil {
+	if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
 		t.Fatal(err)
 	}
 
 	// Mock Runner
 	// Starts a service which sets invoked=1 on any request
 	runner := mock.NewRunner()
-	runner.RunFn = func(ctx context.Context, f fn.Function) (job *fn.Job, err error) {
+	runner.RunFn = func(ctx context.Context, f fn.Function, _ time.Duration) (job *fn.Job, err error) {
 		var (
 			l net.Listener
 			h = http.NewServeMux()
@@ -46,19 +47,23 @@ func TestInvoke(t *testing.T) {
 				fmt.Fprintf(os.Stderr, "error serving: %v", err)
 			}
 		}()
-		_, port, _ := net.SplitHostPort(l.Addr().String())
+		host, port, _ := net.SplitHostPort(l.Addr().String())
 		errs := make(chan error, 10)
-		stop := func() { _ = s.Close() }
-		return fn.NewJob(f, port, errs, stop)
+		stop := func() error { _ = s.Close(); return nil }
+		return fn.NewJob(f, host, port, errs, stop, false)
 	}
 
 	// Run the mock http service function interloper
-	client := fn.New(fn.WithRunner(runner))
-	job, err := client.Run(context.Background(), root)
+	f, err := fn.NewFunction(root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(job.Stop)
+	client := fn.New(fn.WithRunner(runner))
+	job, err := client.Run(context.Background(), f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = job.Stop() })
 
 	// Test that the invoke command invokes
 	cmd := NewInvokeCmd(NewClient)
@@ -80,7 +85,8 @@ func TestInvoke_Namespace(t *testing.T) {
 
 	// Create a Function in a non-active namespace
 	f := fn.Function{Runtime: "go", Root: root, Deploy: fn.DeploySpec{Namespace: "ns"}}
-	if err := fn.New().Create(f); err != nil {
+	_, err := fn.New().Init(f)
+	if err != nil {
 		t.Fatal(err)
 	}
 

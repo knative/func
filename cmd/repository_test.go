@@ -3,7 +3,7 @@ package cmd
 import (
 	"testing"
 
-	. "knative.dev/func/testing"
+	. "knative.dev/func/pkg/testing"
 )
 
 // TestRepository_List ensures that the 'list' subcommand shows the client's
@@ -33,8 +33,9 @@ func TestRepository_List(t *testing.T) {
 // arguments, respects the repositories' path flag, and the expected name is echoed
 // upon subsequent 'list'.
 func TestRepository_Add(t *testing.T) {
-	url := ServeRepo("repository.git", t)
+	url := ServeRepo("repository.git#main", t)
 	_ = fromTempDirectory(t)
+	t.Log(url)
 
 	var (
 		add    = NewRepositoryAddCmd(NewClient)

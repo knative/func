@@ -17,13 +17,14 @@ import (
 	"github.com/buildpacks/lifecycle/internal/fsutil"
 	"github.com/buildpacks/lifecycle/launch"
 	"github.com/buildpacks/lifecycle/layers"
+	"github.com/buildpacks/lifecycle/log"
 )
 
 //go:generate mockgen -package testmock -destination ../../testmock/sbom_restorer.go github.com/buildpacks/lifecycle/internal/layer SBOMRestorer
 type SBOMRestorer interface {
 	RestoreFromPrevious(image imgutil.Image, layerDigest string) error
 	RestoreFromCache(cache Cache, layerDigest string) error
-	RestoreToBuildpackLayers(detectedBps []buildpack.GroupBuildpack) error
+	RestoreToBuildpackLayers(detectedBps []buildpack.GroupElement) error
 }
 
 type Cache interface {
@@ -32,7 +33,7 @@ type Cache interface {
 
 type SBOMRestorerOpts struct {
 	LayersDir string
-	Logger    Logger
+	Logger    log.Logger
 	Nop       bool
 }
 
@@ -48,7 +49,7 @@ func NewSBOMRestorer(opts SBOMRestorerOpts, platformAPI *api.Version) SBOMRestor
 
 type DefaultSBOMRestorer struct {
 	LayersDir string
-	Logger    Logger
+	Logger    log.Logger
 }
 
 func (r *DefaultSBOMRestorer) RestoreFromPrevious(image imgutil.Image, layerDigest string) error {
@@ -88,7 +89,7 @@ func (r *DefaultSBOMRestorer) RestoreFromCache(cache Cache, layerDigest string) 
 	return layers.Extract(rc, "")
 }
 
-func (r *DefaultSBOMRestorer) RestoreToBuildpackLayers(detectedBps []buildpack.GroupBuildpack) error {
+func (r *DefaultSBOMRestorer) RestoreToBuildpackLayers(detectedBps []buildpack.GroupElement) error {
 	var (
 		cacheDir  = filepath.Join(r.LayersDir, "sbom", "cache")
 		launchDir = filepath.Join(r.LayersDir, "sbom", "launch")
@@ -102,7 +103,7 @@ func (r *DefaultSBOMRestorer) RestoreToBuildpackLayers(detectedBps []buildpack.G
 	return filepath.Walk(launchDir, r.restoreSBOMFunc(detectedBps, "launch"))
 }
 
-func (r *DefaultSBOMRestorer) restoreSBOMFunc(detectedBps []buildpack.GroupBuildpack, bomType string) func(path string, info fs.FileInfo, err error) error {
+func (r *DefaultSBOMRestorer) restoreSBOMFunc(detectedBps []buildpack.GroupElement, bomType string) func(path string, info fs.FileInfo, err error) error {
 	var bomRegex *regexp.Regexp
 
 	if runtime.GOOS == "windows" {
@@ -142,7 +143,7 @@ func (r *DefaultSBOMRestorer) restoreSBOMFunc(detectedBps []buildpack.GroupBuild
 	}
 }
 
-func (r *DefaultSBOMRestorer) contains(detectedBps []buildpack.GroupBuildpack, id string) bool {
+func (r *DefaultSBOMRestorer) contains(detectedBps []buildpack.GroupElement, id string) bool {
 	for _, bp := range detectedBps {
 		if launch.EscapeID(bp.ID) == id {
 			return true
@@ -161,6 +162,6 @@ func (r *NopSBOMRestorer) RestoreFromCache(_ Cache, _ string) error {
 	return nil
 }
 
-func (r *NopSBOMRestorer) RestoreToBuildpackLayers(_ []buildpack.GroupBuildpack) error {
+func (r *NopSBOMRestorer) RestoreToBuildpackLayers(_ []buildpack.GroupElement) error {
 	return nil
 }

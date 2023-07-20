@@ -1,26 +1,24 @@
 package cmd
 
 import (
-	"flag"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
-	"testing"
-	"text/template"
-	"time"
 
-	"knative.dev/func/cmd/templates"
-	"knative.dev/func/config"
-	"knative.dev/func/k8s"
-
+	"github.com/Masterminds/semver"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 	"golang.org/x/term"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"knative.dev/client/pkg/util"
-	fn "knative.dev/func"
+	"knative.dev/client-pkg/pkg/util"
+
+	"knative.dev/func/cmd/templates"
+	"knative.dev/func/pkg/config"
+	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/k8s"
 )
 
 type RootCommandConfig struct {
@@ -34,34 +32,22 @@ type RootCommandConfig struct {
 // resultant binary with no arguments prints the help/usage text.
 func NewRootCmd(cfg RootCommandConfig) *cobra.Command {
 	cmd := &cobra.Command{
-		// Use must be set to exactly config.Name, as this field is overloaded to
-		// be used in subcommand help text as the command with possible prefix:
-		Use:           cfg.Name,
-		Short:         "Serverless functions",
-		SilenceErrors: true, // we explicitly handle errors in Execute()
-		SilenceUsage:  true, // no usage dump on error
-		Long: `Knative serverless functions
+		Use:   cfg.Name,
+		Short: fmt.Sprintf("%s manages Knative Functions", cfg.Name),
+		Long: fmt.Sprintf(`%s is the command line interface for managing Knative Function resources
 
-	Create, build and deploy Knative functions
+	Create a new Node.js function in the current directory:
+	{{.Use}} create --language node myfunction
 
-SYNOPSIS
-	{{.Use}} [-v|--verbose] <command> [args]
+	Deploy the function using Docker hub to host the image:
+	{{.Use}} deploy --registry docker.io/alice
 
-EXAMPLES
+Learn more about Functions:  https://knative.dev/docs/functions/
+Learn more about Knative at: https://knative.dev`, cfg.Name),
 
-	o Create a Node function in the current directory
-	  $ {{.Use}} create --language node .
-
-	o Deploy the function defined in the current working directory to the
-	  currently connected cluster, specifying a container registry in place of
-	  quay.io/user for the function's container.
-	  $ {{.Use}} deploy --registry quay.io.user
-
-	o Invoke the function defined in the current working directory with an example
-	  request.
-	  $ {{.Use}} invoke
-
-	For more examples, see '{{.Use}} [command] --help'.`,
+		DisableAutoGenTag: true, // no docs header
+		SilenceUsage:      true, // no usage dump on error
+		SilenceErrors:     true, // we explicitly handle errors in Execute()
 	}
 
 	// Environment Variables
@@ -69,20 +55,6 @@ EXAMPLES
 	// a version prefixed by "FUNC_"
 	viper.AutomaticEnv()       // read in environment variables for FUNC_<flag>
 	viper.SetEnvPrefix("func") // ensure that all have the prefix
-
-	// Flags
-	// persistent flags are available to all subcommands implicitly
-	// Note they are bound immediately here as opposed to other subcommands
-	// because this root command is not actually executed during tests, and
-	// therefore PreRunE and other event-based listeners are not invoked.
-	cmd.PersistentFlags().BoolP("verbose", "v", false, "Print verbose logs ($FUNC_VERBOSE)")
-	if err := viper.BindPFlag("verbose", cmd.PersistentFlags().Lookup("verbose")); err != nil {
-		fmt.Fprintf(os.Stderr, "error binding flag: %v\n", err)
-	}
-
-	// Version
-	cmd.Version = cfg.Version.String()
-	cmd.SetVersionTemplate(`{{printf "%s\n" .Version}}`)
 
 	// Client
 	// Use the provided ClientFactory or default to NewClient
@@ -94,20 +66,31 @@ EXAMPLES
 	// Grouped commands
 	groups := templates.CommandGroups{
 		{
-			Header: "Main Commands:",
+			Header: "Primary Commands:",
 			Commands: []*cobra.Command{
-				NewBuildCmd(newClient),
-				NewConfigCmd(defaultLoaderSaver),
 				NewCreateCmd(newClient),
-				NewDeleteCmd(newClient),
-				NewDeployCmd(newClient),
 				NewDescribeCmd(newClient),
-				NewInvokeCmd(newClient),
-				NewLanguagesCmd(newClient),
+				NewDeployCmd(newClient),
+				NewDeleteCmd(newClient),
 				NewListCmd(newClient),
-				NewRepositoryCmd(newClient),
+			},
+		},
+		{
+			Header: "Development Commands:",
+			Commands: []*cobra.Command{
 				NewRunCmd(newClient),
+				NewInvokeCmd(newClient),
+				NewBuildCmd(newClient),
+			},
+		},
+		{
+			Header: "System Commands:",
+			Commands: []*cobra.Command{
+				NewConfigCmd(defaultLoaderSaver, newClient),
+				NewLanguagesCmd(newClient),
 				NewTemplatesCmd(newClient),
+				NewRepositoryCmd(newClient),
+				NewEnvironmentCmd(newClient, &cfg.Version),
 			},
 		},
 		{
@@ -144,21 +127,21 @@ func registry() string {
 // definition (prior to parsing).
 func effectivePath() (path string) {
 	var (
-		env   = os.Getenv("FUNC_PATH")
-		fs    = flag.NewFlagSet("", flag.ContinueOnError)
-		long  = fs.String("path", "", "")
-		short = fs.String("p", "", "")
+		env = os.Getenv("FUNC_PATH")
+		fs  = pflag.NewFlagSet("", pflag.ContinueOnError)
+		p   = fs.StringP("path", "p", "", "")
 	)
 	fs.SetOutput(io.Discard)
+	fs.ParseErrorsWhitelist.UnknownFlags = true // wokeignore:rule=whitelist
+	// Preparsing flags intentionally ignores errors because this is intended
+	// to be an opportunistic parse of the path flags, with actual validation of
+	// flags taking place later in the instantiation process by the cobra pkg.
 	_ = fs.Parse(os.Args[1:])
 	if env != "" {
 		path = env
 	}
-	if *short != "" {
-		path = *short
-	}
-	if *long != "" {
-		path = *long
+	if *p != "" {
+		path = *p
 	}
 	return path
 }
@@ -267,17 +250,6 @@ func deriveImage(explicitImage, defaultRegistry, path string) string {
 	return derivedValue
 }
 
-func envFromCmd(cmd *cobra.Command) (*util.OrderedMap, []string, error) {
-	if cmd.Flags().Changed("env") {
-		env, err := cmd.Flags().GetStringArray("env")
-		if err != nil {
-			return nil, []string{}, fmt.Errorf("Invalid --env: %w", err)
-		}
-		return util.OrderedMapAndRemovalListFromArray(env, "=")
-	}
-	return util.NewOrderedMap(), []string{}, nil
-}
-
 func mergeEnvs(envs []fn.Env, envToUpdate *util.OrderedMap, envToRemove []string) ([]fn.Env, int, error) {
 	updated := sets.NewString()
 
@@ -322,9 +294,19 @@ func mergeEnvs(envs []fn.Env, envToUpdate *util.OrderedMap, envToRemove []string
 	return envs, counter, nil
 }
 
-// setPathFlag ensures common text/wording when the --path flag is used
-func setPathFlag(cmd *cobra.Command) {
-	cmd.Flags().StringP("path", "p", "", "Path to the project directory.  Default is current working directory (Env: $FUNC_PATH)")
+// addConfirmFlag ensures common text/wording when the --path flag is used
+func addConfirmFlag(cmd *cobra.Command, dflt bool) {
+	cmd.Flags().BoolP("confirm", "c", dflt, "Prompt to confirm options interactively ($FUNC_CONFIRM)")
+}
+
+// addPathFlag ensures common text/wording when the --path flag is used
+func addPathFlag(cmd *cobra.Command) {
+	cmd.Flags().StringP("path", "p", "", "Path to the function.  Default is current directory ($FUNC_PATH)")
+}
+
+// addVerboseFlag ensures common text/wording when the --path flag is used
+func addVerboseFlag(cmd *cobra.Command, dflt bool) {
+	cmd.Flags().BoolP("verbose", "v", false, "Print verbose logs ($FUNC_VERBOSE)")
 }
 
 // cwd returns the current working directory or exits 1 printing the error.
@@ -336,61 +318,50 @@ func cwd() (cwd string) {
 	return cwd
 }
 
+// Version information populated on build.
 type Version struct {
-	// Date of compilation
-	Date string
 	// Version tag of the git commit, or 'tip' if no tag.
 	Vers string
+	// Kver is the version of knative in which func was most recently
+	// If the build is not tagged as being released with a specific Knative
+	// build, this is the most recent version of knative along with a suffix
+	// consisting of the number of commits which have been added since it was
+	// included in Knative.
+	Kver string
 	// Hash of the currently active git commit on build.
 	Hash string
 	// Verbose printing enabled for the string representation.
 	Verbose bool
 }
 
-// Return the stringification of the Version struct, which takes into account
-// the verbosity setting.
+// Return the stringification of the Version struct.
 func (v Version) String() string {
 	if v.Verbose {
 		return v.StringVerbose()
 	}
-
-	// Ensure that the value returned is parseable as a semver, with the special
-	// value v0.0.0 as the default indicating there is no version information
-	// available.
-	if strings.HasPrefix(v.Vers, "v") {
-		// TODO: this is the naive approach, perhaps consider actually parse it
-		// using the semver lib
-		return v.Vers
-	}
-
-	// Any non-semver value is invalid, and thus indistinguishable from a
-	// nonexistent version value, so the default zero value of v0.0.0 is used.
-	return "v0.0.0"
+	_ = semver.MustParse(v.Vers)
+	return v.Vers
 }
 
-// StringVerbose returns the verbose version of the version stringification.
-// The format returned is [semver]-[hash]-[date] where the special value
-// 'v0.0.0' and 'source' are used when version is not available and/or the
-// libray has been built from source, respectively.
+// StringVerbose returns the version along with extended version metadata.
 func (v Version) StringVerbose() string {
 	var (
 		vers = v.Vers
+		kver = v.Kver
 		hash = v.Hash
-		date = v.Date
 	)
-	if vers == "" {
-		vers = "v0.0.0"
+	if strings.HasPrefix(kver, "knative-") {
+		kver = strings.Split(kver, "-")[1]
 	}
-	if hash == "" {
-		hash = "source"
-	}
-	if date == "" {
-		date = time.Now().Format(time.RFC3339)
-	}
-	funcVersion := fmt.Sprintf("%s-%s-%s", vers, hash, date)
-	return fmt.Sprintf("Version: %s\n"+
-		"SocatImage: %s\n"+
-		"TarImage: %s", funcVersion,
+	return fmt.Sprintf(
+		"Version: %s\n"+
+			"Knative: %s\n"+
+			"Commit: %s\n"+
+			"SocatImage: %s\n"+
+			"TarImage: %s\n",
+		vers,
+		kver,
+		hash,
 		k8s.SocatImage,
 		k8s.TarImage)
 }
@@ -452,32 +423,4 @@ func surveySelectDefault(value string, options []string) string {
 	// Either the value is not an option or there are no options.  Either of
 	// which should fail proper validation
 	return ""
-}
-
-// defaultTemplatedHelp evaluates the given command's help text as a template
-// some commands define their own help command when additional values are
-// required beyond these basics.
-func defaultTemplatedHelp(cmd *cobra.Command, args []string) {
-	var (
-		body = cmd.Long + "\n\n" + cmd.UsageString()
-		t    = template.New("help")
-		tpl  = template.Must(t.Parse(body))
-	)
-	var data = struct{ Name string }{Name: cmd.Root().Use}
-
-	if err := tpl.Execute(cmd.OutOrStdout(), data); err != nil {
-		fmt.Fprintf(cmd.ErrOrStderr(), "unable to display help text: %v", err)
-	}
-}
-
-// clearEnvs sets all environment variables with the prefix of FUNC_ to
-// empty (unsets) for the duration of the test t.
-func clearEnvs(t *testing.T) {
-	t.Helper()
-	for _, v := range os.Environ() {
-		if strings.HasPrefix(v, "FUNC_") {
-			parts := strings.SplitN(v, "=", 2)
-			t.Setenv(parts[0], "")
-		}
-	}
 }

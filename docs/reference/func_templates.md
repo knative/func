@@ -1,12 +1,12 @@
 ## func templates
 
-Templates
+List available function source templates
 
 ### Synopsis
 
 
 NAME
-	func templates - list available templates
+	func templates - list available function source templates
 
 SYNOPSIS
 	func templates [language] [--json] [-r|--repository]
@@ -48,16 +48,11 @@ func templates
 ```
   -h, --help                help for templates
       --json                Set output to JSON format. (Env: $FUNC_JSON)
-  -r, --repository string   URI to a specific repository to consider (Env: $FUNC_REPOSITORY)
-```
-
-### Options inherited from parent commands
-
-```
-  -v, --verbose   Print verbose logs ($FUNC_VERBOSE)
+  -r, --repository string   URI to a specific repository to consider ($FUNC_REPOSITORY)
+  -v, --verbose             Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO
 
-* [func](func.md)	 - Serverless functions
+* [func](func.md)	 - func manages Knative Functions
 

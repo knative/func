@@ -1,12 +1,9 @@
 /*
 Copyright 2022 The Tekton Authors
-
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
-
     http://www.apache.org/licenses/LICENSE-2.0
-
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -40,7 +37,7 @@ type TaskRunSpec struct {
 	Debug *TaskRunDebug `json:"debug,omitempty"`
 	// +optional
 	// +listType=atomic
-	Params []Param `json:"params,omitempty"`
+	Params Params `json:"params,omitempty"`
 	// +optional
 	ServiceAccountName string `json:"serviceAccountName"`
 	// no more than one of the TaskRef and TaskSpec may be specified.
@@ -48,13 +45,16 @@ type TaskRunSpec struct {
 	TaskRef *TaskRef `json:"taskRef,omitempty"`
 	// +optional
 	TaskSpec *TaskSpec `json:"taskSpec,omitempty"`
-	// Used for cancelling a taskrun (and maybe more later on)
+	// Used for cancelling a TaskRun (and maybe more later on)
 	// +optional
 	Status TaskRunSpecStatus `json:"status,omitempty"`
 	// Status message for cancellation.
 	// +optional
 	StatusMessage TaskRunSpecStatusMessage `json:"statusMessage,omitempty"`
-	// Time after which the build times out. Defaults to 1 hour.
+	// Retries represents how many times this TaskRun should be retried in the event of task failure.
+	// +optional
+	Retries int `json:"retries,omitempty"`
+	// Time after which one retry attempt times out. Defaults to 1 hour.
 	// Specified build timeout should be less than 24h.
 	// Refer Go's ParseDuration documentation for expected format: https://golang.org/pkg/time/#ParseDuration
 	// +optional
@@ -65,25 +65,25 @@ type TaskRunSpec struct {
 	// +optional
 	// +listType=atomic
 	Workspaces []WorkspaceBinding `json:"workspaces,omitempty"`
-	// Overrides to apply to Steps in this TaskRun.
-	// If a field is specified in both a Step and a StepOverride,
-	// the value from the StepOverride will be used.
+	// Specs to apply to Steps in this TaskRun.
+	// If a field is specified in both a Step and a StepSpec,
+	// the value from the StepSpec will be used.
 	// This field is only supported when the alpha feature gate is enabled.
 	// +optional
 	// +listType=atomic
-	StepOverrides []TaskRunStepOverride `json:"stepOverrides,omitempty"`
-	// Overrides to apply to Sidecars in this TaskRun.
-	// If a field is specified in both a Sidecar and a SidecarOverride,
-	// the value from the SidecarOverride will be used.
+	StepSpecs []TaskRunStepSpec `json:"stepSpecs,omitempty"`
+	// Specs to apply to Sidecars in this TaskRun.
+	// If a field is specified in both a Sidecar and a SidecarSpec,
+	// the value from the SidecarSpec will be used.
 	// This field is only supported when the alpha feature gate is enabled.
 	// +optional
 	// +listType=atomic
-	SidecarOverrides []TaskRunSidecarOverride `json:"sidecarOverrides,omitempty"`
+	SidecarSpecs []TaskRunSidecarSpec `json:"sidecarSpecs,omitempty"`
 	// Compute resources to use for this TaskRun
 	ComputeResources *corev1.ResourceRequirements `json:"computeResources,omitempty"`
 }
 
-// TaskRunSpecStatus defines the taskrun spec status the user can provide
+// TaskRunSpecStatus defines the TaskRun spec status the user can provide
 type TaskRunSpecStatus string
 
 const (
@@ -99,6 +99,8 @@ const (
 	// TaskRunCancelledByPipelineMsg indicates that the PipelineRun of which this
 	// TaskRun was a part of has been cancelled.
 	TaskRunCancelledByPipelineMsg TaskRunSpecStatusMessage = "TaskRun cancelled as the PipelineRun it belongs to has been cancelled."
+	// TaskRunCancelledByPipelineTimeoutMsg indicates that the TaskRun was cancelled because the PipelineRun running it timed out.
+	TaskRunCancelledByPipelineTimeoutMsg TaskRunSpecStatusMessage = "TaskRun cancelled as the PipelineRun it belongs to has timed out."
 )
 
 // TaskRunDebug defines the breakpoint config for a particular TaskRun
@@ -112,7 +114,7 @@ type TaskRunDebug struct {
 type TaskRunInputs struct {
 	// +optional
 	// +listType=atomic
-	Params []Param `json:"params,omitempty"`
+	Params Params `json:"params,omitempty"`
 }
 
 var taskRunCondSet = apis.NewBatchConditionSet()
@@ -139,15 +141,21 @@ const (
 	TaskRunReasonSuccessful TaskRunReason = "Succeeded"
 	// TaskRunReasonFailed is the reason set when the TaskRun completed with a failure
 	TaskRunReasonFailed TaskRunReason = "Failed"
-	// TaskRunReasonCancelled is the reason set when the Taskrun is cancelled by the user
+	// TaskRunReasonToBeRetried is the reason set when the last TaskRun execution failed, and will be retried
+	TaskRunReasonToBeRetried TaskRunReason = "ToBeRetried"
+	// TaskRunReasonCancelled is the reason set when the TaskRun is cancelled by the user
 	TaskRunReasonCancelled TaskRunReason = "TaskRunCancelled"
-	// TaskRunReasonTimedOut is the reason set when the Taskrun has timed out
+	// TaskRunReasonTimedOut is the reason set when one TaskRun execution has timed out
 	TaskRunReasonTimedOut TaskRunReason = "TaskRunTimeout"
 	// TaskRunReasonResolvingTaskRef indicates that the TaskRun is waiting for
 	// its taskRef to be asynchronously resolved.
 	TaskRunReasonResolvingTaskRef = "ResolvingTaskRef"
 	// TaskRunReasonImagePullFailed is the reason set when the step of a task fails due to image not being pulled
 	TaskRunReasonImagePullFailed TaskRunReason = "TaskRunImagePullFailed"
+	// TaskRunReasonResultLargerThanAllowedLimit is the reason set when one of the results exceeds its maximum allowed limit of 1 KB
+	TaskRunReasonResultLargerThanAllowedLimit TaskRunReason = "TaskRunResultLargerThanAllowedLimit"
+	// TaskRunReasonStopSidecarFailed indicates that the sidecar is not properly stopped.
+	TaskRunReasonStopSidecarFailed = "TaskRunStopSidecarFailed"
 )
 
 func (t TaskRunReason) String() string {
@@ -199,11 +207,9 @@ type TaskRunStatusFields struct {
 	PodName string `json:"podName"`
 
 	// StartTime is the time the build is actually started.
-	// +optional
 	StartTime *metav1.Time `json:"startTime,omitempty"`
 
 	// CompletionTime is the time the build completed.
-	// +optional
 	CompletionTime *metav1.Time `json:"completionTime,omitempty"`
 
 	// Steps describes the state of each build step container.
@@ -229,22 +235,29 @@ type TaskRunStatusFields struct {
 
 	// TaskSpec contains the Spec from the dereferenced Task definition used to instantiate this TaskRun.
 	TaskSpec *TaskSpec `json:"taskSpec,omitempty"`
+
+	// Provenance contains some key authenticated metadata about how a software artifact was built (what sources, what inputs/outputs, etc.).
+	// +optional
+	Provenance *Provenance `json:"provenance,omitempty"`
+
+	// SpanContext contains tracing span context fields
+	SpanContext map[string]string `json:"spanContext,omitempty"`
 }
 
-// TaskRunStepOverride is used to override the values of a Step in the corresponding Task.
-type TaskRunStepOverride struct {
+// TaskRunStepSpec is used to override the values of a Step in the corresponding Task.
+type TaskRunStepSpec struct {
 	// The name of the Step to override.
 	Name string `json:"name"`
 	// The resource requirements to apply to the Step.
-	Resources corev1.ResourceRequirements `json:"resources"`
+	ComputeResources corev1.ResourceRequirements `json:"computeResources"`
 }
 
-// TaskRunSidecarOverride is used to override the values of a Sidecar in the corresponding Task.
-type TaskRunSidecarOverride struct {
+// TaskRunSidecarSpec is used to override the values of a Sidecar in the corresponding Task.
+type TaskRunSidecarSpec struct {
 	// The name of the Sidecar to override.
 	Name string `json:"name"`
 	// The resource requirements to apply to the Sidecar.
-	Resources corev1.ResourceRequirements `json:"resources"`
+	ComputeResources corev1.ResourceRequirements `json:"computeResources"`
 }
 
 // GetGroupVersionKind implements kmeta.OwnerRefable.
@@ -334,7 +347,7 @@ type TaskRunList struct {
 	Items           []TaskRun `json:"items"`
 }
 
-// GetPipelineRunPVCName for taskrun gets pipelinerun
+// GetPipelineRunPVCName for TaskRun gets pipelinerun
 func (tr *TaskRun) GetPipelineRunPVCName() string {
 	if tr == nil {
 		return ""
@@ -363,7 +376,7 @@ func (tr *TaskRun) IsDone() bool {
 	return !tr.Status.GetCondition(apis.ConditionSucceeded).IsUnknown()
 }
 
-// HasStarted function check whether taskrun has valid start time set in its status
+// HasStarted function check whether TaskRun has valid start time set in its status
 func (tr *TaskRun) HasStarted() bool {
 	return tr.Status.StartTime != nil && !tr.Status.StartTime.IsZero()
 }
@@ -376,6 +389,11 @@ func (tr *TaskRun) IsSuccessful() bool {
 // IsCancelled returns true if the TaskRun's spec status is set to Cancelled state
 func (tr *TaskRun) IsCancelled() bool {
 	return tr.Spec.Status == TaskRunSpecStatusCancelled
+}
+
+// IsRetriable returns true if the TaskRun's Retries is not exhausted.
+func (tr *TaskRun) IsRetriable() bool {
+	return len(tr.Status.RetriesStatus) < tr.Spec.Retries
 }
 
 // HasTimedOut returns true if the TaskRun runtime is beyond the allowed timeout
@@ -397,7 +415,7 @@ func (tr *TaskRun) GetTimeout(ctx context.Context) time.Duration {
 	// Use the platform default is no timeout is set
 	if tr.Spec.Timeout == nil {
 		defaultTimeout := time.Duration(config.FromContextOrDefaults(ctx).Defaults.DefaultTimeoutMinutes)
-		return defaultTimeout * time.Minute
+		return defaultTimeout * time.Minute //nolint:durationcheck
 	}
 	return tr.Spec.Timeout.Duration
 }

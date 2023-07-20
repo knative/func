@@ -8,8 +8,9 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/spf13/cobra"
 
-	fn "knative.dev/func"
-	"knative.dev/func/k8s"
+	"knative.dev/func/pkg/config"
+	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/k8s"
 )
 
 func NewConfigVolumesCmd() *cobra.Command {
@@ -21,8 +22,9 @@ func NewConfigVolumesCmd() *cobra.Command {
 Prints configured Volume mounts for a function project present in
 the current directory or from the directory specified with --path.
 `,
-		SuggestFor: []string{"volums", "volume", "vols"},
-		PreRunE:    bindEnv("path"),
+		Aliases:    []string{"volume"},
+		SuggestFor: []string{"vol", "volums", "vols"},
+		PreRunE:    bindEnv("path", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			function, err := initConfigCommand(defaultLoaderSaver)
 			if err != nil {
@@ -34,14 +36,21 @@ the current directory or from the directory specified with --path.
 			return
 		},
 	}
-	cmd.SetHelpFunc(defaultTemplatedHelp)
+	cfg, err := config.NewDefault()
+	if err != nil {
+		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
+	}
 
 	configVolumesAddCmd := NewConfigVolumesAddCmd()
 	configVolumesRemoveCmd := NewConfigVolumesRemoveCmd()
 
-	setPathFlag(cmd)
-	setPathFlag(configVolumesAddCmd)
-	setPathFlag(configVolumesRemoveCmd)
+	addPathFlag(cmd)
+	addPathFlag(configVolumesAddCmd)
+	addPathFlag(configVolumesRemoveCmd)
+
+	addVerboseFlag(cmd, cfg.Verbose)
+	addVerboseFlag(configVolumesAddCmd, cfg.Verbose)
+	addVerboseFlag(configVolumesRemoveCmd, cfg.Verbose)
 
 	cmd.AddCommand(configVolumesAddCmd)
 	cmd.AddCommand(configVolumesRemoveCmd)
@@ -59,7 +68,7 @@ Interactive prompt to add Secrets and ConfigMaps as Volume mounts to the functio
 in the current directory or from the directory specified with --path.
 `,
 		SuggestFor: []string{"ad", "create", "insert", "append"},
-		PreRunE:    bindEnv("path"),
+		PreRunE:    bindEnv("path", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			function, err := initConfigCommand(defaultLoaderSaver)
 			if err != nil {
@@ -69,7 +78,7 @@ in the current directory or from the directory specified with --path.
 			return runAddVolumesPrompt(cmd.Context(), function)
 		},
 	}
-	cmd.SetHelpFunc(defaultTemplatedHelp)
+
 	return cmd
 }
 
@@ -82,8 +91,9 @@ func NewConfigVolumesRemoveCmd() *cobra.Command {
 Interactive prompt to remove Volume mounts from the function project
 in the current directory or from the directory specified with --path.
 `,
+		Aliases:    []string{"rm"},
 		SuggestFor: []string{"del", "delete", "rmeove"},
-		PreRunE:    bindEnv("path"),
+		PreRunE:    bindEnv("path", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			function, err := initConfigCommand(defaultLoaderSaver)
 			if err != nil {
@@ -93,7 +103,7 @@ in the current directory or from the directory specified with --path.
 			return runRemoveVolumesPrompt(function)
 		},
 	}
-	cmd.SetHelpFunc(defaultTemplatedHelp)
+
 	return cmd
 }
 
@@ -119,12 +129,18 @@ func runAddVolumesPrompt(ctx context.Context, f fn.Function) (err error) {
 	if err != nil {
 		return
 	}
+	persistentVolumeClaims, err := k8s.ListPersistentVolumeClaimsNamesIfConnected(ctx, f.Deploy.Namespace)
+	if err != nil {
+		return
+	}
 
 	// SECTION - select resource type to be mounted
 	options := []string{}
 	selectedOption := ""
 	const optionConfigMap = "ConfigMap"
 	const optionSecret = "Secret"
+	const optionPersistentVolumeClaim = "PersistentVolumeClaim"
+	const optionEmptyDir = "EmptyDir"
 
 	if len(configMaps) > 0 {
 		options = append(options, optionConfigMap)
@@ -132,14 +148,14 @@ func runAddVolumesPrompt(ctx context.Context, f fn.Function) (err error) {
 	if len(secrets) > 0 {
 		options = append(options, optionSecret)
 	}
+	if len(persistentVolumeClaims) > 0 {
+		options = append(options, optionPersistentVolumeClaim)
+	}
+	options = append(options, optionEmptyDir)
 
-	switch len(options) {
-	case 0:
-		fmt.Printf("There aren't any Secrets or ConfiMaps in the namespace \"%s\"\n", f.Deploy.Namespace)
-		return
-	case 1:
+	if len(options) == 1 {
 		selectedOption = options[0]
-	case 2:
+	} else {
 		err = survey.AskOne(&survey.Select{
 			Message: "What do you want to mount as a Volume?",
 			Options: options,
@@ -149,40 +165,58 @@ func runAddVolumesPrompt(ctx context.Context, f fn.Function) (err error) {
 		}
 	}
 
+	// SECTION - display a help message to enable advanced features
+	if selectedOption == optionEmptyDir || selectedOption == optionPersistentVolumeClaim {
+		fmt.Printf("Please make sure to enable the %s extension flag: https://knative.dev/docs/serving/configuration/feature-flags/\n", selectedOption)
+	}
+
 	// SECTION - select the specific resource to be mounted
 	optionsResoures := []string{}
-	resourceType := ""
 	switch selectedOption {
 	case optionConfigMap:
-		resourceType = optionConfigMap
 		optionsResoures = configMaps
 	case optionSecret:
-		resourceType = optionSecret
 		optionsResoures = secrets
+	case optionPersistentVolumeClaim:
+		optionsResoures = persistentVolumeClaims
 	}
 
 	selectedResource := ""
-	err = survey.AskOne(&survey.Select{
-		Message: fmt.Sprintf("Which \"%s\" do you want to mount?", resourceType),
-		Options: optionsResoures,
-	}, &selectedResource)
-	if err != nil {
-		return
+	if selectedOption != optionEmptyDir {
+		err = survey.AskOne(&survey.Select{
+			Message: fmt.Sprintf("Which \"%s\" do you want to mount?", selectedOption),
+			Options: optionsResoures,
+		}, &selectedResource)
+		if err != nil {
+			return
+		}
 	}
 
 	// SECTION - specify mount Path of the Volume
 
 	path := ""
 	err = survey.AskOne(&survey.Input{
-		Message: fmt.Sprintf("Please specify the path where the %s should be mounted:", resourceType),
+		Message: fmt.Sprintf("Please specify the path where the %s should be mounted:", selectedOption),
 	}, &path, survey.WithValidator(func(val interface{}) error {
 		if str, ok := val.(string); !ok || len(str) <= 0 || !strings.HasPrefix(str, "/") {
-			return fmt.Errorf("The input must be non-empty absolute path.")
+			return fmt.Errorf("the input must be non-empty absolute path")
 		}
 		return nil
 	}))
 	if err != nil {
 		return
+	}
+
+	// SECTION - is this read only for pvc
+	readOnly := false
+	if selectedOption == optionPersistentVolumeClaim {
+		err = survey.AskOne(&survey.Confirm{
+			Message: "Is this volume read-only?",
+			Default: false,
+		}, &readOnly)
+		if err != nil {
+			return
+		}
 	}
 
 	// we have all necessary information -> let's store the new Volume
@@ -192,6 +226,13 @@ func runAddVolumesPrompt(ctx context.Context, f fn.Function) (err error) {
 		newVolume.ConfigMap = &selectedResource
 	case optionSecret:
 		newVolume.Secret = &selectedResource
+	case optionPersistentVolumeClaim:
+		newVolume.PresistentVolumeClaim = &fn.PersistentVolumeClaim{
+			ClaimName: &selectedResource,
+			ReadOnly:  readOnly,
+		}
+	case optionEmptyDir:
+		newVolume.EmptyDir = &fn.EmptyDir{}
 	}
 
 	f.Run.Volumes = append(f.Run.Volumes, newVolume)

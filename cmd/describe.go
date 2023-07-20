@@ -11,31 +11,34 @@ import (
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
 
-	fn "knative.dev/func"
-	"knative.dev/func/config"
+	"knative.dev/func/pkg/config"
+	fn "knative.dev/func/pkg/functions"
 )
 
 func NewDescribeCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "describe <name>",
-		Short: "Describe a Function",
-		Long: `Describe a Function
+		Short: "Describe a function",
+		Long: `Describe a function
 
 Prints the name, route and event subscriptions for a deployed function in
 the current directory or from the directory specified with --path.
 `,
 		Example: `
 # Show the details of a function as declared in the local func.yaml
-{{.Name}} info
+{{rootCmdUse}} describe
 
 # Show the details of the function in the directory with yaml output
-{{.Name}} info --output yaml --path myotherfunc
+{{rootCmdUse}} describe --output yaml --path myotherfunc
 `,
 		SuggestFor: []string{"ifno", "fino", "get"},
 
 		ValidArgsFunction: CompleteFunctionList,
 		Aliases:           []string{"info", "desc"},
-		PreRunE:           bindEnv("output", "path", "namespace"),
+		PreRunE:           bindEnv("output", "path", "namespace", "verbose"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runDescribe(cmd, args, newClient)
+		},
 	}
 
 	// Config
@@ -45,18 +48,13 @@ the current directory or from the directory specified with --path.
 	}
 
 	// Flags
-	cmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|xml|yaml|url) (Env: $FUNC_OUTPUT)")
-	cmd.Flags().StringP("namespace", "n", cfg.Namespace, "The namespace in which to look for the named function. (Env: $FUNC_NAMESPACE)")
-	setPathFlag(cmd)
+	cmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|xml|yaml|url) ($FUNC_OUTPUT)")
+	cmd.Flags().StringP("namespace", "n", cfg.Namespace, "The namespace in which to look for the named function. ($FUNC_NAMESPACE)")
+	addPathFlag(cmd)
+	addVerboseFlag(cmd, cfg.Verbose)
 
 	if err := cmd.RegisterFlagCompletionFunc("output", CompleteOutputFormatList); err != nil {
 		fmt.Println("internal: error while calling RegisterFlagCompletionFunc: ", err)
-	}
-
-	cmd.SetHelpFunc(defaultTemplatedHelp)
-
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runDescribe(cmd, args, newClient)
 	}
 
 	return cmd
@@ -76,7 +74,7 @@ func runDescribe(cmd *cobra.Command, args []string, newClient ClientFactory) (er
 			return
 		}
 		if !f.Initialized() {
-			return fmt.Errorf("the given path '%v' does not contain an initialized function.", cfg.Path)
+			return fn.NewErrNotInitialized(f.Root)
 		}
 		// Use Function's Namespace with precedence
 		//
@@ -94,7 +92,7 @@ func runDescribe(cmd *cobra.Command, args []string, newClient ClientFactory) (er
 	defer done()
 
 	// TODO(lkingland): update API to use the above function instance rather than path
-	d, err := client.Describe(cmd.Context(), cfg.Name, f.Root)
+	d, err := client.Describe(cmd.Context(), cfg.Name, f)
 	if err != nil {
 		return
 	}

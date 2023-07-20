@@ -13,9 +13,10 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
-	fn "knative.dev/func"
-	"knative.dev/func/k8s"
-	"knative.dev/func/utils"
+	"knative.dev/func/pkg/config"
+	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/k8s"
+	"knative.dev/func/pkg/utils"
 )
 
 func NewConfigEnvsCmd(loadSaver functionLoaderSaver) *cobra.Command {
@@ -27,8 +28,9 @@ func NewConfigEnvsCmd(loadSaver functionLoaderSaver) *cobra.Command {
 Prints configured Environment variable for a function project present in
 the current directory or from the directory specified with --path.
 `,
-		SuggestFor: []string{"ensv", "env"},
-		PreRunE:    bindEnv("path", "output"),
+		Aliases:    []string{"env"},
+		SuggestFor: []string{"ensv"},
+		PreRunE:    bindEnv("path", "output", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			function, err := initConfigCommand(loadSaver)
 			if err != nil {
@@ -38,15 +40,23 @@ the current directory or from the directory specified with --path.
 			return listEnvs(function, cmd.OutOrStdout(), Format(viper.GetString("output")))
 		},
 	}
+	cfg, err := config.NewDefault()
+	if err != nil {
+		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
+	}
 
-	cmd.Flags().StringP("output", "o", "human", "Output format (human|json) (Env: $FUNC_OUTPUT)")
+	cmd.Flags().StringP("output", "o", "human", "Output format (human|json) ($FUNC_OUTPUT)")
 
 	configEnvsAddCmd := NewConfigEnvsAddCmd(loadSaver)
 	configEnvsRemoveCmd := NewConfigEnvsRemoveCmd()
 
-	setPathFlag(cmd)
-	setPathFlag(configEnvsAddCmd)
-	setPathFlag(configEnvsRemoveCmd)
+	addPathFlag(cmd)
+	addPathFlag(configEnvsAddCmd)
+	addPathFlag(configEnvsRemoveCmd)
+
+	addVerboseFlag(cmd, cfg.Verbose)
+	addVerboseFlag(configEnvsAddCmd, cfg.Verbose)
+	addVerboseFlag(configEnvsRemoveCmd, cfg.Verbose)
 
 	cmd.AddCommand(configEnvsAddCmd)
 	cmd.AddCommand(configEnvsRemoveCmd)
@@ -66,24 +76,24 @@ The environment variable can be set directly from a value,
 from an environment variable on the local machine or from Secrets and ConfigMaps.
 It is also possible to import all keys as environment variables from a Secret or ConfigMap.`,
 		Example: `# set environment variable directly
-{{.Name}} config envs add --name=VARNAME --value=myValue
+{{rootCmdUse}} config envs add --name=VARNAME --value=myValue
 
 # set environment variable from local env $LOC_ENV
-{{.Name}} config envs add --name=VARNAME --value='{{"{{"}} env:LOC_ENV {{"}}"}}'
+{{rootCmdUse}} config envs add --name=VARNAME --value='{{"{{"}} env:LOC_ENV {{"}}"}}'
 
 set environment variable from a secret
-{{.Name}} config envs add --name=VARNAME --value='{{"{{"}} secret:secretName:key {{"}}"}}'
+{{rootCmdUse}} config envs add --name=VARNAME --value='{{"{{"}} secret:secretName:key {{"}}"}}'
 
 # set all key as environment variables from a secret
-{{.Name}} config envs add --value='{{"{{"}} secret:secretName {{"}}"}}'
+{{rootCmdUse}} config envs add --value='{{"{{"}} secret:secretName {{"}}"}}'
 
 # set environment variable from a configMap
-{{.Name}} config envs add --name=VARNAME --value='{{"{{"}} configMap:confMapName:key {{"}}"}}'
+{{rootCmdUse}} config envs add --name=VARNAME --value='{{"{{"}} configMap:confMapName:key {{"}}"}}'
 
 # set all key as environment variables from a configMap
-{{.Name}} config envs add --value='{{"{{"}} configMap:confMapName {{"}}"}}'`,
+{{rootCmdUse}} config envs add --value='{{"{{"}} configMap:confMapName {{"}}"}}'`,
 		SuggestFor: []string{"ad", "create", "insert", "append"},
-		PreRunE:    bindEnv("path", "name", "value"),
+		PreRunE:    bindEnv("path", "name", "value", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			function, err := initConfigCommand(loadSaver)
 			if err != nil {
@@ -126,7 +136,6 @@ set environment variable from a secret
 	cmd.Flags().StringP("name", "", "", "Name of the environment variable.")
 	cmd.Flags().StringP("value", "", "", "Value of the environment variable.")
 
-	cmd.SetHelpFunc(defaultTemplatedHelp)
 	return cmd
 }
 
@@ -139,8 +148,9 @@ func NewConfigEnvsRemoveCmd() *cobra.Command {
 Interactive prompt to remove Environment variables from the function project
 in the current directory or from the directory specified with --path.
 `,
-		SuggestFor: []string{"rm", "del", "delete", "rmeove"},
-		PreRunE:    bindEnv("path"),
+		Aliases:    []string{"rm"},
+		SuggestFor: []string{"del", "delete", "rmeove"},
+		PreRunE:    bindEnv("path", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			function, err := initConfigCommand(defaultLoaderSaver)
 			if err != nil {

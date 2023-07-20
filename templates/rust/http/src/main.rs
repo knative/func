@@ -1,15 +1,22 @@
 use actix_web::{web, App, HttpResponse, HttpServer};
-use env_logger as elog;
+use env_logger::{Builder, Env};
+use std::{
+    env,
+    io::{Error, ErrorKind, Result},
+    num::ParseIntError,
+};
 
 mod config;
 mod handler;
 
 #[actix_web::main]
-async fn main() -> std::io::Result<()> {
-    elog::from_env(elog::Env::default().default_filter_or("info")).init();
+async fn main() -> Result<()> {
+    Builder::from_env(Env::default().default_filter_or("info")).init();
 
-    let port: u16 = match std::env::var("PORT") {
-        Ok(v) => v.parse().unwrap(),
+    let port = match env::var("PORT") {
+        Ok(v) => v
+            .parse()
+            .map_err(|e: ParseIntError| Error::new(ErrorKind::Other, e.to_string()))?,
         Err(_) => 8080,
     };
 
@@ -25,7 +32,7 @@ async fn main() -> std::io::Result<()> {
                 web::get().to(HttpResponse::Ok),
             )
     })
-    .bind(("127.0.0.1", port))?
+    .bind(("0.0.0.0", port))?
     .workers(1)
     .run()
     .await

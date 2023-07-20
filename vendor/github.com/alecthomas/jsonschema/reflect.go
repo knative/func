@@ -30,14 +30,23 @@ type Schema struct {
 	Definitions Definitions
 }
 
-// customSchemaType is used to detect if the structure provides it's own
+// customSchemaType is used to detect if the type provides it's own
 // custom Schema Type definition to use instead. Very useful for situations
 // where there are custom JSON Marshal and Unmarshal methods.
 type customSchemaType interface {
 	JSONSchemaType() *Type
 }
 
-var customStructType = reflect.TypeOf((*customSchemaType)(nil)).Elem()
+var customType = reflect.TypeOf((*customSchemaType)(nil)).Elem()
+
+// customSchemaGetFieldDocString
+type customSchemaGetFieldDocString interface {
+	GetFieldDocString(fieldName string) string
+}
+
+type customGetFieldDocString func(fieldName string) string
+
+var customStructGetFieldDocString = reflect.TypeOf((*customSchemaGetFieldDocString)(nil)).Elem()
 
 // Type represents a JSON Schema object type.
 type Type struct {
@@ -78,6 +87,9 @@ type Type struct {
 	Default     interface{}   `json:"default,omitempty"`     // section 6.2
 	Format      string        `json:"format,omitempty"`      // section 7
 	Examples    []interface{} `json:"examples,omitempty"`    // section 7.4
+	// RFC draft-handrews-json-schema-validation-02, section 9.4
+	ReadOnly  bool `json:"readOnly,omitempty"`
+	WriteOnly bool `json:"writeOnly,omitempty"`
 	// RFC draft-wright-json-schema-hyperschema-00, section 4
 	Media          *Type  `json:"media,omitempty"`          // section 4.3
 	BinaryEncoding string `json:"binaryEncoding,omitempty"` // section 4.3
@@ -141,7 +153,7 @@ type Reflector struct {
 	// switching to just allowing additional properties instead.
 	IgnoredTypes []interface{}
 
-	// TypeMapper is a function that can be used to map custom Go types to jsconschema types.
+	// TypeMapper is a function that can be used to map custom Go types to jsonschema types.
 	TypeMapper func(reflect.Type) *Type
 
 	// TypeNamer allows customizing of type names
@@ -149,6 +161,22 @@ type Reflector struct {
 
 	// AdditionalFields allows adding structfields for a given type
 	AdditionalFields func(reflect.Type) []reflect.StructField
+
+	// CommentMap is a dictionary of fully qualified go types and fields to comment
+	// strings that will be used if a description has not already been provided in
+	// the tags. Types and fields are added to the package path using "." as a
+	// separator.
+	//
+	// Type descriptions should be defined like:
+	//
+	//   map[string]string{"github.com/alecthomas/jsonschema.Reflector": "A Reflector reflects values into a Schema."}
+	//
+	// And Fields defined as:
+	//
+	//   map[string]string{"github.com/alecthomas/jsonschema.Reflector.DoNotReference": "Do not reference definitions."}
+	//
+	// See also: AddGoComments
+	CommentMap map[string]string
 }
 
 // Reflect reflects to Schema from a value.
@@ -198,6 +226,9 @@ var (
 // Byte slices will be encoded as base64
 var byteSliceType = reflect.TypeOf([]byte(nil))
 
+// Except for json.RawMessage
+var rawMessageType = reflect.TypeOf(json.RawMessage{})
+
 // Go code generated from protobuf enum types should fulfil this interface.
 type protoEnum interface {
 	EnumDescriptor() ([]byte, []int)
@@ -211,6 +242,16 @@ func (r *Reflector) reflectTypeToSchema(definitions Definitions, t reflect.Type)
 		return &Type{Ref: "#/definitions/" + r.typeName(t)}
 	}
 
+	if r.TypeMapper != nil {
+		if t := r.TypeMapper(t); t != nil {
+			return t
+		}
+	}
+
+	if rt := r.reflectCustomType(definitions, t); rt != nil {
+		return rt
+	}
+
 	// jsonpb will marshal protobuf enum options as either strings or integers.
 	// It will unmarshal either.
 	if t.Implements(protoEnumType) {
@@ -220,24 +261,16 @@ func (r *Reflector) reflectTypeToSchema(definitions Definitions, t reflect.Type)
 		}}
 	}
 
-	if r.TypeMapper != nil {
-		if t := r.TypeMapper(t); t != nil {
-			return t
-		}
-	}
-
 	// Defined format types for JSON Schema Validation
 	// RFC draft-wright-json-schema-validation-00, section 7.3
 	// TODO email RFC section 7.3.2, hostname RFC section 7.3.3, uriref RFC section 7.3.7
-	switch t {
-	case ipType:
+	if t == ipType {
 		// TODO differentiate ipv4 and ipv6 RFC section 7.3.4, 7.3.5
 		return &Type{Type: "string", Format: "ipv4"} // ipv4 RFC section 7.3.4
 	}
 
 	switch t.Kind() {
 	case reflect.Struct:
-
 		switch t {
 		case timeType: // date-time RFC section 7.3.1
 			return &Type{Type: "string", Format: "date-time"}
@@ -248,6 +281,18 @@ func (r *Reflector) reflectTypeToSchema(definitions Definitions, t reflect.Type)
 		}
 
 	case reflect.Map:
+		switch t.Key().Kind() {
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			rt := &Type{
+				Type: "object",
+				PatternProperties: map[string]*Type{
+					"^[0-9]+$": r.reflectTypeToSchema(definitions, t.Elem()),
+				},
+				AdditionalProperties: []byte("false"),
+			}
+			return rt
+		}
+
 		rt := &Type{
 			Type: "object",
 			PatternProperties: map[string]*Type{
@@ -259,6 +304,11 @@ func (r *Reflector) reflectTypeToSchema(definitions Definitions, t reflect.Type)
 
 	case reflect.Slice, reflect.Array:
 		returnType := &Type{}
+		if t == rawMessageType {
+			return &Type{
+				AdditionalProperties: []byte("true"),
+			}
+		}
 		if t.Kind() == reflect.Array {
 			returnType.MinItems = t.Len()
 			returnType.MaxItems = returnType.MinItems
@@ -296,8 +346,35 @@ func (r *Reflector) reflectTypeToSchema(definitions Definitions, t reflect.Type)
 	panic("unsupported type " + t.String())
 }
 
-// Refects a struct to a JSON Schema type.
+func (r *Reflector) reflectCustomType(definitions Definitions, t reflect.Type) *Type {
+	if t.Kind() == reflect.Ptr {
+		return r.reflectCustomType(definitions, t.Elem())
+	}
+
+	if t.Implements(customType) {
+		v := reflect.New(t)
+		o := v.Interface().(customSchemaType)
+		st := o.JSONSchemaType()
+		definitions[r.typeName(t)] = st
+		if r.DoNotReference {
+			return st
+		} else {
+			return &Type{
+				Version: Version,
+				Ref:     "#/definitions/" + r.typeName(t),
+			}
+		}
+	}
+
+	return nil
+}
+
+// Reflects a struct to a JSON Schema type.
 func (r *Reflector) reflectStruct(definitions Definitions, t reflect.Type) *Type {
+	if st := r.reflectCustomType(definitions, t); st != nil {
+		return st
+	}
+
 	for _, ignored := range r.IgnoredTypes {
 		if reflect.TypeOf(ignored) == t {
 			st := &Type{
@@ -315,27 +392,20 @@ func (r *Reflector) reflectStruct(definitions Definitions, t reflect.Type) *Type
 					Ref:     "#/definitions/" + r.typeName(t),
 				}
 			}
+		}
+	}
 
-		}
+	st := &Type{
+		Type:                 "object",
+		Properties:           orderedmap.New(),
+		AdditionalProperties: []byte("false"),
+		Description:          r.lookupComment(t, ""),
 	}
-	var st *Type
-	if t.Implements(customStructType) {
-		v := reflect.New(t)
-		o := v.Interface().(customSchemaType)
-		st = o.JSONSchemaType()
-		definitions[r.typeName(t)] = st
-	} else {
-		st = &Type{
-			Type:                 "object",
-			Properties:           orderedmap.New(),
-			AdditionalProperties: []byte("false"),
-		}
-		if r.AllowAdditionalProperties {
-			st.AdditionalProperties = []byte("true")
-		}
-		definitions[r.typeName(t)] = st
-		r.reflectStructFields(st, definitions, t)
+	if r.AllowAdditionalProperties {
+		st.AdditionalProperties = []byte("true")
 	}
+	definitions[r.typeName(t)] = st
+	r.reflectStructFields(st, definitions, t)
 
 	if r.DoNotReference {
 		return st
@@ -355,6 +425,13 @@ func (r *Reflector) reflectStructFields(st *Type, definitions Definitions, t ref
 		return
 	}
 
+	var getFieldDocString customGetFieldDocString
+	if t.Implements(customStructGetFieldDocString) {
+		v := reflect.New(t)
+		o := v.Interface().(customSchemaGetFieldDocString)
+		getFieldDocString = o.GetFieldDocString
+	}
+
 	handleField := func(f reflect.StructField) {
 		name, shouldEmbed, required, nullable := r.reflectFieldName(f)
 		// if anonymous and exported type should be processed recursively
@@ -368,6 +445,12 @@ func (r *Reflector) reflectStructFields(st *Type, definitions Definitions, t ref
 
 		property := r.reflectTypeToSchema(definitions, f.Type)
 		property.structKeywordsFromTags(f, st, name)
+		if property.Description == "" {
+			property.Description = r.lookupComment(t, f.Name)
+		}
+		if getFieldDocString != nil {
+			property.Description = getFieldDocString(f.Name)
+		}
 
 		if nullable {
 			property = &Type{
@@ -397,6 +480,19 @@ func (r *Reflector) reflectStructFields(st *Type, definitions Definitions, t ref
 			}
 		}
 	}
+}
+
+func (r *Reflector) lookupComment(t reflect.Type, name string) string {
+	if r.CommentMap == nil {
+		return ""
+	}
+
+	n := fullyQualifiedTypeName(t)
+	if name != "" {
+		n = n + "." + name
+	}
+
+	return r.CommentMap[n]
 }
 
 func (t *Type) structKeywordsFromTags(f reflect.StructField, parentType *Type, propertyName string) {
@@ -493,6 +589,12 @@ func (t *Type) stringKeywords(tags []string) {
 					t.Format = val
 					break
 				}
+			case "readOnly":
+				i, _ := strconv.ParseBool(val)
+				t.ReadOnly = i
+			case "writeOnly":
+				i, _ := strconv.ParseBool(val)
+				t.WriteOnly = i
 			case "default":
 				t.Default = val
 			case "example":
@@ -570,6 +672,17 @@ func (t *Type) arrayKeywords(tags []string) {
 				t.UniqueItems = true
 			case "default":
 				defaultValues = append(defaultValues, val)
+			case "enum":
+				switch t.Items.Type {
+				case "string":
+					t.Items.Enum = append(t.Items.Enum, val)
+				case "integer":
+					i, _ := strconv.Atoi(val)
+					t.Items.Enum = append(t.Items.Enum, i)
+				case "number":
+					f, _ := strconv.ParseFloat(val, 64)
+					t.Items.Enum = append(t.Items.Enum, f)
+				}
 			}
 		}
 	}
@@ -592,11 +705,11 @@ func (t *Type) setExtra(key, val string) {
 		t.Extras = map[string]interface{}{}
 	}
 	if existingVal, ok := t.Extras[key]; ok {
-		switch existingVal.(type) {
+		switch existingVal := existingVal.(type) {
 		case string:
-			t.Extras[key] = []string{existingVal.(string), val}
+			t.Extras[key] = []string{existingVal, val}
 		case []string:
-			t.Extras[key] = append(existingVal.([]string), val)
+			t.Extras[key] = append(existingVal, val)
 		case int:
 			t.Extras[key], _ = strconv.Atoi(val)
 		}
@@ -772,7 +885,21 @@ func (r *Reflector) typeName(t reflect.Type) string {
 		}
 	}
 	if r.FullyQualifyTypeNames {
-		return t.PkgPath() + "." + t.Name()
+		return fullyQualifiedTypeName(t)
 	}
 	return t.Name()
+}
+
+func fullyQualifiedTypeName(t reflect.Type) string {
+	return t.PkgPath() + "." + t.Name()
+}
+
+// AddGoComments will update the reflectors comment map with all the comments
+// found in the provided source directories. See the #ExtractGoComments method
+// for more details.
+func (r *Reflector) AddGoComments(base, path string) error {
+	if r.CommentMap == nil {
+		r.CommentMap = make(map[string]string)
+	}
+	return ExtractGoComments(base, path, r.CommentMap)
 }

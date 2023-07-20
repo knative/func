@@ -11,7 +11,8 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
-	fn "knative.dev/func"
+	"knative.dev/func/pkg/config"
+	fn "knative.dev/func/pkg/functions"
 )
 
 // ErrTemplateRepoDoesNotExist is a sentinel error if a template repository responds with 404 status code
@@ -20,13 +21,13 @@ var ErrTemplateRepoDoesNotExist = errors.New("template repo does not exist")
 func NewTemplatesCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "templates",
-		Short: "Templates",
+		Short: "List available function source templates",
 		Long: `
 NAME
-	{{.Name}} templates - list available templates
+	{{rootCmdUse}} templates - list available function source templates
 
 SYNOPSIS
-	{{.Name}} templates [language] [--json] [-r|--repository]
+	{{rootCmdUse}} templates [language] [--json] [-r|--repository]
 
 DESCRIPTION
 	List all templates available, optionally for a specific language runtime.
@@ -44,33 +45,36 @@ DESCRIPTION
 EXAMPLES
 
 	o Show a list of all available templates grouped by language runtime
-	  $ {{.Name}} templates
+	  $ {{rootCmdUse}} templates
 
 	o Show a list of all templates for the Go runtime
-	  $ {{.Name}} templates go
+	  $ {{rootCmdUse}} templates go
 
 	o Return a list of all template runtimes in JSON output format
-	  $ {{.Name}} templates --json
+	  $ {{rootCmdUse}} templates --json
 
 	o Return Go templates in a specific repository
-		$ {{.Name}} templates go --repository=https://github.com/boson-project/templates
+		$ {{rootCmdUse}} templates go --repository=https://github.com/boson-project/templates
 `,
 		SuggestFor: []string{"template", "templtaes", "templatse", "remplates",
 			"gemplates", "yemplates", "tenplates", "tekplates", "tejplates",
 			"temolates", "temllates", "temppates", "tempmates", "tempkates",
 			"templstes", "templztes", "templqtes", "templares", "templages", //nolint:misspell
 			"templayes", "templatee", "templatea", "templated", "templatew"},
-		PreRunE: bindEnv("json", "repository"),
+		PreRunE: bindEnv("json", "repository", "verbose"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runTemplates(cmd, args, newClient)
+		},
+	}
+
+	cfg, err := config.NewDefault()
+	if err != nil {
+		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
 
 	cmd.Flags().Bool("json", false, "Set output to JSON format. (Env: $FUNC_JSON)")
-	cmd.Flags().StringP("repository", "r", "", "URI to a specific repository to consider (Env: $FUNC_REPOSITORY)")
-
-	cmd.SetHelpFunc(defaultTemplatedHelp)
-
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runTemplates(cmd, args, newClient)
-	}
+	cmd.Flags().StringP("repository", "r", "", "URI to a specific repository to consider ($FUNC_REPOSITORY)")
+	addVerboseFlag(cmd, cfg.Verbose)
 
 	return cmd
 }

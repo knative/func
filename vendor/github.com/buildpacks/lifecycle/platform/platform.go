@@ -4,34 +4,33 @@ import (
 	"github.com/buildpacks/lifecycle/api"
 )
 
-// Platform handles logic pertaining to inputs and outputs from a platform (lifecycle invoker)'s perspective.
+type LifecyclePhase int
+
+const (
+	Analyze LifecyclePhase = iota
+	Detect
+	Restore
+	Extend
+	Build
+	Export
+	Create
+	Rebase
+)
+
+// Platform holds lifecycle inputs and outputs for a given Platform API version and lifecycle phase.
 type Platform struct {
-	*InputsResolver
+	*LifecycleInputs
 	Exiter
-	api *api.Version
 }
 
-// NewPlatform accepts a platform API and returns a new Platform.
-func NewPlatform(apiStr string) *Platform {
-	platformAPI := api.MustParse(apiStr)
+// NewPlatformFor accepts a Platform API version and a layers directory, and returns a Platform with default lifecycle inputs and an exiter service.
+func NewPlatformFor(platformAPI string) *Platform {
 	return &Platform{
-		InputsResolver: NewInputsResolver(platformAPI),
-		Exiter:         NewExiter(apiStr),
-		api:            platformAPI,
+		LifecycleInputs: NewLifecycleInputs(api.MustParse(platformAPI)),
+		Exiter:          NewExiter(platformAPI),
 	}
 }
 
-// API returns the platform API.
 func (p *Platform) API() *api.Version {
-	return p.api
-}
-
-// InputsResolver resolves inputs for each of the lifecycle phases.
-type InputsResolver struct {
-	platformAPI *api.Version
-}
-
-// NewInputsResolver accepts a platform API and returns a new InputsResolver.
-func NewInputsResolver(platformAPI *api.Version) *InputsResolver {
-	return &InputsResolver{platformAPI: platformAPI}
+	return p.PlatformAPI
 }

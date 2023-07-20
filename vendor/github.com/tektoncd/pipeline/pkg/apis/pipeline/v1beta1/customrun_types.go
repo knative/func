@@ -54,7 +54,7 @@ type CustomRunSpec struct {
 
 	// +optional
 	// +listType=atomic
-	Params []Param `json:"params,omitempty"`
+	Params Params `json:"params,omitempty"`
 
 	// Used for cancelling a customrun (and maybe more later on)
 	// +optional
@@ -113,15 +113,30 @@ func (rs CustomRunSpec) GetParam(name string) *Param {
 	return nil
 }
 
+// CustomRunReason is an enum used to store all Run reason for the Succeeded condition that are controlled by the CustomRun itself.
+type CustomRunReason string
+
 const (
+	// CustomRunReasonStarted is the reason set when the CustomRun has just started.
+	CustomRunReasonStarted CustomRunReason = "Started"
+	// CustomRunReasonRunning is the reason set when the CustomRun is running.
+	CustomRunReasonRunning CustomRunReason = "Running"
+	// CustomRunReasonSuccessful is the reason set when the CustomRun completed successfully.
+	CustomRunReasonSuccessful CustomRunReason = "Succeeded"
+	// CustomRunReasonFailed is the reason set when the CustomRun completed with a failure.
+	CustomRunReasonFailed CustomRunReason = "Failed"
 	// CustomRunReasonCancelled must be used in the Condition Reason to indicate that a CustomRun was cancelled.
-	CustomRunReasonCancelled = "CustomRunCancelled"
+	CustomRunReasonCancelled CustomRunReason = "CustomRunCancelled"
 	// CustomRunReasonTimedOut must be used in the Condition Reason to indicate that a CustomRun was timed out.
-	CustomRunReasonTimedOut = "CustomRunTimedOut"
+	CustomRunReasonTimedOut CustomRunReason = "CustomRunTimedOut"
 	// CustomRunReasonWorkspaceNotSupported can be used in the Condition Reason to indicate that the
 	// CustomRun contains a workspace which is not supported by this custom task.
-	CustomRunReasonWorkspaceNotSupported = "CustomRunWorkspaceNotSupported"
+	CustomRunReasonWorkspaceNotSupported CustomRunReason = "CustomRunWorkspaceNotSupported"
 )
+
+func (t CustomRunReason) String() string {
+	return string(t)
+}
 
 // CustomRunStatus defines the observed state of CustomRun.
 type CustomRunStatus = runv1beta1.CustomRunStatus
@@ -179,7 +194,7 @@ func (r *CustomRun) GetStatusCondition() apis.ConditionAccessor {
 
 // GetGroupVersionKind implements kmeta.OwnerRefable.
 func (*CustomRun) GetGroupVersionKind() schema.GroupVersionKind {
-	return SchemeGroupVersion.WithKind(pipeline.RunControllerName)
+	return SchemeGroupVersion.WithKind(pipeline.CustomRunControllerName)
 }
 
 // HasPipelineRunOwnerReference returns true of CustomRun has
@@ -240,4 +255,9 @@ func (r *CustomRun) GetTimeout() time.Duration {
 		return apisconfig.DefaultTimeoutMinutes * time.Minute
 	}
 	return r.Spec.Timeout.Duration
+}
+
+// GetRetryCount returns the number of times this CustomRun has already been retried
+func (r *CustomRun) GetRetryCount() int {
+	return len(r.Status.RetriesStatus)
 }

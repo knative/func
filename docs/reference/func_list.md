@@ -1,10 +1,10 @@
 ## func list
 
-List functions
+List deployed functions
 
 ### Synopsis
 
-List functions
+List deployed functions
 
 Lists all deployed functions in a given namespace.
 
@@ -33,17 +33,12 @@ func list --all-namespaces --output json
 ```
   -A, --all-namespaces     List functions in all namespaces. If set, the --namespace flag is ignored.
   -h, --help               help for list
-  -n, --namespace string   The namespace for which to list functions. (Env: $FUNC_NAMESPACE) (default "default")
-  -o, --output string      Output format (human|plain|json|xml|yaml) (Env: $FUNC_OUTPUT) (default "human")
-```
-
-### Options inherited from parent commands
-
-```
-  -v, --verbose   Print verbose logs ($FUNC_VERBOSE)
+  -n, --namespace string   The namespace for which to list functions. ($FUNC_NAMESPACE) (default "default")
+  -o, --output string      Output format (human|plain|json|xml|yaml) ($FUNC_OUTPUT) (default "human")
+  -v, --verbose            Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO
 
-* [func](func.md)	 - Serverless functions
+* [func](func.md)	 - func manages Knative Functions
 

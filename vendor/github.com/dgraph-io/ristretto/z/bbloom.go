@@ -23,10 +23,9 @@ package z
 import (
 	"bytes"
 	"encoding/json"
+	"log"
 	"math"
 	"unsafe"
-
-	"github.com/golang/glog"
 )
 
 // helper
@@ -60,7 +59,7 @@ func NewBloomFilter(params ...float64) (bloomfilter *Bloom) {
 			entries, locs = uint64(params[0]), uint64(params[1])
 		}
 	} else {
-		glog.Fatal("usage: New(float64(number_of_entries), float64(number_of_hashlocations))" +
+		log.Fatal("usage: New(float64(number_of_entries), float64(number_of_hashlocations))" +
 			" i.e. New(float64(1000), float64(3)) or New(float64(number_of_entries)," +
 			" float64(number_of_hashlocations)) i.e. New(float64(1000), float64(0.03))")
 	}
@@ -114,7 +113,8 @@ func (bl Bloom) Has(hash uint64) bool {
 	h := hash >> bl.shift
 	l := hash << bl.shift >> bl.shift
 	for i := uint64(0); i < bl.setLocs; i++ {
-		if !bl.IsSet((h + i*l) & bl.size) {
+		switch bl.IsSet((h + i*l) & bl.size) {
+		case false:
 			return false
 		}
 	}
@@ -130,13 +130,6 @@ func (bl *Bloom) AddIfNotHas(hash uint64) bool {
 	}
 	bl.Add(hash)
 	return true
-}
-
-// TotalSize returns the total size of the bloom filter.
-func (bl *Bloom) TotalSize() int {
-	// The bl struct has 5 members and each one is 8 byte. The bitset is a
-	// uint64 byte slice.
-	return len(bl.bitset)*8 + 5*8
 }
 
 // Size makes Bloom filter with as bitset of size sz.
@@ -183,15 +176,13 @@ func newWithBoolset(bs *[]byte, locs uint64) *Bloom {
 
 // JSONUnmarshal takes JSON-Object (type bloomJSONImExport) as []bytes
 // returns bloom32 / bloom64 object.
-func JSONUnmarshal(dbData []byte) (*Bloom, error) {
+func JSONUnmarshal(dbData []byte) *Bloom {
 	bloomImEx := bloomJSONImExport{}
-	if err := json.Unmarshal(dbData, &bloomImEx); err != nil {
-		return nil, err
-	}
+	json.Unmarshal(dbData, &bloomImEx)
 	buf := bytes.NewBuffer(bloomImEx.FilterSet)
 	bs := buf.Bytes()
 	bf := newWithBoolset(&bs, bloomImEx.SetLocs)
-	return bf, nil
+	return bf
 }
 
 // JSONMarshal returns JSON-object (type bloomJSONImExport) as []byte.
@@ -205,7 +196,7 @@ func (bl Bloom) JSONMarshal() []byte {
 	}
 	data, err := json.Marshal(bloomImEx)
 	if err != nil {
-		glog.Fatal("json.Marshal failed: ", err)
+		log.Fatal("json.Marshal failed: ", err)
 	}
 	return data
 }

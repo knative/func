@@ -10,21 +10,21 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
-	fn "knative.dev/func"
-	"knative.dev/func/config"
-	"knative.dev/func/utils"
+	"knative.dev/func/pkg/config"
+	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/utils"
 )
 
 func NewInvokeCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "invoke",
-		Short: "Invoke a function",
+		Short: "Invoke a local or remote function",
 		Long: `
 NAME
-	{{.Name}} invoke - test a function by invoking it with test data
+	{{rootCmdUse}} invoke - test a function by invoking it with test data
 
 SYNOPSIS
-	{{.Name}} invoke [-t|--target] [-f|--format]
+	{{rootCmdUse}} invoke [-t|--target] [-f|--format]
 	             [--id] [--source] [--type] [--data] [--file] [--content-type]
 	             [-s|--save] [-p|--path] [-i|--insecure] [-c|--confirm] [-v|--verbose]
 
@@ -48,61 +48,64 @@ DESCRIPTION
 	Invocation Target
 	  The function instance to invoke can be specified using the --target flag
 	  which accepts the values "local", "remote", or <URL>.  By default the
-	  local function instance is chosen if running (see {{.Name}} run).
+	  local function instance is chosen if running (see {{rootCmdUse}} run).
 	  To explicitly target the remote (deployed) function:
-	    {{.Name}} invoke --target=remote
+	    {{rootCmdUse}} invoke --target=remote
 	  To target an arbitrary endpoint, provide a URL:
-	    {{.Name}} invoke --target=https://myfunction.example.com
+	    {{rootCmdUse}} invoke --target=https://myfunction.example.com
 
 	Invocation Data
 	  Providing a filename in the --file flag will base64 encode its contents
 	  as the "data" parameter sent to the function.  The value of --content-type
 	  should be set to the type from the source file.  For example, the following
 	  would send a JPEG base64 encoded in the "data" POST parameter:
-	    {{.Name}} invoke --file=example.jpeg --content-type=image/jpeg
+	    {{rootCmdUse}} invoke --file=example.jpeg --content-type=image/jpeg
 
 	Message Format
 	  By default functions are sent messages which match the invocation format
 	  of the template they were created using; for example "http" or "cloudevent".
 	  To override this behavior, use the --format (-f) flag.
-	    {{.Name}} invoke -f=cloudevent -t=http://my-sink.my-cluster
+	    {{rootCmdUse}} invoke -f=cloudevent -t=http://my-sink.my-cluster
 
 EXAMPLES
 
 	o Invoke the default (local or remote) running function with default values
-	  $ {{.Name}} invoke
+	  $ {{rootCmdUse}} invoke
 
 	o Run the function locally and then invoke it with a test request:
 	  (run in two terminals or by running the first in the background)
-	  $ {{.Name}} run
-	  $ {{.Name}} invoke
+	  $ {{rootCmdUse}} run
+	  $ {{rootCmdUse}} invoke
 
 	o Deploy and then invoke the remote function:
-	  $ {{.Name}} deploy
-	  $ {{.Name}} invoke
+	  $ {{rootCmdUse}} deploy
+	  $ {{rootCmdUse}} invoke
 
 	o Invoke a remote (deployed) function when it is already running locally:
 	  (overrides the default behavior of preferring locally running instances)
-	  $ {{.Name}} invoke --target=remote
+	  $ {{rootCmdUse}} invoke --target=remote
 
 	o Specify the data to send to the function as a flag
-	  $ {{.Name}} invoke --data="Hello World!"
+	  $ {{rootCmdUse}} invoke --data="Hello World!"
 
 	o Send a JPEG to the function
-	  $ {{.Name}} invoke --file=example.jpeg --content-type=image/jpeg
+	  $ {{rootCmdUse}} invoke --file=example.jpeg --content-type=image/jpeg
 
 	o Invoke an arbitrary endpoint (HTTP POST)
-		$ {{.Name}} invoke --target="https://my-http-handler.example.com"
+		$ {{rootCmdUse}} invoke --target="https://my-http-handler.example.com"
 
 	o Invoke an arbitrary endpoint (CloudEvent)
-		$ {{.Name}} invoke -f=cloudevent -t="https://my-event-broker.example.com"
+		$ {{rootCmdUse}} invoke -f=cloudevent -t="https://my-event-broker.example.com"
 
 	o Allow insecure server connections when using SSL
-		$ {{.Name}} invoke --insecure
+		$ {{rootCmdUse}} invoke --insecure
 
 `,
 		SuggestFor: []string{"emit", "emti", "send", "emit", "exec", "nivoke", "onvoke", "unvoke", "knvoke", "imvoke", "ihvoke", "ibvoke"},
-		PreRunE:    bindEnv("path", "format", "target", "id", "source", "type", "data", "content-type", "file", "insecure", "confirm"),
+		PreRunE:    bindEnv("path", "format", "target", "id", "source", "type", "data", "content-type", "file", "insecure", "confirm", "verbose"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runInvoke(cmd, args, newClient)
+		},
 	}
 
 	// Config
@@ -112,23 +115,18 @@ EXAMPLES
 	}
 
 	// Flags
-	setPathFlag(cmd)
-	cmd.Flags().StringP("format", "f", "", "Format of message to send, 'http' or 'cloudevent'.  Default is to choose automatically. (Env: $FUNC_FORMAT)")
-	cmd.Flags().StringP("target", "t", "", "Function instance to invoke.  Can be 'local', 'remote' or a URL.  Defaults to auto-discovery if not provided. (Env: $FUNC_TARGET)")
-	cmd.Flags().StringP("id", "", "", "ID for the request data. (Env: $FUNC_ID)")
-	cmd.Flags().StringP("source", "", fn.DefaultInvokeSource, "Source value for the request data. (Env: $FUNC_SOURCE)")
-	cmd.Flags().StringP("type", "", fn.DefaultInvokeType, "Type value for the request data. (Env: $FUNC_TYPE)")
-	cmd.Flags().StringP("content-type", "", fn.DefaultInvokeContentType, "Content Type of the data. (Env: $FUNC_CONTENT_TYPE)")
-	cmd.Flags().StringP("data", "", fn.DefaultInvokeData, "Data to send in the request. (Env: $FUNC_DATA)")
-	cmd.Flags().StringP("file", "", "", "Path to a file to use as data. Overrides --data flag and should be sent with a correct --content-type. (Env: $FUNC_FILE)")
-	cmd.Flags().BoolP("insecure", "i", false, "Allow insecure server connections when using SSL. (Env: $FUNC_INSECURE)")
-	cmd.Flags().BoolP("confirm", "c", cfg.Confirm, "Prompt to confirm all options interactively. (Env: $FUNC_CONFIRM)")
-
-	cmd.SetHelpFunc(defaultTemplatedHelp)
-
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runInvoke(cmd, args, newClient)
-	}
+	cmd.Flags().StringP("format", "f", "", "Format of message to send, 'http' or 'cloudevent'.  Default is to choose automatically. ($FUNC_FORMAT)")
+	cmd.Flags().StringP("target", "t", "", "Function instance to invoke.  Can be 'local', 'remote' or a URL.  Defaults to auto-discovery if not provided. ($FUNC_TARGET)")
+	cmd.Flags().StringP("id", "", "", "ID for the request data. ($FUNC_ID)")
+	cmd.Flags().StringP("source", "", fn.DefaultInvokeSource, "Source value for the request data. ($FUNC_SOURCE)")
+	cmd.Flags().StringP("type", "", fn.DefaultInvokeType, "Type value for the request data. ($FUNC_TYPE)")
+	cmd.Flags().StringP("content-type", "", fn.DefaultInvokeContentType, "Content Type of the data. ($FUNC_CONTENT_TYPE)")
+	cmd.Flags().StringP("data", "", fn.DefaultInvokeData, "Data to send in the request. ($FUNC_DATA)")
+	cmd.Flags().StringP("file", "", "", "Path to a file to use as data. Overrides --data flag and should be sent with a correct --content-type. ($FUNC_FILE)")
+	cmd.Flags().BoolP("insecure", "i", false, "Allow insecure server connections when using SSL. ($FUNC_INSECURE)")
+	addConfirmFlag(cmd, cfg.Confirm)
+	addPathFlag(cmd)
+	addVerboseFlag(cmd, cfg.Verbose)
 
 	return cmd
 }
@@ -146,8 +144,12 @@ func runInvoke(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 	if err != nil {
 		return
 	}
+	if err = f.Validate(); err != nil {
+		fmt.Printf("error validating function at '%v'. %v\n", f.Root, err)
+		return err
+	}
 	if !f.Initialized() {
-		return fmt.Errorf("'%v' does not contain an initialized function", cfg.Path)
+		return fn.NewErrNotInitialized(f.Root)
 	}
 
 	// Client instance from env vars, flags, args and user prompts (if --confirm)
@@ -180,24 +182,26 @@ func runInvoke(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 		return err
 	}
 
-	// Always print a "Received response" message because a simple echo to
-	// stdout could be confusing on a first-time run, viewing a proper echo.
-	fmt.Println("Received response")
-
 	// When Verbose
 	// - Print an explicit "Received response" indicator
 	// - Print metadata (headers for HTTP requests, CloudEvents already include
 	//   metadata in their data value.
 	if cfg.Verbose {
+		// Print a "Received response" message because a simple echo to
+		// stdout could be confusing on a first-time run, viewing a proper echo.
+		// user feedback suggests this actually be placed behind the --verbose
+		// setting:
+		fmt.Println("Function invoked.  Response:")
+
 		if len(metadata) > 0 {
-			fmt.Println("Metadata:")
+			fmt.Println("  Metadata:")
 		}
 		for k, vv := range metadata {
 			values := strings.Join(vv, ";")
-			fmt.Fprintf(cmd.OutOrStdout(), "  %v: %v\n", k, values)
+			fmt.Fprintf(cmd.OutOrStdout(), "    %v: %v\n", k, values)
 		}
 		if len(metadata) > 0 {
-			fmt.Println("Content:")
+			fmt.Println("  Content:")
 		}
 	}
 

@@ -7,7 +7,7 @@ jobs:
     name: On Cluster Test
     strategy:
       matrix:
-        go: [1.18.x]
+        go: [1.20.2]
         os: ["ubuntu-latest"]
     runs-on: ${{ matrix.os }}
     steps:
@@ -15,8 +15,11 @@ jobs:
       - uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go }}
+      - uses: imjasonh/setup-ko@v0.6
       - name: Install Binaries
         run: ./hack/binaries.sh
+      - name: Setup testing func image
+        run: ./hack/create-testing-func-image.sh
       - name: Allocate Cluster
         run: ./hack/allocate.sh
       - name: Deploy Tekton
@@ -26,4 +29,8 @@ jobs:
       - name: E2E On Cluster Test
         env:
           E2E_RUNTIMES: ""
-        run: make && make test-e2e-on-cluster
+        run: make test-e2e-on-cluster
+      - uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage.txt
+          flags: e2e-test-oncluster

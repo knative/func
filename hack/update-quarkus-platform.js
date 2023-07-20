@@ -59,8 +59,8 @@ const prepareBranch = async (branchName, prTitle) => {
     const script = `git config user.email "automation@knative.team" && \\
   git config user.name "Knative Automation" && \\
   git checkout -b "${branchName}" && \\
-  make zz_filesystem_generated.go && \\
-  git add "${cePomPath}" "${httpPomPath}" zz_filesystem_generated.go && \\
+  make generate/zz_filesystem_generated.go && \\
+  git add "${cePomPath}" "${httpPomPath}" generate/zz_filesystem_generated.go && \\
   git commit -m "${prTitle}" && \\
   git push --set-upstream origin "${branchName}"
 `
@@ -84,6 +84,19 @@ const updatePlatformInPom = async (pomPath, newPlatform) => {
     await writeFile(pomPath, newPomData)
 }
 
+const smokeTest = () => {
+    const subproc = spawn("make", ["test-quarkus"], {stdio: ['inherit', 'inherit', 'inherit']})
+    return new Promise((resolve, reject) => {
+        subproc.on('exit', code => {
+            if (code === 0) {
+                resolve()
+                return
+            }
+            reject(new Error("smoke test failed: non-zero exit code"))
+        })
+    })
+}
+
 const main = async () => {
     const latestPlatform = await getLatestPlatform()
     const prTitle = `chore: update Quarkus platform version to ${latestPlatform}`
@@ -103,6 +116,7 @@ const main = async () => {
 
     await updatePlatformInPom(cePomPath, latestPlatform)
     await updatePlatformInPom(httpPomPath, latestPlatform)
+    await smokeTest()
     await prepareBranch(branchName, prTitle)
     await octokit.rest.pulls.create({
         owner: owner,

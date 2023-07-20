@@ -1,6 +1,6 @@
 ## func invoke
 
-Invoke a function
+Invoke a local or remote function
 
 ### Synopsis
 
@@ -94,27 +94,22 @@ func invoke
 ### Options
 
 ```
-  -c, --confirm               Prompt to confirm all options interactively. (Env: $FUNC_CONFIRM)
-      --content-type string   Content Type of the data. (Env: $FUNC_CONTENT_TYPE) (default "application/json")
-      --data string           Data to send in the request. (Env: $FUNC_DATA) (default "{\"message\":\"Hello World\"}")
-      --file string           Path to a file to use as data. Overrides --data flag and should be sent with a correct --content-type. (Env: $FUNC_FILE)
-  -f, --format string         Format of message to send, 'http' or 'cloudevent'.  Default is to choose automatically. (Env: $FUNC_FORMAT)
+  -c, --confirm               Prompt to confirm options interactively ($FUNC_CONFIRM)
+      --content-type string   Content Type of the data. ($FUNC_CONTENT_TYPE) (default "application/json")
+      --data string           Data to send in the request. ($FUNC_DATA) (default "{\"message\":\"Hello World\"}")
+      --file string           Path to a file to use as data. Overrides --data flag and should be sent with a correct --content-type. ($FUNC_FILE)
+  -f, --format string         Format of message to send, 'http' or 'cloudevent'.  Default is to choose automatically. ($FUNC_FORMAT)
   -h, --help                  help for invoke
-      --id string             ID for the request data. (Env: $FUNC_ID)
-  -i, --insecure              Allow insecure server connections when using SSL. (Env: $FUNC_INSECURE)
-  -p, --path string           Path to the project directory.  Default is current working directory (Env: $FUNC_PATH)
-      --source string         Source value for the request data. (Env: $FUNC_SOURCE) (default "/boson/fn")
-  -t, --target string         Function instance to invoke.  Can be 'local', 'remote' or a URL.  Defaults to auto-discovery if not provided. (Env: $FUNC_TARGET)
-      --type string           Type value for the request data. (Env: $FUNC_TYPE) (default "boson.fn")
-```
-
-### Options inherited from parent commands
-
-```
-  -v, --verbose   Print verbose logs ($FUNC_VERBOSE)
+      --id string             ID for the request data. ($FUNC_ID)
+  -i, --insecure              Allow insecure server connections when using SSL. ($FUNC_INSECURE)
+  -p, --path string           Path to the function.  Default is current directory ($FUNC_PATH)
+      --source string         Source value for the request data. ($FUNC_SOURCE) (default "/boson/fn")
+  -t, --target string         Function instance to invoke.  Can be 'local', 'remote' or a URL.  Defaults to auto-discovery if not provided. ($FUNC_TARGET)
+      --type string           Type value for the request data. ($FUNC_TYPE) (default "boson.fn")
+  -v, --verbose               Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO
 
-* [func](func.md)	 - Serverless functions
+* [func](func.md)	 - func manages Knative Functions
 

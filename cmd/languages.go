@@ -7,7 +7,8 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
-	fn "knative.dev/func"
+	"knative.dev/func/pkg/config"
+	fn "knative.dev/func/pkg/functions"
 )
 
 func NewLanguagesCmd(newClient ClientFactory) *cobra.Command {
@@ -16,10 +17,10 @@ func NewLanguagesCmd(newClient ClientFactory) *cobra.Command {
 		Short: "List available function language runtimes",
 		Long: `
 NAME
-	{{.Name}} languages - list available language runtimes.
+	{{rootCmdUse}} languages - list available language runtimes.
 
 SYNOPSIS
-	{{.Name}} languages [--json] [-r|--repository]
+	{{rootCmdUse}} languages [--json] [-r|--repository]
 
 DESCRIPTION
 	List the language runtimes that are currently available.
@@ -39,27 +40,31 @@ DESCRIPTION
 EXAMPLES
 
 	o Show a list of all available language runtimes
-	  $ {{.Name}} languages
+	  $ {{rootCmdUse}} languages
 
 	o Return a list of all language runtimes in JSON
-	  $ {{.Name}} languages --json
+	  $ {{rootCmdUse}} languages --json
 
 	o Return language runtimes in a specific repository
-		$ {{.Name}} languages --repository=https://github.com/boson-project/templates
+		$ {{rootCmdUse}} languages --repository=https://github.com/boson-project/templates
 `,
 		SuggestFor: []string{"language", "runtime", "runtimes", "lnaguages", "languagse",
 			"panguages", "manguages", "kanguages", "lsnguages", "lznguages"},
-		PreRunE: bindEnv("json", "repository"),
+		PreRunE: bindEnv("json", "repository", "verbose"),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runLanguages(cmd, args, newClient)
+		},
 	}
 
-	cmd.Flags().BoolP("json", "", false, "Set output to JSON format. (Env: $FUNC_JSON)")
-	cmd.Flags().StringP("repository", "r", "", "URI to a specific repository to consider (Env: $FUNC_REPOSITORY)")
-
-	cmd.SetHelpFunc(defaultTemplatedHelp)
-
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runLanguages(cmd, args, newClient)
+	// Global Config
+	cfg, err := config.NewDefault()
+	if err != nil {
+		fmt.Fprintf(cmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
 	}
+
+	cmd.Flags().BoolP("json", "", false, "Set output to JSON format. ($FUNC_JSON)")
+	cmd.Flags().StringP("repository", "r", "", "URI to a specific repository to consider ($FUNC_REPOSITORY)")
+	addVerboseFlag(cmd, cfg.Verbose)
 
 	return cmd
 }

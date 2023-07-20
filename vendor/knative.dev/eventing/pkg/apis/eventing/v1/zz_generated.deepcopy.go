@@ -95,7 +95,7 @@ func (in *BrokerSpec) DeepCopyInto(out *BrokerSpec) {
 	if in.Config != nil {
 		in, out := &in.Config, &out.Config
 		*out = new(duckv1.KReference)
-		**out = **in
+		(*in).DeepCopyInto(*out)
 	}
 	if in.Delivery != nil {
 		in, out := &in.Delivery, &out.Delivery
@@ -119,7 +119,7 @@ func (in *BrokerSpec) DeepCopy() *BrokerSpec {
 func (in *BrokerStatus) DeepCopyInto(out *BrokerStatus) {
 	*out = *in
 	in.Status.DeepCopyInto(&out.Status)
-	in.Address.DeepCopyInto(&out.Address)
+	in.AddressStatus.DeepCopyInto(&out.AddressStatus)
 	in.DeliveryStatus.DeepCopyInto(&out.DeliveryStatus)
 	return
 }
@@ -338,6 +338,11 @@ func (in *TriggerStatus) DeepCopyInto(out *TriggerStatus) {
 		in, out := &in.SubscriberURI, &out.SubscriberURI
 		*out = new(apis.URL)
 		(*in).DeepCopyInto(*out)
+	}
+	if in.SubscriberCACerts != nil {
+		in, out := &in.SubscriberCACerts, &out.SubscriberCACerts
+		*out = new(string)
+		**out = **in
 	}
 	in.DeliveryStatus.DeepCopyInto(&out.DeliveryStatus)
 	return

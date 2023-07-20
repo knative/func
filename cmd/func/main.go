@@ -11,11 +11,11 @@ import (
 
 	"github.com/AlecAivazis/survey/v2/terminal"
 	"knative.dev/func/cmd"
-	"knative.dev/func/docker"
+	"knative.dev/func/pkg/docker"
 )
 
 // Statically-populated build metadata set by `make build`.
-var date, vers, hash string
+var vers, kver, hash string
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -33,8 +33,8 @@ func main() {
 	cfg := cmd.RootCommandConfig{
 		Name: "func",
 		Version: cmd.Version{
-			Date: date,
 			Vers: vers,
+			Kver: kver,
 			Hash: hash,
 		}}
 

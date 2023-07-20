@@ -12,9 +12,9 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
-	fn "knative.dev/func"
-	"knative.dev/func/config"
-	"knative.dev/func/utils"
+	"knative.dev/func/pkg/config"
+	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/utils"
 )
 
 // ErrNoRuntime indicates that the language runtime flag was not passed.
@@ -30,10 +30,10 @@ type ErrInvalidTemplate error
 func NewCreateCmd(newClient ClientFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "create",
-		Short: "Create a function project",
+		Short: "Create a function",
 		Long: `
 NAME
-	{{.Name}} create - Create a function project.
+	{{.Name}} create - Create a function
 
 SYNOPSIS
 	{{.Name}} create [-l|--language] [-t|--template] [-r|--repository]
@@ -42,7 +42,7 @@ SYNOPSIS
 DESCRIPTION
 	Creates a new function project.
 
-	  $ {{.Name}} create -l node -t http
+	  $ {{.Name}} create -l node
 
 	Creates a function in the current directory '.' which is written in the
 	language/runtime 'node' and handles HTTP events.
@@ -60,19 +60,22 @@ DESCRIPTION
 
 
 EXAMPLES
-	o Create a Node.js function (the default language runtime) in the current
-	  directory (the default path) which handles http events (the default
-	  template).
-	  $ {{.Name}} create
+	o Create a Node.js function in the current directory (the default path) which
+	  handles http events (the default template).
+	  $ {{.Name}} create -l node
 
 	o Create a Node.js function in the directory 'myfunc'.
-	  $ {{.Name}} create myfunc
+	  $ {{.Name}} create -l node myfunc
 
 	o Create a Go function which handles CloudEvents in ./myfunc.
 	  $ {{.Name}} create -l go -t cloudevents myfunc
 		`,
 		SuggestFor: []string{"vreate", "creaet", "craete", "new"},
-		PreRunE:    bindEnv("language", "template", "repository", "confirm"),
+		PreRunE:    bindEnv("language", "template", "repository", "confirm", "verbose"),
+		Aliases:    []string{"init"},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runCreate(cmd, args, newClient)
+		},
 	}
 
 	// Config
@@ -82,18 +85,16 @@ EXAMPLES
 	}
 
 	// Flags
-	cmd.Flags().StringP("language", "l", cfg.Language, "Language Runtime (see help text for list) (Env: $FUNC_LANGUAGE)")
-	cmd.Flags().StringP("template", "t", fn.DefaultTemplate, "Function template. (see help text for list) (Env: $FUNC_TEMPLATE)")
-	cmd.Flags().StringP("repository", "r", "", "URI to a Git repository containing the specified template (Env: $FUNC_REPOSITORY)")
-	cmd.Flags().BoolP("confirm", "c", cfg.Confirm, "Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)")
+	cmd.Flags().StringP("language", "l", cfg.Language, "Language Runtime (see help text for list) ($FUNC_LANGUAGE)")
+	cmd.Flags().StringP("template", "t", fn.DefaultTemplate, "Function template. (see help text for list) ($FUNC_TEMPLATE)")
+	cmd.Flags().StringP("repository", "r", "", "URI to a Git repository containing the specified template ($FUNC_REPOSITORY)")
+
+	addConfirmFlag(cmd, cfg.Confirm)
+	// TODO: refactor to use --path like all the other commands
+	addVerboseFlag(cmd, cfg.Verbose)
 
 	// Help Action
 	cmd.SetHelpFunc(func(cmd *cobra.Command, args []string) { runCreateHelp(cmd, args, newClient) })
-
-	// Run Action
-	cmd.RunE = func(cmd *cobra.Command, args []string) error {
-		return runCreate(cmd, args, newClient)
-	}
 
 	// Tab completion
 	if err := cmd.RegisterFlagCompletionFunc("language", newRuntimeCompletionFunc(newClient)); err != nil {
@@ -131,7 +132,7 @@ func runCreate(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 	}
 
 	// Create
-	err = client.Create(fn.Function{
+	_, err = client.Init(fn.Function{
 		Name:     cfg.Name,
 		Root:     cfg.Path,
 		Runtime:  cfg.Runtime,
@@ -144,43 +145,6 @@ func runCreate(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 	// Confirm
 	fmt.Fprintf(cmd.OutOrStderr(), "Created %v function in %v\n", cfg.Runtime, cfg.Path)
 	return nil
-}
-
-// Run Help
-func runCreateHelp(cmd *cobra.Command, args []string, newClient ClientFactory) {
-	// Error-tolerant implementation:
-	// Help can not fail when creating the client config (such as on invalid
-	// flag values) because help text is needed in that situation.   Therefore,
-	// this implementation must be resilient to cfg zero value.
-	failSoft := func(err error) {
-		if err != nil {
-			fmt.Fprintf(cmd.OutOrStderr(), "error: help text may be partial: %v", err)
-		}
-	}
-
-	tpl := createHelpTemplate(cmd)
-
-	cfg, err := newCreateConfig(cmd, args, newClient)
-	failSoft(err)
-
-	client, done := newClient(
-		ClientConfig{Verbose: cfg.Verbose},
-		fn.WithRepository(cfg.Repository))
-	defer done()
-
-	options, err := RuntimeTemplateOptions(client) // human-friendly
-	failSoft(err)
-
-	var data = struct {
-		Options string
-		Name    string
-	}{
-		Options: options,
-		Name:    cmd.Root().Use,
-	}
-	if err := tpl.Execute(cmd.OutOrStdout(), data); err != nil {
-		fmt.Fprintf(cmd.ErrOrStderr(), "unable to display help text: %v", err)
-	}
 }
 
 type createConfig struct {
@@ -529,11 +493,43 @@ func templatesWithPrefix(prefix, runtime string, client *fn.Client) ([]string, e
 	return suggestions, nil
 }
 
-// Template Helpers
-// ---------------
+// runCreateHelp prints help for the create command using a template
+// and options.
+func runCreateHelp(cmd *cobra.Command, args []string, newClient ClientFactory) {
+	failSoft := func(err error) {
+		if err != nil {
+			fmt.Fprintf(cmd.OutOrStderr(), "error: help text may be partial: %v", err)
+		}
+	}
 
-// createHelpTemplate is the template for the create command help
-func createHelpTemplate(cmd *cobra.Command) *template.Template {
+	tpl := newHelpTemplate(cmd)
+
+	cfg, err := newCreateConfig(cmd, args, newClient)
+	failSoft(err)
+
+	client, done := newClient(
+		ClientConfig{Verbose: cfg.Verbose},
+		fn.WithRepository(cfg.Repository))
+	defer done()
+
+	options, err := RuntimeTemplateOptions(client) // human-friendly
+	failSoft(err)
+
+	var data = struct {
+		Options string
+		Name    string
+	}{
+		Options: options,
+		Name:    cmd.Root().Use,
+	}
+
+	if err := tpl.Execute(cmd.OutOrStdout(), data); err != nil {
+		fmt.Fprintf(cmd.ErrOrStderr(), "unable to display help text: %v", err)
+	}
+}
+
+// newHelpTemplate returns a template for the create command's help text
+func newHelpTemplate(cmd *cobra.Command) *template.Template {
 	body := cmd.Long + "\n\n" + cmd.UsageString()
 	t := template.New("help")
 	fm := template.FuncMap{
@@ -548,6 +544,7 @@ func createHelpTemplate(cmd *cobra.Command) *template.Template {
 
 // RuntimeTemplateOptions is a human-friendly table of valid Language Runtime
 // to Template combinations.
+// Exported for use in docs.
 func RuntimeTemplateOptions(client *fn.Client) (string, error) {
 	runtimes, err := client.Runtimes()
 	if err != nil {

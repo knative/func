@@ -12,8 +12,8 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
-	fn "knative.dev/func"
 	"knative.dev/func/cmd"
+	fn "knative.dev/func/pkg/functions"
 )
 
 var (
@@ -22,6 +22,9 @@ var (
 		"indent": func(i int, c string, v string) string {
 			indentation := strings.Repeat(c, i)
 			return indentation + strings.Replace(v, "\n", "\n"+indentation, -1)
+		},
+		"rootCmdUse": func() string {
+			return rootName
 		},
 	}
 
@@ -90,7 +93,7 @@ func ignoreConfigEnv() (done func()) {
 
 // processSubCommands is a recursive function which writes the markdown text
 // for all subcommands of the provided cobra command, prepending the parent
-// string to the fiile name, and recursively calls itself for each subcommand.
+// string to the file name, and recursively calls itself for each subcommand.
 func processSubCommands(c *cobra.Command, parent string, opts TemplateOptions) error {
 	for _, cc := range c.Commands() {
 		name := cc.Name()
@@ -100,6 +103,7 @@ func processSubCommands(c *cobra.Command, parent string, opts TemplateOptions) e
 		if parent != "" {
 			name = parent + "_" + name
 		}
+		opts.Use = cc.Use
 		if err := writeMarkdown(cc, name, opts); err != nil {
 			return err
 		}

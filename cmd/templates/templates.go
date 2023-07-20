@@ -25,7 +25,7 @@ import (
 
 const (
 	// sectionUsage is the help template section that displays the command's usage.
-	sectionUsage = `{{if (ne .UseLine "")}}Usage:
+	sectionUsage = `{{if and .Runnable (ne .UseLine "") (not (isRootCmd .))}}Usage:
   {{useLine .}}
 
 {{end}}`
@@ -38,7 +38,7 @@ const (
 
 	// sectionExamples is the help template section that displays command examples.
 	sectionExamples = `{{if .HasExample}}Examples:
-{{trimRight .Example}}
+{{trimRight (execTemplate .Example .)}}
 
 {{end}}`
 
@@ -65,7 +65,7 @@ const (
 {{end}}`
 
 	// sectionTipsHelp is the help template section that displays the '--help' hint.
-	sectionTipsHelp = `{{if .HasSubCommands}}Use "{{rootCmdName}} [command] --help" for more information about a given command.
+	sectionTipsHelp = `{{if .HasSubCommands}}Use "{{rootCmdName}} <command> --help" for more information about a given command.
 {{end}}`
 )
 

@@ -17,7 +17,7 @@ package transport
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 
@@ -34,6 +34,9 @@ type Error struct {
 	Request *http.Request
 	// The raw body if we couldn't understand it.
 	rawBody string
+
+	// Bit of a hack to make it easier to force a retry.
+	temporary bool
 }
 
 // Check that Error implements error
@@ -72,6 +75,10 @@ func (e *Error) responseErr() string {
 
 // Temporary returns whether the request that preceded the error is temporary.
 func (e *Error) Temporary() bool {
+	if e.temporary {
+		return true
+	}
+
 	if len(e.Errors) == 0 {
 		_, ok := temporaryStatusCodes[e.StatusCode]
 		return ok
@@ -86,9 +93,9 @@ func (e *Error) Temporary() bool {
 
 // Diagnostic represents a single error returned by a Docker registry interaction.
 type Diagnostic struct {
-	Code    ErrorCode   `json:"code"`
-	Message string      `json:"message,omitempty"`
-	Detail  interface{} `json:"detail,omitempty"`
+	Code    ErrorCode `json:"code"`
+	Message string    `json:"message,omitempty"`
+	Detail  any       `json:"detail,omitempty"`
 }
 
 // String stringifies the Diagnostic in the form: $Code: $Message[; $Detail]
@@ -153,21 +160,37 @@ func CheckError(resp *http.Response, codes ...int) error {
 			return nil
 		}
 	}
-	b, err := ioutil.ReadAll(resp.Body)
+
+	b, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}
 
+	return makeError(resp, b)
+}
+
+func makeError(resp *http.Response, body []byte) *Error {
 	// https://github.com/docker/distribution/blob/master/docs/spec/api.md#errors
 	structuredError := &Error{}
 
 	// This can fail if e.g. the response body is not valid JSON. That's fine,
 	// we'll construct an appropriate error string from the body and status code.
-	_ = json.Unmarshal(b, structuredError)
+	_ = json.Unmarshal(body, structuredError)
 
-	structuredError.rawBody = string(b)
+	structuredError.rawBody = string(body)
 	structuredError.StatusCode = resp.StatusCode
 	structuredError.Request = resp.Request
 
 	return structuredError
+}
+
+func retryError(resp *http.Response) error {
+	b, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	rerr := makeError(resp, b)
+	rerr.temporary = true
+	return rerr
 }

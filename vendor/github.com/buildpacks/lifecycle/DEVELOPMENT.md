@@ -32,6 +32,17 @@
   ]
 ```
 
+* Some of the Windows acceptance tests use license restricted base images. By default, the docker deamon will not publish layers from these images when pushing to a registry which can result in test failures with error messages such as: `Ignoring image "X" because it was corrupt`. To fix these failures you must [enable pushing nondistributable artifacts](https://docs.docker.com/engine/reference/commandline/dockerd/#allow-push-of-nondistributable-artifacts) to the test registry by adding the following to your Docker Desktop Engine config: 
+    * `%programdata%\docker\config\daemon.json`:
+
+```
+{
+  "allow-nondistributable-artifacts": [
+    "<my-host-ip>/32"
+  ]
+}
+```
+
 ### Testing GitHub actions on forks
 
 The lifecycle release process involves chaining a series of GitHub actions together such that:
@@ -76,6 +87,16 @@ Formats, vets, and tests the code.
 ```bash
 $ make test
 ```
+
+#### Mocks
+
+We use mock generators like most golang projects to help with our testing. To make new mocks:
+```bash
+$ make generate
+$ make format lint
+```
+
+This is because the mock generator will make a larger diff that the formatter will fix.
 
 ### Build
 

@@ -26,6 +26,11 @@ import (
 	"knative.dev/pkg/apis"
 )
 
+const (
+	cloudEventsAnnotationKey     = "tekton.dev/v1beta1CloudEvents"
+	resourcesResultAnnotationKey = "tekton.dev/v1beta1ResourcesResult"
+)
+
 var _ apis.Convertible = (*TaskRun)(nil)
 
 // ConvertTo implements apis.Convertible
@@ -36,7 +41,10 @@ func (tr *TaskRun) ConvertTo(ctx context.Context, to apis.Convertible) error {
 	switch sink := to.(type) {
 	case *v1.TaskRun:
 		sink.ObjectMeta = tr.ObjectMeta
-		if err := serializeTaskRunResources(&sink.ObjectMeta, &tr.Spec); err != nil {
+		if err := serializeTaskRunCloudEvents(&sink.ObjectMeta, &tr.Status); err != nil {
+			return err
+		}
+		if err := tr.Status.ConvertTo(ctx, &sink.Status); err != nil {
 			return err
 		}
 		return tr.Spec.ConvertTo(ctx, &sink.Spec)
@@ -71,6 +79,7 @@ func (trs *TaskRunSpec) ConvertTo(ctx context.Context, sink *v1.TaskRunSpec) err
 	}
 	sink.Status = v1.TaskRunSpecStatus(trs.Status)
 	sink.StatusMessage = v1.TaskRunSpecStatusMessage(trs.StatusMessage)
+	sink.Retries = trs.Retries
 	sink.Timeout = trs.Timeout
 	sink.PodTemplate = trs.PodTemplate
 	sink.Workspaces = nil
@@ -79,17 +88,17 @@ func (trs *TaskRunSpec) ConvertTo(ctx context.Context, sink *v1.TaskRunSpec) err
 		w.convertTo(ctx, &new)
 		sink.Workspaces = append(sink.Workspaces, new)
 	}
-	sink.StepOverrides = nil
+	sink.StepSpecs = nil
 	for _, so := range trs.StepOverrides {
-		new := v1.TaskRunStepOverride{}
+		new := v1.TaskRunStepSpec{}
 		so.convertTo(ctx, &new)
-		sink.StepOverrides = append(sink.StepOverrides, new)
+		sink.StepSpecs = append(sink.StepSpecs, new)
 	}
-	sink.SidecarOverrides = nil
+	sink.SidecarSpecs = nil
 	for _, so := range trs.SidecarOverrides {
-		new := v1.TaskRunSidecarOverride{}
+		new := v1.TaskRunSidecarSpec{}
 		so.convertTo(ctx, &new)
-		sink.SidecarOverrides = append(sink.SidecarOverrides, new)
+		sink.SidecarSpecs = append(sink.SidecarSpecs, new)
 	}
 	sink.ComputeResources = trs.ComputeResources
 	return nil
@@ -103,7 +112,10 @@ func (tr *TaskRun) ConvertFrom(ctx context.Context, from apis.Convertible) error
 	switch source := from.(type) {
 	case *v1.TaskRun:
 		tr.ObjectMeta = source.ObjectMeta
-		if err := deserializeTaskRunResources(&tr.ObjectMeta, &tr.Spec); err != nil {
+		if err := deserializeTaskRunCloudEvents(&tr.ObjectMeta, &tr.Status); err != nil {
+			return err
+		}
+		if err := tr.Status.ConvertFrom(ctx, source.Status); err != nil {
 			return err
 		}
 		return tr.Spec.ConvertFrom(ctx, &source.Spec)
@@ -141,6 +153,7 @@ func (trs *TaskRunSpec) ConvertFrom(ctx context.Context, source *v1.TaskRunSpec)
 	}
 	trs.Status = TaskRunSpecStatus(source.Status)
 	trs.StatusMessage = TaskRunSpecStatusMessage(source.StatusMessage)
+	trs.Retries = source.Retries
 	trs.Timeout = source.Timeout
 	trs.PodTemplate = source.PodTemplate
 	trs.Workspaces = nil
@@ -150,13 +163,13 @@ func (trs *TaskRunSpec) ConvertFrom(ctx context.Context, source *v1.TaskRunSpec)
 		trs.Workspaces = append(trs.Workspaces, new)
 	}
 	trs.StepOverrides = nil
-	for _, so := range source.StepOverrides {
+	for _, so := range source.StepSpecs {
 		new := TaskRunStepOverride{}
 		new.convertFrom(ctx, so)
 		trs.StepOverrides = append(trs.StepOverrides, new)
 	}
 	trs.SidecarOverrides = nil
-	for _, so := range source.SidecarOverrides {
+	for _, so := range source.SidecarSpecs {
 		new := TaskRunSidecarOverride{}
 		new.convertFrom(ctx, so)
 		trs.SidecarOverrides = append(trs.SidecarOverrides, new)
@@ -173,41 +186,183 @@ func (trd *TaskRunDebug) convertFrom(ctx context.Context, source v1.TaskRunDebug
 	trd.Breakpoint = source.Breakpoint
 }
 
-func (trso TaskRunStepOverride) convertTo(ctx context.Context, sink *v1.TaskRunStepOverride) {
+func (trso TaskRunStepOverride) convertTo(ctx context.Context, sink *v1.TaskRunStepSpec) {
 	sink.Name = trso.Name
-	sink.Resources = trso.Resources
+	sink.ComputeResources = trso.Resources
 }
 
-func (trso *TaskRunStepOverride) convertFrom(ctx context.Context, source v1.TaskRunStepOverride) {
+func (trso *TaskRunStepOverride) convertFrom(ctx context.Context, source v1.TaskRunStepSpec) {
 	trso.Name = source.Name
-	trso.Resources = source.Resources
+	trso.Resources = source.ComputeResources
 }
 
-func (trso TaskRunSidecarOverride) convertTo(ctx context.Context, sink *v1.TaskRunSidecarOverride) {
+func (trso TaskRunSidecarOverride) convertTo(ctx context.Context, sink *v1.TaskRunSidecarSpec) {
 	sink.Name = trso.Name
-	sink.Resources = trso.Resources
+	sink.ComputeResources = trso.Resources
 }
 
-func (trso *TaskRunSidecarOverride) convertFrom(ctx context.Context, source v1.TaskRunSidecarOverride) {
+func (trso *TaskRunSidecarOverride) convertFrom(ctx context.Context, source v1.TaskRunSidecarSpec) {
 	trso.Name = source.Name
-	trso.Resources = source.Resources
+	trso.Resources = source.ComputeResources
 }
 
-func serializeTaskRunResources(meta *metav1.ObjectMeta, spec *TaskRunSpec) error {
-	if spec.Resources == nil {
+// ConvertTo implements apis.Convertible
+func (trs *TaskRunStatus) ConvertTo(ctx context.Context, sink *v1.TaskRunStatus) error {
+	sink.Status = trs.Status
+	sink.PodName = trs.PodName
+	sink.StartTime = trs.StartTime
+	sink.CompletionTime = trs.CompletionTime
+	sink.Steps = nil
+	for _, ss := range trs.Steps {
+		new := v1.StepState{}
+		ss.convertTo(ctx, &new)
+		sink.Steps = append(sink.Steps, new)
+	}
+	sink.RetriesStatus = nil
+	for _, rr := range trs.RetriesStatus {
+		new := v1.TaskRunStatus{}
+		err := rr.ConvertTo(ctx, &new)
+		if err != nil {
+			return err
+		}
+		sink.RetriesStatus = append(sink.RetriesStatus, new)
+	}
+	sink.Results = nil
+	for _, trr := range trs.TaskRunResults {
+		new := v1.TaskRunResult{}
+		trr.convertTo(ctx, &new)
+		sink.Results = append(sink.Results, new)
+	}
+	sink.Sidecars = nil
+	for _, sc := range trs.Sidecars {
+		new := v1.SidecarState{}
+		sc.convertTo(ctx, &new)
+		sink.Sidecars = append(sink.Sidecars, new)
+	}
+
+	if trs.TaskSpec != nil {
+		sink.TaskSpec = &v1.TaskSpec{}
+		err := trs.TaskSpec.ConvertTo(ctx, sink.TaskSpec)
+		if err != nil {
+			return err
+		}
+	}
+	if trs.Provenance != nil {
+		new := v1.Provenance{}
+		trs.Provenance.convertTo(ctx, &new)
+		sink.Provenance = &new
+	}
+	return nil
+}
+
+// ConvertFrom implements apis.Convertible
+func (trs *TaskRunStatus) ConvertFrom(ctx context.Context, source v1.TaskRunStatus) error {
+	trs.Status = source.Status
+	trs.PodName = source.PodName
+	trs.StartTime = source.StartTime
+	trs.CompletionTime = source.CompletionTime
+	trs.Steps = nil
+	for _, ss := range source.Steps {
+		new := StepState{}
+		new.convertFrom(ctx, ss)
+		trs.Steps = append(trs.Steps, new)
+	}
+	trs.RetriesStatus = nil
+	for _, rr := range source.RetriesStatus {
+		new := TaskRunStatus{}
+		err := new.ConvertFrom(ctx, rr)
+		if err != nil {
+			return err
+		}
+		trs.RetriesStatus = append(trs.RetriesStatus, new)
+	}
+	trs.TaskRunResults = nil
+	for _, trr := range source.Results {
+		new := TaskRunResult{}
+		new.convertFrom(ctx, trr)
+		trs.TaskRunResults = append(trs.TaskRunResults, new)
+	}
+	trs.Sidecars = nil
+	for _, sc := range source.Sidecars {
+		new := SidecarState{}
+		new.convertFrom(ctx, sc)
+		trs.Sidecars = append(trs.Sidecars, new)
+	}
+
+	if source.TaskSpec != nil {
+		trs.TaskSpec = &TaskSpec{}
+		err := trs.TaskSpec.ConvertFrom(ctx, source.TaskSpec)
+		if err != nil {
+			return err
+		}
+	}
+	if source.Provenance != nil {
+		new := Provenance{}
+		new.convertFrom(ctx, *source.Provenance)
+		trs.Provenance = &new
+	}
+	return nil
+}
+
+func (ss StepState) convertTo(ctx context.Context, sink *v1.StepState) {
+	sink.ContainerState = ss.ContainerState
+	sink.Name = ss.Name
+	sink.Container = ss.ContainerName
+	sink.ImageID = ss.ImageID
+}
+
+func (ss *StepState) convertFrom(ctx context.Context, source v1.StepState) {
+	ss.ContainerState = source.ContainerState
+	ss.Name = source.Name
+	ss.ContainerName = source.Container
+	ss.ImageID = source.ImageID
+}
+
+func (trr TaskRunResult) convertTo(ctx context.Context, sink *v1.TaskRunResult) {
+	sink.Name = trr.Name
+	sink.Type = v1.ResultsType(trr.Type)
+	newValue := v1.ParamValue{}
+	trr.Value.convertTo(ctx, &newValue)
+	sink.Value = newValue
+}
+
+func (trr *TaskRunResult) convertFrom(ctx context.Context, source v1.TaskRunResult) {
+	trr.Name = source.Name
+	trr.Type = ResultsType(source.Type)
+	newValue := ParamValue{}
+	newValue.convertFrom(ctx, source.Value)
+	trr.Value = newValue
+}
+
+func (ss SidecarState) convertTo(ctx context.Context, sink *v1.SidecarState) {
+	sink.ContainerState = ss.ContainerState
+	sink.Name = ss.Name
+	sink.Container = ss.ContainerName
+	sink.ImageID = ss.ImageID
+}
+
+func (ss *SidecarState) convertFrom(ctx context.Context, source v1.SidecarState) {
+	ss.ContainerState = source.ContainerState
+	ss.Name = source.Name
+	ss.ContainerName = source.Container
+	ss.ImageID = source.ImageID
+}
+
+func serializeTaskRunCloudEvents(meta *metav1.ObjectMeta, status *TaskRunStatus) error {
+	if status.CloudEvents == nil {
 		return nil
 	}
-	return version.SerializeToMetadata(meta, spec.Resources, resourcesAnnotationKey)
+	return version.SerializeToMetadata(meta, status.CloudEvents, cloudEventsAnnotationKey)
 }
 
-func deserializeTaskRunResources(meta *metav1.ObjectMeta, spec *TaskRunSpec) error {
-	resources := &TaskRunResources{}
-	err := version.DeserializeFromMetadata(meta, resources, resourcesAnnotationKey)
+func deserializeTaskRunCloudEvents(meta *metav1.ObjectMeta, status *TaskRunStatus) error {
+	cloudEvents := []CloudEventDelivery{}
+	err := version.DeserializeFromMetadata(meta, &cloudEvents, cloudEventsAnnotationKey)
 	if err != nil {
 		return err
 	}
-	if resources.Inputs != nil || resources.Outputs != nil {
-		spec.Resources = resources
+	if len(cloudEvents) != 0 {
+		status.CloudEvents = cloudEvents
 	}
 	return nil
 }

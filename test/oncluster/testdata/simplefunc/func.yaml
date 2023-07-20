@@ -1,0 +1,23 @@
+specVersion: 0.35.0
+name: simplefunc
+runtime: node
+registry: ""
+image: ""
+imageDigest: ""
+created: 2023-03-23T14:40:09.370454106-03:00
+build:
+  buildpacks: []
+  builder: ""
+  buildEnvs: []
+run:
+  volumes: []
+  envs: []
+deploy:
+  namespace: ""
+  remote: false
+  annotations: {}
+  options: {}
+  labels: []
+  healthEndpoints:
+    liveness: /health/liveness
+    readiness: /health/readiness

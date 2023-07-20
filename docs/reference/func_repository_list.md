@@ -9,12 +9,8 @@ func repository list
 ### Options
 
 ```
-  -h, --help   help for list
-```
-
-### Options inherited from parent commands
-
-```
+  -c, --confirm   Prompt to confirm options interactively ($FUNC_CONFIRM)
+  -h, --help      help for list
   -v, --verbose   Print verbose logs ($FUNC_VERBOSE)
 ```
 

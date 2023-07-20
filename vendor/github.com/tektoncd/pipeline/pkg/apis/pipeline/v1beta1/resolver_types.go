@@ -21,8 +21,7 @@ package v1beta1
 type ResolverName string
 
 // ResolverRef can be used to refer to a Pipeline or Task in a remote
-// location like a git repo. This feature is in alpha and these fields
-// are only available when the alpha feature gate is enabled.
+// location like a git repo.
 type ResolverRef struct {
 	// Resolver is the name of the resolver that should perform
 	// resolution of the referenced Tekton resource, such as "git".
@@ -34,5 +33,5 @@ type ResolverRef struct {
 	// the chosen resolver.
 	// +optional
 	// +listType=atomic
-	Params []Param `json:"params,omitempty"`
+	Params Params `json:"params,omitempty"`
 }

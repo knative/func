@@ -3,12 +3,12 @@ package cmd
 import (
 	"testing"
 
-	fn "knative.dev/func"
-	"knative.dev/func/mock"
+	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/mock"
 )
 
 // TestList_Namespace ensures that list command options for specifying a
-// namespace (--namespace) or all namespaces (--all-namespacs) are  properly
+// namespace (--namespace) or all namespaces (--all-namespaces) are  properly
 // evaluated.
 func TestList_Namespace(t *testing.T) {
 	_ = fromTempDirectory(t)

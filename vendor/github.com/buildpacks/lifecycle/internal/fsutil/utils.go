@@ -2,10 +2,10 @@ package fsutil
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 )
 
 func Copy(src, dst string) error {
@@ -38,7 +38,7 @@ func copyDir(src, dst string) error {
 		return err
 	}
 
-	children, err := ioutil.ReadDir(src)
+	children, err := os.ReadDir(src)
 	if err != nil {
 		return err
 	}
@@ -51,6 +51,26 @@ func copyDir(src, dst string) error {
 		}
 	}
 	return nil
+}
+
+// FilesWithExtensions returns a list of all files in directory that end in any of the extensions provided.
+// top level only - does not recursively visit directories.
+func FilesWithExtensions(dir string, extensions []string) ([]string, error) {
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return nil, err
+	}
+	matches := []string{}
+	for _, f := range files {
+		if !f.IsDir() {
+			for _, extension := range extensions {
+				if strings.HasSuffix(f.Name(), extension) {
+					matches = append(matches, filepath.Join(dir, f.Name()))
+				}
+			}
+		}
+	}
+	return matches, nil
 }
 
 func copyFile(src, dst string) error {

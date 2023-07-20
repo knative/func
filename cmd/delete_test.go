@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	fn "knative.dev/func"
-	"knative.dev/func/mock"
+	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/mock"
 )
 
 // TestDelete_Namespace ensures that the namespace provided to the client
@@ -21,8 +21,8 @@ func TestDelete_Namespace(t *testing.T) {
 	t.Setenv("KUBECONFIG", filepath.Join(cwd(), "nonexistent"))
 	t.Setenv("KUBERNETES_SERVICE_HOST", "")
 	cmd := NewDeleteCmd(func(cc ClientConfig, options ...fn.Option) (*fn.Client, func()) {
-		if cc.Namespace != "default" {
-			t.Fatalf("expected 'default', got '%v'", cc.Namespace)
+		if cc.Namespace != "" {
+			t.Fatalf("expected '', got '%v'", cc.Namespace)
 		}
 		return fn.New(), func() {}
 	})
@@ -39,7 +39,7 @@ func TestDelete_Namespace(t *testing.T) {
 			Namespace: "deployed",
 		},
 	}
-	if err := fn.New().Create(f); err != nil {
+	if _, err := fn.New().Init(f); err != nil {
 		t.Fatal(err)
 	}
 	cmd = NewDeleteCmd(func(cc ClientConfig, options ...fn.Option) (*fn.Client, func()) {

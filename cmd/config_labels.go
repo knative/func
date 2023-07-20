@@ -8,8 +8,9 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/spf13/cobra"
 
-	fn "knative.dev/func"
-	"knative.dev/func/utils"
+	"knative.dev/func/pkg/config"
+	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/utils"
 )
 
 func NewConfigLabelsCmd(loaderSaver functionLoaderSaver) *cobra.Command {
@@ -21,8 +22,9 @@ func NewConfigLabelsCmd(loaderSaver functionLoaderSaver) *cobra.Command {
 Prints configured labels for a function project present in
 the current directory or from the directory specified with --path.
 `,
-		SuggestFor: []string{"albels", "abels", "label"},
-		PreRunE:    bindEnv("path"),
+		Aliases:    []string{"label"},
+		SuggestFor: []string{"albels", "abels"},
+		PreRunE:    bindEnv("path", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			function, err := initConfigCommand(loaderSaver)
 			if err != nil {
@@ -34,7 +36,6 @@ the current directory or from the directory specified with --path.
 			return
 		},
 	}
-	configLabelsCmd.SetHelpFunc(defaultTemplatedHelp)
 
 	var configLabelsAddCmd = &cobra.Command{
 		Use:   "add",
@@ -48,7 +49,7 @@ The label can be set directly from a value or from an environment variable on
 the local machine.
 `,
 		SuggestFor: []string{"ad", "create", "insert", "append"},
-		PreRunE:    bindEnv("path"),
+		PreRunE:    bindEnv("path", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			function, err := initConfigCommand(loaderSaver)
 			if err != nil {
@@ -58,7 +59,6 @@ the local machine.
 			return runAddLabelsPrompt(cmd.Context(), function, loaderSaver)
 		},
 	}
-	configLabelsAddCmd.SetHelpFunc(defaultTemplatedHelp)
 
 	var configLabelsRemoveCmd = &cobra.Command{
 		Use:   "remove",
@@ -68,8 +68,9 @@ the local machine.
 Interactive prompt to remove labels from the function project in the current
 directory or from the directory specified with --path.
 `,
+		Aliases:    []string{"rm"},
 		SuggestFor: []string{"del", "delete", "rmeove"},
-		PreRunE:    bindEnv("path"),
+		PreRunE:    bindEnv("path", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			function, err := initConfigCommand(loaderSaver)
 			if err != nil {
@@ -79,11 +80,19 @@ directory or from the directory specified with --path.
 			return runRemoveLabelsPrompt(function, loaderSaver)
 		},
 	}
-	configLabelsRemoveCmd.SetHelpFunc(defaultTemplatedHelp)
 
-	setPathFlag(configLabelsCmd)
-	setPathFlag(configLabelsAddCmd)
-	setPathFlag(configLabelsRemoveCmd)
+	cfg, err := config.NewDefault()
+	if err != nil {
+		fmt.Fprintf(configLabelsCmd.OutOrStdout(), "error loading config at '%v'. %v\n", config.File(), err)
+	}
+
+	addPathFlag(configLabelsCmd)
+	addPathFlag(configLabelsAddCmd)
+	addPathFlag(configLabelsRemoveCmd)
+	addVerboseFlag(configLabelsCmd, cfg.Verbose)
+	addVerboseFlag(configLabelsAddCmd, cfg.Verbose)
+	addVerboseFlag(configLabelsRemoveCmd, cfg.Verbose)
+
 	configLabelsCmd.AddCommand(configLabelsAddCmd)
 	configLabelsCmd.AddCommand(configLabelsRemoveCmd)
 

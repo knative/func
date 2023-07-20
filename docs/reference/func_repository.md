@@ -91,32 +91,40 @@ EXAMPLES
 	  $ func repository -c
 
 	o Add a repository and create a new function using a template from it:
-	  $ func repository add boson https://github.com/boson-project/templates
+	  $ func repository add functastic https://github.com/knative-sandbox/func-tastic
 	  $ func repository list
 	  default
-	  boson
-	  $ func create -l go -t boson/hello-world
+	  functastic
+	  $ func create -l go -t functastic/hello-world
+	  ...
+
+		o Add a repository specifying the branch to use (metacontroller):
+	  $ func repository add metacontroller https://github.com/knative-sandbox/func-tastic#metacontroler
+	  $ func repository list
+	  default
+	  metacontroller
+	  $ func create -l node -t metacontroller/metacontroller
 	  ...
 
 	o List all repositories including the URL from which remotes were installed
 	  $ func repository list -v
 	  default
-	  boson	https://github.com/boson-project/templates
+	  metacontroller	https://github.com/knative-sandbox/func-tastic#metacontroller
 
 	o Rename an installed repository
 	  $ func repository list
 	  default
 	  boson
-	  $ func repository rename boson boson-examples
+	  $ func repository rename boson functastic
 	  $ func repository list
 	  default
-	  boson-examples
+	  functastic
 
 	o Remove an installed repository
 	  $ func repository list
 	  default
-	  boson-examples
-	  $ func repository remove boson-examples
+	  functastic
+	  $ func repository remove functastic
 	  $ func repository list
 	  default
 
@@ -128,19 +136,14 @@ func repository
 ### Options
 
 ```
-  -c, --confirm   Prompt to confirm all options interactively (Env: $FUNC_CONFIRM)
+  -c, --confirm   Prompt to confirm options interactively ($FUNC_CONFIRM)
   -h, --help      help for repository
-```
-
-### Options inherited from parent commands
-
-```
   -v, --verbose   Print verbose logs ($FUNC_VERBOSE)
 ```
 
 ### SEE ALSO
 
-* [func](func.md)	 - Serverless functions
+* [func](func.md)	 - func manages Knative Functions
 * [func repository add](func_repository_add.md)	 - Add a repository
 * [func repository list](func_repository_list.md)	 - List repositories
 * [func repository remove](func_repository_remove.md)	 - Remove a repository
