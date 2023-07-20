@@ -2,16 +2,17 @@ package oci
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"log"
 	"net"
 	"net/http"
-	"net/http/httputil"
 	"os"
 	"testing"
 
-	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/registry"
+
 	fn "knative.dev/func/pkg/functions"
 	. "knative.dev/func/pkg/testing"
 )
@@ -33,38 +34,17 @@ func TestPusher(t *testing.T) {
 	// Start a handler on an OS-chosen port which confirms that an incoming
 	// requests looks for the most part like what we'd expect to see from a
 	// container push.
+	regLog := io.Discard
+	if verbose {
+		regLog = os.Stderr
+	}
+	regHandler := registry.New(registry.Logger(log.New(regLog, "img reg handler: ", log.LstdFlags)))
 	handler := http.NewServeMux()
 	handler.HandleFunc("/", func(res http.ResponseWriter, req *http.Request) {
-		if verbose {
-			fmt.Println("Mock registry server received request:")
-			fmt.Println("--------------------------------------")
-			requestDump, err := httputil.DumpRequest(req, true)
-			if err != nil {
-				t.Fatal(err)
-			}
-			fmt.Println(string(requestDump))
+		regHandler.ServeHTTP(res, req)
+		if req.Method == http.MethodPut && req.URL.Path == "/v2/funcs/f/manifests/latest" {
+			success = true
 		}
-
-		// Ignore all requests except the PUTs
-		if req.Method != http.MethodPut {
-			return
-		}
-
-		// Ignore all PUTs except the the image index
-		if req.Header.Get("Content-Type") != "application/vnd.oci.image.index.v1+json" {
-			return
-		}
-
-		// Decode the request as an index JSON
-		index := v1.IndexManifest{}
-		d := json.NewDecoder(req.Body)
-		defer req.Body.Close()
-		if err := d.Decode(&index); err != nil {
-			t.Fatal(err)
-		}
-
-		success = true
-
 	})
 	l, err := net.Listen("tcp4", "127.0.0.1:")
 	if err != nil {

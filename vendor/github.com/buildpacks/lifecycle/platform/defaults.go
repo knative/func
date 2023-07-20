@@ -43,6 +43,10 @@ const (
 	ModeQuiet = "quiet"
 	ModeWarn  = "warn"
 	ModeError = "error"
+
+	// EnvExtendKind is the kind of base image to extend (build or run) when running the extender.
+	EnvExtendKind     = "CNB_EXTEND_KIND"
+	DefaultExtendKind = "build"
 )
 
 // EnvUseDaemon configures the lifecycle to export the application image to a daemon satisfying the Docker socket interface (e.g., docker, podman).
@@ -51,6 +55,16 @@ const (
 // When exporting to an OCI registry, registry credentials must be provided either on-disk (e.g., `~/.docker/config.json`),
 // via a credential helper, or via the `CNB_REGISTRY_AUTH` environment variable. See [auth.DefaultKeychain] for further information.
 const EnvUseDaemon = "CNB_USE_DAEMON"
+
+// ## Provided to handle inputs and outputs in OCI layout format
+
+// The lifecycle can be configured to read the input images like `run-image` or `previous-image` in OCI layout format instead of from a
+// registry or daemon. Also, it can export the final application image on disk in the same format.
+// The following environment variables must be set to configure the behavior of the lifecycle when exporting to OCI layout format.
+const (
+	EnvLayoutDir = "CNB_LAYOUT_DIR"
+	EnvUseLayout = "CNB_USE_LAYOUT"
+)
 
 // ## Provided by the Base Image
 
@@ -77,7 +91,9 @@ const (
 	EnvOrderPath     = "CNB_ORDER_PATH"
 	DefaultOrderFile = "order.toml"
 
-	// EnvStackPath is the location of the stack file, which contains information about the runtime base image.
+	// EnvRunPath is the location of the run file, which contains information about the runtime base image.
+	EnvRunPath = "CNB_RUN_PATH"
+	// EnvStackPath is the location of the (deprecated) stack file, which contains information about the runtime base image.
 	EnvStackPath = "CNB_STACK_PATH"
 )
 
@@ -86,9 +102,11 @@ var (
 	DefaultBuildpacksDir  = filepath.Join(path.RootDir, "cnb", "buildpacks")
 	DefaultExtensionsDir  = filepath.Join(path.RootDir, "cnb", "extensions")
 
-	// DefaultOrderPath is the default order path.
-	DefaultOrderPath = filepath.Join(path.RootDir, "cnb", "order.toml")
+	// CNBOrderPath is the default order path if the order file does not exist in the layers directory.
+	CNBOrderPath = filepath.Join(path.RootDir, "cnb", "order.toml")
 
+	// DefaultRunPath is the default run path.
+	DefaultRunPath = filepath.Join(path.RootDir, "cnb", "run.toml")
 	// DefaultStackPath is the default stack path.
 	DefaultStackPath = filepath.Join(path.RootDir, "cnb", "stack.toml")
 )
@@ -132,6 +150,11 @@ const (
 	// output by image extensions during the `generate` phase.
 	EnvGeneratedDir     = "CNB_GENERATED_DIR"
 	DefaultGeneratedDir = "generated"
+
+	// EnvExtendedDir is the location of the directory where the lifecycle should copy any image layers
+	// created from applying generated Dockerfiles to a build- or run-time base image.
+	EnvExtendedDir     = "CNB_EXTENDED_DIR"
+	DefaultExtendedDir = "extended"
 
 	// EnvReportPath is the location of the report file, an output of the `export` phase.
 	// It contains information about the output application image.
@@ -191,6 +214,12 @@ const (
 	// that is added as metadata to the application image.
 	EnvProjectMetadataPath     = "CNB_PROJECT_METADATA_PATH"
 	DefaultProjectMetadataFile = "project-metadata.toml"
+)
+
+// The following are configuration options for rebaser.
+const (
+	// EnvForceRebase is used to force the rebaser to rebase the app image even if the operation is unsafe.
+	EnvForceRebase = "CNB_FORCE_REBASE"
 )
 
 var (

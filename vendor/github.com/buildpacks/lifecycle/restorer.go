@@ -11,7 +11,7 @@ import (
 	"github.com/buildpacks/lifecycle/internal/layer"
 	"github.com/buildpacks/lifecycle/layers"
 	"github.com/buildpacks/lifecycle/log"
-	"github.com/buildpacks/lifecycle/platform"
+	"github.com/buildpacks/lifecycle/platform/files"
 )
 
 type Restorer struct {
@@ -19,8 +19,8 @@ type Restorer struct {
 	Logger    log.Logger
 
 	Buildpacks            []buildpack.GroupElement
-	LayerMetadataRestorer layer.MetadataRestorer  // Platform API >= 0.7
-	LayersMetadata        platform.LayersMetadata // Platform API >= 0.7
+	LayerMetadataRestorer layer.MetadataRestorer // Platform API >= 0.7
+	LayersMetadata        files.LayersMetadata   // Platform API >= 0.7
 	PlatformAPI           *api.Version
 	SBOMRestorer          layer.SBOMRestorer
 }

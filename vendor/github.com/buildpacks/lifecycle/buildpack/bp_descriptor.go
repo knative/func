@@ -3,16 +3,49 @@
 package buildpack
 
 import (
+	"fmt"
+	"os"
 	"path/filepath"
 
 	"github.com/BurntSushi/toml"
 )
 
 type BpDescriptor struct {
-	WithAPI     string `toml:"api"`
-	Buildpack   BpInfo `toml:"buildpack"`
-	Order       Order  `toml:"order"`
-	WithRootDir string `toml:"-"`
+	WithAPI     string           `toml:"api"`
+	Buildpack   BpInfo           `toml:"buildpack"`
+	Order       Order            `toml:"order"`
+	WithRootDir string           `toml:"-"`
+	Targets     []TargetMetadata `toml:"targets"`
+	Stacks      []StackMetadata  `tome:"stacks"` // just for backwards compat so we can check if it's the bionic stack, which we translate to a target
+
+}
+
+type StackMetadata struct {
+	ID string `toml:"id"`
+}
+
+type TargetMetadata struct {
+	OS            string           `json:"os" toml:"os"`
+	Arch          string           `json:"arch" toml:"arch"`
+	ArchVariant   string           `json:"arch-variant,omitempty" toml:"arch-variant"`
+	Distributions []OSDistribution `json:"distributions,omitempty" toml:"distributions"`
+}
+
+func (t *TargetMetadata) String() string {
+	s := fmt.Sprintf("OS: %s, Arch: %s, ArchVariant: %s", t.OS, t.Arch, t.ArchVariant)
+	if len(t.Distributions) > 0 {
+		s += fmt.Sprintf(", Distributions: %s", t.Distributions)
+	}
+	return s
+}
+
+type OSDistribution struct {
+	Name    string `json:"name" toml:"name"`
+	Version string `json:"version" toml:"version"`
+}
+
+func (d OSDistribution) String() string {
+	return fmt.Sprintf("Distribution: (Name: %s, Version: %s)", d.Name, d.Version)
 }
 
 type BpInfo struct {
@@ -38,6 +71,36 @@ func ReadBpDescriptor(path string) (*BpDescriptor, error) {
 	if descriptor.WithRootDir, err = filepath.Abs(filepath.Dir(path)); err != nil {
 		return &BpDescriptor{}, err
 	}
+
+	if len(descriptor.Targets) == 0 {
+		for _, stack := range descriptor.Stacks {
+			if stack.ID == "io.buildpacks.stacks.bionic" {
+				descriptor.Targets = append(descriptor.Targets, TargetMetadata{OS: "linux", Arch: "amd64", Distributions: []OSDistribution{{Name: "ubuntu", Version: "18.04"}}})
+			} else if stack.ID == "*" {
+				descriptor.Targets = append(descriptor.Targets, TargetMetadata{OS: "*", Arch: "*", Distributions: []OSDistribution{}})
+			}
+		}
+	}
+
+	if len(descriptor.Targets) == 0 {
+		binDir := filepath.Join(descriptor.WithRootDir, "bin")
+		if stat, _ := os.Stat(binDir); stat != nil { // technically i think there's always supposed to be a bin Dir but we weren't enforcing it previously so why start now?
+			binFiles, err := os.ReadDir(binDir)
+			if err != nil {
+				return &BpDescriptor{}, err
+			}
+			for i := 0; i < len(binFiles); i++ {
+				bf := binFiles[len(binFiles)-i-1] // we're iterating backwards b/c os.ReadDir sorts "build.exe" after "build" but we want to preferentially detect windows first.
+				fname := bf.Name()
+				if fname == "build.exe" || fname == "build.bat" {
+					descriptor.Targets = append(descriptor.Targets, TargetMetadata{OS: "windows", Arch: "*"})
+				}
+				if fname == "build" {
+					descriptor.Targets = append(descriptor.Targets, TargetMetadata{OS: "linux", Arch: "*"})
+				}
+			}
+		}
+	}
 	return descriptor, nil
 }
 
@@ -59,6 +122,10 @@ func (d *BpDescriptor) RootDir() string {
 
 func (d *BpDescriptor) String() string {
 	return d.Buildpack.Name + " " + d.Buildpack.Version
+}
+
+func (d *BpDescriptor) TargetsList() []TargetMetadata {
+	return d.Targets
 }
 
 func (bg Group) Append(group ...Group) Group {

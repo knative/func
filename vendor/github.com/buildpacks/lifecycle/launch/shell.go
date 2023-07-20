@@ -42,7 +42,7 @@ func (l *Launcher) launchWithShell(self string, proc Process) error {
 	return l.Shell.Launch(ShellProcess{
 		Script:           script,
 		Caller:           self,
-		Command:          command, // TODO: support multiple commands
+		Command:          command,
 		Args:             proc.Args,
 		Profiles:         profs,
 		Env:              l.Env.List(),

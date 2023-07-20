@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/buildpacks/imgutil"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/pkg/errors"
 )
 
@@ -46,6 +47,14 @@ func (c *CachingImage) AddLayerWithDiffID(path string, diffID string) error {
 	return c.Image.AddLayerWithDiffID(path, diffID)
 }
 
+func (c *CachingImage) AddLayerWithDiffIDAndHistory(path string, diffID string, history v1.History) error {
+	if err := c.cache.AddLayerFile(path, diffID); err != nil {
+		return err
+	}
+
+	return c.Image.AddLayerWithDiffIDAndHistory(path, diffID, history)
+}
+
 func (c *CachingImage) ReuseLayer(diffID string) error {
 	found, err := c.cache.HasLayer(diffID)
 	if err != nil {
@@ -64,6 +73,33 @@ func (c *CachingImage) ReuseLayer(diffID string) error {
 	}
 
 	if err := c.Image.ReuseLayer(diffID); err != nil {
+		return err
+	}
+	rc, err := c.Image.GetLayer(diffID)
+	if err != nil {
+		return err
+	}
+	return c.cache.AddLayer(rc, diffID)
+}
+
+func (c *CachingImage) ReuseLayerWithHistory(diffID string, history v1.History) error {
+	found, err := c.cache.HasLayer(diffID)
+	if err != nil {
+		return err
+	}
+
+	if found {
+		if err := c.cache.ReuseLayer(diffID); err != nil {
+			return err
+		}
+		path, err := c.cache.RetrieveLayerFile(diffID)
+		if err != nil {
+			return err
+		}
+		return c.Image.AddLayerWithDiffIDAndHistory(path, diffID, history)
+	}
+
+	if err := c.Image.ReuseLayerWithHistory(diffID, history); err != nil {
 		return err
 	}
 	rc, err := c.Image.GetLayer(diffID)

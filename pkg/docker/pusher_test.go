@@ -14,6 +14,7 @@ import (
 	"crypto/x509/pkix"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -27,6 +28,7 @@ import (
 	"time"
 
 	"github.com/docker/docker/api/types"
+	api "github.com/docker/docker/api/types/image"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/registry"
@@ -314,6 +316,10 @@ func (m *mockPusherDockerClient) ImageInspectWithRaw(ctx context.Context, s stri
 
 func (m *mockPusherDockerClient) ImagePush(ctx context.Context, ref string, options types.ImagePushOptions) (io.ReadCloser, error) {
 	return m.imagePush(ctx, ref, options)
+}
+
+func (m *mockPusherDockerClient) ImageHistory(context.Context, string) ([]api.HistoryResponseItem, error) {
+	return nil, errors.New("the ImageHistory() function is not implemented")
 }
 
 func (m *mockPusherDockerClient) Close() error {

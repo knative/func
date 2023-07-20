@@ -5,8 +5,21 @@ import (
 	"path/filepath"
 	"strings"
 
+	v1 "github.com/google/go-containerregistry/pkg/v1"
+
 	"github.com/buildpacks/lifecycle/archive"
 	"github.com/buildpacks/lifecycle/log"
+)
+
+const (
+	AppLayerName            = "Application Layer"
+	BuildpackLayerName      = "Layer: '%s', Created by buildpack: %s"
+	ExtensionLayerName      = "Layer: '%s', Created by extension: %s"
+	LauncherConfigLayerName = "Buildpacks Launcher Config"
+	LauncherLayerName       = "Buildpacks Application Launcher"
+	ProcessTypesLayerName   = "Buildpacks Process Types"
+	SBOMLayerName           = "Software Bill-of-Materials"
+	SliceLayerName          = "Application Slice: %d"
 )
 
 type Factory struct {
@@ -21,9 +34,10 @@ type Layer struct {
 	ID      string
 	TarPath string
 	Digest  string
+	History v1.History
 }
 
-func (f *Factory) writeLayer(id string, addEntries func(tw *archive.NormalizingTarWriter) error) (layer Layer, err error) {
+func (f *Factory) writeLayer(id, createdBy string, addEntries func(tw *archive.NormalizingTarWriter) error) (layer Layer, err error) {
 	tarPath := filepath.Join(f.ArtifactsDir, escape(id)+".tar")
 	if f.tarHashes == nil {
 		f.tarHashes = make(map[string]string)
@@ -34,6 +48,7 @@ func (f *Factory) writeLayer(id string, addEntries func(tw *archive.NormalizingT
 			ID:      id,
 			TarPath: tarPath,
 			Digest:  sha,
+			History: v1.History{CreatedBy: createdBy},
 		}, nil
 	}
 	lw, err := newFileLayerWriter(tarPath)
@@ -59,6 +74,7 @@ func (f *Factory) writeLayer(id string, addEntries func(tw *archive.NormalizingT
 		ID:      id,
 		Digest:  digest,
 		TarPath: tarPath,
+		History: v1.History{CreatedBy: createdBy},
 	}, err
 }
 

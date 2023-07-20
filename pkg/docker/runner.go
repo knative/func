@@ -60,7 +60,7 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, startTimeout time.Durat
 
 		// Channels for gathering runtime errors from the container instance
 		copyErrCh  = make(chan error, 10)
-		contBodyCh <-chan container.ContainerWaitOKBody
+		contBodyCh <-chan container.WaitResponse
 		contErrCh  <-chan error
 
 		// Combined runtime error channel for sending all errors to caller
@@ -116,7 +116,11 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, startTimeout time.Durat
 			timeout = DefaultStopTimeout
 			ctx     = context.Background()
 		)
-		if err = c.ContainerStop(ctx, id, &timeout); err != nil {
+		timeoutSecs := int(timeout.Seconds())
+		ctrStopOpts := container.StopOptions{
+			Timeout: &timeoutSecs,
+		}
+		if err = c.ContainerStop(ctx, id, ctrStopOpts); err != nil {
 			return fmt.Errorf("error stopping container %v: %v\n", id, err)
 		}
 		if err = c.ContainerRemove(ctx, id, types.ContainerRemoveOptions{}); err != nil {

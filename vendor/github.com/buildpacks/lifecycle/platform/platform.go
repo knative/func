@@ -1,6 +1,8 @@
 package platform
 
-import "github.com/buildpacks/lifecycle/api"
+import (
+	"github.com/buildpacks/lifecycle/api"
+)
 
 type LifecyclePhase int
 
@@ -17,37 +19,14 @@ const (
 
 // Platform holds lifecycle inputs and outputs for a given Platform API version and lifecycle phase.
 type Platform struct {
-	Phase LifecyclePhase
-	LifecycleInputs
+	*LifecycleInputs
 	Exiter
 }
 
-// NewPlatformFor accepts a lifecycle phase and Platform API version, and returns a Platform.
-func NewPlatformFor(phase LifecyclePhase, platformAPI string) *Platform {
-	var lifecycleInputs LifecycleInputs
-	switch phase {
-	case Analyze:
-		lifecycleInputs = DefaultAnalyzeInputs(api.MustParse(platformAPI))
-	case Detect:
-		lifecycleInputs = DefaultDetectInputs(api.MustParse(platformAPI))
-	case Restore:
-		lifecycleInputs = DefaultRestoreInputs(api.MustParse(platformAPI))
-	case Extend:
-		lifecycleInputs = DefaultExtendInputs(api.MustParse(platformAPI))
-	case Build:
-		lifecycleInputs = DefaultBuildInputs(api.MustParse(platformAPI))
-	case Export:
-		lifecycleInputs = DefaultExportInputs(api.MustParse(platformAPI))
-	case Create:
-		lifecycleInputs = DefaultCreateInputs(api.MustParse(platformAPI))
-	case Rebase:
-		lifecycleInputs = DefaultRebaseInputs(api.MustParse(platformAPI))
-	default:
-		// nop
-	}
+// NewPlatformFor accepts a Platform API version and a layers directory, and returns a Platform with default lifecycle inputs and an exiter service.
+func NewPlatformFor(platformAPI string) *Platform {
 	return &Platform{
-		Phase:           phase,
-		LifecycleInputs: lifecycleInputs,
+		LifecycleInputs: NewLifecycleInputs(api.MustParse(platformAPI)),
 		Exiter:          NewExiter(platformAPI),
 	}
 }
