@@ -57,4 +57,3 @@ func validatePipeline(f fn.Function) (string, error) {
 
 	return warningMsg, nil
 }
-
