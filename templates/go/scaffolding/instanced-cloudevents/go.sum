@@ -17,6 +17,8 @@ github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnr
 github.com/json-iterator/go v1.1.12/go.mod h1:e30LSqwooZae/UwlEbR2852Gd8hjQvJoHmT4TnhNGBo=
 github.com/knative-sandbox/func-go v0.18.1 h1:PkOsWmgefI130mJBmozFkanBmHGt1Eam6CxXN4GrImQ=
 github.com/knative-sandbox/func-go v0.18.1/go.mod h1:QDKfq6BotMkLL/mppdVfwGnZzZz4FvxfzSqJa414sB4=
+github.com/knative-sandbox/func-go v0.18.2 h1:uwGrpFXcchEtfr2CLHIXYHnrw3vIyHWjIs/QSX2zwbc=
+github.com/knative-sandbox/func-go v0.18.2/go.mod h1:QDKfq6BotMkLL/mppdVfwGnZzZz4FvxfzSqJa414sB4=
 github.com/kr/pty v1.1.1/go.mod h1:pFQYn66WHrOpPYNljwOMqo10TkYh1fy3cYio2l3bCsQ=
 github.com/kr/text v0.1.0/go.mod h1:4Jbv+DJW3UT/LiOwJeYQe1efqtUx/iVham/4vfdArNI=
 github.com/kr/text v0.2.0/go.mod h1:eLer722TekiGuMkidMxC/pM04lWEeraHUUmBw8l2grE=
