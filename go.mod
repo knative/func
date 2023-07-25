@@ -39,7 +39,7 @@ require (
 	github.com/whilp/git-urls v1.0.0
 	github.com/xanzy/go-gitlab v0.83.0
 	golang.org/x/crypto v0.11.0
-	golang.org/x/net v0.11.0
+	golang.org/x/net v0.12.0
 	golang.org/x/oauth2 v0.9.0
 	golang.org/x/sync v0.3.0
 	golang.org/x/term v0.10.0
@@ -48,11 +48,11 @@ require (
 	k8s.io/api v0.26.5
 	k8s.io/apimachinery v0.26.5
 	k8s.io/client-go v1.5.2
-	knative.dev/client-pkg v0.0.0-20230524014834-83c91f47f64f
-	knative.dev/eventing v0.37.1-0.20230601130337-df08b49b7477
-	knative.dev/hack v0.0.0-20230530201435-5b7907fbe350
-	knative.dev/pkg v0.0.0-20230531073936-5671699f23d9
-	knative.dev/serving v0.37.1-0.20230603021539-349b2d61b0e8
+	knative.dev/client-pkg v0.0.0-20230712132715-e9d838e71fa4
+	knative.dev/eventing v0.37.1-0.20230725111039-0054bf3f4f86
+	knative.dev/hack v0.0.0-20230712131415-ddae80293c43
+	knative.dev/pkg v0.0.0-20230718152110-aef227e72ead
+	knative.dev/serving v0.37.1-0.20230725093739-f1617ef38eac
 )
 
 require (
@@ -60,7 +60,7 @@ require (
 	github.com/moby/patternmatcher v0.5.0 // indirect
 	github.com/moby/sys/sequential v0.5.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20230530153820-e85fd2cbaebc // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20230530153820-e85fd2cbaebc // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20230629202037-9506855d4529 // indirect
 	sigs.k8s.io/controller-runtime v0.7.2 // indirect
 )
 
@@ -240,8 +240,8 @@ require (
 	google.golang.org/api v0.125.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230530153820-e85fd2cbaebc // indirect
-	google.golang.org/grpc v1.55.0 // indirect
-	google.golang.org/protobuf v1.30.0 // indirect
+	google.golang.org/grpc v1.56.1 // indirect
+	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
@@ -251,7 +251,7 @@ require (
 	k8s.io/klog/v2 v2.100.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20230308215209-15aac26d736a // indirect
 	k8s.io/utils v0.0.0-20230220204549-a5ecb0141aa5 // indirect
-	knative.dev/networking v0.0.0-20230524170920-2a2f7d2d7c60 // indirect
+	knative.dev/networking v0.0.0-20230718160410-75dcd54d9510 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/kustomize/api v0.12.1 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.13.9 // indirect
