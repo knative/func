@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"knative.dev/func/pkg/builders"
+	"knative.dev/func/pkg/builders/buildpacks"
 	"knative.dev/func/pkg/builders/s2i"
 	fn "knative.dev/func/pkg/functions"
 )
@@ -17,17 +18,11 @@ var (
 )
 
 type ErrRuntimeNotSupported struct {
-	Runtime       string
-	CustomBuilder bool
+	Runtime string
 }
 
 func (e ErrRuntimeNotSupported) Error() string {
-	if e.CustomBuilder {
-		return fmt.Sprintf("runtime %q is not supported for on cluster build with default builders, "+
-			"continuing with the custom builder provided", e.Runtime)
-	} else {
-		return fmt.Sprintf("runtime %q is not supported for on cluster build with default builders", e.Runtime)
-	}
+	return fmt.Sprintf("runtime %q is not supported for on cluster build with default builders", e.Runtime)
 }
 
 func validatePipeline(f fn.Function) (string, error) {
@@ -38,10 +33,13 @@ func validatePipeline(f fn.Function) (string, error) {
 		}
 
 		if f.Runtime == "go" || f.Runtime == "rust" {
-			if len(f.Build.BuilderImages) > 0 {
-				warningMsg = ErrRuntimeNotSupported{f.Runtime, true}.Error()
+			builder := f.Build.BuilderImages[builders.Pack]
+			defaultBuilder := buildpacks.DefaultBuilderImages[f.Runtime]
+			if builder != "" && builder != defaultBuilder {
+				warningMsg = fmt.Sprintf("runtime %q is not supported for on cluster build with default builders, "+
+					"continuing with the custom builder provided", f.Runtime)
 			} else {
-				return "", ErrRuntimeNotSupported{f.Runtime, false}
+				return "", ErrRuntimeNotSupported{f.Runtime}
 			}
 		}
 

@@ -39,7 +39,7 @@ build:
     url: https://github.com/my-repo/my-function.git   # required, git repository with the function source code
     revision: main                                    # optional, git revision to be used (branch, tag, commit)
     # contextDir: myfunction                          # optional, needed only if the function is not located in the repository root folder
-  # builderImages:                                    # optional, needed only if the runtime is golang 
+  # builderImages:                                    # optional, needed only if the runtime is golang
   #   pack: ghcr.io/boson-project/go-function-builder:tip
   buildpacks: []
   builder: ""
