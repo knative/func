@@ -6,12 +6,12 @@ go 1.19
 
 require (
 	f v0.0.0-00010101000000-000000000000
-	github.com/lkingland/func-runtime-go v0.3.2
+	github.com/knative-sandbox/func-go v0.18.2
 )
 
 require (
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/rs/zerolog v1.29.1 // indirect
-	golang.org/x/sys v0.9.0 // indirect
+	golang.org/x/sys v0.10.0 // indirect
 )

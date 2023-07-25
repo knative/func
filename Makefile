@@ -175,10 +175,10 @@ test-typescript: ## Test Typescript templates
 update-runtimes:  pull-runtimes generate/zz_filesystem_generated.go ## Update Scaffolding Runtimes
 
 pull-runtimes:
-	cd templates/go/scaffolding/instanced-http && go get -u github.com/lkingland/func-runtime-go/http
-	cd templates/go/scaffolding/static-http && go get -u github.com/lkingland/func-runtime-go/http
-	cd templates/go/scaffolding/instanced-cloudevents && go get -u github.com/lkingland/func-runtime-go/cloudevents
-	cd templates/go/scaffolding/static-cloudevents && go get -u github.com/lkingland/func-runtime-go/cloudevents
+	cd templates/go/scaffolding/instanced-http && go get -u github.com/knative-sandbox/func-go/http
+	cd templates/go/scaffolding/static-http && go get -u github.com/knative-sandbox/func-go/http
+	cd templates/go/scaffolding/instanced-cloudevents && go get -u github.com/knative-sandbox/func-go/cloudevents
+	cd templates/go/scaffolding/static-cloudevents && go get -u github.com/knative-sandbox/func-go/cloudevents
 
 .PHONY: cert
 certs: templates/certs/ca-certificates.crt ## Update root certificates
