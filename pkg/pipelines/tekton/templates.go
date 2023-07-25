@@ -3,6 +3,7 @@ package tekton
 import (
 	"bytes"
 	"fmt"
+	"net/http"
 	"os"
 	"path"
 	"strings"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/manifestival/manifestival"
+	"gopkg.in/yaml.v3"
 
 	"knative.dev/func/pkg/builders"
 	fn "knative.dev/func/pkg/functions"
@@ -34,39 +36,12 @@ const (
 	// there is a difference if we use PAC approach or standard Tekton approach.
 	//
 	// This can be simplified once we start consuming tasks from Tekton Hub
-	taskFuncBuildpacksTaskRef = `taskRef:
-        resolver: git
-        params:
-          - name: url
-            value: https://github.com/%s.git
-          - name: revision
-            value: %s
-          - name: pathInRepo
-            value: pkg/pipelines/resources/tekton/task/func-buildpacks/0.1/func-buildpacks.yaml`
 	taskFuncBuildpacksPACTaskRef = `taskRef:
         kind: Task
         name: func-buildpacks`
-	taskFuncS2iTaskRef = `taskRef:
-        resolver: git
-        params:
-          - name: url
-            value: https://github.com/%s.git
-          - name: revision
-            value: %s
-          - name: pathInRepo
-            value: pkg/pipelines/resources/tekton/task/func-s2i/0.1/func-s2i.yaml`
 	taskFuncS2iPACTaskRef = `taskRef:
         kind: Task
         name: func-s2i`
-	taskFuncDeployTaskRef = `taskRef:
-        resolver: git
-        params:
-          - name: url
-            value: https://github.com/%s.git
-          - name: revision
-            value: %s
-          - name: pathInRepo
-            value: pkg/pipelines/resources/tekton/task/func-deploy/0.1/func-deploy.yaml`
 	taskFuncDeployPACTaskRef = `taskRef:
         kind: Task
         name: func-deploy`
@@ -308,6 +283,35 @@ func deleteAllPipelineTemplates(f fn.Function) string {
 	return ""
 }
 
+func getTaskSpec(taskUrlTemplate string) (string, error) {
+	resp, err := http.Get(fmt.Sprintf(taskUrlTemplate, FuncRepoRef, FuncRepoBranchRef))
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	var data map[string]any
+	dec := yaml.NewDecoder(resp.Body)
+	err = dec.Decode(&data)
+	if err != nil {
+		return "", err
+	}
+	data = map[string]any{
+		"taskSpec": data["spec"],
+	}
+	var buff bytes.Buffer
+	enc := yaml.NewEncoder(&buff)
+	enc.SetIndent(2)
+	err = enc.Encode(data)
+	if err != nil {
+		return "", err
+	}
+	err = enc.Close()
+	if err != nil {
+		return "", err
+	}
+	return strings.ReplaceAll(buff.String(), "\n", "\n      "), nil
+}
+
 // createAndApplyPipelineTemplate creates and applies Pipeline template for a standard on-cluster build
 // all resources are created on the fly, if there's a Pipeline defined in the project directory, it is used instead
 func createAndApplyPipelineTemplate(f fn.Function, namespace string, labels map[string]string) error {
@@ -321,16 +325,29 @@ func createAndApplyPipelineTemplate(f fn.Function, namespace string, labels map[
 	}
 
 	data := templateData{
-		FunctionName:          f.Name,
-		Annotations:           f.Deploy.Annotations,
-		Labels:                labels,
-		PipelineName:          getPipelineName(f),
-		RunAfterFetchSources:  runAfterFetchSources,
-		GitCloneTaskRef:       gitCloneTaskRef,
-		FuncBuildpacksTaskRef: fmt.Sprintf(taskFuncBuildpacksTaskRef, FuncRepoRef, FuncRepoBranchRef),
-		FuncS2iTaskRef:        fmt.Sprintf(taskFuncS2iTaskRef, FuncRepoRef, FuncRepoBranchRef),
-		FuncDeployTaskRef:     fmt.Sprintf(taskFuncDeployTaskRef, FuncRepoRef, FuncRepoBranchRef),
+		FunctionName:         f.Name,
+		Annotations:          f.Deploy.Annotations,
+		Labels:               labels,
+		PipelineName:         getPipelineName(f),
+		RunAfterFetchSources: runAfterFetchSources,
+		GitCloneTaskRef:      gitCloneTaskRef,
 	}
+
+	for _, val := range []struct {
+		ref   string
+		field *string
+	}{
+		{taskFuncBuildpacksPACPipelineRunRef, &data.FuncBuildpacksTaskRef},
+		{taskFuncS2iPACPipelineRunRef, &data.FuncS2iTaskRef},
+		{taskFuncDeployPACPipelineRunRef, &data.FuncDeployTaskRef},
+	} {
+		ts, err := getTaskSpec(val.ref)
+		if err != nil {
+			return err
+		}
+		*val.field = ts
+	}
+
 	var template string
 	if f.Build.Builder == builders.Pack {
 		template = packPipelineTemplate

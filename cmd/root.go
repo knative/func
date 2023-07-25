@@ -306,7 +306,7 @@ func addPathFlag(cmd *cobra.Command) {
 
 // addVerboseFlag ensures common text/wording when the --path flag is used
 func addVerboseFlag(cmd *cobra.Command, dflt bool) {
-	cmd.Flags().BoolP("verbose", "v", false, "Print verbose logs ($FUNC_VERBOSE)")
+	cmd.Flags().BoolP("verbose", "v", dflt, "Print verbose logs ($FUNC_VERBOSE)")
 }
 
 // cwd returns the current working directory or exits 1 printing the error.
