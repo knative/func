@@ -117,14 +117,17 @@ func runWithVolumeMounted(ctx context.Context, podImage string, podCommand []str
 
 	const volumeMntPoint = "/tmp/volume_mnt"
 	const pVol = "p-vol"
+	fsGroup := int64(1000)
 	job := &batchV1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: jobName,
 		},
 		Spec: batchV1.JobSpec{
-
 			Template: corev1.PodTemplateSpec{
 				Spec: corev1.PodSpec{
+					SecurityContext: &corev1.PodSecurityContext{
+						FSGroup: &fsGroup,
+					},
 					Containers: []corev1.Container{
 						{
 							Name:       "container",
