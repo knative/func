@@ -316,8 +316,23 @@ func setHealthEndpoints(f fn.Function, c *corev1.Container) *corev1.Container {
 }
 
 func generateNewService(f fn.Function, decorator DeployDecorator) (*v1.Service, error) {
+	// set defaults to the values that avoid the following warning "Kubernetes default value is insecure, Knative may default this to secure in a future release"
+	runAsNonRoot := true
+	allowPrivilegeEscalation := false
+	capabilities := corev1.Capabilities{
+		Drop: []corev1.Capability{"ALL"},
+	}
+	seccompProfile := corev1.SeccompProfile{
+		Type: corev1.SeccompProfileType("RuntimeDefault"),
+	}
 	container := corev1.Container{
 		Image: f.ImageWithDigest(),
+		SecurityContext: &corev1.SecurityContext{
+			RunAsNonRoot:             &runAsNonRoot,
+			AllowPrivilegeEscalation: &allowPrivilegeEscalation,
+			Capabilities:             &capabilities,
+			SeccompProfile:           &seccompProfile,
+		},
 	}
 	setHealthEndpoints(f, &container)
 
