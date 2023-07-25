@@ -203,7 +203,7 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 
 	// Run
 	//
-	// Runs the code either via a container or the default host-based runniner.
+	// Runs the code either via a container or the default host-based runner.
 	// For the former, build is required and a container runtime.  For the
 	// latter, scaffolding is first applied and the local host must be
 	// configured to build/run the language of the function.

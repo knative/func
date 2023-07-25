@@ -102,10 +102,21 @@ func getRunFunc(ctx context.Context, job *Job) (runFn func() error, err error) {
 }
 
 func runGo(ctx context.Context, job *Job) (err error) {
+	// BUILD
+	// -----
 	// TODO: extract the build command code from the OCI Container Builder
-	// and have both the runner and OCI Container Builder use the same.
+	// and have both the runner and OCI Container Builder use the same here.
 	if job.verbose {
 		fmt.Printf("cd %v && go build -o f.bin\n", job.Dir())
+	}
+
+	// Get the dependencies of the function
+	cmd := exec.CommandContext(ctx, "go", "get", "f")
+	cmd.Dir = job.Dir()
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	if err = cmd.Run(); err != nil {
+		return
 	}
 
 	// Build
@@ -113,7 +124,7 @@ func runGo(ctx context.Context, job *Job) (err error) {
 	if job.verbose {
 		args = append(args, "-v")
 	}
-	cmd := exec.CommandContext(ctx, "go", args...)
+	cmd = exec.CommandContext(ctx, "go", args...)
 	cmd.Dir = job.Dir()
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -123,6 +134,7 @@ func runGo(ctx context.Context, job *Job) (err error) {
 	}
 
 	// Run
+	// ---
 	bin := filepath.Join(job.Dir(), "f.bin")
 	if job.verbose {
 		fmt.Printf("cd %v && PORT=%v %v\n", job.Function.Root, job.Port, bin)
