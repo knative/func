@@ -112,7 +112,7 @@ func TestBuilder_Concurrency(t *testing.T) {
 	}
 	wg.Add(1)
 	go func() {
-		wg.Done()
+		defer wg.Done()
 		err = builder2.Build(context.Background(), f, TestPlatforms)
 		if !errors.As(err, &ErrBuildInProgress{}) {
 			t.Errorf("test build error %v", err)
