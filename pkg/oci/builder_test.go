@@ -121,7 +121,7 @@ func TestBuilder_Concurrency(t *testing.T) {
 
 	// Release the blocking Build A and wait until complete.
 	continueCh <- true
-	wg.Done()
+	wg.Wait()
 }
 
 func isFirstBuild(cfg *buildConfig, current v1.Platform) bool {
