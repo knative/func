@@ -98,7 +98,7 @@ func TestBuilder_Concurrency(t *testing.T) {
 	go func() {
 		defer wg.Done()
 		if err := builder1.Build(context.Background(), f, TestPlatforms); err != nil {
-			t.Errorf("test build error %v", err)
+			t.Errorf("test build error: %v", err)
 		}
 	}()
 
@@ -108,14 +108,14 @@ func TestBuilder_Concurrency(t *testing.T) {
 	// Build B
 	builder2 := NewBuilder("builder2", true)
 	builder2.buildFn = func(config *buildConfig, platform v1.Platform) (v1.Descriptor, v1.Layer, error) {
-		return v1.Descriptor{}, nil, fmt.Errorf("should not have been invoked")
+		return v1.Descriptor{}, nil, fmt.Errorf("the buildFn should not have been invoked")
 	}
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		err = builder2.Build(context.Background(), f, TestPlatforms)
 		if !errors.As(err, &ErrBuildInProgress{}) {
-			t.Errorf("test build error %v", err)
+			t.Errorf("test build error: %v", err)
 		}
 	}()
 
