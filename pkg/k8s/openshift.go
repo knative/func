@@ -1,12 +1,10 @@
-package openshift
+package k8s
 
 import (
 	"context"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
-	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -18,17 +16,16 @@ import (
 
 	"knative.dev/func/pkg/docker"
 	"knative.dev/func/pkg/docker/creds"
-	fnhttp "knative.dev/func/pkg/http"
-	"knative.dev/func/pkg/k8s"
+	fn "knative.dev/func/pkg/functions"
 )
 
 const (
-	registryHost     = "image-registry.openshift-image-registry.svc"
-	registryHostPort = registryHost + ":5000"
+	openShiftRegistryHost     = "image-registry.openshift-image-registry.svc"
+	openShiftRegistryHostPort = openShiftRegistryHost + ":5000"
 )
 
-func GetServiceCA(ctx context.Context) (*x509.Certificate, error) {
-	client, ns, err := k8s.NewClientAndResolvedNamespace("")
+func GetOpenShiftServiceCA(ctx context.Context) (*x509.Certificate, error) {
+	client, ns, err := NewClientAndResolvedNamespace("")
 	if err != nil {
 		return nil, err
 	}
@@ -88,42 +85,17 @@ func GetServiceCA(ctx context.Context) (*x509.Certificate, error) {
 	}
 }
 
-// WithOpenShiftServiceCA enables trust to OpenShift's service CA for internal image registry
-func WithOpenShiftServiceCA() fnhttp.Option {
-	var err error
-	var ca *x509.Certificate
-	var o sync.Once
-
-	selectCA := func(ctx context.Context, serverName string) (*x509.Certificate, error) {
-		if strings.HasPrefix(serverName, registryHost) {
-			o.Do(func() {
-				ca, err = GetServiceCA(ctx)
-				if err != nil {
-					err = fmt.Errorf("cannot get CA: %w", err)
-				}
-			})
-			if err != nil {
-				return nil, err
-			}
-			return ca, nil
-		}
-		return nil, nil
-	}
-
-	return fnhttp.WithSelectCA(selectCA)
-}
-
-func GetDefaultRegistry() string {
-	ns, _ := k8s.GetNamespace("")
+func GetDefaultOpenShiftRegistry() string {
+	ns, _ := GetNamespace("")
 	if ns == "" {
 		ns = "default"
 	}
 
-	return registryHostPort + "/" + ns
+	return openShiftRegistryHostPort + "/" + ns
 }
 
-func GetDockerCredentialLoaders() []creds.CredentialsCallback {
-	conf := k8s.GetClientConfig()
+func GetOpenShiftDockerCredentialLoaders() []creds.CredentialsCallback {
+	conf := GetClientConfig()
 
 	rawConf, err := conf.RawConfig()
 	if err != nil {
@@ -143,7 +115,7 @@ func GetDockerCredentialLoaders() []creds.CredentialsCallback {
 
 	return []creds.CredentialsCallback{
 		func(registry string) (docker.Credentials, error) {
-			if registry == registryHostPort {
+			if registry == openShiftRegistryHostPort {
 				return credentials, nil
 			}
 			return docker.Credentials{}, creds.ErrCredentialsNotFound
@@ -158,7 +130,7 @@ var checkOpenShiftOnce sync.Once
 func IsOpenShift() bool {
 	checkOpenShiftOnce.Do(func() {
 		isOpenShift = false
-		client, err := k8s.NewKubernetesClientset()
+		client, err := NewKubernetesClientset()
 		if err != nil {
 			return
 		}
@@ -169,4 +141,49 @@ func IsOpenShift() bool {
 		}
 	})
 	return isOpenShift
+}
+
+const (
+	annotationOpenShiftVcsUri = "app.openshift.io/vcs-uri"
+	annotationOpenShiftVcsRef = "app.openshift.io/vcs-ref"
+
+	labelAppK8sInstance   = "app.kubernetes.io/instance"
+	labelOpenShiftRuntime = "app.openshift.io/runtime"
+)
+
+var iconValuesForRuntimes = map[string]string{
+	"go":         "golang",
+	"node":       "nodejs",
+	"python":     "python",
+	"quarkus":    "quarkus",
+	"springboot": "spring-boot",
+}
+
+type OpenshiftMetadataDecorator struct{}
+
+func (o OpenshiftMetadataDecorator) UpdateAnnotations(f fn.Function, annotations map[string]string) map[string]string {
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
+	annotations[annotationOpenShiftVcsUri] = f.Build.Git.URL
+	annotations[annotationOpenShiftVcsRef] = f.Build.Git.Revision
+
+	return annotations
+}
+
+func (o OpenshiftMetadataDecorator) UpdateLabels(f fn.Function, labels map[string]string) map[string]string {
+	if labels == nil {
+		labels = map[string]string{}
+	}
+
+	// this label is used for referencing a Tekton Pipeline and deployed KService
+	labels[labelAppK8sInstance] = f.Name
+
+	// if supported, set the label representing a runtime icon in Developer Console
+	iconValue, ok := iconValuesForRuntimes[f.Runtime]
+	if ok {
+		labels[labelOpenShiftRuntime] = iconValue
+	}
+
+	return labels
 }

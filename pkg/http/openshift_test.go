@@ -1,24 +1,23 @@
 //go:build integration
 // +build integration
 
-package openshift_test
+package http_test
 
 import (
 	"net/http"
-
 	"testing"
 
 	fnhttp "knative.dev/func/pkg/http"
-	"knative.dev/func/pkg/openshift"
+	"knative.dev/func/pkg/k8s"
 )
 
 func TestRoundTripper(t *testing.T) {
-	if !openshift.IsOpenShift() {
+	if !k8s.IsOpenShift() {
 		t.Skip("The cluster in not an instance of OpenShift.")
 		return
 	}
 
-	transport := fnhttp.NewRoundTripper(openshift.WithOpenShiftServiceCA())
+	transport := fnhttp.NewRoundTripper(fnhttp.WithOpenShiftServiceCA())
 	defer transport.Close()
 
 	client := http.Client{
