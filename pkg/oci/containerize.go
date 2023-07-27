@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	slashpath "path"
 	"path/filepath"
 	"strings"
 
@@ -136,6 +135,8 @@ func newDataTarball(source, target string, ignored []string, verbose bool) error
 	tw := tar.NewWriter(gw)
 	defer tw.Close()
 
+	baseDir := "/func"
+
 	return filepath.Walk(source, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -150,27 +151,26 @@ func newDataTarball(source, target string, ignored []string, verbose bool) error
 			}
 		}
 
-		header, err := tar.FileInfoHeader(info, info.Name())
+		var link string
+		if info.Mode()&os.ModeSymlink == os.ModeSymlink {
+			if link, err = os.Readlink(path); err != nil {
+				return err
+			}
+		}
+
+		header, err := tar.FileInfoHeader(info, link)
 		if err != nil {
 			return err
 		}
 
-		relPath, err := filepath.Rel(source, path)
-		if err != nil {
-			return err
-		}
-
-		header.Name = slashpath.Join("/func", filepath.ToSlash(relPath))
-		// TODO: should we set file timestamps to the build start time of cfg.t?
-		// header.ModTime = timestampArgument
-
-		if err := tw.WriteHeader(header); err != nil {
+		header.Name = filepath.Join(baseDir, strings.TrimPrefix(path, source))
+		if err = tw.WriteHeader(header); err != nil {
 			return err
 		}
 		if verbose {
 			fmt.Printf("→ %v \n", header.Name)
 		}
-		if info.IsDir() {
+		if !info.Mode().IsRegular() { //nothing more to do for non-regular
 			return nil
 		}
 
