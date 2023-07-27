@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
+	"syscall"
 	"time"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
@@ -223,6 +225,22 @@ func teardown(cfg *buildConfig) {
 		}
 		_ = os.RemoveAll(dir)
 	}
+}
+
+func processExists(pid string) bool {
+	p, err := strconv.Atoi(pid)
+	if err != nil {
+		return false
+	}
+	process, err := os.FindProcess(p)
+	if err != nil {
+		return false
+	}
+	if runtime.GOOS == "windows" {
+		return true
+	}
+	err = process.Signal(syscall.Signal(0))
+	return err == nil
 }
 
 func isLinkTo(link, target string) bool {
