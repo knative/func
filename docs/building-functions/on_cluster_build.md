@@ -34,12 +34,16 @@ git remote add origin git@github.com:my-repo/my-function.git
 ```
 4. Update the Function configuration in `func.yaml` to enable on cluster builds for the Git repository:
 ```yaml
-build: git                                          # required, specify `git` build type
-git:
-  url: https://github.com/my-repo/my-function.git   # required, git repository with the function source code
-  revision: main                                    # optional, git revision to be used (branch, tag, commit)
-  # contextDir: myfunction                          # optional, needed only if the function is not located
-                                                    # in the repository root folder
+build:
+  git:
+    url: https://github.com/my-repo/my-function.git   # required, git repository with the function source code
+    revision: main                                    # optional, git revision to be used (branch, tag, commit)
+    # contextDir: myfunction                          # optional, needed only if the function is not located in the repository root folder
+  # builderImages:                                    # optional, needed only if the runtime is golang
+  #   pack: ghcr.io/boson-project/go-function-builder:tip
+  buildpacks: []
+  builder: ""
+  buildEnvs: []
 ```
 5. Implement the business logic of your Function, then commit and push changes
 ```bash
