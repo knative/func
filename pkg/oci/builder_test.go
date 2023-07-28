@@ -14,6 +14,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -81,7 +82,7 @@ func TestBuilder_Concurrency(t *testing.T) {
 	var (
 		pausedCh   = make(chan bool)
 		continueCh = make(chan bool)
-		doneCh     = make(chan bool)
+		wg         sync.WaitGroup
 	)
 
 	// Build A
@@ -93,12 +94,11 @@ func TestBuilder_Concurrency(t *testing.T) {
 		}
 		return
 	}
-	builder1.onDone = func() {
-		doneCh <- true // Notify of being done
-	}
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		if err := builder1.Build(context.Background(), f, TestPlatforms); err != nil {
-			fmt.Fprintf(os.Stderr, "test build error %v", err)
+			t.Errorf("test build error: %v", err)
 		}
 	}()
 
@@ -107,16 +107,21 @@ func TestBuilder_Concurrency(t *testing.T) {
 
 	// Build B
 	builder2 := NewBuilder("builder2", true)
+	builder2.buildFn = func(config *buildConfig, platform v1.Platform) (v1.Descriptor, v1.Layer, error) {
+		return v1.Descriptor{}, nil, fmt.Errorf("the buildFn should not have been invoked")
+	}
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		err = builder2.Build(context.Background(), f, TestPlatforms)
 		if !errors.As(err, &ErrBuildInProgress{}) {
-			fmt.Fprintf(os.Stderr, "test build error %v", err)
+			t.Errorf("test build error: %v", err)
 		}
 	}()
 
 	// Release the blocking Build A and wait until complete.
 	continueCh <- true
-	<-doneCh
+	wg.Wait()
 }
 
 func isFirstBuild(cfg *buildConfig, current v1.Platform) bool {
