@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"syscall"
 	"time"
@@ -235,6 +236,9 @@ func processExists(pid string) bool {
 	if err != nil {
 		return false
 	}
+	if runtime.GOOS == "windows" {
+		return true
+	}
 	err = process.Signal(syscall.Signal(0))
 	return err == nil
 }
@@ -276,7 +280,11 @@ func updateLastLink(cfg *buildConfig) error {
 		fmt.Printf("ln -s %v %v\n", cfg.buildDir(), cfg.lastLink())
 	}
 	_ = os.RemoveAll(cfg.lastLink())
-	return os.Symlink(cfg.buildDir(), cfg.lastLink())
+	rp, err := filepath.Rel(filepath.Dir(cfg.lastLink()), cfg.buildDir())
+	if err != nil {
+		return err
+	}
+	return os.Symlink(rp, cfg.lastLink())
 }
 
 // toPlatforms converts func's implementation-agnostic Platform struct
