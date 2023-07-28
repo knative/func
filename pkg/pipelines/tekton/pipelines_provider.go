@@ -118,9 +118,13 @@ func NewPipelinesProvider(opts ...Opt) *PipelinesProvider {
 // After the PipelineRun is being initialized, the progress of the PipelineRun is being watched and printed to the output.
 func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 	pp.progressListener.Increment("Creating Pipeline resources")
-
-	if err := validatePipeline(f); err != nil {
+	var warningMsg string
+	var err error
+	if warningMsg, err = validatePipeline(f); err != nil {
 		return err
+	}
+	if warningMsg != "" {
+		pp.progressListener.Increment(warningMsg)
 	}
 
 	client, namespace, err := NewTektonClientAndResolvedNamespace(pp.namespace)

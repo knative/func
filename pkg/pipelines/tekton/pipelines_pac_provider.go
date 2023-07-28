@@ -30,8 +30,13 @@ func (pp *PipelinesProvider) ConfigurePAC(ctx context.Context, f fn.Function, me
 		return fmt.Errorf("incorrect type of pipelines metadata: %T", metadata)
 	}
 
-	if err := validatePipeline(f); err != nil {
+	var warningMsg string
+	var err error
+	if warningMsg, err = validatePipeline(f); err != nil {
 		return err
+	}
+	if warningMsg != "" {
+		pp.progressListener.Increment(warningMsg)
 	}
 
 	if data.ConfigureLocalResources {
