@@ -193,6 +193,7 @@ func downloadBuilderToml(ctx context.Context, tarballUrl, builderTomlPath string
 	if err != nil {
 		return fmt.Errorf("cannot create request for release tarball: %w", err)
 	}
+	//nolint:bodyclose
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("cannot get release tarball: %w", err)
