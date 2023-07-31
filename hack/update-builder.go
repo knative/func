@@ -140,20 +140,26 @@ func buildBuilderImage(ctx context.Context) error {
 		RegistryAuth: base64.StdEncoding.EncodeToString(bs),
 	}
 
-	rc, err := dockerClient.ImagePush(ctx, newBuilderImage+":tip", imagePushOptions)
+	pushImage := func(image string) error {
+		rc, err := dockerClient.ImagePush(ctx, image, imagePushOptions)
+		if err != nil {
+			return fmt.Errorf("cannot push the image: %w", err)
+		}
+		defer func(rc io.ReadCloser) {
+			_ = rc.Close()
+		}(rc)
+		fd := os.Stdout.Fd()
+		isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
+		err = jsonmessage.DisplayJSONMessagesStream(rc, os.Stderr, fd, isTerminal, nil)
+		if err != nil {
+			return fmt.Errorf("cannot process message stream: %w", err)
+		}
+		return nil
+	}
+
+	err = pushImage(newBuilderImage + ":tip")
 	if err != nil {
 		return fmt.Errorf("cannot push the image: %w", err)
-	}
-	defer func(rc io.ReadCloser) {
-		_ = rc.Close()
-	}(rc)
-
-	fd := os.Stdout.Fd()
-	isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
-
-	err = jsonmessage.DisplayJSONMessagesStream(rc, os.Stderr, fd, isTerminal, nil)
-	if err != nil {
-		return fmt.Errorf("cannot process message stream: %w", err)
 	}
 
 	return nil
