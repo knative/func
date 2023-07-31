@@ -144,7 +144,14 @@ func buildBuilderImage(ctx context.Context) error {
 	defer func(rc io.ReadCloser) {
 		_ = rc.Close()
 	}(rc)
-	_, _ = io.Copy(os.Stderr, rc)
+
+	fd := os.Stdout.Fd()
+	isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
+
+	err = jsonmessage.DisplayJSONMessagesStream(rc, os.Stderr, fd, isTerminal, nil)
+	if err != nil {
+		return fmt.Errorf("cannot process message stream: %w", err)
+	}
 
 	return nil
 }
