@@ -1,6 +1,8 @@
 name: Update Builder Image
 
 on: [pull_request]
+permissions:
+  packages: write
 
 jobs:
   check:
@@ -12,5 +14,6 @@ jobs:
           go-version: "1.20.x"
       - name: Build and Push
         env:
-          GITHUB_TOKEN: ${{ github.token }}
+          DOCKER_USER: gh-action-bot
+          DOCKER_PASSWORD: ${{ github.token }}
         run: go run ./hack/update-builder.go

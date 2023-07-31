@@ -125,8 +125,8 @@ func buildBuilderImage(ctx context.Context) error {
 	}
 
 	authConfig := registry.AuthConfig{
-		Username: "gh-action-bot",
-		Password: os.Getenv("GITHUB_TOKEN"),
+		Username: os.Getenv("DOCKER_USER"),
+		Password: os.Getenv("DOCKER_PASSWORD"),
 	}
 	bs, err := json.Marshal(&authConfig)
 	if err != nil {
