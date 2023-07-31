@@ -79,6 +79,13 @@ func buildBuilderImage(ctx context.Context) error {
 
 	release := releases[0]
 
+	if release.Name == nil {
+		return fmt.Errorf("the name of the release is not defined")
+	}
+	if release.TarballURL == nil {
+		return fmt.Errorf("the tarball url of the release is not defined")
+	}
+
 	newBuilderImage := "ghcr.io/knative/builder-jammy-full"
 	newBuilderImageTagged := newBuilderImage + ":" + *release.Name
 	newBuilderImageLatest := newBuilderImage + ":latest"
