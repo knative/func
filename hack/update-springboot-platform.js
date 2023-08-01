@@ -52,7 +52,7 @@ const parseXML = (text) => new Promise((resolve, reject) => {
 const platformFromPom = async (pomPath) => {
     const pomData = await readFile(pomPath, {encoding: 'utf8'});
     const pom = await parseXML(pomData)
-    return pom.project.properties[0]['springboot.platform.version'][0]
+    return pom.project.parent[0].version[0]
 }
 
 const prepareBranch = async (branchName, prTitle) => {
@@ -79,8 +79,10 @@ const prepareBranch = async (branchName, prTitle) => {
 
 const updatePlatformInPom = async (pomPath, newPlatform) => {
     const pomData = await readFile(pomPath, {encoding: 'utf8'});
-    const newPomData = pomData.replace(new RegExp('<springboot.platform.version>[\\w.]+</springboot.platform.version>', 'i'),
-        `<springboot.platform.version>${newPlatform}</springboot.platform.version>`)
+    const pom = await parseXML(pomData)
+    pom.project.parent[0].version[0] = newPlatform
+    const builder = new xml2js.Builder( { headless: false, renderOpts: { pretty: true }  })
+    const newPomData = builder.buildObject(pom)
     await writeFile(pomPath, newPomData)
 }
 
