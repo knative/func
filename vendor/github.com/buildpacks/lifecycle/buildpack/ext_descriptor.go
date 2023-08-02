@@ -3,15 +3,17 @@
 package buildpack
 
 import (
+	"os"
 	"path/filepath"
 
 	"github.com/BurntSushi/toml"
 )
 
 type ExtDescriptor struct {
-	WithAPI     string  `toml:"api"`
-	Extension   ExtInfo `toml:"extension"`
-	WithRootDir string  `toml:"-"`
+	WithAPI     string           `toml:"api"`
+	Extension   ExtInfo          `toml:"extension"`
+	WithRootDir string           `toml:"-"`
+	Targets     []TargetMetadata `toml:"targets"`
 }
 
 type ExtInfo struct {
@@ -29,7 +31,38 @@ func ReadExtDescriptor(path string) (*ExtDescriptor, error) {
 	if descriptor.WithRootDir, err = filepath.Abs(filepath.Dir(path)); err != nil {
 		return &ExtDescriptor{}, err
 	}
-	return descriptor, nil
+	err = descriptor.inferTargets()
+	return descriptor, err
+}
+
+func (d *ExtDescriptor) inferTargets() error {
+	if len(d.Targets) == 0 {
+		binDir := filepath.Join(d.WithRootDir, "bin")
+		if stat, _ := os.Stat(binDir); stat != nil {
+			binFiles, err := os.ReadDir(binDir)
+			if err != nil {
+				return err
+			}
+			var windowsDetected, linuxDetected bool
+			for i := 0; i < len(binFiles); i++ { // detect and generate files are optional
+				bf := binFiles[len(binFiles)-i-1] // we're iterating backwards b/c os.ReadDir sorts "foo.exe" after "foo" but we want to preferentially detect windows first.
+				fname := bf.Name()
+				if !windowsDetected && (fname == "detect.exe" || fname == "detect.bat" || fname == "generate.exe" || fname == "generate.bat") {
+					d.Targets = append(d.Targets, TargetMetadata{OS: "windows", Arch: "*"})
+					windowsDetected = true
+				}
+				if !linuxDetected && (fname == "detect" || fname == "generate") {
+					d.Targets = append(d.Targets, TargetMetadata{OS: "linux", Arch: "*"})
+					linuxDetected = true
+				}
+			}
+		}
+	}
+	// fallback: if nothing worked just mark it */*
+	if len(d.Targets) == 0 {
+		d.Targets = append(d.Targets, TargetMetadata{OS: "*", Arch: "*"})
+	}
+	return nil
 }
 
 func (d *ExtDescriptor) API() string {
@@ -50,4 +83,8 @@ func (d *ExtDescriptor) RootDir() string {
 
 func (d *ExtDescriptor) String() string {
 	return d.Extension.Name + " " + d.Extension.Version
+}
+
+func (d *ExtDescriptor) TargetsList() []TargetMetadata {
+	return d.Targets
 }

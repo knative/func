@@ -65,7 +65,7 @@ func (p *PipelineRunSummary) IsSucceed() bool {
 	return p.PipelineRunStatus == "Succeeded"
 }
 
-// TektonPipelTektonPipelineLastRunSummary gather information about a pipeline run such as
+// TektonPipelineLastRunSummary gather information about a pipeline run such as
 // list of tasks executed and status of each task execution. It is meant to be used on assertions
 func TektonPipelineLastRunSummary(t *testing.T, pipelinePrefix string) *PipelineRunSummary {
 	namespace, _, _ := k8s.GetClientConfig().Namespace()
@@ -82,13 +82,17 @@ func TektonPipelineLastRunSummary(t *testing.T, pipelinePrefix string) *Pipeline
 				lr.PipelineRunStatus = run.Status.Conditions[0].Reason
 			}
 			lr.TasksRunSummary = []PipelineTaskRunSummary{}
-			for _, taskRun := range run.Status.TaskRuns {
-				trun := PipelineTaskRunSummary{}
-				trun.TaskName = taskRun.PipelineTaskName
-				if len(taskRun.Status.Conditions) > 0 {
-					trun.TaskStatus = taskRun.Status.Conditions[0].Reason
+			for _, ref := range run.Status.ChildReferences {
+				r := PipelineTaskRunSummary{}
+				r.TaskName = ref.PipelineTaskName
+				taskRun, err := client.TaskRuns(ns).Get(context.Background(), ref.Name, v1.GetOptions{})
+				if err != nil {
+					t.Error(err.Error())
 				}
-				lr.TasksRunSummary = append(lr.TasksRunSummary, trun)
+				if len(taskRun.Status.Conditions) > 0 {
+					r.TaskStatus = taskRun.Status.Conditions[0].Reason
+				}
+				lr.TasksRunSummary = append(lr.TasksRunSummary, r)
 			}
 		}
 	}

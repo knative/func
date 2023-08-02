@@ -7,13 +7,11 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
-	"knative.dev/func/pkg/builders"
-	pack "knative.dev/func/pkg/builders/buildpacks"
-	"knative.dev/func/pkg/builders/s2i"
 	"knative.dev/func/pkg/config"
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
@@ -67,7 +65,7 @@ EXAMPLES
 	  $ {{rootCmdUse}} run --container=false
 `,
 		SuggestFor: []string{"rnu"},
-		PreRunE:    bindEnv("build", "builder", "builder-image", "confirm", "env", "image", "registry", "path", "container", "verbose"),
+		PreRunE:    bindEnv("build", "builder", "builder-image", "confirm", "container", "env", "image", "path", "registry", "start-timeout", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runRun(cmd, args, newClient)
 		},
@@ -105,6 +103,13 @@ EXAMPLES
 		"Environment variable to set in the form NAME=VALUE. "+
 			"You may provide this flag multiple times for setting multiple environment variables. "+
 			"To unset, specify the environment variable name followed by a \"-\" (e.g., NAME-).")
+	cmd.Flags().Duration("start-timeout", f.Run.StartTimeout, fmt.Sprintf("time this function needs in order to start. If not provided, the client default %v will be in effect. ($FUNC_START_TIMEOUT)", fn.DefaultStartTimeout))
+
+	// TODO: Without the "Host" builder enabled, this code-path is unreachable,
+	// so remove hidden flag when either the Host builder path is available,
+	// or when containerized runs support start-timeout (and ideally both).
+	// Also remember to add it to the command help text's synopsis section.
+	_ = cmd.Flags().MarkHidden("start-timeout")
 
 	// Static Flags:
 	//  Options which have static defaults only
@@ -140,14 +145,14 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 	if cfg, err = newRunConfig(cmd).Prompt(); err != nil {
 		return
 	}
-	if err = cfg.Validate(cmd); err != nil {
-		return
-	}
 	if f, err = fn.NewFunction(cfg.Path); err != nil {
 		return
 	}
+	if err = cfg.Validate(cmd, f); err != nil {
+		return
+	}
 	if !f.Initialized() {
-		return fn.NewUninitializedError(f.Root)
+		return fn.NewErrNotInitialized(f.Root)
 	}
 	if f, err = cfg.Configure(f); err != nil { // Updates f with deploy cfg
 		return
@@ -168,40 +173,37 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 	}
 
 	// Client
-	//
-	// Builder and runner implementations are based on the value of f.Build.Builder, and
-	//
-	o := []fn.Option{}
-	if f.Build.Builder == builders.Pack {
-		o = append(o, fn.WithBuilder(pack.NewBuilder(
-			pack.WithName(builders.Pack),
-			pack.WithVerbose(cfg.Verbose))))
-	} else if f.Build.Builder == builders.S2I {
-		o = append(o, fn.WithBuilder(s2i.NewBuilder(
-			s2i.WithName(builders.S2I),
-			s2i.WithPlatform(cfg.Platform),
-			s2i.WithVerbose(cfg.Verbose))))
+	clientOptions, err := cfg.clientOptions()
+	if err != nil {
+		return
 	}
 	if cfg.Container {
-		o = append(o, fn.WithRunner(docker.NewRunner(cfg.Verbose, os.Stdout, os.Stderr)))
+		clientOptions = append(clientOptions, fn.WithRunner(docker.NewRunner(cfg.Verbose, os.Stdout, os.Stderr)))
+	}
+	if cfg.StartTimeout != 0 {
+		clientOptions = append(clientOptions, fn.WithStartTimeout(cfg.StartTimeout))
 	}
 
-	client, done := newClient(ClientConfig{Verbose: cfg.Verbose}, o...)
+	client, done := newClient(ClientConfig{Verbose: cfg.Verbose}, clientOptions...)
 	defer done()
 
 	// Build
 	//
 	// If requesting to run via the container, build the container if it is
 	// either out-of-date or a build was explicitly requested.
-	if cfg.Container && shouldBuild(cfg.Build, f, client) {
-		if f, err = client.Build(cmd.Context(), f); err != nil {
-			return
+	if cfg.Container {
+		buildOptions, err := cfg.buildOptions()
+		if err != nil {
+			return err
+		}
+		if f, err = build(cmd, cfg.Build, f, client, buildOptions); err != nil {
+			return err
 		}
 	}
 
 	// Run
 	//
-	// Runs the code either via a container or the default host-based runniner.
+	// Runs the code either via a container or the default host-based runner.
 	// For the former, build is required and a container runtime.  For the
 	// latter, scaffolding is first applied and the local host must be
 	// configured to build/run the language of the function.
@@ -252,14 +254,19 @@ type runConfig struct {
 
 	// Env variables.  may include removals using a "-"
 	Env []string
+
+	// StartTimeout optionally adjusts the startup timeout from the client's
+	// default of fn.DefaultStartTimeout.
+	StartTimeout time.Duration
 }
 
 func newRunConfig(cmd *cobra.Command) (c runConfig) {
 	c = runConfig{
-		buildConfig: newBuildConfig(),
-		Build:       viper.GetString("build"),
-		Env:         viper.GetStringSlice("env"),
-		Container:   viper.GetBool("container"),
+		buildConfig:  newBuildConfig(),
+		Build:        viper.GetString("build"),
+		Env:          viper.GetStringSlice("env"),
+		Container:    viper.GetBool("container"),
+		StartTimeout: viper.GetDuration("start-timeout"),
 	}
 	// NOTE: .Env should be viper.GetStringSlice, but this returns unparsed
 	// results and appears to be an open issue since 2017:
@@ -278,11 +285,13 @@ func (c runConfig) Configure(f fn.Function) (fn.Function, error) {
 	var err error
 	f = c.buildConfig.Configure(f)
 
+	f.Run.StartTimeout = c.StartTimeout
+
 	f.Run.Envs, err = applyEnvs(f.Run.Envs, c.Env)
-	return f, err
 
 	// The other members; build, path, and container; are not part of function
 	// state, so are not mentioned here in Configure.
+	return f, err
 }
 
 func (c runConfig) Prompt() (runConfig, error) {
@@ -300,7 +309,7 @@ func (c runConfig) Prompt() (runConfig, error) {
 	return c, nil
 }
 
-func (c runConfig) Validate(cmd *cobra.Command) (err error) {
+func (c runConfig) Validate(cmd *cobra.Command, f fn.Function) (err error) {
 	// Bubble
 	if err = c.buildConfig.Validate(); err != nil {
 		return
@@ -314,14 +323,21 @@ func (c runConfig) Validate(cmd *cobra.Command) (err error) {
 	}
 
 	// There is currently no local host runner implemented, so specifying
-	// --container=false should always return an informative error to the user
-	// such that they do not receive the rather cryptic "no runner defined"
-	// error from a Client instance which was instantiated with no runner.
+	// --container=false should return an informative error for runtimes other
+	// than Go  that is more helpful than the cryptic, though correct, error
+	// from the Client that it was instantated without a runner.
 	// TODO: modify this check when the local host runner is available to
 	// only generate this error when --container==false && the --language is
 	// not yet implemented.
-	if !c.Container {
+	if !c.Container && f.Runtime != "go" {
 		return errors.New("the ability to run functions outside of a container via 'func run' is coming soon.")
 	}
+
+	// When the docker runner respects the StartTimeout, this validation check
+	// can be removed
+	if c.StartTimeout != 0 && c.Container {
+		return errors.New("the ability to specify the startup timeout for containerized runs is coming soon")
+	}
+
 	return
 }

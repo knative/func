@@ -4,6 +4,7 @@
 /cmd/func.yaml
 /templates/typescript/cloudevents/build
 /templates/typescript/http/build
+/templates/go/cloudevents/go.sum
 /coverage.out
 /coverage.txt
 /.coverage

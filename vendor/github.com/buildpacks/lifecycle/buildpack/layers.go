@@ -124,8 +124,13 @@ type Layer struct { // FIXME: need to refactor so api and logger won't be part o
 }
 
 type layerDir struct {
+	// identifier takes the form "bp-id:bp-version" and is used for
+	// sorting layers,
+	// logging information about a layer, and
+	// creating the temporary tar file that is the basis of the layer.
 	identifier string
-	path       string
+	// path takes the form <layers>/<buildpack-id>/<layer-name>
+	path string
 }
 
 func (l *Layer) Name() string {
@@ -148,16 +153,9 @@ func (l *Layer) Path() string {
 
 func (l *Layer) Read() (LayerMetadata, error) {
 	tomlPath := l.Path() + ".toml"
-	layerMetadataFile, msg, err := DecodeLayerMetadataFile(tomlPath, l.api)
+	layerMetadataFile, err := DecodeLayerMetadataFile(tomlPath, l.api, l.logger)
 	if err != nil {
 		return LayerMetadata{}, err
-	}
-	if msg != "" {
-		if api.MustParse(l.api).LessThan("0.6") {
-			l.logger.Warn(msg)
-		} else {
-			return LayerMetadata{}, errors.New(msg)
-		}
 	}
 	var sha string
 	shaBytes, err := os.ReadFile(l.Path() + ".sha")

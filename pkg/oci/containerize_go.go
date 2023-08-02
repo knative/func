@@ -5,8 +5,10 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
+	slashpath "path"
 	"path/filepath"
 	"strings"
 
@@ -15,13 +17,10 @@ import (
 	fn "knative.dev/func/pkg/functions"
 )
 
-type goLayerBuilder struct{}
-
 // Build the source code as Go, cross compiled for the given platform, placing
 // the statically linked binary in a tarred layer and return the Descriptor
 // and Layer metadata.
-func (c goLayerBuilder) Build(cfg *buildConfig, p v1.Platform) (desc v1.Descriptor, layer v1.Layer, err error) {
-
+func buildGoLayer(cfg *buildConfig, p v1.Platform) (desc v1.Descriptor, layer v1.Layer, err error) {
 	// Executable
 	exe, err := goBuild(cfg, p) // Compile binary returning its path
 	if err != nil {
@@ -65,7 +64,19 @@ func goBuild(cfg *buildConfig, p v1.Platform) (binPath string, err error) {
 	} else {
 		fmt.Printf("   %v\n", filepath.Base(outpath))
 	}
-	cmd := exec.CommandContext(cfg.ctx, gobin, args...)
+
+	// Get the dependencies of the function
+	cmd := exec.CommandContext(cfg.ctx, gobin, "get", "f")
+	cmd.Env = envs
+	cmd.Dir = cfg.buildDir()
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	if err = cmd.Run(); err != nil {
+		return
+	}
+
+	// Build the function
+	cmd = exec.CommandContext(cfg.ctx, gobin, args...)
 	cmd.Env = envs
 	cmd.Dir = cfg.buildDir()
 	cmd.Stderr = os.Stderr
@@ -160,8 +171,9 @@ func newExecTarball(source, target string, verbose bool) error {
 	if err != nil {
 		return err
 	}
+	header.Mode = (header.Mode & ^int64(fs.ModePerm)) | 0755
 
-	header.Name = path("/func", "f")
+	header.Name = slashpath.Join("/func", "f")
 	// TODO: should we set file timestamps to the build start time of cfg.t?
 	// header.ModTime = timestampArgument
 

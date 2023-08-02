@@ -155,7 +155,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 				return fn.DeploymentResult{}, err
 			}
 
-			err = checkResourcesArePresent(ctx, d.Namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs)
+			err = checkResourcesArePresent(ctx, d.Namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName)
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to generate the Knative Service: %v", err)
 				return fn.DeploymentResult{}, err
@@ -252,7 +252,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			return fn.DeploymentResult{}, err
 		}
 
-		err = checkResourcesArePresent(ctx, d.Namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs)
+		err = checkResourcesArePresent(ctx, d.Namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName)
 		if err != nil {
 			err = fmt.Errorf("knative deployer failed to update the Knative Service: %v", err)
 			return fn.DeploymentResult{}, err
@@ -316,8 +316,23 @@ func setHealthEndpoints(f fn.Function, c *corev1.Container) *corev1.Container {
 }
 
 func generateNewService(f fn.Function, decorator DeployDecorator) (*v1.Service, error) {
+	// set defaults to the values that avoid the following warning "Kubernetes default value is insecure, Knative may default this to secure in a future release"
+	runAsNonRoot := true
+	allowPrivilegeEscalation := false
+	capabilities := corev1.Capabilities{
+		Drop: []corev1.Capability{"ALL"},
+	}
+	seccompProfile := corev1.SeccompProfile{
+		Type: corev1.SeccompProfileType("RuntimeDefault"),
+	}
 	container := corev1.Container{
 		Image: f.ImageWithDigest(),
+		SecurityContext: &corev1.SecurityContext{
+			RunAsNonRoot:             &runAsNonRoot,
+			AllowPrivilegeEscalation: &allowPrivilegeEscalation,
+			Capabilities:             &capabilities,
+			SeccompProfile:           &seccompProfile,
+		},
 	}
 	setHealthEndpoints(f, &container)
 
@@ -370,7 +385,8 @@ func generateNewService(f fn.Function, decorator DeployDecorator) (*v1.Service, 
 							Containers: []corev1.Container{
 								container,
 							},
-							Volumes: newVolumes,
+							ServiceAccountName: f.Deploy.ServiceAccountName,
+							Volumes:            newVolumes,
 						},
 					},
 				},
@@ -509,7 +525,7 @@ func updateService(f fn.Function, previousService *v1.Service, newEnv []corev1.E
 		cp.EnvFrom = newEnvFrom
 		cp.VolumeMounts = newVolumeMounts
 		service.Spec.ConfigurationSpec.Template.Spec.Volumes = newVolumes
-
+		service.Spec.ConfigurationSpec.Template.Spec.PodSpec.ServiceAccountName = f.Deploy.ServiceAccountName
 		return service, nil
 	}
 }
@@ -527,6 +543,8 @@ func updateService(f fn.Function, previousService *v1.Service, newEnv []corev1.E
 //     value: {{ configMap:configMapName:key }}  # ENV from a key in ConfigMap
 //   - value: {{ configMap:configMapName }}      # all key-pair values from ConfigMap are set as ENV
 func processEnvs(envs []fn.Env, referencedSecrets, referencedConfigMaps *sets.String) ([]corev1.EnvVar, []corev1.EnvFromSource, error) {
+
+	envs = withOpenAddress(envs) // prepends ADDRESS=0.0.0.0 if not extant
 
 	envVars := []corev1.EnvVar{{Name: "BUILT", Value: time.Now().Format("20060102T150405")}}
 	envFrom := []corev1.EnvFromSource{}
@@ -572,6 +590,45 @@ func processEnvs(envs []fn.Env, referencedSecrets, referencedConfigMaps *sets.St
 	}
 
 	return envVars, envFrom, nil
+}
+
+// withOpenAddresss prepends ADDRESS=0.0.0.0 to the envs if not present.
+//
+// This is combined with the value of PORT at runtime to determine the full
+// Listener address on which a Function will listen tcp requests.
+//
+// Runtimes should, by default, only listen on the loopback interface by
+// default, as they may be `func run` locally, for security purposes.
+// This environment vriable instructs the runtimes to listen on all interfaces
+// by default when actually being deployed, since they will need to actually
+// listen for client requests and for health readiness/liveness probes.
+//
+// Should a user wish to securely open their function to only receive requests
+// on a specific interface, such as a WireGuar-encrypted mesh network which
+// presents as a specific interface, that can be achieved by setting the
+// ADDRESS value as an environment variable on their function to the interface
+// on which to listen.
+//
+// NOTE this env is currently only respected by scaffolded Go functions, because
+// they are the only ones which support being `func run` locally.  Other
+// runtimes will respect the value as they are updated to support scaffolding.
+func withOpenAddress(ee []fn.Env) []fn.Env {
+	// TODO: this is unnecessarily complex due to both key and value of the
+	// envs slice being being pointers.  There is an outstanding tech-debt item
+	// to remove pointers from Function Envs, Volumes, Labels, and Options.
+	var found bool
+	for _, e := range ee {
+		if e.Name != nil && *e.Name == "ADDRESS" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		k := "ADDRESS"
+		v := "0.0.0.0"
+		ee = append(ee, fn.Env{Name: &k, Value: &v})
+	}
+	return ee
 }
 
 func createEnvFromSource(value string, referencedSecrets, referencedConfigMaps *sets.String) (*corev1.EnvFromSource, error) {
@@ -814,7 +871,7 @@ func processVolumes(volumes []fn.Volume, referencedSecrets, referencedConfigMaps
 
 // checkResourcesArePresent returns error if Secrets or ConfigMaps
 // referenced in input sets are not deployed on the cluster in the specified namespace
-func checkResourcesArePresent(ctx context.Context, namespace string, referencedSecrets, referencedConfigMaps, referencedPVCs *sets.String) error {
+func checkResourcesArePresent(ctx context.Context, namespace string, referencedSecrets, referencedConfigMaps, referencedPVCs *sets.String, referencedServiceAccount string) error {
 
 	errMsg := ""
 	for s := range *referencedSecrets {
@@ -835,6 +892,14 @@ func checkResourcesArePresent(ctx context.Context, namespace string, referencedS
 		_, err := k8s.GetPersistentVolumeClaim(ctx, pvc, namespace)
 		if err != nil {
 			errMsg += fmt.Sprintf("  referenced PersistentVolumeClaim \"%s\" is not present in namespace \"%s\"\n", pvc, namespace)
+		}
+	}
+
+	// check if referenced ServiceAccount is present in the namespace if it is not default
+	if referencedServiceAccount != "" && referencedServiceAccount != "default" {
+		err := k8s.GetServiceAccount(ctx, referencedServiceAccount, namespace)
+		if err != nil {
+			errMsg += fmt.Sprintf("  referenced ServiceAccount \"%s\" is not present in namespace \"%s\"\n", referencedServiceAccount, namespace)
 		}
 	}
 

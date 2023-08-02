@@ -22,9 +22,6 @@ const (
 	// RunDataDir holds transient runtime metadata
 	// By default it is excluded from source control.
 	RunDataDir = ".func"
-
-	// DefaultPersistentVolumeClaimSize represents default size of PVC created for a Pipeline
-	DefaultPersistentVolumeClaimSize string = "256Mi"
 )
 
 // Function
@@ -56,9 +53,9 @@ type Function struct {
 
 	// Registry at which to store interstitial containers, in the form
 	// [registry]/[user].
-	Registry string `yaml:"registry"`
+	Registry string `yaml:"registry,omitempty"`
 
-	// Optional full OCI image tag in form:
+	// Image is the full OCI image tag in form:
 	//   [registry]/[namespace]/[name]:[tag]
 	// example:
 	//   quay.io/alice/my.function.name
@@ -67,9 +64,9 @@ type Function struct {
 	//   alice/my.function.name
 	// If Image is provided, it overrides the default of concatenating
 	// "Registry+Name:latest" to derive the Image.
-	Image string `yaml:"image"`
+	Image string `yaml:"image,omitempty"`
 
-	// SHA256 hash of the latest image that has been built
+	// ImageDigest is the SHA256 hash of the latest image that has been built
 	ImageDigest string `yaml:"imageDigest,omitempty"`
 
 	// Created time is the moment that creation was successfully completed
@@ -81,13 +78,13 @@ type Function struct {
 	// See Client.Invoke for usage.
 	Invoke string `yaml:"invoke,omitempty"`
 
-	//BuildSpec define the build properties for a function
+	// Build defines the build properties for a function
 	Build BuildSpec `yaml:"build,omitempty"`
 
-	//RunSpec define the runtime properties for a function
+	// Run defines the runtime properties for a function
 	Run RunSpec `yaml:"run,omitempty"`
 
-	//DeploySpec define the deployment properties for a function
+	// Deploy defines the deployment properties for a function
 	Deploy DeploySpec `yaml:"deploy,omitempty"`
 }
 
@@ -126,6 +123,12 @@ type RunSpec struct {
 
 	// Env variables to be set
 	Envs Envs `yaml:"envs,omitempty"`
+
+	// StartTimeout specifies that this function should have a custom timeout
+	// when starting. This setting is currently respected by the host runner,
+	// with containerized docker runner and deployed Knative service integration
+	// in development.
+	StartTimeout time.Duration `yaml:"startTimeout,omitempty"`
 }
 
 // DeploySpec
@@ -149,6 +152,12 @@ type DeploySpec struct {
 
 	// Health endpoints specified by the language pack
 	HealthEndpoints HealthEndpoints `yaml:"healthEndpoints,omitempty"`
+
+	// ServiceAccountName is the name of the service account used for the
+	// function pod. The service account must exist in the namespace to
+	// succeed.
+	// More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
+	ServiceAccountName string `yaml:"serviceAccountName,omitempty"`
 }
 
 // HealthEndpoints specify the liveness and readiness endpoints for a Runtime
@@ -163,20 +172,12 @@ type BuildConfig struct {
 	BuilderImages map[string]string `yaml:"builderImages,omitempty"`
 }
 
-type UninitializedError struct {
-	Path string
-}
-
-func (e *UninitializedError) Error() string {
-	return fmt.Sprintf("'%s' does not contain an initialized function", e.Path)
-}
-
-func NewUninitializedError(path string) error {
-	return &UninitializedError{Path: path}
-}
-
 // NewFunctionWith defaults as provided.
 func NewFunctionWith(defaults Function) Function {
+	// Deprecatded:  these defaults should be used directly from their
+	// in-code static defaults, config, etc. A function struct is used to hold
+	// overrides (eg. use PVCSize X instead of the default), and to record the
+	// results of operations (eg. the function was deployed with image Y).
 	if defaults.SpecVersion == "" {
 		defaults.SpecVersion = LastSpecVersion()
 	}
@@ -185,9 +186,6 @@ func NewFunctionWith(defaults Function) Function {
 	}
 	if defaults.Build.BuilderImages == nil {
 		defaults.Build.BuilderImages = make(map[string]string)
-	}
-	if defaults.Build.PVCSize == "" {
-		defaults.Build.PVCSize = DefaultPersistentVolumeClaimSize
 	}
 	if defaults.Deploy.Annotations == nil {
 		defaults.Deploy.Annotations = make(map[string]string)
@@ -472,6 +470,12 @@ func (f Function) ImageWithDigest() string {
 	// Return image, if Digest is empty
 	if f.ImageDigest == "" {
 		return f.Image
+	}
+
+	// Return image with new Digest if image already contains SHA256 Digest
+	shaIndex := strings.Index(f.Image, "@sha256:")
+	if shaIndex > 0 {
+		return f.Image[:shaIndex] + "@" + f.ImageDigest
 	}
 
 	lastSlashIdx := strings.LastIndexAny(f.Image, "/")

@@ -128,6 +128,12 @@ func (ps *PipelineRunSpec) Validate(ctx context.Context) (errs *apis.FieldError)
 	for idx, trs := range ps.TaskRunSpecs {
 		errs = errs.Also(validateTaskRunSpec(ctx, trs).ViaIndex(idx).ViaField("taskRunSpecs"))
 	}
+	if ps.PodTemplate != nil {
+		errs = errs.Also(validatePodTemplateEnv(ctx, *ps.PodTemplate))
+	}
+	if ps.Resources != nil {
+		errs = errs.Also(apis.ErrDisallowedFields("resources"))
+	}
 
 	return errs
 }
@@ -236,7 +242,7 @@ func (ps *PipelineRunSpec) validateInlineParameters(ctx context.Context) (errs *
 	return errs
 }
 
-func appendPipelineTaskParams(paramSpecForValidation map[string]ParamSpec, params []Param) map[string]ParamSpec {
+func appendPipelineTaskParams(paramSpecForValidation map[string]ParamSpec, params Params) map[string]ParamSpec {
 	for _, p := range params {
 		if pSpec, ok := paramSpecForValidation[p.Name]; ok {
 			if p.Value.ObjectVal != nil {
@@ -270,7 +276,6 @@ func validateSpecStatus(status PipelineRunSpecStatus) *apis.FieldError {
 		PipelineRunSpecStatusCancelledRunFinally,
 		PipelineRunSpecStatusStoppedRunFinally,
 		PipelineRunSpecStatusPending), "status")
-
 }
 
 func validateTimeoutDuration(field string, d *metav1.Duration) (errs *apis.FieldError) {
@@ -333,6 +338,9 @@ func validateTaskRunSpec(ctx context.Context, trs PipelineTaskRunSpec) (errs *ap
 	if trs.ComputeResources != nil {
 		errs = errs.Also(version.ValidateEnabledAPIFields(ctx, "computeResources", config.AlphaAPIFields).ViaField("computeResources"))
 		errs = errs.Also(validateTaskRunComputeResources(trs.ComputeResources, trs.StepOverrides))
+	}
+	if trs.TaskPodTemplate != nil {
+		errs = errs.Also(validatePodTemplateEnv(ctx, *trs.TaskPodTemplate))
 	}
 	return errs
 }

@@ -170,8 +170,8 @@ func TestVerbose(t *testing.T) {
 		{
 			name:   "verbose as version's flag",
 			args:   []string{"version", "-v"},
-			want:   "Version: v0.42.0-cafe-1970-01-01",
-			wantLF: 3,
+			want:   "Version: v0.42.0",
+			wantLF: 6,
 		},
 		{
 			name:   "no verbose",
@@ -189,9 +189,9 @@ func TestVerbose(t *testing.T) {
 			cmd := NewRootCmd(RootCommandConfig{
 				Name: "func",
 				Version: Version{
-					Date: "1970-01-01",
 					Vers: "v0.42.0",
 					Hash: "cafe",
+					Kver: "v1.10.0",
 				}})
 
 			cmd.SetArgs(tt.args)

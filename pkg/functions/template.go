@@ -83,10 +83,10 @@ func (t template) Write(ctx context.Context, f *Function) error {
 		f.Invoke = t.config.Invoke
 	}
 
-	isManifest := func(p string) bool {
+	mask := func(p string) bool {
 		_, f := path.Split(p)
 		return f == templateManifest
 	}
 
-	return filesystem.CopyFromFS(".", f.Root, filesystem.NewMaskingFS(isManifest, t.fs)) // copy everything but manifest.yaml
+	return filesystem.CopyFromFS(".", f.Root, filesystem.NewMaskingFS(mask, t.fs)) // copy everything but manifest.yaml
 }

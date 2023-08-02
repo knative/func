@@ -52,7 +52,7 @@ func Test_createLocalResources(t *testing.T) {
 			f.Registry = TestRegistry
 
 			pp := NewPipelinesProvider()
-			err = pp.createLocalResources(context.Background(), f)
+			err = pp.createLocalPACResources(context.Background(), f)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("pp.createLocalResources() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -76,7 +76,7 @@ func Test_deleteAllPipelineTemplates(t *testing.T) {
 	f.Registry = TestRegistry
 
 	pp := NewPipelinesProvider()
-	err = pp.createLocalResources(context.Background(), f)
+	err = pp.createLocalPACResources(context.Background(), f)
 	if err != nil {
 		t.Errorf("unexpected error while running pp.createLocalResources() error = %v", err)
 	}

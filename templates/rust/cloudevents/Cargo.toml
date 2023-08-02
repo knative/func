@@ -1,21 +1,20 @@
-
 [package]
 name = "function"
 version = "0.1.0"
-edition = "2018"
+edition = "2021"
+
+[profile.release]
+codegen-units = 1
+debug = 0
+incremental = true
+lto = true
+opt-level = "z"
+strip = "symbols"
 
 [dependencies]
-cloudevents-sdk = { version = "0.7.0", features = ["actix"] }
-actix-web = "4.3.1"
 actix-rt = "2.8.0"
-serde_json = "1"
-log = "0.4.0"
+actix-web = "4.3.1"
+cloudevents-sdk = { version = "0.7.0", features = ["actix"] }
 env_logger = "0.10.0"
-regex = "1.5.5"
-tokio = "1.8.4"
-actix-http = "3.3.1"
-
-[dev-dependencies]
-regex = "1.5.5"
-tokio = "1.8.4"
-actix-http = "3.3.1"
+log = "0.4.18"
+serde_json = "1.0.96"

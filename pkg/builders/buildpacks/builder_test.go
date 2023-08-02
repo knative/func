@@ -2,6 +2,9 @@ package buildpacks
 
 import (
 	"context"
+	"os"
+	"path/filepath"
+	"reflect"
 	"testing"
 
 	pack "github.com/buildpacks/pack/pkg/client"
@@ -9,9 +12,9 @@ import (
 	fn "knative.dev/func/pkg/functions"
 )
 
-// Test_BuilderImageUntrusted ensures that only known builder images
+// TestBuild_BuilderImageUntrusted ensures that only known builder images
 // are to be considered trusted.
-func Test_BuilderImageUntrusted(t *testing.T) {
+func TestBuild_BuilderImageUntrusted(t *testing.T) {
 	var untrusted = []string{
 		// Check prefixes that end in a slash
 		"quay.io/bosonhack/",
@@ -28,9 +31,9 @@ func Test_BuilderImageUntrusted(t *testing.T) {
 	}
 }
 
-// Test_BuilderImageTrusted ensures that only known builder images
+// TestBuild_BuilderImageTrusted ensures that only known builder images
 // are to be considered trusted.
-func Test_BuilderImageTrusted(t *testing.T) {
+func TestBuild_BuilderImageTrusted(t *testing.T) {
 	for _, builder := range trustedBuilderImagePrefixes {
 		if !TrustBuilder(builder) {
 			t.Fatalf("expected pack builder image %v to be trusted", builder)
@@ -38,9 +41,9 @@ func Test_BuilderImageTrusted(t *testing.T) {
 	}
 }
 
-// Test_BuilderImageDefault ensures that a Function bing built which does not
+// TestBuild_BuilderImageDefault ensures that a Function bing built which does not
 // define a Builder Image will get the internally-defined default.
-func Test_BuilderImageDefault(t *testing.T) {
+func TestBuild_BuilderImageDefault(t *testing.T) {
 	var (
 		i = &mockImpl{}
 		b = NewBuilder(WithImpl(i))
@@ -55,15 +58,39 @@ func Test_BuilderImageDefault(t *testing.T) {
 		return nil
 	}
 
-	if err := b.Build(context.Background(), f); err != nil {
+	if err := b.Build(context.Background(), f, nil); err != nil {
 		t.Fatal(err)
 	}
 
 }
 
-// Test_BuilderImageConfigurable ensures that the builder will use the builder
+// TestBuild_BuildpacksDefault ensures that, if there are default buildpacks
+// defined in-code, but none defined on the function, the defaults will be
+// used.
+func TestBuild_BuildpacksDefault(t *testing.T) {
+	var (
+		i = &mockImpl{}
+		b = NewBuilder(WithImpl(i))
+		f = fn.Function{Runtime: "go"}
+	)
+
+	i.BuildFn = func(ctx context.Context, opts pack.BuildOptions) error {
+		expected := defaultBuildpacks["go"]
+		if !reflect.DeepEqual(expected, opts.Buildpacks) {
+			t.Fatalf("expected buildpacks '%v', got '%v'", expected, opts.Buildpacks)
+		}
+		return nil
+	}
+
+	if err := b.Build(context.Background(), f, nil); err != nil {
+		t.Fatal(err)
+	}
+
+}
+
+// TestBuild_BuilderImageConfigurable ensures that the builder will use the builder
 // image defined on the given Function if provided.
-func Test_BuilderImageConfigurable(t *testing.T) {
+func TestBuild_BuilderImageConfigurable(t *testing.T) {
 	var (
 		i = &mockImpl{} // mock underlying implementation
 		b = NewBuilder( // Func Builder logic
@@ -86,14 +113,53 @@ func Test_BuilderImageConfigurable(t *testing.T) {
 		return nil
 	}
 
-	if err := b.Build(context.Background(), f); err != nil {
+	if err := b.Build(context.Background(), f, nil); err != nil {
 		t.Fatal(err)
 	}
 }
 
-// Test_BuildEnvs ensures that build environment variables are interpolated and
+// TestBuild_BuilderImageExclude ensures that ignored files are not added to the func
+// image
+func TestBuild_BuilderImageExclude(t *testing.T) {
+	var (
+		i = &mockImpl{} // mock underlying implementation
+		b = NewBuilder( // Func Builder logic
+			WithName(builders.Pack), WithImpl(i))
+		f = fn.Function{
+			Runtime: "go",
+		}
+	)
+	funcIgnoreContent := []byte(`#testing comments
+hello.txt`)
+	expected := []string{"hello.txt"}
+
+	tempdir := t.TempDir()
+	f.Root = tempdir
+
+	//create a .funcignore file containing the details of the files to be ignored
+	err := os.WriteFile(filepath.Join(f.Root, ".funcignore"), funcIgnoreContent, 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	i.BuildFn = func(ctx context.Context, opts pack.BuildOptions) error {
+		if len(opts.ProjectDescriptor.Build.Exclude) != 2 {
+			t.Fatalf("expected 2 lines of exclusions , got %v", len(opts.ProjectDescriptor.Build.Exclude))
+		}
+		if opts.ProjectDescriptor.Build.Exclude[1] != expected[0] {
+			t.Fatalf("expected excluded file to be '%v', got '%v'", expected[1], opts.ProjectDescriptor.Build.Exclude[1])
+		}
+		return nil
+	}
+
+	if err := b.Build(context.Background(), f, nil); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// TestBuild_Envs ensures that build environment variables are interpolated and
 // provided in Build Options
-func Test_BuildEnvs(t *testing.T) {
+func TestBuild_Envs(t *testing.T) {
 	t.Setenv("INTERPOLATE_ME", "interpolated")
 	var (
 		envName  = "NAME"
@@ -118,12 +184,13 @@ func Test_BuildEnvs(t *testing.T) {
 		t.Fatal("build envs not added to builder options")
 		return nil
 	}
-	if err := b.Build(context.Background(), f); err != nil {
+	if err := b.Build(context.Background(), f, nil); err != nil {
 		t.Fatal(err)
 	}
 }
 
-func Test_BuildErrors(t *testing.T) {
+// TestBuild_Errors confirms error scenarios.
+func TestBuild_Errors(t *testing.T) {
 	testCases := []struct {
 		name, runtime, expectedErr string
 	}{

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/lkingland/func-runtimes/go/http"
+	"github.com/knative-sandbox/func-go/http"
 
 	f "f"
 )

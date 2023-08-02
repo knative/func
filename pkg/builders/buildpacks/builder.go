@@ -3,8 +3,11 @@ package buildpacks
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -12,6 +15,7 @@ import (
 	"github.com/Masterminds/semver"
 	pack "github.com/buildpacks/pack/pkg/client"
 	"github.com/buildpacks/pack/pkg/logging"
+	"github.com/buildpacks/pack/pkg/project/types"
 	"github.com/docker/docker/client"
 	"github.com/heroku/color"
 
@@ -23,16 +27,19 @@ import (
 // DefaultName when no WithName option is provided to NewBuilder
 const DefaultName = builders.Pack
 
+var DefaultBaseBuilder = "gcr.io/paketo-buildpacks/builder:base"
+var DefaultRustBuilder = "gcr.io/paketo-buildpacks/builder:full-cf"
+
 var (
 	DefaultBuilderImages = map[string]string{
-		"node":       "gcr.io/paketo-buildpacks/builder:base",
-		"nodejs":     "gcr.io/paketo-buildpacks/builder:base",
-		"typescript": "gcr.io/paketo-buildpacks/builder:base",
-		"go":         "gcr.io/paketo-buildpacks/builder:base",
-		"python":     "gcr.io/paketo-buildpacks/builder:base",
-		"quarkus":    "gcr.io/paketo-buildpacks/builder:base",
-		"rust":       "gcr.io/paketo-buildpacks/builder:full-cf",
-		"springboot": "gcr.io/paketo-buildpacks/builder:base",
+		"node":       DefaultBaseBuilder,
+		"nodejs":     DefaultBaseBuilder,
+		"typescript": DefaultBaseBuilder,
+		"go":         DefaultBaseBuilder,
+		"python":     DefaultBaseBuilder,
+		"quarkus":    DefaultBaseBuilder,
+		"rust":       DefaultRustBuilder,
+		"springboot": DefaultBaseBuilder,
 	}
 
 	// Ensure that all entries in this list are terminated with a trailing "/"
@@ -43,6 +50,10 @@ var (
 		"docker.io/paketobuildpacks/",
 		"ghcr.io/vmware-tanzu/function-buildpacks-for-knative/",
 		"gcr.io/buildpacks/",
+	}
+
+	defaultBuildpacks = map[string][]string{
+		"go": {"paketo-buildpacks/go-dist", "ghcr.io/boson-project/go-function-buildpack:tip"},
 	}
 )
 
@@ -108,20 +119,51 @@ func WithTimestamp(v bool) Option {
 var DefaultLifecycleImage = "quay.io/boson/lifecycle@sha256:f53fea9ec9188b92cab0b8a298ff852d76a6c2aaf56f968a08637e13de0e0c59"
 
 // Build the Function at path.
-func (b *Builder) Build(ctx context.Context, f fn.Function) (err error) {
+func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platform) (err error) {
+	if len(platforms) != 0 {
+		return errors.New("the pack builder does not support specifying target platforms directly.")
+	}
+
 	// Builder image from the function if defined, default otherwise.
 	image, err := BuilderImage(f, b.name)
 	if err != nil {
 		return
 	}
 
+	buildpacks := f.Build.Buildpacks
+	if len(buildpacks) == 0 {
+		buildpacks = defaultBuildpacks[f.Runtime]
+	}
+
+	// Reading .funcignore file
+	var excludes []string
+	filePath := filepath.Join(f.Root, ".funcignore")
+	file, err := os.Open(filePath)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("\nfailed to open file: %s", err)
+		}
+	} else {
+		defer file.Close()
+		buf := new(bytes.Buffer)
+		_, err := io.Copy(buf, file)
+		if err != nil {
+			return fmt.Errorf("\nfailed to read file: %s", err)
+		}
+		excludes = strings.Split(buf.String(), "\n")
+	}
 	// Pack build options
 	opts := pack.BuildOptions{
 		AppPath:        f.Root,
 		Image:          f.Image,
 		LifecycleImage: DefaultLifecycleImage,
 		Builder:        image,
-		Buildpacks:     f.Build.Buildpacks,
+		Buildpacks:     buildpacks,
+		ProjectDescriptor: types.Descriptor{
+			Build: types.Build{
+				Exclude: excludes,
+			},
+		},
 		ContainerConfig: struct {
 			Network string
 			Volumes []string

@@ -17,7 +17,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/rand"
-
 	"knative.dev/func/pkg/k8s"
 )
 
@@ -26,30 +25,13 @@ func TestUploadToVolume(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*5)
 	t.Cleanup(cancel)
 
-	cliSet, err := k8s.NewKubernetesClientset()
+	cliSet, testingNS, err := k8s.NewClientAndResolvedNamespace("")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	testingNS := "volume-uploader-test-ns-" + rand.String(5)
-
-	ns := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: testingNS,
-		},
-		Spec: corev1.NamespaceSpec{},
-	}
-
-	_, err = cliSet.CoreV1().Namespaces().Create(ctx, ns, metav1.CreateOptions{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		cliSet.CoreV1().Namespaces().Delete(ctx, testingNS, metav1.DeleteOptions{})
-	})
-	t.Log("created namespace: ", testingNS)
-
-	testingPVCName := "testing-pvc"
+	rnd := rand.String(5)
+	testingPVCName := "testing-pvc-" + rnd
 
 	err = k8s.CreatePersistentVolumeClaim(ctx, testingPVCName, testingNS,
 		nil, nil,
@@ -57,6 +39,13 @@ func TestUploadToVolume(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() {
+		pp := metav1.DeletePropagationBackground
+		delOpts := metav1.DeleteOptions{
+			PropagationPolicy: &pp,
+		}
+		_ = cliSet.CoreV1().PersistentVolumeClaims(testingNS).Delete(ctx, testingPVCName, delOpts)
+	})
 	t.Log("created PVC: " + testingPVCName)
 
 	// First, test error handling by uploading empty content stream.
@@ -76,7 +65,7 @@ func TestUploadToVolume(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	testingPodName := "testing-pod"
+	testingPodName := "testing-pod-" + rnd
 
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -113,6 +102,9 @@ func TestUploadToVolume(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() {
+		_ = cliSet.CoreV1().Pods(testingNS).Delete(ctx, testingPodName, metav1.DeleteOptions{})
+	})
 	t.Log("created pod: " + testingPodName)
 
 	nameSelector := fields.OneTermEqualSelector("metadata.name", testingPodName).String()

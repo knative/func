@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/buildpacks/lifecycle/buildpack"
+	"github.com/buildpacks/lifecycle/layers"
 	"github.com/buildpacks/lifecycle/log"
 	"github.com/buildpacks/lifecycle/platform"
 )
@@ -51,7 +52,8 @@ func (e *Exporter) Cache(layersDir string, cacheStore Cache) error {
 				continue
 			}
 			origLayerMetadata := origMeta.MetadataForBuildpack(bp.ID).Layers[layer.Name()]
-			if lmd.SHA, err = e.addOrReuseCacheLayer(cacheStore, &layer, origLayerMetadata.SHA); err != nil {
+			createdBy := fmt.Sprintf(layers.BuildpackLayerName, layer.Name(), fmt.Sprintf("%s@%s", bp.ID, bp.Version))
+			if lmd.SHA, err = e.addOrReuseCacheLayer(cacheStore, &layer, origLayerMetadata.SHA, createdBy); err != nil {
 				e.Logger.Warnf("Failed to cache layer '%s': %s", layer.Identifier(), err)
 				continue
 			}
@@ -89,8 +91,8 @@ func (l *layerDir) Path() string {
 	return l.path
 }
 
-func (e *Exporter) addOrReuseCacheLayer(cache Cache, layerDir LayerDir, previousSHA string) (string, error) {
-	layer, err := e.LayerFactory.DirLayer(layerDir.Identifier(), layerDir.Path())
+func (e *Exporter) addOrReuseCacheLayer(cache Cache, layerDir LayerDir, previousSHA, createdBy string) (string, error) {
+	layer, err := e.LayerFactory.DirLayer(layerDir.Identifier(), layerDir.Path(), createdBy)
 	if err != nil {
 		return "", errors.Wrapf(err, "creating layer '%s'", layerDir.Identifier())
 	}
@@ -111,14 +113,14 @@ func (e *Exporter) addSBOMCacheLayer(layersDir string, cacheStore Cache, origMet
 	}
 
 	if sbomCacheDir != nil {
-		l, err := e.LayerFactory.DirLayer(sbomCacheDir.Identifier(), sbomCacheDir.Path())
+		l, err := e.LayerFactory.DirLayer(sbomCacheDir.Identifier(), sbomCacheDir.Path(), layers.SBOMLayerName)
 		if err != nil {
 			return errors.Wrapf(err, "creating layer '%s', path: '%s'", sbomCacheDir.Identifier(), sbomCacheDir.Path())
 		}
 
 		lyr := &layerDir{path: l.TarPath, identifier: l.ID}
 
-		meta.BOM.SHA, err = e.addOrReuseCacheLayer(cacheStore, lyr, origMetadata.BOM.SHA)
+		meta.BOM.SHA, err = e.addOrReuseCacheLayer(cacheStore, lyr, origMetadata.BOM.SHA, layers.SBOMLayerName)
 		if err != nil {
 			return err
 		}

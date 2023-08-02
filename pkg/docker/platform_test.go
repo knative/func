@@ -16,8 +16,6 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
-	gcrTypes "github.com/google/go-containerregistry/pkg/v1/types"
-
 	"knative.dev/func/pkg/docker"
 )
 
@@ -52,16 +50,9 @@ func TestPlatform(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	zeroHash := v1.Hash{
-		Algorithm: "sha256",
-		Hex:       "0000000000000000000000000000000000000000000000000000000000000000",
-	}
-
 	var imgIdx = mutate.AppendManifests(empty.Index, mutate.IndexAddendum{
-		Add: empty.Index,
+		Add: img,
 		Descriptor: v1.Descriptor{
-			MediaType: gcrTypes.DockerManifestList,
-			Digest:    zeroHash,
 			Platform: &v1.Platform{
 				Architecture: "ppc64le",
 				OS:           "linux",
@@ -99,8 +90,13 @@ func TestPlatform(t *testing.T) {
 	if err != nil {
 		t.Errorf("unexpeced error: %v", err)
 	}
-	if ref != testRegistry+"/default/builder@sha256:0000000000000000000000000000000000000000000000000000000000000000" {
-		t.Error("incorrect reference")
+
+	imgDigest, err := img.Digest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ref != testRegistry+"/default/builder@"+imgDigest.String() {
+		t.Errorf("incorrect reference: %q", ref)
 	}
 }
 
@@ -118,7 +114,7 @@ func startRegistry(t *testing.T) (addr string) {
 
 	go func() {
 		err = s.Serve(l)
-		if err != nil && !errors.Is(err, net.ErrClosed) {
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			fmt.Fprintln(os.Stderr, "ERROR: ", err)
 		}
 	}()

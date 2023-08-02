@@ -1,7 +1,6 @@
 package functions
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/url"
@@ -156,6 +155,11 @@ func NewRepository(name, uri string) (r Repository, err error) {
 	return
 }
 
+// FS returns the underlying filesystem of this repository.
+func (r Repository) FS() filesystem.Filesystem {
+	return r.fs
+}
+
 // filesystemFromURI returns a filesystem from the data located at the
 // given URI.  If URI is not provided, indicates the embedded repo should
 // be loaded.  URI can be a remote git repository (http:// https:// etc.),
@@ -269,6 +273,10 @@ func repositoryRuntimes(fs filesystem.Filesystem, repoName string, repoConfig re
 	for _, fi := range fis {
 		// ignore files and hidden dirs
 		if !fi.IsDir() || strings.HasPrefix(fi.Name(), ".") {
+			continue
+		}
+		// ignore the reserved word "certs"
+		if fi.Name() == "certs" {
 			continue
 		}
 		// Runtime, defaulted to values inherited from the repository
@@ -523,30 +531,6 @@ func (r *Repository) Write(dest string) (err error) {
 		fs = filesystem.NewBillyFilesystem(wt.Filesystem)
 	}
 	return filesystem.CopyFromFS(".", dest, fs)
-}
-
-// WriteScaffolding code to the given path.
-//
-// Scaffolding is a language-level operation which first detects the method
-// signature used by the function's source code and then writes the
-// appropriate scaffolding.
-//
-// NOTE: Scaffoding is not per-template, because a template is merely an
-// example starting point for a Function implementation and should have no
-// bearing on the shape that function can eventually take.  The language,
-// and optionally invocation hint (For cloudevents) are used for this.  For
-// example, there can be multiple templates which exemplify a given method
-// signature, and the implementation can be switched at any time by the author.
-// Language, by contrast, is fixed at time of initialization.
-func (r *Repository) WriteScaffolding(ctx context.Context, f Function, s Signature, dest string) error {
-	if r.fs == nil {
-		return errors.New("repository has no filesystem")
-	}
-	path := fmt.Sprintf("%v/scaffolding/%v", f.Runtime, s.String()) // fs uses / on all OSs
-	if _, err := r.fs.Stat(path); err != nil {
-		return fmt.Errorf("no scaffolding found for '%v' signature '%v'. %v.", f.Runtime, s, err)
-	}
-	return filesystem.CopyFromFS(path, dest, r.fs)
 }
 
 // URL attempts to read the remote git origin URL of the repository.  Best

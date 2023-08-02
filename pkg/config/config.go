@@ -13,7 +13,6 @@ import (
 	"knative.dev/func/pkg/builders"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
-	"knative.dev/func/pkg/openshift"
 )
 
 const (
@@ -77,8 +76,8 @@ func (c Global) RegistryDefault() string {
 		return c.Registry
 	}
 	switch {
-	case openshift.IsOpenShift():
-		return openshift.GetDefaultRegistry()
+	case k8s.IsOpenShift():
+		return k8s.GetDefaultOpenShiftRegistry()
 	default:
 		return ""
 	}

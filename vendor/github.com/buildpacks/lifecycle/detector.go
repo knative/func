@@ -12,8 +12,10 @@ import (
 	"github.com/buildpacks/lifecycle/api"
 	"github.com/buildpacks/lifecycle/buildpack"
 	"github.com/buildpacks/lifecycle/env"
+	"github.com/buildpacks/lifecycle/internal/encoding"
 	"github.com/buildpacks/lifecycle/log"
 	"github.com/buildpacks/lifecycle/platform"
+	"github.com/buildpacks/lifecycle/platform/files"
 )
 
 const (
@@ -28,7 +30,7 @@ var (
 
 //go:generate mockgen -package testmock -destination testmock/detect_resolver.go github.com/buildpacks/lifecycle DetectResolver
 type DetectResolver interface {
-	Resolve(done []buildpack.GroupElement, detectRuns *sync.Map) ([]buildpack.GroupElement, []platform.BuildPlanEntry, error)
+	Resolve(done []buildpack.GroupElement, detectRuns *sync.Map) ([]buildpack.GroupElement, []files.BuildPlanEntry, error)
 }
 
 type DetectorFactory struct {
@@ -63,6 +65,8 @@ type Detector struct {
 	PlatformDir    string
 	Resolver       DetectResolver
 	Runs           *sync.Map
+	AnalyzeMD      files.Analyzed
+	PlatformAPI    *api.Version
 
 	// If detect fails, we want to print debug statements as info level.
 	// memHandler holds all log entries; we'll iterate through them at the end of detect,
@@ -70,9 +74,10 @@ type Detector struct {
 	memHandler *memory.Handler
 }
 
-func (f *DetectorFactory) NewDetector(appDir, buildConfigDir, orderPath, platformDir string, logger log.LoggerHandlerWithLevel) (*Detector, error) {
+func (f *DetectorFactory) NewDetector(analyzedMD files.Analyzed, appDir, buildConfigDir, orderPath, platformDir string, logger log.LoggerHandlerWithLevel) (*Detector, error) {
 	memHandler := memory.New()
 	detector := &Detector{
+		AnalyzeMD:      analyzedMD,
 		AppDir:         appDir,
 		BuildConfigDir: buildConfigDir,
 		DirStore:       f.dirStore,
@@ -82,6 +87,7 @@ func (f *DetectorFactory) NewDetector(appDir, buildConfigDir, orderPath, platfor
 		Resolver:       NewDefaultDetectResolver(&apexlog.Logger{Handler: memHandler}),
 		Runs:           &sync.Map{},
 		memHandler:     memHandler,
+		PlatformAPI:    f.platformAPI,
 	}
 	if err := f.setOrder(detector, orderPath, logger); err != nil {
 		return nil, err
@@ -119,19 +125,19 @@ func (f *DetectorFactory) verifyAPIs(orderBp buildpack.Order, orderExt buildpack
 	return nil
 }
 
-func (d *Detector) Detect() (buildpack.Group, platform.BuildPlan, error) {
+func (d *Detector) Detect() (buildpack.Group, files.Plan, error) {
 	group, plan, detectErr := d.DetectOrder(d.Order)
 	for _, e := range d.memHandler.Entries {
 		if detectErr != nil || e.Level >= d.Logger.LogLevel() {
 			if err := d.Logger.HandleLog(e); err != nil {
-				return buildpack.Group{}, platform.BuildPlan{}, fmt.Errorf("failed to handle log entry: %w", err)
+				return buildpack.Group{}, files.Plan{}, fmt.Errorf("failed to handle log entry: %w", err)
 			}
 		}
 	}
 	return group, plan, detectErr
 }
 
-func (d *Detector) DetectOrder(order buildpack.Order) (buildpack.Group, platform.BuildPlan, error) {
+func (d *Detector) DetectOrder(order buildpack.Order) (buildpack.Group, files.Plan, error) {
 	detected, planEntries, err := d.detectOrder(order, nil, nil, false, &sync.WaitGroup{})
 	if err == ErrBuildpack {
 		err = buildpack.NewError(err, buildpack.ErrTypeBuildpack)
@@ -144,7 +150,7 @@ func (d *Detector) DetectOrder(order buildpack.Order) (buildpack.Group, platform
 		}
 	}
 	return buildpack.Group{Group: filter(detected, buildpack.KindBuildpack), GroupExtensions: filter(detected, buildpack.KindExtension)},
-		platform.BuildPlan{Entries: planEntries},
+		files.Plan{Entries: planEntries},
 		err
 }
 
@@ -158,7 +164,7 @@ func filter(group []buildpack.GroupElement, kind string) []buildpack.GroupElemen
 	return out
 }
 
-func (d *Detector) detectOrder(order buildpack.Order, done, next []buildpack.GroupElement, optional bool, wg *sync.WaitGroup) ([]buildpack.GroupElement, []platform.BuildPlanEntry, error) {
+func (d *Detector) detectOrder(order buildpack.Order, done, next []buildpack.GroupElement, optional bool, wg *sync.WaitGroup) ([]buildpack.GroupElement, []files.BuildPlanEntry, error) {
 	ngroup := buildpack.Group{Group: next}
 	buildpackErr := false
 	for _, group := range order {
@@ -183,7 +189,26 @@ func (d *Detector) detectOrder(order buildpack.Order, done, next []buildpack.Gro
 	return nil, nil, ErrFailedDetection
 }
 
-func (d *Detector) detectGroup(group buildpack.Group, done []buildpack.GroupElement, wg *sync.WaitGroup) ([]buildpack.GroupElement, []platform.BuildPlanEntry, error) {
+// isWildcard returns true IFF the Arch and OS are unspecified, meaning that the target arch/os are "any"
+func isWildcard(t files.TargetMetadata) bool {
+	return t.Arch == "" && t.OS == ""
+}
+
+func hasWildcard(ts []buildpack.TargetMetadata) bool {
+	for _, tm := range ts {
+		if tm.OS == "*" && tm.Arch == "*" {
+			return true
+		}
+	}
+	return false
+}
+
+func (d *Detector) detectGroup(group buildpack.Group, done []buildpack.GroupElement, wg *sync.WaitGroup) ([]buildpack.GroupElement, []files.BuildPlanEntry, error) {
+	// used below to mark each item as "done" by appending it to the done list
+	markDone := func(groupEl buildpack.GroupElement, descriptor buildpack.Descriptor) {
+		done = append(done, groupEl.WithAPI(descriptor.API()).WithHomepage(descriptor.Homepage()))
+	}
+
 	for i, groupEl := range group.Group {
 		// Continue if element has already been processed.
 		if hasIDForKind(done, groupEl.Kind(), groupEl.ID) {
@@ -195,32 +220,60 @@ func (d *Detector) detectGroup(group buildpack.Group, done []buildpack.GroupElem
 			return d.detectOrder(groupEl.OrderExtensions, done, group.Group[i+1:], true, wg)
 		}
 
-		// Lookup element in store.
+		// Lookup element in store.  <-- "the store" is the directory where all the buildpacks are.
 		var (
 			descriptor buildpack.Descriptor
 			err        error
 		)
 		if groupEl.Kind() == buildpack.KindBuildpack {
-			descriptor, err = d.DirStore.LookupBp(groupEl.ID, groupEl.Version)
+			bpDescriptor, err := d.DirStore.LookupBp(groupEl.ID, groupEl.Version)
 			if err != nil {
 				return nil, nil, err
 			}
 
 			// Resolve order if element is a composite buildpack.
-			if order := descriptor.(*buildpack.BpDescriptor).Order; len(order) > 0 {
+			if order := bpDescriptor.Order; len(order) > 0 {
 				// FIXME: double-check slice safety here
 				// FIXME: cyclical references lead to infinite recursion
 				return d.detectOrder(order, done, group.Group[i+1:], groupEl.Optional, wg)
 			}
+			descriptor = bpDescriptor // standardize the type so below we don't have to care whether it was an extension
 		} else {
 			descriptor, err = d.DirStore.LookupExt(groupEl.ID, groupEl.Version)
 			if err != nil {
 				return nil, nil, err
 			}
 		}
+		if d.PlatformAPI.AtLeast("0.12") {
+			targetMatch := false
+			if isWildcard(d.AnalyzeMD.RunImageTarget()) || hasWildcard(descriptor.TargetsList()) {
+				targetMatch = true
+			} else {
+				for i := range descriptor.TargetsList() {
+					d.Logger.Debugf("Checking for match against descriptor: %s", descriptor.TargetsList()[i])
+					if platform.TargetSatisfiedForBuild(*d.AnalyzeMD.RunImage.TargetMetadata, descriptor.TargetsList()[i]) {
+						targetMatch = true
+						break
+					}
+				}
+			}
+			if !targetMatch && !groupEl.Optional {
+				markDone(groupEl, descriptor)
+				d.Runs.Store(
+					keyFor(groupEl),
+					buildpack.DetectOutputs{
+						Code: -1,
+						Err: fmt.Errorf(
+							"unable to satisfy target os/arch constraints; run image: %s, buildpack: %s",
+							encoding.ToJSONMaybe(d.AnalyzeMD.RunImage.TargetMetadata),
+							encoding.ToJSONMaybe(descriptor.TargetsList()),
+						),
+					})
+				continue
+			}
+		}
 
-		// Mark element as done.
-		done = append(done, groupEl.WithAPI(descriptor.API()).WithHomepage(descriptor.Homepage()))
+		markDone(groupEl, descriptor)
 
 		// Run detect if element is a component buildpack or an extension.
 		wg.Add(1)
@@ -231,9 +284,13 @@ func (d *Detector) detectGroup(group buildpack.Group, done []buildpack.GroupElem
 					AppDir:         d.AppDir,
 					BuildConfigDir: d.BuildConfigDir,
 					PlatformDir:    d.PlatformDir,
-					Env:            env.NewBuildEnv(os.Environ()),
 				}
-				d.Runs.Store(key, d.Executor.Detect(descriptor, inputs, d.Logger))
+				if d.AnalyzeMD.RunImage != nil && d.AnalyzeMD.RunImage.TargetMetadata != nil && d.PlatformAPI.AtLeast("0.12") {
+					inputs.Env = env.NewBuildEnv(append(os.Environ(), platform.EnvVarsFor(*d.AnalyzeMD.RunImage.TargetMetadata)...))
+				} else {
+					inputs.Env = env.NewBuildEnv(os.Environ())
+				}
+				d.Runs.Store(key, d.Executor.Detect(descriptor, inputs, d.Logger)) // this is where we finally invoke bin/detect
 			}
 			wg.Done()
 		}(key, descriptor)
@@ -267,7 +324,7 @@ func NewDefaultDetectResolver(logger log.Logger) *DefaultDetectResolver {
 
 // Resolve aggregates the detect output for a group of buildpacks and tries to resolve a build plan for the group.
 // If any required buildpack in the group failed detection or a build plan cannot be resolved, it returns an error.
-func (r *DefaultDetectResolver) Resolve(done []buildpack.GroupElement, detectRuns *sync.Map) ([]buildpack.GroupElement, []platform.BuildPlanEntry, error) {
+func (r *DefaultDetectResolver) Resolve(done []buildpack.GroupElement, detectRuns *sync.Map) ([]buildpack.GroupElement, []files.BuildPlanEntry, error) {
 	var groupRuns []buildpack.DetectOutputs
 	for _, el := range done {
 		key := keyFor(el) // FIXME: ensure the Detector and Resolver always use the same key
@@ -370,7 +427,7 @@ func (r *DefaultDetectResolver) Resolve(done []buildpack.GroupElement, detectRun
 	for _, r := range trial {
 		found = append(found, r.GroupElement.NoOpt())
 	}
-	var plan []platform.BuildPlanEntry
+	var plan []files.BuildPlanEntry
 	for _, dep := range deps {
 		plan = append(plan, dep.BuildPlanEntry.NoOpt())
 	}
@@ -477,7 +534,7 @@ func (ts detectTrial) remove(el buildpack.GroupElement) detectTrial {
 }
 
 type depEntry struct {
-	platform.BuildPlanEntry
+	files.BuildPlanEntry
 	earlyRequires []buildpack.GroupElement
 	extraProvides []buildpack.GroupElement
 }

@@ -11,9 +11,9 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3
         with:
-          go-version: "1.18"
+          go-version: "1.20.2"
       - name: Lint
-        run: make check
+        run: make check && make check-templates
       - name: Check that 'func.yaml schema' is up-to-date
         run: make schema-check
       - name: Check embedded templates content
@@ -22,7 +22,7 @@ jobs:
   test-unit:
     strategy:
       matrix:
-        go: [ 1.18.x ]
+        go: [ 1.20.2 ]
         java: [ 17 ]
         os: [ "ubuntu-latest", "windows-latest", "macos-latest" ]
     runs-on: ${{ matrix.os }}
@@ -50,7 +50,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3
         with:
-          go-version: "1.18"
+          go-version: "1.20.2"
       - name: Install Binaries
         run: ./hack/binaries.sh
       - name: Allocate Cluster
@@ -67,7 +67,7 @@ jobs:
   e2e-test:
     strategy:
       matrix:
-        go: [1.20.x]
+        go: [1.20.2]
         os: ["ubuntu-latest"]
     runs-on: ${{ matrix.os }}
     steps:
@@ -91,7 +91,7 @@ jobs:
   e2e-on-cluster-test:
     strategy:
       matrix:
-        go: [1.20.x]
+        go: [1.20.2]
         os: ["ubuntu-latest"]
     runs-on: ${{ matrix.os }}
     steps:
@@ -126,7 +126,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3
         with:
-          go-version: "1.18"
+          go-version: "1.20.2"
       # Standard build tasks
       - name: Build
         run: make cross-platform
@@ -167,6 +167,6 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v3
         with:
-          go-version: "1.18"
+          go-version: "1.20.2"
       - uses: imjasonh/setup-ko@v0.6
       - run: ko build -B ./cmd/func

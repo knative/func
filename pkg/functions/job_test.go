@@ -1,3 +1,6 @@
+//go:build !integration
+// +build !integration
+
 package functions
 
 import (
@@ -31,15 +34,15 @@ func TestJob_New(t *testing.T) {
 
 	// Assert that an initialized function and port are required
 	onStop := func() error { return nil }
-	if _, err := NewJob(Function{}, "", nil, onStop, false); err == nil {
+	if _, err := NewJob(Function{}, "127.0.0.1", "8080", nil, onStop, false); err == nil {
 		t.Fatal("expected NewJob to require an initialized functoin")
 	}
-	if _, err := NewJob(f, "", nil, onStop, false); err == nil {
+	if _, err := NewJob(f, "127.0.0.1", "", nil, onStop, false); err == nil {
 		t.Fatal("expected NewJob to require a port")
 	}
 
 	// Assert creating a Job with the required arguments succeeds.
-	_, err = NewJob(f, "8080", nil, onStop, false)
+	_, err = NewJob(f, "127.0.0.1", "8080", nil, onStop, false)
 	if err != nil {
 		t.Fatalf("creating job failed. %s", err)
 	}
@@ -75,7 +78,7 @@ func TestJob_Stop(t *testing.T) {
 	onStop := func() error { onStopInvoked = true; return nil }
 
 	// Assert creating a Job with the required arguments succeeds.
-	j, err := NewJob(f, "8080", nil, onStop, false)
+	j, err := NewJob(f, "127.0.0.1", "8080", nil, onStop, false)
 	if err != nil {
 		t.Fatalf("creating job failed. %s", err)
 	}

@@ -50,7 +50,7 @@ func NewRunner(verbose bool, out, errOut io.Writer) *Runner {
 }
 
 // Run the function.
-func (n *Runner) Run(ctx context.Context, f fn.Function) (job *fn.Job, err error) {
+func (n *Runner) Run(ctx context.Context, f fn.Function, startTimeout time.Duration) (job *fn.Job, err error) {
 
 	var (
 		port = choosePort(DefaultHost, DefaultPort, DefaultDialTimeout)
@@ -60,7 +60,7 @@ func (n *Runner) Run(ctx context.Context, f fn.Function) (job *fn.Job, err error
 
 		// Channels for gathering runtime errors from the container instance
 		copyErrCh  = make(chan error, 10)
-		contBodyCh <-chan container.ContainerWaitOKBody
+		contBodyCh <-chan container.WaitResponse
 		contErrCh  <-chan error
 
 		// Combined runtime error channel for sending all errors to caller
@@ -80,7 +80,7 @@ func (n *Runner) Run(ctx context.Context, f fn.Function) (job *fn.Job, err error
 		return
 	}
 
-	// Wait for errors or premature exits
+	// Wait for errors premature exits
 	contBodyCh, contErrCh = c.ContainerWait(ctx, id, container.WaitConditionNextExit)
 	go func() {
 		for {
@@ -101,7 +101,11 @@ func (n *Runner) Run(ctx context.Context, f fn.Function) (job *fn.Job, err error
 		}
 	}()
 
-	// Start
+	// TODO: use StartTimeout
+	//  - Start a goroutine which queries for, or will be notified when, the
+	// container has successfully started.  If the startTimeout is reached
+	// before then, send a timeout error to the runtimeErrCh
+
 	if err = c.ContainerStart(ctx, id, types.ContainerStartOptions{}); err != nil {
 		return job, errors.Wrap(err, "runner unable to start container")
 	}
@@ -112,7 +116,11 @@ func (n *Runner) Run(ctx context.Context, f fn.Function) (job *fn.Job, err error
 			timeout = DefaultStopTimeout
 			ctx     = context.Background()
 		)
-		if err = c.ContainerStop(ctx, id, &timeout); err != nil {
+		timeoutSecs := int(timeout.Seconds())
+		ctrStopOpts := container.StopOptions{
+			Timeout: &timeoutSecs,
+		}
+		if err = c.ContainerStop(ctx, id, ctrStopOpts); err != nil {
 			return fmt.Errorf("error stopping container %v: %v\n", id, err)
 		}
 		if err = c.ContainerRemove(ctx, id, types.ContainerRemoveOptions{}); err != nil {
@@ -128,7 +136,7 @@ func (n *Runner) Run(ctx context.Context, f fn.Function) (job *fn.Job, err error
 	}
 
 	// Job reporting port, runtime errors and provides a mechanism for stopping.
-	return fn.NewJob(f, port, runtimeErrCh, stop, n.verbose)
+	return fn.NewJob(f, DefaultHost, port, runtimeErrCh, stop, n.verbose)
 }
 
 // Dial the given (tcp) port on the given interface, returning an error if it is

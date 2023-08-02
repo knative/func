@@ -17,6 +17,7 @@ const runsDir = "runs"
 // the zero value of the struct is set up to noop without errors.
 type Job struct {
 	Function Function
+	Host     string
 	Port     string
 	Errors   chan error
 	onStop   func() error
@@ -26,9 +27,10 @@ type Job struct {
 // Create a new Job which represents a running function task by providing
 // the port on which it was started, a channel on which runtime errors can
 // be received, and a stop function.
-func NewJob(f Function, port string, errs chan error, onStop func() error, verbose bool) (j *Job, err error) {
+func NewJob(f Function, host, port string, errs chan error, onStop func() error, verbose bool) (j *Job, err error) {
 	j = &Job{
 		Function: f,
+		Host:     host,
 		Port:     port,
 		Errors:   errs,
 		onStop:   onStop,
@@ -42,6 +44,9 @@ func NewJob(f Function, port string, errs chan error, onStop func() error, verbo
 	}
 	if j.Errors == nil {
 		j.Errors = make(chan error, 1)
+	}
+	if j.onStop == nil {
+		j.onStop = func() error { return nil }
 	}
 	if err = cleanupJobDirs(j); err != nil {
 		return

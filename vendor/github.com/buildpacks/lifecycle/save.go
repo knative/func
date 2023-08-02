@@ -9,30 +9,30 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/buildpacks/lifecycle/log"
-	"github.com/buildpacks/lifecycle/platform"
+	"github.com/buildpacks/lifecycle/platform/files"
 )
 
-func saveImage(image imgutil.Image, additionalNames []string, logger log.Logger) (platform.ImageReport, error) {
+func saveImage(image imgutil.Image, additionalNames []string, logger log.Logger) (files.ImageReport, error) {
 	return saveImageAs(image, image.Name(), additionalNames, logger)
 }
 
-func saveImageAs(image imgutil.Image, name string, additionalNames []string, logger log.Logger) (platform.ImageReport, error) {
+func saveImageAs(image imgutil.Image, name string, additionalNames []string, logger log.Logger) (files.ImageReport, error) {
 	var saveErr error
-	imageReport := platform.ImageReport{}
+	imageReport := files.ImageReport{}
 	logger.Infof("Saving %s...\n", name)
 	if err := image.SaveAs(name, additionalNames...); err != nil {
 		var ok bool
 		if saveErr, ok = err.(imgutil.SaveError); !ok {
-			return platform.ImageReport{}, errors.Wrap(err, "saving image")
+			return files.ImageReport{}, errors.Wrap(err, "saving image")
 		}
 	}
 
 	id, idErr := image.Identifier()
 	if idErr != nil {
 		if saveErr != nil {
-			return platform.ImageReport{}, &MultiError{Errors: []error{idErr, saveErr}}
+			return files.ImageReport{}, &MultiError{Errors: []error{idErr, saveErr}}
 		}
-		return platform.ImageReport{}, idErr
+		return files.ImageReport{}, idErr
 	}
 
 	logger.Infof("*** Images (%s):\n", shortID(id))

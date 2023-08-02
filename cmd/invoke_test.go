@@ -9,6 +9,7 @@ import (
 	"os"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/mock"
@@ -28,7 +29,7 @@ func TestInvoke(t *testing.T) {
 	// Mock Runner
 	// Starts a service which sets invoked=1 on any request
 	runner := mock.NewRunner()
-	runner.RunFn = func(ctx context.Context, f fn.Function) (job *fn.Job, err error) {
+	runner.RunFn = func(ctx context.Context, f fn.Function, _ time.Duration) (job *fn.Job, err error) {
 		var (
 			l net.Listener
 			h = http.NewServeMux()
@@ -46,10 +47,10 @@ func TestInvoke(t *testing.T) {
 				fmt.Fprintf(os.Stderr, "error serving: %v", err)
 			}
 		}()
-		_, port, _ := net.SplitHostPort(l.Addr().String())
+		host, port, _ := net.SplitHostPort(l.Addr().String())
 		errs := make(chan error, 10)
 		stop := func() error { _ = s.Close(); return nil }
-		return fn.NewJob(f, port, errs, stop, false)
+		return fn.NewJob(f, host, port, errs, stop, false)
 	}
 
 	// Run the mock http service function interloper

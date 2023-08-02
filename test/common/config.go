@@ -4,7 +4,7 @@ import (
 	"os"
 	"strings"
 
-	"knative.dev/func/pkg/openshift"
+	"knative.dev/func/pkg/k8s"
 )
 
 // Intended to provide setup configuration for E2E tests
@@ -18,8 +18,8 @@ func init() {
 	// Setup test Registry.
 	testRegistry = os.Getenv("E2E_REGISTRY_URL")
 	if testRegistry == "" || testRegistry == "default" {
-		if openshift.IsOpenShift() {
-			testRegistry = openshift.GetDefaultRegistry()
+		if k8s.IsOpenShift() {
+			testRegistry = k8s.GetDefaultOpenShiftRegistry()
 		} else {
 			testRegistry = DefaultRegistry
 		}

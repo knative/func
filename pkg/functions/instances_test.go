@@ -5,6 +5,7 @@ package functions
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"runtime"
 	"strings"
@@ -26,31 +27,36 @@ func TestInstances_LocalErrors(t *testing.T) {
 	}
 
 	tests := []struct {
-		name string
-		f    Function
-		want error
+		name   string
+		f      Function
+		wantIs error
+		wantAs any
 	}{
 		{
-			name: "Not running", // Function exists but is not running
-			f:    f,
-			want: ErrNotRunning,
+			name:   "Not running", // Function exists but is not running
+			f:      f,
+			wantIs: ErrNotRunning,
 		},
 		{
-			name: "Not initialized", // A function directory is provided, but no function exists
-			f:    Function{Root: "testdata/not-initialized"},
-			want: ErrNotInitialized,
+			name:   "Not initialized", // A function directory is provided, but no function exists
+			f:      Function{Root: "testdata/not-initialized"},
+			wantAs: &ErrNotInitialized{},
 		},
 		{
-			name: "Root required", // No root directory is provided
-			f:    Function{},
-			want: ErrRootRequired,
+			name:   "Root required", // No root directory is provided
+			f:      Function{},
+			wantIs: ErrRootRequired,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			i := InstanceRefs{}
-			if _, err := i.Local(context.TODO(), tt.f); err != tt.want {
-				t.Errorf("Local() error = %v, wantErr %v", err, tt.want)
+			_, err := i.Local(context.Background(), tt.f)
+			if tt.wantIs != nil && !errors.Is(err, tt.wantIs) {
+				t.Errorf("Local() error = %v, want %#v", err, tt.wantIs)
+			}
+			if tt.wantAs != nil && !errors.As(err, tt.wantAs) {
+				t.Errorf("Local() error = %v, want %#v", err, tt.wantAs)
 			}
 		})
 	}

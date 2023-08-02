@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strconv"
 	"strings"
 
@@ -13,8 +14,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"knative.dev/client-pkg/pkg/util"
 	"knative.dev/func/pkg/builders"
-	"knative.dev/func/pkg/builders/buildpacks"
-	"knative.dev/func/pkg/builders/s2i"
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
@@ -32,8 +31,8 @@ SYNOPSIS
 	{{rootCmdUse}} deploy [-R|--remote] [-r|--registry] [-i|--image] [-n|--namespace]
 	             [-e|--env] [-g|--git-url] [-t|--git-branch] [-d|--git-dir]
 	             [-b|--build] [--builder] [--builder-image] [-p|--push]
-	             [--domain] [--platform] [--build-timestamp]
-	             [-c|--confirm] [-v|--verbose]
+	             [--domain] [--platform] [--build-timestamp] [--pvc-size]
+	             [--service-account] [-c|--confirm] [-v|--verbose]
 
 DESCRIPTION
 
@@ -125,7 +124,7 @@ EXAMPLES
 
 `,
 		SuggestFor: []string{"delpoy", "deplyo"},
-		PreRunE:    bindEnv("build", "build-timestamp", "builder", "builder-image", "confirm", "domain", "env", "git-branch", "git-dir", "git-url", "image", "namespace", "path", "platform", "push", "pvc-size", "registry", "remote", "verbose"),
+		PreRunE:    bindEnv("build", "build-timestamp", "builder", "builder-image", "confirm", "domain", "env", "git-branch", "git-dir", "git-url", "image", "namespace", "path", "platform", "push", "pvc-size", "service-account", "registry", "remote", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDeploy(cmd, newClient)
 		},
@@ -176,11 +175,12 @@ EXAMPLES
 		"Git revision (branch) to be used when deploying via the Git repository ($FUNC_GIT_BRANCH)")
 	cmd.Flags().StringP("git-dir", "d", f.Build.Git.ContextDir,
 		"Directory in the Git repository containing the function (default is the root) ($FUNC_GIT_DIR)")
-	cmd.Flags().Bool("remote", f.Deploy.Remote,
+	cmd.Flags().BoolP("remote", "R", f.Deploy.Remote,
 		"Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)")
-	cmd.Flags().String("pvc-size", fn.DefaultPersistentVolumeClaimSize,
-		"Configure the PVC size used by a pipeline during remote build.")
-
+	cmd.Flags().String("pvc-size", f.Build.PVCSize,
+		"When triggering a remote deployment, set a custom volume size to allocate for the build operation ($FUNC_PVC_SIZE)")
+	cmd.Flags().String("service-account", f.Deploy.ServiceAccountName,
+		"Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)")
 	// Static Flags:
 	// Options which have static defaults only (not globally configurable nor
 	// persisted with the function)
@@ -228,7 +228,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		return
 	}
 	if !f.Initialized() {
-		return fn.NewUninitializedError(f.Root)
+		return fn.NewErrNotInitialized(f.Root)
 	}
 	if f, err = cfg.Configure(f); err != nil { // Updates f with deploy cfg
 		return
@@ -251,27 +251,11 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	// Informative non-error messages regarding the final deployment request
 	printDeployMessages(cmd.OutOrStdout(), cfg)
 
-	// Client
-	// Concrete implementations (ex builder) vary  based on final effective cfg.
-	var builder fn.Builder
-	if f.Build.Builder == builders.Pack {
-		builder = buildpacks.NewBuilder(
-			buildpacks.WithName(builders.Pack),
-			buildpacks.WithVerbose(cfg.Verbose),
-			buildpacks.WithTimestamp(cfg.Timestamp),
-		)
-	} else if f.Build.Builder == builders.S2I {
-		builder = s2i.NewBuilder(
-			s2i.WithName(builders.S2I),
-			s2i.WithPlatform(cfg.Platform),
-			s2i.WithVerbose(cfg.Verbose))
-	} else {
-		return builders.ErrUnknownBuilder{Name: f.Build.Builder, Known: KnownBuilders()}
+	clientOptions, err := cfg.clientOptions()
+	if err != nil {
+		return
 	}
-
-	client, done := newClient(ClientConfig{Namespace: f.Deploy.Namespace, Verbose: cfg.Verbose},
-		fn.WithRegistry(cfg.Registry),
-		fn.WithBuilder(builder))
+	client, done := newClient(ClientConfig{Namespace: f.Deploy.Namespace, Verbose: cfg.Verbose}, clientOptions...)
 	defer done()
 
 	// Deploy
@@ -282,10 +266,12 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 			return
 		}
 	} else {
-		if shouldBuild(cfg.Build, f, client) { // --build or "auto" with FS changes
-			if f, err = client.Build(cmd.Context(), f); err != nil {
-				return
-			}
+		var buildOptions []fn.BuildOption
+		if buildOptions, err = cfg.buildOptions(); err != nil {
+			return
+		}
+		if f, err = build(cmd, cfg.Build, f, client, buildOptions); err != nil {
+			return
 		}
 		if cfg.Push {
 			if f, err = client.Push(cmd.Context(), f); err != nil {
@@ -309,16 +295,30 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	return f.Stamp()
 }
 
-// shouldBuild returns true if the value of the build option is a truthy value,
-// or if it is the literal "auto" and the function reports as being currently
-// unbuilt.  Invalid errors are not reported as this is the purview of
-// deployConfig.Validate
-func shouldBuild(buildCfg string, f fn.Function, client *fn.Client) bool {
-	if buildCfg == "auto" {
-		return !f.Built() // first build or modified filesystem
+// build when flag == 'auto' and the function is out-of-date, or when the
+// flag value is explicitly truthy such as 'true' or '1'.  Error if flag
+// is neither 'auto' nor parseable as a boolean.  Return CLI-specific error
+// message verbeage suitable for both Deploy and Run commands which feature an
+// optional build step.
+func build(cmd *cobra.Command, flag string, f fn.Function, client *fn.Client, buildOptions []fn.BuildOption) (fn.Function, error) {
+	var err error
+	if flag == "auto" {
+		if f.Built() {
+			fmt.Fprintln(cmd.OutOrStdout(), "function up-to-date. Force rebuild with --build")
+		} else {
+			if f, err = client.Build(cmd.Context(), f, buildOptions...); err != nil {
+				return f, err
+			}
+		}
+	} else if build, _ := strconv.ParseBool(flag); build {
+		if f, err = client.Build(cmd.Context(), f, buildOptions...); err != nil {
+			return f, err
+		}
+	} else if _, err = strconv.ParseBool(flag); err != nil {
+		return f, fmt.Errorf("--build ($FUNC_BUILD) %q not recognized.  Should be 'auto' or a truthy value such as 'true', 'false', '0', or '1'.", flag)
+
 	}
-	build, _ := strconv.ParseBool(buildCfg)
-	return build
+	return f, nil
 }
 
 func NewRegistryValidator(path string) survey.Validator {
@@ -364,6 +364,19 @@ func KnownBuilders() builders.Known {
 	// the set of builders enumerated in the builders pacakage.
 	// However, future third-party integrations may support less than, or more
 	// builders, and certain environmental considerations may alter this list.
+
+	// Also a good place to stick feature-flags; to wit:
+	enable_host, _ := strconv.ParseBool(os.Getenv("FUNC_ENABLE_HOST_BUILDER"))
+	if !enable_host {
+		bb := []string{}
+		for _, b := range builders.All() {
+			if b != builders.Host {
+				bb = append(bb, b)
+			}
+		}
+		return bb
+	}
+
 	return builders.All()
 }
 
@@ -431,6 +444,9 @@ type deployConfig struct {
 	// (~/.kube/config) in the case of Kubernetes.
 	Namespace string
 
+	//Service account to be used in deployed function
+	ServiceAccountName string
+
 	// Remote indicates the deployment (and possibly build) process are to
 	// be triggered in a remote environment rather than run locally.
 	Remote bool
@@ -447,17 +463,18 @@ type deployConfig struct {
 // environment variables; in that precedence.
 func newDeployConfig(cmd *cobra.Command) (c deployConfig) {
 	c = deployConfig{
-		buildConfig: newBuildConfig(),
-		Build:       viper.GetString("build"),
-		Env:         viper.GetStringSlice("env"),
-		Domain:      viper.GetString("domain"),
-		GitBranch:   viper.GetString("git-branch"),
-		GitDir:      viper.GetString("git-dir"),
-		GitURL:      viper.GetString("git-url"),
-		Namespace:   viper.GetString("namespace"),
-		Remote:      viper.GetBool("remote"),
-		PVCSize:     viper.GetString("pvc-size"),
-		Timestamp:   viper.GetBool("build-timestamp"),
+		buildConfig:        newBuildConfig(),
+		Build:              viper.GetString("build"),
+		Env:                viper.GetStringSlice("env"),
+		Domain:             viper.GetString("domain"),
+		GitBranch:          viper.GetString("git-branch"),
+		GitDir:             viper.GetString("git-dir"),
+		GitURL:             viper.GetString("git-url"),
+		Namespace:          viper.GetString("namespace"),
+		Remote:             viper.GetBool("remote"),
+		PVCSize:            viper.GetString("pvc-size"),
+		Timestamp:          viper.GetBool("build-timestamp"),
+		ServiceAccountName: viper.GetString("service-account"),
 	}
 	// NOTE: .Env should be viper.GetStringSlice, but this returns unparsed
 	// results and appears to be an open issue since 2017:
@@ -490,12 +507,16 @@ func (c deployConfig) Configure(f fn.Function) (fn.Function, error) {
 	f.Build.Git.Revision = c.GitBranch // TODO: should match; perhaps "refSpec"
 	f.Deploy.Namespace = c.Namespace
 	f.Deploy.Remote = c.Remote
-	// Validate if PVC size can be parsed to quantity
-	_, err = resource.ParseQuantity(c.PVCSize)
-	if err != nil {
-		return f, fmt.Errorf("cannot parse the provided PVC size '%s' due to: %w", c.PVCSize, err)
+	f.Deploy.ServiceAccountName = c.ServiceAccountName
+
+	// PVCSize
+	// If a specific value is requested, ensure it parses as a resource.Quantity
+	if c.PVCSize != "" {
+		if _, err = resource.ParseQuantity(c.PVCSize); err != nil {
+			return f, fmt.Errorf("cannot parse PVC size %q. %w", c.PVCSize, err)
+		}
+		f.Build.PVCSize = c.PVCSize
 	}
-	f.Build.PVCSize = c.PVCSize
 
 	// ImageDigest
 	// Parsed off f.Image if provided.  Deploying adds the ability to specify a

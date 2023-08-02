@@ -12,8 +12,8 @@ import (
 	"knative.dev/func/pkg/docker/creds"
 	fn "knative.dev/func/pkg/functions"
 	fnhttp "knative.dev/func/pkg/http"
+	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/knative"
-	"knative.dev/func/pkg/openshift"
 	"knative.dev/func/pkg/pipelines/tekton"
 	"knative.dev/func/pkg/progress"
 )
@@ -103,7 +103,7 @@ func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 // newTransport returns a transport with cluster-flavor-specific variations
 // which take advantage of additional features offered by cluster variants.
 func newTransport(insecureSkipVerify bool) fnhttp.RoundTripCloser {
-	return fnhttp.NewRoundTripper(fnhttp.WithInsecureSkipVerify(insecureSkipVerify), openshift.WithOpenShiftServiceCA())
+	return fnhttp.NewRoundTripper(fnhttp.WithInsecureSkipVerify(insecureSkipVerify), fnhttp.WithOpenShiftServiceCA())
 }
 
 // newCredentialsProvider returns a credentials provider which possibly
@@ -114,7 +114,7 @@ func newCredentialsProvider(configPath string, t http.RoundTripper) docker.Crede
 		creds.WithPromptForCredentials(prompt.NewPromptForCredentials(os.Stdin, os.Stdout, os.Stderr)),
 		creds.WithPromptForCredentialStore(prompt.NewPromptForCredentialStore()),
 		creds.WithTransport(t),
-		creds.WithAdditionalCredentialLoaders(openshift.GetDockerCredentialLoaders()...),
+		creds.WithAdditionalCredentialLoaders(k8s.GetOpenShiftDockerCredentialLoaders()...),
 	}
 
 	// Other cluster variants can be supported here
@@ -144,18 +144,18 @@ func newKnativeDeployer(namespace string, verbose bool) fn.Deployer {
 }
 
 type deployDecorator struct {
-	oshDec openshift.OpenshiftMetadataDecorator
+	oshDec k8s.OpenshiftMetadataDecorator
 }
 
 func (d deployDecorator) UpdateAnnotations(function fn.Function, annotations map[string]string) map[string]string {
-	if openshift.IsOpenShift() {
+	if k8s.IsOpenShift() {
 		return d.oshDec.UpdateAnnotations(function, annotations)
 	}
 	return annotations
 }
 
 func (d deployDecorator) UpdateLabels(function fn.Function, labels map[string]string) map[string]string {
-	if openshift.IsOpenShift() {
+	if k8s.IsOpenShift() {
 		return d.oshDec.UpdateLabels(function, labels)
 	}
 	return labels

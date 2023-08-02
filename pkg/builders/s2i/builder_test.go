@@ -110,7 +110,7 @@ func Test_BuilderImageDefault(t *testing.T) {
 
 	// Invoke Build, which runs function Builder logic before invoking the
 	// mock impl above.
-	if err := b.Build(context.Background(), f); err != nil {
+	if err := b.Build(context.Background(), f, nil); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -145,7 +145,71 @@ func Test_BuilderImageConfigurable(t *testing.T) {
 
 	// Invoke Build, which runs function Builder logic before invoking the
 	// mock impl above.
-	if err := b.Build(context.Background(), f); err != nil {
+	if err := b.Build(context.Background(), f, nil); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Test_BuildImageWithFuncIgnore ensures that ignored files are not added to the func
+// image
+func Test_BuildImageWithFuncIgnore(t *testing.T) {
+
+	funcIgnoreContent := []byte(`#testing Comments
+#testingComments.txt
+hello.txt
+`)
+	f := fn.Function{
+		Runtime: "node",
+	}
+	tempdir := t.TempDir()
+	f.Root = tempdir
+	//create a .funcignore file containing the details of the files to be ignored
+	err := os.WriteFile(filepath.Join(f.Root, ".funcignore"), funcIgnoreContent, 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// creating test files which should be ignored
+	err = os.WriteFile(filepath.Join(f.Root, "hello.txt"), []byte(""), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = os.WriteFile(filepath.Join(f.Root, "#testingComments.txt"), []byte(""), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cli := mockDocker{
+		build: func(ctx context.Context, context io.Reader, options types.ImageBuildOptions) (types.ImageBuildResponse, error) {
+			tr := tar.NewReader(context)
+			for {
+				hdr, err := tr.Next()
+				if err != nil {
+					if errors.Is(err, io.EOF) {
+						break
+					}
+					return types.ImageBuildResponse{}, err
+				}
+
+				// If we find the undesired file, return an error
+				if filepath.Base(hdr.Name) == "hello.txt" {
+					return types.ImageBuildResponse{}, fmt.Errorf("test failed, found ignonered file %s:", filepath.Base(hdr.Name))
+				}
+				// If we find the undesired file, return an error
+				if filepath.Base(hdr.Name) == "#tesingComments.txt" {
+					return types.ImageBuildResponse{}, fmt.Errorf("test failed, found ignonered file %s:", filepath.Base(hdr.Name))
+				}
+
+			}
+			return types.ImageBuildResponse{
+				Body:   io.NopCloser(strings.NewReader(`{"stream": "OK!"}`)),
+				OSType: "linux",
+			}, nil
+		},
+	}
+	b := s2i.NewBuilder(s2i.WithName(builders.S2I), s2i.WithDockerClient(cli))
+	if err := b.Build(context.Background(), f, nil); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -162,7 +226,8 @@ func Test_BuilderVerbose(t *testing.T) {
 				}
 				return &api.Result{Messages: []string{"message"}}, nil
 			}}
-		if err := s2i.NewBuilder(s2i.WithVerbose(verbose), s2i.WithImpl(i), s2i.WithDockerClient(c)).Build(context.Background(), fn.Function{Runtime: "node"}); err != nil {
+		if err := s2i.NewBuilder(s2i.WithVerbose(verbose), s2i.WithImpl(i), s2i.WithDockerClient(c)).
+			Build(context.Background(), fn.Function{Runtime: "node"}, nil); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -199,7 +264,7 @@ func Test_BuildEnvs(t *testing.T) {
 		t.Fatal("build envs not added to builder impl config")
 		return
 	}
-	if err := b.Build(context.Background(), f); err != nil {
+	if err := b.Build(context.Background(), f, nil); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -268,7 +333,7 @@ func TestS2IScriptURL(t *testing.T) {
 			}
 
 			b := s2i.NewBuilder(s2i.WithName(builders.S2I), s2i.WithImpl(impl), s2i.WithDockerClient(cli))
-			err = b.Build(context.Background(), f)
+			err = b.Build(context.Background(), f, nil)
 			if err != nil {
 				t.Error(err)
 			}
@@ -367,7 +432,7 @@ func TestBuildContextUpload(t *testing.T) {
 		Runtime: "node",
 	}
 	b := s2i.NewBuilder(s2i.WithImpl(impl), s2i.WithDockerClient(cli))
-	err := b.Build(context.Background(), f)
+	err := b.Build(context.Background(), f, nil)
 	if err != nil {
 		t.Error(err)
 	}
@@ -388,7 +453,7 @@ func TestBuildFail(t *testing.T) {
 		},
 	}
 	b := s2i.NewBuilder(s2i.WithImpl(impl), s2i.WithDockerClient(cli))
-	err := b.Build(context.Background(), fn.Function{Runtime: "node"})
+	err := b.Build(context.Background(), fn.Function{Runtime: "node"}, nil)
 	if err == nil || !strings.Contains(err.Error(), "Error: this is expected") {
 		t.Error("didn't get expected error")
 	}

@@ -51,7 +51,7 @@ const (
 	exactVariableSubstitutionFormat = `^\$\([_a-zA-Z0-9.-]+(\.[_a-zA-Z0-9.-]+)*(\[([0-9]+|\*)\])?\)$`
 	// arrayIndexing will match all `[int]` and `[*]` for parseExpression
 	arrayIndexing = `\[([0-9])*\*?\]`
-	// ResultNameFormat Constant used to define the the regex Result.Name should follow
+	// ResultNameFormat Constant used to define the regex Result.Name should follow
 	ResultNameFormat = `^([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9]$`
 )
 
@@ -171,7 +171,6 @@ func stripVarSubExpression(expression string) string {
 // - Output: "", "", 0, "", error
 // TODO: may use regex for each type to handle possible reference formats
 func parseExpression(substitutionExpression string) (string, string, int, string, error) {
-
 	if looksLikeResultRef(substitutionExpression) {
 		subExpressions := strings.Split(substitutionExpression, ".")
 		// For string result: tasks.<taskName>.results.<stringResultName>
@@ -209,19 +208,13 @@ func ParseResultName(resultName string) (string, string) {
 // in a PipelineTask and returns a list of any references that are found.
 func PipelineTaskResultRefs(pt *PipelineTask) []*ResultRef {
 	refs := []*ResultRef{}
-	var matrixParams []Param
-	if pt.IsMatrixed() {
-		matrixParams = pt.Matrix.Params
-	}
-	for _, p := range append(pt.Params, matrixParams...) {
+	for _, p := range pt.extractAllParams() {
 		expressions, _ := GetVarSubstitutionExpressionsForParam(p)
 		refs = append(refs, NewResultRefs(expressions)...)
 	}
-
 	for _, whenExpression := range pt.WhenExpressions {
 		expressions, _ := whenExpression.GetVarSubstitutionExpressions()
 		refs = append(refs, NewResultRefs(expressions)...)
 	}
-
 	return refs
 }

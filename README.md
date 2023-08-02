@@ -16,6 +16,9 @@
 
 We use GitHub issues and project to track our roadmap. Please see our roadmap [here](https://github.com/orgs/knative/projects/49).
 
+## Knative Function demos and examples
+- [Knative Functions in action: Amsterdam City Data App](https://github.com/zroubalik/knative-functions-ams-data-demo/)
+
 ## Contributing
 
 We are always looking for contributions from the Function Developer community.  For more information on how to participate, see the [Contribuiting Guide](docs/CONTRIBUTING.md)

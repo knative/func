@@ -1,13 +1,19 @@
 package k8s
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"net"
+	"os"
+	"regexp"
+	"strconv"
 	"sync"
+	"sync/atomic"
+	"syscall"
 	"time"
 
 	coreV1 "k8s.io/api/core/v1"
@@ -19,6 +25,7 @@ import (
 	"k8s.io/client-go/kubernetes/scheme"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 	restclient "k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
 )
 
@@ -42,9 +49,10 @@ var SocatImage = "quay.io/boson/alpine-socat:1.7.4.3-r1-non-root"
 //	var client = http.Client{
 //	    Transport: transport,
 //	}
-func NewInClusterDialer(ctx context.Context) (*contextDialer, error) {
+func NewInClusterDialer(ctx context.Context, clientConfig clientcmd.ClientConfig) (*contextDialer, error) {
 	c := &contextDialer{
-		detachChan: make(chan struct{}),
+		clientConfig: clientConfig,
+		detachChan:   make(chan struct{}),
 	}
 	err := c.startDialerPod(ctx)
 	if err != nil {
@@ -54,11 +62,12 @@ func NewInClusterDialer(ctx context.Context) (*contextDialer, error) {
 }
 
 type contextDialer struct {
-	coreV1     v1.CoreV1Interface
-	restConf   *restclient.Config
-	podName    string
-	namespace  string
-	detachChan chan struct{}
+	coreV1       v1.CoreV1Interface
+	clientConfig clientcmd.ClientConfig
+	restConf     *restclient.Config
+	podName      string
+	namespace    string
+	detachChan   chan struct{}
 }
 
 func (c *contextDialer) DialContext(ctx context.Context, network string, addr string) (net.Conn, error) {
@@ -66,21 +75,108 @@ func (c *contextDialer) DialContext(ctx context.Context, network string, addr st
 		return nil, fmt.Errorf("unsupported network: %q", network)
 	}
 
-	execDone := make(chan struct{})
-	pr, pw, conn := newConn(execDone)
-
+	ctrStdin, ctrStdout, conn := newConn()
+	connectSuccess := make(chan struct{})
+	connectFailure := make(chan error, 1)
 	go func() {
-		defer close(execDone)
-		errOut := bytes.NewBuffer(nil)
-		err := c.exec(addr, pr, pw, errOut)
+		stderrBuff := bytes.NewBuffer(nil)
+		ctrStderr := io.MultiWriter(stderrBuff, detectConnSuccess(connectSuccess))
+
+		err := c.exec(addr, ctrStdin, ctrStdout, ctrStderr)
 		if err != nil {
-			err = fmt.Errorf("failed to exec in pod: %w (stderr: %q)", err, errOut.String())
-			_ = pr.CloseWithError(err)
-			_ = pw.CloseWithError(err)
+			stderrStr := stderrBuff.String()
+			socatErr := tryParseSocatError(network, addr, stderrStr)
+			if socatErr != nil {
+				err = fmt.Errorf("socat error: %w", socatErr)
+			} else {
+				err = fmt.Errorf("failed to exec in pod: %w (stderr: %q)", err, stderrStr)
+			}
 		}
+		_ = conn.closeWithError(err)
+		connectFailure <- err
 	}()
 
-	return conn, nil
+	select {
+	case <-connectSuccess:
+		return conn, nil
+	case err := <-connectFailure:
+		return nil, err
+	case <-ctx.Done():
+		_ = conn.closeWithError(ctx.Err())
+		return nil, ctx.Err()
+	}
+}
+
+var connSuccessfulRE = regexp.MustCompile("successfully connected")
+
+// Creates io.Writer which closes connectSuccess channel when string "successfully connected" is written to it.
+func detectConnSuccess(connectSuccess chan struct{}) io.Writer {
+	pr, pw := io.Pipe()
+	go func() {
+		ok := connSuccessfulRE.MatchReader(bufio.NewReader(pr))
+		if ok {
+			close(connectSuccess)
+		}
+		_, _ = io.Copy(io.Discard, pr)
+	}()
+	return pw
+}
+
+var (
+	connectionRefusedErrorRE = regexp.MustCompile(`E connect\(\d+, AF=\d+ (?P<hostport>[\[\]0-9.:a-z]+), \d+\): Connection refused`)
+	nameResolutionErrorRE    = regexp.MustCompile(`E getaddrinfo\("(?P<hostname>[a-zA-z-.0-9]+)",.*\): Name does not resolve`)
+)
+
+// tries to detect common errors from `socat` stderr
+func tryParseSocatError(network, address, stderr string) error {
+	groups := nameResolutionErrorRE.FindStringSubmatch(stderr)
+	if groups != nil {
+		var name string
+		if len(groups) > 1 {
+			name = groups[1]
+		}
+		return &net.OpError{
+			Op:     "dial",
+			Net:    network,
+			Source: nil,
+			Addr:   nil,
+			Err: &net.DNSError{
+				Err:        "no such host",
+				Name:       name,
+				IsNotFound: true,
+			},
+		}
+	}
+	groups = connectionRefusedErrorRE.FindStringSubmatch(stderr)
+	if groups != nil {
+		var (
+			addr net.IP
+			port int
+			zone string
+		)
+		if len(groups) > 1 {
+			h, p, err := net.SplitHostPort(groups[1])
+			if err == nil {
+				addr = net.ParseIP(h)
+				p, _ := strconv.ParseInt(p, 10, 16)
+				port = int(p)
+			}
+		}
+		return &net.OpError{
+			Op:  "dial",
+			Net: network,
+			Addr: &net.TCPAddr{
+				IP:   addr,
+				Port: port,
+				Zone: zone,
+			},
+			Err: &os.SyscallError{
+				Syscall: "connect",
+				Err:     syscall.ECONNREFUSED,
+			},
+		}
+	}
+	return nil
 }
 
 func (c *contextDialer) Close() error {
@@ -95,8 +191,7 @@ func (c *contextDialer) Close() error {
 }
 
 func (c *contextDialer) startDialerPod(ctx context.Context) (err error) {
-	cliConf := GetClientConfig()
-	c.restConf, err = cliConf.ClientConfig()
+	c.restConf, err = c.clientConfig.ClientConfig()
 	if err != nil {
 		return
 	}
@@ -113,7 +208,7 @@ func (c *contextDialer) startDialerPod(ctx context.Context) (err error) {
 	}
 	c.coreV1 = client.CoreV1()
 
-	c.namespace, err = GetNamespace("")
+	c.namespace, _, err = c.clientConfig.Namespace()
 	if err != nil {
 		return
 	}
@@ -197,7 +292,7 @@ func (c *contextDialer) exec(hostPort string, in io.Reader, out, errOut io.Write
 		Namespace(c.namespace).
 		SubResource("exec")
 	req.VersionedParams(&coreV1.PodExecOptions{
-		Command:   []string{"socat", "-", fmt.Sprintf("TCP:%s", hostPort)},
+		Command:   []string{"socat", "-dd", "-", fmt.Sprintf("TCP:%s", hostPort)},
 		Container: c.podName,
 		Stdin:     true,
 		Stdout:    true,
@@ -324,58 +419,84 @@ func (a addr) String() string {
 }
 
 type conn struct {
-	pr       *io.PipeReader
-	pw       *io.PipeWriter
-	execDone <-chan struct{}
+	pr  *io.PipeReader
+	pw  *io.PipeWriter
+	err atomic.Pointer[error]
 }
 
-func (c conn) Read(b []byte) (n int, err error) {
-	return c.pr.Read(b)
+func (c *conn) Read(b []byte) (n int, err error) {
+	n, err = c.pr.Read(b)
+	if errors.Is(err, io.ErrClosedPipe) {
+		if p := c.err.Load(); p != nil {
+			err = *p
+		}
+	}
+	return
 }
 
-func (c conn) Write(b []byte) (n int, err error) {
-	return c.pw.Write(b)
+func (c *conn) Write(b []byte) (n int, err error) {
+	n, err = c.pw.Write(b)
+	if errors.Is(err, io.ErrClosedPipe) {
+		if p := c.err.Load(); p != nil {
+			err = *p
+		}
+	}
+	return
 }
 
-func (c conn) Close() error {
-	err := c.pw.Close()
+func (c *conn) closeWithError(err error) error {
+	if err == nil {
+		err = net.ErrClosed
+	}
+
+	{
+		e := err
+		c.err.CompareAndSwap(nil, &e)
+	}
+	err = c.pw.CloseWithError(io.EOF)
 	if err != nil {
 		return fmt.Errorf("failed to close writer: %w", err)
 	}
-	<-c.execDone
-	err = c.pr.Close()
+	err = c.pr.CloseWithError(net.ErrClosed)
 	if err != nil {
 		return fmt.Errorf("failed to close reader: %w", err)
 	}
 	return nil
 }
 
-func (c conn) LocalAddr() net.Addr {
+func (c *conn) Close() error {
+	return c.closeWithError(nil)
+}
+
+func (c *conn) LocalAddr() net.Addr {
 	return addr{}
 }
 
-func (c conn) RemoteAddr() net.Addr {
+func (c *conn) RemoteAddr() net.Addr {
 	return addr{}
 }
 
-func (c conn) SetDeadline(t time.Time) error { return nil }
+func (c *conn) SetDeadline(t time.Time) error { return nil }
 
-func (c conn) SetReadDeadline(t time.Time) error { return nil }
+func (c *conn) SetReadDeadline(t time.Time) error { return nil }
 
-func (c conn) SetWriteDeadline(t time.Time) error { return nil }
+func (c *conn) SetWriteDeadline(t time.Time) error { return nil }
 
-func newConn(execDone <-chan struct{}) (*io.PipeReader, *io.PipeWriter, conn) {
+func newConn() (*io.PipeReader, *io.PipeWriter, *conn) {
 	pr0, pw0 := io.Pipe()
 	pr1, pw1 := io.Pipe()
-	rwc := conn{pr: pr0, pw: pw1, execDone: execDone}
+	rwc := &conn{pr: pr0, pw: pw1}
 	return pr1, pw0, rwc
 }
 
-func NewLazyInitInClusterDialer() *lazyInitInClusterDialer {
-	return &lazyInitInClusterDialer{}
+func NewLazyInitInClusterDialer(clientConfig clientcmd.ClientConfig) *lazyInitInClusterDialer {
+	return &lazyInitInClusterDialer{
+		clientConfig: clientConfig,
+	}
 }
 
 type lazyInitInClusterDialer struct {
+	clientConfig  clientcmd.ClientConfig
 	contextDialer *contextDialer
 	initErr       error
 	o             sync.Once
@@ -383,7 +504,7 @@ type lazyInitInClusterDialer struct {
 
 func (l *lazyInitInClusterDialer) DialContext(ctx context.Context, network string, addr string) (net.Conn, error) {
 	l.o.Do(func() {
-		l.contextDialer, l.initErr = NewInClusterDialer(ctx)
+		l.contextDialer, l.initErr = NewInClusterDialer(ctx, l.clientConfig)
 	})
 	if l.initErr != nil {
 		return nil, l.initErr

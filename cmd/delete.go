@@ -30,7 +30,8 @@ No local files are deleted.
 # Undeploy the function 'myfunc' in namespace 'apps'
 {{rootCmdUse}} delete -n apps myfunc
 `,
-		SuggestFor:        []string{"remove", "rm", "del"},
+		SuggestFor:        []string{"remove", "del"},
+		Aliases:           []string{"rm"},
 		ValidArgsFunction: CompleteFunctionList,
 		PreRunE:           bindEnv("path", "confirm", "all", "namespace", "verbose"),
 		SilenceUsage:      true, // no usage dump on error
@@ -80,7 +81,7 @@ func runDelete(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 
 		// Check if the function has been initialized
 		if !function.Initialized() {
-			return fn.NewUninitializedError(function.Root)
+			return fn.NewErrNotInitialized(function.Root)
 		}
 
 		// If not provided, use the function's extant namespace

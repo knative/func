@@ -1,14 +1,15 @@
 package platform
 
 import (
-	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/buildpacks/imgutil/remote"
+	"github.com/google/go-containerregistry/pkg/authn"
 
 	"github.com/buildpacks/lifecycle/api"
 	"github.com/buildpacks/lifecycle/internal/str"
@@ -28,6 +29,8 @@ type LifecycleInputs struct {
 	CacheImageRef         string
 	DefaultProcessType    string
 	DeprecatedRunImageRef string
+	ExtendKind            string
+	ExtendedDir           string
 	ExtensionsDir         string
 	GeneratedDir          string
 	GroupPath             string
@@ -36,6 +39,7 @@ type LifecycleInputs struct {
 	LauncherPath          string
 	LauncherSBOMDir       string
 	LayersDir             string
+	LayoutDir             string
 	LogLevel              string
 	OrderPath             string
 	OutputImageRef        string
@@ -45,14 +49,142 @@ type LifecycleInputs struct {
 	ProjectMetadataPath   string
 	ReportPath            string
 	RunImageRef           string
+	RunPath               string
 	StackPath             string
 	UID                   int
 	GID                   int
+	ForceRebase           bool
 	SkipLayers            bool
 	UseDaemon             bool
+	UseLayout             bool
 	AdditionalTags        str.Slice // str.Slice satisfies the `Value` interface required by the `flag` package
 	KanikoCacheTTL        time.Duration
 }
+
+const PlaceholderLayers = "<layers>"
+
+// NewLifecycleInputs constructs new lifecycle inputs for the provided Platform API version.
+// Inputs can be specified by the platform (in order of precedence) through:
+//   - command-line flags
+//   - environment variables
+//   - falling back to the default value
+//
+// NewLifecycleInputs provides, for each input, the value from the environment if specified, falling back to the default.
+// As the final value of the layers directory (if provided via the command-line) is not known,
+// inputs that default to a child of the layers directory are provided with PlaceholderLayers as the layers directory.
+// To be valid, inputs obtained from calling NewLifecycleInputs MUST be updated using UpdatePlaceholderPaths
+// once the final value of the layers directory is known.
+func NewLifecycleInputs(platformAPI *api.Version) *LifecycleInputs {
+	// FIXME: api compatibility should be validated here
+
+	var skipLayers bool
+	if boolEnv(EnvSkipLayers) || boolEnv(EnvSkipRestore) {
+		skipLayers = true
+	}
+
+	inputs := &LifecycleInputs{
+		// Operator config
+
+		LogLevel:    envOrDefault(EnvLogLevel, DefaultLogLevel),
+		PlatformAPI: platformAPI,
+		ExtendKind:  envOrDefault(EnvExtendKind, DefaultExtendKind),
+		UseDaemon:   boolEnv(EnvUseDaemon),
+		UseLayout:   boolEnv(EnvUseLayout),
+
+		// Provided by the base image
+
+		UID: intEnv(EnvUID),
+		GID: intEnv(EnvGID),
+
+		// Provided by the builder image
+
+		BuildConfigDir: envOrDefault(EnvBuildConfigDir, DefaultBuildConfigDir),
+		BuildpacksDir:  envOrDefault(EnvBuildpacksDir, DefaultBuildpacksDir),
+		ExtensionsDir:  envOrDefault(EnvExtensionsDir, DefaultExtensionsDir),
+		RunPath:        envOrDefault(EnvRunPath, DefaultRunPath),
+		StackPath:      envOrDefault(EnvStackPath, DefaultStackPath),
+
+		// Provided at build time
+
+		AppDir:      envOrDefault(EnvAppDir, DefaultAppDir),
+		LayersDir:   envOrDefault(EnvLayersDir, DefaultLayersDir),
+		LayoutDir:   os.Getenv(EnvLayoutDir),
+		OrderPath:   envOrDefault(EnvOrderPath, filepath.Join(PlaceholderLayers, DefaultOrderFile)),
+		PlatformDir: envOrDefault(EnvPlatformDir, DefaultPlatformDir),
+
+		// The following instruct the lifecycle where to write files and data during the build
+
+		AnalyzedPath: envOrDefault(EnvAnalyzedPath, filepath.Join(PlaceholderLayers, DefaultAnalyzedFile)),
+		ExtendedDir:  envOrDefault(EnvExtendedDir, filepath.Join(PlaceholderLayers, DefaultExtendedDir)),
+		GeneratedDir: envOrDefault(EnvGeneratedDir, filepath.Join(PlaceholderLayers, DefaultGeneratedDir)),
+		GroupPath:    envOrDefault(EnvGroupPath, filepath.Join(PlaceholderLayers, DefaultGroupFile)),
+		PlanPath:     envOrDefault(EnvPlanPath, filepath.Join(PlaceholderLayers, DefaultPlanFile)),
+		ReportPath:   envOrDefault(EnvReportPath, filepath.Join(PlaceholderLayers, DefaultReportFile)),
+
+		// Configuration options with respect to caching
+
+		CacheDir:       os.Getenv(EnvCacheDir),
+		CacheImageRef:  os.Getenv(EnvCacheImage),
+		KanikoCacheTTL: timeEnvOrDefault(EnvKanikoCacheTTL, DefaultKanikoCacheTTL),
+		KanikoDir:      "/kaniko",
+		LaunchCacheDir: os.Getenv(EnvLaunchCacheDir),
+		SkipLayers:     skipLayers,
+
+		// Images used by the lifecycle during the build
+
+		AdditionalTags:        nil, // no default
+		BuildImageRef:         os.Getenv(EnvBuildImage),
+		DeprecatedRunImageRef: "", // no default
+		OutputImageRef:        "", // no default
+		PreviousImageRef:      os.Getenv(EnvPreviousImage),
+		RunImageRef:           os.Getenv(EnvRunImage),
+
+		// Configuration options for the output application image
+
+		DefaultProcessType:  os.Getenv(EnvProcessType),
+		LauncherPath:        DefaultLauncherPath,
+		LauncherSBOMDir:     DefaultBuildpacksioSBOMDir,
+		ProjectMetadataPath: envOrDefault(EnvProjectMetadataPath, filepath.Join(PlaceholderLayers, DefaultProjectMetadataFile)),
+
+		// Configuration options for rebasing
+		ForceRebase: boolEnv(EnvForceRebase),
+	}
+
+	if platformAPI.LessThan("0.6") {
+		// The default location for order.toml is /cnb/order.toml
+		inputs.OrderPath = envOrDefault(EnvOrderPath, CNBOrderPath)
+	}
+
+	if platformAPI.LessThan("0.5") {
+		inputs.AnalyzedPath = envOrDefault(EnvAnalyzedPath, DefaultAnalyzedFile)
+		inputs.GeneratedDir = envOrDefault(EnvGeneratedDir, DefaultGeneratedDir)
+		inputs.GroupPath = envOrDefault(EnvGroupPath, DefaultGroupFile)
+		inputs.PlanPath = envOrDefault(EnvPlanPath, DefaultPlanFile)
+		inputs.ProjectMetadataPath = envOrDefault(EnvProjectMetadataPath, DefaultProjectMetadataFile)
+		inputs.ReportPath = envOrDefault(EnvReportPath, DefaultReportFile)
+	}
+
+	return inputs
+}
+
+func (i *LifecycleInputs) AccessChecker() CheckReadAccess {
+	if i.UseDaemon || i.UseLayout {
+		// nop checker
+		return func(_ string, _ authn.Keychain) (bool, error) {
+			return true, nil
+		}
+	}
+	// remote access checker
+	return func(repo string, keychain authn.Keychain) (bool, error) {
+		img, err := remote.NewImage(repo, keychain)
+		if err != nil {
+			return false, fmt.Errorf("failed to get remote image: %w", err)
+		}
+		return img.CheckReadAccess()
+	}
+}
+
+type CheckReadAccess func(repo string, keychain authn.Keychain) (bool, error)
 
 func (i *LifecycleInputs) DestinationImages() []string {
 	var ret []string
@@ -99,119 +231,91 @@ func notIn(list []string, str string) bool {
 	return true
 }
 
-var (
-	ErrOutputImageRequired           = "image argument is required"
-	ErrRunImageRequiredWhenNoStackMD = "-run-image is required when there is no stack metadata available"
-	ErrSupplyOnlyOneRunImage         = "supply only one of -run-image or (deprecated) -image"
-	ErrRunImageUnsupported           = "-run-image is unsupported"
-	ErrImageUnsupported              = "-image is unsupported"
-	MsgIgnoringLaunchCache           = "Ignoring -launch-cache, only intended for use with -daemon"
-)
+// shared helpers
 
-func ResolveInputs(phase LifecyclePhase, i *LifecycleInputs, logger log.Logger) error {
-	// order of operations is important
-	ops := []LifecycleInputsOperation{UpdatePlaceholderPaths, ResolveAbsoluteDirPaths}
-	switch phase {
-	case Analyze:
-		if i.PlatformAPI.LessThan("0.7") {
-			ops = append(ops, CheckCache)
-		}
-		ops = append(ops,
-			FillAnalyzeImages,
-			ValidateOutputImageProvided,
-			CheckLaunchCache,
-			ValidateImageRefs,
-			ValidateTargetsAreSameRegistry,
-		)
-	case Build:
-		// nop
-	case Create:
-		ops = append(ops,
-			FillCreateImages,
-			ValidateOutputImageProvided,
-			CheckCache,
-			CheckLaunchCache,
-			ValidateImageRefs,
-			ValidateTargetsAreSameRegistry,
-		)
-	case Detect:
-		// nop
-	case Export:
-		ops = append(ops,
-			FillExportRunImage,
-			ValidateOutputImageProvided,
-			CheckCache,
-			CheckLaunchCache,
-			ValidateImageRefs,
-			ValidateTargetsAreSameRegistry,
-		)
-	case Extend:
-		// nop
-	case Rebase:
-		ops = append(ops,
-			ValidateRebaseRunImage,
-			ValidateOutputImageProvided,
-			ValidateImageRefs,
-			ValidateTargetsAreSameRegistry,
-		)
-	case Restore:
-		ops = append(ops, CheckCache)
+func boolEnv(k string) bool {
+	v := os.Getenv(k)
+	b, err := strconv.ParseBool(v)
+	if err != nil {
+		return false
 	}
+	return b
+}
 
-	var err error
-	for _, op := range ops {
-		if err = op(i, logger); err != nil {
-			return err
-		}
+func envOrDefault(key string, defaultVal string) string {
+	if envVal := os.Getenv(key); envVal != "" {
+		return envVal
 	}
-	return nil
+	return defaultVal
+}
+
+func intEnv(k string) int {
+	v := os.Getenv(k)
+	d, err := strconv.Atoi(v)
+	if err != nil {
+		return 0
+	}
+	return d
+}
+
+func timeEnvOrDefault(key string, defaultVal time.Duration) time.Duration {
+	envTTL := os.Getenv(key)
+	if envTTL == "" {
+		return defaultVal
+	}
+	ttl, err := time.ParseDuration(envTTL)
+	if err != nil {
+		return defaultVal
+	}
+	return ttl
 }
 
 // operations
 
-type LifecycleInputsOperation func(i *LifecycleInputs, logger log.Logger) error
-
-func CheckCache(i *LifecycleInputs, logger log.Logger) error {
-	if i.CacheImageRef == "" && i.CacheDir == "" {
-		logger.Warn("No cached data will be used, no cache specified.")
+func UpdatePlaceholderPaths(i *LifecycleInputs, _ log.Logger) error {
+	toUpdate := i.placeholderPaths()
+	for _, path := range toUpdate {
+		if *path == "" {
+			continue
+		}
+		if !isPlaceholder(*path) {
+			continue
+		}
+		oldPath := *path
+		toReplace := PlaceholderLayers
+		if i.LayersDir == "" { // layers is unset when this call comes from the rebaser
+			toReplace = PlaceholderLayers + string(filepath.Separator)
+		}
+		newPath := strings.Replace(*path, toReplace, i.LayersDir, 1)
+		*path = newPath
+		if isPlaceholderOrder(oldPath) {
+			if _, err := os.Stat(newPath); err != nil {
+				i.OrderPath = CNBOrderPath
+			}
+		}
 	}
 	return nil
 }
 
-func CheckLaunchCache(i *LifecycleInputs, logger log.Logger) error {
-	if !i.UseDaemon && i.LaunchCacheDir != "" {
-		logger.Warn(MsgIgnoringLaunchCache)
-	}
-	return nil
+func isPlaceholder(s string) bool {
+	return strings.Contains(s, PlaceholderLayers)
 }
 
-// fillRunImageFromStackTOMLIfNeeded updates the provided lifecycle inputs to include the run image from stack.toml if it is missing.
-// When there are multiple run images in stack.toml, the run image with registry matching the output image is selected.
-func fillRunImageFromStackTOMLIfNeeded(i *LifecycleInputs, logger log.Logger) error {
-	if i.RunImageRef != "" {
-		return nil
-	}
-	targetRegistry, err := parseRegistry(i.OutputImageRef)
-	if err != nil {
-		return err
-	}
-	stackMD, err := ReadStack(i.StackPath, logger)
-	if err != nil {
-		return err
-	}
-	i.RunImageRef, err = stackMD.BestRunImageMirror(targetRegistry)
-	if err != nil {
-		return errors.New(ErrRunImageRequiredWhenNoStackMD)
-	}
-	return nil
+func isPlaceholderOrder(s string) bool {
+	return s == filepath.Join(PlaceholderLayers, DefaultOrderFile)
 }
 
-func parseRegistry(providedRef string) (string, error) {
-	ref, err := name.ParseReference(providedRef, name.WeakValidation)
-	if err != nil {
-		return "", err
+func (i *LifecycleInputs) placeholderPaths() []*string {
+	return []*string{
+		&i.AnalyzedPath,
+		&i.ExtendedDir,
+		&i.GeneratedDir,
+		&i.GroupPath,
+		&i.OrderPath,
+		&i.PlanPath,
+		&i.ProjectMetadataPath,
+		&i.ReportPath,
 	}
-	return ref.Context().RegistryStr(), nil
 }
 
 func ResolveAbsoluteDirPaths(i *LifecycleInputs, _ log.Logger) error {
@@ -242,138 +346,4 @@ func (i *LifecycleInputs) directoryPaths() []*string {
 		&i.LayersDir,
 		&i.PlatformDir,
 	}
-}
-
-const placeholderLayersDir = "<layers>"
-
-var (
-	placeholderAnalyzedPath        = filepath.Join(placeholderLayersDir, DefaultAnalyzedFile)
-	placeholderGeneratedDir        = filepath.Join(placeholderLayersDir, DefaultGeneratedDir)
-	placeholderGroupPath           = filepath.Join(placeholderLayersDir, DefaultGroupFile)
-	placeholderOrderPath           = filepath.Join(placeholderLayersDir, DefaultOrderFile)
-	placeholderPlanPath            = filepath.Join(placeholderLayersDir, DefaultPlanFile)
-	placeholderProjectMetadataPath = filepath.Join(placeholderLayersDir, DefaultProjectMetadataFile)
-	placeholderReportPath          = filepath.Join(placeholderLayersDir, DefaultReportFile)
-)
-
-func UpdatePlaceholderPaths(i *LifecycleInputs, _ log.Logger) error {
-	toUpdate := i.placeholderPaths()
-	for _, pp := range toUpdate {
-		switch {
-		case *pp == "":
-			continue
-		case *pp == placeholderOrderPath:
-			*pp = i.defaultOrderPath()
-		case strings.Contains(*pp, placeholderLayersDir):
-			filename := filepath.Base(*pp)
-			*pp = filepath.Join(i.configDir(), filename)
-		default:
-			// nop
-		}
-	}
-	return nil
-}
-
-func (i *LifecycleInputs) defaultOrderPath() string {
-	if i.PlatformAPI.LessThan("0.6") {
-		return DefaultOrderPath
-	}
-	layersOrderPath := filepath.Join(i.LayersDir, "order.toml")
-	if _, err := os.Stat(layersOrderPath); err != nil {
-		return DefaultOrderPath
-	}
-	return layersOrderPath
-}
-
-func (i *LifecycleInputs) configDir() string {
-	if i.PlatformAPI.LessThan("0.5") ||
-		(i.LayersDir == "") { // i.LayersDir is unset when this call comes from the rebaser - will be fixed as part of https://github.com/buildpacks/spec/issues/156
-		return "." // the current working directory
-	}
-	return i.LayersDir
-}
-
-func (i *LifecycleInputs) placeholderPaths() []*string {
-	return []*string{
-		&i.AnalyzedPath,
-		&i.GeneratedDir,
-		&i.GroupPath,
-		&i.OrderPath,
-		&i.PlanPath,
-		&i.ProjectMetadataPath,
-		&i.ReportPath,
-	}
-}
-
-// ValidateImageRefs ensures all provided image references are valid.
-func ValidateImageRefs(i *LifecycleInputs, _ log.Logger) error {
-	for _, imageRef := range i.Images() {
-		_, err := name.ParseReference(imageRef, name.WeakValidation)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func ValidateOutputImageProvided(i *LifecycleInputs, logger log.Logger) error {
-	if i.OutputImageRef == "" {
-		return errors.New(ErrOutputImageRequired)
-	}
-	return nil
-}
-
-// ValidateTargetsAreSameRegistry ensures all output images are on the same registry.
-func ValidateTargetsAreSameRegistry(i *LifecycleInputs, _ log.Logger) error {
-	if i.UseDaemon {
-		return nil
-	}
-	return ValidateSameRegistry(i.DestinationImages()...)
-}
-
-func ValidateSameRegistry(tags ...string) error {
-	var (
-		reg        string
-		registries = map[string]struct{}{}
-	)
-	for _, imageRef := range tags {
-		ref, err := name.ParseReference(imageRef, name.WeakValidation)
-		if err != nil {
-			return err
-		}
-		reg = ref.Context().RegistryStr()
-		registries[reg] = struct{}{}
-	}
-
-	if len(registries) > 1 {
-		return errors.New("writing to multiple registries is unsupported")
-	}
-	return nil
-}
-
-// shared helpers
-
-func boolEnv(k string) bool {
-	v := os.Getenv(k)
-	b, err := strconv.ParseBool(v)
-	if err != nil {
-		return false
-	}
-	return b
-}
-
-func envOrDefault(key string, defaultVal string) string {
-	if envVal := os.Getenv(key); envVal != "" {
-		return envVal
-	}
-	return defaultVal
-}
-
-func intEnv(k string) int {
-	v := os.Getenv(k)
-	d, err := strconv.Atoi(v)
-	if err != nil {
-		return 0
-	}
-	return d
 }

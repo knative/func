@@ -7,7 +7,7 @@ jobs:
     name: Integration Test
     strategy:
       matrix:
-        go: [1.18.x]
+        go: [1.20.2]
         os: ["ubuntu-latest"]
     runs-on: ${{ matrix.os }}
     steps:
@@ -15,14 +15,44 @@ jobs:
       - uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go }}
+      - uses: imjasonh/setup-ko@v0.6
       - name: Install Binaries
         run: ./hack/binaries.sh
-      - name: Allocate Cluster
-        run: ./hack/allocate.sh
+      - name: Setup testing func image
+        run: ./hack/create-testing-func-image.sh
       - name: Local Registry
         run: ./hack/registry.sh
+      - name: Allocate Cluster
+        run: ./hack/allocate.sh
+      - name: Patch S2I Task
+        run: ./hack/patch-s2i-task.sh
+      - name: Install Tekton
+        run: ./hack/tekton.sh
+      - name: Set up environment variables
+        run: |
+          echo "TEKTON_TESTS_ENABLED=1" >> "$GITHUB_ENV"
+          echo "GITLAB_TESTS_ENABLED=1" >> "$GITHUB_ENV"
+          echo "GITLAB_HOSTNAME=gitlab.127.0.0.1.sslip.io" >> "$GITHUB_ENV"
+          echo "GITLAB_ROOT_PASSWORD=$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c${1:-32})" >> "$GITHUB_ENV"
+          echo "PAC_CONTROLLER_HOSTNAME=pac-ctr.127.0.0.1.sslip.io" >> "$GITHUB_ENV"
+      - name: Install Pipelines as Code
+        run: ./hack/install-pac.sh
+      - name: Install Gitlab
+        run: ./hack/install-gitlab.sh
+      - name: Patch Hosts
+        run: ./hack/patch-hosts.sh
       - name: Integration Test
         run: make test-integration
+      - name: Dump Cluster Logs
+        if: always()
+        run: |
+          echo "::group::cluster events"
+          kubectl get events -A
+          echo "::endgroup::"
+
+          echo "::group::cluster containers logs"
+          stern '.*' --all-namespaces --no-follow
+          echo "::endgroup::"
       - uses: codecov/codecov-action@v3
         with:
           files: ./coverage.txt

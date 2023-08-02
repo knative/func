@@ -14,6 +14,7 @@ import (
 	"knative.dev/func/pkg/builders/s2i"
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/oci"
 )
 
 func NewBuildCmd(newClient ClientFactory) *cobra.Command {
@@ -150,14 +151,15 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		return
 	}
 	if !f.Initialized() {
-		return fn.NewUninitializedError(f.Root)
+		return fn.NewErrNotInitialized(f.Root)
 	}
 	f = cfg.Configure(f) // Updates f at path to include build request values
 
 	// TODO: this logic is duplicated with runDeploy.  Shouild be in buildConfig
 	// constructor.
-	// Checks if there is a difference between defined registry and its value used as a prefix in the image tag
-	// In case of a mismatch a new image tag is created and used for build
+	// Checks if there is a difference between defined registry and its value
+	// used as a prefix in the image tag In case of a mismatch a new image tag is
+	// created and used for build.
 	// Do not react if image tag has been changed outside configuration
 	if f.Registry != "" && !cmd.Flags().Changed("image") && strings.Index(f.Image, "/") > 0 && !strings.HasPrefix(f.Image, f.Registry) {
 		prfx := f.Registry
@@ -171,25 +173,19 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	}
 
 	// Client
-	// Concrete implementations (ex builder) vary based on final effective config
-	o := []fn.Option{fn.WithRegistry(cfg.Registry)}
-	if f.Build.Builder == builders.Pack {
-		o = append(o, fn.WithBuilder(pack.NewBuilder(
-			pack.WithName(builders.Pack),
-			pack.WithTimestamp(cfg.WithTimestamp),
-			pack.WithVerbose(cfg.Verbose))))
-	} else if f.Build.Builder == builders.S2I {
-		o = append(o, fn.WithBuilder(s2i.NewBuilder(
-			s2i.WithName(builders.S2I),
-			s2i.WithPlatform(cfg.Platform),
-			s2i.WithVerbose(cfg.Verbose))))
+	clientOptions, err := cfg.clientOptions()
+	if err != nil {
+		return
 	}
-
-	client, done := newClient(ClientConfig{Verbose: cfg.Verbose}, o...)
+	client, done := newClient(ClientConfig{Verbose: cfg.Verbose}, clientOptions...)
 	defer done()
 
-	// Build and (optionally) push
-	if f, err = client.Build(cmd.Context(), f); err != nil {
+	// Build
+	buildOptions, err := cfg.buildOptions()
+	if err != nil {
+		return
+	}
+	if f, err = client.Build(cmd.Context(), f, buildOptions...); err != nil {
 		return
 	}
 	if cfg.Push {
@@ -342,6 +338,65 @@ func (c buildConfig) Validate() (err error) {
 	if c.Platform != "" && c.Builder != builders.S2I {
 		err = errors.New("Only S2I builds currently support specifying platform")
 		return
+	}
+
+	return
+}
+
+// clientOptions returns options suitable for instantiating a client based on
+// the current state of the build config object.
+// This will be unnecessary and refactored away when the host-based OCI
+// builder and pusher are the default implementations and the Pack and S2I
+// constructors simplified.
+//
+// TODO: Platform is currently only used by the S2I builder.  This should be
+// a multi-valued argument which passes through to the "host" builder (which
+// supports multi-arch/platform images), and throw an error if either trying
+// to specify a platform for buildpacks, or trying to specify more than one
+// for S2I.
+//
+// TODO: As a further optimization, it might be ideal to only build the
+// image necessary for the target cluster, since the end product of  a function
+// deployment is not the contiainer, but rather the running service.
+func (c buildConfig) clientOptions() ([]fn.Option, error) {
+	o := []fn.Option{fn.WithRegistry(c.Registry)}
+	if c.Builder == builders.Host {
+		o = append(o,
+			fn.WithBuilder(oci.NewBuilder(builders.Host, c.Verbose)),
+			fn.WithPusher(oci.NewPusher(false, c.Verbose)))
+	} else if c.Builder == builders.Pack {
+		o = append(o,
+			fn.WithBuilder(pack.NewBuilder(
+				pack.WithName(builders.Pack),
+				pack.WithTimestamp(c.WithTimestamp),
+				pack.WithVerbose(c.Verbose))))
+	} else if c.Builder == builders.S2I {
+		o = append(o,
+			fn.WithBuilder(s2i.NewBuilder(
+				s2i.WithName(builders.S2I),
+				s2i.WithVerbose(c.Verbose))))
+	} else {
+		return o, builders.ErrUnknownBuilder{Name: c.Builder, Known: KnownBuilders()}
+	}
+	return o, nil
+}
+
+// buildOptions returns options for use with the client.Build request
+func (c buildConfig) buildOptions() (oo []fn.BuildOption, err error) {
+	oo = []fn.BuildOption{}
+
+	// Platforms
+	//
+	// TODO: upgrade --platform to a multi-value field.  The individual builder
+	// implementations are responsible for bubbling an error if they do
+	// not support this.  Pack  supports none, S2I supports one, host builder
+	// supports multi.
+	if c.Platform != "" {
+		parts := strings.Split(c.Platform, "/")
+		if len(parts) != 2 {
+			return oo, fmt.Errorf("the value for --patform must be in the form [OS]/[Architecture].  eg \"linux/amd64\"")
+		}
+		oo = append(oo, fn.BuildWithPlatforms([]fn.Platform{{OS: parts[0], Architecture: parts[1]}}))
 	}
 
 	return

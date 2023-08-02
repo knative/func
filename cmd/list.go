@@ -35,7 +35,8 @@ Lists all deployed functions in a given namespace.
 # List all functions in all namespaces with JSON output
 {{rootCmdUse}} list --all-namespaces --output json
 `,
-		SuggestFor: []string{"ls", "lsit"},
+		SuggestFor: []string{"lsit"},
+		Aliases:    []string{"ls"},
 		PreRunE:    bindEnv("all-namespaces", "output", "namespace", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runList(cmd, args, newClient)

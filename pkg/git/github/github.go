@@ -10,7 +10,11 @@ import (
 	"golang.org/x/oauth2"
 )
 
-func CreateGitHubWebhook(ctx context.Context, repoOwner, repoName, payloadURL, webhookSecret, personalAccessToken string) error {
+type Client struct {
+	PersonalAccessToken string
+}
+
+func (c Client) CreateWebHook(ctx context.Context, repoOwner, repoName, payloadURL, webhookSecret string) error {
 	hook := &github.Hook{
 		Name:   github.String("web"),
 		Active: github.Bool(true),
@@ -27,7 +31,7 @@ func CreateGitHubWebhook(ctx context.Context, repoOwner, repoName, payloadURL, w
 		},
 	}
 
-	ghClient, err := newGHClientByToken(ctx, personalAccessToken, "")
+	ghClient, err := newGHClientByToken(ctx, c.PersonalAccessToken, "")
 	if err != nil {
 		return err
 	}

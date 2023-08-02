@@ -4,10 +4,10 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
+	slashpath "path"
 	"path/filepath"
 	"strings"
 
@@ -19,27 +19,30 @@ import (
 // languageLayerBuilder builds the layer for the given language whuch may
 // be different from one platform to another.  For example, this is the
 // layer in the image which contains the Go cross-compiled binary.
-type languageLayerBuilder interface {
-	Build(*buildConfig, v1.Platform) (v1.Descriptor, v1.Layer, error)
+type languageLayerBuilder func(*buildConfig, v1.Platform) (v1.Descriptor, v1.Layer, error)
+
+var languageLayerBuilders = map[string]languageLayerBuilder{
+	"go":     buildGoLayer,
+	"python": layerBuilderNotImplemented,
+	"node":   layerBuilderNotImplemented,
+	"rust":   layerBuilderNotImplemented,
 }
 
-func newLanguageLayerBuilder(cfg *buildConfig) (l languageLayerBuilder, err error) {
-	switch cfg.f.Runtime {
-	case "go":
-		l = goLayerBuilder{}
-	case "python":
-		// Likely the next to be supported after Go
-		err = errors.New("functions written in Python are not yet supported by the host builder")
-	case "node":
-		// Likely the next to be supported after Python
-		err = errors.New("functions written in Node are not yet supported by the host builder")
-	case "rust":
-		// Likely the next to be supprted after Node
-		err = errors.New("functions written in Rust are not yet supported by the host builder")
-	default:
-		// Others are not likely to be supported in the near future without
-		// increased contributions.
+func layerBuilderNotImplemented(cfg *buildConfig, _ v1.Platform) (d v1.Descriptor, l v1.Layer, err error) {
+	err = fmt.Errorf("%v functions are not yet supported by the host builder", cfg.f.Runtime)
+	return
+}
+
+func getLanguageLayerBuilder(cfg *buildConfig) (l languageLayerBuilder, err error) {
+	// use the custom implementation, if provided
+	if cfg.buildFn != nil {
+		return cfg.buildFn, nil
+	}
+	// otherwise lookup the build function
+	l, ok := languageLayerBuilders[cfg.f.Runtime]
+	if !ok {
 		err = fmt.Errorf("the language runtime '%v' is not a recognized language by the host builder", cfg.f.Runtime)
+		return
 	}
 	return
 }
@@ -65,21 +68,17 @@ func containerize(cfg *buildConfig) (err error) {
 		return
 	}
 
-	// TODO: if the base image is not provided, create a certificates layer
-	// which includes root certificates such that the resultant container
-	// can validate SSL (make HTTPS requests)
-	/*
-		certsDesc, certsLayer, err := newCerts(cfg) // shared
-		if err != nil {
-			return
-		}
-	*/
+	// Create the root certificates layer and its decriptor
+	certsDesc, certsLayer, err := newCertsLayer(cfg) // shared
+	if err != nil {
+		return
+	}
 
-	// Create an image for each platform consisting of the shared data layer
-	// and an os/platform specific layer.
+	// Create an image for each platform consisting of the shared data layer,
+	// the shared root certs layer, and an os/platform specific layer.
 	imageDescs := []v1.Descriptor{}
-	for _, p := range defaultPlatforms { // TODO: Configurable additions.
-		imageDesc, err := newImage(cfg, dataDesc, dataLayer, p, cfg.verbose)
+	for _, p := range cfg.platforms {
+		imageDesc, err := newImage(cfg, dataDesc, dataLayer, certsDesc, certsLayer, p, cfg.verbose)
 		if err != nil {
 			return err
 		}
@@ -161,7 +160,7 @@ func newDataTarball(source, target string, ignored []string, verbose bool) error
 			return err
 		}
 
-		header.Name = filepath.Join("/func", relPath)
+		header.Name = slashpath.Join("/func", filepath.ToSlash(relPath))
 		// TODO: should we set file timestamps to the build start time of cfg.t?
 		// header.ModTime = timestampArgument
 
@@ -186,6 +185,90 @@ func newDataTarball(source, target string, ignored []string, verbose bool) error
 	})
 }
 
+// newCertLayer creates the shared data layer in the container file hierarchy and
+// returns both its descriptor and layer metadata.
+func newCertsLayer(cfg *buildConfig) (desc v1.Descriptor, layer v1.Layer, err error) {
+
+	// Create the data tarball
+	// TODO: try WithCompressedCaching?
+	source := filepath.Join(cfg.buildDir(), "ca-certificates.crt")
+	target := path(cfg.buildDir(), "certslayer.tar.gz")
+
+	if err = newCertsTarball(source, target, defaultIgnored, cfg.verbose); err != nil {
+		return
+	}
+
+	// Layer
+	if layer, err = tarball.LayerFromFile(target); err != nil {
+		return
+	}
+
+	// Descriptor
+	if desc, err = newDescriptor(layer); err != nil {
+		return
+	}
+
+	// Blob
+	blob := path(cfg.blobsDir(), desc.Digest.Hex)
+	if cfg.verbose {
+		fmt.Printf("mv %v %v\n", rel(cfg.buildDir(), target), rel(cfg.buildDir(), blob))
+	}
+	err = os.Rename(target, blob)
+	return
+}
+
+func newCertsTarball(source, target string, ignored []string, verbose bool) error {
+	targetFile, err := os.Create(target)
+	if err != nil {
+		return err
+	}
+	defer targetFile.Close()
+
+	gw := gzip.NewWriter(targetFile)
+	defer gw.Close()
+
+	tw := tar.NewWriter(gw)
+	defer tw.Close()
+
+	paths := []string{
+		"/etc/ssl/certs/ca-certificates.crt",
+		"/etc/pki/tls/certs/ca-certificates.crt",
+	}
+
+	fi, err := os.Stat(source)
+	if err != nil {
+		return err
+	}
+
+	// For each ssl certs path we want to create
+	for _, path := range paths {
+		// Create a header for it
+		header, err := tar.FileInfoHeader(fi, "")
+		if err != nil {
+			return err
+		}
+		header.Name = path
+
+		if err := tw.WriteHeader(header); err != nil {
+			return err
+		}
+		if verbose {
+			fmt.Printf("→ %v \n", header.Name)
+		}
+		file, err := os.Open(source)
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+		_, err = io.Copy(tw, file)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func newDescriptor(layer v1.Layer) (desc v1.Descriptor, err error) {
 	size, err := layer.Size()
 	if err != nil {
@@ -204,20 +287,20 @@ func newDescriptor(layer v1.Layer) (desc v1.Descriptor, err error) {
 
 // newImage creates an image for the given platform.
 // The image consists of the shared data layer which is provided
-func newImage(cfg *buildConfig, dataDesc v1.Descriptor, dataLayer v1.Layer, p v1.Platform, verbose bool) (imageDesc v1.Descriptor, err error) {
-	b, err := newLanguageLayerBuilder(cfg)
+func newImage(cfg *buildConfig, dataDesc v1.Descriptor, dataLayer v1.Layer, certsDesc v1.Descriptor, certsLayer v1.Layer, p v1.Platform, verbose bool) (imageDesc v1.Descriptor, err error) {
+	buildFn, err := getLanguageLayerBuilder(cfg)
 	if err != nil {
 		return
 	}
 
 	// Write Exec Layer as Blob -> Layer
-	execDesc, execLayer, err := b.Build(cfg, p)
+	execDesc, execLayer, err := buildFn(cfg, p)
 	if err != nil {
 		return
 	}
 
 	// Write Config Layer as Blob -> Layer
-	configDesc, _, err := newConfig(cfg, p, dataLayer, execLayer)
+	configDesc, _, err := newConfig(cfg, p, dataLayer, certsLayer, execLayer)
 	if err != nil {
 		return
 	}
@@ -227,7 +310,7 @@ func newImage(cfg *buildConfig, dataDesc v1.Descriptor, dataLayer v1.Layer, p v1
 		SchemaVersion: 2,
 		MediaType:     types.OCIManifestSchema1,
 		Config:        configDesc,
-		Layers:        []v1.Descriptor{dataDesc, execDesc},
+		Layers:        []v1.Descriptor{dataDesc, certsDesc, execDesc},
 	}
 
 	// Write image manifest out as json to a tempfile
@@ -287,6 +370,9 @@ func newConfig(cfg *buildConfig, p v1.Platform, layers ...v1.Layer) (desc v1.Des
 	}
 	var diff v1.Hash
 	for _, v := range layers {
+		if v == nil {
+			continue
+		}
 		if diff, err = v.DiffID(); err != nil {
 			return
 		}

@@ -17,6 +17,8 @@ import (
 	"time"
 
 	"gopkg.in/yaml.v2"
+
+	"knative.dev/func/pkg/scaffolding"
 	"knative.dev/func/pkg/utils"
 )
 
@@ -29,7 +31,33 @@ const (
 	// one implementation of each supported function signature.  Currently that
 	// includes an HTTP Handler ("http") and Cloud Events handler ("events")
 	DefaultTemplate = "http"
+
+	// DefaultStartTimeout is the suggested startup timeout to use by
+	// runner implementations.
+	DefaultStartTimeout = 60 * time.Second
 )
+
+var (
+	// DefaultPlatforms is a suggestion to builder implementations which
+	// platforms should be the default.  Due to spotty implementation support
+	// use of this set is left up to the discretion of the builders
+	// themselves.  In the event the builder receives build options which
+	// specify a set of platforms to use in leau of the default (see the
+	// BuildWithPlatforms functionl option), the builder should return
+	// an error if the request can not proceed.
+	DefaultPlatforms = []Platform{
+		{OS: "linux", Architecture: "amd64"},
+		{OS: "linux", Architecture: "arm64"},
+		{OS: "linux", Architecture: "arm", Variant: "v7"}, // eg. RPiv4
+	}
+)
+
+// Platform upon which a function may run
+type Platform struct {
+	OS           string
+	Architecture string
+	Variant      string
+}
 
 // Client for managing function instances.
 type Client struct {
@@ -51,21 +79,13 @@ type Client struct {
 	instances         *InstanceRefs     // Function Instances management
 	transport         http.RoundTripper // Customizable internal transport
 	pipelinesProvider PipelinesProvider // CI/CD pipelines management
+	startTimeout      time.Duration     // default start timeout for all runs
 }
-
-// ErrNotBuilt indicates the function has not yet been built.
-var ErrNotBuilt = errors.New("not built")
-
-// ErrNameRequired indicates the operation requires a name to complete.
-var ErrNameRequired = errors.New("name required")
-
-// ErrRegistryRequired indicates the operation requires a registry to complete.
-var ErrRegistryRequired = errors.New("registry required to build function, please set with `--registry` or the FUNC_REGISTRY environment variable")
 
 // Builder of function source to runnable image.
 type Builder interface {
 	// Build a function project with source located at path.
-	Build(context.Context, Function) error
+	Build(context.Context, Function, []Platform) error
 }
 
 // Pusher of function image to a registry.
@@ -99,9 +119,10 @@ const (
 // Runner runs the function locally.
 type Runner interface {
 	// Run the function, returning a Job with metadata, error channels, and
-	// a stop function.The process can be stopped by running the returned stop
+	// a stop function.  The process can be stopped by running the returned stop
 	// function, either on context cancellation or in a defer.
-	Run(context.Context, Function) (*Job, error)
+	// The duration is the time to wait for the job to start.
+	Run(context.Context, Function, time.Duration) (*Job, error)
 }
 
 // Remover of deployed services.
@@ -155,7 +176,7 @@ type Describer interface {
 // there is a one to many relationship between a given route and processes.
 // By default the system creates the 'local' and 'remote' named instances
 // when a function is run (locally) and deployed, respectively.
-// See the .Instances(f) accessor for the map of named environments to these
+// See the .InstanceRefs(f) accessor for the map of named environments to these
 // function information structures.
 type Instance struct {
 	// Route is the primary route of a function instance.
@@ -197,7 +218,6 @@ func New(options ...Option) *Client {
 		builder:           &noopBuilder{output: os.Stdout},
 		pusher:            &noopPusher{output: os.Stdout},
 		deployer:          &noopDeployer{output: os.Stdout},
-		runner:            &noopRunner{output: os.Stdout},
 		remover:           &noopRemover{output: os.Stdout},
 		lister:            &noopLister{output: os.Stdout},
 		describer:         &noopDescriber{output: os.Stdout},
@@ -205,7 +225,9 @@ func New(options ...Option) *Client {
 		progressListener:  &NoopProgressListener{},
 		pipelinesProvider: &noopPipelinesProvider{},
 		transport:         http.DefaultTransport,
+		startTimeout:      DefaultStartTimeout,
 	}
+	c.runner = newDefaultRunner(c, os.Stdout, os.Stderr)
 	for _, o := range options {
 		o(c)
 	}
@@ -355,6 +377,19 @@ func WithPipelinesProvider(pp PipelinesProvider) Option {
 	}
 }
 
+// WithStartTimeout sets a custom default timeout for functions which do not
+// define their own.  This is useful in situations where the client is
+// operating in a restricted environment and all functions tend to take longer
+// to start up than usual, or when the client is running functions which
+// in general take longer to start.  If a timeout is specified on the
+// function itself, that will take precidence.  Use the RunWithTimeout option
+// on the Run method to specify a timeout with precidence.
+func WithStartTimeout(t time.Duration) Option {
+	return func(c *Client) {
+		c.startTimeout = t
+	}
+}
+
 // ACCESSORS
 // ---------
 
@@ -414,10 +449,10 @@ func (c *Client) Runtimes() ([]string, error) {
 // create a running function whose source code and metadata match that provided
 // by the passed function instance, returning the final route and any errors.
 func (c *Client) Apply(ctx context.Context, f Function) (string, Function, error) {
-	if !f.Initialized() {
-		return c.New(ctx, f)
-	} else {
+	if f.Initialized() {
 		return c.Update(ctx, f)
+	} else {
+		return c.New(ctx, f)
 	}
 }
 
@@ -426,11 +461,12 @@ func (c *Client) Apply(ctx context.Context, f Function) (string, Function, error
 // Updates a function which has already been initialized to run the latest
 // source code.
 //
-// Use Init, Build, Push and Deploy independently for lower level control.
+// Use Apply for higher level control. Use Init, Build, Push and Deploy
+// independently for lower level control.
 // Returns final primary route to the Function and any errors.
 func (c *Client) Update(ctx context.Context, f Function) (string, Function, error) {
 	if !f.Initialized() {
-		return "", f, ErrNotInitialized
+		return "", f, ErrNotInitialized{f.Root}
 	}
 	var err error
 	if f, err = c.Build(ctx, f); err != nil {
@@ -451,7 +487,8 @@ func (c *Client) Update(ctx context.Context, f Function) (string, Function, erro
 // Function. Used by Apply when the path is not yet an initialized function.
 // Errors if the path is alrady an initialized function.
 //
-// Use Init, Build, Push, Deploy etc. independently for lower level control.
+// Use Apply for higher level control.  Use Init, Build, Push, Deploy
+// independently for lower level control.
 // Returns the primary route to the function or error.
 func (c *Client) New(ctx context.Context, cfg Function) (string, Function, error) {
 	c.progressListener.SetTotal(3)
@@ -560,11 +597,13 @@ func (c *Client) Init(cfg Function) (Function, error) {
 		return f, err
 	}
 
+	//create a .funcignore file
+	if err = ensureFuncIgnore(f.Root); err != nil {
+		return f, err
+	}
+
 	// Write out the new function's Template files.
-	// Templates contain values which may result in the function being mutated
-	// (default builders, etc)
-	err = c.Templates().Write(&f)
-	if err != nil {
+	if err = c.Templates().Write(&f); err != nil {
 		return f, err
 	}
 
@@ -579,17 +618,36 @@ func (c *Client) Init(cfg Function) (Function, error) {
 	return NewFunction(oldRoot)
 }
 
+type BuildOptions struct {
+	Platforms []Platform
+}
+
+type BuildOption func(c *BuildOptions)
+
+func BuildWithPlatforms(pp []Platform) BuildOption {
+	return func(c *BuildOptions) {
+		c.Platforms = pp
+	}
+}
+
 // Build the function at path. Errors if the function is either unloadable or does
 // not contain a populated Image.
-func (c *Client) Build(ctx context.Context, f Function) (Function, error) {
+func (c *Client) Build(ctx context.Context, f Function, options ...BuildOption) (Function, error) {
 	c.progressListener.Increment("Building function image")
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
+
 	// If not logging verbosely, the ongoing progress of the build will not
 	// be streaming to stdout, and the lack of activity has been seen to cause
 	// users to prematurely exit due to the sluggishness of pulling large images
 	if !c.verbose {
 		c.printBuildActivity(ctx) // print friendly messages until context is canceled
+	}
+
+	// Options for the build task
+	oo := BuildOptions{}
+	for _, o := range options {
+		o(&oo)
 	}
 
 	// Default function registry to the client's global registry
@@ -608,7 +666,7 @@ func (c *Client) Build(ctx context.Context, f Function) (Function, error) {
 		}
 	}
 
-	if err = c.builder.Build(ctx, f); err != nil {
+	if err = c.builder.Build(ctx, f, oo.Platforms); err != nil {
 		return f, err
 	}
 
@@ -630,49 +688,15 @@ func (c *Client) Build(ctx context.Context, f Function) (Function, error) {
 // It also updates the included symlink to function source 'f' to point to
 // the current function's source.
 func (c *Client) Scaffold(ctx context.Context, f Function, dest string) (err error) {
-	// First get a reference to the repository containing the scaffolding to use
-	//
-	// TODO: In order to support extensible scaffolding from external repositories,
-	// Retain the repository reference from which a Function was initialized
-	// in order to re-read out its scaffolding later.  This can be the locally-
-	// installed repository name or the remote reference URL.  There are benefits
-	// and detriments either way.  A third option would be to store the
-	// scaffolding locally, but this also has downsides.
-	//
-	//  If function creatd from a local repository named:
-	//     repo = repoFromURL(f.RepoURL)
-	//  If function created from a remote reference:
-	//    c.Repositories().Get(f.RepoName)
-	//  If function not created from an external repository:
-	repo, err := c.Repositories().Get(DefaultRepositoryName)
+	repo, err := NewRepository("", "") // default (embedded) repository
 	if err != nil {
 		return
 	}
-
-	// Detect the method signature
-	s, err := functionSignature(f)
-	if err != nil {
-		return
-	}
-
-	// Write Scaffolding from the Repository into the destination
-	if err = repo.WriteScaffolding(ctx, f, s, dest); err != nil {
-		return
-	}
-
-	// Replace the 'f' link of the scaffolding (which is now incorrect) to
-	// link to the function's root.
-	src, err := filepath.Rel(dest, f.Root)
-	if err != nil {
-		return fmt.Errorf("error determining relative path to function source %w", err)
-	}
-	_ = os.Remove(filepath.Join(dest, "f"))
-	if err = os.Symlink(src, filepath.Join(dest, "f")); err != nil {
-		return fmt.Errorf("error linking scaffolding to function source %w", err)
-	}
-	return
+	return scaffolding.Write(dest, f.Root, f.Runtime, f.Invoke, repo.FS())
 }
 
+// printBuildActivity is a helper for ensuring the user gets feedback from
+// the long task of containerized builds.
 func (c *Client) printBuildActivity(ctx context.Context) {
 	m := []string{
 		"Still building",
@@ -870,21 +894,51 @@ func (c *Client) Route(ctx context.Context, f Function) (string, Function, error
 	return instance.Route, f, nil
 }
 
+type RunOptions struct {
+	StartTimeout time.Duration
+}
+
+type RunOption func(c *RunOptions)
+
+// RunWithStartTimeout sets a specific timeout for this run request to start.
+// If not provided, the client's run timeout (set by default to
+// DefaultRunTimeout and configurable via the WithRunTimeout client
+// instantiation option) is used.
+func RunWithStartTimeout(t time.Duration) RunOption {
+	return func(c *RunOptions) {
+		c.StartTimeout = t
+	}
+}
+
 // Run the function whose code resides at root.
 // On start, the chosen port is sent to the provided started channel
-func (c *Client) Run(ctx context.Context, f Function) (job *Job, err error) {
+func (c *Client) Run(ctx context.Context, f Function, options ...RunOption) (job *Job, err error) {
 	go func() {
 		<-ctx.Done()
 		c.progressListener.Stopping()
 	}()
 
+	oo := RunOptions{}
+	for _, o := range options {
+		o(&oo)
+	}
+
 	if !f.Initialized() {
 		return nil, fmt.Errorf("can not run an uninitialized function")
 	}
 
+	// timeout for this run task.
+	timeout := c.startTimeout    // client's global setting is the default
+	if f.Run.StartTimeout != 0 { // Function value, if defined, takes precidence
+		timeout = f.Run.StartTimeout
+	}
+	if oo.StartTimeout != 0 { // Highest precidence is an option passed to Run
+		timeout = oo.StartTimeout
+	}
+
 	// Run the function, which returns a Job for use interacting (at arms length)
 	// with that running task (which is likely inside a container process).
-	if job, err = c.runner.Run(ctx, f); err != nil {
+	if job, err = c.runner.Run(ctx, f, timeout); err != nil {
 		return
 	}
 
@@ -1072,6 +1126,41 @@ func ensureRunDataDir(root string) error {
 	return nil
 }
 
+func ensureFuncIgnore(root string) error {
+	filePath := filepath.Join(root, ".funcignore")
+
+	// Check if the file exists
+	_, err := os.Stat(filePath)
+	if err == nil {
+		// File exists, do nothing
+		return nil
+	}
+	if !os.IsNotExist(err) {
+		// Some other error occurred when trying to stat the file
+		return err
+	}
+
+	//file does not exist, create it
+	// Open the file for writing only
+	file, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE, 0644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	// Write the desired string to the file
+	_, err = file.WriteString(`
+# Use the .funcignore file to exclude files which should not be
+# tracked in the image build. To instruct the system not to track
+# files in the image build, add the regex pattern or file information
+# to this file.
+`)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // Fingerprint the files at a given path.  Returns a hash calculated from the
 // filenames and modification timestamps of the files within the given root.
 // Also returns a logfile consiting of the filenames and modification times
@@ -1202,7 +1291,7 @@ func hasInitializedFunction(path string) (bool, error) {
 // Builder
 type noopBuilder struct{ output io.Writer }
 
-func (n *noopBuilder) Build(ctx context.Context, _ Function) error { return nil }
+func (n *noopBuilder) Build(ctx context.Context, _ Function, _ []Platform) error { return nil }
 
 // Pusher
 type noopPusher struct{ output io.Writer }
@@ -1214,13 +1303,6 @@ type noopDeployer struct{ output io.Writer }
 
 func (n *noopDeployer) Deploy(ctx context.Context, _ Function) (DeploymentResult, error) {
 	return DeploymentResult{}, nil
-}
-
-// Runner
-type noopRunner struct{ output io.Writer }
-
-func (n *noopRunner) Run(context.Context, Function) (job *Job, err error) {
-	return nil, errors.New("no runner available")
 }
 
 // Remover
