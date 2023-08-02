@@ -137,7 +137,7 @@ Built in to the Functions library are Language Packs for Go, Node.js, Python, Qu
 Language Packs are distributed as a set of templates for one or more languages via Git repositories, and installed by the developer locally using the `func` CLI.
 
 ```
-func repository add func https://github.com/knative-sandbox/func-tastic
+func repository add func https://github.com/knative-extensions/func-tastic
 func create -l go -t func/hello-world
 ```
 
@@ -190,7 +190,7 @@ When `func create` is used to generate a Function project, the Language Pack pro
 Using external Language Packs is made possible through the `func repository` command, which allows Function developers to add and remove Language Packs from their local development environment. For example:
 
 ```
-❯ func repository add https://github.com/knative-sandbox/func-tastic functastic # Add the func-tastic repo to the local environment
+❯ func repository add https://github.com/knative-extensions/func-tastic functastic # Add the func-tastic repo to the local environment
 ❯ func repo list # list repos
 default
 functastic

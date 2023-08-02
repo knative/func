@@ -1,9 +1,9 @@
 github.com/coreos/go-systemd/v22 v22.5.0/go.mod h1:Y58oyj3AT4RCenI/lSvhwexgC+NSVTIJ3seZv2GcEnc=
 github.com/godbus/dbus/v5 v5.0.4/go.mod h1:xhWf0FNVPg57R7Z0UbKHbJfkEywrmjJnf7w5xrFpKfA=
-github.com/knative-sandbox/func-go v0.18.1 h1:PkOsWmgefI130mJBmozFkanBmHGt1Eam6CxXN4GrImQ=
-github.com/knative-sandbox/func-go v0.18.1/go.mod h1:QDKfq6BotMkLL/mppdVfwGnZzZz4FvxfzSqJa414sB4=
-github.com/knative-sandbox/func-go v0.18.2 h1:uwGrpFXcchEtfr2CLHIXYHnrw3vIyHWjIs/QSX2zwbc=
-github.com/knative-sandbox/func-go v0.18.2/go.mod h1:QDKfq6BotMkLL/mppdVfwGnZzZz4FvxfzSqJa414sB4=
+github.com/knative-extensions/func-go v0.18.1 h1:PkOsWmgefI130mJBmozFkanBmHGt1Eam6CxXN4GrImQ=
+github.com/knative-extensions/func-go v0.18.1/go.mod h1:QDKfq6BotMkLL/mppdVfwGnZzZz4FvxfzSqJa414sB4=
+github.com/knative-extensions/func-go v0.18.2 h1:uwGrpFXcchEtfr2CLHIXYHnrw3vIyHWjIs/QSX2zwbc=
+github.com/knative-extensions/func-go v0.18.2/go.mod h1:QDKfq6BotMkLL/mppdVfwGnZzZz4FvxfzSqJa414sB4=
 github.com/mattn/go-colorable v0.1.12/go.mod h1:u5H1YNBxpqRaxsYJYSkiCWKzEfiAb1Gb520KVy5xxl4=
 github.com/mattn/go-colorable v0.1.13 h1:fFA4WZxdEF4tXPZVKMLwD8oUnCTTo08duU7wxecdEvA=
 github.com/mattn/go-colorable v0.1.13/go.mod h1:7S9/ev0klgBDR4GtXTXX8a3vIGJpMovkB8vQcUbaXHg=
