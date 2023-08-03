@@ -15,10 +15,6 @@ github.com/google/uuid v1.3.0/go.mod h1:TIyPZe4MgqvfeYDBFedMoGGpEw/LqOeaOT+nhxU+
 github.com/json-iterator/go v1.1.10/go.mod h1:KdQUCv79m/52Kvf8AW2vK1V8akMuk1QjK/uOdHXbAo4=
 github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnrnM=
 github.com/json-iterator/go v1.1.12/go.mod h1:e30LSqwooZae/UwlEbR2852Gd8hjQvJoHmT4TnhNGBo=
-github.com/knative-sandbox/func-go v0.18.1 h1:PkOsWmgefI130mJBmozFkanBmHGt1Eam6CxXN4GrImQ=
-github.com/knative-sandbox/func-go v0.18.1/go.mod h1:QDKfq6BotMkLL/mppdVfwGnZzZz4FvxfzSqJa414sB4=
-github.com/knative-sandbox/func-go v0.18.2 h1:uwGrpFXcchEtfr2CLHIXYHnrw3vIyHWjIs/QSX2zwbc=
-github.com/knative-sandbox/func-go v0.18.2/go.mod h1:QDKfq6BotMkLL/mppdVfwGnZzZz4FvxfzSqJa414sB4=
 github.com/kr/pty v1.1.1/go.mod h1:pFQYn66WHrOpPYNljwOMqo10TkYh1fy3cYio2l3bCsQ=
 github.com/kr/text v0.1.0/go.mod h1:4Jbv+DJW3UT/LiOwJeYQe1efqtUx/iVham/4vfdArNI=
 github.com/kr/text v0.2.0/go.mod h1:eLer722TekiGuMkidMxC/pM04lWEeraHUUmBw8l2grE=
@@ -58,3 +54,5 @@ gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f/go.mod h1:Co6ibVJAznAaIkqp8
 gopkg.in/yaml.v2 v2.2.2/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
 gopkg.in/yaml.v2 v2.3.0/go.mod h1:hI93XBmqTisBFMUTm0b8Fm+jr3Dg1NNxqwp+5A1VGuI=
 gopkg.in/yaml.v3 v3.0.1 h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=
+knative.dev/func-go v0.18.3 h1:vEaFAmh0C5SqBiI53dc7RDEibavJRFqGnemzHJ0ZzLU=
+knative.dev/func-go v0.18.3/go.mod h1:+Og4a5pqW5WfBrv8Xf0jcTx5s+LiUpzcXyWBIuwKz30=

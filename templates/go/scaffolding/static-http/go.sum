@@ -1,9 +1,5 @@
 github.com/coreos/go-systemd/v22 v22.5.0/go.mod h1:Y58oyj3AT4RCenI/lSvhwexgC+NSVTIJ3seZv2GcEnc=
 github.com/godbus/dbus/v5 v5.0.4/go.mod h1:xhWf0FNVPg57R7Z0UbKHbJfkEywrmjJnf7w5xrFpKfA=
-github.com/knative-sandbox/func-go v0.18.1 h1:PkOsWmgefI130mJBmozFkanBmHGt1Eam6CxXN4GrImQ=
-github.com/knative-sandbox/func-go v0.18.1/go.mod h1:QDKfq6BotMkLL/mppdVfwGnZzZz4FvxfzSqJa414sB4=
-github.com/knative-sandbox/func-go v0.18.2 h1:uwGrpFXcchEtfr2CLHIXYHnrw3vIyHWjIs/QSX2zwbc=
-github.com/knative-sandbox/func-go v0.18.2/go.mod h1:QDKfq6BotMkLL/mppdVfwGnZzZz4FvxfzSqJa414sB4=
 github.com/mattn/go-colorable v0.1.12/go.mod h1:u5H1YNBxpqRaxsYJYSkiCWKzEfiAb1Gb520KVy5xxl4=
 github.com/mattn/go-colorable v0.1.13 h1:fFA4WZxdEF4tXPZVKMLwD8oUnCTTo08duU7wxecdEvA=
 github.com/mattn/go-colorable v0.1.13/go.mod h1:7S9/ev0klgBDR4GtXTXX8a3vIGJpMovkB8vQcUbaXHg=
@@ -19,7 +15,7 @@ golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c/go.mod h1:oPkhp1MJrh7nUepCBc
 golang.org/x/sys v0.0.0-20210927094055-39ccf1dd6fa6/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.0.0-20220811171246-fbc7d0a398ab/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.6.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
-golang.org/x/sys v0.9.0 h1:KS/R3tvhPqvJvwcKfnBHJwwthS11LRhmM5D59eEXa0s=
-golang.org/x/sys v0.9.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.10.0 h1:SqMFp9UcQJZa+pmYuAKjd9xq1f0j5rLcDIk0mj4qAsA=
 golang.org/x/sys v0.10.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+knative.dev/func-go v0.18.3 h1:vEaFAmh0C5SqBiI53dc7RDEibavJRFqGnemzHJ0ZzLU=
+knative.dev/func-go v0.18.3/go.mod h1:+Og4a5pqW5WfBrv8Xf0jcTx5s+LiUpzcXyWBIuwKz30=
