@@ -405,7 +405,7 @@ All notable changes to this project will be documented in this file. See [standa
 
 * added checks on delete command test for lint ([94e387c](https://github.com/knative-sandbox/kn-plugin-func/commit/94e387c9326aed79ede95f36b97da4de97c42dec))
 * default for `--builder` flag ([06455f4](https://github.com/knative-sandbox/kn-plugin-func/commit/06455f4bac02e8581ae4471e72909ba9fe7dbd4d))
-* func delete with explicity name as argument ([#323](https://github.com/knative-sandbox/kn-plugin-func/issues/323)) with strict validation ([8ab0ba2](https://github.com/knative-sandbox/kn-plugin-func/commit/8ab0ba243ae4c40867a2426b2ca965559a03cd53))
+* func delete with explicitly name as argument ([#323](https://github.com/knative-sandbox/kn-plugin-func/issues/323)) with strict validation ([8ab0ba2](https://github.com/knative-sandbox/kn-plugin-func/commit/8ab0ba243ae4c40867a2426b2ca965559a03cd53))
 * lint issues ([895872a](https://github.com/knative-sandbox/kn-plugin-func/commit/895872aee76b44be739bd0eafb9f2cdcdc137494))
 
 
