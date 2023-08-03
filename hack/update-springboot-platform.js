@@ -1,5 +1,7 @@
 const axios = require('axios')
 const xml2js = require('xml2js');
+const yaml = require('yaml')
+const semver = require('semver')
 const {Octokit} = require("octokit");
 const {readFile,writeFile} = require('fs/promises');
 const {spawn} = require('node:child_process');
@@ -81,9 +83,38 @@ const updatePlatformInPom = async (pomPath, newPlatform) => {
     const pomData = await readFile(pomPath, {encoding: 'utf8'});
     const pom = await parseXML(pomData)
     pom.project.parent[0].version[0] = newPlatform
+
+    const compatibleSpringCloudVersion = await getCompatibleSpringCloudVersion(newPlatform)
+    pom.project.properties[0]['spring-cloud.version'] = [compatibleSpringCloudVersion]
+
     const builder = new xml2js.Builder( { headless: false, renderOpts: { pretty: true }  })
     const newPomData = builder.buildObject(pom)
     await writeFile(pomPath, newPomData)
+}
+
+const getCompatibleSpringCloudVersion = async (newPlatform) => {
+    const bomUrl = "https://raw.githubusercontent.com/spring-io/start.spring.io/main/start-site/src/main/resources/application.yml"
+    const mappings = yaml.parseAllDocuments((await axios.get(bomUrl)).data)[0].toJS()
+        .initializr
+        .env
+        .boms['spring-cloud']
+        .mappings
+
+    const newPlatformVersion = semver.parse(newPlatform, {}, true)
+    let result = null
+    for (const {compatibilityRange, version} of mappings) {
+        const [b, e] = compatibilityRange.slice(1,-1).split(',')
+        const begin = semver.parse(b, {}, true)
+        const end = semver.parse(e, {}, true)
+        if (newPlatformVersion.compare(begin) >= 0 && newPlatformVersion.compare(end) < 0) {
+            result = version
+            break
+        }
+    }
+    if (result == null) {
+        throw new Error("cannot get latest compatible spring-cloud version")
+    }
+    return result
 }
 
 const smokeTest = () => {
