@@ -101,20 +101,15 @@ const getCompatibleSpringCloudVersion = async (newPlatform) => {
         .mappings
 
     const newPlatformVersion = semver.parse(newPlatform, {}, true)
-    let result = null
     for (const {compatibilityRange, version} of mappings) {
         const [b, e] = compatibilityRange.slice(1,-1).split(',')
         const begin = semver.parse(b, {}, true)
         const end = semver.parse(e, {}, true)
         if (newPlatformVersion.compare(begin) >= 0 && newPlatformVersion.compare(end) < 0) {
-            result = version
-            break
+            return version
         }
     }
-    if (result == null) {
-        throw new Error("cannot get latest compatible spring-cloud version")
-    }
-    return result
+    throw new Error("cannot get latest compatible spring-cloud version")
 }
 
 const smokeTest = () => {
