@@ -257,7 +257,7 @@ func patchBuilder(config *builder.Config) {
 		},
 		{
 			ModuleInfo: dist.ModuleInfo{
-				ID:      "dev.knative-sandbox.go",
+				ID:      "dev.knative-extensions.go",
 				Version: "0.0.4",
 			},
 			ImageOrURI: dist.ImageOrURI{
@@ -285,7 +285,7 @@ func patchBuilder(config *builder.Config) {
 				},
 				{
 					ModuleInfo: dist.ModuleInfo{
-						ID: "dev.knative-sandbox.go",
+						ID: "dev.knative-extensions.go",
 					},
 				},
 			},
