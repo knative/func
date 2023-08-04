@@ -272,7 +272,7 @@ func patchBuilder(config *builder.Config) {
 				{
 					ModuleInfo: dist.ModuleInfo{
 						ID: "paketo-community/rust",
-					},sssssssssssssssssssssssssssssssssss
+					},
 				},
 			},
 		},
