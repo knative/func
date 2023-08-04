@@ -258,10 +258,10 @@ func patchBuilder(config *builder.Config) {
 		{
 			ModuleInfo: dist.ModuleInfo{
 				ID:      "dev.knative-extensions.go",
-				Version: "0.0.4",
+				Version: "0.0.6",
 			},
 			ImageOrURI: dist.ImageOrURI{
-				BuildpackURI: dist.BuildpackURI{URI: "ghcr.io/boson-project/go-function-buildpack:0.0.4"},
+				BuildpackURI: dist.BuildpackURI{URI: "ghcr.io/boson-project/go-function-buildpack:0.0.6"},
 			},
 		},
 	}
@@ -272,7 +272,7 @@ func patchBuilder(config *builder.Config) {
 				{
 					ModuleInfo: dist.ModuleInfo{
 						ID: "paketo-community/rust",
-					},
+					},sssssssssssssssssssssssssssssssssss
 				},
 			},
 		},
