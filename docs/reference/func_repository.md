@@ -91,7 +91,7 @@ EXAMPLES
 	  $ func repository -c
 
 	o Add a repository and create a new function using a template from it:
-	  $ func repository add functastic https://github.com/knative-sandbox/func-tastic
+	  $ func repository add functastic https://github.com/knative-extensions/func-tastic
 	  $ func repository list
 	  default
 	  functastic
@@ -99,7 +99,7 @@ EXAMPLES
 	  ...
 
 		o Add a repository specifying the branch to use (metacontroller):
-	  $ func repository add metacontroller https://github.com/knative-sandbox/func-tastic#metacontroler
+	  $ func repository add metacontroller https://github.com/knative-extensions/func-tastic#metacontroler
 	  $ func repository list
 	  default
 	  metacontroller
@@ -109,7 +109,7 @@ EXAMPLES
 	o List all repositories including the URL from which remotes were installed
 	  $ func repository list -v
 	  default
-	  metacontroller	https://github.com/knative-sandbox/func-tastic#metacontroller
+	  metacontroller	https://github.com/knative-extensions/func-tastic#metacontroller
 
 	o Rename an installed repository
 	  $ func repository list
