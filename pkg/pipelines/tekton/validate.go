@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"knative.dev/func/pkg/builders"
-	"knative.dev/func/pkg/builders/buildpacks"
 	"knative.dev/func/pkg/builders/s2i"
 	fn "knative.dev/func/pkg/functions"
 )
@@ -30,17 +29,6 @@ func validatePipeline(f fn.Function) (string, error) {
 	if f.Build.Builder == builders.Pack {
 		if f.Runtime == "" {
 			return "", ErrRuntimeRequired
-		}
-
-		if f.Runtime == "go" || f.Runtime == "rust" {
-			builder := f.Build.BuilderImages[builders.Pack]
-			defaultBuilder := buildpacks.DefaultBuilderImages[f.Runtime]
-			if builder != "" && builder != defaultBuilder {
-				warningMsg = fmt.Sprintf("runtime %q is not supported for on cluster build with default builders, "+
-					"continuing with the custom builder provided", f.Runtime)
-			} else {
-				return "", ErrRuntimeNotSupported{f.Runtime}
-			}
 		}
 
 		if len(f.Build.Buildpacks) > 0 {

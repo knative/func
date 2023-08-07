@@ -1,2 +1,0 @@
-buildpacks:
-  - docker.io/paketocommunity/rust

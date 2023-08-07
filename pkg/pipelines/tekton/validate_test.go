@@ -70,9 +70,9 @@ func Test_validatePipeline(t *testing.T) {
 			wantErr:  true,
 		},
 		{
-			name:     "Unsupported runtime - Go - pack builder - without additional Buildpacks",
+			name:     "Supported runtime - Go - pack builder",
 			function: fn.Function{Build: fn.BuildSpec{Builder: builders.Pack}, Runtime: "go"},
-			wantErr:  true,
+			wantErr:  false,
 		},
 		{
 			name:     "Unsupported runtime - Go - pack builder - with additional Buildpacks",
@@ -95,9 +95,9 @@ func Test_validatePipeline(t *testing.T) {
 			wantErr:  false,
 		},
 		{
-			name:     "Unsupported runtime - Rust - pack builder - without additional Buildpacks",
+			name:     "Supported runtime - Rust - pack builder",
 			function: fn.Function{Build: fn.BuildSpec{Builder: builders.Pack}, Runtime: "rust"},
-			wantErr:  true,
+			wantErr:  false,
 		},
 		{
 			name:     "Unsupported runtime - Rust - s2i builder",
