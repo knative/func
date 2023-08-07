@@ -27,18 +27,18 @@ import (
 // DefaultName when no WithName option is provided to NewBuilder
 const DefaultName = builders.Pack
 
-var DefaultBaseBuilder = "gcr.io/paketo-buildpacks/builder:base"
-var DefaultRustBuilder = "gcr.io/paketo-buildpacks/builder:full-cf"
+var DefaultBaseBuilder = "ghcr.io/knative/builder-jammy-base:latest"
+var DefaultTinyBuilder = "ghcr.io/knative/builder-jammy-tiny:latest"
 
 var (
 	DefaultBuilderImages = map[string]string{
 		"node":       DefaultBaseBuilder,
 		"nodejs":     DefaultBaseBuilder,
 		"typescript": DefaultBaseBuilder,
-		"go":         DefaultBaseBuilder,
+		"go":         DefaultTinyBuilder,
 		"python":     DefaultBaseBuilder,
-		"quarkus":    DefaultBaseBuilder,
-		"rust":       DefaultRustBuilder,
+		"quarkus":    DefaultTinyBuilder,
+		"rust":       DefaultBaseBuilder,
 		"springboot": DefaultBaseBuilder,
 	}
 
@@ -50,11 +50,10 @@ var (
 		"docker.io/paketobuildpacks/",
 		"ghcr.io/vmware-tanzu/function-buildpacks-for-knative/",
 		"gcr.io/buildpacks/",
+		"ghcr.io/knative/",
 	}
 
-	defaultBuildpacks = map[string][]string{
-		"go": {"paketo-buildpacks/go-dist", "ghcr.io/boson-project/go-function-buildpack:tip"},
-	}
+	defaultBuildpacks = map[string][]string{}
 )
 
 // Builder will build Function using Pack.
