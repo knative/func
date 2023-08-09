@@ -230,9 +230,9 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
 	}
 
 	if ksvc.Generation == 1 {
-		pp.progressListener.Increment(fmt.Sprintf("✅ Function deployed in namespace %q and exposed at URL: \n   %s", ksvc.Namespace, ksvc.Status.URL.String()))
+		fmt.Fprintf(os.Stderr, "✅ Function deployed in namespace %q and exposed at URL: \n   %s\n", ksvc.Namespace, ksvc.Status.URL.String())
 	} else {
-		pp.progressListener.Increment(fmt.Sprintf("✅ Function updated in namespace %q and exposed at URL: \n   %s", ksvc.Namespace, ksvc.Status.URL.String()))
+		fmt.Fprintf(os.Stderr, "✅ Function updated in namespace %q and exposed at URL: \n   %s\n", ksvc.Namespace, ksvc.Status.URL.String())
 	}
 
 	return nil
@@ -439,7 +439,7 @@ out:
 				if val, ok := taskProgressMsg[tr.Task]; ok {
 					taskDescription = val
 				}
-				pp.progressListener.Increment(fmt.Sprintf("Running Pipeline Task: %s", taskDescription))
+				fmt.Fprintf(os.Stderr, "Running Pipeline Task: %s\n", taskDescription)
 
 			}(run)
 		}

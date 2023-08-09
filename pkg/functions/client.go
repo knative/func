@@ -510,31 +510,33 @@ func (c *Client) New(ctx context.Context, cfg Function) (string, Function, error
 	}
 
 	// Build the now-initialized function
-	c.progressListener.Increment("Building container image")
+	fmt.Fprintf(os.Stderr, "Building container image\n")
 	if f, err = c.Build(ctx, f); err != nil {
 		return route, f, err
 	}
 
 	// Push the produced function image
-	c.progressListener.Increment("Pushing container image to registry")
+	fmt.Fprintf(os.Stderr, "Pushing container image to registry\n")
+
 	if f, err = c.Push(ctx, f); err != nil {
 		return route, f, err
 	}
 
 	// Deploy the initialized function, returning its publicly
 	// addressible name for possible registration.
-	c.progressListener.Increment("Deploying function to cluster")
+	fmt.Fprintf(os.Stderr, "Deploying function to cluster\n")
+
 	if f, err = c.Deploy(ctx, f); err != nil {
 		return route, f, err
 	}
 
 	// Create an external route to the function
-	c.progressListener.Increment("Creating route to function")
+	fmt.Fprintf(os.Stderr, "Creating route to function\n")
 	if route, f, err = c.Route(ctx, f); err != nil {
 		return route, f, err
 	}
 
-	c.progressListener.Complete("Done")
+	fmt.Fprint(os.Stderr, "Done")
 
 	return route, f, err
 }
@@ -633,7 +635,7 @@ func BuildWithPlatforms(pp []Platform) BuildOption {
 // Build the function at path. Errors if the function is either unloadable or does
 // not contain a populated Image.
 func (c *Client) Build(ctx context.Context, f Function, options ...BuildOption) (Function, error) {
-	c.progressListener.Increment("Building function image")
+	fmt.Fprintf(os.Stderr, "Building function image\n")
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -680,7 +682,8 @@ func (c *Client) Build(ctx context.Context, f Function, options ...BuildOption) 
 	if runtime.GOOS == "windows" {
 		message = fmt.Sprintf("Function built: %v", f.Image)
 	}
-	c.progressListener.Increment(message)
+	fmt.Fprintf(os.Stderr, "%s\n", message)
+
 	return f, err
 }
 
@@ -712,7 +715,7 @@ func (c *Client) printBuildActivity(ctx context.Context) {
 		for {
 			select {
 			case <-ticker.C:
-				c.progressListener.Increment(m[i])
+				fmt.Fprintf(os.Stderr, "%v\n", m[i])
 				i++
 				i = i % len(m)
 			case <-ctx.Done():
@@ -762,7 +765,7 @@ func (c *Client) Deploy(ctx context.Context, f Function, opts ...DeployOption) (
 	}
 
 	// Deploy a new or Update the previously-deployed function
-	c.progressListener.Increment("⬆️  Deploying function to the cluster")
+	fmt.Fprintf(os.Stderr, "⬆️  Deploying function to the cluster\n")
 	result, err := c.deployer.Deploy(ctx, f)
 	if err != nil {
 		fmt.Printf("deploy error: %v\n", err)
@@ -774,9 +777,9 @@ func (c *Client) Deploy(ctx context.Context, f Function, opts ...DeployOption) (
 	f.Deploy.Namespace = result.Namespace
 
 	if result.Status == Deployed {
-		c.progressListener.Increment(fmt.Sprintf("✅ Function deployed in namespace %q and exposed at URL: \n   %v", result.Namespace, result.URL))
+		fmt.Fprintf(os.Stderr, "✅ Function deployed in namespace %q and exposed at URL: \n   %v\n", result.Namespace, result.URL)
 	} else if result.Status == Updated {
-		c.progressListener.Increment(fmt.Sprintf("✅ Function updated in namespace %q and exposed at URL: \n   %v", result.Namespace, result.URL))
+		fmt.Fprintf(os.Stderr, "✅ Function updated in namespace %q and exposed at URL: \n   %v\n", result.Namespace, result.URL)
 	}
 
 	return f, nil
@@ -1001,7 +1004,7 @@ func (c *Client) Remove(ctx context.Context, cfg Function, deleteAll bool) error
 	}
 
 	// Delete Knative Service and dependent resources in parallel
-	c.progressListener.Increment(fmt.Sprintf("Removing Knative Service: %v", functionName))
+	fmt.Fprintf(os.Stderr, "Removing Knative Service: %v\n", functionName)
 	errChan := make(chan error)
 	go func() {
 		errChan <- c.remover.Remove(ctx, functionName)
@@ -1009,7 +1012,7 @@ func (c *Client) Remove(ctx context.Context, cfg Function, deleteAll bool) error
 
 	var errResources error
 	if deleteAll {
-		c.progressListener.Increment(fmt.Sprintf("Removing Knative Service '%v' and all dependent resources", functionName))
+		fmt.Fprintf(os.Stderr, "Removing Knative Service '%v' and all dependent resources\n", functionName)
 		errResources = c.pipelinesProvider.Remove(ctx, cfg)
 	}
 
