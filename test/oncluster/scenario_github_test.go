@@ -4,6 +4,7 @@ package oncluster
 
 import (
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -32,10 +33,14 @@ Notes:
 
 func resolveGitVars() (gitRepoUrl string, gitRef string) {
 	// On a GitHub Action (Pull Request) these variables will be set
-	// https://docs.github.com/en/actions/learn-github-actions/variables
+	// https://docs.github.com/en/actions/learn-github-actions/variables#default-environment-variables
 	gitRepo := common.GetOsEnvOrDefault("GITHUB_REPOSITORY", "knative/func")
-	gitRef = common.GetOsEnvOrDefault("GITHUB_REF", "main")
 	gitRepoUrl = "https://github.com/" + gitRepo + ".git"
+
+	gitRef = common.GetOsEnvOrDefault("GITHUB_REF", "main")
+	// GitHub uses 2 refs per merge request (refs/pull/ID/head and refs/pull/ID/merge), ensure using */head
+	exp := regexp.MustCompile("^refs/pull/(.*?)/merge$")
+	gitRef = exp.ReplaceAllString(gitRef, "refs/pull/${1}/head")
 	return
 }
 
