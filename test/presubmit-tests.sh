@@ -25,7 +25,7 @@ export NODE_DISTRO=linux-x64
 
 export KNATIVE_SERVING_VERSION=${KNATIVE_SERVING_VERSION:-latest}
 export KNATIVE_EVENTING_VERSION=${KNATIVE_EVENTING_VERSION:-latest}
-source $(dirname $0)/../vendor/knative.dev/hack/presubmit-tests.sh
+source "$(dirname "$0")/../vendor/knative.dev/hack/presubmit-tests.sh"
 
 FUNC_REPO_BRANCH_REF="$(git branch --show-current)"
 export FUNC_REPO_BRANCH_REF
@@ -74,7 +74,7 @@ function unit_tests() {
   make test || failed=1
   if (( failed )); then
     results_banner "Unit tests failed"
-    exit ${failed}
+    exit "${failed}"
   fi
   template_tests
 }
