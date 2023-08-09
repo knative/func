@@ -27,7 +27,7 @@ export KNATIVE_SERVING_VERSION=${KNATIVE_SERVING_VERSION:-latest}
 export KNATIVE_EVENTING_VERSION=${KNATIVE_EVENTING_VERSION:-latest}
 source "$(dirname "$0")/../vendor/knative.dev/hack/presubmit-tests.sh"
 
-FUNC_REPO_BRANCH_REF="$(git branch --show-current)"
+FUNC_REPO_BRANCH_REF="${PULL_PULL_SHA}"
 export FUNC_REPO_BRANCH_REF
 
 function post_build_tests() {
