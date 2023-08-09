@@ -37,5 +37,8 @@ jobs:
       - name: Local Registry
         run: ./hack/registry.sh
       - name: Integration Test Podman
+        env:
+          FUNC_REPO_REF: ${{ github.event.pull_request.head.repo.full_name }}
+          FUNC_REPO_BRANCH_REF: ${{ github.head_ref }}
         run: ./hack/test-integration-podman.sh
 
