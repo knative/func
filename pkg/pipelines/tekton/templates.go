@@ -284,9 +284,13 @@ func deleteAllPipelineTemplates(f fn.Function) string {
 }
 
 func getTaskSpec(taskUrlTemplate string) (string, error) {
-	resp, err := http.Get(fmt.Sprintf(taskUrlTemplate, FuncRepoRef, FuncRepoBranchRef))
+	u := fmt.Sprintf(taskUrlTemplate, FuncRepoRef, FuncRepoBranchRef)
+	resp, err := http.Get(u)
 	if err != nil {
 		return "", err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("cannot get task: %q bad http code: %d", u, resp.StatusCode)
 	}
 	defer resp.Body.Close()
 	var data map[string]any
