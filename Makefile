@@ -71,7 +71,7 @@ $(BIN): $(CODE)
 	env CGO_ENABLED=0 go build -ldflags $(LDFLAGS) ./cmd/$(BIN)
 
 test: $(CODE) ## Run core unit tests
-	go test -race -cover -coverprofile=coverage.txt ./...
+	go test -ldflags $(LDFLAGS) -race -cover -coverprofile=coverage.txt ./...
 
 .PHONY: check
 check: $(BIN_GOLANGCI_LINT) ## Check code quality (lint)
