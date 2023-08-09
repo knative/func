@@ -84,7 +84,7 @@ function template_tests() {
   make test-templates || failed=2
   if (( failed )); then
     results_banner "Built-in template tests failed"
-    exit ${failed}
+    exit "${failed}"
   fi
 }
 
