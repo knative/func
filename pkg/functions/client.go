@@ -73,7 +73,6 @@ type Client struct {
 	describer         Describer         // Describes function instances
 	dnsProvider       DNSProvider       // Provider of DNS services
 	registry          string            // default registry for OCI image tags
-	progressListener  ProgressListener  // progress listener
 	repositories      *Repositories     // Repositories management
 	templates         *Templates        // Templates management
 	instances         *InstanceRefs     // Function Instances management
@@ -145,24 +144,6 @@ type ListItem struct {
 	Ready     string `json:"ready" yaml:"ready"`
 }
 
-// ProgressListener is notified of task progress.
-type ProgressListener interface {
-	// SetTotal steps of the given task.
-	SetTotal(int)
-	// Increment to the next step with the given message.
-	Increment(message string)
-	// Complete signals completion, which is expected to be somewhat different
-	// than a step increment.
-	Complete(message string)
-	// Stopping indicates the process is in the state of stopping, such as when a
-	// context cancelation has been received
-	Stopping()
-	// Done signals a cessation of progress updates.  Should be called in a defer
-	// statement to ensure the progress listener can stop any outstanding tasks
-	// such as synchronous user updates.
-	Done()
-}
-
 // Describer of function instances
 type Describer interface {
 	// Describe the named function in the remote environment.
@@ -222,7 +203,6 @@ func New(options ...Option) *Client {
 		lister:            &noopLister{output: os.Stdout},
 		describer:         &noopDescriber{output: os.Stdout},
 		dnsProvider:       &noopDNSProvider{output: os.Stdout},
-		progressListener:  &NoopProgressListener{},
 		pipelinesProvider: &noopPipelinesProvider{},
 		transport:         http.DefaultTransport,
 		startTimeout:      DefaultStartTimeout,
@@ -315,14 +295,6 @@ func WithLister(l Lister) Option {
 func WithDescriber(describer Describer) Option {
 	return func(c *Client) {
 		c.describer = describer
-	}
-}
-
-// WithProgressListener provides a concrete implementation of a listener to
-// be notified of progress updates.
-func WithProgressListener(p ProgressListener) Option {
-	return func(c *Client) {
-		c.progressListener = p
 	}
 }
 
@@ -491,15 +463,13 @@ func (c *Client) Update(ctx context.Context, f Function) (string, Function, erro
 // independently for lower level control.
 // Returns the primary route to the function or error.
 func (c *Client) New(ctx context.Context, cfg Function) (string, Function, error) {
-	c.progressListener.SetTotal(3)
 	// Always start a concurrent routine listening for context cancellation.
 	// On this event, immediately indicate the task is canceling.
 	// (this is useful, for example, when a progress listener is mutating
 	// stdout, and a context cancelation needs to free up stdout entirely for
-	// the status or error from said cancelltion.
+	// the status or error from said cancellation.
 	go func() {
 		<-ctx.Done()
-		c.progressListener.Stopping()
 	}()
 
 	var route string
@@ -719,7 +689,6 @@ func (c *Client) printBuildActivity(ctx context.Context) {
 				i++
 				i = i % len(m)
 			case <-ctx.Done():
-				c.progressListener.Stopping()
 				ticker.Stop()
 				return
 			}
@@ -749,7 +718,6 @@ func (c *Client) Deploy(ctx context.Context, f Function, opts ...DeployOption) (
 
 	go func() {
 		<-ctx.Done()
-		c.progressListener.Stopping()
 	}()
 
 	// Functions must be built (have an associated image) before being deployed.
@@ -791,7 +759,6 @@ func (c *Client) RunPipeline(ctx context.Context, f Function) (Function, error) 
 	var err error
 	go func() {
 		<-ctx.Done()
-		c.progressListener.Stopping()
 	}()
 
 	// Default function registry to the client's global registry
@@ -821,7 +788,6 @@ func (c *Client) ConfigurePAC(ctx context.Context, f Function, metadata any) err
 	var err error
 	go func() {
 		<-ctx.Done()
-		c.progressListener.Stopping()
 	}()
 
 	// Default function registry to the client's global registry
@@ -857,7 +823,6 @@ func (c *Client) ConfigurePAC(ctx context.Context, f Function, metadata any) err
 func (c *Client) RemovePAC(ctx context.Context, f Function, metadata any) error {
 	go func() {
 		<-ctx.Done()
-		c.progressListener.Stopping()
 	}()
 
 	// Build and deploy function using Pipeline
@@ -918,7 +883,6 @@ func RunWithStartTimeout(t time.Duration) RunOption {
 func (c *Client) Run(ctx context.Context, f Function, options ...RunOption) (job *Job, err error) {
 	go func() {
 		<-ctx.Done()
-		c.progressListener.Stopping()
 	}()
 
 	oo := RunOptions{}
@@ -955,7 +919,6 @@ func (c *Client) Run(ctx context.Context, f Function, options ...RunOption) (job
 func (c *Client) Describe(ctx context.Context, name string, f Function) (d Instance, err error) {
 	go func() {
 		<-ctx.Done()
-		c.progressListener.Stopping()
 	}()
 	// If name is provided, it takes precedence.
 	// Otherwise load the function defined at root.
@@ -983,7 +946,6 @@ func (c *Client) List(ctx context.Context) ([]ListItem, error) {
 func (c *Client) Remove(ctx context.Context, cfg Function, deleteAll bool) error {
 	go func() {
 		<-ctx.Done()
-		c.progressListener.Stopping()
 	}()
 	// If name is provided, it takes precedence.
 	// Otherwise load the function defined at root.
@@ -1045,7 +1007,6 @@ func (c *Client) Remove(ctx context.Context, cfg Function, deleteAll bool) error
 func (c *Client) Invoke(ctx context.Context, root string, target string, m InvokeMessage) (metadata map[string][]string, body string, err error) {
 	go func() {
 		<-ctx.Done()
-		c.progressListener.Stopping()
 	}()
 
 	f, err := NewFunction(root)
@@ -1341,12 +1302,3 @@ func (n *noopPipelinesProvider) RemovePAC(ctx context.Context, _ Function, _ any
 type noopDNSProvider struct{ output io.Writer }
 
 func (n *noopDNSProvider) Provide(_ Function) error { return nil }
-
-// ProgressListener
-type NoopProgressListener struct{}
-
-func (p *NoopProgressListener) SetTotal(i int)     {}
-func (p *NoopProgressListener) Increment(m string) {}
-func (p *NoopProgressListener) Complete(m string)  {}
-func (p *NoopProgressListener) Stopping()          {}
-func (p *NoopProgressListener) Done()              {}

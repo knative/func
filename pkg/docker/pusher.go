@@ -49,7 +49,6 @@ type PusherDockerClientFactory func() (PusherDockerClient, error)
 type Pusher struct {
 	verbose             bool // verbose logging.
 	credentialsProvider CredentialsProvider
-	progressListener    fn.ProgressListener
 	transport           http.RoundTripper
 	dockerClientFactory PusherDockerClientFactory
 }
@@ -57,12 +56,6 @@ type Pusher struct {
 func WithCredentialsProvider(cp CredentialsProvider) Opt {
 	return func(p *Pusher) {
 		p.credentialsProvider = cp
-	}
-}
-
-func WithProgressListener(pl fn.ProgressListener) Opt {
-	return func(p *Pusher) {
-		p.progressListener = pl
 	}
 }
 
@@ -92,7 +85,6 @@ func EmptyCredentialsProvider(ctx context.Context, registry string) (Credentials
 func NewPusher(opts ...Opt) *Pusher {
 	result := &Pusher{
 		credentialsProvider: EmptyCredentialsProvider,
-		progressListener:    &fn.NoopProgressListener{},
 		transport:           http.DefaultTransport,
 		dockerClientFactory: func() (PusherDockerClient, error) {
 			c, _, err := NewClient(client.DefaultDockerHost)
@@ -135,7 +127,6 @@ func (n *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err er
 		return "", err
 	}
 
-	n.progressListener.Stopping()
 	credentials, err := n.credentialsProvider(ctx, f.Image)
 	if err != nil {
 		return "", fmt.Errorf("failed to get credentials: %w", err)

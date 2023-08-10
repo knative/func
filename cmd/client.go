@@ -15,7 +15,6 @@ import (
 	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/knative"
 	"knative.dev/func/pkg/pipelines/tekton"
-	"knative.dev/func/pkg/progress"
 )
 
 // ClientConfig settings for use with NewClient
@@ -61,14 +60,12 @@ func NewTestClient(options ...fn.Option) ClientFactory {
 // 'Verbose' indicates the system should write out a higher amount of logging.
 func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 	var (
-		p  = progress.New(cfg.Verbose)               // updates the CLI
 		t  = newTransport(cfg.InsecureSkipVerify)    // may provide a custom impl which proxies
 		c  = newCredentialsProvider(config.Dir(), t) // for accessing registries
 		d  = newKnativeDeployer(cfg.Namespace, cfg.Verbose)
-		pp = newTektonPipelinesProvider(cfg.Namespace, p, c, cfg.Verbose)
+		pp = newTektonPipelinesProvider(cfg.Namespace, c, cfg.Verbose)
 		o  = []fn.Option{ // standard (shared) options for all commands
 			fn.WithVerbose(cfg.Verbose),
-			fn.WithProgressListener(p),
 			fn.WithTransport(t),
 			fn.WithRepositoriesPath(config.RepositoriesPath()),
 			fn.WithBuilder(buildpacks.NewBuilder(buildpacks.WithVerbose(cfg.Verbose))),
@@ -79,7 +76,6 @@ func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 			fn.WithPipelinesProvider(pp),
 			fn.WithPusher(docker.NewPusher(
 				docker.WithCredentialsProvider(c),
-				docker.WithProgressListener(p),
 				docker.WithTransport(t),
 				docker.WithVerbose(cfg.Verbose))),
 		}
@@ -121,10 +117,9 @@ func newCredentialsProvider(configPath string, t http.RoundTripper) docker.Crede
 	return creds.NewCredentialsProvider(configPath, options...)
 }
 
-func newTektonPipelinesProvider(namespace string, progress *progress.Bar, creds docker.CredentialsProvider, verbose bool) *tekton.PipelinesProvider {
+func newTektonPipelinesProvider(namespace string, creds docker.CredentialsProvider, verbose bool) *tekton.PipelinesProvider {
 	options := []tekton.Opt{
 		tekton.WithNamespace(namespace),
-		tekton.WithProgressListener(progress),
 		tekton.WithCredentialsProvider(creds),
 		tekton.WithVerbose(verbose),
 		tekton.WithPipelineDecorator(deployDecorator{}),

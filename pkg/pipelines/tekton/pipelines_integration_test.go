@@ -57,8 +57,7 @@ func TestOnClusterBuild(t *testing.T) {
 
 			pp := tekton.NewPipelinesProvider(
 				tekton.WithCredentialsProvider(credentialsProvider),
-				tekton.WithNamespace(ns),
-				tekton.WithProgressListener(pl{urlChan: urlChan}))
+				tekton.WithNamespace(ns))
 
 			f := createSimpleGoProject(t, ns)
 			f.Build.Builder = test.Builder
@@ -112,35 +111,6 @@ func (p pl) log(args ...any) {
 		args = append([]any{prefix}, args...)
 	}
 	fmt.Fprintln(os.Stderr, args...)
-}
-
-func (p pl) SetTotal(i int) {
-	p.log("ProgressListener::SetTotal: ", i)
-}
-
-func (p pl) Increment(message string) {
-	p.log("ProgressListener::Increment: ", message)
-	if strings.Contains(message, "URL:") {
-		parts := strings.Split(message, "URL:")
-		if len(parts) < 2 {
-			p.log("bad output message: %q", message)
-			return
-		}
-		u := strings.TrimSpace(parts[1])
-		p.urlChan <- u
-	}
-}
-
-func (p pl) Complete(message string) {
-	p.log("ProgressListener::Complete: ", message)
-}
-
-func (p pl) Stopping() {
-	p.log("ProgressListener::Stopping")
-}
-
-func (p pl) Done() {
-	p.log("ProgressListener::Done")
 }
 
 func createSimpleGoProject(t *testing.T, ns string) fn.Function {

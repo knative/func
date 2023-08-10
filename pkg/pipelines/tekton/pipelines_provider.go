@@ -53,7 +53,6 @@ type PipelinesProvider struct {
 	// If left blank, pipeline creation/run will commence to the configured namespace.
 	namespace           string
 	verbose             bool
-	progressListener    fn.ProgressListener
 	getPacURL           pacURLCallback
 	credentialsProvider docker.CredentialsProvider
 	decorator           PipelineDecorator
@@ -62,12 +61,6 @@ type PipelinesProvider struct {
 func WithNamespace(namespace string) Opt {
 	return func(pp *PipelinesProvider) {
 		pp.namespace = namespace
-	}
-}
-
-func WithProgressListener(pl fn.ProgressListener) Opt {
-	return func(pp *PipelinesProvider) {
-		pp.progressListener = pl
 	}
 }
 
@@ -117,7 +110,7 @@ func NewPipelinesProvider(opts ...Opt) *PipelinesProvider {
 // It ensures that all needed resources are present on the cluster so the PipelineRun can be initialized.
 // After the PipelineRun is being initialized, the progress of the PipelineRun is being watched and printed to the output.
 func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
-	pp.progressListener.Increment("Creating Pipeline resources")
+	fmt.Fprintf(os.Stderr, "Creating Pipeline resources")
 	var err error
 	if err = validatePipeline(f); err != nil {
 		return err
