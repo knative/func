@@ -392,6 +392,7 @@ func newConfig(cfg *buildConfig, p v1.Platform, layers ...v1.Layer) (desc v1.Des
 			Cmd:          []string{"/func/f"}, // NOTE: Using Cmd because Entrypoint can not be overridden
 			WorkingDir:   "/func/",
 			StopSignal:   "SIGKILL",
+			User:         "1000",
 			Volumes:      volumes,
 			// Labels
 			// History
