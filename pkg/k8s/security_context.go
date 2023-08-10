@@ -13,8 +13,8 @@ func defaultPodSecurityContext() *corev1.PodSecurityContext {
 	if IsOpenShift() {
 		return nil
 	}
-	runAsUser := int64(1000)
-	runAsGroup := int64(1000)
+	runAsUser := int64(1001)
+	runAsGroup := int64(1002)
 	return &corev1.PodSecurityContext{
 		RunAsUser:  &runAsUser,
 		RunAsGroup: &runAsGroup,

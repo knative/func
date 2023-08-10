@@ -1,0 +1,230 @@
+---
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: func-buildpacks
+  labels:
+    app.kubernetes.io/version: "0.1"
+  annotations:
+    tekton.dev/categories: Image Build
+    tekton.dev/pipelines.minVersion: "0.17.0"
+    tekton.dev/tags: image-build
+    tekton.dev/displayName: "Knative Functions Buildpacks"
+    tekton.dev/platforms: "linux/amd64"
+spec:
+  description: >-
+    The Knative Functions Buildpacks task builds source into a container image and pushes it to a registry,
+    using Cloud Native Buildpacks. This task is based on the Buildpacks Tekton task v 0.4.
+
+  workspaces:
+    - name: source
+      description: Directory where application source is located.
+    - name: cache
+      description: Directory where cache is stored (when no cache image is provided).
+      optional: true
+    - name: dockerconfig
+      description: >-
+        An optional workspace that allows providing a .docker/config.json file
+        for Buildpacks lifecycle binary to access the container registry.
+        The file should be placed at the root of the Workspace with name config.json.
+      optional: true
+
+  params:
+    - name: APP_IMAGE
+      description: The name of where to store the app image.
+    - name: REGISTRY
+      description: The registry associated with the function image.
+    - name: BUILDER_IMAGE
+      description: The image on which builds will run (must include lifecycle and compatible buildpacks).
+    - name: SOURCE_SUBPATH
+      description: A subpath within the `source` input where the source to build is located.
+      default: ""
+    - name: ENV_VARS
+      type: array
+      description: Environment variables to set during _build-time_.
+      default: []
+    - name: RUN_IMAGE
+      description: Reference to a run image to use.
+      default: ""
+    - name: CACHE_IMAGE
+      description: The name of the persistent app cache image (if no cache workspace is provided).
+      default: ""
+    - name: SKIP_RESTORE
+      description: Do not write layer metadata or restore cached layers.
+      default: "false"
+    - name: USER_ID
+      description: The user ID of the builder image user.
+      default: "1001"
+    - name: GROUP_ID
+      description: The group ID of the builder image user.
+      default: "0"
+      ##############################################################
+      #####  "default" has been changed to "0" for Knative Functions
+    - name: PLATFORM_DIR
+      description: The name of the platform directory.
+      default: empty-dir
+
+  results:
+    - name: IMAGE_DIGEST
+      description: The digest of the built `APP_IMAGE`.
+
+  stepTemplate:
+    env:
+      - name: CNB_PLATFORM_API
+        value: "0.10"
+
+  steps:
+    - name: prepare
+      image: docker.io/library/bash:5.1.4@sha256:b208215a4655538be652b2769d82e576bc4d0a2bb132144c060efc5be8c3f5d6
+      args:
+        - "--env-vars"
+        - "$(params.ENV_VARS[*])"
+      script: |
+        #!/usr/bin/env bash
+        set -e
+
+        if [[ "$(workspaces.cache.bound)" == "true" ]]; then
+          echo "> Setting permissions on '$(workspaces.cache.path)'..."
+          chown -R "$(params.USER_ID):$(params.GROUP_ID)" "$(workspaces.cache.path)"
+        fi
+
+        #######################################################
+        #####  "/emptyDir" has been added for Knative Functions
+        for path in "/tekton/home" "/layers" "/emptyDir" "$(workspaces.source.path)"; do
+          echo "> Setting permissions on '$path'..."
+          chown -R "$(params.USER_ID):$(params.GROUP_ID)" "$path"
+
+          if [[ "$path" == "$(workspaces.source.path)" ]]; then
+              chmod 775 "$(workspaces.source.path)"
+          fi
+        done
+
+        echo "> Parsing additional configuration..."
+        parsing_flag=""
+        envs=()
+        for arg in "$@"; do
+            if [[ "$arg" == "--env-vars" ]]; then
+                echo "-> Parsing env variables..."
+                parsing_flag="env-vars"
+            elif [[ "$parsing_flag" == "env-vars" ]]; then
+                envs+=("$arg")
+            fi
+        done
+
+        echo "> Processing any environment variables..."
+        ENV_DIR="/platform/env"
+
+        echo "--> Creating 'env' directory: $ENV_DIR"
+        mkdir -p "$ENV_DIR"
+
+        for env in "${envs[@]}"; do
+            IFS='=' read -r key value <<< "$env"
+            if [[ "$key" != "" && "$value" != "" ]]; then
+                path="${ENV_DIR}/${key}"
+                echo "--> Writing ${path}..."
+                echo -n "$value" > "$path"
+            fi
+        done
+
+        ############################################
+        ##### Added part for Knative Functions #####
+        ############################################
+
+        func_file="$(workspaces.source.path)/func.yaml"
+        if [ "$(params.SOURCE_SUBPATH)" != "" ]; then
+          func_file="$(workspaces.source.path)/$(params.SOURCE_SUBPATH)/func.yaml"
+        fi
+        echo "--> Saving 'func.yaml'"
+        cp $func_file /emptyDir/func.yaml
+
+        ############################################
+
+      volumeMounts:
+        - name: layers-dir
+          mountPath: /layers
+        - name: $(params.PLATFORM_DIR)
+          mountPath: /platform
+          ########################################################
+          #####   "/emptyDir" has been added for Knative Functions
+        - name: empty-dir
+          mountPath: /emptyDir
+
+    - name: create
+      image: $(params.BUILDER_IMAGE)
+      imagePullPolicy: Always
+      command: ["/cnb/lifecycle/creator"]
+      env:
+        - name: DOCKER_CONFIG
+          value: $(workspaces.dockerconfig.path)
+      args:
+        - "-app=$(workspaces.source.path)/$(params.SOURCE_SUBPATH)"
+        - "-cache-dir=$(workspaces.cache.path)"
+        - "-cache-image=$(params.CACHE_IMAGE)"
+        - "-uid=$(params.USER_ID)"
+        - "-gid=$(params.GROUP_ID)"
+        - "-layers=/layers"
+        - "-platform=/platform"
+        - "-report=/layers/report.toml"
+        - "-skip-restore=$(params.SKIP_RESTORE)"
+        - "-previous-image=$(params.APP_IMAGE)"
+        - "-run-image=$(params.RUN_IMAGE)"
+        - "$(params.APP_IMAGE)"
+      volumeMounts:
+        - name: layers-dir
+          mountPath: /layers
+        - name: $(params.PLATFORM_DIR)
+          mountPath: /platform
+      securityContext:
+        runAsUser: 1001
+        #################################################################
+        #####  "runAsGroup" has been changed to "0" for Knative Functions
+        runAsGroup: 0
+
+    - name: results
+      image: docker.io/library/bash:5.1.4@sha256:b208215a4655538be652b2769d82e576bc4d0a2bb132144c060efc5be8c3f5d6
+      script: |
+        #!/usr/bin/env bash
+        set -e
+        cat /layers/report.toml | grep "digest" | cut -d'"' -f2 | cut -d'"' -f2 | tr -d '\n' | tee $(results.IMAGE_DIGEST.path)
+
+        ############################################
+        ##### Added part for Knative Functions #####
+        ############################################
+
+        digest=$(cat $(results.IMAGE_DIGEST.path))
+
+        func_file="$(workspaces.source.path)/func.yaml"
+        if [ "$(params.SOURCE_SUBPATH)" != "" ]; then
+          func_file="$(workspaces.source.path)/$(params.SOURCE_SUBPATH)/func.yaml"
+        fi
+
+        if [[ ! -f "$func_file" ]]; then
+          echo "--> Restoring 'func.yaml'"
+          mkdir -p "$(workspaces.source.path)/$(params.SOURCE_SUBPATH)"
+          cp /emptyDir/func.yaml $func_file
+        fi
+
+        echo ""
+        sed -i "s|^image:.*$|image: $(params.APP_IMAGE)|" "$func_file"
+        echo "Function image name: $(params.APP_IMAGE)"
+
+        sed -i "s/^imageDigest:.*$/imageDigest: $digest/" "$func_file"
+        echo "Function image digest: $digest"
+
+        sed -i "s|^registry:.*$|registry: $(params.REGISTRY)|" "$func_file"
+        echo "Function image registry: $(params.REGISTRY)"
+
+        ############################################
+      volumeMounts:
+        - name: layers-dir
+          mountPath: /layers
+          ########################################################
+          #####   "/emptyDir" has been added for Knative Functions
+        - name: empty-dir
+          mountPath: /emptyDir
+
+  volumes:
+    - name: empty-dir
+      emptyDir: {}
+    - name: layers-dir
+      emptyDir: {}
