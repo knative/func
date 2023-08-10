@@ -34,6 +34,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/uuid"
 	"knative.dev/pkg/apis"
 
+	"knative.dev/func/pkg/builders/buildpacks"
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
@@ -79,7 +80,7 @@ func TestGitlab(t *testing.T) {
 				URL:      strings.TrimSuffix(glabEnv.HTTPProjectURL, ".git"),
 				Revision: "devel",
 			},
-			BuilderImages: map[string]string{"pack": "docker.io/paketobuildpacks/builder:tiny"},
+			BuilderImages: map[string]string{"pack": buildpacks.DefaultTinyBuilder},
 			Builder:       "pack",
 			PVCSize:       "256Mi",
 		},
