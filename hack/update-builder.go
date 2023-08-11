@@ -45,14 +45,22 @@ func main() {
 		os.Exit(130)
 	}()
 
-	err := buildBuilderImage(ctx)
-	if err != nil {
-		_, _ = fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
+	var hadError bool
+	for _, variant := range []string{"tiny", "base", "full"} {
+		fmt.Println("::group::" + variant)
+		err := buildBuilderImage(ctx, variant)
+		if err != nil {
+			_, _ = fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
+			hadError = true
+		}
+		fmt.Println("::endgroup::")
+	}
+	if hadError {
 		os.Exit(1)
 	}
 }
 
-func buildBuilderImage(ctx context.Context) error {
+func buildBuilderImage(ctx context.Context, variant string) error {
 	buildDir, err := os.MkdirTemp("", "")
 	if err != nil {
 		return fmt.Errorf("cannot create temporary build directory: %w", err)
@@ -65,7 +73,7 @@ func buildBuilderImage(ctx context.Context) error {
 		AccessToken: os.Getenv("GITHUB_TOKEN"),
 	})))
 	listOpts := &github.ListOptions{Page: 0, PerPage: 1}
-	releases, ghResp, err := ghClient.Repositories.ListReleases(ctx, "paketo-buildpacks", "builder-jammy-full", listOpts)
+	releases, ghResp, err := ghClient.Repositories.ListReleases(ctx, "paketo-buildpacks", "builder-jammy-"+variant, listOpts)
 	if err != nil {
 		return fmt.Errorf("cannot get upstream builder release: %w", err)
 	}
@@ -86,7 +94,7 @@ func buildBuilderImage(ctx context.Context) error {
 		return fmt.Errorf("the tarball url of the release is not defined")
 	}
 
-	newBuilderImage := "ghcr.io/knative/builder-jammy-full"
+	newBuilderImage := "ghcr.io/knative/builder-jammy-" + variant
 	newBuilderImageTagged := newBuilderImage + ":" + *release.Name
 	newBuilderImageLatest := newBuilderImage + ":latest"
 	dockerUser := "gh-action"
@@ -257,11 +265,11 @@ func patchBuilder(config *builder.Config) {
 		},
 		{
 			ModuleInfo: dist.ModuleInfo{
-				ID:      "dev.knative-sandbox.go",
-				Version: "0.0.4",
+				ID:      "dev.knative-extensions.go",
+				Version: "0.0.6",
 			},
 			ImageOrURI: dist.ImageOrURI{
-				BuildpackURI: dist.BuildpackURI{URI: "ghcr.io/boson-project/go-function-buildpack:0.0.4"},
+				BuildpackURI: dist.BuildpackURI{URI: "ghcr.io/boson-project/go-function-buildpack:0.0.6"},
 			},
 		},
 	}
@@ -285,7 +293,7 @@ func patchBuilder(config *builder.Config) {
 				},
 				{
 					ModuleInfo: dist.ModuleInfo{
-						ID: "dev.knative-sandbox.go",
+						ID: "dev.knative-extensions.go",
 					},
 				},
 			},

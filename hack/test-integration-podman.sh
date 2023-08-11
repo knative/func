@@ -17,7 +17,7 @@ podman_pid=$!
 
 DOCKER_HOST="unix://$(podman info -f '{{.Host.RemoteSocket.Path}}' 2> /dev/null)"
 export DOCKER_HOST
-go test -test.timeout=15m -tags integration ./... -v
+make test-integration
 e=$?
 
 kill -TERM "$podman_pid" > /dev/null 2>&1

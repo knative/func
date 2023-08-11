@@ -27,7 +27,16 @@ VTAG         := $(shell git tag --points-at HEAD | head -1)
 VTAG         := $(shell [ -z $(VTAG) ] && echo $(ETAG) || echo $(VTAG))
 VERS         ?= $(shell git describe --tags --match 'v*')
 KVER         ?= $(shell git describe --tags --match 'knative-*')
-LDFLAGS      := "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.kver=$(KVER) -X main.hash=$(HASH)"
+
+LDFLAGS      := -X main.date=$(DATE) -X main.vers=$(VERS) -X main.kver=$(KVER) -X main.hash=$(HASH)
+ifneq ($(FUNC_REPO_REF),)
+  LDFLAGS      += -X knative.dev/func/pkg/pipelines/tekton.FuncRepoRef=$(FUNC_REPO_REF)
+endif
+ifneq ($(FUNC_REPO_BRANCH_REF),)
+  LDFLAGS      += -X knative.dev/func/pkg/pipelines/tekton.FuncRepoBranchRef=$(FUNC_REPO_BRANCH_REF)
+endif
+LDFLAGS      := "$(LDFLAGS)"
+
 MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
 # All Code prerequisites, including generated files, etc.
@@ -62,7 +71,7 @@ $(BIN): $(CODE)
 	env CGO_ENABLED=0 go build -ldflags $(LDFLAGS) ./cmd/$(BIN)
 
 test: $(CODE) ## Run core unit tests
-	go test -race -cover -coverprofile=coverage.txt ./...
+	go test -ldflags $(LDFLAGS) -race -cover -coverprofile=coverage.txt ./...
 
 .PHONY: check
 check: $(BIN_GOLANGCI_LINT) ## Check code quality (lint)
@@ -175,10 +184,10 @@ test-typescript: ## Test Typescript templates
 update-runtimes:  pull-runtimes generate/zz_filesystem_generated.go ## Update Scaffolding Runtimes
 
 pull-runtimes:
-	cd templates/go/scaffolding/instanced-http && go get -u github.com/knative-sandbox/func-go/http
-	cd templates/go/scaffolding/static-http && go get -u github.com/knative-sandbox/func-go/http
-	cd templates/go/scaffolding/instanced-cloudevents && go get -u github.com/knative-sandbox/func-go/cloudevents
-	cd templates/go/scaffolding/static-cloudevents && go get -u github.com/knative-sandbox/func-go/cloudevents
+	cd templates/go/scaffolding/instanced-http && go get -u knative.dev/func-go/http
+	cd templates/go/scaffolding/static-http && go get -u knative.dev/func-go/http
+	cd templates/go/scaffolding/instanced-cloudevents && go get -u knative.dev/func-go/cloudevents
+	cd templates/go/scaffolding/static-cloudevents && go get -u knative.dev/func-go/cloudevents
 
 .PHONY: cert
 certs: templates/certs/ca-certificates.crt ## Update root certificates
@@ -193,7 +202,7 @@ templates/certs/ca-certificates.crt:
 ###################
 
 test-integration: ## Run integration tests using an available cluster.
-	go test -tags integration -timeout 30m --coverprofile=coverage.txt ./... -v
+	go test -ldflags $(LDFLAGS) -tags integration -timeout 30m --coverprofile=coverage.txt ./... -v
 
 .PHONY: func-instrumented
 

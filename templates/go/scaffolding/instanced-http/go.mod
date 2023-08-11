@@ -6,7 +6,7 @@ go 1.19
 
 require (
 	f v0.0.0-00010101000000-000000000000
-	github.com/knative-sandbox/func-go v0.18.2
+	knative.dev/func-go v0.18.3
 )
 
 require (

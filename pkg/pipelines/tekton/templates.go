@@ -29,7 +29,7 @@ const (
 	// Tasks references for PAC PipelineRun that are defined in the annotations
 	taskGitCloneRef                     = "git-clone"
 	taskFuncS2iPACPipelineRunRef        = "https://raw.githubusercontent.com/%s/%s/pkg/pipelines/resources/tekton/task/func-s2i/0.1/func-s2i.yaml"
-	taskFuncBuildpacksPACPipelineRunRef = "https://raw.githubusercontent.com/%s/%s/pkg/pipelines/resources/tekton/task/func-buildpacks/0.1/func-buildpacks.yaml"
+	taskFuncBuildpacksPACPipelineRunRef = "https://raw.githubusercontent.com/%s/%s/pkg/pipelines/resources/tekton/task/func-buildpacks/0.2/func-buildpacks.yaml"
 	taskFuncDeployPACPipelineRunRef     = "https://raw.githubusercontent.com/%s/%s/pkg/pipelines/resources/tekton/task/func-deploy/0.1/func-deploy.yaml"
 
 	// Following section contains references for Tasks to be used in Pipeline templates,
@@ -284,9 +284,13 @@ func deleteAllPipelineTemplates(f fn.Function) string {
 }
 
 func getTaskSpec(taskUrlTemplate string) (string, error) {
-	resp, err := http.Get(fmt.Sprintf(taskUrlTemplate, FuncRepoRef, FuncRepoBranchRef))
+	u := fmt.Sprintf(taskUrlTemplate, FuncRepoRef, FuncRepoBranchRef)
+	resp, err := http.Get(u)
 	if err != nil {
 		return "", err
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("cannot get task: %q bad http code: %d", u, resp.StatusCode)
 	}
 	defer resp.Body.Close()
 	var data map[string]any
