@@ -8,6 +8,10 @@ To build the core project, run `make` from the repository root.  This will resul
 
 To remove built artifacts, use `make clean`.
 
+### Build affecting environment variables
+* `FUNC_REPO_REF` affects which github repo will be used to fetch tekton tasks for on cluster build. Default: `knative/func`.
+* `FUNC_REPO_BRANCH_REF` affects which github branch will be used to fetch tekton tasks for on cluster build. Default: `main`.
+
 ## Testing
 
 To run core unit tests, use `make test`.
