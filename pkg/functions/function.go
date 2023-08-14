@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/go-containerregistry/pkg/name"
 	"gopkg.in/yaml.v2"
 	fnlabels "knative.dev/func/pkg/k8s/labels"
 	"knative.dev/pkg/ptr"
@@ -567,24 +568,19 @@ func (f Function) ImageName() (image string, err error) {
 
 	f.Registry = strings.Trim(f.Registry, "/") // too defensive?
 
-	registryTokens := strings.Split(f.Registry, "/")
-	if len(registryTokens) == 1 { // only namespace provided: ex. 'alice'
-		image = DefaultRegistry + "/" + f.Registry + "/" + f.Name
-	} else if len(registryTokens) == 2 || len(registryTokens) == 3 {
-		// registry/namespace ('quay.io/alice') or
-		// registry/parent-namespace/namespace ('quay.io/project/alice') provided
-		image = f.Registry + "/" + f.Name
-	} else if len(registryTokens) > 3 { // the name of the image is also provided `quay.io/alice/my.function.name`
-		return "", fmt.Errorf("registry should be either 'namespace', 'registry/namespace' or 'registry/parent/namespace', the name of the image will be derived from the function name")
-	}
-
 	// Explicitly append :latest tag.  We expect source control to drive
 	// versioning, rather than rely on image tags with explicitly pinned version
 	// numbers, as is seen in many serverless solutions.  This will be updated
 	// to branch name when we add source-driven canary/ bluegreen deployments.
-
 	// For pinning to an exact container image, see ImageWithDigest
-	return image + ":latest", nil
+	refStr := f.Registry + "/" + f.Name + ":latest"
+
+	ref, err := name.ParseReference(refStr)
+	if err != nil {
+		return "", fmt.Errorf("cannot determine function image: %w", err)
+	}
+
+	return ref.Name(), nil
 }
 
 // Format yaml unmarshall error to be more human friendly.
