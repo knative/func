@@ -21,7 +21,7 @@ VALIDATION_TESTS="make test"
 
 source $(dirname $0)/../vendor/knative.dev/hack/release.sh
 
-PIPELINE_ARTIFACTS="pkg/pipelines/resources/tekton/task/func-buildpacks/0.1/func-buildpacks.yaml pkg/pipelines/resources/tekton/task/func-deploy/0.1/func-deploy.yaml pkg/pipelines/resources/tekton/task/func-s2i/0.1/func-s2i.yaml"
+PIPELINE_ARTIFACTS="pkg/pipelines/resources/tekton/task/func-buildpacks/0.2/func-buildpacks.yaml pkg/pipelines/resources/tekton/task/func-deploy/0.1/func-deploy.yaml pkg/pipelines/resources/tekton/task/func-s2i/0.1/func-s2i.yaml"
 
 function build_release() {
   echo "🚧 🐧 Building cross platform binaries: Linux 🐧 (amd64 / arm64 / ppc64le / s390x), MacOS 🍏, and Windows 🎠"
