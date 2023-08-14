@@ -140,29 +140,38 @@ func TestFunction_ImageName(t *testing.T) {
 		err error
 	)
 	tests := []struct {
-		registry      string
 		name          string
+		registry      string
+		funcName      string
 		expectedImage string
 		expectError   bool
 	}{
-		{"alice", "myfunc", DefaultRegistry + "/alice/myfunc:latest", false},
-		{"quay.io/alice", "myfunc", "quay.io/alice/myfunc:latest", false},
-		{"docker.io/alice", "myfunc", "docker.io/alice/myfunc:latest", false},
-		{"docker.io/alice/sub", "myfunc", "docker.io/alice/sub/myfunc:latest", false},
-		{"alice", "", "", true},
-		{"", "myfunc", "", true},
+		{"short-name", "alice", "myfunc", DefaultRegistry + "/alice/myfunc:latest", false},
+		{"short-name-trailing-slash", "alice/", "myfunc", DefaultRegistry + "/alice/myfunc:latest", false},
+		{"full-name-quay-io", "quay.io/alice", "myfunc", "quay.io/alice/myfunc:latest", false},
+		{"full-name-docker-io", "docker.io/alice", "myfunc", DefaultRegistry + "/alice/myfunc:latest", false},
+		{"full-name-with-sub-path", "docker.io/alice/sub", "myfunc", DefaultRegistry + "/alice/sub/myfunc:latest", false},
+		{"localhost-direct", "localhost:5000", "myfunc", "localhost:5000/myfunc:latest", false},
+		{"full-name-with-sub-sub-path", "us-central1-docker.pkg.dev/my-gcpproject/team/user", "myfunc", "us-central1-docker.pkg.dev/my-gcpproject/team/user/myfunc:latest", false},
+		{"missing-func-name", "alice", "", "", true},
+		{"missing-registry", "", "myfunc", "", true},
 	}
 	for _, test := range tests {
-		f = Function{Registry: test.registry, Name: test.name}
-		got, err = f.ImageName()
-		if test.expectError && err == nil {
-			t.Errorf("registry '%v' and name '%v' did not yield the expected error",
-				test.registry, test.name)
-		}
-		if got != test.expectedImage {
-			t.Errorf("expected registry '%v' name '%v' to yield image '%v', got '%v'",
-				test.registry, test.name, test.expectedImage, got)
-		}
+		t.Run(test.name, func(t *testing.T) {
+			f = Function{Registry: test.registry, Name: test.funcName}
+			got, err = f.ImageName()
+			if test.expectError && err == nil {
+				t.Errorf("registry '%v' and name '%v' did not yield the expected error",
+					test.registry, test.funcName)
+			}
+			if !test.expectError && err != nil {
+				t.Errorf("unexpected error: %v", err)
+			}
+			if got != test.expectedImage {
+				t.Errorf("expected registry '%v' name '%v' to yield image '%v', got '%v'",
+					test.registry, test.funcName, test.expectedImage, got)
+			}
+		})
 	}
 }
 
