@@ -468,9 +468,6 @@ func (c *Client) New(ctx context.Context, cfg Function) (string, Function, error
 	// (this is useful, for example, when a progress listener is mutating
 	// stdout, and a context cancelation needs to free up stdout entirely for
 	// the status or error from said cancellation.
-	go func() {
-		<-ctx.Done()
-	}()
 
 	var route string
 	// Init the path as a new Function
@@ -757,9 +754,6 @@ func (c *Client) Deploy(ctx context.Context, f Function, opts ...DeployOption) (
 // Returned function contains applicable registry and deployed image name.
 func (c *Client) RunPipeline(ctx context.Context, f Function) (Function, error) {
 	var err error
-	go func() {
-		<-ctx.Done()
-	}()
 
 	// Default function registry to the client's global registry
 	if f.Registry == "" {
@@ -786,9 +780,6 @@ func (c *Client) RunPipeline(ctx context.Context, f Function) (Function, error) 
 // on the cluster and also on the remote git provider (ie. GitHub, GitLab or BitBucket repo)
 func (c *Client) ConfigurePAC(ctx context.Context, f Function, metadata any) error {
 	var err error
-	go func() {
-		<-ctx.Done()
-	}()
 
 	// Default function registry to the client's global registry
 	if f.Registry == "" {
@@ -821,9 +812,6 @@ func (c *Client) ConfigurePAC(ctx context.Context, f Function, metadata any) err
 
 // RemovePAC deletes generated Pipeline as Code resources on the local filesystem and on the cluster
 func (c *Client) RemovePAC(ctx context.Context, f Function, metadata any) error {
-	go func() {
-		<-ctx.Done()
-	}()
 
 	// Build and deploy function using Pipeline
 	if err := c.pipelinesProvider.RemovePAC(ctx, f, metadata); err != nil {
@@ -881,9 +869,6 @@ func RunWithStartTimeout(t time.Duration) RunOption {
 // Run the function whose code resides at root.
 // On start, the chosen port is sent to the provided started channel
 func (c *Client) Run(ctx context.Context, f Function, options ...RunOption) (job *Job, err error) {
-	go func() {
-		<-ctx.Done()
-	}()
 
 	oo := RunOptions{}
 	for _, o := range options {
@@ -917,9 +902,6 @@ func (c *Client) Run(ctx context.Context, f Function, options ...RunOption) (job
 // Describe a function.  Name takes precedence.  If no name is provided,
 // the function defined at root is used.
 func (c *Client) Describe(ctx context.Context, name string, f Function) (d Instance, err error) {
-	go func() {
-		<-ctx.Done()
-	}()
 	// If name is provided, it takes precedence.
 	// Otherwise load the function defined at root.
 	if name != "" {
@@ -944,9 +926,6 @@ func (c *Client) List(ctx context.Context) ([]ListItem, error) {
 // Remove a function.  Name takes precedence.  If no name is provided,
 // the function defined at root is used if it exists.
 func (c *Client) Remove(ctx context.Context, cfg Function, deleteAll bool) error {
-	go func() {
-		<-ctx.Done()
-	}()
 	// If name is provided, it takes precedence.
 	// Otherwise load the function defined at root.
 	functionName := cfg.Name
@@ -1005,9 +984,6 @@ func (c *Client) Remove(ctx context.Context, cfg Function, deleteAll bool) error
 // Functions are invoked in a manner consistent with the settings defined in
 // their metadata.  For example HTTP vs CloudEvent
 func (c *Client) Invoke(ctx context.Context, root string, target string, m InvokeMessage) (metadata map[string][]string, body string, err error) {
-	go func() {
-		<-ctx.Done()
-	}()
 
 	f, err := NewFunction(root)
 	if err != nil {
