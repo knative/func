@@ -21,6 +21,9 @@ import (
 	"knative.dev/func/pkg/k8s"
 )
 
+// DefaultVersion when building source directly (bypassing the Makefile)
+const DefaultVersion = "v0.0.0+source"
+
 type RootCommandConfig struct {
 	Name string // usually `func` or `kn func`
 	Version
@@ -336,6 +339,12 @@ type Version struct {
 
 // Return the stringification of the Version struct.
 func (v Version) String() string {
+	// Initialize the default value to the zero semver with a descriptive
+	// metadta tag indicating this must have been built from source if
+	// undefined:
+	if v.Vers == "" {
+		v.Vers = DefaultVersion
+	}
 	if v.Verbose {
 		return v.StringVerbose()
 	}
