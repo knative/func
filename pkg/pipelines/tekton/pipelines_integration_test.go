@@ -5,12 +5,10 @@ package tekton_test
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -63,11 +61,16 @@ func TestOnClusterBuild(t *testing.T) {
 			f.Build.Builder = test.Builder
 
 			go func() {
-				err := pp.Run(ctx, f)
+				url, err := pp.Run(ctx, f)
 				if err != nil {
 					t.Error(err)
 					cancel()
 				}
+				if url == "" {
+					t.Error("URL returned is empty")
+					cancel()
+				}
+				urlChan <- url
 			}()
 
 			select {
@@ -98,19 +101,6 @@ func checkTestEnabled(t *testing.T) {
 	if !enabled {
 		t.Skip("tekton tests are not enabled")
 	}
-}
-
-type pl struct {
-	urlChan chan<- string
-}
-
-func (p pl) log(args ...any) {
-	_, file, line, ok := runtime.Caller(2)
-	if ok {
-		prefix := fmt.Sprintf("%s:%d", filepath.Base(file), line)
-		args = append([]any{prefix}, args...)
-	}
-	fmt.Fprintln(os.Stderr, args...)
 }
 
 func createSimpleGoProject(t *testing.T, ns string) fn.Function {

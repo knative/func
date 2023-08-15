@@ -186,7 +186,7 @@ type DNSProvider interface {
 
 // PipelinesProvider manages lifecyle of CI/CD pipelines used by a function
 type PipelinesProvider interface {
-	Run(context.Context, Function) error
+	Run(context.Context, Function) (string, error)
 	Remove(context.Context, Function) error
 	ConfigurePAC(context.Context, Function, any) error
 	RemovePAC(context.Context, Function, any) error
@@ -775,7 +775,7 @@ func (c *Client) RunPipeline(ctx context.Context, f Function) (Function, error) 
 	}
 
 	// Build and deploy function using Pipeline
-	if err := c.pipelinesProvider.Run(ctx, f); err != nil {
+	if _, err := c.pipelinesProvider.Run(ctx, f); err != nil {
 		return f, fmt.Errorf("failed to run pipeline: %w", err)
 	}
 
@@ -1289,7 +1289,9 @@ func (n *noopDescriber) Describe(context.Context, string) (Instance, error) {
 // PipelinesProvider
 type noopPipelinesProvider struct{}
 
-func (n *noopPipelinesProvider) Run(ctx context.Context, _ Function) error    { return nil }
+func (n *noopPipelinesProvider) Run(ctx context.Context, _ Function) (string, error) {
+	return "", nil
+}
 func (n *noopPipelinesProvider) Remove(ctx context.Context, _ Function) error { return nil }
 func (n *noopPipelinesProvider) ConfigurePAC(ctx context.Context, _ Function, _ any) error {
 	return nil
