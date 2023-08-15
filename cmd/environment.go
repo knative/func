@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -29,7 +30,7 @@ NAME
 	{{rootCmdUse}} environment - display function execution environment information
 
 SYNOPSIS
-	{{rootCmdUse}} environment [-e|--env-format] [-v|--verbose]
+	{{rootCmdUse}} environment [-f|--format] [-v|--verbose] [-p|--path]
 
 
 DESCRIPTION
@@ -38,7 +39,7 @@ DESCRIPTION
 	available runtimes, and available templates.
 `,
 		SuggestFor: []string{"env", "environemtn", "enviroment", "enviornment", "enviroment"},
-		PreRunE:    bindEnv("verbose", "format"),
+		PreRunE:    bindEnv("verbose", "format", "path"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runEnvironment(cmd, newClient, version)
 		},
@@ -49,6 +50,7 @@ DESCRIPTION
 	}
 
 	cmd.Flags().StringP("format", "f", format, "Format of output environment information, 'json' or 'yaml'. ($FUNC_FORMAT)")
+	addPathFlag(cmd)
 	addVerboseFlag(cmd, cfg.Verbose)
 
 	return cmd
@@ -67,6 +69,8 @@ type Environment struct {
 	Cluster              string
 	TektonTasks          map[string]string
 	Defaults             config.Global
+	Function             *functions.Function `json:",omitempty" yaml:",omitempty"`
+    Instance             *functions.Instance `json:",omitempty" yaml:",omitempty"`
 }
 
 func runEnvironment(cmd *cobra.Command, newClient ClientFactory, v *Version) (err error) {
@@ -140,6 +144,12 @@ func runEnvironment(cmd *cobra.Command, newClient ClientFactory, v *Version) (er
 		},
 	}
 
+	function, instance, err := describeFuncInformation(cmd.Context(), newClient, cfg)
+	if err == nil {
+		environment.Function = &function
+		environment.Instance = &instance
+	}
+
 	var s []byte
 	switch cfg.Format {
 	case "json":
@@ -177,16 +187,38 @@ func getTemplates(client *functions.Client, runtimes []string) (map[string][]str
 	return templateMap, nil
 }
 
+func describeFuncInformation(context context.Context, newClient ClientFactory, cfg environmentConfig) (functions.Function, functions.Instance, error) {
+	var function functions.Function
+	var instance functions.Instance
+	function, err := functions.NewFunction(cfg.Path)
+	if err != nil {
+		return function, instance, err
+	}
+	if !function.Initialized() {
+		return function, instance, functions.NewErrNotInitialized(function.Root)
+	}
+
+	client, done := newClient(ClientConfig{Namespace: function.Deploy.Namespace, Verbose: cfg.Verbose})
+	defer done()
+
+	instance, err = client.Describe(context, function.Name, function)
+	if err != nil {
+		return function, instance, err
+	}
+	return function, instance, nil
+}
+
 type environmentConfig struct {
 	Verbose bool
 	Format  string
+	Path    string
 }
 
 func newEnvironmentConfig() (cfg environmentConfig, err error) {
 	cfg = environmentConfig{
 		Verbose: viper.GetBool("verbose"),
 		Format:  viper.GetString("format"),
+		Path:    viper.GetString("path"),
 	}
-
 	return
 }
