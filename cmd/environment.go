@@ -70,7 +70,7 @@ type Environment struct {
 	TektonTasks          map[string]string
 	Defaults             config.Global
 	Function             *functions.Function `json:",omitempty" yaml:",omitempty"`
-    Instance             *functions.Instance `json:",omitempty" yaml:",omitempty"`
+	Instance             *functions.Instance `json:",omitempty" yaml:",omitempty"`
 }
 
 func runEnvironment(cmd *cobra.Command, newClient ClientFactory, v *Version) (err error) {
