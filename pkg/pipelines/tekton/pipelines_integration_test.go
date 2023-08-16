@@ -51,8 +51,6 @@ func TestOnClusterBuild(t *testing.T) {
 			ctx, cancel := context.WithCancel(ctx)
 			defer cancel()
 
-			urlChan := make(chan string, 1)
-
 			pp := tekton.NewPipelinesProvider(
 				tekton.WithCredentialsProvider(credentialsProvider),
 				tekton.WithNamespace(ns))
@@ -60,37 +58,27 @@ func TestOnClusterBuild(t *testing.T) {
 			f := createSimpleGoProject(t, ns)
 			f.Build.Builder = test.Builder
 
-			go func() {
-				url, err := pp.Run(ctx, f)
-				if err != nil {
-					t.Error(err)
-					cancel()
-				}
-				if url == "" {
-					t.Error("URL returned is empty")
-					cancel()
-				}
-				urlChan <- url
-			}()
-
-			select {
-			case u := <-urlChan:
-				resp, err := http.Get(u)
-				if err != nil {
-					t.Error(err)
-					return
-				}
-				_ = resp.Body.Close()
-				if resp.StatusCode != 200 {
-					t.Error("bad HTTP response code")
-					return
-				}
-				t.Log("call to knative service successful")
-			case <-time.After(time.Minute * 10):
-				t.Error("timeout while waiting for service to start")
-			case <-ctx.Done():
-				t.Error("cancelled")
+			url, err := pp.Run(ctx, f)
+			if err != nil {
+				t.Error(err)
+				cancel()
 			}
+			if url == "" {
+				t.Error("URL returned is empty")
+				cancel()
+			}
+
+			resp, err := http.Get(url)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			_ = resp.Body.Close()
+			if resp.StatusCode != 200 {
+				t.Error("bad HTTP response code")
+				return
+			}
+			t.Log("call to knative service successful")
 		})
 	}
 }
