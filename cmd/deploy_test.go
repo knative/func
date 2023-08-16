@@ -569,7 +569,7 @@ func TestDeploy_GitArgsUsed(t *testing.T) {
 
 	// A Pipelines Provider which will validate the expected values were received
 	pipeliner := mock.NewPipelinesProvider()
-	pipeliner.RunFn = func(f fn.Function) error {
+	pipeliner.RunFn = func(f fn.Function) (string, error) {
 		if f.Build.Git.URL != url {
 			t.Errorf("Pipeline Provider expected git URL '%v' got '%v'", url, f.Build.Git.URL)
 		}
@@ -579,7 +579,7 @@ func TestDeploy_GitArgsUsed(t *testing.T) {
 		if f.Build.Git.ContextDir != dir {
 			t.Errorf("Pipeline Provider expected git dir '%v' got '%v'", url, f.Build.Git.ContextDir)
 		}
-		return nil
+		return url, nil
 	}
 
 	// Deploy the Function specifying all of the git-related flags and --remote

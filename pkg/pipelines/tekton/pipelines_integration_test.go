@@ -5,12 +5,10 @@ package tekton_test
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"testing"
@@ -53,42 +51,34 @@ func TestOnClusterBuild(t *testing.T) {
 			ctx, cancel := context.WithCancel(ctx)
 			defer cancel()
 
-			urlChan := make(chan string, 1)
-
 			pp := tekton.NewPipelinesProvider(
 				tekton.WithCredentialsProvider(credentialsProvider),
-				tekton.WithNamespace(ns),
-				tekton.WithProgressListener(pl{urlChan: urlChan}))
+				tekton.WithNamespace(ns))
 
 			f := createSimpleGoProject(t, ns)
 			f.Build.Builder = test.Builder
 
-			go func() {
-				err := pp.Run(ctx, f)
-				if err != nil {
-					t.Error(err)
-					cancel()
-				}
-			}()
-
-			select {
-			case u := <-urlChan:
-				resp, err := http.Get(u)
-				if err != nil {
-					t.Error(err)
-					return
-				}
-				_ = resp.Body.Close()
-				if resp.StatusCode != 200 {
-					t.Error("bad HTTP response code")
-					return
-				}
-				t.Log("call to knative service successful")
-			case <-time.After(time.Minute * 10):
-				t.Error("timeout while waiting for service to start")
-			case <-ctx.Done():
-				t.Error("cancelled")
+			url, err := pp.Run(ctx, f)
+			if err != nil {
+				t.Error(err)
+				cancel()
 			}
+			if url == "" {
+				t.Error("URL returned is empty")
+				cancel()
+			}
+
+			resp, err := http.Get(url)
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			_ = resp.Body.Close()
+			if resp.StatusCode != 200 {
+				t.Error("bad HTTP response code")
+				return
+			}
+			t.Log("call to knative service successful")
 		})
 	}
 }
@@ -99,48 +89,6 @@ func checkTestEnabled(t *testing.T) {
 	if !enabled {
 		t.Skip("tekton tests are not enabled")
 	}
-}
-
-type pl struct {
-	urlChan chan<- string
-}
-
-func (p pl) log(args ...any) {
-	_, file, line, ok := runtime.Caller(2)
-	if ok {
-		prefix := fmt.Sprintf("%s:%d", filepath.Base(file), line)
-		args = append([]any{prefix}, args...)
-	}
-	fmt.Fprintln(os.Stderr, args...)
-}
-
-func (p pl) SetTotal(i int) {
-	p.log("ProgressListener::SetTotal: ", i)
-}
-
-func (p pl) Increment(message string) {
-	p.log("ProgressListener::Increment: ", message)
-	if strings.Contains(message, "URL:") {
-		parts := strings.Split(message, "URL:")
-		if len(parts) < 2 {
-			p.log("bad output message: %q", message)
-			return
-		}
-		u := strings.TrimSpace(parts[1])
-		p.urlChan <- u
-	}
-}
-
-func (p pl) Complete(message string) {
-	p.log("ProgressListener::Complete: ", message)
-}
-
-func (p pl) Stopping() {
-	p.log("ProgressListener::Stopping")
-}
-
-func (p pl) Done() {
-	p.log("ProgressListener::Done")
 }
 
 func createSimpleGoProject(t *testing.T, ns string) fn.Function {

@@ -8,7 +8,7 @@ import (
 
 type PipelinesProvider struct {
 	RunInvoked          bool
-	RunFn               func(fn.Function) error
+	RunFn               func(fn.Function) (string, error)
 	RemoveInvoked       bool
 	RemoveFn            func(fn.Function) error
 	ConfigurePACInvoked bool
@@ -19,14 +19,14 @@ type PipelinesProvider struct {
 
 func NewPipelinesProvider() *PipelinesProvider {
 	return &PipelinesProvider{
-		RunFn:          func(fn.Function) error { return nil },
+		RunFn:          func(fn.Function) (string, error) { return "", nil },
 		RemoveFn:       func(fn.Function) error { return nil },
 		ConfigurePACFn: func(fn.Function) error { return nil },
 		RemovePACFn:    func(fn.Function) error { return nil },
 	}
 }
 
-func (p *PipelinesProvider) Run(ctx context.Context, f fn.Function) error {
+func (p *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, error) {
 	p.RunInvoked = true
 	return p.RunFn(f)
 }

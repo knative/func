@@ -73,7 +73,6 @@ type Client struct {
 	describer         Describer         // Describes function instances
 	dnsProvider       DNSProvider       // Provider of DNS services
 	registry          string            // default registry for OCI image tags
-	progressListener  ProgressListener  // progress listener
 	repositories      *Repositories     // Repositories management
 	templates         *Templates        // Templates management
 	instances         *InstanceRefs     // Function Instances management
@@ -145,24 +144,6 @@ type ListItem struct {
 	Ready     string `json:"ready" yaml:"ready"`
 }
 
-// ProgressListener is notified of task progress.
-type ProgressListener interface {
-	// SetTotal steps of the given task.
-	SetTotal(int)
-	// Increment to the next step with the given message.
-	Increment(message string)
-	// Complete signals completion, which is expected to be somewhat different
-	// than a step increment.
-	Complete(message string)
-	// Stopping indicates the process is in the state of stopping, such as when a
-	// context cancelation has been received
-	Stopping()
-	// Done signals a cessation of progress updates.  Should be called in a defer
-	// statement to ensure the progress listener can stop any outstanding tasks
-	// such as synchronous user updates.
-	Done()
-}
-
 // Describer of function instances
 type Describer interface {
 	// Describe the named function in the remote environment.
@@ -205,7 +186,7 @@ type DNSProvider interface {
 
 // PipelinesProvider manages lifecyle of CI/CD pipelines used by a function
 type PipelinesProvider interface {
-	Run(context.Context, Function) error
+	Run(context.Context, Function) (string, error)
 	Remove(context.Context, Function) error
 	ConfigurePAC(context.Context, Function, any) error
 	RemovePAC(context.Context, Function, any) error
@@ -222,7 +203,6 @@ func New(options ...Option) *Client {
 		lister:            &noopLister{output: os.Stdout},
 		describer:         &noopDescriber{output: os.Stdout},
 		dnsProvider:       &noopDNSProvider{output: os.Stdout},
-		progressListener:  &NoopProgressListener{},
 		pipelinesProvider: &noopPipelinesProvider{},
 		transport:         http.DefaultTransport,
 		startTimeout:      DefaultStartTimeout,
@@ -315,14 +295,6 @@ func WithLister(l Lister) Option {
 func WithDescriber(describer Describer) Option {
 	return func(c *Client) {
 		c.describer = describer
-	}
-}
-
-// WithProgressListener provides a concrete implementation of a listener to
-// be notified of progress updates.
-func WithProgressListener(p ProgressListener) Option {
-	return func(c *Client) {
-		c.progressListener = p
 	}
 }
 
@@ -491,16 +463,11 @@ func (c *Client) Update(ctx context.Context, f Function) (string, Function, erro
 // independently for lower level control.
 // Returns the primary route to the function or error.
 func (c *Client) New(ctx context.Context, cfg Function) (string, Function, error) {
-	c.progressListener.SetTotal(3)
 	// Always start a concurrent routine listening for context cancellation.
 	// On this event, immediately indicate the task is canceling.
 	// (this is useful, for example, when a progress listener is mutating
 	// stdout, and a context cancelation needs to free up stdout entirely for
-	// the status or error from said cancelltion.
-	go func() {
-		<-ctx.Done()
-		c.progressListener.Stopping()
-	}()
+	// the status or error from said cancellation.
 
 	var route string
 	// Init the path as a new Function
@@ -510,31 +477,33 @@ func (c *Client) New(ctx context.Context, cfg Function) (string, Function, error
 	}
 
 	// Build the now-initialized function
-	c.progressListener.Increment("Building container image")
+	fmt.Fprintf(os.Stderr, "Building container image\n")
 	if f, err = c.Build(ctx, f); err != nil {
 		return route, f, err
 	}
 
 	// Push the produced function image
-	c.progressListener.Increment("Pushing container image to registry")
+	fmt.Fprintf(os.Stderr, "Pushing container image to registry\n")
+
 	if f, err = c.Push(ctx, f); err != nil {
 		return route, f, err
 	}
 
 	// Deploy the initialized function, returning its publicly
 	// addressible name for possible registration.
-	c.progressListener.Increment("Deploying function to cluster")
+	fmt.Fprintf(os.Stderr, "Deploying function to cluster\n")
+
 	if f, err = c.Deploy(ctx, f); err != nil {
 		return route, f, err
 	}
 
 	// Create an external route to the function
-	c.progressListener.Increment("Creating route to function")
+	fmt.Fprintf(os.Stderr, "Creating route to function\n")
 	if route, f, err = c.Route(ctx, f); err != nil {
 		return route, f, err
 	}
 
-	c.progressListener.Complete("Done")
+	fmt.Fprint(os.Stderr, "Done")
 
 	return route, f, err
 }
@@ -633,7 +602,7 @@ func BuildWithPlatforms(pp []Platform) BuildOption {
 // Build the function at path. Errors if the function is either unloadable or does
 // not contain a populated Image.
 func (c *Client) Build(ctx context.Context, f Function, options ...BuildOption) (Function, error) {
-	c.progressListener.Increment("Building function image")
+	fmt.Fprintf(os.Stderr, "Building function image\n")
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -680,7 +649,8 @@ func (c *Client) Build(ctx context.Context, f Function, options ...BuildOption) 
 	if runtime.GOOS == "windows" {
 		message = fmt.Sprintf("Function built: %v", f.Image)
 	}
-	c.progressListener.Increment(message)
+	fmt.Fprintf(os.Stderr, "%s\n", message)
+
 	return f, err
 }
 
@@ -712,11 +682,10 @@ func (c *Client) printBuildActivity(ctx context.Context) {
 		for {
 			select {
 			case <-ticker.C:
-				c.progressListener.Increment(m[i])
+				fmt.Fprintf(os.Stderr, "%v\n", m[i])
 				i++
 				i = i % len(m)
 			case <-ctx.Done():
-				c.progressListener.Stopping()
 				ticker.Stop()
 				return
 			}
@@ -746,7 +715,6 @@ func (c *Client) Deploy(ctx context.Context, f Function, opts ...DeployOption) (
 
 	go func() {
 		<-ctx.Done()
-		c.progressListener.Stopping()
 	}()
 
 	// Functions must be built (have an associated image) before being deployed.
@@ -762,7 +730,7 @@ func (c *Client) Deploy(ctx context.Context, f Function, opts ...DeployOption) (
 	}
 
 	// Deploy a new or Update the previously-deployed function
-	c.progressListener.Increment("⬆️  Deploying function to the cluster")
+	fmt.Fprintf(os.Stderr, "⬆️  Deploying function to the cluster\n")
 	result, err := c.deployer.Deploy(ctx, f)
 	if err != nil {
 		fmt.Printf("deploy error: %v\n", err)
@@ -774,9 +742,9 @@ func (c *Client) Deploy(ctx context.Context, f Function, opts ...DeployOption) (
 	f.Deploy.Namespace = result.Namespace
 
 	if result.Status == Deployed {
-		c.progressListener.Increment(fmt.Sprintf("✅ Function deployed in namespace %q and exposed at URL: \n   %v", result.Namespace, result.URL))
+		fmt.Fprintf(os.Stderr, "✅ Function deployed in namespace %q and exposed at URL: \n   %v\n", result.Namespace, result.URL)
 	} else if result.Status == Updated {
-		c.progressListener.Increment(fmt.Sprintf("✅ Function updated in namespace %q and exposed at URL: \n   %v", result.Namespace, result.URL))
+		fmt.Fprintf(os.Stderr, "✅ Function updated in namespace %q and exposed at URL: \n   %v\n", result.Namespace, result.URL)
 	}
 
 	return f, nil
@@ -786,10 +754,6 @@ func (c *Client) Deploy(ctx context.Context, f Function, opts ...DeployOption) (
 // Returned function contains applicable registry and deployed image name.
 func (c *Client) RunPipeline(ctx context.Context, f Function) (Function, error) {
 	var err error
-	go func() {
-		<-ctx.Done()
-		c.progressListener.Stopping()
-	}()
 
 	// Default function registry to the client's global registry
 	if f.Registry == "" {
@@ -805,7 +769,7 @@ func (c *Client) RunPipeline(ctx context.Context, f Function) (Function, error) 
 	}
 
 	// Build and deploy function using Pipeline
-	if err := c.pipelinesProvider.Run(ctx, f); err != nil {
+	if _, err := c.pipelinesProvider.Run(ctx, f); err != nil {
 		return f, fmt.Errorf("failed to run pipeline: %w", err)
 	}
 
@@ -816,10 +780,6 @@ func (c *Client) RunPipeline(ctx context.Context, f Function) (Function, error) 
 // on the cluster and also on the remote git provider (ie. GitHub, GitLab or BitBucket repo)
 func (c *Client) ConfigurePAC(ctx context.Context, f Function, metadata any) error {
 	var err error
-	go func() {
-		<-ctx.Done()
-		c.progressListener.Stopping()
-	}()
 
 	// Default function registry to the client's global registry
 	if f.Registry == "" {
@@ -852,10 +812,6 @@ func (c *Client) ConfigurePAC(ctx context.Context, f Function, metadata any) err
 
 // RemovePAC deletes generated Pipeline as Code resources on the local filesystem and on the cluster
 func (c *Client) RemovePAC(ctx context.Context, f Function, metadata any) error {
-	go func() {
-		<-ctx.Done()
-		c.progressListener.Stopping()
-	}()
 
 	// Build and deploy function using Pipeline
 	if err := c.pipelinesProvider.RemovePAC(ctx, f, metadata); err != nil {
@@ -913,10 +869,6 @@ func RunWithStartTimeout(t time.Duration) RunOption {
 // Run the function whose code resides at root.
 // On start, the chosen port is sent to the provided started channel
 func (c *Client) Run(ctx context.Context, f Function, options ...RunOption) (job *Job, err error) {
-	go func() {
-		<-ctx.Done()
-		c.progressListener.Stopping()
-	}()
 
 	oo := RunOptions{}
 	for _, o := range options {
@@ -950,10 +902,6 @@ func (c *Client) Run(ctx context.Context, f Function, options ...RunOption) (job
 // Describe a function.  Name takes precedence.  If no name is provided,
 // the function defined at root is used.
 func (c *Client) Describe(ctx context.Context, name string, f Function) (d Instance, err error) {
-	go func() {
-		<-ctx.Done()
-		c.progressListener.Stopping()
-	}()
 	// If name is provided, it takes precedence.
 	// Otherwise load the function defined at root.
 	if name != "" {
@@ -978,10 +926,6 @@ func (c *Client) List(ctx context.Context) ([]ListItem, error) {
 // Remove a function.  Name takes precedence.  If no name is provided,
 // the function defined at root is used if it exists.
 func (c *Client) Remove(ctx context.Context, cfg Function, deleteAll bool) error {
-	go func() {
-		<-ctx.Done()
-		c.progressListener.Stopping()
-	}()
 	// If name is provided, it takes precedence.
 	// Otherwise load the function defined at root.
 	functionName := cfg.Name
@@ -1001,7 +945,7 @@ func (c *Client) Remove(ctx context.Context, cfg Function, deleteAll bool) error
 	}
 
 	// Delete Knative Service and dependent resources in parallel
-	c.progressListener.Increment(fmt.Sprintf("Removing Knative Service: %v", functionName))
+	fmt.Fprintf(os.Stderr, "Removing Knative Service: %v\n", functionName)
 	errChan := make(chan error)
 	go func() {
 		errChan <- c.remover.Remove(ctx, functionName)
@@ -1009,7 +953,7 @@ func (c *Client) Remove(ctx context.Context, cfg Function, deleteAll bool) error
 
 	var errResources error
 	if deleteAll {
-		c.progressListener.Increment(fmt.Sprintf("Removing Knative Service '%v' and all dependent resources", functionName))
+		fmt.Fprintf(os.Stderr, "Removing Knative Service '%v' and all dependent resources\n", functionName)
 		errResources = c.pipelinesProvider.Remove(ctx, cfg)
 	}
 
@@ -1040,10 +984,6 @@ func (c *Client) Remove(ctx context.Context, cfg Function, deleteAll bool) error
 // Functions are invoked in a manner consistent with the settings defined in
 // their metadata.  For example HTTP vs CloudEvent
 func (c *Client) Invoke(ctx context.Context, root string, target string, m InvokeMessage) (metadata map[string][]string, body string, err error) {
-	go func() {
-		<-ctx.Done()
-		c.progressListener.Stopping()
-	}()
 
 	f, err := NewFunction(root)
 	if err != nil {
@@ -1325,7 +1265,9 @@ func (n *noopDescriber) Describe(context.Context, string) (Instance, error) {
 // PipelinesProvider
 type noopPipelinesProvider struct{}
 
-func (n *noopPipelinesProvider) Run(ctx context.Context, _ Function) error    { return nil }
+func (n *noopPipelinesProvider) Run(ctx context.Context, _ Function) (string, error) {
+	return "", nil
+}
 func (n *noopPipelinesProvider) Remove(ctx context.Context, _ Function) error { return nil }
 func (n *noopPipelinesProvider) ConfigurePAC(ctx context.Context, _ Function, _ any) error {
 	return nil
@@ -1338,12 +1280,3 @@ func (n *noopPipelinesProvider) RemovePAC(ctx context.Context, _ Function, _ any
 type noopDNSProvider struct{ output io.Writer }
 
 func (n *noopDNSProvider) Provide(_ Function) error { return nil }
-
-// ProgressListener
-type NoopProgressListener struct{}
-
-func (p *NoopProgressListener) SetTotal(i int)     {}
-func (p *NoopProgressListener) Increment(m string) {}
-func (p *NoopProgressListener) Complete(m string)  {}
-func (p *NoopProgressListener) Stopping()          {}
-func (p *NoopProgressListener) Done()              {}
