@@ -6,7 +6,7 @@ Build a function container
 
 
 NAME
-	func build - Build a function container locally withoud deploying
+	func build - Build a function container locally without deploying
 
 SYNOPSIS
 	func build [-r|--registry] [--builder] [--builder-image] [--push]
