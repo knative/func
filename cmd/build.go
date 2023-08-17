@@ -23,7 +23,7 @@ func NewBuildCmd(newClient ClientFactory) *cobra.Command {
 		Short: "Build a function container",
 		Long: `
 NAME
-	{{rootCmdUse}} build - Build a function container locally withoud deploying
+	{{rootCmdUse}} build - Build a function container locally without deploying
 
 SYNOPSIS
 	{{rootCmdUse}} build [-r|--registry] [--builder] [--builder-image] [--push]

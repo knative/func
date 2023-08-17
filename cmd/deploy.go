@@ -51,7 +51,7 @@ DESCRIPTION
 	of --registry.
 
 	To run deploy using an interactive mode, use the --confirm (-c) option.
-	This mode is useful for the first deployment in particular, since subsdequent
+	This mode is useful for the first deployment in particular, since subsequent
 	deployments remember most of the settings provided.
 
 	Building
