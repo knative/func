@@ -144,10 +144,12 @@ func runEnvironment(cmd *cobra.Command, newClient ClientFactory, v *Version) (er
 		},
 	}
 
-	function, instance, err := describeFuncInformation(cmd.Context(), newClient, cfg)
-	if err == nil {
-		environment.Function = &function
-		environment.Instance = &instance
+	function, instance := describeFuncInformation(cmd.Context(), newClient, cfg)
+	if function != nil {
+		environment.Function = function
+	}
+	if instance != nil {
+		environment.Instance = instance
 	}
 
 	var s []byte
@@ -187,25 +189,20 @@ func getTemplates(client *functions.Client, runtimes []string) (map[string][]str
 	return templateMap, nil
 }
 
-func describeFuncInformation(context context.Context, newClient ClientFactory, cfg environmentConfig) (functions.Function, functions.Instance, error) {
-	var function functions.Function
-	var instance functions.Instance
+func describeFuncInformation(context context.Context, newClient ClientFactory, cfg environmentConfig) (*functions.Function, *functions.Instance) {
 	function, err := functions.NewFunction(cfg.Path)
-	if err != nil {
-		return function, instance, err
-	}
-	if !function.Initialized() {
-		return function, instance, functions.NewErrNotInitialized(function.Root)
+	if err != nil || !function.Initialized() {
+		return nil, nil
 	}
 
 	client, done := newClient(ClientConfig{Namespace: function.Deploy.Namespace, Verbose: cfg.Verbose})
 	defer done()
 
-	instance, err = client.Describe(context, function.Name, function)
+	instance, err := client.Describe(context, function.Name, function)
 	if err != nil {
-		return function, instance, err
+		return &function, nil
 	}
-	return function, instance, nil
+	return &function, &instance
 }
 
 type environmentConfig struct {
