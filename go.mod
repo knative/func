@@ -49,10 +49,10 @@ require (
 	k8s.io/apimachinery v0.26.5
 	k8s.io/client-go v1.5.2
 	knative.dev/client-pkg v0.0.0-20230815131440-5abd12981b4b
-	knative.dev/eventing v0.38.1-0.20230817101644-9d2bcefbaf9c
-	knative.dev/hack v0.0.0-20230815012940-044c02b7a447
-	knative.dev/pkg v0.0.0-20230815132840-4f651e092853
-	knative.dev/serving v0.38.1-0.20230816154842-1d6701e72e72
+	knative.dev/eventing v0.38.1-0.20230821112821-d8a2ad5683df
+	knative.dev/hack v0.0.0-20230818155117-9cc05a31e8c0
+	knative.dev/pkg v0.0.0-20230821102121-81e4ee140363
+	knative.dev/serving v0.38.1-0.20230818202718-e9425f8d5260
 )
 
 require (
@@ -154,7 +154,7 @@ require (
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-retryablehttp v0.7.4 // indirect
-	github.com/hashicorp/golang-lru v0.6.0 // indirect
+	github.com/hashicorp/golang-lru v1.0.2 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/iancoleman/orderedmap v0.0.0-20190318233801-ac98e3ecb4b0 // indirect
 	github.com/imdario/mergo v0.3.15 // indirect
@@ -227,9 +227,8 @@ require (
 	github.com/xlab/treeprint v1.1.0 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.starlark.net v0.0.0-20220817180228-f738f5508c12 // indirect
-	go.uber.org/atomic v1.10.0 // indirect
-	go.uber.org/multierr v1.9.0 // indirect
-	go.uber.org/zap v1.24.0 // indirect
+	go.uber.org/multierr v1.10.0 // indirect
+	go.uber.org/zap v1.25.0 // indirect
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1 // indirect
 	golang.org/x/mod v0.12.0 // indirect
 	golang.org/x/sys v0.11.0 // indirect
@@ -237,7 +236,7 @@ require (
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.12.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.3.0 // indirect
-	google.golang.org/api v0.136.0 // indirect
+	google.golang.org/api v0.138.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230803162519-f966b187b2e5 // indirect
 	google.golang.org/grpc v1.57.0 // indirect
@@ -251,7 +250,7 @@ require (
 	k8s.io/klog/v2 v2.100.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20230308215209-15aac26d736a // indirect
 	k8s.io/utils v0.0.0-20230220204549-a5ecb0141aa5 // indirect
-	knative.dev/networking v0.0.0-20230816124641-4901742377cd // indirect
+	knative.dev/networking v0.0.0-20230817140742-4bfcc9fb6012 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/kustomize/api v0.12.1 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.13.9 // indirect
