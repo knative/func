@@ -38,13 +38,6 @@ endif
 
 MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
-# All Code prerequisites, including generated files, etc.
-CODE := $(shell find . -name '*.go') \
-				generate/zz_filesystem_generated.go \
-				schema/func_yaml-schema.json \
-				templates/certs/ca-certificates.crt \
-				go.mod
-
 .PHONY: test docs
 
 # Default Targets
@@ -66,10 +59,12 @@ help:
 
 build: $(BIN) ## (default) Build binary for current OS
 
-$(BIN): $(CODE)
+.PHONY: $(BIN)
+$(BIN): generate/zz_filesystem_generated.go
 	env CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" ./cmd/$(BIN)
 
-test: $(CODE) ## Run core unit tests
+.PHONY: test
+test: generate/zz_filesystem_generated.go ## Run core unit tests
 	go test -ldflags "$(LDFLAGS)" -race -cover -coverprofile=coverage.txt ./...
 
 .PHONY: check
@@ -81,7 +76,7 @@ $(BIN_GOLANGCI_LINT):
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./bin v1.53.2
 
 .PHONY: generate/zz_filesystem_generated.go
-generate/zz_filesystem_generated.go: clean_templates
+generate/zz_filesystem_generated.go: clean_templates templates/certs/ca-certificates.crt
 	go generate pkg/functions/templates_embedded.go
 
 .PHONY: clean_templates
