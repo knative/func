@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
 	"context"
 	"encoding/base64"
@@ -134,6 +135,7 @@ func buildBuilderImage(ctx context.Context, variant string) error {
 		Publish:         false,
 		PullPolicy:      image.PullIfNotPresent,
 	}
+
 	err = packClient.CreateBuilder(ctx, createBuilderOpts)
 	if err != nil {
 		return fmt.Errorf("canont create builder: %w", err)
@@ -144,9 +146,43 @@ func buildBuilderImage(ctx context.Context, variant string) error {
 		return fmt.Errorf("cannot create docker client")
 	}
 
-	err = dockerClient.ImageTag(ctx, newBuilderImageTagged, newBuilderImageLatest)
+	imgBldOpts := types.ImageBuildOptions{
+		Tags: []string{newBuilderImageLatest, newBuilderImageTagged},
+		Labels: map[string]string{
+			"org.opencontainers.image.description": "Paketo Jammy builder enriched with Rust and Func-Go buildpacks.",
+			"org.opencontainers.image.source":      "https://github.com/knative/func",
+			"org.opencontainers.image.vendor":      "https://github.com/knative/func",
+			"org.opencontainers.image.url":         "https://github.com/knative/func/pkgs/container/builder-jammy-" + variant,
+			"org.opencontainers.image.version":     *release.Name,
+		},
+	}
+
+	dockerFile := "FROM " + newBuilderImageTagged
+	var buildCtxBuff bytes.Buffer
+	tw := tar.NewWriter(&buildCtxBuff)
+	hdr := tar.Header{Typeflag: tar.TypeReg, Name: "Dockerfile", Size: int64(len(dockerFile)), Mode: 0644}
+	err = tw.WriteHeader(&hdr)
 	if err != nil {
-		return fmt.Errorf("cannot tag latest image: %w", err)
+		return fmt.Errorf("cannot write tar header: %w", err)
+	}
+	_, err = tw.Write([]byte(dockerFile))
+	if err != nil {
+		return fmt.Errorf("cannot write docker file: %w", err)
+	}
+	_ = tw.Close()
+
+	imgBldResp, err := dockerClient.ImageBuild(ctx, &buildCtxBuff, imgBldOpts)
+	if err != nil {
+		return fmt.Errorf("cannot initialize build of image with additional labels: %w", err)
+	}
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(imgBldResp.Body)
+	fd := os.Stdout.Fd()
+	isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
+	err = jsonmessage.DisplayJSONMessagesStream(imgBldResp.Body, os.Stdout, fd, isTerminal, nil)
+	if err != nil {
+		return fmt.Errorf("cannot build image with additional labels: %w", err)
 	}
 
 	authConfig := registry.AuthConfig{
@@ -253,6 +289,7 @@ func downloadBuilderToml(ctx context.Context, tarballUrl, builderTomlPath string
 
 // Adds custom Rust and Go-Function buildpacks to the builder.
 func patchBuilder(config *builder.Config) {
+	config.Description += "\nAddendum: this is modified builder that also contains Rust and Func-Go buildpacks."
 	additionalBuildpacks := []builder.ModuleConfig{
 		{
 			ModuleInfo: dist.ModuleInfo{
