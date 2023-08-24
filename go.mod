@@ -2,6 +2,21 @@ module knative.dev/func
 
 go 1.20
 
+replace (
+	// Version used in Eventing
+	github.com/cloudevents/sdk-go/sql/v2 => github.com/cloudevents/sdk-go/sql/v2 v2.0.0-20220930150014-52b12276cc4a
+
+	// Use older version since it checks ~/.docker/config.json for credentials as opposed to later versions
+	github.com/containers/image/v5 => github.com/containers/image/v5 v5.23.1
+
+	// Tekton CLI uses newer version without currently used constructor code
+	github.com/hinshun/vt10x => github.com/hinshun/vt10x v0.0.0-20180809195222-d55458df857c
+	// Pin k8s.io dependencies to align with Knative and Tekton needs
+	k8s.io/api => k8s.io/api v0.25.4
+	k8s.io/apimachinery => k8s.io/apimachinery v0.25.4
+	k8s.io/client-go => k8s.io/client-go v0.25.4
+)
+
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.6
 	github.com/Masterminds/semver v1.5.0
@@ -25,6 +40,8 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/heroku/color v0.0.6
 	github.com/hinshun/vt10x v0.0.0-20220228203356-1ab2cad5fd82
+	github.com/manifestival/client-go-client v0.5.0
+	github.com/manifestival/manifestival v0.7.2
 	github.com/opencontainers/image-spec v1.1.0-rc4
 	github.com/openshift-pipelines/pipelines-as-code v0.17.1
 	github.com/openshift/source-to-image v1.3.8
@@ -44,6 +61,7 @@ require (
 	golang.org/x/sync v0.3.0
 	golang.org/x/term v0.11.0
 	gopkg.in/yaml.v2 v2.4.0
+	gopkg.in/yaml.v3 v3.0.1
 	gotest.tools/v3 v3.4.0
 	k8s.io/api v0.26.5
 	k8s.io/apimachinery v0.26.5
@@ -53,15 +71,6 @@ require (
 	knative.dev/hack v0.0.0-20230818155117-9cc05a31e8c0
 	knative.dev/pkg v0.0.0-20230821102121-81e4ee140363
 	knative.dev/serving v0.38.1-0.20230818202718-e9425f8d5260
-)
-
-require (
-	github.com/OneOfOne/xxhash v1.2.8 // indirect
-	github.com/moby/patternmatcher v0.5.0 // indirect
-	github.com/moby/sys/sequential v0.5.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20230803162519-f966b187b2e5 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20230807174057-1744710a1577 // indirect
-	sigs.k8s.io/controller-runtime v0.7.2 // indirect
 )
 
 require (
@@ -80,6 +89,7 @@ require (
 	github.com/Azure/go-autorest/logger v0.2.1 // indirect
 	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
 	github.com/BurntSushi/toml v1.3.2 // indirect
+	github.com/OneOfOne/xxhash v1.2.8 // indirect
 	github.com/ProtonMail/go-crypto v0.0.0-20230518184743-7afd39499903 // indirect
 	github.com/acomagu/bufpipe v1.0.4 // indirect
 	github.com/agext/levenshtein v1.2.3 // indirect
@@ -173,8 +183,6 @@ require (
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
-	github.com/manifestival/client-go-client v0.5.0
-	github.com/manifestival/manifestival v0.7.2
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/mattn/go-runewidth v0.0.14 // indirect
@@ -185,8 +193,10 @@ require (
 	github.com/mitchellh/ioprogress v0.0.0-20180201004757-6a23b12fa88e // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/moby/buildkit v0.11.6 // indirect
+	github.com/moby/patternmatcher v0.5.0 // indirect
 	github.com/moby/spdystream v0.2.0 // indirect
 	github.com/moby/sys/mountinfo v0.6.2 // indirect
+	github.com/moby/sys/sequential v0.5.0 // indirect
 	github.com/moby/term v0.5.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
@@ -239,36 +249,23 @@ require (
 	google.golang.org/api v0.138.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230803162519-f966b187b2e5 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20230803162519-f966b187b2e5 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20230807174057-1744710a1577 // indirect
 	google.golang.org/grpc v1.57.0 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
-	gopkg.in/yaml.v3 v3.0.1
 	k8s.io/apiextensions-apiserver v0.26.5 // indirect
 	k8s.io/cli-runtime v0.25.9 // indirect
 	k8s.io/klog/v2 v2.100.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20230308215209-15aac26d736a // indirect
 	k8s.io/utils v0.0.0-20230220204549-a5ecb0141aa5 // indirect
 	knative.dev/networking v0.0.0-20230817140742-4bfcc9fb6012 // indirect
+	sigs.k8s.io/controller-runtime v0.7.2 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/kustomize/api v0.12.1 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.13.9 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
-)
-
-replace (
-	// Version used in Eventing
-	github.com/cloudevents/sdk-go/sql/v2 => github.com/cloudevents/sdk-go/sql/v2 v2.0.0-20220930150014-52b12276cc4a
-
-	// Use older version since it checks ~/.docker/config.json for credentials as opposed to later versions
-	github.com/containers/image/v5 => github.com/containers/image/v5 v5.23.1
-
-	// Tekton CLI uses newer version without currently used constructor code
-	github.com/hinshun/vt10x => github.com/hinshun/vt10x v0.0.0-20180809195222-d55458df857c
-	// Pin k8s.io dependencies to align with Knative and Tekton needs
-	k8s.io/api => k8s.io/api v0.25.4
-	k8s.io/apimachinery => k8s.io/apimachinery v0.25.4
-	k8s.io/client-go => k8s.io/client-go v0.25.4
 )
