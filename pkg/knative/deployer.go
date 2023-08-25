@@ -145,9 +145,9 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	if err != nil {
 		if errors.IsNotFound(err) {
 
-			referencedSecrets := sets.NewString()
-			referencedConfigMaps := sets.NewString()
-			referencedPVCs := sets.NewString()
+			referencedSecrets := sets.New[string]()
+			referencedConfigMaps := sets.New[string]()
+			referencedPVCs := sets.New[string]()
 
 			service, err := generateNewService(f, d.decorator)
 			if err != nil {
@@ -238,9 +238,9 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		}
 	} else {
 		// Update the existing Service
-		referencedSecrets := sets.NewString()
-		referencedConfigMaps := sets.NewString()
-		referencedPVCs := sets.NewString()
+		referencedSecrets := sets.New[string]()
+		referencedConfigMaps := sets.New[string]()
+		referencedPVCs := sets.New[string]()
 
 		newEnv, newEnvFrom, err := processEnvs(f.Run.Envs, &referencedSecrets, &referencedConfigMaps)
 		if err != nil {
@@ -336,9 +336,9 @@ func generateNewService(f fn.Function, decorator DeployDecorator) (*v1.Service, 
 	}
 	setHealthEndpoints(f, &container)
 
-	referencedSecrets := sets.NewString()
-	referencedConfigMaps := sets.NewString()
-	referencedPVC := sets.NewString()
+	referencedSecrets := sets.New[string]()
+	referencedConfigMaps := sets.New[string]()
+	referencedPVC := sets.New[string]()
 
 	newEnv, newEnvFrom, err := processEnvs(f.Run.Envs, &referencedSecrets, &referencedConfigMaps)
 	if err != nil {
@@ -542,7 +542,7 @@ func updateService(f fn.Function, previousService *v1.Service, newEnv []corev1.E
 //   - name: EXAMPLE4
 //     value: {{ configMap:configMapName:key }}  # ENV from a key in ConfigMap
 //   - value: {{ configMap:configMapName }}      # all key-pair values from ConfigMap are set as ENV
-func processEnvs(envs []fn.Env, referencedSecrets, referencedConfigMaps *sets.String) ([]corev1.EnvVar, []corev1.EnvFromSource, error) {
+func processEnvs(envs []fn.Env, referencedSecrets, referencedConfigMaps *sets.Set[string]) ([]corev1.EnvVar, []corev1.EnvFromSource, error) {
 
 	envs = withOpenAddress(envs) // prepends ADDRESS=0.0.0.0 if not extant
 
@@ -631,7 +631,7 @@ func withOpenAddress(ee []fn.Env) []fn.Env {
 	return ee
 }
 
-func createEnvFromSource(value string, referencedSecrets, referencedConfigMaps *sets.String) (*corev1.EnvFromSource, error) {
+func createEnvFromSource(value string, referencedSecrets, referencedConfigMaps *sets.Set[string]) (*corev1.EnvFromSource, error) {
 	slices := strings.Split(strings.Trim(value, "{} "), ":")
 	if len(slices) != 2 {
 		return nil, fmt.Errorf("env requires a value in form \"resourceType:name\" where \"resourceType\" can be one of \"configMap\" or \"secret\"; got %q", slices)
@@ -675,7 +675,7 @@ func createEnvFromSource(value string, referencedSecrets, referencedConfigMaps *
 	return &envVarSource, nil
 }
 
-func createEnvVarSource(slices []string, referencedSecrets, referencedConfigMaps *sets.String) (*corev1.EnvVarSource, error) {
+func createEnvVarSource(slices []string, referencedSecrets, referencedConfigMaps *sets.Set[string]) (*corev1.EnvVarSource, error) {
 
 	if len(slices) != 3 {
 		return nil, fmt.Errorf("env requires a value in form \"resourceType:name:key\" where \"resourceType\" can be one of \"configMap\" or \"secret\"; got %q", slices)
@@ -760,7 +760,7 @@ func processLocalEnvValue(val string) (string, error) {
 //     path: /etc/secret-volume
 //   - emptyDir: {}                                         # mount EmptyDir as Volume
 //     path: /etc/configMap-volume
-func processVolumes(volumes []fn.Volume, referencedSecrets, referencedConfigMaps, referencedPVCs *sets.String) ([]corev1.Volume, []corev1.VolumeMount, error) {
+func processVolumes(volumes []fn.Volume, referencedSecrets, referencedConfigMaps, referencedPVCs *sets.Set[string]) ([]corev1.Volume, []corev1.VolumeMount, error) {
 
 	createdVolumes := sets.NewString()
 	usedPaths := sets.NewString()
@@ -871,7 +871,7 @@ func processVolumes(volumes []fn.Volume, referencedSecrets, referencedConfigMaps
 
 // checkResourcesArePresent returns error if Secrets or ConfigMaps
 // referenced in input sets are not deployed on the cluster in the specified namespace
-func checkResourcesArePresent(ctx context.Context, namespace string, referencedSecrets, referencedConfigMaps, referencedPVCs *sets.String, referencedServiceAccount string) error {
+func checkResourcesArePresent(ctx context.Context, namespace string, referencedSecrets, referencedConfigMaps, referencedPVCs *sets.Set[string], referencedServiceAccount string) error {
 
 	errMsg := ""
 	for s := range *referencedSecrets {
