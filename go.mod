@@ -3,18 +3,15 @@ module knative.dev/func
 go 1.20
 
 replace (
-	// Version used in Eventing
-	github.com/cloudevents/sdk-go/sql/v2 => github.com/cloudevents/sdk-go/sql/v2 v2.0.0-20220930150014-52b12276cc4a
-
 	// Use older version since it checks ~/.docker/config.json for credentials as opposed to later versions
 	github.com/containers/image/v5 => github.com/containers/image/v5 v5.23.1
 
 	// Tekton CLI uses newer version without currently used constructor code
 	github.com/hinshun/vt10x => github.com/hinshun/vt10x v0.0.0-20180809195222-d55458df857c
 	// Pin k8s.io dependencies to align with Knative and Tekton needs
-	k8s.io/api => k8s.io/api v0.25.4
-	k8s.io/apimachinery => k8s.io/apimachinery v0.25.4
-	k8s.io/client-go => k8s.io/client-go v0.25.4
+	k8s.io/api => k8s.io/api v0.26.5
+	k8s.io/apimachinery => k8s.io/apimachinery v0.26.5
+	k8s.io/client-go => k8s.io/client-go v0.26.5
 )
 
 require (
@@ -74,8 +71,6 @@ require (
 )
 
 require (
-	cloud.google.com/go/compute v1.23.0 // indirect
-	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	contrib.go.opencensus.io/exporter/ocagent v0.7.1-0.20200907061046-05415f1de66d // indirect
 	contrib.go.opencensus.io/exporter/prometheus v0.4.2 // indirect
 	github.com/Azure/azure-sdk-for-go v68.0.0+incompatible // indirect
