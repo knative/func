@@ -1,6 +1,6 @@
 ---
 apiVersion: tekton.dev/v1beta1
-kind: Task
+kind: ClusterTask
 metadata:
   name: func-buildpacks
   labels:

@@ -22,6 +22,11 @@ jobs:
         run: ./hack/create-testing-func-image.sh
       - name: Allocate Cluster
         run: ./hack/allocate.sh
+      - name: Install RH pull secrets for KinD cluster
+        env:
+          RH_REG_USR: ${{ secrets.RH_REG_USR }}
+          RH_REG_PWD: ${{ secrets.RH_REG_PWD }}
+        run: ./hack/install-pull-secrets.sh
       - name: Deploy Tekton
         run: ./hack/tekton.sh
       - name: Deploy Test Git Server

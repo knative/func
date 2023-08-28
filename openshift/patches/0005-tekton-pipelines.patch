@@ -1,0 +1,42 @@
+diff --git a/pkg/pipelines/resources/tekton/task/func-buildpacks/0.1/func-buildpacks.yaml b/pkg/pipelines/resources/tekton/task/func-buildpacks/0.1/func-buildpacks.yaml
+index ee227cf7..ac42d639 100644
+--- a/pkg/pipelines/resources/tekton/task/func-buildpacks/0.1/func-buildpacks.yaml
++++ b/pkg/pipelines/resources/tekton/task/func-buildpacks/0.1/func-buildpacks.yaml
+@@ -1,6 +1,6 @@
+ ---
+ apiVersion: tekton.dev/v1beta1
+-kind: Task
++kind: ClusterTask
+ metadata:
+   name: func-buildpacks
+   labels:
+diff --git a/pkg/pipelines/resources/tekton/task/func-deploy/0.1/func-deploy.yaml b/pkg/pipelines/resources/tekton/task/func-deploy/0.1/func-deploy.yaml
+index c58ff568..4658f04f 100644
+--- a/pkg/pipelines/resources/tekton/task/func-deploy/0.1/func-deploy.yaml
++++ b/pkg/pipelines/resources/tekton/task/func-deploy/0.1/func-deploy.yaml
+@@ -1,5 +1,5 @@
+ apiVersion: tekton.dev/v1beta1
+-kind: Task
++kind: ClusterTask
+ metadata:
+   name: func-deploy
+   labels:
+diff --git a/pkg/pipelines/resources/tekton/task/func-s2i/0.1/func-s2i.yaml b/pkg/pipelines/resources/tekton/task/func-s2i/0.1/func-s2i.yaml
+index bf90adfa..7f9fe8fc 100644
+--- a/pkg/pipelines/resources/tekton/task/func-s2i/0.1/func-s2i.yaml
++++ b/pkg/pipelines/resources/tekton/task/func-s2i/0.1/func-s2i.yaml
+@@ -1,5 +1,5 @@
+ apiVersion: tekton.dev/v1beta1
+-kind: Task
++kind: ClusterTask
+ metadata:
+   name: func-s2i
+   labels:
+@@ -26,6 +26,7 @@ spec:
+       description: Reference of the image S2I will produce.
+     - name: REGISTRY
+       description: The registry associated with the function image.
++      default: ""
+     - name: PATH_CONTEXT
+       description: The location of the path to run s2i from.
+       default: .

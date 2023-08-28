@@ -1,0 +1,22 @@
+diff --git a/pkg/pipelines/resources/tekton/task/func-s2i/0.1/func-s2i.yaml b/pkg/pipelines/resources/tekton/task/func-s2i/0.1/func-s2i.yaml
+index 696699580..7c25d5b67 100644
+--- a/pkg/pipelines/resources/tekton/task/func-s2i/0.1/func-s2i.yaml
++++ b/pkg/pipelines/resources/tekton/task/func-s2i/0.1/func-s2i.yaml
+@@ -60,7 +60,7 @@ spec:
+       description: Digest of the image just built.
+   steps:
+     - name: generate
+-      image: quay.io/openshift-pipeline/s2i:nightly
++      image: registry.redhat.io/ocp-tools-4-tech-preview/source-to-image-rhel8@sha256:98d8cb3a255641ca6a1bce854e5e2460c20de9fb9b28e3cc67eb459f122873dd
+       workingDir: $(workspaces.source.path)
+       args: ["$(params.ENV_VARS[*])"]
+       script: |
+@@ -99,7 +99,7 @@ spec:
+         - mountPath: /env-vars
+           name: env-vars
+     - name: build
+-      image: quay.io/buildah/stable:v1.27.0
++      image: registry.redhat.io/rhel8/buildah@sha256:a1e5cc0fb334e333e5eab69689223e8bd1f0c060810d260603b26cf8c0da2023
+       workingDir: /gen-source
+       script: |
+         TLS_VERIFY_FLAG=""
