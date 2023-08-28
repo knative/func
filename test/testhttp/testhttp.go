@@ -27,9 +27,9 @@ func TestUrl(t *testing.T, method string, bodyData string, url string, headers u
 
 	client := &http.Client{Timeout: time.Second * 15}
 	resp, err := client.Do(req)
+	assert.NilError(t, err)
 
 	t.Logf("%s %v -> %v", method, url, resp.Status)
-	assert.NilError(t, err)
 	defer func() {
 		_ = resp.Body.Close()
 	}()
