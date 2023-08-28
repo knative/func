@@ -6,8 +6,6 @@ replace (
 	// Use older version since it checks ~/.docker/config.json for credentials as opposed to later versions
 	github.com/containers/image/v5 => github.com/containers/image/v5 v5.23.1
 
-	// Tekton CLI uses newer version without currently used constructor code
-	github.com/hinshun/vt10x => github.com/hinshun/vt10x v0.0.0-20180809195222-d55458df857c
 	// Pin k8s.io dependencies to align with Knative and Tekton needs
 	k8s.io/api => k8s.io/api v0.26.5
 	k8s.io/apimachinery => k8s.io/apimachinery v0.26.5
@@ -25,6 +23,7 @@ require (
 	github.com/containerd/containerd v1.7.2
 	github.com/containers/image/v5 v5.26.1
 	github.com/coreos/go-semver v0.3.0
+	github.com/creack/pty v1.1.18
 	github.com/docker/cli v24.0.2+incompatible
 	github.com/docker/docker v24.0.5-0.20230718221249-d4a26c153000+incompatible
 	github.com/docker/docker-credential-helpers v0.7.0
@@ -119,7 +118,6 @@ require (
 	github.com/containerd/typeurl v1.0.2 // indirect
 	github.com/containers/storage v1.48.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
-	github.com/creack/pty v1.1.18 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/dgraph-io/ristretto v0.0.1 // indirect
 	github.com/dimchansky/utfbom v1.1.1 // indirect
@@ -173,7 +171,6 @@ require (
 	github.com/kelseyhightower/envconfig v1.4.0 // indirect
 	github.com/kevinburke/ssh_config v1.2.0 // indirect
 	github.com/klauspost/compress v1.16.6 // indirect
-	github.com/kr/pty v1.1.8 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
