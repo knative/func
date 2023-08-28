@@ -16,6 +16,8 @@ jobs:
         with:
           go-version: ${{ matrix.go }}
       - uses: imjasonh/setup-ko@v0.6
+      - name: Patch S2I Task
+        run: ./hack/patch-s2i-task.sh
       - name: Install Binaries
         run: ./hack/binaries.sh
       - name: Setup testing func image
@@ -29,6 +31,7 @@ jobs:
       - name: E2E On Cluster Test (Runtimes)
         env:
           TEST_TAGS: runtime
+          E2E_REGISTRY_URL: registry.default.svc.cluster.local:5000
           FUNC_REPO_REF: ${{ github.event.pull_request.head.repo.full_name }}
           FUNC_REPO_BRANCH_REF: ${{ github.head_ref }}
         run: make test-e2e-on-cluster
