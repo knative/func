@@ -10,6 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Netflix/go-expect"
+	"github.com/creack/pty"
 	"github.com/hinshun/vt10x"
 )
 
@@ -60,11 +62,16 @@ func (f *TestInteractiveCmd) PrepareRun(funcCommand ...string) func(args ...stri
 		}
 
 		// Prepare terminal emulator
-		c, _, err := vt10x.NewVT10XConsole()
+		ptm, pts, err := pty.Open()
 		if err != nil {
 			f.T.Fatal(err)
 		}
-		defer c.Close()
+		term := vt10x.New(vt10x.WithWriter(pts))
+		c, err := expect.NewConsole(expect.WithStdin(ptm), expect.WithStdout(term), expect.WithCloser(ptm, pts))
+		if err != nil {
+			f.T.Fatal(err)
+		}
+		f.T.Cleanup(func() { c.Close() })
 
 		// Prepare and start command on terminal emulator
 		var stdout bytes.Buffer

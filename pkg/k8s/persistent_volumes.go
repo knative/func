@@ -198,7 +198,7 @@ func runWithVolumeMounted(ctx context.Context, podImage string, podCommand []str
 	}()
 
 	var outBuff tsBuff
-	err = attach(client.CoreV1().RESTClient(), restConf, podName, namespace, podInput, &outBuff, &outBuff)
+	err = attach(ctx, client.CoreV1().RESTClient(), restConf, podName, namespace, podInput, &outBuff, &outBuff)
 	if err != nil {
 		return fmt.Errorf("cannot attach stdio to the pod: %w", err)
 	}

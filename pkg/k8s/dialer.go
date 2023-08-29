@@ -82,7 +82,7 @@ func (c *contextDialer) DialContext(ctx context.Context, network string, addr st
 		stderrBuff := bytes.NewBuffer(nil)
 		ctrStderr := io.MultiWriter(stderrBuff, detectConnSuccess(connectSuccess))
 
-		err := c.exec(addr, ctrStdin, ctrStdout, ctrStderr)
+		err := c.exec(ctx, addr, ctrStdin, ctrStdout, ctrStderr)
 		if err != nil {
 			stderrStr := stderrBuff.String()
 			socatErr := tryParseSocatError(network, addr, stderrStr)
@@ -268,7 +268,7 @@ func (c *contextDialer) startDialerPod(ctx context.Context) (err error) {
 
 	// attaching to the stdin to automatically Complete the pod on exit
 	go func() {
-		_ = attach(c.coreV1.RESTClient(), c.restConf, c.podName, c.namespace, emptyBlockingReader(c.detachChan), io.Discard, io.Discard)
+		_ = attach(ctx, c.coreV1.RESTClient(), c.restConf, c.podName, c.namespace, emptyBlockingReader(c.detachChan), io.Discard, io.Discard)
 	}()
 
 	return nil
@@ -283,7 +283,7 @@ func (e emptyBlockingReader) Read(p []byte) (n int, err error) {
 	return 0, io.EOF
 }
 
-func (c *contextDialer) exec(hostPort string, in io.Reader, out, errOut io.Writer) error {
+func (c *contextDialer) exec(ctx context.Context, hostPort string, in io.Reader, out, errOut io.Writer) error {
 
 	restClient := c.coreV1.RESTClient()
 	req := restClient.Post().
@@ -305,7 +305,7 @@ func (c *contextDialer) exec(hostPort string, in io.Reader, out, errOut io.Write
 		return err
 	}
 
-	return executor.Stream(remotecommand.StreamOptions{
+	return executor.StreamWithContext(ctx, remotecommand.StreamOptions{
 		Stdin:  in,
 		Stdout: out,
 		Stderr: errOut,
@@ -313,7 +313,7 @@ func (c *contextDialer) exec(hostPort string, in io.Reader, out, errOut io.Write
 	})
 }
 
-func attach(restClient restclient.Interface, restConf *restclient.Config, podName, namespace string, in io.Reader, out, errOut io.Writer) error {
+func attach(ctx context.Context, restClient restclient.Interface, restConf *restclient.Config, podName, namespace string, in io.Reader, out, errOut io.Writer) error {
 	req := restClient.Post().
 		Resource("pods").
 		Name(podName).
@@ -332,7 +332,7 @@ func attach(restClient restclient.Interface, restConf *restclient.Config, podNam
 		return err
 	}
 
-	return executor.Stream(remotecommand.StreamOptions{
+	return executor.StreamWithContext(ctx, remotecommand.StreamOptions{
 		Stdin:  in,
 		Stdout: out,
 		Stderr: errOut,

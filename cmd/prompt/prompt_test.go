@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Netflix/go-expect"
+	"github.com/creack/pty"
 	"github.com/hinshun/vt10x"
 
 	"knative.dev/func/pkg/docker"
@@ -24,11 +26,16 @@ func Test_NewPromptForCredentials(t *testing.T) {
 		Password: "testpwd",
 	}
 
-	console, _, err := vt10x.NewVT10XConsole()
+	ptm, pts, err := pty.Open()
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer console.Close()
+	term := vt10x.New(vt10x.WithWriter(pts))
+	console, err := expect.NewConsole(expect.WithStdin(ptm), expect.WithStdout(term), expect.WithCloser(ptm, pts))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { console.Close() })
 
 	go func() {
 		_, _ = console.ExpectEOF()
