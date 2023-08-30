@@ -2,15 +2,8 @@ module knative.dev/func
 
 go 1.20
 
-replace (
-	// Use older version since it checks ~/.docker/config.json for credentials as opposed to later versions
-	github.com/containers/image/v5 => github.com/containers/image/v5 v5.23.1
-
-	// Pin k8s.io dependencies to align with Knative and Tekton needs
-	k8s.io/api => k8s.io/api v0.26.5
-	k8s.io/apimachinery => k8s.io/apimachinery v0.26.5
-	k8s.io/client-go => k8s.io/client-go v0.26.5
-)
+// Use older version since it checks ~/.docker/config.json for credentials as opposed to later versions
+replace github.com/containers/image/v5 => github.com/containers/image/v5 v5.23.1
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.6
@@ -61,7 +54,7 @@ require (
 	gotest.tools/v3 v3.4.0
 	k8s.io/api v0.26.5
 	k8s.io/apimachinery v0.26.5
-	k8s.io/client-go v1.5.2
+	k8s.io/client-go v0.26.5
 	knative.dev/client-pkg v0.0.0-20230815131440-5abd12981b4b
 	knative.dev/eventing v0.38.1-0.20230821112821-d8a2ad5683df
 	knative.dev/hack v0.0.0-20230818155117-9cc05a31e8c0
