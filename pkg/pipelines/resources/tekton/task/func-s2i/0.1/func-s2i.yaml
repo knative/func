@@ -99,7 +99,7 @@ spec:
         - mountPath: /env-vars
           name: env-vars
     - name: build
-      image: quay.io/buildah/stable:v1.27.0
+      image: quay.io/buildah/stable:v1.31.0
       workingDir: /gen-source
       script: |
         TLS_VERIFY_FLAG=""
