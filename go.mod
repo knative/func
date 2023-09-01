@@ -26,7 +26,7 @@ require (
 	github.com/google/go-cmp v0.5.9
 	github.com/google/go-containerregistry v0.15.2
 	github.com/google/go-github/v49 v49.1.0
-	github.com/google/uuid v1.3.0
+	github.com/google/uuid v1.3.1
 	github.com/heroku/color v0.0.6
 	github.com/hinshun/vt10x v0.0.0-20220228203356-1ab2cad5fd82
 	github.com/manifestival/client-go-client v0.5.0
@@ -56,10 +56,10 @@ require (
 	k8s.io/apimachinery v0.26.5
 	k8s.io/client-go v0.26.5
 	knative.dev/client-pkg v0.0.0-20230815131440-5abd12981b4b
-	knative.dev/eventing v0.38.1-0.20230821112821-d8a2ad5683df
+	knative.dev/eventing v0.38.1-0.20230831151434-10e25b91d471
 	knative.dev/hack v0.0.0-20230818155117-9cc05a31e8c0
-	knative.dev/pkg v0.0.0-20230821102121-81e4ee140363
-	knative.dev/serving v0.38.1-0.20230818202718-e9425f8d5260
+	knative.dev/pkg v0.0.0-20230829134737-fcccb4e1a0a4
+	knative.dev/serving v0.38.1-0.20230831173934-8dbb2d35192a
 )
 
 require (
@@ -192,7 +192,7 @@ require (
 	github.com/opencontainers/runc v1.1.7 // indirect
 	github.com/opencontainers/runtime-spec v1.1.0-rc.3 // indirect
 	github.com/opencontainers/selinux v1.11.0 // indirect
-	github.com/openzipkin/zipkin-go v0.4.1 // indirect
+	github.com/openzipkin/zipkin-go v0.4.2 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pjbgf/sha1cd v0.3.0 // indirect
@@ -230,7 +230,7 @@ require (
 	golang.org/x/text v0.12.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.12.0 // indirect
-	gomodules.xyz/jsonpatch/v2 v2.3.0 // indirect
+	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/api v0.138.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230803162519-f966b187b2e5 // indirect
@@ -246,7 +246,7 @@ require (
 	k8s.io/klog/v2 v2.100.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20230308215209-15aac26d736a // indirect
 	k8s.io/utils v0.0.0-20230220204549-a5ecb0141aa5 // indirect
-	knative.dev/networking v0.0.0-20230817140742-4bfcc9fb6012 // indirect
+	knative.dev/networking v0.0.0-20230830115731-dfd6edf47b91 // indirect
 	sigs.k8s.io/controller-runtime v0.7.2 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/kustomize/api v0.12.1 // indirect
