@@ -1,0 +1,11 @@
+diff --git a/templates/quarkus/manifest.yaml b/templates/quarkus/manifest.yaml
+index 48668216..57cda2a2 100644
+--- a/templates/quarkus/manifest.yaml
++++ b/templates/quarkus/manifest.yaml
+@@ -1,4 +1,6 @@
+ buildEnvs:
++  - name: BP_JVM_VERSION
++    value: "17"
+   - name: BP_NATIVE_IMAGE
+     value: "false"
+   - name: BP_MAVEN_BUILT_ARTIFACT
