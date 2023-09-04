@@ -126,7 +126,7 @@ func newConfigGitSetConfig(cmd *cobra.Command) (c configGitSetConfig) {
 	}
 
 	c = configGitSetConfig{
-		buildConfig: newBuildConfig(),
+		buildConfig: newBuildConfig(cmd),
 		Namespace:   viper.GetString("namespace"),
 
 		GitURL:        viper.GetString("git-url"),

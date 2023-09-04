@@ -212,8 +212,9 @@ EXAMPLES
 
 func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	var (
-		cfg deployConfig
-		f   fn.Function
+		cfg  deployConfig
+		f    fn.Function
+		oldF fn.Function
 	)
 	if err = config.CreatePaths(); err != nil { // for possible auth.json usage
 		return
@@ -234,22 +235,15 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		return
 	}
 
-	// TODO: this is duplicate logic with runBuild and runRun.
-	// Refactor both to have this logic part of creating the buildConfig and thus
-	// shared because newDeployConfig uses newBuildConfig for its embedded struct.
-	if f.Registry != "" && !cmd.Flags().Changed("image") && strings.Index(f.Image, "/") > 0 && !strings.HasPrefix(f.Image, f.Registry) {
-		prfx := f.Registry
-		if prfx[len(prfx)-1:] != "/" {
-			prfx = prfx + "/"
-		}
-		sps := strings.Split(f.Image, "/")
-		updImg := prfx + sps[len(sps)-1]
-		fmt.Fprintf(cmd.ErrOrStderr(), "Warning: function has current image '%s' which has a different registry than the currently configured registry '%s'. The new image tag will be '%s'.  To use an explicit image, use --image.\n", f.Image, f.Registry, updImg)
-		f.Image = updImg
+	// create an unconfigured function for useful prints & conditions for determining
+	// if function should be implicitly deleted when namespace change is forced
+	// with --namespace flag in order to keep exactly 1 instance of the same func.
+	if oldF, err = fn.NewFunction(cfg.Path); err != nil {
+		return
 	}
 
 	// Informative non-error messages regarding the final deployment request
-	printDeployMessages(cmd.OutOrStdout(), cfg)
+	printDeployMessages(cmd.OutOrStdout(), cfg, oldF)
 
 	clientOptions, err := cfg.clientOptions()
 	if err != nil {
@@ -257,6 +251,15 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	}
 	client, done := newClient(ClientConfig{Namespace: f.Deploy.Namespace, Verbose: cfg.Verbose}, clientOptions...)
 	defer done()
+
+	// Undeploy dangling Function on forced namespace change (using --namespace flag)
+	if cfg.Namespace != oldF.Deploy.Namespace && oldF.Deploy.Namespace != "" {
+		fmt.Fprintf(cmd.OutOrStdout(), "Info: Deleting old func in '%s' because the namespace has changed\n", oldF.Deploy.Namespace)
+		oldClient, doneOld := newClient(ClientConfig{Namespace: oldF.Deploy.Namespace, Verbose: cfg.Verbose}, clientOptions...)
+		defer doneOld()
+		oldClient.Remove(cmd.Context(), oldF, true)
+		// fmt.Fprintf(cmd.OutOrStdout(), "Info: Undeployed in %s\n", oldF.Deploy.Namespace)
+	}
 
 	// Deploy
 	if cfg.Remote {
@@ -278,6 +281,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 				return
 			}
 		}
+		// TODO: check if image was already deployed in diff namespace, if so -- delete the dangling one and deploy new one in current namespace
 		if f, err = client.Deploy(cmd.Context(), f, fn.WithDeploySkipBuildCheck(cfg.Build == "false")); err != nil {
 			return
 		}
@@ -463,7 +467,7 @@ type deployConfig struct {
 // environment variables; in that precedence.
 func newDeployConfig(cmd *cobra.Command) (c deployConfig) {
 	c = deployConfig{
-		buildConfig:        newBuildConfig(),
+		buildConfig:        newBuildConfig(cmd),
 		Build:              viper.GetString("build"),
 		Env:                viper.GetStringSlice("env"),
 		Domain:             viper.GetString("domain"),
@@ -697,7 +701,7 @@ func imageDigest(v string) (digest string, err error) {
 }
 
 // printDeployMessages to the output.  Non-error deployment messages.
-func printDeployMessages(out io.Writer, cfg deployConfig) {
+func printDeployMessages(out io.Writer, cfg deployConfig, f fn.Function) {
 	// Digest
 	// ------
 	// If providing an image digest, print this, and note that the values
@@ -711,15 +715,14 @@ func printDeployMessages(out io.Writer, cfg deployConfig) {
 
 	// Namespace
 	// ---------
-	f, _ := fn.NewFunction(cfg.Path)
 	currentNamespace := f.Deploy.Namespace // will be "" if no initialed f at path.
 	targetNamespace := cfg.Namespace
 
-	// If potentially creating a duplicate deployed function in a different
-	// namespace.  TODO: perhaps add a --delete or --force flag which will
-	// automagically delete the deployment in the "old" namespace.
+	// If creating a duplicate deployed function in a different
+	// namespace.
 	if targetNamespace != currentNamespace && currentNamespace != "" {
-		fmt.Fprintf(out, "Warning: function is in namespace '%s', but requested namespace is '%s'. Continuing with deployment to '%v'.\n", currentNamespace, targetNamespace, targetNamespace)
+		// fmt.Fprintf(out, "Warning: function is in namespace '%s', but requested namespace is '%s'. Continuing with deployment to '%v'.\n", currentNamespace, targetNamespace, targetNamespace)
+		fmt.Fprintf(out, "Info: chosen namespace has changed from '%s' to '%s'. Undeploying function from '%s' and deploying new in '%s'.\n", currentNamespace, targetNamespace, currentNamespace, targetNamespace)
 	}
 
 	// Namespace Changing
@@ -752,5 +755,4 @@ func printDeployMessages(out io.Writer, cfg deployConfig) {
 	if !cfg.Remote && (cfg.GitURL != "" || cfg.GitBranch != "" || cfg.GitDir != "") {
 		fmt.Fprintf(out, "Warning: git settings are only applicable when running with --remote.  Local source code will be used.")
 	}
-
 }

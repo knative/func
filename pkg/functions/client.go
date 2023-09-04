@@ -945,7 +945,7 @@ func (c *Client) Remove(ctx context.Context, cfg Function, deleteAll bool) error
 	}
 
 	// Delete Knative Service and dependent resources in parallel
-	fmt.Fprintf(os.Stderr, "Removing Knative Service: %v\n", functionName)
+	fmt.Fprintf(os.Stderr, "Removing Knative Service: %v in namespace %v\n", functionName, cfg.Deploy.Namespace)
 	errChan := make(chan error)
 	go func() {
 		errChan <- c.remover.Remove(ctx, functionName)

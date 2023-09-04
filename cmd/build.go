@@ -141,7 +141,7 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	if err = config.CreatePaths(); err != nil { // for possible auth.json usage
 		return
 	}
-	if cfg, err = newBuildConfig().Prompt(); err != nil {
+	if cfg, err = newBuildConfig(cmd).Prompt(); err != nil {
 		return
 	}
 	if err = cfg.Validate(); err != nil {
@@ -154,23 +154,6 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		return fn.NewErrNotInitialized(f.Root)
 	}
 	f = cfg.Configure(f) // Updates f at path to include build request values
-
-	// TODO: this logic is duplicated with runDeploy.  Shouild be in buildConfig
-	// constructor.
-	// Checks if there is a difference between defined registry and its value
-	// used as a prefix in the image tag In case of a mismatch a new image tag is
-	// created and used for build.
-	// Do not react if image tag has been changed outside configuration
-	if f.Registry != "" && !cmd.Flags().Changed("image") && strings.Index(f.Image, "/") > 0 && !strings.HasPrefix(f.Image, f.Registry) {
-		prfx := f.Registry
-		if prfx[len(prfx)-1:] != "/" {
-			prfx = prfx + "/"
-		}
-		sps := strings.Split(f.Image, "/")
-		updImg := prfx + sps[len(sps)-1]
-		fmt.Fprintf(cmd.ErrOrStderr(), "Warning: function has current image '%s' which has a different registry than the currently configured registry '%s'. The new image tag will be '%s'.  To use an explicit image, use --image.\n", f.Image, f.Registry, updImg)
-		f.Image = updImg
-	}
 
 	// Client
 	clientOptions, err := cfg.clientOptions()
@@ -230,8 +213,8 @@ type buildConfig struct {
 }
 
 // newBuildConfig gathers options into a single build request.
-func newBuildConfig() buildConfig {
-	return buildConfig{
+func newBuildConfig(cmd *cobra.Command) buildConfig {
+	bc := buildConfig{
 		Global: config.Global{
 			Builder:  viper.GetString("builder"),
 			Confirm:  viper.GetBool("confirm"),
@@ -245,6 +228,18 @@ func newBuildConfig() buildConfig {
 		Push:          viper.GetBool("push"),
 		WithTimestamp: viper.GetBool("build-timestamp"),
 	}
+	if bc.Registry != "" && !cmd.Flags().Changed("image") && strings.Index(bc.Image, "/") > 0 && !strings.HasPrefix(bc.Image, bc.Registry) {
+		prfx := bc.Registry
+		if prfx[len(prfx)-1:] != "/" {
+			prfx = prfx + "/"
+		}
+		sps := strings.Split(bc.Image, "/")
+		updImg := prfx + sps[len(sps)-1]
+		fmt.Fprintf(cmd.ErrOrStderr(), "Warning: function has current image '%s' which has a different registry than the currently configured registry '%s'. The new image tag will be '%s'.  To use an explicit image, use --image.\n", bc.Image, bc.Registry, updImg)
+		bc.Image = updImg
+	}
+
+	return bc
 }
 
 // Configure the given function.  Updates a function struct with all
