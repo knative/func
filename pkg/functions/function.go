@@ -154,6 +154,13 @@ type DeploySpec struct {
 	// Namespace into which the function is deployed on supported platforms.
 	Namespace string `yaml:"namespace,omitempty"`
 
+	// Image which describes image name that's calculated or provided using --image
+	Image string `yaml:"image,omitempty"`
+
+	// Remote indicates the deployment (and possibly build) process are to
+	// be triggered in a remote environment rather than run locally.
+	Remote bool `yaml:"remote,omitempty"`
+
 	// Map containing user-supplied annotations
 	// Example: { "division": "finance" }
 	Annotations map[string]string `yaml:"annotations,omitempty"`

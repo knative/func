@@ -254,11 +254,16 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 
 	// Undeploy dangling Function on forced namespace change (using --namespace flag)
 	if cfg.Namespace != oldF.Deploy.Namespace && oldF.Deploy.Namespace != "" {
-		fmt.Fprintf(cmd.OutOrStdout(), "Info: Deleting old func in '%s' because the namespace has changed\n", oldF.Deploy.Namespace)
+		// TODO: when new prompt is implemented, add here a "are you sure?" check possibly
+
+		// fmt.Fprintf(cmd.OutOrStdout(), "Info: Deleting old func in '%s' because the namespace has changed\n", oldF.Deploy.Namespace)
 		oldClient, doneOld := newClient(ClientConfig{Namespace: oldF.Deploy.Namespace, Verbose: cfg.Verbose}, clientOptions...)
 		defer doneOld()
 		oldClient.Remove(cmd.Context(), oldF, true)
-		// fmt.Fprintf(cmd.OutOrStdout(), "Info: Undeployed in %s\n", oldF.Deploy.Namespace)
+
+		// TODO: this has to be done in image re-calculation
+		// f.Image = ""
+		// f.Registry = ""
 	}
 
 	// Deploy
