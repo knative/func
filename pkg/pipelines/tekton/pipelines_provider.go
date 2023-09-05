@@ -245,10 +245,26 @@ func sourcesAsTarStream(f fn.Function) *io.PipeReader {
 
 	pr, pw := io.Pipe()
 
+	const nobodyID = 65534
+
 	const up = ".." + string(os.PathSeparator)
 	go func() {
 		tw := tar.NewWriter(pw)
-		err := filepath.Walk(f.Root, func(p string, fi fs.FileInfo, err error) error {
+
+		err := tw.WriteHeader(&tar.Header{
+			Typeflag: tar.TypeDir,
+			Name:     "source/",
+			Mode:     0777,
+			Uid:      nobodyID,
+			Gid:      nobodyID,
+			Uname:    "nobody",
+			Gname:    "nobody",
+		})
+		if err != nil {
+			_ = pw.CloseWithError(fmt.Errorf("error while creating tar stream from sources: %w", err))
+		}
+
+		err = filepath.Walk(f.Root, func(p string, fi fs.FileInfo, err error) error {
 			if err != nil {
 				return fmt.Errorf("error traversing function directory: %w", err)
 			}
