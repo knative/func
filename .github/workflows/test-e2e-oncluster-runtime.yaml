@@ -32,6 +32,16 @@ jobs:
           FUNC_REPO_REF: ${{ github.event.pull_request.head.repo.full_name }}
           FUNC_REPO_BRANCH_REF: ${{ github.head_ref }}
         run: make test-e2e-on-cluster
+      - name: Dump Cluster Logs
+        if: always()
+        run: |
+          echo "::group::cluster events"
+          kubectl get events -A
+          echo "::endgroup::"
+
+          echo "::group::cluster containers logs"
+          stern '.*' --all-namespaces --no-follow
+          echo "::endgroup::"
       - uses: codecov/codecov-action@v3
         with:
           files: ./coverage.txt
