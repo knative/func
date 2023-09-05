@@ -71,7 +71,7 @@ var TarImage = "quay.io/boson/alpine-socat:1.7.4.3-r1-non-root"
 
 // UploadToVolume uploads files (passed in form of tar stream) into volume.
 func UploadToVolume(ctx context.Context, content io.Reader, claimName, namespace string) error {
-	return runWithVolumeMounted(ctx, TarImage, []string{"tar", "-xmf", "-"}, content, claimName, namespace)
+	return runWithVolumeMounted(ctx, TarImage, []string{"sh", "-c", "umask 0000 && exec tar -xmf -"}, content, claimName, namespace)
 }
 
 // Runs a pod with given image, command and stdin
