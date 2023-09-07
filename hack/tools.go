@@ -20,5 +20,5 @@ limitations under the License.
 package tools
 
 import (
-	_ "knative.dev/hack"
+	_ "knative.dev/hack/cmd/script"
 )

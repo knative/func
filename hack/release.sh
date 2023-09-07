@@ -19,7 +19,7 @@
 ORG_NAME=knative
 VALIDATION_TESTS="make test"
 
-source $(dirname $0)/../vendor/knative.dev/hack/release.sh
+source "$(go run knative.dev/hack/cmd/script release.sh)"
 
 PIPELINE_ARTIFACTS="pkg/pipelines/resources/tekton/task/func-buildpacks/0.2/func-buildpacks.yaml pkg/pipelines/resources/tekton/task/func-deploy/0.1/func-deploy.yaml pkg/pipelines/resources/tekton/task/func-s2i/0.1/func-s2i.yaml"
 
