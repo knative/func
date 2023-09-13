@@ -60,7 +60,7 @@ spec:
       description: Digest of the image just built.
   steps:
     - name: generate
-      image: quay.io/openshift-pipeline/s2i:nightly
+      image: quay.io/boson/s2i:latest
       workingDir: $(workspaces.source.path)
       args: ["$(params.ENV_VARS[*])"]
       script: |
