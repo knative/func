@@ -164,6 +164,10 @@
 					"format": "date-time"
 				},
 				"invoke": {
+					"enum": [
+						"http",
+						"cloudevent"
+					],
 					"type": "string",
 					"description": "Invoke defines hints for use when invoking this function.\nSee Client.Invoke for usage."
 				},
