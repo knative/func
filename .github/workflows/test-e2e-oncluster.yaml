@@ -18,10 +18,10 @@ jobs:
       - uses: imjasonh/setup-ko@v0.6
       - name: Install Binaries
         run: ./hack/binaries.sh
-      - name: Setup testing func image
-        run: ./hack/create-testing-func-image.sh
       - name: Allocate Cluster
         run: ./hack/allocate.sh
+      - name: Setup testing func image
+        run: ./hack/create-testing-func-image.sh
       - name: Deploy Tekton
         run: ./hack/tekton.sh
       - name: Deploy Test Git Server

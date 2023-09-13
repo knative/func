@@ -18,12 +18,12 @@ jobs:
       - uses: imjasonh/setup-ko@v0.6
       - name: Install Binaries
         run: ./hack/binaries.sh
-      - name: Setup testing func image
-        run: ./hack/create-testing-func-image.sh
       - name: Local Registry
         run: ./hack/registry.sh
       - name: Allocate Cluster
         run: ./hack/allocate.sh
+      - name: Setup testing func image
+        run: ./hack/create-testing-func-image.sh
       - name: Patch S2I Task
         run: ./hack/patch-s2i-task.sh
       - name: Install Tekton

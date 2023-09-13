@@ -76,6 +76,8 @@ containerdConfigPatches:
     endpoint = ["http://func-registry:5000"]
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."registry.default.svc.cluster.local:5000"]
     endpoint = ["http://func-registry:5000"]
+  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."ghcr.io"]
+    endpoint = ["http://func-registry:5000"]
 EOF
   sleep 10
   kubectl wait pod --for=condition=Ready -l '!job-name' -n kube-system --timeout=5m
