@@ -78,6 +78,8 @@ containerdConfigPatches:
     endpoint = ["http://func-registry:5000"]
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."ghcr.io"]
     endpoint = ["http://func-registry:5000"]
+  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."quay.io"]
+    endpoint = ["http://func-registry:5000"]
 EOF
   sleep 10
   kubectl wait pod --for=condition=Ready -l '!job-name' -n kube-system --timeout=5m
@@ -129,7 +131,7 @@ networking() {
   kubectl wait --namespace metallb-system \
     --for=condition=ready pod \
     --selector=app=metallb \
-    --timeout=90s
+    --timeout=300s
 
   local kind_addr
   kind_addr="$(docker container inspect func-control-plane | jq '.[0].NetworkSettings.Networks.kind.IPAddress' -r)"
@@ -154,12 +156,12 @@ EOF
   # Install a properly configured Contour.
   kubectl apply -f "https://github.com/knative/net-contour/releases/download/knative-${contour_version}/contour.yaml"
   sleep 5
-  kubectl wait pod --for=condition=Ready -l '!job-name' -n contour-external --timeout=5m
+  kubectl wait pod --for=condition=Ready -l '!job-name' -n contour-external --timeout=10m
 
   # Install the Knative Contour controller.
   kubectl apply -f "https://github.com/knative/net-contour/releases/download/knative-${contour_version}/net-contour.yaml"
   sleep 5
-  kubectl wait pod --for=condition=Ready -l '!job-name' -n knative-serving --timeout=5m
+  kubectl wait pod --for=condition=Ready -l '!job-name' -n knative-serving --timeout=10m
 
   # Configure Knative Serving to use Contour.
   kubectl patch configmap/config-network \
@@ -167,8 +169,8 @@ EOF
     --type merge \
     --patch '{"data":{"ingress-class":"contour.ingress.networking.knative.dev"}}'
 
-  kubectl wait pod --for=condition=Ready -l '!job-name' -n contour-external --timeout=5m
-  kubectl wait pod --for=condition=Ready -l '!job-name' -n knative-serving --timeout=5m
+  kubectl wait pod --for=condition=Ready -l '!job-name' -n contour-external --timeout=10m
+  kubectl wait pod --for=condition=Ready -l '!job-name' -n knative-serving --timeout=10m
 }
 
 eventing() {

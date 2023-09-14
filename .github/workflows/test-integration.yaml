@@ -24,8 +24,6 @@ jobs:
         run: ./hack/allocate.sh
       - name: Setup testing func image
         run: ./hack/create-testing-func-image.sh
-      - name: Patch S2I Task
-        run: ./hack/patch-s2i-task.sh
       - name: Install Tekton
         run: ./hack/tekton.sh
       - name: Set up environment variables
