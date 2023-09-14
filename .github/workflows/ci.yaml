@@ -104,8 +104,8 @@ jobs:
         run: ./hack/binaries.sh
       - name: Allocate Cluster
         run: ./hack/allocate.sh
-      - name: Setup testing func image
-        run: ./hack/create-testing-func-image.sh
+      - name: Setup testing images
+        run: ./hack/setup-testing-images.sh
       - name: Deploy Tekton
         run: ./hack/tekton.sh
       - name: Deploy Test Git Server
