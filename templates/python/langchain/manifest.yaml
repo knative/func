@@ -1,0 +1,4 @@
+invoke: "cloudevent"
+build:
+  builder: pack
+  buildpacks:
