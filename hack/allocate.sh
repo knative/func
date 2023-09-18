@@ -78,6 +78,8 @@ containerdConfigPatches:
     endpoint = ["http://func-registry:5000"]
   [plugins."io.containerd.grpc.v1.cri".registry.mirrors."ghcr.io"]
     endpoint = ["http://func-registry:5000"]
+  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."quay.io"]
+    endpoint = ["http://func-registry:5000"]
 EOF
   sleep 10
   kubectl wait pod --for=condition=Ready -l '!job-name' -n kube-system --timeout=5m
@@ -124,16 +126,17 @@ dns() {
 networking() {
   echo "${em}④ Contour Ingress${me}"
 
-  # Install load balancer
+  echo "Install load balancer."
   kubectl apply -f "https://raw.githubusercontent.com/metallb/metallb/v0.13.7/config/manifests/metallb-native.yaml"
   kubectl wait --namespace metallb-system \
     --for=condition=ready pod \
     --selector=app=metallb \
-    --timeout=90s
+    --timeout=300s
 
   local kind_addr
   kind_addr="$(docker container inspect func-control-plane | jq '.[0].NetworkSettings.Networks.kind.IPAddress' -r)"
 
+  echo "Setting up address pool."
   kubectl apply -f - <<EOF
 apiVersion: metallb.io/v1beta1
 kind: IPAddressPool
@@ -151,24 +154,24 @@ metadata:
   namespace: metallb-system
 EOF
 
-  # Install a properly configured Contour.
+  echo "Install a properly configured Contour."
   kubectl apply -f "https://github.com/knative/net-contour/releases/download/knative-${contour_version}/contour.yaml"
   sleep 5
-  kubectl wait pod --for=condition=Ready -l '!job-name' -n contour-external --timeout=5m
+  kubectl wait pod --for=condition=Ready -l '!job-name' -n contour-external --timeout=10m
 
-  # Install the Knative Contour controller.
+  echo "Install the Knative Contour controller."
   kubectl apply -f "https://github.com/knative/net-contour/releases/download/knative-${contour_version}/net-contour.yaml"
   sleep 5
-  kubectl wait pod --for=condition=Ready -l '!job-name' -n knative-serving --timeout=5m
+  kubectl wait pod --for=condition=Ready -l '!job-name' -n knative-serving --timeout=10m
 
-  # Configure Knative Serving to use Contour.
+  echo "Configure Knative Serving to use Contour."
   kubectl patch configmap/config-network \
     --namespace knative-serving \
     --type merge \
     --patch '{"data":{"ingress-class":"contour.ingress.networking.knative.dev"}}'
 
-  kubectl wait pod --for=condition=Ready -l '!job-name' -n contour-external --timeout=5m
-  kubectl wait pod --for=condition=Ready -l '!job-name' -n knative-serving --timeout=5m
+  kubectl wait pod --for=condition=Ready -l '!job-name' -n contour-external --timeout=10m
+  kubectl wait pod --for=condition=Ready -l '!job-name' -n knative-serving --timeout=10m
 }
 
 eventing() {

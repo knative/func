@@ -82,7 +82,7 @@ func (c *contextDialer) DialContext(ctx context.Context, network string, addr st
 		stderrBuff := bytes.NewBuffer(nil)
 		ctrStderr := io.MultiWriter(stderrBuff, detectConnSuccess(connectSuccess))
 
-		err := c.exec(ctx, addr, ctrStdin, ctrStdout, ctrStderr)
+		err := c.exec(context.TODO(), addr, ctrStdin, ctrStdout, ctrStderr)
 		if err != nil {
 			stderrStr := stderrBuff.String()
 			socatErr := tryParseSocatError(network, addr, stderrStr)
@@ -268,7 +268,7 @@ func (c *contextDialer) startDialerPod(ctx context.Context) (err error) {
 
 	// attaching to the stdin to automatically Complete the pod on exit
 	go func() {
-		_ = attach(ctx, c.coreV1.RESTClient(), c.restConf, c.podName, c.namespace, emptyBlockingReader(c.detachChan), io.Discard, io.Discard)
+		_ = attach(context.TODO(), c.coreV1.RESTClient(), c.restConf, c.podName, c.namespace, emptyBlockingReader(c.detachChan), io.Discard, io.Discard)
 	}()
 
 	return nil

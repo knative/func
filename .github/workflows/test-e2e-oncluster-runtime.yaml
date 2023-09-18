@@ -20,8 +20,8 @@ jobs:
         run: ./hack/binaries.sh
       - name: Allocate Cluster
         run: ./hack/allocate.sh
-      - name: Setup testing func image
-        run: ./hack/create-testing-func-image.sh
+      - name: Setup testing images
+        run: ./hack/setup-testing-images.sh
       - name: Deploy Tekton
         run: ./hack/tekton.sh
       - name: Deploy Test Git Server
@@ -29,6 +29,7 @@ jobs:
       - name: E2E On Cluster Test (Runtimes)
         env:
           TEST_TAGS: runtime
+          E2E_REGISTRY_URL: registry.default.svc.cluster.local:5000
           FUNC_REPO_REF: ${{ github.event.pull_request.head.repo.full_name }}
           FUNC_REPO_BRANCH_REF: ${{ github.head_ref }}
         run: make test-e2e-on-cluster
