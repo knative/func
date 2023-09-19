@@ -9,6 +9,7 @@ jobs:
       matrix:
         go: [1.20.2]
         os: ["ubuntu-latest"]
+        func_builder: ["pack", "s2i"]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
@@ -32,6 +33,7 @@ jobs:
           E2E_REGISTRY_URL: registry.default.svc.cluster.local:5000
           FUNC_REPO_REF: ${{ github.event.pull_request.head.repo.full_name }}
           FUNC_REPO_BRANCH_REF: ${{ github.head_ref }}
+          FUNC_BUILDER: ${{ matrix.func_builder }}
         run: make test-e2e-on-cluster
       - name: Dump Cluster Logs
         if: always()
