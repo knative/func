@@ -44,7 +44,11 @@ func TestRuntime(t *testing.T) {
 	for _, lang := range runtimeList {
 		for _, builder := range runtimeSupportMap[lang] {
 			if targetBuilder == "" || builder == targetBuilder {
+				lang, builder := lang, builder
 				t.Run(fmt.Sprintf("%v_%v_test", lang, builder), func(t *testing.T) {
+					if builder == "pack" || os.Getenv("GITHUB_ACTIONS") == "" {
+						t.Parallel()
+					}
 					runtimeImpl(t, lang, builder)
 				})
 			}
