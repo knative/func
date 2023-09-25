@@ -25,8 +25,3 @@ __pycache__
 
 # Operating system temporary files
 .DS_Store
-
-# Non relevant vendor files
-BUILD.bazel
-OWNERS
-OWNERS_ALIASES
