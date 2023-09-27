@@ -40,13 +40,16 @@ main() {
   echo "${em}Allocating...${me}"
 
   kubernetes
-  serving
-  dns
-  eventing
-  networking
-  registry
-  namespace
-  dapr_runtime
+  ( set -o pipefail; (serving && dns && networking) 2>&1 | sed  -e 's/^/svr /')&
+  ( set -o pipefail; (eventing && namespace) 2>&1 | sed  -e 's/^/evt /')&
+  ( set -o pipefail; registry 2>&1 | sed  -e 's/^/reg /') &
+  ( set -o pipefail; dapr_runtime 2>&1 | sed  -e 's/^/dpr /')&
+
+  local job
+  for job in $(jobs -p); do
+    wait "$job"
+  done
+
   next_steps
   
   echo "${em}DONE${me}"
