@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
 	"os"
 	"regexp"
 	"strings"
@@ -21,6 +22,8 @@ import (
 	"knative.dev/client-pkg/pkg/wait"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
+
+	duckv1 "knative.dev/pkg/apis/duck/v1"
 
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
@@ -129,6 +132,10 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	if err != nil {
 		return fn.DeploymentResult{}, err
 	}
+	eventingClient, err := NewEventingClient(d.Namespace)
+	if err != nil {
+		return fn.DeploymentResult{}, err
+	}
 
 	var outBuff SynchronizedBuffer
 	var out io.Writer = &outBuff
@@ -188,6 +195,40 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 				cherr <- err
 				close(cherr)
 			}()
+
+			for i, sub := range f.Subscription {
+
+				// create the filter:
+				attributes := make(map[string]string)
+				for key, value := range sub.Filters {
+					attributes[key] = value
+				}
+
+				err = eventingClient.CreateTrigger(ctx, &eventingv1.Trigger{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: fmt.Sprintf("%s-function-trigger-%d", f.Name, i),
+					},
+					Spec: eventingv1.TriggerSpec{
+						Broker: sub.Source,
+
+						Subscriber: duckv1.Destination{
+							Ref: &duckv1.KReference{
+								APIVersion: "serving.knative.dev/v1",
+								Kind:       "Service",
+								Name:       f.Name,
+							}},
+
+						Filter: &eventingv1.TriggerFilter{
+							Attributes: attributes,
+						},
+					},
+				})
+				if err != nil {
+					err = fmt.Errorf("knative deployer failed to deploy the Knative Service: %v", err)
+					return fn.DeploymentResult{}, err
+				}
+
+			}
 
 			presumePrivate := false
 		main:

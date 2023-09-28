@@ -82,11 +82,19 @@ type Function struct {
 	// Build defines the build properties for a function
 	Build BuildSpec `yaml:"build,omitempty"`
 
+	Subscription []SubscriptionSpec `yaml:"subscriptions,omitempty"`
+
 	// Run defines the runtime properties for a function
 	Run RunSpec `yaml:"run,omitempty"`
 
 	// Deploy defines the deployment properties for a function
 	Deploy DeploySpec `yaml:"deploy,omitempty"`
+}
+
+// SubscriptionSpec
+type SubscriptionSpec struct {
+	Source  string            `yaml:"source"`
+	Filters map[string]string `yaml:"filters,omitempty"`
 }
 
 // BuildSpec
