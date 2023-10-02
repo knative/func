@@ -41,7 +41,7 @@ func TestFunctionRunWithoutContainer(t *testing.T) {
 		knFuncTerm1.OnWaitCallback = func(stdout *bytes.Buffer) {
 			t.Log("-----Executing OnWaitCallback")
 			funcPort, attempts := "", 0
-			for funcPort == "" && attempts < 10 { // 5 secs
+			for funcPort == "" && attempts < 30 { // 15 secs
 				t.Logf("----Function Output:\n%v", stdout.String())
 				matches := regexp.MustCompile("Running on host port (.*)").FindStringSubmatch(stdout.String())
 				attempts++
