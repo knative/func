@@ -42,6 +42,9 @@ jobs:
       - name: Patch Hosts
         run: ./hack/patch-hosts.sh
       - name: Integration Test
+        env:
+          FUNC_REPO_REF: ${{ github.event.pull_request.head.repo.full_name }}
+          FUNC_REPO_BRANCH_REF: ${{ github.head_ref }}
         run: make test-integration
       - name: Dump Cluster Logs
         if: always()

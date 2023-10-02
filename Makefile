@@ -27,7 +27,15 @@ VTAG         := $(shell git tag --points-at HEAD | head -1)
 VTAG         := $(shell [ -z $(VTAG) ] && echo $(ETAG) || echo $(VTAG))
 VERS         ?= $(shell git describe --tags --match 'v*')
 KVER         ?= $(shell git describe --tags --match 'knative-*')
-LDFLAGS      := "-X main.date=$(DATE) -X main.vers=$(VERS) -X main.kver=$(KVER) -X main.hash=$(HASH)"
+
+LDFLAGS      := -X main.date=$(DATE) -X main.vers=$(VERS) -X main.kver=$(KVER) -X main.hash=$(HASH)
+ifneq ($(FUNC_REPO_REF),)
+  LDFLAGS      += -X knative.dev/func/pkg/pipelines/tekton.FuncRepoRef=$(FUNC_REPO_REF)
+endif
+ifneq ($(FUNC_REPO_BRANCH_REF),)
+  LDFLAGS      += -X knative.dev/func/pkg/pipelines/tekton.FuncRepoBranchRef=$(FUNC_REPO_BRANCH_REF)
+endif
+
 MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
 # All Code prerequisites, including generated files, etc.
@@ -59,10 +67,10 @@ help:
 build: $(BIN) ## (default) Build binary for current OS
 
 $(BIN): $(CODE)
-	env CGO_ENABLED=0 go build -ldflags $(LDFLAGS) ./cmd/$(BIN)
+	env CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" ./cmd/$(BIN)
 
 test: $(CODE) ## Run core unit tests
-	go test -race -cover -coverprofile=coverage.txt ./...
+	go test -ldflags "$(LDFLAGS)" -race -cover -coverprofile=coverage.txt ./...
 
 .PHONY: check
 check: $(BIN_GOLANGCI_LINT) ## Check code quality (lint)
@@ -152,12 +160,12 @@ test-python: ## Test Python templates
 	cd templates/python/http && python3 test_func.py && rm -rf __pycache__
 
 test-quarkus: ## Test Quarkus templates
-	cd templates/quarkus/cloudevents && mvn -q test && mvn clean
-	cd templates/quarkus/http && mvn -q test && mvn clean
+	cd templates/quarkus/cloudevents && ./mvnw -q test && ./mvnw clean
+	cd templates/quarkus/http && ./mvnw -q test && ./mvnw clean
 
 test-springboot: ## Test Spring Boot templates
-	cd templates/springboot/cloudevents && mvn -q test && mvn clean
-	cd templates/springboot/http && mvn -q test && mvn clean
+	cd templates/springboot/cloudevents && ./mvnw -q test && ./mvnw clean
+	cd templates/springboot/http && ./mvnw -q test && ./mvnw clean
 
 test-rust: ## Test Rust templates
 	cd templates/rust/cloudevents && cargo -q test && cargo clean
@@ -193,12 +201,12 @@ templates/certs/ca-certificates.crt:
 ###################
 
 test-integration: ## Run integration tests using an available cluster.
-	go test -tags integration -timeout 30m --coverprofile=coverage.txt ./... -v
+	go test -ldflags "$(LDFLAGS)" -tags integration -timeout 30m --coverprofile=coverage.txt ./... -v
 
 .PHONY: func-instrumented
 
 func-instrumented: ## Func binary that is instrumented for e2e tests
-	env CGO_ENABLED=1 go build -ldflags $(LDFLAGS) -cover -o func ./cmd/func
+	env CGO_ENABLED=1 go build -ldflags "$(LDFLAGS)" -cover -o func ./cmd/func
 
 test-e2e: func-instrumented ## Run end-to-end tests using an available cluster.
 	./test/e2e_extended_tests.sh
@@ -218,37 +226,37 @@ cross-platform: darwin-arm64 darwin-amd64 linux-amd64 linux-arm64 linux-ppc64le 
 darwin-arm64: $(BIN_DARWIN_ARM64) ## Build for mac M1
 
 $(BIN_DARWIN_ARM64): generate/zz_filesystem_generated.go
-	env CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o $(BIN_DARWIN_ARM64) -ldflags $(LDFLAGS) ./cmd/$(BIN)
+	env CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o $(BIN_DARWIN_ARM64) -trimpath -ldflags "$(LDFLAGS) -w -s" ./cmd/$(BIN)
 
 darwin-amd64: $(BIN_DARWIN_AMD64) ## Build for Darwin (macOS)
 
 $(BIN_DARWIN_AMD64): generate/zz_filesystem_generated.go
-	env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o $(BIN_DARWIN_AMD64) -ldflags $(LDFLAGS) ./cmd/$(BIN)
+	env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o $(BIN_DARWIN_AMD64) -trimpath -ldflags "$(LDFLAGS) -w -s" ./cmd/$(BIN)
 
 linux-amd64: $(BIN_LINUX_AMD64) ## Build for Linux amd64
 
 $(BIN_LINUX_AMD64): generate/zz_filesystem_generated.go
-	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BIN_LINUX_AMD64) -ldflags $(LDFLAGS) ./cmd/$(BIN)
+	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BIN_LINUX_AMD64) -trimpath -ldflags "$(LDFLAGS) -w -s" ./cmd/$(BIN)
 
 linux-arm64: $(BIN_LINUX_ARM64) ## Build for Linux arm64
 
 $(BIN_LINUX_ARM64): generate/zz_filesystem_generated.go
-	env CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o $(BIN_LINUX_ARM64) -ldflags $(LDFLAGS) ./cmd/$(BIN)
+	env CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o $(BIN_LINUX_ARM64) -trimpath -ldflags "$(LDFLAGS) -w -s" ./cmd/$(BIN)
 
 linux-ppc64le: $(BIN_LINUX_PPC64LE) ## Build for Linux ppc64le
 
 $(BIN_LINUX_PPC64LE): generate/zz_filesystem_generated.go
-	env CGO_ENABLED=0 GOOS=linux GOARCH=ppc64le go build -o $(BIN_LINUX_PPC64LE) -ldflags $(LDFLAGS) ./cmd/$(BIN)
+	env CGO_ENABLED=0 GOOS=linux GOARCH=ppc64le go build -o $(BIN_LINUX_PPC64LE) -trimpath -ldflags "$(LDFLAGS) -w -s" ./cmd/$(BIN)
 
 linux-s390x: $(BIN_LINUX_S390X) ## Build for Linux s390x
 
 $(BIN_LINUX_S390X): generate/zz_filesystem_generated.go
-	env CGO_ENABLED=0 GOOS=linux GOARCH=s390x go build -o $(BIN_LINUX_S390X) -ldflags $(LDFLAGS) ./cmd/$(BIN)
+	env CGO_ENABLED=0 GOOS=linux GOARCH=s390x go build -o $(BIN_LINUX_S390X) -trimpath -ldflags "$(LDFLAGS) -w -s" ./cmd/$(BIN)
 
 windows: $(BIN_WINDOWS) ## Build for Windows
 
 $(BIN_WINDOWS): generate/zz_filesystem_generated.go
-	env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o $(BIN_WINDOWS) -ldflags $(LDFLAGS) ./cmd/$(BIN)
+	env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o $(BIN_WINDOWS) -trimpath -ldflags "$(LDFLAGS) -w -s" ./cmd/$(BIN)
 
 ######################
 ##@ Schemas

@@ -25,7 +25,10 @@ export NODE_DISTRO=linux-x64
 
 export KNATIVE_SERVING_VERSION=${KNATIVE_SERVING_VERSION:-latest}
 export KNATIVE_EVENTING_VERSION=${KNATIVE_EVENTING_VERSION:-latest}
-source $(dirname $0)/../vendor/knative.dev/hack/presubmit-tests.sh
+source "$(dirname "$0")/../vendor/knative.dev/hack/presubmit-tests.sh"
+
+FUNC_REPO_BRANCH_REF="${PULL_PULL_SHA}"
+export FUNC_REPO_BRANCH_REF
 
 function post_build_tests() {
   local failed=0
@@ -71,7 +74,7 @@ function unit_tests() {
   make test || failed=1
   if (( failed )); then
     results_banner "Unit tests failed"
-    exit ${failed}
+    exit "${failed}"
   fi
   template_tests
 }
@@ -81,7 +84,7 @@ function template_tests() {
   make test-templates || failed=2
   if (( failed )); then
     results_banner "Built-in template tests failed"
-    exit ${failed}
+    exit "${failed}"
   fi
 }
 

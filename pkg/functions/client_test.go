@@ -50,7 +50,7 @@ var (
 // thus implicitly tests Create, Build and Deploy, which are exposed
 // by the client API for those who prefer manual transmissions.
 func TestClient_New(t *testing.T) {
-	root := "testdata/example.com/testNew"
+	root := "testdata/example.com/test-new"
 	defer Using(t, root)()
 
 	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithVerbose(true))
@@ -210,7 +210,7 @@ func TestClient_New_RuntimeRequired(t *testing.T) {
 // TestClient_New_NameDefaults ensures that a newly created function has its name defaulted
 // to a name which can be derived from the last part of the given root path.
 func TestClient_New_NameDefaults(t *testing.T) {
-	root := "testdata/example.com/testNameDefaults"
+	root := "testdata/example.com/test-name-defaults"
 	defer Using(t, root)()
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
@@ -230,7 +230,7 @@ func TestClient_New_NameDefaults(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expected := "testNameDefaults"
+	expected := "test-name-defaults"
 	if f.Name != expected {
 		t.Fatalf("name was not defaulted. expected '%v' got '%v'", expected, f.Name)
 	}
@@ -239,7 +239,7 @@ func TestClient_New_NameDefaults(t *testing.T) {
 // TestClient_New_WritesTemplate ensures the config file and files from the template
 // are written on new.
 func TestClient_New_WritesTemplate(t *testing.T) {
-	root := "testdata/example.com/testWritesTemplate"
+	root := "testdata/example.com/test-writes-template"
 	defer Using(t, root)()
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
@@ -262,7 +262,7 @@ func TestClient_New_WritesTemplate(t *testing.T) {
 // TestClient_New_ExtantAborts ensures that a directory which contains an extant
 // function does not reinitialize.
 func TestClient_New_ExtantAborts(t *testing.T) {
-	root := "testdata/example.com/testExtantAborts"
+	root := "testdata/example.com/test-extant-aborts"
 	defer Using(t, root)()
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
@@ -305,7 +305,7 @@ func TestClient_New_NonemptyAborts(t *testing.T) {
 // conjunction with other tools (.envrc, etc)
 func TestClient_New_HiddenFilesIgnored(t *testing.T) {
 	// Create a directory for the function
-	root := "testdata/example.com/testHiddenFilesIgnored"
+	root := "testdata/example.com/test-hidden-files-ignored"
 	defer Using(t, root)()
 
 	client := fn.New(fn.WithRegistry(TestRegistry))
@@ -332,7 +332,7 @@ func TestClient_New_HiddenFilesIgnored(t *testing.T) {
 // See the CLI for full details, but a standard default location is
 // $HOME/.config/func/repositories/boson/go/json
 func TestClient_New_RepositoriesExtensible(t *testing.T) {
-	root := "testdata/example.com/testRepositoriesExtensible"
+	root := "testdata/example.com/test-repositories-extensible"
 	defer Using(t, root)()
 
 	client := fn.New(
@@ -479,7 +479,7 @@ func TestClient_New_RegistryRequired(t *testing.T) {
 // resultant OCI container is populated.
 func TestClient_New_ImageNamePopulated(t *testing.T) {
 	// Create the root function directory
-	root := "testdata/example.com/testDeriveImage"
+	root := "testdata/example.com/test-derive-image"
 	defer Using(t, root)()
 
 	// Create the function which calculates fields such as name and image.
@@ -508,7 +508,7 @@ func TestClient_New_ImageNamePopulated(t *testing.T) {
 // For example "alice" becomes "docker.io/alice"
 func TestClient_New_ImageRegistryDefaults(t *testing.T) {
 	// Create the root function directory
-	root := "testdata/example.com/testDeriveImageDefaultRegistry"
+	root := "testdata/example.com/test-derive-image-default-registry"
 	defer Using(t, root)()
 
 	// Create the function which calculates fields such as name and image.
@@ -533,9 +533,9 @@ func TestClient_New_ImageRegistryDefaults(t *testing.T) {
 // Deploy (and confirms expected fields calculated).
 func TestClient_New_Delegation(t *testing.T) {
 	var (
-		root          = "testdata/example.com/testNewDelegates" // .. in which to initialize
-		expectedName  = "testNewDelegates"                      // expected to be derived
-		expectedImage = "example.com/alice/testNewDelegates:latest"
+		root          = "testdata/example.com/test-new-delegates" // .. in which to initialize
+		expectedName  = "test-new-delegates"                      // expected to be derived
+		expectedImage = "example.com/alice/test-new-delegates:latest"
 		builder       = mock.NewBuilder()
 		pusher        = mock.NewPusher()
 		deployer      = mock.NewDeployer()
@@ -607,7 +607,7 @@ func TestClient_New_Delegation(t *testing.T) {
 // See TestClient_Runner for the test of the default runner implementation.
 func TestClient_Run(t *testing.T) {
 	// Create the root function directory
-	root := "testdata/example.com/testRun"
+	root := "testdata/example.com/test-run"
 	defer Using(t, root)()
 
 	// client with the mock runner and the new test function
@@ -693,7 +693,7 @@ func TestClient_Runner(t *testing.T) {
 // .func to .gitignore is an important externally visible "feature", an explicit
 // test is warranted.
 func TestClient_Run_DataDir(t *testing.T) {
-	root := "testdata/example.com/testRunDataDir"
+	root := "testdata/example.com/test-run-data-dir"
 	defer Using(t, root)()
 
 	// Create a function at root
@@ -795,9 +795,9 @@ func TestClient_RunTimeout(t *testing.T) {
 // process, erroring if run on a directory uncreated.
 func TestClient_Update(t *testing.T) {
 	var (
-		root          = "testdata/example.com/testUpdate"
-		expectedName  = "testUpdate"
-		expectedImage = "example.com/alice/testUpdate:latest"
+		root          = "testdata/example.com/test-update"
+		expectedName  = "test-update"
+		expectedImage = "example.com/alice/test-update:latest"
 		builder       = mock.NewBuilder()
 		pusher        = mock.NewPusher()
 		deployer      = mock.NewDeployerWithResult(fn.DeploymentResult{
@@ -954,8 +954,8 @@ func TestClient_Deploy_RegistryUpdate(t *testing.T) {
 // the function with the name of the function at the provided root.
 func TestClient_Remove_ByPath(t *testing.T) {
 	var (
-		root         = "testdata/example.com/testRemoveByPath"
-		expectedName = "testRemoveByPath"
+		root         = "testdata/example.com/test-remove-by-path"
+		expectedName = "test-remove-by-path"
 		remover      = mock.NewRemover()
 	)
 
@@ -993,8 +993,8 @@ func TestClient_Remove_ByPath(t *testing.T) {
 // the function with the name of the function at the provided root.
 func TestClient_Remove_DeleteAll(t *testing.T) {
 	var (
-		root              = "testdata/example.com/testRemoveDeleteAll"
-		expectedName      = "testRemoveDeleteAll"
+		root              = "testdata/example.com/test-remove-delete-all"
+		expectedName      = "test-remove-delete-all"
 		remover           = mock.NewRemover()
 		pipelinesProvider = mock.NewPipelinesProvider()
 		deleteAll         = true
@@ -1039,8 +1039,8 @@ func TestClient_Remove_DeleteAll(t *testing.T) {
 // the function with the name of the function at the provided root.
 func TestClient_Remove_Dont_DeleteAll(t *testing.T) {
 	var (
-		root              = "testdata/example.com/testRemoveDontDeleteAll"
-		expectedName      = "testRemoveDontDeleteAll"
+		root              = "testdata/example.com/test-remove-dont-delete-all"
+		expectedName      = "test-remove-dont-delete-all"
 		remover           = mock.NewRemover()
 		pipelinesProvider = mock.NewPipelinesProvider()
 		deleteAll         = false
@@ -1351,7 +1351,7 @@ func TestClient_Deploy_UnbuiltErrors(t *testing.T) {
 // TestClient_New_BuilderImagesPersisted Asserts that the client preserves user-
 // provided Builder Images
 func TestClient_New_BuildersPersisted(t *testing.T) {
-	root := "testdata/example.com/testConfiguredBuilders" // Root from which to run the test
+	root := "testdata/example.com/test-configured-builders" // Root from which to run the test
 	defer Using(t, root)()
 	client := fn.New(fn.WithRegistry(TestRegistry))
 
@@ -1388,7 +1388,7 @@ func TestClient_New_BuildersPersisted(t *testing.T) {
 // TestClient_New_BuildpacksPersisted ensures that provided buildpacks are
 // persisted on new functions.
 func TestClient_New_BuildpacksPersisted(t *testing.T) {
-	root := "testdata/example.com/testConfiguredBuildpacks" // Root from which to run the test
+	root := "testdata/example.com/test-configured-buildpacks" // Root from which to run the test
 	defer Using(t, root)()
 
 	buildpacks := []string{
@@ -1504,7 +1504,7 @@ func TestClient_Runtimes(t *testing.T) {
 // TestClient_New_Timestamp ensures that the creation timestamp is set on functions
 // which are successfully initialized using the client library.
 func TestClient_New_Timestamp(t *testing.T) {
-	root := "testdata/example.com/testCreateStamp"
+	root := "testdata/example.com/test-create-stamp"
 	defer Using(t, root)()
 
 	start := time.Now()
@@ -1526,7 +1526,7 @@ func TestClient_New_Timestamp(t *testing.T) {
 // function using a simple HTTP POST method with the invoke message as form
 // field values (as though a simple form were posted).
 func TestClient_Invoke_HTTP(t *testing.T) {
-	root := "testdata/example.com/testInvokeHTTP"
+	root := "testdata/example.com/test-invoke-http"
 	defer Using(t, root)()
 
 	// Flag indicating the function was invoked
@@ -1639,7 +1639,7 @@ func TestClient_Invoke_HTTP(t *testing.T) {
 // the invoker is sending the invocation message as a CloudEvent rather than
 // a standard HTTP form POST.
 func TestClient_Invoke_CloudEvent(t *testing.T) {
-	root := "testdata/example.com/testInvokeCloudEvent"
+	root := "testdata/example.com/test-invoke-cloud-event"
 	defer Using(t, root)()
 
 	var (
@@ -1730,7 +1730,7 @@ func TestClient_Invoke_CloudEvent(t *testing.T) {
 // TestClient_Instances ensures that when a function is run (locally) its metadata
 // is available to other clients inspecting the same function using .Instances
 func TestClient_Instances(t *testing.T) {
-	root := "testdata/example.com/testInstances"
+	root := "testdata/example.com/test-instances"
 	defer Using(t, root)()
 
 	// A mock runner

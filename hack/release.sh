@@ -21,11 +21,11 @@ VALIDATION_TESTS="make test"
 
 source $(dirname $0)/../vendor/knative.dev/hack/release.sh
 
-PIPELINE_ARTIFACTS="pkg/pipelines/resources/tekton/task/func-buildpacks/0.1/func-buildpacks.yaml pkg/pipelines/resources/tekton/task/func-deploy/0.1/func-deploy.yaml pkg/pipelines/resources/tekton/task/func-s2i/0.1/func-s2i.yaml"
+PIPELINE_ARTIFACTS="pkg/pipelines/resources/tekton/task/func-buildpacks/0.2/func-buildpacks.yaml pkg/pipelines/resources/tekton/task/func-deploy/0.1/func-deploy.yaml pkg/pipelines/resources/tekton/task/func-s2i/0.1/func-s2i.yaml"
 
 function build_release() {
   echo "🚧 🐧 Building cross platform binaries: Linux 🐧 (amd64 / arm64 / ppc64le / s390x), MacOS 🍏, and Windows 🎠"
-  ETAG=${TAG} make cross-platform
+  FUNC_REPO_BRANCH_REF="$(git branch --show-current)" ETAG=${TAG} make cross-platform
 
   ARTIFACTS_TO_PUBLISH="func_darwin_amd64 func_darwin_arm64 func_linux_amd64 func_linux_arm64 func_linux_ppc64le func_linux_s390x func_windows_amd64.exe"
   ARTIFACTS_TO_PUBLISH="${ARTIFACTS_TO_PUBLISH} ${PIPELINE_ARTIFACTS}"

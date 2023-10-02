@@ -21,17 +21,13 @@ type ErrRuntimeNotSupported struct {
 }
 
 func (e ErrRuntimeNotSupported) Error() string {
-	return fmt.Sprintf("runtime %q is not supported for on cluster build", e.Runtime)
+	return fmt.Sprintf("runtime %q is not supported for on cluster build with default builders", e.Runtime)
 }
 
 func validatePipeline(f fn.Function) error {
 	if f.Build.Builder == builders.Pack {
 		if f.Runtime == "" {
 			return ErrRuntimeRequired
-		}
-
-		if f.Runtime == "go" || f.Runtime == "rust" {
-			return ErrRuntimeNotSupported{f.Runtime}
 		}
 
 		if len(f.Build.Buildpacks) > 0 {

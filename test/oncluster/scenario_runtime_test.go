@@ -15,7 +15,8 @@ import (
 
 var runtimeSupportMap = map[string][]string{
 	"node":       {"pack", "s2i"},
-	"go":         {},
+	"go":         {"pack"},
+	"rust":       {"pack"},
 	"python":     {"pack", "s2i"},
 	"quarkus":    {"pack", "s2i"},
 	"springboot": {"pack"},
@@ -28,6 +29,7 @@ func TestRuntime(t *testing.T) {
 
 	var runtimeList = []string{}
 	runtimes, present := os.LookupEnv("E2E_RUNTIMES")
+	targetBuilder, _ := os.LookupEnv("FUNC_BUILDER")
 
 	if present {
 		if runtimes != "" {
@@ -41,9 +43,11 @@ func TestRuntime(t *testing.T) {
 
 	for _, lang := range runtimeList {
 		for _, builder := range runtimeSupportMap[lang] {
-			t.Run(fmt.Sprintf("%v_%v_test", lang, builder), func(t *testing.T) {
-				runtimeImpl(t, lang, builder)
-			})
+			if targetBuilder == "" || builder == targetBuilder {
+				t.Run(fmt.Sprintf("%v_%v_test", lang, builder), func(t *testing.T) {
+					runtimeImpl(t, lang, builder)
+				})
+			}
 		}
 	}
 

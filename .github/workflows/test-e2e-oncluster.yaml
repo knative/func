@@ -29,6 +29,8 @@ jobs:
       - name: E2E On Cluster Test
         env:
           E2E_RUNTIMES: ""
+          FUNC_REPO_REF: ${{ github.event.pull_request.head.repo.full_name }}
+          FUNC_REPO_BRANCH_REF: ${{ github.head_ref }}
         run: make test-e2e-on-cluster
       - uses: codecov/codecov-action@v3
         with:

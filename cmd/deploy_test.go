@@ -1198,7 +1198,7 @@ func testRegistryLoads(cmdFn commandConstructor, t *testing.T) {
 
 	f := fn.Function{
 		Root:     root,
-		Name:     "myFunc",
+		Name:     "my-func",
 		Runtime:  "go",
 		Registry: "example.com/alice",
 	}
@@ -1219,7 +1219,7 @@ func testRegistryLoads(cmdFn commandConstructor, t *testing.T) {
 		t.Fatal(err)
 	}
 
-	expected := "example.com/alice/myFunc:latest"
+	expected := "example.com/alice/my-func:latest"
 	if f.Image != expected {
 		t.Fatalf("expected image name '%v'. got %v", expected, f.Image)
 	}

@@ -2,9 +2,6 @@
 
 This guide describes how you can build a Function on Cluster with Tekton Pipelines. The on cluster build is enabled by fetching Function source code from a remote Git repository. Buildpacks or S2I builder strategy can be used to build the Function image.
 
-> **Note**
-> Not all runtimes support on cluster builds. **Go** and **Rust** are not currently supported.
-
 ## Prerequisite
 1. Install Tekton Pipelines on the cluster. Please refer to [Tekton Pipelines documentation](https://github.com/tektoncd/pipeline/blob/main/docs/install.md) or run the following command:
 ```bash
@@ -34,12 +31,14 @@ git remote add origin git@github.com:my-repo/my-function.git
 ```
 4. Update the Function configuration in `func.yaml` to enable on cluster builds for the Git repository:
 ```yaml
-build: git                                          # required, specify `git` build type
-git:
-  url: https://github.com/my-repo/my-function.git   # required, git repository with the function source code
-  revision: main                                    # optional, git revision to be used (branch, tag, commit)
-  # contextDir: myfunction                          # optional, needed only if the function is not located
-                                                    # in the repository root folder
+build:
+  git:
+    url: https://github.com/my-repo/my-function.git   # required, git repository with the function source code
+    revision: main                                    # optional, git revision to be used (branch, tag, commit)
+    # contextDir: myfunction                          # optional, needed only if the function is not located in the repository root folder
+  buildpacks: []
+  builder: ""
+  buildEnvs: []
 ```
 5. Implement the business logic of your Function, then commit and push changes
 ```bash
