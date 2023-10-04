@@ -107,15 +107,18 @@ spec:
           TLS_VERIFY_FLAG="--tls-verify=false"
         fi
 
+        STORAGE_DRIVER="${STORAGE_DRIVER:-vfs}"
+        export STORAGE_DRIVER
+        
         [[ "$(workspaces.sslcertdir.bound)" == "true" ]] && CERT_DIR_FLAG="--cert-dir $(workspaces.sslcertdir.path)"
         ARTIFACTS_CACHE_PATH="$(workspaces.cache.path)/mvn-artifacts"
         [ -d "${ARTIFACTS_CACHE_PATH}" ] || mkdir "${ARTIFACTS_CACHE_PATH}"
-        buildah ${CERT_DIR_FLAG} bud --storage-driver=vfs ${TLS_VERIFY_FLAG} --layers \
+        buildah ${CERT_DIR_FLAG} bud ${TLS_VERIFY_FLAG} --layers \
           -v "${ARTIFACTS_CACHE_PATH}:/tmp/artifacts/:rw,z,U" \
           -f /gen-source/Dockerfile.gen -t $(params.IMAGE) .
 
         [[ "$(workspaces.dockerconfig.bound)" == "true" ]] && export DOCKER_CONFIG="$(workspaces.dockerconfig.path)"
-        buildah ${CERT_DIR_FLAG} push --storage-driver=vfs ${TLS_VERIFY_FLAG} --digestfile $(workspaces.source.path)/image-digest \
+        buildah ${CERT_DIR_FLAG} push ${TLS_VERIFY_FLAG} --digestfile $(workspaces.source.path)/image-digest \
           $(params.IMAGE) docker://$(params.IMAGE)
 
         cat $(workspaces.source.path)/image-digest | tee /tekton/results/IMAGE_DIGEST
