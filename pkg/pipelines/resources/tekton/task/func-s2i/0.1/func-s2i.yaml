@@ -117,6 +117,8 @@ spec:
         [[ "$(workspaces.dockerconfig.bound)" == "true" ]] && export DOCKER_CONFIG="$(workspaces.dockerconfig.path)"
         buildah ${CERT_DIR_FLAG} push --storage-driver=vfs ${TLS_VERIFY_FLAG} --digestfile $(workspaces.source.path)/image-digest \
           $(params.IMAGE) docker://$(params.IMAGE)
+        
+        rm -fr /var/lib/containers/*
 
         cat $(workspaces.source.path)/image-digest | tee /tekton/results/IMAGE_DIGEST
       volumeMounts:
