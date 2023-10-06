@@ -2,6 +2,7 @@ package tekton
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"net/http"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/manifestival/manifestival"
 	"gopkg.in/yaml.v3"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/func/pkg/builders"
 	fn "knative.dev/func/pkg/functions"
@@ -354,16 +356,25 @@ func createAndApplyPipelineTemplate(f fn.Function, namespace string, labels map[
 		*val.field = ts
 	}
 
-	var template string
 	if f.Build.Builder == builders.Pack {
-		template = packPipelineTemplate
+		return createAndApplyResource(f.Root, pipelineFileName, packPipelineTemplate, "pipeline", getPipelineName(f), namespace, data)
 	} else if f.Build.Builder == builders.S2I {
-		template = s2iPipelineTemplate
+		cli, err := NewTektonClients()
+		if err != nil {
+			return fmt.Errorf("cannot create tekton client: %w", err)
+		}
+		pipeline, err := GetS2IPipeline(f)
+		if err != nil {
+			return fmt.Errorf("cannot generate pipeline: %w", err)
+		}
+		_, err = cli.Tekton.TektonV1beta1().Pipelines(namespace).Create(context.TODO(), pipeline, v1.CreateOptions{})
+		if err != nil {
+			err = fmt.Errorf("cannot create pipeline in cluster: %w", err)
+		}
+		return err
 	} else {
 		return builders.ErrBuilderNotSupported{Builder: f.Build.Builder}
 	}
-
-	return createAndApplyResource(f.Root, pipelineFileName, template, "pipeline", getPipelineName(f), namespace, data)
 }
 
 // createAndApplyPipelineRunTemplate creates and applies PipelineRun template for a standard on-cluster build

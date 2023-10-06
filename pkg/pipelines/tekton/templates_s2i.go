@@ -1,5 +1,257 @@
 package tekton
 
+import (
+	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	fn "knative.dev/func/pkg/functions"
+)
+
+func GetS2IPipeline(f fn.Function) (*v1beta1.Pipeline, error) {
+
+	labels, err := f.LabelsMap()
+	if err != nil {
+		return nil, fmt.Errorf("cannot generate labels: %w", err)
+	}
+
+	tasks := []v1beta1.PipelineTask{
+		v1beta1.PipelineTask{
+			Name: "fetch-sources",
+			TaskRef: &v1beta1.TaskRef{
+				ResolverRef: v1beta1.ResolverRef{
+					Resolver: "hub",
+					Params: []v1beta1.Param{
+						v1beta1.Param{
+							Name: "kind",
+							Value: v1beta1.ParamValue{
+								Type:      "string",
+								StringVal: "task",
+							},
+						},
+						v1beta1.Param{
+							Name: "name",
+							Value: v1beta1.ParamValue{
+								Type:      "string",
+								StringVal: "git-clone",
+							},
+						},
+						v1beta1.Param{
+							Name: "version",
+							Value: v1beta1.ParamValue{
+								Type:      "string",
+								StringVal: "0.4",
+							},
+						},
+					},
+				},
+			},
+			Params: []v1beta1.Param{
+				v1beta1.Param{
+					Name: "url",
+					Value: v1beta1.ParamValue{
+						Type:      "string",
+						StringVal: "$(params.gitRepository)",
+					},
+				},
+				v1beta1.Param{
+					Name: "revision",
+					Value: v1beta1.ParamValue{
+						Type:      "string",
+						StringVal: "$(params.gitRevision)",
+					},
+				},
+			},
+			Workspaces: []v1beta1.WorkspacePipelineTaskBinding{
+				v1beta1.WorkspacePipelineTaskBinding{
+					Name:      "output",
+					Workspace: "source-workspace",
+				},
+			},
+		},
+		v1beta1.PipelineTask{
+			Name: "build",
+			TaskSpec: &v1beta1.EmbeddedTask{
+				TaskSpec: *S2ITask.Spec.DeepCopy(),
+			},
+			RunAfter: []string{"fetch-sources"},
+			Params: []v1beta1.Param{
+				v1beta1.Param{
+					Name: "IMAGE",
+					Value: v1beta1.ParamValue{
+						Type:      "string",
+						StringVal: "$(params.imageName)",
+					},
+				},
+				v1beta1.Param{
+					Name: "REGISTRY",
+					Value: v1beta1.ParamValue{
+						Type:      "string",
+						StringVal: "$(params.registry)",
+					},
+				},
+				v1beta1.Param{
+					Name: "PATH_CONTEXT",
+					Value: v1beta1.ParamValue{
+						Type:      "string",
+						StringVal: "$(params.contextDir)",
+					},
+				},
+				v1beta1.Param{
+					Name: "BUILDER_IMAGE",
+					Value: v1beta1.ParamValue{
+						Type:      "string",
+						StringVal: "$(params.builderImage)",
+					},
+				},
+				v1beta1.Param{
+					Name: "ENV_VARS",
+					Value: v1beta1.ParamValue{
+						Type: "array",
+						ArrayVal: []string{
+							"$(params.buildEnvs[*])",
+						},
+					},
+				},
+				v1beta1.Param{
+					Name: "S2I_IMAGE_SCRIPTS_URL",
+					Value: v1beta1.ParamValue{
+						Type:      "string",
+						StringVal: "$(params.s2iImageScriptsUrl)",
+					},
+				},
+			},
+			Workspaces: []v1beta1.WorkspacePipelineTaskBinding{
+				v1beta1.WorkspacePipelineTaskBinding{
+					Name:      "source",
+					Workspace: "source-workspace",
+				},
+				v1beta1.WorkspacePipelineTaskBinding{
+					Name:      "cache",
+					Workspace: "cache-workspace",
+				},
+				v1beta1.WorkspacePipelineTaskBinding{
+					Name:      "dockerconfig",
+					Workspace: "dockerconfig-workspace",
+				},
+			},
+		},
+		v1beta1.PipelineTask{
+			Name: "deploy",
+			TaskSpec: &v1beta1.EmbeddedTask{
+				TaskSpec: *DeployTask.Spec.DeepCopy(),
+			},
+			RunAfter: []string{"build"},
+			Params: []v1beta1.Param{
+				v1beta1.Param{
+					Name: "path",
+					Value: v1beta1.ParamValue{
+						Type:      "string",
+						StringVal: "$(workspaces.source.path)/$(params.contextDir)",
+					},
+				},
+				v1beta1.Param{
+					Name: "image",
+					Value: v1beta1.ParamValue{
+						Type:      "string",
+						StringVal: "$(params.imageName)@$(tasks.build.results.IMAGE_DIGEST)",
+					},
+				},
+			},
+			Workspaces: []v1beta1.WorkspacePipelineTaskBinding{
+				v1beta1.WorkspacePipelineTaskBinding{
+					Name:      "source",
+					Workspace: "source-workspace",
+				},
+			},
+		},
+	}
+
+	if f.Build.Git.URL == "" {
+		tasks = tasks[1:]
+		tasks[0].RunAfter = nil
+	}
+
+	result := v1beta1.Pipeline{
+		TypeMeta: metav1.TypeMeta{},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        getPipelineName(f),
+			Labels:      labels,
+			Annotations: f.Deploy.Annotations,
+		},
+		Spec: v1beta1.PipelineSpec{
+			Tasks: tasks,
+			Params: []v1beta1.ParamSpec{
+				v1beta1.ParamSpec{
+					Name:        "gitRepository",
+					Type:        "string",
+					Description: "Git repository that hosts the function project",
+					Default: &v1beta1.ParamValue{
+						Type: "string",
+					},
+				},
+				v1beta1.ParamSpec{
+					Name:        "gitRevision",
+					Type:        "string",
+					Description: "Git revision to build",
+				},
+				v1beta1.ParamSpec{
+					Name:        "contextDir",
+					Type:        "string",
+					Description: "Path where the function project is",
+					Default: &v1beta1.ParamValue{
+						Type: "string",
+					},
+				},
+				v1beta1.ParamSpec{
+					Name:        "imageName",
+					Type:        "string",
+					Description: "Function image name",
+				},
+				v1beta1.ParamSpec{
+					Name:        "registry",
+					Type:        "string",
+					Description: "The registry associated with the function image",
+				},
+				v1beta1.ParamSpec{
+					Name:        "builderImage",
+					Type:        "string",
+					Description: "Builder image to be used",
+				},
+				v1beta1.ParamSpec{
+					Name:        "buildEnvs",
+					Type:        "array",
+					Description: "Environment variables to set during build time",
+				},
+				v1beta1.ParamSpec{
+					Name:        "s2iImageScriptsUrl",
+					Type:        "string",
+					Description: "URL containing the default assemble and run scripts for the builder image",
+					Default: &v1beta1.ParamValue{
+						Type:      "string",
+						StringVal: "image:///usr/libexec/s2i",
+					},
+				},
+			},
+			Workspaces: []v1beta1.PipelineWorkspaceDeclaration{
+				v1beta1.PipelineWorkspaceDeclaration{
+					Name:        "source-workspace",
+					Description: "Directory where function source is located.",
+				},
+				v1beta1.PipelineWorkspaceDeclaration{
+					Name:        "cache-workspace",
+					Description: "Directory where build cache is stored.",
+				},
+				v1beta1.PipelineWorkspaceDeclaration{
+					Name:        "dockerconfig-workspace",
+					Description: "Directory containing image registry credentials stored in config.json file.",
+					Optional:    true,
+				},
+			},
+		},
+	}
+
+	return &result, nil
+}
+
 const (
 	// s2iPipelineTemplate contains the S2I template used for both Tekton standard and PAC Pipeline
 	s2iPipelineTemplate = `
