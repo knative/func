@@ -427,16 +427,25 @@ func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels m
 		Revision: pipelinesTargetBranch,
 	}
 
-	var template string
 	if f.Build.Builder == builders.Pack {
-		template = packRunTemplate
+		return createAndApplyResource(f.Root, pipelineFileName, packRunTemplate, "pipelinerun", getPipelineRunGenerateName(f), namespace, data)
 	} else if f.Build.Builder == builders.S2I {
-		template = s2iRunTemplate
+		cli, err := NewTektonClients()
+		if err != nil {
+			return fmt.Errorf("cannot create tekton client: %w", err)
+		}
+		piplineRun, err := GetS2IPipelineRun(f)
+		if err != nil {
+			return fmt.Errorf("cannot generate pipeline run: %w", err)
+		}
+		_, err = cli.Tekton.TektonV1beta1().PipelineRuns(namespace).Create(context.Background(), piplineRun, v1.CreateOptions{})
+		if err != nil {
+			err = fmt.Errorf("cannot create pipeline run in cluster: %w", err)
+		}
+		return err
 	} else {
 		return builders.ErrBuilderNotSupported{Builder: f.Build.Builder}
 	}
-
-	return createAndApplyResource(f.Root, pipelineFileName, template, "pipelinerun", getPipelineRunGenerateName(f), namespace, data)
 }
 
 // allows simple mocking in unit tests

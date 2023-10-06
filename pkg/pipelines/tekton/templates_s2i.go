@@ -1,8 +1,12 @@
 package tekton
 
 import (
+	"fmt"
+
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
+	coreV1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/func/pkg/builders"
 	fn "knative.dev/func/pkg/functions"
 )
 
@@ -249,6 +253,138 @@ func GetS2IPipeline(f fn.Function) (*v1beta1.Pipeline, error) {
 		},
 	}
 
+	return &result, nil
+}
+
+func GetS2IPipelineRun(f fn.Function) (*v1beta1.PipelineRun, error) {
+	labels, err := f.LabelsMap()
+	if err != nil {
+		return nil, fmt.Errorf("cannot generate labels: %w", err)
+	}
+	labels["tekton.dev/pipeline"] = getPipelineName(f)
+
+	pipelinesTargetBranch := f.Build.Git.Revision
+	if pipelinesTargetBranch == "" {
+		pipelinesTargetBranch = defaultPipelinesTargetBranch
+	}
+
+	contextDir := f.Build.Git.ContextDir
+	if contextDir == "" && f.Build.Builder == builders.S2I {
+		// TODO(lkingland): could instead update S2I to interpret empty string
+		// as cwd, such that builder-specific code can be kept out of here.
+		contextDir = "."
+	}
+
+	buildEnvs := []string{}
+	if len(f.Build.BuildEnvs) == 0 {
+		buildEnvs = []string{"="}
+	} else {
+		for i := range f.Build.BuildEnvs {
+			buildEnvs = append(buildEnvs, f.Build.BuildEnvs[i].KeyValuePair())
+		}
+	}
+
+	s2iImageScriptsUrl := defaultS2iImageScriptsUrl
+	if f.Runtime == "quarkus" {
+		s2iImageScriptsUrl = quarkusS2iImageScriptsUrl
+	}
+
+	result := v1beta1.PipelineRun{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "PipelineRun",
+			APIVersion: "tekton.dev/v1beta1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: getPipelineRunGenerateName(f),
+			Labels:       labels,
+			Annotations:  f.Deploy.Annotations,
+		},
+		Spec: v1beta1.PipelineRunSpec{
+			PipelineRef: &v1beta1.PipelineRef{
+				Name: getPipelineName(f),
+			},
+			Params: []v1beta1.Param{
+				v1beta1.Param{
+					Name: "gitRepository",
+					Value: v1beta1.ParamValue{
+						Type:      "string",
+						StringVal: f.Build.Git.URL,
+					},
+				},
+				v1beta1.Param{
+					Name: "gitRevision",
+					Value: v1beta1.ParamValue{
+						Type:      "string",
+						StringVal: pipelinesTargetBranch,
+					},
+				},
+				v1beta1.Param{
+					Name: "contextDir",
+					Value: v1beta1.ParamValue{
+						Type:      "string",
+						StringVal: contextDir,
+					},
+				},
+				v1beta1.Param{
+					Name: "imageName",
+					Value: v1beta1.ParamValue{
+						Type:      "string",
+						StringVal: f.Image,
+					},
+				},
+				v1beta1.Param{
+					Name: "registry",
+					Value: v1beta1.ParamValue{
+						Type:      "string",
+						StringVal: f.Registry,
+					},
+				},
+				v1beta1.Param{
+					Name: "builderImage",
+					Value: v1beta1.ParamValue{
+						Type:      "string",
+						StringVal: getBuilderImage(f),
+					},
+				},
+				v1beta1.Param{
+					Name: "buildEnvs",
+					Value: v1beta1.ParamValue{
+						Type:     "array",
+						ArrayVal: buildEnvs,
+					},
+				},
+				v1beta1.Param{
+					Name: "s2iImageScriptsUrl",
+					Value: v1beta1.ParamValue{
+						Type:      "string",
+						StringVal: s2iImageScriptsUrl,
+					},
+				},
+			},
+			Workspaces: []v1beta1.WorkspaceBinding{
+				v1beta1.WorkspaceBinding{
+					Name:    "source-workspace",
+					SubPath: "source",
+					PersistentVolumeClaim: &coreV1.PersistentVolumeClaimVolumeSource{
+						ClaimName: getPipelinePvcName(f),
+					},
+				},
+				v1beta1.WorkspaceBinding{
+					Name:    "cache-workspace",
+					SubPath: "cache",
+					PersistentVolumeClaim: &coreV1.PersistentVolumeClaimVolumeSource{
+						ClaimName: getPipelinePvcName(f),
+					},
+				},
+				v1beta1.WorkspaceBinding{
+					Name: "dockerconfig-workspace",
+					Secret: &coreV1.SecretVolumeSource{
+						SecretName: getPipelineSecretName(f),
+					},
+				},
+			},
+		},
+	}
 	return &result, nil
 }
 
