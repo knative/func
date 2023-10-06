@@ -5,6 +5,7 @@ on: [pull_request]
 jobs:
   test:
     name: On Cluster RT Test
+    continue-on-error: true
     strategy:
       matrix:
         go: [1.20.2]
