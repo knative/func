@@ -93,7 +93,7 @@ func GetS2IPipeline(f fn.Function) (*v1beta1.Pipeline, error) {
 					},
 				},
 				v1beta1.Param{
-					Name: "PATH_CONTEXT",
+					Name: "SOURCE_SUBPATH",
 					Value: v1beta1.ParamValue{
 						Type:      "string",
 						StringVal: "$(params.contextDir)",
@@ -440,7 +440,7 @@ spec:
           value: $(params.imageName)
         - name: REGISTRY
           value: $(params.registry)
-        - name: PATH_CONTEXT
+        - name: SOURCE_SUBPATH
           value: $(params.contextDir)
         - name: BUILDER_IMAGE
           value: $(params.builderImage)

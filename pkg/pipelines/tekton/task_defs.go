@@ -360,7 +360,7 @@ var S2ITask = v1beta1.Task{
 				Description: "The registry associated with the function image.",
 			},
 			v1beta1.ParamSpec{
-				Name:        "PATH_CONTEXT",
+				Name:        "SOURCE_SUBPATH",
 				Description: "The location of the path to run s2i from.",
 				Default: &v1beta1.ParamValue{
 					Type:      "string",
@@ -435,14 +435,14 @@ echo "------------------------------"
 cat /env-vars/env-file
 echo "------------------------------"
 
-/usr/local/bin/s2i --loglevel=$(params.LOGLEVEL) build $(params.PATH_CONTEXT) $(params.BUILDER_IMAGE) \
+/usr/local/bin/s2i --loglevel=$(params.LOGLEVEL) build $(params.SOURCE_SUBPATH) $(params.BUILDER_IMAGE) \
 --image-scripts-url $(params.S2I_IMAGE_SCRIPTS_URL) \
 --as-dockerfile /gen-source/Dockerfile.gen --environment-file /env-vars/env-file
 
 echo "Preparing func.yaml for later deployment"
 func_file="$(workspaces.source.path)/func.yaml"
-if [ "$(params.PATH_CONTEXT)" != "" ]; then
-  func_file="$(workspaces.source.path)/$(params.PATH_CONTEXT)/func.yaml"
+if [ "$(params.SOURCE_SUBPATH)" != "" ]; then
+  func_file="$(workspaces.source.path)/$(params.SOURCE_SUBPATH)/func.yaml"
 fi
 sed -i "s|^registry:.*$|registry: $(params.REGISTRY)|" "$func_file"
 echo "Function image registry: $(params.REGISTRY)"
