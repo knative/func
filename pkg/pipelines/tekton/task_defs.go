@@ -352,7 +352,7 @@ var S2ITask = v1beta1.Task{
 				Description: "The location of the s2i builder image.",
 			},
 			v1beta1.ParamSpec{
-				Name:        "IMAGE",
+				Name:        "APP_IMAGE",
 				Description: "Reference of the image S2I will produce.",
 			},
 			v1beta1.ParamSpec{
@@ -482,11 +482,11 @@ ARTIFACTS_CACHE_PATH="$(workspaces.cache.path)/mvn-artifacts"
 [ -d "${ARTIFACTS_CACHE_PATH}" ] || mkdir "${ARTIFACTS_CACHE_PATH}"
 buildah ${CERT_DIR_FLAG} bud --storage-driver=vfs ${TLS_VERIFY_FLAG} --layers \
   -v "${ARTIFACTS_CACHE_PATH}:/tmp/artifacts/:rw,z,U" \
-  -f /gen-source/Dockerfile.gen -t $(params.IMAGE) .
+  -f /gen-source/Dockerfile.gen -t $(params.APP_IMAGE) .
 
 [[ "$(workspaces.dockerconfig.bound)" == "true" ]] && export DOCKER_CONFIG="$(workspaces.dockerconfig.path)"
 buildah ${CERT_DIR_FLAG} push --storage-driver=vfs ${TLS_VERIFY_FLAG} --digestfile $(workspaces.source.path)/image-digest \
-  $(params.IMAGE) docker://$(params.IMAGE)
+  $(params.APP_IMAGE) docker://$(params.APP_IMAGE)
 
 cat $(workspaces.source.path)/image-digest | tee /tekton/results/IMAGE_DIGEST
 `,

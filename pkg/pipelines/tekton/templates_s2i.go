@@ -79,7 +79,7 @@ func GetS2IPipeline(f fn.Function) (*v1beta1.Pipeline, error) {
 			RunAfter: []string{"fetch-sources"},
 			Params: []v1beta1.Param{
 				v1beta1.Param{
-					Name: "IMAGE",
+					Name: "APP_IMAGE",
 					Value: v1beta1.ParamValue{
 						Type:      "string",
 						StringVal: "$(params.imageName)",
@@ -436,7 +436,7 @@ spec:
     {{.GitCloneTaskRef}}
     - name: build
       params:
-        - name: IMAGE
+        - name: APP_IMAGE
           value: $(params.imageName)
         - name: REGISTRY
           value: $(params.registry)
