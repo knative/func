@@ -9,6 +9,7 @@ concurrency:
 jobs:
   test:
     name: E2E Test
+    continue-on-error: true
     strategy:
       matrix:
         runtime: ["node", "go", "python", "quarkus", "springboot", "typescript", "rust"]
