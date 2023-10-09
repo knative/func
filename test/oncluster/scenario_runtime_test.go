@@ -64,11 +64,15 @@ func runtimeImpl(t *testing.T, lang string, builder string) {
 	gitServer := common.GitTestServerProvider{}
 	gitServer.Init(t)
 	remoteRepo := gitServer.CreateRepository(gitProjectName)
-	defer gitServer.DeleteRepository(gitProjectName)
+	t.Cleanup(func() {
+		gitServer.DeleteRepository(gitProjectName)
+	})
 
 	knFunc := common.NewKnFuncShellCli(t)
 	knFunc.Exec("create", "-l", lang, funcPath)
-	defer os.RemoveAll(gitProjectPath)
+	t.Cleanup(func() {
+		os.RemoveAll(gitProjectPath)
+	})
 
 	GitInitialCommitAndPush(t, gitProjectPath, remoteRepo.ExternalCloneURL)
 
