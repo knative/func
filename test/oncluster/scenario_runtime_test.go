@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"k8s.io/apimachinery/pkg/util/rand"
 	common "knative.dev/func/test/common"
@@ -79,7 +80,10 @@ func runtimeImpl(t *testing.T, lang string, builder string) {
 		"--builder", builder,
 		"--git-url", remoteRepo.ClusterCloneURL)
 
-	defer knFunc.Exec("delete", "-p", funcPath)
+	t.Cleanup(func() {
+		knFunc.Exec("delete", "-p", funcPath)
+		time.Sleep(time.Second * 10)
+	})
 
 	// -- Assertions --
 	result := knFunc.Exec("invoke", "-p", funcPath)
