@@ -15,4 +15,7 @@ docker build . -f - -t localhost:50000/buildah/stable:v1.31.0 <<EOF
 FROM quay.io/buildah/stable:v1.31.0
 RUN echo -e '\n[[registry]]\nprefix = "*.cluster.local"\ninsecure = true' >> '/etc/containers/registries.conf'
 EOF
-docker push localhost:50000/buildah/stable:v1.31.0
+
+docker image save localhost:50000/buildah/stable:v1.31.0 | \
+  docker exec -i func-control-plane ctr -n=k8s.io images import -
+docker rmi localhost:50000/buildah/stable:v1.31.0
