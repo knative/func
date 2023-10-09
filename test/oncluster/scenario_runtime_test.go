@@ -82,7 +82,7 @@ func runtimeImpl(t *testing.T, lang string, builder string) {
 
 	t.Cleanup(func() {
 		knFunc.Exec("delete", "-p", funcPath)
-		time.Sleep(time.Second * 10)
+		time.Sleep(time.Second * 30)
 	})
 
 	// -- Assertions --
