@@ -14,8 +14,8 @@ func NewSubscribeCmd() *cobra.Command {
 		Long:       `Subscribe to a function`,
 		SuggestFor: []string{"subscribe", "subscribe"},
 		PreRunE:    bindEnv("filter", "source"),
-		Run: func(cmd *cobra.Command, args []string) {
-			runSubscribe(cmd, args)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runSubscribe(cmd, args)
 		},
 	}
 
