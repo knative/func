@@ -247,7 +247,7 @@ type runConfig struct {
 
 func newRunConfig(cmd *cobra.Command) (c runConfig) {
 	c = runConfig{
-		buildConfig:  newBuildConfig(cmd),
+		buildConfig:  newBuildConfig(),
 		Build:        viper.GetString("build"),
 		Env:          viper.GetStringSlice("env"),
 		Container:    viper.GetBool("container"),

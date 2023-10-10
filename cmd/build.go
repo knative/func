@@ -141,7 +141,7 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	if err = config.CreatePaths(); err != nil { // for possible auth.json usage
 		return
 	}
-	if cfg, err = newBuildConfig(cmd).Prompt(); err != nil {
+	if cfg, err = newBuildConfig().Prompt(); err != nil {
 		return
 	}
 	if err = cfg.Validate(); err != nil {
@@ -213,7 +213,7 @@ type buildConfig struct {
 }
 
 // newBuildConfig gathers options into a single build request.
-func newBuildConfig(cmd *cobra.Command) buildConfig {
+func newBuildConfig() buildConfig {
 	bc := buildConfig{
 		Global: config.Global{
 			Builder:  viper.GetString("builder"),
@@ -227,16 +227,6 @@ func newBuildConfig(cmd *cobra.Command) buildConfig {
 		Platform:      viper.GetString("platform"),
 		Push:          viper.GetBool("push"),
 		WithTimestamp: viper.GetBool("build-timestamp"),
-	}
-	if bc.Registry != "" && !cmd.Flags().Changed("image") && strings.Index(bc.Image, "/") > 0 && !strings.HasPrefix(bc.Image, bc.Registry) {
-		prfx := bc.Registry
-		if prfx[len(prfx)-1:] != "/" {
-			prfx = prfx + "/"
-		}
-		sps := strings.Split(bc.Image, "/")
-		updImg := prfx + sps[len(sps)-1]
-		fmt.Fprintf(cmd.ErrOrStderr(), "Warning: function has current image '%s' which has a different registry than the currently configured registry '%s'. The new image tag will be '%s'.  To use an explicit image, use --image.\n", bc.Image, bc.Registry, updImg)
-		bc.Image = updImg
 	}
 
 	return bc
@@ -295,6 +285,8 @@ func (c buildConfig) Prompt() (buildConfig, error) {
 	// Image Name Override
 	// Calculate a better image name message which shows the value of the final
 	// image name as it will be calculated if an explicit image name is not used.
+
+	// gauron99 TODO: - dont use this since calculating is gonna be done before
 	var imagePromptMessageSuffix string
 	if name := deriveImage(c.Image, c.Registry, c.Path); name != "" {
 		imagePromptMessageSuffix = fmt.Sprintf(". if not specified, the default '%v' will be used')", name)

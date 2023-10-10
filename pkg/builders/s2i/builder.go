@@ -139,7 +139,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 	// Build Config
 	cfg := &api.Config{}
 	cfg.Quiet = !b.verbose
-	cfg.Tag = f.Image
+	cfg.Tag = f.Build.Image
 	cfg.Source = &git.URL{URL: url.URL{Path: f.Root}, Type: git.URLTypeLocal}
 	cfg.BuilderImage = builderImage
 	cfg.BuilderPullPolicy = api.DefaultBuilderPullPolicy
@@ -319,7 +319,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 	}()
 
 	opts := types.ImageBuildOptions{
-		Tags:       []string{f.Image},
+		Tags:       []string{f.Build.Image},
 		PullParent: true,
 	}
 

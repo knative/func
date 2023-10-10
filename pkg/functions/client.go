@@ -626,13 +626,15 @@ func (c *Client) Build(ctx context.Context, f Function, options ...BuildOption) 
 
 	// If no image name has been yet defined (not yet built/deployed), calculate.
 	// Image name is stored on the function for later use by deploy, etc.
-	// TODO: write this to .func/build instead, and populate f.Image on deploy
+	// TODO: write this to .func/build instead, and populate f.Build.Image on deploy
 	// such that local builds do not dirty the work tree.
 	var err error
 	if f.Image == "" {
-		if f.Image, err = f.ImageName(); err != nil {
+		if f.Build.Image, err = f.ImageName(); err != nil {
 			return f, err
 		}
+	} else {
+		f.Build.Image = f.Image
 	}
 
 	if err = c.builder.Build(ctx, f, oo.Platforms); err != nil {
@@ -645,9 +647,9 @@ func (c *Client) Build(ctx context.Context, f Function, options ...BuildOption) 
 
 	// TODO: create a status structure and return it here for optional
 	// use by the cli for user echo (rather than rely on verbose mode here)
-	message := fmt.Sprintf("🙌 Function built: %v", f.Image)
+	message := fmt.Sprintf("🙌 Function built: %v", f.Build.Image)
 	if runtime.GOOS == "windows" {
-		message = fmt.Sprintf("Function built: %v", f.Image)
+		message = fmt.Sprintf("Function built: %v", f.Build.Image)
 	}
 	fmt.Fprintf(os.Stderr, "%s\n", message)
 
@@ -762,8 +764,8 @@ func (c *Client) RunPipeline(ctx context.Context, f Function) (Function, error) 
 
 	// If no image name has been yet defined (not yet built/deployed), calculate.
 	// Image name is stored on the function for later use by deploy, etc.
-	if f.Image == "" {
-		if f.Image, err = f.ImageName(); err != nil {
+	if f.Deploy.Image == "" {
+		if f.Deploy.Image, err = f.ImageName(); err != nil {
 			return f, err
 		}
 	}
@@ -788,8 +790,8 @@ func (c *Client) ConfigurePAC(ctx context.Context, f Function, metadata any) err
 
 	// If no image name has been yet defined (not yet built/deployed), calculate.
 	// Image name is stored on the function for later use by deploy, etc.
-	if f.Image == "" {
-		if f.Image, err = f.ImageName(); err != nil {
+	if f.Deploy.Image == "" {
+		if f.Deploy.Image, err = f.ImageName(); err != nil {
 			return err
 		}
 	}
@@ -999,7 +1001,7 @@ func (c *Client) Push(ctx context.Context, f Function) (Function, error) {
 		return f, ErrNotBuilt
 	}
 	var err error
-	if f.ImageDigest, err = c.pusher.Push(ctx, f); err != nil {
+	if f.Deploy.ImageDigest, err = c.pusher.Push(ctx, f); err != nil {
 		return f, err
 	}
 

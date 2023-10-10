@@ -246,7 +246,7 @@ func deriveImage(explicitImage, defaultRegistry, path string) string {
 		return "" // unable to derive due to load error (uninitialized?)
 	}
 	if f.Image != "" {
-		return f.Image // use value previously provided or derived.
+		return f.Image // use value previously provided by user.
 	}
 	// Use the func system's derivation logic.
 	// Errors deriving result in an empty return
