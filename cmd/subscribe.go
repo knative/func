@@ -39,9 +39,6 @@ func runSubscribe(cmd *cobra.Command, args []string) (err error) {
 	if !f.Initialized() {
 		return fn.NewErrNotInitialized(f.Root)
 	}
-	if f, err = fn.NewFunction(""); err != nil {
-		return
-	}
 	if !f.Initialized() {
 		return fn.NewErrNotInitialized(f.Root)
 	}
