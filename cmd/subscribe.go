@@ -33,9 +33,6 @@ func runSubscribe(cmd *cobra.Command, args []string) (err error) {
 	)
 	cfg = newSubscribeConfig()
 
-	if err = config.CreatePaths(); err != nil { // for possible auth.json usage
-		return
-	}
 	if f, err = fn.NewFunction(""); err != nil {
 		return
 	}
