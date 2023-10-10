@@ -3,7 +3,6 @@ package cmd
 import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
-	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
 )
 
