@@ -4,11 +4,12 @@ import (
 	"context"
 	"fmt"
 	"io"
-	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
 	"os"
 	"regexp"
 	"strings"
 	"time"
+
+	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
