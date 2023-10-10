@@ -52,7 +52,7 @@ func runSubscribe(cmd *cobra.Command, args []string) (err error) {
 	})
 
 	// pump it
-	f.Write()
+	return f.Write()
 
 }
 
