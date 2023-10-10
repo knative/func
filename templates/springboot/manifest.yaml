@@ -3,8 +3,8 @@ buildEnvs:
     value: "false"
   - name: BP_JVM_VERSION
     value: "17"
-  - name: BP_MAVEN_BUILD_ARGUMENTS
-    value: "-Pnative -Dmaven.test.skip=true --no-transfer-progress package"
+  - name: BP_MAVEN_ACTIVE_PROFILES
+    value: "native"
 healthEndpoints:
   liveness: /actuator/health
   readiness: /actuator/health
