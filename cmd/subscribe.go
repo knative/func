@@ -44,9 +44,6 @@ func runSubscribe(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// add it
-	if f.Subscription == nil {
-		f.Subscription = []fn.SubscriptionSpec{}
-	}
 	f.Subscription = append(f.Subscription, fn.SubscriptionSpec{
 		Source: cfg.Source,
 		Filters: map[string]string{
