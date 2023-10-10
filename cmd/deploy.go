@@ -261,9 +261,6 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		defer doneOld()
 		oldClient.Remove(cmd.Context(), oldF, true)
 
-		// TODO: this has to be done in image re-calculation
-		// f.Image = ""
-		// f.Registry = ""
 	}
 
 	// Deploy
@@ -472,7 +469,7 @@ type deployConfig struct {
 // environment variables; in that precedence.
 func newDeployConfig(cmd *cobra.Command) (c deployConfig) {
 	c = deployConfig{
-		buildConfig:        newBuildConfig(cmd),
+		buildConfig:        newBuildConfig(),
 		Build:              viper.GetString("build"),
 		Env:                viper.GetStringSlice("env"),
 		Domain:             viper.GetString("domain"),
@@ -530,12 +527,12 @@ func (c deployConfig) Configure(f fn.Function) (fn.Function, error) {
 	// ImageDigest
 	// Parsed off f.Image if provided.  Deploying adds the ability to specify a
 	// digest on the associated image (not available on build as nonsensical).
-	newDigest, err := imageDigest(f.Image)
+	newDigest, err := imageDigest(f.Deploy.Image)
 	if err != nil {
 		return f, err
 	}
 	if newDigest != "" {
-		f.ImageDigest = newDigest
+		f.Deploy.ImageDigest = newDigest
 	}
 
 	// Envs

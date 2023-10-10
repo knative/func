@@ -119,8 +119,10 @@ func TestFunction_ImageWithDigest(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			f := Function{
-				Image:       tt.fields.Image,
-				ImageDigest: tt.fields.ImageDigest,
+				Image: tt.fields.Image,
+				Deploy: DeploySpec{
+					ImageDigest: tt.fields.ImageDigest,
+				},
 			}
 			if got := f.ImageWithDigest(); got != tt.want {
 				t.Errorf("ImageWithDigest() = %v, want %v", got, tt.want)
