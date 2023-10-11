@@ -13,9 +13,9 @@ func subscribe
 ### Options
 
 ```
-  -f, --filter string   The event metadata to filter for
-  -h, --help            help for subscribe
-  -s, --source string   The source, like a Knative Broker (default "default")
+  -f, --filter stringArray   Filter for the Cloud Event metadata
+  -h, --help                 help for subscribe
+  -s, --source string        The source, like a Knative Broker (default "default")
 ```
 
 ### SEE ALSO
