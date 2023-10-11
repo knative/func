@@ -42,6 +42,9 @@ func TestRuntime(t *testing.T) {
 	}
 
 	for _, lang := range runtimeList {
+		if lang == "python" && os.Getenv("GITHUB_ACTIONS") == "true" {
+			t.Skip("skipping python test in GH action because of space requirement")
+		}
 		for _, builder := range runtimeSupportMap[lang] {
 			if targetBuilder == "" || builder == targetBuilder {
 				t.Run(fmt.Sprintf("%v_%v_test", lang, builder), func(t *testing.T) {
