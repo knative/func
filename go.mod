@@ -36,20 +36,20 @@ require (
 	github.com/tektoncd/cli v0.29.1
 	github.com/tektoncd/pipeline v0.44.0
 	github.com/whilp/git-urls v1.0.0
-	golang.org/x/crypto v0.7.0
+	golang.org/x/crypto v0.14.0
 	golang.org/x/oauth2 v0.5.0
 	golang.org/x/sync v0.1.0
-	golang.org/x/term v0.6.0
+	golang.org/x/term v0.13.0
 	gopkg.in/yaml.v2 v2.4.0
 	gotest.tools/v3 v3.4.0
 	k8s.io/api v0.26.1
 	k8s.io/apimachinery v0.26.1
 	k8s.io/client-go v1.5.2
 	knative.dev/client-pkg v0.0.0-20230425201444-4f052f9ef2f2
-	knative.dev/eventing v0.37.0
+	knative.dev/eventing v0.37.3
 	knative.dev/hack v0.0.0-20230417170854-f591fea109b3
-	knative.dev/pkg v0.0.0-20230418073056-dfad48eaa5d0
-	knative.dev/serving v0.37.0
+	knative.dev/pkg v0.0.0-20231011201526-df28feae6d34
+	knative.dev/serving v0.37.3
 )
 
 require (
@@ -217,9 +217,9 @@ require (
 	go.uber.org/multierr v1.9.0 // indirect
 	go.uber.org/zap v1.24.0 // indirect
 	golang.org/x/mod v0.9.0 // indirect
-	golang.org/x/net v0.8.0 // indirect
-	golang.org/x/sys v0.6.0 // indirect
-	golang.org/x/text v0.8.0 // indirect
+	golang.org/x/net v0.17.0 // indirect
+	golang.org/x/sys v0.13.0 // indirect
+	golang.org/x/text v0.13.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.6.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
