@@ -40,7 +40,7 @@ jobs:
         env:
           FUNC_REPO_REF: ${{ github.event.pull_request.head.repo.full_name }}
           FUNC_REPO_BRANCH_REF: ${{ github.head_ref }}
-        run: make test-integration
+        run: ( while true; do df -h; sleep 5; done; ) & make test-integration
       - name: Dump Cluster Logs
         if: always()
         run: |
