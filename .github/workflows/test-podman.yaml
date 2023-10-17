@@ -7,17 +7,14 @@ jobs:
     name: Podman Test
     strategy:
       matrix:
-        go: [1.20.x]
         os: ["ubuntu-latest"]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
-        with:
-          go-version: ${{ matrix.go }}
+      - uses: ./.github/composite/go-setup
       - name: Install Podman
         run: |
-          # TODO uncomment following once https://github.com/containers/podman/pull/16781 is in the kubic repository
+          # TODO uncomment following once https:.github.com/containers/podman/pull/16781 is in the kubic repository
           #. /etc/os-release
           #sudo mkdir -p /etc/apt/keyrings
           #curl -fsSL https://download.opensuse.org/repositories/devel:kubic:libcontainers:unstable/xUbuntu_${VERSION_ID}/Release.key \

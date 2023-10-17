@@ -7,7 +7,6 @@ jobs:
     name: Unit Test
     strategy:
       matrix:
-        go: [1.20.x]
         java: [17]
         os: ["ubuntu-latest", "windows-latest", "macos-latest"]
     runs-on: ${{ matrix.os }}
@@ -25,9 +24,7 @@ jobs:
           echo "$(brew --prefix)/opt/gnu-sed/libexec/gnubin" >> $GITHUB_PATH
       - run: git config --global core.autocrlf false
       - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
-        with:
-          go-version: ${{ matrix.go }}
+      - uses: ./.github/composite/go-setup
       - uses: actions/setup-java@v1
         with:
           java-version: ${{ matrix.java }}

@@ -9,9 +9,7 @@ jobs:
     runs-on: "ubuntu-latest"
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
-        with:
-          go-version: "1.20.x"
+      - uses: ./.github/composite/go-setup
       - name: Lint
         run: make check && make check-templates
       - name: Check that 'func.yaml schema' is up-to-date
@@ -22,16 +20,13 @@ jobs:
   test-unit:
     strategy:
       matrix:
-        go: [ 1.20.x ]
         java: [ 17 ]
         os: [ "ubuntu-latest", "windows-latest", "macos-latest" ]
     runs-on: ${{ matrix.os }}
     steps:
       - run: git config --global core.autocrlf false
       - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
-        with:
-          go-version: ${{ matrix.go }}
+      - uses: ./.github/composite/go-setup
       - uses: actions/setup-java@v1
         with:
           java-version: ${{ matrix.java }}
@@ -48,9 +43,7 @@ jobs:
     runs-on: "ubuntu-latest"
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
-        with:
-          go-version: "1.20.x"
+      - uses: ./.github/composite/go-setup
       - name: Install Binaries
         run: ./hack/binaries.sh
       - name: Allocate Cluster
@@ -67,14 +60,11 @@ jobs:
   e2e-test:
     strategy:
       matrix:
-        go: [1.20.x]
         os: ["ubuntu-latest"]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
-        with:
-          go-version: ${{ matrix.go }}
+      - uses: ./.github/composite/go-setup
       - name: Install Binaries
         run: ./hack/binaries.sh
       - name: Allocate Cluster
@@ -91,14 +81,11 @@ jobs:
   e2e-on-cluster-test:
     strategy:
       matrix:
-        go: [1.20.x]
         os: ["ubuntu-latest"]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
-        with:
-          go-version: ${{ matrix.go }}
+      - uses: ./.github/composite/go-setup
       - uses: imjasonh/setup-ko@v0.6
       - name: Install Binaries
         run: ./hack/binaries.sh
@@ -124,9 +111,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
-        with:
-          go-version: "1.20.x"
+      - uses: ./.github/composite/go-setup
       # Standard build tasks
       - name: Build
         run: make cross-platform
@@ -165,8 +150,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
-        with:
-          go-version: "1.20.x"
+      - uses: ./.github/composite/go-setup
       - uses: imjasonh/setup-ko@v0.6
       - run: ko build --platform=linux/ppc64le,linux/s390x,linux/amd64,linux/arm64 -B ./cmd/func

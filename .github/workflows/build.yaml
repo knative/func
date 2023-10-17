@@ -7,7 +7,6 @@ jobs:
     name: Build
     strategy:
       matrix:
-        go: [1.20.x]
         os: ["ubuntu-latest", "windows-latest", "macos-latest"]
     runs-on: ${{ matrix.os }}
     steps:
@@ -23,9 +22,7 @@ jobs:
           echo "/usr/local/bin" >> $GITHUB_PATH
           echo "$(brew --prefix)/opt/gnu-sed/libexec/gnubin" >> $GITHUB_PATH
       - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
-        with:
-          go-version: ${{ matrix.go }}
+      - uses: ./.github/composite/go-setup
       - name: Build
         run: make build
 
