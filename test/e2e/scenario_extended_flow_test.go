@@ -8,6 +8,7 @@ import (
 	"net"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"syscall"
 	"testing"
@@ -44,57 +45,58 @@ func TestFunctionExtendedFlow(t *testing.T) {
 	knFunc.Exec("build", "--registry", common.GetRegistry())
 
 	// ---------------------------
-	// Func Run Test
+	// Func Run Test (linux only)
 	// ---------------------------
-	knFuncTerm1 := common.NewKnFuncShellCli(t)
-	knFuncTerm1.ShouldDumpOnSuccess = false
-	knFuncTerm2 := common.NewKnFuncShellCli(t)
-	knFuncTerm2.ShouldDumpOnSuccess = true
+	if runtime.GOOS == "linux" {
+		knFuncTerm1 := common.NewKnFuncShellCli(t)
+		knFuncTerm1.ShouldDumpOnSuccess = false
+		knFuncTerm2 := common.NewKnFuncShellCli(t)
+		knFuncTerm2.ShouldDumpOnSuccess = true
 
-	portChannel := make(chan string)
-	go func() {
-		t.Log("----Checking for listening port")
-		// set the function that will be executed while "kn func run" is executed
-		knFuncTerm1.OnWaitCallback = func(stdout *bytes.Buffer) {
-			t.Log("-----Executing OnWaitCallback")
-			funcPort, attempts := "", 0
-			for funcPort == "" && attempts < 10 {
-				t.Logf("----Function Output:\n%v\n", stdout.String())
-				matches := regexp.MustCompile("Running on host port (.*)").FindStringSubmatch(stdout.String())
-				attempts++
-				if len(matches) > 1 {
-					funcPort = matches[1]
-				} else {
-					time.Sleep(200 * time.Millisecond)
+		portChannel := make(chan string)
+		go func() {
+			t.Log("----Checking for listening port")
+			// set the function that will be executed while "kn func run" is executed
+			knFuncTerm1.OnWaitCallback = func(stdout *bytes.Buffer) {
+				t.Log("-----Executing OnWaitCallback")
+				funcPort, attempts := "", 0
+				for funcPort == "" && attempts < 10 {
+					t.Logf("----Function Output:\n%v\n", stdout.String())
+					matches := regexp.MustCompile("Running on host port (.*)").FindStringSubmatch(stdout.String())
+					attempts++
+					if len(matches) > 1 {
+						funcPort = matches[1]
+					} else {
+						time.Sleep(200 * time.Millisecond)
+					}
 				}
+				// can proceed
+				portChannel <- funcPort
 			}
-			// can proceed
-			portChannel <- funcPort
-		}
-		knFuncTerm1.Exec("run", "--verbose", "--path", funcPath)
-	}()
+			knFuncTerm1.Exec("run", "--verbose", "--path", funcPath)
+		}()
 
-	knFuncRunCompleted := false
-	knFuncRunProcessFinalizer := func() {
-		if knFuncRunCompleted == false {
-			knFuncTerm1.ExecCmd.Process.Signal(syscall.SIGTERM)
-			knFuncRunCompleted = true
+		knFuncRunCompleted := false
+		knFuncRunProcessFinalizer := func() {
+			if knFuncRunCompleted == false {
+				knFuncTerm1.ExecCmd.Process.Signal(syscall.SIGTERM)
+				knFuncRunCompleted = true
+			}
 		}
+		defer knFuncRunProcessFinalizer()
+
+		// Get running port (usually 8080) from func output. We can use it for test http.
+		funcPort := <-portChannel
+		assert.Assert(t, funcPort != "", "Unable to retrieve local port allocated for function")
+
+		// Wait Port to be available
+		net.DialTimeout("tcp", ":"+funcPort, 3*time.Second)
+		time.Sleep(time.Second)
+
+		// GET Function HTTP Endpoint
+		_, bodyResp := testhttp.TestGet(t, "http://localhost:"+funcPort+"?message=local")
+		assert.Assert(t, strings.Contains(bodyResp, `{"message":"local"}`), "function response does not contain expected body.")
 	}
-	defer knFuncRunProcessFinalizer()
-
-	// Get running port (usually 8080) from func output. We can use it for test http.
-	funcPort := <-portChannel
-	assert.Assert(t, funcPort != "", "Unable to retrieve local port allocated for function")
-
-	// Wait Port to be available
-	net.DialTimeout("tcp", ":"+funcPort, 3*time.Second)
-	time.Sleep(time.Second)
-
-	// GET Function HTTP Endpoint
-	_, bodyResp := testhttp.TestGet(t, "http://:"+funcPort+"?message=local")
-	assert.Assert(t, strings.Contains(bodyResp, `{"message":"local"}`), "function response does not contain expected body.")
-
 	// ---------------------------
 	// Func Invoke Locally Test
 	// ---------------------------

@@ -1,6 +1,7 @@
 package common
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -21,7 +22,7 @@ func WaitForFunctionReady(t *testing.T, functionName string) (revisionName strin
 
 // NewRevisionCheck waits for a new revision to report as ready
 func WaitForNewRevisionReady(t *testing.T, previousRevision string, functionName string) (newRevision string) {
-	err := wait.PollImmediate(5*time.Second, 1*time.Minute, func() (done bool, err error) {
+	err := wait.PollUntilContextTimeout(context.Background(), 5*time.Second, 1*time.Minute, false, func(ctx context.Context) (done bool, err error) {
 		newRevision = GetCurrentServiceRevision(t, functionName)
 		t.Logf("Waiting for new revision deployment (previous revision [%v], current revision [%v])", previousRevision, newRevision)
 		return newRevision != "" && newRevision != previousRevision, nil
