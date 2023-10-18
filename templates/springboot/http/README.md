@@ -43,15 +43,9 @@ buildEnvs:
     value: "true"
 ```
 
-**Note**: If you have issues with the [Spring AOT](https://docs.spring.io/spring-framework/docs/current/reference/html/core.html#core.aot) processing in your build, you can turn this off by editing the `func.yaml` file and remove the `-Pnative` profile from the `BP_MAVEN_BUILD_ARGUMENTS` BuilderEnv variable:
+**Note**: If you have issues with the [Spring AOT](https://docs.spring.io/spring-framework/docs/current/reference/html/core.html#core.aot) processing in your build, you can turn this off by editing the `func.yaml` file and removing the `BP_MAVEN_ACTIVE_PROFILES` buildEnvs entry.
 
-```yaml
-buildEnvs:
-  - name: BP_MAVEN_BUILD_ARGUMENTS
-    value: -Pnative -Dmaven.test.skip=true --no-transfer-progress package
-```
-
-> Removing the `-Pnative` profile means that you no longer will be able to build as a native image.
+> Removing the `native` profile means that you no longer will be able to build as a native image.
 
 ### Running
 
@@ -72,14 +66,21 @@ func deploy -v # also triggers build
 
 ### For ARM processor based systems
 
-Building Spring Boot apps with Paketo Buildpacks on an ARM processor based system, like an Apple Macbook with an M1 or M2 chip, doesn't work well at the moment.
-To work around this you can build the image on your local system using [Jib](https://github.com/GoogleContainerTools/jib).
-Then, you would deploy the Jib generated image.
+Building Spring Boot apps with Paketo Buildpacks on an ARM processor based system, like an Apple Macbook with an M1 or M2 chip, is not fully supported at the moment.
+There is work in progress to fix this, you can follow the [Support ARM #435](https://github.com/buildpacks/lifecycle/issues/435) issue.
+You can also join the `#arm` channel in the paketo slack (join at: https://slack.paketo.io/) to follow progress on this topic
 
+To work around the multiarch limitation you can build the image on your local system using a community contributed [multiarch builder](https://github.com/dashaun/paketo-arm64) that produces images for the `arm64` arch.
+
+You need to provide the `--builder-image` argument using `dashaun/builder:tiny` as the builder.
+
+```sh
+func build -v --builder-image dashaun/builder:tiny
+func deploy --build=false
 ```
-./mvnw compile com.google.cloud.tools:jib-maven-plugin:3.3.1:dockerBuild -Dimage=$FUNC_REGISTRY/echo
-func deploy --build=false --image=$FUNC_REGISTRY/echo
-```
+
+> Note: This assumes that you are targeting a cluster that supports arm64 based images
+> which would be the case if you ran a kind cluster on your local Mac system.
 
 ## Function invocation
 
