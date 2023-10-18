@@ -131,6 +131,7 @@ networking() {
 
   echo "Install load balancer."
   kubectl apply -f "https://raw.githubusercontent.com/metallb/metallb/v0.13.7/config/manifests/metallb-native.yaml"
+  sleep 5
   kubectl wait --namespace metallb-system \
     --for=condition=ready pod \
     --selector=app=metallb \

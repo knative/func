@@ -60,11 +60,19 @@ func TestFunctionExtendedFlow(t *testing.T) {
 			funcPort, attempts := "", 0
 			for funcPort == "" && attempts < 10 {
 				t.Logf("----Function Output:\n%v\n", stdout.String())
-				matches := regexp.MustCompile("Running on host port (.*)").FindStringSubmatch(stdout.String())
+				findPort := func(exp string, msg string) (port string) {
+					matches := regexp.MustCompile(exp).FindStringSubmatch(msg)
+					if len(matches) > 1 {
+						port = matches[1]
+					}
+					return
+				}
+				funcPort = findPort("Running on host port (.*)", stdout.String())
+				if funcPort == "" {
+					funcPort = findPort("Function started on port (.*)", stdout.String())
+				}
 				attempts++
-				if len(matches) > 1 {
-					funcPort = matches[1]
-				} else {
+				if funcPort == "" {
 					time.Sleep(200 * time.Millisecond)
 				}
 			}
@@ -92,7 +100,7 @@ func TestFunctionExtendedFlow(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// GET Function HTTP Endpoint
-	_, bodyResp := testhttp.TestGet(t, "http://:"+funcPort+"?message=local")
+	_, bodyResp := testhttp.TestGet(t, "http://localhost:"+funcPort+"?message=local")
 	assert.Assert(t, strings.Contains(bodyResp, `{"message":"local"}`), "function response does not contain expected body.")
 
 	// ---------------------------
