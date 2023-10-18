@@ -8,7 +8,7 @@ jobs:
     continue-on-error: true
     strategy:
       matrix:
-        go: [1.20.2]
+        go: [1.20.x]
         os: ["ubuntu-latest"]
         func_builder: ["pack", "s2i"]
     runs-on: ${{ matrix.os }}

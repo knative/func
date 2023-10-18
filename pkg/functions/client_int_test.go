@@ -14,6 +14,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/api/types/volume"
+	"github.com/docker/docker/client"
+
 	"knative.dev/func/pkg/builders/buildpacks"
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
@@ -529,6 +533,27 @@ func del(t *testing.T, c *fn.Client, name string) {
 	waitFor(t, c, name)
 	if err := c.Remove(context.Background(), fn.Function{Name: name}, false); err != nil {
 		t.Fatal(err)
+	}
+	cli, _, err := docker.NewClient(client.DefaultDockerHost)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cli.Close()
+	opts := volume.ListOptions{
+		Filters: filters.NewArgs(
+			filters.Arg("name", fmt.Sprintf("pack-cache-func_%s_*", name)),
+		),
+	}
+	resp, err := cli.VolumeList(context.Background(), opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, vol := range resp.Volumes {
+		t.Log("deleting volume:", vol.Name)
+		err = cli.VolumeRemove(context.Background(), vol.Name, true)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 }
 
