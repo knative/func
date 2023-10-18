@@ -14,6 +14,12 @@ import (
 	"testing"
 	"time"
 
+	corev1 "k8s.io/api/core/v1"
+	rbacV1 "k8s.io/api/rbac/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"knative.dev/func/pkg/k8s"
+
 	"knative.dev/func/pkg/builders/buildpacks"
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
@@ -26,8 +32,6 @@ func TestOnClusterBuild(t *testing.T) {
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
-
-	ns := "default"
 
 	credentialsProvider := func(ctx context.Context, image string) (docker.Credentials, error) {
 		return docker.Credentials{
@@ -50,6 +54,8 @@ func TestOnClusterBuild(t *testing.T) {
 			}
 			ctx, cancel := context.WithCancel(ctx)
 			defer cancel()
+
+			ns := setupNS(t)
 
 			pp := tekton.NewPipelinesProvider(
 				tekton.WithCredentialsProvider(credentialsProvider),
@@ -81,6 +87,52 @@ func TestOnClusterBuild(t *testing.T) {
 			t.Log("call to knative service successful")
 		})
 	}
+}
+
+func setupNS(t *testing.T) string {
+	name := "pipeline-integration-test-" + strings.ToLower(random.AlphaString(5))
+	cliSet, err := k8s.NewKubernetesClientset()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+	}
+	_, err = cliSet.CoreV1().Namespaces().Create(context.Background(), ns, metav1.CreateOptions{})
+	if err != nil && !errors.IsAlreadyExists(err) {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		pp := metav1.DeletePropagationForeground
+		_ = cliSet.CoreV1().Namespaces().Delete(context.Background(), name, metav1.DeleteOptions{
+			PropagationPolicy: &pp,
+		})
+	})
+	crb := &rbacV1.ClusterRoleBinding{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name + ":knative-serving-namespaced-admin",
+		},
+		Subjects: []rbacV1.Subject{
+			{
+				Kind:      "ServiceAccount",
+				Name:      "default",
+				Namespace: name,
+			},
+		},
+		RoleRef: rbacV1.RoleRef{
+			Name:     "knative-serving-namespaced-admin",
+			Kind:     "ClusterRole",
+			APIGroup: "rbac.authorization.k8s.io",
+		},
+	}
+	_, err = cliSet.RbacV1().ClusterRoleBindings().Create(context.Background(), crb, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log("created namespace: ", name)
+	return name
 }
 
 func checkTestEnabled(t *testing.T) {
