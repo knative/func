@@ -77,7 +77,7 @@ func TestFunctionRunWithoutContainer(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// Assert Function endpoint responds
-	_, bodyResp := testhttp.TestGet(t, "http://:"+funcPort+"?message=run-on-host")
+	_, bodyResp := testhttp.TestGet(t, "http://localhost:"+funcPort+"?message=run-on-host")
 	assert.Assert(t, strings.Contains(bodyResp, `GET /?message=run-on-host`), "function response does not contain expected body.")
 
 	// Assert Func were not built
