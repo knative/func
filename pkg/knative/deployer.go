@@ -314,6 +314,9 @@ func createTriggers(ctx context.Context, f fn.Function, err error, client client
 		err = fmt.Errorf("knative deployer failed to get the Service for Trigger: %v", err)
 		return err
 	}
+
+	fmt.Fprintf(os.Stderr, "🎯 Creating Triggers on the cluster\n")
+
 	for i, sub := range f.Subscription {
 		// create the filter:
 		attributes := make(map[string]string)
