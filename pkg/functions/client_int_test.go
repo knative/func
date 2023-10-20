@@ -454,20 +454,39 @@ func Handle(ctx context.Context, res http.ResponseWriter, req *http.Request) {
 package function
 
 import (
-  "context"
-  "net/http"
+	"bytes"
+	"context"
 	"fmt"
 	"io"
+	"net/http"
+	"os"
+	"time"
 )
 
-func Handle(ctx context.Context, res http.ResponseWriter, req *http.Request) {
-	r, err := http.Get("http://localhost:3500/v1.0/invoke/a/method/")
-	if err != nil {
-		fmt.Printf("unable to invoke function a", err)
-	  http.Error(res, "unable to invoke function a", http.StatusServiceUnavailable)
+func Handle(ctx context.Context, w http.ResponseWriter, req *http.Request) {
+	var e error
+	var r *http.Response
+	var buff bytes.Buffer
+	var out io.Writer = io.MultiWriter(os.Stderr, &buff)
+	for i := 0; i < 10; i++ {
+		r, e = http.Get("http://localhost:3500/v1.0/invoke/a/method/")
+		if e != nil {
+			_, _ = fmt.Fprintf(out, "unable to invoke function a: %v\n", e)
+			time.Sleep(time.Second*3)
+			continue
+		}
+		defer r.Body.Close()
+		if r.StatusCode != 200 {
+			_, _ = fmt.Fprintf(out, "bad http status code when invoking a: %d\n", r.StatusCode)
+			time.Sleep(time.Second*3)
+			continue
+		}
+		w.WriteHeader(200)
+		_, _ = io.Copy(w, r.Body)
+		return
 	}
-	defer r.Body.Close()
-	io.Copy(res,r.Body)
+	http.Error(w, fmt.Sprintf("unable to invoke function a:\n%s", buff.String()), http.StatusServiceUnavailable)
+	return
 }
 `
 	os.WriteFile(filepath.Join(root, "handle.go"), []byte(source), os.ModePerm)
@@ -488,7 +507,7 @@ func Handle(ctx context.Context, res http.ResponseWriter, req *http.Request) {
 	fmt.Printf("### function a response body: %s\n", body)
 
 	if string(body) != "TestInvoke_ServiceToService OK" {
-		t.Fatalf("Unexpected response from Function B: %v", body)
+		t.Fatalf("Unexpected response from Function B: %v", string(body))
 	}
 }
 
