@@ -155,12 +155,12 @@ test-python: ## Test Python templates
 	cd templates/python/http && python3 test_func.py && rm -rf __pycache__
 
 test-quarkus: ## Test Quarkus templates
-	cd templates/quarkus/cloudevents && ./mvnw -q test && ./mvnw clean
-	cd templates/quarkus/http && ./mvnw -q test && ./mvnw clean
+	cd templates/quarkus/cloudevents && ./mvnw -q test && ./mvnw clean && rm .mvn/wrapper/maven-wrapper.jar
+	cd templates/quarkus/http && ./mvnw -q test && ./mvnw clean && rm .mvn/wrapper/maven-wrapper.jar
 
 test-springboot: ## Test Spring Boot templates
-	cd templates/springboot/cloudevents && ./mvnw -q test && ./mvnw clean
-	cd templates/springboot/http && ./mvnw -q test && ./mvnw clean
+	cd templates/springboot/cloudevents && ./mvnw -q test && ./mvnw clean && rm .mvn/wrapper/maven-wrapper.jar
+	cd templates/springboot/http && ./mvnw -q test && ./mvnw clean && rm .mvn/wrapper/maven-wrapper.jar
 
 test-rust: ## Test Rust templates
 	cd templates/rust/cloudevents && cargo -q test && cargo clean
