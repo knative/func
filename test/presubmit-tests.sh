@@ -70,6 +70,12 @@ function install_rust() {
 
 function unit_tests() {
   local failed=0
+  header "Checking embedded templates"
+  go test knative.dev/func/pkg/filesystem -run '^\QTestFileSystems\E$/^\Qembedded\E$' -v || failed=1
+  if (( failed )); then
+     results_banner "Embedded templates check failed"
+     exit "${failed}"
+  fi
   header "Unit tests for $(go_mod_module_name)"
   make test || failed=1
   if (( failed )); then
