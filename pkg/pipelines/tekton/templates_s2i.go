@@ -10,7 +10,7 @@ import (
 	fn "knative.dev/func/pkg/functions"
 )
 
-func GetS2IPipeline(f fn.Function) (*v1beta1.Pipeline, error) {
+func GetPipeline(f fn.Function) (*v1beta1.Pipeline, error) {
 
 	labels, err := f.LabelsMap()
 	if err != nil {
