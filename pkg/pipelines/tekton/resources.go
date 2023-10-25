@@ -18,8 +18,8 @@ import (
 	fn "knative.dev/func/pkg/functions"
 )
 
-func GetPipeline(f fn.Function) (*v1beta1.Pipeline, error) {
-	pipelineFromFile, err := LoadResource[*v1beta1.Pipeline](path.Join(f.Root, resourcesDirectory, pipelineFileName))
+func getPipeline(f fn.Function) (*v1beta1.Pipeline, error) {
+	pipelineFromFile, err := loadResource[*v1beta1.Pipeline](path.Join(f.Root, resourcesDirectory, pipelineFileName))
 	if err != nil {
 		return nil, fmt.Errorf("cannot load resource from file: %v", err)
 	}
@@ -285,8 +285,8 @@ func GetPipeline(f fn.Function) (*v1beta1.Pipeline, error) {
 	return &result, nil
 }
 
-func GetPipelineRun(f fn.Function) (*v1beta1.PipelineRun, error) {
-	pipelineRunFromFile, err := LoadResource[*v1beta1.PipelineRun](path.Join(f.Root, resourcesDirectory, pipelineRunFilenane))
+func getPipelineRun(f fn.Function) (*v1beta1.PipelineRun, error) {
+	pipelineRunFromFile, err := loadResource[*v1beta1.PipelineRun](path.Join(f.Root, resourcesDirectory, pipelineRunFilenane))
 	if err != nil {
 		return nil, fmt.Errorf("cannot load resource from file: %v", err)
 	}
@@ -434,7 +434,7 @@ type res interface {
 	GetObjectKind() schema.ObjectKind
 }
 
-func LoadResource[T res](fileName string) (T, error) {
+func loadResource[T res](fileName string) (T, error) {
 	var result T
 	filePath := fileName
 	if _, err := os.Stat(filePath); !os.IsNotExist(err) {
