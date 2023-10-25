@@ -46,7 +46,7 @@ func runSubscribe(cmd *cobra.Command, args []string) (err error) {
 	}
 
 	// add subscription	to function
-	f.Subscription = append(f.Subscription, fn.SubscriptionSpec{
+	f.Deploy.Subscriptions = append(f.Deploy.Subscriptions, fn.KnativeSubscription{
 		Source:  cfg.Source,
 		Filters: extractFilterMap(cfg),
 	})

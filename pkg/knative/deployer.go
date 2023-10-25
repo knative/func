@@ -317,7 +317,7 @@ func createTriggers(ctx context.Context, f fn.Function, err error, client client
 
 	fmt.Fprintf(os.Stderr, "🎯 Creating Triggers on the cluster\n")
 
-	for i, sub := range f.Subscription {
+	for i, sub := range f.Deploy.Subscriptions {
 		// create the filter:
 		attributes := make(map[string]string)
 		for key, value := range sub.Filters {

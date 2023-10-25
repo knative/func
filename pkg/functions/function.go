@@ -82,8 +82,6 @@ type Function struct {
 	// Build defines the build properties for a function
 	Build BuildSpec `yaml:"build,omitempty"`
 
-	Subscription []SubscriptionSpec `yaml:"subscriptions,omitempty"`
-
 	// Run defines the runtime properties for a function
 	Run RunSpec `yaml:"run,omitempty"`
 
@@ -91,8 +89,8 @@ type Function struct {
 	Deploy DeploySpec `yaml:"deploy,omitempty"`
 }
 
-// SubscriptionSpec
-type SubscriptionSpec struct {
+// KnativeSubscription
+type KnativeSubscription struct {
 	Source  string            `yaml:"source"`
 	Filters map[string]string `yaml:"filters,omitempty"`
 }
@@ -167,6 +165,8 @@ type DeploySpec struct {
 	// succeed.
 	// More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
 	ServiceAccountName string `yaml:"serviceAccountName,omitempty"`
+
+	Subscriptions []KnativeSubscription `yaml:"subscriptions,omitempty"`
 }
 
 // HealthEndpoints specify the liveness and readiness endpoints for a Runtime
