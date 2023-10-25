@@ -266,7 +266,7 @@ func GetPipeline(f fn.Function) (*v1beta1.Pipeline, error) {
 	return &result, nil
 }
 
-func GetS2IPipelineRun(f fn.Function) (*v1beta1.PipelineRun, error) {
+func GetPipelineRun(f fn.Function) (*v1beta1.PipelineRun, error) {
 	labels, err := f.LabelsMap()
 	if err != nil {
 		return nil, fmt.Errorf("cannot generate labels: %w", err)

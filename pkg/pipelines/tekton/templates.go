@@ -316,7 +316,7 @@ func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels m
 		if err != nil {
 			return fmt.Errorf("cannot create tekton client: %w", err)
 		}
-		piplineRun, err := GetS2IPipelineRun(f)
+		piplineRun, err := GetPipelineRun(f)
 		if err != nil {
 			return fmt.Errorf("cannot generate pipeline run: %w", err)
 		}
