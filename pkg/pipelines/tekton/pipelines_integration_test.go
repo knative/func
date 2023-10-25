@@ -20,7 +20,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/func/pkg/k8s"
 
-	"knative.dev/func/pkg/builders/buildpacks"
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/pipelines/tekton"
@@ -174,7 +173,7 @@ func createSimpleGoProject(t *testing.T, ns string) fn.Function {
 		Invoke:   "none",
 		Build: fn.BuildSpec{
 			BuilderImages: map[string]string{
-				"pack": buildpacks.DefaultTinyBuilder,
+				"pack": "index.docker.io/paketobuildpacks/builder-jammy-tiny",
 				"s2i":  "registry.access.redhat.com/ubi8/go-toolset",
 			},
 		},
@@ -190,16 +189,40 @@ func createSimpleGoProject(t *testing.T, ns string) fn.Function {
 	return f
 }
 
-const simpleGOSvc = `package function
+const simpleGOSvc = `package main
 
 import (
 	"context"
+	"net"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 )
 
-func Handle(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
-	resp.Header().Add("Content-Type", "text/plain")
-	resp.WriteHeader(200)
-	_, _ = resp.Write([]byte("Hello World!\n"))
+func main() {
+	sigs := make(chan os.Signal, 5)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	s := http.Server{
+		Handler: http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
+			resp.Header().Add("Content-Type", "text/plain")
+			resp.WriteHeader(200)
+			_, _ = resp.Write([]byte("OK"))
+		}),
+	}
+	go func() {
+		<-sigs
+		_ = s.Shutdown(context.Background())
+	}()
+	port := "8080"
+	if p, ok := os.LookupEnv("PORT"); ok {
+		port = p
+	}
+	l, err := net.Listen("tcp4", ":"+port)
+	if err != nil {
+		panic(err)
+	}
+	_ = s.Serve(l)
 }
 `
