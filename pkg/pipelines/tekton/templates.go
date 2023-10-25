@@ -1,16 +1,13 @@
 package tekton
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
 	"path"
-	"strings"
 	"text/template"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/manifestival/manifestival"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/func/pkg/builders"
@@ -332,65 +329,3 @@ func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels m
 
 // allows simple mocking in unit tests
 var manifestivalClient = k8s.GetManifestivalClient
-
-// createAndApplyResource tries to create and apply a resource to the k8s cluster from the input template and data,
-// if there's the same resource already created in the project directory, it is used instead
-func createAndApplyResource(projectRoot, fileName, fileTemplate, kind, resourceName, namespace string, data interface{}) error {
-	var source manifestival.Source
-
-	filePath := path.Join(projectRoot, resourcesDirectory, fileName)
-	if _, err := os.Stat(filePath); !os.IsNotExist(err) {
-		source = manifestival.Path(filePath)
-	} else {
-		tmpl, err := template.New("template").Parse(fileTemplate)
-		if err != nil {
-			return fmt.Errorf("error parsing template: %v", err)
-		}
-
-		var buf bytes.Buffer
-		err = tmpl.Execute(&buf, data)
-		if err != nil {
-			return fmt.Errorf("error executing template: %v", err)
-		}
-		source = manifestival.Reader(&buf)
-	}
-
-	client, err := manifestivalClient()
-	if err != nil {
-		return fmt.Errorf("error generating template: %v", err)
-	}
-
-	m, err := manifestival.ManifestFrom(source, manifestival.UseClient(client))
-	if err != nil {
-		return fmt.Errorf("error generating template: %v", err)
-	}
-
-	resources := m.Resources()
-	if len(resources) != 1 {
-		return fmt.Errorf("error creating pipeline resources: there could be only a single resource in the template file %q", filePath)
-	}
-
-	if strings.ToLower(resources[0].GetKind()) != kind {
-		return fmt.Errorf("error creating pipeline resources: expected resource kind in file %q is %q, but got %q", filePath, kind, resources[0].GetKind())
-	}
-
-	existingResourceName := resources[0].GetName()
-	if kind == "pipelinerun" {
-		existingResourceName = resources[0].GetGenerateName()
-	}
-	if existingResourceName != resourceName {
-		return fmt.Errorf("error creating pipeline resources: expected resource name in file %q is %q, but got %q", filePath, resourceName, existingResourceName)
-	}
-
-	if resources[0].GetNamespace() != "" && resources[0].GetNamespace() != namespace {
-		return fmt.Errorf("error creating pipeline resources: expected resource namespace in file %q is %q, but got %q", filePath, namespace, resources[0].GetNamespace())
-	}
-
-	m, err = m.Transform(manifestival.InjectNamespace(namespace))
-	if err != nil {
-		fmt.Printf("error procesing template: %v", err)
-		return err
-	}
-
-	return m.Apply()
-}

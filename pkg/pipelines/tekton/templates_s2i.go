@@ -546,58 +546,7 @@ spec:
       name: dockerconfig-workspace
       optional: true
 `
-	// s2iRunTemplate contains the S2I template used for Tekton standard PipelineRun
-	s2iRunTemplate = `
-apiVersion: tekton.dev/v1beta1
-kind: PipelineRun
-metadata:
-  labels:
-    {{range $key, $value := .Labels -}}
-     "{{$key}}": "{{$value}}"
-    {{end}}
-    tekton.dev/pipeline: {{.PipelineName}}
-  annotations:
-    # User defined Annotations
-    {{range $key, $value := .Annotations -}}
-     "{{$key}}": "{{$value}}"
-    {{end}}
-  generateName: {{.PipelineRunName}}
-spec:
-  params:
-    - name: gitRepository
-      value: {{.RepoUrl}}
-    - name: gitRevision
-      value: {{.Revision}}
-    - name: contextDir
-      value: {{.ContextDir}}
-    - name: imageName
-      value: {{.FunctionImage}}
-    - name: registry
-      value: {{.Registry}}
-    - name: builderImage
-      value: {{.BuilderImage}}
-    - name: buildEnvs
-      value:
-        {{range .BuildEnvs -}}
-           - {{.}}
-        {{end}}
-    - name: s2iImageScriptsUrl
-      value: {{.S2iImageScriptsUrl}}
-  pipelineRef:
-   name: {{.PipelineName}}
-  workspaces:
-    - name: source-workspace
-      persistentVolumeClaim:
-        claimName: {{.PvcName}}
-      subPath: source
-    - name: cache-workspace
-      persistentVolumeClaim:
-        claimName: {{.PvcName}}
-      subPath: cache
-    - name: dockerconfig-workspace
-      secret:
-        secretName: {{.SecretName}}
-`
+
 	// s2iRunTemplatePAC contains the S2I template used for Tekton PAC PipelineRun
 	s2iRunTemplatePAC = `
 apiVersion: tekton.dev/v1beta1
