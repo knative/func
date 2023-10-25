@@ -2,15 +2,31 @@ package tekton
 
 import (
 	"fmt"
+	"os"
+	"path"
 
 	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
 	coreV1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	k8sYaml "k8s.io/apimachinery/pkg/util/yaml"
+
 	"knative.dev/func/pkg/builders"
 	fn "knative.dev/func/pkg/functions"
 )
 
 func GetPipeline(f fn.Function) (*v1beta1.Pipeline, error) {
+	pipelineFromFile, err := LoadResource[*v1beta1.Pipeline](path.Join(f.Root, resourcesDirectory, pipelineFileName))
+	if err != nil {
+		return nil, fmt.Errorf("cannot load resource from file: %v", err)
+	}
+	if pipelineFromFile != nil {
+		name := getPipelineName(f)
+		if pipelineFromFile.Name != name {
+			return nil, fmt.Errorf("resource name missmatch: %q != %q", pipelineFromFile.Name, name)
+		}
+		return pipelineFromFile, nil
+	}
 
 	labels, err := f.LabelsMap()
 	if err != nil {
@@ -267,6 +283,18 @@ func GetPipeline(f fn.Function) (*v1beta1.Pipeline, error) {
 }
 
 func GetPipelineRun(f fn.Function) (*v1beta1.PipelineRun, error) {
+	pipelineRunFromFile, err := LoadResource[*v1beta1.PipelineRun](path.Join(f.Root, resourcesDirectory, pipelineRunFilenane))
+	if err != nil {
+		return nil, fmt.Errorf("cannot load resource from file: %v", err)
+	}
+	if pipelineRunFromFile != nil {
+		generateName := getPipelineRunGenerateName(f)
+		if pipelineRunFromFile.GetGenerateName() != generateName {
+			return nil, fmt.Errorf("resource name missmatch: %q != %q", pipelineRunFromFile.GetGenerateName(), generateName)
+		}
+		return pipelineRunFromFile, nil
+	}
+
 	labels, err := f.LabelsMap()
 	if err != nil {
 		return nil, fmt.Errorf("cannot generate labels: %w", err)
@@ -396,6 +424,35 @@ func GetPipelineRun(f fn.Function) (*v1beta1.PipelineRun, error) {
 		},
 	}
 	return &result, nil
+}
+
+type res interface {
+	GetGroupVersionKind() schema.GroupVersionKind
+	GetObjectKind() schema.ObjectKind
+}
+
+func LoadResource[T res](fileName string) (T, error) {
+	var result T
+	filePath := fileName
+	if _, err := os.Stat(filePath); !os.IsNotExist(err) {
+		var file *os.File
+		file, err = os.Open(filePath)
+		if err != nil {
+			return result, fmt.Errorf("cannot opern resource file: %w", err)
+		}
+		defer file.Close()
+		dec := k8sYaml.NewYAMLToJSONDecoder(file)
+		err = dec.Decode(&result)
+		if err != nil {
+			return result, fmt.Errorf("cannot deserialize resource: %w", err)
+		}
+		gvk := result.GetGroupVersionKind()
+		if gvk != result.GetObjectKind().GroupVersionKind() {
+			return result, fmt.Errorf("unexpected resource type: %q", result.GetObjectKind().GroupVersionKind())
+		}
+		return result, nil
+	}
+	return result, nil
 }
 
 const (
