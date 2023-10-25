@@ -17,6 +17,16 @@ func GetS2IPipeline(f fn.Function) (*v1beta1.Pipeline, error) {
 		return nil, fmt.Errorf("cannot generate labels: %w", err)
 	}
 
+	var buildTaskSpec v1beta1.TaskSpec
+	switch f.Build.Builder {
+	case builders.S2I:
+		buildTaskSpec = *S2ITask.Spec.DeepCopy()
+	case builders.Pack:
+		buildTaskSpec = *BuildpackTask.Spec.DeepCopy()
+	default:
+		return nil, fmt.Errorf("unsupported builder: %q", f.Build.BuilderImages)
+	}
+
 	tasks := []v1beta1.PipelineTask{
 		v1beta1.PipelineTask{
 			Name: "fetch-sources",
@@ -74,7 +84,7 @@ func GetS2IPipeline(f fn.Function) (*v1beta1.Pipeline, error) {
 		v1beta1.PipelineTask{
 			Name: "build",
 			TaskSpec: &v1beta1.EmbeddedTask{
-				TaskSpec: *S2ITask.Spec.DeepCopy(),
+				TaskSpec: buildTaskSpec,
 			},
 			RunAfter: []string{"fetch-sources"},
 			Params: []v1beta1.Param{

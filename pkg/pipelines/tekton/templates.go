@@ -323,42 +323,7 @@ func getTaskSpec(taskUrlTemplate string) (string, error) {
 // createAndApplyPipelineTemplate creates and applies Pipeline template for a standard on-cluster build
 // all resources are created on the fly, if there's a Pipeline defined in the project directory, it is used instead
 func createAndApplyPipelineTemplate(f fn.Function, namespace string, labels map[string]string) error {
-	// If Git is set up create fetch task and reference it from build task,
-	// otherwise sources have been already uploaded to workspace PVC.
-	gitCloneTaskRef := ""
-	runAfterFetchSources := ""
-	if f.Build.Git.URL != "" {
-		runAfterFetchSources = runAfterFetchSourcesRef
-		gitCloneTaskRef = taskGitCloneTaskRef
-	}
-
-	data := templateData{
-		FunctionName:         f.Name,
-		Annotations:          f.Deploy.Annotations,
-		Labels:               labels,
-		PipelineName:         getPipelineName(f),
-		RunAfterFetchSources: runAfterFetchSources,
-		GitCloneTaskRef:      gitCloneTaskRef,
-	}
-
-	for _, val := range []struct {
-		ref   string
-		field *string
-	}{
-		{BuildpackTaskURL, &data.FuncBuildpacksTaskRef},
-		{S2ITaskURL, &data.FuncS2iTaskRef},
-		{DeployTaskURL, &data.FuncDeployTaskRef},
-	} {
-		ts, err := getTaskSpec(val.ref)
-		if err != nil {
-			return err
-		}
-		*val.field = ts
-	}
-
-	if f.Build.Builder == builders.Pack {
-		return createAndApplyResource(f.Root, pipelineFileName, packPipelineTemplate, "pipeline", getPipelineName(f), namespace, data)
-	} else if f.Build.Builder == builders.S2I {
+	if f.Build.Builder == builders.Pack || f.Build.Builder == builders.S2I {
 		cli, err := NewTektonClients()
 		if err != nil {
 			return fmt.Errorf("cannot create tekton client: %w", err)
@@ -380,56 +345,7 @@ func createAndApplyPipelineTemplate(f fn.Function, namespace string, labels map[
 // createAndApplyPipelineRunTemplate creates and applies PipelineRun template for a standard on-cluster build
 // all resources are created on the fly, if there's a PipelineRun defined in the project directory, it is used instead
 func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels map[string]string) error {
-	contextDir := f.Build.Git.ContextDir
-	if contextDir == "" && f.Build.Builder == builders.S2I {
-		// TODO(lkingland): could instead update S2I to interpret empty string
-		// as cwd, such that builder-specific code can be kept out of here.
-		contextDir = "."
-	}
-
-	pipelinesTargetBranch := f.Build.Git.Revision
-	if pipelinesTargetBranch == "" {
-		pipelinesTargetBranch = defaultPipelinesTargetBranch
-	}
-
-	buildEnvs := []string{}
-	if len(f.Build.BuildEnvs) == 0 {
-		buildEnvs = []string{"="}
-	} else {
-		for i := range f.Build.BuildEnvs {
-			buildEnvs = append(buildEnvs, f.Build.BuildEnvs[i].KeyValuePair())
-		}
-	}
-
-	s2iImageScriptsUrl := defaultS2iImageScriptsUrl
-	if f.Runtime == "quarkus" {
-		s2iImageScriptsUrl = quarkusS2iImageScriptsUrl
-	}
-
-	data := templateData{
-		FunctionName:  f.Name,
-		Annotations:   f.Deploy.Annotations,
-		Labels:        labels,
-		ContextDir:    contextDir,
-		FunctionImage: f.Image,
-		Registry:      f.Registry,
-		BuilderImage:  getBuilderImage(f),
-		BuildEnvs:     buildEnvs,
-
-		PipelineName:    getPipelineName(f),
-		PipelineRunName: getPipelineRunGenerateName(f),
-		PvcName:         getPipelinePvcName(f),
-		SecretName:      getPipelineSecretName(f),
-
-		S2iImageScriptsUrl: s2iImageScriptsUrl,
-
-		RepoUrl:  f.Build.Git.URL,
-		Revision: pipelinesTargetBranch,
-	}
-
-	if f.Build.Builder == builders.Pack {
-		return createAndApplyResource(f.Root, pipelineFileName, packRunTemplate, "pipelinerun", getPipelineRunGenerateName(f), namespace, data)
-	} else if f.Build.Builder == builders.S2I {
+	if f.Build.Builder == builders.Pack || f.Build.Builder == builders.S2I {
 		cli, err := NewTektonClients()
 		if err != nil {
 			return fmt.Errorf("cannot create tekton client: %w", err)
