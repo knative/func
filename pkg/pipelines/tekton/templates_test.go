@@ -4,8 +4,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/manifestival/manifestival"
-	"github.com/manifestival/manifestival/fake"
+	"github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
+	fakepipelineclientset "github.com/tektoncd/pipeline/pkg/client/clientset/versioned/fake"
 
 	"knative.dev/func/pkg/builders"
 	fn "knative.dev/func/pkg/functions"
@@ -153,129 +153,129 @@ var testData = []struct {
 	labels    map[string]string
 	wantErr   bool
 }{
-	//{
-	//	name:      "correct - pack & node",
-	//	root:      "testdata/testCreatePipelinePackNode",
-	//	runtime:   "node",
-	//	builder:   builders.Pack,
-	//	namespace: "test-ns",
-	//	wantErr:   false,
-	//},
-	//{
-	//	name:      "correct - pack & quarkus",
-	//	root:      "testdata/testCreatePipelinePackQuarkus",
-	//	runtime:   "quarkus",
-	//	builder:   builders.Pack,
-	//	namespace: "test-ns",
-	//	wantErr:   false,
-	//},
-	//{
-	//	name:      "correct - pack & go",
-	//	root:      "testdata/testCreatePipelinePackGo",
-	//	runtime:   "go",
-	//	builder:   builders.Pack,
-	//	namespace: "test-ns",
-	//	wantErr:   false,
-	//},
-	//{
-	//	name:      "correct - pack & python",
-	//	root:      "testdata/testCreatePipelinePackPython",
-	//	runtime:   "python",
-	//	builder:   builders.Pack,
-	//	namespace: "test-ns",
-	//	wantErr:   false,
-	//},
-	//{
-	//	name:      "correct - pack & typescript",
-	//	root:      "testdata/testCreatePipelinePackTypescript",
-	//	runtime:   "typescript",
-	//	builder:   builders.Pack,
-	//	namespace: "test-ns",
-	//	wantErr:   false,
-	//},
-	//{
-	//	name:      "correct - pack & springboot",
-	//	root:      "testdata/testCreatePipelinePackSpringboot",
-	//	runtime:   "springboot",
-	//	builder:   builders.Pack,
-	//	namespace: "test-ns",
-	//	wantErr:   false,
-	//},
-	//{
-	//	name:      "correct - pack & rust",
-	//	root:      "testdata/testCreatePipelinePackRust",
-	//	runtime:   "rust",
-	//	builder:   builders.Pack,
-	//	namespace: "test-ns",
-	//	wantErr:   false,
-	//},
-	//{
-	//	name:      "correct - s2i & node",
-	//	root:      "testdata/testCreatePipelineS2INode",
-	//	runtime:   "node",
-	//	builder:   builders.S2I,
-	//	namespace: "test-ns",
-	//	wantErr:   false,
-	//},
-	//{
-	//	name:      "correct - s2i & quarkus",
-	//	root:      "testdata/testCreatePipelineS2IQuarkus",
-	//	runtime:   "quarkus",
-	//	builder:   builders.S2I,
-	//	namespace: "test-ns",
-	//	wantErr:   false,
-	//},
-	//{
-	//	name:      "correct - s2i & go",
-	//	root:      "testdata/testCreatePipelineS2IGo",
-	//	runtime:   "go",
-	//	builder:   builders.S2I,
-	//	namespace: "test-ns",
-	//	wantErr:   false,
-	//},
-	//{
-	//	name:      "correct - s2i & python",
-	//	root:      "testdata/testCreatePipelineS2IPython",
-	//	runtime:   "python",
-	//	builder:   builders.S2I,
-	//	namespace: "test-ns",
-	//	wantErr:   false,
-	//},
-	//{
-	//	name:      "correct - s2i & typescript",
-	//	root:      "testdata/testCreatePipelineS2ITypescript",
-	//	runtime:   "typescript",
-	//	builder:   builders.S2I,
-	//	namespace: "test-ns",
-	//	wantErr:   false,
-	//},
-	//{
-	//	name:      "correct - s2i & springboot",
-	//	root:      "testdata/testCreatePipelineS2ISpringboot",
-	//	runtime:   "springboot",
-	//	builder:   builders.S2I,
-	//	namespace: "test-ns",
-	//	wantErr:   false,
-	//},
-	//{
-	//	name:      "correct - s2i & rust",
-	//	root:      "testdata/testCreatePipelineS2IRust",
-	//	runtime:   "rust",
-	//	builder:   builders.S2I,
-	//	namespace: "test-ns",
-	//	wantErr:   false,
-	//},
+	{
+		name:      "correct - pack & node",
+		root:      "testdata/testCreatePipelinePackNode",
+		runtime:   "node",
+		builder:   builders.Pack,
+		namespace: "test-ns",
+		wantErr:   false,
+	},
+	{
+		name:      "correct - pack & quarkus",
+		root:      "testdata/testCreatePipelinePackQuarkus",
+		runtime:   "quarkus",
+		builder:   builders.Pack,
+		namespace: "test-ns",
+		wantErr:   false,
+	},
+	{
+		name:      "correct - pack & go",
+		root:      "testdata/testCreatePipelinePackGo",
+		runtime:   "go",
+		builder:   builders.Pack,
+		namespace: "test-ns",
+		wantErr:   false,
+	},
+	{
+		name:      "correct - pack & python",
+		root:      "testdata/testCreatePipelinePackPython",
+		runtime:   "python",
+		builder:   builders.Pack,
+		namespace: "test-ns",
+		wantErr:   false,
+	},
+	{
+		name:      "correct - pack & typescript",
+		root:      "testdata/testCreatePipelinePackTypescript",
+		runtime:   "typescript",
+		builder:   builders.Pack,
+		namespace: "test-ns",
+		wantErr:   false,
+	},
+	{
+		name:      "correct - pack & springboot",
+		root:      "testdata/testCreatePipelinePackSpringboot",
+		runtime:   "springboot",
+		builder:   builders.Pack,
+		namespace: "test-ns",
+		wantErr:   false,
+	},
+	{
+		name:      "correct - pack & rust",
+		root:      "testdata/testCreatePipelinePackRust",
+		runtime:   "rust",
+		builder:   builders.Pack,
+		namespace: "test-ns",
+		wantErr:   false,
+	},
+	{
+		name:      "correct - s2i & node",
+		root:      "testdata/testCreatePipelineS2INode",
+		runtime:   "node",
+		builder:   builders.S2I,
+		namespace: "test-ns",
+		wantErr:   false,
+	},
+	{
+		name:      "correct - s2i & quarkus",
+		root:      "testdata/testCreatePipelineS2IQuarkus",
+		runtime:   "quarkus",
+		builder:   builders.S2I,
+		namespace: "test-ns",
+		wantErr:   false,
+	},
+	{
+		name:      "correct - s2i & go",
+		root:      "testdata/testCreatePipelineS2IGo",
+		runtime:   "go",
+		builder:   builders.S2I,
+		namespace: "test-ns",
+		wantErr:   false,
+	},
+	{
+		name:      "correct - s2i & python",
+		root:      "testdata/testCreatePipelineS2IPython",
+		runtime:   "python",
+		builder:   builders.S2I,
+		namespace: "test-ns",
+		wantErr:   false,
+	},
+	{
+		name:      "correct - s2i & typescript",
+		root:      "testdata/testCreatePipelineS2ITypescript",
+		runtime:   "typescript",
+		builder:   builders.S2I,
+		namespace: "test-ns",
+		wantErr:   false,
+	},
+	{
+		name:      "correct - s2i & springboot",
+		root:      "testdata/testCreatePipelineS2ISpringboot",
+		runtime:   "springboot",
+		builder:   builders.S2I,
+		namespace: "test-ns",
+		wantErr:   false,
+	},
+	{
+		name:      "correct - s2i & rust",
+		root:      "testdata/testCreatePipelineS2IRust",
+		runtime:   "rust",
+		builder:   builders.S2I,
+		namespace: "test-ns",
+		wantErr:   false,
+	},
 }
 
 func Test_createAndApplyPipelineRunTemplate(t *testing.T) {
 	for _, tt := range testData {
 		t.Run(tt.name, func(t *testing.T) {
 			// save current function and restore it at the end
-			old := manifestivalClient
-			defer func() { manifestivalClient = old }()
+			old := newTektonClient
+			defer func() { newTektonClient = old }()
 
-			manifestivalClient = func() (manifestival.Client, error) {
-				return fake.New(), nil
+			newTektonClient = func() (versioned.Interface, error) {
+				return fakepipelineclientset.NewSimpleClientset(), nil
 			}
 
 			root := tt.root + "Run"

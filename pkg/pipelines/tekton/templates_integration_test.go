@@ -5,8 +5,8 @@ package tekton
 import (
 	"testing"
 
-	"github.com/manifestival/manifestival"
-	"github.com/manifestival/manifestival/fake"
+	"github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
+	fakepipelineclientset "github.com/tektoncd/pipeline/pkg/client/clientset/versioned/fake"
 
 	fn "knative.dev/func/pkg/functions"
 	. "knative.dev/func/pkg/testing"
@@ -16,11 +16,11 @@ func Test_createAndApplyPipelineTemplate(t *testing.T) {
 	for _, tt := range testData {
 		t.Run(tt.name, func(t *testing.T) {
 			// save current function and restore it at the end
-			old := manifestivalClient
-			defer func() { manifestivalClient = old }()
+			old := newTektonClient
+			defer func() { newTektonClient = old }()
 
-			manifestivalClient = func() (manifestival.Client, error) {
-				return fake.New(), nil
+			newTektonClient = func() (versioned.Interface, error) {
+				return fakepipelineclientset.NewSimpleClientset(), nil
 			}
 
 			root := tt.root

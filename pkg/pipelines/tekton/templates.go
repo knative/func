@@ -8,11 +8,11 @@ import (
 	"text/template"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/func/pkg/builders"
 	fn "knative.dev/func/pkg/functions"
-	"knative.dev/func/pkg/k8s"
 )
 
 const (
@@ -287,7 +287,7 @@ func deleteAllPipelineTemplates(f fn.Function) string {
 // all resources are created on the fly, if there's a Pipeline defined in the project directory, it is used instead
 func createAndApplyPipelineTemplate(f fn.Function, namespace string, labels map[string]string) error {
 	if f.Build.Builder == builders.Pack || f.Build.Builder == builders.S2I {
-		cli, err := NewTektonClients()
+		iface, err := newTektonClient()
 		if err != nil {
 			return fmt.Errorf("cannot create tekton client: %w", err)
 		}
@@ -295,7 +295,7 @@ func createAndApplyPipelineTemplate(f fn.Function, namespace string, labels map[
 		if err != nil {
 			return fmt.Errorf("cannot generate pipeline: %w", err)
 		}
-		_, err = cli.Tekton.TektonV1beta1().Pipelines(namespace).Create(context.TODO(), pipeline, v1.CreateOptions{})
+		_, err = iface.TektonV1beta1().Pipelines(namespace).Create(context.TODO(), pipeline, v1.CreateOptions{})
 		if err != nil {
 			err = fmt.Errorf("cannot create pipeline in cluster: %w", err)
 		}
@@ -309,15 +309,15 @@ func createAndApplyPipelineTemplate(f fn.Function, namespace string, labels map[
 // all resources are created on the fly, if there's a PipelineRun defined in the project directory, it is used instead
 func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels map[string]string) error {
 	if f.Build.Builder == builders.Pack || f.Build.Builder == builders.S2I {
-		cli, err := NewTektonClients()
+		iface, err := newTektonClient()
 		if err != nil {
-			return fmt.Errorf("cannot create tekton client: %w", err)
+			return err
 		}
 		piplineRun, err := GetPipelineRun(f)
 		if err != nil {
 			return fmt.Errorf("cannot generate pipeline run: %w", err)
 		}
-		_, err = cli.Tekton.TektonV1beta1().PipelineRuns(namespace).Create(context.Background(), piplineRun, v1.CreateOptions{})
+		_, err = iface.TektonV1beta1().PipelineRuns(namespace).Create(context.Background(), piplineRun, v1.CreateOptions{})
 		if err != nil {
 			err = fmt.Errorf("cannot create pipeline run in cluster: %w", err)
 		}
@@ -328,4 +328,10 @@ func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels m
 }
 
 // allows simple mocking in unit tests
-var manifestivalClient = k8s.GetManifestivalClient
+var newTektonClient func() (versioned.Interface, error) = func() (versioned.Interface, error) {
+	cli, err := NewTektonClients()
+	if err != nil {
+		return nil, err
+	}
+	return cli.Tekton, nil
+}
