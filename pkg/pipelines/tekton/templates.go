@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"net/http"
 	"os"
 	"path"
 	"strings"
@@ -12,7 +11,6 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/manifestival/manifestival"
-	"gopkg.in/yaml.v3"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/func/pkg/builders"
@@ -286,38 +284,6 @@ func deleteAllPipelineTemplates(f fn.Function) string {
 	}
 
 	return ""
-}
-
-func getTaskSpec(taskUrlTemplate string) (string, error) {
-	resp, err := http.Get(taskUrlTemplate)
-	if err != nil {
-		return "", err
-	}
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("cannot get task: %q bad http code: %d", taskUrlTemplate, resp.StatusCode)
-	}
-	defer resp.Body.Close()
-	var data map[string]any
-	dec := yaml.NewDecoder(resp.Body)
-	err = dec.Decode(&data)
-	if err != nil {
-		return "", err
-	}
-	data = map[string]any{
-		"taskSpec": data["spec"],
-	}
-	var buff bytes.Buffer
-	enc := yaml.NewEncoder(&buff)
-	enc.SetIndent(2)
-	err = enc.Encode(data)
-	if err != nil {
-		return "", err
-	}
-	err = enc.Close()
-	if err != nil {
-		return "", err
-	}
-	return strings.ReplaceAll(buff.String(), "\n", "\n      "), nil
 }
 
 // createAndApplyPipelineTemplate creates and applies Pipeline template for a standard on-cluster build
