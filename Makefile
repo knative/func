@@ -42,6 +42,7 @@ MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
 # Default Targets
 all: build docs
+	@echo '🎉 Build process completed!'
 
 # Help Text
 # Headings: lines with `##$` comment prefix
