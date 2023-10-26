@@ -163,6 +163,31 @@ func TestDeployWithOptions(t *testing.T) {
 	defer del(t, client, "test-deploy-with-options")
 }
 
+func TestDeployWithTriggers(t *testing.T) {
+	root, cleanup := Mktemp(t)
+	defer cleanup()
+	verbose := true
+
+	f := fn.Function{Runtime: "go", Name: "test-deploy-with-triggers", Root: root}
+	f.Deploy = fn.DeploySpec{
+		Subscriptions: []fn.KnativeSubscription{
+			{
+				Source: "default",
+				Filters: map[string]string{
+					"key": "value",
+					"foo": "bar",
+				},
+			},
+		},
+	}
+
+	client := newClient(verbose)
+	if _, _, err := client.New(context.Background(), f); err != nil {
+		t.Fatal(err)
+	}
+	defer del(t, client, "test-deploy-with-triggers")
+}
+
 func TestUpdateWithAnnotationsAndLabels(t *testing.T) {
 	functionName := "updateannlab"
 	defer Within(t, "testdata/example.com/"+functionName)()
