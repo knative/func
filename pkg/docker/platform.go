@@ -60,6 +60,10 @@ func GetPlatformImage(ref, platform string) (string, error) {
 		return "", fmt.Errorf("cannot get index manifest: %w", err)
 	}
 
+	if len(idxMft.Manifests) > 1000 {
+		return "", fmt.Errorf("platform image has too many manifests")
+	}
+
 	for _, manifest := range idxMft.Manifests {
 		if plat.OS == manifest.Platform.OS &&
 			plat.Architecture == manifest.Platform.Architecture {
