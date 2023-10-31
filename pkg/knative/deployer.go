@@ -834,10 +834,13 @@ func processVolumes(volumes []fn.Volume, referencedSecrets, referencedConfigMaps
 
 			if !createdVolumes.Has(volumeName) {
 
-				sizeLimit, err := resource.ParseQuantity(*vol.EmptyDir.SizeLimit)
-
-				if err != nil {
-					return nil, nil, fmt.Errorf("invalid quantity for sizeLimit: %s. Error: %s", *vol.EmptyDir.SizeLimit, err)
+				var sizeLimit *resource.Quantity
+				if vol.EmptyDir.SizeLimit != nil {
+					sl, err := resource.ParseQuantity(*vol.EmptyDir.SizeLimit)
+					if err != nil {
+						return nil, nil, fmt.Errorf("invalid quantity for sizeLimit: %s. Error: %s", *vol.EmptyDir.SizeLimit, err)
+					}
+					sizeLimit = &sl
 				}
 
 				newVolumes = append(newVolumes, corev1.Volume{
@@ -845,7 +848,7 @@ func processVolumes(volumes []fn.Volume, referencedSecrets, referencedConfigMaps
 					VolumeSource: corev1.VolumeSource{
 						EmptyDir: &corev1.EmptyDirVolumeSource{
 							Medium:    corev1.StorageMedium(vol.EmptyDir.Medium),
-							SizeLimit: &sizeLimit,
+							SizeLimit: sizeLimit,
 						},
 					},
 				})
