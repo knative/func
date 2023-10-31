@@ -18,7 +18,7 @@ import (
 	fn "knative.dev/func/pkg/functions"
 )
 
-func getPipeline(f fn.Function) (*v1beta1.Pipeline, error) {
+func getPipeline(f fn.Function, labels map[string]string) (*v1beta1.Pipeline, error) {
 	pipelineFromFile, err := loadResource[*v1beta1.Pipeline](path.Join(f.Root, resourcesDirectory, pipelineFileName))
 	if err != nil {
 		return nil, fmt.Errorf("cannot load resource from file: %v", err)
@@ -29,11 +29,6 @@ func getPipeline(f fn.Function) (*v1beta1.Pipeline, error) {
 			return nil, fmt.Errorf("resource name missmatch: %q != %q", pipelineFromFile.Name, name)
 		}
 		return pipelineFromFile, nil
-	}
-
-	labels, err := f.LabelsMap()
-	if err != nil {
-		return nil, fmt.Errorf("cannot generate labels: %w", err)
 	}
 
 	var buildTaskSpec v1beta1.TaskSpec
@@ -285,7 +280,7 @@ func getPipeline(f fn.Function) (*v1beta1.Pipeline, error) {
 	return &result, nil
 }
 
-func getPipelineRun(f fn.Function) (*v1beta1.PipelineRun, error) {
+func getPipelineRun(f fn.Function, labels map[string]string) (*v1beta1.PipelineRun, error) {
 	pipelineRunFromFile, err := loadResource[*v1beta1.PipelineRun](path.Join(f.Root, resourcesDirectory, pipelineRunFilenane))
 	if err != nil {
 		return nil, fmt.Errorf("cannot load resource from file: %v", err)
@@ -298,9 +293,8 @@ func getPipelineRun(f fn.Function) (*v1beta1.PipelineRun, error) {
 		return pipelineRunFromFile, nil
 	}
 
-	labels, err := f.LabelsMap()
-	if err != nil {
-		return nil, fmt.Errorf("cannot generate labels: %w", err)
+	if labels == nil {
+		labels = make(map[string]string, 1)
 	}
 	labels["tekton.dev/pipeline"] = getPipelineName(f)
 

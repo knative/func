@@ -291,7 +291,7 @@ func createAndApplyPipelineTemplate(f fn.Function, namespace string, labels map[
 		if err != nil {
 			return fmt.Errorf("cannot create tekton client: %w", err)
 		}
-		pipeline, err := getPipeline(f)
+		pipeline, err := getPipeline(f, labels)
 		if err != nil {
 			return fmt.Errorf("cannot generate pipeline: %w", err)
 		}
@@ -313,7 +313,7 @@ func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels m
 		if err != nil {
 			return err
 		}
-		piplineRun, err := getPipelineRun(f)
+		piplineRun, err := getPipelineRun(f, labels)
 		if err != nil {
 			return fmt.Errorf("cannot generate pipeline run: %w", err)
 		}

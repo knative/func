@@ -57,6 +57,7 @@ func TestOnClusterBuild(t *testing.T) {
 			ns := setupNS(t)
 
 			pp := tekton.NewPipelinesProvider(
+				tekton.WithPipelineDecorator(testDecorator{}),
 				tekton.WithCredentialsProvider(credentialsProvider),
 				tekton.WithNamespace(ns))
 
@@ -84,8 +85,44 @@ func TestOnClusterBuild(t *testing.T) {
 				return
 			}
 			t.Log("call to knative service successful")
+
+			// Check if labels are correct.
+			cli, err := tekton.NewTektonClients()
+			if err != nil {
+				t.Fatal(err)
+			}
+			pl, err := cli.Tekton.TektonV1beta1().Pipelines(ns).List(ctx, metav1.ListOptions{})
+			if len(pl.Items) == 1 {
+				if val, ok := pl.Items[0].Labels["test-label-key"]; !ok || val != "test-label-value" {
+					t.Error("test label has not been set for pipeline")
+				}
+			} else {
+				t.Errorf("unexpected pipeline count: %d", len(pl.Items))
+			}
+			prl, err := cli.Tekton.TektonV1beta1().PipelineRuns(ns).List(ctx, metav1.ListOptions{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(prl.Items) == 1 {
+				if val, ok := prl.Items[0].Labels["test-label-key"]; !ok || val != "test-label-value" {
+					t.Error("test label has not been set for pipeline run")
+				}
+			} else {
+				t.Errorf("unexpected pipeline run count: %d", len(prl.Items))
+			}
 		})
 	}
+}
+
+type testDecorator struct{}
+
+func (t testDecorator) UpdateLabels(function fn.Function, m map[string]string) map[string]string {
+	result := make(map[string]string, len(m)+1)
+	for k, v := range m {
+		result[k] = v
+	}
+	result["test-label-key"] = "test-label-value"
+	return result
 }
 
 func setupNS(t *testing.T) string {
