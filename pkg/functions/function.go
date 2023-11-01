@@ -163,11 +163,8 @@ type DeploySpec struct {
 	// Namespace into which the function is deployed on supported platforms.
 	Namespace string `yaml:"namespace,omitempty"`
 
-	// Image name that is populated during deploys from .Build.Image
+	// Image is the deployed image including sha256
 	Image string `yaml:"image,omitempty"`
-
-	// ImageDigest is the SHA256 hash of the latest image that has been built
-	ImageDigest string `yaml:"imageDigest,omitempty"`
 
 	// Remote indicates the deployment (and possibly build) process are to
 	// be triggered in a remote environment rather than run locally.
@@ -291,7 +288,15 @@ func NewFunction(root string) (f Function, err error) {
 		errorText += "\n" + "Migration: " + functionMigrationError.Error()
 		return Function{}, errors.New(errorText)
 	}
+
 	f.Local, err = f.newLocal()
+	if err != nil {
+		return
+	}
+	// ---- LOCAL SETTINGS - STUFF NOT IN FUNC.YAML ---- //
+
+	f.Build.Image, err = f.getLastBuiltImage()
+
 	return
 }
 
@@ -408,10 +413,6 @@ func (f Function) Write() (err error) {
 		return
 	}
 
-	// write built-name into running metadata dir .func which is not persisted in yaml
-	if err = f.writeBuiltImageOnChange(); err != nil {
-		return
-	}
 	// Do not write invalid functions
 	if err = f.Validate(); err != nil {
 		return
@@ -516,36 +517,6 @@ func timestamp(s string) string {
 // Any errors are considered failure (invalid or inaccessible root, config file, etc).
 func (f Function) Initialized() bool {
 	return !f.Created.IsZero()
-}
-
-// ImageWithDigest returns the full reference to the image including SHA256 Digest.
-// If Digest is empty, image:tag is returned.
-// TODO: Populate this only on a successful deploy, as this results on a dirty
-// git tree on every build.
-func (f Function) ImageWithDigest() string {
-	// gauron99 TODO: this should return f.Build.Image (not yaml persisted)
-	// or f.Deploy.Image possibly?
-
-	// Return image, if Digest is empty
-	image := f.Deploy.Image
-	if f.Deploy.ImageDigest == "" {
-		return image
-	}
-
-	// Return image with new Digest if image already contains SHA256 Digest
-	shaIndex := strings.Index(image, "@sha256:")
-	if shaIndex > 0 {
-		return image[:shaIndex] + "@" + f.Deploy.ImageDigest
-	}
-
-	lastSlashIdx := strings.LastIndexAny(image, "/")
-	imageAsBytes := []byte(image)
-
-	part1 := string(imageAsBytes[:lastSlashIdx+1])
-	part2 := string(imageAsBytes[lastSlashIdx+1:])
-
-	// Remove tag from the image name and append SHA256 hash instead
-	return part1 + strings.Split(part2, ":")[0] + "@" + f.Deploy.ImageDigest
 }
 
 // LabelsMap combines default labels with the labels slice provided.
@@ -681,21 +652,6 @@ func (f Function) Built() bool {
 		return false
 	}
 
-	// Missing an image name always means !Built (but does not satisfy staleness
-	// checks).
-	// NOTE: This will be updated in the future such that a build does not
-	// automatically update the function's serialized, source-controlled state,
-	// because merely building does not indicate the function has changed, but
-	// rather that field should be populated on deploy.  I.e. the Image name
-	// and image stamp should reside as transient data in .func until such time
-	// as the given image has been deployed.
-	// An example of how this bug manifests is that every rebuild of a function
-	// registers the func.yaml as being dirty for source-control purposes, when
-	// this should only happen on deploy.
-	if f.Image == "" {
-		return false
-	}
-
 	// Calculate the current filesystem hash and see if it has changed.
 	//
 	// If this comparison returns true, the Function has a populated image,
@@ -748,32 +704,58 @@ func (f Function) newLocal() (localConfig Local, err error) {
 
 // writeBuiltImageOnChange writes new full built image name if it has been modified or
 // its the first time building/deploying therefore the file doesnt exist yet.
-func (f Function) writeBuiltImageOnChange() error {
-	fmt.Println("Writing Built Image On Change --> ", f.Build.Image)
+func (f Function) WriteBuiltImageOnChange(verbose bool) error {
 	path := filepath.Join(f.Root, RunDataDir, BuiltImage)
 
-	if _, err := os.Stat(path); err != nil {
-		if os.IsNotExist(err) {
-			// file doesnt exist yet, write new
-			return os.WriteFile(path, []byte(f.Build.Image), os.ModePerm)
-		}
-		return err
-	}
-
-	// check whether the image name has changed
-
-	b, err := os.ReadFile(path)
-	if err != nil {
-		// TODO: gauron99 should this also try to write? maybe bad permissions?
-		return err
-	}
-
-	// image name is the same, nothing to write
-	// TODO: put this below if to see only when name is overwriten
-	fmt.Printf("Writing built image name: New='%s'; Old='%s'\n", f.Build.Image, string(b))
-	if string(b) == f.Build.Image {
-		return nil
+	if verbose {
+		fmt.Printf("Writing built image: '%s' at path: '%s'\n", f.Build.Image, path)
 	}
 
 	return os.WriteFile(path, []byte(f.Build.Image), os.ModePerm)
+}
+
+// getLastBuiltImage reads .func/built-image and returns its value or empty string
+// if the file doesnt exist (not built yet). Other errors are returned as usual.
+func (f Function) getLastBuiltImage() (string, error) {
+	path := filepath.Join(f.Root, RunDataDir, BuiltImage)
+	if _, err := os.Stat(path); err != nil {
+		if os.IsNotExist(err) {
+			return "", nil
+		}
+		return "", err
+	}
+
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
+}
+
+// ImageNameWithDigest works with f.Build.Image and image digest. if the func
+// parameter newDigest is empty, just return the image name as is.
+// TODO: This function is a temporary one for a workaround for a current
+// solution on how the image digest is fetched (which is during/after Push).
+// Image digest should be gotten from imageID right after building the Function.
+// PS: I think that imageID item contains "sha256:[digest]"
+func (f Function) ImageNameWithDigest(newDigest string) string {
+	if newDigest == "" {
+		return f.Build.Image
+	}
+	image := f.Build.Image
+
+	// overwrite current digest
+	shaIndex := strings.Index(image, "@sha256:")
+	if shaIndex > 0 {
+		return image[:shaIndex] + "@" + newDigest
+	}
+
+	// image doesnt have a digest yet == image not pushed yet
+	//parse f.Build.Image to separate its name and tag
+	lastSlashIdx := strings.LastIndexAny(image, "/")
+	imageAsBytes := []byte(image)
+	part1 := string(imageAsBytes[:lastSlashIdx+1])
+	part2 := string(imageAsBytes[lastSlashIdx+1:])
+	// Remove tag from the image name and append SHA256 hash instead
+	return part1 + strings.Split(part2, ":")[0] + "@" + newDigest
 }

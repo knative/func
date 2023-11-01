@@ -626,8 +626,6 @@ func (c *Client) Build(ctx context.Context, f Function, options ...BuildOption) 
 
 	// If no image name has been yet defined (not yet built/deployed), calculate.
 	// Image name is stored on the function for later use by deploy, etc.
-	// TODO: write this to .func/build instead, and populate f.Build.Image on deploy
-	// such that local builds do not dirty the work tree.
 	var err error
 	if f.Image == "" {
 		if f.Build.Image, err = f.ImageName(); err != nil {
@@ -638,6 +636,11 @@ func (c *Client) Build(ctx context.Context, f Function, options ...BuildOption) 
 	}
 
 	if err = c.builder.Build(ctx, f, oo.Platforms); err != nil {
+		return f, err
+	}
+
+	// write .func/built-name as running metadata which is not persisted in yaml
+	if err = f.WriteBuiltImageOnChange(c.verbose); err != nil {
 		return f, err
 	}
 
@@ -1001,11 +1004,28 @@ func (c *Client) Push(ctx context.Context, f Function) (Function, error) {
 		return f, ErrNotBuilt
 	}
 	var err error
-	if f.Deploy.ImageDigest, err = c.pusher.Push(ctx, f); err != nil {
+
+	if err != nil {
+		if os.IsNotExist(err) {
+			err = fmt.Errorf("error on push, function has not been built yet")
+			return f, err
+		}
 		return f, err
 	}
 
-	return f, nil
+	imageDigest, err := c.pusher.Push(ctx, f)
+	if err != nil {
+		return f, err
+	}
+
+	// TODO: gauron99 - this is here because of a temporary workaround.
+	// f.Build.Image should contain full image name including the sha256 and
+	// should be populated earlier BUT because the sha256 is got only on push (here)
+	// its populated here. This will eventualy be moved to build stage where we get
+	// the full image name and its digest right after building
+	f.Build.Image = f.ImageNameWithDigest(imageDigest)
+
+	return f, err
 }
 
 // ensureRunDataDir creates a .func directory at the given path, and

@@ -286,17 +286,11 @@ func (c buildConfig) Prompt() (buildConfig, error) {
 	// Calculate a better image name message which shows the value of the final
 	// image name as it will be calculated if an explicit image name is not used.
 
-	// gauron99 TODO: - dont use this since calculating is gonna be done before
-	var imagePromptMessageSuffix string
-	if name := deriveImage(c.Image, c.Registry, c.Path); name != "" {
-		imagePromptMessageSuffix = fmt.Sprintf(". if not specified, the default '%v' will be used')", name)
-	}
-
 	qs := []*survey.Question{
 		{
 			Name: "image",
 			Prompt: &survey.Input{
-				Message: fmt.Sprintf("Image name to use (e.g. quay.io/boson/node-sample)%v:", imagePromptMessageSuffix),
+				Message: "Optionally specify an exact image name to use (e.g. quay.io/boson/node-sample:latest)",
 			},
 		},
 		{

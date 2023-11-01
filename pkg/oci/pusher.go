@@ -47,7 +47,7 @@ func (p *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err er
 	// TODO: GitOps Tagging: tag :latest by default, :[branch] for pinned
 	// environments and :[user]-[branch] for development/testing feature branches.
 	// has been enabled, where branch is tag-encoded.
-	ref, err := name.ParseReference(f.Image)
+	ref, err := name.ParseReference(f.Build.Image)
 	if err != nil {
 		return
 	}

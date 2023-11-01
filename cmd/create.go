@@ -141,7 +141,7 @@ func runCreate(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 	if err != nil {
 		return err
 	}
-
+	fmt.Println("AFTER INIT")
 	// Confirm
 	fmt.Fprintf(cmd.OutOrStderr(), "Created %v function in %v\n", cfg.Runtime, cfg.Path)
 	return nil

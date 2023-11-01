@@ -263,6 +263,9 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 
 	}
 
+	// check if --image was provided with a digest
+	digested, err := hasDigest(cfg.Image)
+
 	// Deploy
 	if cfg.Remote {
 		// Invoke a remote build/push/deploy pipeline
@@ -275,14 +278,27 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		if buildOptions, err = cfg.buildOptions(); err != nil {
 			return
 		}
-		if f, err = build(cmd, cfg.Build, f, client, buildOptions); err != nil {
-			return
-		}
-		if cfg.Push {
-			if f, err = client.Push(cmd.Context(), f); err != nil {
+
+		if digested {
+			f.Deploy.Image = cfg.Image
+
+		} else {
+			// if NOT digested, build and push the Function
+			if f, err = build(cmd, cfg.Build, f, client, buildOptions); err != nil {
 				return
 			}
+			if cfg.Push {
+				if f, err = client.Push(cmd.Context(), f); err != nil {
+					return
+				}
+			}
+			// f.Build.Image is set in Push for now, just set it as a deployed image
+			f.Deploy.Image = f.Build.Image
+			// write .func/built-name as running metadata which is not persisted in yaml
+			if err = f.WriteBuiltImageOnChange(cfg.Verbose); err != nil {
+			}
 		}
+
 		// TODO: check if image was already deployed in diff namespace, if so -- delete the dangling one and deploy new one in current namespace
 		if f, err = client.Deploy(cmd.Context(), f, fn.WithDeploySkipBuildCheck(cfg.Build == "false")); err != nil {
 			return
@@ -524,16 +540,17 @@ func (c deployConfig) Configure(f fn.Function) (fn.Function, error) {
 		f.Build.PVCSize = c.PVCSize
 	}
 
-	// ImageDigest
-	// Parsed off f.Image if provided.  Deploying adds the ability to specify a
-	// digest on the associated image (not available on build as nonsensical).
-	newDigest, err := imageDigest(f.Deploy.Image)
-	if err != nil {
-		return f, err
-	}
-	if newDigest != "" {
-		f.Deploy.ImageDigest = newDigest
-	}
+	// TODO: gauron99 parse --image if provided:
+	// image with digest == i want to skip everything and just deploy
+	// image without digest == if building as well - use THIS image name
+
+	// // ImageDigest
+	// // Parsed off f.Build.Image if provided. Deploying adds the ability to specify a
+	// // digest on the associated image (not available on build as nonsensical).
+	// hasDigest, err := hasDigest(f.Build.Image)
+	// if err != nil {
+	// 	return f, err
+	// }
 
 	// Envs
 	// Preprocesses any Envs provided (which may include removals) into a final
@@ -623,6 +640,7 @@ func (c deployConfig) Prompt() (deployConfig, error) {
 	return c, err
 }
 
+// TODO: just forget validate in general (more code you remove from this - the better)
 // Validate the config passes an initial consistency check
 func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 	// Bubble validation
@@ -630,10 +648,12 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 		return
 	}
 
+	// TODO: gauron99 move this to a useful spot instead (whereever its used)
+
 	// Check Image Digest was included
 	// (will be set on the function during .Configure)
-	var digest string
-	if digest, err = imageDigest(c.Image); err != nil {
+	var digest bool
+	if digest, err = hasDigest(c.Image); err != nil {
 		return
 	}
 
@@ -649,12 +669,14 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 		v, _ := strconv.ParseBool(s)
 		return v
 	}
-	if digest != "" && truthy(c.Build) {
+
+	// Can not build when specifying an --image with digest
+	if digest && truthy(c.Build) {
 		return errors.New("building can not be enabled when using an image with digest")
 	}
 
 	// Can not push when specifying an --image with digest
-	if digest != "" && c.Push {
+	if digest && c.Push {
 		return errors.New("pushing is not valid when specifying an image with digest")
 	}
 
@@ -678,9 +700,10 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 	return
 }
 
-// imageDigest returns the image digest from a full image string if it exists,
+// hasDigest returns the image digest from a full image string if it exists,
 // and includes basic validation that a provided digest is correctly formatted.
-func imageDigest(v string) (digest string, err error) {
+func hasDigest(v string) (hasDigest bool, err error) {
+	var digest string
 	vv := strings.Split(v, "@")
 	if len(vv) < 2 {
 		return // has no digest
@@ -699,20 +722,15 @@ func imageDigest(v string) (digest string, err error) {
 		err = fmt.Errorf("image digest '%v' has an invalid sha256 hash length of %v when it should be 64", digest, len(digest[7:]))
 	}
 
+	hasDigest = true
 	return
 }
 
 // printDeployMessages to the output.  Non-error deployment messages.
 func printDeployMessages(out io.Writer, cfg deployConfig, f fn.Function) {
-	// Digest
-	// ------
-	// If providing an image digest, print this, and note that the values
-	// of push and build are ignored.
-	// TODO: perhaps just error if either --push or --build were actually
-	// provided (using the cobra .Changed accessor)
-	digest, err := imageDigest(cfg.Image)
-	if err != nil && digest != "" {
-		fmt.Fprintf(out, "Deploying image '%v' with digest '%s'. Build and push are disabled.\n", cfg.Image, digest)
+	digest, err := hasDigest(cfg.Image)
+	if err != nil && digest {
+		fmt.Fprintf(out, "Deploying image '%v', which has a digest. Build and push are disabled.\n", cfg.Image)
 	}
 
 	// Namespace

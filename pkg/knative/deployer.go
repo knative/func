@@ -146,7 +146,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	}
 	since := time.Now()
 	go func() {
-		_ = GetKServiceLogs(ctx, d.Namespace, f.Name, f.ImageWithDigest(), &since, out)
+		_ = GetKServiceLogs(ctx, d.Namespace, f.Name, f.Deploy.Image, &since, out)
 	}()
 
 	previousService, err := client.GetService(ctx, f.Name)
@@ -395,7 +395,7 @@ func generateNewService(f fn.Function, decorator DeployDecorator) (*v1.Service, 
 		Type: corev1.SeccompProfileType("RuntimeDefault"),
 	}
 	container := corev1.Container{
-		Image: f.ImageWithDigest(),
+		Image: f.Deploy.Image,
 		SecurityContext: &corev1.SecurityContext{
 			RunAsNonRoot:             &runAsNonRoot,
 			AllowPrivilegeEscalation: &allowPrivilegeEscalation,
@@ -585,7 +585,7 @@ func updateService(f fn.Function, previousService *v1.Service, newEnv []corev1.E
 		service.ObjectMeta.Labels = labels
 		service.Spec.Template.ObjectMeta.Labels = labels
 
-		err = flags.UpdateImage(&service.Spec.Template.Spec.PodSpec, f.ImageWithDigest())
+		err = flags.UpdateImage(&service.Spec.Template.Spec.PodSpec, f.Deploy.Image)
 		if err != nil {
 			return service, err
 		}
