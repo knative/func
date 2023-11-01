@@ -157,10 +157,6 @@
 					"type": "string",
 					"description": "Image is the full OCI image tag in form:\n  [registry]/[namespace]/[name]:[tag]\nexample:\n  quay.io/alice/my.function.name\nRegistry is optional and is defaulted to DefaultRegistry\nexample:\n  alice/my.function.name\nIf Image is provided, it overrides the default of concatenating\n\"Registry+Name:latest\" to derive the Image."
 				},
-				"imageDigest": {
-					"type": "string",
-					"description": "ImageDigest is the SHA256 hash of the latest image that has been built"
-				},
 				"created": {
 					"type": "string",
 					"description": "Created time is the moment that creation was successfully completed\naccording to the client which is in charge of what constitutes being\nfully \"Created\" (aka initialized)",
