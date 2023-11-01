@@ -20,6 +20,7 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
+CONTAINER_ENGINE=${CONTAINER_ENGINE:-docker}
 export TERM="${TERM:-dumb}"
 
 main() {
@@ -207,8 +208,13 @@ registry() {
   # see https://kind.sigs.k8s.io/docs/user/local-registry/
 
   echo "${em}⑥ Registry${me}"
-  docker run -d --restart=always -p "127.0.0.1:50000:5000" --name "func-registry" registry:2
-  docker network connect "kind" "func-registry"
+  if [ "$CONTAINER_ENGINE" == "docker" ]; then
+    docker run -d --restart=always -p "127.0.0.1:50000:5000" --name "func-registry" registry:2
+    docker network connect "kind" "func-registry"
+  elif [ "$CONTAINER_ENGINE" == "podman" ]; then
+    docker run -d --restart=always -p "127.0.0.1:50000:5000" --net=kind --name "func-registry" registry:2
+  fi
+
   kubectl apply -f - <<EOF
 apiVersion: v1
 kind: ConfigMap
