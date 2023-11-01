@@ -648,7 +648,7 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 		return
 	}
 
-	// TODO: gauron99 move this to a useful spot instead (whereever its used)
+	// TODO: gauron99 move this to a useful spot instead (wherever its used)
 
 	// Check Image Digest was included
 	// (will be set on the function during .Configure)

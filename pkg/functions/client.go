@@ -1021,7 +1021,7 @@ func (c *Client) Push(ctx context.Context, f Function) (Function, error) {
 	// TODO: gauron99 - this is here because of a temporary workaround.
 	// f.Build.Image should contain full image name including the sha256 and
 	// should be populated earlier BUT because the sha256 is got only on push (here)
-	// its populated here. This will eventualy be moved to build stage where we get
+	// its populated here. This will eventually be moved to build stage where we get
 	// the full image name and its digest right after building
 	f.Build.Image = f.ImageNameWithDigest(imageDigest)
 
