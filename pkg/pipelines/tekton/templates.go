@@ -91,7 +91,7 @@ var (
 	taskBasePath = "https://raw.githubusercontent.com/" +
 		FuncRepoRef + "/" + FuncRepoBranchRef + "/pkg/pipelines/resources/tekton/task/"
 	BuildpackTaskURL = taskBasePath + "func-buildpacks/0.2/func-buildpacks.yaml"
-	S2ITaskURL       = taskBasePath + "func-s2i/0.1/func-s2i.yaml"
+	S2ITaskURL       = taskBasePath + "func-s2i/0.2/func-s2i.yaml"
 	DeployTaskURL    = taskBasePath + "func-deploy/0.1/func-deploy.yaml"
 )
 
