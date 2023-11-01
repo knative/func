@@ -127,12 +127,12 @@ func TestIntegration(t *testing.T) {
 		//     * environment variables starting which name starts with FUNC_TEST,
 		//     * files under /etc/cm and /etc/sc.
 		//   * application also prints the same info to stderr on startup
-		Image:       "quay.io/mvasek/func-test-service",
-		ImageDigest: "sha256:2eca4de00d7569c8791634bdbb0c4d5ec8fb061b001549314591e839dabd5269",
-		Created:     now,
+		Image:   "quay.io/mvasek/func-test-service",
+		Created: now,
 		Deploy: fn.DeploySpec{
-			Namespace: namespace,
-			Labels:    []fn.Label{{Key: ptr("my-label"), Value: ptr("my-label-value")}},
+			ImageDigest: "sha256:2eca4de00d7569c8791634bdbb0c4d5ec8fb061b001549314591e839dabd5269",
+			Namespace:   namespace,
+			Labels:      []fn.Label{{Key: ptr("my-label"), Value: ptr("my-label-value")}},
 			Options: fn.Options{
 				Scale: &fn.ScaleOptions{
 					Min: &minScale,
