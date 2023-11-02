@@ -231,7 +231,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 				return fn.DeploymentResult{}, err
 			}
 
-			err = createTriggers(ctx, f, err, client, eventingClient)
+			err = createTriggers(ctx, f, client, eventingClient)
 			if err != nil {
 				return fn.DeploymentResult{}, err
 			}
@@ -295,7 +295,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			return fn.DeploymentResult{}, err
 		}
 
-		err = createTriggers(ctx, f, err, client, eventingClient)
+		err = createTriggers(ctx, f, client, eventingClient)
 		if err != nil {
 			return fn.DeploymentResult{}, err
 		}
@@ -308,7 +308,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	}
 }
 
-func createTriggers(ctx context.Context, f fn.Function, err error, client clientservingv1.KnServingClient, eventingClient clienteventingv1.KnEventingClient) error {
+func createTriggers(ctx context.Context, f fn.Function, client clientservingv1.KnServingClient, eventingClient clienteventingv1.KnEventingClient) error {
 	ksvc, err := client.GetService(ctx, f.Name)
 	if err != nil {
 		err = fmt.Errorf("knative deployer failed to get the Service for Trigger: %v", err)
