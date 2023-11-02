@@ -139,7 +139,7 @@ networking() {
     --timeout=300s
 
   local kind_addr
-  kind_addr="$(docker container inspect func-control-plane | jq '.[0].NetworkSettings.Networks.kind.IPAddress' -r)"
+  kind_addr="$($CONTAINER_ENGINE container inspect func-control-plane | jq '.[0].NetworkSettings.Networks.kind.IPAddress' -r)"
 
   echo "Setting up address pool."
   kubectl apply -f - <<EOF
@@ -209,10 +209,10 @@ registry() {
 
   echo "${em}⑥ Registry${me}"
   if [ "$CONTAINER_ENGINE" == "docker" ]; then
-    docker run -d --restart=always -p "127.0.0.1:50000:5000" --name "func-registry" registry:2
-    docker network connect "kind" "func-registry"
+    $CONTAINER_ENGINE run -d --restart=always -p "127.0.0.1:50000:5000" --name "func-registry" registry:2
+    $CONTAINER_ENGINE network connect "kind" "func-registry"
   elif [ "$CONTAINER_ENGINE" == "podman" ]; then
-    docker run -d --restart=always -p "127.0.0.1:50000:5000" --net=kind --name "func-registry" registry:2
+    $CONTAINER_ENGINE run -d --restart=always -p "127.0.0.1:50000:5000" --net=kind --name "func-registry" registry:2
   fi
 
   kubectl apply -f - <<EOF
