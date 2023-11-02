@@ -26,7 +26,7 @@ require (
 	github.com/google/go-cmp v0.6.0
 	github.com/google/go-containerregistry v0.15.2
 	github.com/google/go-github/v49 v49.1.0
-	github.com/google/uuid v1.3.1
+	github.com/google/uuid v1.4.0
 	github.com/hectane/go-acl v0.0.0-20190604041725-da78bae5fc95
 	github.com/heroku/color v0.0.6
 	github.com/hinshun/vt10x v0.0.0-20220228203356-1ab2cad5fd82
@@ -59,8 +59,8 @@ require (
 	knative.dev/client-pkg v0.0.0-20231025084112-26b8741a2534
 	knative.dev/eventing v0.39.1-0.20231031154321-c8f4624d395a
 	knative.dev/hack v0.0.0-20231025074238-d4af42e9b222
-	knative.dev/pkg v0.0.0-20231023152443-b7a62c0b7003
-	knative.dev/serving v0.39.1-0.20231030071350-fd8f4611eba0
+	knative.dev/pkg v0.0.0-20231102061027-a6c730fd81f7
+	knative.dev/serving v0.39.1-0.20231102120927-f59f053535ae
 )
 
 require (
@@ -253,5 +253,5 @@ require (
 	sigs.k8s.io/kustomize/api v0.12.1 // indirect
 	sigs.k8s.io/kustomize/kyaml v0.13.9 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
-	sigs.k8s.io/yaml v1.3.0 // indirect
+	sigs.k8s.io/yaml v1.4.0 // indirect
 )
