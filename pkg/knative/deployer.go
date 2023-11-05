@@ -810,23 +810,23 @@ func processVolumes(volumes []fn.Volume, referencedSecrets, referencedConfigMaps
 					referencedConfigMaps.Insert(*vol.ConfigMap)
 				}
 			}
-		} else if vol.PresistentVolumeClaim != nil {
-			volumeName = "pvc-" + *vol.PresistentVolumeClaim.ClaimName
+		} else if vol.PersistentVolumeClaim != nil {
+			volumeName = "pvc-" + *vol.PersistentVolumeClaim.ClaimName
 
 			if !createdVolumes.Has(volumeName) {
 				newVolumes = append(newVolumes, corev1.Volume{
 					Name: volumeName,
 					VolumeSource: corev1.VolumeSource{
 						PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-							ClaimName: *vol.PresistentVolumeClaim.ClaimName,
-							ReadOnly:  vol.PresistentVolumeClaim.ReadOnly,
+							ClaimName: *vol.PersistentVolumeClaim.ClaimName,
+							ReadOnly:  vol.PersistentVolumeClaim.ReadOnly,
 						},
 					},
 				})
 				createdVolumes.Insert(volumeName)
 
-				if !referencedPVCs.Has(*vol.PresistentVolumeClaim.ClaimName) {
-					referencedPVCs.Insert(*vol.PresistentVolumeClaim.ClaimName)
+				if !referencedPVCs.Has(*vol.PersistentVolumeClaim.ClaimName) {
+					referencedPVCs.Insert(*vol.PersistentVolumeClaim.ClaimName)
 				}
 			}
 		} else if vol.EmptyDir != nil {

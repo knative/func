@@ -5,7 +5,7 @@ import "fmt"
 type Volume struct {
 	Secret                *string                `yaml:"secret,omitempty" jsonschema:"oneof_required=secret"`
 	ConfigMap             *string                `yaml:"configMap,omitempty" jsonschema:"oneof_required=configmap"`
-	PresistentVolumeClaim *PersistentVolumeClaim `yaml:"presistentVolumeClaim,omitempty" jsonschema:"oneof_required=presistentVolumeClaim"`
+	PersistentVolumeClaim *PersistentVolumeClaim `yaml:"persistentVolumeClaim,omitempty" jsonschema:"oneof_required=persistentVolumeClaim"`
 	EmptyDir              *EmptyDir              `yaml:"emptyDir,omitempty" jsonschema:"oneof_required=emptyDir"`
 	Path                  *string                `yaml:"path,omitempty"`
 }
@@ -45,10 +45,10 @@ func (v Volume) String() string {
 		result = fmt.Sprintf("ConfigMap \"%s\"", *v.ConfigMap)
 	} else if v.Secret != nil {
 		result = fmt.Sprintf("Secret \"%s\"", *v.Secret)
-	} else if v.PresistentVolumeClaim != nil {
+	} else if v.PersistentVolumeClaim != nil {
 		result = "PersistentVolumeClaim"
-		if v.PresistentVolumeClaim.ClaimName != nil {
-			result += fmt.Sprintf(" \"%s\"", *v.PresistentVolumeClaim.ClaimName)
+		if v.PersistentVolumeClaim.ClaimName != nil {
+			result += fmt.Sprintf(" \"%s\"", *v.PersistentVolumeClaim.ClaimName)
 		}
 	} else if v.EmptyDir != nil {
 		result = "EmptyDir"
@@ -92,9 +92,9 @@ func validateVolumes(volumes []Volume) (errors []string) {
 			numVolumes++
 		}
 
-		if vol.PresistentVolumeClaim != nil {
+		if vol.PersistentVolumeClaim != nil {
 			numVolumes++
-			if vol.PresistentVolumeClaim.ClaimName == nil {
+			if vol.PersistentVolumeClaim.ClaimName == nil {
 				errors = append(errors, fmt.Sprintf("volume entry #%d (%s) is missing claim name", i, vol))
 			}
 		}

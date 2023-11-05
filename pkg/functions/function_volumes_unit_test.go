@@ -82,7 +82,7 @@ func Test_validateVolumes(t *testing.T) {
 					Path:      &path2,
 				},
 				{
-					PresistentVolumeClaim: pvc,
+					PersistentVolumeClaim: pvc,
 					Path:                  &path3,
 				},
 				{
@@ -222,7 +222,7 @@ func Test_validateVolumesString(t *testing.T) {
 		{
 			"volume with persistentVolumeClaim and path",
 			Volume{
-				PresistentVolumeClaim: pvc,
+				PersistentVolumeClaim: pvc,
 				Path:                  &path,
 			},
 			"PersistentVolumeClaim \"pvc\" at path: \"path\"",

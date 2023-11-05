@@ -227,7 +227,7 @@ func runAddVolumesPrompt(ctx context.Context, f fn.Function) (err error) {
 	case optionSecret:
 		newVolume.Secret = &selectedResource
 	case optionPersistentVolumeClaim:
-		newVolume.PresistentVolumeClaim = &fn.PersistentVolumeClaim{
+		newVolume.PersistentVolumeClaim = &fn.PersistentVolumeClaim{
 			ClaimName: &selectedResource,
 			ReadOnly:  readOnly,
 		}
