@@ -25,7 +25,17 @@ PIPELINE_ARTIFACTS="pkg/pipelines/resources/tekton/task/func-buildpacks/0.2/func
 
 function build_release() {
   echo "🚧 🐧 Building cross platform binaries: Linux 🐧 (amd64 / arm64 / ppc64le / s390x), MacOS 🍏, and Windows 🎠"
-  FUNC_REPO_BRANCH_REF="$(git branch --show-current)" ETAG=${TAG} make cross-platform
+
+  local go_module_version
+  local knative_version
+  if (( TAG_RELEASE )); then
+    knative_version="${TAG}"
+    go_module_version="v0.$(( $(minor_version "$TAG") + 27 )).$(patch_version "$TAG")"
+  else
+    knative_version="$(git describe --tags --match 'knative-*')"
+    go_module_version="$(git describe --tags --match 'v*')"
+  fi
+  FUNC_REPO_BRANCH_REF="$(git branch --show-current)" VERS="${go_module_version}" KVER="=${knative_version}" make cross-platform
 
   ARTIFACTS_TO_PUBLISH="func_darwin_amd64 func_darwin_arm64 func_linux_amd64 func_linux_arm64 func_linux_ppc64le func_linux_s390x func_windows_amd64.exe"
   ARTIFACTS_TO_PUBLISH="${ARTIFACTS_TO_PUBLISH} ${PIPELINE_ARTIFACTS}"
