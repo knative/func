@@ -1,13 +1,31 @@
 ## func subscribe
 
-Subscribe to a function
+Subscribe a function to events
 
 ### Synopsis
 
-Subscribe to a function
+Subscribe a function to events
+
+Subscribe the function to a set of events, matching a set of filters for Cloud Event metadata
+and a Knative Broker from where the events are consumed.
+
 
 ```
 func subscribe
+```
+
+### Examples
+
+```
+
+# Subscribe the function to the 'default' broker where  events have 'type' of 'com.example'
+and an 'extension' attribute for the value 'my-extension-value'.
+func subscribe --filter type=com.example --filter extension=my-extension-value
+
+# Subscribe the function to the 'my-broker' broker where  events have 'type' of 'com.example'
+and an 'extension' attribute for the value 'my-extension-value'.
+func subscribe --filter type=com.example --filter extension=my-extension-value --source my-broker
+
 ```
 
 ### Options

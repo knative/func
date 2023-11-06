@@ -11,10 +11,23 @@ import (
 
 func NewSubscribeCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:        "subscribe",
-		Short:      "Subscribe to a function",
-		Long:       `Subscribe to a function`,
-		SuggestFor: []string{"subscribe", "subscribe"},
+		Use:   "subscribe",
+		Short: "Subscribe a function to events",
+		Long: `Subscribe a function to events
+
+Subscribe the function to a set of events, matching a set of filters for Cloud Event metadata
+and a Knative Broker from where the events are consumed.
+`,
+		Example: `
+# Subscribe the function to the 'default' broker where  events have 'type' of 'com.example'
+and an 'extension' attribute for the value 'my-extension-value'.
+{{rootCmdUse}} subscribe --filter type=com.example --filter extension=my-extension-value
+
+# Subscribe the function to the 'my-broker' broker where  events have 'type' of 'com.example'
+and an 'extension' attribute for the value 'my-extension-value'.
+{{rootCmdUse}} subscribe --filter type=com.example --filter extension=my-extension-value --source my-broker
+`,
+		SuggestFor: []string{"subcsribe", "subsrcibe"},
 		PreRunE:    bindEnv("filter", "source"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runSubscribe(cmd, args)
