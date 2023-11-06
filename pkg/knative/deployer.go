@@ -9,6 +9,10 @@ import (
 	"strings"
 	"time"
 
+	clienteventingv1 "knative.dev/client-pkg/pkg/eventing/v1"
+	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
+	duckv1 "knative.dev/pkg/apis/duck/v1"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -129,6 +133,10 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	if err != nil {
 		return fn.DeploymentResult{}, err
 	}
+	eventingClient, err := NewEventingClient(d.Namespace)
+	if err != nil {
+		return fn.DeploymentResult{}, err
+	}
 
 	var outBuff SynchronizedBuffer
 	var out io.Writer = &outBuff
@@ -223,6 +231,11 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 				return fn.DeploymentResult{}, err
 			}
 
+			err = createTriggers(ctx, f, client, eventingClient)
+			if err != nil {
+				return fn.DeploymentResult{}, err
+			}
+
 			if d.verbose {
 				fmt.Printf("Function deployed in namespace %q and exposed at URL:\n%s\n", d.Namespace, route.Status.URL.String())
 			}
@@ -282,12 +295,68 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			return fn.DeploymentResult{}, err
 		}
 
+		err = createTriggers(ctx, f, client, eventingClient)
+		if err != nil {
+			return fn.DeploymentResult{}, err
+		}
+
 		return fn.DeploymentResult{
 			Status:    fn.Updated,
 			URL:       route.Status.URL.String(),
 			Namespace: d.Namespace,
 		}, nil
 	}
+}
+
+func createTriggers(ctx context.Context, f fn.Function, client clientservingv1.KnServingClient, eventingClient clienteventingv1.KnEventingClient) error {
+	ksvc, err := client.GetService(ctx, f.Name)
+	if err != nil {
+		err = fmt.Errorf("knative deployer failed to get the Service for Trigger: %v", err)
+		return err
+	}
+
+	fmt.Fprintf(os.Stderr, "🎯 Creating Triggers on the cluster\n")
+
+	for i, sub := range f.Deploy.Subscriptions {
+		// create the filter:
+		attributes := make(map[string]string)
+		for key, value := range sub.Filters {
+			attributes[key] = value
+		}
+
+		err = eventingClient.CreateTrigger(ctx, &eventingv1.Trigger{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: fmt.Sprintf("%s-function-trigger-%d", ksvc.Name, i),
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						APIVersion: ksvc.APIVersion,
+						Kind:       ksvc.Kind,
+						Name:       ksvc.GetName(),
+						UID:        ksvc.GetUID(),
+					},
+				},
+			},
+			Spec: eventingv1.TriggerSpec{
+				Broker: sub.Source,
+
+				Subscriber: duckv1.Destination{
+					Ref: &duckv1.KReference{
+						APIVersion: ksvc.APIVersion,
+						Kind:       ksvc.Kind,
+						Name:       ksvc.Name,
+					}},
+
+				Filter: &eventingv1.TriggerFilter{
+					Attributes: attributes,
+				},
+			},
+		})
+		if err != nil && !errors.IsAlreadyExists(err) {
+			err = fmt.Errorf("knative deployer failed to create the Trigger: %v", err)
+			return err
+		}
+	}
+	return nil
 }
 
 func probeFor(url string) *corev1.Probe {

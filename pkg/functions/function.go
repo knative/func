@@ -89,6 +89,12 @@ type Function struct {
 	Deploy DeploySpec `yaml:"deploy,omitempty"`
 }
 
+// KnativeSubscription
+type KnativeSubscription struct {
+	Source  string            `yaml:"source"`
+	Filters map[string]string `yaml:"filters,omitempty"`
+}
+
 // BuildSpec
 type BuildSpec struct {
 	// Git stores information about an optionally associated git repository.
@@ -159,6 +165,8 @@ type DeploySpec struct {
 	// succeed.
 	// More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
 	ServiceAccountName string `yaml:"serviceAccountName,omitempty"`
+
+	Subscriptions []KnativeSubscription `yaml:"subscriptions,omitempty"`
 }
 
 // HealthEndpoints specify the liveness and readiness endpoints for a Runtime

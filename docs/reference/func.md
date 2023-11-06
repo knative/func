@@ -36,6 +36,7 @@ Learn more about Knative at: https://knative.dev
 * [func list](func_list.md)	 - List deployed functions
 * [func repository](func_repository.md)	 - Manage installed template repositories
 * [func run](func_run.md)	 - Run the function locally
+* [func subscribe](func_subscribe.md)	 - Subscribe a function to events
 * [func templates](func_templates.md)	 - List available function source templates
 * [func version](func_version.md)	 - Function client version information
 
