@@ -195,8 +195,8 @@ func testConfigApplied(cmdFn commandConstructor, t *testing.T) {
 	if f, err = fn.NewFunction(root); err != nil {
 		t.Fatal(err)
 	}
-	if f.Image != "registry.example.com/charlie/f:latest" {
-		t.Fatalf("expected image 'registry.example.com/charlie/f:latest' got '%v'", f.Image)
+	if f.Build.Image != "registry.example.com/charlie/f:latest" {
+		t.Fatalf("expected image 'registry.example.com/charlie/f:latest' got '%v'", f.Build.Image)
 	}
 
 	// Ensure environment variables loaded: Push
@@ -1124,7 +1124,9 @@ func testRegistry(cmdFn commandConstructor, t *testing.T) {
 			name: "registry member mismatch",
 			f: fn.Function{
 				Registry: "registry.example.com/alice",
-				Image:    "registry.example.com/bob/f:latest",
+				Build: fn.BuildSpec{
+					Image: "registry.example.com/bob/f:latest",
+				},
 			},
 			args:             []string{},
 			expectedRegistry: "registry.example.com/alice",
@@ -1137,7 +1139,9 @@ func testRegistry(cmdFn commandConstructor, t *testing.T) {
 			name: "registry flag updates",
 			f: fn.Function{
 				Registry: "registry.example.com/alice",
-				Image:    "registry.example.com/bob/f:latest",
+				Build: fn.BuildSpec{
+					Image: "registry.example.com/bob/f:latest",
+				},
 			},
 			args:             []string{"--registry=registry.example.com/charlie"},
 			expectedRegistry: "registry.example.com/charlie",
@@ -1150,7 +1154,9 @@ func testRegistry(cmdFn commandConstructor, t *testing.T) {
 			name: "image flag overrides",
 			f: fn.Function{
 				Registry: "registry.example.com/alice",
-				Image:    "registry.example.com/bob/f:latest",
+				Build: fn.BuildSpec{
+					Image: "registry.example.com/bob/f:latest",
+				},
 			},
 			args:             []string{"--image=registry.example.com/charlie/f:latest"},
 			expectedRegistry: "registry.example.com/alice",            // not updated
@@ -1178,8 +1184,8 @@ func testRegistry(cmdFn commandConstructor, t *testing.T) {
 			if f.Registry != test.expectedRegistry {
 				t.Fatalf("expected registry '%v', got '%v'", test.expectedRegistry, f.Registry)
 			}
-			if f.Image != test.expectedImage {
-				t.Fatalf("expected image '%v', got '%v'", test.expectedImage, f.Image)
+			if f.Build.Image != test.expectedImage {
+				t.Fatalf("expected image '%v', got '%v'", test.expectedImage, f.Build.Image)
 			}
 		})
 	}
@@ -1220,8 +1226,8 @@ func testRegistryLoads(cmdFn commandConstructor, t *testing.T) {
 	}
 
 	expected := "example.com/alice/my-func:latest"
-	if f.Image != expected {
-		t.Fatalf("expected image name '%v'. got %v", expected, f.Image)
+	if f.Build.Image != expected {
+		t.Fatalf("expected image name '%v'. got %v", expected, f.Build.Image)
 	}
 }
 

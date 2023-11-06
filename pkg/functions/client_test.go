@@ -353,7 +353,7 @@ func TestClient_New_RepositoriesExtensible(t *testing.T) {
 }
 
 // TestRuntime_New_RuntimeNotFoundError generates an error when the provided
-// runtime is not fo0und (embedded default repository).
+// runtime is not found (embedded default repository).
 func TestClient_New_RuntimeNotFoundError(t *testing.T) {
 	root := "testdata/example.com/testRuntimeNotFound"
 	defer Using(t, root)()
@@ -498,8 +498,8 @@ func TestClient_New_ImageNamePopulated(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if f.Image != imageTag {
-		t.Fatalf("expected image '%v' got '%v'", imageTag, f.Image)
+	if f.Build.Image != imageTag {
+		t.Fatalf("expected image '%v' got '%v'", imageTag, f.Build.Image)
 	}
 }
 
@@ -523,8 +523,8 @@ func TestClient_New_ImageRegistryDefaults(t *testing.T) {
 
 	// Expected image is [DefaultRegistry]/[namespace]/[servicename]:latest
 	expected := fn.DefaultRegistry + "/alice/" + f.Name + ":latest"
-	if f.Image != expected {
-		t.Fatalf("expected image '%v' got '%v'", expected, f.Image)
+	if f.Build.Image != expected {
+		t.Fatalf("expected image '%v' got '%v'", expected, f.Build.Image)
 	}
 }
 
@@ -565,8 +565,8 @@ func TestClient_New_Delegation(t *testing.T) {
 	}
 
 	pusher.PushFn = func(f fn.Function) (string, error) {
-		if f.Image != expectedImage {
-			t.Fatalf("pusher expected image '%v', got '%v'", expectedImage, f.Image)
+		if f.Build.Image != expectedImage {
+			t.Fatalf("pusher expected image '%v', got '%v'", expectedImage, f.Build.Image)
 		}
 		return "", nil
 	}
@@ -575,8 +575,8 @@ func TestClient_New_Delegation(t *testing.T) {
 		if f.Name != expectedName {
 			t.Fatalf("deployer expected name '%v', got '%v'", expectedName, f.Name)
 		}
-		if f.Image != expectedImage {
-			t.Fatalf("deployer expected image '%v', got '%v'", expectedImage, f.Image)
+		if f.Build.Image != expectedImage {
+			t.Fatalf("deployer expected image '%v', got '%v'", expectedImage, f.Build.Image)
 		}
 		return
 	}
@@ -843,8 +843,8 @@ func TestClient_Update(t *testing.T) {
 
 	// Pusher whose implementaiton verifies the expected image
 	pusher.PushFn = func(f fn.Function) (string, error) {
-		if f.Image != expectedImage {
-			t.Fatalf("pusher expected image '%v', got '%v'", expectedImage, f.Image)
+		if f.Build.Image != expectedImage {
+			t.Fatalf("pusher expected image '%v', got '%v'", expectedImage, f.Build.Image)
 		}
 		// image of given name wouold be pushed to the configured registry.
 		return "", nil
@@ -855,8 +855,8 @@ func TestClient_Update(t *testing.T) {
 		if f.Name != expectedName {
 			t.Fatalf("updater expected name '%v', got '%v'", expectedName, f.Name)
 		}
-		if f.Image != expectedImage {
-			t.Fatalf("updater expected image '%v', got '%v'", expectedImage, f.Image)
+		if f.Build.Image != expectedImage {
+			t.Fatalf("updater expected image '%v', got '%v'", expectedImage, f.Build.Image)
 		}
 		return
 	}
@@ -915,7 +915,7 @@ func TestClient_Deploy_RegistryUpdate(t *testing.T) {
 	if _, f, err = client.New(context.Background(), fn.Function{Runtime: "go", Name: "f", Root: root}); err != nil {
 		t.Fatal(err)
 	}
-	if f.Image != "example.com/alice/f:latest" {
+	if f.Build.Image != "example.com/alice/f:latest" {
 		t.Error("image name was not initially set")
 	}
 
@@ -930,12 +930,12 @@ func TestClient_Deploy_RegistryUpdate(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected := "example.com/alice/f:latest"
-	if f.Image != expected { // NOT changed to bob
-		t.Errorf("expected image name to stay '%v' and not be updated, but got '%v'", expected, f.Image)
+	if f.Build.Image != expected { // NOT changed to bob
+		t.Errorf("expected image name to stay '%v' and not be updated, but got '%v'", expected, f.Build.Image)
 	}
 
 	// Reset the value of .Image to default "" and ensure this triggers recalc.
-	f.Image = ""
+	f.Build.Image = ""
 	f.Registry = "example.com/bob"
 	if f, err = client.Build(context.Background(), f); err != nil {
 		t.Fatal(err)
@@ -944,8 +944,8 @@ func TestClient_Deploy_RegistryUpdate(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected = "example.com/bob/f:latest"
-	if f.Image != expected { // DOES change to bob
-		t.Errorf("expected image name to stay '%v' and not be updated, but got '%v'", expected, f.Image)
+	if f.Build.Image != expected { // DOES change to bob
+		t.Errorf("expected image name to stay '%v' and not be updated, but got '%v'", expected, f.Build.Image)
 
 	}
 }
@@ -1202,8 +1202,8 @@ func TestClient_Deploy_Image(t *testing.T) {
 	}
 
 	// Upon initial creation, the value of .Image is empty
-	if f.Image != "" {
-		t.Fatalf("new function should have no image, got '%v'", f.Image)
+	if f.Build.Image != "" {
+		t.Fatalf("new function should have no image, got '%v'", f.Build.Image)
 	}
 
 	// Upon deployment, the function should be populated;
@@ -1214,8 +1214,8 @@ func TestClient_Deploy_Image(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected := "example.com/alice/myfunc:latest"
-	if f.Image != expected {
-		t.Fatalf("expected image '%v', got '%v'", expected, f.Image)
+	if f.Build.Image != expected {
+		t.Fatalf("expected image '%v', got '%v'", expected, f.Build.Image)
 	}
 	expected = "example.com/alice"
 	if f.Registry != "example.com/alice" {
@@ -1234,8 +1234,8 @@ func TestClient_Deploy_Image(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected = "registry2.example.com/bob/myfunc:latest"
-	if f.Image != expected {
-		t.Fatalf("expected image '%v', got '%v'", expected, f.Image)
+	if f.Build.Image != expected {
+		t.Fatalf("expected image '%v', got '%v'", expected, f.Build.Image)
 	}
 	expected = "example.com/alice"
 	if f.Registry != "example.com/alice" {
@@ -1277,18 +1277,19 @@ func TestClient_Pipelines_Deploy_Image(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Upon initial creation, the value of .Image is empty
-	if f.Image != "" {
-		t.Fatalf("new function should have no image, got '%v'", f.Image)
+	// Upon initial creation, the value of .Build.Image is empty and .Deploy.Image
+	// is empty because Function is not deployed yet.
+	if f.Build.Image != "" && f.Deploy.Image != "" {
+		t.Fatalf("new function should have no image, got '%v'", f.Build.Image)
 	}
 
-	// Upon pipeline run, the function should be populated;
+	// Upon pipeline run, the .Deploy.Image should be populated
 	if f, err = client.RunPipeline(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
 	expected := "example.com/alice/myfunc:latest"
-	if f.Image != expected {
-		t.Fatalf("expected image '%v', got '%v'", expected, f.Image)
+	if f.Deploy.Image != expected {
+		t.Fatalf("expected image '%v', got '%v'", expected, f.Deploy.Image)
 	}
 	expected = "example.com/alice"
 	if f.Registry != expected {
@@ -1305,8 +1306,9 @@ func TestClient_Pipelines_Deploy_Image(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected = "registry2.example.com/bob/myfunc:latest"
-	if f.Image != expected {
-		t.Fatalf("expected image '%v', got '%v'", expected, f.Image)
+
+	if f.Deploy.Image != expected {
+		t.Fatalf("expected image '%v', got '%v'", expected, f.Deploy.Image)
 	}
 	expected = "example.com/alice"
 	if f.Registry != expected {
@@ -1888,3 +1890,62 @@ func TestClient_RunRediness(t *testing.T) {
 		t.Fatalf("err on job stop. %v", err)
 	}
 }
+
+// TestClient_BuildCleanFingerprint ensures that when building a Function the
+// source controlled state is not modified (git would show no unstaged changes).
+// For example, the image name generated when building should not be stored
+// in function metadata that is checked into source control (func.yaml).
+func TestClient_BuildCleanFingerprint(t *testing.T) {
+
+	// Create a temporary directory
+	root, cleanup := Mktemp(t)
+	defer cleanup()
+
+	// create new client
+	client := fn.New()
+
+	f := fn.Function{Root: root, Runtime: TestRuntime, Registry: TestRegistry}
+	ctx := context.Background()
+
+	// create new running Function
+	// if _, _, err := client.New(ctx, f); err != nil {
+	// 	t.Fatal(err)
+	// }
+
+	// init a new Function
+	f, err := client.Init(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// NOTE: Practically one would initialize a git repository, check the source code
+	// and compare that way. For now this only compares fingerprint before and after
+	// building Function
+
+	// get fingerprint before building
+	hashA, _, err := fn.Fingerprint(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Build a function
+	if f, err = client.Build(ctx, f); err != nil {
+		t.Fatal(err)
+	}
+
+	// Write to disk because client.Build just stamps (writing is handled in its caller)
+	if err = f.Write(); err != nil {
+		t.Fatal(err)
+	}
+
+	// compare fingerprints before and after
+	hashB, _, err := fn.Fingerprint(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hashA != hashB {
+		t.Fatal("just building a Function resulted in a dirty function state (fingerprint changed)")
+	}
+}
+
+// TestClient_BuildPopulatesImage

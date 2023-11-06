@@ -296,6 +296,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 			f.Deploy.Image = f.Build.Image
 			// write .func/built-name as running metadata which is not persisted in yaml
 			if err = f.WriteBuiltImageOnChange(cfg.Verbose); err != nil {
+				return
 			}
 		}
 
@@ -540,18 +541,6 @@ func (c deployConfig) Configure(f fn.Function) (fn.Function, error) {
 		f.Build.PVCSize = c.PVCSize
 	}
 
-	// TODO: gauron99 parse --image if provided:
-	// image with digest == i want to skip everything and just deploy
-	// image without digest == if building as well - use THIS image name
-
-	// // ImageDigest
-	// // Parsed off f.Build.Image if provided. Deploying adds the ability to specify a
-	// // digest on the associated image (not available on build as nonsensical).
-	// hasDigest, err := hasDigest(f.Build.Image)
-	// if err != nil {
-	// 	return f, err
-	// }
-
 	// Envs
 	// Preprocesses any Envs provided (which may include removals) into a final
 	// set
@@ -700,36 +689,11 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 	return
 }
 
-// hasDigest returns the image digest from a full image string if it exists,
-// and includes basic validation that a provided digest is correctly formatted.
-func hasDigest(v string) (hasDigest bool, err error) {
-	var digest string
-	vv := strings.Split(v, "@")
-	if len(vv) < 2 {
-		return // has no digest
-	} else if len(vv) > 2 {
-		err = fmt.Errorf("image '%v' contains an invalid digest (extra '@')", v)
-		return
-	}
-	digest = vv[1]
-
-	if !strings.HasPrefix(digest, "sha256:") {
-		err = fmt.Errorf("image digest '%s' requires 'sha256:' prefix", digest)
-		return
-	}
-
-	if len(digest[7:]) != 64 {
-		err = fmt.Errorf("image digest '%v' has an invalid sha256 hash length of %v when it should be 64", digest, len(digest[7:]))
-	}
-
-	hasDigest = true
-	return
-}
-
 // printDeployMessages to the output.  Non-error deployment messages.
 func printDeployMessages(out io.Writer, cfg deployConfig, f fn.Function) {
+	// TODO: gauron check
 	digest, err := hasDigest(cfg.Image)
-	if err != nil && digest {
+	if err == nil && digest {
 		fmt.Fprintf(out, "Deploying image '%v', which has a digest. Build and push are disabled.\n", cfg.Image)
 	}
 
@@ -775,4 +739,30 @@ func printDeployMessages(out io.Writer, cfg deployConfig, f fn.Function) {
 	if !cfg.Remote && (cfg.GitURL != "" || cfg.GitBranch != "" || cfg.GitDir != "") {
 		fmt.Fprintf(out, "Warning: git settings are only applicable when running with --remote.  Local source code will be used.")
 	}
+}
+
+// hasDigest returns the image digest from a full image string if it exists,
+// and includes basic validation that a provided digest is correctly formatted.
+func hasDigest(v string) (hasDigest bool, err error) {
+	var digest string
+	vv := strings.Split(v, "@")
+	if len(vv) < 2 {
+		return // has no digest
+	} else if len(vv) > 2 {
+		err = fmt.Errorf("image '%v' contains an invalid digest (extra '@')", v)
+		return
+	}
+	digest = vv[1]
+
+	if !strings.HasPrefix(digest, "sha256:") {
+		err = fmt.Errorf("image digest '%s' requires 'sha256:' prefix", digest)
+		return
+	}
+
+	if len(digest[7:]) != 64 {
+		err = fmt.Errorf("image digest '%v' has an invalid sha256 hash length of %v when it should be 64", digest, len(digest[7:]))
+	}
+
+	hasDigest = true
+	return
 }
