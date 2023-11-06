@@ -27,7 +27,7 @@ and an 'extension' attribute for the value 'my-extension-value'.
 and an 'extension' attribute for the value 'my-extension-value'.
 {{rootCmdUse}} subscribe --filter type=com.example --filter extension=my-extension-value --source my-broker
 `,
-		SuggestFor: []string{"subcsribe", "subsrcibe"},
+		SuggestFor: []string{"subcsribe"}, //nolint:misspell
 		PreRunE:    bindEnv("filter", "source"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runSubscribe(cmd, args)
