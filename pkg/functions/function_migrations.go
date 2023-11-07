@@ -337,7 +337,7 @@ func migratePersistentVolumeTypoFixup(fn Function, m migration) (Function, error
 			fn.Run.Volumes[idx].PersistentVolumeClaim = volume.PersistentVolumeClaim
 		}
 	}
-
+	fn.SpecVersion = m.version
 	return fn, nil
 }
 
