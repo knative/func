@@ -118,7 +118,6 @@ var DefaultLifecycleImage = "quay.io/boson/lifecycle@sha256:f53fea9ec9188b92cab0
 
 // Build the Function at path.
 func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platform) (err error) {
-	fmt.Println("Builder pack build begin")
 	if len(platforms) != 0 {
 		return errors.New("the pack builder does not support specifying target platforms directly.")
 	}

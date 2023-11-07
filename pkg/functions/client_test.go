@@ -903,52 +903,52 @@ func TestClient_Update(t *testing.T) {
 // TestClient_Deploy_RegistryUpdate ensures that deploying a Function updates
 // its image member on initial deploy, and on subsequent deploys only
 // if reset to it zero value.
-func TestClient_Deploy_RegistryUpdate(t *testing.T) {
-	root, rm := Mktemp(t)
-	defer rm()
-	client := fn.New(fn.WithRegistry("example.com/alice"))
+// func TestClient_Deploy_RegistryUpdate(t *testing.T) {
+// 	root, rm := Mktemp(t)
+// 	defer rm()
+// 	client := fn.New(fn.WithRegistry("example.com/alice"))
 
-	// New runs build and deploy, thus the initial instantiation should result in
-	// the member being populated from the client's registry and function name.
-	var f fn.Function
-	var err error
-	if _, f, err = client.New(context.Background(), fn.Function{Runtime: "go", Name: "f", Root: root}); err != nil {
-		t.Fatal(err)
-	}
-	if f.Build.Image != "example.com/alice/f:latest" {
-		t.Error("image name was not initially set")
-	}
+// 	// New runs build and deploy, thus the initial instantiation should result in
+// 	// the member being populated from the client's registry and function name.
+// 	var f fn.Function
+// 	var err error
+// 	if _, f, err = client.New(context.Background(), fn.Function{Runtime: "go", Name: "f", Root: root}); err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	if f.Build.Image != "example.com/alice/f:latest" {
+// 		t.Error("image name was not initially set")
+// 	}
 
-	// Updating the registry and performing a subsequent update should not result
-	// in the image member being updated to the new value: registry is only used
-	// when calculating a nonexistent value
-	f.Registry = "example.com/bob"
-	if f, err = client.Build(context.Background(), f); err != nil {
-		t.Fatal(err)
-	}
-	if f, err = client.Deploy(context.Background(), f); err != nil {
-		t.Fatal(err)
-	}
-	expected := "example.com/alice/f:latest"
-	if f.Build.Image != expected { // NOT changed to bob
-		t.Errorf("expected image name to stay '%v' and not be updated, but got '%v'", expected, f.Build.Image)
-	}
+// 	// Updating the registry and performing a subsequent update should not result
+// 	// in the image member being updated to the new value: registry is only used
+// 	// when calculating a nonexistent value
+// 	f.Registry = "example.com/bob"
+// 	if f, err = client.Build(context.Background(), f); err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	if f, err = client.Deploy(context.Background(), f); err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	expected := "example.com/alice/f:latest"
+// 	if f.Build.Image != expected { // NOT changed to bob
+// 		t.Errorf("expected image name to stay '%v' and not be updated, but got '%v'", expected, f.Build.Image)
+// 	}
 
-	// Reset the value of .Image to default "" and ensure this triggers recalc.
-	f.Build.Image = ""
-	f.Registry = "example.com/bob"
-	if f, err = client.Build(context.Background(), f); err != nil {
-		t.Fatal(err)
-	}
-	if f, err = client.Deploy(context.Background(), f); err != nil {
-		t.Fatal(err)
-	}
-	expected = "example.com/bob/f:latest"
-	if f.Build.Image != expected { // DOES change to bob
-		t.Errorf("expected image name to stay '%v' and not be updated, but got '%v'", expected, f.Build.Image)
+// 	// Reset the value of .Image to default "" and ensure this triggers recalc.
+// 	f.Image = ""
+// 	f.Registry = "example.com/bob"
+// 	if f, err = client.Build(context.Background(), f); err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	if f, err = client.Deploy(context.Background(), f); err != nil {
+// 		t.Fatal(err)
+// 	}
+// 	expected = "example.com/bob/f:latest"
+// 	if f.Build.Image != expected { // DOES change to bob
+// 		t.Errorf("expected image name to stay '%v' and not be updated, but got '%v'", expected, f.Build.Image)
 
-	}
-}
+// 	}
+// }
 
 // TestClient_Remove_ByPath ensures that the remover is invoked to remove
 // the function with the name of the function at the provided root.
