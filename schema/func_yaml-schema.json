@@ -403,7 +403,7 @@
 				"configMap": {
 					"type": "string"
 				},
-				"presistentVolumeClaim": {
+				"persistentVolumeClaim": {
 					"$schema": "http://json-schema.org/draft-04/schema#",
 					"$ref": "#/definitions/PersistentVolumeClaim"
 				},
@@ -432,9 +432,9 @@
 				},
 				{
 					"required": [
-						"presistentVolumeClaim"
+						"persistentVolumeClaim"
 					],
-					"title": "presistentVolumeClaim"
+					"title": "persistentVolumeClaim"
 				},
 				{
 					"required": [
