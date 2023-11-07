@@ -2,6 +2,7 @@ package functions
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"time"
@@ -82,6 +83,7 @@ var migrations = []migration{
 	{"0.25.0", migrateToSpecVersion},
 	{"0.34.0", migrateToSpecsStructure},
 	{"0.35.0", migrateFromInvokeStructure},
+	{"0.36.0", migratePersistentVolumeTypoFixup},
 	// New Migrations Here.
 }
 
@@ -307,6 +309,36 @@ func migrateFromInvokeStructure(f1 Function, m migration) (Function, error) {
 	// Flag f1 as having had the migration applied
 	f1.SpecVersion = m.version
 	return f1, nil
+}
+
+func migratePersistentVolumeTypoFixup(fn Function, m migration) (Function, error) {
+	f, err := os.Open(filepath.Join(fn.Root, FunctionFile))
+	if err != nil {
+		return Function{}, fmt.Errorf("cannot open func.yaml: %w", err)
+	}
+	defer f.Close()
+
+	data := struct {
+		Run struct {
+			Volumes []struct {
+				PersistentVolumeClaim *PersistentVolumeClaim `yaml:"presistentVolumeClaim"`
+			} `yaml:"volumes,omitempty"`
+		}
+	}{}
+
+	dec := yaml.NewDecoder(f)
+	err = dec.Decode(&data)
+	if err != nil {
+		return Function{}, fmt.Errorf("cannot deserialize old sub-structure: %w", err)
+	}
+
+	for idx, volume := range data.Run.Volumes {
+		if volume.PersistentVolumeClaim != nil {
+			fn.Run.Volumes[idx].PersistentVolumeClaim = volume.PersistentVolumeClaim
+		}
+	}
+
+	return fn, nil
 }
 
 // The pertinent aspects of the Function's schema prior the 1.0.0 version migrations
