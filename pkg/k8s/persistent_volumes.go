@@ -38,6 +38,7 @@ func CreatePersistentVolumeClaim(ctx context.Context, name, namespaceOverride st
 		return
 	}
 
+	sc := "local-storage"
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
@@ -50,6 +51,7 @@ func CreatePersistentVolumeClaim(ctx context.Context, name, namespaceOverride st
 			Resources: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{},
 			},
+			StorageClassName: &sc,
 		},
 	}
 	pvc.Spec.Resources.Requests[corev1.ResourceStorage] = resourceRequest
