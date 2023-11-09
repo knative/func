@@ -9,6 +9,10 @@ import (
 	"testing"
 	"time"
 
+	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/rand"
+
 	"gotest.tools/v3/assert"
 	"knative.dev/func/test/common"
 	"knative.dev/func/test/testhttp"
@@ -165,4 +169,129 @@ func TestConfigVolumes(t *testing.T) {
 		assert.Assert(t, funcResponse == expectedFileContent)
 	}
 
+}
+
+// enableKnativeVolumeExtentions ensures EmptyDir and PersitentVolumeClaim can be used with knative/functions. More at:
+// https://knative.dev/docs/serving/configuration/feature-flags/#kubernetes-emptydir-volume
+// https://knative.dev/docs/serving/configuration/feature-flags/#kubernetes-persistentvolumeclaim-pvc
+func enableKnativeVolumeExtension(t *testing.T) {
+	config, _ := k8s.GetClientConfig().ClientConfig()
+	client, _ := kubernetes.NewForConfig(config)
+	namespace := "knative-serving"
+
+	// Enable EmptyDir extended feature for Knative
+	_, err := client.CoreV1().ConfigMaps(namespace).Patch(context.Background(), "config-features", types.MergePatchType,
+		[]byte(`{"data":{"kubernetes.podspec-volumes-emptydir":"enabled"}}`),
+		metav1.PatchOptions{})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Enable Persistent Volumes Claim extended feature for Knative
+	_, err = client.CoreV1().ConfigMaps(namespace).Patch(context.Background(), "config-features", types.MergePatchType,
+		[]byte(`{"data":{"kubernetes.podspec-persistent-volume-claim":"enabled","kubernetes.podspec-persistent-volume-write":"enabled"}}`),
+		metav1.PatchOptions{})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Log("Enabled Knative PVC and EmptyDir extensions")
+
+}
+
+// setupTestPvc adds a test Persistent Volume Claim used by PVC test
+func setupTestPvc(t *testing.T, pvcName string) {
+	config, _ := k8s.GetClientConfig().ClientConfig()
+	client, _ := kubernetes.NewForConfig(config)
+	namespace, _, _ := k8s.GetClientConfig().Namespace()
+
+	// Add Testing PVC
+	pvc := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{Name: pvcName},
+		Spec: corev1.PersistentVolumeClaimSpec{
+			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{},
+			},
+		},
+	}
+	pvc.Spec.Resources.Requests[corev1.ResourceStorage] = resource.MustParse("1Mi")
+	_, err := client.CoreV1().PersistentVolumeClaims(namespace).Create(context.Background(), pvc, metav1.CreateOptions{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	t.Log("Created test PVC " + pvcName)
+
+	t.Cleanup(func() {
+		client.CoreV1().PersistentVolumeClaims(namespace).Delete(context.Background(), pvcName, metav1.DeleteOptions{})
+	})
+
+}
+
+// TestConfigVolumesPvcEmptyDir verifies PersistentVolumeClaim and EmptyDir Volumes can be added and can be accessible
+// by the function by writing and reading an arbitrary file on the volumes
+func TestConfigVolumesPvcEmptyDir(t *testing.T) {
+
+	enableKnativeVolumeExtension(t)
+	pvcName := "test-pvc-" + rand.String(5)
+	setupTestPvc(t, pvcName)
+
+	knFunc := common.NewTestShellInteractiveCmd(t)
+	knFunc.TestCmd.ShouldDumpOnSuccess = false
+	knFunc.CommandSleepInterval = time.Millisecond * 1500
+
+	// On When...
+	funcName := "test-config-vol-pvc"
+	funcPath := filepath.Join(t.TempDir(), funcName)
+
+	knFunc.TestCmd.Exec("create",
+		"--language", "go",
+		"--template", "volumes",
+		"--repository", "http://github.com/boson-project/test-templates.git",
+		funcPath)
+	knFunc.TestCmd.SourceDir = funcPath
+
+	/*
+		? What do you want to mount as a Volume?  [Use arrows to move, type to filter]
+	*/
+	configVolumesAdd := ConfigVolumesAdd(knFunc)
+
+	configVolumesAdd(
+		"PersistentVolumeClaim", enter,
+		pvcName, enter, // ? Which "PersistentVolumeClaim" do you want to mount?
+		"/test/pvc", enter, // ? Please specify the path where the PersistentVolumeClaim should be mounted:
+		"N", enter) // ? Is this volume read-only? (y/N)
+
+	configVolumesAdd(
+		"EmptyDir", enter,
+		"/test/empty-dir", enter) // ? Please specify the path where the EmptyDir should be mounted:
+
+	// Deploy
+
+	knFunc.TestCmd.Exec("deploy", "--builder", "pack", "--registry", common.GetRegistry())
+	t.Cleanup(func() {
+		knFunc.TestCmd.Exec("delete")
+	})
+	_, functionUrl := common.WaitForFunctionReady(t, funcName)
+
+	// Validation
+	// The function template used by this test will help by read/write a file to the volume
+	filesPath := []string{"/test/pvc/a.txt", "/test/empty-dir/a.txt"}
+	fileContentToWrite := "A_CONTENT"
+
+	for _, filePath := range filesPath {
+		// - Write to volume test
+		targetUrl := fmt.Sprintf("%s?v=%s&w=%s", functionUrl, filePath, fileContentToWrite)
+		_, funcResponse := testhttp.TestGet(t, targetUrl)
+		assert.Assert(t, funcResponse == fileContentToWrite, "Write volume test failed writing to file %s", filePath)
+
+		// - Read from volume test
+		targetUrl = fmt.Sprintf("%s?v=%s", functionUrl, filePath)
+		_, funcResponse = testhttp.TestGet(t, targetUrl)
+		assert.Assert(t, funcResponse == fileContentToWrite,
+			"Read volume test failed. File %s content should be %s but it is %s", filePath, fileContentToWrite, funcResponse)
+	}
 }
