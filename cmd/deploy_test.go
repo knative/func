@@ -16,6 +16,7 @@ import (
 	"knative.dev/func/pkg/builders"
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/mock"
 )
 
@@ -759,6 +760,7 @@ func TestDeploy_ImageWithDigestErrors(t *testing.T) {
 		{
 			name:  "correctly formatted full image with digest yields no error (degen case)",
 			image: "example.com/myNamespace/myFunction:latest@sha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4e",
+			build: "false",
 		},
 		{
 			name:      "--build forced on yields error",
@@ -1072,7 +1074,7 @@ func TestDeploy_NamespaceUpdateWarning(t *testing.T) {
 	))
 	cmd.SetArgs([]string{"--namespace=newns"})
 	out := strings.Builder{}
-	fmt.Fprintln(&out, "Test errpr")
+	fmt.Fprintln(&out, "Test error")
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 
@@ -1082,12 +1084,17 @@ func TestDeploy_NamespaceUpdateWarning(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
-	expected := "Warning: function is in namespace 'myns', but requested namespace is 'newns'. Continuing with deployment to 'newns'."
+	activeNamespace, err := k8s.GetNamespace("")
+	if err != nil {
+		t.Fatalf("Couldnt get active namespace, got error: %v", err)
+	}
 
-	// Ensure output contained warning if changing namespace
-	if !strings.Contains(out.String(), expected) {
+	expected1 := "Info: chosen namespace has changed from 'myns' to 'newns'. Undeploying function from 'myns' and deploying new in 'newns'."
+	expected2 := fmt.Sprintf("Warning: namespace chosen is 'newns', but currently active namespace is '%s'. Continuing with deployment to 'newns'.", activeNamespace)
+	// Ensure output contained info and warning if changing namespace
+	if !strings.Contains(out.String(), expected1) || !strings.Contains(out.String(), expected2) {
 		t.Log("STDERR:\n" + out.String())
-		t.Fatalf("Expected warning not found:\n%v", expected)
+		t.Fatalf("Expected Info and/or Warning not found:\n%v|%v", expected1, expected2)
 	}
 
 	// Ensure the function was saved as having been deployed to
@@ -1096,7 +1103,7 @@ func TestDeploy_NamespaceUpdateWarning(t *testing.T) {
 		t.Fatal(err)
 	}
 	if f.Deploy.Namespace != "newns" {
-		t.Fatalf("expected function to be deoployed into namespace 'newns'.  got '%v'", f.Deploy.Namespace)
+		t.Fatalf("expected function to be deployed into namespace 'newns'.  got '%v'", f.Deploy.Namespace)
 	}
 }
 
