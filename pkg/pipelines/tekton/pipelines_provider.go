@@ -156,12 +156,12 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, er
 		}
 	}
 
-	registry, err := docker.GetRegistry(f.Image)
+	registry, err := docker.GetRegistry(f.Deploy.Image)
 	if err != nil {
 		return "", fmt.Errorf("problem in resolving image registry name: %v", err)
 	}
 
-	creds, err := pp.credentialsProvider(ctx, f.Image)
+	creds, err := pp.credentialsProvider(ctx, f.Deploy.Image)
 	if err != nil {
 		return "", err
 	}
