@@ -269,7 +269,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	// Deploy
 	if cfg.Remote {
 		// Invoke a remote build/push/deploy pipeline
-		// Returned is the function with fields like Registry and Image populated.
+		// Returned is the function with fields like Registry and .Deploy.Image populated.
 		if f, err = client.RunPipeline(cmd.Context(), f); err != nil {
 			return
 		}
@@ -281,6 +281,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 
 		if digested {
 			f.Deploy.Image = cfg.Image
+			f.Build.Image = cfg.Image // when digested image is used and not remotely built, set .Build.Image
 
 		} else {
 			// if NOT digested, build and push the Function
@@ -294,13 +295,12 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 			}
 			// f.Build.Image is set in Push for now, just set it as a deployed image
 			f.Deploy.Image = f.Build.Image
-			// write .func/built-name as running metadata which is not persisted in yaml
+			// write .func/built-image as running metadata which is not persisted in func.yaml
 			if err = f.WriteBuiltImageOnChange(cfg.Verbose); err != nil {
 				return
 			}
 		}
 
-		// TODO: check if image was already deployed in diff namespace, if so -- delete the dangling one and deploy new one in current namespace
 		if f, err = client.Deploy(cmd.Context(), f, fn.WithDeploySkipBuildCheck(cfg.Build == "false")); err != nil {
 			return
 		}
@@ -741,9 +741,9 @@ func printDeployMessages(out io.Writer, cfg deployConfig, f fn.Function) {
 	}
 }
 
-// hasDigest returns the image digest from a full image string if it exists,
-// and includes basic validation that a provided digest is correctly formatted.
-func hasDigest(v string) (hasDigest bool, err error) {
+// hasDigest returns true if provided image string 'v' has digest and false if not.
+// Includes basic validation that a provided digest is correctly formatted.
+func hasDigest(v string) (validDigest bool, err error) {
 	var digest string
 	vv := strings.Split(v, "@")
 	if len(vv) < 2 {
@@ -763,6 +763,6 @@ func hasDigest(v string) (hasDigest bool, err error) {
 		err = fmt.Errorf("image digest '%v' has an invalid sha256 hash length of %v when it should be 64", digest, len(digest[7:]))
 	}
 
-	hasDigest = true
+	validDigest = true
 	return
 }
