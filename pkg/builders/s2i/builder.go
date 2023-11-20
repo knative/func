@@ -356,6 +356,9 @@ func s2iScriptURL(ctx context.Context, cli DockerClient, image string) (string, 
 			if err != nil {
 				return "", fmt.Errorf("cannot parse image name: %w", err)
 			}
+			if _, ok := ref.(name.Tag); ok {
+				fmt.Println("image referenced by tag which is discouraged: Tags are mutable and can point to a different artifact than the expected one")
+			}
 			img, err = remote.Image(ref)
 			if err != nil {
 				return "", fmt.Errorf("cannot get image from registry: %w", err)
