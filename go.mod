@@ -1,6 +1,8 @@
 module knative.dev/func
 
-go 1.20
+go 1.21
+
+toolchain go1.21.4
 
 // Use older version since it checks ~/.docker/config.json for credentials as opposed to later versions
 replace github.com/containers/image/v5 => github.com/containers/image/v5 v5.23.1
@@ -56,11 +58,11 @@ require (
 	k8s.io/api v0.27.6
 	k8s.io/apimachinery v0.27.6
 	k8s.io/client-go v0.27.6
-	knative.dev/client-pkg v0.0.0-20231025084112-26b8741a2534
-	knative.dev/eventing v0.39.1-0.20231120114720-140482e3189a
+	knative.dev/client-pkg v0.0.0-20231120183025-83abcc001800
+	knative.dev/eventing v0.39.1-0.20231120220132-67f382d60b43
 	knative.dev/hack v0.0.0-20231109190034-5deaddeb51a7
-	knative.dev/pkg v0.0.0-20231115001034-97c7258e3a98
-	knative.dev/serving v0.39.1-0.20231120130112-21dc1916b719
+	knative.dev/pkg v0.0.0-20231120182734-703c8b0d5c34
+	knative.dev/serving v0.39.1-0.20231121111845-30c9b6d91659
 )
 
 require (
