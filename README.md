@@ -21,6 +21,7 @@ We use GitHub issues and project to track our roadmap. Please see our roadmap [h
 
 ## Contributing
 
-We are always looking for contributions from the Function Developer community.  For more information on how to participate, see the [Contribuiting Guide](docs/CONTRIBUTING.md)
+We are always looking for contributions from the Function Developer community.  For more information on how to participate, see the [Contribuiting Guide](docs/CONTRIBUTING.md).
+For a list of all help wanted issues in Knative, take a look at [CLOTRIBUTOR](https://clotributor.dev/search?project=knative&page=1).
 
 The `func` Working Group meets @ 10:00 US Eastern every Tuesday, we'd love to have you! For more information, see the invitation on the [Knative Team Calendar](https://calendar.google.com/calendar/u/0/embed?src=knative.team_9q83bg07qs5b9rrslp5jor4l6s@group.calendar.google.com).
