@@ -67,7 +67,7 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, startTimeout time.Durat
 		runtimeErrCh = make(chan error, 10)
 	)
 
-	if f.Deploy.Image == "" {
+	if f.Build.Image == "" {
 		return job, errors.New("Function has no associated image. Has it been built?")
 	}
 	if c, _, err = NewClient(client.DefaultDockerHost); err != nil {

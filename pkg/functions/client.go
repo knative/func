@@ -767,10 +767,6 @@ func (c *Client) RunPipeline(ctx context.Context, f Function) (Function, error) 
 	// If no image name has been yet defined (not yet built/deployed), calculate
 	// unless f.Image was specified - user defined image name to be used
 	// Image name is stored on the function for later use by deploy.
-	// TODO: gauron99-should this be stored somewhere else as well? like
-	// .Build.Image since the Function is going to be built(&deployed) on cluster
-	// under the f.Deploy.Image name. In scenario Init -> Deploy with remote,
-	// f.Build.Image is not gonna be populated
 	if f.Image != "" {
 		// if user specified an image, use it
 		f.Deploy.Image = f.Image
@@ -781,7 +777,6 @@ func (c *Client) RunPipeline(ctx context.Context, f Function) (Function, error) 
 		}
 	}
 
-	fmt.Printf("-- deploy: %s| f.Image: %s\n", f.Deploy.Image, f.Image)
 	// Build and deploy function using Pipeline
 	if _, err := c.pipelinesProvider.Run(ctx, f); err != nil {
 		return f, fmt.Errorf("failed to run pipeline: %w", err)
