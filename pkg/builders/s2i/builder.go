@@ -38,8 +38,8 @@ import (
 // DefaultName when no WithName option is provided to NewBuilder
 const DefaultName = builders.S2I
 
-var DefaultNodeBuilder = "registry.access.redhat.com/ubi8/nodejs-16-minimal"
-var DefaultQuarkusBuilder = "registry.access.redhat.com/ubi8/openjdk-21"
+var DefaultNodeBuilder = "registry.access.redhat.com/ubi8/nodejs-18-minimal"
+var DefaultQuarkusBuilder = "registry.access.redhat.com/ubi8/openjdk-17"
 var DefaultPythonBuilder = "registry.access.redhat.com/ubi8/python-39"
 
 // DefaultBuilderImages for s2i builders indexed by Runtime Language
@@ -139,7 +139,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 	// Build Config
 	cfg := &api.Config{}
 	cfg.Quiet = !b.verbose
-	cfg.Tag = f.Build.Image
+	cfg.Tag = f.Image
 	cfg.Source = &git.URL{URL: url.URL{Path: f.Root}, Type: git.URLTypeLocal}
 	cfg.BuilderImage = builderImage
 	cfg.BuilderPullPolicy = api.DefaultBuilderPullPolicy
@@ -319,7 +319,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 	}()
 
 	opts := types.ImageBuildOptions{
-		Tags:       []string{f.Build.Image},
+		Tags:       []string{f.Image},
 		PullParent: true,
 	}
 
@@ -385,7 +385,6 @@ func s2iScriptURL(ctx context.Context, cli DockerClient, image string) (string, 
 		}
 	}
 
-	//nolint:staticcheck
 	if img.ContainerConfig != nil && img.ContainerConfig.Labels != nil {
 		if u, ok := img.ContainerConfig.Labels["io.openshift.s2i.scripts-url"]; ok {
 			return u, nil
