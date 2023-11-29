@@ -48,6 +48,7 @@ require (
 	github.com/whilp/git-urls v1.0.0
 	github.com/xanzy/go-gitlab v0.83.0
 	golang.org/x/crypto v0.15.0
+	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
 	golang.org/x/net v0.18.0
 	golang.org/x/oauth2 v0.14.0
 	golang.org/x/sync v0.5.0
@@ -227,7 +228,6 @@ require (
 	go.starlark.net v0.0.0-20220817180228-f738f5508c12 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
 	go.uber.org/zap v1.26.0 // indirect
-	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1 // indirect
 	golang.org/x/mod v0.14.0 // indirect
 	golang.org/x/sys v0.14.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
