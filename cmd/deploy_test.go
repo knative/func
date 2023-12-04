@@ -193,6 +193,9 @@ func testConfigApplied(cmdFn commandConstructor, t *testing.T) {
 	if err := cmdFn(clientFn).Execute(); err != nil {
 		t.Fatal(err)
 	}
+	if err := f.Write(); err != nil {
+		t.Fatal(err)
+	}
 	if f, err = fn.NewFunction(root); err != nil {
 		t.Fatal(err)
 	}
@@ -1544,5 +1547,70 @@ func Test_ValidateBuilder(t *testing.T) {
 
 	if err := ValidateBuilder("invalid"); err == nil {
 		t.Fatalf("did not get expected error validating an invalid builder name")
+	}
+}
+
+// TestReDeploy_ErrorOnRegistryChangeWithoutBuild tests that subsequent deploy
+// with different --registry and --build disabled throws an error because client
+// wasnt able to build on a registry change
+func TestReDeploy_ErrorOnRegistryChangeWithoutBuild(t *testing.T) {
+	// Change profile to one whose current profile is 'test-ns-deploy'
+	kubeconfig := filepath.Join(cwd(), "testdata", "TestReDeploy_ErrorOnRegistryChangeWithoutBuild/kubeconfig")
+	root := fromTempDirectory(t)
+	t.Setenv("KUBECONFIG", kubeconfig)
+
+	// Create a basic go Function
+	f := fn.Function{
+		Runtime: "go",
+		Root:    root,
+	}
+	_, err := fn.New().Init(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// create build cmd
+	cmdBuild := NewBuildCmd(NewTestClient(fn.WithBuilder(mock.NewBuilder())))
+	cmdBuild.SetArgs([]string{"--registry=" + TestRegistry})
+
+	// First: prebuild Function
+	if err := cmdBuild.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// change namespace and deploy again
+	newRegistry := "example.com/fred"
+
+	// Redeploy the function without specifying namespace.
+	cmd := NewDeployCmd(NewTestClient(
+		fn.WithDeployer(mock.NewDeployer()),
+	))
+
+	cmd.SetArgs([]string{"--registry=" + newRegistry, "--build=false"})
+
+	stdout := strings.Builder{}
+	cmd.SetOut(&stdout)
+
+	// Second: Deploy with different registry and build disabled (check err here)
+	err = cmd.Execute()
+
+	expectedPrint := fmt.Sprintf("Error: --build flag was disabled but you most likely provided new registry '%v'. Enable build (--build=true) to override or build beforehand with your new registry to apply it\n", newRegistry)
+	expectedError := fmt.Sprintf("new registry '%v' was provided but build was disabled, cannot update image name", newRegistry)
+
+	// ASSERT
+
+	// Ensure output contained error message
+	if !strings.Contains(stdout.String(), expectedPrint) {
+		t.Log("STDOUT:\n" + stdout.String())
+		t.Fatalf("Expected message not found:\n%v", expectedPrint)
+	}
+
+	// ensure we get the right error
+	if err == nil {
+		t.Fatal("expected error but got nil")
+	}
+
+	if err.Error() != expectedError {
+		t.Fatalf("expected error message '%v' but got '%v'", expectedError, err.Error())
 	}
 }

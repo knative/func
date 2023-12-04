@@ -21,6 +21,7 @@ import (
 	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
+	cmd "knative.dev/func/cmd"
 	"knative.dev/func/pkg/builders"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/mock"
@@ -1949,3 +1950,51 @@ func TestClient_BuildCleanFingerprint(t *testing.T) {
 }
 
 // TestClient_BuildPopulatesImage
+
+// Test_RemoveInvokedOnOldFunction checks that Remover was invoked after a
+// subsequent redeploy to a new namespace.
+// specifically: deploy to 'nsone', redeploy to 'nstwo' with --namespace flag
+// overriding the ns and expect the remover to be invoked for old Function in ns 'nsone'
+func TestClient_RemoveInvokedOnOldFunction(t *testing.T) {
+	// Create a temporary directory
+	root, cleanup := Mktemp(t)
+	defer cleanup()
+
+	nsOne := "nsone"
+	nsTwo := "nstwo"
+
+	// A mock remover which fails if the name from the func.yaml is not received.
+	remover := mock.NewRemover()
+
+	client := fn.New()
+	// initialize function with namespace defined as nsone
+	_, err := client.Init(fn.Function{Runtime: "go", Root: root,
+		Deploy: fn.DeploySpec{Namespace: nsOne}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// 	// set deploy command
+	cmd := cmd.NewDeployCmd(cmd.NewTestClient(
+		fn.WithDeployer(mock.NewDeployer()),
+		fn.WithRegistry(TestRegistry),
+		fn.WithRemover(remover),
+	))
+
+	// set arguments for deploy command and execute the command
+	cmd.SetArgs([]string{fmt.Sprintf("--namespace=%s", nsOne)})
+	if err = cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// now deploy again with a change of namespace via flag -- should delete old Func
+	cmd.SetArgs([]string{fmt.Sprintf("--namespace=%s", nsTwo)})
+	if err = cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// check that a remove was invoked getting rid of the old Function
+	if !remover.RemoveInvoked {
+		t.Fatal(fmt.Errorf("remover was not invoked on an old function"))
+	}
+}

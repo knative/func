@@ -256,11 +256,13 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	if cfg.Namespace != oldF.Deploy.Namespace && oldF.Deploy.Namespace != "" {
 		// TODO: when new prompt is implemented, add here a "are you sure?" check possibly
 
-		// fmt.Fprintf(cmd.OutOrStdout(), "Info: Deleting old func in '%s' because the namespace has changed\n", oldF.Deploy.Namespace)
+		fmt.Fprintf(cmd.OutOrStdout(), "Info: Deleting old func in '%s' because the namespace has changed\n", oldF.Deploy.Namespace)
 		oldClient, doneOld := newClient(ClientConfig{Namespace: oldF.Deploy.Namespace, Verbose: cfg.Verbose}, clientOptions...)
 		defer doneOld()
-		oldClient.Remove(cmd.Context(), oldF, true)
-
+		err = oldClient.Remove(cmd.Context(), oldF, true)
+		if err != nil {
+			return
+		}
 	}
 
 	// check if --image was provided with a digest
@@ -325,18 +327,38 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 // optional build step.
 func build(cmd *cobra.Command, flag string, f fn.Function, client *fn.Client, buildOptions []fn.BuildOption) (fn.Function, error) {
 	var err error
+
+	// TODO: gauron99 - This checks whether a registry has changed on a subsequent build
+	// decision (Like on func deploy --registry=X when already built image is Y)
+	// This can probably be added into f.Built() function for simpler and more global
+	// implementation
+	registryChangedSubsequently := false
+	if !strings.Contains(f.Build.Image, f.Registry) && f.Image == "" && f.Build.Image != "" {
+		registryChangedSubsequently = true
+	}
+
+	build, _ := strconv.ParseBool(flag)
 	if flag == "auto" {
-		if f.Built() {
+		if f.Built() && !registryChangedSubsequently {
 			fmt.Fprintln(cmd.OutOrStdout(), "function up-to-date. Force rebuild with --build")
 		} else {
 			if f, err = client.Build(cmd.Context(), f, buildOptions...); err != nil {
 				return f, err
 			}
 		}
-	} else if build, _ := strconv.ParseBool(flag); build {
+	} else if build {
 		if f, err = client.Build(cmd.Context(), f, buildOptions...); err != nil {
 			return f, err
 		}
+	} else if !build && registryChangedSubsequently {
+		// This else-if-branch solves edge case problem.
+		// This happens when --registry is given with deploy when a different registry
+		// has been used to build image previously.
+		// Ex.:
+		// step 1) Init -> Build with: --registry example.com/alice
+		// step 2) Deploy with: --registry example.com/fred --build=false
+		fmt.Fprintf(cmd.OutOrStdout(), "Error: --build flag was disabled but you most likely provided new registry '%v'. Enable build (--build=true) to override or build beforehand with your new registry to apply it\n", f.Registry)
+		return f, fmt.Errorf("new registry '%v' was provided but build was disabled, cannot update image name", f.Registry)
 	} else if _, err = strconv.ParseBool(flag); err != nil {
 		return f, fmt.Errorf("--build ($FUNC_BUILD) %q not recognized.  Should be 'auto' or a truthy value such as 'true', 'false', '0', or '1'.", flag)
 

@@ -130,7 +130,7 @@ func TestIntegration(t *testing.T) {
 		Created: now,
 		Deploy: fn.DeploySpec{
 			// TODO: gauron99 - is it okay to have this explicitly set to deploy.image already?
-			// With this I skip the logic of setting the .Deploy.Image field which should be fine for this test, I think?
+			// With this I skip the logic of setting the .Deploy.Image field but it should be fine for this test
 			Image:     "quay.io/mvasek/func-test-service@sha256:2eca4de00d7569c8791634bdbb0c4d5ec8fb061b001549314591e839dabd5269",
 			Namespace: namespace,
 			Labels:    []fn.Label{{Key: ptr("my-label"), Value: ptr("my-label-value")}},
