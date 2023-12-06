@@ -11,6 +11,9 @@
 /bin
 /target
 
+# vendor
+/vendor
+
 # Nodejs
 node_modules
 
