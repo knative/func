@@ -47,6 +47,9 @@ buildEnvs:
     value: native-image.args
   - name: BP_NATIVE_IMAGE_BUILT_ARTIFACT
     value: '*-runner.jar'
+  - name: BP_JVM_VERSION
+    value: 21
+
 ```
 
 ### Running
