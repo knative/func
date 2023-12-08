@@ -489,6 +489,12 @@ func (c *Client) New(ctx context.Context, cfg Function) (string, Function, error
 		return route, f, err
 	}
 
+	// TODO: change this later when push doesnt return built image.
+	// Assign this as c.Push is going to produce the built image (for now) to
+	// .Deploy.Image for the deployer -- figure out where to assign .Deploy.Image
+	// first, might be just moved above push
+	f.Deploy.Image = f.Build.Image
+
 	// Deploy the initialized function, returning its publicly
 	// addressible name for possible registration.
 	fmt.Fprintf(os.Stderr, "Deploying function to cluster\n")

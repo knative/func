@@ -1554,10 +1554,7 @@ func Test_ValidateBuilder(t *testing.T) {
 // with different --registry and --build disabled throws an error because client
 // wasnt able to build on a registry change
 func TestReDeploy_ErrorOnRegistryChangeWithoutBuild(t *testing.T) {
-	// Change profile to one whose current profile is 'test-ns-deploy'
-	kubeconfig := filepath.Join(cwd(), "testdata", "TestReDeploy_ErrorOnRegistryChangeWithoutBuild/kubeconfig")
 	root := fromTempDirectory(t)
-	t.Setenv("KUBECONFIG", kubeconfig)
 
 	// Create a basic go Function
 	f := fn.Function{
