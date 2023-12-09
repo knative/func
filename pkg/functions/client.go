@@ -447,6 +447,13 @@ func (c *Client) Update(ctx context.Context, f Function) (string, Function, erro
 	if f, err = c.Push(ctx, f); err != nil {
 		return "", f, err
 	}
+
+	// TODO: change this later when push doesnt return built image.
+	// Assign this as c.Push is going to produce the built image (for now) to
+	// .Deploy.Image for the deployer -- figure out where to assign .Deploy.Image
+	// first, might be just moved above push
+	f.Deploy.Image = f.Build.Image
+
 	if f, err = c.Deploy(ctx, f); err != nil {
 		return "", f, err
 	}
