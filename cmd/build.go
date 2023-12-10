@@ -214,7 +214,7 @@ type buildConfig struct {
 
 // newBuildConfig gathers options into a single build request.
 func newBuildConfig() buildConfig {
-	bc := buildConfig{
+	return buildConfig{
 		Global: config.Global{
 			Builder:  viper.GetString("builder"),
 			Confirm:  viper.GetBool("confirm"),
@@ -228,8 +228,6 @@ func newBuildConfig() buildConfig {
 		Push:          viper.GetBool("push"),
 		WithTimestamp: viper.GetBool("build-timestamp"),
 	}
-
-	return bc
 }
 
 // Configure the given function.  Updates a function struct with all

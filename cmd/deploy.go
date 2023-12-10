@@ -265,7 +265,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		// service mightve been manually deleted prior to the subsequent deploy or the
 		// namespace is already deleted therefore there is nothing to delete
 		if apiErrors.IsNotFound(err) {
-			fmt.Printf("Warning: Cant undeploy Function in namespace '%s' - service not found. Namespace/Service might be deleted already", oldF.Deploy.Namespace)
+			fmt.Fprintf(cmd.OutOrStdout(), "Warning: Cant undeploy Function in namespace '%s' - service not found. Namespace/Service might be deleted already", oldF.Deploy.Namespace)
 			err = nil
 		}
 		if err != nil {
@@ -276,11 +276,11 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		// TODO: gauron99 - this could probably be implemented within the config part (above).
 		// The most default part of registry (in buildConfig) checks 'k8s.IsOpenShift()' and if true,
 		// sets default registry by current namespace -> therefore it is always the
-		// "old" registry in this case so it has to be overriden somewhere later
+		// "old" registry in this case so it has to be overridden somewhere later
 		if k8s.IsOpenShift() {
 			f.Registry = "image-registry.openshift-image-registry.svc:5000/" + f.Deploy.Namespace
 			if cfg.Verbose {
-				fmt.Printf("Info: Overriding openshift registry to %s\n", f.Registry)
+				fmt.Fprintf(cmd.OutOrStdout(), "Info: Overriding openshift registry to %s\n", f.Registry)
 			}
 		}
 	}
