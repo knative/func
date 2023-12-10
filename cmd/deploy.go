@@ -11,6 +11,7 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
+	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"knative.dev/client-pkg/pkg/util"
 	"knative.dev/func/pkg/builders"
@@ -260,8 +261,27 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		oldClient, doneOld := newClient(ClientConfig{Namespace: oldF.Deploy.Namespace, Verbose: cfg.Verbose}, clientOptions...)
 		defer doneOld()
 		err = oldClient.Remove(cmd.Context(), oldF, true)
+		// Warn when service is not found and set err to nil to continue. Function's
+		// service mightve been manually deleted prior to the subsequent deploy or the
+		// namespace is already deleted therefore there is nothing to delete
+		if apiErrors.IsNotFound(err) {
+			fmt.Printf("Warning: Cant undeploy Function in namespace '%s' - service not found. Namespace/Service might be deleted already", oldF.Deploy.Namespace)
+			err = nil
+		}
 		if err != nil {
 			return
+		}
+
+		// when running openshift, namespace is tied to registry, override on --namespace change
+		// TODO: gauron99 - this could probably be implemented within the config part (above).
+		// The most default part of registry (in buildConfig) checks 'k8s.IsOpenShift()' and if true,
+		// sets default registry by current namespace -> therefore it is always the
+		// "old" registry in this case so it has to be overriden somewhere later
+		if k8s.IsOpenShift() {
+			f.Registry = "image-registry.openshift-image-registry.svc:5000/" + f.Deploy.Namespace
+			if cfg.Verbose {
+				fmt.Printf("Info: Overriding openshift registry to %s\n", f.Registry)
+			}
 		}
 	}
 
