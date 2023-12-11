@@ -637,7 +637,7 @@ func (c *Client) Build(ctx context.Context, f Function, options ...BuildOption) 
 		f.Registry = c.registry
 	}
 
-	// If no image name has been yet defined (not yet built/deployed), calculate.
+	// If no image name has been specified by user (--image), calculate.
 	// Image name is stored on the function for later use by deploy, etc.
 	var err error
 	if f.Image == "" {
@@ -777,8 +777,7 @@ func (c *Client) RunPipeline(ctx context.Context, f Function) (Function, error) 
 		f.Registry = c.registry
 	}
 
-	// If no image name has been yet defined (not yet built/deployed), calculate
-	// unless f.Image was specified - user defined image name to be used
+	// If no image name has been specified by user (--image), calculate.
 	// Image name is stored on the function for later use by deploy.
 	if f.Image != "" {
 		// if user specified an image, use it

@@ -64,6 +64,9 @@ func TestOnClusterBuild(t *testing.T) {
 			f := createSimpleGoProject(t, ns)
 			f.Build.Builder = test.Builder
 
+			// simulate deploying by passing the image
+			f.Deploy.Image = f.Image
+
 			url, err := pp.Run(ctx, f)
 			if err != nil {
 				t.Error(err)

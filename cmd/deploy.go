@@ -278,6 +278,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		// sets default registry by current namespace -> therefore it is always the
 		// "old" registry in this case so it has to be overridden somewhere later
 		if k8s.IsOpenShift() {
+			// this name is based of k8s package
 			f.Registry = "image-registry.openshift-image-registry.svc:5000/" + f.Deploy.Namespace
 			if cfg.Verbose {
 				fmt.Fprintf(cmd.OutOrStdout(), "Info: Overriding openshift registry to %s\n", f.Registry)
@@ -733,7 +734,6 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 
 // printDeployMessages to the output.  Non-error deployment messages.
 func printDeployMessages(out io.Writer, cfg deployConfig, f fn.Function) {
-	// TODO: gauron check
 	digest, err := hasDigest(cfg.Image)
 	if err == nil && digest {
 		fmt.Fprintf(out, "Deploying image '%v', which has a digest. Build and push are disabled.\n", cfg.Image)
@@ -747,7 +747,6 @@ func printDeployMessages(out io.Writer, cfg deployConfig, f fn.Function) {
 	// If creating a duplicate deployed function in a different
 	// namespace.
 	if targetNamespace != currentNamespace && currentNamespace != "" {
-		// fmt.Fprintf(out, "Warning: function is in namespace '%s', but requested namespace is '%s'. Continuing with deployment to '%v'.\n", currentNamespace, targetNamespace, targetNamespace)
 		fmt.Fprintf(out, "Info: chosen namespace has changed from '%s' to '%s'. Undeploying function from '%s' and deploying new in '%s'.\n", currentNamespace, targetNamespace, currentNamespace, targetNamespace)
 	}
 
