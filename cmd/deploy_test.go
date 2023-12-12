@@ -1615,7 +1615,7 @@ func TestReDeploy_ErrorOnRegistryChangeWithoutBuild(t *testing.T) {
 }
 
 // TestWarnDuringOldFuncUndeploy assures that warning is printed out when old Function's
-// service is not available (is already deleted manualy or the namespace doesnt exist etc.)
+// service is not available (is already deleted manually or the namespace doesnt exist etc.)
 // Warning: Cant undeploy Function in namespace
 func TestWarnDuringOldFuncUndeploy(t *testing.T) {
 	var (
