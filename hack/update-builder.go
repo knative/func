@@ -122,7 +122,7 @@ func buildBuilderImage(ctx context.Context, variant string) error {
 		return fmt.Errorf("cannot parse builder.toml: %w", err)
 	}
 
-	patchBuilder(&builderConfig)
+	addGoAndRustBuildpacks(&builderConfig)
 
 	packClient, err := pack.NewClient()
 	if err != nil {
@@ -288,7 +288,7 @@ func downloadBuilderToml(ctx context.Context, tarballUrl, builderTomlPath string
 }
 
 // Adds custom Rust and Go-Function buildpacks to the builder.
-func patchBuilder(config *builder.Config) {
+func addGoAndRustBuildpacks(config *builder.Config) {
 	config.Description += "\nAddendum: this is modified builder that also contains Rust and Func-Go buildpacks."
 	additionalBuildpacks := []builder.ModuleConfig{
 		{
