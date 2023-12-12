@@ -603,6 +603,9 @@ func downloadTarball(tarballUrl, destDir string) error {
 			}
 			return fmt.Errorf("cannot read tar header: %w", err)
 		}
+		if strings.Contains(hdr.Name, "..") {
+			return fmt.Errorf("file name in tar header contains '..'")
+		}
 
 		n := filepath.Clean(filepath.Join(strings.Split(hdr.Name, "/")[1:]...))
 		if strings.HasPrefix(n, "..") {
