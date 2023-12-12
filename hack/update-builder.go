@@ -623,10 +623,7 @@ func downloadTarball(tarballUrl, destDir string) error {
 				return fmt.Errorf("cannot read from tar reader: %w", err)
 			}
 		case tar.TypeSymlink:
-			err = os.Symlink(filepath.FromSlash(hdr.Linkname), dest)
-			if err != nil {
-				return fmt.Errorf("cannot create symlink: %w", err)
-			}
+			return fmt.Errorf("symlinks are not supported yet")
 		case tar.TypeDir:
 			err = os.MkdirAll(dest, 0755)
 			if err != nil {
