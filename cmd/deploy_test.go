@@ -13,6 +13,8 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
+	apiErrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/func/pkg/builders"
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
@@ -1609,5 +1611,67 @@ func TestReDeploy_ErrorOnRegistryChangeWithoutBuild(t *testing.T) {
 
 	if err.Error() != expectedError {
 		t.Fatalf("expected error message '%v' but got '%v'", expectedError, err.Error())
+	}
+}
+
+// TestWarnDuringOldFuncUndeploy assures that warning is printed out when old Function's
+// service is not available (is already deleted manualy or the namespace doesnt exist etc.)
+// Warning: Cant undeploy Function in namespace
+func TestWarnDuringOldFuncUndeploy(t *testing.T) {
+	var (
+		root    = fromTempDirectory(t)
+		nsOne   = "nsone"
+		nsTwo   = "nstwo"
+		remover = mock.NewRemover()
+	)
+
+	// Create a basic go Function
+	f := fn.Function{
+		Runtime: "go",
+		Root:    root,
+	}
+	_, err := fn.New().Init(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Deploy the function to ns "nsone"
+	cmd := NewDeployCmd(NewTestClient(
+		fn.WithDeployer(mock.NewDeployer()),
+		fn.WithRegistry(TestRegistry),
+		fn.WithRemover(remover)))
+
+	cmd.SetArgs([]string{fmt.Sprintf("--namespace=%s", nsOne)})
+	err = cmd.Execute()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Simulate remover error
+	remover.RemoveFn = func(n string) error {
+		return apiErrors.NewNotFound(schema.GroupResource{Group: "", Resource: "Namespace"}, nsOne)
+	}
+
+	// Second Deploy with different namespace
+	cmd.SetArgs([]string{fmt.Sprintf("--namespace=%s", nsTwo)})
+
+	stdout := strings.Builder{}
+	cmd.SetOut(&stdout)
+	err = cmd.Execute()
+
+	expectedWarning := fmt.Sprintf("Warning: Cant undeploy Function in namespace '%s' - service not found. Namespace/Service might be deleted already", nsOne)
+
+	// ASSERT
+
+	// Needs to pass since the error is set to nil with the warning message below
+	// that is printed out
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Ensure output contained warning message
+	if !strings.Contains(stdout.String(), expectedWarning) {
+		t.Log("STDOUT:\n" + stdout.String())
+		t.Fatalf("Expected warning not found:\n%v", expectedWarning)
 	}
 }

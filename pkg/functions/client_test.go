@@ -903,8 +903,8 @@ func TestClient_Update(t *testing.T) {
 }
 
 // TestClient_Deploy_RegistryUpdate ensures that deploying a Function updates
-// its image member on initial deploy, and on subsequent deploys only
-// if reset to it zero value.
+// its image member on initial deploy, and on subsequent deploys where f.Image
+// takes precedence
 func TestClient_Deploy_RegistryUpdate(t *testing.T) {
 	root, rm := Mktemp(t)
 	defer rm()
