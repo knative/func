@@ -312,6 +312,9 @@ func buildBuildpackImage(ctx context.Context, bp buildpack) error {
 
 	// set URI and OS in package.toml
 	f, err := os.OpenFile(filepath.Join(srcDir, "package.toml"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return fmt.Errorf("cannot open package.toml: %w", err)
+	}
 	defer func(f *os.File) {
 		_ = f.Close()
 	}(f)
