@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	giturls "github.com/whilp/git-urls"
+	giturls "github.com/chainguard-dev/git-urls"
 )
 
 type Git struct {

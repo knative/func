@@ -14,6 +14,7 @@ require (
 	github.com/Netflix/go-expect v0.0.0-20220104043353-73e0943537d2
 	github.com/alecthomas/jsonschema v0.0.0-20220216202328-9eeeec9d044b
 	github.com/buildpacks/pack v0.30.0-pre3
+	github.com/chainguard-dev/git-urls v1.0.2
 	github.com/cloudevents/sdk-go/v2 v2.14.0
 	github.com/containerd/containerd v1.7.2
 	github.com/containers/image/v5 v5.26.1
@@ -45,7 +46,6 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/tektoncd/cli v0.31.1
 	github.com/tektoncd/pipeline v0.47.0
-	github.com/whilp/git-urls v1.0.0
 	github.com/xanzy/go-gitlab v0.83.0
 	golang.org/x/crypto v0.15.0
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1
