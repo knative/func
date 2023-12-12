@@ -570,10 +570,14 @@ func addQuarkusBuildpack(packageDesc *buildpackage.Config, bpDesc *dist.Buildpac
 }
 
 func downloadTarball(tarballUrl, destDir string) error {
+	//nolint:bodyclose
 	resp, err := http.Get(tarballUrl)
 	if err != nil {
 		return fmt.Errorf("cannot get tarball: %w", err)
 	}
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
 	if resp.StatusCode != 200 {
 		return fmt.Errorf("cannot get tarball: %s", resp.Status)
 	}
