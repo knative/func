@@ -604,7 +604,12 @@ func downloadTarball(tarballUrl, destDir string) error {
 			return fmt.Errorf("cannot read tar header: %w", err)
 		}
 
-		dest := filepath.Join(destDir, filepath.Join(strings.Split(hdr.Name, "/")[1:]...))
+		n := filepath.Clean(filepath.Join(strings.Split(hdr.Name, "/")[1:]...))
+		if strings.HasPrefix(n, "..") {
+			return fmt.Errorf("path in tar header escapes")
+		}
+		dest := filepath.Join(destDir, n)
+
 		switch hdr.Typeflag {
 		case tar.TypeReg:
 			var f *os.File
