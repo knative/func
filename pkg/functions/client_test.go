@@ -1921,11 +1921,6 @@ func TestClient_BuildCleanFingerprint(t *testing.T) {
 	f := fn.Function{Root: root, Runtime: TestRuntime, Registry: TestRegistry}
 	ctx := context.Background()
 
-	// create new running Function
-	if _, _, err := client.New(ctx, f); err != nil {
-		t.Fatal(err)
-	}
-
 	// init a new Function
 	f, err := client.Init(f)
 	if err != nil {
