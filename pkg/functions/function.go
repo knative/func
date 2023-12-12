@@ -702,9 +702,9 @@ func (f Function) newLocal() (localConfig Local, err error) {
 	return
 }
 
-// writeBuiltImageOnChange writes new full built image name if it has been modified or
-// its the first time building/deploying therefore the file doesnt exist yet.
-func (f Function) WriteBuiltImageOnChange(verbose bool) error {
+// WriteRuntimeBuiltImage writes new full built image name into runtime metadata
+// directory (.func/)
+func (f Function) WriteRuntimeBuiltImage(verbose bool) error {
 	path := filepath.Join(f.Root, RunDataDir, BuiltImage)
 
 	if verbose {

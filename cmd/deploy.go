@@ -319,7 +319,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 			// f.Build.Image is set in Push for now, just set it as a deployed image
 			f.Deploy.Image = f.Build.Image
 			// write .func/built-image as running metadata which is not persisted in func.yaml
-			if err = f.WriteBuiltImageOnChange(cfg.Verbose); err != nil {
+			if err = f.WriteRuntimeBuiltImage(cfg.Verbose); err != nil {
 				return
 			}
 		}

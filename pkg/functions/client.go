@@ -653,7 +653,7 @@ func (c *Client) Build(ctx context.Context, f Function, options ...BuildOption) 
 	}
 
 	// write .func/built-name as running metadata which is not persisted in yaml
-	if err = f.WriteBuiltImageOnChange(c.verbose); err != nil {
+	if err = f.WriteRuntimeBuiltImage(c.verbose); err != nil {
 		return f, err
 	}
 

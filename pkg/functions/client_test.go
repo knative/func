@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -904,52 +905,64 @@ func TestClient_Update(t *testing.T) {
 // TestClient_Deploy_RegistryUpdate ensures that deploying a Function updates
 // its image member on initial deploy, and on subsequent deploys only
 // if reset to it zero value.
-// func TestClient_Deploy_RegistryUpdate(t *testing.T) {
-// 	root, rm := Mktemp(t)
-// 	defer rm()
-// 	client := fn.New(fn.WithRegistry("example.com/alice"))
+func TestClient_Deploy_RegistryUpdate(t *testing.T) {
+	root, rm := Mktemp(t)
+	defer rm()
+	client := fn.New(fn.WithRegistry("example.com/alice"))
 
-// 	// New runs build and deploy, thus the initial instantiation should result in
-// 	// the member being populated from the client's registry and function name.
-// 	var f fn.Function
-// 	var err error
-// 	if _, f, err = client.New(context.Background(), fn.Function{Runtime: "go", Name: "f", Root: root}); err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	if f.Build.Image != "example.com/alice/f:latest" {
-// 		t.Error("image name was not initially set")
-// 	}
+	// New runs build and deploy, thus the initial instantiation should result in
+	// the member being populated from the client's registry and function name.
+	var f fn.Function
+	var err error
+	if _, f, err = client.New(context.Background(), fn.Function{Runtime: "go", Name: "f", Root: root}); err != nil {
+		t.Fatal(err)
+	}
+	if f.Build.Image != "example.com/alice/f:latest" {
+		t.Error("image was not built")
+	}
 
-// 	// Updating the registry and performing a subsequent update should not result
-// 	// in the image member being updated to the new value: registry is only used
-// 	// when calculating a nonexistent value
-// 	f.Registry = "example.com/bob"
-// 	if f, err = client.Build(context.Background(), f); err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	if f, err = client.Deploy(context.Background(), f); err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	expected := "example.com/alice/f:latest"
-// 	if f.Build.Image != expected { // NOT changed to bob
-// 		t.Errorf("expected image name to stay '%v' and not be updated, but got '%v'", expected, f.Build.Image)
-// 	}
+	// Updating the registry and performing a subsequent update should not result
+	// in the image member being updated to the new value: registry is only used
+	// when calculating a nonexistent value
+	f.Registry = "example.com/bob"
+	if f, err = client.Build(context.Background(), f); err != nil {
+		t.Fatal(err)
+	}
+	// if f, err = client.Deploy(context.Background(), f); err != nil {
+	// 	t.Fatal(err)
+	// }
+	expected := "example.com/bob/f:latest"
+	if f.Build.Image != expected { // CHANGE to bob since its the first f.Registry
+		t.Errorf("expected image name to change to '%v', but got '%v'", expected, f.Build.Image)
+	}
 
-// 	// Reset the value of .Image to default "" and ensure this triggers recalc.
-// 	f.Image = ""
-// 	f.Registry = "example.com/bob"
-// 	if f, err = client.Build(context.Background(), f); err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	if f, err = client.Deploy(context.Background(), f); err != nil {
-// 		t.Fatal(err)
-// 	}
-// 	expected = "example.com/bob/f:latest"
-// 	if f.Build.Image != expected { // DOES change to bob
-// 		t.Errorf("expected image name to stay '%v' and not be updated, but got '%v'", expected, f.Build.Image)
+	// Set the value of .Image which should override current image
+	f.Image = "example.com/fred/f:latest"
+	if f, err = client.Build(context.Background(), f); err != nil {
+		t.Fatal(err)
+	}
+	// if f, err = client.Deploy(context.Background(), f); err != nil {
+	// 	t.Fatal(err)
+	// }
+	expected = "example.com/fred/f:latest"
+	if f.Build.Image != expected { // DOES change to bob
+		t.Errorf("expected image name to change to '%v', but got '%v'", expected, f.Build.Image)
+	}
 
-// 	}
-// }
+	// Set the value of f.Image to "" to ensure the registry is used for new
+	// image calculation
+	f.Image = ""
+	// f.Registry is "example.com/bob"
+
+	if f, err = client.Build(context.Background(), f); err != nil {
+		t.Fatal(err)
+	}
+
+	expected = "example.com/bob/f:latest"
+	if f.Build.Image != expected {
+		t.Errorf("expected image name to change to '%v', but got '%v'", expected, f.Build.Image)
+	}
+}
 
 // TestClient_Remove_ByPath ensures that the remover is invoked to remove
 // the function with the name of the function at the provided root.
@@ -1909,9 +1922,9 @@ func TestClient_BuildCleanFingerprint(t *testing.T) {
 	ctx := context.Background()
 
 	// create new running Function
-	// if _, _, err := client.New(ctx, f); err != nil {
-	// 	t.Fatal(err)
-	// }
+	if _, _, err := client.New(ctx, f); err != nil {
+		t.Fatal(err)
+	}
 
 	// init a new Function
 	f, err := client.Init(f)
@@ -1948,8 +1961,6 @@ func TestClient_BuildCleanFingerprint(t *testing.T) {
 		t.Fatal("just building a Function resulted in a dirty function state (fingerprint changed)")
 	}
 }
-
-// TestClient_BuildPopulatesImage
 
 // Test_RemoveInvokedOnOldFunction checks that Remover was invoked after a
 // subsequent redeploy to a new namespace.
@@ -1996,5 +2007,34 @@ func TestClient_RemoveInvokedOnOldFunction(t *testing.T) {
 	// check that a remove was invoked getting rid of the old Function
 	if !remover.RemoveInvoked {
 		t.Fatal(fmt.Errorf("remover was not invoked on an old function"))
+	}
+}
+
+// TestClient_BuildPopulatesRuntimeImage ensures that building populates runtime
+// metadata (.func/built-image) image.
+func TestClient_BuildPopulatesRuntimeImage(t *testing.T) {
+	// Create a temporary directory
+	root, cleanup := Mktemp(t)
+	defer cleanup()
+
+	client := fn.New()
+	f, err := client.Init(fn.Function{Runtime: "go", Root: root, Registry: TestRegistry})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expect := f.Registry + "/" + f.Name + ":latest"
+
+	f, err = client.Build(context.Background(), f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(path.Join(root, ".func/built-image"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if string(got) != expect {
+		t.Fatalf("written image in ./.func/built-image '%s' does not match expected '%s'", got, expect)
 	}
 }
