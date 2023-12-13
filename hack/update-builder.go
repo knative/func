@@ -14,6 +14,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"slices"
 	"strings"
 	"syscall"
 
@@ -21,6 +22,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/buildpacks/pack/builder"
+	"github.com/buildpacks/pack/buildpackage"
 	pack "github.com/buildpacks/pack/pkg/client"
 	"github.com/buildpacks/pack/pkg/dist"
 	"github.com/buildpacks/pack/pkg/image"
@@ -32,6 +34,8 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-github/v49/github"
+	"github.com/paketo-buildpacks/libpak/carton"
+	"github.com/pelletier/go-toml"
 )
 
 func main() {
@@ -122,7 +126,11 @@ func buildBuilderImage(ctx context.Context, variant string) error {
 		return fmt.Errorf("cannot parse builder.toml: %w", err)
 	}
 
-	patchBuilder(&builderConfig)
+	err = updateJavaBuildpacks(ctx, &builderConfig)
+	if err != nil {
+		return fmt.Errorf("cannot patch java buildpacks: %w", err)
+	}
+	addGoAndRustBuildpacks(&builderConfig)
 
 	packClient, err := pack.NewClient()
 	if err != nil {
@@ -228,6 +236,163 @@ func buildBuilderImage(ctx context.Context, variant string) error {
 	return nil
 }
 
+type buildpack struct {
+	repo      string
+	version   string
+	image     string
+	patchFunc func(packageDesc *buildpackage.Config, bpDesc *dist.BuildpackDescriptor)
+}
+
+func buildBuildpackImage(ctx context.Context, bp buildpack) error {
+	ghClient := github.NewClient(oauth2.NewClient(ctx, oauth2.StaticTokenSource(&oauth2.Token{
+		AccessToken: os.Getenv("GITHUB_TOKEN"),
+	})))
+
+	var (
+		release *github.RepositoryRelease
+		ghResp  *github.Response
+		err     error
+	)
+
+	if bp.version == "" {
+		release, ghResp, err = ghClient.Repositories.GetLatestRelease(ctx, "paketo-buildpacks", bp.repo)
+	} else {
+		release, ghResp, err = ghClient.Repositories.GetReleaseByTag(ctx, "paketo-buildpacks", bp.repo, "v"+bp.version)
+	}
+	if err != nil {
+		return fmt.Errorf("cannot get upstream builder release: %w", err)
+	}
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(ghResp.Body)
+
+	if release.TarballURL == nil {
+		return fmt.Errorf("tarball url is nil")
+	}
+	if release.TagName == nil {
+		return fmt.Errorf("tag name is nil")
+	}
+
+	version := strings.TrimPrefix(*release.TagName, "v")
+
+	fmt.Println("src tar url:", *release.TarballURL)
+
+	imageNameTagged := bp.image + ":" + version
+	srcDir, err := os.MkdirTemp("", "src-*")
+	if err != nil {
+		return fmt.Errorf("cannot create temp dir: %w", err)
+	}
+
+	fmt.Println("imageNameTagged:", imageNameTagged)
+	fmt.Println("srcDir:", srcDir)
+
+	err = downloadTarball(*release.TarballURL, srcDir)
+	if err != nil {
+		return fmt.Errorf("cannot download source code: %w", err)
+	}
+
+	packageDir := filepath.Join(srcDir, "out")
+	p := carton.Package{
+		CacheLocation:           "",
+		DependencyFilters:       nil,
+		StrictDependencyFilters: false,
+		IncludeDependencies:     false,
+		Destination:             packageDir,
+		Source:                  srcDir,
+		Version:                 version,
+	}
+	eh := exitHandler{}
+	p.Create(carton.WithExitHandler(&eh))
+	if eh.err != nil {
+		return fmt.Errorf("cannot create package: %w", eh.err)
+	}
+	if eh.fail {
+		return fmt.Errorf("cannot create package")
+	}
+
+	// set URI and OS in package.toml
+	f, err := os.OpenFile(filepath.Join(srcDir, "package.toml"), os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return fmt.Errorf("cannot open package.toml: %w", err)
+	}
+	defer func(f *os.File) {
+		_ = f.Close()
+	}(f)
+	_, err = fmt.Fprintf(f, "[buildpack]\nuri = \"%s\"\n\n[platform]\nos = \"%s\"\n", packageDir, "linux")
+	_ = f.Close()
+	if err != nil {
+		return fmt.Errorf("cannot apped to package.toml: %w", err)
+	}
+
+	cfgReader := buildpackage.NewConfigReader()
+	cfg, err := cfgReader.Read(filepath.Join(srcDir, "package.toml"))
+	if err != nil {
+		return fmt.Errorf("cannot read buildpack config: %w", err)
+	}
+
+	if bp.patchFunc != nil {
+		var bpDesc dist.BuildpackDescriptor
+		var bs []byte
+		bpDescPath := filepath.Join(packageDir, "buildpack.toml")
+		bs, err = os.ReadFile(bpDescPath)
+		if err != nil {
+			return fmt.Errorf("cannot read buildpack.toml: %w", err)
+		}
+		err = toml.Unmarshal(bs, &bpDesc)
+		if err != nil {
+			return fmt.Errorf("cannot unmarshall buildpack descriptor: %w", err)
+		}
+		bp.patchFunc(&cfg, &bpDesc)
+		bs, err = toml.Marshal(&bpDesc)
+		if err != nil {
+			return fmt.Errorf("cannot marshal buildpack descriptor: %w", err)
+		}
+		err = os.WriteFile(bpDescPath, bs, 0644)
+		if err != nil {
+			return fmt.Errorf("cannot write buildpack.toml: %w", err)
+		}
+	}
+
+	pbo := pack.PackageBuildpackOptions{
+		RelativeBaseDir: packageDir,
+		Name:            imageNameTagged,
+		Format:          pack.FormatImage,
+		Config:          cfg,
+		Publish:         false,
+		PullPolicy:      image.PullIfNotPresent,
+		Registry:        "",
+		Flatten:         false,
+		Depth:           0,
+		FlattenExclude:  nil,
+	}
+	packClient, err := pack.NewClient()
+	if err != nil {
+		return fmt.Errorf("cannot create pack client: %w", err)
+	}
+	err = packClient.PackageBuildpack(ctx, pbo)
+	if err != nil {
+		return fmt.Errorf("cannot package buildpack: %w", err)
+	}
+
+	return nil
+}
+
+type exitHandler struct {
+	err  error
+	fail bool
+}
+
+func (e *exitHandler) Error(err error) {
+	e.err = err
+}
+
+func (e *exitHandler) Fail() {
+	e.fail = true
+}
+
+func (e *exitHandler) Pass() {
+}
+
 type auth struct {
 	uname, pwd string
 }
@@ -288,7 +453,7 @@ func downloadBuilderToml(ctx context.Context, tarballUrl, builderTomlPath string
 }
 
 // Adds custom Rust and Go-Function buildpacks to the builder.
-func patchBuilder(config *builder.Config) {
+func addGoAndRustBuildpacks(config *builder.Config) {
 	config.Description += "\nAddendum: this is modified builder that also contains Rust and Func-Go buildpacks."
 	additionalBuildpacks := []builder.ModuleConfig{
 		{
@@ -339,4 +504,139 @@ func patchBuilder(config *builder.Config) {
 
 	config.Buildpacks = append(additionalBuildpacks, config.Buildpacks...)
 	config.Order = append(additionalGroups, config.Order...)
+}
+
+// updated java and java-native-image buildpack to include quarkus buildpack
+func updateJavaBuildpacks(ctx context.Context, builderConfig *builder.Config) error {
+	var err error
+
+	for _, entry := range builderConfig.Order {
+		bp := strings.TrimPrefix(entry.Group[0].ID, "paketo-buildpacks/")
+		if bp == "java" || bp == "java-native-image" {
+			img := "ghcr.io/knative/buildpacks/" + bp
+			err = buildBuildpackImage(ctx, buildpack{
+				repo:      bp,
+				version:   entry.Group[0].Version,
+				image:     img,
+				patchFunc: addQuarkusBuildpack,
+			})
+			// TODO we might want to push these images to registry
+			// but it's not absolutely necessary since they are included in builder
+			if err != nil {
+				return fmt.Errorf("cannot build %q buildpack: %w", bp, err)
+			}
+			for i := range builderConfig.Buildpacks {
+				if strings.HasPrefix(builderConfig.Buildpacks[i].URI, "docker://gcr.io/paketo-buildpacks/"+bp+":") {
+					builderConfig.Buildpacks[i].URI = "docker://ghcr.io/knative/buildpacks/" + bp + ":" + entry.Group[0].Version
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// patches "Java" or "Java Native Image" buildpacks to include Quarkus BP just before Maven BP
+func addQuarkusBuildpack(packageDesc *buildpackage.Config, bpDesc *dist.BuildpackDescriptor) {
+	ghClient := github.NewClient(oauth2.NewClient(context.TODO(), oauth2.StaticTokenSource(&oauth2.Token{
+		AccessToken: os.Getenv("GITHUB_TOKEN"),
+	})))
+
+	rr, resp, err := ghClient.Repositories.GetLatestRelease(context.TODO(), "paketo-buildpacks", "quarkus")
+	if err != nil {
+		panic(err)
+	}
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
+
+	latestQuarkusVersion := strings.TrimPrefix(*rr.TagName, "v")
+
+	packageDesc.Dependencies = append(packageDesc.Dependencies, dist.ImageOrURI{
+		BuildpackURI: dist.BuildpackURI{
+			URI: "docker://gcr.io/paketo-buildpacks/quarkus:" + latestQuarkusVersion,
+		},
+	})
+	quarkusBP := dist.ModuleRef{
+		ModuleInfo: dist.ModuleInfo{
+			ID:      "paketo-buildpacks/quarkus",
+			Version: latestQuarkusVersion,
+		},
+		Optional: true,
+	}
+	idx := slices.IndexFunc(bpDesc.WithOrder[0].Group, func(ref dist.ModuleRef) bool {
+		return ref.ID == "paketo-buildpacks/maven"
+	})
+	bpDesc.WithOrder[0].Group = slices.Insert(bpDesc.WithOrder[0].Group, idx, quarkusBP)
+}
+
+func downloadTarball(tarballUrl, destDir string) error {
+	//nolint:bodyclose
+	resp, err := http.Get(tarballUrl)
+	if err != nil {
+		return fmt.Errorf("cannot get tarball: %w", err)
+	}
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
+	if resp.StatusCode != 200 {
+		return fmt.Errorf("cannot get tarball: %s", resp.Status)
+	}
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
+
+	gzipReader, err := gzip.NewReader(resp.Body)
+	if err != nil {
+		return fmt.Errorf("cannot create gzip reader: %w", err)
+	}
+	defer func(gzipReader *gzip.Reader) {
+		_ = gzipReader.Close()
+	}(gzipReader)
+
+	tarReader := tar.NewReader(gzipReader)
+	var hdr *tar.Header
+	for {
+		hdr, err = tarReader.Next()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return fmt.Errorf("cannot read tar header: %w", err)
+		}
+		if strings.Contains(hdr.Name, "..") {
+			return fmt.Errorf("file name in tar header contains '..'")
+		}
+
+		n := filepath.Clean(filepath.Join(strings.Split(hdr.Name, "/")[1:]...))
+		if strings.HasPrefix(n, "..") {
+			return fmt.Errorf("path in tar header escapes")
+		}
+		dest := filepath.Join(destDir, n)
+
+		switch hdr.Typeflag {
+		case tar.TypeReg:
+			var f *os.File
+			f, err = os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, os.FileMode(hdr.Mode&0777))
+			if err != nil {
+				return fmt.Errorf("cannot create a file: %w", err)
+			}
+			_, err = io.Copy(f, tarReader)
+			_ = f.Close()
+			if err != nil {
+				return fmt.Errorf("cannot read from tar reader: %w", err)
+			}
+		case tar.TypeSymlink:
+			return fmt.Errorf("symlinks are not supported yet")
+		case tar.TypeDir:
+			err = os.MkdirAll(dest, 0755)
+			if err != nil {
+				return fmt.Errorf("cannmot create a directory: %w", err)
+			}
+		case tar.TypeXGlobalHeader:
+			// ignore this type
+		default:
+			return fmt.Errorf("unknown type: %x", hdr.Typeflag)
+		}
+	}
+	return nil
 }
