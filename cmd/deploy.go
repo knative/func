@@ -672,15 +672,12 @@ func (c deployConfig) Prompt() (deployConfig, error) {
 	return c, err
 }
 
-// TODO: just forget validate in general (more code you remove from this - the better)
 // Validate the config passes an initial consistency check
 func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 	// Bubble validation
 	if err = c.buildConfig.Validate(); err != nil {
 		return
 	}
-
-	// TODO: gauron99 move this to a useful spot instead (wherever its used)
 
 	// Check Image Digest was included
 	// (will be set on the function during .Configure)
