@@ -513,7 +513,7 @@ func updateJavaBuildpacks(ctx context.Context, builderConfig *builder.Config) er
 	for _, entry := range builderConfig.Order {
 		bp := strings.TrimPrefix(entry.Group[0].ID, "paketo-buildpacks/")
 		if bp == "java" || bp == "java-native-image" {
-			img := "ghcr.io/matejvasek/buildpacks/" + bp
+			img := "ghcr.io/knative/buildpacks/" + bp
 			err = buildBuildpackImage(ctx, buildpack{
 				repo:      bp,
 				version:   entry.Group[0].Version,
@@ -527,7 +527,7 @@ func updateJavaBuildpacks(ctx context.Context, builderConfig *builder.Config) er
 			}
 			for i := range builderConfig.Buildpacks {
 				if strings.HasPrefix(builderConfig.Buildpacks[i].URI, "docker://gcr.io/paketo-buildpacks/"+bp+":") {
-					builderConfig.Buildpacks[i].URI = "docker://ghcr.io/matejvasek/buildpacks/" + bp + ":" + entry.Group[0].Version
+					builderConfig.Buildpacks[i].URI = "docker://ghcr.io/knative/buildpacks/" + bp + ":" + entry.Group[0].Version
 				}
 			}
 		}
