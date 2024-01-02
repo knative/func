@@ -286,9 +286,6 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		}
 	}
 
-	// check if --image was provided with a digest
-	digested, err := hasDigest(cfg.Image)
-
 	// Deploy
 	if cfg.Remote {
 		// Invoke a remote build/push/deploy pipeline
@@ -302,12 +299,23 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 			return
 		}
 
+		// check if --image was provided with a digest. 'digested' bool indicates if
+		// image contains a digest or not (image is "digested").
+		var digested bool
+		digested, err = isDigested(cfg.Image)
+		if err != nil {
+			return
+		}
+
+		// If user provided --image with digest, they are requesting that specific
+		// image to be used which means building phase should be skipped and image
+		// should be deployed as is
 		if digested {
 			f.Deploy.Image = cfg.Image
 			f.Build.Image = cfg.Image // when digested image is used and not remotely built, set .Build.Image
 
 		} else {
-			// if NOT digested, build and push the Function
+			// if NOT digested, build and push the Function first
 			if f, err = build(cmd, cfg.Build, f, client, buildOptions); err != nil {
 				return
 			}
@@ -682,7 +690,7 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 	// Check Image Digest was included
 	// (will be set on the function during .Configure)
 	var digest bool
-	if digest, err = hasDigest(c.Image); err != nil {
+	if digest, err = isDigested(c.Image); err != nil {
 		return
 	}
 
@@ -731,7 +739,7 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 
 // printDeployMessages to the output.  Non-error deployment messages.
 func printDeployMessages(out io.Writer, cfg deployConfig, f fn.Function) {
-	digest, err := hasDigest(cfg.Image)
+	digest, err := isDigested(cfg.Image)
 	if err == nil && digest {
 		fmt.Fprintf(out, "Deploying image '%v', which has a digest. Build and push are disabled.\n", cfg.Image)
 	}
@@ -779,9 +787,9 @@ func printDeployMessages(out io.Writer, cfg deployConfig, f fn.Function) {
 	}
 }
 
-// hasDigest returns true if provided image string 'v' has digest and false if not.
+// isDigested returns true if provided image string 'v' has digest and false if not.
 // Includes basic validation that a provided digest is correctly formatted.
-func hasDigest(v string) (validDigest bool, err error) {
+func isDigested(v string) (validDigest bool, err error) {
 	var digest string
 	vv := strings.Split(v, "@")
 	if len(vv) < 2 {
