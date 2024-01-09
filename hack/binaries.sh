@@ -17,6 +17,7 @@ main() {
   local dapr_version=v1.11.0
   local helm_version=v3.12.0
   local stern_version=1.25.0
+  local kn_version=v1.12.0
 
   local em=$(tput bold)$(tput setaf 2)
   local me=$(tput sgr0)
@@ -29,6 +30,7 @@ main() {
   install_dapr
   install_helm
   install_stern
+  install_kn
 
   echo "${em}DONE${me}"
 
@@ -79,6 +81,13 @@ install_stern() {
   curl -sSL "https://github.com/stern/stern/releases/download/v${stern_version}/stern_${stern_version}_linux_amd64.tar.gz" | \
     tar fxz - -C /usr/local/bin/ stern
   stern -v
+}
+
+install_kn() {
+  echo 'Installing kn...'
+  curl -sSLo kn https://github.com/knative/client/releases/download/knative-${kn_version}/kn-linux-amd64
+  chmod +x kn && sudo mv kn /usr/local/bin/
+  kn version
 }
 
 main "$@"
