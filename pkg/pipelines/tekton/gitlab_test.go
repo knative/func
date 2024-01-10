@@ -410,7 +410,7 @@ func getAPIToken(baseURL, username, password string) (string, error) {
 		return "", fmt.Errorf("cannot sign in, unexpected status: %d", resp.StatusCode)
 	}
 
-	personalAccessTokensURL := baseURL + "/-/profile/personal_access_tokens"
+	personalAccessTokensURL := baseURL + "/-/user_settings/personal_access_tokens"
 
 	resp, err = c.Get(personalAccessTokensURL)
 	if err != nil {
