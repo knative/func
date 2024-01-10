@@ -57,9 +57,21 @@ No local files are deleted.
 }
 
 func runDelete(cmd *cobra.Command, args []string, newClient ClientFactory) (err error) {
+
+	// TODO: (possibly) gauron99 -- I think this whole process of deletion might
+	// be cleaned up more for example: passing a function as a config from which
+	// only namespace and name is used, in sub-functions of client.Remove this is
+	// also the case. Furthermore the namespace being assigned to cfg&f around the
+	// place might be also on the list.
+
 	cfg, err := newDeleteConfig(args).Prompt()
 	if err != nil {
 		return
+	}
+
+	// check that name is defined when deliting a Function in specific namespace
+	if cfg.Name == "" && cfg.Namespace != "" {
+		return fmt.Errorf("function name is required when namespace is specified")
 	}
 
 	var function fn.Function
@@ -84,12 +96,22 @@ func runDelete(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 			return fn.NewErrNotInitialized(function.Root)
 		}
 
-		// If not provided, use the function's extant namespace
+		// --- Namespace determination ---
+
+		// use the function's extant namespace -- already deployed Function
 		if !cmd.Flags().Changed("namespace") {
 			cfg.Namespace = function.Deploy.Namespace
 		}
 
+		// if user specified one, override (example: manually written to func.yaml)
+		if function.Namespace != "" {
+			cfg.Namespace = function.Namespace
+		}
+
 	}
+
+	// assign final namespace to function to be passed to client.Remove
+	function.Deploy.Namespace = cfg.Namespace
 
 	// Create a client instance from the now-final config
 	client, done := newClient(ClientConfig{Namespace: cfg.Namespace, Verbose: cfg.Verbose})

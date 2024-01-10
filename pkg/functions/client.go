@@ -127,7 +127,7 @@ type Runner interface {
 // Remover of deployed services.
 type Remover interface {
 	// Remove the function from remote.
-	Remove(ctx context.Context, name string) error
+	Remove(ctx context.Context, name string, namespace string) error
 }
 
 // Lister of deployed functions.
@@ -755,6 +755,30 @@ func (c *Client) Deploy(ctx context.Context, f Function, opts ...DeployOption) (
 		return f, err
 	}
 
+	// If Redeployment to NEW namespace was successful -- undeploy dangling Function in old namespace.
+	// On forced namespace change (using --namespace flag)
+	if f.Namespace != f.Deploy.Namespace && f.Deploy.Namespace != "" {
+		// TODO: when new prompt is implemented, add here a "are you sure?" check possibly
+		if c.verbose {
+			fmt.Fprintf(os.Stderr, "Info: Deleting old func in '%s' because the namespace has changed\n", f.Deploy.Namespace)
+		}
+
+		// c.Remove removes a Function in f.Deploy.Namespace which removes the OLD Function
+		// because its not updated yet (see few lines below)
+		err = c.Remove(ctx, f, true)
+
+		// Warn when service is not found and set err to nil to continue. Function's
+		// service mightve been manually deleted prior to the subsequent deploy or the
+		// namespace is already deleted therefore there is nothing to delete
+		if ErrFunctionNotFound != err {
+			fmt.Fprintf(os.Stderr, "Warning: Cant undeploy Function in namespace '%s' - service not found. Namespace/Service might be deleted already\n", f.Deploy.Namespace)
+			err = nil
+		}
+		if err != nil {
+			return f, err
+		}
+	}
+
 	// Update the function with the namespace into which the function was
 	// deployed
 	f.Deploy.Namespace = result.Namespace
@@ -969,7 +993,7 @@ func (c *Client) Remove(ctx context.Context, cfg Function, deleteAll bool) error
 	fmt.Fprintf(os.Stderr, "Removing Knative Service: %v in namespace %v\n", functionName, cfg.Deploy.Namespace)
 	errChan := make(chan error)
 	go func() {
-		errChan <- c.remover.Remove(ctx, functionName)
+		errChan <- c.remover.Remove(ctx, functionName, cfg.Deploy.Namespace)
 	}()
 
 	var errResources error
@@ -1279,14 +1303,14 @@ func (n *noopPusher) Push(ctx context.Context, f Function) (string, error) { ret
 // Deployer
 type noopDeployer struct{ output io.Writer }
 
-func (n *noopDeployer) Deploy(ctx context.Context, _ Function) (DeploymentResult, error) {
-	return DeploymentResult{}, nil
+func (n *noopDeployer) Deploy(ctx context.Context, f Function) (DeploymentResult, error) {
+	return DeploymentResult{Namespace: f.Namespace}, nil
 }
 
 // Remover
 type noopRemover struct{ output io.Writer }
 
-func (n *noopRemover) Remove(context.Context, string) error { return nil }
+func (n *noopRemover) Remove(context.Context, string, string) error { return nil }
 
 // Lister
 type noopLister struct{ output io.Writer }

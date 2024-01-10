@@ -22,7 +22,6 @@ import (
 	"time"
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
-	cmd "knative.dev/func/cmd"
 	"knative.dev/func/pkg/builders"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/mock"
@@ -985,7 +984,7 @@ func TestClient_Remove_ByPath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	remover.RemoveFn = func(name string) error {
+	remover.RemoveFn = func(name, _ string) error {
 		if name != expectedName {
 			t.Fatalf("Expected to remove '%v', got '%v'", expectedName, name)
 		}
@@ -1027,7 +1026,7 @@ func TestClient_Remove_DeleteAll(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	remover.RemoveFn = func(name string) error {
+	remover.RemoveFn = func(name, _ string) error {
 		if name != expectedName {
 			t.Fatalf("Expected to remove '%v', got '%v'", expectedName, name)
 		}
@@ -1073,7 +1072,7 @@ func TestClient_Remove_Dont_DeleteAll(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	remover.RemoveFn = func(name string) error {
+	remover.RemoveFn = func(name, _ string) error {
 		if name != expectedName {
 			t.Fatalf("Expected to remove '%v', got '%v'", expectedName, name)
 		}
@@ -1113,7 +1112,7 @@ func TestClient_Remove_ByName(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	remover.RemoveFn = func(name string) error {
+	remover.RemoveFn = func(name, _ string) error {
 		if name != expectedName {
 			t.Fatalf("Expected to remove '%v', got '%v'", expectedName, name)
 		}
@@ -1147,7 +1146,7 @@ func TestClient_Remove_UninitializedFails(t *testing.T) {
 	defer Using(t, root)()
 
 	// remover fails if invoked
-	remover.RemoveFn = func(name string) error {
+	remover.RemoveFn = func(name, _ string) error {
 		return fmt.Errorf("remove invoked for unitialized function %v", name)
 	}
 
@@ -1959,43 +1958,58 @@ func TestClient_BuildCleanFingerprint(t *testing.T) {
 
 // Test_RemoveInvokedOnOldFunction checks that Remover was invoked after a
 // subsequent redeploy to a new namespace.
-// specifically: deploy to 'nsone', redeploy to 'nstwo' with --namespace flag
-// overriding the ns and expect the remover to be invoked for old Function in ns 'nsone'
+// specifically: deploy to 'nsone' -> simulate change of namespace with change to
+// f.Namespace -> redeploy to that namespace and expect the remover to be invoked
+// for old Function in ns 'nsone'.
 func TestClient_RemoveInvokedOnOldFunction(t *testing.T) {
 	// Create a temporary directory
 	root, cleanup := Mktemp(t)
 	defer cleanup()
 
-	nsOne := "nsone"
-	nsTwo := "nstwo"
+	var (
+		ctx      = context.Background()
+		nsOne    = "nsone"
+		nsTwo    = "nstwo"
+		testname = "testfunc"
+		remover  = mock.NewRemover()
+	)
 
-	// A mock remover which fails if the name from the func.yaml is not received.
-	remover := mock.NewRemover()
+	remover.RemoveFn = func(n, ns string) error {
+		if ns != nsOne {
+			t.Fatalf("expected delete namespace %v, got %v", nsOne, ns)
+		}
+		if n != testname {
+			t.Fatalf("expected delete name %v, got %v", testname, n)
+		}
+		return nil
+	}
 
-	client := fn.New()
+	client := fn.New(fn.WithRemover(remover))
 	// initialize function with namespace defined as nsone
-	_, err := client.Init(fn.Function{Runtime: "go", Root: root,
-		Deploy: fn.DeploySpec{Namespace: nsOne}})
+
+	f, err := client.Init(fn.Function{Runtime: "go", Root: root,
+		Namespace: nsOne, Name: testname, Registry: TestRegistry})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// 	// set deploy command
-	cmd := cmd.NewDeployCmd(cmd.NewTestClient(
-		fn.WithDeployer(mock.NewDeployer()),
-		fn.WithRegistry(TestRegistry),
-		fn.WithRemover(remover),
-	))
-
-	// set arguments for deploy command and execute the command
-	cmd.SetArgs([]string{fmt.Sprintf("--namespace=%s", nsOne)})
-	if err = cmd.Execute(); err != nil {
+	f, err = client.Build(ctx, f)
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	// now deploy again with a change of namespace via flag -- should delete old Func
-	cmd.SetArgs([]string{fmt.Sprintf("--namespace=%s", nsTwo)})
-	if err = cmd.Execute(); err != nil {
+	// first deploy
+	f, err = client.Deploy(ctx, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// change namespace
+	f.Namespace = nsTwo
+
+	// redeploy to different namespace
+	f, err = client.Deploy(ctx, f)
+	if err != nil {
 		t.Fatal(err)
 	}
 
