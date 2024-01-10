@@ -13,10 +13,14 @@ const (
 	DefaultWaitingTimeout = 120 * time.Second
 )
 
-func NewTektonClientAndResolvedNamespace(defaultNamespace string) (*v1beta1.TektonV1beta1Client, string, error) {
-	namespace, err := k8s.GetNamespace(defaultNamespace)
-	if err != nil {
-		return nil, "", err
+// NewTektonClientAndResolvedNamespace returns TektonV1beta1Client,namespace,error
+func NewTektonClientAndResolvedNamespace(namespace string) (*v1beta1.TektonV1beta1Client, string, error) {
+	var err error
+	if namespace == "" {
+		namespace, err = k8s.GetDefaultNamespace()
+		if err != nil {
+			return nil, "", err
+		}
 	}
 
 	restConfig, err := k8s.GetClientConfig().ClientConfig()

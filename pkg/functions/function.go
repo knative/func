@@ -84,6 +84,9 @@ type Function struct {
 	// "Registry+Name:latest" to derive the Image.
 	Image string `yaml:"image,omitempty"`
 
+	// Namespace in which to deploy the Function
+	Namespace string `yaml:"namespace,omitempty"`
+
 	// Created time is the moment that creation was successfully completed
 	// according to the client which is in charge of what constitutes being
 	// fully "Created" (aka initialized)
@@ -160,7 +163,7 @@ type RunSpec struct {
 
 // DeploySpec
 type DeploySpec struct {
-	// Namespace into which the function is deployed on supported platforms.
+	// Namespace into which the function was deployed on supported platforms.
 	Namespace string `yaml:"namespace,omitempty"`
 
 	// Image is the deployed image including sha256

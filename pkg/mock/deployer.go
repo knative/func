@@ -22,8 +22,8 @@ func NewDeployer() *Deployer {
 	return &Deployer{
 		DeployFn: func(_ context.Context, f fn.Function) (fn.DeploymentResult, error) {
 			result := fn.DeploymentResult{Namespace: DefaultNamespace}
-			if f.Deploy.Namespace != "" {
-				result.Namespace = f.Deploy.Namespace
+			if f.Namespace != "" {
+				result.Namespace = f.Namespace
 			}
 			return result, nil
 		},

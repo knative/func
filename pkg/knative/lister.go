@@ -26,7 +26,7 @@ func NewLister(namespaceOverride string, verbose bool) *Lister {
 
 func (l *Lister) List(ctx context.Context) (items []fn.ListItem, err error) {
 	if l.Namespace == "" {
-		l.Namespace, err = k8s.GetNamespace(l.Namespace)
+		l.Namespace, err = k8s.GetDefaultNamespace()
 		if err != nil {
 			return nil, err
 		}

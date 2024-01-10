@@ -121,9 +121,13 @@ func (d *Deployer) isImageInPrivateRegistry(ctx context.Context, client clientse
 }
 
 func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResult, error) {
+	// f.Namespace is now the "desired Namespace" got from configs.
+	// deployer.Namespace is used for WithDeployer Method therefore it is kept.
+	d.Namespace = f.Namespace
 	var err error
+
 	if d.Namespace == "" {
-		d.Namespace, err = k8s.GetNamespace(d.Namespace)
+		d.Namespace, err = k8s.GetDefaultNamespace()
 		if err != nil {
 			return fn.DeploymentResult{}, err
 		}

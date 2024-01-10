@@ -96,9 +96,11 @@ func runWithVolumeMounted(ctx context.Context, podImage string, podCommand []str
 		return fmt.Errorf("cannot create k8s client: %w", err)
 	}
 
-	namespace, err = GetNamespace(namespace)
-	if err != nil {
-		return fmt.Errorf("cannot get namespace: %w", err)
+	if namespace == "" {
+		namespace, err = GetDefaultNamespace()
+		if err != nil {
+			return fmt.Errorf("cannot get namespace: %w", err)
+		}
 	}
 
 	podName := "volume-uploader-" + rand.String(5)

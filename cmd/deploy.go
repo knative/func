@@ -11,7 +11,6 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
-	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"knative.dev/client-pkg/pkg/util"
 	"knative.dev/func/pkg/builders"
@@ -213,9 +212,8 @@ EXAMPLES
 
 func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	var (
-		cfg  deployConfig
-		f    fn.Function
-		oldF fn.Function
+		cfg deployConfig
+		f   fn.Function
 	)
 	if err = config.CreatePaths(); err != nil { // for possible auth.json usage
 		return
@@ -236,55 +234,32 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		return
 	}
 
-	// create an unconfigured function for useful prints & conditions for determining
-	// if function should be implicitly deleted when namespace change is forced
-	// with --namespace flag in order to keep exactly 1 instance of the same func.
-	if oldF, err = fn.NewFunction(cfg.Path); err != nil {
-		return
-	}
-
-	// Informative non-error messages regarding the final deployment request
-	printDeployMessages(cmd.OutOrStdout(), cfg, oldF)
-
-	clientOptions, err := cfg.clientOptions()
-	if err != nil {
-		return
-	}
-	client, done := newClient(ClientConfig{Namespace: f.Deploy.Namespace, Verbose: cfg.Verbose}, clientOptions...)
-	defer done()
-
-	// Undeploy dangling Function on forced namespace change (using --namespace flag)
-	if cfg.Namespace != oldF.Deploy.Namespace && oldF.Deploy.Namespace != "" {
-		// TODO: when new prompt is implemented, add here a "are you sure?" check possibly
-
-		fmt.Fprintf(cmd.OutOrStdout(), "Info: Deleting old func in '%s' because the namespace has changed\n", oldF.Deploy.Namespace)
-		oldClient, doneOld := newClient(ClientConfig{Namespace: oldF.Deploy.Namespace, Verbose: cfg.Verbose}, clientOptions...)
-		defer doneOld()
-		err = oldClient.Remove(cmd.Context(), oldF, true)
-		// Warn when service is not found and set err to nil to continue. Function's
-		// service mightve been manually deleted prior to the subsequent deploy or the
-		// namespace is already deleted therefore there is nothing to delete
-		if apiErrors.IsNotFound(err) {
-			fmt.Fprintf(cmd.OutOrStdout(), "Warning: Cant undeploy Function in namespace '%s' - service not found. Namespace/Service might be deleted already", oldF.Deploy.Namespace)
-			err = nil
-		}
-		if err != nil {
-			return
-		}
-
+	// If using Openshift registry AND redeploying Function, update image registry
+	if f.Namespace != f.Deploy.Namespace && f.Deploy.Namespace != "" {
 		// when running openshift, namespace is tied to registry, override on --namespace change
-		// TODO: gauron99 - this could probably be implemented within the config part (above).
 		// The most default part of registry (in buildConfig) checks 'k8s.IsOpenShift()' and if true,
-		// sets default registry by current namespace -> therefore it is always the
-		// "old" registry in this case so it has to be overridden somewhere later
+		// sets default registry by current namespace
+
+		// If Function is being moved to different namespace in Openshift -- update registry
 		if k8s.IsOpenShift() {
 			// this name is based of k8s package
-			f.Registry = "image-registry.openshift-image-registry.svc:5000/" + f.Deploy.Namespace
+			f.Registry = "image-registry.openshift-image-registry.svc:5000/" + f.Namespace
 			if cfg.Verbose {
 				fmt.Fprintf(cmd.OutOrStdout(), "Info: Overriding openshift registry to %s\n", f.Registry)
 			}
 		}
 	}
+
+	// Informative non-error messages regarding the final deployment request
+	printDeployMessages(cmd.OutOrStdout(), f)
+	// print stuff here
+
+	clientOptions, err := cfg.clientOptions()
+	if err != nil {
+		return
+	}
+	client, done := newClient(ClientConfig{Namespace: f.Namespace, Verbose: cfg.Verbose}, clientOptions...)
+	defer done()
 
 	// Deploy
 	if cfg.Remote {
@@ -576,10 +551,10 @@ func (c deployConfig) Configure(f fn.Function) (fn.Function, error) {
 
 	// Configure basic members
 	f.Domain = c.Domain
+	f.Namespace = c.Namespace
 	f.Build.Git.URL = c.GitURL
 	f.Build.Git.ContextDir = c.GitDir
 	f.Build.Git.Revision = c.GitBranch // TODO: should match; perhaps "refSpec"
-	f.Deploy.Namespace = c.Namespace
 	f.Deploy.ServiceAccountName = c.ServiceAccountName
 	f.Local.Remote = c.Remote
 
@@ -738,16 +713,16 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 }
 
 // printDeployMessages to the output.  Non-error deployment messages.
-func printDeployMessages(out io.Writer, cfg deployConfig, f fn.Function) {
-	digest, err := isDigested(cfg.Image)
+func printDeployMessages(out io.Writer, f fn.Function) {
+	digest, err := isDigested(f.Image)
 	if err == nil && digest {
-		fmt.Fprintf(out, "Deploying image '%v', which has a digest. Build and push are disabled.\n", cfg.Image)
+		fmt.Fprintf(out, "Deploying image '%v', which has a digest. Build and push are disabled.\n", f.Image)
 	}
 
 	// Namespace
 	// ---------
 	currentNamespace := f.Deploy.Namespace // will be "" if no initialed f at path.
-	targetNamespace := cfg.Namespace
+	targetNamespace := f.Namespace
 
 	// If creating a duplicate deployed function in a different
 	// namespace.
@@ -760,9 +735,9 @@ func printDeployMessages(out io.Writer, cfg deployConfig, f fn.Function) {
 	// If the target namespace is provided but differs from active, warn because
 	// the function won't be visible to other commands such as kubectl unless
 	// context namespace is switched.
-	activeNamespace, err := k8s.GetNamespace("")
+	activeNamespace, err := k8s.GetDefaultNamespace()
 	if err == nil && targetNamespace != "" && targetNamespace != activeNamespace {
-		fmt.Fprintf(out, "Warning: namespace chosen is '%s', but currently active namespace is '%s'. Continuing with deployment to '%s'.\n", cfg.Namespace, activeNamespace, cfg.Namespace)
+		fmt.Fprintf(out, "Warning: namespace chosen is '%s', but currently active namespace is '%s'. Continuing with deployment to '%s'.\n", f.Namespace, activeNamespace, f.Namespace)
 	}
 
 	// Git Args
@@ -782,7 +757,9 @@ func printDeployMessages(out io.Writer, cfg deployConfig, f fn.Function) {
 	// function source does include a reference to a git repository, but that it
 	// will be ignored in favor of the local source code since --remote was not
 	// specified.
-	if !cfg.Remote && (cfg.GitURL != "" || cfg.GitBranch != "" || cfg.GitDir != "") {
+
+	// TODO update names of these to Source--Revision--Dir
+	if !f.Deploy.Remote && (f.Build.Git.URL != "" || f.Build.Git.Revision != "" || f.Build.Git.ContextDir != "") {
 		fmt.Fprintf(out, "Warning: git settings are only applicable when running with --remote.  Local source code will be used.")
 	}
 }
