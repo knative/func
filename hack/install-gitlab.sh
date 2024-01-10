@@ -81,9 +81,9 @@ spec:
           name: ssh
       resources:
         requests:
-          memory: "1024Mi"
-        limits:
           memory: "2048Mi"
+        limits:
+          memory: "4096Mi"
   volumes:
     - name: gitlab
       persistentVolumeClaim:
