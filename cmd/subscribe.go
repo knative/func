@@ -38,6 +38,8 @@ and an 'extension' attribute for the value 'my-extension-value'.
 
 	cmd.Flags().StringP("source", "s", "default", "The source, like a Knative Broker")
 
+	addPathFlag(cmd)
+
 	return cmd
 }
 
@@ -48,7 +50,7 @@ func runSubscribe(cmd *cobra.Command, args []string) (err error) {
 	)
 	cfg = newSubscribeConfig(cmd)
 
-	if f, err = fn.NewFunction(""); err != nil {
+	if f, err = fn.NewFunction(effectivePath()); err != nil {
 		return
 	}
 	if !f.Initialized() {
