@@ -33,6 +33,7 @@ func subscribe --filter type=com.example --filter extension=my-extension-value -
 ```
   -f, --filter stringArray   Filter for the Cloud Event metadata
   -h, --help                 help for subscribe
+  -p, --path string          Path to the function.  Default is current directory ($FUNC_PATH)
   -s, --source string        The source, like a Knative Broker (default "default")
 ```
 
