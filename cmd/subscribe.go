@@ -63,7 +63,7 @@ func runSubscribe(cmd *cobra.Command, args []string) (err error) {
 	// add subscription	to function
 	f.Deploy.Subscriptions = append(f.Deploy.Subscriptions, fn.KnativeSubscription{
 		Source:  cfg.Source,
-		Filters: extractFilterMap(cfg),
+		Filters: extractFilterMap(cfg.Filter),
 	})
 
 	// pump it
@@ -71,9 +71,9 @@ func runSubscribe(cmd *cobra.Command, args []string) (err error) {
 
 }
 
-func extractFilterMap(cfg subscibeConfig) map[string]string {
+func extractFilterMap(filters []string) map[string]string {
 	subscriptionFilters := make(map[string]string)
-	for _, filter := range cfg.Filter {
+	for _, filter := range filters {
 		kv := strings.Split(filter, "=")
 		if len(kv) != 2 {
 			fmt.Println("Invalid pair:", filter)
