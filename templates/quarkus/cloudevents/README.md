@@ -39,17 +39,6 @@ To enable native build set following environment variables to `func.yaml`:
 buildEnvs:
   - name: BP_NATIVE_IMAGE
     value: "true"
-  - name: BP_MAVEN_BUILT_ARTIFACT
-    value: func.yaml target/native-sources/*
-  - name: BP_MAVEN_BUILD_ARGUMENTS
-    value: package -DskipTests=true -Dmaven.javadoc.skip=true -Dquarkus.package.type=native-sources
-  - name: BP_NATIVE_IMAGE_BUILD_ARGUMENTS_FILE
-    value: native-image.args
-  - name: BP_NATIVE_IMAGE_BUILT_ARTIFACT
-    value: '*-runner.jar'
-  - name: BP_JVM_VERSION
-    value: 21
-
 ```
 
 ### Running
