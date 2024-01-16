@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	DefaultWaitingTimeout = 120 * time.Second
+	DefaultWaitingTimeout = 300 * time.Second
 )
 
 // NewTektonClientAndResolvedNamespace returns TektonV1beta1Client,namespace,error

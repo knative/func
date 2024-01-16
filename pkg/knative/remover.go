@@ -10,7 +10,7 @@ import (
 	fn "knative.dev/func/pkg/functions"
 )
 
-const RemoveTimeout = 120 * time.Second
+const RemoveTimeout = 300 * time.Second
 
 func NewRemover(verbose bool) *Remover {
 	return &Remover{
