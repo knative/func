@@ -17,7 +17,7 @@ func TestHandle(t *testing.T) {
 	e.SetData("text/plain", "data")
 
 	// Act
-	echo, err := Handle(context.Background(), e)
+	echo, err := New().Handle(context.Background(), e)
 	if err != nil {
 		t.Fatal(err)
 	}
