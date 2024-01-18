@@ -85,9 +85,9 @@ func TestGitlab(t *testing.T) {
 			PVCSize:       "256Mi",
 		},
 		Deploy: fn.DeploySpec{
-			Remote:    true,
 			Namespace: ns,
 		},
+		Local: fn.Local{Remote: true},
 	}
 	f = fn.NewFunctionWith(f)
 	err = f.Write()
