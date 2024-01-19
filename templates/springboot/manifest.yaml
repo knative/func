@@ -2,7 +2,7 @@ buildEnvs:
   - name: BP_NATIVE_IMAGE
     value: "false"
   - name: BP_JVM_VERSION
-    value: "17"
+    value: "21"
   - name: BP_MAVEN_ACTIVE_PROFILES
     value: "native"
 healthEndpoints:
