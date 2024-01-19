@@ -22,8 +22,17 @@ const (
 
 	// RunDataDir holds transient runtime metadata
 	// By default it is excluded from source control.
-	RunDataDir = ".func"
+	RunDataDir       = ".func"
+	RunDataLocalFile = "local.yaml"
 )
+
+// Local represents the transient runtime metadata which
+// is only relevant to the local copy of the function
+type Local struct {
+	// Remote indicates the deployment (and possibly build) process are to
+	// be triggered in a remote environment rather than run locally.
+	Remote bool `yaml:"remote,omitempty"`
+}
 
 // Function
 type Function struct {
@@ -87,6 +96,8 @@ type Function struct {
 
 	// Deploy defines the deployment properties for a function
 	Deploy DeploySpec `yaml:"deploy,omitempty"`
+
+	Local Local `yaml:"-"`
 }
 
 // KnativeSubscription
@@ -142,10 +153,6 @@ type RunSpec struct {
 type DeploySpec struct {
 	// Namespace into which the function is deployed on supported platforms.
 	Namespace string `yaml:"namespace,omitempty"`
-
-	// Remote indicates the deployment (and possibly build) process are to
-	// be triggered in a remote environment rather than run locally.
-	Remote bool `yaml:"remote,omitempty"`
 
 	// Map containing user-supplied annotations
 	// Example: { "division": "finance" }
@@ -265,6 +272,7 @@ func NewFunction(root string) (f Function, err error) {
 		errorText += "\n" + "Migration: " + functionMigrationError.Error()
 		return Function{}, errors.New(errorText)
 	}
+	f.Local, err = f.newLocal()
 	return
 }
 
@@ -393,7 +401,23 @@ func (f Function) Write() (err error) {
 	}
 	// TODO: open existing file for writing, such that existing permissions
 	// are preserved?
-	return os.WriteFile(filepath.Join(f.Root, FunctionFile), bb, 0644)
+	err = os.WriteFile(filepath.Join(f.Root, FunctionFile), bb, 0644)
+	if err != nil {
+		return
+	}
+
+	// Write local settings
+	err = ensureRunDataDir(f.Root)
+	if err != nil {
+		return
+	}
+	if bb, err = yaml.Marshal(&f.Local); err != nil {
+		return
+	}
+	localConfigPath := filepath.Join(f.Root, RunDataDir, RunDataLocalFile)
+
+	err = os.WriteFile(localConfigPath, bb, 0644)
+	return
 }
 
 type stampOptions struct{ journal bool }
@@ -673,4 +697,24 @@ func (f Function) BuildStamp() string {
 		return ""
 	}
 	return string(b)
+}
+
+// localSettings returns the local settings set for the function
+func (f Function) newLocal() (localConfig Local, err error) {
+	err = ensureRunDataDir(f.Root)
+	if err != nil {
+		return
+	}
+	localSettingsPath := filepath.Join(f.Root, RunDataDir, RunDataLocalFile)
+	if _, err = os.Stat(localSettingsPath); os.IsNotExist(err) {
+		err = nil
+		return
+	}
+	b, err := os.ReadFile(localSettingsPath)
+	if err != nil {
+		return
+	}
+
+	err = yaml.Unmarshal(b, &localConfig)
+	return
 }

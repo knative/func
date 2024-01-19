@@ -1433,7 +1433,7 @@ func TestDeploy_RemotePersists(t *testing.T) {
 	if f, err = fn.NewFunction(root); err != nil {
 		t.Fatal(err)
 	}
-	if !f.Deploy.Remote {
+	if !f.Local.Remote {
 		t.Fatalf("value of remote flag not persisted")
 	}
 
@@ -1449,7 +1449,7 @@ func TestDeploy_RemotePersists(t *testing.T) {
 	if f, err = fn.NewFunction(root); err != nil {
 		t.Fatal(err)
 	}
-	if !f.Deploy.Remote {
+	if !f.Local.Remote {
 		t.Fatalf("value of remote flag not persisted")
 	}
 
@@ -1464,7 +1464,7 @@ func TestDeploy_RemotePersists(t *testing.T) {
 	if f, err = fn.NewFunction(root); err != nil {
 		t.Fatal(err)
 	}
-	if f.Deploy.Remote {
+	if f.Local.Remote {
 		t.Fatalf("value of remote flag not persisted")
 	}
 }

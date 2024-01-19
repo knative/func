@@ -13,6 +13,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-git/go-git/v5"
+	"github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/google/go-cmp/cmp"
 
 	fn "knative.dev/func/pkg/functions"
@@ -396,5 +399,151 @@ func TestFunction_Stamp(t *testing.T) {
 	}
 	if !createdJournal {
 		t.Fatal("expected journal log not found")
+	}
+}
+
+// TestFunction_Local checks if writing a function with custom Local spec
+// stays the same for the current system. The test does the following:
+//
+//	create a new function
+//	set Local.Remote to true
+//	write it to the disk
+//	load it again into a new function object
+//
+// The load should be successful and Local.Remote should be true
+func TestFunction_Local(t *testing.T) {
+	root, rm := Mktemp(t)
+	defer rm()
+	fConfig := fn.Function{Root: root, Runtime: "go", Name: "f"}
+	client := fn.New(fn.WithBuilder(mock.NewBuilder()), fn.WithRegistry(TestRegistry))
+	f, err := client.Init(fConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Local.Remote = true
+
+	err = f.Write()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Load the function from the same location
+	f, err = fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !f.Local.Remote {
+		t.Fatal("expected remote flag to be set")
+	}
+}
+
+// TestFunction_LocalTransient ensures that the Local field is transient and
+// is not serialised in a way that affects other clones of the function.
+// The test does the following:
+//
+//	create a function (with Local.Remote set)
+//	push the function to a remote repo (locally setup for the test)
+//	clone the function from the remote repo into a new location
+//
+// The new function should not have Local.Remote set (as it is a transient field)
+func TestFunction_LocalTransient(t *testing.T) {
+
+	// Initialise a new function
+	root, rm := Mktemp(t)
+	defer rm()
+
+	fConfig := fn.Function{Root: root, Runtime: "go", Name: "f", Image: "test:latest"}
+	client := fn.New(fn.WithBuilder(mock.NewBuilder()))
+	f, err := client.Init(fConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.Local.Remote = true
+
+	err = f.Write()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Initialise the function directory as a git repo
+	repo, err := git.PlainInit(root, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// commit the function files
+	wt, err := repo.Worktree()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = wt.Add("."); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = wt.Commit("init", &git.CommitOptions{
+		All:               true,
+		AllowEmptyCommits: false,
+		Author: &object.Signature{
+			Name:  "xyz",
+			Email: "xyz@abc.com",
+			When:  time.Now(),
+		},
+		Committer: &object.Signature{
+			Name:  "xyz",
+			Email: "xyz@abc.com",
+			When:  time.Now(),
+		},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create a remote and push the function
+	remotePath, remoteRm := Mktemp(t)
+	defer remoteRm()
+	if _, err = git.PlainInit(remotePath, true); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = repo.CreateRemote(&config.RemoteConfig{
+		Name:   "origin",
+		URLs:   []string{remotePath},
+		Mirror: false,
+		Fetch:  nil,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = repo.Push(&git.PushOptions{
+		RemoteName:      "origin",
+		RemoteURL:       remotePath,
+		InsecureSkipTLS: true,
+	})
+	if err != nil {
+		t.Fatal()
+	}
+
+	// Create a new directory to clone the function in
+	newRoot, newRm := Mktemp(t)
+	defer newRm()
+
+	// Clone the pushed function
+	_, err = git.PlainClone(newRoot, false, &git.CloneOptions{
+		URL:             remotePath,
+		RemoteName:      "origin",
+		InsecureSkipTLS: true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Read the function from the new location
+	newFunc, err := fn.NewFunction(newRoot)
+	if err != nil {
+		t.Fatal(newFunc, err)
+	}
+
+	if newFunc.Local.Remote {
+		t.Fatal("Remote not supposed to be set")
 	}
 }
