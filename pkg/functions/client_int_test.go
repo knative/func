@@ -547,7 +547,7 @@ func newClient(verbose bool) *fn.Client {
 	pusher := docker.NewPusher(docker.WithVerbose(verbose))
 	deployer := knative.NewDeployer(knative.WithDeployerNamespace(DefaultNamespace), knative.WithDeployerVerbose(verbose))
 	describer := knative.NewDescriber(DefaultNamespace, verbose)
-	remover := knative.NewRemover(DefaultNamespace, verbose)
+	remover := knative.NewRemover(verbose)
 	lister := knative.NewLister(DefaultNamespace, verbose)
 
 	return fn.New(

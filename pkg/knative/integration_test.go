@@ -271,8 +271,8 @@ func TestIntegration(t *testing.T) {
 		t.Error("environment variable was not set from config-map")
 	}
 
-	remover := knative.NewRemover(namespace, false)
-	err = remover.Remove(ctx, functionName)
+	remover := knative.NewRemover(false)
+	err = remover.Remove(ctx, functionName, namespace)
 	if err != nil {
 		t.Fatal(err)
 	}
