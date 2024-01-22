@@ -759,7 +759,7 @@ func printDeployMessages(out io.Writer, f fn.Function) {
 	// specified.
 
 	// TODO update names of these to Source--Revision--Dir
-	if !f.Deploy.Remote && (f.Build.Git.URL != "" || f.Build.Git.Revision != "" || f.Build.Git.ContextDir != "") {
+	if !f.Local.Remote && (f.Build.Git.URL != "" || f.Build.Git.Revision != "" || f.Build.Git.ContextDir != "") {
 		fmt.Fprintf(out, "Warning: git settings are only applicable when running with --remote.  Local source code will be used.")
 	}
 }

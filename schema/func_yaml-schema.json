@@ -56,6 +56,10 @@
 					"type": "string",
 					"description": "Namespace into which the function was deployed on supported platforms."
 				},
+				"image": {
+					"type": "string",
+					"description": "Image is the deployed image including sha256"
+				},
 				"annotations": {
 					"patternProperties": {
 						".*": {

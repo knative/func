@@ -169,10 +169,6 @@ type DeploySpec struct {
 	// Image is the deployed image including sha256
 	Image string `yaml:"image,omitempty"`
 
-	// Remote indicates the deployment (and possibly build) process are to
-	// be triggered in a remote environment rather than run locally.
-	Remote bool `yaml:"remote,omitempty"`
-
 	// Map containing user-supplied annotations
 	// Example: { "division": "finance" }
 	Annotations map[string]string `yaml:"annotations,omitempty"`
