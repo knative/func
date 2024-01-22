@@ -212,6 +212,48 @@ created: 2021-01-01T00:00:00+00:00
 	}
 }
 
+// TestDelete_ByPath ensures that providing only path deletes the Function
+// successfully
+func TestDelete_ByPath(t *testing.T) {
+	var (
+
+		// A mock remover which will be sampled to ensure it is not invoked.
+		remover = mock.NewRemover()
+		root    = fromTempDirectory(t)
+		err     error
+	)
+
+	// Ensure the extant function's namespace is used
+	f := fn.Function{
+		Root:     root,
+		Runtime:  "go",
+		Registry: TestRegistry,
+	}
+
+	// Initialize a function in temp dir
+	if f, err = fn.New().Init(f); err != nil {
+		t.Fatal(err)
+	}
+	if err = f.Write(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Command with a Client constructor using the mock remover.
+	cmd := NewDeleteCmd(NewTestClient(fn.WithRemover(remover)))
+
+	// Execute the command only with the path argument
+	cmd.SetArgs([]string{"-p", root})
+	err = cmd.Execute()
+	if err != nil {
+		t.Fatalf("failed with: %v", err)
+	}
+
+	// Also fail if remover's .Remove is not invoked.
+	if !remover.RemoveInvoked {
+		t.Fatal("fn.Remover not invoked despite valid argument")
+	}
+}
+
 // TestDelete_NameAndPathExclusivity ensures that providing both a name and a
 // path generates an error.
 // Providing the --path (-p) flag indicates the name of the function to delete
