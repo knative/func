@@ -20,7 +20,7 @@ jobs:
   test-unit:
     strategy:
       matrix:
-        java: [ 17 ]
+        java: [ 21 ]
         os: [ "ubuntu-latest", "windows-latest", "macos-latest" ]
     runs-on: ${{ matrix.os }}
     steps:

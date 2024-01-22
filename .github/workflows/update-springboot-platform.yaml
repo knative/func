@@ -20,7 +20,7 @@ jobs:
           node-version: 18
       - uses: actions/setup-java@v1
         with:
-          java-version: 17
+          java-version: 21
       - name: Install NPM deps.
         run: npm install axios xml2js octokit yaml semver
       - name: Create PR

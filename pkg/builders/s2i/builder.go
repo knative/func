@@ -39,7 +39,7 @@ import (
 const DefaultName = builders.S2I
 
 var DefaultNodeBuilder = "registry.access.redhat.com/ubi8/nodejs-16-minimal"
-var DefaultQuarkusBuilder = "registry.access.redhat.com/ubi8/openjdk-17"
+var DefaultQuarkusBuilder = "registry.access.redhat.com/ubi8/openjdk-21"
 var DefaultPythonBuilder = "registry.access.redhat.com/ubi8/python-39"
 
 // DefaultBuilderImages for s2i builders indexed by Runtime Language
