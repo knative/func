@@ -1,21 +1,18 @@
 package tekton
 
 import (
-	"bytes"
+	"context"
 	"fmt"
-	"net/http"
 	"os"
 	"path"
-	"strings"
 	"text/template"
 
 	"github.com/AlecAivazis/survey/v2"
-	"github.com/manifestival/manifestival"
-	"gopkg.in/yaml.v3"
+	"github.com/tektoncd/pipeline/pkg/client/clientset/versioned"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"knative.dev/func/pkg/builders"
 	fn "knative.dev/func/pkg/functions"
-	"knative.dev/func/pkg/k8s"
 )
 
 const (
@@ -94,7 +91,7 @@ var (
 	taskBasePath = "https://raw.githubusercontent.com/" +
 		FuncRepoRef + "/" + FuncRepoBranchRef + "/pkg/pipelines/resources/tekton/task/"
 	BuildpackTaskURL = taskBasePath + "func-buildpacks/0.2/func-buildpacks.yaml"
-	S2ITaskURL       = taskBasePath + "func-s2i/0.1/func-s2i.yaml"
+	S2ITaskURL       = taskBasePath + "func-s2i/0.2/func-s2i.yaml"
 	DeployTaskURL    = taskBasePath + "func-deploy/0.1/func-deploy.yaml"
 )
 
@@ -286,209 +283,55 @@ func deleteAllPipelineTemplates(f fn.Function) string {
 	return ""
 }
 
-func getTaskSpec(taskUrlTemplate string) (string, error) {
-	resp, err := http.Get(taskUrlTemplate)
-	if err != nil {
-		return "", err
-	}
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("cannot get task: %q bad http code: %d", taskUrlTemplate, resp.StatusCode)
-	}
-	defer resp.Body.Close()
-	var data map[string]any
-	dec := yaml.NewDecoder(resp.Body)
-	err = dec.Decode(&data)
-	if err != nil {
-		return "", err
-	}
-	data = map[string]any{
-		"taskSpec": data["spec"],
-	}
-	var buff bytes.Buffer
-	enc := yaml.NewEncoder(&buff)
-	enc.SetIndent(2)
-	err = enc.Encode(data)
-	if err != nil {
-		return "", err
-	}
-	err = enc.Close()
-	if err != nil {
-		return "", err
-	}
-	return strings.ReplaceAll(buff.String(), "\n", "\n      "), nil
-}
-
 // createAndApplyPipelineTemplate creates and applies Pipeline template for a standard on-cluster build
 // all resources are created on the fly, if there's a Pipeline defined in the project directory, it is used instead
 func createAndApplyPipelineTemplate(f fn.Function, namespace string, labels map[string]string) error {
-	// If Git is set up create fetch task and reference it from build task,
-	// otherwise sources have been already uploaded to workspace PVC.
-	gitCloneTaskRef := ""
-	runAfterFetchSources := ""
-	if f.Build.Git.URL != "" {
-		runAfterFetchSources = runAfterFetchSourcesRef
-		gitCloneTaskRef = taskGitCloneTaskRef
-	}
-
-	data := templateData{
-		FunctionName:         f.Name,
-		Annotations:          f.Deploy.Annotations,
-		Labels:               labels,
-		PipelineName:         getPipelineName(f),
-		RunAfterFetchSources: runAfterFetchSources,
-		GitCloneTaskRef:      gitCloneTaskRef,
-	}
-
-	for _, val := range []struct {
-		ref   string
-		field *string
-	}{
-		{BuildpackTaskURL, &data.FuncBuildpacksTaskRef},
-		{S2ITaskURL, &data.FuncS2iTaskRef},
-		{DeployTaskURL, &data.FuncDeployTaskRef},
-	} {
-		ts, err := getTaskSpec(val.ref)
+	if f.Build.Builder == builders.Pack || f.Build.Builder == builders.S2I {
+		iface, err := newTektonClient()
 		if err != nil {
-			return err
+			return fmt.Errorf("cannot create tekton client: %w", err)
 		}
-		*val.field = ts
-	}
-
-	var template string
-	if f.Build.Builder == builders.Pack {
-		template = packPipelineTemplate
-	} else if f.Build.Builder == builders.S2I {
-		template = s2iPipelineTemplate
+		pipeline, err := getPipeline(f, labels)
+		if err != nil {
+			return fmt.Errorf("cannot generate pipeline: %w", err)
+		}
+		_, err = iface.TektonV1beta1().Pipelines(namespace).Create(context.TODO(), pipeline, v1.CreateOptions{})
+		if err != nil {
+			err = fmt.Errorf("cannot create pipeline in cluster: %w", err)
+		}
+		return err
 	} else {
 		return builders.ErrBuilderNotSupported{Builder: f.Build.Builder}
 	}
-
-	return createAndApplyResource(f.Root, pipelineFileName, template, "pipeline", getPipelineName(f), namespace, data)
 }
 
 // createAndApplyPipelineRunTemplate creates and applies PipelineRun template for a standard on-cluster build
 // all resources are created on the fly, if there's a PipelineRun defined in the project directory, it is used instead
 func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels map[string]string) error {
-	contextDir := f.Build.Git.ContextDir
-	if contextDir == "" && f.Build.Builder == builders.S2I {
-		// TODO(lkingland): could instead update S2I to interpret empty string
-		// as cwd, such that builder-specific code can be kept out of here.
-		contextDir = "."
-	}
-
-	pipelinesTargetBranch := f.Build.Git.Revision
-	if pipelinesTargetBranch == "" {
-		pipelinesTargetBranch = defaultPipelinesTargetBranch
-	}
-
-	buildEnvs := []string{}
-	if len(f.Build.BuildEnvs) == 0 {
-		buildEnvs = []string{"="}
-	} else {
-		for i := range f.Build.BuildEnvs {
-			buildEnvs = append(buildEnvs, f.Build.BuildEnvs[i].KeyValuePair())
+	if f.Build.Builder == builders.Pack || f.Build.Builder == builders.S2I {
+		iface, err := newTektonClient()
+		if err != nil {
+			return err
 		}
-	}
-
-	s2iImageScriptsUrl := defaultS2iImageScriptsUrl
-	if f.Runtime == "quarkus" {
-		s2iImageScriptsUrl = quarkusS2iImageScriptsUrl
-	}
-
-	data := templateData{
-		FunctionName:  f.Name,
-		Annotations:   f.Deploy.Annotations,
-		Labels:        labels,
-		ContextDir:    contextDir,
-		FunctionImage: f.Image,
-		Registry:      f.Registry,
-		BuilderImage:  getBuilderImage(f),
-		BuildEnvs:     buildEnvs,
-
-		PipelineName:    getPipelineName(f),
-		PipelineRunName: getPipelineRunGenerateName(f),
-		PvcName:         getPipelinePvcName(f),
-		SecretName:      getPipelineSecretName(f),
-
-		S2iImageScriptsUrl: s2iImageScriptsUrl,
-
-		RepoUrl:  f.Build.Git.URL,
-		Revision: pipelinesTargetBranch,
-	}
-
-	var template string
-	if f.Build.Builder == builders.Pack {
-		template = packRunTemplate
-	} else if f.Build.Builder == builders.S2I {
-		template = s2iRunTemplate
+		piplineRun, err := getPipelineRun(f, labels)
+		if err != nil {
+			return fmt.Errorf("cannot generate pipeline run: %w", err)
+		}
+		_, err = iface.TektonV1beta1().PipelineRuns(namespace).Create(context.Background(), piplineRun, v1.CreateOptions{})
+		if err != nil {
+			err = fmt.Errorf("cannot create pipeline run in cluster: %w", err)
+		}
+		return err
 	} else {
 		return builders.ErrBuilderNotSupported{Builder: f.Build.Builder}
 	}
-
-	return createAndApplyResource(f.Root, pipelineFileName, template, "pipelinerun", getPipelineRunGenerateName(f), namespace, data)
 }
 
 // allows simple mocking in unit tests
-var manifestivalClient = k8s.GetManifestivalClient
-
-// createAndApplyResource tries to create and apply a resource to the k8s cluster from the input template and data,
-// if there's the same resource already created in the project directory, it is used instead
-func createAndApplyResource(projectRoot, fileName, fileTemplate, kind, resourceName, namespace string, data interface{}) error {
-	var source manifestival.Source
-
-	filePath := path.Join(projectRoot, resourcesDirectory, fileName)
-	if _, err := os.Stat(filePath); !os.IsNotExist(err) {
-		source = manifestival.Path(filePath)
-	} else {
-		tmpl, err := template.New("template").Parse(fileTemplate)
-		if err != nil {
-			return fmt.Errorf("error parsing template: %v", err)
-		}
-
-		var buf bytes.Buffer
-		err = tmpl.Execute(&buf, data)
-		if err != nil {
-			return fmt.Errorf("error executing template: %v", err)
-		}
-		source = manifestival.Reader(&buf)
-	}
-
-	client, err := manifestivalClient()
+var newTektonClient func() (versioned.Interface, error) = func() (versioned.Interface, error) {
+	cli, err := NewTektonClients()
 	if err != nil {
-		return fmt.Errorf("error generating template: %v", err)
+		return nil, err
 	}
-
-	m, err := manifestival.ManifestFrom(source, manifestival.UseClient(client))
-	if err != nil {
-		return fmt.Errorf("error generating template: %v", err)
-	}
-
-	resources := m.Resources()
-	if len(resources) != 1 {
-		return fmt.Errorf("error creating pipeline resources: there could be only a single resource in the template file %q", filePath)
-	}
-
-	if strings.ToLower(resources[0].GetKind()) != kind {
-		return fmt.Errorf("error creating pipeline resources: expected resource kind in file %q is %q, but got %q", filePath, kind, resources[0].GetKind())
-	}
-
-	existingResourceName := resources[0].GetName()
-	if kind == "pipelinerun" {
-		existingResourceName = resources[0].GetGenerateName()
-	}
-	if existingResourceName != resourceName {
-		return fmt.Errorf("error creating pipeline resources: expected resource name in file %q is %q, but got %q", filePath, resourceName, existingResourceName)
-	}
-
-	if resources[0].GetNamespace() != "" && resources[0].GetNamespace() != namespace {
-		return fmt.Errorf("error creating pipeline resources: expected resource namespace in file %q is %q, but got %q", filePath, namespace, resources[0].GetNamespace())
-	}
-
-	m, err = m.Transform(manifestival.InjectNamespace(namespace))
-	if err != nil {
-		fmt.Printf("error procesing template: %v", err)
-		return err
-	}
-
-	return m.Apply()
+	return cli.Tekton, nil
 }
