@@ -2,8 +2,6 @@ module knative.dev/func
 
 go 1.21
 
-toolchain go1.21.4
-
 // Use older version since it checks ~/.docker/config.json for credentials as opposed to later versions
 replace github.com/containers/image/v5 => github.com/containers/image/v5 v5.23.1
 
