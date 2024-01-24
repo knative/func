@@ -102,9 +102,16 @@ const getCompatibleSpringCloudVersion = async (newPlatform) => {
 
     const newPlatformVersion = semver.parse(newPlatform, {}, true)
     for (const {compatibilityRange, version} of mappings) {
-        const [b, e] = compatibilityRange.slice(1,-1).split(',')
-        const begin = semver.parse(b, {}, true)
-        const end = semver.parse(e, {}, true)
+        let begin, end
+        if (compatibilityRange.startsWith('[')) {
+            let [b, e] = compatibilityRange.slice(1, -1).split(',')
+            begin = semver.parse(b, {}, true)
+            end = semver.parse(e, {}, true)
+        } else {
+            begin = semver.parse(compatibilityRange, {}, true)
+            end = semver.parse("999.999.999", {}, true)
+        }
+
         if (newPlatformVersion.compare(begin) >= 0 && newPlatformVersion.compare(end) < 0) {
             return version
         }
