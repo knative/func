@@ -69,7 +69,7 @@ func runDelete(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 		return
 	}
 
-	// check that name is defined when deliting a Function in specific namespace
+	// check that name is defined when deleting a Function in specific namespace
 	if cfg.Name == "" && cfg.Namespace != "" {
 		return fmt.Errorf("function name is required when namespace is specified")
 	}
@@ -98,16 +98,18 @@ func runDelete(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 
 		// --- Namespace determination ---
 
-		// use the function's extant namespace -- already deployed Function
-		if !cmd.Flags().Changed("namespace") {
+		// use the function's extant namespace -- already deployed Function if viable
+		// cfg.Namespace can be got from global config (is flag unchanged?)
+		if !cmd.Flags().Changed("namespace") && function.Deploy.Namespace != "" {
 			cfg.Namespace = function.Deploy.Namespace
 		}
-
-		// if user specified one, override (example: manually written to func.yaml)
-		if function.Namespace != "" {
-			cfg.Namespace = function.Namespace
-		}
-
+	}
+	ff, err := fn.NewFunction(cfg.Path)
+	if err != nil {
+		return
+	}
+	if cfg.Namespace == "" {
+		cfg.Namespace = ff.Deploy.Namespace
 	}
 
 	// assign final namespace to function to be passed to client.Remove

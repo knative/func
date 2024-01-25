@@ -970,6 +970,7 @@ func TestClient_Remove_ByPath(t *testing.T) {
 		root         = "testdata/example.com/test-remove-by-path"
 		expectedName = "test-remove-by-path"
 		remover      = mock.NewRemover()
+		namespace    = "func"
 	)
 
 	defer Using(t, root)()
@@ -980,7 +981,7 @@ func TestClient_Remove_ByPath(t *testing.T) {
 
 	var f fn.Function
 	var err error
-	if _, f, err = client.New(context.Background(), fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
+	if _, f, err = client.New(context.Background(), fn.Function{Runtime: TestRuntime, Root: root, Namespace: namespace}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1011,6 +1012,7 @@ func TestClient_Remove_DeleteAll(t *testing.T) {
 		remover           = mock.NewRemover()
 		pipelinesProvider = mock.NewPipelinesProvider()
 		deleteAll         = true
+		namespace         = "func"
 	)
 
 	defer Using(t, root)()
@@ -1022,7 +1024,7 @@ func TestClient_Remove_DeleteAll(t *testing.T) {
 
 	var f fn.Function
 	var err error
-	if _, f, err = client.New(context.Background(), fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
+	if _, f, err = client.New(context.Background(), fn.Function{Runtime: TestRuntime, Root: root, Namespace: namespace}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1057,6 +1059,7 @@ func TestClient_Remove_Dont_DeleteAll(t *testing.T) {
 		remover           = mock.NewRemover()
 		pipelinesProvider = mock.NewPipelinesProvider()
 		deleteAll         = false
+		namespace         = "func"
 	)
 
 	defer Using(t, root)()
@@ -1068,7 +1071,7 @@ func TestClient_Remove_Dont_DeleteAll(t *testing.T) {
 
 	var f fn.Function
 	var err error
-	if _, f, err = client.New(context.Background(), fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
+	if _, f, err = client.New(context.Background(), fn.Function{Runtime: TestRuntime, Root: root, Namespace: namespace}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1100,6 +1103,7 @@ func TestClient_Remove_ByName(t *testing.T) {
 		root         = "testdata/example.com/testRemoveByName"
 		expectedName = "explicitName.example.com"
 		remover      = mock.NewRemover()
+		namespace    = "func"
 	)
 
 	defer Using(t, root)()
@@ -1119,13 +1123,13 @@ func TestClient_Remove_ByName(t *testing.T) {
 		return nil
 	}
 
-	// Run remove with only a name
-	if err := client.Remove(context.Background(), fn.Function{Name: expectedName}, false); err != nil {
+	// Run remove with name (and namespace since client Remove is being called directly)
+	if err := client.Remove(context.Background(), fn.Function{Name: expectedName, Deploy: fn.DeploySpec{Namespace: namespace}}, false); err != nil {
 		t.Fatal(err)
 	}
 
 	// Run remove with a name and a root, which should be ignored in favor of the name.
-	if err := client.Remove(context.Background(), fn.Function{Name: expectedName, Root: root}, false); err != nil {
+	if err := client.Remove(context.Background(), fn.Function{Name: expectedName, Root: root, Deploy: fn.DeploySpec{Namespace: namespace}}, false); err != nil {
 		t.Fatal(err)
 	}
 

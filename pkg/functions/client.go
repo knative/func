@@ -516,7 +516,7 @@ func (c *Client) New(ctx context.Context, cfg Function) (string, Function, error
 		return route, f, err
 	}
 
-	fmt.Fprint(os.Stderr, "Done")
+	fmt.Fprint(os.Stderr, "Done\n")
 
 	return route, f, err
 }
@@ -968,8 +968,9 @@ func (c *Client) List(ctx context.Context) ([]ListItem, error) {
 	return c.lister.List(ctx)
 }
 
-// Remove a function.  Name takes precedence.  If no name is provided,
-// the function defined at root is used if it exists.
+// Remove a function. Name takes precedence. If no name is provided, the
+// function defined at root is used if it exists. If calling this directly
+// namespace must be provided in .Deploy.Namespace field.
 func (c *Client) Remove(ctx context.Context, cfg Function, deleteAll bool) error {
 	// If name is provided, it takes precedence.
 	// Otherwise load the function defined at root.
@@ -989,8 +990,12 @@ func (c *Client) Remove(ctx context.Context, cfg Function, deleteAll bool) error
 		return ErrNameRequired
 	}
 
+	if cfg.Deploy.Namespace == "" {
+		return ErrNamespaceRequired
+	}
+
 	// Delete Knative Service and dependent resources in parallel
-	fmt.Fprintf(os.Stderr, "Removing Knative Service: %v in namespace %v\n", functionName, cfg.Deploy.Namespace)
+	fmt.Fprintf(os.Stderr, "Removing Knative Service: %v in namespace '%v'\n", functionName, cfg.Deploy.Namespace)
 	errChan := make(chan error)
 	go func() {
 		errChan <- c.remover.Remove(ctx, functionName, cfg.Deploy.Namespace)

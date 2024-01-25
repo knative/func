@@ -20,8 +20,8 @@ func Test_DefaultNamespace(t *testing.T) {
 	// "test-ns-deploy"
 	t.Setenv("KUBECONFIG", fmt.Sprintf("%s/testdata/test_default_namespace", cwd()))
 
-	if DefaultNamespace() != "test-ns-deploy" {
-		t.Fatalf("expected 'test-ns-deploy', got '%v'", DefaultNamespace())
+	if ActiveNamespace() != "test-ns-deploy" {
+		t.Fatalf("expected 'test-ns-deploy', got '%v'", ActiveNamespace())
 	}
 }
 

@@ -130,9 +130,9 @@ func TestDeploy(t *testing.T) {
 func TestDeployWithOptions(t *testing.T) {
 	root, cleanup := Mktemp(t)
 	defer cleanup()
-	verbose := true
+	verbose := false
 
-	f := fn.Function{Runtime: "go", Name: "test-deploy-with-options", Root: root}
+	f := fn.Function{Runtime: "go", Name: "test-deploy-with-options", Root: root, Namespace: DefaultNamespace}
 	f.Deploy = fn.DeploySpec{
 		Options: fn.Options{
 			Scale: &fn.ScaleOptions{
@@ -575,7 +575,7 @@ func newClient(verbose bool) *fn.Client {
 func del(t *testing.T, c *fn.Client, name string) {
 	t.Helper()
 	waitFor(t, c, name)
-	if err := c.Remove(context.Background(), fn.Function{Name: name}, false); err != nil {
+	if err := c.Remove(context.Background(), fn.Function{Name: name, Deploy: fn.DeploySpec{Namespace: DefaultNamespace}}, false); err != nil {
 		t.Fatal(err)
 	}
 	cli, _, err := docker.NewClient(client.DefaultDockerHost)

@@ -170,10 +170,9 @@ func TestDelete_ByProject(t *testing.T) {
 
 	// Write a func.yaml config which specifies a name
 	funcYaml := `name: bar
-namespace: ""
+namespace: "func"
 runtime: go
 image: ""
-imageDigest: ""
 builder: quay.io/boson/faas-go-builder
 builders:
   default: quay.io/boson/faas-go-builder
@@ -218,9 +217,10 @@ func TestDelete_ByPath(t *testing.T) {
 	var (
 
 		// A mock remover which will be sampled to ensure it is not invoked.
-		remover = mock.NewRemover()
-		root    = fromTempDirectory(t)
-		err     error
+		remover   = mock.NewRemover()
+		root      = fromTempDirectory(t)
+		err       error
+		namespace = "func"
 	)
 
 	// Ensure the extant function's namespace is used
@@ -228,6 +228,7 @@ func TestDelete_ByPath(t *testing.T) {
 		Root:     root,
 		Runtime:  "go",
 		Registry: TestRegistry,
+		Deploy:   fn.DeploySpec{Namespace: namespace},
 	}
 
 	// Initialize a function in temp dir
