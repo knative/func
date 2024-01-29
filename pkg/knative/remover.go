@@ -22,7 +22,17 @@ type Remover struct {
 }
 
 func (remover *Remover) Remove(ctx context.Context, name, ns string) (err error) {
+	// if namespace is not provided for any reason, use the active namespace
+	// otherwise just throw an error. I dont think this should default to any namespace
+	// because its a remover, therefore we dont want to just assume a default namespace
+	// to delete a function from. Use provided, get the current one or none at all.
+
 	if ns == "" {
+		ns = ActiveNamespace()
+	}
+
+	if ns == "" {
+		fmt.Print("normal error in Remove, no namespace found here\n")
 		return fn.ErrNamespaceRequired
 	}
 

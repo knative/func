@@ -345,8 +345,22 @@ func sourcesAsTarStream(f fn.Function) *io.PipeReader {
 
 // Remove tries to remove all resources that are present on the cluster and belongs to the input function and it's pipelines
 func (pp *PipelinesProvider) Remove(ctx context.Context, f fn.Function) error {
-	var err error
+	// determine the correct namespace to use by priority
+	ns := f.Deploy.Namespace
+	if ns == "" {
+		ns = pp.namespace
+	}
+	if ns == "" {
+		ns = knative.ActiveNamespace()
+	}
 
+	pp.namespace = ns
+	if pp.namespace == "" {
+		fmt.Print("pipelines error in Remove, no namespace found here\n")
+		return fn.ErrNamespaceRequired
+	}
+
+	var err error
 	errMsg := pp.removeClusterResources(ctx, f)
 	if errMsg != "" {
 		err = fmt.Errorf("%s", errMsg)

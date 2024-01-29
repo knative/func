@@ -970,7 +970,9 @@ func (c *Client) List(ctx context.Context) ([]ListItem, error) {
 
 // Remove a function. Name takes precedence. If no name is provided, the
 // function defined at root is used if it exists. If calling this directly
-// namespace must be provided in .Deploy.Namespace field.
+// namespace must be provided in .Deploy.Namespace field except when using mocks
+// in which case empty namespace is accepted because its existance is checked
+// in the sub functions remover.Remove and pipilines.Remove
 func (c *Client) Remove(ctx context.Context, cfg Function, deleteAll bool) error {
 	// If name is provided, it takes precedence.
 	// Otherwise load the function defined at root.
@@ -988,10 +990,6 @@ func (c *Client) Remove(ctx context.Context, cfg Function, deleteAll bool) error
 	}
 	if functionName == "" {
 		return ErrNameRequired
-	}
-
-	if cfg.Deploy.Namespace == "" {
-		return ErrNamespaceRequired
 	}
 
 	// Delete Knative Service and dependent resources in parallel
