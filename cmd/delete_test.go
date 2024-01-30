@@ -61,11 +61,10 @@ func TestDelete_Default(t *testing.T) {
 // function explicitly as an argument invokes the remover appropriately.
 func TestDelete_ByName(t *testing.T) {
 	var (
-		root      = fromTempDirectory(t)
-		testname  = "testname" // explicit name for the function
-		namespace = "myns"
-		remover   = mock.NewRemover() // with a mock remover
-		err       error
+		root     = fromTempDirectory(t)
+		testname = "testname"        // explicit name for the function
+		remover  = mock.NewRemover() // with a mock remover
+		err      error
 	)
 
 	// Remover fails the test if it receives the incorrect name
@@ -81,9 +80,6 @@ func TestDelete_ByName(t *testing.T) {
 		Runtime:  "go",
 		Registry: TestRegistry,
 		Name:     "testname",
-		Deploy: fn.DeploySpec{
-			Namespace: namespace, //simulate deployed Function in this namespace
-		},
 	}
 
 	if f, err = fn.New().Init(f); err != nil {

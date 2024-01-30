@@ -18,7 +18,6 @@ func Test_NewTestClient(t *testing.T) {
 	var (
 		remover   = mock.NewRemover()
 		describer = mock.NewDescriber()
-		namespace = "func"
 	)
 
 	// Factory constructor options which should be used when invoking later
@@ -27,7 +26,7 @@ func Test_NewTestClient(t *testing.T) {
 	client, _ := clientFn(ClientConfig{}, fn.WithDescriber(describer))
 
 	// Trigger an invocation of the mocks
-	err := client.Remove(context.Background(), fn.Function{Name: "test", Deploy: fn.DeploySpec{Namespace: namespace}}, true)
+	err := client.Remove(context.Background(), fn.Function{Name: "test"}, true)
 	if err != nil {
 		t.Fatal(err)
 	}

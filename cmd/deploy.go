@@ -287,6 +287,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		// should be deployed as is
 		if digested {
 			f.Deploy.Image = cfg.Image
+			// TODO: remove this -- edit subsequent tests
 			f.Build.Image = cfg.Image // when digested image is used and not remotely built, set .Build.Image
 
 		} else {

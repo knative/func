@@ -33,8 +33,8 @@ import (
 const LIVENESS_ENDPOINT = "/health/liveness"
 const READINESS_ENDPOINT = "/health/readiness"
 
-// static default namespace
-const DefaultNamespace = "func"
+// static default namespace for deployer
+const StaticDefaultNamespace = "func"
 
 type DeployDecorator interface {
 	UpdateAnnotations(fn.Function, map[string]string) map[string]string
@@ -146,7 +146,7 @@ func namespace(dflt string, f fn.Function) string {
 		namespace, err = k8s.GetDefaultNamespace()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "trying to get default namespace returns an error: %s\n", err)
-			namespace = DefaultNamespace
+			namespace = StaticDefaultNamespace
 		}
 	}
 	return namespace
@@ -154,7 +154,7 @@ func namespace(dflt string, f fn.Function) string {
 
 func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResult, error) {
 
-	// returns correct namespace combining
+	// returns correct namespace by priority
 	namespace := namespace(d.Namespace, f)
 
 	client, err := NewServingClient(namespace)

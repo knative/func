@@ -108,7 +108,7 @@ func TestNew(t *testing.T) {
 	}
 }
 
-// TestDeploy updates
+// TestDeploy deployes using client methods from New but manually
 func TestDeploy(t *testing.T) {
 	defer Within(t, "testdata/example.com/deploy")()
 	verbose := true
@@ -116,10 +116,21 @@ func TestDeploy(t *testing.T) {
 	client := newClient(verbose)
 	f := fn.Function{Name: "deploy", Root: ".", Runtime: "go"}
 	var err error
-	if _, f, err = client.New(context.Background(), f); err != nil {
+
+	if f, err = client.Init(f); err != nil {
 		t.Fatal(err)
 	}
+	if f, err = client.Build(context.Background(), f); err != nil {
+		t.Fatal(err)
+	}
+	if f, err = client.Push(context.Background(), f); err != nil {
+		t.Fatal(err)
+	}
+
 	defer del(t, client, "deploy")
+	// TODO: gauron99 -- remove this when you set full image name after build instead
+	// of push -- this has to be here because of a workaround
+	f.Deploy.Image = f.Build.Image
 
 	if f, err = client.Deploy(context.Background(), f); err != nil {
 		t.Fatal(err)
@@ -575,7 +586,7 @@ func newClient(verbose bool) *fn.Client {
 func del(t *testing.T, c *fn.Client, name string) {
 	t.Helper()
 	waitFor(t, c, name)
-	if err := c.Remove(context.Background(), fn.Function{Name: name, Deploy: fn.DeploySpec{Namespace: DefaultNamespace}}, false); err != nil {
+	if err := c.Remove(context.Background(), fn.Function{Name: name}, false); err != nil {
 		t.Fatal(err)
 	}
 	cli, _, err := docker.NewClient(client.DefaultDockerHost)
