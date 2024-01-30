@@ -50,7 +50,7 @@ func TestUploadToVolume(t *testing.T) {
 
 	// First, test error handling by uploading empty content stream.
 	err = k8s.UploadToVolume(ctx, &bytes.Buffer{}, testingPVCName, testingNS)
-	if err == nil || !strings.Contains(err.Error(), "short read") {
+	if err == nil || !strings.Contains(err.Error(), "does not look like a tar") {
 		t.Error("got <nil> error, or error with unexpected message")
 	}
 

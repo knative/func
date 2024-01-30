@@ -1,0 +1,21 @@
+FROM --platform=$BUILDPLATFORM index.docker.io/library/golang:1.22.1-alpine3.19 AS builder
+
+ARG BUILDPLATFORM
+ARG TARGETPLATFORM
+ARG TARGETARCH
+
+COPY . .
+
+RUN GOARCH=$TARGETARCH go build -o deploy -trimpath -ldflags '-w -s' ./cmd/func-deployer
+
+#########################
+
+FROM --platform=$TARGETPLATFORM index.docker.io/library/alpine:latest
+
+RUN apk add --no-cache socat tar \
+  && addgroup func -g 1000 \
+  && adduser func -u 1001 -D -G func
+
+COPY --from=builder /go/deploy /usr/local/bin/
+
+USER func:func

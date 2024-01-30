@@ -33,6 +33,8 @@ jobs:
         run: ./hack/allocate.sh
       - name: Local Registry
         run: ./hack/registry.sh
+      - name: Setup testing images
+        run: ./hack/setup-testing-images.sh
       - name: Integration Test Podman
         env:
           FUNC_REPO_REF: ${{ github.event.pull_request.head.repo.full_name }}
