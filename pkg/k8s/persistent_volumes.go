@@ -67,7 +67,7 @@ func DeletePersistentVolumeClaims(ctx context.Context, namespaceOverride string,
 	return client.CoreV1().PersistentVolumeClaims(namespace).DeleteCollection(ctx, metav1.DeleteOptions{}, listOptions)
 }
 
-var TarImage = "quay.io/boson/alpine-socat:1.7.4.3-r1-non-root"
+var TarImage = "ttl.sh/knative-func/test-img-30ac845a-c043-11ee-9f02-6045bd4909df:2h@sha256:dca0ba93a616ad76136bae703b68454ea90791053fbe22ec5981f06b2febc8f2"
 
 // UploadToVolume uploads files (passed in form of tar stream) into volume.
 func UploadToVolume(ctx context.Context, content io.Reader, claimName, namespace string) error {

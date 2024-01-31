@@ -29,7 +29,7 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 )
 
-var SocatImage = "quay.io/boson/alpine-socat:1.7.4.3-r1-non-root"
+var SocatImage = "ttl.sh/knative-func/test-img-30ac845a-c043-11ee-9f02-6045bd4909df:2h@sha256:dca0ba93a616ad76136bae703b68454ea90791053fbe22ec5981f06b2febc8f2"
 
 // NewInClusterDialer creates context dialer that will dial TCP connections via POD running in k8s cluster.
 // This is useful when accessing k8s services that are not exposed outside cluster (e.g. openshift image registry).
