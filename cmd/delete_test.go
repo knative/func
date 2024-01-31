@@ -61,10 +61,11 @@ func TestDelete_Default(t *testing.T) {
 // function explicitly as an argument invokes the remover appropriately.
 func TestDelete_ByName(t *testing.T) {
 	var (
-		root     = fromTempDirectory(t)
-		testname = "testname"        // explicit name for the function
-		remover  = mock.NewRemover() // with a mock remover
-		err      error
+		root          = fromTempDirectory(t)
+		testname      = "testname"        // explicit name for the function
+		testnamespace = "testnamespace"   // explicit namespace for the function
+		remover       = mock.NewRemover() // with a mock remover
+		err           error
 	)
 
 	// Remover fails the test if it receives the incorrect name
@@ -86,9 +87,13 @@ func TestDelete_ByName(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// simulate deployed namespace for the client Remover
+	f.Deploy.Namespace = testnamespace
+
 	if err = f.Write(); err != nil {
 		t.Fatal(err)
 	}
+
 	// Create a command with a client constructor fn that instantiates a client
 	// with a mocked remover.
 	cmd := NewDeleteCmd(NewTestClient(fn.WithRemover(remover)))

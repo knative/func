@@ -977,6 +977,8 @@ func (c *Client) Remove(ctx context.Context, cfg Function, deleteAll bool) error
 	// If name is provided, it takes precedence.
 	// Otherwise load the function defined at root.
 	functionName := cfg.Name
+	functionNamespace := cfg.Deploy.Namespace
+
 	if cfg.Name == "" {
 		f, err := NewFunction(cfg.Root)
 		if err != nil {
@@ -986,22 +988,31 @@ func (c *Client) Remove(ctx context.Context, cfg Function, deleteAll bool) error
 			return fmt.Errorf("function at %v can not be removed unless initialized. Try removing by name", f.Root)
 		}
 		functionName = f.Name
+		if functionNamespace == "" && f.Deploy.Namespace != "" {
+			functionNamespace = f.Deploy.Namespace
+		}
 		cfg = f
 	}
+
 	if functionName == "" {
 		return ErrNameRequired
 	}
+	if functionNamespace == "" {
+		return ErrNamespaceRequired
+	}
 
 	// Delete Knative Service and dependent resources in parallel
-	fmt.Fprintf(os.Stderr, "Removing Knative Service: %v in namespace '%v'\n", functionName, cfg.Deploy.Namespace)
+	fmt.Fprintf(os.Stderr, "Removing Knative Service: %v in namespace '%v'\n", functionName, functionNamespace)
 	errChan := make(chan error)
 	go func() {
-		errChan <- c.remover.Remove(ctx, functionName, cfg.Deploy.Namespace)
+		errChan <- c.remover.Remove(ctx, functionName, functionNamespace)
 	}()
 
 	var errResources error
 	if deleteAll {
 		fmt.Fprintf(os.Stderr, "Removing Knative Service '%v' and all dependent resources\n", functionName)
+		// TODO: might not be necessary
+		cfg.Deploy.Namespace = functionNamespace
 		errResources = c.pipelinesProvider.Remove(ctx, cfg)
 	}
 
