@@ -235,7 +235,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	}
 
 	// If using Openshift registry AND redeploying Function, update image registry
-	if f.Namespace != f.Deploy.Namespace && f.Deploy.Namespace != "" {
+	if f.Namespace != "" && f.Namespace != f.Deploy.Namespace && f.Deploy.Namespace != "" {
 		// when running openshift, namespace is tied to registry, override on --namespace change
 		// The most default part of registry (in buildConfig) checks 'k8s.IsOpenShift()' and if true,
 		// sets default registry by current namespace

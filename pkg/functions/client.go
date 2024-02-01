@@ -757,10 +757,10 @@ func (c *Client) Deploy(ctx context.Context, f Function, opts ...DeployOption) (
 
 	// If Redeployment to NEW namespace was successful -- undeploy dangling Function in old namespace.
 	// On forced namespace change (using --namespace flag)
-	if f.Namespace != f.Deploy.Namespace && f.Deploy.Namespace != "" {
+	if f.Namespace != "" && f.Namespace != f.Deploy.Namespace && f.Deploy.Namespace != "" {
 		// TODO: when new prompt is implemented, add here a "are you sure?" check possibly
 		if c.verbose {
-			fmt.Fprintf(os.Stderr, "Info: Deleting old func in '%s' because the namespace has changed\n", f.Deploy.Namespace)
+			fmt.Fprintf(os.Stderr, "Info: Deleting old func in '%s' because the namespace has changed to '%s'\n", f.Deploy.Namespace, f.Namespace)
 		}
 
 		// c.Remove removes a Function in f.Deploy.Namespace which removes the OLD Function

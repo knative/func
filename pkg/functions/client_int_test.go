@@ -202,7 +202,7 @@ func TestDeployWithTriggers(t *testing.T) {
 func TestUpdateWithAnnotationsAndLabels(t *testing.T) {
 	functionName := "updateannlab"
 	defer Within(t, "testdata/example.com/"+functionName)()
-	verbose := true
+	verbose := false
 
 	servingClient, err := knative.NewServingClient(DefaultNamespace)
 
@@ -214,10 +214,6 @@ func TestUpdateWithAnnotationsAndLabels(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer del(t, client, functionName)
-
-	if f, err = client.Deploy(context.Background(), f); err != nil {
-		t.Fatal(err)
-	}
 
 	// Updated function with a new set of annotations and labels
 	// deploy and check that deployed kcsv contains correct annotations and labels
