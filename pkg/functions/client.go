@@ -974,11 +974,11 @@ func (c *Client) List(ctx context.Context) ([]ListItem, error) {
 // in which case empty namespace is accepted because its existence is checked
 // in the sub functions remover.Remove and pipilines.Remove
 func (c *Client) Remove(ctx context.Context, cfg Function, deleteAll bool) error {
-	// If name is provided, it takes precedence.
-	// Otherwise load the function defined at root.
 	functionName := cfg.Name
 	functionNamespace := cfg.Deploy.Namespace
 
+	// If name is provided, it takes precedence.
+	// Otherwise load the function defined at root.
 	if cfg.Name == "" {
 		f, err := NewFunction(cfg.Root)
 		if err != nil {
@@ -987,11 +987,20 @@ func (c *Client) Remove(ctx context.Context, cfg Function, deleteAll bool) error
 		if !f.Initialized() {
 			return fmt.Errorf("function at %v can not be removed unless initialized. Try removing by name", f.Root)
 		}
+		// take the functions name and namespace and load it as current function
 		functionName = f.Name
-		if functionNamespace == "" && f.Deploy.Namespace != "" {
-			functionNamespace = f.Deploy.Namespace
-		}
+		functionNamespace = f.Deploy.Namespace
 		cfg = f
+	}
+
+	// if still empty, get current function's yaml deployed namespace
+	if functionNamespace == "" {
+		var f Function
+		f, err := NewFunction(cfg.Root)
+		if err != nil {
+			return err
+		}
+		functionNamespace = f.Deploy.Namespace
 	}
 
 	if functionName == "" {

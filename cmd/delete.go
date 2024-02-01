@@ -57,13 +57,6 @@ No local files are deleted.
 }
 
 func runDelete(cmd *cobra.Command, args []string, newClient ClientFactory) (err error) {
-
-	// TODO: (possibly) gauron99 -- I think this whole process of deletion might
-	// be cleaned up more for example: passing a function as a config from which
-	// only namespace and name is used, in sub-functions of client.Remove this is
-	// also the case. Furthermore the namespace being assigned to cfg&f around the
-	// place might be also on the list.
-
 	cfg, err := newDeleteConfig(args).Prompt()
 	if err != nil {
 		return
@@ -75,6 +68,8 @@ func runDelete(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 	}
 
 	var function fn.Function
+	// initialize namespace from the config
+	var namespace = cfg.Namespace
 
 	// Initialize func with explicit name (when provided)
 	if len(args) > 0 && args[0] != "" {
@@ -96,29 +91,28 @@ func runDelete(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 			return fn.NewErrNotInitialized(function.Root)
 		}
 
-		// --- Namespace determination ---
-
-		// use the function's extant namespace -- already deployed Function if viable
-		// cfg.Namespace can be got from global config (is flag unchanged?)
+		// use the function's extant namespace -- already deployed function
 		if !cmd.Flags().Changed("namespace") && function.Deploy.Namespace != "" {
-			cfg.Namespace = function.Deploy.Namespace
+			namespace = function.Deploy.Namespace
 		}
 	}
-	ff, err := fn.NewFunction(cfg.Path)
-	if err != nil {
-		return
-	}
-	if cfg.Namespace == "" {
-		cfg.Namespace = ff.Deploy.Namespace
-	}
 
-	// assign final namespace to function to be passed to client.Remove
-	function.Deploy.Namespace = cfg.Namespace
+	// TODO: gauron99 -- remove this most likely -- moved to client??
+	// // if still empty, get current function's yaml deployed namespace
+	// if namespace == "" {
+	// 	var f fn.Function
+	// 	f, err = fn.NewFunction(cfg.Path)
+	// 	if err != nil {
+	// 		return
+	// 	}
+	// 	namespace = f.Deploy.Namespace
+	// }
 
 	// Create a client instance from the now-final config
-	client, done := newClient(ClientConfig{Namespace: cfg.Namespace, Verbose: cfg.Verbose})
+	client, done := newClient(ClientConfig{Namespace: namespace, Verbose: cfg.Verbose})
 	defer done()
 
+	function.Deploy.Namespace = namespace
 	// Invoke remove using the concrete client impl
 	return client.Remove(cmd.Context(), function, cfg.DeleteAll)
 }
