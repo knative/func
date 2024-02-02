@@ -110,7 +110,7 @@ func NewPipelinesProvider(opts ...Opt) *PipelinesProvider {
 // It ensures that all needed resources are present on the cluster so the PipelineRun can be initialized.
 // After the PipelineRun is being initialized, the progress of the PipelineRun is being watched and printed to the output.
 func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, error) {
-	fmt.Fprintf(os.Stderr, "Creating Pipeline resources")
+	fmt.Fprintf(os.Stderr, "Creating Pipeline resources\n")
 	var err error
 	if err = validatePipeline(f); err != nil {
 		return "", err
@@ -345,16 +345,8 @@ func sourcesAsTarStream(f fn.Function) *io.PipeReader {
 
 // Remove tries to remove all resources that are present on the cluster and belongs to the input function and it's pipelines
 func (pp *PipelinesProvider) Remove(ctx context.Context, f fn.Function) error {
-	// determine the correct namespace to use by priority
-	ns := f.Deploy.Namespace
-	if ns == "" {
-		ns = pp.namespace
-	}
-	if ns == "" {
-		ns = knative.ActiveNamespace()
-	}
-
-	pp.namespace = ns
+	// TODO: is this correct?
+	pp.namespace = f.Deploy.Namespace
 	if pp.namespace == "" {
 		fmt.Print("pipelines error in Remove, no namespace found here\n")
 		return fn.ErrNamespaceRequired
