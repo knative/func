@@ -24,7 +24,7 @@ type Remover struct {
 
 func (remover *Remover) Remove(ctx context.Context, name, ns string) (err error) {
 	if ns == "" {
-		fmt.Fprintf(os.Stderr, "no namespace defined when trying to delete a function in knative remover")
+		fmt.Fprintf(os.Stderr, "no namespace defined when trying to delete a function in knative remover\n")
 		return fn.ErrNamespaceRequired
 	}
 
