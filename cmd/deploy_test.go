@@ -195,9 +195,7 @@ func testConfigApplied(cmdFn commandConstructor, t *testing.T) {
 	if err := cmdFn(clientFn).Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if err := f.Write(); err != nil {
-		t.Fatal(err)
-	}
+
 	if f, err = fn.NewFunction(root); err != nil {
 		t.Fatal(err)
 	}

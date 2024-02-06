@@ -1123,7 +1123,7 @@ func TestClient_Remove_ByName(t *testing.T) {
 		return nil
 	}
 
-	// Run remove with name (and namespace since client Remove is being called directly)
+	// Run remove with name (and namespace in .Deploy to simulate deployed function)
 	if err := client.Remove(context.Background(), fn.Function{Name: expectedName, Deploy: fn.DeploySpec{Namespace: namespace}}, false); err != nil {
 		t.Fatal(err)
 	}

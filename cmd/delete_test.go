@@ -8,12 +8,11 @@ import (
 	"knative.dev/func/pkg/mock"
 )
 
-// TestDelete_Default ensures that the deployed Function is deleted correctly
+// TestDelete_Default ensures that the deployed function is deleted correctly
 // with default options
 func TestDelete_Default(t *testing.T) {
 	var (
-		root = fromTempDirectory(t)
-		// ctx       = context.Background()
+		root      = fromTempDirectory(t)
 		namespace = "myns"
 		remover   = mock.NewRemover()
 		err       error
@@ -87,7 +86,7 @@ func TestDelete_ByName(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// simulate deployed namespace for the client Remover
+	// simulate deployed function in namespace for the client Remover
 	f.Deploy.Namespace = testnamespace
 
 	if err = f.Write(); err != nil {
@@ -97,7 +96,7 @@ func TestDelete_ByName(t *testing.T) {
 	// Create a command with a client constructor fn that instantiates a client
 	// with a mocked remover.
 	cmd := NewDeleteCmd(NewTestClient(fn.WithRemover(remover)))
-	cmd.SetArgs([]string{testname}) // func delete <name>
+	cmd.SetArgs([]string{testname}) // run: func delete <name>
 
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
@@ -129,6 +128,7 @@ func TestDelete_Namespace(t *testing.T) {
 
 	// Ensure the extant function's namespace is used
 	f := fn.Function{
+		Name:     testname,
 		Root:     root,
 		Runtime:  "go",
 		Registry: TestRegistry,
@@ -149,6 +149,10 @@ func TestDelete_Namespace(t *testing.T) {
 	cmd.SetArgs([]string{testname, "--namespace", namespace})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
+	}
+
+	if !remover.RemoveInvoked {
+		t.Fatal("remover was not invoked")
 	}
 }
 

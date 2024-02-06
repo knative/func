@@ -287,9 +287,6 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		// should be deployed as is
 		if digested {
 			f.Deploy.Image = cfg.Image
-			// TODO: remove this -- edit subsequent tests
-			f.Build.Image = cfg.Image // when digested image is used and not remotely built, set .Build.Image
-
 		} else {
 			// if NOT digested, build and push the Function first
 			if f, err = build(cmd, cfg.Build, f, client, buildOptions); err != nil {
@@ -302,10 +299,6 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 			}
 			// f.Build.Image is set in Push for now, just set it as a deployed image
 			f.Deploy.Image = f.Build.Image
-			// write .func/built-image as running metadata which is not persisted in func.yaml
-			if err = f.WriteRuntimeBuiltImage(cfg.Verbose); err != nil {
-				return
-			}
 		}
 
 		if f, err = client.Deploy(cmd.Context(), f, fn.WithDeploySkipBuildCheck(cfg.Build == "false")); err != nil {

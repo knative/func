@@ -97,17 +97,6 @@ func runDelete(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 		}
 	}
 
-	// TODO: gauron99 -- remove this most likely -- moved to client??
-	// // if still empty, get current function's yaml deployed namespace
-	// if namespace == "" {
-	// 	var f fn.Function
-	// 	f, err = fn.NewFunction(cfg.Path)
-	// 	if err != nil {
-	// 		return
-	// 	}
-	// 	namespace = f.Deploy.Namespace
-	// }
-
 	// Create a client instance from the now-final config
 	client, done := newClient(ClientConfig{Namespace: namespace, Verbose: cfg.Verbose})
 	defer done()

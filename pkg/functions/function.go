@@ -439,7 +439,12 @@ func (f Function) Write() (err error) {
 	}
 	localConfigPath := filepath.Join(f.Root, RunDataDir, RunDataLocalFile)
 
-	err = os.WriteFile(localConfigPath, bb, 0644)
+	if err = os.WriteFile(localConfigPath, bb, 0644); err != nil {
+		return
+	}
+
+	// Write built image to .func
+	err = f.WriteRuntimeBuiltImage(false)
 	return
 }
 
@@ -701,10 +706,15 @@ func (f Function) newLocal() (localConfig Local, err error) {
 	return
 }
 
-// WriteRuntimeBuiltImage writes new full built image name into runtime metadata
-// directory (.func/)
+// WriteRuntimeBuiltImage writes built image name into runtime metadata
+// directory (.func/) from f.Build.Image
 func (f Function) WriteRuntimeBuiltImage(verbose bool) error {
 	path := filepath.Join(f.Root, RunDataDir, BuiltImage)
+
+	// dont write if empty (not built)
+	if f.Build.Image == "" {
+		return nil
+	}
 
 	if verbose {
 		fmt.Printf("Writing built image: '%s' at path: '%s'\n", f.Build.Image, path)
