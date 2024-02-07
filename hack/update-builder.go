@@ -362,7 +362,6 @@ func buildBuildpackImage(ctx context.Context, bp buildpack) error {
 		PullPolicy:      image.PullIfNotPresent,
 		Registry:        "",
 		Flatten:         false,
-		Depth:           0,
 		FlattenExclude:  nil,
 	}
 	packClient, err := pack.NewClient()
