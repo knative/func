@@ -669,7 +669,23 @@ func (f Function) Built() bool {
 		fmt.Fprintf(os.Stderr, "error calculating function's fingerprint: %v\n", err)
 		return false
 	}
-	return stamp == hash
+
+	if stamp != hash {
+		return false
+	}
+
+	// Special case of registry change on a subsequent deploy attempt should
+	// result in unbuilt image, forcing a rebuild if possible
+	// Example: Deploy with image using registry X. Then subsequently deploy with
+	// --registry=Y, changing registry resulting in unmatched Registry and Build.Image.
+
+	// If f.Image is specified, registry is overridden -- meaning its not taken into
+	// consideration and can be different from actually built image.
+	if !strings.Contains(f.Build.Image, f.Registry) && f.Image == "" {
+		fmt.Fprintf(os.Stderr, "Warning: registry '%s' does not match currently built image '%s' and no direct image override was provided via --image\n", f.Registry, f.Build.Image)
+		return false
+	}
+	return true
 }
 
 // BuildStamp accesses the current (last) build stamp for the function.

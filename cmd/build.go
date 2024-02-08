@@ -176,7 +176,6 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 			return
 		}
 	}
-	fmt.Printf("WRITING IN RUNBUILD: %s\n", f.Build.Image)
 	if err = f.Write(); err != nil {
 		return
 	}

@@ -252,7 +252,6 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 
 	// Informative non-error messages regarding the final deployment request
 	printDeployMessages(cmd.OutOrStdout(), f)
-	// print stuff here
 
 	clientOptions, err := cfg.clientOptions()
 	if err != nil {
@@ -325,38 +324,19 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 // optional build step.
 func build(cmd *cobra.Command, flag string, f fn.Function, client *fn.Client, buildOptions []fn.BuildOption) (fn.Function, error) {
 	var err error
-
-	// TODO: gauron99 - This checks whether a registry has changed on a subsequent build
-	// decision (Like on func deploy --registry=X when already built image is Y)
-	// This can probably be added into f.Built() function for simpler and more global
-	// implementation
-	registryChangedSubsequently := false
-	if !strings.Contains(f.Build.Image, f.Registry) && f.Image == "" && f.Build.Image != "" {
-		registryChangedSubsequently = true
-	}
-
-	build, _ := strconv.ParseBool(flag)
+	fmt.Printf("build func: flag:'%s'; fBI: '%s'; fR: '%s'\n", flag, f.Build.Image, f.Registry)
 	if flag == "auto" {
-		if f.Built() && !registryChangedSubsequently {
+		if f.Built() {
 			fmt.Fprintln(cmd.OutOrStdout(), "function up-to-date. Force rebuild with --build")
 		} else {
 			if f, err = client.Build(cmd.Context(), f, buildOptions...); err != nil {
 				return f, err
 			}
 		}
-	} else if build {
+	} else if build, _ := strconv.ParseBool(flag); build {
 		if f, err = client.Build(cmd.Context(), f, buildOptions...); err != nil {
 			return f, err
 		}
-	} else if !build && registryChangedSubsequently {
-		// This else-if-branch solves edge case problem.
-		// This happens when --registry is given with deploy when a different registry
-		// has been used to build image previously.
-		// Ex.:
-		// step 1) Init -> Build with: --registry example.com/alice
-		// step 2) Deploy with: --registry example.com/fred --build=false
-		fmt.Fprintf(cmd.OutOrStdout(), "Error: --build flag was disabled but you most likely provided new registry '%v'. Enable build (--build=true) to override or build beforehand with your new registry to apply it\n", f.Registry)
-		return f, fmt.Errorf("new registry '%v' was provided but build was disabled, cannot update image name", f.Registry)
 	} else if _, err = strconv.ParseBool(flag); err != nil {
 		return f, fmt.Errorf("--build ($FUNC_BUILD) %q not recognized.  Should be 'auto' or a truthy value such as 'true', 'false', '0', or '1'.", flag)
 

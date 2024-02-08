@@ -1550,10 +1550,9 @@ func Test_ValidateBuilder(t *testing.T) {
 	}
 }
 
-// TestReDeploy_ErrorOnRegistryChangeWithoutBuild tests that subsequent deploy
-// with different --registry and --build disabled throws an error because client
-// wasnt able to build on a registry change
-func TestReDeploy_ErrorOnRegistryChangeWithoutBuild(t *testing.T) {
+// TestReDeploy_OnRegistryChange tests that after deployed image with registry X,
+// subsequent deploy with registry Y triggers build
+func TestReDeploy_OnRegistryChange(t *testing.T) {
 	root := fromTempDirectory(t)
 
 	// Create a basic go Function
@@ -1575,40 +1574,75 @@ func TestReDeploy_ErrorOnRegistryChangeWithoutBuild(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// change namespace and deploy again
+	// change registry and deploy again
 	newRegistry := "example.com/fred"
 
-	// Redeploy the function without specifying namespace.
+	cmd := NewDeployCmd(NewTestClient(
+		fn.WithDeployer(mock.NewDeployer()),
+	))
+
+	cmd.SetArgs([]string{"--registry=" + newRegistry})
+
+	// Second: Deploy with different registry and expect new build
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// ASSERT
+	expectF, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal("couldnt load function from path")
+	}
+
+	if !strings.Contains(expectF.Build.Image, newRegistry) {
+		t.Fatalf("expected built image '%s' to contain new registry '%s'\n", expectF.Build.Image, newRegistry)
+	}
+}
+func TestReDeploy_OnRegistryChangeWithBuildFalse(t *testing.T) {
+	root := fromTempDirectory(t)
+
+	// Create a basic go Function
+	f := fn.Function{
+		Runtime: "go",
+		Root:    root,
+	}
+	_, err := fn.New().Init(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// create build cmd
+	cmdBuild := NewBuildCmd(NewTestClient(fn.WithBuilder(mock.NewBuilder())))
+	cmdBuild.SetArgs([]string{"--registry=" + TestRegistry})
+
+	// First: prebuild Function
+	if err := cmdBuild.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// change registry and deploy again
+	newRegistry := "example.com/fred"
+
 	cmd := NewDeployCmd(NewTestClient(
 		fn.WithDeployer(mock.NewDeployer()),
 	))
 
 	cmd.SetArgs([]string{"--registry=" + newRegistry, "--build=false"})
 
-	stdout := strings.Builder{}
-	cmd.SetOut(&stdout)
-
-	// Second: Deploy with different registry and build disabled (check err here)
-	err = cmd.Execute()
-
-	expectedPrint := fmt.Sprintf("Error: --build flag was disabled but you most likely provided new registry '%v'. Enable build (--build=true) to override or build beforehand with your new registry to apply it\n", newRegistry)
-	expectedError := fmt.Sprintf("new registry '%v' was provided but build was disabled, cannot update image name", newRegistry)
+	// Second: Deploy with different registry and expect 'not built' error because
+	// registry has changed but build is disabled
+	if err := cmd.Execute(); err == nil {
+		t.Fatal(err)
+	}
 
 	// ASSERT
-
-	// Ensure output contained error message
-	if !strings.Contains(stdout.String(), expectedPrint) {
-		t.Log("STDOUT:\n" + stdout.String())
-		t.Fatalf("Expected message not found:\n%v", expectedPrint)
+	expectF, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal("couldnt load function from path")
 	}
 
-	// ensure we get the right error
-	if err == nil {
-		t.Fatal("expected error but got nil")
-	}
-
-	if err.Error() != expectedError {
-		t.Fatalf("expected error message '%v' but got '%v'", expectedError, err.Error())
+	if !strings.Contains(expectF.Build.Image, TestRegistry) {
+		t.Fatal("expected registry to NOT change since --build=false")
 	}
 }
 
