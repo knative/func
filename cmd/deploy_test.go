@@ -1598,6 +1598,9 @@ func TestReDeploy_OnRegistryChange(t *testing.T) {
 		t.Fatalf("expected built image '%s' to contain new registry '%s'\n", expectF.Build.Image, newRegistry)
 	}
 }
+
+// TestReDeploy_OnRegistryChangeWithBuildFalse should fail with function not
+// being built because the registry has changed
 func TestReDeploy_OnRegistryChangeWithBuildFalse(t *testing.T) {
 	root := fromTempDirectory(t)
 

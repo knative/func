@@ -963,6 +963,57 @@ func TestClient_Deploy_RegistryUpdate(t *testing.T) {
 	}
 }
 
+// TestClient_Deploy_NamespaceUpdate ensures that namespace deploymen has
+// the correct priorities, that means:
+// 'default' gets overridden by 'already deployed' if aplicable and all gets
+// overridden by 'specifically desired namespace'.
+func TestClient_Deploy_NamespaceUpdate(t *testing.T) {
+	root, rm := Mktemp(t)
+	defer rm()
+
+	var (
+		ctx      = context.Background()
+		deployer = mock.NewDeployer()
+		f        fn.Function
+		err      error
+	)
+
+	client := fn.New(
+		fn.WithRegistry("example.com/alice"),
+		fn.WithDeployer(deployer),
+	)
+
+	// New runs build and deploy, thus the initial instantiation should result in
+	// the namespace member being populated into the most default namespace
+	if _, f, err = client.New(ctx, fn.Function{Runtime: "go", Name: "f", Root: root}); err != nil {
+		t.Fatal(err)
+	}
+	fmt.Printf("namespace: '%s'\n", f.Deploy.Namespace)
+	if f.Deploy.Namespace == "" {
+		t.Fatal("namespace should be populated in deployer when initially undefined")
+	}
+
+	// change deployed namespace to simulate already deployed function -- should
+	// take precendece
+	f.Deploy.Namespace = "alreadydeployed"
+	f, err = client.Deploy(ctx, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if f.Deploy.Namespace != "alreadydeployed" {
+		err = fmt.Errorf("namespace should match the already deployed function ns")
+		t.Fatal(err)
+	}
+
+	// desired namespace takes precedence
+	f.Namespace = "desiredns"
+	f, err = client.Deploy(ctx, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 // TestClient_Remove_ByPath ensures that the remover is invoked to remove
 // the function with the name of the function at the provided root.
 func TestClient_Remove_ByPath(t *testing.T) {

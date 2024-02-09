@@ -747,6 +747,11 @@ func (c *Client) Deploy(ctx context.Context, f Function, opts ...DeployOption) (
 		return f, ErrNameRequired
 	}
 
+	// TODO: gauron99 -- ideally namespace would be determined here to keep consistancy
+	// with the Remover but it either creates a cyclic dependency or deployer.namespace
+	// is not defined here for it to be complete. Maybe it would be worth to try to
+	// do it this way.
+
 	// Deploy a new or Update the previously-deployed function
 	fmt.Fprintf(os.Stderr, "⬆️  Deploying function to the cluster\n")
 	result, err := c.deployer.Deploy(ctx, f)
