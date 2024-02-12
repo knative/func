@@ -837,6 +837,32 @@ func TestDeploy_ImageWithDigestErrors(t *testing.T) {
 	}
 }
 
+func TestDeploy_ImageWithDigestDoesntPopulateBuild(t *testing.T) {
+	root := fromTempDirectory(t)
+	const img = "docker.io/4141gauron3268@sha256:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+	// Create a new Function in the temp directory
+	_, err := fn.New().Init(fn.Function{Runtime: "go", Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := NewDeployCmd(NewTestClient(
+		fn.WithDeployer(mock.NewDeployer()),
+		fn.WithRegistry(TestRegistry)))
+
+	cmd.SetArgs([]string{"--build=false", "--push=false", "--image", img})
+	if err = cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	f, _ := fn.NewFunction(root)
+	if f.Build.Image != "" {
+		t.Fatal("build image should be empty when deploying with digested image")
+	}
+	if f.Deploy.Image != img {
+		t.Fatal("expected deployed image to match digested img given")
+	}
+}
+
 // TestDepoy_InvalidRegistry ensures that providing an invalid registry
 // fails with the expected error.
 func TestDeploy_InvalidRegistry(t *testing.T) {
