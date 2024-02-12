@@ -1110,6 +1110,99 @@ func TestDeploy_NamespaceUpdateWarning(t *testing.T) {
 	}
 }
 
+// TestDeploy_BasicRedeploy simply ensures that redeploy works and doesnt brake
+// using standard deploy method when desired namespace is deleted.
+func TestDeploy_BasicRedeployInCorrectNamespace(t *testing.T) {
+	root := fromTempDirectory(t)
+
+	// Create a Function which appears to have been deployed to 'myns'
+	f := fn.Function{
+		Runtime: "go",
+		Root:    root,
+	}
+	f, err := fn.New().Init(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Redeploy the function, specifying 'newns'
+	cmd := NewDeployCmd(NewTestClient(
+		fn.WithDeployer(mock.NewDeployer()),
+		fn.WithRegistry(TestRegistry),
+	))
+
+	cmd.SetArgs([]string{"--namespace=mydns"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	f, _ = fn.NewFunction(root)
+	if f.Deploy.Namespace == "" {
+		t.Fatal("expected deployed namespace to be specified after deploy")
+	}
+
+	// get rid of desired namespace -- should still deploy as usual, now taking
+	// the "already deployed" namespace
+	cmd.SetArgs([]string{"--namespace="})
+	if err = cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	f, _ = fn.NewFunction(root)
+	if f.Namespace != "" {
+		t.Fatalf("no desired namespace should be specified but is %s", f.Namespace)
+	}
+
+	if f.Deploy.Namespace == "" {
+		t.Fatal("expected deployed namespace to be specified after second deploy")
+	}
+}
+
+// TestDeploy_BasicRedeployPipelines simply ensures that deploy 2 times works
+// and doesnt brake using pipelines
+func TestDeploy_BasicRedeployPipelinesCorrectNamespace(t *testing.T) {
+	root := fromTempDirectory(t)
+	// Create a Function which appears to have been deployed to 'myns'
+	f := fn.Function{
+		Runtime: "go",
+		Root:    root,
+	}
+	f, err := fn.New().Init(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Redeploy the function, specifying 'newns'
+	cmd := NewDeployCmd(NewTestClient(
+		fn.WithBuilder(mock.NewBuilder()),
+		fn.WithPipelinesProvider(mock.NewPipelinesProvider()),
+		fn.WithRegistry(TestRegistry),
+	))
+
+	cmd.SetArgs([]string{"--remote", "--namespace=myfuncns"})
+	if err = cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	f, _ = fn.NewFunction(root)
+	if f.Deploy.Namespace == "" || f.Deploy.Namespace != f.Namespace {
+		t.Fatalf("namespace should match desired ns when deployed - '%s' | '%s'", f.Deploy.Namespace, f.Namespace)
+	}
+
+	cmd.SetArgs([]string{"--remote", "--namespace="})
+	if err = cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	f, _ = fn.NewFunction(root)
+	if f.Namespace != "" {
+		t.Fatal("desired ns should be empty")
+	}
+	if f.Deploy.Namespace != "myfuncns" {
+		t.Fatalf("deployed ns should NOT have changed but is '%s'\n", f.Deploy.Namespace)
+	}
+}
+
 // TestDeploy_Registry ensures that a function's registry member is kept in
 // sync with the image tag.
 // During normal operation (using the client API) a function's state on disk

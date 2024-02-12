@@ -10,7 +10,7 @@ import (
 // See deployer implementations for tests which ensure the currently
 // active kube namespace is chosen when no explicit namespace is provided.
 // This mock emulates a deployer which responds that the function was deployed
-// to that defined on the function, or "default" if not defined.
+// to desired or previously-deployed ns or "default" if not defined.
 const DefaultNamespace = "default"
 
 type Deployer struct {
@@ -22,16 +22,12 @@ func NewDeployer() *Deployer {
 	return &Deployer{
 		DeployFn: func(_ context.Context, f fn.Function) (fn.DeploymentResult, error) {
 			result := fn.DeploymentResult{}
-
-			// default namespace
-			result.Namespace = DefaultNamespace
-			// already deployed namespace
-			if f.Deploy.Namespace != "" {
+			result.Namespace = f.Namespace
+			if result.Namespace == "" {
 				result.Namespace = f.Deploy.Namespace
 			}
-			// specifically desired namespace
-			if f.Namespace != "" {
-				result.Namespace = f.Namespace
+			if result.Namespace == "" {
+				result.Namespace = DefaultNamespace
 			}
 			return result, nil
 		},

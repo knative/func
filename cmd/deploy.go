@@ -263,7 +263,8 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	// Deploy
 	if cfg.Remote {
 		// Invoke a remote build/push/deploy pipeline
-		// Returned is the function with fields like Registry and .Deploy.Image populated.
+		// Returned is the function with fields like Registry, f.Deploy.Image &
+		// f.Deploy.Namespace populated.
 		if f, err = client.RunPipeline(cmd.Context(), f); err != nil {
 			return
 		}
@@ -324,7 +325,6 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 // optional build step.
 func build(cmd *cobra.Command, flag string, f fn.Function, client *fn.Client, buildOptions []fn.BuildOption) (fn.Function, error) {
 	var err error
-	fmt.Printf("build func: flag:'%s'; fBI: '%s'; fR: '%s'\n", flag, f.Build.Image, f.Registry)
 	if flag == "auto" {
 		if f.Built() {
 			fmt.Fprintln(cmd.OutOrStdout(), "function up-to-date. Force rebuild with --build")
@@ -697,6 +697,9 @@ func printDeployMessages(out io.Writer, f fn.Function) {
 	// ---------
 	currentNamespace := f.Deploy.Namespace // will be "" if no initialed f at path.
 	targetNamespace := f.Namespace
+	if targetNamespace == "" {
+		return
+	}
 
 	// If creating a duplicate deployed function in a different
 	// namespace.
@@ -711,7 +714,7 @@ func printDeployMessages(out io.Writer, f fn.Function) {
 	// context namespace is switched.
 	activeNamespace, err := k8s.GetDefaultNamespace()
 	if err == nil && targetNamespace != "" && targetNamespace != activeNamespace {
-		fmt.Fprintf(out, "Warning: namespace chosen is '%s', but currently active namespace is '%s'. Continuing with deployment to '%s'.\n", f.Namespace, activeNamespace, f.Namespace)
+		fmt.Fprintf(out, "Warning: namespace chosen is '%s', but currently active namespace is '%s'. Continuing with deployment to '%s'.\n", targetNamespace, activeNamespace, targetNamespace)
 	}
 
 	// Git Args

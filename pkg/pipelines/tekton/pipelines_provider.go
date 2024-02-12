@@ -37,6 +37,9 @@ import (
 	"knative.dev/pkg/apis"
 )
 
+// static const namespace for deployement when everything else fails
+const StaticDefaultNamespace = "func"
+
 // DefaultPersistentVolumeClaimSize to allocate for the function.
 var DefaultPersistentVolumeClaimSize = resource.MustParse("256Mi")
 
@@ -115,6 +118,10 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, st
 	if err = validatePipeline(f); err != nil {
 		return "", "", err
 	}
+
+	// namespace resolution
+	pp.namespace = namespace(pp.namespace, f)
+
 	client, namespace, err := NewTektonClientAndResolvedNamespace(pp.namespace)
 	if err != nil {
 		return "", "", err
@@ -547,4 +554,33 @@ func createPipelinePersistentVolumeClaim(ctx context.Context, f fn.Function, nam
 		return fmt.Errorf("problem creating persistent volume claim: %v", err)
 	}
 	return nil
+}
+
+// returns correct namespace to deploy to, ordered in a descending order by
+// priority: User specified via cli -> client WithDeployer -> already deployed ->
+// -> k8s default; if fails, use static default
+func namespace(dflt string, f fn.Function) string {
+	// namespace ordered by highest priority decending
+	namespace := f.Namespace
+
+	// if deployed before: use already deployed namespace
+	if namespace == "" {
+		namespace = f.Deploy.Namespace
+	}
+
+	// client namespace provided
+	if namespace == "" {
+		namespace = dflt
+	}
+
+	if namespace == "" {
+		var err error
+		// still not set, just use the defaultest default
+		namespace, err = k8s.GetDefaultNamespace()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "trying to get default namespace returns an error: '%s'\nSetting static default namespace '%s'", err, StaticDefaultNamespace)
+			namespace = StaticDefaultNamespace
+		}
+	}
+	return namespace
 }

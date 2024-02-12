@@ -988,13 +988,12 @@ func TestClient_Deploy_NamespaceUpdate(t *testing.T) {
 	if _, f, err = client.New(ctx, fn.Function{Runtime: "go", Name: "f", Root: root}); err != nil {
 		t.Fatal(err)
 	}
-	fmt.Printf("namespace: '%s'\n", f.Deploy.Namespace)
 	if f.Deploy.Namespace == "" {
 		t.Fatal("namespace should be populated in deployer when initially undefined")
 	}
 
 	// change deployed namespace to simulate already deployed function -- should
-	// take precendece
+	// take precedence
 	f.Deploy.Namespace = "alreadydeployed"
 	f, err = client.Deploy(ctx, f)
 	if err != nil {
@@ -1388,6 +1387,47 @@ func TestClient_Pipelines_Deploy_Image(t *testing.T) {
 		//    need be derived (f.Image =="")
 		// Or we could update .Registry to always be in sync by parsing the .Image
 		t.Fatalf("expected registry '%v', got '%v'", expected, f.Registry)
+	}
+}
+
+// TestClient_Pipelines_Deploy_Namespace ensures that correct namespace is returned
+// when using remote deployment
+func TestClient_Pipelines_Deploy_Namespace(t *testing.T) {
+	root, rm := Mktemp(t)
+	defer rm()
+
+	pprovider := mock.NewPipelinesProvider()
+	pprovider.RunFn = func(f fn.Function) (string, string, error) {
+		// simulate function getting deployed here and return namespace
+		return "", f.Namespace, nil
+	}
+
+	client := fn.New(
+		fn.WithPipelinesProvider(pprovider),
+		fn.WithRegistry("example.com/alice"))
+
+	f := fn.Function{
+		Name:      "myfunc",
+		Runtime:   "node",
+		Root:      root,
+		Namespace: "myns",
+		Build: fn.BuildSpec{
+			Git: fn.Git{URL: "http://example-git.com/alice/myfunc.git"},
+		},
+	}
+
+	f, err := client.Init(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if f, err = client.RunPipeline(context.Background(), f); err != nil {
+		t.Fatal(err)
+	}
+
+	// function is deployed in correct ns
+	if f.Deploy.Namespace != "myns" {
+		t.Fatalf("expected namespace to be '%s' but is '%s'", "myns", f.Deploy.Namespace)
 	}
 }
 

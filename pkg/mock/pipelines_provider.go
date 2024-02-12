@@ -19,7 +19,18 @@ type PipelinesProvider struct {
 
 func NewPipelinesProvider() *PipelinesProvider {
 	return &PipelinesProvider{
-		RunFn:          func(fn.Function) (string, string, error) { return "", "", nil },
+		RunFn: func(f fn.Function) (string, string, error) {
+			// simplified namespace resolution, doesnt take current k8s context into
+			// account and returns DefaultNamespace if nothing else instead
+			ns := f.Namespace
+			if ns == "" {
+				ns = f.Deploy.Namespace
+			}
+			if ns == "" {
+				ns = DefaultNamespace
+			}
+			return "", ns, nil
+		},
 		RemoveFn:       func(fn.Function) error { return nil },
 		ConfigurePACFn: func(fn.Function) error { return nil },
 		RemovePACFn:    func(fn.Function) error { return nil },
