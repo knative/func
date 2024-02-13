@@ -13,6 +13,7 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/pkg/errors"
 )
 
 // languageLayerBuilder builds the layer for the given language whuch may
@@ -156,6 +157,12 @@ func newDataTarball(source, target string, ignored []string, verbose bool) error
 			if link, err = os.Readlink(path); err != nil {
 				return err
 			}
+			ok, err := isWithin(source, link)
+			if err != nil {
+				return errors.Wrap(err, "error checking if link is outside function root")
+			} else if !ok {
+				return fmt.Errorf("links outside Function root disallowed.  Link %v references %v", path, link)
+			}
 		}
 
 		header, err := tar.FileInfoHeader(info, link)
@@ -183,6 +190,27 @@ func newDataTarball(source, target string, ignored []string, verbose bool) error
 		_, err = io.Copy(tw, file)
 		return err
 	})
+}
+
+// isWithin returns true if the parent path has the child path within.
+// If parent and child are the same target, this is considered within.
+func isWithin(parent, child string) (bool, error) {
+	var err error
+	// Convert the paths to clean absolute paths.
+	if parent, err = filepath.Abs(filepath.Clean(parent)); err != nil {
+		return false, err
+	}
+	if child, err = filepath.Abs(filepath.Clean(child)); err != nil {
+		return false, err
+	}
+	// Calculate the relative path between them
+	relPath, err := filepath.Rel(parent, child)
+	if err != nil {
+		return false, err
+	}
+	// Child is not within parent if the relative path from parent to child
+	// requires ..
+	return !strings.HasPrefix(relPath, ".."), nil
 }
 
 // newCertLayer creates the shared data layer in the container file hierarchy and
