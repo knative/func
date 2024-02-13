@@ -22,6 +22,7 @@ import (
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/errdefs"
 
 	"github.com/openshift/source-to-image/pkg/api"
 
@@ -500,6 +501,9 @@ func (n notFoundErr) Error() string {
 	return "not found"
 }
 
-func (n notFoundErr) NotFound() bool {
-	return true
+func (n notFoundErr) NotFound() {
+	panic("just a marker interface")
 }
+
+// Just a type assert in case docker decides to change NotFoundError interface again
+var _ errdefs.ErrNotFound = notFoundErr{}
