@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	slashpath "path"
 	"path/filepath"
 	"strings"
 
@@ -136,13 +137,12 @@ func newDataTarball(source, target string, ignored []string, verbose bool) error
 	tw := tar.NewWriter(gw)
 	defer tw.Close()
 
-	baseDir := "/func"
-
 	return filepath.Walk(source, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
+		// Skip files explicitly ignored
 		for _, v := range ignored {
 			if info.Name() == v {
 				if info.IsDir() {
@@ -152,9 +152,10 @@ func newDataTarball(source, target string, ignored []string, verbose bool) error
 			}
 		}
 
-		var link string
+		// Error if links exist which reach outside of the function root
 		if info.Mode()&os.ModeSymlink == os.ModeSymlink {
-			if link, err = os.Readlink(path); err != nil {
+			link, err := os.Readlink(path)
+			if err != nil {
 				return err
 			}
 			ok, err := isWithin(source, link)
@@ -165,13 +166,17 @@ func newDataTarball(source, target string, ignored []string, verbose bool) error
 			}
 		}
 
-		header, err := tar.FileInfoHeader(info, link)
+		header, err := tar.FileInfoHeader(info, info.Name())
 		if err != nil {
 			return err
 		}
 
-		header.Name = filepath.Join(baseDir, strings.TrimPrefix(path, source))
-		if err = tw.WriteHeader(header); err != nil {
+		relPath, err := filepath.Rel(source, path)
+		if err != nil {
+			return err
+		}
+		header.Name = slashpath.Join("/func", filepath.ToSlash(relPath))
+		if err := tw.WriteHeader(header); err != nil {
 			return err
 		}
 		if verbose {
