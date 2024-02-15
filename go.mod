@@ -5,9 +5,6 @@ go 1.21
 // Use older version since it checks ~/.docker/config.json for credentials as opposed to later versions
 replace github.com/containers/image/v5 => github.com/containers/image/v5 v5.23.1
 
-// Pin moby/buildkit until docker/docker is upgraded
-replace github.com/moby/buildkit => github.com/moby/buildkit v0.11.6
-
 replace github.com/openshift/source-to-image => github.com/matejvasek/source-to-image v1.3.2-0.20240213191046-dee4f559d604
 
 require (
@@ -122,7 +119,7 @@ require (
 	github.com/cloudflare/circl v1.3.7 // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.15.1 // indirect
-	github.com/containerd/typeurl v1.0.2 // indirect
+	github.com/containerd/typeurl/v2 v2.1.1 // indirect
 	github.com/containers/storage v1.51.0 // indirect
 	github.com/cpuguy83/go-md2man/v2 v2.0.3 // indirect
 	github.com/cyphar/filepath-securejoin v0.2.4 // indirect
