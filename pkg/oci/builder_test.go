@@ -70,9 +70,10 @@ func TestBuilder_Files(t *testing.T) {
 	var linkMode fs.FileMode
 	var linkExecutable bool
 	if runtime.GOOS != "windows" {
-		// Default: create a symlink
+		// Default case: use symlinks
 		linkMode = fs.ModeSymlink
 		linkExecutable = true
+
 		if err := os.Symlink("a.txt", "a.lnk"); err != nil {
 			t.Fatal(err)
 		}

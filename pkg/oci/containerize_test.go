@@ -7,6 +7,8 @@ import (
 	"testing"
 )
 
+// Test_validateLink ensures that the validateLink function disallows
+// links which are absolute or refer to targets outside the given root.
 func Test_validateLink(t *testing.T) {
 	root := "testdata/test-links"
 
@@ -15,11 +17,8 @@ func Test_validateLink(t *testing.T) {
 		valid bool   // If it should be considered valid
 		name  string // descriptive name of the test
 	}{
-		{"a.txt", true, "do not evaluate regular files"},
-		{"a.lnk", true, "do not evaluate directories"},
 		{"absoluteLink", false, "disallow absolute-path links"},
 		{"a.lnk", true, "links to files within the root are allowed"},
-		{"...validName.txt", true, "allow files with dot prefixes"},
 		{"...validName.lnk", true, "allow links with target of dot prefixed names"},
 		{"linkToRoot", true, "allow links to the project root"},
 		{"b/linkToRoot", true, "allow links to the project root from within subdir"},
@@ -35,7 +34,7 @@ func Test_validateLink(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			err = validateLink(root, path, info)
+			_, err = validateLink(root, path, info)
 			if err == nil != tt.valid {
 				t.Fatalf("expected %v, got %v", tt.valid, err)
 			}
@@ -49,7 +48,7 @@ func Test_validateLink(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = validateLink(root, path, info)
+		_, err = validateLink(root, path, info)
 		if err == nil {
 			t.Fatal("absolute path should be invalid on windows")
 		}

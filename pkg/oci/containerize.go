@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	slashpath "path"
 	"path/filepath"
@@ -152,12 +153,14 @@ func newDataTarball(root, target string, ignored []string, verbose bool) error {
 			}
 		}
 
-		// Check for invalid links (absolute, outside of function root, etc)
-		if err := validateLink(root, path, info); err != nil {
-			return err
+		lnk := "" // if link, this will be used as the target
+		if info.Mode()&fs.ModeSymlink != 0 {
+			if lnk, err = validateLink(root, path, info); err != nil {
+				return err
+			}
 		}
 
-		header, err := tar.FileInfoHeader(info, info.Name())
+		header, err := tar.FileInfoHeader(info, lnk)
 		if err != nil {
 			return err
 		}
@@ -188,26 +191,22 @@ func newDataTarball(root, target string, ignored []string, verbose bool) error {
 	})
 }
 
-// validateLink returns an error if the given file is allowed given the
-// - Is an absoute link
-// - Is a link to something outside of the given function root
-// - Errors obtaining this information
-func validateLink(root, path string, info os.FileInfo) error {
-	if info.Mode()&os.ModeSymlink != os.ModeSymlink {
-		return nil // not a symlink
-	}
-
+// validateLink returns the target of a given link and an error if
+// that target is either absolute or outside the given project root.
+// or referrs to a target outside of the given root.
+// For conven
+func validateLink(root, path string, info os.FileInfo) (tgt string, err error) {
 	// tgt is the raw target of the link.
 	// This path is either absolute or relative to the link's location.
-	tgt, err := os.Readlink(path)
+	tgt, err = os.Readlink(path)
 	if err != nil {
-		return err
+		return tgt, fmt.Errorf("cannot read link: %w", err)
 	}
 
 	// Absolute links will not be correct when copied into the runtime
 	// container, because they are placed into path into '/func',
 	if filepath.IsAbs(tgt) {
-		return errors.New("project may not contain absolute links")
+		return tgt, errors.New("project may not contain absolute links")
 	}
 
 	// Calculate the actual target of the link
@@ -218,14 +217,14 @@ func validateLink(root, path string, info os.FileInfo) error {
 	// this actual target location
 	relLnkTgt, err := filepath.Rel(root, lnkTgt)
 	if err != nil {
-		return err
+		return tgt, err
 	}
 
 	// Fail if this path is outside the function's root.
 	if strings.HasPrefix(relLnkTgt, ".."+string(filepath.Separator)) || relLnkTgt == ".." {
-		return errors.New("links must stay within project root")
+		return tgt, errors.New("links must stay within project root")
 	}
-	return nil
+	return
 }
 
 // newCertLayer creates the shared data layer in the container file hierarchy and
