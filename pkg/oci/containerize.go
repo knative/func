@@ -211,7 +211,7 @@ func validateLink(root, path string, info os.FileInfo) error {
 	}
 
 	// Calculate the actual target of the link
-	// (relative to our current working directory)
+	// (relative to the parent of the symlink)
 	lnkTgt := filepath.Join(filepath.Dir(path), tgt)
 
 	// Calculate the relative path from the function's root to

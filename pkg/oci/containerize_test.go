@@ -3,6 +3,7 @@ package oci
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -39,5 +40,19 @@ func Test_validateLink(t *testing.T) {
 				t.Fatalf("expected %v, got %v", tt.valid, err)
 			}
 		})
+	}
+	// Run a windows-specific absolute path test
+	// Note this technically succeeds on unix systems, but wrapping in
+	// an runtime check seems like a good idea to make it more clear.
+	if runtime.GOOS != "windows" {
+		path := "c://some/absolute/path"
+		info, err := os.Lstat(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		err = validateLink(root, path, info)
+		if err == nil {
+			t.Fatal("absolute path should be invalid on windows")
+		}
 	}
 }
