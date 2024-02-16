@@ -124,7 +124,7 @@ func newDataLayer(cfg *buildConfig) (desc v1.Descriptor, layer v1.Layer, err err
 	return
 }
 
-func newDataTarball(source, target string, ignored []string, verbose bool) error {
+func newDataTarball(root, target string, ignored []string, verbose bool) error {
 	targetFile, err := os.Create(target)
 	if err != nil {
 		return err
@@ -137,7 +137,7 @@ func newDataTarball(source, target string, ignored []string, verbose bool) error
 	tw := tar.NewWriter(gw)
 	defer tw.Close()
 
-	return filepath.Walk(source, func(path string, info os.FileInfo, err error) error {
+	return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
@@ -152,18 +152,9 @@ func newDataTarball(source, target string, ignored []string, verbose bool) error
 			}
 		}
 
-		// Error if links exist which reach outside of the function root
-		if info.Mode()&os.ModeSymlink == os.ModeSymlink {
-			link, err := os.Readlink(path)
-			if err != nil {
-				return err
-			}
-			ok, err := isWithin(source, link)
-			if err != nil {
-				return errors.Wrap(err, "error checking if link is outside function root")
-			} else if !ok {
-				return fmt.Errorf("links outside Function root disallowed.  Link %v references %v", path, link)
-			}
+		// Check for invalid links (absolute, outside of function root, etc)
+		if err := validateLink(root, path, info); err != nil {
+			return err
 		}
 
 		header, err := tar.FileInfoHeader(info, info.Name())
@@ -171,7 +162,7 @@ func newDataTarball(source, target string, ignored []string, verbose bool) error
 			return err
 		}
 
-		relPath, err := filepath.Rel(source, path)
+		relPath, err := filepath.Rel(root, path)
 		if err != nil {
 			return err
 		}
@@ -197,25 +188,44 @@ func newDataTarball(source, target string, ignored []string, verbose bool) error
 	})
 }
 
-// isWithin returns true if the parent path has the child path within.
-// If parent and child are the same target, this is considered within.
-func isWithin(parent, child string) (bool, error) {
-	var err error
-	// Convert the paths to clean absolute paths.
-	if parent, err = filepath.Abs(filepath.Clean(parent)); err != nil {
-		return false, err
+// validateLink returns an error if the given file is allowed given the
+// - Is an absoute link
+// - Is a link to something outside of the given function root
+// - Errors obtaining this information
+func validateLink(root, path string, info os.FileInfo) error {
+	if info.Mode()&os.ModeSymlink != os.ModeSymlink {
+		return nil // not a symlink
 	}
-	if child, err = filepath.Abs(filepath.Clean(child)); err != nil {
-		return false, err
-	}
-	// Calculate the relative path between them
-	relPath, err := filepath.Rel(parent, child)
+
+	// tgt is the raw target of the link.
+	// This path is either absolute or relative to the link's location.
+	tgt, err := os.Readlink(path)
 	if err != nil {
-		return false, err
+		return err
 	}
-	// Child is not within parent if the relative path from parent to child
-	// requires ..
-	return !strings.HasPrefix(relPath, ".."), nil
+
+	// Absolute links will not be correct when copied into the runtime
+	// container, because they are placed into path into '/func',
+	if filepath.IsAbs(tgt) {
+		return errors.New("project may not contain absolute links")
+	}
+
+	// Calculate the actual target of the link
+	// (relative to our current working directory)
+	lnkTgt := filepath.Join(filepath.Dir(path), tgt)
+
+	// Calculate the relative path from the function's root to
+	// this actual target location
+	relLnkTgt, err := filepath.Rel(root, lnkTgt)
+	if err != nil {
+		return err
+	}
+
+	// Fail if this path is outside the function's root.
+	if strings.HasPrefix(relLnkTgt, ".."+string(filepath.Separator)) || relLnkTgt == ".." {
+		return errors.New("links must stay within project root")
+	}
+	return nil
 }
 
 // newCertLayer creates the shared data layer in the container file hierarchy and

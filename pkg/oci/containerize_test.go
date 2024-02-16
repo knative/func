@@ -1,34 +1,43 @@
 package oci
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
-// Test_isWithin ensures that the isWithin method checks
-// that various combinations of parent and child paths.
-func Test_isWithin(t *testing.T) {
+func Test_validateLink(t *testing.T) {
+	root := "testdata/test-links"
+
 	tests := []struct {
-		parent string
-		child  string
-		want   bool
-		name   string
+		path  string // path of the file within test project root
+		valid bool   // If it should be considered valid
+		name  string // descriptive name of the test
 	}{
-		{"/", "/b", true, "Base case, a subdir of an absolute path"},
-		{"/a", "/ab", false, "Ensure simple substring does not match"},
-		{"./", ".", true, "Ensure links are both made absolute"},
-		{"/a/b/../c", "/a/c/d/../", true, "Ensure the links are both sanitized"},
-		{"/a", "/a/b/../../", false, "Ensure escaping the parent is a mismatch"},
-		{"./", "../", false, "Ensure simple relative mismatch"},
+		{"a.txt", true, "do not evaluate regular files"},
+		{"a.lnk", true, "do not evaluate directories"},
+		{"absoluteLink", false, "disallow absolute-path links"},
+		{"a.lnk", true, "links to files within the root are allowed"},
+		{"...validName.txt", true, "allow files with dot prefixes"},
+		{"...validName.lnk", true, "allow links with target of dot prefixed names"},
+		{"linkToRoot", true, "allow links to the project root"},
+		{"b/linkToRoot", true, "allow links to the project root from within subdir"},
+		{"b/linkToCurrentDir", true, "allow links to a subdirectory within the project"},
+		{"b/linkToRootsParent", false, "disallow links to the project's immediate parent"},
+		{"b/linkOutsideRootsParent", false, "disallow links outside project root and its parent"},
+		{"b/c/linkToParent", true, "allow links up, but within project"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := isWithin(tt.parent, tt.child)
+			path := filepath.Join(root, tt.path)
+			info, err := os.Lstat(path) // filepath.Walk does not follow symlinks
 			if err != nil {
 				t.Fatal(err)
 			}
-			if got != tt.want {
-				t.Log(tt.name)
-				t.Errorf("isWithin() = %v, want %v", got, tt.want)
+			err = validateLink(root, path, info)
+			if err == nil != tt.valid {
+				t.Fatalf("expected %v, got %v", tt.valid, err)
 			}
 		})
 	}
-
 }
