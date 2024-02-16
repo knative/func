@@ -41,11 +41,10 @@ func Test_validateLink(t *testing.T) {
 			}
 		})
 	}
+
 	// Run a windows-specific absolute path test
-	// Note this technically succeeds on unix systems, but wrapping in
-	// an runtime check seems like a good idea to make it more clear.
-	if runtime.GOOS != "windows" {
-		path := "c://some/absolute/path"
+	if runtime.GOOS == "windows" {
+		path := "testdata/test-links/absoluteLinkWindows"
 		info, err := os.Lstat(path)
 		if err != nil {
 			t.Fatal(err)
