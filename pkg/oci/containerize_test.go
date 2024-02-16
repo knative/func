@@ -7,9 +7,10 @@ import (
 	"testing"
 )
 
-// Test_validateLink ensures that the validateLink function disallows
-// links which are absolute or refer to targets outside the given root.
-func Test_validateLink(t *testing.T) {
+// Test_validatedLinkTaarget ensures that the function disallows
+// links which are absolute or refer to targets outside the given root, in
+// addition to the basic job of returning the value of reading the link.
+func Test_validatedLinkTarget(t *testing.T) {
 	root := "testdata/test-links"
 
 	tests := []struct {
@@ -34,7 +35,7 @@ func Test_validateLink(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			_, err = validateLink(root, path, info)
+			_, err = validatedLinkTarget(root, path, info)
 			if err == nil != tt.valid {
 				t.Fatalf("expected %v, got %v", tt.valid, err)
 			}
@@ -48,9 +49,23 @@ func Test_validateLink(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		_, err = validateLink(root, path, info)
+		_, err = validatedLinkTarget(root, path, info)
 		if err == nil {
 			t.Fatal("absolute path should be invalid on windows")
 		}
+	}
+
+	// Spot-check the base case of being a decorator for os.ReadLink
+	path := "testdata/test-links/a.lnk"
+	info, err := os.Lstat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tgt, err := validatedLinkTarget(root, path, info)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if tgt != "./a.txt" {
+		t.Fatalf("expected target of 'a/lnk' to be 'a.txt', got '%v'", tgt)
 	}
 }

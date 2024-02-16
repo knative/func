@@ -155,7 +155,7 @@ func newDataTarball(root, target string, ignored []string, verbose bool) error {
 
 		lnk := "" // if link, this will be used as the target
 		if info.Mode()&fs.ModeSymlink != 0 {
-			if lnk, err = validateLink(root, path, info); err != nil {
+			if lnk, err = validatedLinkTarget(root, path, info); err != nil {
 				return err
 			}
 		}
@@ -191,11 +191,9 @@ func newDataTarball(root, target string, ignored []string, verbose bool) error {
 	})
 }
 
-// validateLink returns the target of a given link and an error if
+// validatedLinkTarget returns the target of a given link or an error if
 // that target is either absolute or outside the given project root.
-// or referrs to a target outside of the given root.
-// For conven
-func validateLink(root, path string, info os.FileInfo) (tgt string, err error) {
+func validatedLinkTarget(root, path string, info os.FileInfo) (tgt string, err error) {
 	// tgt is the raw target of the link.
 	// This path is either absolute or relative to the link's location.
 	tgt, err = os.Readlink(path)
