@@ -217,7 +217,7 @@ func validateLink(root, path string, info os.FileInfo) (tgt string, err error) {
 	// this actual target location
 	relLnkTgt, err := filepath.Rel(root, lnkTgt)
 	if err != nil {
-		return tgt, err
+		return
 	}
 
 	// Fail if this path is outside the function's root.

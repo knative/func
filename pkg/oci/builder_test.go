@@ -67,12 +67,16 @@ func TestBuilder_Files(t *testing.T) {
 	}
 
 	// Links
-	var linkMode fs.FileMode
-	var linkExecutable bool
+	var link struct {
+		Target     string
+		Mode       fs.FileMode
+		Executable bool
+	}
 	if runtime.GOOS != "windows" {
 		// Default case: use symlinks
-		linkMode = fs.ModeSymlink
-		linkExecutable = true
+		link.Target = "a.txt"
+		link.Mode = fs.ModeSymlink
+		link.Executable = true
 
 		if err := os.Symlink("a.txt", "a.lnk"); err != nil {
 			t.Fatal(err)
@@ -93,7 +97,7 @@ func TestBuilder_Files(t *testing.T) {
 		{Path: "/etc/ssl/certs/ca-certificates.crt"},
 		{Path: "/func", Type: fs.ModeDir},
 		{Path: "/func/README.md"},
-		{Path: "/func/a.lnk", Executable: linkExecutable, Type: linkMode},
+		{Path: "/func/a.lnk", Linkname: link.Target, Type: link.Mode, Executable: link.Executable},
 		{Path: "/func/a.txt"},
 		{Path: "/func/f", Executable: true},
 		{Path: "/func/func.yaml"},
@@ -306,6 +310,7 @@ func validateOCIFiles(path string, expected []fileInfo, t *testing.T) {
 					Path:       hdr.Name,
 					Type:       hdr.FileInfo().Mode() & fs.ModeType,
 					Executable: (hdr.FileInfo().Mode()&0111 == 0111) && !hdr.FileInfo().IsDir(),
+					Linkname:   hdr.Linkname,
 				})
 			}
 		}()
@@ -323,4 +328,5 @@ type fileInfo struct {
 	Path       string
 	Type       fs.FileMode
 	Executable bool
+	Linkname   string
 }
