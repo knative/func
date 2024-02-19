@@ -19,7 +19,7 @@ DESCRIPTION
 	Values provided for flags are not persisted to the function's metadata.
 
 	Containerized Runs
-	  The --container flag indicates that the function's container shuould be
+	  The --container flag indicates that the function's container should be
 	  run rather than running the source code directly.  This may require that
 	  the function's container first be rebuilt.  Building the container on or
 	  off can be altered using the --build flag.  The default value --build=auto
