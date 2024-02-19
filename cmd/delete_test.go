@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"os"
 	"testing"
 
@@ -108,15 +109,13 @@ func TestDelete_ByName(t *testing.T) {
 	}
 }
 
-// TestDelete_Namespace ensures that the deployed Function is deleted correctly
-// with namespace option
+// TestDelete_Namespace ensures that remover is envoked when --namespace flag is
+// given --> func delete myfunc --namespace myns
 func TestDelete_Namespace(t *testing.T) {
 	var (
-		root      = fromTempDirectory(t)
 		namespace = "myns"
 		remover   = mock.NewRemover()
 		testname  = "testname"
-		err       error
 	)
 
 	remover.RemoveFn = func(_, ns string) error {
@@ -126,27 +125,53 @@ func TestDelete_Namespace(t *testing.T) {
 		return nil
 	}
 
-	// Ensure the extant function's namespace is used
-	f := fn.Function{
-		Name:     testname,
-		Root:     root,
-		Runtime:  "go",
-		Registry: TestRegistry,
-		Deploy: fn.DeploySpec{
-			Namespace: namespace,
-		},
-	}
-
-	if f, err = fn.New().Init(f); err != nil {
+	cmd := NewDeleteCmd(NewTestClient(fn.WithRemover(remover)))
+	cmd.SetArgs([]string{testname, "--namespace", namespace})
+	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
 
-	if err = f.Write(); err != nil {
+	if !remover.RemoveInvoked {
+		t.Fatal("remover was not invoked")
+	}
+}
+
+// TestDelete_NamespaceFlagPriority ensures that even thought there is
+// a deployed function the namespace flag takes precedence and essentially
+// ignores the the function on disk
+func TestDelete_NamespaceFlagPriority(t *testing.T) {
+	var (
+		root       = fromTempDirectory(t)
+		namespace  = "myns"
+		namespace2 = "myns2"
+		remover    = mock.NewRemover()
+		testname   = "testname"
+		err        error
+	)
+
+	remover.RemoveFn = func(_, ns string) error {
+		if ns != namespace2 {
+			t.Fatalf("expected delete namespace '%v', got '%v'", namespace2, ns)
+		}
+		return nil
+	}
+
+	// Ensure the extant function's namespace is used
+	f := fn.Function{
+		Name:      testname,
+		Root:      root,
+		Runtime:   "go",
+		Registry:  TestRegistry,
+		Namespace: namespace,
+	}
+	client := fn.New()
+	_, _, err = client.New(context.Background(), f)
+	if err != nil {
 		t.Fatal(err)
 	}
 
 	cmd := NewDeleteCmd(NewTestClient(fn.WithRemover(remover)))
-	cmd.SetArgs([]string{testname, "--namespace", namespace})
+	cmd.SetArgs([]string{testname, "--namespace", namespace2})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}

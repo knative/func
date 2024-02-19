@@ -963,7 +963,7 @@ func TestClient_Deploy_RegistryUpdate(t *testing.T) {
 	}
 }
 
-// TestClient_Deploy_NamespaceUpdate ensures that namespace deploymen has
+// TestClient_Deploy_NamespaceUpdate ensures that namespace deployment has
 // the correct priorities, that means:
 // 'default' gets overridden by 'already deployed' if aplicable and all gets
 // overridden by 'specifically desired namespace'.
@@ -2051,12 +2051,12 @@ func TestClient_BuildCleanFingerprint(t *testing.T) {
 	}
 }
 
-// Test_RemoveInvokedOnOldFunction checks that Remover was invoked after a
-// subsequent redeploy to a new namespace.
+// TestClient_DeployRemoves ensures that the Remover is invoked when a
+// function is moved to a new namespace.
 // specifically: deploy to 'nsone' -> simulate change of namespace with change to
 // f.Namespace -> redeploy to that namespace and expect the remover to be invoked
 // for old Function in ns 'nsone'.
-func TestClient_RemoveInvokedOnOldFunction(t *testing.T) {
+func TestClient_DeployRemoves(t *testing.T) {
 	// Create a temporary directory
 	root, cleanup := Mktemp(t)
 	defer cleanup()

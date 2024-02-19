@@ -837,8 +837,13 @@ func TestDeploy_ImageWithDigestErrors(t *testing.T) {
 	}
 }
 
+// TestDeploy_ImageWithDigestDoesntPopulateBuild ensures that when --image is
+// given with digest f.Build.Image is not populated because no image building
+// should happen; f.Deploy.Image should be populated because the image should
+// just be deployed as is (since it already has digest)
 func TestDeploy_ImageWithDigestDoesntPopulateBuild(t *testing.T) {
 	root := fromTempDirectory(t)
+	// image with digest (well almost, atleast in length and syntax)
 	const img = "docker.io/4141gauron3268@sha256:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 	// Create a new Function in the temp directory
 	_, err := fn.New().Init(fn.Function{Runtime: "go", Root: root})
