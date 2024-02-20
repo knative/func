@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	slashpath "path"
 	"path/filepath"
@@ -14,6 +15,7 @@ import (
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/google/go-containerregistry/pkg/v1/types"
+	"github.com/pkg/errors"
 )
 
 // languageLayerBuilder builds the layer for the given language whuch may
@@ -123,7 +125,7 @@ func newDataLayer(cfg *buildConfig) (desc v1.Descriptor, layer v1.Layer, err err
 	return
 }
 
-func newDataTarball(source, target string, ignored []string, verbose bool) error {
+func newDataTarball(root, target string, ignored []string, verbose bool) error {
 	targetFile, err := os.Create(target)
 	if err != nil {
 		return err
@@ -136,11 +138,12 @@ func newDataTarball(source, target string, ignored []string, verbose bool) error
 	tw := tar.NewWriter(gw)
 	defer tw.Close()
 
-	return filepath.Walk(source, func(path string, info os.FileInfo, err error) error {
+	return filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
+		// Skip files explicitly ignored
 		for _, v := range ignored {
 			if info.Name() == v {
 				if info.IsDir() {
@@ -150,27 +153,30 @@ func newDataTarball(source, target string, ignored []string, verbose bool) error
 			}
 		}
 
-		header, err := tar.FileInfoHeader(info, info.Name())
+		lnk := "" // if link, this will be used as the target
+		if info.Mode()&fs.ModeSymlink != 0 {
+			if lnk, err = validatedLinkTarget(root, path); err != nil {
+				return err
+			}
+		}
+
+		header, err := tar.FileInfoHeader(info, lnk)
 		if err != nil {
 			return err
 		}
 
-		relPath, err := filepath.Rel(source, path)
+		relPath, err := filepath.Rel(root, path)
 		if err != nil {
 			return err
 		}
-
 		header.Name = slashpath.Join("/func", filepath.ToSlash(relPath))
-		// TODO: should we set file timestamps to the build start time of cfg.t?
-		// header.ModTime = timestampArgument
-
 		if err := tw.WriteHeader(header); err != nil {
 			return err
 		}
 		if verbose {
 			fmt.Printf("→ %v \n", header.Name)
 		}
-		if info.IsDir() {
+		if !info.Mode().IsRegular() { //nothing more to do for non-regular
 			return nil
 		}
 
@@ -183,6 +189,40 @@ func newDataTarball(source, target string, ignored []string, verbose bool) error
 		_, err = io.Copy(tw, file)
 		return err
 	})
+}
+
+// validatedLinkTarget returns the target of a given link or an error if
+// that target is either absolute or outside the given project root.
+func validatedLinkTarget(root, path string) (tgt string, err error) {
+	// tgt is the raw target of the link.
+	// This path is either absolute or relative to the link's location.
+	tgt, err = os.Readlink(path)
+	if err != nil {
+		return tgt, fmt.Errorf("cannot read link: %w", err)
+	}
+
+	// Absolute links will not be correct when copied into the runtime
+	// container, because they are placed into path into '/func',
+	if filepath.IsAbs(tgt) {
+		return tgt, errors.New("project may not contain absolute links")
+	}
+
+	// Calculate the actual target of the link
+	// (relative to the parent of the symlink)
+	lnkTgt := filepath.Join(filepath.Dir(path), tgt)
+
+	// Calculate the relative path from the function's root to
+	// this actual target location
+	relLnkTgt, err := filepath.Rel(root, lnkTgt)
+	if err != nil {
+		return
+	}
+
+	// Fail if this path is outside the function's root.
+	if strings.HasPrefix(relLnkTgt, ".."+string(filepath.Separator)) || relLnkTgt == ".." {
+		return tgt, errors.New("links must stay within project root")
+	}
+	return
 }
 
 // newCertLayer creates the shared data layer in the container file hierarchy and

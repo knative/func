@@ -46,7 +46,69 @@ func TestBuilder_Build(t *testing.T) {
 
 	last := path(f.Root, fn.RunDataDir, "builds", "last", "oci")
 
-	validateOCI(last, t)
+	validateOCIStructure(last, t) // validate it adheres to the basics of the OCI spec
+}
+
+// TestBuilder_Files ensures that static files are added to the container
+// image as expected.  This includes template files, regular files and links.
+func TestBuilder_Files(t *testing.T) {
+	root, done := Mktemp(t)
+	defer done()
+
+	// Create a function with the default template
+	f, err := fn.New().Init(fn.Function{Root: root, Runtime: "go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Add a regular file
+	if err := os.WriteFile("a.txt", []byte("file a"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Links
+	var link struct {
+		Target     string
+		Mode       fs.FileMode
+		Executable bool
+	}
+	if runtime.GOOS != "windows" {
+		// Default case: use symlinks
+		link.Target = "a.txt"
+		link.Mode = fs.ModeSymlink
+		link.Executable = true
+
+		if err := os.Symlink("a.txt", "a.lnk"); err != nil {
+			t.Fatal(err)
+		}
+	} else {
+		// Windows: create a copy
+		if err := os.WriteFile("a.lnk", []byte("file a"), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := NewBuilder("", true).Build(context.Background(), f, TestPlatforms); err != nil {
+		t.Fatal(err)
+	}
+
+	expected := []fileInfo{
+		{Path: "/etc/pki/tls/certs/ca-certificates.crt"},
+		{Path: "/etc/ssl/certs/ca-certificates.crt"},
+		{Path: "/func", Type: fs.ModeDir},
+		{Path: "/func/README.md"},
+		{Path: "/func/a.lnk", Linkname: link.Target, Type: link.Mode, Executable: link.Executable},
+		{Path: "/func/a.txt"},
+		{Path: "/func/f", Executable: true},
+		{Path: "/func/func.yaml"},
+		{Path: "/func/go.mod"},
+		{Path: "/func/handle.go"},
+		{Path: "/func/handle_test.go"},
+	}
+
+	last := path(f.Root, fn.RunDataDir, "builds", "last", "oci")
+
+	validateOCIFiles(last, expected, t)
 }
 
 // TestBuilder_Concurrency
@@ -145,9 +207,9 @@ type ImageIndex struct {
 	} `json:"manifests"`
 }
 
-// validateOCI performs a cursory check that the given path exists and
+// validateOCIStructue performs a cursory check that the given path exists and
 // has the basics of an OCI compliant structure.
-func validateOCI(path string, t *testing.T) {
+func validateOCIStructure(path string, t *testing.T) {
 	if _, err := os.Stat(path); err != nil {
 		t.Fatalf("unable to stat output path. %v", path)
 		return
@@ -185,9 +247,24 @@ func validateOCI(path string, t *testing.T) {
 	}
 
 	if len(imageIndex.Manifests) < 1 {
-		t.Fatal("fewer manifests")
+		t.Fatal("no manifests")
+	}
+}
+
+// validateOCIFiles ensures that the OCI image at path contains files with
+// the given attributes.
+func validateOCIFiles(path string, expected []fileInfo, t *testing.T) {
+	// Load the Image Index
+	bb, err := os.ReadFile(filepath.Join(path, "index.json"))
+	if err != nil {
+		t.Fatalf("failed to read index.json: %v", err)
+	}
+	var imageIndex ImageIndex
+	if err = json.Unmarshal(bb, &imageIndex); err != nil {
+		t.Fatalf("failed to parse index.json: %v", err)
 	}
 
+	// Load the first manifest
 	digest := strings.TrimPrefix(imageIndex.Manifests[0].Digest, "sha256:")
 	manifestFile := filepath.Join(path, "blobs", "sha256", digest)
 	manifestFileData, err := os.ReadFile(manifestFile)
@@ -202,12 +279,6 @@ func validateOCI(path string, t *testing.T) {
 	err = json.Unmarshal(manifestFileData, &mf)
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	type fileInfo struct {
-		Path       string
-		Type       fs.FileMode
-		Executable bool
 	}
 	var files []fileInfo
 
@@ -239,6 +310,7 @@ func validateOCI(path string, t *testing.T) {
 					Path:       hdr.Name,
 					Type:       hdr.FileInfo().Mode() & fs.ModeType,
 					Executable: (hdr.FileInfo().Mode()&0111 == 0111) && !hdr.FileInfo().IsDir(),
+					Linkname:   hdr.Linkname,
 				})
 			}
 		}()
@@ -247,19 +319,14 @@ func validateOCI(path string, t *testing.T) {
 		return files[i].Path < files[j].Path
 	})
 
-	expectedFiles := []fileInfo{
-		{Path: "/etc/pki/tls/certs/ca-certificates.crt"},
-		{Path: "/etc/ssl/certs/ca-certificates.crt"},
-		{Path: "/func", Type: fs.ModeDir},
-		{Path: "/func/README.md"},
-		{Path: "/func/f", Executable: true},
-		{Path: "/func/func.yaml"},
-		{Path: "/func/go.mod"},
-		{Path: "/func/handle.go"},
-		{Path: "/func/handle_test.go"},
-	}
-
-	if diff := cmp.Diff(expectedFiles, files); diff != "" {
+	if diff := cmp.Diff(expected, files); diff != "" {
 		t.Error("files in oci differ from expectation (-want, +got):", diff)
 	}
+}
+
+type fileInfo struct {
+	Path       string
+	Type       fs.FileMode
+	Executable bool
+	Linkname   string
 }
