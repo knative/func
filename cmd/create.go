@@ -178,19 +178,8 @@ func newCreateConfig(cmd *cobra.Command, args []string, newClient ClientFactory)
 		dirName      string
 		absolutePath string
 	)
-    client, done := newClient(ClientConfig{Verbose: cfg.Verbose})
-	defer done()
 
-	// IN confirm mode.  If also in an interactive terminal, run prompts.
-	if  len(args)<1 {
-		createdCfg, err := cfg.prompt(client)
-		if err != nil {
-			return createdCfg, err
-		}
-		fmt.Println("Command:")
-		fmt.Println(singleCommand(cmd, args, createdCfg))
-		return createdCfg, nil
-	}else {
+	if len(args) >= 1 {
 		path = args[0]
 	}
 
@@ -217,6 +206,20 @@ func newCreateConfig(cmd *cobra.Command, args []string, newClient ClientFactory)
 
 	// Create a tempoarary client for use by the following prompts to complete
 	// runtime/template suggestions etc
+	client, done := newClient(ClientConfig{Verbose: cfg.Verbose})
+	defer done()
+
+	// IN confirm mode.  If also in an interactive terminal, run prompts.
+	if interactiveTerminal() {
+		createdCfg, err := cfg.prompt(client)
+		if err != nil {
+			return createdCfg, err
+		}
+		fmt.Println("Command:")
+		fmt.Println(singleCommand(cmd, args, createdCfg))
+		return createdCfg, nil
+	}
+
 	// Confirming, but noninteractive
 	// Print out the final values as a confirmation.  Only show Repository or
 	// Repositories, not both (repository takes precedence) in order to avoid
