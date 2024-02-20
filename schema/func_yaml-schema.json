@@ -16,7 +16,7 @@
 						}
 					},
 					"type": "object",
-					"description": "BuilderImages define optional explicit builder images to use by\nbuilder implementations in leau of the in-code defaults.  They key\nis the builder's short name.  For example:\nbuilderImages:\n  pack: example.com/user/my-pack-node-builder\n  s2i: example.com/user/my-s2i-node-builder"
+					"description// with containerized docker runner and deployed Knative service integration": "BuilderImages define optional explicit builder images to use by\nbuilder implementations in leau of the in-code defaults.  They key\nis the builder's short name.  For example:\nbuilderImages:\n  pack: example.com/user/my-pack-node-builder\n  s2i: example.com/user/my-s2i-node-builder"
 				},
 				"buildpacks": {
 					"items": {
@@ -351,6 +351,26 @@
 					},
 					"type": "array",
 					"description": "Env variables to be set"
+				},
+				"podSecurityContext": {
+					"properties": {
+						"RunAsUser": {
+							"pattern": "^[-._a-zA-Z][-._a-zA-Z0-9]*$",
+							"type": "integer"
+						},
+						"RunAsGroup": {
+							"type": "integer"
+						},
+						"RunAsNonRoot":{
+							"type": "boolean"
+						},
+						"FSGroup":{
+							"type":"integer"
+						}
+					},
+					"additionalProperties": false,
+					"type": "object"
+                    
 				},
 				"startTimeout": {
 					"type": "integer",
