@@ -21,7 +21,6 @@ func TestBuild_BuilderImageUntrusted(t *testing.T) {
 		"gcr.io/paketo-buildpackshack/",
 		// And those that don't
 		"docker.io/paketobuildpackshack",
-		"ghcr.io/vmware-tanzu/function-buildpacks-for-knativehack",
 	}
 
 	for _, builder := range untrusted {

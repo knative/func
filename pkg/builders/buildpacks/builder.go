@@ -48,7 +48,6 @@ var (
 		"quay.io/boson/",
 		"gcr.io/paketo-buildpacks/",
 		"docker.io/paketobuildpacks/",
-		"ghcr.io/vmware-tanzu/function-buildpacks-for-knative/",
 		"gcr.io/buildpacks/",
 		"ghcr.io/knative/",
 	}
