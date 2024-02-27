@@ -125,7 +125,7 @@ EXAMPLES
 
 `,
 		SuggestFor: []string{"delpoy", "deplyo"},
-		PreRunE:    bindEnv("build", "build-timestamp", "builder", "builder-image", "confirm", "domain", "env", "git-branch", "git-dir", "git-url", "image", "namespace", "path", "platform", "push", "pvc-size", "service-account", "registry", "registry-insecure", "remote", "verbose"),
+		PreRunE:    bindEnv("build", "build-timestamp", "builder", "builder-image", "confirm", "domain", "env", "git-branch", "git-dir", "git-url", "image", "namespace", "path", "platform", "push", "pvc-size", "service-account", "registry", "registry-insecure", "remote", "username", "password", "token", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDeploy(cmd, newClient)
 		},
@@ -193,6 +193,12 @@ EXAMPLES
 		"Push the function image to registry before deploying. ($FUNC_PUSH)")
 	cmd.Flags().String("platform", "",
 		"Optionally specify a specific platform to build for (e.g. linux/amd64). ($FUNC_PLATFORM)")
+	cmd.Flags().StringP("username", "", "",
+		"Username to use when pushing to the registry.")
+	cmd.Flags().StringP("password", "", "",
+		"Password to use when pushing to the registry.")
+	cmd.Flags().StringP("token", "", "",
+		"Token to use when pushing to the registry.")
 	cmd.Flags().BoolP("build-timestamp", "", false, "Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.")
 
 	// Oft-shared flags:
@@ -235,6 +241,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	if f, err = cfg.Configure(f); err != nil { // Updates f with deploy cfg
 		return
 	}
+	cmd.SetContext(cfg.WithValues(cmd.Context())) // Some optional settings are passed via context
 
 	// If using Openshift registry AND redeploying Function, update image registry
 	if f.Namespace != "" && f.Namespace != f.Deploy.Namespace && f.Deploy.Namespace != "" {

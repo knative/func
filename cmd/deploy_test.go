@@ -1400,6 +1400,75 @@ func testRegistryOrImageRequired(cmdFn commandConstructor, t *testing.T) {
 	}
 }
 
+// TestDeploy_Authentication ensures that Token and Username/Password auth
+// propagate their values to pushers which support them.
+func TestDeploy_Authentication(t *testing.T) {
+	testAuthentication(NewDeployCmd, t)
+}
+
+func testAuthentication(cmdFn commandConstructor, t *testing.T) {
+	// This test is currently focused on ensuring the flags for
+	// explicit credentials (bearer token and username/password) are respected
+	// and propagated to pushers which support this authentication method.
+	// Integration tests must be used to ensure correct integration between
+	// the system and credential helpers (Docker, ecs, acs)
+	t.Helper()
+
+	root := fromTempDirectory(t)
+	_, err := fn.New().Init(fn.Function{Runtime: "go", Root: root, Registry: TestRegistry})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var (
+		testUser  = "alice"
+		testPass  = "123"
+		testToken = "example.jwt.token"
+	)
+
+	// Basic Auth: username/password
+	// -----------------------------
+	pusher := mock.NewPusher()
+	pusher.PushFn = func(ctx context.Context, _ fn.Function) (string, error) {
+		username, _ := ctx.Value(fn.PushUsernameKey{}).(string)
+		password, _ := ctx.Value(fn.PushPasswordKey{}).(string)
+
+		if username != testUser || password != testPass {
+			t.Fatalf("expected username %q, password %q.  Got %q, %q", testUser, testPass, username, password)
+		}
+
+		return "", nil
+	}
+
+	cmd := cmdFn(NewTestClient(fn.WithPusher(pusher)))
+
+	cmd.SetArgs([]string{"--builder", "host", "--username", testUser, "--password", testPass})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// Basic Auth: token
+	// -----------------------------
+	pusher = mock.NewPusher()
+	pusher.PushFn = func(ctx context.Context, _ fn.Function) (string, error) {
+		token, _ := ctx.Value(fn.PushTokenKey{}).(string)
+
+		if token != testToken {
+			t.Fatalf("expected token %q, got %q", testToken, token)
+		}
+
+		return "", nil
+	}
+
+	cmd = cmdFn(NewTestClient(fn.WithPusher(pusher)))
+
+	cmd.SetArgs([]string{"--builder", "host", "--token", testToken})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+}
+
 // TestDeploy_RemoteBuildURLPermutations ensures that the remote, build and git-url flags
 // are properly respected for all permutations, including empty.
 func TestDeploy_RemoteBuildURLPermutations(t *testing.T) {
