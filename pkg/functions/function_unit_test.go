@@ -116,14 +116,18 @@ func TestFunction_ImageWithDigest(t *testing.T) {
 			want:   "image-registry.openshift-image-registry.svc.cluster.local:50000/default/bar@sha256:42",
 		},
 	}
+	//TODO: gauron99 - this is gonna need to be changed (probably) because:
+	// 1: imageDigest now doesnt have a dedicated structure member (resolved?)
+	// 2: is still fetched after pushing the Function (which is a temporary fix -- it really should be during build)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			f := Function{
-				Image:       tt.fields.Image,
-				ImageDigest: tt.fields.ImageDigest,
+				Build: BuildSpec{
+					Image: tt.fields.Image,
+				},
 			}
-			if got := f.ImageWithDigest(); got != tt.want {
-				t.Errorf("ImageWithDigest() = %v, want %v", got, tt.want)
+			if got := f.ImageNameWithDigest(tt.fields.ImageDigest); got != tt.want {
+				t.Errorf("ImageNameWithDigest(tt.fields.ImageDigest) = %v, want %v", got, tt.want)
 			}
 		})
 	}

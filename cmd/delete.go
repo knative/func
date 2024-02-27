@@ -62,7 +62,14 @@ func runDelete(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 		return
 	}
 
+	// check that name is defined when deleting a Function in specific namespace
+	if cfg.Name == "" && cfg.Namespace != "" {
+		return fmt.Errorf("function name is required when namespace is specified")
+	}
+
 	var function fn.Function
+	// initialize namespace from the config
+	var namespace = cfg.Namespace
 
 	// Initialize func with explicit name (when provided)
 	if len(args) > 0 && args[0] != "" {
@@ -84,17 +91,17 @@ func runDelete(cmd *cobra.Command, args []string, newClient ClientFactory) (err 
 			return fn.NewErrNotInitialized(function.Root)
 		}
 
-		// If not provided, use the function's extant namespace
-		if !cmd.Flags().Changed("namespace") {
-			cfg.Namespace = function.Deploy.Namespace
+		// use the function's extant namespace -- already deployed function
+		if !cmd.Flags().Changed("namespace") && function.Deploy.Namespace != "" {
+			namespace = function.Deploy.Namespace
 		}
-
 	}
 
 	// Create a client instance from the now-final config
-	client, done := newClient(ClientConfig{Namespace: cfg.Namespace, Verbose: cfg.Verbose})
+	client, done := newClient(ClientConfig{Namespace: namespace, Verbose: cfg.Verbose})
 	defer done()
 
+	function.Deploy.Namespace = namespace
 	// Invoke remove using the concrete client impl
 	return client.Remove(cmd.Context(), function, cfg.DeleteAll)
 }

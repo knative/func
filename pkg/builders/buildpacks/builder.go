@@ -153,7 +153,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 	// Pack build options
 	opts := pack.BuildOptions{
 		AppPath:        f.Root,
-		Image:          f.Image,
+		Image:          f.Build.Image,
 		LifecycleImage: DefaultLifecycleImage,
 		Builder:        image,
 		Buildpacks:     buildpacks,

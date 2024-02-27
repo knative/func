@@ -108,7 +108,7 @@ func TestNew(t *testing.T) {
 	}
 }
 
-// TestDeploy updates
+// TestDeploy deployes using client methods from New but manually
 func TestDeploy(t *testing.T) {
 	defer Within(t, "testdata/example.com/deploy")()
 	verbose := true
@@ -116,10 +116,21 @@ func TestDeploy(t *testing.T) {
 	client := newClient(verbose)
 	f := fn.Function{Name: "deploy", Root: ".", Runtime: "go"}
 	var err error
-	if _, f, err = client.New(context.Background(), f); err != nil {
+
+	if f, err = client.Init(f); err != nil {
 		t.Fatal(err)
 	}
+	if f, err = client.Build(context.Background(), f); err != nil {
+		t.Fatal(err)
+	}
+	if f, err = client.Push(context.Background(), f); err != nil {
+		t.Fatal(err)
+	}
+
 	defer del(t, client, "deploy")
+	// TODO: gauron99 -- remove this when you set full image name after build instead
+	// of push -- this has to be here because of a workaround
+	f.Deploy.Image = f.Build.Image
 
 	if f, err = client.Deploy(context.Background(), f); err != nil {
 		t.Fatal(err)
@@ -130,9 +141,9 @@ func TestDeploy(t *testing.T) {
 func TestDeployWithOptions(t *testing.T) {
 	root, cleanup := Mktemp(t)
 	defer cleanup()
-	verbose := true
+	verbose := false
 
-	f := fn.Function{Runtime: "go", Name: "test-deploy-with-options", Root: root}
+	f := fn.Function{Runtime: "go", Name: "test-deploy-with-options", Root: root, Namespace: DefaultNamespace}
 	f.Deploy = fn.DeploySpec{
 		Options: fn.Options{
 			Scale: &fn.ScaleOptions{
@@ -191,7 +202,7 @@ func TestDeployWithTriggers(t *testing.T) {
 func TestUpdateWithAnnotationsAndLabels(t *testing.T) {
 	functionName := "updateannlab"
 	defer Within(t, "testdata/example.com/"+functionName)()
-	verbose := true
+	verbose := false
 
 	servingClient, err := knative.NewServingClient(DefaultNamespace)
 
@@ -203,10 +214,6 @@ func TestUpdateWithAnnotationsAndLabels(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer del(t, client, functionName)
-
-	if f, err = client.Deploy(context.Background(), f); err != nil {
-		t.Fatal(err)
-	}
 
 	// Updated function with a new set of annotations and labels
 	// deploy and check that deployed kcsv contains correct annotations and labels
@@ -547,7 +554,7 @@ func newClient(verbose bool) *fn.Client {
 	pusher := docker.NewPusher(docker.WithVerbose(verbose))
 	deployer := knative.NewDeployer(knative.WithDeployerNamespace(DefaultNamespace), knative.WithDeployerVerbose(verbose))
 	describer := knative.NewDescriber(DefaultNamespace, verbose)
-	remover := knative.NewRemover(DefaultNamespace, verbose)
+	remover := knative.NewRemover(verbose)
 	lister := knative.NewLister(DefaultNamespace, verbose)
 
 	return fn.New(
@@ -575,7 +582,7 @@ func newClient(verbose bool) *fn.Client {
 func del(t *testing.T, c *fn.Client, name string) {
 	t.Helper()
 	waitFor(t, c, name)
-	if err := c.Remove(context.Background(), fn.Function{Name: name}, false); err != nil {
+	if err := c.Remove(context.Background(), fn.Function{Name: name, Deploy: fn.DeploySpec{Namespace: DefaultNamespace}}, false); err != nil {
 		t.Fatal(err)
 	}
 	cli, _, err := docker.NewClient(client.DefaultDockerHost)

@@ -155,23 +155,6 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	}
 	f = cfg.Configure(f) // Updates f at path to include build request values
 
-	// TODO: this logic is duplicated with runDeploy.  Shouild be in buildConfig
-	// constructor.
-	// Checks if there is a difference between defined registry and its value
-	// used as a prefix in the image tag In case of a mismatch a new image tag is
-	// created and used for build.
-	// Do not react if image tag has been changed outside configuration
-	if f.Registry != "" && !cmd.Flags().Changed("image") && strings.Index(f.Image, "/") > 0 && !strings.HasPrefix(f.Image, f.Registry) {
-		prfx := f.Registry
-		if prfx[len(prfx)-1:] != "/" {
-			prfx = prfx + "/"
-		}
-		sps := strings.Split(f.Image, "/")
-		updImg := prfx + sps[len(sps)-1]
-		fmt.Fprintf(cmd.ErrOrStderr(), "Warning: function has current image '%s' which has a different registry than the currently configured registry '%s'. The new image tag will be '%s'.  To use an explicit image, use --image.\n", f.Image, f.Registry, updImg)
-		f.Image = updImg
-	}
-
 	// Client
 	clientOptions, err := cfg.clientOptions()
 	if err != nil {
@@ -193,7 +176,6 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 			return
 		}
 	}
-
 	if err = f.Write(); err != nil {
 		return
 	}
@@ -300,16 +282,12 @@ func (c buildConfig) Prompt() (buildConfig, error) {
 	// Image Name Override
 	// Calculate a better image name message which shows the value of the final
 	// image name as it will be calculated if an explicit image name is not used.
-	var imagePromptMessageSuffix string
-	if name := deriveImage(c.Image, c.Registry, c.Path); name != "" {
-		imagePromptMessageSuffix = fmt.Sprintf(". if not specified, the default '%v' will be used')", name)
-	}
 
 	qs := []*survey.Question{
 		{
 			Name: "image",
 			Prompt: &survey.Input{
-				Message: fmt.Sprintf("Image name to use (e.g. quay.io/boson/node-sample)%v:", imagePromptMessageSuffix),
+				Message: "Optionally specify an exact image name to use (e.g. quay.io/boson/node-sample:latest)",
 			},
 		},
 		{

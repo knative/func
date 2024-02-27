@@ -9,14 +9,17 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-func NewClientAndResolvedNamespace(defaultNamespace string) (client *kubernetes.Clientset, namespace string, err error) {
-	namespace, err = GetNamespace(defaultNamespace)
-	if err != nil {
-		return
+func NewClientAndResolvedNamespace(ns string) (*kubernetes.Clientset, string, error) {
+	var err error
+	if ns == "" {
+		ns, err = GetDefaultNamespace()
+		if err != nil {
+			return nil, ns, err
+		}
 	}
 
-	client, err = NewKubernetesClientset()
-	return
+	client, err := NewKubernetesClientset()
+	return client, ns, err
 }
 
 func NewKubernetesClientset() (*kubernetes.Clientset, error) {
@@ -37,15 +40,9 @@ func NewDynamicClient() (dynamic.Interface, error) {
 	return dynamic.NewForConfig(restConfig)
 }
 
-func GetNamespace(defaultNamespace string) (namespace string, err error) {
-	namespace = defaultNamespace
-
-	if defaultNamespace == "" {
-		namespace, _, err = GetClientConfig().Namespace()
-		if err != nil {
-			return
-		}
-	}
+// GetDefaultNamespace returns default namespace
+func GetDefaultNamespace() (namespace string, err error) {
+	namespace, _, err = GetClientConfig().Namespace()
 	return
 }
 

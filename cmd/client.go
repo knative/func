@@ -69,7 +69,7 @@ func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 			fn.WithTransport(t),
 			fn.WithRepositoriesPath(config.RepositoriesPath()),
 			fn.WithBuilder(buildpacks.NewBuilder(buildpacks.WithVerbose(cfg.Verbose))),
-			fn.WithRemover(knative.NewRemover(cfg.Namespace, cfg.Verbose)),
+			fn.WithRemover(knative.NewRemover(cfg.Verbose)),
 			fn.WithDescriber(knative.NewDescriber(cfg.Namespace, cfg.Verbose)),
 			fn.WithLister(knative.NewLister(cfg.Namespace, cfg.Verbose)),
 			fn.WithDeployer(d),

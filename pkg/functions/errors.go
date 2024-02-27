@@ -8,8 +8,10 @@ import (
 
 var (
 	ErrEnvironmentNotFound       = errors.New("environment not found")
+	ErrFunctionNotFound          = errors.New("function not found")
 	ErrMismatchedName            = errors.New("name passed the function source")
 	ErrNameRequired              = errors.New("name required")
+	ErrNamespaceRequired         = errors.New("namespace required")
 	ErrNotBuilt                  = errors.New("not built")
 	ErrNotRunning                = errors.New("function not running")
 	ErrRepositoriesNotDefined    = errors.New("custom template repositories location not specified")
