@@ -5,8 +5,6 @@ go 1.21
 // Use older version since it checks ~/.docker/config.json for credentials as opposed to later versions
 replace github.com/containers/image/v5 => github.com/containers/image/v5 v5.23.1
 
-replace github.com/openshift/source-to-image => github.com/matejvasek/source-to-image v1.3.2-0.20240213191046-dee4f559d604
-
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.6
 	github.com/Masterminds/semver v1.5.0
@@ -37,7 +35,7 @@ require (
 	github.com/manifestival/manifestival v0.7.2
 	github.com/opencontainers/image-spec v1.1.0-rc5
 	github.com/openshift-pipelines/pipelines-as-code v0.17.1
-	github.com/openshift/source-to-image v1.3.8
+	github.com/openshift/source-to-image v1.3.10-0.20240223163641-625a537d6c7c
 	github.com/ory/viper v1.7.5
 	github.com/paketo-buildpacks/libpak v1.68.0
 	github.com/pelletier/go-toml v1.9.5
