@@ -385,6 +385,7 @@ func s2iScriptURL(ctx context.Context, cli DockerClient, image string) (string, 
 		}
 	}
 
+	//nolint:staticcheck
 	if img.ContainerConfig != nil && img.ContainerConfig.Labels != nil {
 		if u, ok := img.ContainerConfig.Labels["io.openshift.s2i.scripts-url"]; ok {
 			return u, nil
