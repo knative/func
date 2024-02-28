@@ -25,13 +25,13 @@ export TERM="${TERM:-dumb}"
 
 main() {
 
-  local knative_serving_version=v1.10.1
-  local knative_eventing_version=v1.10.1
-  local contour_version=v1.10.0
+  local knative_serving_version=v1.13.0
+  local knative_eventing_version=v1.13.0
+  local contour_version=v1.13.0
 
   # Kubernetes Version node image per Kind releases (full hash is suggested):
   # https://github.com/kubernetes-sigs/kind/releases
-  local kind_node_version=v1.27.1@sha256:b7d12ed662b873bd8510879c1846e87c7e676a79fefc93e17b2a52989d3ff42b
+  local kind_node_version=v1.29.2@sha256:51a1434a5397193442f0be2a297b488b6c919ce8a3931be0ce822606ea5ca245
 
   # shellcheck disable=SC2155
   local em=$(tput bold)$(tput setaf 2)
