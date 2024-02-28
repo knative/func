@@ -47,7 +47,7 @@ func CreatePersistentVolumeClaim(ctx context.Context, name, namespaceOverride st
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
 			AccessModes: []corev1.PersistentVolumeAccessMode{accessMode},
-			Resources: corev1.ResourceRequirements{
+			Resources: corev1.VolumeResourceRequirements{
 				Requests: corev1.ResourceList{},
 			},
 		},
