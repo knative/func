@@ -62,7 +62,7 @@ func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 	var (
 		t  = newTransport(cfg.InsecureSkipVerify)    // may provide a custom impl which proxies
 		c  = newCredentialsProvider(config.Dir(), t) // for accessing registries
-		d  = newKnativeDeployer(cfg.Namespace, cfg.Verbose)
+		d  = newKnativeDeployer(cfg.Verbose)
 		pp = newTektonPipelinesProvider(cfg.Namespace, c, cfg.Verbose)
 		o  = []fn.Option{ // standard (shared) options for all commands
 			fn.WithVerbose(cfg.Verbose),
@@ -128,9 +128,8 @@ func newTektonPipelinesProvider(namespace string, creds docker.CredentialsProvid
 	return tekton.NewPipelinesProvider(options...)
 }
 
-func newKnativeDeployer(namespace string, verbose bool) fn.Deployer {
+func newKnativeDeployer(verbose bool) fn.Deployer {
 	options := []knative.DeployerOpt{
-		knative.WithDeployerNamespace(namespace),
 		knative.WithDeployerVerbose(verbose),
 		knative.WithDeployerDecorator(deployDecorator{}),
 	}

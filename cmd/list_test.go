@@ -5,13 +5,14 @@ import (
 
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/mock"
+	. "knative.dev/func/pkg/testing"
 )
 
 // TestList_Namespace ensures that list command options for specifying a
 // namespace (--namespace) or all namespaces (--all-namespaces) are  properly
 // evaluated.
 func TestList_Namespace(t *testing.T) {
-	_ = fromTempDirectory(t)
+	_ = FromTempDirectory(t)
 
 	tests := []struct {
 		name      string

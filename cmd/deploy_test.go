@@ -15,11 +15,13 @@ import (
 
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+
 	"knative.dev/func/pkg/builders"
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/mock"
+	. "knative.dev/func/pkg/testing"
 )
 
 // commandConstructor is used to share test implementations between commands
@@ -35,7 +37,7 @@ func TestDeploy_BuilderPersists(t *testing.T) {
 
 func testBuilderPersists(cmdFn commandConstructor, t *testing.T) {
 	t.Helper()
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
 		t.Fatal(err)
@@ -123,7 +125,7 @@ func TestDeploy_BuilderValidated(t *testing.T) {
 
 func testBuilderValidated(cmdFn commandConstructor, t *testing.T) {
 	t.Helper()
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
 		t.Fatal(err)
@@ -149,7 +151,7 @@ func testConfigApplied(cmdFn commandConstructor, t *testing.T) {
 	var (
 		err      error
 		home     = fmt.Sprintf("%s/testdata/TestX_ConfigApplied", cwd())
-		root     = fromTempDirectory(t)
+		root     = FromTempDirectory(t)
 		f        = fn.Function{Runtime: "go", Root: root, Name: "f"}
 		pusher   = mock.NewPusher()
 		clientFn = NewTestClient(fn.WithPusher(pusher))
@@ -235,7 +237,7 @@ func testConfigPrecedence(cmdFn commandConstructor, t *testing.T) {
 	// Ensure static default applied via 'builder'
 	// (a degenerate case, mostly just ensuring config values are not wiped to a
 	// zero value struct, etc)
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 	t.Setenv("XDG_CONFIG_HOME", home) // sets registry.example.com/global
 	f := fn.Function{Runtime: "go", Root: root, Name: "f"}
 	if f, err = fn.New().Init(f); err != nil {
@@ -252,7 +254,7 @@ func testConfigPrecedence(cmdFn commandConstructor, t *testing.T) {
 	}
 
 	// Ensure Global Config applied via config in ./testdata
-	root = fromTempDirectory(t)
+	root = FromTempDirectory(t)
 	t.Setenv("XDG_CONFIG_HOME", home) // sets registry.example.com/global
 	f = fn.Function{Runtime: "go", Root: root, Name: "f"}
 	f, err = fn.New().Init(f)
@@ -272,7 +274,7 @@ func testConfigPrecedence(cmdFn commandConstructor, t *testing.T) {
 	// Ensure Function context overrides global config
 	// The stanza above ensures the global config is applied.  This stanza
 	// ensures that, if set on the function, it will take precidence.
-	root = fromTempDirectory(t)
+	root = FromTempDirectory(t)
 	t.Setenv("XDG_CONFIG_HOME", home) // sets registry=example.com/global
 	f = fn.Function{Runtime: "go", Root: root, Name: "f",
 		Registry: "example.com/function"}
@@ -291,7 +293,7 @@ func testConfigPrecedence(cmdFn commandConstructor, t *testing.T) {
 	}
 
 	// Ensure Environment Variable overrides function context.
-	root = fromTempDirectory(t)
+	root = FromTempDirectory(t)
 	t.Setenv("XDG_CONFIG_HOME", home) // sets registry.example.com/global
 	t.Setenv("FUNC_REGISTRY", "example.com/env")
 	f = fn.Function{Runtime: "go", Root: root, Name: "f",
@@ -311,7 +313,7 @@ func testConfigPrecedence(cmdFn commandConstructor, t *testing.T) {
 	}
 
 	// Ensure flags override environment variables.
-	root = fromTempDirectory(t)
+	root = FromTempDirectory(t)
 	t.Setenv("XDG_CONFIG_HOME", home) // sets registry=example.com/global
 	t.Setenv("FUNC_REGISTRY", "example.com/env")
 	f = fn.Function{Runtime: "go", Root: root, Name: "f",
@@ -340,7 +342,7 @@ func TestDeploy_Default(t *testing.T) {
 }
 
 func testDefault(cmdFn commandConstructor, t *testing.T) {
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	// A Function with the minimum required values for deployment populated.
 	f := fn.Function{
@@ -370,7 +372,7 @@ func testDefault(cmdFn commandConstructor, t *testing.T) {
 // - Flags provided with the minus '-' suffix are treated as a removal
 func TestDeploy_Envs(t *testing.T) {
 	var (
-		root     = fromTempDirectory(t)
+		root     = FromTempDirectory(t)
 		ptr      = func(s string) *string { return &s } // TODO: remove pointers from Envs.
 		f        fn.Function
 		cmd      *cobra.Command
@@ -462,7 +464,7 @@ func TestDeploy_FunctionContext(t *testing.T) {
 
 func testFunctionContext(cmdFn commandConstructor, t *testing.T) {
 	t.Helper()
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	f, err := fn.New().Init(fn.Function{Runtime: "go", Root: root, Registry: TestRegistry})
 	if err != nil {
@@ -515,7 +517,7 @@ func testFunctionContext(cmdFn commandConstructor, t *testing.T) {
 // TestDeploy_GitArgsPersist ensures that the git flags, if provided, are
 // persisted to the Function for subsequent deployments.
 func TestDeploy_GitArgsPersist(t *testing.T) {
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	var (
 		url    = "https://example.com/user/repo"
@@ -558,7 +560,7 @@ func TestDeploy_GitArgsPersist(t *testing.T) {
 // TestDeploy_GitArgsUsed ensures that any git values provided as flags are used
 // when invoking a remote deployment.
 func TestDeploy_GitArgsUsed(t *testing.T) {
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	var (
 		url    = "https://example.com/user/repo"
@@ -602,7 +604,7 @@ func TestDeploy_GitArgsUsed(t *testing.T) {
 // TestDeploy_GitURLBranch ensures that a --git-url which specifies the branch
 // in the URL is equivalent to providing --git-branch
 func TestDeploy_GitURLBranch(t *testing.T) {
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	f, err := fn.New().Init(fn.Function{Runtime: "go", Root: root})
 	if err != nil {
@@ -648,7 +650,7 @@ func TestDeploy_ImageAndRegistry(t *testing.T) {
 
 func testImageAndRegistry(cmdFn commandConstructor, t *testing.T) {
 	t.Helper()
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	_, err := fn.New().Init(fn.Function{Runtime: "go", Root: root})
 	if err != nil {
@@ -721,7 +723,7 @@ func testImageFlag(cmdFn commandConstructor, t *testing.T) {
 		args    = []string{"--image", "docker.io/tigerteam/foo"}
 		builder = mock.NewBuilder()
 	)
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	_, err := fn.New().Init(fn.Function{Runtime: "go", Root: root})
 	if err != nil {
@@ -792,7 +794,7 @@ func TestDeploy_ImageWithDigestErrors(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Move into a new temp directory
-			root := fromTempDirectory(t)
+			root := FromTempDirectory(t)
 
 			// Create a new Function in the temp directory
 			_, err := fn.New().Init(fn.Function{Runtime: "go", Root: root})
@@ -842,7 +844,7 @@ func TestDeploy_ImageWithDigestErrors(t *testing.T) {
 // should happen; f.Deploy.Image should be populated because the image should
 // just be deployed as is (since it already has digest)
 func TestDeploy_ImageWithDigestDoesntPopulateBuild(t *testing.T) {
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 	// image with digest (well almost, atleast in length and syntax)
 	const img = "docker.io/4141gauron3268@sha256:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 	// Create a new Function in the temp directory
@@ -876,7 +878,7 @@ func TestDeploy_InvalidRegistry(t *testing.T) {
 
 func testInvalidRegistry(cmdFn commandConstructor, t *testing.T) {
 	t.Helper()
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	f := fn.Function{
 		Root:    root,
@@ -904,7 +906,7 @@ func testInvalidRegistry(cmdFn commandConstructor, t *testing.T) {
 // 2. The namespace of the function at path if provided
 // 3. The user's current active namespace
 func TestDeploy_Namespace(t *testing.T) {
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	// A function which will be repeatedly, mockingly deployed
 	f := fn.Function{Root: root, Runtime: "go", Registry: TestRegistry}
@@ -966,7 +968,7 @@ func TestDeploy_Namespace(t *testing.T) {
 func TestDeploy_NamespaceDefaults(t *testing.T) {
 	kubeconfig := filepath.Join(cwd(), "testdata", "TestDeploy_NamespaceDefaults/kubeconfig")
 	expected := "mynamespace"
-	root := fromTempDirectory(t) // clears envs and cds to empty root
+	root := FromTempDirectory(t) // clears envs and cds to empty root
 	t.Setenv("KUBECONFIG", kubeconfig)
 
 	// Create a new function
@@ -1033,7 +1035,7 @@ func TestDeploy_NamespaceDefaults(t *testing.T) {
 func TestDeploy_NamespaceRedeployWarning(t *testing.T) {
 	// Change profile to one whose current profile is 'test-ns-deploy'
 	kubeconfig := filepath.Join(cwd(), "testdata", "TestDeploy_NamespaceRedeployWarning/kubeconfig")
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 	t.Setenv("KUBECONFIG", kubeconfig)
 
 	// Create a Function which appears to have been deployed to 'funcns'
@@ -1084,7 +1086,7 @@ func TestDeploy_NamespaceRedeployWarning(t *testing.T) {
 // Also implicitly checks that the --namespace flag takes precedence over
 // the namespace of a previously deployed Function.
 func TestDeploy_NamespaceUpdateWarning(t *testing.T) {
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	// Create a Function which appears to have been deployed to 'myns'
 	f := fn.Function{
@@ -1144,7 +1146,7 @@ func TestDeploy_NamespaceUpdateWarning(t *testing.T) {
 // TestDeploy_BasicRedeploy simply ensures that redeploy works and doesnt brake
 // using standard deploy method when desired namespace is deleted.
 func TestDeploy_BasicRedeployInCorrectNamespace(t *testing.T) {
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	// Create a Function which appears to have been deployed to 'myns'
 	f := fn.Function{
@@ -1192,7 +1194,7 @@ func TestDeploy_BasicRedeployInCorrectNamespace(t *testing.T) {
 // TestDeploy_BasicRedeployPipelines simply ensures that deploy 2 times works
 // and doesnt brake using pipelines
 func TestDeploy_BasicRedeployPipelinesCorrectNamespace(t *testing.T) {
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 	// Create a Function which appears to have been deployed to 'myns'
 	f := fn.Function{
 		Runtime: "go",
@@ -1299,7 +1301,7 @@ func testRegistry(cmdFn commandConstructor, t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			root := fromTempDirectory(t)
+			root := FromTempDirectory(t)
 			test.f.Runtime = "go"
 			test.f.Name = "f"
 			f, err := fn.New().Init(test.f)
@@ -1334,7 +1336,7 @@ func TestDeploy_RegistryLoads(t *testing.T) {
 
 func testRegistryLoads(cmdFn commandConstructor, t *testing.T) {
 	t.Helper()
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	f := fn.Function{
 		Root:     root,
@@ -1374,7 +1376,7 @@ func TestDeploy_RegistryOrImageRequired(t *testing.T) {
 
 func testRegistryOrImageRequired(cmdFn commandConstructor, t *testing.T) {
 	t.Helper()
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	_, err := fn.New().Init(fn.Function{Runtime: "go", Root: root})
 	if err != nil {
@@ -1431,7 +1433,7 @@ func TestDeploy_RemoteBuildURLPermutations(t *testing.T) {
 	// returns a single test function for one possible permutation of the flags.
 	newTestFn := func(remote, build, url string) func(t *testing.T) {
 		return func(t *testing.T) {
-			root := fromTempDirectory(t)
+			root := FromTempDirectory(t)
 
 			// Create a new Function in the temp directory
 			if _, err := fn.New().Init(fn.Function{Runtime: "go", Root: root}); err != nil {
@@ -1551,7 +1553,7 @@ func TestDeploy_RemoteBuildURLPermutations(t *testing.T) {
 // TestDeploy_RemotePersists ensures that the remote field is read from
 // the function by default, and is able to be overridden by flags/env vars.
 func TestDeploy_RemotePersists(t *testing.T) {
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	f, err := fn.New().Init(fn.Function{Runtime: "node", Root: root})
 	if err != nil {
@@ -1613,7 +1615,7 @@ func TestDeploy_RemotePersists(t *testing.T) {
 // line causes the pertinent value to be zeroed out.
 func TestDeploy_UnsetFlag(t *testing.T) {
 	// From a temp directory
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	// Create a function
 	f := fn.Function{Runtime: "go", Root: root, Registry: TestRegistry}
@@ -1677,7 +1679,7 @@ func Test_ValidateBuilder(t *testing.T) {
 // TestReDeploy_OnRegistryChange tests that after deployed image with registry X,
 // subsequent deploy with registry Y triggers build
 func TestReDeploy_OnRegistryChange(t *testing.T) {
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	// Create a basic go Function
 	f := fn.Function{
@@ -1726,7 +1728,7 @@ func TestReDeploy_OnRegistryChange(t *testing.T) {
 // TestReDeploy_OnRegistryChangeWithBuildFalse should fail with function not
 // being built because the registry has changed
 func TestReDeploy_OnRegistryChangeWithBuildFalse(t *testing.T) {
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	// Create a basic go Function
 	f := fn.Function{
@@ -1777,7 +1779,7 @@ func TestReDeploy_OnRegistryChangeWithBuildFalse(t *testing.T) {
 // service is not available (is already deleted manually or the namespace doesnt exist etc.)
 func TestDeploy_NoErrorOnOldFunctionNotFound(t *testing.T) {
 	var (
-		root    = fromTempDirectory(t)
+		root    = FromTempDirectory(t)
 		nsOne   = "nsone"
 		nsTwo   = "nstwo"
 		remover = mock.NewRemover()

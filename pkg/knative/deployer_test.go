@@ -9,7 +9,9 @@ import (
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+
 	fn "knative.dev/func/pkg/functions"
+	. "knative.dev/func/pkg/testing"
 )
 
 // Test_DefaultNamespace ensures that if there is an active kubeconfig,
@@ -18,20 +20,11 @@ import (
 func Test_DefaultNamespace(t *testing.T) {
 	// Update Kubeconfig to indicate the currently active namespace is:
 	// "test-ns-deploy"
-	t.Setenv("KUBECONFIG", fmt.Sprintf("%s/testdata/test_default_namespace", cwd()))
+	t.Setenv("KUBECONFIG", fmt.Sprintf("%s/testdata/test_default_namespace", Cwd()))
 
 	if ActiveNamespace() != "test-ns-deploy" {
 		t.Fatalf("expected 'test-ns-deploy', got '%v'", ActiveNamespace())
 	}
-}
-
-func cwd() (cwd string) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Unable to determine current working directory: %v", err)
-		os.Exit(1)
-	}
-	return cwd
 }
 
 func Test_setHealthEndpoints(t *testing.T) {
@@ -102,59 +95,73 @@ func Test_processValue(t *testing.T) {
 		{name: "bad context", arg: "{{secret:S}}", want: "", wantErr: true},
 		{name: "unset envvar", arg: "{{env:SOME_UNSET_VAR}}", want: "", wantErr: true},
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := processLocalEnvValue(tt.arg)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("processValue() error = %v, wantErr %v", err, tt.wantErr)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			got, err := processLocalEnvValue(test.arg)
+			if (err != nil) != test.wantErr {
+				t.Errorf("processValue() error = %v, wantErr %v", err, test.wantErr)
 				return
 			}
-			if got != tt.want {
-				t.Errorf("processValue() got = %v, want %v", got, tt.want)
+			if got != test.want {
+				t.Errorf("processValue() got = %v, want %v", got, test.want)
 			}
 		})
 	}
 }
 
-// Test_deployerNamespace tests that namespace function returns what it should
-// via preferences. namespace() is used in knative deployer to determine what
-// namespace to deploy the function to.
-func Test_deployerNamespace(t *testing.T) {
-	// these are the namespaces being used descending in preference (top = highest pref)
-	var (
-		desiredNs  = "desiredNs"
-		deployedNs = "deployedNs"
-		deployerNs = "deployerNs"
-		defaultNs  = "test-ns-deploy"
-	// StaticDefaultNamespace -- is exported
-	)
-	f := fn.Function{Name: "myfunc"}
+// Test_namespace ensures the namespace function returns the correct namespace
+// to use for the next deployment.
+func Test_namespace(t *testing.T) {
+	// store path to test kubeconfig before changing working directory.
+	testKubeconfigPath := fmt.Sprintf("%s/testdata/test_default_namespace", Cwd())
 
-	//set static default
-	if ns := namespace("", f); ns != StaticDefaultNamespace {
-		t.Fatal("expected static default namespace")
+	tests := []struct {
+		testName, requested, current, expected string
+		active                                 bool
+	}{
+		{
+			testName:  "Static default",
+			requested: "",    // nothing requested (such as via the CLI)
+			current:   "",    // no current namespace (undeployed)
+			active:    false, // no active k8s context to choose from
+			expected:  DefaultNamespace,
+		}, {
+			testName:  "Active k8s context",
+			requested: "",
+			current:   "",
+			active:    true,             // use the test active k8s context
+			expected:  "test-ns-deploy", // that is what is expected
+		}, {
+			testName:  "Currently deployed",
+			requested: "",
+			current:   "default", // currently deployed to "default"
+			active:    true,      // use the test active k8s context
+			expected:  "default", // redeploy should take precidence
+		}, {
+			testName:  "Move request",
+			requested: "func",    // Requesting it be moved to "func"
+			current:   "default", // currently deployed to "default"
+			active:    true,      // use the test active k8s context
+			expected:  "func",    // requested should take highest precidence
+		},
 	}
-	t.Setenv("KUBECONFIG", fmt.Sprintf("%s/testdata/test_default_namespace", cwd()))
+	for _, test := range tests {
+		t.Run(test.testName, func(t *testing.T) {
+			_ = FromTempDirectory(t) // clear existing envs and cd tmp
 
-	// active kubernetes default
-	if ns := namespace("", f); ns != defaultNs {
-		t.Fatal("expected default k8s namespace")
-	}
+			// Populate a Function with the test settings
+			testname := test.testName
+			f := fn.Function{Name: "test"}
+			f.Namespace = test.requested
+			f.Deploy.Namespace = test.current
+			if test.active {
+				t.Setenv("KUBECONFIG", testKubeconfigPath)
+			}
 
-	// knative deployer namespace
-	if ns := namespace(deployerNs, f); ns != deployerNs {
-		t.Fatal("expected knative deployer namespace")
-	}
-
-	// already deployed namespace
-	f.Deploy.Namespace = deployedNs
-	if ns := namespace(deployerNs, f); ns != deployedNs {
-		t.Fatal("expected namespace where function is already deployed")
-	}
-
-	// desired namespace
-	f.Namespace = desiredNs
-	if ns := namespace(deployerNs, f); ns != desiredNs {
-		t.Fatal("expected desired namespace defined via f.Namespace")
+			// Assert the correct namespace is evaluated as effective
+			if namespace(f) != test.expected {
+				t.Fatalf("%q expected namespace %q, got %q", testname, test.expected, namespace(f))
+			}
+		})
 	}
 }

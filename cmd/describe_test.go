@@ -5,6 +5,7 @@ import (
 
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/mock"
+	. "knative.dev/func/pkg/testing"
 )
 
 // TestDescribe_ByName ensures that describing a function by name invokes
@@ -37,7 +38,7 @@ func TestDescribe_ByName(t *testing.T) {
 // (func created in the current working directory) invokes the describer with
 // its name correctly.
 func TestDescribe_ByProject(t *testing.T) {
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	_, err := fn.New().Init(fn.Function{
 		Name:     "testname",
@@ -85,7 +86,7 @@ func TestDescribe_NameAndPathExclusivity(t *testing.T) {
 //  2. The namespace of the contextually active function
 //  3. The flag /env variable if provided
 func TestDescribe_Namespace(t *testing.T) {
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	client := fn.New(fn.WithDescriber(mock.NewDescriber()))
 

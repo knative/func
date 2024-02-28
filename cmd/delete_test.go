@@ -7,13 +7,14 @@ import (
 
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/mock"
+	. "knative.dev/func/pkg/testing"
 )
 
 // TestDelete_Default ensures that the deployed function is deleted correctly
 // with default options
 func TestDelete_Default(t *testing.T) {
 	var (
-		root      = fromTempDirectory(t)
+		root      = FromTempDirectory(t)
 		namespace = "myns"
 		remover   = mock.NewRemover()
 		err       error
@@ -61,7 +62,7 @@ func TestDelete_Default(t *testing.T) {
 // function explicitly as an argument invokes the remover appropriately.
 func TestDelete_ByName(t *testing.T) {
 	var (
-		root          = fromTempDirectory(t)
+		root          = FromTempDirectory(t)
 		testname      = "testname"        // explicit name for the function
 		testnamespace = "testnamespace"   // explicit namespace for the function
 		remover       = mock.NewRemover() // with a mock remover
@@ -141,7 +142,7 @@ func TestDelete_Namespace(t *testing.T) {
 // ignores the the function on disk
 func TestDelete_NamespaceFlagPriority(t *testing.T) {
 	var (
-		root       = fromTempDirectory(t)
+		root       = FromTempDirectory(t)
 		namespace  = "myns"
 		namespace2 = "myns2"
 		remover    = mock.NewRemover()
@@ -184,7 +185,7 @@ func TestDelete_NamespaceFlagPriority(t *testing.T) {
 // TestDelete_NamespaceWithoutNameFails ensures that providing wrong argument
 // combination fails nice and fast (no name of the Function)
 func TestDelete_NamespaceWithoutNameFails(t *testing.T) {
-	_ = fromTempDirectory(t)
+	_ = FromTempDirectory(t)
 
 	cmd := NewDeleteCmd(NewTestClient())
 	cmd.SetArgs([]string{"--namespace=myns"})
@@ -196,7 +197,7 @@ func TestDelete_NamespaceWithoutNameFails(t *testing.T) {
 // TestDelete_ByProject ensures that running delete with a valid project as its
 // context invokes remove and with the correct name (reads name from func.yaml)
 func TestDelete_ByProject(t *testing.T) {
-	_ = fromTempDirectory(t)
+	_ = FromTempDirectory(t)
 
 	// Write a func.yaml config which specifies a name
 	funcYaml := `name: bar
@@ -248,7 +249,7 @@ func TestDelete_ByPath(t *testing.T) {
 
 		// A mock remover which will be sampled to ensure it is not invoked.
 		remover   = mock.NewRemover()
-		root      = fromTempDirectory(t)
+		root      = FromTempDirectory(t)
 		err       error
 		namespace = "func"
 	)

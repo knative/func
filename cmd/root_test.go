@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -14,7 +13,6 @@ import (
 	"knative.dev/client-pkg/pkg/util"
 
 	fn "knative.dev/func/pkg/functions"
-	. "knative.dev/func/pkg/testing"
 )
 
 const TestRegistry = "example.com/alice"
@@ -308,31 +306,4 @@ func piped(t *testing.T) func() string {
 		}
 		return strings.TrimSpace(b.String())
 	}
-}
-
-// fromTempDirectory is a test helper which endeavors to create
-// an environment clean of developer's settings for use during CLI testing.
-func fromTempDirectory(t *testing.T) string {
-	t.Helper()
-	ClearEnvs(t)
-
-	// We have to define KUBECONFIG, or the file at ~/.kube/config (if extant)
-	// will be used (disrupting tests by using the current user's environment).
-	// The test kubeconfig set below has the current namespace set to 'func'
-	// NOTE: the below settings affect unit tests only, and we do explicitly
-	// want all unit tests to start in an empty environment with tests "opting in"
-	// to config, not opting out.
-	t.Setenv("KUBECONFIG", filepath.Join(cwd(), "testdata", "default_kubeconfig"))
-
-	// By default unit tests presum no config exists unless provided in testdata.
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-
-	t.Setenv("KUBERNETES_SERVICE_HOST", "")
-
-	// creates and CDs to a temp directory
-	d, done := Mktemp(t)
-
-	// Return to original directory and resets viper.
-	t.Cleanup(func() { done(); viper.Reset() })
-	return d
 }

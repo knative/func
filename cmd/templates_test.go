@@ -6,12 +6,13 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 	"gotest.tools/v3/assert"
+	. "knative.dev/func/pkg/testing"
 )
 
 // TestTemplates_Default ensures that the default behavior is listing all
 // templates for all language runtimes.
 func TestTemplates_Default(t *testing.T) {
-	_ = fromTempDirectory(t)
+	_ = FromTempDirectory(t)
 
 	buf := piped(t) // gather output
 	cmd := NewTemplatesCmd(NewClient)
@@ -46,7 +47,7 @@ typescript   http`
 // TestTemplates_JSON ensures that listing templates respects the --json
 // output format.
 func TestTemplates_JSON(t *testing.T) {
-	_ = fromTempDirectory(t)
+	_ = FromTempDirectory(t)
 
 	buf := piped(t) // gather output
 	cmd := NewTemplatesCmd(NewClient)
@@ -96,7 +97,7 @@ func TestTemplates_JSON(t *testing.T) {
 // TestTemplates_ByLanguage ensures that the output is correctly filtered
 // by language runtime when provided.
 func TestTemplates_ByLanguage(t *testing.T) {
-	_ = fromTempDirectory(t)
+	_ = FromTempDirectory(t)
 
 	cmd := NewTemplatesCmd(NewClient)
 	cmd.SetArgs([]string{"go"})
@@ -135,7 +136,7 @@ http`
 }
 
 func TestTemplates_ErrTemplateRepoDoesNotExist(t *testing.T) {
-	_ = fromTempDirectory(t)
+	_ = FromTempDirectory(t)
 
 	cmd := NewTemplatesCmd(NewClient)
 	cmd.SetArgs([]string{"--repository", "https://github.com/boson-project/repo-does-not-exist"})
@@ -145,7 +146,7 @@ func TestTemplates_ErrTemplateRepoDoesNotExist(t *testing.T) {
 }
 
 func TestTemplates_WrongRepositoryUrl(t *testing.T) {
-	_ = fromTempDirectory(t)
+	_ = FromTempDirectory(t)
 
 	cmd := NewTemplatesCmd(NewClient)
 	cmd.SetArgs([]string{"--repository", "wrong://github.com/boson-project/repo-does-not-exist"})

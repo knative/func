@@ -33,8 +33,8 @@ import (
 const LIVENESS_ENDPOINT = "/health/liveness"
 const READINESS_ENDPOINT = "/health/readiness"
 
-// static default namespace for deployer
-const StaticDefaultNamespace = "func"
+// DefaultNamespace for deployments when no other namespaces are provided.
+const DefaultNamespace = "func"
 
 type DeployDecorator interface {
 	UpdateAnnotations(fn.Function, map[string]string) map[string]string
@@ -44,9 +44,6 @@ type DeployDecorator interface {
 type DeployerOpt func(*Deployer)
 
 type Deployer struct {
-	// Namespace with which to override that set on the default configuration (such as the ~/.kube/config).
-	// If left blank, deployment will commence to the configured namespace.
-	Namespace string
 	// verbose logging enablement flag.
 	verbose bool
 
@@ -75,12 +72,6 @@ func NewDeployer(opts ...DeployerOpt) *Deployer {
 	return d
 }
 
-func WithDeployerNamespace(namespace string) DeployerOpt {
-	return func(d *Deployer) {
-		d.Namespace = namespace
-	}
-}
-
 func WithDeployerVerbose(verbose bool) DeployerOpt {
 	return func(d *Deployer) {
 		d.verbose = verbose
@@ -104,7 +95,7 @@ func (d *Deployer) isImageInPrivateRegistry(ctx context.Context, client clientse
 	if err != nil {
 		return false
 	}
-	list, err := k8sClient.CoreV1().Pods(namespace(d.Namespace, f)).List(ctx, metav1.ListOptions{
+	list, err := k8sClient.CoreV1().Pods(namespace(f)).List(ctx, metav1.ListOptions{
 		LabelSelector: "serving.knative.dev/revision=" + ksvc.Status.LatestCreatedRevisionName + ",serving.knative.dev/service=" + f.Name,
 		FieldSelector: "status.phase=Pending",
 	})
@@ -123,10 +114,13 @@ func (d *Deployer) isImageInPrivateRegistry(ctx context.Context, client clientse
 	return false
 }
 
-// returns correct namespace to deploy to, ordered in a descending order by
-// priority: User specified via cli -> client WithDeployer -> already deployed ->
-// -> k8s default; if fails, use static default
-func namespace(dflt string, f fn.Function) string {
+// namespace returns the effective, resolved namespace using the following
+// order of precidence, descending:
+// - The namespace chosen for next deploy via f.Namespace (eg: via the CLI)
+// - The last namespace to which the function was deployed via f.Deploy.Namespace
+// - The namespace of the curent kubernetes context if it exists
+// - The static default namespace DefaultNamespace
+func namespace(f fn.Function) string {
 	// namespace ordered by highest priority decending
 	namespace := f.Namespace
 
@@ -135,18 +129,13 @@ func namespace(dflt string, f fn.Function) string {
 		namespace = f.Deploy.Namespace
 	}
 
-	// deployer WithDeployerNamespace provided
-	if namespace == "" {
-		namespace = dflt
-	}
-
 	if namespace == "" {
 		var err error
 		// still not set, just use the defaultest default
 		namespace, err = k8s.GetDefaultNamespace()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "trying to get default namespace returns an error: '%s'\nSetting static default namespace '%s'", err, StaticDefaultNamespace)
-			namespace = StaticDefaultNamespace
+			fmt.Fprintf(os.Stderr, "trying to get default namespace returns an error: '%s'\nSetting static default namespace '%s'", err, DefaultNamespace)
+			namespace = DefaultNamespace
 		}
 	}
 	return namespace
@@ -154,8 +143,9 @@ func namespace(dflt string, f fn.Function) string {
 
 func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResult, error) {
 
-	// returns correct namespace by priority
-	namespace := namespace(d.Namespace, f)
+	// derive the effective namespace by priority for the current
+	// deployment
+	namespace := namespace(f)
 
 	client, err := NewServingClient(namespace)
 	if err != nil {
