@@ -330,3 +330,92 @@ type fileInfo struct {
 	Executable bool
 	Linkname   string
 }
+
+// TestBuilder_StaticEnvs ensures that certain "static" environment variables
+// comprising Function metadata are added to the config.
+func TestBuilder_StaticEnvs(t *testing.T) {
+	root, done := Mktemp(t)
+	defer done()
+
+	staticEnvs := []string{
+		"FUNC_CREATED",
+		"FUNC_VERSION",
+	}
+
+	f, err := fn.New().Init(fn.Function{Root: root, Runtime: "go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := NewBuilder("", true).Build(context.Background(), f, TestPlatforms); err != nil {
+		t.Fatal(err)
+	}
+
+	// Assert
+	// Check if the OCI container defines at least one of the static
+	// variables on each of the constituent containers.
+	// ---
+	// Get the images list (manifest descripors) from the index
+	ociPath := path(f.Root, fn.RunDataDir, "builds", "last", "oci")
+	data, err := os.ReadFile(filepath.Join(ociPath, "index.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var index struct {
+		Manifests []struct {
+			Digest string `json:"digest"`
+		} `json:"manifests"`
+	}
+	if err := json.Unmarshal(data, &index); err != nil {
+		t.Fatal(err)
+	}
+	for _, manifestDesc := range index.Manifests {
+
+		// Dereference the manifest descriptor into the referenced image manifest
+		manifestHash := strings.TrimPrefix(manifestDesc.Digest, "sha256:")
+		data, err := os.ReadFile(filepath.Join(ociPath, "blobs", "sha256", manifestHash))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var manifest struct {
+			Config struct {
+				Digest string `json:"digest"`
+			} `json:"config"`
+		}
+		if err := json.Unmarshal(data, &manifest); err != nil {
+			t.Fatal(err)
+		}
+
+		// From the image manifest get the image's config.json
+		configHash := strings.TrimPrefix(manifest.Config.Digest, "sha256:")
+		data, err = os.ReadFile(filepath.Join(ociPath, "blobs", "sha256", configHash))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var config struct {
+			Config struct {
+				Env []string `json:"Env"`
+			} `json:"config"`
+		}
+		if err := json.Unmarshal(data, &config); err != nil {
+			panic(err)
+		}
+
+		containsEnv := func(ss []string, name string) bool {
+			for _, s := range ss {
+				if strings.HasPrefix(s, name) {
+					return true
+				}
+			}
+			return false
+		}
+
+		for _, expected := range staticEnvs {
+			t.Logf("checking for %q in slice %v", expected, config.Config.Env)
+			if containsEnv(config.Config.Env, expected) {
+				continue // to check the rest
+			}
+			t.Fatalf("static env %q not found in resultant container", expected)
+		}
+	}
+}

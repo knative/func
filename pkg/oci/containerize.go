@@ -8,9 +8,11 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"os/exec"
 	slashpath "path"
 	"path/filepath"
 	"strings"
+	"time"
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
@@ -428,7 +430,7 @@ func newConfig(cfg *buildConfig, p v1.Platform, layers ...v1.Layer) (desc v1.Des
 		Variant: p.Variant,
 		Config: v1.Config{
 			ExposedPorts: map[string]struct{}{"8080/tcp": {}},
-			Env:          cfg.f.Run.Envs.Slice(),
+			Env:          newConfigEnvs(cfg),
 			Cmd:          []string{"/func/f"}, // NOTE: Using Cmd because Entrypoint can not be overridden
 			WorkingDir:   "/func/",
 			StopSignal:   "SIGKILL",
@@ -480,6 +482,46 @@ func newConfig(cfg *buildConfig, p v1.Platform, layers ...v1.Layer) (desc v1.Des
 	}
 	err = os.Rename(filePath, blobPath)
 	return
+}
+
+// newConfigEnvs returns the final set of environment variables to build into
+// the container.  This consists of func-provided build metadata envs as well
+// as any environment variables provided on the function itself.
+func newConfigEnvs(cfg *buildConfig) []string {
+	envs := []string{}
+
+	// FUNC_CREATED
+	// Formats container timestamp as RFC3339; a stricter version of the ISO 8601
+	// format used by the container image manifest's 'Created' attribute.
+	envs = append(envs, "FUNC_CREATED="+cfg.t.Format(time.RFC3339))
+
+	// FUNC_VERSION
+	// If source controlled, and if being built from a system with git, the
+	// environment FUNC_VERSION will be populated.  Otherwise it will exist
+	// (to indicate this logic was executed) but have an empty value.
+	if cfg.verbose {
+		fmt.Printf("cd %v && export FUNC_VERSION=$(git describe --tags)\n", cfg.f.Root)
+	}
+	cmd := exec.CommandContext(cfg.ctx, "git", "describe", "--tags")
+	cmd.Dir = cfg.f.Root
+	output, err := cmd.Output()
+	if err != nil {
+		if cfg.verbose {
+			fmt.Fprintf(os.Stderr, "unable to determine function version. %v", err)
+		}
+		envs = append(envs, "FUNC_VERSION=")
+	} else {
+		envs = append(envs, "FUNC_VERSION="+strings.TrimSpace(string(output)))
+	}
+
+	// TODO: OTHERS?
+	// Other metadata that may be useful. Perhaps:
+	//   - func client version (func cli) used when building this file?
+	//   - user/environment which triggered this build?
+	//   - A reflection of the function itself?  Image, registry, etc. etc?
+
+	// ENVs defined on the Function
+	return append(envs, cfg.f.Run.Envs.Slice()...)
 }
 
 func newImageIndex(cfg *buildConfig, imageDescs []v1.Descriptor) (index v1.IndexManifest, err error) {
