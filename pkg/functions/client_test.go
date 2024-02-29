@@ -984,8 +984,8 @@ func TestClient_Deploy_NamespaceUpdate(t *testing.T) {
 	)
 
 	// New runs build and deploy, thus the initial instantiation should result in
-	// the namespace member being populated into the most default namespace
-	if _, f, err = client.New(ctx, fn.Function{Runtime: "go", Name: "f", Root: root}); err != nil {
+	// the namespace member being populated into the given namespace
+	if _, f, err = client.New(ctx, fn.Function{Runtime: "go", Name: "f", Namespace: "initialnamespace", Root: root}); err != nil {
 		t.Fatal(err)
 	}
 	if f.Deploy.Namespace == "" {
@@ -994,21 +994,14 @@ func TestClient_Deploy_NamespaceUpdate(t *testing.T) {
 
 	// change deployed namespace to simulate already deployed function -- should
 	// take precedence
-	f.Deploy.Namespace = "alreadydeployed"
+	f.Namespace = "secondnamespace"
 	f, err = client.Deploy(ctx, f)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if f.Deploy.Namespace != "alreadydeployed" {
+	if f.Deploy.Namespace != "secondnamespace" {
 		err = fmt.Errorf("namespace should match the already deployed function ns")
-		t.Fatal(err)
-	}
-
-	// desired namespace takes precedence
-	f.Namespace = "desiredns"
-	f, err = client.Deploy(ctx, f)
-	if err != nil {
 		t.Fatal(err)
 	}
 }
@@ -1042,7 +1035,7 @@ func TestClient_Remove_ByPath(t *testing.T) {
 		return nil
 	}
 
-	if err := client.Remove(context.Background(), f, false); err != nil {
+	if err := client.Remove(context.Background(), "", "", f, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1085,7 +1078,7 @@ func TestClient_Remove_DeleteAll(t *testing.T) {
 		return nil
 	}
 
-	if err := client.Remove(context.Background(), f, deleteAll); err != nil {
+	if err := client.Remove(context.Background(), "", "", f, deleteAll); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1132,7 +1125,7 @@ func TestClient_Remove_Dont_DeleteAll(t *testing.T) {
 		return nil
 	}
 
-	if err := client.Remove(context.Background(), f, deleteAll); err != nil {
+	if err := client.Remove(context.Background(), "", "", f, deleteAll); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1174,12 +1167,12 @@ func TestClient_Remove_ByName(t *testing.T) {
 	}
 
 	// Run remove with name (and namespace in .Deploy to simulate deployed function)
-	if err := client.Remove(context.Background(), fn.Function{Name: expectedName, Deploy: fn.DeploySpec{Namespace: namespace}}, false); err != nil {
+	if err := client.Remove(context.Background(), "", "", fn.Function{Name: expectedName, Deploy: fn.DeploySpec{Namespace: namespace}}, false); err != nil {
 		t.Fatal(err)
 	}
 
 	// Run remove with a name and a root, which should be ignored in favor of the name.
-	if err := client.Remove(context.Background(), fn.Function{Name: expectedName, Root: root, Deploy: fn.DeploySpec{Namespace: namespace}}, false); err != nil {
+	if err := client.Remove(context.Background(), "", "", fn.Function{Name: expectedName, Root: root, Deploy: fn.DeploySpec{Namespace: namespace}}, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1210,7 +1203,7 @@ func TestClient_Remove_UninitializedFails(t *testing.T) {
 		fn.WithRemover(remover))
 
 	// Attempt to remove by path (uninitialized), expecting an error.
-	if err := client.Remove(context.Background(), fn.Function{Root: root}, false); err == nil {
+	if err := client.Remove(context.Background(), "", "", fn.Function{Root: root}, false); err == nil {
 		t.Fatalf("did not received expeced error removing an uninitialized func")
 	}
 }
@@ -1221,7 +1214,7 @@ func TestClient_List(t *testing.T) {
 
 	client := fn.New(fn.WithLister(lister)) // lists deployed functions.
 
-	if _, err := client.List(context.Background()); err != nil {
+	if _, err := client.List(context.Background(), ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1240,7 +1233,7 @@ func TestClient_List_OutsideRoot(t *testing.T) {
 	// Instantiate in the current working directory, with no name.
 	client := fn.New(fn.WithLister(lister))
 
-	if _, err := client.List(context.Background()); err != nil {
+	if _, err := client.List(context.Background(), ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1261,9 +1254,15 @@ func TestClient_Deploy_Image(t *testing.T) {
 	client := fn.New(
 		fn.WithBuilder(mock.NewBuilder()),
 		fn.WithDeployer(mock.NewDeployer()),
-		fn.WithRegistry("example.com/alice"))
+	)
 
-	f, err := client.Init(fn.Function{Name: "myfunc", Runtime: "go", Root: root})
+	f, err := client.Init(fn.Function{
+		Name:      "myfunc",
+		Namespace: "initialnamespace",
+		Runtime:   "go",
+		Root:      root,
+		Registry:  TestRegistry,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1331,9 +1330,10 @@ func TestClient_Pipelines_Deploy_Image(t *testing.T) {
 		fn.WithRegistry("example.com/alice"))
 
 	f := fn.Function{
-		Name:    "myfunc",
-		Runtime: "node",
-		Root:    root,
+		Name:      "myfunc",
+		Namespace: "initialnamespace",
+		Runtime:   "node",
+		Root:      root,
 		Build: fn.BuildSpec{
 			Git: fn.Git{URL: "http://example-git.com/alice/myfunc.git"},
 		},

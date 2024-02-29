@@ -112,5 +112,5 @@ func (s *InstanceRefs) Remote(ctx context.Context, name, root string) (Instance,
 		return Instance{}, nil
 	}
 
-	return s.client.describer.Describe(ctx, f.Name)
+	return s.client.describer.Describe(ctx, f.Name, f.Deploy.Namespace)
 }

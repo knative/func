@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -13,6 +14,7 @@ import (
 	"knative.dev/client-pkg/pkg/util"
 
 	fn "knative.dev/func/pkg/functions"
+	. "knative.dev/func/pkg/testing"
 )
 
 const TestRegistry = "example.com/alice"
@@ -267,6 +269,75 @@ func TestRoot_effectivePath(t *testing.T) {
 		}
 	})
 
+}
+
+// Test_defaultNamespace ensures that the order of precedence for
+// determining the effective namespace is followed.
+// to use for the next deployment.
+func Test_defaultNamespace(t *testing.T) {
+	// Clear non-test envs and set the test KUBECONFIG to nonexistent, but
+	// save the current working directory for setting kube context in some
+	// test cases.
+	cwd := Cwd()
+	_ = FromTempDirectory(t) // clears non-test envs and enters a temp dir.
+	t.Setenv("KUBECONFIG", filepath.Join(t.TempDir(), "nonexistent"))
+
+	// also clear the test KUBECONFIG env
+	tests := []struct {
+		name     string
+		context  bool
+		global   bool
+		expected string
+	}{
+		// TODO cases for function state f.Namespace and f.Deploy.Namespace
+		{
+			name:     "static default",
+			context:  false,            // no active kube context
+			global:   false,            // no global
+			expected: DefaultNamespace, // expect static default
+		}, {
+			name:     "global config",
+			context:  false,
+			global:   true,            // see the global defined in FUNC_HOME testdata
+			expected: "globaldefault", // expect global to override static
+		}, {
+			name:     "active context",
+			context:  true, // see the config in KUBECONFIG testdata
+			global:   true,
+			expected: "mynamespace", // active context overrides global default
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+
+			if test.global { // enable a global config setting
+				t.Setenv("XDG_CONFIG_HOME", filepath.Join(cwd, "testdata", "Test_defaultNamespace"))
+			}
+			if test.context { // enable an active kube context
+				t.Setenv("KUBECONFIG", filepath.Join(cwd, "testdata", "Test_defaultNamespace", "kubeconfig"))
+			}
+
+			namespace := defaultNamespace(fn.Function{}, false)
+			if namespace != test.expected {
+				t.Fatalf("%v:  expected namespace %q, got %q", test.name, test.expected, namespace)
+			}
+
+		})
+	}
+
+	// t.Setenv("KUBECONFIG", filepath.Join(t.TempDir(), "nonexistent"))
+	// t.Setenv("KUBERNETES_SERVICE_HOST", "")
+	// t.Setenv("XDG_CONFIG_HOME", home)
+	// if config.DefaultNamespace() != "default" {
+	// 	t.Fatalf("did not receive expected default namespace 'default', got '%v'", config.DefaultNamespace())
+	// }
+	//
+	// // should be "func" when active k8s namespace is "func"
+	// kubeconfig := filepath.Join(cwd, "testdata", "TestDefaultNamespace", "kubeconfig")
+	// t.Setenv("KUBECONFIG", kubeconfig)
+	// if config.DefaultNamespace() != "func" {
+	// 	t.Fatalf("expected default namespace of 'func' when that is the active k8s namespace.  Got '%v'", config.DefaultNamespace())
+	// }
 }
 
 // Helpers

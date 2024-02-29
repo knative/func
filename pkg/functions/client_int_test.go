@@ -61,14 +61,14 @@ func TestList(t *testing.T) {
 	verbose := true
 
 	// Assemble
-	lister := knative.NewLister(DefaultNamespace, verbose)
+	lister := knative.NewLister(verbose)
 
 	client := fn.New(
 		fn.WithLister(lister),
 		fn.WithVerbose(verbose))
 
 	// Act
-	names, err := client.List(context.Background())
+	names, err := client.List(context.Background(), DefaultNamespace)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,13 +89,13 @@ func TestNew(t *testing.T) {
 	client := newClient(verbose)
 
 	// Act
-	if _, _, err := client.New(context.Background(), fn.Function{Name: name, Root: root, Runtime: "go"}); err != nil {
+	if _, _, err := client.New(context.Background(), fn.Function{Name: name, Namespace: DefaultNamespace, Root: root, Runtime: "go"}); err != nil {
 		t.Fatal(err)
 	}
-	defer del(t, client, name)
+	defer del(t, client, name, DefaultNamespace)
 
 	// Assert
-	items, err := client.List(context.Background())
+	items, err := client.List(context.Background(), DefaultNamespace)
 	names := []string{}
 	for _, item := range items {
 		names = append(names, item.Name)
@@ -114,7 +114,7 @@ func TestDeploy(t *testing.T) {
 	verbose := true
 
 	client := newClient(verbose)
-	f := fn.Function{Name: "deploy", Root: ".", Runtime: "go"}
+	f := fn.Function{Name: "deploy", Namespace: DefaultNamespace, Root: ".", Runtime: "go"}
 	var err error
 
 	if f, err = client.Init(f); err != nil {
@@ -127,7 +127,7 @@ func TestDeploy(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer del(t, client, "deploy")
+	defer del(t, client, "deploy", DefaultNamespace)
 	// TODO: gauron99 -- remove this when you set full image name after build instead
 	// of push -- this has to be here because of a workaround
 	f.Deploy.Image = f.Build.Image
@@ -171,7 +171,7 @@ func TestDeployWithOptions(t *testing.T) {
 	if _, _, err := client.New(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
-	defer del(t, client, "test-deploy-with-options")
+	defer del(t, client, "test-deploy-with-options", DefaultNamespace)
 }
 
 func TestDeployWithTriggers(t *testing.T) {
@@ -179,7 +179,7 @@ func TestDeployWithTriggers(t *testing.T) {
 	defer cleanup()
 	verbose := true
 
-	f := fn.Function{Runtime: "go", Name: "test-deploy-with-triggers", Root: root}
+	f := fn.Function{Runtime: "go", Name: "test-deploy-with-triggers", Root: root, Namespace: DefaultNamespace}
 	f.Deploy = fn.DeploySpec{
 		Subscriptions: []fn.KnativeSubscription{
 			{
@@ -196,7 +196,7 @@ func TestDeployWithTriggers(t *testing.T) {
 	if _, _, err := client.New(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
-	defer del(t, client, "test-deploy-with-triggers")
+	defer del(t, client, "test-deploy-with-triggers", DefaultNamespace)
 }
 
 func TestUpdateWithAnnotationsAndLabels(t *testing.T) {
@@ -208,12 +208,12 @@ func TestUpdateWithAnnotationsAndLabels(t *testing.T) {
 
 	// Deploy a function without any annotations or labels
 	client := newClient(verbose)
-	f := fn.Function{Name: functionName, Root: ".", Runtime: "go"}
+	f := fn.Function{Name: functionName, Root: ".", Runtime: "go", Namespace: DefaultNamespace}
 
 	if _, f, err = client.New(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
-	defer del(t, client, functionName)
+	defer del(t, client, functionName, DefaultNamespace)
 
 	// Updated function with a new set of annotations and labels
 	// deploy and check that deployed kcsv contains correct annotations and labels
@@ -291,24 +291,24 @@ func TestUpdateWithAnnotationsAndLabels(t *testing.T) {
 	}
 }
 
-// TestRemove deletes
+// TestRemove ensures removal of a function instance.
 func TestRemove(t *testing.T) {
 	defer Within(t, "testdata/example.com/remove")()
 	verbose := true
 
 	client := newClient(verbose)
-	f := fn.Function{Name: "remove", Root: ".", Runtime: "go"}
+	f := fn.Function{Name: "remove", Namespace: DefaultNamespace, Root: ".", Runtime: "go"}
 	var err error
 	if _, f, err = client.New(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
-	waitFor(t, client, "remove")
+	waitFor(t, client, "remove", DefaultNamespace)
 
-	if err = client.Remove(context.Background(), f, false); err != nil {
+	if err = client.Remove(context.Background(), "", "", f, false); err != nil {
 		t.Fatal(err)
 	}
 
-	names, err := client.List(context.Background())
+	names, err := client.List(context.Background(), DefaultNamespace)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -382,7 +382,7 @@ func TestInvoke_ClientToService(t *testing.T) {
 	defer done()
 
 	// Create a function
-	f := fn.Function{Name: "f", Runtime: "go"}
+	f := fn.Function{Name: "f", Runtime: "go", Namespace: DefaultNamespace}
 	f, err = client.Init(f)
 	if err != nil {
 		t.Fatal(err)
@@ -404,7 +404,7 @@ func Handle(ctx context.Context, res http.ResponseWriter, req *http.Request) {
 	if route, f, err = client.Apply(ctx, f); err != nil {
 		t.Fatal(err)
 	}
-	defer client.Remove(ctx, f, true)
+	defer client.Remove(ctx, "", "", f, true)
 
 	// Invoke via the route
 	resp, err := http.Get(route)
@@ -448,7 +448,7 @@ func TestInvoke_ServiceToService(t *testing.T) {
 	// A function which responds to GET requests with a static value.
 	root, done := Mktemp(t)
 	defer done()
-	f := fn.Function{Name: "a", Runtime: "go"}
+	f := fn.Function{Name: "a", Runtime: "go", Namespace: DefaultNamespace}
 	f, err = client.Init(f)
 	if err != nil {
 		t.Fatal(err)
@@ -469,7 +469,7 @@ func Handle(ctx context.Context, res http.ResponseWriter, req *http.Request) {
 	if _, f, err = client.Apply(ctx, f); err != nil {
 		t.Fatal(err)
 	}
-	defer client.Remove(ctx, f, true)
+	defer client.Remove(ctx, "", "", f, true)
 
 	// Create Function B
 	// which responds with the response from an invocation of 'a' via the
@@ -525,7 +525,7 @@ func Handle(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	if route, f, err = client.Apply(ctx, f); err != nil {
 		t.Fatal(err)
 	}
-	defer client.Remove(ctx, f, true)
+	defer client.Remove(ctx, "", "", f, true)
 
 	resp, err := http.Get(route)
 	if err != nil {
@@ -552,10 +552,10 @@ func Handle(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 func newClient(verbose bool) *fn.Client {
 	builder := buildpacks.NewBuilder(buildpacks.WithVerbose(verbose))
 	pusher := docker.NewPusher(docker.WithVerbose(verbose))
-	deployer := knative.NewDeployer(knative.WithDeployerNamespace(DefaultNamespace), knative.WithDeployerVerbose(verbose))
-	describer := knative.NewDescriber(DefaultNamespace, verbose)
+	deployer := knative.NewDeployer(knative.WithDeployerVerbose(verbose))
+	describer := knative.NewDescriber(verbose)
 	remover := knative.NewRemover(verbose)
-	lister := knative.NewLister(DefaultNamespace, verbose)
+	lister := knative.NewLister(verbose)
 
 	return fn.New(
 		fn.WithRegistry(DefaultRegistry),
@@ -579,10 +579,11 @@ func newClient(verbose bool) *fn.Client {
 // Of course, ideally this would be replaced by the use of a synchronous
 // method, or at a minimum a way to register a callback/listener for the
 // creation event.  This is what we have for now, and the show must go on.
-func del(t *testing.T, c *fn.Client, name string) {
+func del(t *testing.T, c *fn.Client, name, namespace string) {
 	t.Helper()
-	waitFor(t, c, name)
-	if err := c.Remove(context.Background(), fn.Function{Name: name, Deploy: fn.DeploySpec{Namespace: DefaultNamespace}}, false); err != nil {
+	waitFor(t, c, name, namespace)
+	f := fn.Function{Name: name, Deploy: fn.DeploySpec{Namespace: DefaultNamespace}}
+	if err := c.Remove(context.Background(), "", "", f, false); err != nil {
 		t.Fatal(err)
 	}
 	cli, _, err := docker.NewClient(client.DefaultDockerHost)
@@ -612,12 +613,12 @@ func del(t *testing.T, c *fn.Client, name string) {
 // TODO: the API should be synchronous, but that depends first on
 // Create returning the derived name such that we can bake polling in.
 // Ideally the provider's Create would be made syncrhonous.
-func waitFor(t *testing.T, c *fn.Client, name string) {
+func waitFor(t *testing.T, c *fn.Client, name, namespace string) {
 	t.Helper()
 	var pollInterval = 2 * time.Second
 
 	for { // ever (i.e. defer to global test timeout)
-		nn, err := c.List(context.Background())
+		nn, err := c.List(context.Background(), namespace)
 		if err != nil {
 			t.Fatal(err)
 		}

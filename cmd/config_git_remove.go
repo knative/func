@@ -69,7 +69,7 @@ type configGitRemoveConfig struct {
 	// working directory of the process.
 	Path string
 
-	Namespace string
+	PipelinesNamespace string
 
 	// informs whether any specific flag for deleting only a subset of resources has been set
 	flagSet bool
@@ -93,7 +93,7 @@ func newConfigGitRemoveConfig(cmd *cobra.Command) (c configGitRemoveConfig) {
 	}
 
 	c = configGitRemoveConfig{
-		Namespace: viper.GetString("namespace"),
+		PipelinesNamespace: viper.GetString("namespace"),
 
 		flagSet: flagSet,
 
@@ -181,7 +181,7 @@ func runConfigGitRemoveCmd(cmd *cobra.Command, newClient ClientFactory) (err err
 		return
 	}
 
-	client, done := newClient(ClientConfig{Namespace: cfg.Namespace, Verbose: cfg.Verbose})
+	client, done := newClient(ClientConfig{PipelinesNamespace: cfg.PipelinesNamespace, Verbose: cfg.Verbose})
 	defer done()
 
 	return client.RemovePAC(cmd.Context(), f, cfg.metadata)

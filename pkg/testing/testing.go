@@ -215,9 +215,9 @@ func RunGitServer(root string, t *testing.T) (url string) {
 }
 
 // FromTempDirectory moves the test into a new temporary directory and
-// clears all known interfereing environment variables.  Returned is the
+// clears all known interfering environment variables.  Returned is the
 // path to the somewhat isolated test environment.
-// Note that KUBECONFIG is also set to testdata/default_kubeconfig whcih can
+// Note that KUBECONFIG is also set to testdata/default_kubeconfig which can
 // be used for tests which are explicitly checking logic which depends on
 // kube context.
 func FromTempDirectory(t *testing.T) string {

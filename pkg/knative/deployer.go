@@ -33,9 +33,6 @@ import (
 const LIVENESS_ENDPOINT = "/health/liveness"
 const READINESS_ENDPOINT = "/health/readiness"
 
-// DefaultNamespace for deployments when no other namespaces are provided.
-const DefaultNamespace = "func"
-
 type DeployDecorator interface {
 	UpdateAnnotations(fn.Function, map[string]string) map[string]string
 	UpdateLabels(fn.Function, map[string]string) map[string]string
@@ -95,7 +92,7 @@ func (d *Deployer) isImageInPrivateRegistry(ctx context.Context, client clientse
 	if err != nil {
 		return false
 	}
-	list, err := k8sClient.CoreV1().Pods(namespace(f)).List(ctx, metav1.ListOptions{
+	list, err := k8sClient.CoreV1().Pods(f.Deploy.Namespace).List(ctx, metav1.ListOptions{
 		LabelSelector: "serving.knative.dev/revision=" + ksvc.Status.LatestCreatedRevisionName + ",serving.knative.dev/service=" + f.Name,
 		FieldSelector: "status.phase=Pending",
 	})
@@ -120,6 +117,9 @@ func (d *Deployer) isImageInPrivateRegistry(ctx context.Context, client clientse
 // - The last namespace to which the function was deployed via f.Deploy.Namespace
 // - The namespace of the curent kubernetes context if it exists
 // - The static default namespace DefaultNamespace
+/* DEPRECATED:  the deployer should expect the correct namespace to always be
+   passed in in order to keep implementations simple and complexity in the
+   core library.
 func namespace(f fn.Function) string {
 	// namespace ordered by highest priority decending
 	namespace := f.Namespace
@@ -140,13 +140,25 @@ func namespace(f fn.Function) string {
 	}
 	return namespace
 }
+*/
 
 func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResult, error) {
+	// If f.Namespace is defined, this is the (possibly new) target
+	// namespace.  Otherwise use the last deployed namespace.  Error if
+	// neither are set.  The logic which arbitrates between curret k8s context,
+	// flags, environment variables and global defaults to determine the
+	// effective namespace is not logic for the deployer implementation, which
+	// should have a minimum of logic.  In this case limited to "new ns or
+	// existing namespace?
+	namespace := f.Namespace
+	if namespace == "" {
+		namespace = f.Deploy.Namespace
+	}
+	if namespace == "" {
+		return fn.DeploymentResult{}, fmt.Errorf("deployer requires either a target namespace or that the funciton be already deployed.")
+	}
 
-	// derive the effective namespace by priority for the current
-	// deployment
-	namespace := namespace(f)
-
+	// Clients
 	client, err := NewServingClient(namespace)
 	if err != nil {
 		return fn.DeploymentResult{}, err

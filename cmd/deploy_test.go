@@ -13,11 +13,7 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
-	apiErrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-
 	"knative.dev/func/pkg/builders"
-	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/mock"
@@ -902,11 +898,13 @@ func testInvalidRegistry(cmdFn commandConstructor, t *testing.T) {
 
 // TestDeploy_Namespace ensures that the namespace provided to the client
 // for use when describing a function is set
-// 1. The flag /env variable if provided
+// 1. The user's current active namespace by default
 // 2. The namespace of the function at path if provided
-// 3. The user's current active namespace
+// 3. The flag /env variable if provided has highest precedence
 func TestDeploy_Namespace(t *testing.T) {
-	root := FromTempDirectory(t)
+	root := FromTempDirectory(t) // clears most envs, sets test KUBECONFIG
+
+	testClientFn := NewTestClient(fn.WithDeployer(mock.NewDeployer()))
 
 	// A function which will be repeatedly, mockingly deployed
 	f := fn.Function{Root: root, Runtime: "go", Registry: TestRegistry}
@@ -915,64 +913,65 @@ func TestDeploy_Namespace(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// The mock deployer responds that the given function was deployed
-	// to the namespace indicated in f.Deploy.Namespace or "default" if empty
-	// (it does not actually consider the current kubernetes context)
-	deployer := mock.NewDeployer()
-
-	cmd := NewDeployCmd(NewTestClient(fn.WithDeployer(deployer)))
+	// Deploy it to the default namespace, which is taken from
+	// the test KUBECONFIG found in testdata/default_kubeconfig
+	cmd := NewDeployCmd(testClientFn)
 	cmd.SetArgs([]string{})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
 	f, _ = fn.NewFunction(root)
-	if f.Deploy.Namespace != "default" {
-		t.Fatalf("expected namespace 'default', got '%v'", f.Deploy.Namespace)
+	if f.Deploy.Namespace != "func" {
+		t.Fatalf("expected namespace 'func', got '%v'", f.Deploy.Namespace)
 	}
 
-	// Change the function's active namespace and ensure it is used, preempting
-	// the 'default' namespace from the mock
-	f, err = fn.NewFunction(root)
-	if err != nil {
+	// Deploy to a new namespace
+	cmd = NewDeployCmd(testClientFn)
+	cmd.SetArgs([]string{"--namespace=newnamespace"})
+	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	f.Deploy.Namespace = "alreadyDeployed"
-	if err := f.Write(); err != nil {
-		t.Fatal(err)
+	f, _ = fn.NewFunction(root)
+	if f.Deploy.Namespace != "newnamespace" {
+		t.Fatalf("expected namespace 'newnamespace', got '%v'", f.Deploy.Namespace)
 	}
-	cmd = NewDeployCmd(NewTestClient(fn.WithDeployer(deployer)))
+
+	// Redeploy and confirm it retains being in the new namespace
+	// (does not rever to using the default)
+	cmd = NewDeployCmd(testClientFn)
 	cmd.SetArgs([]string{})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
 	f, _ = fn.NewFunction(root)
-	if f.Deploy.Namespace != "alreadyDeployed" {
-		t.Fatalf("expected namespace 'alreadyDeployed', got '%v'", f.Deploy.Namespace)
+	if f.Deploy.Namespace != "newnamespace" {
+		t.Fatalf("expected deploy to retain namespace 'newnamespace', got '%v'", f.Deploy.Namespace)
 	}
 
 	// Ensure an explicit name (a flag) is taken with highest precedence
-	cmd = NewDeployCmd(NewTestClient(fn.WithDeployer(deployer)))
-	cmd.SetArgs([]string{"--namespace=newNamespace"})
+	// overriding both the default and the "previously deployed" value.
+	cmd = NewDeployCmd(testClientFn)
+	cmd.SetArgs([]string{"--namespace=thirdnamespace"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
 	f, _ = fn.NewFunction(root)
-	if f.Deploy.Namespace != "newNamespace" {
+	if f.Deploy.Namespace != "thirdnamespace" {
 		t.Fatalf("expected namespace 'newNamespace', got '%v'", f.Deploy.Namespace)
 	}
 
 }
 
-// TestDeploy_NamespaceDefaults ensures that when not specified, a users's
-// active kubernetes context is used for the namespace if available.
-func TestDeploy_NamespaceDefaults(t *testing.T) {
+// TestDeploy_NamespaceDefaultsToK8sContext ensures that when not specified, a
+// users's active kubernetes context is used for the namespace if available.
+func TestDeploy_NamespaceDefaultsToK8sContext(t *testing.T) {
 	kubeconfig := filepath.Join(cwd(), "testdata", "TestDeploy_NamespaceDefaults/kubeconfig")
 	expected := "mynamespace"
 	root := FromTempDirectory(t) // clears envs and cds to empty root
 	t.Setenv("KUBECONFIG", kubeconfig)
 
 	// Create a new function
-	f, err := fn.New().Init(fn.Function{Runtime: "go", Root: root})
+	f, err := fn.New().Init(fn.Function{Runtime: "go", Root: root, Registry: TestRegistry})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -989,33 +988,41 @@ func TestDeploy_NamespaceDefaults(t *testing.T) {
 	// config.DefaultNamespace() is kept local to this test.
 	deployer := mock.NewDeployer()
 	deployer.DeployFn = func(_ context.Context, f fn.Function) (result fn.DeploymentResult, err error) {
-		// deployer implementations shuld have integration tests which confirm
-		// this logic:
-		if f.Deploy.Namespace != "" {
-			result.Namespace = f.Deploy.Namespace
+		// Mock confirmation the function was deployed to the namespace requested
+		// This test is a new, single-deploy, so f.Namespace
+		// (not f.Deploy.Namespace) is to be used
+		result.Namespace = f.Namespace
+		return
+
+		/* TODO: check, because the below is probably not necessary:
+		// deployer implementations should have integration tests which confirm
+		// this minimim namespace resolution logic is respected:
+		if f.Namespace != "" {
+			// We deployed to the requested namespace
+			result.Namespace = f.Namespace
+		} else if f.Deploy.Namespace != "" {
+			// We redeployed to the currently deployed namespace
+			result.Namespace = f.Namespace
 		} else {
-			result.Namespace = config.DefaultNamespace()
+			// We deployed to the default namespace, considering both
+			// active kube context, global config and the static default.
+			result.Namespace = defaultNamespace(false)
 		}
 		return
+		*/
 	}
 
-	// New deploy command that will not actually deploy or build (mocked)
+	// Execute a deploycommand with everything mocked
 	cmd := NewDeployCmd(NewTestClient(
 		fn.WithDeployer(deployer),
 		fn.WithBuilder(mock.NewBuilder()),
-		fn.WithPipelinesProvider(mock.NewPipelinesProvider()),
-		fn.WithRegistry(TestRegistry),
 	))
 	cmd.SetArgs([]string{})
-
-	// Execute, capturing stderr
-	stderr := strings.Builder{}
-	cmd.SetErr(&stderr)
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
 
-	// Assert the function has been updated to be in namespace from the profile
+	// Assert the function has been updated
 	f, err = fn.NewFunction(root)
 	if err != nil {
 		t.Fatal(err)
@@ -1148,10 +1155,10 @@ func TestDeploy_NamespaceUpdateWarning(t *testing.T) {
 func TestDeploy_BasicRedeployInCorrectNamespace(t *testing.T) {
 	root := FromTempDirectory(t)
 
-	// Create a Function which appears to have been deployed to 'myns'
 	f := fn.Function{
-		Runtime: "go",
-		Root:    root,
+		Runtime:  "go",
+		Root:     root,
+		Registry: TestRegistry,
 	}
 	f, err := fn.New().Init(f)
 	if err != nil {
@@ -1159,34 +1166,29 @@ func TestDeploy_BasicRedeployInCorrectNamespace(t *testing.T) {
 	}
 
 	// Redeploy the function, specifying 'newns'
-	cmd := NewDeployCmd(NewTestClient(
-		fn.WithDeployer(mock.NewDeployer()),
-		fn.WithRegistry(TestRegistry),
-	))
-
-	cmd.SetArgs([]string{"--namespace=mydns"})
+	cmd := NewDeployCmd(NewTestClient(fn.WithDeployer(mock.NewDeployer())))
+	cmd.SetArgs([]string{"--namespace=myns"})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
 
 	f, _ = fn.NewFunction(root)
-	if f.Deploy.Namespace == "" {
+	if f.Deploy.Namespace != "myns" {
 		t.Fatal("expected deployed namespace to be specified after deploy")
 	}
 
 	// get rid of desired namespace -- should still deploy as usual, now taking
 	// the "already deployed" namespace
-	cmd.SetArgs([]string{"--namespace="})
+	cmd.SetArgs([]string{})
 	if err = cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
-
 	f, _ = fn.NewFunction(root)
-	if f.Namespace != "" {
+	if f.Namespace != "myns" {
 		t.Fatalf("no desired namespace should be specified but is %s", f.Namespace)
 	}
 
-	if f.Deploy.Namespace == "" {
+	if f.Deploy.Namespace != "myns" {
 		t.Fatal("expected deployed namespace to be specified after second deploy")
 	}
 }
@@ -1195,10 +1197,12 @@ func TestDeploy_BasicRedeployInCorrectNamespace(t *testing.T) {
 // and doesnt brake using pipelines
 func TestDeploy_BasicRedeployPipelinesCorrectNamespace(t *testing.T) {
 	root := FromTempDirectory(t)
+
 	// Create a Function which appears to have been deployed to 'myns'
 	f := fn.Function{
-		Runtime: "go",
-		Root:    root,
+		Runtime:  "go",
+		Root:     root,
+		Registry: TestRegistry,
 	}
 	f, err := fn.New().Init(f)
 	if err != nil {
@@ -1209,7 +1213,6 @@ func TestDeploy_BasicRedeployPipelinesCorrectNamespace(t *testing.T) {
 	cmd := NewDeployCmd(NewTestClient(
 		fn.WithBuilder(mock.NewBuilder()),
 		fn.WithPipelinesProvider(mock.NewPipelinesProvider()),
-		fn.WithRegistry(TestRegistry),
 	))
 
 	cmd.SetArgs([]string{"--remote", "--namespace=myfuncns"})
@@ -1229,7 +1232,7 @@ func TestDeploy_BasicRedeployPipelinesCorrectNamespace(t *testing.T) {
 
 	f, _ = fn.NewFunction(root)
 	if f.Namespace != "" {
-		t.Fatal("desired ns should be empty")
+		t.Fatalf("expected empty f.Namespace , got %q", f.Namespace)
 	}
 	if f.Deploy.Namespace != "myfuncns" {
 		t.Fatalf("deployed ns should NOT have changed but is '%s'\n", f.Deploy.Namespace)
@@ -1775,8 +1778,9 @@ func TestReDeploy_OnRegistryChangeWithBuildFalse(t *testing.T) {
 	}
 }
 
-// TestDeploy_NoErrorOnOldFunctionNotFound assures that no error is given when old Function's
-// service is not available (is already deleted manually or the namespace doesnt exist etc.)
+// TestDeploy_NoErrorOnOldFunctionNotFound assures that no error is given when
+// old Function's service is not available (is already deleted manually or the
+// namespace doesnt exist etc.)
 func TestDeploy_NoErrorOnOldFunctionNotFound(t *testing.T) {
 	var (
 		root    = FromTempDirectory(t)
@@ -1785,15 +1789,32 @@ func TestDeploy_NoErrorOnOldFunctionNotFound(t *testing.T) {
 		remover = mock.NewRemover()
 	)
 
-	// Simulate remover error
+	// A remover which can not find the old instance
 	remover.RemoveFn = func(n, ns string) error {
-		return apiErrors.NewNotFound(schema.GroupResource{Group: "", Resource: "Namespace"}, nsOne)
+		// Note that the knative remover explicitly checks forp
+		// if it received an apiErrors.IsNotFound(err) and if so returns
+		// a fn.ErrFunctionNotFound.  This test implementation is dependent
+		// on that.  This is a change from the original implementation which
+		// directly returned a knative erorr with:
+		//   return apiErrors.NewNotFound(schema.GroupResource{Group: "", Resource: "Namespace"}, nsOne)
+		if ns == nsOne {
+			// Fabricate a not-found error.  For example if the function
+			// or its namespace had been manually removed
+			return fn.ErrFunctionNotFound
+		}
+		return nil
 	}
+	clientFn := NewTestClient(
+		fn.WithDeployer(mock.NewDeployer()),
+		fn.WithRemover(remover),
+		fn.WithPipelinesProvider(mock.NewPipelinesProvider()),
+	)
 
 	// Create a basic go Function
 	f := fn.Function{
-		Runtime: "go",
-		Root:    root,
+		Runtime:  "go",
+		Root:     root,
+		Registry: TestRegistry,
 	}
 	_, err := fn.New().Init(f)
 	if err != nil {
@@ -1801,30 +1822,23 @@ func TestDeploy_NoErrorOnOldFunctionNotFound(t *testing.T) {
 	}
 
 	// Deploy the function to ns "nsone"
-	cmd := NewDeployCmd(NewTestClient(
-		fn.WithDeployer(mock.NewDeployer()),
-		fn.WithRegistry(TestRegistry),
-		fn.WithRemover(remover)))
-
-	cmd.SetArgs([]string{fmt.Sprintf("--namespace=%s", nsOne)})
-	err = cmd.Execute()
-	if err != nil {
+	cmd := NewDeployCmd(clientFn)
+	cmd.SetArgs([]string{"--namespace", nsOne})
+	if err = cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
 
 	// Second Deploy with different namespace
-	cmd.SetArgs([]string{fmt.Sprintf("--namespace=%s", nsTwo)})
+	cmd = NewDeployCmd(clientFn)
+	cmd.SetArgs([]string{"--namespace", nsTwo})
+	if err = cmd.Execute(); err != nil {
+		// possible TODO: catch the os.Stderr output and check that this is printed out
+		// and if this is implemented, probably change the name to *_WarnOnFunction
+		// expectedWarning := fmt.Sprintf("Warning: Cant undeploy Function in namespace '%s' - service not found. Namespace/Service might be deleted already", nsOne)
 
-	err = cmd.Execute()
+		// ASSERT
 
-	// possible TODO: catch the os.Stderr output and check that this is printed out
-	// and if this is implemented, probably change the name to *_WarnOnFunction
-	// expectedWarning := fmt.Sprintf("Warning: Cant undeploy Function in namespace '%s' - service not found. Namespace/Service might be deleted already", nsOne)
-
-	// ASSERT
-
-	// Needs to pass since the error is set to nil for NotFound error
-	if err != nil {
+		// Needs to pass since the error is set to nil for NotFound error
 		t.Fatal(err)
 	}
 }

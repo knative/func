@@ -14,40 +14,48 @@ import (
 // with default options
 func TestDelete_Default(t *testing.T) {
 	var (
-		root      = FromTempDirectory(t)
-		namespace = "myns"
-		remover   = mock.NewRemover()
 		err       error
+		root      = FromTempDirectory(t)
+		name      = "testdelete"
+		namespace = "testdeletedamespace"
+		remover   = mock.NewRemover()
+		ctx       = context.Background()
 	)
 
-	remover.RemoveFn = func(_, ns string) error {
+	remover.RemoveFn = func(n, ns string) error {
+		if name != name {
+			t.Fatalf("expected name '%v', got '%v'", name, n)
+		}
 		if ns != namespace {
-			t.Fatalf("expected delete namespace '%v', got '%v'", namespace, ns)
+			t.Fatalf("expected namespace '%v', got '%v'", namespace, ns)
 		}
 		return nil
 	}
 
+	client := fn.New(
+		fn.WithBuilder(mock.NewBuilder()),
+		fn.WithDeployer(mock.NewDeployer()),
+		fn.WithRemover(mock.NewRemover()),
+	)
+
 	// Ensure the extant function's namespace is used
 	f := fn.Function{
-		Root:     root,
-		Runtime:  "go",
-		Registry: TestRegistry,
-		Name:     "testname",
-		Deploy: fn.DeploySpec{
-			Namespace: namespace, //simulate deployed Function
-		},
+		Runtime:   "go",
+		Name:      name,
+		Namespace: namespace,
+		Root:      root,
+		Registry:  TestRegistry,
 	}
 
-	if f, err = fn.New().Init(f); err != nil {
+	if _, f, err = client.New(ctx, f); err != nil {
 		t.Fatal(err)
 	}
-
 	if err = f.Write(); err != nil {
 		t.Fatal(err)
 	}
 
 	cmd := NewDeleteCmd(NewTestClient(fn.WithRemover(remover)))
-	cmd.SetArgs([]string{}) //dont give any arguments to 'func delete' -- default
+	cmd.SetArgs([]string{})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +107,6 @@ func TestDelete_ByName(t *testing.T) {
 	// with a mocked remover.
 	cmd := NewDeleteCmd(NewTestClient(fn.WithRemover(remover)))
 	cmd.SetArgs([]string{testname}) // run: func delete <name>
-
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
