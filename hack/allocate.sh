@@ -25,9 +25,9 @@ export TERM="${TERM:-dumb}"
 
 main() {
 
-  local knative_serving_version=v1.13.0
-  local knative_eventing_version=v1.13.0
-  local contour_version=v1.13.0
+  local knative_serving_version="v$(get_latest_release_version "knative" "serving")"
+  local knative_eventing_version="v$(get_latest_release_version "knative" "eventing")"
+  local contour_version="v$(get_latest_release_version "knative-extensions" "net-contour")"
 
   # Kubernetes Version node image per Kind releases (full hash is suggested):
   # https://github.com/kubernetes-sigs/kind/releases
@@ -54,6 +54,34 @@ main() {
   next_steps
   
   echo "${em}DONE${me}"
+}
+
+# Returns whether the current branch is a release branch.
+function is_release_branch() {
+  [[ $(current_branch) =~ ^release-[0-9\.]+$ ]]
+}
+
+# Retrieve latest version from given Knative repository tags
+# On 'main' branch the latest released version is returned
+# On 'release-x.y' branch the latest patch version for 'x.y.*' is returned
+# Similar to hack/library.sh get_latest_knative_yaml_source()
+function get_latest_release_version() {
+    local org_name="$1"
+    local repo_name="$2"
+    local major_minor=""
+    if is_release_branch; then
+      local branch_name
+      branch_name="$(current_branch)"
+      major_minor="${branch_name##release-}"
+    fi
+    local version
+    version="$(git ls-remote --tags --ref https://github.com/"${org_name}"/"${repo_name}".git \
+      | grep "${major_minor}" \
+      | cut -d '-' -f2 \
+      | cut -d 'v' -f2 \
+      | sort -Vr \
+      | head -n 1)"
+    echo "${version}"
 }
 
 kubernetes() {
@@ -92,6 +120,7 @@ EOF
 
 serving() {
   echo "${em}② Knative Serving${me}"
+  echo "Version: ${knative_serving_version}"
 
   kubectl apply --filename https://github.com/knative/serving/releases/download/knative-$knative_serving_version/serving-crds.yaml
 
@@ -129,6 +158,7 @@ dns() {
 
 networking() {
   echo "${em}④ Contour Ingress${me}"
+  echo "Version: ${contour_version}"
 
   echo "Install load balancer."
   kubectl apply -f "https://raw.githubusercontent.com/metallb/metallb/v0.13.7/config/manifests/metallb-native.yaml"
@@ -181,6 +211,7 @@ EOF
 
 eventing() {
   echo "${em}⑤ Knative Eventing${me}"
+  echo "Version: ${knative_eventing_version}"
 
   # CRDs
   kubectl apply -f https://github.com/knative/eventing/releases/download/knative-$knative_eventing_version/eventing-crds.yaml
