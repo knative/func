@@ -16,11 +16,32 @@ import (
 	apiErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/func/pkg/builders"
+	"knative.dev/func/pkg/builders/s2i"
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/mock"
 )
+
+// FIXME: remove this temporary test
+// ---------------------------------
+func Test_TEMP(t *testing.T) {
+
+	// Create a function in a temp directory
+	root := fromTempDirectory(t) // from
+	f := fn.Function{Runtime: "go", Root: root, Registry: TestRegistry}
+	if _, err := fn.New().Init(f); err != nil {
+		t.Fatal(err)
+	}
+
+	// Deploy
+	cmd := NewDeployCmd(NewTestClient(fn.WithBuilder(s2i.NewBuilder())))
+	cmd.SetArgs([]string{"--builder", "s2i"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+}
 
 // commandConstructor is used to share test implementations between commands
 // which only differ in the command being tested (ex: build and deploy share
