@@ -8,8 +8,6 @@ import (
 	"knative.dev/func/pkg/mock"
 )
 
-const namespace = "func"
-
 // Test_NewTestClient ensures that the convenience method for
 // constructing a mocked client for testing properly considers options:
 // options provided to the factory constructor are considered exaustive,

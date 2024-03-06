@@ -23,7 +23,7 @@ func TestDelete_Default(t *testing.T) {
 	)
 
 	remover.RemoveFn = func(n, ns string) error {
-		if name != name {
+		if n != name {
 			t.Fatalf("expected name '%v', got '%v'", name, n)
 		}
 		if ns != namespace {
