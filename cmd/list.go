@@ -58,9 +58,9 @@ Lists deployed functions.
 	// lister showing functions for all namespaces.
 	//
 	// This also extends to the treatment of the global setting for
-	// namespace.  This is likwise intended for command which require a
+	// namespace.  This is likewise intended for command which require a
 	// namespace no matter what.  Therefore the global namespace setting is
-	// not applicable to this command beacause "deafult" really means "all".
+	// not applicable to this command because "default" really means "all".
 	//
 	// This is slightly different than other commands wherein their
 	// default is often to presume namespace "default" if none was either

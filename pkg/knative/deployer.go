@@ -47,8 +47,8 @@ type Deployer struct {
 	decorator DeployDecorator
 }
 
-// ActiveNamespace attempts to read the kubernetes active namepsace.
-// Missing configs or not having an active kuberentes configuration are
+// ActiveNamespace attempts to read the Kubernetes active namespace.
+// Missing configs or not having an active Kubernetes configuration are
 // equivalent to having no default namespace (empty string).
 func ActiveNamespace() string {
 	// Get client config, if it exists, and from that the namespace
@@ -155,7 +155,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		namespace = f.Deploy.Namespace
 	}
 	if namespace == "" {
-		return fn.DeploymentResult{}, fmt.Errorf("deployer requires either a target namespace or that the funciton be already deployed.")
+		return fn.DeploymentResult{}, fmt.Errorf("deployer requires either a target namespace or that the function be already deployed.")
 	}
 
 	// Clients
