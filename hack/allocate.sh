@@ -56,6 +56,18 @@ main() {
   echo "${em}DONE${me}"
 }
 
+# Returns the current branch.
+# Taken from knative/hack. The function covers Knative CI use cases and local variant.
+function current_branch() {
+  local branch_name=""
+  # Get the branch name from Prow's env var, see https://github.com/kubernetes/test-infra/blob/master/prow/jobs.md.
+  # Otherwise, try getting the current branch from git.
+  (( IS_PROW )) && branch_name="${PULL_BASE_REF:-}"
+  [[ -z "${branch_name}" ]] && branch_name="${GITHUB_BASE_REF:-}"
+  [[ -z "${branch_name}" ]] && branch_name="$(git rev-parse --abbrev-ref HEAD)"
+  echo "${branch_name}"
+}
+
 # Returns whether the current branch is a release branch.
 function is_release_branch() {
   [[ $(current_branch) =~ ^release-[0-9\.]+$ ]]
