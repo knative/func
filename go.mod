@@ -62,8 +62,8 @@ require (
 	knative.dev/client-pkg v0.0.0-20240307124650-f17097100e20
 	knative.dev/eventing v0.40.1-0.20240311130728-8a18b168acd5
 	knative.dev/hack v0.0.0-20240302114326-e6dedc74dc47
-	knative.dev/pkg v0.0.0-20240311075308-106b052bd1a4
-	knative.dev/serving v0.40.1-0.20240311105850-a2ea3a17e562
+	knative.dev/pkg v0.0.0-20240311204931-2c15a6fd07af
+	knative.dev/serving v0.40.1-0.20240311214815-3e119d571289
 )
 
 require (
@@ -216,7 +216,7 @@ require (
 	github.com/pjbgf/sha1cd v0.3.0 // indirect
 	github.com/prometheus/client_golang v1.19.0 // indirect
 	github.com/prometheus/client_model v0.6.0 // indirect
-	github.com/prometheus/common v0.49.0 // indirect
+	github.com/prometheus/common v0.50.0 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect
 	github.com/prometheus/statsd_exporter v0.23.0 // indirect
 	github.com/rickb777/date v1.20.1 // indirect
@@ -266,7 +266,7 @@ require (
 	k8s.io/klog/v2 v2.120.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00 // indirect
 	k8s.io/utils v0.0.0-20240102154912-e7106e64919e // indirect
-	knative.dev/networking v0.0.0-20240304224543-918a090eb35d // indirect
+	knative.dev/networking v0.0.0-20240306063647-941710129f7a // indirect
 	sigs.k8s.io/controller-runtime v0.7.2 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/kustomize/api v0.13.5-0.20230601165947-6ce0bf390ce3 // indirect
