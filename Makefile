@@ -28,7 +28,7 @@ VTAG         := $(shell [ -z $(VTAG) ] && echo $(ETAG) || echo $(VTAG))
 VERS         ?= $(shell git describe --tags --match 'v*')
 KVER         ?= $(shell git describe --tags --match 'knative-*')
 
-LDFLAGS      := -X main.date=$(DATE) -X main.vers=$(VERS) -X main.kver=$(KVER) -X main.hash=$(HASH)
+LDFLAGS      := -X knative.dev/func/pkg/app.vers=$(VERS) -X knative.dev/func/pkg/app.kver=$(KVER) -X knative.dev/func/pkg/app.hash=$(HASH)
 ifneq ($(FUNC_REPO_REF),)
   LDFLAGS      += -X knative.dev/func/pkg/pipelines/tekton.FuncRepoRef=$(FUNC_REPO_REF)
 endif
@@ -202,7 +202,7 @@ test-integration: ## Run integration tests using an available cluster.
 .PHONY: func-instrumented
 
 func-instrumented: ## Func binary that is instrumented for e2e tests
-	env CGO_ENABLED=1 go build -ldflags "$(LDFLAGS)" -cover -o func ./cmd/func
+	env CGO_ENABLED=1 go build -ldflags "$(LDFLAGS)" -cover -o func ./cmd/$(BIN)
 
 test-e2e: func-instrumented ## Run end-to-end tests using an available cluster.
 	./test/e2e_extended_tests.sh
