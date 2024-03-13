@@ -13,7 +13,7 @@ require (
 	github.com/alecthomas/jsonschema v0.0.0-20220216202328-9eeeec9d044b
 	github.com/buildpacks/pack v0.30.0-pre3
 	github.com/chainguard-dev/git-urls v1.0.2
-	github.com/cloudevents/sdk-go/v2 v2.14.0
+	github.com/cloudevents/sdk-go/v2 v2.15.2
 	github.com/containerd/containerd v1.7.2
 	github.com/containers/image/v5 v5.26.1
 	github.com/coreos/go-semver v0.3.1
