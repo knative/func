@@ -33,6 +33,24 @@ import (
 	. "knative.dev/func/pkg/testing"
 )
 
+var homeTempDir string
+
+func TestMain(m *testing.M) {
+	// github.com/containers/image only computes $HOME once so we need to set it
+	// globally for all the tests
+	var err error
+	homeTempDir, err = os.MkdirTemp("", "")
+	if err != nil {
+		panic("failed to create tempdir" + err.Error())
+	}
+	os.Setenv(testHomeEnvName(), homeTempDir)
+	if runtime.GOOS == "linux" {
+		os.Setenv("XDG_CONFIG_HOME", filepath.Join(homeTempDir, ".config"))
+	}
+
+	os.Exit(m.Run())
+}
+
 func Test_registryEquals(t *testing.T) {
 	tests := []struct {
 		name string
@@ -308,8 +326,6 @@ const (
 type Credentials = docker.Credentials
 
 func TestNewCredentialsProvider(t *testing.T) {
-	withCleanHome(t)
-
 	helperWithQuayIO := newInMemoryHelper()
 
 	err := helperWithQuayIO.Add(&credentials.Credentials{
@@ -408,8 +424,7 @@ func TestNewCredentialsProvider(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			defer cleanUpConfigs(t)
-
+			resetHomeDir(t)
 			if tt.args.setUpEnv != nil {
 				tt.args.setUpEnv(t)
 			}
@@ -432,7 +447,8 @@ func TestNewCredentialsProvider(t *testing.T) {
 }
 
 func TestNewCredentialsProviderEmptyCreds(t *testing.T) {
-	withCleanHome(t)
+	resetHomeDir(t)
+
 	credentialsProvider := creds.NewCredentialsProvider(testConfigPath(t), creds.WithVerifyCredentials(func(ctx context.Context, image string, credentials docker.Credentials) error {
 		if image == "localhost:5555/someorg/someimage:sometag" && credentials == (docker.Credentials{}) {
 			return nil
@@ -450,7 +466,7 @@ func TestNewCredentialsProviderEmptyCreds(t *testing.T) {
 }
 
 func TestCredentialsProviderSavingFromUserInput(t *testing.T) {
-	withCleanHome(t)
+	resetHomeDir(t)
 
 	helper := newInMemoryHelper()
 	setUpMockHelper("docker-credential-mock", helper)(t)
@@ -533,13 +549,14 @@ func TestCredentialsProviderSavingFromUserInput(t *testing.T) {
 	}
 }
 
-func cleanUpConfigs(t *testing.T) {
-	home, err := os.UserHomeDir()
-	if err != nil {
+func resetHomeDir(t *testing.T) {
+	t.TempDir()
+	if err := os.RemoveAll(homeTempDir); err != nil {
 		t.Fatal(err)
 	}
-
-	os.RemoveAll(filepath.Join(home, ".docker"))
+	if err := os.MkdirAll(homeTempDir, 0700); err != nil {
+		t.Fatal(err)
+	}
 }
 
 type setUpEnv = func(t *testing.T)
@@ -645,27 +662,16 @@ func correctVerifyCbk(ctx context.Context, image string, credentials Credentials
 	return creds.ErrUnauthorized
 }
 
-func testHomeEnvName(t *testing.T) string {
-	t.Helper()
+func testHomeEnvName() string {
 	if runtime.GOOS == "windows" {
 		return "USERPROFILE"
 	}
 	return "HOME"
 }
 
-func withCleanHome(t *testing.T) {
-	t.Helper()
-	tmpHome := t.TempDir()
-	t.Setenv(testHomeEnvName(t), tmpHome)
-
-	if runtime.GOOS == "linux" {
-		t.Setenv("XDG_CONFIG_HOME", filepath.Join(tmpHome, ".config"))
-	}
-}
-
 func testConfigPath(t *testing.T) string {
 	t.Helper()
-	home := os.Getenv(testHomeEnvName(t))
+	home := os.Getenv(testHomeEnvName())
 	configPath := filepath.Join(home, ".config", "func")
 	if err := os.MkdirAll(configPath, os.ModePerm); err != nil {
 		t.Fatal(err)
