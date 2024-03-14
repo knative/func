@@ -1,14 +1,13 @@
 package function
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"net/http/httputil"
 )
 
 // Handle an HTTP Request.
-func Handle(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+func Handle(w http.ResponseWriter, r *http.Request) {
 	/*
 	 * YOUR CODE HERE
 	 *
@@ -17,7 +16,7 @@ func Handle(ctx context.Context, w http.ResponseWriter, r *http.Request) {
 
 	dump, err := httputil.DumpRequest(r, true)
 	if err != nil {
-		http.Error(w, fmt.Sprint(err), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
