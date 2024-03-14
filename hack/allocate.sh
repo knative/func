@@ -41,6 +41,7 @@ main() {
   echo "${em}Allocating...${me}"
 
   kubernetes
+  loadbalancer
   ( set -o pipefail; (serving && dns && networking) 2>&1 | sed  -e 's/^/svr /')&
   ( set -o pipefail; (eventing && namespace) 2>&1 | sed  -e 's/^/evt /')&
   ( set -o pipefail; registry 2>&1 | sed  -e 's/^/reg /') &
@@ -168,10 +169,7 @@ dns() {
   done
 }
 
-networking() {
-  echo "${em}④ Contour Ingress${me}"
-  echo "Version: ${contour_version}"
-
+loadbalancer() {
   echo "Install load balancer."
   kubectl apply -f "https://raw.githubusercontent.com/metallb/metallb/v0.13.7/config/manifests/metallb-native.yaml"
   sleep 5
@@ -200,6 +198,11 @@ metadata:
   name: empty
   namespace: metallb-system
 EOF
+}
+
+networking() {
+  echo "${em}④ Contour Ingress${me}"
+  echo "Version: ${contour_version}"
 
   echo "Install a properly configured Contour."
   kubectl apply -f "https://github.com/knative/net-contour/releases/download/knative-${contour_version}/contour.yaml"
