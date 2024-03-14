@@ -37,3 +37,5 @@ knative.dev/func-go v0.19.0 h1:EYmc3L8eh48YJf79d8B/Y/KnWRPyRzVXUPBLpFn2boU=
 knative.dev/func-go v0.19.0/go.mod h1:+Og4a5pqW5WfBrv8Xf0jcTx5s+LiUpzcXyWBIuwKz30=
 knative.dev/func-go v0.20.0 h1:i8sp5NwCQSKWa73wDbuZWcGwdBkMG7vnMSqcUVWtT+E=
 knative.dev/func-go v0.20.0/go.mod h1:+Og4a5pqW5WfBrv8Xf0jcTx5s+LiUpzcXyWBIuwKz30=
+knative.dev/func-go v0.21.1 h1:qKrs9eLKRnJCJiPAp3ei7yuGGzGXODhiLP1KaO/ozyU=
+knative.dev/func-go v0.21.1/go.mod h1:F+y4XuLwg27Rwn3w9BFNKf6HLkPPbDlkq0aXnGfkcvU=
