@@ -5,7 +5,6 @@
 package function
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 )
@@ -24,7 +23,7 @@ func New() *MyFunction {
 }
 
 // Handle a request using your function instance.
-func (f *MyFunction) Handle(ctx context.Context, res http.ResponseWriter, req *http.Request) {
+func (f *MyFunction) Handle(res http.ResponseWriter, req *http.Request) {
 	fmt.Println("Request received")
 	fmt.Fprintf(res, "Request received\n")
 }
