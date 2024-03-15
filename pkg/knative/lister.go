@@ -8,31 +8,20 @@ import (
 	"knative.dev/pkg/apis"
 
 	fn "knative.dev/func/pkg/functions"
-	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/k8s/labels"
 )
 
 type Lister struct {
-	Namespace string
-	verbose   bool
+	verbose bool
 }
 
-func NewLister(namespaceOverride string, verbose bool) *Lister {
-	return &Lister{
-		Namespace: namespaceOverride,
-		verbose:   verbose,
-	}
+func NewLister(verbose bool) *Lister {
+	return &Lister{verbose: verbose}
 }
 
-func (l *Lister) List(ctx context.Context) (items []fn.ListItem, err error) {
-	if l.Namespace == "" {
-		l.Namespace, err = k8s.GetDefaultNamespace()
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	client, err := NewServingClient(l.Namespace)
+// List functions, optionally specifying a namespace.
+func (l *Lister) List(ctx context.Context, namespace string) (items []fn.ListItem, err error) {
+	client, err := NewServingClient(namespace)
 	if err != nil {
 		return
 	}
@@ -48,7 +37,7 @@ func (l *Lister) List(ctx context.Context) (items []fn.ListItem, err error) {
 		return
 	}
 
-	listOfFunctions := lst.Items[:]
+	services := lst.Items[:]
 	for i, depLabelF := range lstDeprecated.Items {
 		found := false
 		for _, f := range lst.Items {
@@ -58,16 +47,16 @@ func (l *Lister) List(ctx context.Context) (items []fn.ListItem, err error) {
 			}
 		}
 		if !found {
-			listOfFunctions = append(listOfFunctions, lstDeprecated.Items[i])
+			services = append(services, lstDeprecated.Items[i])
 		}
 	}
 	// --- end of handling usage of deprecated function labels
 
-	for _, f := range listOfFunctions {
+	for _, service := range services {
 
 		// get status
 		ready := corev1.ConditionUnknown
-		for _, con := range f.Status.Conditions {
+		for _, con := range service.Status.Conditions {
 			if con.Type == apis.ConditionReady {
 				ready = con.Status
 				break
@@ -76,18 +65,18 @@ func (l *Lister) List(ctx context.Context) (items []fn.ListItem, err error) {
 
 		// --- handle usage of deprecated runtime labels (`boson.dev/runtime`)
 		runtimeLabel := ""
-		if val, ok := f.Labels[labels.FunctionRuntimeKey]; ok {
+		if val, ok := service.Labels[labels.FunctionRuntimeKey]; ok {
 			runtimeLabel = val
 		} else {
-			runtimeLabel = f.Labels[labels.DeprecatedFunctionRuntimeKey]
+			runtimeLabel = service.Labels[labels.DeprecatedFunctionRuntimeKey]
 		}
 		// --- end of handling usage of deprecated runtime labels
 
 		listItem := fn.ListItem{
-			Name:      f.Name,
-			Namespace: f.Namespace,
+			Name:      service.Name,
+			Namespace: service.Namespace,
 			Runtime:   runtimeLabel,
-			URL:       f.Status.URL.String(),
+			URL:       service.Status.URL.String(),
 			Ready:     string(ready),
 		}
 

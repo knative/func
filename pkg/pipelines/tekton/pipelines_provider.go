@@ -37,8 +37,8 @@ import (
 	"knative.dev/pkg/apis"
 )
 
-// static const namespace for deployement when everything else fails
-const StaticDefaultNamespace = "func"
+// DefaultNamespace is the kubernetes default namespace
+const DefaultNamespace = "default"
 
 // DefaultPersistentVolumeClaimSize to allocate for the function.
 var DefaultPersistentVolumeClaimSize = resource.MustParse("256Mi")
@@ -578,8 +578,8 @@ func namespace(dflt string, f fn.Function) string {
 		// still not set, just use the defaultest default
 		namespace, err = k8s.GetDefaultNamespace()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "trying to get default namespace returns an error: '%s'\nSetting static default namespace '%s'", err, StaticDefaultNamespace)
-			namespace = StaticDefaultNamespace
+			fmt.Fprintf(os.Stderr, "trying to get default namespace returns an error: '%s'\nSetting static default namespace '%s'", err, DefaultNamespace)
+			namespace = DefaultNamespace
 		}
 	}
 	return namespace

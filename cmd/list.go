@@ -23,7 +23,7 @@ func NewListCmd(newClient ClientFactory) *cobra.Command {
 		Short: "List deployed functions",
 		Long: `List deployed functions
 
-Lists all deployed functions in a given namespace.
+Lists deployed functions.
 `,
 		Example: `
 # List all functions in the current namespace with human readable output
@@ -50,17 +50,25 @@ Lists all deployed functions in a given namespace.
 
 	// Namespace Config
 	// Differing from other commands, the default namespace for the list
-	// command is always the currently active namespace as returned by
-	// config.DefaultNamespace().  The -A flag clears this value indicating
-	// the lister implementation should not filter by namespace and instead
-	// list from all namespaces.  This logic is sligtly inverse to the other
-	// namespace-sensitive commands which default to the currently active
-	// function if available, and delegate to the implementation to use
-	// the config default otherwise.
+	// command is set to the currently active namespace as returned by
+	// calling k8s.DefaultNamespace().  This way a call to `func list` will
+	// show functions in the currently active namespace.  If the value can
+	// not be determined due to error, a warning is printed to log and
+	// no namespace is passed to the lister, which should result in the
+	// lister showing functions for all namespaces.
+	//
+	// This also extends to the treatment of the global setting for
+	// namespace.  This is likewise intended for command which require a
+	// namespace no matter what.  Therefore the global namespace setting is
+	// not applicable to this command because "default" really means "all".
+	//
+	// This is slightly different than other commands wherein their
+	// default is often to presume namespace "default" if none was either
+	// supplied nor available.
 
 	// Flags
 	cmd.Flags().BoolP("all-namespaces", "A", false, "List functions in all namespaces. If set, the --namespace flag is ignored.")
-	cmd.Flags().StringP("namespace", "n", config.DefaultNamespace(), "The namespace for which to list functions. ($FUNC_NAMESPACE)")
+	cmd.Flags().StringP("namespace", "n", defaultNamespace(fn.Function{}, false), "The namespace for which to list functions. ($FUNC_NAMESPACE)")
 	cmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|xml|yaml) ($FUNC_OUTPUT)")
 	addVerboseFlag(cmd, cfg.Verbose)
 
@@ -72,16 +80,15 @@ Lists all deployed functions in a given namespace.
 }
 
 func runList(cmd *cobra.Command, _ []string, newClient ClientFactory) (err error) {
-	cfg := newListConfig()
-
-	if err := cfg.Validate(cmd); err != nil {
+	cfg, err := newListConfig(cmd)
+	if err != nil {
 		return err
 	}
 
-	client, done := newClient(ClientConfig{Namespace: cfg.Namespace, Verbose: cfg.Verbose})
+	client, done := newClient(ClientConfig{Verbose: cfg.Verbose})
 	defer done()
 
-	items, err := client.List(cmd.Context())
+	items, err := client.List(cmd.Context(), cfg.Namespace)
 	if err != nil {
 		return
 	}
@@ -109,26 +116,24 @@ type listConfig struct {
 	Verbose   bool
 }
 
-func newListConfig() listConfig {
-	c := listConfig{
+func newListConfig(cmd *cobra.Command) (cfg listConfig, err error) {
+	cfg = listConfig{
 		Namespace: viper.GetString("namespace"),
 		Output:    viper.GetString("output"),
 		Verbose:   viper.GetBool("verbose"),
 	}
-	// Lister instantiated by newClient explicitly expects "" namespace to
-	// inidicate it should list from all namespaces, so remove default "default"
-	// when -A.
+	// If --all-namespaces, zero out any value for namespace (such as)
+	// "all" to the lister.
 	if viper.GetBool("all-namespaces") {
-		c.Namespace = ""
+		cfg.Namespace = ""
 	}
-	return c
-}
 
-func (c listConfig) Validate(cmd *cobra.Command) error {
+	// specifying both -A and --namespace is logically inconsistent
 	if cmd.Flags().Changed("namespace") && viper.GetBool("all-namespaces") {
-		return errors.New("Both --namespace and --all-namespaces specified.")
+		err = errors.New("Both --namespace and --all-namespaces specified.")
 	}
-	return nil
+
+	return
 }
 
 // Output Formatting (serializers)

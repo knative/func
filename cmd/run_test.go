@@ -8,6 +8,7 @@ import (
 
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/mock"
+	. "knative.dev/func/pkg/testing"
 )
 
 func TestRun_Run(t *testing.T) {
@@ -102,7 +103,7 @@ func TestRun_Run(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			root := fromTempDirectory(t)
+			root := FromTempDirectory(t)
 
 			runner := mock.NewRunner()
 			if tt.runError != nil {

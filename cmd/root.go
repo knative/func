@@ -24,6 +24,10 @@ import (
 // DefaultVersion when building source directly (bypassing the Makefile)
 const DefaultVersion = "v0.0.0+source"
 
+// DefaultNamespace is the global static default namespace, and is equivalent
+// to the Kubernetes default namespace.
+const DefaultNamespace = "default"
+
 type RootCommandConfig struct {
 	Name string // usually `func` or `kn func`
 	Version
@@ -148,6 +152,42 @@ func effectivePath() (path string) {
 		path = *p
 	}
 	return path
+}
+
+// defaultNamespace to use when none is provided explicitly.
+// This is first the active kubernetes namespace, followed by global config,
+// with the static default "default" being the fallback.
+func defaultNamespace(f fn.Function, verbose bool) string {
+	// Specifically-requested
+	if f.Namespace != "" {
+		return f.Namespace
+	}
+
+	// Last deployed
+	if f.Deploy.Namespace != "" {
+		return f.Deploy.Namespace
+	}
+
+	// Active K8S namespace
+	namespace, err := k8s.GetDefaultNamespace()
+	if err != nil {
+		if verbose {
+			fmt.Fprintf(os.Stderr, "Unable to get current active kubernetes namespace.  Defaults will be used. %v", err)
+		}
+	} else if namespace != "" {
+		return namespace
+	}
+
+	// Globally-defined default in ~/.config/func/config.yaml is next
+	cfg, err := config.NewDefault()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error loading global config at '%v'. %v\n", config.File(), err)
+	} else if cfg.Namespace != "" {
+		return cfg.Namespace
+	}
+
+	// Static Default is the standard Kubernetes default "default"
+	return DefaultNamespace
 }
 
 // interactiveTerminal returns whether or not the currently attached process

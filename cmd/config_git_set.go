@@ -93,7 +93,7 @@ func NewConfigGitSetCmd(newClient ClientFactory) *cobra.Command {
 type configGitSetConfig struct {
 	buildConfig // further embeds config.Global
 
-	Namespace string
+	PipelinesNamespace string
 
 	GitProvider   string
 	GitURL        string
@@ -126,8 +126,8 @@ func newConfigGitSetConfig(cmd *cobra.Command) (c configGitSetConfig) {
 	}
 
 	c = configGitSetConfig{
-		buildConfig: newBuildConfig(),
-		Namespace:   viper.GetString("namespace"),
+		buildConfig:        newBuildConfig(),
+		PipelinesNamespace: viper.GetString("namespace"),
 
 		GitURL:        viper.GetString("git-url"),
 		GitRevision:   viper.GetString("git-branch"),
@@ -307,7 +307,7 @@ func runConfigGitSetCmd(cmd *cobra.Command, newClient ClientFactory) (err error)
 		return
 	}
 
-	client, done := newClient(ClientConfig{Namespace: cfg.Namespace, Verbose: cfg.Verbose}, fn.WithRegistry(cfg.Registry))
+	client, done := newClient(ClientConfig{PipelinesNamespace: cfg.PipelinesNamespace, Verbose: cfg.Verbose}, fn.WithRegistry(cfg.Registry))
 	defer done()
 
 	return client.ConfigurePAC(cmd.Context(), f, cfg.metadata)
