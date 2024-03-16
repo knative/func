@@ -53,6 +53,8 @@ type Global struct {
 	// NOTE: all members must include their yaml serialized names, even when
 	// this is the default, because these tag values are used for the static
 	// getter/setter accessors to match requests.
+
+	RegistryInsecure bool `yaml:"registryInsecure,omitempty"`
 }
 
 // New Config struct with all members set to static defaults.  See NewDefaults

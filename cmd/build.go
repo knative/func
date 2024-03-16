@@ -28,7 +28,7 @@ NAME
 SYNOPSIS
 	{{rootCmdUse}} build [-r|--registry] [--builder] [--builder-image] [--push]
 	             [--platform] [-p|--path] [-c|--confirm] [-v|--verbose]
-               [--build-timestamp]
+               [--build-timestamp] [--registry-insecure]
 
 DESCRIPTION
 
@@ -66,7 +66,7 @@ EXAMPLES
 
 `,
 		SuggestFor: []string{"biuld", "buidl", "built"},
-		PreRunE:    bindEnv("image", "path", "builder", "registry", "confirm", "push", "builder-image", "platform", "verbose", "build-timestamp"),
+		PreRunE:    bindEnv("image", "path", "builder", "registry", "confirm", "push", "builder-image", "platform", "verbose", "build-timestamp", "registry-insecure"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runBuild(cmd, args, newClient)
 		},
@@ -98,6 +98,7 @@ EXAMPLES
 		fmt.Sprintf("Builder to use when creating the function's container. Currently supported builders are %s. ($FUNC_BUILDER)", KnownBuilders()))
 	cmd.Flags().StringP("registry", "r", cfg.Registry,
 		"Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)")
+	cmd.Flags().Bool("registry-insecure", cfg.RegistryInsecure, "Disable HTTPS when communicating to the registry ($FUNC_REGISTRY_INSECURE)")
 
 	// Function-Context Flags:
 	// Options whose value is available on the function with context only
@@ -215,10 +216,11 @@ type buildConfig struct {
 func newBuildConfig() buildConfig {
 	return buildConfig{
 		Global: config.Global{
-			Builder:  viper.GetString("builder"),
-			Confirm:  viper.GetBool("confirm"),
-			Registry: registry(), // deferred defaulting
-			Verbose:  viper.GetBool("verbose"),
+			Builder:          viper.GetString("builder"),
+			Confirm:          viper.GetBool("confirm"),
+			Registry:         registry(), // deferred defaulting
+			Verbose:          viper.GetBool("verbose"),
+			RegistryInsecure: viper.GetBool("registry-insecure"),
 		},
 		BuilderImage:  viper.GetString("builder-image"),
 		Image:         viper.GetString("image"),
@@ -341,7 +343,7 @@ func (c buildConfig) clientOptions() ([]fn.Option, error) {
 	if c.Builder == builders.Host {
 		o = append(o,
 			fn.WithBuilder(oci.NewBuilder(builders.Host, c.Verbose)),
-			fn.WithPusher(oci.NewPusher(false, c.Verbose)))
+			fn.WithPusher(oci.NewPusher(c.RegistryInsecure, c.Verbose)))
 	} else if c.Builder == builders.Pack {
 		o = append(o,
 			fn.WithBuilder(pack.NewBuilder(
