@@ -343,7 +343,7 @@ func (c buildConfig) clientOptions() ([]fn.Option, error) {
 	if c.Builder == builders.Host {
 		o = append(o,
 			fn.WithBuilder(oci.NewBuilder(builders.Host, c.Verbose)),
-			fn.WithPusher(oci.NewPusher(c.RegistryInsecure, c.Verbose)))
+			fn.WithPusher(oci.NewPusher(c.RegistryInsecure, false, c.Verbose)))
 	} else if c.Builder == builders.Pack {
 		o = append(o,
 			fn.WithBuilder(pack.NewBuilder(
