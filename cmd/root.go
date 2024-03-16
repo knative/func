@@ -169,6 +169,9 @@ func bindEnv(flags ...string) bindFunc {
 				return
 			}
 		}
+		viper.AutomaticEnv()       // read in environment variables for FUNC_<flag>
+		viper.SetEnvPrefix("func") // ensure that all have the prefix
+		viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 		return
 	}
 }
