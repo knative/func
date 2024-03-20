@@ -24,6 +24,6 @@ spec:
       description: The workspace containing the function project
   steps:
     - name: func-deploy
-      image: "ghcr.io/knative/func/func:latest"
+      image: "quay.io/mvasek/func-util:latest@sha256:1e33ad898019ccc76049a7e1e2cd7f3d704def1d013f11757f50ce95cb874485"
       script: |
         func deploy --verbose --build=false --push=false --path=$(params.path) --remote=false --image="$(params.image)"
