@@ -2,7 +2,6 @@ package main
 
 import (
 	"archive/tar"
-	"bytes"
 	"compress/gzip"
 	"context"
 	"encoding/base64"
@@ -142,6 +141,13 @@ func buildBuilderImage(ctx context.Context, variant string) error {
 		Config:          builderConfig,
 		Publish:         false,
 		PullPolicy:      image.PullIfNotPresent,
+		Labels: map[string]string{
+			"org.opencontainers.image.description": "Paketo Jammy builder enriched with Rust and Func-Go buildpacks.",
+			"org.opencontainers.image.source":      "https://github.com/knative/func",
+			"org.opencontainers.image.vendor":      "https://github.com/knative/func",
+			"org.opencontainers.image.url":         "https://github.com/knative/func/pkgs/container/builder-jammy-" + variant,
+			"org.opencontainers.image.version":     *release.Name,
+		},
 	}
 
 	err = packClient.CreateBuilder(ctx, createBuilderOpts)
@@ -153,44 +159,9 @@ func buildBuilderImage(ctx context.Context, variant string) error {
 	if err != nil {
 		return fmt.Errorf("cannot create docker client")
 	}
-
-	imgBldOpts := types.ImageBuildOptions{
-		Tags: []string{newBuilderImageLatest, newBuilderImageTagged},
-		Labels: map[string]string{
-			"org.opencontainers.image.description": "Paketo Jammy builder enriched with Rust and Func-Go buildpacks.",
-			"org.opencontainers.image.source":      "https://github.com/knative/func",
-			"org.opencontainers.image.vendor":      "https://github.com/knative/func",
-			"org.opencontainers.image.url":         "https://github.com/knative/func/pkgs/container/builder-jammy-" + variant,
-			"org.opencontainers.image.version":     *release.Name,
-		},
-	}
-
-	dockerFile := "FROM " + newBuilderImageTagged
-	var buildCtxBuff bytes.Buffer
-	tw := tar.NewWriter(&buildCtxBuff)
-	hdr := tar.Header{Typeflag: tar.TypeReg, Name: "Dockerfile", Size: int64(len(dockerFile)), Mode: 0644}
-	err = tw.WriteHeader(&hdr)
+	err = dockerClient.ImageTag(ctx, newBuilderImageTagged, newBuilderImageLatest)
 	if err != nil {
-		return fmt.Errorf("cannot write tar header: %w", err)
-	}
-	_, err = tw.Write([]byte(dockerFile))
-	if err != nil {
-		return fmt.Errorf("cannot write docker file: %w", err)
-	}
-	_ = tw.Close()
-
-	imgBldResp, err := dockerClient.ImageBuild(ctx, &buildCtxBuff, imgBldOpts)
-	if err != nil {
-		return fmt.Errorf("cannot initialize build of image with additional labels: %w", err)
-	}
-	defer func(Body io.ReadCloser) {
-		_ = Body.Close()
-	}(imgBldResp.Body)
-	fd := os.Stdout.Fd()
-	isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
-	err = jsonmessage.DisplayJSONMessagesStream(imgBldResp.Body, os.Stdout, fd, isTerminal, nil)
-	if err != nil {
-		return fmt.Errorf("cannot build image with additional labels: %w", err)
+		return fmt.Errorf("cannot tag latest: %w", err)
 	}
 
 	authConfig := registry.AuthConfig{
@@ -362,7 +333,6 @@ func buildBuildpackImage(ctx context.Context, bp buildpack) error {
 		PullPolicy:      image.PullIfNotPresent,
 		Registry:        "",
 		Flatten:         false,
-		Depth:           0,
 		FlattenExclude:  nil,
 	}
 	packClient, err := pack.NewClient()

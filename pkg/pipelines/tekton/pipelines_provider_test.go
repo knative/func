@@ -117,6 +117,20 @@ func Test_createPipelinePersistentVolumeClaim(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "returns err if namespace not defined and default returns an err",
+			args: args{
+				ctx:       context.Background(),
+				f:         fn.Function{},
+				namespace: "",
+				labels:    nil,
+				size:      DefaultPersistentVolumeClaimSize.String(),
+			},
+			mock: func(ctx context.Context, name, namespaceOverride string, labels map[string]string, annotations map[string]string, accessMode corev1.PersistentVolumeAccessMode, resourceRequest resource.Quantity) (err error) {
+				return errors.New("no namespace defined")
+			},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) { // save current function and restore it at the end

@@ -8,6 +8,8 @@ import (
 	"knative.dev/func/pkg/mock"
 )
 
+const namespace = "func"
+
 // Test_NewTestClient ensures that the convenience method for
 // constructing a mocked client for testing properly considers options:
 // options provided to the factory constructor are considered exaustive,
@@ -26,7 +28,7 @@ func Test_NewTestClient(t *testing.T) {
 	client, _ := clientFn(ClientConfig{}, fn.WithDescriber(describer))
 
 	// Trigger an invocation of the mocks
-	err := client.Remove(context.Background(), fn.Function{Name: "test"}, true)
+	err := client.Remove(context.Background(), fn.Function{Name: "test", Deploy: fn.DeploySpec{Namespace: namespace}}, true)
 	if err != nil {
 		t.Fatal(err)
 	}

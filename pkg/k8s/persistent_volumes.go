@@ -47,7 +47,7 @@ func CreatePersistentVolumeClaim(ctx context.Context, name, namespaceOverride st
 		},
 		Spec: corev1.PersistentVolumeClaimSpec{
 			AccessModes: []corev1.PersistentVolumeAccessMode{accessMode},
-			Resources: corev1.ResourceRequirements{
+			Resources: corev1.VolumeResourceRequirements{
 				Requests: corev1.ResourceList{},
 			},
 		},
@@ -96,9 +96,11 @@ func runWithVolumeMounted(ctx context.Context, podImage string, podCommand []str
 		return fmt.Errorf("cannot create k8s client: %w", err)
 	}
 
-	namespace, err = GetNamespace(namespace)
-	if err != nil {
-		return fmt.Errorf("cannot get namespace: %w", err)
+	if namespace == "" {
+		namespace, err = GetDefaultNamespace()
+		if err != nil {
+			return fmt.Errorf("cannot get namespace: %w", err)
+		}
 	}
 
 	podName := "volume-uploader-" + rand.String(5)

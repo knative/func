@@ -29,7 +29,7 @@ func NewDescriber(namespaceOverride string, verbose bool) *Describer {
 // www.example-site.com -> www-example--site-com
 func (d *Describer) Describe(ctx context.Context, name string) (description fn.Instance, err error) {
 	if d.namespace == "" {
-		d.namespace, err = k8s.GetNamespace(d.namespace)
+		d.namespace, err = k8s.GetDefaultNamespace()
 		if err != nil {
 			return fn.Instance{}, err
 		}

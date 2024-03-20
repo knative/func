@@ -127,7 +127,7 @@ type Runner interface {
 // Remover of deployed services.
 type Remover interface {
 	// Remove the function from remote.
-	Remove(ctx context.Context, name string) error
+	Remove(ctx context.Context, name string, namespace string) error
 }
 
 // Lister of deployed functions.
@@ -186,7 +186,7 @@ type DNSProvider interface {
 
 // PipelinesProvider manages lifecyle of CI/CD pipelines used by a function
 type PipelinesProvider interface {
-	Run(context.Context, Function) (string, error)
+	Run(context.Context, Function) (string, string, error)
 	Remove(context.Context, Function) error
 	ConfigurePAC(context.Context, Function, any) error
 	RemovePAC(context.Context, Function, any) error
@@ -447,6 +447,13 @@ func (c *Client) Update(ctx context.Context, f Function) (string, Function, erro
 	if f, err = c.Push(ctx, f); err != nil {
 		return "", f, err
 	}
+
+	// TODO: change this later when push doesnt return built image.
+	// Assign this as c.Push is going to produce the built image (for now) to
+	// .Deploy.Image for the deployer -- figure out where to assign .Deploy.Image
+	// first, might be just moved above push
+	f.Deploy.Image = f.Build.Image
+
 	if f, err = c.Deploy(ctx, f); err != nil {
 		return "", f, err
 	}
@@ -489,6 +496,12 @@ func (c *Client) New(ctx context.Context, cfg Function) (string, Function, error
 		return route, f, err
 	}
 
+	// TODO: change this later when push doesnt return built image.
+	// Assign this as c.Push is going to produce the built image (for now) to
+	// .Deploy.Image for the deployer -- figure out where to assign .Deploy.Image
+	// first, might be just moved above push
+	f.Deploy.Image = f.Build.Image
+
 	// Deploy the initialized function, returning its publicly
 	// addressible name for possible registration.
 	fmt.Fprintf(os.Stderr, "Deploying function to cluster\n")
@@ -503,7 +516,7 @@ func (c *Client) New(ctx context.Context, cfg Function) (string, Function, error
 		return route, f, err
 	}
 
-	fmt.Fprint(os.Stderr, "Done")
+	fmt.Fprint(os.Stderr, "Done\n")
 
 	return route, f, err
 }
@@ -624,18 +637,23 @@ func (c *Client) Build(ctx context.Context, f Function, options ...BuildOption) 
 		f.Registry = c.registry
 	}
 
-	// If no image name has been yet defined (not yet built/deployed), calculate.
+	// If no image name has been specified by user (--image), calculate.
 	// Image name is stored on the function for later use by deploy, etc.
-	// TODO: write this to .func/build instead, and populate f.Image on deploy
-	// such that local builds do not dirty the work tree.
 	var err error
 	if f.Image == "" {
-		if f.Image, err = f.ImageName(); err != nil {
+		if f.Build.Image, err = f.ImageName(); err != nil {
 			return f, err
 		}
+	} else {
+		f.Build.Image = f.Image
 	}
 
 	if err = c.builder.Build(ctx, f, oo.Platforms); err != nil {
+		return f, err
+	}
+
+	// write .func/built-name as running metadata which is not persisted in yaml
+	if err = f.WriteRuntimeBuiltImage(c.verbose); err != nil {
 		return f, err
 	}
 
@@ -645,9 +663,9 @@ func (c *Client) Build(ctx context.Context, f Function, options ...BuildOption) 
 
 	// TODO: create a status structure and return it here for optional
 	// use by the cli for user echo (rather than rely on verbose mode here)
-	message := fmt.Sprintf("🙌 Function built: %v", f.Image)
+	message := fmt.Sprintf("🙌 Function built: %v", f.Build.Image)
 	if runtime.GOOS == "windows" {
-		message = fmt.Sprintf("Function built: %v", f.Image)
+		message = fmt.Sprintf("Function built: %v", f.Build.Image)
 	}
 	fmt.Fprintf(os.Stderr, "%s\n", message)
 
@@ -729,12 +747,40 @@ func (c *Client) Deploy(ctx context.Context, f Function, opts ...DeployOption) (
 		return f, ErrNameRequired
 	}
 
+	// TODO: gauron99 -- ideally namespace would be determined here to keep consistancy
+	// with the Remover but it either creates a cyclic dependency or deployer.namespace
+	// is not defined here for it to be complete. Maybe it would be worth to try to
+	// do it this way.
+
 	// Deploy a new or Update the previously-deployed function
 	fmt.Fprintf(os.Stderr, "⬆️  Deploying function to the cluster\n")
 	result, err := c.deployer.Deploy(ctx, f)
 	if err != nil {
 		fmt.Printf("deploy error: %v\n", err)
 		return f, err
+	}
+
+	// If Redeployment to NEW namespace was successful -- undeploy dangling Function in old namespace.
+	// On forced namespace change (using --namespace flag)
+	if f.Namespace != "" && f.Namespace != f.Deploy.Namespace && f.Deploy.Namespace != "" {
+		if c.verbose {
+			fmt.Fprintf(os.Stderr, "Info: Deleting old func in '%s' because the namespace has changed to '%s'\n", f.Deploy.Namespace, f.Namespace)
+		}
+
+		// c.Remove removes a Function in f.Deploy.Namespace which removes the OLD Function
+		// because its not updated yet (see few lines below)
+		err = c.Remove(ctx, f, true)
+
+		// Warn when service is not found and set err to nil to continue. Function's
+		// service mightve been manually deleted prior to the subsequent deploy or the
+		// namespace is already deleted therefore there is nothing to delete
+		if ErrFunctionNotFound != err {
+			fmt.Fprintf(os.Stderr, "Warning: Cant undeploy Function in namespace '%s' - service not found. Namespace/Service might be deleted already\n", f.Deploy.Namespace)
+			err = nil
+		}
+		if err != nil {
+			return f, err
+		}
 	}
 
 	// Update the function with the namespace into which the function was
@@ -754,25 +800,28 @@ func (c *Client) Deploy(ctx context.Context, f Function, opts ...DeployOption) (
 // Returned function contains applicable registry and deployed image name.
 func (c *Client) RunPipeline(ctx context.Context, f Function) (Function, error) {
 	var err error
-
 	// Default function registry to the client's global registry
 	if f.Registry == "" {
 		f.Registry = c.registry
 	}
 
-	// If no image name has been yet defined (not yet built/deployed), calculate.
-	// Image name is stored on the function for later use by deploy, etc.
-	if f.Image == "" {
-		if f.Image, err = f.ImageName(); err != nil {
+	// If no image name has been specified by user (--image), calculate.
+	// Image name is stored on the function for later use by deploy.
+	if f.Image != "" {
+		// if user specified an image, use it
+		f.Deploy.Image = f.Image
+	} else if f.Deploy.Image == "" {
+		f.Deploy.Image, err = f.ImageName()
+		if err != nil {
 			return f, err
 		}
 	}
 
 	// Build and deploy function using Pipeline
-	if _, err := c.pipelinesProvider.Run(ctx, f); err != nil {
+	_, f.Deploy.Namespace, err = c.pipelinesProvider.Run(ctx, f)
+	if err != nil {
 		return f, fmt.Errorf("failed to run pipeline: %w", err)
 	}
-
 	return f, nil
 }
 
@@ -788,8 +837,8 @@ func (c *Client) ConfigurePAC(ctx context.Context, f Function, metadata any) err
 
 	// If no image name has been yet defined (not yet built/deployed), calculate.
 	// Image name is stored on the function for later use by deploy, etc.
-	if f.Image == "" {
-		if f.Image, err = f.ImageName(); err != nil {
+	if f.Deploy.Image == "" {
+		if f.Deploy.Image, err = f.ImageName(); err != nil {
 			return err
 		}
 	}
@@ -923,12 +972,17 @@ func (c *Client) List(ctx context.Context) ([]ListItem, error) {
 	return c.lister.List(ctx)
 }
 
-// Remove a function.  Name takes precedence.  If no name is provided,
-// the function defined at root is used if it exists.
+// Remove a function. Name takes precedence. If no name is provided, the
+// function defined at root is used if it exists. If calling this directly
+// namespace must be provided in .Deploy.Namespace field except when using mocks
+// in which case empty namespace is accepted because its existence is checked
+// in the sub functions remover.Remove and pipilines.Remove
 func (c *Client) Remove(ctx context.Context, cfg Function, deleteAll bool) error {
+	functionName := cfg.Name
+	functionNamespace := cfg.Deploy.Namespace
+
 	// If name is provided, it takes precedence.
 	// Otherwise load the function defined at root.
-	functionName := cfg.Name
 	if cfg.Name == "" {
 		f, err := NewFunction(cfg.Root)
 		if err != nil {
@@ -937,23 +991,41 @@ func (c *Client) Remove(ctx context.Context, cfg Function, deleteAll bool) error
 		if !f.Initialized() {
 			return fmt.Errorf("function at %v can not be removed unless initialized. Try removing by name", f.Root)
 		}
+		// take the functions name and namespace and load it as current function
 		functionName = f.Name
+		functionNamespace = f.Deploy.Namespace
 		cfg = f
 	}
+
+	// if still empty, get current function's yaml deployed namespace
+	if functionNamespace == "" {
+		var f Function
+		f, err := NewFunction(cfg.Root)
+		if err != nil {
+			return err
+		}
+		functionNamespace = f.Deploy.Namespace
+	}
+
 	if functionName == "" {
 		return ErrNameRequired
 	}
+	if functionNamespace == "" {
+		return ErrNamespaceRequired
+	}
 
 	// Delete Knative Service and dependent resources in parallel
-	fmt.Fprintf(os.Stderr, "Removing Knative Service: %v\n", functionName)
+	fmt.Fprintf(os.Stderr, "Removing Knative Service: %v in namespace '%v'\n", functionName, functionNamespace)
 	errChan := make(chan error)
 	go func() {
-		errChan <- c.remover.Remove(ctx, functionName)
+		errChan <- c.remover.Remove(ctx, functionName, functionNamespace)
 	}()
 
 	var errResources error
 	if deleteAll {
 		fmt.Fprintf(os.Stderr, "Removing Knative Service '%v' and all dependent resources\n", functionName)
+		// TODO: might not be necessary
+		cfg.Deploy.Namespace = functionNamespace
 		errResources = c.pipelinesProvider.Remove(ctx, cfg)
 	}
 
@@ -999,11 +1071,28 @@ func (c *Client) Push(ctx context.Context, f Function) (Function, error) {
 		return f, ErrNotBuilt
 	}
 	var err error
-	if f.ImageDigest, err = c.pusher.Push(ctx, f); err != nil {
+
+	if err != nil {
+		if os.IsNotExist(err) {
+			err = fmt.Errorf("error on push, function has not been built yet")
+			return f, err
+		}
 		return f, err
 	}
 
-	return f, nil
+	imageDigest, err := c.pusher.Push(ctx, f)
+	if err != nil {
+		return f, err
+	}
+
+	// TODO: gauron99 - this is here because of a temporary workaround.
+	// f.Build.Image should contain full image name including the sha256 and
+	// should be populated earlier BUT because the sha256 is got only on push (here)
+	// its populated here. This will eventually be moved to build stage where we get
+	// the full image name and its digest right after building
+	f.Build.Image = f.ImageNameWithDigest(imageDigest)
+
+	return f, err
 }
 
 // ensureRunDataDir creates a .func directory at the given path, and
@@ -1241,14 +1330,14 @@ func (n *noopPusher) Push(ctx context.Context, f Function) (string, error) { ret
 // Deployer
 type noopDeployer struct{ output io.Writer }
 
-func (n *noopDeployer) Deploy(ctx context.Context, _ Function) (DeploymentResult, error) {
-	return DeploymentResult{}, nil
+func (n *noopDeployer) Deploy(ctx context.Context, f Function) (DeploymentResult, error) {
+	return DeploymentResult{Namespace: f.Namespace}, nil
 }
 
 // Remover
 type noopRemover struct{ output io.Writer }
 
-func (n *noopRemover) Remove(context.Context, string) error { return nil }
+func (n *noopRemover) Remove(context.Context, string, string) error { return nil }
 
 // Lister
 type noopLister struct{ output io.Writer }
@@ -1265,8 +1354,8 @@ func (n *noopDescriber) Describe(context.Context, string) (Instance, error) {
 // PipelinesProvider
 type noopPipelinesProvider struct{}
 
-func (n *noopPipelinesProvider) Run(ctx context.Context, _ Function) (string, error) {
-	return "", nil
+func (n *noopPipelinesProvider) Run(ctx context.Context, _ Function) (string, string, error) {
+	return "", "", nil
 }
 func (n *noopPipelinesProvider) Remove(ctx context.Context, _ Function) error { return nil }
 func (n *noopPipelinesProvider) ConfigurePAC(ctx context.Context, _ Function, _ any) error {

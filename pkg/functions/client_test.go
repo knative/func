@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -353,7 +354,7 @@ func TestClient_New_RepositoriesExtensible(t *testing.T) {
 }
 
 // TestRuntime_New_RuntimeNotFoundError generates an error when the provided
-// runtime is not fo0und (embedded default repository).
+// runtime is not found (embedded default repository).
 func TestClient_New_RuntimeNotFoundError(t *testing.T) {
 	root := "testdata/example.com/testRuntimeNotFound"
 	defer Using(t, root)()
@@ -498,8 +499,8 @@ func TestClient_New_ImageNamePopulated(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if f.Image != imageTag {
-		t.Fatalf("expected image '%v' got '%v'", imageTag, f.Image)
+	if f.Build.Image != imageTag {
+		t.Fatalf("expected image '%v' got '%v'", imageTag, f.Build.Image)
 	}
 }
 
@@ -523,8 +524,8 @@ func TestClient_New_ImageRegistryDefaults(t *testing.T) {
 
 	// Expected image is [DefaultRegistry]/[namespace]/[servicename]:latest
 	expected := fn.DefaultRegistry + "/alice/" + f.Name + ":latest"
-	if f.Image != expected {
-		t.Fatalf("expected image '%v' got '%v'", expected, f.Image)
+	if f.Build.Image != expected {
+		t.Fatalf("expected image '%v' got '%v'", expected, f.Build.Image)
 	}
 }
 
@@ -565,8 +566,8 @@ func TestClient_New_Delegation(t *testing.T) {
 	}
 
 	pusher.PushFn = func(f fn.Function) (string, error) {
-		if f.Image != expectedImage {
-			t.Fatalf("pusher expected image '%v', got '%v'", expectedImage, f.Image)
+		if f.Build.Image != expectedImage {
+			t.Fatalf("pusher expected image '%v', got '%v'", expectedImage, f.Build.Image)
 		}
 		return "", nil
 	}
@@ -575,8 +576,8 @@ func TestClient_New_Delegation(t *testing.T) {
 		if f.Name != expectedName {
 			t.Fatalf("deployer expected name '%v', got '%v'", expectedName, f.Name)
 		}
-		if f.Image != expectedImage {
-			t.Fatalf("deployer expected image '%v', got '%v'", expectedImage, f.Image)
+		if f.Build.Image != expectedImage {
+			t.Fatalf("deployer expected image '%v', got '%v'", expectedImage, f.Build.Image)
 		}
 		return
 	}
@@ -843,8 +844,8 @@ func TestClient_Update(t *testing.T) {
 
 	// Pusher whose implementaiton verifies the expected image
 	pusher.PushFn = func(f fn.Function) (string, error) {
-		if f.Image != expectedImage {
-			t.Fatalf("pusher expected image '%v', got '%v'", expectedImage, f.Image)
+		if f.Build.Image != expectedImage {
+			t.Fatalf("pusher expected image '%v', got '%v'", expectedImage, f.Build.Image)
 		}
 		// image of given name wouold be pushed to the configured registry.
 		return "", nil
@@ -855,8 +856,8 @@ func TestClient_Update(t *testing.T) {
 		if f.Name != expectedName {
 			t.Fatalf("updater expected name '%v', got '%v'", expectedName, f.Name)
 		}
-		if f.Image != expectedImage {
-			t.Fatalf("updater expected image '%v', got '%v'", expectedImage, f.Image)
+		if f.Build.Image != expectedImage {
+			t.Fatalf("updater expected image '%v', got '%v'", expectedImage, f.Build.Image)
 		}
 		return
 	}
@@ -901,8 +902,8 @@ func TestClient_Update(t *testing.T) {
 }
 
 // TestClient_Deploy_RegistryUpdate ensures that deploying a Function updates
-// its image member on initial deploy, and on subsequent deploys only
-// if reset to it zero value.
+// its image member on initial deploy, and on subsequent deploys where f.Image
+// takes precedence
 func TestClient_Deploy_RegistryUpdate(t *testing.T) {
 	root, rm := Mktemp(t)
 	defer rm()
@@ -915,8 +916,8 @@ func TestClient_Deploy_RegistryUpdate(t *testing.T) {
 	if _, f, err = client.New(context.Background(), fn.Function{Runtime: "go", Name: "f", Root: root}); err != nil {
 		t.Fatal(err)
 	}
-	if f.Image != "example.com/alice/f:latest" {
-		t.Error("image name was not initially set")
+	if f.Build.Image != "example.com/alice/f:latest" {
+		t.Error("image was not built")
 	}
 
 	// Updating the registry and performing a subsequent update should not result
@@ -926,27 +927,89 @@ func TestClient_Deploy_RegistryUpdate(t *testing.T) {
 	if f, err = client.Build(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
-	if f, err = client.Deploy(context.Background(), f); err != nil {
-		t.Fatal(err)
-	}
-	expected := "example.com/alice/f:latest"
-	if f.Image != expected { // NOT changed to bob
-		t.Errorf("expected image name to stay '%v' and not be updated, but got '%v'", expected, f.Image)
+	// if f, err = client.Deploy(context.Background(), f); err != nil {
+	// 	t.Fatal(err)
+	// }
+	expected := "example.com/bob/f:latest"
+	if f.Build.Image != expected { // CHANGE to bob since its the first f.Registry
+		t.Errorf("expected image name to change to '%v', but got '%v'", expected, f.Build.Image)
 	}
 
-	// Reset the value of .Image to default "" and ensure this triggers recalc.
-	f.Image = ""
-	f.Registry = "example.com/bob"
+	// Set the value of .Image which should override current image
+	f.Image = "example.com/fred/f:latest"
 	if f, err = client.Build(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
-	if f, err = client.Deploy(context.Background(), f); err != nil {
+	// if f, err = client.Deploy(context.Background(), f); err != nil {
+	// 	t.Fatal(err)
+	// }
+	expected = "example.com/fred/f:latest"
+	if f.Build.Image != expected { // DOES change to bob
+		t.Errorf("expected image name to change to '%v', but got '%v'", expected, f.Build.Image)
+	}
+
+	// Set the value of f.Image to "" to ensure the registry is used for new
+	// image calculation
+	f.Image = ""
+	// f.Registry is "example.com/bob"
+
+	if f, err = client.Build(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
-	expected = "example.com/bob/f:latest"
-	if f.Image != expected { // DOES change to bob
-		t.Errorf("expected image name to stay '%v' and not be updated, but got '%v'", expected, f.Image)
 
+	expected = "example.com/bob/f:latest"
+	if f.Build.Image != expected {
+		t.Errorf("expected image name to change to '%v', but got '%v'", expected, f.Build.Image)
+	}
+}
+
+// TestClient_Deploy_NamespaceUpdate ensures that namespace deployment has
+// the correct priorities, that means:
+// 'default' gets overridden by 'already deployed' if aplicable and all gets
+// overridden by 'specifically desired namespace'.
+func TestClient_Deploy_NamespaceUpdate(t *testing.T) {
+	root, rm := Mktemp(t)
+	defer rm()
+
+	var (
+		ctx      = context.Background()
+		deployer = mock.NewDeployer()
+		f        fn.Function
+		err      error
+	)
+
+	client := fn.New(
+		fn.WithRegistry("example.com/alice"),
+		fn.WithDeployer(deployer),
+	)
+
+	// New runs build and deploy, thus the initial instantiation should result in
+	// the namespace member being populated into the most default namespace
+	if _, f, err = client.New(ctx, fn.Function{Runtime: "go", Name: "f", Root: root}); err != nil {
+		t.Fatal(err)
+	}
+	if f.Deploy.Namespace == "" {
+		t.Fatal("namespace should be populated in deployer when initially undefined")
+	}
+
+	// change deployed namespace to simulate already deployed function -- should
+	// take precedence
+	f.Deploy.Namespace = "alreadydeployed"
+	f, err = client.Deploy(ctx, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if f.Deploy.Namespace != "alreadydeployed" {
+		err = fmt.Errorf("namespace should match the already deployed function ns")
+		t.Fatal(err)
+	}
+
+	// desired namespace takes precedence
+	f.Namespace = "desiredns"
+	f, err = client.Deploy(ctx, f)
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -957,6 +1020,7 @@ func TestClient_Remove_ByPath(t *testing.T) {
 		root         = "testdata/example.com/test-remove-by-path"
 		expectedName = "test-remove-by-path"
 		remover      = mock.NewRemover()
+		namespace    = "func"
 	)
 
 	defer Using(t, root)()
@@ -967,11 +1031,11 @@ func TestClient_Remove_ByPath(t *testing.T) {
 
 	var f fn.Function
 	var err error
-	if _, f, err = client.New(context.Background(), fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
+	if _, f, err = client.New(context.Background(), fn.Function{Runtime: TestRuntime, Root: root, Namespace: namespace}); err != nil {
 		t.Fatal(err)
 	}
 
-	remover.RemoveFn = func(name string) error {
+	remover.RemoveFn = func(name, _ string) error {
 		if name != expectedName {
 			t.Fatalf("Expected to remove '%v', got '%v'", expectedName, name)
 		}
@@ -998,6 +1062,7 @@ func TestClient_Remove_DeleteAll(t *testing.T) {
 		remover           = mock.NewRemover()
 		pipelinesProvider = mock.NewPipelinesProvider()
 		deleteAll         = true
+		namespace         = "func"
 	)
 
 	defer Using(t, root)()
@@ -1009,11 +1074,11 @@ func TestClient_Remove_DeleteAll(t *testing.T) {
 
 	var f fn.Function
 	var err error
-	if _, f, err = client.New(context.Background(), fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
+	if _, f, err = client.New(context.Background(), fn.Function{Runtime: TestRuntime, Root: root, Namespace: namespace}); err != nil {
 		t.Fatal(err)
 	}
 
-	remover.RemoveFn = func(name string) error {
+	remover.RemoveFn = func(name, _ string) error {
 		if name != expectedName {
 			t.Fatalf("Expected to remove '%v', got '%v'", expectedName, name)
 		}
@@ -1044,6 +1109,7 @@ func TestClient_Remove_Dont_DeleteAll(t *testing.T) {
 		remover           = mock.NewRemover()
 		pipelinesProvider = mock.NewPipelinesProvider()
 		deleteAll         = false
+		namespace         = "func"
 	)
 
 	defer Using(t, root)()
@@ -1055,11 +1121,11 @@ func TestClient_Remove_Dont_DeleteAll(t *testing.T) {
 
 	var f fn.Function
 	var err error
-	if _, f, err = client.New(context.Background(), fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
+	if _, f, err = client.New(context.Background(), fn.Function{Runtime: TestRuntime, Root: root, Namespace: namespace}); err != nil {
 		t.Fatal(err)
 	}
 
-	remover.RemoveFn = func(name string) error {
+	remover.RemoveFn = func(name, _ string) error {
 		if name != expectedName {
 			t.Fatalf("Expected to remove '%v', got '%v'", expectedName, name)
 		}
@@ -1087,6 +1153,7 @@ func TestClient_Remove_ByName(t *testing.T) {
 		root         = "testdata/example.com/testRemoveByName"
 		expectedName = "explicitName.example.com"
 		remover      = mock.NewRemover()
+		namespace    = "func"
 	)
 
 	defer Using(t, root)()
@@ -1099,20 +1166,20 @@ func TestClient_Remove_ByName(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	remover.RemoveFn = func(name string) error {
+	remover.RemoveFn = func(name, _ string) error {
 		if name != expectedName {
 			t.Fatalf("Expected to remove '%v', got '%v'", expectedName, name)
 		}
 		return nil
 	}
 
-	// Run remove with only a name
-	if err := client.Remove(context.Background(), fn.Function{Name: expectedName}, false); err != nil {
+	// Run remove with name (and namespace in .Deploy to simulate deployed function)
+	if err := client.Remove(context.Background(), fn.Function{Name: expectedName, Deploy: fn.DeploySpec{Namespace: namespace}}, false); err != nil {
 		t.Fatal(err)
 	}
 
 	// Run remove with a name and a root, which should be ignored in favor of the name.
-	if err := client.Remove(context.Background(), fn.Function{Name: expectedName, Root: root}, false); err != nil {
+	if err := client.Remove(context.Background(), fn.Function{Name: expectedName, Root: root, Deploy: fn.DeploySpec{Namespace: namespace}}, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1133,7 +1200,7 @@ func TestClient_Remove_UninitializedFails(t *testing.T) {
 	defer Using(t, root)()
 
 	// remover fails if invoked
-	remover.RemoveFn = func(name string) error {
+	remover.RemoveFn = func(name, _ string) error {
 		return fmt.Errorf("remove invoked for unitialized function %v", name)
 	}
 
@@ -1202,8 +1269,8 @@ func TestClient_Deploy_Image(t *testing.T) {
 	}
 
 	// Upon initial creation, the value of .Image is empty
-	if f.Image != "" {
-		t.Fatalf("new function should have no image, got '%v'", f.Image)
+	if f.Build.Image != "" {
+		t.Fatalf("new function should have no image, got '%v'", f.Build.Image)
 	}
 
 	// Upon deployment, the function should be populated;
@@ -1214,8 +1281,8 @@ func TestClient_Deploy_Image(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected := "example.com/alice/myfunc:latest"
-	if f.Image != expected {
-		t.Fatalf("expected image '%v', got '%v'", expected, f.Image)
+	if f.Build.Image != expected {
+		t.Fatalf("expected image '%v', got '%v'", expected, f.Build.Image)
 	}
 	expected = "example.com/alice"
 	if f.Registry != "example.com/alice" {
@@ -1234,8 +1301,8 @@ func TestClient_Deploy_Image(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected = "registry2.example.com/bob/myfunc:latest"
-	if f.Image != expected {
-		t.Fatalf("expected image '%v', got '%v'", expected, f.Image)
+	if f.Build.Image != expected {
+		t.Fatalf("expected image '%v', got '%v'", expected, f.Build.Image)
 	}
 	expected = "example.com/alice"
 	if f.Registry != "example.com/alice" {
@@ -1277,18 +1344,19 @@ func TestClient_Pipelines_Deploy_Image(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Upon initial creation, the value of .Image is empty
-	if f.Image != "" {
-		t.Fatalf("new function should have no image, got '%v'", f.Image)
+	// Upon initial creation, the value of .Build.Image is empty and .Deploy.Image
+	// is empty because Function is not deployed yet.
+	if f.Build.Image != "" && f.Deploy.Image != "" {
+		t.Fatalf("new function should have no image, got '%v'", f.Build.Image)
 	}
 
-	// Upon pipeline run, the function should be populated;
+	// Upon pipeline run, the .Deploy.Image should be populated
 	if f, err = client.RunPipeline(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
 	expected := "example.com/alice/myfunc:latest"
-	if f.Image != expected {
-		t.Fatalf("expected image '%v', got '%v'", expected, f.Image)
+	if f.Deploy.Image != expected {
+		t.Fatalf("expected image '%v', got '%v'", expected, f.Deploy.Image)
 	}
 	expected = "example.com/alice"
 	if f.Registry != expected {
@@ -1305,8 +1373,9 @@ func TestClient_Pipelines_Deploy_Image(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected = "registry2.example.com/bob/myfunc:latest"
-	if f.Image != expected {
-		t.Fatalf("expected image '%v', got '%v'", expected, f.Image)
+
+	if f.Deploy.Image != expected {
+		t.Fatalf("expected image '%v', got '%v'", expected, f.Deploy.Image)
 	}
 	expected = "example.com/alice"
 	if f.Registry != expected {
@@ -1318,6 +1387,47 @@ func TestClient_Pipelines_Deploy_Image(t *testing.T) {
 		//    need be derived (f.Image =="")
 		// Or we could update .Registry to always be in sync by parsing the .Image
 		t.Fatalf("expected registry '%v', got '%v'", expected, f.Registry)
+	}
+}
+
+// TestClient_Pipelines_Deploy_Namespace ensures that correct namespace is returned
+// when using remote deployment
+func TestClient_Pipelines_Deploy_Namespace(t *testing.T) {
+	root, rm := Mktemp(t)
+	defer rm()
+
+	pprovider := mock.NewPipelinesProvider()
+	pprovider.RunFn = func(f fn.Function) (string, string, error) {
+		// simulate function getting deployed here and return namespace
+		return "", f.Namespace, nil
+	}
+
+	client := fn.New(
+		fn.WithPipelinesProvider(pprovider),
+		fn.WithRegistry("example.com/alice"))
+
+	f := fn.Function{
+		Name:      "myfunc",
+		Runtime:   "node",
+		Root:      root,
+		Namespace: "myns",
+		Build: fn.BuildSpec{
+			Git: fn.Git{URL: "http://example-git.com/alice/myfunc.git"},
+		},
+	}
+
+	f, err := client.Init(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if f, err = client.RunPipeline(context.Background(), f); err != nil {
+		t.Fatal(err)
+	}
+
+	// function is deployed in correct ns
+	if f.Deploy.Namespace != "myns" {
+		t.Fatalf("expected namespace to be '%s' but is '%s'", "myns", f.Deploy.Namespace)
 	}
 }
 
@@ -1886,5 +1996,149 @@ func TestClient_RunRediness(t *testing.T) {
 	}
 	if err := job.Stop(); err != nil {
 		t.Fatalf("err on job stop. %v", err)
+	}
+}
+
+// TestClient_BuildCleanFingerprint ensures that when building a Function the
+// source controlled state is not modified (git would show no unstaged changes).
+// For example, the image name generated when building should not be stored
+// in function metadata that is checked into source control (func.yaml).
+func TestClient_BuildCleanFingerprint(t *testing.T) {
+
+	// Create a temporary directory
+	root, cleanup := Mktemp(t)
+	defer cleanup()
+
+	// create new client
+	client := fn.New()
+
+	f := fn.Function{Root: root, Runtime: TestRuntime, Registry: TestRegistry}
+	ctx := context.Background()
+
+	// init a new Function
+	f, err := client.Init(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// NOTE: Practically one would initialize a git repository, check the source code
+	// and compare that way. For now this only compares fingerprint before and after
+	// building Function
+
+	// get fingerprint before building
+	hashA, _, err := fn.Fingerprint(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Build a function
+	if f, err = client.Build(ctx, f); err != nil {
+		t.Fatal(err)
+	}
+
+	// Write to disk because client.Build just stamps (writing is handled in its caller)
+	if err = f.Write(); err != nil {
+		t.Fatal(err)
+	}
+
+	// compare fingerprints before and after
+	hashB, _, err := fn.Fingerprint(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if hashA != hashB {
+		t.Fatal("just building a Function resulted in a dirty function state (fingerprint changed)")
+	}
+}
+
+// TestClient_DeployRemoves ensures that the Remover is invoked when a
+// function is moved to a new namespace.
+// specifically: deploy to 'nsone' -> simulate change of namespace with change to
+// f.Namespace -> redeploy to that namespace and expect the remover to be invoked
+// for old Function in ns 'nsone'.
+func TestClient_DeployRemoves(t *testing.T) {
+	// Create a temporary directory
+	root, cleanup := Mktemp(t)
+	defer cleanup()
+
+	var (
+		ctx      = context.Background()
+		nsOne    = "nsone"
+		nsTwo    = "nstwo"
+		testname = "testfunc"
+		remover  = mock.NewRemover()
+	)
+
+	remover.RemoveFn = func(n, ns string) error {
+		if ns != nsOne {
+			t.Fatalf("expected delete namespace %v, got %v", nsOne, ns)
+		}
+		if n != testname {
+			t.Fatalf("expected delete name %v, got %v", testname, n)
+		}
+		return nil
+	}
+
+	client := fn.New(fn.WithRemover(remover))
+	// initialize function with namespace defined as nsone
+
+	f, err := client.Init(fn.Function{Runtime: "go", Root: root,
+		Namespace: nsOne, Name: testname, Registry: TestRegistry})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f, err = client.Build(ctx, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// first deploy
+	f, err = client.Deploy(ctx, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// change namespace
+	f.Namespace = nsTwo
+
+	// redeploy to different namespace
+	f, err = client.Deploy(ctx, f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// check that a remove was invoked getting rid of the old Function
+	if !remover.RemoveInvoked {
+		t.Fatal(fmt.Errorf("remover was not invoked on an old function"))
+	}
+}
+
+// TestClient_BuildPopulatesRuntimeImage ensures that building populates runtime
+// metadata (.func/built-image) image.
+func TestClient_BuildPopulatesRuntimeImage(t *testing.T) {
+	// Create a temporary directory
+	root, cleanup := Mktemp(t)
+	defer cleanup()
+
+	client := fn.New()
+	f, err := client.Init(fn.Function{Runtime: "go", Root: root, Registry: TestRegistry})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expect := f.Registry + "/" + f.Name + ":latest"
+
+	f, err = client.Build(context.Background(), f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(path.Join(root, ".func/built-image"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if string(got) != expect {
+		t.Fatalf("written image in ./.func/built-image '%s' does not match expected '%s'", got, expect)
 	}
 }

@@ -12,12 +12,12 @@ set -o pipefail
 export TERM="${TERM:-dumb}"
 
 main() {
-  local kubectl_version=v1.27.2
-  local kind_version=v0.19.0
+  local kubectl_version=v1.29.2
+  local kind_version=v0.22.0
   local dapr_version=v1.11.0
   local helm_version=v3.12.0
   local stern_version=1.25.0
-  local kn_version=v1.12.0
+  local kn_version=v1.13.0
 
   local em=$(tput bold)$(tput setaf 2)
   local me=$(tput sgr0)

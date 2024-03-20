@@ -212,7 +212,7 @@ func setupTestPvc(t *testing.T, pvcName string) {
 		ObjectMeta: metav1.ObjectMeta{Name: pvcName},
 		Spec: corev1.PersistentVolumeClaimSpec{
 			AccessModes: []corev1.PersistentVolumeAccessMode{corev1.ReadWriteOnce},
-			Resources: corev1.ResourceRequirements{
+			Resources: corev1.VolumeResourceRequirements{
 				Requests: corev1.ResourceList{},
 			},
 		},

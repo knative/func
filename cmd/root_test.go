@@ -327,6 +327,8 @@ func fromTempDirectory(t *testing.T) string {
 	// By default unit tests presum no config exists unless provided in testdata.
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
+
 	// creates and CDs to a temp directory
 	d, done := Mktemp(t)
 

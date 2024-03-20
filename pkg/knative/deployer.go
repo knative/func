@@ -33,6 +33,9 @@ import (
 const LIVENESS_ENDPOINT = "/health/liveness"
 const READINESS_ENDPOINT = "/health/readiness"
 
+// static default namespace for deployer
+const StaticDefaultNamespace = "func"
+
 type DeployDecorator interface {
 	UpdateAnnotations(fn.Function, map[string]string) map[string]string
 	UpdateLabels(fn.Function, map[string]string) map[string]string
@@ -50,10 +53,10 @@ type Deployer struct {
 	decorator DeployDecorator
 }
 
-// DefaultNamespace attempts to read the kubernetes active namepsace.
+// ActiveNamespace attempts to read the kubernetes active namepsace.
 // Missing configs or not having an active kuberentes configuration are
 // equivalent to having no default namespace (empty string).
-func DefaultNamespace() string {
+func ActiveNamespace() string {
 	// Get client config, if it exists, and from that the namespace
 	ns, _, err := k8s.GetClientConfig().Namespace()
 	if err != nil {
@@ -92,8 +95,8 @@ func WithDeployerDecorator(decorator DeployDecorator) DeployerOpt {
 
 // Checks the status of the "user-container" for the ImagePullBackOff reason meaning that
 // the container image is not reachable probably because a private registry is being used.
-func (d *Deployer) isImageInPrivateRegistry(ctx context.Context, client clientservingv1.KnServingClient, funcName string) bool {
-	ksvc, err := client.GetService(ctx, funcName)
+func (d *Deployer) isImageInPrivateRegistry(ctx context.Context, client clientservingv1.KnServingClient, f fn.Function) bool {
+	ksvc, err := client.GetService(ctx, f.Name)
 	if err != nil {
 		return false
 	}
@@ -101,8 +104,8 @@ func (d *Deployer) isImageInPrivateRegistry(ctx context.Context, client clientse
 	if err != nil {
 		return false
 	}
-	list, err := k8sClient.CoreV1().Pods(d.Namespace).List(ctx, metav1.ListOptions{
-		LabelSelector: "serving.knative.dev/revision=" + ksvc.Status.LatestCreatedRevisionName + ",serving.knative.dev/service=" + funcName,
+	list, err := k8sClient.CoreV1().Pods(namespace(d.Namespace, f)).List(ctx, metav1.ListOptions{
+		LabelSelector: "serving.knative.dev/revision=" + ksvc.Status.LatestCreatedRevisionName + ",serving.knative.dev/service=" + f.Name,
 		FieldSelector: "status.phase=Pending",
 	})
 	if err != nil {
@@ -120,20 +123,45 @@ func (d *Deployer) isImageInPrivateRegistry(ctx context.Context, client clientse
 	return false
 }
 
-func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResult, error) {
-	var err error
-	if d.Namespace == "" {
-		d.Namespace, err = k8s.GetNamespace(d.Namespace)
-		if err != nil {
-			return fn.DeploymentResult{}, err
-		}
+// returns correct namespace to deploy to, ordered in a descending order by
+// priority: User specified via cli -> client WithDeployer -> already deployed ->
+// -> k8s default; if fails, use static default
+func namespace(dflt string, f fn.Function) string {
+	// namespace ordered by highest priority decending
+	namespace := f.Namespace
+
+	// if deployed before: use already deployed namespace
+	if namespace == "" {
+		namespace = f.Deploy.Namespace
 	}
 
-	client, err := NewServingClient(d.Namespace)
+	// deployer WithDeployerNamespace provided
+	if namespace == "" {
+		namespace = dflt
+	}
+
+	if namespace == "" {
+		var err error
+		// still not set, just use the defaultest default
+		namespace, err = k8s.GetDefaultNamespace()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "trying to get default namespace returns an error: '%s'\nSetting static default namespace '%s'", err, StaticDefaultNamespace)
+			namespace = StaticDefaultNamespace
+		}
+	}
+	return namespace
+}
+
+func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResult, error) {
+
+	// returns correct namespace by priority
+	namespace := namespace(d.Namespace, f)
+
+	client, err := NewServingClient(namespace)
 	if err != nil {
 		return fn.DeploymentResult{}, err
 	}
-	eventingClient, err := NewEventingClient(d.Namespace)
+	eventingClient, err := NewEventingClient(namespace)
 	if err != nil {
 		return fn.DeploymentResult{}, err
 	}
@@ -146,7 +174,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	}
 	since := time.Now()
 	go func() {
-		_ = GetKServiceLogs(ctx, d.Namespace, f.Name, f.ImageWithDigest(), &since, out)
+		_ = GetKServiceLogs(ctx, namespace, f.Name, f.Deploy.Image, &since, out)
 	}()
 
 	previousService, err := client.GetService(ctx, f.Name)
@@ -163,7 +191,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 				return fn.DeploymentResult{}, err
 			}
 
-			err = checkResourcesArePresent(ctx, d.Namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName)
+			err = checkResourcesArePresent(ctx, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName)
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to generate the Knative Service: %v", err)
 				return fn.DeploymentResult{}, err
@@ -184,7 +212,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 				private := false
 				for !private {
 					time.Sleep(5 * time.Second)
-					private = d.isImageInPrivateRegistry(ctx, client, f.Name)
+					private = d.isImageInPrivateRegistry(ctx, client, f)
 					chprivate <- private
 				}
 				close(chprivate)
@@ -237,12 +265,12 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			}
 
 			if d.verbose {
-				fmt.Printf("Function deployed in namespace %q and exposed at URL:\n%s\n", d.Namespace, route.Status.URL.String())
+				fmt.Printf("Function deployed in namespace %q and exposed at URL:\n%s\n", namespace, route.Status.URL.String())
 			}
 			return fn.DeploymentResult{
 				Status:    fn.Deployed,
 				URL:       route.Status.URL.String(),
-				Namespace: d.Namespace,
+				Namespace: namespace,
 			}, nil
 
 		} else {
@@ -265,7 +293,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			return fn.DeploymentResult{}, err
 		}
 
-		err = checkResourcesArePresent(ctx, d.Namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName)
+		err = checkResourcesArePresent(ctx, namespace, &referencedSecrets, &referencedConfigMaps, &referencedPVCs, f.Deploy.ServiceAccountName)
 		if err != nil {
 			err = fmt.Errorf("knative deployer failed to update the Knative Service: %v", err)
 			return fn.DeploymentResult{}, err
@@ -303,7 +331,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		return fn.DeploymentResult{
 			Status:    fn.Updated,
 			URL:       route.Status.URL.String(),
-			Namespace: d.Namespace,
+			Namespace: namespace,
 		}, nil
 	}
 }
@@ -395,7 +423,7 @@ func generateNewService(f fn.Function, decorator DeployDecorator) (*v1.Service, 
 		Type: corev1.SeccompProfileType("RuntimeDefault"),
 	}
 	container := corev1.Container{
-		Image: f.ImageWithDigest(),
+		Image: f.Deploy.Image,
 		SecurityContext: &corev1.SecurityContext{
 			RunAsNonRoot:             &runAsNonRoot,
 			AllowPrivilegeEscalation: &allowPrivilegeEscalation,
@@ -585,7 +613,7 @@ func updateService(f fn.Function, previousService *v1.Service, newEnv []corev1.E
 		service.ObjectMeta.Labels = labels
 		service.Spec.Template.ObjectMeta.Labels = labels
 
-		err = flags.UpdateImage(&service.Spec.Template.Spec.PodSpec, f.ImageWithDigest())
+		err = flags.UpdateImage(&service.Spec.Template.Spec.PodSpec, f.Deploy.Image)
 		if err != nil {
 			return service, err
 		}

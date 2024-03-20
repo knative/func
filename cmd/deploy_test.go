@@ -13,9 +13,12 @@ import (
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 
+	apiErrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"knative.dev/func/pkg/builders"
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/mock"
 )
 
@@ -192,11 +195,12 @@ func testConfigApplied(cmdFn commandConstructor, t *testing.T) {
 	if err := cmdFn(clientFn).Execute(); err != nil {
 		t.Fatal(err)
 	}
+
 	if f, err = fn.NewFunction(root); err != nil {
 		t.Fatal(err)
 	}
-	if f.Image != "registry.example.com/charlie/f:latest" {
-		t.Fatalf("expected image 'registry.example.com/charlie/f:latest' got '%v'", f.Image)
+	if f.Build.Image != "registry.example.com/charlie/f:latest" {
+		t.Fatalf("expected image 'registry.example.com/charlie/f:latest' got '%v'", f.Build.Image)
 	}
 
 	// Ensure environment variables loaded: Push
@@ -569,7 +573,7 @@ func TestDeploy_GitArgsUsed(t *testing.T) {
 
 	// A Pipelines Provider which will validate the expected values were received
 	pipeliner := mock.NewPipelinesProvider()
-	pipeliner.RunFn = func(f fn.Function) (string, error) {
+	pipeliner.RunFn = func(f fn.Function) (string, string, error) {
 		if f.Build.Git.URL != url {
 			t.Errorf("Pipeline Provider expected git URL '%v' got '%v'", url, f.Build.Git.URL)
 		}
@@ -579,7 +583,7 @@ func TestDeploy_GitArgsUsed(t *testing.T) {
 		if f.Build.Git.ContextDir != dir {
 			t.Errorf("Pipeline Provider expected git dir '%v' got '%v'", url, f.Build.Git.ContextDir)
 		}
-		return url, nil
+		return url, "", nil
 	}
 
 	// Deploy the Function specifying all of the git-related flags and --remote
@@ -759,6 +763,7 @@ func TestDeploy_ImageWithDigestErrors(t *testing.T) {
 		{
 			name:  "correctly formatted full image with digest yields no error (degen case)",
 			image: "example.com/myNamespace/myFunction:latest@sha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4e",
+			build: "false",
 		},
 		{
 			name:      "--build forced on yields error",
@@ -829,6 +834,37 @@ func TestDeploy_ImageWithDigestErrors(t *testing.T) {
 				// There was an error, but it was expected
 			}
 		})
+	}
+}
+
+// TestDeploy_ImageWithDigestDoesntPopulateBuild ensures that when --image is
+// given with digest f.Build.Image is not populated because no image building
+// should happen; f.Deploy.Image should be populated because the image should
+// just be deployed as is (since it already has digest)
+func TestDeploy_ImageWithDigestDoesntPopulateBuild(t *testing.T) {
+	root := fromTempDirectory(t)
+	// image with digest (well almost, atleast in length and syntax)
+	const img = "docker.io/4141gauron3268@sha256:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+	// Create a new Function in the temp directory
+	_, err := fn.New().Init(fn.Function{Runtime: "go", Root: root})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	cmd := NewDeployCmd(NewTestClient(
+		fn.WithDeployer(mock.NewDeployer()),
+		fn.WithRegistry(TestRegistry)))
+
+	cmd.SetArgs([]string{"--build=false", "--push=false", "--image", img})
+	if err = cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	f, _ := fn.NewFunction(root)
+	if f.Build.Image != "" {
+		t.Fatal("build image should be empty when deploying with digested image")
+	}
+	if f.Deploy.Image != img {
+		t.Fatal("expected deployed image to match digested img given")
 	}
 }
 
@@ -1072,7 +1108,7 @@ func TestDeploy_NamespaceUpdateWarning(t *testing.T) {
 	))
 	cmd.SetArgs([]string{"--namespace=newns"})
 	out := strings.Builder{}
-	fmt.Fprintln(&out, "Test errpr")
+	fmt.Fprintln(&out, "Test error")
 	cmd.SetOut(&out)
 	cmd.SetErr(&out)
 
@@ -1082,12 +1118,17 @@ func TestDeploy_NamespaceUpdateWarning(t *testing.T) {
 
 	time.Sleep(1 * time.Second)
 
-	expected := "Warning: function is in namespace 'myns', but requested namespace is 'newns'. Continuing with deployment to 'newns'."
+	activeNamespace, err := k8s.GetDefaultNamespace()
+	if err != nil {
+		t.Fatalf("Couldnt get active namespace, got error: %v", err)
+	}
 
-	// Ensure output contained warning if changing namespace
-	if !strings.Contains(out.String(), expected) {
+	expected1 := "Info: chosen namespace has changed from 'myns' to 'newns'. Undeploying function from 'myns' and deploying new in 'newns'."
+	expected2 := fmt.Sprintf("Warning: namespace chosen is 'newns', but currently active namespace is '%s'. Continuing with deployment to 'newns'.", activeNamespace)
+	// Ensure output contained info and warning if changing namespace
+	if !strings.Contains(out.String(), expected1) || !strings.Contains(out.String(), expected2) {
 		t.Log("STDERR:\n" + out.String())
-		t.Fatalf("Expected warning not found:\n%v", expected)
+		t.Fatalf("Expected Info and/or Warning not found:\n%v|%v", expected1, expected2)
 	}
 
 	// Ensure the function was saved as having been deployed to
@@ -1096,7 +1137,100 @@ func TestDeploy_NamespaceUpdateWarning(t *testing.T) {
 		t.Fatal(err)
 	}
 	if f.Deploy.Namespace != "newns" {
-		t.Fatalf("expected function to be deoployed into namespace 'newns'.  got '%v'", f.Deploy.Namespace)
+		t.Fatalf("expected function to be deployed into namespace 'newns'.  got '%v'", f.Deploy.Namespace)
+	}
+}
+
+// TestDeploy_BasicRedeploy simply ensures that redeploy works and doesnt brake
+// using standard deploy method when desired namespace is deleted.
+func TestDeploy_BasicRedeployInCorrectNamespace(t *testing.T) {
+	root := fromTempDirectory(t)
+
+	// Create a Function which appears to have been deployed to 'myns'
+	f := fn.Function{
+		Runtime: "go",
+		Root:    root,
+	}
+	f, err := fn.New().Init(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Redeploy the function, specifying 'newns'
+	cmd := NewDeployCmd(NewTestClient(
+		fn.WithDeployer(mock.NewDeployer()),
+		fn.WithRegistry(TestRegistry),
+	))
+
+	cmd.SetArgs([]string{"--namespace=mydns"})
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	f, _ = fn.NewFunction(root)
+	if f.Deploy.Namespace == "" {
+		t.Fatal("expected deployed namespace to be specified after deploy")
+	}
+
+	// get rid of desired namespace -- should still deploy as usual, now taking
+	// the "already deployed" namespace
+	cmd.SetArgs([]string{"--namespace="})
+	if err = cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	f, _ = fn.NewFunction(root)
+	if f.Namespace != "" {
+		t.Fatalf("no desired namespace should be specified but is %s", f.Namespace)
+	}
+
+	if f.Deploy.Namespace == "" {
+		t.Fatal("expected deployed namespace to be specified after second deploy")
+	}
+}
+
+// TestDeploy_BasicRedeployPipelines simply ensures that deploy 2 times works
+// and doesnt brake using pipelines
+func TestDeploy_BasicRedeployPipelinesCorrectNamespace(t *testing.T) {
+	root := fromTempDirectory(t)
+	// Create a Function which appears to have been deployed to 'myns'
+	f := fn.Function{
+		Runtime: "go",
+		Root:    root,
+	}
+	f, err := fn.New().Init(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Redeploy the function, specifying 'newns'
+	cmd := NewDeployCmd(NewTestClient(
+		fn.WithBuilder(mock.NewBuilder()),
+		fn.WithPipelinesProvider(mock.NewPipelinesProvider()),
+		fn.WithRegistry(TestRegistry),
+	))
+
+	cmd.SetArgs([]string{"--remote", "--namespace=myfuncns"})
+	if err = cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	f, _ = fn.NewFunction(root)
+	if f.Deploy.Namespace == "" || f.Deploy.Namespace != f.Namespace {
+		t.Fatalf("namespace should match desired ns when deployed - '%s' | '%s'", f.Deploy.Namespace, f.Namespace)
+	}
+
+	cmd.SetArgs([]string{"--remote", "--namespace="})
+	if err = cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	f, _ = fn.NewFunction(root)
+	if f.Namespace != "" {
+		t.Fatal("desired ns should be empty")
+	}
+	if f.Deploy.Namespace != "myfuncns" {
+		t.Fatalf("deployed ns should NOT have changed but is '%s'\n", f.Deploy.Namespace)
 	}
 }
 
@@ -1124,7 +1258,9 @@ func testRegistry(cmdFn commandConstructor, t *testing.T) {
 			name: "registry member mismatch",
 			f: fn.Function{
 				Registry: "registry.example.com/alice",
-				Image:    "registry.example.com/bob/f:latest",
+				Build: fn.BuildSpec{
+					Image: "registry.example.com/bob/f:latest",
+				},
 			},
 			args:             []string{},
 			expectedRegistry: "registry.example.com/alice",
@@ -1137,7 +1273,9 @@ func testRegistry(cmdFn commandConstructor, t *testing.T) {
 			name: "registry flag updates",
 			f: fn.Function{
 				Registry: "registry.example.com/alice",
-				Image:    "registry.example.com/bob/f:latest",
+				Build: fn.BuildSpec{
+					Image: "registry.example.com/bob/f:latest",
+				},
 			},
 			args:             []string{"--registry=registry.example.com/charlie"},
 			expectedRegistry: "registry.example.com/charlie",
@@ -1150,7 +1288,9 @@ func testRegistry(cmdFn commandConstructor, t *testing.T) {
 			name: "image flag overrides",
 			f: fn.Function{
 				Registry: "registry.example.com/alice",
-				Image:    "registry.example.com/bob/f:latest",
+				Build: fn.BuildSpec{
+					Image: "registry.example.com/bob/f:latest",
+				},
 			},
 			args:             []string{"--image=registry.example.com/charlie/f:latest"},
 			expectedRegistry: "registry.example.com/alice",            // not updated
@@ -1178,8 +1318,8 @@ func testRegistry(cmdFn commandConstructor, t *testing.T) {
 			if f.Registry != test.expectedRegistry {
 				t.Fatalf("expected registry '%v', got '%v'", test.expectedRegistry, f.Registry)
 			}
-			if f.Image != test.expectedImage {
-				t.Fatalf("expected image '%v', got '%v'", test.expectedImage, f.Image)
+			if f.Build.Image != test.expectedImage {
+				t.Fatalf("expected image '%v', got '%v'", test.expectedImage, f.Build.Image)
 			}
 		})
 	}
@@ -1220,8 +1360,8 @@ func testRegistryLoads(cmdFn commandConstructor, t *testing.T) {
 	}
 
 	expected := "example.com/alice/my-func:latest"
-	if f.Image != expected {
-		t.Fatalf("expected image name '%v'. got %v", expected, f.Image)
+	if f.Build.Image != expected {
+		t.Fatalf("expected image name '%v'. got %v", expected, f.Build.Image)
 	}
 }
 
@@ -1531,5 +1671,158 @@ func Test_ValidateBuilder(t *testing.T) {
 
 	if err := ValidateBuilder("invalid"); err == nil {
 		t.Fatalf("did not get expected error validating an invalid builder name")
+	}
+}
+
+// TestReDeploy_OnRegistryChange tests that after deployed image with registry X,
+// subsequent deploy with registry Y triggers build
+func TestReDeploy_OnRegistryChange(t *testing.T) {
+	root := fromTempDirectory(t)
+
+	// Create a basic go Function
+	f := fn.Function{
+		Runtime: "go",
+		Root:    root,
+	}
+	_, err := fn.New().Init(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// create build cmd
+	cmdBuild := NewBuildCmd(NewTestClient(fn.WithBuilder(mock.NewBuilder())))
+	cmdBuild.SetArgs([]string{"--registry=" + TestRegistry})
+
+	// First: prebuild Function
+	if err := cmdBuild.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// change registry and deploy again
+	newRegistry := "example.com/fred"
+
+	cmd := NewDeployCmd(NewTestClient(
+		fn.WithDeployer(mock.NewDeployer()),
+	))
+
+	cmd.SetArgs([]string{"--registry=" + newRegistry})
+
+	// Second: Deploy with different registry and expect new build
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// ASSERT
+	expectF, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal("couldnt load function from path")
+	}
+
+	if !strings.Contains(expectF.Build.Image, newRegistry) {
+		t.Fatalf("expected built image '%s' to contain new registry '%s'\n", expectF.Build.Image, newRegistry)
+	}
+}
+
+// TestReDeploy_OnRegistryChangeWithBuildFalse should fail with function not
+// being built because the registry has changed
+func TestReDeploy_OnRegistryChangeWithBuildFalse(t *testing.T) {
+	root := fromTempDirectory(t)
+
+	// Create a basic go Function
+	f := fn.Function{
+		Runtime: "go",
+		Root:    root,
+	}
+	_, err := fn.New().Init(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// create build cmd
+	cmdBuild := NewBuildCmd(NewTestClient(fn.WithBuilder(mock.NewBuilder())))
+	cmdBuild.SetArgs([]string{"--registry=" + TestRegistry})
+
+	// First: prebuild Function
+	if err := cmdBuild.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// change registry and deploy again
+	newRegistry := "example.com/fred"
+
+	cmd := NewDeployCmd(NewTestClient(
+		fn.WithDeployer(mock.NewDeployer()),
+	))
+
+	cmd.SetArgs([]string{"--registry=" + newRegistry, "--build=false"})
+
+	// Second: Deploy with different registry and expect 'not built' error because
+	// registry has changed but build is disabled
+	if err := cmd.Execute(); err == nil {
+		t.Fatal(err)
+	}
+
+	// ASSERT
+	expectF, err := fn.NewFunction(root)
+	if err != nil {
+		t.Fatal("couldnt load function from path")
+	}
+
+	if !strings.Contains(expectF.Build.Image, TestRegistry) {
+		t.Fatal("expected registry to NOT change since --build=false")
+	}
+}
+
+// TestDeploy_NoErrorOnOldFunctionNotFound assures that no error is given when old Function's
+// service is not available (is already deleted manually or the namespace doesnt exist etc.)
+func TestDeploy_NoErrorOnOldFunctionNotFound(t *testing.T) {
+	var (
+		root    = fromTempDirectory(t)
+		nsOne   = "nsone"
+		nsTwo   = "nstwo"
+		remover = mock.NewRemover()
+	)
+
+	// Simulate remover error
+	remover.RemoveFn = func(n, ns string) error {
+		return apiErrors.NewNotFound(schema.GroupResource{Group: "", Resource: "Namespace"}, nsOne)
+	}
+
+	// Create a basic go Function
+	f := fn.Function{
+		Runtime: "go",
+		Root:    root,
+	}
+	_, err := fn.New().Init(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Deploy the function to ns "nsone"
+	cmd := NewDeployCmd(NewTestClient(
+		fn.WithDeployer(mock.NewDeployer()),
+		fn.WithRegistry(TestRegistry),
+		fn.WithRemover(remover)))
+
+	cmd.SetArgs([]string{fmt.Sprintf("--namespace=%s", nsOne)})
+	err = cmd.Execute()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Second Deploy with different namespace
+	cmd.SetArgs([]string{fmt.Sprintf("--namespace=%s", nsTwo)})
+
+	err = cmd.Execute()
+
+	// possible TODO: catch the os.Stderr output and check that this is printed out
+	// and if this is implemented, probably change the name to *_WarnOnFunction
+	// expectedWarning := fmt.Sprintf("Warning: Cant undeploy Function in namespace '%s' - service not found. Namespace/Service might be deleted already", nsOne)
+
+	// ASSERT
+
+	// Needs to pass since the error is set to nil for NotFound error
+	if err != nil {
+		t.Fatal(err)
 	}
 }

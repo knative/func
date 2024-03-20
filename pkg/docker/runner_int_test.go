@@ -39,10 +39,14 @@ func TestRun(t *testing.T) {
 	// Initialize a new function (creates all artifacts on disk necessary
 	// to perform actions such as running)
 	f := fn.Function{Runtime: "go", Root: root, Image: displayEventImg}
-	f, err := fn.New().Init(f)
+
+	client := fn.New()
+	f, err := client.Init(f)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	f, err = client.Build(ctx, f)
 
 	// Run the function using a docker runner
 	var out, errOut bytes.Buffer

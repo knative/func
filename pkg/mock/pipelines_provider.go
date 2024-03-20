@@ -8,7 +8,7 @@ import (
 
 type PipelinesProvider struct {
 	RunInvoked          bool
-	RunFn               func(fn.Function) (string, error)
+	RunFn               func(fn.Function) (string, string, error)
 	RemoveInvoked       bool
 	RemoveFn            func(fn.Function) error
 	ConfigurePACInvoked bool
@@ -19,14 +19,25 @@ type PipelinesProvider struct {
 
 func NewPipelinesProvider() *PipelinesProvider {
 	return &PipelinesProvider{
-		RunFn:          func(fn.Function) (string, error) { return "", nil },
+		RunFn: func(f fn.Function) (string, string, error) {
+			// simplified namespace resolution, doesnt take current k8s context into
+			// account and returns DefaultNamespace if nothing else instead
+			ns := f.Namespace
+			if ns == "" {
+				ns = f.Deploy.Namespace
+			}
+			if ns == "" {
+				ns = DefaultNamespace
+			}
+			return "", ns, nil
+		},
 		RemoveFn:       func(fn.Function) error { return nil },
 		ConfigurePACFn: func(fn.Function) error { return nil },
 		RemovePACFn:    func(fn.Function) error { return nil },
 	}
 }
 
-func (p *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, error) {
+func (p *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, string, error) {
 	p.RunInvoked = true
 	return p.RunFn(f)
 }

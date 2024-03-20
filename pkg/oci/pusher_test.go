@@ -26,6 +26,7 @@ func TestPusher(t *testing.T) {
 		root, done = Mktemp(t)
 		verbose    = false
 		insecure   = true
+		anon       = true
 		success    = false
 		err        error
 	)
@@ -61,7 +62,7 @@ func TestPusher(t *testing.T) {
 	// Create and push a function
 	client := fn.New(
 		fn.WithBuilder(NewBuilder("", verbose)),
-		fn.WithPusher(NewPusher(insecure, verbose)))
+		fn.WithPusher(NewPusher(insecure, anon, verbose)))
 
 	f := fn.Function{Root: root, Runtime: "go", Name: "f", Registry: l.Addr().String() + "/funcs"}
 

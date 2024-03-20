@@ -64,13 +64,21 @@ func TestOnClusterBuild(t *testing.T) {
 			f := createSimpleGoProject(t, ns)
 			f.Build.Builder = test.Builder
 
-			url, err := pp.Run(ctx, f)
+			// simulate deploying by passing the image
+			f.Deploy.Image = f.Image
+
+			url, nsReturned, err := pp.Run(ctx, f)
 			if err != nil {
 				t.Error(err)
 				cancel()
 			}
 			if url == "" {
 				t.Error("URL returned is empty")
+				cancel()
+			}
+
+			if nsReturned == "" || nsReturned != ns {
+				t.Errorf("namespace returned is empty or does not match: '%s' should be '%s'", nsReturned, ns)
 				cancel()
 			}
 

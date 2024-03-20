@@ -127,10 +127,11 @@ func TestIntegration(t *testing.T) {
 		//     * environment variables starting which name starts with FUNC_TEST,
 		//     * files under /etc/cm and /etc/sc.
 		//   * application also prints the same info to stderr on startup
-		Image:       "quay.io/mvasek/func-test-service",
-		ImageDigest: "sha256:2eca4de00d7569c8791634bdbb0c4d5ec8fb061b001549314591e839dabd5269",
-		Created:     now,
+		Created: now,
 		Deploy: fn.DeploySpec{
+			// TODO: gauron99 - is it okay to have this explicitly set to deploy.image already?
+			// With this I skip the logic of setting the .Deploy.Image field but it should be fine for this test
+			Image:     "quay.io/mvasek/func-test-service@sha256:2eca4de00d7569c8791634bdbb0c4d5ec8fb061b001549314591e839dabd5269",
 			Namespace: namespace,
 			Labels:    []fn.Label{{Key: ptr("my-label"), Value: ptr("my-label-value")}},
 			Options: fn.Options{
@@ -155,7 +156,7 @@ func TestIntegration(t *testing.T) {
 
 	var buff = &knative.SynchronizedBuffer{}
 	go func() {
-		_ = knative.GetKServiceLogs(ctx, namespace, functionName, function.ImageWithDigest(), &now, buff)
+		_ = knative.GetKServiceLogs(ctx, namespace, functionName, function.Deploy.Image, &now, buff)
 	}()
 
 	deployer := knative.NewDeployer(knative.WithDeployerNamespace(namespace), knative.WithDeployerVerbose(false))
@@ -270,8 +271,8 @@ func TestIntegration(t *testing.T) {
 		t.Error("environment variable was not set from config-map")
 	}
 
-	remover := knative.NewRemover(namespace, false)
-	err = remover.Remove(ctx, functionName)
+	remover := knative.NewRemover(false)
+	err = remover.Remove(ctx, functionName, namespace)
 	if err != nil {
 		t.Fatal(err)
 	}

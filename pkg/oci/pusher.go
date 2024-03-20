@@ -19,21 +19,24 @@ import (
 
 // Pusher of OCI multi-arch layout directories.
 type Pusher struct {
-	Insecure bool
-	Verbose  bool
-	Username string
-	Token    string
+	Insecure  bool
+	Anonymous bool
+	Verbose   bool
+	Username  string
+	Token     string
 
 	updates chan v1.Update
 	done    chan bool
 }
 
-func NewPusher(insecure, verbose bool) *Pusher {
+func NewPusher(insecure, anon, verbose bool) *Pusher {
+	fmt.Println(insecure, anon, verbose)
 	return &Pusher{
-		Insecure: insecure,
-		Verbose:  verbose,
-		updates:  make(chan v1.Update, 10),
-		done:     make(chan bool, 1),
+		Insecure:  insecure,
+		Anonymous: anon,
+		Verbose:   verbose,
+		updates:   make(chan v1.Update, 10),
+		done:      make(chan bool, 1),
 	}
 }
 
@@ -44,10 +47,15 @@ func (p *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err er
 	if err != nil {
 		return
 	}
+
+	var opts []name.Option
+	if p.Insecure {
+		opts = append(opts, name.Insecure)
+	}
 	// TODO: GitOps Tagging: tag :latest by default, :[branch] for pinned
 	// environments and :[user]-[branch] for development/testing feature branches.
 	// has been enabled, where branch is tag-encoded.
-	ref, err := name.ParseReference(f.Image)
+	ref, err := name.ParseReference(f.Build.Image, opts...)
 	if err != nil {
 		return
 	}
@@ -79,8 +87,8 @@ func getLastBuildDir(f fn.Function) (string, error) {
 }
 
 func (p *Pusher) writeIndex(ctx context.Context, ref name.Reference, ii v1.ImageIndex) error {
-	// If we're set to insecure, just try as-is and return on failure
-	if p.Insecure {
+	// If we're set to anonymous, just try as-is and return on failure
+	if p.Anonymous {
 		return remote.WriteIndex(ref, ii,
 			remote.WithContext(ctx),
 			remote.WithProgress(p.updates))

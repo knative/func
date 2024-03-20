@@ -14,14 +14,14 @@ import (
 
 // Test_DefaultNamespace ensures that if there is an active kubeconfig,
 // that namespace will be returned as the default from the public
-// DefaultNamespae accessor, empty string otherwise.
+// DefaultNamespace accessor, empty string otherwise.
 func Test_DefaultNamespace(t *testing.T) {
 	// Update Kubeconfig to indicate the currently active namespace is:
 	// "test-ns-deploy"
 	t.Setenv("KUBECONFIG", fmt.Sprintf("%s/testdata/test_default_namespace", cwd()))
 
-	if DefaultNamespace() != "test-ns-deploy" {
-		t.Fatalf("expected 'test-ns-deploy', got '%v'", DefaultNamespace())
+	if ActiveNamespace() != "test-ns-deploy" {
+		t.Fatalf("expected 'test-ns-deploy', got '%v'", ActiveNamespace())
 	}
 }
 
@@ -113,5 +113,48 @@ func Test_processValue(t *testing.T) {
 				t.Errorf("processValue() got = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+// Test_deployerNamespace tests that namespace function returns what it should
+// via preferences. namespace() is used in knative deployer to determine what
+// namespace to deploy the function to.
+func Test_deployerNamespace(t *testing.T) {
+	// these are the namespaces being used descending in preference (top = highest pref)
+	var (
+		desiredNs  = "desiredNs"
+		deployedNs = "deployedNs"
+		deployerNs = "deployerNs"
+		defaultNs  = "test-ns-deploy"
+	// StaticDefaultNamespace -- is exported
+	)
+	f := fn.Function{Name: "myfunc"}
+
+	//set static default
+	if ns := namespace("", f); ns != StaticDefaultNamespace {
+		t.Fatal("expected static default namespace")
+	}
+	t.Setenv("KUBECONFIG", fmt.Sprintf("%s/testdata/test_default_namespace", cwd()))
+
+	// active kubernetes default
+	if ns := namespace("", f); ns != defaultNs {
+		t.Fatal("expected default k8s namespace")
+	}
+
+	// knative deployer namespace
+	if ns := namespace(deployerNs, f); ns != deployerNs {
+		t.Fatal("expected knative deployer namespace")
+	}
+
+	// already deployed namespace
+	f.Deploy.Namespace = deployedNs
+	if ns := namespace(deployerNs, f); ns != deployedNs {
+		t.Fatal("expected namespace where function is already deployed")
+	}
+
+	// desired namespace
+	f.Namespace = desiredNs
+	if ns := namespace(deployerNs, f); ns != desiredNs {
+		t.Fatal("expected desired namespace defined via f.Namespace")
 	}
 }

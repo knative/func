@@ -48,7 +48,6 @@ var (
 		"quay.io/boson/",
 		"gcr.io/paketo-buildpacks/",
 		"docker.io/paketobuildpacks/",
-		"ghcr.io/vmware-tanzu/function-buildpacks-for-knative/",
 		"gcr.io/buildpacks/",
 		"ghcr.io/knative/",
 	}
@@ -115,7 +114,7 @@ func WithTimestamp(v bool) Option {
 	}
 }
 
-var DefaultLifecycleImage = "quay.io/boson/lifecycle@sha256:f53fea9ec9188b92cab0b8a298ff852d76a6c2aaf56f968a08637e13de0e0c59"
+var DefaultLifecycleImage = "docker.io/buildpacksio/lifecycle:553c041"
 
 // Build the Function at path.
 func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platform) (err error) {
@@ -154,7 +153,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 	// Pack build options
 	opts := pack.BuildOptions{
 		AppPath:        f.Root,
-		Image:          f.Image,
+		Image:          f.Build.Image,
 		LifecycleImage: DefaultLifecycleImage,
 		Builder:        image,
 		Buildpacks:     buildpacks,

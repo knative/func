@@ -188,6 +188,21 @@ func NewCredentialsProvider(configPath string, opts ...Opt) docker.CredentialsPr
 			if err != nil {
 				return docker.Credentials{}, err
 			}
+			if creds.Username == "" || creds.Password == "" {
+				return docker.Credentials{}, ErrCredentialsNotFound
+			}
+			return docker.Credentials{
+				Username: creds.Username,
+				Password: creds.Password,
+			}, nil
+		},
+		func(registry string) (docker.Credentials, error) {
+			// Fallback onto default docker config locations
+			emptySys := &containersTypes.SystemContext{}
+			creds, err := dockerConfig.GetCredentials(emptySys, registry)
+			if err != nil {
+				return docker.Credentials{}, err
+			}
 			return docker.Credentials{
 				Username: creds.Username,
 				Password: creds.Password,

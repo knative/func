@@ -25,13 +25,13 @@ export TERM="${TERM:-dumb}"
 
 main() {
 
-  local knative_serving_version=v1.10.1
-  local knative_eventing_version=v1.10.1
-  local contour_version=v1.10.0
+  local knative_serving_version="v$(get_latest_release_version "knative" "serving")"
+  local knative_eventing_version="v$(get_latest_release_version "knative" "eventing")"
+  local contour_version="v$(get_latest_release_version "knative-extensions" "net-contour")"
 
   # Kubernetes Version node image per Kind releases (full hash is suggested):
   # https://github.com/kubernetes-sigs/kind/releases
-  local kind_node_version=v1.27.1@sha256:b7d12ed662b873bd8510879c1846e87c7e676a79fefc93e17b2a52989d3ff42b
+  local kind_node_version=v1.29.2@sha256:51a1434a5397193442f0be2a297b488b6c919ce8a3931be0ce822606ea5ca245
 
   # shellcheck disable=SC2155
   local em=$(tput bold)$(tput setaf 2)
@@ -41,6 +41,7 @@ main() {
   echo "${em}Allocating...${me}"
 
   kubernetes
+  loadbalancer
   ( set -o pipefail; (serving && dns && networking) 2>&1 | sed  -e 's/^/svr /')&
   ( set -o pipefail; (eventing && namespace) 2>&1 | sed  -e 's/^/evt /')&
   ( set -o pipefail; registry 2>&1 | sed  -e 's/^/reg /') &
@@ -54,6 +55,46 @@ main() {
   next_steps
   
   echo "${em}DONE${me}"
+}
+
+# Returns the current branch.
+# Taken from knative/hack. The function covers Knative CI use cases and local variant.
+function current_branch() {
+  local branch_name=""
+  # Get the branch name from Prow's env var, see https://github.com/kubernetes/test-infra/blob/master/prow/jobs.md.
+  # Otherwise, try getting the current branch from git.
+  (( IS_PROW )) && branch_name="${PULL_BASE_REF:-}"
+  [[ -z "${branch_name}" ]] && branch_name="${GITHUB_BASE_REF:-}"
+  [[ -z "${branch_name}" ]] && branch_name="$(git rev-parse --abbrev-ref HEAD)"
+  echo "${branch_name}"
+}
+
+# Returns whether the current branch is a release branch.
+function is_release_branch() {
+  [[ $(current_branch) =~ ^release-[0-9\.]+$ ]]
+}
+
+# Retrieve latest version from given Knative repository tags
+# On 'main' branch the latest released version is returned
+# On 'release-x.y' branch the latest patch version for 'x.y.*' is returned
+# Similar to hack/library.sh get_latest_knative_yaml_source()
+function get_latest_release_version() {
+    local org_name="$1"
+    local repo_name="$2"
+    local major_minor=""
+    if is_release_branch; then
+      local branch_name
+      branch_name="$(current_branch)"
+      major_minor="${branch_name##release-}"
+    fi
+    local version
+    version="$(git ls-remote --tags --ref https://github.com/"${org_name}"/"${repo_name}".git \
+      | grep "${major_minor}" \
+      | cut -d '-' -f2 \
+      | cut -d 'v' -f2 \
+      | sort -Vr \
+      | head -n 1)"
+    echo "${version}"
 }
 
 kubernetes() {
@@ -92,6 +133,7 @@ EOF
 
 serving() {
   echo "${em}② Knative Serving${me}"
+  echo "Version: ${knative_serving_version}"
 
   kubectl apply --filename https://github.com/knative/serving/releases/download/knative-$knative_serving_version/serving-crds.yaml
 
@@ -127,9 +169,7 @@ dns() {
   done
 }
 
-networking() {
-  echo "${em}④ Contour Ingress${me}"
-
+loadbalancer() {
   echo "Install load balancer."
   kubectl apply -f "https://raw.githubusercontent.com/metallb/metallb/v0.13.7/config/manifests/metallb-native.yaml"
   sleep 5
@@ -158,6 +198,11 @@ metadata:
   name: empty
   namespace: metallb-system
 EOF
+}
+
+networking() {
+  echo "${em}④ Contour Ingress${me}"
+  echo "Version: ${contour_version}"
 
   echo "Install a properly configured Contour."
   kubectl apply -f "https://github.com/knative/net-contour/releases/download/knative-${contour_version}/contour.yaml"
@@ -181,6 +226,7 @@ EOF
 
 eventing() {
   echo "${em}⑤ Knative Eventing${me}"
+  echo "Version: ${knative_eventing_version}"
 
   # CRDs
   kubectl apply -f https://github.com/knative/eventing/releases/download/knative-$knative_eventing_version/eventing-crds.yaml

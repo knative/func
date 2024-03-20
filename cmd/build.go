@@ -28,7 +28,7 @@ NAME
 SYNOPSIS
 	{{rootCmdUse}} build [-r|--registry] [--builder] [--builder-image] [--push]
 	             [--platform] [-p|--path] [-c|--confirm] [-v|--verbose]
-               [--build-timestamp]
+               [--build-timestamp] [--registry-insecure]
 
 DESCRIPTION
 
@@ -66,7 +66,7 @@ EXAMPLES
 
 `,
 		SuggestFor: []string{"biuld", "buidl", "built"},
-		PreRunE:    bindEnv("image", "path", "builder", "registry", "confirm", "push", "builder-image", "platform", "verbose", "build-timestamp"),
+		PreRunE:    bindEnv("image", "path", "builder", "registry", "confirm", "push", "builder-image", "platform", "verbose", "build-timestamp", "registry-insecure"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runBuild(cmd, args, newClient)
 		},
@@ -98,6 +98,7 @@ EXAMPLES
 		fmt.Sprintf("Builder to use when creating the function's container. Currently supported builders are %s. ($FUNC_BUILDER)", KnownBuilders()))
 	cmd.Flags().StringP("registry", "r", cfg.Registry,
 		"Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)")
+	cmd.Flags().Bool("registry-insecure", cfg.RegistryInsecure, "Disable HTTPS when communicating to the registry ($FUNC_REGISTRY_INSECURE)")
 
 	// Function-Context Flags:
 	// Options whose value is available on the function with context only
@@ -155,23 +156,6 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	}
 	f = cfg.Configure(f) // Updates f at path to include build request values
 
-	// TODO: this logic is duplicated with runDeploy.  Shouild be in buildConfig
-	// constructor.
-	// Checks if there is a difference between defined registry and its value
-	// used as a prefix in the image tag In case of a mismatch a new image tag is
-	// created and used for build.
-	// Do not react if image tag has been changed outside configuration
-	if f.Registry != "" && !cmd.Flags().Changed("image") && strings.Index(f.Image, "/") > 0 && !strings.HasPrefix(f.Image, f.Registry) {
-		prfx := f.Registry
-		if prfx[len(prfx)-1:] != "/" {
-			prfx = prfx + "/"
-		}
-		sps := strings.Split(f.Image, "/")
-		updImg := prfx + sps[len(sps)-1]
-		fmt.Fprintf(cmd.ErrOrStderr(), "Warning: function has current image '%s' which has a different registry than the currently configured registry '%s'. The new image tag will be '%s'.  To use an explicit image, use --image.\n", f.Image, f.Registry, updImg)
-		f.Image = updImg
-	}
-
 	// Client
 	clientOptions, err := cfg.clientOptions()
 	if err != nil {
@@ -193,7 +177,6 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 			return
 		}
 	}
-
 	if err = f.Write(); err != nil {
 		return
 	}
@@ -233,10 +216,11 @@ type buildConfig struct {
 func newBuildConfig() buildConfig {
 	return buildConfig{
 		Global: config.Global{
-			Builder:  viper.GetString("builder"),
-			Confirm:  viper.GetBool("confirm"),
-			Registry: registry(), // deferred defaulting
-			Verbose:  viper.GetBool("verbose"),
+			Builder:          viper.GetString("builder"),
+			Confirm:          viper.GetBool("confirm"),
+			Registry:         registry(), // deferred defaulting
+			Verbose:          viper.GetBool("verbose"),
+			RegistryInsecure: viper.GetBool("registry-insecure"),
 		},
 		BuilderImage:  viper.GetString("builder-image"),
 		Image:         viper.GetString("image"),
@@ -300,16 +284,12 @@ func (c buildConfig) Prompt() (buildConfig, error) {
 	// Image Name Override
 	// Calculate a better image name message which shows the value of the final
 	// image name as it will be calculated if an explicit image name is not used.
-	var imagePromptMessageSuffix string
-	if name := deriveImage(c.Image, c.Registry, c.Path); name != "" {
-		imagePromptMessageSuffix = fmt.Sprintf(". if not specified, the default '%v' will be used')", name)
-	}
 
 	qs := []*survey.Question{
 		{
 			Name: "image",
 			Prompt: &survey.Input{
-				Message: fmt.Sprintf("Image name to use (e.g. quay.io/boson/node-sample)%v:", imagePromptMessageSuffix),
+				Message: "Optionally specify an exact image name to use (e.g. quay.io/boson/node-sample:latest)",
 			},
 		},
 		{
@@ -363,7 +343,7 @@ func (c buildConfig) clientOptions() ([]fn.Option, error) {
 	if c.Builder == builders.Host {
 		o = append(o,
 			fn.WithBuilder(oci.NewBuilder(builders.Host, c.Verbose)),
-			fn.WithPusher(oci.NewPusher(false, c.Verbose)))
+			fn.WithPusher(oci.NewPusher(c.RegistryInsecure, false, c.Verbose)))
 	} else if c.Builder == builders.Pack {
 		o = append(o,
 			fn.WithBuilder(pack.NewBuilder(

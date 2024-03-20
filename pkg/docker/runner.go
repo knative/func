@@ -67,7 +67,7 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, startTimeout time.Durat
 		runtimeErrCh = make(chan error, 10)
 	)
 
-	if f.Image == "" {
+	if f.Build.Image == "" {
 		return job, errors.New("Function has no associated image. Has it been built?")
 	}
 	if c, _, err = NewClient(client.DefaultDockerHost); err != nil {
@@ -106,7 +106,7 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, startTimeout time.Durat
 	// container has successfully started.  If the startTimeout is reached
 	// before then, send a timeout error to the runtimeErrCh
 
-	if err = c.ContainerStart(ctx, id, types.ContainerStartOptions{}); err != nil {
+	if err = c.ContainerStart(ctx, id, container.StartOptions{}); err != nil {
 		return job, errors.Wrap(err, "runner unable to start container")
 	}
 
@@ -123,7 +123,7 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, startTimeout time.Durat
 		if err = c.ContainerStop(ctx, id, ctrStopOpts); err != nil {
 			return fmt.Errorf("error stopping container %v: %v\n", id, err)
 		}
-		if err = c.ContainerRemove(ctx, id, types.ContainerRemoveOptions{}); err != nil {
+		if err = c.ContainerRemove(ctx, id, container.RemoveOptions{}); err != nil {
 			return fmt.Errorf("error removing container %v: %v\n", id, err)
 		}
 		if err = conn.Close(); err != nil {
@@ -200,7 +200,7 @@ func newContainerConfig(f fn.Function, _ string, verbose bool) (c container.Conf
 	// httpPort := nat.Port(fmt.Sprintf("%v/tcp", port))
 	httpPort := nat.Port("8080/tcp")
 	c = container.Config{
-		Image:        f.Image,
+		Image:        f.Build.Image,
 		Tty:          false,
 		AttachStderr: true,
 		AttachStdout: true,
@@ -244,7 +244,7 @@ func newHostConfig(port string) (c container.HostConfig, err error) {
 func copyStdio(ctx context.Context, c client.CommonAPIClient, id string, errs chan error, out, errOut io.Writer) (conn net.Conn, err error) {
 	var (
 		res types.HijackedResponse
-		opt = types.ContainerAttachOptions{
+		opt = container.AttachOptions{
 			Stdout: true,
 			Stderr: true,
 			Stdin:  false,

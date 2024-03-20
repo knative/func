@@ -54,7 +54,11 @@
 			"properties": {
 				"namespace": {
 					"type": "string",
-					"description": "Namespace into which the function is deployed on supported platforms."
+					"description": "Namespace into which the function was deployed on supported platforms."
+				},
+				"image": {
+					"type": "string",
+					"description": "Image is the deployed image including sha256"
 				},
 				"annotations": {
 					"patternProperties": {
@@ -157,9 +161,9 @@
 					"type": "string",
 					"description": "Image is the full OCI image tag in form:\n  [registry]/[namespace]/[name]:[tag]\nexample:\n  quay.io/alice/my.function.name\nRegistry is optional and is defaulted to DefaultRegistry\nexample:\n  alice/my.function.name\nIf Image is provided, it overrides the default of concatenating\n\"Registry+Name:latest\" to derive the Image."
 				},
-				"imageDigest": {
+				"namespace": {
 					"type": "string",
-					"description": "ImageDigest is the SHA256 hash of the latest image that has been built"
+					"description": "Namespace in which to deploy the Function"
 				},
 				"created": {
 					"type": "string",

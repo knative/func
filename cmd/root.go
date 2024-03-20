@@ -58,6 +58,7 @@ Learn more about Knative at: https://knative.dev`, cfg.Name),
 	// a version prefixed by "FUNC_"
 	viper.AutomaticEnv()       // read in environment variables for FUNC_<flag>
 	viper.SetEnvPrefix("func") // ensure that all have the prefix
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 
 	// Client
 	// Use the provided ClientFactory or default to NewClient
@@ -170,6 +171,7 @@ func bindEnv(flags ...string) bindFunc {
 		}
 		viper.AutomaticEnv()       // read in environment variables for FUNC_<flag>
 		viper.SetEnvPrefix("func") // ensure that all have the prefix
+		viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 		return
 	}
 }
@@ -212,46 +214,6 @@ func deriveNameAndAbsolutePathFromPath(path string) (string, string) {
 	// Get the name of the function, which equals to name of the current directory
 	pathParts := strings.Split(strings.TrimRight(path, string(os.PathSeparator)), string(os.PathSeparator))
 	return pathParts[len(pathParts)-1], absPath
-}
-
-// deriveImage returns the same image name which will be used.
-// I.e. if the explicit name is empty, derive one from the configured registry
-// (registry plus username) and the function's name.
-//
-// This is calculated preemptively here in the CLI (prior to invoking the
-// client), only in order to provide information to the user via the prompt.
-// The client will calculate this same value if the image override is not
-// provided.
-//
-// Derivation logic:
-// deriveImage attempts to arrive at a final, full image name:
-//
-//	format:  [registry]/[username]/[functionName]:[tag]
-//	example: quay.io/myname/my.function.name:tag.
-//
-// Registry can optionally be omitted, in which case DefaultRegistry
-// will be prepended.
-//
-// If the image flag is provided, this value is used directly (the user supplied
-// --image or $FUNC_IMAGE).  Otherwise, the function at 'path' is loaded, and
-// the Image name therein is used (i.e. it was previously calculated).
-// Finally, the default registry is used, which is prepended to the function
-// name, and appended with ':latest':
-func deriveImage(explicitImage, defaultRegistry, path string) string {
-	if explicitImage != "" {
-		return explicitImage // use the explicit value provided.
-	}
-	f, err := fn.NewFunction(path)
-	if err != nil {
-		return "" // unable to derive due to load error (uninitialized?)
-	}
-	if f.Image != "" {
-		return f.Image // use value previously provided or derived.
-	}
-	// Use the func system's derivation logic.
-	// Errors deriving result in an empty return
-	derivedValue, _ := f.ImageName()
-	return derivedValue
 }
 
 func mergeEnvs(envs []fn.Env, envToUpdate *util.OrderedMap, envToRemove []string) ([]fn.Env, int, error) {

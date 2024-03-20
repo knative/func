@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/ory/viper"
@@ -36,7 +35,7 @@ DESCRIPTION
 	Values provided for flags are not persisted to the function's metadata.
 
 	Containerized Runs
-	  The --container flag indicates that the function's container shuould be
+	  The --container flag indicates that the function's container should be
 	  run rather than running the source code directly.  This may require that
 	  the function's container first be rebuilt.  Building the container on or
 	  off can be altered using the --build flag.  The default value --build=auto
@@ -156,20 +155,6 @@ func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err err
 	}
 	if f, err = cfg.Configure(f); err != nil { // Updates f with deploy cfg
 		return
-	}
-
-	// TODO: this is duplicate logic with runBuild and runRun.
-	// Refactor both to have this logic part of creating the buildConfig and thus
-	// shared because newRunConfig uses newBuildConfig for its embedded struct.
-	if f.Registry != "" && !cmd.Flags().Changed("image") && strings.Index(f.Image, "/") > 0 && !strings.HasPrefix(f.Image, f.Registry) {
-		prfx := f.Registry
-		if prfx[len(prfx)-1:] != "/" {
-			prfx = prfx + "/"
-		}
-		sps := strings.Split(f.Image, "/")
-		updImg := prfx + sps[len(sps)-1]
-		fmt.Fprintf(cmd.ErrOrStderr(), "Warning: function has current image '%s' which has a different registry than the currently configured registry '%s'. The new image tag will be '%s'.  To use an explicit image, use --image.\n", f.Image, f.Registry, updImg)
-		f.Image = updImg
 	}
 
 	// Client
