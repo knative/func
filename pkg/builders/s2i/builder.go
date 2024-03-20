@@ -194,8 +194,13 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 	scriptURL, err := s2iScriptURL(ctx, client, cfg.BuilderImage)
 	if err != nil {
 		return fmt.Errorf("cannot get s2i script url: %w", err)
+	} else if scriptURL != "image:///usr/libexec/s2i" {
+		// Only set if the label found on the image is NOT the default.
+		// Otherwise this label, which is essentially a default fallback, will
+		// take precidence over any scripts provided in ./.s2i/bin, which are
+		// suposed to be the override to that default.
+		cfg.ScriptsURL = scriptURL
 	}
-	cfg.ScriptsURL = scriptURL
 
 	// Excludes
 	// Do not include .git, .env, .func or any language-specific cache directories
