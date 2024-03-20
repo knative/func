@@ -29,8 +29,8 @@ and an 'extension' attribute for the value 'my-extension-value'.
 `,
 		SuggestFor: []string{"subcsribe"}, //nolint:misspell
 		PreRunE:    bindEnv("filter", "source"),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSubscribe(cmd, args)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runSubscribe(cmd)
 		},
 	}
 
@@ -43,7 +43,7 @@ and an 'extension' attribute for the value 'my-extension-value'.
 	return cmd
 }
 
-func runSubscribe(cmd *cobra.Command, args []string) (err error) {
+func runSubscribe(cmd *cobra.Command) (err error) {
 	var (
 		cfg subscibeConfig
 		f   fn.Function

@@ -133,7 +133,7 @@ func testBuilderValidated(cmdFn commandConstructor, t *testing.T) {
 
 	cmd.SetArgs([]string{"--builder=invalid"})
 	if err := cmd.Execute(); err == nil {
-		t.Fatalf("expected error string '%v', got '%v'", "expected", err.Error())
+		t.Fatalf("expected error for invalid, got %q", err)
 	}
 
 }
@@ -728,7 +728,7 @@ func testImageFlag(cmdFn commandConstructor, t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cmd := NewBuildCmd(NewTestClient(fn.WithBuilder(builder)))
+	cmd := cmdFn(NewTestClient(fn.WithBuilder(builder)))
 	cmd.SetArgs(args)
 
 	// Execute the command

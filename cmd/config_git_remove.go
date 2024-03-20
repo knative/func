@@ -78,7 +78,7 @@ type configGitRemoveConfig struct {
 }
 
 // newConfigGitRemoveConfig creates a configGitRemoveConfig populated from command flags
-func newConfigGitRemoveConfig(cmd *cobra.Command) (c configGitRemoveConfig) {
+func newConfigGitRemoveConfig(_ *cobra.Command) (c configGitRemoveConfig) {
 	flagSet := false
 
 	// decide what resources we should delete:
