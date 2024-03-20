@@ -48,7 +48,9 @@ if [[ $(go list -f {{.Incomplete}}) == "true" ]]; then
     fi
     exec /$STI_SCRIPTS_PATH/usage
 else
-    go build -o /opt/app-root/gobinary .s2i/builds/by-func/last
+    pushd .s2i/builds/by-func/last
+    go build -o /opt/app-root/gobinary
+    popd
     popd
 fi
 `
