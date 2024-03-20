@@ -60,6 +60,7 @@ func TestPusher_Push(t *testing.T) {
 
 	// Create and push a function
 	client := fn.New(
+		fn.WithBuilder(NewBuilder("", false)),
 		fn.WithPusher(NewPusher(insecure, anon, verbose)))
 
 	f := fn.Function{Root: root, Runtime: "go", Name: "f", Registry: l.Addr().String() + "/funcs"}
