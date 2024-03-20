@@ -10,6 +10,7 @@
 /.coverage
 /bin
 /target
+/pkg/functions/testdata/migrations/*/.gitignore
 
 # Nodejs
 node_modules
