@@ -150,8 +150,6 @@ EXAMPLES
 	// contextually relevant function; but sets are flattened via cfg.Apply(f)
 	cmd.Flags().StringP("builder", "b", cfg.Builder,
 		fmt.Sprintf("Builder to use when creating the function's container. Currently supported builders are %s.", KnownBuilders()))
-	effectiveBuilder := cfg.Builder
-	fmt.Printf("Effective Builder: %v\n", effectiveBuilder)
 	cmd.Flags().StringP("registry", "r", cfg.Registry,
 		"Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)")
 	cmd.Flags().Bool("registry-insecure", cfg.RegistryInsecure, "Disable HTTPS when communicating to the registry ($FUNC_REGISTRY_INSECURE)")
