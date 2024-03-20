@@ -1072,14 +1072,6 @@ func (c *Client) Push(ctx context.Context, f Function) (Function, error) {
 	}
 	var err error
 
-	if err != nil {
-		if os.IsNotExist(err) {
-			err = fmt.Errorf("error on push, function has not been built yet")
-			return f, err
-		}
-		return f, err
-	}
-
 	imageDigest, err := c.pusher.Push(ctx, f)
 	if err != nil {
 		return f, err
