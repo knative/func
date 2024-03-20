@@ -128,6 +128,15 @@ EXAMPLES
 		"Token to use when pushing to the registry.")
 	cmd.Flags().BoolP("build-timestamp", "", false, "Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.")
 
+	// Username, Password and Token flags, which plumb through basic auth, are
+	// currently only available on the experimental "host" builder, which is
+	// itself behind a feature flag FUNC_ENABLE_HOST_BUILDER.  So set these
+	// flags to hidden until it's out of preview and they are plumbed through
+	// the docker pusher as well.
+	cmd.Flags().MarkHidden("username")
+	cmd.Flags().MarkHidden("password")
+	cmd.Flags().MarkHidden("token")
+
 	// Oft-shared flags:
 	addConfirmFlag(cmd, cfg.Confirm)
 	addPathFlag(cmd)

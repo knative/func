@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"testing"
+	"time"
 
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/oci/mock"
@@ -60,7 +61,7 @@ func TestPusher_Push(t *testing.T) {
 
 	// Create and push a function
 	client := fn.New(
-		fn.WithBuilder(NewBuilder("", false)),
+		fn.WithBuilder(NewBuilder("", verbose)),
 		fn.WithPusher(NewPusher(insecure, anon, verbose)))
 
 	f := fn.Function{Root: root, Runtime: "go", Name: "f", Registry: l.Addr().String() + "/funcs"}
@@ -91,8 +92,8 @@ func TestPusher_BasicAuth(t *testing.T) {
 		root, done = Mktemp(t)
 		username   = "username"
 		password   = "password"
-		success    = false
 		verbose    = false
+		successCh  = make(chan bool, 100) // Many successes are queued on push
 		err        error
 	)
 	defer done()
@@ -105,14 +106,16 @@ func TestPusher_BasicAuth(t *testing.T) {
 			// no header.  ask for auth
 			w.Header().Add("www-authenticate", "Basic realm=\"Registry Realm\"")
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		} else if u != username || p != password {
+		} else if u != "username" || p != "password" {
 			// header exists, but creds are either missing or incorrect
 			t.Fatalf("Unauthorized.  Expected user %q pass %q, got user %q pass %q", username, password, u, p)
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		} else {
-			// (at least one) request authenticated
-			success = true
+			// (at least one) request indicates authentication worked.
+			// The channel has a large buffer because many are queued before
+			// the receive instruction.
+			successCh <- true
 		}
 
 		// always delegate to the registry impl which implements the protocol
@@ -153,10 +156,9 @@ func TestPusher_BasicAuth(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Assert
-	// Success is set by the handler middeware of the mock registry on the
-	// first successfully submitted basic auth request.
-	if !success {
-		t.Fatal("did not receive the image index JSON")
+	select {
+	case <-successCh:
+	case <-time.NewTimer(10 * time.Second).C:
+		t.Fatal("timed out waiting for a successful basic auth request")
 	}
 }
