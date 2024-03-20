@@ -107,7 +107,7 @@ type configGitSetConfig struct {
 
 // newConfigGitSetConfig creates a buildConfig populated from command flags and
 // environment variables; in that precedence.
-func newConfigGitSetConfig(cmd *cobra.Command) (c configGitSetConfig) {
+func newConfigGitSetConfig(_ *cobra.Command) (c configGitSetConfig) {
 	// decide what resources we should configure:
 	// - by default all resources
 	// - if any parameter is explicitly specified then get value from parameters

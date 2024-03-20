@@ -132,9 +132,9 @@ EXAMPLES
 }
 
 // Run
-func runInvoke(cmd *cobra.Command, args []string, newClient ClientFactory) (err error) {
+func runInvoke(cmd *cobra.Command, _ []string, newClient ClientFactory) (err error) {
 	// Gather flag values for the invocation
-	cfg, err := newInvokeConfig(newClient)
+	cfg, err := newInvokeConfig()
 	if err != nil {
 		return
 	}
@@ -226,7 +226,7 @@ type invokeConfig struct {
 	Insecure    bool
 }
 
-func newInvokeConfig(newClient ClientFactory) (cfg invokeConfig, err error) {
+func newInvokeConfig() (cfg invokeConfig, err error) {
 	cfg = invokeConfig{
 		Path:        viper.GetString("path"),
 		Target:      viper.GetString("target"),

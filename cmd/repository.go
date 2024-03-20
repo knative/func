@@ -174,7 +174,7 @@ func NewRepositoryListCmd(newClient ClientFactory) *cobra.Command {
 		Aliases: []string{"ls"},
 		PreRunE: bindEnv("confirm", "verbose"),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRepositoryList(cmd, args, newClient)
+			return runRepositoryList(cmd, newClient)
 		},
 	}
 
@@ -258,7 +258,7 @@ func NewRepositoryRemoveCmd(newClient ClientFactory) *cobra.Command {
 // Run
 // (list by default or interactive with -c|--confirm)
 func runRepository(cmd *cobra.Command, args []string, newClient ClientFactory) (err error) {
-	cfg, err := newRepositoryConfig(args)
+	cfg, err := newRepositoryConfig()
 	if err != nil {
 		return
 	}
@@ -285,7 +285,7 @@ func runRepository(cmd *cobra.Command, args []string, newClient ClientFactory) (
 	// Run the command indicated
 	switch answer.Action {
 	case "list":
-		return runRepositoryList(cmd, args, newClient)
+		return runRepositoryList(cmd, newClient)
 	case "add":
 		return runRepositoryAdd(cmd, args, newClient)
 	case "rename":
@@ -297,8 +297,8 @@ func runRepository(cmd *cobra.Command, args []string, newClient ClientFactory) (
 }
 
 // List
-func runRepositoryList(_ *cobra.Command, args []string, newClient ClientFactory) (err error) {
-	cfg, err := newRepositoryConfig(args)
+func runRepositoryList(_ *cobra.Command, newClient ClientFactory) (err error) {
+	cfg, err := newRepositoryConfig()
 	if err != nil {
 		return
 	}
@@ -331,7 +331,7 @@ func runRepositoryAdd(_ *cobra.Command, args []string, newClient ClientFactory) 
 	// but only requires them if not prompting.  If prompting, those values
 	// become the prompt defaults.
 
-	cfg, err := newRepositoryConfig(args)
+	cfg, err := newRepositoryConfig()
 	if err != nil {
 		return
 	}
@@ -423,7 +423,7 @@ func runRepositoryAdd(_ *cobra.Command, args []string, newClient ClientFactory) 
 
 // Rename
 func runRepositoryRename(_ *cobra.Command, args []string, newClient ClientFactory) (err error) {
-	cfg, err := newRepositoryConfig(args)
+	cfg, err := newRepositoryConfig()
 	if err != nil {
 		return
 	}
@@ -493,7 +493,7 @@ func runRepositoryRename(_ *cobra.Command, args []string, newClient ClientFactor
 
 // Remove
 func runRepositoryRemove(_ *cobra.Command, args []string, newClient ClientFactory) (err error) {
-	cfg, err := newRepositoryConfig(args)
+	cfg, err := newRepositoryConfig()
 	if err != nil {
 		return
 	}
@@ -608,7 +608,7 @@ type repositoryConfig struct {
 // newRepositoryConfig creates a configuration suitable for use instantiating the
 // fn Client. Note that parameters for the individual commands (add, remove etc)
 // are collected separately in their requisite run functions.
-func newRepositoryConfig(args []string) (cfg repositoryConfig, err error) {
+func newRepositoryConfig() (cfg repositoryConfig, err error) {
 	// initial config is populated based on flags, which are themselves
 	// first populated by static defaults, then environment variables,
 	// finally command flags.
