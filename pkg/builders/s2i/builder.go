@@ -151,28 +151,14 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 
 	// Link .s2iignore -> .funcignore
 	funcignorePath := filepath.Join(f.Root, ".funcignore")
+	s2iignorePath := filepath.Join(f.Root, ".s2iignore")
 	if _, err := os.Stat(funcignorePath); err == nil {
-		s2iignorePath := filepath.Join(f.Root, ".s2iignore")
-		// If the .s2iignore file exists, remove it
 		if _, err := os.Stat(s2iignorePath); err == nil {
-			err := os.Remove(s2iignorePath)
-			if err != nil {
-				return fmt.Errorf("error removing existing s2iignore file: %w", err)
-			}
-			// TODO(lkingland): Shouldn't an existing .s2iignore file either be
-			// included in what is ignored, or an error surfaced to the user?
-			// This silently removes what may have been an attempt by the user
-			// to ignore files using S2I's docs.  For now here's at least
-			// a warning:
-			fmt.Fprintln(os.Stderr, "Warning: an existing .s2iignore was detected.  Using .funcignore")
-
+			fmt.Fprintln(os.Stderr, "Warning: an existing .s2iignore was detected.  Using this with preferance over .funcignore")
+		} else {
+			os.Symlink("./.funcignore", filepath.Join(f.Root, ".s2iignore"))
+			defer os.Remove(filepath.Join(f.Root, ".s2iignore"))
 		}
-		// Create the symbolic link
-		err = os.Symlink(funcignorePath, s2iignorePath)
-		if err != nil {
-			return fmt.Errorf("error creating symlink: %w", err)
-		}
-		defer os.Remove(s2iignorePath)
 	}
 
 	// Build directory
