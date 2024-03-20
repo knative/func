@@ -170,19 +170,21 @@ func NewCredentialsProvider(configPath string, opts ...Opt) docker.CredentialsPr
 		AuthFilePath: c.authFilePath,
 	}
 
-	home, err := os.UserHomeDir()
-	if err != nil {
-		panic(err)
-	}
-	dockerConfigPath := filepath.Join(home, ".docker", "config.json")
-
-	var defaultCredentialLoaders = []CredentialsCallback{
+	var defaultCredentialLoaders = []CredentialsCallback{}
+	defaultCredentialLoaders = append(defaultCredentialLoaders,
 		func(registry string) (docker.Credentials, error) {
 			return getCredentialsByCredentialHelper(c.authFilePath, registry)
-		},
-		func(registry string) (docker.Credentials, error) {
-			return getCredentialsByCredentialHelper(dockerConfigPath, registry)
-		},
+		})
+
+	home, err := os.UserHomeDir()
+	if err == nil {
+		dockerConfigPath := filepath.Join(home, ".docker", "config.json")
+		defaultCredentialLoaders = append(defaultCredentialLoaders,
+			func(registry string) (docker.Credentials, error) {
+				return getCredentialsByCredentialHelper(dockerConfigPath, registry)
+			})
+	}
+	defaultCredentialLoaders = append(defaultCredentialLoaders,
 		func(registry string) (docker.Credentials, error) {
 			creds, err := dockerConfig.GetCredentials(sys, registry)
 			if err != nil {
@@ -195,7 +197,8 @@ func NewCredentialsProvider(configPath string, opts ...Opt) docker.CredentialsPr
 				Username: creds.Username,
 				Password: creds.Password,
 			}, nil
-		},
+		})
+	defaultCredentialLoaders = append(defaultCredentialLoaders,
 		func(registry string) (docker.Credentials, error) {
 			// Fallback onto default docker config locations
 			emptySys := &containersTypes.SystemContext{}
@@ -207,11 +210,11 @@ func NewCredentialsProvider(configPath string, opts ...Opt) docker.CredentialsPr
 				Username: creds.Username,
 				Password: creds.Password,
 			}, nil
-		},
+		})
+	defaultCredentialLoaders = append(defaultCredentialLoaders,
 		func(registry string) (docker.Credentials, error) { // empty credentials provider for unsecured registries
 			return docker.Credentials{}, nil
-		},
-	}
+		})
 
 	c.credentialLoaders = append(c.credentialLoaders, defaultCredentialLoaders...)
 
