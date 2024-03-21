@@ -156,8 +156,8 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 		if _, err := os.Stat(s2iignorePath); err == nil {
 			fmt.Fprintln(os.Stderr, "Warning: an existing .s2iignore was detected.  Using this with preferance over .funcignore")
 		} else {
-			os.Symlink("./.funcignore", filepath.Join(f.Root, ".s2iignore"))
-			defer os.Remove(filepath.Join(f.Root, ".s2iignore"))
+			os.Symlink("./.funcignore", s2iignorePath)
+			defer os.Remove(s2iignorePath)
 		}
 	}
 
@@ -451,7 +451,15 @@ func scaffold(cfg *api.Config, f fn.Function) (*api.Config, error) {
 			return nil, fmt.Errorf("unable to write go assembler. %w", err)
 		}
 	}
-	cfg.KeepSymlinks = true
+
+	cfg.KeepSymlinks = true // Don't infinite loop on the symlink to root.
+
+	// We want to force that the system use the (copy via filesystem)
+	// method rather than a "git clone" method because (other than being
+	// faster) appears to have a bug where the assemble script is ignored.
+	// Maybe this issue is related:
+	// https://github.com/openshift/source-to-image/issues/1141
+	cfg.ForceCopy = true
 
 	return cfg, nil
 }
