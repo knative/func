@@ -18,7 +18,7 @@ type Registry struct {
 }
 
 func NewRegistry() *Registry {
-	registryHandler := impl.New(impl.Logger(log.New(os.Stderr, "test regsitry: ", log.LstdFlags)))
+	registryHandler := impl.New(impl.Logger(log.New(os.Stderr, "test registry: ", log.LstdFlags)))
 	r := &Registry{
 		RegistryImpl: registryHandler,
 	}
