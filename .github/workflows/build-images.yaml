@@ -1,0 +1,22 @@
+name: Build Images
+
+on: [pull_request]
+
+jobs:
+  build:
+    name: Build job
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./.github/composite/go-setup
+      - name: Install uuid
+        run: |
+          sudo apt-get update
+          sudo apt-get install uuid
+      - name: Build Util Image
+        run: |
+          docker buildx create --name multiarch --driver docker-container --use
+          docker buildx build . -f Dockerfile.utils \
+            --platform=linux/ppc64le,linux/s390x,linux/amd64,linux/arm64 \
+            --push \
+            -t "ttl.sh/knative/func-util-$(uuid):2h"
