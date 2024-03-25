@@ -81,7 +81,7 @@ EXAMPLES
 
 func runTemplates(cmd *cobra.Command, args []string, newClient ClientFactory) (err error) {
 	// Gather config
-	cfg, err := newTemplatesConfig(newClient)
+	cfg, err := newTemplatesConfig()
 	if err != nil {
 		return
 	}
@@ -174,7 +174,7 @@ type templatesConfig struct {
 	JSON       bool   // output as JSON
 }
 
-func newTemplatesConfig(newClient ClientFactory) (cfg templatesConfig, err error) {
+func newTemplatesConfig() (cfg templatesConfig, err error) {
 	cfg = templatesConfig{
 		Verbose:    viper.GetBool("verbose"),
 		Repository: viper.GetString("repository"),
