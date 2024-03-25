@@ -1,0 +1,57 @@
+name: Func Integration Test
+
+on: [pull_request]
+
+jobs:
+  test:
+    name: Integration Test
+    strategy:
+      matrix:
+        os: ["ubuntu-latest"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./.github/composite/go-setup
+      - uses: imjasonh/setup-ko@v0.6
+      - name: Install Binaries
+        run: ./hack/binaries.sh
+      - name: Local Registry
+        run: ./hack/registry.sh
+      - name: Allocate Cluster
+        run: ./hack/allocate.sh
+      - name: Setup testing images
+        run: ./hack/setup-testing-images.sh
+      - name: Install Tekton
+        run: ./hack/tekton.sh
+      - name: Set up environment variables
+        run: |
+          echo "TEKTON_TESTS_ENABLED=1" >> "$GITHUB_ENV"
+          echo "GITLAB_TESTS_ENABLED=1" >> "$GITHUB_ENV"
+          echo "GITLAB_HOSTNAME=gitlab.127.0.0.1.sslip.io" >> "$GITHUB_ENV"
+          echo "GITLAB_ROOT_PASSWORD=$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c${1:-32})" >> "$GITHUB_ENV"
+          echo "PAC_CONTROLLER_HOSTNAME=pac-ctr.127.0.0.1.sslip.io" >> "$GITHUB_ENV"
+      - name: Install Pipelines as Code
+        run: ./hack/install-pac.sh
+      - name: Install Gitlab
+        run: ./hack/install-gitlab.sh
+      - name: Patch Hosts
+        run: ./hack/patch-hosts.sh
+      - name: Integration Test
+        env:
+          FUNC_REPO_REF: ${{ github.event.pull_request.head.repo.full_name }}
+          FUNC_REPO_BRANCH_REF: ${{ github.head_ref }}
+        run: make test-integration
+      - name: Dump Cluster Logs
+        if: always()
+        run: |
+          echo "::group::cluster events"
+          kubectl get events -A
+          echo "::endgroup::"
+
+          echo "::group::cluster containers logs"
+          stern '.*' --all-namespaces --no-follow
+          echo "::endgroup::"
+      - uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage.txt
+          flags: integration-tests

@@ -1,0 +1,21 @@
+name: Func Embedded FS Test
+
+on: [pull_request]
+
+jobs:
+  test:
+    name: Func Embedded FS Test
+    strategy:
+      matrix:
+        os: ["ubuntu-latest"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./.github/composite/go-setup
+      - name: Check embedded templates content
+        run: |
+          if ! go test -run "^\QTestFileSystems\E$/^\Qembedded\E$" ./pkg/filesystem; then
+            echo "Content of templates directory and embedded FS (zz_filesystem_generated.go) doesn't match!"
+            echo "Consult https:.github.com/knative/func/blob/main/docs/CONTRIBUTING.md#templates ."
+            exit 1
+          fi

@@ -1,0 +1,41 @@
+name: Func Unit Test
+
+on: [pull_request]
+
+jobs:
+  test:
+    name: Unit Test
+    strategy:
+      matrix:
+        java: [21]
+        os: ["ubuntu-latest", "windows-latest", "macos-latest"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Install Bash 4 on Mac
+        if: matrix.os == 'macos-latest'
+        run: |
+          /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+          brew update
+
+          brew install bash
+          brew install gnu-sed
+
+          echo "/usr/local/bin" >> $GITHUB_PATH
+          echo "$(brew --prefix)/opt/gnu-sed/libexec/gnubin" >> $GITHUB_PATH
+      - run: git config --global core.autocrlf false
+      - uses: actions/checkout@v3
+      - uses: ./.github/composite/go-setup
+      - uses: actions/setup-java@v1
+        with:
+          java-version: ${{ matrix.java }}
+      - name: Core Unit Tests
+        run: make test
+        env:
+          FUNC_REPO_REF: ${{ github.event.pull_request.head.repo.full_name }}
+          FUNC_REPO_BRANCH_REF: ${{ github.head_ref }}
+      - name: Template Unit Tests
+        run: make test-templates
+      - uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage.txt
+          flags: unit-tests-${{ matrix.os }}

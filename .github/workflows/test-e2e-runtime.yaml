@@ -1,0 +1,33 @@
+name: Func E2E Lifecycle Test
+
+on: [pull_request]
+
+concurrency:
+  group: ci-e1e-${{ github.ref }}-1
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: E2E Test
+    continue-on-error: true
+    strategy:
+      matrix:
+        runtime: ["node", "go", "python", "quarkus", "springboot", "typescript", "rust"]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./.github/composite/go-setup
+      - name: Install Binaries
+        run: ./hack/binaries.sh
+      - name: Allocate Cluster
+        run: ./hack/allocate.sh
+      - name: Local Registry
+        run: ./hack/registry.sh
+      - name: Build
+        run: make
+      - name: E2E runtime for ${{ matrix.runtime }}
+        run: make test-e2e-runtime runtime=${{ matrix.runtime }}
+      - uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage.txt
+          flags: e2e-test-runtime-${{ matrix.runtime }}
