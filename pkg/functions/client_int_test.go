@@ -36,7 +36,7 @@ import (
 // such as that which is setup and configured in CI (see .github/workflows).
 // Linux developers can set up the cluster via:
 //
-//   ./hack/binaries.sh && ./hack/allocate.sh && ./hack/registry.sh
+//   ./hack/install-binaries.sh && ./hack/allocate.sh && ./hack/registry.sh
 //
 // ## Cluster Cleanup
 //
