@@ -3,19 +3,12 @@
 # Suitable for use locally during development.
 # CI/CD uses the very similar knative-kind action
 
-set -o errexit
-set -o nounset
-set -o pipefail
+source "$(dirname "$(realpath "$0")")/common.sh"
 
-export TERM="${TERM:-dumb}"
+delete_resources() {
+  echo "${blue}Deleting Cluster and Registry${reset}"
 
-main() {
-  local green=$(tput bold)$(tput setaf 2)
-  local red=$(tput bold)$(tput setaf 2)
-  local reset=$(tput sgr0)
-
-  echo "${green}Deleting Cluster and Registry${reset}"
-  kind delete cluster --name "func"
+  $KIND delete cluster --name=func --kubeconfig="${KUBECONFIG}"
   docker stop func-registry && docker rm func-registry
   echo "${red}NOTE:${reset}  The following changes have not been undone:"
   echo " - Config setting registry localhost:50000 (func-registry) as insecure"
@@ -23,4 +16,13 @@ main() {
   echo "${green}DONE${reset}"
 }
 
-main
+if [ "$0" = "${BASH_SOURCE[0]}" ]; then
+  set -o errexit
+  set -o nounset
+  set -o pipefail
+
+  function main() {
+    delete_resources
+  }
+  main "$@"
+fi

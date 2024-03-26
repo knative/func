@@ -5,21 +5,10 @@
 # invoking an http echoing server.
 #
 
-set -o errexit
-set -o nounset
-set -o pipefail
+source "$(dirname "$(realpath "$0")")/common.sh"
 
-export TERM="${TERM:-dumb}"
-
-main() {
-  echo "TERM: $TERM"
-  local em=$(tput bold)$(tput setaf 2)
-  local me=$(tput sgr0)
-
-  # Drop some debug in the event even the above excessive wait does not work.
-  echo "${em}Testing...${me}"
-
-  echo "${em}  Creating echo server${me}"
+echo_test() {
+  echo "${blue}Testing Cluster via Echo Service${reset}"
 
   i=0; n=10
   while :; do
@@ -50,16 +39,24 @@ EOF
   sleep 60
 
   # Wait for the test to become available
-  echo "${em}  Waiting for echo route${me}"
+  echo "${blue}Waiting for echo route${reset}"
   kubectl wait --for=condition=Ready route echo -n func --timeout=600s
 
-  echo "${em}  Invoking echo server${me}"
+  echo "${blue}Invoking echo server${reset}"
   curl http://echo.func.127.0.0.1.sslip.io/
 
-  echo "${em}DONE${me}"
-
+  echo "${green}✅ Echo succeeded${reset}"
 }
 
-main "$@"
+if [ "$0" = "${BASH_SOURCE[0]}" ]; then
+  set -o errexit
+  set -o nounset
+  set -o pipefail
+
+  function main() {
+    echo_test
+  }
+  main "$@"
+fi
 
 
