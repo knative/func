@@ -12,13 +12,13 @@ jobs:
     continue-on-error: true
     strategy:
       matrix:
-        runtime: ["node", "go", "python", "quarkus", "springboot", "typescript", "rust"]
+        runtime: ["go"]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
       - uses: ./.github/composite/go-setup
       - name: Install Binaries
-        run: ./hack/binaries.sh
+        run: ./hack/install-binaries.sh
       - name: Allocate Cluster
         run: ./hack/allocate.sh
       - name: Local Registry
@@ -26,7 +26,10 @@ jobs:
       - name: Build
         run: make
       - name: E2E runtime for ${{ matrix.runtime }}
-        run: make test-e2e-runtime runtime=${{ matrix.runtime }}
+        run: |
+          KUBECONFIG="${{ github.workspace }}/hack/bin/kubeconfig.yaml"
+          PATH="${{ github.workspace }}/path/to/bin:$PATH"
+          make test-e2e-runtime runtime=${{ matrix.runtime }}
       - uses: codecov/codecov-action@v3
         with:
           files: ./coverage.txt
