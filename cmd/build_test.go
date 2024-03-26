@@ -88,6 +88,12 @@ func TestBuild_RegistryOrImageRequired(t *testing.T) {
 	testRegistryOrImageRequired(NewBuildCmd, t)
 }
 
+// TestBuild_Authentication ensures that Token and Username/Password auth
+// propagate to pushers which support them.
+func TestBuild_Authentication(t *testing.T) {
+	testAuthentication(NewBuildCmd, t)
+}
+
 // TestBuild_Push ensures that the build command properly pushes and respects
 // the --push flag.
 // - Push triggered after a successful build
