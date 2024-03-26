@@ -145,6 +145,24 @@ jobs:
           name: Windows Binary
           path: func_windows_amd64.exe
 
+  publish-utils-image:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push
+        run: |
+          docker buildx create --name multiarch --driver docker-container --use
+          docker buildx build . -f Dockerfile.utils \
+            --platform=linux/ppc64le,linux/s390x,linux/amd64,linux/arm64 \
+            --push \
+            -t "ghcr.io/knative/func-utils:latest"
+
   publish-image:
     needs: build
     runs-on: ubuntu-latest
