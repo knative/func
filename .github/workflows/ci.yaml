@@ -50,6 +50,8 @@ jobs:
         run: ./hack/allocate.sh
       - name: Local Registry
         run: ./hack/registry.sh
+      - name: Setup testing images
+        run: ./hack/setup-testing-images.sh
       - name: Integration Tests
         run: make test-integration
       - uses: codecov/codecov-action@v3
