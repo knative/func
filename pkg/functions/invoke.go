@@ -3,6 +3,7 @@ package functions
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -152,7 +153,17 @@ func sendEvent(ctx context.Context, route string, m InvokeMessage, t http.RoundT
 	event.SetID(m.ID)
 	event.SetSource(m.Source)
 	event.SetType(m.Type)
-	if err = event.SetData(m.ContentType, m.Data); err != nil {
+	if m.ContentType == "application/json" {
+		var d interface{}
+		err = json.Unmarshal([]byte(m.Data), &d)
+		if err != nil {
+			return
+		}
+		err = event.SetData(m.ContentType, d)
+		if err != nil {
+			return
+		}
+	} else if err = event.SetData(m.ContentType, m.Data); err != nil {
 		return
 	}
 
