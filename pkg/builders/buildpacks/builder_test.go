@@ -220,7 +220,8 @@ func TestBuild_Errors(t *testing.T) {
 }
 
 // TestBuild_HomeAndPermissions ensures that function fails during build while HOME is
-// not defined and different .config permission scenarios
+// not defined
+// TODO: can add more options with permissions for testing
 func TestBuild_HomeAndPermissions(t *testing.T) {
 	testCases := []struct {
 		name        string
@@ -229,6 +230,7 @@ func TestBuild_HomeAndPermissions(t *testing.T) {
 		expectedErr bool
 		errContains string
 	}{
+		// TODO: gauron99 -- maybe add test for PACK_HOME/ specific paths -- would require to change the impl
 		{name: "xpct-fail - create pack client when HOME not defined", homePath: false, homePerms: 0, expectedErr: true, errContains: "$HOME is not defined"},
 	}
 
@@ -260,14 +262,10 @@ func TestBuild_HomeAndPermissions(t *testing.T) {
 				}
 				t.Setenv("HOME", filepath.Join(tempdir, "home"))
 			}
-			// TODO: gauron99 -- add test for pack_home?
 			i.BuildFn = func(ctx context.Context, opts pack.BuildOptions) error {
-				packHome := os.Getenv("PACK_HOME")
-				if packHome == "" {
-					_, err := os.UserHomeDir()
-					if err != nil {
-						return errors.Wrap(err, "getting user home")
-					}
+				_, err := os.UserHomeDir()
+				if err != nil {
+					return errors.Wrap(err, "getting user home")
 				}
 				return nil
 			}
