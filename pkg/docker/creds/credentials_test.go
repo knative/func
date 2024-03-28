@@ -465,6 +465,41 @@ func TestNewCredentialsProviderEmptyCreds(t *testing.T) {
 	}
 }
 
+// TestNewCredentialsSkipDockerConfigWhenNoHome ensures that docker .config
+// credentials are NOT loaded when HOME is empty.
+// (it would be at $HOME/.docker/config.json). Removing <t.Setenv("HOME", "")>
+// should result in returned loaded credentials instead.
+func TestNewCredentialsSkipDockerConfigWhenNoHome(t *testing.T) {
+	resetHomeDir(t)
+
+	// setup PATH, .docker/config.json (docker creds) and creds loader
+	withPopulatedDockerAuthConfig(t)
+
+	helper := newInMemoryHelper()
+	setUpMockHelper("docker-credential-mock", helper)(t)
+
+	helper.Add(&credentials.Credentials{
+		ServerURL: "docker.io",
+		Username:  dockerIoUser,
+		Secret:    dockerIoUserPwd,
+	})
+
+	// have docker config credential loader but HOME is not defined -- should return nil
+	t.Setenv("HOME", "")
+	credentialsProvider := creds.NewCredentialsProvider(testConfigPath(t),
+		creds.WithVerifyCredentials(correctVerifyCbk),
+	)
+	returnedCreds, err := credentialsProvider(context.Background(), "docker.io/someorg/someimage:sometag")
+
+	// expect no credentials and error to be found here
+	if returnedCreds != (docker.Credentials{}) {
+		t.Errorf("expected no docker credentials to be found but got '%v'\n", returnedCreds)
+	}
+	if err != creds.ErrCredentialsNotFound {
+		t.Errorf("expected error to be '%v', but got '%v'", creds.ErrCredentialsNotFound, err)
+	}
+}
+
 func TestCredentialsProviderSavingFromUserInput(t *testing.T) {
 	resetHomeDir(t)
 
