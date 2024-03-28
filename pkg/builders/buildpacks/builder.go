@@ -211,7 +211,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 	if err = impl.Build(ctx, opts); err != nil {
 		if ctx.Err() != nil {
 			return // SIGINT
-		} else if !b.verbose {
+		} else if b.verbose {
 			err = fmt.Errorf("failed to build the function: %w", err)
 			fmt.Fprintln(color.Stderr(), "")
 			_, _ = io.Copy(color.Stderr(), &b.outBuff)
