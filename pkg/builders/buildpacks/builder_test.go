@@ -2,12 +2,15 @@ package buildpacks
 
 import (
 	"context"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
 
 	pack "github.com/buildpacks/pack/pkg/client"
+	"github.com/pkg/errors"
 	"knative.dev/func/pkg/builders"
 	fn "knative.dev/func/pkg/functions"
 )
@@ -211,6 +214,76 @@ func TestBuild_Errors(t *testing.T) {
 
 			if tc.expectedErr != gotErr {
 				t.Fatalf("Unexpected error want:\n%v\ngot:\n%v", tc.expectedErr, gotErr)
+			}
+		})
+	}
+}
+
+// TestBuild_HomeAndPermissions ensures that function fails during build while HOME is
+// not defined and different .config permission scenarios
+func TestBuild_HomeAndPermissions(t *testing.T) {
+	testCases := []struct {
+		name        string
+		homePath    bool
+		homePerms   fs.FileMode
+		expectedErr bool
+		errContains string
+	}{
+		{name: "xpct-fail - create pack client when HOME not defined", homePath: false, homePerms: 0, expectedErr: true, errContains: "$HOME is not defined"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tc := tc
+			var (
+				i = &mockImpl{}
+				b = NewBuilder( // Func Builder logic
+					WithName(builders.Pack),
+					WithImpl(i))
+				f = fn.Function{
+					Runtime: "go",
+					Build:   fn.BuildSpec{Image: "example.com/parent/name"},
+				}
+			)
+			// set temporary dir and assign it as func directory
+			tempdir := t.TempDir()
+			f.Root = tempdir
+
+			// setup HOME env and its perms
+			if tc.homePath == false {
+				t.Setenv("HOME", "")
+			} else {
+				// setup new home with perms
+				err := os.MkdirAll(filepath.Join(tempdir, "home"), tc.homePerms)
+				if err != nil {
+					t.Fatal(err)
+				}
+				t.Setenv("HOME", filepath.Join(tempdir, "home"))
+			}
+			// TODO: gauron99 -- add test for pack_home?
+			i.BuildFn = func(ctx context.Context, opts pack.BuildOptions) error {
+				packHome := os.Getenv("PACK_HOME")
+				if packHome == "" {
+					_, err := os.UserHomeDir()
+					if err != nil {
+						return errors.Wrap(err, "getting user home")
+					}
+				}
+				return nil
+			}
+
+			err := b.Build(context.Background(), f, nil)
+			// error scenarios
+			if tc.expectedErr {
+				if err == nil {
+					t.Fatalf("expected error but got nil")
+				} else if !strings.Contains(err.Error(), tc.errContains) {
+					t.Fatalf("expected error message '%v' was not found in the actual error: '%v'", tc.errContains, err)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("didnt expect an error but got '%v'", err)
+				}
 			}
 		})
 	}
