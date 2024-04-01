@@ -429,10 +429,10 @@ func addGoAndRustBuildpacks(config *builder.Config) {
 		{
 			ModuleInfo: dist.ModuleInfo{
 				ID:      "paketo-community/rust",
-				Version: "0.45.0",
+				Version: "0.47.0",
 			},
 			ImageOrURI: dist.ImageOrURI{
-				BuildpackURI: dist.BuildpackURI{URI: "docker://docker.io/paketocommunity/rust:0.45.0"},
+				BuildpackURI: dist.BuildpackURI{URI: "docker://docker.io/paketocommunity/rust:0.47.0"},
 			},
 		},
 		{
