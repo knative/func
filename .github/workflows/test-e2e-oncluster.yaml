@@ -10,19 +10,23 @@ jobs:
         os: ["ubuntu-latest"]
     runs-on: ${{ matrix.os }}
     steps:
+      - name: Set Environment Variables
+        run: |
+          echo "KUBECONFIG=${{ github.workspace }}/hack/bin/kubeconfig.yaml" >> "$GITHUB_ENV"
+          echo "PATH=${{ github.workspace }}/hack/bin:$PATH" >> "$GITHUB_ENV"
       - uses: actions/checkout@v3
       - uses: ./.github/composite/go-setup
       - uses: imjasonh/setup-ko@v0.6
       - name: Install Binaries
-        run: ./hack/binaries.sh
+        run: ./hack/install-binaries.sh
       - name: Allocate Cluster
         run: ./hack/allocate.sh
       - name: Setup testing images
         run: ./hack/setup-testing-images.sh
       - name: Deploy Tekton
-        run: ./hack/tekton.sh
+        run: ./hack/install-tekton.sh
       - name: Deploy Test Git Server
-        run: ./test/gitserver.sh
+        run: ./hack/install-git-server.sh
       - name: E2E On Cluster Test
         env:
           E2E_RUNTIMES: ""

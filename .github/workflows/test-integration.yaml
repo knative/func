@@ -10,11 +10,20 @@ jobs:
         os: ["ubuntu-latest"]
     runs-on: ${{ matrix.os }}
     steps:
+      - name: Set Environment Variables
+        run: |
+          echo "KUBECONFIG=${{ github.workspace }}/hack/bin/kubeconfig.yaml" >> "$GITHUB_ENV"
+          echo "PATH=${{ github.workspace }}/hack/bin:$PATH" >> "$GITHUB_ENV"
+          echo "TEKTON_TESTS_ENABLED=1" >> "$GITHUB_ENV"
+          echo "GITLAB_TESTS_ENABLED=1" >> "$GITHUB_ENV"
+          echo "GITLAB_HOSTNAME=gitlab.127.0.0.1.sslip.io" >> "$GITHUB_ENV"
+          echo "GITLAB_ROOT_PASSWORD=$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c${1:-32})" >> "$GITHUB_ENV"
+          echo "PAC_CONTROLLER_HOSTNAME=pac-ctr.127.0.0.1.sslip.io" >> "$GITHUB_ENV"
       - uses: actions/checkout@v3
       - uses: ./.github/composite/go-setup
       - uses: imjasonh/setup-ko@v0.6
       - name: Install Binaries
-        run: ./hack/binaries.sh
+        run: ./hack/install-binaries.sh
       - name: Local Registry
         run: ./hack/registry.sh
       - name: Allocate Cluster
@@ -22,14 +31,7 @@ jobs:
       - name: Setup testing images
         run: ./hack/setup-testing-images.sh
       - name: Install Tekton
-        run: ./hack/tekton.sh
-      - name: Set up environment variables
-        run: |
-          echo "TEKTON_TESTS_ENABLED=1" >> "$GITHUB_ENV"
-          echo "GITLAB_TESTS_ENABLED=1" >> "$GITHUB_ENV"
-          echo "GITLAB_HOSTNAME=gitlab.127.0.0.1.sslip.io" >> "$GITHUB_ENV"
-          echo "GITLAB_ROOT_PASSWORD=$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c${1:-32})" >> "$GITHUB_ENV"
-          echo "PAC_CONTROLLER_HOSTNAME=pac-ctr.127.0.0.1.sslip.io" >> "$GITHUB_ENV"
+        run: ./hack/install-tekton.sh
       - name: Install Pipelines as Code
         run: ./hack/install-pac.sh
       - name: Install Gitlab
