@@ -102,6 +102,17 @@ func getRunFunc(ctx context.Context, job *Job) (runFn func() error, err error) {
 }
 
 func runGo(ctx context.Context, job *Job) (err error) {
+	// FIXME:  the FUNC_GO environment variable should be
+	// pulled out into "cmd", and this setting plumbed through
+	// either as an argument or context variable accessed here, rather
+	// than accessing the environment variables directly from within a
+	// library.  This is temporary for purposes of the E2E update and
+	// will be completed in a separate issue.  Issue #TBD
+	gopath := os.Getenv("FUNC_GO") // Use if provided
+	if gopath == "" {
+		gopath = "go" // default to looking on PATH
+	}
+
 	// BUILD
 	// -----
 	// TODO: extract the build command code from the OCI Container Builder
@@ -111,7 +122,7 @@ func runGo(ctx context.Context, job *Job) (err error) {
 	}
 
 	// Get the dependencies of the function
-	cmd := exec.CommandContext(ctx, "go", "get", "f")
+	cmd := exec.CommandContext(ctx, gopath, "get", "f")
 	cmd.Dir = job.Dir()
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
@@ -124,7 +135,7 @@ func runGo(ctx context.Context, job *Job) (err error) {
 	if job.verbose {
 		args = append(args, "-v")
 	}
-	cmd = exec.CommandContext(ctx, "go", args...)
+	cmd = exec.CommandContext(ctx, gopath, args...)
 	cmd.Dir = job.Dir()
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

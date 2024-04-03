@@ -12,6 +12,9 @@
 /target
 /hack/bin
 
+/e2e/testdata/default_home/go
+/e2e/testdata/default_home/.cache
+
 # Nodejs
 node_modules
 

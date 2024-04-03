@@ -1,0 +1,25 @@
+name: E2E Tests
+
+on: [pull_request]
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: ["ubuntu-latest"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ./.github/composite/go-setup
+      - name: Install Binaries
+        run: ./hack/binaries.sh
+      - name: Allocate Cluster
+        run: ./hack/allocate.sh
+      - name: Local Registry
+        run: ./hack/registry.sh
+      - name: E2E Test
+        run: make test-e2e
+      - uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage.txt
+          flags: e2e-test
