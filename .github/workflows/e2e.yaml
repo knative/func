@@ -1,4 +1,4 @@
-name: E2E Tests
+name: E2E Tests: Host-based
 
 on: [pull_request]
 
@@ -9,17 +9,21 @@ jobs:
         os: ["ubuntu-latest"]
     runs-on: ${{ matrix.os }}
     steps:
+      - name: Set Environment Variables
+        run: |
+          echo "KUBECONFIG=${{ github.workspace }}/hack/bin/kubeconfig.yaml" >> "$GITHUB_ENV"
+          echo "PATH=${{ github.workspace }}/hack/bin:$PATH" >> "$GITHUB_ENV"
       - uses: actions/checkout@v3
       - uses: ./.github/composite/go-setup
       - name: Install Binaries
-        run: ./hack/binaries.sh
+        run: ./hack/install-binaries.sh
       - name: Allocate Cluster
         run: ./hack/allocate.sh
       - name: Local Registry
         run: ./hack/registry.sh
       - name: E2E Test
-        run: make test-e2e
+        run: make test-e2e-host
       - uses: codecov/codecov-action@v3
         with:
           files: ./coverage.txt
-          flags: e2e-test
+          flags: e2e
