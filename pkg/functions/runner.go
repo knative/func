@@ -102,6 +102,16 @@ func getRunFunc(ctx context.Context, job *Job) (runFn func() error, err error) {
 }
 
 func runGo(ctx context.Context, job *Job) (err error) {
+	// TODO:  long-term, the correct architecture is to not read env vars
+	// from deep within a package, but rather to expose the setting as a
+	// variable and leave interacting with the environment to main.
+	// This is a shortcut used by many packages, however, so it will work for
+	// now.
+	gobin := os.Getenv("FUNC_GO") // Use if provided
+	if gobin == "" {
+		gobin = "go" // default to looking on PATH
+	}
+
 	// BUILD
 	// -----
 	// TODO: extract the build command code from the OCI Container Builder
@@ -114,7 +124,7 @@ func runGo(ctx context.Context, job *Job) (err error) {
 	if job.verbose {
 		args = append(args, "-v")
 	}
-	cmd := exec.CommandContext(ctx, "go", args...)
+	cmd := exec.CommandContext(ctx, gobin, args...)
 	cmd.Dir = job.Dir()
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -128,7 +138,8 @@ func runGo(ctx context.Context, job *Job) (err error) {
 	if job.verbose {
 		args = append(args, "-v")
 	}
-	cmd = exec.CommandContext(ctx, "go", args...)
+
+	cmd = exec.CommandContext(ctx, gobin, args...)
 	cmd.Dir = job.Dir()
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
