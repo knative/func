@@ -108,9 +108,9 @@ func runGo(ctx context.Context, job *Job) (err error) {
 	// than accessing the environment variables directly from within a
 	// library.  This is temporary for purposes of the E2E update and
 	// will be completed in a separate issue.  Issue #TBD
-	gopath := os.Getenv("FUNC_GO") // Use if provided
-	if gopath == "" {
-		gopath = "go" // default to looking on PATH
+	gobin := os.Getenv("FUNC_GO") // Use if provided
+	if gobin == "" {
+		gobin = "go" // default to looking on PATH
 	}
 
 	// BUILD
@@ -122,7 +122,7 @@ func runGo(ctx context.Context, job *Job) (err error) {
 	}
 
 	// Get the dependencies of the function
-	cmd := exec.CommandContext(ctx, gopath, "get", "f")
+	cmd := exec.CommandContext(ctx, gobin, "get", "f")
 	cmd.Dir = job.Dir()
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
@@ -135,7 +135,7 @@ func runGo(ctx context.Context, job *Job) (err error) {
 	if job.verbose {
 		args = append(args, "-v")
 	}
-	cmd = exec.CommandContext(ctx, gopath, args...)
+	cmd = exec.CommandContext(ctx, gobin, args...)
 	cmd.Dir = job.Dir()
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
