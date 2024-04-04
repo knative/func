@@ -102,8 +102,13 @@ func goBuildCmd(p v1.Platform, cfg *buildConfig) (gobin string, args []string, o
 	 *    Either replace or append to gobin
 	 */
 
-	// Use the binary specified FUNC_GO_PATH if defined
-	gobin = os.Getenv("FUNC_GO_PATH") // TODO: move to main and plumb through
+	// FIXME:  the FUNC_GO environment variable should be
+	// pulled out into "cmd", and this setting plumbed through
+	// either as an argument or context variable accessed here, rather
+	// than accessing the environment variables directly from within a
+	// library.  This is temporary for purposes of the E2E update and
+	// will be completed in a separate issue.  Issue #TBD
+	gobin = os.Getenv("FUNC_GO")
 	if gobin == "" {
 		gobin = "go"
 	}
