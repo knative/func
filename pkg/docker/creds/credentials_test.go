@@ -478,11 +478,13 @@ func TestNewCredentialsSkipDockerConfigWhenNoHome(t *testing.T) {
 	helper := newInMemoryHelper()
 	setUpMockHelper("docker-credential-mock", helper)(t)
 
-	helper.Add(&credentials.Credentials{
+	if err := helper.Add(&credentials.Credentials{
 		ServerURL: "docker.io",
 		Username:  dockerIoUser,
 		Secret:    dockerIoUserPwd,
-	})
+	}); err != nil {
+		t.Error(err)
+	}
 
 	// have docker config credential loader but HOME is not defined -- should return nil
 	t.Setenv("HOME", "")
