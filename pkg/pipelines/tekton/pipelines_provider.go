@@ -37,8 +37,8 @@ import (
 	"knative.dev/pkg/apis"
 )
 
-// static const namespace for deployement when everything else fails
-const StaticDefaultNamespace = "func"
+// DefaultNamespace is the kubernetes default namespace
+const DefaultNamespace = "default"
 
 // DefaultPersistentVolumeClaimSize to allocate for the function.
 var DefaultPersistentVolumeClaimSize = resource.MustParse("256Mi")
@@ -52,19 +52,10 @@ type Opt func(*PipelinesProvider)
 type pacURLCallback = func() (string, error)
 
 type PipelinesProvider struct {
-	// namespace with which to override that set on the default configuration (such as the ~/.kube/config).
-	// If left blank, pipeline creation/run will commence to the configured namespace.
-	namespace           string
 	verbose             bool
 	getPacURL           pacURLCallback
 	credentialsProvider docker.CredentialsProvider
 	decorator           PipelineDecorator
-}
-
-func WithNamespace(namespace string) Opt {
-	return func(pp *PipelinesProvider) {
-		pp.namespace = namespace
-	}
 }
 
 func WithCredentialsProvider(credentialsProvider docker.CredentialsProvider) Opt {
@@ -119,14 +110,18 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, st
 		return "", "", err
 	}
 
-	// namespace resolution
-	pp.namespace = namespace(pp.namespace, f)
+	namespace := f.Namespace
+	if namespace == "" {
+		namespace = f.Deploy.Namespace
+	}
 
-	client, namespace, err := NewTektonClientAndResolvedNamespace(pp.namespace)
+	client, ns2, err := NewTektonClientAndResolvedNamespace(namespace)
 	if err != nil {
 		return "", "", err
 	}
-	pp.namespace = namespace
+	if ns2 != namespace {
+		panic("fixme")
+	}
 
 	// let's specify labels that will be applied to every resource that is created for a Pipeline
 	labels, err := f.LabelsMap()
@@ -137,7 +132,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, st
 		labels = pp.decorator.UpdateLabels(f, labels)
 	}
 
-	err = createPipelinePersistentVolumeClaim(ctx, f, pp.namespace, labels)
+	err = createPipelinePersistentVolumeClaim(ctx, f, namespace, labels)
 	if err != nil {
 		return "", "", err
 	}
@@ -146,13 +141,13 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, st
 		// Use direct upload to PVC if Git is not set up.
 		content := sourcesAsTarStream(f)
 		defer content.Close()
-		err = k8s.UploadToVolume(ctx, content, getPipelinePvcName(f), pp.namespace)
+		err = k8s.UploadToVolume(ctx, content, getPipelinePvcName(f), namespace)
 		if err != nil {
 			return "", "", fmt.Errorf("cannot upload sources to the PVC: %w", err)
 		}
 	}
 
-	err = createAndApplyPipelineTemplate(f, pp.namespace, labels)
+	err = createAndApplyPipelineTemplate(f, namespace, labels)
 	if err != nil {
 		if !k8serrors.IsAlreadyExists(err) {
 			if k8serrors.IsNotFound(err) {
@@ -176,7 +171,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, st
 		registry = authn.DefaultAuthKey
 	}
 
-	err = k8s.EnsureDockerRegistrySecretExist(ctx, getPipelineSecretName(f), pp.namespace, labels, f.Deploy.Annotations, creds.Username, creds.Password, registry)
+	err = k8s.EnsureDockerRegistrySecretExist(ctx, getPipelineSecretName(f), namespace, labels, f.Deploy.Annotations, creds.Username, creds.Password, registry)
 	if err != nil {
 		return "", "", fmt.Errorf("problem in creating secret: %v", err)
 	}
@@ -185,7 +180,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, st
 		f.Registry = registry
 	}
 
-	err = createAndApplyPipelineRunTemplate(f, pp.namespace, labels)
+	err = createAndApplyPipelineRunTemplate(f, namespace, labels)
 	if err != nil {
 		return "", "", fmt.Errorf("problem in creating pipeline run: %v", err)
 	}
@@ -193,32 +188,32 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, st
 	// we need to give k8s time to actually create the Pipeline Run
 	time.Sleep(1 * time.Second)
 
-	newestPipelineRun, err := findNewestPipelineRunWithRetry(ctx, f, pp.namespace, client)
+	newestPipelineRun, err := findNewestPipelineRunWithRetry(ctx, f, namespace, client)
 	if err != nil {
 		return "", "", fmt.Errorf("problem in listing pipeline runs: %v", err)
 	}
 
-	err = pp.watchPipelineRunProgress(ctx, newestPipelineRun)
+	err = pp.watchPipelineRunProgress(ctx, newestPipelineRun, namespace)
 	if err != nil {
 		if !errors.Is(err, context.Canceled) {
 			return "", "", fmt.Errorf("problem in watching started pipeline run: %v", err)
 		}
 		// TODO replace deletion with pipeline-run cancellation
-		_ = client.PipelineRuns(pp.namespace).Delete(context.TODO(), newestPipelineRun.Name, metav1.DeleteOptions{})
+		_ = client.PipelineRuns(namespace).Delete(context.TODO(), newestPipelineRun.Name, metav1.DeleteOptions{})
 		return "", "", fmt.Errorf("pipeline run cancelled: %w", context.Canceled)
 	}
 
-	newestPipelineRun, err = client.PipelineRuns(pp.namespace).Get(ctx, newestPipelineRun.Name, metav1.GetOptions{})
+	newestPipelineRun, err = client.PipelineRuns(namespace).Get(ctx, newestPipelineRun.Name, metav1.GetOptions{})
 	if err != nil {
 		return "", "", fmt.Errorf("problem in retriving pipeline run status: %v", err)
 	}
 
 	if newestPipelineRun.Status.GetCondition(apis.ConditionSucceeded).Status == corev1.ConditionFalse {
-		message := getFailedPipelineRunLog(ctx, client, newestPipelineRun, pp.namespace)
+		message := getFailedPipelineRunLog(ctx, client, newestPipelineRun, namespace)
 		return "", "", fmt.Errorf("function pipeline run has failed with message: \n\n%s", message)
 	}
 
-	kClient, err := knative.NewServingClient(pp.namespace)
+	kClient, err := knative.NewServingClient(namespace)
 	if err != nil {
 		return "", "", fmt.Errorf("problem in retrieving status of deployed function: %v", err)
 	}
@@ -232,6 +227,10 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, st
 		fmt.Fprintf(os.Stderr, "✅ Function deployed in namespace %q and exposed at URL: \n   %s\n", ksvc.Namespace, ksvc.Status.URL.String())
 	} else {
 		fmt.Fprintf(os.Stderr, "✅ Function updated in namespace %q and exposed at URL: \n   %s\n", ksvc.Namespace, ksvc.Status.URL.String())
+	}
+
+	if ksvc.Namespace != namespace {
+		panic("fixme 2")
 	}
 
 	return ksvc.Status.URL.String(), ksvc.Namespace, nil
@@ -351,27 +350,21 @@ func sourcesAsTarStream(f fn.Function) *io.PipeReader {
 
 // Remove tries to remove all resources that are present on the cluster and belongs to the input function and it's pipelines
 func (pp *PipelinesProvider) Remove(ctx context.Context, f fn.Function) error {
+	return pp.removeClusterResources(ctx, f)
+}
+
+// removeClusterResources tries to remove all resources that are present on the cluster and belongs to the input function and it's pipelines
+// if there are any errors during the removal, string with error messages is returned
+// if there are no error the returned string is empty
+func (pp *PipelinesProvider) removeClusterResources(ctx context.Context, f fn.Function) error {
 	// expect deployed namespace to be defined since trying to delete
 	// a function (and its resources)
 	if f.Deploy.Namespace == "" {
 		fmt.Print("no namespace defined when trying to delete all resources on cluster regarding function and its pipelines\n")
 		return fn.ErrNamespaceRequired
 	}
-	pp.namespace = f.Deploy.Namespace
+	namespace := f.Deploy.Namespace
 
-	var err error
-	errMsg := pp.removeClusterResources(ctx, f)
-	if errMsg != "" {
-		err = fmt.Errorf("%s", errMsg)
-	}
-
-	return err
-}
-
-// removeClusterResources tries to remove all resources that are present on the cluster and belongs to the input function and it's pipelines
-// if there are any errors during the removal, string with error messages is returned
-// if there are no error the returned string is empty
-func (pp *PipelinesProvider) removeClusterResources(ctx context.Context, f fn.Function) string {
 	l := k8slabels.SelectorFromSet(k8slabels.Set(map[string]string{fnlabels.FunctionNameKey: f.Name}))
 	listOptions := metav1.ListOptions{
 		LabelSelector: l.String(),
@@ -394,7 +387,7 @@ func (pp *PipelinesProvider) removeClusterResources(ctx context.Context, f fn.Fu
 		df := deleteFunctions[i]
 		go func() {
 			defer wg.Done()
-			err := df(ctx, pp.namespace, listOptions)
+			err := df(ctx, namespace, listOptions)
 			if err != nil && !k8serrors.IsNotFound(err) && !k8serrors.IsForbidden(err) {
 				errChan <- err
 			}
@@ -414,12 +407,12 @@ func (pp *PipelinesProvider) removeClusterResources(ctx context.Context, f fn.Fu
 		errMsg += fmt.Sprintf("\n %v", e)
 	}
 
-	return errMsg
+	return errors.New(errMsg)
 }
 
 // watchPipelineRunProgress watches the progress of the input PipelineRun
 // and prints detailed description of the currently executed Tekton Task.
-func (pp *PipelinesProvider) watchPipelineRunProgress(ctx context.Context, pr *v1beta1.PipelineRun) error {
+func (pp *PipelinesProvider) watchPipelineRunProgress(ctx context.Context, pr *v1beta1.PipelineRun, namespace string) error {
 	taskProgressMsg := map[string]string{
 		"fetch-sources": "Fetching git repository with the function source code",
 		"build":         "Building function image on the cluster",
@@ -431,7 +424,7 @@ func (pp *PipelinesProvider) watchPipelineRunProgress(ctx context.Context, pr *v
 		return err
 	}
 
-	prTracker := pipelinerun.NewTracker(pr.Name, pp.namespace, clients)
+	prTracker := pipelinerun.NewTracker(pr.Name, namespace, clients)
 	trChannel := prTracker.Monitor([]string{})
 	ctxDone := ctx.Done()
 	wg := sync.WaitGroup{}
@@ -554,33 +547,4 @@ func createPipelinePersistentVolumeClaim(ctx context.Context, f fn.Function, nam
 		return fmt.Errorf("problem creating persistent volume claim: %v", err)
 	}
 	return nil
-}
-
-// returns correct namespace to deploy to, ordered in a descending order by
-// priority: User specified via cli -> client WithDeployer -> already deployed ->
-// -> k8s default; if fails, use static default
-func namespace(dflt string, f fn.Function) string {
-	// namespace ordered by highest priority decending
-	namespace := f.Namespace
-
-	// if deployed before: use already deployed namespace
-	if namespace == "" {
-		namespace = f.Deploy.Namespace
-	}
-
-	// client namespace provided
-	if namespace == "" {
-		namespace = dflt
-	}
-
-	if namespace == "" {
-		var err error
-		// still not set, just use the defaultest default
-		namespace, err = k8s.GetDefaultNamespace()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "trying to get default namespace returns an error: '%s'\nSetting static default namespace '%s'", err, StaticDefaultNamespace)
-			namespace = StaticDefaultNamespace
-		}
-	}
-	return namespace
 }

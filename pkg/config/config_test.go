@@ -173,32 +173,6 @@ func TestRepositoriesPath(t *testing.T) {
 	}
 }
 
-// TestDefaultNamespace ensures that, when there is a problem determining the
-// active namespace, the static DefaultNamespace ("default") is used and that
-// the currently active k8s namespace is used as the default if available.
-func TestDefaultNamespace(t *testing.T) {
-	cwd := Cwd() // store for use after Mktemp which changes working directory
-
-	// Namespace "default" when empty home
-	// Note that KUBECONFIG must be defined, or the current user's ~/.kube/config
-	// will be used (and thus whichever namespace they have currently active)
-	home, cleanup := Mktemp(t)
-	t.Cleanup(cleanup)
-	t.Setenv("KUBECONFIG", filepath.Join(t.TempDir(), "nonexistent"))
-	t.Setenv("KUBERNETES_SERVICE_HOST", "")
-	t.Setenv("XDG_CONFIG_HOME", home)
-	if config.DefaultNamespace() != "default" {
-		t.Fatalf("did not receive expected default namespace 'default', got '%v'", config.DefaultNamespace())
-	}
-
-	// should be "func" when active k8s namespace is "func"
-	kubeconfig := filepath.Join(cwd, "testdata", "TestDefaultNamespace", "kubeconfig")
-	t.Setenv("KUBECONFIG", kubeconfig)
-	if config.DefaultNamespace() != "func" {
-		t.Fatalf("expected default namespace of 'func' when that is the active k8s namespace.  Got '%v'", config.DefaultNamespace())
-	}
-}
-
 // TestApply ensures that applying a function as context to a config results
 // in every member of config in the intersection of the two sets, global config
 // and function, to be set to the values of the function.
@@ -226,9 +200,14 @@ func TestApply(t *testing.T) {
 	if cfg.Language != "runtime" {
 		t.Error("apply missing map of f.Runtime ")
 	}
-	if cfg.Namespace != "namespace" {
-		t.Error("apply missing map of f.Namespace")
-	}
+	// Note that namespace is handled manually in the clients because
+	// active k8s context must be taken into account.  This may
+	// be merged back into this config package in the future, but for now
+	// "applying" a function's state onto a config will not alter
+	// the namespace value, because it's not a simple mapping.
+	// if cfg.Namespace != "namespace" {
+	// 	t.Error("apply missing map of f.Namespace")
+	// }
 	if cfg.Registry != "registry" {
 		t.Error("apply missing map of f.Registry")
 	}
@@ -242,9 +221,9 @@ func TestApply(t *testing.T) {
 	if cfg.Language == "" {
 		t.Error("empty f.Runtime should not be mapped")
 	}
-	if cfg.Namespace == "" {
-		t.Error("empty f.Namespace should not be mapped")
-	}
+	// if cfg.Namespace == "" {
+	// 	t.Error("empty f.Namespace should not be mapped")
+	// }
 	if cfg.Registry == "" {
 		t.Error("empty f.Registry should not be mapped")
 	}

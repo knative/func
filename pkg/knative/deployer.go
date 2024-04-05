@@ -33,9 +33,6 @@ import (
 const LIVENESS_ENDPOINT = "/health/liveness"
 const READINESS_ENDPOINT = "/health/readiness"
 
-// static default namespace for deployer
-const StaticDefaultNamespace = "func"
-
 type DeployDecorator interface {
 	UpdateAnnotations(fn.Function, map[string]string) map[string]string
 	UpdateLabels(fn.Function, map[string]string) map[string]string
@@ -44,17 +41,14 @@ type DeployDecorator interface {
 type DeployerOpt func(*Deployer)
 
 type Deployer struct {
-	// Namespace with which to override that set on the default configuration (such as the ~/.kube/config).
-	// If left blank, deployment will commence to the configured namespace.
-	Namespace string
 	// verbose logging enablement flag.
 	verbose bool
 
 	decorator DeployDecorator
 }
 
-// ActiveNamespace attempts to read the kubernetes active namepsace.
-// Missing configs or not having an active kuberentes configuration are
+// ActiveNamespace attempts to read the Kubernetes active namespace.
+// Missing configs or not having an active Kubernetes configuration are
 // equivalent to having no default namespace (empty string).
 func ActiveNamespace() string {
 	// Get client config, if it exists, and from that the namespace
@@ -73,12 +67,6 @@ func NewDeployer(opts ...DeployerOpt) *Deployer {
 	}
 
 	return d
-}
-
-func WithDeployerNamespace(namespace string) DeployerOpt {
-	return func(d *Deployer) {
-		d.Namespace = namespace
-	}
 }
 
 func WithDeployerVerbose(verbose bool) DeployerOpt {
@@ -104,7 +92,7 @@ func (d *Deployer) isImageInPrivateRegistry(ctx context.Context, client clientse
 	if err != nil {
 		return false
 	}
-	list, err := k8sClient.CoreV1().Pods(namespace(d.Namespace, f)).List(ctx, metav1.ListOptions{
+	list, err := k8sClient.CoreV1().Pods(f.Deploy.Namespace).List(ctx, metav1.ListOptions{
 		LabelSelector: "serving.knative.dev/revision=" + ksvc.Status.LatestCreatedRevisionName + ",serving.knative.dev/service=" + f.Name,
 		FieldSelector: "status.phase=Pending",
 	})
@@ -123,40 +111,25 @@ func (d *Deployer) isImageInPrivateRegistry(ctx context.Context, client clientse
 	return false
 }
 
-// returns correct namespace to deploy to, ordered in a descending order by
-// priority: User specified via cli -> client WithDeployer -> already deployed ->
-// -> k8s default; if fails, use static default
-func namespace(dflt string, f fn.Function) string {
-	// namespace ordered by highest priority decending
+func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResult, error) {
+	// Choosing f.Namespace vs f.Deploy.Namespace:
+	// This is minimal logic currently required of all deployer impls.
+	// If f.Namespace is defined, this is the (possibly new) target
+	// namespace.  Otherwise use the last deployed namespace.  Error if
+	// neither are set.  The logic which arbitrates between curret k8s context,
+	// flags, environment variables and global defaults to determine the
+	// effective namespace is not logic for the deployer implementation, which
+	// should have a minimum of logic.  In this case limited to "new ns or
+	// existing namespace?
 	namespace := f.Namespace
-
-	// if deployed before: use already deployed namespace
 	if namespace == "" {
 		namespace = f.Deploy.Namespace
 	}
-
-	// deployer WithDeployerNamespace provided
 	if namespace == "" {
-		namespace = dflt
+		return fn.DeploymentResult{}, fmt.Errorf("deployer requires either a target namespace or that the function be already deployed.")
 	}
 
-	if namespace == "" {
-		var err error
-		// still not set, just use the defaultest default
-		namespace, err = k8s.GetDefaultNamespace()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "trying to get default namespace returns an error: '%s'\nSetting static default namespace '%s'", err, StaticDefaultNamespace)
-			namespace = StaticDefaultNamespace
-		}
-	}
-	return namespace
-}
-
-func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResult, error) {
-
-	// returns correct namespace by priority
-	namespace := namespace(d.Namespace, f)
-
+	// Clients
 	client, err := NewServingClient(namespace)
 	if err != nil {
 		return fn.DeploymentResult{}, err

@@ -5,7 +5,10 @@ package tekton_test
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"net/http"
+	"net/http/httputil"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -19,81 +22,125 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"knative.dev/func/pkg/k8s"
+	"knative.dev/func/pkg/knative"
 
 	"knative.dev/func/pkg/builders/buildpacks"
+	pack "knative.dev/func/pkg/builders/buildpacks"
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/pipelines/tekton"
 	"knative.dev/func/pkg/random"
+
+	. "knative.dev/func/pkg/testing"
 )
 
-func TestOnClusterBuild(t *testing.T) {
-	checkTestEnabled(t)
+var testCP = func(_ context.Context, _ string) (docker.Credentials, error) {
+	return docker.Credentials{
+		Username: "",
+		Password: "",
+		// Username: "alice",
+		// Password: "alice-registry-token", Careful not to commit this.
+	}, nil
+}
 
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+const (
+	TestRegistry = "registry.default.svc.cluster.local:5000"
+	// TestRegistry  = "docker.io/alice"
+	TestNamespace = "default"
+)
+
+func newRemoteTestClient(verbose bool) *fn.Client {
+	return fn.New(
+		fn.WithBuilder(pack.NewBuilder(pack.WithVerbose(verbose))),
+		fn.WithPusher(docker.NewPusher(docker.WithCredentialsProvider(testCP))),
+		fn.WithDeployer(knative.NewDeployer(knative.WithDeployerVerbose(verbose))),
+		fn.WithRemover(knative.NewRemover(verbose)),
+		fn.WithDescriber(knative.NewDescriber(verbose)),
+		fn.WithRemover(knative.NewRemover(verbose)),
+		fn.WithPipelinesProvider(tekton.NewPipelinesProvider(tekton.WithCredentialsProvider(testCP), tekton.WithVerbose(verbose))),
+	)
+}
+
+// assertFunctionEchoes returns without error when the funciton of the given
+// name echoes a parameter sent via a Get request.
+func assertFunctionEchoes(url string) (err error) {
+	token := time.Now().Format("20060102150405.000000000")
+
+	// res, err := http.Get("http://testremote-default.default.127.0.0.1.sslip.io?token=" + token)
+	res, err := http.Get(url + "?token=" + token)
+	if err != nil {
+		return
+	}
+	if res.StatusCode != 200 {
+		return fmt.Errorf("unexpected status code %v", res.StatusCode)
+	}
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return fmt.Errorf("error parsing response. %w", err)
+	}
+	defer res.Body.Close()
+	if !strings.Contains(string(body), token) {
+		err = fmt.Errorf("response did not contain token. url: %v", url)
+		httputil.DumpResponse(res, true)
+	}
+	return
+}
+
+func tektonTestsEnabled(t *testing.T) (enabled bool) {
+	enabled, _ = strconv.ParseBool(os.Getenv("TEKTON_TESTS_ENABLED"))
+	if !enabled {
+		t.Log("Tekton tests not enabled.  Enable with TEKTON_TESTS_ENABLED=true")
+	}
+	return
+}
+
+// fromCleanEnvironment of everyting except KUBECONFIG. Create a temp directory.
+// Change to that temp directory.  Return the curent path as a convenience.
+func fromCleanEnvironment(t *testing.T) (root string) {
+	// FromTempDirectory clears envs, but sets KUBECONFIG to ./tempdata, so
+	// we have to preserve that one value.
+	t.Helper()
+	kubeconfig := os.Getenv("KUBECONFIG")
+	root = FromTempDirectory(t)
+	os.Setenv("KUBECONFIG", kubeconfig)
+	return
+}
+
+func TestRemote_Default(t *testing.T) {
+	if !tektonTestsEnabled(t) {
+		t.Skip()
+	}
+	_ = fromCleanEnvironment(t)
+	var (
+		err         error
+		url         string
+		verbose     = false
+		ctx, cancel = signal.NotifyContext(context.Background(), os.Interrupt)
+		client      = newRemoteTestClient(verbose)
+	)
 	defer cancel()
 
-	credentialsProvider := func(ctx context.Context, image string) (docker.Credentials, error) {
-		return docker.Credentials{
-			Username: "",
-			Password: "",
-		}, nil
+	f := fn.Function{
+		Name:      "testremote-default",
+		Runtime:   "node",
+		Registry:  TestRegistry,
+		Namespace: TestNamespace,
+		Build: fn.BuildSpec{
+			Builder: "pack", // TODO: test "s2i".  Currently it causes a 'no space left on device' error in GH actions.
+		},
 	}
 
-	tests := []struct {
-		Builder string
-	}{
-		{Builder: "s2i"},
-		{Builder: "pack"},
+	if f, err = client.Init(f); err != nil {
+		t.Fatal(err)
 	}
 
-	for _, test := range tests {
-		t.Run(test.Builder, func(t *testing.T) {
-			if test.Builder == "s2i" {
-				t.Skip("Skipping because this causes 'no space left on device' in GH Action.")
-			}
-			ctx, cancel := context.WithCancel(ctx)
-			defer cancel()
+	if url, f, err = client.RunPipeline(ctx, f); err != nil {
+		t.Fatal(err)
+	}
+	defer client.Remove(ctx, "", "", f, true)
 
-			ns := setupNS(t)
-
-			pp := tekton.NewPipelinesProvider(
-				tekton.WithCredentialsProvider(credentialsProvider),
-				tekton.WithNamespace(ns))
-
-			f := createSimpleGoProject(t, ns)
-			f.Build.Builder = test.Builder
-
-			// simulate deploying by passing the image
-			f.Deploy.Image = f.Image
-
-			url, nsReturned, err := pp.Run(ctx, f)
-			if err != nil {
-				t.Error(err)
-				cancel()
-			}
-			if url == "" {
-				t.Error("URL returned is empty")
-				cancel()
-			}
-
-			if nsReturned == "" || nsReturned != ns {
-				t.Errorf("namespace returned is empty or does not match: '%s' should be '%s'", nsReturned, ns)
-				cancel()
-			}
-
-			resp, err := http.Get(url)
-			if err != nil {
-				t.Error(err)
-				return
-			}
-			_ = resp.Body.Close()
-			if resp.StatusCode != 200 {
-				t.Error("bad HTTP response code")
-				return
-			}
-			t.Log("call to knative service successful")
-		})
+	if err := assertFunctionEchoes(url); err != nil {
+		t.Fatal(err)
 	}
 }
 
