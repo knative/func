@@ -309,7 +309,7 @@ func TestBuildWithoutHome(t *testing.T) {
 }
 
 // TestDeployWithoutWritableDotConfig ensures that running client.New works without
-// .config being accessable (write/read)
+// .config being accessible (write/read)
 // TODO: change this test to for-loop of Runs with different dir permissions?
 func TestDeployWithoutWritableDotConfig(t *testing.T) {
 	// defer Within(t, "tempdata/example.com/baddotconfig")

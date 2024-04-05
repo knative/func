@@ -165,17 +165,25 @@ func NewCredentialsProvider(configPath string, opts ...Opt) docker.CredentialsPr
 		}
 	}
 
+	// default credential loaders map -- load only those that should be there.
+	// Dont include loaders that dont have valid config paths etc.
+	var defaultCredentialLoaders = []CredentialsCallback{}
+
 	c.authFilePath = filepath.Join(configPath, "auth.json")
 	sys := &containersTypes.SystemContext{
 		AuthFilePath: c.authFilePath,
 	}
 
-	var defaultCredentialLoaders = []CredentialsCallback{}
-	defaultCredentialLoaders = append(defaultCredentialLoaders,
-		func(registry string) (docker.Credentials, error) {
-			return getCredentialsByCredentialHelper(c.authFilePath, registry)
-		})
+	// if path to the config file does not exist -- dont include it.
+	// That is HOME/func/auth.json or XDG_CONFIG_HOME/func/auth.json (higher pref)
+	if _, err := os.Stat(c.authFilePath); err == nil {
+		defaultCredentialLoaders = append(defaultCredentialLoaders,
+			func(registry string) (docker.Credentials, error) {
+				return getCredentialsByCredentialHelper(c.authFilePath, registry)
+			})
+	}
 
+	// check that home is defined for .docker/config.json creds
 	home, err := os.UserHomeDir()
 	if err == nil {
 		dockerConfigPath := filepath.Join(home, ".docker", "config.json")
@@ -286,7 +294,9 @@ func (c *credentialsProvider) getCredentials(ctx context.Context, image string) 
 				helper = strings.TrimPrefix(helper, "docker-credential-")
 				err = setCredentialHelperToConfig(c.authFilePath, helper)
 				if err != nil {
-					return docker.Credentials{}, fmt.Errorf("faild to set the helper to the config: %w", err)
+					// TODO: gauron99 -- figure out what to do with this
+					fmt.Fprintf(os.Stderr, "Warning: failed to set the helper to the config with error: '%v'\n", err)
+					// return docker.Credentials{}, fmt.Errorf("faild to set the helper to the config: %w", err)
 				}
 				err = setCredentialsByCredentialHelper(c.authFilePath, registry, result.Username, result.Password)
 				if err != nil {
