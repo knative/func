@@ -21,11 +21,6 @@ import (
 // These are the minimum settings necessary to create the default client
 // instance which has most subsystems initialized.
 type ClientConfig struct {
-	// Namespace in the remote cluster to use for any client commands which
-	// touch the remote.  Optional.  Empty namespace indicates the namespace
-	// currently configured in the client's connection should be used.
-	Namespace string
-
 	// Verbose logging.  By default, logging output is kept to the bare minimum.
 	// Use this flag to configure verbose logging throughout.
 	Verbose bool
@@ -62,16 +57,16 @@ func NewClient(cfg ClientConfig, options ...fn.Option) (*fn.Client, func()) {
 	var (
 		t  = newTransport(cfg.InsecureSkipVerify)    // may provide a custom impl which proxies
 		c  = newCredentialsProvider(config.Dir(), t) // for accessing registries
-		d  = newKnativeDeployer(cfg.Namespace, cfg.Verbose)
-		pp = newTektonPipelinesProvider(cfg.Namespace, c, cfg.Verbose)
+		d  = newKnativeDeployer(cfg.Verbose)
+		pp = newTektonPipelinesProvider(c, cfg.Verbose)
 		o  = []fn.Option{ // standard (shared) options for all commands
 			fn.WithVerbose(cfg.Verbose),
 			fn.WithTransport(t),
 			fn.WithRepositoriesPath(config.RepositoriesPath()),
 			fn.WithBuilder(buildpacks.NewBuilder(buildpacks.WithVerbose(cfg.Verbose))),
 			fn.WithRemover(knative.NewRemover(cfg.Verbose)),
-			fn.WithDescriber(knative.NewDescriber(cfg.Namespace, cfg.Verbose)),
-			fn.WithLister(knative.NewLister(cfg.Namespace, cfg.Verbose)),
+			fn.WithDescriber(knative.NewDescriber(cfg.Verbose)),
+			fn.WithLister(knative.NewLister(cfg.Verbose)),
 			fn.WithDeployer(d),
 			fn.WithPipelinesProvider(pp),
 			fn.WithPusher(docker.NewPusher(
@@ -117,9 +112,8 @@ func newCredentialsProvider(configPath string, t http.RoundTripper) docker.Crede
 	return creds.NewCredentialsProvider(configPath, options...)
 }
 
-func newTektonPipelinesProvider(namespace string, creds docker.CredentialsProvider, verbose bool) *tekton.PipelinesProvider {
+func newTektonPipelinesProvider(creds docker.CredentialsProvider, verbose bool) *tekton.PipelinesProvider {
 	options := []tekton.Opt{
-		tekton.WithNamespace(namespace),
 		tekton.WithCredentialsProvider(creds),
 		tekton.WithVerbose(verbose),
 		tekton.WithPipelineDecorator(deployDecorator{}),
@@ -128,9 +122,8 @@ func newTektonPipelinesProvider(namespace string, creds docker.CredentialsProvid
 	return tekton.NewPipelinesProvider(options...)
 }
 
-func newKnativeDeployer(namespace string, verbose bool) fn.Deployer {
+func newKnativeDeployer(verbose bool) fn.Deployer {
 	options := []knative.DeployerOpt{
-		knative.WithDeployerNamespace(namespace),
 		knative.WithDeployerVerbose(verbose),
 		knative.WithDeployerDecorator(deployDecorator{}),
 	}

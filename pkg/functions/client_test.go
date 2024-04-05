@@ -38,6 +38,14 @@ const (
 	// TestRuntime is currently Go, the "reference implementation" and is
 	// used for verifying functionality that should be runtime agnostic.
 	TestRuntime = "go"
+
+	// TestNamespace for tests which require deployment.  Note the noop
+	// deployer included with fn.New does not report the function was
+	// actulaly deployed.  It's intentionally a noop.  To have a minimal,
+	// but functional deployer, use fn.WithDeployer(mock.NewDeployer()) which
+	// will return a result with the target namespace populated "mocking"
+	// that the function was actually deployed.
+	TestNamespace = "func"
 )
 
 var (
@@ -54,9 +62,9 @@ func TestClient_New(t *testing.T) {
 	root := "testdata/example.com/test-new"
 	defer Using(t, root)()
 
-	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithVerbose(true))
+	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithDeployer(mock.NewDeployer()), fn.WithVerbose(true))
 
-	if _, _, err := client.New(context.Background(), fn.Function{Root: root, Runtime: TestRuntime}); err != nil {
+	if _, _, err := client.New(context.Background(), fn.Function{Root: root, Runtime: TestRuntime, Namespace: TestNamespace}); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -68,8 +76,10 @@ func TestClient_New_RunDataDir(t *testing.T) {
 	defer rm()
 	ctx := context.Background()
 
+	f := fn.Function{Root: root, Runtime: "go", Registry: TestRegistry, Namespace: TestNamespace}
+
 	// Ensure the run data directory is created when the function is created
-	if _, _, err := fn.New().New(ctx, fn.Function{Root: root, Runtime: "go", Registry: TestRegistry}); err != nil {
+	if _, _, err := fn.New(fn.WithDeployer(mock.NewDeployer())).New(ctx, f); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(root, fn.RunDataDir)); os.IsNotExist(err) {
@@ -100,7 +110,8 @@ func TestClient_New_RunDataDir(t *testing.T) {
 	if err = os.WriteFile(filepath.Join(root, ".gitignore"), []byte("user-directive\n"), os.ModePerm); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := fn.New().New(ctx, fn.Function{Root: root, Runtime: "go", Registry: TestRegistry}); err != nil {
+	f = fn.Function{Root: root, Runtime: "go", Registry: TestRegistry, Namespace: TestNamespace}
+	if _, _, err := fn.New(fn.WithDeployer(mock.NewDeployer())).New(ctx, f); err != nil {
 		t.Fatal(err)
 	}
 	containsUserDirective, containsFuncDirective := false, false
@@ -134,7 +145,8 @@ func TestClient_New_RunDataDir(t *testing.T) {
 	if err = os.WriteFile(filepath.Join(root, ".gitignore"), []byte(userDirective+"/n"), os.ModePerm); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := fn.New().New(ctx, fn.Function{Root: root, Runtime: "go", Registry: TestRegistry}); err != nil {
+	f = fn.Function{Root: root, Runtime: "go", Registry: TestRegistry, Namespace: TestNamespace}
+	if _, _, err := fn.New(fn.WithDeployer(mock.NewDeployer())).New(ctx, f); err != nil {
 		t.Fatal(err)
 	}
 	containsUserDirective, containsFuncDirective = false, false
@@ -166,7 +178,8 @@ func TestClient_New_RunDataDir(t *testing.T) {
 	if err = os.WriteFile(filepath.Join(root, ".gitignore"), []byte(userDirective+"/n"), os.ModePerm); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := fn.New().New(ctx, fn.Function{Root: root, Runtime: "go", Registry: TestRegistry}); err != nil {
+	f = fn.Function{Root: root, Runtime: "go", Registry: TestRegistry, Namespace: TestNamespace}
+	if _, _, err := fn.New(fn.WithDeployer(mock.NewDeployer())).New(ctx, f); err != nil {
 		t.Fatal(err)
 	}
 	containsFuncDirective = false
@@ -214,12 +227,13 @@ func TestClient_New_NameDefaults(t *testing.T) {
 	root := "testdata/example.com/test-name-defaults"
 	defer Using(t, root)()
 
-	client := fn.New(fn.WithRegistry(TestRegistry))
+	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithDeployer(mock.NewDeployer()))
 
 	f := fn.Function{
 		Runtime: TestRuntime,
 		// NO NAME
-		Root: root,
+		Root:      root,
+		Namespace: TestNamespace,
 	}
 
 	if _, _, err := client.New(context.Background(), f); err != nil {
@@ -243,9 +257,9 @@ func TestClient_New_WritesTemplate(t *testing.T) {
 	root := "testdata/example.com/test-writes-template"
 	defer Using(t, root)()
 
-	client := fn.New(fn.WithRegistry(TestRegistry))
-
-	if _, _, err := client.New(context.Background(), fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
+	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithDeployer(mock.NewDeployer()))
+	f := fn.Function{Runtime: TestRuntime, Root: root, Namespace: TestNamespace}
+	if _, _, err := client.New(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
 
@@ -266,10 +280,11 @@ func TestClient_New_ExtantAborts(t *testing.T) {
 	root := "testdata/example.com/test-extant-aborts"
 	defer Using(t, root)()
 
-	client := fn.New(fn.WithRegistry(TestRegistry))
+	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithDeployer(mock.NewDeployer()))
+	f := fn.Function{Runtime: TestRuntime, Root: root, Namespace: TestNamespace}
 
 	// First .New should succeed...
-	if _, _, err := client.New(context.Background(), fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
+	if _, _, err := client.New(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
 
@@ -309,7 +324,8 @@ func TestClient_New_HiddenFilesIgnored(t *testing.T) {
 	root := "testdata/example.com/test-hidden-files-ignored"
 	defer Using(t, root)()
 
-	client := fn.New(fn.WithRegistry(TestRegistry))
+	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithDeployer(mock.NewDeployer()))
+	f := fn.Function{Runtime: TestRuntime, Root: root, Namespace: TestNamespace}
 
 	// Create a hidden file that should be ignored.
 	hiddenFile := filepath.Join(root, ".envrc")
@@ -318,7 +334,7 @@ func TestClient_New_HiddenFilesIgnored(t *testing.T) {
 	}
 
 	// Should succeed without error, ignoring the hidden file.
-	if _, _, err := client.New(context.Background(), fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
+	if _, _, err := client.New(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -338,10 +354,13 @@ func TestClient_New_RepositoriesExtensible(t *testing.T) {
 
 	client := fn.New(
 		fn.WithRepositoriesPath("testdata/repositories"),
-		fn.WithRegistry(TestRegistry))
+		fn.WithRegistry(TestRegistry),
+		fn.WithDeployer(mock.NewDeployer()),
+	)
+	f := fn.Function{Root: root, Runtime: "test", Namespace: TestNamespace, Template: "customTemplateRepo/tplc"}
 
 	// Create a function specifying a template which only exists in the extensible set
-	if _, _, err := client.New(context.Background(), fn.Function{Root: root, Runtime: "test", Template: "customTemplateRepo/tplc"}); err != nil {
+	if _, _, err := client.New(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
 
@@ -439,11 +458,11 @@ func TestClient_New_Named(t *testing.T) {
 	root := "testdata/example.com/testNamed"
 	defer Using(t, root)()
 
-	client := fn.New(fn.WithRegistry(TestRegistry))
+	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithDeployer(mock.NewDeployer()))
 
-	var f fn.Function
+	f := fn.Function{Runtime: TestRuntime, Root: root, Name: name, Namespace: TestNamespace}
 	var err error
-	if _, f, err = client.New(context.Background(), fn.Function{Runtime: TestRuntime, Root: root, Name: name}); err != nil {
+	if _, f, err = client.New(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
 
@@ -484,10 +503,11 @@ func TestClient_New_ImageNamePopulated(t *testing.T) {
 	defer Using(t, root)()
 
 	// Create the function which calculates fields such as name and image.
-	client := fn.New(fn.WithRegistry(TestRegistry))
-	var f fn.Function
+	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithDeployer(mock.NewDeployer()))
+	f := fn.Function{Runtime: TestRuntime, Root: root, Namespace: TestNamespace}
+
 	var err error
-	if _, f, err = client.New(context.Background(), fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
+	if _, f, err = client.New(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
 
@@ -515,10 +535,10 @@ func TestClient_New_ImageRegistryDefaults(t *testing.T) {
 	// Create the function which calculates fields such as name and image.
 	// Rather than use TestRegistry, use a single-token name and expect
 	// the DefaultRegistry to be prepended.
-	client := fn.New(fn.WithRegistry("alice"))
-	var f fn.Function
+	client := fn.New(fn.WithRegistry("alice"), fn.WithDeployer(mock.NewDeployer()))
+	f := fn.Function{Runtime: TestRuntime, Root: root, Namespace: TestNamespace}
 	var err error
-	if _, f, err = client.New(context.Background(), fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
+	if _, f, err = client.New(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
 
@@ -572,13 +592,24 @@ func TestClient_New_Delegation(t *testing.T) {
 		return "", nil
 	}
 
-	deployer.DeployFn = func(_ context.Context, f fn.Function) (res fn.DeploymentResult, err error) {
+	deployer.DeployFn = func(_ context.Context, f fn.Function) (result fn.DeploymentResult, err error) {
 		if f.Name != expectedName {
 			t.Fatalf("deployer expected name '%v', got '%v'", expectedName, f.Name)
 		}
 		if f.Build.Image != expectedImage {
 			t.Fatalf("deployer expected image '%v', got '%v'", expectedImage, f.Build.Image)
 		}
+
+		// the minimum necessary logic for a deployer, which should be
+		// confirmed by tests in the respective implementations.
+		if f.Namespace != "" {
+			result.Namespace = f.Namespace // deployed to that requested
+		} else if f.Deploy.Namespace != "" {
+			result.Namespace = f.Deploy.Namespace // redeploy to current
+		} else {
+			err = errors.New("namespace required for initial deployment")
+		}
+
 		return
 	}
 
@@ -587,7 +618,8 @@ func TestClient_New_Delegation(t *testing.T) {
 
 	// Invoke the creation, triggering the function delegates, and
 	// perform follow-up assertions that the functions were indeed invoked.
-	if _, _, err := client.New(context.Background(), fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
+	f := fn.Function{Runtime: TestRuntime, Root: root, Namespace: TestNamespace}
+	if _, _, err := client.New(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
 
@@ -613,10 +645,15 @@ func TestClient_Run(t *testing.T) {
 
 	// client with the mock runner and the new test function
 	runner := mock.NewRunner()
-	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithRunner(runner))
-	var f fn.Function
+	client := fn.New(
+		fn.WithRegistry(TestRegistry),
+		fn.WithRunner(runner),
+		fn.WithDeployer(mock.NewDeployer()),
+	)
+	f := fn.Function{Runtime: TestRuntime, Root: root, Namespace: TestNamespace}
+
 	var err error
-	if _, f, err = client.New(context.Background(), fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
+	if _, f, err = client.New(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
 
@@ -697,9 +734,11 @@ func TestClient_Run_DataDir(t *testing.T) {
 	root := "testdata/example.com/test-run-data-dir"
 	defer Using(t, root)()
 
+	f := fn.Function{Root: root, Runtime: TestRuntime, Namespace: TestNamespace}
+
 	// Create a function at root
-	client := fn.New(fn.WithRegistry(TestRegistry))
-	if _, _, err := client.New(context.Background(), fn.Function{Root: root, Runtime: TestRuntime}); err != nil {
+	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithDeployer(mock.NewDeployer()))
+	if _, _, err := client.New(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
 
@@ -907,13 +946,14 @@ func TestClient_Update(t *testing.T) {
 func TestClient_Deploy_RegistryUpdate(t *testing.T) {
 	root, rm := Mktemp(t)
 	defer rm()
-	client := fn.New(fn.WithRegistry("example.com/alice"))
+	client := fn.New(fn.WithRegistry("example.com/alice"), fn.WithDeployer(mock.NewDeployer()))
 
 	// New runs build and deploy, thus the initial instantiation should result in
 	// the member being populated from the client's registry and function name.
-	var f fn.Function
+	f := fn.Function{Runtime: "go", Name: "f", Root: root, Namespace: TestNamespace}
+
 	var err error
-	if _, f, err = client.New(context.Background(), fn.Function{Runtime: "go", Name: "f", Root: root}); err != nil {
+	if _, f, err = client.New(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
 	if f.Build.Image != "example.com/alice/f:latest" {
@@ -984,8 +1024,8 @@ func TestClient_Deploy_NamespaceUpdate(t *testing.T) {
 	)
 
 	// New runs build and deploy, thus the initial instantiation should result in
-	// the namespace member being populated into the most default namespace
-	if _, f, err = client.New(ctx, fn.Function{Runtime: "go", Name: "f", Root: root}); err != nil {
+	// the namespace member being populated into the given namespace
+	if _, f, err = client.New(ctx, fn.Function{Runtime: "go", Name: "f", Namespace: "initialnamespace", Root: root}); err != nil {
 		t.Fatal(err)
 	}
 	if f.Deploy.Namespace == "" {
@@ -994,21 +1034,14 @@ func TestClient_Deploy_NamespaceUpdate(t *testing.T) {
 
 	// change deployed namespace to simulate already deployed function -- should
 	// take precedence
-	f.Deploy.Namespace = "alreadydeployed"
+	f.Namespace = "secondnamespace"
 	f, err = client.Deploy(ctx, f)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if f.Deploy.Namespace != "alreadydeployed" {
+	if f.Deploy.Namespace != "secondnamespace" {
 		err = fmt.Errorf("namespace should match the already deployed function ns")
-		t.Fatal(err)
-	}
-
-	// desired namespace takes precedence
-	f.Namespace = "desiredns"
-	f, err = client.Deploy(ctx, f)
-	if err != nil {
 		t.Fatal(err)
 	}
 }
@@ -1042,7 +1075,7 @@ func TestClient_Remove_ByPath(t *testing.T) {
 		return nil
 	}
 
-	if err := client.Remove(context.Background(), f, false); err != nil {
+	if err := client.Remove(context.Background(), "", "", f, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1085,7 +1118,7 @@ func TestClient_Remove_DeleteAll(t *testing.T) {
 		return nil
 	}
 
-	if err := client.Remove(context.Background(), f, deleteAll); err != nil {
+	if err := client.Remove(context.Background(), "", "", f, deleteAll); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1132,7 +1165,7 @@ func TestClient_Remove_Dont_DeleteAll(t *testing.T) {
 		return nil
 	}
 
-	if err := client.Remove(context.Background(), f, deleteAll); err != nil {
+	if err := client.Remove(context.Background(), "", "", f, deleteAll); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1174,12 +1207,12 @@ func TestClient_Remove_ByName(t *testing.T) {
 	}
 
 	// Run remove with name (and namespace in .Deploy to simulate deployed function)
-	if err := client.Remove(context.Background(), fn.Function{Name: expectedName, Deploy: fn.DeploySpec{Namespace: namespace}}, false); err != nil {
+	if err := client.Remove(context.Background(), "", "", fn.Function{Name: expectedName, Deploy: fn.DeploySpec{Namespace: namespace}}, false); err != nil {
 		t.Fatal(err)
 	}
 
 	// Run remove with a name and a root, which should be ignored in favor of the name.
-	if err := client.Remove(context.Background(), fn.Function{Name: expectedName, Root: root, Deploy: fn.DeploySpec{Namespace: namespace}}, false); err != nil {
+	if err := client.Remove(context.Background(), "", "", fn.Function{Name: expectedName, Root: root, Deploy: fn.DeploySpec{Namespace: namespace}}, false); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1210,7 +1243,7 @@ func TestClient_Remove_UninitializedFails(t *testing.T) {
 		fn.WithRemover(remover))
 
 	// Attempt to remove by path (uninitialized), expecting an error.
-	if err := client.Remove(context.Background(), fn.Function{Root: root}, false); err == nil {
+	if err := client.Remove(context.Background(), "", "", fn.Function{Root: root}, false); err == nil {
 		t.Fatalf("did not received expeced error removing an uninitialized func")
 	}
 }
@@ -1221,7 +1254,7 @@ func TestClient_List(t *testing.T) {
 
 	client := fn.New(fn.WithLister(lister)) // lists deployed functions.
 
-	if _, err := client.List(context.Background()); err != nil {
+	if _, err := client.List(context.Background(), ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1240,7 +1273,7 @@ func TestClient_List_OutsideRoot(t *testing.T) {
 	// Instantiate in the current working directory, with no name.
 	client := fn.New(fn.WithLister(lister))
 
-	if _, err := client.List(context.Background()); err != nil {
+	if _, err := client.List(context.Background(), ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1261,9 +1294,15 @@ func TestClient_Deploy_Image(t *testing.T) {
 	client := fn.New(
 		fn.WithBuilder(mock.NewBuilder()),
 		fn.WithDeployer(mock.NewDeployer()),
-		fn.WithRegistry("example.com/alice"))
+	)
 
-	f, err := client.Init(fn.Function{Name: "myfunc", Runtime: "go", Root: root})
+	f, err := client.Init(fn.Function{
+		Name:      "myfunc",
+		Namespace: "initialnamespace",
+		Runtime:   "go",
+		Root:      root,
+		Registry:  TestRegistry,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1331,9 +1370,10 @@ func TestClient_Pipelines_Deploy_Image(t *testing.T) {
 		fn.WithRegistry("example.com/alice"))
 
 	f := fn.Function{
-		Name:    "myfunc",
-		Runtime: "node",
-		Root:    root,
+		Name:      "myfunc",
+		Namespace: "initialnamespace",
+		Runtime:   "node",
+		Root:      root,
 		Build: fn.BuildSpec{
 			Git: fn.Git{URL: "http://example-git.com/alice/myfunc.git"},
 		},
@@ -1351,7 +1391,7 @@ func TestClient_Pipelines_Deploy_Image(t *testing.T) {
 	}
 
 	// Upon pipeline run, the .Deploy.Image should be populated
-	if f, err = client.RunPipeline(context.Background(), f); err != nil {
+	if _, f, err = client.RunPipeline(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
 	expected := "example.com/alice/myfunc:latest"
@@ -1369,7 +1409,7 @@ func TestClient_Pipelines_Deploy_Image(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Upon pipeline run, the function should be populated;
-	if f, err = client.RunPipeline(context.Background(), f); err != nil {
+	if _, f, err = client.RunPipeline(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
 	expected = "registry2.example.com/bob/myfunc:latest"
@@ -1421,7 +1461,7 @@ func TestClient_Pipelines_Deploy_Namespace(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if f, err = client.RunPipeline(context.Background(), f); err != nil {
+	if _, f, err = client.RunPipeline(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1463,12 +1503,13 @@ func TestClient_Deploy_UnbuiltErrors(t *testing.T) {
 func TestClient_New_BuildersPersisted(t *testing.T) {
 	root := "testdata/example.com/test-configured-builders" // Root from which to run the test
 	defer Using(t, root)()
-	client := fn.New(fn.WithRegistry(TestRegistry))
+	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithDeployer(mock.NewDeployer()))
 
 	// A function with predefined builders
 	f0 := fn.Function{
-		Runtime: TestRuntime,
-		Root:    root,
+		Runtime:   TestRuntime,
+		Namespace: TestNamespace,
+		Root:      root,
 		Build: fn.BuildSpec{
 			BuilderImages: map[string]string{
 				builders.Pack: "example.com/my/custom-pack-builder",
@@ -1504,16 +1545,17 @@ func TestClient_New_BuildpacksPersisted(t *testing.T) {
 	buildpacks := []string{
 		"docker.io/example/custom-buildpack",
 	}
-	client := fn.New(fn.WithRegistry(TestRegistry))
-	var f fn.Function
-	var err error
-	if _, f, err = client.New(context.Background(), fn.Function{
-		Runtime: TestRuntime,
-		Root:    root,
+	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithDeployer(mock.NewDeployer()))
+	f := fn.Function{
+		Runtime:   TestRuntime,
+		Namespace: TestNamespace,
+		Root:      root,
 		Build: fn.BuildSpec{
 			Buildpacks: buildpacks,
-		},
-	}); err != nil {
+		}}
+
+	var err error
+	if _, f, err = client.New(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1619,11 +1661,11 @@ func TestClient_New_Timestamp(t *testing.T) {
 
 	start := time.Now()
 
-	client := fn.New(fn.WithRegistry(TestRegistry))
+	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithDeployer(mock.NewDeployer()))
+	f := fn.Function{Runtime: TestRuntime, Root: root, Namespace: TestNamespace}
 
-	var f fn.Function
 	var err error
-	if _, f, err = client.New(context.Background(), fn.Function{Runtime: TestRuntime, Root: root}); err != nil {
+	if _, f, err = client.New(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
 
@@ -1703,10 +1745,14 @@ func TestClient_Invoke_HTTP(t *testing.T) {
 		stop := func() error { return nil }
 		return fn.NewJob(f, "127.0.0.1", p, errs, stop, false)
 	}
-	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithRunner(runner))
+	client := fn.New(
+		fn.WithRegistry(TestRegistry),
+		fn.WithRunner(runner),
+		fn.WithDeployer(mock.NewDeployer()),
+	)
 
 	// Create a new default HTTP function
-	f := fn.Function{Runtime: TestRuntime, Root: root, Template: "http"}
+	f := fn.Function{Runtime: TestRuntime, Root: root, Template: "http", Namespace: TestNamespace}
 	if _, f, err = client.New(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
@@ -1801,10 +1847,14 @@ func TestClient_Invoke_CloudEvent(t *testing.T) {
 		stop := func() error { return nil }
 		return fn.NewJob(f, "127.0.0.1", p, errs, stop, false)
 	}
-	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithRunner(runner))
+	client := fn.New(
+		fn.WithRegistry(TestRegistry),
+		fn.WithRunner(runner),
+		fn.WithDeployer(mock.NewDeployer()),
+	)
 
 	// Create a new default CloudEvents function
-	f := fn.Function{Runtime: TestRuntime, Root: root, Template: "cloudevents"}
+	f := fn.Function{Runtime: TestRuntime, Root: root, Template: "cloudevents", Namespace: TestNamespace}
 	if _, f, err = client.New(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
@@ -1852,12 +1902,16 @@ func TestClient_Instances(t *testing.T) {
 	}
 
 	// Client with the mock runner
-	client := fn.New(fn.WithRegistry(TestRegistry), fn.WithRunner(runner))
+	client := fn.New(
+		fn.WithRegistry(TestRegistry),
+		fn.WithRunner(runner),
+		fn.WithDeployer(mock.NewDeployer()),
+	)
+	f := fn.Function{Root: root, Runtime: TestRuntime, Namespace: TestNamespace}
 
 	// Create the new function
-	var f fn.Function
 	var err error
-	if _, f, err = client.New(context.Background(), fn.Function{Root: root, Runtime: TestRuntime}); err != nil {
+	if _, f, err = client.New(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
 

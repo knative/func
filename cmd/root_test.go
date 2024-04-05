@@ -271,6 +271,75 @@ func TestRoot_effectivePath(t *testing.T) {
 
 }
 
+// Test_defaultNamespace ensures that the order of precedence for
+// determining the effective namespace is followed.
+// to use for the next deployment.
+func Test_defaultNamespace(t *testing.T) {
+	// Clear non-test envs and set the test KUBECONFIG to nonexistent, but
+	// save the current working directory for setting kube context in some
+	// test cases.
+	cwd := Cwd()
+	_ = FromTempDirectory(t) // clears non-test envs and enters a temp dir.
+	t.Setenv("KUBECONFIG", filepath.Join(t.TempDir(), "nonexistent"))
+
+	// also clear the test KUBECONFIG env
+	tests := []struct {
+		name     string
+		context  bool
+		global   bool
+		expected string
+	}{
+		// TODO cases for function state f.Namespace and f.Deploy.Namespace
+		{
+			name:     "static default",
+			context:  false,            // no active kube context
+			global:   false,            // no global
+			expected: DefaultNamespace, // expect static default
+		}, {
+			name:     "global config",
+			context:  false,
+			global:   true,            // see the global defined in FUNC_HOME testdata
+			expected: "globaldefault", // expect global to override static
+		}, {
+			name:     "active context",
+			context:  true, // see the config in KUBECONFIG testdata
+			global:   true,
+			expected: "mynamespace", // active context overrides global default
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+
+			if test.global { // enable a global config setting
+				t.Setenv("XDG_CONFIG_HOME", filepath.Join(cwd, "testdata", "Test_defaultNamespace"))
+			}
+			if test.context { // enable an active kube context
+				t.Setenv("KUBECONFIG", filepath.Join(cwd, "testdata", "Test_defaultNamespace", "kubeconfig"))
+			}
+
+			namespace := defaultNamespace(fn.Function{}, false)
+			if namespace != test.expected {
+				t.Fatalf("%v:  expected namespace %q, got %q", test.name, test.expected, namespace)
+			}
+
+		})
+	}
+
+	// t.Setenv("KUBECONFIG", filepath.Join(t.TempDir(), "nonexistent"))
+	// t.Setenv("KUBERNETES_SERVICE_HOST", "")
+	// t.Setenv("XDG_CONFIG_HOME", home)
+	// if config.DefaultNamespace() != "default" {
+	// 	t.Fatalf("did not receive expected default namespace 'default', got '%v'", config.DefaultNamespace())
+	// }
+	//
+	// // should be "func" when active k8s namespace is "func"
+	// kubeconfig := filepath.Join(cwd, "testdata", "TestDefaultNamespace", "kubeconfig")
+	// t.Setenv("KUBECONFIG", kubeconfig)
+	// if config.DefaultNamespace() != "func" {
+	// 	t.Fatalf("expected default namespace of 'func' when that is the active k8s namespace.  Got '%v'", config.DefaultNamespace())
+	// }
+}
+
 // Helpers
 // -------
 
@@ -308,31 +377,4 @@ func piped(t *testing.T) func() string {
 		}
 		return strings.TrimSpace(b.String())
 	}
-}
-
-// fromTempDirectory is a test helper which endeavors to create
-// an environment clean of developer's settings for use during CLI testing.
-func fromTempDirectory(t *testing.T) string {
-	t.Helper()
-	ClearEnvs(t)
-
-	// We have to define KUBECONFIG, or the file at ~/.kube/config (if extant)
-	// will be used (disrupting tests by using the current user's environment).
-	// The test kubeconfig set below has the current namespace set to 'func'
-	// NOTE: the below settings affect unit tests only, and we do explicitly
-	// want all unit tests to start in an empty environment with tests "opting in"
-	// to config, not opting out.
-	t.Setenv("KUBECONFIG", filepath.Join(cwd(), "testdata", "default_kubeconfig"))
-
-	// By default unit tests presum no config exists unless provided in testdata.
-	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
-
-	t.Setenv("KUBERNETES_SERVICE_HOST", "")
-
-	// creates and CDs to a temp directory
-	d, done := Mktemp(t)
-
-	// Return to original directory and resets viper.
-	t.Cleanup(func() { done(); viper.Reset() })
-	return d
 }

@@ -4,10 +4,11 @@ import (
 	"testing"
 
 	fn "knative.dev/func/pkg/functions"
+	. "knative.dev/func/pkg/testing"
 )
 
 func TestSubscribeWithAll(t *testing.T) {
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	_, err := fn.New().Init(fn.Function{Runtime: "go", Root: root})
 	if err != nil {
@@ -40,7 +41,7 @@ func TestSubscribeWithAll(t *testing.T) {
 }
 
 func TestSubscribeWithMultiple(t *testing.T) {
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	_, err := fn.New().Init(fn.Function{Runtime: "go", Root: root})
 	if err != nil {
@@ -101,7 +102,7 @@ func TestSubscribeWithMultiple(t *testing.T) {
 }
 
 func TestSubscribeWithMultipleBrokersAndOverride(t *testing.T) {
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	_, err := fn.New().Init(fn.Function{Runtime: "go", Root: root})
 	if err != nil {
@@ -182,7 +183,7 @@ func TestSubscribeWithMultipleBrokersAndOverride(t *testing.T) {
 }
 
 func TestSubscribeWithNoExplicitSourceAll(t *testing.T) {
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	_, err := fn.New().Init(fn.Function{Runtime: "go", Root: root})
 	if err != nil {
@@ -215,7 +216,7 @@ func TestSubscribeWithNoExplicitSourceAll(t *testing.T) {
 }
 
 func TestSubscribeWithDuplicated(t *testing.T) {
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	_, err := fn.New().Init(fn.Function{Runtime: "go", Root: root})
 	if err != nil {

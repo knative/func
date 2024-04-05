@@ -214,6 +214,45 @@ func RunGitServer(root string, t *testing.T) (url string) {
 	return "http://" + url
 }
 
+// FromTempDirectory moves the test into a new temporary directory and
+// clears all known interfering environment variables.  Returned is the
+// path to the somewhat isolated test environment.
+// Note that KUBECONFIG is also set to testdata/default_kubeconfig which can
+// be used for tests which are explicitly checking logic which depends on
+// kube context.
+func FromTempDirectory(t *testing.T) string {
+	t.Helper()
+	ClearEnvs(t)
+
+	// We have to define KUBECONFIG, or the file at ~/.kube/config (if extant)
+	// will be used (disrupting tests by using the current user's environment).
+	// The test kubeconfig set below has the current namespace set to 'func'
+	// NOTE: the below settings affect unit tests only, and we do explicitly
+	// want all unit tests to start in an empty environment with tests "opting in"
+	// to config, not opting out.
+	t.Setenv("KUBECONFIG", filepath.Join(Cwd(), "testdata", "default_kubeconfig"))
+
+	// By default unit tests presum no config exists unless provided in testdata.
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	t.Setenv("KUBERNETES_SERVICE_HOST", "")
+
+	// creates and CDs to a temp directory
+	d, done := Mktemp(t)
+
+	// Done and Reset
+	// NOTE:
+	// NO CLI command should require resetting viper.  If a CLI test
+	// is failing, and the following fixes the problem, it's probably because
+	// an instance of a command is being reused multiple times in the same
+	// test when a new instance of the command struct should instead be
+	// created for each test case:
+	// t.Cleanup(func() { done(); viper.Reset() })
+	t.Cleanup(done)
+
+	return d
+}
+
 // Cwd returns the current working directory or panic if unable to determine.
 func Cwd() (cwd string) {
 	cwd, err := os.Getwd()

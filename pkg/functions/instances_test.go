@@ -6,8 +6,6 @@ package functions
 import (
 	"context"
 	"errors"
-	"fmt"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -69,7 +67,7 @@ func TestInstance_RemoteErrors(t *testing.T) {
 	defer rm()
 
 	// Create a function that will not be running
-	_, err := New().Init(Function{Runtime: "go", Root: root})
+	_, err := New().Init(Function{Runtime: "go", Namespace: "ns1", Root: root})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,32 +77,38 @@ func TestInstance_RemoteErrors(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var badRoot = "no such file or directory"
-	if runtime.GOOS == "windows" {
-		badRoot = "The system cannot find the file specified"
-	}
+	var nameRequired = "requires function name"
+	var nsRequired = "requires namespace"
 
 	tests := []struct {
-		name string
-		root string
-		want string
+		test      string
+		name      string
+		namespace string
+		want      string
 	}{
 		{
-			name: "",
-			root: "foo", // bad root
-			want: badRoot,
+			test:      "missing namespace",
+			name:      "foo",
+			namespace: "",
+			want:      nsRequired,
 		},
 		{
-			name: "foo", // name and root are mismatched
-			root: root,
-			want: "name passed does not match name of the function at root",
+			test:      "missing name",
+			name:      "",
+			namespace: "ns",
+			want:      nameRequired,
+		},
+		{
+			test:      "missing both",
+			name:      "",
+			namespace: "",
+			want:      nameRequired,
 		},
 	}
 	for _, test := range tests {
-		testName := fmt.Sprintf("name '%v' and root '%v'", test.name, test.root)
-		t.Run(testName, func(t *testing.T) {
+		t.Run(test.test, func(t *testing.T) {
 			i := InstanceRefs{}
-			_, err := i.Remote(context.Background(), test.name, test.root)
+			_, err := i.Remote(context.Background(), test.name, test.namespace)
 			if err == nil {
 				t.Fatal("did not receive expected error")
 			}
