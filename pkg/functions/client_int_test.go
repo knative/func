@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -309,35 +308,28 @@ func TestBuildWithoutHome(t *testing.T) {
 	// dont call del() because function wasnt deployed
 }
 
-// TestDeployWithoutWritableDotConfig ensures that running client.New works without
-// .config being accessible (write/read)
+// TestDeployWithoutHomeWithS2i ensures that running client.New works without
+// home
 // TODO: change this test to for-loop of Runs with different dir permissions?
-func TestDeployWithoutWritableDotConfig(t *testing.T) {
-	// defer Within(t, "tempdata/example.com/baddotconfig")
+func TestDeployWithoutHomeWithS2i(t *testing.T) {
 	root, cleanup := Mktemp(t)
 	defer cleanup()
 
-	t.Setenv("HOME", root)
+	t.Setenv("HOME", "")
 	verbose := true
+	name := "test-deploy-no-home"
 
-	// write new .config with no perms
-	err := os.Mkdir(path.Join(root, ".config"), 0000)
+	f := fn.Function{Runtime: "node", Name: name, Root: root}
+
+	// client with s2i builder
+	client := newClientWithS2i(verbose)
+
+	// expect to succeed
+	_, _, err := client.New(context.Background(), f)
 	if err != nil {
-		t.Error(err)
+		t.Fatalf("expected no errors but got %v", err)
 	}
-
-	f := fn.Function{Runtime: "go", Name: "test-deploy-no-perms-config", Root: root}
-
-	// client with pack builder
-	client := newClient(verbose)
-
-	// expect to fail on build for HOME not being defined with pack builder
-	_, _, err = client.New(context.Background(), f)
-	// this error should be 'permission denied' for trying to write to open .config
-	if err == nil {
-		t.Fatalf("expected an error but got nil")
-	}
-	// dont call del() because function wasnt deployed
+	defer del(t, client, name)
 }
 
 // TestRemove ensures removal of a function instance.
