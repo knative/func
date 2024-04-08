@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"path"
 	"path/filepath"
 	"reflect"
 	"testing"
@@ -20,6 +19,7 @@ import (
 	"github.com/docker/docker/client"
 
 	"knative.dev/func/pkg/builders/buildpacks"
+	"knative.dev/func/pkg/builders/s2i"
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/knative"
@@ -308,35 +308,28 @@ func TestBuildWithoutHome(t *testing.T) {
 	// dont call del() because function wasnt deployed
 }
 
-// TestDeployWithoutWritableDotConfig ensures that running client.New works without
-// .config being accessible (write/read)
+// TestDeployWithoutHomeWithS2i ensures that running client.New works without
+// home
 // TODO: change this test to for-loop of Runs with different dir permissions?
-func TestDeployWithoutWritableDotConfig(t *testing.T) {
-	// defer Within(t, "tempdata/example.com/baddotconfig")
+func TestDeployWithoutHomeWithS2i(t *testing.T) {
 	root, cleanup := Mktemp(t)
 	defer cleanup()
 
-	t.Setenv("HOME", root)
+	t.Setenv("HOME", "")
 	verbose := true
+	name := "test-deploy-no-home"
 
-	// write new .config with no perms
-	err := os.Mkdir(path.Join(root, ".config"), 0000)
+	f := fn.Function{Runtime: "node", Name: name, Root: root}
+
+	// client with s2i builder
+	client := newClientWithS2i(verbose)
+
+	// expect to succeed
+	_, _, err := client.New(context.Background(), f)
 	if err != nil {
-		t.Error(err)
+		t.Fatalf("expected no errors but got %v", err)
 	}
-
-	f := fn.Function{Runtime: "go", Name: "test-deploy-no-perms-config", Root: root}
-
-	// client with pack builder
-	client := newClient(verbose)
-
-	// expect to fail on build for HOME not being defined with pack builder
-	_, _, err = client.New(context.Background(), f)
-	// this error should be 'permission denied' for trying to write to open .config
-	if err == nil {
-		t.Fatalf("expected an error but got nil")
-	}
-	// dont call del() because function wasnt deployed
+	defer del(t, client, name)
 }
 
 // TestRemove ensures removal of a function instance.
@@ -606,6 +599,27 @@ func newClient(verbose bool) *fn.Client {
 	describer := knative.NewDescriber(verbose)
 	remover := knative.NewRemover(verbose)
 	lister := knative.NewLister(verbose)
+
+	return fn.New(
+		fn.WithRegistry(DefaultRegistry),
+		fn.WithVerbose(verbose),
+		fn.WithBuilder(builder),
+		fn.WithPusher(pusher),
+		fn.WithDeployer(deployer),
+		fn.WithDescriber(describer),
+		fn.WithRemover(remover),
+		fn.WithLister(lister),
+	)
+}
+
+// copy of newClient just builder is s2i instead of buildpacks
+func newClientWithS2i(verbose bool) *fn.Client {
+	builder := s2i.NewBuilder(s2i.WithVerbose(verbose))
+	pusher := docker.NewPusher(docker.WithVerbose(verbose))
+	deployer := knative.NewDeployer(knative.WithDeployerNamespace(DefaultNamespace), knative.WithDeployerVerbose(verbose))
+	describer := knative.NewDescriber(DefaultNamespace, verbose)
+	remover := knative.NewRemover(verbose)
+	lister := knative.NewLister(DefaultNamespace, verbose)
 
 	return fn.New(
 		fn.WithRegistry(DefaultRegistry),
