@@ -197,6 +197,7 @@ templates/certs/ca-certificates.crt:
 ###################
 
 test-integration: ## Run integration tests using an available cluster.
+	env
 	go test -ldflags "$(LDFLAGS)" -tags integration -timeout 30m --coverprofile=coverage.txt ./... -v
 
 .PHONY: func-instrumented
