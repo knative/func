@@ -82,7 +82,7 @@ func Test_validatePipeline(t *testing.T) {
 		{
 			name:     "Unsupported runtime - Go - s2i builder",
 			function: fn.Function{Build: fn.BuildSpec{Builder: builders.S2I}, Runtime: "go"},
-			wantErr:  true,
+			wantErr:  false,
 		},
 		{
 			name:     "Supported runtime - Quarkus - pack builder - without additional Buildpacks",

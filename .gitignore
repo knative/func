@@ -12,6 +12,11 @@
 /target
 /hack/bin
 
+/e2e/testdata/default_home/go
+/e2e/testdata/default_home/.cache
+
+/pkg/functions/testdata/migrations/*/.gitignore
+
 # Nodejs
 node_modules
 
