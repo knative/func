@@ -19,7 +19,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"knative.dev/client-pkg/pkg/kn/flags"
+	"knative.dev/client-pkg/pkg/flags"
 	servingclientlib "knative.dev/client-pkg/pkg/serving"
 	clientservingv1 "knative.dev/client-pkg/pkg/serving/v1"
 	"knative.dev/client-pkg/pkg/wait"

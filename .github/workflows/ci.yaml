@@ -34,7 +34,7 @@ jobs:
         run:  make test
       - name: Template Unit Tests
         run:  make test-templates
-      - uses: codecov/codecov-action@v3
+      - uses: codecov/codecov-action@v4
         with:
           files: ./coverage.txt
           flags: unit-tests-${{ matrix.os }}
@@ -58,7 +58,7 @@ jobs:
         run: ./hack/setup-testing-images.sh
       - name: Integration Tests
         run: make test-integration
-      - uses: codecov/codecov-action@v3
+      - uses: codecov/codecov-action@v4
         with:
           files: ./coverage.txt
           flags: integration-tests
@@ -83,7 +83,7 @@ jobs:
         run: ./hack/registry.sh
       - name: E2E Test
         run: make test-e2e
-      - uses: codecov/codecov-action@v3
+      - uses: codecov/codecov-action@v4
         with:
           files: ./coverage.txt
           flags: e2e-test
@@ -115,7 +115,7 @@ jobs:
         env:
           E2E_RUNTIMES: ""
         run: make test-e2e-on-cluster
-      - uses: codecov/codecov-action@v3
+      - uses: codecov/codecov-action@v4
         with:
           files: ./coverage.txt
           flags: e2e-test-oncluster

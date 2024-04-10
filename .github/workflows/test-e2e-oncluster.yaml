@@ -33,7 +33,7 @@ jobs:
           FUNC_REPO_REF: ${{ github.event.pull_request.head.repo.full_name }}
           FUNC_REPO_BRANCH_REF: ${{ github.head_ref }}
         run: make test-e2e-on-cluster
-      - uses: codecov/codecov-action@v3
+      - uses: codecov/codecov-action@v4
         with:
           files: ./coverage.txt
           flags: e2e-test-oncluster
