@@ -69,8 +69,7 @@ func TestBasicGit(t *testing.T) {
 	var funcPath = filepath.Join(t.TempDir(), funcName)
 
 	func() {
-		gitServer := common.GitTestServerProvider{}
-		gitServer.Init(t)
+		gitServer := common.GetGitServer(t)
 		remoteRepo := gitServer.CreateRepository(funcName)
 		defer gitServer.DeleteRepository(funcName)
 

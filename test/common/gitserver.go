@@ -12,10 +12,14 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
+var DefaultGitServer GitProvider
+
 func GetGitServer(T *testing.T) GitProvider {
-	gitTestServer := GitTestServerProvider{}
-	gitTestServer.Init(T)
-	return &gitTestServer
+	if DefaultGitServer == nil {
+		DefaultGitServer = &GitTestServerKnativeProvider{}
+	}
+	DefaultGitServer.Init(T)
+	return DefaultGitServer
 }
 
 type GitRemoteRepo struct {
@@ -34,14 +38,14 @@ type GitProvider interface {
 // Git Server on Kubernetes as Knative Service (func-git)
 // ------------------------------------------------------
 
-type GitTestServerProvider struct {
+type GitTestServerKnativeProvider struct {
 	PodName    string
 	ServiceUrl string
 	Kubectl    *TestExecCmd
 	t          *testing.T
 }
 
-func (g *GitTestServerProvider) Init(T *testing.T) {
+func (g *GitTestServerKnativeProvider) Init(T *testing.T) {
 
 	g.t = T
 	if g.PodName == "" {
@@ -83,7 +87,7 @@ func (g *GitTestServerProvider) Init(T *testing.T) {
 	T.Logf("Initialized HTTP Func Git Server: Server URL = %v Pod Name = %v\n", g.ServiceUrl, g.PodName)
 }
 
-func (g *GitTestServerProvider) CreateRepository(repoName string) *GitRemoteRepo {
+func (g *GitTestServerKnativeProvider) CreateRepository(repoName string) *GitRemoteRepo {
 	// kubectl exec $podname -c user-container -- git-repo create $reponame
 	cmdResult := g.Kubectl.Exec("exec", g.PodName, "-c", "user-container", "--", "git-repo", "create", repoName)
 	if !strings.Contains(cmdResult.Out, "created") {
@@ -98,7 +102,7 @@ func (g *GitTestServerProvider) CreateRepository(repoName string) *GitRemoteRepo
 	return gitRepo
 }
 
-func (g *GitTestServerProvider) DeleteRepository(repoName string) {
+func (g *GitTestServerKnativeProvider) DeleteRepository(repoName string) {
 	cmdResult := g.Kubectl.Exec("exec", g.PodName, "-c", "user-container", "--", "git-repo", "delete", repoName)
 	if !strings.Contains(cmdResult.Out, "deleted") {
 		g.t.Fatal("unable to delete git bare repository " + repoName)
