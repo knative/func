@@ -65,8 +65,8 @@ EXAMPLES
 `,
 		SuggestFor: []string{"rnu"},
 		PreRunE:    bindEnv("build", "builder", "builder-image", "confirm", "container", "env", "image", "path", "registry", "start-timeout", "verbose"),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runRun(cmd, args, newClient)
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			return runRun(cmd, newClient)
 		},
 	}
 
@@ -136,7 +136,7 @@ EXAMPLES
 	return cmd
 }
 
-func runRun(cmd *cobra.Command, args []string, newClient ClientFactory) (err error) {
+func runRun(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	var (
 		cfg runConfig
 		f   fn.Function

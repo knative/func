@@ -401,6 +401,7 @@ func TestList(t *testing.T) {
 		"language",
 		"namespace",
 		"registry",
+		"registryInsecure",
 		"verbose",
 	}
 

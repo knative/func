@@ -10,6 +10,7 @@
 /.coverage
 /bin
 /target
+/hack/bin
 
 # Nodejs
 node_modules

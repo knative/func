@@ -15,10 +15,14 @@ jobs:
         runtime: ["node", "go", "python", "quarkus", "springboot", "typescript", "rust"]
     runs-on: ubuntu-latest
     steps:
+      - name: Set Environment Variables
+        run: |
+          echo "KUBECONFIG=${{ github.workspace }}/hack/bin/kubeconfig.yaml" >> "$GITHUB_ENV"
+          echo "PATH=${{ github.workspace }}/hack/bin:$PATH" >> "$GITHUB_ENV"
       - uses: actions/checkout@v3
       - uses: ./.github/composite/go-setup
       - name: Install Binaries
-        run: ./hack/binaries.sh
+        run: ./hack/install-binaries.sh
       - name: Allocate Cluster
         run: ./hack/allocate.sh
       - name: Local Registry
@@ -27,7 +31,7 @@ jobs:
         run: make
       - name: E2E runtime for ${{ matrix.runtime }}
         run: make test-e2e-runtime runtime=${{ matrix.runtime }}
-      - uses: codecov/codecov-action@v3
+      - uses: codecov/codecov-action@v4
         with:
           files: ./coverage.txt
           flags: e2e-test-runtime-${{ matrix.runtime }}

@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
@@ -26,9 +27,10 @@ NAME
 	{{rootCmdUse}} build - Build a function container locally without deploying
 
 SYNOPSIS
-	{{rootCmdUse}} build [-r|--registry] [--builder] [--builder-image] [--push]
+	{{rootCmdUse}} build [-r|--registry] [--builder] [--builder-image]
+		         [--push] [--username] [--password] [--token]
 	             [--platform] [-p|--path] [-c|--confirm] [-v|--verbose]
-               [--build-timestamp]
+		         [--build-timestamp] [--registry-insecure]
 
 DESCRIPTION
 
@@ -66,7 +68,9 @@ EXAMPLES
 
 `,
 		SuggestFor: []string{"biuld", "buidl", "built"},
-		PreRunE:    bindEnv("image", "path", "builder", "registry", "confirm", "push", "builder-image", "platform", "verbose", "build-timestamp"),
+		PreRunE: bindEnv("image", "path", "builder", "registry", "confirm",
+			"push", "builder-image", "platform", "verbose", "build-timestamp",
+			"registry-insecure", "username", "password", "token"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runBuild(cmd, args, newClient)
 		},
@@ -98,6 +102,7 @@ EXAMPLES
 		fmt.Sprintf("Builder to use when creating the function's container. Currently supported builders are %s. ($FUNC_BUILDER)", KnownBuilders()))
 	cmd.Flags().StringP("registry", "r", cfg.Registry,
 		"Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)")
+	cmd.Flags().Bool("registry-insecure", cfg.RegistryInsecure, "Disable HTTPS when communicating to the registry ($FUNC_REGISTRY_INSECURE)")
 
 	// Function-Context Flags:
 	// Options whose value is available on the function with context only
@@ -107,15 +112,31 @@ EXAMPLES
 		"Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)")
 	cmd.Flags().StringP("image", "i", f.Image,
 		"Full image name in the form [registry]/[namespace]/[name]:[tag] (optional). This option takes precedence over --registry ($FUNC_IMAGE)")
-	cmd.Flags().BoolP("build-timestamp", "", false, "Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.")
 
 	// Static Flags:
-	// Options which have static defaults only (not globally configurable nor
-	// persisted with the function)
+	// Options which are either empty or have static defaults only (not
+	// globally configurable nor persisted with the function)
 	cmd.Flags().BoolP("push", "u", false,
 		"Attempt to push the function image to the configured registry after being successfully built")
 	cmd.Flags().StringP("platform", "", "",
 		"Optionally specify a target platform, for example \"linux/amd64\" when using the s2i build strategy")
+	cmd.Flags().StringP("username", "", "",
+		"Username to use when pushing to the registry.")
+	cmd.Flags().StringP("password", "", "",
+		"Password to use when pushing to the registry.")
+	cmd.Flags().StringP("token", "", "",
+		"Token to use when pushing to the registry.")
+	cmd.Flags().BoolP("build-timestamp", "", false, "Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.")
+
+	// Temporarily Hidden Basic Auth Flags
+	// Username, Password and Token flags, which plumb through basic auth, are
+	// currently only available on the experimental "host" builder, which is
+	// itself behind a feature flag FUNC_ENABLE_HOST_BUILDER.  So set these
+	// flags to hidden until it's out of preview and they are plumbed through
+	// the docker pusher as well.
+	_ = cmd.Flags().MarkHidden("username")
+	_ = cmd.Flags().MarkHidden("password")
+	_ = cmd.Flags().MarkHidden("token")
 
 	// Oft-shared flags:
 	addConfirmFlag(cmd, cfg.Confirm)
@@ -141,10 +162,10 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	if err = config.CreatePaths(); err != nil { // for possible auth.json usage
 		return
 	}
-	if cfg, err = newBuildConfig().Prompt(); err != nil {
+	if cfg, err = newBuildConfig().Prompt(); err != nil { // gather values into a single instruction set
 		return
 	}
-	if err = cfg.Validate(); err != nil {
+	if err = cfg.Validate(); err != nil { // Perform any pre-validation
 		return
 	}
 	if f, err = fn.NewFunction(cfg.Path); err != nil {
@@ -154,6 +175,8 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		return fn.NewErrNotInitialized(f.Root)
 	}
 	f = cfg.Configure(f) // Updates f at path to include build request values
+
+	cmd.SetContext(cfg.WithValues(cmd.Context())) // Some optional settings are passed via context
 
 	// Client
 	clientOptions, err := cfg.clientOptions()
@@ -184,6 +207,16 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	return f.Stamp()
 }
 
+// WithValues returns a context populated with values from the build config
+// which are provided to the system via the context.
+func (c buildConfig) WithValues(ctx context.Context) context.Context {
+	// Push
+	ctx = context.WithValue(ctx, fn.PushUsernameKey{}, c.Username)
+	ctx = context.WithValue(ctx, fn.PushPasswordKey{}, c.Password)
+	ctx = context.WithValue(ctx, fn.PushTokenKey{}, c.Token)
+	return ctx
+}
+
 type buildConfig struct {
 	// Globals (builder, confirm, registry, verbose)
 	config.Global
@@ -206,6 +239,17 @@ type buildConfig struct {
 	// Push the resulting image to the registry after building.
 	Push bool
 
+	// Username when specifying optional basic auth.
+	Username string
+
+	// Password when using optional basic auth.  Should be provided along
+	// with Username.
+	Password string
+
+	// Token when performing basic auth using a bearer token.  Should be
+	// exclusive with Username and Password.
+	Token string
+
 	// Build with the current timestamp as the created time for docker image.
 	// This is only useful for buildpacks builder.
 	WithTimestamp bool
@@ -215,16 +259,20 @@ type buildConfig struct {
 func newBuildConfig() buildConfig {
 	return buildConfig{
 		Global: config.Global{
-			Builder:  viper.GetString("builder"),
-			Confirm:  viper.GetBool("confirm"),
-			Registry: registry(), // deferred defaulting
-			Verbose:  viper.GetBool("verbose"),
+			Builder:          viper.GetString("builder"),
+			Confirm:          viper.GetBool("confirm"),
+			Registry:         registry(), // deferred defaulting
+			Verbose:          viper.GetBool("verbose"),
+			RegistryInsecure: viper.GetBool("registry-insecure"),
 		},
 		BuilderImage:  viper.GetString("builder-image"),
 		Image:         viper.GetString("image"),
 		Path:          viper.GetString("path"),
 		Platform:      viper.GetString("platform"),
 		Push:          viper.GetBool("push"),
+		Username:      viper.GetString("username"),
+		Password:      viper.GetString("password"),
+		Token:         viper.GetString("token"),
 		WithTimestamp: viper.GetBool("build-timestamp"),
 	}
 }
@@ -341,7 +389,7 @@ func (c buildConfig) clientOptions() ([]fn.Option, error) {
 	if c.Builder == builders.Host {
 		o = append(o,
 			fn.WithBuilder(oci.NewBuilder(builders.Host, c.Verbose)),
-			fn.WithPusher(oci.NewPusher(false, c.Verbose)))
+			fn.WithPusher(oci.NewPusher(c.RegistryInsecure, false, c.Verbose)))
 	} else if c.Builder == builders.Pack {
 		o = append(o,
 			fn.WithBuilder(pack.NewBuilder(

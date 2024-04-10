@@ -34,7 +34,7 @@ jobs:
         run:  make test
       - name: Template Unit Tests
         run:  make test-templates
-      - uses: codecov/codecov-action@v3
+      - uses: codecov/codecov-action@v4
         with:
           files: ./coverage.txt
           flags: unit-tests-${{ matrix.os }}
@@ -42,17 +42,23 @@ jobs:
   test-integration:
     runs-on: "ubuntu-latest"
     steps:
+      - name: Set Environment Variables
+        run: |
+          echo "KUBECONFIG=${{ github.workspace }}/hack/bin/kubeconfig.yaml" >> "$GITHUB_ENV"
+          echo "PATH=${{ github.workspace }}/hack/bin:$PATH" >> "$GITHUB_ENV"
       - uses: actions/checkout@v3
       - uses: ./.github/composite/go-setup
       - name: Install Binaries
-        run: ./hack/binaries.sh
+        run: ./hack/install-binaries.sh
       - name: Allocate Cluster
         run: ./hack/allocate.sh
       - name: Local Registry
         run: ./hack/registry.sh
+      - name: Setup testing images
+        run: ./hack/setup-testing-images.sh
       - name: Integration Tests
         run: make test-integration
-      - uses: codecov/codecov-action@v3
+      - uses: codecov/codecov-action@v4
         with:
           files: ./coverage.txt
           flags: integration-tests
@@ -63,6 +69,10 @@ jobs:
         os: ["ubuntu-latest"]
     runs-on: ${{ matrix.os }}
     steps:
+      - name: Set Environment Variables
+        run: |
+          echo "KUBECONFIG=${{ github.workspace }}/hack/bin/kubeconfig.yaml" >> "$GITHUB_ENV"
+          echo "PATH=${{ github.workspace }}/hack/bin:$PATH" >> "$GITHUB_ENV"
       - uses: actions/checkout@v3
       - uses: ./.github/composite/go-setup
       - name: Install Binaries
@@ -73,7 +83,7 @@ jobs:
         run: ./hack/registry.sh
       - name: E2E Test
         run: make test-e2e
-      - uses: codecov/codecov-action@v3
+      - uses: codecov/codecov-action@v4
         with:
           files: ./coverage.txt
           flags: e2e-test
@@ -84,6 +94,10 @@ jobs:
         os: ["ubuntu-latest"]
     runs-on: ${{ matrix.os }}
     steps:
+      - name: Set Environment Variables
+        run: |
+          echo "KUBECONFIG=${{ github.workspace }}/hack/bin/kubeconfig.yaml" >> "$GITHUB_ENV"
+          echo "PATH=${{ github.workspace }}/hack/bin:$PATH" >> "$GITHUB_ENV"
       - uses: actions/checkout@v3
       - uses: ./.github/composite/go-setup
       - uses: imjasonh/setup-ko@v0.6
@@ -94,14 +108,14 @@ jobs:
       - name: Setup testing images
         run: ./hack/setup-testing-images.sh
       - name: Deploy Tekton
-        run: ./hack/tekton.sh
+        run: ./hack/install-tekton.sh
       - name: Deploy Test Git Server
-        run: ./test/gitserver.sh
+        run: ./hack/install-git-server.sh
       - name: E2E On Cluster Test
         env:
           E2E_RUNTIMES: ""
         run: make test-e2e-on-cluster
-      - uses: codecov/codecov-action@v3
+      - uses: codecov/codecov-action@v4
         with:
           files: ./coverage.txt
           flags: e2e-test-oncluster
@@ -144,6 +158,25 @@ jobs:
         with:
           name: Windows Binary
           path: func_windows_amd64.exe
+
+  publish-utils-image:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push
+        run: |
+          docker buildx create --name multiarch --driver docker-container --use
+          docker buildx build . -f Dockerfile.utils \
+            --platform=linux/ppc64le,linux/s390x,linux/amd64,linux/arm64 \
+            --push \
+            -t "ghcr.io/knative/func-utils:latest"
 
   publish-image:
     needs: build

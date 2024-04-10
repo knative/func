@@ -10,22 +10,23 @@ import (
 	"net/http"
 	"os"
 	"testing"
-
-	"github.com/google/go-containerregistry/pkg/registry"
+	"time"
 
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/oci/mock"
 	. "knative.dev/func/pkg/testing"
+
+	"github.com/google/go-containerregistry/pkg/registry"
 )
 
-// TestPusher ensures that the pusher contacts the endpoint on request with
-// the expected content type (see the go-containerregistry library for
-// tests which confirm it is functioning as expected from there, and the
-// builder tests which ensure the container being pushed is OCI-compliant.)
-func TestPusher(t *testing.T) {
+// TestPusher_Push ensures the base case that the pusher contacts the
+// registry with a correctly formed request.
+func TestPusher_Push(t *testing.T) {
 	var (
 		root, done = Mktemp(t)
 		verbose    = false
 		insecure   = true
+		anon       = true
 		success    = false
 		err        error
 	)
@@ -61,7 +62,7 @@ func TestPusher(t *testing.T) {
 	// Create and push a function
 	client := fn.New(
 		fn.WithBuilder(NewBuilder("", verbose)),
-		fn.WithPusher(NewPusher(insecure, verbose)))
+		fn.WithPusher(NewPusher(insecure, anon, verbose)))
 
 	f := fn.Function{Root: root, Runtime: "go", Name: "f", Registry: l.Addr().String() + "/funcs"}
 
@@ -81,5 +82,83 @@ func TestPusher(t *testing.T) {
 	// an image index.
 	if !success {
 		t.Fatal("did not receive the image index JSON")
+	}
+}
+
+// TestPusher_Auth ensures that the pusher authenticates via basic auth when
+// supplied with a username/password via the context.
+func TestPusher_BasicAuth(t *testing.T) {
+	var (
+		root, done = Mktemp(t)
+		username   = "username"
+		password   = "password"
+		verbose    = false
+		successCh  = make(chan bool, 100) // Many successes are queued on push
+		err        error
+	)
+	defer done()
+
+	// A mock registry with middleware which performs basic auth
+	server := mock.NewRegistry()
+	server.HandlerFunc = func(w http.ResponseWriter, r *http.Request) {
+		u, p, ok := r.BasicAuth()
+		if !ok {
+			// no header.  ask for auth
+			w.Header().Add("www-authenticate", "Basic realm=\"Registry Realm\"")
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		} else if u != "username" || p != "password" {
+			// header exists, but creds are either missing or incorrect
+			t.Fatalf("Unauthorized.  Expected user %q pass %q, got user %q pass %q", username, password, u, p)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			return
+		} else {
+			// (at least one) request indicates authentication worked.
+			// The channel has a large buffer because many are queued before
+			// the receive instruction.
+			successCh <- true
+		}
+
+		// always delegate to the registry impl which implements the protocol
+		server.RegistryImpl.ServeHTTP(w, r)
+	}
+	defer server.Close()
+
+	// Client
+	// initialized with an OCI builder and pusher.
+	client := fn.New(
+		fn.WithBuilder(NewBuilder("", verbose)),
+		fn.WithPusher(NewPusher(false, false, verbose)))
+
+	// Function
+	// Built and tagged to push to the mock registry
+	f := fn.Function{
+		Root:     root,
+		Runtime:  "go",
+		Name:     "f",
+		Registry: server.Addr().String() + "/funcs"}
+
+	if f, err = client.Init(f); err != nil {
+		t.Fatal(err)
+	}
+	if f, err = client.Build(context.Background(), f); err != nil {
+		t.Fatal(err)
+	}
+
+	// Push
+	// Enables optional basic authentication via the push context to use instead
+	// of the default behavior of using the multi-auth chain of config files
+	// and various known credentials managers.
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, fn.PushUsernameKey{}, username)
+	ctx = context.WithValue(ctx, fn.PushPasswordKey{}, password)
+
+	if _, err = client.Push(ctx, f); err != nil {
+		t.Fatal(err)
+	}
+
+	select {
+	case <-successCh:
+	case <-time.NewTimer(10 * time.Second).C:
+		t.Fatal("timed out waiting for a successful basic auth request")
 	}
 }

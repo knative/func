@@ -14,6 +14,7 @@ SYNOPSIS
 	             [-b|--build] [--builder] [--builder-image] [-p|--push]
 	             [--domain] [--platform] [--build-timestamp] [--pvc-size]
 	             [--service-account] [-c|--confirm] [-v|--verbose]
+	             [--registry-insecure]
 
 DESCRIPTION
 
@@ -130,6 +131,7 @@ func deploy
   -u, --push                     Push the function image to registry before deploying. ($FUNC_PUSH) (default true)
       --pvc-size string          When triggering a remote deployment, set a custom volume size to allocate for the build operation ($FUNC_PVC_SIZE)
   -r, --registry string          Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
+      --registry-insecure        Disable HTTPS when communicating to the registry ($FUNC_REGISTRY_INSECURE)
   -R, --remote                   Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)
       --service-account string   Service account to be used in the deployed function ($FUNC_SERVICE_ACCOUNT)
   -v, --verbose                  Print verbose logs ($FUNC_VERBOSE)

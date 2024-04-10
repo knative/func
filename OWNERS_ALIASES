@@ -14,37 +14,27 @@ aliases:
   - navidshaikh
   - rhuss
   - vyasgun
-  conformance-task-force-leads:
-  - salaboy
-  conformance-writers:
-  - salaboy
   docs-reviewers:
   - nainaz
   - pmbanugo
   - retocode
   - skonto
   - snneji
-  docs-wg-leads:
-  - snneji
   docs-writers:
   - csantanapr
   - retocode
   - skonto
-  - snneji
   eventing-reviewers:
   - Leo6Leo
   - aslom
   - cali0707
   - creydr
-  eventing-triage:
-  - lberk
   eventing-wg-leads:
   - pierDipi
   eventing-writers:
   - aliok
   - cali0707
   - creydr
-  - lberk
   - lionelvillard
   - matzew
   - odacremolbap
@@ -74,6 +64,7 @@ aliases:
   - dprotaso
   - dsimansk
   - evankanderson
+  - izabelacg
   - knative-automation
   - knative-prow-releaser-robot
   - knative-prow-robot
@@ -83,7 +74,6 @@ aliases:
   - nainaz
   - pierDipi
   - psschwei
-  - puerco
   - salaboy
   - skonto
   - upodroid
@@ -93,6 +83,7 @@ aliases:
   - ReToCode
   - creydr
   - dsimansk
+  - izabelacg
   - pierDipi
   - skonto
   knative-robots:
@@ -153,7 +144,6 @@ aliases:
   - aliok
   - evankanderson
   - nainaz
-  - puerco
   - salaboy
   technical-oversight-committee:
   - davidhadas

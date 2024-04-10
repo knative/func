@@ -94,16 +94,14 @@ They each will listen and respond to incoming HTTP events.
 
 #### Function triggered by HTTP request
 
-When an incoming request is received, your function will be invoked with a standard
-Golang [Context](https://golang.org/pkg/context/) as the first parameter followed by
-two parameters: Golang's [http.ResponseWriter](https://golang.org/pkg/net/http/#ResponseWriter)
-and [http.Request](https://golang.org/pkg/net/http/#Request). 
+When an incoming request is received, your function will be invoked with two parameters:
+Golang's [http.ResponseWriter](https://golang.org/pkg/net/http/#ResponseWriter) and [http.Request](https://golang.org/pkg/net/http/#Request).
 
 Then you can use standard Golang techniques to access the request (eg. read the body)
 and set a proper HTTP response of your function, as you can see on the following example:
 
 ```go
-func Handle(ctx context.Context, res http.ResponseWriter, req *http.Request) {
+func Handle(res http.ResponseWriter, req *http.Request) {
 
   // Read body
   body, err := ioutil.ReadAll(req.Body)

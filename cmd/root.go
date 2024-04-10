@@ -58,6 +58,7 @@ Learn more about Knative at: https://knative.dev`, cfg.Name),
 	// a version prefixed by "FUNC_"
 	viper.AutomaticEnv()       // read in environment variables for FUNC_<flag>
 	viper.SetEnvPrefix("func") // ensure that all have the prefix
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 
 	// Client
 	// Use the provided ClientFactory or default to NewClient
@@ -170,6 +171,7 @@ func bindEnv(flags ...string) bindFunc {
 		}
 		viper.AutomaticEnv()       // read in environment variables for FUNC_<flag>
 		viper.SetEnvPrefix("func") // ensure that all have the prefix
+		viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 		return
 	}
 }

@@ -94,6 +94,18 @@ type Pusher interface {
 	Push(ctx context.Context, f Function) (string, error)
 }
 
+// PushUsernameKey is a type available for use to communicate a basic
+// authentication username to pushers which support this method.
+type PushUsernameKey struct{}
+
+// PushPasswordKey is a type available for use as a context key for
+// providing a basic auth password to pushers which support this method.
+type PushPasswordKey struct{}
+
+// PushTokenKey is a type available for use as a context key for providing a
+// token (for example a jwt bearer token) to pushers which support this method.
+type PushTokenKey struct{}
+
 // Deployer of function source to running status.
 type Deployer interface {
 	// Deploy a function of given name, using given backing image.
@@ -1071,14 +1083,6 @@ func (c *Client) Push(ctx context.Context, f Function) (Function, error) {
 		return f, ErrNotBuilt
 	}
 	var err error
-
-	if err != nil {
-		if os.IsNotExist(err) {
-			err = fmt.Errorf("error on push, function has not been built yet")
-			return f, err
-		}
-		return f, err
-	}
 
 	imageDigest, err := c.pusher.Push(ctx, f)
 	if err != nil {

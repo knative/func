@@ -9,9 +9,10 @@ NAME
 	func build - Build a function container locally without deploying
 
 SYNOPSIS
-	func build [-r|--registry] [--builder] [--builder-image] [--push]
+	func build [-r|--registry] [--builder] [--builder-image]
+		         [--push] [--username] [--password] [--token]
 	             [--platform] [-p|--path] [-c|--confirm] [-v|--verbose]
-               [--build-timestamp]
+		         [--build-timestamp] [--registry-insecure]
 
 DESCRIPTION
 
@@ -66,6 +67,7 @@ func build
       --platform string        Optionally specify a target platform, for example "linux/amd64" when using the s2i build strategy
   -u, --push                   Attempt to push the function image to the configured registry after being successfully built
   -r, --registry string        Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)
+      --registry-insecure      Disable HTTPS when communicating to the registry ($FUNC_REGISTRY_INSECURE)
   -v, --verbose                Print verbose logs ($FUNC_VERBOSE)
 ```
 

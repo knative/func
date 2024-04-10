@@ -10,17 +10,21 @@ jobs:
         os: ["ubuntu-latest"]
     runs-on: ${{ matrix.os }}
     steps:
+      - name: Set Environment Variables
+        run: |
+          echo "KUBECONFIG=${{ github.workspace }}/hack/bin/kubeconfig.yaml" >> "$GITHUB_ENV"
+          echo "PATH=${{ github.workspace }}/hack/bin:$PATH" >> "$GITHUB_ENV"
       - uses: actions/checkout@v3
       - uses: ./.github/composite/go-setup
       - name: Install Binaries
-        run: ./hack/binaries.sh
+        run: ./hack/install-binaries.sh
       - name: Allocate Cluster
         run: ./hack/allocate.sh
       - name: Local Registry
         run: ./hack/registry.sh
       - name: E2E Test
         run: make test-e2e
-      - uses: codecov/codecov-action@v3
+      - uses: codecov/codecov-action@v4
         with:
           files: ./coverage.txt
           flags: e2e-test
