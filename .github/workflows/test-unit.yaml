@@ -35,7 +35,7 @@ jobs:
           FUNC_REPO_BRANCH_REF: ${{ github.head_ref }}
       - name: Template Unit Tests
         run: make test-templates
-      - uses: codecov/codecov-action@v3
+      - uses: codecov/codecov-action@v4
         with:
           files: ./coverage.txt
           flags: unit-tests-${{ matrix.os }}
