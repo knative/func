@@ -63,8 +63,7 @@ func runtimeImpl(t *testing.T, lang string, builder string) {
 	var funcName = gitProjectName
 	var funcPath = gitProjectPath
 
-	gitServer := common.GitTestServerProvider{}
-	gitServer.Init(t)
+	gitServer := common.GetGitServer(t)
 	remoteRepo := gitServer.CreateRepository(gitProjectName)
 	defer gitServer.DeleteRepository(gitProjectName)
 

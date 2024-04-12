@@ -34,8 +34,7 @@ func TestFromCliDefaultBranch(t *testing.T) {
 	var funcName = gitProjectName
 	var funcPath = gitProjectPath
 
-	gitServer := common.GitTestServerProvider{}
-	gitServer.Init(t)
+	gitServer := common.GetGitServer(t)
 	remoteRepo := gitServer.CreateRepository(gitProjectName)
 	defer gitServer.DeleteRepository(gitProjectName)
 
@@ -67,8 +66,7 @@ func TestFromCliFeatureBranch(t *testing.T) {
 	var funcName = "test-func-cli-feature-branch" + rand.String(5)
 	var funcPath = filepath.Join(t.TempDir(), funcName)
 
-	gitServer := common.GitTestServerProvider{}
-	gitServer.Init(t)
+	gitServer := common.GetGitServer(t)
 	remoteRepo := gitServer.CreateRepository(funcName)
 	defer gitServer.DeleteRepository(funcName)
 
@@ -113,8 +111,7 @@ func TestFromCliContextDirFunc(t *testing.T) {
 	var funcContextDir = filepath.Join("functions", funcName)
 	var funcPath = filepath.Join(gitProjectPath, funcContextDir)
 
-	gitServer := common.GitTestServerProvider{}
-	gitServer.Init(t)
+	gitServer := common.GetGitServer(t)
 	remoteRepo := gitServer.CreateRepository(gitProjectName)
 	defer gitServer.DeleteRepository(gitProjectName)
 
