@@ -18,4 +18,10 @@ RUN apk add --no-cache socat tar \
 
 COPY --from=builder /go/deploy /usr/local/bin/
 
+LABEL \
+   org.opencontainers.image.description="Knative Func Utils Image" \
+   org.opencontainers.image.source="https://github.com/knative/func" \
+   org.opencontainers.image.vendor="https://github.com/knative/func" \
+   org.opencontainers.image.url="https://github.com/knative/func/pkgs/container/func-utils"
+
 USER func:func
