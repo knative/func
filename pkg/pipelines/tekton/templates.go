@@ -93,10 +93,23 @@ var (
 
 	taskBasePath = "https://raw.githubusercontent.com/" +
 		FuncRepoRef + "/" + FuncRepoBranchRef + "/pkg/pipelines/resources/tekton/task/"
-	BuildpackTaskURL = taskBasePath + "func-buildpacks/0.2/func-buildpacks.yaml"
-	S2ITaskURL       = taskBasePath + "func-s2i/0.1/func-s2i.yaml"
-	DeployTaskURL    = taskBasePath + "func-deploy/0.1/func-deploy.yaml"
+	BuildpackTaskURL string
+	S2ITaskURL       string
+	DeployTaskURL    string
 )
+
+// sets the values only if they have not been set via the linker "-X" flag
+func init() {
+	if BuildpackTaskURL == "" {
+		BuildpackTaskURL = taskBasePath + "func-buildpacks/0.2/func-buildpacks.yaml"
+	}
+	if S2ITaskURL == "" {
+		S2ITaskURL = taskBasePath + "func-s2i/0.1/func-s2i.yaml"
+	}
+	if DeployTaskURL == "" {
+		DeployTaskURL = taskBasePath + "func-deploy/0.1/func-deploy.yaml"
+	}
+}
 
 type templateData struct {
 	FunctionName  string
