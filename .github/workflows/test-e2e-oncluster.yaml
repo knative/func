@@ -23,8 +23,6 @@ jobs:
         run: ./hack/allocate.sh
       - name: Setup testing images
         run: ./hack/setup-testing-images.sh
-      - name: Deploy Tekton
-        run: ./hack/install-tekton.sh
       - name: Deploy Test Git Server
         run: ./hack/install-git-server.sh
       - name: E2E On Cluster Test
