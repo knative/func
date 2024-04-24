@@ -37,12 +37,14 @@ main() {
   echo "evt:  Eventing and Namespace"
   echo "reg:  Local Registry"
   echo "dpr:  Dapr Runtime"
+  echo "tkt:  Tekton Pipelines"
   echo ""
 
   ( set -o pipefail; (serving && dns && networking) 2>&1 | sed  -e 's/^/svr /')&
   ( set -o pipefail; (eventing && namespace) 2>&1 | sed  -e 's/^/evt /')&
   ( set -o pipefail; registry 2>&1 | sed  -e 's/^/reg /') &
   ( set -o pipefail; dapr_runtime 2>&1 | sed  -e 's/^/dpr /')&
+  ( set -o pipefail; (tekton && pac) 2>&1 | sed  -e 's/^/tkt /')&
 
   local job
   for job in $(jobs -p); do
@@ -366,6 +368,58 @@ spec:
 EOF
 
   echo "${green}✅ Dapr Runtime${reset}"
+}
+
+tekton() {
+  echo "${blue}Installing Tekton ${tekton_version} ${reset}"
+
+  tekton_release="previous/${tekton_version}"
+  namespace="${NAMESPACE:-default}"
+
+  $KUBECTL apply -f "https://storage.googleapis.com/tekton-releases/pipeline/${tekton_release}/release.yaml"
+  sleep 10
+  $KUBECTL wait pod --for=condition=Ready --timeout=180s -n tekton-pipelines -l "app=tekton-pipelines-controller"
+  $KUBECTL wait pod --for=condition=Ready --timeout=180s -n tekton-pipelines -l "app=tekton-pipelines-webhook"
+  sleep 10
+
+  $KUBECTL create clusterrolebinding "${namespace}:knative-serving-namespaced-admin" --clusterrole=knative-serving-namespaced-admin --serviceaccount="${namespace}:default"
+
+  echo "${green}✅ Tekton${reset}"
+}
+
+pac() {
+  echo "${blue}Installing PAC (Pipelines-as-Code) ${pac_version} ${reset}"
+
+  local -r pac_ctr_host="${PAC_CONTROLLER_HOSTNAME:-pac-ctr.127.0.0.1.sslip.io}"
+
+  # Install Pipelines as Code
+  $KUBECTL apply -f "https://raw.githubusercontent.com/openshift-pipelines/pipelines-as-code/release-${pac_version}/release.k8s.yaml"
+  sleep 5
+  $KUBECTL wait pod --for=condition=Ready -l '!job-name' -n pipelines-as-code --timeout=5m
+
+  # Install ingress for the PaC controller. This is used by VCS Webhooks.
+  $KUBECTL apply -f - << EOF
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: pipelines-as-code
+  namespace: pipelines-as-code
+spec:
+  ingressClassName: contour-external
+  rules:
+  - host: ${pac_ctr_host}
+    http:
+      paths:
+      - backend:
+          service:
+            name: pipelines-as-code-controller
+            port:
+              number: 8080
+        pathType: Prefix
+        path: /
+EOF
+  echo "the Pipeline as Code controller is available at: http://${pac_ctr_host}"
+  echo "${green}✅ PAC${reset}"
 }
 
 next_steps() {
