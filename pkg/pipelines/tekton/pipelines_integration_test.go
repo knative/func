@@ -61,7 +61,7 @@ func newRemoteTestClient(verbose bool) *fn.Client {
 	)
 }
 
-// assertFunctionEchoes returns without error when the funciton of the given
+// assertFunctionEchoes returns without error when the function of the given
 // name echoes a parameter sent via a Get request.
 func assertFunctionEchoes(url string) (err error) {
 	token := time.Now().Format("20060102150405.000000000")
@@ -94,7 +94,7 @@ func tektonTestsEnabled(t *testing.T) (enabled bool) {
 	return
 }
 
-// fromCleanEnvironment of everyting except KUBECONFIG. Create a temp directory.
+// fromCleanEnvironment of everything except KUBECONFIG. Create a temp directory.
 // Change to that temp directory.  Return the curent path as a convenience.
 func fromCleanEnvironment(t *testing.T) (root string) {
 	// FromTempDirectory clears envs, but sets KUBECONFIG to ./tempdata, so
