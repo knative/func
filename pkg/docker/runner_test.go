@@ -1,6 +1,3 @@
-//go:build !integration
-// +build !integration
-
 package docker_test
 
 import (

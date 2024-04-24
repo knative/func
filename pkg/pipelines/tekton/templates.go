@@ -266,7 +266,7 @@ func createResource(projectRoot, fileName, fileTemplate string, data interface{}
 			return err
 		}
 		if !overwrite {
-			fmt.Printf(" ⚠️ Pipeline template is not updated in \"%s/%s\"\n", resourcesDirectory, fileName)
+			fmt.Fprintf(os.Stderr, " ⚠️  Pipeline template is not updated in \"%s/%s\"\n", resourcesDirectory, fileName)
 			return nil
 		}
 	}
@@ -280,9 +280,9 @@ func createResource(projectRoot, fileName, fileTemplate string, data interface{}
 	err = tmpl.Execute(file, data)
 	if err == nil {
 		if overwrite {
-			fmt.Printf(" ✅ Pipeline template is updated in \"%s/%s\"\n", resourcesDirectory, fileName)
+			fmt.Fprintf(os.Stderr, " ✅ Pipeline template is updated in \"%s/%s\"\n", resourcesDirectory, fileName)
 		} else {
-			fmt.Printf(" ✅ Pipeline template is created in \"%s/%s\"\n", resourcesDirectory, fileName)
+			fmt.Fprintf(os.Stderr, " ✅ Pipeline template is created in \"%s/%s\"\n", resourcesDirectory, fileName)
 		}
 	}
 	return err
@@ -499,7 +499,7 @@ func createAndApplyResource(projectRoot, fileName, fileTemplate, kind, resourceN
 
 	m, err = m.Transform(manifestival.InjectNamespace(namespace))
 	if err != nil {
-		fmt.Printf("error procesing template: %v", err)
+		fmt.Fprintf(os.Stderr, "error procesing template: %v", err)
 		return err
 	}
 

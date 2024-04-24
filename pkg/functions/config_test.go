@@ -1,6 +1,3 @@
-//go:build !integration
-// +build !integration
-
 package functions_test
 
 // Config tests do not have private access, as they are testing manifest

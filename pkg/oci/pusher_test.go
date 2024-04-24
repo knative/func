@@ -85,7 +85,7 @@ func TestPusher_Push(t *testing.T) {
 	}
 }
 
-// TestPusher_Auth ensures that the pusher authenticates via basic auth when
+// TestPusher_BasicAuth ensures that the pusher authenticates via basic auth when
 // supplied with a username/password via the context.
 func TestPusher_BasicAuth(t *testing.T) {
 	var (
