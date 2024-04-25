@@ -1,0 +1,72 @@
+name: Func Tests
+
+on: [pull_request]
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: ["ubuntu-latest"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Set Environment Variables
+        run: |
+          echo "KUBECONFIG=${{ github.workspace }}/hack/bin/kubeconfig.yaml" >> "$GITHUB_ENV"
+          echo "PATH=${{ github.workspace }}/hack/bin:$PATH" >> "$GITHUB_ENV"
+          echo "TEKTON_TESTS_ENABLED=1" >> "$GITHUB_ENV"
+          echo "GITLAB_TESTS_ENABLED=1" >> "$GITHUB_ENV"
+          echo "GITLAB_HOSTNAME=gitlab.127.0.0.1.sslip.io" >> "$GITHUB_ENV"
+          echo "GITLAB_ROOT_PASSWORD=$(< /dev/urandom tr -dc _A-Z-a-z-0-9 | head -c${1:-32})" >> "$GITHUB_ENV"
+          echo "PAC_CONTROLLER_HOSTNAME=pac-ctr.127.0.0.1.sslip.io" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v3
+      - uses: ./.github/composite/go-setup
+      # TODO: where is KO being used?
+      # TODO: Evaulate if ko dependency can be removed.
+      # - uses: imjasonh/setup-ko@v0.6
+      - name: Install Binaries
+        run: ./hack/install-binaries.sh
+      - name: Allocate Cluster
+        run: ./hack/allocate.sh
+      # TODO: where are the testing images being used?
+      # TODO: Confirm what this is needed for, and evaluate if it should
+      # be rolled into allocate.sh:
+      - name: Setup Testing Images
+        run: ./hack/setup-testing-images.sh
+      - name: Configure Registry
+        run: ./hack/registry.sh
+      # TODO: Evaluate if we can roll this into allocate.sh with an env var
+      # or flag toggle:
+      - name: Setup Git Server
+        run: ./hack/install-git-server.sh
+      - name: Run All Tests
+        # TODO: Track down all the below env vars and confirm they are
+        # either necessary, or can be removed in favor of defaults.
+        # If necessary for configuraiton, ensure that the defaults are set
+        # appropriately such that this config is no longer necessary _here_
+        # NOTE: Retaining for potential use in forthcoming weekly "matrix"
+        # tests as a template for specifying builder matrix via interpolation
+        env:
+          FUNC_REPO_REF: ${{ github.event.pull_request.head.repo.full_name }}
+          FUNC_REPO_BRANCH_REF: ${{ github.head_ref }}
+        #   TEST_TAGS: runtime
+        #   E2E_REGISTRY_URL: registry.default.svc.cluster.local:5000
+        run: make test-e2e
+      # TODO: The following log dump is so large it consistently causes
+      # browser timeouts attempting to view.   Perhaps set this disabled
+      # by default, enabling as needed? (or truncate the logs somehow)
+      # - name: Dump Cluster Logs
+      #   if: always()
+      #   run: |
+      #     echo "::group::cluster events"
+      #     kubectl get events -A
+      #     echo "::endgroup::"
+      #
+      #     echo "::group::cluster containers logs"
+      #     stern '.*' --all-namespaces --no-follow
+      #     echo "::endgroup::"
+      - uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.txt
+          flags: e2e
+
+

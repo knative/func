@@ -1,4 +1,4 @@
-name: Func Check Schema
+name: Func Schema Check
 
 on: [pull_request]
 
@@ -12,5 +12,5 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: ./.github/composite/go-setup
-      - name: Check that 'func.yaml schema' is up-to-date
+      - name: Check 'func.yaml'
         run: make schema-check

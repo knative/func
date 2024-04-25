@@ -197,27 +197,16 @@ templates/certs/ca-certificates.crt:
 ###################
 
 .PHONY: test-integration
-test-integration: ## Run tests including integration tests which require a cluster
-	go test -ldflags "$(LDFLAGS)" -tags integration -timeout 30m --coverprofile=coverage.txt ./... -v
+test-integration: ## Run unit+integration tests (cluster required)
+	go test -ldflags "$(LDFLAGS)" -race -cover -tags integration -timeout 30m --coverprofile=coverage.txt ./... -v
 
 .PHONY: test-e2e
-test-e2e: func-instrumented ## Run tests including E2Es which require a cluster
-	go test ./e2e -tags e2e -timeout 30m --coverprofile=coverage.txt
+test-e2e: func-instrumented ## Run unit+integration+E2E (cluster required)
+	go test -ldflags "$(LDFLAGS)" -race -cover -tags integration e2e -timeout 30m --coverprofile=coverage.txt
 
 .PHONY: func-instrumented
 func-instrumented: ## Func binary that is instrumented for e2e tests
 	env CGO_ENABLED=1 go build -ldflags "$(LDFLAGS)" -cover -o func ./cmd/$(BIN)
-
-# DEPRECATED:
-#
-# test-e2e: func-instrumented ## Run end-to-end tests using an available cluster.
-# 	./test/e2e_extended_tests.sh
-#
-# test-e2e-runtime: func-instrumented ## Run end-to-end lifecycle tests using an available cluster for a single runtime.
-# 	./test/e2e_lifecycle_tests.sh $(runtime)
-#
-# test-e2e-on-cluster: func-instrumented ## Run end-to-end on-cluster build tests using an available cluster.
-# 	./test/e2e_oncluster_tests.sh
 
 ######################
 ##@ Release Artifacts

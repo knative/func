@@ -10,36 +10,16 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: ./.github/composite/go-setup
-      - name: Lint
-        run: make check && make check-templates
-      - name: Check that 'func.yaml schema' is up-to-date
+      - name: Lint Core
+        run: make check
+      - name: Lint Templates
+        run: make check-templates
+      - name: Check 'func.yaml' schema
         run: make schema-check
-      - name: Check embedded templates content
+      - name: Check embedded FS
         run: go test -run "^\QTestFileSystems\E$/^\Qembedded\E$" ./pkg/filesystem
 
-  test-unit:
-    strategy:
-      matrix:
-        java: [ 21 ]
-        os: [ "ubuntu-latest", "windows-latest", "macos-latest" ]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - run: git config --global core.autocrlf false
-      - uses: actions/checkout@v3
-      - uses: ./.github/composite/go-setup
-      - uses: actions/setup-java@v1
-        with:
-          java-version: ${{ matrix.java }}
-      - name: Unit Test
-        run:  make test
-      - name: Template Unit Tests
-        run:  make test-templates
-      - uses: codecov/codecov-action@v4
-        with:
-          files: ./coverage.txt
-          flags: unit-tests-${{ matrix.os }}
-
-  test-integration:
+  tests:
     runs-on: "ubuntu-latest"
     steps:
       - name: Set Environment Variables
@@ -56,67 +36,12 @@ jobs:
         run: ./hack/registry.sh
       - name: Setup testing images
         run: ./hack/setup-testing-images.sh
-      - name: Integration Tests
-        run: make test-integration
-      - uses: codecov/codecov-action@v4
-        with:
-          files: ./coverage.txt
-          flags: integration-tests
-
-  e2e-test:
-    strategy:
-      matrix:
-        os: ["ubuntu-latest"]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Set Environment Variables
-        run: |
-          echo "KUBECONFIG=${{ github.workspace }}/hack/bin/kubeconfig.yaml" >> "$GITHUB_ENV"
-          echo "PATH=${{ github.workspace }}/hack/bin:$PATH" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v3
-      - uses: ./.github/composite/go-setup
-      - name: Install Binaries
-        run: ./hack/binaries.sh
-      - name: Allocate Cluster
-        run: ./hack/allocate.sh
-      - name: Local Registry
-        run: ./hack/registry.sh
-      - name: E2E Test
+      - name: Test
         run: make test-e2e
       - uses: codecov/codecov-action@v4
         with:
           files: ./coverage.txt
-          flags: e2e-test
-
-  e2e-on-cluster-test:
-    strategy:
-      matrix:
-        os: ["ubuntu-latest"]
-    runs-on: ${{ matrix.os }}
-    steps:
-      - name: Set Environment Variables
-        run: |
-          echo "KUBECONFIG=${{ github.workspace }}/hack/bin/kubeconfig.yaml" >> "$GITHUB_ENV"
-          echo "PATH=${{ github.workspace }}/hack/bin:$PATH" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v3
-      - uses: ./.github/composite/go-setup
-      - uses: imjasonh/setup-ko@v0.6
-      - name: Install Binaries
-        run: ./hack/binaries.sh
-      - name: Allocate Cluster
-        run: ./hack/allocate.sh
-      - name: Setup testing images
-        run: ./hack/setup-testing-images.sh
-      - name: Deploy Test Git Server
-        run: ./hack/install-git-server.sh
-      - name: E2E On Cluster Test
-        env:
-          E2E_RUNTIMES: ""
-        run: make test-e2e-on-cluster
-      - uses: codecov/codecov-action@v4
-        with:
-          files: ./coverage.txt
-          flags: e2e-test-oncluster
+          flags: e2e
 
   build:
     needs: [check, test-unit, test-integration, e2e-test, e2e-on-cluster-test]
