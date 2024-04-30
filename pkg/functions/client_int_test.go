@@ -9,8 +9,9 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
-	"reflect"
+	"strconv"
 	"testing"
 	"time"
 
@@ -18,11 +19,11 @@ import (
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
 
-	"knative.dev/func/pkg/builders/buildpacks"
 	"knative.dev/func/pkg/builders/s2i"
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/knative"
+	"knative.dev/func/pkg/oci"
 	. "knative.dev/func/pkg/testing"
 	"knative.dev/pkg/ptr"
 )
@@ -31,57 +32,60 @@ import (
 //
 // go test -tags integration ./...
 //
-// ## Cluster Required
+// ## Requirements
 //
-// These integration tests require a properly configured cluster,
-// such as that which is setup and configured in CI (see .github/workflows).
-// Linux developers can set up the cluster via:
+// A cluster is required. See .github/workflows for more. For example:
 //
 //   ./hack/install-binaries.sh && ./hack/allocate.sh && ./hack/registry.sh
+//
+// Binaries are required:  go for compiling functions and git for
+// repository-related tests.
 //
 // ## Cluster Cleanup
 //
 // The test cluster and most resources can be removed with:
 //   ./hack/delete.sh
 //
+// ## Configuration
+//
+// Use the FUNC_INT_* environment variables to alter behavior, binaries to
+// use, etc.
+//
 // NOTE: Downloaded images are not removed.
 //
 
 const (
-	// DefaultRegistry must contain both the registry host and
-	// registry namespace at this time.  This will likely be
-	// split and defaulted to the forthcoming in-cluster registry.
-	DefaultRegistry = "localhost:50000/func"
-
-	// DefaultNamespace for the underlying deployments.  Must be the same
-	// as is set up and configured (see hack/configure.sh)
-	DefaultNamespace = "func"
+	DefaultIntTestHome       = "./testdata/default_home"
+	DefaultIntTestKubeconfig = "../../hack/bin/kubeconfig.yaml"
+	DefaultIntTestRegistry   = "localhost:50000/func"
+	DefaultIntTestNamespace  = "default"
+	DefaultIntTestVerbose    = false
 )
 
-func TestList(t *testing.T) {
-	verbose := true
+var (
+	Go         = getEnvAsBin("FUNC_INT_GO", "go")
+	Git        = getEnvAsBin("FUNC_INT_GIT", "git")
+	Kubeconfig = getEnvAsPath("FUNC_INT_KUBECONFIG", DefaultIntTestKubeconfig)
+	Verbose    = getEnvAsBool("FUNC_INT_VERBOSE", DefaultIntTestVerbose)
+	Registry   = getEnv("FUNC_INT_REGISTRY", DefaultIntTestRegistry)
+	Home, _    = filepath.Abs(DefaultIntTestHome)
+)
 
-	// Assemble
-	lister := knative.NewLister(verbose)
-
-	client := fn.New(
-		fn.WithLister(lister),
-		fn.WithVerbose(verbose))
-
-	// Act
-	names, err := client.List(context.Background(), DefaultNamespace)
-	if err != nil {
-		t.Fatal(err)
+// containsInstance checks if the list includes the given instance.
+func containsInstance(list []fn.ListItem, name, namespace string) bool {
+	for _, v := range list {
+		if v.Name == name && v.Namespace == namespace {
+			return true
+		}
 	}
-
-	// Assert
-	if len(names) != 0 {
-		t.Fatalf("Expected no functions, got %v", names)
-	}
+	return false
+	// Note that client.List is tested implicitly via its use in TestInt_New
+	// and TestInt_Delete.
 }
 
-// TestNew creates
-func TestNew(t *testing.T) {
+// TestInt_New creates
+func TestInt_New(t *testing.T) {
+	resetEnv()
 	// Assemble
 	root, cleanup := Mktemp(t)
 	defer cleanup()
@@ -90,32 +94,32 @@ func TestNew(t *testing.T) {
 	client := newClient(verbose)
 
 	// Act
-	if _, _, err := client.New(context.Background(), fn.Function{Name: name, Namespace: DefaultNamespace, Root: root, Runtime: "go"}); err != nil {
+	if _, _, err := client.New(context.Background(), fn.Function{Name: name, Namespace: DefaultIntTestNamespace, Root: root, Runtime: "go"}); err != nil {
 		t.Fatal(err)
 	}
-	defer del(t, client, name, DefaultNamespace)
+	defer del(t, client, name, DefaultIntTestNamespace)
 
 	// Assert
-	items, err := client.List(context.Background(), DefaultNamespace)
-	names := []string{}
-	for _, item := range items {
-		names = append(names, item.Name)
-	}
+	list, err := client.List(context.Background(), DefaultIntTestNamespace)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(names, []string{name}) {
-		t.Fatalf("Expected function list ['%v'], got %v", name, names)
+
+	if !containsInstance(list, name, DefaultIntTestNamespace) {
+		t.Log(list)
+		t.Fatalf("deployed instance list does not contain function %q", name)
 	}
 }
 
-// TestDeploy_Defaults deployes using client methods from New but manually
-func TestDeploy_Defaults(t *testing.T) {
-	defer Within(t, "testdata/example.com/deploy")()
+// TestInt_Deploy_Defaults deployes using client methods from New but manually
+func TestInt_Deploy_Defaults(t *testing.T) {
+	resetEnv()
+	_, cleanup := Mktemp(t)
+	defer cleanup()
 	verbose := true
 
 	client := newClient(verbose)
-	f := fn.Function{Name: "deploy", Namespace: DefaultNamespace, Root: ".", Runtime: "go"}
+	f := fn.Function{Name: "deploy", Namespace: DefaultIntTestNamespace, Runtime: "go"}
 	var err error
 
 	if f, err = client.Init(f); err != nil {
@@ -128,7 +132,7 @@ func TestDeploy_Defaults(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	defer del(t, client, "deploy", DefaultNamespace)
+	defer del(t, client, "deploy", DefaultIntTestNamespace)
 	// TODO: gauron99 -- remove this when you set full image name after build instead
 	// of push -- this has to be here because of a workaround
 	f.Deploy.Image = f.Build.Image
@@ -138,13 +142,14 @@ func TestDeploy_Defaults(t *testing.T) {
 	}
 }
 
-// TestDeploy_WithOptions deploys function with all options explicitly set
-func TestDeploy_WithOptions(t *testing.T) {
+// TestInt_Deploy_WithOptions deploys function with all options explicitly set
+func TestInt_Deploy_WithOptions(t *testing.T) {
+	resetEnv()
 	root, cleanup := Mktemp(t)
 	defer cleanup()
 	verbose := false
 
-	f := fn.Function{Runtime: "go", Name: "test-deploy-with-options", Root: root, Namespace: DefaultNamespace}
+	f := fn.Function{Runtime: "go", Name: "test-deploy-with-options", Root: root, Namespace: DefaultIntTestNamespace}
 	f.Deploy = fn.DeploySpec{
 		Options: fn.Options{
 			Scale: &fn.ScaleOptions{
@@ -172,15 +177,16 @@ func TestDeploy_WithOptions(t *testing.T) {
 	if _, _, err := client.New(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
-	defer del(t, client, "test-deploy-with-options", DefaultNamespace)
+	defer del(t, client, "test-deploy-with-options", DefaultIntTestNamespace)
 }
 
-func TestDeployWithTriggers(t *testing.T) {
+func TestInt_Deploy_WithTriggers(t *testing.T) {
+	resetEnv()
 	root, cleanup := Mktemp(t)
 	defer cleanup()
 	verbose := true
 
-	f := fn.Function{Runtime: "go", Name: "test-deploy-with-triggers", Root: root, Namespace: DefaultNamespace}
+	f := fn.Function{Runtime: "go", Name: "test-deploy-with-triggers", Root: root, Namespace: DefaultIntTestNamespace}
 	f.Deploy = fn.DeploySpec{
 		Subscriptions: []fn.KnativeSubscription{
 			{
@@ -197,27 +203,29 @@ func TestDeployWithTriggers(t *testing.T) {
 	if _, _, err := client.New(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
-	defer del(t, client, "test-deploy-with-triggers", DefaultNamespace)
+	defer del(t, client, "test-deploy-with-triggers", DefaultIntTestNamespace)
 }
 
-func TestUpdateWithAnnotationsAndLabels(t *testing.T) {
+func TestInt_Update_WithAnnotationsAndLabels(t *testing.T) {
+	resetEnv()
+	_, cleanup := Mktemp(t)
+	defer cleanup()
 	functionName := "updateannlab"
-	defer Within(t, "testdata/example.com/"+functionName)()
 	verbose := false
 
-	servingClient, err := knative.NewServingClient(DefaultNamespace)
+	servingClient, err := knative.NewServingClient(DefaultIntTestNamespace)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Deploy a function without any annotations or labels
 	client := newClient(verbose)
-	f := fn.Function{Name: functionName, Root: ".", Runtime: "go", Namespace: DefaultNamespace}
+	f := fn.Function{Name: functionName, Runtime: "go", Namespace: DefaultIntTestNamespace}
 
 	if _, f, err = client.New(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
-	defer del(t, client, functionName, DefaultNamespace)
+	defer del(t, client, functionName, DefaultIntTestNamespace)
 
 	// Updated function with a new set of annotations and labels
 	// deploy and check that deployed kcsv contains correct annotations and labels
@@ -295,13 +303,16 @@ func TestUpdateWithAnnotationsAndLabels(t *testing.T) {
 	}
 }
 
-// TestRemove ensures removal of a function instance.
-func TestRemove(t *testing.T) {
-	defer Within(t, "testdata/example.com/remove")()
+// TestInt_Remove ensures removal of a function instance.
+func TestInt_Remove(t *testing.T) {
+	resetEnv()
+	_, cleanup := Mktemp(t)
+	defer cleanup()
 	verbose := true
+	name := "remove"
 
 	client := newClient(verbose)
-	f := fn.Function{Name: "remove", Namespace: DefaultNamespace, Root: ".", Runtime: "go"}
+	f := fn.Function{Name: name, Namespace: DefaultIntTestNamespace, Runtime: "go"}
 	var err error
 	if _, _, err = client.New(context.Background(), f); err != nil {
 		t.Fatal(err)
@@ -309,27 +320,30 @@ func TestRemove(t *testing.T) {
 
 	del(t, client, "remove", DefaultNamespace)
 
-	names, err := client.List(context.Background(), DefaultNamespace)
+	list, err := client.List(context.Background(), DefaultIntTestNamespace)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(names) != 0 {
-		t.Fatalf("Expected empty functions list, got %v", names)
+	if containsInstance(list, name, DefaultIntTestNamespace) {
+		t.Log(list)
+		t.Fatalf("deployed instance list still contains function %q", name)
 	}
 }
 
-// TestRemoteRepositories ensures that initializing a function
+// TestInt_RemoteRepositories ensures that initializing a function
 // defined in a remote repository finds the template, writes
 // the expected files, and retains the expected modes.
 // NOTE: this test only succeeds due to an override in
 // templates' copyNode which forces mode 755 for directories.
 // See https://github.com/go-git/go-git/issues/364
-func TestRemoteRepositories(t *testing.T) {
-	defer Within(t, "testdata/example.com/remote")()
+func TestInt_RemoteRepositories(t *testing.T) {
+	resetEnv()
+	_, cleanup := Mktemp(t)
+	defer cleanup()
 
 	// Write the test template from the remote onto root
 	client := fn.New(
-		fn.WithRegistry(DefaultRegistry),
+		fn.WithRegistry(DefaultIntTestRegistry),
 		fn.WithRepository("https://github.com/boson-project/test-templates"),
 	)
 	_, err := client.Init(fn.Function{
@@ -368,22 +382,23 @@ func TestRemoteRepositories(t *testing.T) {
 	}
 }
 
-// TestInvoke_ClientToService ensures that the client can invoke a remotely
+// TestInt_Invoke_ClientToService ensures that the client can invoke a remotely
 // deployed service, both by the route returned directly as well as using
 // the invocation helper client.Invoke.
-func TestInvoke_ClientToService(t *testing.T) {
+func TestInt_Invoke_ClientToService(t *testing.T) {
+	resetEnv()
+	root, cleanup := Mktemp(t)
+	defer cleanup()
 	var (
-		root, done = Mktemp(t)
-		verbose    = true
-		ctx        = context.Background()
-		client     = newClient(verbose)
-		route      string
-		err        error
+		verbose = true
+		ctx     = context.Background()
+		client  = newClient(verbose)
+		route   string
+		err     error
 	)
-	defer done()
 
 	// Create a function
-	f := fn.Function{Name: "f", Runtime: "go", Namespace: DefaultNamespace}
+	f := fn.Function{Name: "f", Runtime: "go", Namespace: DefaultIntTestNamespace}
 	f, err = client.Init(f)
 	if err != nil {
 		t.Fatal(err)
@@ -391,12 +406,9 @@ func TestInvoke_ClientToService(t *testing.T) {
 	source := `
 package function
 
-import (
-  "context"
-  "net/http"
-)
+import "net/http"
 
-func Handle(ctx context.Context, res http.ResponseWriter, req *http.Request) {
+func Handle(res http.ResponseWriter, req *http.Request) {
   res.Write([]byte("TestInvoke_ClientToService OK"))
 }
 `
@@ -439,9 +451,10 @@ func Handle(ctx context.Context, res http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// TestInvoke_ServiceToService ensures that a Function can invoke another
+// TestInt_Invoke_ServiceToService ensures that a Function can invoke another
 // service via localhost service discovery api provided by the Dapr sidecar.
-func TestInvoke_ServiceToService(t *testing.T) {
+func TestInt_Invoke_ServiceToService(t *testing.T) {
+	resetEnv()
 	var (
 		verbose = true
 		ctx     = context.Background()
@@ -455,7 +468,7 @@ func TestInvoke_ServiceToService(t *testing.T) {
 	// A function which responds to GET requests with a static value.
 	root, done := Mktemp(t)
 	defer done()
-	f := fn.Function{Name: "a", Runtime: "go", Namespace: DefaultNamespace}
+	f := fn.Function{Name: "a", Runtime: "go", Namespace: DefaultIntTestNamespace}
 	f, err = client.Init(f)
 	if err != nil {
 		t.Fatal(err)
@@ -463,12 +476,9 @@ func TestInvoke_ServiceToService(t *testing.T) {
 	source = `
 package function
 
-import (
-  "context"
-  "net/http"
-)
+import "net/http"
 
-func Handle(ctx context.Context, res http.ResponseWriter, req *http.Request) {
+func Handle(res http.ResponseWriter, req *http.Request) {
   res.Write([]byte("TestInvoke_ServiceToService OK"))
 }
 `
@@ -484,10 +494,11 @@ func Handle(ctx context.Context, res http.ResponseWriter, req *http.Request) {
 	// Create Function B
 	// which responds with the response from an invocation of 'a' via the
 	// localhost service discovery and invocation API.
+	client2 := newClient(verbose)
 	root, done = Mktemp(t)
 	defer done()
-	f = fn.Function{Name: "b", Runtime: "go", Namespace: DefaultNamespace}
-	f, err = client.Init(f)
+	f = fn.Function{Name: "b", Runtime: "go", Namespace: DefaultIntTestNamespace}
+	f, err = client2.Init(f)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -497,7 +508,6 @@ package function
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -505,7 +515,7 @@ import (
 	"time"
 )
 
-func Handle(ctx context.Context, w http.ResponseWriter, req *http.Request) {
+func Handle(w http.ResponseWriter, req *http.Request) {
 	var e error
 	var r *http.Response
 	var buff bytes.Buffer
@@ -535,10 +545,10 @@ func Handle(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if route, _, err = client.Apply(ctx, f); err != nil {
+	if route, f, err = client2.Apply(ctx, f); err != nil {
 		t.Fatal(err)
 	}
-	defer del(t, client, "b", DefaultNamespace)
+	defer client2.Remove(ctx, "", "", f, true)
 
 	resp, err := http.Get(route)
 	if err != nil {
@@ -581,28 +591,80 @@ func TestDeployWithoutHome(t *testing.T) {
 }
 
 // ***********
-//   Helpers
+//	Helpers
 // ***********
+
+func getEnvAsPath(env, dflt string) (val string) {
+	val = getEnv(env, dflt)
+	if !filepath.IsAbs(val) { // convert to abs
+		var err error
+		if val, err = filepath.Abs(val); err != nil {
+			panic(fmt.Sprintf("error converting path to absolute. %v", err))
+		}
+	}
+	return
+}
+
+func getEnvAsBool(env string, dfltBool bool) bool {
+	dflt := fmt.Sprintf("%t", dfltBool)
+	val, err := strconv.ParseBool(getEnv(env, dflt))
+	if err != nil {
+		panic(fmt.Sprintf("value for %v expected to be boolean. %v", env, err))
+	}
+	return val
+}
+
+func getEnvAsBin(env, dflt string) string {
+	val, err := exec.LookPath(getEnv(env, dflt))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error locating command %q. %v", val, err)
+	}
+	return val
+}
+
+func getEnv(env, dflt string) (val string) {
+	if v := os.Getenv(env); v != "" {
+		val = v
+	}
+	if val == "" {
+		val = dflt
+	}
+	return
+}
+
+func resetEnv() {
+	os.Clearenv()
+	os.Setenv("HOME", Home)
+	os.Setenv("KUBECONFIG", Kubeconfig)
+	os.Setenv("FUNC_GO", Go)
+	os.Setenv("FUNC_GIT", Git)
+	os.Setenv("FUNC_VERBOSE", fmt.Sprintf("%t", Verbose))
+
+	// The Registry will be set either during first-time setup using the
+	// global config, or already defaulted by the user via environment variable.
+	os.Setenv("FUNC_REGISTRY", Registry)
+
+	// The following host-builder related settings will become the defaults
+	// once the host builder supports the core runtimes.  Setting them here in
+	// order to futureproof individual tests.
+	os.Setenv("FUNC_ENABLE_HOST_BUILDER", "true") // Enable the host builder
+	os.Setenv("FUNC_BUILDER", "host")             // default to host builder
+	os.Setenv("FUNC_CONTAINER", "false")          // "run" uses host builder
+
+}
 
 // newClient creates an instance of the func client with concrete impls
 // sufficient for running integration tests.
 func newClient(verbose bool) *fn.Client {
-	builder := buildpacks.NewBuilder(buildpacks.WithVerbose(verbose))
-	pusher := docker.NewPusher(docker.WithVerbose(verbose))
-	deployer := knative.NewDeployer(knative.WithDeployerVerbose(verbose))
-	describer := knative.NewDescriber(verbose)
-	remover := knative.NewRemover(verbose)
-	lister := knative.NewLister(verbose)
-
 	return fn.New(
-		fn.WithRegistry(DefaultRegistry),
+		fn.WithRegistry(DefaultIntTestRegistry),
+		fn.WithBuilder(oci.NewBuilder("", verbose)),
+		fn.WithPusher(oci.NewPusher(true, true, verbose)),
+		fn.WithDeployer(knative.NewDeployer(knative.WithDeployerVerbose(verbose))),
+		fn.WithDescriber(knative.NewDescriber(verbose)),
+		fn.WithRemover(knative.NewRemover(verbose)),
+		fn.WithLister(knative.NewLister(verbose)),
 		fn.WithVerbose(verbose),
-		fn.WithBuilder(builder),
-		fn.WithPusher(pusher),
-		fn.WithDeployer(deployer),
-		fn.WithDescriber(describer),
-		fn.WithRemover(remover),
-		fn.WithLister(lister),
 	)
 }
 
@@ -640,10 +702,23 @@ func newClientWithS2i(verbose bool) *fn.Client {
 func del(t *testing.T, c *fn.Client, name, namespace string) {
 	t.Helper()
 	waitFor(t, c, name, namespace)
-	f := fn.Function{Name: name, Deploy: fn.DeploySpec{Namespace: DefaultNamespace}}
+	f := fn.Function{Name: name, Deploy: fn.DeploySpec{Namespace: DefaultIntTestNamespace}}
 	if err := c.Remove(context.Background(), "", "", f, false); err != nil {
 		t.Fatal(err)
 	}
+
+	// TODO(lkingland):  The below breaks things
+	// The following should not exist, nor its imports.
+	//
+	// If there is ever a problem with dangling volumes, that is
+	// something which should be fixed in the _remover_, and tested there.
+	//
+	// ... check with Jefferson what caused such a state, open an
+	// issue to alter remover if necessary, and then delete all of this.
+	if true {
+		return
+	}
+
 	cli, _, err := docker.NewClient(client.DefaultDockerHost)
 	if err != nil {
 		t.Fatal(err)
