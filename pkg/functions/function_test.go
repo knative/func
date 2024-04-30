@@ -448,8 +448,7 @@ func TestFunction_Local(t *testing.T) {
 //
 // The new function should not have Local.Remote set (as it is a transient field)
 func TestFunction_LocalTransient(t *testing.T) {
-
-	// Initialise a new function
+	skipIfNoGit(t) // see docs
 	root, rm := Mktemp(t)
 	defer rm()
 
@@ -520,7 +519,7 @@ func TestFunction_LocalTransient(t *testing.T) {
 		InsecureSkipTLS: true,
 	})
 	if err != nil {
-		t.Fatal()
+		t.Fatal(err)
 	}
 
 	// Create a new directory to clone the function in
