@@ -2,6 +2,7 @@ package functions_test
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -49,6 +50,7 @@ func TestRepositories_GetInvalid(t *testing.T) {
 
 // TestRepositories_Get ensures a repository can be accessed by name.
 func TestRepositories_Get(t *testing.T) {
+	skipIfNoGit(t) // see docs
 	client := fn.New(fn.WithRepositoriesPath("testdata/repositories"))
 
 	// valid should not error
@@ -66,6 +68,7 @@ func TestRepositories_Get(t *testing.T) {
 // TestRepositories_All ensures repos are returned from
 // .All accessor.  Tests both builtin and buitlin+extensible cases.
 func TestRepositories_All(t *testing.T) {
+	skipIfNoGit(t) // see docs
 	uri := ServeRepo(RepositoriesTestRepo, t)
 	root, rm := Mktemp(t)
 	defer rm()
@@ -103,6 +106,7 @@ func TestRepositories_All(t *testing.T) {
 
 // TestRepositories_Add checks basic adding of a repository by URI.
 func TestRepositories_Add(t *testing.T) {
+	skipIfNoGit(t)                            // see docs
 	uri := ServeRepo(RepositoriesTestRepo, t) // ./testdata/$RepositoriesTestRepo.git
 	root, rm := Mktemp(t)                     // create and cd to a temp dir, returning path.
 	defer rm()
@@ -137,6 +141,7 @@ func TestRepositories_Add(t *testing.T) {
 // TestRepositories_AddDefaultName ensures that repository name is optional,
 // by default being set to the name of the repoisotory from the URI.
 func TestRepositories_AddDeafultName(t *testing.T) {
+	skipIfNoGit(t) // see docs
 	// The test repository is the "base case" repo, which is a manifestless
 	// repo meant to exemplify the simplest use case:  a repo with no metadata
 	// that simply contains templates, grouped by runtime.  It therefore does
@@ -172,6 +177,7 @@ func TestRepositories_AddDeafultName(t *testing.T) {
 // a manfest wherein a default name is specified, is used as the name for the
 // added repository when a name is not explicitly specified.
 func TestRepositories_AddWithManifest(t *testing.T) {
+	skipIfNoGit(t) // see docs
 	// repository-b is meant to exemplify the use case of a repository which
 	// defines a custom language pack and makes full use of the manifest.yaml.
 	// The manifest.yaml is included which specifies things like custom templates
@@ -207,6 +213,7 @@ func TestRepositories_AddWithManifest(t *testing.T) {
 // TestRepositories_AddExistingErrors ensures that adding a repository that
 // already exists yields an error.
 func TestRepositories_AddExistingErrors(t *testing.T) {
+	skipIfNoGit(t) // see docs
 	uri := ServeRepo(RepositoriesTestRepo, t)
 	root, rm := Mktemp(t) // create and cd to a temp dir, returning path.
 	defer rm()
@@ -241,6 +248,7 @@ func TestRepositories_AddExistingErrors(t *testing.T) {
 
 // TestRepositories_Rename ensures renaming a repository succeeds.
 func TestRepositories_Rename(t *testing.T) {
+	skipIfNoGit(t) // see docs
 	uri := ServeRepo(RepositoriesTestRepo, t)
 	root, rm := Mktemp(t) // create and cd to a temp dir, returning path.
 	defer rm()
@@ -275,6 +283,7 @@ func TestRepositories_Rename(t *testing.T) {
 // TestRepositories_Remove ensures that removing a repository by name
 // removes it from the list and FS.
 func TestRepositories_Remove(t *testing.T) {
+	skipIfNoGit(t)                            // see docs
 	uri := ServeRepo(RepositoriesTestRepo, t) // ./testdata/repository.git
 	root, rm := Mktemp(t)                     // create and cd to a temp dir
 	defer rm()
@@ -310,6 +319,7 @@ func TestRepositories_Remove(t *testing.T) {
 // TestRepositories_URL ensures that a repository populates its URL member
 // from the git repository's origin url (if it is a git repo and exists)
 func TestRepositories_URL(t *testing.T) {
+	skipIfNoGit(t) // see docs
 	uri := ServeRepo(RepositoriesTestRepo, t)
 	root, rm := Mktemp(t)
 	defer rm()
@@ -348,5 +358,36 @@ func TestRepositories_Missing(t *testing.T) {
 	_, err := client.Repositories().All()
 	if err != nil {
 		t.Fatal(err)
+	}
+}
+
+// skipIfNoGit skips the test if there is no 'git' available in PATH.
+//
+// The 'go-git' dependency only has partial support for file:// paths.
+// see: https://github.com/go-git/go-git/blob/master/COMPATIBILITY.md
+// Therefore the "git" binary is used as a fallback.
+//
+// These file:// paths we rely on for cloning repositories from the
+// inbuilt repositories.  Therefore, it is not a "pure-go" implementation
+// of git.  This results in there being a hard dependency on the "git"
+// program, which this library uses as a fallback.
+// TODO: We can either 1) reimplement this functionality ourselves
+// by capturing file:// paths and just copying the files (we don't need
+// the git repository; just the files), 2) find a library which
+// does actually implmement this part of git without relying on "git",
+// 3) submit a patch upstream which implements this functionality.
+// 4) At least submit a patch upstream allowing the path of the git bin
+// to be specified when no PATH.
+// Temporary workaround: Detect when this test is being run alongside
+// the integration/e2e tests (which clear the environment), and skip.
+func skipIfNoGit(t *testing.T) {
+	// integration and e2e tests clear their environment in order to
+	// obtain isolation.  If there is no 'git' available; skip the test.
+	// Note that our libraries accept an environmental override for these
+	// binaries (FUNC_E2E_GIT for example).  There is no such setting for
+	// the go-git dependency.
+	_, err := exec.LookPath("git")
+	if err != nil {
+		t.Skip("No 'git' found in path. Skipping test.")
 	}
 }

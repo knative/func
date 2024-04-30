@@ -42,7 +42,7 @@ const (
 	// but functional deployer, use fn.WithDeployer(mock.NewDeployer()) which
 	// will return a result with the target namespace populated "mocking"
 	// that the function was actually deployed.
-	TestNamespace = "func"
+	TestNamespace = "default"
 )
 
 var (
@@ -345,7 +345,9 @@ func TestClient_New_HiddenFilesIgnored(t *testing.T) {
 // $FUNC_REPOSITORIES_PATH/boson/go/json
 // See the CLI for full details, but a standard default location is
 // $HOME/.config/func/repositories/boson/go/json
-func TestClient_New_RepositoriesExtensible(t *testing.T) {
+func TestClient_New_RepositoriesExtensible_B(t *testing.T) {
+	skipIfNoGit(t) // see function doc
+
 	root := "testdata/example.com/test-repositories-extensible"
 	defer Using(t, root)()
 
@@ -388,6 +390,7 @@ func TestClient_New_RuntimeNotFoundError(t *testing.T) {
 // TestClient_New_RuntimeNotFoundCustom ensures that the correct error is returned
 // when the requested runtime is not found in a given custom repository
 func TestClient_New_RuntimeNotFoundCustom(t *testing.T) {
+	skipIfNoGit(t) // see docs
 	root := "testdata/example.com/testRuntimeNotFoundCustom"
 	defer Using(t, root)()
 
@@ -426,6 +429,7 @@ func TestClient_New_TemplateNotFoundError(t *testing.T) {
 // TestClient_New_TemplateNotFoundCustom ensures that the correct error is returned
 // when the requested template is not found in the given custom repository.
 func TestClient_New_TemplateNotFoundCustom(t *testing.T) {
+	skipIfNoGit(t) // see docs
 	root := "testdata/example.com/testTemplateNotFoundCustom"
 	defer Using(t, root)()
 
@@ -1607,6 +1611,7 @@ func TestClient_Scaffold(t *testing.T) {
 
 // TestClient_Runtimes ensures that the total set of runtimes are returned.
 func TestClient_Runtimes(t *testing.T) {
+	skipIfNoGit(t) // see docs
 	// TODO: test when a specific repo override is indicated
 	// (remote repo which takes precedence over embedded and extended)
 

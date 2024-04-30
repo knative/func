@@ -16,6 +16,7 @@ import (
 // TestTemplates_List ensures that all templates are listed taking into account
 // both internal and extensible (prefixed) repositories.
 func TestTemplates_List(t *testing.T) {
+	skipIfNoGit(t) // see docs
 	// A client which specifies a location of exensible repositoreis on disk
 	// will list all builtin plus exensible
 	client := fn.New(fn.WithRepositoriesPath("testdata/repositories"))
@@ -45,6 +46,7 @@ func TestTemplates_List(t *testing.T) {
 // when retrieving the list of templates for a runtime that does not exist
 // in an extended repository, but does in the default.
 func TestTemplates_List_ExtendedNotFound(t *testing.T) {
+	skipIfNoGit(t) // see docs
 	client := fn.New(fn.WithRepositoriesPath("testdata/repositories"))
 
 	// list templates for the "python" runtime -
@@ -69,6 +71,7 @@ func TestTemplates_List_ExtendedNotFound(t *testing.T) {
 // TestTemplates_Get ensures that a template's metadata object can
 // be retrieved by full name (full name prefix optional for embedded).
 func TestTemplates_Get(t *testing.T) {
+	skipIfNoGit(t) // see docs
 	client := fn.New(fn.WithRepositoriesPath("testdata/repositories"))
 
 	// Check embedded
@@ -124,6 +127,7 @@ func TestTemplates_Embedded(t *testing.T) {
 // (ie. custom provider on disk) can be specified as the source for a
 // template.
 func TestTemplates_Custom(t *testing.T) {
+	skipIfNoGit(t) // see docs
 	// Create test directory
 	root := "testdata/testTemplatesCustom"
 	defer Using(t, root)()
@@ -157,6 +161,7 @@ func TestTemplates_Custom(t *testing.T) {
 // can be specificed on creation of client, with subsequent calls to Create
 // using this remote by default.
 func TestTemplates_Remote(t *testing.T) {
+	skipIfNoGit(t) // see docs
 	var err error
 
 	root := "testdata/testTemplatesRemote"
@@ -282,6 +287,7 @@ func TestTemplates_ModeEmbedded(t *testing.T) {
 // TestTemplates_ModeCustom ensures that templates written from custom templates
 // retain their mode.
 func TestTemplates_ModeCustom(t *testing.T) {
+	skipIfNoGit(t) // see docs
 	if runtime.GOOS == "windows" {
 		return // not applicable
 	}
@@ -317,6 +323,7 @@ func TestTemplates_ModeCustom(t *testing.T) {
 // TestTemplates_ModeRemote ensures that templates written from remote templates
 // retain their mode.
 func TestTemplates_ModeRemote(t *testing.T) {
+	skipIfNoGit(t) // see docs
 	var err error
 
 	if runtime.GOOS == "windows" {
@@ -367,6 +374,7 @@ func TestTemplates_ModeRemote(t *testing.T) {
 // TestTemplates_RuntimeManifestBuildEnvs ensures that BuildEnvs specified in a
 // runtimes's manifest are included in the final function.
 func TestTemplates_RuntimeManifestBuildEnvs(t *testing.T) {
+	skipIfNoGit(t) // see docs
 	// create test directory
 	root := "testdata/testTemplatesRuntimeManifestBuildEnvs"
 	defer Using(t, root)()
@@ -414,6 +422,7 @@ func TestTemplates_RuntimeManifestBuildEnvs(t *testing.T) {
 // TestTemplates_ManifestBuildEnvs ensures that BuildEnvs specified in a
 // template's manifest are included in the final function.
 func TestTemplates_ManifestBuildEnvs(t *testing.T) {
+	skipIfNoGit(t) // see docs
 	// create test directory
 	root := "testdata/testTemplatesManifestBuildEnvs"
 	defer Using(t, root)()
@@ -461,6 +470,7 @@ func TestTemplates_ManifestBuildEnvs(t *testing.T) {
 // TestTemplates_RepositoryManifestBuildEnvs ensures that BuildEnvs specified in a
 // repository's manifest are included in the final function.
 func TestTemplates_RepositoryManifestBuildEnvs(t *testing.T) {
+	skipIfNoGit(t) // see docs
 	// create test directory
 	root := "testdata/testRepositoryManifestBuildEnvs"
 	defer Using(t, root)()
@@ -508,6 +518,7 @@ func TestTemplates_RepositoryManifestBuildEnvs(t *testing.T) {
 // TestTemplates_ManifestInvocationHints ensures that invocation hints
 // from a template's manifest are included in the final function.
 func TestTemplates_ManifestInvocationHints(t *testing.T) {
+	skipIfNoGit(t) // see docs
 	root := "testdata/testTemplatesManifestInvocationHints"
 	defer Using(t, root)()
 
@@ -532,6 +543,7 @@ func TestTemplates_ManifestInvocationHints(t *testing.T) {
 // TestTemplates_ManifestRemoved ensures that the manifest is not left in
 // the resultant function after write.
 func TestTemplates_ManifestRemoved(t *testing.T) {
+	skipIfNoGit(t) // see docs
 	// create test directory
 	root := "testdata/testTemplateManifestRemoved"
 	defer Using(t, root)()
@@ -568,6 +580,7 @@ func TestTemplates_ManifestRemoved(t *testing.T) {
 // does not define an invocation hint defaults to empty string (since 0.35.0
 // default value is omitted from func.yaml file for Invoke)
 func TestTemplates_InvocationDefault(t *testing.T) {
+	skipIfNoGit(t) // see docs
 	expectedInvoke := ""
 	root := "testdata/testTemplatesInvocationDefault"
 	defer Using(t, root)()
