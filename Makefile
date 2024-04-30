@@ -125,7 +125,11 @@ presubmit-unit-tests: ## Run prow presubmit unit tests locally
 ##@ Templates
 #############
 
-# TODO: add linters for other templates
+.PHONY: check-embedded-fs
+check-embedded-fs: ## check the embedded templates FS
+	go test -run "^\QTestFileSystems\E$$/^\Qembedded\E$$" ./pkg/filesystem
+
+
 .PHONY: check-templates
 check-templates: check-go check-rust ## Run template source code checks
 
@@ -141,32 +145,40 @@ check-rust: ## Check Rust templates' source
 	cd templates/rust/cloudevents && cargo clippy && cargo clean
 	cd templates/rust/http && cargo clippy && cargo clean
 
+.PHONY: check-templates
 test-templates: test-go test-node test-python test-quarkus test-springboot test-rust test-typescript ## Run all template tests
 
+.PHONY: test-go
 test-go: ## Test Go templates
 	cd templates/go/cloudevents && go mod tidy && go test
 	cd templates/go/http && go mod tidy && go test
 
+.PHONY: test-node
 test-node: ## Test Node templates
 	cd templates/node/cloudevents && npm ci && npm test && rm -rf node_modules
 	cd templates/node/http && npm ci && npm test && rm -rf node_modules
 
+.PHONY: test-python
 test-python: ## Test Python templates
 	cd templates/python/cloudevents && pip3 install -r requirements.txt && python3 test_func.py && rm -rf __pycache__
 	cd templates/python/http && python3 test_func.py && rm -rf __pycache__
 
+.PHONY: test-quarkus
 test-quarkus: ## Test Quarkus templates
 	cd templates/quarkus/cloudevents && ./mvnw -q test && ./mvnw clean && rm .mvn/wrapper/maven-wrapper.jar
 	cd templates/quarkus/http && ./mvnw -q test && ./mvnw clean && rm .mvn/wrapper/maven-wrapper.jar
 
+.PHONY: test-springboot
 test-springboot: ## Test Spring Boot templates
 	cd templates/springboot/cloudevents && ./mvnw -q test && ./mvnw clean && rm .mvn/wrapper/maven-wrapper.jar
 	cd templates/springboot/http && ./mvnw -q test && ./mvnw clean && rm .mvn/wrapper/maven-wrapper.jar
 
+.PHONY: test-rust
 test-rust: ## Test Rust templates
 	cd templates/rust/cloudevents && cargo -q test && cargo clean
 	cd templates/rust/http && cargo -q test && cargo clean
 
+.PHONY: test-typescript
 test-typescript: ## Test Typescript templates
 	cd templates/typescript/cloudevents && npm ci && npm test && rm -rf node_modules build
 	cd templates/typescript/http && npm ci && npm test && rm -rf node_modules build
@@ -176,18 +188,20 @@ test-typescript: ## Test Typescript templates
 ###############
 
 # Pulls runtimes then rebuilds the embedded filesystem
+.PHONY: update-runtimes
 update-runtimes:  pull-runtimes generate/zz_filesystem_generated.go ## Update Scaffolding Runtimes
 
+.PHONY: pull-runtimes
 pull-runtimes:
 	cd templates/go/scaffolding/instanced-http && go get -u knative.dev/func-go/http
 	cd templates/go/scaffolding/static-http && go get -u knative.dev/func-go/http
 	cd templates/go/scaffolding/instanced-cloudevents && go get -u knative.dev/func-go/cloudevents
 	cd templates/go/scaffolding/static-cloudevents && go get -u knative.dev/func-go/cloudevents
 
-.PHONY: cert
+.PHONY: certs
 certs: templates/certs/ca-certificates.crt ## Update root certificates
 
-.PHONY: templates/certs/ca-certificates.crt
+.PHONY: templates/certs/ca-certificates.crt # always run, even if it exists
 templates/certs/ca-certificates.crt:
 	# Updating root certificates
 	curl --output templates/certs/ca-certificates.crt https://curl.se/ca/cacert.pem
@@ -198,11 +212,18 @@ templates/certs/ca-certificates.crt:
 
 .PHONY: test-integration
 test-integration: ## Run unit+integration tests (cluster required)
-	go test -ldflags "$(LDFLAGS)" -race -cover -tags integration -timeout 30m --coverprofile=coverage.txt ./... -v
+	go clean -testcache
+	go test -ldflags "$(LDFLAGS)" -cover -tags "integration" -timeout 30m --coverprofile=coverage.txt ./...
 
 .PHONY: test-e2e
-test-e2e: func-instrumented ## Run unit+integration+E2E (cluster required)
-	go test -ldflags "$(LDFLAGS)" -race -cover -tags integration e2e -timeout 30m --coverprofile=coverage.txt
+test-e2e: func-instrumented ## Run unit+E2E tests (cluster required)
+	go clean -testcache
+	go test -ldflags "$(LDFLAGS)" -cover -tags "e2e" -timeout 30m --coverprofile=coverage.txt ./...
+
+.PHONY: test-e2e
+test-all: func-instrumented ## Run unit+integration+E2E tests (cluster required)
+	go clean -testcache
+	go test -ldflags "$(LDFLAGS)" -cover -tags "integration e2e" -timeout 60m --coverprofile=coverage.txt ./...
 
 .PHONY: func-instrumented
 func-instrumented: ## Func binary that is instrumented for e2e tests
@@ -257,7 +278,7 @@ schema-generate: schema/func_yaml-schema.json ## Generate func.yaml schema
 schema/func_yaml-schema.json: pkg/functions/function.go pkg/functions/function_*.go
 	go run schema/generator/main.go
 
-schema-check: ## Check that func.yaml schema is up-to-date
+check-schema: ## Check that func.yaml schema is up-to-date
 	mv schema/func_yaml-schema.json schema/func_yaml-schema-previous.json
 	make schema-generate
 	diff schema/func_yaml-schema.json schema/func_yaml-schema-previous.json ||\
