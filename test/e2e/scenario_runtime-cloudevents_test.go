@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"gotest.tools/v3/assert"
 	"knative.dev/func/test/testhttp"
@@ -39,7 +40,7 @@ func lifecycleCloudEventsTest(t *testing.T, language string, builder string) {
 	defer func() {
 		// temporarily ignore deletion error because Node has broken signal handling
 		// TODO fix this
-		if builder == "s2i" && (lang == "node" || lang == "typescript") && time.Now().Before(time.Date(2024, 5, 31, 0, 0, 0, 0, time.UTC)) {
+		if builder == "s2i" && (language == "node" || language == "typescript") && time.Now().Before(time.Date(2024, 5, 31, 0, 0, 0, 0, time.UTC)) {
 			knFunc.ShouldFailOnError = false
 		}
 		knFunc.Exec("delete", "--path", funcPath)
