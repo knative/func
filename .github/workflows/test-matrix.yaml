@@ -14,18 +14,6 @@ jobs:
           - "ubuntu-latest"
           - "windows-latest"
           - "macos-latest"
-        runtime:
-          - "go"
-          - "node" 
-          - "python" 
-          - "quarkus" 
-          - "springboot" 
-          - "typescript" 
-          - "rust"
-        builder:
-          - "host"
-          - "pack"
-          - "s2i"
     runs-on: ${{ matrix.os }}
     steps:
       - name: Set Environment Variables
@@ -52,11 +40,6 @@ jobs:
         run: ./hack/allocate.sh
       - name: Local Registry
         run: ./hack/registry.sh
-      - uses: actions/setup-java@v1
-        if: matrix.builder == 'host' && matrix.runtime == 'quarkus'
-        with:
-          java-version: 21
-      #
       # TODO: if matrix.builder == host
       #         if matrix.runtime == node: Setup node, python, quarkus
       #         if matrix.runtime == python: Setup python, quarkus
@@ -64,9 +47,19 @@ jobs:
       #         if matrix.runtime == springboot: Setup springboot
       #         if matrix.runtime == typescript: Setup typescript
       #         if matrix.runtime == rust: Setup rust
-      - name: E2E runtime for ${{ matrix.runtime }}
-        # TODO: ensure the runtime arg is being respected
-        run: make test-e2e runtime=${{ matrix.runtime }} builder=${{matrix.builder}}
+      # Example:
+      # - uses: actions/setup-java@v1
+      #   if: matrix.builder == 'host' && (matrix.runtime == 'quarkus' || matrix.runtime == 'springboot')
+      #   with:
+      #     java-version: 21
+      #
+      - name: E2E Matrix - OS: ${{ matrix.OS}}
+        env:
+          FUNC_E2E_MATRIX_RUNTIMES="go,node,python,quarkus,springboot,typescript"
+          FUNC_E2E_MATRIX_BUILDERS="host,pack,s2i"
+        run: make test-e2e
+      - name: Format Coverage Data
+        run: go tool covdata textfmt -i=.coverage -o coverage.txt
       - uses: codecov/codecov-action@v4
         with:
           files: ./coverage.txt

@@ -15,9 +15,9 @@ jobs:
       - name: Lint Templates
         run: make check-templates
       - name: Check 'func.yaml' schema
-        run: make schema-check
+        run: make check-schema
       - name: Check embedded FS
-        run: go test -run "^\QTestFileSystems\E$/^\Qembedded\E$" ./pkg/filesystem
+        run: make check-embedded-fs
 
   tests:
     runs-on: "ubuntu-latest"
@@ -36,8 +36,8 @@ jobs:
         run: ./hack/registry.sh
       - name: Setup testing images
         run: ./hack/setup-testing-images.sh
-      - name: Test
-        run: make test-e2e
+      - name: Test All
+        run: make test-all
       - uses: codecov/codecov-action@v4
         with:
           files: ./coverage.txt

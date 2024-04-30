@@ -46,11 +46,13 @@ jobs:
         # NOTE: Retaining for potential use in forthcoming weekly "matrix"
         # tests as a template for specifying builder matrix via interpolation
         env:
+          # TODO: port these to FUNC_E2E config params when the Git
+          # tests are incorporated into the e2e test suite
           FUNC_REPO_REF: ${{ github.event.pull_request.head.repo.full_name }}
           FUNC_REPO_BRANCH_REF: ${{ github.head_ref }}
-        #   TEST_TAGS: runtime
-        #   E2E_REGISTRY_URL: registry.default.svc.cluster.local:5000
         run: make test-e2e
+      - name: Format Coverage Data
+        run: go tool covdata textfmt -i=.coverage -o coverage.txt
       # TODO: The following log dump is so large it consistently causes
       # browser timeouts attempting to view.   Perhaps set this disabled
       # by default, enabling as needed? (or truncate the logs somehow)
