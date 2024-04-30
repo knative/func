@@ -17,6 +17,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
+	regTypes "github.com/google/go-containerregistry/pkg/v1/types"
 	"gotest.tools/v3/assert"
 	"io"
 	"log"
@@ -247,7 +248,7 @@ func TestPush(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			t.Log(desc.MediaType)
+			assert.Equal(t, desc.MediaType, regTypes.DockerManifestList)
 
 			img, err := remote.Image(ref, remoteOpts...)
 			if err != nil {
