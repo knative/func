@@ -1,149 +1,12 @@
 /*
 Package e2e provides an end-to-end test suite for the Functions CLI "func".
 
-tl;dr:
-
-	./hack/registry.sh         Configure system for insecure local registrires
-	./hack/install-binaries.sh Fetch binaries into ./hack/bin
-	./hack/allocate.sh         Create a cluster and kube config in ./hack/bin
-	go test ./e2e -tags=e2e    Run all tests using these bins and cluster
-	./hack/delete.sh           Nuke the cluster
-
-Test Suite Status:
-
-This package is a work-in-progress, and is not being executed in
-CI.  For the active e2e tests, see the "test" directory.
-
-Purpose:
-
-This set of e2e tests are meant to allow for easy local-execution of e2e tests
-in as lightweight of an implementation as possible for developers to quickly
-isolate problems found in the comprehensive CI-run e2e workflows, which
-are currently prohibitively complex to set up and run locally.
-
-Overview:
-
-The tests themselves are separated into four categories:  Core, Metadata,
-Repository, and Runtimes.
-
-Core tests include checking the basic CRUDL operations of Create, Read, Update,
-Delete and List.  Creation involves initialization with "func init",
-running the function locally with "func run", and in the cluster with "func
-deploy".  Reading is implemented as "func describe".  Updating ensures that
-an updated function replaces the old on a subsequent "func deploy".  Finally,
-"func list" implements a standard list operation, listing deployed Functions.
-
-Metadata tests ensure that manipulation of a Function's metadata is correctly
-carried to the final Function.  Metadata includes environment variables,
-labels, volumes and event subscriptions.
-
-Repository tests confirm features which involve working with git repositories.
-This includes operations such as building locally from source code located in
-a remote repository, building a specific revision, etc.
-
-Runtime tests are a larger matrix of tests which check operations which differ
-in implementation between language runtimes.  The primary operations which
-differ and must be checked for each runtime are creation and running locally.
-Therefore, the runtime tests execute for each language, for each template, for
-each builder.  As a side-effect of the test implementation, "func invoke" is
-also tested.
-
-Prerequisites:
-
-These tests expect a compiled binary, which will be executed utilizing a
-cluster configured to run Functions, as well as an available and authenticated
-container registry.  These can be configured locally for testing by using
-scripts in `../hack`:
-
-  - install-binaries.sh: Installs executables needed for cluster setup and
-    configuration into hack/bin.
-
-  - allocate.sh: Allocates and configures a Function-ready cluster locally, and
-    starts a local container registry on port :50000.
-
-  - regsitry.sh: Configures the local podman or docker to allow unencrypted
-    communication with the local registry.
-
-  - delete.sh: Removes the cluster and registry.  Using this to recreate the
-    cluster between test runs will ensure the cluster is in a clean initial state.
-
-Options:
-
-These tests accept environment variables which alter the default behavior:
-
-FUNC_E2E_BIN: sets the path to the binary to use for the E2E tests.  This is
-by default the binary created when "make" is run in the repository root.
-Note that if providing a relative path, this path is relative to this test
-package, not the directory from which `go test` was run.
-
-FUNC_E2E_PLUGIN: if set, the command run by the tests will be
-"${FUNC_E2E_BIN} func", allowing for running all tests when func is installed
-as a plugin; such as when used as a plugin for the Knative cluster admin
-tool "kn".  The value should be set to the name of the subcommand for the
-func plugin (usually "func").  For example to run E2E tests on 'kn' with
-the 'kn-func' plugged in use `FUNC_E2E_BIN=/path/to/kn FUNC_E2E_PLUGIN=func`
-
-FUNC_E2E_REGISTRY: if provided, tests will use this registry (in form
-"registry.example.com/user") instead of the test suite default of
-"localhost:50000/func".
-
-FUNC_E2E_RUNTIMES: Overrides the language runtimes to test when executing the
-runtime-specific tests.  Set to empty to effectively skip the (lengthy) runtimes
-tests.  By default tests all core supported runtimes.
-
-FUNC_E2E_BUILDERS: Overrides which builders will be used during the builder and
-runtime matrix.  By default is set to all builders ("host", "pack" and "s2i").
-
-FUNC_E2E_KUBECONFIG: The path to the kubeconfig to be used by tests.  This
-defaults to ../hack/bin/kubeconfig.yaml, which is created when using the
-../hack/allocate.sh script to set up a test cluster.
-
-FUNC_E2E_GOCOVERDIR: The path to use for Go coverage data reported by these
-tests.  This defaults to ../.coverage
-
-FUNC_E2E_GO: the path to the 'go' binary tests should use when running
-outside of a container (host builder, or runner with --container=false).  This
-can be used to test against specific go versions.  Defaults to the go binary
-found in the current session's PATH.
-
-FUNC_E2E_GIT: the path to the 'git' binary tests should provide to the commands
-being tested for git-related activities.   Defaults to the git binary
-found in the current session's PATH.
-
-FUNC_E2E_VERBOSE: instructs the test suite to run all commands in
-verbose mode.
-
-Running:
-
-From the root of the repository, run "make test-e2e-quick".  This will compile
-the current source, creating the binary "./func" if it does not already exist.
-It will then run "go test ./e2e".  By default the tests will use the locally
-compiled "func" binary unless FUNC_E2E_BIN is provided.
-
-Tests follow a naming convention to allow for manually testing subsets.  For
-example, To run only "core" tests, run "make" to update the binary to test,
-then "go test -run TestCore ./e2e".
-
-Cleanup:
-
-The tests do attempt to clean up after themselves, but since a test failure is
-definitionally the entering of an unknown state, it is suggested to delete
-the cluster between full test runs. To remove the local cluster, use the
-"delete.sh" script described above.
-
-Upgrades:
-  - Now supports testing func when a plugin of a different name
-  - Now supports running specific runtimes rather than the prior version which
-    supported one or all.
-  - Uses sensible defaults for environment variables to reduce setup when
-    running locally.
-  - Removes redundant `go test` flags
-  - Now supports specifying builders
-  - Subsets of test can be specified using name prefixes --run=TestCore etc.
+See README.md for more details.
 */
 package e2e
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -156,7 +19,9 @@ import (
 	"testing"
 	"time"
 
+	"knative.dev/func/cmd"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/knative"
 )
 
 // Static Defaults
@@ -199,21 +64,6 @@ const (
 	DefaultVerbose = false
 )
 
-var ( // static-ish
-
-	// DefaultBuilders which we want THESE e2e tests to consider.
-	// This is currently equivalent to all known builders; host, s2i and pack.
-	// Note this only affects tests which are explicitly intended to check
-	// runtimes and builder compatibility.  Core tests all use the Go+host builder
-	// combination.
-	DefaultBuilders = []string{"host", "pack", "s2i"}
-
-	// DefaultRuntimes which we want THESE e2e tests to consider
-	// This is currently a subset but will be expanded to be all core runtimes
-	// as they become supported by the Go builder.
-	DefaultRuntimes = []string{"go", "python"}
-)
-
 // Final Settings
 // Populated during init phase (see init func in Helpers below)
 var (
@@ -236,14 +86,15 @@ var (
 	// Can be set with FUNC_E2E_REGISTRY
 	Registry string
 
-	// Runtimes for which runtime-specific tests should be run.  Defaults
-	// to all core language runtimes.  Can be set with FUNC_E2E_RUNTIMES
-	Runtimes = []string{}
+	// MatrixRuntimes for which runtime-specific tests should be run.  Defaults
+	// to all core language runtimes.  Can be set with FUNC_E2E_MATRIX_RUNTIMES
+	MatrixRuntimes = []string{}
 
-	// Builders to check in addition to the "host" builder which is used
+	// MatrixBuilders specifies builders to check in addition to the "host"
+	// builder which is used
 	// by default.  Used for Builder-specific tests.  Can be set with
-	// FUNC_E2E_BUILDERS.
-	Builders = []string{}
+	// FUNC_E2E_MATRIX_BUILDERS.
+	MatrixBuilders = []string{}
 
 	// Kubeconfig is the path at which a kubeconfig suitable for running
 	// E2E tests can be found.  By default the config located in
@@ -284,7 +135,7 @@ var (
 // ---------------------------------------------------------------------------
 // CORE TESTS
 // Create, Read, Update Delete and List.
-// Implemented as "create", "run", "deploy", "describe", "list" and "delete"
+// Implemented as "init", "run", "deploy", "describe", "list" and "delete"
 // ---------------------------------------------------------------------------
 
 // TestCore_init ensures that initializing a default Function with only the
@@ -416,20 +267,100 @@ func TestCore_update(t *testing.T) {
 	}
 }
 
+// TestCore_describe ensures that describing a function accurately represents
+// its expected state.
+func TestCore_describe(t *testing.T) {
+	t.Log("Not Implemented")
+}
+
+// TestCore_delete ensures that a function registered as deleted when deleted.
+// Also tests list as a side-effect.
+func TestCore_delete(t *testing.T) {
+	resetEnv()
+	_ = cdTemp(t, "delete") // sets Function name obliquely, see function docs
+
+	// create
+	if err := newCmd(t, "init", "-l=go").Run(); err != nil {
+		t.Fatal(err)
+	}
+
+	// deploy
+	if err := newCmd(t, "deploy").Run(); err != nil {
+		t.Fatal(err)
+	}
+	if !waitFor(t, "http://delete.default.127.0.0.1.sslip.io") {
+		t.Fatalf("function did not deploy correctly")
+	}
+
+	client := fn.New(fn.WithLister(knative.NewLister(false)))
+	list, err := client.List(context.Background(), cmd.DefaultNamespace)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !containsInstance(t, list, "delete", cmd.DefaultNamespace) {
+		t.Logf("list: %v", list)
+		t.Fatal("Instance list did not contain the 'delete' test service")
+	}
+
+	if err := newCmd(t, "delete").Run(); err != nil {
+		t.Logf("Error deleting function. %v", err)
+	}
+
+	list, err = client.List(context.Background(), cmd.DefaultNamespace)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if containsInstance(t, list, "delete", cmd.DefaultNamespace) {
+		t.Logf("list: %v", list)
+		t.Fatal("Instance 'delete' is still shown as available")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// METADATA TESTS
+// Environment Variables, Volumes, Secrets, Event Subscriptions
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// REPOSITORY TESTS
+// Tests related to tight git integration such as building locally from
+// code located in a remote repository.
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// REMOTE TESTS
+// Tests related to invoking processes remotely (in-cluster).
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// MATRIX TESTS
+// Tests related to confirming functionality of different language runtimes
+// and builders.
+// ---------------------------------------------------------------------------
+func TestMatrix_run(t *testing.T) {
+	t.Log("Not Implemented")
+}
+
+func TestMatrix_deploy(t *testing.T) {
+	t.Log("Not Implemented")
+}
+
 // ----------------------------------------------------------------------------
-// Initialization
+// Test Initialization
 // ----------------------------------------------------------------------------
 // Deprecated           Available Settings     Final
 // ---------------------------------------------------
-// E2E_FUNC_BIN      => FUNC_E2E_BIN        => Bin
-// E2E_USE_KN_FUNC   => FUNC_E2E_PLUGIN     => Plugin
-// E2E_REGISTRY_URL  => FUNC_E2E_REGISTRY   => Registry
-// E2E_RUNTIMES      => FUNC_E2E_RUNTIMES   => Runtimes
-//                      FUNC_E2E_BUILDERS   => Builders
-//                      FUNC_E2E_KUBECONFIG => Kubeconfig
-//                      FUNC_E2E_GOCOVERDIR => Gocoverdir
-//                      FUNC_E2E_GO         => Go
-//                      FUNC_E2E_GIT        => Git
+// E2E_FUNC_BIN      => FUNC_E2E_BIN               => Bin
+// E2E_USE_KN_FUNC   => FUNC_E2E_PLUGIN            => Plugin
+// E2E_REGISTRY_URL  => FUNC_E2E_REGISTRY          => Registry
+// E2E_RUNTIMES      => FUNC_E2E_MATRIX_RUNTIMES   => MatrixRuntimes
+//                      FUNC_E2E_MATRIX_BUILDERS   => MatrixBuilders
+//                      FUNC_E2E_KUBECONFIG        => Kubeconfig
+//                      FUNC_E2E_GOCOVERDIR        => Gocoverdir
+//                      FUNC_E2E_GO                => Go
+//                      FUNC_E2E_GIT               => Git
 
 // init global settings for the current run from environment
 // we read E2E config settings passed via the FUNC_E2E_* environment
@@ -443,14 +374,14 @@ func init() {
 	fmt.Fprintln(os.Stderr, "----------------------")
 	fmt.Fprintln(os.Stderr, "Config Provided:")
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_BIN=%v\n", os.Getenv("FUNC_E2E_BIN"))
-	fmt.Fprintf(os.Stderr, "  FUNC_E2E_BUILDERS=%v\n", os.Getenv("FUNC_E2E_BUILDERS"))
+	fmt.Fprintf(os.Stderr, "  FUNC_E2E_GIT=%v\n", os.Getenv("FUNC_E2E_GIT"))
+	fmt.Fprintf(os.Stderr, "  FUNC_E2E_GO=%v\n", os.Getenv("FUNC_E2E_GO"))
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_GOCOVERDIR=%v\n", os.Getenv("FUNC_E2E_GOCOVERDIR"))
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_KUBECONFIG=%v\n", os.Getenv("FUNC_E2E_KUBECONFIG"))
+	fmt.Fprintf(os.Stderr, "  FUNC_E2E_MATRIX_BUILDERS=%v\n", os.Getenv("FUNC_E2E_MATRIX_BUILDERS"))
+	fmt.Fprintf(os.Stderr, "  FUNC_E2E_MATRIX_RUNTIMES=%v\n", os.Getenv("FUNC_E2E_MATRIX_RUNTIMES"))
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_PLUGIN=%v\n", os.Getenv("FUNC_E2E_PLUGIN"))
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_REGISTRY=%v\n", os.Getenv("FUNC_E2E_REGISTRY"))
-	fmt.Fprintf(os.Stderr, "  FUNC_E2E_RUNTIMES=%v\n", os.Getenv("FUNC_E2E_RUNTIMES"))
-	fmt.Fprintf(os.Stderr, "  FUNC_E2E_GO=%v\n", os.Getenv("FUNC_E2E_GO"))
-	fmt.Fprintf(os.Stderr, "  FUNC_E2E_GIT=%v\n", os.Getenv("FUNC_E2E_GIT"))
 	fmt.Fprintf(os.Stderr, "  FUNC_E2E_VERBOSE=%v\n", os.Getenv("FUNC_E2E_VERBOSE"))
 	fmt.Fprintf(os.Stderr, "  (deprecated) E2E_FUNC_BIN=%v\n", os.Getenv("E2E_FUNC_BIN"))
 	fmt.Fprintf(os.Stderr, "  (deprecated) E2E_REGISTRY_URL=%v\n", os.Getenv("E2E_REGISTRY_URL"))
@@ -462,13 +393,13 @@ func init() {
 
 	fmt.Fprintln(os.Stderr, "Final Config:")
 	fmt.Fprintf(os.Stderr, "  Bin=%v\n", Bin)
+	fmt.Fprintf(os.Stderr, "  Git=%v\n", Git)
+	fmt.Fprintf(os.Stderr, "  Go=%v\n", Go)
+	fmt.Fprintf(os.Stderr, "  Kubeconfig=%v\n", Kubeconfig)
+	fmt.Fprintf(os.Stderr, "  MatrixBuilders=%v\n", toCSV(MatrixBuilders))
+	fmt.Fprintf(os.Stderr, "  MatrixRuntimes=%v\n", toCSV(MatrixRuntimes))
 	fmt.Fprintf(os.Stderr, "  Plugin=%v\n", Plugin)
 	fmt.Fprintf(os.Stderr, "  Registry=%v\n", Registry)
-	fmt.Fprintf(os.Stderr, "  Runtimes=%v\n", toCSV(Runtimes))
-	fmt.Fprintf(os.Stderr, "  Builders=%v\n", toCSV(Builders))
-	fmt.Fprintf(os.Stderr, "  Kubeconfig=%v\n", Kubeconfig)
-	fmt.Fprintf(os.Stderr, "  Go=%v\n", Go)
-	fmt.Fprintf(os.Stderr, "  Git=%v\n", Git)
 	fmt.Fprintf(os.Stderr, "  Verbose=%v\n", Verbose)
 
 	// Coverage
@@ -489,8 +420,8 @@ func init() {
 // the final values which will be used by all tests.
 func readEnvs() {
 	// Bin - path to binary which will be used when running the tests.
-	// Args:  current ENV, deprecated ENV, default.
 	Bin = getEnvPath("FUNC_E2E_BIN", "E2E_FUNC_BIN", DefaultBin)
+	// Final =          current ENV, deprecated ENV, default
 
 	// Plugin - if set, func is a plugin and Bin is the one plugging. The value
 	// is the name of the subcommand.  If set to "true", for backwards compat
@@ -506,12 +437,12 @@ func readEnvs() {
 
 	// Runtimes - can optionally pass a list of runtimes to test, overriding
 	// the default of testing all builtin runtimes.
-	// Example "FUNC_E2E_RUNTIMES=go,python"
-	Runtimes = getEnvList("FUNC_E2E_RUNTIMES", "E2E_RUNTIMES", "")
+	// Example "FUNC_E2E_MATRIX_RUNTIMES=go,python"
+	MatrixRuntimes = getEnvList("FUNC_E2E_MATRIX_RUNTIMES", "E2E_RUNTIMES", "")
 
 	// Builders - can optionally pass a list of builders to test, overriding
-	// the default of testing all. Example "FUNC_E2E_BUILDERS=pack,s2i"
-	Builders = getEnvList("FUNC_E2E_BUILDERS", "", "")
+	// the default of testing all. Example "FUNC_E2E_MATRIX_BUILDERS=pack,s2i"
+	MatrixBuilders = getEnvList("FUNC_E2E_MATRIX_BUILDERS", "", "")
 
 	// Kubeconfig - the kubeconfig to pass ass KUBECONFIG env to test
 	// environments.
@@ -619,6 +550,18 @@ func printVersion() {
 // ----------------------------------------------------------------------------
 // Test Helpers
 // ----------------------------------------------------------------------------
+
+// containsInstance checks if the list includes the given instance.
+func containsInstance(t *testing.T, list []fn.ListItem, name, namespace string) bool {
+	t.Helper()
+	fmt.Printf("Checking if list contains name: %v, namespace: %v\n", name, namespace)
+	for _, v := range list {
+		if v.Name == name && v.Namespace == namespace {
+			return true
+		}
+	}
+	return false
+}
 
 // resetEnv before running a test to remove all environment variables and
 // set the required environment variables to those specified during
