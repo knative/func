@@ -145,7 +145,7 @@ func namespace(dflt string, f fn.Function) string {
 		// still not set, just use the defaultest default
 		namespace, err = k8s.GetDefaultNamespace()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "trying to get default namespace returns an error: '%s'\nSetting static default namespace '%s'", err, StaticDefaultNamespace)
+			fmt.Fprintf(os.Stderr, "trying to get default namespace returns an error: '%s'\nSetting static default namespace '%s'\n", err, StaticDefaultNamespace)
 			namespace = StaticDefaultNamespace
 		}
 	}
