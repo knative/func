@@ -130,12 +130,13 @@ func Test_deployerNamespace(t *testing.T) {
 	)
 	f := fn.Function{Name: "myfunc"}
 
-	// FIXME(dsimansk): ignored for unblocking release job
-	// It doesn't seem likely that namespace() function can resolve to value of `StaticDefaultNamespace`
-	//set static default
-	//if ns := namespace("", f); ns != StaticDefaultNamespace {
-	//	t.Fatal("expected static default namespace")
-	//}
+	// set static default
+	// mock empty Kubeconfig to trigger namespace fallback
+	t.Setenv("KUBECONFIG", fmt.Sprintf("%s/testdata/test_empty", cwd()))
+	if ns := namespace("", f); ns != StaticDefaultNamespace {
+		t.Fatalf("expected static default namespace: expected '%s', actual '%s'", StaticDefaultNamespace, ns)
+	}
+
 	t.Setenv("KUBECONFIG", fmt.Sprintf("%s/testdata/test_default_namespace", cwd()))
 
 	// active kubernetes default
