@@ -20,22 +20,20 @@ acceptance criteria for pull requests.
 ## Overview
 
 Tests themselves are separated into five categories:  Core, Metadata,
-Repository, Remote, and Matrix.
+Remote, and Matrix.
 
 Core tests include checking the basic CRUDL operations; Create, Read, Update,
 Delete and List.  Creation is implemented as `func init`, running the function
 locally with `func run`, and running the cluster with `func deploy`. Reading is
 implemented as `func describe`.  Updating, which ensures that an updated
 function replaces the old, is implemented as `func deploy`.  Finally,
-`func list` implements a standard listing operation.
+`func list` implements a standard listing operation.  Tests also confirm
+the core features function when referring to a remote repository, using
+templates (repositories) and other core variants.
 
 Metadata tests ensure that manipulation of a Function's metadata is correctly
 carried to the final Function.  Metadata includes environment variables,
 labels, volumes, secrets and event subscriptions.
-
-Repository tests confirm features which involve working with git repositories.
-This includes operations such as building locally from source code located in
-a remote repository, building a specific revision, etc.
 
 Remote tests confirm features related to building and deploying remotely
 via in-cluster builds, etc.
@@ -63,7 +61,7 @@ scripts in `../hack`:
 - `allocate.sh`: Creates a local Function-ready cluster.
 
 - `delete.sh`: Removes the cluster and registry.  Using this to recreate the
-  cluster between test runs will ensure the cluster is in a clean initial state.
+  cluster between test runs will ensure the cluster is in a clean state.
 
 ## Options
 
@@ -130,7 +128,7 @@ example, To run only "core" tests, run `make` to update the binary to test,
 then `go test -tags e2e -run TestCore ./e2e`. Subsets include:
 - TestCore
 - TestMetadata
-- TestRepository
+- TestRemote
 - TestMatrix
 
 ## Cleanup
