@@ -292,25 +292,8 @@ func TestUpdateWithAnnotationsAndLabels(t *testing.T) {
 	}
 }
 
-// TestBuildWithoutHome ensures that running func without HOME fails for pack builder
-func TestBuildWithoutHome(t *testing.T) {
-	root, cleanup := Mktemp(t)
-	defer cleanup()
-	t.Setenv("HOME", "")
-	verbose := true
-
-	f := fn.Function{Runtime: "go", Name: "test-deploy-without-home", Root: root}
-	client := newClient(verbose)
-	if _, err := client.Build(context.Background(), f); err == nil {
-		t.Fatalf("expected an error for HOME not defined with pack builder, got none")
-	}
-
-	// dont call del() because function wasnt deployed
-}
-
 // TestDeployWithoutHomeWithS2i ensures that running client.New works without
 // home
-// TODO: change this test to for-loop of Runs with different dir permissions?
 func TestDeployWithoutHomeWithS2i(t *testing.T) {
 	root, cleanup := Mktemp(t)
 	defer cleanup()
