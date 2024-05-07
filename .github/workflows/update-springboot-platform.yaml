@@ -22,7 +22,7 @@ jobs:
         with:
           java-version: 21
       - name: Install NPM deps.
-        run: npm install axios xml2js octokit yaml semver
+        run: npm install xml2js octokit yaml semver
       - name: Create PR
         env:
           GITHUB_TOKEN: ${{ github.token }}

@@ -1,4 +1,3 @@
-const axios = require('axios')
 const xml2js = require('xml2js');
 const {Octokit} = require("octokit");
 const {readFile,writeFile} = require('fs/promises');
@@ -10,8 +9,8 @@ const octokit = new Octokit({auth: process.env.GITHUB_TOKEN});
 const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/')
 
 const getLatestPlatform = async () => {
-    const resp = await axios.get("https://code.quarkus.io/api/platforms")
-    return resp.data.platforms[0].streams[0].releases[0].quarkusCoreVersion
+    const data = await (await fetch("https://code.quarkus.io/api/platforms")).json()
+    return data.platforms[0].streams[0].releases[0].quarkusCoreVersion
 }
 
 const prExists = async (pred) => {
