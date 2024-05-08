@@ -406,8 +406,10 @@ func (pp *PipelinesProvider) removeClusterResources(ctx context.Context, f fn.Fu
 		}
 		errMsg += fmt.Sprintf("\n %v", e)
 	}
-
-	return errors.New(errMsg)
+	if errMsg != "" {
+		return errors.New(errMsg)
+	}
+	return nil
 }
 
 // watchPipelineRunProgress watches the progress of the input PipelineRun
