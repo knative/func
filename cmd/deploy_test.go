@@ -571,7 +571,7 @@ func TestDeploy_GitArgsUsed(t *testing.T) {
 
 	// A Pipelines Provider which will validate the expected values were received
 	pipeliner := mock.NewPipelinesProvider()
-	pipeliner.RunFn = func(f fn.Function) (string, string, error) {
+	pipeliner.RunFn = func(f fn.Function) (string, fn.Function, error) {
 		if f.Build.Git.URL != url {
 			t.Errorf("Pipeline Provider expected git URL '%v' got '%v'", url, f.Build.Git.URL)
 		}
@@ -581,7 +581,7 @@ func TestDeploy_GitArgsUsed(t *testing.T) {
 		if f.Build.Git.ContextDir != dir {
 			t.Errorf("Pipeline Provider expected git dir '%v' got '%v'", url, f.Build.Git.ContextDir)
 		}
-		return url, "", nil
+		return url, f, nil
 	}
 
 	// Deploy the Function specifying all of the git-related flags and --remote
@@ -1860,7 +1860,6 @@ func TestDeploy_NoErrorOnOldFunctionNotFound(t *testing.T) {
 	clientFn := NewTestClient(
 		fn.WithDeployer(mock.NewDeployer()),
 		fn.WithRemover(remover),
-		fn.WithPipelinesProvider(mock.NewPipelinesProvider()),
 	)
 
 	// Create a basic go Function

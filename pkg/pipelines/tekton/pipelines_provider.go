@@ -100,33 +100,53 @@ func NewPipelinesProvider(opts ...Opt) *PipelinesProvider {
 	return pp
 }
 
-// Run creates a Tekton Pipeline and all necessary resources (PVCs, Secrets, SAs,...) for the input Function.
-// It ensures that all needed resources are present on the cluster so the PipelineRun can be initialized.
-// After the PipelineRun is being initialized, the progress of the PipelineRun is being watched and printed to the output.
-func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, string, error) {
-	fmt.Fprintf(os.Stderr, "Creating Pipeline resources\n")
+// Run a remote build by creating all necessary resources (PVCs, secrets,
+// SAs, etc) specified by the given Function before generating a pipeline
+// definition, sending it to the cluster to be run via Tekton.
+// Progress is by default piped to stdtout.
+// Returned is the final url, and the input Function with the final results of the run populated
+// (f.Deploy.Image and f.Deploy.Namespace) or an error.
+func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn.Function, error) {
 	var err error
+
+	// Checks builder and registry:
 	if err = validatePipeline(f); err != nil {
-		return "", "", err
+		return "", f, err
 	}
 
+	// Namespace is either a new namespace, specified as f.Namespace, or
+	// the currently deployed namespace, recorded on f.Deploy.Namespace.
+	// If neither exist, an error is returned (namespace is required)
 	namespace := f.Namespace
 	if namespace == "" {
 		namespace = f.Deploy.Namespace
 	}
-
-	client, ns2, err := NewTektonClientAndResolvedNamespace(namespace)
-	if err != nil {
-		return "", "", err
+	if namespace == "" {
+		return "", f, fn.ErrNamespaceRequired
 	}
-	if ns2 != namespace {
-		panic("fixme")
+	f.Deploy.Namespace = namespace
+
+	// Image is either an explicit image indicated with f.Image, or
+	// generated from a name+registry
+	image := f.Image
+	if image == "" {
+		image, err = f.ImageName()
+		if err != nil {
+			return "", f, err
+		}
+	}
+	f.Deploy.Image = image
+
+	// Client for the given namespace
+	client, err := NewTektonClient(namespace)
+	if err != nil {
+		return "", f, err
 	}
 
 	// let's specify labels that will be applied to every resource that is created for a Pipeline
 	labels, err := f.LabelsMap()
 	if err != nil {
-		return "", "", err
+		return "", f, err
 	}
 	if pp.decorator != nil {
 		labels = pp.decorator.UpdateLabels(f, labels)
@@ -134,7 +154,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, st
 
 	err = createPipelinePersistentVolumeClaim(ctx, f, namespace, labels)
 	if err != nil {
-		return "", "", err
+		return "", f, err
 	}
 
 	if f.Build.Git.URL == "" {
@@ -143,7 +163,7 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, st
 		defer content.Close()
 		err = k8s.UploadToVolume(ctx, content, getPipelinePvcName(f), namespace)
 		if err != nil {
-			return "", "", fmt.Errorf("cannot upload sources to the PVC: %w", err)
+			return "", f, fmt.Errorf("cannot upload sources to the PVC: %w", err)
 		}
 	}
 
@@ -151,38 +171,42 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, st
 	if err != nil {
 		if !k8serrors.IsAlreadyExists(err) {
 			if k8serrors.IsNotFound(err) {
-				return "", "", fmt.Errorf("problem creating pipeline, missing tekton?: %v", err)
+				return "", f, fmt.Errorf("problem creating pipeline, missing tekton?: %v", err)
 			}
-			return "", "", fmt.Errorf("problem creating pipeline: %v", err)
+			return "", f, fmt.Errorf("problem creating pipeline: %v", err)
 		}
 	}
 
-	registry, err := docker.GetRegistry(f.Deploy.Image)
+	registry, err := docker.GetRegistry(image)
 	if err != nil {
-		return "", "", fmt.Errorf("problem in resolving image registry name: %v", err)
+		return "", f, fmt.Errorf("problem in resolving image registry name: %v", err)
 	}
 
-	creds, err := pp.credentialsProvider(ctx, f.Deploy.Image)
+	creds, err := pp.credentialsProvider(ctx, image)
 	if err != nil {
-		return "", "", err
+		return "", f, err
 	}
 
+	// TODO(lkingland):  This registry defaulting logic
+	// is either incorrect or in the wrong place.  At this stage of the
+	// process registry should already be defined/defaulted, and this
+	// function should be creating resources and deploying.   Missing
+	// data (like registry) should have failed early in the process
 	if registry == name.DefaultRegistry {
 		registry = authn.DefaultAuthKey
 	}
-
-	err = k8s.EnsureDockerRegistrySecretExist(ctx, getPipelineSecretName(f), namespace, labels, f.Deploy.Annotations, creds.Username, creds.Password, registry)
-	if err != nil {
-		return "", "", fmt.Errorf("problem in creating secret: %v", err)
-	}
-
 	if f.Registry == "" {
 		f.Registry = registry
 	}
 
+	err = k8s.EnsureDockerRegistrySecretExist(ctx, getPipelineSecretName(f), namespace, labels, f.Deploy.Annotations, creds.Username, creds.Password, registry)
+	if err != nil {
+		return "", f, fmt.Errorf("problem in creating secret: %v", err)
+	}
+
 	err = createAndApplyPipelineRunTemplate(f, namespace, labels)
 	if err != nil {
-		return "", "", fmt.Errorf("problem in creating pipeline run: %v", err)
+		return "", f, fmt.Errorf("problem in creating pipeline run: %v", err)
 	}
 
 	// we need to give k8s time to actually create the Pipeline Run
@@ -190,37 +214,37 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, st
 
 	newestPipelineRun, err := findNewestPipelineRunWithRetry(ctx, f, namespace, client)
 	if err != nil {
-		return "", "", fmt.Errorf("problem in listing pipeline runs: %v", err)
+		return "", f, fmt.Errorf("problem in listing pipeline runs: %v", err)
 	}
 
 	err = pp.watchPipelineRunProgress(ctx, newestPipelineRun, namespace)
 	if err != nil {
 		if !errors.Is(err, context.Canceled) {
-			return "", "", fmt.Errorf("problem in watching started pipeline run: %v", err)
+			return "", f, fmt.Errorf("problem in watching started pipeline run: %v", err)
 		}
 		// TODO replace deletion with pipeline-run cancellation
 		_ = client.PipelineRuns(namespace).Delete(context.TODO(), newestPipelineRun.Name, metav1.DeleteOptions{})
-		return "", "", fmt.Errorf("pipeline run cancelled: %w", context.Canceled)
+		return "", f, fmt.Errorf("pipeline run cancelled: %w", context.Canceled)
 	}
 
 	newestPipelineRun, err = client.PipelineRuns(namespace).Get(ctx, newestPipelineRun.Name, metav1.GetOptions{})
 	if err != nil {
-		return "", "", fmt.Errorf("problem in retriving pipeline run status: %v", err)
+		return "", f, fmt.Errorf("problem in retriving pipeline run status: %v", err)
 	}
 
 	if newestPipelineRun.Status.GetCondition(apis.ConditionSucceeded).Status == corev1.ConditionFalse {
 		message := getFailedPipelineRunLog(ctx, client, newestPipelineRun, namespace)
-		return "", "", fmt.Errorf("function pipeline run has failed with message: \n\n%s", message)
+		return "", f, fmt.Errorf("function pipeline run has failed with message: \n\n%s", message)
 	}
 
 	kClient, err := knative.NewServingClient(namespace)
 	if err != nil {
-		return "", "", fmt.Errorf("problem in retrieving status of deployed function: %v", err)
+		return "", f, fmt.Errorf("problem in retrieving status of deployed function: %v", err)
 	}
 
 	ksvc, err := kClient.GetService(ctx, f.Name)
 	if err != nil {
-		return "", "", fmt.Errorf("problem in retrieving status of deployed function: %v", err)
+		return "", f, fmt.Errorf("problem in retrieving status of deployed function: %v", err)
 	}
 
 	if ksvc.Generation == 1 {
@@ -230,10 +254,10 @@ func (pp *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, st
 	}
 
 	if ksvc.Namespace != namespace {
-		panic("fixme 2")
+		fmt.Fprintf(os.Stderr, "Warning: Final ksvc namespace %q does not match expected %q", ksvc.Namespace, namespace)
 	}
 
-	return ksvc.Status.URL.String(), ksvc.Namespace, nil
+	return ksvc.Status.URL.String(), f, nil
 }
 
 // Creates tar stream with the function sources as they were in "./source" directory.

@@ -324,20 +324,6 @@ func Test_defaultNamespace(t *testing.T) {
 
 		})
 	}
-
-	// t.Setenv("KUBECONFIG", filepath.Join(t.TempDir(), "nonexistent"))
-	// t.Setenv("KUBERNETES_SERVICE_HOST", "")
-	// t.Setenv("XDG_CONFIG_HOME", home)
-	// if config.DefaultNamespace() != "default" {
-	// 	t.Fatalf("did not receive expected default namespace 'default', got '%v'", config.DefaultNamespace())
-	// }
-	//
-	// // should be "func" when active k8s namespace is "func"
-	// kubeconfig := filepath.Join(cwd, "testdata", "TestDefaultNamespace", "kubeconfig")
-	// t.Setenv("KUBECONFIG", kubeconfig)
-	// if config.DefaultNamespace() != "func" {
-	// 	t.Fatalf("expected default namespace of 'func' when that is the active k8s namespace.  Got '%v'", config.DefaultNamespace())
-	// }
 }
 
 // Helpers

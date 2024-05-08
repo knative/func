@@ -221,9 +221,6 @@ func TestApply(t *testing.T) {
 	if cfg.Language == "" {
 		t.Error("empty f.Runtime should not be mapped")
 	}
-	// if cfg.Namespace == "" {
-	// 	t.Error("empty f.Namespace should not be mapped")
-	// }
 	if cfg.Registry == "" {
 		t.Error("empty f.Registry should not be mapped")
 	}

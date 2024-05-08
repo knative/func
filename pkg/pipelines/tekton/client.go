@@ -13,27 +13,19 @@ const (
 	DefaultWaitingTimeout = 120 * time.Second
 )
 
-// NewTektonClientAndResolvedNamespace returns TektonV1beta1Client,namespace,error
-func NewTektonClientAndResolvedNamespace(namespace string) (*v1beta1.TektonV1beta1Client, string, error) {
-	var err error
-	if namespace == "" {
-		namespace, err = k8s.GetDefaultNamespace()
-		if err != nil {
-			return nil, "", err
-		}
-	}
-
+// NewTektonClient returns TektonV1beta1Client for namespace
+func NewTektonClient(namespace string) (*v1beta1.TektonV1beta1Client, error) {
 	restConfig, err := k8s.GetClientConfig().ClientConfig()
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to create new tekton client: %w", err)
+		return nil, fmt.Errorf("failed to create new tekton client: %w", err)
 	}
 
 	client, err := v1beta1.NewForConfig(restConfig)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to create new tekton client: %v", err)
+		return nil, fmt.Errorf("failed to create new tekton client: %v", err)
 	}
 
-	return client, namespace, nil
+	return client, nil
 }
 
 func NewTektonClients() (*cli.Clients, error) {

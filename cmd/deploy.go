@@ -263,7 +263,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	// If we're changing namespace in an OpenShift cluster, we have to
 	// also update the registry because there is a registry per namespace,
 	// and their name includes the namespace.
-	// This saves needing a manual flag ``--registyry={destination namespace registry}``
+	// This saves needing a manual flag ``--registry={destination namespace registry}``
 	if changingNamespace(f) && k8s.IsOpenShift() {
 		// TODO(lkingland): this appears to force use of the openshift
 		// internal registry.

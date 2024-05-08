@@ -111,7 +111,22 @@ func (d *Deployer) isImageInPrivateRegistry(ctx context.Context, client clientse
 	return false
 }
 
+func onClusterFix(f fn.Function) fn.Function {
+	// This only exists because of a bootstapping problem with On-Cluster
+	// builds:  It appears that, when sending a function to be built on-cluster
+	// the target namespace is not being transmitted in the pipeline
+	// configuration.  We should figure out how to transmit this information
+	// to the pipeline run for initial builds.  This is a new problem because
+	// earlier versions of this logic relied entirely on the current
+	// kubernetes context.
+	if f.Namespace == "" && f.Deploy.Namespace == "" {
+		f.Namespace, _ = k8s.GetDefaultNamespace()
+	}
+	return f
+}
+
 func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResult, error) {
+	f = onClusterFix(f)
 	// Choosing f.Namespace vs f.Deploy.Namespace:
 	// This is minimal logic currently required of all deployer impls.
 	// If f.Namespace is defined, this is the (possibly new) target

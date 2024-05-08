@@ -198,7 +198,7 @@ type DNSProvider interface {
 
 // PipelinesProvider manages lifecyle of CI/CD pipelines used by a function
 type PipelinesProvider interface {
-	Run(context.Context, Function) (string, string, error)
+	Run(context.Context, Function) (string, Function, error)
 	Remove(context.Context, Function) error
 	ConfigurePAC(context.Context, Function, any) error
 	RemovePAC(context.Context, Function, any) error
@@ -814,31 +814,13 @@ func (c *Client) Deploy(ctx context.Context, f Function, oo ...DeployOption) (Fu
 // Returned function contains applicable registry and deployed image name.
 // String is the default route.
 func (c *Client) RunPipeline(ctx context.Context, f Function) (string, Function, error) {
-	var err error
-	var url string
 	// Default function registry to the client's global registry
 	if f.Registry == "" {
 		f.Registry = c.registry
 	}
 
-	// If no image name has been specified by user (--image), calculate.
-	// Image name is stored on the function for later use by deploy.
-	if f.Image != "" {
-		// if user specified an image, use it
-		f.Deploy.Image = f.Image
-	} else if f.Deploy.Image == "" {
-		f.Deploy.Image, err = f.ImageName()
-		if err != nil {
-			return "", f, err
-		}
-	}
-
 	// Build and deploy function using Pipeline
-	url, f.Deploy.Namespace, err = c.pipelinesProvider.Run(ctx, f)
-	if err != nil {
-		return url, f, fmt.Errorf("failed to run pipeline: %w", err)
-	}
-	return url, f, nil
+	return c.pipelinesProvider.Run(ctx, f)
 }
 
 // ConfigurePAC generates Pipeline resources on the local filesystem,
@@ -1369,8 +1351,8 @@ func (n *noopDescriber) Describe(context.Context, string, string) (Instance, err
 // PipelinesProvider
 type noopPipelinesProvider struct{}
 
-func (n *noopPipelinesProvider) Run(ctx context.Context, _ Function) (string, string, error) {
-	return "", "", nil
+func (n *noopPipelinesProvider) Run(ctx context.Context, f Function) (string, Function, error) {
+	return "", f, nil
 }
 func (n *noopPipelinesProvider) Remove(ctx context.Context, _ Function) error { return nil }
 func (n *noopPipelinesProvider) ConfigurePAC(ctx context.Context, _ Function, _ any) error {

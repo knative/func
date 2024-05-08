@@ -41,4 +41,5 @@ func validatePipeline(f fn.Function) error {
 	}
 
 	return nil
+
 }

@@ -1437,9 +1437,10 @@ func TestClient_Pipelines_Deploy_Namespace(t *testing.T) {
 	defer rm()
 
 	pprovider := mock.NewPipelinesProvider()
-	pprovider.RunFn = func(f fn.Function) (string, string, error) {
-		// simulate function getting deployed here and return namespace
-		return "", f.Namespace, nil
+	pprovider.RunFn = func(f fn.Function) (string, fn.Function, error) {
+		// simulate function being deployed
+		f.Deploy.Namespace = f.Namespace
+		return "", f, nil
 	}
 
 	client := fn.New(

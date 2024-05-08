@@ -38,8 +38,6 @@ var testCP = func(_ context.Context, _ string) (docker.Credentials, error) {
 	return docker.Credentials{
 		Username: "",
 		Password: "",
-		// Username: "alice",
-		// Password: "alice-registry-token", Careful not to commit this.
 	}, nil
 }
 

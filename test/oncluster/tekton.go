@@ -13,8 +13,8 @@ import (
 
 // TektonPipelineExists verifies pipeline with a given prefix exists on cluster
 func TektonPipelineExists(t *testing.T, pipelinePrefix string) bool {
-	namespace, _, _ := k8s.GetClientConfig().Namespace()
-	client, ns, _ := tekton.NewTektonClientAndResolvedNamespace(namespace)
+	ns, _, _ := k8s.GetClientConfig().Namespace()
+	client, _ := tekton.NewTektonClient(ns)
 	pipelines, err := client.Pipelines(ns).List(context.Background(), v1.ListOptions{})
 	if err != nil {
 		t.Error(err.Error())
@@ -29,8 +29,8 @@ func TektonPipelineExists(t *testing.T, pipelinePrefix string) bool {
 
 // TektonPipelineRunExists verifies pipelinerun with a given prefix exists on cluster
 func TektonPipelineRunExists(t *testing.T, pipelineRunPrefix string) bool {
-	namespace, _, _ := k8s.GetClientConfig().Namespace()
-	client, ns, _ := tekton.NewTektonClientAndResolvedNamespace(namespace)
+	ns, _, _ := k8s.GetClientConfig().Namespace()
+	client, _ := tekton.NewTektonClient(ns)
 	pipelineRuns, err := client.PipelineRuns(ns).List(context.Background(), v1.ListOptions{})
 	if err != nil {
 		t.Error(err.Error())
@@ -68,8 +68,8 @@ func (p *PipelineRunSummary) IsSucceed() bool {
 // TektonPipelineLastRunSummary gather information about a pipeline run such as
 // list of tasks executed and status of each task execution. It is meant to be used on assertions
 func TektonPipelineLastRunSummary(t *testing.T, pipelinePrefix string) *PipelineRunSummary {
-	namespace, _, _ := k8s.GetClientConfig().Namespace()
-	client, ns, _ := tekton.NewTektonClientAndResolvedNamespace(namespace)
+	ns, _, _ := k8s.GetClientConfig().Namespace()
+	client, _ := tekton.NewTektonClient(ns)
 	pipelineRuns, err := client.PipelineRuns(ns).List(context.Background(), v1.ListOptions{})
 	if err != nil {
 		t.Error(err.Error())
