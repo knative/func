@@ -1894,3 +1894,36 @@ func TestDeploy_NoErrorOnOldFunctionNotFound(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// TestDeploy_WithoutHome ensures that deploying a function without HOME &
+// XDG_CONFIG_HOME defined succeeds
+func TestDeploy_WithoutHome(t *testing.T) {
+	var (
+		root = fromTempDirectory(t)
+		ns   = "myns"
+	)
+
+	t.Setenv("HOME", "")
+	t.Setenv("XDG_CONFIG_HOME", "")
+
+	// Create a basic go Function
+	f := fn.Function{
+		Runtime: "go",
+		Root:    root,
+	}
+	_, err := fn.New().Init(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Deploy the function
+	cmd := NewDeployCmd(NewTestClient(
+		fn.WithDeployer(mock.NewDeployer()),
+		fn.WithRegistry(TestRegistry)))
+
+	cmd.SetArgs([]string{fmt.Sprintf("--namespace=%s", ns)})
+	err = cmd.Execute()
+	if err != nil {
+		t.Fatal(err)
+	}
+}
