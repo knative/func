@@ -14,7 +14,7 @@ require (
 	github.com/containerd/containerd v1.7.12
 	github.com/containers/image/v5 v5.29.0
 	github.com/coreos/go-semver v0.3.1
-	github.com/creack/pty v1.1.20
+	github.com/creack/pty v1.1.21
 	github.com/docker/cli v25.0.3+incompatible
 	github.com/docker/docker v25.0.5+incompatible
 	github.com/docker/docker-credential-helpers v0.8.0
@@ -34,7 +34,7 @@ require (
 	github.com/openshift-pipelines/pipelines-as-code v0.17.1
 	github.com/openshift/source-to-image v1.3.10-0.20240223163641-625a537d6c7c
 	github.com/ory/viper v1.7.5
-	github.com/paketo-buildpacks/libpak v1.68.0
+	github.com/paketo-buildpacks/libpak v1.70.0
 	github.com/pelletier/go-toml v1.9.5
 	github.com/pkg/errors v0.9.1
 	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
@@ -105,7 +105,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blendle/zapdriver v1.3.1 // indirect
 	github.com/buildpacks/imgutil v0.0.0-20240118145509-e94a1b7de8a9 // indirect
-	github.com/buildpacks/libcnb v1.30.1 // indirect
+	github.com/buildpacks/libcnb v1.30.3 // indirect
 	github.com/buildpacks/lifecycle v0.18.5 // indirect
 	github.com/census-instrumentation/opencensus-proto v0.4.1 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
@@ -205,7 +205,7 @@ require (
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
-	github.com/onsi/gomega v1.31.1 // indirect
+	github.com/onsi/gomega v1.33.1 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/runc v1.1.12 // indirect
 	github.com/opencontainers/runtime-spec v1.1.0 // indirect
@@ -249,8 +249,8 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/mod v0.17.0 // indirect
-	golang.org/x/sys v0.19.0 // indirect
-	golang.org/x/text v0.14.0 // indirect
+	golang.org/x/sys v0.20.0 // indirect
+	golang.org/x/text v0.15.0 // indirect
 	golang.org/x/time v0.5.0 // indirect
 	golang.org/x/tools v0.20.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
