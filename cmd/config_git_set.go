@@ -25,7 +25,7 @@ func NewConfigGitSetCmd(newClient ClientFactory) *cobra.Command {
 	directory or from the directory specified with --path.
 	`,
 		SuggestFor: []string{"add", "ad", "update", "create", "insert", "append"},
-		PreRunE:    bindEnv("path", "builder", "builder-image", "image", "registry", "namespace", "git-provider", "git-url", "git-branch", "git-dir", "gh-access-token", "config-local", "config-cluster", "config-remote"),
+		PreRunE:    bindEnv("path", "builder", "builder-image", "image", "registry", "git-provider", "git-url", "git-branch", "git-dir", "gh-access-token", "config-local", "config-cluster", "config-remote"),
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			return runConfigGitSetCmd(cmd, newClient)
 		},
@@ -93,8 +93,6 @@ func NewConfigGitSetCmd(newClient ClientFactory) *cobra.Command {
 type configGitSetConfig struct {
 	buildConfig // further embeds config.Global
 
-	Namespace string
-
 	GitProvider   string
 	GitURL        string
 	GitRevision   string
@@ -127,7 +125,6 @@ func newConfigGitSetConfig(_ *cobra.Command) (c configGitSetConfig) {
 
 	c = configGitSetConfig{
 		buildConfig: newBuildConfig(),
-		Namespace:   viper.GetString("namespace"),
 
 		GitURL:        viper.GetString("git-url"),
 		GitRevision:   viper.GetString("git-branch"),
@@ -307,7 +304,7 @@ func runConfigGitSetCmd(cmd *cobra.Command, newClient ClientFactory) (err error)
 		return
 	}
 
-	client, done := newClient(ClientConfig{Namespace: cfg.Namespace, Verbose: cfg.Verbose}, fn.WithRegistry(cfg.Registry))
+	client, done := newClient(ClientConfig{Verbose: cfg.Verbose}, fn.WithRegistry(cfg.Registry))
 	defer done()
 
 	return client.ConfigurePAC(cmd.Context(), f, cfg.metadata)

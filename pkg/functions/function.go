@@ -681,7 +681,9 @@ func (f Function) Built() bool {
 
 	// If f.Image is specified, registry is overridden -- meaning its not taken into
 	// consideration and can be different from actually built image.
-	if !strings.Contains(f.Build.Image, f.Registry) && f.Image == "" {
+	buildImage := f.Build.Image
+	fRegistry := f.Registry
+	if !strings.Contains(buildImage, fRegistry) && f.Image == "" {
 		fmt.Fprintf(os.Stderr, "Warning: registry '%s' does not match currently built image '%s' and no direct image override was provided via --image\n", f.Registry, f.Build.Image)
 		return false
 	}

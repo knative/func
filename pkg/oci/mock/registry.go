@@ -1,11 +1,9 @@
 package mock
 
 import (
-	"log"
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"os"
 
 	impl "github.com/google/go-containerregistry/pkg/registry"
 )
@@ -18,7 +16,9 @@ type Registry struct {
 }
 
 func NewRegistry() *Registry {
-	registryHandler := impl.New(impl.Logger(log.New(os.Stderr, "test registry: ", log.LstdFlags)))
+	// TODO: this may be too excessive of logging, even for testing:
+	// registryHandler := impl.New(impl.Logger(log.New(os.Stderr, "test registry: ", log.LstdFlags)))
+	registryHandler := impl.New()
 	r := &Registry{
 		RegistryImpl: registryHandler,
 	}

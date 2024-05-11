@@ -2,6 +2,7 @@ package mock
 
 import (
 	"context"
+	"errors"
 
 	fn "knative.dev/func/pkg/functions"
 )
@@ -19,17 +20,17 @@ type PipelinesProvider struct {
 
 func NewPipelinesProvider() *PipelinesProvider {
 	return &PipelinesProvider{
-		RunFn: func(f fn.Function) (string, string, error) {
-			// simplified namespace resolution, doesnt take current k8s context into
-			// account and returns DefaultNamespace if nothing else instead
-			ns := f.Namespace
-			if ns == "" {
-				ns = f.Deploy.Namespace
+		RunFn: func(f fn.Function) (x string, namespace string, err error) {
+			// the minimum necessary logic for a deployer, which should be
+			// confirmed by tests in the respective implementations.
+			if f.Namespace != "" {
+				namespace = f.Namespace
+			} else if f.Deploy.Namespace != "" {
+				namespace = f.Deploy.Namespace
+			} else {
+				err = errors.New("namespace required for initial deployment")
 			}
-			if ns == "" {
-				ns = DefaultNamespace
-			}
-			return "", ns, nil
+			return
 		},
 		RemoveFn:       func(fn.Function) error { return nil },
 		ConfigurePACFn: func(fn.Function) error { return nil },

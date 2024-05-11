@@ -112,7 +112,6 @@ func TestGitlab(t *testing.T) {
 	}
 	pp := tekton.NewPipelinesProvider(
 		tekton.WithCredentialsProvider(credentialsProvider),
-		tekton.WithNamespace(ns),
 		tekton.WithPacURLCallback(func() (string, error) {
 			return "http://" + pacCtrHostname, nil
 		}))

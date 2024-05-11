@@ -25,6 +25,13 @@ import (
 // Parameter `metadata` is type `any` to not bring `pkg/pipelines` package dependency to `pkg/functions`,
 // this specific implementation expects the parameter to be a type `pipelines.PacMetada`.
 func (pp *PipelinesProvider) ConfigurePAC(ctx context.Context, f fn.Function, metadata any) error {
+	// Use the new target namespace if specified, otherwise use the
+	// function's currently deployed namespace (if any)
+	namespace := f.Namespace
+	if namespace == "" {
+		namespace = f.Deploy.Namespace
+	}
+
 	data, ok := metadata.(pipelines.PacMetadata)
 	if !ok {
 		return fmt.Errorf("incorrect type of pipelines metadata: %T", metadata)
@@ -46,7 +53,7 @@ func (pp *PipelinesProvider) ConfigurePAC(ctx context.Context, f fn.Function, me
 			data.WebhookSecret = random.AlphaString(10)
 
 			// try to reuse existing Webhook Secret stored in the cluster
-			secret, err := k8s.GetSecret(ctx, getPipelineSecretName(f), pp.namespace)
+			secret, err := k8s.GetSecret(ctx, getPipelineSecretName(f), namespace)
 			if err != nil {
 				if !k8serrors.IsNotFound(err) {
 					return err
@@ -92,7 +99,9 @@ func (pp *PipelinesProvider) RemovePAC(ctx context.Context, f fn.Function, metad
 
 	if data.ConfigureClusterResources {
 		errMsg := pp.removeClusterResources(ctx, f)
-		compoundErrMsg += errMsg
+		if errMsg != nil {
+			compoundErrMsg += errMsg.Error()
+		}
 
 	}
 
@@ -132,6 +141,11 @@ func (pp *PipelinesProvider) createLocalPACResources(ctx context.Context, f fn.F
 // creates necessary secret with image registry credentials and git credentials (access tokens, webhook secrets),
 // also creates PVC for the function source code
 func (pp *PipelinesProvider) createClusterPACResources(ctx context.Context, f fn.Function, metadata pipelines.PacMetadata) error {
+	namespace := f.Namespace
+	if namespace == "" {
+		namespace = f.Deploy.Namespace
+	}
+
 	// figure out pac installation namespace
 	installed, _, err := pac.DetectPACInstallation(ctx, "")
 	if !installed {
@@ -172,19 +186,19 @@ func (pp *PipelinesProvider) createClusterPACResources(ctx context.Context, f fn
 	metadata.RegistryPassword = creds.Password
 	metadata.RegistryServer = registry
 
-	err = createPipelinePersistentVolumeClaim(ctx, f, pp.namespace, labels)
+	err = createPipelinePersistentVolumeClaim(ctx, f, namespace, labels)
 	if err != nil {
 		return err
 	}
 	fmt.Printf(" ✅ Persistent Volume is present on the cluster with name %q\n", getPipelinePvcName(f))
 
-	err = ensurePACSecretExists(ctx, f, pp.namespace, metadata, labels)
+	err = ensurePACSecretExists(ctx, f, namespace, metadata, labels)
 	if err != nil {
 		return err
 	}
 	fmt.Printf(" ✅ Credentials are present on the cluster in secret %q\n", getPipelineSecretName(f))
 
-	err = ensurePACRepositoryExists(ctx, f, pp.namespace, metadata, labels)
+	err = ensurePACRepositoryExists(ctx, f, namespace, metadata, labels)
 	if err != nil {
 		return err
 	}

@@ -153,8 +153,6 @@ EXAMPLES
 	cmd.Flags().StringP("registry", "r", cfg.Registry,
 		"Container registry + registry namespace. (ex 'ghcr.io/myuser').  The full image name is automatically determined using this along with function name. ($FUNC_REGISTRY)")
 	cmd.Flags().Bool("registry-insecure", cfg.RegistryInsecure, "Disable HTTPS when communicating to the registry ($FUNC_REGISTRY_INSECURE)")
-	cmd.Flags().StringP("namespace", "n", cfg.Namespace,
-		"Deploy into a specific namespace. Will use function's current namespace by default if already deployed, and the currently active namespace if it can be determined. ($FUNC_NAMESPACE)")
 
 	// Function-Context Flags:
 	// Options whose value is available on the function with context only
@@ -200,6 +198,8 @@ EXAMPLES
 	cmd.Flags().StringP("token", "", "",
 		"Token to use when pushing to the registry.")
 	cmd.Flags().BoolP("build-timestamp", "", false, "Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.")
+	cmd.Flags().StringP("namespace", "n", defaultNamespace(f, false),
+		"Deploy into a specific namespace. Will use the function's current namespace by default if already deployed, and the currently active context if it can be determined. ($FUNC_NAMESPACE)")
 
 	// Temporarily Hidden Basic Auth Flags
 	// Username, Password and Token flags, which plumb through basic auth, are
@@ -253,40 +253,48 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	}
 	cmd.SetContext(cfg.WithValues(cmd.Context())) // Some optional settings are passed via context
 
-	// If using Openshift registry AND redeploying Function, update image registry
-	if f.Namespace != "" && f.Namespace != f.Deploy.Namespace && f.Deploy.Namespace != "" {
-		// when running openshift, namespace is tied to registry, override on --namespace change
-		// The most default part of registry (in buildConfig) checks 'k8s.IsOpenShift()' and if true,
-		// sets default registry by current namespace
+	changingNamespace := func(f fn.Function) bool {
+		// We're changing namespace if:
+		return f.Deploy.Namespace != "" && // it's already deployed
+			f.Namespace != "" && // a specific (new) namespace is requested
+			(f.Namespace != f.Deploy.Namespace) // and it's different
+	}
 
-		// If Function is being moved to different namespace in Openshift -- update registry
-		if k8s.IsOpenShift() {
-			// this name is based of k8s package
-			f.Registry = "image-registry.openshift-image-registry.svc:5000/" + f.Namespace
-			if cfg.Verbose {
-				fmt.Fprintf(cmd.OutOrStdout(), "Info: Overriding openshift registry to %s\n", f.Registry)
-			}
+	// If we're changing namespace in an OpenShift cluster, we have to
+	// also update the registry because there is a registry per namespace,
+	// and their name includes the namespace.
+	// This saves needing a manual flag ``--registyry={destination namespace registry}``
+	if changingNamespace(f) && k8s.IsOpenShift() {
+		// TODO(lkingland): this appears to force use of the openshift
+		// internal registry.
+		f.Registry = "image-registry.openshift-image-registry.svc:5000/" + f.Namespace
+		if cfg.Verbose {
+			fmt.Fprintf(cmd.OutOrStdout(), "Info: Overriding openshift registry to %s\n", f.Registry)
 		}
 	}
 
 	// Informative non-error messages regarding the final deployment request
 	printDeployMessages(cmd.OutOrStdout(), f)
 
+	// Get options based on the value of the config such as concrete impls
+	// of builders and pushers based on the value of the --builder flag
 	clientOptions, err := cfg.clientOptions()
 	if err != nil {
 		return
 	}
-	client, done := newClient(ClientConfig{Namespace: f.Namespace, Verbose: cfg.Verbose}, clientOptions...)
+	client, done := newClient(ClientConfig{Verbose: cfg.Verbose}, clientOptions...)
 	defer done()
 
 	// Deploy
 	if cfg.Remote {
+		var url string
 		// Invoke a remote build/push/deploy pipeline
 		// Returned is the function with fields like Registry, f.Deploy.Image &
 		// f.Deploy.Namespace populated.
-		if f, err = client.RunPipeline(cmd.Context(), f); err != nil {
+		if url, f, err = client.RunPipeline(cmd.Context(), f); err != nil {
 			return
 		}
+		fmt.Fprintf(cmd.OutOrStdout(), "Function Deployed at %v\n", url)
 	} else {
 		var buildOptions []fn.BuildOption
 		if buildOptions, err = cfg.buildOptions(); err != nil {
@@ -503,8 +511,8 @@ type deployConfig struct {
 
 // newDeployConfig creates a buildConfig populated from command flags and
 // environment variables; in that precedence.
-func newDeployConfig(cmd *cobra.Command) (c deployConfig) {
-	c = deployConfig{
+func newDeployConfig(cmd *cobra.Command) deployConfig {
+	cfg := deployConfig{
 		buildConfig:        newBuildConfig(),
 		Build:              viper.GetString("build"),
 		Env:                viper.GetStringSlice("env"),
@@ -522,10 +530,11 @@ func newDeployConfig(cmd *cobra.Command) (c deployConfig) {
 	// results and appears to be an open issue since 2017:
 	// https://github.com/spf13/viper/issues/380
 	var err error
-	if c.Env, err = cmd.Flags().GetStringArray("env"); err != nil {
+	if cfg.Env, err = cmd.Flags().GetStringArray("env"); err != nil {
 		fmt.Fprintf(cmd.OutOrStdout(), "error reading envs: %v", err)
 	}
-	return
+
+	return cfg
 }
 
 // Configure the given function.  Updates a function struct with all

@@ -1,10 +1,10 @@
-name: Func Unit Test
+name: Func Template Tests
 
 on: [pull_request]
 
 jobs:
   test:
-    name: Unit Test
+    name: Template Unit Tests
     strategy:
       matrix:
         java: [21]
@@ -38,4 +38,4 @@ jobs:
       - uses: codecov/codecov-action@v4
         with:
           files: ./coverage.txt
-          flags: unit-tests-${{ matrix.os }}
+          flags: templates-${{ matrix.os }}

@@ -26,14 +26,29 @@ find_executables() {
   STERN=$(find_executable "stern")
   KN=$(find_executable "kn")
   JQ=$(find_executable "jq")
+
+  echo "Executables:"
+  echo "  KUBECTL=${KUBECTL}"
+  echo "  KIND=${KIND}"
+  echo "  DAPR=${DAPR}"
+  echo "  HELM=${HELM}"
+  echo "  STERN=${STERN}"
+  echo "  KN=${KN}"
+  echo "  JQ=${JQ}"
 }
 
 populate_environment() {
+  # User's KUBECOFNIG and that used by these scripts should be isolated:
+  export KUBECONFIG="$(dirname "$(realpath "$0")")/bin/kubeconfig.yaml"
   export ARCH="${ARCH:-amd64}"
   export CONTAINER_ENGINE=${CONTAINER_ENGINE:-docker}
-  export KUBECONFIG="${KUBECONFIG:-$(dirname "$(realpath "$0")")/bin/kubeconfig.yaml}"
   export TERM="${TERM:-dumb}"
-  echo "KUBECONFIG=${KUBECONFIG}"
+
+  echo "Environment:"
+  echo "  KUBECONFIG=${KUBECONFIG}"
+  echo "  ARCH=${ARCH}"
+  echo "  CONTAINER_ENGINE=${CONTAINER_ENGINE}"
+  echo "  TERM=${TERM}"
 }
 
 define_colors() {

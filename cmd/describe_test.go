@@ -1,10 +1,12 @@
 package cmd
 
 import (
+	"context"
 	"testing"
 
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/mock"
+	. "knative.dev/func/pkg/testing"
 )
 
 // TestDescribe_ByName ensures that describing a function by name invokes
@@ -15,9 +17,9 @@ func TestDescribe_ByName(t *testing.T) {
 		describer = mock.NewDescriber()
 	)
 
-	describer.DescribeFn = func(n string) (fn.Instance, error) {
-		if n != testname {
-			t.Fatalf("expected describe name '%v', got '%v'", testname, n)
+	describer.DescribeFn = func(_ context.Context, name, namespace string) (fn.Instance, error) {
+		if name != testname {
+			t.Fatalf("expected describe name '%v', got '%v'", testname, name)
 		}
 		return fn.Instance{}, nil
 	}
@@ -37,10 +39,11 @@ func TestDescribe_ByName(t *testing.T) {
 // (func created in the current working directory) invokes the describer with
 // its name correctly.
 func TestDescribe_ByProject(t *testing.T) {
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
+	expected := "testname"
 
 	_, err := fn.New().Init(fn.Function{
-		Name:     "testname",
+		Name:     expected,
 		Runtime:  "go",
 		Registry: TestRegistry,
 		Root:     root,
@@ -50,9 +53,9 @@ func TestDescribe_ByProject(t *testing.T) {
 	}
 
 	describer := mock.NewDescriber()
-	describer.DescribeFn = func(n string) (i fn.Instance, err error) {
-		if n != "testname" {
-			t.Fatalf("expected describer to receive name 'testname', got '%v'", n)
+	describer.DescribeFn = func(_ context.Context, name, namespace string) (i fn.Instance, err error) {
+		if name != expected {
+			t.Fatalf("expected describer to receive name %q, got %q", expected, name)
 		}
 		return
 	}
@@ -76,64 +79,4 @@ func TestDescribe_NameAndPathExclusivity(t *testing.T) {
 	if d.DescribeInvoked {
 		t.Fatal("describer was invoked when conflicting flags were provided")
 	}
-}
-
-// TestDescribe_Namespace ensures that the namespace provided to the client
-// for use when describing a function is set
-//  1. Blank when not provided nor available (delegate to the describer impl to
-//     choose current kube context)
-//  2. The namespace of the contextually active function
-//  3. The flag /env variable if provided
-func TestDescribe_Namespace(t *testing.T) {
-	root := fromTempDirectory(t)
-
-	client := fn.New(fn.WithDescriber(mock.NewDescriber()))
-
-	// Ensure that the default is "", indicating the describer should use
-	// config.DefaultNamespace
-	cmd := NewDescribeCmd(func(cc ClientConfig, _ ...fn.Option) (*fn.Client, func()) {
-		if cc.Namespace != "" {
-			t.Fatalf("expected '', got '%v'", cc.Namespace)
-		}
-		return client, func() {}
-	})
-	cmd.SetArgs([]string{"somefunc"}) // by name such that no f need be created
-	if err := cmd.Execute(); err != nil {
-		t.Fatal(err)
-	}
-
-	// Ensure the extant function's namespace is used
-	f := fn.Function{
-		Root:    root,
-		Runtime: "go",
-		Deploy: fn.DeploySpec{
-			Namespace: "deployed",
-		},
-	}
-	if _, err := client.Init(f); err != nil {
-		t.Fatal(err)
-	}
-	cmd = NewDescribeCmd(func(cc ClientConfig, _ ...fn.Option) (*fn.Client, func()) {
-		if cc.Namespace != "deployed" {
-			t.Fatalf("expected 'deployed', got '%v'", cc.Namespace)
-		}
-		return client, func() {}
-	})
-	cmd.SetArgs([]string{})
-	if err := cmd.Execute(); err != nil {
-		t.Fatal(err)
-	}
-
-	// Ensure an explicit namespace is plumbed through
-	cmd = NewDescribeCmd(func(cc ClientConfig, _ ...fn.Option) (*fn.Client, func()) {
-		if cc.Namespace != "ns" {
-			t.Fatalf("expected 'ns', got '%v'", cc.Namespace)
-		}
-		return client, func() {}
-	})
-	cmd.SetArgs([]string{"--namespace", "ns"})
-	if err := cmd.Execute(); err != nil {
-		t.Fatal(err)
-	}
-
 }

@@ -5,12 +5,19 @@
 /templates/typescript/cloudevents/build
 /templates/typescript/http/build
 /templates/go/cloudevents/go.sum
+/pkg/functions/testdata/migrations/*/.gitignore
+/pkg/functions/testdata/default_home/go
+/pkg/functions/testdata/default_home/.cache
 /coverage.out
 /coverage.txt
 /.coverage
 /bin
 /target
 /hack/bin
+
+/e2e/testdata/default_home/go
+/e2e/testdata/default_home/.cache
+
 
 # Nodejs
 node_modules

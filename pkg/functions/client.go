@@ -145,7 +145,7 @@ type Remover interface {
 // Lister of deployed functions.
 type Lister interface {
 	// List the functions currently deployed.
-	List(ctx context.Context) ([]ListItem, error)
+	List(ctx context.Context, namespace string) ([]ListItem, error)
 }
 
 type ListItem struct {
@@ -159,7 +159,7 @@ type ListItem struct {
 // Describer of function instances
 type Describer interface {
 	// Describe the named function in the remote environment.
-	Describe(ctx context.Context, name string) (Instance, error)
+	Describe(ctx context.Context, name, namespace string) (Instance, error)
 }
 
 // Instance data about the runtime state of a function in a given environment.
@@ -480,6 +480,7 @@ func (c *Client) Update(ctx context.Context, f Function) (string, Function, erro
 //
 // Use Apply for higher level control.  Use Init, Build, Push, Deploy
 // independently for lower level control.
+//
 // Returns the primary route to the function or error.
 func (c *Client) New(ctx context.Context, cfg Function) (string, Function, error) {
 	// Always start a concurrent routine listening for context cancellation.
@@ -723,13 +724,13 @@ func (c *Client) printBuildActivity(ctx context.Context) {
 	}()
 }
 
-type DeployParams struct {
+type DeployOptions struct {
 	skipBuiltCheck bool
 }
-type DeployOption func(f *DeployParams)
+type DeployOption func(f *DeployOptions)
 
 func WithDeploySkipBuildCheck(skipBuiltCheck bool) DeployOption {
-	return func(f *DeployParams) {
+	return func(f *DeployOptions) {
 		f.skipBuiltCheck = skipBuiltCheck
 	}
 }
@@ -737,10 +738,10 @@ func WithDeploySkipBuildCheck(skipBuiltCheck bool) DeployOption {
 // Deploy the function at path.
 // Errors if the function has not been built unless explicitly instructed
 // to ignore this build check.
-func (c *Client) Deploy(ctx context.Context, f Function, opts ...DeployOption) (Function, error) {
-	deployParams := &DeployParams{skipBuiltCheck: false}
-	for _, opt := range opts {
-		opt(deployParams)
+func (c *Client) Deploy(ctx context.Context, f Function, oo ...DeployOption) (Function, error) {
+	options := &DeployOptions{}
+	for _, o := range oo {
+		o(options)
 	}
 
 	go func() {
@@ -749,7 +750,7 @@ func (c *Client) Deploy(ctx context.Context, f Function, opts ...DeployOption) (
 
 	// Functions must be built (have an associated image) before being deployed.
 	// Note that externally built images may be specified in the func.yaml
-	if !deployParams.skipBuiltCheck && !f.Built() {
+	if !f.Built() && !options.skipBuiltCheck {
 		return f, ErrNotBuilt
 	}
 
@@ -759,44 +760,45 @@ func (c *Client) Deploy(ctx context.Context, f Function, opts ...DeployOption) (
 		return f, ErrNameRequired
 	}
 
-	// TODO: gauron99 -- ideally namespace would be determined here to keep consistancy
-	// with the Remover but it either creates a cyclic dependency or deployer.namespace
-	// is not defined here for it to be complete. Maybe it would be worth to try to
-	// do it this way.
-
-	// Deploy a new or Update the previously-deployed function
-	fmt.Fprintf(os.Stderr, "⬆️  Deploying function to the cluster\n")
-	result, err := c.deployer.Deploy(ctx, f)
-	if err != nil {
-		fmt.Printf("deploy error: %v\n", err)
-		return f, err
+	// Warn if moving
+	changingNamespace := func(f Function) bool {
+		// We're changing namespace if:
+		return f.Deploy.Namespace != "" && // it's already deployed
+			f.Namespace != "" && // a specific (new) namespace is requested
+			(f.Namespace != f.Deploy.Namespace) // and it's different
 	}
 
 	// If Redeployment to NEW namespace was successful -- undeploy dangling Function in old namespace.
 	// On forced namespace change (using --namespace flag)
-	if f.Namespace != "" && f.Namespace != f.Deploy.Namespace && f.Deploy.Namespace != "" {
+	if changingNamespace(f) {
 		if c.verbose {
-			fmt.Fprintf(os.Stderr, "Info: Deleting old func in '%s' because the namespace has changed to '%s'\n", f.Deploy.Namespace, f.Namespace)
+			fmt.Fprintf(os.Stderr, "Moving Function from %q to %q \n", f.Deploy.Namespace, f.Namespace)
 		}
 
 		// c.Remove removes a Function in f.Deploy.Namespace which removes the OLD Function
 		// because its not updated yet (see few lines below)
-		err = c.Remove(ctx, f, true)
-
-		// Warn when service is not found and set err to nil to continue. Function's
-		// service mightve been manually deleted prior to the subsequent deploy or the
-		// namespace is already deleted therefore there is nothing to delete
-		if ErrFunctionNotFound != err {
-			fmt.Fprintf(os.Stderr, "Warning: Cant undeploy Function in namespace '%s' - service not found. Namespace/Service might be deleted already\n", f.Deploy.Namespace)
-			err = nil
-		}
+		err := c.Remove(ctx, "", "", f, true)
 		if err != nil {
+			// Warn when service is not found and set err to nil to continue. Function's
+			// service mightve been manually deleted prior to the subsequent deploy or the
+			// namespace is already deleted therefore there is nothing to delete
+			if errors.Is(err, ErrFunctionNotFound) {
+				fmt.Fprintf(os.Stderr, "Warning: Can't undeploy Function from namespace '%s'. The Function's service was not found. The namespace or service may have already been removed\n", f.Deploy.Namespace)
+				err = nil
+			}
 			return f, err
 		}
 	}
 
-	// Update the function with the namespace into which the function was
-	// deployed
+	// Deploy a new or Update the previously-deployed function
+	if c.verbose {
+		fmt.Fprintf(os.Stderr, "⬆️  Deploying \n")
+	}
+	result, err := c.deployer.Deploy(ctx, f)
+	if err != nil {
+		return f, fmt.Errorf("deploy error. %w", err)
+	}
+	// Update the function to reflect the new deployed state of the Function
 	f.Deploy.Namespace = result.Namespace
 
 	if result.Status == Deployed {
@@ -810,8 +812,10 @@ func (c *Client) Deploy(ctx context.Context, f Function, opts ...DeployOption) (
 
 // RunPipeline runs a Pipeline to build and deploy the function.
 // Returned function contains applicable registry and deployed image name.
-func (c *Client) RunPipeline(ctx context.Context, f Function) (Function, error) {
+// String is the default route.
+func (c *Client) RunPipeline(ctx context.Context, f Function) (string, Function, error) {
 	var err error
+	var url string
 	// Default function registry to the client's global registry
 	if f.Registry == "" {
 		f.Registry = c.registry
@@ -825,16 +829,16 @@ func (c *Client) RunPipeline(ctx context.Context, f Function) (Function, error) 
 	} else if f.Deploy.Image == "" {
 		f.Deploy.Image, err = f.ImageName()
 		if err != nil {
-			return f, err
+			return "", f, err
 		}
 	}
 
 	// Build and deploy function using Pipeline
-	_, f.Deploy.Namespace, err = c.pipelinesProvider.Run(ctx, f)
+	url, f.Deploy.Namespace, err = c.pipelinesProvider.Run(ctx, f)
 	if err != nil {
-		return f, fmt.Errorf("failed to run pipeline: %w", err)
+		return url, f, fmt.Errorf("failed to run pipeline: %w", err)
 	}
-	return f, nil
+	return url, f, nil
 }
 
 // ConfigurePAC generates Pipeline resources on the local filesystem,
@@ -903,8 +907,12 @@ func (c *Client) Route(ctx context.Context, f Function) (string, Function, error
 		return "", f, err
 	}
 
+	if f.Deploy.Namespace == "" {
+		return "", Function{}, errors.New("Unable to route function without a namespace.  Is it deployed?")
+	}
+
 	// Return the correct route.
-	instance, err := c.Instances().Remote(ctx, "", f.Root)
+	instance, err := c.Instances().Remote(ctx, f.Name, f.Deploy.Namespace)
 	if err != nil {
 		return "", f, err
 	}
@@ -960,28 +968,40 @@ func (c *Client) Run(ctx context.Context, f Function, options ...RunOption) (job
 	return job, nil
 }
 
-// Describe a function.  Name takes precedence.  If no name is provided,
-// the function defined at root is used.
-func (c *Client) Describe(ctx context.Context, name string, f Function) (d Instance, err error) {
+// Describe a function.  Name/Namespace takes precedence if provided.  If no
+// name/namespace is provided, the function passed is described based off of
+// its name and currently deployed namespace.
+func (c *Client) Describe(ctx context.Context, name, namespace string, f Function) (d Instance, err error) {
 	// If name is provided, it takes precedence.
 	// Otherwise load the function defined at root.
+	// It is up to the concrete implementation whether or not namespace is
+	// also required.
 	if name != "" {
-		return c.describer.Describe(ctx, name)
+		return c.describer.Describe(ctx, name, namespace)
 	}
 
+	// If the function's not initialized, then we can save some time and
+	// fail fast.
 	if !f.Initialized() {
 		return d, fmt.Errorf("function not initialized: %v", f.Root)
 	}
+
+	// If the function is undeployed, we can't describe it either.
 	if f.Name == "" {
 		return d, fmt.Errorf("unable to describe without a name. %v", ErrNameRequired)
 	}
-	return c.describer.Describe(ctx, f.Name)
+
+	return c.describer.Describe(ctx, f.Name, f.Deploy.Namespace)
 }
 
 // List currently deployed functions.
-func (c *Client) List(ctx context.Context) ([]ListItem, error) {
+// If namespace is empty, the static implementation of the current
+// "Lister" is used, which for example with the knative lister defaults to
+// using the current kubernetes context namespace, falling back to the static
+// default "namespace".
+func (c *Client) List(ctx context.Context, namespace string) ([]ListItem, error) {
 	// delegate to concrete implementation of lister entirely.
-	return c.lister.List(ctx)
+	return c.lister.List(ctx, namespace)
 }
 
 // Remove a function. Name takes precedence. If no name is provided, the
@@ -989,66 +1009,57 @@ func (c *Client) List(ctx context.Context) ([]ListItem, error) {
 // namespace must be provided in .Deploy.Namespace field except when using mocks
 // in which case empty namespace is accepted because its existence is checked
 // in the sub functions remover.Remove and pipilines.Remove
-func (c *Client) Remove(ctx context.Context, cfg Function, deleteAll bool) error {
-	functionName := cfg.Name
-	functionNamespace := cfg.Deploy.Namespace
-
-	// If name is provided, it takes precedence.
-	// Otherwise load the function defined at root.
-	if cfg.Name == "" {
-		f, err := NewFunction(cfg.Root)
-		if err != nil {
-			return err
-		}
-		if !f.Initialized() {
-			return fmt.Errorf("function at %v can not be removed unless initialized. Try removing by name", f.Root)
-		}
-		// take the functions name and namespace and load it as current function
-		functionName = f.Name
-		functionNamespace = f.Deploy.Namespace
-		cfg = f
+func (c *Client) Remove(ctx context.Context, name, namespace string, f Function, all bool) error {
+	// Default to name/namespace, fallback to passed Function
+	if name == "" {
+		name = f.Name
+		namespace = f.Deploy.Namespace
 	}
 
-	// if still empty, get current function's yaml deployed namespace
-	if functionNamespace == "" {
-		var f Function
-		f, err := NewFunction(cfg.Root)
-		if err != nil {
-			return err
-		}
-		functionNamespace = f.Deploy.Namespace
-	}
-
-	if functionName == "" {
+	// Preconditions
+	if name == "" {
 		return ErrNameRequired
 	}
-	if functionNamespace == "" {
+	if namespace == "" {
 		return ErrNamespaceRequired
 	}
 
-	// Delete Knative Service and dependent resources in parallel
-	fmt.Fprintf(os.Stderr, "Removing Knative Service: %v in namespace '%v'\n", functionName, functionNamespace)
-	errChan := make(chan error)
+	// Logging
+	if c.verbose {
+		if all {
+			fmt.Fprintf(os.Stderr, "Removing %v (namespace %q) and all dependent resources\n", name, namespace)
+		} else {
+			fmt.Fprintf(os.Stderr, "Removing %v (namespace %q)\n", name, namespace)
+		}
+	}
+
+	// Perform the Removal
+	var (
+		serviceRemovalErrCh  = make(chan error)
+		resourceRemovalError error
+	)
 	go func() {
-		errChan <- c.remover.Remove(ctx, functionName, functionNamespace)
+		serviceRemovalErrCh <- c.remover.Remove(ctx, name, namespace)
 	}()
-
-	var errResources error
-	if deleteAll {
-		fmt.Fprintf(os.Stderr, "Removing Knative Service '%v' and all dependent resources\n", functionName)
-		// TODO: might not be necessary
-		cfg.Deploy.Namespace = functionNamespace
-		errResources = c.pipelinesProvider.Remove(ctx, cfg)
+	if all {
+		resourceRemovalError = c.pipelinesProvider.Remove(ctx,
+			Function{Name: name, Deploy: DeploySpec{Namespace: namespace}})
 	}
+	serviceRemovalError := <-serviceRemovalErrCh
 
-	errService := <-errChan
-
-	if errService != nil && errResources != nil {
-		return fmt.Errorf("%s\n%s", errService, errResources)
-	} else if errResources != nil {
-		return errResources
-	}
-	return errService
+	// Return a combined error
+	return func(e1, e2 error) error {
+		if e1 == nil && e2 == nil {
+			return nil
+		}
+		if e1 != nil && e2 != nil {
+			return errors.New(e1.Error() + "\n" + e2.Error())
+		}
+		if e1 != nil {
+			return e1
+		}
+		return e2
+	}(serviceRemovalError, resourceRemovalError)
 }
 
 // Invoke is a convenience method for triggering the execution of a function
@@ -1346,12 +1357,12 @@ func (n *noopRemover) Remove(context.Context, string, string) error { return nil
 // Lister
 type noopLister struct{ output io.Writer }
 
-func (n *noopLister) List(context.Context) ([]ListItem, error) { return []ListItem{}, nil }
+func (n *noopLister) List(context.Context, string) ([]ListItem, error) { return []ListItem{}, nil }
 
 // Describer
 type noopDescriber struct{ output io.Writer }
 
-func (n *noopDescriber) Describe(context.Context, string) (Instance, error) {
+func (n *noopDescriber) Describe(context.Context, string, string) (Instance, error) {
 	return Instance{}, nil
 }
 
