@@ -18,11 +18,12 @@ jobs:
       - uses: actions/setup-node@v3
         with:
           node-version: 18
-      - uses: actions/setup-java@v1
+      - uses: actions/setup-java@v4
         with:
           java-version: 21
+          distribution: 'temurin'
       - name: Install NPM deps.
-        run: npm install axios xml2js octokit
+        run: npm install xml2js octokit
       - name: Create PR
         env:
           GITHUB_TOKEN: ${{ github.token }}

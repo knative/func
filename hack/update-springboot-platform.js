@@ -1,4 +1,3 @@
-const axios = require('axios')
 const xml2js = require('xml2js');
 const yaml = require('yaml')
 const semver = require('semver')
@@ -12,8 +11,8 @@ const octokit = new Octokit({auth: process.env.GITHUB_TOKEN});
 const [owner, repo] = process.env.GITHUB_REPOSITORY.split('/')
 
 const getLatestPlatform = async () => {
-    const resp = await axios.get("https://api.github.com/repos/spring-projects/spring-boot/releases/latest")
-    return (resp.data.draft === false) ? resp.data.name.replace(/[A-Za-z]/g, "") : null;
+    const data = await (await fetch("https://api.github.com/repos/spring-projects/spring-boot/releases/latest")).json()
+    return (data.draft === false) ? data.tag_name.replace(/[A-Za-z]/g, "") : null;
 }
 
 const prExists = async (pred) => {
@@ -94,7 +93,8 @@ const updatePlatformInPom = async (pomPath, newPlatform) => {
 
 const getCompatibleSpringCloudVersion = async (newPlatform) => {
     const bomUrl = "https://raw.githubusercontent.com/spring-io/start.spring.io/main/start-site/src/main/resources/application.yml"
-    const mappings = yaml.parseAllDocuments((await axios.get(bomUrl)).data)[0].toJS()
+    const data = await (await fetch(bomUrl)).text()
+    const mappings = yaml.parseAllDocuments(data)[0].toJS()
         .initializr
         .env
         .boms['spring-cloud']
