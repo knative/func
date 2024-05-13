@@ -41,7 +41,7 @@ jobs:
         with:
           name: coverage-${{ matrix.os }}
           path: ./coverage.txt
-          retention-days: 7
+          retention-days: 1
   upload-coverage:
     needs: [test]
     name: "Upload coverage"
