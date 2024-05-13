@@ -8,7 +8,7 @@ jobs:
   check:
     runs-on: "ubuntu-latest"
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: ./.github/composite/go-setup
       - name: Lint
         run: make check && make check-templates
@@ -25,7 +25,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - run: git config --global core.autocrlf false
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: ./.github/composite/go-setup
       - uses: actions/setup-java@v4
         with:
@@ -42,6 +42,9 @@ jobs:
         with:
           files: ./coverage.txt
           flags: unit-tests-${{ matrix.os }}
+          fail_ci_if_error: true
+          verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   test-integration:
     runs-on: "ubuntu-latest"
@@ -50,7 +53,7 @@ jobs:
         run: |
           echo "KUBECONFIG=${{ github.workspace }}/hack/bin/kubeconfig.yaml" >> "$GITHUB_ENV"
           echo "PATH=${{ github.workspace }}/hack/bin:$PATH" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: ./.github/composite/go-setup
       - name: Install Binaries
         run: ./hack/install-binaries.sh
@@ -66,6 +69,9 @@ jobs:
         with:
           files: ./coverage.txt
           flags: integration-tests
+          fail_ci_if_error: true
+          verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   e2e-test:
     strategy:
@@ -77,7 +83,7 @@ jobs:
         run: |
           echo "KUBECONFIG=${{ github.workspace }}/hack/bin/kubeconfig.yaml" >> "$GITHUB_ENV"
           echo "PATH=${{ github.workspace }}/hack/bin:$PATH" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: ./.github/composite/go-setup
       - name: Install Binaries
         run: ./hack/install-binaries.sh
@@ -91,6 +97,9 @@ jobs:
         with:
           files: ./coverage.txt
           flags: e2e-test
+          fail_ci_if_error: true
+          verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   e2e-on-cluster-test:
     strategy:
@@ -102,7 +111,7 @@ jobs:
         run: |
           echo "KUBECONFIG=${{ github.workspace }}/hack/bin/kubeconfig.yaml" >> "$GITHUB_ENV"
           echo "PATH=${{ github.workspace }}/hack/bin:$PATH" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: ./.github/composite/go-setup
       - uses: imjasonh/setup-ko@v0.6
       - name: Install Binaries
@@ -123,42 +132,45 @@ jobs:
         with:
           files: ./coverage.txt
           flags: e2e-test-oncluster
+          fail_ci_if_error: true
+          verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   build:
     needs: [check, test-unit, test-integration, e2e-test, e2e-on-cluster-test]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: ./.github/composite/go-setup
       # Standard build tasks
       - name: Build
         run: make cross-platform
       # Upload all build artifacts
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: OSX Binary (AMD)
           path: func_darwin_amd64
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: OSX Binary (ARM)
           path: func_darwin_arm64
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: Linux Binary (AMD)
           path: func_linux_amd64
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: Linux Binary (ARM)
           path: func_linux_arm64
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: Linux Binary (PPC64LE)
           path: func_linux_ppc64le
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: Linux Binary (S390X)
           path: func_linux_s390x
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: Windows Binary
           path: func_windows_amd64.exe
@@ -167,7 +179,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -190,7 +202,7 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: ./.github/composite/go-setup
       - uses: imjasonh/setup-ko@v0.6
       - run: ko build --platform=linux/ppc64le,linux/s390x,linux/amd64,linux/arm64 -B ./cmd/func
