@@ -25,6 +25,8 @@ jobs:
       - name: Install NPM deps.
         run: npm install xml2js octokit@3.2.1
       - name: Create PR
+        with:
+          delete-branch: true
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: node ./hack/update-quarkus-platform.js
