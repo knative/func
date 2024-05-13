@@ -42,6 +42,9 @@ jobs:
         with:
           files: ./coverage.txt
           flags: unit-tests-${{ matrix.os }}
+          fail_ci_if_error: true
+          verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   test-integration:
     runs-on: "ubuntu-latest"
@@ -66,6 +69,9 @@ jobs:
         with:
           files: ./coverage.txt
           flags: integration-tests
+          fail_ci_if_error: true
+          verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   e2e-test:
     strategy:
@@ -91,6 +97,9 @@ jobs:
         with:
           files: ./coverage.txt
           flags: e2e-test
+          fail_ci_if_error: true
+          verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   e2e-on-cluster-test:
     strategy:
@@ -123,6 +132,9 @@ jobs:
         with:
           files: ./coverage.txt
           flags: e2e-test-oncluster
+          fail_ci_if_error: true
+          verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
 
   build:
     needs: [check, test-unit, test-integration, e2e-test, e2e-on-cluster-test]
