@@ -50,7 +50,7 @@ jobs:
       - name: Download Coverage
         run: |
           gh run download -R ${{ github.repository }} ${{ github.run_id }}
-          curl "https://raw.githubusercontent.com/${{ github.event.pull_request.head.repo.full_name }}/${{ github.head_ref }}/.codecov.yaml" > .codecov.yaml
+          curl "https://raw.githubusercontent.com/${{ github.event.pull_request.head.repo.full_name }}/${{ github.sha }}/.codecov.yaml" > .codecov.yaml
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: codecov/codecov-action@v4
