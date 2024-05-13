@@ -30,6 +30,9 @@ jobs:
       - uses: actions/setup-java@v1
         with:
           java-version: ${{ matrix.java }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
       - name: Unit Test
         run:  make test
       - name: Template Unit Tests
