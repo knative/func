@@ -21,4 +21,5 @@ ignore:
   - "hack"
   - "test"
   - "third_party"
+  - "test"
 
