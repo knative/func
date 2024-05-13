@@ -14,7 +14,7 @@ jobs:
         run: |
           echo "KUBECONFIG=${{ github.workspace }}/hack/bin/kubeconfig.yaml" >> "$GITHUB_ENV"
           echo "PATH=${{ github.workspace }}/hack/bin:$PATH" >> "$GITHUB_ENV"
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: ./.github/composite/go-setup
       - name: Install Podman
         run: |
