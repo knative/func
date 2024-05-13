@@ -36,7 +36,23 @@ jobs:
           FUNC_REPO_BRANCH_REF: ${{ github.head_ref }}
       - name: Template Unit Tests
         run: make test-templates
+      - name: "Archive code coverage results"
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.os }}
+          path: ./coverage.txt
+          retention-days: 7
+  upload-coverage:
+    needs: [test]
+    name: "Upload coverage"
+    runs-on: "ubuntu-latest"
+    steps:
+      - name: Download Coverage
+        run: |
+          gh run download -R ${{ github.repository }} ${{ github.run_id }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: codecov/codecov-action@v4
         with:
-          files: ./coverage.txt
-          flags: unit-tests-${{ matrix.os }}
+          files: ./coverage-ubuntu-latest/coverage.txt,./coverage-windows-latest/coverage.txt,./coverage-macos-latest/coverage.txt
+          flags: unit-tests
