@@ -47,11 +47,10 @@ jobs:
     name: "Upload coverage"
     runs-on: "ubuntu-latest"
     steps:
+      - uses: actions/checkout@v4
       - name: Download Coverage
         run: |
           gh run download -R ${{ github.repository }} ${{ github.run_id }}
-          curl "https://raw.githubusercontent.com/${{ github.event.pull_request.head.repo.full_name }}/${{ github.sha }}/.codecov.yaml" > .codecov.yaml
-          cat .codecov.yaml
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - uses: codecov/codecov-action@v4
