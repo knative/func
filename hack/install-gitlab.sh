@@ -73,7 +73,6 @@ spec:
             gitlab_rails['gitlab_shell_ssh_port'] = 30022
             gitlab_rails['gitlab_email_enabled'] = false
             puma['worker_processes'] = 0
-            sidekiq['max_concurrency'] = 1
             prometheus_monitoring['enable'] = false
             gitlab_rails['env'] = {
               'MALLOC_CONF' => 'dirty_decay_ms:1000,muzzy_decay_ms:1000'
