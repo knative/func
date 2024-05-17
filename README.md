@@ -6,6 +6,7 @@
 [![License](https://img.shields.io/github/license/knative/func)](https://github.com/knative/func/blob/main/LICENSE)
 [![Releases](https://img.shields.io/github/v/release/knative/func.svg?label=Release)](https://github.com/knative/func/releases)
 [![codecov](https://codecov.io/gh/knative/func/branch/main/graph/badge.svg)](https://codecov.io/gh/knative/func)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fknative%2Ffunc.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fknative%2Ffunc?ref=badge_shield)
 
 `func` is a Client Library and CLI enabling the development and deployment of Functions.
 
@@ -25,3 +26,7 @@ We are always looking for contributions from the Function Developer community.  
 For a list of all help wanted issues in Knative, take a look at [CLOTRIBUTOR](https://clotributor.dev/search?project=knative&page=1).
 
 The `func` Working Group meets @ 10:00 US Eastern every Tuesday, we'd love to have you! For more information, see the invitation on the [Knative Team Calendar](https://calendar.google.com/calendar/u/0/embed?src=knative.team_9q83bg07qs5b9rrslp5jor4l6s@group.calendar.google.com).
+
+
+## License
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fknative%2Ffunc.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fknative%2Ffunc?ref=badge_large)
