@@ -2,13 +2,14 @@ package mock
 
 import (
 	"context"
+	"errors"
 
 	fn "knative.dev/func/pkg/functions"
 )
 
 type PipelinesProvider struct {
 	RunInvoked          bool
-	RunFn               func(fn.Function) (string, string, error)
+	RunFn               func(fn.Function) (string, fn.Function, error)
 	RemoveInvoked       bool
 	RemoveFn            func(fn.Function) error
 	ConfigurePACInvoked bool
@@ -19,17 +20,33 @@ type PipelinesProvider struct {
 
 func NewPipelinesProvider() *PipelinesProvider {
 	return &PipelinesProvider{
-		RunFn: func(f fn.Function) (string, string, error) {
-			// simplified namespace resolution, doesnt take current k8s context into
-			// account and returns DefaultNamespace if nothing else instead
-			ns := f.Namespace
-			if ns == "" {
-				ns = f.Deploy.Namespace
+		RunFn: func(f fn.Function) (string, fn.Function, error) {
+			// the minimum necessary logic for a deployer, which should be
+			// confirmed by tests in the respective implementations, is to
+			// return the function with f.Deploy.* values set reflecting the
+			// now deployed state of the function.
+			if f.Namespace == "" && f.Deploy.Namespace == "" {
+				return "", f, errors.New("namespace required for initial deployment")
 			}
-			if ns == "" {
-				ns = DefaultNamespace
+
+			// fabricate that we deployed it to the newly requested namespace
+			if f.Namespace != "" {
+				f.Deploy.Namespace = f.Namespace
 			}
-			return "", ns, nil
+
+			// fabricate that we deployed the requested image or generated
+			// it as needed
+			var err error
+			if f.Image != "" {
+				f.Deploy.Image = f.Image
+			} else {
+				if f.Deploy.Image, err = f.ImageName(); err != nil {
+					return "", f, err
+				}
+			}
+
+			return "", f, nil
+
 		},
 		RemoveFn:       func(fn.Function) error { return nil },
 		ConfigurePACFn: func(fn.Function) error { return nil },
@@ -37,7 +54,7 @@ func NewPipelinesProvider() *PipelinesProvider {
 	}
 }
 
-func (p *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, string, error) {
+func (p *PipelinesProvider) Run(ctx context.Context, f fn.Function) (string, fn.Function, error) {
 	p.RunInvoked = true
 	return p.RunFn(f)
 }

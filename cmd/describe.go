@@ -49,7 +49,7 @@ the current directory or from the directory specified with --path.
 
 	// Flags
 	cmd.Flags().StringP("output", "o", "human", "Output format (human|plain|json|xml|yaml|url) ($FUNC_OUTPUT)")
-	cmd.Flags().StringP("namespace", "n", cfg.Namespace, "The namespace in which to look for the named function. ($FUNC_NAMESPACE)")
+	cmd.Flags().StringP("namespace", "n", defaultNamespace(fn.Function{}, false), "The namespace in which to look for the named function. ($FUNC_NAMESPACE)")
 	addPathFlag(cmd)
 	addVerboseFlag(cmd, cfg.Verbose)
 
@@ -61,43 +61,33 @@ the current directory or from the directory specified with --path.
 }
 
 func runDescribe(cmd *cobra.Command, args []string, newClient ClientFactory) (err error) {
-	cfg := newDescribeConfig(args)
-
-	if err = cfg.Validate(cmd); err != nil {
-		return
-	}
-
-	var f fn.Function
-
-	if cfg.Name == "" {
-		if f, err = fn.NewFunction(cfg.Path); err != nil {
-			return
-		}
-		if !f.Initialized() {
-			return fn.NewErrNotInitialized(f.Root)
-		}
-		// Use Function's Namespace with precedence
-		//
-		// Unless the namespace flag was explicitly provided (not the default),
-		// use the function's current namespace.
-		//
-		// TODO(lkingland): this stanza can be removed when Global Config: Function
-		// Context is merged.
-		if !cmd.Flags().Changed("namespace") {
-			cfg.Namespace = f.Deploy.Namespace
-		}
-	}
-
-	client, done := newClient(ClientConfig{Namespace: cfg.Namespace, Verbose: cfg.Verbose})
-	defer done()
-
-	// TODO(lkingland): update API to use the above function instance rather than path
-	d, err := client.Describe(cmd.Context(), cfg.Name, f)
+	cfg, err := newDescribeConfig(cmd, args)
 	if err != nil {
 		return
 	}
+	// TODO cfg.Prompt()
 
-	write(os.Stdout, info(d), cfg.Output)
+	client, done := newClient(ClientConfig{Verbose: cfg.Verbose})
+	defer done()
+
+	var details fn.Instance
+	if cfg.Name != "" { // Describe by name if provided
+		details, err = client.Describe(cmd.Context(), cfg.Name, cfg.Namespace, fn.Function{})
+		if err != nil {
+			return err
+		}
+	} else {
+		f, err := fn.NewFunction(cfg.Path)
+		if err != nil {
+			return err
+		}
+		details, err = client.Describe(cmd.Context(), "", "", f)
+		if err != nil {
+			return err
+		}
+	}
+
+	write(os.Stdout, info(details), cfg.Output)
 	return
 }
 
@@ -112,22 +102,29 @@ type describeConfig struct {
 	Verbose   bool
 }
 
-func newDescribeConfig(args []string) describeConfig {
-	c := describeConfig{
+func newDescribeConfig(cmd *cobra.Command, args []string) (cfg describeConfig, err error) {
+	var name string
+	if len(args) > 0 {
+		name = args[0]
+	}
+	cfg = describeConfig{
+		Name:      name,
 		Namespace: viper.GetString("namespace"),
 		Output:    viper.GetString("output"),
 		Path:      viper.GetString("path"),
 		Verbose:   viper.GetBool("verbose"),
 	}
-	if len(args) > 0 {
-		c.Name = args[0]
+	if cfg.Name == "" && cmd.Flags().Changed("namespace") {
+		// logicially inconsistent to supply only a namespace.
+		// Either use the function's local state in its entirety, or specify
+		// both a name and a namespace to ignore any local function source.
+		err = fmt.Errorf("must also specify a name when specifying namespace.")
 	}
-	return c
-}
-
-func (c describeConfig) Validate(cmd *cobra.Command) (err error) {
-	if c.Name != "" && c.Path != "" && cmd.Flags().Changed("path") {
-		return fmt.Errorf("Only one of --path or [NAME] should be provided")
+	if cfg.Name != "" && cmd.Flags().Changed("path") {
+		// logically inconsistent to provide both a name and a path to source.
+		// Either use the function's local state on disk (--path), or specify
+		// a name and a namespace to ignore any local function source.
+		err = fmt.Errorf("only one of --path and [NAME] should be provided")
 	}
 	return
 }

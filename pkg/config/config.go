@@ -29,19 +29,6 @@ const (
 	DefaultBuilder = builders.Default
 )
 
-// DefaultNamespace for remote operations is the currently active
-// context namespace (if available) or the fallback "default".
-// Subsequently the value will be populated, indicating the namespace in which the
-// function is currently deployed.  Changes to this value will issue warnings
-// to the user.
-func DefaultNamespace() (namespace string) {
-	var err error
-	if namespace, err = k8s.GetDefaultNamespace(); err != nil {
-		return "default"
-	}
-	return
-}
-
 // Global configuration settings.
 type Global struct {
 	Builder   string `yaml:"builder,omitempty"`
@@ -139,9 +126,12 @@ func (c Global) Apply(f fn.Function) Global {
 	if f.Runtime != "" {
 		c.Language = f.Runtime
 	}
-	if f.Deploy.Namespace != "" {
-		c.Namespace = f.Deploy.Namespace
-	}
+	// Namespace resolution is handled manually in the CLI due to needing
+	// to consider current kubernetes context.  This may be merged back
+	// in here once the logic is refined.
+	// if f.Deploy.Namespace != "" {
+	// 	c.Namespace = f.Deploy.Namespace
+	// }
 	if f.Registry != "" {
 		c.Registry = f.Registry
 	}

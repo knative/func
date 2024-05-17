@@ -7,46 +7,52 @@ import (
 
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/mock"
+	. "knative.dev/func/pkg/testing"
 )
 
 // TestDelete_Default ensures that the deployed function is deleted correctly
-// with default options
+// with default options and the default situation: running "delete" from
+// within the same directory of the function which is to be deleted.
 func TestDelete_Default(t *testing.T) {
 	var (
-		root      = fromTempDirectory(t)
-		namespace = "myns"
-		remover   = mock.NewRemover()
 		err       error
+		root      = FromTempDirectory(t)
+		name      = "myfunc"
+		namespace = "testns"
+		remover   = mock.NewRemover()
+		ctx       = context.Background()
 	)
 
-	remover.RemoveFn = func(_, ns string) error {
+	// Remover which confirms the name and namespace received are those
+	// originally requested via the CLI flags.
+	remover.RemoveFn = func(n, ns string) error {
+		if n != name {
+			t.Errorf("expected name '%v', got '%v'", name, n)
+		}
 		if ns != namespace {
-			t.Fatalf("expected delete namespace '%v', got '%v'", namespace, ns)
+			t.Errorf("expected namespace '%v', got '%v'", namespace, ns)
 		}
 		return nil
 	}
 
-	// Ensure the extant function's namespace is used
+	// A function which will be created in the requested namespace
 	f := fn.Function{
-		Root:     root,
-		Runtime:  "go",
-		Registry: TestRegistry,
-		Name:     "testname",
-		Deploy: fn.DeploySpec{
-			Namespace: namespace, //simulate deployed Function
-		},
+		Runtime:   "go",
+		Name:      name,
+		Namespace: namespace,
+		Root:      root,
+		Registry:  TestRegistry,
 	}
 
-	if f, err = fn.New().Init(f); err != nil {
+	if _, f, err = fn.New().New(ctx, f); err != nil {
 		t.Fatal(err)
 	}
-
 	if err = f.Write(); err != nil {
 		t.Fatal(err)
 	}
 
 	cmd := NewDeleteCmd(NewTestClient(fn.WithRemover(remover)))
-	cmd.SetArgs([]string{}) //dont give any arguments to 'func delete' -- default
+	cmd.SetArgs([]string{})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +67,7 @@ func TestDelete_Default(t *testing.T) {
 // function explicitly as an argument invokes the remover appropriately.
 func TestDelete_ByName(t *testing.T) {
 	var (
-		root          = fromTempDirectory(t)
+		root          = FromTempDirectory(t)
 		testname      = "testname"        // explicit name for the function
 		testnamespace = "testnamespace"   // explicit namespace for the function
 		remover       = mock.NewRemover() // with a mock remover
@@ -98,7 +104,6 @@ func TestDelete_ByName(t *testing.T) {
 	// with a mocked remover.
 	cmd := NewDeleteCmd(NewTestClient(fn.WithRemover(remover)))
 	cmd.SetArgs([]string{testname}) // run: func delete <name>
-
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -141,7 +146,7 @@ func TestDelete_Namespace(t *testing.T) {
 // ignores the the function on disk
 func TestDelete_NamespaceFlagPriority(t *testing.T) {
 	var (
-		root       = fromTempDirectory(t)
+		root       = FromTempDirectory(t)
 		namespace  = "myns"
 		namespace2 = "myns2"
 		remover    = mock.NewRemover()
@@ -184,7 +189,7 @@ func TestDelete_NamespaceFlagPriority(t *testing.T) {
 // TestDelete_NamespaceWithoutNameFails ensures that providing wrong argument
 // combination fails nice and fast (no name of the Function)
 func TestDelete_NamespaceWithoutNameFails(t *testing.T) {
-	_ = fromTempDirectory(t)
+	_ = FromTempDirectory(t)
 
 	cmd := NewDeleteCmd(NewTestClient())
 	cmd.SetArgs([]string{"--namespace=myns"})
@@ -196,7 +201,7 @@ func TestDelete_NamespaceWithoutNameFails(t *testing.T) {
 // TestDelete_ByProject ensures that running delete with a valid project as its
 // context invokes remove and with the correct name (reads name from func.yaml)
 func TestDelete_ByProject(t *testing.T) {
-	_ = fromTempDirectory(t)
+	_ = FromTempDirectory(t)
 
 	// Write a func.yaml config which specifies a name
 	funcYaml := `name: bar
@@ -248,7 +253,7 @@ func TestDelete_ByPath(t *testing.T) {
 
 		// A mock remover which will be sampled to ensure it is not invoked.
 		remover   = mock.NewRemover()
-		root      = fromTempDirectory(t)
+		root      = FromTempDirectory(t)
 		err       error
 		namespace = "func"
 	)

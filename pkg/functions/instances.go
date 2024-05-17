@@ -35,7 +35,7 @@ func (s *InstanceRefs) Get(ctx context.Context, f Function, environment string) 
 	case EnvironmentLocal:
 		return s.Local(ctx, f)
 	case EnvironmentRemote:
-		return s.Remote(ctx, f.Name, f.Root)
+		return s.Remote(ctx, f.Name, f.Deploy.Namespace)
 	default:
 		// Future versions will support additional ad-hoc named environments, such
 		// as for testing. Local and remote remaining the base cases.
@@ -76,41 +76,13 @@ func (s *InstanceRefs) Local(ctx context.Context, f Function) (Instance, error) 
 // either name or root path can be passed.  If name is not passed, the function
 // at root is loaded and its name used for describing the remote instance.
 // Name takes precedence.
-func (s *InstanceRefs) Remote(ctx context.Context, name, root string) (Instance, error) {
-	var (
-		f   Function
-		err error
-	)
-
-	// Error if name and root disagree
-	// If both a name and root were passed but the function at the root either
-	// does not exist or does not match the name, fail fast.
-	// The purpose of this method's signature is to allow passing either name or
-	// root, but doing so requires that we manually validate.
-	if name != "" && root != "" {
-		f, err = NewFunction(root)
-		if err != nil {
-			return Instance{}, err
-		}
-		if name != f.Name {
-			return Instance{}, errors.New("name passed does not match name of the function at root")
-		}
+func (s *InstanceRefs) Remote(ctx context.Context, name, namespace string) (i Instance, err error) {
+	if name == "" {
+		return i, errors.New("fetching remote instances requires function name")
+	}
+	if namespace == "" {
+		return i, errors.New("fetching remote instances requires namespace")
 	}
 
-	// Name takes precedence if provided
-	if name != "" {
-		f = Function{Name: name}
-	} else {
-		if f, err = NewFunction(root); err != nil {
-			return Instance{}, err
-		}
-	}
-
-	// If the function has no name, it is not deployed and thus has no remote
-	// instances
-	if f.Name == "" {
-		return Instance{}, nil
-	}
-
-	return s.client.describer.Describe(ctx, f.Name)
+	return s.client.describer.Describe(ctx, name, namespace)
 }

@@ -4,13 +4,14 @@ import (
 	"errors"
 	"testing"
 
+	. "knative.dev/func/pkg/testing"
 	"knative.dev/func/pkg/utils"
 )
 
 // TestCreate_Execute ensures that an invocation of create with minimal settings
 // and valid input completes without error; degenerate case.
 func TestCreate_Execute(t *testing.T) {
-	_ = fromTempDirectory(t)
+	_ = FromTempDirectory(t)
 
 	cmd := NewCreateCmd(NewClient)
 	cmd.SetArgs([]string{"--language", "go", "myfunc"})
@@ -23,7 +24,7 @@ func TestCreate_Execute(t *testing.T) {
 // TestCreate_NoRuntime ensures that an invocation of create must be
 // done with a runtime.
 func TestCreate_NoRuntime(t *testing.T) {
-	_ = fromTempDirectory(t)
+	_ = FromTempDirectory(t)
 
 	cmd := NewCreateCmd(NewClient)
 	cmd.SetArgs([]string{"myfunc"}) // Do not use test command args
@@ -38,7 +39,7 @@ func TestCreate_NoRuntime(t *testing.T) {
 // TestCreate_WithNoRuntime ensures that an invocation of create must be
 // done with one of the valid runtimes only.
 func TestCreate_WithInvalidRuntime(t *testing.T) {
-	_ = fromTempDirectory(t)
+	_ = FromTempDirectory(t)
 
 	cmd := NewCreateCmd(NewClient)
 	cmd.SetArgs([]string{"--language", "invalid", "myfunc"})
@@ -53,7 +54,7 @@ func TestCreate_WithInvalidRuntime(t *testing.T) {
 // TestCreate_InvalidTemplate ensures that an invocation of create must be
 // done with one of the valid templates only.
 func TestCreate_InvalidTemplate(t *testing.T) {
-	_ = fromTempDirectory(t)
+	_ = FromTempDirectory(t)
 
 	cmd := NewCreateCmd(NewClient)
 	cmd.SetArgs([]string{"--language", "go", "--template", "invalid", "myfunc"})
@@ -68,7 +69,7 @@ func TestCreate_InvalidTemplate(t *testing.T) {
 // TestCreate_ValidatesName ensures that the create command only accepts
 // DNS-1123 labels for function name.
 func TestCreate_ValidatesName(t *testing.T) {
-	_ = fromTempDirectory(t)
+	_ = FromTempDirectory(t)
 
 	// Execute the command with a function name containing invalid characters and
 	// confirm the expected error is returned
@@ -84,7 +85,7 @@ func TestCreate_ValidatesName(t *testing.T) {
 // TestCreate_ConfigOptional ensures that the system can be used without
 // any additional configuration being required.
 func TestCreate_ConfigOptional(t *testing.T) {
-	_ = fromTempDirectory(t)
+	_ = FromTempDirectory(t)
 
 	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 

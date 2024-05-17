@@ -2,45 +2,42 @@ package knative
 
 import (
 	"context"
+	"fmt"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	clientservingv1 "knative.dev/client-pkg/pkg/serving/v1"
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
 
 	fn "knative.dev/func/pkg/functions"
-	"knative.dev/func/pkg/k8s"
 )
 
 type Describer struct {
-	namespace string
-	verbose   bool
+	verbose bool
 }
 
-func NewDescriber(namespaceOverride string, verbose bool) *Describer {
+func NewDescriber(verbose bool) *Describer {
 	return &Describer{
-		namespace: namespaceOverride,
-		verbose:   verbose,
+		verbose: verbose,
 	}
 }
 
-// Describe by name. Note that the consuming API uses domain style notation, whereas Kubernetes
-// restricts to label-syntax, which is thus escaped. Therefore as a knative (kube) implementation
-// detal proper full names have to be escaped on the way in and unescaped on the way out. ex:
+// Describe a function by name. Note that the consuming API uses domain style
+// notation, whereas Kubernetes restricts to label-syntax, which is thus
+// escaped. Therefore as a knative (kube) implementation detal proper full
+// names have to be escaped on the way in and unescaped on the way out. ex:
 // www.example-site.com -> www-example--site-com
-func (d *Describer) Describe(ctx context.Context, name string) (description fn.Instance, err error) {
-	if d.namespace == "" {
-		d.namespace, err = k8s.GetDefaultNamespace()
-		if err != nil {
-			return fn.Instance{}, err
-		}
+func (d *Describer) Describe(ctx context.Context, name, namespace string) (description fn.Instance, err error) {
+	if namespace == "" {
+		err = fmt.Errorf("function namespace is required when describing %q", name)
+		return
 	}
 
-	servingClient, err := NewServingClient(d.namespace)
+	servingClient, err := NewServingClient(namespace)
 	if err != nil {
 		return
 	}
 
-	eventingClient, err := NewEventingClient(d.namespace)
+	eventingClient, err := NewEventingClient(namespace)
 	if err != nil {
 		return
 	}
@@ -66,7 +63,7 @@ func (d *Describer) Describe(ctx context.Context, name string) (description fn.I
 	}
 
 	description.Name = name
-	description.Namespace = d.namespace
+	description.Namespace = namespace
 	description.Route = primaryRouteURL
 	description.Routes = routeURLs
 

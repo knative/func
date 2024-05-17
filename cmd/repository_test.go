@@ -10,7 +10,7 @@ import (
 // set of repositories by name for builtin repositories, by explicitly
 // setting the repositories' path to a new path which includes no others.
 func TestRepository_List(t *testing.T) {
-	_ = fromTempDirectory(t)
+	_ = FromTempDirectory(t)
 
 	cmd := NewRepositoryListCmd(NewClient)
 	cmd.SetArgs([]string{}) // Do not use test command args
@@ -34,7 +34,7 @@ func TestRepository_List(t *testing.T) {
 // upon subsequent 'list'.
 func TestRepository_Add(t *testing.T) {
 	url := ServeRepo("repository.git#main", t)
-	_ = fromTempDirectory(t)
+	_ = FromTempDirectory(t)
 	t.Log(url)
 
 	var (
@@ -75,7 +75,7 @@ func TestRepository_Add(t *testing.T) {
 // reflected as having been renamed upon subsequent 'list'.
 func TestRepository_Rename(t *testing.T) {
 	url := ServeRepo("repository.git", t)
-	_ = fromTempDirectory(t)
+	_ = FromTempDirectory(t)
 
 	var (
 		add    = NewRepositoryAddCmd(NewClient)
@@ -123,7 +123,7 @@ func TestRepository_Rename(t *testing.T) {
 // subsequent 'list'.
 func TestRepository_Remove(t *testing.T) {
 	url := ServeRepo("repository.git", t)
-	_ = fromTempDirectory(t)
+	_ = FromTempDirectory(t)
 
 	var (
 		add    = NewRepositoryAddCmd(NewClient)

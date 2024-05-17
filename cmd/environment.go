@@ -195,10 +195,10 @@ func describeFuncInformation(context context.Context, newClient ClientFactory, c
 		return nil, nil
 	}
 
-	client, done := newClient(ClientConfig{Namespace: function.Deploy.Namespace, Verbose: cfg.Verbose})
+	client, done := newClient(ClientConfig{Verbose: cfg.Verbose})
 	defer done()
 
-	instance, err := client.Describe(context, function.Name, function)
+	instance, err := client.Describe(context, function.Name, function.Deploy.Namespace, function)
 	if err != nil {
 		return &function, nil
 	}

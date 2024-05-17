@@ -159,7 +159,7 @@ func TestIntegration(t *testing.T) {
 		_ = knative.GetKServiceLogs(ctx, namespace, functionName, function.Deploy.Image, &now, buff)
 	}()
 
-	deployer := knative.NewDeployer(knative.WithDeployerNamespace(namespace), knative.WithDeployerVerbose(false))
+	deployer := knative.NewDeployer(knative.WithDeployerVerbose(false))
 
 	depRes, err := deployer.Deploy(ctx, function)
 	if err != nil {
@@ -194,8 +194,8 @@ func TestIntegration(t *testing.T) {
 		t.Error("config-map was not mounted")
 	}
 
-	describer := knative.NewDescriber(namespace, false)
-	instance, err := describer.Describe(ctx, functionName)
+	describer := knative.NewDescriber(false)
+	instance, err := describer.Describe(ctx, functionName, namespace)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -228,8 +228,8 @@ func TestIntegration(t *testing.T) {
 		}
 	}
 
-	lister := knative.NewLister(namespace, false)
-	list, err := lister.List(ctx)
+	lister := knative.NewLister(false)
+	list, err := lister.List(ctx, namespace)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -277,7 +277,7 @@ func TestIntegration(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	list, err = lister.List(ctx)
+	list, err = lister.List(ctx, namespace)
 	if err != nil {
 		t.Fatal(err)
 	}

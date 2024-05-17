@@ -2,6 +2,7 @@ package mock
 
 import (
 	"context"
+	"errors"
 
 	fn "knative.dev/func/pkg/functions"
 )
@@ -20,16 +21,17 @@ type Deployer struct {
 
 func NewDeployer() *Deployer {
 	return &Deployer{
-		DeployFn: func(_ context.Context, f fn.Function) (fn.DeploymentResult, error) {
-			result := fn.DeploymentResult{}
-			result.Namespace = f.Namespace
-			if result.Namespace == "" {
-				result.Namespace = f.Deploy.Namespace
+		DeployFn: func(_ context.Context, f fn.Function) (result fn.DeploymentResult, err error) {
+			// the minimum necessary logic for a deployer, which should be
+			// confirmed by tests in the respective implementations.
+			if f.Namespace != "" {
+				result.Namespace = f.Namespace // deployed to that requested
+			} else if f.Deploy.Namespace != "" {
+				result.Namespace = f.Deploy.Namespace // redeploy to current
+			} else {
+				err = errors.New("namespace required for initial deployment")
 			}
-			if result.Namespace == "" {
-				result.Namespace = DefaultNamespace
-			}
-			return result, nil
+			return
 		},
 	}
 }

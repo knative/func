@@ -6,6 +6,7 @@ import (
 
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/mock"
+	. "knative.dev/func/pkg/testing"
 )
 
 // TestBuild_BuilderPersists ensures that the builder chosen is read from
@@ -100,7 +101,7 @@ func TestBuild_Authentication(t *testing.T) {
 // - Push not triggered after an unsuccessful build
 // - Push can be disabled
 func TestBuild_Push(t *testing.T) {
-	root := fromTempDirectory(t)
+	root := FromTempDirectory(t)
 
 	f := fn.Function{
 		Root:     root,

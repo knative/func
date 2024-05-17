@@ -3,6 +3,8 @@
 package oncluster
 
 import (
+	"fmt"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -70,7 +72,7 @@ func TestGitHubFunc(t *testing.T) {
 
 	// -- Deploy Func
 	knFunc := common.NewKnFuncShellCli(t)
-	knFunc.Exec("deploy",
+	result := knFunc.Exec("deploy",
 		"--path", funcPath,
 		"--registry", common.GetRegistry(),
 		"--remote",
@@ -79,10 +81,18 @@ func TestGitHubFunc(t *testing.T) {
 		"--git-branch", githubRef,
 		"--git-dir", funcContextDir,
 	)
-	defer knFunc.Exec("delete", "-p", funcPath)
+	if result.Error != nil {
+		fmt.Fprintf(os.Stdout, "deploy error: %v", result.Error)
+	}
+	defer func() {
+		result := knFunc.Exec("delete", "-p", funcPath)
+		if result.Error != nil {
+			fmt.Fprintf(os.Stdout, "delete error: %v", result.Error)
+		}
+	}()
 
 	// -- Assertions --
-	result := knFunc.Exec("invoke", "-p", funcPath)
+	result = knFunc.Exec("invoke", "-p", funcPath)
 	assert.Assert(t, strings.Contains(result.Out, "simple func"), "Func body does not contain 'simple func'")
 	AssertThatTektonPipelineRunSucceed(t, funcName)
 
