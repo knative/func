@@ -292,9 +292,9 @@ func TestUpdateWithAnnotationsAndLabels(t *testing.T) {
 	}
 }
 
-// TestDeployWithoutHomeWithS2i ensures that running client.New works without
+// TestDeployS2iBuilderWithoutHome ensures that running client.New works without
 // home
-func TestDeployWithoutHomeWithS2i(t *testing.T) {
+func TestDeployS2iBuilderWithoutHome(t *testing.T) {
 	root, cleanup := Mktemp(t)
 	defer cleanup()
 
@@ -302,7 +302,7 @@ func TestDeployWithoutHomeWithS2i(t *testing.T) {
 	verbose := true
 	name := "test-deploy-no-home"
 
-	f := fn.Function{Runtime: "node", Name: name, Root: root}
+	f := fn.Function{Runtime: "node", Name: name, Root: root, Namespace: DefaultNamespace}
 
 	// client with s2i builder
 	client := newClientWithS2i(verbose)
@@ -312,7 +312,7 @@ func TestDeployWithoutHomeWithS2i(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no errors but got %v", err)
 	}
-	defer del(t, client, name)
+	defer del(t, client, name, DefaultNamespace)
 }
 
 // TestRemove ensures removal of a function instance.
@@ -599,10 +599,10 @@ func newClient(verbose bool) *fn.Client {
 func newClientWithS2i(verbose bool) *fn.Client {
 	builder := s2i.NewBuilder(s2i.WithVerbose(verbose))
 	pusher := docker.NewPusher(docker.WithVerbose(verbose))
-	deployer := knative.NewDeployer(knative.WithDeployerNamespace(DefaultNamespace), knative.WithDeployerVerbose(verbose))
-	describer := knative.NewDescriber(DefaultNamespace, verbose)
+	deployer := knative.NewDeployer(knative.WithDeployerVerbose(verbose))
+	describer := knative.NewDescriber(verbose)
 	remover := knative.NewRemover(verbose)
-	lister := knative.NewLister(DefaultNamespace, verbose)
+	lister := knative.NewLister(verbose)
 
 	return fn.New(
 		fn.WithRegistry(DefaultRegistry),

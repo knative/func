@@ -1899,7 +1899,7 @@ func TestDeploy_NoErrorOnOldFunctionNotFound(t *testing.T) {
 // XDG_CONFIG_HOME defined succeeds
 func TestDeploy_WithoutHome(t *testing.T) {
 	var (
-		root = fromTempDirectory(t)
+		root = FromTempDirectory(t)
 		ns   = "myns"
 	)
 
