@@ -61,7 +61,7 @@ func TestPusher_Push(t *testing.T) {
 
 	// Create and push a function
 	client := fn.New(
-		fn.WithBuilder(NewBuilder("", verbose)),
+		fn.WithBuilder(NewBuilder("", false)),
 		fn.WithPusher(NewPusher(insecure, anon, verbose)))
 
 	f := fn.Function{Root: root, Runtime: "go", Name: "f", Registry: l.Addr().String() + "/funcs"}
@@ -85,7 +85,7 @@ func TestPusher_Push(t *testing.T) {
 	}
 }
 
-// TestPusher_Auth ensures that the pusher authenticates via basic auth when
+// TestPusher_BasicAuth ensures that the pusher authenticates via basic auth when
 // supplied with a username/password via the context.
 func TestPusher_BasicAuth(t *testing.T) {
 	var (
@@ -106,7 +106,7 @@ func TestPusher_BasicAuth(t *testing.T) {
 			// no header.  ask for auth
 			w.Header().Add("www-authenticate", "Basic realm=\"Registry Realm\"")
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		} else if u != "username" || p != "password" {
+		} else if u != username || p != password {
 			// header exists, but creds are either missing or incorrect
 			t.Fatalf("Unauthorized.  Expected user %q pass %q, got user %q pass %q", username, password, u, p)
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)

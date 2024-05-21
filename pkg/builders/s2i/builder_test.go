@@ -29,6 +29,7 @@ import (
 	"knative.dev/func/pkg/builders"
 	"knative.dev/func/pkg/builders/s2i"
 	fn "knative.dev/func/pkg/functions"
+	. "knative.dev/func/pkg/testing"
 )
 
 // Test_BuildImages ensures that supported runtimes returns builder image
@@ -60,9 +61,9 @@ func Test_BuildImages(t *testing.T) {
 			wantErr:  false,
 		},
 		{
-			name:     "Without builder - unsupported runtime - go",
+			name:     "Without builder - supported runtime - go",
 			function: fn.Function{Runtime: "go"},
-			wantErr:  true,
+			wantErr:  false,
 		},
 		{
 			name:     "Without builder - supported runtime - python",
@@ -91,17 +92,30 @@ func Test_BuildImages(t *testing.T) {
 // define a Builder Image will default.
 func Test_BuilderImageDefault(t *testing.T) {
 	var (
-		i = &mockImpl{}                  // mock underlying s2i implementation
-		c = mockDocker{}                 // mock docker client
-		f = fn.Function{Runtime: "node"} // function with no builder image set
-		b = s2i.NewBuilder(              // func S2I Builder logic
-			s2i.WithImpl(i), s2i.WithDockerClient(c))
+		root, done = Mktemp(t)
+		runtime    = "go"
+		impl       = &mockImpl{} // mock the underlying s2i implementation
+		f          = fn.Function{
+			Name:     "test",
+			Root:     root,
+			Runtime:  runtime,
+			Registry: "example.com/alice"} // function with no builder image set
+		builder = s2i.NewBuilder( // func S2I Builder logic
+			s2i.WithImpl(impl),
+			s2i.WithDockerClient(mockDocker{}))
+		err error
 	)
+	defer done()
 
-	// An implementation of the underlying S2I implementation which verifies
+	// Initialize the test function
+	if f, err = fn.New().Init(f); err != nil {
+		t.Fatal(err)
+	}
+
+	// An implementation of the underlying S2I builder which verifies
 	// the config has arrived as expected (correct functions logic applied)
-	i.BuildFn = func(cfg *api.Config) (*api.Result, error) {
-		expected := s2i.DefaultBuilderImages["node"]
+	impl.BuildFn = func(cfg *api.Config) (*api.Result, error) {
+		expected := s2i.DefaultBuilderImages[runtime]
 		if cfg.BuilderImage != expected {
 			t.Fatalf("expected s2i config builder image '%v', got '%v'",
 				expected, cfg.BuilderImage)
@@ -111,7 +125,7 @@ func Test_BuilderImageDefault(t *testing.T) {
 
 	// Invoke Build, which runs function Builder logic before invoking the
 	// mock impl above.
-	if err := b.Build(context.Background(), f, nil); err != nil {
+	if err := builder.Build(context.Background(), f, nil); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -151,8 +165,8 @@ func Test_BuilderImageConfigurable(t *testing.T) {
 	}
 }
 
-// Test_BuildImageWithFuncIgnore ensures that ignored files are not added to the func
-// image
+// Test_BuildImageWithFuncIgnore ensures that ignored files are not added to
+// the func image
 func Test_BuildImageWithFuncIgnore(t *testing.T) {
 
 	funcIgnoreContent := []byte(`#testing Comments
