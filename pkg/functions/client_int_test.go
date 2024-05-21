@@ -292,9 +292,9 @@ func TestUpdateWithAnnotationsAndLabels(t *testing.T) {
 	}
 }
 
-// TestDeployWithoutHomeWithS2i ensures that running client.New works without
+// TestDeployS2iBuilderWithoutHome ensures that running client.New works without
 // home
-func TestDeployWithoutHomeWithS2i(t *testing.T) {
+func TestDeployS2iBuilderWithoutHome(t *testing.T) {
 	root, cleanup := Mktemp(t)
 	defer cleanup()
 
@@ -302,7 +302,7 @@ func TestDeployWithoutHomeWithS2i(t *testing.T) {
 	verbose := true
 	name := "test-deploy-no-home"
 
-	f := fn.Function{Runtime: "node", Name: name, Root: root}
+	f := fn.Function{Runtime: "node", Name: name, Root: root, Namespace: DefaultNamespace}
 
 	// client with s2i builder
 	client := newClientWithS2i(verbose)
@@ -312,7 +312,7 @@ func TestDeployWithoutHomeWithS2i(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no errors but got %v", err)
 	}
-	defer del(t, client, name)
+	defer del(t, client, name, DefaultNamespace)
 }
 
 // TestRemove ensures removal of a function instance.
