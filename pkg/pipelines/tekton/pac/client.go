@@ -11,7 +11,7 @@ import (
 // NewTektonPacClientAndResolvedNamespace returns PipelinesascodeV1alpha1Client,namespace,error
 func NewTektonPacClientAndResolvedNamespace(namespace string) (*pacv1alpha1.PipelinesascodeV1alpha1Client, string, error) {
 	var err error
-	if namespace != "" {
+	if namespace == "" {
 		namespace, err = k8s.GetDefaultNamespace()
 		if err != nil {
 			return nil, "", err
