@@ -235,8 +235,8 @@ func createPipelineRunTemplatePAC(f fn.Function, labels map[string]string) error
 
 		S2iImageScriptsUrl: s2iImageScriptsUrl,
 
-		RepoUrl:  "{{ repo_url }}",
-		Revision: "{{ revision }}",
+		RepoUrl:  "\"{{ repo_url }}\"",
+		Revision: "\"{{ revision }}\"",
 	}
 
 	var template string
