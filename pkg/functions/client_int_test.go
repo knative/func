@@ -554,7 +554,7 @@ func TestDeployWithoutHome(t *testing.T) {
 	verbose := false
 	name := "test-deploy-no-home"
 
-	f := fn.Function{Runtime: "python", Name: name, Root: root, Namespace: DefaultNamespace}
+	f := fn.Function{Runtime: "node", Name: name, Root: root, Namespace: DefaultNamespace}
 
 	// client with s2i builder because pack needs HOME
 	client := newClientWithS2i(verbose)
