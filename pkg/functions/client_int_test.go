@@ -556,7 +556,7 @@ func TestDeployS2iBuilderWithoutHome(t *testing.T) {
 	verbose := true
 	name := "test-deploy-no-home"
 
-	f := fn.Function{Runtime: "node", Name: name, Root: root, Namespace: DefaultNamespace}
+	f := fn.Function{Runtime: "python", Name: name, Root: root, Namespace: DefaultNamespace}
 
 	// client with s2i builder
 	client := newClientWithS2i(verbose)
@@ -567,11 +567,7 @@ func TestDeployS2iBuilderWithoutHome(t *testing.T) {
 		t.Fatalf("expected no errors but got %v", err)
 	}
 
-	// NOTE: gauron99: this del is commented out until client.delete is resolved.
-	// Currently, the remover is looking for resources to delete and is taking about
-	// triple the time of current timeout.
-	// For remover/deleter resolution, see issue: https://github.com/knative/func/issues/2316
-	// defer del(t, client, name, DefaultNamespace)
+	defer del(t, client, name, DefaultNamespace)
 }
 
 // ***********
