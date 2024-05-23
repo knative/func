@@ -554,7 +554,7 @@ func TestDeployWithoutHome(t *testing.T) {
 	verbose := false
 	name := "test-deploy-no-home"
 
-	f := fn.Function{Runtime: "node", Name: name, Root: root, Namespace: DefaultNamespace}
+	f := fn.Function{Runtime: "python", Name: name, Root: root, Namespace: DefaultNamespace}
 
 	// client with s2i builder because pack needs HOME
 	client := newClientWithS2i(verbose)
@@ -566,6 +566,7 @@ func TestDeployWithoutHome(t *testing.T) {
 	}
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 	defer del(t, client, name, DefaultNamespace)
 =======
 	// NOTE: gauron99: this del is commented out until client.delete is resolved.
@@ -574,6 +575,9 @@ func TestDeployWithoutHome(t *testing.T) {
 	// For remover/deleter resolution, see issue: https://github.com/knative/func/issues/2316
 	// defer del(t, client, name, DefaultNamespace)
 >>>>>>> 6f70b7d2 (move test, dont delete)
+=======
+	defer del(t, client, name, DefaultNamespace)
+>>>>>>> edfd905c (runtime change)
 }
 
 // ***********
