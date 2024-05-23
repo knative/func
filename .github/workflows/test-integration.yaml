@@ -46,13 +46,20 @@ jobs:
       - name: Dump Cluster Logs
         if: always()
         run: |
-          echo "::group::cluster events"
-          kubectl get events -A
-          echo "::endgroup::"
+          echo "::group::cluster events" >> cluster_log.txt
+          kubectl get events -A  >> cluster_log.txt 2>&1
+          echo "::endgroup::"  >> cluster_log.txt
 
-          echo "::group::cluster containers logs"
-          stern '.*' --all-namespaces --no-follow
-          echo "::endgroup::"
+          echo "::group::cluster containers logs"  >> cluster_log.txt
+          stern '.*' --all-namespaces --no-follow  >> cluster_log.txt 2>&1
+          echo "::endgroup::"  >> cluster_log.txt
+      - name: "Archive log results"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cluster-logs
+          path: ./cluster_log.txt
+          retention-days: 7
       - uses: codecov/codecov-action@v4
         with:
           files: ./coverage.txt
