@@ -546,19 +546,20 @@ func Handle(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// TestDeployS2iBuilderWithoutHome ensures that running client.New works without
+// TestDeployWithoutHome ensures that running client.New works without
 // home
-func TestDeployS2iBuilderWithoutHome(t *testing.T) {
+func TestDeployWithoutHome(t *testing.T) {
 	root, cleanup := Mktemp(t)
 	defer cleanup()
 
 	t.Setenv("HOME", "")
-	verbose := true
+	t.Setenv("XDG_CONFIG_HOME", "")
+	verbose := false
 	name := "test-deploy-no-home"
 
-	f := fn.Function{Runtime: "python", Name: name, Root: root, Namespace: DefaultNamespace}
+	f := fn.Function{Runtime: "node", Name: name, Root: root, Namespace: DefaultNamespace}
 
-	// client with s2i builder
+	// client with s2i builder because pack needs HOME
 	client := newClientWithS2i(verbose)
 
 	// expect to succeed
