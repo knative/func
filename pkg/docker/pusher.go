@@ -8,10 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"os"
 	"regexp"
+	"strings"
 
 	fn "knative.dev/func/pkg/functions"
 
@@ -23,7 +23,11 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/daemon"
+	"github.com/google/go-containerregistry/pkg/v1/empty"
+	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	types2 "github.com/google/go-containerregistry/pkg/v1/types"
 	"golang.org/x/term"
 )
 
@@ -107,8 +111,72 @@ func GetRegistry(img string) (string, error) {
 	return registry, nil
 }
 
-// Push the image of the function.
-func (n *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err error) {
+// Push the image index of the function.
+func (n *Pusher) Push(ctx context.Context, f fn.Function) (string, error) {
+	credentials, err := n.credentialsProvider(ctx, f.Build.Image)
+	if err != nil {
+		return "", fmt.Errorf("failed to get credentials: %w", err)
+	}
+
+	imgDigest, err := n.pushImage(ctx, f, credentials)
+	if err != nil {
+		return "", fmt.Errorf("cannot push image: %w", err)
+	}
+
+	auth := &authn.Basic{
+		Username: credentials.Username,
+		Password: credentials.Password,
+	}
+
+	remoteOpts := []remote.Option{
+		remote.WithAuth(auth),
+		remote.WithTransport(n.transport),
+	}
+
+	imgRef, err := name.ParseReference(f.ImageNameWithDigest(imgDigest))
+	if err != nil {
+		return "", fmt.Errorf("cannot parse image ref: %w", err)
+	}
+	img, err := remote.Image(imgRef, remoteOpts...)
+	if err != nil {
+		return "", fmt.Errorf("cannot get the image: %w", err)
+	}
+
+	cf, err := img.ConfigFile()
+	if err != nil {
+		return "", fmt.Errorf("cannot get config file for the image: %w", err)
+	}
+
+	newDesc, err := partial.Descriptor(img)
+	if err != nil {
+		return "", fmt.Errorf("cannot get partial descriptor for the image: %w", err)
+	}
+	newDesc.Platform = cf.Platform()
+
+	base := mutate.IndexMediaType(empty.Index, types2.DockerManifestList)
+	idx := mutate.AppendManifests(base, mutate.IndexAddendum{
+		Add:        img,
+		Descriptor: *newDesc,
+	})
+
+	idxRef, err := name.ParseReference(f.Build.Image)
+	if err != nil {
+		return "", fmt.Errorf("cannot parse image index ref: %w", err)
+	}
+	err = remote.WriteIndex(idxRef, idx, remoteOpts...)
+	if err != nil {
+		return "", fmt.Errorf("cannot write image index: %w", err)
+	}
+
+	d, err := idx.Digest()
+	if err != nil {
+		return "", fmt.Errorf("cannot obtain image index digest: %w", err)
+	}
+
+	return d.String(), nil
+}
+
+func (n *Pusher) pushImage(ctx context.Context, f fn.Function, credentials Credentials) (digest string, err error) {
 
 	var output io.Writer
 
@@ -127,19 +195,17 @@ func (n *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err er
 		return "", err
 	}
 
-	credentials, err := n.credentialsProvider(ctx, f.Build.Image)
-	if err != nil {
-		return "", fmt.Errorf("failed to get credentials: %w", err)
-	}
 	fmt.Fprintf(os.Stderr, "Pushing function image to the registry %q using the %q user credentials\n", registry, credentials.Username)
 
-	// if the registry is not cluster private do push directly from daemon
-	if _, err = net.DefaultResolver.LookupHost(ctx, registry); err == nil {
-		return n.daemonPush(ctx, f, credentials, output)
+	digest, err = n.daemonPush(ctx, f, credentials, output)
+	if err == nil {
+		return digest, nil
 	}
-
-	// push with custom transport to be able to push into cluster private registries
-	return n.push(ctx, f, credentials, output)
+	if strings.Contains(err.Error(), "no such host") {
+		// push with custom transport to be able to push into cluster private registries
+		return n.push(ctx, f, credentials, output)
+	}
+	return "", err
 }
 
 func (n *Pusher) daemonPush(ctx context.Context, f fn.Function, credentials Credentials, output io.Writer) (digest string, err error) {
