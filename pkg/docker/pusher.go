@@ -8,10 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"os"
 	"regexp"
+	"strings"
 
 	fn "knative.dev/func/pkg/functions"
 
@@ -133,13 +133,15 @@ func (n *Pusher) Push(ctx context.Context, f fn.Function) (digest string, err er
 	}
 	fmt.Fprintf(os.Stderr, "Pushing function image to the registry %q using the %q user credentials\n", registry, credentials.Username)
 
-	// if the registry is not cluster private do push directly from daemon
-	if _, err = net.DefaultResolver.LookupHost(ctx, registry); err == nil {
-		return n.daemonPush(ctx, f, credentials, output)
+	digest, err = n.daemonPush(ctx, f, credentials, output)
+	if err == nil {
+		return digest, nil
 	}
-
-	// push with custom transport to be able to push into cluster private registries
-	return n.push(ctx, f, credentials, output)
+	if strings.Contains(err.Error(), "no such host") {
+		// push with custom transport to be able to push into cluster private registries
+		return n.push(ctx, f, credentials, output)
+	}
+	return "", err
 }
 
 func (n *Pusher) daemonPush(ctx context.Context, f fn.Function, credentials Credentials, output io.Writer) (digest string, err error) {
