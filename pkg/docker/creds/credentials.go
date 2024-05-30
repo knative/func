@@ -189,23 +189,20 @@ func NewCredentialsProvider(configPath string, opts ...Opt) docker.CredentialsPr
 				return getCredentialsByCredentialHelper(dockerConfigPath, registry)
 			})
 	}
-	// dont add this loader when configPath is empty
-	if configPath != "" {
-		defaultCredentialLoaders = append(defaultCredentialLoaders,
-			func(registry string) (docker.Credentials, error) {
-				creds, err := dockerConfig.GetCredentials(sys, registry)
-				if err != nil {
-					return docker.Credentials{}, err
-				}
-				if creds.Username == "" || creds.Password == "" {
-					return docker.Credentials{}, ErrCredentialsNotFound
-				}
-				return docker.Credentials{
-					Username: creds.Username,
-					Password: creds.Password,
-				}, nil
-			})
-	}
+	defaultCredentialLoaders = append(defaultCredentialLoaders,
+		func(registry string) (docker.Credentials, error) {
+			creds, err := dockerConfig.GetCredentials(sys, registry)
+			if err != nil {
+				return docker.Credentials{}, err
+			}
+			if creds.Username == "" || creds.Password == "" {
+				return docker.Credentials{}, ErrCredentialsNotFound
+			}
+			return docker.Credentials{
+				Username: creds.Username,
+				Password: creds.Password,
+			}, nil
+		})
 	defaultCredentialLoaders = append(defaultCredentialLoaders,
 		func(registry string) (docker.Credentials, error) {
 			// Fallback onto default docker config locations
@@ -294,9 +291,8 @@ func (c *credentialsProvider) getCredentials(ctx context.Context, image string) 
 				helper = strings.TrimPrefix(helper, "docker-credential-")
 				err = setCredentialHelperToConfig(c.authFilePath, helper)
 				if err != nil {
-					// TODO: gauron99 -- figure out what to do with this
-					fmt.Fprintf(os.Stderr, "Warning: failed to set helper to the config with error: '%v'\n", err)
-					// return docker.Credentials{}, fmt.Errorf("faild to set the helper to the config: %w", err)
+					// fmt.Fprintf(os.Stderr, "Warning: failed to set helper to the config with error: '%v'\n", err)
+					return docker.Credentials{}, fmt.Errorf("faild to set the helper to the config: %w", err)
 				}
 				err = setCredentialsByCredentialHelper(c.authFilePath, registry, result.Username, result.Password)
 				if err != nil {
