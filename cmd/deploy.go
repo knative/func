@@ -282,7 +282,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	if err != nil {
 		return
 	}
-	client, done := newClient(ClientConfig{Verbose: cfg.Verbose}, clientOptions...)
+	client, done := newClient(ClientConfig{Verbose: cfg.Verbose, InsecureSkipVerify: cfg.RegistryInsecure}, clientOptions...)
 	defer done()
 
 	// Deploy
