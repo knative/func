@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"strings"
 	"sync"
@@ -548,6 +549,77 @@ func TestCredentialsProviderSavingFromUserInput(t *testing.T) {
 	}
 }
 
+// TestCredentialsWithoutHome tests different scenarios when HOME is not set
+func TestCredentialsWithoutHome(t *testing.T) {
+	type args struct {
+		promptUser        creds.CredentialsCallback
+		verifyCredentials creds.VerifyCredentialsCallback
+		registry          string
+		setUpEnv          setUpEnv
+	}
+	tests := []struct {
+		name              string
+		testHomePathEmpty bool
+		args              args
+		want              Credentials
+	}{
+		{
+			name:              "empty home with correct user prompt",
+			testHomePathEmpty: true,
+			args: args{
+				promptUser:        correctPwdCallback, // user inputs correct credentials
+				verifyCredentials: correctVerifyCbk,
+				registry:          "docker.io",
+				setUpEnv:          setEmptyHome,
+			},
+			want: Credentials{Username: dockerIoUser, Password: dockerIoUserPwd},
+		},
+		{
+			name: "empty config with user prompt",
+			args: args{
+				promptUser:        correctPwdCallback,
+				verifyCredentials: correctVerifyCbk,
+				registry:          "docker.io",
+			},
+			want: Credentials{Username: dockerIoUser, Password: dockerIoUserPwd},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resetHomeDir(t)
+			if tt.args.setUpEnv != nil {
+				tt.args.setUpEnv(t)
+			}
+
+			// prepare config path for credentials provider
+			var configPath string
+			if tt.testHomePathEmpty {
+				configPath = ""
+			} else {
+				configPath = testConfigPath(t)
+			}
+
+			credentialsProvider := creds.NewCredentialsProvider(
+				configPath,
+				creds.WithPromptForCredentials(tt.args.promptUser),
+				creds.WithVerifyCredentials(tt.args.verifyCredentials),
+			)
+
+			got, err := credentialsProvider(context.Background(), tt.args.registry+"/someorg/someimage:sometag")
+			if err != nil {
+				t.Errorf("unexpected error: %v", err)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("got: %v, want: %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// ********************** helper functions below **************************** \\
+
 func resetHomeDir(t *testing.T) {
 	t.TempDir()
 	if err := os.RemoveAll(homeTempDir); err != nil {
@@ -901,4 +973,11 @@ func (i *inMemoryHelper) Delete(serverURL string) error {
 	}
 
 	return credentials.NewErrCredentialsNotFound()
+}
+
+// set home variables to empty values
+func setEmptyHome(t *testing.T) {
+	t.Helper()
+	t.Setenv("HOME", "")
+	t.Setenv("XDG_CONFIG_HOME", "")
 }
