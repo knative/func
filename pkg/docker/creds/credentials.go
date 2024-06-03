@@ -291,7 +291,6 @@ func (c *credentialsProvider) getCredentials(ctx context.Context, image string) 
 				helper = strings.TrimPrefix(helper, "docker-credential-")
 				err = setCredentialHelperToConfig(c.authFilePath, helper)
 				if err != nil {
-					// fmt.Fprintf(os.Stderr, "Warning: failed to set helper to the config with error: '%v'\n", err)
 					return docker.Credentials{}, fmt.Errorf("faild to set the helper to the config: %w", err)
 				}
 				err = setCredentialsByCredentialHelper(c.authFilePath, registry, result.Username, result.Password)
