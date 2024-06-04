@@ -159,9 +159,6 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		cfg buildConfig
 		f   fn.Function
 	)
-	if err = config.CreatePaths(); err != nil { // for possible auth.json usage
-		return
-	}
 	if cfg, err = newBuildConfig().Prompt(); err != nil { // gather values into a single instruction set
 		return
 	}

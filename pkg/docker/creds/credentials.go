@@ -165,24 +165,31 @@ func NewCredentialsProvider(configPath string, opts ...Opt) docker.CredentialsPr
 		}
 	}
 
+	// default credential loaders map -- load only those that should be there.
+	var defaultCredentialLoaders = []CredentialsCallback{}
+
 	c.authFilePath = filepath.Join(configPath, "auth.json")
 	sys := &containersTypes.SystemContext{
 		AuthFilePath: c.authFilePath,
 	}
 
-	home, err := os.UserHomeDir()
-	if err != nil {
-		panic(err)
+	if _, err := os.Stat(c.authFilePath); err == nil {
+		defaultCredentialLoaders = append(defaultCredentialLoaders,
+			func(registry string) (docker.Credentials, error) {
+				return getCredentialsByCredentialHelper(c.authFilePath, registry)
+			})
 	}
-	dockerConfigPath := filepath.Join(home, ".docker", "config.json")
 
-	var defaultCredentialLoaders = []CredentialsCallback{
-		func(registry string) (docker.Credentials, error) {
-			return getCredentialsByCredentialHelper(c.authFilePath, registry)
-		},
-		func(registry string) (docker.Credentials, error) {
-			return getCredentialsByCredentialHelper(dockerConfigPath, registry)
-		},
+	// add only if home dir is defined -- for .docker/config.json creds
+	home, err := os.UserHomeDir()
+	if err == nil {
+		dockerConfigPath := filepath.Join(home, ".docker", "config.json")
+		defaultCredentialLoaders = append(defaultCredentialLoaders,
+			func(registry string) (docker.Credentials, error) {
+				return getCredentialsByCredentialHelper(dockerConfigPath, registry)
+			})
+	}
+	defaultCredentialLoaders = append(defaultCredentialLoaders,
 		func(registry string) (docker.Credentials, error) {
 			creds, err := dockerConfig.GetCredentials(sys, registry)
 			if err != nil {
@@ -195,7 +202,8 @@ func NewCredentialsProvider(configPath string, opts ...Opt) docker.CredentialsPr
 				Username: creds.Username,
 				Password: creds.Password,
 			}, nil
-		},
+		})
+	defaultCredentialLoaders = append(defaultCredentialLoaders,
 		func(registry string) (docker.Credentials, error) {
 			// Fallback onto default docker config locations
 			emptySys := &containersTypes.SystemContext{}
@@ -207,11 +215,11 @@ func NewCredentialsProvider(configPath string, opts ...Opt) docker.CredentialsPr
 				Username: creds.Username,
 				Password: creds.Password,
 			}, nil
-		},
+		})
+	defaultCredentialLoaders = append(defaultCredentialLoaders,
 		func(registry string) (docker.Credentials, error) { // empty credentials provider for unsecured registries
 			return docker.Credentials{}, nil
-		},
-	}
+		})
 
 	c.credentialLoaders = append(c.credentialLoaders, defaultCredentialLoaders...)
 

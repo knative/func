@@ -19,6 +19,7 @@ import (
 	"github.com/docker/docker/client"
 
 	"knative.dev/func/pkg/builders/buildpacks"
+	"knative.dev/func/pkg/builders/s2i"
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/knative"
@@ -545,6 +546,31 @@ func Handle(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// TestDeployWithoutHome ensures that running client.New works without
+// home
+func TestDeployWithoutHome(t *testing.T) {
+	root, cleanup := Mktemp(t)
+	defer cleanup()
+
+	t.Setenv("HOME", "")
+	t.Setenv("XDG_CONFIG_HOME", "")
+	verbose := false
+	name := "test-deploy-no-home"
+
+	f := fn.Function{Runtime: "node", Name: name, Root: root, Namespace: DefaultNamespace}
+
+	// client with s2i builder because pack needs HOME
+	client := newClientWithS2i(verbose)
+
+	// expect to succeed
+	_, _, err := client.New(context.Background(), f)
+	if err != nil {
+		t.Fatalf("expected no errors but got %v", err)
+	}
+
+	defer del(t, client, name, DefaultNamespace)
+}
+
 // ***********
 //   Helpers
 // ***********
@@ -553,6 +579,27 @@ func Handle(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 // sufficient for running integration tests.
 func newClient(verbose bool) *fn.Client {
 	builder := buildpacks.NewBuilder(buildpacks.WithVerbose(verbose))
+	pusher := docker.NewPusher(docker.WithVerbose(verbose))
+	deployer := knative.NewDeployer(knative.WithDeployerVerbose(verbose))
+	describer := knative.NewDescriber(verbose)
+	remover := knative.NewRemover(verbose)
+	lister := knative.NewLister(verbose)
+
+	return fn.New(
+		fn.WithRegistry(DefaultRegistry),
+		fn.WithVerbose(verbose),
+		fn.WithBuilder(builder),
+		fn.WithPusher(pusher),
+		fn.WithDeployer(deployer),
+		fn.WithDescriber(describer),
+		fn.WithRemover(remover),
+		fn.WithLister(lister),
+	)
+}
+
+// copy of newClient just builder is s2i instead of buildpacks
+func newClientWithS2i(verbose bool) *fn.Client {
+	builder := s2i.NewBuilder(s2i.WithVerbose(verbose))
 	pusher := docker.NewPusher(docker.WithVerbose(verbose))
 	deployer := knative.NewDeployer(knative.WithDeployerVerbose(verbose))
 	describer := knative.NewDescriber(verbose)

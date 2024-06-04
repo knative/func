@@ -233,9 +233,6 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		cfg deployConfig
 		f   fn.Function
 	)
-	if err = config.CreatePaths(); err != nil { // for possible auth.json usage
-		return
-	}
 	if cfg, err = newDeployConfig(cmd).Prompt(); err != nil {
 		return
 	}
