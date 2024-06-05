@@ -681,8 +681,6 @@ github.com/manifestival/client-go-client v0.5.0/go.mod h1:sDehep6aHdIEdUKnRSvueG
 github.com/manifestival/manifestival v0.6.0/go.mod h1:3Qq9cnPy7sv7FVhg2Kvw0ebb35R4OdctS4UjTjHlHm4=
 github.com/manifestival/manifestival v0.7.2 h1:l4uFdWX/xQK4QcRfqGoMtBvaZeWPEuwD6hVsCwUqZY4=
 github.com/manifestival/manifestival v0.7.2/go.mod h1:nl3T6HlfHCeidooWVTMI9vYNTBkQ1GdhLNb+smozbdk=
-github.com/matejvasek/source-to-image v1.3.2-0.20240604071927-a5ace19e3f71 h1:zRuZMcqXWqLGmZjTNgC0udDiDI1wIEVwQTWBg7fUx38=
-github.com/matejvasek/source-to-image v1.3.2-0.20240604071927-a5ace19e3f71/go.mod h1:7iUNuKvvApAs2nSgeAinuRHAhPHYwrhFAQ8yMmJaPbU=
 github.com/mattn/go-colorable v0.0.9/go.mod h1:9vuHe8Xs5qXnSaW/c/ABM9alt+Vo+STaOChaDxuIBZU=
 github.com/mattn/go-colorable v0.1.1/go.mod h1:FuOcm+DKB9mbwrcAfNl7/TZVBZ6rcnceauSikq3lYCQ=
 github.com/mattn/go-colorable v0.1.2/go.mod h1:U0ppj6V5qS13XJ6of8GYAs25YV2eR4EVcfRqFIhoBtE=
@@ -786,6 +784,8 @@ github.com/opencontainers/selinux v1.11.0 h1:+5Zbo97w3Lbmb3PeqQtpmTkMwsW5nRI3YaL
 github.com/opencontainers/selinux v1.11.0/go.mod h1:E5dMC3VPuVvVHDYmi78qvhJp8+M586T4DlDRYpFkyec=
 github.com/openshift-pipelines/pipelines-as-code v0.17.1 h1:9+vnu3FMrfMy6R+jhaV6jvmVhDrXRYuGvgHHrCfTdrU=
 github.com/openshift-pipelines/pipelines-as-code v0.17.1/go.mod h1:5gCkO4y2PEFZ842tbF8376rD386DkoSyyQI3vjdqwq4=
+github.com/openshift/source-to-image v1.4.1-0.20240605122348-f94ff357628b h1:FGmtvZdOUj8+oEmL773UwU348D1mx42KHSqFoEAXwtw=
+github.com/openshift/source-to-image v1.4.1-0.20240605122348-f94ff357628b/go.mod h1:mZklfezFnhiirYAVsv8OTiUM69eoSfyBo4fFyho77Bk=
 github.com/openzipkin/zipkin-go v0.4.3 h1:9EGwpqkgnwdEIJ+Od7QVSEIH+ocmm5nPat0G7sjsSdg=
 github.com/openzipkin/zipkin-go v0.4.3/go.mod h1:M9wCJZFWCo2RiY+o1eBCEMe0Dp2S5LDHcMZmk3RmK7c=
 github.com/ory/viper v1.7.5 h1:+xVdq7SU3e1vNaCsk/ixsfxE4zylk1TJUiJrY647jUE=

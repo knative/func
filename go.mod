@@ -2,8 +2,6 @@ module knative.dev/func
 
 go 1.22
 
-replace github.com/openshift/source-to-image => github.com/matejvasek/source-to-image v1.3.2-0.20240604071927-a5ace19e3f71
-
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.6
 	github.com/Masterminds/semver v1.5.0
@@ -34,7 +32,7 @@ require (
 	github.com/manifestival/manifestival v0.7.2
 	github.com/opencontainers/image-spec v1.1.0
 	github.com/openshift-pipelines/pipelines-as-code v0.17.1
-	github.com/openshift/source-to-image v1.3.10-0.20240223163641-625a537d6c7c
+	github.com/openshift/source-to-image v1.4.1-0.20240605122348-f94ff357628b
 	github.com/ory/viper v1.7.5
 	github.com/paketo-buildpacks/libpak v1.70.0
 	github.com/pelletier/go-toml v1.9.5
