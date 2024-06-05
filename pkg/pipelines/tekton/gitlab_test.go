@@ -281,7 +281,7 @@ func setupGitlabEnv(ctx context.Context, t *testing.T, baseURL, username, passwo
 	}
 	t.Logf("created group: %q", g.Name)
 	t.Cleanup(func() {
-		_, _ = glabCli.Groups.DeleteGroup(g.ID)
+		_, _ = glabCli.Groups.DeleteGroup(g.ID, nil)
 	})
 	//endregion
 
