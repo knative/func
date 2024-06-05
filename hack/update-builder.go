@@ -73,9 +73,7 @@ func buildBuilderImage(ctx context.Context, variant string) error {
 		_ = os.RemoveAll(path)
 	}(buildDir)
 
-	ghClient := github.NewClient(oauth2.NewClient(ctx, oauth2.StaticTokenSource(&oauth2.Token{
-		AccessToken: os.Getenv("GITHUB_TOKEN"),
-	})))
+	ghClient := newGHClient(ctx)
 	listOpts := &github.ListOptions{Page: 0, PerPage: 1}
 	releases, ghResp, err := ghClient.Repositories.ListReleases(ctx, "paketo-buildpacks", "builder-jammy-"+variant, listOpts)
 	if err != nil {
@@ -215,9 +213,7 @@ type buildpack struct {
 }
 
 func buildBuildpackImage(ctx context.Context, bp buildpack) error {
-	ghClient := github.NewClient(oauth2.NewClient(ctx, oauth2.StaticTokenSource(&oauth2.Token{
-		AccessToken: os.Getenv("GITHUB_TOKEN"),
-	})))
+	ghClient := newGHClient(ctx)
 
 	var (
 		release *github.RepositoryRelease
@@ -507,9 +503,7 @@ func updateJavaBuildpacks(ctx context.Context, builderConfig *builder.Config) er
 
 // patches "Java" or "Java Native Image" buildpacks to include Quarkus BP just before Maven BP
 func addQuarkusBuildpack(packageDesc *buildpackage.Config, bpDesc *dist.BuildpackDescriptor) {
-	ghClient := github.NewClient(oauth2.NewClient(context.TODO(), oauth2.StaticTokenSource(&oauth2.Token{
-		AccessToken: os.Getenv("GITHUB_TOKEN"),
-	})))
+	ghClient := newGHClient(context.Background())
 
 	rr, resp, err := ghClient.Repositories.GetLatestRelease(context.TODO(), "paketo-buildpacks", "quarkus")
 	if err != nil {
@@ -609,4 +603,10 @@ func downloadTarball(tarballUrl, destDir string) error {
 		}
 	}
 	return nil
+}
+
+func newGHClient(ctx context.Context) *github.Client {
+	return github.NewClient(oauth2.NewClient(ctx, oauth2.StaticTokenSource(&oauth2.Token{
+		AccessToken: os.Getenv("GITHUB_TOKEN"),
+	})))
 }
