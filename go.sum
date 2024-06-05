@@ -185,6 +185,8 @@ github.com/blendle/zapdriver v1.3.1 h1:C3dydBOWYRiOk+B8X9IVZ5IOe+7cl+tGOexN4QqHf
 github.com/blendle/zapdriver v1.3.1/go.mod h1:mdXfREi6u5MArG4j9fewC+FGnXaBR+T4Ox4J2u4eHCc=
 github.com/buildpacks/imgutil v0.0.0-20240514200737-4af87862ff7e h1:IBH3oJu2okeB8W+bMTCYsRqbDT1+cjt6GuFtE52tAxM=
 github.com/buildpacks/imgutil v0.0.0-20240514200737-4af87862ff7e/go.mod h1:n2R6VRuWsAX3cyHCp/u0Z4WJcixny0gYg075J39owrk=
+github.com/buildpacks/imgutil v0.0.0-20240604195234-307c8fd3ce49 h1:TGH1plKSw6iSN3lkPreVJZnyHNCUrUuhkHYTNlAOe7k=
+github.com/buildpacks/imgutil v0.0.0-20240604195234-307c8fd3ce49/go.mod h1:n2R6VRuWsAX3cyHCp/u0Z4WJcixny0gYg075J39owrk=
 github.com/buildpacks/libcnb v1.30.3 h1:JtFMFPO2450uDLzpE1b50TvmM1GEZa8YT9cQ2ZZtHqA=
 github.com/buildpacks/libcnb v1.30.3/go.mod h1:JPb1vC7HQcGK0oONfqJvsYzOjw3be+WBbQ0KYOIhNvA=
 github.com/buildpacks/lifecycle v0.19.6 h1:/bmfMs35aSkxyzYDF+iHl9VnYmUBBbHBmnvo8XNEINk=

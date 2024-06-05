@@ -106,7 +106,7 @@ require (
 	github.com/awslabs/amazon-ecr-credential-helper/ecr-login v0.0.0-20231213181459-b0fcec718dc6 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blendle/zapdriver v1.3.1 // indirect
-	github.com/buildpacks/imgutil v0.0.0-20240514200737-4af87862ff7e // indirect
+	github.com/buildpacks/imgutil v0.0.0-20240604195234-307c8fd3ce49 // indirect
 	github.com/buildpacks/libcnb v1.30.3 // indirect
 	github.com/buildpacks/lifecycle v0.19.6 // indirect
 	github.com/census-instrumentation/opencensus-proto v0.4.1 // indirect
