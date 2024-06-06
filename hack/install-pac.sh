@@ -22,7 +22,7 @@ function install_pac() {
     echo "${blue}Installing the Pipelines-as-Code Controller${reset}"
 
     local -r pac_ctr_host="${PAC_CONTROLLER_HOSTNAME:-pac-ctr.127.0.0.1.sslip.io}"
-    local -r pac_version="v0.17.1"
+    local -r pac_version="v0.24.6"
 
     # Install Pipelines as Code
     $KUBECTL apply -f "https://raw.githubusercontent.com/openshift-pipelines/pipelines-as-code/release-${pac_version}/release.k8s.yaml"

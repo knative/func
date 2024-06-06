@@ -21,10 +21,11 @@ source "$(dirname "$(realpath "$0")")/common.sh"
 install_tekton() {
   echo "${blue}Installing Tekton${reset}"
 
-  tekton_release="previous/v0.49.0"
+  tekton_release="previous/v0.56.4"
   namespace="${NAMESPACE:-default}"
 
   $KUBECTL apply -f "https://storage.googleapis.com/tekton-releases/pipeline/${tekton_release}/release.yaml"
+  $KUBECTL patch cm/feature-flags -n tekton-pipelines --patch '{"data":{"disable-affinity-assistant":"true"}}'
   sleep 10
   $KUBECTL wait pod --for=condition=Ready --timeout=180s -n tekton-pipelines -l "app=tekton-pipelines-controller"
   $KUBECTL wait pod --for=condition=Ready --timeout=180s -n tekton-pipelines -l "app=tekton-pipelines-webhook"
