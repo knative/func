@@ -147,7 +147,7 @@ func (pp *PipelinesProvider) createClusterPACResources(ctx context.Context, f fn
 	}
 
 	// figure out pac installation namespace
-	installed, _, err := pac.DetectPACInstallation(ctx, "")
+	installed, _, err := pac.DetectPACInstallation(ctx)
 	if !installed {
 		errMsg := ""
 		if err != nil {
@@ -168,7 +168,12 @@ func (pp *PipelinesProvider) createClusterPACResources(ctx context.Context, f fn
 		labels = pp.decorator.UpdateLabels(f, labels)
 	}
 
-	registry, err := docker.GetRegistry(f.Image)
+	img := f.Deploy.Image
+	if img == "" {
+		img = f.Image
+	}
+
+	registry, err := docker.GetRegistry(img)
 	if err != nil {
 		return fmt.Errorf("problem in resolving image registry name: %w", err)
 	}
@@ -177,7 +182,7 @@ func (pp *PipelinesProvider) createClusterPACResources(ctx context.Context, f fn
 		registry = authn.DefaultAuthKey
 	}
 
-	creds, err := pp.credentialsProvider(ctx, f.Image)
+	creds, err := pp.credentialsProvider(ctx, img)
 	if err != nil {
 		return err
 	}
@@ -213,7 +218,7 @@ func (pp *PipelinesProvider) createClusterPACResources(ctx context.Context, f fn
 func (pp *PipelinesProvider) createRemotePACResources(ctx context.Context, f fn.Function, metadata pipelines.PacMetadata) error {
 
 	// figure out pac installation namespace
-	installed, installationNS, err := pac.DetectPACInstallation(ctx, "")
+	installed, installationNS, err := pac.DetectPACInstallation(ctx)
 	if !installed {
 		errMsg := ""
 		if err != nil {
