@@ -995,7 +995,7 @@ func (c *Client) List(ctx context.Context, namespace string) ([]ListItem, error)
 // in the sub functions remover.Remove and pipilines.Remove
 func (c *Client) Remove(ctx context.Context, name, namespace string, f Function, all bool) error {
 	defer func() {
-		dc, err := client.NewClientWithOpts(client.FromEnv)
+		dc, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 		if err != nil {
 			panic(err)
 		}
