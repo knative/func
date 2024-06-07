@@ -242,11 +242,24 @@ func setupGitlabEnv(ctx context.Context, t *testing.T, baseURL, username, passwo
 	}
 	// For some reason the setting update does not kick in immediately.
 
-	select {
-	case <-ctx.Done():
-		t.Fatal("cancelled")
-	case <-time.After(time.Minute):
+	ticker := time.NewTicker(time.Second)
+out:
+	for {
+		select {
+		case <-ctx.Done():
+			t.Fatal("cancelled")
+		case <-ticker.C:
+			s, _, e := glabCli.Settings.GetSettings()
+			if e != nil {
+				t.Fatal(e)
+			}
+			if s != nil && s.AllowLocalRequestsFromWebHooksAndServices {
+				ticker.Stop()
+				break out
+			}
+		}
 	}
+
 	//endregion
 
 	//region Create test user
