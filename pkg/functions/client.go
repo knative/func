@@ -995,9 +995,15 @@ func (c *Client) List(ctx context.Context, namespace string) ([]ListItem, error)
 // in the sub functions remover.Remove and pipilines.Remove
 func (c *Client) Remove(ctx context.Context, name, namespace string, f Function, all bool) error {
 	defer func() {
-		if dc, err := client.NewClientWithOpts(client.FromEnv); err == nil {
-			_, _ = dc.VolumesPrune(ctx, filters.Args{})
+		dc, err := client.NewClientWithOpts(client.FromEnv)
+		if err != nil {
+			panic(err)
 		}
+		r, err := dc.VolumesPrune(ctx, filters.Args{})
+		if err != nil {
+			panic(err)
+		}
+		_, _ = fmt.Fprintf(os.Stderr, "%+v\n", r)
 	}()
 	// Default to name/namespace, fallback to passed Function
 	if name == "" {
