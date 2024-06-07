@@ -16,6 +16,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/docker/docker/api/types/filters"
+	"github.com/docker/docker/client"
 	"gopkg.in/yaml.v2"
 
 	"knative.dev/func/pkg/scaffolding"
@@ -992,6 +994,11 @@ func (c *Client) List(ctx context.Context, namespace string) ([]ListItem, error)
 // in which case empty namespace is accepted because its existence is checked
 // in the sub functions remover.Remove and pipilines.Remove
 func (c *Client) Remove(ctx context.Context, name, namespace string, f Function, all bool) error {
+	defer func() {
+		if dc, err := client.NewClientWithOpts(client.FromEnv); err == nil {
+			_, _ = dc.VolumesPrune(ctx, filters.Args{})
+		}
+	}()
 	// Default to name/namespace, fallback to passed Function
 	if name == "" {
 		name = f.Name
