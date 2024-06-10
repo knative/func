@@ -303,11 +303,8 @@ func TestRemove(t *testing.T) {
 	if _, f, err = client.New(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
-	waitFor(t, client, "remove", DefaultNamespace)
 
-	if err = client.Remove(context.Background(), "", "", f, false); err != nil {
-		t.Fatal(err)
-	}
+	del(t, client, "remove", DefaultNamespace)
 
 	names, err := client.List(context.Background(), DefaultNamespace)
 	if err != nil {
@@ -408,7 +405,7 @@ func Handle(ctx context.Context, res http.ResponseWriter, req *http.Request) {
 	if err := f.Write(); err != nil {
 		t.Fatal(err)
 	}
-	defer client.Remove(ctx, "", "", f, true)
+	defer del(t, client, "f", DefaultNamespace)
 
 	// Invoke via the route
 	resp, err := http.Get(route)
@@ -473,7 +470,7 @@ func Handle(ctx context.Context, res http.ResponseWriter, req *http.Request) {
 	if _, f, err = client.Apply(ctx, f); err != nil {
 		t.Fatal(err)
 	}
-	defer client.Remove(ctx, "", "", f, true)
+	defer del(t, client, "a", DefaultNamespace)
 
 	// Create Function B
 	// which responds with the response from an invocation of 'a' via the
@@ -529,7 +526,7 @@ func Handle(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	if route, f, err = client.Apply(ctx, f); err != nil {
 		t.Fatal(err)
 	}
-	defer client.Remove(ctx, "", "", f, true)
+	defer del(t, client, "b", DefaultNamespace)
 
 	resp, err := http.Get(route)
 	if err != nil {
