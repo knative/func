@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/docker/cli/cli/config"
@@ -90,8 +91,8 @@ func NewClient(defaultHost string) (dockerClient client.CommonAPIClient, dockerH
 		dockerHostInRemote = ""
 	}
 
-	if isUnix && runtime.GOOS == "darwin" {
-		// A unix socket on macOS is most likely tunneled from VM,
+	if isUnix && (runtime.GOOS == "darwin" || strings.HasSuffix(dockerHost, ".docker/desktop/docker.sock")) {
+		// The unix socket is most likely tunneled from VM,
 		// so it cannot be mounted under that path.
 		dockerHostInRemote = ""
 	}
