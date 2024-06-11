@@ -240,24 +240,13 @@ func setupGitlabEnv(ctx context.Context, t *testing.T, baseURL, username, passwo
 	if err != nil {
 		t.Fatal(err)
 	}
-	// For some reason the setting update does not kick in immediately.
 
-	ticker := time.NewTicker(time.Second)
-out:
-	for {
-		select {
-		case <-ctx.Done():
-			t.Fatal("cancelled")
-		case <-ticker.C:
-			s, _, e := glabCli.Settings.GetSettings()
-			if e != nil {
-				t.Fatal(e)
-			}
-			if s != nil && s.AllowLocalRequestsFromWebHooksAndServices {
-				ticker.Stop()
-				break out
-			}
-		}
+	// For some reason the setting update does not kick in immediately.
+	select {
+	case <-time.After(time.Second * 30):
+		break
+	case <-ctx.Done():
+		t.Fatal(ctx.Err())
 	}
 
 	//endregion
