@@ -52,6 +52,7 @@ jobs:
           df -h
           docker system df -v
           docker stats --no-stream
+          docker exec  func-control-plane crictl stats
           docker exec func-control-plane ctr -n=k8s.io images ls
           docker container inspect func-control-plane
           crane catalog localhost:50000 || true
