@@ -10,9 +10,12 @@ jobs:
         os: ["ubuntu-latest"]
     runs-on: ${{ matrix.os }}
     steps:
-      - name: DF
+      - name: Check Disk
         run: |
           df -h
+          ls -la /mnt/
+          mkdir /mnt/volume || true
+          touch /mnt/volume/a.file || true
       - name: Set Environment Variables
         run: |
           echo "KUBECONFIG=${{ github.workspace }}/hack/bin/kubeconfig.yaml" >> "$GITHUB_ENV"
