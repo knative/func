@@ -10,6 +10,11 @@ jobs:
         os: ["ubuntu-latest"]
     runs-on: ${{ matrix.os }}
     steps:
+      - name: rm .net
+        run: |
+          df -h
+          sudo rm -rf /usr/share/dotnet
+          df -h
       - name: Set Environment Variables
         run: |
           echo "KUBECONFIG=${{ github.workspace }}/hack/bin/kubeconfig.yaml" >> "$GITHUB_ENV"
