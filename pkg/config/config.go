@@ -81,8 +81,12 @@ func NewDefault() (cfg Global, err error) {
 	cp := File()
 	bb, err := os.ReadFile(cp)
 	if err != nil {
+		// config file is not required
 		if os.IsNotExist(err) {
-			err = nil // config file is not required
+			err = nil
+			// } else if os.IsPermission(err) {
+			// 	fmt.Printf("Warning: Insufficient permissions to read config file at '%s' - continuing without it\n", cp)
+			// err = nil // HOME perms are insufficient for config file -> warning
 		}
 		return
 	}
