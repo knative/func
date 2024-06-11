@@ -108,6 +108,9 @@ kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
   - role: control-plane
+    extraMounts:
+    - hostPath: /mnt/kind_vol/
+      containerPath: /var/lib/containerd
     image: kindest/node:${kind_node_version}
     extraPortMappings:
     - containerPort: 80

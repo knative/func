@@ -16,8 +16,7 @@ jobs:
           ls -la /mnt/
           cat /mnt/DATALOSS_WARNING_README.txt
           id
-          mkdir /mnt/volume
-          touch /mnt/volume/a.file
+          sudo mkdir /mnt/kind_vol/
       - name: Set Environment Variables
         run: |
           echo "KUBECONFIG=${{ github.workspace }}/hack/bin/kubeconfig.yaml" >> "$GITHUB_ENV"
