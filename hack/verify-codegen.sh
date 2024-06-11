@@ -30,11 +30,13 @@ trap "cleanup" EXIT SIGINT
 
 # Save working tree state
 cp -aR "${REPO_ROOT_DIR}/go.sum" "${TMP_DIFFROOT}"
+cp -aR "${REPO_ROOT_DIR}/docs/"  "${TMP_DIFFROOT}"
 
 "${REPO_ROOT_DIR}/hack/update-codegen.sh"
 echo "Diffing ${REPO_ROOT_DIR} against freshly generated codegen"
 ret=0
 diff -Nupr --no-dereference "${REPO_ROOT_DIR}/go.sum" "${TMP_DIFFROOT}/go.sum" || ret=1
+diff -Nupr --no-dereference "${REPO_ROOT_DIR}/docs/" "${TMP_DIFFROOT}/docs/" || ret=1
 
 # Restore working tree state
 rm -fr "${REPO_ROOT_DIR}/go.sum"
