@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"math/big"
 	"net"
 	"net/http"
@@ -549,8 +550,9 @@ func TestCredentialsProviderSavingFromUserInput(t *testing.T) {
 	}
 }
 
-// TestCredentialsWithoutHome tests different scenarios when HOME is not set
-func TestCredentialsWithoutHome(t *testing.T) {
+// TestCredentialsHome ensures that credentials are used properly when HOME is
+// not set
+func TestCredentialsHome(t *testing.T) {
 	type args struct {
 		promptUser        creds.CredentialsCallback
 		verifyCredentials creds.VerifyCredentialsCallback
@@ -587,32 +589,160 @@ func TestCredentialsWithoutHome(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// set up HOME
+			if tt.testHomePathEmpty {
+				os.Unsetenv("HOME")
+			} else {
+				os.Setenv("HOME", "/tmp")
+			}
+
+			// ASSERT HERE
+		})
+	}
+}
+
+// TestCredentialsHomePermissions tests whether the credentials provider
+// works in scenarios where HOME has different permissions
+func TestCredentialsHomePermissions(t *testing.T) {
+	type args struct {
+		promptUser        creds.CredentialsCallback
+		verifyCredentials creds.VerifyCredentialsCallback
+		registry          string
+		setUpEnv          setUpEnv
+	}
+	tests := []struct {
+		name              string
+		perms             os.FileMode
+		args              args
+		expPermsDeniedErr bool
+		want              Credentials
+	}{
+		// testing different permissions
+		// {
+		// 	name:  "home with 0000 permissions (no perms)",
+		// 	perms: 0000,
+		// 	args: args{
+		// 		promptUser: pwdCbkThatShallNotBeCalled(t),
+		// 		setUpEnv:   setHomeWithPermissions(0000),
+		// 	},
+		// 	expPermsDeniedErr: true,
+		// },
+		{
+			name:  "home with 0333 permissions (write-execute only)",
+			perms: 0333,
+			args: args{
+
+				promptUser:        pwdCbkThatShallNotBeCalled(t),
+				verifyCredentials: correctVerifyCbk,
+				registry:          "docker.io",
+				setUpEnv: all(
+					withPopulatedDockerAuthConfig,
+					setUpMockHelper("docker-credential-mock", newInMemoryHelper()),
+					setHomeWithPermissions(0333)),
+			},
+
+			expPermsDeniedErr: false,
+			want:              Credentials{Username: dockerIoUser, Password: dockerIoUserPwd},
+		},
+		{
+			name:  "home with 0444 permissions (read-only)",
+			perms: 0444,
+			args: args{
+				promptUser: pwdCbkThatShallNotBeCalled(t),
+				setUpEnv:   setHomeWithPermissions(0444)},
+			expPermsDeniedErr: true,
+		},
+		{
+			name:  "home with 0555 permissions (read-execute-only)",
+			perms: 0555,
+			args: args{
+				promptUser: pwdCbkThatShallNotBeCalled(t),
+				setUpEnv:   setHomeWithPermissions(0555),
+			},
+			expPermsDeniedErr: true,
+		},
+		{
+			name:  "home with 0666 permissions (read-write-execute)",
+			perms: 0666,
+			args: args{
+				promptUser: pwdCbkThatShallNotBeCalled(t),
+				setUpEnv:   setHomeWithPermissions(0666),
+			},
+			expPermsDeniedErr: true,
+		},
+		{
+			name:  "home with 0777 permissions (full access)",
+			perms: 0777,
+
+			args: args{
+				promptUser:        pwdCbkThatShallNotBeCalled(t),
+				verifyCredentials: correctVerifyCbk,
+				registry:          "docker.io",
+				setUpEnv: all(
+					withPopulatedDockerAuthConfig,
+					setUpMockHelper("docker-credential-mock", newInMemoryHelper()),
+					setHomeWithPermissions(0777),
+				),
+			},
+			expPermsDeniedErr: false,
+			want:              Credentials{Username: dockerIoUser, Password: dockerIoUserPwd},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			resetHomePermissions(t) //reset home permissions to 0777 (fs.ModePerm)
 			resetHomeDir(t)
+
 			if tt.args.setUpEnv != nil {
 				tt.args.setUpEnv(t)
 			}
 
-			// prepare config path for credentials provider
-			var configPath string
-			if tt.testHomePathEmpty {
-				configPath = ""
-			} else {
-				configPath = testConfigPath(t)
+			// try to create HOME/.config/func
+			_, err := testConfigPathError(t)
+			if err != nil { // If error was returned
+				if os.IsPermission(err) { // and its a permission error
+					if !tt.expPermsDeniedErr { // but it wasnt expected
+						t.Fatalf("didnt expect permissions denied error, but got: %s", err)
+					}
+
+				} else { // and it wasnt permission error
+					t.Fatalf("got unexpected error: %v", err)
+				}
+			} else { // Else no error was returned
+				if tt.expPermsDeniedErr { // but it was expected
+					t.Fatal("expected permissions denied error, but got none")
+				}
 			}
 
-			credentialsProvider := creds.NewCredentialsProvider(
-				configPath,
-				creds.WithPromptForCredentials(tt.args.promptUser),
-				creds.WithVerifyCredentials(tt.args.verifyCredentials),
-			)
+			// if permissions were not denied, try to create Provider
+			if !tt.expPermsDeniedErr {
 
-			got, err := credentialsProvider(context.Background(), tt.args.registry+"/someorg/someimage:sometag")
-			if err != nil {
-				t.Errorf("unexpected error: %v", err)
-				return
-			}
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("got: %v, want: %v", got, tt.want)
+				// try to stat HOME for permissions
+				info, err := os.Stat(os.Getenv(testHomeEnvName()))
+				if err != nil {
+					t.Fatalf("failed to stat HOME: %s", err)
+				}
+
+				if info.Mode().Perm() != tt.perms {
+					t.Errorf("expected permissions '%v', got '%v'", tt.perms, info.Mode().Perm())
+				}
+				credentialsProvider := creds.NewCredentialsProvider(
+					testConfigPath(t),
+					creds.WithPromptForCredentials(tt.args.promptUser),
+					creds.WithVerifyCredentials(tt.args.verifyCredentials),
+				)
+
+				got, err := credentialsProvider(context.Background(), tt.args.registry+"/someorg/someimage:sometag")
+				if err != nil {
+					t.Errorf("%v", err)
+					return
+				}
+				if !reflect.DeepEqual(got, tt.want) {
+					t.Errorf("got: %v, want: %v", got, tt.want)
+				}
+
 			}
 		})
 	}
@@ -626,6 +756,12 @@ func resetHomeDir(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := os.MkdirAll(homeTempDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func resetHomePermissions(t *testing.T) {
+	if err := os.Chmod(homeTempDir, fs.ModePerm); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -748,6 +884,13 @@ func testConfigPath(t *testing.T) string {
 		t.Fatal(err)
 	}
 	return configPath
+}
+
+func testConfigPathError(t *testing.T) (string, error) {
+	t.Helper()
+	home := os.Getenv(testHomeEnvName())
+	configPath := filepath.Join(home, ".config", "func")
+	return configPath, os.MkdirAll(configPath, os.ModePerm)
 }
 
 func handlerForCredHelper(t *testing.T, credHelper credentials.Helper) http.Handler {
@@ -980,4 +1123,23 @@ func setEmptyHome(t *testing.T) {
 	t.Helper()
 	t.Setenv("HOME", "")
 	t.Setenv("XDG_CONFIG_HOME", "")
+}
+
+// setHomeWithPermissions sets home dir to specified permissions and returns them
+// to 755 perms after as a cleanup
+func setHomeWithPermissions(perm os.FileMode) func(t *testing.T) {
+	return func(t *testing.T) {
+		t.Helper()
+		homeDir := os.Getenv("HOME")
+
+		// if home is empty, nothing to do
+		if homeDir == "" {
+			t.Fatal("home dir is empty, cant set perms")
+		}
+
+		err := os.Chmod(homeDir, perm)
+		if err != nil {
+			t.Fatalf("failed to set permissions on home dir: %s", err)
+		}
+	}
 }
