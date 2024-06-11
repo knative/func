@@ -550,9 +550,9 @@ func TestCredentialsProviderSavingFromUserInput(t *testing.T) {
 	}
 }
 
-// TestCredentialsHome ensures that credentials are used properly when HOME is
-// not set
-func TestCredentialsHome(t *testing.T) {
+// TestCredentialsWithoutHome ensures that credentials are used properly when HOME is
+// not set or config is empty
+func TestCredentialsWithoutHome(t *testing.T) {
 	type args struct {
 		promptUser        creds.CredentialsCallback
 		verifyCredentials creds.VerifyCredentialsCallback
@@ -596,7 +596,21 @@ func TestCredentialsHome(t *testing.T) {
 				os.Setenv("HOME", "/tmp")
 			}
 
-			// ASSERT HERE
+			credentialsProvider := creds.NewCredentialsProvider(
+				testConfigPath(t),
+				creds.WithPromptForCredentials(tt.args.promptUser),
+				creds.WithVerifyCredentials(tt.args.verifyCredentials),
+			)
+
+			got, err := credentialsProvider(context.Background(), tt.args.registry+"/someorg/someimage:sometag")
+			if err != nil {
+				t.Errorf("%v", err)
+				return
+			}
+			// ASSERT
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("got: %v, want: %v", got, tt.want)
+			}
 		})
 	}
 }
@@ -617,16 +631,15 @@ func TestCredentialsHomePermissions(t *testing.T) {
 		expPermsDeniedErr bool
 		want              Credentials
 	}{
-		// testing different permissions
-		// {
-		// 	name:  "home with 0000 permissions (no perms)",
-		// 	perms: 0000,
-		// 	args: args{
-		// 		promptUser: pwdCbkThatShallNotBeCalled(t),
-		// 		setUpEnv:   setHomeWithPermissions(0000),
-		// 	},
-		// 	expPermsDeniedErr: true,
-		// },
+		{
+			name:  "home with 0000 permissions (no perms)",
+			perms: 0000,
+			args: args{
+				promptUser: pwdCbkThatShallNotBeCalled(t),
+				setUpEnv:   setHomeWithPermissions(0000),
+			},
+			expPermsDeniedErr: true,
+		},
 		{
 			name:  "home with 0333 permissions (write-execute only)",
 			perms: 0333,
