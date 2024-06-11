@@ -6,7 +6,7 @@ List deployed functions
 
 List deployed functions
 
-Lists all deployed functions in a given namespace.
+Lists deployed functions.
 
 
 ```
