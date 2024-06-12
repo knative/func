@@ -266,7 +266,7 @@ registry() {
     $CONTAINER_ENGINE run -d --restart=always -p "127.0.0.1:50000:5000" --name "func-registry" registry:2
     $CONTAINER_ENGINE network connect "kind" "func-registry"
   elif [ "$CONTAINER_ENGINE" == "podman" ]; then
-    $CONTAINER_ENGINE run -d --restart=always -p "127.0.0.1:50000:5000" --net=kind --name "func-registry" registry:2
+    $CONTAINER_ENGINE run -d --restart=always -p "127.0.0.1:50000:5000" --net=kind --name "func-registry" --replace registry:2
   fi
 
   $KUBECTL apply -f - <<EOF
