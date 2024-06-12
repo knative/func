@@ -243,7 +243,7 @@ func setupGitlabEnv(ctx context.Context, t *testing.T, baseURL, username, passwo
 
 	// For some reason the setting update does not kick in immediately.
 	select {
-	case <-time.After(time.Second * 30):
+	case <-time.After(time.Second * 60):
 		break
 	case <-ctx.Done():
 		t.Fatal(ctx.Err())
