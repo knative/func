@@ -69,10 +69,15 @@ func TestNewClient_DockerHost(t *testing.T) {
 			dockerHostEnvVar:         "unix:///some/path/docker.sock",
 			expectedRemoteDockerHost: map[string]string{"darwin": "", "windows": "", "linux": "unix:///some/path/docker.sock"},
 		},
+		{
+			name:                     "Docker Desktop",
+			dockerHostEnvVar:         "unix:///home/jdoe/.docker/desktop/docker.sock",
+			expectedRemoteDockerHost: map[string]string{"darwin": "", "windows": "", "linux": ""},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.name == "unix" && runtime.GOOS == "windows" {
+			if strings.HasPrefix(tt.dockerHostEnvVar, "unix") && runtime.GOOS == "windows" {
 				t.Skip("Windows cannot handle Unix sockets")
 			}
 
