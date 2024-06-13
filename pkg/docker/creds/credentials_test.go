@@ -549,7 +549,7 @@ func TestCredentialsProviderSavingFromUserInput(t *testing.T) {
 	}
 }
 
-// TestCredentialsWithoutHome ensures that credentials are used properly when HOME is
+// TestCredentialsWithoutHome ensures that credentialProvider works when HOME is
 // not set or config is empty
 func TestCredentialsWithoutHome(t *testing.T) {
 	type args struct {
@@ -600,7 +600,7 @@ func TestCredentialsWithoutHome(t *testing.T) {
 			} else {
 				os.Setenv("HOME", homeTempDir)
 			}
-
+			fmt.Printf("testconfigpath is: %v\n", testConfigPath(t))
 			credentialsProvider := creds.NewCredentialsProvider(
 				testConfigPath(t),
 				creds.WithPromptForCredentials(tt.args.promptUser),
@@ -903,9 +903,12 @@ func testHomeEnvName() string {
 func testConfigPath(t *testing.T) string {
 	t.Helper()
 	home := os.Getenv(testHomeEnvName())
-	configPath := filepath.Join(home, ".config", "func")
-	if err := os.MkdirAll(configPath, os.ModePerm); err != nil {
-		t.Fatal(err)
+	var configPath string
+	if home != "" { // if HOME is not set, don't create config dir
+		configPath = filepath.Join(home, ".config", "func")
+		if err := os.MkdirAll(configPath, os.ModePerm); err != nil {
+			t.Fatal(err)
+		}
 	}
 	return configPath
 }
