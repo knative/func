@@ -600,7 +600,6 @@ func TestCredentialsWithoutHome(t *testing.T) {
 			} else {
 				os.Setenv("HOME", homeTempDir)
 			}
-			fmt.Printf("testconfigpath is: %v\n", testConfigPath(t))
 			credentialsProvider := creds.NewCredentialsProvider(
 				testConfigPath(t),
 				creds.WithPromptForCredentials(tt.args.promptUser),
