@@ -184,15 +184,10 @@ func NewCredentialsProvider(configPath string, opts ...Opt) docker.CredentialsPr
 	home, err := os.UserHomeDir()
 	if err == nil {
 		dockerConfigPath := filepath.Join(home, ".docker", "config.json")
-		if info, err := os.Stat(dockerConfigPath); err == nil {
-			// Check if the docker config file is readable by the user.
-			if info.Mode().Perm()&(0400) != 0 {
-				defaultCredentialLoaders = append(defaultCredentialLoaders,
-					func(registry string) (docker.Credentials, error) {
-						return getCredentialsByCredentialHelper(dockerConfigPath, registry)
-					})
-			}
-		}
+		defaultCredentialLoaders = append(defaultCredentialLoaders,
+			func(registry string) (docker.Credentials, error) {
+				return getCredentialsByCredentialHelper(dockerConfigPath, registry)
+			})
 	}
 	defaultCredentialLoaders = append(defaultCredentialLoaders,
 		func(registry string) (docker.Credentials, error) {
