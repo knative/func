@@ -15,7 +15,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"math/big"
 	"net"
 	"net/http"
@@ -587,13 +586,19 @@ func TestCredentialsWithoutHome(t *testing.T) {
 		},
 	}
 
+	// reset HOME to the original value after tests since they may change it
+	defer func() {
+		os.Setenv("HOME", homeTempDir)
+	}()
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			resetHomeDir(t)
 			// set up HOME
 			if tt.testHomePathEmpty {
 				os.Unsetenv("HOME")
 			} else {
-				os.Setenv("HOME", "/tmp")
+				os.Setenv("HOME", homeTempDir)
 			}
 
 			credentialsProvider := creds.NewCredentialsProvider(
@@ -702,10 +707,15 @@ func TestCredentialsHomePermissions(t *testing.T) {
 		},
 	}
 
+	// return HOME dir into its original state
+	defer func() {
+		resetHomePermissions(t) //reset home permissions to 0700
+	}()
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 
-			resetHomePermissions(t) //reset home permissions to 0777 (fs.ModePerm)
+			resetHomePermissions(t) //needs to be reset so that dir can be removed
 			resetHomeDir(t)
 
 			if tt.args.setUpEnv != nil {
@@ -773,8 +783,9 @@ func resetHomeDir(t *testing.T) {
 	}
 }
 
+// resetHomePermissions resets the HOME perms to 0700 (same as resetHomeDir(t))
 func resetHomePermissions(t *testing.T) {
-	if err := os.Chmod(homeTempDir, fs.ModePerm); err != nil {
+	if err := os.Chmod(homeTempDir, 0700); err != nil {
 		t.Fatal(err)
 	}
 }
