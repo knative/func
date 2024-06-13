@@ -565,19 +565,7 @@ func TestDeployWithoutHome(t *testing.T) {
 		t.Fatalf("expected no errors but got %v", err)
 	}
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 	defer del(t, client, name, DefaultNamespace)
-=======
-	// NOTE: gauron99: this del is commented out until client.delete is resolved.
-	// Currently, the remover is looking for resources to delete and is taking about
-	// triple the time of current timeout.
-	// For remover/deleter resolution, see issue: https://github.com/knative/func/issues/2316
-	// defer del(t, client, name, DefaultNamespace)
->>>>>>> 6f70b7d2 (move test, dont delete)
-=======
-	defer del(t, client, name, DefaultNamespace)
->>>>>>> edfd905c (runtime change)
 }
 
 // ***********
