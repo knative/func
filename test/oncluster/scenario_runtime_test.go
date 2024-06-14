@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"k8s.io/apimachinery/pkg/util/rand"
 	common "knative.dev/func/test/common"
@@ -82,14 +81,7 @@ func runtimeImpl(t *testing.T, lang string, builder string) {
 		"--builder", builder,
 		"--git-url", remoteRepo.ClusterCloneURL)
 
-	defer func() {
-		// temporarily ignore deletion error because Node has broken signal handling
-		// TODO fix this
-		if builder == "s2i" && (lang == "node" || lang == "typescript") && time.Now().Before(time.Date(2024, 5, 31, 0, 0, 0, 0, time.UTC)) {
-			knFunc.ShouldFailOnError = false
-		}
-		knFunc.Exec("delete", "-p", funcPath)
-	}()
+	defer knFunc.Exec("delete", "-p", funcPath)
 
 	// -- Assertions --
 	result := knFunc.Exec("invoke", "-p", funcPath)

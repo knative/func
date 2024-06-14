@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"gotest.tools/v3/assert"
 	"knative.dev/func/test/testhttp"
@@ -76,15 +75,7 @@ func lifecycleHttpTest(t *testing.T, language string, builder string) {
 
 	knFunc.Exec("create", "--language", language, "--template", "http", funcPath)
 	knFunc.Exec("deploy", "--registry", common.GetRegistry(), "--builder", builder, "--path", funcPath)
-
-	defer func() {
-		// temporarily ignore deletion error because Node has broken signal handling
-		// TODO fix this
-		if builder == "s2i" && (language == "node" || language == "typescript") && time.Now().Before(time.Date(2024, 5, 31, 0, 0, 0, 0, time.UTC)) {
-			knFunc.ShouldFailOnError = false
-		}
-		knFunc.Exec("delete", "--path", funcPath)
-	}()
+	defer knFunc.Exec("delete", "--path", funcPath)
 
 	_, functionUrl := common.WaitForFunctionReady(t, funcName)
 
