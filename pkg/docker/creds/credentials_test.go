@@ -607,11 +607,12 @@ func TestCredentialsWithoutHome(t *testing.T) {
 			)
 
 			got, err := credentialsProvider(context.Background(), tt.args.registry+"/someorg/someimage:sometag")
+
+			// ASSERT
 			if err != nil {
 				t.Errorf("%v", err)
 				return
 			}
-			// ASSERT
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("got: %v, want: %v", got, tt.want)
 			}
@@ -912,6 +913,8 @@ func testConfigPath(t *testing.T) string {
 	return configPath
 }
 
+// testConfigPathError tries to create a config dir in HOME/.config/func.
+// Compared to testConfigPath, this returns the path AND error instead of failing
 func testConfigPathError(t *testing.T) (string, error) {
 	t.Helper()
 	home := os.Getenv(testHomeEnvName())
@@ -1151,8 +1154,7 @@ func setEmptyHome(t *testing.T) {
 	t.Setenv("XDG_CONFIG_HOME", "")
 }
 
-// setHomeWithPermissions sets home dir to specified permissions and returns them
-// to 755 perms after as a cleanup
+// setHomeWithPermissions sets home dir to specified permissions
 func setHomeWithPermissions(perm os.FileMode) func(t *testing.T) {
 	return func(t *testing.T) {
 		t.Helper()
@@ -1163,6 +1165,7 @@ func setHomeWithPermissions(perm os.FileMode) func(t *testing.T) {
 			t.Fatal("home dir is empty, cant set perms")
 		}
 
+		fmt.Printf("setting permissions (%v) on home dir: %s\n", perm, homeDir)
 		err := os.Chmod(homeDir, perm)
 		if err != nil {
 			t.Fatalf("failed to set permissions on home dir: %s", err)
