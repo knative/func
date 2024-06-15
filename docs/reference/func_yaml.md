@@ -16,22 +16,24 @@ such as the function name, and the image name.
 
 The following fields are used in `func.yaml`.
 
-### `builderImages`
-
-Defines the builder images to use by builder implementations in lieu of the defaults.
-They key is the builder's short name.  For example:
-
-```
-builderImages:
-	pack: example.com/user/my-pack-node-builder
-  s2i: example.com/user/my-s2i-node-builder
-```
 
 ### `build`
 
 Specifies how to build the fuction. Possible values are "local" to build on your local
 computer, or "git" to build on the cluster by pulling function source code from a git
 repository.
+
+### `builderImages`
+
+Defines the builder images to use by builder implementations in lieu of the defaults.
+They key is the builder's short name.  For example:
+
+```
+build:
+  builderImages:
+	  pack: example.com/user/my-pack-node-builder
+    s2i: example.com/user/my-s2i-node-builder
+```
 
 ### `git`
 
