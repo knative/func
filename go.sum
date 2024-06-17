@@ -2713,8 +2713,8 @@ knative.dev/hack v0.0.0-20240607132042-09143140a254 h1:1YFnu3U6dWZg0oxm6GU8kEdA9
 knative.dev/hack v0.0.0-20240607132042-09143140a254/go.mod h1:yk2OjGDsbEnQjfxdm0/HJKS2WqTLEFg/N6nUs6Rqx3Q=
 knative.dev/networking v0.0.0-20240607132834-85e269dff522 h1:zDtZStHJI3La7jSHUAjN4Jgv0/Yynl51kuchlVLHqzA=
 knative.dev/networking v0.0.0-20240607132834-85e269dff522/go.mod h1:WS5A291Vy2unZ1L54ZSKBkz/gVzVmIy15cCcdA6PRN4=
-knative.dev/pkg v0.0.0-20240610120318-15e6cdf2f386 h1:nxFTT6DrXr70Zi2BK8nc57ts0/smyavd/uBRBbtqg94=
-knative.dev/pkg v0.0.0-20240610120318-15e6cdf2f386/go.mod h1:l7R8/SteYph0mZDsVgq3fVs4mWp1DaYx9BJJX68U6ik=
+knative.dev/pkg v0.0.0-20240614135239-339c22b8218c h1:OaKrY7L6rzWTvs51JlieJajL40F6CpBbvO1aZspg2EA=
+knative.dev/pkg v0.0.0-20240614135239-339c22b8218c/go.mod h1:l7R8/SteYph0mZDsVgq3fVs4mWp1DaYx9BJJX68U6ik=
 knative.dev/serving v0.41.1-0.20240614080555-1f7cc4852a07 h1:Qcf6ytf+Ug1Xu7NBn/kFH+qtzXQ8ASoGiEmtNx53UpU=
 knative.dev/serving v0.41.1-0.20240614080555-1f7cc4852a07/go.mod h1:Z58WxiVmEynF1kX8cK4fYmNprj8IkPLl2mEHdvuP6nc=
 lukechampine.com/uint128 v1.1.1/go.mod h1:c4eWIwlEGaxC/+H1VguhU4PHXNWDCDMUlWdIWl2j1gk=
