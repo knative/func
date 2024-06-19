@@ -306,10 +306,19 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 			return
 		}
 
-		// If user provided --image with digest, they are requesting that specific
+		// if not digested, image might be provided with a tag
+		var tagged bool
+		if !digested {
+			tagged, err = isTagged(cfg.Image)
+			if err != nil {
+				return
+			}
+		}
+
+		// If user provided --image with digest/tag, they are requesting that specific
 		// image to be used which means building phase should be skipped and image
 		// should be deployed as is
-		if digested {
+		if digested || tagged {
 			f.Deploy.Image = cfg.Image
 		} else {
 			// if NOT digested, build and push the Function first
@@ -668,6 +677,11 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 		return
 	}
 
+	// TODO: gauron99
+	// if _, err = isTagged(c.Image); err != nil {
+	// 	return
+	// }
+
 	// --build can be "auto"|true|false
 	if c.Build != "auto" {
 		if _, err := strconv.ParseBool(c.Build); err != nil {
@@ -764,6 +778,32 @@ func printDeployMessages(out io.Writer, f fn.Function) {
 	if !f.Local.Remote && (f.Build.Git.URL != "" || f.Build.Git.Revision != "" || f.Build.Git.ContextDir != "") {
 		fmt.Fprintf(out, "Warning: git settings are only applicable when running with --remote.  Local source code will be used.")
 	}
+}
+
+// isTagged returns true if provided image string 'v' has valid tag and false if
+// not. It is lenient in validating - does not always throw an error, just
+// returning false in some scenarios.
+func isTagged(v string) (validTag bool, err error) {
+	if strings.Contains(v, "@") {
+		return
+	}
+	vv := strings.Split(v, ":")
+	if len(vv) < 2 {
+		// TODO: gauron99 -- maybe throw an error here?
+		// err = fmt.Errorf("image '%v' does not contain a tag", v)
+		return
+	} else if len(vv) > 2 {
+		err = fmt.Errorf("image '%v' contains an invalid tag (extra ':')", v)
+		return
+	}
+	tag := vv[1]
+	if tag == "" {
+		err = fmt.Errorf("image '%v' has an empty tag", v)
+		return
+	}
+
+	validTag = true
+	return
 }
 
 // isDigested returns true if provided image string 'v' has digest and false if not.
