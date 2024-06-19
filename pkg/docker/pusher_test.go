@@ -115,7 +115,7 @@ func TestPush(t *testing.T) {
 
 			dockerClient := newMockPusherDockerClient()
 
-			pushReachable := func(ctx context.Context, ref string, options types.ImagePushOptions) (io.ReadCloser, error) {
+			pushReachable := func(ctx context.Context, ref string, options api.PushOptions) (io.ReadCloser, error) {
 				if ref != functionImageRemote {
 					return nil, fmt.Errorf("unexpected ref")
 				}
@@ -168,7 +168,7 @@ func TestPush(t *testing.T) {
 `)), nil
 			}
 
-			pushUnreachable := func(ctx context.Context, ref string, options types.ImagePushOptions) (io.ReadCloser, error) {
+			pushUnreachable := func(ctx context.Context, ref string, options api.PushOptions) (io.ReadCloser, error) {
 				return io.NopCloser(strings.NewReader(`{"errorDetail": {"message": "...no such host..."}}`)), nil
 			}
 
@@ -270,7 +270,7 @@ func TestPush(t *testing.T) {
 
 func newMockPusherDockerClient() *mockPusherDockerClient {
 	return &mockPusherDockerClient{
-		imagePush: func(ctx context.Context, ref string, options types.ImagePushOptions) (io.ReadCloser, error) {
+		imagePush: func(ctx context.Context, ref string, options api.PushOptions) (io.ReadCloser, error) {
 			return nil, fmt.Errorf(" imagePush not implemented")
 		},
 		imageSave: func(ctx context.Context, strings []string) (io.ReadCloser, error) {
@@ -286,7 +286,7 @@ func newMockPusherDockerClient() *mockPusherDockerClient {
 
 type mockPusherDockerClient struct {
 	negotiateAPIVersion func(ctx context.Context)
-	imagePush           func(ctx context.Context, ref string, options types.ImagePushOptions) (io.ReadCloser, error)
+	imagePush           func(ctx context.Context, ref string, options api.PushOptions) (io.ReadCloser, error)
 	imageSave           func(ctx context.Context, strings []string) (io.ReadCloser, error)
 	imageInspect        func(ctx context.Context, s string) (types.ImageInspect, []byte, error)
 	close               func() error
@@ -312,7 +312,7 @@ func (m *mockPusherDockerClient) ImageInspectWithRaw(ctx context.Context, s stri
 	return m.imageInspect(ctx, s)
 }
 
-func (m *mockPusherDockerClient) ImagePush(ctx context.Context, ref string, options types.ImagePushOptions) (io.ReadCloser, error) {
+func (m *mockPusherDockerClient) ImagePush(ctx context.Context, ref string, options api.PushOptions) (io.ReadCloser, error) {
 	return m.imagePush(ctx, ref, options)
 }
 
