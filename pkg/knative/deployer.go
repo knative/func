@@ -966,7 +966,7 @@ func checkResourcesArePresent(ctx context.Context, namespace string, referencedS
 		_, err := k8s.GetSecret(ctx, s, namespace)
 		if err != nil {
 			if errors.IsForbidden(err) {
-				errMsg += fmt.Sprintf("  Ensure that the service account has the necessary permissions to access the secret.\n")
+				errMsg += " Ensure that the service account has the necessary permissions to access the secret.\n"
 			} else {
 				errMsg += fmt.Sprintf("  referenced Secret \"%s\" is not present in namespace \"%s\"\n", s, namespace)
 			}
