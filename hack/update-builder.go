@@ -24,8 +24,8 @@ import (
 	"github.com/buildpacks/pack/buildpackage"
 	pack "github.com/buildpacks/pack/pkg/client"
 	"github.com/buildpacks/pack/pkg/dist"
-	"github.com/buildpacks/pack/pkg/image"
-	"github.com/docker/docker/api/types"
+	bpimage "github.com/buildpacks/pack/pkg/image"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/registry"
 	docker "github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/jsonmessage"
@@ -138,7 +138,7 @@ func buildBuilderImage(ctx context.Context, variant string) error {
 		BuilderName:     newBuilderImageTagged,
 		Config:          builderConfig,
 		Publish:         false,
-		PullPolicy:      image.PullIfNotPresent,
+		PullPolicy:      bpimage.PullIfNotPresent,
 		Labels: map[string]string{
 			"org.opencontainers.image.description": "Paketo Jammy builder enriched with Rust and Func-Go buildpacks.",
 			"org.opencontainers.image.source":      "https://github.com/knative/func",
@@ -170,7 +170,7 @@ func buildBuilderImage(ctx context.Context, variant string) error {
 	if err != nil {
 		return fmt.Errorf("cannot marshal credentials: %w", err)
 	}
-	imagePushOptions := types.ImagePushOptions{
+	imagePushOptions := image.PushOptions{
 		All:          false,
 		RegistryAuth: base64.StdEncoding.EncodeToString(bs),
 	}
@@ -326,7 +326,7 @@ func buildBuildpackImage(ctx context.Context, bp buildpack) error {
 		Format:          pack.FormatImage,
 		Config:          cfg,
 		Publish:         false,
-		PullPolicy:      image.PullIfNotPresent,
+		PullPolicy:      bpimage.PullIfNotPresent,
 		Registry:        "",
 		Flatten:         false,
 		FlattenExclude:  nil,

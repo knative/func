@@ -451,7 +451,7 @@ func (c *closeGuardingClient) ImageBuild(arg0 context.Context, arg1 io.Reader, a
 	return c.pimpl.ImageBuild(arg0, arg1, arg2)
 }
 
-func (c *closeGuardingClient) ImageCreate(arg0 context.Context, arg1 string, arg2 types.ImageCreateOptions) (io.ReadCloser, error) {
+func (c *closeGuardingClient) ImageCreate(arg0 context.Context, arg1 string, arg2 image.CreateOptions) (io.ReadCloser, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
@@ -469,7 +469,7 @@ func (c *closeGuardingClient) ImageHistory(arg0 context.Context, arg1 string) ([
 	return c.pimpl.ImageHistory(arg0, arg1)
 }
 
-func (c *closeGuardingClient) ImageImport(arg0 context.Context, arg1 types.ImageImportSource, arg2 string, arg3 types.ImageImportOptions) (io.ReadCloser, error) {
+func (c *closeGuardingClient) ImageImport(arg0 context.Context, arg1 types.ImageImportSource, arg2 string, arg3 image.ImportOptions) (io.ReadCloser, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
@@ -487,7 +487,7 @@ func (c *closeGuardingClient) ImageInspectWithRaw(arg0 context.Context, arg1 str
 	return c.pimpl.ImageInspectWithRaw(arg0, arg1)
 }
 
-func (c *closeGuardingClient) ImageList(arg0 context.Context, arg1 types.ImageListOptions) ([]image.Summary, error) {
+func (c *closeGuardingClient) ImageList(arg0 context.Context, arg1 image.ListOptions) ([]image.Summary, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
@@ -505,7 +505,7 @@ func (c *closeGuardingClient) ImageLoad(arg0 context.Context, arg1 io.Reader, ar
 	return c.pimpl.ImageLoad(arg0, arg1, arg2)
 }
 
-func (c *closeGuardingClient) ImagePull(arg0 context.Context, arg1 string, arg2 types.ImagePullOptions) (io.ReadCloser, error) {
+func (c *closeGuardingClient) ImagePull(arg0 context.Context, arg1 string, arg2 image.PullOptions) (io.ReadCloser, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
@@ -514,7 +514,7 @@ func (c *closeGuardingClient) ImagePull(arg0 context.Context, arg1 string, arg2 
 	return c.pimpl.ImagePull(arg0, arg1, arg2)
 }
 
-func (c *closeGuardingClient) ImagePush(arg0 context.Context, arg1 string, arg2 types.ImagePushOptions) (io.ReadCloser, error) {
+func (c *closeGuardingClient) ImagePush(arg0 context.Context, arg1 string, arg2 image.PushOptions) (io.ReadCloser, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
@@ -523,7 +523,7 @@ func (c *closeGuardingClient) ImagePush(arg0 context.Context, arg1 string, arg2 
 	return c.pimpl.ImagePush(arg0, arg1, arg2)
 }
 
-func (c *closeGuardingClient) ImageRemove(arg0 context.Context, arg1 string, arg2 types.ImageRemoveOptions) ([]image.DeleteResponse, error) {
+func (c *closeGuardingClient) ImageRemove(arg0 context.Context, arg1 string, arg2 image.RemoveOptions) ([]image.DeleteResponse, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {

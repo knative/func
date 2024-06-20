@@ -15,7 +15,7 @@ import (
 
 	fn "knative.dev/func/pkg/functions"
 
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/registry"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/jsonmessage"
@@ -43,7 +43,7 @@ type CredentialsProvider func(ctx context.Context, image string) (Credentials, e
 // PusherDockerClient is sub-interface of client.CommonAPIClient required by pusher.
 type PusherDockerClient interface {
 	daemon.Client
-	ImagePush(ctx context.Context, ref string, options types.ImagePushOptions) (io.ReadCloser, error)
+	ImagePush(ctx context.Context, ref string, options image.PushOptions) (io.ReadCloser, error)
 	Close() error
 }
 
@@ -225,7 +225,7 @@ func (n *Pusher) daemonPush(ctx context.Context, f fn.Function, credentials Cred
 		return "", err
 	}
 
-	opts := types.ImagePushOptions{RegistryAuth: base64.StdEncoding.EncodeToString(b)}
+	opts := image.PushOptions{RegistryAuth: base64.StdEncoding.EncodeToString(b)}
 
 	r, err := cli.ImagePush(ctx, f.Build.Image, opts)
 	if err != nil {
