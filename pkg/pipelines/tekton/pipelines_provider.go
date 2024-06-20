@@ -22,8 +22,8 @@ import (
 	gitignore "github.com/sabhiram/go-gitignore"
 	"github.com/tektoncd/cli/pkg/pipelinerun"
 	"github.com/tektoncd/cli/pkg/taskrun"
-	"github.com/tektoncd/pipeline/pkg/apis/pipeline/v1beta1"
-	pipelineClient "github.com/tektoncd/pipeline/pkg/client/clientset/versioned/typed/pipeline/v1beta1"
+	v1 "github.com/tektoncd/pipeline/pkg/apis/pipeline/v1"
+	pipelineClient "github.com/tektoncd/pipeline/pkg/client/clientset/versioned/typed/pipeline/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -438,7 +438,7 @@ func (pp *PipelinesProvider) removeClusterResources(ctx context.Context, f fn.Fu
 
 // watchPipelineRunProgress watches the progress of the input PipelineRun
 // and prints detailed description of the currently executed Tekton Task.
-func (pp *PipelinesProvider) watchPipelineRunProgress(ctx context.Context, pr *v1beta1.PipelineRun, namespace string) error {
+func (pp *PipelinesProvider) watchPipelineRunProgress(ctx context.Context, pr *v1.PipelineRun, namespace string) error {
 	taskProgressMsg := map[string]string{
 		"fetch-sources": "Fetching git repository with the function source code",
 		"build":         "Building function image on the cluster",
@@ -492,7 +492,7 @@ out:
 
 // getFailedPipelineRunLog returns log message for a failed PipelineRun,
 // returns log from a container where the failing TaskRun is running, if available.
-func getFailedPipelineRunLog(ctx context.Context, client *pipelineClient.TektonV1beta1Client, pr *v1beta1.PipelineRun, namespace string) string {
+func getFailedPipelineRunLog(ctx context.Context, client *pipelineClient.TektonV1Client, pr *v1.PipelineRun, namespace string) string {
 	// Reason "Failed" usually means there is a specific failure in some step,
 	// let's find the failed step and try to get log directly from the container.
 	// If we are not able to get the container's log, we return the generic message from the PipelineRun.Status.
@@ -507,7 +507,7 @@ func getFailedPipelineRunLog(ctx context.Context, client *pipelineClient.TektonV
 				for _, s := range t.Status.Steps {
 					// let's try to print logs of the first unsuccessful step
 					if s.Terminated != nil && s.Terminated.ExitCode != 0 {
-						podLogs, err := k8s.GetPodLogs(ctx, namespace, t.Status.PodName, s.ContainerName)
+						podLogs, err := k8s.GetPodLogs(ctx, namespace, t.Status.PodName, s.Container)
 						if err == nil {
 							return podLogs
 						}
@@ -523,13 +523,13 @@ func getFailedPipelineRunLog(ctx context.Context, client *pipelineClient.TektonV
 }
 
 // findNewestPipelineRunWithRetry tries to find newest Pipeline Run for the input function
-func findNewestPipelineRunWithRetry(ctx context.Context, f fn.Function, namespace string, client *pipelineClient.TektonV1beta1Client) (*v1beta1.PipelineRun, error) {
+func findNewestPipelineRunWithRetry(ctx context.Context, f fn.Function, namespace string, client *pipelineClient.TektonV1Client) (*v1.PipelineRun, error) {
 	l := k8slabels.SelectorFromSet(k8slabels.Set(map[string]string{fnlabels.FunctionNameKey: f.Name}))
 	listOptions := metav1.ListOptions{
 		LabelSelector: l.String(),
 	}
 
-	var newestPipelineRun *v1beta1.PipelineRun
+	var newestPipelineRun *v1.PipelineRun
 	for attempt := 1; attempt <= 3; attempt++ {
 		prs, err := client.PipelineRuns(namespace).List(ctx, listOptions)
 		if err != nil {
