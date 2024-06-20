@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/tektoncd/cli/pkg/cli"
-	"github.com/tektoncd/pipeline/pkg/client/clientset/versioned/typed/pipeline/v1beta1"
+	v1 "github.com/tektoncd/pipeline/pkg/client/clientset/versioned/typed/pipeline/v1"
 	"knative.dev/func/pkg/k8s"
 )
 
@@ -14,13 +14,13 @@ const (
 )
 
 // NewTektonClient returns TektonV1beta1Client for namespace
-func NewTektonClient(namespace string) (*v1beta1.TektonV1beta1Client, error) {
+func NewTektonClient(namespace string) (*v1.TektonV1Client, error) {
 	restConfig, err := k8s.GetClientConfig().ClientConfig()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new tekton client: %w", err)
 	}
 
-	client, err := v1beta1.NewForConfig(restConfig)
+	client, err := v1.NewForConfig(restConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create new tekton client: %v", err)
 	}
