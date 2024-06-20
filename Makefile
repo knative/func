@@ -111,7 +111,7 @@ clean: clean_templates ## Remove generated artifacts such as binaries and schema
 .PHONY: docs
 docs:
 	# Generating command reference doc
-	go run docs/generator/main.go
+	KUBECONFIG="$(shell mktemp)" go run docs/generator/main.go
 
 #############
 ##@ Prow Integration
