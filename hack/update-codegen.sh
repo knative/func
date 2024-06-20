@@ -20,7 +20,7 @@ set -o pipefail
 
 source "$(go run knative.dev/hack/cmd/script library.sh)"
 
-KUBECONFIG="$(mktemp)" go run ${REPO_ROOT_DIR}/docs/generator/main.go
+POD_NAMESPACE=default KUBECONFIG="$(mktemp)" go run ${REPO_ROOT_DIR}/docs/generator/main.go
 
 # Make sure our dependencies are up-to-date
 ${REPO_ROOT_DIR}/hack/update-deps.sh
