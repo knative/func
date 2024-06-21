@@ -866,6 +866,64 @@ func TestDeploy_ImageWithDigestDoesntPopulateBuild(t *testing.T) {
 	}
 }
 
+// TestDeploy_WithoutDigest ensures that images with tags populate .Deploy.Image
+// with the correct image acording to the --build and --push flags set
+func TestDeploy_WithoutDigest(t *testing.T) {
+	tests := []struct {
+		name            string      //name of the test
+		f               fn.Function //function initial state
+		args            []string    //args to the deploy command
+		expectedImage   string      //expected value of .Deploy.Image
+		expectedToBuild bool        //expected build invocation
+	}{
+		{
+			name:            "defaults with image flag",
+			f:               fn.Function{},
+			args:            []string{"--image=image.example.com/alice/f:latest"},
+			expectedImage:   "image.example.com/alice/f:latest",
+			expectedToBuild: true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			// ASSEMBLE
+			var (
+				root     = FromTempDirectory(t)
+				deployer = mock.NewDeployer()
+				builder  = mock.NewBuilder()
+			)
+			test.f.Name = "func"
+			test.f.Runtime = "go"
+			f, err := fn.New().Init(test.f)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// TODO: gauron99 -- add builder/deployer callback checks?
+
+			// ACT
+			cmd := NewDeployCmd(NewTestClient(fn.WithDeployer(deployer), fn.WithBuilder(builder)))
+			cmd.SetArgs(test.args)
+			if err := cmd.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			f, err = fn.NewFunction(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// ASSERT
+			if builder.BuildInvoked != test.expectedToBuild {
+				t.Fatalf("expected builder invocation: '%v', got '%v'", test.expectedToBuild, builder.BuildInvoked)
+			}
+
+			if f.Deploy.Image != test.expectedImage {
+				t.Fatalf("expected deployed image '%v', got %v", test.expectedImage, f.Deploy.Image)
+			}
+		})
+	}
+}
+
 // TestDepoy_InvalidRegistry ensures that providing an invalid registry
 // fails with the expected error.
 func TestDeploy_InvalidRegistry(t *testing.T) {
