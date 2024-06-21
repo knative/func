@@ -307,21 +307,25 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		}
 
 		// if not digested, image might be provided with a tag
-		var tagged bool
 		if !digested {
+			var tagged bool
 			tagged, err = isTagged(cfg.Image)
 			if err != nil {
 				return
+			}
+			if tagged {
+				// without build&push -> deploy; otherwise this gets overriden
+				f.Deploy.Image = cfg.Image
 			}
 		}
 
 		// If user provided --image with digest/tag, they are requesting that specific
 		// image to be used which means building phase should be skipped and image
 		// should be deployed as is
-		if digested || tagged {
+		if digested {
 			f.Deploy.Image = cfg.Image
 		} else {
-			// if NOT digested, build and push the Function first
+			// if NOT digested/tagged, build and push the Function first
 			if f, err = build(cmd, cfg.Build, f, client, buildOptions); err != nil {
 				return
 			}
