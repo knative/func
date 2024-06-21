@@ -677,6 +677,11 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 		return
 	}
 
+	// TODO: gauron99
+	// if _, err = isTagged(c.Image); err != nil {
+	// 	return
+	// }
+
 	// --build can be "auto"|true|false
 	if c.Build != "auto" {
 		if _, err := strconv.ParseBool(c.Build); err != nil {
