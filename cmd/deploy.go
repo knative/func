@@ -314,7 +314,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 				return
 			}
 			if tagged {
-				// this gets overriden when build&push=enabled with built (digested) image
+				// this gets overridden when build&push=enabled with built (digested) image
 				// OR directly deployed when build&push=disabled (assume custom image)
 				f.Deploy.Image = cfg.Image
 			}
@@ -684,10 +684,6 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 	// (will be set on the function during .Configure)
 	var digest bool
 	if digest, err = isDigested(c.Image); err != nil {
-		return
-	}
-
-	if _, err = isTagged(c.Image); err != nil {
 		return
 	}
 
