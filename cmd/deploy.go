@@ -314,7 +314,8 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 				return
 			}
 			if tagged {
-				// without build&push -> deploy; otherwise this gets overriden
+				// this gets overriden when build&push=enabled with built (digested) image
+				// OR directly deployed when build&push=disabled (assume custom image)
 				f.Deploy.Image = cfg.Image
 			}
 		}
@@ -334,14 +335,20 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 					return
 				}
 			}
-			// f.Build.Image is set in Push for now, just set it as a deployed image
-			f.Deploy.Image = f.Build.Image
+			// TODO: gauron99 - temporary fix for tagged image direct deploy (without build)
+			// I think we will be able to remove this after we clean up the building
+			// process - move the setting of built image in building phase?
+			if b, _ := strconv.ParseBool(cfg.Build); b {
+				// f.Build.Image is set in Push for now, just set it as a deployed image
+				f.Deploy.Image = f.Build.Image
+			}
 		}
 
 		if f, err = client.Deploy(cmd.Context(), f, fn.WithDeploySkipBuildCheck(cfg.Build == "false")); err != nil {
 			return
 		}
 	}
+	fmt.Printf("DEPLOY IMAGE BEFORE WRITE: %v\n", f.Deploy.Image)
 
 	// Write
 	if err = f.Write(); err != nil {
@@ -681,10 +688,9 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 		return
 	}
 
-	// TODO: gauron99
-	// if _, err = isTagged(c.Image); err != nil {
-	// 	return
-	// }
+	if _, err = isTagged(c.Image); err != nil {
+		return
+	}
 
 	// --build can be "auto"|true|false
 	if c.Build != "auto" {
@@ -789,12 +795,12 @@ func printDeployMessages(out io.Writer, f fn.Function) {
 // returning false in some scenarios.
 func isTagged(v string) (validTag bool, err error) {
 	if strings.Contains(v, "@") {
+		// digest has been processed separately
 		return
 	}
 	vv := strings.Split(v, ":")
 	if len(vv) < 2 {
-		// TODO: gauron99 -- maybe throw an error here?
-		// err = fmt.Errorf("image '%v' does not contain a tag", v)
+		err = fmt.Errorf("image '%v' does not contain a tag", v)
 		return
 	} else if len(vv) > 2 {
 		err = fmt.Errorf("image '%v' contains an invalid tag (extra ':')", v)

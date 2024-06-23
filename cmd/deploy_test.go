@@ -883,6 +883,20 @@ func TestDeploy_WithoutDigest(t *testing.T) {
 			expectedImage:   "image.example.com/alice/f:latest",
 			expectedToBuild: true,
 		},
+		{
+			name:            "direct deploy with image flag",
+			f:               fn.Function{},
+			args:            []string{"--build=false", "--push=false", "--image=image.example.com/bob/f:latest"},
+			expectedImage:   "image.example.com/bob/f:latest",
+			expectedToBuild: false,
+		},
+		{
+			name:            "tagged image, push disabled",
+			f:               fn.Function{},
+			args:            []string{"--push=false", "--image=image.example.com/clarance/f:latest"},
+			expectedImage:   "image.example.com/clarance/f:latest",
+			expectedToBuild: true,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -918,7 +932,7 @@ func TestDeploy_WithoutDigest(t *testing.T) {
 			}
 
 			if f.Deploy.Image != test.expectedImage {
-				t.Fatalf("expected deployed image '%v', got %v", test.expectedImage, f.Deploy.Image)
+				t.Fatalf("expected deployed image '%v', got '%v'", test.expectedImage, f.Deploy.Image)
 			}
 		})
 	}
