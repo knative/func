@@ -336,6 +336,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 			return
 		}
 	}
+	fmt.Printf("DEPLOY IMAGE BEFORE WRITE: %v\n", f.Deploy.Image)
 
 	// Write
 	if err = f.Write(); err != nil {
@@ -677,10 +678,9 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 		return
 	}
 
-	// TODO: gauron99
-	// if _, err = isTagged(c.Image); err != nil {
-	// 	return
-	// }
+	if _, err = isTagged(c.Image); err != nil {
+		return
+	}
 
 	// --build can be "auto"|true|false
 	if c.Build != "auto" {
