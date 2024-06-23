@@ -336,7 +336,6 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 			return
 		}
 	}
-	fmt.Printf("DEPLOY IMAGE BEFORE WRITE: %v\n", f.Deploy.Image)
 
 	// Write
 	if err = f.Write(); err != nil {
