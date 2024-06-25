@@ -308,17 +308,19 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 
 		// if not digested, image might be provided with a tag
 		if !digested {
-			var tagged bool
-			tagged, err = isTagged(cfg.Image)
+			var undigestedValid bool
+			undigestedValid, err = isValidUndigestedImage(cfg.Image)
 			if err != nil {
 				return
 			}
-			if tagged {
+			if undigestedValid {
 				// this gets overridden when build&push=enabled with built (digested) image
 				// OR directly deployed when build&push=disabled (assume custom image)
 				f.Deploy.Image = cfg.Image
 			}
 		}
+
+		var imageWasBuilt bool
 
 		// If user provided --image with digest/tag, they are requesting that specific
 		// image to be used which means building phase should be skipped and image
@@ -326,8 +328,8 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		if digested {
 			f.Deploy.Image = cfg.Image
 		} else {
-			// if NOT digested/tagged, build and push the Function first
-			if f, err = build(cmd, cfg.Build, f, client, buildOptions); err != nil {
+			// if NOT digested, build and push the Function first
+			if f, imageWasBuilt, err = build(cmd, cfg.Build, f, client, buildOptions); err != nil {
 				return
 			}
 			if cfg.Push {
@@ -338,7 +340,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 			// TODO: gauron99 - temporary fix for tagged image direct deploy (without build)
 			// I think we will be able to remove this after we clean up the building
 			// process - move the setting of built image in building phase?
-			if b, _ := strconv.ParseBool(cfg.Build); b {
+			if imageWasBuilt && f.Build.Image != "" {
 				// f.Build.Image is set in Push for now, just set it as a deployed image
 				f.Deploy.Image = f.Build.Image
 			}
@@ -365,26 +367,28 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 // flag value is explicitly truthy such as 'true' or '1'.  Error if flag
 // is neither 'auto' nor parseable as a boolean.  Return CLI-specific error
 // message verbeage suitable for both Deploy and Run commands which feature an
-// optional build step.
-func build(cmd *cobra.Command, flag string, f fn.Function, client *fn.Client, buildOptions []fn.BuildOption) (fn.Function, error) {
+// optional build step. Boolean return value signifies if the image has gone
+// through a build process.
+func build(cmd *cobra.Command, flag string, f fn.Function, client *fn.Client, buildOptions []fn.BuildOption) (fn.Function, bool, error) {
 	var err error
 	if flag == "auto" {
 		if f.Built() {
 			fmt.Fprintln(cmd.OutOrStdout(), "function up-to-date. Force rebuild with --build")
+			return f, false, nil
 		} else {
 			if f, err = client.Build(cmd.Context(), f, buildOptions...); err != nil {
-				return f, err
+				return f, false, err
 			}
 		}
 	} else if build, _ := strconv.ParseBool(flag); build {
 		if f, err = client.Build(cmd.Context(), f, buildOptions...); err != nil {
-			return f, err
+			return f, false, err
 		}
 	} else if _, err = strconv.ParseBool(flag); err != nil {
-		return f, fmt.Errorf("--build ($FUNC_BUILD) %q not recognized.  Should be 'auto' or a truthy value such as 'true', 'false', '0', or '1'.", flag)
+		return f, false, fmt.Errorf("--build ($FUNC_BUILD) %q not recognized.  Should be 'auto' or a truthy value such as 'true', 'false', '0', or '1'.", flag)
 
 	}
-	return f, nil
+	return f, true, nil
 }
 
 func NewRegistryValidator(path string) survey.Validator {
@@ -785,17 +789,18 @@ func printDeployMessages(out io.Writer, f fn.Function) {
 	}
 }
 
-// isTagged returns true if provided image string 'v' has valid tag and false if
+// isValidUndigestedImage returns true if provided image string 'v' has valid tag and false if
 // not. It is lenient in validating - does not always throw an error, just
 // returning false in some scenarios.
-func isTagged(v string) (validTag bool, err error) {
+func isValidUndigestedImage(v string) (validTag bool, err error) {
 	if strings.Contains(v, "@") {
 		// digest has been processed separately
 		return
 	}
 	vv := strings.Split(v, ":")
 	if len(vv) < 2 {
-		err = fmt.Errorf("image '%v' does not contain a tag", v)
+		// assume user knows what hes doing
+		validTag = true
 		return
 	} else if len(vv) > 2 {
 		err = fmt.Errorf("image '%v' contains an invalid tag (extra ':')", v)

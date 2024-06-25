@@ -866,9 +866,11 @@ func TestDeploy_ImageWithDigestDoesntPopulateBuild(t *testing.T) {
 	}
 }
 
-// TestDeploy_WithoutDigest ensures that images with tags populate .Deploy.Image
-// with the correct image acording to the --build and --push flags set
+// TestDeploy_WithoutDigest ensures that images specified with --image and
+// without digest are correctly processed and propagated to .Deploy.Image
 func TestDeploy_WithoutDigest(t *testing.T) {
+	const sha = "sha256:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
 	tests := []struct {
 		name            string      //name of the test
 		f               fn.Function //function initial state
@@ -880,7 +882,7 @@ func TestDeploy_WithoutDigest(t *testing.T) {
 			name:            "defaults with image flag",
 			f:               fn.Function{},
 			args:            []string{"--image=image.example.com/alice/f:latest"},
-			expectedImage:   "image.example.com/alice/f:latest",
+			expectedImage:   "image.example.com/alice/f" + "@" + sha,
 			expectedToBuild: true,
 		},
 		{
@@ -897,6 +899,20 @@ func TestDeploy_WithoutDigest(t *testing.T) {
 			expectedImage:   "image.example.com/clarance/f:latest",
 			expectedToBuild: true,
 		},
+		{
+			name:            "untagged image w/ build & push",
+			f:               fn.Function{},
+			args:            []string{"--image=image.example.com/dominik/f"},
+			expectedImage:   "image.example.com/dominik/f" + "@" + sha,
+			expectedToBuild: true,
+		},
+		{
+			name:            "untagged image w/out build & push",
+			f:               fn.Function{},
+			args:            []string{"--build=false", "--push=false", "--image=image.example.com/enrique/f"},
+			expectedImage:   "image.example.com/enrique/f",
+			expectedToBuild: false,
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -905,6 +921,7 @@ func TestDeploy_WithoutDigest(t *testing.T) {
 				root     = FromTempDirectory(t)
 				deployer = mock.NewDeployer()
 				builder  = mock.NewBuilder()
+				pusher   = mock.NewPusher()
 			)
 			test.f.Name = "func"
 			test.f.Runtime = "go"
@@ -913,10 +930,15 @@ func TestDeploy_WithoutDigest(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			// TODO: gauron99 -- add builder/deployer callback checks?
+			// TODO: gauron99 this will be changed once we get image name+digest in
+			// building phase
+			// simulate current implementation of pusher where full image is concatenated
+			pusher.PushFn = func(ctx context.Context, _ fn.Function) (string, error) {
+				return sha, nil
+			}
 
 			// ACT
-			cmd := NewDeployCmd(NewTestClient(fn.WithDeployer(deployer), fn.WithBuilder(builder)))
+			cmd := NewDeployCmd(NewTestClient(fn.WithDeployer(deployer), fn.WithBuilder(builder), fn.WithPusher(pusher)))
 			cmd.SetArgs(test.args)
 			if err := cmd.Execute(); err != nil {
 				t.Fatal(err)
