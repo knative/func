@@ -1,6 +1,11 @@
 package tekton
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
+
+var DeployerImage = "ghcr.io/knative/func-utils:latest"
 
 func getBuildpackTask() string {
 	return `apiVersion: tekton.dev/v1
@@ -376,7 +381,7 @@ spec:
 }
 
 func getDeployTask() string {
-	return `apiVersion: tekton.dev/v1
+	return fmt.Sprintf(`apiVersion: tekton.dev/v1
 kind: Task
 metadata:
   name: func-deploy
@@ -402,10 +407,10 @@ spec:
       description: The workspace containing the function project
   steps:
     - name: func-deploy
-      image: "ghcr.io/knative/func-utils:latest"
+      image: "%s"
       script: |
         deploy $(params.path) "$(params.image)"
-`
+`, DeployerImage)
 }
 
 // GetClusterTasks returns multi-document yaml containing tekton tasks used by func.
