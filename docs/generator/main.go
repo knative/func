@@ -96,6 +96,9 @@ func ignoreConfigEnv() (done func()) {
 // string to the file name, and recursively calls itself for each subcommand.
 func processSubCommands(c *cobra.Command, parent string, opts TemplateOptions) error {
 	for _, cc := range c.Commands() {
+		if cc.Hidden {
+			continue
+		}
 		name := cc.Name()
 		if name == "help" {
 			continue

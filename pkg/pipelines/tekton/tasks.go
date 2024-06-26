@@ -1,5 +1,7 @@
 package tekton
 
+import "strings"
+
 func getBuildpackTask() string {
 	return `apiVersion: tekton.dev/v1
 kind: Task
@@ -404,4 +406,12 @@ spec:
       script: |
         deploy $(params.path) "$(params.image)"
 `
+}
+
+// GetClusterTasks returns multi-document yaml containing tekton tasks used by func.
+func GetClusterTasks() string {
+	tasks := getBuildpackTask() + "\n---\n" + getS2ITask() + "\n---\n" + getDeployTask()
+	tasks = strings.Replace(tasks, "kind: Task", "kind: ClusterTask", -1)
+	tasks = strings.ReplaceAll(tasks, "apiVersion: tekton.dev/v1", "apiVersion: tekton.dev/v1beta1")
+	return tasks
 }
