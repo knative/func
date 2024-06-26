@@ -17,7 +17,7 @@ import (
 
 var runtimeSupportMap = map[string][]string{
 	"node":       {"pack", "s2i"},
-	"go":         {"pack"},
+	"go":         {"pack", "s2i"},
 	"rust":       {"pack"},
 	"python":     {"pack", "s2i"},
 	"quarkus":    {"pack", "s2i"},
