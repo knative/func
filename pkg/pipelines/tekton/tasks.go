@@ -1,5 +1,14 @@
----
-apiVersion: tekton.dev/v1
+package tekton
+
+import (
+	"fmt"
+	"strings"
+)
+
+var DeployerImage = "ghcr.io/knative/func-utils:latest"
+
+func getBuildpackTask() string {
+	return `apiVersion: tekton.dev/v1
 kind: Task
 metadata:
   name: func-buildpacks
@@ -37,7 +46,7 @@ spec:
     - name: BUILDER_IMAGE
       description: The image on which builds will run (must include lifecycle and compatible buildpacks).
     - name: SOURCE_SUBPATH
-      description: A subpath within the `source` input where the source to build is located.
+      description: A subpath within the "source" input where the source to build is located.
       default: ""
     - name: ENV_VARS
       type: array
@@ -66,7 +75,7 @@ spec:
 
   results:
     - name: IMAGE_DIGEST
-      description: The digest of the built `APP_IMAGE`.
+      description: The digest of the built "APP_IMAGE".
 
   stepTemplate:
     env:
@@ -228,3 +237,186 @@ spec:
       emptyDir: {}
     - name: layers-dir
       emptyDir: {}
+`
+}
+
+func getS2ITask() string {
+	return `apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: func-s2i
+  labels:
+    app.kubernetes.io/version: "0.1"
+  annotations:
+    tekton.dev/pipelines.minVersion: "0.17.0"
+    tekton.dev/categories: Image Build
+    tekton.dev/tags: image-build
+    tekton.dev/platforms: "linux/amd64"
+spec:
+  description: >-
+    Knative Functions Source-to-Image (S2I) is a toolkit and workflow for building reproducible
+    container images from source code
+
+    S2I produces images by injecting source code into a base S2I container image
+    and letting the container prepare that source code for execution. The base
+    S2I container images contains the language runtime and build tools needed for
+    building and running the source code.
+
+  params:
+    - name: BUILDER_IMAGE
+      description: The location of the s2i builder image.
+    - name: IMAGE
+      description: Reference of the image S2I will produce.
+    - name: REGISTRY
+      description: The registry associated with the function image.
+    - name: PATH_CONTEXT
+      description: The location of the path to run s2i from.
+      default: .
+    - name: TLSVERIFY
+      description: Verify the TLS on the registry endpoint (for push/pull to a non-TLS registry)
+      default: "true"
+    - name: LOGLEVEL
+      description: Log level when running the S2I binary
+      default: "0"
+    - name: ENV_VARS
+      type: array
+      description: Environment variables to set during _build-time_.
+      default: []
+    - name: S2I_IMAGE_SCRIPTS_URL
+      description: The URL containing the default assemble and run scripts for the builder image.
+      default: "image:///usr/libexec/s2i"
+  workspaces:
+    - name: source
+    - name: cache
+      description: Directory where cache is stored (e.g. local mvn repo).
+      optional: true
+    - name: sslcertdir
+      optional: true
+    - name: dockerconfig
+      description: >-
+        An optional workspace that allows providing a .docker/config.json file
+        for Buildah to access the container registry.
+        The file should be placed at the root of the Workspace with name config.json.
+      optional: true
+  results:
+    - name: IMAGE_DIGEST
+      description: Digest of the image just built.
+  steps:
+    - name: generate
+      image: quay.io/boson/s2i:latest
+      workingDir: $(workspaces.source.path)
+      args: ["$(params.ENV_VARS[*])"]
+      script: |
+        echo "Processing Build Environment Variables"
+        echo "" > /env-vars/env-file
+        for var in "$@"
+        do
+            if [[ "$var" != "=" ]]; then
+                echo "$var" >> /env-vars/env-file
+            fi
+        done
+
+        echo "Generated Build Env Var file"
+        echo "------------------------------"
+        cat /env-vars/env-file
+        echo "------------------------------"
+
+        /usr/local/bin/s2i --loglevel=$(params.LOGLEVEL) build $(params.PATH_CONTEXT) $(params.BUILDER_IMAGE) \
+        --image-scripts-url $(params.S2I_IMAGE_SCRIPTS_URL) \
+        --as-dockerfile /gen-source/Dockerfile.gen --environment-file /env-vars/env-file
+
+        echo "Preparing func.yaml for later deployment"
+        func_file="$(workspaces.source.path)/func.yaml"
+        if [ "$(params.PATH_CONTEXT)" != "" ]; then
+          func_file="$(workspaces.source.path)/$(params.PATH_CONTEXT)/func.yaml"
+        fi
+        sed -i "s|^registry:.*$|registry: $(params.REGISTRY)|" "$func_file"
+        echo "Function image registry: $(params.REGISTRY)"
+
+        s2iignore_file="$(dirname "$func_file")/.s2iignore"
+        [ -f "$s2iignore_file" ] || echo "node_modules" >> "$s2iignore_file"
+
+      volumeMounts:
+        - mountPath: /gen-source
+          name: gen-source
+        - mountPath: /env-vars
+          name: env-vars
+    - name: build
+      image: quay.io/buildah/stable:v1.31.0
+      workingDir: /gen-source
+      script: |
+        TLS_VERIFY_FLAG=""
+        if [ "$(params.TLSVERIFY)" = "false" ] || [ "$(params.TLSVERIFY)" = "0" ]; then
+          TLS_VERIFY_FLAG="--tls-verify=false"
+        fi
+
+        [[ "$(workspaces.sslcertdir.bound)" == "true" ]] && CERT_DIR_FLAG="--cert-dir $(workspaces.sslcertdir.path)"
+        ARTIFACTS_CACHE_PATH="$(workspaces.cache.path)/mvn-artifacts"
+        [ -d "${ARTIFACTS_CACHE_PATH}" ] || mkdir "${ARTIFACTS_CACHE_PATH}"
+        buildah ${CERT_DIR_FLAG} bud --storage-driver=vfs ${TLS_VERIFY_FLAG} --layers \
+          -v "${ARTIFACTS_CACHE_PATH}:/tmp/artifacts/:rw,z,U" \
+          -f /gen-source/Dockerfile.gen -t $(params.IMAGE) .
+
+        [[ "$(workspaces.dockerconfig.bound)" == "true" ]] && export DOCKER_CONFIG="$(workspaces.dockerconfig.path)"
+        buildah ${CERT_DIR_FLAG} push --storage-driver=vfs ${TLS_VERIFY_FLAG} --digestfile $(workspaces.source.path)/image-digest \
+          $(params.IMAGE) docker://$(params.IMAGE)
+
+        cat $(workspaces.source.path)/image-digest | tee /tekton/results/IMAGE_DIGEST
+      volumeMounts:
+      - name: varlibcontainers
+        mountPath: /var/lib/containers
+      - mountPath: /gen-source
+        name: gen-source
+      securityContext:
+        capabilities:
+          add: ["SETFCAP"]
+  volumes:
+    - emptyDir: {}
+      name: varlibcontainers
+    - emptyDir: {}
+      name: gen-source
+    - emptyDir: {}
+      name: env-vars
+`
+}
+
+func getDeployTask() string {
+	return fmt.Sprintf(`apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: func-deploy
+  labels:
+    app.kubernetes.io/version: "0.1"
+  annotations:
+    tekton.dev/pipelines.minVersion: "0.12.1"
+    tekton.dev/categories: CLI
+    tekton.dev/tags: cli
+    tekton.dev/platforms: "linux/amd64"
+spec:
+  description: >-
+    This Task performs a deploy operation using the Knative "func"" CLI
+  params:
+    - name: path
+      description: Path to the function project
+      default: ""
+    - name: image
+      description: Container image to be deployed
+      default: ""
+  workspaces:
+    - name: source
+      description: The workspace containing the function project
+  steps:
+    - name: func-deploy
+      image: "%s"
+      script: |
+        deploy $(params.path) "$(params.image)"
+`, DeployerImage)
+}
+
+// GetClusterTasks returns multi-document yaml containing tekton tasks used by func.
+func GetClusterTasks() string {
+	tasks := getBuildpackTask() + "\n---\n" + getS2ITask() + "\n---\n" + getDeployTask()
+	tasks = strings.Replace(tasks, "kind: Task", "kind: ClusterTask", -1)
+	tasks = strings.ReplaceAll(tasks, "apiVersion: tekton.dev/v1", "apiVersion: tekton.dev/v1beta1")
+	return tasks
+}

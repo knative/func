@@ -107,6 +107,7 @@ Learn more about Knative at: https://knative.dev`, cfg.Name),
 			Commands: []*cobra.Command{
 				NewCompletionCmd(),
 				NewVersionCmd(cfg.Version),
+				NewTektonClusterTasksCmd(),
 			},
 		},
 	}
