@@ -16,7 +16,6 @@ import (
 	"knative.dev/func/pkg/config"
 	"knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
-	"knative.dev/func/pkg/pipelines/tekton"
 )
 
 var format string = "json"
@@ -67,7 +66,6 @@ type Environment struct {
 	Templates            map[string][]string
 	Environment          []string
 	Cluster              string
-	TektonTasks          map[string]string
 	Defaults             config.Global
 	Function             *functions.Function `json:",omitempty" yaml:",omitempty"`
 	Instance             *functions.Instance `json:",omitempty" yaml:",omitempty"`
@@ -137,11 +135,6 @@ func runEnvironment(cmd *cobra.Command, newClient ClientFactory, v *Version) (er
 		Environment:          envs,
 		Cluster:              host,
 		Defaults:             defaults,
-		TektonTasks: map[string]string{
-			"func-buildpack": tekton.BuildpackTaskURL,
-			"func-s2i":       tekton.S2ITaskURL,
-			"func-deploy":    tekton.DeployTaskURL,
-		},
 	}
 
 	function, instance := describeFuncInformation(cmd.Context(), newClient, cfg)

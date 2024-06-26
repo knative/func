@@ -86,30 +86,6 @@ const (
 	defaultPipelinesTargetBranch = "main"
 )
 
-var (
-	FuncRepoRef       = "knative/func"
-	FuncRepoBranchRef = "main"
-
-	taskBasePath = "https://raw.githubusercontent.com/" +
-		FuncRepoRef + "/" + FuncRepoBranchRef + "/pkg/pipelines/resources/tekton/task/"
-	BuildpackTaskURL string
-	S2ITaskURL       string
-	DeployTaskURL    string
-)
-
-// sets the values only if they have not been set via the linker "-X" flag
-func init() {
-	if BuildpackTaskURL == "" {
-		BuildpackTaskURL = taskBasePath + "func-buildpacks/0.2/func-buildpacks.yaml"
-	}
-	if S2ITaskURL == "" {
-		S2ITaskURL = taskBasePath + "func-s2i/0.1/func-s2i.yaml"
-	}
-	if DeployTaskURL == "" {
-		DeployTaskURL = taskBasePath + "func-deploy/0.1/func-deploy.yaml"
-	}
-}
-
 type templateData struct {
 	FunctionName  string
 	Annotations   map[string]string
@@ -151,15 +127,27 @@ type templateData struct {
 // it creates the resource in the project directory
 func createPipelineTemplatePAC(f fn.Function, labels map[string]string) error {
 	data := templateData{
-		FunctionName:          f.Name,
-		Annotations:           f.Deploy.Annotations,
-		Labels:                labels,
-		PipelineName:          getPipelineName(f),
-		RunAfterFetchSources:  runAfterFetchSourcesRef,
-		GitCloneTaskRef:       taskGitClonePACTaskRef,
-		FuncBuildpacksTaskRef: taskFuncBuildpacksPACTaskRef,
-		FuncS2iTaskRef:        taskFuncS2iPACTaskRef,
-		FuncDeployTaskRef:     taskFuncDeployPACTaskRef,
+		FunctionName:         f.Name,
+		Annotations:          f.Deploy.Annotations,
+		Labels:               labels,
+		PipelineName:         getPipelineName(f),
+		RunAfterFetchSources: runAfterFetchSourcesRef,
+		GitCloneTaskRef:      taskGitClonePACTaskRef,
+	}
+
+	for _, val := range []struct {
+		ref   string
+		field *string
+	}{
+		{getBuildpackTask(), &data.FuncBuildpacksTaskRef},
+		{getS2ITask(), &data.FuncS2iTaskRef},
+		{getDeployTask(), &data.FuncDeployTaskRef},
+	} {
+		ts, err := getTaskSpec(val.ref)
+		if err != nil {
+			return err
+		}
+		*val.field = ts
 	}
 
 	var template string
@@ -225,10 +213,7 @@ func createPipelineRunTemplatePAC(f fn.Function, labels map[string]string) error
 
 		PipelinesTargetBranch: pipelinesTargetBranch,
 
-		GitCloneTaskRef:       taskGitCloneRef,
-		FuncBuildpacksTaskRef: BuildpackTaskURL,
-		FuncS2iTaskRef:        S2ITaskURL,
-		FuncDeployTaskRef:     DeployTaskURL,
+		GitCloneTaskRef: taskGitCloneRef,
 
 		PipelineYamlURL: fmt.Sprintf("%s/%s", resourcesDirectory, pipelineFileNamePAC),
 
