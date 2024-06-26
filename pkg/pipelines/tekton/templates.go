@@ -3,7 +3,6 @@ package tekton
 import (
 	"bytes"
 	"fmt"
-	"net/http"
 	"os"
 	"path"
 	"strings"
@@ -304,17 +303,10 @@ func deleteAllPipelineTemplates(f fn.Function) string {
 	return ""
 }
 
-func getTaskSpec(taskUrlTemplate string) (string, error) {
-	resp, err := http.Get(taskUrlTemplate)
-	if err != nil {
-		return "", err
-	}
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("cannot get task: %q bad http code: %d", taskUrlTemplate, resp.StatusCode)
-	}
-	defer resp.Body.Close()
+func getTaskSpec(taskYaml string) (string, error) {
+	var err error
 	var data map[string]any
-	dec := yaml.NewDecoder(resp.Body)
+	dec := yaml.NewDecoder(strings.NewReader(taskYaml))
 	err = dec.Decode(&data)
 	if err != nil {
 		return "", err
@@ -361,9 +353,9 @@ func createAndApplyPipelineTemplate(f fn.Function, namespace string, labels map[
 		ref   string
 		field *string
 	}{
-		{BuildpackTaskURL, &data.FuncBuildpacksTaskRef},
-		{S2ITaskURL, &data.FuncS2iTaskRef},
-		{DeployTaskURL, &data.FuncDeployTaskRef},
+		{getBuildpackTask(), &data.FuncBuildpacksTaskRef},
+		{getS2ITask(), &data.FuncS2iTaskRef},
+		{getDeployTask(), &data.FuncDeployTaskRef},
 	} {
 		ts, err := getTaskSpec(val.ref)
 		if err != nil {
