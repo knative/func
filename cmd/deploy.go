@@ -298,29 +298,14 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 			return
 		}
 
-		// check if --image was provided with a digest. 'digested' bool indicates if
-		// image contains a digest or not (image is "digested").
+		// Preprocess image name. Validate the image and check whether its digested
 		var digested bool
-		digested, err = isDigested(cfg.Image)
+		f, digested, err = processImageName(f, cfg.Image)
 		if err != nil {
 			return
 		}
 
-		// if not digested, image might be provided with a tag
-		if !digested {
-			var undigestedValid bool
-			undigestedValid, err = isValidUndigestedImage(cfg.Image)
-			if err != nil {
-				return
-			}
-			if undigestedValid {
-				// this gets overridden when build&push=enabled with built (digested) image
-				// OR directly deployed when build&push=disabled (assume custom image)
-				f.Deploy.Image = cfg.Image
-			}
-		}
-
-		var imageWasBuilt bool
+		var justBuilt bool
 
 		// If user provided --image with digest/tag, they are requesting that specific
 		// image to be used which means building phase should be skipped and image
@@ -329,7 +314,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 			f.Deploy.Image = cfg.Image
 		} else {
 			// if NOT digested, build and push the Function first
-			if f, imageWasBuilt, err = build(cmd, cfg.Build, f, client, buildOptions); err != nil {
+			if f, justBuilt, err = build(cmd, cfg.Build, f, client, buildOptions); err != nil {
 				return
 			}
 			if cfg.Push {
@@ -337,10 +322,10 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 					return
 				}
 			}
-			// TODO: gauron99 - temporary fix for tagged image direct deploy (without build)
-			// I think we will be able to remove this after we clean up the building
-			// process - move the setting of built image in building phase?
-			if imageWasBuilt && f.Build.Image != "" {
+			// TODO: gauron99 - temporary fix for undigested image direct deploy (w/out
+			// build) I think we will be able to remove this after we clean up the
+			// building process - move the setting of built image in building phase?
+			if justBuilt && f.Build.Image != "" {
 				// f.Build.Image is set in Push for now, just set it as a deployed image
 				f.Deploy.Image = f.Build.Image
 			}
@@ -789,10 +774,10 @@ func printDeployMessages(out io.Writer, f fn.Function) {
 	}
 }
 
-// isValidUndigestedImage returns true if provided image string 'v' has valid tag and false if
+// isUndigested returns true if provided image string 'v' has valid tag and false if
 // not. It is lenient in validating - does not always throw an error, just
 // returning false in some scenarios.
-func isValidUndigestedImage(v string) (validTag bool, err error) {
+func isUndigested(v string) (validTag bool, err error) {
 	if strings.Contains(v, "@") {
 		// digest has been processed separately
 		return
@@ -839,5 +824,37 @@ func isDigested(v string) (validDigest bool, err error) {
 	}
 
 	validDigest = true
+	return
+}
+
+// processImageName processes the image name for deployment. It ensures that
+// image string is validated if --image was given and ensures that proper
+// fields of Function structure are populated if needed.
+// Returns a Function structure(1), bool indicating if image was given with
+// digest(2) and error(3)
+func processImageName(fin fn.Function, configImage string) (f fn.Function, digested bool, err error) {
+	f = fin
+	// check if --image was provided with a digest. 'digested' bool indicates if
+	// image contains a digest or not (image is "digested").
+	digested, err = isDigested(configImage)
+	if err != nil {
+		return
+	}
+	// if image is digested, no need to process further
+	if digested {
+		return
+	}
+	// digested = false here
+
+	// valid image can be with/without a tag and might be/not be built next
+	valid, err := isUndigested(configImage)
+	if err != nil {
+		return
+	}
+	if valid {
+		// this can be overridden when build&push=enabled with freshly built
+		// (digested) image OR directly deployed when build&push=disabled
+		f.Deploy.Image = configImage
+	}
 	return
 }

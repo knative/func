@@ -872,43 +872,37 @@ func TestDeploy_WithoutDigest(t *testing.T) {
 	const sha = "sha256:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
 	tests := []struct {
-		name            string      //name of the test
-		f               fn.Function //function initial state
-		args            []string    //args to the deploy command
-		expectedImage   string      //expected value of .Deploy.Image
-		expectedToBuild bool        //expected build invocation
+		name            string   //name of the test
+		args            []string //args to the deploy command
+		expectedImage   string   //expected value of .Deploy.Image
+		expectedToBuild bool     //expected build invocation
 	}{
 		{
 			name:            "defaults with image flag",
-			f:               fn.Function{},
 			args:            []string{"--image=image.example.com/alice/f:latest"},
 			expectedImage:   "image.example.com/alice/f" + "@" + sha,
 			expectedToBuild: true,
 		},
 		{
 			name:            "direct deploy with image flag",
-			f:               fn.Function{},
 			args:            []string{"--build=false", "--push=false", "--image=image.example.com/bob/f:latest"},
 			expectedImage:   "image.example.com/bob/f:latest",
 			expectedToBuild: false,
 		},
 		{
 			name:            "tagged image, push disabled",
-			f:               fn.Function{},
 			args:            []string{"--push=false", "--image=image.example.com/clarance/f:latest"},
 			expectedImage:   "image.example.com/clarance/f:latest",
 			expectedToBuild: true,
 		},
 		{
 			name:            "untagged image w/ build & push",
-			f:               fn.Function{},
 			args:            []string{"--image=image.example.com/dominik/f"},
 			expectedImage:   "image.example.com/dominik/f" + "@" + sha,
 			expectedToBuild: true,
 		},
 		{
 			name:            "untagged image w/out build & push",
-			f:               fn.Function{},
 			args:            []string{"--build=false", "--push=false", "--image=image.example.com/enrique/f"},
 			expectedImage:   "image.example.com/enrique/f",
 			expectedToBuild: false,
@@ -922,10 +916,12 @@ func TestDeploy_WithoutDigest(t *testing.T) {
 				deployer = mock.NewDeployer()
 				builder  = mock.NewBuilder()
 				pusher   = mock.NewPusher()
+				f        = fn.Function{}
 			)
-			test.f.Name = "func"
-			test.f.Runtime = "go"
-			f, err := fn.New().Init(test.f)
+
+			f.Name = "func"
+			f.Runtime = "go"
+			f, err := fn.New().Init(f)
 			if err != nil {
 				t.Fatal(err)
 			}
