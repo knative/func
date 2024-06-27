@@ -299,6 +299,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		}
 
 		// Preprocess image name. Validate the image and check whether its digested
+		// This might alter f.Deploy.Image.
 		var digested bool
 		f, digested, err = processImageName(f, cfg.Image)
 		if err != nil {
@@ -307,13 +308,13 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 
 		var justBuilt bool
 
-		// If user provided --image with digest/tag, they are requesting that specific
+		// If user provided --image with digest, they are requesting that specific
 		// image to be used which means building phase should be skipped and image
 		// should be deployed as is
 		if digested {
 			f.Deploy.Image = cfg.Image
 		} else {
-			// if NOT digested, build and push the Function first
+			// NOT digested, build & push the Function unless specified otherwise
 			if f, justBuilt, err = build(cmd, cfg.Build, f, client, buildOptions); err != nil {
 				return
 			}
