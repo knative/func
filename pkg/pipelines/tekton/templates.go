@@ -28,20 +28,6 @@ const (
 	// Tasks references for PAC PipelineRun that are defined in the annotations
 	taskGitCloneRef = "git-clone"
 
-	// Following section contains references for Tasks to be used in Pipeline templates,
-	// there is a difference if we use PAC approach or standard Tekton approach.
-	//
-	// This can be simplified once we start consuming tasks from Tekton Hub
-	taskFuncBuildpacksPACTaskRef = `taskRef:
-        kind: Task
-        name: func-buildpacks`
-	taskFuncS2iPACTaskRef = `taskRef:
-        kind: Task
-        name: func-s2i`
-	taskFuncDeployPACTaskRef = `taskRef:
-        kind: Task
-        name: func-deploy`
-
 	// Following part holds a reference to Git Clone Task to be used in Pipeline template,
 	// the usage depends whether we use direct code upload or Git reference for a standard (non PAC) on-cluster build
 	taskGitClonePACTaskRef = `- name: fetch-sources
