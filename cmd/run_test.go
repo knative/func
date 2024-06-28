@@ -174,3 +174,109 @@ func TestRun_Run(t *testing.T) {
 		})
 	}
 }
+
+// TestRun_Images ensures that runnning 'func run' with --image
+// (and additional flags) works as intended
+func TestRun_Images(t *testing.T) {
+	tests := []struct {
+		name         string
+		args         []string
+		buildInvoked bool
+		runInvoked   bool
+
+		runError   error
+		buildError error
+	}{
+		{
+			name:         "image with digest",
+			args:         []string{"--image", "exampleimage@sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"},
+			runInvoked:   true,
+			buildInvoked: false,
+			runError:     nil,
+			buildError:   nil,
+		},
+		{
+			name:         "image with tag direct deploy",
+			args:         []string{"--image", "exampleimage:latest", "--build=false"},
+			runInvoked:   true,
+			buildInvoked: false,
+			runError:     nil,
+			buildError:   nil,
+		},
+		{
+			name:         "image without tag direct deploy",
+			args:         []string{"--image", "exampleimage", "--build=false"},
+			runInvoked:   true,
+			buildInvoked: false,
+			runError:     nil,
+			buildError:   nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := FromTempDirectory(t)
+			runner := mock.NewRunner()
+
+			if tt.runError != nil {
+				runner.RunFn = func(context.Context, fn.Function, time.Duration) (*fn.Job, error) { return nil, tt.runError }
+			}
+
+			builder := mock.NewBuilder()
+			if tt.buildError != nil {
+				builder.BuildFn = func(f fn.Function) error { return tt.buildError }
+			}
+
+			// using a command whose client will be populated with mock
+			// builder and mock runner, each of which may be set to error if the
+			// test has an error defined.
+			cmd := NewRunCmd(NewTestClient(
+				fn.WithRunner(runner),
+				fn.WithBuilder(builder),
+				fn.WithRegistry("ghcr.com/reg"),
+			))
+			cmd.SetArgs(tt.args) // Do not use test command args
+
+			// set test case's function instance
+			_, err := fn.New().Init(fn.Function{Root: root, Runtime: "go"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			ctx, cancel := context.WithCancel(context.Background())
+			runErrCh := make(chan error, 1)
+			go func() {
+				t0 := tt // capture tt into closure
+				_, err := cmd.ExecuteContextC(ctx)
+				if err != nil && t0.buildError != nil {
+					// This is an expected error, so simply continue execution ignoring
+					// the error (send nil on the channel to release the parent routine
+					runErrCh <- nil
+					return
+				} else if err != nil {
+					runErrCh <- err // error not expected
+					return
+				}
+
+				// No errors, but an error was expected:
+				if t0.buildError != nil {
+					runErrCh <- fmt.Errorf("Expected error: %v but got %v\n", t0.buildError, err)
+				}
+
+				// Ensure invocations match expectations
+				if builder.BuildInvoked != tt.buildInvoked {
+					runErrCh <- fmt.Errorf("Function was expected to build is: %v but build execution was: %v", tt.buildInvoked, builder.BuildInvoked)
+				}
+				if runner.RunInvoked != tt.runInvoked {
+					runErrCh <- fmt.Errorf("Function was expected to run is: %v but run execution was: %v", tt.runInvoked, runner.RunInvoked)
+				}
+
+				close(runErrCh) // release the waiting parent process
+			}()
+			cancel() // trigger the return of cmd.ExecuteContextC in the routine
+			<-ctx.Done()
+			if err := <-runErrCh; err != nil { // wait for completion of assertions
+				t.Fatal(err)
+			}
+		})
+	}
+}

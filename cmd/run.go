@@ -172,6 +172,14 @@ func runRun(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	client, done := newClient(ClientConfig{Verbose: cfg.Verbose}, clientOptions...)
 	defer done()
 
+	f, digested, err := processImageName(f, cfg.Image)
+	if err != nil {
+		return
+	}
+	if digested {
+		f.Deploy.Image = cfg.Image
+	}
+
 	// Build
 	//
 	// If requesting to run via the container, build the container if it is
