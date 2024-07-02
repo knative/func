@@ -298,13 +298,15 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 			return
 		}
 
-		// check if --image was provided with a digest. 'digested' bool indicates if
-		// image contains a digest or not (image is "digested").
+		// Preprocess image name. Validate the image and check whether its digested
+		// This might alter f.Deploy.Image.
 		var digested bool
-		digested, err = isDigested(cfg.Image)
+		f, digested, err = processImageName(f, cfg.Image)
 		if err != nil {
 			return
 		}
+
+		var justBuilt bool
 
 		// If user provided --image with digest, they are requesting that specific
 		// image to be used which means building phase should be skipped and image
@@ -312,8 +314,8 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		if digested {
 			f.Deploy.Image = cfg.Image
 		} else {
-			// if NOT digested, build and push the Function first
-			if f, err = build(cmd, cfg.Build, f, client, buildOptions); err != nil {
+			// NOT digested, build & push the Function unless specified otherwise
+			if f, justBuilt, err = build(cmd, cfg.Build, f, client, buildOptions); err != nil {
 				return
 			}
 			if cfg.Push {
@@ -321,8 +323,13 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 					return
 				}
 			}
-			// f.Build.Image is set in Push for now, just set it as a deployed image
-			f.Deploy.Image = f.Build.Image
+			// TODO: gauron99 - temporary fix for undigested image direct deploy (w/out
+			// build) I think we will be able to remove this after we clean up the
+			// building process - move the setting of built image in building phase?
+			if justBuilt && f.Build.Image != "" {
+				// f.Build.Image is set in Push for now, just set it as a deployed image
+				f.Deploy.Image = f.Build.Image
+			}
 		}
 
 		if f, err = client.Deploy(cmd.Context(), f, fn.WithDeploySkipBuildCheck(cfg.Build == "false")); err != nil {
@@ -346,26 +353,28 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 // flag value is explicitly truthy such as 'true' or '1'.  Error if flag
 // is neither 'auto' nor parseable as a boolean.  Return CLI-specific error
 // message verbeage suitable for both Deploy and Run commands which feature an
-// optional build step.
-func build(cmd *cobra.Command, flag string, f fn.Function, client *fn.Client, buildOptions []fn.BuildOption) (fn.Function, error) {
+// optional build step. Boolean return value signifies if the image has gone
+// through a build process.
+func build(cmd *cobra.Command, flag string, f fn.Function, client *fn.Client, buildOptions []fn.BuildOption) (fn.Function, bool, error) {
 	var err error
 	if flag == "auto" {
 		if f.Built() {
 			fmt.Fprintln(cmd.OutOrStdout(), "function up-to-date. Force rebuild with --build")
+			return f, false, nil
 		} else {
 			if f, err = client.Build(cmd.Context(), f, buildOptions...); err != nil {
-				return f, err
+				return f, false, err
 			}
 		}
 	} else if build, _ := strconv.ParseBool(flag); build {
 		if f, err = client.Build(cmd.Context(), f, buildOptions...); err != nil {
-			return f, err
+			return f, false, err
 		}
 	} else if _, err = strconv.ParseBool(flag); err != nil {
-		return f, fmt.Errorf("--build ($FUNC_BUILD) %q not recognized.  Should be 'auto' or a truthy value such as 'true', 'false', '0', or '1'.", flag)
+		return f, false, fmt.Errorf("--build ($FUNC_BUILD) %q not recognized.  Should be 'auto' or a truthy value such as 'true', 'false', '0', or '1'.", flag)
 
 	}
-	return f, nil
+	return f, true, nil
 }
 
 func NewRegistryValidator(path string) survey.Validator {
@@ -766,6 +775,33 @@ func printDeployMessages(out io.Writer, f fn.Function) {
 	}
 }
 
+// isUndigested returns true if provided image string 'v' has valid tag and false if
+// not. It is lenient in validating - does not always throw an error, just
+// returning false in some scenarios.
+func isUndigested(v string) (validTag bool, err error) {
+	if strings.Contains(v, "@") {
+		// digest has been processed separately
+		return
+	}
+	vv := strings.Split(v, ":")
+	if len(vv) < 2 {
+		// assume user knows what hes doing
+		validTag = true
+		return
+	} else if len(vv) > 2 {
+		err = fmt.Errorf("image '%v' contains an invalid tag (extra ':')", v)
+		return
+	}
+	tag := vv[1]
+	if tag == "" {
+		err = fmt.Errorf("image '%v' has an empty tag", v)
+		return
+	}
+
+	validTag = true
+	return
+}
+
 // isDigested returns true if provided image string 'v' has digest and false if not.
 // Includes basic validation that a provided digest is correctly formatted.
 func isDigested(v string) (validDigest bool, err error) {
@@ -789,5 +825,37 @@ func isDigested(v string) (validDigest bool, err error) {
 	}
 
 	validDigest = true
+	return
+}
+
+// processImageName processes the image name for deployment. It ensures that
+// image string is validated if --image was given and ensures that proper
+// fields of Function structure are populated if needed.
+// Returns a Function structure(1), bool indicating if image was given with
+// digest(2) and error(3)
+func processImageName(fin fn.Function, configImage string) (f fn.Function, digested bool, err error) {
+	f = fin
+	// check if --image was provided with a digest. 'digested' bool indicates if
+	// image contains a digest or not (image is "digested").
+	digested, err = isDigested(configImage)
+	if err != nil {
+		return
+	}
+	// if image is digested, no need to process further
+	if digested {
+		return
+	}
+	// digested = false here
+
+	// valid image can be with/without a tag and might be/not be built next
+	valid, err := isUndigested(configImage)
+	if err != nil {
+		return
+	}
+	if valid {
+		// this can be overridden when build&push=enabled with freshly built
+		// (digested) image OR directly deployed when build&push=disabled
+		f.Deploy.Image = configImage
+	}
 	return
 }
