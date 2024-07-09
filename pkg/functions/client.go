@@ -1308,9 +1308,9 @@ func hasInitializedFunction(path string) (bool, error) {
 // complete the given command.  Integrators importing the package would
 // provide a concrete implementation for all interfaces to be used. To
 // enable partial definition (in particular used for testing) they
-// are defaulted to noop implementations such that they can be provded
+// are defaulted to noop implementations such that they can be provided
 // only when necessary.  Unit tests for the concrete implementations
-// serve to keep the core logic here separate from the imperitive, and
+// serve to keep the core logic here separate from the imperative, and
 // with a minimum of external dependencies.
 // -----------------------------------------------------
 

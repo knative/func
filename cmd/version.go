@@ -31,7 +31,7 @@ DESCRIPTION
 	  $ {{rootCmdUse}} version -v
 
 `,
-		SuggestFor: []string{"vers", "verison"}, //nolint:misspell
+		SuggestFor: []string{"vers", "version"}, //nolint:misspell
 		PreRunE:    bindEnv("verbose"),
 		Run: func(cmd *cobra.Command, _ []string) {
 			runVersion(cmd, version)

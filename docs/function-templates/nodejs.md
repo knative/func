@@ -44,7 +44,7 @@ After the function has been built, it can be run locally.
 ❯ func run
 ```
 
-Functions can be invoked with a simple HTTP request. 
+Functions can be invoked with a simple HTTP request.
 You can test to see if the function is working by using your browser to visit
 http://localhost:8080. You can also access liveness and readiness
 endpoints at http://localhost:8080/health/liveness and
@@ -108,7 +108,7 @@ parameter. For example, a `CloudEvent` is received which contains a
 JSON string such as this in its data property,
 
 ```json
-{ 
+{
   "customerId": "0123456",
   "productId": "6543210"
 }
@@ -154,7 +154,7 @@ extracted and sent with the response to the caller.
 function processCustomer(customer) {
   // process customer and return custom headers
   // the response will be '204 No content'
-  return { headers: { customerid: customer.id } }; 
+  return { headers: { customerid: customer.id } };
 }
 ```
 
@@ -168,7 +168,7 @@ function processCustomer(customer) {
   // process customer
   if (customer.restricted) {
     return { statusCode: 451 }
-  } 
+  }
 }
 ```
 
@@ -182,7 +182,7 @@ function processCustomer(customer) {
     const err = new Error(‘Unavailable for legal reasons’);
     err.statusCode = 451;
     throw err;
-  } 
+  }
 }
 ```
 
@@ -214,7 +214,7 @@ Access the function via `curl` to invoke it.
 curl http://example.com
 ```
 
-The function will log 
+The function will log
 
 ```console
 {"level":30,"time":1604511655265,"pid":3430203,"hostname":"localhost.localdomain","reqId":1,"msg":"Processing customer"}
@@ -223,7 +223,7 @@ The function will log
 Developers can control the log level by setting the `logLevel` value in
 `func.yaml` The possible options for this adhere to the options available
 for [`pino`](https://getpino.io/#/docs/api?id=level-string),
-and may be one of 
+and may be one of
 `'fatal'`, `'error'`, `'warn'`, `'info'`, `'debug'`, `'trace'` or `'silent'`.
 
 To temporarily override this value, set the environment variable `FUNC_LOG_LEVEL`
@@ -249,7 +249,7 @@ Access the function via `curl` to invoke it.
 ```sh
 curl http://example.com?name=tiger
 ```
-The function will log 
+The function will log
 
 ```console
 {"level":30,"time":1604511655265,"pid":3430203,"hostname":"localhost.localdomain","reqId":1,"msg":"tiger"}
@@ -274,7 +274,7 @@ Access the function via `curl` to invoke it.
 curl -X POST -d '{"hello": "world"}'  -H'Content-type: application/json' http://example.com
 ```
 
-The function will log 
+The function will log
 ```console
 {"level":30,"time":1604511655265,"pid":3430203,"hostname":"localhost.localdomain","reqId":1,"msg":"world"}
 ```
@@ -293,7 +293,7 @@ Access the function via `curl` to invoke it.
 ```console
 curl -H'x-custom-header: some-value’' http://example.com
 ```
-The function will log 
+The function will log
 ```console
 {"level":30,"time":1604511655265,"pid":3430203,"hostname":"localhost.localdomain","reqId":1,"msg":"some-value"}
 ```

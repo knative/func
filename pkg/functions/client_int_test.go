@@ -351,7 +351,7 @@ func TestRemoteRepositories(t *testing.T) {
 		{Path: "dir-a", Perm: 0755},
 	}
 
-	// Note that .Perm() are used to only consider the least-signifigant 9 and
+	// Note that .Perm() are used to only consider the least-significant 9 and
 	// thus not have to consider the directory bit.
 	for _, test := range tests {
 		file, err := os.Stat(test.Path)

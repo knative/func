@@ -47,7 +47,7 @@ After the function has been built, it can be run locally.
 ❯ func run
 ```
 
-Functions can be invoked with a simple HTTP request. 
+Functions can be invoked with a simple HTTP request.
 You can test to see if the function is working by using your browser to visit
 http://localhost:8080. You can also access liveness and readiness
 endpoints at http://localhost:8080/health/liveness and
@@ -136,7 +136,7 @@ function handle(context: Context, cloudevent?: CloudEvent): Record<string, strin
   // process customer and return custom headers
   // the response will be '204 No content'
   const customer = cloudevent.data;
-  return { headers: { "customer-id": customer.id } }; 
+  return { headers: { "customer-id": customer.id } };
 }
 ```
 
@@ -147,10 +147,10 @@ Developers may set the response code returned to the caller by adding a
 #### Example
 ```js
 function handle(context: Context, cloudevent?: CloudEvent): Record<string, string> {
-  // process customer 
+  // process customer
   const customer = cloudevent.data;
   if (customer.restricted) {
-    return { 
+    return {
       statusCode: 451
     }
   }
@@ -172,7 +172,7 @@ function handle(context: Context, cloudevent?: CloudEvent) Record<string, string
     const err = new Error(‘Unavailable for legal reasons’);
     err.statusCode = 451;
     throw err;
-  } 
+  }
 }
 ```
 
@@ -204,7 +204,7 @@ Access the function via `curl` to invoke it.
 curl http://example.com
 ```
 
-The function will log 
+The function will log
 
 ```console
 {"level":30,"time":1604511655265,"pid":3430203,"hostname":"localhost.localdomain","reqId":1,"msg":"Processing customer"}
@@ -230,7 +230,7 @@ Access the function via `curl` to invoke it.
 ```sh
 curl "http://example.com?name=tiger"
 ```
-The function will log 
+The function will log
 
 ```console
 {"level":30,"time":1604511655265,"pid":3430203,"hostname":"localhost.localdomain","reqId":1,"msg":"tiger"}
@@ -256,7 +256,7 @@ Access the function via `curl` to invoke it.
 curl -X POST -d '{"hello": "world"}'  -H'Content-type: application/json' http://example.com
 ```
 
-The function will log 
+The function will log
 ```console
 {"level":30,"time":1604511655265,"pid":3430203,"hostname":"localhost.localdomain","reqId":1,"msg":"world"}
 ```
@@ -276,7 +276,7 @@ Access the function via `curl` to invoke it.
 ```console
 curl -H'x-custom-header: some-value’' http://example.com
 ```
-The function will log 
+The function will log
 ```console
 {"level":30,"time":1604511655265,"pid":3430203,"hostname":"localhost.localdomain","reqId":1,"msg":"some-value"}
 ```

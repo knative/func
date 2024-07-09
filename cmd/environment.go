@@ -37,8 +37,7 @@ DESCRIPTION
 	the version of func, the version of the function spec, the default builder,
 	available runtimes, and available templates.
 `,
-		SuggestFor: []string{"env", "environemtn", "enviroment", "enviornment", "enviroment"},
-		PreRunE:    bindEnv("verbose", "format", "path"),
+		PreRunE: bindEnv("verbose", "format", "path"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runEnvironment(cmd, newClient, version)
 		},

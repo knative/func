@@ -43,7 +43,7 @@ After the function has been built, it can be run locally.
 ❯ func run
 ```
 
-Functions can be invoked with a simple HTTP request. 
+Functions can be invoked with a simple HTTP request.
 You can test to see if the function is working by using your browser to visit
 http://localhost:8080. You can also access liveness and readiness
 endpoints at http://localhost:8080/health/liveness and
@@ -69,7 +69,7 @@ You can get the URL for your deployed function with the `info` command.
 
 
 Go functions can be tested locally on your computer. In the project there is
-a `handle_test.go` file which contains simple test which can be extended as needed. 
+a `handle_test.go` file which contains simple test which can be extended as needed.
 Yo can run this test locally as you would do with any Go project.
 
 ```
@@ -79,8 +79,8 @@ Yo can run this test locally as you would do with any Go project.
 ## Function reference
 
 Boson Go functions have very few restrictions. You can add any required dependencies
-in `go.mod` and you may include additional local Go files. The only real requirement are 
-that your project is defined in a `function` module and exports the function `Handle()` 
+in `go.mod` and you may include additional local Go files. The only real requirement are
+that your project is defined in a `function` module and exports the function `Handle()`
 (supported contracts of this function will be discussed more deeply later).
 In this section, we will look in a little more detail at how Boson functions are invoked,
 and what APIs are available to you as a developer.
@@ -139,10 +139,10 @@ Handle(context.Context, cloudevents.Event) *cloudevents.Event
 Handle(context.Context, cloudevents.Event) (*cloudevents.Event, error)
 ```
 
-For example, a `CloudEvent` is received which contains a JSON string such as this in its data property, 
+For example, a `CloudEvent` is received which contains a JSON string such as this in its data property,
 
 ```json
-{ 
+{
   "customerId": "0123456",
   "productId": "6543210"
 }
@@ -158,7 +158,7 @@ type Purchase struct {
 }
 
 func Handle(ctx context.Context, event cloudevents.Event) err error {
-	  
+
   purchase := &Purchase{}
   if err = cloudevents.DataAs(purchase); err != nil {
 	fmt.Fprintf(os.Stderr, "failed to parse incoming CloudEvent %s\n", err)
