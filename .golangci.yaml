@@ -4,7 +4,7 @@
 # For defaults, see:
 # https://github.com/golangci/golangci-lint/blob/master/.golangci.example.yml
 #
-# 
+#
 #
 run:
   timeout: 5m
@@ -28,4 +28,4 @@ issues:
       #     Name  Type = "value"
       #     Name2      = "value2"
       #   )
-      text: "SA9004:"  
+      text: "SA9004:"

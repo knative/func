@@ -58,7 +58,7 @@ main() {
   done
 
   next_steps
-  
+
   echo -e "\n${green}🎉 DONE${reset}\n"
 }
 

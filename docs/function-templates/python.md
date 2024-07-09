@@ -42,7 +42,7 @@ After the function has been built, it can be run locally.
 ❯ func run
 ```
 
-Functions can be invoked with a simple HTTP request. 
+Functions can be invoked with a simple HTTP request.
 You can test to see if the function is working by using your browser to visit
 http://localhost:8080. You can also access liveness and readiness
 endpoints at http://localhost:8080/health/liveness and
@@ -104,7 +104,7 @@ For example:
 
 ```python
 def main(context: Context):
-    """ 
+    """
     The context parameter contains the Flask request object and any
     CloudEvent received with the request.
     """
@@ -115,7 +115,7 @@ def main(context: Context):
 
 ### Return Values
 Functions may return any value supported by Flask, as the invocation framework
-proxies these values directly to the Flask server. See the Flask 
+proxies these values directly to the Flask server. See the Flask
 [documentation](https://flask.palletsprojects.com/en/1.1.x/quickstart/#about-responses)
 for more information.
 
