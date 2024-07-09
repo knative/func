@@ -43,9 +43,9 @@ def pretty_print(req: Request) -> str:
 
     return ret
 
- 
+
 def main(context: Context):
-    """ 
+    """
     Function template
     The context parameter contains the Flask request object and any
     CloudEvent received with the request.
