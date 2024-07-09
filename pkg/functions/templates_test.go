@@ -355,7 +355,7 @@ func TestTemplates_ModeRemote(t *testing.T) {
 		t.Fatalf("The remote repositry directory mode should be 0755 but was %#o", file.Mode())
 	}
 
-	// Verify remote executible file mode was preserved.
+	// Verify remote executable file mode was preserved.
 	file, err = os.Stat(filepath.Join(root, "test", "executable.sh"))
 	if err != nil {
 		t.Fatal(err)

@@ -1003,7 +1003,7 @@ func checkResourcesArePresent(ctx context.Context, namespace string, referencedS
 }
 
 // setServiceOptions sets annotations on Service Revision Template or in the Service Spec
-// from values specifed in function configuration options
+// from values specified in function configuration options
 func setServiceOptions(template *v1.RevisionTemplateSpec, options fn.Options) error {
 
 	toRemove := []string{}

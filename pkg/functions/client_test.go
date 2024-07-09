@@ -881,7 +881,7 @@ func TestClient_Update(t *testing.T) {
 		return nil
 	}
 
-	// Pusher whose implementaiton verifies the expected image
+	// Pusher whose implementation verifies the expected image
 	pusher.PushFn = func(_ context.Context, f fn.Function) (string, error) {
 		if f.Build.Image != expectedImage {
 			t.Fatalf("pusher expected image '%v', got '%v'", expectedImage, f.Build.Image)
@@ -890,7 +890,7 @@ func TestClient_Update(t *testing.T) {
 		return "", nil
 	}
 
-	// Update whose implementaiton verifed the expected name and image
+	// Update whose implementation verified the expected name and image
 	deployer.DeployFn = func(_ context.Context, f fn.Function) (res fn.DeploymentResult, err error) {
 		if f.Name != expectedName {
 			t.Fatalf("updater expected name '%v', got '%v'", expectedName, f.Name)
@@ -1244,7 +1244,7 @@ func TestClient_Remove_UninitializedFails(t *testing.T) {
 
 	// Attempt to remove by path (uninitialized), expecting an error.
 	if err := client.Remove(context.Background(), "", "", fn.Function{Root: root}, false); err == nil {
-		t.Fatalf("did not received expeced error removing an uninitialized func")
+		t.Fatalf("did not received expected error removing an uninitialized func")
 	}
 }
 
