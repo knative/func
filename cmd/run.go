@@ -181,7 +181,7 @@ func runRun(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		if err != nil {
 			return err
 		}
-		if f, err = build(cmd, cfg.Build, f, client, buildOptions); err != nil {
+		if f, _, err = build(cmd, cfg.Build, f, client, buildOptions); err != nil {
 			return err
 		}
 	}

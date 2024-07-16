@@ -866,6 +866,96 @@ func TestDeploy_ImageWithDigestDoesntPopulateBuild(t *testing.T) {
 	}
 }
 
+// TestDeploy_WithoutDigest ensures that images specified with --image and
+// without digest are correctly processed and propagated to .Deploy.Image
+func TestDeploy_WithoutDigest(t *testing.T) {
+	const sha = "sha256:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+	tests := []struct {
+		name            string   //name of the test
+		args            []string //args to the deploy command
+		expectedImage   string   //expected value of .Deploy.Image
+		expectedToBuild bool     //expected build invocation
+	}{
+		{
+			name:            "defaults with image flag",
+			args:            []string{"--image=image.example.com/alice/f:latest"},
+			expectedImage:   "image.example.com/alice/f" + "@" + sha,
+			expectedToBuild: true,
+		},
+		{
+			name:            "direct deploy with image flag",
+			args:            []string{"--build=false", "--push=false", "--image=image.example.com/bob/f:latest"},
+			expectedImage:   "image.example.com/bob/f:latest",
+			expectedToBuild: false,
+		},
+		{
+			name:            "tagged image, push disabled",
+			args:            []string{"--push=false", "--image=image.example.com/clarance/f:latest"},
+			expectedImage:   "image.example.com/clarance/f:latest",
+			expectedToBuild: true,
+		},
+		{
+			name:            "untagged image w/ build & push",
+			args:            []string{"--image=image.example.com/dominik/f"},
+			expectedImage:   "image.example.com/dominik/f" + "@" + sha,
+			expectedToBuild: true,
+		},
+		{
+			name:            "untagged image w/out build & push",
+			args:            []string{"--build=false", "--push=false", "--image=image.example.com/enrique/f"},
+			expectedImage:   "image.example.com/enrique/f",
+			expectedToBuild: false,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			// ASSEMBLE
+			var (
+				root     = FromTempDirectory(t)
+				deployer = mock.NewDeployer()
+				builder  = mock.NewBuilder()
+				pusher   = mock.NewPusher()
+				f        = fn.Function{}
+			)
+
+			f.Name = "func"
+			f.Runtime = "go"
+			f, err := fn.New().Init(f)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// TODO: gauron99 this will be changed once we get image name+digest in
+			// building phase
+			// simulate current implementation of pusher where full image is concatenated
+			pusher.PushFn = func(ctx context.Context, _ fn.Function) (string, error) {
+				return sha, nil
+			}
+
+			// ACT
+			cmd := NewDeployCmd(NewTestClient(fn.WithDeployer(deployer), fn.WithBuilder(builder), fn.WithPusher(pusher)))
+			cmd.SetArgs(test.args)
+			if err := cmd.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			f, err = fn.NewFunction(root)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// ASSERT
+			if builder.BuildInvoked != test.expectedToBuild {
+				t.Fatalf("expected builder invocation: '%v', got '%v'", test.expectedToBuild, builder.BuildInvoked)
+			}
+
+			if f.Deploy.Image != test.expectedImage {
+				t.Fatalf("expected deployed image '%v', got '%v'", test.expectedImage, f.Deploy.Image)
+			}
+		})
+	}
+}
+
 // TestDepoy_InvalidRegistry ensures that providing an invalid registry
 // fails with the expected error.
 func TestDeploy_InvalidRegistry(t *testing.T) {
