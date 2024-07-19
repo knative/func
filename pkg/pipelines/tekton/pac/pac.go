@@ -44,7 +44,7 @@ func DetectPACInstallation(ctx context.Context) (bool, string, error) {
 	installed = true
 
 	// First search namespaces that usually contains PaC, this check may be done even by unprivileged user.
-	for _, suspectedNS := range []string{"pipelines-as-code", "openshift-pipelines"} {
+	for _, suspectedNS := range []string{"pipelines-as-code", "openshift-pipelines", "tekton-pipelines"} {
 		_, e := clientK8s.CoreV1().ConfigMaps(suspectedNS).Get(ctx, infoConfigMap, metav1.GetOptions{})
 		if e == nil {
 			return installed, suspectedNS, nil
