@@ -87,7 +87,7 @@ const updatePlatformInPom = async (pomPath, newPlatform) => {
     pom.project.properties[0]['spring-cloud.version'] = [compatibleSpringCloudVersion]
 
     const builder = new xml2js.Builder( { headless: false, renderOpts: { pretty: true }  })
-    const newPomData = builder.buildObject(pom)
+    const newPomData = builder.buildObject(pom) + "\n"
     await writeFile(pomPath, newPomData)
 }
 
