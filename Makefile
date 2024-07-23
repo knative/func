@@ -83,8 +83,6 @@ generate/zz_filesystem_generated.go: clean_templates templates/certs/ca-certific
 .PHONY: clean_templates
 clean_templates:
 	# Removing temporary template files
-	@rm -f templates/go/cloudevents/go.sum
-	@rm -f templates/go/http/go.sum
 	@rm -rf templates/node/cloudevents/node_modules
 	@rm -rf templates/node/http/node_modules
 	@rm -rf templates/python/cloudevents/__pycache__
