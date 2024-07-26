@@ -33,7 +33,7 @@ function build_release() {
     knative_version="$(git describe --tags --match 'knative-*')"
     go_module_version="$(git describe --tags --match 'v*')"
   fi
-  FUNC_REPO_BRANCH_REF="$(git branch --show-current)" VERS="${go_module_version}" KVER="=${knative_version}" make cross-platform
+  FUNC_REPO_BRANCH_REF="$(git branch --show-current)" VERS="${go_module_version}" KVER="${knative_version}" make cross-platform
 
   ARTIFACTS_TO_PUBLISH="func_darwin_amd64 func_darwin_arm64 func_linux_amd64 func_linux_arm64 func_linux_ppc64le func_linux_s390x func_windows_amd64.exe"
   ARTIFACTS_TO_PUBLISH="${ARTIFACTS_TO_PUBLISH}"
