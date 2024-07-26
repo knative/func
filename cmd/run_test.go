@@ -192,24 +192,19 @@ func TestRun_Images(t *testing.T) {
 			args:         []string{"--image", "exampleimage@sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"},
 			runInvoked:   true,
 			buildInvoked: false,
-			runError:     nil,
-			buildError:   nil,
 		},
 		{
 			name:         "image with tag direct deploy",
 			args:         []string{"--image", "exampleimage:latest", "--build=false"},
 			runInvoked:   true,
 			buildInvoked: false,
-			runError:     nil,
-			buildError:   nil,
 		},
 		{
-			name:         "image without tag direct deploy",
-			args:         []string{"--image", "exampleimage", "--build=false"},
-			runInvoked:   true,
+			name:         "digested image without container should fail",
+			args:         []string{"--container=false", "--image", "exampleimage@sha256:1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"},
+			runInvoked:   false,
 			buildInvoked: false,
-			runError:     nil,
-			buildError:   nil,
+			buildError:   fmt.Errorf("cannot use digested image with --container=false"),
 		},
 	}
 

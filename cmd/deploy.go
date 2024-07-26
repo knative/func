@@ -775,7 +775,8 @@ func printDeployMessages(out io.Writer, f fn.Function) {
 	}
 }
 
-// isUndigested returns true if provided image string 'v' has valid tag and false if
+// isUndigested returns true if provided image string 'v' is valid ( by
+// by acceptable standards -- tagged, untagged -> assuming :latest) and false if
 // not. It is lenient in validating - does not always throw an error, just
 // returning false in some scenarios.
 func isUndigested(v string) (validTag bool, err error) {
