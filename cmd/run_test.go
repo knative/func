@@ -195,7 +195,7 @@ func TestRun_Images(t *testing.T) {
 		},
 		{
 			name:         "image with tag direct deploy",
-			args:         []string{"--image", "exampleimage:latest", "--build=false"},
+			args:         []string{"--image", "username/exampleimage:latest", "--build=false"},
 			runInvoked:   true,
 			buildInvoked: false,
 		},
@@ -205,6 +205,12 @@ func TestRun_Images(t *testing.T) {
 			runInvoked:   false,
 			buildInvoked: false,
 			buildError:   fmt.Errorf("cannot use digested image with --container=false"),
+		},
+		{
+			name:         "image should build even with tagged image given",
+			args:         []string{"--image", "username/exampleimage:latest"},
+			runInvoked:   true,
+			buildInvoked: true,
 		},
 	}
 

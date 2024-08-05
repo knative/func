@@ -172,22 +172,24 @@ func runRun(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	client, done := newClient(ClientConfig{Verbose: cfg.Verbose}, clientOptions...)
 	defer done()
 
+	var (
+		digested        bool
+		validUndigested bool
+		justBuilt       bool
+	)
+
 	// check for digested image first
-	var digested bool
 	digested, err = isDigested(cfg.Image)
 	if err != nil {
 		return err
 	}
 
-	// if !digested {
-	// 	valid, err := isUndigested(cfg.Image)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	if valid {
-	// 		f.Run.Image = cfg.Image //assign image to be potentially run
-	// 	}
-	// }
+	if !digested {
+		validUndigested, err = isUndigested(cfg.Image)
+		if err != nil {
+			return err
+		}
+	}
 
 	// Build
 	//
@@ -204,8 +206,11 @@ func runRun(cmd *cobra.Command, newClient ClientFactory) (err error) {
 			// it doesnt get saved, just runtime image
 			f.Build.Image = cfg.Image
 		} else {
-			if f, _, err = build(cmd, cfg.Build, f, client, buildOptions); err != nil {
+			if f, justBuilt, err = build(cmd, cfg.Build, f, client, buildOptions); err != nil {
 				return err
+			}
+			if !justBuilt && validUndigested {
+				f.Build.Image = cfg.Image
 			}
 		}
 	} else { // dont run digested image without a container

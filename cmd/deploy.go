@@ -780,6 +780,10 @@ func printDeployMessages(out io.Writer, f fn.Function) {
 // not. It is lenient in validating - does not always throw an error, just
 // returning false in some scenarios.
 func isUndigested(v string) (validTag bool, err error) {
+	if v == "" {
+		// specif image was not given
+		return
+	}
 	if strings.Contains(v, "@") {
 		// digest has been processed separately
 		return
