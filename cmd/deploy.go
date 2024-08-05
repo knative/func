@@ -370,6 +370,8 @@ func build(cmd *cobra.Command, flag string, f fn.Function, client *fn.Client, bu
 		if f, err = client.Build(cmd.Context(), f, buildOptions...); err != nil {
 			return f, false, err
 		}
+	} else if !build {
+		return f, false, nil
 	} else if _, err = strconv.ParseBool(flag); err != nil {
 		return f, false, fmt.Errorf("--build ($FUNC_BUILD) %q not recognized.  Should be 'auto' or a truthy value such as 'true', 'false', '0', or '1'.", flag)
 
