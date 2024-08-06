@@ -2017,3 +2017,52 @@ func TestDeploy_WithoutHome(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestDeploy_AfterBuild(t *testing.T) {
+	var (
+		root = FromTempDirectory(t)
+		ns   = "myns"
+	)
+	f := fn.Function{
+		Runtime: "go",
+		Root:    root,
+	}
+	_, err := fn.New().Init(f)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// prebuild function
+	cmd := NewBuildCmd(NewTestClient(
+		fn.WithBuilder(mock.NewBuilder()),
+		fn.WithRegistry(TestRegistry)))
+
+	if err = cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	deployer := mock.NewDeployer()
+	deployer.DeployFn = func(_ context.Context, f fn.Function) (result fn.DeploymentResult, err error) {
+		fmt.Printf("IMAGE IN DEPLOYER IS %v\n", f.Deploy.Image)
+		if f.Deploy.Image == "" {
+			return fn.DeploymentResult{}, fmt.Errorf("image was not set for deployer")
+		}
+		if f.Namespace != "" {
+			result.Namespace = f.Namespace // deployed to that requested
+		} else if f.Deploy.Namespace != "" {
+			result.Namespace = f.Deploy.Namespace // redeploy to current
+		} else {
+			err = errors.New("namespace required for initial deployment")
+		}
+		return
+	}
+
+	// Deploy the function
+	cmd = NewDeployCmd(NewTestClient(
+		fn.WithDeployer(deployer),
+		fn.WithRegistry(TestRegistry)))
+	cmd.SetArgs([]string{fmt.Sprintf("--namespace=%s", ns), "--build=false"})
+
+	if err := cmd.Execute(); err != nil {
+		t.Fatal(err)
+	}
+}

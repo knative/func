@@ -192,7 +192,7 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 		return
 	}
 	if cfg.Push {
-		if f, err = client.Push(cmd.Context(), f); err != nil {
+		if f, _, err = client.Push(cmd.Context(), f); err != nil {
 			return
 		}
 	}

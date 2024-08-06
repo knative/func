@@ -307,7 +307,7 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		}
 
 		var justBuilt bool
-
+		var justPushed bool
 		// If user provided --image with digest, they are requesting that specific
 		// image to be used which means building phase should be skipped and image
 		// should be deployed as is
@@ -319,19 +319,18 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 				return
 			}
 			if cfg.Push {
-				if f, err = client.Push(cmd.Context(), f); err != nil {
+				if f, justPushed, err = client.Push(cmd.Context(), f); err != nil {
 					return
 				}
 			}
 			// TODO: gauron99 - temporary fix for undigested image direct deploy (w/out
 			// build) I think we will be able to remove this after we clean up the
 			// building process - move the setting of built image in building phase?
-			if justBuilt && f.Build.Image != "" {
+			if (justBuilt || justPushed) && f.Build.Image != "" {
 				// f.Build.Image is set in Push for now, just set it as a deployed image
 				f.Deploy.Image = f.Build.Image
 			}
 		}
-
 		if f, err = client.Deploy(cmd.Context(), f, fn.WithDeploySkipBuildCheck(cfg.Build == "false")); err != nil {
 			return
 		}
@@ -370,11 +369,11 @@ func build(cmd *cobra.Command, flag string, f fn.Function, client *fn.Client, bu
 		if f, err = client.Build(cmd.Context(), f, buildOptions...); err != nil {
 			return f, false, err
 		}
-	} else if !build {
-		return f, false, nil
 	} else if _, err = strconv.ParseBool(flag); err != nil {
 		return f, false, fmt.Errorf("--build ($FUNC_BUILD) %q not recognized.  Should be 'auto' or a truthy value such as 'true', 'false', '0', or '1'.", flag)
-
+	} else if !build {
+		fmt.Printf("didnt currently build anything but no errors either\n")
+		return f, false, nil
 	}
 	return f, true, nil
 }
