@@ -739,7 +739,6 @@ func WithDeploySkipBuildCheck(skipBuiltCheck bool) DeployOption {
 // Errors if the function has not been built unless explicitly instructed
 // to ignore this build check.
 func (c *Client) Deploy(ctx context.Context, f Function, oo ...DeployOption) (Function, error) {
-	fmt.Fprintf(os.Stderr, ">> deploying image: %s\n", f.Deploy.Image)
 
 	options := &DeployOptions{}
 	for _, o := range oo {

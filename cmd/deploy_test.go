@@ -2042,7 +2042,6 @@ func TestDeploy_AfterBuild(t *testing.T) {
 
 	deployer := mock.NewDeployer()
 	deployer.DeployFn = func(_ context.Context, f fn.Function) (result fn.DeploymentResult, err error) {
-		fmt.Printf("IMAGE IN DEPLOYER IS %v\n", f.Deploy.Image)
 		if f.Deploy.Image == "" {
 			return fn.DeploymentResult{}, fmt.Errorf("image was not set for deployer")
 		}
