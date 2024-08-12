@@ -623,6 +623,9 @@ func TestCredentialsWithoutHome(t *testing.T) {
 // TestCredentialsHomePermissions tests whether the credentials provider
 // works in scenarios where HOME has different permissions
 func TestCredentialsHomePermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("skip windows perms for this test until windows perms are added") // TODO: gauron99 fix this
+	}
 	type args struct {
 		promptUser        creds.CredentialsCallback
 		verifyCredentials creds.VerifyCredentialsCallback
