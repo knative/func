@@ -173,24 +173,17 @@ func runRun(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	defer done()
 
 	var (
-		digested        bool
-		validUndigested bool
-		justBuilt       bool
+		digested  bool
+		justBuilt bool
 	)
 
-	// check for digested image first
-	digested, err = isDigested(cfg.Image)
-	if err != nil {
-		return err
-	}
-
-	if !digested {
-		validUndigested, err = isUndigested(cfg.Image)
+	// if image was specified, check if its digested and do basic validation
+	if cfg.Image != "" {
+		digested, err = isDigested(cfg.Image)
 		if err != nil {
 			return err
 		}
 	}
-
 	// Build
 	//
 	// If requesting to run via the container, build the container if it is
@@ -209,7 +202,7 @@ func runRun(cmd *cobra.Command, newClient ClientFactory) (err error) {
 			if f, justBuilt, err = build(cmd, cfg.Build, f, client, buildOptions); err != nil {
 				return err
 			}
-			if !justBuilt && validUndigested {
+			if !justBuilt && !digested {
 				f.Build.Image = cfg.Image
 			}
 		}

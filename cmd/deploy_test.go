@@ -2018,50 +2018,125 @@ func TestDeploy_WithoutHome(t *testing.T) {
 	}
 }
 
-func TestDeploy_AfterBuild(t *testing.T) {
-	var (
-		root = FromTempDirectory(t)
-		ns   = "myns"
-	)
-	f := fn.Function{
-		Runtime: "go",
-		Root:    root,
+// TestDeploy_CorrectImageDeployed ensures that deploying will always pass
+// the correct image name to the deployer (populating the f.Deploy.Image value)
+// in various scenarios.
+func TestDeploy_CorrectImageDeployed(t *testing.T) {
+	const sha = "sha256:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+	// dataset
+	tests := []struct {
+		name         string
+		image        string
+		buildArgs    []string
+		deployArgs   []string
+		shouldFail   bool
+		shouldBuild  bool
+		pusherActive bool
+	}{
+		{
+			name:       "basic test to create and deploy",
+			image:      "myimage",
+			deployArgs: []string{"--image", "myimage"},
+		},
+		{
+			name:  "test to deploy with prebuild",
+			image: "myimage",
+			buildArgs: []string{
+				"--image=myimage",
+			},
+			deployArgs: []string{
+				"--build=false",
+			},
+			shouldBuild: true,
+		},
+		{
+			name:  "test to build and deploy",
+			image: "myimage",
+			buildArgs: []string{
+				"--image=myimage",
+			},
+			shouldBuild: true,
+		},
+		{
+			name:  "test to deploy without build should fail",
+			image: "myimage",
+			deployArgs: []string{
+				"--build=false",
+			},
+			shouldFail: true,
+		},
+		{
+			name:  "test to build then deploy with push",
+			image: "myimage" + "@" + sha,
+			buildArgs: []string{
+				"--image=myimage",
+			},
+			deployArgs: []string{
+				"--build=false",
+				"--push=true",
+			},
+			shouldBuild:  true,
+			pusherActive: true,
+		},
 	}
-	_, err := fn.New().Init(f)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// prebuild function
-	cmd := NewBuildCmd(NewTestClient(
-		fn.WithBuilder(mock.NewBuilder()),
-		fn.WithRegistry(TestRegistry)))
 
-	if err = cmd.Execute(); err != nil {
-		t.Fatal(err)
-	}
+	// run tests
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := FromTempDirectory(t)
+			f := fn.Function{
+				Runtime: "go",
+				Root:    root,
+			}
+			_, err := fn.New().Init(f)
+			if err != nil {
+				t.Fatal(err)
+			}
 
-	deployer := mock.NewDeployer()
-	deployer.DeployFn = func(_ context.Context, f fn.Function) (result fn.DeploymentResult, err error) {
-		if f.Deploy.Image == "" {
-			return fn.DeploymentResult{}, fmt.Errorf("image was not set for deployer")
-		}
-		if f.Namespace != "" {
-			result.Namespace = f.Namespace // deployed to that requested
-		} else if f.Deploy.Namespace != "" {
-			result.Namespace = f.Deploy.Namespace // redeploy to current
-		} else {
-			err = errors.New("namespace required for initial deployment")
-		}
-		return
-	}
+			// prebuild function if desired
+			if tt.shouldBuild {
+				cmd := NewBuildCmd(NewTestClient(fn.WithRegistry(TestRegistry)))
+				cmd.SetArgs(tt.buildArgs)
+				if err = cmd.Execute(); err != nil {
+					t.Fatal(err)
+				}
+			}
 
-	// Deploy the function
-	cmd = NewDeployCmd(NewTestClient(
-		fn.WithDeployer(deployer),
-		fn.WithRegistry(TestRegistry)))
-	cmd.SetArgs([]string{fmt.Sprintf("--namespace=%s", ns), "--build=false"})
+			pusher := mock.NewPusher()
+			if tt.pusherActive {
+				pusher.PushFn = func(_ context.Context, _ fn.Function) (string, error) {
+					return sha, nil
+				}
+			}
 
-	if err := cmd.Execute(); err != nil {
-		t.Fatal(err)
+			deployer := mock.NewDeployer()
+			deployer.DeployFn = func(_ context.Context, f fn.Function) (result fn.DeploymentResult, err error) {
+				// verify the image passed to the deployer
+				if f.Deploy.Image != tt.image {
+					return fn.DeploymentResult{}, fmt.Errorf("image '%v' does not match the expected image '%v'\n", f.Deploy.Image, tt.image)
+				}
+				return
+			}
+
+			// Deploy the function
+			cmd := NewDeployCmd(NewTestClient(
+				fn.WithDeployer(deployer), //is always specified
+				fn.WithPusher(pusher)))    // if specified, will return sha for testing
+
+			cmd.SetArgs(tt.deployArgs)
+
+			// assert
+			err = cmd.Execute()
+			if tt.shouldFail {
+				if err == nil {
+					t.Fatal("expected an error but got none")
+				}
+			} else {
+				// should not fail
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+		})
 	}
 }

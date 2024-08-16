@@ -326,11 +326,14 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 			// TODO: gauron99 - temporary fix for undigested image direct deploy (w/out
 			// build) I think we will be able to remove this after we clean up the
 			// building process - move the setting of built image in building phase?
+			fmt.Printf("justBuilt '%v'; justPushed '%v'\n", justBuilt, justPushed)
+			fmt.Printf("builtImage '%v'; deployimage '%v'\n", f.Build.Image, f.Deploy.Image)
 			if (justBuilt || justPushed) && f.Build.Image != "" {
 				// f.Build.Image is set in Push for now, just set it as a deployed image
 				f.Deploy.Image = f.Build.Image
 			}
 		}
+		fmt.Printf("builtImage '%v'; deployimage '%v'\n", f.Build.Image, f.Deploy.Image)
 		if f, err = client.Deploy(cmd.Context(), f, fn.WithDeploySkipBuildCheck(cfg.Build == "false")); err != nil {
 			return
 		}
@@ -671,10 +674,11 @@ func (c deployConfig) Validate(cmd *cobra.Command) (err error) {
 	}
 
 	// Check Image Digest was included
-	// (will be set on the function during .Configure)
 	var digest bool
-	if digest, err = isDigested(c.Image); err != nil {
-		return
+	if c.Image != "" {
+		if digest, err = isDigested(c.Image); err != nil {
+			return
+		}
 	}
 
 	// --build can be "auto"|true|false
@@ -779,45 +783,69 @@ func printDeployMessages(out io.Writer, f fn.Function) {
 // by acceptable standards -- tagged, untagged -> assuming :latest) and false if
 // not. It is lenient in validating - does not always throw an error, just
 // returning false in some scenarios.
-func isUndigested(v string) (validTag bool, err error) {
-	if v == "" {
-		// specif image was not given
-		return
-	}
-	if strings.Contains(v, "@") {
-		// digest has been processed separately
-		return
-	}
-	vv := strings.Split(v, ":")
-	if len(vv) < 2 {
-		// assume user knows what hes doing
-		validTag = true
-		return
-	} else if len(vv) > 2 {
-		err = fmt.Errorf("image '%v' contains an invalid tag (extra ':')", v)
-		return
-	}
-	tag := vv[1]
-	if tag == "" {
-		err = fmt.Errorf("image '%v' has an empty tag", v)
-		return
-	}
+// func isUndigested(v string) (validTag bool, err error) {
+// 	if v == "" {
+// 		// specif image was not given
+// 		err = fmt.Errorf("provided image is emtpy")
+// 		return
+// 	}
+// 	if strings.Contains(v, "@") {
+// 		// digest has been processed separately
+// 		return
+// 	}
+// 	vv := strings.Split(v, ":")
+// 	if len(vv) < 2 {
+// 		// assume user knows what hes doing
+// 		validTag = true
+// 		return
+// 	} else if len(vv) > 2 {
+// 		err = fmt.Errorf("image '%v' contains an invalid tag (extra ':')", v)
+// 		return
+// 	}
+// 	tag := vv[1]
+// 	if tag == "" {
+// 		err = fmt.Errorf("image '%v' has an empty tag", v)
+// 		return
+// 	}
 
-	validTag = true
-	return
-}
+// 	validTag = true
+// 	return
+// }
 
 // isDigested returns true if provided image string 'v' has digest and false if not.
 // Includes basic validation that a provided digest is correctly formatted.
+// Given that image is not digested, image will still be validated and return
+// a combination of bool (img has valid digest) and err (img is in valid format)
+// Therefore returned combination of [false,nil] means "valid undigested image".
 func isDigested(v string) (validDigest bool, err error) {
 	var digest string
 	vv := strings.Split(v, "@")
 	if len(vv) < 2 {
-		return // has no digest
+		// image does NOT have a digest, validate further
+		// if v == "" {
+		// err = fmt.Errorf("provided image is empty, cannot validate")
+		// return
+		// }
+		vvv := strings.Split(v, ":")
+		if len(vvv) < 2 {
+			// assume user knows what hes doing
+			return
+		} else if len(vvv) > 2 {
+			err = fmt.Errorf("image '%v' contains an invalid tag (extra ':')", v)
+			return
+		}
+		tag := vvv[1]
+		if tag == "" {
+			err = fmt.Errorf("image '%v' has an empty tag", v)
+			return
+		}
+		return
 	} else if len(vv) > 2 {
+		// image is invalid
 		err = fmt.Errorf("image '%v' contains an invalid digest (extra '@')", v)
 		return
 	}
+	// image has a digest, validate further
 	digest = vv[1]
 
 	if !strings.HasPrefix(digest, "sha256:") {
@@ -843,24 +871,14 @@ func processImageName(fin fn.Function, configImage string) (f fn.Function, diges
 	// check if --image was provided with a digest. 'digested' bool indicates if
 	// image contains a digest or not (image is "digested").
 	digested, err = isDigested(configImage)
-	if err != nil {
+	// image is digested, no need to process further || error occurred
+	if digested || err != nil {
 		return
 	}
-	// if image is digested, no need to process further
-	if digested {
-		return
-	}
-	// digested = false here
 
-	// valid image can be with/without a tag and might be/not be built next
-	valid, err := isUndigested(configImage)
-	if err != nil {
-		return
-	}
-	if valid {
-		// this can be overridden when build&push=enabled with freshly built
-		// (digested) image OR directly deployed when build&push=disabled
-		f.Deploy.Image = configImage
-	}
+	// assign valid, undigested image as deployed image before any other changes.
+	// This can be overridden when build&push=enabled with freshly built image
+	// OR directly deployed when build&push=disabled as is.
+	f.Deploy.Image = configImage
 	return
 }
