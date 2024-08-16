@@ -786,7 +786,7 @@ func printDeployMessages(out io.Writer, f fn.Function) {
 // func isUndigested(v string) (validTag bool, err error) {
 // 	if v == "" {
 // 		// specif image was not given
-// 		err = fmt.Errorf("provided image is emtpy")
+// 		err = fmt.Errorf("provided image is empty")
 // 		return
 // 	}
 // 	if strings.Contains(v, "@") {
