@@ -1781,6 +1781,8 @@ go.starlark.net v0.0.0-20230525235612-a134d8f9ddca/go.mod h1:jxU+3+j+71eXOW14274
 go.uber.org/atomic v1.3.2/go.mod h1:gD2HeocX3+yG+ygLZcrzQJaqmWj9AIm7n08wl/qW/PE=
 go.uber.org/atomic v1.4.0/go.mod h1:gD2HeocX3+yG+ygLZcrzQJaqmWj9AIm7n08wl/qW/PE=
 go.uber.org/atomic v1.6.0/go.mod h1:sABNBOSYdrvTF6hTgEIbc7YasKWGhgEQZyfxyTvoXHQ=
+go.uber.org/atomic v1.11.0 h1:ZvwS0R+56ePWxUNi+Atn9dWONBPp/AUETXlHW0DxSjE=
+go.uber.org/atomic v1.11.0/go.mod h1:LUxbIzbOniOlMKjJjyPfpl4v+PKK2cNJn91OQbhoJI0=
 go.uber.org/goleak v1.1.10/go.mod h1:8a7PlsEVH3e/a/GLqe5IIrQx6GzcnRmZEufDUTk4A7A=
 go.uber.org/goleak v1.3.0 h1:2K3zAYmnTNqV73imy9J1T3WC+gmCePx2hEGkimedGto=
 go.uber.org/goleak v1.3.0/go.mod h1:CoHD4mav9JJNrW/WLlf7HGZPjdw8EucARQHekz1X6bE=
@@ -2707,8 +2709,8 @@ k8s.io/utils v0.0.0-20240711033017-18e509b52bc8 h1:pUdcCO1Lk/tbT5ztQWOBi5HBgbBP1
 k8s.io/utils v0.0.0-20240711033017-18e509b52bc8/go.mod h1:OLgZIPagt7ERELqWJFomSt595RzquPNLL48iOWgYOg0=
 knative.dev/client-pkg v0.0.0-20240808015000-22f598931483 h1:jBfmxcR0H5Z9IzamelZtmmg9jfeOXfssllUVX5M4Xzs=
 knative.dev/client-pkg v0.0.0-20240808015000-22f598931483/go.mod h1:Y56KfZx3gJJpju88l86jQ9csxywLiopR0GkxCWW3+Kg=
-knative.dev/eventing v0.42.1-0.20240815141311-90a88fc70fac h1:RuvoMSjGKNwRzECw1vK1pShVpAAuSfGlEKILlaoKAMU=
-knative.dev/eventing v0.42.1-0.20240815141311-90a88fc70fac/go.mod h1:eTJLSCpHchscm2VV/e10w3HcGIB7dOYdGAzeBIRmJ08=
+knative.dev/eventing v0.42.1-0.20240816185524-bf945f909e68 h1:auwsBqDedYnCPovW5jzZXiXwlI3aBMZyfHhmRj/aq8I=
+knative.dev/eventing v0.42.1-0.20240816185524-bf945f909e68/go.mod h1:eTJLSCpHchscm2VV/e10w3HcGIB7dOYdGAzeBIRmJ08=
 knative.dev/hack v0.0.0-20240814130635-06f7aff93954 h1:dGMK5VoL75szvrYQTL9NqhPYHu1f5dGaXx1hJI8fAFM=
 knative.dev/hack v0.0.0-20240814130635-06f7aff93954/go.mod h1:R0ritgYtjLDO9527h5vb5X6gfvt5LCrJ55BNbVDsWiY=
 knative.dev/networking v0.0.0-20240808015019-d4c57cd4a1b3 h1:KfIea0RVx0QfHK0gHruJfacT2kBVb4hZE8Sgzs32KKo=
