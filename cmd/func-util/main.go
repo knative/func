@@ -25,12 +25,24 @@ func main() {
 		os.Exit(137)
 	}()
 
-	err := deploy(ctx)
+	var cmd func(context.Context) error = unknown
+
+	switch os.Args[0] {
+	case "deploy":
+		cmd = deploy
+	}
+
+	err := cmd(ctx)
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "ERROR: %s\n", err)
 		os.Exit(1)
 	}
 }
+
+func unknown(_ context.Context) error {
+	return fmt.Errorf("unknown command: " + os.Args[0])
+}
+
 func deploy(ctx context.Context) error {
 	var err error
 	deployer := knative.NewDeployer(
