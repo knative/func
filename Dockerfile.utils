@@ -4,6 +4,11 @@ ARG BUILDPLATFORM
 ARG TARGETPLATFORM
 ARG TARGETARCH
 
+WORKDIR /workspace
+
+COPY go.mod go.sum ./
+RUN go mod download -x
+
 COPY . .
 
 RUN GOARCH=$TARGETARCH go build -o func-util -trimpath -ldflags '-w -s' ./cmd/func-util
@@ -16,7 +21,7 @@ RUN apk add --no-cache socat tar \
   && addgroup func -g 1000 \
   && adduser func -u 1001 -D -G func
 
-COPY --from=builder /go/func-util /usr/local/bin/
+COPY --from=builder /workspace/func-util /usr/local/bin/
 RUN ln -s /usr/local/bin/func-util /usr/local/bin/deploy && \
     ln -s /usr/local/bin/func-util /usr/local/bin/scaffold
 
