@@ -298,16 +298,24 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 			return
 		}
 
-		// Preprocess image name. Validate the image and check whether its digested
-		// This might alter f.Deploy.Image.
-		var digested bool
-		f, digested, err = processImageName(f, cfg.Image)
-		if err != nil {
-			return
+		var (
+			digested   bool
+			justBuilt  bool
+			justPushed bool
+		)
+
+		// Validate the image and check whether its digested or not
+		if cfg.Image != "" {
+			digested, err = isDigested(cfg.Image)
+			if err != nil {
+				return
+			}
+			// image is valid and undigested
+			if !digested {
+				f.Deploy.Image = cfg.Image
+			}
 		}
 
-		var justBuilt bool
-		var justPushed bool
 		// If user provided --image with digest, they are requesting that specific
 		// image to be used which means building phase should be skipped and image
 		// should be deployed as is
@@ -323,9 +331,9 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 					return
 				}
 			}
-			// TODO: gauron99 - temporary fix for undigested image direct deploy (w/out
-			// build) I think we will be able to remove this after we clean up the
-			// building process - move the setting of built image in building phase?
+			// TODO: gauron99 - temporary fix for undigested image direct deploy
+			// (w/out build) This might be more complex to do than leaving like this
+			// image digests are created via the registry on push.
 			fmt.Printf("justBuilt '%v'; justPushed '%v'\n", justBuilt, justPushed)
 			fmt.Printf("builtImage '%v'; deployimage '%v'\n", f.Build.Image, f.Deploy.Image)
 			if (justBuilt || justPushed) && f.Build.Image != "" {
@@ -822,10 +830,10 @@ func isDigested(v string) (validDigest bool, err error) {
 	vv := strings.Split(v, "@")
 	if len(vv) < 2 {
 		// image does NOT have a digest, validate further
-		// if v == "" {
-		// err = fmt.Errorf("provided image is empty, cannot validate")
-		// return
-		// }
+		if v == "" {
+			err = fmt.Errorf("provided image is empty, cannot validate")
+			return
+		}
 		vvv := strings.Split(v, ":")
 		if len(vvv) < 2 {
 			// assume user knows what hes doing
@@ -866,19 +874,23 @@ func isDigested(v string) (validDigest bool, err error) {
 // fields of Function structure are populated if needed.
 // Returns a Function structure(1), bool indicating if image was given with
 // digest(2) and error(3)
-func processImageName(fin fn.Function, configImage string) (f fn.Function, digested bool, err error) {
-	f = fin
+func processImageName(f fn.Function, configImage string) (fn.Function, bool, error) {
+	var (
+		digested bool
+		err      error
+	)
+
 	// check if --image was provided with a digest. 'digested' bool indicates if
 	// image contains a digest or not (image is "digested").
 	digested, err = isDigested(configImage)
 	// image is digested, no need to process further || error occurred
 	if digested || err != nil {
-		return
+		return f, digested, err
 	}
 
 	// assign valid, undigested image as deployed image before any other changes.
 	// This can be overridden when build&push=enabled with freshly built image
 	// OR directly deployed when build&push=disabled as is.
 	f.Deploy.Image = configImage
-	return
+	return f, digested, err
 }
