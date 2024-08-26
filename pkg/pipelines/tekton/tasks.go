@@ -303,7 +303,7 @@ spec:
       description: Digest of the image just built.
   steps:
     - name: generate
-      image: quay.io/boson/s2i:latest
+      image: quay.io/boson/s2i@sha256:b4f80a3e6d6b2ee6d9a1a4e51a6b0f968cfd927132724b1209865e15b9ada4cb
       workingDir: $(workspaces.source.path)
       args: ["$(params.ENV_VARS[*])"]
       script: |
