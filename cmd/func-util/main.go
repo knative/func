@@ -61,8 +61,8 @@ func scaffold(ctx context.Context) error {
 		return fmt.Errorf("cannot load func project: %w", err)
 	}
 
-	if f.Runtime != "go" || f.Build.Builder != "s2i" {
-		// Scaffolding is for now supported/needed only for Go S2I build.
+	if f.Runtime != "go" {
+		// Scaffolding is for now supported/needed only for Go.
 		return nil
 	}
 
