@@ -83,7 +83,7 @@ func scaffold(ctx context.Context) error {
 		return fmt.Errorf("unable to create .s2i bin dir. %w", err)
 	}
 
-	if err := os.WriteFile(filepath.Join(f.Root, ".s2i", "bin", "assemble"), []byte(s2i.GoAssembler), 0700); err != nil {
+	if err := os.WriteFile(filepath.Join(f.Root, ".s2i", "bin", "assemble"), []byte(s2i.GoAssembler), 0755); err != nil {
 		return fmt.Errorf("unable to write go assembler. %w", err)
 	}
 
