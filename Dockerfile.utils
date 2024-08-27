@@ -18,8 +18,8 @@ RUN GOARCH=$TARGETARCH go build -o func-util -trimpath -ldflags '-w -s' ./cmd/fu
 FROM --platform=$TARGETPLATFORM index.docker.io/library/alpine:latest
 
 RUN apk add --no-cache socat tar \
-  && addgroup func -g 1000 \
-  && adduser func -u 1001 -D -G func
+  && addgroup func -g 65532 \
+  && adduser func -u 65532 -D -G func
 
 COPY --from=builder /workspace/func-util /usr/local/bin/
 RUN ln -s /usr/local/bin/func-util /usr/local/bin/deploy && \
