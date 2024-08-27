@@ -108,6 +108,10 @@ func TestRunDigested(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
 	t.Cleanup(cancel)
 
+	// TODO: gauron99 - if image-digest-on-build is implemented, rework this
+	// to fit this schema -- build image (get digest) then run from temporary dir
+	// such that its .func stamp is not considered. All of this to remove the
+	// external pre-built container dependency
 	image := testImageWithDigest
 	prePullTestImages(t, image)
 

@@ -334,14 +334,11 @@ func runDeploy(cmd *cobra.Command, newClient ClientFactory) (err error) {
 			// TODO: gauron99 - temporary fix for undigested image direct deploy
 			// (w/out build) This might be more complex to do than leaving like this
 			// image digests are created via the registry on push.
-			fmt.Printf("justBuilt '%v'; justPushed '%v'\n", justBuilt, justPushed)
-			fmt.Printf("builtImage '%v'; deployimage '%v'\n", f.Build.Image, f.Deploy.Image)
 			if (justBuilt || justPushed) && f.Build.Image != "" {
 				// f.Build.Image is set in Push for now, just set it as a deployed image
 				f.Deploy.Image = f.Build.Image
 			}
 		}
-		fmt.Printf("builtImage '%v'; deployimage '%v'\n", f.Build.Image, f.Deploy.Image)
 		if f, err = client.Deploy(cmd.Context(), f, fn.WithDeploySkipBuildCheck(cfg.Build == "false")); err != nil {
 			return
 		}
@@ -786,39 +783,6 @@ func printDeployMessages(out io.Writer, f fn.Function) {
 		fmt.Fprintf(out, "Warning: git settings are only applicable when running with --remote.  Local source code will be used.")
 	}
 }
-
-// isUndigested returns true if provided image string 'v' is valid ( by
-// by acceptable standards -- tagged, untagged -> assuming :latest) and false if
-// not. It is lenient in validating - does not always throw an error, just
-// returning false in some scenarios.
-// func isUndigested(v string) (validTag bool, err error) {
-// 	if v == "" {
-// 		// specif image was not given
-// 		err = fmt.Errorf("provided image is empty")
-// 		return
-// 	}
-// 	if strings.Contains(v, "@") {
-// 		// digest has been processed separately
-// 		return
-// 	}
-// 	vv := strings.Split(v, ":")
-// 	if len(vv) < 2 {
-// 		// assume user knows what hes doing
-// 		validTag = true
-// 		return
-// 	} else if len(vv) > 2 {
-// 		err = fmt.Errorf("image '%v' contains an invalid tag (extra ':')", v)
-// 		return
-// 	}
-// 	tag := vv[1]
-// 	if tag == "" {
-// 		err = fmt.Errorf("image '%v' has an empty tag", v)
-// 		return
-// 	}
-
-// 	validTag = true
-// 	return
-// }
 
 // isDigested returns true if provided image string 'v' has digest and false if not.
 // Includes basic validation that a provided digest is correctly formatted.
