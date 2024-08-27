@@ -118,6 +118,9 @@ metadata:
     {{end}}
   generateName: {{.PipelineRunName}}
 spec:
+  podTemplate:
+    securityContext:
+      fsGroup: 65532
   params:
     - name: gitRepository
       value: {{.RepoUrl}}
