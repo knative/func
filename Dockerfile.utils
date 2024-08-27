@@ -17,9 +17,7 @@ RUN GOARCH=$TARGETARCH go build -o func-util -trimpath -ldflags '-w -s' ./cmd/fu
 
 FROM --platform=$TARGETPLATFORM index.docker.io/library/alpine:latest
 
-RUN apk add --no-cache socat tar \
-  && addgroup func -g 1000 \
-  && adduser func -u 1001 -D -G func
+RUN apk add --no-cache socat tar
 
 COPY --from=builder /workspace/func-util /usr/local/bin/
 RUN ln -s /usr/local/bin/func-util /usr/local/bin/deploy && \
@@ -31,4 +29,4 @@ LABEL \
    org.opencontainers.image.vendor="https://github.com/knative/func" \
    org.opencontainers.image.url="https://github.com/knative/func/pkgs/container/func-utils"
 
-USER func:func
+USER 0:0
