@@ -868,29 +868,3 @@ func isDigested(v string) (validDigest bool, err error) {
 	validDigest = true
 	return
 }
-
-// processImageName processes the image name for deployment. It ensures that
-// image string is validated if --image was given and ensures that proper
-// fields of Function structure are populated if needed.
-// Returns a Function structure(1), bool indicating if image was given with
-// digest(2) and error(3)
-func processImageName(f fn.Function, configImage string) (fn.Function, bool, error) {
-	var (
-		digested bool
-		err      error
-	)
-
-	// check if --image was provided with a digest. 'digested' bool indicates if
-	// image contains a digest or not (image is "digested").
-	digested, err = isDigested(configImage)
-	// image is digested, no need to process further || error occurred
-	if digested || err != nil {
-		return f, digested, err
-	}
-
-	// assign valid, undigested image as deployed image before any other changes.
-	// This can be overridden when build&push=enabled with freshly built image
-	// OR directly deployed when build&push=disabled as is.
-	f.Deploy.Image = configImage
-	return f, digested, err
-}
