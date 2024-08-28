@@ -177,12 +177,45 @@ func runRun(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	// If requesting to run via the container, build the container if it is
 	// either out-of-date or a build was explicitly requested.
 	if cfg.Container {
+		var digested bool
+
 		buildOptions, err := cfg.buildOptions()
 		if err != nil {
 			return err
 		}
-		if f, _, err = build(cmd, cfg.Build, f, client, buildOptions); err != nil {
-			return err
+
+		// if image was specified, check if its digested and do basic validation
+		if cfg.Image != "" {
+			digested, err = isDigested(cfg.Image)
+			if err != nil {
+				return err
+			}
+			if !digested {
+				// assign valid undigested image
+				f.Build.Image = cfg.Image
+			}
+		}
+
+		if digested {
+			// run cmd takes f.Build.Image - see newContainerConfig in docker/runner.go
+			// it doesnt get saved, just runtime image
+			f.Build.Image = cfg.Image
+		} else {
+
+			if f, _, err = build(cmd, cfg.Build, f, client, buildOptions); err != nil {
+				return err
+			}
+		}
+	} else {
+		// dont run digested image without a container
+		if cfg.Image != "" {
+			digested, err := isDigested(cfg.Image)
+			if err != nil {
+				return err
+			}
+			if digested {
+				return fmt.Errorf("cannot use digested image with --container=false")
+			}
 		}
 	}
 

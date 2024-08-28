@@ -74,7 +74,7 @@ func TestPusher_Push(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err = client.Push(context.Background(), f); err != nil {
+	if _, _, err = client.Push(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
 
@@ -152,7 +152,7 @@ func TestPusher_BasicAuth(t *testing.T) {
 	ctx = context.WithValue(ctx, fn.PushUsernameKey{}, username)
 	ctx = context.WithValue(ctx, fn.PushPasswordKey{}, password)
 
-	if _, err = client.Push(ctx, f); err != nil {
+	if _, _, err = client.Push(ctx, f); err != nil {
 		t.Fatal(err)
 	}
 

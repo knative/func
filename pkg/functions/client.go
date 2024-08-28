@@ -456,7 +456,7 @@ func (c *Client) Update(ctx context.Context, f Function) (string, Function, erro
 	if f, err = c.Build(ctx, f); err != nil {
 		return "", f, err
 	}
-	if f, err = c.Push(ctx, f); err != nil {
+	if f, _, err = c.Push(ctx, f); err != nil {
 		return "", f, err
 	}
 
@@ -505,7 +505,7 @@ func (c *Client) New(ctx context.Context, cfg Function) (string, Function, error
 	// Push the produced function image
 	fmt.Fprintf(os.Stderr, "Pushing container image to registry\n")
 
-	if f, err = c.Push(ctx, f); err != nil {
+	if f, _, err = c.Push(ctx, f); err != nil {
 		return route, f, err
 	}
 
@@ -739,6 +739,7 @@ func WithDeploySkipBuildCheck(skipBuiltCheck bool) DeployOption {
 // Errors if the function has not been built unless explicitly instructed
 // to ignore this build check.
 func (c *Client) Deploy(ctx context.Context, f Function, oo ...DeployOption) (Function, error) {
+
 	options := &DeployOptions{}
 	for _, o := range oo {
 		o(options)
@@ -1071,15 +1072,17 @@ func (c *Client) Invoke(ctx context.Context, root string, target string, m Invok
 }
 
 // Push the image for the named service to the configured registry
-func (c *Client) Push(ctx context.Context, f Function) (Function, error) {
+// returns in this order: 1)Function structure 2)bool indicating if push succeeded
+// 3) error
+func (c *Client) Push(ctx context.Context, f Function) (Function, bool, error) {
 	if !f.Built() {
-		return f, ErrNotBuilt
+		return f, false, ErrNotBuilt
 	}
 	var err error
 
 	imageDigest, err := c.pusher.Push(ctx, f)
 	if err != nil {
-		return f, err
+		return f, false, err
 	}
 
 	// TODO: gauron99 - this is here because of a temporary workaround.
@@ -1089,7 +1092,7 @@ func (c *Client) Push(ctx context.Context, f Function) (Function, error) {
 	// the full image name and its digest right after building
 	f.Build.Image = f.ImageNameWithDigest(imageDigest)
 
-	return f, err
+	return f, true, err
 }
 
 // ensureRunDataDir creates a .func directory at the given path, and
