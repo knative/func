@@ -110,7 +110,7 @@ metadata:
 spec:
   podTemplate:
     securityContext:
-      fsGroup: 65532
+      fsGroup: 1000
   params:
     - name: gitRepository
       value: {{.RepoUrl}}
