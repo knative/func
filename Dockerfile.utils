@@ -21,7 +21,8 @@ RUN apk add --no-cache socat tar
 
 COPY --from=builder /workspace/func-util /usr/local/bin/
 RUN ln -s /usr/local/bin/func-util /usr/local/bin/deploy && \
-    ln -s /usr/local/bin/func-util /usr/local/bin/scaffold
+    ln -s /usr/local/bin/func-util /usr/local/bin/scaffold && \
+    ln -s /usr/local/bin/func-util /usr/local/bin/s2i
 
 LABEL \
    org.opencontainers.image.description="Knative Func Utils Image" \

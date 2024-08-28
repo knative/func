@@ -241,7 +241,7 @@ spec:
 }
 
 func getS2ITask() string {
-	return `apiVersion: tekton.dev/v1
+	return fmt.Sprintf(`apiVersion: tekton.dev/v1
 kind: Task
 metadata:
   name: func-s2i
@@ -303,7 +303,7 @@ spec:
       description: Digest of the image just built.
   steps:
     - name: generate
-      image: quay.io/boson/s2i:latest
+      image: %s
       workingDir: $(workspaces.source.path)
       args: ["$(params.ENV_VARS[*])"]
       script: |
@@ -377,7 +377,7 @@ spec:
       name: gen-source
     - emptyDir: {}
       name: env-vars
-`
+`, DeployerImage)
 }
 
 func getDeployTask() string {
