@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 
+	"knative.dev/func/pkg/builders/s2i"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/knative"
+	"knative.dev/func/pkg/scaffolding"
 )
 
 func main() {
@@ -25,12 +28,68 @@ func main() {
 		os.Exit(137)
 	}()
 
-	err := deploy(ctx)
+	var cmd func(context.Context) error = unknown
+
+	switch os.Args[0] {
+	case "deploy":
+		cmd = deploy
+	case "scaffold":
+		cmd = scaffold
+	}
+
+	err := cmd(ctx)
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "ERROR: %s\n", err)
 		os.Exit(1)
 	}
 }
+
+func unknown(_ context.Context) error {
+	return fmt.Errorf("unknown command: " + os.Args[0])
+}
+
+func scaffold(ctx context.Context) error {
+
+	if len(os.Args) != 2 {
+		return fmt.Errorf("expected exactly one positional argument (function project path)")
+	}
+
+	path := os.Args[1]
+
+	f, err := fn.NewFunction(path)
+	if err != nil {
+		return fmt.Errorf("cannot load func project: %w", err)
+	}
+
+	if f.Runtime != "go" {
+		// Scaffolding is for now supported/needed only for Go.
+		return nil
+	}
+
+	embeddedRepo, err := fn.NewRepository("", "")
+	if err != nil {
+		return fmt.Errorf("cannot initialize repository: %w", err)
+	}
+
+	appRoot := filepath.Join(f.Root, ".s2i", "builds", "last")
+	_ = os.RemoveAll(appRoot)
+
+	err = scaffolding.Write(appRoot, f.Root, f.Runtime, f.Invoke, embeddedRepo.FS())
+	if err != nil {
+		return fmt.Errorf("cannot write the scaffolding: %w", err)
+	}
+
+	if err := os.MkdirAll(filepath.Join(f.Root, ".s2i", "bin"), 0755); err != nil {
+		return fmt.Errorf("unable to create .s2i bin dir. %w", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(f.Root, ".s2i", "bin", "assemble"), []byte(s2i.GoAssembler), 0755); err != nil {
+		return fmt.Errorf("unable to write go assembler. %w", err)
+	}
+
+	return nil
+}
+
 func deploy(ctx context.Context) error {
 	var err error
 	deployer := knative.NewDeployer(

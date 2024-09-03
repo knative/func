@@ -42,6 +42,15 @@ spec:
       type: array
   tasks:
     {{.GitCloneTaskRef}}
+    - name: scaffold
+      params:
+        - name: path
+          value: $(workspaces.source.path)/$(params.contextDir)
+      workspaces:
+        - name: source
+          workspace: source-workspace
+      {{.RunAfterFetchSources}}
+      {{.FuncScaffoldTaskRef}}
     - name: build
       params:
         - name: APP_IMAGE
@@ -55,7 +64,8 @@ spec:
         - name: ENV_VARS
           value:
             - '$(params.buildEnvs[*])'
-      {{.RunAfterFetchSources}}
+      runAfter:
+        - scaffold
       {{.FuncBuildpacksTaskRef}}
       workspaces:
         - name: source
