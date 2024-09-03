@@ -1,12 +1,19 @@
+//go:build exclude_graphdriver_btrfs || !cgo
+// +build exclude_graphdriver_btrfs !cgo
+
 package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"syscall"
+
+	"github.com/openshift/source-to-image/pkg/cmd/cli"
+	"k8s.io/klog/v2"
 
 	"knative.dev/func/pkg/builders/s2i"
 	fn "knative.dev/func/pkg/functions"
@@ -30,11 +37,13 @@ func main() {
 
 	var cmd func(context.Context) error = unknown
 
-	switch os.Args[0] {
+	switch filepath.Base(os.Args[0]) {
 	case "deploy":
 		cmd = deploy
 	case "scaffold":
 		cmd = scaffold
+	case "s2i":
+		cmd = s2iCmd
 	}
 
 	err := cmd(ctx)
@@ -88,6 +97,13 @@ func scaffold(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func s2iCmd(ctx context.Context) error {
+	klog.InitFlags(flag.CommandLine)
+	cmd := cli.CommandFor()
+	cmd.SetContext(ctx)
+	return cmd.Execute()
 }
 
 func deploy(ctx context.Context) error {
