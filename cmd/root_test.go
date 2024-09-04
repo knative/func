@@ -11,8 +11,8 @@ import (
 	"testing"
 
 	"github.com/ory/viper"
-
 	"knative.dev/client/pkg/util"
+
 	fn "knative.dev/func/pkg/functions"
 	. "knative.dev/func/pkg/testing"
 )
