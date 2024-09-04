@@ -44,6 +44,8 @@ func main() {
 		cmd = scaffold
 	case "s2i":
 		cmd = s2iCmd
+	case "socat":
+		cmd = socat
 	}
 
 	err := cmd(ctx)
@@ -55,6 +57,12 @@ func main() {
 
 func unknown(_ context.Context) error {
 	return fmt.Errorf("unknown command: " + os.Args[0])
+}
+
+func socat(ctx context.Context) error {
+	cmd := newSocatCmd()
+	cmd.SetContext(ctx)
+	return cmd.Execute()
 }
 
 func scaffold(ctx context.Context) error {
