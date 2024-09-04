@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	clienteventingv1 "knative.dev/client-pkg/pkg/eventing/v1"
+	clienteventingv1 "knative.dev/client/pkg/eventing/v1"
 	eventingv1 "knative.dev/eventing/pkg/apis/eventing/v1"
 	duckv1 "knative.dev/pkg/apis/duck/v1"
 
@@ -19,10 +19,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"knative.dev/client-pkg/pkg/flags"
-	servingclientlib "knative.dev/client-pkg/pkg/serving"
-	clientservingv1 "knative.dev/client-pkg/pkg/serving/v1"
-	"knative.dev/client-pkg/pkg/wait"
+	"knative.dev/client/pkg/flags"
+	servingclientlib "knative.dev/client/pkg/serving"
+	clientservingv1 "knative.dev/client/pkg/serving/v1"
+	"knative.dev/client/pkg/wait"
 	"knative.dev/serving/pkg/apis/autoscaling"
 	v1 "knative.dev/serving/pkg/apis/serving/v1"
 
