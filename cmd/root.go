@@ -13,8 +13,8 @@ import (
 	"github.com/spf13/pflag"
 	"golang.org/x/term"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"knative.dev/client-pkg/pkg/util"
 
+	"knative.dev/client/pkg/util"
 	"knative.dev/func/cmd/templates"
 	"knative.dev/func/pkg/config"
 	fn "knative.dev/func/pkg/functions"
