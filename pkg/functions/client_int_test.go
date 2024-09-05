@@ -124,7 +124,7 @@ func TestDeploy_Defaults(t *testing.T) {
 	if f, err = client.Build(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
-	if f, err = client.Push(context.Background(), f); err != nil {
+	if f, _, err = client.Push(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
 

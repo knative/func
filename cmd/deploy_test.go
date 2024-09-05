@@ -2017,3 +2017,126 @@ func TestDeploy_WithoutHome(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+// TestDeploy_CorrectImageDeployed ensures that deploying will always pass
+// the correct image name to the deployer (populating the f.Deploy.Image value)
+// in various scenarios.
+func TestDeploy_CorrectImageDeployed(t *testing.T) {
+	const sha = "sha256:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+	// dataset
+	tests := []struct {
+		name         string
+		image        string
+		buildArgs    []string
+		deployArgs   []string
+		shouldFail   bool
+		shouldBuild  bool
+		pusherActive bool
+	}{
+		{
+			name:       "basic test to create and deploy",
+			image:      "myimage",
+			deployArgs: []string{"--image", "myimage"},
+		},
+		{
+			name:  "test to deploy with prebuild",
+			image: "myimage",
+			buildArgs: []string{
+				"--image=myimage",
+			},
+			deployArgs: []string{
+				"--build=false",
+			},
+			shouldBuild: true,
+		},
+		{
+			name:  "test to build and deploy",
+			image: "myimage",
+			buildArgs: []string{
+				"--image=myimage",
+			},
+			shouldBuild: true,
+		},
+		{
+			name:  "test to deploy without build should fail",
+			image: "myimage",
+			deployArgs: []string{
+				"--build=false",
+			},
+			shouldFail: true,
+		},
+		{
+			name:  "test to build then deploy with push",
+			image: "myimage" + "@" + sha,
+			buildArgs: []string{
+				"--image=myimage",
+			},
+			deployArgs: []string{
+				"--build=false",
+				"--push=true",
+			},
+			shouldBuild:  true,
+			pusherActive: true,
+		},
+	}
+
+	// run tests
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := FromTempDirectory(t)
+			f := fn.Function{
+				Runtime: "go",
+				Root:    root,
+			}
+			_, err := fn.New().Init(f)
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			// prebuild function if desired
+			if tt.shouldBuild {
+				cmd := NewBuildCmd(NewTestClient(fn.WithRegistry(TestRegistry)))
+				cmd.SetArgs(tt.buildArgs)
+				if err = cmd.Execute(); err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			pusher := mock.NewPusher()
+			if tt.pusherActive {
+				pusher.PushFn = func(_ context.Context, _ fn.Function) (string, error) {
+					return sha, nil
+				}
+			}
+
+			deployer := mock.NewDeployer()
+			deployer.DeployFn = func(_ context.Context, f fn.Function) (result fn.DeploymentResult, err error) {
+				// verify the image passed to the deployer
+				if f.Deploy.Image != tt.image {
+					return fn.DeploymentResult{}, fmt.Errorf("image '%v' does not match the expected image '%v'\n", f.Deploy.Image, tt.image)
+				}
+				return
+			}
+
+			// Deploy the function
+			cmd := NewDeployCmd(NewTestClient(
+				fn.WithDeployer(deployer), //is always specified
+				fn.WithPusher(pusher)))    // if specified, will return sha for testing
+
+			cmd.SetArgs(tt.deployArgs)
+
+			// assert
+			err = cmd.Execute()
+			if tt.shouldFail {
+				if err == nil {
+					t.Fatal("expected an error but got none")
+				}
+			} else {
+				// should not fail
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+		})
+	}
+}

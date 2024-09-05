@@ -241,7 +241,7 @@ spec:
 }
 
 func getS2ITask() string {
-	return `apiVersion: tekton.dev/v1
+	return fmt.Sprintf(`apiVersion: tekton.dev/v1
 kind: Task
 metadata:
   name: func-s2i
@@ -303,7 +303,7 @@ spec:
       description: Digest of the image just built.
   steps:
     - name: generate
-      image: quay.io/boson/s2i:latest
+      image: %s
       workingDir: $(workspaces.source.path)
       args: ["$(params.ENV_VARS[*])"]
       script: |
@@ -321,7 +321,7 @@ spec:
         cat /env-vars/env-file
         echo "------------------------------"
 
-        /usr/local/bin/s2i --loglevel=$(params.LOGLEVEL) build $(params.PATH_CONTEXT) $(params.BUILDER_IMAGE) \
+        /usr/local/bin/s2i --loglevel=$(params.LOGLEVEL) build --keep-symlinks $(params.PATH_CONTEXT) $(params.BUILDER_IMAGE) \
         --image-scripts-url $(params.S2I_IMAGE_SCRIPTS_URL) \
         --as-dockerfile /gen-source/Dockerfile.gen --environment-file /env-vars/env-file
 
@@ -377,7 +377,7 @@ spec:
       name: gen-source
     - emptyDir: {}
       name: env-vars
-`
+`, DeployerImage)
 }
 
 func getDeployTask() string {
@@ -413,9 +413,34 @@ spec:
 `, DeployerImage)
 }
 
+func getScaffoldTask() string {
+	return fmt.Sprintf(`apiVersion: tekton.dev/v1
+kind: Task
+metadata:
+  name: func-scaffold
+  labels:
+    app.kubernetes.io/version: "0.1"
+  annotations:
+    tekton.dev/pipelines.minVersion: "0.12.1"
+    tekton.dev/categories: CLI
+    tekton.dev/tags: cli
+    tekton.dev/platforms: "linux/amd64"
+spec:
+  params:
+    - name: path
+      description: Path to the function project
+      default: ""
+  steps:
+    - name: func-scaffold
+      image: %s
+      script: |
+        scaffold $(params.path)
+`, DeployerImage)
+}
+
 // GetClusterTasks returns multi-document yaml containing tekton tasks used by func.
 func GetClusterTasks() string {
-	tasks := getBuildpackTask() + "\n---\n" + getS2ITask() + "\n---\n" + getDeployTask()
+	tasks := getBuildpackTask() + "\n---\n" + getS2ITask() + "\n---\n" + getDeployTask() + "\n---\n" + getScaffoldTask()
 	tasks = strings.Replace(tasks, "kind: Task", "kind: ClusterTask", -1)
 	tasks = strings.ReplaceAll(tasks, "apiVersion: tekton.dev/v1", "apiVersion: tekton.dev/v1beta1")
 	return tasks
