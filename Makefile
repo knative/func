@@ -36,6 +36,8 @@ ifneq ($(FUNC_REPO_BRANCH_REF),)
   LDFLAGS      += -X knative.dev/func/pkg/pipelines/tekton.FuncRepoBranchRef=$(FUNC_REPO_BRANCH_REF)
 endif
 
+GOFLAGS :=
+
 MAKEFILE_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
 .PHONY: test docs
@@ -66,7 +68,7 @@ $(BIN): generate/zz_filesystem_generated.go
 
 .PHONY: test
 test: generate/zz_filesystem_generated.go ## Run core unit tests
-	env GOFLAGS="" go test -ldflags "$(LDFLAGS)" -race -cover -coverprofile=coverage.txt ./...
+	go test -ldflags "$(LDFLAGS)" -race -cover -coverprofile=coverage.txt ./...
 
 .PHONY: check
 check: $(BIN_GOLANGCI_LINT) ## Check code quality (lint)
