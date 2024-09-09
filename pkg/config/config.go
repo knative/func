@@ -81,8 +81,11 @@ func NewDefault() (cfg Global, err error) {
 	cp := File()
 	bb, err := os.ReadFile(cp)
 	if err != nil {
-		if os.IsNotExist(err) {
-			err = nil // config file is not required
+		// config file is not required
+		// permissions warning printed in cmd/root.go as to not spam here
+		// TODO: gauron99 - review the whole process for simplification
+		if os.IsNotExist(err) || os.IsPermission(err) {
+			err = nil
 		}
 		return
 	}

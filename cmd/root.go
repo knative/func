@@ -64,6 +64,11 @@ Learn more about Knative at: https://knative.dev`, cfg.Name),
 	viper.SetEnvPrefix("func") // ensure that all have the prefix
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 
+	// check if permissions for FUNC HOME are sufficient; warn if otherwise
+	cp := config.File()
+	if _, err := os.ReadFile(cp); os.IsPermission(err) {
+		fmt.Fprintf(os.Stderr, "Warning: Insufficient permissions to read config file at '%s' - continuing without it\n", cp)
+	}
 	// Client
 	// Use the provided ClientFactory or default to NewClient
 	newClient := cfg.NewClient

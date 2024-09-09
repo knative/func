@@ -100,9 +100,8 @@ func (r *Repositories) All() (repos []Repository, err error) {
 	if r.path == "" {
 		return
 	}
-
-	// Return empty if path does not exist
-	if _, err = os.Stat(r.path); os.IsNotExist(err) {
+	// Return empty if path does not exist or insufficient permissions
+	if _, err = os.Stat(r.path); os.IsNotExist(err) || os.IsPermission(err) {
 		return repos, nil
 	}
 
