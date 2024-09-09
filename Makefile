@@ -66,7 +66,7 @@ $(BIN): generate/zz_filesystem_generated.go
 
 .PHONY: test
 test: generate/zz_filesystem_generated.go ## Run core unit tests
-	go test -ldflags "$(LDFLAGS)" -race -cover -coverprofile=coverage.txt ./...
+	env GOFLAGS="" go test -ldflags "$(LDFLAGS)" -race -cover -coverprofile=coverage.txt ./...
 
 .PHONY: check
 check: $(BIN_GOLANGCI_LINT) ## Check code quality (lint)
