@@ -355,6 +355,11 @@ func setCredentialHelperToConfig(confFilePath, helper string) error {
 	if err != nil {
 		return err
 	}
+	// create config path if doesnt exist
+	err = os.MkdirAll(filepath.Dir(confFilePath), 0755)
+	if err != nil {
+		return err
+	}
 
 	err = os.WriteFile(confFilePath, data, 0600)
 	if err != nil {
