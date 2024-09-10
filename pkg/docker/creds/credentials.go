@@ -129,7 +129,7 @@ func WithAdditionalCredentialLoaders(loaders ...CredentialsCallback) Opt {
 	}
 }
 
-// NewCredentialsProvider returns new CredentialsProvider that tries to get credentials from docker/func config files.
+// NewCredentialsProvider returns new CredentialsProvider that tries to get credentials from docke r/func config files.
 //
 // In case getting credentials from the config files fails
 // the caller provided callback (see WithPromptForCredentials) will be invoked to obtain credentials.
@@ -352,6 +352,11 @@ func setCredentialHelperToConfig(confFilePath, helper string) error {
 	configData["credsStore"] = helper
 
 	data, err := json.MarshalIndent(&configData, "", "    ")
+	if err != nil {
+		return err
+	}
+	// create config path if doesnt exist
+	err = os.MkdirAll(filepath.Dir(confFilePath), 0755)
 	if err != nil {
 		return err
 	}
