@@ -129,7 +129,7 @@ func WithAdditionalCredentialLoaders(loaders ...CredentialsCallback) Opt {
 	}
 }
 
-// NewCredentialsProvider returns new CredentialsProvider that tries to get credentials from docke r/func config files.
+// NewCredentialsProvider returns new CredentialsProvider that tries to get credentials from docker/func config files.
 //
 // In case getting credentials from the config files fails
 // the caller provided callback (see WithPromptForCredentials) will be invoked to obtain credentials.
