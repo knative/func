@@ -222,37 +222,37 @@ cross-platform: darwin-arm64 darwin-amd64 linux-amd64 linux-arm64 linux-ppc64le 
 darwin-arm64: $(BIN_DARWIN_ARM64) ## Build for mac M1
 
 $(BIN_DARWIN_ARM64): generate/zz_filesystem_generated.go
-	env CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o $(BIN_DARWIN_ARM64) -trimpath -w -s" ./cmd/$(BIN)
+	env CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -o $(BIN_DARWIN_ARM64) -trimpath -ldflags "$(LDFLAGS) -w -s" ./cmd/$(BIN)
 
 darwin-amd64: $(BIN_DARWIN_AMD64) ## Build for Darwin (macOS)
 
 $(BIN_DARWIN_AMD64): generate/zz_filesystem_generated.go
-	env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o $(BIN_DARWIN_AMD64) -trimpath -w -s" ./cmd/$(BIN)
+	env CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -o $(BIN_DARWIN_AMD64) -trimpath -ldflags "$(LDFLAGS) -w -s" ./cmd/$(BIN)
 
 linux-amd64: $(BIN_LINUX_AMD64) ## Build for Linux amd64
 
 $(BIN_LINUX_AMD64): generate/zz_filesystem_generated.go
-	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BIN_LINUX_AMD64) -trimpath -w -s" ./cmd/$(BIN)
+	env CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o $(BIN_LINUX_AMD64) -trimpath -ldflags "$(LDFLAGS) -w -s" ./cmd/$(BIN)
 
 linux-arm64: $(BIN_LINUX_ARM64) ## Build for Linux arm64
 
 $(BIN_LINUX_ARM64): generate/zz_filesystem_generated.go
-	env CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o $(BIN_LINUX_ARM64) -trimpath -w -s" ./cmd/$(BIN)
+	env CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o $(BIN_LINUX_ARM64) -trimpath -ldflags "$(LDFLAGS) -w -s" ./cmd/$(BIN)
 
 linux-ppc64le: $(BIN_LINUX_PPC64LE) ## Build for Linux ppc64le
 
 $(BIN_LINUX_PPC64LE): generate/zz_filesystem_generated.go
-	env CGO_ENABLED=0 GOOS=linux GOARCH=ppc64le go build -o $(BIN_LINUX_PPC64LE) -trimpath -w -s" ./cmd/$(BIN)
+	env CGO_ENABLED=0 GOOS=linux GOARCH=ppc64le go build -o $(BIN_LINUX_PPC64LE) -trimpath -ldflags "$(LDFLAGS) -w -s" ./cmd/$(BIN)
 
 linux-s390x: $(BIN_LINUX_S390X) ## Build for Linux s390x
 
 $(BIN_LINUX_S390X): generate/zz_filesystem_generated.go
-	env CGO_ENABLED=0 GOOS=linux GOARCH=s390x go build -o $(BIN_LINUX_S390X) -trimpath -w -s" ./cmd/$(BIN)
+	env CGO_ENABLED=0 GOOS=linux GOARCH=s390x go build -o $(BIN_LINUX_S390X) -trimpath -ldflags "$(LDFLAGS) -w -s" ./cmd/$(BIN)
 
 windows: $(BIN_WINDOWS) ## Build for Windows
 
 $(BIN_WINDOWS): generate/zz_filesystem_generated.go
-	env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o $(BIN_WINDOWS) -trimpath -w -s" ./cmd/$(BIN)
+	env CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o $(BIN_WINDOWS) -trimpath -ldflags "$(LDFLAGS) -w -s" ./cmd/$(BIN)
 
 ######################
 ##@ Schemas
