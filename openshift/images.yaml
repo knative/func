@@ -1,0 +1,1 @@
+knative.dev/func/cmd/func-util: registry.ci.openshift.org/openshift/knative-kn-plugin-func-func-util:knative-nightly

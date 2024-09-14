@@ -1,0 +1,13 @@
+diff --git a/pkg/pipelines/tekton/tasks.go b/pkg/pipelines/tekton/tasks.go
+index 11da5140d..d1d7b15dc 100644
+--- a/pkg/pipelines/tekton/tasks.go
++++ b/pkg/pipelines/tekton/tasks.go
+@@ -342,7 +342,7 @@ spec:
+         - mountPath: /env-vars
+           name: env-vars
+     - name: build
+-      image: quay.io/buildah/stable:v1.31.0
++      image: registry.redhat.io/rhel8/buildah@sha256:a1e5cc0fb334e333e5eab69689223e8bd1f0c060810d260603b26cf8c0da2023
+       workingDir: /gen-source
+       script: |
+         TLS_VERIFY_FLAG=""

@@ -58,7 +58,7 @@ func build
 
 ```
       --build-timestamp        Use the actual time as the created time for the docker image. This is only useful for buildpacks builder.
-  -b, --builder string         Builder to use when creating the function's container. Currently supported builders are "pack" and "s2i". ($FUNC_BUILDER) (default "pack")
+  -b, --builder string         Builder to use when creating the function's container. Currently supported builders are "pack" and "s2i". ($FUNC_BUILDER) (default "s2i")
       --builder-image string   Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
   -c, --confirm                Prompt to confirm options interactively ($FUNC_CONFIRM)
   -h, --help                   help for build
