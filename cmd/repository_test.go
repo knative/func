@@ -33,7 +33,7 @@ func TestRepository_List(t *testing.T) {
 // arguments, respects the repositories' path flag, and the expected name is echoed
 // upon subsequent 'list'.
 func TestRepository_Add(t *testing.T) {
-	url := ServeRepo("repository.git#main", t)
+	url := ServeRepo("repository.git", t) + "#main"
 	_ = FromTempDirectory(t)
 	t.Log(url)
 
