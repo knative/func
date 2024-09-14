@@ -17,6 +17,8 @@ package testing
 
 import (
 	"fmt"
+	"io"
+	"io/fs"
 	"net"
 	"net/http"
 	"net/http/cgi"
@@ -136,21 +138,57 @@ func cd(t *testing.T, dir string) {
 // such as fromTempDirectory(t)
 func ServeRepo(name string, t *testing.T) string {
 	t.Helper()
-	var (
-		path   = filepath.Join("./testdata", name)
-		dir    = filepath.Dir(path)
-		abs, _ = filepath.Abs(dir)
-		repo   = filepath.Base(path)
-		url    = RunGitServer(abs, t)
-	)
-	// This is to prevent "fatal: detected dubious ownership in repository at <source_reposutory_path>" while executing
-	// unit tests on other environments (such as Prow CI)
-	cmd := exec.Command("git", "config", "--global", "--add", "safe.directory", abs)
-	_, err := cmd.CombinedOutput()
+
+	srcDir := filepath.Join("./testdata", name)
+	gitRoot := t.TempDir()
+
+	err := filepath.Walk(srcDir, func(path string, fi fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		relp, err := filepath.Rel(srcDir, path)
+		if err != nil {
+			return fmt.Errorf("cannot get relpath: %v", err)
+		}
+
+		dest := filepath.Join(gitRoot, name, relp)
+
+		switch {
+		case fi.Mode().IsRegular():
+			var in, out *os.File
+			in, err = os.Open(path)
+			if err != nil {
+				return fmt.Errorf("cannot open source file: %v", err)
+			}
+			defer in.Close()
+			out, err = os.OpenFile(dest, os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				return fmt.Errorf("cannot open desitnation file: %v", err)
+			}
+			defer out.Close()
+			_, err = io.Copy(out, in)
+			if err != nil {
+				return fmt.Errorf("cannot copy data: %v", err)
+			}
+		case fi.IsDir():
+			err = os.MkdirAll(dest, 0755)
+			if err != nil {
+				return fmt.Errorf("cannot mkdir: %v", err)
+			}
+		default:
+			return fmt.Errorf("unsupported file type")
+		}
+
+		return nil
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	return fmt.Sprintf("%v/%v", url, repo)
+
+	url := RunGitServer(gitRoot, t)
+
+	return fmt.Sprintf("%v/%v", url, name)
 }
 
 // WithExecutable creates an executable of the given name and source in a temp
