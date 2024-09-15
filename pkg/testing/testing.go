@@ -164,7 +164,7 @@ func ServeRepo(name string, t *testing.T) string {
 			defer in.Close()
 			out, err = os.OpenFile(dest, os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
-				return fmt.Errorf("cannot open desitnation file: %v", err)
+				return fmt.Errorf("cannot open destination file: %v", err)
 			}
 			defer out.Close()
 			_, err = io.Copy(out, in)
