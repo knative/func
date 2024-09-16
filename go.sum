@@ -2747,8 +2747,8 @@ knative.dev/networking v0.0.0-20240909015032-433920a35ef4 h1:ojjqMuTsY0DRQNdTAhk
 knative.dev/networking v0.0.0-20240909015032-433920a35ef4/go.mod h1:i7nMwzWWbsorxAL9e88yTl/PugUDvtL6KtG5H/L0sg8=
 knative.dev/pkg v0.0.0-20240912132815-3002873b449c h1:zKQ6HpKn6m20GgQ/NThGDFPwP9VSxv1j20aZDlRl3J8=
 knative.dev/pkg v0.0.0-20240912132815-3002873b449c/go.mod h1:RHUKdAip7yEmlA6dc66hGANdLId04PMd2XJpFhP0EvI=
-knative.dev/serving v0.42.1-0.20240913121933-63b0f86a6e5f h1:x7DPCHjTM0qRsmj/GnGxQDJfIVtmTWXCrR/WQuv5WW8=
-knative.dev/serving v0.42.1-0.20240913121933-63b0f86a6e5f/go.mod h1:SaMptub7hykNnTquuVhU6Pkj8urFqJoV855o8mRN8BI=
+knative.dev/serving v0.42.1-0.20240913133447-edb073ce7c2d h1:rmQkjguz/a9F+3q7C3CwkOUfL3iJnff15nSNoTdwB0E=
+knative.dev/serving v0.42.1-0.20240913133447-edb073ce7c2d/go.mod h1:SaMptub7hykNnTquuVhU6Pkj8urFqJoV855o8mRN8BI=
 lukechampine.com/uint128 v1.1.1/go.mod h1:c4eWIwlEGaxC/+H1VguhU4PHXNWDCDMUlWdIWl2j1gk=
 lukechampine.com/uint128 v1.2.0/go.mod h1:c4eWIwlEGaxC/+H1VguhU4PHXNWDCDMUlWdIWl2j1gk=
 modernc.org/cc/v3 v3.36.0/go.mod h1:NFUHyPn4ekoC/JHeZFfZurN6ixxawE1BnVonP/oahEI=
