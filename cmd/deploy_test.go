@@ -2140,3 +2140,39 @@ func TestDeploy_CorrectImageDeployed(t *testing.T) {
 		})
 	}
 }
+
+func Test_isDigested(t *testing.T) {
+	// Simple references are not digested
+	var tests = []struct {
+		Name     string
+		Image    string
+		Digested bool
+		Error    bool
+	}{
+		{Name: "simple", Image: "alpine", Digested: false, Error: false},
+		{Name: "tagged", Image: "alpine:latest", Digested: false, Error: false},
+		{Name: "domain", Image: "registry.example.com/alice/alpine", Digested: false, Error: false},
+		{Name: "domain-tagged", Image: "registry.example.com/alice/alpine:latest", Digested: false, Error: false},
+		{Name: "domain-port", Image: "registry.example.com:5001/alice/alpine", Digested: false, Error: false},
+		{Name: "domain-port-tagged", Image: "registry.example.com:5001/alice/alpine:latest", Digested: false, Error: false},
+		{Name: "domain-port-tagged-digested", Image: "registry.example.com:5001/alice/alpine@sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", Digested: true, Error: false},
+		{Name: "user-domain-port-tagged-digested", Image: "user@registry.example.com:5001/alice/alpine@sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", Digested: true, Error: false},
+		{Name: "error-missing-prefix", Image: "registry.example.com/alice/alpine@e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", Digested: false, Error: true},
+		{Name: "error-invalid-length", Image: "registry.example.com/alice/alpine@sha256:invalid-hash-value", Digested: false, Error: true},
+	}
+	for _, test := range tests {
+		t.Run(test.Name, func(t *testing.T) {
+			digested, err := isDigested(test.Image)
+			if err != nil {
+				if test.Error == true {
+					return // an error was expected
+				}
+				t.Fatal(err)
+			}
+			if digested != test.Digested {
+				t.Fatalf("expected image '%v' be digested==%v", test.Image, test.Digested)
+			}
+		})
+	}
+
+}

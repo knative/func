@@ -794,42 +794,22 @@ func isDigested(v string) (validDigest bool, err error) {
 	var digest string
 	vv := strings.Split(v, "@")
 	if len(vv) < 2 {
-		// image does NOT have a digest, validate further
-		if v == "" {
-			err = fmt.Errorf("provided image is empty, cannot validate")
-			return
-		}
-		vvv := strings.Split(v, ":")
-		if len(vvv) < 2 {
-			// assume user knows what hes doing
-			return
-		} else if len(vvv) > 2 {
-			err = fmt.Errorf("image '%v' contains an invalid tag (extra ':')", v)
-			return
-		}
-		tag := vvv[1]
-		if tag == "" {
-			err = fmt.Errorf("image '%v' has an empty tag", v)
-			return
-		}
-		return
-	} else if len(vv) > 2 {
-		// image is invalid
-		err = fmt.Errorf("image '%v' contains an invalid digest (extra '@')", v)
-		return
+		return // can not be digested without an @
 	}
-	// image has a digest, validate further
-	digest = vv[1]
 
+	// Ensure it has the static string prefix
+	digest = vv[len(vv)-1]
 	if !strings.HasPrefix(digest, "sha256:") {
 		err = fmt.Errorf("image digest '%s' requires 'sha256:' prefix", digest)
 		return
 	}
 
+	// Ensure it has the exact right length
 	if len(digest[7:]) != 64 {
 		err = fmt.Errorf("image digest '%v' has an invalid sha256 hash length of %v when it should be 64", digest, len(digest[7:]))
 	}
 
+	// It's likely a valid digest (at least syntactically)
 	validDigest = true
 	return
 }
