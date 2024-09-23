@@ -15,7 +15,7 @@ RUN GOARCH=$TARGETARCH go build -o func-util -trimpath -ldflags '-w -s' ./cmd/fu
 
 #########################
 
-FROM --platform=$TARGETPLATFORM index.docker.io/library/alpine:latest
+FROM index.docker.io/library/alpine:latest
 
 RUN apk add --no-cache socat tar
 
