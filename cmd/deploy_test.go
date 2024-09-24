@@ -756,34 +756,34 @@ func TestDeploy_ImageWithDigestErrors(t *testing.T) {
 		image     string // value to provide as --image
 		build     string // If provided, the value of the build flag
 		push      bool   // if true, explicitly set argument --push=true
-		errString string // the string value of an expected error
+		errPrefix string // the string value of an expected error
 	}{
 		{
 			name:  "correctly formatted full image with digest yields no error (degen case)",
-			image: "example.com/myNamespace/myFunction:latest@sha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4e",
+			image: "example.com/namespace/myfunction@sha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4e",
 			build: "false",
 		},
 		{
 			name:      "--build forced on yields error",
-			image:     "example.com/myNamespace/myFunction:latest@sha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4e",
+			image:     "example.com/mynamespace/myfunction@sha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4e",
 			build:     "true",
-			errString: "building can not be enabled when using an image with digest",
+			errPrefix: "building can not be enabled when using an image with digest",
 		},
 		{
 			name:      "push flag explicitly set with digest should error",
-			image:     "example.com/myNamespace/myFunction:latest@sha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4e",
+			image:     "example.com/mynamespace/myfunction@sha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4e",
 			push:      true,
-			errString: "pushing is not valid when specifying an image with digest",
+			errPrefix: "pushing is not valid when specifying an image with digest",
 		},
 		{
 			name:      "invalid digest prefix 'Xsha256', expect error",
-			image:     "example.com/myNamespace/myFunction:latest@Xsha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4e",
-			errString: "image digest 'Xsha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4e' requires 'sha256:' prefix",
+			image:     "example.com/mynamespace/myfunction@Xsha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4e",
+			errPrefix: "could not parse reference",
 		},
 		{
 			name:      "invalid sha hash length(added X at the end), expect error",
-			image:     "example.com/myNamespace/myFunction:latest@sha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4eX",
-			errString: "image digest 'sha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4eX' has an invalid sha256 hash length of 65 when it should be 64",
+			image:     "example.com/mynamespace/myfunction@sha256:7d66645b0add6de7af77ef332ecd4728649a2f03b9a2716422a054805b595c4eX",
+			errPrefix: "could not parse reference",
 		},
 	}
 
@@ -823,11 +823,11 @@ func TestDeploy_ImageWithDigestErrors(t *testing.T) {
 			cmd.SetArgs(args)
 			err = cmd.Execute()
 			if err != nil {
-				if tt.errString == "" {
+				if tt.errPrefix == "" {
 					t.Fatal(err) // no error was expected.  fail
 				}
-				if tt.errString != err.Error() {
-					t.Fatalf("expected error '%v' not received. got '%v'", tt.errString, err.Error())
+				if !strings.HasPrefix(err.Error(), tt.errPrefix) {
+					t.Fatalf("expected error prefix '%v' not received. got '%v'", tt.errPrefix, err.Error())
 				}
 				// There was an error, but it was expected
 			}
@@ -842,7 +842,7 @@ func TestDeploy_ImageWithDigestErrors(t *testing.T) {
 func TestDeploy_ImageWithDigestDoesntPopulateBuild(t *testing.T) {
 	root := FromTempDirectory(t)
 	// image with digest (well almost, atleast in length and syntax)
-	const img = "docker.io/4141gauron3268@sha256:XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+	const img = "docker.io/4141gauron3268@sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 	// Create a new Function in the temp directory
 	_, err := fn.New().Init(fn.Function{Runtime: "go", Root: root})
 	if err != nil {
@@ -869,7 +869,7 @@ func TestDeploy_ImageWithDigestDoesntPopulateBuild(t *testing.T) {
 // TestDeploy_WithoutDigest ensures that images specified with --image and
 // without digest are correctly processed and propagated to .Deploy.Image
 func TestDeploy_WithoutDigest(t *testing.T) {
-	const sha = "sha256:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+	const sha = "sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 
 	tests := []struct {
 		name            string   //name of the test
@@ -2141,38 +2141,33 @@ func TestDeploy_CorrectImageDeployed(t *testing.T) {
 	}
 }
 
+// Test_isDigested ensures that the function is properly delegating to
+// by checking both that it will fail on an invalid reference and will
+// return true if the image contains a digest and false otherwise.
+// See the delegate from the implementation for comprehensive tests.
 func Test_isDigested(t *testing.T) {
-	// Simple references are not digested
-	var tests = []struct {
-		Name     string
-		Image    string
-		Digested bool
-		Error    bool
-	}{
-		{Name: "simple", Image: "alpine", Digested: false, Error: false},
-		{Name: "tagged", Image: "alpine:latest", Digested: false, Error: false},
-		{Name: "domain", Image: "registry.example.com/alice/alpine", Digested: false, Error: false},
-		{Name: "domain-tagged", Image: "registry.example.com/alice/alpine:latest", Digested: false, Error: false},
-		{Name: "domain-port", Image: "registry.example.com:5001/alice/alpine", Digested: false, Error: false},
-		{Name: "domain-port-tagged", Image: "registry.example.com:5001/alice/alpine:latest", Digested: false, Error: false},
-		{Name: "domain-port-tagged-digested", Image: "registry.example.com:5001/alice/alpine@sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", Digested: true, Error: false},
-		{Name: "user-domain-port-tagged-digested", Image: "user@registry.example.com:5001/alice/alpine@sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", Digested: true, Error: false},
-		{Name: "error-missing-prefix", Image: "registry.example.com/alice/alpine@e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", Digested: false, Error: true},
-		{Name: "error-invalid-length", Image: "registry.example.com/alice/alpine@sha256:invalid-hash-value", Digested: false, Error: true},
-	}
-	for _, test := range tests {
-		t.Run(test.Name, func(t *testing.T) {
-			digested, err := isDigested(test.Image)
-			if err != nil {
-				if test.Error == true {
-					return // an error was expected
-				}
-				t.Fatal(err)
-			}
-			if digested != test.Digested {
-				t.Fatalf("expected image '%v' be digested==%v", test.Image, test.Digested)
-			}
-		})
+	var digested bool
+	var err error
+
+	// Ensure validation
+	_, err = isDigested("invalid&image@sha256:12345")
+	if err == nil {
+		t.Fatal("did not validate image reference")
 	}
 
+	// Ensure positive case
+	if digested, err = isDigested("alpine"); err != nil {
+		t.Fatal(err)
+	}
+	if digested {
+		t.Fatal("reported digested on undigested image reference")
+	}
+
+	// Ensure negative case
+	if digested, err = isDigested("alpine@sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"); err != nil {
+		t.Fatal(err)
+	}
+	if !digested {
+		t.Fatal("did not report image reference has digest")
+	}
 }
