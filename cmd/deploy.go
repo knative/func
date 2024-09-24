@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/AlecAivazis/survey/v2"
+	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -785,51 +786,13 @@ func printDeployMessages(out io.Writer, f fn.Function) {
 	}
 }
 
-// isDigested returns true if provided image string 'v' has digest and false if not.
-// Includes basic validation that a provided digest is correctly formatted.
-// Given that image is not digested, image will still be validated and return
-// a combination of bool (img has valid digest) and err (img is in valid format)
-// Therefore returned combination of [false,nil] means "valid undigested image".
+// isDigested checks that the given image reference has a digest. Invalid
+// reference return error.
 func isDigested(v string) (validDigest bool, err error) {
-	var digest string
-	vv := strings.Split(v, "@")
-	if len(vv) < 2 {
-		// image does NOT have a digest, validate further
-		if v == "" {
-			err = fmt.Errorf("provided image is empty, cannot validate")
-			return
-		}
-		vvv := strings.Split(v, ":")
-		if len(vvv) < 2 {
-			// assume user knows what hes doing
-			return
-		} else if len(vvv) > 2 {
-			err = fmt.Errorf("image '%v' contains an invalid tag (extra ':')", v)
-			return
-		}
-		tag := vvv[1]
-		if tag == "" {
-			err = fmt.Errorf("image '%v' has an empty tag", v)
-			return
-		}
-		return
-	} else if len(vv) > 2 {
-		// image is invalid
-		err = fmt.Errorf("image '%v' contains an invalid digest (extra '@')", v)
-		return
+	ref, err := name.ParseReference(v)
+	if err != nil {
+		return false, err
 	}
-	// image has a digest, validate further
-	digest = vv[1]
-
-	if !strings.HasPrefix(digest, "sha256:") {
-		err = fmt.Errorf("image digest '%s' requires 'sha256:' prefix", digest)
-		return
-	}
-
-	if len(digest[7:]) != 64 {
-		err = fmt.Errorf("image digest '%v' has an invalid sha256 hash length of %v when it should be 64", digest, len(digest[7:]))
-	}
-
-	validDigest = true
-	return
+	_, ok := ref.(name.Digest)
+	return ok, nil
 }
