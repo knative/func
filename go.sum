@@ -2745,10 +2745,10 @@ knative.dev/hack v0.0.0-20240909014011-fc6a8452af6d h1:mgROhGJG3+g0SBkaG4Y2HxrIO
 knative.dev/hack v0.0.0-20240909014011-fc6a8452af6d/go.mod h1:R0ritgYtjLDO9527h5vb5X6gfvt5LCrJ55BNbVDsWiY=
 knative.dev/networking v0.0.0-20240917132712-faa7309552e6 h1:+l+pAA1zEyqo2690EcEDomHdw5OYR9d4FdlaeAK5cWA=
 knative.dev/networking v0.0.0-20240917132712-faa7309552e6/go.mod h1:hn1SBZE0+jQRFhYhSgtKWcVrQcGkxfNXMxNkO8+ykq4=
-knative.dev/pkg v0.0.0-20240923063442-aabe552ba5e6 h1:3x7jZIppPg3PYUPq+tMUdfW1BIz1Do7Y/gWopZZKfg8=
-knative.dev/pkg v0.0.0-20240923063442-aabe552ba5e6/go.mod h1:IQi7fVFvQa6UpNnSpzlAiNPMtTvIj4MHj4vSD/PulCE=
-knative.dev/serving v0.42.1-0.20240923143026-59d17f1d93c7 h1:8YvIhKmnRwjehYDQfwx0Uwd6EY/c6I/SV8RiW/eKYFk=
-knative.dev/serving v0.42.1-0.20240923143026-59d17f1d93c7/go.mod h1:668vDBizUH/DL5Zn/OjhSw8MkPvcTgRX2J3V9LU2AOE=
+knative.dev/pkg v0.0.0-20240924202102-28b58b842f1a h1:AFR8PmM3le4Uf58XRJzj0Z/ajyCUriqebCk6hyc0M6g=
+knative.dev/pkg v0.0.0-20240924202102-28b58b842f1a/go.mod h1:IQi7fVFvQa6UpNnSpzlAiNPMtTvIj4MHj4vSD/PulCE=
+knative.dev/serving v0.42.1-0.20240924143639-ca647283a822 h1:1Rw2plnyF/90VH14Ewo2LqoUMK/Ui4If+vcA6LbXVZ0=
+knative.dev/serving v0.42.1-0.20240924143639-ca647283a822/go.mod h1:668vDBizUH/DL5Zn/OjhSw8MkPvcTgRX2J3V9LU2AOE=
 lukechampine.com/uint128 v1.1.1/go.mod h1:c4eWIwlEGaxC/+H1VguhU4PHXNWDCDMUlWdIWl2j1gk=
 lukechampine.com/uint128 v1.2.0/go.mod h1:c4eWIwlEGaxC/+H1VguhU4PHXNWDCDMUlWdIWl2j1gk=
 modernc.org/cc/v3 v3.36.0/go.mod h1:NFUHyPn4ekoC/JHeZFfZurN6ixxawE1BnVonP/oahEI=
