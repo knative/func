@@ -49,7 +49,7 @@ if [[ $(go list -f {{.Incomplete}}) == "true" ]]; then
     exec /$STI_SCRIPTS_PATH/usage
 else
     pushd .s2i/builds/last
-    go get f
+    go get function
     go build -o /opt/app-root/gobinary
     popd
     popd
