@@ -7,7 +7,7 @@ import (
 
 	fhttp "knative.dev/func-go/http"
 
-	f "f"
+	f "function"
 )
 
 type fx func(http.ResponseWriter, *http.Request)

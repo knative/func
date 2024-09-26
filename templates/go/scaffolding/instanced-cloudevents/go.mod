@@ -1,11 +1,11 @@
 module s
 
-replace f => ./f
+replace function => ./f
 
 go 1.21
 
 require (
-	f v0.0.0-00010101000000-000000000000
+	function v0.0.0-00010101000000-000000000000
 	knative.dev/func-go v0.21.3
 )
 
