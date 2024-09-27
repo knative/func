@@ -110,21 +110,12 @@ func runGo(ctx context.Context, job *Job) (err error) {
 		fmt.Printf("cd %v && go build -o f.bin\n", job.Dir())
 	}
 
-	// Get the dependencies of the function
-	cmd := exec.CommandContext(ctx, "go", "get", "function")
-	cmd.Dir = job.Dir()
-	cmd.Stderr = os.Stderr
-	cmd.Stdout = os.Stdout
-	if err = cmd.Run(); err != nil {
-		return
-	}
-
 	// Build
 	args := []string{"build", "-o", "f.bin"}
 	if job.verbose {
 		args = append(args, "-v")
 	}
-	cmd = exec.CommandContext(ctx, "go", args...)
+	cmd := exec.CommandContext(ctx, "go", args...)
 	cmd.Dir = job.Dir()
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
