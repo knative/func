@@ -6,7 +6,7 @@ import (
 
 	ce "knative.dev/func-go/cloudevents"
 
-	f "f"
+	f "function"
 )
 
 func main() {

@@ -66,7 +66,7 @@ func goBuild(cfg *buildConfig, p v1.Platform) (binPath string, err error) {
 	}
 
 	// Get the dependencies of the function
-	cmd := exec.CommandContext(cfg.ctx, gobin, "get", "f")
+	cmd := exec.CommandContext(cfg.ctx, gobin, "get", "function")
 	cmd.Env = envs
 	cmd.Dir = cfg.buildDir()
 	cmd.Stderr = os.Stderr

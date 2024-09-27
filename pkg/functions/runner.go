@@ -111,7 +111,7 @@ func runGo(ctx context.Context, job *Job) (err error) {
 	}
 
 	// Get the dependencies of the function
-	cmd := exec.CommandContext(ctx, "go", "get", "f")
+	cmd := exec.CommandContext(ctx, "go", "get", "function")
 	cmd.Dir = job.Dir()
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
