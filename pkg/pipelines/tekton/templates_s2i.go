@@ -174,12 +174,6 @@ metadata:
     # Fetch the git-clone task from hub
     pipelinesascode.tekton.dev/task: {{.GitCloneTaskRef}}
 
-    # Fetch the func-s2i task
-    pipelinesascode.tekton.dev/task-1: {{.FuncS2iTaskRef}}
-
-    # Fetch the func-deploy task
-    pipelinesascode.tekton.dev/task-2: {{.FuncDeployTaskRef}}
-
     # Fetch the pipelie definition from the .tekton directory
     pipelinesascode.tekton.dev/pipeline: {{.PipelineYamlURL}}
 
