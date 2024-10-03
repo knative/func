@@ -1,6 +1,8 @@
 package oci
 
 import (
+	"errors"
+	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -10,7 +12,16 @@ import (
 // links which are absolute or refer to targets outside the given root, in
 // addition to the basic job of returning the value of reading the link.
 func Test_validatedLinkTarget(t *testing.T) {
-	root := "testdata/test-links"
+	root := filepath.Join("testdata", "test-links")
+
+	err := os.Symlink("/var/example/absolute/link", filepath.Join(root, "absoluteLink"))
+	if err != nil && !errors.Is(err, os.ErrExist) {
+		t.Fatal(err)
+	}
+	err = os.Symlink("c://some/absolute/path", filepath.Join(root, "absoluteLinkWindows"))
+	if err != nil && !errors.Is(err, os.ErrExist) {
+		t.Fatal(err)
+	}
 
 	// Windows-specific absolute link and link target values:
 	absoluteLink := "absoluteLink"
