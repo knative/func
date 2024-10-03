@@ -269,6 +269,7 @@ spec:
       description: Reference of the image S2I will produce.
     - name: REGISTRY
       description: The registry associated with the function image.
+      default: ""
     - name: PATH_CONTEXT
       description: The location of the path to run s2i from.
       default: .
