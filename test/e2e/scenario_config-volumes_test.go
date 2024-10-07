@@ -147,7 +147,7 @@ func TestConfigVolumes(t *testing.T) {
 	configVolumesRemove("/bad-cm", enter)
 
 	// Deploy
-	knFunc.TestCmd.Exec("deploy", "--builder", "pack", "--registry", common.GetRegistry())
+	knFunc.TestCmd.Exec("deploy", "--registry", common.GetRegistry())
 	defer knFunc.TestCmd.Exec("delete")
 	_, functionUrl := common.WaitForFunctionReady(t, funcName)
 
@@ -271,7 +271,7 @@ func TestConfigVolumesPvcEmptyDir(t *testing.T) {
 
 	// Deploy
 
-	knFunc.TestCmd.Exec("deploy", "--builder", "pack", "--registry", common.GetRegistry())
+	knFunc.TestCmd.Exec("deploy", "--registry", common.GetRegistry())
 	t.Cleanup(func() {
 		knFunc.TestCmd.Exec("delete")
 	})

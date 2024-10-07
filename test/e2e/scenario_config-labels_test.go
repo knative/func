@@ -74,7 +74,7 @@ func TestConfigLabel(t *testing.T) {
 	// Deploy
 	knFunc.TestCmd.
 		WithEnv(testEnvName, testEnvValue).
-		Exec("deploy", "--registry", common.GetRegistry(), "--builder", "pack")
+		Exec("deploy", "--registry", common.GetRegistry())
 	defer knFunc.TestCmd.Exec("delete")
 
 	// Then assert that...

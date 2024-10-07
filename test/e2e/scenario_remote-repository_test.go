@@ -28,7 +28,7 @@ func TestRemoteRepository(t *testing.T) {
 
 	knFunc.SourceDir = funcPath
 
-	knFunc.Exec("deploy", "--builder", "pack", "--registry", common.GetRegistry())
+	knFunc.Exec("deploy", "--registry", common.GetRegistry())
 	defer knFunc.Exec("delete")
 	_, functionUrl := common.WaitForFunctionReady(t, funcName)
 
