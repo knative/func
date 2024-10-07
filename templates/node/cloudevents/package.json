@@ -18,7 +18,7 @@
     "tape": "^4.13.0"
   },
   "dependencies": {
-    "cloudevents": "^7.0.1",
-    "faas-js-runtime": "^2.2.2"
+    "cloudevents": "^8.0.2",
+    "faas-js-runtime": "^2.4.0"
   }
 }

@@ -35,7 +35,7 @@
   },
   "dependencies": {
     "@types/node": "^20.14.9",
-    "cloudevents": "8.0.1",
+    "cloudevents": "^8.0.2",
     "faas-js-runtime": "2.4.0",
     "optionator": "^0.9.4",
     "read-pkg": "^9.0.1",
