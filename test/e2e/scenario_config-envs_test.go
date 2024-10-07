@@ -165,7 +165,7 @@ func TestConfigEnvs(t *testing.T) {
 
 	// Deploy
 	knFunc.TestCmd.WithEnv(testEnvName, testEnvValue)
-	knFunc.TestCmd.Exec("deploy", "--builder", "pack", "--registry", common.GetRegistry())
+	knFunc.TestCmd.Exec("deploy", "--registry", common.GetRegistry())
 	defer knFunc.TestCmd.Exec("delete")
 	_, functionUrl := common.WaitForFunctionReady(t, funcName)
 
