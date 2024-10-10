@@ -336,7 +336,7 @@ func sourcesAsTarStream(f fn.Function) *io.PipeReader {
 				}
 			}
 
-			hdr, err := tar.FileInfoHeader(fi, lnk)
+			hdr, err := tar.FileInfoHeader(fi, filepath.ToSlash(lnk))
 			if err != nil {
 				return fmt.Errorf("cannot create a tar header: %w", err)
 			}

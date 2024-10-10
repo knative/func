@@ -295,7 +295,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 				}
 			}
 
-			hdr, err := tar.FileInfoHeader(fi, lnk)
+			hdr, err := tar.FileInfoHeader(fi, filepath.ToSlash(lnk))
 			if err != nil {
 				return fmt.Errorf("cannot create tar header: %w", err)
 			}
