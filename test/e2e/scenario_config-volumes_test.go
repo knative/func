@@ -5,7 +5,9 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"path"
 	"path/filepath"
+	"runtime"
 	"testing"
 	"time"
 
@@ -106,10 +108,13 @@ func TestConfigVolumes(t *testing.T) {
 	funcName := "test-config-volumes"
 	funcPath := filepath.Join(t.TempDir(), funcName)
 
+	_, thisfile, _, _ := runtime.Caller(0)
+	testTemplateFolder := path.Join(path.Dir(thisfile), "..", "templates")
+
 	knFunc.TestCmd.Exec("create",
 		"--language", "go",
-		"--template", "volumes",
-		"--repository", "http://github.com/boson-project/test-templates.git",
+		"--template", "testvolumes",
+		"--repository", "file://"+testTemplateFolder,
 		funcPath)
 	knFunc.TestCmd.SourceDir = funcPath
 
@@ -247,10 +252,13 @@ func TestConfigVolumesPvcEmptyDir(t *testing.T) {
 	funcName := "test-config-vol-pvc"
 	funcPath := filepath.Join(t.TempDir(), funcName)
 
+	_, thisfile, _, _ := runtime.Caller(0)
+	testTemplateFolder := path.Join(path.Dir(thisfile), "..", "templates")
+
 	knFunc.TestCmd.Exec("create",
 		"--language", "go",
-		"--template", "volumes",
-		"--repository", "http://github.com/boson-project/test-templates.git",
+		"--template", "testvolumes",
+		"--repository", "file://"+testTemplateFolder,
 		funcPath)
 	knFunc.TestCmd.SourceDir = funcPath
 
