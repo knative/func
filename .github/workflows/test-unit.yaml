@@ -35,7 +35,14 @@ jobs:
         env:
           FUNC_REPO_REF: ${{ github.event.pull_request.head.repo.full_name }}
           FUNC_REPO_BRANCH_REF: ${{ github.head_ref }}
+      - name: Template Unit Tests on Ubuntu
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          python3 -m venv ${{ github.workspace }}/.venv
+          . ${{ github.workspace }}/.venv/bin/activate
+          make test-templates
       - name: Template Unit Tests
+        if: matrix.os != 'ubuntu-latest'
         run: make test-templates
       - name: "Archive code coverage results"
         uses: actions/upload-artifact@v4
