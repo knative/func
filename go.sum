@@ -2737,8 +2737,8 @@ k8s.io/utils v0.0.0-20240711033017-18e509b52bc8 h1:pUdcCO1Lk/tbT5ztQWOBi5HBgbBP1
 k8s.io/utils v0.0.0-20240711033017-18e509b52bc8/go.mod h1:OLgZIPagt7ERELqWJFomSt595RzquPNLL48iOWgYOg0=
 knative.dev/client-pkg v0.0.0-20240903141311-eb73a58a643f h1:z9Oxc+vpsoYrsyovO8agFR0E9k4ADljEHbphHw/I9DA=
 knative.dev/client-pkg v0.0.0-20240903141311-eb73a58a643f/go.mod h1:LZur1NaQ0sSun/QEZ5R2I99bS5lOW//Y68JLpUEpkJc=
-knative.dev/client/pkg v0.0.0-20241010131729-18a256182983 h1:bry/Kqh19bb59k5Hl21Y7lvMN4t8YcU2KN8BVoYenf0=
-knative.dev/client/pkg v0.0.0-20241010131729-18a256182983/go.mod h1:JR3XomuVf2cBqgvXFONkX6Ebf1/gJwUnl/1OH47U18g=
+knative.dev/client/pkg v0.0.0-20241016014431-dbb49e603ce2 h1:RjuhdklDowLODd2cWDbTU5PU1182ik5MEw4DP5pvhWs=
+knative.dev/client/pkg v0.0.0-20241016014431-dbb49e603ce2/go.mod h1:JR3XomuVf2cBqgvXFONkX6Ebf1/gJwUnl/1OH47U18g=
 knative.dev/eventing v0.42.1-0.20241016013536-6aa49dc1db88 h1:Y50FB+2J5/DejNBre3klilKPmJFx31wv1OtTbpQUrjA=
 knative.dev/eventing v0.42.1-0.20241016013536-6aa49dc1db88/go.mod h1:5+F5Htg4l8TMn2bb8sjCiFdojIFqrSPyUj81/VXIVdA=
 knative.dev/hack v0.0.0-20241010131451-05b2fb30cb4d h1:aCfX7kwkvgGxXXGbso5tLqdwQmzBkJ9d+EIRwksKTvk=
@@ -2747,8 +2747,8 @@ knative.dev/networking v0.0.0-20241010132208-75d9920a9248 h1:yc8FzuFsaPRPF0qeFcf
 knative.dev/networking v0.0.0-20241010132208-75d9920a9248/go.mod h1:rIDqdud8+jryNa9LgHQZ0kOpR0k5fC6bkV0aAPhfSzM=
 knative.dev/pkg v0.0.0-20241015082832-95b4b97567b5 h1:0ZKQVzST2Y3nSud1hNzTYM+UhTHKOJLjSfmZmzjwpN4=
 knative.dev/pkg v0.0.0-20241015082832-95b4b97567b5/go.mod h1:StJI72GWcm/iErmk4RqFJiOo8RLbVqPbHxUqeVwAzeo=
-knative.dev/serving v0.42.1-0.20241015121732-83b66956e605 h1:9wqd/sjMGSOX6PzXxxm6DuVsOmqRdjWlz2Ac151IkJQ=
-knative.dev/serving v0.42.1-0.20241015121732-83b66956e605/go.mod h1:/exlE2+mo78cVXz/Xws1OjxzOJGTBqDCO3gjVf8E0MA=
+knative.dev/serving v0.42.1-0.20241016153129-77c7e1df0cd1 h1:TqrfLWy75MFJiYN3JnoYThFqTAtN9D7pdqx2aumpa70=
+knative.dev/serving v0.42.1-0.20241016153129-77c7e1df0cd1/go.mod h1:/exlE2+mo78cVXz/Xws1OjxzOJGTBqDCO3gjVf8E0MA=
 lukechampine.com/uint128 v1.1.1/go.mod h1:c4eWIwlEGaxC/+H1VguhU4PHXNWDCDMUlWdIWl2j1gk=
 lukechampine.com/uint128 v1.2.0/go.mod h1:c4eWIwlEGaxC/+H1VguhU4PHXNWDCDMUlWdIWl2j1gk=
 modernc.org/cc/v3 v3.36.0/go.mod h1:NFUHyPn4ekoC/JHeZFfZurN6ixxawE1BnVonP/oahEI=
