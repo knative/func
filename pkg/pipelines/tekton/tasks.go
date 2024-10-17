@@ -66,7 +66,7 @@ spec:
       default: "1001"
     - name: GROUP_ID
       description: The group ID of the builder image user.
-      default: "0"
+      default: "65532"
       ##############################################################
       #####  "default" has been changed to "0" for Knative Functions
     - name: PLATFORM_DIR
@@ -107,6 +107,8 @@ spec:
               chmod 775 "$(workspaces.source.path)"
           fi
         done
+
+        chmod -R g+w "$(workspaces.source.path)"
 
         echo "> Parsing additional configuration..."
         parsing_flag=""
@@ -187,7 +189,7 @@ spec:
         runAsUser: 1001
         #################################################################
         #####  "runAsGroup" has been changed to "0" for Knative Functions
-        runAsGroup: 0
+        runAsGroup: 65532
 
     - name: results
       image: docker.io/library/bash:5.1.4@sha256:b208215a4655538be652b2769d82e576bc4d0a2bb132144c060efc5be8c3f5d6
