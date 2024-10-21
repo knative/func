@@ -382,6 +382,74 @@ func TestCopy(t *testing.T) {
 	}
 }
 
+func TestTemplatingFS(t *testing.T) {
+	tfs := filesystem.NewTemplatingFS(
+		mockFS{files: []FileInfo{
+			{
+				Path: "src",
+				Typ:  fs.ModeDir,
+			},
+			{
+				Path:    "src/hello.txt.ftmpl",
+				Content: []byte("Hi {{.Name}}!"),
+			},
+		}},
+		struct{ Name string }{Name: "John"},
+	)
+
+	expectedContent := "Hi John!"
+
+	fi, err := tfs.Stat("src/hello.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fi.Size() != int64(len(expectedContent)) {
+		t.Errorf("size missmatch")
+	}
+
+	des, err := tfs.ReadDir("src")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(des) != 1 {
+		t.Fatal("expected exactly one item in directory")
+	}
+	if des[0].Name() != "hello.txt" {
+		t.Fatalf("unexpected file: %q", des[0].Name())
+	}
+	fi, err = des[0].Info()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fi.Size() != int64(len(expectedContent)) {
+		t.Error("size missmatch")
+	}
+
+	expectedFiles := []FileInfo{
+		{
+			Path: ".",
+			Typ:  fs.ModeDir,
+		},
+		{
+			Path: "src",
+			Typ:  fs.ModeDir,
+		},
+		{
+			Path:    "src/hello.txt",
+			Content: []byte(expectedContent),
+		},
+	}
+
+	actualFiles, err := loadFS(tfs)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if diff := cmp.Diff(expectedFiles, actualFiles); diff != "" {
+		t.Error("filesystem content missmatch (-want, +got):", diff)
+	}
+}
+
 // mock for testing symlink functionality
 type mockFS struct {
 	files []FileInfo
