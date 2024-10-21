@@ -1,6 +1,6 @@
 module s
 
-replace function => ./f
+replace {{.ModuleName}} => {{.FuncPath}}
 
 go 1.21
 

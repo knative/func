@@ -2,7 +2,6 @@ package scaffolding
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"knative.dev/func/pkg/filesystem"
@@ -43,6 +42,19 @@ func Write(out, src, runtime, invoke string, fs filesystem.Filesystem) (err erro
 		return ErrScaffoldingNotFound
 	}
 
+	rel, err := filepath.Rel(out, src)
+	if err != nil {
+		return ScaffoldingError{"error determining relative path to function source", err}
+	}
+
+	fs = filesystem.NewTemplatingFS(fs, struct {
+		ModuleName string
+		FuncPath   string
+	}{
+		ModuleName: "function",
+		FuncPath:   rel,
+	})
+
 	// Copy from d -> out from the filesystem
 	if err := filesystem.CopyFromFS(d, out, fs); err != nil {
 		return ScaffoldingError{"filesystem copy failed", err}
@@ -56,17 +68,6 @@ func Write(out, src, runtime, invoke string, fs filesystem.Filesystem) (err erro
 		return ScaffoldingError{"certs copy failed", err}
 	}
 
-	// Replace the 'f' link of the scaffolding (which is now incorrect) to
-	// link to the function's root.
-	rel, err := filepath.Rel(out, src)
-	if err != nil {
-		return ScaffoldingError{"error determining relative path to function source", err}
-	}
-	link := filepath.Join(out, "f")
-	_ = os.Remove(link)
-	if err = os.Symlink(rel, link); err != nil {
-		return fmt.Errorf("error linking scaffolding to source %w", err)
-	}
 	return
 }
 
