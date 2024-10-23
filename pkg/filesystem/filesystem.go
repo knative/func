@@ -2,6 +2,8 @@ package filesystem
 
 import (
 	"archive/zip"
+	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -9,6 +11,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"text/template"
 
 	billy "github.com/go-git/go-billy/v5"
 )
@@ -251,6 +254,140 @@ func (m maskingFS) Readlink(link string) (string, error) {
 		return "", &fs.PathError{Op: "readlink", Path: link, Err: fs.ErrNotExist}
 	}
 	return m.fs.Readlink(link)
+}
+
+// NewTemplatingFS creates a new filesystem that evaluates/expands Go templates from *.ftmpl files in the baseFS.
+// For example if the baseFS contains file go.mod.ftmpl then the new resultant FS will contain go.mod file instead,
+// and the file would be result of template execution with templateData as the template data.
+func NewTemplatingFS(baseFS Filesystem, templateData any) templatingFS {
+	return templatingFS{
+		fs:           baseFS,
+		templateData: templateData,
+	}
+}
+
+type templatingFS struct {
+	fs           Filesystem
+	templateData any
+}
+
+type templatingFI struct {
+	fs.FileInfo
+	size int64
+}
+
+func (t templatingFI) Size() int64 {
+	return t.size
+}
+
+func (t templatingFI) Name() string {
+	return strings.TrimSuffix(t.FileInfo.Name(), ".ftmpl")
+}
+
+type templatingFile struct {
+	fi   templatingFI
+	buff bytes.Buffer
+}
+
+func (t *templatingFile) Stat() (fs.FileInfo, error) {
+	return t.fi, nil
+}
+
+func (t *templatingFile) Read(i []byte) (int, error) {
+	return t.buff.Read(i)
+}
+
+func (t *templatingFile) Close() error {
+	return nil
+}
+
+func (t templatingFS) Open(name string) (fs.File, error) {
+	n := name + ".ftmpl"
+
+	if _, err := t.fs.Stat(n); errors.Is(err, fs.ErrNotExist) {
+		return t.fs.Open(name)
+	}
+
+	tmpl, err := template.ParseFS(t.fs, n)
+	if err != nil {
+		return nil, err
+	}
+
+	var f templatingFile
+	err = tmpl.Execute(&f.buff, t.templateData)
+	if err != nil {
+		return nil, err
+	}
+
+	fi, err := t.fs.Stat(n)
+	if err != nil {
+		return nil, err
+	}
+	f.fi = templatingFI{FileInfo: fi, size: int64(f.buff.Len())}
+
+	return &f, nil
+}
+
+func (t templatingFS) ReadDir(name string) ([]fs.DirEntry, error) {
+	des, err := t.fs.ReadDir(name)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]fs.DirEntry, len(des))
+	for i, de := range des {
+		var fi fs.FileInfo
+		if !strings.HasSuffix(de.Name(), ".ftmpl") {
+			result[i] = de
+			continue
+		}
+
+		fi, err = t.Stat(path.Join(name, strings.TrimSuffix(de.Name(), ".ftmpl")))
+		if err != nil {
+			return nil, err
+		}
+		result[i] = dirEntry{fi}
+
+	}
+	return result, nil
+}
+
+func (t templatingFS) Stat(name string) (fs.FileInfo, error) {
+	n := name + ".ftmpl"
+
+	fi, err := t.fs.Stat(n)
+	if errors.Is(err, fs.ErrNotExist) {
+		return t.fs.Stat(name)
+	}
+
+	var tmpl *template.Template
+	tmpl, err = template.ParseFS(t.fs, n)
+	if err != nil {
+		return nil, err
+	}
+
+	var w wc
+	err = tmpl.Execute(&w, t.templateData)
+	if err != nil {
+		return nil, err
+	}
+	return templatingFI{
+		FileInfo: fi,
+		size:     w.written,
+	}, nil
+}
+
+type wc struct {
+	written int64
+}
+
+func (w *wc) Write(p []byte) (n int, err error) {
+	w.written += int64(len(p))
+	return len(p), nil
+}
+
+func (t templatingFS) Readlink(link string) (string, error) {
+	return t.fs.Readlink(link)
 }
 
 // CopyFromFS copies files from the `src` dir on the accessor Filesystem to local filesystem into `dest` dir.
