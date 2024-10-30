@@ -152,8 +152,8 @@ test-node: ## Test Node templates
 	cd templates/node/http && npm ci && npm test && rm -rf node_modules
 
 test-python: ## Test Python templates
-	cd templates/python/cloudevents && pip3 install -r requirements.txt && python3 test_func.py && rm -rf __pycache__
-	cd templates/python/http && python3 test_func.py && rm -rf __pycache__
+	# cd templates/python/cloudevents && pip3 install httpx && python3 -m unittest discover && rm -rf __pycache__
+	cd templates/python/http && pipx install poetry && poetry install && poetry run python -m unittest discover ./tests && rm -rf __pycache__
 
 test-quarkus: ## Test Quarkus templates
 	cd templates/quarkus/cloudevents && ./mvnw -q test && ./mvnw clean && rm .mvn/wrapper/maven-wrapper.jar
