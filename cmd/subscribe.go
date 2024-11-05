@@ -95,6 +95,11 @@ func updateOrAddSubscription(subscriptions []fn.KnativeSubscription, cfg subscib
 	for i, subscription := range subscriptions {
 		if subscription.Source == cfg.Source {
 			found = true
+
+			if subscription.Filters == nil {
+				subscription.Filters = make(map[string]string)
+			}
+
 			// Update filters. Override if the key already exists.
 			for newKey, newValue := range newFilters {
 				subscription.Filters[newKey] = newValue
