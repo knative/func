@@ -22,10 +22,10 @@ from func_python.http import serve
 logging.basicConfig(level=logging.INFO)
 
 try:
-    from f import new as handler  # type: ignore[import]
+    from function import new as handler  # type: ignore[import]
 except ImportError:
     try:
-        from f import handle as handler  # type: ignore[import]
+        from function import handle as handler  # type: ignore[import]
     except ImportError:
         logging.error("Function must export either 'new' or 'handle'")
         raise

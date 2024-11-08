@@ -6,6 +6,9 @@ the various invocation methods; currently "http" (default) and "cloudevents".
 There are different method signatures and underlying middleware implementations
 for each; hence the separation.
 
+Note that the "instanced" versions also support static, thus only they are
+included:
+
 Each of the two support either the instanced method signature ("new") or the
 static "handle" method.  This differs from strongly typed languages such as Go
 which require different scaffolding be written based on this division.
