@@ -1,7 +1,6 @@
 package scaffolding
 
 import (
-	"errors"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -82,8 +81,14 @@ func (d goDetector) hasFunctionDeclaration(filename, function string) bool {
 
 type pythonDetector struct{}
 
-func (d pythonDetector) Detect(dir string) (bool, bool, error) {
-	return false, false, errors.New("the Python method signature detector is not yet available")
+func (d pythonDetector) Detect(dir string) (static, instanced bool, err error) {
+	// The python middleware handles detecting if the Function has the static
+	// and/or instanced method signatures, so we can presume the suggested
+	// default of "instanced" here.
+	// Ideally we'd refactor this to support in-code the idea of "detection
+	// not necessary for this runtime".
+	instanced = true
+	return
 }
 
 // TODO: Other Detectors

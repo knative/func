@@ -84,7 +84,7 @@ func getRunFunc(ctx context.Context, job *Job) (runFn func() error, err error) {
 	case "go":
 		runFn = func() error { return runGo(ctx, job) }
 	case "python":
-		err = ErrRunnerNotImplemented{runtime}
+		runFn = func() error { return runPython(ctx, job) }
 	case "java":
 		err = ErrRunnerNotImplemented{runtime}
 	case "node":
@@ -146,6 +146,54 @@ func runGo(ctx context.Context, job *Job) (err error) {
 	//   A Cmd with a non-empty Dir field and nil Env now implicitly sets the PWD environment variable for the subprocess to match Dir.
 	//   The new method Cmd.Environ reports the environment that would be used to run the command, including the implicitly set PWD variable.
 	// cmd.Env = append(cmd.Environ(), "PORT="+job.Port) // requires go 1.19
+	cmd.Env = append(cmd.Env, "PORT="+job.Port, "PWD="+cmd.Dir)
+
+	// Running asynchronously allows for the client Run method to return
+	// metadata about the running function such as its chosen port.
+	go func() {
+		job.Errors <- cmd.Run()
+	}()
+	return
+}
+
+func runPython(ctx context.Context, job *Job) (err error) {
+	if job.verbose {
+		fmt.Printf("cd %v", job.Dir())
+	}
+
+	// TODO: Check for poetry and write a friendly error message
+	// TODO:  allow poetry path to be specified via env var FUNC_POETRY
+
+	// Install Dependencies
+	if job.verbose {
+		fmt.Printf("poetry install --no-root\n")
+	}
+	cmd := exec.CommandContext(ctx, "poetry", "install", "--no-root")
+	cmd.Dir = job.Dir()
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	if err = cmd.Run(); err != nil {
+		return
+	}
+
+	// Run
+	if job.verbose {
+		fmt.Printf("PORT=%v poetry run python main.py\n", job.Port)
+	}
+	cmd = exec.CommandContext(ctx, "poetry", "run", "python", "main.py")
+	// cmd.Dir = job.Function.Root // This is done from within the middleware
+	cmd.Dir = job.Dir()
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	//  TODO: Check runtime uses new env var for listen address rather than
+	// the older address/port pair.
+
+	// See the 1.19 [release notes](https://tip.golang.org/doc/go1.19) which state:
+	//   A Cmd with a non-empty Dir field and nil Env now implicitly sets the
+	//   PWD environment variable for the subprocess to match Dir.
+	//   The new method Cmd.Environ reports the environment that would be used
+	//   to run the command, including the implicitly set PWD variable.
 	cmd.Env = append(cmd.Env, "PORT="+job.Port, "PWD="+cmd.Dir)
 
 	// Running asynchronously allows for the client Run method to return

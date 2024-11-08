@@ -141,9 +141,8 @@ func runRun(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		cfg runConfig
 		f   fn.Function
 	)
-	if cfg, err = newRunConfig(cmd).Prompt(); err != nil {
-		return
-	}
+	cfg = newRunConfig(cmd)
+
 	if f, err = fn.NewFunction(cfg.Path); err != nil {
 		return
 	}
@@ -347,7 +346,7 @@ func (c runConfig) Validate(cmd *cobra.Command, f fn.Function) (err error) {
 	// TODO: modify this check when the local host runner is available to
 	// only generate this error when --container==false && the --language is
 	// not yet implemented.
-	if !c.Container && f.Runtime != "go" {
+	if !c.Container && (f.Runtime != "go" && f.Runtime != "python") {
 		return errors.New("the ability to run functions outside of a container via 'func run' is coming soon.")
 	}
 
