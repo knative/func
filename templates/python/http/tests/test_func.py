@@ -11,7 +11,7 @@ poetry run python -m unittest discover
 """
 import unittest
 from httpx import AsyncClient
-from my_func import new
+from function import new
 
 
 class TestFunc(unittest.IsolatedAsyncioTestCase):

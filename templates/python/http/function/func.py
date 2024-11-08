@@ -77,20 +77,20 @@ class Function:
         """
         logging.info("Function stopping")
 
-    def alive(self) -> bool:
+    def alive(self) -> tuple[bool, str | None]:
         """ alive is an optional method for performing a deep check on your
         Function's liveness.  If removed, the system will assume the function
         is ready if the process is running. This is exposed by default at the
-        path /health/liveness.
+        path /health/liveness.  The optional string return is a message.
         """
         logging.debug("Function received liveness check")
-        return True
+        return True, "Alive"
 
-    def ready(self) -> bool:
+    def ready(self) -> tuple[bool, str | None]:
         """ ready is an optional method for performing a deep check on your
         Function's readiness.  If removed, the system will assume the function
         is ready if the process is running.  This is exposed by default at the
         path /health/rediness.
         """
         logging.debug("Function received readiness check")
-        return True
+        return True, "Ready"
