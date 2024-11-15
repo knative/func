@@ -303,16 +303,12 @@ func (c buildConfig) Prompt() (buildConfig, error) {
 	// value and will always use the value from the config (flag or env variable).
 	// This is not strictly correct and will be fixed when Global Config: Function
 	// Context is available (PR#1416)
-	hasFunc, err := fn.IsFunctionInitialized(c.Path)
-	if err != nil {
-		return c, err
-	}
-	if !hasFunc {
-		return c, fmt.Errorf("no function has been initialized in the current directory. Please initialize a function by running either:\n- func init --language <your language>\n- func create <function name> --language <your_language>")
-	}
 	f, err := fn.NewFunction(c.Path)
 	if err != nil {
 		return c, err
+	}
+	if !f.Initialized() {
+		return c, fmt.Errorf("no function has been initialized in %q. Please initialize a function by running:\n- func init --language <your language>", c.Path)
 	}
 	if (f.Registry == "" && c.Registry == "" && c.Image == "") || c.Confirm {
 		fmt.Println("A registry for function images is required. For example, 'docker.io/tigerteam'.")

@@ -1276,9 +1276,6 @@ func isEffectivelyEmpty(path string) (bool, error) {
 	}
 	return true, nil
 }
-func IsFunctionInitialized(path string) (bool, error) {
-	return hasInitializedFunction(path)
-}
 
 // returns true if the given path contains an initialized function.
 func hasInitializedFunction(path string) (bool, error) {
