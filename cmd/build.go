@@ -307,6 +307,9 @@ func (c buildConfig) Prompt() (buildConfig, error) {
 	if err != nil {
 		return c, err
 	}
+	if !f.Initialized() {
+		return c, fmt.Errorf("no function has been initialized in %q. Please initialize a function by running:\n- func init --language <your language>", c.Path)
+	}
 	if (f.Registry == "" && c.Registry == "" && c.Image == "") || c.Confirm {
 		fmt.Println("A registry for function images is required. For example, 'docker.io/tigerteam'.")
 		err := survey.AskOne(
