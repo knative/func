@@ -166,7 +166,7 @@ func runPython(ctx context.Context, job *Job) (err error) {
 
 	// Install Dependencies
 	if job.verbose {
-		fmt.Printf("poetry install --no-root\n")
+		fmt.Printf("poetry install --no-root --no-cache\n")
 	}
 	cmd := exec.CommandContext(ctx, "poetry", "install", "--no-root")
 	cmd.Dir = job.Dir()
@@ -201,6 +201,26 @@ func runPython(ctx context.Context, job *Job) (err error) {
 	go func() {
 		job.Errors <- cmd.Run()
 	}()
+
+	// TODO: fix context cancellation such that we can both signal the
+	// running command process to complete (thus triggering the .Stop
+	// lifecycle handling event) and allow the following cleanup task
+	// to be run. For now just wait a moment and then immediately clean up...
+	// creating a racing condition.
+	go func() {
+		time.Sleep(3 * time.Second)
+		if job.verbose {
+			fmt.Printf("cleaning cache for next run (poetry remove function) \n")
+		}
+		cmd = exec.CommandContext(ctx, "poetry", "remove", "function")
+		cmd.Dir = job.Dir()
+		// cmd.Stderr = os.Stderr
+		// cmd.Stdout = os.Stdout
+		if err = cmd.Run(); err != nil {
+			return
+		}
+	}()
+
 	return
 }
 
