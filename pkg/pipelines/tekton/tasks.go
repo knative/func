@@ -351,17 +351,26 @@ spec:
           TLS_VERIFY_FLAG="--tls-verify=false"
         fi
 
+        # Set certificate directory flag if workspace is bound
         [[ "$(workspaces.sslcertdir.bound)" == "true" ]] && CERT_DIR_FLAG="--cert-dir $(workspaces.sslcertdir.path)"
+
+        # Set docker config before any buildah commands
+        [[ "$(workspaces.dockerconfig.bound)" == "true" ]] && export DOCKER_CONFIG="$(workspaces.dockerconfig.path)"
+
+        # Setup artifacts cache path
         ARTIFACTS_CACHE_PATH="$(workspaces.cache.path)/mvn-artifacts"
         [ -d "${ARTIFACTS_CACHE_PATH}" ] || mkdir "${ARTIFACTS_CACHE_PATH}"
+
+        # Build the image
         buildah ${CERT_DIR_FLAG} bud --storage-driver=vfs ${TLS_VERIFY_FLAG} --layers \
           -v "${ARTIFACTS_CACHE_PATH}:/tmp/artifacts/:rw,z,U" \
           -f /gen-source/Dockerfile.gen -t $(params.IMAGE) .
 
-        [[ "$(workspaces.dockerconfig.bound)" == "true" ]] && export DOCKER_CONFIG="$(workspaces.dockerconfig.path)"
+        # Push the image
         buildah ${CERT_DIR_FLAG} push --storage-driver=vfs ${TLS_VERIFY_FLAG} --digestfile $(workspaces.source.path)/image-digest \
           $(params.IMAGE) docker://$(params.IMAGE)
 
+        # Output the image digest
         cat $(workspaces.source.path)/image-digest | tee /tekton/results/IMAGE_DIGEST
       volumeMounts:
       - name: varlibcontainers
