@@ -83,7 +83,6 @@ class Function:
         is ready if the process is running. This is exposed by default at the
         path /health/liveness.  The optional string return is a message.
         """
-        logging.debug("Function received liveness check")
         return True, "Alive"
 
     def ready(self) -> tuple[bool, str | None]:
@@ -92,5 +91,4 @@ class Function:
         is ready if the process is running.  This is exposed by default at the
         path /health/rediness.
         """
-        logging.debug("Function received readiness check")
         return True, "Ready"
