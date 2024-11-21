@@ -15,4 +15,4 @@ jobs:
       - name: Docker Info
         run: docker info
       - name: Build
-        run: docker build .
+        run: pwd; docker build .
