@@ -343,6 +343,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 	opts := types.ImageBuildOptions{
 		Tags:       []string{f.Build.Image},
 		PullParent: true,
+		Version:    types.BuilderBuildKit,
 	}
 
 	resp, err := client.ImageBuild(ctx, pr, opts)
