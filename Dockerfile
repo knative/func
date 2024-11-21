@@ -1,3 +1,3 @@
-FROM docker.io/library/alpine:latest
+FROM scratch
 
 RUN --mount=type=cache,target=/tmp/cache/,id=42 echo "Hello!"
