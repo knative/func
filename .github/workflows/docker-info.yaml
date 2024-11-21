@@ -14,5 +14,5 @@ jobs:
         run: docker version
       - name: Docker Info
         run: docker info
-      - name: Print Config
-        run: cat /etc/docker/daemon.json
+      - name: Build
+        run: docker build .
