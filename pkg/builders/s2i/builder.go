@@ -3,6 +3,8 @@ package s2i
 import (
 	"archive/tar"
 	"context"
+	"crypto/sha1"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -256,6 +258,14 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 	// s2i apparently is not excluding the files in --as-dockerfile mode
 	exclude := regexp.MustCompile(cfg.ExcludeRegExp)
 
+	// if exists, patch dockerfile to using cache mount
+	if _, e := os.Stat(cfg.AsDockerfile); e == nil {
+		err = patchDockerfile(cfg.AsDockerfile, f)
+		if err != nil {
+			return err
+		}
+	}
+
 	const up = ".." + string(os.PathSeparator)
 	go func() {
 		tw := tar.NewWriter(pw)
@@ -333,6 +343,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 	opts := types.ImageBuildOptions{
 		Tags:       []string{f.Build.Image},
 		PullParent: true,
+		Version:    types.BuilderBuildKit,
 	}
 
 	resp, err := client.ImageBuild(ctx, pr, opts)
@@ -354,6 +365,20 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 	}
 
 	return jsonmessage.DisplayJSONMessagesStream(resp.Body, out, fd, isTerminal, nil)
+}
+
+func patchDockerfile(path string, f fn.Function) error {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return err
+	}
+	re := regexp.MustCompile(`RUN (.*assemble)`)
+	s := sha1.Sum([]byte(f.Root))
+	mountCmd := "--mount=type=cache,target=/tmp/artifacts/,uid=1001,id=" + hex.EncodeToString(s[:8])
+	replacement := fmt.Sprintf("RUN %s \\\n    $1", mountCmd)
+	newDockerFileStr := re.ReplaceAllString(string(data), replacement)
+
+	return os.WriteFile(path, []byte(newDockerFileStr), 0644)
 }
 
 func s2iScriptURL(ctx context.Context, cli DockerClient, image string) (string, error) {
