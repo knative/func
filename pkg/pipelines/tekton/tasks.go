@@ -440,6 +440,9 @@ spec:
     - name: path
       description: Path to the function project
       default: ""
+  workspaces:
+    - name: source
+      description: The workspace containing the function project
   steps:
     - name: func-scaffold
       image: %s
