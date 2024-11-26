@@ -23,7 +23,7 @@ func NewPromptForCredentials(in io.Reader, out, errOut io.Writer) func(registryW
 			firstTime = false
 			fmt.Fprintf(out, "Please provide credentials for repository '%s'.\n", registryWithRepo)
 		} else {
-			fmt.Fprintf(out, "Incorrect credentials for repository '%s'. Please make sure the image name is correct and try again.\n", registryWithRepo)
+			fmt.Fprintf(out, "Incorrect credentials for repository '%s'. Please make sure the image is correct and try again.\n", registryWithRepo)
 		}
 
 		var qs = []*survey.Question{
