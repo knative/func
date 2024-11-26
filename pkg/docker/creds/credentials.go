@@ -236,7 +236,6 @@ func (c *credentialsProvider) getCredentials(ctx context.Context, image string) 
 	}
 
 	registry := ref.Context().RegistryStr()
-
 	for _, load := range c.credentialLoaders {
 
 		result, err = load(registry)
@@ -263,8 +262,14 @@ func (c *credentialsProvider) getCredentials(ctx context.Context, image string) 
 		return docker.Credentials{}, ErrCredentialsNotFound
 	}
 
+	// this is [registry] / [repository]
+	// this is  index.io  / user/imagename
+	registryWithRepository := registry + "/" + ref.Context().RepositoryStr()
+
+	// the trying-to-actualy-authorize cycle
 	for {
-		result, err = c.promptForCredentials(registry)
+		// use repo here to print it out in prompt
+		result, err = c.promptForCredentials(registryWithRepository)
 		if err != nil {
 			return docker.Credentials{}, err
 		}
