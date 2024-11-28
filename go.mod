@@ -1,6 +1,6 @@
 module knative.dev/func
 
-go 1.22.0
+go 1.22.7
 
 // this is required bacause of bad dep in github.com/openshift-pipelines/pipelines-as-code
 replace k8s.io/client-go => k8s.io/client-go v0.29.3
