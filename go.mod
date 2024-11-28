@@ -1,6 +1,6 @@
 module knative.dev/func
 
-go 1.22.0
+go 1.22.7
 
 // this is required bacause of bad dep in github.com/openshift-pipelines/pipelines-as-code
 replace k8s.io/client-go => k8s.io/client-go v0.29.3
@@ -50,7 +50,7 @@ require (
 	golang.org/x/crypto v0.29.0
 	golang.org/x/exp v0.0.0-20240808152545-0cdaa3abc0fa
 	golang.org/x/net v0.31.0
-	golang.org/x/oauth2 v0.22.0
+	golang.org/x/oauth2 v0.23.0
 	golang.org/x/sync v0.9.0
 	golang.org/x/term v0.26.0
 	gopkg.in/yaml.v2 v2.4.0
@@ -60,11 +60,11 @@ require (
 	k8s.io/apimachinery v0.30.3
 	k8s.io/client-go v1.5.2
 	k8s.io/klog/v2 v2.130.1
-	knative.dev/client/pkg v0.0.0-20241106014440-f94c31bda370
-	knative.dev/eventing v0.43.1-0.20241108100801-9d673899ea60
-	knative.dev/hack v0.0.0-20241106013728-b7995315deb5
-	knative.dev/pkg v0.0.0-20241111070503-7b333a046a23
-	knative.dev/serving v0.43.1-0.20241111142305-95d2c9bcde86
+	knative.dev/client/pkg v0.0.0-20241128014423-747ac988ce14
+	knative.dev/eventing v0.43.1-0.20241128102143-545c14caca01
+	knative.dev/hack v0.0.0-20241128013751-1978b3a02667
+	knative.dev/pkg v0.0.0-20241128013618-f3ab5605e542
+	knative.dev/serving v0.43.1-0.20241128121642-8cbbe8f124cc
 )
 
 require (
@@ -267,16 +267,16 @@ require (
 	go.starlark.net v0.0.0-20230525235612-a134d8f9ddca // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
-	golang.org/x/mod v0.21.0 // indirect
+	golang.org/x/mod v0.22.0 // indirect
 	golang.org/x/sys v0.27.0 // indirect
 	golang.org/x/text v0.20.0 // indirect
 	golang.org/x/time v0.6.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/api v0.183.0 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20240814211410-ddb44dafa142 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240814211410-ddb44dafa142 // indirect
-	google.golang.org/grpc v1.67.1 // indirect
-	google.golang.org/protobuf v1.35.1 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20240903143218-8af14fe29dc1 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240903143218-8af14fe29dc1 // indirect
+	google.golang.org/grpc v1.68.0 // indirect
+	google.golang.org/protobuf v1.35.2 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
@@ -285,8 +285,8 @@ require (
 	k8s.io/cli-runtime v0.29.2 // indirect
 	k8s.io/kube-openapi v0.0.0-20240808142205-8e686545bdb8 // indirect
 	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8 // indirect
-	knative.dev/client-pkg v0.0.0-20241022130700-7b4bb48ac250 // indirect
-	knative.dev/networking v0.0.0-20241106014454-8a887984f105 // indirect
+	knative.dev/client-pkg v0.0.0-20241106014333-14f4a3a4c3e1 // indirect
+	knative.dev/networking v0.0.0-20241118132247-bbd3279aa3a4 // indirect
 	sigs.k8s.io/controller-runtime v0.7.2 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/kustomize/api v0.13.5-0.20230601165947-6ce0bf390ce3 // indirect
