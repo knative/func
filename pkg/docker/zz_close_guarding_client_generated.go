@@ -469,7 +469,7 @@ func (c *closeGuardingClient) ImageHistory(arg0 context.Context, arg1 string) ([
 	return c.pimpl.ImageHistory(arg0, arg1)
 }
 
-func (c *closeGuardingClient) ImageImport(arg0 context.Context, arg1 types.ImageImportSource, arg2 string, arg3 image.ImportOptions) (io.ReadCloser, error) {
+func (c *closeGuardingClient) ImageImport(arg0 context.Context, arg1 image.ImportSource, arg2 string, arg3 image.ImportOptions) (io.ReadCloser, error) {
 	c.m.RLock()
 	defer c.m.RUnlock()
 	if c.closed {
