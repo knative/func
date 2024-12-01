@@ -11,21 +11,21 @@ require (
 	github.com/Microsoft/go-winio v0.6.2
 	github.com/Netflix/go-expect v0.0.0-20220104043353-73e0943537d2
 	github.com/alecthomas/jsonschema v0.0.0-20220216202328-9eeeec9d044b
-	github.com/buildpacks/pack v0.34.2
+	github.com/buildpacks/pack v0.35.1
 	github.com/chainguard-dev/git-urls v1.0.2
 	github.com/cloudevents/sdk-go/v2 v2.15.2
 	github.com/containerd/containerd v1.7.17
 	github.com/containers/image/v5 v5.31.0
 	github.com/coreos/go-semver v0.3.1
 	github.com/creack/pty v1.1.21
-	github.com/docker/cli v26.1.3+incompatible
+	github.com/docker/cli v26.1.4+incompatible
 	github.com/docker/docker v26.1.5+incompatible
 	github.com/docker/docker-credential-helpers v0.8.1
 	github.com/docker/go-connections v0.5.0
 	github.com/go-git/go-billy/v5 v5.5.0
 	github.com/go-git/go-git/v5 v5.12.0
 	github.com/google/go-cmp v0.6.0
-	github.com/google/go-containerregistry v0.19.1
+	github.com/google/go-containerregistry v0.20.0
 	github.com/google/go-github/v49 v49.1.0
 	github.com/google/uuid v1.6.0
 	github.com/hectane/go-acl v0.0.0-20190604041725-da78bae5fc95
@@ -42,7 +42,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
 	github.com/schollz/progressbar/v3 v3.13.1
-	github.com/spf13/cobra v1.8.0
+	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.5
 	github.com/tektoncd/cli v0.37.0
 	github.com/tektoncd/pipeline v0.60.1
@@ -83,6 +83,7 @@ require (
 	github.com/Azure/go-autorest/logger v0.2.1 // indirect
 	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
 	github.com/BurntSushi/toml v1.3.2 // indirect
+	github.com/GoogleContainerTools/kaniko v1.22.0 // indirect
 	github.com/Masterminds/semver/v3 v3.2.1 // indirect
 	github.com/Microsoft/hcsshim v0.12.3 // indirect
 	github.com/ProtonMail/go-crypto v1.0.0 // indirect
@@ -125,7 +126,7 @@ require (
 	github.com/containers/libtrust v0.0.0-20230121012942-c1716e8a8d01 // indirect
 	github.com/containers/ocicrypt v1.1.10 // indirect
 	github.com/containers/storage v1.54.0 // indirect
-	github.com/cpuguy83/go-md2man/v2 v2.0.3 // indirect
+	github.com/cpuguy83/go-md2man/v2 v2.0.4 // indirect
 	github.com/cyphar/filepath-securejoin v0.2.5 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dgraph-io/ristretto v0.0.1 // indirect
@@ -222,7 +223,7 @@ require (
 	github.com/opencontainers/selinux v1.11.0 // indirect
 	github.com/openzipkin/zipkin-go v0.4.3 // indirect
 	github.com/ostreedev/ostree-go v0.0.0-20210805093236-719684c64e4f // indirect
-	github.com/pelletier/go-toml/v2 v2.1.0 // indirect
+	github.com/pelletier/go-toml/v2 v2.1.1 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pjbgf/sha1cd v0.3.0 // indirect
 	github.com/prometheus/client_golang v1.19.1 // indirect
