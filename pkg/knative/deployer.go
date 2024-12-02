@@ -996,7 +996,7 @@ func checkResourcesArePresent(ctx context.Context, namespace string, referencedS
 	}
 
 	if errMsg != "" {
-		return fmt.Errorf("\n" + errMsg)
+		return fmt.Errorf("error(s) while validating resources:\n%s", errMsg)
 	}
 
 	return nil
