@@ -300,7 +300,7 @@ func (m *mockPusherDockerClient) ImageSave(ctx context.Context, strings []string
 	return m.imageSave(ctx, strings)
 }
 
-func (m *mockPusherDockerClient) ImageLoad(ctx context.Context, reader io.Reader, b bool) (types.ImageLoadResponse, error) {
+func (m *mockPusherDockerClient) ImageLoad(ctx context.Context, reader io.Reader, b bool) (api.LoadResponse, error) {
 	panic("implement me")
 }
 
