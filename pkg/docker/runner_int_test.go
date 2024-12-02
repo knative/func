@@ -50,6 +50,9 @@ func TestRun(t *testing.T) {
 	}
 
 	f, err = client.Build(ctx, f)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Run the function using a docker runner
 	var out, errOut bytes.Buffer
@@ -125,6 +128,9 @@ func TestRunDigested(t *testing.T) {
 
 	// prebuild default image
 	f, err = client.Build(ctx, f)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// simulate passing image from --image flag since client.Run just sets
 	// a timeout and simply calls runner.Run.

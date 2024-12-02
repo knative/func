@@ -35,7 +35,7 @@ func TestGetPodLogs(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		cliSet.CoreV1().Namespaces().Delete(ctx, testingNS, metav1.DeleteOptions{})
+		_ = cliSet.CoreV1().Namespaces().Delete(ctx, testingNS, metav1.DeleteOptions{})
 	})
 	t.Log("created namespace: ", testingNS)
 
@@ -61,7 +61,7 @@ func TestGetPodLogs(t *testing.T) {
 		},
 	}
 
-	pod, err = cliSet.CoreV1().Pods(testingNS).Create(ctx, pod, metav1.CreateOptions{})
+	_, err = cliSet.CoreV1().Pods(testingNS).Create(ctx, pod, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}

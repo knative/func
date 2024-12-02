@@ -63,7 +63,7 @@ func TestIntegration(t *testing.T) {
 		Type:       corev1.SecretTypeOpaque,
 	}
 
-	sc, err = cliSet.CoreV1().Secrets(namespace).Create(ctx, sc, metav1.CreateOptions{})
+	_, err = cliSet.CoreV1().Secrets(namespace).Create(ctx, sc, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +75,7 @@ func TestIntegration(t *testing.T) {
 		},
 		Data: map[string]string{"FUNC_TEST_CM_A": "1"},
 	}
-	cm, err = cliSet.CoreV1().ConfigMaps(namespace).Create(ctx, cm, metav1.CreateOptions{})
+	_, err = cliSet.CoreV1().ConfigMaps(namespace).Create(ctx, cm, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -187,7 +187,7 @@ func TestIntegration(t *testing.T) {
 	if !strings.Contains(outStr, "FUNC_TEST_CM_A=1") {
 		t.Error("environment variable from config-map was not propagated")
 	}
-	if !strings.Contains(outStr, "/etc/sc/FUNC_TEST_SC_A") || !strings.Contains(outStr, "/etc/sc/FUNC_TEST_SC_A") {
+	if !strings.Contains(outStr, "/etc/sc/FUNC_TEST_SC_A") {
 		t.Error("secret was not mounted")
 	}
 	if !strings.Contains(outStr, "/etc/cm/FUNC_TEST_CM_A") {
@@ -250,7 +250,7 @@ func TestIntegration(t *testing.T) {
 		{Value: ptr("{{ secret: " + secret + " }}")},
 		{Name: ptr("FUNC_TEST_CM_A_ALIASED"), Value: ptr("{{configMap:" + configMap + ":FUNC_TEST_CM_A}}")},
 	}
-	depRes, err = deployer.Deploy(ctx, function)
+	_, err = deployer.Deploy(ctx, function)
 	if err != nil {
 		t.Fatal(err)
 	}

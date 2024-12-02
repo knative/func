@@ -206,6 +206,9 @@ func TestUpdateWithAnnotationsAndLabels(t *testing.T) {
 	verbose := false
 
 	servingClient, err := knative.NewServingClient(DefaultNamespace)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Deploy a function without any annotations or labels
 	client := newClient(verbose)
@@ -300,7 +303,7 @@ func TestRemove(t *testing.T) {
 	client := newClient(verbose)
 	f := fn.Function{Name: "remove", Namespace: DefaultNamespace, Root: ".", Runtime: "go"}
 	var err error
-	if _, f, err = client.New(context.Background(), f); err != nil {
+	if _, _, err = client.New(context.Background(), f); err != nil {
 		t.Fatal(err)
 	}
 
@@ -397,7 +400,10 @@ func Handle(ctx context.Context, res http.ResponseWriter, req *http.Request) {
   res.Write([]byte("TestInvoke_ClientToService OK"))
 }
 `
-	os.WriteFile(filepath.Join(root, "handle.go"), []byte(source), os.ModePerm)
+	err = os.WriteFile(filepath.Join(root, "handle.go"), []byte(source), os.ModePerm)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	if route, f, err = client.Apply(ctx, f); err != nil {
 		t.Fatal(err)
@@ -466,8 +472,11 @@ func Handle(ctx context.Context, res http.ResponseWriter, req *http.Request) {
   res.Write([]byte("TestInvoke_ServiceToService OK"))
 }
 `
-	os.WriteFile(filepath.Join(root, "handle.go"), []byte(source), os.ModePerm)
-	if _, f, err = client.Apply(ctx, f); err != nil {
+	err = os.WriteFile(filepath.Join(root, "handle.go"), []byte(source), os.ModePerm)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err = client.Apply(ctx, f); err != nil {
 		t.Fatal(err)
 	}
 	defer del(t, client, "a", DefaultNamespace)
@@ -522,8 +531,11 @@ func Handle(ctx context.Context, w http.ResponseWriter, req *http.Request) {
 	return
 }
 `
-	os.WriteFile(filepath.Join(root, "handle.go"), []byte(source), os.ModePerm)
-	if route, f, err = client.Apply(ctx, f); err != nil {
+	err = os.WriteFile(filepath.Join(root, "handle.go"), []byte(source), os.ModePerm)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if route, _, err = client.Apply(ctx, f); err != nil {
 		t.Fatal(err)
 	}
 	defer del(t, client, "b", DefaultNamespace)
