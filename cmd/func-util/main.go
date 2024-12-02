@@ -56,7 +56,7 @@ func main() {
 }
 
 func unknown(_ context.Context) error {
-	return fmt.Errorf("unknown command: " + os.Args[0])
+	return fmt.Errorf("unknown command: %q", os.Args[0])
 }
 
 func socat(ctx context.Context) error {
