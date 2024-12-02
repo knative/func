@@ -870,6 +870,8 @@ func pwdCbkFirstWrongThenCorrect(t *testing.T) func(registry string) (Credential
 	t.Helper()
 	var firstInvocation bool
 	return func(registry string) (Credentials, error) {
+		// registry is in form of registry/repository, need to extract registry only
+		registry = strings.Split(registry, "/")[0]
 		if registry != "index.docker.io" && registry != "quay.io" {
 			return Credentials{}, fmt.Errorf("unexpected registry: %s", registry)
 		}
@@ -882,6 +884,8 @@ func pwdCbkFirstWrongThenCorrect(t *testing.T) func(registry string) (Credential
 }
 
 func correctPwdCallback(registry string) (Credentials, error) {
+	// registry is in form of registry/repository, need to extract registry only
+	registry = strings.Split(registry, "/")[0]
 	if registry == "index.docker.io" {
 		return Credentials{Username: dockerIoUser, Password: dockerIoUserPwd}, nil
 	}
