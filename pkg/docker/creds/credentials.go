@@ -264,12 +264,12 @@ func (c *credentialsProvider) getCredentials(ctx context.Context, image string) 
 
 	// this is [registry] / [repository]
 	// this is  index.io  / user/imagename
-	registryWithRepository := registry + "/" + ref.Context().RepositoryStr()
+	repository := registry + "/" + ref.Context().RepositoryStr()
 
 	// the trying-to-actually-authorize cycle
 	for {
 		// use repo here to print it out in prompt
-		result, err = c.promptForCredentials(registryWithRepository)
+		result, err = c.promptForCredentials(repository)
 		if err != nil {
 			return docker.Credentials{}, err
 		}
