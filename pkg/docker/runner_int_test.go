@@ -14,7 +14,7 @@ import (
 
 	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/cloudevents/sdk-go/v2/protocol/http"
-	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/api/types/image"
 	dockerClient "github.com/docker/docker/client"
 
 	"knative.dev/func/pkg/docker"
@@ -187,7 +187,7 @@ func prePullTestImages(t *testing.T, img string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resp, err := c.ImagePull(context.Background(), img, types.ImagePullOptions{})
+	resp, err := c.ImagePull(context.Background(), img, image.PullOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
