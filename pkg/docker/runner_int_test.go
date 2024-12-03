@@ -118,7 +118,7 @@ func TestRunDigested(t *testing.T) {
 	image := testImageWithDigest
 	prePullTestImages(t, image)
 
-	f := fn.Function{Runtime: "go", Root: root}
+	f := fn.Function{Runtime: "go", Root: root, Registry: "docker.io/jdoe"}
 
 	client := fn.New()
 	f, err := client.Init(f)
