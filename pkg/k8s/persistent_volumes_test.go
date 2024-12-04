@@ -98,7 +98,7 @@ func TestUploadToVolume(t *testing.T) {
 		},
 	}
 
-	pod, err = cliSet.CoreV1().Pods(testingNS).Create(ctx, pod, metav1.CreateOptions{})
+	_, err = cliSet.CoreV1().Pods(testingNS).Create(ctx, pod, metav1.CreateOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}

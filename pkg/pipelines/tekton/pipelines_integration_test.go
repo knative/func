@@ -79,7 +79,7 @@ func assertFunctionEchoes(url string) (err error) {
 	defer res.Body.Close()
 	if !strings.Contains(string(body), token) {
 		err = fmt.Errorf("response did not contain token. url: %v", url)
-		httputil.DumpResponse(res, true)
+		_, _ = httputil.DumpResponse(res, true)
 	}
 	return
 }
@@ -135,7 +135,9 @@ func TestRemote_Default(t *testing.T) {
 	if url, f, err = client.RunPipeline(ctx, f); err != nil {
 		t.Fatal(err)
 	}
-	defer client.Remove(ctx, "", "", f, true)
+	defer func() {
+		_ = client.Remove(ctx, "", "", f, true)
+	}()
 
 	if err := assertFunctionEchoes(url); err != nil {
 		t.Fatal(err)

@@ -594,7 +594,7 @@ func usingNamespace(t *testing.T) string {
 		},
 	}
 	createOpts := metav1.CreateOptions{}
-	ns, err = k8sClient.CoreV1().Namespaces().Create(context.Background(), ns, createOpts)
+	_, err = k8sClient.CoreV1().Namespaces().Create(context.Background(), ns, createOpts)
 	if err != nil {
 		t.Fatal(err)
 	}
