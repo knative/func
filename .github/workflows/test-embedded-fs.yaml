@@ -11,7 +11,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/composite/go-setup
+      - uses: knative/actions/setup-go@main
       - name: Check embedded templates content
         run: |
           if ! go test -run "^\QTestFileSystems\E$/^\Qembedded\E$" ./pkg/filesystem; then
