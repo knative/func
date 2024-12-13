@@ -11,6 +11,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/composite/go-setup
+      - uses: knative/actions/setup-go@main
       - name: Check that 'func.yaml schema' is up-to-date
         run: make schema-check

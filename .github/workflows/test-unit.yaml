@@ -24,7 +24,7 @@ jobs:
           echo "$(brew --prefix)/opt/gnu-sed/libexec/gnubin" >> $GITHUB_PATH
       - run: git config --global core.autocrlf false
       - uses: actions/checkout@v4
-      - uses: ./.github/composite/go-setup
+      - uses: knative/actions/setup-go@main
       - uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}

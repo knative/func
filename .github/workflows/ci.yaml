@@ -26,7 +26,7 @@ jobs:
     steps:
       - run: git config --global core.autocrlf false
       - uses: actions/checkout@v4
-      - uses: ./.github/composite/go-setup
+      - uses: knative/actions/setup-go@main
       - uses: actions/setup-java@v4
         with:
           java-version: ${{ matrix.java }}
@@ -54,7 +54,7 @@ jobs:
           echo "KUBECONFIG=${{ github.workspace }}/hack/bin/kubeconfig.yaml" >> "$GITHUB_ENV"
           echo "PATH=${{ github.workspace }}/hack/bin:$PATH" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
-      - uses: ./.github/composite/go-setup
+      - uses: knative/actions/setup-go@main
       - name: Install Binaries
         run: ./hack/install-binaries.sh
       - name: Allocate Cluster
@@ -84,7 +84,7 @@ jobs:
           echo "KUBECONFIG=${{ github.workspace }}/hack/bin/kubeconfig.yaml" >> "$GITHUB_ENV"
           echo "PATH=${{ github.workspace }}/hack/bin:$PATH" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
-      - uses: ./.github/composite/go-setup
+      - uses: knative/actions/setup-go@main
       - name: Install Binaries
         run: ./hack/install-binaries.sh
       - name: Allocate Cluster
@@ -112,7 +112,7 @@ jobs:
           echo "KUBECONFIG=${{ github.workspace }}/hack/bin/kubeconfig.yaml" >> "$GITHUB_ENV"
           echo "PATH=${{ github.workspace }}/hack/bin:$PATH" >> "$GITHUB_ENV"
       - uses: actions/checkout@v4
-      - uses: ./.github/composite/go-setup
+      - uses: knative/actions/setup-go@main
       - uses: imjasonh/setup-ko@v0.6
       - name: Install Binaries
         run: ./hack/install-binaries.sh
@@ -141,7 +141,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/composite/go-setup
+      - uses: knative/actions/setup-go@main
       # Standard build tasks
       - name: Build
         run: make cross-platform
@@ -203,6 +203,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/composite/go-setup
+      - uses: knative/actions/setup-go@main
       - uses: imjasonh/setup-ko@v0.6
       - run: ko build --platform=linux/ppc64le,linux/s390x,linux/amd64,linux/arm64 -B ./cmd/func
