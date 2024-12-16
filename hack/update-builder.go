@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"syscall"
@@ -31,7 +32,11 @@ import (
 	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/empty"
+	"github.com/google/go-containerregistry/pkg/v1/mutate"
+	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/google/go-github/v49/github"
 	"github.com/paketo-buildpacks/libpak/carton"
 	"github.com/pelletier/go-toml"
@@ -52,7 +57,7 @@ func main() {
 	var hadError bool
 	for _, variant := range []string{"tiny", "base", "full"} {
 		fmt.Println("::group::" + variant)
-		err := buildBuilderImage(ctx, variant)
+		err := buildBuilderImageMultiArch(ctx, variant)
 		if err != nil {
 			_, _ = fmt.Fprintf(os.Stderr, "ERROR: %v\n", err)
 			hadError = true
@@ -64,15 +69,178 @@ func main() {
 	}
 }
 
-func buildBuilderImage(ctx context.Context, variant string) error {
+func buildBuilderImage(ctx context.Context, variant, arch string) (string, error) {
 	buildDir, err := os.MkdirTemp("", "")
 	if err != nil {
-		return fmt.Errorf("cannot create temporary build directory: %w", err)
+		return "", fmt.Errorf("cannot create temporary build directory: %w", err)
 	}
 	defer func(path string) {
 		_ = os.RemoveAll(path)
 	}(buildDir)
 
+	ghClient := newGHClient(ctx)
+	listOpts := &github.ListOptions{Page: 0, PerPage: 1}
+	releases, ghResp, err := ghClient.Repositories.ListReleases(ctx, "paketo-buildpacks", "builder-jammy-"+variant, listOpts)
+	if err != nil {
+		return "", fmt.Errorf("cannot get upstream builder release: %w", err)
+	}
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(ghResp.Body)
+
+	if len(releases) <= 0 {
+		return "", fmt.Errorf("cannot get latest release")
+	}
+
+	release := releases[0]
+
+	if release.Name == nil {
+		return "", fmt.Errorf("the name of the release is not defined")
+	}
+	if release.TarballURL == nil {
+		return "", fmt.Errorf("the tarball url of the release is not defined")
+	}
+	newBuilderImage := "ghcr.io/knative/builder-jammy-" + variant
+	newBuilderImageTagged := newBuilderImage + ":" + *release.Name + "-" + arch
+	dockerUser := "gh-action"
+	dockerPassword := os.Getenv("GITHUB_TOKEN")
+
+	ref, err := name.ParseReference(newBuilderImageTagged)
+	if err != nil {
+		return "", fmt.Errorf("cannot parse reference to builder target: %w", err)
+	}
+	desc, err := remote.Head(ref, remote.WithAuth(auth{dockerUser, dockerPassword}))
+	if err == nil {
+		fmt.Fprintln(os.Stderr, "The image has been already built.")
+		return newBuilderImage + "@" + desc.Digest.String(), nil
+	}
+
+	builderTomlPath := filepath.Join(buildDir, "builder.toml")
+	err = downloadBuilderToml(ctx, *release.TarballURL, builderTomlPath)
+	if err != nil {
+		return "", fmt.Errorf("cannot download builder toml: %w", err)
+	}
+
+	builderConfig, _, err := builder.ReadConfig(builderTomlPath)
+	if err != nil {
+		return "", fmt.Errorf("cannot parse builder.toml: %w", err)
+	}
+
+	err = updateJavaBuildpacks(ctx, &builderConfig, arch)
+	if err != nil {
+		return "", fmt.Errorf("cannot patch java buildpacks: %w", err)
+	}
+	addGoAndRustBuildpacks(&builderConfig)
+
+	packClient, err := pack.NewClient()
+	if err != nil {
+		return "", fmt.Errorf("cannot create pack client: %w", err)
+	}
+
+	createBuilderOpts := pack.CreateBuilderOptions{
+		RelativeBaseDir: buildDir,
+		Targets: []dist.Target{
+			{
+				OS:   "linux",
+				Arch: arch,
+			},
+		},
+		BuilderName: newBuilderImageTagged,
+		Config:      builderConfig,
+		Publish:     false,
+		PullPolicy:  bpimage.PullAlways,
+		Labels: map[string]string{
+			"org.opencontainers.image.description": "Paketo Jammy builder enriched with Rust and Func-Go buildpacks.",
+			"org.opencontainers.image.source":      "https://github.com/knative/func",
+			"org.opencontainers.image.vendor":      "https://github.com/knative/func",
+			"org.opencontainers.image.url":         "https://github.com/knative/func/pkgs/container/builder-jammy-" + variant,
+			"org.opencontainers.image.version":     *release.Name,
+		},
+	}
+
+	err = packClient.CreateBuilder(ctx, createBuilderOpts)
+	if err != nil {
+		return "", fmt.Errorf("canont create builder: %w", err)
+	}
+
+	dockerClient, err := docker.NewClientWithOpts(docker.FromEnv, docker.WithAPIVersionNegotiation())
+	if err != nil {
+		return "", fmt.Errorf("cannot create docker client")
+	}
+
+	authConfig := registry.AuthConfig{
+		Username: dockerUser,
+		Password: dockerPassword,
+	}
+	bs, err := json.Marshal(&authConfig)
+	if err != nil {
+		return "", fmt.Errorf("cannot marshal credentials: %w", err)
+	}
+	imagePushOptions := image.PushOptions{
+		All:          false,
+		RegistryAuth: base64.StdEncoding.EncodeToString(bs),
+	}
+
+	pushImage := func(image string) (string, error) {
+		rc, err := dockerClient.ImagePush(ctx, image, imagePushOptions)
+		if err != nil {
+			return "", fmt.Errorf("cannot initialize image push: %w", err)
+		}
+		defer func(rc io.ReadCloser) {
+			_ = rc.Close()
+		}(rc)
+
+		pr, pw := io.Pipe()
+		digestCh := make(chan string)
+		go func() {
+			var (
+				jm  jsonmessage.JSONMessage
+				dec = json.NewDecoder(pr)
+				err error
+			)
+			for {
+				err = dec.Decode(&jm)
+				if err != nil {
+					if errors.Is(err, io.EOF) {
+						break
+					}
+					panic(err)
+				}
+				if jm.Error != nil {
+					continue
+				}
+
+				re := regexp.MustCompile(`\sdigest: (?P<hash>sha256:[a-zA-Z0-9]+)\s`)
+				matches := re.FindStringSubmatch(jm.Status)
+				if len(matches) == 2 {
+					digestCh <- matches[1]
+				}
+			}
+		}()
+		r := io.TeeReader(rc, pw)
+
+		fd := os.Stdout.Fd()
+		isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
+		err = jsonmessage.DisplayJSONMessagesStream(r, os.Stderr, fd, isTerminal, nil)
+		_ = pw.Close()
+		if err != nil {
+			return "", err
+		}
+
+		return <-digestCh, nil
+	}
+
+	var d string
+	d, err = pushImage(newBuilderImageTagged)
+	if err != nil {
+		return "", fmt.Errorf("cannot push the image: %w", err)
+	}
+
+	return newBuilderImage + "@" + d, nil
+}
+
+// Builds builder for each arch and creates manifest list
+func buildBuilderImageMultiArch(ctx context.Context, variant string) error {
 	ghClient := newGHClient(ctx)
 	listOpts := &github.ListOptions{Page: 0, PerPage: 1}
 	releases, ghResp, err := ghClient.Repositories.ListReleases(ctx, "paketo-buildpacks", "builder-jammy-"+variant, listOpts)
@@ -96,110 +264,71 @@ func buildBuilderImage(ctx context.Context, variant string) error {
 		return fmt.Errorf("the tarball url of the release is not defined")
 	}
 
-	newBuilderImage := "ghcr.io/knative/builder-jammy-" + variant
-	newBuilderImageTagged := newBuilderImage + ":" + *release.Name
-	newBuilderImageLatest := newBuilderImage + ":latest"
-	dockerUser := "gh-action"
-	dockerPassword := os.Getenv("GITHUB_TOKEN")
-
-	ref, err := name.ParseReference(newBuilderImageTagged)
-	if err != nil {
-		return fmt.Errorf("cannot parse reference to builder target: %w", err)
-	}
-	_, err = remote.Head(ref, remote.WithAuth(auth{dockerUser, dockerPassword}))
-	if err == nil {
-		fmt.Fprintln(os.Stderr, "The image has been already built.")
-		return nil
+	remoteOpts := []remote.Option{
+		remote.WithAuth(authn.FromConfig(authn.AuthConfig{
+			Username: "gh-action",
+			Password: os.Getenv("GITHUB_TOKEN"),
+		})),
 	}
 
-	builderTomlPath := filepath.Join(buildDir, "builder.toml")
-	err = downloadBuilderToml(ctx, *release.TarballURL, builderTomlPath)
-	if err != nil {
-		return fmt.Errorf("cannot download builder toml: %w", err)
-	}
-
-	builderConfig, _, err := builder.ReadConfig(builderTomlPath)
-	if err != nil {
-		return fmt.Errorf("cannot parse builder.toml: %w", err)
-	}
-
-	err = updateJavaBuildpacks(ctx, &builderConfig)
-	if err != nil {
-		return fmt.Errorf("cannot patch java buildpacks: %w", err)
-	}
-	addGoAndRustBuildpacks(&builderConfig)
-
-	packClient, err := pack.NewClient()
-	if err != nil {
-		return fmt.Errorf("cannot create pack client: %w", err)
-	}
-	createBuilderOpts := pack.CreateBuilderOptions{
-		RelativeBaseDir: buildDir,
-		BuilderName:     newBuilderImageTagged,
-		Config:          builderConfig,
-		Publish:         false,
-		PullPolicy:      bpimage.PullIfNotPresent,
-		Labels: map[string]string{
-			"org.opencontainers.image.description": "Paketo Jammy builder enriched with Rust and Func-Go buildpacks.",
-			"org.opencontainers.image.source":      "https://github.com/knative/func",
-			"org.opencontainers.image.vendor":      "https://github.com/knative/func",
-			"org.opencontainers.image.url":         "https://github.com/knative/func/pkgs/container/builder-jammy-" + variant,
-			"org.opencontainers.image.version":     *release.Name,
-		},
-	}
-
-	err = packClient.CreateBuilder(ctx, createBuilderOpts)
-	if err != nil {
-		return fmt.Errorf("canont create builder: %w", err)
-	}
-
-	dockerClient, err := docker.NewClientWithOpts(docker.FromEnv, docker.WithAPIVersionNegotiation())
-	if err != nil {
-		return fmt.Errorf("cannot create docker client")
-	}
-	err = dockerClient.ImageTag(ctx, newBuilderImageTagged, newBuilderImageLatest)
-	if err != nil {
-		return fmt.Errorf("cannot tag latest: %w", err)
-	}
-
-	authConfig := registry.AuthConfig{
-		Username: dockerUser,
-		Password: dockerPassword,
-	}
-	bs, err := json.Marshal(&authConfig)
-	if err != nil {
-		return fmt.Errorf("cannot marshal credentials: %w", err)
-	}
-	imagePushOptions := image.PushOptions{
-		All:          false,
-		RegistryAuth: base64.StdEncoding.EncodeToString(bs),
-	}
-
-	pushImage := func(image string) error {
-		rc, err := dockerClient.ImagePush(ctx, image, imagePushOptions)
-		if err != nil {
-			return fmt.Errorf("cannot initialize image push: %w", err)
+	idx := mutate.IndexMediaType(empty.Index, types.DockerManifestList)
+	for _, arch := range []string{"arm64", "amd64"} {
+		if arch == "arm64" && variant != "tiny" {
+			_, _ = fmt.Fprintf(os.Stderr, "skipping arm64 build for variant: %q\n", variant)
+			continue
 		}
-		defer func(rc io.ReadCloser) {
-			_ = rc.Close()
-		}(rc)
-		fd := os.Stdout.Fd()
-		isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
-		err = jsonmessage.DisplayJSONMessagesStream(rc, os.Stderr, fd, isTerminal, nil)
+
+		var imgName string
+
+		imgName, err = buildBuilderImage(ctx, variant, arch)
 		if err != nil {
 			return err
 		}
-		return nil
+
+		imgRef, err := name.ParseReference(imgName)
+		if err != nil {
+			return fmt.Errorf("cannot parse image ref: %w", err)
+		}
+		img, err := remote.Image(imgRef, remoteOpts...)
+		if err != nil {
+			return fmt.Errorf("cannot get the image: %w", err)
+		}
+
+		cf, err := img.ConfigFile()
+		if err != nil {
+			return fmt.Errorf("cannot get config file for the image: %w", err)
+		}
+
+		newDesc, err := partial.Descriptor(img)
+		if err != nil {
+			return fmt.Errorf("cannot get partial descriptor for the image: %w", err)
+		}
+		newDesc.Platform = cf.Platform()
+
+		idx = mutate.AppendManifests(idx, mutate.IndexAddendum{
+			Add:        img,
+			Descriptor: *newDesc,
+		})
 	}
 
-	err = pushImage(newBuilderImageTagged)
+	idxRef, err := name.ParseReference("ghcr.io/knative/builder-jammy-" + variant + ":" + *release.Name)
 	if err != nil {
-		return fmt.Errorf("cannot push the image: %w", err)
+		return fmt.Errorf("cannot parse image index ref: %w", err)
 	}
 
-	err = pushImage(newBuilderImageLatest)
+	err = remote.WriteIndex(idxRef, idx, remoteOpts...)
 	if err != nil {
-		return fmt.Errorf("cannot push the image: %w", err)
+		return fmt.Errorf("cannot write image index: %w", err)
+	}
+
+	idxRef, err = name.ParseReference("ghcr.io/knative/builder-jammy-" + variant + ":latest")
+	if err != nil {
+		return fmt.Errorf("cannot parse image index ref: %w", err)
+	}
+
+	err = remote.WriteIndex(idxRef, idx, remoteOpts...)
+	if err != nil {
+		return fmt.Errorf("cannot write image index: %w", err)
 	}
 
 	return nil
@@ -212,7 +341,7 @@ type buildpack struct {
 	patchFunc func(packageDesc *buildpackage.Config, bpDesc *dist.BuildpackDescriptor)
 }
 
-func buildBuildpackImage(ctx context.Context, bp buildpack) error {
+func buildBuildpackImage(ctx context.Context, bp buildpack, arch string) error {
 	ghClient := newGHClient(ctx)
 
 	var (
@@ -326,10 +455,16 @@ func buildBuildpackImage(ctx context.Context, bp buildpack) error {
 		Format:          pack.FormatImage,
 		Config:          cfg,
 		Publish:         false,
-		PullPolicy:      bpimage.PullIfNotPresent,
+		PullPolicy:      bpimage.PullAlways,
 		Registry:        "",
 		Flatten:         false,
 		FlattenExclude:  nil,
+		Targets: []dist.Target{
+			{
+				OS:   "linux",
+				Arch: arch,
+			},
+		},
 	}
 	packClient, err := pack.NewClient()
 	if err != nil {
@@ -473,7 +608,7 @@ func addGoAndRustBuildpacks(config *builder.Config) {
 }
 
 // updated java and java-native-image buildpack to include quarkus buildpack
-func updateJavaBuildpacks(ctx context.Context, builderConfig *builder.Config) error {
+func updateJavaBuildpacks(ctx context.Context, builderConfig *builder.Config, arch string) error {
 	var err error
 
 	for _, entry := range builderConfig.Order {
@@ -485,7 +620,7 @@ func updateJavaBuildpacks(ctx context.Context, builderConfig *builder.Config) er
 				version:   entry.Group[0].Version,
 				image:     img,
 				patchFunc: addQuarkusBuildpack,
-			})
+			}, arch)
 			// TODO we might want to push these images to registry
 			// but it's not absolutely necessary since they are included in builder
 			if err != nil {
