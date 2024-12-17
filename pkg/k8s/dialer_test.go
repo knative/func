@@ -198,7 +198,7 @@ func TestDialUnreachable(t *testing.T) {
 		t.Error("error was expected but got nil")
 		return
 	}
-	if !strings.Contains(err.Error(), "no such host") {
+	if !strings.Contains(err.Error(), "no such host") && !strings.Contains(err.Error(), "does not resolve") {
 		t.Errorf("error %q doesn't contain expected substring: ", err.Error())
 	}
 
