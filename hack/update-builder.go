@@ -102,14 +102,12 @@ func buildBuilderImage(ctx context.Context, variant, arch string) (string, error
 	}
 	newBuilderImage := "ghcr.io/knative/builder-jammy-" + variant
 	newBuilderImageTagged := newBuilderImage + ":" + *release.Name + "-" + arch
-	dockerUser := "gh-action"
-	dockerPassword := os.Getenv("GITHUB_TOKEN")
 
 	ref, err := name.ParseReference(newBuilderImageTagged)
 	if err != nil {
 		return "", fmt.Errorf("cannot parse reference to builder target: %w", err)
 	}
-	desc, err := remote.Head(ref, remote.WithAuth(auth{dockerUser, dockerPassword}))
+	desc, err := remote.Head(ref, remote.WithAuthFromKeychain(DefaultKeychain))
 	if err == nil {
 		fmt.Fprintln(os.Stderr, "The image has been already built.")
 		return newBuilderImage + "@" + desc.Digest.String(), nil
@@ -132,7 +130,7 @@ func buildBuilderImage(ctx context.Context, variant, arch string) (string, error
 	}
 	addGoAndRustBuildpacks(&builderConfig)
 
-	packClient, err := pack.NewClient()
+	packClient, err := pack.NewClient(pack.WithKeychain(DefaultKeychain))
 	if err != nil {
 		return "", fmt.Errorf("cannot create pack client: %w", err)
 	}
@@ -168,21 +166,17 @@ func buildBuilderImage(ctx context.Context, variant, arch string) (string, error
 		return "", fmt.Errorf("cannot create docker client")
 	}
 
-	authConfig := registry.AuthConfig{
-		Username: dockerUser,
-		Password: dockerPassword,
-	}
-	bs, err := json.Marshal(&authConfig)
-	if err != nil {
-		return "", fmt.Errorf("cannot marshal credentials: %w", err)
-	}
-	imagePushOptions := image.PushOptions{
-		All:          false,
-		RegistryAuth: base64.StdEncoding.EncodeToString(bs),
-	}
+	pushImage := func(img string) (string, error) {
+		regAuth, err := dockerDaemonAuthStr(img)
+		if err != nil {
+			return "", fmt.Errorf("cannot get credentials: %w", err)
+		}
+		imagePushOptions := image.PushOptions{
+			All:          false,
+			RegistryAuth: regAuth,
+		}
 
-	pushImage := func(image string) (string, error) {
-		rc, err := dockerClient.ImagePush(ctx, image, imagePushOptions)
+		rc, err := dockerClient.ImagePush(ctx, img, imagePushOptions)
 		if err != nil {
 			return "", fmt.Errorf("cannot initialize image push: %w", err)
 		}
@@ -265,10 +259,7 @@ func buildBuilderImageMultiArch(ctx context.Context, variant string) error {
 	}
 
 	remoteOpts := []remote.Option{
-		remote.WithAuth(authn.FromConfig(authn.AuthConfig{
-			Username: "gh-action",
-			Password: os.Getenv("GITHUB_TOKEN"),
-		})),
+		remote.WithAuthFromKeychain(DefaultKeychain),
 	}
 
 	idx := mutate.IndexMediaType(empty.Index, types.DockerManifestList)
@@ -466,7 +457,7 @@ func buildBuildpackImage(ctx context.Context, bp buildpack, arch string) error {
 			},
 		},
 	}
-	packClient, err := pack.NewClient()
+	packClient, err := pack.NewClient(pack.WithKeychain(DefaultKeychain))
 	if err != nil {
 		return fmt.Errorf("cannot create pack client: %w", err)
 	}
@@ -744,4 +735,47 @@ func newGHClient(ctx context.Context) *github.Client {
 	return github.NewClient(oauth2.NewClient(ctx, oauth2.StaticTokenSource(&oauth2.Token{
 		AccessToken: os.Getenv("GITHUB_TOKEN"),
 	})))
+}
+
+var DefaultKeychain = authn.NewMultiKeychain(ghKeychain{}, authn.DefaultKeychain)
+
+type ghKeychain struct{}
+
+func (g ghKeychain) Resolve(resource authn.Resource) (authn.Authenticator, error) {
+	if resource.RegistryStr() != "ghcr.io" {
+		return authn.Anonymous, nil
+	}
+	return &authn.Basic{
+		Username: "gh-action",
+		Password: os.Getenv("GITHUB_TOKEN"),
+	}, nil
+}
+
+func dockerDaemonAuthStr(img string) (string, error) {
+	ref, err := name.ParseReference(img)
+	if err != nil {
+		return "", err
+	}
+
+	a, err := DefaultKeychain.Resolve(ref.Context())
+	if err != nil {
+		return "", err
+	}
+
+	ac, err := a.Authorization()
+	if err != nil {
+		return "", err
+	}
+
+	authConfig := registry.AuthConfig{
+		Username: ac.Username,
+		Password: ac.Password,
+	}
+
+	bs, err := json.Marshal(&authConfig)
+	if err != nil {
+		return "", err
+	}
+
+	return base64.StdEncoding.EncodeToString(bs), nil
 }
