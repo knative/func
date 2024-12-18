@@ -97,6 +97,8 @@ function template_tests() {
 function integration_tests() {
   local failed=0
   header "Skipping integration tests"
+  ls -la "${HOME}/.kube/" || true
+  kubectl get pods || true
   # make test-integration || failed=1
 
   # if (( failed )); then
