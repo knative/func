@@ -31,6 +31,7 @@ import (
 	docker "github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/google/go-containerregistry/pkg/authn"
+	ghAuth "github.com/google/go-containerregistry/pkg/authn/github"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
@@ -737,19 +738,7 @@ func newGHClient(ctx context.Context) *github.Client {
 	})))
 }
 
-var DefaultKeychain = authn.NewMultiKeychain(ghKeychain{}, authn.DefaultKeychain)
-
-type ghKeychain struct{}
-
-func (g ghKeychain) Resolve(resource authn.Resource) (authn.Authenticator, error) {
-	if resource.RegistryStr() != "ghcr.io" {
-		return authn.Anonymous, nil
-	}
-	return &authn.Basic{
-		Username: "gh-action",
-		Password: os.Getenv("GITHUB_TOKEN"),
-	}, nil
-}
+var DefaultKeychain = authn.NewMultiKeychain(ghAuth.Keychain, authn.DefaultKeychain)
 
 func dockerDaemonAuthStr(img string) (string, error) {
 	ref, err := name.ParseReference(img)
