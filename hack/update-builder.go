@@ -26,6 +26,7 @@ import (
 	pack "github.com/buildpacks/pack/pkg/client"
 	"github.com/buildpacks/pack/pkg/dist"
 	bpimage "github.com/buildpacks/pack/pkg/image"
+	"github.com/containerd/errdefs"
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/registry"
 	docker "github.com/docker/docker/client"
@@ -131,7 +132,14 @@ func buildBuilderImage(ctx context.Context, variant, arch string) (string, error
 	}
 	addGoAndRustBuildpacks(&builderConfig)
 
-	packClient, err := pack.NewClient(pack.WithKeychain(DefaultKeychain))
+	var dockerClient docker.CommonAPIClient
+	dockerClient, err = docker.NewClientWithOpts(docker.FromEnv, docker.WithAPIVersionNegotiation())
+	if err != nil {
+		return "", fmt.Errorf("cannot create docker client")
+	}
+	dockerClient = &hackDockerClient{dockerClient}
+
+	packClient, err := pack.NewClient(pack.WithKeychain(DefaultKeychain), pack.WithDockerClient(dockerClient))
 	if err != nil {
 		return "", fmt.Errorf("cannot create pack client: %w", err)
 	}
@@ -160,11 +168,6 @@ func buildBuilderImage(ctx context.Context, variant, arch string) (string, error
 	err = packClient.CreateBuilder(ctx, createBuilderOpts)
 	if err != nil {
 		return "", fmt.Errorf("canont create builder: %w", err)
-	}
-
-	dockerClient, err := docker.NewClientWithOpts(docker.FromEnv, docker.WithAPIVersionNegotiation())
-	if err != nil {
-		return "", fmt.Errorf("cannot create docker client")
 	}
 
 	pushImage := func(img string) (string, error) {
@@ -768,4 +771,18 @@ func dockerDaemonAuthStr(img string) (string, error) {
 	}
 
 	return base64.StdEncoding.EncodeToString(bs), nil
+}
+
+// Hack implementation of docker client returns NotFound for images ghcr.io/knative/buildpacks/*
+// For some reason moby/docker erroneously returns 500 HTTP code for these missing images.
+// Interestingly podman correctly returns 404 for same request.
+type hackDockerClient struct {
+	docker.CommonAPIClient
+}
+
+func (c hackDockerClient) ImagePull(ctx context.Context, ref string, options image.PullOptions) (io.ReadCloser, error) {
+	if strings.HasPrefix(ref, "ghcr.io/knative/buildpacks/") {
+		return nil, fmt.Errorf("this image is supposed to exist only in daemon: %w", errdefs.ErrNotFound)
+	}
+	return c.CommonAPIClient.ImagePull(ctx, ref, options)
 }
