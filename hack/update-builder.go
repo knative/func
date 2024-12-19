@@ -108,7 +108,7 @@ func buildBuilderImage(ctx context.Context, variant, arch string) (string, error
 	if err != nil {
 		return "", fmt.Errorf("cannot parse reference to builder target: %w", err)
 	}
-	desc, err := remote.Head(ref, remote.WithAuthFromKeychain(DefaultKeychain))
+	desc, err := remote.Head(ref, remote.WithAuthFromKeychain(DefaultKeychain), remote.WithContext(ctx))
 	if err == nil {
 		fmt.Fprintln(os.Stderr, "The image has been already built.")
 		return newBuilderImage + "@" + desc.Digest.String(), nil
@@ -261,6 +261,7 @@ func buildBuilderImageMultiArch(ctx context.Context, variant string) error {
 
 	remoteOpts := []remote.Option{
 		remote.WithAuthFromKeychain(DefaultKeychain),
+		remote.WithContext(ctx),
 	}
 
 	idx := mutate.IndexMediaType(empty.Index, types.DockerManifestList)
