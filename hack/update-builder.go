@@ -189,43 +189,45 @@ func buildBuilderImage(ctx context.Context, variant, arch string) (string, error
 		}(rc)
 
 		pr, pw := io.Pipe()
-		digestCh := make(chan string)
-		go func() {
-			var (
-				jm  jsonmessage.JSONMessage
-				dec = json.NewDecoder(pr)
-				err error
-			)
-			for {
-				err = dec.Decode(&jm)
-				if err != nil {
-					if errors.Is(err, io.EOF) {
-						break
-					}
-					panic(err)
-				}
-				if jm.Error != nil {
-					continue
-				}
-
-				re := regexp.MustCompile(`\sdigest: (?P<hash>sha256:[a-zA-Z0-9]+)\s`)
-				matches := re.FindStringSubmatch(jm.Status)
-				if len(matches) == 2 {
-					digestCh <- matches[1]
-				}
-			}
-		}()
 		r := io.TeeReader(rc, pw)
 
-		fd := os.Stdout.Fd()
-		isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
-		err = jsonmessage.DisplayJSONMessagesStream(r, os.Stderr, fd, isTerminal, nil)
-		_ = pw.Close()
-		if err != nil {
-			return "", err
+		go func() {
+			fd := os.Stdout.Fd()
+			isTerminal := term.IsTerminal(int(os.Stdout.Fd()))
+			e := jsonmessage.DisplayJSONMessagesStream(pr, os.Stderr, fd, isTerminal, nil)
+			_ = pr.CloseWithError(e)
+		}()
+
+		var (
+			digest string
+			jm     jsonmessage.JSONMessage
+			dec    = json.NewDecoder(r)
+			re     = regexp.MustCompile(`\sdigest: (?P<hash>sha256:[a-zA-Z0-9]+)\s`)
+		)
+		for {
+			err = dec.Decode(&jm)
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				return "", err
+			}
+			if jm.Error != nil {
+				continue
+			}
+
+			matches := re.FindStringSubmatch(jm.Status)
+			if len(matches) == 2 {
+				digest = matches[1]
+				_, _ = io.Copy(io.Discard, r)
+				break
+			}
 		}
 
-		return <-digestCh, nil
+		if digest == "" {
+			return "", fmt.Errorf("digest not found")
+		}
+		return digest, nil
 	}
 
 	var d string
