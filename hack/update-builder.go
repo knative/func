@@ -189,7 +189,7 @@ func buildBuilderImage(ctx context.Context, variant, arch string) (string, error
 		}(rc)
 
 		pr, pw := io.Pipe()
-		digestCh := make(chan string)
+		digestCh := make(chan string, 1)
 		go func() {
 			var (
 				jm  jsonmessage.JSONMessage
