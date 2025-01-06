@@ -510,17 +510,6 @@ func (e *exitHandler) Fail() {
 func (e *exitHandler) Pass() {
 }
 
-type auth struct {
-	uname, pwd string
-}
-
-func (a auth) Authorization() (*authn.AuthConfig, error) {
-	return &authn.AuthConfig{
-		Username: a.uname,
-		Password: a.pwd,
-	}, nil
-}
-
 func downloadBuilderToml(ctx context.Context, tarballUrl, builderTomlPath string) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, tarballUrl, nil)
 	if err != nil {
