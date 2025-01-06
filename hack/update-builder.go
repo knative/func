@@ -981,10 +981,11 @@ func fixupGoDistPkgRefs(buildpackToml, arch string) error {
 		return err
 	}
 
-	var replacements []struct {
+	var replacements = make([]struct {
 		Old string
 		New string
-	}
+	}, 0, len(releases))
+
 	for _, r := range releases {
 		if _, ok := versions[strings.TrimPrefix(r.Version, "go")]; !ok {
 			continue
