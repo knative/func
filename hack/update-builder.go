@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"regexp"
@@ -125,6 +126,15 @@ func buildBuilderImage(ctx context.Context, variant, arch string) (string, error
 	builderConfig, _, err := builder.ReadConfig(builderTomlPath)
 	if err != nil {
 		return "", fmt.Errorf("cannot parse builder.toml: %w", err)
+	}
+
+	// temporary fix, for some reason paketo does not distribute several buildpacks for ARM64
+	// we need ot fix that up
+	if arch == "arm64" {
+		err = fixupGoBuildpackARM64(ctx, &builderConfig)
+		if err != nil {
+			return "", fmt.Errorf("cannnot fix Go buildpack: %w", err)
+		}
 	}
 
 	err = updateJavaBuildpacks(ctx, &builderConfig, arch)
@@ -795,4 +805,236 @@ func (c hackDockerClient) ImagePull(ctx context.Context, ref string, options ima
 		return nil, fmt.Errorf("this image is supposed to exist only in daemon: %w", errdefs.ErrNotFound)
 	}
 	return c.CommonAPIClient.ImagePull(ctx, ref, options)
+}
+
+func getReleaseByVersion(ctx context.Context, repo, vers string) (*github.RepositoryRelease, error) {
+	ghClient := newGHClient(ctx)
+
+	listOpts := &github.ListOptions{Page: 0, PerPage: 10}
+	releases, resp, err := ghClient.Repositories.ListReleases(ctx, "paketo-buildpacks", repo, listOpts)
+	if err != nil {
+		return nil, fmt.Errorf("cannot get releases: %w", err)
+	}
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
+
+	for _, r := range releases {
+		if strings.TrimPrefix(*r.TagName, "v") == vers {
+			return r, nil
+		}
+	}
+	return nil, errors.New("release not found")
+}
+
+func fixupGoBuildpackARM64(ctx context.Context, config *builder.Config) error {
+	var (
+		goBuildpackIndex   int
+		goBuildpackVersion string
+	)
+	for i, moduleConfig := range config.Buildpacks {
+		uri := moduleConfig.ImageOrURI.URI
+		if strings.Contains(uri, "paketo-buildpacks/go:") {
+			goBuildpackIndex = i
+			goBuildpackVersion = uri[strings.LastIndex(uri, ":")+1:]
+			break
+		}
+	}
+	if goBuildpackVersion == "" {
+		return fmt.Errorf("go buildpack not found in the config")
+	}
+
+	buildDir, err := os.MkdirTemp("", "build-dir-*")
+	if err != nil {
+		return fmt.Errorf("cannot create temp dir: %w", err)
+	}
+	// sic! do not defer remove
+
+	goBuildpackSrcDir := filepath.Join(buildDir, "go")
+
+	goBuildpackRelease, err := getReleaseByVersion(ctx, "go", goBuildpackVersion)
+	if err != nil {
+		return fmt.Errorf("cannot get Go release: %w", err)
+	}
+
+	err = downloadTarball(*goBuildpackRelease.TarballURL, goBuildpackSrcDir)
+	if err != nil {
+		return fmt.Errorf("cannot download Go buildpack source code: %w", err)
+	}
+
+	cfgReader := buildpackage.NewConfigReader()
+	packageConfig, err := cfgReader.Read(filepath.Join(goBuildpackSrcDir, "package.toml"))
+	if err != nil {
+		return fmt.Errorf("cannot read Go buildpack config: %w", err)
+	}
+
+	buildBuildpack := func(name, version string) error {
+		srcDir := filepath.Join(buildDir, name)
+		cmd := exec.CommandContext(ctx, "./scripts/package.sh", "--version", version)
+		cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+		cmd.Dir = srcDir
+		cmd.Env = append(os.Environ(), "GOARCH=arm64", "GOROOT=/home/mvasek/goroot")
+		err = cmd.Run()
+		if err != nil {
+			return fmt.Errorf("build of buildpack %q failed: %w", name, err)
+		}
+		return nil
+	}
+
+	type patchSourceFn = func(srcDir string) error
+	// these buildpacks need rebuild since they are only amd64 in paketo upstream
+	needsRebuild := map[string]patchSourceFn{
+		"git":           nil,
+		"go-build":      nil,
+		"go-mod-vendor": nil,
+		"go-dist": func(srcDir string) error {
+			return fixupGoDistPkgRefs(filepath.Join(srcDir, "buildpack.toml"), "arm64")
+		},
+	}
+
+	re := regexp.MustCompile(`^urn:cnb:registry:paketo-buildpacks/([\w-]+)@([\d.]+)$`)
+	for i, dep := range packageConfig.Dependencies {
+		m := re.FindStringSubmatch(dep.BuildpackURI.URI)
+		if len(m) != 3 {
+			return fmt.Errorf("cannot match buildpack name")
+		}
+		buildpackName := m[1]
+		buildpackVersion := m[2]
+
+		patch, ok := needsRebuild[buildpackName]
+		if !ok {
+			// this dependency does not require rebuild for arm64
+			continue
+		}
+
+		var rel *github.RepositoryRelease
+		rel, err = getReleaseByVersion(ctx, buildpackName, buildpackVersion)
+		if err != nil {
+			return fmt.Errorf("cannot get release: %w", err)
+		}
+
+		srcDir := filepath.Join(buildDir, buildpackName)
+
+		err = downloadTarball(*rel.TarballURL, srcDir)
+		if err != nil {
+			return fmt.Errorf("cannot get tarball: %w", err)
+		}
+		if patch != nil {
+			err = patch(srcDir)
+			if err != nil {
+				return fmt.Errorf("cannot patch source code: %w", err)
+			}
+		}
+
+		err = buildBuildpack(buildpackName, buildpackVersion)
+		if err != nil {
+			return err
+		}
+
+		packageConfig.Dependencies[i].URI = "file://" + filepath.Join(srcDir, "build", "buildpackage.cnb")
+
+	}
+
+	bs, err := toml.Marshal(&packageConfig)
+	err = os.WriteFile(filepath.Join(goBuildpackSrcDir, "package.toml"), bs, 0644)
+	if err != nil {
+		return fmt.Errorf("cannot update package.toml: %w", err)
+	}
+
+	err = buildBuildpack("go", goBuildpackVersion)
+	if err != nil {
+		return err
+	}
+
+	config.Buildpacks[goBuildpackIndex].BuildpackURI.URI = "file://" + filepath.Join(goBuildpackSrcDir, "build", "buildpackage.cnb")
+	fmt.Println(goBuildpackSrcDir)
+	return nil
+}
+
+// The paketo go-dist buildpack refer to the amd64 version of Go.
+// This function replaces these references with references to the arm64 version.
+func fixupGoDistPkgRefs(buildpackToml, arch string) error {
+	tomlBytes, err := os.ReadFile(buildpackToml)
+	if err != nil {
+		return err
+	}
+
+	var config any
+	err = toml.Unmarshal(tomlBytes, &config)
+	if err != nil {
+		return err
+	}
+	deps := config.(map[string]any)["metadata"].(map[string]any)["dependencies"].([]map[string]any)
+
+	versions := make(map[string]struct{}, len(deps))
+	for _, dep := range deps {
+		versions[dep["version"].(string)] = struct{}{}
+	}
+
+	resp, err := http.Get("https://go.dev/dl/?mode=json&include=all")
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	var releases []struct {
+		Version string
+		Stable  bool
+		Files   []struct {
+			Sha256   string
+			Filename string
+			Arch     string
+			OS       string
+		}
+	}
+	err = json.NewDecoder(resp.Body).Decode(&releases)
+	if err != nil {
+		return err
+	}
+
+	var replacements []struct {
+		Old string
+		New string
+	}
+	for _, r := range releases {
+		if _, ok := versions[strings.TrimPrefix(r.Version, "go")]; !ok {
+			continue
+		}
+		var newSha256, newFilename, oldSha256, oldFilename string
+		for _, f := range r.Files {
+			if f.OS != "linux" {
+				continue
+			}
+			switch f.Arch {
+			case "amd64":
+				oldSha256, oldFilename = f.Sha256, f.Filename
+			case arch:
+				newSha256, newFilename = f.Sha256, f.Filename
+			default:
+				continue
+			}
+		}
+		replacements = append(replacements,
+			struct {
+				Old string
+				New string
+			}{Old: oldSha256, New: newSha256},
+			struct {
+				Old string
+				New string
+			}{Old: "/" + oldFilename, New: "/" + newFilename})
+
+	}
+
+	tomlStr := string(tomlBytes)
+	for _, r := range replacements {
+		tomlStr = strings.ReplaceAll(tomlStr, r.Old, r.New)
+	}
+
+	err = os.WriteFile(buildpackToml, []byte(tomlStr), 0644)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
