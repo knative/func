@@ -862,7 +862,7 @@ func fixupGoBuildpackARM64(ctx context.Context, config *builder.Config) error {
 		cmd := exec.CommandContext(ctx, "./scripts/package.sh", "--version", version)
 		cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
 		cmd.Dir = srcDir
-		cmd.Env = append(os.Environ(), "GOARCH=arm64", "GOROOT=/home/mvasek/goroot")
+		cmd.Env = append(os.Environ(), "GOARCH=arm64")
 		err = cmd.Run()
 		if err != nil {
 			return fmt.Errorf("build of buildpack %q failed: %w", name, err)
