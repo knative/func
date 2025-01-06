@@ -178,7 +178,7 @@ func buildBuilderImage(ctx context.Context, variant, arch string) (string, error
 
 	err = packClient.CreateBuilder(ctx, createBuilderOpts)
 	if err != nil {
-		return "", fmt.Errorf("canont create builder: %w", err)
+		return "", fmt.Errorf("cannont create builder: %w", err)
 	}
 
 	pushImage := func(img string) (string, error) {
