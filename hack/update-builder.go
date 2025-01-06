@@ -133,7 +133,7 @@ func buildBuilderImage(ctx context.Context, variant, arch string) (string, error
 	if arch == "arm64" {
 		err = fixupGoBuildpackARM64(ctx, &builderConfig)
 		if err != nil {
-			return "", fmt.Errorf("cannnot fix Go buildpack: %w", err)
+			return "", fmt.Errorf("cannot fix Go buildpack: %w", err)
 		}
 	}
 
