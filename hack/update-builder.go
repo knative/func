@@ -34,6 +34,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/authn"
 	ghAuth "github.com/google/go-containerregistry/pkg/authn/github"
 	"github.com/google/go-containerregistry/pkg/name"
+	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/empty"
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/partial"
@@ -270,6 +271,13 @@ func buildBuilderImageMultiArch(ctx context.Context, variant string) error {
 	}
 
 	idx := mutate.IndexMediaType(empty.Index, types.DockerManifestList)
+	idx = mutate.Annotations(idx, map[string]string{
+		"org.opencontainers.image.description": "Paketo Jammy builder enriched with Rust and Func-Go buildpacks.",
+		"org.opencontainers.image.source":      "https://github.com/knative/func",
+		"org.opencontainers.image.vendor":      "https://github.com/knative/func",
+		"org.opencontainers.image.url":         "https://github.com/knative/func/pkgs/container/builder-jammy-" + variant,
+		"org.opencontainers.image.version":     *release.Name,
+	}).(v1.ImageIndex)
 	for _, arch := range []string{"arm64", "amd64"} {
 		if arch == "arm64" && variant != "tiny" {
 			_, _ = fmt.Fprintf(os.Stderr, "skipping arm64 build for variant: %q\n", variant)
