@@ -24,9 +24,6 @@ import (
 
 const displayEventImg = "gcr.io/knative-releases/knative.dev/eventing/cmd/event_display@sha256:610234e4319b767b187398085971d881956da660a4e0fab65a763e0f81881d82"
 
-// public image from repo (author: github.com/gauron99)
-const testImageWithDigest = "index.docker.io/4141gauron3268/teste-builder@sha256:4cf9eddf34f14cc274364a4ae60274301385d470de1fb91cbc6fec1227daa739"
-
 func TestRun(t *testing.T) {
 	root, cleanup := Mktemp(t)
 	defer cleanup()
