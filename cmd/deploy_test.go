@@ -842,7 +842,7 @@ func TestDeploy_ImageWithDigestErrors(t *testing.T) {
 func TestDeploy_ImageWithDigestDoesntPopulateBuild(t *testing.T) {
 	root := FromTempDirectory(t)
 	// image with digest (well almost, atleast in length and syntax)
-	const img = "example.com/gauron@sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+	const img = "example.com/username@sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 	// Create a new Function in the temp directory
 	_, err := fn.New().Init(fn.Function{Runtime: "go", Root: root})
 	if err != nil {
