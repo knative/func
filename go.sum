@@ -1516,8 +1516,8 @@ github.com/opencontainers/selinux v1.11.0 h1:+5Zbo97w3Lbmb3PeqQtpmTkMwsW5nRI3YaL
 github.com/opencontainers/selinux v1.11.0/go.mod h1:E5dMC3VPuVvVHDYmi78qvhJp8+M586T4DlDRYpFkyec=
 github.com/openshift-pipelines/pipelines-as-code v0.27.0 h1:uxpva7/Ad/QEvc40BCBFEWrmYlAjCZ9dZCFYPYWW61c=
 github.com/openshift-pipelines/pipelines-as-code v0.27.0/go.mod h1:rzfXtaqbUrsAock3f948p9ekXWc3DFFk9acz5BsEwA4=
-github.com/openshift/source-to-image v1.4.1-0.20241111002307-9dc3cee2f544 h1:HTT4oCOEgogcKIdujrcSNsOsc4qAaRztgtBkItY4o6U=
-github.com/openshift/source-to-image v1.4.1-0.20241111002307-9dc3cee2f544/go.mod h1:04Niz7j3qWmPACDRSZYb36uyGWXqP5WLBFU4izATcfA=
+github.com/openshift/source-to-image v1.5.0 h1:M2eVH7cFVbVRNPFYKifDSCWSWRkCVOuY7LqzdTAhHPY=
+github.com/openshift/source-to-image v1.5.0/go.mod h1:nEXLasYzwqaiFwD9kk3EjmUX4UJN96u/ucjbvOvSvbY=
 github.com/openzipkin/zipkin-go v0.4.3 h1:9EGwpqkgnwdEIJ+Od7QVSEIH+ocmm5nPat0G7sjsSdg=
 github.com/openzipkin/zipkin-go v0.4.3/go.mod h1:M9wCJZFWCo2RiY+o1eBCEMe0Dp2S5LDHcMZmk3RmK7c=
 github.com/ory/viper v1.7.5 h1:+xVdq7SU3e1vNaCsk/ixsfxE4zylk1TJUiJrY647jUE=
