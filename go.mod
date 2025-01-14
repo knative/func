@@ -36,7 +36,7 @@ require (
 	github.com/manifestival/manifestival v0.7.2
 	github.com/opencontainers/image-spec v1.1.0
 	github.com/openshift-pipelines/pipelines-as-code v0.27.0
-	github.com/openshift/source-to-image v1.4.1-0.20241111002307-9dc3cee2f544
+	github.com/openshift/source-to-image v1.5.0
 	github.com/ory/viper v1.7.5
 	github.com/paketo-buildpacks/libpak v1.70.0
 	github.com/pelletier/go-toml v1.9.5
