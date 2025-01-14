@@ -79,7 +79,7 @@ $(BIN_GOLANGCI_LINT):
 	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./bin v1.62.2
 
 .PHONY: generate/zz_filesystem_generated.go
-generate/zz_filesystem_generated.go: clean_templates templates/certs/ca-certificates.crt
+generate/zz_filesystem_generated.go: clean_templates
 	go generate pkg/functions/templates_embedded.go
 
 .PHONY: clean_templates
