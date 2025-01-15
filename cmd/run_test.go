@@ -396,7 +396,7 @@ func TestRun_DirectOverride(t *testing.T) {
 
 	runner.RunFn = func(_ context.Context, f fn.Function, _ time.Duration) (*fn.Job, error) {
 		if f.Build.Image != overrideImage {
-			return nil, fmt.Errorf("Expected image to be overriden with '%v' but got: '%v'", overrideImage, f.Build.Image)
+			return nil, fmt.Errorf("Expected image to be overridden with '%v' but got: '%v'", overrideImage, f.Build.Image)
 		}
 		errs := make(chan error, 1)
 		stop := func() error { return nil }
