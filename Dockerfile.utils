@@ -1,8 +1,15 @@
-FROM --platform=$BUILDPLATFORM index.docker.io/library/golang:1.23-alpine3.20 AS builder
+FROM scratch AS builder
 
 ARG BUILDPLATFORM
+ARG BUILDARCH
 ARG TARGETPLATFORM
 ARG TARGETARCH
+
+ADD .artifacts/alpine-minirootfs-$BUILDARCH.tar.gz /
+
+COPY .artifacts/go.tar.gz /tmp/go.tar.gz
+RUN tar -C /usr/local -xzf /tmp/go.tar.gz
+ENV PATH="/usr/local/go/bin:$PATH"
 
 WORKDIR /workspace
 
@@ -15,7 +22,11 @@ RUN GOARCH=$TARGETARCH go build -o func-util -trimpath -ldflags '-w -s' ./cmd/fu
 
 #########################
 
-FROM index.docker.io/library/alpine:latest
+FROM scratch
+
+ARG TARGETARCH
+
+ADD .artifacts/alpine-minirootfs-$TARGETARCH.tar.gz /
 
 RUN apk add --no-cache tar
 
