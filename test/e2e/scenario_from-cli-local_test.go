@@ -1,8 +1,9 @@
-//go:build oncluster
+//go:build e2e
 
-package oncluster
+package e2e
 
 import (
+	"knative.dev/func/test/oncluster"
 	"os"
 	"path/filepath"
 	"testing"
@@ -25,7 +26,7 @@ func TestFromCliBuildLocal(t *testing.T) {
 	defer os.RemoveAll(funcPath)
 
 	// Update func.yaml build as local + some fake url (it should not call it anyway)
-	UpdateFuncGit(t, funcPath, fn.Git{URL: "http://fake-repo/repo.git"})
+	oncluster.UpdateFuncGit(t, funcPath, fn.Git{URL: "http://fake-repo/repo.git"})
 
 	knFunc.Exec("deploy",
 		"-p", funcPath,
@@ -36,6 +37,6 @@ func TestFromCliBuildLocal(t *testing.T) {
 
 	// -- Assertions --
 	knFunc.Exec("invoke", "-p", funcPath)
-	AssertThatTektonPipelineResourcesNotExists(t, funcName)
+	oncluster.AssertThatTektonPipelineResourcesNotExists(t, funcName)
 
 }
