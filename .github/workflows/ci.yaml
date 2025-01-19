@@ -188,6 +188,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push
         run: |
+          ./hack/fetch-util-img-prerequisites.sh
           docker buildx create --name multiarch --driver docker-container --use
           docker buildx build . -f Dockerfile.utils \
             --platform=linux/ppc64le,linux/s390x,linux/amd64,linux/arm64 \

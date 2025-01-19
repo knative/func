@@ -6,6 +6,8 @@ set -o pipefail
 
 FUNC_UTILS_IMG="localhost:50000/knative/func-utils:latest"
 
+"$(dirname "$(realpath "$0")")/fetch-util-img-prerequisites.sh"
+
 docker build . -f Dockerfile.utils -t "${FUNC_UTILS_IMG}"
 docker push "${FUNC_UTILS_IMG}"
 

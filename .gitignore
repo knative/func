@@ -10,6 +10,7 @@
 /bin
 /target
 /hack/bin
+/.artifacts
 
 /e2e/testdata/default_home/go
 /e2e/testdata/default_home/.cache
