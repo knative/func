@@ -386,3 +386,79 @@ func TestRun_CorrectImage(t *testing.T) {
 		})
 	}
 }
+
+// TestRun_DirectOverride tests that an --image passed after a function has
+// already been build, the given --image with digest will override built function
+func TestRun_DirectOverride(t *testing.T) {
+	const overrideImage = "registry/myrepo/myimage@sha256:0000000000000000000000000000000000000000000000000000000000000000"
+	root := FromTempDirectory(t)
+	runner := mock.NewRunner()
+
+	runner.RunFn = func(_ context.Context, f fn.Function, _ time.Duration) (*fn.Job, error) {
+		if f.Build.Image != overrideImage {
+			return nil, fmt.Errorf("Expected image to be overridden with '%v' but got: '%v'", overrideImage, f.Build.Image)
+		}
+		errs := make(chan error, 1)
+		stop := func() error { return nil }
+		return fn.NewJob(f, "127.0.0.1", "8080", errs, stop, false)
+	}
+
+	builder1 := mock.NewBuilder()
+
+	// SETUP THE ENVIRONMENT & SITUATION
+	// create function
+	_, err := fn.New().Init(fn.Function{Root: root, Runtime: "go"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// build function
+	cmdBuild := NewBuildCmd(NewTestClient(fn.WithBuilder(builder1), fn.WithRegistry("example.com/ns-to-override")))
+	if err := cmdBuild.Execute(); err != nil {
+		t.Fatal(err)
+	}
+
+	// fetch the functions state
+	_, err = fn.NewFunction(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// builder for 'func run' -- shall not be invoked
+	builder2 := mock.NewBuilder()
+	builder2.BuildFn = func(f fn.Function) error {
+		return fmt.Errorf("should not be invoked")
+	}
+
+	// RUN THE ACTUAL TESTED COMMAND
+	cmd := NewRunCmd(NewTestClient(
+		fn.WithRunner(runner),
+		fn.WithBuilder(builder2),
+		fn.WithRegistry("ghcr.com/reg"),
+	))
+	cmd.SetArgs([]string{fmt.Sprintf("--image=%s", overrideImage)})
+
+	// run function with above argument
+	ctx, cancel := context.WithCancel(context.Background())
+	runErrCh := make(chan error, 1)
+	go func() {
+		_, err := cmd.ExecuteContextC(ctx)
+		if err != nil {
+			runErrCh <- err // error was not expected
+			return
+		}
+
+		// Ensure invocation doesnt happen for the second time as the image was
+		// provided with a digest (should not build)
+		if builder2.BuildInvoked {
+			runErrCh <- fmt.Errorf("Function was not expected to build again but it did")
+		}
+
+		close(runErrCh) // release the waiting parent process
+	}()
+	cancel() // trigger the return of cmd.ExecuteContextC in the routine
+	<-ctx.Done()
+	if err := <-runErrCh; err != nil { // wait for completion of assertions
+		t.Fatal(err)
+	}
+}
