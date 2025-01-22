@@ -25,8 +25,8 @@ install_binaries() {
   local root="$(dirname "$(realpath "$0")")"
   local bin="${root}/bin"
 
-  local kubectl_version=1.29.2
-  local kind_version=0.22.0
+  local kubectl_version=1.32.0
+  local kind_version=0.26.0
   local dapr_version=1.11.0
   local helm_version=3.12.0
   local stern_version=1.25.0
@@ -71,7 +71,7 @@ warn_architecture() {
 
 install_kubectl() {
     echo '=== kubectl'
-    curl -sSLo "${bin}"/kubectl "https://storage.googleapis.com/kubernetes-release/release/v$kubectl_version/bin/linux/${ARCH}/kubectl"
+    curl -sSLo "${bin}"/kubectl "https://dl.k8s.io/v${kubectl_version}/bin/linux/${ARCH}/kubectl"
     chmod +x "${bin}"/kubectl
     "${bin}"/kubectl version --client=true
 }

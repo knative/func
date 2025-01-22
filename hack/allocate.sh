@@ -26,7 +26,7 @@ source "$(dirname "$(realpath "$0")")/common.sh"
 set_versions() {
   # Note: Kubernetes Version node image per Kind releases (full hash is suggested):
   # https://github.com/kubernetes-sigs/kind/releases
-  kind_node_version=v1.29.2@sha256:51a1434a5397193442f0be2a297b488b6c919ce8a3931be0ce822606ea5ca245
+  kind_node_version=v1.32.0@sha256:c48c62eac5da28cdadcf560d1d8616cfa6783b58f0d94cf63ad1bf49600cb027
   knative_serving_version="v$(get_latest_release_version "knative" "serving")"
   knative_eventing_version="v$(get_latest_release_version "knative" "eventing")"
   contour_version="v$(get_latest_release_version "knative-extensions" "net-contour")"
@@ -305,7 +305,7 @@ namespace() {
   # Default Broker
   $KUBECTL apply -f - <<EOF
   apiVersion: eventing.knative.dev/v1
-  kind: broker
+  kind: Broker
   metadata:
    name: func-broker
    namespace: func
