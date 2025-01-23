@@ -10,7 +10,10 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"slices"
 	"syscall"
+
+	"golang.org/x/sys/unix"
 
 	"github.com/openshift/source-to-image/pkg/cmd/cli"
 	"k8s.io/klog/v2"
@@ -20,6 +23,7 @@ import (
 	"knative.dev/func/pkg/k8s"
 	"knative.dev/func/pkg/knative"
 	"knative.dev/func/pkg/scaffolding"
+	"knative.dev/func/pkg/tar"
 )
 
 func main() {
@@ -46,6 +50,8 @@ func main() {
 		cmd = s2iCmd
 	case "socat":
 		cmd = socat
+	case "sh":
+		cmd = sh
 	}
 
 	err := cmd(ctx)
@@ -166,4 +172,19 @@ func (d deployDecorator) UpdateLabels(function fn.Function, labels map[string]st
 		return d.oshDec.UpdateLabels(function, labels)
 	}
 	return labels
+}
+
+func sh(ctx context.Context) error {
+	if !slices.Equal(os.Args[1:], []string{"-c", "umask 0000 && exec tar -xmf -"}) {
+		return fmt.Errorf("this is a fake sh (only for backward compatiblility purposes)")
+	}
+
+	wd, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("cannot get working directory: %w", err)
+	}
+
+	unix.Umask(0)
+
+	return tar.Extract(os.Stdin, wd)
 }
