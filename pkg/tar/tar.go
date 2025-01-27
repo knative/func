@@ -16,10 +16,13 @@ func Extract(input io.Reader, destDir string) error {
 	var err error
 
 	des, err := os.ReadDir(destDir)
+	if err != nil {
+		return fmt.Errorf("cannot read dest dir: %w", err)
+	}
 	for _, de := range des {
 		err = os.RemoveAll(filepath.Join(destDir, de.Name()))
 		if err != nil {
-			return fmt.Errorf("cannot purge destination directory: %w", err)
+			return fmt.Errorf("cannot purge dest dir: %w", err)
 		}
 	}
 
@@ -86,7 +89,7 @@ func Extract(input io.Reader, destDir string) error {
 }
 
 func writeRegularFile(target string, perm os.FileMode, content io.Reader) error {
-	f, err := os.OpenFile(target, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, perm)
+	f, err := os.OpenFile(target, os.O_CREATE|os.O_EXCL|os.O_WRONLY, perm)
 	if err != nil {
 		return err
 	}
