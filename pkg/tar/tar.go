@@ -15,6 +15,14 @@ import (
 func Extract(input io.Reader, destDir string) error {
 	var err error
 
+	des, err := os.ReadDir(destDir)
+	for _, de := range des {
+		err = os.RemoveAll(filepath.Join(destDir, de.Name()))
+		if err != nil {
+			return fmt.Errorf("cannot purge destination directory: %w", err)
+		}
+	}
+
 	r := tar.NewReader(input)
 
 	var first bool = true
@@ -53,12 +61,6 @@ func Extract(input io.Reader, destDir string) error {
 		}
 		if strings.HasPrefix(rel, "..") {
 			return fmt.Errorf("name escapes")
-		}
-
-		// remove if already exists
-		err = os.Remove(destPath)
-		if err != nil && !errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("cannot remove: %w", err)
 		}
 
 		// ensure parent

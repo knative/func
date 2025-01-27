@@ -106,20 +106,6 @@ func tarballV1(t *testing.T) io.Reader {
 	}
 
 	err = w.WriteHeader(&tar.Header{
-		Name:     "dir/data2",
-		Typeflag: tar.TypeReg,
-		Mode:     0644,
-		Size:     int64(len(bTxt2)),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = w.Write([]byte(bTxt2))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = w.WriteHeader(&tar.Header{
 		Name:     "dir/b.txt",
 		Linkname: "data1",
 		Typeflag: tar.TypeSymlink,
@@ -164,5 +150,20 @@ func tarballV2(t *testing.T) io.Reader {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	err = w.WriteHeader(&tar.Header{
+		Name:     "dir/data2",
+		Typeflag: tar.TypeReg,
+		Mode:     0644,
+		Size:     int64(len(bTxt2)),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = w.Write([]byte(bTxt2))
+	if err != nil {
+		t.Fatal(err)
+	}
+	
 	return &buff
 }

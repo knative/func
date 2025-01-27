@@ -30,16 +30,7 @@ func TestExtractErrors(t *testing.T) {
 			createReader: missingParentLink,
 			wantErr:      false,
 		},
-		{
-			name:         "overwrite regular file",
-			createReader: overwriteRegularFile,
-			wantErr:      false,
-		},
-		{
-			name:         "overwrite link",
-			createReader: overwriteLink,
-			wantErr:      false,
-		},
+
 		{
 			name:         "absolute symlink",
 			createReader: absoluteSymlink,
@@ -321,85 +312,5 @@ func missingParentLink(t *testing.T) io.Reader {
 		t.Fatal(err)
 	}
 
-	return &buff
-}
-
-func overwriteRegularFile(t *testing.T) io.Reader {
-	var err error
-	var buff bytes.Buffer
-
-	w := tar.NewWriter(&buff)
-	defer func(w *tar.Writer) {
-		_ = w.Close()
-	}(w)
-	err = w.WriteHeader(&tar.Header{
-		Name:     "a.txt",
-		Typeflag: tar.TypeReg,
-		Size:     0,
-		Mode:     0644,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = w.WriteHeader(&tar.Header{
-		Name:     "a.txt",
-		Typeflag: tar.TypeReg,
-		Size:     0,
-		Mode:     0644,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return &buff
-}
-
-func overwriteLink(t *testing.T) io.Reader {
-	var err error
-	var buff bytes.Buffer
-
-	w := tar.NewWriter(&buff)
-	defer func(w *tar.Writer) {
-		_ = w.Close()
-	}(w)
-
-	err = w.WriteHeader(&tar.Header{
-		Name:     "a.txt",
-		Typeflag: tar.TypeReg,
-		Mode:     0644,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = w.WriteHeader(&tar.Header{
-		Name:     "b.txt",
-		Typeflag: tar.TypeReg,
-		Mode:     0644,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = w.WriteHeader(&tar.Header{
-		Name:     "a.lnk",
-		Linkname: "a.txt",
-		Typeflag: tar.TypeSymlink,
-		Mode:     0777,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = w.WriteHeader(&tar.Header{
-		Name:     "a.lnk",
-		Linkname: "b.txt",
-		Typeflag: tar.TypeSymlink,
-		Mode:     0777,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
 	return &buff
 }
