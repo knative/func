@@ -164,6 +164,6 @@ func tarballV2(t *testing.T) io.Reader {
 	if err != nil {
 		t.Fatal(err)
 	}
-	
+
 	return &buff
 }
