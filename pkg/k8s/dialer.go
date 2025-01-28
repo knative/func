@@ -423,6 +423,11 @@ func podReady(ctx context.Context, core v1.CoreV1Interface, podName, namespace s
 						d <- nil
 						return
 					}
+					if status.State.Terminated != nil {
+						msg, _ := GetPodLogs(ctx, namespace, podName, podName)
+						d <- fmt.Errorf("pod prematurely exited (output: %q, exitcode: %d)", msg, status.State.Terminated.ExitCode)
+						return
+					}
 					if status.State.Waiting != nil {
 						switch status.State.Waiting.Reason {
 						case "ErrImagePull",
