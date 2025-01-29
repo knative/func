@@ -6,9 +6,9 @@ set -o pipefail
 
 FUNC_UTILS_IMG="localhost:50000/knative/func-utils:latest"
 
-"$(dirname "$(realpath "$0")")/fetch-util-img-prerequisites.sh"
+CGO_ENABLED=0 go build -o "func-util" -trimpath -ldflags '-w -s' ./cmd/func-util
 
-docker build . -f Dockerfile.utils -t "${FUNC_UTILS_IMG}"
+docker build . -f Dockerfile.utils -t "${FUNC_UTILS_IMG}" --build-arg FUNC_UTIL_BINARY=func-util
 docker push "${FUNC_UTILS_IMG}"
 
 # Build custom buildah image for tests.
