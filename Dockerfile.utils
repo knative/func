@@ -24,7 +24,7 @@ RUN GOARCH=$TARGETARCH go build -o func-util -trimpath -ldflags '-w -s' ./cmd/fu
 
 #########################
 
-FROM --platform=$TARGETPLATFORM scratch
+FROM --platform=$TARGETPLATFORM scratch as runner
 
 ARG TARGETARCH
 ARG TARGETPLATFORM
