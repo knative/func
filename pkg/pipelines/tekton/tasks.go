@@ -418,8 +418,7 @@ spec:
   steps:
     - name: func-deploy
       image: "%s"
-      script: |
-        deploy $(params.path) "$(params.image)"
+      command: ["deploy", "$(params.path)", "$(params.image)"]
 `, DeployerImage)
 }
 
@@ -446,8 +445,7 @@ spec:
   steps:
     - name: func-scaffold
       image: %s
-      script: |
-        scaffold $(params.path)
+      command: ["scaffold", "$(params.path)"]
 `, DeployerImage)
 }
 
