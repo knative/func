@@ -15,8 +15,10 @@ ENV PATH="/usr/local/go/bin:$PATH"
 
 WORKDIR /workspace
 
+RUN go env
+
 COPY go.mod go.sum ./
-RUN go mod download -x
+RUN go mod download
 
 COPY . .
 
