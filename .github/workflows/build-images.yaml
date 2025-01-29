@@ -7,6 +7,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
       - name: Build and push
         run: |
           sudo apt update
