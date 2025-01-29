@@ -1,0 +1,23 @@
+name: build images
+
+on: [pull_request]
+
+jobs:
+  publish-utils-image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and push
+        run: |
+          sudo apt update
+          sudo apt install -y uuid
+          ./hack/fetch-util-img-prerequisites.sh
+          docker buildx create --name multiarch --driver docker-container --use
+          docker buildx build . -f Dockerfile.utils \
+            --platform=linux/ppc64le,linux/s390x,linux/amd64,linux/arm64 \
+            --push \
+            -t "ttl.sh/$(uuid)/func-utils:10m" \
+            --annotation index:org.opencontainers.image.description="Knative Func Utils Image" \
+            --annotation index:org.opencontainers.image.source="https://github.com/knative/func" \
+            --annotation index:org.opencontainers.image.vendor="https://github.com/knative/func" \
+            --annotation index:org.opencontainers.image.url="https://github.com/knative/func/pkgs/container/func-utils"
