@@ -1,4 +1,4 @@
-FROM --platform=$BUILDPLATFORM scratch AS builder
+FROM --platform=$BUILDPLATFORM alpine AS builder
 
 ARG BUILDPLATFORM
 ARG BUILDARCH
