@@ -7,6 +7,8 @@ ARG TARGETARCH
 
 ADD .artifacts/alpine-minirootfs-$BUILDARCH.tar.gz /
 
+RUN echo "Hello World!"
+
 COPY .artifacts/go.tar.gz /tmp/go.tar.gz
 RUN tar -C /usr/local -xzf /tmp/go.tar.gz
 ENV PATH="/usr/local/go/bin:$PATH"
@@ -22,9 +24,10 @@ RUN GOARCH=$TARGETARCH go build -o func-util -trimpath -ldflags '-w -s' ./cmd/fu
 
 #########################
 
-FROM scratch
+FROM --platform=$TARGETPLATFORM scratch
 
 ARG TARGETARCH
+ARG TARGETPLATFORM
 
 ADD .artifacts/alpine-minirootfs-$TARGETARCH.tar.gz /
 
