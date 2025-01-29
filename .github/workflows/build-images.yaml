@@ -14,6 +14,7 @@ jobs:
           ./hack/fetch-util-img-prerequisites.sh
           docker version
           docker info
+          export DOCKER_BUILDKIT=0
           docker buildx create --name multiarch --driver docker-container --use
           docker buildx build . -f Dockerfile.utils \
             --platform=linux/ppc64le,linux/s390x,linux/amd64,linux/arm64 \
