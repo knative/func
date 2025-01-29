@@ -1,41 +1,13 @@
-FROM --platform=$BUILDPLATFORM scratch AS builder
-
-ARG BUILDPLATFORM
-ARG BUILDARCH
-ARG TARGETPLATFORM
-ARG TARGETARCH
-
-ADD .artifacts/alpine-minirootfs-$BUILDARCH.tar.gz /
-
-COPY .artifacts/go.tar.gz /tmp/go.tar.gz
-RUN tar -C /usr/local -xzf /tmp/go.tar.gz
-ENV PATH="/usr/local/go/bin:$PATH"
-
-WORKDIR /workspace
-
-COPY go.mod go.sum ./
-RUN go mod download -x
-
-COPY . .
-
-RUN GOARCH=$TARGETARCH go build -o func-util -trimpath -ldflags '-w -s' ./cmd/func-util
-
-#########################
-
 FROM scratch
 
 ARG TARGETARCH
+ARG FUNC_UTIL_BINARY=func-util-$TARGETARCH
 
-ADD .artifacts/alpine-minirootfs-$TARGETARCH.tar.gz /
+ENV PATH=/
 
-RUN apk add --no-cache tar
+COPY $FUNC_UTIL_BINARY /func-util
 
-COPY --from=builder /workspace/func-util /usr/local/bin/
-RUN ln -s /usr/local/bin/func-util /usr/local/bin/deploy && \
-    ln -s /usr/local/bin/func-util /usr/local/bin/scaffold && \
-    ln -s /usr/local/bin/func-util /usr/local/bin/s2i && \
-    ln -s /usr/local/bin/func-util /usr/local/bin/sh && \
-    ln -s /usr/local/bin/func-util /usr/local/bin/socat
+ADD func-util-symlinks.tgz /
 
 LABEL \
    org.opencontainers.image.description="Knative Func Utils Image" \
