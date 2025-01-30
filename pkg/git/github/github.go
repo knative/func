@@ -6,7 +6,7 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/google/go-github/v49/github"
+	"github.com/google/go-github/v68/github"
 	"golang.org/x/oauth2"
 )
 
@@ -16,18 +16,18 @@ type Client struct {
 
 func (c Client) CreateWebHook(ctx context.Context, repoOwner, repoName, payloadURL, webhookSecret string) error {
 	hook := &github.Hook{
-		Name:   github.String("web"),
-		Active: github.Bool(true),
+		Name:   github.Ptr("web"),
+		Active: github.Ptr(true),
 		Events: []string{
 			"issue_comment",
 			"pull_request",
 			"push",
 		},
-		Config: map[string]interface{}{
-			"url":          payloadURL,
-			"content_type": "json",
-			"insecure_ssl": "1", // TODO fix insecure (default should be 0)
-			"secret":       webhookSecret,
+		Config: &github.HookConfig{
+			URL:         github.Ptr(payloadURL),
+			ContentType: github.Ptr("json"),
+			InsecureSSL: github.Ptr("1"), // TODO fix insecure (default should be 0)
+			Secret:      github.Ptr(webhookSecret),
 		},
 	}
 
