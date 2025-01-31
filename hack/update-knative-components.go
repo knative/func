@@ -95,52 +95,25 @@ func getVersionsFromFile() (srv string, evt string, ctr string, err error) {
 	return
 }
 
-// Update version in file if new releases of any component exist
-func tryUpdateFile(upstreams []struct{ owner, repo, version string }) (updated bool, err error) {
+// try updating the version of component named via "repo" via 'sed'
+func trySingleUpdateFile(repo, newV, oldV string) (bool, error) {
 	quoteWrap := func(s string) string { return "\"" + s + "\"" }
 	file := "hack/component-versions.sh"
-	updated = false
-
-	// get current versions used. Get all together to limit opening/closing
-	// the file
-	oldSrv, oldEvt, oldCntr, err := getVersionsFromFile()
-	if err != nil {
-		return false, err
-	}
-
-	// update files to latest release where applicable
-	for _, upstream := range upstreams {
-		uv := quoteWrap(upstream.version)
-		var cmd *exec.Cmd
-		switch upstream.repo {
-		case "serving":
-			if upstream.version != oldSrv {
-				fmt.Printf("update serving from '%s' to '%s'\n", oldSrv, upstream.version)
-				cmd = exec.Command("sed", "-i", "-e", "s/"+knSrvPrefix+quoteWrap(oldSrv)+"/"+knSrvPrefix+uv+"/g", file)
-			}
-		case "eventing":
-			if upstream.version != oldEvt {
-				fmt.Printf("update eventing from '%s' to '%s'\n", oldEvt, upstream.version)
-				cmd = exec.Command("sed", "-i", "-e", "s/"+knEvtPrefix+quoteWrap(oldEvt)+"/"+knEvtPrefix+uv+"/g", file)
-			}
-		case "net-contour":
-			if upstream.version != oldCntr {
-				fmt.Printf("update contour from '%s' to '%s'\n", oldCntr, upstream.version)
-				cmd = exec.Command("sed", "-i", "-e", "s/"+knCtrPrefix+quoteWrap(oldCntr)+"/"+knCtrPrefix+uv+"/g", file)
-			}
-		default:
-			err = fmt.Errorf("internal error: unknown upstream.repo '%s' in for loop, exiting", upstream.repo)
-			return false, err
-		}
-		err = cmd.Run()
+	if newV != oldV {
+		fmt.Printf("update %s from '%s' to '%s'\n", repo, oldV, newV)
+		cmd := exec.Command("sed", "-i", "-e", "s/"+knSrvPrefix+quoteWrap(oldV)+"/"+knSrvPrefix+quoteWrap(newV)+"/g", file)
+		err := cmd.Run()
 		if err != nil {
-			return false, fmt.Errorf("failed to sed %s: %v", upstream.repo, err)
+			return false, fmt.Errorf("error while updating '%s' version: %s", repo, err)
 		}
-		updated = true
+		return true, nil
 	}
-
-	return updated, nil
+	return false, nil
 }
+
+// ----------------------------------------------------------------------------
+// ----------------------------------- MAIN -----------------------------------
+// ----------------------------------------------------------------------------
 
 // entry function -- essentially "func mai(){} for this file"
 func updateComponentVersions() error {
@@ -151,7 +124,7 @@ func updateComponentVersions() error {
 	// TODO
 
 	projects := []struct {
-		owner, repo, version string
+		owner, repo string
 	}{
 		{
 			owner: "knative",
@@ -166,25 +139,49 @@ func updateComponentVersions() error {
 			repo:  "net-contour",
 		},
 	}
-	var err error
-	for i, p := range projects {
-		projects[i].version, err = getLatestVersion(ctx, client, p.owner, p.repo)
+
+	// get current versions used. Get all together to limit opening/closing
+	// the file
+	oldSrv, oldEvt, oldCntr, err := getVersionsFromFile()
+	if err != nil {
+		return err
+	}
+
+	updated := false
+	for _, p := range projects {
+		newV, err := getLatestVersion(ctx, client, p.owner, p.repo)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error while getting latest v of %s/%s: %v\n", p.owner, p.repo, err)
 			os.Exit(1)
 		}
-	}
 
-	updated, err := tryUpdateFile(projects)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		return err
+		// sync the old repo & version
+		oldV := ""
+		switch p.repo {
+		case "serving":
+			oldV = oldSrv
+		case "eventing":
+			oldV = oldEvt
+		case "net-contour":
+			oldV = oldCntr
+		}
+		// check if component is eligible for update & update if possible
+		isNew, err := trySingleUpdateFile(p.repo, newV, oldV)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return err
+		}
+		if isNew {
+			updated = true
+		}
 	}
 
 	if !updated {
 		// nothing was updated, nothing to do
+		fmt.Printf("all good, no newer releases, exiting\n")
 		return nil
 	}
+	fmt.Println("file updated! Creating a PR...")
 	// create, PR etc etc
 	return nil
 }
