@@ -41,12 +41,13 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/types"
-	"github.com/google/go-github/v49/github"
+	"github.com/google/go-github/v68/github"
 	"github.com/paketo-buildpacks/libpak/carton"
 	"github.com/pelletier/go-toml"
 )
 
-func main() {
+// this is effectively "main" function. This is the entry point to this file
+func updateBuilder() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	sigs := make(chan os.Signal, 1)
