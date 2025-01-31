@@ -7,6 +7,6 @@ set_versions() {
 
   # Can be updated programatically 
   knative_serving_version="v1.17.0"
-  knative_eventing_versio="v1.17.0"
+  knative_eventing_version="v1.17.0"
   contour_version="v1.17.0"
 }
