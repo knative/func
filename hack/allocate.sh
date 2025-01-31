@@ -22,7 +22,7 @@ set -o pipefail
 
 source "$(dirname "$(realpath "$0")")/common.sh"
 # this is where versions of common components are (like knative)
-source "$(dirname "$(realpath "$0")")/components-versions.sh"
+source "$(dirname "$(realpath "$0")")/component-versions.sh"
 
 main() {
   echo "${blue}Allocating${reset}"
