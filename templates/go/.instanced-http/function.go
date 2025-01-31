@@ -46,7 +46,7 @@ func (f *MyFunction) Handle(res http.ResponseWriter, req *http.Request) {
 // is being scaled down due to low load.  This is a good place to cleanup and
 // realease any resources which expect to be manually released.
 //
-// func (f *Function) Stop(ctx context.Context) error { return nil }
+// func (f *MyFunction) Stop(ctx context.Context) error { return nil }
 
 // Alive is an optional method which allows you to more deeply indicate that
 // your function is alive.  The default liveness implementation returns true
@@ -55,7 +55,7 @@ func (f *MyFunction) Handle(res http.ResponseWriter, req *http.Request) {
 // considered alive if any dependent services are alive, or other more
 // complex logic.
 //
-// func (f *Function) Alive(ctx context.Context) (bool, error) {
+// func (f *MyFunction) Alive(ctx context.Context) (bool, error) {
 //   return true, nil
 // }
 
@@ -63,7 +63,7 @@ func (f *MyFunction) Handle(res http.ResponseWriter, req *http.Request) {
 // requests are not made to the Function's request handler until this method
 // reports true.
 //
-// func (f *Function) Ready(ctx context.Context) (bool, error) {
+// func (f *MyFunction) Ready(ctx context.Context) (bool, error) {
 //   return true, nil
 // }
 
