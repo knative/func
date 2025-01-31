@@ -117,11 +117,23 @@ func trySingleUpdateFile(repo, newV, oldV string) (bool, error) {
 
 // entry function -- essentially "func mai(){} for this file"
 func updateComponentVersions() error {
+	prTitle := "chore: Update components' versions to latest (hack)"
 	ctx := context.Background()
 	client := github.NewClient(nil).WithAuthToken(os.Getenv("GITHUB_TOKEN"))
 
 	// PR already exists?
-	// TODO
+	opt := &github.PullRequestListOptions{State: "open"}
+	list, _, err := client.PullRequests.List(ctx, "knative", "func", opt)
+	if err != nil {
+		return fmt.Errorf("errror pulling PRs in knative/func: %s", err)
+	}
+	for _, pr := range list {
+		if pr.GetTitle() == prTitle {
+			// gauron99 possible TODO: check against this and force push if necessary
+			fmt.Printf("PR already exists, exiting\n")
+			return nil
+		}
+	}
 
 	projects := []struct {
 		owner, repo string
