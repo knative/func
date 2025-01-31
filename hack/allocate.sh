@@ -21,17 +21,8 @@ set -o nounset
 set -o pipefail
 
 source "$(dirname "$(realpath "$0")")/common.sh"
-
-
-set_versions() {
-  # Note: Kubernetes Version node image per Kind releases (full hash is suggested):
-  # https://github.com/kubernetes-sigs/kind/releases
-  kind_node_version=v1.32.0@sha256:c48c62eac5da28cdadcf560d1d8616cfa6783b58f0d94cf63ad1bf49600cb027
-  # Updated programatically via 'hack/update-knative-hack.go'
-  knative_serving_version="v1.16.0"
-  knative_eventing_versio="v1.16.0"
-  contour_version="v1.16.0"
-}
+# this is where versions of common components are (like knative)
+source "$(dirname "$(realpath "$0")")/components-versions.sh"
 
 main() {
   echo "${blue}Allocating${reset}"
@@ -61,46 +52,6 @@ main() {
   next_steps
 
   echo -e "\n${green}🎉 DONE${reset}\n"
-}
-
-# Retrieve latest version from given Knative repository tags
-# On 'main' branch the latest released version is returned
-# On 'release-x.y' branch the latest patch version for 'x.y.*' is returned
-# Similar to hack/library.sh get_latest_knative_yaml_source()
-function get_latest_release_version() {
-    local org_name="$1"
-    local repo_name="$2"
-    local major_minor=""
-    if is_release_branch; then
-      local branch_name
-      branch_name="$(current_branch)"
-      major_minor="${branch_name##release-}"
-    fi
-    local version
-    version="$(git ls-remote --tags --ref https://github.com/"${org_name}"/"${repo_name}".git \
-      | grep "${major_minor}" \
-      | cut -d '-' -f2 \
-      | cut -d 'v' -f2 \
-      | sort -Vr \
-      | head -n 1)"
-    echo "${version}"
-}
-
-# Returns whether the current branch is a release branch.
-function is_release_branch() {
-  [[ $(current_branch) =~ ^release-[0-9\.]+$ ]]
-}
-
-# Returns the current branch.
-# Taken from knative/hack. The function covers Knative CI use cases and local variant.
-function current_branch() {
-  local branch_name=""
-  # Get the branch name from Prow's env var, see https://github.com/kubernetes/test-infra/blob/master/prow/jobs.md.
-  # Otherwise, try getting the current branch from git.
-  (( ${IS_PROW:-} )) && branch_name="${PULL_BASE_REF:-}"
-  [[ -z "${branch_name}" ]] && branch_name="${GITHUB_BASE_REF:-}"
-  [[ -z "${branch_name}" ]] && branch_name="$(git rev-parse --abbrev-ref HEAD)"
-  echo "${branch_name}"
 }
 
 kubernetes() {

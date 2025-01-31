@@ -16,7 +16,21 @@ var (
 	knSrvPrefix = "knative_serving_version="
 	knEvtPrefix = "knative_eventing_version="
 	knCtrPrefix = "contour_version="
+
+	file = "hack/component-versions.sh"
 )
+
+// if running on branch "release-*" return the current branch version
+// (for possible fixups) otherwise, return latest as standard
+// func getLatestOrReleaseVersion() (v string, err error) {
+// 	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
+// 	o, err := cmd.Output()
+// 	if err != nil {
+// 		return "", fmt.Errorf("error running git rev-parse: %v", err)
+// 	}
+// 	fmt.Printf("out: %s\n", string(o))
+// 	return string(o), nil
+// }
 
 // get latest version of owner/repo via GH API
 func getLatestVersion(ctx context.Context, client *github.Client, owner string, repo string) (v string, err error) {
@@ -45,15 +59,13 @@ func getVersionsFromFile() (srv string, evt string, ctr string, err error) {
 	evt = "" //eventing
 	ctr = "" //net-contour (knative-extensions)
 
-	var f = "hack/allocate.sh"
-
-	file, err := os.OpenFile(f, os.O_RDWR, 0600)
+	f, err := os.OpenFile(file, os.O_RDWR, 0600)
 	if err != nil {
-		err = fmt.Errorf("cant open file '%s': %v", f, err)
+		err = fmt.Errorf("cant open file '%s': %v", file, err)
 	}
-	defer file.Close()
+	defer f.Close()
 	// read file line by line
-	fs := bufio.NewScanner(file)
+	fs := bufio.NewScanner(f)
 	fs.Split(bufio.ScanLines)
 	for fs.Scan() {
 		// Look for a prefix in a trimmed line.
@@ -83,10 +95,10 @@ func getVersionsFromFile() (srv string, evt string, ctr string, err error) {
 	return
 }
 
-// Update version in file if new releases of eventing/serving/net-concour exist
-// if applicable.
+// Update version in file if new releases of any component exist
 func tryUpdateFile(upstreams []struct{ owner, repo, version string }) (updated bool, err error) {
-	file := "hack/allocate.sh"
+	quoteWrap := func(s string) string { return "\"" + s + "\"" }
+	file := "hack/component-versions.sh"
 	updated = false
 
 	// get current versions used. Get all together to limit opening/closing
@@ -98,25 +110,26 @@ func tryUpdateFile(upstreams []struct{ owner, repo, version string }) (updated b
 
 	// update files to latest release where applicable
 	for _, upstream := range upstreams {
+		uv := quoteWrap(upstream.version)
 		var cmd *exec.Cmd
 		switch upstream.repo {
 		case "serving":
 			if upstream.version != oldSrv {
 				fmt.Printf("update serving from '%s' to '%s'\n", oldSrv, upstream.version)
-				cmd = exec.Command("sed", "-i", "-e", "s/"+knSrvPrefix+oldSrv+"/"+knSrvPrefix+upstream.version+"/g", file)
+				cmd = exec.Command("sed", "-i", "-e", "s/"+knSrvPrefix+quoteWrap(oldSrv)+"/"+knSrvPrefix+uv+"/g", file)
 			}
 		case "eventing":
 			if upstream.version != oldEvt {
 				fmt.Printf("update eventing from '%s' to '%s'\n", oldEvt, upstream.version)
-				cmd = exec.Command("sed", "-i", "-e", "s/"+knEvtPrefix+oldEvt+"/"+knEvtPrefix+upstream.version+"/g", file)
+				cmd = exec.Command("sed", "-i", "-e", "s/"+knEvtPrefix+quoteWrap(oldEvt)+"/"+knEvtPrefix+uv+"/g", file)
 			}
-		case "net-concour":
+		case "net-contour":
 			if upstream.version != oldCntr {
 				fmt.Printf("update contour from '%s' to '%s'\n", oldCntr, upstream.version)
-				cmd = exec.Command("sed", "-i", "-e", "s/"+knCtrPrefix+oldCntr+"/"+knCtrPrefix+upstream.version+"/g", file)
+				cmd = exec.Command("sed", "-i", "-e", "s/"+knCtrPrefix+quoteWrap(oldCntr)+"/"+knCtrPrefix+uv+"/g", file)
 			}
 		default:
-			err = fmt.Errorf("unkown upstream.repo '%s' in for loop, exiting", upstream.repo)
+			err = fmt.Errorf("internal error: unknown upstream.repo '%s' in for loop, exiting", upstream.repo)
 			return false, err
 		}
 		err = cmd.Run()
