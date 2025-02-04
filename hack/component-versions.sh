@@ -10,3 +10,4 @@ set_versions() {
   knative_eventing_version="v1.17.0"
   contour_version="v1.17.0"
 }
+

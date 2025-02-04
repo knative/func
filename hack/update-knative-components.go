@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	github "github.com/google/go-github/v68/github"
 )
@@ -95,29 +96,83 @@ func getVersionsFromFile() (srv string, evt string, ctr string, err error) {
 	return
 }
 
-// try updating the version of component named via "repo" via 'sed'
-func trySingleUpdateFile(repo, newV, oldV string) (bool, error) {
-	quoteWrap := func(s string) string { return "\"" + s + "\"" }
-	file := "hack/component-versions.sh"
+// try updating the version of component named by "repo" via 'sed'
+func tryUpdateFile(repo, newV, oldV string) (bool, error) {
+	quoteWrap := func(s string) string {
+		if !strings.HasPrefix(s, "\"") {
+			return "\"" + s + "\""
+		}
+		return s
+	}
 	if newV != oldV {
-		fmt.Printf("update %s from '%s' to '%s'\n", repo, oldV, newV)
-		cmd := exec.Command("sed", "-i", "-e", "s/"+knSrvPrefix+quoteWrap(oldV)+"/"+knSrvPrefix+quoteWrap(newV)+"/g", file)
+		fmt.Printf("Updating %s from '%s' to '%s'\n", repo, oldV, newV)
+		cmd := exec.Command("sed", "-i", "-e", "s/"+quoteWrap(oldV)+"/"+quoteWrap(newV)+"/g", file)
 		err := cmd.Run()
 		if err != nil {
-			return false, fmt.Errorf("error while updating '%s' version: %s", repo, err)
+			return false, fmt.Errorf("error while updating file with '%s' version: %s", repo, err)
 		}
 		return true, nil
 	}
 	return false, nil
 }
 
+// prepare branch for PR via git commands
+func prepareBranch(branchName string) error {
+	fmt.Println("> prep branch")
+	err := exec.Command("git", "config", "set", "user.email", "\"automation@knative.team\"").Run()
+	if err != nil {
+		return err
+	}
+	err = exec.Command("git", "config", "set", "user.name", "\"Knative Automation\"").Run()
+	if err != nil {
+		return err
+	}
+	err = exec.Command("git", "switch", "-c", branchName).Run()
+	if err != nil {
+		return err
+	}
+	err = exec.Command("git", "add", file).Run()
+	if err != nil {
+		return err
+	}
+	err = exec.Command("git", "commit", "-m", "\"update components\"").Run()
+	if err != nil {
+		return err
+	}
+	err = exec.Command("git", "push", "origin", branchName, "-f").Run()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// create a PR for the new updates
+func createPR(ctx context.Context, client *github.Client, title string, branchName string) error {
+	fmt.Println("> create PR")
+	newPR := github.NewPullRequest{
+		Title:               github.Ptr(title),
+		Base:                github.Ptr("main"),
+		Head:                github.Ptr(branchName),
+		Body:                github.Ptr(title),
+		MaintainerCanModify: github.Ptr(true),
+	}
+	pr, _, err := client.PullRequests.Create(ctx, "knative", "func", &newPR)
+
+	if err != nil {
+		fmt.Printf("err: %s\n", err)
+		return err
+	}
+	fmt.Printf("PR: %#v\n", pr)
+	return nil
+}
+
 // ----------------------------------------------------------------------------
 // ----------------------------------- MAIN -----------------------------------
 // ----------------------------------------------------------------------------
 
-// entry function -- essentially "func mai(){} for this file"
+// entry function -- essentially "func main() for this file"
 func updateComponentVersions() error {
-	prTitle := "chore: Update components' versions to latest (hack)"
+	prTitle := "chore: Update components' versions to latest"
 	ctx := context.Background()
 	client := github.NewClient(nil).WithAuthToken(os.Getenv("GITHUB_TOKEN"))
 
@@ -129,7 +184,7 @@ func updateComponentVersions() error {
 	}
 	for _, pr := range list {
 		if pr.GetTitle() == prTitle {
-			// gauron99 possible TODO: check against this and force push if necessary
+			// gauron99 - cannot update already existing PR, shouldnt happen
 			fmt.Printf("PR already exists, exiting\n")
 			return nil
 		}
@@ -160,6 +215,8 @@ func updateComponentVersions() error {
 	}
 
 	updated := false
+	// cycle through all versions of components listed above, fetch their
+	// latest from github releases - cmp them - create PR for update if necessary
 	for _, p := range projects {
 		newV, err := getLatestVersion(ctx, client, p.owner, p.repo)
 		if err != nil {
@@ -178,11 +235,12 @@ func updateComponentVersions() error {
 			oldV = oldCntr
 		}
 		// check if component is eligible for update & update if possible
-		isNew, err := trySingleUpdateFile(p.repo, newV, oldV)
+		isNew, err := tryUpdateFile(p.repo, newV, oldV)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return err
 		}
+		// if any of the files are updated, set this so we create a PR later
 		if isNew {
 			updated = true
 		}
@@ -190,10 +248,17 @@ func updateComponentVersions() error {
 
 	if !updated {
 		// nothing was updated, nothing to do
-		fmt.Printf("all good, no newer releases, exiting\n")
+		fmt.Printf("all good, no newer component releases, exiting\n")
 		return nil
 	}
-	fmt.Println("file updated! Creating a PR...")
+	fmt.Printf("file %s updated! Creating a PR...\n", file)
 	// create, PR etc etc
-	return nil
+
+	branchName := "update-components" + time.Now().Format(time.DateOnly)
+	err = prepareBranch(branchName)
+	if err != nil {
+		return fmt.Errorf("failed to prep the branch: %v", err)
+	}
+	err = createPR(ctx, client, prTitle, branchName)
+	return err
 }
