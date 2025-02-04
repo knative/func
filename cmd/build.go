@@ -165,13 +165,13 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	if err = cfg.Validate(); err != nil { // Perform any pre-validation
 		return
 	}
-	if f, err = fn.NewFunction(cfg.Path); err != nil {
+	if f, err = fn.NewFunction(cfg.Path); err != nil { // Read in the Function
 		return
 	}
 	if !f.Initialized() {
 		return fn.NewErrNotInitialized(f.Root)
 	}
-	f = cfg.Configure(f) // Updates f at path to include build request values
+	f = cfg.Configure(f) // Returns an f updated with values from the config (flags, envs, etc)
 
 	cmd.SetContext(cfg.WithValues(cmd.Context())) // Some optional settings are passed via context
 
@@ -184,10 +184,11 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	defer done()
 
 	// Build
-	buildOptions, err := cfg.buildOptions()
+	buildOptions, err := cfg.buildOptions() // build-specific options from the finalized cfg
 	if err != nil {
 		return
 	}
+	fmt.Println("#### build.go - client.Build")
 	if f, err = client.Build(cmd.Context(), f, buildOptions...); err != nil {
 		return
 	}

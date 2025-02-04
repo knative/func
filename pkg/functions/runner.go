@@ -158,17 +158,47 @@ func runGo(ctx context.Context, job *Job) (err error) {
 
 func runPython(ctx context.Context, job *Job) (err error) {
 	if job.verbose {
-		fmt.Printf("cd %v", job.Dir())
+		fmt.Printf("cd %v\n", job.Dir())
 	}
 
-	// TODO: Check for poetry and write a friendly error message
-	// TODO:  allow poetry path to be specified via env var FUNC_POETRY
+	// TODO: should we allow the python binary location to be specified with
+	// FUNC_PYTHON?
 
-	// Install Dependencies
+	// NOTE:  The runner here creates a virtual environment because it is
+	// expected that in some cirumcstances the user may want to introspect
+	// their last run on disk manually.
+	// When building and deploying a container, `pip install` is used to omit
+	// inclusion of venv overhead in the final deployed artifact.
+
+	// Create venv
 	if job.verbose {
-		fmt.Printf("poetry install --no-root --no-cache\n")
+		fmt.Printf("python -m venv .venv\n")
 	}
-	cmd := exec.CommandContext(ctx, "poetry", "install", "--no-root")
+	cmd := exec.CommandContext(ctx, "python", "-m", "venv", ".venv")
+	cmd.Dir = job.Dir()
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	if err = cmd.Run(); err != nil {
+		return
+	}
+
+	// Upgrade pip within venv
+	if job.verbose {
+		fmt.Printf("./.venv/bin/pip install --upgrade pip\n")
+	}
+	cmd = exec.CommandContext(ctx, "./.venv/bin/pip", "install", "--upgrade", "pip")
+	cmd.Dir = job.Dir()
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	if err = cmd.Run(); err != nil {
+		return
+	}
+
+	// Install  dependencies
+	if job.verbose {
+		fmt.Printf("./.venv/bin/pip install .\n")
+	}
+	cmd = exec.CommandContext(ctx, "./.venv/bin/pip", "install", ".")
 	cmd.Dir = job.Dir()
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
@@ -178,9 +208,9 @@ func runPython(ctx context.Context, job *Job) (err error) {
 
 	// Run
 	if job.verbose {
-		fmt.Printf("PORT=%v poetry run python main.py\n", job.Port)
+		fmt.Printf("PORT=%v ./.venv/bin/python ./service/main.py\n", job.Port)
 	}
-	cmd = exec.CommandContext(ctx, "poetry", "run", "python", "main.py")
+	cmd = exec.CommandContext(ctx, "./.venv/bin/python", "./service/main.py")
 	// cmd.Dir = job.Function.Root // This is done from within the middleware
 	cmd.Dir = job.Dir()
 	cmd.Stdout = os.Stdout
@@ -208,17 +238,19 @@ func runPython(ctx context.Context, job *Job) (err error) {
 	// to be run. For now just wait a moment and then immediately clean up...
 	// creating a racing condition.
 	go func() {
-		time.Sleep(3 * time.Second)
-		if job.verbose {
-			fmt.Printf("cleaning cache for next run (poetry remove function) \n")
-		}
-		cmd = exec.CommandContext(ctx, "poetry", "remove", "function")
-		cmd.Dir = job.Dir()
-		// cmd.Stderr = os.Stderr
-		// cmd.Stdout = os.Stdout
-		if err = cmd.Run(); err != nil {
-			return
-		}
+		fmt.Printf("### skipping cleanup.  todo: ensure caches correctly.")
+		return
+		//
+		// if job.verbose {
+		// 	fmt.Printf("cleaning cache for next run (poetry remove function) \n")
+		// }
+		// cmd = exec.CommandContext(ctx, "poetry", "remove", "function")
+		// cmd.Dir = job.Dir()
+		// // cmd.Stderr = os.Stderr
+		// // cmd.Stdout = os.Stdout
+		// if err = cmd.Run(); err != nil {
+		// 	return
+		// }
 	}()
 
 	return

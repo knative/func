@@ -10,7 +10,7 @@ use httpx for testing.  To run the tests using poetry:
 poetry run python -m unittest discover
 """
 import unittest
-from httpx import AsyncClient
+from httpx import AsyncClient, ASGITransport
 from function import new
 
 
@@ -19,8 +19,9 @@ class TestFunc(unittest.IsolatedAsyncioTestCase):
         self.f = new()  # Instantiate the function
 
     async def test_call(self):
+        transport = ASGITransport(app=self.f)
         # Use AsyncClient to simulate an TTP request to the ASGI app
-        async with AsyncClient(app=self.f, base_url="http://server") as client:
+        async with AsyncClient(transport=transport, base_url="http://server") as client:
             response = await client.get("/")
             self.assertEqual(response.status_code, 200)
 
