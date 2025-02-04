@@ -229,8 +229,7 @@ func updateComponentVersions() error {
 	for _, p := range projects {
 		newV, err := getLatestVersion(ctx, client, p.owner, p.repo)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "error while getting latest v of %s/%s: %v\n", p.owner, p.repo, err)
-			os.Exit(1)
+			return fmt.Errorf("error while getting latest v of %s/%s: %v", p.owner, p.repo, err)
 		}
 
 		// sync the old repo & version
