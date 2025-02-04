@@ -15,18 +15,17 @@ func main() {
 
 	var err error
 	args := os.Args[1:]
-	if len(args) > 1 {
-		fmt.Fprintf(os.Stderr, "too many arguments '%v'\n", args)
+	if len(args) != 1 {
+		fmt.Fprintf(os.Stderr, "expected exactly 1 argument: '%v'\n", args)
 		os.Exit(1)
 	}
-	arg := args[0]
-	switch arg {
+	switch args[0] {
 	case "update-builder":
 		updateBuilder()
 	case "update-components":
 		err = updateComponentVersions()
 	default:
-		fmt.Fprintf(os.Stderr, "unknown argument '%s', don't know which hack/ script to run", arg)
+		fmt.Fprintf(os.Stderr, "unknown argument '%s', don't know which hack/ script to run", args[0])
 		os.Exit(1)
 	}
 	if err != nil {

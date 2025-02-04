@@ -21,21 +21,9 @@ var (
 	file = "hack/component-versions.sh"
 )
 
-// if running on branch "release-*" return the current branch version
-// (for possible fixups) otherwise, return latest as standard
-// func getLatestOrReleaseVersion() (v string, err error) {
-// 	cmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
-// 	o, err := cmd.Output()
-// 	if err != nil {
-// 		return "", fmt.Errorf("error running git rev-parse: %v", err)
-// 	}
-// 	fmt.Printf("out: %s\n", string(o))
-// 	return string(o), nil
-// }
-
 // get latest version of owner/repo via GH API
 func getLatestVersion(ctx context.Context, client *github.Client, owner string, repo string) (v string, err error) {
-	fmt.Printf("get latest repo %s/%s\n", owner, repo)
+	fmt.Printf("> get latest '%s/%s'...", owner, repo)
 	rr, res, err := client.Repositories.GetLatestRelease(ctx, owner, repo)
 	if err != nil {
 		err = fmt.Errorf("error: request for latest %s release: %v", owner+"/"+repo, err)
@@ -49,10 +37,11 @@ func getLatestVersion(ctx context.Context, client *github.Client, owner string, 
 	if v == "" {
 		return "", fmt.Errorf("internal error: returned latest release name is empty for '%s'", repo)
 	}
+	fmt.Println("done")
 	return v, nil
 }
 
-// read the file where components versions are located. Fetch their version
+// Read the file where components versions are located. Fetch their version
 // and return them in 'v1.23.0' format (unquoted).
 func getVersionsFromFile() (srv string, evt string, ctr string, err error) {
 	srv = "" //serving
@@ -68,7 +57,6 @@ func getVersionsFromFile() (srv string, evt string, ctr string, err error) {
 	fs := bufio.NewScanner(f)
 	fs.Split(bufio.ScanLines)
 	for fs.Scan() {
-
 		// trim white space -> split the line via '='
 		lineArr := strings.Split(strings.TrimSpace(fs.Text()), "=")
 		if len(lineArr) != 2 {
@@ -87,9 +75,9 @@ func getVersionsFromFile() (srv string, evt string, ctr string, err error) {
 		case knSrvPrefix:
 			srv = "v" + val
 		case knEvtPrefix:
-			evt = "v" + evt
+			evt = "v" + val
 		case knCtrPrefix:
-			ctr = "v" + ctr
+			ctr = "v" + val
 		}
 
 		// if all values are acquired, no need to continue
@@ -101,8 +89,8 @@ func getVersionsFromFile() (srv string, evt string, ctr string, err error) {
 }
 
 // try updating the version of component named by "repo" via 'sed'
-func tryUpdateFile(repo, newV, oldV string) (bool, error) {
-	fmt.Printf("> try updating %s. %s -> %s...", repo, oldV, newV)
+func tryUpdateFile(prefix, newV, oldV string) (bool, error) {
+	fmt.Printf("> try updating %s(%s -> %s)...", prefix, oldV, newV)
 	quoteWrap := func(s string) string {
 		if !strings.HasPrefix(s, "\"") {
 			return "\"" + s + "\""
@@ -111,10 +99,10 @@ func tryUpdateFile(repo, newV, oldV string) (bool, error) {
 	}
 	if newV != oldV {
 		fmt.Println("updating")
-		cmd := exec.Command("sed", "-i", "-e", "s/"+quoteWrap(oldV)+"/"+quoteWrap(newV)+"/g", file)
+		cmd := exec.Command("sed", "-i", "-e", "s/"+prefix+quoteWrap(oldV)+"/"+prefix+quoteWrap(newV)+"/g", file)
 		err := cmd.Run()
 		if err != nil {
-			return false, fmt.Errorf("error while updating file with '%s' version: %s", repo, err)
+			return false, fmt.Errorf("error while updating file: %s", err)
 		}
 		return true, nil
 	}
@@ -155,11 +143,13 @@ func prepareBranch(branchName string) error {
 // create a PR for the new updates
 func createPR(ctx context.Context, client *github.Client, title string, branchName string) error {
 	fmt.Print("> creating PR...")
+	body := fmt.Sprintf("%s\n/assign @gauron99", title)
+
 	newPR := github.NewPullRequest{
 		Title:               github.Ptr(title),
 		Base:                github.Ptr("main"),
 		Head:                github.Ptr(branchName),
-		Body:                github.Ptr(title),
+		Body:                github.Ptr(body),
 		MaintainerCanModify: github.Ptr(true),
 	}
 	pr, _, err := client.PullRequests.Create(ctx, "knative", "func", &newPR)
@@ -173,6 +163,7 @@ func createPR(ctx context.Context, client *github.Client, title string, branchNa
 }
 
 // returns true when PR with given title already exists in knative/func repo
+// otherwise false. Returns an error if occured, otherwise nil.
 func prExists(ctx context.Context, c *github.Client, title string) (bool, error) {
 	opt := &github.PullRequestListOptions{State: "open"}
 	list, _, err := c.PullRequests.List(ctx, "knative", "func", opt)
@@ -244,16 +235,20 @@ func updateComponentVersions() error {
 
 		// sync the old repo & version
 		oldV := ""
+		prefix := ""
 		switch p.repo {
 		case "serving":
 			oldV = oldSrv
+			prefix = knSrvPrefix
 		case "eventing":
 			oldV = oldEvt
+			prefix = knEvtPrefix
 		case "net-contour":
 			oldV = oldCntr
+			prefix = knCtrPrefix
 		}
 		// try and overwrite the file with new versions
-		isNew, err := tryUpdateFile(p.repo, newV, oldV)
+		isNew, err := tryUpdateFile(prefix, newV, oldV)
 		if err != nil {
 			return err
 		}
