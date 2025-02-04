@@ -52,6 +52,8 @@ func main() {
 		cmd = socat
 	case "sh":
 		cmd = sh
+	case "s2i-generate":
+		cmd = s2iGenerate
 	}
 
 	err := cmd(ctx)
