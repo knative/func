@@ -44,7 +44,7 @@ require (
 	github.com/sabhiram/go-gitignore v0.0.0-20210923224102-525f6e181f06
 	github.com/schollz/progressbar/v3 v3.13.1
 	github.com/spf13/cobra v1.8.1
-	github.com/spf13/pflag v1.0.5
+	github.com/spf13/pflag v1.0.6
 	github.com/tektoncd/cli v0.37.0
 	github.com/tektoncd/pipeline v0.65.1
 	github.com/xanzy/go-gitlab v0.102.0
@@ -65,8 +65,8 @@ require (
 	knative.dev/client/pkg v0.0.0-20250128014102-7dc2a9249f56
 	knative.dev/eventing v0.44.1-0.20250131074056-5fb693f5f65e
 	knative.dev/hack v0.0.0-20250128013659-5f7f0f50e9de
-	knative.dev/pkg v0.0.0-20250128013458-efddeac3ec35
-	knative.dev/serving v0.44.1-0.20250130134702-fbfa937d7808
+	knative.dev/pkg v0.0.0-20250203163623-f62a97fc6ad4
+	knative.dev/serving v0.44.1-0.20250203174422-9c354163952b
 )
 
 require (
@@ -140,7 +140,7 @@ require (
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.12.1 // indirect
 	github.com/emirpasic/gods v1.18.1 // indirect
-	github.com/evanphx/json-patch/v5 v5.9.0 // indirect
+	github.com/evanphx/json-patch/v5 v5.9.11 // indirect
 	github.com/fatih/color v1.16.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
