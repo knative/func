@@ -1,4 +1,4 @@
-name: Update Kn components
+name: Update Kn components in hack/ scripts
 
 permissions:
   contents: write
@@ -10,7 +10,7 @@ on:
   - cron: '0 */4 * * *'
 jobs:
   update:
-    name: Update to latest
+    name: Update components
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
