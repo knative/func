@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-var DeployerImage = "ghcr.io/knative/func-utils:latest"
+var DeployerImage = "ghcr.io/knative/func-utils:v2"
 
 func getBuildpackTask() string {
 	return `apiVersion: tekton.dev/v1
