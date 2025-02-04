@@ -52,9 +52,8 @@ func getLatestVersion(ctx context.Context, client *github.Client, owner string, 
 	return v, nil
 }
 
-// read the allocate.sh file where serving and eventing versions are
-// located. Read that file to find them via prefix above. Fetch their version
-// and return them in 'v1.23.0' format. (To be compared with the current latest)
+// read the file where components versions are located. Fetch their version
+// and return them in 'v1.23.0' format (unquoted).
 func getVersionsFromFile() (srv string, evt string, ctr string, err error) {
 	srv = "" //serving
 	evt = "" //eventing
@@ -69,25 +68,30 @@ func getVersionsFromFile() (srv string, evt string, ctr string, err error) {
 	fs := bufio.NewScanner(f)
 	fs.Split(bufio.ScanLines)
 	for fs.Scan() {
-		// Look for a prefix in a trimmed line.
-		line := strings.TrimSpace(fs.Text())
-		// Fetch only the version number (after '=' without spaces because bash)
-		if strings.HasPrefix(line, knSrvPrefix) {
-			srv = strings.Split(line, "=")[1]
-			if !strings.HasPrefix(srv, "v") {
-				srv = "v" + srv
-			}
-		} else if strings.HasPrefix(line, knEvtPrefix) {
-			evt = strings.Split(line, "=")[1]
-			if !strings.HasPrefix(evt, "v") {
-				evt = "v" + evt
-			}
-		} else if strings.HasPrefix(line, knCtrPrefix) {
-			ctr = strings.Split(line, "=")[1]
-			if !strings.HasPrefix(ctr, "v") {
-				ctr = "v" + ctr
-			}
+
+		// trim white space -> split the line via '='
+		lineArr := strings.Split(strings.TrimSpace(fs.Text()), "=")
+		if len(lineArr) != 2 {
+			continue
 		}
+		// add "=" for consise matching of the value assignment -- in case the value
+		// is used elsewhere in the file for any reason.
+		prefix := lineArr[0] + "="
+		// trim '"' and 'v' from the value for robustness (will be added back later)
+		// "v1.2.3" or v1.2.3 or "1.2.3" or v1.2.3 --> 1.2.3
+		val := strings.TrimFunc(lineArr[1], func(r rune) bool {
+			return r == '"' || r == 'v'
+		})
+
+		switch prefix {
+		case knSrvPrefix:
+			srv = "v" + val
+		case knEvtPrefix:
+			evt = "v" + evt
+		case knCtrPrefix:
+			ctr = "v" + ctr
+		}
+
 		// if all values are acquired, no need to continue
 		if srv != "" && evt != "" && ctr != "" {
 			break
@@ -98,6 +102,7 @@ func getVersionsFromFile() (srv string, evt string, ctr string, err error) {
 
 // try updating the version of component named by "repo" via 'sed'
 func tryUpdateFile(repo, newV, oldV string) (bool, error) {
+	fmt.Printf("> try updating %s. %s -> %s...", repo, oldV, newV)
 	quoteWrap := func(s string) string {
 		if !strings.HasPrefix(s, "\"") {
 			return "\"" + s + "\""
@@ -105,7 +110,7 @@ func tryUpdateFile(repo, newV, oldV string) (bool, error) {
 		return s
 	}
 	if newV != oldV {
-		fmt.Printf("Updating %s from '%s' to '%s'\n", repo, oldV, newV)
+		fmt.Println("updating")
 		cmd := exec.Command("sed", "-i", "-e", "s/"+quoteWrap(oldV)+"/"+quoteWrap(newV)+"/g", file)
 		err := cmd.Run()
 		if err != nil {
@@ -118,7 +123,7 @@ func tryUpdateFile(repo, newV, oldV string) (bool, error) {
 
 // prepare branch for PR via git commands
 func prepareBranch(branchName string) error {
-	fmt.Println("> prep branch")
+	fmt.Print("> prepare branch...")
 	err := exec.Command("git", "config", "set", "user.email", "\"automation@knative.team\"").Run()
 	if err != nil {
 		return err
@@ -143,12 +148,13 @@ func prepareBranch(branchName string) error {
 	if err != nil {
 		return err
 	}
+	fmt.Println("ready")
 	return nil
 }
 
 // create a PR for the new updates
 func createPR(ctx context.Context, client *github.Client, title string, branchName string) error {
-	fmt.Println("> create PR")
+	fmt.Print("> creating PR...")
 	newPR := github.NewPullRequest{
 		Title:               github.Ptr(title),
 		Base:                github.Ptr("main"),
@@ -157,13 +163,29 @@ func createPR(ctx context.Context, client *github.Client, title string, branchNa
 		MaintainerCanModify: github.Ptr(true),
 	}
 	pr, _, err := client.PullRequests.Create(ctx, "knative", "func", &newPR)
-
 	if err != nil {
+		fmt.Printf("PR looks like this:\n%#v\n", pr)
 		fmt.Printf("err: %s\n", err)
 		return err
 	}
-	fmt.Printf("PR: %#v\n", pr)
+	fmt.Println("ready")
 	return nil
+}
+
+// returns true when PR with given title already exists in knative/func repo
+func prExists(ctx context.Context, c *github.Client, title string) (bool, error) {
+	opt := &github.PullRequestListOptions{State: "open"}
+	list, _, err := c.PullRequests.List(ctx, "knative", "func", opt)
+	if err != nil {
+		return false, fmt.Errorf("errror pulling PRs in knative/func: %s", err)
+	}
+	for _, pr := range list {
+		if pr.GetTitle() == title {
+			// gauron99 - currently cannot update already existing PR, shouldnt happen
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // ----------------------------------------------------------------------------
@@ -176,18 +198,13 @@ func updateComponentVersions() error {
 	ctx := context.Background()
 	client := github.NewClient(nil).WithAuthToken(os.Getenv("GITHUB_TOKEN"))
 
-	// PR already exists?
-	opt := &github.PullRequestListOptions{State: "open"}
-	list, _, err := client.PullRequests.List(ctx, "knative", "func", opt)
+	e, err := prExists(ctx, client, prTitle)
 	if err != nil {
-		return fmt.Errorf("errror pulling PRs in knative/func: %s", err)
+		return err
 	}
-	for _, pr := range list {
-		if pr.GetTitle() == prTitle {
-			// gauron99 - cannot update already existing PR, shouldnt happen
-			fmt.Printf("PR already exists, exiting\n")
-			return nil
-		}
+	if e {
+		fmt.Printf("PR already exists, nothing to do, exiting")
+		return nil
 	}
 
 	projects := []struct {
@@ -207,8 +224,9 @@ func updateComponentVersions() error {
 		},
 	}
 
-	// get current versions used. Get all together to limit opening/closing
-	// the file
+	// Get current versions used.
+	// Get all together to limit opening/closingthe file.
+	// Could be reworked to keep the file open through out the for cycle.
 	oldSrv, oldEvt, oldCntr, err := getVersionsFromFile()
 	if err != nil {
 		return err
@@ -234,10 +252,9 @@ func updateComponentVersions() error {
 		case "net-contour":
 			oldV = oldCntr
 		}
-		// check if component is eligible for update & update if possible
+		// try and overwrite the file with new versions
 		isNew, err := tryUpdateFile(p.repo, newV, oldV)
 		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
 			return err
 		}
 		// if any of the files are updated, set this so we create a PR later
