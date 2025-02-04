@@ -1,12 +1,13 @@
-name: Update Kn components (allocate.sh)
+name: Update Kn components
 
 permissions:
   contents: write
   pull-requests: write
 
-# on:
-  # schedule:
-  # - cron: '0 */4 * * *'
+on:
+  schedule:
+  # every 4 hours
+  - cron: '0 */4 * * *'
 jobs:
   update:
     name: Update to latest
