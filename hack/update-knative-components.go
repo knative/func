@@ -111,7 +111,7 @@ func tryUpdateFile(prefix, newV, oldV string) (bool, error) {
 
 // prepare branch for PR via git commands
 func prepareBranch(branchName string) error {
-	fmt.Print("> prepare branch...")
+	fmt.Println("> preparing branch")
 	cmd := exec.Command("bash", "-c", fmt.Sprintf(`
 		git config --local user.email "automation@knative.team" &&
 		git config --local user.name "Knative Automation" &&
