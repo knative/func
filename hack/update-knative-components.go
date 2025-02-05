@@ -112,32 +112,15 @@ func tryUpdateFile(prefix, newV, oldV string) (bool, error) {
 // prepare branch for PR via git commands
 func prepareBranch(branchName string) error {
 	fmt.Print("> prepare branch...")
-	err := exec.Command("git", "config", "set", "user.email", "\"automation@knative.team\"").Run()
-	if err != nil {
-		return err
-	}
-	err = exec.Command("git", "config", "set", "user.name", "\"Knative Automation\"").Run()
-	if err != nil {
-		return err
-	}
-	err = exec.Command("git", "switch", "-c", branchName).Run()
-	if err != nil {
-		return err
-	}
-	err = exec.Command("git", "add", file).Run()
-	if err != nil {
-		return err
-	}
-	err = exec.Command("git", "commit", "-m", "\"update components\"").Run()
-	if err != nil {
-		return err
-	}
-	err = exec.Command("git", "push", "origin", branchName, "-f").Run()
-	if err != nil {
-		return err
-	}
-	fmt.Println("ready")
-	return nil
+	cmd := exec.Command("bash", "-c", fmt.Sprintf(`
+		git config --local user.email "automation@knative.team" &&
+		git config --local user.name "Knative Automation" &&
+		git switch -c %s &&
+		git add %s &&
+		git commit -m "update components" &&
+		git push origin %s
+	`, branchName, file, branchName))
+	return cmd.Run()
 }
 
 // create a PR for the new updates
