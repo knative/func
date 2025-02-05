@@ -146,7 +146,7 @@ func createPR(ctx context.Context, client *github.Client, title string, branchNa
 }
 
 // returns true when PR with given title already exists in knative/func repo
-// otherwise false. Returns an error if occured, otherwise nil.
+// otherwise false. Returns an error if occurred, otherwise nil.
 func prExists(ctx context.Context, c *github.Client, title string) (bool, error) {
 	opt := &github.PullRequestListOptions{State: "open"}
 	list, _, err := c.PullRequests.List(ctx, "knative", "func", opt)
