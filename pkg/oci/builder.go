@@ -21,14 +21,20 @@ import (
 	slashpath "path"
 	"strings"
 
-	"github.com/google/go-containerregistry/pkg/crane"
+	"github.com/google/go-containerregistry/pkg/name"
 	v1 "github.com/google/go-containerregistry/pkg/v1"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/pkg/errors"
 
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/scaffolding"
+)
+
+const (
+	DefaultUid = 1000
+	DefaultGid = 1000
 )
 
 var defaultIgnored = []string{
@@ -138,14 +144,14 @@ func setup(job buildJob) (err error) {
 	// Build directory
 	if _, err = os.Stat(job.buildDir()); !os.IsNotExist(err) {
 		if job.verbose {
-			fmt.Printf("rm -rf %v\n", job.buildDir())
+			fmt.Fprintf(os.Stderr, "rm -rf %v\n", job.buildDir())
 		}
 		if err = os.RemoveAll(job.buildDir()); err != nil {
 			return
 		}
 	}
 	if job.verbose {
-		fmt.Printf("mkdir -p %v\n", job.buildDir())
+		fmt.Fprintf(os.Stderr, "mkdir -p %v\n", job.buildDir())
 	}
 	if err = os.MkdirAll(job.buildDir(), 0774); err != nil {
 		return
@@ -154,7 +160,7 @@ func setup(job buildJob) (err error) {
 	// PID links directory
 	if _, err = os.Stat(job.pidsDir()); os.IsNotExist(err) {
 		if job.verbose {
-			fmt.Printf("mkdir -p %v\n", job.pidsDir())
+			fmt.Fprintf(os.Stderr, "mkdir -p %v\n", job.pidsDir())
 		}
 		if err = os.MkdirAll(job.pidsDir(), 0774); err != nil {
 			return
@@ -164,7 +170,7 @@ func setup(job buildJob) (err error) {
 	// Link to last build attempted (this)
 	target := filepath.Join("..", "by-hash", job.hash)
 	if job.verbose {
-		fmt.Printf("ln -s %v %v\n", target, job.pidLink())
+		fmt.Fprintf(os.Stderr, "ln -s %v %v\n", target, job.pidLink())
 	}
 	if err = os.Symlink(target, job.pidLink()); err != nil {
 		return err
@@ -173,6 +179,17 @@ func setup(job buildJob) (err error) {
 	// Creates the blobs directory where layer data resides
 	// (compressed and hashed)
 	if err := os.MkdirAll(job.blobsDir(), os.ModePerm); err != nil {
+		return err
+	}
+
+	// Blob cache directory for shared base layers between builds.
+	// NOTE: may turn this into a system-global cache (if available) at
+	// XDG_CONFIG_HOME/func/image-cache, with this as a fallback:
+	// TODO: it's possible, though unlikely, this directory could
+	// grow unweildy under active development after rounds of changes to
+	// the used base layers.  We should have some way to truncate or otherwise
+	// mitigate this disk memory leak potential.
+	if err := os.MkdirAll(job.cacheDir(), os.ModePerm); err != nil {
 		return err
 	}
 
@@ -189,7 +206,7 @@ func cleanup(job buildJob) {
 		}
 		dir := filepath.Join(job.pidsDir(), d.Name())
 		if job.verbose {
-			fmt.Printf("rm %v\n", dir)
+			fmt.Fprintf(os.Stderr, "rm %v\n", dir)
 		}
 		_ = os.RemoveAll(dir)
 	}
@@ -207,7 +224,7 @@ func cleanup(job buildJob) {
 			continue
 		}
 		if job.verbose {
-			fmt.Printf("rm %v\n", dir)
+			fmt.Fprintf(os.Stderr, "rm %v\n", dir)
 		}
 		_ = os.RemoveAll(dir)
 	}
@@ -230,7 +247,7 @@ func scaffold(job buildJob) (err error) {
 }
 
 // containerize the full service which consists of the scaffolded Function,
-// function implementation, base image, data layers etc.
+// Function implementation, base image, data layers etc.
 // This container is stored on disk for later upload to the registry via
 // the configured pusher.
 func containerize(job buildJob) error {
@@ -242,7 +259,7 @@ func containerize(job buildJob) error {
 		return err
 	}
 
-	// Create the shared data layer, returning its metadat
+	// Create the shared data layer, returning its metadata
 	data, err := writeDataLayer(job) // shared
 	if err != nil {
 		return err
@@ -281,8 +298,9 @@ func containerize(job buildJob) error {
 		}
 		layers := append(sharedLayers, platformSpecificLayers...)
 
-		// Fetch the base image if specified
-		base, err := getBase(job, p)
+		// Fetch the base image if specified.
+		// base layers are added to blobs (and cached)
+		base, err := pullBase(job, p)
 		if err != nil {
 			return err
 		}
@@ -344,7 +362,7 @@ func writeDataLayer(job buildJob) (layer imageLayer, err error) {
 	// Blob
 	blob := filepath.Join(job.blobsDir(), layer.Descriptor.Digest.Hex)
 	if job.verbose {
-		fmt.Printf("mv %v %v\n", rel(job.buildDir(), target), rel(job.buildDir(), blob))
+		fmt.Fprintf(os.Stderr, "mv %v %v\n", rel(job.buildDir(), target), rel(job.buildDir(), blob))
 	}
 	err = os.Rename(target, blob)
 	return
@@ -395,11 +413,14 @@ func newDataTarball(root, target string, ignored []string, verbose bool) error {
 			return err
 		}
 		header.Name = slashpath.Join("/func", filepath.ToSlash(relPath))
+		header.Uid = DefaultUid
+		header.Gid = DefaultGid
+
 		if err := tw.WriteHeader(header); err != nil {
 			return err
 		}
 		if verbose {
-			fmt.Printf("→ %v \n", header.Name)
+			fmt.Fprintf(os.Stderr, "→ %v \n", header.Name)
 		}
 		if !info.Mode().IsRegular() { //nothing more to do for non-regular
 			return nil
@@ -476,7 +497,7 @@ func writeCertsLayer(job buildJob) (layer imageLayer, err error) {
 	// Blob
 	blob := filepath.Join(job.blobsDir(), layer.Descriptor.Digest.Hex)
 	if job.verbose {
-		fmt.Printf("mv %v %v\n", rel(job.buildDir(), target), rel(job.buildDir(), blob))
+		fmt.Fprintf(os.Stderr, "mv %v %v\n", rel(job.buildDir(), target), rel(job.buildDir(), blob))
 	}
 	err = os.Rename(target, blob)
 	return
@@ -513,12 +534,14 @@ func newCertsTarball(source, target string, verbose bool) error {
 			return err
 		}
 		header.Name = path
+		header.Uid = DefaultUid
+		header.Gid = DefaultGid
 
 		if err := tw.WriteHeader(header); err != nil {
 			return err
 		}
 		if verbose {
-			fmt.Printf("→ %v \n", header.Name)
+			fmt.Fprintf(os.Stderr, "→ %v \n", header.Name)
 		}
 		file, err := os.Open(source)
 		if err != nil {
@@ -534,22 +557,109 @@ func newCertsTarball(source, target string, verbose bool) error {
 	return nil
 }
 
-func getBase(job buildJob, p v1.Platform) (v1.Image, error) {
-	var defaultPythonBase = "python:3.13-slim"
-
-	img, err := crane.Pull(defaultPythonBase, crane.WithPlatform(&p))
-	if err != nil {
-		fmt.Printf("##### err pulling: %v\n", err)
+// pullBase image returns the descriptor to a remote image for the given
+// platform if a base image was specified for this builder.
+// Its layers are automatically downloaded into the local cache if this is
+// the first fetch and their blobs linked into the final OCI image.
+func pullBase(job buildJob, p v1.Platform) (image v1.Image, err error) {
+	if job.languageBuilder.Base() == "" {
+		return // FROM SCRATCH
 	}
-	return img, err
 
-	// if job.languageBuilder.Base() == "" {
-	// 	return nil, nil
-	// }
-	// return crane.Pull(job.languageBuilder.Base(), crane.WithPlatform(&p))
+	// Parse the base into a reference
+	ref, err := name.ParseReference(job.languageBuilder.Base())
+	if err != nil {
+		return
+	}
+
+	// Get the remote descriptor referenced
+	desc, err := remote.Get(ref, remote.WithPlatform(p))
+	if err != nil {
+		return
+	}
+
+	// Get the image described, either directly or via platform dereference
+	// from an index:
+	if image, err = desc.Image(); err != nil {
+		return
+	}
+
+	// Write the image's layer data into the OCI blobs (caching)
+	layers, err := image.Layers()
+	if err != nil {
+		return
+	}
+	for _, layer := range layers {
+		if err = writeBaseLayer(job, layer); err != nil {
+			return
+		}
+	}
+	return
 }
 
-func newConfigFile(job buildJob, p v1.Platform, base v1.Image, layers []imageLayer) (cfg v1.ConfigFile, err error) {
+func writeBaseLayer(job buildJob, layer v1.Layer) (err error) {
+	if err = ensureCached(job, layer); err != nil {
+		return
+	}
+
+	digest, err := layer.Digest()
+	if err != nil {
+		return
+	}
+
+	sourcePath := filepath.Join(job.cacheDir(), digest.Hex)
+	destPath := filepath.Join(job.blobsDir(), digest.Hex)
+
+	// Check if already added
+	if _, err := os.Stat(destPath); !os.IsNotExist(err) {
+		return nil // layer already in blobs.
+	}
+
+	// Add it to the image via hard link
+	if err := os.Link(sourcePath, destPath); err != nil {
+		return fmt.Errorf("creating hard link for layer %s: %w", digest, err)
+	}
+
+	return
+
+	// TODO: fallback to copying eg if windows without perms?
+}
+
+func ensureCached(job buildJob, layer v1.Layer) (err error) {
+	digest, err := layer.Digest()
+	if err != nil {
+		return
+	}
+
+	cachePath := filepath.Join(job.cacheDir(), digest.Hex)
+	if _, err = os.Stat(cachePath); !os.IsNotExist(err) {
+		if job.verbose {
+			fmt.Fprintf(os.Stderr, "Using cached base layer: %v\n", digest.Hex)
+		}
+		return
+	}
+
+	reader, err := layer.Compressed()
+	if err != nil {
+		return
+	}
+	defer reader.Close()
+
+	file, err := os.Create(cachePath)
+	if err != nil {
+		return
+	}
+
+	if _, err = io.Copy(file, reader); err != nil {
+		return
+	}
+	if job.verbose {
+		fmt.Fprintf(os.Stderr, "Caching base image layer: %v\n", digest.Hex)
+	}
+	return
+}
+
+func newConfigFile(job buildJob, p v1.Platform, base v1.Image, imageLayers []imageLayer) (cfg v1.ConfigFile, err error) {
 	cfg = v1.ConfigFile{
 		Created:      v1.Time{Time: job.start},
 		Architecture: p.Architecture,
@@ -563,7 +673,7 @@ func newConfigFile(job buildJob, p v1.Platform, base v1.Image, layers []imageLay
 			ExposedPorts: map[string]struct{}{"8080/tcp": {}},
 			WorkingDir:   "/func/",
 			StopSignal:   "SIGKILL",
-			User:         "1000",
+			User:         fmt.Sprintf("%v:%v", DefaultUid, DefaultGid),
 			// Labels
 		},
 		// TODO: Create a separate history entry for each layer built for
@@ -576,18 +686,32 @@ func newConfigFile(job buildJob, p v1.Platform, base v1.Image, layers []imageLay
 				EmptyLayer: true,
 			},
 		},
+		RootFS: v1.RootFS{
+			Type:    "layers",
+			DiffIDs: []v1.Hash{},
+		},
 	}
-	if cfg.RootFS, err = newConfigRootFS(base, layers); err != nil {
-		return cfg, err
+	// Populate Layer DiffIDs
+	for _, imageLayer := range imageLayers {
+		diffID, err := imageLayer.Layer.DiffID()
+		if err != nil {
+			return cfg, err
+		}
+		cfg.RootFS.DiffIDs = append(cfg.RootFS.DiffIDs, diffID)
 	}
 
-	// Building on a base?
-	// Keep its ENVs, History and DiffIDs, but nothing else (for now).
+	// Base Images
+	// Carry over settings from the base.
 	if base != nil {
 		// Fetch base's config file
 		baseCfg, err := base.ConfigFile()
 		if err != nil {
 			return cfg, err
+		}
+
+		// Reuse the base's user if defined
+		if baseCfg.Config.User != "" {
+			cfg.Config.User = baseCfg.Config.User
 		}
 
 		// Prepend ENVs
@@ -619,14 +743,14 @@ func newConfigEnvs(job buildJob) []string {
 	// environment FUNC_VERSION will be populated.  Otherwise it will exist
 	// (to indicate this logic was executed) but have an empty value.
 	if job.verbose {
-		fmt.Printf("cd %v && export FUNC_VERSION=$(git describe --tags)\n", job.function.Root)
+		fmt.Fprintf(os.Stderr, "cd %v && export FUNC_VERSION=$(git describe --tags)\n", job.function.Root)
 	}
 	cmd := exec.CommandContext(job.ctx, "git", "describe", "--tags")
 	cmd.Dir = job.function.Root
 	output, err := cmd.Output()
 	if err != nil {
 		if job.verbose {
-			fmt.Fprintf(os.Stderr, "unable to determine function version. %v", err)
+			fmt.Fprintf(os.Stderr, "unable to determine function version. %v\n", err)
 		}
 		envs = append(envs, "FUNC_VERSION=")
 	} else {
@@ -652,38 +776,6 @@ func newConfigVolumes(job buildJob) map[string]struct{} {
 		volumes[*v.Path] = struct{}{}
 	}
 	return volumes
-}
-
-func newConfigRootFS(base v1.Image, imageLayers []imageLayer) (v1.RootFS, error) {
-	rootfs := v1.RootFS{
-		Type:    "layers",
-		DiffIDs: []v1.Hash{},
-	}
-
-	// The rootFS is potentially based on another image.
-	// Populate DiffIDs with those of the layers of the remote.
-	if base != nil {
-		configFile, err := base.ConfigFile()
-		if err != nil {
-			return rootfs, err
-		}
-		rootfs.DiffIDs = configFile.RootFS.DiffIDs
-	}
-
-	// Append the DiffIDs of all our additional layers.
-	for _, imageLayer := range imageLayers {
-		// NOTE: during refactor the following condition is removed
-		// as there should logically never be a nil layer (I think).
-		// if imageLayer.Layer == nil {
-		// 	continue
-		// }
-		diff, err := imageLayer.Layer.DiffID()
-		if err != nil {
-			return rootfs, err
-		}
-		rootfs.DiffIDs = append(rootfs.DiffIDs, diff)
-	}
-	return rootfs, nil
 }
 
 func writeConfig(job buildJob, configFile v1.ConfigFile) (configDesc v1.Descriptor, err error) {
@@ -819,6 +911,9 @@ func (j buildJob) ociDir() string {
 func (j buildJob) blobsDir() string {
 	return filepath.Join(j.function.Root, fn.RunDataDir, "builds", "by-hash", j.hash, "oci", "blobs", "sha256")
 }
+func (j buildJob) cacheDir() string {
+	return filepath.Join(j.function.Root, fn.RunDataDir, "blob-cache")
+}
 
 // isActive returns false if an active build for this Function is detected.
 func (j buildJob) isActive() bool {
@@ -891,7 +986,7 @@ func isLinkTo(link, target string) bool {
 
 func updateLastLink(job buildJob) error {
 	if job.verbose {
-		fmt.Printf("ln -s %v %v\n", job.buildDir(), job.lastLink())
+		fmt.Fprintf(os.Stderr, "ln -s %v %v\n", job.buildDir(), job.lastLink())
 	}
 	_ = os.RemoveAll(job.lastLink())
 	rp, err := filepath.Rel(filepath.Dir(job.lastLink()), job.buildDir())
@@ -965,7 +1060,7 @@ func writeAsJSONBlob(job buildJob, tempName string, data any) (desc v1.Descripto
 	// move -> blobs
 	blobPath := filepath.Join(job.blobsDir(), hash.Hex)
 	if job.verbose {
-		fmt.Printf("mv %v %v\n", rel(job.buildDir(), filePath), rel(job.buildDir(), blobPath))
+		fmt.Fprintf(os.Stderr, "mv %v %v\n", rel(job.buildDir(), filePath), rel(job.buildDir(), blobPath))
 	}
 	// Need to close before rename
 	if err = file.Close(); err != nil {

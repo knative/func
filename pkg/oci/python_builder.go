@@ -27,19 +27,19 @@ var defaultPythonBase = "python:3.13-slim"
 type pythonBuilder struct{}
 
 func (b pythonBuilder) Base() string {
-	return ""
+	return defaultPythonBase
 }
 
 func (b pythonBuilder) Configure(job buildJob, _ v1.Platform, cf v1.ConfigFile) (v1.ConfigFile, error) {
-	svcRelPath, err := filepath.Rel(job.function.Root, job.buildDir()) // eg .func/builds/by-hash/$HASH
-	if err != nil {
-		return cf, err
-	}
-	svcPath := filepath.Join("/func", svcRelPath) // eg /func/.func/builds/by-hash/$HASH
-	cmd := fmt.Sprintf("PYTHONPATH=%v/lib python %v/service/main.py", svcPath, svcPath)
+	var (
+		svcRelPath, _ = filepath.Rel(job.function.Root, job.buildDir()) // eg .func/builds/by-hash/$HASH
+		svcPath       = filepath.Join("/func", svcRelPath)              // eg /func/.func/builds/by-hash/$HASH
+		pythonPathEnv = fmt.Sprintf("PYTHONPATH=%v/lib", svcPath)
+		mainPath      = fmt.Sprintf("%v/service/main.py", svcPath)
+	)
 
-	cf.Config.Cmd = []string{cmd}
-	// NOTE: Using Cmd rather than Entrypoint due to it being overrideable.
+	cf.Config.Env = append(cf.Config.Env, pythonPathEnv)
+	cf.Config.Cmd = []string{"python", mainPath}
 	return cf, nil
 }
 
@@ -149,6 +149,8 @@ func newPythonLibTarball(job buildJob, root, target string) error {
 			return err
 		}
 		header.Name = slashpath.Join("/func/", filepath.ToSlash(relPath))
+		header.Uid = DefaultUid
+		header.Gid = DefaultGid
 		if err := tw.WriteHeader(header); err != nil {
 			return err
 		}
