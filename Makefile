@@ -30,7 +30,7 @@ KVER         ?= $(shell git describe --tags --match 'knative-*')
 
 LDFLAGS      := -X knative.dev/func/pkg/app.vers=$(VERS) -X knative.dev/func/pkg/app.kver=$(KVER) -X knative.dev/func/pkg/app.hash=$(HASH)
 
-FUNC_UTILS_IMG ?= ghcr.io/knative/func-utils:latest
+FUNC_UTILS_IMG ?= ghcr.io/knative/func-utils:v2
 LDFLAGS += -X knative.dev/func/pkg/k8s.SocatImage=$(FUNC_UTILS_IMG)
 LDFLAGS += -X knative.dev/func/pkg/k8s.TarImage=$(FUNC_UTILS_IMG)
 LDFLAGS += -X knative.dev/func/pkg/pipelines/tekton.DeployerImage=$(FUNC_UTILS_IMG)

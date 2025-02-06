@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-var DeployerImage = "ghcr.io/knative/func-utils:latest"
+var DeployerImage = "ghcr.io/knative/func-utils:v2"
 
 func getBuildpackTask() string {
 	return `apiVersion: tekton.dev/v1
@@ -306,37 +306,21 @@ spec:
     - name: generate
       image: %s
       workingDir: $(workspaces.source.path)
-      args: ["$(params.ENV_VARS[*])"]
-      script: |
-        echo "Processing Build Environment Variables"
-        echo "" > /env-vars/env-file
-        for var in "$@"
-        do
-            if [[ "$var" != "=" ]]; then
-                echo "$var" >> /env-vars/env-file
-            fi
-        done
-
-        echo "Generated Build Env Var file"
-        echo "------------------------------"
-        cat /env-vars/env-file
-        echo "------------------------------"
-
-        /usr/local/bin/s2i --loglevel=$(params.LOGLEVEL) build --keep-symlinks $(params.PATH_CONTEXT) $(params.BUILDER_IMAGE) \
-        --image-scripts-url $(params.S2I_IMAGE_SCRIPTS_URL) \
-        --as-dockerfile /gen-source/Dockerfile.gen --environment-file /env-vars/env-file
-
-        echo "Preparing func.yaml for later deployment"
-        func_file="$(workspaces.source.path)/func.yaml"
-        if [ "$(params.PATH_CONTEXT)" != "" ]; then
-          func_file="$(workspaces.source.path)/$(params.PATH_CONTEXT)/func.yaml"
-        fi
-        sed -i "s|^registry:.*$|registry: $(params.REGISTRY)|" "$func_file"
-        echo "Function image registry: $(params.REGISTRY)"
-
-        s2iignore_file="$(dirname "$func_file")/.s2iignore"
-        [ -f "$s2iignore_file" ] || echo "node_modules" >> "$s2iignore_file"
-
+      command:
+        - s2i-generate
+        - "--target"
+        - /gen-source
+        - "--path-context"
+        - $(params.PATH_CONTEXT)
+        - "--builder-image"
+        - $(params.BUILDER_IMAGE)
+        - "--registry"
+        - $(params.REGISTRY)
+        - "--image-script-url"
+        - $(params.S2I_IMAGE_SCRIPTS_URL)
+        - "--log-level"
+        - $(params.LOGLEVEL)
+        - $(params.ENV_VARS[*])
       volumeMounts:
         - mountPath: /gen-source
           name: gen-source
@@ -418,8 +402,7 @@ spec:
   steps:
     - name: func-deploy
       image: "%s"
-      script: |
-        deploy $(params.path) "$(params.image)"
+      command: ["deploy", "$(params.path)", "$(params.image)"]
 `, DeployerImage)
 }
 
@@ -446,8 +429,7 @@ spec:
   steps:
     - name: func-scaffold
       image: %s
-      script: |
-        scaffold $(params.path)
+      command: ["scaffold", "$(params.path)"]
 `, DeployerImage)
 }
 

@@ -180,6 +180,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: knative/actions/setup-go@main
       - uses: docker/setup-qemu-action@v3
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
@@ -189,12 +190,14 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build and push
         run: |
-          ./hack/fetch-util-img-prerequisites.sh
+          for a in amd64 arm64 ppc64le s390x; do
+            CGO_ENABLED=0 go build -o "func-util-$a" -trimpath -ldflags '-w -s' ./cmd/func-util
+          done
           docker buildx create --name multiarch --driver docker-container --use
           docker buildx build . -f Dockerfile.utils \
             --platform=linux/ppc64le,linux/s390x,linux/amd64,linux/arm64 \
             --push \
-            -t "ghcr.io/knative/func-utils:latest" \
+            -t "ghcr.io/knative/func-utils:v2" \
             --annotation index:org.opencontainers.image.description="Knative Func Utils Image" \
             --annotation index:org.opencontainers.image.source="https://github.com/knative/func" \
             --annotation index:org.opencontainers.image.vendor="https://github.com/knative/func" \
