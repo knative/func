@@ -95,7 +95,10 @@ func updateComponentVersions(ctx context.Context) error {
 		return nil
 	}
 
-	writeFiles(v, fileScript, fileJson)
+	if err := writeFiles(v, fileScript, fileJson); err != nil {
+		return fmt.Errorf("failed to write files: %v", err)
+	}
+
 	fmt.Println("files updated!")
 
 	branchName := "update-components" + time.Now().Format(time.DateOnly)
