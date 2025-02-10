@@ -12,12 +12,10 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"os/signal"
 	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
-	"syscall"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/term"
@@ -47,18 +45,7 @@ import (
 )
 
 // this is effectively "main" function. This is the entry point to this file
-func updateBuilder() {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-	go func() {
-		<-sigs
-		cancel()
-		<-sigs
-		os.Exit(130)
-	}()
-
+func updateBuilder(ctx context.Context) error {
 	var hadError bool
 	for _, variant := range []string{"tiny", "base", "full"} {
 		fmt.Println("::group::" + variant)
@@ -70,8 +57,9 @@ func updateBuilder() {
 		fmt.Println("::endgroup::")
 	}
 	if hadError {
-		os.Exit(1)
+		return errors.New("failed to update builder")
 	}
+	return nil
 }
 
 func buildBuilderImage(ctx context.Context, variant, arch string) (string, error) {
