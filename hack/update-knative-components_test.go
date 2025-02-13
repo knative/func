@@ -19,7 +19,7 @@ set_versions() {
 	# https://github.com/kubernetes-sigs/kind/releases
 	kind_node_version=v1.30
 
-	// gets updated programatically via workflow -> PR creation
+	# gets updated programatically via workflow -> PR creation
 	knative_serving_version="v1.2.3"
 	knative_eventing_version="v1.4.5"
 	contour_version="v1.4.6"
