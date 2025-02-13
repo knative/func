@@ -19,6 +19,9 @@ func main() {
 	var err error
 	args := os.Args[1:]
 	if len(args) != 1 {
+		if len(args) < 1 {
+			fmt.Fprintln(os.Stderr, "note: look into hack/main.go and pick a script to run")
+		}
 		fmt.Fprintf(os.Stderr, "expected exactly 1 argument: '%v'\n", args)
 		os.Exit(1)
 	}
@@ -42,6 +45,8 @@ func main() {
 		err = updateBuilder(ctx)
 	case "update-components":
 		err = updateComponentVersions(ctx)
+	case "generate-components":
+		err = generateComponentVersions()
 	default:
 		fmt.Fprintf(os.Stderr, "unknown argument '%s', don't know which hack/ script to run", args[0])
 		os.Exit(1)
