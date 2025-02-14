@@ -20,5 +20,5 @@ jobs:
     - name: Run script
       env:
         GITHUB_TOKEN: ${{ github.token }}
-      run: go run ./hack/main.go "update-components"
+      run: cd hack && go run ./cmd/update-knative-components/main.go
 

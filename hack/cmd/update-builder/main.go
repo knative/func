@@ -12,10 +12,12 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
+	"syscall"
 
 	"golang.org/x/oauth2"
 	"golang.org/x/term"
@@ -45,7 +47,21 @@ import (
 )
 
 // this is effectively "main" function. This is the entry point to this file
-func updateBuilder(ctx context.Context) error {
+func main() {
+	// Set up context for possible signal inputs to not disrupt cleanup process.
+	// This is not gonna do much for workflows since they finish and shutdown
+	// but in case of local testing - dont leave left over resources on disk/RAM.
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		<-sigs
+		cancel()
+		<-sigs
+		os.Exit(130)
+	}()
+
 	var hadError bool
 	for _, variant := range []string{"tiny", "base", "full"} {
 		fmt.Println("::group::" + variant)
@@ -57,9 +73,9 @@ func updateBuilder(ctx context.Context) error {
 		fmt.Println("::endgroup::")
 	}
 	if hadError {
-		return errors.New("failed to update builder")
+		fmt.Fprintln(os.Stderr, "failed to update builder")
+		os.Exit(1)
 	}
-	return nil
 }
 
 func buildBuilderImage(ctx context.Context, variant, arch string) (string, error) {

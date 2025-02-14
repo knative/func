@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path"
 	"testing"
@@ -31,17 +32,23 @@ const expectedJson string = `{
 	"Serving": "v1.2.3",
 	"Eventing": "v1.4.5",
 	"Contour": "v1.4.6"
-}`
+}
+`
 
 // TestRead should just successfully unmarshal ('v' struct & json compatibility)
 func TestRead(t *testing.T) {
-	_, err := readVersions(fileJson)
+	_, err := readVersions(path.Join("../../", fileJson))
 	if err != nil {
 		t.Fatalf("failed to read json: %v", err)
 	}
 }
+
 func TestWrite(t *testing.T) {
+	t.Chdir("../../")
+	e, _ := os.Getwd()
+	fmt.Printf("CWD: %v\n", e)
 	dir := t.TempDir()
+
 	tmpJson := path.Join(dir, "f.json")
 	tmpSh := path.Join(dir, "f.sh")
 
@@ -75,5 +82,3 @@ func TestWrite(t *testing.T) {
 	}
 	assert.Equal(t, string(fjson), expectedJson)
 }
-
-// func Test()                     {}
