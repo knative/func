@@ -73,7 +73,7 @@ type Versions struct {
 func main() {
 	// there is an optional "generate" argument
 	if len(os.Args) == 2 && os.Args[1] == "generate" { //leveraging lazy evals
-		fmt.Println("Generate argument recieved! Regenerating files locally...")
+		fmt.Println("Generate argument received! Regenerating files locally...")
 		err := generateComponentVersions()
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "error: %v", err)

@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"io/fs"
 	"os"
 	"path"
 	"testing"
@@ -37,16 +37,21 @@ const expectedJson string = `{
 
 // TestRead should just successfully unmarshal ('v' struct & json compatibility)
 func TestRead(t *testing.T) {
-	_, err := readVersions(path.Join("../../", fileJson))
+	dir := t.TempDir()
+
+	tmpJson := path.Join(dir, "json.json")
+	err := os.WriteFile(tmpJson, []byte(jsonContent), fs.ModePerm)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = readVersions(tmpJson)
 	if err != nil {
 		t.Fatalf("failed to read json: %v", err)
 	}
 }
 
 func TestWrite(t *testing.T) {
-	t.Chdir("../../")
-	e, _ := os.Getwd()
-	fmt.Printf("CWD: %v\n", e)
 	dir := t.TempDir()
 
 	tmpJson := path.Join(dir, "f.json")
@@ -64,6 +69,7 @@ func TestWrite(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to generate script: %v", err)
 	}
+	// assert
 	fsh, err := os.ReadFile(tmpSh)
 	if err != nil {
 		t.Fatalf("failed to read file: %v", err)
@@ -76,9 +82,20 @@ func TestWrite(t *testing.T) {
 		t.Fatalf("failed to write json: %v", err)
 	}
 
+	// assert
 	fjson, err := os.ReadFile(tmpJson)
 	if err != nil {
 		t.Fatalf("failed to read json: %v", err)
 	}
 	assert.Equal(t, string(fjson), expectedJson)
 }
+
+// ---------------------------------- helpers ----------------------------------
+
+const jsonContent string = `{
+	"Serving": "v1.14",
+	"Eventing": "v1.15",
+	"Contour": "v1.61",
+	"KindNode": "1.3456"
+}
+`
