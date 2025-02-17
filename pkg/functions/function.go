@@ -141,6 +141,10 @@ type BuildSpec struct {
 	// when using deployment and remote build process (only relevant when Remote is true).
 	PVCSize string `yaml:"pvcSize,omitempty"`
 
+	// RemoteStorageClass specifies the storage class to use for the volume used
+	// on-cluster during when built remotely.
+	RemoteStorageClass string `yaml:"remoteStorageClass,omitempty"`
+
 	// Image stores last built image name NOT in func.yaml, but instead
 	// in .func/built-image
 	Image string `yaml:"-"`

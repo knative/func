@@ -35,7 +35,7 @@ SYNOPSIS
 	             [-b|--build] [--builder] [--builder-image] [-p|--push]
 	             [--domain] [--platform] [--build-timestamp] [--pvc-size]
 	             [--service-account] [-c|--confirm] [-v|--verbose]
-	             [--registry-insecure]
+	             [--registry-insecure] [--remote-storage-class]
 
 DESCRIPTION
 
@@ -127,7 +127,7 @@ EXAMPLES
 
 `,
 		SuggestFor: []string{"delpoy", "deplyo"},
-		PreRunE:    bindEnv("build", "build-timestamp", "builder", "builder-image", "confirm", "domain", "env", "git-branch", "git-dir", "git-url", "image", "namespace", "path", "platform", "push", "pvc-size", "service-account", "registry", "registry-insecure", "remote", "username", "password", "token", "verbose"),
+		PreRunE:    bindEnv("build", "build-timestamp", "builder", "builder-image", "confirm", "domain", "env", "git-branch", "git-dir", "git-url", "image", "namespace", "path", "platform", "push", "pvc-size", "service-account", "registry", "registry-insecure", "remote", "username", "password", "token", "verbose", "remote-storage-class"),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runDeploy(cmd, newClient)
 		},
@@ -179,6 +179,8 @@ EXAMPLES
 		"Directory in the Git repository containing the function (default is the root) ($FUNC_GIT_DIR)")
 	cmd.Flags().BoolP("remote", "R", f.Local.Remote,
 		"Trigger a remote deployment. Default is to deploy and build from the local system ($FUNC_REMOTE)")
+	cmd.Flags().StringP("remote-storage-class", "", f.Build.RemoteStorageClass,
+		"Specify a storage class to use for the volume on-cluster during remote builds")
 	cmd.Flags().String("pvc-size", f.Build.PVCSize,
 		"When triggering a remote deployment, set a custom volume size to allocate for the build operation ($FUNC_PVC_SIZE)")
 	cmd.Flags().String("service-account", f.Deploy.ServiceAccountName,
@@ -517,6 +519,10 @@ type deployConfig struct {
 	// be triggered in a remote environment rather than run locally.
 	Remote bool
 
+	// RemoteStorageClass defines the storage class to use for the remote
+	// volume when building on-cluster.
+	RemoteStorageClass string
+
 	// PVCSize configures the PVC size used by the pipeline if --remote flag is set.
 	PVCSize string
 
@@ -538,6 +544,7 @@ func newDeployConfig(cmd *cobra.Command) deployConfig {
 		GitURL:             viper.GetString("git-url"),
 		Namespace:          viper.GetString("namespace"),
 		Remote:             viper.GetBool("remote"),
+		RemoteStorageClass: viper.GetString("remote-storage-class"),
 		PVCSize:            viper.GetString("pvc-size"),
 		Timestamp:          viper.GetBool("build-timestamp"),
 		ServiceAccountName: viper.GetString("service-account"),
@@ -573,6 +580,7 @@ func (c deployConfig) Configure(f fn.Function) (fn.Function, error) {
 	f.Build.Git.URL = c.GitURL
 	f.Build.Git.ContextDir = c.GitDir
 	f.Build.Git.Revision = c.GitBranch // TODO: should match; perhaps "refSpec"
+	f.Build.RemoteStorageClass = c.RemoteStorageClass
 	f.Deploy.ServiceAccountName = c.ServiceAccountName
 	f.Local.Remote = c.Remote
 
