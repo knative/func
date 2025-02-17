@@ -46,7 +46,6 @@ import (
 	"github.com/pelletier/go-toml"
 )
 
-// this is effectively "main" function. This is the entry point to this file
 func main() {
 	// Set up context for possible signal inputs to not disrupt cleanup process.
 	// This is not gonna do much for workflows since they finish and shutdown
