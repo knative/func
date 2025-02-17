@@ -568,7 +568,7 @@ func createPipelinePersistentVolumeClaim(ctx context.Context, f fn.Function, nam
 			return fmt.Errorf("PVC size value could not be parsed. %w", err)
 		}
 	}
-	err = createPersistentVolumeClaim(ctx, getPipelinePvcName(f), namespace, labels, f.Deploy.Annotations, corev1.ReadWriteOnce, pvcs)
+	err = createPersistentVolumeClaim(ctx, getPipelinePvcName(f), namespace, labels, f.Deploy.Annotations, corev1.ReadWriteOnce, pvcs, f.Build.RemoteStorageClass)
 	if err != nil && !k8serrors.IsAlreadyExists(err) {
 		return fmt.Errorf("problem creating persistent volume claim: %v", err)
 	}
