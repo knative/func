@@ -40,6 +40,13 @@ const expectedJson string = `{
 func TestRead(t *testing.T) {
 	dir := t.TempDir()
 
+	const jsonContent string = `{
+	"Serving": "v1.14",
+	"Eventing": "v1.15",
+	"Contour": "v1.61",
+	"KindNode": "1.3456"
+}
+`
 	tmpJson := path.Join(dir, "json.json")
 	err := os.WriteFile(tmpJson, []byte(jsonContent), fs.ModePerm)
 	if err != nil {
@@ -52,6 +59,8 @@ func TestRead(t *testing.T) {
 	}
 }
 
+// TestWrite ensures that writing both files succeeds with the correct file
+// contents
 func TestWrite(t *testing.T) {
 	dir := t.TempDir()
 
@@ -90,13 +99,3 @@ func TestWrite(t *testing.T) {
 	}
 	assert.Equal(t, string(fjson), expectedJson)
 }
-
-// ---------------------------------- helpers ----------------------------------
-
-const jsonContent string = `{
-	"Serving": "v1.14",
-	"Eventing": "v1.15",
-	"Contour": "v1.61",
-	"KindNode": "1.3456"
-}
-`
