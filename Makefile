@@ -269,3 +269,14 @@ schema-check: ## Check that func.yaml schema is up-to-date
 	(echo "\n\nFunction config schema 'schema/func_yaml-schema.json' is obsolete, please run 'make schema-generate'.\n\n"; rm -rf schema/func_yaml-schema-previous.json; exit 1)
 	rm -rf schema/func_yaml-schema-previous.json
 
+######################
+##@ Hack scripting
+######################
+
+.PHONY: regenerate-kn-components
+regenerate-kn-components: # Regenerate hack/component-versions(.json/.sh) locally
+	cd hack && go run ./cmd/update-knative-components/main.go "generate"
+
+.PHONY: test-hack
+test-hack:
+	cd hack && go test ./... -v
