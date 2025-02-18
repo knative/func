@@ -64,7 +64,7 @@ func newGHClientByToken(ctx context.Context, personalAccessToken, ghApiURL strin
 	}
 
 	// GitHub Enterprise
-	gprovider, err := github.NewEnterpriseClient(ghApiURL, "", oauth2.NewClient(ctx, ts))
+	gprovider, err := github.NewClient(oauth2.NewClient(ctx, ts)).WithEnterpriseURLs(ghApiURL, "")
 	if err != nil {
 		return nil, err
 	}
