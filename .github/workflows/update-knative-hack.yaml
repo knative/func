@@ -20,5 +20,5 @@ jobs:
     - name: Run script
       env:
         GITHUB_TOKEN: ${{ github.token }}
-      run: make wf-generate-knative-components
+      run: make wf-generate-kn-components
 
