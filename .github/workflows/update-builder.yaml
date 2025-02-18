@@ -16,4 +16,4 @@ jobs:
       - name: Build and Push
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: make update-builder
+        run: make wf-update-builder

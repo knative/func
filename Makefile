@@ -289,7 +289,7 @@ wf-generate-kn-components: # Generate kn components - used in automation
 	cd hack && go run ./cmd/update-knative-components
 
 .PHONY: update-builder
-update-builder: # Used in automation
+wf-update-builder: # Used in automation
 	cd hack && go run ./cmd/update-builder
 
 ### end of automation section
