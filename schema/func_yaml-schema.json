@@ -44,6 +44,10 @@
 				"pvcSize": {
 					"type": "string",
 					"description": "PVCSize specifies the size of persistent volume claim used to store function\nwhen using deployment and remote build process (only relevant when Remote is true)."
+				},
+				"remoteStorageClass": {
+					"type": "string",
+					"description": "RemoteStorageClass specifies the storage class to use for the volume used\non-cluster during when built remotely."
 				}
 			},
 			"additionalProperties": false,
