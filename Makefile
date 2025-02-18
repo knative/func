@@ -274,11 +274,11 @@ schema-check: ## Check that func.yaml schema is up-to-date
 ######################
 
 .PHONY: wf-generate-kn-components
-wf-generate-kn-components: ## Generate kn components - used in workflows
+wf-generate-kn-components: # Generate kn components - used in workflows
 	cd hack && go run ./cmd/update-knative-components
 
 .PHONY: generate-kn-components-local
-generate-kn-components-local: ## Generate kn components locally
+generate-kn-components-local: ## Generate knative components locally
 	cd hack && go run ./cmd/update-knative-components "local"
 
 .PHONY: test-hack
