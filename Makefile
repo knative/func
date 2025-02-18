@@ -273,9 +273,13 @@ schema-check: ## Check that func.yaml schema is up-to-date
 ##@ Hack scripting
 ######################
 
-.PHONY: regenerate-kn-components
-regenerate-kn-components: # Regenerate hack/component-versions(.json/.sh) locally
-	cd hack && go run ./cmd/update-knative-components/main.go "generate"
+.PHONY: wf-generate-kn-components
+wf-generate-kn-components: ## Generate kn components - used in workflows
+	cd hack && go run ./cmd/update-knative-components
+
+.PHONY: generate-kn-components-local
+generate-kn-components-local: ## Generate kn components locally
+	cd hack && go run ./cmd/update-knative-components "local"
 
 .PHONY: test-hack
 test-hack:
