@@ -16,4 +16,4 @@ jobs:
       - name: Build and Push
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: go run ./hack/update-builder.go
+        run: make wf-update-builder
