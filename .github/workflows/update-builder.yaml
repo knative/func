@@ -16,4 +16,4 @@ jobs:
       - name: Build and Push
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: cd hack && go run ./cmd/update-builder/main.go
+        run: make update-builder
