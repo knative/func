@@ -316,7 +316,8 @@ func prepareBranch(branchName string) error {
 // create a PR via GH API on the func repo with those new versions
 func createPR(ctx context.Context, client *github.Client, title string, branchName string) error {
 	fmt.Print("> creating PR...")
-	body := fmt.Sprintf("%s\n/assign @gauron99", title)
+	bodyText := "You might need to close & open this PR so all tests can run"
+	body := fmt.Sprintf("%s\n%s\n/assign @gauron99", title,bodyText)
 
 	newPR := github.NewPullRequest{
 		Title:               github.Ptr(title),
