@@ -22,7 +22,7 @@ echo_test() {
     template:
       spec:
         containers:
-          - image: docker.io/jmalloc/echo-server
+          - image: quay.io/dfridric/echo-server
 EOF
     (( i+=1 ))
     if (( i>=n )); then
