@@ -317,7 +317,7 @@ func prepareBranch(branchName string) error {
 func createPR(ctx context.Context, client *github.Client, title string, branchName string) error {
 	fmt.Print("> creating PR...")
 	bodyText := "You might need to close & open this PR so all tests can run"
-	body := fmt.Sprintf("%s\n%s\n/assign @gauron99", title,bodyText)
+	body := fmt.Sprintf("%s\n%s\n/assign @gauron99", title, bodyText)
 
 	newPR := github.NewPullRequest{
 		Title:               github.Ptr(title),
