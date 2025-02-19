@@ -34,8 +34,8 @@ func TestUploadToVolume(t *testing.T) {
 	testingPVCName := "testing-pvc-" + rnd
 
 	err = k8s.CreatePersistentVolumeClaim(ctx, testingPVCName, testingNS,
-		nil, nil,
-		corev1.ReadWriteOnce, *resource.NewQuantity(1024, resource.DecimalSI))
+		nil, nil, corev1.ReadWriteOnce,
+		*resource.NewQuantity(1024, resource.DecimalSI), "")
 	if err != nil {
 		t.Fatal(err)
 	}
