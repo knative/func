@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"encoding/base64"
 	"fmt"
 	"os"
 	"strings"
@@ -173,7 +172,7 @@ func runInvoke(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		if err != nil {
 			return err
 		}
-		m.Data = base64.StdEncoding.EncodeToString(content)
+		m.Data = string(content)
 	}
 
 	// Invoke
