@@ -529,8 +529,9 @@ github.com/google/go-cmp v0.5.4/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/
 github.com/google/go-cmp v0.5.5/go.mod h1:v8dTdLbMG2kIc/vJvl+f65V22dbkXbowE6jgT/gNBxE=
 github.com/google/go-cmp v0.5.8/go.mod h1:17dUlkBOakJ0+DkrSSNjCkIjxS6bF9zb3elmeNGIjoY=
 github.com/google/go-cmp v0.5.9/go.mod h1:17dUlkBOakJ0+DkrSSNjCkIjxS6bF9zb3elmeNGIjoY=
-github.com/google/go-cmp v0.6.0 h1:ofyhxvXcZhMsU5ulbFiLKl/XBFqE1GSq7atu8tAmTRI=
 github.com/google/go-cmp v0.6.0/go.mod h1:17dUlkBOakJ0+DkrSSNjCkIjxS6bF9zb3elmeNGIjoY=
+github.com/google/go-cmp v0.7.0 h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=
+github.com/google/go-cmp v0.7.0/go.mod h1:pXiqmnSA92OHEEa9HXL2W4E7lf9JzCmGVUdgjX3N/iU=
 github.com/google/go-containerregistry v0.20.3 h1:oNx7IdTI936V8CQRveCjaxOiegWwvM7kqkbXTpyiovI=
 github.com/google/go-containerregistry v0.20.3/go.mod h1:w00pIgBRDVUDFM6bq+Qx8lwNWK+cxgCuX1vd3PIBDNI=
 github.com/google/go-github v17.0.0+incompatible h1:N0LgJ1j65A7kfXrZnUDaYCs/Sf4rEjNlfyDHW9dolSY=
@@ -1654,8 +1655,8 @@ knative.dev/hack v0.0.0-20250219013704-306ce745e077 h1:kcYrHAI+x7KHChjFfJ37Sq5QN
 knative.dev/hack v0.0.0-20250219013704-306ce745e077/go.mod h1:R0ritgYtjLDO9527h5vb5X6gfvt5LCrJ55BNbVDsWiY=
 knative.dev/networking v0.0.0-20250217154350-2cde4327c6c8 h1:3KfFspdja6AYVQu/XZy1ZQLE+ZGLMtDOaqCNmitQRH4=
 knative.dev/networking v0.0.0-20250217154350-2cde4327c6c8/go.mod h1:7Kkv7ykFAzGxwoLW231CMsgOigvwcaZ5jfZ2IMfUyxo=
-knative.dev/pkg v0.0.0-20250219013713-9e265611c097 h1:zAak6UiURHbnXLUlZQBWjcIWScmbRXJ7gOtiNF4I0lg=
-knative.dev/pkg v0.0.0-20250219013713-9e265611c097/go.mod h1:ogeAD7DbAoOeKK7fIwUYsEerf+dnEIjJpeAtOYcoyRk=
+knative.dev/pkg v0.0.0-20250226145529-0372c089c78f h1:udznvloLcWaixDGrENQ9HRcj1fiMlE6cP8L0V3K4V74=
+knative.dev/pkg v0.0.0-20250226145529-0372c089c78f/go.mod h1:ijkSiVyNl0yTjfRsGx3infOo9ohlyE1lTCri9iUHR80=
 knative.dev/serving v0.44.1-0.20250220121848-87c07ee250da h1:OwYknoB6gdGA/A/GTz8ZLv+zZJ07+JvmKlxc5eoo3+s=
 knative.dev/serving v0.44.1-0.20250220121848-87c07ee250da/go.mod h1:Jf9YDff9QclodzwRYNY9onwHOMmONLHQPSo5zSs96ik=
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=

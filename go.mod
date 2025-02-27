@@ -25,7 +25,7 @@ require (
 	github.com/docker/go-connections v0.5.0
 	github.com/go-git/go-billy/v5 v5.6.1
 	github.com/go-git/go-git/v5 v5.13.1
-	github.com/google/go-cmp v0.6.0
+	github.com/google/go-cmp v0.7.0
 	github.com/google/go-containerregistry v0.20.3
 	github.com/google/go-github/v68 v68.0.0
 	github.com/google/uuid v1.6.0
@@ -65,7 +65,7 @@ require (
 	knative.dev/client/pkg v0.0.0-20250219014457-a051025a49ee
 	knative.dev/eventing v0.44.1-0.20250226080629-3153b4735d1c
 	knative.dev/hack v0.0.0-20250219013704-306ce745e077
-	knative.dev/pkg v0.0.0-20250219013713-9e265611c097
+	knative.dev/pkg v0.0.0-20250226145529-0372c089c78f
 	knative.dev/serving v0.44.1-0.20250220121848-87c07ee250da
 )
 
