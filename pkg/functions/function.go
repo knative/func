@@ -428,9 +428,26 @@ func (f Function) Write() (err error) {
 	}
 	// TODO: open existing file for writing, such that existing permissions
 	// are preserved?
-	err = os.WriteFile(filepath.Join(f.Root, FunctionFile), bb, 0644)
+	rwFile, err := os.OpenFile(filepath.Join(f.Root, FunctionFile), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
-		return
+		return err
+	}
+	defer rwFile.Close()
+
+	tagVersion := f.SpecVersion
+
+	// Write schema header
+	schemaHeader := fmt.Sprintf(`# $schema: https://raw.githubusercontent.com/knative/func/refs/tags/v%s/schema/func_yaml-schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/knative/func/refs/tags/v%s/schema/func_yaml-schema.json
+`, tagVersion, tagVersion)
+
+	if _, err = rwFile.WriteString(schemaHeader); err != nil {
+		return err
+	}
+
+	// Write function data
+	if _, err = rwFile.Write(bb); err != nil {
+		return err
 	}
 
 	// Write local settings
