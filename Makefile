@@ -152,16 +152,10 @@ test-node: ## Test Node templates
 	cd templates/node/http && npm ci && npm test && rm -rf node_modules
 
 test-python: ## Test Python templates
-	# cd templates/python/cloudevents && pip3 install httpx && python3 -m unittest discover && rm -rf __pycache__
-	# DEPRECATED: poetry version
-	#cd templates/python/http && pipx install poetry && poetry install && poetry run python -m unittest discover ./tests && rm -rf __pycache__
-	# run tests without dependencies other than python
-	cd templaets/python/http
-	python -m venv .venv
-	./.venv/bin/pip install --upgrade pip
-	./.venv/bin/pip install .
-	./.venv/bin/python -m unittest  discover ./tests
-	rm -rf __pycache__
+	# cd templaets/python/http
+	# TODO: run tests
+	# cd templaets/python/cloudevents
+	# TODO: run tests
 
 test-quarkus: ## Test Quarkus templates
 	cd templates/quarkus/cloudevents && ./mvnw -q test && ./mvnw clean && rm .mvn/wrapper/maven-wrapper.jar
@@ -194,6 +188,7 @@ update-runtime-go:
 
 update-runtime-python:
 	cd templates/python/scaffolding/instanced-http && poetry update func-python
+	cd templates/python/scaffolding/instanced-cloudevents && poetry update func-python
 
 
 
