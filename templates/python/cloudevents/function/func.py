@@ -2,6 +2,7 @@
 import logging
 import typing
 import urllib.parse
+from cloudevents.http import CloudEvent
 
 
 def new():
@@ -20,22 +21,32 @@ class Function:
 
     async def handle(self, scope, receive, send):
         """ Handle all HTTP requests to this Function other than readiness
-        and liveness probes."""
+        and liveness probes.  The CloudEvent from the request is already
+        decoded and available in the scope as 'event'.
 
-        logging.info("OK: Request Received")
+        The 'send' method can be used to directly send a structured CloudEvent
+        as a response.
 
-        # echo the request to the calling client
-        await send({
-            'type': 'http.response.start',
-            'status': 200,
-            'headers': [
-                [b'content-type', b'text/plain'],
-            ],
+        To send a binary encoded CloudEvent, use `send.binary(myResponseEvent)`.
+        """
+        logging.info("Request Received")
+
+        # 1) Extract the CloudEvent from the scope
+        request = scope["event"]
+        
+        # 2) Create a new CloudEvent as response
+        response = CloudEvent({
+            "type": "dev.knative.function.response",
+            "source": "https://knative.dev/python-function-response",
+            "id": f"response-{request.get('id', 'unknown')}"
         })
-        await send({
-            'type': 'http.response.body',
-            'body': 'OK'.encode(),
-        })
+        
+        # 3) Set the response's data field to the request event's data field
+        response.data = request.data
+        
+        # 4) Send the response CloudEvent
+        # The 'send' method is already decorated with CloudEvent middleware
+        await send(response)
 
     def start(self, cfg: typing.Dict[str, str]):
         """ start is an optional method which is called when a new Function

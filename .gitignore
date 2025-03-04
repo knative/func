@@ -2,8 +2,6 @@
 /func
 /func_*
 /cmd/func.yaml
-/templates/typescript/cloudevents/build
-/templates/typescript/http/build
 /coverage.out
 /coverage.txt
 /.coverage
@@ -17,11 +15,14 @@
 
 /pkg/functions/testdata/migrations/*/.gitignore
 
-# Nodejs
+# JS
 node_modules
+/templates/typescript/cloudevents/build
+/templates/typescript/http/build
 
 # Python
 __pycache__
+.venv
 
 # VSCode
 .vscode

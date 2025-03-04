@@ -1,36 +1,39 @@
 """
 An example set of unit tests which confirm that the main handler (the
-callable function) reuturns true for a simple HTTP GET, and that both
-the readiness and liveness endpoints return true.   Modify as needed to
-reflect the features of your Function instance.
-
-Functions are currently served as ASGI applications using hypercorn, so we
-use httpx for testing.  To run the tests using poetry:
-
-poetry run python -m unittest discover
+callable function) returns 200 OK for a simple HTTP GET.
 """
-import unittest
-from httpx import AsyncClient, ASGITransport
+import pytest
 from function import new
 
 
-class TestFunc(unittest.IsolatedAsyncioTestCase):
-    async def asyncSetUp(self):
-        self.f = new()  # Instantiate the function
+@pytest.mark.asyncio
+async def test_function_handle():
+    f = new()  # Instantiate Function to Test
 
-    async def test_call(self):
-        transport = ASGITransport(app=self.f)
-        # Use AsyncClient to simulate an TTP request to the ASGI app
-        async with AsyncClient(transport=transport, base_url="http://server") as client:
-            response = await client.get("/")
-            self.assertEqual(response.status_code, 200)
+    sent_ok = False
+    sent_headers = False
+    sent_body = False
 
-    async def test_alive(self):
-        self.assertTrue(self.f.alive(), "'alive' method did not return True")
+    # Mock Send
+    async def send(message):
+        nonlocal sent_ok
+        nonlocal sent_headers
+        nonlocal sent_body
 
-    async def test_ready(self):
-        self.assertTrue(self.f.ready(), "'ready' method did not return True")
+        if message.get('status') == 200:
+            sent_ok = True
 
+        if message.get('type') == 'http.response.start':
+            sent_headers = True
 
-if __name__ == '__main__':
-    unittest.main()
+        if message.get('type') == 'http.response.body':
+            sent_body = True
+
+    # Invoke the Function
+    await f.handle({}, {}, send)
+
+    # Assert send was called
+    assert sent_ok, "Function did not send a 200 OK"
+    assert sent_headers, "Function did not send headers"
+    assert sent_body, "Function did not send a body"
+

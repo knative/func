@@ -152,10 +152,19 @@ test-node: ## Test Node templates
 	cd templates/node/http && npm ci && npm test && rm -rf node_modules
 
 test-python: ## Test Python templates
-	# cd templaets/python/http
-	# TODO: run tests
-	# cd templaets/python/cloudevents
-	# TODO: run tests
+	#  Python HTTP template tests
+	cd templates/python/http && \
+	python -m venv .venv && \
+	./.venv/bin/pip install --upgrade pip && \
+	./.venv/bin/pip install . && \
+	./.venv/bin/python -m pytest ./tests
+	
+	#  Python CloudEvent template tests
+	cd templates/python/cloudevents && \
+	python -m venv .venv && \
+	./.venv/bin/pip install --upgrade pip && \
+	./.venv/bin/pip install . && \
+	./.venv/bin/python -m pytest ./tests
 
 test-quarkus: ## Test Quarkus templates
 	cd templates/quarkus/cloudevents && ./mvnw -q test && ./mvnw clean && rm .mvn/wrapper/maven-wrapper.jar
