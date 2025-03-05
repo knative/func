@@ -36,4 +36,3 @@ async def test_function_handle():
     assert sent_ok, "Function did not send a 200 OK"
     assert sent_headers, "Function did not send headers"
     assert sent_body, "Function did not send a body"
-

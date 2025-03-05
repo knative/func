@@ -6,7 +6,9 @@ requires-python = ">=3.10"
 readme = "README.md"
 license = "MIT"
 dependencies = [
-  "httpx"
+  "httpx",
+  "pytest",
+  "pytest-asyncio"
 ]
 authors = [
   { name="Your Name", email="you@example.com"},
