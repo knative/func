@@ -85,21 +85,25 @@ generate/zz_filesystem_generated.go: clean_templates
 .PHONY: clean_templates
 clean_templates:
 	# Removing temporary template files
+	@rm -rf templates/**/.DS_Store
 	@rm -rf templates/node/cloudevents/node_modules
 	@rm -rf templates/node/http/node_modules
-	@rm -rf templates/python/cloudevents/__pycache__
-	@rm -rf templates/python/http/__pycache__
-	@rm -rf templates/typescript/cloudevents/node_modules
-	@rm -rf templates/typescript/http/node_modules
-	@rm -rf templates/typescript/cloudevents/build
-	@rm -rf templates/typescript/http/build
-	@rm -rf templates/rust/cloudevents/target
-	@rm -rf templates/rust/http/target
+	@rm -rf templates/python/cloudevents/.venv
+	@rm -rf templates/python/cloudevents/function/__pycache__
+	@rm -rf templates/python/cloudevents/tests/__pycache__
+	@rm -rf templates/python/http/.venv
+	@rm -rf templates/python/http/function/__pycache__
+	@rm -rf templates/python/http/tests/__pycache__
 	@rm -rf templates/quarkus/cloudevents/target
 	@rm -rf templates/quarkus/http/target
+	@rm -rf templates/rust/cloudevents/target
+	@rm -rf templates/rust/http/target
 	@rm -rf templates/springboot/cloudevents/target
 	@rm -rf templates/springboot/http/target
-	@rm -f templates/**/.DS_Store
+	@rm -rf templates/typescript/cloudevents/build
+	@rm -rf templates/typescript/cloudevents/node_modules
+	@rm -rf templates/typescript/http/build
+	@rm -rf templates/typescript/http/node_modules
 
 .PHONY: clean
 clean: clean_templates ## Remove generated artifacts such as binaries and schemas
@@ -155,14 +159,12 @@ test-python: ## Test Python templates
 	#  Python HTTP template tests
 	cd templates/python/http && \
 	python -m venv .venv && \
-	./.venv/bin/pip install --upgrade pip && \
 	./.venv/bin/pip install . && \
 	./.venv/bin/python -m pytest ./tests
 	
 	#  Python CloudEvent template tests
 	cd templates/python/cloudevents && \
 	python -m venv .venv && \
-	./.venv/bin/pip install --upgrade pip && \
 	./.venv/bin/pip install . && \
 	./.venv/bin/python -m pytest ./tests
 
