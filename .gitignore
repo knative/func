@@ -22,7 +22,8 @@ node_modules
 
 # Python
 __pycache__
-.venv
+/templates/python/cloudevents/.venv
+/templates/python/http/.venv
 
 # VSCode
 .vscode
