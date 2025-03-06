@@ -14,13 +14,31 @@ import (
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
-	fn "knative.dev/func/pkg/functions"
 )
 
-// Build the source code as Go, cross compiled for the given platform, placing
-// the statically linked binary in a tarred layer and return the Descriptor
-// and Layer metadata.
-func buildGoLayer(cfg *buildConfig, p v1.Platform) (desc v1.Descriptor, layer v1.Layer, err error) {
+type goBuilder struct{}
+
+func (b goBuilder) Base() string {
+	return "" // scratch
+}
+
+func (b goBuilder) Configure(_ buildJob, _ v1.Platform, cf v1.ConfigFile) (v1.ConfigFile, error) {
+	// : Using Cmd rather than Entrypoint due to it being overrideable.
+	cf.Config.Cmd = []string{"/func/f"}
+	return cf, nil
+}
+
+func (b goBuilder) WriteShared(_ buildJob) ([]imageLayer, error) {
+	return []imageLayer{}, nil // no shared dependencies generated on build
+}
+
+// ForPlatform returns layers from source code as Go, cross compiled for the given
+// platform, placing the statically linked binary in a tarred layer and return
+// the Descriptor and Layer metadata.
+func (b goBuilder) WritePlatform(cfg buildJob, p v1.Platform) (layers []imageLayer, err error) {
+	var desc v1.Descriptor
+	var layer v1.Layer
+
 	// Executable
 	exe, err := goBuild(cfg, p) // Compile binary returning its path
 	if err != nil {
@@ -28,8 +46,8 @@ func buildGoLayer(cfg *buildConfig, p v1.Platform) (desc v1.Descriptor, layer v1
 	}
 
 	// Tarball
-	target := path(cfg.buildDir(), fmt.Sprintf("execlayer.%v.%v.tar.gz", p.OS, p.Architecture))
-	if err = newExecTarball(exe, target, cfg.verbose); err != nil {
+	target := filepath.Join(cfg.buildDir(), fmt.Sprintf("execlayer.%v.%v.tar.gz", p.OS, p.Architecture))
+	if err = goExeTarball(exe, target, cfg.verbose); err != nil {
 		return
 	}
 
@@ -45,20 +63,23 @@ func buildGoLayer(cfg *buildConfig, p v1.Platform) (desc v1.Descriptor, layer v1
 	desc.Platform = &p
 
 	// Blob
-	blob := path(cfg.blobsDir(), desc.Digest.Hex)
+	blob := filepath.Join(cfg.blobsDir(), desc.Digest.Hex)
 	if cfg.verbose {
 		fmt.Printf("mv %v %v\n", rel(cfg.buildDir(), target), rel(cfg.buildDir(), blob))
 	}
 	err = os.Rename(target, blob)
-	return
+
+	// NOTE: base is intentionally blank indiciating it is to be built without
+	// a base layer.
+	return []imageLayer{{Descriptor: desc, Layer: layer}}, nil
 }
 
-func goBuild(cfg *buildConfig, p v1.Platform) (binPath string, err error) {
+func goBuild(cfg buildJob, p v1.Platform) (binPath string, err error) {
 	gobin, args, outpath, err := goBuildCmd(p, cfg)
 	if err != nil {
 		return
 	}
-	envs := goBuildEnvs(cfg.f, p)
+	envs := goBuildEnvs(p)
 	if cfg.verbose {
 		fmt.Printf("%v %v\n", gobin, strings.Join(args, " "))
 	} else {
@@ -75,7 +96,7 @@ func goBuild(cfg *buildConfig, p v1.Platform) (binPath string, err error) {
 	return outpath, cmd.Run()
 }
 
-func goBuildCmd(p v1.Platform, cfg *buildConfig) (gobin string, args []string, outpath string, err error) {
+func goBuildCmd(p v1.Platform, cfg buildJob) (gobin string, args []string, outpath string, err error) {
 	/* TODO:  Use Build Command override from the function if provided
 	 * A future PR will include the ability to specify a
 	 * f.Build.BuildCommand, or BuildArgs for use here to customize
@@ -103,12 +124,12 @@ func goBuildCmd(p v1.Platform, cfg *buildConfig) (gobin string, args []string, o
 	if p.Variant != "" {
 		name = name + "." + p.Variant
 	}
-	outpath = path(cfg.buildDir(), "result", name)
+	outpath = filepath.Join(cfg.buildDir(), "result", name)
 	args = []string{"build", "-o", outpath}
 	return gobin, args, outpath, nil
 }
 
-func goBuildEnvs(f fn.Function, p v1.Platform) (envs []string) {
+func goBuildEnvs(p v1.Platform) (envs []string) {
 	pegged := []string{
 		"CGO_ENABLED=0",
 		"GOOS=" + p.OS,
@@ -139,7 +160,7 @@ func goBuildEnvs(f fn.Function, p v1.Platform) (envs []string) {
 	return envs
 }
 
-func newExecTarball(source, target string, verbose bool) error {
+func goExeTarball(source, target string, verbose bool) error {
 	targetFile, err := os.Create(target)
 	if err != nil {
 		return err

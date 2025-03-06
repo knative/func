@@ -1,3 +1,0 @@
-runEnvs:
-  - name: APP_MODULE
-    value: "func:main"

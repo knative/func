@@ -84,7 +84,7 @@ func getRunFunc(ctx context.Context, job *Job) (runFn func() error, err error) {
 	case "go":
 		runFn = func() error { return runGo(ctx, job) }
 	case "python":
-		err = ErrRunnerNotImplemented{runtime}
+		runFn = func() error { return runPython(ctx, job) }
 	case "java":
 		err = ErrRunnerNotImplemented{runtime}
 	case "node":
@@ -153,6 +153,106 @@ func runGo(ctx context.Context, job *Job) (err error) {
 	go func() {
 		job.Errors <- cmd.Run()
 	}()
+	return
+}
+
+func runPython(ctx context.Context, job *Job) (err error) {
+	if job.verbose {
+		fmt.Printf("cd %v\n", job.Dir())
+	}
+
+	// TODO: should we allow the python binary location to be specified with
+	// FUNC_PYTHON?
+
+	// NOTE:  The runner here creates a virtual environment because it is
+	// expected that in some cirumcstances the user may want to introspect
+	// their last run on disk manually.
+	// When building and deploying a container, `pip install` is used to omit
+	// inclusion of venv overhead in the final deployed artifact.
+
+	// Create venv
+	if job.verbose {
+		fmt.Printf("python -m venv .venv\n")
+	}
+	cmd := exec.CommandContext(ctx, "python", "-m", "venv", ".venv")
+	cmd.Dir = job.Dir()
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	if err = cmd.Run(); err != nil {
+		return
+	}
+
+	// Upgrade pip within venv
+	if job.verbose {
+		fmt.Printf("./.venv/bin/pip install --upgrade pip\n")
+	}
+	cmd = exec.CommandContext(ctx, "./.venv/bin/pip", "install", "--upgrade", "pip")
+	cmd.Dir = job.Dir()
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	if err = cmd.Run(); err != nil {
+		return
+	}
+
+	// Install  dependencies
+	if job.verbose {
+		fmt.Printf("./.venv/bin/pip install .\n")
+	}
+	cmd = exec.CommandContext(ctx, "./.venv/bin/pip", "install", ".")
+	cmd.Dir = job.Dir()
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	if err = cmd.Run(); err != nil {
+		return
+	}
+
+	// Run
+	if job.verbose {
+		fmt.Printf("PORT=%v ./.venv/bin/python ./service/main.py\n", job.Port)
+	}
+	cmd = exec.CommandContext(ctx, "./.venv/bin/python", "./service/main.py")
+	// cmd.Dir = job.Function.Root // This is done from within the middleware
+	cmd.Dir = job.Dir()
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	//  TODO: Check runtime uses new env var for listen address rather than
+	// the older address/port pair.
+
+	// See the 1.19 [release notes](https://tip.golang.org/doc/go1.19) which state:
+	//   A Cmd with a non-empty Dir field and nil Env now implicitly sets the
+	//   PWD environment variable for the subprocess to match Dir.
+	//   The new method Cmd.Environ reports the environment that would be used
+	//   to run the command, including the implicitly set PWD variable.
+	cmd.Env = append(cmd.Env, "PORT="+job.Port, "PWD="+cmd.Dir)
+
+	// Running asynchronously allows for the client Run method to return
+	// metadata about the running function such as its chosen port.
+	go func() {
+		job.Errors <- cmd.Run()
+	}()
+
+	// TODO: fix context cancellation such that we can both signal the
+	// running command process to complete (thus triggering the .Stop
+	// lifecycle handling event) and allow the following cleanup task
+	// to be run. For now just wait a moment and then immediately clean up...
+	// creating a racing condition.
+	go func() {
+		fmt.Printf("### skipping cleanup.  todo: ensure caches correctly.")
+		return
+		//
+		// if job.verbose {
+		// 	fmt.Printf("cleaning cache for next run (poetry remove function) \n")
+		// }
+		// cmd = exec.CommandContext(ctx, "poetry", "remove", "function")
+		// cmd.Dir = job.Dir()
+		// // cmd.Stderr = os.Stderr
+		// // cmd.Stdout = os.Stdout
+		// if err = cmd.Run(); err != nil {
+		// 	return
+		// }
+	}()
+
 	return
 }
 
