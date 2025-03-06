@@ -63,7 +63,7 @@ require (
 	k8s.io/client-go v0.32.2
 	k8s.io/klog/v2 v2.130.1
 	knative.dev/client/pkg v0.0.0-20250219014457-a051025a49ee
-	knative.dev/eventing v0.44.1-0.20250227153031-fe83e25214e9
+	knative.dev/eventing v0.44.1-0.20250306112059-eb3dd80ac9bc
 	knative.dev/hack v0.0.0-20250219013704-306ce745e077
 	knative.dev/pkg v0.0.0-20250226145529-0372c089c78f
 	knative.dev/serving v0.44.1-0.20250305133859-636392e930c1
