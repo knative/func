@@ -12,6 +12,6 @@ set_versions() {
 
 	# gets updated programatically via workflow -> PR creation
 	knative_serving_version="v1.17.0"
-	knative_eventing_version="v1.17.2"
+	knative_eventing_version="v1.17.3"
 	contour_version="v1.17.0"
 }
