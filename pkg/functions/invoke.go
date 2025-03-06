@@ -3,7 +3,6 @@ package functions
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -30,8 +29,8 @@ type InvokeMessage struct {
 	Source      string
 	Type        string
 	ContentType string
-	Data        string
-	Format      string //optional override for function-defined message format
+	Data        []byte
+	Format      string // optional override for function-defined message format
 }
 
 // NewInvokeMessage creates a new InvokeMessage with fields populated
@@ -41,7 +40,7 @@ func NewInvokeMessage() InvokeMessage {
 		Source:      DefaultInvokeSource,
 		Type:        DefaultInvokeType,
 		ContentType: DefaultInvokeContentType,
-		Data:        DefaultInvokeData,
+		Data:        []byte(DefaultInvokeData),
 		// Format override not set by default: value from function being preferred.
 	}
 }
@@ -50,7 +49,6 @@ func NewInvokeMessage() InvokeMessage {
 // invocation message.  Returned is metadata (such as HTTP headers or
 // CloudEvent fields) and a stringified version of the payload.
 func invoke(ctx context.Context, c *Client, f Function, target string, m InvokeMessage, verbose bool) (metadata map[string][]string, body string, err error) {
-
 	// Get the first available route from 'local', 'remote', a named environment
 	// or treat target
 	route, err := invocationRoute(ctx, c, f, target) // choose instance to invoke
@@ -153,20 +151,10 @@ func sendEvent(ctx context.Context, route string, m InvokeMessage, t http.RoundT
 	event.SetID(m.ID)
 	event.SetSource(m.Source)
 	event.SetType(m.Type)
-	if m.ContentType == "application/json" {
-		var d interface{}
-		err = json.Unmarshal([]byte(m.Data), &d)
-		if err != nil {
-			return
-		}
-		err = event.SetData(m.ContentType, d)
-		if err != nil {
-			return
-		}
-	} else if err = event.SetData(m.ContentType, m.Data); err != nil {
-		return
+	err = event.SetData(m.ContentType, (m.Data))
+	if err != nil {
+		return "", fmt.Errorf("cannot set data: %w", err)
 	}
-
 	c, err := cloudevents.NewClientHTTP(
 		cloudevents.WithTarget(route),
 		cloudevents.WithRoundTripper(t))
@@ -200,7 +188,7 @@ func sendPost(ctx context.Context, route string, m InvokeMessage, t http.RoundTr
 		"Source":      {m.Source},
 		"Type":        {m.Type},
 		"ContentType": {m.ContentType},
-		"Data":        {m.Data},
+		"Data":        {string(m.Data)},
 	}
 	if verbose {
 		fmt.Println("Sending values")
@@ -209,7 +197,7 @@ func sendPost(ctx context.Context, route string, m InvokeMessage, t http.RoundTr
 		}
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", route, bytes.NewBufferString(m.Data))
+	req, err := http.NewRequestWithContext(ctx, "POST", route, bytes.NewReader(m.Data))
 	if err != nil {
 		return nil, "", fmt.Errorf("failure to create request: %w", err)
 	}

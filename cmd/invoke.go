@@ -172,7 +172,7 @@ func runInvoke(cmd *cobra.Command, _ []string, newClient ClientFactory) (err err
 		if err != nil {
 			return err
 		}
-		m.Data = string(content)
+		m.Data = content
 	}
 
 	// Invoke
@@ -217,7 +217,7 @@ type invokeConfig struct {
 	ID          string
 	Source      string
 	Type        string
-	Data        string
+	Data        []byte
 	ContentType string
 	File        string
 	Confirm     bool
@@ -233,7 +233,7 @@ func newInvokeConfig() (cfg invokeConfig, err error) {
 		ID:          viper.GetString("id"),
 		Source:      viper.GetString("source"),
 		Type:        viper.GetString("type"),
-		Data:        viper.GetString("data"),
+		Data:        []byte(viper.GetString("data")),
 		ContentType: viper.GetString("content-type"),
 		File:        viper.GetString("file"),
 		Confirm:     viper.GetBool("confirm"),
@@ -247,7 +247,7 @@ func newInvokeConfig() (cfg invokeConfig, err error) {
 		if err != nil {
 			return cfg, err
 		}
-		cfg.Data = string(b)
+		cfg.Data = b
 	}
 
 	// if not in confirm/prompting mode, the cfg structure is complete.
@@ -368,7 +368,7 @@ func (c invokeConfig) prompt() (invokeConfig, error) {
 				Name: "Data",
 				Prompt: &survey.Input{
 					Message: "Data Content",
-					Default: c.Data,
+					Default: string(c.Data),
 				},
 			},
 		}
@@ -389,7 +389,8 @@ func (c invokeConfig) prompt() (invokeConfig, error) {
 				Message: contentTypeMessage,
 				Default: c.ContentType,
 			},
-		}}
+		},
+	}
 	if err := survey.Ask(qs, &c); err != nil {
 		return c, err
 	}
@@ -401,7 +402,8 @@ func (c invokeConfig) prompt() (invokeConfig, error) {
 				Message: "Allow insecure server connections when using SSL",
 				Default: c.Insecure,
 			},
-		}}
+		},
+	}
 	if err := survey.Ask(qs, &c); err != nil {
 		return c, err
 	}
