@@ -19,18 +19,14 @@ import (
 )
 
 const (
-	repositoryManifest = "manifest.yaml"
-	runtimeManifest    = "manifest.yaml"
-	templateManifest   = "manifest.yaml"
-)
+	manifestFile = "manifest.yaml"
 
-const (
 	// DefaultReadinessEndpoint for final deployed function instances
 	DefaultReadinessEndpoint = "/health/readiness"
+
 	// DefaultLivenessEndpoint for final deployed function instances
 	DefaultLivenessEndpoint = "/health/liveness"
-	// DefaultTemplatesPath is the root of the defined repository
-	DefaultTemplatesPath = "."
+
 	// DefaultInvocationFormat is a named invocation hint for the convenience
 	// helper .Invoke.  It is usually set at the template level.  The default
 	// ('http') is a plain HTTP POST.
@@ -40,32 +36,63 @@ const (
 	// delegation of choice.
 )
 
-// Repository represents a collection of runtimes, each containing templates.
+// Repository can be local or remote and contains runtimes
 type Repository struct {
-	// Name of the repository
-	// This can be for instance:
-	// directory name on FS or last part of git URL or arbitrary value defined by the Template author.
+	// Name is either directory name on FS or last part of git URL or
+	// arbitrary value defined by the Template author.
 	Name string
+
 	// Runtimes containing Templates loaded from the repo
 	Runtimes []Runtime
-	// TODO get rid of fs and uri members
-	fs  filesystem.Filesystem
-	uri string // URI which was used when initially creating
+
+	config repoConfig
+	fs     filesystem.Filesystem
+	uri    string // populated on initial add
 }
 
-// Runtime is a division of templates within a repository of templates for a
-// given runtime (source language plus environmentally available services
-// and libraries)
+// Runtime contains templates
 type Runtime struct {
 	// Name of the runtime
 	Name string
+
 	// Templates defined for the runtime
 	Templates []Template
+
+	config runtimeConfig
 }
 
-// This structure defines defaults for a function when generating project by a template.Write().
-// The structure can be read from manifest.yaml which can exist at level of repository, runtime or template.
-type funcDefaults struct {
+// see template.go for template definition
+
+// repoConfig is the manifest.yaml at the repository level, and
+// contains all settings from the runtimeConfig plus a few for the repo.
+type repoConfig struct {
+	// repository manifest.yaml can define some default values for func.yaml
+	runtimeConfig `yaml:",inline"`
+
+	// Name is the name indicated by the repository author.
+	// Stored in the yaml attribute "name", it is only consulted during initial
+	// addition of the repo as the default option.
+	Name string `yaml:"name,omitempty"`
+
+	// Version of the repository.
+	Version string `yaml:"version,omitempty"`
+
+	// TemplatesPath defines an optional path within the repository at which
+	// templates are stored.  By default this is the repository root.
+	TemplatesPath string `yaml:"templates,omitempty"`
+}
+
+// runtimeConfig is the manifest.yaml at the runtime level, and contains
+// all settings from the funcConfig.
+type runtimeConfig struct {
+	templateConfig `yaml:",inline"`
+	// runtime currently contains no level-specific attributes.
+}
+
+// templateConfig is the manifest.yaml file in a template directory or the
+// runtime parent directory, and is used during template.Write() to set
+// values on the newly written Function.
+type templateConfig struct {
 	// BuildConfig defines builders and buildpacks.  the denormalized view of
 	// members which can be defined per repo or per runtime first.
 	BuildConfig `yaml:",inline"`
@@ -86,23 +113,6 @@ type funcDefaults struct {
 	Invoke string `yaml:"invoke,omitempty"`
 }
 
-type repositoryConfig struct {
-	// repository manifest.yaml can define some default values for func.yaml
-	funcDefaults `yaml:",inline"`
-	// DefaultName is the name indicated by the repository author.
-	// Stored in the yaml attribute "name", it is only consulted during initial
-	// addition of the repo as the default option.
-	DefaultName string `yaml:"name,omitempty"`
-	// Version of the repository.
-	Version string `yaml:"version,omitempty"`
-	// TemplatesPath defines an optional path within the repository at which
-	// templates are stored.  By default this is the repository root.
-	TemplatesPath string `yaml:"templates,omitempty"`
-}
-
-type runtimeConfig = funcDefaults
-type templateConfig = funcDefaults
-
 // NewRepository creates a repository instance from any of: a path on disk, a
 // remote or local URI, or from the embedded default repo if uri not provided.
 // Name (optional), if provided takes precedence over name derived from repo at
@@ -110,48 +120,25 @@ type templateConfig = funcDefaults
 //
 // uri (optional), the path either locally or remote from which to load
 // the repository files.  If not provided, the internal default is assumed.
-func NewRepository(name, uri string) (r Repository, err error) {
-	r = Repository{
-		uri: uri,
+func NewRepository(name, uri string) (repo Repository, err error) {
+	repo = Repository{uri: uri}
+
+	repo.Name, err = repositoryName(name, uri)
+	if err != nil {
+		return
 	}
 
-	fs, err := filesystemFromURI(uri) // Get a Filesystem from the URI
+	repo.fs, err = filesystemFromURI(uri)
 	if err != nil {
 		return Repository{}, fmt.Errorf("failed to get repository from URI (%q): %w", uri, err)
 	}
 
-	r.fs = fs // needed for Repository.Write()
-
-	repoConfig := repositoryConfig{
-		funcDefaults: funcDefaults{
-			Invoke: DefaultInvocationFormat,
-		},
-	}
-
-	repoConfig, err = applyRepositoryManifest(fs, repoConfig) // apply optional manifest to r
+	repo.config, err = loadRepoConfig(repo.fs)
 	if err != nil {
 		return
 	}
 
-	// Validate custom path if defined
-	if repoConfig.TemplatesPath != "" {
-		if err = checkDir(r.fs, repoConfig.TemplatesPath); err != nil {
-			err = fmt.Errorf("templates path '%v' does not exist in repo '%v'. %v",
-				repoConfig.TemplatesPath, r.Name, err)
-			return
-		}
-	} else {
-		repoConfig.TemplatesPath = DefaultTemplatesPath
-	}
-
-	r.Name, err = repositoryDefaultName(repoConfig.DefaultName, uri) // choose default name
-	if err != nil {
-		return
-	}
-	if name != "" { // If provided, the explicit name takes precedence
-		r.Name = name
-	}
-	r.Runtimes, err = repositoryRuntimes(fs, r.Name, repoConfig) // load templates grouped by runtime
+	repo.Runtimes, err = runtimes(repo.fs, repo.config)
 	return
 }
 
@@ -257,45 +244,45 @@ func filesystemFromPath(uri string) (f filesystem.Filesystem, err error) {
 	return filesystem.NewOsFilesystem(path), nil
 }
 
-// repositoryRuntimes returns runtimes defined in this repository's filesystem.
+// runtimes returns runtimes defined in this repository's filesystem.
 // The views are denormalized, using the parent repository's values
 // for inherited fields BuildConfig and HealthEndpoints as the default values
 // for the runtimes and templates.  The runtimes and templates themselves can
 // override these values by specifying new values in thir config files.
-func repositoryRuntimes(fs filesystem.Filesystem, repoName string, repoConfig repositoryConfig) (runtimes []Runtime, err error) {
-	runtimes = []Runtime{}
+func runtimes(fs filesystem.Filesystem, repoCfg repoConfig) (runtimes []Runtime, err error) {
+	// Validate templates path
+	if err = checkDir(fs, repoCfg.TemplatesPath); err != nil {
+		err = fmt.Errorf("templates path '%v' does not exist in repository. %v",
+			repoCfg.TemplatesPath, err)
+		return
+	}
 
-	// Load runtimes
-	fis, err := fs.ReadDir(repoConfig.TemplatesPath)
+	// For each directory at the path, load it as a runtime
+	fis, err := fs.ReadDir(repoCfg.TemplatesPath)
 	if err != nil {
 		return
 	}
 	for _, fi := range fis {
-		// ignore files and hidden dirs
 		if !fi.IsDir() || strings.HasPrefix(fi.Name(), ".") {
-			continue
+			continue // ignore files and hidden directories
 		}
-		// ignore the reserved word "certs"
+
 		if fi.Name() == "certs" {
-			continue
+			continue // ignore reserved word "certs"
 		}
-		// Runtime, defaulted to values inherited from the repository
+
 		runtime := Runtime{
 			Name: fi.Name(),
 		}
-		// Runtime Manifest
-		// Load the file if it exists, which may override values inherited from the
-		// repo such as builders, buildpacks and health endpoints.
-		var rtConfig runtimeConfig
-		rtConfig, err = applyRuntimeManifest(fs, runtime.Name, repoConfig)
+
+		// update repoCfg with runtime's manifest.yaml values
+		repoCfg, err = loadRuntimeConfig(fs, repoCfg, runtime.Name)
 		if err != nil {
 			return
 		}
+		runtime.config = repoCfg.runtimeConfig
 
-		// Runtime Templates
-		// Load from repo filesystem for runtime. Will inherit values from the
-		// runtime such as BuildConfig, HealthEndpoints etc.
-		runtime.Templates, err = runtimeTemplates(fs, repoConfig.TemplatesPath, repoName, runtime.Name, rtConfig)
+		runtime.Templates, err = templates(fs, repoCfg, runtime.Name)
 		if err != nil {
 			return
 		}
@@ -304,59 +291,57 @@ func repositoryRuntimes(fs filesystem.Filesystem, repoName string, repoConfig re
 	return
 }
 
-// runtimeTemplates returns templates currently defined in the given runtime's
+// templates returns templates currently defined in the given runtime's
 // filesystem.  The view is denormalized, using the inherited fields from the
 // runtime for defaults of BuildConfig andHealthEndpoints.  The template itself
 // can override these by including a manifest.
 // The reserved word "scaffolding" is used for repository-defined scaffolding
 // code and is not listed as a template.
-func runtimeTemplates(fs filesystem.Filesystem, templatesPath, repoName, runtimeName string, runtimeConfig runtimeConfig) (templates []Template, err error) {
-	// Validate runtime directory exists and is a directory
-	runtimePath := path.Join(templatesPath, runtimeName)
+func templates(fs filesystem.Filesystem, repoCfg repoConfig, runtimeName string) (templates []Template, err error) {
+	// Validate runtime path
+	runtimePath := path.Join(repoCfg.TemplatesPath, runtimeName)
 	if err = checkDir(fs, runtimePath); err != nil {
 		err = fmt.Errorf("runtime path '%v' not found. %v", runtimePath, err)
 		return
 	}
 
-	// Read the directory, loading each template.
+	// Read the directory at the path, load it as a template
 	fis, err := fs.ReadDir(runtimePath)
 	if err != nil {
 		return
 	}
 	for _, fi := range fis {
-		// ignore files and hidden dirs
 		if !fi.IsDir() || strings.HasPrefix(fi.Name(), ".") {
-			continue
+			continue // ignore files and hidden dirs
 		}
-		// ignore the reserved word "scaffolding"
+
 		if fi.Name() == "scaffolding" {
-			continue
+			continue // ignore the reserved word "scaffolding"
 		}
-		// Template, defaulted to values inherited from the runtime
+
 		t := template{
 			name:       fi.Name(),
-			repository: repoName,
+			repository: repoCfg.Name,
 			runtime:    runtimeName,
-			config:     runtimeConfig,
 			fs:         filesystem.NewSubFS(path.Join(runtimePath, fi.Name()), fs),
 		}
 
-		// Template Manifeset
-		// Load manifest file if it exists, which may override values inherited from
-		// the runtime/repo.
-		t, err = applyTemplateManifest(fs, templatesPath, t)
+		// update repoCfg with template's manifest.yaml valuse
+		repoCfg, err = loadTemplateConfig(fs, repoCfg, runtimeName, t.name)
 		if err != nil {
 			return
 		}
+		t.config = repoCfg.runtimeConfig.templateConfig
+
 		templates = append(templates, t)
 	}
 	return
 }
 
-// repositoryDefaultName returns the given name, which if empty falls back to
+// repositoryName returns the given name, which if empty falls back to
 // deriving a name from the URI, which if empty then falls back to the
 // statically defined default DefaultRepositoryName.
-func repositoryDefaultName(name, uri string) (string, error) {
+func repositoryName(name, uri string) (string, error) {
 	// explicit name takes precedence
 	if name != "" {
 		return name, nil
@@ -377,55 +362,61 @@ func repositoryDefaultName(name, uri string) (string, error) {
 	return DefaultRepositoryName, nil
 }
 
-// applyRepositoryManifest from the root of the repository's filesystem if it
+// loadRepoConfig from the root of the repository's filesystem if it
 // exists.  Returned is the repository with any values from the manifest
 // set to those of the manifest.
-func applyRepositoryManifest(fs filesystem.Filesystem, repoConfig repositoryConfig) (repositoryConfig, error) {
-	file, err := fs.Open(repositoryManifest)
+func loadRepoConfig(fs filesystem.Filesystem) (repoCfg repoConfig, err error) {
+	file, err := fs.Open(manifestFile)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return repoConfig, nil
+			err = nil
 		}
-		return repoConfig, err
+		return
 	}
 	defer file.Close()
-	decoder := yaml.NewDecoder(file)
-	return repoConfig, decoder.Decode(&repoConfig)
+	err = yaml.NewDecoder(file).Decode(&repoCfg)
+
+	// Default TemplatesPath to CWD
+	if repoCfg.TemplatesPath == "" {
+		repoCfg.TemplatesPath = "."
+	}
+	return
 }
 
-// applyRuntimeManifest from the directory specified (runtime root).  Returned
+// loadRuntimeConfig from the directory specified (runtime root).  Returned
 // is the runtime with values from the manifest populated preferentially.  An
 // error is not returned for a missing manifest file (the passed runtime is
 // returned), but errors decoding the file are.
-func applyRuntimeManifest(fs filesystem.Filesystem, runtimeName string, repoConfig repositoryConfig) (runtimeConfig, error) {
-	rtCfg := repoConfig.funcDefaults
-	file, err := fs.Open(path.Join(repoConfig.TemplatesPath, runtimeName, runtimeManifest))
+func loadRuntimeConfig(fs filesystem.Filesystem, repoCfg repoConfig, runtime string) (repoConfig, error) {
+	file, err := fs.Open(path.Join(repoCfg.TemplatesPath, runtime, manifestFile))
 	if err != nil {
 		if os.IsNotExist(err) {
-			return rtCfg, nil
+			err = nil
 		}
-		return rtCfg, err
+		return repoCfg, err
 	}
 	defer file.Close()
-	decoder := yaml.NewDecoder(file)
-	return rtCfg, decoder.Decode(&rtCfg)
+	// We load the manifest.yaml on top of the values which may have been
+	// defined at the repo level
+	err = yaml.NewDecoder(file).Decode(&repoCfg)
+	return repoCfg, err
 }
 
-// applyTemplateManifest from the directory specified (template root).  Returned
+// loadTemplateConfig from the directory specified (template root).  Returned
 // is the template with values from the manifest populated preferentailly.  An
 // error is not returned for a missing manifest file (the passed template is
 // returned), but errors decoding the file are.
-func applyTemplateManifest(fs filesystem.Filesystem, templatesPath string, t template) (template, error) {
-	file, err := fs.Open(path.Join(templatesPath, t.runtime, t.Name(), templateManifest))
+func loadTemplateConfig(fs filesystem.Filesystem, repoCfg repoConfig, runtimeName, templateName string) (repoConfig, error) {
+	file, err := fs.Open(path.Join(repoCfg.TemplatesPath, runtimeName, templateName, manifestFile))
 	if err != nil {
 		if os.IsNotExist(err) {
-			return t, nil
+			err = nil
 		}
-		return t, err
+		return repoCfg, err
 	}
 	defer file.Close()
-	decoder := yaml.NewDecoder(file)
-	return t, decoder.Decode(&t.config)
+	err = yaml.NewDecoder(file).Decode(&repoCfg)
+	return repoCfg, err
 }
 
 // check that the given path is an accessible directory or error.
