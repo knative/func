@@ -661,7 +661,6 @@ func (c *Client) Build(ctx context.Context, f Function, options ...BuildOption) 
 		f.Build.Image = f.Image
 	}
 
-	fmt.Println("#### client.go - c.builder.Build")
 	if err = c.builder.Build(ctx, f, oo.Platforms); err != nil {
 		return f, err
 	}

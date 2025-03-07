@@ -21,8 +21,7 @@ import (
 	// "github.com/google/go-containerregistry/pkg/v1/tarball"
 )
 
-// var defaultPythonBase = "registry.access.redhat.com/ubi9/python-312:latest"
-var defaultPythonBase = "python:3.13-slim"
+var defaultPythonBase = "python:3.13-slim" // Moving from docker.io.  See issue #2720
 
 type pythonBuilder struct{}
 
@@ -47,19 +46,38 @@ func (b pythonBuilder) WriteShared(job buildJob) (layers []imageLayer, err error
 	var desc v1.Descriptor
 	var layer v1.Layer
 
-	// TODO:
-	// Create a .func/bin which is used for transient binaries and install
-	// pip there using https://bootstrap.pypa.io/get-pip.py if it either
-	// does not exist or it reports version less than "const minPipVersion"
-	// This will allow us to have the only toolchain dependency being
-	// python itself.
+	// Create venv
+	if job.verbose {
+		fmt.Printf("python -m venv .venv\n")
+	}
+	cmd := exec.CommandContext(job.ctx, "python", "-m", "venv", ".venv")
+	cmd.Dir = job.buildDir()
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	if err = cmd.Run(); err != nil {
+		return
+	}
+
+	pipPath := filepath.Join(".venv", "bin", "pip")
+
+	// Upgrade pip
+	if job.verbose {
+		fmt.Printf(".venv/bin/pip install --upgrade pip\n")
+	}
+	cmd = exec.CommandContext(job.ctx, pipPath, "install", "--upgrade", "pip")
+	cmd.Dir = job.buildDir()
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	if err = cmd.Run(); err != nil {
+		return
+	}
 
 	// Install Dependencies of the current project into ./lib
 	// In the scaffolding direcotory.
 	if job.verbose {
-		fmt.Printf("pip install --target .\n")
+		fmt.Printf(".venv/bin/pip install --target lib\n")
 	}
-	cmd := exec.CommandContext(job.ctx, "pip", "install",
+	cmd = exec.CommandContext(job.ctx, pipPath, "install",
 		"--target", filepath.Join(job.buildDir(), "lib"),
 		filepath.Join(job.buildDir()))
 	cmd.Stderr = os.Stderr
@@ -117,14 +135,17 @@ func newPythonLibTarball(job buildJob, root, target string) error {
 			return err
 		}
 
-		// FIXME:
+		// TODO:
 		// This is not ideal because we have to explicitly ignore the
-		// oci directory from being tarred and the tar from itself.  In
-		// hindsight, it would have been better to have the "build" directory
-		// contain two sub-directories
+		// oci and venv directories from being tarred and the tar from itself.
+		// In hindsight, it would have been better to have the "build"
+		// directory contain two sub-directories:
 		// ./dist  -  the scaffolding, libraries and link to the source code.
 		// ./container  -  the final OCI container.
 		if path == job.ociDir() {
+			return filepath.SkipDir
+		}
+		if path == ".venv" {
 			return filepath.SkipDir
 		}
 		if path == target {

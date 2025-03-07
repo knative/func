@@ -141,7 +141,7 @@ func runRun(cmd *cobra.Command, newClient ClientFactory) (err error) {
 		cfg runConfig
 		f   fn.Function
 	)
-	cfg = newRunConfig(cmd)
+	cfg = newRunConfig(cmd) // Will add Prompt on upcoming UX refactor
 
 	if f, err = fn.NewFunction(cfg.Path); err != nil {
 		return

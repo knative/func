@@ -45,9 +45,10 @@ type Repository struct {
 	// Runtimes containing Templates loaded from the repo
 	Runtimes []Runtime
 
-	config repoConfig
-	fs     filesystem.Filesystem
-	uri    string // populated on initial add
+	config repoConfig // manfest.yaml at root level.
+
+	fs  filesystem.Filesystem
+	uri string // populated on initial add
 }
 
 // Runtime contains templates
@@ -58,10 +59,12 @@ type Runtime struct {
 	// Templates defined for the runtime
 	Templates []Template
 
-	config runtimeConfig
+	config runtimeConfig // manifest.yaml at root plus runtime level.
 }
 
 // see template.go for template definition
+// It's config is the root manifest.yaml + runtime manifest.yaml plus
+// the template-level.
 
 // repoConfig is the manifest.yaml at the repository level, and
 // contains all settings from the runtimeConfig plus a few for the repo.
@@ -275,14 +278,14 @@ func runtimes(fs filesystem.Filesystem, repoCfg repoConfig) (runtimes []Runtime,
 			Name: fi.Name(),
 		}
 
-		// update repoCfg with runtime's manifest.yaml values
-		repoCfg, err = loadRuntimeConfig(fs, repoCfg, runtime.Name)
+		// Load the runtimeConfig (manifest.yaml) with values from the
+		// shared repoCfg as defaults.
+		runtime.config, err = loadRuntimeConfig(fs, repoCfg, runtime.Name)
 		if err != nil {
 			return
 		}
-		runtime.config = repoCfg.runtimeConfig
 
-		runtime.Templates, err = templates(fs, repoCfg, runtime.Name)
+		runtime.Templates, err = templates(fs, repoCfg, runtime.config, runtime.Name)
 		if err != nil {
 			return
 		}
@@ -297,7 +300,7 @@ func runtimes(fs filesystem.Filesystem, repoCfg repoConfig) (runtimes []Runtime,
 // can override these by including a manifest.
 // The reserved word "scaffolding" is used for repository-defined scaffolding
 // code and is not listed as a template.
-func templates(fs filesystem.Filesystem, repoCfg repoConfig, runtimeName string) (templates []Template, err error) {
+func templates(fs filesystem.Filesystem, repoCfg repoConfig, runtimeCfg runtimeConfig, runtimeName string) (templates []Template, err error) {
 	// Validate runtime path
 	runtimePath := path.Join(repoCfg.TemplatesPath, runtimeName)
 	if err = checkDir(fs, runtimePath); err != nil {
@@ -327,11 +330,10 @@ func templates(fs filesystem.Filesystem, repoCfg repoConfig, runtimeName string)
 		}
 
 		// update repoCfg with template's manifest.yaml valuse
-		repoCfg, err = loadTemplateConfig(fs, repoCfg, runtimeName, t.name)
+		t.config, err = loadTemplateConfig(fs, repoCfg, runtimeCfg, runtimeName, t.name)
 		if err != nil {
 			return
 		}
-		t.config = repoCfg.runtimeConfig.templateConfig
 
 		templates = append(templates, t)
 	}
@@ -387,36 +389,40 @@ func loadRepoConfig(fs filesystem.Filesystem) (repoCfg repoConfig, err error) {
 // is the runtime with values from the manifest populated preferentially.  An
 // error is not returned for a missing manifest file (the passed runtime is
 // returned), but errors decoding the file are.
-func loadRuntimeConfig(fs filesystem.Filesystem, repoCfg repoConfig, runtime string) (repoConfig, error) {
+func loadRuntimeConfig(fs filesystem.Filesystem, repoCfg repoConfig, runtime string) (runtimeCfg runtimeConfig, err error) {
 	file, err := fs.Open(path.Join(repoCfg.TemplatesPath, runtime, manifestFile))
 	if err != nil {
 		if os.IsNotExist(err) {
 			err = nil
 		}
-		return repoCfg, err
+		return
 	}
 	defer file.Close()
 	// We load the manifest.yaml on top of the values which may have been
 	// defined at the repo level
-	err = yaml.NewDecoder(file).Decode(&repoCfg)
-	return repoCfg, err
+	runtimeCfg = repoCfg.runtimeConfig // Defaults from the repoCfg
+	err = yaml.NewDecoder(file).Decode(&runtimeCfg)
+	return
 }
 
 // loadTemplateConfig from the directory specified (template root).  Returned
 // is the template with values from the manifest populated preferentailly.  An
 // error is not returned for a missing manifest file (the passed template is
 // returned), but errors decoding the file are.
-func loadTemplateConfig(fs filesystem.Filesystem, repoCfg repoConfig, runtimeName, templateName string) (repoConfig, error) {
+func loadTemplateConfig(fs filesystem.Filesystem, repoCfg repoConfig, runtimeCfg runtimeConfig, runtimeName, templateName string) (tplCfg templateConfig, err error) {
 	file, err := fs.Open(path.Join(repoCfg.TemplatesPath, runtimeName, templateName, manifestFile))
 	if err != nil {
 		if os.IsNotExist(err) {
 			err = nil
 		}
-		return repoCfg, err
+		return
 	}
 	defer file.Close()
-	err = yaml.NewDecoder(file).Decode(&repoCfg)
-	return repoCfg, err
+	// defaults are set from the repo level, which itself includes defaults
+	// from the repository level.
+	tplCfg = runtimeCfg.templateConfig
+	err = yaml.NewDecoder(file).Decode(&tplCfg)
+	return
 }
 
 // check that the given path is an accessible directory or error.
