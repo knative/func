@@ -37,6 +37,7 @@ jobs:
               echo "------------------ max # of retries reached, exiting ------------------"
               exit 1
             fi
+            ./delete.sh
           done
       - name: Local Registry
         run: ./hack/registry.sh
