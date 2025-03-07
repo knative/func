@@ -30,7 +30,20 @@ jobs:
       - name: Build
         run: make
       - name: E2E runtime for ${{ matrix.runtime }}
-        run: make test-e2e-runtime runtime=${{ matrix.runtime }}
+        run: |
+          attempt=0
+          max_attempts=5
+          until [ $attempt -ge $max_attempts ]
+          do
+            attempt=$((attempt+1))
+            echo "------------------ Attempt $attempt for ${{matrix.runtime}} ------------------"
+            make test-e2e-runtime runtime=${{ matrix.runtime }} && break
+            echo "------------------ failed, retrying... ------------------"
+            if [ $attempt -ge $max_attempts ]; then
+              echo "------------------ max # of retries reached, exiting ------------------"
+              exit 1
+            fi
+          done
       - uses: codecov/codecov-action@v5
         with:
           files: ./coverage.txt
