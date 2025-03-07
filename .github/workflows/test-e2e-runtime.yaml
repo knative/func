@@ -24,7 +24,20 @@ jobs:
       - name: Install Binaries
         run: ./hack/install-binaries.sh
       - name: Allocate Cluster
-        run: ./hack/allocate.sh
+        run: |
+          attempt=0
+          max_attempts=5
+          until [ $attempt -ge $max_attempts ]
+          do
+            attempt=$((attempt+1))
+            echo "------------------ Attempt $attempt for ${{matrix.runtime}} ------------------"
+            ./hack/allocate.sh && break
+            echo "------------------ failed, retrying... ------------------"
+            if [ $attempt -ge $max_attempts ]; then
+              echo "------------------ max # of retries reached, exiting ------------------"
+              exit 1
+            fi
+          done
       - name: Local Registry
         run: ./hack/registry.sh
       - name: Build
