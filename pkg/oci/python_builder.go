@@ -75,11 +75,10 @@ func (b pythonBuilder) WriteShared(job buildJob) (layers []imageLayer, err error
 	// Install Dependencies of the current project into ./lib
 	// In the scaffolding direcotory.
 	if job.verbose {
-		fmt.Printf(".venv/bin/pip install --target lib\n")
+		fmt.Printf(".venv/bin/pip install . --target lib\n")
 	}
-	cmd = exec.CommandContext(job.ctx, pipPath, "install",
-		"--target", filepath.Join(job.buildDir(), "lib"),
-		filepath.Join(job.buildDir()))
+	cmd = exec.CommandContext(job.ctx, pipPath, "install", ".", "--target", "lib")
+	cmd.Dir = job.buildDir()
 	cmd.Stderr = os.Stderr
 	cmd.Stdout = os.Stdout
 	if err = cmd.Run(); err != nil {
@@ -145,7 +144,7 @@ func newPythonLibTarball(job buildJob, root, target string) error {
 		if path == job.ociDir() {
 			return filepath.SkipDir
 		}
-		if path == ".venv" {
+		if path == filepath.Join(root, ".venv") {
 			return filepath.SkipDir
 		}
 		if path == target {
