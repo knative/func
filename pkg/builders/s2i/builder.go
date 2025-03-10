@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"maps"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -29,7 +30,6 @@ import (
 	"github.com/openshift/source-to-image/pkg/build/strategies"
 	s2idocker "github.com/openshift/source-to-image/pkg/docker"
 	"github.com/openshift/source-to-image/pkg/scm/git"
-	"golang.org/x/exp/maps"
 	"golang.org/x/term"
 
 	"knative.dev/func/pkg/builders"
@@ -395,7 +395,7 @@ func s2iScriptURL(ctx context.Context, cli DockerClient, image string) (string, 
 			if err != nil {
 				return "", fmt.Errorf("cannot parse image name: %w", err)
 			}
-			if _, ok := ref.(name.Tag); ok && !slices.Contains(maps.Values(DefaultBuilderImages), image) {
+			if _, ok := ref.(name.Tag); ok && !slices.Contains(slices.Collect(maps.Values(DefaultBuilderImages)), image) {
 				fmt.Fprintln(os.Stderr, "image referenced by tag which is discouraged: Tags are mutable and can point to a different artifact than the expected one")
 			}
 			img, err = remote.Image(ref)
