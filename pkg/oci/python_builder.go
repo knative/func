@@ -29,6 +29,8 @@ func (b pythonBuilder) Base() string {
 	return defaultPythonBase
 }
 
+// Configure gives the python builder a chance to mutate the final
+// ConfigFile that will be used when building the template.
 func (b pythonBuilder) Configure(job buildJob, _ v1.Platform, cf v1.ConfigFile) (v1.ConfigFile, error) {
 	var (
 		svcRelPath, _ = filepath.Rel(job.function.Root, job.buildDir()) // eg .func/builds/by-hash/$HASH

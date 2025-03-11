@@ -188,7 +188,6 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	if err != nil {
 		return
 	}
-	fmt.Println("#### build.go - client.Build")
 	if f, err = client.Build(cmd.Context(), f, buildOptions...); err != nil {
 		return
 	}
