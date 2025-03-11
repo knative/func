@@ -1,7 +1,5 @@
 # Function
 import logging
-import typing
-import urllib.parse
 from cloudevents.http import CloudEvent
 
 
@@ -27,28 +25,28 @@ class Function:
         The 'send' method can be used to directly send a structured CloudEvent
         as a response.
 
-        To send a binary encoded CloudEvent, use `send.binary(myResponseEvent)`.
+        To send a binary encoded CloudEvent use `send.binary(myResponseEvent)`.
         """
         logging.info("Request Received")
 
         # 1) Extract the CloudEvent from the scope
         request = scope["event"]
-        
+
         # 2) Create a new CloudEvent as response
         response = CloudEvent({
             "type": "dev.knative.function.response",
             "source": "https://knative.dev/python-function-response",
             "id": f"response-{request.get('id', 'unknown')}"
         })
-        
+
         # 3) Set the response's data field to the request event's data field
         response.data = request.data
-        
+
         # 4) Send the response CloudEvent
         # The 'send' method is already decorated with CloudEvent middleware
         await send(response)
 
-    def start(self, cfg: typing.Dict[str, str]):
+    def start(self, cfg):
         """ start is an optional method which is called when a new Function
         instance is started, such as when scaling up or during an update.
         Provided is a dictionary containing all environmental configuration.
@@ -68,7 +66,7 @@ class Function:
         """
         logging.info("Function stopping")
 
-    def alive(self) -> tuple[bool, str | None]:
+    def alive(self):
         """ alive is an optional method for performing a deep check on your
         Function's liveness.  If removed, the system will assume the function
         is ready if the process is running. This is exposed by default at the
@@ -76,7 +74,7 @@ class Function:
         """
         return True, "Alive"
 
-    def ready(self) -> tuple[bool, str | None]:
+    def ready(self):
         """ ready is an optional method for performing a deep check on your
         Function's readiness.  If removed, the system will assume the function
         is ready if the process is running.  This is exposed by default at the

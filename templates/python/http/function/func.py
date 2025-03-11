@@ -1,8 +1,5 @@
 # Function
 import logging
-import typing
-import urllib.parse
-
 
 def new():
     """ New is the only method that must be implemented by a Function.
@@ -37,7 +34,7 @@ class Function:
             'body': 'OK'.encode(),
         })
 
-    def start(self, cfg: typing.Dict[str, str]):
+    def start(self, cfg):
         """ start is an optional method which is called when a new Function
         instance is started, such as when scaling up or during an update.
         Provided is a dictionary containing all environmental configuration.
@@ -57,7 +54,7 @@ class Function:
         """
         logging.info("Function stopping")
 
-    def alive(self) -> tuple[bool, str | None]:
+    def alive(self):
         """ alive is an optional method for performing a deep check on your
         Function's liveness.  If removed, the system will assume the function
         is ready if the process is running. This is exposed by default at the
@@ -65,7 +62,7 @@ class Function:
         """
         return True, "Alive"
 
-    def ready(self) -> tuple[bool, str | None]:
+    def ready(self):
         """ ready is an optional method for performing a deep check on your
         Function's readiness.  If removed, the system will assume the function
         is ready if the process is running.  This is exposed by default at the
