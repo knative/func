@@ -198,8 +198,7 @@ update-runtime-go:
 	cd templates/go/scaffolding/static-cloudevents && go get -u knative.dev/func-go/cloudevents
 
 update-runtime-python:
-	cd templates/python/scaffolding/instanced-http && poetry update func-python
-	cd templates/python/scaffolding/instanced-cloudevents && poetry update func-python
+	# Python runtime dependencies are updated on-demand
 
 
 
