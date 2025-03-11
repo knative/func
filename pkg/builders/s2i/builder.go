@@ -442,8 +442,8 @@ func BuilderImage(f fn.Function, builderName string) (string, error) {
 // Returns a config with settings suitable for building runtimes which
 // support scaffolding.
 func scaffold(cfg *api.Config, f fn.Function) (*api.Config, error) {
-	// Scafffolding is currently only supported by the Go runtime
-	if f.Runtime != "go" {
+	// Scafffolding is currently only supported by the Go and Python runtimes
+	if f.Runtime != "go" && f.Runtime != "python" {
 		return cfg, nil
 	}
 
