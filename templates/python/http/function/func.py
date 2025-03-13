@@ -1,6 +1,7 @@
 # Function
 import logging
 
+
 def new():
     """ New is the only method that must be implemented by a Function.
     The instance returned can be of any name.

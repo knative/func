@@ -49,6 +49,12 @@ var builders = map[string]languageBuilder{
 	"python": pythonBuilder{},
 }
 
+// IsSupported is for UX.
+func IsSupported(runtime string) bool {
+	_, ok := builders[runtime]
+	return ok
+}
+
 type imageLayer struct {
 	Descriptor v1.Descriptor
 	Layer      v1.Layer

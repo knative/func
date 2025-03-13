@@ -130,10 +130,7 @@ EXAMPLES
 
 	// Temporarily Hidden Basic Auth Flags
 	// Username, Password and Token flags, which plumb through basic auth, are
-	// currently only available on the experimental "host" builder, which is
-	// itself behind a feature flag FUNC_ENABLE_HOST_BUILDER.  So set these
-	// flags to hidden until it's out of preview and they are plumbed through
-	// the docker pusher as well.
+	// currently only available on the "host" builder.
 	_ = cmd.Flags().MarkHidden("username")
 	_ = cmd.Flags().MarkHidden("password")
 	_ = cmd.Flags().MarkHidden("token")
