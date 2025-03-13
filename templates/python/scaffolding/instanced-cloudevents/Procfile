@@ -1,2 +1,0 @@
-# This file enables Buildpack support
-web: python service/main.py

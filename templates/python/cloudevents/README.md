@@ -1,4 +1,4 @@
-# Python HTTP Function
+# Python CloudEvents Function
 
 Welcome to your new Python Function! A minimal Function implementation can
 be found in ./function/func.py.
