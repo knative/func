@@ -376,6 +376,7 @@ func loadRepoConfig(fs filesystem.Filesystem) (repoCfg repoConfig, err error) {
 		return
 	}
 	defer file.Close()
+
 	err = yaml.NewDecoder(file).Decode(&repoCfg)
 
 	// Default TemplatesPath to CWD
@@ -390,17 +391,18 @@ func loadRepoConfig(fs filesystem.Filesystem) (repoCfg repoConfig, err error) {
 // error is not returned for a missing manifest file (the passed runtime is
 // returned), but errors decoding the file are.
 func loadRuntimeConfig(fs filesystem.Filesystem, repoCfg repoConfig, runtime string) (runtimeCfg runtimeConfig, err error) {
+	// The runtimeConfig is defaulted to the values from the parent (repo)
+	runtimeCfg = repoCfg.runtimeConfig // Defaults from the repoCfg
+
+	// If there is a manifest.yaml at the repo level, it can overwrite
 	file, err := fs.Open(path.Join(repoCfg.TemplatesPath, runtime, manifestFile))
 	if err != nil {
 		if os.IsNotExist(err) {
 			err = nil
 		}
-		return
+		return // errors other than "Not found" are legitimate
 	}
 	defer file.Close()
-	// We load the manifest.yaml on top of the values which may have been
-	// defined at the repo level
-	runtimeCfg = repoCfg.runtimeConfig // Defaults from the repoCfg
 	err = yaml.NewDecoder(file).Decode(&runtimeCfg)
 	return
 }
@@ -410,6 +412,10 @@ func loadRuntimeConfig(fs filesystem.Filesystem, repoCfg repoConfig, runtime str
 // error is not returned for a missing manifest file (the passed template is
 // returned), but errors decoding the file are.
 func loadTemplateConfig(fs filesystem.Filesystem, repoCfg repoConfig, runtimeCfg runtimeConfig, runtimeName, templateName string) (tplCfg templateConfig, err error) {
+	// The templateConfig is defaulted to the values from the parent (repo)
+	tplCfg = runtimeCfg.templateConfig
+
+	// If there is a manifest.yaml at the template level, it can overwrite
 	file, err := fs.Open(path.Join(repoCfg.TemplatesPath, runtimeName, templateName, manifestFile))
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -418,9 +424,6 @@ func loadTemplateConfig(fs filesystem.Filesystem, repoCfg repoConfig, runtimeCfg
 		return
 	}
 	defer file.Close()
-	// defaults are set from the repo level, which itself includes defaults
-	// from the repository level.
-	tplCfg = runtimeCfg.templateConfig
 	err = yaml.NewDecoder(file).Decode(&tplCfg)
 	return
 }
