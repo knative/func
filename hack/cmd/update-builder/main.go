@@ -600,6 +600,11 @@ func addGoAndRustBuildpacks(config *builder.Config) {
 			Group: []dist.ModuleRef{
 				{
 					ModuleInfo: dist.ModuleInfo{
+						ID: "paketo-buildpacks/git",
+					},
+				},
+				{
+					ModuleInfo: dist.ModuleInfo{
 						ID: "paketo-buildpacks/go-dist",
 					},
 				},
