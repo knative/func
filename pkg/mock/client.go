@@ -30,7 +30,9 @@ type Repositories struct {
 }
 
 func NewRepositories() *Repositories {
-	return &Repositories{all: []fn.Repository{{Name: "default"}}}
+	rr := &Repositories{all: []fn.Repository{}}
+	rr.all[0].Name = "default"
+	return rr
 }
 
 func (r *Repositories) All() ([]fn.Repository, error) {
@@ -47,7 +49,9 @@ func (r *Repositories) List() ([]string, error) {
 }
 
 func (r *Repositories) Add(name, url string) (string, error) {
-	r.all = append(r.all, fn.Repository{Name: name})
+	repo := fn.Repository{}
+	repo.Name = name
+	r.all = append(r.all, repo)
 	return "", nil
 }
 

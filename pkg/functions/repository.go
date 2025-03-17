@@ -38,14 +38,10 @@ const (
 
 // Repository can be local or remote and contains runtimes
 type Repository struct {
-	// Name is either directory name on FS or last part of git URL or
-	// arbitrary value defined by the Template author.
-	Name string
-
 	// Runtimes containing Templates loaded from the repo
 	Runtimes []Runtime
 
-	config repoConfig // manfest.yaml at root level.
+	repoConfig // values defineable via a manfest.yaml at root level.
 
 	fs  filesystem.Filesystem
 	uri string // populated on initial add
@@ -72,9 +68,9 @@ type repoConfig struct {
 	// repository manifest.yaml can define some default values for func.yaml
 	runtimeConfig `yaml:",inline"`
 
-	// Name is the name indicated by the repository author.
-	// Stored in the yaml attribute "name", it is only consulted during initial
-	// addition of the repo as the default option.
+	// Name is either directory name on FS or last part of git URL or
+	// arbitrary value defined by the Template author or as indicated by the
+	// repository author via manifest.yaml.
 	Name string `yaml:"name,omitempty"`
 
 	// Version of the repository.
@@ -136,12 +132,12 @@ func NewRepository(name, uri string) (repo Repository, err error) {
 		return Repository{}, fmt.Errorf("failed to get repository from URI (%q): %w", uri, err)
 	}
 
-	repo.config, err = loadRepoConfig(repo.fs)
+	repo.repoConfig, err = loadRepoConfig(repo.fs, repo.repoConfig)
 	if err != nil {
 		return
 	}
 
-	repo.Runtimes, err = runtimes(repo.fs, repo.config)
+	repo.Runtimes, err = runtimes(repo.fs, repo.repoConfig)
 	return
 }
 
@@ -341,8 +337,7 @@ func templates(fs filesystem.Filesystem, repoCfg repoConfig, runtimeCfg runtimeC
 }
 
 // repositoryName returns the given name, which if empty falls back to
-// deriving a name from the URI, which if empty then falls back to the
-// statically defined default DefaultRepositoryName.
+// deriving a name from the URI.
 func repositoryName(name, uri string) (string, error) {
 	// explicit name takes precedence
 	if name != "" {
@@ -367,13 +362,13 @@ func repositoryName(name, uri string) (string, error) {
 // loadRepoConfig from the root of the repository's filesystem if it
 // exists.  Returned is the repository with any values from the manifest
 // set to those of the manifest.
-func loadRepoConfig(fs filesystem.Filesystem) (repoCfg repoConfig, err error) {
+func loadRepoConfig(fs filesystem.Filesystem, repoCfg repoConfig) (repoConfig, error) {
 	file, err := fs.Open(manifestFile)
 	if err != nil {
 		if os.IsNotExist(err) {
 			err = nil
 		}
-		return
+		return repoCfg, err
 	}
 	defer file.Close()
 
@@ -383,7 +378,7 @@ func loadRepoConfig(fs filesystem.Filesystem) (repoCfg repoConfig, err error) {
 	if repoCfg.TemplatesPath == "" {
 		repoCfg.TemplatesPath = "."
 	}
-	return
+	return repoCfg, nil
 }
 
 // loadRuntimeConfig from the directory specified (runtime root).  Returned

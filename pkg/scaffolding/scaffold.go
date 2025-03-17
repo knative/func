@@ -37,6 +37,13 @@ func Write(out, src, runtime, invoke string, fs filesystem.Filesystem) (err erro
 		return err
 	}
 
+	// Filesystem Required
+	// This is a defensive check used to allow for simple tests which can
+	// omit providing a fileystem by just expecting this error.
+	if fs == nil {
+		return ErrFilesysetmRequired
+	}
+
 	// Path in the filesystem at which scaffolding is expected to exist
 	d := fmt.Sprintf("%v/scaffolding/%v", runtime, s.String()) // fs uses / on all OSs
 	if _, err := fs.Stat(d); err != nil {

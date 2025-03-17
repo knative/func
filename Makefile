@@ -89,9 +89,11 @@ clean_templates:
 	@rm -rf templates/node/cloudevents/node_modules
 	@rm -rf templates/node/http/node_modules
 	@rm -rf templates/python/cloudevents/.venv
+	@rm -rf templates/python/cloudevents/.pytest_cache
 	@rm -rf templates/python/cloudevents/function/__pycache__
 	@rm -rf templates/python/cloudevents/tests/__pycache__
 	@rm -rf templates/python/http/.venv
+	@rm -rf templates/python/http/.pytest_cache
 	@rm -rf templates/python/http/function/__pycache__
 	@rm -rf templates/python/http/tests/__pycache__
 	@rm -rf templates/quarkus/cloudevents/target
