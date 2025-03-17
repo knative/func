@@ -49,7 +49,6 @@ require (
 	github.com/tektoncd/pipeline v0.65.1
 	github.com/xanzy/go-gitlab v0.102.0
 	golang.org/x/crypto v0.33.0
-	golang.org/x/exp v0.0.0-20250210185358-939b2ce775ac
 	golang.org/x/net v0.35.0
 	golang.org/x/oauth2 v0.26.0
 	golang.org/x/sync v0.11.0
@@ -63,10 +62,10 @@ require (
 	k8s.io/client-go v0.32.2
 	k8s.io/klog/v2 v2.130.1
 	knative.dev/client/pkg v0.0.0-20250219014457-a051025a49ee
-	knative.dev/eventing v0.44.1-0.20250227153031-fe83e25214e9
+	knative.dev/eventing v0.44.1-0.20250307120601-ec8a208c1ca6
 	knative.dev/hack v0.0.0-20250219013704-306ce745e077
 	knative.dev/pkg v0.0.0-20250226145529-0372c089c78f
-	knative.dev/serving v0.44.1-0.20250303133614-e067066fc44f
+	knative.dev/serving v0.44.1-0.20250307122301-c09ff6cf1822
 )
 
 require (
@@ -273,6 +272,7 @@ require (
 	go.starlark.net v0.0.0-20230525235612-a134d8f9ddca // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
+	golang.org/x/exp v0.0.0-20250210185358-939b2ce775ac // indirect
 	golang.org/x/mod v0.23.0 // indirect
 	golang.org/x/text v0.22.0 // indirect
 	golang.org/x/time v0.10.0 // indirect

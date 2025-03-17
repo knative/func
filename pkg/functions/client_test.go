@@ -1710,7 +1710,7 @@ func TestClient_Invoke_HTTP(t *testing.T) {
 		dataAsStr := string(data)
 
 		// Verify the body is correct
-		if dataAsStr != message.Data {
+		if dataAsStr != string(message.Data) {
 			t.Errorf("expected message data %q, got %q", message.Data, dataAsStr)
 			return
 		}

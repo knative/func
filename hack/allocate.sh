@@ -65,7 +65,7 @@ nodes:
     - containerPort: 80
       hostPort: 80
       listenAddress: "127.0.0.1"
-    - containerPort: 433
+    - containerPort: 443
       hostPort: 443
       listenAddress: "127.0.0.1"
     - containerPort: 30022
