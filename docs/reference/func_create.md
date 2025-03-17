@@ -34,9 +34,7 @@ DESCRIPTION
 	  node         cloudevents
 	  node         http
 	  python       cloudevents
-	  python       flask
 	  python       http
-	  python       wsgi
 	  quarkus      cloudevents
 	  quarkus      http
 	  rust         cloudevents
