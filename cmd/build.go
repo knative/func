@@ -130,10 +130,7 @@ EXAMPLES
 
 	// Temporarily Hidden Basic Auth Flags
 	// Username, Password and Token flags, which plumb through basic auth, are
-	// currently only available on the experimental "host" builder, which is
-	// itself behind a feature flag FUNC_ENABLE_HOST_BUILDER.  So set these
-	// flags to hidden until it's out of preview and they are plumbed through
-	// the docker pusher as well.
+	// currently only available on the "host" builder.
 	_ = cmd.Flags().MarkHidden("username")
 	_ = cmd.Flags().MarkHidden("password")
 	_ = cmd.Flags().MarkHidden("token")
@@ -165,13 +162,13 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	if err = cfg.Validate(); err != nil { // Perform any pre-validation
 		return
 	}
-	if f, err = fn.NewFunction(cfg.Path); err != nil {
+	if f, err = fn.NewFunction(cfg.Path); err != nil { // Read in the Function
 		return
 	}
 	if !f.Initialized() {
 		return fn.NewErrNotInitialized(f.Root)
 	}
-	f = cfg.Configure(f) // Updates f at path to include build request values
+	f = cfg.Configure(f) // Returns an f updated with values from the config (flags, envs, etc)
 
 	cmd.SetContext(cfg.WithValues(cmd.Context())) // Some optional settings are passed via context
 
@@ -184,7 +181,7 @@ func runBuild(cmd *cobra.Command, _ []string, newClient ClientFactory) (err erro
 	defer done()
 
 	// Build
-	buildOptions, err := cfg.buildOptions()
+	buildOptions, err := cfg.buildOptions() // build-specific options from the finalized cfg
 	if err != nil {
 		return
 	}

@@ -85,7 +85,7 @@ func (t template) Write(ctx context.Context, f *Function) error {
 
 	mask := func(p string) bool {
 		_, f := path.Split(p)
-		return f == templateManifest
+		return f == manifestFile
 	}
 
 	return filesystem.CopyFromFS(".", f.Root, filesystem.NewMaskingFS(mask, t.fs)) // copy everything but manifest.yaml
