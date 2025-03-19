@@ -91,7 +91,9 @@ func createCertificate(t *testing.T) string {
 	ski := sha1.Sum(x509.MarshalPKCS1PublicKey(&certPrivKey.PublicKey))
 
 	cert := &x509.Certificate{
-		SerialNumber: randSN(),
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+		SerialNumber:          randSN(),
 		// openssl hash of this subject is 712d4c9d
 		// do not update the subject without also updating the hash referred from another places (e.g. Dockerfile)
 		// See also: https://github.com/paketo-buildpacks/ca-certificates/blob/v1.0.1/cacerts/certs.go#L132
@@ -159,7 +161,7 @@ func buildPatchedBuilder(ctx context.Context, t *testing.T, certDir string) stri
 		t.Fatal(err)
 	}
 
-	dockerfile := `FROM ghcr.io/knative/builder-jammy-base:latest
+	dockerfile := `FROM ghcr.io/knative/builder-jammy-tiny:latest
 COPY 712d4c9d.0 /etc/ssl/certs/
 `
 
