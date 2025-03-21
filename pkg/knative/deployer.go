@@ -153,6 +153,16 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 	if err != nil {
 		return fn.DeploymentResult{}, err
 	}
+	// check if 'dapr-system' namespace exists
+	daprInstalled := false
+	k8sClient, err := k8s.NewKubernetesClientset()
+	if err != nil {
+		return fn.DeploymentResult{}, err
+	}
+	_, err = k8sClient.CoreV1().Namespaces().Get(ctx, "dapr-system", metav1.GetOptions{})
+	if err == nil {
+		daprInstalled = true
+	}
 
 	var outBuff SynchronizedBuffer
 	var out io.Writer = &outBuff
@@ -173,7 +183,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			referencedConfigMaps := sets.New[string]()
 			referencedPVCs := sets.New[string]()
 
-			service, err := generateNewService(f, d.decorator)
+			service, err := generateNewService(f, d.decorator, daprInstalled)
 			if err != nil {
 				err = fmt.Errorf("knative deployer failed to generate the Knative Service: %v", err)
 				return fn.DeploymentResult{}, err
@@ -287,7 +297,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 			return fn.DeploymentResult{}, err
 		}
 
-		_, err = client.UpdateServiceWithRetry(ctx, f.Name, updateService(f, previousService, newEnv, newEnvFrom, newVolumes, newVolumeMounts, d.decorator), 3)
+		_, err = client.UpdateServiceWithRetry(ctx, f.Name, updateService(f, previousService, newEnv, newEnvFrom, newVolumes, newVolumeMounts, d.decorator, daprInstalled), 3)
 		if err != nil {
 			err = fmt.Errorf("knative deployer failed to update the Knative Service: %v", err)
 			return fn.DeploymentResult{}, err
@@ -400,7 +410,7 @@ func setHealthEndpoints(f fn.Function, c *corev1.Container) *corev1.Container {
 	return c
 }
 
-func generateNewService(f fn.Function, decorator DeployDecorator) (*v1.Service, error) {
+func generateNewService(f fn.Function, decorator DeployDecorator, daprInstalled bool) (*v1.Service, error) {
 	// set defaults to the values that avoid the following warning "Kubernetes default value is insecure, Knative may default this to secure in a future release"
 	runAsNonRoot := true
 	allowPrivilegeEscalation := false
@@ -443,7 +453,7 @@ func generateNewService(f fn.Function, decorator DeployDecorator) (*v1.Service, 
 		return nil, err
 	}
 
-	annotations := generateServiceAnnotations(f, decorator, nil)
+	annotations := generateServiceAnnotations(f, decorator, nil, daprInstalled)
 
 	// we need to create a separate map for Annotations specified in a Revision,
 	// in case we will need to specify autoscaling annotations -> these could be only in a Revision not in a Service
@@ -512,13 +522,15 @@ func generateServiceLabels(f fn.Function, d DeployDecorator) (ll map[string]stri
 // application of any provided annotation decorator.
 // Also sets `serving.knative.dev/creator` to a value specified in annotations in the service reference in the previousService parameter,
 // this is beneficial when we are updating a service to pass validation on Knative side - the annotation is immutable.
-func generateServiceAnnotations(f fn.Function, d DeployDecorator, previousService *v1.Service) (aa map[string]string) {
+func generateServiceAnnotations(f fn.Function, d DeployDecorator, previousService *v1.Service, daprInstalled bool) (aa map[string]string) {
 	aa = make(map[string]string)
 
-	// Enables Dapr support.
-	// Has no effect unless the target cluster has Dapr control plane installed.
-	for k, v := range daprAnnotations(f.Name) {
-		aa[k] = v
+	if daprInstalled {
+		// Enables Dapr support.
+		// Has no effect unless the target cluster has Dapr control plane installed.
+		for k, v := range daprAnnotations(f.Name) {
+			aa[k] = v
+		}
 	}
 
 	// Function-defined annotations
@@ -546,6 +558,7 @@ func generateServiceAnnotations(f fn.Function, d DeployDecorator, previousServic
 // the target cluster will result in a sidecar exposing the dapr HTTP API
 // on localhost:3500 and metrics on 9092
 func daprAnnotations(appid string) map[string]string {
+	// make optional
 	aa := make(map[string]string)
 	aa["dapr.io/app-id"] = appid
 	aa["dapr.io/enabled"] = DaprEnabled
@@ -555,13 +568,13 @@ func daprAnnotations(appid string) map[string]string {
 	return aa
 }
 
-func updateService(f fn.Function, previousService *v1.Service, newEnv []corev1.EnvVar, newEnvFrom []corev1.EnvFromSource, newVolumes []corev1.Volume, newVolumeMounts []corev1.VolumeMount, decorator DeployDecorator) func(service *v1.Service) (*v1.Service, error) {
+func updateService(f fn.Function, previousService *v1.Service, newEnv []corev1.EnvVar, newEnvFrom []corev1.EnvFromSource, newVolumes []corev1.Volume, newVolumeMounts []corev1.VolumeMount, decorator DeployDecorator, daprInstalled bool) func(service *v1.Service) (*v1.Service, error) {
 	return func(service *v1.Service) (*v1.Service, error) {
 		// Removing the name so the k8s server can fill it in with generated name,
 		// this prevents conflicts in Revision name when updating the KService from multiple places.
 		service.Spec.Template.Name = ""
 
-		annotations := generateServiceAnnotations(f, decorator, previousService)
+		annotations := generateServiceAnnotations(f, decorator, previousService, daprInstalled)
 
 		// we need to create a separate map for Annotations specified in a Revision,
 		// in case we will need to specify autoscaling annotations -> these could be only in a Revision not in a Service

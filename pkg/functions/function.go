@@ -553,10 +553,6 @@ func (f Function) Initialized() bool {
 func (f Function) LabelsMap() (map[string]string, error) {
 	defaultLabels := []Label{
 		{
-			Key:   ptr.String(fnlabels.FunctionKey),
-			Value: ptr.String(fnlabels.FunctionValue),
-		},
-		{
 			Key:   ptr.String(fnlabels.FunctionNameKey),
 			Value: ptr.String(f.Name),
 		},
@@ -564,16 +560,6 @@ func (f Function) LabelsMap() (map[string]string, error) {
 			Key:   ptr.String(fnlabels.FunctionRuntimeKey),
 			Value: ptr.String(f.Runtime),
 		},
-		// --- handle usage of deprecated labels (`boson.dev/function`, `boson.dev/runtime`)
-		{
-			Key:   ptr.String(fnlabels.DeprecatedFunctionKey),
-			Value: ptr.String(fnlabels.FunctionValue),
-		},
-		{
-			Key:   ptr.String(fnlabels.DeprecatedFunctionRuntimeKey),
-			Value: ptr.String(f.Runtime),
-		},
-		// --- end of handling usage of deprecated runtime labels
 	}
 
 	labels := append(defaultLabels, f.Deploy.Labels...)
