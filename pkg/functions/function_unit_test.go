@@ -294,10 +294,7 @@ func Test_LabelsMap(t *testing.T) {
 
 func expectedDefaultLabels(f Function) map[string]string {
 	return map[string]string{
-		fnlabels.FunctionKey:                  fnlabels.FunctionValue,
-		fnlabels.FunctionNameKey:              f.Name,
-		fnlabels.FunctionRuntimeKey:           f.Runtime,
-		fnlabels.DeprecatedFunctionKey:        fnlabels.FunctionValue,
-		fnlabels.DeprecatedFunctionRuntimeKey: f.Runtime,
+		fnlabels.FunctionNameKey:    f.Name,
+		fnlabels.FunctionRuntimeKey: f.Runtime,
 	}
 }
