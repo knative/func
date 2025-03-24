@@ -43,7 +43,7 @@ DESCRIPTION
 	  can be used to indicate the function should be run in a container, with
 	  the container automatically built if necessary.
 
-	  The --container flag deafults to true if the builder defined for the
+	  The --container flag defaults to true if the builder defined for the
 	  function is a containerized builder such as Pack or S2I, and in the case
 	  where the function's runtime requires containerized builds (is not yet
 	  supported by the Host builder.

@@ -134,7 +134,7 @@ set -e
 # First of all, check that we don't have disallowed combination of ENVs
 if [[ ! -z "$ENABLE_PIPENV" && ! -z "$ENABLE_MICROPIPENV" ]]; then
   echo "ERROR: Pipenv and micropipenv cannot be enabled at the same time!"
-  # podman/buildah does not relay this exit code but it will be fixed hopefuly
+  # podman/buildah does not relay this exit code but it will be fixed hopefully
   # https://github.com/containers/buildah/issues/2305
   exit 3
 fi
