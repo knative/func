@@ -157,18 +157,21 @@ test-node: ## Test Node templates
 	cd templates/node/cloudevents && npm ci && npm test && rm -rf node_modules
 	cd templates/node/http && npm ci && npm test && rm -rf node_modules
 
-test-python: ## Test Python templates
+test-python: ## Test Python templates and Scaffolding
 	#  Python HTTP template tests
 	cd templates/python/http && \
 	python -m venv .venv && \
 	./.venv/bin/pip install . && \
 	./.venv/bin/python -m pytest ./tests
 	
-	#  Python CloudEvent template tests
+	# Python CloudEvent template tests
 	cd templates/python/cloudevents && \
 	python -m venv .venv && \
 	./.venv/bin/pip install . && \
 	./.venv/bin/python -m pytest ./tests
+	
+	# Python Scaffolding Test
+	FUNC_TEST_PYTHON=1 go test -v ./pkg/oci -run TestBuilder_BuildPython
 
 test-quarkus: ## Test Quarkus templates
 	cd templates/quarkus/cloudevents && ./mvnw -q test && ./mvnw clean && rm .mvn/wrapper/maven-wrapper.jar

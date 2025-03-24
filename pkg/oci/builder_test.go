@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -52,6 +53,12 @@ func TestBuilder_BuildGo(t *testing.T) {
 // TestBuilder_BuildPython ensures that, when given a Python Function, an
 // OCI-compliant directory structure is created on .Build in the expected path.
 func TestBuilder_BuildPython(t *testing.T) {
+	testPython, _ := strconv.ParseBool(os.Getenv("FUNC_TEST_PYTHON"))
+	if !testPython {
+		// NOTE: language-specific tests will be integrated more wholistically
+		// in our upcoming E2E test refactor
+		t.Skip("Skipping test that requires special environment setup")
+	}
 	root, done := Mktemp(t)
 	defer done()
 
