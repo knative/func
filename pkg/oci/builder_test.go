@@ -24,7 +24,7 @@ import (
 	. "knative.dev/func/pkg/testing"
 )
 
-var TestPlatforms = []fn.Platform{{OS: runtime.GOOS, Architecture: runtime.GOARCH}}
+var TestPlatforms = []fn.Platform{{OS: "linux", Architecture: runtime.GOARCH}}
 
 // TestBuilder_BuildGo ensures that, when given a Go Function, an OCI-compliant
 // directory structure is created on .Build in the expected path.
