@@ -40,6 +40,22 @@ func TestBuild_BuilderImageTrusted(t *testing.T) {
 	}
 }
 
+func TestBuild_BuilderImageTrustedLocalhost(t *testing.T) {
+	for _, reg := range []string{
+		"localhost",
+		"localhost:5000",
+		"127.0.0.1",
+		"127.0.0.1:5000",
+		"[::1]",
+		"[::1]:5000"} {
+		t.Run(reg, func(t *testing.T) {
+			if !TrustBuilder(reg + "/project/builder:latest") {
+				t.Errorf("expected to be trusted: %q", reg)
+			}
+		})
+	}
+}
+
 // TestBuild_BuilderImageDefault ensures that a Function bing built which does not
 // define a Builder Image will get the internally-defined default.
 func TestBuild_BuilderImageDefault(t *testing.T) {
