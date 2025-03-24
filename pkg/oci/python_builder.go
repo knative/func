@@ -104,7 +104,9 @@ func (b pythonBuilder) WriteShared(job buildJob) (layers []imageLayer, err error
 	if job.verbose {
 		fmt.Printf("mv %v %v\n", rel(job.buildDir(), target), rel(job.buildDir(), blob))
 	}
-	err = os.Rename(target, blob)
+	if err = os.Rename(target, blob); err != nil {
+		return
+	}
 
 	return []imageLayer{{Descriptor: desc, Layer: layer}}, nil
 }
