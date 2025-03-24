@@ -1037,7 +1037,7 @@ func newDescriptor(layer v1.Layer) (desc v1.Descriptor, err error) {
 }
 
 // writeAsJSONBlob encodes the object a json, creates a blob from it, and returns
-// a partially-complted descriptor with teh hash and size populated.
+// a partially-complted descriptor with the hash and size populated.
 func writeAsJSONBlob(job buildJob, tempName string, data any) (desc v1.Descriptor, err error) {
 	filePath := filepath.Join(job.buildDir(), tempName)
 	file, err := os.Create(filePath)

@@ -52,7 +52,8 @@ if [[ $(go list -f {{.Incomplete}}) == "true" ]]; then
     if [[ ! -z "$IMPORT_URL" ]]; then
         popd
         echo "Assembling GOPATH"
-        export GOPATH=$(realpath $HOME/go) mkdir -p $GOPATH/src/$IMPORT_URL mv /tmp/src/* $GOPATH/src/$IMPORT_URL
+        export GOPATH=$(realpath $HOME/go)
+	    mkdir -p $GOPATH/src/$IMPORT_URL mv /tmp/src/* $GOPATH/src/$IMPORT_URL
         if [[ -d /tmp/artifacts/pkg ]]; then
             echo "Restoring previous build artifacts"
             mv /tmp/artifacts/pkg $GOPATH

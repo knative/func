@@ -1,11 +1,6 @@
 package oci
 
 import (
-	// "fmt"
-	// "os"
-	// "os/exec"
-	// 	"path/filepath"
-
 	"archive/tar"
 	"compress/gzip"
 	"fmt"
@@ -18,7 +13,6 @@ import (
 
 	v1 "github.com/google/go-containerregistry/pkg/v1"
 	"github.com/google/go-containerregistry/pkg/v1/tarball"
-	// "github.com/google/go-containerregistry/pkg/v1/tarball"
 )
 
 var defaultPythonBase = "python:3.13-slim" // Moving from docker.io.  See issue #2720

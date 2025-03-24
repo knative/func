@@ -191,17 +191,13 @@ test-typescript: ## Test Typescript templates
 ###############
 
 # Pulls runtimes then rebuilds the embedded filesystem
-update-runtimes:  update-runtime-go update-runtime-python generate/zz_filesystem_generated.go ## Update Scaffolding Runtimes
+update-runtimes:  update-runtime-go generate/zz_filesystem_generated.go ## Update Scaffolding Runtimes
 
 update-runtime-go:
 	cd templates/go/scaffolding/instanced-http && go get -u knative.dev/func-go/http
 	cd templates/go/scaffolding/static-http && go get -u knative.dev/func-go/http
 	cd templates/go/scaffolding/instanced-cloudevents && go get -u knative.dev/func-go/cloudevents
 	cd templates/go/scaffolding/static-cloudevents && go get -u knative.dev/func-go/cloudevents
-
-update-runtime-python:
-	# Python runtime dependencies are updated on-demand
-
 
 
 .PHONY: cert

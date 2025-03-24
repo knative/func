@@ -372,12 +372,15 @@ func loadRepoConfig(fs filesystem.Filesystem, repoCfg repoConfig) (repoConfig, e
 	}
 	defer file.Close()
 
-	err = yaml.NewDecoder(file).Decode(&repoCfg)
+	if err = yaml.NewDecoder(file).Decode(&repoCfg); err != nil {
+		return repoCfg, err
+	}
 
 	// Default TemplatesPath to CWD
 	if repoCfg.TemplatesPath == "" {
 		repoCfg.TemplatesPath = "."
 	}
+
 	return repoCfg, nil
 }
 
