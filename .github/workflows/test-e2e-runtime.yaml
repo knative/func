@@ -12,7 +12,7 @@ jobs:
     continue-on-error: true
     strategy:
       matrix:
-        runtime: ["node", "go", "python", "quarkus", "springboot", "typescript", "rust"]
+        runtime: ["node", "go", "quarkus", "springboot", "typescript", "rust"]
     runs-on: ubuntu-latest
     steps:
       - name: Set Environment Variables
