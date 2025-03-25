@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"os"
 	"strconv"
 	"strings"
 
@@ -207,10 +206,7 @@ EXAMPLES
 
 	// Temporarily Hidden Basic Auth Flags
 	// Username, Password and Token flags, which plumb through basic auth, are
-	// currently only available on the experimental "host" builder, which is
-	// itself behind a feature flag FUNC_ENABLE_HOST_BUILDER.  So set these
-	// flags to hidden until it's out of preview and they are plumbed through
-	// the docker pusher as well.
+	// currently only available on "host" builder.
 	_ = cmd.Flags().MarkHidden("username")
 	_ = cmd.Flags().MarkHidden("password")
 	_ = cmd.Flags().MarkHidden("token")
@@ -433,18 +429,7 @@ func KnownBuilders() builders.Known {
 	// However, future third-party integrations may support less than, or more
 	// builders, and certain environmental considerations may alter this list.
 
-	// Also a good place to stick feature-flags; to wit:
-	enable_host, _ := strconv.ParseBool(os.Getenv("FUNC_ENABLE_HOST_BUILDER"))
-	if !enable_host {
-		bb := []string{}
-		for _, b := range builders.All() {
-			if b != builders.Host {
-				bb = append(bb, b)
-			}
-		}
-		return bb
-	}
-
+	// Also a good place to stick feature-flags.
 	return builders.All()
 }
 

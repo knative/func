@@ -14,6 +14,7 @@ import (
 	"knative.dev/func/pkg/config"
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
+	"knative.dev/func/pkg/oci"
 )
 
 func NewRunCmd(newClient ClientFactory) *cobra.Command {
@@ -38,9 +39,14 @@ DESCRIPTION
 	  The --container flag indicates that the function's container should be
 	  run rather than running the source code directly.  This may require that
 	  the function's container first be rebuilt.  Building the container on or
-	  off can be altered using the --build flag.  The default value --build=auto
-	  indicates the system should automatically build the container only if
-	  necessary.
+	  off can be altered using the --build flag.  The value --build=auto
+	  can be used to indicate the function should be run in a container, with
+	  the container automatically built if necessary.
+
+	  The --container flag defaults to true if the builder defined for the
+	  function is a containerized builder such as Pack or S2I, and in the case
+	  where the function's runtime requires containerized builds (is not yet
+	  supported by the Host builder.
 
 	Process Scaffolding
 	  This is an Experimental Feature currently available only to Go projects.
@@ -103,6 +109,8 @@ EXAMPLES
 			"You may provide this flag multiple times for setting multiple environment variables. "+
 			"To unset, specify the environment variable name followed by a \"-\" (e.g., NAME-).")
 	cmd.Flags().Duration("start-timeout", f.Run.StartTimeout, fmt.Sprintf("time this function needs in order to start. If not provided, the client default %v will be in effect. ($FUNC_START_TIMEOUT)", fn.DefaultStartTimeout))
+	cmd.Flags().BoolP("container", "t", runContainerizedByDefault(f),
+		"Run the function in a container. ($FUNC_CONTAINER)")
 
 	// TODO: Without the "Host" builder enabled, this code-path is unreachable,
 	// so remove hidden flag when either the Host builder path is available,
@@ -116,8 +124,6 @@ EXAMPLES
 	cmd.Flags().String("build", "auto",
 		"Build the function. [auto|true|false]. ($FUNC_BUILD)")
 	cmd.Flags().Lookup("build").NoOptDefVal = "true" // register `--build` as equivalient to `--build=true`
-	cmd.Flags().BoolP("container", "t", true,
-		"Run the function in a container. ($FUNC_CONTAINER)")
 
 	// Oft-shared flags:
 	addConfirmFlag(cmd, cfg.Confirm)
@@ -136,14 +142,17 @@ EXAMPLES
 	return cmd
 }
 
+func runContainerizedByDefault(f fn.Function) bool {
+	return f.Build.Builder == "pack" || f.Build.Builder == "s2i" || !oci.IsSupported(f.Runtime)
+}
+
 func runRun(cmd *cobra.Command, newClient ClientFactory) (err error) {
 	var (
 		cfg runConfig
 		f   fn.Function
 	)
-	if cfg, err = newRunConfig(cmd).Prompt(); err != nil {
-		return
-	}
+	cfg = newRunConfig(cmd) // Will add Prompt on upcoming UX refactor
+
 	if f, err = fn.NewFunction(cfg.Path); err != nil {
 		return
 	}
@@ -340,15 +349,8 @@ func (c runConfig) Validate(cmd *cobra.Command, f fn.Function) (err error) {
 		}
 	}
 
-	// There is currently no local host runner implemented, so specifying
-	// --container=false should return an informative error for runtimes other
-	// than Go  that is more helpful than the cryptic, though correct, error
-	// from the Client that it was instantated without a runner.
-	// TODO: modify this check when the local host runner is available to
-	// only generate this error when --container==false && the --language is
-	// not yet implemented.
-	if !c.Container && f.Runtime != "go" {
-		return errors.New("the ability to run functions outside of a container via 'func run' is coming soon.")
+	if !c.Container && !oci.IsSupported(f.Runtime) {
+		return fmt.Errorf("The %q runtime currently requires being run in a container", f.Runtime)
 	}
 
 	// When the docker runner respects the StartTimeout, this validation check

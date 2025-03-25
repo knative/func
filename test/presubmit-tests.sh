@@ -43,6 +43,7 @@ function post_build_tests() {
 function pre_unit_tests() {
   install_node
   install_rust
+  install_python
 }
 
 function install_node() {
@@ -66,6 +67,23 @@ function install_rust() {
   source "$HOME/.cargo/env"
   subheader "Rust version"
   cargo version
+}
+
+function install_python() {
+  header "Installing Python"
+  # Install Python if not already available
+  command -v python >/dev/null 2>&1 || {
+    apt-get update
+    apt-get install -y python3 python3-pip python3-venv
+    # Create symlink to ensure 'python' command works
+    ln -sf /usr/bin/python3 /usr/bin/python
+    ln -sf /usr/bin/pip3 /usr/bin/pip
+  }
+  # Ensure pip is up to date
+  python -m pip install --upgrade pip
+  subheader "Python version"
+  python --version
+  pip --version
 }
 
 function unit_tests() {

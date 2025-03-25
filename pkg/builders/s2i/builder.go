@@ -220,6 +220,8 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 	if err != nil {
 		return err
 	}
+
+	buildEnvs["LISTEN_ADDRESS"] = "0.0.0.0:8080"
 	for k, v := range buildEnvs {
 		cfg.Environment = append(cfg.Environment, api.EnvironmentSpec{Name: k, Value: v})
 	}
@@ -442,8 +444,8 @@ func BuilderImage(f fn.Function, builderName string) (string, error) {
 // Returns a config with settings suitable for building runtimes which
 // support scaffolding.
 func scaffold(cfg *api.Config, f fn.Function) (*api.Config, error) {
-	// Scafffolding is currently only supported by the Go runtime
-	if f.Runtime != "go" {
+	// Scafffolding is currently only supported by the Go and Python runtimes
+	if f.Runtime != "go" && f.Runtime != "python" {
 		return cfg, nil
 	}
 

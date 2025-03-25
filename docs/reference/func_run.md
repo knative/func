@@ -22,9 +22,14 @@ DESCRIPTION
 	  The --container flag indicates that the function's container should be
 	  run rather than running the source code directly.  This may require that
 	  the function's container first be rebuilt.  Building the container on or
-	  off can be altered using the --build flag.  The default value --build=auto
-	  indicates the system should automatically build the container only if
-	  necessary.
+	  off can be altered using the --build flag.  The value --build=auto
+	  can be used to indicate the function should be run in a container, with
+	  the container automatically built if necessary.
+
+	  The --container flag defaults to true if the builder defined for the
+	  function is a containerized builder such as Pack or S2I, and in the case
+	  where the function's runtime requires containerized builds (is not yet
+	  supported by the Host builder.
 
 	Process Scaffolding
 	  This is an Experimental Feature currently available only to Go projects.
@@ -56,7 +61,7 @@ func run
 
 ```
       --build string[="true"]   Build the function. [auto|true|false]. ($FUNC_BUILD) (default "auto")
-  -b, --builder string          Builder to use when creating the function's container. Currently supported builders are "pack" and "s2i". (default "pack")
+  -b, --builder string          Builder to use when creating the function's container. Currently supported builders are "host", "pack" and "s2i". (default "pack")
       --builder-image string    Specify a custom builder image for use by the builder other than its default. ($FUNC_BUILDER_IMAGE)
   -c, --confirm                 Prompt to confirm options interactively ($FUNC_CONFIRM)
   -t, --container               Run the function in a container. ($FUNC_CONTAINER) (default true)

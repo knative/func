@@ -20,7 +20,7 @@ func TestGetRunFuncErrors(t *testing.T) {
 	}{
 		{"", ErrRuntimeRequired, nil},
 		{"go", nil, nil},
-		{"python", nil, &ErrRunnerNotImplemented{}},
+		{"python", nil, nil},
 		{"rust", nil, &ErrRunnerNotImplemented{}},
 		{"node", nil, &ErrRunnerNotImplemented{}},
 		{"typescript", nil, &ErrRunnerNotImplemented{}},

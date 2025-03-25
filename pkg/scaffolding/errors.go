@@ -20,6 +20,7 @@ func (e ScaffoldingError) Unwrap() error {
 
 var ErrScaffoldingNotFound = ScaffoldingError{"scaffolding not found", nil}
 var ErrSignatureNotFound = ScaffoldingError{"supported signature not found", nil}
+var ErrFilesysetmRequired = ScaffoldingError{"filesystem required", nil}
 
 type ErrDetectorNotImplemented struct {
 	Runtime string
