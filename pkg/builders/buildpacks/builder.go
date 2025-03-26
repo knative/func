@@ -179,6 +179,12 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 		opts.ContainerConfig.Network = "host"
 	}
 
+	var bindings = make([]string, 0, len(f.Build.Mounts))
+	for _, m := range f.Build.Mounts {
+		bindings = append(bindings, fmt.Sprintf("%s:%s", m.Source, m.Destination))
+	}
+	opts.ContainerConfig.Volumes = bindings
+
 	// only trust our known builders
 	opts.TrustBuilder = TrustBuilder
 
