@@ -1,3 +1,5 @@
+//go:build integration
+
 package builders_test
 
 import (
@@ -35,7 +37,6 @@ import (
 )
 
 func TestPrivateGitRepository(t *testing.T) {
-	t.Skip("tested functionality not implemented yet")
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -65,6 +66,21 @@ func TestPrivateGitRepository(t *testing.T) {
 		t.Fatal(ctx.Err())
 	}
 
+	gitCredsDir := t.TempDir()
+	err := os.WriteFile(filepath.Join(gitCredsDir, "type"), []byte(`git-credentials`), 0600)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	gitCred := `url=https://git-private.127.0.0.1.sslip.io
+username=developer
+password=nbusr123
+`
+	err = os.WriteFile(filepath.Join(gitCredsDir, "credentials"), []byte(gitCred), 0600)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	builder := buildpacks.NewBuilder(buildpacks.WithVerbose(true))
 	f, err := fn.NewFunction(filepath.Join("testdata", "go-fn-with-private-deps"))
 	if err != nil {
@@ -73,6 +89,14 @@ func TestPrivateGitRepository(t *testing.T) {
 	f.Build.Image = "localhost:50000/go-app:test"
 	f.Build.Builder = "pack"
 	f.Build.BuilderImages = map[string]string{"pack": builderImage}
+	f.Build.BuildEnvs = []fn.Env{{
+		Name:  ptr("SERVICE_BINDING_ROOT"),
+		Value: ptr("/bindings"),
+	}}
+	f.Build.Mounts = []fn.MountSpec{{
+		Source:      gitCredsDir,
+		Destination: "/bindings/git-binding",
+	}}
 	err = builder.Build(ctx, f, nil)
 	if err != nil {
 		t.Fatal(err)
