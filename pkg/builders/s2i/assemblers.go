@@ -73,9 +73,11 @@ if [[ $(go list -f {{.Incomplete}}) == "true" ]]; then
         popd
         exit
     fi
-    exec /$STI_SCRIPTS_PATH/usage
+    /$STI_SCRIPTS_PATH/usage
+    exit 1
 else
     pushd .s2i/builds/last
+    go mod tidy
     go build -o /opt/app-root/gobinary
     popd
     popd
