@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -23,11 +24,11 @@ import (
 	. "knative.dev/func/pkg/testing"
 )
 
-var TestPlatforms = []fn.Platform{{OS: runtime.GOOS, Architecture: runtime.GOARCH}}
+var TestPlatforms = []fn.Platform{{OS: "linux", Architecture: runtime.GOARCH}}
 
-// TestBuilder_Build ensures that, when given a Go Function, an OCI-compliant
+// TestBuilder_BuildGo ensures that, when given a Go Function, an OCI-compliant
 // directory structure is created on .Build in the expected path.
-func TestBuilder_Build(t *testing.T) {
+func TestBuilder_BuildGo(t *testing.T) {
 	root, done := Mktemp(t)
 	defer done()
 
@@ -44,9 +45,39 @@ func TestBuilder_Build(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	last := path(f.Root, fn.RunDataDir, "builds", "last", "oci")
+	last := filepath.Join(f.Root, fn.RunDataDir, "builds", "last", "oci")
 
-	validateOCIStructure(last, t) // validate it adheres to the basics of the OCI spec
+	validateOCIStructure(last, t) // validate OCI compliant
+}
+
+// TestBuilder_BuildPython ensures that, when given a Python Function, an
+// OCI-compliant directory structure is created on .Build in the expected path.
+func TestBuilder_BuildPython(t *testing.T) {
+	testPython, _ := strconv.ParseBool(os.Getenv("FUNC_TEST_PYTHON"))
+	if !testPython {
+		// NOTE: language-specific tests will be integrated more wholistically
+		// in our upcoming E2E test refactor
+		t.Skip("Skipping test that requires special environment setup")
+	}
+	root, done := Mktemp(t)
+	defer done()
+
+	client := fn.New(fn.WithVerbose(true))
+
+	f, err := client.Init(fn.Function{Root: root, Runtime: "python"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	builder := NewBuilder("", true)
+
+	if err := builder.Build(context.Background(), f, TestPlatforms); err != nil {
+		t.Fatal(err)
+	}
+
+	last := filepath.Join(f.Root, fn.RunDataDir, "builds", "last", "oci")
+
+	validateOCIStructure(last, t) // validate OCI compliant
 }
 
 // TestBuilder_Files ensures that static files are added to the container
@@ -106,7 +137,7 @@ func TestBuilder_Files(t *testing.T) {
 		{Path: "/func/handle_test.go"},
 	}
 
-	last := path(f.Root, fn.RunDataDir, "builds", "last", "oci")
+	last := filepath.Join(f.Root, fn.RunDataDir, "builds", "last", "oci")
 
 	validateOCIFiles(last, expected, t)
 }
@@ -149,13 +180,16 @@ func TestBuilder_Concurrency(t *testing.T) {
 
 	// Build A
 	builder1 := NewBuilder("builder1", true)
-	builder1.buildFn = func(cfg *buildConfig, p v1.Platform) (d v1.Descriptor, l v1.Layer, err error) {
-		if isFirstBuild(cfg, p) {
+	testImplA := NewTestLanguageBuilder()
+	testImplA.WritePlatformFn = func(job buildJob, p v1.Platform) ([]imageLayer, error) {
+		if isFirstBuild(job, p) {
 			pausedCh <- true // Notify of being paused
 			<-continueCh     // Block until released
 		}
-		return
+		return []imageLayer{}, nil
 	}
+	builder1.impl = testImplA
+
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
@@ -169,8 +203,9 @@ func TestBuilder_Concurrency(t *testing.T) {
 
 	// Build B
 	builder2 := NewBuilder("builder2", true)
-	builder2.buildFn = func(config *buildConfig, platform v1.Platform) (v1.Descriptor, v1.Layer, error) {
-		return v1.Descriptor{}, nil, fmt.Errorf("the buildFn should not have been invoked")
+	testImplB := NewTestLanguageBuilder()
+	testImplB.WritePlatformFn = func(job buildJob, p v1.Platform) ([]imageLayer, error) {
+		return []imageLayer{}, fmt.Errorf("the buildFn should not have been invoked")
 	}
 	wg.Add(1)
 	go func() {
@@ -186,7 +221,7 @@ func TestBuilder_Concurrency(t *testing.T) {
 	wg.Wait()
 }
 
-func isFirstBuild(cfg *buildConfig, current v1.Platform) bool {
+func isFirstBuild(cfg buildJob, current v1.Platform) bool {
 	first := cfg.platforms[0]
 	return current.OS == first.OS &&
 		current.Architecture == first.Architecture &&
@@ -356,7 +391,7 @@ func TestBuilder_StaticEnvs(t *testing.T) {
 	// variables on each of the constituent containers.
 	// ---
 	// Get the images list (manifest descripors) from the index
-	ociPath := path(f.Root, fn.RunDataDir, "builds", "last", "oci")
+	ociPath := filepath.Join(f.Root, fn.RunDataDir, "builds", "last", "oci")
 	data, err := os.ReadFile(filepath.Join(ociPath, "index.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -418,4 +453,110 @@ func TestBuilder_StaticEnvs(t *testing.T) {
 			t.Fatalf("static env %q not found in resultant container", expected)
 		}
 	}
+}
+
+// -----------  Mock Language Builder Impl ------
+
+// TestLanguageBuilder is the language-specific builder implementation used by the
+// OCI builder for each language, and can be overridden for testing
+type TestLanguageBuilder struct {
+	BaseInvoked bool
+	BaseFn      func() string
+
+	WriteSharedInvoked bool
+	WriteSharedFn      func(buildJob) ([]imageLayer, error)
+
+	WritePlatformInvoked bool
+	WritePlatformFn      func(buildJob, v1.Platform) ([]imageLayer, error)
+
+	ConfigureInvoked bool
+	ConfigureFn      func(buildJob, v1.Platform, v1.ConfigFile) (v1.ConfigFile, error)
+}
+
+func NewTestLanguageBuilder() *TestLanguageBuilder {
+	return &TestLanguageBuilder{
+		BaseFn:          func() string { return "" },
+		WriteSharedFn:   func(buildJob) ([]imageLayer, error) { return []imageLayer{}, nil },
+		WritePlatformFn: func(buildJob, v1.Platform) ([]imageLayer, error) { return []imageLayer{}, nil },
+		ConfigureFn: func(buildJob, v1.Platform, v1.ConfigFile) (v1.ConfigFile, error) {
+			return v1.ConfigFile{}, nil
+		},
+	}
+}
+
+func (l *TestLanguageBuilder) Base() string {
+	l.BaseInvoked = true
+	return l.BaseFn()
+}
+
+func (l *TestLanguageBuilder) WriteShared(job buildJob) ([]imageLayer, error) {
+	l.WriteSharedInvoked = true
+	return l.WriteSharedFn(job)
+}
+
+func (l *TestLanguageBuilder) WritePlatform(job buildJob, p v1.Platform) ([]imageLayer, error) {
+	l.WritePlatformInvoked = true
+	return l.WritePlatformFn(job, p)
+}
+
+func (l *TestLanguageBuilder) Configure(job buildJob, p v1.Platform, c v1.ConfigFile) (v1.ConfigFile, error) {
+	l.ConfigureInvoked = true
+	return l.ConfigureFn(job, p, c)
+}
+
+// Test_validatedLinkTaarget ensures that the function disallows
+// links which are absolute or refer to targets outside the given root, in
+// addition to the basic job of returning the value of reading the link.
+func Test_validatedLinkTarget(t *testing.T) {
+	root := filepath.Join("testdata", "test-links")
+
+	err := os.Symlink("/var/example/absolute/link", filepath.Join(root, "absoluteLink"))
+	if err != nil && !errors.Is(err, os.ErrExist) {
+		t.Fatal(err)
+	}
+	err = os.Symlink("c://some/absolute/path", filepath.Join(root, "absoluteLinkWindows"))
+	if err != nil && !errors.Is(err, os.ErrExist) {
+		t.Fatal(err)
+	}
+
+	// Windows-specific absolute link and link target values:
+	absoluteLink := "absoluteLink"
+	linkTarget := "./a.txt"
+	if runtime.GOOS == "windows" {
+		absoluteLink = "absoluteLinkWindows"
+		linkTarget = ".\\a.txt"
+	}
+
+	tests := []struct {
+		path   string // path of the file within test project root
+		valid  bool   // If it should be considered valid
+		target string // optional test of the returned value (target)
+		name   string // descriptive name of the test
+	}{
+		{absoluteLink, false, "", "disallow absolute-path links on linux"},
+		{"a.lnk", true, linkTarget, "spot-check link target"},
+		{"a.lnk", true, "", "links to files within the root are allowed"},
+		{"...validName.lnk", true, "", "allow links with target of dot prefixed names"},
+		{"linkToRoot", true, "", "allow links to the project root"},
+		{"b/linkToRoot", true, "", "allow links to the project root from within subdir"},
+		{"b/linkToCurrentDir", true, "", "allow links to a subdirectory within the project"},
+		{"b/linkToRootsParent", false, "", "disallow links to the project's immediate parent"},
+		{"b/linkOutsideRootsParent", false, "", "disallow links outside project root and its parent"},
+		{"b/c/linkToParent", true, "", " allow links up, but within project"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(root, tt.path)
+			target, err := validatedLinkTarget(root, path)
+
+			if err == nil != tt.valid {
+				t.Fatalf("expected validity '%v', got '%v'", tt.valid, err)
+			}
+			if tt.target != "" && target != tt.target {
+				t.Fatalf("expected target %q, got %q", tt.target, target)
+			}
+		})
+	}
+
 }

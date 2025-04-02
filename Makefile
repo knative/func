@@ -85,21 +85,27 @@ generate/zz_filesystem_generated.go: clean_templates
 .PHONY: clean_templates
 clean_templates:
 	# Removing temporary template files
+	@rm -rf templates/**/.DS_Store
 	@rm -rf templates/node/cloudevents/node_modules
 	@rm -rf templates/node/http/node_modules
-	@rm -rf templates/python/cloudevents/__pycache__
-	@rm -rf templates/python/http/__pycache__
-	@rm -rf templates/typescript/cloudevents/node_modules
-	@rm -rf templates/typescript/http/node_modules
-	@rm -rf templates/typescript/cloudevents/build
-	@rm -rf templates/typescript/http/build
-	@rm -rf templates/rust/cloudevents/target
-	@rm -rf templates/rust/http/target
+	@rm -rf templates/python/cloudevents/.venv
+	@rm -rf templates/python/cloudevents/.pytest_cache
+	@rm -rf templates/python/cloudevents/function/__pycache__
+	@rm -rf templates/python/cloudevents/tests/__pycache__
+	@rm -rf templates/python/http/.venv
+	@rm -rf templates/python/http/.pytest_cache
+	@rm -rf templates/python/http/function/__pycache__
+	@rm -rf templates/python/http/tests/__pycache__
 	@rm -rf templates/quarkus/cloudevents/target
 	@rm -rf templates/quarkus/http/target
+	@rm -rf templates/rust/cloudevents/target
+	@rm -rf templates/rust/http/target
 	@rm -rf templates/springboot/cloudevents/target
 	@rm -rf templates/springboot/http/target
-	@rm -f templates/**/.DS_Store
+	@rm -rf templates/typescript/cloudevents/build
+	@rm -rf templates/typescript/cloudevents/node_modules
+	@rm -rf templates/typescript/http/build
+	@rm -rf templates/typescript/http/node_modules
 
 .PHONY: clean
 clean: clean_templates ## Remove generated artifacts such as binaries and schemas
@@ -151,9 +157,8 @@ test-node: ## Test Node templates
 	cd templates/node/cloudevents && npm ci && npm test && rm -rf node_modules
 	cd templates/node/http && npm ci && npm test && rm -rf node_modules
 
-test-python: ## Test Python templates
-	cd templates/python/cloudevents && pip3 install -r requirements.txt && python3 test_func.py && rm -rf __pycache__
-	cd templates/python/http && python3 test_func.py && rm -rf __pycache__
+test-python: ## Test Python templates and Scaffolding
+	test/test_python.sh
 
 test-quarkus: ## Test Quarkus templates
 	cd templates/quarkus/cloudevents && ./mvnw -q test && ./mvnw clean && rm .mvn/wrapper/maven-wrapper.jar
@@ -176,13 +181,14 @@ test-typescript: ## Test Typescript templates
 ###############
 
 # Pulls runtimes then rebuilds the embedded filesystem
-update-runtimes:  pull-runtimes generate/zz_filesystem_generated.go ## Update Scaffolding Runtimes
+update-runtimes:  update-runtime-go generate/zz_filesystem_generated.go ## Update Scaffolding Runtimes
 
-pull-runtimes:
+update-runtime-go:
 	cd templates/go/scaffolding/instanced-http && go get -u knative.dev/func-go/http
 	cd templates/go/scaffolding/static-http && go get -u knative.dev/func-go/http
 	cd templates/go/scaffolding/instanced-cloudevents && go get -u knative.dev/func-go/cloudevents
 	cd templates/go/scaffolding/static-cloudevents && go get -u knative.dev/func-go/cloudevents
+
 
 .PHONY: cert
 certs: templates/certs/ca-certificates.crt ## Update root certificates

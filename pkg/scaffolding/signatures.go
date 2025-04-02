@@ -24,11 +24,12 @@ func (s Signature) String() string {
 // is logically correct) "cloudevents" is plural in all places (variables,
 // imports, enums etc) to match the Cloudevents library and organization's
 // choice.
+// signatureMap
 var signatureMap = map[bool]map[string]Signature{
-	true: {
+	true: { // Instanced
 		"http":       InstancedHTTP,
 		"cloudevent": InstancedCloudevents},
-	false: {
+	false: { // !Instanced
 		"http":       StaticHTTP,
 		"cloudevent": StaticCloudevents},
 }

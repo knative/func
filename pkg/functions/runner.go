@@ -84,7 +84,7 @@ func getRunFunc(ctx context.Context, job *Job) (runFn func() error, err error) {
 	case "go":
 		runFn = func() error { return runGo(ctx, job) }
 	case "python":
-		err = ErrRunnerNotImplemented{runtime}
+		runFn = func() error { return runPython(ctx, job) }
 	case "java":
 		err = ErrRunnerNotImplemented{runtime}
 	case "node":
@@ -153,6 +153,86 @@ func runGo(ctx context.Context, job *Job) (err error) {
 	go func() {
 		job.Errors <- cmd.Run()
 	}()
+	return
+}
+
+func runPython(ctx context.Context, job *Job) (err error) {
+	if job.verbose {
+		fmt.Printf("cd %v\n", job.Dir())
+	}
+
+	// Create venv
+	if job.verbose {
+		fmt.Printf("python -m venv .venv\n")
+	}
+	cmd := exec.CommandContext(ctx, "python", "-m", "venv", ".venv")
+	cmd.Dir = job.Dir()
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	if err = cmd.Run(); err != nil {
+		return
+	}
+
+	// Upgrade pip
+	// Unlikely to be necessary in the majority of cases, and adds a nontrivial
+	// latency to the run process, upgrading pip is therefore disabled by
+	// default but can be enabled by setting "upgrade-pip" to "true" in the
+	// context.  For example, adding a flag --upgrade-pip to the CLI which adds
+	// the key to the context used by client.Run.
+	if upgrade, ok := ctx.Value("upgrade-pip").(bool); ok && upgrade {
+		if job.verbose {
+			fmt.Printf("./.venv/bin/pip install --upgrade pip\n")
+		}
+		cmd = exec.CommandContext(ctx, "./.venv/bin/pip", "install", "--upgrade", "pip")
+		cmd.Dir = job.Dir()
+		cmd.Stderr = os.Stderr
+		cmd.Stdout = os.Stdout
+		if err = cmd.Run(); err != nil {
+			return
+		}
+	}
+
+	// Install  dependencies
+	if job.verbose {
+		fmt.Printf("./.venv/bin/pip install .\n")
+	}
+	cmd = exec.CommandContext(ctx, "./.venv/bin/pip", "install", ".")
+	cmd.Dir = job.Dir()
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	if err = cmd.Run(); err != nil {
+		return
+	}
+
+	// Run
+	if job.verbose {
+		fmt.Printf("PORT=%v ./.venv/bin/python ./service/main.py\n", job.Port)
+	}
+	cmd = exec.CommandContext(ctx, "./.venv/bin/python", "./service/main.py")
+	// cmd.Dir = job.Function.Root // handled by the middleware
+	cmd.Dir = job.Dir()
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	// See 1.19 [release notes](https://tip.golang.org/doc/go1.19) which state:
+	//   A Cmd with a non-empty Dir field and nil Env now implicitly sets the
+	//   PWD environment variable for the subprocess to match Dir.
+	//   The new method Cmd.Environ reports the environment that would be used
+	//   to run the command, including the implicitly set PWD variable.
+	cmd.Env = append(cmd.Env, "PORT="+job.Port, "PWD="+cmd.Dir)
+
+	// Running asynchronously allows for the client Run method to return
+	// metadata about the running function such as its chosen port.
+	go func() {
+		job.Errors <- cmd.Run()
+	}()
+
+	// TODO(enhancement):  context cancellation such that we can both
+	// signal the running command process to complete (thus triggering the
+	// .Stop lifecycle handling event) and allow the following cleanup task
+	// to be run. For now just wait a moment and then immediately clean up...
+	// creating a racing condition.
+
 	return
 }
 

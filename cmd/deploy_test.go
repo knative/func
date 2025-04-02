@@ -1531,7 +1531,6 @@ func testAuthentication(cmdFn commandConstructor, t *testing.T) {
 	}
 
 	cmd := cmdFn(NewTestClient(fn.WithPusher(pusher)))
-	t.Setenv("FUNC_ENABLE_HOST_BUILDER", "true") // host builder is currently behind this feature flag
 	cmd.SetArgs([]string{"--builder", "host", "--username", testUser, "--password", testPass})
 	if err := cmd.Execute(); err != nil {
 		t.Fatal(err)

@@ -135,7 +135,7 @@ func (p *Pusher) writeIndex(ctx context.Context, ref name.Reference, ii v1.Image
 	}
 
 	if !p.Anonymous {
-		a, err := p.authOption(ctx, ref)
+		a, err := p.authOption(ctx)
 		if err != nil {
 			return err
 		}
@@ -154,7 +154,7 @@ func (p *Pusher) writeIndex(ctx context.Context, ref name.Reference, ii v1.Image
 // - Google Keychain
 // - TODO: ECR Amazon
 // - TODO: ACR Azure
-func (p *Pusher) authOption(ctx context.Context, ref name.Reference) (remote.Option, error) {
+func (p *Pusher) authOption(ctx context.Context) (remote.Option, error) {
 
 	// Basic Auth if provided
 	username, _ := ctx.Value(fn.PushUsernameKey{}).(string)
