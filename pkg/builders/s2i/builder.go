@@ -1,37 +1,21 @@
 package s2i
 
 import (
-	"archive/tar"
 	"context"
-	"crypto/sha1"
-	"encoding/hex"
 	"errors"
 	"fmt"
-	"io"
-	"io/fs"
-	"maps"
 	"net/url"
 	"os"
 	"path/filepath"
-	"regexp"
-	"runtime"
-	"slices"
 	"strings"
 
-	"github.com/docker/docker/api/types"
 	dockerClient "github.com/docker/docker/client"
-	"github.com/docker/docker/pkg/jsonmessage"
-	"github.com/google/go-containerregistry/pkg/name"
-	v1 "github.com/google/go-containerregistry/pkg/v1"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/openshift/source-to-image/pkg/api"
 	"github.com/openshift/source-to-image/pkg/api/validation"
 	"github.com/openshift/source-to-image/pkg/build"
 	"github.com/openshift/source-to-image/pkg/build/strategies"
 	s2idocker "github.com/openshift/source-to-image/pkg/docker"
 	"github.com/openshift/source-to-image/pkg/scm/git"
-	"golang.org/x/term"
-
 	"knative.dev/func/pkg/builders"
 	"knative.dev/func/pkg/docker"
 	fn "knative.dev/func/pkg/functions"
@@ -56,18 +40,12 @@ var DefaultBuilderImages = map[string]string{
 	"typescript": DefaultNodeBuilder,
 }
 
-// DockerClient is subset of dockerClient.CommonAPIClient required by this package
-type DockerClient interface {
-	ImageBuild(ctx context.Context, context io.Reader, options types.ImageBuildOptions) (types.ImageBuildResponse, error)
-	ImageInspectWithRaw(ctx context.Context, image string) (types.ImageInspect, []byte, error)
-}
-
 // Builder of functions using the s2i subsystem.
 type Builder struct {
 	name    string
 	verbose bool
 	impl    build.Builder // S2I builder implementation (aka "Strategy")
-	cli     DockerClient
+	cli     s2idocker.Client
 }
 
 type Option func(*Builder)
@@ -94,7 +72,7 @@ func WithImpl(s build.Builder) Option {
 	}
 }
 
-func WithDockerClient(cli DockerClient) Option {
+func WithDockerClient(cli s2idocker.Client) Option {
 	return func(b *Builder) {
 		b.cli = cli
 	}
@@ -165,13 +143,6 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 		}
 	}
 
-	// Build directory
-	tmp, err := os.MkdirTemp("", "func-s2i-build")
-	if err != nil {
-		return fmt.Errorf("cannot create temporary dir for s2i build: %w", err)
-	}
-	defer os.RemoveAll(tmp)
-
 	// Build Config
 	cfg := &api.Config{
 		Source: &git.URL{
@@ -185,25 +156,11 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 		PreviousImagePullPolicy: api.DefaultPreviousImagePullPolicy,
 		RuntimeImagePullPolicy:  api.DefaultRuntimeImagePullPolicy,
 		DockerConfig:            s2idocker.GetDefaultDockerConfig(),
-		AsDockerfile:            filepath.Join(tmp, "Dockerfile"),
 	}
 
 	// Scaffold
 	if cfg, err = scaffold(cfg, f); err != nil {
 		return
-	}
-
-	// Extract a an S2I script url from the image if provided and use
-	// this in the build config.
-	scriptURL, err := s2iScriptURL(ctx, client, cfg.BuilderImage)
-	if err != nil {
-		return fmt.Errorf("cannot get s2i script url: %w", err)
-	} else if scriptURL != "image:///usr/libexec/s2i" {
-		// Only set if the label found on the image is NOT the default.
-		// Otherwise this label, which is essentially a default fallback, will
-		// take precidence over any scripts provided in ./.s2i/bin, which are
-		// supposed to be the override to that default.
-		cfg.ScriptsURL = scriptURL
 	}
 
 	// Excludes
@@ -235,7 +192,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 	// Create the S2I builder instance if not overridden
 	var impl = b.impl
 	if impl == nil {
-		impl, _, err = strategies.Strategy(nil, cfg, build.Overrides{})
+		impl, _, err = strategies.Strategy(client, cfg, build.Overrides{})
 		if err != nil {
 			return fmt.Errorf("cannot create s2i builder: %w", err)
 		}
@@ -252,184 +209,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 			fmt.Fprintln(os.Stderr, message)
 		}
 	}
-
-	pr, pw := io.Pipe()
-
-	// s2i apparently is not excluding the files in --as-dockerfile mode
-	exclude := regexp.MustCompile(cfg.ExcludeRegExp)
-
-	// if exists, patch dockerfile to using cache mount
-	if _, e := os.Stat(cfg.AsDockerfile); e == nil {
-		err = patchDockerfile(cfg.AsDockerfile, f)
-		if err != nil {
-			return err
-		}
-	}
-
-	const up = ".." + string(os.PathSeparator)
-	go func() {
-		tw := tar.NewWriter(pw)
-		err := filepath.Walk(tmp, func(path string, fi fs.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-
-			p, err := filepath.Rel(tmp, path)
-			if err != nil {
-				return fmt.Errorf("cannot get relative path: %w", err)
-			}
-			if p == "." {
-				return nil
-			}
-
-			p = filepath.ToSlash(p)
-
-			if exclude.MatchString(p) {
-				return nil
-			}
-
-			lnk := ""
-			if fi.Mode()&fs.ModeSymlink != 0 {
-				lnk, err = os.Readlink(path)
-				if err != nil {
-					return fmt.Errorf("cannot read link: %w", err)
-				}
-				if filepath.IsAbs(lnk) {
-					lnk, err = filepath.Rel(tmp, lnk)
-					if err != nil {
-						return fmt.Errorf("cannot get relative path for symlink: %w", err)
-					}
-					if strings.HasPrefix(lnk, up) || lnk == ".." {
-						return fmt.Errorf("link %q points outside source root", p)
-					}
-				}
-			}
-
-			hdr, err := tar.FileInfoHeader(fi, filepath.ToSlash(lnk))
-			if err != nil {
-				return fmt.Errorf("cannot create tar header: %w", err)
-			}
-			hdr.Name = p
-
-			if runtime.GOOS == "windows" {
-				// Windows does not have execute permission, we assume that all files are executable.
-				hdr.Mode |= 0111
-			}
-
-			err = tw.WriteHeader(hdr)
-			if err != nil {
-				return fmt.Errorf("cannot write header to thar stream: %w", err)
-			}
-			if fi.Mode().IsRegular() {
-				var r io.ReadCloser
-				r, err = os.Open(path)
-				if err != nil {
-					return fmt.Errorf("cannot open source file: %w", err)
-				}
-				defer r.Close()
-
-				_, err = io.Copy(tw, r)
-				if err != nil {
-					return fmt.Errorf("cannot copy file to tar stream :%w", err)
-				}
-			}
-
-			return nil
-		})
-		_ = tw.Close()
-		_ = pw.CloseWithError(err)
-	}()
-
-	opts := types.ImageBuildOptions{
-		Tags:       []string{f.Build.Image},
-		PullParent: true,
-		Version:    types.BuilderBuildKit,
-	}
-
-	resp, err := client.ImageBuild(ctx, pr, opts)
-	if err != nil {
-		return fmt.Errorf("cannot build the app image: %w", err)
-	}
-	defer resp.Body.Close()
-
-	var out io.Writer = io.Discard
-	if b.verbose {
-		out = os.Stderr
-	}
-
-	var isTerminal bool
-	var fd uintptr
-	if outF, ok := out.(*os.File); ok {
-		fd = outF.Fd()
-		isTerminal = term.IsTerminal(int(outF.Fd()))
-	}
-
-	return jsonmessage.DisplayJSONMessagesStream(resp.Body, out, fd, isTerminal, nil)
-}
-
-func patchDockerfile(path string, f fn.Function) error {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return err
-	}
-	re := regexp.MustCompile(`RUN (.*assemble)`)
-	s := sha1.Sum([]byte(f.Root))
-	mountCmd := "--mount=type=cache,target=/tmp/artifacts/,uid=1001,id=" + hex.EncodeToString(s[:8])
-	replacement := fmt.Sprintf("RUN %s \\\n    $1", mountCmd)
-	newDockerFileStr := re.ReplaceAllString(string(data), replacement)
-
-	return os.WriteFile(path, []byte(newDockerFileStr), 0644)
-}
-
-func s2iScriptURL(ctx context.Context, cli DockerClient, image string) (string, error) {
-	img, _, err := cli.ImageInspectWithRaw(ctx, image)
-	if err != nil {
-		if dockerClient.IsErrNotFound(err) { // image is not in the daemon, get info directly from registry
-			var (
-				ref name.Reference
-				img v1.Image
-				cfg *v1.ConfigFile
-			)
-
-			ref, err = name.ParseReference(image)
-			if err != nil {
-				return "", fmt.Errorf("cannot parse image name: %w", err)
-			}
-			if _, ok := ref.(name.Tag); ok && !slices.Contains(slices.Collect(maps.Values(DefaultBuilderImages)), image) {
-				fmt.Fprintln(os.Stderr, "image referenced by tag which is discouraged: Tags are mutable and can point to a different artifact than the expected one")
-			}
-			img, err = remote.Image(ref)
-			if err != nil {
-				return "", fmt.Errorf("cannot get image from registry: %w", err)
-			}
-			cfg, err = img.ConfigFile()
-			if err != nil {
-				return "", fmt.Errorf("cannot get config for image: %w", err)
-			}
-
-			if cfg.Config.Labels != nil {
-				if u, ok := cfg.Config.Labels["io.openshift.s2i.scripts-url"]; ok {
-					return u, nil
-				}
-			}
-		}
-		return "", err
-	}
-
-	if img.Config != nil && img.Config.Labels != nil {
-		if u, ok := img.Config.Labels["io.openshift.s2i.scripts-url"]; ok {
-			return u, nil
-		}
-	}
-
-	//nolint:staticcheck
-	if img.ContainerConfig != nil && img.ContainerConfig.Labels != nil {
-		if u, ok := img.ContainerConfig.Labels["io.openshift.s2i.scripts-url"]; ok {
-			return u, nil
-		}
-	}
-
-	return "", nil
+	return nil
 }
 
 // Builder Image chooses the correct builder image or defaults.

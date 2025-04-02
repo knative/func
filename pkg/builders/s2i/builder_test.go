@@ -1,28 +1,17 @@
 package s2i_test
 
 import (
-	"archive/tar"
-	"bytes"
 	"context"
 	"errors"
-	"fmt"
 	"io"
-	"log"
-	"net"
-	"net/http"
-	"os"
-	"path/filepath"
-	"strings"
 	"testing"
-
-	"github.com/google/go-containerregistry/pkg/name"
-	"github.com/google/go-containerregistry/pkg/registry"
-	"github.com/google/go-containerregistry/pkg/v1/remote"
-	"github.com/google/go-containerregistry/pkg/v1/tarball"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/errdefs"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 
 	"github.com/openshift/source-to-image/pkg/api"
 
@@ -165,70 +154,6 @@ func Test_BuilderImageConfigurable(t *testing.T) {
 	}
 }
 
-// Test_BuildImageWithFuncIgnore ensures that ignored files are not added to
-// the func image
-func Test_BuildImageWithFuncIgnore(t *testing.T) {
-
-	funcIgnoreContent := []byte(`#testing Comments
-#testingComments.txt
-hello.txt
-`)
-	f := fn.Function{
-		Runtime: "node",
-	}
-	tempdir := t.TempDir()
-	f.Root = tempdir
-	//create a .funcignore file containing the details of the files to be ignored
-	err := os.WriteFile(filepath.Join(f.Root, ".funcignore"), funcIgnoreContent, 0644)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// creating test files which should be ignored
-	err = os.WriteFile(filepath.Join(f.Root, "hello.txt"), []byte(""), 0644)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = os.WriteFile(filepath.Join(f.Root, "#testingComments.txt"), []byte(""), 0644)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	cli := mockDocker{
-		build: func(ctx context.Context, context io.Reader, options types.ImageBuildOptions) (types.ImageBuildResponse, error) {
-			tr := tar.NewReader(context)
-			for {
-				hdr, err := tr.Next()
-				if err != nil {
-					if errors.Is(err, io.EOF) {
-						break
-					}
-					return types.ImageBuildResponse{}, err
-				}
-
-				// If we find the undesired file, return an error
-				if filepath.Base(hdr.Name) == "hello.txt" {
-					return types.ImageBuildResponse{}, fmt.Errorf("test failed, found ignonered file %s:", filepath.Base(hdr.Name))
-				}
-				// If we find the undesired file, return an error
-				if filepath.Base(hdr.Name) == "#tesingComments.txt" {
-					return types.ImageBuildResponse{}, fmt.Errorf("test failed, found ignonered file %s:", filepath.Base(hdr.Name))
-				}
-
-			}
-			return types.ImageBuildResponse{
-				Body:   io.NopCloser(strings.NewReader(`{"stream": "OK!"}`)),
-				OSType: "linux",
-			}, nil
-		},
-	}
-	b := s2i.NewBuilder(s2i.WithName(builders.S2I), s2i.WithDockerClient(cli))
-	if err := b.Build(context.Background(), f, nil); err != nil {
-		t.Fatal(err)
-	}
-}
-
 // Test_Verbose ensures that the verbosity flag is propagated to the
 // S2I builder implementation.
 func Test_BuilderVerbose(t *testing.T) {
@@ -284,192 +209,15 @@ func Test_BuildEnvs(t *testing.T) {
 	}
 }
 
-func TestS2IScriptURL(t *testing.T) {
-	testRegistry := startRegistry(t)
-
-	// builder that is only in registry not in daemon
-	remoteBuilder := testRegistry + "/default/builder:remote"
-	// builder that is in daemon
-	localBuilder := "example.com/default/builder:local"
-
-	// begin push testing builder to registry
-	tag, err := name.NewTag(remoteBuilder)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	img, err := tarball.ImageFromPath(filepath.Join("testdata", "builder.tar"), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = remote.Write(&tag, img)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// end push testing builder to registry
-
-	scriptURL := "image:///usr/local/s2i"
-	cli := mockDocker{
-		inspect: func(ctx context.Context, image string) (types.ImageInspect, []byte, error) {
-			if image != localBuilder {
-				return types.ImageInspect{}, nil, notFoundErr{}
-			}
-			return types.ImageInspect{
-				Config: &container.Config{Labels: map[string]string{"io.openshift.s2i.scripts-url": scriptURL}},
-			}, nil, nil
-		},
-	}
-	impl := &mockImpl{
-		BuildFn: func(config *api.Config) (*api.Result, error) {
-			if config.ScriptsURL != scriptURL {
-				return nil, fmt.Errorf("unexepeted ScriptURL: %q", config.ScriptsURL)
-			}
-			return nil, nil
-		},
-	}
-
-	tests := []struct {
-		name         string
-		builderImage string
-	}{
-		{name: "builder in daemon", builderImage: localBuilder},
-		{name: "builder not in daemon", builderImage: remoteBuilder},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			f := fn.Function{
-				Runtime: "node",
-				Build: fn.BuildSpec{
-					BuilderImages: map[string]string{
-						builders.S2I: tt.builderImage,
-					},
-				},
-			}
-
-			b := s2i.NewBuilder(s2i.WithName(builders.S2I), s2i.WithImpl(impl), s2i.WithDockerClient(cli))
-			err = b.Build(context.Background(), f, nil)
-			if err != nil {
-				t.Error(err)
-			}
-		})
-	}
-
-}
-
-func startRegistry(t *testing.T) (addr string) {
-	s := http.Server{
-		Handler: registry.New(registry.Logger(log.New(io.Discard, "", 0))),
-	}
-	t.Cleanup(func() { s.Close() })
-
-	l, err := net.Listen("tcp", "localhost:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	addr = l.Addr().String()
-
-	go func() {
-		err = s.Serve(l)
-		if err != nil && !errors.Is(err, net.ErrClosed) {
-			fmt.Fprintln(os.Stderr, "ERROR: ", err)
-		}
-	}()
-
-	return addr
-}
-
-func TestBuildContextUpload(t *testing.T) {
-
-	dockerfileContent := []byte("FROM scratch\nLABEL A=42")
-	atxtContent := []byte("hello world!\n")
-
-	cli := mockDocker{
-		build: func(ctx context.Context, context io.Reader, options types.ImageBuildOptions) (types.ImageBuildResponse, error) {
-			tr := tar.NewReader(context)
-			for {
-				hdr, err := tr.Next()
-				if err != nil {
-					if errors.Is(err, io.EOF) {
-						break
-					}
-					return types.ImageBuildResponse{}, err
-				}
-				switch hdr.Name {
-				case ".":
-				case "Dockerfile":
-					bs, err := io.ReadAll(tr)
-					if err != nil {
-						return types.ImageBuildResponse{}, err
-					}
-					if !bytes.Equal(bs, dockerfileContent) {
-						return types.ImageBuildResponse{}, errors.New("bad content for Dockerfile")
-					}
-				case "a.txt":
-					bs, err := io.ReadAll(tr)
-					if err != nil {
-						return types.ImageBuildResponse{}, err
-					}
-					if !bytes.Equal(bs, atxtContent) {
-						return types.ImageBuildResponse{}, errors.New("bad content for a.txt")
-					}
-				default:
-					return types.ImageBuildResponse{}, fmt.Errorf("unexpected file or directory: %q", hdr.Name)
-				}
-			}
-			return types.ImageBuildResponse{
-				Body:   io.NopCloser(strings.NewReader(`{"stream": "OK!"}`)),
-				OSType: "linux",
-			}, nil
-		},
-	}
-
-	impl := &mockImpl{
-		BuildFn: func(config *api.Config) (*api.Result, error) {
-			err := os.WriteFile(config.AsDockerfile, dockerfileContent, 0644)
-			if err != nil {
-				return nil, err
-			}
-			err = os.WriteFile(filepath.Join(filepath.Dir(config.AsDockerfile), "a.txt"), atxtContent, 0644)
-			if err != nil {
-				return nil, err
-			}
-			err = os.Mkdir(filepath.Join(filepath.Dir(config.AsDockerfile), "node_modules"), 0755)
-			if err != nil {
-				return nil, err
-			}
-
-			return nil, nil
-		},
-	}
-
-	f := fn.Function{
-		Runtime: "node",
-	}
-	b := s2i.NewBuilder(s2i.WithImpl(impl), s2i.WithDockerClient(cli))
-	err := b.Build(context.Background(), f, nil)
-	if err != nil {
-		t.Error(err)
-	}
-}
-
 func TestBuildFail(t *testing.T) {
 	cli := mockDocker{
-		build: func(ctx context.Context, context io.Reader, options types.ImageBuildOptions) (types.ImageBuildResponse, error) {
-			return types.ImageBuildResponse{
-				Body:   io.NopCloser(strings.NewReader(`{"errorDetail": {"message": "Error: this is expected"}}`)),
-				OSType: "linux",
-			}, nil
+		inspect: func(ctx context.Context, image string) (types.ImageInspect, []byte, error) {
+			return types.ImageInspect{}, nil, errors.New("this is expected")
 		},
 	}
-	impl := &mockImpl{
-		BuildFn: func(config *api.Config) (*api.Result, error) {
-			return &api.Result{Success: true}, nil
-		},
-	}
-	b := s2i.NewBuilder(s2i.WithImpl(impl), s2i.WithDockerClient(cli))
+	b := s2i.NewBuilder(s2i.WithDockerClient(cli))
 	err := b.Build(context.Background(), fn.Function{Runtime: "node"}, nil)
-	if err == nil || !strings.Contains(err.Error(), "Error: this is expected") {
+	if err == nil {
 		t.Error("didn't get expected error")
 	}
 }
@@ -485,7 +233,6 @@ func (i *mockImpl) Build(cfg *api.Config) (*api.Result, error) {
 
 type mockDocker struct {
 	inspect func(ctx context.Context, image string) (types.ImageInspect, []byte, error)
-	build   func(ctx context.Context, context io.Reader, options types.ImageBuildOptions) (types.ImageBuildResponse, error)
 }
 
 func (m mockDocker) ImageInspectWithRaw(ctx context.Context, image string) (types.ImageInspect, []byte, error) {
@@ -497,15 +244,60 @@ func (m mockDocker) ImageInspectWithRaw(ctx context.Context, image string) (type
 }
 
 func (m mockDocker) ImageBuild(ctx context.Context, context io.Reader, options types.ImageBuildOptions) (types.ImageBuildResponse, error) {
-	if m.build != nil {
-		return m.build(ctx, context, options)
-	}
+	panic("implement me")
+}
 
-	_, _ = io.Copy(io.Discard, context)
-	return types.ImageBuildResponse{
-		Body:   io.NopCloser(strings.NewReader("")),
-		OSType: "linux",
-	}, nil
+func (m mockDocker) ContainerAttach(ctx context.Context, container string, options container.AttachOptions) (types.HijackedResponse, error) {
+	panic("implement me")
+}
+
+func (m mockDocker) ContainerCommit(ctx context.Context, container string, options container.CommitOptions) (types.IDResponse, error) {
+	panic("implement me")
+}
+
+func (m mockDocker) ContainerCreate(ctx context.Context, config *container.Config, hostConfig *container.HostConfig, networkingConfig *network.NetworkingConfig, platform *ocispec.Platform, containerName string) (container.CreateResponse, error) {
+	panic("implement me")
+}
+
+func (m mockDocker) ContainerInspect(ctx context.Context, container string) (types.ContainerJSON, error) {
+	panic("implement me")
+}
+
+func (m mockDocker) ContainerRemove(ctx context.Context, container string, options container.RemoveOptions) error {
+	panic("implement me")
+}
+
+func (m mockDocker) ContainerStart(ctx context.Context, container string, options container.StartOptions) error {
+	panic("implement me")
+}
+
+func (m mockDocker) ContainerKill(ctx context.Context, container, signal string) error {
+	panic("implement me")
+}
+
+func (m mockDocker) ContainerWait(ctx context.Context, container string, condition container.WaitCondition) (<-chan container.WaitResponse, <-chan error) {
+	panic("implement me")
+}
+
+func (m mockDocker) CopyToContainer(ctx context.Context, container, path string, content io.Reader, opts container.CopyToContainerOptions) error {
+	panic("implement me")
+}
+
+func (m mockDocker) CopyFromContainer(ctx context.Context, container, srcPath string) (io.ReadCloser, container.PathStat, error) {
+	panic("implement me")
+}
+
+func (m mockDocker) ImagePull(ctx context.Context, ref string, options image.PullOptions) (io.ReadCloser, error) {
+	panic("implement me")
+}
+
+func (m mockDocker) ImageRemove(ctx context.Context, image string, options image.RemoveOptions) ([]image.DeleteResponse, error) {
+	panic("implement me")
+}
+
+func (m mockDocker) ServerVersion(ctx context.Context) (types.Version, error) {
+
+	panic("implement me")
 }
 
 type notFoundErr struct {
