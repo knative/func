@@ -136,9 +136,6 @@ password=nbusr123
 	for _, tt := range testCases {
 		var f = f
 		t.Run(tt.Name, func(t *testing.T) {
-			if tt.Name == "s2i" {
-				t.Skip("s2i bind not implemented yet")
-			}
 			f.Build.Image = "localhost:50000/go-app:test-" + tt.Name
 			f.Build.Builder = tt.Name
 			f.Build.BuilderImages = map[string]string{

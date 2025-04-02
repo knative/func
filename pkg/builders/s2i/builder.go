@@ -184,6 +184,10 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 		cfg.Environment = append(cfg.Environment, api.EnvironmentSpec{Name: k, Value: v})
 	}
 
+	for _, m := range f.Build.Mounts {
+		cfg.BuildVolumes = append(cfg.BuildVolumes, fmt.Sprintf("%s:%s:ro,Z", m.Source, m.Destination))
+	}
+
 	if runtime.GOOS == "linux" {
 		cfg.DockerNetworkMode = "host"
 	}
