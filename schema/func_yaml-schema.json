@@ -49,7 +49,7 @@
 					"type": "string",
 					"description": "RemoteStorageClass specifies the storage class to use for the volume used\non-cluster during when built remotely."
 				},
-				"mounts": {
+				"volumes": {
 					"items": {
 						"$schema": "http://json-schema.org/draft-04/schema#",
 						"$ref": "#/definitions/MountSpec"
@@ -279,15 +279,17 @@
 		},
 		"MountSpec": {
 			"required": [
-				"source",
-				"destination"
+				"hostPath",
+				"path"
 			],
 			"properties": {
-				"source": {
-					"type": "string"
+				"hostPath": {
+					"type": "string",
+					"description": "Path on the local machine"
 				},
-				"destination": {
-					"type": "string"
+				"path": {
+					"type": "string",
+					"description": "Path in the build container"
 				}
 			},
 			"additionalProperties": false,
