@@ -86,7 +86,7 @@ func scaffold(ctx context.Context) error {
 		return fmt.Errorf("cannot load func project: %w", err)
 	}
 
-	if f.Runtime != "go" {
+	if f.Runtime != "go" && f.Runtime != "python" {
 		// Scaffolding is for now supported/needed only for Go.
 		return nil
 	}
@@ -108,7 +108,17 @@ func scaffold(ctx context.Context) error {
 		return fmt.Errorf("unable to create .s2i bin dir. %w", err)
 	}
 
-	if err := os.WriteFile(filepath.Join(f.Root, ".s2i", "bin", "assemble"), []byte(s2i.GoAssembler), 0755); err != nil {
+	var asm string
+	switch f.Runtime {
+	case "go":
+		asm = s2i.GoAssembler
+	case "python":
+		asm = s2i.PythonAssembler
+	default:
+		panic("unreachable")
+	}
+
+	if err := os.WriteFile(filepath.Join(f.Root, ".s2i", "bin", "assemble"), []byte(asm), 0755); err != nil {
 		return fmt.Errorf("unable to write go assembler. %w", err)
 	}
 
