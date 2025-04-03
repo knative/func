@@ -150,12 +150,12 @@ type BuildSpec struct {
 	Image string `yaml:"-"`
 
 	// Mounts used in build phase. This is useful in particular for paketo bindings.
-	Mounts []MountSpec `yaml:"mounts,omitempty"`
+	Mounts []MountSpec `yaml:"volumes,omitempty"`
 }
 
 type MountSpec struct {
-	Source      string `yaml:"source"`
-	Destination string `yaml:"destination"`
+	Source      string `yaml:"hostPath"`
+	Destination string `yaml:"path"`
 }
 
 // RunSpec
