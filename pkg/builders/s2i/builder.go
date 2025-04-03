@@ -7,6 +7,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	dockerClient "github.com/docker/docker/client"
@@ -181,6 +182,14 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 	buildEnvs["LISTEN_ADDRESS"] = "0.0.0.0:8080"
 	for k, v := range buildEnvs {
 		cfg.Environment = append(cfg.Environment, api.EnvironmentSpec{Name: k, Value: v})
+	}
+
+	for _, m := range f.Build.Mounts {
+		cfg.BuildVolumes = append(cfg.BuildVolumes, fmt.Sprintf("%s:%s:ro,Z", m.Source, m.Destination))
+	}
+
+	if runtime.GOOS == "linux" {
+		cfg.DockerNetworkMode = "host"
 	}
 
 	// Validate the config

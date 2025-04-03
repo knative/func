@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"knative.dev/func/pkg/builders/buildpacks"
+	"knative.dev/func/pkg/builders/s2i"
 	fn "knative.dev/func/pkg/functions"
 	"knative.dev/func/pkg/k8s"
 )
@@ -52,9 +53,6 @@ func TestPrivateGitRepository(t *testing.T) {
 
 	certDir := createCertificate(t)
 	t.Log("certDir:", certDir)
-
-	builderImage := buildPatchedBuilder(ctx, t, certDir)
-	t.Log("builder image:", builderImage)
 
 	servePrivateGit(ctx, t, certDir)
 	t.Log("git server initiated")
@@ -81,25 +79,76 @@ password=nbusr123
 		t.Fatal(err)
 	}
 
-	builder := buildpacks.NewBuilder(buildpacks.WithVerbose(true))
+	netrc := filepath.Join(t.TempDir(), ".netrc")
+	netrcContent := `machine git-private.127.0.0.1.sslip.io login developer password nbusr123`
+	err = os.WriteFile(netrc, []byte(netrcContent), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	f, err := fn.NewFunction(filepath.Join("testdata", "go-fn-with-private-deps"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	f.Build.Image = "localhost:50000/go-app:test"
-	f.Build.Builder = "pack"
-	f.Build.BuilderImages = map[string]string{"pack": builderImage}
-	f.Build.BuildEnvs = []fn.Env{{
-		Name:  ptr("SERVICE_BINDING_ROOT"),
-		Value: ptr("/bindings"),
-	}}
-	f.Build.Mounts = []fn.MountSpec{{
-		Source:      gitCredsDir,
-		Destination: "/bindings/git-binding",
-	}}
-	err = builder.Build(ctx, f, nil)
-	if err != nil {
-		t.Fatal(err)
+	f.Build.BuildEnvs = []fn.Env{
+		{
+			Name:  ptr("GOPRIVATE"),
+			Value: ptr("*.127.0.0.1.sslip.io"),
+		},
+	}
+
+	testCases := []struct {
+		Name         string
+		Builder      fn.Builder
+		BuilderImage func(ctx context.Context, t *testing.T, certDir string) string
+		Envs         []fn.Env
+		Mounts       []fn.MountSpec
+	}{
+		{
+			Name:         "s2i",
+			Builder:      s2i.NewBuilder(s2i.WithVerbose(true)),
+			BuilderImage: buildPatchedS2IBuilder,
+			Mounts: []fn.MountSpec{
+				{
+					Source:      netrc,
+					Destination: "/opt/app-root/src/.netrc",
+				}},
+		},
+		{
+			Name:         "pack",
+			Builder:      buildpacks.NewBuilder(buildpacks.WithVerbose(true)),
+			BuilderImage: buildPatcheBuildpackBuilder,
+			Envs: []fn.Env{
+				{
+					Name:  ptr("SERVICE_BINDING_ROOT"),
+					Value: ptr("/bindings"),
+				},
+			},
+			Mounts: []fn.MountSpec{
+				{
+					Source:      gitCredsDir,
+					Destination: "/bindings/git-binding",
+				},
+			},
+		},
+	}
+
+	for _, tt := range testCases {
+		var f = f
+		t.Run(tt.Name, func(t *testing.T) {
+			f.Build.Image = "localhost:50000/go-app:test-" + tt.Name
+			f.Build.Builder = tt.Name
+			f.Build.BuilderImages = map[string]string{
+				tt.Name: tt.BuilderImage(ctx, t, certDir),
+			}
+			f.Build.Mounts = append(f.Build.Mounts, tt.Mounts...)
+			f.Build.BuildEnvs = append(f.Build.BuildEnvs, tt.Envs...)
+
+			err = tt.Builder.Build(ctx, f, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }
 
@@ -178,16 +227,34 @@ func randSN() *big.Int {
 	return i
 }
 
+// Builds a s2i Golang builder that trusts to our self-signed certificate (see createCertificate).
+func buildPatchedS2IBuilder(ctx context.Context, t *testing.T, certDir string) string {
+	tag := "localhost:50000/go-toolset:test"
+	dockerfile := `FROM registry.access.redhat.com/ubi8/go-toolset:latest
+COPY 712d4c9d.0 /etc/pki/ca-trust/source/anchors/
+USER 0:0
+RUN update-ca-trust
+USER 1001:0
+`
+	return buildPatchedBuilder(ctx, t, tag, dockerfile, certDir)
+}
+
 // Builds a tiny paketo builder that trusts to our self-signed certificate (see createCertificate).
-func buildPatchedBuilder(ctx context.Context, t *testing.T, certDir string) string {
+func buildPatcheBuildpackBuilder(ctx context.Context, t *testing.T, certDir string) string {
+	tag := "localhost:50000/builder-jammy-tin:test"
+	dockerfile := `FROM ghcr.io/knative/builder-jammy-tiny:latest
+COPY 712d4c9d.0 /etc/ssl/certs/
+`
+	return buildPatchedBuilder(ctx, t, tag, dockerfile, certDir)
+}
+
+// Builds an image with specified tag from specified dockerfile.
+// This function also injects self-signed as "712d4c9d.0" into the build context.
+func buildPatchedBuilder(ctx context.Context, t *testing.T, tag, dockerfile, certDir string) string {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	dockerfile := `FROM ghcr.io/knative/builder-jammy-tiny:latest
-COPY 712d4c9d.0 /etc/ssl/certs/
-`
 
 	var buff bytes.Buffer
 	tw := tar.NewWriter(&buff)
@@ -227,7 +294,6 @@ COPY 712d4c9d.0 /etc/ssl/certs/
 		t.Fatal(err)
 	}
 
-	tag := "localhost:50000/tiny-builder:test"
 	ibo := types.ImageBuildOptions{
 		Tags: []string{tag},
 	}
