@@ -284,10 +284,12 @@
 			],
 			"properties": {
 				"hostPath": {
-					"type": "string"
+					"type": "string",
+					"description": "Path on the local machine"
 				},
 				"path": {
-					"type": "string"
+					"type": "string",
+					"description": "Path in the build container"
 				}
 			},
 			"additionalProperties": false,

@@ -154,7 +154,9 @@ type BuildSpec struct {
 }
 
 type MountSpec struct {
-	Source      string `yaml:"hostPath"`
+	// Path on the local machine
+	Source string `yaml:"hostPath"`
+	// Path in the build container
 	Destination string `yaml:"path"`
 }
 
