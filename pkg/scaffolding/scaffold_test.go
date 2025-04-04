@@ -82,6 +82,11 @@ func New() *F { return nil }
 		t.Fatal(err)
 	}
 
+	err = os.WriteFile(filepath.Join(root, "go.mod"), []byte("module foo"), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	// The output destination for the scaffolding
 	out := filepath.Join(root, "out")
 
