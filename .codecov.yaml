@@ -6,6 +6,6 @@ coverage:
         threshold: 4%
     patch:
       default: false
-  comment:
-    layout: reach, diff, flags, files
-    behavior: default
+comment:
+  layout: reach, diff, flags, files
+  behavior: default
