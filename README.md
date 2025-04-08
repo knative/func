@@ -5,7 +5,6 @@
 [![Issues](https://img.shields.io/github/issues/knative/func.svg)](https://github.com/knative/func/issues)
 [![License](https://img.shields.io/github/license/knative/func)](https://github.com/knative/func/blob/main/LICENSE)
 [![Releases](https://img.shields.io/github/v/release/knative/func.svg?label=Release)](https://github.com/knative/func/releases)
-[![codecov](https://codecov.io/gh/knative/func/branch/main/graph/badge.svg)](https://codecov.io/gh/knative/func)
 
 `func` is a Client Library and CLI enabling the development and deployment of Functions.
 
