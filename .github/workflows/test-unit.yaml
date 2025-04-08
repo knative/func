@@ -71,4 +71,5 @@ jobs:
           flags: unit-tests-${{ matrix.os }}
           name: codecov-${{ matrix.os }}
           fail_ci_if_error: true
+          verbose: true
 
