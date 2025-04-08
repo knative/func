@@ -64,8 +64,9 @@ jobs:
 #          files: ./coverage-ubuntu-latest/coverage.txt,./coverage-windows-latest/coverage.txt,./coverage-macos-latest/coverage.txt
 #          flags: unit-tests
       - name: Upload coverage to Codecov
-      - uses: codecov/codecov-action@v5        
+        uses: codecov/codecov-action@v5        
         with:
+          token: ${{ CODECOV_TOKEN }}
           files: coverage.txt
           flags: unit-tests-${{ matrix.os }}
           name: codecov-${{ matrix.os }}

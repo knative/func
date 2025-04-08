@@ -7,5 +7,5 @@ coverage:
     patch:
       default: false
 comment:
-  layout: reach, diff, flags, files
+  layout: "reach, diff, flags, files"
   behavior: default
