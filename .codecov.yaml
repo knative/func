@@ -9,3 +9,10 @@ coverage:
 comment:
   layout: "reach, diff, flags, files"
   behavior: default
+ignore:
+  - "testdata"
+  - "**/*_generated.go"
+  - "templates"
+  - "hack"
+  - "test"
+  - "third_party"
