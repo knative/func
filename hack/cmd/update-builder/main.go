@@ -833,7 +833,7 @@ func fixupGoBuildpackARM64(ctx context.Context, config *builder.Config) error {
 	)
 	for i, moduleConfig := range config.Buildpacks {
 		uri := moduleConfig.ImageOrURI.URI
-		if strings.Contains(uri, "paketo-buildpacks/go:") {
+		if strings.Contains(uri, "buildpacks/go:") {
 			goBuildpackIndex = i
 			goBuildpackVersion = uri[strings.LastIndex(uri, ":")+1:]
 			break
