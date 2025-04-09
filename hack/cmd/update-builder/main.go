@@ -132,6 +132,11 @@ func buildBuilderImage(ctx context.Context, variant, arch string) (string, error
 		return "", fmt.Errorf("cannot parse builder.toml: %w", err)
 	}
 
+	err = fixupStacks(ctx, &builderConfig)
+	if err != nil {
+		return "", fmt.Errorf("cannot fix up stacks: %w", err)
+	}
+
 	// temporary fix, for some reason paketo does not distribute several buildpacks for ARM64
 	// we need ot fix that up
 	if arch == "arm64" {
@@ -1036,5 +1041,49 @@ func fixupGoDistPkgRefs(buildpackToml, arch string) error {
 		return err
 	}
 
+	return nil
+}
+
+func fixupStacks(ctx context.Context, builderConfig *builder.Config) error {
+	var err error
+
+	oldBuild := builderConfig.Stack.BuildImage
+	parts := strings.Split(oldBuild, "/")
+	newBuilder := "localhost:5000/" + parts[len(parts)-1]
+	err = copyImage(ctx, oldBuild, newBuilder)
+	if err != nil {
+		return fmt.Errorf("cannot mirror build image: %w", err)
+	}
+	builderConfig.Stack.BuildImage = newBuilder
+	builderConfig.Build.Image = newBuilder
+
+	oldRun := builderConfig.Stack.RunImage
+	parts = strings.Split(oldRun, "/")
+	newRun := "ghcr.io/knative/" + parts[len(parts)-1]
+	err = copyImage(ctx, oldRun, newRun)
+	if err != nil {
+		return fmt.Errorf("cannot mirror build image: %w", err)
+	}
+
+	builderConfig.Stack.RunImage = newRun
+	builderConfig.Run.Images = []builder.RunImageConfig{{
+		Image: newRun,
+	}}
+	return nil
+}
+
+func copyImage(ctx context.Context, srcRef, destRef string) error {
+	_, _ = fmt.Fprintf(os.Stderr, "copying: %s => %s\n", srcRef, destRef)
+	cmd := exec.CommandContext(ctx, "skopeo", "copy",
+		"--multi-arch=all",
+		"docker://"+srcRef,
+		"docker://"+destRef,
+	)
+	cmd.Stderr = os.Stderr
+	cmd.Stdout = os.Stdout
+	err := cmd.Run()
+	if err != nil {
+		return fmt.Errorf("error while running skopeo: %w", err)
+	}
 	return nil
 }
