@@ -642,7 +642,7 @@ func updateJavaBuildpacks(ctx context.Context, builderConfig *builder.Config, ar
 				return fmt.Errorf("cannot build %q buildpack: %w", bp, err)
 			}
 			for i := range builderConfig.Buildpacks {
-				if strings.HasPrefix(builderConfig.Buildpacks[i].URI, "docker://gcr.io/paketo-buildpacks/"+bp+":") {
+				if strings.HasPrefix(builderConfig.Buildpacks[i].URI, "docker://docker.io/paketobuildpacks/"+bp+":") {
 					builderConfig.Buildpacks[i].URI = "docker://ghcr.io/knative/buildpacks/" + bp + ":" + entry.Group[0].Version
 				}
 			}
