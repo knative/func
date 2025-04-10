@@ -86,28 +86,6 @@ func buildBuilderImage(ctx context.Context, variant, arch string) (string, error
 		_ = os.RemoveAll(path)
 	}(buildDir)
 
-	ghClient := newGHClient(ctx)
-	listOpts := &github.ListOptions{Page: 0, PerPage: 1}
-	releases, ghResp, err := ghClient.Repositories.ListReleases(ctx, "paketo-buildpacks", "builder-jammy-"+variant, listOpts)
-	if err != nil {
-		return "", fmt.Errorf("cannot get upstream builder release: %w", err)
-	}
-	defer func(Body io.ReadCloser) {
-		_ = Body.Close()
-	}(ghResp.Body)
-
-	if len(releases) <= 0 {
-		return "", fmt.Errorf("cannot get latest release")
-	}
-
-	release := releases[0]
-
-	if release.Name == nil {
-		return "", fmt.Errorf("the name of the release is not defined")
-	}
-	if release.TarballURL == nil {
-		return "", fmt.Errorf("the tarball url of the release is not defined")
-	}
 	newBuilderImage := "ghcr.io/knative/builder-jammy-" + variant
 	newBuilderImageTagged := newBuilderImage + ":" + *release.Name + "-" + arch
 
@@ -305,7 +283,7 @@ func buildBuilderImageMultiArch(ctx context.Context, variant string) error {
 
 		var imgName string
 
-		imgName, err = buildBuilderImage(ctx, variant, arch)
+		imgName, err = buildBuilderImage(ctx, variant, arch, release)
 		if err != nil {
 			return err
 		}
