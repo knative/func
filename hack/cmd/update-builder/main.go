@@ -77,17 +77,10 @@ func main() {
 	}
 }
 
-func buildBuilderImage(ctx context.Context, variant, arch string) (string, error) {
-	buildDir, err := os.MkdirTemp("", "")
-	if err != nil {
-		return "", fmt.Errorf("cannot create temporary build directory: %w", err)
-	}
-	defer func(path string) {
-		_ = os.RemoveAll(path)
-	}(buildDir)
+func buildBuilderImage(ctx context.Context, variant, version, arch, builderTomlPath string) (string, error) {
 
 	newBuilderImage := "ghcr.io/knative/builder-jammy-" + variant
-	newBuilderImageTagged := newBuilderImage + ":" + *release.Name + "-" + arch
+	newBuilderImageTagged := newBuilderImage + ":" + version + "-" + arch
 
 	ref, err := name.ParseReference(newBuilderImageTagged)
 	if err != nil {
@@ -97,12 +90,6 @@ func buildBuilderImage(ctx context.Context, variant, arch string) (string, error
 	if err == nil {
 		fmt.Fprintln(os.Stderr, "The image has been already built.")
 		return newBuilderImage + "@" + desc.Digest.String(), nil
-	}
-
-	builderTomlPath := filepath.Join(buildDir, "builder.toml")
-	err = downloadBuilderToml(ctx, *release.TarballURL, builderTomlPath)
-	if err != nil {
-		return "", fmt.Errorf("cannot download builder toml: %w", err)
 	}
 
 	builderConfig, _, err := builder.ReadConfig(builderTomlPath)
@@ -143,7 +130,7 @@ func buildBuilderImage(ctx context.Context, variant, arch string) (string, error
 	}
 
 	createBuilderOpts := pack.CreateBuilderOptions{
-		RelativeBaseDir: buildDir,
+		RelativeBaseDir: filepath.Dir(builderTomlPath),
 		Targets: []dist.Target{
 			{
 				OS:   "linux",
@@ -159,7 +146,7 @@ func buildBuilderImage(ctx context.Context, variant, arch string) (string, error
 			"org.opencontainers.image.source":      "https://github.com/knative/func",
 			"org.opencontainers.image.vendor":      "https://github.com/knative/func",
 			"org.opencontainers.image.url":         "https://github.com/knative/func/pkgs/container/builder-jammy-" + variant,
-			"org.opencontainers.image.version":     *release.Name,
+			"org.opencontainers.image.version":     version,
 		},
 	}
 
@@ -262,6 +249,20 @@ func buildBuilderImageMultiArch(ctx context.Context, variant string) error {
 		return fmt.Errorf("the tarball url of the release is not defined")
 	}
 
+	buildDir, err := os.MkdirTemp("", "")
+	if err != nil {
+		return fmt.Errorf("cannot create temporary build directory: %w", err)
+	}
+	defer func(path string) {
+		_ = os.RemoveAll(path)
+	}(buildDir)
+
+	builderTomlPath := filepath.Join(buildDir, "builder.toml")
+	err = downloadBuilderToml(ctx, *release.TarballURL, builderTomlPath)
+	if err != nil {
+		return fmt.Errorf("cannot download builder toml: %w", err)
+	}
+
 	remoteOpts := []remote.Option{
 		remote.WithAuthFromKeychain(DefaultKeychain),
 		remote.WithContext(ctx),
@@ -283,7 +284,7 @@ func buildBuilderImageMultiArch(ctx context.Context, variant string) error {
 
 		var imgName string
 
-		imgName, err = buildBuilderImage(ctx, variant, arch, release)
+		imgName, err = buildBuilderImage(ctx, variant, release.GetName(), arch, builderTomlPath)
 		if err != nil {
 			return err
 		}
