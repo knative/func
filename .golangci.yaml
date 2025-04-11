@@ -1,31 +1,37 @@
-#
-# golangci-lint
-#
-# For defaults, see:
-# https://github.com/golangci/golangci-lint/blob/master/.golangci.example.yml
-#
-#
-#
-run:
-  timeout: 5m
-
+version: "2"
 linters:
   enable:
     - unconvert
     - prealloc
     - bodyclose
-
-issues:
-  exclude-rules:
-    - linters:
-        - staticcheck
-      # Error Text:
-      #   "SA9004: only the first constant in this group has an explicit type"
-      # Efect:
-      #   Allows short-hand first constant type declarations:
-      # Example:
-      #   const (
-      #     Name  Type = "value"
-      #     Name2      = "value2"
-      #   )
-      text: "SA9004:"
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    rules:
+      - linters:
+          - staticcheck
+        # Error Text:
+        #   "SA9004: only the first constant in this group has an explicit type"
+        # Efect:
+        #   Allows short-hand first constant type declarations:
+        # Example:
+        #   const (
+        #     Name  Type = "value"
+        #     Name2      = "value2"
+        #   )
+        text: 'SA9004:'
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+formatters:
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
