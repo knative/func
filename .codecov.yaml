@@ -8,6 +8,7 @@ coverage:
       default: false
 comment:
   layout: "reach, diff, flags, files"
+  # Update existing comment or create a new if deleted.
   behavior: default
 ignore:
   - "testdata"
