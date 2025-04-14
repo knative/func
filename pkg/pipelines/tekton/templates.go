@@ -139,11 +139,12 @@ func createPipelineTemplatePAC(f fn.Function, labels map[string]string) error {
 	}
 
 	var template string
-	if f.Build.Builder == builders.Pack {
+	switch f.Build.Builder {
+	case builders.Pack:
 		template = packPipelineTemplate
-	} else if f.Build.Builder == builders.S2I {
+	case builders.S2I:
 		template = s2iPipelineTemplate
-	} else {
+	default:
 		return builders.ErrBuilderNotSupported{Builder: f.Build.Builder}
 	}
 
@@ -212,11 +213,12 @@ func createPipelineRunTemplatePAC(f fn.Function, labels map[string]string) error
 	}
 
 	var template string
-	if f.Build.Builder == builders.Pack {
+	switch f.Build.Builder {
+	case builders.Pack:
 		template = packRunTemplatePAC
-	} else if f.Build.Builder == builders.S2I {
+	case builders.S2I:
 		template = s2iRunTemplatePAC
-	} else {
+	default:
 		return builders.ErrBuilderNotSupported{Builder: f.Build.Builder}
 	}
 
@@ -339,11 +341,12 @@ func createAndApplyPipelineTemplate(f fn.Function, namespace string, labels map[
 	}
 
 	var template string
-	if f.Build.Builder == builders.Pack {
+	switch f.Build.Builder {
+	case builders.Pack:
 		template = packPipelineTemplate
-	} else if f.Build.Builder == builders.S2I {
+	case builders.S2I:
 		template = s2iPipelineTemplate
-	} else {
+	default:
 		return builders.ErrBuilderNotSupported{Builder: f.Build.Builder}
 	}
 
@@ -401,11 +404,12 @@ func createAndApplyPipelineRunTemplate(f fn.Function, namespace string, labels m
 	}
 
 	var template string
-	if f.Build.Builder == builders.Pack {
+	switch f.Build.Builder {
+	case builders.Pack:
 		template = packRunTemplate
-	} else if f.Build.Builder == builders.S2I {
+	case builders.S2I:
 		template = s2iRunTemplate
-	} else {
+	default:
 		return builders.ErrBuilderNotSupported{Builder: f.Build.Builder}
 	}
 
