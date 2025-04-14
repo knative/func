@@ -13,6 +13,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: knative/actions/setup-go@main
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
       - name: Build and Push
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -24,5 +26,6 @@ jobs:
           echo -e '\n[[registry]]\nlocation = "localhost:5000"\ninsecure = true\n' >> \
             "$HOME/.config/containers/registries.conf"
           skopeo login ghcr.io -u gh-action -p "$GITHUB_TOKEN"
+          docker login ghcr.io -u gh-action -p "$GITHUB_TOKEN"
           make wf-update-builder
         

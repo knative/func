@@ -97,10 +97,7 @@ func buildBuilderImage(ctx context.Context, variant, version, arch, builderTomlP
 		return "", fmt.Errorf("cannot parse builder.toml: %w", err)
 	}
 
-	err = fixupStacks(ctx, &builderConfig)
-	if err != nil {
-		return "", fmt.Errorf("cannot fix up stacks: %w", err)
-	}
+	fixupStacks(&builderConfig)
 
 	// temporary fix, for some reason paketo does not distribute several buildpacks for ARM64
 	// we need ot fix that up
@@ -261,6 +258,11 @@ func buildBuilderImageMultiArch(ctx context.Context, variant string) error {
 	err = downloadBuilderToml(ctx, *release.TarballURL, builderTomlPath)
 	if err != nil {
 		return fmt.Errorf("cannot download builder toml: %w", err)
+	}
+
+	err = buildStack(ctx, variant, builderTomlPath)
+	if err != nil {
+		return fmt.Errorf("cannot build stack: %w", err)
 	}
 
 	remoteOpts := []remote.Option{
@@ -1023,32 +1025,16 @@ func fixupGoDistPkgRefs(buildpackToml, arch string) error {
 	return nil
 }
 
-func fixupStacks(ctx context.Context, builderConfig *builder.Config) error {
-	var err error
-
-	oldBuild := builderConfig.Stack.BuildImage
-	parts := strings.Split(oldBuild, "/")
-	newBuilder := "localhost:5000/" + parts[len(parts)-1]
-	err = copyImage(ctx, oldBuild, newBuilder)
-	if err != nil {
-		return fmt.Errorf("cannot mirror build image: %w", err)
-	}
+func fixupStacks(builderConfig *builder.Config) {
+	newBuilder := stackImageToMirror(builderConfig.Stack.BuildImage)
 	builderConfig.Stack.BuildImage = newBuilder
 	builderConfig.Build.Image = newBuilder
 
-	oldRun := builderConfig.Stack.RunImage
-	parts = strings.Split(oldRun, "/")
-	newRun := "ghcr.io/knative/" + parts[len(parts)-1]
-	err = copyImage(ctx, oldRun, newRun)
-	if err != nil {
-		return fmt.Errorf("cannot mirror build image: %w", err)
-	}
-
+	newRun := stackImageToMirror(builderConfig.Stack.RunImage)
 	builderConfig.Stack.RunImage = newRun
 	builderConfig.Run.Images = []builder.RunImageConfig{{
 		Image: newRun,
 	}}
-	return nil
 }
 
 func copyImage(ctx context.Context, srcRef, destRef string) error {
@@ -1064,5 +1050,136 @@ func copyImage(ctx context.Context, srcRef, destRef string) error {
 	if err != nil {
 		return fmt.Errorf("error while running skopeo: %w", err)
 	}
+	return nil
+}
+
+func stackImageToMirror(ref string) string {
+	parts := strings.Split(ref, "/")
+	lastPart := parts[len(parts)-1]
+	switch {
+	case strings.HasPrefix(lastPart, "build-"):
+		return "localhost:5000/" + lastPart
+	case strings.HasPrefix(lastPart, "run-"):
+		return "ghcr.io/knative/" + lastPart
+	default:
+		panic("non reachable")
+	}
+}
+
+func buildStack(ctx context.Context, variant, builderTomlPath string) error {
+	var err error
+
+	builderConfig, _, err := builder.ReadConfig(builderTomlPath)
+	if err != nil {
+		return fmt.Errorf("cannot parse builder.toml: %w", err)
+	}
+
+	buildImage := builderConfig.Stack.BuildImage
+	runImage := builderConfig.Stack.RunImage
+
+	if variant == "base" {
+		// For base stack we do not just do mirroring, we build it from the source.
+		// This is done in order to support arm64. Only tiny stack is multi-arch in the upstream.
+		err = buildBaseStack(ctx, buildImage, runImage)
+		if err != nil {
+			return fmt.Errorf("cannot build base stack: %w", err)
+		}
+		return nil
+	}
+
+	err = copyImage(ctx, buildImage, stackImageToMirror(buildImage))
+	if err != nil {
+		return fmt.Errorf("cannot mirror build image: %w", err)
+	}
+
+	err = copyImage(ctx, runImage, stackImageToMirror(runImage))
+	if err != nil {
+		return fmt.Errorf("cannot mirror run image: %w", err)
+	}
+
+	return nil
+}
+
+func buildBaseStack(ctx context.Context, buildImage, runImage string) error {
+	cli := newGHClient(ctx)
+
+	parts := strings.Split(buildImage, ":")
+	stackVersion := parts[len(parts)-1]
+
+	rel, resp, err := cli.Repositories.GetReleaseByTag(ctx, "paketo-buildpacks", "jammy-base-stack", "v"+stackVersion)
+	if err != nil {
+		return fmt.Errorf("cannot get release: %w", err)
+	}
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
+
+	src, err := os.MkdirTemp("", "src-dir")
+	if err != nil {
+		return fmt.Errorf("cannot create temp dir: %w", err)
+	}
+
+	err = downloadTarball(rel.GetTarballURL(), src)
+	if err != nil {
+		return fmt.Errorf("cannot download source tarball: %w", err)
+	}
+
+	err = patchStack(filepath.Join(src, "stack", "stack.toml"))
+	if err != nil {
+		return fmt.Errorf("cannot patch stack toml: %w", err)
+	}
+
+	script := fmt.Sprintf(`
+set -ex
+scripts/create.sh
+.bin/jam publish-stack --build-ref %q --run-ref %q --build-archive build/build.oci --run-archive build/run.oci
+`, stackImageToMirror(buildImage), stackImageToMirror(runImage))
+
+	cmd := exec.CommandContext(ctx, "sh", "-c", script)
+	cmd.Dir = src
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	err = cmd.Run()
+	if err != nil {
+		return fmt.Errorf("cannot build stack: %w", err)
+	}
+
+	return nil
+}
+
+func patchStack(stackTomlPath string) error {
+	input, err := os.ReadFile(stackTomlPath)
+	if err != nil {
+		return fmt.Errorf("cannot open stack toml: %w", err)
+	}
+
+	var data any
+	err = toml.Unmarshal(input, &data)
+	if err != nil {
+		return fmt.Errorf("cannot decode data: %w", err)
+	}
+
+	m := data.(map[string]any)
+	m["platforms"] = []string{"linux/amd64", "linux/arm64"}
+
+	args := map[string]interface{}{
+		"args": map[string]interface{}{
+			"architecture": "arm64",
+			"sources": `    deb http://ports.ubuntu.com/ubuntu-ports/ jammy main universe multiverse
+    deb http://ports.ubuntu.com/ubuntu-ports/ jammy-updates main universe multiverse
+    deb http://ports.ubuntu.com/ubuntu-ports/ jammy-security main universe multiverse
+    `},
+	}
+
+	m["build"].(map[string]any)["platforms"] = map[string]any{"linux/arm64": args}
+	m["run"].(map[string]any)["platforms"] = map[string]any{"linux/arm64": args}
+
+	output, err := toml.Marshal(data)
+	err = os.WriteFile(stackTomlPath, output, 0644)
+	if err != nil {
+		return fmt.Errorf("cannot write patched stack toml: %w", err)
+	}
+
 	return nil
 }
