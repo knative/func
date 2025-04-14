@@ -68,6 +68,9 @@ func (b goBuilder) WritePlatform(cfg buildJob, p v1.Platform) (layers []imageLay
 		fmt.Printf("mv %v %v\n", rel(cfg.buildDir(), target), rel(cfg.buildDir(), blob))
 	}
 	err = os.Rename(target, blob)
+	if err != nil {
+		return nil, fmt.Errorf("cannot rename blob: %w", err)
+	}
 
 	// NOTE: base is intentionally blank indiciating it is to be built without
 	// a base layer.

@@ -1176,6 +1176,9 @@ func patchStack(stackTomlPath string) error {
 	m["run"].(map[string]any)["platforms"] = map[string]any{"linux/arm64": args}
 
 	output, err := toml.Marshal(data)
+	if err != nil {
+		return fmt.Errorf("cannot marshal config: %w", err)
+	}
 	err = os.WriteFile(stackTomlPath, output, 0644)
 	if err != nil {
 		return fmt.Errorf("cannot write patched stack toml: %w", err)
