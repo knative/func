@@ -70,7 +70,7 @@ type contextDialer struct {
 }
 
 func (c *contextDialer) DialContext(ctx context.Context, network string, addr string) (net.Conn, error) {
-	if !(network == "tcp" || network == "tcp4" || network == "tcp6") {
+	if network != "tcp" && network != "tcp4" && network != "tcp6" {
 		return nil, fmt.Errorf("unsupported network: %q", network)
 	}
 
