@@ -857,6 +857,18 @@ func fixupGoBuildpackARM64(ctx context.Context, config *builder.Config) error {
 		return fmt.Errorf("cannot download Go buildpack source code: %w", err)
 	}
 
+	// Set targets in Go package.toml to linux/arm64
+	f, err := os.OpenFile(filepath.Join(goBuildpackSrcDir, "package.toml"), os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return fmt.Errorf("cannot open package toml: %w", err)
+	}
+	targets := "\n[[targets]]\n  arch = \"arm64\"\n  os = \"linux\"\n"
+	_, err = f.Write([]byte(targets))
+	_ = f.Close()
+	if err != nil {
+		return fmt.Errorf("cannout update package toml: %w", err)
+	}
+
 	cfgReader := buildpackage.NewConfigReader()
 	packageConfig, err := cfgReader.Read(filepath.Join(goBuildpackSrcDir, "package.toml"))
 	if err != nil {
