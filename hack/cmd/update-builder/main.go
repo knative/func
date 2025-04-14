@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"sort"
 	"strings"
 	"syscall"
 
@@ -113,6 +114,13 @@ func buildBuilderImage(ctx context.Context, variant, version, arch, builderTomlP
 				return "", fmt.Errorf("cannot fix Python buildpack: %w", err)
 			}
 		}
+		// Sort by URI. This ensures locally build buildpacks (URI starting with 'file://') are last.
+		// This is needed so locally build "sub buildpacks" are not overridden by upstream buildpacks (with bad arch).
+		sort.Slice(builderConfig.Buildpacks, func(i, j int) bool {
+			a := builderConfig.Buildpacks[i].URI
+			b := builderConfig.Buildpacks[j].URI
+			return a < b
+		})
 	}
 
 	err = updateJavaBuildpacks(ctx, &builderConfig, arch)
