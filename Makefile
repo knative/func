@@ -76,7 +76,7 @@ check: $(BIN_GOLANGCI_LINT) ## Check code quality (lint)
 	cd test && $(BIN_GOLANGCI_LINT) run --timeout 300s
 
 $(BIN_GOLANGCI_LINT):
-	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./bin v1.64.6
+	curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b ./bin v2.0.2
 
 .PHONY: generate/zz_filesystem_generated.go
 generate/zz_filesystem_generated.go: clean_templates
