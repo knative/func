@@ -210,7 +210,7 @@ func TestCheckAuthEmptyCreds(t *testing.T) {
 
 // generate Certificates
 func generateCert(t *testing.T) (tls.Certificate, *x509.Certificate) {
-	var randReader io.Reader = rand.Reader
+	var randReader = rand.Reader
 
 	caPublicKey, caPrivateKey, err := ed25519.GenerateKey(randReader)
 	if err != nil {
