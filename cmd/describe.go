@@ -118,7 +118,7 @@ func newDescribeConfig(cmd *cobra.Command, args []string) (cfg describeConfig, e
 		// logicially inconsistent to supply only a namespace.
 		// Either use the function's local state in its entirety, or specify
 		// both a name and a namespace to ignore any local function source.
-		err = fmt.Errorf("must also specify a name when specifying namespace.")
+		err = fmt.Errorf("must also specify a name when specifying namespace")
 	}
 	if cfg.Name != "" && cmd.Flags().Changed("path") {
 		// logically inconsistent to provide both a name and a path to source.

@@ -121,16 +121,16 @@ func (n *Runner) Run(ctx context.Context, f fn.Function, startTimeout time.Durat
 			Timeout: &timeoutSecs,
 		}
 		if err = c.ContainerStop(ctx, id, ctrStopOpts); err != nil {
-			return fmt.Errorf("error stopping container %v: %v\n", id, err)
+			return fmt.Errorf("error stopping container %v: %v", id, err)
 		}
 		if err = c.ContainerRemove(ctx, id, container.RemoveOptions{}); err != nil {
-			return fmt.Errorf("error removing container %v: %v\n", id, err)
+			return fmt.Errorf("error removing container %v: %v", id, err)
 		}
 		if err = conn.Close(); err != nil {
-			return fmt.Errorf("error closing connection to container: %v\n", err)
+			return fmt.Errorf("error closing connection to container: %v", err)
 		}
 		if err = c.Close(); err != nil {
-			return fmt.Errorf("error closing daemon client: %v\n", err)
+			return fmt.Errorf("error closing daemon client: %v", err)
 		}
 		return nil
 	}
