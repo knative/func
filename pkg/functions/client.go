@@ -893,7 +893,7 @@ func (c *Client) Route(ctx context.Context, f Function) (string, Function, error
 	}
 
 	if f.Deploy.Namespace == "" {
-		return "", Function{}, errors.New("Unable to route function without a namespace.  Is it deployed?")
+		return "", Function{}, errors.New("unable to route function without a namespace.  Is it deployed?")
 	}
 
 	// Return the correct route.

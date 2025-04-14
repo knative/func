@@ -359,7 +359,7 @@ func (c buildConfig) Validate() (err error) {
 
 	// Platform is only supported with the S2I builder at this time
 	if c.Platform != "" && c.Builder != builders.S2I {
-		err = errors.New("Only S2I builds currently support specifying platform")
+		err = errors.New("only S2I builds currently support specifying platform")
 		return
 	}
 

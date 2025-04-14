@@ -141,7 +141,7 @@ func (d *Deployer) Deploy(ctx context.Context, f fn.Function) (fn.DeploymentResu
 		namespace = f.Deploy.Namespace
 	}
 	if namespace == "" {
-		return fn.DeploymentResult{}, fmt.Errorf("deployer requires either a target namespace or that the function be already deployed.")
+		return fn.DeploymentResult{}, fmt.Errorf("deployer requires either a target namespace or that the function be already deployed")
 	}
 
 	// Clients

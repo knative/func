@@ -197,7 +197,7 @@ func (b *Builder) Build(ctx context.Context, f fn.Function, platforms []fn.Platf
 		for _, e := range errs {
 			fmt.Fprintf(os.Stderr, "ERROR: %s\n", e)
 		}
-		return errors.New("Unable to build via the s2i builder.")
+		return errors.New("unable to build via the s2i builder")
 	}
 
 	// Create the S2I builder instance if not overridden

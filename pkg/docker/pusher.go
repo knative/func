@@ -187,7 +187,7 @@ func (n *Pusher) pushImage(ctx context.Context, f fn.Function, credentials Crede
 	}
 
 	if f.Build.Image == "" {
-		return "", errors.New("Function has no associated image.  Has it been built?")
+		return "", errors.New("function has no associated image.  Has it been built?")
 	}
 
 	registry, err := GetRegistry(f.Build.Image)
