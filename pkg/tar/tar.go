@@ -72,12 +72,12 @@ func Extract(input io.Reader, destDir string) error {
 			return fmt.Errorf("cannot ensure parent: %w", err)
 		}
 
-		switch {
-		case hdr.Typeflag == tar.TypeReg:
+		switch hdr.Typeflag {
+		case tar.TypeReg:
 			err = writeRegularFile(destPath, os.FileMode(hdr.Mode&0777), r)
-		case hdr.Typeflag == tar.TypeDir:
+		case tar.TypeDir:
 			err = os.MkdirAll(destPath, os.FileMode(hdr.Mode)&fs.ModePerm)
-		case hdr.Typeflag == tar.TypeSymlink:
+		case tar.TypeSymlink:
 			err = os.Symlink(linkname, destPath)
 		default:
 			_, _ = fmt.Printf("unsupported type flag: %d\n", hdr.Typeflag)

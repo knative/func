@@ -25,18 +25,18 @@ func (e ErrRuntimeNotSupported) Error() string {
 }
 
 func validatePipeline(f fn.Function) error {
-	if f.Build.Builder == builders.Pack {
+	switch f.Build.Builder {
+	case builders.Pack:
 		if f.Runtime == "" {
 			return ErrRuntimeRequired
 		}
-
 		if len(f.Build.Buildpacks) > 0 {
 			return ErrBuilpacksNotSupported
 		}
-	} else if f.Build.Builder == builders.S2I {
+	case builders.S2I:
 		_, err := s2i.BuilderImage(f, builders.S2I)
 		return err
-	} else {
+	default:
 		return builders.ErrUnknownBuilder{Name: f.Build.Builder}
 	}
 

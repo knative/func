@@ -802,10 +802,12 @@ func (c *Client) Deploy(ctx context.Context, f Function, oo ...DeployOption) (Fu
 	// Update the function to reflect the new deployed state of the Function
 	f.Deploy.Namespace = result.Namespace
 
-	if result.Status == Deployed {
+	switch result.Status {
+	case Deployed:
 		fmt.Fprintf(os.Stderr, "✅ Function deployed in namespace %q and exposed at URL: \n   %v\n", result.Namespace, result.URL)
-	} else if result.Status == Updated {
+	case Updated:
 		fmt.Fprintf(os.Stderr, "✅ Function updated in namespace %q and exposed at URL: \n   %v\n", result.Namespace, result.URL)
+	default:
 	}
 
 	return f, nil

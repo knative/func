@@ -104,7 +104,8 @@ func invoke(ctx context.Context, c *Client, f Function, target string, m InvokeM
 //	errors if neither are available.
 func invocationRoute(ctx context.Context, c *Client, f Function, target string) (string, error) {
 	// TODO: this function has code-smell;  will de-smellify it in next pass.
-	if target == EnvironmentLocal {
+	switch target {
+	case EnvironmentLocal:
 		instance, err := c.Instances().Get(ctx, f, target)
 		if err != nil {
 			if errors.Is(err, ErrEnvironmentNotFound) {
@@ -113,8 +114,7 @@ func invocationRoute(ctx context.Context, c *Client, f Function, target string) 
 			return "", err
 		}
 		return instance.Route, nil
-
-	} else if target == EnvironmentRemote {
+	case EnvironmentRemote:
 		instance, err := c.Instances().Get(ctx, f, target)
 		if err != nil {
 			if errors.Is(err, ErrEnvironmentNotFound) {
@@ -123,8 +123,7 @@ func invocationRoute(ctx context.Context, c *Client, f Function, target string) 
 			return "", err
 		}
 		return instance.Route, nil
-
-	} else if target == "" { // target blank, check local first then remote.
+	case "":
 		instance, err := c.Instances().Get(ctx, f, EnvironmentLocal)
 		if err != nil && !errors.Is(err, ErrNotRunning) {
 			return "", err // unexpected errors are anything other than ErrNotRunning
@@ -140,7 +139,7 @@ func invocationRoute(ctx context.Context, c *Client, f Function, target string) 
 			return "", err // unexpected error
 		}
 		return instance.Route, nil
-	} else { // treat an unrecognized target as an ad-hoc verbatim endpoint
+	default:
 		return target, nil
 	}
 }

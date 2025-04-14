@@ -383,22 +383,23 @@ func (c buildConfig) Validate() (err error) {
 // deployment is not the contiainer, but rather the running service.
 func (c buildConfig) clientOptions() ([]fn.Option, error) {
 	o := []fn.Option{fn.WithRegistry(c.Registry)}
-	if c.Builder == builders.Host {
+	switch c.Builder {
+	case builders.Host:
 		o = append(o,
 			fn.WithBuilder(oci.NewBuilder(builders.Host, c.Verbose)),
 			fn.WithPusher(oci.NewPusher(c.RegistryInsecure, false, c.Verbose)))
-	} else if c.Builder == builders.Pack {
+	case builders.Pack:
 		o = append(o,
 			fn.WithBuilder(pack.NewBuilder(
 				pack.WithName(builders.Pack),
 				pack.WithTimestamp(c.WithTimestamp),
 				pack.WithVerbose(c.Verbose))))
-	} else if c.Builder == builders.S2I {
+	case builders.S2I:
 		o = append(o,
 			fn.WithBuilder(s2i.NewBuilder(
 				s2i.WithName(builders.S2I),
 				s2i.WithVerbose(c.Verbose))))
-	} else {
+	default:
 		return o, builders.ErrUnknownBuilder{Name: c.Builder, Known: KnownBuilders()}
 	}
 	return o, nil
