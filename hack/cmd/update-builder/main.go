@@ -818,7 +818,7 @@ func fixupGoBuildpackARM64(ctx context.Context, config *builder.Config) error {
 		goBuildpackVersion string
 	)
 	for i, moduleConfig := range config.Buildpacks {
-		uri := moduleConfig.ImageOrURI.URI
+		uri := moduleConfig.URI
 		if strings.Contains(uri, "buildpacks/go:") {
 			goBuildpackIndex = i
 			goBuildpackVersion = uri[strings.LastIndex(uri, ":")+1:]
@@ -879,7 +879,7 @@ func fixupGoBuildpackARM64(ctx context.Context, config *builder.Config) error {
 
 	re := regexp.MustCompile(`^urn:cnb:registry:paketo-buildpacks/([\w-]+)@([\d.]+)$`)
 	for i, dep := range packageConfig.Dependencies {
-		m := re.FindStringSubmatch(dep.BuildpackURI.URI)
+		m := re.FindStringSubmatch(dep.URI)
 		if len(m) != 3 {
 			return fmt.Errorf("cannot match buildpack name")
 		}
@@ -931,7 +931,7 @@ func fixupGoBuildpackARM64(ctx context.Context, config *builder.Config) error {
 		return err
 	}
 
-	config.Buildpacks[goBuildpackIndex].BuildpackURI.URI = "file://" + filepath.Join(goBuildpackSrcDir, "build", "buildpackage.cnb")
+	config.Buildpacks[goBuildpackIndex].URI = "file://" + filepath.Join(goBuildpackSrcDir, "build", "buildpackage.cnb")
 	fmt.Println(goBuildpackSrcDir)
 	return nil
 }

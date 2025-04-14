@@ -28,7 +28,7 @@ func NewRegistry() *Registry {
 }
 
 func (r *Registry) Addr() net.Addr {
-	return r.Server.Listener.Addr()
+	return r.Listener.Addr()
 }
 
 func (r *Registry) Close() {

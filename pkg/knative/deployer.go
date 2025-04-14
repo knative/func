@@ -583,8 +583,8 @@ func updateService(f fn.Function, previousService *v1.Service, newEnv []corev1.E
 			revisionAnnotations[k] = v
 		}
 
-		service.ObjectMeta.Annotations = annotations
-		service.Spec.Template.ObjectMeta.Annotations = revisionAnnotations
+		service.Annotations = annotations
+		service.Spec.Template.Annotations = revisionAnnotations
 
 		// I hate that we have to do this. Users should not see these values.
 		// It is an implementation detail. These health endpoints should not be
@@ -611,8 +611,8 @@ func updateService(f fn.Function, previousService *v1.Service, newEnv []corev1.E
 			return nil, err
 		}
 
-		service.ObjectMeta.Labels = labels
-		service.Spec.Template.ObjectMeta.Labels = labels
+		service.Labels = labels
+		service.Spec.Template.Labels = labels
 
 		err = flags.UpdateImage(&service.Spec.Template.Spec.PodSpec, f.Deploy.Image)
 		if err != nil {
@@ -622,8 +622,8 @@ func updateService(f fn.Function, previousService *v1.Service, newEnv []corev1.E
 		cp.Env = newEnv
 		cp.EnvFrom = newEnvFrom
 		cp.VolumeMounts = newVolumeMounts
-		service.Spec.ConfigurationSpec.Template.Spec.Volumes = newVolumes
-		service.Spec.ConfigurationSpec.Template.Spec.PodSpec.ServiceAccountName = f.Deploy.ServiceAccountName
+		service.Spec.Template.Spec.Volumes = newVolumes
+		service.Spec.Template.Spec.ServiceAccountName = f.Deploy.ServiceAccountName
 		return service, nil
 	}
 }
@@ -1056,20 +1056,20 @@ func setServiceOptions(template *v1.RevisionTemplateSpec, options fn.Options) er
 	}
 
 	// in the container always set Requests/Limits & Concurrency values based on the contents of config
-	template.Spec.PodSpec.Containers[0].Resources.Requests = nil
-	template.Spec.PodSpec.Containers[0].Resources.Limits = nil
+	template.Spec.Containers[0].Resources.Requests = nil
+	template.Spec.Containers[0].Resources.Limits = nil
 	template.Spec.ContainerConcurrency = nil
 
 	if options.Resources != nil {
 		if options.Resources.Requests != nil {
-			template.Spec.PodSpec.Containers[0].Resources.Requests = corev1.ResourceList{}
+			template.Spec.Containers[0].Resources.Requests = corev1.ResourceList{}
 
 			if options.Resources.Requests.CPU != nil {
 				value, err := resource.ParseQuantity(*options.Resources.Requests.CPU)
 				if err != nil {
 					return err
 				}
-				template.Spec.PodSpec.Containers[0].Resources.Requests[corev1.ResourceCPU] = value
+				template.Spec.Containers[0].Resources.Requests[corev1.ResourceCPU] = value
 			}
 
 			if options.Resources.Requests.Memory != nil {
@@ -1077,19 +1077,19 @@ func setServiceOptions(template *v1.RevisionTemplateSpec, options fn.Options) er
 				if err != nil {
 					return err
 				}
-				template.Spec.PodSpec.Containers[0].Resources.Requests[corev1.ResourceMemory] = value
+				template.Spec.Containers[0].Resources.Requests[corev1.ResourceMemory] = value
 			}
 		}
 
 		if options.Resources.Limits != nil {
-			template.Spec.PodSpec.Containers[0].Resources.Limits = corev1.ResourceList{}
+			template.Spec.Containers[0].Resources.Limits = corev1.ResourceList{}
 
 			if options.Resources.Limits.CPU != nil {
 				value, err := resource.ParseQuantity(*options.Resources.Limits.CPU)
 				if err != nil {
 					return err
 				}
-				template.Spec.PodSpec.Containers[0].Resources.Limits[corev1.ResourceCPU] = value
+				template.Spec.Containers[0].Resources.Limits[corev1.ResourceCPU] = value
 			}
 
 			if options.Resources.Limits.Memory != nil {
@@ -1097,7 +1097,7 @@ func setServiceOptions(template *v1.RevisionTemplateSpec, options fn.Options) er
 				if err != nil {
 					return err
 				}
-				template.Spec.PodSpec.Containers[0].Resources.Limits[corev1.ResourceMemory] = value
+				template.Spec.Containers[0].Resources.Limits[corev1.ResourceMemory] = value
 			}
 
 			if options.Resources.Limits.Concurrency != nil {
