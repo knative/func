@@ -16,9 +16,11 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"sort"
 	"strings"
 	"syscall"
 
+	"golang.org/x/net/html"
 	"golang.org/x/oauth2"
 	"golang.org/x/term"
 
@@ -106,6 +108,19 @@ func buildBuilderImage(ctx context.Context, variant, version, arch, builderTomlP
 		if err != nil {
 			return "", fmt.Errorf("cannot fix Go buildpack: %w", err)
 		}
+		if variant == "base" {
+			err = fixupPythonBuildpackARM64(ctx, &builderConfig)
+			if err != nil {
+				return "", fmt.Errorf("cannot fix Python buildpack: %w", err)
+			}
+		}
+		// Sort by URI. This ensures locally build buildpacks (URI starting with 'file://') are last.
+		// This is needed so locally build "sub buildpacks" are not overridden by upstream buildpacks (with bad arch).
+		sort.Slice(builderConfig.Buildpacks, func(i, j int) bool {
+			a := builderConfig.Buildpacks[i].URI
+			b := builderConfig.Buildpacks[j].URI
+			return a < b
+		})
 	}
 
 	err = updateJavaBuildpacks(ctx, &builderConfig, arch)
@@ -279,7 +294,7 @@ func buildBuilderImageMultiArch(ctx context.Context, variant string) error {
 		"org.opencontainers.image.version":     *release.Name,
 	}).(v1.ImageIndex)
 	for _, arch := range []string{"arm64", "amd64"} {
-		if arch == "arm64" && variant != "tiny" {
+		if arch == "arm64" && variant == "full" {
 			_, _ = fmt.Fprintf(os.Stderr, "skipping arm64 build for variant: %q\n", variant)
 			continue
 		}
@@ -726,7 +741,10 @@ func downloadTarball(tarballUrl, destDir string) error {
 				return fmt.Errorf("cannot read from tar reader: %w", err)
 			}
 		case tar.TypeSymlink:
-			return fmt.Errorf("symlinks are not supported yet")
+			err = os.Symlink(hdr.Linkname, dest)
+			if err != nil {
+				return fmt.Errorf("cannot create a symlink: %w", err)
+			}
 		case tar.TypeDir:
 			err = os.MkdirAll(dest, 0755)
 			if err != nil {
@@ -845,6 +863,18 @@ func fixupGoBuildpackARM64(ctx context.Context, config *builder.Config) error {
 	err = downloadTarball(*goBuildpackRelease.TarballURL, goBuildpackSrcDir)
 	if err != nil {
 		return fmt.Errorf("cannot download Go buildpack source code: %w", err)
+	}
+
+	// Set targets in Go package.toml to linux/arm64
+	f, err := os.OpenFile(filepath.Join(goBuildpackSrcDir, "package.toml"), os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return fmt.Errorf("cannot open package toml: %w", err)
+	}
+	targets := "\n[[targets]]\n  arch = \"arm64\"\n  os = \"linux\"\n"
+	_, err = f.Write([]byte(targets))
+	_ = f.Close()
+	if err != nil {
+		return fmt.Errorf("cannout update package toml: %w", err)
 	}
 
 	cfgReader := buildpackage.NewConfigReader()
@@ -1185,4 +1215,292 @@ func patchStack(stackTomlPath string) error {
 	}
 
 	return nil
+}
+
+func fixupPythonBuildpackARM64(ctx context.Context, config *builder.Config) error {
+	var (
+		pythonBuildpackIndex   int
+		pythonBuildpackVersion string
+	)
+	for i, moduleConfig := range config.Buildpacks {
+		uri := moduleConfig.URI
+		if strings.Contains(uri, "buildpacks/python:") {
+			pythonBuildpackIndex = i
+			pythonBuildpackVersion = uri[strings.LastIndex(uri, ":")+1:]
+			break
+		}
+	}
+	if pythonBuildpackVersion == "" {
+		return fmt.Errorf("python buildpack not found in the config")
+	}
+
+	buildDir, err := os.MkdirTemp("", "build-dir-*")
+	if err != nil {
+		return fmt.Errorf("cannot create temp dir: %w", err)
+	}
+	// sic! do not defer remove
+
+	pythonBuildpackSrcDir := filepath.Join(buildDir, "python")
+
+	pythonBuildpackRelease, err := getReleaseByVersion(ctx, "python", pythonBuildpackVersion)
+	if err != nil {
+		return fmt.Errorf("cannot get Python release: %w", err)
+	}
+
+	err = downloadTarball(*pythonBuildpackRelease.TarballURL, pythonBuildpackSrcDir)
+	if err != nil {
+		return fmt.Errorf("cannot download Python buildpack source code: %w", err)
+	}
+
+	// Set targets in Python package.toml to linux/arm64
+	f, err := os.OpenFile(filepath.Join(pythonBuildpackSrcDir, "package.toml"), os.O_WRONLY|os.O_APPEND, 0644)
+	if err != nil {
+		return fmt.Errorf("cannot open package toml: %w", err)
+	}
+	targets := "\n[[targets]]\n  arch = \"arm64\"\n  os = \"linux\"\n"
+	_, err = f.Write([]byte(targets))
+	_ = f.Close()
+	if err != nil {
+		return fmt.Errorf("cannout update package toml: %w", err)
+	}
+
+	cfgReader := buildpackage.NewConfigReader()
+	packageConfig, err := cfgReader.Read(filepath.Join(pythonBuildpackSrcDir, "package.toml"))
+	if err != nil {
+		return fmt.Errorf("cannot read Python buildpack config: %w", err)
+	}
+
+	buildBuildpack := func(name, version string) error {
+		srcDir := filepath.Join(buildDir, name)
+		cmd := exec.CommandContext(ctx, "./scripts/package.sh", "--version", version)
+		cmd.Stdout, cmd.Stderr = os.Stdout, os.Stderr
+		cmd.Dir = srcDir
+		cmd.Env = append(os.Environ(), "GOARCH=arm64")
+		err = cmd.Run()
+		if err != nil {
+			return fmt.Errorf("build of buildpack %q failed: %w", name, err)
+		}
+		return nil
+	}
+
+	type patchSourceFn = func(srcDir string) error
+	// these buildpacks need rebuild since they are only amd64 in paketo upstream
+	needsRebuild := map[string]patchSourceFn{
+		"cpython": func(srcDir string) error {
+			return fixupCPythonDistPkgRefs(filepath.Join(srcDir, "buildpack.toml"))
+		},
+		"miniconda": func(srcDir string) error {
+			return fixupMinicondaDistPkgRefs(filepath.Join(srcDir, "buildpack.toml"))
+		},
+		"conda-env-update": nil,
+		"pip":              nil,
+		"pip-install":      nil,
+		"pipenv":           nil,
+		"pipenv-install":   nil,
+		"poetry":           nil,
+		"poetry-install":   nil,
+		"poetry-run":       nil,
+		"python":           nil,
+		"python-start":     nil,
+	}
+
+	re := regexp.MustCompile(`^urn:cnb:registry:paketo-buildpacks/([\w-]+)@([\d.]+)$`)
+	for i, dep := range packageConfig.Dependencies {
+		m := re.FindStringSubmatch(dep.URI)
+		if len(m) != 3 {
+			return fmt.Errorf("cannot match buildpack name")
+		}
+		buildpackName := m[1]
+		buildpackVersion := m[2]
+
+		patch, ok := needsRebuild[buildpackName]
+		if !ok {
+			// this dependency does not require rebuild for arm64
+			continue
+		}
+
+		var rel *github.RepositoryRelease
+		rel, err = getReleaseByVersion(ctx, buildpackName, buildpackVersion)
+		if err != nil {
+			return fmt.Errorf("cannot get release: %w", err)
+		}
+
+		srcDir := filepath.Join(buildDir, buildpackName)
+
+		err = downloadTarball(*rel.TarballURL, srcDir)
+		if err != nil {
+			return fmt.Errorf("cannot get tarball: %w", err)
+		}
+		if patch != nil {
+			err = patch(srcDir)
+			if err != nil {
+				return fmt.Errorf("cannot patch source code: %w", err)
+			}
+		}
+
+		err = buildBuildpack(buildpackName, buildpackVersion)
+		if err != nil {
+			return err
+		}
+
+		packageConfig.Dependencies[i].URI = "file://" + filepath.Join(srcDir, "build", "buildpackage.cnb")
+
+	}
+
+	bs, err := toml.Marshal(&packageConfig)
+	err = os.WriteFile(filepath.Join(pythonBuildpackSrcDir, "package.toml"), bs, 0644)
+	if err != nil {
+		return fmt.Errorf("cannot update package.toml: %w", err)
+	}
+
+	err = buildBuildpack("python", pythonBuildpackVersion)
+	if err != nil {
+		return err
+	}
+
+	config.Buildpacks[pythonBuildpackIndex].URI = "file://" + filepath.Join(pythonBuildpackSrcDir, "build", "buildpackage.cnb")
+	fmt.Println(pythonBuildpackSrcDir)
+	return nil
+}
+
+func fixupCPythonDistPkgRefs(buildpackToml string) error {
+	tomlBytes, err := os.ReadFile(buildpackToml)
+	if err != nil {
+		return err
+	}
+
+	var config any
+	err = toml.Unmarshal(tomlBytes, &config)
+	if err != nil {
+		return err
+	}
+
+	deps := config.(map[string]any)["metadata"].(map[string]any)["dependencies"].([]map[string]any)
+
+	// Since there are no cpython arm64 packages we set uri to source.
+	// This will cause cpython compilation to be done during the build process.
+	// This takes a while, but it's done only once per project.
+	for _, dep := range deps {
+		dep["checksum"] = dep["source-checksum"]
+		dep["uri"] = dep["source"]
+	}
+
+	bs, err := toml.Marshal(config)
+	if err != nil {
+		return err
+	}
+
+	err = os.WriteFile(buildpackToml, bs, 0644)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func fixupMinicondaDistPkgRefs(buildpackToml string) error {
+	tomlBytes, err := os.ReadFile(buildpackToml)
+	if err != nil {
+		return err
+	}
+
+	var config any
+	err = toml.Unmarshal(tomlBytes, &config)
+	if err != nil {
+		return err
+	}
+
+	deps := config.(map[string]any)["metadata"].(map[string]any)["dependencies"].([]map[string]any)
+	for _, dep := range deps {
+		if dep["name"] == "Miniconda.sh" {
+			newURI := strings.ReplaceAll(dep["uri"].(string), "x86_64", "aarch64")
+			dep["uri"] = newURI
+
+			parts := strings.Split(newURI, "/")
+			basename := parts[len(parts)-1]
+			var sum string
+			sum, err = getMinicondaHash(basename)
+			if err != nil {
+				return fmt.Errorf("cannot find hash for the dependency: %w", err)
+			}
+			dep["sha256"] = sum
+		}
+	}
+
+	bs, err := toml.Marshal(config)
+	if err != nil {
+		return err
+	}
+
+	err = os.WriteFile(buildpackToml, bs, 0644)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func getMinicondaHash(basename string) (string, error) {
+	//nolint:bodyclose
+	resp, err := http.Get("https://repo.anaconda.com/miniconda/")
+	if err != nil {
+		return "", err
+	}
+	defer func(Body io.ReadCloser) {
+		_ = Body.Close()
+	}(resp.Body)
+
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("bad http code: %d", resp.StatusCode)
+	}
+
+	n, err := html.Parse(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	tbody := findNode(n, func(n *html.Node) bool {
+		return n.Data == "tbody"
+	})
+	if tbody == nil {
+		return "", fmt.Errorf("table body not found")
+	}
+
+	for tr := range tbody.ChildNodes() {
+		f, l := firstLastTD(tr)
+		if f != l &&
+			f != nil && f.FirstChild != nil && f.FirstChild.FirstChild != nil &&
+			l != nil && l.FirstChild != nil {
+			if f.FirstChild.FirstChild.Data == basename {
+				return l.FirstChild.Data, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("hash not found")
+}
+
+func findNode(node *html.Node, pred func(*html.Node) bool) *html.Node {
+	if pred(node) {
+		return node
+	}
+	for ch := range node.ChildNodes() {
+		n := findNode(ch, pred)
+		if n != nil {
+			return n
+		}
+	}
+	return nil
+}
+
+func firstLastTD(tr *html.Node) (*html.Node, *html.Node) {
+	var f, l *html.Node
+	for ch := range tr.ChildNodes() {
+		if ch.Data == "td" {
+			if f == nil {
+				f = ch
+			}
+			l = ch
+		}
+	}
+	return f, l
 }
