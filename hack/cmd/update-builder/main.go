@@ -42,6 +42,7 @@ import (
 	"github.com/google/go-containerregistry/pkg/v1/mutate"
 	"github.com/google/go-containerregistry/pkg/v1/partial"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
+	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
 	"github.com/google/go-containerregistry/pkg/v1/types"
 	"github.com/google/go-github/v68/github"
 	"github.com/paketo-buildpacks/libpak/carton"
@@ -275,14 +276,29 @@ func buildBuilderImageMultiArch(ctx context.Context, variant string) error {
 		return fmt.Errorf("cannot download builder toml: %w", err)
 	}
 
-	err = buildStack(ctx, variant, builderTomlPath)
-	if err != nil {
-		return fmt.Errorf("cannot build stack: %w", err)
-	}
-
 	remoteOpts := []remote.Option{
 		remote.WithAuthFromKeychain(DefaultKeychain),
 		remote.WithContext(ctx),
+	}
+
+	idxRef, err := name.ParseReference("ghcr.io/knative/builder-jammy-" + variant + ":" + release.GetName())
+	if err != nil {
+		return fmt.Errorf("cannot parse image index ref: %w", err)
+	}
+
+	_, err = remote.Index(idxRef, remoteOpts...)
+	if err != nil {
+		if !isNotFound(err) {
+			return fmt.Errorf("cannot get image index: %w", err)
+		}
+	} else {
+		_, _ = fmt.Printf("index already present for tag: %s\n", release.GetName())
+		return nil
+	}
+
+	err = buildStack(ctx, variant, builderTomlPath)
+	if err != nil {
+		return fmt.Errorf("cannot build stack: %w", err)
 	}
 
 	idx := mutate.IndexMediaType(empty.Index, types.DockerManifestList)
@@ -332,11 +348,6 @@ func buildBuilderImageMultiArch(ctx context.Context, variant string) error {
 		})
 	}
 
-	idxRef, err := name.ParseReference("ghcr.io/knative/builder-jammy-" + variant + ":" + *release.Name)
-	if err != nil {
-		return fmt.Errorf("cannot parse image index ref: %w", err)
-	}
-
 	err = remote.WriteIndex(idxRef, idx, remoteOpts...)
 	if err != nil {
 		return fmt.Errorf("cannot write image index: %w", err)
@@ -353,6 +364,14 @@ func buildBuilderImageMultiArch(ctx context.Context, variant string) error {
 	}
 
 	return nil
+}
+
+func isNotFound(err error) bool {
+	var te *transport.Error
+	if errors.As(err, &te) {
+		return te.StatusCode == http.StatusNotFound
+	}
+	return false
 }
 
 type buildpack struct {
