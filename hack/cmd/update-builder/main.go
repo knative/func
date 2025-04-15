@@ -1220,7 +1220,7 @@ func fixupPythonBuildpackARM64(ctx context.Context, config *builder.Config) erro
 		pythonBuildpackVersion string
 	)
 	for i, moduleConfig := range config.Buildpacks {
-		uri := moduleConfig.ImageOrURI.URI
+		uri := moduleConfig.URI
 		if strings.Contains(uri, "buildpacks/python:") {
 			pythonBuildpackIndex = i
 			pythonBuildpackVersion = uri[strings.LastIndex(uri, ":")+1:]
@@ -1303,7 +1303,7 @@ func fixupPythonBuildpackARM64(ctx context.Context, config *builder.Config) erro
 
 	re := regexp.MustCompile(`^urn:cnb:registry:paketo-buildpacks/([\w-]+)@([\d.]+)$`)
 	for i, dep := range packageConfig.Dependencies {
-		m := re.FindStringSubmatch(dep.BuildpackURI.URI)
+		m := re.FindStringSubmatch(dep.URI)
 		if len(m) != 3 {
 			return fmt.Errorf("cannot match buildpack name")
 		}
@@ -1355,7 +1355,7 @@ func fixupPythonBuildpackARM64(ctx context.Context, config *builder.Config) erro
 		return err
 	}
 
-	config.Buildpacks[pythonBuildpackIndex].BuildpackURI.URI = "file://" + filepath.Join(pythonBuildpackSrcDir, "build", "buildpackage.cnb")
+	config.Buildpacks[pythonBuildpackIndex].URI = "file://" + filepath.Join(pythonBuildpackSrcDir, "build", "buildpackage.cnb")
 	fmt.Println(pythonBuildpackSrcDir)
 	return nil
 }
@@ -1438,6 +1438,7 @@ func fixupMinicondaDistPkgRefs(buildpackToml string) error {
 }
 
 func getMinicondaHash(basename string) (string, error) {
+	//nolint:bodyclose
 	resp, err := http.Get("https://repo.anaconda.com/miniconda/")
 	if err != nil {
 		return "", err
