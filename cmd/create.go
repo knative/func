@@ -534,7 +534,7 @@ func newHelpTemplate(cmd *cobra.Command) *template.Template {
 	fm := template.FuncMap{
 		"indent": func(i int, c string, v string) string {
 			indentation := strings.Repeat(c, i)
-			return indentation + strings.Replace(v, "\n", "\n"+indentation, -1)
+			return indentation + strings.ReplaceAll(v, "\n", "\n"+indentation)
 		},
 	}
 	t.Funcs(fm)

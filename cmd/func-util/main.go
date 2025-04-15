@@ -39,7 +39,7 @@ func main() {
 		os.Exit(137)
 	}()
 
-	var cmd func(context.Context) error = unknown
+	var cmd = unknown
 
 	switch filepath.Base(os.Args[0]) {
 	case "deploy":

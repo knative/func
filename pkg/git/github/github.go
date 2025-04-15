@@ -41,14 +41,14 @@ func (c Client) CreateWebHook(ctx context.Context, repoOwner, repoName, payloadU
 		return err
 	}
 
-	if res.Response.StatusCode != http.StatusCreated {
+	if res.StatusCode != http.StatusCreated {
 		payload, err := io.ReadAll(res.Body)
 		if err != nil {
 			return fmt.Errorf("failed to read response body: %w", err)
 		}
 
 		return fmt.Errorf("failed to create webhook on repository %v/%v, status code: %v, error : %v",
-			repoOwner, repoName, res.Response.StatusCode, payload)
+			repoOwner, repoName, res.StatusCode, payload)
 	}
 
 	return nil

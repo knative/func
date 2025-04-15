@@ -28,7 +28,7 @@ func Extract(input io.Reader, destDir string) error {
 
 	r := tar.NewReader(input)
 
-	var first bool = true
+	var first = true
 	for {
 		var hdr *tar.Header
 		hdr, err = r.Next()

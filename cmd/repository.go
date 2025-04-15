@@ -529,7 +529,7 @@ func runRepositoryRemove(_ *cobra.Command, args []string, newClient ClientFactor
 	}
 
 	if len(repositories) == 0 {
-		return errors.New("No repositories installed. use 'add' to install")
+		return errors.New("no repositories installed. use 'add' to install")
 	}
 
 	// Confirm (interactive prompt mode)

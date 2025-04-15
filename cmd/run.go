@@ -350,7 +350,7 @@ func (c runConfig) Validate(cmd *cobra.Command, f fn.Function) (err error) {
 	}
 
 	if !c.Container && !oci.IsSupported(f.Runtime) {
-		return fmt.Errorf("The %q runtime currently requires being run in a container", f.Runtime)
+		return fmt.Errorf("the %q runtime currently requires being run in a container", f.Runtime)
 	}
 
 	// When the docker runner respects the StartTimeout, this validation check

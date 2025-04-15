@@ -130,7 +130,7 @@ func newListConfig(cmd *cobra.Command) (cfg listConfig, err error) {
 
 	// specifying both -A and --namespace is logically inconsistent
 	if cmd.Flags().Changed("namespace") && viper.GetBool("all-namespaces") {
-		err = errors.New("Both --namespace and --all-namespaces specified.")
+		err = errors.New("both --namespace and --all-namespaces specified")
 	}
 
 	return
