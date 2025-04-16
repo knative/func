@@ -12,7 +12,7 @@ coverage:
       # See https://docs.codecov.io/docs/commit-status#disabling-a-status.
       default: false
 comment:
-  # Update existing comment or create a new if deleted.
+  # Update existing comment or create new if deleted.
   behavior: default
 ignore:
   - "testdata"
