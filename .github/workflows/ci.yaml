@@ -187,6 +187,69 @@ jobs:
           verbose: true
           token: ${{ secrets.CODECOV_TOKEN }}
 
+  e2e-runtime-test:
+    continue-on-error: true
+    strategy:
+      matrix:
+        runtime: ["node", "go", "quarkus", "springboot", "typescript", "rust"]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set Environment Variables
+        run: |
+          echo "KUBECONFIG=${{ github.workspace }}/hack/bin/kubeconfig.yaml" >> "$GITHUB_ENV"
+          echo "PATH=${{ github.workspace }}/hack/bin:$PATH" >> "$GITHUB_ENV"
+      - uses: actions/checkout@v4
+      - uses: knative/actions/setup-go@main
+      - name: Install Binaries
+        run: ./hack/install-binaries.sh
+      - name: Allocate Cluster
+        run: |
+          attempt=0
+          max_attempts=5
+          until [ $attempt -ge $max_attempts ]
+          do
+            attempt=$((attempt+1))
+            echo "------------------ Attempt $attempt for ${{matrix.runtime}} ------------------"
+            ./hack/allocate.sh && break
+            echo "------------------ failed, retrying... ------------------"
+            if [ $attempt -ge $max_attempts ]; then
+              echo "------------------ max # of retries reached, exiting ------------------"
+              exit 1
+            fi
+            ./hack/delete.sh
+            echo "------------------ sleep for 5 minutes ------------------"
+            sleep 300
+          done
+          echo "------------------ finished! attempt $attempt ------------------"
+      - name: Local Registry
+        run: ./hack/registry.sh
+      - name: Build
+        run: make
+      - name: E2E runtime for ${{ matrix.runtime }}
+        run: |
+          attempt=0
+          max_attempts=5
+          until [ $attempt -ge $max_attempts ]
+          do
+            attempt=$((attempt+1))
+            echo "------------------ Attempt $attempt for ${{matrix.runtime}} ------------------"
+            make test-e2e-runtime runtime=${{ matrix.runtime }} && break
+            echo "------------------ failed, retrying... ------------------"
+            if [ $attempt -ge $max_attempts ]; then
+              echo "------------------ max # of retries reached, exiting ------------------"
+              exit 1
+            fi
+          done
+          echo "------------------ finished! attempt $attempt ------------------"
+      - uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.txt
+          flags: e2e-test-runtime-${{ matrix.runtime }}
+          fail_ci_if_error: true
+          verbose: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+
   build:
     needs: [check, test-unit, test-integration, e2e-test, e2e-on-cluster-test]
     runs-on: ubuntu-latest
