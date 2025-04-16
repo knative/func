@@ -1875,10 +1875,10 @@ knative.dev/hack v0.0.0-20250331013814-c577ed9f7775 h1:UstB8/aowofYFHjLyZdPh1K7q
 knative.dev/hack v0.0.0-20250331013814-c577ed9f7775/go.mod h1:R0ritgYtjLDO9527h5vb5X6gfvt5LCrJ55BNbVDsWiY=
 knative.dev/networking v0.0.0-20250411212114-f1b08e6cfc7f h1:x1kpIezFHPUqIOUVbT2foQFrLtdwK9krzs4OfLyY5R4=
 knative.dev/networking v0.0.0-20250411212114-f1b08e6cfc7f/go.mod h1:rjkDjuJfuA64ABptp9QZjWgOWkdRhuz2dP8KUIbE+PQ=
-knative.dev/pkg v0.0.0-20250414114716-4e8ebbe1949a h1:VcWyuAggKAGr8mg87cBMePK5f5BRFXjUVMX/v+zXaI0=
-knative.dev/pkg v0.0.0-20250414114716-4e8ebbe1949a/go.mod h1:XDeNPdjlTRDG0xYNhZDrySc7+cfn+LL1stsYsTndt58=
-knative.dev/serving v0.44.1-0.20250414145223-e1939045f6d3 h1:F65dOdVKE2s+Afc/h/3yzg8LxUY7y21Oj8gjb0ecTfQ=
-knative.dev/serving v0.44.1-0.20250414145223-e1939045f6d3/go.mod h1:xUGf85a3Dssald2oNjNoqoZHxWeCPsGQICp3u227Zks=
+knative.dev/pkg v0.0.0-20250415155312-ed3e2158b883 h1:UeOY7009M0EHwdyW3P35Fc1U6FJHzBrj6Gf370do8zY=
+knative.dev/pkg v0.0.0-20250415155312-ed3e2158b883/go.mod h1:ptwLYr04MAyeoRvhnhhz0FFkVZTdYJV2QWnw9sZyFSM=
+knative.dev/serving v0.44.1-0.20250415122313-c7e30759e276 h1:qYhU3IH0mrNyKDMG0j03UvEY9ZhiwousMTYKcCCMGrM=
+knative.dev/serving v0.44.1-0.20250415122313-c7e30759e276/go.mod h1:xUGf85a3Dssald2oNjNoqoZHxWeCPsGQICp3u227Zks=
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
 rsc.io/quote/v3 v3.1.0/go.mod h1:yEA65RcK8LyAZtP9Kv3t0HmxON59tX3rD+tICJqUlj0=
 rsc.io/sampler v1.3.0/go.mod h1:T1hPZKmBbMNahiBKFy5HrXp6adAjACjK9JXDnKaTXpA=
