@@ -1306,7 +1306,7 @@ func fixupPythonBuildpackARM64(ctx context.Context, config *builder.Config) erro
 	// these buildpacks need rebuild since they are only amd64 in paketo upstream
 	needsRebuild := map[string]patchSourceFn{
 		"cpython": func(srcDir string) error {
-			return fixupCPythonDistPkgRefs(filepath.Join(srcDir, "buildpack.toml"))
+			return fixupCPythonDistPkgRefs(ctx, filepath.Join(srcDir, "buildpack.toml"))
 		},
 		"miniconda": func(srcDir string) error {
 			return fixupMinicondaDistPkgRefs(filepath.Join(srcDir, "buildpack.toml"))
@@ -1382,7 +1382,8 @@ func fixupPythonBuildpackARM64(ctx context.Context, config *builder.Config) erro
 	return nil
 }
 
-func fixupCPythonDistPkgRefs(buildpackToml string) error {
+func fixupCPythonDistPkgRefs(ctx context.Context, buildpackToml string) error {
+
 	tomlBytes, err := os.ReadFile(buildpackToml)
 	if err != nil {
 		return err
@@ -1396,12 +1397,82 @@ func fixupCPythonDistPkgRefs(buildpackToml string) error {
 
 	deps := config.(map[string]any)["metadata"].(map[string]any)["dependencies"].([]map[string]any)
 
-	// Since there are no cpython arm64 packages we set uri to source.
+	r := regexp.MustCompile(`[_-](\d+\.\d+\.\d+)[._]`)
+	parseVersion := func(url string) (string, error) {
+		ms := r.FindStringSubmatch(url)
+		if len(ms) != 2 {
+			return "", fmt.Errorf("missing version match in %q", url)
+		}
+		return ms[1], nil
+	}
+
+	getPackageInfo := func(version string) (url string, checksum string, err error) {
+		url = fmt.Sprintf(`https://github.com/matejvasek/cpython-dist/`+
+			`releases/download/v0.0.0/python_%s_linux_arm64_jammy.tgz`, version)
+		req, err := http.NewRequestWithContext(ctx, "HEAD", url, nil)
+		if err != nil {
+			return "", "", err
+		}
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			return "", "", err
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			return "", "", fmt.Errorf("non 200 code")
+		}
+
+		req, err = http.NewRequestWithContext(ctx, "GET", url+".checksum", nil)
+		if err != nil {
+			return "", "", err
+		}
+		resp, err = http.DefaultClient.Do(req)
+		if err != nil {
+			return "", "", err
+		}
+		bs, err := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		if err != nil {
+			return "", "", err
+		}
+		if resp.StatusCode != http.StatusOK {
+			return "", "", fmt.Errorf("non 200 code")
+		}
+
+		checksum = strings.TrimSpace(string(bs))
+
+		return
+	}
+
+	// If there are no cpython arm64 packages we set uri to source.
 	// This will cause cpython compilation to be done during the build process.
 	// This takes a while, but it's done only once per project.
-	for _, dep := range deps {
+	uriToSource := func(dep map[string]any) {
 		dep["checksum"] = dep["source-checksum"]
 		dep["uri"] = dep["source"]
+	}
+
+	for _, dep := range deps {
+		if !slices.Equal(dep["stacks"].([]any), []any{"io.buildpacks.stacks.jammy"}) {
+			// we have binary packages only for jammy stack, fallback to source build
+			uriToSource(dep)
+			continue
+		}
+
+		var ver, uri, checksum string
+		ver, err = parseVersion(dep["uri"].(string))
+		if err != nil {
+			return err
+		}
+
+		uri, checksum, err = getPackageInfo(ver)
+		if err != nil {
+			// binary package not found for the version, fallback to source build
+			uriToSource(dep)
+			continue
+		}
+		dep["uri"] = uri
+		dep["checksum"] = checksum
 	}
 
 	bs, err := toml.Marshal(config)
