@@ -16,9 +16,8 @@ comment:
   behavior: default
 ignore:
   - "testdata"
-  - "**/zz_*generated*.go"
+  - "**/zz*_generated.go"
   - "templates"
   - "hack"
   - "test"
   - "third_party"
-
