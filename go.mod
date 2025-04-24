@@ -1,6 +1,6 @@
 module knative.dev/func
 
-go 1.23.0
+go 1.24.0
 
 // this is required bacause of bad dep in github.com/openshift-pipelines/pipelines-as-code
 replace github.com/imdario/mergo => dario.cat/mergo v1.0.1
@@ -61,11 +61,11 @@ require (
 	k8s.io/apimachinery v0.32.3
 	k8s.io/client-go v0.32.3
 	k8s.io/klog/v2 v2.130.1
-	knative.dev/client/pkg v0.0.0-20250417014745-6c6ddcd746da
-	knative.dev/eventing v0.44.1-0.20250417160803-a7b2f1c9f66f
+	knative.dev/client/pkg v0.0.0-20250423184323-96721e598f77
+	knative.dev/eventing v0.45.0
 	knative.dev/hack v0.0.0-20250331013814-c577ed9f7775
 	knative.dev/pkg v0.0.0-20250415155312-ed3e2158b883
-	knative.dev/serving v0.44.1-0.20250421011706-7f044f16a11a
+	knative.dev/serving v0.45.0
 )
 
 require (
