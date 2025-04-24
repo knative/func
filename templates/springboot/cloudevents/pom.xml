@@ -4,7 +4,7 @@
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
-    <version>3.4.4</version>
+    <version>3.3.11</version>
     <relativePath/>
   </parent>
   <groupId>com.example.events</groupId>
@@ -14,7 +14,7 @@
   <description>A Spring Cloud Function, using Cloud Events</description>
   <properties>
     <java.version>21</java.version>
-    <spring-cloud.version>2024.0.1</spring-cloud.version>
+    <spring-cloud.version>2023.0.5</spring-cloud.version>
     <compiler-plugin.version>3.11.0</compiler-plugin.version>
     <surefire-plugin.version>3.0.0</surefire-plugin.version>
     <maven.compiler.parameters>true</maven.compiler.parameters>
