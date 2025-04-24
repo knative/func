@@ -32,7 +32,7 @@ func TestMain(t *testing.M) {
 func patchOrCreateDockerConfigFile() error {
 	userHome, err := os.UserHomeDir()
 	if err != nil {
-		return fmt.Errorf("unable retrieve user home dir to verify default container authentication. " + err.Error())
+		return fmt.Errorf("unable retrieve user home dir to verify default container authentication. err: %v", err.Error())
 	}
 	dockerConfigFile := filepath.Join(userHome, ".docker", "config.json")
 	_, err = os.Stat(dockerConfigFile)
@@ -64,7 +64,7 @@ func createConfigAuth(dockerConfigFile string, content string) error {
 	}
 	_, err = f.WriteString(content)
 	if err != nil {
-		return fmt.Errorf("unable to create .docker/config.json file" + err.Error())
+		return fmt.Errorf("unable to create .docker/config.json file. err: %v", err.Error())
 	}
 	return nil
 }
