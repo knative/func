@@ -210,7 +210,7 @@ func TestConfigEnvs(t *testing.T) {
 		}
 		if result != "" {
 			t.Logf("Response received:\n%v", responseBody)
-			return fmt.Errorf(result)
+			return fmt.Errorf("%v", result)
 		}
 		return nil
 	}
