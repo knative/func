@@ -51,6 +51,7 @@ var (
 		"docker.io/paketobuildpacks/",
 		"gcr.io/buildpacks/",
 		"ghcr.io/knative/",
+		"docker.io/heroku/",
 	}
 
 	defaultBuildpacks = map[string][]string{}
