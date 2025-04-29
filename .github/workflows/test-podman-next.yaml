@@ -14,7 +14,7 @@ jobs:
     steps:
       - name: Install Podman Next (Nightly Build)
         env:
-          FEDORA_RELEASE: 40
+          FEDORA_RELEASE: 41
           BASE_ARCH: x86_64
         run: |
           sudo apt update 
